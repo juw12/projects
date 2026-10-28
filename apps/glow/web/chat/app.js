@@ -16,6 +16,13 @@ const STORE_KEY = TEST_MODE ? "glow.sandbox" : "mufakat.v1";
 const MAX_CONTEXT_CHARS = 24000;
 const MAX_RETRIES = 3;
 const OPENROUTER_URL = "https://openrouter.ai/api/v1";
+// Free with your own key (no card): Google AI Studio (Gemini) and Groq. Both are OpenAI-compatible and work from the browser.
+const GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/openai";
+const GROQ_URL = "https://api.groq.com/openai/v1";
+const KEY_PROVIDERS = [
+  { id: "gemini", setting: "geminiKey", base: GEMINI_URL, group: "Google Gemini: free with your key", skip: /embed|imagen|veo|tts|aqa|learnlm|image|audio|live|robotics|computer-use/i },
+  { id: "groq", setting: "groqKey", base: GROQ_URL, group: "Groq: free with your key", skip: /whisper|tts|guard|playai|orpheus|prompt-guard|compound/i },
+];
 // Free AI for guests with no key or sign-up: Pollinations' anonymous tier (shared and rate-limited).
 const FREE_AI_URL = "https://text.pollinations.ai/openai";
 const FREE_MODEL = { value: "free::openai-fast", label: "Glow Free: GPT-OSS 20B (no sign-in needed)", short: "Glow Free", group: "Free: works right away" };
@@ -136,6 +143,18 @@ const IMAGE_MODELS = [
   { id: "bytedance/seedream-4.5", name: "Seedream 4.5" },
   { id: "black-forest-labs/flux-schnell", name: "FLUX.1 Schnell (fastest, lightest)", light: true },
 ];
+// Video models (Puter txt2vid), cheapest first. Ids from docs.puter.com/AI/txt2vid. Videos cost far more than chat.
+const VIDEO_MODELS = [
+  { id: "kling-2.5-turbo", name: "Kling 2.5 Turbo (cheapest)", light: true },
+  { id: "wan2.7-t2v", name: "Wan 2.7 (with sound)" },
+  { id: "seedance-2-0-fast", name: "Seedance 2.0 Fast" },
+  { id: "kling-3.0-turbo", name: "Kling 3.0 Turbo (with sound)" },
+  { id: "seedance-2-5", name: "Seedance 2.5", premium: true },
+];
+const VIDEO_SECONDS = 5;
+function isMediaModel(value) {
+  return /^puter(img|vid)::/.test(String(value || ""));
+}
 // The model menu is organised by what people want to do; each list is ranked best first.
 const MODEL_CATEGORIES = [
   { key: "best", icon: "⭐", label: "Best", hint: "The strongest all-round models, best first. Premium ones use more of your free allowance." },
@@ -143,7 +162,8 @@ const MODEL_CATEGORIES = [
   { key: "code", icon: "💻", label: "Code", hint: "Best for writing, fixing and explaining code." },
   { key: "research", icon: "🔎", label: "Research", hint: "Deep reasoning and long documents. Slower, and uses more allowance." },
   { key: "writing", icon: "✍", label: "Writing", hint: "Natural, polished writing, editing and translation." },
-  { key: "media", icon: "🎨", label: "Images", hint: "Describe a picture and Glow draws it. Images are saved in this browser." },
+  { key: "media", icon: "🎨", label: "Image", hint: "Image mode: describe a picture and Glow draws it. Pictures are saved in this browser." },
+  { key: "video", icon: "🎬", label: "Video", hint: "Video mode: describe a 5-second clip (subject, motion, camera). One clip uses as much allowance as hundreds of chat replies; Kling 2.5 Turbo is the cheapest." },
   { key: "free", icon: "🆓", label: "Free & local", hint: "Works without signing in: Glow Free, your own keys and models on your own computer." },
 ];
 // Model families per category, best first. Within a family the newest release wins, so new versions
@@ -186,6 +206,8 @@ function loadState() {
   const defaults = {
     settings: {
       openrouterKey: "",
+      geminiKey: "",
+      groqKey: "",
       showPaid: false,
       ollamaUrl: "http://localhost:11434",
       customUrl: "",
@@ -212,6 +234,8 @@ function loadState() {
     arenaStats: {},
     deleted: {},
     usage: { days: {} },
+    projects: [],
+    skills: [],
   };
   try {
     const saved = JSON.parse(localStorage.getItem(STORE_KEY));
@@ -222,6 +246,8 @@ function loadState() {
         arenaStats: saved.arenaStats || {},
         deleted: saved.deleted || {},
         usage: saved.usage && saved.usage.days ? saved.usage : { days: {} },
+        projects: Array.isArray(saved.projects) ? saved.projects : [],
+        skills: Array.isArray(saved.skills) ? saved.skills : [],
       };
     }
   } catch (error) {
@@ -250,6 +276,9 @@ function inlineMarkdown(text) {
   // Pictures made with 🎨 Images are stored inline as data URLs (only data:image is ever rendered).
   out = out.replace(/!\[([^\]\n]*)\]\((data:image\/(?:png|jpeg|webp|gif);base64,[A-Za-z0-9+/=]+)\)/g, (_, alt, url) =>
     hold(`<img class="gen-image" src="${url}" alt="${alt}" loading="lazy">`));
+  // Clips made with 🎬 Video are stored as ![video: …](https://…) and shown as a player.
+  out = out.replace(/!\[video:([^\]\n]*)\]\((https:\/\/[^\s)"'<>]+)\)/g, (_, alt, url) =>
+    hold(`<video class="gen-video" src="${url}" controls preload="metadata" playsinline title="${alt.trim()}"></video>`));
   out = out.replace(/\[([^\]\n]+)\]\(((?:https?:\/\/|mailto:)[^\s)]+)\)/g, (_, label, url) =>
     hold(`<a href="${url}" target="_blank" rel="noopener noreferrer">${label}</a>`));
   out = out.replace(/(^|[\s(])((?:https?:\/\/)[^\s<)]+[^\s<).,;:!?'"])/g, (_, lead, url) =>
@@ -388,12 +417,14 @@ function providerConfig(provider) {
   if (provider === "free") return { base: FREE_AI_URL, key: "" };
   if (provider === "ollama") return { base: s.ollamaUrl.replace(/\/$/, "") + "/v1", key: "" };
   if (provider === "custom") return { base: s.customUrl.replace(/\/$/, ""), key: s.customKey };
+  const keyed = KEY_PROVIDERS.find((p) => p.id === provider);
+  if (keyed) return { base: keyed.base, key: s[keyed.setting] };
   return null;
 }
 
 /* ================= Glow Offline: AI on this device (../shared/glow-offline-ai.js) ================= */
 // Providers that need the internet. Without it, a downloaded Glow Offline model answers instead.
-const NETWORK_PROVIDERS = new Set(["puter", "puterimg", "free", "openrouter", "custom"]);
+const NETWORK_PROVIDERS = new Set(["puter", "puterimg", "putervid", "free", "openrouter", "custom", "gemini", "groq"]);
 function offlineModelOptions() {
   if (!window.GlowOfflineAI) return [];
   return window.GlowOfflineAI.downloaded().map((m) => ({
@@ -625,6 +656,16 @@ async function loadModels() {
     if ((data.models || []).length) status.push(`${data.models.length} local`);
   }).catch(() => {}));
 
+  for (const keyed of KEY_PROVIDERS) {
+    if (!s[keyed.setting]) continue;
+    jobs.push(fetchJson(`${keyed.base}/models`, { Authorization: `Bearer ${s[keyed.setting]}` }).then((data) => {
+      const ids = (data.data || []).map((m) => String(m.id || "").replace(/^models\//, "")).filter((id) => id && !keyed.skip.test(id));
+      ids.sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
+      for (const id of ids) list.push({ value: `${keyed.id}::${id}`, label: id, short: id, group: keyed.group });
+      status.push(`${ids.length} ${keyed.id === "gemini" ? "Gemini" : "Groq"}`);
+    }).catch(() => status.push(`${keyed.id === "gemini" ? "Gemini" : "Groq"} key not accepted`)));
+  }
+
   if (s.customUrl) {
     const config = providerConfig("custom");
     jobs.push(fetchJson(`${config.base}/models`, config.key ? { Authorization: `Bearer ${config.key}` } : {}).then((data) => {
@@ -653,7 +694,7 @@ function upgradeFromDemo() {
 }
 const PREFERRED_MODEL_PATTERNS = [/llama-3\.3-70b/i, /deepseek-(chat|v3|r1)/i, /gemini/i, /qwen.*(72b|235b|32b)/i, /mistral-(small|medium|large)/i, /gpt-oss/i, /llama/i, /qwen/i];
 function modelRank(value) {
-  if (value.startsWith("puterimg::")) return 1000; // image models never become the default chat model
+  if (isMediaModel(value)) return 1000; // image and video models never become the default chat model
   if (value.startsWith("puter::")) {
     // Glow AI: the ⚡ Quick list first (great answers on a light allowance), then the curated picks.
     const quick = rankedCategory("quick").findIndex((entry) => entry.value === value);
@@ -669,7 +710,7 @@ function modelRank(value) {
 }
 function defaultModel(offset = 0) {
   const ranks = new Map(models.map((m) => [m.value, modelRank(m.value)]));
-  const real = models.slice(1).filter((m) => !m.value.startsWith("puterimg::")).sort((a, b) => ranks.get(a.value) - ranks.get(b.value));
+  const real = models.slice(1).filter((m) => !isMediaModel(m.value)).sort((a, b) => ranks.get(a.value) - ranks.get(b.value));
   if (!real.length) return models[0].value;
   return real[offset % real.length].value;
 }
@@ -677,7 +718,7 @@ function fillSelect(select, selected) {
   select.innerHTML = "";
   const groups = {};
   for (const option of models) {
-    if (option.value.startsWith("puterimg::") && select.id !== "chat-model") continue; // Council and Arena need text models
+    if (isMediaModel(option.value) && select.id !== "chat-model") continue; // Council and Arena need text models
     if (!groups[option.group]) {
       groups[option.group] = document.createElement("optgroup");
       groups[option.group].label = option.group;
@@ -775,6 +816,7 @@ async function streamProvider(modelValue, system, messages, onText, usage) {
     if (provider === "local") return await streamLocal(model, system, clean, onText, controller.signal, usage);
     if (provider === "puter") return await streamPuter(model, system, clean, onText, controller.signal, usage);
     if (provider === "puterimg") return await generateImage(model, clean, onText, controller.signal, usage);
+    if (provider === "putervid") return await generateVideo(model, clean, onText, controller.signal, usage);
     const config = providerConfig(provider);
     const headers = { "Content-Type": "application/json" };
     if (config.key) headers.Authorization = `Bearer ${config.key}`;
@@ -1021,9 +1063,9 @@ function personaFor(key) {
 }
 function systemPromptFor(conv) {
   const personaKey = personaFor(conv.persona) ? conv.persona : "default";
-  let prompt = withInstructions(personaFor(personaKey).prompt);
+  let prompt = withInstructions(personaFor(personaKey).prompt) + projectContext(conv);
   if (personaKey !== "translator" && window.GlowLocale) prompt += window.GlowLocale.aiContext();
-  if (conv.type === "chat" && state.settings.followUps && personaKey !== "translator" && !String(conv.model || "").startsWith("puterimg::")) prompt += FOLLOW_UP_INSTRUCTION;
+  if (conv.type === "chat" && state.settings.followUps && personaKey !== "translator" && !isMediaModel(conv.model)) prompt += FOLLOW_UP_INSTRUCTION;
   return prompt;
 }
 function splitFollowUps(text) {
@@ -1134,10 +1176,32 @@ function renderHistory() {
   const history = $("history");
   history.innerHTML = "";
   const ordered = [...state.conversations.filter((c) => c.pinned), ...state.conversations.filter((c) => !c.pinned)];
-  for (const conv of ordered) {
+  const projects = sortedProjects();
+  const known = new Set(projects.map((p) => p.id));
+  const collapsed = state.settings.collapsedProjects || {};
+  for (const project of projects) {
+    const chats = ordered.filter((c) => c.projectId === project.id && (!query || conversationText(c).includes(query)));
+    if (query && !chats.length && !project.name.toLowerCase().includes(query)) continue;
+    history.appendChild(projectHeader(project, chats.length, !!collapsed[project.id] && !query));
+    if (collapsed[project.id] && !query) continue;
+    for (const conv of chats) history.appendChild(historyItem(conv, true));
+  }
+  const loose = ordered.filter((c) => !c.projectId || !known.has(c.projectId));
+  if (projects.length && loose.length) {
+    const label = document.createElement("div");
+    label.className = "history-label";
+    label.textContent = "Chats";
+    history.appendChild(label);
+  }
+  for (const conv of loose) {
     if (query && !conversationText(conv).includes(query)) continue;
+    history.appendChild(historyItem(conv, false));
+  }
+}
+function historyItem(conv, inProject) {
+  {
     const item = document.createElement("div");
-    item.className = "history-item" + (conv === current ? " active" : "") + (conv.pinned ? " pinned" : "");
+    item.className = "history-item" + (conv === current ? " active" : "") + (conv.pinned ? " pinned" : "") + (inProject ? " in-project" : "");
     const title = document.createElement("span");
     title.className = "title";
     title.textContent = (conv.pinned ? "📌 " : "") + (conv.source === "crewroom" ? "🏢 " : "") + (MODE_ICONS[conv.type] || "") + conv.title;
@@ -1169,8 +1233,17 @@ function renderHistory() {
     pin.title = conv.pinned ? "Unpin" : "Pin to top";
     pin.textContent = conv.pinned ? "📍" : "📌";
     pin.addEventListener("click", () => togglePin(conv));
-    item.append(title, pin, del);
-    history.appendChild(item);
+    const move = document.createElement("button");
+    move.className = "del move";
+    move.type = "button";
+    move.title = "Move to a project";
+    move.textContent = "📁";
+    move.addEventListener("click", (event) => {
+      event.stopPropagation();
+      openMoveMenu(conv, move);
+    });
+    item.append(title, move, pin, del);
+    return item;
   }
 }
 function togglePin(conv) {
@@ -1396,10 +1469,11 @@ function errorText(error) {
 }
 
 /* ================= chat ================= */
-function newChat(persona = null, temporary = false) {
+function newChat(persona = null, temporary = false, projectId = "") {
   const chosen = persona || (personaFor(state.settings.defaultPersona) ? state.settings.defaultPersona : "default");
   current = { id: newId(), type: "chat", title: "New chat", messages: [], persona: chosen, model: $("chat-model").value || state.settings.lastModel };
   if (temporary) current.temporary = true;
+  if (projectId && projectById(projectId)) current.projectId = projectId;
   openConversation(current);
 }
 function takeAttachments(text) {
@@ -1460,9 +1534,28 @@ async function streamAssistant(model, system, history, who, css, view = (text) =
       return partial;
     }
     bubble.parentElement.remove();
-    showNotice(errorText(error));
+    const message = errorText(error);
+    // Puter allowance used up: answer this message with Glow Free (no allowance needed) instead of stopping.
+    if (ALLOWANCE_GONE.test(message) && String(model).startsWith("puter::") && conv && conv.type === "chat") {
+      const backup = allowanceBackupModel();
+      conv.model = backup.value;
+      if (conv === current) fillSelect($("chat-model"), backup.value);
+      toast(`Your Puter AI allowance is used up, so ${backup.short || backup.label} answers instead`);
+      return streamAssistant(backup.value, system, history, who, css, view);
+    }
+    showNotice(message);
     return "";
   }
+}
+const ALLOWANCE_GONE = /allowance is used up/i;
+// Best model that needs no Puter allowance: your own free Gemini key, then Groq, then Glow Free.
+function allowanceBackupModel() {
+  const prefer = [/^gemini::gemini-[\d.]+-flash(?!-lite)/, /^gemini::gemini-[\d.]+-flash-lite/, /^groq::(openai\/gpt-oss-120b|moonshotai\/kimi|llama-3\.3-70b)/, /^groq::/];
+  for (const pattern of prefer) {
+    const match = models.find((m) => pattern.test(m.value));
+    if (match) return match;
+  }
+  return FREE_MODEL;
 }
 async function sendChat(text) {
   current.model = $("chat-model").value;
@@ -1475,11 +1568,15 @@ async function sendChat(text) {
 }
 async function replyToChat() {
   setBusy(true);
+  const askedModel = current.model;
   const answeredBy = effectiveModel(current.model);
   const reply = await streamAssistant(current.model, systemPromptFor(current), current.messages, "Glow", "assistant", (text) => splitFollowUps(text).body);
   if (reply) {
     const { body, questions } = splitFollowUps(reply);
-    current.messages.push({ role: "assistant", content: body, model: answeredBy, followUps: questions });
+    // The allowance fallback may have switched this chat to Glow Free mid-reply.
+    const usedModel = current.model === askedModel ? answeredBy : effectiveModel(current.model);
+    current.messages.push({ role: "assistant", content: body, model: usedModel, followUps: questions });
+    state.settings.lastModel = current.model;
   }
   persist(current);
   setBusy(false);
@@ -1569,7 +1666,7 @@ async function secondOpinion() {
   if ($("send-btn").disabled) return "";
   const last = current.messages[current.messages.length - 1];
   const question = [...current.messages].reverse().find((m) => m.role === "user");
-  const realModels = models.filter((m) => m.value !== "demo::demo" && !m.value.startsWith("puterimg::"));
+  const realModels = models.filter((m) => m.value !== "demo::demo" && !isMediaModel(m.value));
   const reviewer = realModels.find((m) => m.value !== last.model)
     || realModels.find((m) => m.value === last.model)
     || models[0];
@@ -2092,6 +2189,8 @@ function openSettings() {
   const preset = window.GlowLocale && window.GlowLocale.chinaProviders.find((p) => p.url === s.customUrl);
   if ($("set-china-provider")) $("set-china-provider").value = preset ? preset.id : "";
   $("set-openrouter").value = s.openrouterKey;
+  $("set-gemini").value = s.geminiKey || "";
+  $("set-groq").value = s.groqKey || "";
   $("set-paid").checked = s.showPaid;
   $("set-ollama").value = s.ollamaUrl;
   $("set-custom-url").value = s.customUrl;
@@ -2113,6 +2212,8 @@ function openSettings() {
 async function saveSettings() {
   Object.assign(state.settings, {
     openrouterKey: $("set-openrouter").value.trim(),
+    geminiKey: $("set-gemini").value.trim(),
+    groqKey: $("set-groq").value.trim(),
     showPaid: $("set-paid").checked,
     ollamaUrl: $("set-ollama").value.trim() || "http://localhost:11434",
     customUrl: $("set-custom-url").value.trim(),
@@ -2131,7 +2232,7 @@ async function saveSettings() {
   await loadModels();
 }
 function exportAll() {
-  download(`glow-backup-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify({ conversations: state.conversations, arenaStats: state.arenaStats }, null, 2), "application/json");
+  download(`glow-backup-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify({ conversations: state.conversations, arenaStats: state.arenaStats, projects: state.projects, skills: state.skills }, null, 2), "application/json");
 }
 function importAll(file) {
   const reader = new FileReader();
@@ -2143,6 +2244,10 @@ function importAll(file) {
       const known = new Set(state.conversations.map((c) => c.id));
       for (const conv of list) {
         if (conv && conv.id && conv.type && !known.has(conv.id)) state.conversations.push(conv);
+      }
+      if (!Array.isArray(data)) {
+        state.projects = mergeById(state.projects, data.projects, state.deleted);
+        state.skills = mergeById(state.skills, data.skills, state.deleted);
       }
       saveState();
       renderHistory();
@@ -2225,7 +2330,7 @@ function puterErrorText(error) {
   const code = String(inner.code || error.code || "");
   const both = `${code} ${message}`;
   if (/insufficient|funds|quota|allowance|usage.?limit|credits|exceeded/i.test(both)) {
-    return "Your free Puter AI allowance is used up for now. Try a lighter model (GPT-5 nano or Flash-Lite), wait a while, or add your own key in Settings.";
+    return "Your free Puter AI allowance is used up for now. Glow Free keeps working without it; for premium models add your own OpenRouter key in Settings, or wait for the monthly reset.";
   }
   if (/auth|unauthori[sz]ed|401|token/i.test(both)) return "Your sign-in has expired. Sign in again from the sidebar.";
   if (/model.*(not|unavailable|unknown)|not.?found/i.test(both)) return "This Glow AI model isn't available right now. Pick another model.";
@@ -2281,6 +2386,9 @@ async function puterModelOptions() {
   }
   for (const image of IMAGE_MODELS) {
     entries.push({ value: `puterimg::${image.id}`, label: image.name, short: image.name.replace(/\s*\(.*\)$/, ""), group: "Glow AI: images", meta: { date: "", out: image.premium ? PREMIUM_CENTS + 1 : image.light ? 0 : null } });
+  }
+  for (const video of VIDEO_MODELS) {
+    entries.push({ value: `putervid::${video.id}`, label: video.name, short: video.name.replace(/\s*\(.*\)$/, ""), group: "Glow AI: video", meta: { date: "", out: video.premium || !video.light ? PREMIUM_CENTS + 1 : null } });
   }
   return entries;
 }
@@ -2517,7 +2625,7 @@ function scheduleCloudPush() {
   cloudTimer = setTimeout(() => pushCloud().catch((error) => console.warn("Sync failed", error)), CLOUD_PUSH_DELAY_MS);
 }
 function cloudBody(conversations) {
-  return JSON.stringify({ v: 1, conversations, arenaStats: state.arenaStats, deleted: state.deleted });
+  return JSON.stringify({ v: 2, conversations, arenaStats: state.arenaStats, deleted: state.deleted, projects: state.projects, skills: state.skills });
 }
 async function pushCloud() {
   if (!cloudReady() || cloudBusy) return false;
@@ -2572,6 +2680,8 @@ function mergeCloud(data) {
   const busy = councilRunning || $("send-btn").disabled;
   if (current && busy && byId.has(current.id)) byId.set(current.id, current); // never swap a conversation mid-reply
   state.conversations = [...byId.values()].sort((a, b) => (b.updated || 0) - (a.updated || 0));
+  state.projects = mergeById(state.projects, data.projects, deleted);
+  state.skills = mergeById(state.skills, data.skills, deleted);
   state.deleted = Object.fromEntries(Object.entries(deleted).sort((a, b) => b[1] - a[1]).slice(0, 500));
   for (const [model, stats] of Object.entries(data.arenaStats || {})) {
     const mine = state.arenaStats[model];
@@ -2583,6 +2693,309 @@ function mergeCloud(data) {
     if (fresh && fresh !== current && !busy) openConversation(fresh);
   }
   renderHistory();
+}
+
+/* ================= 📁 projects (folders) and 🧩 skills ================= */
+// A project is a folder of chats with its own instructions and skills; every chat inside follows them.
+// A skill is a reusable instruction pack. Skills turned on in a project apply to its chats;
+// skills marked "everywhere" apply to every chat. Both sync with your account like chats do.
+const BUILTIN_SKILLS = [
+  { id: "sk-cite", icon: "🔗", name: "Cite sources", prompt: "When you state facts, say where they come from, and say plainly when you are unsure. Never invent links, numbers or quotes." },
+  { id: "sk-indo", icon: "🇮🇩", name: "Bahasa Indonesia", prompt: "Always answer in natural, friendly Bahasa Indonesia unless the user asks for another language." },
+  { id: "sk-short", icon: "✂", name: "Short answers", prompt: "Keep answers short: lead with the answer, at most 5 bullet points, no filler or repetition." },
+  { id: "sk-steps", icon: "🪜", name: "Step by step", prompt: "Explain in numbered steps a beginner can follow, with one concrete example." },
+  { id: "sk-social", icon: "📣", name: "Social media copy", prompt: "Write ready-to-post social media copy: a strong hook in the first line, short lines, 3–5 relevant hashtags and a clear call to action." },
+  { id: "sk-code", icon: "🧪", name: "Code with tests", prompt: "When you write code, make it complete and runnable, add a small test or usage example, and point out edge cases." },
+  { id: "sk-sell", icon: "🛒", name: "Product listing", prompt: "Write marketplace product listings (Tokopedia/Shopee style): a searchable title, key benefits as bullets, specifications, and an honest description without invented claims." },
+];
+const PROJECT_ICONS = ["📁", "💼", "📚", "🎨", "🎬", "🛒", "💻", "🧪", "✈", "🏠", "💡", "⭐"];
+const MAX_SKILL_CHARS = 2000;
+const MAX_PROJECT_CHARS = 4000;
+
+function projectById(id) {
+  return state.projects.find((p) => p.id === id) || null;
+}
+function sortedProjects() {
+  return state.projects.slice().sort((a, b) => String(a.name).localeCompare(String(b.name)));
+}
+function allSkills() {
+  const custom = state.skills.filter((s) => !s.builtin);
+  const overrides = new Map(state.skills.filter((s) => s.builtin).map((s) => [s.id, s]));
+  return [...BUILTIN_SKILLS.map((s) => ({ ...s, builtin: true, always: !!(overrides.get(s.id) || {}).always })), ...custom];
+}
+function skillById(id) {
+  return allSkills().find((s) => s.id === id) || null;
+}
+function activeSkills(conv) {
+  const project = conv && conv.projectId ? projectById(conv.projectId) : null;
+  const ids = new Set(project ? project.skills || [] : []);
+  return allSkills().filter((s) => s.always || ids.has(s.id));
+}
+function projectContext(conv) {
+  if (!conv || conv.type !== "chat") return "";
+  const parts = [];
+  const project = conv.projectId ? projectById(conv.projectId) : null;
+  if (project && (project.instructions || "").trim()) {
+    parts.push(`Project "${project.name}" (follow these project instructions):\n${project.instructions.trim().slice(0, MAX_PROJECT_CHARS)}`);
+  }
+  for (const skill of activeSkills(conv)) {
+    parts.push(`Skill "${skill.name}":\n${String(skill.prompt || "").trim().slice(0, MAX_SKILL_CHARS)}`);
+  }
+  return parts.length ? `\n\n${parts.join("\n\n")}` : "";
+}
+function mergeById(mine, theirs, deleted) {
+  const byId = new Map();
+  for (const item of [...(mine || []), ...(Array.isArray(theirs) ? theirs : [])]) {
+    if (!item || !item.id || (deleted && deleted[item.id])) continue;
+    const existing = byId.get(item.id);
+    if (!existing || (item.updated || 0) > (existing.updated || 0)) byId.set(item.id, item);
+  }
+  return [...byId.values()];
+}
+function projectHeader(project, count, isCollapsed) {
+  const row = document.createElement("div");
+  row.className = "project-row" + (current && current.projectId === project.id ? " active" : "");
+  row.dataset.projectId = project.id;
+  const toggle = document.createElement("button");
+  toggle.type = "button";
+  toggle.className = "project-name";
+  toggle.title = isCollapsed ? "Show chats" : "Hide chats";
+  toggle.textContent = `${isCollapsed ? "▸" : "▾"} ${project.icon || "📁"} ${project.name}`;
+  const badge = document.createElement("span");
+  badge.className = "project-count";
+  badge.textContent = String(count);
+  toggle.appendChild(badge);
+  toggle.addEventListener("click", () => {
+    const collapsed = state.settings.collapsedProjects || (state.settings.collapsedProjects = {});
+    if (collapsed[project.id]) delete collapsed[project.id];
+    else collapsed[project.id] = true;
+    saveState();
+    renderHistory();
+  });
+  const add = document.createElement("button");
+  add.type = "button";
+  add.className = "del project-add";
+  add.title = `New chat in ${project.name}`;
+  add.textContent = "＋";
+  add.addEventListener("click", () => {
+    stopAll();
+    newChat(null, false, project.id);
+    closeSidebar();
+  });
+  const edit = document.createElement("button");
+  edit.type = "button";
+  edit.className = "del project-edit";
+  edit.title = "Project instructions and skills";
+  edit.textContent = "⚙";
+  edit.addEventListener("click", () => openProjectEditor(project.id));
+  row.append(toggle, add, edit);
+  return row;
+}
+function closeMoveMenu() {
+  const menu = byId("move-menu");
+  if (menu) menu.remove();
+}
+function openMoveMenu(conv, anchor) {
+  closeMoveMenu();
+  const menu = document.createElement("div");
+  menu.id = "move-menu";
+  menu.className = "move-menu";
+  menu.setAttribute("role", "menu");
+  const options = [{ id: "", label: "No project" }, ...sortedProjects().map((p) => ({ id: p.id, label: `${p.icon || "📁"} ${p.name}` })), { id: "__new", label: "＋ New project…" }];
+  for (const option of options) {
+    const item = document.createElement("button");
+    item.type = "button";
+    item.setAttribute("role", "menuitem");
+    item.textContent = (option.id === (conv.projectId || "") ? "✓ " : "") + option.label;
+    item.addEventListener("click", () => {
+      closeMoveMenu();
+      if (option.id === "__new") {
+        const project = createProject();
+        if (project) moveToProject(conv, project.id);
+        return;
+      }
+      moveToProject(conv, option.id);
+    });
+    menu.appendChild(item);
+  }
+  document.body.appendChild(menu);
+  const rect = anchor.getBoundingClientRect();
+  menu.style.left = `${Math.min(rect.left, window.innerWidth - menu.offsetWidth - 8)}px`;
+  menu.style.top = `${Math.min(rect.bottom + 4, window.innerHeight - menu.offsetHeight - 8)}px`;
+  setTimeout(() => document.addEventListener("click", closeMoveMenu, { once: true }), 0);
+}
+function moveToProject(conv, projectId) {
+  if (projectId) conv.projectId = projectId;
+  else delete conv.projectId;
+  conv.updated = Date.now();
+  if (conv.temporary) {
+    renderHistory();
+    return;
+  }
+  saveState();
+  renderHistory();
+  const project = projectById(projectId);
+  toast(project ? `Moved to ${project.name}` : "Moved out of the project");
+}
+function createProject(name = null) {
+  const chosen = name === null ? prompt("Name your project (a folder for related chats)", "") : name;
+  if (chosen === null || !String(chosen).trim()) return null;
+  const project = {
+    id: "pj-" + newId(),
+    name: String(chosen).trim().slice(0, 60),
+    icon: "📁",
+    instructions: "",
+    skills: [],
+    updated: Date.now(),
+  };
+  state.projects.push(project);
+  saveState();
+  renderHistory();
+  return project;
+}
+function deleteProject(id) {
+  const project = projectById(id);
+  if (!project) return;
+  for (const conv of state.conversations) {
+    if (conv.projectId === id) {
+      delete conv.projectId;
+      conv.updated = Date.now();
+    }
+  }
+  state.projects = state.projects.filter((p) => p.id !== id);
+  state.deleted[id] = Date.now();
+  saveState();
+  renderHistory();
+  toast(`Deleted ${project.name}; its chats are kept`);
+}
+function openProjectEditor(projectId = "") {
+  const modal = byId("project-modal") || buildProjectModal();
+  modal.dataset.projectId = projectId;
+  renderProjectEditor();
+  modal.classList.add("open");
+}
+function closeProjectEditor() {
+  const modal = byId("project-modal");
+  if (modal) modal.classList.remove("open");
+}
+function buildProjectModal() {
+  const modal = document.createElement("div");
+  modal.className = "modal-bg";
+  modal.id = "project-modal";
+  modal.innerHTML = '<div class="modal" role="dialog" aria-labelledby="project-title" style="position:relative"><div id="project-body"></div></div>';
+  modal.addEventListener("click", onProjectModalClick);
+  modal.addEventListener("change", onProjectModalChange);
+  document.body.appendChild(modal);
+  return modal;
+}
+function renderProjectEditor() {
+  const modal = byId("project-modal");
+  const project = projectById(modal.dataset.projectId);
+  const skills = allSkills();
+  const skillRows = (checkedIds, mode) => skills.map((s) => `
+    <label class="skill-row">
+      <input type="checkbox" data-skill-${mode}="${escapeHtml(s.id)}"${checkedIds.has(s.id) ? " checked" : ""}>
+      <span class="skill-name">${escapeHtml(s.icon || "🧩")} ${escapeHtml(s.name)}</span>
+      <span class="skill-prompt">${escapeHtml(String(s.prompt || "").slice(0, 110))}</span>
+      ${s.builtin ? "" : `<button class="link-btn" type="button" data-skill-delete="${escapeHtml(s.id)}">Delete</button>`}
+    </label>`).join("");
+  const projectPart = project ? `
+    <h3 id="project-title">${escapeHtml(project.icon || "📁")} ${escapeHtml(project.name)}</h3>
+    <p class="note">Every chat in this project follows these instructions and skills.</p>
+    <h4>Name and icon</h4>
+    <div class="row"><input type="text" id="project-name" maxlength="60" value="${escapeHtml(project.name)}">
+      <select id="project-icon">${PROJECT_ICONS.map((i) => `<option${i === project.icon ? " selected" : ""}>${i}</option>`).join("")}</select></div>
+    <h4>Project instructions</h4>
+    <textarea id="project-instructions" rows="5" maxlength="${MAX_PROJECT_CHARS}" placeholder="What is this project about? Background, goals, tone, facts Glow should remember…" style="width:100%">${escapeHtml(project.instructions || "")}</textarea>
+    <h4>Skills for this project</h4>
+    <div class="skill-list">${skillRows(new Set(project.skills || []), "project")}</div>
+    <div class="row" style="margin-top:14px">
+      <button class="secondary small danger" type="button" data-project-delete>Delete project</button>
+      <span class="spacer"></span>
+      <button class="secondary" type="button" data-project-close>Cancel</button>
+      <button class="primary" type="button" data-project-save>Save</button>
+    </div>` : `
+    <h3 id="project-title">🧩 Skills</h3>
+    <p class="note">Skills are reusable instructions. Tick <b>Everywhere</b> to use a skill in every chat, or turn skills on per project (⚙ next to a project).</p>
+    <div class="skill-list">${skillRows(new Set(skills.filter((s) => s.always).map((s) => s.id)), "always")}</div>
+    <div class="row" style="margin-top:14px"><span class="spacer"></span><button class="primary" type="button" data-project-close>Done</button></div>`;
+  byId("project-body").innerHTML = `${projectPart}
+    <h4>＋ New skill</h4>
+    <div class="row"><input type="text" id="skill-new-name" maxlength="40" placeholder="Skill name, e.g. Brand voice"></div>
+    <textarea id="skill-new-prompt" rows="3" maxlength="${MAX_SKILL_CHARS}" placeholder="Instructions Glow should follow when this skill is on" style="width:100%;margin-top:6px"></textarea>
+    <div class="row"><span class="spacer"></span><button class="secondary small" type="button" data-skill-add>Add skill</button></div>`;
+}
+function onProjectModalClick(event) {
+  const target = event.target;
+  const modal = byId("project-modal");
+  if (target === modal || target.closest("[data-project-close]")) {
+    closeProjectEditor();
+    return;
+  }
+  const project = projectById(modal.dataset.projectId);
+  if (target.closest("[data-project-save]") && project) {
+    project.name = (byId("project-name").value || project.name).trim().slice(0, 60) || project.name;
+    project.icon = byId("project-icon").value || "📁";
+    project.instructions = byId("project-instructions").value.slice(0, MAX_PROJECT_CHARS);
+    project.skills = [...modal.querySelectorAll("[data-skill-project]:checked")].map((box) => box.dataset.skillProject);
+    project.updated = Date.now();
+    saveState();
+    renderHistory();
+    closeProjectEditor();
+    toast(`Saved ${project.name}`);
+    return;
+  }
+  if (target.closest("[data-project-delete]") && project) {
+    if (confirm(`Delete the project "${project.name}"? Its chats are kept and move to Chats.`)) {
+      deleteProject(project.id);
+      closeProjectEditor();
+    }
+    return;
+  }
+  if (target.closest("[data-skill-add]")) {
+    const name = byId("skill-new-name").value.trim().slice(0, 40);
+    const text = byId("skill-new-prompt").value.trim().slice(0, MAX_SKILL_CHARS);
+    if (!name || !text) {
+      toast("Give the skill a name and instructions");
+      return;
+    }
+    const skill = { id: "sk-" + newId(), icon: "🧩", name, prompt: text, updated: Date.now() };
+    state.skills.push(skill);
+    if (project) {
+      project.skills = [...new Set([...(project.skills || []), skill.id])];
+      project.updated = Date.now();
+    }
+    saveState();
+    renderProjectEditor();
+    toast(`Added skill: ${name}`);
+    return;
+  }
+  const remove = target.closest("[data-skill-delete]");
+  if (remove) {
+    event.preventDefault();
+    const id = remove.dataset.skillDelete;
+    state.skills = state.skills.filter((s) => s.id !== id);
+    state.deleted[id] = Date.now();
+    for (const p of state.projects) p.skills = (p.skills || []).filter((s) => s !== id);
+    saveState();
+    renderProjectEditor();
+  }
+}
+function onProjectModalChange(event) {
+  const box = event.target.closest("[data-skill-always]");
+  if (!box) return;
+  const id = box.dataset.skillAlways;
+  const builtin = BUILTIN_SKILLS.some((s) => s.id === id);
+  let record = state.skills.find((s) => s.id === id);
+  if (!record && builtin) {
+    record = { id, builtin: true };
+    state.skills.push(record);
+  }
+  if (!record) return;
+  record.always = box.checked;
+  record.updated = Date.now();
+  saveState();
+  toast(box.checked ? "Skill on in every chat" : "Skill off in every chat");
 }
 
 /* ================= welcome screen ================= */
@@ -2731,7 +3144,8 @@ function modelBadges(option) {
   if (value.startsWith("local::")) badges.push("Offline", "Local");
   if (value.startsWith("free::") || /:free$/.test(value)) badges.push("Free");
   if (value.startsWith("ollama::")) badges.push("Local");
-  if (value.startsWith("puterimg::")) badges.push("Images");
+  if (value.startsWith("puterimg::")) badges.push("Image");
+  else if (value.startsWith("putervid::")) badges.push("Video");
   else if (value.startsWith("puter::")) badges.push("Glow AI");
   if (out !== null && out !== undefined && out > PREMIUM_CENTS) badges.push("Premium");
   else if ((out !== null && out !== undefined && out <= LIGHT_CENTS) || /nano|mini|flash|lite|fast|haiku|luna|\b[1-9]b\b/.test(value)) badges.push("Light");
@@ -2756,6 +3170,9 @@ function pickerEntries() {
         continue;
       }
       entries.push({ value: `puterimg::${image.id}`, label: image.name, short: image.name, group: "🔒 Free with sign-in", locked: true });
+    }
+    for (const video of VIDEO_MODELS) {
+      entries.push({ value: `putervid::${video.id}`, label: video.name, short: video.name, group: "🔒 Free with sign-in", locked: true });
     }
   }
   return entries;
@@ -2787,6 +3204,8 @@ function rankedCategory(key) {
     ranked = entries.filter((e) => !e.value.startsWith("puter")).sort((a, b) => order(a.value) - order(b.value));
   } else if (key === "media") {
     ranked = entries.filter((e) => e.value.startsWith("puterimg::"));
+  } else if (key === "video") {
+    ranked = entries.filter((e) => e.value.startsWith("putervid::"));
   } else {
     // Native Glow AI models only (aggregator duplicates such as "openrouter:…" stay searchable).
     const native = entries.filter((e) => e.value.startsWith("puter::") && !/[:/]/.test(splitModel(e.value).model));
@@ -3014,7 +3433,11 @@ function selectChatModel(value, announce = true) {
   $("chat-model").dispatchEvent(new Event("change"));
   updatePickerLabel();
   closeModelMenu();
-  if (announce) toast(value.startsWith("puterimg::") ? `Images: describe a picture and ${modelLabel(value)} draws it` : `Model: ${modelLabel(value)}`);
+  if (announce) {
+    toast(value.startsWith("puterimg::") ? `Image mode: describe a picture and ${modelLabel(value)} draws it`
+      : value.startsWith("putervid::") ? `Video mode: describe a ${VIDEO_SECONDS}-second clip for ${modelLabel(value)}`
+      : `Model: ${modelLabel(value)}`);
+  }
   return true;
 }
 function toggleFavorite(value) {
@@ -3553,10 +3976,11 @@ function toggleUsagePop(force) {
 }
 
 /* ================= 🎨 images (Puter txt2img) ================= */
+const VIDEO_MARKDOWN = /!\[video:[^\]\n]*\]\(https:\/\/[^\s)]+\)/g;
 const IMAGE_MARKDOWN = /!\[[^\]\n]*\]\(data:image\/[a-z]+;base64,[A-Za-z0-9+/=]+\)/g;
 function stripImages(text) {
   // Never resend pictures as text: a single image would cost tens of thousands of tokens.
-  return String(text || "").replace(IMAGE_MARKDOWN, "[image]");
+  return String(text || "").replace(IMAGE_MARKDOWN, "[image]").replace(VIDEO_MARKDOWN, "[video]");
 }
 function waitForImage(element) {
   return new Promise((resolve, reject) => {
@@ -3634,6 +4058,45 @@ async function generateImage(model, messages, onText, signal, usage) {
   return text;
 }
 
+async function generateVideo(model, messages, onText, signal, usage) {
+  const sdk = await ensurePuter();
+  if (!sdk.auth.isSignedIn()) {
+    puterSignedIn = false;
+    renderAccount();
+    throw new Error("Sign in (free) to make videos with Glow AI.");
+  }
+  if (!sdk.ai || typeof sdk.ai.txt2vid !== "function") throw new Error("Video isn't available in this version of Puter. Reload the page and try again.");
+  const lastUser = [...messages].reverse().find((m) => m.role === "user");
+  const prompt = String(lastUser ? lastUser.content : "").replace(/\n\n\[Attached file:[\s\S]*$/, "").trim().slice(0, 2000);
+  if (!prompt) throw new Error("Describe the clip you want (subject, motion, camera), then send.");
+  const info = VIDEO_MODELS.find((m) => m.id === model) || { name: model };
+  usage.in = estimateTokens(prompt);
+  onText(`🎬 Making your ${VIDEO_SECONDS}-second clip with ${info.name}… this usually takes 1–3 minutes.`);
+  const aborted = new Promise((_, reject) => {
+    if (signal.aborted) reject(new DOMException("Aborted", "AbortError"));
+    signal.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")), { once: true });
+  });
+  aborted.catch(() => {});
+  const fileName = `Glow/videos/glow-${new Date().toISOString().replace(/[:.]/g, "-")}.mp4`;
+  let video;
+  try {
+    video = await Promise.race([sdk.ai.txt2vid(prompt, { model, seconds: VIDEO_SECONDS, puter_output_path: fileName }), aborted]);
+  } catch (error) {
+    if (error && error.name === "AbortError") throw error;
+    throw new Error(puterErrorText(error).replace("Glow AI (Puter) error", "Video error").replace("This Glow AI model", "This video model"));
+  }
+  const url = String((video && (video.src || video.getAttribute && video.getAttribute("data-source"))) || video || "");
+  Object.assign(usage, { images: 1, out: 0, exactOut: true });
+  const alt = prompt.replace(/[[\]\n()]/g, " ").slice(0, 120);
+  const saved = `*${info.name} · a copy is saved in your Puter files: ${fileName}*`;
+  // Provider links expire after a while; the copy in your Puter files stays.
+  const text = /^https:\/\//.test(url)
+    ? `![video: ${alt}](${url})\n\n${saved}`
+    : `🎬 Your clip is ready.\n\n${saved}`;
+  onText(text);
+  return text;
+}
+
 /* ================= your data: temporary chats, auto-delete ================= */
 function applyRetention() {
   const days = Number(state.settings.retentionDays) || 0;
@@ -3687,7 +4150,7 @@ async function improvePrompt() {
   }
   if ($("send-btn").disabled || $("improve-btn").disabled) return null;
   const chosen = current && current.type === "chat" ? $("chat-model").value : "";
-  const model = chosen && !chosen.startsWith("puterimg::") ? chosen : defaultModel();
+  const model = chosen && !isMediaModel(chosen) ? chosen : defaultModel();
   $("improve-btn").disabled = true;
   $("improve-btn").classList.add("working");
   try {
@@ -4047,6 +4510,11 @@ function wire() {
     newChat();
     closeSidebar();
   });
+  $("new-project-btn").addEventListener("click", () => {
+    const project = createProject();
+    if (project) openProjectEditor(project.id);
+  });
+  $("skills-btn").addEventListener("click", () => openProjectEditor(""));
   $("new-council-btn").addEventListener("click", () => {
     stopAll();
     newCouncil();
@@ -4471,7 +4939,7 @@ async function selfTest() {
   $("model-picker-btn").click();
   const pickerRows = [...document.querySelectorAll("#model-list .model-row")];
   const tabs = [...document.querySelectorAll("#model-tabs .model-tab")];
-  expect("picker: category tabs replace the show-every-model checkbox", tabs.length === MODEL_CATEGORIES.length && tabs.some((t) => /Code/.test(t.textContent)) && tabs.some((t) => /Images/.test(t.textContent))
+  expect("picker: category tabs replace the show-every-model checkbox", tabs.length === MODEL_CATEGORIES.length && tabs.some((t) => /Code/.test(t.textContent)) && tabs.some((t) => /Image/.test(t.textContent)) && tabs.some((t) => /Video/.test(t.textContent))
     && !document.querySelector('#model-menu input[type="checkbox"]'));
   expect("picker: menu lists models, badges and locked upgrades", !$("model-menu").classList.contains("hidden") && pickerRows.some((r) => r.dataset.value === "demo::demo") && !!document.querySelector("#model-list .badge"));
   document.querySelector('#model-tabs [data-category="quick"]').click();
@@ -4736,9 +5204,17 @@ async function selfTest() {
   expect("account: a real account shows its username again", state.settings.accountTemp === false && $("account-label").textContent === "glow_tester" && $("account-save").classList.contains("hidden"));
   expect("account: the confirmed Puter session is shared with the other Glow apps", state.settings.puterSession === true);
   chatMode = "quota";
+  const quotaModel = $("chat-model").value;
+  const modelsBeforeQuota = models;
+  if (!models.some((m) => m.value === FREE_MODEL.value)) models = [...models, FREE_MODEL]; // the live app always lists Glow Free
   await sendChat("Again please");
-  const notices = [...document.querySelectorAll(".msg.notice")];
-  expect("glow ai: used-up allowance explained in plain words", notices.length > 0 && notices[notices.length - 1].textContent.includes("allowance"));
+  expect("glow ai: used-up allowance hands the message to Glow Free instead of stopping", current.model === FREE_MODEL.value && $("chat-model").value === FREE_MODEL.value
+    && /allowance is used up/.test(puterErrorText({ error: { code: "insufficient_funds", message: "Insufficient funds" } })));
+  const modelsWithKeys = models;
+  models = [...modelsWithKeys, { value: "groq::llama-3.3-70b-versatile", label: "llama", group: "Groq" }, { value: "gemini::gemini-2.5-flash", label: "flash", group: "Gemini" }];
+  expect("glow ai: your own free Gemini key is the first backup when the allowance runs out", allowanceBackupModel().value === "gemini::gemini-2.5-flash");
+  models = modelsBeforeQuota;
+  selectChatModel(quotaModel, false);
   chatMode = "slow";
   const slowReply = sendChat("Take your time");
   await new Promise((resolve) => setTimeout(resolve, 150));

@@ -1,11 +1,13 @@
 {
-  "version": "1.22.0",
+  "version": "1.23.0",
   "released": "2026-10-28",
   "notes": [
-    "Glow Offline: download a small AI model once and GlowChat keeps answering with no internet (Settings → Offline AI on this device)",
-    "Glow for iPhone and iPad: a free Home Screen app with its own icon, launch screen and offline storage, plus a step-by-step install guide",
-    "Every Glow app now opens offline after one visit, and slow connections fall back to the saved app after a few seconds",
-    "New download page for Windows, Android, iPhone, Mac and Linux, and Glow can now be found by search engines"
+    "📁 Projects: folders for your chats, each with its own instructions and skills",
+    "🧩 Skills: reusable instructions you can turn on in every chat or per project",
+    "🎨 Image and 🎬 Video modes in the model menu",
+    "🔑 Free Google Gemini and Groq keys in Settings: big daily limits without Puter",
+    "When your Puter AI allowance runs out, your Gemini/Groq key (or Glow Free) answers instead of an error",
+    "👑 GlowLead agent bubble on every Glow page; projects and skills sync across devices"
   ],
   "android": "https://github.com/juw12/projects/releases/download/glow-android/Glow-android.apk",
   "windows": "https://github.com/juw12/projects/releases/download/glow-windows/Glow-Setup.exe"

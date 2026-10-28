@@ -39,6 +39,11 @@
   ],
   "shortcuts": [
     {
+      "name": "GlowLead agent",
+      "url": "./lead/",
+      "description": "Give your AI agent a goal"
+    },
+    {
       "name": "GlowChat",
       "url": "./chat/",
       "description": "Chat, Council and Arena"

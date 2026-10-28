@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' https://js.puter.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://puter.com https://*.puter.com; font-src 'self' data:; frame-src 'self' https://puter.com https://*.puter.com; connect-src 'self' https: wss://*.puter.com http://localhost:* http://127.0.0.1:*">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' https://js.puter.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://puter.com https://*.puter.com; font-src 'self' data:; media-src 'self' https: blob: data:; frame-src 'self' https://puter.com https://*.puter.com; connect-src 'self' https: wss://*.puter.com http://localhost:* http://127.0.0.1:*">
 <meta name="description" content="GlowChat, part of Glow: explore ideas and shape plans with AI chat, a Council of agents, a Judge and side-by-side model comparisons. A free browser prototype.">
 <meta name="theme-color" content="#262624">
 <title>Glow</title>
@@ -40,6 +40,10 @@
   <div class="side-row">
     <button class="side-btn" id="new-council-btn" type="button" title="Several AI agents debate your question, then a Judge decides">⚖ Council</button>
     <button class="side-btn" id="new-arena-btn" type="button" title="Compare models side by side">⚔ Arena</button>
+  </div>
+  <div class="side-row">
+    <button class="side-btn" id="new-project-btn" type="button" title="A project is a folder of chats with its own instructions and skills">📁 Project</button>
+    <button class="side-btn" id="skills-btn" type="button" title="Reusable instructions you can turn on everywhere or per project">🧩 Skills</button>
   </div>
   <input type="search" id="search" placeholder="Search chats…" aria-label="Search chats">
   <div id="history"></div>
@@ -195,6 +199,11 @@
     <p class="note">Sign up at <a href="https://openrouter.ai/keys" target="_blank" rel="noopener">openrouter.ai/keys</a> and create a key. Models marked <i>free</i> cost nothing (rate-limited).</p>
     <input type="password" id="set-openrouter" placeholder="sk-or-…" autocomplete="off">
     <label class="note"><input type="checkbox" id="set-paid"> Also show paid models (billed to your OpenRouter credit)</label>
+
+    <h4>1b. Free keys with big daily limits: Google Gemini and Groq</h4>
+    <p class="note">No card needed. Gemini: get a key at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a> (Gemini Flash, Flash-Lite and more; your limits are shown in AI Studio). Groq: <a href="https://console.groq.com/keys" target="_blank" rel="noopener">console.groq.com/keys</a> (very fast GPT-OSS 120B, Llama 3.3 70B, Kimi; about 1,000 requests and 200,000 tokens a day per model). When your Puter allowance runs out, Glow uses these before Glow Free.</p>
+    <input type="password" id="set-gemini" placeholder="Gemini API key (AIza…)" autocomplete="off">
+    <input type="password" id="set-groq" placeholder="Groq API key (gsk_…)" autocomplete="off" style="margin-top:6px">
 
     <h4>2. Ollama: private models on your own computer</h4>
     <p class="note">Install Ollama, then allow this site: <code>OLLAMA_ORIGINS=https://juw12.github.io ollama serve</code></p>
