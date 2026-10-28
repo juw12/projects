@@ -1,38 +1,38 @@
 {
-  "version": "2.4.0",
+  "version": "2.5.0",
   "date": "2026-10-28",
-  "title": "Chat, groups, affinity & pet visits",
+  "title": "Shop, coins, props & moves",
   "url": "https://juw12.github.io/projects/pips/download/Pips-Windows.zip",
-  "sha256": "69f604b753899b3ec26e1171713ac74bc6a0a129e3e54f3a45896c6ead3024fa",
-  "size": 601165,
+  "sha256": "b68b91d4bc39ae7fc2e504fefd7643e049df8cd681c125662e229bfb68c3b9ba",
+  "size": 641029,
   "notes": {
     "en": [
-      "Chat: message your friends, and chat inside groups. Your pet pops up new messages as a bubble - click it to reply",
-      "Pet interactions: wave, pet their pet, send a snack, high five - or send your pet to visit: it walks onto your friend's desktop for a little while!",
-      "Affinity: every chat and interaction grows your friendship - Acquaintance → Buddy → Good friends → Close friends → Best friends → Soulmates",
-      "Your own groups: create a private group, invite your friends, they accept or decline. Group board + group chat; the owner can remove members",
-      "2 new achievements (Close friends, Globetrotter). Right-click the pet → Friends & achievements…"
+      "Shop: earn coins and spend them on your pet - 17 props (crown, wizard hat, headphones, shades, scarf, cape, angel wings...) and 6 moves: spin, dance, moonwalk, backflip, kung fu and spider swing!",
+      "Coins come from leveling up (+40), badges (+25), opening Pips each day (+10), friendships (+15 per affinity level), waving / chatting / visiting friends (+2) and pomodoros (+5). Everyone starts with a 100-coin gift",
+      "Your friends see your props: on avatars in the hub and when your pet visits their desktop - it shows off one of your moves",
+      "Pips is now a social pet: clicking the pet opens the Pips hub (friends, chat, groups, shop, badges)",
+      "The focus timer moved to right-click → Focus timer (Pomodoro). Pomodoros still give XP and coins"
     ],
     "id": [
-      "Chat: kirim pesan ke teman dan chat di grup. Peliharaanmu menampilkan pesan baru sebagai gelembung - klik untuk membalas",
-      "Interaksi peliharaan: lambai, elus peliharaan mereka, kirim camilan, tos - atau kirim peliharaanmu berkunjung: ia berjalan ke desktop temanmu sebentar!",
-      "Afinitas: setiap chat dan interaksi menumbuhkan pertemanan - Kenalan → Sobat → Teman baik → Teman dekat → Sahabat → Belahan jiwa",
-      "Grup sendiri: buat grup pribadi, undang temanmu, mereka bisa menerima atau menolak. Papan grup + chat grup; pemilik bisa mengeluarkan anggota",
-      "2 pencapaian baru (Teman dekat, Penjelajah). Klik kanan peliharaan → Teman & pencapaian…"
+      "Toko: kumpulkan koin dan belanjakan untuk peliharaanmu - 17 aksesori (mahkota, topi penyihir, headphone, kacamata hitam, syal, jubah, sayap malaikat...) dan 6 gerakan: putar, joget, moonwalk, salto, kung fu dan ayunan laba-laba!",
+      "Koin didapat dari naik level (+40), lencana (+25), membuka Pips tiap hari (+10), pertemanan (+15 per level afinitas), melambai / chat / berkunjung ke teman (+2) dan pomodoro (+5). Semua mulai dengan hadiah 100 koin",
+      "Temanmu bisa melihat aksesorimu: di avatar hub dan saat peliharaanmu berkunjung ke desktop mereka - ia memamerkan salah satu gerakanmu",
+      "Pips kini peliharaan sosial: klik peliharaan untuk membuka hub Pips (teman, chat, grup, toko, lencana)",
+      "Timer fokus pindah ke klik kanan → Timer fokus (Pomodoro). Pomodoro tetap memberi XP dan koin"
     ],
     "zh_TW": [
-      "聊天：可以和好友私訊，也能在群組裡聊天。新訊息會由寵物以對話泡泡顯示，點一下就能回覆",
-      "寵物互動：揮手、摸摸對方的寵物、送點心、擊掌，還能派你的寵物去拜訪，牠會走到朋友的桌面待一會兒！",
-      "親密度：每次聊天和互動都會增進友誼：點頭之交 → 好夥伴 → 好朋友 → 知心好友 → 最好的朋友 → 靈魂伴侶",
-      "自己的群組：建立私人群組並邀請好友，對方可以接受或拒絕。群組排行 + 群組聊天；群主可以移除成員",
-      "新增 2 個成就 (知心好友、環遊世界)。右鍵寵物 → 好友與成就…"
+      "商店：賺金幣幫寵物買東西 - 17 種配件 (皇冠、巫師帽、耳機、墨鏡、圍巾、披風、天使翅膀…) 和 6 種動作：旋轉、跳舞、月球漫步、後空翻、功夫和蜘蛛擺盪！",
+      "金幣來源：升級 (+40)、徽章 (+25)、每天打開 Pips (+10)、友誼 (每級親密度 +15)、對好友揮手 / 聊天 / 拜訪 (+2) 以及番茄鐘 (+5)。每個人一開始都有 100 金幣禮物",
+      "好友看得到你的配件：在中心的頭像上，以及你的寵物拜訪他們桌面時 - 牠還會表演你的一個動作",
+      "Pips 現在是社交寵物：點寵物會打開 Pips 中心 (好友、聊天、群組、商店、徽章)",
+      "專注計時器移到右鍵 → 專注計時器 (番茄鐘)。番茄鐘仍然會給 XP 和金幣"
     ],
     "zh_CN": [
-      "聊天：可以和好友私聊，也能在群组里聊天。新消息会由宠物以对话气泡显示，点一下就能回复",
-      "宠物互动：挥手、摸摸对方的宠物、送点心、击掌，还能派你的宠物去拜访，它会走到朋友的桌面待一会儿！",
-      "亲密度：每次聊天和互动都会增进友谊：点头之交 → 好伙伴 → 好朋友 → 知心好友 → 最好的朋友 → 灵魂伴侣",
-      "自己的群组：创建私人群组并邀请好友，对方可以接受或拒绝。群组排行 + 群组聊天；群主可以移除成员",
-      "新增 2 个成就 (知心好友、环游世界)。右键宠物 → 好友与成就…"
+      "商店：赚金币给宠物买东西 - 17 种配件 (皇冠、巫师帽、耳机、墨镜、围巾、披风、天使翅膀…) 和 6 种动作：旋转、跳舞、月球漫步、后空翻、功夫和蜘蛛荡！",
+      "金币来源：升级 (+40)、徽章 (+25)、每天打开 Pips (+10)、友谊 (每级亲密度 +15)、对好友挥手 / 聊天 / 拜访 (+2) 以及番茄钟 (+5)。每个人一开始都有 100 金币礼物",
+      "好友看得到你的配件：在中心的头像上，以及你的宠物拜访他们桌面时 - 它还会表演你的一个动作",
+      "Pips 现在是社交宠物：点宠物会打开 Pips 中心 (好友、聊天、群组、商店、徽章)",
+      "专注计时器移到右键 → 专注计时器 (番茄钟)。番茄钟仍然会给 XP 和金币"
     ]
   },
   "guide": "https://juw12.github.io/projects/pips/download/Pips-Guide.pptx"

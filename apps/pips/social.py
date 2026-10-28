@@ -26,6 +26,11 @@ import math
 import os
 import queue
 import random
+
+try:
+    import pet_shop
+except ImportError:  # pragma: no cover
+    pet_shop = None
 import sqlite3
 import threading
 import time
@@ -351,6 +356,25 @@ class Social:
             self.data.setdefault("read", {})[room] = msgs[-1]["id"]
             self.save()
 
+    # ---- coins ----
+    def affinity_levels(self) -> int:
+        return sum(affinity_level(f.get("affinity", 0))[0] for f in self.friends())
+
+    def wallet(self) -> dict:
+        shop = getattr(self.pet, "shop", None)
+        if not shop:
+            return {"balance": 0, "total": 0, "spent": 0}
+        stats = self.stats or self.refresh_stats()
+        return shop.wallet(stats, len(self.data.get("unlocked", {})), self.affinity_levels())
+
+    def my_look(self) -> dict:
+        shop = getattr(self.pet, "shop", None)
+        if not shop:
+            return {}
+        look = dict(shop.equipped())
+        look["moves"] = shop.moves()
+        return look
+
     # ---- stats / achievements ----
     def refresh_stats(self) -> dict:
         board = self.board or {}
@@ -379,6 +403,8 @@ class Social:
                 text = t("ach_unlocked", name=t("ach_" + aid).split(":")[0])
                 if more:
                     text += t("ach_more", n=more)
+                if pet_shop is not None:
+                    text += t("shop_coins_plus", n=pet_shop.COINS_PER_ACHIEVEMENT * len(new))
                 self.pet.set_action("love", 2.0)
                 self.pet._spawn("sparkle", 5)
                 self.pet._voice("happy")
@@ -420,6 +446,7 @@ class Social:
             "week_minutes": stats["week_minutes"],
             "achievements": unlocked,
             "mood": self.pet.mood(),
+            "look": self.my_look(),
         }
 
     def _board_now(self, account=None):
@@ -515,6 +542,11 @@ class Social:
     def send(self, room: str, kind: str = "text", body: str = ""):
         if not self.enabled:
             return
+        shop = getattr(self.pet, "shop", None)
+        if kind == "visit" and shop and shop.moves() and not body:
+            body = random.choice(shop.moves())       # my pet shows off a move when it arrives
+        if shop:
+            shop.add_interaction_bonus()
         payload = {"kind": kind, "body": body[:500]}
         if room.startswith("dm:"):
             payload["to"] = room[3:]
@@ -622,7 +654,10 @@ class Social:
             pet._spawn("sparkle", 4)
             pet._voice("happy")
         elif kind == "visit":
-            self.start_visit(m.get("from") or {})
+            who_info = dict(m.get("from") or {})
+            if m.get("body"):
+                who_info["trick"] = m["body"]
+            self.start_visit(who_info)
             pet._voice("greet")
         group = "" if room.startswith("dm:") else self.room_title(room)
         pet.say(t("ix_in_" + kind, name=who, pet=pet_name, group=group), duration=6, priority=1, on_click=open_chat)
@@ -803,6 +838,9 @@ class VisitorPet:
         self.W = int(self.size * 2.0)
         self.H = int(self.size * 2.0)
         species = who.get("species") if who.get("species") in pet_mod.SPECIES else "cat"
+        self.props = pet_shop.clean_look(who.get("look")) if pet_shop is not None else {}
+        self.trick = who.get("trick") if pet_shop is not None and who.get("trick") in pet_shop.MOVES else None
+        self.trick_t0 = None
         self.look_base = pet_mod.default_look({"species": species,
                                                "color": who.get("color") or pet_mod.SPECIES[species]["color"]})
         self.win = tk.Toplevel(host.root)
@@ -877,11 +915,25 @@ class VisitorPet:
                 self.pet_mod.SPECIES[self.look_base["species"]].get("cat") == "air":
             look["flap"] = math.sin(now * 14)
             look["hover"] = 6 + math.sin(now * 2) * 3
+        if self.trick and not walking and not self.leaving and age > 2.5:
+            if self.trick_t0 is None:
+                self.trick_t0 = now
+            span = min(pet_shop.MOVES[self.trick][1], 4.0)
+            p = (now - self.trick_t0) / span
+            if p <= 1.0 and self.trick not in ("spider", "moonwalk"):
+                pet_shop.trick_pose(look, self.trick, p, now)
+            elif p <= 1.0:
+                pet_shop.trick_pose(look, "dance", p, now)
         if not walking and age > 3 and int(age) % 5 == 0 and not self.hearts:
             self.hearts.append([self.W / 2 + random.uniform(-8, 8), self.H - self.size * 1.1, now])
         try:
             self.cv.delete("all")
-            self.pet_mod.draw_pet(self.cv, self.W / 2, self.H - 4, self.size, look)
+            if self.props:
+                pet_shop.draw_back_props(self.cv, self.pet_mod.body_geometry(self.W / 2, self.H - 4, self.size, look),
+                                         self.props, now)
+            geo = self.pet_mod.draw_pet(self.cv, self.W / 2, self.H - 4, self.size, look)
+            if self.props:
+                pet_shop.draw_front_props(self.cv, geo, self.props, now)
             name = (self.who.get("name") or "?")[:16]
             label_y = self.H - self.size * 1.25 - look.get("hop", 0) - look.get("hover", 0)
             self.cv.create_text(self.W / 2, max(8, label_y), text=name, font=("Segoe UI", 8, "bold"),

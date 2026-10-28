@@ -2,6 +2,41 @@
   "_comment": "Pips version history. Newest first. Feeds the in-app update notice (latest.json), the PPT guide and the update emails.",
   "releases": [
     {
+      "version": "2.5.0",
+      "date": "2026-10-28",
+      "title": "Shop, coins, props & moves",
+      "notes": {
+        "en": [
+          "Shop: earn coins and spend them on your pet - 17 props (crown, wizard hat, headphones, shades, scarf, cape, angel wings...) and 6 moves: spin, dance, moonwalk, backflip, kung fu and spider swing!",
+          "Coins come from leveling up (+40), badges (+25), opening Pips each day (+10), friendships (+15 per affinity level), waving / chatting / visiting friends (+2) and pomodoros (+5). Everyone starts with a 100-coin gift",
+          "Your friends see your props: on avatars in the hub and when your pet visits their desktop - it shows off one of your moves",
+          "Pips is now a social pet: clicking the pet opens the Pips hub (friends, chat, groups, shop, badges)",
+          "The focus timer moved to right-click → Focus timer (Pomodoro). Pomodoros still give XP and coins"
+        ],
+        "id": [
+          "Toko: kumpulkan koin dan belanjakan untuk peliharaanmu - 17 aksesori (mahkota, topi penyihir, headphone, kacamata hitam, syal, jubah, sayap malaikat...) dan 6 gerakan: putar, joget, moonwalk, salto, kung fu dan ayunan laba-laba!",
+          "Koin didapat dari naik level (+40), lencana (+25), membuka Pips tiap hari (+10), pertemanan (+15 per level afinitas), melambai / chat / berkunjung ke teman (+2) dan pomodoro (+5). Semua mulai dengan hadiah 100 koin",
+          "Temanmu bisa melihat aksesorimu: di avatar hub dan saat peliharaanmu berkunjung ke desktop mereka - ia memamerkan salah satu gerakanmu",
+          "Pips kini peliharaan sosial: klik peliharaan untuk membuka hub Pips (teman, chat, grup, toko, lencana)",
+          "Timer fokus pindah ke klik kanan → Timer fokus (Pomodoro). Pomodoro tetap memberi XP dan koin"
+        ],
+        "zh_TW": [
+          "商店：賺金幣幫寵物買東西 - 17 種配件 (皇冠、巫師帽、耳機、墨鏡、圍巾、披風、天使翅膀…) 和 6 種動作：旋轉、跳舞、月球漫步、後空翻、功夫和蜘蛛擺盪！",
+          "金幣來源：升級 (+40)、徽章 (+25)、每天打開 Pips (+10)、友誼 (每級親密度 +15)、對好友揮手 / 聊天 / 拜訪 (+2) 以及番茄鐘 (+5)。每個人一開始都有 100 金幣禮物",
+          "好友看得到你的配件：在中心的頭像上，以及你的寵物拜訪他們桌面時 - 牠還會表演你的一個動作",
+          "Pips 現在是社交寵物：點寵物會打開 Pips 中心 (好友、聊天、群組、商店、徽章)",
+          "專注計時器移到右鍵 → 專注計時器 (番茄鐘)。番茄鐘仍然會給 XP 和金幣"
+        ],
+        "zh_CN": [
+          "商店：赚金币给宠物买东西 - 17 种配件 (皇冠、巫师帽、耳机、墨镜、围巾、披风、天使翅膀…) 和 6 种动作：旋转、跳舞、月球漫步、后空翻、功夫和蜘蛛荡！",
+          "金币来源：升级 (+40)、徽章 (+25)、每天打开 Pips (+10)、友谊 (每级亲密度 +15)、对好友挥手 / 聊天 / 拜访 (+2) 以及番茄钟 (+5)。每个人一开始都有 100 金币礼物",
+          "好友看得到你的配件：在中心的头像上，以及你的宠物拜访他们桌面时 - 它还会表演你的一个动作",
+          "Pips 现在是社交宠物：点宠物会打开 Pips 中心 (好友、聊天、群组、商店、徽章)",
+          "专注计时器移到右键 → 专注计时器 (番茄钟)。番茄钟仍然会给 XP 和金币"
+        ]
+      }
+    },
+    {
       "version": "2.4.0",
       "date": "2026-10-28",
       "title": "Chat, groups, affinity & pet visits",
