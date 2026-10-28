@@ -1,4 +1,4 @@
-"""v0.4 regression checks: sign-in, guest mode, guided tour and theme (stdlib only)."""
+﻿"""v0.4 regression checks: sign-in, guest mode, guided tour and theme (stdlib only)."""
 import json
 import re
 import unittest
@@ -51,7 +51,7 @@ class V04Tests(unittest.TestCase):
 
     def test_offline_cache_bumped_for_new_assets(self):
         worker = (WEB / "sw.js").read_text(encoding="utf-8")
-        self.assertIn("const CACHE_NAME = 'glowchat-v9';", worker)
+        self.assertIn("const CACHE_NAME = 'glowchat-v11';", worker)
 
     def test_guests_get_keyless_free_ai(self):
         self.assertIn('const FREE_AI_URL = "https://text.pollinations.ai/openai";', self.script)

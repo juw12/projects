@@ -176,6 +176,9 @@
     <input type="url" id="set-ollama" placeholder="http://localhost:11434">
 
     <h4>3. Any OpenAI-compatible API (optional)</h4>
+    <label class="note" for="set-china-provider">🇨🇳 China AI providers (work in mainland China)</label>
+    <select id="set-china-provider" style="margin-bottom:6px"><option value="">Choose a provider…</option></select>
+    <p class="note hidden" id="china-provider-note">Pick a provider to fill in the API address, then paste your key from its console. Requests go straight from this browser to that provider.</p>
     <input type="url" id="set-custom-url" placeholder="https://api.example.com/v1">
     <input type="password" id="set-custom-key" placeholder="API key" autocomplete="off" style="margin-top:6px">
 
@@ -247,6 +250,7 @@
 
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
+<script src="../shared/glow-locale.js"></script>
 <script src="../shared/glow-apps.js"></script>
 <script src="./app.js"></script>
 </body>

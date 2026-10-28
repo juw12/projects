@@ -1,7 +1,7 @@
 // GlowRoom service worker: installable + offline.
 // Pages are network-first (so updates ship immediately); static assets are cache-first.
 (function () {
-  var CACHE_NAME = 'glowroom-v11';
+  var CACHE_NAME = 'glowroom-v13';
   var SCOPE = self.registration.scope;
 
   function resolveUrl(path) {
@@ -23,6 +23,10 @@
     resolveUrl('./icons/app-icon.svg'),
     resolveUrl('./assets/logo.svg'),
     resolveUrl('./vendor/three.min.js'),
+    resolveUrl('../shared/glow-locale.js'),
+    resolveUrl('../shared/i18n/ui.id.js'),
+    resolveUrl('../shared/i18n/ui.zh-CN.js'),
+    resolveUrl('../shared/i18n/ui.zh-TW.js'),
     resolveUrl('../shared/glow-apps.js')
   ];
 

@@ -1,0 +1,240 @@
+# English || Bahasa Indonesia || 简体中文   (繁體中文 is generated with OpenCC s2twp + fixes)
+New chat || Chat baru || 新聊天
+New chat (Ctrl/⌘ K) || Chat baru (Ctrl/⌘ K) || 新聊天 (Ctrl/⌘ K)
+My persona || Persona saya || 我的人设
+Make a persona so Glow answers the way you like || Buat persona agar Glow menjawab sesuai keinginanmu || 创建人设，让 Glow 按你喜欢的方式回答
+Settings || Pengaturan || 设置
+Settings & models || Pengaturan & model || 设置与模型
+Search chats || Cari chat || 搜索聊天
+Search chats… || Cari chat… || 搜索聊天…
+Search || Cari || 搜索
+Search all models… || Cari semua model… || 搜索所有模型…
+Search models || Cari model || 搜索模型
+Choose a model || Pilih model || 选择模型
+Model categories || Kategori model || 模型分类
+Models || Model || 模型
+Model || Model || 模型
+Best || Terbaik || 最佳
+Quick || Cepat || 快速
+Code || Kode || 代码
+Research || Riset || 调研
+Writing || Menulis || 写作
+Images || Gambar || 图片
+Free & local || Gratis & lokal || 免费与本地
+Free & local: ranked best first || Gratis & lokal: peringkat terbaik dulu || 免费与本地：按优劣排序
+The strongest all-round models, best first. Premium ones use more of your free allowance. || Model serba bisa terkuat, terbaik dulu. Model premium memakai lebih banyak jatah gratismu. || 最强的全能模型，按优劣排序。高级模型会消耗更多免费额度。
+Fast and light: great answers that save your allowance. Glow's default. || Cepat dan ringan: jawaban bagus yang hemat jatah. Bawaan Glow. || 快速轻量：回答好又省额度。Glow 的默认选择。
+Best for writing, fixing and explaining code. || Terbaik untuk menulis, memperbaiki dan menjelaskan kode. || 最适合编写、修复和解释代码。
+Deep reasoning and long documents. Slower, and uses more allowance. || Penalaran mendalam dan dokumen panjang. Lebih lambat dan memakai lebih banyak jatah. || 深度推理和长文档。较慢，消耗更多额度。
+Natural, polished writing, editing and translation. || Tulisan, penyuntingan dan terjemahan yang alami dan rapi. || 自然流畅的写作、编辑和翻译。
+Describe a picture and Glow draws it. Images are saved in this browser. || Jelaskan gambar dan Glow menggambarnya. Gambar disimpan di browser ini. || 描述一张图片，Glow 帮你画出来。图片保存在此浏览器中。
+Works without signing in: Glow Free, your own keys and models on your own computer. || Bisa tanpa masuk: Glow Free, kunci API milikmu dan model di komputermu sendiri. || 无需登录即可使用：Glow Free、你自己的密钥和你电脑上的模型。
+Fast and light on your allowance || Cepat dan hemat jatah || 快速且省额度
+Add to favorites || Tambah ke favorit || 加入收藏
+Remove from favorites || Hapus dari favorit || 取消收藏
+Favorites || Favorit || 收藏
+Send || Kirim || 发送
+Stop || Berhenti || 停止
+Attach files || Lampirkan file || 添加附件
+Attach text or code files || Lampirkan file teks atau kode || 添加文本或代码文件
+Improve my prompt || Perbaiki prompt saya || 优化我的提示词
+Improve my prompt with AI || Perbaiki prompt saya dengan AI || 用 AI 优化我的提示词
+Voice input || Input suara || 语音输入
+Speak instead of typing (uses your browser's speech recognition) || Bicara alih-alih mengetik (memakai pengenalan suara browser) || 用说话代替打字（使用浏览器的语音识别）
+Jump to the latest message || Lompat ke pesan terbaru || 跳到最新消息
+Temporary chat || Chat sementara || 临时聊天
+Temporary chat: not saved to your history, not synced, gone when you leave || Chat sementara: tidak disimpan di riwayat, tidak disinkronkan, hilang saat kamu keluar || 临时聊天：不保存到历史记录、不同步，离开后即消失
+Share || Bagikan || 分享
+Copy link || Salin tautan || 复制链接
+Copy a link that opens this chat (no account needed) || Salin tautan yang membuka chat ini (tanpa akun) || 复制可打开此聊天的链接（无需账户）
+Export || Ekspor || 导出
+Export this conversation as Markdown || Ekspor percakapan ini sebagai Markdown || 将此对话导出为 Markdown
+Copy || Salin || 复制
+Copied || Disalin || 已复制
+Couldn't copy || Gagal menyalin || 复制失败
+Couldn't copy. || Gagal menyalin. || 复制失败。
+Couldn't copy. Select the text and copy it manually. || Gagal menyalin. Pilih teks lalu salin manual. || 复制失败。请选中文字后手动复制。
+Council || Dewan || 议会
+Arena || Arena || 竞技场
+Chat || Chat || 聊天
+Several AI agents debate your question, then a Judge decides || Beberapa agen AI memperdebatkan pertanyaanmu, lalu seorang Juri memutuskan || 多个 AI 代理辩论你的问题，再由裁判做出决定
+Compare models side by side || Bandingkan model berdampingan || 并排比较模型
+Ask the Judge || Tanya Juri || 询问裁判
+Another round || Satu ronde lagi || 再来一轮
+Challenge & decide || Uji & putuskan || 质疑并决定
+Draft & explain || Susun & jelaskan || 起草并解释
+Explore || Jelajahi || 探索
+Welcome || Selamat datang || 欢迎
+Welcome to GlowChat ✨ || Selamat datang di GlowChat ✨ || 欢迎使用 GlowChat ✨
+Chat with free AI right away, no sign-up. You can also bring your own OpenRouter key or local Ollama. Everything stays in this browser, including chats and keys you already have. || Langsung chat dengan AI gratis, tanpa daftar. Kamu juga bisa memakai kunci OpenRouter sendiri atau Ollama lokal. Semuanya tetap di browser ini, termasuk chat dan kunci yang sudah ada. || 无需注册即可立即与免费 AI 聊天。也可以使用你自己的 OpenRouter 密钥或本地 Ollama。所有内容（包括已有的聊天和密钥）都只保存在此浏览器中。
+Continue as guest || Lanjut sebagai tamu || 以访客身份继续
+Sign in || Masuk || 登录
+Sign in for faster AI || Masuk untuk AI lebih cepat || 登录以使用更快的 AI
+Sign in for free AI || Masuk untuk AI gratis || 登录以使用免费 AI
+Sign in free to unlock GPT, Claude, Gemini, images… || Masuk gratis untuk membuka GPT, Claude, Gemini, gambar… || 免费登录即可解锁 GPT、Claude、Gemini、图片…
+Sign in, free real AI || Masuk, AI sungguhan gratis || 登录，免费使用真正的 AI
+Sign in with Puter || Masuk dengan Puter || 使用 Puter 登录
+Sign in to see it || Masuk untuk melihatnya || 登录后查看
+Sign out || Keluar || 退出登录
+Switch account || Ganti akun || 切换账户
+Save account || Simpan akun || 保存账户
+Guest || Tamu || 访客
+Guest · Glow Free || Tamu · Glow Free || 访客 · Glow Free
+Guest · Profile & settings || Tamu · Profil & pengaturan || 访客 · 个人资料与设置
+Free AI (Glow Free), or sign in for stronger models || AI gratis (Glow Free), atau masuk untuk model yang lebih kuat || 免费 AI（Glow Free），或登录使用更强的模型
+sign in for stronger models || masuk untuk model yang lebih kuat || 登录以使用更强的模型
+Powered by Glow AI · free, no sign-up || Didukung Glow AI · gratis, tanpa daftar || 由 Glow AI 提供 · 免费，无需注册
+Real AI · Glow Free || AI sungguhan · Glow Free || 真正的 AI · Glow Free
+Demo mode || Mode demo || 演示模式
+Demo agent (offline, canned replies) || Agen demo (offline, balasan siap pakai) || 演示代理（离线，预设回复）
+Glow Free: GPT-OSS 20B (no sign-in needed) || Glow Free: GPT-OSS 20B (tanpa masuk) || Glow Free：GPT-OSS 20B（无需登录）
+You're using Glow as a guest: demo replies or your own keys below. || Kamu memakai Glow sebagai tamu: balasan demo atau kunci milikmu di bawah. || 你正以访客身份使用 Glow：演示回复或使用下方你自己的密钥。
+You're using Glow without an account. Sign in to use Glow AI models and sync your chats. || Kamu memakai Glow tanpa akun. Masuk untuk memakai model Glow AI dan menyinkronkan chat. || 你正在不登录使用 Glow。登录后可使用 Glow AI 模型并同步聊天。
+Your Puter account is temporary. Open puter.com and save it so it isn't lost. || Akun Puter-mu sementara. Buka puter.com dan simpan agar tidak hilang. || 你的 Puter 账户是临时的。请打开 puter.com 保存，以免丢失。
+Save it on puter.com || Simpan di puter.com || 在 puter.com 上保存
+Save it on puter.com from Settings. || Simpan di puter.com dari Pengaturan. || 在“设置”中前往 puter.com 保存。
+AI settings || Pengaturan AI || AI 设置
+AI provider settings || Pengaturan penyedia AI || AI 服务商设置
+Provider || Penyedia || 服务商
+API key || Kunci API || API 密钥
+Your own AI keys (optional) || Kunci AI milikmu (opsional) || 你自己的 AI 密钥（可选）
+Use my own key || Pakai kunci saya sendiri || 使用我自己的密钥
+Use my own keys || Pakai kunci saya sendiri || 使用我自己的密钥
+Use my own Puter account || Pakai akun Puter saya sendiri || 使用我自己的 Puter 账户
+1. OpenRouter: free cloud models || 1. OpenRouter: model cloud gratis || 1. OpenRouter：免费云端模型
+2. Ollama: private models on your own computer || 2. Ollama: model privat di komputermu sendiri || 2. Ollama：在你自己电脑上运行的私有模型
+3. Any OpenAI-compatible API (optional) || 3. API apa pun yang kompatibel dengan OpenAI (opsional) || 3. 任意兼容 OpenAI 的 API（可选）
+Also show paid models (billed to your OpenRouter credit) || Tampilkan juga model berbayar (ditagih ke kredit OpenRouter-mu) || 同时显示付费模型（从你的 OpenRouter 余额扣费）
+Install Ollama, then allow this site || Pasang Ollama, lalu izinkan situs ini || 安装 Ollama，然后允许此网站访问
+Save & load models || Simpan & muat model || 保存并加载模型
+Save & test code || Simpan & uji kode || 保存并测试代码
+Keys, chats and votes are stored in this browser. Keys are only sent to the provider they belong to. || Kunci, chat dan vote disimpan di browser ini. Kunci hanya dikirim ke penyedianya masing-masing. || 密钥、聊天和投票都保存在此浏览器中。密钥只会发送给对应的服务商。
+About you || Tentang kamu || 关于你
+About you & how Glow should answer || Tentang kamu & cara Glow menjawab || 关于你以及 Glow 应如何回答
+Added to every chat, council and arena prompt. Example: “I'm a student in Batam. Explain simply and give examples in Indonesian Rupiah.” || Ditambahkan ke setiap prompt chat, dewan dan arena. Contoh: “Saya mahasiswa di Batam. Jelaskan dengan sederhana dan beri contoh dalam Rupiah.” || 会添加到每个聊天、议会和竞技场提示中。例如：“我是苏州的学生，请简单解释，并用人民币举例。”
+Suggest follow-up questions after answers || Sarankan pertanyaan lanjutan setelah jawaban || 回答后推荐后续问题
+Suggest follow-up questions after replies || Sarankan pertanyaan lanjutan setelah balasan || 回复后推荐后续问题
+Sync chats to my Puter account (only when signed in) || Sinkronkan chat ke akun Puter saya (hanya saat masuk) || 将聊天同步到我的 Puter 账户（仅登录时）
+Sync my chats to my account (so they follow me to other devices) || Sinkronkan chat ke akun saya (agar ikut ke perangkat lain) || 将聊天同步到我的账户（在其他设备上也能看到）
+Auto-delete chats older than || Hapus otomatis chat yang lebih lama dari || 自动删除早于以下时间的聊天
+Never || Tidak pernah || 从不
+30 days || 30 hari || 30 天
+90 days || 90 hari || 90 天
+1 year || 1 tahun || 1 年
+Pinned chats are kept. 👻 in the top bar starts a temporary chat that is never saved. || Chat yang disematkan tetap disimpan. 👻 di bilah atas memulai chat sementara yang tidak pernah disimpan. || 置顶的聊天会保留。顶栏的 👻 可开启永不保存的临时聊天。
+Theme || Tema || 主题
+Appearance || Tampilan || 外观
+Match my device || Ikuti perangkat || 跟随设备
+Dark || Gelap || 深色
+Light || Terang || 浅色
+Light theme || Tema terang || 浅色主题
+Switch light or dark theme || Ganti tema terang atau gelap || 切换浅色或深色主题
+Switch to dark theme || Ganti ke tema gelap || 切换到深色主题
+Toggle color theme || Ganti tema warna || 切换颜色主题
+Replay the guided tour || Putar ulang tur panduan || 重新播放引导教程
+Take the guided tour || Ikuti tur panduan || 参加引导教程
+Skip tour || Lewati tur || 跳过教程
+Back || Kembali || 返回
+Next || Lanjut || 下一步
+Close || Tutup || 关闭
+Cancel || Batal || 取消
+Save || Simpan || 保存
+Dismiss || Tutup || 关闭
+Dismiss notice || Tutup pemberitahuan || 关闭通知
+Undo || Urungkan || 撤销
+Open || Buka || 打开
+Change || Ubah || 更改
+Help || Bantuan || 帮助
+Menu || Menu || 菜单
+More || Lainnya || 更多
+Clear all || Hapus semua || 全部清除
+A quick tour of the main controls. Use Next or the → key, Back or ←, and Esc to skip. || Tur singkat kontrol utama. Pakai Lanjut atau tombol →, Kembali atau ←, dan Esc untuk melewati. || 主要控件快速导览。按“下一步”或 → 键前进，“返回”或 ← 键后退，Esc 跳过。
+Pick a model || Pilih model || 选择模型
+Models are sorted by what you want to do (⭐ Best, ⚡ Quick, 💻 Code, 🔎 Research, ✍ Writing, 🎨 Images) and ranked best first. Search finds any model; 🔒 ones unlock with a free sign-in. || Model diurutkan menurut kebutuhanmu (⭐ Terbaik, ⚡ Cepat, 💻 Kode, 🔎 Riset, ✍ Menulis, 🎨 Gambar) dan terbaik di atas. Pencarian menemukan model apa pun; yang 🔒 terbuka dengan masuk gratis. || 模型按用途分类（⭐ 最佳、⚡ 快速、💻 代码、🔎 调研、✍ 写作、🎨 图片），并按优劣排序。搜索可找到任意模型；带 🔒 的模型免费登录后即可解锁。
+Ask anything || Tanya apa saja || 随便问
+Type here and press Enter to send. Shift+Enter adds a new line; 📎 or paste attaches files, ✨ improves your prompt and 🎤 lets you speak. || Ketik di sini dan tekan Enter untuk mengirim. Shift+Enter membuat baris baru; 📎 atau tempel untuk melampirkan file, ✨ memperbaiki prompt dan 🎤 untuk bicara. || 在这里输入，按 Enter 发送。Shift+Enter 换行；📎 或粘贴可添加文件，✨ 优化提示词，🎤 可语音输入。
+Personas & tokens || Persona & token || 人设与 token
+Switch how Glow answers (🗺 Planner, 🎓 Tutor, 💻 Coder…) or pick ＋ New persona to make one that fits you. ◔ on the right shows the tokens you've used and your Glow AI allowance. || Ganti cara Glow menjawab (🗺 Perencana, 🎓 Tutor, 💻 Programmer…) atau pilih ＋ Persona baru untuk membuat yang cocok. ◔ di kanan menunjukkan token yang terpakai dan jatah Glow AI-mu. || 切换 Glow 的回答方式（🗺 规划师、🎓 导师、💻 程序员…），或选择 ＋ 新人设创建适合你的人设。右侧的 ◔ 显示已用 token 和你的 Glow AI 额度。
+Copy a link that opens a copy of this chat for anyone, with no account and no server in between. || Salin tautan yang membuka salinan chat ini untuk siapa saja, tanpa akun dan tanpa server perantara. || 复制一个链接，任何人都能打开此聊天的副本，无需账户，也不经过服务器。
+Download the current conversation as a Markdown file. || Unduh percakapan ini sebagai file Markdown. || 将当前对话下载为 Markdown 文件。
+Light or dark || Terang atau gelap || 浅色或深色
+Switch the theme any time. Glow follows your device until you pick one. || Ganti tema kapan saja. Glow mengikuti perangkatmu sampai kamu memilih. || 随时切换主题。在你选择之前，Glow 会跟随设备设置。
+That's it! || Selesai! || 就这些！
+Press ? any time to replay this tour. Now go turn a spark into something real. || Tekan ? kapan saja untuk memutar ulang tur ini. Sekarang wujudkan idemu. || 随时按 ? 重新播放本导览。现在去把灵感变成现实吧。
+Answering as a guest with free AI. Sign in any time for more models. || Menjawab sebagai tamu dengan AI gratis. Masuk kapan saja untuk lebih banyak model. || 正以访客身份用免费 AI 回答。随时登录可使用更多模型。
+Chat renamed || Chat diganti nama || 聊天已重命名
+Listening… speak now || Mendengarkan… silakan bicara || 正在聆听…请说话
+New chats will use this persona || Chat baru akan memakai persona ini || 新聊天将使用此人设
+New result from GlowRoom is in your chats || Hasil baru dari GlowRoom ada di chat-mu || GlowRoom 的新结果已在你的聊天中
+No problem. Make your persona any time with 🎭 in the sidebar. || Tidak masalah. Buat persona kapan saja dengan 🎭 di sidebar. || 没关系。随时可通过侧边栏的 🎭 创建人设。
+Nothing to share yet. Send a message first. || Belum ada yang bisa dibagikan. Kirim pesan dulu. || 还没有可分享的内容。请先发送一条消息。
+Opened GlowRoom with this as the crew's mission || GlowRoom dibuka dengan ini sebagai misi kru || 已打开 GlowRoom，并将此作为团队任务
+Result from GlowRoom added to your chats || Hasil dari GlowRoom ditambahkan ke chat-mu || GlowRoom 的结果已添加到你的聊天
+Shared chat opened. It's saved in your chats. || Chat bersama dibuka. Sudah disimpan di chat-mu. || 已打开分享的聊天，并已保存到你的聊天中。
+Signed out. Sign in again and choose Log in or Create account in Puter's window. || Sudah keluar. Masuk lagi dan pilih Log in atau Create account di jendela Puter. || 已退出登录。重新登录时请在 Puter 窗口中选择 Log in 或 Create account。
+That share link is broken or incomplete. || Tautan berbagi itu rusak atau tidak lengkap. || 该分享链接已损坏或不完整。
+This chat is too long for a link. Use ⤓ Export instead. || Chat ini terlalu panjang untuk tautan. Pakai ⤓ Ekspor saja. || 此聊天太长，无法生成链接。请改用 ⤓ 导出。
+Type a prompt first, then press ✨ || Ketik prompt dulu, lalu tekan ✨ || 请先输入提示词，再按 ✨
+Plan complete! || Rencana selesai! || 计划完成！
+The GlowRoom crew is on it || Kru GlowRoom sedang mengerjakannya || GlowRoom 团队正在处理
+GlowLead is planning it || GlowLead sedang merencanakannya || GlowLead 正在规划
+Reading aloud. Press 🔊 again to stop. || Membacakan. Tekan 🔊 lagi untuk berhenti. || 正在朗读。再按 🔊 停止。
+Prompt improved. Review it, then press Enter to send. || Prompt sudah diperbaiki. Periksa, lalu tekan Enter untuk mengirim. || 提示词已优化。检查后按 Enter 发送。
+Persona || Persona || 人设
+Personas || Persona || 人设
+Make a persona || Buat persona || 创建人设
+Make or edit personas || Buat atau ubah persona || 创建或编辑人设
+New persona… || Persona baru… || 新人设…
+Open the persona studio || Buka studio persona || 打开人设工作室
+Default persona for new chats || Persona bawaan untuk chat baru || 新聊天的默认人设
+Glow (default) || Glow (bawaan) || Glow（默认）
+Glow default || Bawaan Glow || Glow 默认
+Default || Bawaan || 默认
+Planner || Perencana || 规划师
+Tutor || Tutor || 导师
+Coder || Programmer || 程序员
+Writer || Penulis || 写作者
+Critic || Kritikus || 评论员
+Translator || Penerjemah || 翻译
+No persona yet. Take the quiz and GlowChat will talk the way you like. || Belum ada persona. Ikuti kuis dan GlowChat akan berbicara sesuai keinginanmu. || 还没有人设。做个小测验，GlowChat 就会用你喜欢的方式说话。
+How the AI talks to you in GlowChat. Make one with a 60-second quiz based on the Orbis AI Type. || Cara AI berbicara denganmu di GlowChat. Buat dengan kuis 60 detik berdasarkan Orbis AI Type. || AI 在 GlowChat 中与你交流的方式。用基于 Orbis AI Type 的 60 秒测验来创建。
+First, let's make Glow fit you || Pertama, mari sesuaikan Glow denganmu || 首先，让 Glow 适合你
+Take the quiz || Ikuti kuis || 开始测验
+Skip the quiz || Lewati kuis || 跳过测验
+Skip for now || Lewati dulu || 暂时跳过
+Situation 1 of 5 || Situasi 1 dari 5 || 情境 1 / 5
+You get a new AI tool at work. What do you do first? || Kamu mendapat alat AI baru di kantor. Apa yang kamu lakukan pertama? || 公司给你一个新的 AI 工具，你会先做什么？
+Try it right away on a real task || Langsung coba pada tugas nyata || 马上在真实任务中试用
+Check what it does with my data || Cek apa yang dilakukannya dengan data saya || 先看看它如何处理我的数据
+Test it with questions I already know the answers to || Uji dengan pertanyaan yang sudah saya tahu jawabannya || 用我已知答案的问题测试它
+Read how it works and where its limits are || Baca cara kerjanya dan batasannya || 了解它的工作原理和局限
+Try a bit of everything and see where it helps || Coba sedikit semuanya dan lihat di mana ia membantu || 各方面都试试，看它在哪里有用
+Token usage || Pemakaian token || Token 用量
+Token usage: click for details || Pemakaian token: klik untuk detail || Token 用量：点击查看详情
+Token usage and your Glow AI allowance || Pemakaian token dan jatah Glow AI-mu || Token 用量和你的 Glow AI 额度
+Today 0 tokens || Hari ini 0 token || 今天 0 token
+tokens today || token hari ini || 今日 token
+tokens this month || token bulan ini || 本月 token
+Counted on this device: exact when the AI service reports it, otherwise estimated (about 4 characters per token). || Dihitung di perangkat ini: tepat jika layanan AI melaporkannya, selain itu perkiraan (sekitar 4 karakter per token). || 在此设备上统计：AI 服务提供数据时为精确值，否则为估算（约 4 个字符 = 1 token）。
+Glow AI allowance this month || Jatah Glow AI bulan ini || 本月 Glow AI 额度
+Glow AI runs on your own free Puter account. Puter refills the allowance every month. || Glow AI berjalan di akun Puter gratis milikmu. Puter mengisi ulang jatah setiap bulan. || Glow AI 运行在你自己的免费 Puter 账户上。Puter 每月会补充额度。
+Tokens per day, last 14 days || Token per hari, 14 hari terakhir || 最近 14 天每日 token
+History || Riwayat || 历史记录
+Notifications || Notifikasi || 通知
+Phone view || Tampilan ponsel || 手机视图
+Open the phone layout || Buka tampilan ponsel || 打开手机布局
+Install app || Pasang aplikasi || 安装应用
+Get the Glow app || Dapatkan aplikasi Glow || 获取 Glow 应用
+Report a problem or ask for a feature || Laporkan masalah atau minta fitur || 报告问题或建议功能
+Feedback || Masukan || 反馈
+Free AI ready || AI gratis siap || 免费 AI 已就绪
+free || gratis || 免费
+Free || Gratis || 免费
+Premium || Premium || 高级
+Reasoning || Penalaran || 推理
+Uses more of your free Glow AI allowance per message || Memakai lebih banyak jatah Glow AI gratis per pesan || 每条消息消耗更多免费 Glow AI 额度
+Free with sign-in || Gratis dengan masuk || 登录后免费
+Sign in (free) to unlock these models. || Masuk (gratis) untuk membuka model ini. || 免费登录即可解锁这些模型。
+Add your own OpenRouter key or Ollama in Settings to see more here. || Tambahkan kunci OpenRouter atau Ollama di Pengaturan untuk melihat lebih banyak di sini. || 在“设置”中添加你的 OpenRouter 密钥或 Ollama，这里会显示更多。
+Showing the first 300. Keep typing to narrow it down. || Menampilkan 300 pertama. Terus ketik untuk mempersempit. || 显示前 300 个。继续输入以缩小范围。
+Thinking… || Berpikir… || 思考中…

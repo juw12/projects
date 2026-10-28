@@ -8,6 +8,7 @@
   const HOME_THEME_KEY = "glow.home.theme";
   const onPhone = window.matchMedia("(max-width: 720px)").matches;
   const $ = (id) => document.getElementById(id);
+  const tr = (key, vars, fallback) => (window.GlowLocale ? window.GlowLocale.t(key, vars) : fallback);
 
   function readJson(key, fallback) {
     try {
@@ -60,21 +61,21 @@
       const name = settings.accountName || "Glow user";
       chip.textContent = "✦ " + name;
       chip.classList.add("signed-in");
-      text.textContent = `Signed in as ${name}. Every Glow app uses this account.`;
-      action.textContent = "Profile & settings";
+      text.textContent = tr("home.signedText", { name }, `Signed in as ${name}. Every Glow app uses this account.`);
+      action.textContent = tr("profile", null, "Profile & settings");
       action.href = new URL("account/", location.href).href;
     } else {
-      chip.textContent = "👤 Guest";
+      chip.textContent = tr("home.guestChip", null, "👤 Guest");
       chip.classList.remove("signed-in");
-      text.textContent = "You're using Glow as a guest. A free sign-in gives stronger models in every Glow app.";
-      action.textContent = "Sign in";
+      text.textContent = tr("home.guestText", null, "You're using Glow as a guest. A free sign-in gives stronger models in every Glow app.");
+      action.textContent = tr("home.signIn", null, "Sign in");
       action.href = new URL("account/#account", location.href).href;
     }
     if (window.GlowApps && window.GlowApps.refreshProfiles) window.GlowApps.refreshProfiles();
   }
 
   // ---- quick start: one Start button sends the request to the right app ----
-  const ROOM_HINT = /\b(research|find|search|latest|news|compare|price|prices|sources?|code|script|calculate|compute|convert|csv|json|scrape|build|analy[sz]e|report|logo|svg|graphic)\b/i;
+  const ROOM_HINT = /\b(research|find|search|latest|news|compare|price|prices|sources?|code|script|calculate|compute|convert|csv|json|scrape|build|analy[sz]e|report|logo|svg|graphic|cari|bandingkan|harga|terbaru|berita|sumber|kode|hitung|laporan)\b|搜索|搜尋|查找|查詢|调研|研究|最新|新闻|新聞|比较|比較|价格|價格|来源|來源|代码|程式|计算|計算|报告|報告/i;
   const APP_NAMES = { chat: "GlowChat", room: "the GlowRoom crew", lead: "GlowLead" };
   const APP_REASONS = {
     chat: "GlowChat will answer right away.",
@@ -93,7 +94,7 @@
     for (const name of ["chat", "room", "lead"]) {
       $("start-" + name).classList.toggle("suggested", text.length > 0 && name === target);
     }
-    $("start-hint").textContent = text ? APP_REASONS[target] : "Free, no sign-up needed.";
+    $("start-hint").textContent = text ? tr(`home.reason.${target}`, null, APP_REASONS[target]) : tr("home.hint", null, "Free, no sign-up needed.");
     $("start-go").title = text ? "Open " + APP_NAMES[target] : "";
   }
   function launch(target) {
@@ -181,9 +182,9 @@
       const url = new URL(chatPage, location.href);
       url.searchParams.set("open", conv.id);
       const icon = conv.source === "crewroom" ? "🏢 " : (MODE_ICONS[conv.type] || "");
-      chatList.appendChild(listItem(url.toString(), icon + (conv.title || "Untitled chat"), timeAgo(conv.updated)));
+      chatList.appendChild(listItem(url.toString(), icon + (conv.title || tr("home.untitled", null, "Untitled chat")), timeAgo(conv.updated)));
     }
-    if (!conversations.length) chatList.appendChild(emptyItem("No chats yet."));
+    if (!conversations.length) chatList.appendChild(emptyItem(tr("home.noChats", null, "No chats yet.")));
 
     const missionList = $("recent-missions");
     missionList.replaceChildren();
@@ -191,13 +192,25 @@
       const status = run.status === "done" ? "✓ " : run.status === "running" ? "⏳ " : "";
       missionList.appendChild(listItem(new URL(roomPage, location.href).toString(), status + (run.goal.split("\n").find((line) => line.trim()) || "").replace(/\*\*/g, "").trim().slice(0, 90), timeAgo(run.createdAt)));
     }
-    if (!runs.length) missionList.appendChild(emptyItem("No crew missions yet."));
+    if (!runs.length) missionList.appendChild(emptyItem(tr("home.noMissions", null, "No crew missions yet.")));
 
     $("recent").hidden = !conversations.length && !runs.length;
   }
 
   renderAccount();
   renderRecent();
+  // Language & region: the footer button reopens the picker; a new choice re-renders this page in place.
+  if (window.GlowLocale) {
+    $("locale-btn").addEventListener("click", () => window.GlowLocale.openPicker());
+    window.GlowLocale.onChange(() => {
+      window.GlowLocale.apply();
+      renderAccount();
+      renderRecent();
+      suggest();
+    });
+  } else {
+    $("locale-btn").hidden = true;
+  }
   // Stay in sync when another Glow tab signs in, chats or finishes a mission.
   window.addEventListener("storage", (event) => {
     if (event.key === CHAT_STORE_KEY || event.key === ROOM_RUNS_KEY) {

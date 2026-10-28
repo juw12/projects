@@ -10,7 +10,7 @@
   const ROOT = new URL("../", scriptUrl); // .../glow/
   // The Glow family version. Bump it together with ../version.json for every release:
   // an older copy of this script then sees the newer version.json and offers "Update now".
-  const GLOW_VERSION = "1.20.2";
+  const GLOW_VERSION = "1.21.0";
   const LIVE_ROOT = "https://juw12.github.io/projects/glow/";
   const APK_URL = "https://github.com/juw12/projects/releases/download/glow-android/Glow-android.apk";
   const embedded = (function () {
@@ -29,6 +29,11 @@
     { id: "chat", name: "GlowChat", icon: "💬", desc: "Chat, Council and Arena with any AI model", page: onMobilePage ? "chat/mobile.html" : "chat/" },
     { id: "room", name: "GlowRoom", icon: "🏢", desc: "An AI crew that researches, codes and reports back", page: onMobilePage ? "room/mobile.html" : "room/" },
   ];
+
+  // Language & region come from glow-locale.js (loaded first); English when it is missing.
+  function tr(key, fallback) {
+    return window.GlowLocale ? window.GlowLocale.t(key) : fallback;
+  }
 
   function appUrl(id) {
     const app = APPS.find((a) => a.id === id);
@@ -172,10 +177,10 @@ html.glow-embedded [data-glow-apps]{display:none!important}
     const items = APPS.map((app) => `
       <a class="glow-apps-item${app.id === here ? " current" : ""}" href="${appUrl(app.id)}" data-glow-app="${app.id}"${app.id === here ? ' aria-current="page"' : ""}>
         <span class="glow-apps-icon" aria-hidden="true">${app.icon}</span>
-        <span><span class="glow-apps-name">${app.name}</span><br><span class="glow-apps-desc">${app.desc}</span></span>
-        ${app.id === here ? '<span class="glow-apps-here">You\'re here</span>' : ""}
+        <span><span class="glow-apps-name">${app.name}</span><br><span class="glow-apps-desc">${escapeHtml(tr(`apps.${app.id}`, app.desc))}</span></span>
+        ${app.id === here ? `<span class="glow-apps-here">${escapeHtml(tr("apps.here", "You're here"))}</span>` : ""}
       </a>`).join("");
-    const profile = `<a class="glow-apps-profile" href="${accountUrl()}">👤 Profile &amp; settings<span style="margin-left:auto;opacity:.6">›</span></a>`;
+    const profile = `<a class="glow-apps-profile" href="${accountUrl()}">👤 ${escapeHtml(tr("profile", "Profile & settings"))}<span style="margin-left:auto;opacity:.6">›</span></a>` + (window.GlowLocale ? `<a class="glow-apps-profile" href="#" data-glow-locale>🌐 ${escapeHtml(tr("menu.language", "Language & region"))}<span style="margin-left:auto;opacity:.6">${escapeHtml(localeLabel())}</span></a>` : "");
     const foot = profile + (who.signedIn
       ? `Signed in as <b>${escapeHtml(who.name)}</b> · one Glow account for every app`
       : "One Glow account for every app · sign in once in any of them");
@@ -184,10 +189,29 @@ html.glow-embedded [data-glow-apps]{display:none!important}
     element.id = "glow-apps-menu";
     element.setAttribute("role", "menu");
     element.hidden = true;
-    element.innerHTML = `<div class="glow-apps-head"><b>✦</b> Glow apps</div><div class="glow-apps-list">${items}</div><div class="glow-apps-foot">${foot}<div class="glow-apps-version" id="glow-apps-version"></div></div>`;
+    element.innerHTML = `<div class="glow-apps-head"><b>✦</b> ${escapeHtml(tr("apps.title", "Glow apps"))}</div><div class="glow-apps-list">${items}</div><div class="glow-apps-foot">${foot}<div class="glow-apps-version" id="glow-apps-version"></div></div>`;
+    bindLocaleLinks(element);
     document.body.appendChild(element);
     renderVersionLine(element.querySelector("#glow-apps-version"));
     return element;
+  }
+
+  // "🌐 Language & region" entries: show the current choice and open the picker.
+  function localeLabel() {
+    if (!window.GlowLocale) return "";
+    const now = window.GlowLocale.get();
+    return now.region + " · " + now.lang;
+  }
+
+  function bindLocaleLinks(element) {
+    element.querySelectorAll("[data-glow-locale]").forEach((link) => {
+      link.addEventListener("click", (event) => {
+        event.preventDefault();
+        close();
+        closeProfile();
+        if (window.GlowLocale) window.GlowLocale.openPicker();
+      });
+    });
   }
 
   function place(button) {
@@ -298,7 +322,9 @@ html.glow-embedded [data-glow-apps]{display:none!important}
       ${item("📊", "Usage &amp; allowance", "usage")}
       ${item("⚙", "Settings", "prefs")}
       ${item("🔒", "My data &amp; privacy", "data")}
+      ${window.GlowLocale ? `<a class="glow-profile-item" role="menuitem" href="#" data-glow-locale><span aria-hidden="true">🌐</span>${escapeHtml(tr("menu.language", "Language & region"))}<span style="margin-left:auto;opacity:.6">${escapeHtml(localeLabel())}</span></a>` : ""}
       ${who.signedIn ? "" : item("✦", who.expired ? "Sign in again" : "Sign in with Puter", "account", " primary")}`;
+    bindLocaleLinks(element);
     document.body.appendChild(element);
     return element;
   }

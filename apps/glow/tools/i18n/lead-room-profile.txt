@@ -1,0 +1,386 @@
+# GlowLead
+GlowLead gets it done. || GlowLead menuntaskannya. || GlowLead 帮你搞定。
+Give one goal. || Beri satu tujuan. || 给出一个目标。
+It plans the steps, hands them to GlowChat and the GlowRoom crew, checks the work and reports back. You approve the plan first. || Ia merencanakan langkah, menyerahkannya ke GlowChat dan kru GlowRoom, memeriksa hasil dan melapor. Kamu menyetujui rencananya dulu. || 它会规划步骤，交给 GlowChat 和 GlowRoom 团队执行，检查成果并汇报。你先批准计划。
+What do you want done? || Apa yang ingin kamu selesaikan? || 你想完成什么？
+Mission brief || Ringkasan misi || 任务简介
+Goal || Tujuan || 目标
+Plan my mission || Rencanakan misi saya || 规划我的任务
+Ctrl / ⌘ + Enter to start || Ctrl / ⌘ + Enter untuk mulai || Ctrl / ⌘ + Enter 开始
+New mission || Misi baru || 新任务
+Your missions || Misi kamu || 你的任务
+Search missions || Cari misi || 搜索任务
+Search missions… || Cari misi… || 搜索任务…
+Filter missions by status || Saring misi berdasarkan status || 按状态筛选任务
+All missions || Semua misi || 全部任务
+Needs attention || Perlu perhatian || 需要处理
+Needs you || Butuh kamu || 等你处理
+In progress || Sedang berjalan || 进行中
+Finished || Selesai || 已完成
+Completed || Selesai || 已完成
+Just finished || Baru selesai || 刚刚完成
+Paused || Dijeda || 已暂停
+Selected mission || Misi terpilih || 所选任务
+Mission overview || Ringkasan misi || 任务概览
+Mission library || Pustaka misi || 任务库
+Planning & working || Merencanakan & bekerja || 规划与执行
+Goals & results || Tujuan & hasil || 目标与成果
+Results || Hasil || 成果
+Reports ready to review || Laporan siap ditinjau || 待查看的报告
+Review, resume or retry || Tinjau, lanjutkan atau ulangi || 查看、继续或重试
+Review plan before work starts || Tinjau rencana sebelum mulai || 开始前审核计划
+Ask me to approve the plan each time || Minta saya menyetujui rencana setiap kali || 每次都请我批准计划
+It always asks you || Selalu bertanya padamu || 它总会先问你
+before submitting, buying, sending, posting or deleting. It never types passwords, card numbers or codes; you type those in its window. It uses its own browser profile, and blocks local-network pages by default. || sebelum mengirim formulir, membeli, mengirim, memposting atau menghapus. Ia tidak pernah mengetik kata sandi, nomor kartu atau kode; kamu yang mengetiknya di jendelanya. Ia memakai profil browser sendiri dan memblokir halaman jaringan lokal secara bawaan. || 再提交、购买、发送、发布或删除。它从不输入密码、卡号或验证码，这些由你在它的窗口中输入。它使用独立的浏览器配置，并默认屏蔽局域网页面。
+Use my memory || Pakai memori saya || 使用我的记忆
+Memory || Memori || 记忆
+Edit memory || Ubah memori || 编辑记忆
+Save memory || Simpan memori || 保存记忆
+Forget || Lupakan || 忘记
+What should GlowLead remember? || Apa yang harus diingat GlowLead? || GlowLead 应该记住什么？
+Tell GlowLead about you once: role, location, budget, tone. It is added to plans when “Use my memory” is on. || Ceritakan tentang dirimu sekali ke GlowLead: peran, lokasi, budget, gaya. Ini ditambahkan ke rencana saat “Pakai memori saya” aktif. || 告诉 GlowLead 一次你的情况：职位、所在地、预算、语气。开启“使用我的记忆”后会加入计划中。
+Stored only in this browser. Added to plans and worker briefs when “Use my memory” is on, so it is sent to your AI provider. Do not store passwords or private IDs. || Hanya disimpan di browser ini. Ditambahkan ke rencana dan arahan pekerja saat “Pakai memori saya” aktif, jadi dikirim ke penyedia AI-mu. Jangan simpan kata sandi atau ID pribadi. || 仅保存在此浏览器中。开启“使用我的记忆”后会加入计划和任务说明，因此会发送给你的 AI 服务商。请勿保存密码或私人证件号。
+Notes · one per line, up to 20 || Catatan · satu per baris, maksimal 20 || 备注 · 每行一条，最多 20 条
+Planning sends your brief, and your memory when it is on, to AI. Research can read public web sources. Generated code runs only when you opt in; it can make network requests. Review sensitive tasks yourself. || Perencanaan mengirim ringkasanmu, dan memorimu jika aktif, ke AI. Riset bisa membaca sumber web publik. Kode yang dibuat hanya berjalan jika kamu mengizinkan; kode itu bisa membuat permintaan jaringan. Tinjau sendiri tugas yang sensitif. || 规划时会把你的任务简介（以及开启时的记忆）发送给 AI。调研可读取公开网页。生成的代码只有在你允许时才会运行，并可能发起网络请求。敏感任务请自行审核。
+Allow generated code to run || Izinkan kode yang dibuat berjalan || 允许运行生成的代码
+Automations || Otomatisasi || 自动化
+Automate… || Otomatiskan… || 自动化…
+Save automation || Simpan otomatisasi || 保存自动化
+Repeat || Ulangi || 重复
+Repeat this mission || Ulangi misi ini || 重复此任务
+Repeat a brief daily, on weekdays or weekly. || Ulangi ringkasan setiap hari, hari kerja atau mingguan. || 每天、工作日或每周重复执行任务简介。
+Every day || Setiap hari || 每天
+Weekdays || Hari kerja || 工作日
+Once a week || Seminggu sekali || 每周一次
+Monday || Senin || 星期一
+Tuesday || Selasa || 星期二
+Wednesday || Rabu || 星期三
+Thursday || Kamis || 星期四
+Friday || Jumat || 星期五
+Saturday || Sabtu || 星期六
+Sunday || Minggu || 星期日
+Time || Waktu || 时间
+Runs while a Glow tab is open on this device. If the time passes while Glow is closed, it runs once when you come back. || Berjalan selama tab Glow terbuka di perangkat ini. Jika waktunya lewat saat Glow tertutup, ia berjalan sekali saat kamu kembali. || 只在此设备上打开 Glow 标签页时运行。如果时间到了 Glow 却没打开，你回来时会补跑一次。
+Runs while a Glow tab is open. A missed run catches up once when you come back. Not a cloud scheduler. || Berjalan selama tab Glow terbuka. Jadwal yang terlewat dijalankan sekali saat kamu kembali. Bukan penjadwal cloud. || 只在打开 Glow 标签页时运行。错过的任务会在你回来时补跑一次。不是云端定时器。
+Reuses this approved plan each time instead of planning from scratch. || Memakai ulang rencana yang disetujui ini setiap kali, bukan merencanakan dari awal. || 每次都复用这个已批准的计划，而不是重新规划。
+Stop using the saved plan || Berhenti memakai rencana tersimpan || 停止使用已保存的计划
+Playbook name || Nama playbook || 剧本名称
+Save a playbook || Simpan playbook || 保存剧本
+Save as playbook || Simpan sebagai playbook || 另存为剧本
+Save playbook || Simpan playbook || 保存剧本
+Your playbooks || Playbook kamu || 你的剧本
+Starter playbooks || Playbook pemula || 入门剧本
+Save a useful brief. Reuse it with a fresh plan, not an old answer. || Simpan ringkasan yang berguna. Pakai lagi dengan rencana baru, bukan jawaban lama. || 保存有用的任务简介。之后会用新计划重新执行，而不是复用旧答案。
+Stores this brief locally. No keys or provider settings are included. || Menyimpan ringkasan ini secara lokal. Tidak ada kunci atau pengaturan penyedia yang ikut. || 将此简介保存在本地，不包含密钥或服务商设置。
+Your repeatable work starts here. || Pekerjaan berulangmu dimulai di sini. || 你的可重复工作从这里开始。
+Write a mission brief first, then save it as a playbook. || Tulis ringkasan misi dulu, lalu simpan sebagai playbook. || 请先写任务简介，再另存为剧本。
+Write the brief you want repeated first. || Tulis dulu ringkasan yang ingin diulang. || 请先写下要重复的任务简介。
+Glow plans || Paket Glow || Glow 套餐
+Plans || Paket || 套餐
+Plans & Glow Pro || Paket & Glow Pro || 套餐与 Glow Pro
+Glow Free || Glow Free || Glow Free
+Glow Pro || Glow Pro || Glow Pro
+Get Glow Pro || Dapatkan Glow Pro || 获取 Glow Pro
+Glow Pro is coming soon. || Glow Pro segera hadir. || Glow Pro 即将推出。
+Manage subscription || Kelola langganan || 管理订阅
+Activate on this device || Aktifkan di perangkat ini || 在此设备上激活
+Turn off Pro on this device || Matikan Pro di perangkat ini || 在此设备上关闭 Pro
+Already have Glow Pro? Your license key (from the purchase email) || Sudah punya Glow Pro? Kunci lisensimu (dari email pembelian) || 已购买 Glow Pro？输入许可证密钥（见购买邮件）
+You're on Glow Free. || Kamu memakai Glow Free. || 你正在使用 Glow Free。
+You're on Glow Free. Everything here keeps working for free. || Kamu memakai Glow Free. Semua di sini tetap gratis. || 你正在使用 Glow Free。这里的一切都可以免费使用。
+Everything in Glow Free || Semua yang ada di Glow Free || 包含 Glow Free 的全部功能
+Missions up to 4 steps || Misi hingga 4 langkah || 任务最多 4 步
+Browser missions up to 15 actions || Misi browser hingga 15 aksi || 浏览器任务最多 15 个操作
+Bigger missions: up to 8 steps || Misi lebih besar: hingga 8 langkah || 更大的任务：最多 8 步
+Longer browser missions: up to 40 actions || Misi browser lebih panjang: hingga 40 aksi || 更长的浏览器任务：最多 40 个操作
+Supports Glow's development || Mendukung pengembangan Glow || 支持 Glow 的开发
+Monthly || Bulanan || 每月
+Rp 0 · forever || Rp 0 · selamanya || 0 元 · 永久
+Payments and invoices are handled by Lemon Squeezy. Cancel anytime; Pro stays until the paid month ends. Your key is kept only in this browser and checked about once a day. || Pembayaran dan faktur diurus oleh Lemon Squeezy. Batalkan kapan saja; Pro tetap aktif sampai bulan berbayar berakhir. Kuncimu hanya disimpan di browser ini dan dicek sekitar sekali sehari. || 付款和发票由 Lemon Squeezy 处理。可随时取消，Pro 会保留到已付费月份结束。你的密钥只保存在此浏览器中，大约每天检查一次。
+Your plan, limits and licence key || Paket, batas dan kunci lisensimu || 你的套餐、限制和许可证密钥
+Connect browser control || Hubungkan kontrol browser || 连接浏览器控制
+Glow Hands || Glow Hands || Glow Hands
+Connect Glow Hands || Hubungkan Glow Hands || 连接 Glow Hands
+Connect Glow Hands first || Hubungkan Glow Hands dulu || 请先连接 Glow Hands
+Connect to Glow Hands on this PC || Hubungkan ke Glow Hands di PC ini || 连接此电脑上的 Glow Hands
+Connect manually with a pairing code || Hubungkan manual dengan kode pairing || 使用配对码手动连接
+Glow Hands is a small program on your PC that lets GlowLead open sites, click, type and fill forms in its own browser window. You can watch and take over at any time. || Glow Hands adalah program kecil di PC-mu yang membuat GlowLead bisa membuka situs, mengklik, mengetik dan mengisi formulir di jendela browsernya sendiri. Kamu bisa menonton dan mengambil alih kapan saja. || Glow Hands 是你电脑上的一个小程序，让 GlowLead 能在独立的浏览器窗口中打开网站、点击、输入和填写表单。你可以随时观看并接管。
+Lets GlowLead click, type and fill forms in a browser window on your PC. Needs the small Glow Hands program running. || Membuat GlowLead bisa mengklik, mengetik dan mengisi formulir di jendela browser PC-mu. Perlu program kecil Glow Hands berjalan. || 让 GlowLead 在你电脑的浏览器窗口中点击、输入和填写表单。需要运行 Glow Hands 小程序。
+Let Glow Hands use my browser (asks before submitting) || Izinkan Glow Hands memakai browser saya (bertanya sebelum mengirim) || 允许 Glow Hands 使用我的浏览器（提交前会询问）
+One click: GlowLead finds Glow Hands on this PC and connects. Nothing to type. If your browser asks to allow local network access, allow it once. || Satu klik: GlowLead menemukan Glow Hands di PC ini dan terhubung. Tidak perlu mengetik. Jika browser meminta izin akses jaringan lokal, izinkan sekali. || 一键：GlowLead 会找到此电脑上的 Glow Hands 并连接，无需输入。如果浏览器请求局域网访问权限，允许一次即可。
+New PC? Install in one step || PC baru? Pasang dalam satu langkah || 新电脑？一步安装
+paste this, press Enter. It installs Glow Hands, starts it at every login, and connects this browser automatically. || tempel ini, tekan Enter. Ini memasang Glow Hands, menjalankannya setiap login, dan menghubungkan browser ini otomatis. || 粘贴这段，按 Enter。它会安装 Glow Hands，开机登录时自动启动，并自动连接此浏览器。
+Pairing token || Token pairing || 配对令牌
+Shown when Glow Hands starts || Ditampilkan saat Glow Hands mulai || Glow Hands 启动时显示
+Use from your phone || Pakai dari ponsel || 从手机使用
+Your phone's GlowLead can drive Glow Hands on this PC over an encrypted direct link. Show the QR code, scan it with your phone camera, done. Your PC must stay on with Glow Hands running. || GlowLead di ponselmu bisa mengendalikan Glow Hands di PC ini lewat tautan langsung terenkripsi. Tampilkan kode QR, pindai dengan kamera ponsel, selesai. PC harus tetap menyala dengan Glow Hands berjalan. || 手机上的 GlowLead 可通过加密直连控制此电脑上的 Glow Hands。显示二维码，用手机相机扫描即可。电脑需保持开机并运行 Glow Hands。
+Show QR code || Tampilkan kode QR || 显示二维码
+QR code to link your phone || Kode QR untuk menautkan ponselmu || 用于连接手机的二维码
+Turn off old phone links || Matikan tautan ponsel lama || 关闭旧的手机连接
+Use my PC again || Pakai PC saya lagi || 重新使用我的电脑
+On Android? || Pakai Android? || 使用 Android？
+Use this phone's browser || Pakai browser ponsel ini || 使用这部手机的浏览器
+This phone's browser || Browser ponsel ini || 这部手机的浏览器
+Glow opens sites in a browser built into this app and clicks, types and fills forms there. You can watch, scroll and type passwords yourself. Nothing else to install. || Glow membuka situs di browser bawaan aplikasi ini dan mengklik, mengetik serta mengisi formulir di sana. Kamu bisa menonton, menggulir dan mengetik kata sandi sendiri. Tidak ada yang perlu dipasang lagi. || Glow 会在本应用内置的浏览器中打开网站并点击、输入和填写表单。你可以观看、滚动并自己输入密码。无需另外安装。
+Or use your PC's browser || Atau pakai browser PC-mu || 或使用电脑的浏览器
+On your PC open GlowLead || Di PC-mu buka GlowLead || 在电脑上打开 GlowLead
+Instant cloud browser || Browser cloud instan || 即时云浏览器
+Start instant cloud browser || Mulai browser cloud instan || 启动即时云浏览器
+Start cloud browser || Mulai browser cloud || 启动云浏览器
+Show browser || Tampilkan browser || 显示浏览器
+A hidden browser in the cloud, ready in seconds. No account and no setup. It opens when a mission needs it, has no saved logins and stops after 5 minutes without use. Free cloud time is shared by everyone and limited each day. || Browser tersembunyi di cloud, siap dalam hitungan detik. Tanpa akun dan tanpa pengaturan. Terbuka saat misi membutuhkannya, tanpa login tersimpan, dan berhenti setelah 5 menit tidak dipakai. Waktu cloud gratis dibagi bersama dan dibatasi per hari. || 云端的隐藏浏览器，几秒即可就绪。无需账户，无需设置。任务需要时自动打开，不保存登录信息，闲置 5 分钟后自动关闭。免费云端时长由所有人共享，每天有限额。
+Advanced: your own GitHub cloud browser || Lanjutan: browser cloud GitHub milikmu || 高级：你自己的 GitHub 云浏览器
+Your GitHub cloud browser || Browser cloud GitHub-mu || 你的 GitHub 云浏览器
+Make a GitHub token || Buat token GitHub || 创建 GitHub 令牌
+GitHub token (Actions: read & write, only the projects repo) || Token GitHub (Actions: baca & tulis, hanya repo projects) || GitHub 令牌（Actions：读写，仅限 projects 仓库）
+Starts a hidden browser on GitHub for up to 20 minutes (about 1 minute to start), then it stops by itself. It has no saved logins, and some sites show more CAPTCHAs. Keep it light; GitHub allows only modest use. || Memulai browser tersembunyi di GitHub hingga 20 menit (sekitar 1 menit untuk mulai), lalu berhenti sendiri. Tanpa login tersimpan, dan beberapa situs menampilkan lebih banyak CAPTCHA. Pakai secukupnya; GitHub hanya mengizinkan pemakaian ringan. || 在 GitHub 上启动一个隐藏浏览器，最长 20 分钟（启动约需 1 分钟），之后自动停止。不保存登录信息，部分网站会出现更多验证码。请适度使用，GitHub 只允许少量使用。
+Cloud key (from your setup link) || Kunci cloud (dari tautan pengaturanmu) || 云密钥（来自你的设置链接）
+Set up once on this device || Atur sekali di perangkat ini || 在此设备上设置一次
+Repository access || Akses repositori || 仓库访问权限
+Only select repositories || Hanya repositori tertentu || 仅选定的仓库
+Permissions || Izin || 权限
+Actions: Read and write || Actions: Baca dan tulis || Actions：读写
+History stays in this browser. AI requests go to your chosen provider. Keep this tab open while work runs. || Riwayat tetap di browser ini. Permintaan AI dikirim ke penyedia pilihanmu. Biarkan tab ini terbuka selama pekerjaan berjalan. || 历史记录保存在此浏览器中。AI 请求发送给你选择的服务商。工作进行时请保持此标签页打开。
+Browser storage is full or unavailable. This run is not safely saved. Export its work before closing the tab. || Penyimpanan browser penuh atau tidak tersedia. Proses ini tidak tersimpan dengan aman. Ekspor hasilnya sebelum menutup tab. || 浏览器存储已满或不可用，本次运行未能安全保存。关闭标签页前请先导出成果。
+Turn on notifications || Aktifkan notifikasi || 开启通知
+Back up everything || Cadangkan semuanya || 全部备份
+Restore backup || Pulihkan cadangan || 恢复备份
+Plan a 3-day Singapore trip || Rencanakan perjalanan 3 hari ke Singapura || 规划 3 天新加坡之旅
+Compare budget 3D printers || Bandingkan printer 3D murah || 比较平价 3D 打印机
+Loan calculator || Kalkulator pinjaman || 贷款计算器
+Design a logo || Desain logo || 设计标志
+Plan a launch || Rencanakan peluncuran || 规划产品发布
+Plan a trip (whole crew) || Rencanakan perjalanan (seluruh kru) || 规划旅行（全体团队）
+Whole crew || Seluruh kru || 全体团队
+Whole crew · research, budget maths, review || Seluruh kru · riset, hitung budget, tinjauan || 全体团队 · 调研、预算计算、审核
+Whole crew: plan, research, review || Seluruh kru: rencana, riset, tinjauan || 全体团队：规划、调研、审核
+Research & build || Riset & bangun || 调研与构建
+Research & compare || Riset & bandingkan || 调研与比较
+Research & drafting · no code execution || Riset & penyusunan · tanpa menjalankan kode || 调研与起草 · 不执行代码
+Research with live web sources || Riset dengan sumber web langsung || 使用实时网页来源调研
+Real code, actually executed || Kode nyata, benar-benar dijalankan || 真实代码，真正执行
+Graphic you can download || Grafik yang bisa diunduh || 可下载的图形
+Write something useful || Tulis sesuatu yang berguna || 写点有用的东西
+Stress-test an idea || Uji ketahanan ide || 压力测试一个想法
+AI review is a second look, not independent verification. No background scheduling or computer-control VM. || Tinjauan AI adalah pemeriksaan kedua, bukan verifikasi independen. Tanpa penjadwalan latar belakang atau VM pengendali komputer. || AI 审核只是第二次检查，不是独立验证。没有后台定时任务，也没有控制电脑的虚拟机。
+A mission is already running. Stop it or wait before starting another. || Sebuah misi sedang berjalan. Hentikan atau tunggu sebelum memulai yang lain. || 已有任务在运行。请先停止或等待，再开始新任务。
+All earlier phone links were turned off. || Semua tautan ponsel sebelumnya dimatikan. || 之前的手机连接已全部关闭。
+Cloud browser ready. || Browser cloud siap. || 云浏览器已就绪。
+Every step needs a title, instructions and a valid worker. || Setiap langkah butuh judul, instruksi dan pekerja yang valid. || 每一步都需要标题、说明和有效的执行者。
+Finish or stop the current mission before starting another. || Selesaikan atau hentikan misi saat ini sebelum memulai yang lain. || 请先完成或停止当前任务，再开始新任务。
+Glow Hands connected. No code needed on this browser again. || Glow Hands terhubung. Browser ini tidak perlu kode lagi. || Glow Hands 已连接。此浏览器以后无需再输入配对码。
+Install command copied. Press Win+R, paste, Enter. || Perintah pemasangan disalin. Tekan Win+R, tempel, Enter. || 安装命令已复制。按 Win+R，粘贴，回车。
+Memory cleared. || Memori dihapus. || 记忆已清除。
+Memory saved in this browser. || Memori disimpan di browser ini. || 记忆已保存在此浏览器中。
+Phone link copied. Send it to your phone privately. || Tautan ponsel disalin. Kirim ke ponselmu secara pribadi. || 手机链接已复制。请私下发送到你的手机。
+Select the command and copy it. || Pilih perintah lalu salin. || 请选中命令并复制。
+Sign-in didn't finish. You can keep using Glow Free. || Proses masuk belum selesai. Kamu tetap bisa memakai Glow Free. || 登录未完成。你可以继续使用 Glow Free。
+That cloud setup link isn't valid. || Tautan pengaturan cloud itu tidak valid. || 该云设置链接无效。
+That phone link isn't valid. Make a new one from GlowLead on your PC. || Tautan ponsel itu tidak valid. Buat yang baru dari GlowLead di PC-mu. || 该手机链接无效。请在电脑上的 GlowLead 中重新生成。
+This browser does not support notifications. || Browser ini tidak mendukung notifikasi. || 此浏览器不支持通知。
+This mission is running in another tab. Stop it in that tab. || Misi ini berjalan di tab lain. Hentikan di tab itu. || 此任务正在另一个标签页运行，请在那里停止。
+Use 1–5 done-criteria, each no longer than 200 characters. || Pakai 1–5 kriteria selesai, masing-masing maksimal 200 karakter. || 请使用 1–5 条完成标准，每条不超过 200 个字符。
+Use up to 20 notes, each no longer than 200 characters. || Pakai maksimal 20 catatan, masing-masing maksimal 200 karakter. || 最多 20 条备注，每条不超过 200 个字符。
+GlowLead finished: the report is below and in GlowChat. || GlowLead selesai: laporannya ada di bawah dan di GlowChat. || GlowLead 已完成：报告在下方，也已发送到 GlowChat。
+GlowLead owns this crew || GlowLead memimpin kru ini || 此团队由 GlowLead 负责
+Owner: GlowLead || Pemilik: GlowLead || 负责人：GlowLead
+GlowLead owns GlowRoom: give it a whole goal and it plans, hands steps to this crew and GlowChat, then checks the work || GlowLead memimpin GlowRoom: beri satu tujuan utuh dan ia merencanakan, menyerahkan langkah ke kru ini dan GlowChat, lalu memeriksa hasilnya || GlowRoom 由 GlowLead 负责：交给它一个完整目标，它会规划、把步骤分派给本团队和 GlowChat，再检查成果
+# GlowRoom
+Your AI crew, live || Kru AI-mu, langsung || 你的 AI 团队，实时
+Give a mission and watch it happen in the office: Nova splits the work, the crew searches the live web, runs real code and designs graphics — then hands you the result. || Beri misi dan saksikan di kantor: Nova membagi pekerjaan, kru mencari di web langsung, menjalankan kode nyata dan mendesain grafik — lalu menyerahkan hasilnya padamu. || 下达任务，在办公室里看它完成：Nova 分配工作，团队搜索实时网页、运行真实代码、设计图形，然后把成果交给你。
+Send mission || Kirim misi || 发送任务
+Mission brief… || Ringkasan misi… || 任务简介…
+Crew || Kru || 团队
+AI crew || Kru AI || AI 团队
+Crew status || Status kru || 团队状态
+Crew load || Beban kru || 团队负载
+Crew permissions || Izin kru || 团队权限
+Your Glow team || Tim Glow-mu || 你的 Glow 团队
+Meet your || Kenali || 认识你的
+Team Lead || Pemimpin Tim || 团队负责人
+Team coordinator || Koordinator tim || 团队协调员
+Research Agent || Agen Riset || 调研专员
+Research agent || Agen riset || 调研专员
+Software Developer || Pengembang Perangkat Lunak || 软件开发
+Software developer || Pengembang perangkat lunak || 软件开发
+Content Creator || Kreator Konten || 内容创作者
+Content creator || Kreator konten || 内容创作者
+QA Engineer || Insinyur QA || QA 工程师
+QA engineer || Insinyur QA || QA 工程师
+Code Reviewer || Peninjau Kode || 代码审查员
+Code reviewer || Peninjau kode || 代码审查员
+Leader || Pemimpin || 负责人
+leader || pemimpin || 负责人
+Checker || Pemeriksa || 检查员
+Tester || Penguji || 测试员
+Working || Bekerja || 工作中
+Idle || Menganggur || 空闲
+idle || menganggur || 空闲
+Offline || Offline || 离线
+Waiting for work || Menunggu pekerjaan || 等待任务
+on it || mengerjakan || 处理中
+researches the web || meriset web || 调研网页
+writes & runs code || menulis & menjalankan kode || 编写并运行代码
+writes & designs || menulis & mendesain || 写作与设计
+tests it || mengujinya || 测试
+reviews || meninjau || 审核
+Scout reads live reviews and cites them || Scout membaca ulasan terkini dan mengutipnya || Scout 阅读实时评测并注明出处
+Byte writes code and actually runs it || Byte menulis kode dan benar-benar menjalankannya || Byte 编写代码并真正运行
+Give Nova a goal || Beri Nova tujuan || 给 Nova 一个目标
+Give Byte a goal || Beri Byte tujuan || 给 Byte 一个目标
+Give Pixel a goal || Beri Pixel tujuan || 给 Pixel 一个目标
+Give Probe a goal || Beri Probe tujuan || 给 Probe 一个目标
+Give Scout a goal || Beri Scout tujuan || 给 Scout 一个目标
+Give Sentinel a goal || Beri Sentinel tujuan || 给 Sentinel 一个目标
+Dispatch || Kirim tugas || 分派
+Dispatch to Byte || Kirim tugas ke Byte || 分派给 Byte
+Hand it to || Serahkan ke || 交给
+Assign to || Tugaskan ke || 分配给
+Agent || Agen || 代理
+Agents Roster || Daftar Agen || 代理名单
+No agent selected || Tidak ada agen terpilih || 未选择代理
+Click an agent in the roster to inspect || Klik agen di daftar untuk melihat detail || 点击名单中的代理查看详情
+Inspector || Inspektur || 详情面板
+Activity || Aktivitas || 活动
+Event Log || Log Kejadian || 事件日志
+Events || Kejadian || 事件
+Errors || Galat || 错误
+Tasks done || Tugas selesai || 已完成任务
+Tool steps || Langkah alat || 工具步骤
+Priority || Prioritas || 优先级
+High || Tinggi || 高
+Normal || Normal || 普通
+Low || Rendah || 低
+In queue || Dalam antrean || 排队中
+Started || Dimulai || 已开始
+Command Console || Konsol Perintah || 命令控制台
+Focus command console || Fokus ke konsol perintah || 聚焦命令控制台
+Search activity, tools, goals… || Cari aktivitas, alat, tujuan… || 搜索活动、工具、目标…
+Search and commands || Pencarian dan perintah || 搜索与命令
+Filter bots || Saring bot || 筛选机器人
+Filter by bot || Saring berdasarkan bot || 按机器人筛选
+Filter by type || Saring berdasarkan jenis || 按类型筛选
+All || Semua || 全部
+Everyone || Semua orang || 所有人
+Panels || Panel || 面板
+Hide or show the side panels || Sembunyikan atau tampilkan panel samping || 隐藏或显示侧边面板
+Focus mode (hide side panels) || Mode fokus (sembunyikan panel samping) || 专注模式（隐藏侧边面板）
+Close panels / modal || Tutup panel / jendela || 关闭面板 / 弹窗
+Open 3D office || Buka kantor 3D || 打开 3D 办公室
+Explore the office || Jelajahi kantor || 探索办公室
+Switch view mode (Isometric / 3D) || Ganti mode tampilan (Isometrik / 3D) || 切换视图模式（等距 / 3D）
+Isometric || Isometrik || 等距
+Switch between midnight and daylight || Ganti antara malam dan siang || 在夜晚与白天之间切换
+Day || Siang || 白天
+Midnight || Tengah malam || 午夜
+Ambience || Suasana || 氛围
+Ambience Effects || Efek Suasana || 氛围效果
+Show Agent Labels || Tampilkan Label Agen || 显示代理标签
+Show Agent Nameplates || Tampilkan Papan Nama Agen || 显示代理名牌
+Show Connection Beams || Tampilkan Garis Koneksi || 显示连接光束
+Environment || Lingkungan || 环境
+Modern Office || Kantor Modern || 现代办公室
+Cozy Loft || Loteng Nyaman || 温馨阁楼
+Minimal Studio || Studio Minimalis || 极简工作室
+Night City || Kota Malam || 夜之城
+Space Station || Stasiun Luar Angkasa || 太空站
+Zen Garden || Taman Zen || 禅意花园
+Glow Studio || Glow Studio || Glow 工作室
+Simulation || Simulasi || 模拟
+Simulate || Simulasikan || 模拟
+Run simulation || Jalankan simulasi || 运行模拟
+Resume simulation || Lanjutkan simulasi || 继续模拟
+Recorded / live feed || Rekaman / siaran langsung || 录制 / 实时
+Play / Pause event feed || Putar / Jeda umpan kejadian || 播放 / 暂停事件流
+Play/Pause (Space) || Putar/Jeda (Spasi) || 播放/暂停（空格）
+Playback || Pemutaran || 回放
+Speed || Kecepatan || 速度
+How fast bots work || Seberapa cepat bot bekerja || 机器人工作速度
+Autonomous work || Kerja otomatis || 自主工作
+Bots pick up work on their own || Bot mengambil pekerjaan sendiri || 机器人自行领取任务
+Idle bots start their own tasks || Bot yang menganggur memulai tugas sendiri || 空闲的机器人会自行开始任务
+Wake idle bots || Bangunkan bot yang menganggur || 唤醒空闲机器人
+Unblock stalled tasks || Lanjutkan tugas yang macet || 解除卡住的任务
+Clear finished || Hapus yang selesai || 清除已完成
+Everything your crew has delivered || Semua yang telah diserahkan krumu || 团队交付的全部成果
+Your results flow into || Hasilmu mengalir ke || 你的成果会汇入
+Delegated crew work stays in || Pekerjaan kru yang didelegasikan tetap di || 委派给团队的工作保存在
+Haptics || Getaran || 触感反馈
+Vibrate on completions and errors || Bergetar saat selesai dan saat galat || 完成或出错时振动
+Toasts when tasks finish || Pemberitahuan saat tugas selesai || 任务完成时弹出提示
+Keyboard Shortcuts & Help || Pintasan Keyboard & Bantuan || 键盘快捷键与帮助
+Show this help dialog || Tampilkan dialog bantuan ini || 显示此帮助对话框
+Shortcuts || Pintasan || 快捷键
+Navigation || Navigasi || 导航
+Mode || Mode || 模式
+View || Tampilan || 视图
+Experience || Pengalaman || 体验
+Connection || Koneksi || 连接
+Configure || Atur || 配置
+Upstream URL || URL upstream || 上游地址
+Search endpoint || Endpoint pencarian || 搜索端点
+Skip to workspace || Lompat ke ruang kerja || 跳到工作区
+Browser-first workspace || Ruang kerja berbasis browser || 浏览器优先的工作区
+AI brain || Otak AI || AI 大脑
+Run with AI || Jalankan dengan AI || 用 AI 运行
+Initiating sprint planning || Memulai perencanaan sprint || 开始冲刺规划
+Prioritising backlog || Memprioritaskan backlog || 整理待办优先级
+Summarise team progress || Rangkum progres tim || 汇总团队进度
+Plan this week's sprint || Rencanakan sprint minggu ini || 规划本周冲刺
+Fix the login bug || Perbaiki bug login || 修复登录 bug
+Refactor the API client || Refaktor klien API || 重构 API 客户端
+Add dark mode || Tambah mode gelap || 添加深色模式
+Launch tweet thread || Utas tweet peluncuran || 发布推文串
+User feedback digest || Ringkasan masukan pengguna || 用户反馈摘要
+Events over the last two minutes || Kejadian dua menit terakhir || 最近两分钟的事件
+Events / min || Kejadian / menit || 事件 / 分钟
+Events Processed || Kejadian Diproses || 已处理事件
+Last Event || Kejadian Terakhir || 最近事件
+Clock || Jam || 时钟
+# Profile & settings
+Profile || Profil || 个人资料
+Profile & settings || Profil & pengaturan || 个人资料与设置
+Profile & settings for every Glow app || Profil & pengaturan untuk semua aplikasi Glow || 所有 Glow 应用的个人资料与设置
+Your Glow profile and settings || Profil dan pengaturan Glow-mu || 你的 Glow 个人资料与设置
+Account || Akun || 账户
+Your name || Namamu || 你的名字
+Name || Nama || 名字
+What Glow calls you || Panggilan Glow untukmu || Glow 怎么称呼你
+What should Glow call you? || Glow harus memanggilmu apa? || Glow 该怎么称呼你？
+Your name or nickname (optional) || Nama atau panggilanmu (opsional) || 你的名字或昵称（可选）
+Used by every Glow app. GlowChat greets you by this name. || Dipakai semua aplikasi Glow. GlowChat menyapamu dengan nama ini. || 所有 Glow 应用都会使用。GlowChat 会用这个名字问候你。
+Avatar colour || Warna avatar || 头像颜色
+Not signed in || Belum masuk || 未登录
+Sign in with a free Puter account to use Glow AI models and sync your chats. || Masuk dengan akun Puter gratis untuk memakai model Glow AI dan menyinkronkan chat. || 使用免费的 Puter 账户登录，即可使用 Glow AI 模型并同步聊天。
+Your persona || Persona kamu || 你的人设
+Usage || Pemakaian || 用量
+Usage & allowance || Pemakaian & jatah || 用量与额度
+Data || Data || 数据
+Your data || Datamu || 你的数据
+My data & privacy || Data & privasi saya || 我的数据与隐私
+Export everything || Ekspor semuanya || 全部导出
+Delete all GlowChat data on this device || Hapus semua data GlowChat di perangkat ini || 删除此设备上的所有 GlowChat 数据
+Delete everything || Hapus semuanya || 全部删除
+Reset all data || Atur ulang semua data || 重置所有数据
+Glow has no server. Everything below lives on this device unless you turned on sync. || Glow tidak punya server. Semua di bawah ini ada di perangkat ini kecuali kamu menyalakan sinkronisasi. || Glow 没有服务器。除非你开启同步，以下内容都只保存在此设备上。
+How Glow handles your data || Cara Glow menangani datamu || Glow 如何处理你的数据
+chats on this device || chat di perangkat ini || 此设备上的聊天
+stored on this device || disimpan di perangkat ini || 保存在此设备上
+oldest chat || chat terlama || 最早的聊天
+pictures made || gambar dibuat || 已生成图片
+About || Tentang || 关于
+About Glow || Tentang Glow || 关于 Glow
+Version || Versi || 版本
+Glow version || Versi Glow || Glow 版本
+Check for updates || Periksa pembaruan || 检查更新
+GlowChat settings || Pengaturan GlowChat || GlowChat 设置
+Models, API keys, Ollama and custom instructions || Model, kunci API, Ollama dan instruksi khusus || 模型、API 密钥、Ollama 和自定义指令
+Crew AI mode, office look and panels (⚙ inside GlowRoom) || Mode AI kru, tampilan kantor dan panel (⚙ di dalam GlowRoom) || 团队 AI 模式、办公室外观和面板（在 GlowRoom 内点 ⚙）
+Sections || Bagian || 栏目
+All Glow apps || Semua aplikasi Glow || 所有 Glow 应用
+Glow home || Beranda Glow || Glow 主页
+Get the apps || Dapatkan aplikasinya || 获取应用
+Windows, Android and iPhone || Windows, Android dan iPhone || Windows、Android 和 iPhone
+UI Language || Bahasa antarmuka || 界面语言
+Language || Bahasa || 语言
+English || English || English

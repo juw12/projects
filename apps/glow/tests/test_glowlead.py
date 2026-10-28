@@ -1,4 +1,4 @@
-"""Static checks for GlowLead, the lead (orchestrator) of the Glow apps."""
+﻿"""Static checks for GlowLead, the lead (orchestrator) of the Glow apps."""
 import json
 import re
 import unittest
@@ -47,7 +47,7 @@ class GlowLeadTests(unittest.TestCase):
 
     def test_worker_cache_is_scoped(self):
         worker = (LEAD / "sw.js").read_text(encoding="utf-8")
-        self.assertIn("const CACHE_NAME = 'glowlead-v19';", worker)
+        self.assertIn("const CACHE_NAME = 'glowlead-v21';", worker)
         self.assertIn("name.startsWith('glowlead-')", worker)
         self.assertNotIn("caches.keys().then((names) => Promise.all(names.map", worker)
         home_worker = (WEB / "sw.js").read_text(encoding="utf-8")

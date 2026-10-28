@@ -92,6 +92,11 @@
         <option value="light">Light</option>
       </select>
     </div>
+    <div class="field inline">
+      <span class="label">🌐 Language &amp; region</span>
+      <button class="btn small" id="locale-btn" type="button">Change</button>
+      <span class="hint" id="locale-text"></span>
+    </div>
     <label class="toggle"><input type="checkbox" id="followups"><span>Suggest follow-up questions after answers</span></label>
     <label class="toggle"><input type="checkbox" id="cloudsync"><span>Sync chats to my Puter account (only when signed in)</span></label>
     <div class="links">
@@ -132,6 +137,7 @@
 </main>
 <div class="toast" id="toast" hidden></div>
 
+<script src="../shared/glow-locale.js"></script>
 <script src="../shared/glow-apps.js"></script>
 <script src="https://js.puter.com/v2/" async id="puter-sdk"></script>
 <script src="./account.js"></script>
