@@ -662,6 +662,8 @@
     "iPhone",
     "Android"
    ],
+   "image": "lingua-halftone.jpg",
+   "image_alt": "Lingua on Windows: the main window with live-caption controls next to the Text desk translating an English note into Traditional Chinese",
    "links": {
     "app": "lingua/picture.html",
     "web": "lingua/web.html",
@@ -682,7 +684,16 @@
     }
    ],
    "order": 4,
-   "portfolio": false,
+   "extra_links": [
+    {
+     "label": "Install guide (PPT)",
+     "url": "https://github.com/juw12/projects/raw/refs/heads/main/apps/lingua/docs/Lingua_Installation_and_Usage_Guide.pptx"
+    },
+    {
+     "label": "Windows download",
+     "url": "https://github.com/juw12/projects/releases/tag/lingua-v2.3.1"
+    }
+   ],
    "version": "2.3.1"
   },
   {

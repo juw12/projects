@@ -197,6 +197,21 @@ There is no App Store / Play Store build: the phone version is the installable w
 Put a `lingua.env` (see `packaging/lingua.env.example`) next to `Lingua.exe` with the gateway
 URLs; the key comes from `MAAS_API_KEY`, `lingua.env`, or the OpenCode config as before.
 
+## Sharing Lingua with colleagues (guide deck + update e-mails)
+
+- **Installation & usage guide:** [`docs/Lingua_Installation_and_Usage_Guide.pptx`](docs/Lingua_Installation_and_Usage_Guide.pptx)
+  (15 slides: requirements, 4-step install, folder layout, API key, main window, live Teams captions, Text desk,
+  alternatives, Read picture, phone pairing, updates and fallback, troubleshooting). Rebuild it for a new version with
+  `python tools/share-kit/build_guide.py`.
+- **How it was shared (v2.3.1):** one e-mail to the team with a link to the release zip, the guide deck and a
+  `lingua.env` that holds only the gateway settings - **never an API key** (each person uses their own key from
+  OpenCode, `MAAS_API_KEY`, or their own `lingua.env`).
+- **Automatic update e-mails:** [`tools/share-kit/notifier/`](tools/share-kit/notifier/) polls the GitHub releases
+  hourly. When a new `lingua-vX.Y.Z` release has its zip uploaded and has settled for 30 minutes, it replies-all in the
+  original Outlook thread with how to update, what's new since the last e-mail, the version history and an update deck
+  (changes + full usage guide). One e-mail per version; it never starts a new thread. Recipients, thread subject and
+  greeting live in a git-ignored `config.json` - see [`tools/share-kit/README.md`](tools/share-kit/README.md).
+
 ## API key & config
 
 Lingua never stores its own key. It discovers the MaaS key in this order:
@@ -240,6 +255,8 @@ apps/lingua/
     region.py        full-screen drag-to-select region picker
     picture.py       Read-picture window (open / paste / grab -> text)
     share.py         Share-to-phone window (QR code + pairing link)
+  docs/              installation & usage guide deck (pptx)
+  tools/share-kit/   guide-deck builder + Outlook update notifier for colleagues
   tests/
     run_all.py       hermetic runner, exit 0/1
     test_pipeline.py pure-logic tests (no network, no display)

@@ -1,0 +1,6 @@
+# Local only: real recipients, thread state, generated decks and logs.
+notifier/config.json
+notifier/state.json
+notifier/out/
+notifier/*.log
+__pycache__/
