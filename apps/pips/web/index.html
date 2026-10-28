@@ -56,15 +56,15 @@
     <hr class="rule">
     <img src="pips-pet-hero.jpg" alt="Pips: twelve of the 23 desktop pet animals next to the Pomodoro card">
     <div class="download">
-      <a class="btn primary big" href="download/Pips-Windows.zip" download>&#11015; Download for Windows (.zip, free)</a>
-      <a class="btn big" href="download/Pips-Guide.pptx">&#128216; User guide (PPT)</a>
-      <p class="small">Windows 10/11 &middot; needs <a href="https://www.python.org/downloads/windows/">Python 3</a> (free).
-      Unzip, double-click <code>Start Pips.bat</code>, pick your language &mdash; done.</p>
+      <a class="btn primary big" href="download/Pips-Setup.exe" download>&#11015; Download Pips for Windows</a>
+      <p class="small">Windows 10/11 (64-bit) &middot; Free &middot; Python included &middot; No administrator password.</p>
+      <p>Open the download and click <strong>Install Pips</strong>. Your pet opens automatically. Nothing to unzip.</p>
+      <p class="small"><a href="download/Pips-Guide.pptx">User guide (PowerPoint)</a></p>
     </div>
     <!-- whatsnew:start -->
-    <h2>New in 2.13.0 <span class="small">(2026-10-28)</span></h2>
-    <ul><li>Set your birthday in Social → Profile (month + day, optionally visible to friends).</li><li>On your birthday Pips throws confetti and gives you 100 bonus coins.</li><li>Friends tab shows upcoming birthdays; you get reminders 3 days, 1 day and on the day.</li><li>Birthday parties: join a friend&#x27;s party, see who&#x27;s there, sign the guestbook and celebrate together.</li><li>Send gifts: any shop item (previewed on their pet), coins, or both, with a message — paid from your own coins.</li></ul>
-    <p class="small">Already have Pips 2.1 or newer? It updates itself &mdash; right-click your pet &rarr; Help &rarr; Check for updates. <a href="download/Pips-Guide.pptx">User guide (PowerPoint)</a></p>
+    <h2>New in 2.13.1 <span class="small">(2026-10-28)</span></h2>
+    <ul><li>One Windows installer: no ZIP extraction, Python installation or command line. Download, open and click Install Pips.</li><li>Installs for your Windows account without administrator access, adds Desktop and Start Menu shortcuts, and opens Pips automatically.</li><li>Reinstalling in the same location keeps your settings and pet progress. Existing ZIP users can keep updating in place from Help → Check for updates.</li><li>A simpler download page and updated user guide; the bundled runtime stays separate from small in-app updates.</li></ul>
+    <p class="small">Already have Pips? Keep your current installation and profile: right-click your pet &rarr; Help &rarr; Check for updates. No reinstall needed.</p>
     <!-- whatsnew:end -->
     <h2>Your desktop pet</h2>
     <ul>
@@ -86,111 +86,36 @@
     </ul>
     <h2>Install</h2>
     <ol>
-      <li>Download <a href="download/Pips-Windows.zip">Pips-Windows.zip</a> and unzip it anywhere (e.g. <code>Documents\Pips</code>).</li>
-      <li>Double-click <code>Start Pips.bat</code>. The first start installs two small helpers (pywin32, Pillow).</li>
-      <li>Choose your language, then click your new pet to open Pips. Right-click it for everything else.</li>
-      <li>Optional: run <code>install_autostart.ps1</code> to start Pips with Windows.</li>
+      <li>Click <strong>Download Pips for Windows</strong> above.</li>
+      <li>Open <strong>Pips-Setup.exe</strong> from your browser and click <strong>Install Pips</strong>.</li>
+      <li>Choose your language and meet your pet. Pips is also in your Desktop and Start Menu shortcuts.</li>
     </ol>
-    <p class="small">Everything stays on your PC &mdash; no account, nothing uploaded.</p>
+    <p class="small">No Python setup, no ZIP extraction, no commands. Installs only for your Windows account.
+    You can opt in to start with Windows from Pips &rarr; Autostart.</p>
+    <p class="small">This installer is currently unsigned. Windows SmartScreen may show &ldquo;Windows protected your PC&rdquo;.
+    If you trust this official download, choose <strong>More info &rarr; Run anyway</strong> if available.
+    On a managed work PC, ask IT if installation is blocked; do not disable security software.</p>
+    <details><summary>Troubleshooting, existing users &amp; advanced downloads</summary>
+      <p>Already use a ZIP copy? Update inside that copy via Help &rarr; Check for updates to keep the same profile.
+      The installer preserves data in its own installation folder; it does not automatically import another ZIP folder.</p>
+      <p>To remove the installed app, use Windows Settings &rarr; Apps &rarr; Pips &rarr; Uninstall.
+      Your local settings and progress are left in place for a later reinstall.</p>
+      <p><a href="download/Pips-Windows.zip" download>Source/update archive (advanced; Python required)</a></p>
+    </details>
+    <p class="small">Focus history is stored locally. Optional Friends and sharing features use the Pips online service.</p>
     <div class="btns" style="align-items:center">
       <a class="btn primary" href="https://github.com/juw12/projects/tree/main/apps/pips">Source on GitHub</a>
       <a class="btn" href="../">Back to projects</a>
-      <button id="btn-install-app" title="Install Pips as an app">Install App</button>
     </div>
     <footer>Python 3 &middot; Tkinter &middot; SQLite &mdash; runs locally on Windows.</footer>
   </div>
 
-  <div id="install-callout" class="hidden">
-    <button class="callout-close" id="btn-dismiss-callout" title="Dismiss">×</button>
-    <div class="callout-header">Install Pips</div>
-    <div class="callout-body">Install Pips as an app for quick access and a better experience.</div>
-    <div class="callout-actions">
-      <button class="btn-install" id="btn-callout-install">Install</button>
-    </div>
-  </div>
-
   <script>
-  (function(){
-    // Service Worker registration
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', function() {
-        navigator.serviceWorker.register('./sw.js')
-          .then(function(reg) {
-            console.log('Service Worker registered:', reg.scope);
-          })
-          .catch(function(err) {
-            console.log('Service Worker registration failed:', err);
-          });
-      });
-    }
-
-    // Install prompt handling
-    var deferredPrompt = null;
-    var btnInstall = document.getElementById('btn-install-app');
-    var callout = document.getElementById('install-callout');
-    var btnCalloutInstall = document.getElementById('btn-callout-install');
-    var btnDismissCallout = document.getElementById('btn-dismiss-callout');
-
-    // Check if already in standalone mode
-    function isStandalone() {
-      return window.matchMedia('(display-mode: standalone)').matches ||
-             (window.navigator.standalone === true);
-    }
-
-    // Hide install UI if in standalone or already dismissed
-    function hideInstallUI() {
-      if (btnInstall) btnInstall.style.display = 'none';
-      if (callout) callout.classList.add('hidden');
-    }
-
-    if (isStandalone()) {
-      hideInstallUI();
-    } else if (localStorage.getItem('pips.installCalloutDismissed') === 'true') {
-      if (callout) callout.classList.add('hidden');
-    }
-
-    window.addEventListener('beforeinstallprompt', function(event) {
-      event.preventDefault();
-      deferredPrompt = event;
-      if (btnInstall) btnInstall.style.display = 'inline-block';
-      if (callout && localStorage.getItem('pips.installCalloutDismissed') !== 'true') {
-        callout.classList.remove('hidden');
-      }
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.register('./sw.js', {updateViaCache: 'none'}).catch(function () {});
     });
-
-    window.addEventListener('appinstalled', function() {
-      hideInstallUI();
-      deferredPrompt = null;
-    });
-
-    function handleInstallClick() {
-      if (!deferredPrompt) return;
-      deferredPrompt.prompt()
-        .then(function(choice) {
-          if (choice.outcome === 'accepted') {
-            hideInstallUI();
-          }
-          deferredPrompt = null;
-        })
-        .catch(function(err) {
-          console.log('Install prompt error:', err);
-          deferredPrompt = null;
-        });
-    }
-
-    if (btnInstall) {
-      btnInstall.addEventListener('click', handleInstallClick);
-    }
-    if (btnCalloutInstall) {
-      btnCalloutInstall.addEventListener('click', handleInstallClick);
-    }
-    if (btnDismissCallout) {
-      btnDismissCallout.addEventListener('click', function() {
-        callout.classList.add('hidden');
-        localStorage.setItem('pips.installCalloutDismissed', 'true');
-      });
-    }
-  })();
+  }
   </script>
 </body>
 </html>

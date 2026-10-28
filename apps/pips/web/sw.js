@@ -1,11 +1,11 @@
-(function() {
+(function () {
   'use strict';
 
-  const CACHE_NAME = 'pips-v2-pet';
+  const CACHE_NAME = 'pips-v2.13.1';
   const ASSETS = [
     './',
-    './web.html',
     './index.html',
+    './web.html',
     './mobile.html',
     './manifest.webmanifest',
     './icons/icon-192.png',
@@ -14,78 +14,73 @@
     './icons/apple-touch-icon.png'
   ];
 
-  // Install: cache app shell
-  self.addEventListener('install', function(event) {
+  self.addEventListener('install', function (event) {
     event.waitUntil(
       caches.open(CACHE_NAME)
-        .then(function(cache) {
-          return cache.addAll(ASSETS);
-        })
-        .then(function() {
-          return self.skipWaiting();
-        })
+        .then(function (cache) { return cache.addAll(ASSETS); })
+        .then(function () { return self.skipWaiting(); })
     );
   });
 
-  // Activate: clean old caches, claim clients
-  self.addEventListener('activate', function(event) {
+  self.addEventListener('activate', function (event) {
     event.waitUntil(
       caches.keys()
-        .then(function(cacheNames) {
-          return Promise.all(
-            cacheNames.filter(function(name) {
-              return name !== CACHE_NAME;
-            }).map(function(name) {
-              return caches.delete(name);
-            })
-          );
+        .then(function (names) {
+          return Promise.all(names.filter(function (name) {
+            // Never remove another project's caches on this shared origin.
+            return name.indexOf('pips-') === 0 && name !== CACHE_NAME;
+          }).map(function (name) { return caches.delete(name); }));
         })
-        .then(function() {
-          return self.clients.claim();
+        .then(function () { return self.clients.claim(); })
+        .then(function () {
+          // Older workers served a cached ZIP-download page. Refresh only the
+          // native download landing page, never an in-use web/mobile app.
+          return self.clients.matchAll({type: 'window'}).then(function (clients) {
+            const scope = new URL(self.registration.scope);
+            return Promise.all(clients.map(function (client) {
+              const path = new URL(client.url).pathname;
+              if (path === scope.pathname || path === scope.pathname + 'index.html') {
+                return client.navigate(client.url).catch(function () {});
+              }
+              return Promise.resolve();
+            }));
+          });
         })
     );
   });
 
-  // Fetch: cache-first with network fallback
-  self.addEventListener('fetch', function(event) {
-    // Only handle same-origin and GET requests
+  self.addEventListener('fetch', function (event) {
     if (event.request.method !== 'GET') return;
-
     const url = new URL(event.request.url);
-    const isSameOrigin = url.origin === self.location.origin;
+    const scope = new URL(self.registration.scope);
+    if (url.origin !== scope.origin || url.pathname.indexOf(scope.pathname) !== 0) return;
 
-    if (!isSameOrigin) return;
+    // Installers, update archives, manifests and guides always come from the
+    // server. A cached executable or latest.json can silently pin users to an
+    // old version, and large installers should not fill the offline cache.
+    if (url.pathname.indexOf(scope.pathname + 'download/') === 0) return;
 
     event.respondWith(
-      caches.match(event.request)
-        .then(function(cachedResponse) {
-          if (cachedResponse) {
-            return cachedResponse;
+      fetch(event.request, {cache: 'no-cache'})
+        .then(function (response) {
+          if (response.ok && response.type === 'basic') {
+            const copy = response.clone();
+            return caches.open(CACHE_NAME).then(function (cache) {
+              return cache.put(event.request, copy);
+            }).catch(function () {}).then(function () { return response; });
           }
-          // Network fallback
-          return fetch(event.request)
-            .then(function(networkResponse) {
-              // Cache successful responses
-              if (networkResponse && networkResponse.status === 200) {
-                const responseClone = networkResponse.clone();
-                caches.open(CACHE_NAME)
-                  .then(function(cache) {
-                    cache.put(event.request, responseClone);
-                  });
-              }
-              return networkResponse;
-            });
+          return response;
         })
-        .catch(function() {
-          // Offline fallback for navigation requests
-          if (event.request.mode === 'navigate') {
-            return caches.match('./web.html')
-              .then(function(page) {
-                return page || caches.match('./index.html');
+        .catch(function () {
+          return caches.match(event.request).then(function (cached) {
+            if (cached) return cached;
+            if (event.request.mode === 'navigate') {
+              return caches.match('./web.html').then(function (page) {
+                return page || new Response('Offline', {status: 503});
               });
-          }
-          // Return nothing for non-navigation requests when offline
-          return new Response('Offline', { status: 503 });
+            }
+            return new Response('Offline', {status: 503});
+          });
         })
     );
   });

@@ -41,7 +41,7 @@ from pathlib import Path
 logger = logging.getLogger("updater")
 
 MANIFEST_URL = "https://juw12.github.io/projects/pips/download/latest.json"
-PROTECTED = {"config.json", "data", "logs", "backup", "output", "__pycache__", ".release"}
+PROTECTED = {"config.json", "data", "logs", "backup", "output", "__pycache__", ".release", "runtime"}
 USER_AGENT = "Pips-Updater"
 
 
@@ -127,7 +127,7 @@ def install(manifest: dict, app_dir, current_version: str, progress=None) -> str
         with zipfile.ZipFile(zip_path) as archive:
             for member in archive.namelist():
                 target = (tmp_path / "x" / member).resolve()
-                if not str(target).startswith(str((tmp_path / "x").resolve())):
+                if not target.is_relative_to((tmp_path / "x").resolve()):
                     raise ValueError("unsafe path inside update archive")
             archive.extractall(tmp_path / "x")
         source = tmp_path / "x"
@@ -140,7 +140,8 @@ def install(manifest: dict, app_dir, current_version: str, progress=None) -> str
         backup = app_dir / "backup" / f"v{current_version}-{time.strftime('%Y%m%d-%H%M%S')}"
         for item in source.rglob("*"):
             rel = item.relative_to(source)
-            if rel.parts[0] in PROTECTED:
+            top_name = rel.parts[0].lower()
+            if top_name in PROTECTED or top_name.startswith("unins"):
                 continue
             dest = app_dir / rel
             if item.is_dir():
