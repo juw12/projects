@@ -1,0 +1,17 @@
+{
+  "repo": "juw12/projects",
+  "proxy": "",
+  "baseline_version": "2.3.1",
+  "settle_minutes": 30,
+  "thread_subject": "Subject of the first e-mail you sent (the thread to reply in)",
+  "recipients": [
+    "colleague.one@example.com",
+    "colleague.two@example.com"
+  ],
+  "greeting": "Hi all,",
+  "signature": "Your name",
+  "contact": {
+    "line": "Your name  ·  you@example.com",
+    "note": "Prepared by your name"
+  }
+}
