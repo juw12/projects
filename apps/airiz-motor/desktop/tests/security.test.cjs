@@ -4,8 +4,25 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('node:path');
 const { EventEmitter } = require('node:events');
-const { isAppUrl, resolveAsset, canOpenExternal, publicPort } = require('../security.cjs');
+const { isAppUrl, resolveAsset, canOpenExternal, isTeamsWorkflowUrl, publicPort } = require('../security.cjs');
 const { createSerialChooser } = require('../serial-chooser.cjs');
+
+test('Ziris PTB Teams posts only go to Power Automate / Teams webhook hosts', () => {
+  for (const url of [
+    'https://prod-00.westus.logic.azure.com:443/workflows/abc/triggers/manual/paths/invoke?api-version=2016-06-01&sig=x',
+    'https://default123.45.environment.api.powerplatform.com/powerautomate/automations/direct/workflows/abc/triggers/manual/paths/invoke?sig=x',
+    'https://contoso.webhook.office.com/webhookb2/abc'
+  ]) {
+    assert.equal(isTeamsWorkflowUrl(url), true, url);
+  }
+  for (const url of [
+    'http://prod-00.westus.logic.azure.com/workflows/abc', 'https://logic.azure.com.evil.com/x',
+    'https://user:pw@prod-00.westus.logic.azure.com/x', 'https://prod-00.westus.logic.azure.com:8443/x',
+    'https://example.com/', 'file:///c:/x', 'not a url', ''
+  ]) {
+    assert.equal(isTeamsWorkflowUrl(url), false, url);
+  }
+});
 
 test('only the packaged local origin is trusted', () => {
   assert.equal(isAppUrl('airiz://app/'), true);

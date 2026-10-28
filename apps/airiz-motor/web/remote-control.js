@@ -441,6 +441,7 @@
     $('share-control-code').textContent = code;
     $('share-control-code-box').hidden = false;
     $('share-control-link').value = controlLink(code);
+    document.dispatchEvent(new CustomEvent('airiz:share-code', { detail: { kind: 'control', code, link: controlLink(code) } }));
     $('share-control-link-row').hidden = false;
     $('share-control-start').disabled = true;
     $('share-control-stop').disabled = false;
@@ -459,6 +460,7 @@
     }
     const drops = [...host.controllers.keys()].map(cid => hostDropController(cid, null));
     Promise.all(drops).catch(() => {});
+    if (host.code) document.dispatchEvent(new CustomEvent('airiz:share-code', { detail: { kind: 'control', code: null } }));
     host.code = null;
     clearInterval(host.watchTimer);
     clearTimeout(host.relayRetry);

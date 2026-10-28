@@ -40,6 +40,19 @@ function canOpenExternal(value) {
   }
 }
 
+// Ziris PTB Teams auto-post: Power Automate workflow / Teams webhook endpoints only.
+function isTeamsWorkflowUrl(value) {
+  try {
+    const url = new URL(String(value));
+    if (url.protocol !== 'https:' || url.username || url.password || (url.port && url.port !== '443')) return false;
+    return /^[a-z0-9-]+(\.[a-z0-9-]+)*\.logic\.azure\.com$/i.test(url.hostname)
+      || /^[a-z0-9-]+(\.[a-z0-9-]+)*\.api\.powerplatform\.com$/i.test(url.hostname)
+      || /^[a-z0-9-]+\.webhook\.office\.com$/i.test(url.hostname);
+  } catch {
+    return false;
+  }
+}
+
 function publicPort(port) {
   return {
     id: String(port.portId),
@@ -50,4 +63,4 @@ function publicPort(port) {
   };
 }
 
-module.exports = { isAppUrl, resolveAsset, canOpenExternal, publicPort };
+module.exports = { isAppUrl, resolveAsset, canOpenExternal, isTeamsWorkflowUrl, publicPort };

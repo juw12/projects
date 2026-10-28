@@ -1,5 +1,22 @@
 # Airiz Motor Test Console
 
+Owner: **Juwen Lie** · Team: **Ziris PTB** (co-admins and testers)
+
+## Ziris PTB team: Teams auto-post (members only)
+
+When a Ziris PTB member presses **Camera → Share to phone**, the 6-digit code is posted
+automatically to the *Ziris PTB* Microsoft Teams group chat (adaptive card with the code,
+member name, PC name and a *Watch on phone* button). Optionally the *Share control* code too.
+
+- Only PCs with a **team pass** (`ZPTB1-…`, issued by the owner in *Ziris PTB team → Owner setup*)
+  ever send anything. Without a pass the app stays silent.
+- The pass holds the member name/role and the private address of the Teams workflow
+  *Send webhook alerts to a chat* added to the Ziris PTB chat. The address is never in this repo.
+- Revoke: delete the workflow, create a new one, hand out new passes.
+- Desktop app posts from the main process (`airiz:teams-post`, Power Automate/Teams hosts only);
+  browsers post directly (Power Automate answers CORS with `*`).
+- In-app **Guide & history** page: user guide for every feature and the history of the console.
+
 ## Windows desktop app
 
 A downloadable Windows x64 desktop edition now bundles this entire console locally.

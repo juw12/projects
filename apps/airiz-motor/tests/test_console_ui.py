@@ -104,5 +104,28 @@ class ControllerShellTests(unittest.TestCase):
         self.assertIn('does not stop an in-flight move', self.html)
 
 
+    def test_ziris_team_page_guide_and_owner(self):
+        for element_id in ['tab-team', 'view-team', 'tab-guide', 'view-guide', 'team-pass-input', 'team-join-button',
+                           'team-auto-camera', 'team-auto-control', 'team-test', 'team-owner-url', 'team-owner-create',
+                           'relay-teams-status', 'btn-relay-teams-send', 'sidebar-owner', 'team-log']:
+            self.assertIn(element_id, self.by_id, element_id)
+        self.assertIn('ziris-team.js', self.parser.scripts)
+        self.assertLess(self.parser.scripts.index('ziris-team.js'), self.parser.scripts.index('camera-relay.js'))
+        self.assertIn('ziris-team.css', self.parser.styles)
+        self.assertIn('Juwen Lie', self.html)
+        self.assertIn('guide-history', self.by_id)
+        team = (WEB / 'ziris-team.js').read_text(encoding='utf-8')
+        self.assertIn("OWNER_NAME = 'Juwen Lie'", team)
+        self.assertIn("TEAM_NAME = 'Ziris PTB'", team)
+        # Nothing is posted without a team pass, and the Workflow address never lives in the code.
+        self.assertIn("if (!member) return { skipped: 'not-member' }", team)
+        self.assertNotRegex(team, r'logic\.azure\.com/workflows/')
+        for name in ['camera-relay.js', 'remote-control.js']:
+            self.assertIn('airiz:share-code', (WEB / name).read_text(encoding='utf-8'), name)
+        worker = (WEB / 'sw.js').read_text(encoding='utf-8')
+        self.assertIn("'./ziris-team.js'", worker)
+        self.assertIn("'./ziris-team.css'", worker)
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)
