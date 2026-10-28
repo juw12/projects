@@ -716,12 +716,16 @@
     if (status) status.textContent = text;
   }
 
-  function phoneOpen(prefill) {
+  function phoneOpen(prefill, autoConnect) {
     const dialog = phone.dialog || phoneBuildDialog();
     if (prefill) $('connect-code-input').value = prefill;
-    phoneStatus(api.getStatus().connected ? 'Disconnect the current device first.' : '');
+    const busyElsewhere = api.getStatus().connected;
+    phoneStatus(busyElsewhere ? 'Disconnect the current device first.' : '');
     if (!dialog.open) dialog.showModal();
     $('connect-code-input').focus();
+    // Opened from a share link: the code is already known, so connect right away
+    // (the PC operator still has to press Allow).
+    if (autoConnect && prefill && !busyElsewhere && !phone.busy) phoneConnect();
   }
 
   async function phoneConnect() {
@@ -795,8 +799,9 @@
   function openFromHash() {
     const match = /(?:^|[#&])control=(\d{6})\b/.exec(location.hash || '');
     if (!match) return;
+    window.AirizDeepLink = 'control';
     history.replaceState(null, '', location.pathname + location.search);
-    setTimeout(() => phoneOpen(match[1]), 400);
+    setTimeout(() => phoneOpen(match[1], true), 400);
   }
   window.addEventListener('hashchange', openFromHash);
   openFromHash();

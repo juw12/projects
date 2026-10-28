@@ -155,7 +155,7 @@
       "image": "airiz-motor-hero-halftone.jpg",
       "image_alt": "Airiz Motor Test Console dashboard: command library, serial console and macro notepad for AIRIZ device motor testing",
       "links": {
-        "app": "https://github.com/juw12/projects/releases/download/airiz-desktop-v1.5.0/AIRIZ-Console-Setup-1.5.0-x64.exe",
+        "app": "https://github.com/juw12/projects/releases/download/airiz-desktop-v1.5.1/AIRIZ-Console-Setup-1.5.1-x64.exe",
         "web": "airiz-motor/",
         "mobile": "airiz-motor/"
       },
@@ -165,7 +165,7 @@
       "card_links": [
         {
           "label": "Windows app",
-          "path": "https://github.com/juw12/projects/releases/download/airiz-desktop-v1.5.0/AIRIZ-Console-Setup-1.5.0-x64.exe"
+          "path": "https://github.com/juw12/projects/releases/download/airiz-desktop-v1.5.1/AIRIZ-Console-Setup-1.5.1-x64.exe"
         },
         {
           "label": "Web",

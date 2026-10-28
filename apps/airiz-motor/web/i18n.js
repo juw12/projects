@@ -464,10 +464,50 @@
     return text;
   }
 
+  // A phone that opens a "Share control" link must go straight to "Connect by code":
+  // never stack the first-run language dialog on top of (or under) another dialog.
+  const DEEP_LINK = /(?:^|[#&])control=\d{6}\b/;
+
+  function isDeepLink() {
+    return !!window.AirizDeepLink || DEEP_LINK.test(location.hash || '');
+  }
+
+  function otherDialogOpen() {
+    return [...document.querySelectorAll('dialog[open]')].some(dialog => dialog.id !== 'i18n-dialog');
+  }
+
+  function adoptSuggestedSettings() {
+    const region = currentRegion();
+    saveSettings({ language: guessLanguage(region), region });
+    apply();
+    renderButton();
+  }
+
+  function scheduleFirstRun(delay) {
+    setTimeout(() => {
+      if (settings) return;
+      if (isDeepLink()) {
+        adoptSuggestedSettings();
+        return;
+      }
+      if (otherDialogOpen()) {
+        scheduleFirstRun(1000);
+        return;
+      }
+      openDialog(true);
+    }, delay);
+  }
+
   function start() {
     apply();
     observe();
-    if (!settings) openDialog(true);
+    if (settings) return;
+    if (isDeepLink()) {
+      adoptSuggestedSettings();
+      return;
+    }
+    // Give link handlers (Connect by code opens ~400 ms after load) the first turn.
+    scheduleFirstRun(700);
   }
 
   window.AirizI18n = {
