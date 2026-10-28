@@ -724,6 +724,8 @@
     connected: false,
     filter: '',
     installPrompt: null,
+    clientId: 'd' + Math.random().toString(36).slice(2, 12),
+    pushEnabled: false,
   };
 
   const isOnline = id => S.online.has(id);
@@ -898,6 +900,7 @@
   }
 
   async function signOut() {
+    await unsubscribePush();
     try {
       await api('auth/logout', { body: {}, quiet401: true });
     } catch (err) {
@@ -922,7 +925,7 @@
     const deepLink = /#c=(\d+)/.exec(location.hash);
     if (deepLink && S.conversations.has(Number(deepLink[1]))) openConversation(Number(deepLink[1]));
     else if (!isMobile() && !S.activeId) renderThread();
-    registerServiceWorker();
+    syncPush();
   }
 
   async function loadConversations() {
@@ -993,7 +996,9 @@
     if (!S.token) return;
     if (S.events) S.events.close();
     clearTimeout(reconnectTimer);
-    const source = new EventSource(apiUrl('events?token=' + encodeURIComponent(S.token)));
+    const visible = document.visibilityState === 'visible' ? 1 : 0;
+    const source = new EventSource(apiUrl('events?token=' + encodeURIComponent(S.token)
+      + '&client=' + S.clientId + '&active=' + visible));
     S.events = source;
     source.onopen = () => {
       setConnected(true);
@@ -1184,6 +1189,88 @@
     return Array.from(map.values()).filter(t => t.until > now).map(t => t.name.split(' ')[0]);
   }
 
+
+  // =====================================================================
+  // Web Push (alerts when Orbis is closed)
+  // =====================================================================
+  const pushSupported = () => 'serviceWorker' in navigator && 'PushManager' in window
+    && 'Notification' in window && window.isSecureContext;
+
+  function base64UrlToBytes(text) {
+    const padded = text.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - text.length % 4) % 4);
+    const raw = atob(padded);
+    return Uint8Array.from(raw, ch => ch.charCodeAt(0));
+  }
+
+  function sameKey(buffer, bytes) {
+    if (!buffer) return false;
+    const current = new Uint8Array(buffer);
+    return current.length === bytes.length && current.every((value, index) => value === bytes[index]);
+  }
+
+  function serviceWorkerReady(timeoutMs) {
+    return Promise.race([
+      navigator.serviceWorker.ready,
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Service worker not ready')), timeoutMs || 8000)),
+    ]);
+  }
+
+  async function subscribePush(interactive) {
+    if (!pushSupported()) throw new Error('Push is not supported here');
+    if (interactive && Notification.permission === 'default') {
+      const result = await Notification.requestPermission();
+      if (result !== 'granted') throw new Error('Notifications were not allowed');
+    }
+    if (Notification.permission !== 'granted') throw new Error('Notifications are blocked for this site');
+    const registration = await serviceWorkerReady();
+    const key = base64UrlToBytes((S.config.vapidPublicKey) || (await api('push/key')).publicKey);
+    let subscription = await registration.pushManager.getSubscription();
+    if (subscription && !sameKey(subscription.options && subscription.options.applicationServerKey, key)) {
+      await subscription.unsubscribe();
+      subscription = null;
+    }
+    if (!subscription) {
+      subscription = await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key });
+    }
+    await api('push/subscribe', { body: subscription.toJSON() });
+    S.pushEnabled = true;
+    return subscription;
+  }
+
+  async function syncPush() {
+    if (!pushSupported() || Notification.permission !== 'granted' || !S.token) return;
+    try {
+      await subscribePush(false);
+    } catch (err) {
+      S.pushEnabled = false;
+    }
+  }
+
+  async function unsubscribePush() {
+    S.pushEnabled = false;
+    if (!pushSupported()) return;
+    try {
+      const registration = await serviceWorkerReady(3000);
+      const subscription = await registration.pushManager.getSubscription();
+      if (subscription) {
+        await api('push/unsubscribe', { body: { endpoint: subscription.endpoint }, quiet401: true }).catch(() => {});
+        await subscription.unsubscribe();
+      }
+    } catch (err) {
+      // Nothing to clean up on this device.
+    }
+  }
+
+  function reportVisibility() {
+    if (!S.token) return;
+    fetch(apiUrl('presence'), {
+      method: 'POST',
+      keepalive: true,
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + S.token },
+      body: JSON.stringify({ client: S.clientId, active: document.visibilityState === 'visible' }),
+    }).catch(() => {});
+  }
+
   // =====================================================================
   // Notifications + badges
   // =====================================================================
@@ -1197,6 +1284,7 @@
       toast(title + ': ' + body.slice(0, 80), () => openConversation(conv.id));
       return;
     }
+    if (S.pushEnabled) return; // the server's Web Push delivers this alert (same tag)
     if (!('Notification' in window) || Notification.permission !== 'granted') return;
     const options = {
       body: body.slice(0, 180),
@@ -1247,6 +1335,7 @@
     navigator.serviceWorker.register('sw.js').catch(() => {});
     navigator.serviceWorker.addEventListener('message', event => {
       if (event.data && event.data.type === 'open-conversation') openConversation(event.data.conversationId);
+      if (event.data && event.data.type === 'push-subscription-changed') syncPush();
     });
   }
 
@@ -2447,14 +2536,53 @@
       }
     });
 
-    const notifState = !('Notification' in window) ? 'unsupported' : Notification.permission;
-    const notifBtn = el('button', { class: 'btn', disabled: notifState !== 'default' },
-      notifState === 'granted' ? 'On' : notifState === 'denied' ? 'Blocked' : notifState === 'unsupported' ? 'Install app first' : 'Turn on');
-    notifBtn.addEventListener('click', async () => {
-      const result = await Notification.requestPermission();
-      notifBtn.textContent = result === 'granted' ? 'On' : 'Blocked';
-      notifBtn.disabled = true;
-    });
+    const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    const standalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+    const pushBox = el('div', { class: 'row' });
+    const pushHint = el('span', { class: 'muted small' });
+
+    function renderPushControls() {
+      pushBox.replaceChildren();
+      if (!pushSupported()) {
+        pushHint.textContent = ios && !standalone
+          ? 'On iPhone: Safari → Share → Add to Home Screen, then open Orbis from the icon (iOS 16.4+).'
+          : 'This browser does not support push notifications.';
+        return;
+      }
+      if (Notification.permission === 'denied') {
+        pushHint.textContent = 'Blocked — allow notifications for this site in your browser or phone settings.';
+        return;
+      }
+      if (S.pushEnabled) {
+        pushHint.textContent = 'On for this device — alerts arrive even when Orbis is closed.';
+        pushBox.append(
+          el('button', { class: 'btn', style: 'padding:6px 10px;font-size:13px', onclick: async () => {
+            try {
+              const result = await api('push/test', { body: {} });
+              toast(result.sent ? 'Test sent — close or minimise Orbis to see it' : 'No devices subscribed');
+            } catch (err) {
+              toast(err.message);
+            }
+          } }, 'Test'),
+          el('button', { class: 'btn', style: 'padding:6px 10px;font-size:13px', onclick: async () => {
+            await unsubscribePush();
+            renderPushControls();
+            toast('Notifications turned off on this device');
+          } }, 'Turn off'));
+        return;
+      }
+      pushHint.textContent = 'Get alerts for new messages, even when Orbis is closed.';
+      pushBox.append(el('button', { class: 'btn primary', style: 'padding:6px 12px;font-size:13px', onclick: async () => {
+        try {
+          await subscribePush(true);
+          toast('Notifications are on for this device');
+        } catch (err) {
+          toast(err.message);
+        }
+        renderPushControls();
+      } }, 'Turn on'));
+    }
+    renderPushControls();
 
     const theme = el('select', { class: 'input', style: 'width:auto' },
       el('option', { value: 'system' }, 'System'), el('option', { value: 'light' }, 'Light'), el('option', { value: 'dark' }, 'Dark'));
@@ -2464,8 +2592,6 @@
       applyTheme();
     });
 
-    const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
-    const standalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
     let installBody;
     if (standalone) installBody = el('span', { class: 'muted small' }, 'Installed ✓');
     else if (S.installPrompt) installBody = el('button', { class: 'btn', onclick: async () => {
@@ -2485,8 +2611,8 @@
       el('div', { class: 'field' }, el('label', {}, 'Color')), palette,
       error, save,
       el('div', { class: 'divider-label' }, 'Notifications & app'),
-      el('div', { class: 'toggle-row' }, el('div', { class: 'grow' }, el('b', {}, 'Email me when I\'m offline'), el('span', { class: 'muted small' }, S.config.emailEnabled ? 'At most one email per chat every 10 minutes' : 'Server email is not configured yet')), emailSwitch),
-      el('div', { class: 'toggle-row' }, el('div', { class: 'grow' }, el('b', {}, 'Device notifications'), el('span', { class: 'muted small' }, ios ? 'On iPhone, add Orbis to your Home Screen first (iOS 16.4+)' : 'Alerts while Orbis is in the background')), notifBtn),
+      el('div', { class: 'toggle-row' }, el('div', { class: 'grow' }, el('b', {}, 'Email me when I\'m offline'), el('span', { class: 'muted small' }, S.config.emailEnabled ? 'Only when no device has push on · max one per chat every 10 min' : 'Server email is not configured yet')), emailSwitch),
+      el('div', { class: 'toggle-row' }, el('div', { class: 'grow' }, el('b', {}, 'Push notifications'), pushHint), pushBox),
       el('div', { class: 'toggle-row' }, el('div', { class: 'grow' }, el('b', {}, 'Install Orbis'), el('span', { class: 'muted small' }, 'Full-screen app on iPhone, Android and desktop')), installBody),
       el('div', { class: 'toggle-row' }, el('div', { class: 'grow' }, el('b', {}, 'Theme')), theme),
       el('div', { class: 'divider-label' }, 'Account'),
@@ -2598,9 +2724,19 @@
       }
     });
     document.addEventListener('visibilitychange', () => {
+      if (S.me) reportVisibility();
       if (document.visibilityState !== 'visible' || !S.me) return;
       markReadSoon();
       if (!S.events || S.events.readyState === EventSource.CLOSED) connectEvents();
+    });
+    window.addEventListener('pagehide', () => {
+      if (!S.me) return;
+      fetch(apiUrl('presence'), {
+        method: 'POST',
+        keepalive: true,
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + S.token },
+        body: JSON.stringify({ client: S.clientId, active: false }),
+      }).catch(() => {});
     });
     window.addEventListener('online', () => {
       if (S.me && (!S.events || S.events.readyState === EventSource.CLOSED)) connectEvents();
@@ -2628,6 +2764,7 @@
     fitViewport();
     wire();
     captureInvite();
+    registerServiceWorker();
     try {
       S.config = await api('config');
     } catch (err) {
