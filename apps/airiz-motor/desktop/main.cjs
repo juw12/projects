@@ -134,7 +134,7 @@ async function closeSafely(event) {
 }
 
 function configurePermissions(appSession) {
-  const allowed = new Set(['serial', 'bluetooth', 'media', 'fileSystem', 'clipboard-sanitized-write', 'fullscreen']);
+  const allowed = new Set(['serial', 'bluetooth', 'media', 'fileSystem', 'clipboard-sanitized-write', 'fullscreen', 'notifications']);
   const approvedMedia = new Set();
   appSession.setPermissionCheckHandler((contents, permission, origin, details) => {
     const trusted = contents === mainWindow?.webContents && allowed.has(permission)

@@ -511,7 +511,8 @@
       return false;
     }
     if (state.demoMode) {
-      appendToConsole(`> ${line}`, 'command');
+      if (!quiet) appendToConsole(`> ${line}`, 'command');
+      notifyCommandSent(line);
       setTimeout(() => {
         if (state.demoMode && state.connected) simulateDemoResponse(line);
       }, 100);
@@ -537,11 +538,23 @@
     } finally {
       if (writer) writer.releaseLock();
     }
+    notifyCommandSent(line);
     if (/\bdiag\s+audio\s+record\b/i.test(line)) {
       autoSaveDeviceRecording(line);
     }
     return true;
   }
+
+  // 1.8.0: the PTZ module keeps the camera position from every motor command sent,
+  // whichever view, macro or remote controller sent it.
+  const commandSentListeners = new Set();
+  function notifyCommandSent(line) {
+    for (const listener of commandSentListeners) {
+      try { listener(String(line)); } catch (listenerError) { console.error(listenerError); }
+    }
+  }
+
+  const demoDevice = { pan: 0, rising: 0 };
 
   function simulateDemoResponse(command) {
     // Find matching command in AIRIZ_COMMANDS
@@ -571,6 +584,18 @@
     // phone that controls this demo through "Remote control by code" can verify it.
     if (/^diag\s+ver\s+sw$/i.test(String(command).trim())) {
       response = '#INFO#0:0.0.0.3#END#\r\n';
+    }
+    const demoMove = /^diag\s+motor\s+(pan|rising)\s+(forward|reverse)\s+\d+\s+(\d+)$/i.exec(String(command).trim());
+    if (demoMove) {
+      demoDevice[demoMove[1].toLowerCase()] += (demoMove[2].toLowerCase() === 'forward' ? 1 : -1) * Number(demoMove[3]);
+    }
+    if (/^diag\s+button\s+get\s+rising-det$/i.test(String(command).trim())) {
+      // Simulated detect switch: pressed (1) when the simulated camera is fully down.
+      response = '#INFO#0:' + (demoDevice.rising <= 0 ? 1 : 0) + '#END#\r\n';
+    }
+    if (/^diag\s+als\s+value$/i.test(String(command).trim())) {
+      const override = Number(localStorage.getItem('airiz.demo.lux'));
+      response = '#INFO#0:' + (Number.isFinite(override) && localStorage.getItem('airiz.demo.lux') !== null ? override : 120) + '#END#\r\n';
     }
 
     // Always end with prompt
@@ -4006,6 +4031,10 @@
     onOutput(listener) {
       outputListeners.add(listener);
       return () => outputListeners.delete(listener);
+    },
+    onCommandSent(listener) {
+      commandSentListeners.add(listener);
+      return () => commandSentListeners.delete(listener);
     },
     async connectPort(port) {
       if (state.connected || state.updatePending) throw new Error('Disconnect first.');
