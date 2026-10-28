@@ -1,6 +1,7 @@
 # 🐱 Kitty — shared budgeting that gets you
 
 **Live:** https://juw12.github.io/projects/kitty/ · [demo household](https://juw12.github.io/projects/kitty/demo.html) · [self-test](https://juw12.github.io/projects/kitty/tests.html)
+· **[Get it for iPhone & Android (free)](https://juw12.github.io/projects/kitty/get.html)**
 
 A *kitty* is a shared pot of money. Kitty is a budgeting app that you can share like a Google Sheet,
 but with an interface built only for money. It plans your budget from your income, works out your
@@ -22,6 +23,24 @@ encrypted.
 | **Goals** | Savings goals with progress rings and the monthly amount needed to reach the target date. |
 | **Invest** | Holdings (units × price), allocation vs. a target (presets or custom), drift and the trades needed to rebalance, and a compound-growth projection with sliders. Prices are entered manually. |
 | **Share** | One link invites people to edit live. Shows presence ("2 online"), people and an activity feed. Works offline: edits queue and sync on reconnect. |
+
+## Platforms (all free)
+
+| Platform | How to get it | What you get |
+| --- | --- | --- |
+| **Web** (any computer or phone) | Open https://juw12.github.io/projects/kitty/ | The full app. Install it from Chrome/Edge's install button for a desktop window. |
+| **iPhone / iPad** | Safari → [get.html](https://juw12.github.io/projects/kitty/get.html) → Share → **Add to Home Screen** | Full-screen home-screen app with its own icon, offline shell and app shortcuts. Recommended. |
+| iPhone (advanced) | [`Kitty-ios-UNSIGNED.ipa`](https://github.com/juw12/projects/releases/download/kitty-mobile/Kitty-ios-UNSIGNED.ipa) | Native Capacitor build for sideloading with AltStore/Sideloadly and your own Apple ID (free IDs re-sign every 7 days). |
+| **Android** | [`Kitty-android.apk`](https://github.com/juw12/projects/releases/download/kitty-mobile/Kitty-android.apk) | Signed native app: haptics on adds and limit warnings, the native share sheet for invites, the Back button (closes sheets → goes home → minimises) and `juw12.github.io/projects/kitty` invite links. |
+
+The native apps live in `mobile/`: a [Capacitor](https://capacitorjs.com) shell that loads the live HTTPS site, so they
+update with the web app and keep a secure context (`crypto.subtle`) for end-to-end encrypted sharing. Without a
+connection on first launch they show `shell/offline.html` and reconnect automatically. A GitHub Actions
+workflow (`mobile/ci/kitty-mobile.yml`, active once copied to `.github/workflows/`) builds the signed APK, runs it on an Android emulator
+(`mobile/scripts/android-e2e.py`), builds the unsigned IPA plus an iPhone-simulator smoke test, and publishes both to the
+[`kitty-mobile` release](https://github.com/juw12/projects/releases/tag/kitty-mobile). See `mobile/README.md`.
+
+App Store and Play Store listings are not included: they need paid developer accounts (Apple $99/year, Google $25 once).
 
 ## How sharing works
 
@@ -66,6 +85,7 @@ No build step and no dependencies: plain HTML, CSS and classic scripts.
 ```bash
 python apps/kitty/tests/test_relay.py       # relay: publish/poll/SSE, 400/413, persistence
 python apps/kitty/tests/test_web_static.py  # files, refs, manifest, no root-absolute paths
+python apps/kitty/tests/test_mobile_static.py  # Capacitor config, icon sizes, release assets, versions
 ```
 
 In the browser, open `tests.html` for 87 core tests (merge, crypto, parsing, budgets, alerts, planner, portfolio). Add `?relay=https://ntfy.sh` or your relay URL for a live two-client sync test, which brings the total to 92.

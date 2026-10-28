@@ -311,10 +311,82 @@
     }
   }
 
+  // ================================================================ native app shell (Capacitor: Android / iPhone)
+  // The Kitty apps load this same site; Capacitor injects window.Capacitor before our scripts run.
+  const NATIVE = !!(window.Capacitor && typeof window.Capacitor.isNativePlatform === 'function' && window.Capacitor.isNativePlatform());
+  const NATIVE_PLATFORM = NATIVE ? window.Capacitor.getPlatform() : 'web';
+  const PUBLIC_URL = 'https://juw12.github.io/projects/kitty/';
+  const GET_APP_URL = 'get.html';
+
+  function nativeCall(plugin, method, options) {
+    if (!NATIVE || typeof window.Capacitor.nativePromise !== 'function') {
+      return Promise.reject(new Error('Not running in the Kitty app'));
+    }
+    return window.Capacitor.nativePromise(plugin, method, options || {});
+  }
+
+  function nativeListen(plugin, eventName, callback) {
+    if (NATIVE && typeof window.Capacitor.addListener === 'function') {
+      window.Capacitor.addListener(plugin, eventName, callback);
+    }
+  }
+
+  function haptic(kind) {
+    if (!NATIVE) return;
+    const call = kind === 'warn'
+      ? nativeCall('Haptics', 'notification', { type: 'WARNING' })
+      : kind === 'success'
+        ? nativeCall('Haptics', 'notification', { type: 'SUCCESS' })
+        : nativeCall('Haptics', 'impact', { style: 'LIGHT' });
+    call.catch(() => {});
+  }
+
+  function canShare() {
+    return NATIVE || !!navigator.share;
+  }
+
+  function shareSheet(title, text, url) {
+    if (NATIVE) {
+      return nativeCall('Share', 'share', { title: title, text: text, url: url, dialogTitle: title });
+    }
+    return navigator.share({ title: title, text: text, url: url });
+  }
+
+  function handleBackButton() {
+    if (document.querySelector('.modal-wrap')) {
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      return;
+    }
+    const quiz = document.querySelector('.quiz-overlay');
+    if (quiz) {
+      const back = quiz.querySelector('[data-act="back"]') || quiz.querySelector('[data-act="cancel"]');
+      if (back) back.click();
+      return;
+    }
+    if (S.book && S.view !== 'home') {
+      go('home');
+      return;
+    }
+    nativeCall('App', 'minimizeApp').catch(() => nativeCall('App', 'exitApp').catch(() => {}));
+  }
+
+  function setupNative() {
+    if (!NATIVE) return;
+    document.documentElement.classList.add('native-app', 'native-' + NATIVE_PLATFORM);
+    nativeListen('App', 'backButton', handleBackButton);
+    nativeListen('App', 'appUrlOpen', (event) => {
+      // Invite links (https://juw12.github.io/projects/kitty/#join=...) opened from chat apps.
+      const url = event && event.url ? String(event.url) : '';
+      const at = url.indexOf('#join=');
+      if (at >= 0) location.hash = url.slice(at);
+    });
+  }
+
   function raiseAlert(a) {
     S.notes.unshift({ at: Date.now(), level: a.level, title: a.title, body: a.body });
     S.notes = S.notes.slice(0, 30);
     toast({ tone: a.level === 'over' ? 'bad' : 'warn', title: a.title, body: a.body, action: { label: 'View', fn: () => go('budget') } });
+    haptic('warn');
     notify(a.title, a.body);
   }
 
@@ -1107,7 +1179,7 @@
       '<div class="card-head"><h3>' + icon('users', 20) + ' Shared budget</h3>' + syncPill() + '</div>' +
       '<p class="muted">' + esc(statusText) + '</p>' +
       '<label class="field">Invite link<div class="link-box"><input readonly value="' + esc(link) + '" id="shareLink" aria-label="Invite link"><button class="btn btn-primary" data-act="copy-link">' + icon('copy', 16) + ' Copy</button>' +
-      (navigator.share ? '<button class="btn btn-soft" data-act="native-share">' + icon('share', 16) + '</button>' : '') + '</div></label>' +
+      (canShare() ? '<button class="btn btn-soft" data-act="native-share">' + icon('share', 16) + '</button>' : '') + '</div></label>' +
       '<p class="warn-note">' + icon('lock', 14) + ' Anyone with this link can view and edit this budget. Share it only with people you trust.</p>' +
       '<h4>People</h4><ul class="people">' +
       members
@@ -1140,6 +1212,7 @@
       '<label class="toggle"><input type="checkbox" data-act-change="toggle-tips"' + (S.profile.tips !== false ? ' checked' : '') + '><span></span>Occasional tips from Kitty</label>' +
       '<label class="toggle"><input type="checkbox" data-act-change="toggle-notify"' + (S.profile.notify && notifState === 'granted' ? ' checked' : '') + (notifState === 'unsupported' ? ' disabled' : '') + '><span></span>Browser notifications for warnings & collaborator edits</label>' +
       (notifState === 'denied' ? '<p class="muted small">Notifications are blocked in your browser settings.</p>' : '') +
+      (NATIVE && notifState === 'unsupported' ? '<p class="muted small">In the app, warnings show as in-app alerts with a gentle vibration.</p>' : '') +
       '</div>' +
       '<div class="card"><div class="card-head"><h3>Your data</h3></div><p class="muted small">Everything lives in this browser. Export a backup any time.</p><div class="row-gap">' +
       '<button class="btn btn-soft" data-act="export-json">' + icon('download', 16) + ' Backup (JSON)</button>' +
@@ -1152,6 +1225,7 @@
       '<div class="card danger"><div class="card-head"><h3>Danger zone</h3></div><div class="row-gap">' +
       '<button class="btn btn-danger" data-act="delete-book">Delete this budget from this device</button>' +
       '<button class="btn btn-ghost" data-act="reset-all">Reset Kitty</button></div></div>' +
+      (NATIVE ? '' : '<div class="card get-app-card"><div class="card-head"><h3>Get the app</h3></div><p class="muted small">Kitty is free on the web, iPhone and Android. Your budgets sync between them with the same invite link.</p><div class="row-gap"><a class="btn btn-soft" href="' + GET_APP_URL + '#iphone">' + icon('download', 16) + ' iPhone</a><a class="btn btn-soft" href="' + GET_APP_URL + '#android">' + icon('download', 16) + ' Android</a></div></div>') +
       '<div class="card"><div class="card-head"><h3>About</h3></div><p class="muted small">Kitty ' + esc(K.VERSION) + ' · local-first budgeting with end-to-end encrypted sharing. Investment targets and tips are educational, not financial advice. Source: <a href="https://github.com/juw12/projects/tree/main/apps/kitty" target="_blank" rel="noopener">github.com/juw12/projects</a></p></div>' +
       '</div>'
     );
@@ -1194,7 +1268,7 @@
       '<section class="w-animals"><h2>Six money animals. Which one are you?</h2><div class="animals">' +
       Object.keys(K.PERSONAS).map((k) => '<div class="animal" style="--pc:' + K.PERSONAS[k].color + '"><span>' + K.PERSONAS[k].emoji + '</span><b>' + esc(K.PERSONAS[k].name) + '</b><small>' + esc(K.PERSONAS[k].tagline) + '</small></div>').join('') +
       '</div></section>' +
-      '<footer class="w-foot">Kitty ' + esc(K.VERSION) + ' · made by <a href="https://juwenlie.pages.dev/" target="_blank" rel="noopener">Juwen Lie</a> · educational tips, not financial advice</footer>' +
+      '<footer class="w-foot">' + (NATIVE ? '' : '<a class="get-app-link" href="' + GET_APP_URL + '">📱 Get Kitty for iPhone & Android: free</a><br>') + 'Kitty ' + esc(K.VERSION) + ' · made by <a href="https://juwenlie.pages.dev/" target="_blank" rel="noopener">Juwen Lie</a> · educational tips, not financial advice</footer>' +
       '</div>';
   }
 
@@ -1458,6 +1532,7 @@
       commit(op);
       m.close();
       const r = stats.rows.find((x) => x.id === catId);
+      haptic('tap');
       toast({
         tone: 'good',
         title: (type === 'income' ? 'Income added: ' : 'Added ') + fmt(amount),
@@ -2083,7 +2158,7 @@
       }
       case 'native-share':
         try {
-          await navigator.share({ title: 'Join my Kitty budget', text: 'Let\'s budget “' + S.book.meta.name + '” together on Kitty', url: $('#shareLink').value });
+          await shareSheet('Join my Kitty budget', 'Let\'s budget “' + S.book.meta.name + '” together on Kitty', $('#shareLink').value);
         } catch (err) {
           /* cancelled */
         }
@@ -2197,6 +2272,9 @@
     if ('serviceWorker' in navigator && location.protocol === 'https:') {
       navigator.serviceWorker.register('sw.js').catch(() => {});
     }
+    if (params.get('add') === '1' && S.book) setTimeout(openQuickAdd, 400);
+    setupNative();
+    window.__kittyNative = { native: NATIVE, platform: NATIVE_PLATFORM };
     window.__kittyReady = true;
   }
 
