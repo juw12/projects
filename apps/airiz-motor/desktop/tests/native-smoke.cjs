@@ -59,6 +59,14 @@ async function record(name) {
   assert.equal(preferences.sandbox, true);
   await record('Actual packaged Windows process loads bundled local UI with secure origin and sandboxed renderer');
 
+  // 1.5.0: a fresh profile must ask for language & region before the console can be used.
+  await page.locator('#i18n-dialog').waitFor({ state: 'visible' });
+  await page.locator(".i18n-choice[data-language='en']").click();
+  await page.locator('#i18n-save').click();
+  await page.locator('#i18n-dialog').waitFor({ state: 'hidden' });
+  assert.equal(await page.evaluate(() => window.AirizI18n.language()), 'en');
+  await record('First start asks for language & region; English chosen and saved');
+
   await page.locator('#btn-connect').click();
   await page.locator('#native-serial-dialog').waitFor({ state: 'visible' });
   await page.locator('#native-serial-cancel').click();
@@ -176,6 +184,8 @@ async function record(name) {
   }));
   app = await launch();
   page = await app.firstWindow();
+  await page.waitForFunction(() => window.AirizI18n);
+  assert.equal(await page.evaluate(() => document.getElementById('i18n-dialog')?.open === true), false);
   page.on('pageerror', error => errors.push(error.message));
   await page.waitForFunction(() => window.AirizConsole);
   assert.equal(await page.locator('html').getAttribute('data-theme'), 'light');
