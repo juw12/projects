@@ -188,7 +188,11 @@ class FriendsWindow:
         if not self._alive:
             return
         self.social.poll()
-        if self.tab == "chat" and self.room:
+        if self.tab == "chat" and self.room and self.room.startswith("bot:"):
+            sig = ("bot", len(self.social.bot_chat(self.room[4:])), self.social.bot_pending == self.room[4:])
+            if sig != self._chat_sig:
+                self.refresh()
+        elif self.tab == "chat" and self.room:
             sig = (len(self.social.rooms.get(self.room, [])),
                    (self.social.rooms.get(self.room) or [{}])[-1].get("id"))
             if sig != self._chat_sig:
@@ -274,6 +278,7 @@ class FriendsWindow:
                     "not_owner": t("fr_err_not_allowed"), "bad_key": t("fr_err_bad_key"),
                     "premium_only": t("fr_err_premium_only"), "busy": t("duel_err_busy"),
                     "no_location": t("wx_err_auto"), "bad_location": t("wx_err_auto"),
+                    "bot_limit": t("bot_err_limit"), "bot": t("bot_err_friend"),
                     "expired": t("duel_expired")}
         self.error = messages.get(code, t("fr_err_generic", code=code))
         self.refresh(force=True)
@@ -295,7 +300,7 @@ class FriendsWindow:
                 self.social.load_leaderboard(self.rank_sort)
         if key == "chat":
             self.room = room
-        self.social.chat_open_room = self.room if key == "chat" else None
+        self.social.chat_open_room = self.room if key == "chat" and not (self.room or "").startswith("bot:") else None
         if self.social.chat_open_room:
             self.social.mark_read(self.room)
             self.social._next_inbox = 0
@@ -583,11 +588,17 @@ class FriendsWindow:
         return items
 
     def _render_chat(self):
+        if self.room and self.room.startswith("bot:"):
+            self._render_bot_chat(self.room[4:])
+            return
         if self.room:
             self._render_conversation(self.room)
             return
         self._chat_sig = None
         items = self._conversations()
+        self._render_bot_list()
+        if items:
+            self._section_title("\u2709 " + t("chat_people"))
         if not items:
             self._label(self.body, t("chat_empty"), fg=self.MUTED, wrap=self.WIDTH - 70).pack(fill="x")
             return
@@ -612,6 +623,113 @@ class FriendsWindow:
                          padx=6).pack(side="right")
             for widget in (row, box, icon) + tuple(box.winfo_children()):
                 widget.bind("<Button-1>", lambda e, r=room: self.show_tab("chat", room=r))
+
+    # ---- chat bots (v2.10) ----
+    def _bot_chip(self, parent, bg):
+        return tk.Label(parent, text="\U0001F916 " + t("bot_badge"), font=("Segoe UI Symbol", 7, "bold"),
+                        fg="#ffffff", bg="#5c7cfa", padx=4)
+
+    def _render_bot_list(self):
+        self._section_title("\U0001F916 " + t("bot_title"))
+        grid = tk.Frame(self.body, bg=self.CARD)
+        grid.pack(fill="x")
+        for i, bot in enumerate(social.BOTS):
+            cell = tk.Frame(grid, bg=self.TILE, padx=6, pady=4, cursor="hand2")
+            cell.grid(row=i // 2, column=i % 2, sticky="nsew", padx=2, pady=2)
+            av = self._avatar(cell, bot["species"], bot["color"], size=36, bg=self.TILE)
+            av.pack(side="left")
+            box = tk.Frame(cell, bg=self.TILE)
+            box.pack(side="left", fill="x", expand=True, padx=(6, 0))
+            top = tk.Frame(box, bg=self.TILE)
+            top.pack(fill="x")
+            self._label(top, bot["name"], size=9, bold=True, bg=self.TILE).pack(side="left")
+            self._bot_chip(top, self.TILE).pack(side="left", padx=(4, 0))
+            self._label(box, t("bot_role_" + bot["key"]), size=7, fg=self.MUTED, bg=self.TILE, wrap=170).pack(fill="x")
+            history = self.social.bot_chat(bot["key"])
+            if history:
+                last = history[-1]["text"]
+                self._label(box, (last[:34] + "\u2026") if len(last) > 34 else last, size=7, fg=self.ACCENT,
+                            bg=self.TILE).pack(fill="x")
+            for widget in (cell, av, box, top) + tuple(box.winfo_children()) + tuple(top.winfo_children()):
+                widget.bind("<Button-1>", lambda e, k=bot["key"]: self.show_tab("chat", room="bot:" + k))
+        grid.grid_columnconfigure(0, weight=1, uniform="b")
+        grid.grid_columnconfigure(1, weight=1, uniform="b")
+        self._label(self.body, t("bot_group_hint"), size=8, fg=self.MUTED, wrap=self.WIDTH - 70).pack(fill="x", pady=(4, 0))
+
+    def _render_bot_chat(self, key):
+        bot = social.BOT_BY_KEY.get(key)
+        if not bot:
+            self.show_tab("chat", room=None)
+            return
+        history = self.social.bot_chat(key)
+        pending = self.social.bot_pending == key
+        self._chat_sig = ("bot", len(history), pending)
+        top = tk.Frame(self.body, bg=self.CARD)
+        top.pack(fill="x", pady=(0, 6))
+        self._button(top, "\u2039 " + t("chat_back"), lambda: self.show_tab("chat", room=None), small=True).pack(side="left")
+        self._avatar(top, bot["species"], bot["color"], size=30).pack(side="left", padx=(8, 4))
+        self._label(top, bot["name"], size=11, bold=True).pack(side="left")
+        self._bot_chip(top, self.CARD).pack(side="left", padx=(6, 0))
+        if history:
+            self._button(top, t("bot_clear"), lambda: self._clear_bot(key), small=True).pack(side="right")
+        self._label(self.body, t("bot_role_" + key), size=8, fg=self.MUTED, wrap=self.WIDTH - 70).pack(fill="x")
+        log = tk.Frame(self.body, bg=self.CARD)
+        log.pack(fill="both", expand=True, pady=(4, 0))
+        if not history:
+            line = tk.Frame(log, bg=self.CARD)
+            line.pack(fill="x", pady=1)
+            bubble = tk.Frame(line, bg=self.THEIRS, padx=8, pady=4)
+            bubble.pack(side="left", padx=(0, 60))
+            tk.Label(bubble, text=t("bot_hello_" + key), font=("Segoe UI", 9), fg=self.INK, bg=self.THEIRS,
+                     wraplength=self.WIDTH - 170, justify="left", anchor="w").pack(fill="x")
+        for m in history[-50:]:
+            mine = m.get("mine")
+            line = tk.Frame(log, bg=self.CARD)
+            line.pack(fill="x", pady=1)
+            bubble_bg = self.MINE if mine else self.THEIRS
+            bubble = tk.Frame(line, bg=bubble_bg, padx=8, pady=3)
+            bubble.pack(side="right" if mine else "left", padx=(60, 0) if mine else (0, 60))
+            tk.Label(bubble, text=m.get("text", ""), font=("Segoe UI", 9), fg=self.INK, bg=bubble_bg,
+                     wraplength=self.WIDTH - 170, justify="left", anchor="w").pack(fill="x")
+            tk.Label(bubble, text=datetime.fromtimestamp(m.get("at", 0)).strftime("%H:%M"), font=("Segoe UI", 7),
+                     fg=self.MUTED, bg=bubble_bg).pack(anchor="e")
+        if pending:
+            line = tk.Frame(log, bg=self.CARD)
+            line.pack(fill="x", pady=1)
+            tk.Label(line, text=bot["name"] + " " + t("bot_typing"), font=("Segoe UI", 8, "italic"), fg=self.MUTED,
+                     bg=self.CARD).pack(side="left")
+        # composer: suggestion chips + entry
+        self.composer.pack(fill="x", pady=(6, 0), before=self.status)
+        chips = tk.Frame(self.composer, bg=self.BG)
+        chips.pack(fill="x", pady=(0, 4))
+        for suggestion in t("bot_try_" + key).split("|")[:4]:
+            self._button(chips, suggestion, lambda s=suggestion: self._ask_bot(key, s), small=True).pack(side="left", padx=(0, 3))
+        entry_row = tk.Frame(self.composer, bg=self.BG)
+        entry_row.pack(fill="x")
+        self.msg_var = tk.StringVar()
+        entry = self._entry(entry_row, self.msg_var, width=10)
+        entry.pack(side="left", fill="x", expand=True, ipady=3)
+        entry.bind("<Return>", lambda e: self._ask_bot(key))
+        entry.focus_set()
+        self._button(entry_row, t("chat_send"), lambda: self._ask_bot(key), primary=True).pack(side="left", padx=(6, 0))
+        if key == "arena":
+            self._button(entry_row, "\u26a1 " + t("duel_quick"), lambda: self._quick(bot["code"]), small=True).pack(
+                side="left", padx=(6, 0))
+        self.win.after(60, lambda: self.canvas.yview_moveto(1.0))
+
+    def _ask_bot(self, key, text=None):
+        if text is None:
+            text = self.msg_var.get().strip()
+            self.msg_var.set("")
+        if not text or self.social.bot_pending:
+            return
+        self.error = ""
+        self.social.ask_bot(key, text)
+        self.refresh(force=True)
+
+    def _clear_bot(self, key):
+        self.social.clear_bot_chat(key)
+        self.refresh(force=True)
 
     def _preview(self, m):
         who = t("fr_you") if m.get("mine") else (m.get("from") or {}).get("name", "?")
@@ -653,8 +771,10 @@ class FriendsWindow:
             bubble = tk.Frame(line, bg=bubble_bg, padx=8, pady=3)
             bubble.pack(side="right" if mine else "left", padx=(60, 0) if mine else (0, 60))
             if is_group and not mine:
-                self._label(bubble, (m.get("from") or {}).get("name", "?"), size=7, bold=True,
-                            fg=self.ACCENT, bg=bubble_bg).pack(fill="x")
+                sender = m.get("from") or {}
+                is_bot = sender.get("role") == "bot" or sender.get("code") in social.BOT_CODES
+                self._label(bubble, ("\U0001F916 " if is_bot else "") + sender.get("name", "?"), size=7, bold=True,
+                            fg="#5c7cfa" if is_bot else self.ACCENT, bg=bubble_bg).pack(fill="x")
             if m.get("kind") == "text":
                 text = m.get("body", "")
             else:
@@ -673,6 +793,10 @@ class FriendsWindow:
         for kind in kinds:
             self._button(quick, INTERACTION_SYMBOL[kind] + " " + t("ix_btn_" + kind),
                          lambda k=kind: self._interact(room, k), small=True).pack(side="left", padx=(0, 3))
+        if is_group:
+            for bot in social.BOTS:
+                self._button(quick, "@" + bot["handle"], lambda h=bot["handle"]: self._insert_mention(h),
+                             small=True).pack(side="left", padx=(0, 2))
         entry_row = tk.Frame(self.composer, bg=self.BG)
         entry_row.pack(fill="x")
         self.msg_var = tk.StringVar()
@@ -683,6 +807,10 @@ class FriendsWindow:
         self._button(entry_row, t("chat_send"), lambda: self._send_text(room), primary=True).pack(side="left",
                                                                                                   padx=(6, 0))
         self.win.after(60, lambda: self.canvas.yview_moveto(1.0))
+
+    def _insert_mention(self, handle):
+        current = self.msg_var.get()
+        self.msg_var.set(f"@{handle} " + current.lstrip())
 
     def _send_text(self, room):
         text = self.msg_var.get().strip()
@@ -805,7 +933,9 @@ class FriendsWindow:
     def _role_chips(self, parent, person, bg):
         """Owner / Mod / Premium badges after a name (premium is implied for staff)."""
         role = person.get("role", "")
-        if role == "owner":
+        if role == "bot":
+            self._bot_chip(parent, bg).pack(side="left", padx=(6, 0))
+        elif role == "owner":
             self._owner_chip(parent, bg).pack(side="left", padx=(6, 0))
         elif role == "mod":
             self._mod_chip(parent, bg).pack(side="left", padx=(6, 0))
