@@ -67,6 +67,15 @@ async function record(name) {
   assert.equal(await page.evaluate(() => window.AirizI18n.language()), 'en');
   await record('First start asks for language & region; English chosen and saved');
 
+  // 1.7.0: right after the language box, the one-button Remote-by-code launcher opens.
+  await page.locator('#qc-dialog').waitFor({ state: 'visible', timeout: 10000 });
+  assert.equal(await page.locator('#qc-open').isVisible(), true);
+  assert.equal(await page.locator('#qc-code').isVisible(), true);
+  assert.equal(await page.locator('#qc-share').isVisible(), true);
+  await page.locator('#qc-close').click();
+  await page.locator('#qc-dialog').waitFor({ state: 'hidden' });
+  await record('Start screen offers the one-button Remote by code launcher (join by code + share motor and camera); header button stays visible');
+
   await page.locator('#btn-connect').click();
   await page.locator('#native-serial-dialog').waitFor({ state: 'visible' });
   await page.locator('#native-serial-cancel').click();
@@ -188,6 +197,9 @@ async function record(name) {
   assert.equal(await page.evaluate(() => document.getElementById('i18n-dialog')?.open === true), false);
   page.on('pageerror', error => errors.push(error.message));
   await page.waitForFunction(() => window.AirizConsole);
+  await page.locator('#qc-dialog').waitFor({ state: 'visible', timeout: 10000 });
+  await page.locator('#qc-close').click();
+  await record('Remote by code launcher opens again on the next app start');
   assert.equal(await page.locator('html').getAttribute('data-theme'), 'light');
   await page.locator('#tab-console').click();
   assert.match(await page.locator('#macro-select').innerText(), /Native persistence check/);
@@ -195,6 +207,8 @@ async function record(name) {
   await page.context().route('http://**/*', route => route.abort());
   await page.reload();
   await page.waitForFunction(() => window.AirizConsole);
+  await page.locator('#qc-dialog').waitFor({ state: 'visible', timeout: 10000 });
+  await page.locator('#qc-close').click();
   await page.locator('#btn-demo').click();
   await page.locator('[data-jog="pan-fwd"]').click();
   assert.match(await page.locator('#console-output').innerText(), /diag motor pan forward 2 1/);

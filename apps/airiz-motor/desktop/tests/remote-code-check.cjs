@@ -22,12 +22,27 @@ function stamp(text) {
 }
 
 async function closeDialogs(page) {
+  // 1.7.0+: the Remote-by-code launcher opens at every start (only on consoles that have it).
+  const hasLauncher = await page.evaluate(() => !!document.getElementById('qc-open'));
+  if (hasLauncher) {
+    await page.waitForFunction(() => document.getElementById('qc-dialog')?.open === true, null, { timeout: 5000 }).catch(() => {});
+  }
   await page.evaluate(() => {
-    for (const id of ['install-gate', 'i18n-dialog']) {
+    for (const id of ['install-gate', 'i18n-dialog', 'qc-dialog']) {
       const dialog = document.getElementById(id);
       if (dialog && dialog.open) dialog.close();
     }
   });
+}
+
+async function closeDesktop(desktop) {
+  // Disconnect first: closing while connected shows the (intended) 'Finish the device session' warning.
+  await desktop.page.evaluate(() => {
+    const button = document.getElementById('btn-disconnect');
+    if (button && !button.disabled) button.click();
+  }).catch(() => {});
+  await desktop.page.waitForTimeout(800);
+  await desktop.app.close();
 }
 
 async function launchDesktop() {
@@ -130,7 +145,7 @@ async function joinAndApprove(pc, controller, code, label) {
   });
   results.browserHostsDesktop = await joinAndApprove(browserPc, desktop.page, code2, 'browser->desktop');
   await desktop.page.screenshot({ path: path.join(root, 'dist', 'remote-desktop-controller.png') });
-  await desktop.app.close();
+  await closeDesktop(desktop);
   await browser.close();
   results.errors = errors.slice(0, 30);
   console.log(JSON.stringify(results, null, 2));
