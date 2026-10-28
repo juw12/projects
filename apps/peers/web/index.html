@@ -2159,5 +2159,1125 @@ var GUIDE_RECOMMENDATIONS=[
 })();
 
 </script>
+
+<!-- ===== PEERS PLUS: command palette, shortcuts, saved reviews, undo, appearance (appended module) ===== -->
+<style id="pp-css">
+/* ---------- PEERS PLUS: appearance tokens ---------- */
+html[data-theme="dark"]{--ink:#ECE6DA;--cream:#13161E;--sand:#242936;--white:#1B1F29;--slate:#A3ABBD;--shadow-sm:0 1px 2px rgba(0,0,0,.35);--shadow:0 12px 30px -16px rgba(0,0,0,.65);--shadow-lg:0 26px 70px -28px rgba(0,0,0,.8);color-scheme:dark}
+html[data-theme="dark"] body::before{opacity:.12}
+html[data-theme="dark"] #header{background:rgba(19,22,30,.86)}
+html[data-theme="dark"] .pm-bar{background:rgba(19,22,30,.94)}
+html[data-theme="dark"] .toast{background:#2A3040;color:#ECE6DA;border:1px solid rgba(255,255,255,.06)}
+html[data-theme="dark"] .nav-link.active,html[data-theme="dark"] .chip.active,html[data-theme="dark"] .pm-chip.on{background:#ECE6DA;color:#13161E}
+html[data-theme="dark"] .modal-bg{background:rgba(5,7,12,.7)}
+html[data-theme="dark"] .map-svg{filter:invert(.9) hue-rotate(180deg) saturate(.7) brightness(.95)}
+html[data-theme="dark"] img.photo{filter:brightness(.92)}
+html[data-theme="dark"] .pm-scoreblock{background:rgba(255,255,255,.04);border-color:rgba(255,255,255,.08)}
+html[data-theme="dark"] .callout.human-first{background:rgba(255,255,255,.04)}
+html[data-theme="dark"] #auth-gate,html[data-theme="dark"] #tour-overlay > div{color-scheme:light}
+html[data-density="compact"] #content{padding:20px 22px 84px}
+html[data-density="compact"] .feed-card{padding:16px}
+html[data-density="compact"] .feed-grid{gap:10px}
+html[data-density="compact"] .nav-link{padding-top:7px;padding-bottom:7px}
+html[data-density="compact"] .page-head{margin-bottom:14px}
+html[data-density="compact"] .page-head h1{font-size:28px}
+html[data-density="compact"] .review-text{font-size:15px;line-height:1.6}
+html.pp-reduce *,html.pp-reduce *::before,html.pp-reduce *::after{animation-duration:.001ms!important;transition-duration:.001ms!important;scroll-behavior:auto!important}
+
+/* ---------- focus + polish ---------- */
+:focus-visible{outline:2px solid var(--coral);outline-offset:2px;border-radius:6px}
+#header{transition:box-shadow .2s ease,background .2s ease}
+html.pp-scrolled #header{box-shadow:0 6px 18px -14px rgba(20,33,61,.45)}
+.pp-enter{animation:ppEnter .32s cubic-bezier(.2,.7,.2,1)}
+@keyframes ppEnter{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+#pp-progress{position:fixed;top:0;left:0;height:3px;width:0;background:var(--coral);z-index:400;opacity:0;pointer-events:none;box-shadow:0 0 10px var(--coral)}
+#pp-progress.run{opacity:1;animation:ppProg .45s ease forwards}
+@keyframes ppProg{0%{width:0}70%{width:80%}100%{width:100%;opacity:0}}
+.feed-card.pp-focus{box-shadow:0 0 0 2px var(--coral),var(--shadow);transform:translateY(-2px)}
+.product-card.pp-focus{box-shadow:0 0 0 2px var(--coral),var(--shadow)}
+
+/* ---------- header controls ---------- */
+.search-box .pp-kbd-hint{position:absolute;right:12px;top:50%;transform:translateY(-50%);pointer-events:none;transition:opacity .15s}
+.search-box:focus-within .pp-kbd-hint{opacity:0}
+kbd,.pp-kbd{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;border-radius:6px;border:1px solid var(--sand);border-bottom-width:2px;background:var(--white);color:var(--slate);font:600 11px/1 var(--sans);letter-spacing:.02em;white-space:nowrap}
+.pp-hbtn{display:inline-flex;align-items:center;gap:6px}
+#pp-cmd-btn{width:auto;padding:0 10px;border-radius:999px;border:1px solid var(--sand);height:36px;font-size:12px;color:var(--slate)}
+#pp-cmd-btn:hover{border-color:var(--ink);color:var(--ink)}
+
+/* ---------- sidebar extras ---------- */
+.pp-rail-toggle{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:12px;color:var(--slate);font-size:13px;font-weight:500;width:100%;transition:background var(--transition),color var(--transition)}
+.pp-rail-toggle:hover{background:var(--sand);color:var(--ink)}
+.pp-rail-toggle svg{transition:transform .25s}
+.nav-link .pp-count{margin-left:auto;font-size:10.5px;font-weight:700;color:var(--slate);background:var(--sand);padding:2px 7px;border-radius:999px}
+.nav-link.active .pp-count{background:rgba(255,255,255,.14);color:inherit}
+@media (min-width:821px){
+  #sidebar{transition:width .25s ease,padding .25s ease}
+  html.pp-rail #sidebar{width:78px;padding-left:12px;padding-right:12px}
+  html.pp-rail #sidebar .brand-word,html.pp-rail #sidebar .tagline,html.pp-rail #sidebar .nav-link span,html.pp-rail #sidebar .nav-section-label,html.pp-rail #sidebar .side-user > div,html.pp-rail .pp-rail-toggle span{display:none}
+  html.pp-rail #sidebar .nav-link{justify-content:center;position:relative}
+  html.pp-rail #sidebar .nav-link .badge-count,html.pp-rail #sidebar .nav-link .pp-count{position:absolute;top:3px;right:6px;padding:1px 5px;font-size:9px}
+  html.pp-rail #sidebar .brand{justify-content:center;padding:0}
+  html.pp-rail #sidebar .side-user{justify-content:center}
+  html.pp-rail .pp-rail-toggle{justify-content:center}
+  html.pp-rail .pp-rail-toggle svg{transform:rotate(180deg)}
+}
+@media (max-width:820px){.pp-rail-toggle,#pp-cmd-btn,.search-box .pp-kbd-hint{display:none!important}}
+
+/* ---------- review card extras ---------- */
+.review-actions button.pp-saved{color:var(--coral)}
+.review-actions button.pp-saved svg{fill:var(--coral);stroke:var(--coral)}
+.review-actions{flex-wrap:wrap;row-gap:6px}
+@media (max-width:520px){.review-actions [data-action="pp-save"] span,.review-actions [data-action="pp-share"] span{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}}
+.pp-pop{animation:ppPop .35s ease}
+@keyframes ppPop{0%{transform:scale(1)}40%{transform:scale(1.25)}100%{transform:scale(1)}}
+
+/* ---------- toasts ---------- */
+.toast{align-items:center}
+.toast .pp-t-msg{flex:1;min-width:0}
+.toast .pp-t-act{flex:none;font-weight:700;font-size:12px;letter-spacing:.02em;color:var(--coral);padding:4px 10px;border-radius:999px;background:rgba(255,255,255,.08)}
+.toast .pp-t-act:hover{background:rgba(255,255,255,.16)}
+.toast .pp-t-x{flex:none;opacity:.55;padding:2px;border-radius:6px;color:inherit}
+.toast .pp-t-x:hover{opacity:1}
+.toast .pp-t-x svg{width:14px;height:14px;color:inherit}
+.toast.pp-out{opacity:0;transform:translateY(10px);transition:opacity .3s,transform .3s}
+
+/* ---------- command palette ---------- */
+#pp-pal-root{position:fixed;inset:0;z-index:500;display:none;align-items:flex-start;justify-content:center;padding:12vh 16px 16px;background:rgba(20,33,61,.45);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
+#pp-pal-root.open{display:flex;animation:ppFade .15s ease}
+@keyframes ppFade{from{opacity:0}to{opacity:1}}
+.pp-pal{width:100%;max-width:640px;background:var(--white);border-radius:18px;box-shadow:var(--shadow-lg),0 0 0 1px var(--sand);overflow:hidden;display:flex;flex-direction:column;max-height:70vh;animation:pop .2s ease}
+.pp-pal-top{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--sand);color:var(--slate)}
+.pp-pal-top input{flex:1;border:0;outline:0;background:transparent;font-size:16px;color:var(--ink);padding:4px 0}
+.pp-pal-list{overflow-y:auto;padding:6px 8px 10px}
+.pp-pal-group{font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--slate);padding:12px 12px 6px}
+.pp-pal-item{display:flex;align-items:center;gap:12px;padding:9px 12px;border-radius:10px;cursor:pointer;color:var(--ink);font-size:14px}
+.pp-pal-item .pp-pi-ic{width:30px;height:30px;border-radius:9px;background:var(--sand);display:flex;align-items:center;justify-content:center;flex:none;color:var(--ink)}
+.pp-pal-item .pp-pi-ic svg{width:16px;height:16px}
+.pp-pal-item .pp-pi-txt{flex:1;min-width:0}
+.pp-pal-item .pp-pi-label{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:500}
+.pp-pal-item .pp-pi-sub{display:block;font-size:12px;color:var(--slate);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pp-pal-item mark{background:transparent;color:var(--coral);font-weight:700}
+.pp-pal-item.active{background:var(--ink);color:var(--cream)}
+.pp-pal-item.active .pp-pi-sub{color:rgba(255,255,255,.7)}
+html[data-theme="dark"] .pp-pal-item.active .pp-pi-sub{color:rgba(19,22,30,.7)}
+.pp-pal-item.active .pp-pi-ic{background:var(--coral);color:#fff}
+.pp-pal-item .pp-kbd{flex:none}
+.pp-pal-empty{padding:34px 16px;text-align:center;color:var(--slate);font-size:14px}
+.pp-pal-foot{display:flex;gap:16px;align-items:center;padding:10px 18px;border-top:1px solid var(--sand);font-size:11.5px;color:var(--slate);flex-wrap:wrap}
+.pp-pal-foot span{display:inline-flex;gap:6px;align-items:center}
+
+/* ---------- appearance popover ---------- */
+#pp-appear{position:absolute;top:56px;right:26px;width:320px;background:var(--white);border:1px solid var(--sand);border-radius:16px;box-shadow:var(--shadow-lg);padding:16px;z-index:70;animation:pop .2s ease}
+.pp-ap-sec{margin-bottom:14px}
+.pp-ap-sec:last-child{margin-bottom:0}
+.pp-ap-label{font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--slate);margin-bottom:8px}
+.pp-seg{display:flex;background:var(--sand);border-radius:999px;padding:3px;gap:2px}
+.pp-seg button{flex:1;padding:7px 8px;border-radius:999px;font-size:12.5px;font-weight:600;color:var(--slate);display:inline-flex;align-items:center;justify-content:center;gap:5px}
+.pp-seg button.on{background:var(--white);color:var(--ink);box-shadow:var(--shadow-sm)}
+.pp-swatches{display:flex;gap:9px;flex-wrap:wrap}
+.pp-sw{width:28px;height:28px;border-radius:50%;border:2px solid transparent;box-shadow:inset 0 0 0 2px var(--white);transition:transform .15s}
+.pp-sw:hover{transform:scale(1.1)}
+.pp-sw.on{border-color:var(--ink)}
+.pp-switch{display:flex;align-items:center;justify-content:space-between;font-size:13px;padding:6px 0;cursor:pointer;color:var(--ink)}
+.pp-switch input{display:none}
+.pp-switch .pp-tg{width:36px;height:20px;border-radius:999px;background:var(--sand);position:relative;transition:background .2s;flex:none}
+.pp-switch .pp-tg::after{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:var(--white);box-shadow:0 1px 3px rgba(0,0,0,.25);transition:transform .2s}
+.pp-switch input:checked + .pp-tg{background:var(--coral)}
+.pp-switch input:checked + .pp-tg::after{transform:translateX(16px)}
+.pp-settings-card{background:var(--sand);border-radius:var(--r-lg);padding:20px 22px;margin-bottom:18px;box-shadow:var(--shadow-sm)}
+.pp-settings-card h3{font-size:18px;margin-bottom:4px}
+.pp-settings-card p{font-size:13px;color:var(--slate);margin-bottom:14px}
+.pp-settings-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px}
+
+/* ---------- shortcut sheet ---------- */
+.pp-keys{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:4px 26px}
+.pp-keys h4{font-family:var(--sans);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--slate);margin:14px 0 6px}
+.pp-key-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px dashed var(--sand);font-size:13px}
+.pp-key-row span:last-child{display:inline-flex;gap:4px}
+
+/* ---------- back to top + saved view ---------- */
+#pp-top{position:fixed;left:50%;bottom:26px;transform:translate(-50%,20px);opacity:0;pointer-events:none;z-index:150;display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:999px;background:var(--ink);color:var(--cream);font-size:12px;font-weight:600;box-shadow:var(--shadow-lg);transition:opacity .2s,transform .2s}
+#pp-top.show{opacity:1;pointer-events:auto;transform:translate(-50%,0)}
+#pp-top svg{width:14px;height:14px;transform:rotate(90deg)}
+@media (max-width:820px){#pp-top{bottom:92px}#pp-appear{right:10px;left:10px;width:auto;top:60px}}
+.pp-saved-tools{display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap}
+.pp-saved-tools input{flex:1;min-width:200px;padding:9px 14px;border:1px solid var(--sand);border-radius:999px;background:var(--white);font-size:13px;color:var(--ink)}
+
+/* polish fixes: programmatic focus target, dark legend, dark switches */
+[tabindex="-1"]:focus,[tabindex="-1"]:focus-visible,#content:focus-visible{outline:none}
+html[data-theme="dark"] .map-legend{background:rgba(28,30,38,.94);color:var(--ink);border:1px solid rgba(255,255,255,.08)}
+html[data-theme="dark"] .pp-switch .pp-tg{background:rgba(255,255,255,.18)}
+html[data-theme="dark"] .pp-switch .pp-tg::after{background:#f4efe6}
+</style>
+<script>
+/* =====================================================================
+   PEERS PLUS  -  interaction layer
+   Command palette (Ctrl/Cmd+K), keyboard shortcuts, saved reviews,
+   undo toasts, appearance (light/dark/system, accent, density, motion),
+   collapsible sidebar rail, view transitions and small polish.
+   ---------------------------------------------------------------------
+   Additive module, same pattern as PEERS MODES: runs after the app's own
+   scripts, wraps app globals (toast, render, renderSidebar, navigate,
+   views.*) and injects its own DOM at runtime. Offline, no network calls.
+   UI preferences live in their own localStorage key (peers_ui_v1); saved
+   reviews live in the app state (state.saved) so export/import keep them.
+   ===================================================================== */
+(function () {
+  if (typeof document === 'undefined' || !document.getElementById('header')) return;
+
+  var UI_KEY = 'peers_ui_v1';
+  var IS_MAC = /Mac|iPhone|iPad/.test(navigator.platform || '');
+  var MOD = IS_MAC ? '\u2318' : 'Ctrl';
+
+  /* ------------------------------------------------------------------ */
+  /* 0. helpers                                                          */
+  /* ------------------------------------------------------------------ */
+  function el(id) { return document.getElementById(id); }
+  function loadUI() {
+    try { return JSON.parse(localStorage.getItem(UI_KEY)) || {}; } catch (e) { return {}; }
+  }
+  var ui = loadUI();
+  if (!ui.theme) ui.theme = 'light';
+  if (!ui.accent) ui.accent = 'coral';
+  if (!ui.density) ui.density = 'comfortable';
+  if (!ui.recent) ui.recent = [];
+  function saveUI() {
+    try { localStorage.setItem(UI_KEY, JSON.stringify(ui)); } catch (e) {}
+  }
+  function isTyping(t) {
+    t = t || document.activeElement;
+    if (!t) return false;
+    var tag = (t.tagName || '').toLowerCase();
+    return tag === 'input' || tag === 'textarea' || tag === 'select' || t.isContentEditable;
+  }
+  function overlayOpen() {
+    var gate = el('auth-gate');
+    if (gate && gate.classList.contains('show')) return true;
+    if (el('tour-overlay')) return true;
+    return false;
+  }
+  function modalOpen() {
+    var r = el('modal-root');
+    return !!(r && r.firstElementChild);
+  }
+  function synthClick(action, value) {
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.hidden = true;
+    b.setAttribute('data-action', action);
+    if (value != null) b.setAttribute('data-val', value);
+    document.body.appendChild(b);
+    b.click();
+    if (b.parentNode) b.parentNode.removeChild(b);
+  }
+  function refreshAll() {
+    try { renderSidebar(); } catch (e) {}
+    render();
+    var dr = el('drawer');
+    if (dr && dr.classList.contains('open')) { try { renderCart(); } catch (e) {} }
+    try { updateCartBadge(); } catch (e) {}
+  }
+
+  /* extra icons (added to the shared ICONS map) */
+  ICONS.bookmark = '<path d="M6 4h12v17l-6-4-6 4z"/>';
+  ICONS.moon = '<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/>';
+  ICONS.sun = '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>';
+  ICONS.monitor = '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>';
+  ICONS.share = '<circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="M8.2 10.8l7.6-4.4M8.2 13.2l7.6 4.4"/>';
+  ICONS.sidebar = '<path d="M15 6l-6 6 6 6"/>';
+  ICONS.command = '<path d="M9 6a3 3 0 1 0-3 3h12a3 3 0 1 0-3-3v12a3 3 0 1 0 3-3H6a3 3 0 1 0 3 3z"/>';
+  ICONS.keyboard = '<rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/>';
+  ICONS.palette = '<path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.5-.8 1.5-1.6 0-1.3-1-1.6-1-2.9 0-1 .8-1.5 1.8-1.5H17a4 4 0 0 0 4-4c0-4.4-4-8-9-8z"/><circle cx="7.5" cy="11" r="1"/><circle cx="10" cy="7" r="1"/><circle cx="15" cy="7.5" r="1"/>';
+  ICONS.logout = '<path d="M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10"/>';
+
+  /* ------------------------------------------------------------------ */
+  /* 1. appearance                                                       */
+  /* ------------------------------------------------------------------ */
+  var ACCENTS = [
+    {id: 'coral', label: 'Coral', c: '#FF6B5B'},
+    {id: 'saffron', label: 'Saffron', c: '#E39B2D'},
+    {id: 'forest', label: 'Forest', c: '#2E8B62'},
+    {id: 'teal', label: 'Teal', c: '#139C95'},
+    {id: 'ocean', label: 'Ocean', c: '#2F7FE0'},
+    {id: 'plum', label: 'Plum', c: '#9150D8'},
+    {id: 'rose', label: 'Rose', c: '#E0457B'}
+  ];
+  var mql = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+  function effectiveTheme() {
+    if (ui.theme === 'system') return mql && mql.matches ? 'dark' : 'light';
+    return ui.theme === 'dark' ? 'dark' : 'light';
+  }
+  function applyAppearance() {
+    var root = document.documentElement;
+    root.setAttribute('data-theme', effectiveTheme());
+    root.setAttribute('data-density', ui.density);
+    root.classList.toggle('pp-reduce', !!ui.reduceMotion);
+    root.classList.toggle('pp-rail', !!ui.rail);
+    var acc = ACCENTS.filter(function (a) { return a.id === ui.accent; })[0] || ACCENTS[0];
+    if (acc.id === 'coral') root.style.removeProperty('--coral');
+    else root.style.setProperty('--coral', acc.c);
+    var tb = el('pp-theme-btn');
+    if (tb) tb.innerHTML = icon(effectiveTheme() === 'dark' ? 'moon' : 'sun', '');
+    var meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute('content', effectiveTheme() === 'dark' ? '#13161E' : '#FAF6EF');
+  }
+  if (mql && mql.addEventListener) {
+    mql.addEventListener('change', function () {
+      if (ui.theme === 'system') applyAppearance();
+    });
+  }
+  function setPref(key, value, silent) {
+    ui[key] = value;
+    saveUI();
+    applyAppearance();
+    syncAppearanceControls();
+    if (!silent && key === 'theme') toast('Theme: ' + value.charAt(0).toUpperCase() + value.slice(1), effectiveTheme() === 'dark' ? 'moon' : 'sun');
+  }
+  function toggleTheme() {
+    setPref('theme', effectiveTheme() === 'dark' ? 'light' : 'dark');
+  }
+  function toggleRail() {
+    setPref('rail', !ui.rail, true);
+  }
+  function appearanceControls() {
+    function seg(key, options) {
+      return '<div class="pp-seg" role="radiogroup">' + options.map(function (o) {
+        var on = ui[key] === o[0];
+        return '<button type="button" role="radio" aria-checked="' + on + '" class="' + (on ? 'on' : '') + '" data-pp-pref="' + key + '" data-pp-val="' + o[0] + '">' + (o[2] ? icon(o[2], 'sm') : '') + o[1] + '</button>';
+      }).join('') + '</div>';
+    }
+    function sw(key, label) {
+      return '<label class="pp-switch"><span>' + label + '</span><input type="checkbox" data-pp-toggle="' + key + '"' + (ui[key] ? ' checked' : '') + '><span class="pp-tg"></span></label>';
+    }
+    return '' +
+      '<div class="pp-ap-sec"><div class="pp-ap-label">Theme</div>' + seg('theme', [['light', 'Light', 'sun'], ['dark', 'Dark', 'moon'], ['system', 'Auto', 'monitor']]) + '</div>' +
+      '<div class="pp-ap-sec"><div class="pp-ap-label">Accent</div><div class="pp-swatches">' + ACCENTS.map(function (a) {
+        return '<button type="button" class="pp-sw' + (ui.accent === a.id ? ' on' : '') + '" style="background:' + a.c + '" title="' + a.label + '" aria-label="Accent ' + a.label + '" data-pp-pref="accent" data-pp-val="' + a.id + '"></button>';
+      }).join('') + '</div></div>' +
+      '<div class="pp-ap-sec"><div class="pp-ap-label">Density</div>' + seg('density', [['comfortable', 'Comfortable'], ['compact', 'Compact']]) + '</div>' +
+      '<div class="pp-ap-sec">' + sw('reduceMotion', 'Reduce motion') + sw('rail', 'Compact sidebar') + '</div>';
+  }
+  function syncAppearanceControls() {
+    var hosts = document.querySelectorAll('[data-pp-appear-host]');
+    for (var i = 0; i < hosts.length; i++) hosts[i].innerHTML = appearanceControls();
+  }
+  function toggleAppearance(force) {
+    var pop = el('pp-appear');
+    if (pop && force !== true) { pop.remove(); return; }
+    if (pop) return;
+    pop = document.createElement('div');
+    pop.id = 'pp-appear';
+    pop.setAttribute('role', 'dialog');
+    pop.setAttribute('aria-label', 'Appearance');
+    pop.setAttribute('data-pp-appear-host', '');
+    pop.innerHTML = appearanceControls();
+    el('header').appendChild(pop);
+  }
+  document.addEventListener('click', function (e) {
+    var p = e.target.closest ? e.target.closest('[data-pp-pref]') : null;
+    if (p) {
+      e.preventDefault();
+      setPref(p.getAttribute('data-pp-pref'), p.getAttribute('data-pp-val'));
+      return;
+    }
+    var pop = el('pp-appear');
+    if (pop && !e.target.closest('#pp-appear') && !e.target.closest('#pp-theme-btn')) pop.remove();
+  });
+  document.addEventListener('change', function (e) {
+    var k = e.target && e.target.getAttribute && e.target.getAttribute('data-pp-toggle');
+    if (k) setPref(k, !!e.target.checked, true);
+  });
+
+  /* ------------------------------------------------------------------ */
+  /* 2. toasts with actions (replaces the global toast)                  */
+  /* ------------------------------------------------------------------ */
+  var pendingUndo = null;
+  function dismissToast(t) {
+    if (!t || t._gone) return;
+    t._gone = true;
+    clearTimeout(t._timer);
+    t.classList.add('pp-out');
+    setTimeout(function () { if (t.parentNode) t.parentNode.removeChild(t); }, 300);
+  }
+  function armToast(t, ms) {
+    clearTimeout(t._timer);
+    t._timer = setTimeout(function () { dismissToast(t); }, ms);
+  }
+  window.toast = function (msg, iconName, opts) {
+    opts = opts || {};
+    var host = el('toasts');
+    if (!host) return null;
+    var action = opts.action || null;
+    if (!action && pendingUndo && !pendingUndo.used) {
+      var snap = pendingUndo;
+      snap.used = true;
+      action = {label: 'Undo', run: function () { restoreSnapshot(snap.json); }};
+    }
+    var t = document.createElement('div');
+    t.className = 'toast';
+    t.setAttribute('role', 'status');
+    t.innerHTML = icon(iconName || 'check', 'sm') + '<span class="pp-t-msg">' + esc(msg) + '</span>' +
+      (action ? '<button type="button" class="pp-t-act">' + esc(action.label) + '</button>' : '') +
+      '<button type="button" class="pp-t-x" aria-label="Dismiss">' + icon('close', '') + '</button>';
+    host.appendChild(t);
+    while (host.children.length > 4) host.removeChild(host.firstElementChild);
+    var ms = opts.duration || (action ? 5200 : 2800);
+    armToast(t, ms);
+    t.addEventListener('mouseenter', function () { clearTimeout(t._timer); });
+    t.addEventListener('mouseleave', function () { armToast(t, 1800); });
+    t.querySelector('.pp-t-x').addEventListener('click', function (e) { e.stopPropagation(); dismissToast(t); });
+    if (action) {
+      t.querySelector('.pp-t-act').addEventListener('click', function (e) {
+        e.stopPropagation();
+        dismissToast(t);
+        action.run();
+      });
+    }
+    return t;
+  };
+
+  /* ------------------------------------------------------------------ */
+  /* 3. undo (snapshot before destructive / toggling actions)            */
+  /* ------------------------------------------------------------------ */
+  var UNDOABLE = {
+    'vote': 1, 'follow-user': 1, 'follow-place': 1, 'add-cart': 1, 'cart-qty': 1,
+    'mod-remove': 1, 'mod-approve': 1, 'notif-mark-all': 1, 'delete-collection-confirm': 1,
+    'decide-complaint': 1, 'confirm-cancel-subscription': 1
+  };
+  function restoreSnapshot(json) {
+    var obj;
+    try { obj = JSON.parse(json); } catch (e) { return; }
+    Object.keys(state).forEach(function (k) { delete state[k]; });
+    Object.keys(obj).forEach(function (k) { state[k] = obj[k]; });
+    saveState(state);
+    refreshAll();
+    toast('Undone', 'refresh', {action: null, duration: 1800});
+  }
+  document.addEventListener('click', function (e) {
+    var t = e.target && e.target.closest ? e.target.closest('[data-action]') : null;
+    if (!t) return;
+    var a = t.getAttribute('data-action');
+    if (!UNDOABLE[a]) return;
+    var cartBefore = (state.cart || []).length;
+    var unreadBefore = (state.notifications || []).filter(function (n) { return !n.read; }).length;
+    var snap = {json: JSON.stringify(state), action: a, used: false};
+    pendingUndo = snap;
+    setTimeout(function () {
+      if (!snap.used) {
+        if (a === 'cart-qty' && (state.cart || []).length < cartBefore) {
+          pendingUndo = snap;
+          toast('Removed from cart', 'trash');
+        } else if (a === 'notif-mark-all' && unreadBefore > 0) {
+          pendingUndo = snap;
+          toast('Marked ' + unreadBefore + ' notification' + (unreadBefore === 1 ? '' : 's') + ' as read', 'check');
+        }
+      }
+      if (pendingUndo === snap) pendingUndo = null;
+    }, 0);
+  }, true);
+
+  /* ------------------------------------------------------------------ */
+  /* 4. saved reviews + share                                            */
+  /* ------------------------------------------------------------------ */
+  function savedList() {
+    if (!Array.isArray(state.saved)) state.saved = [];
+    return state.saved;
+  }
+  function isSaved(id) { return savedList().indexOf(id) >= 0; }
+  function toggleSave(id, btn) {
+    var list = savedList();
+    var i = list.indexOf(id);
+    var json = JSON.stringify(state);
+    if (i >= 0) list.splice(i, 1);
+    else list.unshift(id);
+    saveState(state);
+    var nowSaved = i < 0;
+    if (btn) {
+      btn.classList.toggle('pp-saved', nowSaved);
+      btn.setAttribute('aria-pressed', String(nowSaved));
+      var lab = btn.querySelector('span');
+      if (lab) lab.textContent = nowSaved ? 'Saved' : 'Save';
+      btn.classList.remove('pp-pop');
+      void btn.offsetWidth;
+      btn.classList.add('pp-pop');
+    }
+    try { renderSidebar(); } catch (e) {}
+    if (currentView === 'saved') render();
+    toast(nowSaved ? 'Saved for later' : 'Removed from saved', 'bookmark', {
+      action: {label: 'Undo', run: function () { restoreSnapshot(json); }}
+    });
+  }
+  function shareText(r) {
+    var p = placeById(r.placeId) || {};
+    var u = userById(r.authorId) || {};
+    var excerpt = (r.text || '').length > 140 ? r.text.slice(0, 137) + '...' : (r.text || '');
+    return '\u201C' + excerpt + '\u201D \u2014 ' + (u.name || 'A reviewer') + ' on ' + (p.name || 'Peers') + ' (' + r.rating + '/5) \u00B7 via Peers';
+  }
+  function copyText(text) {
+    function fallback() {
+      var ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      var ok = false;
+      try { ok = document.execCommand('copy'); } catch (e) {}
+      document.body.removeChild(ta);
+      return ok;
+    }
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(text).then(function () {
+        toast('Copied review to clipboard', 'share');
+      }, function () {
+        toast(fallback() ? 'Copied review to clipboard' : 'Copy not available here', 'share');
+      });
+    } else {
+      toast(fallback() ? 'Copied review to clipboard' : 'Copy not available here', 'share');
+    }
+  }
+  function decorateCards(root) {
+    var cards = (root || document).querySelectorAll('.feed-card[data-id]');
+    for (var i = 0; i < cards.length; i++) {
+      var card = cards[i];
+      var id = card.getAttribute('data-id');
+      var bar = card.querySelector('.review-actions');
+      if (!bar || bar.querySelector('[data-action="pp-save"]') || !reviewById(id)) continue;
+      var saved = isSaved(id);
+      var html = '<button type="button" data-action="pp-save" data-id="' + esc(id) + '" class="' + (saved ? 'pp-saved' : '') + '" aria-pressed="' + saved + '" title="Save (S)">' + icon('bookmark', '') + '<span>' + (saved ? 'Saved' : 'Save') + '</span></button>' +
+        '<button type="button" data-action="pp-share" data-id="' + esc(id) + '" title="Copy to share">' + icon('share', '') + '<span>Share</span></button>';
+      var spacer = bar.querySelector('.spacer');
+      if (spacer) spacer.insertAdjacentHTML('beforebegin', html);
+      else bar.insertAdjacentHTML('beforeend', html);
+    }
+  }
+  document.addEventListener('click', function (e) {
+    var t = e.target && e.target.closest ? e.target.closest('[data-action^="pp-"]') : null;
+    if (!t) return;
+    var a = t.getAttribute('data-action');
+    var id = t.getAttribute('data-id');
+    if (a === 'pp-save') { e.preventDefault(); e.stopPropagation(); toggleSave(id, t); }
+    else if (a === 'pp-share') { e.preventDefault(); e.stopPropagation(); var r = reviewById(id); if (r) copyText(shareText(r)); }
+    else if (a === 'pp-clear-saved') {
+      e.preventDefault(); e.stopPropagation();
+      var json = JSON.stringify(state);
+      var n = savedList().length;
+      state.saved = [];
+      saveState(state);
+      refreshAll();
+      toast('Cleared ' + n + ' saved review' + (n === 1 ? '' : 's'), 'trash', {action: {label: 'Undo', run: function () { restoreSnapshot(json); }}});
+    }
+    else if (a === 'pp-reset') { e.preventDefault(); e.stopPropagation(); closeModal(); resetDemo(); }
+    else if (a === 'pp-palette') { e.preventDefault(); e.stopPropagation(); openPalette(); }
+    else if (a === 'pp-shortcuts') { e.preventDefault(); e.stopPropagation(); openShortcuts(); }
+  }, true);
+
+  views.saved = function () {
+    var q = (ui.savedQuery || '').toLowerCase();
+    var list = savedList().map(function (id) { return reviewById(id); }).filter(Boolean);
+    var shown = list.filter(function (r) {
+      if (!q) return true;
+      var p = placeById(r.placeId) || {};
+      var u = userById(r.authorId) || {};
+      return ((r.text || '') + ' ' + (p.name || '') + ' ' + (p.city || '') + ' ' + (u.name || '')).toLowerCase().indexOf(q) >= 0;
+    });
+    return '' +
+      '<div class="page-head"><h1>Saved</h1><p>Reviews you bookmarked to come back to. Press <kbd>S</kbd> on any review to save it.</p></div>' +
+      (list.length ? '<div class="pp-saved-tools"><input type="search" id="pp-saved-q" placeholder="Filter saved reviews" value="' + esc(ui.savedQuery || '') + '" aria-label="Filter saved reviews"><button class="btn btn-outline" data-action="pp-clear-saved">' + icon('trash', 'sm') + ' Clear all</button></div>' : '') +
+      '<div class="feed-grid">' + shown.map(reviewCard).join('') +
+      (list.length === 0 ? '<div class="empty">' + icon('bookmark', 'xl') + '<h3>Nothing saved yet</h3><p>Tap <b>Save</b> on a review in your feed and it will show up here.</p><button class="btn btn-primary" style="margin-top:14px" data-action="nav" data-view="feed">Browse the feed</button></div>' :
+        (shown.length === 0 ? '<div class="empty">' + icon('search', 'xl') + '<h3>No saved reviews match</h3><p>Try another word.</p></div>' : '')) +
+      '</div>';
+  };
+  document.addEventListener('input', function (e) {
+    if (e.target && e.target.id === 'pp-saved-q') {
+      ui.savedQuery = e.target.value;
+      saveUI();
+      var pos = e.target.selectionStart;
+      render();
+      var inp = el('pp-saved-q');
+      if (inp) { inp.focus(); try { inp.setSelectionRange(pos, pos); } catch (er) {} }
+    }
+  });
+
+  /* ------------------------------------------------------------------ */
+  /* 5. sidebar: Saved link, counts, rail toggle                         */
+  /* ------------------------------------------------------------------ */
+  var _renderSidebar = renderSidebar;
+  renderSidebar = function () {
+    _renderSidebar();
+    var nav = el('main-nav');
+    if (!nav) return;
+    var col = nav.querySelector('[data-view="collections"]');
+    var n = savedList().length;
+    var active = currentView === 'saved';
+    var link = '<a class="nav-link' + (active ? ' active' : '') + '" href="#" data-action="nav" data-view="saved" aria-label="Saved"' + (active ? ' aria-current="page"' : '') + ' title="Saved (G then S)">' + icon('bookmark', '') + '<span>Saved</span>' + (n ? '<span class="pp-count">' + n + '</span>' : '') + '</a>';
+    if (col) col.insertAdjacentHTML('afterend', link);
+    var msgs = nav.querySelector('[data-view="messages"]');
+    var threads = (state.threads || []).length;
+    if (msgs && threads && !msgs.querySelector('.pp-count') && !msgs.querySelector('.badge-count')) msgs.insertAdjacentHTML('beforeend', '<span class="pp-count">' + threads + '</span>');
+    var orders = nav.querySelector('[data-view="orders"]');
+    var open = (state.orders || []).filter(function (o) { return o.status && !/deliver|complete|refund/i.test(o.status); }).length;
+    if (orders && open && !orders.querySelector('.pp-count')) orders.insertAdjacentHTML('beforeend', '<span class="pp-count">' + open + '</span>');
+    var links = nav.querySelectorAll('.nav-link');
+    for (var i = 0; i < links.length; i++) {
+      if (!links[i].title) links[i].title = links[i].getAttribute('aria-label') || '';
+    }
+  };
+  function injectSidebarToggle() {
+    var side = el('sidebar');
+    var user = el('side-user');
+    if (!side || !user || el('pp-rail-btn')) return;
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.id = 'pp-rail-btn';
+    b.className = 'pp-rail-toggle';
+    b.title = 'Collapse sidebar ( [ )';
+    b.innerHTML = icon('sidebar', 'sm') + '<span>Collapse</span>';
+    b.addEventListener('click', toggleRail);
+    side.insertBefore(b, user);
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* 6. header: palette button, theme button, search hint                */
+  /* ------------------------------------------------------------------ */
+  function injectHeader() {
+    var notif = el('notif-btn');
+    if (!notif || el('pp-theme-btn')) return;
+    var cmd = document.createElement('button');
+    cmd.type = 'button';
+    cmd.id = 'pp-cmd-btn';
+    cmd.className = 'icon-btn pp-hbtn';
+    cmd.title = 'Command palette (' + MOD + '+K)';
+    cmd.setAttribute('aria-label', 'Open command palette');
+    cmd.innerHTML = icon('command', 'sm') + '<span>' + MOD + ' K</span>';
+    cmd.addEventListener('click', function (e) { e.preventDefault(); openPalette(); });
+    var theme = document.createElement('button');
+    theme.type = 'button';
+    theme.id = 'pp-theme-btn';
+    theme.className = 'icon-btn';
+    theme.title = 'Appearance (T toggles dark mode)';
+    theme.setAttribute('aria-label', 'Appearance');
+    theme.addEventListener('click', function (e) { e.preventDefault(); e.stopPropagation(); toggleAppearance(); });
+    notif.parentNode.insertBefore(cmd, notif);
+    notif.parentNode.insertBefore(theme, notif);
+    var sb = el('search-box');
+    if (sb && !sb.querySelector('.pp-kbd-hint')) sb.insertAdjacentHTML('beforeend', '<span class="pp-kbd-hint pp-kbd">' + MOD + ' K</span>');
+    var si = el('search-input');
+    if (si) si.setAttribute('placeholder', 'Search places, reviews and products  ( / )');
+    var write = el('write-btn');
+    if (write) write.title = 'Write a review (W)';
+    var cart = el('cart-btn');
+    if (cart) cart.title = 'Cart (B)';
+    notif.title = 'Notifications (N)';
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* 7. render / navigate wrappers: transitions, title, recents          */
+  /* ------------------------------------------------------------------ */
+  var VIEW_TITLES = {feed: 'Feed', map: 'Explore', market: 'Peers Market', orders: 'Orders', collections: 'Collections', moderation: 'Moderation', messages: 'Messages', guide: 'Guide', about: 'About', settings: 'Settings', saved: 'Saved', writeReview: 'Write a review', search: 'Search', visited: 'Visited', verify: 'Verification', checkin: 'Check in'};
+  var lastKey = '';
+  var focusIdx = -1;
+  var _render = render;
+  render = function () {
+    _render();
+    var content = el('content');
+    var key = currentView + '|' + JSON.stringify(currentParams || {});
+    if (key !== lastKey) {
+      lastKey = key;
+      focusIdx = -1;
+      if (content && !ui.reduceMotion) {
+        content.classList.remove('pp-enter');
+        void content.offsetWidth;
+        content.classList.add('pp-enter');
+      }
+    } else if (focusIdx >= 0) {
+      var cards = focusables();
+      if (cards[focusIdx]) cards[focusIdx].classList.add('pp-focus');
+    }
+    decorateCards(content);
+    if (currentView === 'settings' && content && !content.querySelector('.pp-settings-card')) {
+      var head = content.querySelector('.page-head');
+      var card = '<section class="pp-settings-card"><h3>Appearance</h3><p>Personal to this browser. Applies instantly.</p><div data-pp-appear-host class="pp-settings-grid"></div>' +
+        '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px"><button class="btn btn-outline" data-action="pp-shortcuts">' + icon('keyboard', 'sm') + ' Keyboard shortcuts</button><button class="btn btn-outline" data-action="pp-palette">' + icon('command', 'sm') + ' Command palette</button></div></section>';
+      if (head) head.insertAdjacentHTML('afterend', card);
+      else content.insertAdjacentHTML('afterbegin', card);
+      syncAppearanceControls();
+    }
+    var title = VIEW_TITLES[currentView];
+    var p = currentParams || {};
+    if (currentView === 'place' && p.id) title = (placeById(p.id) || {}).name;
+    else if (currentView === 'product' && p.id) title = (productById(p.id) || {}).name;
+    else if (currentView === 'profile') title = (userById(p.id || state.meId) || {}).name;
+    document.title = (title ? title + ' \u00B7 ' : '') + 'Peers';
+  };
+  var _navigate = navigate;
+  navigate = function (view, params) {
+    var bar = el('pp-progress');
+    if (bar && !ui.reduceMotion) {
+      bar.classList.remove('run');
+      void bar.offsetWidth;
+      bar.classList.add('run');
+    }
+    var pp = params || {};
+    if ((view === 'place' || view === 'product' || (view === 'profile' && pp.id)) && pp.id) {
+      ui.recent = (ui.recent || []).filter(function (r) { return !(r.v === view && r.id === pp.id); });
+      ui.recent.unshift({v: view, id: pp.id});
+      ui.recent = ui.recent.slice(0, 6);
+      saveUI();
+    }
+    _navigate(view, params);
+  };
+
+  /* ------------------------------------------------------------------ */
+  /* 8. command palette                                                  */
+  /* ------------------------------------------------------------------ */
+  var CATEGORIES = [
+    ['all', 'All categories'], ['food', 'Food & Drink'], ['travel', 'Travel & Stays'], ['shops', 'Shops & Retail'],
+    ['services', 'Home Services'], ['health', 'Health & Wellness'], ['beauty', 'Beauty & Personal Care'], ['auto', 'Auto & EV'],
+    ['property', 'Real Estate'], ['pets', 'Pets'], ['kids', 'Kids & Care'], ['fitness', 'Fitness & Sport'], ['events', 'Events & Fun'],
+    ['grocery', 'Groceries'], ['education', 'Learning'], ['gov', 'Public Services'], ['nonprofit', 'Nonprofits'], ['ai', 'AI Tools'],
+    ['software', 'Software & SaaS'], ['finance', 'Money & Finance'], ['apps', 'Apps & Marketplaces'], ['telecom', 'Telecom & Internet'],
+    ['media', 'Streaming & Media'], ['freelance', 'Freelancers & Agencies'], ['market', 'Peers Market'], ['gadgets', 'Gadgets & Electronics'],
+    ['home', 'Home & Garden'], ['fashion', 'Fashion & Apparel'], ['baby', 'Baby & Maternity'], ['books', 'Books & Stationery'],
+    ['gifts', 'Gifts & Handmade'], ['wellness', 'Wellness & Nutrition']
+  ];
+  var NAV_KEYS = {feed: 'G F', map: 'G E', market: 'G M', orders: 'G O', collections: 'G C', saved: 'G S', moderation: 'G D', messages: 'G I', guide: 'G H', about: 'G A', settings: 'G ,'};
+  function go(view, params) {
+    return function () { navigate(view, params || {}); };
+  }
+  function staticCommands() {
+    var cmds = [];
+    var navItems = (typeof NAV !== 'undefined' ? NAV : []).slice();
+    navItems.splice(5, 0, {view: 'saved', label: 'Saved', icon: 'bookmark'});
+    navItems.forEach(function (n) {
+      cmds.push({group: 'Navigate', label: n.label, sub: 'Go to ' + n.label, icon: n.icon, kbd: NAV_KEYS[n.view], run: go(n.view)});
+    });
+    cmds.push({group: 'Navigate', label: 'Your profile', sub: 'Reviews, followers and fans', icon: 'profile', kbd: 'G P', run: go('profile', {})});
+    cmds.push({group: 'Navigate', label: 'Places visited', sub: 'Your check-ins', icon: 'checkin', run: go('visited')});
+    cmds.push({group: 'Actions', label: 'Write a review', sub: 'Share a real experience', icon: 'write', kbd: 'W', run: go('writeReview')});
+    cmds.push({group: 'Actions', label: 'Open cart', sub: cartCount() + ' item(s)', icon: 'cart', kbd: 'B', run: openCart});
+    cmds.push({group: 'Actions', label: 'Notifications', sub: (state.notifications || []).filter(function (n) { return !n.read; }).length + ' unread', icon: 'bell', kbd: 'N', run: openNotifications});
+    cmds.push({group: 'Actions', label: 'Mark all notifications read', icon: 'check', run: function () { synthClick('notif-mark-all'); }});
+    cmds.push({group: 'Actions', label: 'Browse all categories', icon: 'search', run: function () { synthClick('mode-picker'); }});
+    cmds.push({group: 'Actions', label: effectiveTheme() === 'dark' ? 'Switch to light mode' : 'Switch to dark mode', sub: 'Appearance', icon: effectiveTheme() === 'dark' ? 'sun' : 'moon', kbd: 'T', run: toggleTheme});
+    cmds.push({group: 'Actions', label: 'Appearance settings', sub: 'Theme, accent, density, motion', icon: 'palette', run: function () { toggleAppearance(true); }});
+    cmds.push({group: 'Actions', label: ui.rail ? 'Expand sidebar' : 'Collapse sidebar', icon: 'sidebar', kbd: '[', run: toggleRail});
+    cmds.push({group: 'Actions', label: 'Keyboard shortcuts', icon: 'keyboard', kbd: '?', run: openShortcuts});
+    cmds.push({group: 'Actions', label: 'Export my data (JSON)', icon: 'receipt', run: function () { synthClick('pm-export'); }});
+    cmds.push({group: 'Actions', label: 'Take the guided tour', icon: 'about', run: function () { synthClick('start-tour'); }});
+    cmds.push({group: 'Actions', label: 'Reset demo data', sub: 'Restore the original sample content', icon: 'refresh', run: confirmReset});
+    if (typeof window.peersLogout === 'function') cmds.push({group: 'Actions', label: 'Sign out', icon: 'logout', run: function () { window.peersLogout(); }});
+    var cur = state.mode || 'all';
+    CATEGORIES.forEach(function (c) {
+      cmds.push({group: 'Categories', label: c[1], sub: c[0] === cur ? 'Current category' : 'Switch category', icon: 'feed', run: function () { synthClick('mode-select', c[0]); }, cat: true});
+    });
+    return cmds;
+  }
+  function dataCommands() {
+    var out = [];
+    (state.places || []).forEach(function (p) {
+      out.push({group: 'Places', label: p.name, sub: [p.category, p.city, p.country].filter(Boolean).join(' \u00B7 ') + (p.rating ? '  \u2605 ' + p.rating : ''), icon: 'place', run: go('place', {id: p.id})});
+    });
+    (state.products || []).forEach(function (p) {
+      var s = sellerById(p.sellerId) || {};
+      out.push({group: 'Products', label: p.name, sub: (s.name || p.category || '') + (p.price != null ? ' \u00B7 ' + fmtPrice(p.price) : ''), icon: 'market', run: go('product', {id: p.id})});
+    });
+    (state.users || []).forEach(function (u) {
+      out.push({group: 'People', label: u.name, sub: u.bio || u.role || '', icon: 'profile', run: go('profile', {id: u.id})});
+    });
+    (state.reviews || []).forEach(function (r) {
+      if (r.isOwnerReply || !r.text) return;
+      var p = placeById(r.placeId) || {};
+      var u = userById(r.authorId) || {};
+      out.push({group: 'Reviews', label: r.text, sub: (u.name || '') + ' on ' + (p.name || ''), icon: 'feedback', run: go('place', {id: r.placeId})});
+    });
+    return out;
+  }
+  function score(text, q) {
+    text = String(text || '').toLowerCase();
+    if (!q) return 1;
+    var idx = text.indexOf(q);
+    if (idx === 0) return 100 - Math.min(text.length, 60) / 10;
+    if (idx > 0) return (/[\s\-&(]/.test(text.charAt(idx - 1)) ? 70 : 50) - idx / 100;
+    var ti = 0, run = 0, best = 0, hits = 0;
+    for (var i = 0; i < q.length; i++) {
+      var ch = q.charAt(i);
+      if (ch === ' ') continue;
+      var f = text.indexOf(ch, ti);
+      if (f < 0) return 0;
+      run = f === ti ? run + 1 : 1;
+      if (run > best) best = run;
+      ti = f + 1;
+      hits++;
+    }
+    return hits ? 10 + best * 2 - ti / 200 : 0;
+  }
+  function highlight(text, q) {
+    var s = String(text || '');
+    if (!q) return esc(s);
+    var i = s.toLowerCase().indexOf(q);
+    if (i < 0) return esc(s);
+    return esc(s.slice(0, i)) + '<mark>' + esc(s.slice(i, i + q.length)) + '</mark>' + esc(s.slice(i + q.length));
+  }
+  var pal = {items: [], active: 0};
+  var GROUP_LIMIT = {Navigate: 6, Actions: 6, Categories: 6, Places: 6, Products: 5, People: 4, Reviews: 4};
+  var GROUP_ORDER = ['Recent', 'Navigate', 'Actions', 'Categories', 'Places', 'Products', 'People', 'Reviews'];
+  function recentCommands() {
+    return (ui.recent || []).map(function (r) {
+      if (r.v === 'place') {
+        var p = placeById(r.id);
+        return p ? {group: 'Recent', label: p.name, sub: 'Place \u00B7 ' + (p.city || ''), icon: 'clock', run: go('place', {id: p.id})} : null;
+      }
+      if (r.v === 'product') {
+        var pr = productById(r.id);
+        return pr ? {group: 'Recent', label: pr.name, sub: 'Product', icon: 'clock', run: go('product', {id: pr.id})} : null;
+      }
+      var u = userById(r.id);
+      return u ? {group: 'Recent', label: u.name, sub: 'Person', icon: 'clock', run: go('profile', {id: u.id})} : null;
+    }).filter(Boolean);
+  }
+  function buildItems(qRaw) {
+    var q = String(qRaw || '').trim().toLowerCase();
+    var pool;
+    if (!q) {
+      pool = recentCommands().concat(staticCommands().filter(function (c) { return c.group !== 'Categories'; }));
+      return pool.map(function (c) { return {c: c, s: 1}; });
+    }
+    pool = staticCommands().concat(dataCommands());
+    var scored = [];
+    pool.forEach(function (c) {
+      var s = Math.max(score(c.label, q), score(c.sub, q) * 0.6);
+      if (s > 0) scored.push({c: c, s: s});
+    });
+    scored.sort(function (a, b) { return b.s - a.s; });
+    var counts = {};
+    var kept = scored.filter(function (x) {
+      var g = x.c.group;
+      counts[g] = (counts[g] || 0) + 1;
+      return counts[g] <= (GROUP_LIMIT[g] || 5);
+    });
+    var bestByGroup = {};
+    kept.forEach(function (x) {
+      if (!(x.c.group in bestByGroup)) bestByGroup[x.c.group] = x.s;
+    });
+    kept.sort(function (a, b) {
+      var ga = bestByGroup[a.c.group], gb = bestByGroup[b.c.group];
+      if (ga !== gb) return gb - ga;
+      return b.s - a.s;
+    });
+    return kept;
+  }
+  function renderPalette() {
+    var input = el('pp-pal-input');
+    var list = el('pp-pal-list');
+    if (!input || !list) return;
+    var q = input.value.trim().toLowerCase();
+    var rows = buildItems(input.value);
+    pal.items = rows.map(function (r) { return r.c; });
+    if (pal.active >= pal.items.length) pal.active = Math.max(0, pal.items.length - 1);
+    if (!pal.items.length) {
+      list.innerHTML = '<div class="pp-pal-empty">No results for \u201C' + esc(input.value) + '\u201D.<br><span style="font-size:12px">Press Enter to search all of Peers.</span></div>';
+      return;
+    }
+    var html = '';
+    var lastGroup = '';
+    var groups = q ? null : GROUP_ORDER;
+    pal.items.forEach(function (c, i) {
+      if (c.group !== lastGroup) {
+        html += '<div class="pp-pal-group">' + esc(c.group) + '</div>';
+        lastGroup = c.group;
+      }
+      html += '<div class="pp-pal-item' + (i === pal.active ? ' active' : '') + '" role="option" id="pp-opt-' + i + '" aria-selected="' + (i === pal.active) + '" data-pp-idx="' + i + '">' +
+        '<span class="pp-pi-ic">' + icon(c.icon || 'chevronRight', '') + '</span>' +
+        '<span class="pp-pi-txt"><span class="pp-pi-label">' + highlight(c.label, q) + '</span>' + (c.sub ? '<span class="pp-pi-sub">' + highlight(c.sub, q) + '</span>' : '') + '</span>' +
+        (c.kbd ? '<span class="pp-kbd">' + esc(c.kbd) + '</span>' : '') + '</div>';
+    });
+    list.innerHTML = html;
+    input.setAttribute('aria-activedescendant', 'pp-opt-' + pal.active);
+    void groups;
+  }
+  function moveActive(d) {
+    if (!pal.items.length) return;
+    pal.active = (pal.active + d + pal.items.length) % pal.items.length;
+    var list = el('pp-pal-list');
+    var items = list.querySelectorAll('.pp-pal-item');
+    for (var i = 0; i < items.length; i++) {
+      var on = i === pal.active;
+      items[i].classList.toggle('active', on);
+      items[i].setAttribute('aria-selected', String(on));
+    }
+    if (items[pal.active]) items[pal.active].scrollIntoView({block: 'nearest'});
+    el('pp-pal-input').setAttribute('aria-activedescendant', 'pp-opt-' + pal.active);
+  }
+  function runActive() {
+    var input = el('pp-pal-input');
+    var c = pal.items[pal.active];
+    var q = input ? input.value.trim() : '';
+    closePalette();
+    if (c) {
+      setTimeout(function () {
+        try { c.run(); } catch (err) { console.error(err); toast('Something went wrong: ' + err.message, 'x'); }
+      }, 0);
+    } else if (q) {
+      navigate('search', {q: q});
+    }
+  }
+  function ensurePalette() {
+    var root = el('pp-pal-root');
+    if (root) return root;
+    root = document.createElement('div');
+    root.id = 'pp-pal-root';
+    root.innerHTML = '<div class="pp-pal" role="dialog" aria-modal="true" aria-label="Command palette">' +
+      '<div class="pp-pal-top">' + icon('search', '') + '<input id="pp-pal-input" type="text" placeholder="Search places, products, people, or type a command\u2026" autocomplete="off" spellcheck="false" role="combobox" aria-expanded="true" aria-controls="pp-pal-list"><span class="pp-kbd">Esc</span></div>' +
+      '<div class="pp-pal-list" id="pp-pal-list" role="listbox"></div>' +
+      '<div class="pp-pal-foot"><span><span class="pp-kbd">\u2191</span><span class="pp-kbd">\u2193</span> navigate</span><span><span class="pp-kbd">\u21B5</span> open</span><span><span class="pp-kbd">Esc</span> close</span><span style="margin-left:auto">Tip: press <span class="pp-kbd">?</span> for all shortcuts</span></div>' +
+      '</div>';
+    document.body.appendChild(root);
+    root.addEventListener('mousedown', function (e) {
+      if (e.target === root) closePalette();
+    });
+    var input = root.querySelector('#pp-pal-input');
+    input.addEventListener('input', function () { pal.active = 0; renderPalette(); });
+    input.addEventListener('keydown', function (e) {
+      if (e.key === 'ArrowDown' || (e.key === 'n' && e.ctrlKey)) { e.preventDefault(); moveActive(1); }
+      else if (e.key === 'ArrowUp' || (e.key === 'p' && e.ctrlKey)) { e.preventDefault(); moveActive(-1); }
+      else if (e.key === 'Enter') { e.preventDefault(); runActive(); }
+      else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closePalette(); }
+      else if (e.key === 'Tab') { e.preventDefault(); moveActive(e.shiftKey ? -1 : 1); }
+    });
+    var list = root.querySelector('#pp-pal-list');
+    list.addEventListener('mousemove', function (e) {
+      var it = e.target.closest('.pp-pal-item');
+      if (!it) return;
+      var idx = parseInt(it.getAttribute('data-pp-idx'), 10);
+      if (idx !== pal.active) { pal.active = idx; moveActive(0); }
+    });
+    list.addEventListener('click', function (e) {
+      var it = e.target.closest('.pp-pal-item');
+      if (!it) return;
+      pal.active = parseInt(it.getAttribute('data-pp-idx'), 10);
+      runActive();
+    });
+    return root;
+  }
+  var lastFocus = null;
+  function openPalette(prefill) {
+    if (overlayOpen()) return;
+    var root = ensurePalette();
+    lastFocus = document.activeElement;
+    var pop = el('pp-appear');
+    if (pop) pop.remove();
+    try { closeNotifPanel(); } catch (e) {}
+    root.classList.add('open');
+    var input = el('pp-pal-input');
+    input.value = prefill || '';
+    pal.active = 0;
+    renderPalette();
+    setTimeout(function () { input.focus(); input.select(); }, 0);
+  }
+  function closePalette() {
+    var root = el('pp-pal-root');
+    if (!root || !root.classList.contains('open')) return;
+    root.classList.remove('open');
+    if (lastFocus && lastFocus.focus && document.body.contains(lastFocus)) {
+      try { lastFocus.focus({preventScroll: true}); } catch (e) {}
+    }
+  }
+  function paletteOpen() {
+    var root = el('pp-pal-root');
+    return !!(root && root.classList.contains('open'));
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* 9. action helpers used by palette + shortcuts                       */
+  /* ------------------------------------------------------------------ */
+  function openCart() {
+    var b = el('cart-btn');
+    if (b) b.click();
+  }
+  function closeCart() {
+    var dr = el('drawer');
+    if (dr && dr.classList.contains('open')) { synthClick('close-cart'); return true; }
+    return false;
+  }
+  function openNotifications() {
+    setTimeout(function () {
+      if (!el('notif-panel')) toggleNotifPanel();
+    }, 0);
+  }
+  function confirmReset() {
+    openModal(modalTitle('Reset demo data?') +
+      '<div class="modal-body"><p>This restores the original sample reviews, places, cart and orders. Your appearance settings are kept.</p>' +
+      '<div style="display:flex;gap:10px;justify-content:flex-end;margin-top:18px"><button class="btn btn-ghost" data-action="close-modal">Cancel</button><button class="btn btn-primary" data-action="pp-reset">Reset</button></div></div>');
+  }
+  function openShortcuts() {
+    function row(label, keys) {
+      return '<div class="pp-key-row"><span>' + label + '</span><span>' + keys.map(function (k) { return '<kbd>' + k + '</kbd>'; }).join('') + '</span></div>';
+    }
+    openModal(modalTitle('Keyboard shortcuts') + '<div class="modal-body"><div class="pp-keys">' +
+      '<div><h4>General</h4>' + row('Command palette', [MOD, 'K']) + row('Search', ['/']) + row('Write a review', ['W']) + row('Cart', ['B']) + row('Notifications', ['N']) + row('Toggle dark mode', ['T']) + row('Collapse sidebar', ['[']) + row('This help', ['?']) + row('Close / dismiss', ['Esc']) + '</div>' +
+      '<div><h4>Go to</h4>' + row('Feed', ['G', 'F']) + row('Explore', ['G', 'E']) + row('Peers Market', ['G', 'M']) + row('Orders', ['G', 'O']) + row('Collections', ['G', 'C']) + row('Saved', ['G', 'S']) + row('Messages', ['G', 'I']) + row('Profile', ['G', 'P']) + row('Settings', ['G', ',']) + '</div>' +
+      '<div><h4>Reviews &amp; lists</h4>' + row('Next / previous card', ['J', 'K']) + row('Open place or product', ['O']) + row('Helpful (upvote)', ['L']) + row('Save for later', ['S']) + row('Copy to share', ['C']) + '</div>' +
+      '</div></div>');
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* 10. keyboard                                                        */
+  /* ------------------------------------------------------------------ */
+  function focusables() {
+    var c = el('content');
+    if (!c) return [];
+    return Array.prototype.slice.call(c.querySelectorAll('.feed-card, .product-card'));
+  }
+  function moveFocus(d) {
+    var cards = focusables();
+    if (!cards.length) return;
+    cards.forEach(function (c) { c.classList.remove('pp-focus'); });
+    focusIdx = focusIdx < 0 ? (d > 0 ? 0 : cards.length - 1) : Math.max(0, Math.min(cards.length - 1, focusIdx + d));
+    var card = cards[focusIdx];
+    card.classList.add('pp-focus');
+    var top = card.getBoundingClientRect().top;
+    var headerH = (el('header') ? el('header').offsetHeight : 0) + (el('pm-bar') ? el('pm-bar').offsetHeight : 0);
+    if (top < headerH + 10 || card.getBoundingClientRect().bottom > window.innerHeight - 10) {
+      window.scrollTo({top: window.scrollY + top - headerH - 16, behavior: ui.reduceMotion ? 'auto' : 'smooth'});
+    }
+  }
+  function focusedCard() {
+    var cards = focusables();
+    return focusIdx >= 0 ? cards[focusIdx] : null;
+  }
+  var gPending = 0;
+  var G_MAP = {f: 'feed', e: 'map', m: 'market', o: 'orders', c: 'collections', s: 'saved', d: 'moderation', i: 'messages', h: 'guide', a: 'about', ',': 'settings', p: 'profile'};
+  document.addEventListener('keydown', function (e) {
+    var k = e.key;
+    if ((e.ctrlKey || e.metaKey) && !e.altKey && (k === 'k' || k === 'K')) {
+      if (overlayOpen()) return;
+      e.preventDefault();
+      if (paletteOpen()) closePalette();
+      else openPalette();
+      return;
+    }
+    if (k === 'Escape') {
+      if (paletteOpen()) { closePalette(); return; }
+      var pop = el('pp-appear');
+      if (pop) { pop.remove(); return; }
+      if (el('notif-panel')) { closeNotifPanel(); return; }
+      if (modalOpen()) { closeModal(); return; }
+      if (closeCart()) return;
+      var res = el('search-results');
+      if (res && !res.hidden) { res.hidden = true; return; }
+      if (isTyping()) { document.activeElement.blur(); return; }
+      if (focusIdx >= 0) { focusables().forEach(function (c) { c.classList.remove('pp-focus'); }); focusIdx = -1; }
+      return;
+    }
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (isTyping(e.target) || paletteOpen() || overlayOpen()) return;
+    if (modalOpen() && k !== '?') return;
+    if (gPending && Date.now() - gPending < 1200) {
+      gPending = 0;
+      var v = G_MAP[k.toLowerCase()];
+      if (v) {
+        e.preventDefault();
+        navigate(v, {});
+      }
+      return;
+    }
+    gPending = 0;
+    switch (k) {
+      case 'g': case 'G': gPending = Date.now(); e.preventDefault(); break;
+      case '/': e.preventDefault(); var si = el('search-input'); if (si) { si.focus(); si.select(); } break;
+      case '?': e.preventDefault(); if (modalOpen()) closeModal(); else openShortcuts(); break;
+      case 'w': case 'W': e.preventDefault(); navigate('writeReview', {}); break;
+      case 'b': case 'B': e.preventDefault(); openCart(); break;
+      case 'n': case 'N': e.preventDefault(); if (el('notif-panel')) closeNotifPanel(); else openNotifications(); break;
+      case 't': case 'T': e.preventDefault(); toggleTheme(); break;
+      case '[': e.preventDefault(); toggleRail(); break;
+      case 'j': case 'J': e.preventDefault(); moveFocus(1); break;
+      case 'k': case 'K': e.preventDefault(); moveFocus(-1); break;
+      case 'o': case 'O': case 'Enter': {
+        var card = focusedCard();
+        if (!card) break;
+        if (k === 'Enter' && document.activeElement && document.activeElement !== document.body && document.activeElement.id !== 'content') break;
+        e.preventDefault();
+        var link = card.querySelector('[data-action="open-place"],[data-action="open-product"]');
+        if (link) link.click();
+        else card.click();
+        break;
+      }
+      case 'l': case 'L': {
+        var c1 = focusedCard();
+        var up = c1 && c1.querySelector('[data-action="vote"][data-dir="up"]');
+        if (up) { e.preventDefault(); up.click(); }
+        break;
+      }
+      case 's': case 'S': {
+        var c2 = focusedCard();
+        var sv = c2 && c2.querySelector('[data-action="pp-save"]');
+        if (sv) { e.preventDefault(); sv.click(); }
+        break;
+      }
+      case 'c': case 'C': {
+        var c3 = focusedCard();
+        var sh = c3 && c3.querySelector('[data-action="pp-share"]');
+        if (sh) { e.preventDefault(); sh.click(); }
+        break;
+      }
+    }
+  });
+
+  /* ------------------------------------------------------------------ */
+  /* 11. scroll affordances                                              */
+  /* ------------------------------------------------------------------ */
+  function injectChrome() {
+    if (!el('pp-progress')) {
+      var bar = document.createElement('div');
+      bar.id = 'pp-progress';
+      document.body.appendChild(bar);
+    }
+    if (!el('pp-top')) {
+      var top = document.createElement('button');
+      top.type = 'button';
+      top.id = 'pp-top';
+      top.innerHTML = icon('back', '') + 'Back to top';
+      top.addEventListener('click', function () {
+        window.scrollTo({top: 0, behavior: ui.reduceMotion ? 'auto' : 'smooth'});
+      });
+      document.body.appendChild(top);
+    }
+  }
+  var ticking = false;
+  window.addEventListener('scroll', function () {
+    if (ticking) return;
+    ticking = true;
+    requestAnimationFrame(function () {
+      ticking = false;
+      var y = window.scrollY || document.documentElement.scrollTop;
+      document.documentElement.classList.toggle('pp-scrolled', y > 4);
+      var t = el('pp-top');
+      if (t) t.classList.toggle('show', y > 700);
+    });
+  }, {passive: true});
+
+  /* ------------------------------------------------------------------ */
+  /* 12. init                                                            */
+  /* ------------------------------------------------------------------ */
+  function init() {
+    applyAppearance();
+    injectHeader();
+    injectSidebarToggle();
+    injectChrome();
+    applyAppearance();
+    savedList();
+    try { renderSidebar(); } catch (e) {}
+    try { render(); } catch (e) {}
+    window.peersPlus = {openPalette: openPalette, openShortcuts: openShortcuts, toggleTheme: toggleTheme, setPref: setPref, toggleRail: toggleRail};
+  }
+  applyAppearance();
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+})();
+</script>
+<!-- ===== /PEERS PLUS ===== -->
 </body>
 </html>

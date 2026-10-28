@@ -205,6 +205,19 @@ document, alongside `votes` and `feedFilter`.
 categories, reviews (with scorecards and verdicts) and market data included. This is carried
 over from the standalone Desk Verdict app.
 
+## Peers Plus (UX layer)
+
+A self-contained block at the end of `web/index.html` (between the `PEERS PLUS` markers) that adds a polished interaction layer on top of the existing app. It stays fully offline and touches no network APIs.
+
+- **Command palette** — `Ctrl/⌘ K` (or the header button). Fuzzy search across views, actions, categories, places, products, people and reviews, with recents.
+- **Keyboard shortcuts** — press `?` for the sheet. `G` then `F/E/M/O/C/S/D/I/H/A/,/P` to jump between views, `/` search, `W` write, `B` cart, `N` notifications, `T` theme, `[` sidebar rail, `J/K` move between cards, `O`/`Enter` open, `L` upvote, `S` save, `C` copy share text, `Esc` closes overlays.
+- **Undo toasts** — votes, follows, cart changes, moderation decisions, mark-all-read, deleting collections, cancelling subscriptions and similar actions can be undone from the toast.
+- **Saved reviews** — Save / Share on every review card, a *Saved* view in the sidebar with filter and clear-all. Stored in `state.saved`, so it syncs with the backend like the rest of the state.
+- **Appearance** — light / dark / auto theme, 7 accent colours, density, reduce motion and a compact sidebar rail. Set from the header button or *Settings → Appearance*. Stored per browser in `localStorage['peers_ui_v1']`.
+- **Polish** — view transitions, top progress bar, header shadow on scroll, back-to-top button, per-view document titles, visible keyboard focus rings.
+
+`window.peersPlus` exposes `openPalette()`, `toggleTheme()` and friends for scripting and tests. `mobile.html` is unchanged.
+
 ## Roadmap
 
 ### Current State (v0.6)
