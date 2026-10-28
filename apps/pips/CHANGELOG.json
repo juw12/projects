@@ -2,6 +2,33 @@
   "_comment": "Pips version history. Newest first. Feeds the in-app update notice (latest.json), the PPT guide and the update emails.",
   "releases": [
     {
+      "version": "2.2.0",
+      "date": "2026-10-28",
+      "title": "Pet sounds",
+      "notes": {
+        "en": [
+          "Your pet has a voice! Each of the 23 animals has its own sound (meow, woof, ribbit, hoot, buzz, oink, whale song...) and it changes with its mood: happy chirps, sad whimpers, sleepy yawns, hungry calls, grumpy huffs and soft snores",
+          "It also reacts with sound when you tickle, pet, feed, shake or wake it",
+          "Settings: right-click the pet → Sounds to switch on/off; Pet status & settings has a volume slider, a ▶ Hear me button and \"Stay quiet while I'm focusing\" (on by default)"
+        ],
+        "id": [
+          "Peliharaanmu sekarang bisa bersuara! Ke-23 hewan punya suara sendiri (meong, guk, kwek-kwek katak, hu-hu burung hantu, dengung lebah, oink, nyanyian paus...) dan berubah sesuai mood: ceria, sedih, menguap, lapar, ngambek, dan dengkur pelan",
+          "Juga bersuara saat kamu gelitik, elus, beri makan, guncang, atau bangunkan",
+          "Pengaturan: klik kanan peliharaan → Suara untuk nyala/mati; Status & pengaturan punya slider volume, tombol ▶ Dengar, dan \"Diam saat aku sedang fokus\" (aktif secara default)"
+        ],
+        "zh_TW": [
+          "寵物會叫了！23 種動物都有自己的聲音（喵、汪、呱呱、咕咕、嗡嗡、哼哼、鯨歌…），而且會隨心情改變：開心、難過、打哈欠、肚子餓、生氣，還有輕輕的打呼",
+          "搔癢、撫摸、餵食、搖晃或叫醒牠時也會出聲回應",
+          "設定：右鍵寵物 → 聲音 可開關；寵物狀態與設定中有音量滑桿、▶ 聽聽看 按鈕，以及「專注時保持安靜」（預設開啟）"
+        ],
+        "zh_CN": [
+          "宠物会叫了！23 种动物都有自己的声音（喵、汪、呱呱、咕咕、嗡嗡、哼哼、鲸歌…），而且会随心情改变：开心、难过、打哈欠、肚子饿、生气，还有轻轻的打呼",
+          "挠痒、抚摸、喂食、摇晃或叫醒它时也会出声回应",
+          "设置：右键宠物 → 声音 可开关；宠物状态与设置中有音量滑块、▶ 听听看 按钮，以及“专注时保持安静”（默认开启）"
+        ]
+      }
+    },
+    {
       "version": "2.1.2",
       "date": "2026-10-28",
       "title": "Tickle-only mode",

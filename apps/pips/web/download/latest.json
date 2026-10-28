@@ -1,22 +1,30 @@
 {
-  "version": "2.1.2",
+  "version": "2.2.0",
   "date": "2026-10-28",
-  "title": "Tickle-only mode",
+  "title": "Pet sounds",
   "url": "https://juw12.github.io/projects/pips/download/Pips-Windows.zip",
-  "sha256": "4b044bba29bcc0dd8a8bb49a54d1c2df4d3c31103c4b631033a882d0dad8f639",
-  "size": 561917,
+  "sha256": "16144a39a14a25f592b2ad76ed0c420ce23cce15f26510d3784c6f5d6ec36035",
+  "size": 570581,
   "notes": {
     "en": [
-      "New click option \"Only tickle (never open Pips)\": click and tickle your pet as much as you like - the Pomodoro window stays closed (open it from the right-click menu). Right-click the pet → When I click"
+      "Your pet has a voice! Each of the 23 animals has its own sound (meow, woof, ribbit, hoot, buzz, oink, whale song...) and it changes with its mood: happy chirps, sad whimpers, sleepy yawns, hungry calls, grumpy huffs and soft snores",
+      "It also reacts with sound when you tickle, pet, feed, shake or wake it",
+      "Settings: right-click the pet → Sounds to switch on/off; Pet status & settings has a volume slider, a ▶ Hear me button and \"Stay quiet while I'm focusing\" (on by default)"
     ],
     "id": [
-      "Opsi klik baru \"Hanya gelitik (tidak membuka Pips)\": klik dan gelitik peliharaanmu sepuasnya - jendela Pomodoro tetap tertutup (buka lewat menu klik kanan). Klik kanan peliharaan → Saat aku diklik"
+      "Peliharaanmu sekarang bisa bersuara! Ke-23 hewan punya suara sendiri (meong, guk, kwek-kwek katak, hu-hu burung hantu, dengung lebah, oink, nyanyian paus...) dan berubah sesuai mood: ceria, sedih, menguap, lapar, ngambek, dan dengkur pelan",
+      "Juga bersuara saat kamu gelitik, elus, beri makan, guncang, atau bangunkan",
+      "Pengaturan: klik kanan peliharaan → Suara untuk nyala/mati; Status & pengaturan punya slider volume, tombol ▶ Dengar, dan \"Diam saat aku sedang fokus\" (aktif secara default)"
     ],
     "zh_TW": [
-      "新的點擊選項「只搔癢 (不開啟 Pips)」：盡情點擊搔癢寵物，番茄鐘視窗不會打開（可從右鍵選單開啟）。右鍵寵物 → 點擊我時"
+      "寵物會叫了！23 種動物都有自己的聲音（喵、汪、呱呱、咕咕、嗡嗡、哼哼、鯨歌…），而且會隨心情改變：開心、難過、打哈欠、肚子餓、生氣，還有輕輕的打呼",
+      "搔癢、撫摸、餵食、搖晃或叫醒牠時也會出聲回應",
+      "設定：右鍵寵物 → 聲音 可開關；寵物狀態與設定中有音量滑桿、▶ 聽聽看 按鈕，以及「專注時保持安靜」（預設開啟）"
     ],
     "zh_CN": [
-      "新的点击选项“只挠痒 (不打开 Pips)”：尽情点击挠痒宠物，番茄钟窗口不会打开（可从右键菜单打开）。右键宠物 → 点击我时"
+      "宠物会叫了！23 种动物都有自己的声音（喵、汪、呱呱、咕咕、嗡嗡、哼哼、鲸歌…），而且会随心情改变：开心、难过、打哈欠、肚子饿、生气，还有轻轻的打呼",
+      "挠痒、抚摸、喂食、摇晃或叫醒它时也会出声回应",
+      "设置：右键宠物 → 声音 可开关；宠物状态与设置中有音量滑块、▶ 听听看 按钮，以及“专注时保持安静”（默认开启）"
     ]
   },
   "guide": "https://juw12.github.io/projects/pips/download/Pips-Guide.pptx"
