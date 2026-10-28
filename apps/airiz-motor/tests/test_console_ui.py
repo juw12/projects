@@ -48,13 +48,21 @@ class ControllerShellTests(unittest.TestCase):
 
     def test_dashboard_assets_load_after_the_existing_app(self):
         scripts = self.parser.scripts
-        expected = ['data/commands.js', 'data/macros.js', 'data/sounds.js', 'app.js', 'console-ui.js']
+        expected = ['data/commands.js', 'data/macros.js', 'app.js', 'console-ui.js']
         positions = [scripts.index(name) for name in expected]
         self.assertEqual(positions, sorted(positions))
         self.assertIn('styles.css', self.parser.styles)
         self.assertIn('console-ui.css', self.parser.styles)
         for name in expected + self.parser.styles:
             self.assertTrue((WEB / name).is_file(), name)
+
+    def test_sound_fx_board_is_removed(self):
+        self.assertNotIn('data/sounds.js', self.parser.scripts)
+        self.assertFalse((WEB / 'data' / 'sounds.js').exists())
+        for removed_id in ('tab-sfx', 'view-sfx', 'sfx-grid', 'btn-sfx-stop'):
+            self.assertNotIn(removed_id, self.by_id)
+        worker = (WEB / 'sw.js').read_text(encoding='utf-8')
+        self.assertNotIn('sounds.js', worker)
 
     def test_offline_worker_includes_new_assets_and_uses_its_scope(self):
         worker = (WEB / 'sw.js').read_text(encoding='utf-8')

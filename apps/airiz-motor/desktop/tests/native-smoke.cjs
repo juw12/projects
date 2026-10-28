@@ -148,20 +148,17 @@ async function record(name) {
   await page.locator('#btn-demo').click();
   await record('Update preparation closes the active session itself instead of requiring a manual disconnect');
 
-  for (const view of ['console', 'camera', 'sfx', 'controller']) {
+  for (const view of ['console', 'camera', 'team', 'guide', 'controller']) {
     await page.locator('#tab-' + view).click();
     assert.equal(await page.locator('#view-' + view).isVisible(), true);
   }
-  await page.locator('#tab-sfx').click();
-  await page.locator('#sfx-search').fill('Chime');
-  await page.locator('.sfx-card[data-id="notify-chime"]').click();
-  await page.locator('#btn-sfx-stop').click();
+  assert.equal(await page.locator('#tab-sfx, #view-sfx, .sfx-card').count(), 0);
   await page.locator('#tab-camera').click();
   await page.locator('#camera-mode-select').selectOption('auto');
   await page.locator('#btn-camera-start').click();
   await page.waitForFunction(() => document.getElementById('camera-preview').readyState >= 2, { timeout: 15000 });
   await page.locator('#btn-camera-stop').click();
-  await record('Camera preview works with synthetic device; sound playback and all existing workspaces load');
+  await record('Camera preview works with synthetic device; all workspaces load and the removed Sound FX tab is gone');
 
   await page.locator('#tab-controller').click();
   const logPath = path.join(profile, 'native-export-check.txt');

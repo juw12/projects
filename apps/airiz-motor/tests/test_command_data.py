@@ -229,32 +229,29 @@ def main():
     check(not any(s.get("text", "").startswith("diag rled") for s in no_light["steps"]),
           "no-light mode sends no rled command")
 
-    # ---- sound library ----------------------------------------------------
-    print("\n[ sound library ]")
-    sounds = load_js_object(DATA_DIR / "sounds.js", "window.AIRIZ_SOUNDS")
-    check(len(sounds.get("sounds", [])) >= 30,
-          f"sounds library has >= 30 sounds (got {len(sounds.get('sounds', []))})")
-    
-    cat_ids = [c["id"] for c in sounds.get("categories", [])]
-    check(len(cat_ids) == len(set(cat_ids)), "sound category ids are unique")
-    
-    sound_ids = [s["id"] for s in sounds.get("sounds", [])]
-    check(len(sound_ids) == len(set(sound_ids)), "sound ids are unique")
-    
-    for s in sounds.get("sounds", []):
-        check(s["category"] in cat_ids,
-              f"sound '{s['id']}' has valid category")
-    
+    # ---- Sound FX removed (1.8.3) ----------------------------------------
+    print("\n[ sound fx removed ]")
+    check(not (DATA_DIR / "sounds.js").exists(), "browser sound library sounds.js is removed")
+    all_commands = [c for g in groups for c in g["commands"]]
+    check(not any(p.get("type") == "sfx" for c in all_commands for p in c.get("params", [])),
+          "no command uses the removed 'sfx' parameter type")
+    check(not any(c.get("browserSound") for c in all_commands),
+          "no browser-only sound commands; every command goes to the device")
+    play = by_id.get("audio-play", {})
+    check(play.get("cmd") == "diag audio play /audio/16K_16bit_Stereo_Loud.wav" and play.get("expect") == "Done",
+          "Play test WAV sends 'diag audio play' to the device and expects Done")
+
     html = (WEB_DIR / "index.html").read_text(encoding="utf-8")
-    check("data/sounds.js" in html, "index.html loads sounds.js")
-    
-    order = [html.find("data/commands.js"), html.find("data/macros.js"), html.find("data/sounds.js"), html.find("app.js")]
+    check("data/sounds.js" not in html and 'id="tab-sfx"' not in html and 'id="view-sfx"' not in html,
+          "index.html has no Sound FX tab, view or sound library")
+
+    order = [html.find("data/commands.js"), html.find("data/macros.js"), html.find("app.js")]
     check(all(i >= 0 for i in order) and order == sorted(order),
-          "index.html loads commands.js → macros.js → sounds.js → app.js in order")
-    
+          "index.html loads commands.js → macros.js → app.js in order")
+
     sw_text = (WEB_DIR / "sw.js").read_text(encoding="utf-8")
-    check("'./data/sounds.js'" in sw_text, "sw.js caches sounds.js")
-    
+    check("sounds.js" not in sw_text, "sw.js no longer caches sounds.js")
+
     # ---- web shell safety -------------------------------------------------
     print("\n[ web shell ]")
     html = (WEB_DIR / "index.html").read_text(encoding="utf-8")
@@ -287,14 +284,19 @@ def main():
             )
             # Bluefy (free Web Bluetooth browser for iPhone) — the only allowed store link.
             bluefy_store = p.name in ("index.html", "iphone.html") and r == "https://apps.apple.com/app/id1492822055"
-            allowed_external = desktop_download or mobile_download or bluefy_store
+            # Owner setup card (1.8.2): open Teams and Microsoft's workflow/webhook how-to.
+            teams_help = p.name == "index.html" and r in (
+                "https://teams.microsoft.com/",
+                "https://learn.microsoft.com/en-us/microsoftteams/platform/webhooks-and-connectors/how-to/add-incoming-webhook",
+            )
+            allowed_external = desktop_download or mobile_download or bluefy_store or teams_help
             if (r.startswith("/") or re.match(r"^[a-z]+://", r)) and not allowed_external:
                 offenders.append(f"{p.name}: {r}")
         if re.search(r"onclick\s*=", txt):
             offenders.append(f"{p.name}: inline onclick")
         if re.search(r"(unpkg|jsdelivr|cdnjs|googleapis)", txt):
             offenders.append(f"{p.name}: external CDN reference")
-    check(not offenders, "no absolute-root refs / CDNs / inline handlers; only explicit AIRIZ release links + Bluefy store link allowed"
+    check(not offenders, "no absolute-root refs / CDNs / inline handlers; only explicit AIRIZ release, Bluefy store and Teams help links allowed"
           + ("" if not offenders else f" — {offenders}"))
 
     print("\n" + "=" * 52)

@@ -73,20 +73,8 @@
     // Tab bar
     elements.tabConsole = document.getElementById('tab-console');
     elements.tabCamera = document.getElementById('tab-camera');
-    elements.tabSfx = document.getElementById('tab-sfx');
     elements.viewConsole = document.getElementById('view-console');
     elements.viewCamera = document.getElementById('view-camera');
-    elements.viewSfx = document.getElementById('view-sfx');
-    
-    // Sound FX panel
-    elements.sfxSearch = document.getElementById('sfx-search');
-    elements.sfxChips = document.getElementById('sfx-chips');
-    elements.sfxGrid = document.getElementById('sfx-grid');
-    elements.sfxStatus = document.getElementById('sfx-status');
-    elements.sfxVolume = document.getElementById('sfx-volume');
-    elements.btnSfxStop = document.getElementById('btn-sfx-stop');
-    elements.btnSfxAddFile = document.getElementById('btn-sfx-add-file');
-    elements.sfxFileInput = document.getElementById('sfx-file-input');
     
     // Status bar
     elements.btnConnect = document.getElementById('btn-connect');
@@ -158,9 +146,6 @@
     registerServiceWorker();
     initTheme();
     initCameraPanel();
-    renderSfxBoard();
-    
-    window.addEventListener('beforeunload', cleanupSfx);
     
     logToConsole('Airiz Motor Test Console initialized', 'welcome');
   }
@@ -284,38 +269,6 @@
     
     // Theme switcher
     elements.themeToggle.addEventListener('click', handleThemeToggle);
-    
-    // Sound FX
-    if (elements.sfxSearch) {
-      elements.sfxSearch.addEventListener('input', (e) => {
-        sfxState.search = e.target.value;
-        renderSfxBoard();
-      });
-    }
-    if (elements.sfxVolume) {
-      elements.sfxVolume.addEventListener('input', (e) => {
-        sfxState.volume = parseInt(e.target.value, 10) / 100;
-        if (sfxState.master) {
-          sfxState.master.gain.value = sfxState.volume;
-        }
-      });
-    }
-    if (elements.btnSfxStop) {
-      elements.btnSfxStop.addEventListener('click', stopAllSfx);
-    }
-    if (elements.btnSfxAddFile) {
-      elements.btnSfxAddFile.addEventListener('click', () => {
-        if (elements.sfxFileInput) {
-          elements.sfxFileInput.click();
-        }
-      });
-    }
-    if (elements.sfxFileInput) {
-      elements.sfxFileInput.addEventListener('change', (e) => {
-        addUserSfxFiles(e.target.files);
-        e.target.value = '';
-      });
-    }
     
     setupInstallPrompt();
     setupInstallGate(); // Available on demand, never a blocking startup gate.
@@ -945,30 +898,7 @@
         paramDiv.appendChild(label);
         
         let input;
-        if (param.type === 'sfx') {
-          input = document.createElement('select');
-          const lib = window.AIRIZ_SOUNDS || { sounds: [], categories: [] };
-          const byCategory = {};
-          for (const s of lib.sounds) {
-            (byCategory[s.category] = byCategory[s.category] || []).push(s);
-          }
-          for (const cat of lib.categories) {
-            const effects = byCategory[cat.id] || [];
-            if (effects.length === 0) continue;
-            const group = document.createElement('optgroup');
-            group.label = cat.name;
-            for (const s of effects) {
-              const option = document.createElement('option');
-              option.value = s.id;
-              option.textContent = s.name;
-              group.appendChild(option);
-            }
-            input.appendChild(group);
-          }
-          const firstId = lib.sounds.length ? lib.sounds[0].id : '';
-          input.value = param.default || firstId;
-          paramValues[param.key] = input.value;
-        } else if (param.type === 'enum' && param.options) {
+        if (param.type === 'enum' && param.options) {
           input = document.createElement('select');
           for (const opt of param.options) {
             const option = document.createElement('option');
@@ -1010,20 +940,9 @@
     
     const sendBtn = document.createElement('button');
     sendBtn.className = 'btn btn-sm btn-primary';
-    sendBtn.textContent = cmd.browserSound ? 'Play' : 'Send';
+    sendBtn.textContent = 'Send';
     
     sendBtn.addEventListener('click', async () => {
-      if (cmd.browserSound) {
-        const sfxParam = (cmd.params || []).find(p => p.type === 'sfx');
-        const soundId = sfxParam ? paramValues[sfxParam.key] : '';
-        const sound = (((window.AIRIZ_SOUNDS || {}).sounds) || []).find(s => s.id === soundId);
-        if (sound) {
-          playSfx(sound);
-          if (elements.sfxStatus) elements.sfxStatus.textContent = 'Playing: ' + sound.name;
-        }
-        return;
-      }
-      
       if (cmd.destructive) {
         const confirmed = await showConfirm(
           'Destructive Command',
@@ -1047,17 +966,6 @@
     });
     
     actionsDiv.appendChild(sendBtn);
-    
-    if (cmd.browserSound) {
-      const deviceBtn = document.createElement('button');
-      deviceBtn.className = 'btn btn-sm btn-secondary';
-      deviceBtn.textContent = 'Send WAV';
-      deviceBtn.title = 'Send over serial: ' + cmd.cmd;
-      deviceBtn.addEventListener('click', () => {
-        sendLine(cmd.cmd);
-      });
-      actionsDiv.appendChild(deviceBtn);
-    }
     
     card.appendChild(actionsDiv);
     
@@ -1845,28 +1753,24 @@
     if (!elements.tabConsole || !elements.tabCamera) return;
     
     function switchToConsole() {
-      if (elements.viewConsole && elements.viewCamera && elements.viewSfx) {
+      if (elements.viewConsole && elements.viewCamera) {
         elements.viewConsole.hidden = false;
         elements.viewCamera.hidden = true;
-        if (elements.viewSfx) elements.viewSfx.hidden = true;
       }
-      if (elements.tabConsole && elements.tabCamera && elements.tabSfx) {
+      if (elements.tabConsole && elements.tabCamera) {
         elements.tabConsole.setAttribute('aria-selected', 'true');
         elements.tabCamera.setAttribute('aria-selected', 'false');
-        elements.tabSfx.setAttribute('aria-selected', 'false');
       }
     }
     
     function switchToCamera() {
-      if (elements.viewConsole && elements.viewCamera && elements.viewSfx) {
+      if (elements.viewConsole && elements.viewCamera) {
         elements.viewConsole.hidden = true;
         elements.viewCamera.hidden = false;
-        if (elements.viewSfx) elements.viewSfx.hidden = true;
       }
-      if (elements.tabConsole && elements.tabCamera && elements.tabSfx) {
+      if (elements.tabConsole && elements.tabCamera) {
         elements.tabConsole.setAttribute('aria-selected', 'false');
         elements.tabCamera.setAttribute('aria-selected', 'true');
-        elements.tabSfx.setAttribute('aria-selected', 'false');
       }
       
       // Ensure camera panel is expanded in Camera view
@@ -1900,453 +1804,12 @@
       }, 100);
     }
     
-    function switchToSfx() {
-      if (elements.viewConsole && elements.viewCamera && elements.viewSfx) {
-        elements.viewConsole.hidden = true;
-        elements.viewCamera.hidden = true;
-        elements.viewSfx.hidden = false;
-      }
-      if (elements.tabConsole && elements.tabCamera && elements.tabSfx) {
-        elements.tabConsole.setAttribute('aria-selected', 'false');
-        elements.tabCamera.setAttribute('aria-selected', 'false');
-        elements.tabSfx.setAttribute('aria-selected', 'true');
-      }
-      // Render the SFX board on tab switch
-      if (typeof renderSfxBoard === 'function') {
-        renderSfxBoard();
-      }
-    }
-    
     if (elements.tabConsole) {
       elements.tabConsole.addEventListener('click', switchToConsole);
     }
     if (elements.tabCamera) {
       elements.tabCamera.addEventListener('click', switchToCamera);
     }
-    if (elements.tabSfx) {
-      elements.tabSfx.addEventListener('click', switchToSfx);
-    }
-  }
-
-  // ========================================================================
-  // SOUND FX ENGINE
-  // ========================================================================
-  
-  function ensureAudioContext() {
-    if (!sfxState.ctx) {
-      const AudioCtx = window.AudioContext || window.webkitAudioContext;
-      if (AudioCtx) {
-        sfxState.ctx = new AudioCtx();
-        sfxState.master = sfxState.ctx.createGain();
-        sfxState.master.gain.value = sfxState.volume;
-        sfxState.master.connect(sfxState.ctx.destination);
-      }
-    }
-    if (sfxState.ctx && sfxState.ctx.state === 'suspended') {
-      sfxState.ctx.resume();
-    }
-    return sfxState.ctx;
-  }
-  
-  function playSpec(spec) {
-    const ctx = ensureAudioContext();
-    if (!ctx) return;
-    
-    const recipe = spec.recipe;
-    const gain = spec.gain !== undefined ? spec.gain : 0.5;
-    const now = ctx.currentTime;
-    const sources = [];
-    
-    function createFilter(node, filterSpec) {
-      if (!filterSpec) return node;
-      const filter = ctx.createBiquadFilter();
-      filter.type = filterSpec.type || 'lowpass';
-      filter.frequency.value = filterSpec.freq || 1000;
-      filter.Q.value = filterSpec.q || 1;
-      node.connect(filter);
-      filter.connect(sfxState.master);
-      return filter;
-    }
-    
-    function scheduleADSR(gainNode, attack, release, dur) {
-      gainNode.gain.setValueAtTime(0, now);
-      gainNode.gain.linearRampToValueAtTime(gain, now + attack);
-      gainNode.gain.setValueAtTime(gain, now + dur - release);
-      gainNode.gain.linearRampToValueAtTime(0, now + dur);
-    }
-    
-    switch (recipe) {
-      case 'tone': {
-        const osc = ctx.createOscillator();
-        osc.type = spec.wave || 'sine';
-        osc.frequency.value = spec.freq || 440;
-        const env = ctx.createGain();
-        env.gain.value = 0;
-        osc.connect(env);
-        createFilter(env, spec.filter);
-        osc.start(now);
-        osc.stop(now + spec.dur);
-        scheduleADSR(env, spec.attack || 0.01, spec.release || 0.1, spec.dur || 0.3);
-        sources.push(osc);
-        break;
-      }
-      
-      case 'sweep': {
-        const osc = ctx.createOscillator();
-        osc.type = spec.wave || 'sine';
-        osc.frequency.setValueAtTime(spec.freqFrom || 440, now);
-        osc.frequency.exponentialRampToValueAtTime(spec.freqTo || 880, now + (spec.dur || 0.5));
-        const env = ctx.createGain();
-        env.gain.value = 0;
-        osc.connect(env);
-        createFilter(env, spec.filter);
-        osc.start(now);
-        osc.stop(now + spec.dur);
-        scheduleADSR(env, spec.attack || 0.01, spec.release || 0.1, spec.dur || 0.5);
-        sources.push(osc);
-        break;
-      }
-      
-      case 'chord': {
-        const freqs = spec.freqs || [440];
-        for (const freq of freqs) {
-          const osc = ctx.createOscillator();
-          osc.type = spec.wave || 'sine';
-          osc.frequency.value = freq;
-          const env = ctx.createGain();
-          env.gain.value = 0;
-          osc.connect(env);
-          createFilter(env, spec.filter);
-          osc.start(now);
-          osc.stop(now + spec.dur);
-          scheduleADSR(env, spec.attack || 0.01, spec.release || 0.2, spec.dur || 0.4);
-          sources.push(osc);
-        }
-        break;
-      }
-      
-      case 'arp': {
-        let time = now;
-        const release = spec.release || 0.05;
-        for (const note of (spec.notes || [])) {
-          const osc = ctx.createOscillator();
-          osc.type = spec.wave || 'sine';
-          osc.frequency.value = note.freq;
-          const env = ctx.createGain();
-          env.gain.setValueAtTime(0, time);
-          env.gain.linearRampToValueAtTime(gain, time + 0.01);
-          env.gain.setValueAtTime(gain, time + note.dur - release);
-          env.gain.linearRampToValueAtTime(0, time + note.dur);
-          osc.connect(env);
-          createFilter(env, spec.filter);
-          osc.start(time);
-          osc.stop(time + note.dur);
-          sources.push(osc);
-          time += note.dur;
-        }
-        break;
-      }
-      
-      case 'noise': {
-        const bufferSize = ctx.sampleRate * (spec.dur || 0.5);
-        const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-        const data = buffer.getChannelData(0);
-        for (let i = 0; i < bufferSize; i++) {
-          data[i] = Math.random() * 2 - 1;
-        }
-        const noise = ctx.createBufferSource();
-        noise.buffer = buffer;
-        const filter = ctx.createBiquadFilter();
-        filter.type = spec.filterType || 'lowpass';
-        filter.frequency.setValueAtTime(spec.freqFrom || 1000, now);
-        if (spec.freqTo !== undefined) {
-          filter.frequency.exponentialRampToValueAtTime(spec.freqTo, now + (spec.dur || 0.5));
-        }
-        filter.Q.value = spec.q || 1;
-        const env = ctx.createGain();
-        env.gain.setValueAtTime(gain, now);
-        env.gain.linearRampToValueAtTime(0, now + (spec.dur || 0.5));
-        noise.connect(filter);
-        filter.connect(env);
-        env.connect(sfxState.master);
-        noise.start(now);
-        sources.push(noise);
-        break;
-      }
-      
-      case 'impact': {
-        // Noise burst
-        const bufferSize = ctx.sampleRate * (spec.dur || 0.1);
-        const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-        const data = buffer.getChannelData(0);
-        for (let i = 0; i < bufferSize; i++) {
-          data[i] = Math.random() * 2 - 1;
-        }
-        const noise = ctx.createBufferSource();
-        noise.buffer = buffer;
-        const filter = ctx.createBiquadFilter();
-        filter.type = 'lowpass';
-        filter.frequency.value = 3000;
-        const env = ctx.createGain();
-        env.gain.setValueAtTime(gain * 0.7, now);
-        env.gain.exponentialRampToValueAtTime(0.01, now + (spec.dur || 0.1));
-        noise.connect(filter);
-        filter.connect(env);
-        env.connect(sfxState.master);
-        noise.start(now);
-        sources.push(noise);
-        
-        // Boom sine
-        const boom = ctx.createOscillator();
-        boom.type = 'sine';
-        boom.frequency.value = spec.boomFreq || 150;
-        const boomEnv = ctx.createGain();
-        boomEnv.gain.setValueAtTime(gain, now);
-        boomEnv.gain.exponentialRampToValueAtTime(0.01, now + (spec.dur || 0.1));
-        boom.connect(boomEnv);
-        boomEnv.connect(sfxState.master);
-        boom.start(now);
-        boom.stop(now + (spec.dur || 0.1));
-        sources.push(boom);
-        break;
-      }
-      
-      case 'siren': {
-        const cycles = spec.cycles || 2;
-        const dur = spec.dur || 1.0;
-        const osc = ctx.createOscillator();
-        osc.type = spec.wave || 'sawtooth';
-        osc.frequency.setValueAtTime(spec.freqFrom || 600, now);
-        // Multiple sweep cycles
-        for (let i = 0; i < cycles; i++) {
-          const t0 = now + (i * dur / cycles);
-          const t1 = t0 + (dur / cycles / 2);
-          const t2 = t0 + (dur / cycles);
-          osc.frequency.setValueAtTime(spec.freqFrom, t0);
-          osc.frequency.linearRampToValueAtTime(spec.freqTo, t1);
-          osc.frequency.linearRampToValueAtTime(spec.freqFrom, t2);
-        }
-        const env = ctx.createGain();
-        env.gain.setValueAtTime(0, now);
-        env.gain.linearRampToValueAtTime(gain, now + 0.05);
-        env.gain.setValueAtTime(gain, now + dur - 0.1);
-        env.gain.linearRampToValueAtTime(0, now + dur);
-        osc.connect(env);
-        createFilter(env, spec.filter);
-        osc.start(now);
-        osc.stop(now + dur);
-        sources.push(osc);
-        break;
-      }
-      
-      case 'beeps': {
-        const count = spec.count || 2;
-        const beepDur = spec.beepDur || 0.1;
-        const gap = spec.gap || 0.1;
-        for (let i = 0; i < count; i++) {
-          const t = now + i * (beepDur + gap);
-          const osc = ctx.createOscillator();
-          osc.type = spec.wave || 'sine';
-          osc.frequency.value = spec.freq || 880;
-          const env = ctx.createGain();
-          env.gain.setValueAtTime(0, t);
-          env.gain.linearRampToValueAtTime(gain, t + 0.01);
-          env.gain.setValueAtTime(gain, t + beepDur - 0.02);
-          env.gain.linearRampToValueAtTime(0, t + beepDur);
-          osc.connect(env);
-          createFilter(env, spec.filter);
-          osc.start(t);
-          osc.stop(t + beepDur);
-          sources.push(osc);
-        }
-        break;
-      }
-    }
-    
-    for (const src of sources) {
-      sfxState.active.push(src);
-      src.onended = () => {
-        const idx = sfxState.active.indexOf(src);
-        if (idx > -1) sfxState.active.splice(idx, 1);
-      };
-    }
-  }
-  
-  function stopAllSfx() {
-    for (const src of sfxState.active) {
-      try { src.stop(); } catch (e) {}
-      try { src.disconnect(); } catch (e) {}
-    }
-    sfxState.active = [];
-  }
-  
-  function playSfx(sound) {
-    if (sound.isUser && sound.url) {
-      const audio = document.createElement('audio');
-      audio.src = sound.url;
-      audio.volume = sfxState.volume;
-      audio.play();
-      if (sound.element) {
-        sound.element.classList.add('is-playing');
-        audio.onended = () => sound.element.classList.remove('is-playing');
-      }
-      sfxState.active.push({ stop: () => { audio.pause(); audio.currentTime = 0; }, element: sound.element });
-    } else {
-      playSpec(sound.spec);
-    }
-    logToConsole('> [sfx] ' + sound.name, 'command');
-  }
-  
-  function renderSfxBoard() {
-    if (!elements.sfxGrid || !elements.sfxChips || !elements.sfxStatus) return;
-    
-    const sounds = window.AIRIZ_SOUNDS ? window.AIRIZ_SOUNDS.sounds : [];
-    const categories = window.AIRIZ_SOUNDS ? window.AIRIZ_SOUNDS.categories : [];
-    const filter = sfxState.filterCategory;
-    const search = sfxState.search.toLowerCase();
-    
-    // Render category chips
-    elements.sfxChips.innerHTML = '';
-    const allChip = document.createElement('button');
-    allChip.className = 'sfx-chip' + (filter === 'all' ? ' selected' : '');
-    allChip.textContent = 'All';
-    allChip.dataset.category = 'all';
-    allChip.addEventListener('click', () => {
-      sfxState.filterCategory = 'all';
-      renderSfxBoard();
-    });
-    elements.sfxChips.appendChild(allChip);
-    
-    for (const cat of categories) {
-      const chip = document.createElement('button');
-      chip.className = 'sfx-chip' + (filter === cat.id ? ' selected' : '');
-      chip.textContent = cat.name;
-      chip.dataset.category = cat.id;
-      chip.addEventListener('click', () => {
-        sfxState.filterCategory = cat.id;
-        renderSfxBoard();
-      });
-      elements.sfxChips.appendChild(chip);
-    }
-    
-    // Filter sounds
-    const filtered = sounds.filter(s => {
-      const matchesCat = filter === 'all' || s.category === filter;
-      const matchesSearch = !search || 
-        s.name.toLowerCase().includes(search) || 
-        s.desc.toLowerCase().includes(search) ||
-        s.category.toLowerCase().includes(search);
-      return matchesCat && matchesSearch;
-    });
-    
-    // Add user sounds section
-    const userSounds = sfxState.userSounds || [];
-    const allSounds = [...filtered, ...userSounds];
-    
-    // Render grid
-    elements.sfxGrid.innerHTML = '';
-    if (allSounds.length === 0) {
-      elements.sfxGrid.innerHTML = '<div class="sfx-empty">No sounds found</div>';
-      elements.sfxStatus.textContent = '';
-      return;
-    }
-    
-    // Built-in sounds section
-    if (filtered.length > 0) {
-      const sectionTitle = document.createElement('div');
-      sectionTitle.className = 'sfx-section-title';
-      sectionTitle.textContent = 'Built-in sounds';
-      elements.sfxGrid.appendChild(sectionTitle);
-      
-      for (const sound of filtered) {
-        const card = document.createElement('button');
-        card.className = 'sfx-card';
-        card.dataset.id = sound.id;
-        card.innerHTML = `
-          <div class="sfx-card-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
-              <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/>
-            </svg>
-          </div>
-          <div class="sfx-card-name">${sound.name}</div>
-          <div class="sfx-card-desc">${sound.desc}</div>
-        `;
-        card.addEventListener('click', () => {
-          playSfx(sound);
-          card.classList.add('is-playing');
-          setTimeout(() => card.classList.remove('is-playing'), 500);
-          if (elements.sfxStatus) {
-            elements.sfxStatus.textContent = 'Playing: ' + sound.name;
-          }
-        });
-        elements.sfxGrid.appendChild(card);
-      }
-    }
-    
-    // User sounds section
-    if (userSounds.length > 0) {
-      const sectionTitle = document.createElement('div');
-      sectionTitle.className = 'sfx-section-title';
-      sectionTitle.textContent = 'Your sounds';
-      elements.sfxGrid.appendChild(sectionTitle);
-      
-      for (const sound of userSounds) {
-        const card = document.createElement('button');
-        card.className = 'sfx-card sfx-card-user';
-        card.dataset.id = sound.id;
-        sound.element = card;
-        card.innerHTML = `
-          <div class="sfx-card-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M9 18V5l12-2v13"/>
-              <circle cx="6" cy="18" r="3"/>
-              <circle cx="18" cy="16" r="3"/>
-            </svg>
-          </div>
-          <div class="sfx-card-name">${sound.name}</div>
-          <div class="sfx-card-desc">User loaded</div>
-        `;
-        card.addEventListener('click', () => {
-          playSfx(sound);
-        });
-        elements.sfxGrid.appendChild(card);
-      }
-    }
-    
-    elements.sfxStatus.textContent = filtered.length + ' sound' + (filtered.length !== 1 ? 's' : '');
-  }
-  
-  function addUserSfxFiles(fileList) {
-    if (!fileList || fileList.length === 0) return;
-    
-    for (const file of fileList) {
-      if (!file.type.startsWith('audio/')) continue;
-      
-      const url = URL.createObjectURL(file);
-      const id = 'user-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
-      const name = file.name.replace(/\.[^/.]+$/, '');
-      
-      sfxState.userSounds.push({
-        id: id,
-        name: name,
-        url: url,
-        isUser: true,
-        element: null
-      });
-      sfxState.objectUrls.push(url);
-    }
-    
-    renderSfxBoard();
-  }
-  
-  function cleanupSfx() {
-    stopAllSfx();
-    for (const url of sfxState.objectUrls) {
-      try { URL.revokeObjectURL(url); } catch (e) {}
-    }
-    sfxState.objectUrls = [];
-    sfxState.userSounds = [];
   }
 
   // ========================================================================
@@ -2393,21 +1856,6 @@
     }
   };
 
-  // ========================================================================
-  // SOUND FX STATE
-  // ========================================================================
-  
-  const sfxState = {
-    ctx: null,
-    master: null,
-    volume: 0.7,
-    active: [],
-    userSounds: [],
-    objectUrls: [],
-    filterCategory: 'all',
-    search: ''
-  };
-  
   function initCameraPanel() {
     elements.cameraToggle = document.getElementById('btn-camera-toggle');
     elements.cameraPanelContent = document.getElementById('camera-panel-content');

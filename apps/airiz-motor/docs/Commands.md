@@ -122,12 +122,6 @@ Set playback volume and play a WAV file.
 
 **`diag audio play /audio/16K_16bit_Stereo_Loud.wav`** — Play test WAV
 
-| Param | Type | Range / options | Default | Hint |
-| --- | --- | --- | --- | --- |
-| `sound` | sfx | built-in sound effect | `` |  |
-
-> Picks a built-in sound effect and previews it in this browser (no serial command is sent). Full board in the Sound FX tab.
-
 ### DMIC (Record)
 
 Record from the digital microphone.
