@@ -1,11 +1,11 @@
 'use strict';
 
-const { app, BrowserWindow, protocol, session, ipcMain, dialog, Menu, shell, net } = require('electron');
+const { app, BrowserWindow, protocol, session, ipcMain, dialog, Menu, shell, net, clipboard } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
 const crypto = require('node:crypto');
 const {
-  isAppUrl, resolveAsset, canOpenExternal, isTeamsWorkflowUrl, DEEP_LINK_SCHEME, findTeamInvite
+  isAppUrl, resolveAsset, canOpenExternal, isTeamsWorkflowUrl, teamsWorkflowFromClipboard, DEEP_LINK_SCHEME, findTeamInvite
 } = require('./security.cjs');
 const { createSerialChooser } = require('./serial-chooser.cjs');
 const { createUpdateController } = require('./update-controller.cjs');
@@ -289,6 +289,16 @@ async function createWindow() {
   });
   // Ziris PTB team: post a share-code card to the team's Teams workflow. The request is
   // made here (system proxy, no CORS) and only to Power Automate / Teams webhook hosts.
+  // Called only by the owner setup button, not on app startup. Return an allowlisted URL only.
+  ipcMain.handle('airiz:teams-workflow-clipboard', event => {
+    if (!trustedSender(event)) return { ok: false, error: 'Untrusted sender' };
+    try {
+      const workflowUrl = teamsWorkflowFromClipboard(clipboard.readText());
+      return workflowUrl ? { ok: true, workflowUrl } : { ok: false };
+    } catch {
+      return { ok: false };
+    }
+  });
   ipcMain.handle('airiz:teams-post', async (event, workflowUrl, body) => {
     if (!trustedSender(event)) return { ok: false, error: 'Untrusted sender' };
     if (!isTeamsWorkflowUrl(workflowUrl)) return { ok: false, error: 'Invalid Teams workflow address.' };
@@ -305,6 +315,8 @@ async function createWindow() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body,
+        credentials: 'omit',
+        redirect: 'error',
         signal: controller.signal
       });
       return response.ok

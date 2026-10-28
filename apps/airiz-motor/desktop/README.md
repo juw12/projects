@@ -9,7 +9,7 @@ is required to use the installed app or its hardware-free demo.
 ## Downloads
 
 Windows x64 releases are published under the app-specific tag
-`airiz-desktop-v1.8.1` in this repository's Releases section.
+`airiz-desktop-v1.8.2` in this repository's Releases section.
 
 - **Installer**: assisted, per-user installation with Start-menu/desktop shortcuts
   and an uninstaller. The wizard lets the user choose the installation directory.
@@ -95,7 +95,9 @@ enabled, a restricted content-security policy and only a small validated IPC bri
 Only the bundled application origin can request serial/media/file permissions.
 The app does not grant arbitrary devices or disable serial security blocklists.
 Restricted filesystem locations require the user to choose another folder.
-External navigation is limited to the project website and repository.
+External navigation is limited to the project website/repository and the two exact Microsoft
+Teams/workflow-help URLs shown in Owner setup. Webhook posts reject redirects. The clipboard
+bridge returns only validated Teams workflow endpoints, never unrelated clipboard contents.
 
 ## Building and testing
 
@@ -161,6 +163,27 @@ reports whether a framed firmware reply came back. Results can be exported.
 No pairing is accepted without confirmation and no motor command is sent.
 Another program on the PC still cannot open COM4 while this app holds it: that is
 a Windows serial-port rule, which is why the check runs inside the app.
+
+## 1.8.2: One-click owner setup
+
+* **Ziris PTB team → Finish owner setup:** one action uses the saved, pasted or explicitly copied
+  workflow address, submits one shared Co-admin invite, sets up Juwen Lie's local Owner profile,
+  enables auto-post and copies the invite link. The invite doubles as the connection test; the
+  private Owner pass is never shared.
+* **Remembered on this PC:** restart/reload does not repost the invite, read the clipboard or turn
+  a deliberately paused auto-post switch back on. Re-enabling the same destination reuses the
+  saved invite. Browser and desktop profiles remain separate.
+* **Clear recovery:** failed setup keeps the previous profile. Ambiguous timeouts are not retried
+  automatically; check Teams before retrying. Storage/clipboard failures have explicit recovery
+  messages. Advanced personal invites and manual resend remain available.
+* **One-time Microsoft step:** the owner must create/authorize the workflow in Teams once. This
+  integration uses an Anyone trigger only where organizational policy permits private bearer
+  webhooks; tenant-only OAuth triggers are not supported. HTTP acceptance is not delivery
+  confirmation: check the chat or flow run history. The local Owner label grants no Microsoft rights.
+* **Checked in English, Traditional Chinese and packaged Windows:** unit, browser and native
+  preload/IPC tests cover setup, restore, duplicate prevention and failure paths. Teams endpoints
+  and clipboard contents are stubbed; no real Teams delivery is claimed. Addresses are masked,
+  clipboard access is URL-filtered and webhook posts reject redirects. Keep invites inside Ziris PTB.
 
 ## 1.8.1: Camera position follows the real camera
 * New **camera position view** in the PTZ card: a side view shows how far the camera is raised

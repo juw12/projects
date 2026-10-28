@@ -43,9 +43,16 @@ test('asset paths stay inside the bundled web root', () => {
   ]) assert.equal(resolveAsset(root, url), null, url);
 });
 
-test('external navigation is restricted to the app website and repository', () => {
+test('external navigation is restricted to the app website, repository and exact Microsoft setup links', () => {
   assert.equal(canOpenExternal('https://github.com/juw12/projects/releases'), true);
   assert.equal(canOpenExternal('https://juw12.github.io/projects/airiz-motor/'), true);
+  assert.equal(canOpenExternal('https://teams.microsoft.com/'), true);
+  assert.equal(canOpenExternal('https://learn.microsoft.com/en-us/microsoftteams/platform/webhooks-and-connectors/how-to/add-incoming-webhook'), true);
+  for (const url of ['https://teams.microsoft.com/?redirect=https://evil.test',
+    'https://teams.microsoft.com.evil.test/', 'https://learn.microsoft.com/other',
+    'https://teams.microsoft.com:8443/']) {
+    assert.equal(canOpenExternal(url), false);
+  }
   for (const url of ['file:///C:/Windows', 'http://github.com/juw12/projects/', 'https://github.com/another/repo', 'https://example.com/']) {
     assert.equal(canOpenExternal(url), false, url);
   }

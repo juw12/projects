@@ -29,6 +29,7 @@ contextBridge.exposeInMainWorld('airizDesktop', {
     return () => ipcRenderer.removeListener('airiz:show-updates', listener);
   },
   chooseSerialPort: portId => ipcRenderer.invoke('airiz:serial-choice', portId),
+  readTeamsWorkflowClipboard: () => ipcRenderer.invoke('airiz:teams-workflow-clipboard'),
   postToTeams: (workflowUrl, body) => ipcRenderer.invoke('airiz:teams-post', String(workflowUrl), String(body)),
   // Ziris PTB invite opened with airiz-console://join… (website "Open in the AIRIZ Windows app").
   takeTeamInvite: () => ipcRenderer.invoke('airiz:take-team-invite'),
