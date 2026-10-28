@@ -23,6 +23,19 @@ python server/server.py --no-browser    # do not open browser on start
 python server/server.py --host 0.0.0.0  # bind to all interfaces (default: 127.0.0.1)
 ```
 
+## Interaction layer (Orbis Plus)
+
+`web/orbis-plus.css` and `web/orbis-plus.js` load after `app.html`'s inline code and enhance the desktop app without changing its data model:
+
+- **Command palette** — `Ctrl/⌘ K`: fuzzy search across views, actions, today items, commitments, drafts and summaries.
+- **Keyboard first** — `G` then a letter to jump (`G T` Today, `G C` Commitments …), `N` new commitment, `F` focus timer, `[` collapse sidebar, `?` shortcut sheet.
+- **Today triage** — greeting + KPI cards, progress ring, filters (Replies / Commitments / Snoozed / Done), `J`/`K` to move, `E` confirm, `S` snooze, `X` dismiss, `R` reply; unsnooze/reopen; inbox-zero state.
+- **Undo everywhere** — confirm, snooze, dismiss, status changes, deletes, bulk edits and draft discards show an Undo toast.
+- **Commitments** — working filters with counts, text filter, sortable columns, bulk select (done / open / delete), Kanban board with drag & drop, quick-add dialog.
+- **Sidebar** — grouped sections, live count badges, collapsible icon rail.
+- **Appearance** — Light / Dark / System theme, 7 accent colours, comfortable/compact density, reduce-motion. Saved per device in `localStorage` (`orbis-ui`).
+- **Focus timer** — 25-minute Pomodoro chip in the top bar (survives reloads).
+
 ## API Reference
 
 | Method | Endpoint | Description |
@@ -54,6 +67,8 @@ apps/orbis/
   web/                    # Static front-end (served at /)
     index.html            # Landing page
     app.html              # Main desktop app
+    orbis-plus.css        # Interaction/polish layer styles
+    orbis-plus.js         # Command palette, shortcuts, undo, board, appearance
     app-mobile.html       # Mobile app variant
     mobile.html           # Mobile landing
     manifest.webmanifest  # PWA manifest

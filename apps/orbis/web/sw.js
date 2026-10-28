@@ -7,7 +7,7 @@
  * at a domain root and under a subpath (e.g. GitHub Pages /projects/orbis/).
  */
 
-const CACHE = 'orbis-cache-v2';
+const CACHE = 'orbis-cache-v3';
 
 const SCOPE = self.registration.scope; // absolute URL, always ends with "/"
 const apiPrefix = new URL('api/', SCOPE).pathname; // subpath-safe API prefix
@@ -17,6 +17,8 @@ const PRECACHE = [
   './',
   './index.html',
   './app.html',
+  './orbis-plus.css',
+  './orbis-plus.js',
   './manifest.webmanifest',
   './icons/orbit.svg'
 ];

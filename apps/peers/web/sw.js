@@ -1,5 +1,5 @@
 (function(){
-  var CACHE_NAME = 'peers-v1';
+  var CACHE_NAME = 'peers-v2';
   var SCOPE = self.registration.scope;
 
   function resolveUrl(path){
