@@ -2,6 +2,33 @@
   "_comment": "Pips version history. Newest first. Feeds the in-app update notice (latest.json), the PPT guide and the update emails.",
   "releases": [
     {
+      "version": "2.3.0",
+      "date": "2026-10-28",
+      "title": "Friends, levels & achievements",
+      "notes": {
+        "en": [
+          "Levels & XP: every finished pomodoro earns XP and your level grows - plus 20 achievements to unlock (first tomato, 8 in a day, 7-day streak, early bird, night owl, pet lover...). Your pet celebrates each one",
+          "Friends (optional, off by default): get a 6-letter friend code, add colleagues, see today's board and join a team board like PTB. Your pet tells you when a friend finishes a pomodoro",
+          "Privacy: only your name, pet, level, streak and pomodoro counts are shared - never apps, window titles or scores. One click turns it off and deletes your online data. Right-click the pet → Friends & achievements…"
+        ],
+        "id": [
+          "Level & XP: setiap pomodoro selesai memberi XP dan levelmu naik - plus 20 pencapaian (tomat pertama, 8 sehari, streak 7 hari, burung pagi, burung hantu, pecinta hewan...). Peliharaanmu ikut merayakan",
+          "Teman (opsional, mati secara default): dapatkan kode teman 6 huruf, tambahkan rekan, lihat papan hari ini dan gabung papan tim seperti PTB. Peliharaanmu memberi tahu saat teman menyelesaikan pomodoro",
+          "Privasi: hanya nama, peliharaan, level, streak dan jumlah pomodoro yang dibagikan - tidak pernah aplikasi, judul jendela atau skor. Satu klik untuk mematikan dan menghapus data online-mu. Klik kanan peliharaan → Teman & pencapaian…"
+        ],
+        "zh_TW": [
+          "等級與 XP：每完成一個番茄都會獲得 XP 並升級，還有 20 個成就可以解鎖 (第一顆番茄、一天 8 個、連續 7 天、早起鳥、夜貓子、愛寵人士…)，寵物會一起慶祝",
+          "好友 (選用，預設關閉)：取得 6 位好友代碼、加入同事、查看今日排行並加入團隊排行榜 (例如 PTB)。朋友完成番茄時寵物會告訴你",
+          "隱私：只分享名字、寵物、等級、連續天數與番茄數，絕不分享應用程式、視窗標題或分數。一鍵即可關閉並刪除線上資料。右鍵寵物 → 好友與成就…"
+        ],
+        "zh_CN": [
+          "等级与 XP：每完成一个番茄都会获得 XP 并升级，还有 20 个成就可以解锁 (第一颗番茄、一天 8 个、连续 7 天、早起鸟、夜猫子、爱宠人士…)，宠物会一起庆祝",
+          "好友 (可选，默认关闭)：获取 6 位好友代码、添加同事、查看今日排行并加入团队排行榜 (例如 PTB)。朋友完成番茄时宠物会告诉你",
+          "隐私：只分享名字、宠物、等级、连续天数与番茄数，绝不分享应用、窗口标题或分数。一键即可关闭并删除在线数据。右键宠物 → 好友与成就…"
+        ]
+      }
+    },
+    {
       "version": "2.2.0",
       "date": "2026-10-28",
       "title": "Pet sounds",
