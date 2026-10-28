@@ -780,7 +780,16 @@
     "Phone links connect again (1.5.1)": "手機連結可再次連線（1.5.1）",
     "Opening a Share control link on a new phone no longer gets stuck behind the language box; the link fills in the code and connects by itself (the PC still presses Allow).": "在新手機上開啟 Share control 連結時不再被語言視窗擋住；連結會自動填入代碼並連線（PC 仍需按 Allow）。",
     "Language, region & new logo (1.5.0)": "語言、地區與新標誌（1.5.0）",
-    "Choose English, Traditional or Simplified Chinese and your site (Taiwan, China, Indonesia – Batam) on first start; new bird-on-controller app icon.": "首次啟動時選擇英文、繁體或簡體中文以及所在地（台灣、中國、印尼 – 巴淡島）；全新「控制器上的小鳥」應用程式圖示。"
+    "Choose English, Traditional or Simplified Chinese and your site (Taiwan, China, Indonesia – Batam) on first start; new bird-on-controller app icon.": "首次啟動時選擇英文、繁體或簡體中文以及所在地（台灣、中國、印尼 – 巴淡島）；全新「控制器上的小鳥」應用程式圖示。",
+    "Control by code": "以代碼控制",
+    "Other ways (Bluetooth, Windows app)": "其他方式（藍牙、Windows 桌面版）",
+    "Hide other ways": "隱藏其他方式",
+    "Connecting… then wait for the PC to press Allow.": "連線中…請等待 PC 按「允許」。",
+    "Disconnected. Type a new code to connect again.": "已中斷連線。輸入新的代碼即可重新連線。",
+    "6-digit code": "6 位數代碼",
+    "Control the AIRIZ by code": "以代碼控制 AIRIZ",
+    "Phone: type the code (1.6.0)": "手機直接輸入代碼（1.6.0）",
+    "A Control by code box at the top: type the 6-digit code from Share control and the phone connects by itself. No Bluetooth; Bluetooth options are folded away on phones.": "頂端新增「以代碼控制」欄位：輸入 Share control 顯示的 6 位數代碼，手機就會自動連線。不需藍牙；手機上的藍牙選項已收合。"
   },
   "html": {
     "AIRIZDEVICE LAB": "AIRIZ<small>裝置實驗室</small>",
@@ -842,7 +851,8 @@
     "With Auto-save recording on, every DMIC record is pulled from the device and saved as dmic_<date-time>_<seconds>s_<gain>.wav.": "開啟 <em>自動儲存錄音</em> 後，每次 DMIC 錄音都會從裝置取回並存成 <code>dmic_&lt;日期時間&gt;_&lt;秒數&gt;s_&lt;增益&gt;.wav</code>。",
     "10 Troubleshooting": "<span>10</span> 疑難排解",
     "11 History of the app": "<span>11</span> App 歷程",
-    "Created by Juwen Lie for AIRIZ device testing (Ziris project), built step by step from real bench needs.": "由 <strong data-owner-name=\"\">Juwen Lie</strong> 為 AIRIZ 裝置測試（Ziris 專案）開發，依實際測試台需求一步步打造。"
+    "Created by Juwen Lie for AIRIZ device testing (Ziris project), built step by step from real bench needs.": "由 <strong data-owner-name=\"\">Juwen Lie</strong> 為 AIRIZ 裝置測試（Ziris 專案）開發，依實際測試台需求一步步打造。",
+    "Type the 6-digit code from Share control on the AIRIZ PC. It connects by itself. No Bluetooth needed.": "輸入 AIRIZ 電腦上 <b>分享控制</b> 顯示的 6 位數代碼，會自動連線，不需藍牙。"
   },
   "patterns": [
     [
@@ -1094,8 +1104,8 @@
       "$1 要求控制 AIRIZ（等待中：目前由 $2 控制）。"
     ],
     [
-      "^On the phone or other PC: open the AIRIZ console, press Connect by code and enter (\\d+) \\(or open the link\\)\\. Keep this window open while sharing\\.(.*)$",
-      "在手機或另一台 PC：開啟 AIRIZ 主控台，按「以代碼連線」並輸入 $1（或開啟連結）。分享期間請保持此視窗開啟。$2"
+      "^On the phone or other PC: open the AIRIZ console and type (\\d+) into Control by code \\(or open the link\\)\\. Keep this window open while sharing\\.(.*)$",
+      "在手機或另一台 PC：開啟 AIRIZ 主控台，在「以代碼控制」輸入 $1（或開啟連結）。分享期間請保持此視窗開啟。$2"
     ],
     [
       "^ Code sent to (.+) in Teams\\.$",

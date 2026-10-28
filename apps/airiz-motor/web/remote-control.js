@@ -102,7 +102,7 @@
     dialog.setAttribute('aria-labelledby', 'share-control-title');
     dialog.innerHTML = '<h2 id="share-control-title">Remote control by code</h2>'
       + '<p>Let a phone or another PC control this AIRIZ through this PC - no Bluetooth needed. '
-      + 'On the other device open the AIRIZ console, press <strong>Connect by code</strong> and enter the code. '
+      + 'On the other device open the AIRIZ console and type the code into <strong>Control by code</strong>. '
       + 'You decide who may control it.</p>'
       + '<div id="share-control-code-box" class="phone-remote-pin" hidden><span>CODE</span><strong id="share-control-code"></strong></div>'
       + '<div id="share-control-link-row" class="share-control-link-row" hidden>'
@@ -445,8 +445,8 @@
     $('share-control-link-row').hidden = false;
     $('share-control-start').disabled = true;
     $('share-control-stop').disabled = false;
-    hostSetStatus('On the phone or other PC: open the AIRIZ console, press Connect by code and enter '
-      + code + ' (or open the link). Keep this window open while sharing.');
+    hostSetStatus('On the phone or other PC: open the AIRIZ console and type '
+      + code + ' into Control by code (or open the link). Keep this window open while sharing.');
     clearInterval(host.watchTimer);
     host.watchTimer = setInterval(() => {
       if (host.code && !api.getStatus().connected) hostStop('Sharing stopped because the AIRIZ was disconnected from this PC.');
@@ -728,38 +728,133 @@
     if (autoConnect && prefill && !busyElsewhere && !phone.busy) phoneConnect();
   }
 
-  async function phoneConnect() {
-    if (phone.busy) return;
-    const code = ($('connect-code-input').value || '').replace(/\D/g, '');
+  // One connect routine for both the dialog and the inline "Control by code" box.
+  // ui: { status(text), busy(flag) }
+  async function connectWithCode(rawCode, ui) {
+    if (phone.busy) return false;
+    const code = String(rawCode || '').replace(/\D/g, '');
     if (code.length !== 6) {
-      phoneStatus('Enter the 6-digit code shown on the PC.');
-      return;
+      ui.status('Enter the 6-digit code shown on the PC.');
+      return false;
     }
     if (api.getStatus().connected) {
-      phoneStatus('Disconnect the current device first.');
-      return;
+      ui.status('Disconnect the current device first.');
+      return false;
     }
     phone.busy = true;
-    $('connect-code-go').disabled = true;
-    const link = createCodeLink(code, phoneStatus);
+    ui.busy(true);
+    ui.status('Connecting… then wait for the PC to press Allow.');
+    const link = createCodeLink(code, ui.status);
     phone.cancel = () => link.close();
     const port = new ble.VerifiedSerialPort(link, lostPort => {
       window.dispatchEvent(new CustomEvent('airiz-port-lost', { detail: lostPort }));
     }, VERIFY_TIMEOUT_MS);
     try {
       await api.connectPort(port);
-      phoneStatus('Connected. You are controlling the AIRIZ through the PC.');
+      ui.status('Connected. You are controlling the AIRIZ through the PC.');
       toast('Remote control connected (code ' + code + '). Motor, LEDs, commands and macros now go through the PC.');
-      setTimeout(() => {
-        if (phone.dialog && phone.dialog.open) phone.dialog.close();
-      }, 1200);
+      return true;
     } catch (error) {
-      phoneStatus((error && error.message) || 'Could not connect.');
+      ui.status((error && error.message) || 'Could not connect.');
+      return false;
     } finally {
       phone.cancel = null;
       phone.busy = false;
-      $('connect-code-go').disabled = false;
+      ui.busy(false);
+      refreshInline();
     }
+  }
+
+  async function phoneConnect() {
+    const connected = await connectWithCode($('connect-code-input').value, {
+      status: phoneStatus,
+      busy: flag => {
+        $('connect-code-go').disabled = flag;
+      },
+    });
+    if (connected) {
+      setTimeout(() => {
+        if (phone.dialog && phone.dialog.open) phone.dialog.close();
+      }, 1200);
+    }
+  }
+
+  // ------------------------------------------------ inline "Control by code" box (v1.6.0)
+  // Type the 6 digits straight into the console: it connects by itself, no dialog,
+  // no Bluetooth. Phones get this box first and Bluetooth is folded away.
+  const inline = {
+    card: $('remote-code-card'),
+    form: $('remote-code-form'),
+    input: $('remote-code-inline'),
+    go: $('remote-code-go'),
+    status: $('remote-code-status'),
+    other: $('remote-code-other'),
+  };
+
+  function inlineStatus(text) {
+    if (inline.status) inline.status.textContent = text;
+  }
+
+  function inlineBusy(flag) {
+    if (inline.go) inline.go.disabled = flag;
+    if (inline.input) inline.input.disabled = flag;
+  }
+
+  function inlineConnect() {
+    if (!inline.input) return;
+    if (inline.card.classList.contains('is-connected')) {
+      const disconnectButton = $('btn-disconnect');
+      if (disconnectButton && !disconnectButton.disabled) disconnectButton.click();
+      return;
+    }
+    connectWithCode(inline.input.value, { status: inlineStatus, busy: inlineBusy });
+  }
+
+  function refreshInline() {
+    if (!inline.card) return;
+    const status = api.getStatus();
+    const remote = isRemoteTransport(status);
+    // The PC that has the AIRIZ on USB does not need this box; it shares instead.
+    inline.card.hidden = status.connected && !remote && !status.demoMode;
+    inline.card.classList.toggle('is-connected', remote);
+    if (inline.go && !phone.busy) {
+      inline.go.textContent = remote ? 'Disconnect' : 'Connect';
+      inline.go.classList.toggle('btn-primary', !remote);
+      inline.go.classList.toggle('btn-secondary', remote);
+    }
+    if (inline.input && !phone.busy) inline.input.disabled = remote;
+    if (remote && inline.status && !/^Connected/.test(inline.status.textContent)) {
+      inlineStatus('Connected. You are controlling the AIRIZ through the PC.');
+    }
+    if (!status.connected && inline.card.dataset.wasRemote === '1') {
+      inlineStatus('Disconnected. Type a new code to connect again.');
+    }
+    inline.card.dataset.wasRemote = remote ? '1' : '';
+  }
+
+  if (inline.form) {
+    inline.form.addEventListener('submit', event => {
+      event.preventDefault();
+      inlineConnect();
+    });
+    inline.input.addEventListener('input', () => {
+      const digits = inline.input.value.replace(/\D/g, '').slice(0, 6);
+      if (inline.input.value !== digits) inline.input.value = digits;
+      if (digits.length === 6 && !phone.busy && !api.getStatus().connected) inlineConnect();
+      else if (digits.length < 6) inlineStatus('');
+    });
+  }
+
+  const phoneLayout = !document.documentElement.classList.contains('desktop-edition')
+    && !window.airizDesktop
+    && (window.matchMedia('(max-width: 820px)').matches || /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent));
+  document.documentElement.classList.toggle('phone-layout', phoneLayout);
+  if (inline.other) {
+    inline.other.addEventListener('click', () => {
+      const shown = document.documentElement.classList.toggle('show-other-ways');
+      inline.other.textContent = shown ? 'Hide other ways' : 'Other ways (Bluetooth, Windows app)';
+      inline.other.setAttribute('aria-expanded', String(shown));
+    });
   }
 
   // =================================================================== buttons and state
@@ -788,8 +883,12 @@
       text.textContent = remote ? 'Remote: connected' : 'Connect by code';
     }
   }
-  setInterval(refresh, 1000);
+  setInterval(() => {
+    refresh();
+    refreshInline();
+  }, 1000);
   refresh();
+  refreshInline();
   setInterval(() => {
     if (host.code && host.controllers.size) hostRender();
   }, 15000);
