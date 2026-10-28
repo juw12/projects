@@ -64,6 +64,8 @@ OWNER_NAME = "Juwen Lie"
 OWNER_EMAIL = "Juwen_Lie@pegatroncorp.com"
 OWNER_LEVEL = 99
 OWNER_XP = 999999
+PREMIUM_FOREVER = 4102444800        # server value for "Premium forever"
+STAFF_ROLES = ("owner", "mod")
 
 INBOX_EVERY_S = 45
 IDLE_AWAY_S = 10 * 60          # idle this long -> "away" (auto status)
@@ -305,7 +307,10 @@ class Social:
         self._next_inbox = now + 8
         self._inbox_busy = False
         self._last_news = 0.0
-        if self.data.get("role") == "owner":
+        self.mod_data = None        # moderator queue (/v1/mod/reports)
+        self.admin_data = None      # owner overview (/v1/admin/overview)
+        self.new_keys = []          # premium keys generated in this session
+        if self.data.get("role") or self.data.get("premium_until"):
             pet.root.after(0, self._apply_owner)
 
     # ---- persistence ----
@@ -333,10 +338,36 @@ class Social:
     def is_owner(self) -> bool:
         return self.data.get("role") == "owner"
 
+    @property
+    def is_mod(self) -> bool:
+        return self.data.get("role") == "mod"
+
+    @property
+    def is_staff(self) -> bool:
+        return self.data.get("role") in STAFF_ROLES
+
+    @property
+    def premium_until(self) -> int:
+        return int(self.data.get("premium_until") or 0)
+
+    @property
+    def is_premium(self) -> bool:
+        return self.is_staff or self.premium_until > time.time()
+
+    @property
+    def muted_until(self) -> int:
+        until = int(self.data.get("muted_until") or 0)
+        return until if until > time.time() else 0
+
     def _apply_owner(self):
+        """Push role / premium perks into the shop (owner: unlimited, premium + mods: premium items)."""
         shop = getattr(self.pet, "shop", None)
         if shop is not None:
             shop.unlimited = self.is_owner
+            shop.premium = self.is_premium
+            if shop.premium and shop.add_premium_daily() and pet_shop is not None:
+                self.pet.root.after(4000, lambda: self.pet.say(
+                    t("premium_daily", n=pet_shop.PREMIUM_DAILY_COINS), duration=5, priority=0))
 
     @property
     def account(self):
@@ -574,6 +605,97 @@ class Social:
     def set_label(self, code: str, label: str):
         self._act("label_set", "/v1/friends/label", {"code": code, "label": label})
 
+    # ---- reports, moderation, premium (v2.7) ----
+    def report_user(self, code: str, reason: str):
+        if self.enabled:
+            self._run("reported", api_call, "POST", "/v1/report", {"code": code, "reason": reason[:200]}, self.account)
+
+    def load_mod(self):
+        if self.enabled and self.is_staff:
+            self._run("mod", api_call, "GET", "/v1/mod/reports", None, self.account)
+
+    def mod_action(self, code: str, action: str, **extra):
+        body = {"code": code, "action": action}
+        body.update(extra)
+        self._act("mod_done", "/v1/mod/action", body)
+
+    def load_admin(self):
+        if self.enabled and self.is_owner:
+            self._run("admin", api_call, "GET", "/v1/admin/overview", None, self.account)
+
+    def set_role(self, code: str, role: str):
+        self._act("admin_done", "/v1/admin/role", {"code": code, "role": role})
+
+    def give_premium(self, code: str, days: int):
+        self._act("admin_done", "/v1/admin/premium", {"code": code, "days": int(days)})
+
+    def make_keys(self, days: int, count: int = 1, note: str = ""):
+        if self.enabled and self.is_owner:
+            self._run("keys", api_call, "POST", "/v1/admin/keys",
+                      {"days": int(days), "count": int(count), "note": note[:60]}, self.account)
+
+    def redeem_key(self, key: str):
+        self._act("redeemed", "/v1/premium/redeem", {"key": key.strip().upper()})
+
+    def _take_notices(self, notices: list):
+        """React to moderator / owner notices (warnings, mutes, role and premium changes)."""
+        seen = int(self.data.get("notice_seen", 0))
+        fresh = [n for n in notices or [] if int(n.get("id", 0)) > seen]
+        if not fresh:
+            return
+        self.data["notice_seen"] = max(int(n["id"]) for n in fresh)
+        resync = False
+        for n in fresh:
+            kind = n.get("kind")
+            body = n.get("body", "")
+            if kind == "warn":
+                self.data["last_warning"] = {"text": body, "at": n.get("created_at", 0)}
+                self.pet.set_action("worried", 3.0)
+                self.pet.say(t("notice_warn", text=body), duration=12, priority=2)
+            elif kind == "mute":
+                stamp = datetime.fromtimestamp(int(body or 0)).strftime("%d %b %H:%M") if body.isdigit() else "?"
+                self.pet.set_action("worried", 3.0)
+                self.pet.say(t("notice_mute", time=stamp), duration=10, priority=2)
+            elif kind == "unmute":
+                self.pet.say(t("notice_unmute"), duration=6, priority=1)
+            elif kind == "cleared":
+                prof = self.profile()
+                prof.update(bio="", status_text="", info={})
+                self.data["profile"] = prof
+                self.data.pop("avatar_v", None)
+                resync = True
+                self.pet.say(t("notice_cleared"), duration=10, priority=2)
+            elif kind == "renamed":
+                self.data["name"] = "Pips friend"
+                resync = True
+                self.pet.say(t("notice_renamed"), duration=10, priority=2)
+            elif kind == "mod_on":
+                self.pet.set_action("cheer", 1.6)
+                self.pet._spawn("sparkle", 6)
+                self.pet.say(t("mod_welcome"), duration=10, priority=2, on_click=lambda: self.open_window("mod"))
+            elif kind == "mod_off":
+                self.pet.say(t("mod_removed"), duration=7, priority=1)
+            elif kind == "premium_on":
+                until = int(body) if str(body).isdigit() else 0
+                self.pet.set_action("love", 2.0)
+                self.pet._spawn("sparkle", 8)
+                self.pet._voice("happy")
+                self.pet.say(t("premium_welcome", until=self.premium_text(until)), duration=10, priority=2,
+                             on_click=lambda: self.open_window("profile"))
+            elif kind == "premium_off":
+                self.pet.say(t("premium_ended"), duration=8, priority=1)
+        self.save()
+        if resync:
+            self.sync()
+
+    @staticmethod
+    def premium_text(until: int) -> str:
+        if until >= PREMIUM_FOREVER:
+            return t("premium_forever")
+        if until <= 0:
+            return "-"
+        return datetime.fromtimestamp(until).strftime("%d %b %Y")
+
     def requests(self) -> list:
         return list((self.board or {}).get("requests", []))
 
@@ -665,8 +787,11 @@ class Social:
         self.leaderboards = {}
         self.profiles = {}
         for key in ("id", "secret", "code", "groups", "read", "seen_id", "notified_invites", "notified_requests",
-                    "role"):
+                    "role", "premium_until", "muted_until", "notice_seen"):
             self.data.pop(key, None)
+        self.mod_data = None
+        self.admin_data = None
+        self._apply_owner()
         self.save()
         self._refresh_window()
 
@@ -897,6 +1022,28 @@ class Social:
                         self.check_achievements()
         if isinstance(payload, dict) and "friends" in payload:
             self._take_board(payload)
+        if kind == "mod":
+            self.mod_data = dict(payload, _at=time.time())
+        elif kind == "admin":
+            self.admin_data = dict(payload, _at=time.time())
+        elif kind == "keys":
+            self.new_keys = list(payload.get("keys", [])) + self.new_keys
+            self.load_admin()
+        elif kind == "reported":
+            self.pet.say(t("report_sent"), duration=5, priority=1)
+        elif kind == "mod_done":
+            self.pet.set_action("hop", 0.55)
+            if self.window and self.window.alive():
+                self.window.status.config(text=t("mod_done"))
+            self.load_mod()
+            self.load_admin()
+            self.profiles.pop(payload.get("_result", {}).get("user", {}).get("code", ""), None)
+            self._refresh_social_views()
+        elif kind == "admin_done":
+            self.load_admin()
+            self._refresh_social_views()
+        elif kind == "redeemed":
+            self._refresh_window()
         if kind == "leaderboard":
             self.leaderboards[payload.get("sort", "xp")] = dict(payload, _at=time.time())
         elif kind == "user":
@@ -939,15 +1086,22 @@ class Social:
         self.board = board
         self.board_at = time.time()
         self.data["code"] = board.get("me", {}).get("code", self.data.get("code"))
-        role = board.get("me", {}).get("role", "")
+        me = board.get("me", {})
+        role = me.get("role", "")
+        was_premium = self.is_premium
+        self.data["premium_until"] = int(me.get("premium_until") or 0)
+        self.data["muted_until"] = int(me.get("muted_until") or 0)
         if role != self.data.get("role", ""):
             self.data["role"] = role
-            self._apply_owner()
             if role == "owner":
                 self.pet.set_action("cheer", 1.6)
                 self.pet._spawn("sparkle", 8)
                 self.pet.say(t("owner_welcome"), duration=7, priority=2)
                 self.check_achievements(announce=False)
+        if role != getattr(self, "_applied_role", None) or was_premium != self.is_premium:
+            self._applied_role = role
+            self._apply_owner()
+        self._take_notices(board.get("notices", []))
         self.data["groups"] = [g["code"] for g in board.get("groups", [])]
         self.invites = board.get("invites", self.invites)
         self._notify_requests()
