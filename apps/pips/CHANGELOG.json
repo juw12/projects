@@ -2,6 +2,25 @@
   "_comment": "Pips version history. Newest first. Feeds the in-app update notice (latest.json), the PPT guide and the update emails.",
   "releases": [
     {
+      "version": "2.5.1",
+      "date": "2026-10-28",
+      "title": "New cute Pips logo",
+      "notes": {
+        "en": [
+          "New Pips logo: Pip the cat on a Pips-red tile, matching the app colours (desktop shortcut, windows and website)"
+        ],
+        "id": [
+          "Logo Pips baru: kucing Pip di ubin merah Pips, serasi dengan warna aplikasi (shortcut desktop, jendela dan situs web)"
+        ],
+        "zh_TW": [
+          "全新 Pips 圖示：Pips 紅色底上的小貓 Pip，和應用程式配色一致 (桌面捷徑、視窗和網站)"
+        ],
+        "zh_CN": [
+          "全新 Pips 图标：Pips 红色底上的小猫 Pip，和应用配色一致 (桌面快捷方式、窗口和网站)"
+        ]
+      }
+    },
+    {
       "version": "2.5.0",
       "date": "2026-10-28",
       "title": "Shop, coins, props & moves",
