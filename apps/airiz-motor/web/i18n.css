@@ -1,0 +1,64 @@
+/* Language & region dialog (i18n.js). */
+.i18n-dialog {
+  width: min(460px, calc(100vw - 32px));
+}
+.i18n-form {
+  display: grid;
+  gap: 14px;
+}
+.i18n-globe {
+  font-size: 34px;
+  line-height: 1;
+}
+.i18n-form h2 {
+  margin: 0;
+}
+.i18n-intro,
+.i18n-note {
+  margin: 0;
+  color: var(--text-secondary, #8b949e);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.i18n-field {
+  display: grid;
+  gap: 6px;
+}
+.i18n-label {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--text-secondary, #8b949e);
+}
+.i18n-choices {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+.i18n-choice {
+  padding: 10px 8px;
+  border: 1px solid var(--border, #30363d);
+  border-radius: 10px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+.i18n-choice:hover {
+  border-color: var(--accent, #2f81f7);
+}
+.i18n-choice.selected {
+  border-color: var(--accent, #2f81f7);
+  background: color-mix(in srgb, var(--accent, #2f81f7) 18%, transparent);
+  font-weight: 600;
+}
+.i18n-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+#btn-language span + span {
+  white-space: nowrap;
+}
