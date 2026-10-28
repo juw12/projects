@@ -36,10 +36,13 @@ if (-not (Test-Path -LiteralPath $appPy)) {
 }
 
 # Resolve pythonw.exe (falls back to the bare name if not resolvable on PATH).
-try {
-    $pythonw = (Get-Command pythonw.exe -ErrorAction Stop).Source
-} catch {
-    $pythonw = "pythonw.exe"
+$pythonw = Join-Path $here "runtime\pythonw.exe"
+if (-not (Test-Path -LiteralPath $pythonw)) {
+    try {
+        $pythonw = (Get-Command pythonw.exe -ErrorAction Stop).Source
+    } catch {
+        $pythonw = "pythonw.exe"
+    }
 }
 
 $shell = New-Object -ComObject WScript.Shell

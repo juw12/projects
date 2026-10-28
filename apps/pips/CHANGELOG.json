@@ -2,6 +2,37 @@
   "_comment": "Pips version history. Newest first. Feeds the in-app update notice (latest.json), the PPT guide and the update emails.",
   "releases": [
     {
+      "version": "2.13.1",
+      "date": "2026-10-28",
+      "title": "One-click Windows installer",
+      "notes": {
+        "en": [
+          "One Windows installer: no ZIP extraction, Python installation or command line. Download, open and click Install Pips.",
+          "Installs for your Windows account without administrator access, adds Desktop and Start Menu shortcuts, and opens Pips automatically.",
+          "Reinstalling in the same location keeps your settings and pet progress. Existing ZIP users can keep updating in place from Help → Check for updates.",
+          "A simpler download page and updated user guide; the bundled runtime stays separate from small in-app updates."
+        ],
+        "id": [
+          "Satu installer Windows: tanpa ekstrak ZIP, instal Python, atau terminal. Unduh, buka, lalu klik Install Pips.",
+          "Dipasang untuk akun Windows Anda tanpa akses administrator, membuat pintasan Desktop dan Start Menu, lalu membuka Pips otomatis.",
+          "Instal ulang di lokasi yang sama tetap menyimpan pengaturan dan progres pet. Pengguna ZIP tetap dapat memperbarui lewat Bantuan → Periksa pembaruan.",
+          "Halaman unduhan dan panduan kini lebih sederhana; runtime bawaan terpisah dari pembaruan kecil dalam aplikasi."
+        ],
+        "zh_TW": [
+          "單一 Windows 安裝程式：不用解壓 ZIP、不用另裝 Python，也不用終端機。下載、開啟，再按安裝即可。",
+          "安裝至目前的 Windows 帳戶，不需系統管理員權限；建立桌面和開始功能表捷徑，並自動開啟 Pips。",
+          "在相同位置重新安裝會保留設定和寵物進度。既有 ZIP 使用者仍可透過「說明 → 檢查更新」原地更新。",
+          "簡化下載頁面並更新使用指南；內建執行環境與輕量的應用程式更新分開管理。"
+        ],
+        "zh_CN": [
+          "单一 Windows 安装程序：不用解压 ZIP、不用另装 Python，也不用终端。下载、打开，再点击安装即可。",
+          "安装到当前 Windows 账户，无需管理员权限；创建桌面和开始菜单快捷方式，并自动打开 Pips。",
+          "在同一位置重新安装会保留设置和宠物进度。现有 ZIP 用户仍可通过“帮助 → 检查更新”就地更新。",
+          "简化下载页面并更新用户指南；内置运行环境与轻量的应用内更新分开管理。"
+        ]
+      }
+    },
+    {
       "version": "2.13.0",
       "date": "2026-10-28",
       "title": "Birthdays, parties & gifts",

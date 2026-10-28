@@ -138,52 +138,52 @@
       "order": 7
     },
     {
-     "id": "airiz-motor",
-     "name": "Airiz Motor",
-     "category": "Automation",
-     "desc": "Windows, Android and browser console for AIRIZ motor testing: USB or Bluetooth jog, LEDs, macros and live camera sharing to phones",
-     "description": "Downloadable Windows console with a locally bundled controller, serial port chooser, camera tools, macros and offline demo. A PIN-protected on-device Bluetooth remote adds wireless pan, up/down, LED control and a real motor stop from Android or iPhone (Bluefy). Camera → Share to phone streams the AIRIZ camera to phones by link or 6-digit code over WebRTC, with an HTTPS frame relay (Cloudflare Worker) that keeps it working on company networks that block WebRTC. The browser and mobile-web editions remain available.",
-     "summary": "AIRIZ test console for Windows, Android, iPhone and web &mdash; USB/Bluetooth jog, motor stop, LEDs, macros, phone camera sharing.",
-     "tags": [
-      "Windows app",
-      "Web Serial",
-      "Bluetooth control",
-      "camera sharing",
-      "macro runner",
-      "offline demo"
-     ],
-     "image": "airiz-motor-card.jpg",
-     "image_alt": "Airiz Motor Test Console dashboard: command library, serial console and macro notepad for AIRIZ device motor testing",
-     "links": {
-      "app": "https://github.com/juw12/projects/releases/download/airiz-desktop-v1.8.2/AIRIZ-Console-Setup-1.8.2-x64.exe",
-      "web": "airiz-motor/",
-      "mobile": "airiz-motor/"
-     },
-     "featured": true,
-     "order": 1,
-     "portfolio_order": -6,
-     "card_links": [
-      {
-       "label": "Windows app",
-       "path": "https://github.com/juw12/projects/releases/download/airiz-desktop-v1.8.2/AIRIZ-Console-Setup-1.8.2-x64.exe"
+      "id": "airiz-motor",
+      "name": "Airiz Motor",
+      "category": "Automation",
+      "desc": "Windows, Android and browser console for AIRIZ motor testing: USB or Bluetooth jog, LEDs, macros and live camera sharing to phones",
+      "description": "Downloadable Windows console with a locally bundled controller, serial port chooser, camera tools, macros and offline demo. A PIN-protected on-device Bluetooth remote adds wireless pan, up/down, LED control and a real motor stop from Android or iPhone (Bluefy). Camera → Share to phone streams the AIRIZ camera to phones by link or 6-digit code over WebRTC, with an HTTPS frame relay (Cloudflare Worker) that keeps it working on company networks that block WebRTC. The browser and mobile-web editions remain available.",
+      "summary": "AIRIZ test console for Windows, Android, iPhone and web &mdash; USB/Bluetooth jog, motor stop, LEDs, macros, phone camera sharing.",
+      "tags": [
+        "Windows app",
+        "Web Serial",
+        "Bluetooth control",
+        "camera sharing",
+        "macro runner",
+        "offline demo"
+      ],
+      "image": "airiz-motor-card.jpg",
+      "image_alt": "Airiz Motor Test Console dashboard: command library, serial console and macro notepad for AIRIZ device motor testing",
+      "links": {
+        "app": "https://github.com/juw12/projects/releases/download/airiz-desktop-v1.8.2/AIRIZ-Console-Setup-1.8.2-x64.exe",
+        "web": "airiz-motor/",
+        "mobile": "airiz-motor/"
       },
-      {
-       "label": "Web",
-       "path": "airiz-motor/"
-      },
-      {
-       "label": "Mobile web",
-       "path": "airiz-motor/"
-      },
-      {
-       "label": "Android app",
-       "path": "https://github.com/juw12/projects/releases/download/airiz-mobile-v1.0.2/AIRIZ-Mobile-1.0.2-android.apk"
-      },
-      {
-       "label": "iPhone (Bluefy)",
-       "path": "airiz-motor/iphone.html"
-      }
-     ]
+      "featured": true,
+      "order": 1,
+      "portfolio_order": -6,
+      "card_links": [
+        {
+          "label": "Windows app",
+          "path": "https://github.com/juw12/projects/releases/download/airiz-desktop-v1.8.2/AIRIZ-Console-Setup-1.8.2-x64.exe"
+        },
+        {
+          "label": "Web",
+          "path": "airiz-motor/"
+        },
+        {
+          "label": "Mobile web",
+          "path": "airiz-motor/"
+        },
+        {
+          "label": "Android app",
+          "path": "https://github.com/juw12/projects/releases/download/airiz-mobile-v1.0.2/AIRIZ-Mobile-1.0.2-android.apk"
+        },
+        {
+          "label": "iPhone (Bluefy)",
+          "path": "airiz-motor/iphone.html"
+        }
+      ]
     },
     {
       "id": "vertex",
@@ -702,7 +702,7 @@
       "category": "Software",
       "desc": "A cute desktop pet on your taskbar (23 animals, moods, naps, chat-bubble reminders) plus a Pomodoro focus widget with a daily score; free Windows download in 4 languages",
       "summary": "Desktop pet + Pomodoro widget for Windows &mdash; 23 animals, moods, taskbar walks, reminders, 4 languages.",
-      "description": "A tiny animated pet that lives on your desktop and taskbar: <strong>23 animals</strong> in three groups &mdash; land animals walk, water animals swim and blow bubbles, sky animals hover and flap. Drag it anywhere, click to tickle it, rub to pet it; it has real moods (happy, sad, tired, hungry, grumpy), naps when you're away and greets you when you're back, and delivers break, water and eye-rest reminders in cute chat bubbles. Fully customisable colour, size and name, in English, Bahasa Indonesia, 繁體中文 and 简体中文. Click the pet to open <strong>Pips</strong>: an always-on-top Pomodoro timer with soundscapes, live app-usage tracking, a daily 1&ndash;5 star score, goals, streaks, a dashboard and history. Python + tkinter; everything stays local.",
+      "description": "A tiny animated pet that lives on your desktop and taskbar: <strong>23 animals</strong> in three groups &mdash; land animals walk, water animals swim and blow bubbles, sky animals hover and flap. Drag it anywhere, click to tickle it, rub to pet it; it has real moods (happy, sad, tired, hungry, grumpy), naps when you're away and greets you when you're back, and delivers break, water and eye-rest reminders in cute chat bubbles. Fully customisable colour, size and name, in English, Bahasa Indonesia, 繁體中文 and 简体中文. Click the pet to open <strong>Pips</strong>: an always-on-top Pomodoro timer with soundscapes, live app-usage tracking, a daily 1&ndash;5 star score, goals, streaks, a dashboard and history. Easy Windows installer; Python is included. Focus history stays local; optional social features use the Pips online service.",
       "tags": [
         "Windows app",
         "desktop pet",
@@ -728,8 +728,8 @@
       },
       "card_links": [
         {
-          "label": "Download (Windows)",
-          "path": "pips/"
+          "label": "Download for Windows",
+          "path": "pips/download/Pips-Setup.exe"
         },
         {
           "label": "Web",
@@ -742,8 +742,8 @@
       ],
       "extra_links": [
         {
-          "label": "Windows download (.zip)",
-          "url": "https://juw12.github.io/projects/pips/download/Pips-Windows.zip"
+          "label": "Download Pips for Windows",
+          "url": "https://juw12.github.io/projects/pips/download/Pips-Setup.exe"
         },
         {
           "label": "User guide (PPT)",
@@ -754,7 +754,7 @@
           "url": "https://github.com/juw12/projects/tree/main/apps/pips"
         }
       ],
-      "version": "2.13.0",
+      "version": "2.13.1",
       "featured": true,
       "order": 5,
       "portfolio_order": -8

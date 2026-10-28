@@ -28,7 +28,7 @@ except ImportError:  # pragma: no cover - i18n ships with Pips
     def T(key, lang=None, **kwargs):
         return key
 
-APP_VERSION = "2.13.0"
+APP_VERSION = "2.13.1"
 APP_OWNER = "Juwen Lie"
 USER_GUIDE_URL = "https://juw12.github.io/projects/pips/download/Pips-Guide.pptx"
 SITE_URL = "https://juw12.github.io/projects/pips/"
@@ -4015,9 +4015,11 @@ class ProductivityWidget:
             else:
                 shell = WScriptDispatch("WScript.Shell")
                 shortcut = shell.CreateShortCut(shortcut_path)
-                shortcut.TargetPath = sys.executable
-                shortcut.Arguments = str(Path(__file__).absolute())
+                pythonw = Path(sys.executable).with_name("pythonw.exe")
+                shortcut.TargetPath = str(pythonw if pythonw.exists() else Path(sys.executable))
+                shortcut.Arguments = subprocess.list2cmdline([str(Path(__file__).absolute())])
                 shortcut.WorkingDirectory = str(BASE_DIR)
+                shortcut.IconLocation = str(BASE_DIR / "assets" / "widget.ico")
                 shortcut.save()
                 logger.info("Autostart enabled")
         except Exception as e:

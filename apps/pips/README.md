@@ -83,56 +83,47 @@ dashboard or open your history; right-click for everything else.
 | `output/weekly-report-YYYY-MM-DD.html` | Weekly reports you open from the menu. |
 | `logs/widget.log` | Runtime log. |
 
-## Requirements
+## Install Pips for Windows
 
-Already satisfied on this machine:
-- **Python 3.13** (stdlib only) plus **`pywin32`** and **`Pillow`** — both installed.
-- Windows 10/11.
+1. Visit [the official Pips page](https://juw12.github.io/projects/pips/).
+2. Click **Download Pips for Windows**, then open the downloaded installer.
+3. Click **Install Pips**. Choose your language when the pet opens.
 
-**No third-party packages need to be installed.** No `psutil`, no `pygame`, no Node.js.
+**No ZIP extraction, separate Python installation, terminal, or administrator
+password.** Requires 64-bit Windows 10/11. The installer includes a private
+Python runtime, Tkinter, Pillow, pywin32 and the optional coach's HTTP helpers.
+It does not change your system Python or PATH.
 
-## Run it now
+Pips is added to your **Desktop** and **Start Menu**. By default it lives in
+`%LOCALAPPDATA%\Programs\Pips`. Reopen it from either shortcut.
+To start with Windows, opt in through the card's **Autostart** menu.
 
-Double-click **`Launch Widget.bat`** — or from a terminal:
+**Windows warning:** the installer is not code-signed yet. SmartScreen may warn.
+If you trust this official download, choose **More info → Run anyway** if it is
+available. On a managed work PC, ask IT if blocked; do not disable security tools.
 
-```powershell
-cd pips
-pythonw app.py                 # normal run, no console window
-python  app.py                 # run with a console (for debugging)
-python  app.py --selftest      # init everything, render offscreen, exit 0
-python  app.py --no-track      # run without starting the tracker
-python  app.py --reset-pos     # ignore the saved window position
-```
+### Already use Pips?
 
-> **Configuration:** copy `config.example.json` to `config.json` and edit as needed
-> (Pomodoro lengths, soundscapes, app categories, email, etc.). `config.json` is git-ignored.
+Keep your current copy and use **Help → Check for updates**. Settings and history
+stay in that copy. The installer preserves data when reinstalling to the same
+installed location; it does not import profiles from other ZIP folders.
 
-## Start it automatically at login
+### Uninstall
 
-```powershell
-powershell -ExecutionPolicy Bypass -File install_autostart.ps1
-```
+Quit Pips, then use **Windows Settings → Apps → Pips → Uninstall**. The program
+and its runtime are removed, while local settings, progress, logs and backups
+are left in place for a later reinstall. An opt-in startup shortcut is removed
+only if it points at this installed copy. Back up your profile before moving it.
 
-Undo:
+### Advanced: source/update archive
 
-```powershell
-powershell -ExecutionPolicy Bypass -File install_autostart.ps1 -Remove
-```
+The ZIP remains available for in-app updates and developers, not as the normal
+first-time download. A source copy needs Python 3.13+ with Tkinter, pywin32 and
+Pillow. After extracting, `Start Pips.bat` starts it. The installed copy always
+uses its private runtime, including when started via the helper scripts.
 
-You can also toggle this from the widget's right-click menu (**Autostart**).
-
-## Manual launchers (Desktop & Start Menu)
-
-If autostart ever doesn't fire — or you simply closed the widget — launch it from a shortcut:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File make_shortcuts.ps1
-```
-
-This places **"Pips"** on your **Desktop** and in the **Start Menu**
-(searchable), each running `pythonw app.py` (no console) with the widget's own icon.
-Double-click to launch; right-click → *Pin to taskbar* to keep it one click away.
-Remove the shortcuts with `-Remove`.
+Configuration is stored in `config.json`; local data is in `data/`. They are
+never included in a public build. Edit settings in the app where possible.
 
 ## Using the widget
 
@@ -290,10 +281,12 @@ The score is monotonic: more productive time never lowers it unless distraction 
 
 ## Data & privacy
 
-- **Everything stays local** in `data/productivity.db` (SQLite). Nothing is uploaded.
-- The **only** network calls are the optional coach LLM and the optional MAAS
-  gateway — and only if you enable each in `config.json`. Leave both off for a
-  fully offline tool.
+- **Focus history is stored locally** in `data/productivity.db` (SQLite).
+- Friends, parties, chat, profile photos and other sharing features use the
+  Pips online service when you enable/use them. Automatic update checks also
+  contact the official download site.
+- The optional coach LLM and MAAS gateway are used only if configured/enabled.
+  MAAS is off by default in public builds. Keep private configuration private.
 - The tracker never counts the widget itself as usage, and never counts idle/AFK time
   toward an app.
 
