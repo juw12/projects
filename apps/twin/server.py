@@ -86,7 +86,7 @@ TOOL = {
 }
 
 
-VERSION = "1.10.0"
+VERSION = "1.10.1"
 
 
 class AppError(Exception):
