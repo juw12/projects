@@ -1,8 +1,10 @@
 """
 social_ui.py - the "Friends & achievements" window for Pips (see social.py).
 
-Tabs: Friends (board, affinity, pet interactions) | Chat | Groups (your own
-invite-only groups) | Teams (open team boards) | Achievements.
+Tabs: Friends (board, requests, affinity, pet interactions) | Chat | Groups
+(your own invite-only groups) | Ranks (everyone using Pips) | Shop | Badges |
+Profile (your public / private profile, status and theme). Clicking a person
+opens their profile inside the hub. Colours come from theme.py (light / dark).
 All user-facing text comes from i18n.py.
 """
 
@@ -14,6 +16,11 @@ from datetime import datetime
 from tkinter import messagebox
 
 import social
+
+try:
+    import theme
+except ImportError:  # pragma: no cover
+    theme = None
 
 try:
     import pet_shop
@@ -28,23 +35,50 @@ except ImportError:  # pragma: no cover
         return key.format(**kwargs) if kwargs else key
 
 
+LABELS = ("", "buddy", "bro", "sis", "bestie", "partner", "soulmate", "family", "work")
+LABEL_SYMBOL = {"buddy": "\u263a", "bro": "\u270a", "sis": "\u273f", "bestie": "\u2605", "partner": "\u2665",
+                "soulmate": "\u2766", "family": "\u2302", "work": "\u2692"}
+STATUSES = ("auto", "online", "busy", "away", "offline")
+INFO_FIELDS = ("job", "location", "hobbies", "birthday", "fav")
+
+
 class FriendsWindow:
-    BG = "#faf8f3"
-    CARD = "#ffffff"
-    INK = "#1a1a1a"
-    MUTED = "#6b6b6b"
-    BORDER = "#e2ddd4"
-    ACCENT = "#8b1a1a"
-    GOLD = "#c8961e"
-    PINK = "#e0557a"
-    MINE = "#fbeee6"
-    THEIRS = "#f1f4f8"
-    WIDTH = 500
-    TABS = ("friends", "chat", "groups", "teams", "shop", "achievements")
+    WIDTH = 520
+    TABS = ("friends", "chat", "groups", "ranks", "shop", "achievements", "profile")
+
+    def _apply_palette(self):
+        p = theme.palette() if theme is not None else {}
+        get = lambda k, d: p.get(k, d)  # noqa: E731
+        self.BG = get("bg", "#faf8f3")
+        self.CARD = get("card", "#ffffff")
+        self.INK = get("ink", "#1a1a1a")
+        self.MUTED = get("muted", "#6b6b6b")
+        self.BORDER = get("border", "#e2ddd4")
+        self.ACCENT = get("accent", "#8b1a1a")
+        self.ACCENT_INK = get("accent_ink", "#ffffff")
+        self.GOLD = get("gold", "#c8961e")
+        self.PINK = get("pink", "#e0557a")
+        self.MINE = get("mine", "#fbeee6")
+        self.THEIRS = get("theirs", "#f1f4f8")
+        self.WARM = get("warm", "#fbf3e6")
+        self.SOFT = get("soft", "#f1ece4")
+        self.TILE = get("tile", "#f6f4f0")
+        self.TILE_OFF = get("tile_off", "#f4f2ee")
+        self.OFF_INK = get("off_ink", "#9a958c")
+        self.OFF_SYM = get("off_sym", "#c9c4bb")
+        self.BAR = get("bar", "#eeeae3")
+        self.ENTRY = get("entry", "#ffffff")
+        self.ENTRY_INK = get("entry_ink", "#1a1a1a")
+        self.PRESENCE = {k: get(k, d) for k, d in (("online", "#2fa84f"), ("busy", "#d93838"),
+                                                   ("away", "#e0a020"), ("offline", "#a8a39a"))}
 
     def __init__(self, soc: "social.Social"):
         import pet as pet_mod  # late import: pet imports social
 
+        self._apply_palette()
+        self._imgs = []          # PhotoImage refs (avatars) for the current render
+        self.viewing = None      # friend code whose profile is shown
+        self.rank_sort = "xp"
         self.pet_mod = pet_mod
         self.social = soc
         self.pet = soc.pet
@@ -72,7 +106,7 @@ class FriendsWindow:
         tabs.pack(fill="x", pady=(10, 6))
         self.tab_buttons = {}
         for key in self.TABS:
-            btn = tk.Label(tabs, text=t("fr_tab_" + key), font=("Segoe UI", 9, "bold"), padx=7, pady=4,
+            btn = tk.Label(tabs, text=t("fr_tab_" + key), font=("Segoe UI", 9, "bold"), padx=6, pady=4,
                            cursor="hand2")
             btn.pack(side="left", padx=(0, 3))
             btn.bind("<Button-1>", lambda e, k=key: self.show_tab(k))
@@ -144,13 +178,46 @@ class FriendsWindow:
 
     def _button(self, parent, text, command, primary=False, small=False):
         btn = tk.Label(parent, text=text, font=("Segoe UI", 8 if small else 9, "bold" if primary else "normal"),
-                       fg="#ffffff" if primary else self.INK, bg=self.ACCENT if primary else "#f1ece4",
+                       fg=self.ACCENT_INK if primary else self.INK, bg=self.ACCENT if primary else self.SOFT,
                        padx=7 if small else 10, pady=1 if small else 3, cursor="hand2")
         btn.bind("<Button-1>", lambda e: command())
         return btn
 
-    def _avatar(self, parent, species, color, size=34, bg=None, look=None):
+    def _photo(self, path, size):
+        """PhotoImage of a cached avatar PNG scaled to `size` (kept alive until the next render)."""
+        try:
+            from PIL import Image, ImageTk
+            img = Image.open(path).convert("RGBA").resize((size, size), Image.LANCZOS)
+            photo = ImageTk.PhotoImage(img, master=self.win)
+        except Exception:
+            try:
+                photo = tk.PhotoImage(file=str(path), master=self.win)
+                factor = max(1, round(photo.width() / size))
+                if factor > 1:
+                    photo = photo.subsample(factor, factor)
+            except tk.TclError:
+                return None
+        self._imgs.append(photo)
+        return photo
+
+    def _avatar(self, parent, species, color, size=34, bg=None, look=None, person=None):
+        """Profile photo if the person has one, else their pet (with props). Adds an online dot."""
         cv = tk.Canvas(parent, width=size, height=size, bg=bg or self.CARD, highlightthickness=0)
+        person = person or {}
+        path = self.social.avatar_path(person.get("code", ""), person.get("avatar_v", 0)) if person else None
+        photo = self._photo(path, size) if path else None
+        if photo is not None:
+            cv.create_image(size / 2, size / 2, image=photo)
+        else:
+            self._draw_pet_avatar(cv, species, color, size, look)
+        state = person.get("presence")
+        if state:
+            r = max(4, size // 7)
+            cv.create_oval(size - 2 * r - 1, size - 2 * r - 1, size - 1, size - 1,
+                           fill=self.PRESENCE.get(state, self.PRESENCE["offline"]), outline=bg or self.CARD, width=2)
+        return cv
+
+    def _draw_pet_avatar(self, cv, species, color, size, look):
         try:
             props = pet_shop.clean_look(look) if (pet_shop is not None and look) else {}
             scale = 0.5 if props else 0.62
@@ -165,7 +232,11 @@ class FriendsWindow:
                 self.pet_mod.draw_pet(cv, size / 2, size - 2, size * scale, pl)
         except Exception:
             cv.create_oval(4, 4, size - 4, size - 4, fill=color or "#ffc78f", outline="")
-        return cv
+
+    def _entry(self, parent, var, width=18, font=("Segoe UI", 10)):
+        return tk.Entry(parent, textvariable=var, width=width, font=font, bg=self.ENTRY, fg=self.ENTRY_INK,
+                        insertbackground=self.ENTRY_INK, relief="solid", bd=1,
+                        highlightthickness=0)
 
     def _label(self, parent, text, size=9, bold=False, fg=None, bg=None, wrap=None, **kw):
         return tk.Label(parent, text=text, font=("Segoe UI", size, "bold" if bold else "normal"),
@@ -178,13 +249,19 @@ class FriendsWindow:
                     "too_many": t("fr_err_too_many"), "bad_group": t("fr_err_bad_group"),
                     "too_fast": t("fr_err_too_fast"), "not_friends": t("fr_err_not_friends"),
                     "already_member": t("cir_err_member"), "bad_name": t("cir_err_name"),
-                    "poor": t("shop_poor")}
+                    "poor": t("shop_poor"), "bad_image": t("prof_err_image"),
+                    "no_pillow": t("prof_err_pillow")}
         self.error = messages.get(code, t("fr_err_generic", code=code))
-        self.refresh()
+        self.refresh(force=True)
 
     def show_tab(self, key, room=None):
         self.tab = key
+        self.viewing = None
         self.error = ""
+        if key == "ranks":
+            board = self.social.leaderboards.get(self.rank_sort)
+            if not board or time.time() - board.get("_at", 0) > 60:
+                self.social.load_leaderboard(self.rank_sort)
         if key == "chat":
             self.room = room
         self.social.chat_open_room = self.room if key == "chat" else None
@@ -192,13 +269,18 @@ class FriendsWindow:
             self.social.mark_read(self.room)
             self.social._next_inbox = 0
         self.canvas.yview_moveto(0)
-        self.refresh()
+        self.refresh(force=True)
 
     # ---- rendering ----
-    def refresh(self):
+    def refresh(self, force=False):
         if not self._alive:
             return
+        # Don't wipe the profile editor while the user is typing (background syncs call refresh).
+        if self.tab == "profile" and not self.viewing and getattr(self, "_profile_built", False) and not force:
+            return
+        self._profile_built = False
         stats = self.social.stats or self.social.refresh_stats()
+        self._imgs = []
         for frame in (self.head, self.body, self.composer):
             for child in frame.winfo_children():
                 child.destroy()
@@ -212,20 +294,26 @@ class FriendsWindow:
                 label += f" ({unread})"
             if key == "groups" and invites:
                 label += f" ({invites})"
-            btn.config(text=label, bg=self.ACCENT if active else "#f1ece4", fg="#ffffff" if active else self.INK)
+            if key == "friends" and self.social.requests():
+                label += f" ({len(self.social.requests())})"
+            btn.config(text=label, bg=self.ACCENT if active else self.SOFT, fg=self.ACCENT_INK if active else self.INK)
         self._render_head(stats)
-        if self.tab == "achievements":
+        if self.viewing and self.social.enabled:
+            self._render_profile_view(self.viewing)
+        elif self.tab == "achievements":
             self._render_achievements()
         elif self.tab == "shop":
             self._render_shop()
+        elif self.tab == "profile":
+            self._render_profile_tab()
         elif not self.social.enabled:
             self._render_off()
         elif self.tab == "chat":
             self._render_chat()
         elif self.tab == "groups":
             self._render_groups()
-        elif self.tab == "teams":
-            self._render_teams()
+        elif self.tab == "ranks":
+            self._render_ranks()
         else:
             self._render_friends()
         if self.error:
@@ -241,8 +329,15 @@ class FriendsWindow:
     def _render_head(self, stats):
         row = tk.Frame(self.head, bg=self.CARD, padx=10, pady=8)
         row.pack(fill="x")
-        self._avatar(row, self.pet.s.get("species"), self.pet.s.get("color"), size=56,
-                     look=self.social.my_look()).pack(side="left")
+        me = dict((self.social.board or {}).get("me") or {})
+        me.update({"code": self.social.data.get("code", ""), "avatar_v": self.social.data.get("avatar_v", 0)})
+        if not self.social.enabled:
+            me.pop("presence", None)
+        head_avatar = self._avatar(row, self.pet.s.get("species"), self.pet.s.get("color"), size=56,
+                                   look=self.social.my_look(), person=me)
+        head_avatar.pack(side="left")
+        head_avatar.config(cursor="hand2")
+        head_avatar.bind("<Button-1>", lambda e: self.show_tab("profile"))
         info = tk.Frame(row, bg=self.CARD)
         info.pack(side="left", fill="x", expand=True, padx=(10, 0))
         name = self.social.data.get("name") or default_display_name()
@@ -252,7 +347,7 @@ class FriendsWindow:
         bar.pack(anchor="w", pady=(2, 2))
         span = max(1, stats["level_next"] - stats["level_floor"])
         frac = max(0.0, min(1.0, (stats["xp"] - stats["level_floor"]) / span))
-        bar.create_rectangle(0, 0, 240, 8, fill="#eeeae3", outline="")
+        bar.create_rectangle(0, 0, 240, 8, fill=self.BAR, outline="")
         bar.create_rectangle(0, 0, max(3, 240 * frac), 8, fill=self.GOLD, outline="")
         self._label(info, t("fr_stats_line", today=stats["today_poms"], week=stats["week_poms"],
                             streak=stats["streak"]), size=8, fg=self.MUTED).pack(fill="x")
@@ -277,7 +372,7 @@ class FriendsWindow:
         row.pack(fill="x")
         self._label(row, t("fr_your_name")).pack(side="left")
         self.name_var = tk.StringVar(value=self.social.data.get("name") or default_display_name())
-        tk.Entry(row, textvariable=self.name_var, width=18, font=("Segoe UI", 10)).pack(side="left", padx=6)
+        self._entry(row, self.name_var, width=18, font=("Segoe UI", 10)).pack(side="left", padx=6)
         self._button(self.body, t("fr_turn_on"), self._enable, primary=True).pack(anchor="w", pady=(10, 0))
 
     def _enable(self):
@@ -291,22 +386,34 @@ class FriendsWindow:
         return f"{hearts}  {t(key)} \u00b7 {points}" + (f"/{nxt}" if nxt else "")
 
     def _person_row(self, parent, rank, person, value_text, is_me=False, on_remove=None, extra=None):
-        bg = "#fbf3e6" if is_me else self.CARD
+        bg = self.WARM if is_me else self.CARD
         row = tk.Frame(parent, bg=bg, pady=3)
         row.pack(fill="x")
         if rank is not None:
             tk.Label(row, text=str(rank), width=2, font=("Segoe UI", 10, "bold"),
                      fg=self.GOLD if rank <= 3 else self.MUTED, bg=bg).pack(side="left", anchor="n", pady=6)
-        self._avatar(row, person.get("species"), person.get("color"), size=38, bg=bg,
-                     look=person.get("look")).pack(side="left", anchor="n", padx=(2, 6))
+        av = self._avatar(row, person.get("species"), person.get("color"), size=38, bg=bg,
+                          look=person.get("look"), person=person)
+        av.pack(side="left", anchor="n", padx=(2, 6))
         info = tk.Frame(row, bg=bg)
         info.pack(side="left", fill="x", expand=True)
         top = tk.Frame(info, bg=bg)
         top.pack(fill="x")
         name = person.get("name", "?") + ("  " + t("fr_you") if is_me else "")
-        self._label(top, name, size=10, bold=is_me, bg=bg).pack(side="left")
+        name_lbl = self._label(top, name, size=10, bold=True, bg=bg, cursor="hand2")
+        name_lbl.pack(side="left")
+        code = person.get("code")
+        if code:
+            for widget in (av, name_lbl):
+                widget.config(cursor="hand2")
+                widget.bind("<Button-1>", lambda e, c=code: self.open_profile(c))
+        if person.get("label"):
+            self._chip(top, self._label_text(person["label"]), bg).pack(side="left", padx=(6, 0))
+        if person.get("status_text"):
+            self._label(info, "\u201c" + person["status_text"] + "\u201d", size=8, fg=self.MUTED, bg=bg).pack(fill="x")
         if value_text:
-            self._label(top, value_text, size=9, bold=True, fg=self.ACCENT, bg=bg).pack(side="right")
+            color = self.PRESENCE.get(person.get("presence") or "", self.ACCENT) if person.get("presence") else self.ACCENT
+            self._label(top, value_text, size=9, bold=True, fg=color, bg=bg).pack(side="right")
         self._label(info, t("fr_row_line", level=person.get("level", 1), streak=person.get("streak", 0),
                             n=len(person.get("achievements", []))), size=8, fg=self.MUTED, bg=bg).pack(fill="x")
         if extra:
@@ -322,19 +429,46 @@ class FriendsWindow:
         add = tk.Frame(self.body, bg=self.CARD)
         add.pack(fill="x", pady=(0, 8))
         self.code_var = tk.StringVar()
-        entry = tk.Entry(add, textvariable=self.code_var, width=10, font=("Consolas", 12))
+        entry = self._entry(add, self.code_var, width=10, font=("Consolas", 12))
         entry.pack(side="left")
         entry.bind("<Return>", lambda e: self._add())
         self._button(add, t("fr_add"), self._add, primary=True).pack(side="left", padx=6)
         self._label(add, t("fr_add_hint"), size=8, fg=self.MUTED, wrap=200).pack(side="left")
+        requests = self.social.requests()
+        if requests:
+            self._label(self.body, t("req_title", n=len(requests)), bold=True, fg=self.ACCENT).pack(fill="x", pady=(0, 2))
+            for req in requests:
+                card = tk.Frame(self.body, bg=self.WARM, padx=6, pady=4)
+                card.pack(fill="x", pady=(0, 4))
+                av = self._avatar(card, req.get("species"), req.get("color"), size=34, bg=self.WARM,
+                                  look=req.get("look"), person=req)
+                av.pack(side="left", padx=(0, 6))
+                av.config(cursor="hand2")
+                av.bind("<Button-1>", lambda e, c=req["code"]: self.open_profile(c))
+                box = tk.Frame(card, bg=self.WARM)
+                box.pack(side="left", fill="x", expand=True)
+                self._label(box, t("req_line", name=req.get("name", "?")), bold=True, bg=self.WARM).pack(fill="x")
+                self._label(box, t("rank_level", level=req.get("level", 1)), size=8, fg=self.MUTED,
+                            bg=self.WARM).pack(fill="x")
+                self._button(card, t("req_decline"), lambda c=req["code"]: self._answer(c, False),
+                             small=True).pack(side="right", padx=(4, 0))
+                self._button(card, t("req_accept"), lambda c=req["code"]: self._answer(c, True), primary=True,
+                             small=True).pack(side="right")
+        sent = self.social.sent_requests()
+        if sent:
+            self._label(self.body, t("req_sent_count", n=len(sent)), size=8, fg=self.MUTED).pack(fill="x", pady=(0, 4))
         self._label(self.body, t("fr_today_board"), bold=True).pack(fill="x", pady=(4, 2))
-        people = [dict(board.get("me", {}), _me=True)] if board.get("me") else []
+        people = [dict(board.get("me", {}), _me=True, code=self.social.data.get("code"),
+                       avatar_v=self.social.data.get("avatar_v", 0))] if board.get("me") else []
         people += board.get("friends", [])
         if len(people) <= 1:
             self._label(self.body, t("fr_no_friends"), fg=self.MUTED, wrap=self.WIDTH - 70).pack(fill="x", pady=(0, 6))
-        people.sort(key=lambda p: (-p.get("today_poms", 0), -p.get("week_poms", 0), p.get("name", "")))
-        for rank, person in enumerate(people[:40], 1):
-            value = t("fr_poms_value", today=person.get("today_poms", 0), week=person.get("week_poms", 0))
+        order = {"online": 0, "busy": 1, "away": 2, "offline": 3}
+        people.sort(key=lambda p: (not p.get("_me"), order.get(p.get("presence") or "offline", 3),
+                                   -p.get("affinity", 0), p.get("name", "").lower()))
+        for rank, person in enumerate(people[:60], 1):
+            value = t("st_" + (person.get("presence") or "offline"))
+            rank = None
             if person.get("_me"):
                 self._person_row(self.body, rank, person, value, is_me=True)
                 continue
@@ -357,6 +491,9 @@ class FriendsWindow:
         for kind in INTERACTIONS:
             buttons.append(self._button(acts, INTERACTION_SYMBOL[kind] + " " + t("ix_btn_" + kind),
                                         lambda k=kind, r=room: self._interact(r, k), small=True))
+        label_btn = self._button(acts, "\u2661 " + t("lbl_set"), lambda: None, small=True)
+        label_btn.bind("<Button-1>", lambda e, c=code, cur=person.get("label", ""): self._label_menu(e, c, cur))
+        buttons.append(label_btn)
         for i, btn in enumerate(buttons):
             btn.grid(row=i // 3, column=i % 3, sticky="ew", padx=(0, 3), pady=(0, 2))
 
@@ -408,7 +545,7 @@ class FriendsWindow:
             preview = self._preview(last) if last else t("chat_say_hi")
             self._label(box, preview, size=8, fg=self.MUTED).pack(fill="x")
             if unread:
-                tk.Label(row, text=str(unread), font=("Segoe UI", 8, "bold"), fg="#ffffff", bg=self.ACCENT,
+                tk.Label(row, text=str(unread), font=("Segoe UI", 8, "bold"), fg=self.ACCENT_INK, bg=self.ACCENT,
                          padx=6).pack(side="right")
             for widget in (row, box, icon) + tuple(box.winfo_children()):
                 widget.bind("<Button-1>", lambda e, r=room: self.show_tab("chat", room=r))
@@ -476,7 +613,7 @@ class FriendsWindow:
         entry_row = tk.Frame(self.composer, bg=self.BG)
         entry_row.pack(fill="x")
         self.msg_var = tk.StringVar()
-        entry = tk.Entry(entry_row, textvariable=self.msg_var, font=("Segoe UI", 10))
+        entry = self._entry(entry_row, self.msg_var, width=10)
         entry.pack(side="left", fill="x", expand=True, ipady=3)
         entry.bind("<Return>", lambda e: self._send_text(room))
         entry.focus_set()
@@ -495,11 +632,11 @@ class FriendsWindow:
     # ---- groups (your own, invite-only) ----
     def _render_groups(self):
         for inv in self.social.invites:
-            card = tk.Frame(self.body, bg="#fbf3e6", padx=8, pady=6)
+            card = tk.Frame(self.body, bg=self.WARM, padx=8, pady=6)
             card.pack(fill="x", pady=(0, 6))
             self._label(card, t("cir_invite_line", name=inv.get("by", "?"), group=inv.get("name", "?")),
-                        bg="#fbf3e6", wrap=self.WIDTH - 90).pack(fill="x")
-            row = tk.Frame(card, bg="#fbf3e6")
+                        bg=self.WARM, wrap=self.WIDTH - 90).pack(fill="x")
+            row = tk.Frame(card, bg=self.WARM)
             row.pack(fill="x", pady=(4, 0))
             self._button(row, t("cir_accept"), lambda c=inv["circle"]: self._respond(c, True), primary=True,
                          small=True).pack(side="left")
@@ -509,7 +646,7 @@ class FriendsWindow:
         create.pack(fill="x", pady=(0, 4))
         self._label(create, t("cir_new")).pack(side="left")
         self.circle_var = tk.StringVar()
-        entry = tk.Entry(create, textvariable=self.circle_var, width=18, font=("Segoe UI", 10))
+        entry = self._entry(create, self.circle_var, width=18, font=("Segoe UI", 10))
         entry.pack(side="left", padx=6)
         entry.bind("<Return>", lambda e: self._create_circle())
         self._button(create, t("cir_create"), self._create_circle, primary=True).pack(side="left")
@@ -555,7 +692,7 @@ class FriendsWindow:
                 names = {f"{f['name']} ({f['code']})": f["code"] for f in candidates}
                 var = tk.StringVar(value=next(iter(names)))
                 menu = tk.OptionMenu(inv, var, *names.keys())
-                menu.config(font=("Segoe UI", 8), bg="#f1ece4", relief="flat", highlightthickness=0)
+                menu.config(font=("Segoe UI", 8), bg=self.SOFT, relief="flat", highlightthickness=0)
                 menu.pack(side="left", padx=4)
                 self._button(inv, t("cir_invite"), lambda cid=c["id"], v=var, m=names: self._invite(cid, m[v.get()]),
                              primary=True, small=True).pack(side="left")
@@ -586,35 +723,375 @@ class FriendsWindow:
         if messagebox.askyesno(t("fr_title"), t("cir_kick_q", name=name), parent=self.win):
             self.social.kick_from_circle(circle_id, code)
 
-    # ---- open teams ----
-    def _render_teams(self):
-        board = self.social.board or {}
+    # ---- small helpers (v2.6) ----
+    def _chip(self, parent, text, bg):
+        return tk.Label(parent, text=text, font=("Segoe UI", 8, "bold"), fg=self.PINK, bg=bg)
+
+    def _label_text(self, label):
+        return f"{LABEL_SYMBOL.get(label, '')} {t('lbl_' + label)}".strip()
+
+    def _presence_text(self, person):
+        state = person.get("presence") or "offline"
+        return "\u25cf " + t("st_" + state)
+
+    def _label_menu(self, event, code, current):
+        menu = tk.Menu(self.win, tearoff=0)
+        for label in LABELS:
+            text = self._label_text(label) if label else t("lbl_none")
+            menu.add_command(label=("\u2713 " if label == current else "    ") + text,
+                             command=lambda l=label: self._set_label(code, l))
+        try:
+            menu.tk_popup(event.x_root, event.y_root)
+        finally:
+            menu.grab_release()
+
+    def _set_label(self, code, label):
+        self.error = ""
+        for f in (self.social.board or {}).get("friends", []):
+            if f.get("code") == code:
+                f["label"] = label
+        prof = self.social.profiles.get(code)
+        if prof:
+            prof["user"]["label"] = label
+        self.social.set_label(code, label)
+        self.refresh()
+
+    def _answer(self, code, accept):
+        self.social.respond_request(code, accept)
+        self.refresh()
+
+    def open_profile(self, code):
+        if not code:
+            return
+        if not self.social.enabled:
+            self.show_tab("profile")
+            return
+        self.viewing = code
+        self.error = ""
+        cached = self.social.profiles.get(code)
+        if not cached or time.time() - cached.get("at", 0) > 20:
+            self.social.view_user(code)
+        self.canvas.yview_moveto(0)
+        self.refresh(force=True)
+
+    def _close_profile(self):
+        self.viewing = None
+        self.refresh()
+
+    def _relation_button(self, parent, person, bg=None, small=True):
+        """Add / Requested / Accept / Friend button depending on the relationship."""
+        rel = person.get("rel", "none")
+        code = person.get("code")
+        if rel == "me":
+            return self._label(parent, t("fr_you"), size=8, fg=self.MUTED, bg=bg or self.CARD)
+        if rel == "friend":
+            return self._label(parent, "\u2665 " + t("rank_friend"), size=8, bold=True, fg=self.PINK,
+                               bg=bg or self.CARD)
+        if rel == "sent":
+            return self._button(parent, t("req_pending"), lambda: self._cancel(code), small=small)
+        if rel == "incoming":
+            return self._button(parent, t("req_accept"), lambda: self._answer(code, True), primary=True, small=small)
+        text = t("rank_request") if person.get("visibility") == "private" else t("rank_add")
+        return self._button(parent, "+ " + text, lambda: self._add_code(code), primary=True, small=small)
+
+    def _add_code(self, code):
+        self.error = ""
+        self.social.add_friend(code)
+        self.status.config(text=t("fr_connecting"), fg=self.MUTED)
+
+    def _cancel(self, code):
+        self.social.cancel_request(code)
+        self.status.config(text=t("fr_connecting"), fg=self.MUTED)
+
+    # ---- ranks (everyone using Pips) ----
+    RANK_SORTS = ("xp", "badges", "streak")
+
+    def _render_ranks(self):
+        bar = tk.Frame(self.body, bg=self.CARD)
+        bar.pack(fill="x", pady=(0, 6))
+        self._label(bar, t("rank_title"), size=11, bold=True).pack(side="left")
+        for key in reversed(self.RANK_SORTS):
+            active = key == self.rank_sort
+            btn = self._button(bar, t("rank_sort_" + key), lambda k=key: self._sort_ranks(k), primary=active,
+                               small=True)
+            btn.pack(side="right", padx=(3, 0))
+        data = self.social.leaderboards.get(self.rank_sort)
+        if not data:
+            self._label(self.body, t("fr_connecting"), fg=self.MUTED).pack(fill="x", pady=8)
+            return
+        line = t("rank_total", n=data.get("total", 0))
+        if data.get("my_rank"):
+            line += "  \u00b7  " + t("rank_mine", n=data["my_rank"])
+        self._label(self.body, line, size=8, fg=self.MUTED).pack(fill="x", pady=(0, 4))
+        my_code = self.social.data.get("code")
+        for rank, person in enumerate(data.get("people", []), 1):
+            is_me = person.get("code") == my_code
+            bg = self.WARM if is_me else self.CARD
+            row = tk.Frame(self.body, bg=bg, pady=3)
+            row.pack(fill="x")
+            medal = {1: self.GOLD, 2: "#9aa3ad", 3: "#b87333"}.get(rank)
+            tk.Label(row, text=("\u265b" if rank == 1 else str(rank)), width=3, font=("Segoe UI Symbol", 11, "bold"),
+                     fg=medal or self.MUTED, bg=bg).pack(side="left")
+            av = self._avatar(row, person.get("species"), person.get("color"), size=36, bg=bg,
+                              look=person.get("look"), person=person)
+            av.pack(side="left", padx=(2, 6))
+            box = tk.Frame(row, bg=bg)
+            box.pack(side="left", fill="x", expand=True)
+            top = tk.Frame(box, bg=bg)
+            top.pack(fill="x")
+            name = self._label(top, person.get("name", "?"), size=10, bold=True, bg=bg, cursor="hand2")
+            name.pack(side="left")
+            if person.get("visibility") == "private":
+                self._label(top, " \U0001F512", size=8, fg=self.MUTED, bg=bg).pack(side="left")
+            value = {"xp": t("rank_val_xp", n=person.get("xp", 0)), "badges": t("rank_val_badges", n=person.get("badges", 0)),
+                     "streak": t("rank_val_streak", n=person.get("streak", 0))}[self.rank_sort]
+            self._label(box, t("rank_level", level=person.get("level", 1)) + "  \u00b7  " + value + "  \u00b7  "
+                        + t("st_" + (person.get("presence") or "offline")), size=8, fg=self.MUTED, bg=bg).pack(fill="x")
+            self._relation_button(row, person, bg=bg).pack(side="right", padx=(4, 2))
+            for widget in (row, av, name, box):
+                widget.bind("<Button-1>", lambda e, c=person.get("code"): self.open_profile(c))
+
+    def _sort_ranks(self, key):
+        self.rank_sort = key
+        board = self.social.leaderboards.get(key)
+        if not board or time.time() - board.get("_at", 0) > 60:
+            self.social.load_leaderboard(key)
+        self.refresh()
+
+    # ---- someone's profile ----
+    def _render_profile_view(self, code):
+        top = tk.Frame(self.body, bg=self.CARD)
+        top.pack(fill="x", pady=(0, 6))
+        self._button(top, "\u2039 " + t("chat_back"), self._close_profile, small=True).pack(side="left")
+        entry = self.social.profiles.get(code)
+        if not entry:
+            self._label(self.body, t("fr_connecting"), fg=self.MUTED).pack(fill="x", pady=10)
+            return
+        user = entry["user"]
+        full = entry.get("full")
+        hero = tk.Frame(self.body, bg=self.WARM, padx=12, pady=10)
+        hero.pack(fill="x")
+        self._avatar(hero, user.get("species"), user.get("color"), size=88, bg=self.WARM, look=user.get("look"),
+                     person=user).pack(side="left")
+        box = tk.Frame(hero, bg=self.WARM)
+        box.pack(side="left", fill="x", expand=True, padx=(12, 0))
+        name_row = tk.Frame(box, bg=self.WARM)
+        name_row.pack(fill="x")
+        self._label(name_row, user.get("name", "?"), size=14, bold=True, bg=self.WARM).pack(side="left")
+        if user.get("visibility") == "private":
+            self._label(name_row, "  \U0001F512 " + t("vis_private"), size=8, fg=self.MUTED, bg=self.WARM).pack(side="left")
+        state = user.get("presence") or "offline"
+        self._label(box, self._presence_text(user) + (f"  \u00b7  {user['status_text']}" if user.get("status_text") else ""),
+                    size=9, fg=self.PRESENCE.get(state, self.MUTED), bg=self.WARM).pack(fill="x")
+        stats = t("rank_level", level=user.get("level", 1)) + "  \u00b7  " + t("rank_val_badges", n=user.get("badges", 0))
+        if full:
+            stats += "  \u00b7  " + t("rank_val_xp", n=user.get("xp", 0)) + "  \u00b7  " + t("rank_val_streak", n=user.get("streak", 0))
+        self._label(box, stats, size=8, fg=self.MUTED, bg=self.WARM).pack(fill="x", pady=(2, 0))
+        if user.get("rel") == "friend":
+            aff = self._affinity_text(user.get("affinity", 0))
+            self._label(box, aff, size=8, fg=self.PINK, bg=self.WARM).pack(fill="x")
+            labels = []
+            if user.get("label"):
+                labels.append(t("lbl_you_call", label=self._label_text(user["label"])))
+            if user.get("their_label"):
+                labels.append(t("lbl_they_call", label=self._label_text(user["their_label"])))
+            if labels:
+                self._label(box, "   ".join(labels), size=8, bold=True, fg=self.PINK, bg=self.WARM).pack(fill="x")
+        acts = tk.Frame(self.body, bg=self.CARD)
+        acts.pack(fill="x", pady=(8, 4))
+        rel = user.get("rel")
+        if rel == "friend":
+            room = "dm:" + code
+            self._button(acts, "\u2709 " + t("ix_btn_chat"), lambda: self.show_tab("chat", room=room), primary=True,
+                         small=True).pack(side="left")
+            for kind in ("wave", "visit"):
+                self._button(acts, INTERACTION_SYMBOL[kind] + " " + t("ix_btn_" + kind),
+                             lambda k=kind: self._interact(room, k), small=True).pack(side="left", padx=(4, 0))
+            lb = self._button(acts, "\u2661 " + t("lbl_set"), lambda: None, small=True)
+            lb.bind("<Button-1>", lambda e: self._label_menu(e, code, user.get("label", "")))
+            lb.pack(side="left", padx=(4, 0))
+        elif rel == "me":
+            self._button(acts, "\u270e " + t("prof_edit"), lambda: self.show_tab("profile"), small=True).pack(side="left")
+        else:
+            self._relation_button(acts, user, small=False).pack(side="left")
+        if not full:
+            card = tk.Frame(self.body, bg=self.TILE, padx=10, pady=10)
+            card.pack(fill="x", pady=(6, 0))
+            self._label(card, "\U0001F512 " + t("prof_private_title"), bold=True, bg=self.TILE).pack(fill="x")
+            self._label(card, t("prof_private_body"), size=8, fg=self.MUTED, bg=self.TILE,
+                        wrap=self.WIDTH - 90).pack(fill="x", pady=(2, 0))
+            return
+        if user.get("bio"):
+            self._section_title(t("prof_about"))
+            self._label(self.body, user["bio"], wrap=self.WIDTH - 70).pack(fill="x")
+        info = user.get("info") or {}
+        if info:
+            self._section_title(t("prof_info"))
+            for key in INFO_FIELDS:
+                if info.get(key):
+                    row = tk.Frame(self.body, bg=self.CARD)
+                    row.pack(fill="x")
+                    self._label(row, t("info_" + key), size=8, fg=self.MUTED, width=14).pack(side="left")
+                    self._label(row, info[key], size=9).pack(side="left")
+        achievements = [a for a in user.get("achievements", []) if a in ACH_SYMBOL]
+        if achievements:
+            self._section_title(t("prof_badges", n=len(achievements)))
+            line = tk.Frame(self.body, bg=self.CARD)
+            line.pack(fill="x")
+            for i, aid in enumerate(achievements[:40]):
+                sym = tk.Label(line, text=ACH_SYMBOL[aid], font=("Segoe UI Symbol", 13), fg=self.GOLD, bg=self.CARD)
+                sym.grid(row=i // 14, column=i % 14, padx=1)
+        friends = user.get("friends") or []
+        self._section_title(t("prof_friends", n=user.get("friends_count", len(friends))))
+        if friends:
+            grid = tk.Frame(self.body, bg=self.CARD)
+            grid.pack(fill="x")
+            for i, f in enumerate(friends):
+                cell = tk.Frame(grid, bg=self.CARD, cursor="hand2")
+                cell.grid(row=i // 6, column=i % 6, padx=3, pady=3, sticky="n")
+                av = self._avatar(cell, f.get("species"), f.get("color"), size=40, look=f.get("look"), person=f)
+                av.pack()
+                nm = tk.Label(cell, text=f.get("name", "?")[:10], font=("Segoe UI", 7), fg=self.INK, bg=self.CARD)
+                nm.pack()
+                for widget in (cell, av, nm):
+                    widget.bind("<Button-1>", lambda e, c=f.get("code"): self.open_profile(c))
+        meta = []
+        if user.get("member_since"):
+            meta.append(t("prof_since", date=datetime.fromtimestamp(user["member_since"]).strftime("%d %b %Y")))
+        if state == "offline" and user.get("last_seen"):
+            meta.append(t("prof_last_seen", time=datetime.fromtimestamp(user["last_seen"]).strftime("%d %b %H:%M")))
+        if meta:
+            self._label(self.body, "  \u00b7  ".join(meta), size=8, fg=self.MUTED).pack(fill="x", pady=(10, 0))
+
+    def _section_title(self, text):
+        tk.Label(self.body, text=text.upper(), font=("Segoe UI", 8, "bold"), fg=self.ACCENT, bg=self.CARD,
+                 anchor="w").pack(fill="x", pady=(10, 2))
+
+    # ---- my profile + app theme ----
+    def _render_profile_tab(self):
+        self._profile_built = True
+        prof = self.social.profile()
+        # photo
+        self._section_title(t("prof_photo"))
         row = tk.Frame(self.body, bg=self.CARD)
         row.pack(fill="x")
-        self._label(row, t("fr_team_code")).pack(side="left")
-        self.group_var = tk.StringVar()
-        entry = tk.Entry(row, textvariable=self.group_var, width=10, font=("Consolas", 12))
-        entry.pack(side="left", padx=6)
-        entry.bind("<Return>", lambda e: self._join())
-        self._button(row, t("fr_join"), self._join, primary=True).pack(side="left")
-        self._label(self.body, t("fr_team_hint"), size=8, fg=self.MUTED, wrap=self.WIDTH - 70).pack(fill="x", pady=(4, 6))
-        groups = board.get("groups", [])
-        if not groups:
-            self._label(self.body, t("fr_no_teams"), fg=self.MUTED).pack(fill="x")
-        for group in groups:
-            head = tk.Frame(self.body, bg=self.CARD)
-            head.pack(fill="x", pady=(8, 2))
-            members = sorted(group.get("members", []),
-                             key=lambda p: (-p.get("week_poms", 0), -p.get("today_poms", 0), p.get("name", "")))
-            self._label(head, t("fr_team_head", team=group["code"], n=len(members)), size=10, bold=True).pack(side="left")
-            leave = tk.Label(head, text=t("fr_leave"), font=("Segoe UI", 8, "underline"), fg=self.MUTED,
-                             bg=self.CARD, cursor="hand2")
-            leave.pack(side="right")
-            leave.bind("<Button-1>", lambda e, g=group["code"]: self.social.leave_group(g))
-            for rank, person in enumerate(members[:20], 1):
-                self._person_row(self.body, rank, person, t("fr_week_value", n=person.get("week_poms", 0)),
-                                 is_me=person.get("me", False))
+        me = {"code": self.social.data.get("code", ""), "avatar_v": self.social.data.get("avatar_v", 0)}
+        self._avatar(row, self.pet.s.get("species"), self.pet.s.get("color"), size=72, look=self.social.my_look(),
+                     person=me).pack(side="left")
+        btns = tk.Frame(row, bg=self.CARD)
+        btns.pack(side="left", padx=10)
+        self._button(btns, t("prof_pick_photo"), self._pick_photo, primary=True, small=True).pack(anchor="w")
+        self._button(btns, t("prof_use_pet"), self._clear_photo, small=True).pack(anchor="w", pady=(4, 0))
+        self._label(btns, t("prof_photo_hint"), size=8, fg=self.MUTED, wrap=300).pack(anchor="w", pady=(4, 0))
+        # who can see
+        self._section_title(t("prof_visibility"))
+        self.vis_var = tk.StringVar(value=prof["visibility"])
+        for key in ("public", "private"):
+            rb = tk.Radiobutton(self.body, text=t("vis_" + key) + " \u2013 " + t("vis_" + key + "_desc"),
+                                variable=self.vis_var, value=key, font=("Segoe UI", 9), bg=self.CARD, fg=self.INK,
+                                selectcolor=self.ENTRY, activebackground=self.CARD, activeforeground=self.INK,
+                                anchor="w", justify="left", wraplength=self.WIDTH - 80)
+            rb.pack(fill="x")
+        # status
+        self._section_title(t("prof_status"))
+        srow = tk.Frame(self.body, bg=self.CARD)
+        srow.pack(fill="x")
+        self.status_var = tk.StringVar(value=prof["status"])
+        for key in STATUSES:
+            color = self.PRESENCE.get(key if key != "auto" else "online", self.MUTED)
+            rb = tk.Radiobutton(srow, text=("\u25cf " if key != "auto" else "\u21bb ") + t("st_" + key),
+                                variable=self.status_var, value=key, font=("Segoe UI", 9), bg=self.CARD,
+                                fg=color if key != "auto" else self.INK, selectcolor=self.ENTRY,
+                                activebackground=self.CARD)
+            rb.pack(side="left")
+        self._label(self.body, t("st_auto_hint"), size=8, fg=self.MUTED, wrap=self.WIDTH - 70).pack(fill="x")
+        trow = tk.Frame(self.body, bg=self.CARD)
+        trow.pack(fill="x", pady=(4, 0))
+        self._label(trow, t("prof_status_text"), size=9).pack(side="left")
+        self.status_text_var = tk.StringVar(value=prof["status_text"])
+        self._entry(trow, self.status_text_var, width=36).pack(side="left", padx=6)
+        # about
+        self._section_title(t("prof_about"))
+        nrow = tk.Frame(self.body, bg=self.CARD)
+        nrow.pack(fill="x")
+        self._label(nrow, t("fr_your_name"), width=14).pack(side="left")
+        self.pname_var = tk.StringVar(value=self.social.data.get("name") or default_display_name())
+        self._entry(nrow, self.pname_var, width=24).pack(side="left")
+        self.bio_text = tk.Text(self.body, height=3, font=("Segoe UI", 10), wrap="word", bg=self.ENTRY,
+                                fg=self.ENTRY_INK, insertbackground=self.ENTRY_INK, relief="solid", bd=1)
+        self.bio_text.insert("1.0", prof["bio"])
+        self.bio_text.pack(fill="x", pady=(6, 0))
+        self._label(self.body, t("prof_bio_hint"), size=8, fg=self.MUTED).pack(fill="x")
+        self.info_vars = {}
+        for key in INFO_FIELDS:
+            row = tk.Frame(self.body, bg=self.CARD)
+            row.pack(fill="x", pady=1)
+            self._label(row, t("info_" + key), width=14).pack(side="left")
+            var = tk.StringVar(value=prof["info"].get(key, ""))
+            self.info_vars[key] = var
+            self._entry(row, var, width=34).pack(side="left")
+        actions = tk.Frame(self.body, bg=self.CARD)
+        actions.pack(fill="x", pady=(10, 0))
+        self._button(actions, t("prof_save"), self._save_profile, primary=True).pack(side="left")
+        if self.social.enabled and self.social.data.get("code"):
+            self._button(actions, "\U0001F441 " + t("prof_preview"),
+                         lambda: self.open_profile(self.social.data["code"])).pack(side="left", padx=6)
+        else:
+            self._label(self.body, t("prof_offline_note"), size=8, fg=self.MUTED,
+                        wrap=self.WIDTH - 70).pack(fill="x", pady=(4, 0))
+        # theme
+        self._section_title(t("theme_title"))
+        th = tk.Frame(self.body, bg=self.CARD)
+        th.pack(fill="x")
+        current = theme.current_name() if theme is not None else "light"
+        for key in ("light", "dark"):
+            self._button(th, ("\u2600 " if key == "light" else "\u263e ") + t("theme_" + key),
+                         lambda k=key: self._set_theme(k), primary=current == key).pack(side="left", padx=(0, 6))
 
+    def _pick_photo(self):
+        from tkinter import filedialog
+        path = filedialog.askopenfilename(parent=self.win, title=t("prof_pick_photo"),
+                                          filetypes=[(t("prof_images"), "*.png *.jpg *.jpeg *.gif *.bmp *.webp"),
+                                                     ("*", "*.*")])
+        if not path:
+            return
+        err = self.social.set_avatar_from_file(path)
+        if err:
+            self.show_error(err)
+            return
+        self.pet.set_action("hop", 0.55)
+        self.refresh(force=True)
+
+    def _clear_photo(self):
+        self.social.clear_avatar()
+        self.refresh(force=True)
+
+    def _save_profile(self):
+        info = {k: v.get().strip() for k, v in self.info_vars.items() if v.get().strip()}
+        changes = {
+            "visibility": self.vis_var.get(),
+            "status": self.status_var.get(),
+            "status_text": self.status_text_var.get().strip()[:60],
+            "bio": self.bio_text.get("1.0", "end").strip()[:300],
+            "info": info,
+        }
+        self.social.save_profile(changes, name=self.pname_var.get())
+        self.error = ""
+        self.pet.set_action("cheer", 1.0)
+        self.status.config(text=t("prof_saved"), fg=self.MUTED)
+
+    def _set_theme(self, key):
+        setter = self.pet.cb.get("set_theme") if hasattr(self.pet, "cb") else None
+        if setter:
+            setter(key)       # app recolours everything and re-opens this window (pet.on_theme_changed)
+            return
+        if theme is not None:
+            theme.set_theme(key)
+        tab = self.tab
+        soc = self.social
+        self.close()
+        soc.window = None
+        soc.open_window(tab)
 
     # ---- shop ----
     def _render_shop(self):
@@ -623,14 +1100,14 @@ class FriendsWindow:
             self._label(self.body, t("shop_unavailable"), fg=self.MUTED).pack(fill="x")
             return
         wallet = self.social.wallet()
-        card = tk.Frame(self.body, bg="#fbf3e6", padx=10, pady=8)
+        card = tk.Frame(self.body, bg=self.WARM, padx=10, pady=8)
         card.pack(fill="x", pady=(0, 8))
         self._label(card, f"{pet_shop.COIN} " + t("shop_balance", n=wallet["balance"]), size=14, bold=True,
-                    fg=self.GOLD, bg="#fbf3e6").pack(fill="x")
+                    fg=self.GOLD, bg=self.WARM).pack(fill="x")
         self._label(card, t("shop_earned", pom=wallet["pomodoros"], lvl=wallet["levels"], ach=wallet["achievements"],
                             days=wallet["days"], fr=wallet["friends"], soc=wallet["social"], gift=wallet["gift"]),
-                    size=8, fg=self.MUTED, bg="#fbf3e6", wrap=self.WIDTH - 110).pack(fill="x")
-        self._label(card, t("shop_how"), size=8, fg=self.INK, bg="#fbf3e6", wrap=self.WIDTH - 110).pack(fill="x",
+                    size=8, fg=self.MUTED, bg=self.WARM, wrap=self.WIDTH - 110).pack(fill="x")
+        self._label(card, t("shop_how"), size=8, fg=self.INK, bg=self.WARM, wrap=self.WIDTH - 110).pack(fill="x",
                                                                                                    pady=(2, 0))
         balance = wallet["balance"]
         equipped = shop.equipped()
@@ -643,7 +1120,7 @@ class FriendsWindow:
         for i, (item, (slot, price)) in enumerate(pet_shop.PROPS.items()):
             owned = shop.owns(item)
             wearing = equipped.get(slot) == item
-            cell = tk.Frame(grid, bg="#fbf3e6" if wearing else "#f6f4f0", padx=4, pady=4)
+            cell = tk.Frame(grid, bg=self.WARM if wearing else self.TILE, padx=4, pady=4)
             cell.grid(row=i // 3, column=i % 3, sticky="nsew", padx=2, pady=2)
             preview = dict(equipped)
             preview[slot] = item
@@ -663,7 +1140,7 @@ class FriendsWindow:
                 btn = self._button(cell, f"{pet_shop.COIN} {price}", lambda it=item: self._buy(it), small=True,
                                    primary=price <= balance)
                 if price > balance:
-                    btn.config(fg="#9a958c")
+                    btn.config(fg=self.OFF_INK)
             btn.pack(anchor="center", pady=(2, 0))
         for c in range(3):
             grid.grid_columnconfigure(c, weight=1, uniform="p")
@@ -671,7 +1148,7 @@ class FriendsWindow:
         self._label(self.body, t("shop_moves"), size=11, bold=True).pack(fill="x", pady=(10, 2))
         for move, (price, _secs) in pet_shop.MOVES.items():
             owned = shop.owns(move)
-            row = tk.Frame(self.body, bg="#f6f4f0", padx=8, pady=5)
+            row = tk.Frame(self.body, bg=self.TILE, padx=8, pady=5)
             row.pack(fill="x", pady=2)
             name, _, desc = t("mv_" + move).partition(":")
             box = tk.Frame(row, bg=row["bg"])
@@ -685,7 +1162,7 @@ class FriendsWindow:
                 btn = self._button(row, f"{pet_shop.COIN} {price}", lambda m=move: self._buy(m), small=True,
                                    primary=price <= balance)
                 if price > balance:
-                    btn.config(fg="#9a958c")
+                    btn.config(fg=self.OFF_INK)
             btn.pack(side="right")
 
     def _buy(self, item):
@@ -735,14 +1212,14 @@ class FriendsWindow:
         grid.pack(fill="both", expand=True)
         for i, aid in enumerate(ACH_IDS):
             got = aid in unlocked
-            cell = tk.Frame(grid, bg="#fbf3e6" if got else "#f4f2ee", padx=6, pady=2)
+            cell = tk.Frame(grid, bg=self.WARM if got else self.TILE_OFF, padx=6, pady=2)
             cell.grid(row=i // 2, column=i % 2, sticky="nsew", padx=2, pady=2)
             tk.Label(cell, text=ACH_SYMBOL[aid], font=("Segoe UI Symbol", 14),
-                     fg=self.GOLD if got else "#c9c4bb", bg=cell["bg"]).pack(side="left")
+                     fg=self.GOLD if got else self.OFF_SYM, bg=cell["bg"]).pack(side="left")
             name, _, desc = t("ach_" + aid).partition(":")
             box = tk.Frame(cell, bg=cell["bg"])
             box.pack(side="left", fill="x", padx=(4, 0))
-            tk.Label(box, text=name.strip(), font=("Segoe UI", 9, "bold"), fg=self.INK if got else "#9a958c",
+            tk.Label(box, text=name.strip(), font=("Segoe UI", 9, "bold"), fg=self.INK if got else self.OFF_INK,
                      bg=cell["bg"], anchor="w").pack(fill="x")
             tk.Label(box, text=desc.strip(), font=("Segoe UI", 8), fg=self.MUTED, bg=cell["bg"], anchor="w",
                      wraplength=180, justify="left").pack(fill="x")
@@ -770,15 +1247,6 @@ class FriendsWindow:
     def _remove(self, code, name):
         if messagebox.askyesno(t("fr_title"), t("fr_remove_q", name=name), parent=self.win):
             self.social.remove_friend(code)
-
-    def _join(self):
-        group = "".join(ch for ch in self.group_var.get().upper() if ch.isalnum() or ch in "-_")
-        if len(group) < 2:
-            self.show_error("bad_group")
-            return
-        self.error = ""
-        self.social.join_group(group)
-        self.status.config(text=t("fr_connecting"), fg=self.MUTED)
 
     def _disable(self):
         if messagebox.askyesno(t("fr_title"), t("fr_turn_off_q"), parent=self.win):
