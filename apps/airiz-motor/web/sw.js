@@ -1,6 +1,6 @@
 ﻿/* AIRIZ Control Center â€” versioned, scope-isolated offline shell. */
 const CACHE_PREFIX = 'airiz-control-' + encodeURIComponent(self.registration.scope) + '-';
-const CACHE_NAME = CACHE_PREFIX + 'v2.23-ziris-ptb-team-guide';
+const CACHE_NAME = CACHE_PREFIX + 'v2.24-language-region';
 const ASSETS = [
   './',
   './index.html',
@@ -16,6 +16,9 @@ const ASSETS = [
   './remote-control.js',
   './ziris-team.js',
   './ziris-team.css',
+  './i18n.js',
+  './i18n-strings.js',
+  './i18n.css',
   './device-label.js',
   './watch.html',
   './watch.js',

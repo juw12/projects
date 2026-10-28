@@ -178,6 +178,11 @@
     return cleanName(label) || 'AIRIZ PC';
   }
 
+  function siteLabel() {
+    // Region chosen in Language & region (English name so the whole team can read it).
+    return window.AirizI18n ? window.AirizI18n.regionLabel() : 'Other';
+  }
+
   function buildMessage({ kind, code, member, test }) {
     const camera = kind !== 'control';
     const title = test
@@ -206,6 +211,7 @@
         facts: [
           { title: 'Shared by', value: member.name + ' (' + member.roleLabel + ')' },
           { title: 'PC', value: pcLabel() },
+          { title: 'Site', value: siteLabel() },
           { title: 'Time', value: when },
           { title: 'Valid', value: test ? '-' : 'Only while sharing is on' }
         ]
@@ -436,7 +442,9 @@
     if (!status || !state || !state.code) return;
     const extra = state.status === 'sent' ? ' Code sent to ' + TEAM_NAME + ' in Teams.'
       : state.status === 'failed' ? ' (Teams post failed: ' + state.error + ')' : '';
-    if (extra && !status.textContent.includes(extra)) status.textContent += extra;
+    // Compare with the English source text: the language layer may show the status translated.
+    const current = window.AirizI18n ? window.AirizI18n.originalText(status) : status.textContent;
+    if (extra && !current.includes(extra)) status.appendChild(document.createTextNode(extra));
   }
 
   listeners.add(state => {
