@@ -307,6 +307,7 @@ class Social:
         self._next_inbox = now + 8
         self._inbox_busy = False
         self._last_news = 0.0
+        self.geo_results = None     # city search results (/v1/geo)
         self.arena = None           # /v1/arena payload
         self.arena_open = False     # Arena tab visible -> fast lobby polling + "in arena" presence
         self._next_arena = 0.0
@@ -646,6 +647,32 @@ class Social:
 
     def redeem_key(self, key: str):
         self._act("redeemed", "/v1/premium/redeem", {"key": key.strip().upper()})
+
+    # ---- location & weather (v2.9) ----
+    def my_weather(self):
+        me = (self.board or {}).get("me") or {}
+        return me.get("weather"), me.get("loc")
+
+    def set_location(self, mode: str, place: dict | None = None):
+        body = {"mode": mode}
+        if place:
+            body.update(city=place.get("name", ""), country=place.get("country", ""),
+                        lat=place.get("lat"), lon=place.get("lon"))
+        self._act("location_set", "/v1/location", body)
+
+    def search_city(self, query: str):
+        if self.enabled and len(query.strip()) >= 2:
+            from urllib.parse import quote
+            lang = {"id": "id", "zh_TW": "zh", "zh_CN": "zh"}.get(getattr(self.pet, "lang", "en"), "en")
+            self._run("geo", api_call, "GET", f"/v1/geo?q={quote(query.strip())}&lang={lang}", None, self.account)
+
+    def _maybe_prompt_location(self, board):
+        me = board.get("me") or {}
+        if me.get("loc_set") or self.data.get("loc_prompted") or "loc_set" not in me:
+            return
+        self.data["loc_prompted"] = True
+        self.pet.root.after(8000, lambda: self.pet.say(t("wx_prompt"), duration=10, priority=0,
+                                                         on_click=lambda: self.open_window("profile")))
 
     # ---- arena & duels (v2.8) ----
     def load_arena(self, here=False):
@@ -1069,6 +1096,9 @@ class Social:
                     self.data.pop(key, None)
                 self.save()
                 self.pet.update_setting("friends", False)
+            if payload == "no_location" and self.window and self.window.alive():
+                self.window.show_error("no_location")
+                return
             if kind not in ("inbox", "avatar", "leaderboard", "arena", "duel") and self.window and self.window.alive():
                 self.window.show_error(payload)
             return
@@ -1088,6 +1118,21 @@ class Social:
                         self.check_achievements()
         if isinstance(payload, dict) and "friends" in payload:
             self._take_board(payload)
+        if kind == "geo":
+            self.geo_results = payload.get("places", [])
+            if self.window and self.window.alive():
+                self.window.show_geo_results()
+            return
+        if kind == "location_set":
+            result = payload.get("_result", {})
+            self.geo_results = None
+            if result.get("loc"):
+                weather = result.get("weather") or {}
+                self.pet.set_action("hop", 0.55)
+                self.pet.say(t("wx_set", city=result["loc"].get("city", "?"),
+                               temp=round(weather.get("temp", 0)) if weather else "?"), duration=5, priority=1)
+            if self.window and self.window.alive():
+                self.window.refresh(force=True)
         if kind == "arena":
             self.arena = dict(payload, _at=time.time())
             me = payload.get("me", {})
@@ -1204,6 +1249,7 @@ class Social:
             self._applied_role = role
             self._apply_owner()
         self._take_notices(board.get("notices", []))
+        self._maybe_prompt_location(board)
         self.data["groups"] = [g["code"] for g in board.get("groups", [])]
         self.invites = board.get("invites", self.invites)
         self._notify_requests()

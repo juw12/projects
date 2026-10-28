@@ -2,6 +2,37 @@
   "_comment": "Pips version history. Newest first. Feeds the in-app update notice (latest.json), the PPT guide and the update emails.",
   "releases": [
     {
+      "version": "2.9.0",
+      "date": "2026-10-28",
+      "title": "Location & live weather",
+      "notes": {
+        "en": [
+          "📍 Add your city in Profile → Location & weather (auto-detect or search) - only your city and country are shown, never your exact position",
+          "Live weather banners on every profile with animations: rain, drizzle, thunderstorms with lightning, snow, fog, clouds, sunshine or a starry night - plus temperature, feels-like, humidity, wind and local time",
+          "Your own weather strip on top of the hub, and each friend's weather + local time in the friends list",
+          "Hide your location from others or remove it any time"
+        ],
+        "id": [
+          "📍 Tambahkan kotamu di Profil → Lokasi & cuaca (deteksi otomatis atau cari) - hanya kota dan negaramu yang ditampilkan, tidak pernah posisi persismu",
+          "Banner cuaca langsung di setiap profil dengan animasi: hujan, gerimis, badai petir dengan kilat, salju, kabut, awan, cerah atau malam berbintang - plus suhu, terasa seperti, kelembapan, angin dan waktu setempat",
+          "Strip cuacamu sendiri di atas hub, dan cuaca + waktu setempat setiap teman di daftar teman",
+          "Sembunyikan lokasimu dari orang lain atau hapus kapan saja"
+        ],
+        "zh_TW": [
+          "📍 在 個人檔案 → 位置與天氣 加入你的城市（自動偵測或搜尋），只會顯示城市和國家，絕不顯示精確位置",
+          "每個人的檔案都有即時天氣動畫橫幅：下雨、毛毛雨、閃電雷雨、下雪、起霧、多雲、晴天或星空夜晚，並顯示溫度、體感、濕度、風速和當地時間",
+          "中心頂部顯示你自己的天氣條，好友列表顯示每位好友的天氣和當地時間",
+          "隨時可以對他人隱藏或移除你的位置"
+        ],
+        "zh_CN": [
+          "📍 在 个人资料 → 位置与天气 加入你的城市（自动检测或搜索），只会显示城市和国家，绝不显示精确位置",
+          "每个人的资料都有实时天气动画横幅：下雨、毛毛雨、闪电雷雨、下雪、起雾、多云、晴天或星空夜晚，并显示温度、体感、湿度、风速和当地时间",
+          "中心顶部显示你自己的天气条，好友列表显示每位好友的天气和当地时间",
+          "随时可以对他人隐藏或移除你的位置"
+        ]
+      }
+    },
+    {
       "version": "2.8.0",
       "date": "2026-10-28",
       "title": "Pips Arena - duels, gear & live battles",
