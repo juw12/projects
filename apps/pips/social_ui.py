@@ -341,7 +341,11 @@ class FriendsWindow:
         info = tk.Frame(row, bg=self.CARD)
         info.pack(side="left", fill="x", expand=True, padx=(10, 0))
         name = self.social.data.get("name") or default_display_name()
-        self._label(info, f"{name} & {self.pet.s.get('name', 'Pip')}", size=11, bold=True).pack(fill="x")
+        name_line = tk.Frame(info, bg=self.CARD)
+        name_line.pack(fill="x")
+        self._label(name_line, f"{name} & {self.pet.s.get('name', 'Pip')}", size=11, bold=True).pack(side="left")
+        if self.social.is_owner:
+            self._owner_chip(name_line, self.CARD).pack(side="left", padx=(6, 0))
         self._label(info, t("fr_level_line", level=stats["level"], xp=stats["xp"]), fg=self.ACCENT).pack(fill="x")
         bar = tk.Canvas(info, width=240, height=8, bg=self.CARD, highlightthickness=0)
         bar.pack(anchor="w", pady=(2, 2))
@@ -352,8 +356,9 @@ class FriendsWindow:
         self._label(info, t("fr_stats_line", today=stats["today_poms"], week=stats["week_poms"],
                             streak=stats["streak"]), size=8, fg=self.MUTED).pack(fill="x")
         if pet_shop is not None and getattr(self.pet, "shop", None):
-            coins = self._label(info, f"{pet_shop.COIN} " + t("shop_balance", n=self.social.wallet()["balance"]),
-                                size=9, bold=True, fg=self.GOLD, cursor="hand2")
+            wallet = self.social.wallet()
+            coin_text = t("shop_unlimited") if wallet.get("unlimited") else t("shop_balance", n=wallet["balance"])
+            coins = self._label(info, f"{pet_shop.COIN} " + coin_text, size=9, bold=True, fg=self.GOLD, cursor="hand2")
             coins.pack(fill="x")
             coins.bind("<Button-1>", lambda e: self.show_tab("shop"))
         if self.social.enabled and self.social.data.get("code"):
@@ -407,6 +412,8 @@ class FriendsWindow:
             for widget in (av, name_lbl):
                 widget.config(cursor="hand2")
                 widget.bind("<Button-1>", lambda e, c=code: self.open_profile(c))
+        if person.get("role") == "owner":
+            self._owner_chip(top, bg).pack(side="left", padx=(6, 0))
         if person.get("label"):
             self._chip(top, self._label_text(person["label"]), bg).pack(side="left", padx=(6, 0))
         if person.get("status_text"):
@@ -724,6 +731,14 @@ class FriendsWindow:
             self.social.kick_from_circle(circle_id, code)
 
     # ---- small helpers (v2.6) ----
+    def _owner_chip(self, parent, bg):
+        return tk.Label(parent, text="\u265b " + t("owner_badge"), font=("Segoe UI Symbol", 8, "bold"),
+                        fg=self.ACCENT_INK, bg=self.GOLD, padx=5)
+
+    def _mail_owner(self):
+        import webbrowser
+        webbrowser.open(f"mailto:{social.OWNER_EMAIL}?subject=Pips")
+
     def _chip(self, parent, text, bg):
         return tk.Label(parent, text=text, font=("Segoe UI", 8, "bold"), fg=self.PINK, bg=bg)
 
@@ -841,6 +856,8 @@ class FriendsWindow:
             top.pack(fill="x")
             name = self._label(top, person.get("name", "?"), size=10, bold=True, bg=bg, cursor="hand2")
             name.pack(side="left")
+            if person.get("role") == "owner":
+                self._owner_chip(top, bg).pack(side="left", padx=(6, 0))
             if person.get("visibility") == "private":
                 self._label(top, " \U0001F512", size=8, fg=self.MUTED, bg=bg).pack(side="left")
             value = {"xp": t("rank_val_xp", n=person.get("xp", 0)), "badges": t("rank_val_badges", n=person.get("badges", 0)),
@@ -878,6 +895,8 @@ class FriendsWindow:
         name_row = tk.Frame(box, bg=self.WARM)
         name_row.pack(fill="x")
         self._label(name_row, user.get("name", "?"), size=14, bold=True, bg=self.WARM).pack(side="left")
+        if user.get("role") == "owner":
+            self._owner_chip(name_row, self.WARM).pack(side="left", padx=(8, 0))
         if user.get("visibility") == "private":
             self._label(name_row, "  \U0001F512 " + t("vis_private"), size=8, fg=self.MUTED, bg=self.WARM).pack(side="left")
         state = user.get("presence") or "offline"
@@ -897,6 +916,11 @@ class FriendsWindow:
                 labels.append(t("lbl_they_call", label=self._label_text(user["their_label"])))
             if labels:
                 self._label(box, "   ".join(labels), size=8, bold=True, fg=self.PINK, bg=self.WARM).pack(fill="x")
+        if user.get("role") == "owner":
+            own = tk.Frame(self.body, bg=self.CARD)
+            own.pack(fill="x", pady=(8, 0))
+            self._label(own, "\u265b " + t("owner_creator"), size=9, bold=True, fg=self.GOLD).pack(side="left")
+            self._button(own, "\u2709 " + t("credits_email"), self._mail_owner, small=True).pack(side="right")
         acts = tk.Frame(self.body, bg=self.CARD)
         acts.pack(fill="x", pady=(8, 4))
         rel = user.get("rel")
@@ -1047,6 +1071,34 @@ class FriendsWindow:
         for key in ("light", "dark"):
             self._button(th, ("\u2600 " if key == "light" else "\u263e ") + t("theme_" + key),
                          lambda k=key: self._set_theme(k), primary=current == key).pack(side="left", padx=(0, 6))
+        self._render_credits()
+
+    def _render_credits(self):
+        self._section_title(t("credits_title"))
+        card = tk.Frame(self.body, bg=self.WARM, padx=10, pady=8)
+        card.pack(fill="x")
+        version = self.pet.cb.get("version", lambda: "")() if hasattr(self.pet, "cb") else ""
+        self._label(card, t("credits_made", v=version, owner=social.OWNER_NAME), bold=True, bg=self.WARM,
+                    wrap=self.WIDTH - 90).pack(fill="x")
+        self._label(card, t("credits_body", email=social.OWNER_EMAIL), size=8, fg=self.MUTED, bg=self.WARM,
+                    wrap=self.WIDTH - 90).pack(fill="x", pady=(2, 6))
+        row = tk.Frame(card, bg=self.WARM)
+        row.pack(fill="x")
+        self._button(row, "\u2709 " + t("credits_email"), self._mail_owner, primary=True, small=True).pack(side="left")
+        self._button(row, "\u2398 " + t("credits_copy"), self._copy_owner_email, small=True).pack(side="left", padx=4)
+        self._button(row, "\u2302 " + t("credits_site"), self._open_site, small=True).pack(side="left")
+
+    def _copy_owner_email(self):
+        try:
+            self.win.clipboard_clear()
+            self.win.clipboard_append(social.OWNER_EMAIL)
+            self.status.config(text=t("fr_copied"), fg=self.MUTED)
+        except tk.TclError:
+            pass
+
+    def _open_site(self):
+        import webbrowser
+        webbrowser.open("https://juw12.github.io/projects/pips/")
 
     def _pick_photo(self):
         from tkinter import filedialog
@@ -1102,7 +1154,8 @@ class FriendsWindow:
         wallet = self.social.wallet()
         card = tk.Frame(self.body, bg=self.WARM, padx=10, pady=8)
         card.pack(fill="x", pady=(0, 8))
-        self._label(card, f"{pet_shop.COIN} " + t("shop_balance", n=wallet["balance"]), size=14, bold=True,
+        balance_text = t("shop_unlimited") if wallet.get("unlimited") else t("shop_balance", n=wallet["balance"])
+        self._label(card, f"{pet_shop.COIN} " + balance_text, size=14, bold=True,
                     fg=self.GOLD, bg=self.WARM).pack(fill="x")
         self._label(card, t("shop_earned", pom=wallet["pomodoros"], lvl=wallet["levels"], ach=wallet["achievements"],
                             days=wallet["days"], fr=wallet["friends"], soc=wallet["social"], gift=wallet["gift"]),

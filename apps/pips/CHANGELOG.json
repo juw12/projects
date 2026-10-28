@@ -2,6 +2,33 @@
   "_comment": "Pips version history. Newest first. Feeds the in-app update notice (latest.json), the PPT guide and the update emails.",
   "releases": [
     {
+      "version": "2.6.1",
+      "date": "2026-10-28",
+      "title": "Owner badge & credits",
+      "notes": {
+        "en": [
+          "The creator of Pips (Juwen Lie) now shows a gold ♛ Owner badge on his profile, friend list and ranks",
+          "New About Pips card in the Profile tab: credits and how to contact the owner (Juwen_Lie@pegatroncorp.com) with Email and Copy buttons",
+          "Right-click the pet → Help → About now shows who made Pips and the contact email"
+        ],
+        "id": [
+          "Pembuat Pips (Juwen Lie) sekarang memiliki lencana emas ♛ Pemilik di profil, daftar teman dan peringkat",
+          "Kartu Tentang Pips baru di tab Profil: kredit dan cara menghubungi pemilik (Juwen_Lie@pegatroncorp.com) dengan tombol Email dan Salin",
+          "Klik kanan peliharaan → Bantuan → Tentang sekarang menampilkan pembuat Pips dan email kontak"
+        ],
+        "zh_TW": [
+          "Pips 的作者（Juwen Lie）現在在個人檔案、好友列表和排行中顯示金色 ♛ 擁有者徽章",
+          "個人檔案分頁新增「關於 Pips」卡片：製作名單與聯絡方式（Juwen_Lie@pegatroncorp.com），附寄信與複製按鈕",
+          "右鍵寵物 → 說明 → 關於，現在會顯示 Pips 的作者與聯絡信箱"
+        ],
+        "zh_CN": [
+          "Pips 的作者（Juwen Lie）现在在个人资料、好友列表和排行中显示金色 ♛ 拥有者徽章",
+          "个人资料标签新增“关于 Pips”卡片：制作名单与联系方式（Juwen_Lie@pegatroncorp.com），附发邮件与复制按钮",
+          "右键宠物 → 帮助 → 关于，现在会显示 Pips 的作者与联系邮箱"
+        ]
+      }
+    },
+    {
       "version": "2.6.0",
       "date": "2026-10-28",
       "title": "Profiles, ranks, online status & dark mode",

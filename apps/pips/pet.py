@@ -2927,7 +2927,7 @@ class DesktopPet:
             version = self._call("version") or ""
             owner = (self._call("owner") if self.cb.get("owner") else "") or ""
             help_menu.add_command(label=t("m_about", v=version),
-                                  command=lambda v=version, o=owner: self.say(t("about_text", v=v, owner=o),
+                                  command=lambda v=version, o=owner: self.say(t("about_text", v=v, owner=o, email=getattr(social, "OWNER_EMAIL", "")),
                                                                               duration=8, priority=1))
         menu.add_cascade(label=t("m_help"), menu=help_menu)
         menu.add_separator()

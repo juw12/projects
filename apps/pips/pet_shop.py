@@ -86,6 +86,9 @@ def earned_coins(stats: dict, achievements: int, login_days: int, affinity_level
     return parts
 
 
+OWNER_COINS = 999999   # shown as ∞ for the app owner
+
+
 class Shop:
     def __init__(self, base_dir):
         self.path = Path(base_dir) / "data" / "shop.json"
@@ -97,6 +100,7 @@ class Shop:
         self.data.setdefault("bonus", 0)
         self.data.setdefault("bonus_day", "")
         self.data.setdefault("bonus_today", 0)
+        self.unlimited = False          # app owner: everything unlocked, endless coins
         self.mark_today()
 
     def _load(self) -> dict:
@@ -138,10 +142,13 @@ class Shop:
                              self.data.get("bonus", 0))
         parts["spent"] = int(self.data.get("spent", 0))
         parts["balance"] = parts["total"] - parts["spent"]
+        if self.unlimited:
+            parts["balance"] = OWNER_COINS
+            parts["unlimited"] = True
         return parts
 
     def owns(self, item: str) -> bool:
-        return item in self.data["owned"]
+        return self.unlimited or item in self.data["owned"]
 
     def price(self, item: str) -> int:
         if item in PROPS:
@@ -152,6 +159,8 @@ class Shop:
 
     def buy(self, item: str, balance: int) -> bool:
         if self.owns(item):
+            if item in PROPS:
+                self.equip(item)
             return True
         price = self.price(item)
         if price > balance:
