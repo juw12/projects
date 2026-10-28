@@ -1,22 +1,22 @@
 {
-  "version": "2.1.1",
+  "version": "2.1.2",
   "date": "2026-10-28",
-  "title": "Owner info",
+  "title": "Tickle-only mode",
   "url": "https://juw12.github.io/projects/pips/download/Pips-Windows.zip",
-  "sha256": "16afbbead9f537e67726248866feebd4032b120f49de677556a4175f9614a9fc",
-  "size": 561152,
+  "sha256": "4b044bba29bcc0dd8a8bb49a54d1c2df4d3c31103c4b631033a882d0dad8f639",
+  "size": 561917,
   "notes": {
     "en": [
-      "About Pips now shows the owner: Juwen Lie (right-click the pet → Help → About)"
+      "New click option \"Only tickle (never open Pips)\": click and tickle your pet as much as you like - the Pomodoro window stays closed (open it from the right-click menu). Right-click the pet → When I click"
     ],
     "id": [
-      "Tentang Pips sekarang menampilkan pemilik: Juwen Lie (klik kanan peliharaan → Bantuan → Tentang)"
+      "Opsi klik baru \"Hanya gelitik (tidak membuka Pips)\": klik dan gelitik peliharaanmu sepuasnya - jendela Pomodoro tetap tertutup (buka lewat menu klik kanan). Klik kanan peliharaan → Saat aku diklik"
     ],
     "zh_TW": [
-      "「關於 Pips」現在會顯示擁有者：Juwen Lie（右鍵寵物 → 說明 → 關於）"
+      "新的點擊選項「只搔癢 (不開啟 Pips)」：盡情點擊搔癢寵物，番茄鐘視窗不會打開（可從右鍵選單開啟）。右鍵寵物 → 點擊我時"
     ],
     "zh_CN": [
-      "“关于 Pips”现在会显示所有者：Juwen Lie（右键宠物 → 帮助 → 关于）"
+      "新的点击选项“只挠痒 (不打开 Pips)”：尽情点击挠痒宠物，番茄钟窗口不会打开（可从右键菜单打开）。右键宠物 → 点击我时"
     ]
   },
   "guide": "https://juw12.github.io/projects/pips/download/Pips-Guide.pptx"
