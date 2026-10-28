@@ -2,6 +2,41 @@
   "_comment": "Pips version history. Newest first. Feeds the in-app update notice (latest.json), the PPT guide and the update emails.",
   "releases": [
     {
+      "version": "2.8.0",
+      "date": "2026-10-28",
+      "title": "Pips Arena - duels, gear & live battles",
+      "notes": {
+        "en": [
+          "⚔ New Arena tab: challenge friends or anyone in the arena to a live duel - each round pick Attack, Guard or Special within 12 seconds and watch your pets fight",
+          "⚡ Quick battle: an instant auto-fight against anyone's fighter, even when they're offline",
+          "Arena gear in the Shop: 7 weapons (water pistol to rocket launcher), 5 armors and 5 gadgets that decide your special move - better gear and a higher level make a stronger fighter",
+          "Live duels can be watched by everyone, plus recent battle replays, top fighters, rating and win/loss records; wins earn coins",
+          "★ Premium gear: plasma cannon, mech suit and force field"
+        ],
+        "id": [
+          "⚔ Tab Arena baru: tantang teman atau siapa saja di arena untuk duel langsung - setiap ronde pilih Serang, Bertahan atau Spesial dalam 12 detik dan tonton peliharaanmu bertarung",
+          "⚡ Tarung cepat: pertarungan otomatis instan melawan petarung siapa saja, bahkan saat mereka offline",
+          "Perlengkapan arena di Toko: 7 senjata (pistol air sampai peluncur roket), 5 baju zirah dan 5 gadget yang menentukan gerakan spesialmu - perlengkapan lebih baik dan level lebih tinggi membuat petarung lebih kuat",
+          "Duel langsung bisa ditonton semua orang, plus tayangan ulang, petarung teratas, rating dan rekor menang/kalah; kemenangan memberi koin",
+          "★ Perlengkapan Premium: meriam plasma, baju robot dan medan pelindung"
+        ],
+        "zh_TW": [
+          "⚔ 新的競技場分頁：向好友或競技場裡的任何人發起即時對決，每回合在 12 秒內選擇攻擊、防禦或特技，看你的寵物對戰",
+          "⚡ 快速對戰：與任何人的戰士即時自動對戰，對方離線也可以",
+          "商店新增競技場裝備：7 種武器（水槍到火箭筒）、5 種護甲和 5 種決定特技的道具，裝備越好、等級越高越強",
+          "所有人都能觀看即時對決，另有對戰重播、頂尖戰士、積分和勝負紀錄；勝利可得金幣",
+          "★ 高級會員裝備：電漿砲、機甲裝和力場產生器"
+        ],
+        "zh_CN": [
+          "⚔ 新的竞技场标签：向好友或竞技场里的任何人发起实时对决，每回合在 12 秒内选择攻击、防御或特技，看你的宠物对战",
+          "⚡ 快速对战：与任何人的战士即时自动对战，对方离线也可以",
+          "商店新增竞技场装备：7 种武器（水枪到火箭筒）、5 种护甲和 5 种决定特技的道具，装备越好、等级越高越强",
+          "所有人都能观看实时对决，另有对战回放、顶尖战士、积分和胜负记录；胜利可得金币",
+          "★ 高级会员装备：等离子炮、机甲装和力场发生器"
+        ]
+      }
+    },
+    {
       "version": "2.7.0",
       "date": "2026-10-28",
       "title": "Moderators & Premium",

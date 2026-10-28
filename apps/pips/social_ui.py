@@ -43,8 +43,8 @@ INFO_FIELDS = ("job", "location", "hobbies", "birthday", "fav")
 
 
 class FriendsWindow:
-    WIDTH = 520
-    TABS = ("friends", "chat", "groups", "ranks", "shop", "achievements", "profile")
+    WIDTH = 570
+    TABS = ("friends", "chat", "groups", "arena", "ranks", "shop", "achievements", "profile")
 
     def _apply_palette(self):
         p = theme.palette() if theme is not None else {}
@@ -140,7 +140,7 @@ class FriendsWindow:
             child.destroy()
         self.tab_buttons = {}
         for key in self._tab_keys():
-            text = ("\U0001F6E1 " if key == "mod" else "") + t("fr_tab_" + key)
+            text = {"mod": "\U0001F6E1 ", "arena": "\u2694 "}.get(key, "") + t("fr_tab_" + key)
             btn = tk.Label(self.tabs_frame, text=text, font=("Segoe UI", 9, "bold"), padx=5, pady=4,
                            cursor="hand2")
             btn.pack(side="left", padx=(0, 3))
@@ -154,6 +154,7 @@ class FriendsWindow:
     def close(self):
         self._alive = False
         self.social.chat_open_room = None
+        self.social.arena_open = False
         try:
             self.win.unbind_all("<MouseWheel>")
         except tk.TclError:
@@ -266,7 +267,8 @@ class FriendsWindow:
                     "no_pillow": t("prof_err_pillow"), "muted": t("fr_err_muted"),
                     "not_allowed": t("fr_err_not_allowed"), "not_staff": t("fr_err_not_allowed"),
                     "not_owner": t("fr_err_not_allowed"), "bad_key": t("fr_err_bad_key"),
-                    "premium_only": t("fr_err_premium_only")}
+                    "premium_only": t("fr_err_premium_only"), "busy": t("duel_err_busy"),
+                    "expired": t("duel_expired")}
         self.error = messages.get(code, t("fr_err_generic", code=code))
         self.refresh(force=True)
 
@@ -274,6 +276,10 @@ class FriendsWindow:
         self.tab = key
         self.viewing = None
         self.error = ""
+        self.social.arena_open = key == "arena"
+        if key == "arena":
+            self.social._next_arena = 0
+            self.social.load_arena(here=True)
         if key == "mod":
             self.social.load_mod()
             self.social.load_admin()
@@ -312,7 +318,9 @@ class FriendsWindow:
         invites = len(self.social.invites)
         for key, btn in self.tab_buttons.items():
             active = key == self.tab
-            label = ("\U0001F6E1 " if key == "mod" else "") + t("fr_tab_" + key)
+            label = {"mod": "\U0001F6E1 ", "arena": "\u2694 "}.get(key, "") + t("fr_tab_" + key)
+            if key == "arena" and (self.social.arena or {}).get("incoming"):
+                label += f" ({len(self.social.arena['incoming'])})"
             open_reports = ((self.social.board or {}).get("staff") or {}).get("open_reports", 0)
             if key == "mod" and open_reports:
                 label += f" ({open_reports})"
@@ -342,6 +350,8 @@ class FriendsWindow:
             self._render_ranks()
         elif self.tab == "mod" and self.social.is_staff:
             self._render_mod()
+        elif self.tab == "arena":
+            self._render_arena()
         else:
             self._render_friends()
         if self.error:
@@ -835,6 +845,7 @@ class FriendsWindow:
             return
         self.viewing = code
         self.error = ""
+        self.social.arena_open = False
         cached = self.social.profiles.get(code)
         if not cached or time.time() - cached.get("at", 0) > 20:
             self.social.view_user(code)
@@ -843,6 +854,7 @@ class FriendsWindow:
 
     def _close_profile(self):
         self.viewing = None
+        self.social.arena_open = self.tab == "arena"
         self.refresh()
 
     def _relation_button(self, parent, person, bg=None, small=True):
@@ -991,6 +1003,16 @@ class FriendsWindow:
         if rel != "me" and user.get("role") != "owner":
             self._button(acts, "\u2691 " + t("report_btn"), lambda: self._report(code, user.get("name", "?")),
                          small=True).pack(side="right")
+        if rel != "me":
+            duel_row = tk.Frame(self.body, bg=self.CARD)
+            duel_row.pack(fill="x", pady=(0, 4))
+            self._button(duel_row, "\u2694 " + t("duel_challenge"), lambda: self._challenge(code), primary=True,
+                         small=True).pack(side="left")
+            self._button(duel_row, "\u26a1 " + t("duel_quick"), lambda: self._quick(code), small=True).pack(
+                side="left", padx=(4, 0))
+            record = t("arena_record", rating=user.get("rating", 1000), w=user.get("duel_wins", 0),
+                       l=user.get("duel_losses", 0))
+            self._label(duel_row, record, size=8, fg=self.MUTED).pack(side="left", padx=(8, 0))
         if self.social.is_staff and rel != "me":
             self._render_staff_tools(code, user)
         if not full:
@@ -1041,6 +1063,148 @@ class FriendsWindow:
             meta.append(t("prof_last_seen", time=datetime.fromtimestamp(user["last_seen"]).strftime("%d %b %H:%M")))
         if meta:
             self._label(self.body, "  \u00b7  ".join(meta), size=8, fg=self.MUTED).pack(fill="x", pady=(10, 0))
+
+
+    # ---- arena (v2.8) ----
+    def _challenge(self, code):
+        self.error = ""
+        self.social.challenge(code)
+        self.status.config(text=t("fr_connecting"), fg=self.MUTED)
+
+    def _quick(self, code):
+        self.error = ""
+        self.social.quick_duel(code)
+        self.status.config(text=t("duel_quick_loading"), fg=self.MUTED)
+
+    def _fighter_card(self, parent, stats, gear, bg):
+        line = t("arena_stats", hp=stats.get("hp", 0), atk=stats.get("atk", 0), df=stats.get("def", 0),
+                 crit=stats.get("crit", 0), spd=stats.get("spd", 0))
+        self._label(parent, line, size=9, bold=True, fg=self.INK, bg=bg).pack(fill="x")
+        names = [t("gr_" + gear[slot]) for slot in pet_shop.GEAR_SLOTS if gear.get(slot)] if pet_shop else []
+        special = t("duel_sp_" + stats.get("special", "power"))
+        self._label(parent, (t("arena_gear", items=", ".join(names)) if names else t("arena_no_gear"))
+                    + "  \u00b7  " + t("arena_special", name=special), size=8, fg=self.MUTED, bg=bg,
+                    wrap=self.WIDTH - 200).pack(fill="x")
+
+    def _arena_person(self, parent, person, bg, buttons=True):
+        row = tk.Frame(parent, bg=bg, pady=2)
+        row.pack(fill="x")
+        av = self._avatar(row, person.get("species"), person.get("color"), size=34, bg=bg, look=person.get("look"),
+                          person=person)
+        av.pack(side="left")
+        box = tk.Frame(row, bg=bg)
+        box.pack(side="left", fill="x", expand=True, padx=(6, 0))
+        top = tk.Frame(box, bg=bg)
+        top.pack(fill="x")
+        name = self._label(top, person.get("name", "?"), size=10, bold=True, bg=bg, cursor="hand2")
+        name.pack(side="left")
+        self._role_chips(top, person, bg)
+        self._label(box, t("arena_line", level=person.get("level", 1), power=person.get("power", 0),
+                           rating=person.get("rating", 1000), w=person.get("wins", person.get("duel_wins", 0)),
+                           l=person.get("losses", person.get("duel_losses", 0))), size=8, fg=self.MUTED, bg=bg).pack(fill="x")
+        for widget in (av, name):
+            widget.bind("<Button-1>", lambda e, c=person.get("code"): self.open_profile(c))
+        if buttons and person.get("code") != self.social.data.get("code"):
+            self._button(row, "\u26a1", lambda c=person.get("code"): self._quick(c), small=True).pack(side="right", padx=(3, 0))
+            self._button(row, "\u2694 " + t("duel_challenge_short"), lambda c=person.get("code"): self._challenge(c),
+                         primary=True, small=True).pack(side="right")
+        return row
+
+    def _render_arena(self):
+        if not self.social.enabled:
+            self._render_off()
+            return
+        data = self.social.arena
+        me_stats = pet_shop.fighter_stats(self.social.stats.get("level", 1) if self.social.stats else 1,
+                                          self.social.my_gear()) if pet_shop else {}
+        card = tk.Frame(self.body, bg=self.WARM, padx=10, pady=8)
+        card.pack(fill="x")
+        head = tk.Frame(card, bg=self.WARM)
+        head.pack(fill="x")
+        cv = tk.Canvas(head, width=96, height=84, bg=self.WARM, highlightthickness=0)
+        cv.pack(side="left")
+        try:
+            fighter = {"species": self.pet.s.get("species"), "color": self.pet.s.get("color"),
+                       "look": self.social.my_look(), "gear": self.social.my_gear()}
+            pet_shop.draw_fighter(cv, self.pet_mod, 44, 80, 60, fighter, facing=1, t=time.monotonic())
+        except Exception:
+            pass
+        info = tk.Frame(head, bg=self.WARM)
+        info.pack(side="left", fill="x", expand=True, padx=(8, 0))
+        me = (data or {}).get("me", {})
+        self._label(info, "\u2694 " + t("arena_you", power=me_stats.get("power", 0)), size=11, bold=True,
+                    bg=self.WARM).pack(fill="x")
+        self._label(info, t("arena_record", rating=me.get("rating", self.social.data.get("rating", 1000)),
+                            w=me.get("wins", 0), l=me.get("losses", 0))
+                    + "  \u00b7  " + pet_shop.COIN + " " + t("arena_coins", n=me.get("duel_coins", 0)),
+                    size=8, fg=self.ACCENT, bg=self.WARM).pack(fill="x")
+        self._fighter_card(info, me_stats, self.social.my_gear(), self.WARM)
+        btns = tk.Frame(card, bg=self.WARM)
+        btns.pack(fill="x", pady=(6, 0))
+        self._button(btns, t("arena_get_gear"), lambda: self.show_tab("shop"), small=True).pack(side="left")
+        self._button(btns, "? " + t("arena_how_btn"), self._arena_help, small=True).pack(side="left", padx=4)
+        if me.get("active"):
+            self._button(btns, "\u25b6 " + t("arena_return"), lambda: self.social.open_duel(me["active"]), primary=True,
+                         small=True).pack(side="right")
+        if data is None:
+            self._label(self.body, t("fr_connecting"), fg=self.MUTED).pack(fill="x", pady=8)
+            return
+        incoming = data.get("incoming", [])
+        if incoming:
+            self._section_title("\u2694 " + t("arena_incoming", n=len(incoming)))
+            for item in incoming:
+                row = self._arena_person(self.body, item["from"], self.WARM, buttons=False)
+                self._button(row, t("req_decline"), lambda i=item["id"]: self.social.respond_duel(i, False),
+                             small=True).pack(side="right", padx=(3, 0))
+                self._button(row, "\u2694 " + t("duel_accept"), lambda i=item["id"]: self.social.respond_duel(i, True),
+                             primary=True, small=True).pack(side="right")
+        outgoing = data.get("outgoing", [])
+        if outgoing:
+            self._label(self.body, t("arena_outgoing", names=", ".join(o["to"]["name"] for o in outgoing)), size=8,
+                        fg=self.MUTED).pack(fill="x", pady=(6, 0))
+        self._section_title("\U0001F7E2 " + t("arena_lobby", n=len(data.get("lobby", []))))
+        if data.get("lobby"):
+            for person in data["lobby"]:
+                self._arena_person(self.body, person, self.CARD)
+        else:
+            self._label(self.body, t("arena_lobby_empty"), size=8, fg=self.MUTED, wrap=self.WIDTH - 70).pack(fill="x")
+        friends = [f for f in self.social.friends() if f.get("code") not in {p["code"] for p in data.get("lobby", [])}]
+        if friends:
+            self._section_title(t("arena_friends"))
+            for friend in friends[:12]:
+                self._arena_person(self.body, friend, self.CARD)
+        if data.get("live"):
+            self._section_title("\U0001F534 " + t("arena_live"))
+            for duel in data["live"]:
+                row = tk.Frame(self.body, bg=self.TILE, padx=6, pady=4)
+                row.pack(fill="x", pady=1)
+                a, b = duel["a"], duel["b"]
+                self._label(row, f"{a.get('name')} ({a.get('hp')}/{a.get('max')})  \u2694  {b.get('name')} ({b.get('hp')}/{b.get('max')})"
+                            + "  \u00b7  " + t("duel_round", n=duel.get("round", 1), max=12), size=9, bg=self.TILE).pack(side="left")
+                self._button(row, "\U0001F441 " + t("arena_watch"), lambda i=duel["id"]: self.social.open_duel(i, spectate=True),
+                             small=True).pack(side="right")
+        if data.get("top"):
+            self._section_title("\u265b " + t("arena_top"))
+            for rank, person in enumerate(data["top"], 1):
+                row = self._arena_person(self.body, person, self.CARD, buttons=False)
+                tk.Label(row, text=str(rank), font=("Segoe UI", 10, "bold"), fg=self.GOLD if rank <= 3 else self.MUTED,
+                         bg=self.CARD, width=2).pack(side="right")
+        if data.get("recent"):
+            self._section_title(t("arena_recent"))
+            for duel in data["recent"][:8]:
+                a, b = duel["a"], duel["b"]
+                win = a if duel.get("winner") == "a" else b if duel.get("winner") == "b" else None
+                text = (t("arena_result_win", winner=win.get("name"), loser=(b if win is a else a).get("name"))
+                        if win else t("arena_result_draw", a=a.get("name"), b=b.get("name")))
+                mode = "\u26a1 " if duel.get("mode") == "quick" else "\u2694 "
+                row = tk.Frame(self.body, bg=self.CARD)
+                row.pack(fill="x")
+                self._label(row, mode + text, size=8, fg=self.INK).pack(side="left")
+                self._button(row, t("arena_replay"), lambda i=duel["id"]: self.social.open_duel(i, spectate=True),
+                             small=True).pack(side="right")
+
+    def _arena_help(self):
+        messagebox.showinfo(t("arena_title"), t("arena_help"), parent=self.win)
 
     # ---- reports & moderation (v2.7) ----
     def _report(self, code, name):
@@ -1566,6 +1730,68 @@ class FriendsWindow:
                 if price > balance:
                     btn.config(fg=self.OFF_INK)
             btn.pack(side="right")
+        self._render_gear_shop(shop, balance)
+
+    def _render_gear_shop(self, shop, balance):
+        self._label(self.body, "\u2694 " + t("shop_gear"), size=11, bold=True).pack(fill="x", pady=(12, 0))
+        self._label(self.body, t("shop_gear_hint"), size=8, fg=self.MUTED, wrap=self.WIDTH - 70).pack(fill="x", pady=(0, 4))
+        equipped = shop.gear()
+        species = self.pet.s.get("species")
+        color = self.pet.s.get("color")
+        for slot in pet_shop.GEAR_SLOTS:
+            self._label(self.body, t("gear_slot_" + slot), size=9, bold=True, fg=self.ACCENT).pack(fill="x", pady=(6, 1))
+            for item, (item_slot, price, stats) in pet_shop.GEAR.items():
+                if item_slot != slot:
+                    continue
+                owned = shop.owns(item)
+                wearing = equipped.get(slot) == item
+                premium_item = item in pet_shop.PREMIUM_ITEMS
+                row = tk.Frame(self.body, bg=self.WARM if wearing else self.TILE, padx=6, pady=3)
+                row.pack(fill="x", pady=1)
+                cv = tk.Canvas(row, width=78, height=58, bg=row["bg"], highlightthickness=0)
+                cv.pack(side="left")
+                try:
+                    pet_shop.draw_gear_preview(cv, self.pet_mod, 46, species, color, item, cx=38, floor=56,
+                                               t=time.monotonic())
+                except Exception:
+                    pass
+                box = tk.Frame(row, bg=row["bg"])
+                box.pack(side="left", fill="x", expand=True, padx=(6, 0))
+                self._label(box, ("\u2605 " if premium_item else "") + t("gr_" + item), size=9, bold=True, bg=row["bg"],
+                            fg=self.PREMIUM_PURPLE if premium_item else self.INK).pack(fill="x")
+                parts = []
+                for key, sym in (("atk", "\u2694"), ("def", "\u26e8"), ("hp", "\u2665"), ("crit", "\u2605"), ("spd", "\u27b6")):
+                    if stats.get(key):
+                        parts.append(f"{sym} {'+' if stats[key] > 0 else ''}{stats[key]}" + ("%" if key == "crit" else ""))
+                if stats.get("special"):
+                    parts.append(t("arena_special", name=t("duel_sp_" + stats["special"])))
+                self._label(box, "  ".join(parts), size=8, fg=self.MUTED, bg=row["bg"]).pack(fill="x")
+                if premium_item and not shop.can_buy(item):
+                    btn = self._button(row, "\u2605 " + t("premium_badge"), lambda: self._premium_needed(), small=True)
+                    btn.config(fg=self.PREMIUM_PURPLE)
+                elif wearing:
+                    btn = self._button(row, t("shop_unequip"), lambda s=slot: self._unequip_gear(s), small=True)
+                elif owned:
+                    btn = self._button(row, t("shop_equip"), lambda it=item: self._equip_gear(it), small=True, primary=True)
+                else:
+                    btn = self._button(row, f"{pet_shop.COIN} {price}", lambda it=item: self._buy(it), small=True,
+                                       primary=price <= balance)
+                    if price > balance:
+                        btn.config(fg=self.OFF_INK)
+                btn.pack(side="right")
+
+    def _equip_gear(self, item):
+        self.pet.shop.equip_gear(item)
+        self.pet.set_action("hop", 0.55)
+        if self.social.enabled:
+            self.social.sync()
+        self.refresh()
+
+    def _unequip_gear(self, slot):
+        self.pet.shop.unequip_gear(slot)
+        if self.social.enabled:
+            self.social.sync()
+        self.refresh()
 
     def _premium_needed(self):
         self.show_tab("profile")
@@ -1584,7 +1810,8 @@ class FriendsWindow:
         if not shop.buy(item, balance):
             self.show_error("poor")
             return
-        name = t("pr_" + item) if item in pet_shop.PROPS else t("mv_" + item).split(":")[0]
+        name = (t("gr_" + item) if item in pet_shop.GEAR else t("pr_" + item) if item in pet_shop.PROPS
+                else t("mv_" + item).split(":")[0])
         self.error = ""
         self.pet.set_action("cheer", 1.4)
         self.pet._spawn("sparkle", 5)

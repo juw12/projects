@@ -70,7 +70,58 @@ MOVES = {
     "spider": (420, 5.5),
     "fireworks": (300, 3.6),      # Premium-only
 }
-PREMIUM_ITEMS = {"tiara", "star_glasses", "diamond", "fairy_wings", "fireworks"}
+# Arena gear (v2.8): id -> (slot, price, stats). Stats are mirrored from the server (which is authoritative).
+GEAR_SLOTS = ("weapon", "armor", "tool")
+GEAR = {
+    "water_pistol": ("weapon", 80, {"atk": 4, "kind": "gun"}),
+    "slingshot": ("weapon", 140, {"atk": 6, "crit": 3, "kind": "gun"}),
+    "foam_sword": ("weapon", 220, {"atk": 8, "kind": "melee"}),
+    "bubble_blaster": ("weapon", 320, {"atk": 10, "spd": 2, "kind": "gun"}),
+    "laser_blaster": ("weapon", 480, {"atk": 13, "crit": 5, "kind": "gun"}),
+    "rocket_launcher": ("weapon", 700, {"atk": 18, "spd": -2, "kind": "launcher"}),
+    "plasma_cannon": ("weapon", 900, {"atk": 20, "crit": 8, "kind": "gun"}),
+    "cardboard_armor": ("armor", 60, {"def": 2, "hp": 10}),
+    "leather_armor": ("armor", 150, {"def": 4, "hp": 20}),
+    "knight_armor": ("armor", 320, {"def": 7, "hp": 35, "spd": -1}),
+    "ninja_suit": ("armor", 380, {"def": 5, "hp": 20, "spd": 4}),
+    "mech_suit": ("armor", 750, {"def": 11, "hp": 60}),
+    "medkit": ("tool", 120, {"special": "heal"}),
+    "water_bomb": ("tool", 200, {"special": "bomb"}),
+    "jetpack": ("tool", 300, {"special": "dodge", "spd": 3}),
+    "lucky_charm": ("tool", 180, {"special": "power", "crit": 10}),
+    "force_field": ("tool", 420, {"special": "shield"}),
+}
+
+PREMIUM_ITEMS = {"tiara", "star_glasses", "diamond", "fairy_wings", "fireworks",
+                 "plasma_cannon", "mech_suit", "force_field"}
+
+
+def fighter_stats(level: int, gear: dict) -> dict:
+    """Same maths as the server's fighterStats (for showing your fighter card)."""
+    lvl = max(1, min(99, int(level or 1)))
+    hp = 120 + 2.5 * lvl
+    atk = 18 + 0.4 * lvl
+    df = 0.2 * lvl
+    crit = 8.0
+    spd = 10 + 0.1 * lvl
+    special = "power"
+    kind = "paw"
+    for slot in GEAR_SLOTS:
+        item = (gear or {}).get(slot)
+        if item not in GEAR or GEAR[item][0] != slot:
+            continue
+        stats = GEAR[item][2]
+        hp += stats.get("hp", 0)
+        atk += stats.get("atk", 0)
+        df += stats.get("def", 0)
+        crit += stats.get("crit", 0)
+        spd += stats.get("spd", 0)
+        special = stats.get("special", special)
+        kind = stats.get("kind", kind)
+    crit = min(40.0, crit)
+    return {"hp": round(hp), "atk": round(atk, 1), "def": round(df, 1), "crit": round(crit, 1),
+            "spd": round(spd, 1), "special": special, "weapon_kind": kind,
+            "power": round(hp / 4 + atk * 3 + df * 3 + crit + spd)}
 PREMIUM_DAILY_COINS = 30          # Premium: bonus coins every day you use Pips
 PREMIUM_INTERACTION_CAP = 40      # Premium: daily cap for friend-interaction coins (normal: 20)
 TALL_MOVES = {"spider": 230, "fireworks": 70}      # extra canvas height (px) the move needs above the pet
@@ -81,10 +132,11 @@ TALL_MOVES = {"spider": 230, "fireworks": 70}      # extra canvas height (px) th
 # =============================================================================
 
 def earned_coins(stats: dict, achievements: int, login_days: int, affinity_levels: int, bonus: int,
-                 premium: int = 0) -> dict:
+                 premium: int = 0, arena: int = 0) -> dict:
     """Breakdown of every coin you have earned so far."""
     parts = {
         "premium": int(premium),
+        "arena": int(arena),
         "gift": WELCOME_GIFT,
         "pomodoros": COINS_PER_POMODORO * int(stats.get("total_poms", 0)),
         "levels": COINS_PER_LEVEL * max(0, int(stats.get("level", 1)) - 1),
@@ -162,9 +214,9 @@ class Shop:
         self.save()
         return True
 
-    def wallet(self, stats: dict, achievements: int, affinity_levels: int) -> dict:
+    def wallet(self, stats: dict, achievements: int, affinity_levels: int, arena: int = 0) -> dict:
         parts = earned_coins(stats, achievements, len(self.data["login_days"]), affinity_levels,
-                             self.data.get("bonus", 0), self.data.get("premium_bonus", 0))
+                             self.data.get("bonus", 0), self.data.get("premium_bonus", 0), arena)
         parts["spent"] = int(self.data.get("spent", 0))
         parts["balance"] = parts["total"] - parts["spent"]
         if self.unlimited:
@@ -183,6 +235,8 @@ class Shop:
         return self.unlimited or self.premium or item not in PREMIUM_ITEMS
 
     def price(self, item: str) -> int:
+        if item in GEAR:
+            return GEAR[item][1]
         if item in PROPS:
             return PROPS[item][1]
         if item in MOVES:
@@ -193,6 +247,8 @@ class Shop:
         if self.owns(item):
             if item in PROPS:
                 self.equip(item)
+            if item in GEAR:
+                self.equip_gear(item)
             return True
         price = self.price(item)
         if price > balance or not self.can_buy(item):
@@ -201,6 +257,8 @@ class Shop:
         self.data["spent"] = int(self.data.get("spent", 0)) + price
         if item in PROPS:
             self.equip(item)
+        if item in GEAR:
+            self.equip_gear(item)
         self.save()
         return True
 
@@ -218,6 +276,20 @@ class Shop:
 
     def moves(self) -> list:
         return [m for m in MOVES if self.owns(m)]
+
+    # ---- arena gear ----
+    def equip_gear(self, item: str):
+        if item in GEAR and self.owns(item):
+            self.data.setdefault("gear", {})[GEAR[item][0]] = item
+            self.save()
+
+    def unequip_gear(self, slot: str):
+        self.data.setdefault("gear", {}).pop(slot, None)
+        self.save()
+
+    def gear(self) -> dict:
+        return {slot: item for slot, item in (self.data.get("gear") or {}).items()
+                if item in GEAR and GEAR[item][0] == slot and self.owns(item)}
 
 
 def clean_look(look) -> dict:
@@ -481,6 +553,146 @@ def draw_props_preview(cv, pet_mod, size, species, color, props, cx=None, floor=
     draw_back_props(cv, geo, props, t)
     geo = pet_mod.draw_pet(cv, cx, floor, size, look) or geo
     draw_front_props(cv, geo, props, t)
+
+
+# =============================================================================
+# Drawing arena gear (weapons, armor, gadgets) - used by the arena and the shop
+# =============================================================================
+
+ARMOR_COLORS = {
+    "cardboard_armor": ("#c8a46e", "#7d5f30"),
+    "leather_armor": ("#8a5a3b", "#4f2f1b"),
+    "knight_armor": ("#c9d1d9", "#6c7680"),
+    "ninja_suit": ("#2b2d42", "#0d0e1a"),
+    "mech_suit": ("#4c6ef5", "#1c2f8a"),
+}
+
+
+def draw_gear_back(cv, geo: dict, gear: dict, t: float = 0.0):
+    """Gear drawn behind the pet (jetpack)."""
+    if not geo or not gear:
+        return
+    u = geo["u"]
+    cx, cy, rx, ry = geo["cx"], geo["cy"], geo["rx"], geo["ry"]
+    back = -geo["facing"]
+    if gear.get("tool") == "jetpack":
+        for k in (0, 1):
+            x = cx + back * (rx * 0.75 + k * 6 * u)
+            cv.create_rectangle(x - 3 * u, cy - ry * 0.6, x + 3 * u, cy + ry * 0.3, fill="#adb5bd",
+                                outline="#495057", width=max(1, u))
+            flame = 4 + 3 * abs(math.sin(t * 14 + k))
+            _poly(cv, [x - 2.5 * u, cy + ry * 0.3, x + 2.5 * u, cy + ry * 0.3, x, cy + ry * 0.3 + flame * u],
+                  "#ff922b", "")
+
+
+def draw_gear_front(cv, geo: dict, gear: dict, t: float = 0.0, aim: float = 0.0):
+    """Armor plate, the held weapon and the gadget. `aim` (0..1) raises the weapon for an attack."""
+    if not geo or not gear:
+        return
+    u = geo["u"]
+    cx, cy, rx, ry = geo["cx"], geo["cy"], geo["rx"], geo["ry"]
+    face = geo["facing"]
+    lw = max(1, 1.2 * u)
+    armor = gear.get("armor")
+    if armor in ARMOR_COLORS:
+        fill, line = ARMOR_COLORS[armor]
+        pts = []
+        for k in range(13):
+            a = math.pi * k / 12
+            pts += [cx - math.cos(a) * rx * 0.78, cy + ry * 0.05 + math.sin(a) * ry * 0.82]
+        _poly(cv, pts, fill, line, lw, smooth=True)
+        if armor == "knight_armor":
+            cv.create_line(cx, cy + ry * 0.1, cx, cy + ry * 0.8, fill=line, width=lw)
+            cv.create_line(cx - rx * 0.4, cy + ry * 0.35, cx + rx * 0.4, cy + ry * 0.35, fill=line, width=lw)
+        elif armor == "mech_suit":
+            _oval(cv, cx, cy + ry * 0.4, 4 * u, 4 * u, "#99e9f2", "#1c7ed6", lw)
+        elif armor == "ninja_suit":
+            cv.create_line(cx - rx * 0.7, cy + ry * 0.3, cx + rx * 0.7, cy + ry * 0.3, fill="#e03131",
+                           width=max(2, 2.2 * u))
+        elif armor == "cardboard_armor":
+            cv.create_text(cx, cy + ry * 0.45, text="\u2191", fill=line, font=("Segoe UI", max(5, int(4 * u)), "bold"))
+    weapon = gear.get("weapon")
+    hx = cx + face * rx * 0.92
+    hy = cy + ry * 0.2 - aim * ry * 0.35
+    if weapon:
+        _oval(cv, hx, hy, 3 * u, 3 * u, "#ffe8cc", "#a35b00", max(1, 0.8 * u))
+    if weapon in ("water_pistol", "bubble_blaster", "laser_blaster", "plasma_cannon"):
+        spec = {"water_pistol": ("#4dabf7", "#1864ab", 9, 3), "bubble_blaster": ("#f783ac", "#a61e4d", 11, 4),
+                "laser_blaster": ("#868e96", "#212529", 13, 3.5), "plasma_cannon": ("#9775fa", "#5f3dc4", 15, 5)}[weapon]
+        body, line, length, thick = spec
+        x0, x1 = hx - face * 2 * u, hx + face * length * u
+        cv.create_rectangle(min(x0, x1), hy - thick * u, max(x0, x1), hy + 0.6 * u, fill=body, outline=line, width=lw)
+        cv.create_rectangle(hx - 1.5 * u, hy, hx + 1.5 * u, hy + 5 * u, fill=line, outline=line)
+        if weapon == "laser_blaster":
+            _oval(cv, x1, hy - thick * u / 2, 1.4 * u, 1.4 * u, "#ff6b6b", "")
+        if weapon == "plasma_cannon":
+            glow = 1.2 + abs(math.sin(t * 6))
+            _oval(cv, x1, hy - thick * u / 2, glow * u, glow * u, "#e5dbff", "#9775fa")
+        if weapon == "bubble_blaster":
+            _oval(cv, hx - face * 1 * u, hy - thick * u - 2.5 * u, 2.5 * u, 2.5 * u, "#ffdeeb", "#a61e4d", max(1, 0.8 * u))
+    elif weapon == "slingshot":
+        cv.create_line(hx, hy + 5 * u, hx, hy, fill="#8a5a3b", width=max(2, 1.8 * u))
+        cv.create_line(hx, hy, hx - 3 * u, hy - 6 * u, fill="#8a5a3b", width=max(2, 1.6 * u))
+        cv.create_line(hx, hy, hx + 3 * u, hy - 6 * u, fill="#8a5a3b", width=max(2, 1.6 * u))
+        cv.create_line(hx - 3 * u, hy - 6 * u, hx + 3 * u, hy - 6 * u, fill="#e03131", width=max(1, u))
+    elif weapon == "foam_sword":
+        tip_x = hx + face * (5 + 12 * (1 - aim * 0.3)) * u
+        tip_y = hy - (14 - aim * 10) * u
+        cv.create_line(hx, hy, tip_x, tip_y, fill="#ffd43b", width=max(3, 3.2 * u), capstyle="round")
+        cv.create_line(hx - 3 * u, hy - 1 * u, hx + 3 * u, hy + 1 * u, fill="#1c7ed6", width=max(2, 2 * u))
+    elif weapon == "rocket_launcher":
+        x0, x1 = hx - face * 10 * u, hx + face * 10 * u
+        sy = hy - 5 * u
+        cv.create_rectangle(min(x0, x1), sy - 3.5 * u, max(x0, x1), sy + 3.5 * u, fill="#5c940d", outline="#2b5000", width=lw)
+        _oval(cv, x1, sy, 2 * u, 3.5 * u, "#2b5000", "")
+    tool = gear.get("tool")
+    tx = cx - face * rx * 0.55
+    ty = cy + ry * 0.75
+    if tool == "medkit":
+        cv.create_rectangle(tx - 4 * u, ty - 3 * u, tx + 4 * u, ty + 3 * u, fill="#ffffff", outline="#c92a2a", width=lw)
+        cv.create_line(tx - 2 * u, ty, tx + 2 * u, ty, fill="#e03131", width=max(1, 1.4 * u))
+        cv.create_line(tx, ty - 2 * u, tx, ty + 2 * u, fill="#e03131", width=max(1, 1.4 * u))
+    elif tool == "water_bomb":
+        _oval(cv, tx, ty, 3.6 * u, 4 * u, "#74c0fc", "#1864ab", lw)
+        cv.create_line(tx, ty - 4 * u, tx + 1.5 * u, ty - 6 * u, fill="#1864ab", width=max(1, u))
+    elif tool == "lucky_charm":
+        for a in range(4):
+            ang = a * math.pi / 2 + math.pi / 4
+            _oval(cv, tx + math.cos(ang) * 1.8 * u, ty + math.sin(ang) * 1.8 * u, 1.8 * u, 1.8 * u, "#51cf66", "#2b8a3e",
+                  max(1, 0.6 * u))
+    elif tool == "force_field":
+        _oval(cv, tx, ty, 3 * u, 3 * u, "#d0bfff", "#7048e8", lw)
+
+
+def draw_fighter(cv, pet_mod, cx, floor, size, fighter: dict, facing: int = 1, t: float = 0.0, aim: float = 0.0,
+                 hit: float = 0.0, look_extra: dict | None = None):
+    """A pet with its cosmetic props + arena gear, facing left (-1) or right (1)."""
+    species = fighter.get("species") or "cat"
+    look = pet_mod.default_look({"species": species if species in pet_mod.SPECIES else "cat",
+                                 "color": fighter.get("color") or "#ffc78f", "cheek_color": "#ff8fa3"})
+    look.update(t=t, facing=facing, mouth="smile", eyes="open")
+    if hit > 0:
+        look.update(eyes="closed", mouth="o", squash=0.12 * hit, lean=-facing * 4 * hit)
+    if look_extra:
+        look.update(look_extra)
+    props = clean_look(fighter.get("look") or {})
+    props.pop("moves", None)
+    gear = {k: v for k, v in (fighter.get("gear") or {}).items() if v in GEAR}
+    geo = pet_mod.body_geometry(cx, floor, size, look)
+    draw_gear_back(cv, geo, gear, t)
+    draw_back_props(cv, geo, props, t)
+    geo = pet_mod.draw_pet(cv, cx, floor, size, look) or geo
+    draw_front_props(cv, geo, props, t)
+    draw_gear_front(cv, geo, gear, t, aim)
+    return geo
+
+
+def draw_gear_preview(cv, pet_mod, size, species, color, item, cx=None, floor=None, t=0.0):
+    """Shop tile: your pet facing right holding / wearing one gear item."""
+    cx = cx if cx is not None else int(cv["width"]) / 2
+    floor = floor if floor is not None else int(cv["height"]) - 2
+    fighter = {"species": species, "color": color, "gear": {GEAR[item][0]: item} if item in GEAR else {}}
+    draw_fighter(cv, pet_mod, cx - size * 0.12, floor, size, fighter, facing=1, t=t)
 
 
 # =============================================================================

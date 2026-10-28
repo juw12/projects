@@ -307,6 +307,11 @@ class Social:
         self._next_inbox = now + 8
         self._inbox_busy = False
         self._last_news = 0.0
+        self.arena = None           # /v1/arena payload
+        self.arena_open = False     # Arena tab visible -> fast lobby polling + "in arena" presence
+        self._next_arena = 0.0
+        self.duels: dict = {}       # duel id -> latest /v1/duel view
+        self.duel_windows: dict = {}
         self.mod_data = None        # moderator queue (/v1/mod/reports)
         self.admin_data = None      # owner overview (/v1/admin/overview)
         self.new_keys = []          # premium keys generated in this session
@@ -423,7 +428,8 @@ class Social:
         if not shop:
             return {"balance": 0, "total": 0, "spent": 0}
         stats = self.stats or self.refresh_stats()
-        return shop.wallet(stats, len(self.data.get("unlocked", {})), self.affinity_levels())
+        return shop.wallet(stats, len(self.data.get("unlocked", {})), self.affinity_levels(),
+                           int(self.data.get("duel_coins", 0)))
 
     def my_look(self) -> dict:
         shop = getattr(self.pet, "shop", None)
@@ -432,6 +438,10 @@ class Social:
         look = dict(shop.equipped())
         look["moves"] = shop.moves()
         return look
+
+    def my_gear(self) -> dict:
+        shop = getattr(self.pet, "shop", None)
+        return shop.gear() if shop else {}
 
     # ---- stats / achievements ----
     def refresh_stats(self) -> dict:
@@ -637,6 +647,59 @@ class Social:
     def redeem_key(self, key: str):
         self._act("redeemed", "/v1/premium/redeem", {"key": key.strip().upper()})
 
+    # ---- arena & duels (v2.8) ----
+    def load_arena(self, here=False):
+        if self.enabled:
+            self._run("arena", api_call, "GET", "/v1/arena" + ("?here=1" if here else ""), None, self.account)
+
+    def challenge(self, code: str):
+        if self.enabled:
+            self._run("duel_challenged", api_call, "POST", "/v1/duel/challenge",
+                      {"code": code, "gear": self.my_gear()}, self.account)
+
+    def respond_duel(self, duel_id: str, accept: bool):
+        if self.enabled:
+            self._run("duel_responded", api_call, "POST", "/v1/duel/respond",
+                      {"id": duel_id, "accept": bool(accept), "gear": self.my_gear()}, self.account)
+
+    def quick_duel(self, code: str):
+        if self.enabled:
+            self._run("duel", api_call, "POST", "/v1/duel/quick", {"code": code, "gear": self.my_gear()}, self.account)
+
+    def load_duel(self, duel_id: str):
+        if self.enabled:
+            self._run("duel", api_call, "GET", f"/v1/duel?id={duel_id}", None, self.account)
+
+    def duel_act(self, duel_id: str, round_no: int, action: str):
+        if self.enabled:
+            self._run("duel", api_call, "POST", "/v1/duel/act",
+                      {"id": duel_id, "round": int(round_no), "action": action}, self.account)
+
+    def forfeit_duel(self, duel_id: str):
+        if self.enabled:
+            self._run("duel_forfeit", api_call, "POST", "/v1/duel/forfeit", {"id": duel_id}, self.account)
+
+    def open_duel(self, duel_id: str, spectate: bool = False):
+        import arena_ui
+        win = self.duel_windows.get(duel_id)
+        if win and win.alive():
+            win.win.deiconify()
+            win.win.lift()
+            return
+        self.duel_windows[duel_id] = arena_ui.DuelWindow(self, duel_id, spectate=spectate)
+
+    def _notify_duels(self, duels: list):
+        notified = set(self.data.get("notified_duels", []))
+        for d in duels or []:
+            if d.get("id") in notified:
+                continue
+            notified.add(d["id"])
+            self.pet.set_action("hop", 0.55)
+            self.pet._voice("greet")
+            self.pet.say(t("duel_incoming", name=d.get("from", {}).get("name", "?")), duration=12, priority=2,
+                         on_click=lambda: self.open_window("arena"))
+        self.data["notified_duels"] = sorted(notified)[-50:]
+
     def _take_notices(self, notices: list):
         """React to moderator / owner notices (warnings, mutes, role and premium changes)."""
         seen = int(self.data.get("notice_seen", 0))
@@ -737,6 +800,7 @@ class Social:
             "achievements": unlocked,
             "mood": self.pet.mood(),
             "look": self.my_look(),
+            "gear": self.my_gear(),
         }
 
     def _board_now(self, account=None):
@@ -878,6 +942,8 @@ class Social:
                   self.account)
 
     def _take_inbox(self, result, initial=False):
+        if isinstance(result, dict) and result.get("duels"):
+            self._notify_duels(result["duels"])
         seen = int(self.data.get("seen_id", 0))
         fresh = []
         for m in result.get("messages", []):
@@ -1003,7 +1069,7 @@ class Social:
                     self.data.pop(key, None)
                 self.save()
                 self.pet.update_setting("friends", False)
-            if kind not in ("inbox", "avatar", "leaderboard") and self.window and self.window.alive():
+            if kind not in ("inbox", "avatar", "leaderboard", "arena", "duel") and self.window and self.window.alive():
                 self.window.show_error(payload)
             return
         if not self.enabled:
@@ -1022,6 +1088,39 @@ class Social:
                         self.check_achievements()
         if isinstance(payload, dict) and "friends" in payload:
             self._take_board(payload)
+        if kind == "arena":
+            self.arena = dict(payload, _at=time.time())
+            me = payload.get("me", {})
+            self.data["duel_coins"] = int(me.get("duel_coins", self.data.get("duel_coins", 0)))
+            self.data["rating"] = int(me.get("rating", 1000))
+            self._notify_duels([{"id": c["id"], "from": c["from"]} for c in payload.get("incoming", [])])
+            active = me.get("active")
+            if active and active not in self.duel_windows:
+                self.open_duel(active)
+        elif kind == "duel":
+            duel = payload.get("duel", {})
+            if duel.get("id"):
+                first = duel["id"] not in self.duels
+                self.duels[duel["id"]] = dict(duel, _at=time.time())
+                if duel.get("result", {}).get("coins"):
+                    side = duel.get("mine")
+                    if side:
+                        self.load_arena()
+                if first and duel.get("mode") == "quick" and duel["id"] not in self.duel_windows:
+                    self.open_duel(duel["id"])
+                win = self.duel_windows.get(duel["id"])
+                if win and win.alive():
+                    win.update_state()
+        elif kind == "duel_challenged":
+            self.pet.set_action("hop", 0.55)
+            self.pet.say(t("duel_sent"), duration=5, priority=1)
+            self.load_arena()
+        elif kind == "duel_responded":
+            if payload.get("status") == "active" and payload.get("id"):
+                self.open_duel(payload["id"])
+            self.load_arena()
+        elif kind == "duel_forfeit":
+            self.load_arena()
         if kind == "mod":
             self.mod_data = dict(payload, _at=time.time())
         elif kind == "admin":
@@ -1090,6 +1189,9 @@ class Social:
         role = me.get("role", "")
         was_premium = self.is_premium
         self.data["premium_until"] = int(me.get("premium_until") or 0)
+        if "duel_coins" in me:
+            self.data["duel_coins"] = int(me.get("duel_coins") or 0)
+            self.data["rating"] = int(me.get("rating") or 1000)
         self.data["muted_until"] = int(me.get("muted_until") or 0)
         if role != self.data.get("role", ""):
             self.data["role"] = role
@@ -1156,6 +1258,9 @@ class Social:
         elif now >= self._next_board:
             self._next_board = now + BOARD_EVERY_S
             self.sync()
+        if self.arena_open and self.window and self.window.alive() and now >= self._next_arena:
+            self._next_arena = now + 3
+            self.load_arena(here=True)
         fast = self.window and self.window.alive() and self.chat_open_room
         if now >= self._next_inbox:
             self._next_inbox = now + (INBOX_FAST_S if fast else INBOX_EVERY_S)
@@ -1192,6 +1297,9 @@ class Social:
             self.window.close()
         for v in self.visitors:
             v.leave(now=True)
+        for win in list(self.duel_windows.values()):
+            if win.alive():
+                win.close()
 
 
 # =============================================================================
