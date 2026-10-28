@@ -1,14 +1,14 @@
 {
-  "version": "1.8.3",
+  "version": "1.9.0",
   "files": [
     {
-      "url": "https://github.com/juw12/projects/releases/download/airiz-desktop-v1.8.3/AIRIZ-Console-Setup-1.8.3-x64.exe",
-      "sha512": "UMeIvvPGEvejq1Su3kkHA1rRY76PImVtfcNdSNNxsttAgAdNJgtLMXZp7dHQW5OvbTdwROt4At/p4cREjKqEmA==",
-      "size": 121855571
+      "url": "https://github.com/juw12/projects/releases/download/airiz-desktop-v1.9.0/AIRIZ-Console-Setup-1.9.0-x64.exe",
+      "sha512": "UOychyOeA67ogdfhHD9yWtRWHbETxFz/+iRJQsHf+ggCryhdv/F+oj68tquK644BQL72IS4gpryBEbLflN+AVA==",
+      "size": 121870802
     }
   ],
-  "path": "https://github.com/juw12/projects/releases/download/airiz-desktop-v1.8.3/AIRIZ-Console-Setup-1.8.3-x64.exe",
-  "sha512": "UMeIvvPGEvejq1Su3kkHA1rRY76PImVtfcNdSNNxsttAgAdNJgtLMXZp7dHQW5OvbTdwROt4At/p4cREjKqEmA==",
-  "releaseDate": "2026-10-28T12:50:20.211779+00:00",
-  "releaseName": "AIRIZ Console 1.8.3"
+  "path": "https://github.com/juw12/projects/releases/download/airiz-desktop-v1.9.0/AIRIZ-Console-Setup-1.9.0-x64.exe",
+  "sha512": "UOychyOeA67ogdfhHD9yWtRWHbETxFz/+iRJQsHf+ggCryhdv/F+oj68tquK644BQL72IS4gpryBEbLflN+AVA==",
+  "releaseDate": "2026-10-28T14:18:56.449300+00:00",
+  "releaseName": "AIRIZ Console 1.9.0"
 }
