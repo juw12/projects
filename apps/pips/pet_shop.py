@@ -53,6 +53,11 @@ PROPS = {
     "medal": ("neck", 200),
     "cape": ("back", 240),
     "wings": ("back", 380),
+    # Premium-only (v2.7)
+    "tiara": ("head", 250),
+    "star_glasses": ("face", 180),
+    "diamond": ("neck", 220),
+    "fairy_wings": ("back", 320),
 }
 
 # id -> (price, seconds)
@@ -63,17 +68,23 @@ MOVES = {
     "backflip": (180, 1.8),
     "kungfu": (260, 3.4),
     "spider": (420, 5.5),
+    "fireworks": (300, 3.6),      # Premium-only
 }
-TALL_MOVES = {"spider": 230}      # extra canvas height (px) the move needs above the pet
+PREMIUM_ITEMS = {"tiara", "star_glasses", "diamond", "fairy_wings", "fireworks"}
+PREMIUM_DAILY_COINS = 30          # Premium: bonus coins every day you use Pips
+PREMIUM_INTERACTION_CAP = 40      # Premium: daily cap for friend-interaction coins (normal: 20)
+TALL_MOVES = {"spider": 230, "fireworks": 70}      # extra canvas height (px) the move needs above the pet
 
 
 # =============================================================================
 # Wallet & inventory
 # =============================================================================
 
-def earned_coins(stats: dict, achievements: int, login_days: int, affinity_levels: int, bonus: int) -> dict:
+def earned_coins(stats: dict, achievements: int, login_days: int, affinity_levels: int, bonus: int,
+                 premium: int = 0) -> dict:
     """Breakdown of every coin you have earned so far."""
     parts = {
+        "premium": int(premium),
         "gift": WELCOME_GIFT,
         "pomodoros": COINS_PER_POMODORO * int(stats.get("total_poms", 0)),
         "levels": COINS_PER_LEVEL * max(0, int(stats.get("level", 1)) - 1),
@@ -100,7 +111,10 @@ class Shop:
         self.data.setdefault("bonus", 0)
         self.data.setdefault("bonus_day", "")
         self.data.setdefault("bonus_today", 0)
+        self.data.setdefault("premium_bonus", 0)
+        self.data.setdefault("premium_day", "")
         self.unlimited = False          # app owner: everything unlocked, endless coins
+        self.premium = False            # Premium / moderators: premium items, daily bonus, higher caps
         self.mark_today()
 
     def _load(self) -> dict:
@@ -132,14 +146,25 @@ class Shop:
         if self.data.get("bonus_day") != today:
             self.data["bonus_day"] = today
             self.data["bonus_today"] = 0
-        if self.data["bonus_today"] < INTERACTION_DAILY_CAP:
+        cap = PREMIUM_INTERACTION_CAP if (self.premium or self.unlimited) else INTERACTION_DAILY_CAP
+        if self.data["bonus_today"] < cap:
             self.data["bonus_today"] += COINS_PER_INTERACTION
             self.data["bonus"] += COINS_PER_INTERACTION
             self.save()
 
+    def add_premium_daily(self) -> bool:
+        """Premium members get PREMIUM_DAILY_COINS once per day (kept even if Premium ends)."""
+        today = date.today().isoformat()
+        if not self.premium or self.data.get("premium_day") == today:
+            return False
+        self.data["premium_day"] = today
+        self.data["premium_bonus"] = int(self.data.get("premium_bonus", 0)) + PREMIUM_DAILY_COINS
+        self.save()
+        return True
+
     def wallet(self, stats: dict, achievements: int, affinity_levels: int) -> dict:
         parts = earned_coins(stats, achievements, len(self.data["login_days"]), affinity_levels,
-                             self.data.get("bonus", 0))
+                             self.data.get("bonus", 0), self.data.get("premium_bonus", 0))
         parts["spent"] = int(self.data.get("spent", 0))
         parts["balance"] = parts["total"] - parts["spent"]
         if self.unlimited:
@@ -148,7 +173,14 @@ class Shop:
         return parts
 
     def owns(self, item: str) -> bool:
-        return self.unlimited or item in self.data["owned"]
+        if self.unlimited:
+            return True
+        if item in PREMIUM_ITEMS and not self.premium:
+            return False      # premium items rest while Premium is off (they come back when it's renewed)
+        return item in self.data["owned"]
+
+    def can_buy(self, item: str) -> bool:
+        return self.unlimited or self.premium or item not in PREMIUM_ITEMS
 
     def price(self, item: str) -> int:
         if item in PROPS:
@@ -163,7 +195,7 @@ class Shop:
                 self.equip(item)
             return True
         price = self.price(item)
-        if price > balance:
+        if price > balance or not self.can_buy(item):
             return False
         self.data["owned"].append(item)
         self.data["spent"] = int(self.data.get("spent", 0)) + price
@@ -243,6 +275,25 @@ def draw_back_props(cv, geo: dict, props: dict, t: float = 0.0):
             for k in (0.45, 0.7):
                 cv.create_line(base_x, cy, cx + s * (rx + 15 * u * k + 4 * u), cy - ry * 0.6 * k - flap * k,
                                fill="#dfe7f2", width=max(1, u))
+    elif item == "fairy_wings":
+        flap = math.sin(t * 7) * 3 * u
+        for s in (-1, 1):
+            base_x = cx + s * rx * 0.45
+            upper = [base_x, cy - ry * 0.25,
+                     cx + s * (rx + 10 * u), cy - ry * 1.15 - flap,
+                     cx + s * (rx + 20 * u), cy - ry * 0.75 - flap,
+                     cx + s * (rx + 14 * u), cy - ry * 0.05]
+            lower = [base_x, cy,
+                     cx + s * (rx + 15 * u), cy + ry * 0.15 + flap * 0.5,
+                     cx + s * (rx + 10 * u), cy + ry * 0.75 + flap * 0.5,
+                     base_x + s * 2 * u, cy + ry * 0.35]
+            _poly(cv, upper, "#e5dbff", "#9775fa", max(1, 1.1 * u), smooth=True)
+            _poly(cv, lower, "#fcc2d7", "#f06595", max(1, 1.1 * u), smooth=True)
+            sx = cx + s * (rx + 12 * u)
+            sy = cy - ry * 0.7 - flap
+            twinkle = 0.6 + 0.4 * abs(math.sin(t * 4 + s))
+            cv.create_text(sx, sy, text="\u2726", fill="#ffd43b",
+                           font=("Segoe UI Symbol", max(5, int(4 * u * twinkle))))
 
 
 def draw_front_props(cv, geo: dict, props: dict, t: float = 0.0):
@@ -286,6 +337,17 @@ def draw_front_props(cv, geo: dict, props: dict, t: float = 0.0):
         _oval(cv, hx, neck_y + 8 * u, 4.4 * u, 4.4 * u, "#fab005", "#a36a00", lw)
         cv.create_text(hx, neck_y + 8 * u, text="1", font=("Segoe UI", max(5, int(4.5 * u)), "bold"),
                        fill="#7a4f00")
+    elif neck == "diamond":
+        chain = []
+        for k in range(9):
+            a = math.pi * k / 8
+            chain += [hx - math.cos(a) * rx * 0.6, neck_y - 3 * u + math.sin(a) * 3 * u]
+        cv.create_line(*chain, fill="#ced4da", width=max(1, 1.2 * u), smooth=True)
+        gy = neck_y + 2.5 * u
+        _poly(cv, [hx - 4 * u, gy, hx - 2 * u, gy - 2.6 * u, hx + 2 * u, gy - 2.6 * u, hx + 4 * u, gy,
+                   hx, gy + 5 * u], "#a5d8ff", "#1971c2", lw)
+        cv.create_line(hx - 4 * u, gy, hx + 4 * u, gy, fill="#1971c2", width=max(1, 0.8 * u))
+        cv.create_line(hx - 1.5 * u, gy - 2 * u, hx - 0.5 * u, gy - 0.6 * u, fill="#ffffff", width=max(1, 0.8 * u))
 
     face = props.get("face")
     if face == "shades":
@@ -311,6 +373,19 @@ def draw_front_props(cv, geo: dict, props: dict, t: float = 0.0):
         _oval(cv, ex, eye_y, 4.8 * u, 4.8 * u, "", "#c99a2e", max(1.5, 1.6 * u))
         cv.create_line(ex + facing * 3 * u, eye_y + 4 * u, ex + facing * 6 * u, eye_y + 14 * u,
                        fill="#c99a2e", width=max(1, 0.9 * u))
+    elif face == "star_glasses":
+        for s in (-1, 1):
+            ex = cx + fx + s * sep
+            r_out, r_in = 5.4 * u, 2.4 * u
+            pts = []
+            for k in range(10):
+                a = -math.pi / 2 + k * math.pi / 5
+                r = r_out if k % 2 == 0 else r_in
+                pts += [ex + math.cos(a) * r, eye_y + math.sin(a) * r]
+            _poly(cv, pts, "#ffd43b", "#e67700", lw)
+            _oval(cv, ex, eye_y, 1.6 * u, 1.6 * u, "#7048e8", "")
+        cv.create_line(cx + fx - sep + 4 * u, eye_y - 1 * u, cx + fx + sep - 4 * u, eye_y - 1 * u,
+                       fill="#e67700", width=lw)
 
     head = props.get("head")
     if head == "party_hat":
@@ -375,6 +450,23 @@ def draw_front_props(cv, geo: dict, props: dict, t: float = 0.0):
         _poly(cv, pts, "#fcc419", "#b8860b", lw)
         for gx, col in ((-0.5, "#e03131"), (0.0, "#1c7ed6"), (0.5, "#2f9e44")):
             _oval(cv, hx + w * gx, y0 - 2.5 * u, 1.5 * u, 1.5 * u, col, "")
+    elif head == "tiara":
+        y0 = top + 3.5 * u
+        w = rx * 0.55
+        arc = []
+        for k in range(11):
+            a = math.pi * k / 10
+            arc += [hx - math.cos(a) * w, y0 - math.sin(a) * 4 * u]
+        cv.create_line(*arc, fill="#dee2e6", width=max(2, 2 * u), smooth=True)
+        for gx, h in ((-0.6, 4.5), (-0.3, 6.5), (0.0, 9.0), (0.3, 6.5), (0.6, 4.5)):
+            px = hx + w * gx
+            base = y0 - math.sqrt(max(0.0, 1 - gx * gx)) * 4 * u
+            _poly(cv, [px - 1.6 * u, base, px, base - h * u, px + 1.6 * u, base], "#f1f3f5", "#adb5bd",
+                  max(1, 0.8 * u))
+        sparkle = 1.2 + 0.5 * abs(math.sin(t * 3))
+        _oval(cv, hx, y0 - 6.5 * u, 1.9 * u, 1.9 * u, "#f783ac", "#c2255c", max(1, 0.8 * u))
+        _oval(cv, hx - w * 0.3, y0 - 5.2 * u, sparkle * u * 0.8, sparkle * u * 0.8, "#99e9f2", "")
+        _oval(cv, hx + w * 0.3, y0 - 5.2 * u, sparkle * u * 0.8, sparkle * u * 0.8, "#99e9f2", "")
 
 
 def draw_props_preview(cv, pet_mod, size, species, color, props, cx=None, floor=None, t=0.0):
@@ -428,6 +520,10 @@ def trick_pose(L: dict, trick: str, p: float, t: float) -> dict:
     elif trick == "spider":
         L.update(eyes="big" if p < 0.15 else "happy", mouth="big_open", blush=True, brows=None,
                  dangle=True, squash=-0.05)
+    elif trick == "fireworks":
+        beat = abs(math.sin(t * 5))
+        L.update(eyes="big" if p < 0.2 else "happy", mouth="big_open", blush=True, brows=None,
+                 hop=beat * 7 * (1 - p * 0.4), squash=-beat * 0.05, wag=math.sin(t * 9) * 4)
     return L
 
 
@@ -486,6 +582,29 @@ def draw_trick_fx(cv, trick: str, p: float, t: float, geo: dict, canvas_w: float
             cv.create_text(cx + math.cos(a) * (rx + 8 * u), cy - ry - 4 * u + math.sin(a * 1.3) * 4 * u,
                            text="\u266a" if k else "\u266b", fill="#7048e8",
                            font=("Segoe UI Symbol", font_px + 1, "bold"))
+    elif trick == "fireworks":
+        colors = ("#ff6b6b", "#ffd43b", "#69db7c", "#4dabf7", "#da77f2", "#ff922b")
+        for k in range(4):
+            phase = (p * 2.6 + k * 0.27) % 1.0
+            bx = cx + (-1.35 + k * 0.9) * rx + math.sin(k * 2.3) * 6 * u
+            by = cy - ry - (14 + 7 * (k % 2)) * u
+            col = colors[k % len(colors)]
+            if phase < 0.35:
+                rise = phase / 0.35
+                cv.create_line(bx, cy + ry * 0.4, bx, cy + ry * 0.4 - (cy + ry * 0.4 - by) * rise,
+                               fill="#ffe8a3", width=max(1, u), dash=(2, 2))
+            else:
+                burst = (phase - 0.35) / 0.65
+                r = (4 + 11 * burst) * u
+                for j in range(8):
+                    a = j * math.pi / 4 + k
+                    cv.create_line(bx + math.cos(a) * r * 0.45, by + math.sin(a) * r * 0.45,
+                                   bx + math.cos(a) * r, by + math.sin(a) * r,
+                                   fill=col, width=max(1, 1.3 * u * (1 - burst * 0.6)))
+                cv.create_text(bx, by, text="\u2726", fill="#ffffff", font=("Segoe UI Symbol", max(5, int(3.5 * u))))
+        if p > 0.8:
+            cv.create_text(cx, cy - ry - 30 * u, text="woo-hoo!", fill="#e64980",
+                           font=("Segoe UI", font_px + 1, "bold italic"))
     elif trick == "spin":
         for k in range(3):
             a = t * 9 + k * 2.1

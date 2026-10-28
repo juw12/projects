@@ -102,15 +102,10 @@ class FriendsWindow:
         self.outer.pack(fill="both", expand=True)
         self.head = tk.Frame(self.outer, bg=self.CARD, highlightthickness=1, highlightbackground=self.BORDER)
         self.head.pack(fill="x")
-        tabs = tk.Frame(self.outer, bg=self.BG)
-        tabs.pack(fill="x", pady=(10, 6))
+        self.tabs_frame = tk.Frame(self.outer, bg=self.BG)
+        self.tabs_frame.pack(fill="x", pady=(10, 6))
         self.tab_buttons = {}
-        for key in self.TABS:
-            btn = tk.Label(tabs, text=t("fr_tab_" + key), font=("Segoe UI", 9, "bold"), padx=6, pady=4,
-                           cursor="hand2")
-            btn.pack(side="left", padx=(0, 3))
-            btn.bind("<Button-1>", lambda e, k=key: self.show_tab(k))
-            self.tab_buttons[key] = btn
+        self._build_tabs()
         # scrollable body
         box = tk.Frame(self.outer, bg=self.CARD, highlightthickness=1, highlightbackground=self.BORDER)
         box.pack(fill="both", expand=True)
@@ -133,6 +128,24 @@ class FriendsWindow:
         self._place()
         self.refresh()
         self.win.after(400, self._pump)
+
+    def _tab_keys(self):
+        keys = list(self.TABS)
+        if self.social.enabled and self.social.is_staff:
+            keys.append("mod")
+        return keys
+
+    def _build_tabs(self):
+        for child in self.tabs_frame.winfo_children():
+            child.destroy()
+        self.tab_buttons = {}
+        for key in self._tab_keys():
+            text = ("\U0001F6E1 " if key == "mod" else "") + t("fr_tab_" + key)
+            btn = tk.Label(self.tabs_frame, text=text, font=("Segoe UI", 9, "bold"), padx=5, pady=4,
+                           cursor="hand2")
+            btn.pack(side="left", padx=(0, 3))
+            btn.bind("<Button-1>", lambda e, k=key: self.show_tab(k))
+            self.tab_buttons[key] = btn
 
     # ---- helpers ----
     def alive(self) -> bool:
@@ -250,7 +263,10 @@ class FriendsWindow:
                     "too_fast": t("fr_err_too_fast"), "not_friends": t("fr_err_not_friends"),
                     "already_member": t("cir_err_member"), "bad_name": t("cir_err_name"),
                     "poor": t("shop_poor"), "bad_image": t("prof_err_image"),
-                    "no_pillow": t("prof_err_pillow")}
+                    "no_pillow": t("prof_err_pillow"), "muted": t("fr_err_muted"),
+                    "not_allowed": t("fr_err_not_allowed"), "not_staff": t("fr_err_not_allowed"),
+                    "not_owner": t("fr_err_not_allowed"), "bad_key": t("fr_err_bad_key"),
+                    "premium_only": t("fr_err_premium_only")}
         self.error = messages.get(code, t("fr_err_generic", code=code))
         self.refresh(force=True)
 
@@ -258,6 +274,9 @@ class FriendsWindow:
         self.tab = key
         self.viewing = None
         self.error = ""
+        if key == "mod":
+            self.social.load_mod()
+            self.social.load_admin()
         if key == "ranks":
             board = self.social.leaderboards.get(self.rank_sort)
             if not board or time.time() - board.get("_at", 0) > 60:
@@ -285,11 +304,18 @@ class FriendsWindow:
             for child in frame.winfo_children():
                 child.destroy()
         self.composer.pack_forget()
+        if list(self.tab_buttons) != self._tab_keys():
+            self._build_tabs()
+            if self.tab not in self.tab_buttons:
+                self.tab = "friends"
         unread = self.social.total_unread()
         invites = len(self.social.invites)
         for key, btn in self.tab_buttons.items():
             active = key == self.tab
-            label = t("fr_tab_" + key)
+            label = ("\U0001F6E1 " if key == "mod" else "") + t("fr_tab_" + key)
+            open_reports = ((self.social.board or {}).get("staff") or {}).get("open_reports", 0)
+            if key == "mod" and open_reports:
+                label += f" ({open_reports})"
             if key == "chat" and unread:
                 label += f" ({unread})"
             if key == "groups" and invites:
@@ -314,6 +340,8 @@ class FriendsWindow:
             self._render_groups()
         elif self.tab == "ranks":
             self._render_ranks()
+        elif self.tab == "mod" and self.social.is_staff:
+            self._render_mod()
         else:
             self._render_friends()
         if self.error:
@@ -344,8 +372,12 @@ class FriendsWindow:
         name_line = tk.Frame(info, bg=self.CARD)
         name_line.pack(fill="x")
         self._label(name_line, f"{name} & {self.pet.s.get('name', 'Pip')}", size=11, bold=True).pack(side="left")
-        if self.social.is_owner:
-            self._owner_chip(name_line, self.CARD).pack(side="left", padx=(6, 0))
+        my_roles = {"role": self.social.data.get("role", ""), "premium": self.social.is_premium}
+        self._role_chips(name_line, my_roles, self.CARD)
+        if self.social.enabled and self.social.muted_until:
+            stamp = datetime.fromtimestamp(self.social.muted_until).strftime("%d %b %H:%M")
+            self._label(info, "\U0001F507 " + t("muted_banner", time=stamp), size=8, bold=True,
+                        fg=self.PRESENCE["busy"]).pack(fill="x")
         self._label(info, t("fr_level_line", level=stats["level"], xp=stats["xp"]), fg=self.ACCENT).pack(fill="x")
         bar = tk.Canvas(info, width=240, height=8, bg=self.CARD, highlightthickness=0)
         bar.pack(anchor="w", pady=(2, 2))
@@ -412,8 +444,7 @@ class FriendsWindow:
             for widget in (av, name_lbl):
                 widget.config(cursor="hand2")
                 widget.bind("<Button-1>", lambda e, c=code: self.open_profile(c))
-        if person.get("role") == "owner":
-            self._owner_chip(top, bg).pack(side="left", padx=(6, 0))
+        self._role_chips(top, person, bg)
         if person.get("label"):
             self._chip(top, self._label_text(person["label"]), bg).pack(side="left", padx=(6, 0))
         if person.get("status_text"):
@@ -735,6 +766,27 @@ class FriendsWindow:
         return tk.Label(parent, text="\u265b " + t("owner_badge"), font=("Segoe UI Symbol", 8, "bold"),
                         fg=self.ACCENT_INK, bg=self.GOLD, padx=5)
 
+    MOD_BLUE = "#3b82c4"
+    PREMIUM_PURPLE = "#8e5bd8"
+
+    def _mod_chip(self, parent, bg):
+        return tk.Label(parent, text="\U0001F6E1 " + t("role_mod"), font=("Segoe UI Symbol", 8, "bold"),
+                        fg="#ffffff", bg=self.MOD_BLUE, padx=5)
+
+    def _premium_chip(self, parent, bg):
+        return tk.Label(parent, text="\u2605 " + t("premium_badge"), font=("Segoe UI Symbol", 8, "bold"),
+                        fg="#ffffff", bg=self.PREMIUM_PURPLE, padx=5)
+
+    def _role_chips(self, parent, person, bg):
+        """Owner / Mod / Premium badges after a name (premium is implied for staff)."""
+        role = person.get("role", "")
+        if role == "owner":
+            self._owner_chip(parent, bg).pack(side="left", padx=(6, 0))
+        elif role == "mod":
+            self._mod_chip(parent, bg).pack(side="left", padx=(6, 0))
+        elif person.get("premium"):
+            self._premium_chip(parent, bg).pack(side="left", padx=(6, 0))
+
     def _mail_owner(self):
         import webbrowser
         webbrowser.open(f"mailto:{social.OWNER_EMAIL}?subject=Pips")
@@ -856,8 +908,7 @@ class FriendsWindow:
             top.pack(fill="x")
             name = self._label(top, person.get("name", "?"), size=10, bold=True, bg=bg, cursor="hand2")
             name.pack(side="left")
-            if person.get("role") == "owner":
-                self._owner_chip(top, bg).pack(side="left", padx=(6, 0))
+            self._role_chips(top, person, bg)
             if person.get("visibility") == "private":
                 self._label(top, " \U0001F512", size=8, fg=self.MUTED, bg=bg).pack(side="left")
             value = {"xp": t("rank_val_xp", n=person.get("xp", 0)), "badges": t("rank_val_badges", n=person.get("badges", 0)),
@@ -895,8 +946,7 @@ class FriendsWindow:
         name_row = tk.Frame(box, bg=self.WARM)
         name_row.pack(fill="x")
         self._label(name_row, user.get("name", "?"), size=14, bold=True, bg=self.WARM).pack(side="left")
-        if user.get("role") == "owner":
-            self._owner_chip(name_row, self.WARM).pack(side="left", padx=(8, 0))
+        self._role_chips(name_row, user, self.WARM)
         if user.get("visibility") == "private":
             self._label(name_row, "  \U0001F512 " + t("vis_private"), size=8, fg=self.MUTED, bg=self.WARM).pack(side="left")
         state = user.get("presence") or "offline"
@@ -938,6 +988,11 @@ class FriendsWindow:
             self._button(acts, "\u270e " + t("prof_edit"), lambda: self.show_tab("profile"), small=True).pack(side="left")
         else:
             self._relation_button(acts, user, small=False).pack(side="left")
+        if rel != "me" and user.get("role") != "owner":
+            self._button(acts, "\u2691 " + t("report_btn"), lambda: self._report(code, user.get("name", "?")),
+                         small=True).pack(side="right")
+        if self.social.is_staff and rel != "me":
+            self._render_staff_tools(code, user)
         if not full:
             card = tk.Frame(self.body, bg=self.TILE, padx=10, pady=10)
             card.pack(fill="x", pady=(6, 0))
@@ -987,6 +1042,282 @@ class FriendsWindow:
         if meta:
             self._label(self.body, "  \u00b7  ".join(meta), size=8, fg=self.MUTED).pack(fill="x", pady=(10, 0))
 
+    # ---- reports & moderation (v2.7) ----
+    def _report(self, code, name):
+        from tkinter import simpledialog
+        reason = simpledialog.askstring(t("report_btn"), t("report_q", name=name), parent=self.win)
+        if reason is None:
+            return
+        self.social.report_user(code, reason.strip())
+        self.status.config(text=t("fr_connecting"), fg=self.MUTED)
+
+    def _menu_button(self, parent, text, entries, primary=False):
+        """Small button that opens a popup menu of (label, command) entries."""
+        btn = self._button(parent, text + " \u25be", lambda: None, small=True, primary=primary)
+
+        def popup(event):
+            menu = tk.Menu(self.win, tearoff=0)
+            for label, command in entries:
+                menu.add_command(label=label, command=command)
+            try:
+                menu.tk_popup(event.x_root, event.y_root)
+            finally:
+                menu.grab_release()
+        btn.bind("<Button-1>", popup)
+        return btn
+
+    def _mod_entries(self, code, name):
+        return {
+            "mute": [(t("mod_mute_1h"), lambda: self._mod(code, "mute", hours=1)),
+                     (t("mod_mute_24h"), lambda: self._mod(code, "mute", hours=24)),
+                     (t("mod_mute_7d"), lambda: self._mod(code, "mute", hours=168))],
+        }
+
+    def _render_staff_tools(self, code, user):
+        card = tk.Frame(self.body, bg=self.TILE, padx=10, pady=8)
+        card.pack(fill="x", pady=(6, 0))
+        self._label(card, "\U0001F6E1 " + t("mod_tools"), bold=True, fg=self.MOD_BLUE, bg=self.TILE).pack(fill="x")
+        facts = []
+        if user.get("muted_until", 0) > time.time():
+            facts.append("\U0001F507 " + t("muted_banner", time=datetime.fromtimestamp(user["muted_until"]).strftime("%d %b %H:%M")))
+        if user.get("premium_until", 0) > time.time():
+            facts.append("\u2605 " + t("premium_active", until=self.social.premium_text(user["premium_until"])))
+        if facts:
+            self._label(card, "   ".join(facts), size=8, fg=self.MUTED, bg=self.TILE).pack(fill="x")
+        name = user.get("name", "?")
+        if user.get("can_mod"):
+            row = tk.Frame(card, bg=self.TILE)
+            row.pack(fill="x", pady=(4, 0))
+            self._button(row, "\u26a0 " + t("mod_warn"), lambda: self._warn(code, name), small=True).pack(side="left")
+            self._menu_button(row, "\U0001F507 " + t("mod_mute"), self._mod_entries(code, name)["mute"]).pack(
+                side="left", padx=(4, 0))
+            if user.get("muted_until", 0) > time.time():
+                self._button(row, t("mod_unmute"), lambda: self._mod(code, "unmute"), small=True).pack(side="left", padx=(4, 0))
+            self._button(row, t("mod_clear"), lambda: self._confirm_mod(code, name, "clear_profile"),
+                         small=True).pack(side="left", padx=(4, 0))
+            self._button(row, t("mod_rename"), lambda: self._confirm_mod(code, name, "reset_name"),
+                         small=True).pack(side="left", padx=(4, 0))
+        elif user.get("role") in ("owner", "mod"):
+            self._label(card, t("mod_cant_staff"), size=8, fg=self.MUTED, bg=self.TILE).pack(fill="x")
+        if self.social.is_owner and user.get("role") != "owner":
+            row = tk.Frame(card, bg=self.TILE)
+            row.pack(fill="x", pady=(6, 0))
+            self._label(row, "\u265b " + t("admin_title") + ":", size=8, bold=True, fg=self.GOLD, bg=self.TILE).pack(side="left")
+            if user.get("role") == "mod":
+                self._button(row, t("admin_remove_mod"), lambda: self._set_role(code, name, ""), small=True).pack(
+                    side="left", padx=(4, 0))
+            else:
+                self._button(row, "\U0001F6E1 " + t("admin_make_mod"), lambda: self._set_role(code, name, "mod"),
+                             small=True, primary=True).pack(side="left", padx=(4, 0))
+            self._menu_button(row, "\u2605 " + t("admin_premium"), self._premium_entries(code, name)).pack(
+                side="left", padx=(4, 0))
+
+    def _premium_entries(self, code, name):
+        return [(t("admin_p_30"), lambda: self.social.give_premium(code, 30)),
+                (t("admin_p_365"), lambda: self.social.give_premium(code, 365)),
+                (t("admin_p_forever"), lambda: self.social.give_premium(code, -1)),
+                (t("admin_p_remove"), lambda: self.social.give_premium(code, 0))]
+
+    def _mod(self, code, action, **extra):
+        self.error = ""
+        self.social.mod_action(code, action, **extra)
+        self.status.config(text=t("fr_connecting"), fg=self.MUTED)
+
+    def _warn(self, code, name):
+        from tkinter import simpledialog
+        text = simpledialog.askstring(t("mod_warn"), t("mod_warn_q", name=name), parent=self.win)
+        if text is None:
+            return
+        self._mod(code, "warn", text=text.strip())
+
+    def _confirm_mod(self, code, name, action):
+        question = t("mod_clear_q", name=name) if action == "clear_profile" else t("mod_rename_q", name=name)
+        if messagebox.askyesno(t("mod_tools"), question, parent=self.win):
+            self._mod(code, action)
+
+    def _set_role(self, code, name, role):
+        question = t("admin_make_mod_q", name=name) if role else t("admin_remove_mod_q", name=name)
+        if messagebox.askyesno(t("admin_title"), question, parent=self.win):
+            self.social.set_role(code, role)
+            self.status.config(text=t("fr_connecting"), fg=self.MUTED)
+
+    def _mini_person(self, parent, person, bg, extra_text=""):
+        row = tk.Frame(parent, bg=bg)
+        row.pack(fill="x", pady=1)
+        av = self._avatar(row, person.get("species"), person.get("color"), size=28, bg=bg, look=person.get("look"),
+                          person=person)
+        av.pack(side="left")
+        name = self._label(row, person.get("name", "?"), size=9, bold=True, bg=bg, cursor="hand2")
+        name.pack(side="left", padx=(6, 0))
+        self._role_chips(row, person, bg)
+        if extra_text:
+            self._label(row, extra_text, size=8, fg=self.MUTED, bg=bg).pack(side="left", padx=(6, 0))
+        for widget in (av, name):
+            widget.bind("<Button-1>", lambda e, c=person.get("code"): self.open_profile(c))
+        return row
+
+    def _render_mod(self):
+        bar = tk.Frame(self.body, bg=self.CARD)
+        bar.pack(fill="x", pady=(0, 6))
+        data = self.social.mod_data
+        reports = (data or {}).get("reports", [])
+        self._label(bar, "\U0001F6E1 " + t("mod_title", n=len(reports)), size=11, bold=True).pack(side="left")
+        self._button(bar, "\u21bb " + t("mod_refresh"), self._reload_mod, small=True).pack(side="right")
+        self._label(self.body, t("mod_intro_owner") if self.social.is_owner else t("mod_intro"), size=8,
+                    fg=self.MUTED, wrap=self.WIDTH - 70).pack(fill="x", pady=(0, 6))
+        if data is None:
+            self._label(self.body, t("fr_connecting"), fg=self.MUTED).pack(fill="x", pady=6)
+        elif not reports:
+            self._label(self.body, t("mod_none"), fg=self.MUTED).pack(fill="x", pady=6)
+        for rep in reports:
+            target = rep.get("target", {})
+            code = target.get("code", "")
+            card = tk.Frame(self.body, bg=self.TILE, padx=8, pady=6)
+            card.pack(fill="x", pady=2)
+            self._mini_person(card, target, self.TILE)
+            when = datetime.fromtimestamp(rep.get("at", 0)).strftime("%d %b %H:%M")
+            self._label(card, t("mod_reported_by", name=rep.get("reporter", {}).get("name", "?"), time=when)
+                        + (f": \u201c{rep['reason']}\u201d" if rep.get("reason") else ""),
+                        size=8, fg=self.INK, bg=self.TILE, wrap=self.WIDTH - 90).pack(fill="x", pady=(2, 0))
+            if target.get("bio") or target.get("status_text"):
+                self._label(card, (target.get("status_text") or "") + ("  \u00b7  " if target.get("status_text") and target.get("bio") else "")
+                            + (target.get("bio") or "")[:160], size=8, fg=self.MUTED, bg=self.TILE,
+                            wrap=self.WIDTH - 90).pack(fill="x")
+            row = tk.Frame(card, bg=self.TILE)
+            row.pack(fill="x", pady=(4, 0))
+            self._button(row, t("mod_view"), lambda c=code: self.open_profile(c), small=True).pack(side="left")
+            if target.get("can_act"):
+                name = target.get("name", "?")
+                self._button(row, "\u26a0 " + t("mod_warn"), lambda c=code, n=name: self._warn(c, n), small=True).pack(
+                    side="left", padx=(4, 0))
+                self._menu_button(row, "\U0001F507 " + t("mod_mute"), self._mod_entries(code, name)["mute"]).pack(
+                    side="left", padx=(4, 0))
+                self._button(row, t("mod_clear"), lambda c=code, n=name: self._confirm_mod(c, n, "clear_profile"),
+                             small=True).pack(side="left", padx=(4, 0))
+            self._button(row, "\u2713 " + t("mod_dismiss"),
+                         lambda r=rep.get("id"): self.social.mod_action("", "dismiss", report=r),
+                         small=True).pack(side="right")
+        if self.social.is_owner:
+            self._render_admin()
+        log = (self.social.admin_data or {}).get("log") if self.social.is_owner else None
+        log = log if log is not None else (data or {}).get("log", [])
+        if log:
+            self._section_title(t("mod_log"))
+            for entry in log[:25]:
+                when = datetime.fromtimestamp(entry.get("at", 0)).strftime("%d %b %H:%M")
+                text = t("log_" + entry.get("action", ""), actor=entry.get("actor", "?"),
+                         target=entry.get("target", ""), detail=entry.get("detail", ""))
+                self._label(self.body, f"{when}  \u00b7  {text}", size=8, fg=self.MUTED,
+                            wrap=self.WIDTH - 70).pack(fill="x")
+
+    def _reload_mod(self):
+        self.social.load_mod()
+        self.social.load_admin()
+        self.status.config(text=t("fr_connecting"), fg=self.MUTED)
+
+    def _render_admin(self):
+        data = self.social.admin_data
+        self._section_title("\u265b " + t("admin_title"))
+        if data is None:
+            self._label(self.body, t("fr_connecting"), fg=self.MUTED).pack(fill="x")
+            return
+        self._label(self.body, t("admin_stats", users=data.get("users", 0), mods=len(data.get("mods", [])),
+                                 premium=len(data.get("premium", []))), size=8, fg=self.MUTED).pack(fill="x")
+        self._label(self.body, t("admin_howto"), size=8, fg=self.MUTED, wrap=self.WIDTH - 70).pack(fill="x", pady=(0, 4))
+        # moderators
+        self._label(self.body, t("admin_mods", n=len(data.get("mods", []))), size=9, bold=True).pack(fill="x", pady=(4, 0))
+        for person in data.get("mods", []):
+            row = self._mini_person(self.body, person, self.CARD)
+            self._button(row, t("admin_remove_mod"),
+                         lambda c=person["code"], n=person.get("name", "?"): self._set_role(c, n, ""),
+                         small=True).pack(side="right")
+        if not data.get("mods"):
+            self._label(self.body, t("admin_none"), size=8, fg=self.MUTED).pack(fill="x")
+        # premium members
+        self._label(self.body, t("admin_premium_list", n=len(data.get("premium", []))), size=9, bold=True).pack(
+            fill="x", pady=(6, 0))
+        for person in data.get("premium", []):
+            row = self._mini_person(self.body, dict(person, premium=False), self.CARD,
+                                    "\u2605 " + self.social.premium_text(person.get("premium_until", 0)))
+            self._menu_button(row, t("admin_premium"), self._premium_entries(person["code"], person.get("name", "?"))).pack(
+                side="right")
+        if not data.get("premium"):
+            self._label(self.body, t("admin_none"), size=8, fg=self.MUTED).pack(fill="x")
+        # premium keys
+        self._label(self.body, "\U0001F511 " + t("admin_keys"), size=9, bold=True).pack(fill="x", pady=(8, 0))
+        self._label(self.body, t("admin_keys_hint"), size=8, fg=self.MUTED, wrap=self.WIDTH - 70).pack(fill="x")
+        gen = tk.Frame(self.body, bg=self.CARD)
+        gen.pack(fill="x", pady=(2, 2))
+        for days, key in ((30, "admin_p_30"), (365, "admin_p_365"), (-1, "admin_p_forever")):
+            self._button(gen, "+ " + t(key), lambda d=days: self._make_key(d), small=True, primary=days == 30).pack(
+                side="left", padx=(0, 4))
+        fresh = set(self.social.new_keys)
+        for item in data.get("keys", []):
+            row = tk.Frame(self.body, bg=self.WARM if item["key"] in fresh else self.CARD)
+            row.pack(fill="x", pady=1)
+            days = item.get("days", 30)
+            span = t("admin_p_forever") if days == -1 else t("admin_days", n=days)
+            tk.Label(row, text=item["key"], font=("Consolas", 10, "bold"), fg=self.ACCENT, bg=row["bg"]).pack(side="left")
+            self._label(row, "  " + span + ("  \u00b7  " + t("admin_new") if item["key"] in fresh else ""), size=8,
+                        fg=self.MUTED, bg=row["bg"]).pack(side="left")
+            self._button(row, "\u2398 " + t("fr_copy"), lambda k=item["key"]: self._copy(k), small=True).pack(side="right")
+        if data.get("redeemed"):
+            self._label(self.body, t("admin_redeemed"), size=8, bold=True, fg=self.MUTED).pack(fill="x", pady=(4, 0))
+            for item in data["redeemed"][:10]:
+                when = datetime.fromtimestamp(item.get("redeemed_at") or 0).strftime("%d %b")
+                self._label(self.body, f"{item['key']}  \u2192  {item.get('name') or '?'} ({when})", size=8,
+                            fg=self.MUTED).pack(fill="x")
+
+    def _make_key(self, days):
+        self.social.make_keys(days, 1)
+        self.status.config(text=t("fr_connecting"), fg=self.MUTED)
+
+    # ---- premium card (Profile tab) ----
+    def _render_premium(self):
+        self._section_title("\u2605 " + t("premium_title"))
+        soc = self.social
+        card = tk.Frame(self.body, bg=self.WARM, padx=10, pady=8)
+        card.pack(fill="x")
+        if soc.is_staff:
+            line = t("premium_staff")
+        elif soc.is_premium:
+            line = t("premium_active", until=soc.premium_text(soc.premium_until))
+        else:
+            line = t("premium_free")
+        self._label(card, line, bold=True, fg=self.PREMIUM_PURPLE, bg=self.WARM, wrap=self.WIDTH - 90).pack(fill="x")
+        self._label(card, t("premium_perks"), size=8, fg=self.INK, bg=self.WARM, wrap=self.WIDTH - 90).pack(
+            fill="x", pady=(2, 4))
+        if soc.is_staff:
+            return
+        self._label(card, t("premium_how", owner=social.OWNER_NAME, email=social.OWNER_EMAIL), size=8,
+                    fg=self.MUTED, bg=self.WARM, wrap=self.WIDTH - 90).pack(fill="x")
+        row = tk.Frame(card, bg=self.WARM)
+        row.pack(fill="x", pady=(6, 0))
+        self.key_var = tk.StringVar()
+        self._entry(row, self.key_var, width=18, font=("Consolas", 11)).pack(side="left")
+        self._button(row, t("premium_redeem"), self._redeem, primary=True, small=True).pack(side="left", padx=6)
+        self._button(row, "\u2709 " + t("premium_buy"), self._mail_premium, small=True).pack(side="left")
+        if not soc.enabled:
+            self._label(card, t("premium_needs_friends"), size=8, fg=self.MUTED, bg=self.WARM,
+                        wrap=self.WIDTH - 90).pack(fill="x", pady=(4, 0))
+
+    def _redeem(self):
+        key = "".join(ch for ch in self.key_var.get().upper() if ch.isalnum() or ch == "-")
+        if len(key) < 8:
+            self.show_error("bad_key")
+            return
+        self.error = ""
+        self.social.redeem_key(key)
+        self.status.config(text=t("fr_connecting"), fg=self.MUTED)
+
+    def _mail_premium(self):
+        import webbrowser
+        from urllib.parse import quote
+        name = self.social.data.get("name") or default_display_name()
+        code = self.social.data.get("code", "")
+        webbrowser.open(f"mailto:{social.OWNER_EMAIL}?subject={quote('Pips Premium')}"
+                        f"&body={quote(t('premium_mail_body', name=name, code=code))}")
+
     def _section_title(self, text):
         tk.Label(self.body, text=text.upper(), font=("Segoe UI", 8, "bold"), fg=self.ACCENT, bg=self.CARD,
                  anchor="w").pack(fill="x", pady=(10, 2))
@@ -995,6 +1326,12 @@ class FriendsWindow:
     def _render_profile_tab(self):
         self._profile_built = True
         prof = self.social.profile()
+        warning = self.social.data.get("last_warning")
+        if warning and time.time() - warning.get("at", 0) < 7 * 86400:
+            box = tk.Frame(self.body, bg=self.WARM, padx=10, pady=6)
+            box.pack(fill="x", pady=(0, 4))
+            self._label(box, "\u26a0 " + t("notice_warn", text=warning.get("text", "")), size=8, bold=True,
+                        fg=self.ACCENT, bg=self.WARM, wrap=self.WIDTH - 90).pack(fill="x")
         # photo
         self._section_title(t("prof_photo"))
         row = tk.Frame(self.body, bg=self.CARD)
@@ -1071,6 +1408,7 @@ class FriendsWindow:
         for key in ("light", "dark"):
             self._button(th, ("\u2600 " if key == "light" else "\u263e ") + t("theme_" + key),
                          lambda k=key: self._set_theme(k), primary=current == key).pack(side="left", padx=(0, 6))
+        self._render_premium()
         self._render_credits()
 
     def _render_credits(self):
@@ -1184,8 +1522,14 @@ class FriendsWindow:
                                             t=time.monotonic())
             except Exception:
                 pass
-            self._label(cell, t("pr_" + item), size=8, bold=True, bg=cell["bg"]).pack(anchor="center")
-            if wearing:
+            premium_item = item in pet_shop.PREMIUM_ITEMS
+            title = ("\u2605 " if premium_item else "") + t("pr_" + item)
+            self._label(cell, title, size=8, bold=True, bg=cell["bg"],
+                        fg=self.PREMIUM_PURPLE if premium_item else self.INK).pack(anchor="center")
+            if premium_item and not shop.can_buy(item):
+                btn = self._button(cell, "\u2605 " + t("premium_badge"), lambda: self._premium_needed(), small=True)
+                btn.config(fg=self.PREMIUM_PURPLE)
+            elif wearing:
                 btn = self._button(cell, t("shop_takeoff"), lambda s=slot: self._unequip(s), small=True)
             elif owned:
                 btn = self._button(cell, t("shop_wear"), lambda it=item: self._equip(it), small=True, primary=True)
@@ -1206,9 +1550,14 @@ class FriendsWindow:
             name, _, desc = t("mv_" + move).partition(":")
             box = tk.Frame(row, bg=row["bg"])
             box.pack(side="left", fill="x", expand=True)
-            self._label(box, name.strip(), size=10, bold=True, bg=row["bg"]).pack(fill="x")
+            premium_move = move in pet_shop.PREMIUM_ITEMS
+            self._label(box, ("\u2605 " if premium_move else "") + name.strip(), size=10, bold=True, bg=row["bg"],
+                        fg=self.PREMIUM_PURPLE if premium_move else self.INK).pack(fill="x")
             self._label(box, desc.strip(), size=8, fg=self.MUTED, bg=row["bg"], wrap=self.WIDTH - 200).pack(fill="x")
-            if owned:
+            if premium_move and not shop.can_buy(move):
+                btn = self._button(row, "\u2605 " + t("premium_badge"), lambda: self._premium_needed(), small=True)
+                btn.config(fg=self.PREMIUM_PURPLE)
+            elif owned:
                 btn = self._button(row, "\u25b6 " + t("shop_do"), lambda m=move: self._do_move(m), small=True,
                                    primary=True)
             else:
@@ -1218,8 +1567,16 @@ class FriendsWindow:
                     btn.config(fg=self.OFF_INK)
             btn.pack(side="right")
 
+    def _premium_needed(self):
+        self.show_tab("profile")
+        self.error = t("fr_err_premium_only")
+        self.status.config(text=self.error, fg=self.ACCENT)
+
     def _buy(self, item):
         shop = self.pet.shop
+        if not shop.can_buy(item):
+            self._premium_needed()
+            return
         balance = self.social.wallet()["balance"]
         if shop.price(item) > balance:
             self.show_error("poor")

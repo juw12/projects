@@ -1,30 +1,34 @@
 {
-  "version": "2.6.1",
+  "version": "2.7.0",
   "date": "2026-10-28",
-  "title": "Owner badge & credits",
+  "title": "Moderators & Premium",
   "url": "https://juw12.github.io/projects/pips/download/Pips-Windows.zip",
-  "sha256": "a4a0a84168ee1f16cb44e3a1c05bbd08fdc0ed38da3994d9ebe78aa24db72306",
-  "size": 705363,
+  "sha256": "edb723a718530cff2bb5a170ad98b997b6008d3f715fabe8bb6bcac88998d6c1",
+  "size": 720119,
   "notes": {
     "en": [
-      "The creator of Pips (Juwen Lie) now shows a gold ♛ Owner badge on his profile, friend list and ranks",
-      "New About Pips card in the Profile tab: credits and how to contact the owner (Juwen_Lie@pegatroncorp.com) with Email and Copy buttons",
-      "Right-click the pet → Help → About now shows who made Pips and the contact email"
+      "★ Premium: a purple Premium badge, 4 exclusive props (tiara, star glasses, diamond necklace, fairy wings), the Fireworks move, +30 coins every day, double friend-interaction coins and room for 300 friends / 30 groups",
+      "Get Premium: Profile tab → Premium → \"Ask to buy\" emails the owner; after payment you receive a key (PIPS-XXXX-XXXX) to redeem right there",
+      "🛡 Moderators: a blue Mod badge and a Mod tab with the report queue - warn, mute (1h / 24h / 7 days), clear a profile or reset a name; every action is logged",
+      "Report button on everyone's profile, so moderators can keep Pips friendly"
     ],
     "id": [
-      "Pembuat Pips (Juwen Lie) sekarang memiliki lencana emas ♛ Pemilik di profil, daftar teman dan peringkat",
-      "Kartu Tentang Pips baru di tab Profil: kredit dan cara menghubungi pemilik (Juwen_Lie@pegatroncorp.com) dengan tombol Email dan Salin",
-      "Klik kanan peliharaan → Bantuan → Tentang sekarang menampilkan pembuat Pips dan email kontak"
+      "★ Premium: lencana ungu Premium, 4 aksesori eksklusif (tiara, kacamata bintang, kalung berlian, sayap peri), gerakan Kembang Api, +30 koin setiap hari, koin interaksi teman dua kali lipat dan hingga 300 teman / 30 grup",
+      "Dapatkan Premium: tab Profil → Premium → \"Tanya cara beli\" mengirim email ke pemilik; setelah membayar kamu menerima kunci (PIPS-XXXX-XXXX) untuk ditukarkan di sana",
+      "🛡 Moderator: lencana biru Mod dan tab Mod dengan antrean laporan - peringatkan, bisukan (1 jam / 24 jam / 7 hari), hapus profil atau atur ulang nama; semua tindakan dicatat",
+      "Tombol Laporkan di profil setiap orang, agar moderator bisa menjaga Pips tetap ramah"
     ],
     "zh_TW": [
-      "Pips 的作者（Juwen Lie）現在在個人檔案、好友列表和排行中顯示金色 ♛ 擁有者徽章",
-      "個人檔案分頁新增「關於 Pips」卡片：製作名單與聯絡方式（Juwen_Lie@pegatroncorp.com），附寄信與複製按鈕",
-      "右鍵寵物 → 說明 → 關於，現在會顯示 Pips 的作者與聯絡信箱"
+      "★ 高級會員：紫色高級會員徽章、4 款專屬配件（皇冠頭飾、星星眼鏡、鑽石項鍊、精靈翅膀）、煙火動作、每天 +30 金幣、好友互動金幣加倍，以及最多 300 位好友 / 30 個群組",
+      "取得方式：個人檔案分頁 → 高級會員 →「詢問購買」寄信給擁有者；付款後會收到序號（PIPS-XXXX-XXXX），在同一處兌換",
+      "🛡 管理員：藍色管理員徽章和「管理」分頁的檢舉清單，可警告、禁言（1 小時 / 24 小時 / 7 天）、清除檔案或重設名字；所有操作都會記錄",
+      "每個人的檔案都有檢舉按鈕，讓管理員維護友善的 Pips"
     ],
     "zh_CN": [
-      "Pips 的作者（Juwen Lie）现在在个人资料、好友列表和排行中显示金色 ♛ 拥有者徽章",
-      "个人资料标签新增“关于 Pips”卡片：制作名单与联系方式（Juwen_Lie@pegatroncorp.com），附发邮件与复制按钮",
-      "右键宠物 → 帮助 → 关于，现在会显示 Pips 的作者与联系邮箱"
+      "★ 高级会员：紫色高级会员徽章、4 款专属配件（皇冠头饰、星星眼镜、钻石项链、精灵翅膀）、烟火动作、每天 +30 金币、好友互动金币加倍，以及最多 300 位好友 / 30 个群组",
+      "获取方式：个人资料标签 → 高级会员 →“咨询购买”发邮件给所有者；付款后会收到兑换码（PIPS-XXXX-XXXX），在同一处兑换",
+      "🛡 管理员：蓝色管理员徽章和“管理”标签的举报列表，可警告、禁言（1 小时 / 24 小时 / 7 天）、清除资料或重置名字；所有操作都会记录",
+      "每个人的资料都有举报按钮，让管理员维护友好的 Pips"
     ]
   },
   "guide": "https://juw12.github.io/projects/pips/download/Pips-Guide.pptx"
