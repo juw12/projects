@@ -1,34 +1,34 @@
 {
-  "version": "2.11.0",
+  "version": "2.12.0",
   "date": "2026-10-28",
-  "title": "New right-click menus",
+  "title": "Mega update: 28 new animals, 31 shop items, 13 moves",
   "url": "https://juw12.github.io/projects/pips/download/Pips-Windows.zip",
-  "sha256": "dc4efff5cd3e59c8edb1b60cfd4b4ab2ad1ac5b4223d638d5343c9c16341f8a5",
-  "size": 768394,
+  "sha256": "068b702afb86be1533cc4c941f3e47287960ecb5f84395fd0f970a00674f4239",
+  "size": 782335,
   "notes": {
     "en": [
-      "✨ Brand-new animated right-click menu for your pet: mood & stat bars, quick-action tiles (Friends, Shop, Snack, Pat, Focus, Stats, Sleep, Taskbar), hover effects and smooth fly-out submenus",
-      "Pick colours from swatches, switch size with one click and flip Sounds / Dark mode with toggle switches - changes show instantly",
-      "Updates are highlighted: a glowing banner and NEW badge appear in the menu when a new version is ready",
-      "The focus card's right-click menu got the same new look; keyboard arrows, Enter and Esc work too"
+      "🦁 28 new animals (51 total): lion, tiger, unicorn, deer, sheep, cow, raccoon, red panda, monkey, hedgehog, dino, squirrel, mouse, koala, shark, dolphin, seal, otter, pufferfish, duck, crab, parrot, chick, ladybug, phoenix, pegasus, ghost and flamingo",
+      "🎩 31 new shop items: top hat, cowboy, chef, pirate, Santa, viking, graduation cap, beret, bow, propeller cap, flower crown, nerd glasses, eyepatch, mustache, goggles, masquerade mask, tie, pearls, flower lei, gold chain, balloon, backpack, guitar, shield, butterfly / devil wings and more - plus Premium galaxy crown, galaxy cape and dragon wings",
+      "💃 13 new moves: wave, jump, hearts, sing, yoga, zoomies, cartwheel, juggle, rain dance, breakdance, magic, confetti and the Premium rocket launch",
+      "The Shop is now split into sections (Hats, Face, Neck, Back, Moves, Arena gear) with an owned counter for each"
     ],
     "id": [
-      "✨ Menu klik kanan baru yang beranimasi untuk peliharaanmu: bar mood & status, tombol cepat (Teman, Toko, Camilan, Elus, Fokus, Statistik, Tidur, Taskbar), efek hover dan submenu yang mulus",
-      "Pilih warna dari palet, ganti ukuran sekali klik, dan nyalakan Suara / Mode gelap dengan sakelar - perubahan langsung terlihat",
-      "Update kini disorot: banner menyala dan lencana BARU muncul di menu saat versi baru siap",
-      "Menu klik kanan kartu fokus juga punya tampilan baru; panah keyboard, Enter dan Esc juga bisa dipakai"
+      "🦁 28 hewan baru (total 51): singa, harimau, unicorn, rusa, domba, sapi, rakun, panda merah, monyet, landak, dino, tupai, tikus, koala, hiu, lumba-lumba, anjing laut, berang-berang, ikan buntal, bebek, kepiting, beo, anak ayam, kepik, phoenix, pegasus, hantu dan flamingo",
+      "🎩 31 item toko baru: topi tinggi, koboi, koki, bajak laut, Sinterklas, viking, topi wisuda, baret, pita, topi baling-baling, mahkota bunga, kacamata kutu buku, penutup mata, kumis, kacamata renang, topeng pesta, dasi, mutiara, kalung bunga, kalung emas, balon, ransel, gitar, perisai, sayap kupu-kupu / iblis dan lainnya - plus mahkota galaksi, jubah galaksi dan sayap naga khusus Premium",
+      "💃 13 gerakan baru: lambai, lompat, hati, nyanyi, yoga, lari kencang, roda, juggling, tari hujan, breakdance, sulap, konfeti dan peluncuran roket Premium",
+      "Toko kini dibagi per bagian (Topi, Wajah, Leher, Punggung, Gerakan, Perlengkapan arena) dengan penghitung item yang dimiliki"
     ],
     "zh_TW": [
-      "✨ 全新動畫右鍵選單：心情與狀態條、快捷按鈕（好友、商店、點心、摸摸、專注、統計、睡覺、工作列）、滑過特效和流暢的子選單",
-      "從色票選顏色、一鍵切換大小、用開關切換聲音／深色模式，變化立即生效",
-      "更新會被醒目標示：有新版本時選單會出現發光橫幅和「新」標籤",
-      "專注卡的右鍵選單也換上新外觀；也可以用方向鍵、Enter 和 Esc 操作"
+      "🦁 28 種新動物（共 51 種）：獅子、老虎、獨角獸、小鹿、綿羊、乳牛、浣熊、小熊貓、猴子、刺蝟、恐龍、松鼠、老鼠、無尾熊、鯊魚、海豚、海豹、水獺、河豚、鴨子、螃蟹、鸚鵡、小雞、瓢蟲、鳳凰、天馬、小幽靈和紅鶴",
+      "🎩 31 件新商品：紳士帽、牛仔帽、廚師帽、海盜帽、聖誕帽、維京頭盔、學士帽、貝雷帽、蝴蝶結、竹蜻蜓帽、花環、書呆子眼鏡、眼罩、八字鬍、護目鏡、假面舞會面具、領帶、珍珠項鍊、花圈項鍊、金項鍊、氣球、背包、吉他、盾牌、蝴蝶／小惡魔翅膀等，還有 Premium 銀河皇冠、銀河披風和龍之翼",
+      "💃 13 個新動作：揮手、跳跳、愛心、唱歌、瑜伽、暴衝、側翻、雜耍、求雨舞、霹靂舞、魔術、彩帶和 Premium 火箭升空",
+      "商店分成不同區塊（帽子、臉部、頸部、背部、動作、競技場裝備），並顯示已擁有數量"
     ],
     "zh_CN": [
-      "✨ 全新动画右键菜单：心情与状态条、快捷按钮（好友、商店、点心、摸摸、专注、统计、睡觉、任务栏）、悬停特效和流畅的子菜单",
-      "从色板选颜色、一键切换大小、用开关切换声音／深色模式，变化立即生效",
-      "更新会被醒目标示：有新版本时菜单会出现发光横幅和“新”标签",
-      "专注卡的右键菜单也换上新外观；也可以用方向键、Enter 和 Esc 操作"
+      "🦁 28 种新动物（共 51 种）：狮子、老虎、独角兽、小鹿、绵羊、奶牛、浣熊、小熊猫、猴子、刺猬、恐龙、松鼠、老鼠、考拉、鲨鱼、海豚、海豹、水獭、河豚、鸭子、螃蟹、鹦鹉、小鸡、瓢虫、凤凰、天马、小幽灵和火烈鸟",
+      "🎩 31 件新商品：绅士帽、牛仔帽、厨师帽、海盗帽、圣诞帽、维京头盔、学士帽、贝雷帽、蝴蝶结、竹蜻蜓帽、花环、书呆子眼镜、眼罩、八字胡、护目镜、假面舞会面具、领带、珍珠项链、花环项链、金项链、气球、背包、吉他、盾牌、蝴蝶／小恶魔翅膀等，还有 Premium 银河皇冠、银河披风和龙之翼",
+      "💃 13 个新动作：挥手、跳跳、爱心、唱歌、瑜伽、暴冲、侧翻、杂耍、求雨舞、霹雳舞、魔术、彩带和 Premium 火箭升空",
+      "商店分成不同区块（帽子、脸部、颈部、背部、动作、竞技场装备），并显示已拥有数量"
     ]
   },
   "guide": "https://juw12.github.io/projects/pips/download/Pips-Guide.pptx"
