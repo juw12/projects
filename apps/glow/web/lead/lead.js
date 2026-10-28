@@ -1863,6 +1863,14 @@
     if (!box) return;
     box.hidden = false;
     const busy = ACTIVE.includes(lead.status);
+    // Inside the 👑 agent bubble: tell the host page, so the bubble shows a dot while a mission runs.
+    if (window.parent !== window) {
+      try {
+        window.parent.postMessage({ type: "glow-lead-busy", busy }, location.origin);
+      } catch (error) {
+        // Host on another origin: nothing to tell.
+      }
+    }
     const opened = new Set([...box.querySelectorAll("details[open][data-detail]")].map((item) => item.dataset.detail));
     const doneCount = lead.steps.filter((s) => s.status === "done").length;
     const statusLine = lead.status === "working" && lead.steps.length

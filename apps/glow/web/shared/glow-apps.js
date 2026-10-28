@@ -10,7 +10,7 @@
   const ROOT = new URL("../", scriptUrl); // .../glow/
   // The Glow family version. Bump it together with ../version.json for every release:
   // an older copy of this script then sees the newer version.json and offers "Update now".
-  const GLOW_VERSION = "1.22.0";
+  const GLOW_VERSION = "1.23.0";
   const LIVE_ROOT = "https://juw12.github.io/projects/glow/";
   const APK_URL = "https://github.com/juw12/projects/releases/download/glow-android/Glow-android.apk";
   const embedded = (function () {
@@ -22,6 +22,10 @@
   })();
   // Mobile builds on mobile pages, and on phones even from Glow home.
   const onMobilePage = /mobile\.html$/.test(location.pathname) || window.matchMedia("(max-width: 720px)").matches;
+
+  // ♥ Support Glow: donation links shown in every Glow apps menu. Leave the list empty to hide the section.
+  // Example: { icon: "☕", label: "Saweria", url: "https://saweria.co/yourname" }
+  const DONATE_LINKS = [];
 
   const APPS = [
     { id: "home", name: "Glow", icon: "✦", desc: "Your Glow home: start anything", page: "" },
@@ -153,6 +157,22 @@ html.glow-room-open,html.glow-room-open body{overflow:hidden}
 .glow-profile-item.primary{background:#d97757;color:#fff;font-weight:650;margin-top:4px}
 .glow-profile-item.primary:hover{background:#e0865f}
 html.glow-embedded [data-glow-apps]{display:none!important}
+.glow-donate{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 2px}
+.glow-donate a{display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border-radius:999px;background:rgba(236,111,156,.14);color:inherit;text-decoration:none;font-size:12.5px;font-weight:600}
+.glow-donate a:hover{background:rgba(236,111,156,.26)}
+button.glow-apps-profile{width:100%;border:0;background:none;font:inherit;color:inherit;cursor:pointer;text-align:left}
+.glow-widget-bubble{position:fixed;right:18px;bottom:96px;z-index:2147481000;width:54px;height:54px;border-radius:50%;border:0;cursor:pointer;font-size:25px;line-height:54px;text-align:center;color:#fff;background:linear-gradient(135deg,#d97757,#e7b75d);box-shadow:0 8px 24px rgba(0,0,0,.35);touch-action:none;user-select:none;-webkit-user-select:none}
+.glow-widget-bubble:focus-visible{outline:3px solid #fff;outline-offset:2px}
+.glow-widget-bubble .dot{position:absolute;top:3px;right:3px;width:11px;height:11px;border-radius:50%;background:#7fb069;border:2px solid #1f1e1d;display:none}
+.glow-widget-bubble.busy .dot{display:block}
+.glow-widget-panel{position:fixed;right:18px;bottom:160px;z-index:2147481001;width:min(400px,calc(100vw - 24px));height:min(620px,calc(100vh - 190px));display:flex;flex-direction:column;border-radius:16px;overflow:hidden;background:#1f1e1d;box-shadow:0 18px 50px rgba(0,0,0,.45);border:1px solid rgba(255,255,255,.12)}
+.glow-widget-panel[hidden]{display:none}
+.glow-widget-bar{display:flex;align-items:center;gap:8px;padding:8px 10px;background:#2a2826;color:#f5efe6;font:600 13px system-ui,sans-serif}
+.glow-widget-bar .grow{flex:1}
+.glow-widget-bar button{border:0;background:rgba(255,255,255,.08);color:inherit;border-radius:8px;padding:5px 9px;font:inherit;font-weight:500;cursor:pointer}
+.glow-widget-panel iframe{flex:1;width:100%;border:0;background:#1f1e1d}
+html.glow-room-open .glow-widget-bubble,html.glow-room-open .glow-widget-panel{display:none}
+@media (max-width:720px){.glow-widget-bubble{right:12px;bottom:84px;width:50px;height:50px;line-height:50px}.glow-widget-panel{right:0;left:0;bottom:0;width:100%;height:82vh;border-radius:16px 16px 0 0}}
 @media (max-width:560px){.glow-room-bar small,.glow-room-bar .full span{display:none}.glow-update-bar small{max-width:24ch}}
 .glow-install-sheet{position:fixed;left:0;right:0;margin:0 auto;bottom:max(14px,env(safe-area-inset-bottom));z-index:2147483002;
   width:min(440px,calc(100vw - 20px));max-height:calc(100vh - 28px);max-height:calc(100dvh - 28px);overflow-y:auto;box-sizing:border-box;
@@ -194,7 +214,11 @@ html.glow-embedded [data-glow-apps]{display:none!important}
         <span><span class="glow-apps-name">${app.name}</span><br><span class="glow-apps-desc">${escapeHtml(tr(`apps.${app.id}`, app.desc))}</span></span>
         ${app.id === here ? `<span class="glow-apps-here">${escapeHtml(tr("apps.here", "You're here"))}</span>` : ""}
       </a>`).join("");
-    const profile = `<a class="glow-apps-profile" href="${accountUrl()}">👤 ${escapeHtml(tr("profile", "Profile & settings"))}<span style="margin-left:auto;opacity:.6">›</span></a>` + (window.GlowLocale ? `<a class="glow-apps-profile" href="#" data-glow-locale>🌐 ${escapeHtml(tr("menu.language", "Language & region"))}<span style="margin-left:auto;opacity:.6">${escapeHtml(localeLabel())}</span></a>` : "");
+    const profile = `<a class="glow-apps-profile" href="${accountUrl()}">👤 ${escapeHtml(tr("profile", "Profile & settings"))}<span style="margin-left:auto;opacity:.6">›</span></a>` + (window.GlowLocale ? `<a class="glow-apps-profile" href="#" data-glow-locale>🌐 ${escapeHtml(tr("menu.language", "Language & region"))}<span style="margin-left:auto;opacity:.6">${escapeHtml(localeLabel())}</span></a>` : "")
+      + (here !== "lead" && !embedded
+        ? `<button class="glow-apps-profile glow-widget-toggle" type="button" data-glow-widget-toggle>👑 Agent bubble on every page<span style="margin-left:auto;opacity:.7">${widgetEnabled() ? "On" : "Off"}</span></button>`
+        : "")
+      + donateHtml();
     const foot = profile + (who.signedIn
       ? `Signed in as <b>${escapeHtml(who.name)}</b> · one Glow account for every app`
       : "One Glow account for every app · sign in once in any of them");
@@ -712,8 +736,161 @@ html.glow-embedded [data-glow-apps]{display:none!important}
 
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape" && roomPanel && !roomPanel.hidden) closeRoomPanel();
+    else if (event.key === "Escape" && widgetPanel && !widgetPanel.hidden) closeWidget();
   });
   if (embedded) document.documentElement.classList.add("glow-embedded");
+
+  /* ===== ♥ Support Glow (donation links) ===== */
+  function donateHtml() {
+    const links = DONATE_LINKS.filter((link) => link && /^https:\/\//.test(link.url || ""));
+    if (!links.length) return "";
+    const buttons = links.map((link) => `<a href="${escapeHtml(link.url)}" target="_blank" rel="noopener" data-glow-external="1">${escapeHtml(link.icon || "♥")} ${escapeHtml(link.label || "Donate")}</a>`).join("");
+    return `<div class="glow-donate-wrap"><div style="margin-top:8px;opacity:.8">♥ Glow is free. Support it:</div><div class="glow-donate">${buttons}</div></div>`;
+  }
+
+  /* ===== 👑 GlowLead agent bubble: a floating GlowLead you can open from any Glow page ===== */
+  const WIDGET_KEY = "glow.widget";
+  let widgetBubble = null;
+  let widgetPanel = null;
+
+  function widgetEnabled() {
+    try {
+      return localStorage.getItem(WIDGET_KEY) !== "off";
+    } catch (error) {
+      return true;
+    }
+  }
+
+  function setWidgetEnabled(on) {
+    try {
+      localStorage.setItem(WIDGET_KEY, on ? "on" : "off");
+    } catch (error) {
+      // Private mode: the choice lasts for this page only.
+    }
+    if (on) mountWidget();
+    else unmountWidget();
+  }
+
+  function widgetPosition() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(WIDGET_KEY + ".pos") || "null");
+      if (saved && Number.isFinite(saved.right) && Number.isFinite(saved.bottom)) return saved;
+    } catch (error) {
+      // Ignore a damaged saved position.
+    }
+    return null;
+  }
+
+  function applyWidgetPosition() {
+    const pos = widgetPosition();
+    if (!pos || !widgetBubble) return;
+    const right = Math.min(Math.max(4, pos.right), window.innerWidth - 60);
+    const bottom = Math.min(Math.max(4, pos.bottom), window.innerHeight - 60);
+    widgetBubble.style.right = `${right}px`;
+    widgetBubble.style.bottom = `${bottom}px`;
+  }
+
+  function openWidget(goal) {
+    if (!widgetPanel) {
+      widgetPanel = document.createElement("div");
+      widgetPanel.className = "glow-widget-panel";
+      widgetPanel.setAttribute("role", "dialog");
+      widgetPanel.setAttribute("aria-label", "GlowLead agent");
+      widgetPanel.innerHTML = `<div class="glow-widget-bar"><span aria-hidden="true">👑</span><span>GlowLead</span><span class="grow"></span>
+        <button type="button" data-widget-full title="Open GlowLead full screen">⤢</button>
+        <button type="button" data-widget-close>✕</button></div><iframe title="GlowLead" allow="clipboard-write; microphone"></iframe>`;
+      document.body.appendChild(widgetPanel);
+      widgetPanel.querySelector("[data-widget-close]").addEventListener("click", closeWidget);
+      widgetPanel.querySelector("[data-widget-full]").addEventListener("click", () => {
+        closeWidget();
+        location.assign(appUrl("lead"));
+      });
+    }
+    const frame = widgetPanel.querySelector("iframe");
+    const url = new URL(appUrl("lead"));
+    url.searchParams.set("widget", "1");
+    if (goal) url.searchParams.set("goal", goal);
+    if (!frame.src || goal) frame.src = url.href;
+    widgetPanel.hidden = false;
+    if (widgetBubble) widgetBubble.setAttribute("aria-expanded", "true");
+  }
+
+  function closeWidget() {
+    if (widgetPanel) widgetPanel.hidden = true;
+    if (widgetBubble) widgetBubble.setAttribute("aria-expanded", "false");
+  }
+
+  function toggleWidget() {
+    if (widgetPanel && !widgetPanel.hidden) closeWidget();
+    else openWidget();
+  }
+
+  function mountWidget() {
+    // The bubble lives on every Glow page except GlowLead itself and pages shown inside another Glow app.
+    if (embedded || currentApp() === "lead" || !widgetEnabled() || widgetBubble || !document.body) return;
+    ensureStyles();
+    widgetBubble = document.createElement("button");
+    widgetBubble.type = "button";
+    widgetBubble.className = "glow-widget-bubble";
+    widgetBubble.title = "GlowLead: your AI agent (drag to move)";
+    widgetBubble.setAttribute("aria-label", "Open GlowLead agent");
+    widgetBubble.setAttribute("aria-expanded", "false");
+    widgetBubble.innerHTML = '👑<span class="dot" aria-hidden="true"></span>';
+    document.body.appendChild(widgetBubble);
+    applyWidgetPosition();
+    let drag = null;
+    widgetBubble.addEventListener("pointerdown", (event) => {
+      const rect = widgetBubble.getBoundingClientRect();
+      drag = { x: event.clientX, y: event.clientY, right: window.innerWidth - rect.right, bottom: window.innerHeight - rect.bottom, moved: false };
+      widgetBubble.setPointerCapture(event.pointerId);
+    });
+    widgetBubble.addEventListener("pointermove", (event) => {
+      if (!drag) return;
+      const dx = event.clientX - drag.x;
+      const dy = event.clientY - drag.y;
+      if (!drag.moved && Math.hypot(dx, dy) < 6) return;
+      drag.moved = true;
+      widgetBubble.style.right = `${Math.min(Math.max(4, drag.right - dx), window.innerWidth - 60)}px`;
+      widgetBubble.style.bottom = `${Math.min(Math.max(4, drag.bottom - dy), window.innerHeight - 60)}px`;
+    });
+    widgetBubble.addEventListener("pointerup", () => {
+      if (!drag) return;
+      const moved = drag.moved;
+      drag = null;
+      if (moved) {
+        try {
+          localStorage.setItem(WIDGET_KEY + ".pos", JSON.stringify({ right: parseFloat(widgetBubble.style.right), bottom: parseFloat(widgetBubble.style.bottom) }));
+        } catch (error) {
+          // Position simply isn't remembered.
+        }
+        return;
+      }
+      toggleWidget();
+    });
+    window.addEventListener("resize", applyWidgetPosition);
+  }
+
+  function unmountWidget() {
+    closeWidget();
+    if (widgetBubble) widgetBubble.remove();
+    if (widgetPanel) widgetPanel.remove();
+    widgetBubble = null;
+    widgetPanel = null;
+  }
+
+  document.addEventListener("click", (event) => {
+    const toggle = event.target && event.target.closest ? event.target.closest("[data-glow-widget-toggle]") : null;
+    if (!toggle) return;
+    event.preventDefault();
+    setWidgetEnabled(!widgetEnabled());
+    const state = toggle.querySelector("span");
+    if (state) state.textContent = widgetEnabled() ? "On" : "Off";
+  });
+  // GlowLead inside the bubble reports when a mission is running, so the bubble shows a green dot.
+  window.addEventListener("message", (event) => {
+    if (event.origin !== location.origin || !event.data || event.data.type !== "glow-lead-busy" || !widgetBubble) return;
+    widgetBubble.classList.toggle("busy", !!event.data.busy);
+  });
 
   function startUpdateChecks() {
     refreshVersionViews();
@@ -730,6 +907,7 @@ html.glow-embedded [data-glow-apps]{display:none!important}
     document.querySelectorAll("[data-glow-profile]").forEach(mountProfile);
     startUpdateChecks();
     prepareOffline();
+    mountWidget();
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", autoMount);
   else autoMount();
@@ -739,6 +917,7 @@ html.glow-embedded [data-glow-apps]{display:none!important}
     apps: APPS.map((a) => ({ ...a })),
     version: GLOW_VERSION, checkForUpdate, applyUpdate, compareVersions, openApp, openRoomPanel, closeRoomPanel,
     showInstallGuide, isStandalone, isAppleMobile,
+    openWidget, closeWidget, setWidgetEnabled, widgetEnabled, donateLinks: DONATE_LINKS.slice(),
     get updateState() { return updateState; },
     get latest() { return latest; },
   };
