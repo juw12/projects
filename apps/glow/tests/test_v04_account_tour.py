@@ -26,8 +26,9 @@ class V04Tests(unittest.TestCase):
             page = (WEB / name).read_text(encoding="utf-8")
             csp = re.search(r'Content-Security-Policy" content="([^"]+)"', page).group(1)
             script_src = re.search(r"script-src ([^;]+)", csp).group(1).split()
-            self.assertEqual(script_src, ["'self'", "https://js.puter.com"])
-            self.assertNotIn("unsafe-eval", csp)
+            # 'wasm-unsafe-eval' (1.22) only lets Glow Offline compile WebAssembly; JavaScript eval stays blocked.
+            self.assertEqual(script_src, ["'self'", "'wasm-unsafe-eval'", "https://js.puter.com"])
+            self.assertNotIn("'unsafe-eval'", csp)
             self.assertNotIn("js.puter.com", page.split("Content-Security-Policy")[1].split(">", 1)[1],
                              "Puter must load lazily from app.js, not as a static script tag")
 
@@ -51,7 +52,7 @@ class V04Tests(unittest.TestCase):
 
     def test_offline_cache_bumped_for_new_assets(self):
         worker = (WEB / "sw.js").read_text(encoding="utf-8")
-        self.assertIn("const CACHE_NAME = 'glowchat-v11';", worker)
+        self.assertIn("const CACHE_NAME = 'glowchat-v12';", worker)
 
     def test_guests_get_keyless_free_ai(self):
         self.assertIn('const FREE_AI_URL = "https://text.pollinations.ai/openai";', self.script)

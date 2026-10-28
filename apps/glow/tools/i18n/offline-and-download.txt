@@ -1,0 +1,134 @@
+# Glow 1.22: Glow Offline (AI on this device), the iPhone Home Screen app guide and the download page.
+# English || Bahasa Indonesia || 简体中文   (繁體中文 is generated with OpenCC s2twp + fixes)
+
+# GlowChat → Settings → Offline AI on this device
+Offline AI on this device || AI offline di perangkat ini || 本设备上的离线 AI
+Download a small AI model once and GlowChat keeps answering with no internet. It runs on this device's graphics chip and nothing you type leaves the device. Offline models are smaller than cloud AI: good for writing, rewriting, translating and quick questions. || Unduh model AI kecil sekali saja dan GlowChat tetap menjawab tanpa internet. Model berjalan di chip grafis perangkat ini dan apa pun yang kamu ketik tidak keluar dari perangkat. Model offline lebih kecil dari AI cloud: cocok untuk menulis, menulis ulang, menerjemahkan dan pertanyaan singkat. || 只需下载一次小型 AI 模型，GlowChat 就能在没有网络时继续回答。它在本设备的显卡芯片上运行，你输入的内容不会离开设备。离线模型比云端 AI 小：适合写作、改写、翻译和简单提问。
+Checking this device… || Memeriksa perangkat ini… || 正在检查此设备…
+Small and quick. Best for phones: short answers, rewriting and translating. || Kecil dan cepat. Terbaik untuk ponsel: jawaban singkat, menulis ulang dan menerjemahkan. || 小巧快速。最适合手机：简短回答、改写和翻译。
+Better answers. Best for laptops and newer phones. || Jawaban lebih baik. Terbaik untuk laptop dan ponsel yang lebih baru. || 回答更好。最适合笔记本电脑和较新的手机。
+The best offline answers. For PCs with a graphics card. || Jawaban offline terbaik. Untuk PC dengan kartu grafis. || 最好的离线回答。适合配有独立显卡的电脑。
+Recommended for this device || Disarankan untuk perangkat ini || 推荐用于此设备
+Ready offline || Siap offline || 已可离线使用
+Use in this chat || Pakai di chat ini || 在此聊天中使用
+Delete || Hapus || 删除
+re:^Download · (.+)$ || Unduh · $1 || 下载 · $1
+Models are kept in this browser's storage. Wi-Fi recommended for the download. || Model disimpan di penyimpanan browser ini. Disarankan memakai Wi-Fi untuk mengunduh. || 模型保存在此浏览器的存储空间中。建议使用 Wi-Fi 下载。
+Models are kept in this browser's storage; on iPhone, add Glow to your Home Screen first so it can keep them. Wi-Fi recommended for the download. || Model disimpan di penyimpanan browser ini; di iPhone, tambahkan Glow ke Layar Utama dulu agar model tetap tersimpan. Disarankan memakai Wi-Fi untuk mengunduh. || 模型保存在此浏览器的存储空间中；在 iPhone 上，请先把 Glow 添加到主屏幕，这样才能保留模型。建议使用 Wi-Fi 下载。
+Checking the download servers… || Memeriksa server unduhan… || 正在检查下载服务器…
+re:^Downloading (.+)… (\d+)%$ || Mengunduh $1… $2% || 正在下载 $1… $2%
+Starting the AI on this device… || Menyalakan AI di perangkat ini… || 正在本设备上启动 AI…
+You're offline: Glow Offline answers on this device. || Kamu sedang offline: Glow Offline menjawab di perangkat ini. || 你已离线：由 Glow Offline 在本设备上回答。
+You're offline. Your chats are saved here; download Glow Offline in Settings to chat without internet. || Kamu sedang offline. Chat-mu tersimpan di sini; unduh Glow Offline di Pengaturan untuk chat tanpa internet. || 你已离线。聊天记录已保存在这里；在设置中下载 Glow Offline 即可无网络聊天。
+You're offline. Your chats are saved on this device. To keep chatting with no internet, download Glow Offline (Settings → Offline AI on this device) the next time you're online. || Kamu sedang offline. Chat-mu tersimpan di perangkat ini. Agar tetap bisa chat tanpa internet, unduh Glow Offline (Pengaturan → AI offline di perangkat ini) saat kamu online nanti. || 你已离线。聊天记录已保存在本设备上。若想在没有网络时继续聊天，请在下次联网时下载 Glow Offline（设置 → 本设备上的离线 AI）。
+re:^(.+) is ready\. It works with no internet\.$ || $1 sudah siap. Bisa dipakai tanpa internet. || $1 已就绪，无需网络即可使用。
+re:^(Glow Offline(?: Mini| Plus)?) answers this chat$ || $1 menjawab chat ini || 此聊天由 $1 回答
+re:^(Glow Offline(?: Mini| Plus)?) \(on this device, works offline\)$ || $1 (di perangkat ini, bisa offline) || $1（在本设备上，可离线使用）
+On this device: works offline || Di perangkat ini: bisa offline || 在本设备上：可离线使用
+Offline AI isn't available in this app. || AI offline tidak tersedia di aplikasi ini. || 此应用不支持离线 AI。
+Glow Offline isn't available in this app. || Glow Offline tidak tersedia di aplikasi ini. || 此应用不支持 Glow Offline。
+This iPhone or iPad can't run AI on the device yet: it needs iOS 26 or newer (Safari with WebGPU). || iPhone atau iPad ini belum bisa menjalankan AI di perangkat: perlu iOS 26 atau lebih baru (Safari dengan WebGPU). || 这台 iPhone 或 iPad 暂时无法在设备上运行 AI：需要 iOS 26 或更高版本（支持 WebGPU 的 Safari）。
+This browser can't run AI on the device (no WebGPU). Use a recent Chrome or Edge on a PC, Mac or Android phone, or Safari on iOS 26 / macOS 26. || Browser ini tidak bisa menjalankan AI di perangkat (tidak ada WebGPU). Gunakan Chrome atau Edge terbaru di PC, Mac atau ponsel Android, atau Safari di iOS 26 / macOS 26. || 此浏览器无法在设备上运行 AI（不支持 WebGPU）。请在电脑、Mac 或 Android 手机上使用较新的 Chrome 或 Edge，或在 iOS 26 / macOS 26 上使用 Safari。
+Your device's graphics chip isn't available to the browser, so on-device AI can't run here. || Chip grafis perangkatmu tidak tersedia untuk browser, jadi AI di perangkat tidak bisa berjalan di sini. || 浏览器无法使用你设备的显卡芯片，因此无法在此运行设备端 AI。
+The model couldn't be downloaded on this network (huggingface.co and modelscope.cn are blocked or offline). Try another network such as home Wi-Fi or mobile data. Once it's downloaded, Glow Offline works with no internet. || Model tidak bisa diunduh di jaringan ini (huggingface.co dan modelscope.cn diblokir atau offline). Coba jaringan lain seperti Wi-Fi rumah atau data seluler. Setelah terunduh, Glow Offline bisa dipakai tanpa internet. || 无法在此网络上下载模型（huggingface.co 和 modelscope.cn 被屏蔽或无法访问）。请换个网络试试，例如家里的 Wi-Fi 或移动数据。下载完成后，Glow Offline 无需网络即可使用。
+This device ran out of graphics memory for that model. Close other apps or tabs, or use Glow Offline Mini. || Memori grafis perangkat ini tidak cukup untuk model itu. Tutup aplikasi atau tab lain, atau pakai Glow Offline Mini. || 此设备的显存不足以运行该模型。请关闭其他应用或标签页，或改用 Glow Offline Mini。
+There isn't enough free storage for that model. Free up some space, or pick a smaller model. || Penyimpanan kosong tidak cukup untuk model itu. Kosongkan sebagian ruang, atau pilih model yang lebih kecil. || 剩余存储空间不足以保存该模型。请释放一些空间，或选择更小的模型。
+Glow Offline stopped. The device may have run out of memory; try again or use Glow Offline Mini. || Glow Offline berhenti. Mungkin memori perangkat habis; coba lagi atau pakai Glow Offline Mini. || Glow Offline 已停止。设备可能内存不足；请重试或改用 Glow Offline Mini。
+Download this offline model first: GlowChat → Settings → Offline AI on this device. || Unduh dulu model offline ini: GlowChat → Pengaturan → AI offline di perangkat ini. || 请先下载此离线模型：GlowChat → 设置 → 本设备上的离线 AI。
+
+# iPhone / iPad: add Glow to the Home Screen (glow-apps.js)
+Get the Glow app on your iPhone: free || Dapatkan aplikasi Glow di iPhone-mu: gratis || 在 iPhone 上获取 Glow 应用：免费
+Get the Glow app on your iPad: free || Dapatkan aplikasi Glow di iPad-mu: gratis || 在 iPad 上获取 Glow 应用：免费
+It opens full screen like any app, works offline and keeps your chats safe from Safari's 7-day clean-up. || Glow terbuka layar penuh seperti aplikasi lain, bisa offline dan chat-mu aman dari pembersihan 7 hari Safari. || 它像普通应用一样全屏打开，可离线使用，聊天记录也不会被 Safari 的 7 天清理删除。
+Tap the Share button (on iOS 26 it is in the ••• menu). || Ketuk tombol Bagikan (di iOS 26 ada di menu •••). || 点按“共享”按钮（在 iOS 26 中位于 ••• 菜单里）。
+Choose Add to Home Screen. || Pilih Tambahkan ke Layar Utama. || 选择“添加到主屏幕”。
+Keep Open as Web App on, then tap Add. || Biarkan Buka sebagai App Web tetap aktif, lalu ketuk Tambah. || 保持“作为网页 App 打开”开启，然后点按“添加”。
+This page is open inside another app. Tap ••• and choose Open in Safari (or Open in browser). || Halaman ini terbuka di dalam aplikasi lain. Ketuk ••• lalu pilih Buka di Safari (atau Buka di browser). || 此页面是在其他应用内打开的。点按 ••• 并选择“在 Safari 中打开”（或“在浏览器中打开”）。
+Chats you had in Safari don't move by themselves: sign in to sync them, or use Profile & settings → Your data. || Chat yang ada di Safari tidak pindah sendiri: masuk untuk menyinkronkannya, atau gunakan Profil & pengaturan → Datamu. || Safari 中的聊天记录不会自动转移：登录即可同步，或使用“个人资料与设置 → 你的数据”。
+Not now || Nanti saja || 以后再说
+Got it || Mengerti || 知道了
+
+# Download page (download/index.html, download/download.js)
+Download Glow || Unduh Glow || 下载 Glow
+Glow AI, free on every device. || Glow AI, gratis di semua perangkat. || Glow AI，在所有设备上免费。
+Chat with top AI models, send an AI crew to research and code, or hand Glow a whole goal. No sign-up, no ads, and it keeps working offline. || Chat dengan model AI terbaik, kirim kru AI untuk riset dan menulis kode, atau serahkan satu tujuan besar ke Glow. Tanpa daftar, tanpa iklan, dan tetap berjalan saat offline. || 与顶尖 AI 模型聊天，派 AI 团队去调研和写代码，或把整个目标交给 Glow。无需注册，没有广告，离线也能用。
+re:^Version (\S+) · released (\S+)$ || Versi $1 · rilis $2 || 版本 $1 · 发布于 $2
+re:^Version (\d[\w.]*)$ || Versi $1 || 版本 $1
+For this device || Untuk perangkat ini || 适合此设备
+Glow runs in your browser on any device, and installs as an app. || Glow berjalan di browser pada perangkat apa pun, dan bisa dipasang sebagai aplikasi. || Glow 可在任何设备的浏览器中运行，也能安装为应用。
+Glow is installed || Glow sudah terpasang || Glow 已安装
+You're using the Glow app. Get it on your other devices below. || Kamu sedang memakai aplikasi Glow. Dapatkan juga untuk perangkat lainmu di bawah. || 你正在使用 Glow 应用。可在下方为你的其他设备获取。
+Get Glow on your iPhone: free || Dapatkan Glow di iPhone-mu: gratis || 在 iPhone 上获取 Glow：免费
+Get Glow on your iPad: free || Dapatkan Glow di iPad-mu: gratis || 在 iPad 上获取 Glow：免费
+Add Glow to your Home Screen. It opens full screen like any app and works offline. || Tambahkan Glow ke Layar Utama. Glow terbuka layar penuh seperti aplikasi lain dan bisa offline. || 将 Glow 添加到主屏幕。它像普通应用一样全屏打开，并可离线使用。
+Add Glow to your Home Screen from the Share menu. If you don't see it, open this page in Safari first. || Tambahkan Glow ke Layar Utama dari menu Bagikan. Jika tidak terlihat, buka halaman ini di Safari dulu. || 通过“共享”菜单将 Glow 添加到主屏幕。如果看不到该选项，请先在 Safari 中打开此页面。
+Show me how || Tunjukkan caranya || 教我怎么做
+Get Glow for Android || Dapatkan Glow untuk Android || 获取 Android 版 Glow
+Download the Glow app, or install Glow straight from Chrome. || Unduh aplikasi Glow, atau pasang Glow langsung dari Chrome. || 下载 Glow 应用，或直接从 Chrome 安装 Glow。
+Download the Android app || Unduh aplikasi Android || 下载 Android 应用
+Open the downloaded file. || Buka file yang sudah diunduh. || 打开下载的文件。
+Allow “install unknown apps” for your browser once, then tap Install. || Izinkan “instal aplikasi tak dikenal” untuk browser-mu sekali, lalu ketuk Instal. || 为浏览器允许一次“安装未知应用”，然后点按“安装”。
+Get Glow for Windows || Dapatkan Glow untuk Windows || 获取 Windows 版 Glow
+One small setup installs every Glow app with Start menu and desktop icons. || Satu penginstal kecil memasang semua aplikasi Glow beserta ikon di menu Start dan desktop. || 一个小小的安装程序即可安装全部 Glow 应用，并添加开始菜单和桌面图标。
+Download Glow for Windows || Unduh Glow untuk Windows || 下载 Windows 版 Glow
+Open Glow-Setup.exe from your downloads. || Buka Glow-Setup.exe dari folder unduhan. || 从下载内容中打开 Glow-Setup.exe。
+Press Install. If Windows asks, choose More info → Run anyway. || Tekan Install. Jika Windows bertanya, pilih More info → Run anyway. || 点击 Install。如果 Windows 弹出提示，请选择“更多信息 → 仍要运行”。
+Get Glow for Mac || Dapatkan Glow untuk Mac || 获取 Mac 版 Glow
+In Safari, open Glow and choose File → Add to Dock. || Di Safari, buka Glow lalu pilih File → Add to Dock. || 在 Safari 中打开 Glow，然后选择“文件 → 添加到程序坞”。
+Open Glow and click Install in the address bar, or use the button below. || Buka Glow lalu klik Install di bilah alamat, atau gunakan tombol di bawah. || 打开 Glow 并点击地址栏中的“安装”，或使用下方按钮。
+Install Glow from your browser || Pasang Glow dari browser-mu || 从浏览器安装 Glow
+Open Glow in Chrome or Edge and click Install in the address bar. || Buka Glow di Chrome atau Edge lalu klik Install di bilah alamat. || 在 Chrome 或 Edge 中打开 Glow，然后点击地址栏中的“安装”。
+This device || Perangkat ini || 此设备
+Install Glow app || Pasang aplikasi Glow || 安装 Glow 应用
+All devices || Semua perangkat || 所有设备
+Glow for Windows || Glow untuk Windows || Windows 版 Glow
+One small setup adds Glow, GlowChat, GlowRoom and GlowLead to the Start menu and desktop, plus Glow Hands for browser tasks. No admin rights needed; uninstall from Settings → Apps. || Satu penginstal kecil menambahkan Glow, GlowChat, GlowRoom dan GlowLead ke menu Start dan desktop, plus Glow Hands untuk tugas di browser. Tidak perlu hak admin; hapus lewat Pengaturan → Aplikasi. || 一个小小的安装程序即可把 Glow、GlowChat、GlowRoom 和 GlowLead 添加到开始菜单和桌面，并附带用于浏览器任务的 Glow Hands。无需管理员权限；可在“设置 → 应用”中卸载。
+Download Glow-Setup.exe || Unduh Glow-Setup.exe || 下载 Glow-Setup.exe
+About 60 KB. Not code-signed yet: if Windows asks, choose More info → Run anyway. || Sekitar 60 KB. Belum ditandatangani kode: jika Windows bertanya, pilih More info → Run anyway. || 约 60 KB。暂未进行代码签名：如果 Windows 弹出提示，请选择“更多信息 → 仍要运行”。
+Glow for Android || Glow untuk Android || Android 版 Glow
+The Glow app with its own built-in browser, so GlowLead can do website tasks right on your phone. || Aplikasi Glow dengan browser bawaannya sendiri, jadi GlowLead bisa mengerjakan tugas di situs web langsung di ponselmu. || 自带内置浏览器的 Glow 应用，让 GlowLead 能直接在手机上完成网站任务。
+QR code for the Glow Android app || Kode QR untuk aplikasi Android Glow || Glow Android 应用的二维码
+Download the APK || Unduh APK || 下载 APK
+Open the file and allow “install unknown apps” once. Or open Glow in Chrome and tap Install app. || Buka file lalu izinkan “instal aplikasi tak dikenal” sekali. Atau buka Glow di Chrome dan ketuk Pasang aplikasi. || 打开文件并允许一次“安装未知应用”。或者在 Chrome 中打开 Glow，点按“安装应用”。
+Glow for iPhone || Glow untuk iPhone || iPhone 版 Glow
+A free Home Screen app: full screen, works offline, keeps its own storage and can show notifications. || Aplikasi Layar Utama gratis: layar penuh, bisa offline, punya penyimpanan sendiri dan bisa menampilkan notifikasi. || 免费的主屏幕应用：全屏显示、可离线使用、拥有独立存储，还能显示通知。
+Open Glow in Safari || Buka Glow di Safari || 在 Safari 中打开 Glow
+Glow isn't in the App Store: Apple charges developers 99 US dollars a year to list apps there. The Home Screen app gets the same Glow. || Glow tidak ada di App Store: Apple memungut biaya 99 dolar AS per tahun dari pengembang untuk memasang aplikasi di sana. Aplikasi Layar Utama berisi Glow yang sama. || Glow 没有上架 App Store：Apple 向开发者收取每年 99 美元的上架费用。主屏幕应用提供的是同样的 Glow。
+Glow for Mac || Glow untuk Mac || Mac 版 Glow
+Safari: open Glow, then choose File → Add to Dock. || Safari: buka Glow, lalu pilih File → Add to Dock. || Safari：打开 Glow，然后选择“文件 → 添加到程序坞”。
+Chrome or Edge: open Glow and click the Install icon in the address bar. || Chrome atau Edge: buka Glow lalu klik ikon Install di bilah alamat. || Chrome 或 Edge：打开 Glow，然后点击地址栏中的“安装”图标。
+Glow then opens in its own window from the Dock and Launchpad. || Setelah itu Glow terbuka di jendelanya sendiri dari Dock dan Launchpad. || 之后 Glow 会从程序坞和启动台在独立窗口中打开。
+Glow for Linux and ChromeOS || Glow untuk Linux dan ChromeOS || Linux 和 ChromeOS 版 Glow
+Glow Hands for an always-on Linux box: see the setup guide || Glow Hands untuk mesin Linux yang selalu menyala: lihat panduan pemasangan || 在常开的 Linux 主机上运行 Glow Hands：请参阅安装指南
+Any browser || Browser apa pun || 任意浏览器
+Use Glow on the web || Pakai Glow di web || 在网页上使用 Glow
+Nothing to install: open Glow and start typing. || Tidak perlu memasang apa pun: buka Glow dan mulai mengetik. || 无需安装：打开 Glow 即可开始输入。
+Glow works without internet || Glow bisa dipakai tanpa internet || Glow 无需网络也能使用
+Every Glow app opens offline once you've visited it, and your chats stay on your device. || Setiap aplikasi Glow bisa dibuka offline setelah pernah kamu kunjungi, dan chat-mu tetap di perangkatmu. || 每个 Glow 应用只要访问过一次就能离线打开，你的聊天记录保留在你的设备上。
+Glow Offline: download a small AI model once (from 0.3 GB) in GlowChat → Settings → Offline AI on this device, and GlowChat keeps answering with no internet. It runs on your device's graphics chip and nothing you type leaves the device. || Glow Offline: unduh model AI kecil sekali saja (mulai 0,3 GB) di GlowChat → Pengaturan → AI offline di perangkat ini, dan GlowChat tetap menjawab tanpa internet. Model berjalan di chip grafis perangkatmu dan apa pun yang kamu ketik tidak keluar dari perangkat. || Glow Offline：在 GlowChat → 设置 → 本设备上的离线 AI 中下载一次小型 AI 模型（0.3 GB 起），GlowChat 就能在没有网络时继续回答。它在你设备的显卡芯片上运行，你输入的内容不会离开设备。
+Needs a browser with WebGPU: Chrome or Edge on Windows, Mac, ChromeOS and Android, or Safari on iOS 26 and macOS 26. Web research, the AI crew and cloud models need internet. || Perlu browser dengan WebGPU: Chrome atau Edge di Windows, Mac, ChromeOS dan Android, atau Safari di iOS 26 dan macOS 26. Riset web, kru AI dan model cloud tetap perlu internet. || 需要支持 WebGPU 的浏览器：Windows、Mac、ChromeOS 和 Android 上的 Chrome 或 Edge，或 iOS 26 和 macOS 26 上的 Safari。网页调研、AI 团队和云端模型仍需联网。
+On your phone || Di ponselmu || 在你的手机上
+Scan to get Glow on your phone || Pindai untuk mendapatkan Glow di ponselmu || 扫码在手机上获取 Glow
+QR code for this download page || Kode QR untuk halaman unduhan ini || 此下载页面的二维码
+Point your phone's camera at the code to open this page there. || Arahkan kamera ponselmu ke kode ini untuk membuka halaman ini di sana. || 用手机相机对准二维码，即可在手机上打开此页面。
+Questions || Pertanyaan || 常见问题
+Is Glow free? || Apakah Glow gratis? || Glow 免费吗？
+Yes. Glow, GlowChat, GlowRoom and GlowLead are free with no sign-up. A free Puter sign-in unlocks faster AI models, and the optional Glow Pro plan only raises limits for big missions. || Ya. Glow, GlowChat, GlowRoom dan GlowLead gratis tanpa perlu daftar. Masuk gratis dengan Puter membuka model AI yang lebih cepat, dan paket opsional Glow Pro hanya menaikkan batas untuk misi besar. || 是的。Glow、GlowChat、GlowRoom 和 GlowLead 均免费，无需注册。免费登录 Puter 可解锁更快的 AI 模型，可选的 Glow Pro 套餐只会提高大型任务的额度上限。
+Is there a Glow app for iPhone and iPad? || Apakah ada aplikasi Glow untuk iPhone dan iPad? || 有 iPhone 和 iPad 版的 Glow 应用吗？
+Yes, for free: open Glow in Safari, tap Share, then Add to Home Screen. It opens full screen like any app, works offline and keeps its own storage. Glow isn't in the App Store, because Apple charges developers 99 US dollars a year to list apps there. || Ya, gratis: buka Glow di Safari, ketuk Bagikan, lalu Tambahkan ke Layar Utama. Glow terbuka layar penuh seperti aplikasi lain, bisa offline dan punya penyimpanan sendiri. Glow tidak ada di App Store karena Apple memungut biaya 99 dolar AS per tahun dari pengembang untuk memasang aplikasi di sana. || 有，而且免费：在 Safari 中打开 Glow，点按“共享”，再选择“添加到主屏幕”。它像普通应用一样全屏打开，可离线使用，并拥有独立存储。Glow 没有上架 App Store，因为 Apple 向开发者收取每年 99 美元的上架费用。
+Does Glow work offline? || Apakah Glow bisa dipakai offline? || Glow 可以离线使用吗？
+Yes. Every Glow app opens without internet once you have visited it, and your chats stay on your device. Download Glow Offline in GlowChat (Settings → Offline AI on this device) and GlowChat keeps answering with AI that runs on your device's graphics chip. Web research, the AI crew and cloud models need internet. || Ya. Setiap aplikasi Glow bisa dibuka tanpa internet setelah pernah kamu kunjungi, dan chat-mu tetap di perangkatmu. Unduh Glow Offline di GlowChat (Pengaturan → AI offline di perangkat ini) dan GlowChat tetap menjawab dengan AI yang berjalan di chip grafis perangkatmu. Riset web, kru AI dan model cloud tetap perlu internet. || 可以。每个 Glow 应用只要访问过一次就能在没有网络时打开，你的聊天记录保留在你的设备上。在 GlowChat 中下载 Glow Offline（设置 → 本设备上的离线 AI），GlowChat 就能用在你设备显卡芯片上运行的 AI 继续回答。网页调研、AI 团队和云端模型仍需联网。
+Is Glow on Google Play or the Microsoft Store? || Apakah Glow ada di Google Play atau Microsoft Store? || Glow 上架 Google Play 或 Microsoft Store 了吗？
+Not yet. Download Glow directly from this page: the Android app is a signed APK and the Windows setup installs every Glow app with a Start menu entry and an uninstaller. || Belum. Unduh Glow langsung dari halaman ini: aplikasi Android berupa APK yang ditandatangani dan penginstal Windows memasang semua aplikasi Glow lengkap dengan entri menu Start dan penghapus instalasi. || 还没有。请直接从此页面下载 Glow：Android 应用是已签名的 APK，Windows 安装程序会安装全部 Glow 应用，并提供开始菜单项和卸载程序。
+Where are my chats stored? || Di mana chat-ku disimpan? || 我的聊天记录保存在哪里？
+In your own browser on your device. Nothing is stored on a Glow server. You can sync chats through your own Puter account, or export them from Profile & settings. || Di browser milikmu sendiri di perangkatmu. Tidak ada yang disimpan di server Glow. Kamu bisa menyinkronkan chat lewat akun Puter milikmu, atau mengekspornya dari Profil & pengaturan. || 保存在你设备上你自己的浏览器中。Glow 服务器上不存储任何内容。你可以通过自己的 Puter 账号同步聊天，或在“个人资料与设置”中导出。
+Which languages does Glow speak? || Bahasa apa saja yang didukung Glow? || Glow 支持哪些语言？
+English, Bahasa Indonesia, Simplified Chinese and Traditional Chinese, and the AI answers in your language. || Bahasa Inggris, Bahasa Indonesia, Mandarin Sederhana dan Mandarin Tradisional, dan AI menjawab dalam bahasamu. || 英语、印尼语、简体中文和繁体中文，AI 也会用你的语言回答。
+Glow · free · your chats stay on your device || Glow · gratis · chat-mu tetap di perangkatmu || Glow · 免费 · 聊天记录保留在你的设备上
+Setup guide || Panduan pemasangan || 安装指南
+Privacy || Privasi || 隐私
+
+# Setup guide page
+Just want the app? Download Glow for your device || Cuma butuh aplikasinya? Unduh Glow untuk perangkatmu || 只想要应用？为你的设备下载 Glow
+The Home Screen app is the free iPhone version of Glow: full screen, works offline and keeps its own storage. Glow isn't in the App Store (Apple charges developers 99 US dollars a year). || Aplikasi Layar Utama adalah versi iPhone Glow yang gratis: layar penuh, bisa offline dan punya penyimpanan sendiri. Glow tidak ada di App Store (Apple memungut biaya 99 dolar AS per tahun dari pengembang). || 主屏幕应用就是免费的 iPhone 版 Glow：全屏显示、可离线使用并拥有独立存储。Glow 没有上架 App Store（Apple 向开发者收取每年 99 美元的费用）。
+Step-by-step guide || Panduan langkah demi langkah || 分步指南

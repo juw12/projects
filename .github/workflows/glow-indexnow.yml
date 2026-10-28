@@ -1,0 +1,41 @@
+name: Glow - tell search engines (IndexNow)
+
+# After a Glow change is published on GitHub Pages, ping IndexNow so Bing (and DuckDuckGo, Yahoo, Ecosia,
+# Yandex, Seznam, Naver, Yep) re-crawl the Glow pages. Google reads apps/glow/web/sitemap.xml instead.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/glow/web/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: glow-indexnow
+  cancel-in-progress: true
+
+jobs:
+  indexnow:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Wait until GitHub Pages serves this version
+        run: |
+          want=$(python3 -c "import json; print(json.load(open('apps/glow/web/version.json'))['version'])")
+          key=$(ls apps/glow/web | grep -E '^[0-9a-f]{32}\.txt$' | head -n 1)
+          for attempt in $(seq 1 30); do
+            live=$(curl -fsS "https://juw12.github.io/projects/glow/version.json?t=$(date +%s)" | python3 -c "import json,sys; print(json.load(sys.stdin)['version'])" || true)
+            keyfile=$(curl -fsS -o /dev/null -w '%{http_code}' "https://juw12.github.io/projects/glow/${key}" || true)
+            echo "attempt ${attempt}: live=${live} want=${want} key=${keyfile}"
+            if [ "${live}" = "${want}" ] && [ "${keyfile}" = "200" ]; then exit 0; fi
+            sleep 30
+          done
+          echo "Pages did not update in time; submitting anyway."
+
+      - name: Submit the Glow pages to IndexNow
+        run: python3 apps/glow/tools/indexnow.py

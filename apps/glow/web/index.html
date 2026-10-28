@@ -4,13 +4,96 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'">
-<meta name="description" content="Glow: free AI that gets things done. Type what you need and Glow opens the right app: GlowChat to talk, GlowRoom for an AI crew that researches and codes, GlowLead to run a whole goal.">
+<meta name="description" content="Glow is a free AI app: chat with top AI models, send an AI crew to research and code, or hand it a whole goal. Works offline, on Windows, Android, iPhone and Mac.">
 <meta name="theme-color" content="#262624">
-<title>Glow — free AI that gets things done</title>
+<title>Glow AI — free AI app that gets things done</title>
+<link rel="canonical" href="https://juw12.github.io/projects/glow/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Glow">
+<meta property="og:title" content="Glow AI — free AI app that gets things done">
+<meta property="og:description" content="Chat with top AI models, send an AI crew to research and code, or hand Glow a whole goal. Free, works offline, on Windows, Android, iPhone and Mac.">
+<meta property="og:url" content="https://juw12.github.io/projects/glow/">
+<meta property="og:image" content="https://juw12.github.io/projects/glow/icons/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Glow AI — free AI app that gets things done">
+<meta name="twitter:description" content="Free AI chat, an AI crew and goal planning. Works offline, on every device.">
+<meta name="twitter:image" content="https://juw12.github.io/projects/glow/icons/og-image.png">
 <link rel="stylesheet" href="./home.css">
 <link rel="icon" type="image/svg+xml" href="./icons/app-icon.svg">
 <link rel="manifest" href="./manifest.webmanifest">
-<link rel="apple-touch-icon" href="./icons/icon-192.png">
+<link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Glow">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="apple-touch-startup-image" media="(device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./icons/splash/splash-1320x2868.png">
+<link rel="apple-touch-startup-image" media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./icons/splash/splash-1290x2796.png">
+<link rel="apple-touch-startup-image" media="(device-width: 420px) and (device-height: 912px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./icons/splash/splash-1260x2736.png">
+<link rel="apple-touch-startup-image" media="(device-width: 402px) and (device-height: 874px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./icons/splash/splash-1206x2622.png">
+<link rel="apple-touch-startup-image" media="(device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./icons/splash/splash-1179x2556.png">
+<link rel="apple-touch-startup-image" media="(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./icons/splash/splash-1170x2532.png">
+<link rel="apple-touch-startup-image" media="(device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./icons/splash/splash-1284x2778.png">
+<link rel="apple-touch-startup-image" media="(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./icons/splash/splash-1125x2436.png">
+<link rel="apple-touch-startup-image" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./icons/splash/splash-1242x2688.png">
+<link rel="apple-touch-startup-image" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="./icons/splash/splash-828x1792.png">
+<link rel="apple-touch-startup-image" media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="./icons/splash/splash-750x1334.png">
+<link rel="apple-touch-startup-image" media="(device-width: 1024px) and (device-height: 1366px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="./icons/splash/splash-2048x2732.png">
+<link rel="apple-touch-startup-image" media="(device-width: 834px) and (device-height: 1194px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="./icons/splash/splash-1668x2388.png">
+<link rel="apple-touch-startup-image" media="(device-width: 820px) and (device-height: 1180px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="./icons/splash/splash-1640x2360.png">
+<link rel="apple-touch-startup-image" media="(device-width: 768px) and (device-height: 1024px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="./icons/splash/splash-1536x2048.png">
+<link rel="apple-touch-startup-image" media="(device-width: 744px) and (device-height: 1133px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="./icons/splash/splash-1488x2266.png">
+<script type="application/ld+json">
+{
+ "@context": "https://schema.org",
+ "@type": "SoftwareApplication",
+ "name": "Glow",
+ "alternateName": [
+  "Glow AI",
+  "GlowChat",
+  "GlowRoom",
+  "GlowLead"
+ ],
+ "url": "https://juw12.github.io/projects/glow/",
+ "description": "Glow is a free AI app: chat with top AI models, compare them in a Council or Arena, send an AI crew to research and code, or hand GlowLead a whole goal. Works offline with AI that runs on your device.",
+ "applicationCategory": "ProductivityApplication",
+ "applicationSubCategory": "AI assistant",
+ "operatingSystem": "Windows, Android, iOS, iPadOS, macOS, Linux, ChromeOS, Web",
+ "inLanguage": [
+  "en",
+  "id",
+  "zh-CN",
+  "zh-TW"
+ ],
+ "isAccessibleForFree": true,
+ "offers": {
+  "@type": "Offer",
+  "price": "0",
+  "priceCurrency": "USD"
+ },
+ "downloadUrl": "https://juw12.github.io/projects/glow/download/",
+ "installUrl": "https://juw12.github.io/projects/glow/download/",
+ "image": "https://juw12.github.io/projects/glow/icons/og-image.png",
+ "screenshot": [
+  "https://juw12.github.io/projects/glow/icons/screenshot-wide.png",
+  "https://juw12.github.io/projects/glow/icons/screenshot-phone.png"
+ ],
+ "featureList": [
+  "Chat with many AI models for free, no sign-up needed",
+  "Council and Arena: several AI models discuss or compete",
+  "GlowRoom: an AI crew that researches the web and runs code",
+  "GlowLead: plans a goal, delegates the work and checks it",
+  "Glow Offline: AI that runs on your device with no internet",
+  "English, Bahasa Indonesia, Simplified and Traditional Chinese"
+ ],
+ "author": {
+  "@type": "Person",
+  "name": "juw12",
+  "url": "https://juw12.github.io/portfolio/"
+ }
+}
+</script>
 </head>
 <body>
 <header class="top">
@@ -88,13 +171,14 @@
     <a class="btn small" id="account-action" href="./chat/">Sign in</a>
   </section>
 
-  <p class="setup-link"><a href="./setup/" data-i18n="home.setup">📥 Get the Glow apps for Windows, Android and iPhone</a></p>
+  <p class="setup-link"><a href="./download/" data-i18n="home.setup">📥 Get the Glow apps for Windows, Android and iPhone</a></p>
 </main>
 
 <footer class="foot">
   <span data-i18n="home.foot">✦ Glow · free · your chats stay in your browser</span>
   <button class="link" id="locale-btn" type="button">🌐 <span data-i18n="menu.language">Language &amp; region</span></button>
   <button class="link" id="install-btn" type="button" hidden data-i18n="home.install">Install Glow</button>
+  <a class="link" href="./download/">Download Glow</a>
   <a class="link" href="./setup/" data-i18n="home.installAll">Install every Glow app</a>
   <a class="link" href="lead/#plans" data-i18n="home.plans">Plans &amp; Glow Pro</a>
   <a class="link" href="./privacy.html" data-i18n="home.privacy">Privacy</a>

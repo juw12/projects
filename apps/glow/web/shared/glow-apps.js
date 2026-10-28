@@ -10,7 +10,7 @@
   const ROOT = new URL("../", scriptUrl); // .../glow/
   // The Glow family version. Bump it together with ../version.json for every release:
   // an older copy of this script then sees the newer version.json and offers "Update now".
-  const GLOW_VERSION = "1.21.0";
+  const GLOW_VERSION = "1.22.0";
   const LIVE_ROOT = "https://juw12.github.io/projects/glow/";
   const APK_URL = "https://github.com/juw12/projects/releases/download/glow-android/Glow-android.apk";
   const embedded = (function () {
@@ -107,8 +107,8 @@
 .glow-apps-version .ok{color:#7fd1a8}
 .glow-apps-version button{margin-left:auto;border:0;border-radius:8px;padding:5px 10px;font:600 12px system-ui,sans-serif;cursor:pointer;background:rgba(255,255,255,.1);color:#f3efe8}
 .glow-apps-version button.go{background:#d97757;color:#fff}
-.glow-update-bar{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:2147483001;display:flex;align-items:center;gap:10px;
-  max-width:calc(100vw - 24px);padding:10px 10px 10px 16px;border-radius:14px;background:#1f1e1c;color:#f3efe8;border:1px solid rgba(255,255,255,.14);
+.glow-update-bar{position:fixed;left:0;right:0;margin:0 auto;width:max-content;bottom:18px;z-index:2147483001;display:flex;align-items:center;gap:10px;
+  max-width:calc(100vw - 24px);box-sizing:border-box;padding:10px 10px 10px 16px;border-radius:14px;background:#1f1e1c;color:#f3efe8;border:1px solid rgba(255,255,255,.14);
   box-shadow:0 16px 44px rgba(0,0,0,.4);font:14px/1.35 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;animation:glowAppsIn .2s ease both}
 .glow-update-bar[hidden]{display:none}
 .glow-update-bar span{min-width:0}
@@ -154,6 +154,20 @@ html.glow-room-open,html.glow-room-open body{overflow:hidden}
 .glow-profile-item.primary:hover{background:#e0865f}
 html.glow-embedded [data-glow-apps]{display:none!important}
 @media (max-width:560px){.glow-room-bar small,.glow-room-bar .full span{display:none}.glow-update-bar small{max-width:24ch}}
+.glow-install-sheet{position:fixed;left:0;right:0;margin:0 auto;bottom:max(14px,env(safe-area-inset-bottom));z-index:2147483002;
+  width:min(440px,calc(100vw - 20px));max-height:calc(100vh - 28px);max-height:calc(100dvh - 28px);overflow-y:auto;box-sizing:border-box;
+  padding:16px 16px 14px;border-radius:18px;background:#1f1e1c;color:#f3efe8;border:1px solid rgba(255,255,255,.14);
+  box-shadow:0 18px 50px rgba(0,0,0,.45);font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;animation:glowAppsIn .2s ease both}
+.glow-install-sheet[hidden]{display:none}
+.glow-install-sheet h2{margin:0 0 4px;font-size:17px}
+.glow-install-sheet p{margin:6px 0;opacity:.85}
+.glow-install-sheet ol{margin:8px 0 8px 20px;padding:0}
+.glow-install-sheet li{margin:4px 0}
+.glow-install-sheet .row{display:flex;gap:8px;justify-content:flex-end;margin-top:10px}
+.glow-install-sheet button{border:0;border-radius:10px;padding:8px 14px;font:600 13px system-ui,sans-serif;cursor:pointer}
+.glow-install-sheet .go{background:#d97757;color:#fff}
+.glow-install-sheet .later{background:transparent;color:#f3efe8;opacity:.75}
+.glow-install-sheet .share{display:inline-block;padding:0 6px;border-radius:6px;background:rgba(255,255,255,.12)}
 `;
 
   let menu = null;
@@ -405,6 +419,76 @@ html.glow-embedded [data-glow-apps]{display:none!important}
     return !!(window.GLOW_NATIVE_APP || (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()));
   }
 
+  // ---------------------------------------------------------------------------------------------
+  // Glow on iPhone and iPad: a free Home Screen app. Apple only lets native apps in through the paid
+  // App Store, but a Home Screen web app opens full screen, works offline, keeps its own storage
+  // (safe from Safari's 7-day clean-up) and can show notifications. This guides people to add it.
+  // ---------------------------------------------------------------------------------------------
+  const IOS_INSTALL_KEY = "glow.ios.install.dismissed";
+  const isAppleMobile = /iPhone|iPad|iPod/.test(navigator.userAgent)
+    || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
+  const inAppBrowser = /FBAN|FBAV|Instagram|Line\/|MicroMessenger|TikTok|BytedanceWebview|Twitter|LinkedInApp|Snapchat|GSA\//.test(navigator.userAgent);
+
+  function isStandalone() {
+    return window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+  }
+
+  let installSheet = null;
+  function showInstallGuide(options = {}) {
+    if (!isAppleMobile || isStandalone() || isNativeApp() || embedded) return false;
+    if (!options.force) {
+      const dismissed = Number(localStorage.getItem(IOS_INSTALL_KEY) || 0);
+      if (dismissed && Date.now() - dismissed < 21 * 24 * 3600 * 1000) return false;
+    }
+    ensureStyles();
+    if (!installSheet) {
+      installSheet = document.createElement("div");
+      installSheet.className = "glow-install-sheet";
+      installSheet.setAttribute("role", "dialog");
+      document.body.appendChild(installSheet);
+    }
+    const onPad = !/iPhone|iPod/.test(navigator.userAgent);
+    const title = onPad ? "Get the Glow app on your iPad: free" : "Get the Glow app on your iPhone: free";
+    const share = `<span class="share" aria-hidden="true">⬆︎</span>`;
+    const stepShare = `<li>${escapeHtml("Tap the Share button (on iOS 26 it is in the ••• menu).")} ${share}</li>`;
+    const stepAdd = `<li>${escapeHtml("Choose Add to Home Screen.")}</li>`;
+    const steps = inAppBrowser
+      ? `<ol><li>${escapeHtml("This page is open inside another app. Tap ••• and choose Open in Safari (or Open in browser).")}</li>${stepShare}${stepAdd}</ol>`
+      : `<ol>${stepShare}${stepAdd}<li>${escapeHtml("Keep Open as Web App on, then tap Add.")}</li></ol>`;
+    installSheet.setAttribute("aria-label", title);
+    installSheet.innerHTML = `<h2>✦ ${escapeHtml(title)}</h2>
+      <p>${escapeHtml("It opens full screen like any app, works offline and keeps your chats safe from Safari's 7-day clean-up.")}</p>
+      ${steps}
+      <p><small>${escapeHtml("Chats you had in Safari don't move by themselves: sign in to sync them, or use Profile & settings → Your data.")}</small></p>
+      <div class="row"><button class="later" type="button" data-install-later>${escapeHtml("Not now")}</button><button class="go" type="button" data-install-ok>${escapeHtml("Got it")}</button></div>`;
+    installSheet.hidden = false;
+    const close = () => {
+      installSheet.hidden = true;
+      localStorage.setItem(IOS_INSTALL_KEY, String(Date.now()));
+    };
+    installSheet.querySelector("[data-install-later]").addEventListener("click", close);
+    installSheet.querySelector("[data-install-ok]").addEventListener("click", close);
+    return true;
+  }
+
+  // Keep every Glow app ready for no internet: each app's service worker caches its own files, so
+  // GlowChat, GlowRoom and GlowLead open offline even if you have only visited Glow home so far.
+  // An installed app also asks the browser to keep its storage (chats, offline models) for good.
+  function prepareOffline() {
+    if (embedded || isNativeApp() || !("serviceWorker" in navigator) || !window.isSecureContext || !/^https?:$/.test(location.protocol)) return;
+    const workers = [["sw.js", ""], ["chat/sw.js", "chat/"], ["room/sw.js", "room/"], ["lead/sw.js", "lead/"]];
+    const register = () => {
+      for (const [script, scope] of workers) {
+        navigator.serviceWorker.register(new URL(script, ROOT).href, { scope: new URL(scope, ROOT).href }).catch(() => {});
+      }
+    };
+    if (document.readyState === "complete") setTimeout(register, 4000);
+    else window.addEventListener("load", () => setTimeout(register, 4000), { once: true });
+    if (isStandalone() && navigator.storage && navigator.storage.persist) {
+      navigator.storage.persisted().then((kept) => kept || navigator.storage.persist()).catch(() => {});
+    }
+  }
+
   function versionUrl() {
     const local = /^https?:$/.test(location.protocol) && !isNativeApp();
     return (local ? new URL("version.json", ROOT).href : LIVE_ROOT + "version.json") + "?t=" + Date.now();
@@ -645,6 +729,7 @@ html.glow-embedded [data-glow-apps]{display:none!important}
     document.querySelectorAll("[data-glow-apps]").forEach(mount);
     document.querySelectorAll("[data-glow-profile]").forEach(mountProfile);
     startUpdateChecks();
+    prepareOffline();
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", autoMount);
   else autoMount();
@@ -653,6 +738,7 @@ html.glow-embedded [data-glow-apps]{display:none!important}
     mount, open, close, appUrl, currentApp, account, accountUrl, mountProfile, refreshProfiles, avatarColors: AVATAR_COLORS.slice(),
     apps: APPS.map((a) => ({ ...a })),
     version: GLOW_VERSION, checkForUpdate, applyUpdate, compareVersions, openApp, openRoomPanel, closeRoomPanel,
+    showInstallGuide, isStandalone, isAppleMobile,
     get updateState() { return updateState; },
     get latest() { return latest; },
   };

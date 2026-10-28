@@ -3,14 +3,35 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://js.puter.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://puter.com https://*.puter.com; font-src 'self' data:; frame-src 'self' https://puter.com https://*.puter.com; connect-src 'self' https: wss://*.puter.com http://localhost:* http://127.0.0.1:*">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' https://js.puter.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://puter.com https://*.puter.com; font-src 'self' data:; frame-src 'self' https://puter.com https://*.puter.com; connect-src 'self' https: wss://*.puter.com http://localhost:* http://127.0.0.1:*">
 <meta name="description" content="GlowChat, part of Glow: explore ideas and shape plans with AI chat, a Council of agents, a Judge and side-by-side model comparisons. A free browser prototype.">
 <meta name="theme-color" content="#262624">
 <title>Glow</title>
 <link rel="stylesheet" href="./styles.css">
 <link rel="icon" type="image/svg+xml" href="./icons/app-icon.svg">
 <link rel="manifest" href="./manifest.webmanifest">
-<link rel="apple-touch-icon" href="./icons/icon-192.png">
+<link rel="canonical" href="https://juw12.github.io/projects/glow/chat/">
+<link rel="apple-touch-icon" href="../icons/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Glow">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="apple-touch-startup-image" media="(device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="../icons/splash/splash-1320x2868.png">
+<link rel="apple-touch-startup-image" media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="../icons/splash/splash-1290x2796.png">
+<link rel="apple-touch-startup-image" media="(device-width: 420px) and (device-height: 912px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="../icons/splash/splash-1260x2736.png">
+<link rel="apple-touch-startup-image" media="(device-width: 402px) and (device-height: 874px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="../icons/splash/splash-1206x2622.png">
+<link rel="apple-touch-startup-image" media="(device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="../icons/splash/splash-1179x2556.png">
+<link rel="apple-touch-startup-image" media="(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="../icons/splash/splash-1170x2532.png">
+<link rel="apple-touch-startup-image" media="(device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="../icons/splash/splash-1284x2778.png">
+<link rel="apple-touch-startup-image" media="(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="../icons/splash/splash-1125x2436.png">
+<link rel="apple-touch-startup-image" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="../icons/splash/splash-1242x2688.png">
+<link rel="apple-touch-startup-image" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="../icons/splash/splash-828x1792.png">
+<link rel="apple-touch-startup-image" media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="../icons/splash/splash-750x1334.png">
+<link rel="apple-touch-startup-image" media="(device-width: 1024px) and (device-height: 1366px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="../icons/splash/splash-2048x2732.png">
+<link rel="apple-touch-startup-image" media="(device-width: 834px) and (device-height: 1194px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="../icons/splash/splash-1668x2388.png">
+<link rel="apple-touch-startup-image" media="(device-width: 820px) and (device-height: 1180px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="../icons/splash/splash-1640x2360.png">
+<link rel="apple-touch-startup-image" media="(device-width: 768px) and (device-height: 1024px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="../icons/splash/splash-1536x2048.png">
+<link rel="apple-touch-startup-image" media="(device-width: 744px) and (device-height: 1133px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="../icons/splash/splash-1488x2266.png">
 </head>
 <body class="app">
 <aside id="sidebar">
@@ -163,6 +184,10 @@
       <button class="secondary small" id="tour-replay-btn" type="button">Replay the guided tour</button>
     </div>
 
+    <h4 id="offline-ai-title">Offline AI on this device</h4>
+    <p class="note">Download a small AI model once and GlowChat keeps answering with no internet. It runs on this device's graphics chip and nothing you type leaves the device. Offline models are smaller than cloud AI: good for writing, rewriting, translating and quick questions.</p>
+    <div id="offline-ai-panel" class="offline-ai"><p class="note">Checking this device…</p></div>
+
     <h4>Your own AI keys (optional)</h4>
     <p class="note">Keys, chats and votes are stored in this browser. Keys are only sent to the provider they belong to.</p>
 
@@ -252,6 +277,7 @@
 
 <script src="../shared/glow-locale.js"></script>
 <script src="../shared/glow-apps.js"></script>
+<script src="../shared/glow-offline-ai.js"></script>
 <script src="./app.js"></script>
 </body>
 </html>

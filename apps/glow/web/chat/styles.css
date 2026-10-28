@@ -479,3 +479,16 @@ a.side-btn { display: block; color: inherit; text-decoration: none; }
 @media (max-width: 400px) {
   #usage-btn { max-width: 34vw; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 }
+
+/* Glow Offline: on-device AI models in Settings */
+.offline-ai { display: grid; gap: 10px; margin: 6px 0 4px; }
+.offline-model { border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; background: var(--panel); }
+.offline-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.offline-model .note { margin: 4px 0 6px; }
+.offline-actions { gap: 8px; flex-wrap: wrap; align-items: center; }
+.offline-tag { font-size: 11px; padding: 2px 8px; border-radius: 999px; background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); }
+.offline-ready { color: #3f9b5b; font-weight: 600; font-size: 13px; }
+.offline-progress { margin-top: 8px; }
+.offline-bar { height: 6px; border-radius: 999px; background: var(--border); overflow: hidden; }
+.offline-bar span { display: block; height: 100%; width: 0; background: var(--accent); transition: width 0.3s ease; }
+.offline-warn { color: #c0563a; }

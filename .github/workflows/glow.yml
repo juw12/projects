@@ -39,6 +39,7 @@ jobs:
           python -X utf8 apps/glow/tests/test_glow_app_hands.py
           python -X utf8 apps/glow/tests/test_glow_instant_cloud.py
           python -X utf8 apps/glow/tests/test_glow_runner.py
+          python -X utf8 apps/glow/tests/test_glow_offline.py
       - name: Instant cloud browser service (real Chromium via Playwright core)
         run: |
           driver="$(python -c 'import os, playwright; print(os.path.join(os.path.dirname(playwright.__file__), "driver"))')"
