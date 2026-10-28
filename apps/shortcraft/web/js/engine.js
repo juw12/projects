@@ -104,7 +104,8 @@
    * clip duration, each chunk starts when its first word is spoken and keeps per-word start/end
    * (fractions of the clip) for the highlighted word; otherwise starts are estimated by length.
    */
-  function captionChunks(text, maxChars, wordTimes, voDur) {
+  function captionChunks(text, maxChars, wordTimes, voDur, maxWords) {
+    maxWords = maxWords || 3;
     var words = String(text || "").split(/\s+/).filter(Boolean);
     var groups = [];
     var current = [];
@@ -112,7 +113,7 @@
       var candidate = current.map(function (i) { return words[i]; }).concat([word]).join(" ");
       var previous = current.length ? words[current[current.length - 1]] : "";
       var breakAfterPrevious = /[.!?,;:\u2026]$/.test(previous);
-      if (current.length && (candidate.length > maxChars || current.length >= 3 || breakAfterPrevious)) {
+      if (current.length && (candidate.length > maxChars || current.length >= maxWords || breakAfterPrevious)) {
         groups.push(current);
         current = [index];
       } else {
@@ -219,7 +220,9 @@
   function buildTimeline(project, voiceDurations) {
     var lang = project.lang || "en";
     var rate = WORDS_PER_SEC[lang] || 2.5;
-    var maxChars = project.template === "editorial" ? 24 : (project.template === "pop" || project.template === "clean" ? 18 : 20);
+    var maxChars = project.captionChars ||
+      (project.template === "editorial" ? 24 : (project.template === "pop" || project.template === "clean" ? 18 : 20));
+    var maxWords = project.captionWords || 3;   // longer lines = slower, calmer reading
     var cursor = 0;
     var stepCount = 0;
     var scenes = project.scenes.map(function (scene, i) {
@@ -239,7 +242,7 @@
         voStart: cursor + 0.2,
         voDur: voDur,
         measured: !!measured,
-        chunks: captionChunks(scene.caption || narration, maxChars, measured ? scene.wordTimes : null, voDur),
+        chunks: captionChunks(scene.caption || narration, maxChars, measured ? scene.wordTimes : null, voDur, maxWords),
         stepIndex: role === "step" ? stepCount : -1
       };
       if (role === "step") {

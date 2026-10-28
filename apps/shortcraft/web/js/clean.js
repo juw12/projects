@@ -339,7 +339,15 @@
     ctx.textBaseline = "middle";
     setFont(ctx, 800, 28);
     ctx.fillStyle = C.ink;
-    ctx.fillText(brand, 98, 218);
+    if (brand.slice(-1) === "?") {
+      // "MENDING?" - the question mark in yellow, like the logo
+      var stem = brand.slice(0, -1);
+      ctx.fillText(stem, 98, 218);
+      ctx.fillStyle = C.yellow;
+      ctx.fillText("?", 98 + ctx.measureText(stem).width, 218);
+    } else {
+      ctx.fillText(brand, 98, 218);
+    }
     if (episode) {
       setFont(ctx, 600, 28);
       ctx.fillStyle = C.mute;
@@ -848,10 +856,17 @@
     });
     ctx.restore();
     if (project.avatar && project.avatar.name) {
-      setFont(ctx, 700, 24);
-      ctx.fillStyle = C.mute;
+      var labelY = HOST.y - h / 2 - 22;
       ctx.textAlign = "left";
-      ctx.fillText(project.avatar.name, x + 6, HOST.y - h / 2 - 22);
+      setFont(ctx, 800, 26);
+      ctx.fillStyle = C.ink;
+      ctx.fillText(project.avatar.name, x + 6, labelY);
+      if (project.avatar.handle) {
+        var nameW = ctx.measureText(project.avatar.name).width;
+        setFont(ctx, 600, 24);
+        ctx.fillStyle = C.mute;
+        ctx.fillText("  " + project.avatar.handle, x + 6 + nameW, labelY);
+      }
     }
   }
 
