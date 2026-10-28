@@ -2688,8 +2688,10 @@ class DesktopPet:
             help_menu.add_command(label=t("m_check_updates"), command=lambda: self._call("check_updates"))
         if self.cb.get("version"):
             version = self._call("version") or ""
+            owner = (self._call("owner") if self.cb.get("owner") else "") or ""
             help_menu.add_command(label=t("m_about", v=version),
-                                  command=lambda v=version: self.say(t("about_text", v=v), duration=6, priority=1))
+                                  command=lambda v=version, o=owner: self.say(t("about_text", v=v, owner=o),
+                                                                              duration=8, priority=1))
         menu.add_cascade(label=t("m_help"), menu=help_menu)
         menu.add_separator()
         menu.add_command(label=t("p_settings"), command=self.open_settings)

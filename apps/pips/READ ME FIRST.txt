@@ -1,5 +1,6 @@
 PIPS - desktop pet + Pomodoro focus widget (Windows 10/11)
 =============================================================
+Owner: Juwen Lie
 
 1. Unzip this folder anywhere (e.g. Documents\Pips).
 2. Double-click  "Start Pips.bat".

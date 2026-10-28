@@ -28,7 +28,8 @@ except ImportError:  # pragma: no cover - i18n ships with Pips
     def T(key, lang=None, **kwargs):
         return key
 
-APP_VERSION = "2.1.0"
+APP_VERSION = "2.1.1"
+APP_OWNER = "Juwen Lie"
 USER_GUIDE_URL = "https://juw12.github.io/projects/pips/download/Pips-Guide.pptx"
 SITE_URL = "https://juw12.github.io/projects/pips/"
 
@@ -1117,6 +1118,7 @@ class ProductivityWidget:
                     "check_updates": lambda: self._check_updates(manual=True),
                     "open_user_guide": self._open_user_guide,
                     "version": lambda: APP_VERSION,
+            "owner": lambda: APP_OWNER,
                     "icon_path": str(icon) if icon.exists() else None,
                 },
             )
@@ -3755,7 +3757,7 @@ class ProductivityWidget:
         help_menu.add_command(label=T("m_user_guide"), command=self._open_user_guide)
         help_menu.add_command(label=T("m_check_updates"), command=lambda: self._check_updates(manual=True))
         help_menu.add_command(label=T("m_about", v=APP_VERSION),
-                              command=lambda: self._tell(T("about_text", v=APP_VERSION), priority=1))
+                              command=lambda: self._tell(T("about_text", v=APP_VERSION, owner=APP_OWNER), priority=1))
         menu.add_cascade(label=T("m_help"), menu=help_menu)
         
         menu.add_separator()
@@ -3935,7 +3937,7 @@ def main(argv=None) -> int:
     parser.add_argument("--no-track", action="store_true", help="Disable tracker")
     parser.add_argument("--reset-pos", action="store_true", help="Reset window position")
     parser.add_argument("--choose-language", action="store_true", help="Show the language picker again")
-    parser.add_argument("--version", action="version", version=f"Pips {APP_VERSION}")
+    parser.add_argument("--version", action="version", version=f"Pips {APP_VERSION} - by {APP_OWNER}")
     
     args = parser.parse_args(argv)
     

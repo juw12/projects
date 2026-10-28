@@ -1,5 +1,7 @@
 ﻿# Pips
 
+**Owner:** Juwen Lie · https://juw12.github.io/projects/pips/
+
 An always-on-top desktop widget that turns your day into a score. It combines a
 **Pomodoro timer**, looping **rain / thunder / brown-noise / café soundscapes**,
 **live app-usage tracking**, a **daily productivity score with a 1–5 star rating**,
