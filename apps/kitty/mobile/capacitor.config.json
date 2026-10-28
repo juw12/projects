@@ -1,0 +1,24 @@
+{
+  "appId": "io.github.juw12.kitty",
+  "appName": "Kitty",
+  "webDir": "shell",
+  "backgroundColor": "#f6f5fb",
+  "server": {
+    "url": "https://juw12.github.io/projects/kitty/",
+    "errorPath": "offline.html"
+  },
+  "android": {
+    "allowMixedContent": false
+  },
+  "ios": {
+    "contentInset": "never",
+    "backgroundColor": "#f6f5fb"
+  },
+  "plugins": {
+    "SystemBars": {
+      "insetsHandling": "css",
+      "initialViewportFitValueHint": "cover",
+      "style": "DEFAULT"
+    }
+  }
+}

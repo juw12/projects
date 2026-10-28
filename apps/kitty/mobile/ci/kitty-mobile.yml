@@ -1,0 +1,210 @@
+name: Kitty mobile apps
+
+# Builds Kitty for Android (signed APK) and iPhone (unsigned IPA for sideloading / re-signing), runs the Android
+# app on an emulator against the live site, launches the iPhone build in the simulator, and publishes both to the
+# "kitty-mobile" release from main. File names are stable so the download links on kitty/get.html never change.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/kitty/mobile/**'
+      - '.github/workflows/kitty-mobile.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kitty-mobile-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: apps/kitty/mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Prepare the Android project
+        run: |
+          npm install --no-fund --no-audit
+          npm run android:prepare
+      - name: Restore the signing key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.GLOW_ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "::warning::No signing key secret; only the debug APK will be built."
+            exit 0
+          fi
+          echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/kitty-signing.p12"
+          echo "KITTY_ANDROID_KEYSTORE_PATH=$RUNNER_TEMP/kitty-signing.p12" >> "$GITHUB_ENV"
+      - name: Build release and debug APKs
+        env:
+          KITTY_ANDROID_SIGNING_PASSWORD: ${{ secrets.GLOW_ANDROID_SIGNING_PASSWORD }}
+          KITTY_ANDROID_KEY_ALIAS: glow
+        run: |
+          chmod +x android/gradlew
+          cd android
+          if [ -n "${KITTY_ANDROID_KEYSTORE_PATH:-}" ]; then
+            ./gradlew assembleRelease assembleDebug --no-daemon
+          else
+            ./gradlew assembleDebug --no-daemon
+          fi
+      - name: Verify the signature and name the packages
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          mkdir -p dist
+          cp android/app/build/outputs/apk/debug/app-debug.apk dist/Kitty-debug.apk
+          if [ -n "${KITTY_ANDROID_KEYSTORE_PATH:-}" ]; then
+            cp android/app/build/outputs/apk/release/app-release.apk dist/Kitty-android.apk
+            APKSIGNER=$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -n 1)
+            "$APKSIGNER" verify --print-certs dist/Kitty-android.apk | tee dist/android-signature.txt
+          else
+            cp dist/Kitty-debug.apk dist/Kitty-android.apk
+          fi
+          echo "$VERSION" > dist/version.txt
+          ls -la dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Kitty-Android
+          path: apps/kitty/mobile/dist
+          retention-days: 14
+
+  emulator:
+    needs: android
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: Kitty-Android
+          path: apps/kitty/mobile/dist
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install websocket-client
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Run the app on an emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -no-boot-anim -camera-back none
+          script: python apps/kitty/mobile/scripts/android-e2e.py apps/kitty/mobile/dist/Kitty-debug.apk
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Kitty-Android-emulator
+          path: |
+            apps/kitty/mobile/dist/*.png
+            apps/kitty/mobile/dist/*.json
+            apps/kitty/mobile/dist/*.txt
+          retention-days: 7
+
+  ios:
+    runs-on: macos-latest
+    timeout-minutes: 40
+    defaults:
+      run:
+        working-directory: apps/kitty/mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Prepare the iOS project
+        run: |
+          npm install --no-fund --no-audit
+          npm run ios:prepare
+      - name: Compile a real iPhone build (unsigned; sign it to install)
+        run: |
+          xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Release -sdk iphoneos \
+            -destination 'generic/platform=iOS' -derivedDataPath build-device CODE_SIGNING_ALLOWED=NO build
+          mkdir -p dist/Payload
+          cp -R build-device/Build/Products/Release-iphoneos/App.app dist/Payload/App.app
+          cd dist
+          zip -qry Kitty-ios-UNSIGNED.ipa Payload
+          rm -rf Payload
+      - name: Launch in the iPhone simulator
+        run: |
+          xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Debug -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' -derivedDataPath build-simulator CODE_SIGNING_ALLOWED=NO build
+          DEVICE=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; d=json.load(sys.stdin); print(next(x["udid"] for a in d["devices"].values() for x in a if x["isAvailable"] and x["name"].startswith("iPhone")))')
+          xcrun simctl boot "$DEVICE" || true
+          xcrun simctl bootstatus "$DEVICE" -b
+          xcrun simctl install "$DEVICE" build-simulator/Build/Products/Debug-iphonesimulator/App.app
+          xcrun simctl launch "$DEVICE" io.github.juw12.kitty
+          sleep 30
+          xcrun simctl io "$DEVICE" screenshot dist/kitty-iphone-simulator.png
+          xcrun simctl spawn "$DEVICE" launchctl list | grep -q io.github.juw12.kitty && echo "Kitty is running in the simulator"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Kitty-iOS
+          path: |
+            apps/kitty/mobile/dist/*.ipa
+            apps/kitty/mobile/dist/*.png
+          retention-days: 14
+          if-no-files-found: error
+
+  publish:
+    needs: [android, emulator, ios]
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: Kitty-Android
+          path: dist
+      - uses: actions/download-artifact@v4
+        with:
+          name: Kitty-iOS
+          path: dist
+      - name: Publish to the kitty-mobile release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          cd dist
+          VERSION=$(cat version.txt)
+          FILES="Kitty-android.apk Kitty-ios-UNSIGNED.ipa kitty-iphone-simulator.png"
+          ls -la $FILES
+          cat > notes.md <<EOF
+          Kitty ${VERSION} for Android and iPhone, built from ${GITHUB_SHA::7}. Free, no account. The app opens the live Kitty site, so web updates reach it instantly; budgets sync across web, iPhone and Android with the same invite link.
+
+          **Android:** download \`Kitty-android.apk\` on your phone, open it, and allow installing from your browser. Signed with the same key every release, so updates install over the top.
+
+          **iPhone (easiest, free):** open https://juw12.github.io/projects/kitty/ in Safari → Share → Add to Home Screen.
+
+          **iPhone native build:** \`Kitty-ios-UNSIGNED.ipa\` is unsigned. Install it with AltStore or Sideloadly (free Apple ID, re-sign every 7 days) or sign it with an Apple Developer account.
+
+          Install guide: https://juw12.github.io/projects/kitty/get.html
+          EOF
+          if gh release view kitty-mobile --repo "$REPO" > /dev/null 2>&1; then
+            for old in $(gh release view kitty-mobile --repo "$REPO" --json assets -q '.assets[].name'); do
+              gh release delete-asset kitty-mobile "$old" --yes --repo "$REPO"
+            done
+            gh release upload kitty-mobile $FILES --clobber --repo "$REPO"
+            gh release edit kitty-mobile --title "Kitty ${VERSION} for Android & iPhone" --notes-file notes.md --repo "$REPO"
+          else
+            gh release create kitty-mobile $FILES --title "Kitty ${VERSION} for Android & iPhone" --notes-file notes.md --target "$GITHUB_SHA" --repo "$REPO"
+          fi

@@ -579,7 +579,10 @@ input.num { text-align: right; font-variant-numeric: tabular-nums; }
 .animal:hover { transform: translateY(-4px) rotate(-1deg); }
 .animal span { font-size: 40px; }
 .animal small { color: var(--muted); }
-.w-foot { text-align: center; color: var(--muted); font-size: 13px; padding: 30px 0 10px; }
+.w-foot { text-align: center; color: var(--muted); font-size: 13px; padding: 30px 0 10px; line-height: 2; }
+.get-app-link { display: inline-block; font-weight: 700; font-size: 14px; color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); padding: 6px 14px; border-radius: 999px; text-decoration: none; }
+.get-app-card .row-gap a { text-decoration: none; }
+.native-app .get-app-link, .native-app .get-app-card { display: none; }
 
 /* ------------------------------------------------------------ responsive */
 @media (max-width: 1180px) {

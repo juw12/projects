@@ -26,6 +26,11 @@ REQUIRED = [
     "manifest.webmanifest",
     "icon.svg",
     "sw.js",
+    "get.html",
+    "apple-touch-icon.png",
+    "icon-192.png",
+    "icon-512.png",
+    "icon-maskable-512.png",
     "js/core.js",
     "js/sync.js",
     "js/ui-kit.js",
@@ -69,6 +74,11 @@ class WebStaticTests(unittest.TestCase):
         self.assertTrue(manifest.get("icons"))
         for icon in manifest["icons"]:
             self.assertTrue((WEB / icon["src"]).exists(), icon["src"])
+        sizes = {icon.get("sizes") for icon in manifest["icons"] if icon.get("type") == "image/png"}
+        self.assertIn("192x192", sizes, "installable PWAs need a 192px PNG icon")
+        self.assertIn("512x512", sizes, "installable PWAs need a 512px PNG icon")
+        for shortcut in manifest.get("shortcuts", []):
+            self.assertFalse(shortcut["url"].startswith("/"), "shortcut urls must be relative")
 
     def test_no_root_absolute_literals_in_js(self):
         offenders = []
