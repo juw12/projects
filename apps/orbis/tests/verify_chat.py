@@ -27,11 +27,15 @@ import time
 import urllib.error
 import urllib.request
 from email import message_from_bytes
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 SERVER = ROOT / "server" / "server.py"
 HOST = os.environ.get("ORBIS_TEST_HOST", "127.0.0.1")
+
+sys.path.insert(0, str(ROOT / "server"))
+import webpush  # noqa: E402  (used to play the browser side of Web Push)
 
 PASSED = 0
 FAILED = 0
@@ -91,10 +95,13 @@ class Client:
 class EventStream:
     """Minimal SSE reader running in a background thread."""
 
-    def __init__(self, host, port, token):
+    def __init__(self, host, port, token, client=None, active=True):
         self.events = queue.Queue()
         self.conn = http.client.HTTPConnection(host, port, timeout=30)
-        self.conn.request("GET", "/api/chat/events?token=" + token)
+        path = "/api/chat/events?token=" + token
+        if client:
+            path += "&client=%s&active=%d" % (client, 1 if active else 0)
+        self.conn.request("GET", path)
         self.response = self.conn.getresponse()
         self.status = self.response.status
         self.thread = threading.Thread(target=self._read, daemon=True)
@@ -131,6 +138,56 @@ class EventStream:
         self.conn.close()
 
 
+class FakePushService:
+    """Stands in for FCM / Apple / Mozilla push: records what Orbis sends."""
+
+    def __init__(self):
+        received = self.received = queue.Queue()
+
+        class Handler(BaseHTTPRequestHandler):
+            def do_POST(self):
+                body = self.rfile.read(int(self.headers.get("Content-Length") or 0))
+                received.put({"path": self.path, "headers": dict(self.headers), "body": body})
+                status = 410 if self.path.startswith("/gone") else 201
+                self.send_response(status)
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+
+            def log_message(self, *args):
+                pass
+
+        self.server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        self.port = self.server.server_address[1]
+        threading.Thread(target=self.server.serve_forever, daemon=True).start()
+
+    def endpoint(self, path):
+        return "http://127.0.0.1:%d%s" % (self.port, path)
+
+    def wait(self, path_prefix=None, timeout=6.0):
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            try:
+                item = self.received.get(timeout=max(0.05, deadline - time.time()))
+            except queue.Empty:
+                return None
+            if path_prefix is None or item["path"].startswith(path_prefix):
+                return item
+        return None
+
+    def drain(self, seconds):
+        items = []
+        deadline = time.time() + seconds
+        while time.time() < deadline:
+            try:
+                items.append(self.received.get(timeout=0.1))
+            except queue.Empty:
+                pass
+        return items
+
+    def close(self):
+        self.server.shutdown()
+
+
 def outbox_messages(folder):
     result = []
     if folder.exists():
@@ -160,6 +217,7 @@ def main():
         "ORBIS_UPLOADS": str(tmp / "uploads"),
         "ORBIS_PBKDF2_ITERATIONS": "2000",
         "ORBIS_PUBLIC_URL": "https://orbis.example/",
+        "ORBIS_PUSH_EXTRA_HOSTS": "127.0.0.1",
     })
     for key in ("ORBIS_SMTP_HOST", "ORBIS_ALLOW_SIGNUP"):
         env.pop(key, None)
@@ -170,6 +228,7 @@ def main():
     display = "[%s]" % HOST if ":" in HOST else HOST
     base = "http://%s:%d" % (display, port)
     streams = []
+    push_service = FakePushService()
     try:
         for _ in range(100):
             try:
@@ -224,7 +283,7 @@ def main():
         status, again = alice.call("POST", "conversations", {"kind": "direct", "userId": bob.user["id"]})
         check(again["conversation"]["id"] == dm["id"], "starting the same DM again reuses it")
 
-        bob_stream = EventStream(HOST, port, bob.token)
+        bob_stream = EventStream(HOST, port, bob.token, client="bob-phone", active=True)
         streams.append(bob_stream)
         bob_stream.wait_for(lambda e: e["type"] == "hello")
         presence = alice_stream.wait_for(lambda e: e["type"] == "presence" and e["userId"] == bob.user["id"])
@@ -350,6 +409,77 @@ def main():
         status, data = bob.call("GET", "users?q=dave@example.com")
         check(len(data["users"]) == 1, "anyone is reachable by exact email")
 
+
+        print("web push (alerts when the app is closed)")
+        status, key_data = anon.call("GET", "push/key")
+        server_key = webpush.b64url_decode(key_data.get("publicKey", ""))
+        check(status == 200 and len(server_key) == 65 and server_key[0] == 4, "server publishes a VAPID P-256 key")
+        ua_private = webpush.generate_private_key()
+        ua_public = webpush.public_key(ua_private)
+        ua_auth = os.urandom(16)
+        subscription = {"endpoint": push_service.endpoint("/push/bob-phone"),
+                        "keys": {"p256dh": webpush.b64url_encode(ua_public), "auth": webpush.b64url_encode(ua_auth)}}
+        status, data = bob.call("POST", "push/subscribe", subscription)
+        check(status == 200 and data.get("devices") == 1, "bob's phone subscribes to push")
+        status, data = bob.call("POST", "push/subscribe", {"endpoint": "https://evil.example/collect",
+                                                         "keys": subscription["keys"]})
+        check(status == 400, "non push-service endpoints are refused (no SSRF)")
+
+        alice.call("POST", "conversations/%d/messages" % dm["id"], {"body": "You are looking at the app"})
+        check(not push_service.drain(1.5), "no push while bob has Orbis open in the foreground")
+
+        status, data = bob.call("POST", "presence", {"client": "bob-phone", "active": False})
+        check(status == 200 and data.get("found"), "bob's phone reports Orbis went to the background")
+        alice.call("POST", "conversations/%d/messages" % dm["id"], {"body": "Ping while your app is closed 📱"})
+        pushed = push_service.wait("/push/bob-phone")
+        check(pushed is not None, "push is delivered to bob's push service")
+        if pushed:
+            headers = {k.lower(): v for k, v in pushed["headers"].items()}
+            check(headers.get("content-encoding") == "aes128gcm" and headers.get("ttl")
+                  and headers.get("urgency") == "high" and headers.get("topic") == "c%d" % dm["id"],
+                  "RFC 8030/8188 headers (aes128gcm, TTL, Urgency, Topic)")
+            auth_header = headers.get("authorization", "")
+            token = auth_header.split("t=")[1].split(",")[0] if "t=" in auth_header else ""
+            k_value = auth_header.split("k=")[1] if "k=" in auth_header else ""
+            parts = token.split(".")
+            claims = json.loads(webpush.b64url_decode(parts[1])) if len(parts) == 3 else {}
+            check(k_value == key_data["publicKey"] and claims.get("aud") == "http://127.0.0.1:%d" % push_service.port
+                  and claims.get("exp", 0) > time.time(), "VAPID header names this server and audience")
+            check(len(parts) == 3 and webpush.ecdsa_verify(server_key, (parts[0] + "." + parts[1]).encode(),
+                                                           webpush.b64url_decode(parts[2])),
+                  "VAPID JWT signature verifies (push services will accept it)")
+            note = json.loads(webpush.decrypt(pushed["body"], ua_private, ua_auth))
+            check(note.get("type") == "message" and note.get("title") == "Alice"
+                  and note.get("body") == "Ping while your app is closed 📱", "phone decrypts the alert: sender + text")
+            check(note.get("conversationId") == dm["id"] and note.get("url") == "chat.html#c=%d" % dm["id"]
+                  and note.get("badge", 0) >= 1, "alert opens the right chat and carries the unread badge")
+
+        bob.call("PATCH", "conversations/%d" % dm["id"], {"muted": True})
+        alice.call("POST", "conversations/%d/messages" % dm["id"], {"body": "muted ping"})
+        check(not push_service.drain(1.5), "muted conversations do not push")
+        bob.call("PATCH", "conversations/%d" % dm["id"], {"muted": False})
+
+        gone = {"endpoint": push_service.endpoint("/gone/old-tablet"), "keys": subscription["keys"]}
+        status, data = bob.call("POST", "push/subscribe", gone)
+        check(data.get("devices") == 2, "a second device subscribes")
+        alice.call("POST", "conversations/%d/messages" % dm["id"], {"body": "to both devices"})
+        hits = push_service.drain(2.5)
+        check(sorted(h["path"].split("/")[1] for h in hits) == ["gone", "push"], "every device gets the alert")
+        alice.call("POST", "conversations/%d/messages" % dm["id"], {"body": "after uninstall"})
+        hits = push_service.drain(2.5)
+        check([h["path"] for h in hits] == ["/push/bob-phone"], "uninstalled device (410 Gone) is removed")
+
+        status, data = bob.call("POST", "push/test")
+        test_push = push_service.wait("/push/bob-phone")
+        check(status == 200 and data.get("sent") == 1 and test_push is not None and
+              json.loads(webpush.decrypt(test_push["body"], ua_private, ua_auth)).get("type") == "test",
+              "'Send test notification' works")
+
+        bob.call("POST", "presence", {"client": "bob-phone", "active": True})
+        alice.call("POST", "conversations/%d/messages" % dm["id"], {"body": "back in the app"})
+        check(not push_service.drain(1.2), "pushes stop again when bob reopens the app")
+        bob.call("POST", "presence", {"client": "bob-phone", "active": False})
+
         print("security and account lifecycle")
         conn = http.client.HTTPConnection(HOST, port, timeout=5)
         conn.request("OPTIONS", "/api/chat/me")
@@ -376,6 +506,8 @@ def main():
         probe.token = old_token
         status, data = probe.call("GET", "me")
         check(status == 401, "old sessions are revoked after reset")
+        alice.call("POST", "conversations/%d/messages" % dm["id"], {"body": "after password reset"})
+        check(not push_service.drain(1.5), "signed-out devices stop receiving pushes")
 
         status, data = dave.call("POST", "auth/logout")
         status, data = dave.call("GET", "me")
@@ -393,6 +525,7 @@ def main():
     finally:
         for stream in streams:
             stream.close()
+        push_service.close()
         proc.terminate()
         try:
             log = proc.communicate(timeout=5)[0]

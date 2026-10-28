@@ -92,10 +92,15 @@ from a browser, an iPhone or an Android phone.
   presence ("last seen…"). Reconnects and re-syncs automatically.
 - Replies (quoted), edits, deletes (content wiped), emoji reactions, image and
   file attachments (10 MB), links, full-text search over your own chats, mute.
-- Notifications: in-app toasts, unread badges (tab title + installed-app
-  icon badge), device notifications while the app is in the background, and
-  **email notifications** to offline members (at most one per chat every
-  10 minutes, can be turned off in Profile).
+- **Push notifications even when Orbis is fully closed** (standard Web Push:
+  VAPID + RFC 8291 encryption, implemented in `server/webpush.py` with the
+  standard library only). Works on Android (Chrome), iPhone/iPad (iOS 16.4+,
+  after Add to Home Screen), desktop Chrome/Edge/Firefox/Safari. Alerts are
+  skipped while you are looking at Orbis, respect mute, show the sender and
+  text, set the app-icon badge, and open the right chat when tapped. Each
+  device's subscription is tied to its login, so signing out stops alerts.
+- Also: in-app toasts, unread badges, and **email notifications** for people
+  with no push-enabled device (max one per chat every 10 minutes).
 - Installable app (PWA): iPhone (Safari → Share → Add to Home Screen),
   Android (Chrome → Install app), desktop Chrome/Edge. Dark mode, safe-area and
   on-screen-keyboard aware.
@@ -142,6 +147,18 @@ send real email set:
 | `ORBIS_SMTP_FROM` | `Orbis <no-reply@yourdomain.com>` |
 | `ORBIS_PUBLIC_URL` | `https://orbis.yourdomain.com/` (used in emailed links) |
 
+### Push notifications
+
+Nothing to configure: the server creates its VAPID key pair on first run and
+stores it in the database. Users turn alerts on in **Profile → Push
+notifications → Turn on** (iPhone: add Orbis to the Home Screen first and open
+it from the icon). Push requires HTTPS (or `localhost`). Optional settings:
+
+| Variable | Purpose |
+| --- | --- |
+| `ORBIS_VAPID_PRIVATE_KEY` | Pin the key (base64url, 32 bytes) when running several servers or rebuilding the database; changing it requires devices to re-subscribe (automatic on next open) |
+| `ORBIS_VAPID_SUBJECT` | Contact URL for push services, e.g. `mailto:you@example.com` (defaults to `ORBIS_PUBLIC_URL` or the SMTP sender) |
+
 Other settings: `ORBIS_ALLOW_SIGNUP=0` (invite-only server),
 `ORBIS_TRUST_PROXY=1` (behind a proxy; set in the Dockerfile), `PORT`, `HOST`,
 `ORBIS_DB`.
@@ -169,16 +186,19 @@ Other settings: `ORBIS_ALLOW_SIGNUP=0` (invite-only server),
 | `POST` | `messages/{id}/reactions` | Toggle an emoji reaction |
 | `POST` · `GET` | `uploads` · `uploads/{id}` | Upload a file (raw body) / download |
 | `GET` | `search?q=` | Search your messages |
-| `GET` | `events?token=` | Server-Sent Events stream (live updates) |
+| `GET` | `events?token=&client=&active=` | Server-Sent Events stream (live updates) |
+| `GET` · `POST` | `push/key` · `push/subscribe`, `push/unsubscribe`, `push/test` | Web Push key and device subscriptions |
+| `POST` | `presence` | Device reports foreground/background (no push while you are looking) |
 
 ### Honest limits (what is not done yet)
 
 - **Native store apps**: Orbis Chat is an installable web app (PWA). It is not
   packaged for the App Store / Play Store; wrapping it with Capacitor is the
   next step if store distribution is needed.
-- **Background push when the app is fully closed** (Web Push / APNs / FCM) is
-  not implemented. Device notifications work while Orbis is open or in the
-  background; offline users get email notifications instead.
+- Push on iPhone needs iOS 16.4+ and Orbis installed to the Home Screen
+  (Apple's rule for web apps). Delivery to the phone is done by Apple/Google's
+  push services; Orbis's side (encryption, VAPID, routing) is covered by the
+  test-suite against the published RFC vectors.
 - **Scale**: one process + SQLite comfortably serves a small community or
   company, not millions of users. No end-to-end encryption; messages are stored
   in plain text on your server, protected by HTTPS in transit.
@@ -207,9 +227,11 @@ apps/orbis/
   server/
     server.py             # Zero-dependency HTTP server
     chat.py               # Accounts, teams, messaging, live events, email
+    webpush.py            # Web Push: P-256, AES-GCM, RFC 8291/8292 (stdlib)
   tests/
     verify_api.py         # Hermetic API test (stdlib only)
-    verify_chat.py        # Multi-user live chat test (stdlib only)
+    verify_chat.py        # Multi-user live chat + push test (stdlib only)
+    verify_webpush.py     # Known-answer crypto tests (RFC 8291, RFC 6979, NIST)
   docs/                   # Product specs and guides
   data/                   # SQLite database (created at runtime)
   README.md
@@ -231,7 +253,8 @@ Expected output: `41 passed, 0 failed` with exit code 0.
 The chat suite signs up several users and checks live delivery end to end:
 
 ```bash
-python tests/verify_chat.py   # expected: 66 passed, 0 failed
+python tests/verify_chat.py     # expected: 84 passed, 0 failed
+python tests/verify_webpush.py  # expected: 25 passed (RFC/NIST crypto vectors)
 ```
 
 If IPv4 loopback is blocked on your machine, point the test at IPv6 loopback:
