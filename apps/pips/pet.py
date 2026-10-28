@@ -2425,6 +2425,17 @@ class DesktopPet:
                 pass
             self._last_geom = None
 
+    def on_theme_changed(self):
+        """Re-open the windows that are drawn with theme colours."""
+        if self.settings_win and self.settings_win.alive():
+            self.settings_win.close()
+            self.open_settings()
+        if self.social and self.social.window and self.social.window.alive():
+            tab = self.social.window.tab
+            self.social.window.close()
+            self.social.window = None
+            self.social.open_window(tab)
+
     def open_hub(self, tab=None):
         if self.social:
             self.social.open_window(tab)
@@ -2891,6 +2902,14 @@ class DesktopPet:
         sounds_on = bool(self.s.get("sounds", True))
         menu.add_command(label=("\u2713 " if sounds_on else "   ") + t("p_sounds"),
                          command=lambda: self.update_setting("sounds", not sounds_on))
+        if self.cb.get("set_theme"):
+            try:
+                import theme as theme_mod
+                dark = theme_mod.current_name() == "dark"
+            except ImportError:
+                dark = False
+            menu.add_command(label=("\u2713 " if dark else "   ") + t("p_dark_mode"),
+                             command=lambda: self._call("set_theme", "light" if dark else "dark"))
 
         if i18n and self.cb.get("set_language"):
             lang_menu = submenu(menu)
@@ -2943,6 +2962,14 @@ class PetSettingsWindow:
 
     def __init__(self, pet: DesktopPet):
         self.pet = pet
+        try:
+            import theme as theme_mod
+            p = theme_mod.palette()
+            self.BG, self.CARD, self.INK = p["bg"], p["card"], p["ink"]
+            self.MUTED, self.BORDER, self.ACCENT = p["muted"], p["border"], p["accent"]
+            self.SOFT, self.TRACK = p["soft"], p["bar"]
+        except Exception:
+            self.SOFT, self.TRACK = self.SOFT, self.TRACK
         self.win = tk.Toplevel(pet.root)
         self.win.title(t("s_title", name=pet.s["name"]))
         self.win.configure(bg=self.BG)
@@ -2996,7 +3023,7 @@ class PetSettingsWindow:
         return inner
 
     def _button(self, parent, text, command, primary=False):
-        bg = self.pet.color if primary else "#f1ece4"
+        bg = self.pet.color if primary else self.SOFT
         fg = darken(self.pet.color, 0.65) if primary else self.INK
         btn = tk.Button(parent, text=text, command=command, font=("Segoe UI", 9, "bold" if primary else "normal"),
                         bg=bg, fg=fg, activebackground=darken(bg, 0.08), relief=tk.FLAT, bd=0,
@@ -3135,7 +3162,7 @@ class PetSettingsWindow:
         self.volume_var = tk.IntVar(value=int(pet.s.get("sound_volume", 60)))
         volume = tk.Scale(row, from_=0, to=100, orient="horizontal", variable=self.volume_var, showvalue=False,
                           length=130, sliderlength=14, width=10, bg=self.CARD, highlightthickness=0,
-                          troughcolor="#eeeae3", activebackground=self.ACCENT, bd=0)
+                          troughcolor=self.TRACK, activebackground=self.ACCENT, bd=0)
         volume.pack(side="left")
         volume.bind("<ButtonRelease-1>", lambda e: self._volume_changed())
         self._button(row, t("b_hear"), lambda: pet._voice(pet.mood(), force=True)).pack(side="left", padx=(8, 0))
@@ -3163,7 +3190,7 @@ class PetSettingsWindow:
         self.category = category
         for c, btn in self._tab_buttons.items():
             active = c == category
-            btn.config(bg=self.ACCENT if active else "#f1ece4", fg="#ffffff" if active else self.INK)
+            btn.config(bg=self.ACCENT if active else self.SOFT, fg="#ffffff" if active else self.INK)
         for child in self.grid_frame.winfo_children():
             child.destroy()
         self._tiles = []
@@ -3283,7 +3310,7 @@ class PetSettingsWindow:
             for key, (bar, value, color) in self.bars.items():
                 v = float(pet.st.get(key, 0))
                 bar.delete("all")
-                bar.create_rectangle(0, 0, 130, 9, fill="#eeeae3", outline="")
+                bar.create_rectangle(0, 0, 130, 9, fill=self.TRACK, outline="")
                 bar.create_rectangle(0, 0, max(2, 130 * v / 100.0), 9, fill=color, outline="")
                 value.config(text="%d" % round(v))
             self.sleep_btn.config(text=t("b_wake") if pet.sleeping else t("b_sleep"))

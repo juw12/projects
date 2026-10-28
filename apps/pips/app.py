@@ -28,7 +28,7 @@ except ImportError:  # pragma: no cover - i18n ships with Pips
     def T(key, lang=None, **kwargs):
         return key
 
-APP_VERSION = "2.5.1"
+APP_VERSION = "2.6.0"
 APP_OWNER = "Juwen Lie"
 USER_GUIDE_URL = "https://juw12.github.io/projects/pips/download/Pips-Guide.pptx"
 SITE_URL = "https://juw12.github.io/projects/pips/"
@@ -1078,7 +1078,7 @@ class ProductivityWidget:
             canvas.delete("chrome")
             r = CARD_RADIUS
             # soft shadow (two offset layers), then the paper card with a hairline border
-            for offset, colour in ((3, "#d8d2c7"), (2, "#e4dfd6")):
+            for offset, colour in ((3, THEME.get("shadow_1", "#d8d2c7")), (2, THEME.get("shadow_2", "#e4dfd6"))):
                 canvas.create_polygon(
                     self._round_rect_pts(1 + offset // 2, 1 + offset, width - 3 + offset // 2, height - 4 + offset, r),
                     smooth=True, fill=colour, outline="", tags="chrome")
@@ -1115,6 +1115,7 @@ class ProductivityWidget:
                     "hide_pet": self._hide_pet,
                     "quit": self._on_close,
                     "set_language": self._set_language,
+                    "set_theme": self._set_theme,
                     "check_updates": lambda: self._check_updates(manual=True),
                     "open_user_guide": self._open_user_guide,
                     "version": lambda: APP_VERSION,
@@ -1871,6 +1872,33 @@ class ProductivityWidget:
             self.pet.react("language_changed")
         logger.info(f"Language set to {code}")
     
+    def _set_theme(self, name: str):
+        """Switch light / dark live: save it, recolour the card/dashboard and the pet windows."""
+        try:
+            import theme as theme_mod
+        except ImportError:
+            return
+        name = theme_mod.set_theme(name)
+        theme_mod.apply_to_app(THEME, PILL_COLORS)
+        self.cfg.setdefault("ui", {})["theme"] = name
+        try:
+            disk = {}
+            if CONFIG_PATH.exists():
+                with open(CONFIG_PATH, "r", encoding="utf-8-sig") as f:
+                    disk = json.load(f)
+            disk.setdefault("ui", {})["theme"] = name
+            with open(CONFIG_PATH, "w", encoding="utf-8") as f:
+                json.dump(disk, f, indent=2)
+        except Exception as e:
+            logger.warning(f"Failed to save theme: {e}")
+        self._rebuild_ui()
+        if self.pet:
+            try:
+                self.pet.on_theme_changed()
+            except Exception as e:
+                logger.debug(f"pet theme refresh failed: {e}")
+        logger.info(f"Theme set to {name}")
+
     def _rebuild_ui(self):
         """Destroy and rebuild translated windows, keeping card position/visibility."""
         try:
@@ -2206,9 +2234,9 @@ class ProductivityWidget:
         if running:
             self._pulse_state = not self._pulse_state
             # gentle breathing track instead of a hard red/grey blink
-            track_color = "#efdede" if self._pulse_state else THEME["border_light"]
+            track_color = THEME.get("pulse_focus", "#efdede") if self._pulse_state else THEME["border_light"]
             if state != PomodoroState.WORK:
-                track_color = "#dcefe2" if self._pulse_state else THEME["border_light"]
+                track_color = THEME.get("pulse_break", "#dcefe2") if self._pulse_state else THEME["border_light"]
         else:
             track_color = THEME["border_light"]
         
@@ -2748,7 +2776,7 @@ class ProductivityWidget:
                 pass
             
             # Pulse animation (alternate bg color ~5 times over ~2s)
-            pulse_colors = [THEME["paper_bg"], "#fff5f5"]
+            pulse_colors = [THEME["paper_bg"], THEME.get("pulse_bg", "#fff5f5")]
             def pulse(count=[0]):
                 if count[0] < 10 and popup.winfo_exists():
                     idx = count[0] % 2
@@ -3962,6 +3990,14 @@ def main(argv=None) -> int:
     
     # Import modules
     import_modules()
+
+    # Colour theme (light / dark) - applied before any window is built
+    try:
+        import theme as theme_mod
+        theme_mod.set_theme((cfg.get("ui") or {}).get("theme", "light"))
+        theme_mod.apply_to_app(THEME, PILL_COLORS)
+    except Exception as e:
+        logger.warning(f"Theme not applied: {e}")
     
     # Language: use the saved choice, or ask once before Pips starts
     if i18n:

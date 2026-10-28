@@ -9,6 +9,10 @@ social.py - levels, achievements and Friends for Pips.
   colour, level, XP, streak, today's / this week's pomodoros and focus minutes,
   achievements, pet mood. Never: app names, window titles, scores, files.
 
+v2.6 adds public / private profiles (photo, bio, info), online status,
+friend requests for private profiles, relationship labels and a global
+leaderboard of everyone using Pips.
+
 v2 adds chat (friends + groups), private groups ("circles") with invites,
 affinity (friendship level that grows with every interaction) and pet
 interactions: wave, pet, snack, high five and pet visits (the friend's pet
@@ -20,6 +24,7 @@ The window lives in social_ui.py. All user-facing text comes from i18n.py.
 
 from __future__ import annotations
 
+import base64
 import json
 import logging
 import math
@@ -54,6 +59,7 @@ BOARD_EVERY_S = 15 * 60
 ACH_CHECK_EVERY_S = 5 * 60
 FRIEND_NEWS_GAP_S = 30 * 60
 INBOX_EVERY_S = 45
+IDLE_AWAY_S = 10 * 60          # idle this long -> "away" (auto status)
 INBOX_FAST_S = 5          # while a chat is open
 MAX_ROOM_HISTORY = 150
 
@@ -282,6 +288,9 @@ class Social:
         self.history_loaded = False
         self.chat_open_room = None              # room shown in the chat view (fast polling)
         self.visitors = []
+        self.leaderboards: dict[str, dict] = {}   # sort -> leaderboard payload
+        self.profiles: dict[str, dict] = {}       # code -> {"full": bool, "user": {...}, "at": t}
+        self._avatar_jobs: set = set()
         now = time.monotonic()
         self._next_ach = now + 20
         self._next_sync = now + 45
@@ -428,10 +437,148 @@ class Social:
                 self.results.put((kind, False, str(exc)))
         threading.Thread(target=worker, daemon=True).start()
 
+    # ---- my profile (v2.6) ----
+    PROFILE_DEFAULTS = {"visibility": "public", "bio": "", "info": {}, "status": "auto", "status_text": ""}
+
+    def profile(self) -> dict:
+        prof = dict(self.PROFILE_DEFAULTS)
+        prof.update(self.data.get("profile") or {})
+        if not isinstance(prof.get("info"), dict):
+            prof["info"] = {}
+        return prof
+
+    def save_profile(self, changes: dict, name: str | None = None):
+        prof = self.profile()
+        prof.update(changes)
+        self.data["profile"] = prof
+        if name is not None:
+            self.data["name"] = (name.strip() or default_display_name())[:24]
+        self.save()
+        if self.enabled:
+            self.sync()
+
+    def avatar_dir(self) -> Path:
+        return Path(self.pet.base_dir) / "data" / "avatars"
+
+    def my_avatar_path(self):
+        path = self.avatar_dir() / "me.png"
+        return path if self.data.get("avatar_v") and path.exists() else None
+
+    def set_avatar_from_file(self, src: str) -> str:
+        """Crop + resize a picture to a round 96px PNG; returns '' or an error code."""
+        try:
+            from PIL import Image, ImageDraw
+        except ImportError:
+            return "no_pillow"
+        try:
+            img = Image.open(src).convert("RGBA")
+        except Exception:
+            return "bad_image"
+        side = min(img.size)
+        left = (img.width - side) // 2
+        top = (img.height - side) // 2
+        img = img.crop((left, top, left + side, top + side)).resize((96, 96), Image.LANCZOS)
+        mask = Image.new("L", (96 * 4, 96 * 4), 0)
+        ImageDraw.Draw(mask).ellipse([0, 0, 96 * 4 - 1, 96 * 4 - 1], fill=255)
+        img.putalpha(mask.resize((96, 96), Image.LANCZOS))
+        self.avatar_dir().mkdir(parents=True, exist_ok=True)
+        out = self.avatar_dir() / "me.png"
+        img.save(out, "PNG", optimize=True)
+        data = base64.b64encode(out.read_bytes()).decode("ascii")
+        if len(data) > 78000:
+            img.quantize(colors=128).save(out, "PNG", optimize=True)
+            data = base64.b64encode(out.read_bytes()).decode("ascii")
+        self.data["avatar_v"] = int(time.time())
+        self.save()
+        if self.enabled:
+            self._act("avatar_set", "/v1/avatar", {"data": data})
+        return ""
+
+    def clear_avatar(self):
+        self.data["avatar_v"] = 0
+        self.save()
+        try:
+            (self.avatar_dir() / "me.png").unlink()
+        except OSError:
+            pass
+        if self.enabled:
+            self._act("avatar_set", "/v1/avatar", {"data": ""})
+
+    def avatar_path(self, code: str, version: int):
+        """Cached avatar for a user (downloads it in the background when missing)."""
+        if not version or not code:
+            return None
+        if code == self.data.get("code"):
+            return self.my_avatar_path()
+        path = self.avatar_dir() / f"{code}_{int(version)}.png"
+        if path.exists():
+            return path
+        if self.enabled and (code, version) not in self._avatar_jobs:
+            self._avatar_jobs.add((code, version))
+            self._run("avatar", self._fetch_avatar, code, int(version))
+        return None
+
+    def _fetch_avatar(self, code, version):
+        result = api_call("GET", f"/v1/avatar?code={code}", None, self.account)
+        raw = base64.b64decode(result.get("data", ""))
+        if not raw.startswith(b"\x89PNG"):
+            raise ApiError("bad_image")
+        folder = self.avatar_dir()
+        folder.mkdir(parents=True, exist_ok=True)
+        for old in folder.glob(f"{code}_*.png"):
+            try:
+                old.unlink()
+            except OSError:
+                pass
+        (folder / f"{code}_{version}.png").write_bytes(raw)
+        return {"code": code}
+
+    # ---- leaderboard / profiles / requests / labels (v2.6) ----
+    def load_leaderboard(self, sort="xp"):
+        if self.enabled:
+            self._run("leaderboard", api_call, "GET", f"/v1/leaderboard?sort={sort}", None, self.account)
+
+    def view_user(self, code: str):
+        if self.enabled:
+            self._run("user", api_call, "GET", f"/v1/user?code={code}", None, self.account)
+
+    def respond_request(self, code: str, accept: bool):
+        board = self.board or {}
+        board["requests"] = [r for r in board.get("requests", []) if r.get("code") != code]
+        self._act("request_answered", "/v1/friends/respond", {"code": code, "accept": bool(accept)})
+
+    def cancel_request(self, code: str):
+        self._act("request_cancelled", "/v1/friends/cancel", {"code": code})
+
+    def set_label(self, code: str, label: str):
+        self._act("label_set", "/v1/friends/label", {"code": code, "label": label})
+
+    def requests(self) -> list:
+        return list((self.board or {}).get("requests", []))
+
+    def sent_requests(self) -> set:
+        return set((self.board or {}).get("sent", []))
+
+    def _notify_requests(self):
+        notified = set(self.data.get("notified_requests", []))
+        for req in self.requests():
+            if req["code"] not in notified:
+                notified.add(req["code"])
+                self.pet.set_action("hop", 0.55)
+                self.pet.say(t("req_new", name=req.get("name", "?")), duration=7, priority=1,
+                             on_click=lambda: self.open_window("friends"))
+        self.data["notified_requests"] = sorted(notified)[-100:]
+
     def _profile_payload(self) -> dict:
         stats = self.stats or self.refresh_stats()
         unlocked = list(self.data.get("unlocked", {}).keys())
+        prof = self.profile()
         return {
+            "visibility": prof["visibility"],
+            "bio": prof["bio"],
+            "info": prof["info"],
+            "status": prof["status"],
+            "status_text": prof["status_text"],
             "name": self.data.get("name") or default_display_name(),
             "species": self.pet.s.get("species", "cat"),
             "color": self.pet.s.get("color", "#ffc78f"),
@@ -494,7 +641,9 @@ class Social:
         self.history_loaded = False
         if account:
             self._run("deleted", api_call, "DELETE", "/v1/me", None, account)
-        for key in ("id", "secret", "code", "groups", "read", "seen_id", "notified_invites"):
+        self.leaderboards = {}
+        self.profiles = {}
+        for key in ("id", "secret", "code", "groups", "read", "seen_id", "notified_invites", "notified_requests"):
             self.data.pop(key, None)
         self.save()
         self._refresh_window()
@@ -567,11 +716,19 @@ class Social:
     def _since(self) -> int:
         return max([m["id"] for msgs in self.rooms.values() for m in msgs] or [0]) if self.history_loaded else 0
 
+    def _idle_flag(self) -> str:
+        try:
+            import pet as pet_mod
+            return "1" if pet_mod.user_idle_seconds() > IDLE_AWAY_S else "0"
+        except Exception:
+            return "0"
+
     def poll_inbox(self):
         if not self.enabled or self._inbox_busy:
             return
         self._inbox_busy = True
-        self._run("inbox", api_call, "GET", f"/v1/inbox?since={self._since()}", None, self.account)
+        self._run("inbox", api_call, "GET", f"/v1/inbox?since={self._since()}&idle={self._idle_flag()}", None,
+                  self.account)
 
     def _take_inbox(self, result, initial=False):
         seen = int(self.data.get("seen_id", 0))
@@ -699,7 +856,7 @@ class Social:
                     self.data.pop(key, None)
                 self.save()
                 self.pet.update_setting("friends", False)
-            if kind != "inbox" and self.window and self.window.alive():
+            if kind not in ("inbox", "avatar", "leaderboard") and self.window and self.window.alive():
                 self.window.show_error(payload)
             return
         if not self.enabled:
@@ -718,12 +875,34 @@ class Social:
                         self.check_achievements()
         if isinstance(payload, dict) and "friends" in payload:
             self._take_board(payload)
+        if kind == "leaderboard":
+            self.leaderboards[payload.get("sort", "xp")] = dict(payload, _at=time.time())
+        elif kind == "user":
+            user = payload.get("user", {})
+            self.profiles[user.get("code", "")] = {"full": payload.get("full"), "user": user, "at": time.time()}
+        elif kind == "avatar":
+            pass
         if kind == "friend_added":
-            friend = payload.get("_result", {}).get("friend", {})
-            self.pet.set_action("cheer", 1.4)
-            self.pet._voice("greet")
-            self.pet.say(t("fr_added", name=friend.get("name", "?")), duration=4, priority=1)
-            self.check_achievements()
+            result = payload.get("_result", {})
+            friend = result.get("friend", {})
+            if result.get("status") == "requested":
+                self.pet.set_action("hop", 0.55)
+                self.pet.say(t("req_sent", name=friend.get("name", "?")), duration=4, priority=1)
+            else:
+                self.pet.set_action("cheer", 1.4)
+                self.pet._voice("greet")
+                self.pet.say(t("fr_added", name=friend.get("name", "?")), duration=4, priority=1)
+                self.check_achievements()
+            self._refresh_social_views(friend.get("code"))
+        elif kind == "request_answered":
+            result = payload.get("_result", {})
+            if result.get("accepted"):
+                self.pet.set_action("cheer", 1.4)
+                self.pet._voice("greet")
+                self.pet.say(t("fr_added", name=result.get("friend", {}).get("name", "?")), duration=4, priority=1)
+                self.check_achievements()
+        elif kind in ("label_set", "request_cancelled", "friend_removed"):
+            self._refresh_social_views()
         elif kind in ("group_joined", "circle_joined", "circle_created"):
             self.check_achievements()
         elif kind == "circle_invited":
@@ -740,6 +919,7 @@ class Social:
         self.data["code"] = board.get("me", {}).get("code", self.data.get("code"))
         self.data["groups"] = [g["code"] for g in board.get("groups", [])]
         self.invites = board.get("invites", self.invites)
+        self._notify_requests()
         self.save()
         self._notify_invites()
         if old and self.pet.s.get("chatty", True) and time.monotonic() - self._last_news > FRIEND_NEWS_GAP_S:
@@ -761,6 +941,17 @@ class Social:
     def _refresh_window(self):
         if self.window and self.window.alive():
             self.window.refresh()
+
+    def _refresh_social_views(self, code=None):
+        """Re-fetch whatever the open window shows after a relationship change."""
+        win = self.window
+        if not (win and win.alive()):
+            return
+        if getattr(win, "tab", "") == "ranks":
+            self.load_leaderboard(getattr(win, "rank_sort", "xp"))
+        viewing = getattr(win, "viewing", None)
+        if viewing:
+            self.view_user(viewing)
 
     def tick(self, now: float):
         self.poll()
