@@ -164,6 +164,7 @@ kbd { font: 10px var(--font-mono); border: 1px solid var(--color-border); border
 .console-redesign .status-indicator { font-size: 10px; padding: 7px 10px; border-radius: 5px; background: var(--color-bg-input); border: 1px solid var(--color-border); color: var(--color-text-muted); }
 .console-redesign .status-indicator.demo { color: var(--color-warning); background: #e5c1860a; border-color: #e5c18630; }
 .console-redesign .status-indicator.connected { color: var(--color-accent); background: var(--ui-accent-soft); }
+.console-redesign .status-indicator.reconnecting { color: var(--color-warning); background: #e5c1860a; border-color: #e5c18630; }
 .dashboard-grid { display: grid; grid-template-columns: minmax(0, 1fr) 322px; gap: 20px; }
 .control-card { border: 1px solid var(--color-border); border-radius: 11px; background: var(--color-bg-panel); min-width: 0; overflow: hidden; }
 .card-heading { display: flex; justify-content: space-between; align-items: center; height: 60px; padding: 0 20px; border-bottom: 1px solid var(--color-border); gap: 10px; }
@@ -675,6 +676,19 @@ body.console-redesign { color-scheme: inherit; }
 .share-control-link-row .input { flex: 1; min-width: 0; }
 #share-control-list li { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 4px 0; }
 #share-control-list li .btn { padding: 4px 12px; min-height: 0; }
+/* 1.9.0: several controllers, remembered devices, keep awake */
+.share-control-hint { margin: 0 0 6px; font-size: 0.8rem; opacity: 0.8; }
+.share-option { display: flex; align-items: flex-start; gap: 8px; margin: 6px 0; font-size: 0.85rem; cursor: pointer; }
+.share-option input { margin-top: 2px; }
+.share-row-meta { font-size: 0.8rem; opacity: 0.85; }
+.share-row-meta > span + span::before { content: '\00b7'; margin: 0 0.35em; }
+.share-badge { font-size: 0.7rem; padding: 1px 6px; border-radius: 999px; border: 1px solid var(--color-border); }
+.share-badge.is-remembered { color: var(--color-success); border-color: currentColor; }
+.share-badge.is-warning { color: var(--color-danger); border-color: currentColor; }
+#share-trust-list { margin: 0; padding-left: 1.2rem; font-size: 0.85rem; display: grid; gap: 2px; }
+#share-trust-list li { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 2px 0; }
+#share-trust-list li .btn { padding: 2px 10px; min-height: 0; }
+#share-trust-list .muted { list-style: none; margin-left: -1.2rem; opacity: 0.7; }
 .connect-code-field { display: grid; gap: 6px; margin: 10px 0; font-weight: 600; }
 .connect-code-field .input { font-size: 1.6rem; letter-spacing: 0.3em; text-align: center; max-width: 12ch; }
 

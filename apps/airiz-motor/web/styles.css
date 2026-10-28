@@ -250,6 +250,11 @@ body {
   color: white;
 }
 
+.status-indicator.reconnecting {
+  background: var(--color-warning);
+  color: white;
+}
+
 /* Main Grid */
 .main-grid {
   display: grid;

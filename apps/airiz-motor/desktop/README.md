@@ -9,7 +9,7 @@ is required to use the installed app or its hardware-free demo.
 ## Downloads
 
 Windows x64 releases are published under the app-specific tag
-`airiz-desktop-v1.8.3` in this repository's Releases section.
+`airiz-desktop-v1.9.0` in this repository's Releases section.
 
 - **Installer**: assisted, per-user installation with Start-menu/desktop shortcuts
   and an uninstaller. The wizard lets the user choose the installation directory.
@@ -163,6 +163,22 @@ reports whether a framed firmware reply came back. Results can be exported.
 No pairing is accepted without confirmation and no motor command is sent.
 Another program on the PC still cannot open COM4 while this app holds it: that is
 a Windows serial-port rule, which is why the check runs inside the app.
+
+## 1.9.0: Several phones, remembered devices, sleep-proof sharing
+
+* **Several phones at once:** Share control now lets several phones or PCs control the AIRIZ at
+  the same time. Every allowed device sees the device output; commands from all of them reach the
+  AIRIZ one at a time. Any device can be disconnected from the PC.
+* **Allow or Allow & remember:** each request shows *Allow*, *Allow & remember* and *Deny*.
+  A remembered device is let in by itself next time (only a hash of its key is stored). Under
+  *Remembered devices* the operator can switch automatic entry off or *Forget* a device.
+* **Sleep-proof sharing:** while sharing, the Windows app keeps the PC and its screen awake. If the
+  PC still sleeps (lid closed) or the network drops, it keeps the **same code**, phones reconnect by
+  themselves (Stop on the phone cancels), and devices allowed earlier come straight back in.
+* **USB reconnect:** a dropped AIRIZ USB link (sleep, USB power saving, replug) now shows
+  *Reconnecting…* and reopens the same port by itself; sharing stays on meanwhile.
+* **Unchanged safety:** the PC operator decides who may control; a phone that drops right after a
+  motor command still triggers a motor stop; Stop sharing ends every connection without retries.
 
 ## 1.8.3: Sound FX removed
 

@@ -12,6 +12,7 @@
   const MAX_WIDTH = 640;
   const JPEG_QUALITY = 0.6;
   const MAX_BUFFERED_BYTES = 1024 * 1024;
+  const KEEPALIVE_MS = 20000; // 1.9.0: notice a dead socket (sleep, NAT timeout) and keep it alive
 
   function roomUrl(code, role) {
     return RELAY_ORIGIN + '/v1/room/' + code + '?role=' + role;
@@ -64,14 +65,25 @@
 
     function connect() {
       if (stopped) return;
+      clearTimeout(reconnectTimer);
+      let next;
       try {
-        socket = new WebSocket(roomUrl(code, 'pc'));
+        next = new WebSocket(roomUrl(code, 'pc'));
       } catch (error) {
+        reconnectTimer = setTimeout(connect, 3000);
         return;
       }
-      socket.binaryType = 'arraybuffer';
-      socket.addEventListener('message', event => {
-        if (typeof event.data !== 'string') return;
+      // A refresh replaces the socket on purpose; only the current one may reconnect.
+      const previous = socket;
+      socket = next;
+      if (previous) {
+        try {
+          previous.close();
+        } catch (ignored) { /* closing */ }
+      }
+      next.binaryType = 'arraybuffer';
+      next.addEventListener('message', event => {
+        if (socket !== next || typeof event.data !== 'string') return;
         try {
           const message = JSON.parse(event.data);
           if (message.type === 'viewers') {
@@ -85,20 +97,34 @@
           }
         } catch (ignored) { /* not JSON */ }
       });
-      socket.addEventListener('close', () => {
+      next.addEventListener('close', () => {
+        if (socket !== next) return;
         report(0);
         if (!stopped) reconnectTimer = setTimeout(connect, 3000);
       });
     }
+
+    const keepalive = setInterval(() => {
+      if (socket && socket.readyState === WebSocket.OPEN) {
+        try {
+          socket.send(JSON.stringify({ type: 'keepalive' }));
+        } catch (ignored) { /* closing */ }
+      }
+    }, KEEPALIVE_MS);
 
     connect();
     return {
       get viewers() {
         return viewers;
       },
+      // After sleep the old socket may look open but be dead: open a fresh one now.
+      refresh() {
+        if (!stopped) connect();
+      },
       stop() {
         stopped = true;
         clearTimeout(reconnectTimer);
+        clearInterval(keepalive);
         if (timer) clearInterval(timer);
         timer = null;
         if (socket && socket.readyState === WebSocket.OPEN) {

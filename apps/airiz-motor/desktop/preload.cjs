@@ -43,5 +43,14 @@ contextBridge.exposeInMainWorld('airizDesktop', {
     const listener = (_event, payload) => callback(payload);
     ipcRenderer.on('airiz:serial-ports', listener);
     return () => ipcRenderer.removeListener('airiz:serial-ports', listener);
+  },
+  // 1.9.0: keep the PC awake while sharing; sleep / wake-up notices for the share.
+  setKeepAwake: flag => ipcRenderer.invoke('airiz:keep-awake', flag === true),
+  setSharing: flag => ipcRenderer.invoke('airiz:sharing', flag === true),
+  onPowerChange: callback => {
+    if (typeof callback !== 'function') throw new TypeError('A callback is required');
+    const listener = (_event, state) => callback(String(state));
+    ipcRenderer.on('airiz:power', listener);
+    return () => ipcRenderer.removeListener('airiz:power', listener);
   }
 });

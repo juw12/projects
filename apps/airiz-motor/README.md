@@ -24,7 +24,7 @@ A downloadable Windows x64 desktop edition now bundles this entire console local
 It is not a website shortcut and does not require Chrome, Edge, Node or Python to run.
 Installer and portable preview builds are available at:
 
-https://github.com/juw12/projects/releases/tag/airiz-desktop-v1.8.3
+https://github.com/juw12/projects/releases/tag/airiz-desktop-v1.9.0
 
 The initial binaries are unsigned. The packaged app was tested with demo/synthetic
 hardware; real-device bench validation is still required. Browser and mobile-web
@@ -34,6 +34,13 @@ and are not automatically copied from a browser.
 **Remote control by code (1.3.0):** on the PC with the AIRIZ, *Share control* gives a
 6-digit code; on a phone or another PC, *Connect by code* controls the motor and every
 console function through the internet after the PC operator allows it (no Bluetooth).
+
+**Several phones, remembered devices, sleep-proof sharing (1.9.0):** several phones or PCs can
+control at the same time; *Allow & remember* lets a device in by itself next time (the operator
+can switch that off or *Forget* a device). While sharing, the Windows app keeps the PC and its
+screen awake; after sleep or a network drop the PC keeps the same code and phones reconnect by
+themselves. A dropped USB link to the AIRIZ reconnects automatically instead of leaving a dead
+"Connected" console.
 
 A complete, production-quality, dependency-free browser app that replaces the TeraTerm/CWD serial workflow for AIRIZ device motor testing.
 

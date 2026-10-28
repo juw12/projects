@@ -215,15 +215,40 @@
       stopSharing(true);
     });
     peer.on('disconnected', () => {
-      if (sharer.peer === peer && !peer.destroyed) peer.reconnect();
+      if (sharer.peer !== peer || peer.destroyed) return;
+      // 1.9.0: re-register the same code after a short pause (no tight loop while offline).
+      clearTimeout(sharer.peerRetry);
+      sharer.peerRetry = setTimeout(() => {
+        if (sharer.peer === peer && !peer.destroyed && peer.disconnected) {
+          try {
+            peer.reconnect();
+          } catch (ignored) { /* the next wake-up or disconnect tries again */ }
+        }
+      }, 2000);
     });
   }
+
+  // 1.9.0: after sleep or a network change keep sharing with the same code: re-register the
+  // PeerJS code and open a fresh relay socket (the old one may be dead but look open).
+  function recoverSharing() {
+    if (!sharer.code) return;
+    if (sharer.relay && typeof sharer.relay.refresh === 'function') sharer.relay.refresh();
+    const peer = sharer.peer;
+    if (peer && !peer.destroyed && peer.disconnected) {
+      clearTimeout(sharer.peerRetry);
+      try {
+        peer.reconnect();
+      } catch (ignored) { /* retried on the next disconnect */ }
+    }
+  }
+  if (window.AirizRemoteSession) window.AirizRemoteSession.onWake(recoverSharing);
 
   function stopSharing(quiet) {
     for (const call of sharer.calls) call.close();
     for (const connection of sharer.connections) connection.close();
     sharer.calls.clear();
     sharer.connections.clear();
+    clearTimeout(sharer.peerRetry);
     if (sharer.peer) sharer.peer.destroy();
     if (sharer.relay) sharer.relay.stop();
     sharer.peer = null;
