@@ -10,8 +10,10 @@ Standard library only (Python 3.9+). Mounted by ``server.py`` under
 * Messages: send, edit, delete, reply, emoji reactions, attachments,
   read receipts, typing indicators, full-text search.
 * Real time: Server-Sent Events stream per signed-in device, presence.
+* Push: standards-based Web Push (VAPID, RFC 8291/8292) so phones and
+  desktops get alerts even when Orbis is fully closed.
 * Email: SMTP when configured (invites, password reset, offline message
-  notifications); otherwise messages are written to a local outbox folder.
+  notifications for people without push); otherwise a local outbox folder.
 
 Configuration (environment variables, all optional):
 
@@ -21,6 +23,10 @@ Configuration (environment variables, all optional):
     ORBIS_ALLOW_SIGNUP   "0" to make the server invite-only
     ORBIS_TRUST_PROXY    "1" to read client IP from X-Forwarded-For
     ORBIS_PBKDF2_ITERATIONS  password hashing cost (default 210000)
+    ORBIS_VAPID_PRIVATE_KEY  base64url P-256 key for Web Push (auto-generated
+                             and stored in the database when unset)
+    ORBIS_VAPID_SUBJECT      contact for push services (mailto: or https:)
+    ORBIS_PUSH_EXTRA_HOSTS   extra allowed push endpoint hosts (testing)
 """
 
 from __future__ import annotations
@@ -39,8 +45,11 @@ import threading
 import time
 import traceback
 from email.message import EmailMessage
+from email.utils import parseaddr
 from pathlib import Path
 from urllib.parse import parse_qs, quote, unquote
+
+import webpush
 
 # ---------------------------------------------------------------------------
 # Limits and constants
@@ -166,6 +175,21 @@ CREATE TABLE IF NOT EXISTS chat_resets (
     expires_at INTEGER NOT NULL,
     attempts INTEGER NOT NULL DEFAULT 0
 );
+CREATE TABLE IF NOT EXISTS chat_push_subscriptions (
+    endpoint TEXT PRIMARY KEY,
+    user_id INTEGER NOT NULL,
+    session_hash TEXT NOT NULL,
+    p256dh TEXT NOT NULL,
+    auth TEXT NOT NULL,
+    user_agent TEXT NOT NULL DEFAULT '',
+    created_at INTEGER NOT NULL,
+    last_success INTEGER
+);
+CREATE INDEX IF NOT EXISTS idx_chat_push_user ON chat_push_subscriptions(user_id);
+CREATE TABLE IF NOT EXISTS chat_settings (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS chat_email_log (
     user_id INTEGER NOT NULL,
     conversation_id INTEGER NOT NULL,
@@ -182,6 +206,14 @@ class ChatError(Exception):
         super().__init__(message)
         self.status = status
         self.message = message
+
+
+def urlparse_host(url) -> str:
+    try:
+        from urllib.parse import urlparse
+        return urlparse(url).hostname or "?"
+    except ValueError:
+        return "?"
 
 
 def now_ms() -> int:
@@ -296,31 +328,57 @@ class RateLimiter:
 # Real-time event bus (Server-Sent Events fan-out)
 # ---------------------------------------------------------------------------
 
+class _Stream:
+    """One open live connection (a browser tab or installed app)."""
+
+    __slots__ = ("queue", "client_id", "active")
+
+    def __init__(self, client_id, active):
+        self.queue = queue.Queue(maxsize=1000)
+        self.client_id = client_id
+        self.active = active
+
+
 class EventBus:
     def __init__(self):
         self._subscribers = {}
         self._lock = threading.Lock()
 
-    def subscribe(self, user_id):
-        """Register a stream. Returns (queue, became_online)."""
-        subscriber = queue.Queue(maxsize=1000)
+    def subscribe(self, user_id, client_id="", active=True):
+        """Register a stream. Returns (stream, became_online)."""
+        stream = _Stream(client_id, active)
         with self._lock:
             streams = self._subscribers.setdefault(user_id, set())
             became_online = not streams
-            streams.add(subscriber)
-        return subscriber, became_online
+            streams.add(stream)
+        return stream, became_online
 
-    def unsubscribe(self, user_id, subscriber) -> bool:
+    def unsubscribe(self, user_id, stream) -> bool:
         """Remove a stream. Returns True when the user has no streams left."""
         with self._lock:
             streams = self._subscribers.get(user_id)
             if not streams:
                 return False
-            streams.discard(subscriber)
+            streams.discard(stream)
             if streams:
                 return False
             del self._subscribers[user_id]
             return True
+
+    def set_active(self, user_id, client_id, active) -> bool:
+        """Mark a device's stream as in the foreground (visible) or not."""
+        found = False
+        with self._lock:
+            for stream in self._subscribers.get(user_id, ()):
+                if stream.client_id == client_id:
+                    stream.active = bool(active)
+                    found = True
+        return found
+
+    def has_foreground(self, user_id) -> bool:
+        """True while the user is looking at Orbis on at least one device."""
+        with self._lock:
+            return any(stream.active for stream in self._subscribers.get(user_id, ()))
 
     def is_online(self, user_id) -> bool:
         with self._lock:
@@ -335,18 +393,18 @@ class EventBus:
             targets = []
             for uid in set(user_ids):
                 targets.extend(self._subscribers.get(uid, ()))
-        for subscriber in targets:
+        for stream in targets:
             try:
-                subscriber.put_nowait(event)
+                stream.queue.put_nowait(event)
             except queue.Full:
                 pass
 
     def disconnect_user(self, user_id) -> None:
         with self._lock:
             targets = list(self._subscribers.get(user_id, ()))
-        for subscriber in targets:
+        for stream in targets:
             try:
-                subscriber.put_nowait(None)
+                stream.queue.put_nowait(None)
             except queue.Full:
                 pass
 
@@ -432,6 +490,13 @@ class ChatService:
         self._db.execute("PRAGMA foreign_keys=OFF")
         self._db.executescript(SCHEMA)
         self._db.commit()
+        self.vapid = webpush.Vapid(self._load_vapid_key(), self._vapid_subject())
+        self.push_extra_hosts = tuple(
+            h.strip().lower() for h in os.environ.get("ORBIS_PUSH_EXTRA_HOSTS", "").split(",") if h.strip()
+        )
+        self._push_queue = queue.Queue(maxsize=10000)
+        for _ in range(4):
+            threading.Thread(target=self._push_worker, daemon=True).start()
 
     # -- database helpers ---------------------------------------------------
 
@@ -544,7 +609,10 @@ class ChatService:
         return {"token": token, "user": self.me_dict(row)}
 
     def logout(self, token):
-        self._write([("DELETE FROM chat_sessions WHERE token_hash = ?", (_sha256(token),))])
+        self._write([
+            ("DELETE FROM chat_sessions WHERE token_hash = ?", (_sha256(token),)),
+            ("DELETE FROM chat_push_subscriptions WHERE session_hash = ?", (_sha256(token),)),
+        ])
         return {"ok": True}
 
     def update_me(self, user, body):
@@ -620,6 +688,7 @@ class ChatService:
         self._write([
             ("UPDATE chat_users SET pw_hash = ? WHERE id = ?", (hash_password(new_password), row["id"])),
             ("DELETE FROM chat_sessions WHERE user_id = ?", (row["id"],)),
+            ("DELETE FROM chat_push_subscriptions WHERE user_id = ?", (row["id"],)),
             ("DELETE FROM chat_resets WHERE email = ?", (email,)),
         ])
         self.bus.disconnect_user(row["id"])
@@ -637,6 +706,7 @@ class ChatService:
              " deleted = 1, email_notify = 0 WHERE id = ?",
              ("deleted-%d-%s@deleted.invalid" % (uid, secrets.token_hex(4)), uid)),
             ("DELETE FROM chat_sessions WHERE user_id = ?", (uid,)),
+            ("DELETE FROM chat_push_subscriptions WHERE user_id = ?", (uid,)),
             ("DELETE FROM chat_team_members WHERE user_id = ?", (uid,)),
             ("DELETE FROM chat_members WHERE user_id = ? AND conversation_id IN"
              " (SELECT id FROM chat_conversations WHERE kind != 'direct')", (uid,)),
@@ -689,6 +759,148 @@ class ChatService:
         self.bus.publish(self.contact_ids(user_id), {
             "type": "presence", "userId": user_id, "online": online, "lastSeen": stamp,
         })
+
+
+    # -- web push -------------------------------------------------------------
+
+    def _load_vapid_key(self) -> int:
+        configured = os.environ.get("ORBIS_VAPID_PRIVATE_KEY", "").strip()
+        if configured:
+            return webpush._int(webpush.b64url_decode(configured))
+        row = self._one("SELECT value FROM chat_settings WHERE key = 'vapid_private'")
+        if row:
+            return webpush._int(webpush.b64url_decode(row["value"]))
+        private_key = webpush.generate_private_key()
+        self._write([("INSERT INTO chat_settings (key, value) VALUES ('vapid_private', ?)",
+                      (webpush.b64url_encode(private_key.to_bytes(32, "big")),))])
+        return private_key
+
+    def _vapid_subject(self) -> str:
+        configured = os.environ.get("ORBIS_VAPID_SUBJECT", "").strip()
+        if configured:
+            return configured
+        if self.public_url.startswith("https://"):
+            return self.public_url.rstrip("/")
+        address = parseaddr(os.environ.get("ORBIS_SMTP_FROM", "") or os.environ.get("ORBIS_SMTP_USER", ""))[1]
+        if "@" in address:
+            return "mailto:" + address
+        return "mailto:admin@orbis-chat.app"
+
+    def push_subscribe(self, user, body, token, user_agent):
+        endpoint = body.get("endpoint")
+        keys = body.get("keys") or {}
+        if not isinstance(endpoint, str) or len(endpoint) > 2048:
+            raise ChatError(400, "invalid push subscription")
+        if not webpush.endpoint_allowed(endpoint, self.push_extra_hosts):
+            raise ChatError(400, "push endpoint is not a recognised push service")
+        try:
+            webpush.decode_point(webpush.b64url_decode(keys.get("p256dh") or ""))
+            auth = webpush.b64url_decode(keys.get("auth") or "")
+        except (ValueError, TypeError):
+            raise ChatError(400, "invalid push subscription keys")
+        if len(auth) < 16:
+            raise ChatError(400, "invalid push subscription keys")
+        self._write([
+            ("DELETE FROM chat_push_subscriptions WHERE session_hash NOT IN"
+             " (SELECT token_hash FROM chat_sessions)", ()),
+            ("INSERT OR REPLACE INTO chat_push_subscriptions (endpoint, user_id, session_hash, p256dh, auth,"
+             " user_agent, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+             (endpoint, user["id"], _sha256(token), keys["p256dh"], keys["auth"],
+              (user_agent or "")[:200], now_ms())),
+        ])
+        return {"ok": True, "devices": len(self._push_subscriptions(user["id"]))}
+
+    def push_unsubscribe(self, user, body):
+        endpoint = body.get("endpoint")
+        if isinstance(endpoint, str):
+            self._write([("DELETE FROM chat_push_subscriptions WHERE endpoint = ? AND user_id = ?",
+                          (endpoint, user["id"]))])
+        return {"ok": True}
+
+    def push_test(self, user):
+        subscriptions = self._push_subscriptions(user["id"])
+        payload = {
+            "type": "test",
+            "title": "Orbis notifications are on",
+            "body": "You'll get alerts for new messages, even when Orbis is closed.",
+            "tag": "orbis-test",
+            "url": "chat.html",
+        }
+        for subscription in subscriptions:
+            self._enqueue_push(subscription, payload, topic="test")
+        return {"sent": len(subscriptions)}
+
+    def set_client_state(self, user, body):
+        client_id = re.sub(r"[^A-Za-z0-9_\-]", "", str(body.get("client") or ""))[:64]
+        found = self.bus.set_active(user["id"], client_id, bool(body.get("active")))
+        return {"ok": True, "found": found}
+
+    def _push_subscriptions(self, user_id):
+        return self._q(
+            "SELECT s.* FROM chat_push_subscriptions s JOIN chat_sessions x ON x.token_hash = s.session_hash"
+            " AND x.expires_at > ? WHERE s.user_id = ?",
+            (now_ms(), user_id),
+        )
+
+    def _unread_total(self, user_id) -> int:
+        return self._one(
+            "SELECT COUNT(*) AS n FROM chat_messages m JOIN chat_members cm ON cm.conversation_id = m.conversation_id"
+            " AND cm.user_id = ? WHERE m.id > cm.last_read_id AND m.user_id != ? AND m.deleted_at IS NULL"
+            " AND m.kind = 'text' AND cm.muted = 0",
+            (user_id, user_id),
+        )["n"]
+
+    def _enqueue_push(self, subscription, payload, topic=None):
+        try:
+            self._push_queue.put_nowait((
+                subscription["endpoint"], subscription["p256dh"], subscription["auth"],
+                json.dumps(payload, ensure_ascii=False).encode("utf-8"), topic,
+            ))
+        except queue.Full:
+            print("[orbis-chat] push queue full, dropping notification")
+
+    def _push_worker(self):
+        while True:
+            endpoint, p256dh, auth, payload, topic = self._push_queue.get()
+            host = urlparse_host(endpoint)
+            try:
+                status = webpush.send(self.vapid, endpoint, webpush.b64url_decode(p256dh),
+                                      webpush.b64url_decode(auth), payload, topic=topic)
+            except Exception as exc:  # network trouble: keep the subscription
+                print("[orbis-chat] push to %s failed: %s" % (host, exc), flush=True)
+                continue
+            if status in (404, 410):
+                # The browser unsubscribed or the app was uninstalled.
+                self._write([("DELETE FROM chat_push_subscriptions WHERE endpoint = ?", (endpoint,))])
+                print("[orbis-chat] push to %s: device unsubscribed (%d), removed" % (host, status), flush=True)
+            elif status >= 400:
+                print("[orbis-chat] push service %s answered %d" % (host, status), flush=True)
+            else:
+                self._write([("UPDATE chat_push_subscriptions SET last_success = ? WHERE endpoint = ?",
+                              (now_ms(), endpoint))])
+                print("[orbis-chat] push delivered to %s (%d)" % (host, status), flush=True)
+
+    def _message_push_payload(self, sender, conv, message, recipient_id):
+        if conv["kind"] == "direct":
+            title = sender["name"]
+        elif conv["kind"] == "channel":
+            title = "%s · #%s" % (sender["name"], conv["name"])
+        else:
+            title = "%s · %s" % (sender["name"], conv["name"])
+        if message["body"]:
+            text = message["body"][:180] + ("…" if len(message["body"]) > 180 else "")
+        else:
+            text = "📎 " + ((message.get("attachment") or {}).get("name") or "Attachment")
+        return {
+            "type": "message",
+            "title": title,
+            "body": text,
+            "conversationId": conv["id"],
+            "messageId": message["id"],
+            "tag": "orbis-conv-%d" % conv["id"],
+            "badge": self._unread_total(recipient_id),
+            "url": "chat.html#c=%d" % conv["id"],
+        }
 
     # -- links and invites ----------------------------------------------------
 
@@ -1342,20 +1554,34 @@ class ChatService:
         message = self.message_dicts([msg_id])[0]
         members = self.member_ids(conv_id)
         self.bus.publish(members, {"type": "message", "message": message})
-        self._notify_offline(user, conv, members, message)
+        self._notify_members(user, conv, members, message)
         return {"message": message}
 
-    def _notify_offline(self, sender, conv, members, message):
+    def _notify_members(self, sender, conv, members, message):
+        """Alert members who are not looking at Orbis right now.
+
+        Devices with push enabled get a Web Push notification (works even when
+        the app is closed). People without push who are fully offline get an
+        email instead (throttled per conversation).
+        """
         stamp = now_ms()
         for uid in members - {sender["id"]}:
-            if self.bus.is_online(uid):
+            if self.bus.has_foreground(uid):
                 continue
             row = self._one(
                 "SELECT u.*, m.muted AS muted FROM chat_users u JOIN chat_members m"
                 " ON m.user_id = u.id AND m.conversation_id = ? WHERE u.id = ?",
                 (conv["id"], uid),
             )
-            if row is None or row["deleted"] or not row["email_notify"] or row["muted"]:
+            if row is None or row["deleted"] or row["muted"]:
+                continue
+            subscriptions = self._push_subscriptions(uid)
+            if subscriptions:
+                payload = self._message_push_payload(sender, conv, message, uid)
+                for subscription in subscriptions:
+                    self._enqueue_push(subscription, payload, topic="c%d" % conv["id"])
+                continue
+            if self.bus.is_online(uid) or not row["email_notify"]:
                 continue
             last = self._one("SELECT sent_at FROM chat_email_log WHERE user_id = ? AND conversation_id = ?",
                              (uid, conv["id"]))
@@ -1538,7 +1764,14 @@ class ChatRouter:
         self.routes = [
             ("GET", "config", False, lambda c, p, b: {
                 "emailEnabled": s.mailer.enabled, "signupOpen": s.allow_signup,
-                "maxUploadBytes": MAX_UPLOAD_BYTES, "maxMessageChars": MAX_MESSAGE_CHARS}),
+                "maxUploadBytes": MAX_UPLOAD_BYTES, "maxMessageChars": MAX_MESSAGE_CHARS,
+                "pushEnabled": True, "vapidPublicKey": s.vapid.public_key_b64}),
+            ("GET", "push/key", False, lambda c, p, b: {"publicKey": s.vapid.public_key_b64}),
+            ("POST", "push/subscribe", True,
+             lambda c, p, b: s.push_subscribe(c["user"], b, c["token"], c["ua"])),
+            ("POST", "push/unsubscribe", True, lambda c, p, b: s.push_unsubscribe(c["user"], b)),
+            ("POST", "push/test", True, lambda c, p, b: s.push_test(c["user"])),
+            ("POST", "presence", True, lambda c, p, b: s.set_client_state(c["user"], b)),
             ("POST", "auth/register", False, lambda c, p, b: s.register(b, c["ua"], c["ip"])),
             ("POST", "auth/login", False, lambda c, p, b: s.login(b, c["ua"], c["ip"])),
             ("POST", "auth/logout", True, lambda c, p, b: s.logout(c["token"])),
@@ -1710,7 +1943,9 @@ class ChatRouter:
         handler.send_header("Access-Control-Allow-Origin", "*")
         handler.end_headers()
         handler.close_connection = True
-        subscriber, became_online = self.svc.bus.subscribe(uid)
+        client_id = re.sub(r"[^A-Za-z0-9_\-]", "", query.get("client", ""))[:64] or secrets.token_hex(8)
+        stream, became_online = self.svc.bus.subscribe(uid, client_id, query.get("active", "1") != "0")
+        subscriber = stream.queue
         if became_online:
             self.svc.set_presence(uid, True)
         try:
@@ -1735,5 +1970,5 @@ class ChatRouter:
         except (BrokenPipeError, ConnectionResetError, OSError):
             pass
         finally:
-            if self.svc.bus.unsubscribe(uid, subscriber):
+            if self.svc.bus.unsubscribe(uid, stream):
                 self.svc.set_presence(uid, False)

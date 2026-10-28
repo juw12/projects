@@ -7,7 +7,7 @@
  * at a domain root and under a subpath (e.g. GitHub Pages /projects/orbis/).
  */
 
-const CACHE = 'orbis-cache-v3';
+const CACHE = 'orbis-cache-v4';
 
 const SCOPE = self.registration.scope; // absolute URL, always ends with "/"
 const apiPrefix = new URL('api/', SCOPE).pathname; // subpath-safe API prefix
@@ -122,6 +122,47 @@ self.addEventListener('notificationclick', (event) => {
         }
       }
       return self.clients.openWindow(target);
+    })
+  );
+});
+
+// Web Push: show chat alerts even when Orbis is fully closed. The payload is
+// end-to-end encrypted by the Orbis server (RFC 8291) and decrypted by the
+// browser before this handler runs.
+self.addEventListener('push', (event) => {
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch (err) {
+    data = { title: 'Orbis', body: event.data ? event.data.text() : '' };
+  }
+  event.waitUntil((async () => {
+    const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    const viewing = windows.some((client) => client.focused && client.visibilityState === 'visible'
+      && client.url.indexOf('chat.html') !== -1);
+    if (self.navigator && self.navigator.setAppBadge && typeof data.badge === 'number') {
+      (data.badge ? self.navigator.setAppBadge(data.badge) : self.navigator.clearAppBadge()).catch(() => {});
+    }
+    if (viewing && data.type === 'message') {
+      return; // the open app already shows the message live
+    }
+    await self.registration.showNotification(data.title || 'Orbis', {
+      body: data.body || '',
+      tag: data.tag || 'orbis',
+      renotify: true,
+      icon: new URL('icons/icon-192.png', SCOPE).href,
+      badge: new URL('icons/icon-192.png', SCOPE).href,
+      timestamp: Date.now(),
+      data: { conversationId: data.conversationId || null, url: data.url || 'chat.html' },
+    });
+  })());
+});
+
+// Browsers occasionally rotate push subscriptions; ask open pages to re-sync.
+self.addEventListener('pushsubscriptionchange', (event) => {
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
+      clients.forEach((client) => client.postMessage({ type: 'push-subscription-changed' }));
     })
   );
 });
