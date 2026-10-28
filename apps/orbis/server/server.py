@@ -19,6 +19,8 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
+import socket
 import sqlite3
 import threading
 import webbrowser
@@ -26,6 +28,8 @@ from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import unquote, urlparse
+
+from chat import ChatRouter, ChatService
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -77,6 +81,20 @@ CONTENT_TYPES = {
 }
 
 _DB_LOCK = threading.Lock()
+
+# Multi-user chat (accounts, teams, real-time messaging). Created in main()
+# or lazily on first use so the database path honours ORBIS_DB.
+_CHAT_ROUTER = None
+_CHAT_LOCK = threading.Lock()
+
+
+def chat_router() -> ChatRouter:
+    global _CHAT_ROUTER
+    with _CHAT_LOCK:
+        if _CHAT_ROUTER is None:
+            DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+            _CHAT_ROUTER = ChatRouter(ChatService(DB_PATH))
+        return _CHAT_ROUTER
 
 # ---------------------------------------------------------------------------
 # Seed data
@@ -524,12 +542,18 @@ class OrbisHandler(BaseHTTPRequestHandler):
     # -- routing ------------------------------------------------------------
 
     def do_OPTIONS(self):
+        is_chat = urlparse(self.path).path.startswith("/api/chat")
         self.send_response(204)
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header(
-            "Access-Control-Allow-Methods", "GET, PUT, POST, DELETE, OPTIONS"
+            "Access-Control-Allow-Methods",
+            "GET, PUT, POST, PATCH, DELETE, OPTIONS" if is_chat
+            else "GET, PUT, POST, DELETE, OPTIONS",
         )
-        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.send_header(
+            "Access-Control-Allow-Headers",
+            "Content-Type, Authorization, X-Filename" if is_chat else "Content-Type",
+        )
         self.send_header("Access-Control-Max-Age", "86400")
         self.send_header("Content-Length", "0")
         self.end_headers()
@@ -547,10 +571,20 @@ class OrbisHandler(BaseHTTPRequestHandler):
         self._route("POST")
 
     def do_DELETE(self):
-        self.send_error_json(404, "not found")
+        self._route("DELETE")
+
+    def do_PATCH(self):
+        self._route("PATCH")
 
     def _route(self, method):
-        path = urlparse(self.path).path
+        parsed = urlparse(self.path)
+        path = parsed.path
+        if path == "/api/chat" or path.startswith("/api/chat/"):
+            chat_router().handle(self, method, path, parsed.query)
+            return
+        if method in ("DELETE", "PATCH"):
+            self.send_error_json(404, "not found")
+            return
         if path.startswith("/api/"):
             self._handle_api(method, path[len("/api/"):])
         elif path == "/api":
@@ -579,7 +613,7 @@ class OrbisHandler(BaseHTTPRequestHandler):
     def _api_get(self, name):
         if name == "health":
             self.send_json(200, {"status": "ok", "app": APP_NAME,
-                                 "version": APP_VERSION})
+                                 "version": APP_VERSION, "chat": True})
             return
         if name == "state":
             self.send_json(200, build_state())
@@ -668,7 +702,10 @@ class OrbisHandler(BaseHTTPRequestHandler):
     # -- logging ------------------------------------------------------------
 
     def log_message(self, fmt, *args):  # keep the console tidy but informative
-        print("[orbis] %s - %s" % (self.address_string(), fmt % args))
+        line = fmt % args
+        # Never write session tokens (EventSource sends them in the query) to logs.
+        line = re.sub(r"token=[^&\s\"]+", "token=***", line)
+        print("[orbis] %s - %s" % (self.address_string(), line))
 
 
 # ---------------------------------------------------------------------------
@@ -676,17 +713,33 @@ class OrbisHandler(BaseHTTPRequestHandler):
 # ---------------------------------------------------------------------------
 
 
+def _lan_addresses():
+    """Best-effort list of this machine's LAN IPv4 addresses."""
+    found = []
+    try:
+        probe = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        probe.connect(("10.255.255.255", 1))
+        found.append(probe.getsockname()[0])
+        probe.close()
+    except OSError:
+        pass
+    return [ip for ip in found if not ip.startswith("127.")]
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Orbis prototype server")
-    parser.add_argument("--port", type=int, default=8765,
-                        help="port to listen on (default 8765)")
-    parser.add_argument("--host", default="127.0.0.1",
-                        help="host to bind (default 127.0.0.1)")
+    parser.add_argument("--port", type=int,
+                        default=int(os.environ.get("PORT", "8765")),
+                        help="port to listen on (default 8765, or $PORT)")
+    parser.add_argument("--host", default=os.environ.get("HOST", "127.0.0.1"),
+                        help="host to bind (default 127.0.0.1, or $HOST); "
+                             "use 0.0.0.0 so phones on your Wi-Fi can connect")
     parser.add_argument("--no-browser", action="store_true",
                         help="do not open a browser window on start")
     args = parser.parse_args()
 
     init_db()
+    chat_router()
 
     httpd = ThreadingHTTPServer((args.host, args.port), OrbisHandler)
     httpd.daemon_threads = True
@@ -696,6 +749,13 @@ def main() -> None:
     print("  serving: %s" % WEB_DIR)
     print("  database: %s" % DB_PATH)
     print("  url: %s" % url)
+    print("  chat: %schat.html" % url)
+    if args.host in ("0.0.0.0", "::"):
+        for lan_ip in _lan_addresses():
+            print("  on your Wi-Fi (phones): http://%s:%d/chat.html" % (lan_ip, args.port))
+    email_mode = "SMTP " + os.environ["ORBIS_SMTP_HOST"] if os.environ.get("ORBIS_SMTP_HOST") \
+        else "dev outbox (set ORBIS_SMTP_HOST to send real email)"
+    print("  email: %s" % email_mode)
     print("  press Ctrl+C to stop")
 
     if not args.no_browser:

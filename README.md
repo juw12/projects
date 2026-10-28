@@ -5,7 +5,7 @@ runnable, deployable project.
 
 | Project | What it is | Stack |
 | --- | --- | --- |
-| [`apps/orbis`](apps/orbis) | Communication, identity, protection — and hiring (Orbis Work) — in one app | Zero-dependency Python stdlib server + SQLite + static PWA |
+| [`apps/orbis`](apps/orbis) | Communication, identity, protection — and hiring (Orbis Work) — in one app, plus **Orbis Chat**: real-time multi-user messaging with accounts, teams, email invites and push notifications on web, iPhone and Android | Zero-dependency Python stdlib server + SQLite + static PWA |
 | [`apps/guangyao`](apps/guangyao) | 光耀同行 — unofficial learning/community concept with local course progression, activities, rewards and transparent-giving demonstrations | Responsive installable PWA; real backend integrations remain pending |
 | [`apps/peers`](apps/peers) | Verified reviews across category **modes** (food, travel, market, AI tools, health, finance, …) — every category shares one interface | Single-file web app + optional stdlib persistence backend |
 | [`apps/house-of-articles`](apps/house-of-articles) | Athlete-moment sneaker news + live market feed | Static prototype + versioned data spine |

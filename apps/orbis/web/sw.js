@@ -19,8 +19,11 @@ const PRECACHE = [
   './app.html',
   './orbis-plus.css',
   './orbis-plus.js',
+  './chat.html',
   './manifest.webmanifest',
-  './icons/orbit.svg'
+  './chat.webmanifest',
+  './icons/orbit.svg',
+  './icons/icon-192.png'
 ];
 
 self.addEventListener('install', (event) => {
@@ -55,9 +58,16 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Never intercept the API: always go to the network.
+  // Never intercept the API or other origins (e.g. a chat server used from
+  // GitHub Pages): always go straight to the network.
   const url = new URL(request.url);
-  if (url.pathname.startsWith(apiPrefix)) {
+  if (url.origin !== self.location.origin || url.pathname.startsWith(apiPrefix)) {
+    return;
+  }
+
+  // Chat server settings must always be fresh.
+  if (url.pathname.endsWith('chat-config.js')) {
+    event.respondWith(fetch(request).catch(() => caches.match(request)));
     return;
   }
 
@@ -94,6 +104,24 @@ self.addEventListener('fetch', (event) => {
         }
         return response;
       });
+    })
+  );
+});
+
+// Tapping a chat notification focuses Orbis (or opens it) on that conversation.
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const conversationId = event.notification.data && event.notification.data.conversationId;
+  const target = new URL('chat.html' + (conversationId ? '#c=' + conversationId : ''), SCOPE).href;
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
+      for (const client of clients) {
+        if (client.url.indexOf('chat.html') !== -1 && 'focus' in client) {
+          client.postMessage({ type: 'open-conversation', conversationId });
+          return client.focus();
+        }
+      }
+      return self.clients.openWindow(target);
     })
   );
 });
