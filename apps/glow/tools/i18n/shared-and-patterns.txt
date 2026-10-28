@@ -1,0 +1,96 @@
+# Remaining UI strings
+All projects || Semua proyek || 所有项目
+Glow apps || Aplikasi Glow || Glow 应用
+Glow apps: Glow home, GlowChat and GlowRoom || Aplikasi Glow: beranda Glow, GlowChat dan GlowRoom || Glow 应用：Glow 主页、GlowChat 和 GlowRoom
+Glow apps: Glow home, GlowLead, GlowChat and GlowRoom || Aplikasi Glow: beranda Glow, GlowLead, GlowChat dan GlowRoom || Glow 应用：Glow 主页、GlowLead、GlowChat 和 GlowRoom
+GlowChat, GlowRoom and GlowLead || GlowChat, GlowRoom dan GlowLead || GlowChat、GlowRoom 和 GlowLead
+GlowLead: the Glow AI lead plans your goal, hands steps to GlowChat and the GlowRoom crew, checks the work and reports back. Anything typed in the message box becomes its goal. || GlowLead: pemimpin AI Glow merencanakan tujuanmu, menyerahkan langkah ke GlowChat dan kru GlowRoom, memeriksa hasil dan melapor. Apa pun yang diketik di kotak pesan menjadi tujuannya. || GlowLead：Glow 的 AI 主管会规划你的目标，把步骤交给 GlowChat 和 GlowRoom 团队，检查成果并汇报。在消息框中输入的内容都会成为它的目标。
+GlowRoom: an AI crew that searches the web, runs code and reports back, part of Glow. Anything typed in the message box becomes their mission. || GlowRoom: kru AI yang mencari di web, menjalankan kode dan melapor, bagian dari Glow. Apa pun yang diketik di kotak pesan menjadi misi mereka. || GlowRoom：Glow 旗下会上网搜索、运行代码并汇报的 AI 团队。在消息框中输入的内容都会成为他们的任务。
+GlowRoom is a real-time 3D visualization dashboard for monitoring AI agent teams. It connects to OpenCode servers or runs in standalone simulation mode. || GlowRoom adalah dasbor visualisasi 3D waktu nyata untuk memantau tim agen AI. Ia terhubung ke server OpenCode atau berjalan dalam mode simulasi mandiri. || GlowRoom 是用于监控 AI 代理团队的实时 3D 可视化面板，可连接 OpenCode 服务器，也可独立运行模拟模式。
+From a spark to something real. || Dari percikan ide menjadi nyata. || 把灵感变成现实。
+Five quick situations (from the Orbis AI Type test) so your Glow answers the way || Lima situasi singkat (dari tes Orbis AI Type) agar Glow menjawab sesuai || 五个快速情境（来自 Orbis AI Type 测试），让 Glow 按你
+like. It's based only on what you choose here, never on your chats. || keinginanmu. Hanya berdasarkan pilihanmu di sini, tidak pernah dari chat-mu. || 喜欢的方式回答。只依据你在这里的选择，从不读取你的聊天。
+you || kamu || 你
+GPT, Claude, Gemini, DeepSeek and more, with no API key. Uses your own free || GPT, Claude, Gemini, DeepSeek dan lainnya, tanpa kunci API. Memakai akun gratis milikmu di || GPT、Claude、Gemini、DeepSeek 等，无需 API 密钥。使用你自己的免费
+account, and your chats can sync across devices. || dan chat-mu bisa disinkronkan antar perangkat. || 账户，聊天可在多台设备间同步。
+Calculate the monthly payment and total interest for a $25,000 loan at 6.5% over 5 years, with an amortization summary per year. || Hitung cicilan bulanan dan total bunga untuk pinjaman Rp 400 juta dengan bunga 6,5% selama 5 tahun, dengan ringkasan amortisasi per tahun. || 计算 20 万元贷款、年利率 6.5%、期限 5 年的月供和总利息，并按年列出摊还摘要。
+Design a minimalist SVG logo for a coffee shop called "Orbit Brew". || Desain logo SVG minimalis untuk kedai kopi bernama "Orbit Brew". || 为一家名叫“Orbit Brew”的咖啡店设计一个极简 SVG 标志。
+Plan a 3-day trip to Singapore on a mid-range budget with daily itinerary and estimated costs. || Rencanakan perjalanan 3 hari ke Singapura dengan budget menengah, lengkap dengan itinerary harian dan perkiraan biaya. || 用中等预算规划 3 天新加坡之旅，包含每日行程和费用估算。
+What are the 3 best budget 3D printers right now? Compare price and print volume. || Apa 3 printer 3D murah terbaik saat ini? Bandingkan harga dan volume cetak. || 目前最好的 3 款平价 3D 打印机是哪些？比较价格和打印尺寸。
+Generate, copy, paste below. || Buat, salin, tempel di bawah. || 生成、复制，然后粘贴到下方。
+Save on this device || Simpan di perangkat ini || 保存在此设备上
+Reconnect || Hubungkan ulang || 重新连接
+Address || Alamat || 地址
+Issues || Masalah || 问题
+Latest || Terbaru || 最新
+Local || Lokal || 本地
+Main || Utama || 主要
+Media || Media || 媒体
+Notes || Catatan || 备注
+Open GlowChat || Buka GlowChat || 打开 GlowChat
+Org / Team || Organisasi / Tim || 组织 / 团队
+Job / Chat || Pekerjaan / Chat || 工作 / 聊天
+NOT SET UP || BELUM DIATUR || 未设置
+PAUSED || DIJEDA || 已暂停
+No history -- || Belum ada riwayat -- || 暂无历史 --
+Upstream || Upstream || 上游
+Slate || Batu tulis || 石板
+Try || Coba || 试试
+You're in || Kamu dalam || 你正处于
+Press || Tekan || 按
+This is a || Ini adalah akun || 这是
+e.g. Compare a purchase || mis. Bandingkan pembelian || 例如：比较一次购买
+then scan it with this phone's camera. Your PC must be on with Glow Hands running. || lalu pindai dengan kamera ponsel ini. PC harus menyala dengan Glow Hands berjalan. || 然后用这部手机的相机扫描。电脑需开机并运行 Glow Hands。
+to use this phone's own browser. || untuk memakai browser ponsel ini sendiri. || 以使用这部手机自带的浏览器。
+in the model menu for real AI, or sign in for more models. || di menu model untuk AI sungguhan, atau masuk untuk lebih banyak model. || 即可使用真正的 AI，或登录获取更多模型。
+or sign in with your own account. || atau masuk dengan akunmu sendiri. || 或使用你自己的账户登录。
+switch adds pretend background activity. || menambahkan aktivitas latar palsu. || 开关会添加模拟的后台活动。
+chats || chat || 聊天
+personas || persona || 人设
+pinned || disematkan || 已置顶
+plans || rencana || 计划
+projects || proyek || 项目
+temporary || sementara || 临时
+source || sumber || 来源
+start || mulai || 开始
+focus || fokus || 专注
+your plan || paketmu || 你的套餐
+events/min || kejadian/menit || 事件/分钟
+send · || kirim · || 发送 ·
+stop · || berhenti · || 停止 ·
+new chat · || chat baru · || 新聊天 ·
+new line · || baris baru · || 换行 ·
+new line · paste or 📎 to attach files. || baris baru · tempel atau 📎 untuk melampirkan file. || 换行 · 粘贴或 📎 添加文件。
+# Region, privacy, China providers and work-device mode (new in 1.21)
+Language & region || Bahasa & wilayah || 语言与地区
+Every Glow AI model is available here. || Semua model Glow AI tersedia di sini. || 这里可以使用所有 Glow AI 模型。
+China AI providers (work in mainland China) || Penyedia AI Tiongkok (berfungsi di Tiongkok daratan) || 中国 AI 服务商（中国大陆可用）
+Pick a provider to fill in the API address, then paste your key from its console. Requests go straight from this browser to that provider. || Pilih penyedia untuk mengisi alamat API, lalu tempel kuncimu dari konsolnya. Permintaan langsung dari browser ini ke penyedia itu. || 选择服务商以自动填写 API 地址，然后粘贴从其控制台获取的密钥。请求直接从此浏览器发送到该服务商。
+Choose a provider… || Pilih penyedia… || 选择服务商…
+# re: patterns. {n} = number captured, kept as-is. The English side is a regular expression.
+re:^Step (\d+) of (\d+)$ || Langkah $1 dari $2 || 第 $1 步，共 $2 步
+re:^Situation (\d+) of (\d+)$ || Situasi $1 dari $2 || 情境 $1 / $2
+re:^(\d+) today$ || $1 hari ini || 今天 $1
+re:^Today ([\d.,]+[KkMm]?) tokens$ || Hari ini $1 token || 今天 $1 token
+re:^(\d+) this chat · (\d+) today$ || $1 chat ini · $2 hari ini || 本聊天 $1 · 今天 $2
+re:^(\d+) done$ || $1 selesai || 已完成 $1
+re:^(\d+) bots · (\d+) working$ || $1 bot · $2 bekerja || $1 个机器人 · $2 个工作中
+re:^Free AI ready · (\d+) local$ || AI gratis siap · $1 lokal || 免费 AI 已就绪 · $1 个本地
+re:^(\d+) automations · (\d+) playbooks$ || $1 otomatisasi · $2 playbook || $1 个自动化 · $2 个剧本
+re:^Glow AI · (\d+) models$ || Glow AI · $1 model || Glow AI · $1 个模型
+re:^(\d+) free models$ || $1 model gratis || $1 个免费模型
+re:^AI replies · (\d+) days$ || Balasan AI · $1 hari || AI 回复 · $1 天
+re:^tokens · last (\d+) days$ || token · $1 hari terakhir || token · 最近 $1 天
+re:^([\d,]+) models available: type a name to search them all\.$ || $1 model tersedia: ketik nama untuk mencari semuanya. || 共 $1 个模型：输入名称即可搜索全部。
+re:^Signed in as (.+)\. Every Glow app uses this account\.$ || Masuk sebagai $1. Semua aplikasi Glow memakai akun ini. || 已登录为 $1。所有 Glow 应用共用此账户。
+re:^Sign in \(free\) to use (.+)$ || Masuk (gratis) untuk memakai $1 || 免费登录即可使用 $1
+re:^No models match “(.+)”\.$ || Tidak ada model yang cocok dengan “$1”. || 没有匹配“$1”的模型。
+re:^(.+) isn't offered in (.+)\. Pick another model, or change your region in Language & region\.$ || $1 tidak tersedia di $2. Pilih model lain, atau ubah wilayah di Bahasa & wilayah. || $1 在$2不提供。请选择其他模型，或在“语言与地区”中更改地区。
+re:^(\d+) chats \(([\d.]+ [KMG]?B)\) stored in this browser, not synced anywhere\. Glow has no server of its own: it never receives or keeps your chats\. Your messages go only to the AI provider you pick\.$ || $1 chat ($2) disimpan di browser ini, tidak disinkronkan ke mana pun. Glow tidak punya server sendiri: Glow tidak pernah menerima atau menyimpan chat-mu. Pesanmu hanya dikirim ke penyedia AI yang kamu pilih. || 此浏览器中保存了 $1 个聊天（$2），未同步到任何地方。Glow 没有自己的服务器，从不接收或保存你的聊天。你的消息只会发送给你选择的 AI 服务商。
+
+# Small labels found in the browser check
+Free · || Gratis · || 免费 ·
+Powered by Glow Free · || Didukung Glow Free · || 由 Glow Free 提供 ·
+LOCAL || LOKAL || 本地
+EMPTY || KOSONG || 空
+SIM || SIMULASI || 模拟

@@ -2050,7 +2050,8 @@
     if ($("plans-key").labels && $("plans-key").labels[0]) $("plans-key").labels[0].hidden = pro;
     if (!withPrices) return; // the price list is only fetched when the plans window opens
     const info = await plansApi.plans();
-    $("plans-price").textContent = info.priceLabel || "Monthly";
+    const localPrice = window.GlowLocale && info.priceLabel ? window.GlowLocale.localPrice(info.priceLabel) : "";
+    $("plans-price").textContent = (info.priceLabel || "Monthly") + (localPrice ? ` · ${localPrice}` : "");
     $("plans-buy").hidden = !info.onSale || pro;
     if (info.onSale) $("plans-buy").href = info.checkoutUrl;
     $("plans-soon").hidden = info.onSale || pro;

@@ -1,0 +1,167 @@
+# Placeholders and split sentences found after the first pass
+Message Glow… || Kirim pesan ke Glow… || 给 Glow 发消息…
+Message || Pesan || 消息
+Optional custom instructions… || Instruksi khusus opsional… || 可选的自定义指令…
+e.g. Plan a 30-day launch for my small bakery, with a budget and first steps || mis. Rencanakan peluncuran 30 hari untuk toko roti kecil saya, dengan budget dan langkah pertama || 例如：为我的小面包店规划 30 天的开业计划，包括预算和第一步
+e.g. Mechanical engineer in Batam. Budgets in rupiah. Prefer short, practical answers. || mis. Insinyur mesin di Batam. Budget dalam rupiah. Suka jawaban singkat dan praktis. || 例如：苏州的机械工程师。预算用人民币。喜欢简短实用的回答。
+e.g. I own a Bambu A1 mini || mis. Saya punya Bambu A1 mini || 例如：我有一台 Bambu A1 mini
+Describe the goal… e.g. @byte fix the login bug || Jelaskan tujuannya… mis. @byte perbaiki bug login || 描述目标…例如：@byte 修复登录 bug
+Give your crew a mission… Nova will plan who does what || Beri krumu misi… Nova akan merencanakan siapa mengerjakan apa || 给团队下达任务…Nova 会安排谁做什么
+What should the crew do? e.g. Write release notes for v2 || Apa yang harus dikerjakan kru? mis. Tulis catatan rilis untuk v2 || 团队要做什么？例如：写 v2 的发布说明
+Start with @name to pick a bot · Ctrl/⌘+Enter to send || Mulai dengan @nama untuk memilih bot · Ctrl/⌘+Enter untuk mengirim || 以 @名字 开头可指定机器人 · Ctrl/⌘+Enter 发送
+Nova plans, Scout researches the web, Byte runs code || Nova merencanakan, Scout meriset web, Byte menjalankan kode || Nova 负责规划，Scout 上网调研，Byte 运行代码
+Glow Free (no sign-in) or sign in with Puter for stronger models || Glow Free (tanpa masuk) atau masuk dengan Puter untuk model yang lebih kuat || Glow Free（无需登录），或使用 Puter 登录获取更强的模型
+Sign in with a free Puter account (Google, Microsoft, Apple or email) to use Glow AI models and sync your chats. || Masuk dengan akun Puter gratis (Google, Microsoft, Apple atau email) untuk memakai model Glow AI dan menyinkronkan chat. || 使用免费的 Puter 账户（Google、Microsoft、Apple 或邮箱）登录，即可使用 Glow AI 模型并同步聊天。
+Sprint planning || Perencanaan sprint || 冲刺规划
+Library comparison || Perbandingan pustaka || 库对比
+Cache layer || Lapisan cache || 缓存层
+Mission || Misi || 任务
+Source || Sumber || 来源
+You || Kamu || 你
+Open || Buka || 打开
+Install || Pasang || 安装
+More info || Info lebih lanjut || 更多信息
+Ready? || Siap? || 准备好了吗？
+Keep || Simpan || 保留
+Run anyway || Tetap jalankan || 仍要运行
+Click || Klik || 点击
+Tap || Ketuk || 点按
+and || dan || 和
+re:^(\d{4}-\d\d-\d\d): ([\d.,]+[KkMm]?) tokens$ || $1: $2 token || $1：$2 token
+re:^Nova — Team Lead$ || Nova — Pemimpin Tim || Nova — 团队负责人
+re:^Scout — Research Agent$ || Scout — Agen Riset || Scout — 调研专员
+re:^Byte — Software Developer$ || Byte — Pengembang Perangkat Lunak || Byte — 软件开发
+re:^Pixel — Content Creator$ || Pixel — Kreator Konten || Pixel — 内容创作者
+re:^Probe — QA Engineer$ || Probe — Insinyur QA || Probe — QA 工程师
+re:^Sentinel — Code Reviewer$ || Sentinel — Peninjau Kode || Sentinel — 代码审查员
+# Setup guide (setup/)
+Set up Glow || Siapkan Glow || 设置 Glow
+Every Glow app, in one step. || Semua aplikasi Glow, dalam satu langkah. || 一步装好所有 Glow 应用。
+It takes about a minute. || Hanya sekitar satu menit. || 大约只需一分钟。
+All Glow apps are free and run in your browser. Installing just gives them their own windows and icons, and adds || Semua aplikasi Glow gratis dan berjalan di browsermu. Memasang hanya memberi jendela dan ikon sendiri, serta menambahkan || 所有 Glow 应用都免费，并在浏览器中运行。安装只是让它们拥有独立的窗口和图标，并添加
+so GlowLead can use a web browser for you. || agar GlowLead bisa memakai browser web untukmu. || 让 GlowLead 能替你使用网页浏览器。
+Windows PC || PC Windows || Windows 电脑
+Download Glow Setup || Unduh Glow Setup || 下载 Glow Setup
+Download Glow Setup for Windows || Unduh Glow Setup untuk Windows || 下载 Windows 版 Glow Setup
+Glow-Setup.exe · about 60 KB · Windows 10 and 11 · no admin rights needed || Glow-Setup.exe · sekitar 60 KB · Windows 10 dan 11 · tanpa hak admin || Glow-Setup.exe · 约 60 KB · Windows 10 和 11 · 无需管理员权限
+Glow Setup: all apps + Glow Hands || Glow Setup: semua aplikasi + Glow Hands || Glow Setup：所有应用 + Glow Hands
+Glow Setup isn't code-signed yet, so Windows may ask first. In Edge choose || Glow Setup belum ditandatangani kode, jadi Windows mungkin bertanya dulu. Di Edge pilih || Glow Setup 尚未进行代码签名，Windows 可能会先询问。在 Edge 中选择
+(⋯ → Keep → Keep anyway); if a blue “Windows protected your PC” box appears, click || (⋯ → Keep → Keep anyway); jika muncul kotak biru “Windows protected your PC”, klik || （⋯ → 保留 → 仍然保留）；如果出现蓝色的“Windows 已保护你的电脑”提示，点击
+More info → Run anyway || More info → Run anyway || 更多信息 → 仍要运行
+Done: every Glow app is in the Start menu and on your desktop. || Selesai: semua aplikasi Glow ada di menu Start dan desktop. || 完成：所有 Glow 应用都已添加到开始菜单和桌面。
+Glow is installed on this PC. Find || Glow sudah terpasang di PC ini. Temukan || Glow 已安装在此电脑上。在
+in the Start menu and on your desktop. Add your phone below. || di menu Start dan desktop. Tambahkan ponselmu di bawah. || 开始菜单和桌面上找到它。在下方添加你的手机。
+in the Start menu (folder “Glow”) and on the desktop. They open as app windows of Edge or Chrome with your normal browser profile, so they share one Glow account, your chats and missions. || di menu Start (folder “Glow”) dan desktop. Aplikasi terbuka sebagai jendela aplikasi Edge atau Chrome dengan profil browser biasamu, jadi berbagi satu akun Glow, chat dan misimu. || 添加到开始菜单（“Glow”文件夹）和桌面。它们以 Edge 或 Chrome 应用窗口打开，使用你平常的浏览器配置，因此共享同一个 Glow 账户、聊天和任务。
+installed or updated: GlowLead's browser control on this PC. It starts at every login and GlowLead connects to it by itself. || terpasang atau diperbarui: kontrol browser GlowLead di PC ini. Ia mulai setiap login dan GlowLead terhubung sendiri. || 已安装或更新：GlowLead 在此电脑上的浏览器控制。每次登录时自动启动，GlowLead 会自动连接。
+Open Glow Setup again any time to update; it always installs the latest version. Python 3.13 is added for you if it is missing. || Buka Glow Setup lagi kapan saja untuk memperbarui; selalu memasang versi terbaru. Python 3.13 ditambahkan otomatis jika belum ada. || 随时重新打开 Glow Setup 即可更新，它总是安装最新版本。如果缺少 Python 3.13，会自动为你安装。
+Pin to taskbar || Sematkan ke taskbar || 固定到任务栏
+Pin any Glow app to the taskbar (right-click its window or the Start menu entry || Sematkan aplikasi Glow mana pun ke taskbar (klik kanan jendelanya atau entri menu Start || 将任意 Glow 应用固定到任务栏（右键点击其窗口或开始菜单项
+the pin keeps the Glow icon. || sematan tetap memakai ikon Glow. || 固定后会保留 Glow 图标。
+Remove Glow in || Hapus Glow di || 卸载 Glow：
+Settings → Apps → Installed apps → Glow → Uninstall || Pengaturan → Aplikasi → Aplikasi terpasang → Glow → Copot pemasangan || 设置 → 应用 → 已安装的应用 → Glow → 卸载
+remove the shortcuts and Glow Hands (your chats stay in the browser) || hapus pintasan dan Glow Hands (chat tetap di browser) || 删除快捷方式和 Glow Hands（聊天仍保留在浏览器中）
+Other ways: one command, options || Cara lain: satu perintah, opsi || 其他方式：一条命令、选项
+The same installer as one line: press || Pemasang yang sama dalam satu baris: tekan || 同一个安装程序的一行命令：按
+paste it and press || tempel dan tekan || 粘贴后按
+Set an option first, in the same Win+R line, e.g. || Atur opsi dulu, di baris Win+R yang sama, mis. || 先在同一行 Win+R 中设置选项，例如
+only the app shortcuts, no Glow Hands || hanya pintasan aplikasi, tanpa Glow Hands || 只安装应用快捷方式，不装 Glow Hands
+Start menu only || Hanya menu Start || 仅开始菜单
+Other devices || Perangkat lain || 其他设备
+Android || Android || Android
+Android app || Aplikasi Android || Android 应用
+Glow Android app || Aplikasi Android Glow || Glow Android 应用
+Download Glow-android.apk || Unduh Glow-android.apk || 下载 Glow-android.apk
+QR code for the Glow Android app || Kode QR untuk aplikasi Android Glow || Glow Android 应用的二维码
+GlowLead as a real app with its || GlowLead sebagai aplikasi sungguhan dengan || GlowLead 的正式应用，带有
+own built-in browser || browser bawaan sendiri || 自带的内置浏览器
+its own built-in browser || browser bawaannya sendiri || 它自带的内置浏览器
+browser missions run on the phone itself, no PC needed. || misi browser berjalan di ponsel itu sendiri, tanpa PC. || 浏览器任务直接在手机上运行，无需电脑。
+Install the APK. || Pasang APK-nya. || 安装 APK。
+Open the file and allow “install unknown apps” for your browser once. GlowChat and GlowRoom: open them in Chrome and choose || Buka file dan izinkan “instal aplikasi tak dikenal” untuk browsermu sekali. GlowChat dan GlowRoom: buka di Chrome dan pilih || 打开文件，并为浏览器允许一次“安装未知应用”。GlowChat 和 GlowRoom：在 Chrome 中打开并选择
+Add to Home screen || Tambahkan ke Layar utama || 添加到主屏幕
+Add to Home Screen || Tambahkan ke Layar Utama || 添加到主屏幕
+iPhone · iPad || iPhone · iPad || iPhone · iPad
+A native iPhone app isn't available (it needs Apple's paid developer program). || Aplikasi iPhone asli belum tersedia (butuh program developer Apple berbayar). || 暂无 iPhone 原生应用（需要付费的 Apple 开发者计划）。
+in Safari or Chrome. || di Safari atau Chrome. || （在 Safari 或 Chrome 中）。
+For browser missions, in GlowLead open || Untuk misi browser, di GlowLead buka || 浏览器任务：在 GlowLead 中打开
+or link your PC (below). || atau tautkan PC-mu (di bawah). || 或连接你的电脑（见下方）。
+Mac · Linux || Mac · Linux || Mac · Linux
+Glow Hands isn't packaged for Mac yet; use the instant cloud browser or link a Windows/Linux PC. || Glow Hands belum tersedia untuk Mac; pakai browser cloud instan atau tautkan PC Windows/Linux. || Glow Hands 暂未提供 Mac 版；请使用即时云浏览器或连接 Windows/Linux 电脑。
+for a Linux machine (Ubuntu, Raspberry Pi, a free cloud VM). It prints a QR code for your phone || untuk mesin Linux (Ubuntu, Raspberry Pi, VM cloud gratis). Ia menampilkan kode QR untuk ponselmu || 用于 Linux 设备（Ubuntu、树莓派、免费云虚拟机）。它会为你的手机显示二维码
+Install from the browser || Pasang dari browser || 从浏览器安装
+Open each app in Chrome or Edge and click the || Buka setiap aplikasi di Chrome atau Edge dan klik || 在 Chrome 或 Edge 中打开每个应用，然后点击
+icon in the address bar (or use the Install buttons on the || ikon di bilah alamat (atau pakai tombol Pasang di || 地址栏中的图标（或使用以下页面上的安装按钮：
+Phone + PC || Ponsel + PC || 手机 + 电脑
+Use your PC's browser from your phone || Pakai browser PC dari ponselmu || 从手机使用电脑的浏览器
+On the PC (after Glow Setup), open || Di PC (setelah Glow Setup), buka || 在电脑上（安装 Glow Setup 后）打开
+Scan the QR code with your phone. GlowLead on the phone now drives the PC's browser. || Pindai kode QR dengan ponselmu. GlowLead di ponsel kini mengendalikan browser PC. || 用手机扫描二维码。手机上的 GlowLead 现在可以控制电脑的浏览器。
+Run Glow Setup; allow local network access if the browser asks. || Jalankan Glow Setup; izinkan akses jaringan lokal jika browser meminta. || 运行 Glow Setup；如浏览器请求局域网访问权限，请允许。
+Repeat for || Ulangi untuk || 对以下应用重复：
+then open || lalu buka || 然后打开
+from your downloads. || dari folder unduhan. || （在下载文件夹中）。
+How the Glow apps connect || Cara aplikasi Glow terhubung || Glow 应用如何互相连接
+How it works || Cara kerjanya || 工作原理
+What you do || Yang kamu lakukan || 你要做的
+give one goal, approve risky steps || beri satu tujuan, setujui langkah berisiko || 给出一个目标，批准有风险的步骤
+You give a goal to GlowLead. GlowLead delegates writing to GlowChat, research and code to the GlowRoom crew, and website steps to browser control. Browser control is Glow Hands on a PC, the Glow Android app's own browser, or the instant cloud browser. All apps share one Glow account and storage in your browser, and use Glow AI. || Kamu memberi tujuan ke GlowLead. GlowLead mendelegasikan tulisan ke GlowChat, riset dan kode ke kru GlowRoom, dan langkah situs web ke kontrol browser. Kontrol browser adalah Glow Hands di PC, browser bawaan aplikasi Android Glow, atau browser cloud instan. Semua aplikasi berbagi satu akun Glow dan penyimpanan di browsermu, dan memakai Glow AI. || 你把目标交给 GlowLead。GlowLead 把写作交给 GlowChat，把调研和代码交给 GlowRoom 团队，把网站操作交给浏览器控制。浏览器控制可以是电脑上的 Glow Hands、Glow Android 应用自带的浏览器，或即时云浏览器。所有应用共享浏览器中的同一个 Glow 账户和存储，并使用 Glow AI。
+plans the steps, delegates, checks the work, reports || merencanakan langkah, mendelegasikan, memeriksa hasil, melapor || 规划步骤、分派任务、检查成果、汇报
+start anything, recent chats and missions || mulai apa saja, chat dan misi terbaru || 从这里开始，查看最近的聊天和任务
+writing, Council debates; every mission is saved here as a chat || menulis, debat Dewan; setiap misi disimpan di sini sebagai chat || 写作、议会辩论；每个任务都会作为聊天保存在这里
+GlowRoom crew || Kru GlowRoom || GlowRoom 团队
+Browser control || Kontrol browser || 浏览器控制
+browser control comes from one of || kontrol browser berasal dari salah satu || 浏览器控制来自以下之一
+opens sites, fills forms, asks you before submitting || membuka situs, mengisi formulir, bertanya sebelum mengirim || 打开网站、填写表单，提交前询问你
+on your Windows or Linux PC (local, paired automatically) || di PC Windows atau Linux-mu (lokal, terpasang otomatis) || 在你的 Windows 或 Linux 电脑上（本地，自动配对）
+no install; about 10 free browser-minutes a day, shared || tanpa pasang; sekitar 10 menit browser gratis per hari, dibagi bersama || 无需安装；每天约 10 分钟免费浏览器时长，共享
+Glow account & storage || Akun & penyimpanan Glow || Glow 账户与存储
+shared by all apps in one browser; stays on your device || dipakai bersama semua aplikasi di satu browser; tetap di perangkatmu || 同一浏览器中的所有应用共享；只保存在你的设备上
+One site, one browser storage: every Glow app on the same browser shares your Glow account, chats, missions and plan. GlowLead is the lead that hands work to the others. || Satu situs, satu penyimpanan browser: semua aplikasi Glow di browser yang sama berbagi akun Glow, chat, misi dan paketmu. GlowLead adalah pemimpin yang membagi pekerjaan ke yang lain. || 一个网站、一份浏览器存储：同一浏览器中的所有 Glow 应用共享你的 Glow 账户、聊天、任务和套餐。GlowLead 是负责把工作分派给其他应用的主管。
+Apps ↔ apps || Aplikasi ↔ aplikasi || 应用 ↔ 应用
+Same site (juw12.github.io), so the apps share browser storage: account, chats, missions, Glow Pro key. GlowLead calls GlowChat and the GlowRoom crew directly. || Situs yang sama (juw12.github.io), jadi aplikasi berbagi penyimpanan browser: akun, chat, misi, kunci Glow Pro. GlowLead memanggil GlowChat dan kru GlowRoom secara langsung. || 同一网站（juw12.github.io），因此各应用共享浏览器存储：账户、聊天、任务、Glow Pro 密钥。GlowLead 直接调用 GlowChat 和 GlowRoom 团队。
+GlowLead ↔ Glow Hands (PC) || GlowLead ↔ Glow Hands (PC) || GlowLead ↔ Glow Hands（电脑）
+Glow Hands runs on your PC at 127.0.0.1 (ports 8765–8770) and pairs with GlowLead using a token; nothing goes through the internet. || Glow Hands berjalan di PC-mu pada 127.0.0.1 (port 8765–8770) dan terhubung dengan GlowLead memakai token; tidak ada yang lewat internet. || Glow Hands 在你的电脑上运行于 127.0.0.1（端口 8765–8770），通过令牌与 GlowLead 配对，不经过互联网。
+Phone ↔ PC || Ponsel ↔ PC || 手机 ↔ 电脑
+A direct, encrypted peer-to-peer link (WebRTC) from GlowLead on the phone to Glow Hands on the PC. || Tautan langsung terenkripsi peer-to-peer (WebRTC) dari GlowLead di ponsel ke Glow Hands di PC. || 从手机上的 GlowLead 到电脑上 Glow Hands 的加密点对点直连（WebRTC）。
+Approvals (submit, buy, send, delete) pop up on the phone; passwords you type yourself. || Persetujuan (kirim, beli, kirim pesan, hapus) muncul di ponsel; kata sandi kamu ketik sendiri. || 需要批准的操作（提交、购买、发送、删除）会在手机上弹出；密码由你自己输入。
+A Cloudflare browser opened only at the first website step and closed after the mission (shared free time). || Browser Cloudflare yang dibuka hanya pada langkah situs pertama dan ditutup setelah misi (waktu gratis dibagi bersama). || 仅在第一个网站步骤时打开、任务结束后关闭的 Cloudflare 浏览器（共享免费时长）。
+GlowLead bundled with a native browser panel that Glow Hands' rules drive (no local addresses, password fields left to you). || GlowLead dengan panel browser bawaan yang mengikuti aturan Glow Hands (tanpa alamat lokal, kolom kata sandi kamu isi sendiri). || 内置原生浏览器面板的 GlowLead，遵循 Glow Hands 的规则（不访问本地地址，密码栏由你自己填写）。
+Always-on || Selalu aktif || 始终在线
+Scheduled missions || Misi terjadwal || 定时任务
+GlowLead automations run while a Glow tab is open; the optional GitHub Actions runner runs them on a schedule without a PC. || Otomatisasi GlowLead berjalan selama tab Glow terbuka; runner GitHub Actions opsional menjalankannya terjadwal tanpa PC. || GlowLead 自动化在打开 Glow 标签页时运行；可选的 GitHub Actions 运行器可在没有电脑的情况下按计划运行。
+Optional: sign in once in GlowChat; it works in every app. || Opsional: masuk sekali di GlowChat; berlaku di semua aplikasi. || 可选：在 GlowChat 中登录一次，所有应用都可使用。
+Glow Free AI needs no sign-in (shared, about one reply every 30 s); a free Puter sign-in or your own API key gives faster models. || Glow Free AI tanpa masuk (dibagi bersama, sekitar satu balasan tiap 30 dtk); masuk Puter gratis atau kunci API sendiri memberi model lebih cepat. || Glow Free AI 无需登录（共享，大约每 30 秒一条回复）；免费登录 Puter 或使用你自己的 API 密钥可获得更快的模型。
+Start with one goal in GlowLead, for example “Find the best budget laptop under Rp 8 juta with sources”. || Mulai dengan satu tujuan di GlowLead, misalnya “Cari laptop murah terbaik di bawah Rp 8 juta beserta sumbernya”. || 先在 GlowLead 中给出一个目标，例如“找出 4000 元以内最值得买的笔记本电脑，并附上来源”。
+Nothing. Use the same browser on a device. Different browsers or devices don't sync. || Tidak ada. Pakai browser yang sama di satu perangkat. Browser atau perangkat berbeda tidak tersinkron. || 什么都不用做。在同一设备上使用同一个浏览器即可。不同浏览器或设备之间不会同步。
+Your chats stay in the browser. || Chat-mu tetap di browser. || 你的聊天保存在浏览器中。
+Glow · free · chats stay in your browser || Glow · gratis · chat tetap di browsermu || Glow · 免费 · 聊天只保存在你的浏览器中
+Open Glow || Buka Glow || 打开 Glow
+Open GlowLead || Buka GlowLead || 打开 GlowLead
+Glow app || Aplikasi Glow || Glow 应用
+Glow, GlowLead, GlowChat, GlowRoom || Glow, GlowLead, GlowChat, GlowRoom || Glow、GlowLead、GlowChat、GlowRoom
+GlowLead → Automate… || GlowLead → Otomatiskan… || GlowLead → 自动化…
+GlowLead → Connect browser control → Start instant cloud browser. || GlowLead → Hubungkan kontrol browser → Mulai browser cloud instan. || GlowLead → 连接浏览器控制 → 启动即时云浏览器。
+GlowLead → Glow Hands → Use from your phone, scan the QR. || GlowLead → Glow Hands → Pakai dari ponsel, pindai QR. || GlowLead → Glow Hands → 从手机使用，扫描二维码。
+Glow Hands → Connect browser control || Glow Hands → Hubungkan kontrol browser || Glow Hands → 连接浏览器控制
+
+# Sentences split around links/bold text (each piece keeps the same order in every language)
+(canned replies). Pick || (balasan siap pakai). Pilih || （预设回复）。在模型菜单中选择
+Puter account. To keep it (and your synced chats), open puter.com and choose || Puter. Untuk menyimpannya (dan chat yang tersinkron), buka puter.com dan pilih || Puter 账户。若要保留它（以及已同步的聊天），请打开 puter.com 并选择
+Puter account. To keep it and your synced chats, open || Puter. Untuk menyimpannya dan chat yang tersinkron, buka || Puter 账户。若要保留它和已同步的聊天，请打开
+and choose || dan pilih || 并选择
+Sign-in uses || Masuk memakai || 登录使用
+a free third-party account. Glow AI models run on your own free Puter allowance, so there are no API keys and no cost to you or to Glow. API keys you add below are never synced. || akun pihak ketiga gratis. Model Glow AI berjalan di jatah Puter gratis milikmu, jadi tanpa kunci API dan tanpa biaya bagimu atau bagi Glow. Kunci API yang kamu tambahkan di bawah tidak pernah disinkronkan. || 这是一个免费的第三方账户。Glow AI 模型使用你自己的免费 Puter 额度，因此无需 API 密钥，你和 Glow 都不用付费。你在下方添加的 API 密钥永远不会同步。
+Sign up at || Daftar di || 在
+and create a key. Models marked || dan buat kunci. Model bertanda || 注册并创建密钥。标有
+cost nothing (rate-limited). || tidak berbayar (dibatasi kecepatannya). || 的模型不收费（有速率限制）。
+Puter's window asks you to || Jendela Puter memintamu untuk || Puter 窗口会请你
+sign up or log in || daftar atau masuk || 注册或登录
+(free, with Google, Microsoft, Apple or email). It's your own account, so your chats and allowance stay yours. Had an older temporary Puter name (like || (gratis, dengan Google, Microsoft, Apple atau email). Ini akunmu sendiri, jadi chat dan jatahmu tetap milikmu. Pernah punya nama Puter sementara yang lama (seperti || （免费，可用 Google、Microsoft、Apple 或邮箱）。这是你自己的账户，聊天和额度都属于你。以前有临时 Puter 用户名（例如
+is a control room for a crew of AI bots: watch who is working, follow every tool step, and dispatch goals. Goals you dispatch are done for real by || adalah ruang kendali untuk kru bot AI: lihat siapa yang bekerja, ikuti setiap langkah alat, dan kirim tujuan. Tujuan yang kamu kirim benar-benar dikerjakan oleh || 是一个 AI 机器人团队的控制室：查看谁在工作、跟踪每个工具步骤并分派目标。你分派的目标会真正由
+(free by default; sign in with your Glow account for stronger models, or use your own key in || (gratis secara bawaan; masuk dengan akun Glow untuk model lebih kuat, atau pakai kuncimu sendiri di || 完成（默认免费；用 Glow 账户登录可获得更强的模型，或使用你自己的密钥，见
+Scout reads the live web, Byte runs real code, Pixel draws graphics. The optional || Scout membaca web langsung, Byte menjalankan kode nyata, Pixel menggambar grafik. Sakelar opsional || Scout 读取实时网页，Byte 运行真实代码，Pixel 绘制图形。可选的
+For browser missions, in GlowLead open || Untuk misi browser, di GlowLead buka || 浏览器任务：在 GlowLead 中打开
+v3.0 · mobile · real AI || v3.0 · seluler · AI sungguhan || v3.0 · 移动版 · 真正的 AI
+Trend report || Laporan tren || 趋势报告
+Weekly status report || Laporan status mingguan || 每周状态报告
+and pick || dan pilih || 并选择
+Market scan || Pindai pasar || 市场扫描

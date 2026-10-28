@@ -255,12 +255,21 @@
     }
   }
 
+  // Language & region (../shared/glow-locale.js): only models offered in the chosen region.
+  function regionAllows(id) {
+    return !window.GlowLocale || window.GlowLocale.modelAllowed('puter::' + id);
+  }
+  function regionModels() {
+    const allowed = GLOW_MODELS.filter(([id]) => regionAllows(id));
+    return allowed.length ? allowed : GLOW_MODELS;
+  }
+
   function glowModel() {
     const chosen = getSettings().model;
-    if (GLOW_MODELS.some(([id]) => id === chosen)) return chosen;
+    if (GLOW_MODELS.some(([id]) => id === chosen) && regionAllows(chosen)) return chosen;
     const last = (readGlowStore()?.settings?.lastModel) || '';
-    if (last.startsWith('puter::')) return last.slice(7);
-    return GLOW_DEFAULT_MODEL;
+    if (last.startsWith('puter::') && regionAllows(last.slice(7))) return last.slice(7);
+    return regionAllows(GLOW_DEFAULT_MODEL) ? GLOW_DEFAULT_MODEL : regionModels()[0][0];
   }
 
   function glowModelName(id) {
@@ -370,7 +379,7 @@
     let response;
     try {
       response = await Promise.race([
-        withTimeout(sdk.ai.chat([{ role: 'system', content: system }, ...mergeRoles(messages)], { model: glowModel(), stream: true }), 45000, 'Glow AI took too long to answer.'),
+        withTimeout(sdk.ai.chat([{ role: 'system', content: system + (window.GlowLocale ? window.GlowLocale.aiContext() : '') }, ...mergeRoles(messages)], { model: glowModel(), stream: true }), 45000, 'Glow AI took too long to answer.'),
         aborted
       ]);
     } catch (err) {
@@ -1734,7 +1743,7 @@
         <p>${glow.signedIn
           ? `Signed in as <b>${esc(glow.name || 'your Glow account')}</b>. The crew uses your Glow models — the same account and allowance as GlowChat.`
           : (glow.checking ? 'Checking your Glow account…' : 'Using <b>Glow Free</b> (no sign-up). Sign in with your Glow account for stronger models like GPT-5 mini, Claude and Gemini — one account for GlowChat and GlowRoom.')}</p>
-        ${glow.signedIn ? `<div class="crx-field"><label>Glow model</label><select data-set="model">${GLOW_MODELS.map(([id, name]) => `<option value="${id}" ${id === glowModel() ? 'selected' : ''}>${esc(name)}</option>`).join('')}</select></div>` : ''}
+        ${glow.signedIn ? `<div class="crx-field"><label>Glow model</label><select data-set="model">${regionModels().map(([id, name]) => `<option value="${id}" ${id === glowModel() ? 'selected' : ''}>${esc(name)}</option>`).join('')}</select></div>` : ''}
         ${glow.notice ? `<div class="crx-err">${esc(glow.notice)}</div>` : ''}
         <div class="crx-actions" style="margin:0">
           ${glow.signedIn ? '<button class="crx-btn" data-act="glow-signout">Sign out</button>' : '<button class="crx-btn primary" data-act="glow-signin">Sign in with Glow</button>'}

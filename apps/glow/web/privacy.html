@@ -30,7 +30,7 @@
 <main>
   <div class="top"><img src="./icons/app-icon.svg" alt=""><a href="./">Glow</a></div>
   <h1>How GlowChat handles your data</h1>
-  <p class="muted">Plain-language summary · last updated 27 October 2026 · covers GlowChat (web, Windows, Android and iPhone)</p>
+  <p class="muted">Plain-language summary · last updated 28 October 2026 · covers GlowChat (web, Windows, Android and iPhone)</p>
 
   <div class="card">
     <b>The short version:</b> Glow has no server and no database of its own. Your chats, personas and settings are kept
@@ -74,6 +74,48 @@
   <p>ChatGPT, Claude and Gemini keep your chats on their servers. Depending on your settings, they may use them to improve
     their models or have people review them, and they keep them for months or years. Glow keeps chats on your device
     instead. The AI company still receives each message you send to it, under its own API terms.</p>
+
+
+  <h2 id="regions">Notes for your region</h2>
+  <p class="muted">Glow asks for your region when you first open it. These notes explain what that means where you are.
+    Glow itself still stores nothing on a server; the points below are about the AI providers your messages go to.</p>
+
+  <div class="card" id="cn">
+    <b>Mainland China (PIPL, 个人信息保护法)</b>
+    <ul>
+      <li>Glow only offers models from providers that serve mainland China (DeepSeek, Qwen, GLM, Kimi, MiniMax…) plus open-weight models. OpenAI, Anthropic, Google and xAI models are hidden.</li>
+      <li>Messages sent through Glow AI travel through Puter (USA) to the model provider, so they leave mainland China. Glow asks for your separate consent to this cross-border transfer before you start, and you can withdraw it by changing your region or deleting Glow's data.</li>
+      <li>To keep messages inside China, use your own DeepSeek, Qwen, Kimi or GLM key in GlowChat Settings: requests then go straight from your device to that provider.</li>
+      <li>Glow is not a registered (CAC-filed) generative AI service in mainland China.</li>
+    </ul>
+    <p lang="zh-CN">简体中文：Glow 不在服务器上保存你的数据。通过 Glow AI 发送的消息会经 Puter（美国）转给模型服务商，因此会出境；开始使用前 Glow 会征求你对跨境传输的单独同意。若希望数据留在境内，请在 GlowChat 设置中使用你自己的 DeepSeek、通义千问、Kimi 或智谱 GLM 密钥。Glow 尚未完成生成式人工智能服务备案。</p>
+  </div>
+
+  <div class="card" id="hk">
+    <b>Hong Kong &amp; Macau (PDPO)</b>
+    <p>OpenAI, Anthropic and Google don't serve these regions, so their models are hidden. Messages go to the provider you pick, usually outside Hong Kong or Macau.</p>
+  </div>
+
+  <div class="card" id="tw">
+    <b>Taiwan (個人資料保護法)</b>
+    <p>All models are available. DeepSeek is banned on government devices in Taiwan, so Glow marks it ⚠, and the "work or government device" option hides it.</p>
+    <p lang="zh-TW">繁體中文：Glow 不在伺服器上儲存你的資料。訊息只會傳送給你選擇的 AI 服務商。DeepSeek 在台灣禁止用於公務裝置，勾選「公務或工作裝置」即可隱藏。</p>
+  </div>
+
+  <div class="card" id="id">
+    <b>Indonesia (UU PDP, Law No. 27 of 2022)</b>
+    <p>All models are available. Messages go to the AI provider you pick, usually outside Indonesia. Avoid putting personal data of other people (NIK, phone numbers) into prompts.</p>
+    <p lang="id">Bahasa Indonesia: Glow tidak menyimpan datamu di server. Pesan hanya dikirim ke penyedia AI yang kamu pilih, biasanya di luar Indonesia. Hindari memasukkan data pribadi orang lain (NIK, nomor HP) ke dalam prompt.</p>
+  </div>
+
+  <div class="card" id="eu">
+    <b>European Union (GDPR)</b>
+    <p>Glow asks you to confirm you understand that messages go to the AI provider you choose, which may be outside the EU. There is no Glow account database to request or delete: your data is on your device, and "Delete all GlowChat data" removes it. Requests about data held by Puter or a model provider go to them. DeepSeek is marked ⚠ because it stores data in China and Italy's regulator blocked its app.</p>
+  </div>
+
+  <div class="card" id="sg"><b>Singapore (PDPA)</b> · <span id="my"><b>Malaysia (PDPA 2010)</b></span> · <span id="au"><b>Australia (Privacy Act 1988)</b></span> · <span id="us"><b>United States</b></span>
+    <p>All models are available; messages go to the provider you pick. In Australia and the US, DeepSeek is banned on many government devices, so it is marked ⚠ and the work-device option hides it.</p>
+  </div>
 
   <h2>Questions</h2>
   <p>Glow is an open-source project. Ask or report a problem on

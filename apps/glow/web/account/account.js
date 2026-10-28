@@ -274,7 +274,19 @@
   }
 
   // ---------------------------------------------------------------- settings + data
+  function renderLocale() {
+    if (!window.GlowLocale) {
+      $("locale-btn").hidden = true;
+      return;
+    }
+    const now = window.GlowLocale.get();
+    const names = { en: "English", id: "Bahasa Indonesia", "zh-CN": "简体中文", "zh-TW": "繁體中文" };
+    $("locale-text").textContent = `${names[now.lang] || now.lang} · ${window.GlowLocale.regionName(now.region)}`;
+    $("locale-text").title = window.GlowLocale.regionSummary(now.region).join("\n");
+  }
+
   function renderPrefs() {
+    renderLocale();
     const s = settings();
     $("theme").value = ["system", "dark", "light"].includes(s.theme) ? s.theme : "system";
     $("followups").checked = s.followUps !== false;
@@ -400,6 +412,8 @@
       toast("Default persona saved for new chats");
     });
     $("theme").addEventListener("change", (event) => saveSettings({ theme: event.target.value }));
+    $("locale-btn").addEventListener("click", () => window.GlowLocale && window.GlowLocale.openPicker());
+    if (window.GlowLocale) window.GlowLocale.onChange(renderLocale);
     $("followups").addEventListener("change", (event) => saveSettings({ followUps: event.target.checked }));
     $("cloudsync").addEventListener("change", (event) => saveSettings({ cloudSync: event.target.checked }));
     $("retention").addEventListener("change", (event) => {

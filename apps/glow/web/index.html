@@ -25,59 +25,59 @@
 
 <main>
   <section class="hero">
-    <h1>Get things done<br>with free AI.</h1>
-    <p class="lede">Type what you need. Glow picks the right helper for you.</p>
+    <h1 data-i18n-html="home.h1">Get things done<br>with free AI.</h1>
+    <p class="lede" data-i18n="home.lede">Type what you need. Glow picks the right helper for you.</p>
 
     <form class="start" id="start-form" autocomplete="off">
       <label class="sr-only" for="start-input">What do you need?</label>
-      <textarea id="start-input" rows="2" maxlength="2000" placeholder="What do you need? e.g. Plan a 3-day trip to Bali"></textarea>
+      <textarea id="start-input" rows="2" maxlength="2000" placeholder="What do you need? e.g. Plan a 3-day trip to Bali" data-i18n-placeholder="home.placeholder"></textarea>
       <div class="start-row">
-        <span class="start-hint" id="start-hint">Free, no sign-up needed.</span>
-        <button type="submit" class="btn primary go" id="start-go">Start <span aria-hidden="true">→</span></button>
+        <span class="start-hint" id="start-hint" data-i18n="home.hint">Free, no sign-up needed.</span>
+        <button type="submit" class="btn primary go" id="start-go"><span data-i18n="home.start">Start</span> <span aria-hidden="true">→</span></button>
       </div>
     </form>
 
     <div class="examples" aria-label="Examples">
-      <button type="button" class="example" data-example="Plan a 3-day trip to Bali on a small budget">✈ Plan a trip</button>
-      <button type="button" class="example" data-example="Compare the best budget laptops under $600 with sources">🔎 Compare laptops</button>
-      <button type="button" class="example" data-example="Write a short, friendly follow-up email after a job interview">✉ Write an email</button>
+      <button type="button" class="example" data-example="Plan a 3-day trip to Bali on a small budget" data-i18n-example="home.ex1.q" data-i18n="home.ex1">✈ Plan a trip</button>
+      <button type="button" class="example" data-example="Compare the best budget laptops under $600 with sources" data-i18n-example="home.ex2.q" data-i18n="home.ex2">🔎 Compare laptops</button>
+      <button type="button" class="example" data-example="Write a short, friendly follow-up email after a job interview" data-i18n-example="home.ex3.q" data-i18n="home.ex3">✉ Write an email</button>
     </div>
 
     <div class="send-to" role="group" aria-label="Or choose the app yourself">
-      <span>Or choose:</span>
-      <button type="button" class="pill" id="start-chat" data-target="chat">💬 Chat</button>
-      <button type="button" class="pill" id="start-room" data-target="room">🏢 AI crew</button>
-      <button type="button" class="pill" id="start-lead" data-target="lead">👑 Lead a goal</button>
+      <span data-i18n="home.choose">Or choose:</span>
+      <button type="button" class="pill" id="start-chat" data-target="chat" data-i18n="home.pill.chat">💬 Chat</button>
+      <button type="button" class="pill" id="start-room" data-target="room" data-i18n="home.pill.room">🏢 AI crew</button>
+      <button type="button" class="pill" id="start-lead" data-target="lead" data-i18n="home.pill.lead">👑 Lead a goal</button>
     </div>
   </section>
 
   <section class="apps" aria-label="Glow apps">
     <a class="app-tile chat" id="open-chat" href="./chat/">
       <span class="app-icon" aria-hidden="true">💬</span>
-      <span class="app-text"><b>GlowChat</b><small>Ask questions, write and brainstorm.</small></span>
+      <span class="app-text"><b>GlowChat</b><small data-i18n="home.tile.chat">Ask questions, write and brainstorm.</small></span>
       <span class="go-arrow" aria-hidden="true">→</span>
     </a>
     <a class="app-tile room" id="open-room" href="./room/">
       <span class="app-icon" aria-hidden="true">🏢</span>
-      <span class="app-text"><b>GlowRoom</b><small>An AI crew searches the web and runs code.</small></span>
+      <span class="app-text"><b>GlowRoom</b><small data-i18n="home.tile.room">An AI crew searches the web and runs code.</small></span>
       <span class="go-arrow" aria-hidden="true">→</span>
     </a>
     <a class="app-tile lead" id="open-lead" href="./lead/">
       <span class="app-icon" aria-hidden="true">👑</span>
-      <span class="app-text"><b>GlowLead</b><small>Give one big goal; it plans and checks the work.</small></span>
+      <span class="app-text"><b>GlowLead</b><small data-i18n="home.tile.lead">Give one big goal; it plans and checks the work.</small></span>
       <span class="go-arrow" aria-hidden="true">→</span>
     </a>
   </section>
 
   <section class="recent" id="recent" hidden>
-    <h2>Jump back in</h2>
+    <h2 data-i18n="home.recent">Jump back in</h2>
     <div class="recent-grid">
       <div class="recent-col" id="recent-chats-col">
-        <h3>💬 Recent chats</h3>
+        <h3 data-i18n="home.recentChats">💬 Recent chats</h3>
         <ul id="recent-chats"></ul>
       </div>
       <div class="recent-col" id="recent-missions-col">
-        <h3>🏢 Recent crew missions</h3>
+        <h3 data-i18n="home.recentMissions">🏢 Recent crew missions</h3>
         <ul id="recent-missions"></ul>
       </div>
     </div>
@@ -88,19 +88,21 @@
     <a class="btn small" id="account-action" href="./chat/">Sign in</a>
   </section>
 
-  <p class="setup-link"><a href="./setup/">📥 Get the Glow apps for Windows, Android and iPhone</a></p>
+  <p class="setup-link"><a href="./setup/" data-i18n="home.setup">📥 Get the Glow apps for Windows, Android and iPhone</a></p>
 </main>
 
 <footer class="foot">
-  <span>✦ Glow · free · your chats stay in your browser</span>
-  <button class="link" id="install-btn" type="button" hidden>Install Glow</button>
-  <a class="link" href="./setup/">Install every Glow app</a>
-  <a class="link" href="lead/#plans">Plans &amp; Glow Pro</a>
-  <a class="link" href="./privacy.html">Privacy</a>
-  <a class="link" href="./terms.html">Terms &amp; refunds</a>
-  <a class="link" href="../">All projects</a>
+  <span data-i18n="home.foot">✦ Glow · free · your chats stay in your browser</span>
+  <button class="link" id="locale-btn" type="button">🌐 <span data-i18n="menu.language">Language &amp; region</span></button>
+  <button class="link" id="install-btn" type="button" hidden data-i18n="home.install">Install Glow</button>
+  <a class="link" href="./setup/" data-i18n="home.installAll">Install every Glow app</a>
+  <a class="link" href="lead/#plans" data-i18n="home.plans">Plans &amp; Glow Pro</a>
+  <a class="link" href="./privacy.html" data-i18n="home.privacy">Privacy</a>
+  <a class="link" href="./terms.html" data-i18n="home.terms">Terms &amp; refunds</a>
+  <a class="link" href="../" data-i18n="home.projects">All projects</a>
 </footer>
 
+<script src="./shared/glow-locale.js"></script>
 <script src="./shared/glow-apps.js"></script>
 <script src="./home.js"></script>
 </body>

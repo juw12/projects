@@ -98,6 +98,8 @@ const PERSONA_LANGUAGES = {
   auto: ["Match my language", "Reply in the language the user writes in."],
   en: ["English", "Reply in English unless the user asks otherwise."],
   id: ["Bahasa Indonesia", "Reply in natural Bahasa Indonesia unless the user asks otherwise."],
+  "zh-CN": ["简体中文", "Reply in natural Simplified Chinese (简体中文) unless the user asks otherwise."],
+  "zh-TW": ["繁體中文", "Reply in natural Traditional Chinese (繁體中文) unless the user asks otherwise."],
 };
 const FOLLOW_UP_INSTRUCTION = "\n\nAfter your answer, add a final section exactly in this form:\nFollow-ups:\n- <short question>\n- <short question>\nwith 2 or 3 natural next questions the user might ask. Write the follow-ups in exactly the same language as the user's last message (for example English if they wrote English, Indonesian if they wrote Indonesian). Keep the heading \"Follow-ups:\" in English.";
 const FOLLOW_UPS = /\n+[*_]{0,2}Follow[- ]?ups?[*_]{0,2}:?[*_]{0,2}:?[ \t]*\n((?:[ \t]*(?:[-*•]|\d+[.)])[ \t]+.+(?:\n|$)){1,4})\s*$/i;
@@ -165,6 +167,7 @@ const CLOUD_PUSH_DELAY_MS = 4000;
 
 const state = loadState();
 let models = [];
+let regionHiddenModels = 0; // models left out because their provider doesn't serve the chosen region
 let current = null;
 let pendingFiles = [];
 const controllers = new Set();
@@ -392,12 +395,21 @@ async function fetchJson(url, headers = {}) {
   return response.json();
 }
 
+// Language & region (../shared/glow-locale.js): keep only models offered in the chosen region.
+function regionAllowed(value) {
+  return !window.GlowLocale || window.GlowLocale.modelAllowed(value);
+}
+function applyRegionRules(list) {
+  const kept = list.filter((m) => regionAllowed(m.value));
+  regionHiddenModels = list.length - kept.length;
+  return kept;
+}
 async function loadModels() {
   const s = state.settings;
   const list = [{ value: "demo::demo", label: "Demo agent (offline, canned replies)", short: "Demo", group: "Demo: no setup" }];
   if (puterSignedIn) list.push(...(await puterModelOptions()));
   if (TEST_MODE) {
-    models = list;
+    models = applyRegionRules(list);
     $("status").textContent = puterSignedIn ? "Glow AI (test double)" : "Demo mode — no provider connected";
     $("banner-text").textContent = "This is a sandboxed demo. Your own chats and keys are untouched.";
     $("banner-settings").textContent = "Open Glow";
@@ -450,7 +462,7 @@ async function loadModels() {
   }
 
   await Promise.all(jobs);
-  models = list;
+  models = applyRegionRules(list);
   $("status").textContent = status.length ? status.join(" · ") : "Demo mode";
   $("setup-banner").classList.toggle("hidden", models.length > 1);
   upgradeFromDemo();
@@ -566,6 +578,10 @@ async function streamReply(modelValue, system, messages, onText, conv = null) {
   return reply;
 }
 async function streamProvider(modelValue, system, messages, onText, usage) {
+  if (!regionAllowed(modelValue)) {
+    const where = window.GlowLocale.regionName(window.GlowLocale.get().region);
+    throw new Error(`${modelLabel(modelValue)} isn't offered in ${where}. Pick another model, or change your region in Language & region.`);
+  }
   const { provider, model } = splitModel(modelValue);
   const clean = trimHistory(messages.map((m) => ({ role: m.role, content: stripImages(stripThinking(m.content)) })));
   usage.in = estimateTokens(system) + clean.reduce((sum, m) => sum + estimateTokens(m.content), 0);
@@ -822,6 +838,7 @@ function personaFor(key) {
 function systemPromptFor(conv) {
   const personaKey = personaFor(conv.persona) ? conv.persona : "default";
   let prompt = withInstructions(personaFor(personaKey).prompt);
+  if (personaKey !== "translator" && window.GlowLocale) prompt += window.GlowLocale.aiContext();
   if (conv.type === "chat" && state.settings.followUps && personaKey !== "translator" && !String(conv.model || "").startsWith("puterimg::")) prompt += FOLLOW_UP_INSTRUCTION;
   return prompt;
 }
@@ -1864,8 +1881,31 @@ function renderPendingFiles() {
 }
 
 /* ================= settings ================= */
+// China AI providers (DeepSeek, Qwen, Kimi, GLM): picking one fills the OpenAI-compatible address.
+function fillChinaProviders() {
+  const select = $("set-china-provider");
+  if (!select || select.dataset.filled || !window.GlowLocale) return;
+  select.dataset.filled = "1";
+  for (const provider of window.GlowLocale.chinaProviders) {
+    const option = document.createElement("option");
+    option.value = provider.id;
+    option.textContent = provider.name;
+    select.appendChild(option);
+  }
+  select.addEventListener("change", () => {
+    const provider = window.GlowLocale.chinaProviders.find((p) => p.id === select.value);
+    $("china-provider-note").classList.toggle("hidden", !provider);
+    if (!provider) return;
+    $("set-custom-url").value = provider.url;
+    $("set-custom-key").focus();
+    window.open(provider.keys, "_blank", "noopener");
+  });
+}
 function openSettings() {
   const s = state.settings;
+  fillChinaProviders();
+  const preset = window.GlowLocale && window.GlowLocale.chinaProviders.find((p) => p.url === s.customUrl);
+  if ($("set-china-provider")) $("set-china-provider").value = preset ? preset.id : "";
   $("set-openrouter").value = s.openrouterKey;
   $("set-paid").checked = s.showPaid;
   $("set-ollama").value = s.ollamaUrl;
@@ -2508,13 +2548,23 @@ function modelBadges(option) {
   if (/gpt-oss|deepseek-r1|reason|think|qwq|\bo[34]\b|-pro\b|opus|astra/.test(value)) badges.push("Reasoning");
   return badges.slice(0, 3);
 }
+let regionHiddenPreviews = 0;
 function pickerEntries() {
   const entries = models.map((m) => ({ ...m, locked: false }));
+  regionHiddenPreviews = 0;
   if (!puterSignedIn && !entries.some((e) => e.value.startsWith("puter::"))) {
     for (const [id, name] of PUTER_MODELS) {
+      if (!regionAllowed(`puter::${id}`)) {
+        regionHiddenPreviews += 1;
+        continue;
+      }
       entries.push({ value: `puter::${id}`, label: name, short: name.replace(/\s*\(.*\)$/, ""), group: "🔒 Free with sign-in", locked: true });
     }
     for (const image of IMAGE_MODELS) {
+      if (!regionAllowed(`puterimg::${image.id}`)) {
+        regionHiddenPreviews += 1;
+        continue;
+      }
       entries.push({ value: `puterimg::${image.id}`, label: image.name, short: image.name, group: "🔒 Free with sign-in", locked: true });
     }
   }
@@ -2623,6 +2673,15 @@ function modelRow(entry, selected, favorites, rank = 0) {
     if (badge === "Light") tag.title = "Fast and light on your allowance";
     badges.appendChild(tag);
   }
+  const caution = window.GlowLocale ? window.GlowLocale.modelPolicy(entry.value).caution : "";
+  if (caution) {
+    const tag = document.createElement("span");
+    tag.className = "badge badge-caution";
+    tag.textContent = "⚠";
+    tag.title = caution;
+    tag.setAttribute("aria-label", caution);
+    badges.appendChild(tag);
+  }
   row.append(name, badges);
   if (!entry.locked) {
     const star = document.createElement("button");
@@ -2712,6 +2771,16 @@ function renderModelMenu() {
         ? "Add your own OpenRouter key or Ollama in Settings to see more here."
         : "Sign in (free) to unlock these models.";
       list.appendChild(empty);
+    }
+    const regionHidden = regionHiddenModels + regionHiddenPreviews;
+    if (regionHidden && window.GlowLocale) {
+      const now = window.GlowLocale.get();
+      const hidden = document.createElement("button");
+      hidden.type = "button";
+      hidden.className = "model-empty model-region-note";
+      hidden.textContent = window.GlowLocale.t("models.hidden", { count: regionHidden, region: window.GlowLocale.regionName(now.region) });
+      hidden.addEventListener("click", () => window.GlowLocale.openPicker());
+      list.appendChild(hidden);
     }
     const total = all.filter((e) => !e.locked).length;
     if (total > ranked.length + favoriteEntries.length) {
@@ -3469,7 +3538,7 @@ function toggleDictation() {
     return;
   }
   recognition = new SpeechRecognitionApi();
-  recognition.lang = navigator.language || "en-US";
+  recognition.lang = window.GlowLocale ? window.GlowLocale.speechLanguage() : (navigator.language || "en-US");
   recognition.interimResults = true;
   const base = $("input").value ? $("input").value.replace(/\s*$/, " ") : "";
   recognition.onresult = (event) => {
@@ -3501,7 +3570,8 @@ function plainSpeech(text) {
 }
 function speechLanguage(text) {
   const indonesianWords = (text.match(/\b(yang|dan|tidak|ini|itu|dengan|untuk|adalah|kamu|saya|bisa)\b/gi) || []).length;
-  return indonesianWords >= 3 ? "id-ID" : (navigator.language || "en-US");
+  if (/[\u4e00-\u9fff]/.test(text) && window.GlowLocale && /^zh/.test(window.GlowLocale.speechLanguage())) return window.GlowLocale.speechLanguage();
+  return indonesianWords >= 3 ? "id-ID" : (window.GlowLocale ? window.GlowLocale.speechLanguage() : (navigator.language || "en-US"));
 }
 function speakMessage(index) {
   if (!("speechSynthesis" in window) || !current) return false;
