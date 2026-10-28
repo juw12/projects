@@ -1,46 +1,30 @@
 {
-  "version": "2.6.0",
+  "version": "2.6.1",
   "date": "2026-10-28",
-  "title": "Profiles, ranks, online status & dark mode",
+  "title": "Owner badge & credits",
   "url": "https://juw12.github.io/projects/pips/download/Pips-Windows.zip",
-  "sha256": "aa9937b3135d9b496360622ff8e0e01f991684b383c43ce0f8aa6cea3f67ffad",
-  "size": 703528,
+  "sha256": "a4a0a84168ee1f16cb44e3a1c05bbd08fdc0ed38da3994d9ebe78aa24db72306",
+  "size": 705363,
   "notes": {
     "en": [
-      "Profile tab: profile picture (or your pet), about me, job, location, hobbies, birthday and a status message",
-      "Public or private: public profiles can be added directly and viewed in full; private profiles need a friend request that they accept, and strangers only see name, photo, pet, level and status",
-      "Click anyone to open their profile - badges, info, their friends - and add them, chat or wave from there",
-      "Ranks tab replaces Teams: everyone using Pips, sorted by XP, badges or streak",
-      "Online status: auto (online / away when idle / offline) or set Online, Busy, Away or Appear offline yourself",
-      "Relationship labels for friends: Buddy, Bro, Sis, Bestie, Partner, Soulmate, Family, Work buddy",
-      "Dark mode: Profile tab or right-click the pet → Dark mode (hub, settings and the focus card)"
+      "The creator of Pips (Juwen Lie) now shows a gold ♛ Owner badge on his profile, friend list and ranks",
+      "New About Pips card in the Profile tab: credits and how to contact the owner (Juwen_Lie@pegatroncorp.com) with Email and Copy buttons",
+      "Right-click the pet → Help → About now shows who made Pips and the contact email"
     ],
     "id": [
-      "Tab Profil: foto profil (atau peliharaanmu), tentang aku, pekerjaan, lokasi, hobi, ulang tahun dan pesan status",
-      "Publik atau pribadi: profil publik bisa langsung ditambahkan dan dilihat lengkap; profil pribadi perlu permintaan pertemanan yang diterima, dan orang asing hanya melihat nama, foto, peliharaan, level dan status",
-      "Klik siapa saja untuk membuka profilnya - lencana, info, teman-temannya - lalu tambahkan, chat atau lambaikan dari sana",
-      "Tab Peringkat menggantikan Tim: semua pengguna Pips, diurutkan menurut XP, lencana atau beruntun",
-      "Status online: otomatis (online / pergi saat tidak aktif / offline) atau atur sendiri Online, Sibuk, Pergi atau tampak offline",
-      "Label hubungan untuk teman: Sobat, Bro, Sis, Sahabat, Pasangan, Belahan jiwa, Keluarga, Rekan kerja",
-      "Mode gelap: tab Profil atau klik kanan peliharaan → Mode gelap (hub, pengaturan dan kartu fokus)"
+      "Pembuat Pips (Juwen Lie) sekarang memiliki lencana emas ♛ Pemilik di profil, daftar teman dan peringkat",
+      "Kartu Tentang Pips baru di tab Profil: kredit dan cara menghubungi pemilik (Juwen_Lie@pegatroncorp.com) dengan tombol Email dan Salin",
+      "Klik kanan peliharaan → Bantuan → Tentang sekarang menampilkan pembuat Pips dan email kontak"
     ],
     "zh_TW": [
-      "個人檔案分頁：大頭貼（或你的寵物）、自我介紹、工作、地點、興趣、生日和狀態訊息",
-      "公開或私人：公開檔案可直接加好友並完整查看；私人檔案需先送出好友邀請並被接受，陌生人只看得到名字、照片、寵物、等級和狀態",
-      "點任何人就能打開他的檔案（徽章、資訊、他的好友），並直接加好友、聊天或揮手",
-      "排行分頁取代團隊：所有 Pips 使用者，依經驗值、徽章或連續天數排序",
-      "在線狀態：自動（在線 / 閒置時離開 / 離線），或自己設定在線、忙碌、離開或隱身",
-      "好友關係標籤：好夥伴、兄弟、姊妹、閨蜜、伴侶、靈魂伴侶、家人、同事",
-      "深色模式：個人檔案分頁或右鍵寵物 → 深色模式（中心、設定和專注卡片）"
+      "Pips 的作者（Juwen Lie）現在在個人檔案、好友列表和排行中顯示金色 ♛ 擁有者徽章",
+      "個人檔案分頁新增「關於 Pips」卡片：製作名單與聯絡方式（Juwen_Lie@pegatroncorp.com），附寄信與複製按鈕",
+      "右鍵寵物 → 說明 → 關於，現在會顯示 Pips 的作者與聯絡信箱"
     ],
     "zh_CN": [
-      "个人资料标签：头像（或你的宠物）、简介、工作、地点、爱好、生日和状态消息",
-      "公开或私密：公开资料可直接加好友并完整查看；私密资料需先发送好友申请并被接受，陌生人只能看到名字、照片、宠物、等级和状态",
-      "点任何人就能打开他的资料（徽章、信息、他的好友），并直接加好友、聊天或挥手",
-      "排行标签取代团队：所有 Pips 用户，按经验值、徽章或连续天数排序",
-      "在线状态：自动（在线 / 闲置时离开 / 离线），或自己设置在线、忙碌、离开或隐身",
-      "好友关系标签：好伙伴、兄弟、姐妹、闺蜜、伴侣、灵魂伴侣、家人、同事",
-      "深色模式：个人资料标签或右键宠物 → 深色模式（中心、设置和专注卡片）"
+      "Pips 的作者（Juwen Lie）现在在个人资料、好友列表和排行中显示金色 ♛ 拥有者徽章",
+      "个人资料标签新增“关于 Pips”卡片：制作名单与联系方式（Juwen_Lie@pegatroncorp.com），附发邮件与复制按钮",
+      "右键宠物 → 帮助 → 关于，现在会显示 Pips 的作者与联系邮箱"
     ]
   },
   "guide": "https://juw12.github.io/projects/pips/download/Pips-Guide.pptx"

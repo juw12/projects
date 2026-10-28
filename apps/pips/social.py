@@ -58,6 +58,13 @@ SYNC_EVERY_S = 10 * 60
 BOARD_EVERY_S = 15 * 60
 ACH_CHECK_EVERY_S = 5 * 60
 FRIEND_NEWS_GAP_S = 30 * 60
+# The app's creator. The "owner" role itself is granted only on the server (by friend code),
+# so nobody else can claim it from the app.
+OWNER_NAME = "Juwen Lie"
+OWNER_EMAIL = "Juwen_Lie@pegatroncorp.com"
+OWNER_LEVEL = 99
+OWNER_XP = 999999
+
 INBOX_EVERY_S = 45
 IDLE_AWAY_S = 10 * 60          # idle this long -> "away" (auto status)
 INBOX_FAST_S = 5          # while a chat is open
@@ -298,6 +305,8 @@ class Social:
         self._next_inbox = now + 8
         self._inbox_busy = False
         self._last_news = 0.0
+        if self.data.get("role") == "owner":
+            pet.root.after(0, self._apply_owner)
 
     # ---- persistence ----
     def _load(self) -> dict:
@@ -319,6 +328,15 @@ class Social:
     @property
     def enabled(self) -> bool:
         return bool(self.pet.s.get("friends", False)) and bool(self.data.get("id"))
+
+    @property
+    def is_owner(self) -> bool:
+        return self.data.get("role") == "owner"
+
+    def _apply_owner(self):
+        shop = getattr(self.pet, "shop", None)
+        if shop is not None:
+            shop.unlimited = self.is_owner
 
     @property
     def account(self):
@@ -393,6 +411,9 @@ class Social:
             groups=(len(self.data.get("groups", [])) + len(board.get("circles", []))) if self.enabled else 0,
             max_affinity=max([f.get("affinity", 0) for f in board.get("friends", [])] or [0]) if self.enabled else 0,
             visits_sent=int(self.data.get("visits_sent", 0)))
+        if self.is_owner:
+            self.stats.update(level=OWNER_LEVEL, xp=OWNER_XP, level_floor=OWNER_XP - 1, level_next=OWNER_XP,
+                              achievements=list(ACH_IDS))
         return self.stats
 
     def check_achievements(self, announce=True) -> list:
@@ -643,7 +664,8 @@ class Social:
             self._run("deleted", api_call, "DELETE", "/v1/me", None, account)
         self.leaderboards = {}
         self.profiles = {}
-        for key in ("id", "secret", "code", "groups", "read", "seen_id", "notified_invites", "notified_requests"):
+        for key in ("id", "secret", "code", "groups", "read", "seen_id", "notified_invites", "notified_requests",
+                    "role"):
             self.data.pop(key, None)
         self.save()
         self._refresh_window()
@@ -917,6 +939,15 @@ class Social:
         self.board = board
         self.board_at = time.time()
         self.data["code"] = board.get("me", {}).get("code", self.data.get("code"))
+        role = board.get("me", {}).get("role", "")
+        if role != self.data.get("role", ""):
+            self.data["role"] = role
+            self._apply_owner()
+            if role == "owner":
+                self.pet.set_action("cheer", 1.6)
+                self.pet._spawn("sparkle", 8)
+                self.pet.say(t("owner_welcome"), duration=7, priority=2)
+                self.check_achievements(announce=False)
         self.data["groups"] = [g["code"] for g in board.get("groups", [])]
         self.invites = board.get("invites", self.invites)
         self._notify_requests()
