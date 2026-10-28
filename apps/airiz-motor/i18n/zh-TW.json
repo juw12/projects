@@ -983,7 +983,24 @@
     "Teams alerts need Ziris PTB membership (Team page).": "Teams 通知需要 Ziris PTB 成員資格（團隊頁面）。",
     "to": "至",
     "PTZ live view & smart camera (1.8.0)": "PTZ 即時畫面與智慧攝影機（1.8.0）",
-    "Camera page: click the picture to center it, hold an arrow to move, digital zoom, saved positions and auto scan, privacy mode, motion detection with zones (photo, 10 s clip, auto-track, spotlight, siren, desktop and Teams alerts) and automatic night vision from the light sensor.": "相機頁：點擊畫面置中、按住箭頭移動、數位變焦、預設位置與自動巡航、隱私模式、可設定區域的移動偵測（照片、10 秒影片、自動追蹤、聚光燈、警報、桌面與 Teams 通知），以及依光感測器自動夜視。"
+    "Camera page: click the picture to center it, hold an arrow to move, digital zoom, saved positions and auto scan, privacy mode, motion detection with zones (photo, 10 s clip, auto-track, spotlight, siren, desktop and Teams alerts) and automatic night vision from the light sensor.": "相機頁：點擊畫面置中、按住箭頭移動、數位變焦、預設位置與自動巡航、隱私模式、可設定區域的移動偵測（照片、10 秒影片、自動追蹤、聚光燈、警報、桌面與 Teams 通知），以及依光感測器自動夜視。",
+    "Camera height, side view": "攝影機高度（側視）",
+    "Pan direction, top view": "水平方向（俯視）",
+    "Height": "高度",
+    "Height unknown": "高度未知",
+    "Fully down": "完全降下",
+    "Fully up": "完全升起",
+    "Halfway up": "升起一半",
+    "Facing home": "面向原點",
+    "Rising full travel": "升降全行程",
+    "Pan steps per turn (360°)": "水平一圈步數（360°）",
+    "Height counts from the bottom switch (0) up to full travel; pan 0 = Home.": "高度從底部開關（0）算到全行程；水平 0 = 原點。",
+    "Height unknown until the console sees the bottom switch: lower the camera fully and press Read rising switch, or use Find rising home.": "主控台讀到底部開關前高度未知：請把攝影機完全降下後按「讀取升降開關」，或使用「尋找升降原點」。",
+    "Estimated after an interrupted move: Find rising home and Set home again to re-sync.": "移動中途停止，位置為估計值：請「尋找升降原點」並重新「將此處設為原點」以重新同步。",
+    "The bottom switch is not pressed although the camera should be fully down: height estimated. Use Find rising home.": "攝影機應已完全降下，但底部開關未被按下：高度為估計值。請使用「尋找升降原點」。",
+    "The camera reaches the bottom end stop: rising = 0 (fully down).": "攝影機到達底部終點：升降 = 0（完全降下）。",
+    "Camera position follows the real camera (1.8.1)": "攝影機位置跟隨真實攝影機（1.8.1）",
+    "A side and top view show where the real camera is: fully down, halfway or fully up (1100-step stroke) and the pan angle from Home, animated while it moves. The height syncs with the bottom switch.": "側視與俯視圖顯示真實攝影機的位置：完全降下、升起一半或完全升起（1100 步行程）以及相對原點的水平角度，移動時即時動畫。高度會與底部開關同步。"
   },
   "html": {
     "AIRIZDEVICE LAB": "AIRIZ<small>裝置實驗室</small>",
@@ -1066,6 +1083,46 @@
     "Privacy lowers the camera to the rising switch and turns the lights off; automatic night vision switches IR-cut and IR LED from the light sensor. The motors report no position, so positions are counted in steps: calibrate once per device under Calibration.": "<strong>隱私</strong>會把攝影機降到升降開關位置並關燈；<strong>自動夜視</strong>依光感測器切換 IR-cut 與 IR LED。馬達不回報位置，因此位置以步數計算：每台裝置請在<em>校正</em>中校正一次。"
   },
   "patterns": [
+    [
+      "^(\\d+)% up$",
+      "升起 $1%"
+    ],
+    [
+      "^(\\d+)° counter-clockwise$",
+      "逆時針 $1°"
+    ],
+    [
+      "^(\\d+)° clockwise$",
+      "順時針 $1°"
+    ],
+    [
+      "^(-?\\d+) / (\\d+) steps$",
+      "$1 / $2 步"
+    ],
+    [
+      "^(-?\\d+) steps \\(not referenced\\)$",
+      "$1 步（未校準高度）"
+    ],
+    [
+      "^([+-]?\\d+) steps \\(([\\d.]+) turns\\)$",
+      "$1 步（$2 圈）"
+    ],
+    [
+      "^([+-]?\\d+) steps$",
+      "$1 步"
+    ],
+    [
+      "^The camera reaches the top end stop: rising = (\\d+) \\(fully up\\)\\.$",
+      "攝影機到達頂部終點：升降 = $1（完全升起）。"
+    ],
+    [
+      "^Bottom switch pressed: height corrected by (-?\\d+) steps \\(now fully down\\)\\.$",
+      "底部開關已按下：高度修正 $1 步（現在完全降下）。"
+    ],
+    [
+      "^Rising switch: unknown answer \\\"(.*)\\\"\\.$",
+      "升降開關：無法辨識的回應「$1」。"
+    ],
     [
       "^Pan (-?\\d+|–) · Rising (-?\\d+|–)$",
       "水平 $1 · 升降 $2"

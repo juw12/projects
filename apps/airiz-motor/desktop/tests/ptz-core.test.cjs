@@ -146,3 +146,88 @@ test('device replies, automatic night mode and schedules', () => {
   assert.equal(core.isWithinSchedule(at(12, 0), '09:00', '18:00'), true);
   assert.equal(core.isWithinSchedule(at(12, 0), '', ''), true);
 });
+
+
+test('rising follows the real end stops once the bottom switch was seen', () => {
+  const tracker = core.createTracker();
+  const timing = { pan: 40, rising: 12 };
+  // Not referenced yet: a move is only counted.
+  tracker.applyCommand('diag motor rising reverse 3 300', 0, timing);
+  assert.equal(tracker.position.rising, -300);
+  assert.equal(tracker.risingRef, false);
+  // Switch pressed: this is fully down.
+  assert.equal(tracker.setRisingReference(), -300);
+  assert.deepEqual(tracker.position, { pan: 0, rising: 0 });
+  assert.equal(tracker.risingRef, true);
+  // 2000 steps up from the bottom: the real camera stops at the top (1100).
+  const up = tracker.applyCommand('diag motor rising forward 3 2000', 10000, timing);
+  assert.equal(up.saturated, true);
+  assert.equal(up.to, 1100);
+  assert.equal(tracker.position.rising, 1100);
+  // Down 550 = halfway, then 5000 down = back on the bottom switch.
+  tracker.applyCommand('diag motor rising reverse 3 550', 100000, timing);
+  assert.equal(tracker.position.rising, 550);
+  tracker.applyCommand('diag motor rising reverse 3 5000', 200000, timing);
+  assert.equal(tracker.position.rising, 0);
+  // Moves planned by the console never ask for more than the travel.
+  assert.equal(tracker.clampDelta('rising', 99999), 1100);
+  assert.equal(tracker.clampDelta('rising', -50), 0);
+});
+
+test('live position moves linearly during a move and stops early at an end stop', () => {
+  const tracker = core.createTracker({ risingRef: true, position: { pan: 0, rising: 900 } });
+  const timing = { pan: 40, rising: 12 };
+  // 400 steps up at speed 3: 1600 ms planned; the top (1100) is reached after 200 steps = 800 ms.
+  tracker.applyCommand('diag motor rising forward 3 400', 1000, timing);
+  assert.equal(tracker.livePosition(1000).rising, 900);
+  assert.equal(tracker.livePosition(1400).rising, 1000);
+  assert.equal(tracker.livePosition(1800).rising, 1100);
+  assert.equal(tracker.livePosition(2500).rising, 1100);
+  // Pan 4800 steps at speed 2 (20 ms/step = 96 s): halfway after 48 s.
+  tracker.applyCommand('diag motor pan forward 2 4800', 10000, timing);
+  assert.equal(tracker.livePosition(10000 + 48000).pan, 2400);
+  // A stop part-way keeps the estimated position, clamped to the travel.
+  const stop = tracker.applyCommand('echo 0 > /sys/devices/platform/soc/soc:motor/status', 10000 + 24000);
+  assert.equal(stop.partial.done, 1200);
+  assert.equal(tracker.position.pan, 1200);
+});
+
+test('home keeps the real height when the rising reference is known', () => {
+  const tracker = core.createTracker({ risingRef: true, position: { pan: 700, rising: 550 } });
+  tracker.setHome();
+  assert.deepEqual(tracker.position, { pan: 0, rising: 550 });
+  assert.deepEqual(tracker.home, { pan: 0, rising: 550 });
+  // Seeing the bottom switch 30 steps lower than expected corrects position and home together.
+  tracker.applyCommand('diag motor rising reverse 3 520', 0, { rising: 12 });
+  assert.equal(tracker.position.rising, 30);
+  assert.equal(tracker.setRisingReference(), 30);
+  assert.deepEqual(tracker.home, { pan: 0, rising: 520 });
+  const legacy = core.createTracker({ position: { pan: 5, rising: 40 } });
+  legacy.setHome();
+  assert.deepEqual(legacy.position, { pan: 0, rising: 0 });
+});
+
+test('switch replies and pose descriptions', () => {
+  const info = text => core.parseInfo(text);
+  assert.equal(core.parseSwitchState(info('#INFO#0:Pressed#END#')), true);
+  assert.equal(core.parseSwitchState(info('#INFO#0:Released#END#')), false);
+  assert.equal(core.parseSwitchState(info('#INFO#0:1#END#'), 1), true);
+  assert.equal(core.parseSwitchState(info('#INFO#0:0#END#'), 1), false);
+  assert.equal(core.parseSwitchState(info('#INFO#0:0#END#'), 0), true);
+  assert.equal(core.parseSwitchState(info('#INFO#0:busy#END#')), null);
+  assert.equal(core.parseSwitchState(null), null);
+
+  const travel = { risingMax: 1100, panPerTurn: 4800 };
+  const pose = (rising, pan, risingRef = true) => core.describePose({ rising, pan }, { travel, risingRef });
+  assert.equal(pose(0, 0).heightLabel, 'Fully down');
+  assert.equal(pose(1100, 0).heightLabel, 'Fully up');
+  assert.equal(pose(550, 0).heightLabel, 'Halfway up');
+  assert.equal(pose(275, 0).heightLabel, '25% up');
+  assert.equal(pose(550, 0, false).heightLabel, 'Height unknown');
+  assert.equal(pose(550, 0, false).heightFraction, null);
+  assert.equal(pose(0, 1200).panLabel, '90\u00b0 counter-clockwise');
+  assert.equal(pose(0, -2400).panLabel, '180\u00b0 clockwise');
+  assert.equal(pose(0, 8).panLabel, 'Facing home');
+  assert.equal(pose(0, 9600).panTurns, 2);
+  assert.deepEqual(core.normalizeTravel({ risingMax: '1070', panPerTurn: -1 }), { risingMax: 1070, panPerTurn: 4800 });
+});

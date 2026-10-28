@@ -555,6 +555,7 @@
   }
 
   const demoDevice = { pan: 0, rising: 0 };
+  const DEMO_RISING_TRAVEL = 1100;
 
   function simulateDemoResponse(command) {
     // Find matching command in AIRIZ_COMMANDS
@@ -587,11 +588,14 @@
     }
     const demoMove = /^diag\s+motor\s+(pan|rising)\s+(forward|reverse)\s+\d+\s+(\d+)$/i.exec(String(command).trim());
     if (demoMove) {
-      demoDevice[demoMove[1].toLowerCase()] += (demoMove[2].toLowerCase() === 'forward' ? 1 : -1) * Number(demoMove[3]);
+      const demoAxis = demoMove[1].toLowerCase();
+      demoDevice[demoAxis] += (demoMove[2].toLowerCase() === 'forward' ? 1 : -1) * Number(demoMove[3]);
+      // Like the real mechanism: the rising camera stops at the bottom switch and at full travel.
+      if (demoAxis === 'rising') demoDevice.rising = Math.min(DEMO_RISING_TRAVEL, Math.max(0, demoDevice.rising));
     }
     if (/^diag\s+button\s+get\s+rising-det$/i.test(String(command).trim())) {
-      // Simulated detect switch: pressed (1) when the simulated camera is fully down.
-      response = '#INFO#0:' + (demoDevice.rising <= 0 ? 1 : 0) + '#END#\r\n';
+      // Simulated detect switch, answered like the firmware ("Pressed" when fully down).
+      response = '#INFO#0:' + (demoDevice.rising <= 0 ? 'Pressed' : 'Released') + '#END#\r\n';
     }
     if (/^diag\s+als\s+value$/i.test(String(command).trim())) {
       const override = Number(localStorage.getItem('airiz.demo.lux'));

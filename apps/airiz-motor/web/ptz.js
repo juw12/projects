@@ -37,6 +37,7 @@
     presets: [],
     calibration: { ...core.DEFAULT_CALIBRATION },
     timing: { ...core.DEFAULT_TIMING },
+    travel: { ...core.DEFAULT_TRAVEL },
     speeds: { pan: 2, rising: 3 },
     zones: [],
     switchPressedValue: 1,
@@ -66,6 +67,7 @@
         ...stored,
         calibration: { ...defaults.calibration, ...(stored.calibration || {}) },
         timing: { ...defaults.timing, ...(stored.timing || {}) },
+        travel: core.normalizeTravel(stored.travel),
         speeds: { ...defaults.speeds, ...(stored.speeds || {}) },
         detect: { ...defaults.detect, ...(stored.detect || {}) },
         night: { ...defaults.night, ...(stored.night || {}) },
@@ -79,6 +81,7 @@
 
   const store = loadStore();
   const tracker = core.createTracker(store.tracker);
+  tracker.setTravel(store.travel);
 
   function save() {
     store.tracker = tracker.snapshot();
@@ -105,7 +108,7 @@
   }
 
   // Send a command and wait for its "#INFO#...#END#" answer (sensors, switches).
-  function query(command, timeoutMs = 2500) {
+  function query(command, timeoutMs = 2500, sendOptions) {
     return new Promise(resolve => {
       let buffer = '';
       let done = false;
@@ -122,7 +125,7 @@
         if (info) finish(info);
       });
       const timer = setTimeout(() => finish(null), timeoutMs);
-      api.sendCommand(command).then(sent => {
+      api.sendCommand(command, sendOptions).then(sent => {
         if (!sent) finish(null);
       });
     });
@@ -185,6 +188,7 @@
   // ------------------------------------------------------------------ position UI
 
   function renderPosition() {
+    renderPose(true);
     const position = tracker.position;
     $('ptz-pos-readout').textContent = 'Pan ' + position.pan + ' \u00b7 Rising ' + position.rising;
     const badge = $('ptz-pos-state');
@@ -244,9 +248,97 @@
       newOperation();
       if (scan.running) stopScan('Auto scan stopped (motor stop).');
     }
+    if (result.type === 'move' && result.move.axis === 'rising' && result.saturated) {
+      status(result.to === 0
+        ? 'The camera reaches the bottom end stop: rising = 0 (fully down).'
+        : 'The camera reaches the top end stop: rising = ' + result.to + ' (fully up).');
+    }
+    // A move that should end fully down is checked against the real bottom switch.
+    if (result.type === 'move' && result.move.axis === 'rising' && result.to === 0 && tracker.risingRef) {
+      scheduleBottomCheck(tracker.busyUntil() - Date.now() + 400);
+    }
     save();
     renderPosition();
+    animatePose();
   });
+
+
+  // ------------------------------------------------------------------ camera position view
+  // Side view = rising height (0 = fully down on the bottom switch, full travel = fully up),
+  // top view = pan angle from Home. Animated from the real move timing while a motor runs.
+  const pose = {
+    side: $('ptz-pose-side'),
+    mast: $('ptz-pose-mast'),
+    head: $('ptz-pose-head'),
+    arrow: $('ptz-pose-arrow'),
+    animating: false,
+    lastTextAt: 0
+  };
+  const HEAD_DOWN_Y = 106;
+  const HEAD_UP_Y = 20;
+
+  function setText(id, text) {
+    const element = $(id);
+    if (element && element.textContent !== text) element.textContent = text;
+  }
+
+  function renderPose(force) {
+    if (!pose.side) return;
+    const now = Date.now();
+    const live = tracker.livePosition(now);
+    const travel = tracker.travel;
+    const info = core.describePose(live, { travel, risingRef: tracker.risingRef });
+    // Without the bottom-switch reference the height is drawn from the counted steps, greyed out.
+    const fraction = info.heightFraction !== null
+      ? info.heightFraction
+      : Math.min(1, Math.max(0, live.rising / travel.risingMax));
+    const headY = HEAD_DOWN_Y - fraction * (HEAD_DOWN_Y - HEAD_UP_Y);
+    pose.head.setAttribute('transform', 'translate(0 ' + headY.toFixed(1) + ')');
+    pose.mast.setAttribute('y', (headY + 20).toFixed(1));
+    pose.mast.setAttribute('height', Math.max(0, 116 - (headY + 20)).toFixed(1));
+    pose.side.classList.toggle('ptz-pose-unknown', !tracker.risingRef);
+    // SVG rotation is clockwise; pan forward turns counter-clockwise.
+    pose.arrow.setAttribute('transform', 'rotate(' + (-info.panDegrees).toFixed(1) + ')');
+    $('ptz-pose').dataset.moving = now < tracker.busyUntil() ? 'true' : 'false';
+
+    // Text: at most 10 updates per second while moving.
+    if (!force && now - pose.lastTextAt < 100) return;
+    pose.lastTextAt = now;
+    setText('ptz-pose-height', info.heightLabel);
+    setText('ptz-pose-height-steps', tracker.risingRef
+      ? live.rising + ' / ' + travel.risingMax + ' steps'
+      : live.rising + ' steps (not referenced)');
+    setText('ptz-pose-pan', info.panLabel);
+    const signed = (live.pan > 0 ? '+' : '') + live.pan;
+    const turns = Math.abs(info.panTurns);
+    setText('ptz-pose-pan-steps', turns >= 1
+      ? signed + ' steps (' + (Math.round(turns * 10) / 10) + ' turns)'
+      : signed + ' steps');
+    let note = 'Height counts from the bottom switch (0) up to full travel; pan 0 = Home.';
+    if (!tracker.risingRef) {
+      note = 'Height unknown until the console sees the bottom switch: lower the camera fully and press Read rising switch, or use Find rising home.';
+    } else if (tracker.uncertain) {
+      note = 'Estimated after an interrupted move: Find rising home and Set home again to re-sync.';
+    }
+    setText('ptz-pose-note', note);
+  }
+
+  function animatePose() {
+    renderPose(true);
+    if (pose.animating) return;
+    pose.animating = true;
+    const frame = () => {
+      const moving = Date.now() < tracker.busyUntil();
+      renderPose(!moving);
+      if (moving) {
+        requestAnimationFrame(frame);
+      } else {
+        pose.animating = false;
+        renderPose(true);
+      }
+    };
+    requestAnimationFrame(frame);
+  }
 
   // ------------------------------------------------------------------ live view
 
@@ -541,7 +633,7 @@
   });
   $('ptz-go-home').addEventListener('click', () => {
     stopScan();
-    moveTo({ pan: 0, rising: 0 }, 'home');
+    moveTo(tracker.home, 'home');
   });
   document.querySelectorAll('[data-limit]').forEach(button => button.addEventListener('click', () => {
     const [axis, side] = button.dataset.limit.split(':');
@@ -635,16 +727,60 @@
 
   const privacy = { on: false, before: null, detectWasOn: false };
 
-  async function readSwitch() {
-    const info = await query('diag button get rising-det');
-    if (!info || info.number === null) {
-      $('ptz-switch-state').textContent = 'No answer from the rising switch.';
+  // Reads the bottom (rising-detect) switch and keeps the tracked height in step with it:
+  // pressed = the real camera is fully down, so rising becomes 0.
+  // background = automatic check: not echoed as a command line in the console.
+  async function readSwitch(background) {
+    const info = await query('diag button get rising-det', 2500, background ? { quiet: true } : undefined);
+    const pressed = core.parseSwitchState(info, store.switchPressedValue);
+    if (pressed === null) {
+      $('ptz-switch-state').textContent = info ? 'Rising switch: unknown answer "' + info.value + '".' : 'No answer from the rising switch.';
       return null;
     }
-    const pressed = info.number === Number(store.switchPressedValue);
     $('ptz-switch-state').textContent = 'Rising switch: ' + info.value + (pressed ? ' (pressed, camera down)' : ' (released)');
+    if (pressed && Date.now() >= tracker.busyUntil()) {
+      const wasReferenced = tracker.risingRef;
+      const correction = tracker.setRisingReference();
+      if (wasReferenced && Math.abs(correction) >= 5) {
+        status('Bottom switch pressed: height corrected by ' + correction + ' steps (now fully down).');
+      }
+      save();
+      renderPosition();
+    } else if (!pressed && tracker.risingRef && tracker.position.rising <= 0 && Date.now() >= tracker.busyUntil()) {
+      tracker.markUncertain();
+      status('The bottom switch is not pressed although the camera should be fully down: height estimated. Use Find rising home.', true);
+      save();
+      renderPosition();
+    }
     return pressed;
   }
+
+  // Verify "fully down" with the real switch after a move (skipped while a macro runs).
+  let bottomCheckTimer = null;
+  let findingHome = false;
+  function scheduleBottomCheck(delayMs) {
+    clearTimeout(bottomCheckTimer);
+    bottomCheckTimer = setTimeout(() => {
+      if (findingHome || !connected() || api.getStatus().macroRunning) return;
+      if (Date.now() < tracker.busyUntil()) {
+        scheduleBottomCheck(tracker.busyUntil() - Date.now() + 400);
+        return;
+      }
+      if (tracker.risingRef && tracker.position.rising === 0) readSwitch(true);
+    }, Math.max(200, delayMs));
+  }
+
+  // On connect: one switch reading tells whether the camera starts fully down.
+  let wasConnected = false;
+  setInterval(() => {
+    const isConnected = connected();
+    if (isConnected && !wasConnected) {
+      setTimeout(() => {
+        if (connected() && !api.getStatus().macroRunning && !findingHome) readSwitch(true);
+      }, 1200);
+    }
+    wasConnected = isConnected;
+  }, 1000);
   $('ptz-read-switch').addEventListener('click', () => {
     if (!connected()) {
       status('Connect the AIRIZ first (USB, or Try demo).', true);
@@ -664,8 +800,17 @@
     const token = newOperation();
     const chunk = 60;
     const maxTotal = 1800;
-    let moved = 0;
     status('Finding rising home: lowering until the switch is pressed\u2026');
+    findingHome = true;
+    try {
+      await findRisingHome(token, chunk, maxTotal);
+    } finally {
+      findingHome = false;
+    }
+  });
+
+  async function findRisingHome(token, chunk, maxTotal) {
+    let moved = 0;
     while (moved <= maxTotal) {
       if (token !== operation) return;
       const pressed = await readSwitch();
@@ -674,8 +819,7 @@
         return;
       }
       if (pressed) {
-        tracker.setAxisZero('rising');
-        tracker.setLimit('rising', 'min', 0);
+        tracker.setRisingReference();
         save();
         renderPosition();
         status('Rising home found after ' + moved + ' steps down. Rising = 0 is now the lowest position (privacy).');
@@ -688,14 +832,15 @@
       await sleep(150);
     }
     status('Lowered ' + maxTotal + ' steps without the switch pressing. Check "Switch pressed value" in Calibration.', true);
-  });
+  }
 
   $('ptz-privacy-on').addEventListener('click', async () => {
     if (!connected()) {
       status('Connect the AIRIZ first (USB, or Try demo).', true);
       return;
     }
-    const lowest = tracker.limits.rising.min;
+    const softLowest = tracker.limits.rising.min;
+    const lowest = Number.isFinite(softLowest) ? softLowest : (tracker.risingRef ? 0 : null);
     if (!Number.isFinite(lowest)) {
       status('Set the lowest rising position first: "Find rising home", or lower the camera and press "Set lowest".', true);
       return;
@@ -850,7 +995,7 @@
     const wait = Math.max(5, Number(store.detect.trackReturn) || 30) * 1000;
     if (now - detection.lastMotionAt < wait || Date.now() < tracker.busyUntil()) return;
     detection.trackedAway = false;
-    const target = tracker.homed ? { pan: 0, rising: 0 } : detection.anchor;
+    const target = tracker.homed ? tracker.home : detection.anchor;
     if (target) {
       renderDetectStatus('No motion for ' + Math.round(wait / 1000) + ' s: returning.');
       moveTo(target, tracker.homed ? 'home' : 'the start position').then(resetDetection);
@@ -1142,6 +1287,8 @@
   });
 
   function renderCalibration() {
+    $('ptz-travel-rising').value = store.travel.risingMax;
+    $('ptz-travel-pan').value = store.travel.panPerTurn;
     $('ptz-cal-pan').value = store.calibration.panStepsPerFrame;
     $('ptz-cal-rising').value = store.calibration.risingStepsPerFrame;
     $('ptz-time-pan').value = store.timing.pan;
@@ -1161,6 +1308,13 @@
       renderCalibration();
     });
   }
+  function applyTravel(change) {
+    store.travel = core.normalizeTravel({ ...store.travel, ...change });
+    tracker.setTravel(store.travel);
+    renderPosition();
+  }
+  bindNumber('ptz-travel-rising', value => { if (value >= 100) applyTravel({ risingMax: value }); });
+  bindNumber('ptz-travel-pan', value => { if (value >= 100) applyTravel({ panPerTurn: value }); });
   bindNumber('ptz-cal-pan', value => { if (value) store.calibration.panStepsPerFrame = Math.round(value); });
   bindNumber('ptz-cal-rising', value => { if (value) store.calibration.risingStepsPerFrame = Math.round(value); });
   bindNumber('ptz-time-pan', value => { if (value > 0) store.timing.pan = value; });
@@ -1297,6 +1451,19 @@
     },
     get privacy() {
       return privacy.on;
+    },
+    get risingReferenced() {
+      return tracker.risingRef;
+    },
+    get travel() {
+      return tracker.travel;
+    },
+    get home() {
+      return tracker.home;
+    },
+    pose(at) {
+      const live = tracker.livePosition(at || Date.now());
+      return { ...live, ...core.describePose(live, { travel: tracker.travel, risingRef: tracker.risingRef }) };
     },
     centerOn: (u, v) => centerOn({ u, v }),
     moveTo: (pan, rising, label) => moveTo({ pan, rising }, label),

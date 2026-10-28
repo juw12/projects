@@ -81,6 +81,69 @@
     return { pan: { min: null, max: null }, rising: { min: null, max: null } };
   }
 
+  // ------------------------------------------------------------------ mechanics
+  // Full rising stroke (bottom switch to top) and pan steps for one full turn (360°).
+  // 1100 rising steps: test_motor3 (1100).ttl full up/down cycle. 4800 pan steps per turn: to be
+  // confirmed on the device (the bring-up test in 指令.txt pans 8500 steps, i.e. ~1.8 turns).
+  const DEFAULT_TRAVEL = { risingMax: 1100, panPerTurn: 4800 };
+
+  function normalizeTravel(travel) {
+    const source = travel && typeof travel === 'object' ? travel : {};
+    const risingMax = Math.round(Number(source.risingMax));
+    const panPerTurn = Math.round(Number(source.panPerTurn));
+    return {
+      risingMax: risingMax > 0 ? risingMax : DEFAULT_TRAVEL.risingMax,
+      panPerTurn: panPerTurn > 0 ? panPerTurn : DEFAULT_TRAVEL.panPerTurn
+    };
+  }
+
+  // "diag button get rising-det" answers "#INFO#0:Pressed#END#" (command list v1.2); older or
+  // other builds may answer a number. Returns true (pressed), false (released) or null (unknown).
+  function parseSwitchState(info, pressedValue) {
+    if (!info) return null;
+    const value = String(info.value || '').trim().toLowerCase();
+    if (/^(pressed|press|closed|close|on|true|yes|detected|low)$/.test(value)) return true;
+    if (/^(released|release|not ?pressed|unpressed|open|off|false|no|undetected|high)$/.test(value)) return false;
+    if (info.number !== null && info.number !== undefined && Number.isFinite(info.number)) {
+      return info.number === Number(pressedValue === undefined ? 1 : pressedValue);
+    }
+    return null;
+  }
+
+  // Human description of where the camera is: height (from the bottom switch) and pan angle.
+  // Pan forward = counter-clockwise (逆時針), reverse = clockwise (順時針), as in 指令.txt.
+  function describePose(position, options) {
+    const travel = normalizeTravel(options && options.travel);
+    const risingRef = !!(options && options.risingRef);
+    const rising = Number(position && position.rising) || 0;
+    const pan = Number(position && position.pan) || 0;
+    let heightFraction = null;
+    let heightLabel = 'Height unknown';
+    if (risingRef) {
+      heightFraction = clamp(rising / travel.risingMax, 0, 1);
+      const percent = Math.round(heightFraction * 100);
+      if (percent <= 2) heightLabel = 'Fully down';
+      else if (percent >= 98) heightLabel = 'Fully up';
+      else if (percent >= 45 && percent <= 55) heightLabel = 'Halfway up';
+      else heightLabel = percent + '% up';
+    }
+    const panDegrees = (pan / travel.panPerTurn) * 360;
+    const absolute = Math.abs(panDegrees);
+    let panLabel = 'Facing home';
+    if (absolute >= 1) {
+      panLabel = Math.round(absolute) + '\u00b0 ' + (panDegrees > 0 ? 'counter-clockwise' : 'clockwise');
+    }
+    return {
+      risingRef,
+      heightFraction,
+      heightPercent: heightFraction === null ? null : Math.round(heightFraction * 100),
+      heightLabel,
+      panDegrees,
+      panTurns: panDegrees / 360,
+      panLabel
+    };
+  }
+
   function createTracker(saved) {
     const data = saved && typeof saved === 'object' ? saved : {};
     const state = {
@@ -88,15 +151,29 @@
       limits: Object.assign(emptyLimits(), data.limits || {}),
       uncertain: !!data.uncertain,
       homed: !!data.homed,
-      pending: null // move in flight: { axis, delta, startedAt, expectedMs }
+      // Rising is absolute once the bottom switch was seen: 0 = fully down, travel.risingMax = fully up.
+      risingRef: !!data.risingRef,
+      homeRising: Number(data.homeRising) || 0,
+      travel: normalizeTravel(data.travel),
+      pending: null // move in flight: { axis, from, rawDelta, startedAt, expectedMs }
     };
+
+    // The real camera cannot go below the bottom switch or above full travel: a longer move
+    // makes the motor stall at the end stop, so the tracked position saturates there too.
+    function clampTravel(axis, value) {
+      if (axis === 'rising' && state.risingRef) return clamp(value, 0, state.travel.risingMax);
+      return value;
+    }
 
     function limitFor(axis) {
       const limit = state.limits[axis] || {};
-      return {
-        min: Number.isFinite(limit.min) ? limit.min : -Infinity,
-        max: Number.isFinite(limit.max) ? limit.max : Infinity
-      };
+      let min = Number.isFinite(limit.min) ? limit.min : -Infinity;
+      let max = Number.isFinite(limit.max) ? limit.max : Infinity;
+      if (axis === 'rising' && state.risingRef) {
+        min = Math.max(min, 0);
+        max = Math.min(max, state.travel.risingMax);
+      }
+      return { min, max };
     }
 
     // Largest part of `delta` that keeps the axis inside its soft limits.
@@ -111,14 +188,17 @@
       const move = parseMotorCommand(line);
       if (move) {
         settlePending(now);
-        state.position[move.axis] += move.delta;
+        const from = state.position[move.axis];
+        const to = clampTravel(move.axis, from + move.delta);
+        state.position[move.axis] = to;
         state.pending = {
           axis: move.axis,
-          delta: move.delta,
+          from,
+          rawDelta: move.delta,
           startedAt: now,
           expectedMs: estimateMoveMs(move.axis, move.steps, move.speed, timing)
         };
-        return { type: 'move', move };
+        return { type: 'move', move, from, to, saturated: to !== from + move.delta };
       }
       if (isStopCommand(line)) {
         const partial = interruptPending(now);
@@ -140,29 +220,70 @@
       const elapsed = Math.max(0, now - pending.startedAt);
       if (elapsed >= pending.expectedMs) return null;
       const fraction = pending.expectedMs > 0 ? elapsed / pending.expectedMs : 1;
-      const done = Math.round(pending.delta * fraction);
-      state.position[pending.axis] -= pending.delta - done;
+      const reached = clampTravel(pending.axis, Math.round(pending.from + pending.rawDelta * fraction));
+      state.position[pending.axis] = reached;
       state.uncertain = true;
-      return { axis: pending.axis, planned: pending.delta, done };
+      return { axis: pending.axis, planned: pending.rawDelta, done: reached - pending.from };
+    }
+
+    // Where the camera is right now: during a move the motor runs at a constant step rate,
+    // so the position moves linearly from the start to the target (stopping early at an end stop).
+    function livePosition(now) {
+      const position = { ...state.position };
+      const pending = state.pending;
+      if (pending && pending.expectedMs > 0 && now < pending.startedAt + pending.expectedMs) {
+        const fraction = Math.max(0, (now - pending.startedAt) / pending.expectedMs);
+        position[pending.axis] = clampTravel(pending.axis, Math.round(pending.from + pending.rawDelta * fraction));
+      }
+      return position;
     }
 
     function busyUntil() {
       return state.pending ? state.pending.startedAt + state.pending.expectedMs : 0;
     }
 
+    // Home = pan zero here. The rising height stays absolute (from the bottom switch) when it
+    // is known, and home remembers that height; without the switch reference it becomes 0.
     function setHome() {
-      state.position = { pan: 0, rising: 0 };
+      state.position.pan = 0;
+      if (state.risingRef) {
+        state.homeRising = state.position.rising;
+      } else {
+        state.position.rising = 0;
+        state.homeRising = 0;
+      }
       state.uncertain = false;
       state.homed = true;
       state.pending = null;
     }
 
     function setAxisZero(axis) {
-      const shift = state.position[axis];
-      state.position[axis] = 0;
+      setAxisValue(axis, 0);
+    }
+
+    // Re-reference an axis: the camera is really at `value`. Limits and home move with it.
+    function setAxisValue(axis, value) {
+      const shift = state.position[axis] - value;
+      state.position[axis] = value;
       const limit = state.limits[axis];
       if (Number.isFinite(limit.min)) limit.min -= shift;
       if (Number.isFinite(limit.max)) limit.max -= shift;
+      if (axis === 'rising') state.homeRising -= shift;
+      if (state.pending && state.pending.axis === axis) state.pending = null;
+      return shift;
+    }
+
+    // The bottom switch is pressed: the camera is fully down (rising = 0) from now on.
+    function setRisingReference() {
+      const correction = setAxisValue('rising', 0);
+      state.risingRef = true;
+      state.homeRising = clamp(state.homeRising, 0, state.travel.risingMax);
+      return correction;
+    }
+
+    function setTravel(travel) {
+      state.travel = normalizeTravel(travel);
+      if (state.risingRef) state.position.rising = clampTravel('rising', state.position.rising);
     }
 
     function setLimit(axis, side, value) {
@@ -180,7 +301,10 @@
         position: { ...state.position },
         limits: JSON.parse(JSON.stringify(state.limits)),
         uncertain: state.uncertain,
-        homed: state.homed
+        homed: state.homed,
+        risingRef: state.risingRef,
+        homeRising: state.homeRising,
+        travel: { ...state.travel }
       };
     }
 
@@ -197,12 +321,28 @@
       get homed() {
         return state.homed;
       },
+      get risingRef() {
+        return state.risingRef;
+      },
+      get travel() {
+        return { ...state.travel };
+      },
+      get home() {
+        return { pan: 0, rising: state.homeRising };
+      },
+      get pending() {
+        return state.pending ? { ...state.pending } : null;
+      },
       limitFor,
       clampDelta,
       applyCommand,
       busyUntil,
+      livePosition,
       setHome,
       setAxisZero,
+      setAxisValue,
+      setRisingReference,
+      setTravel,
       setLimit,
       markUncertain() {
         state.uncertain = true;
@@ -391,6 +531,10 @@
     SPEED_RANGE,
     DEFAULT_TIMING,
     DEFAULT_CALIBRATION,
+    DEFAULT_TRAVEL,
+    normalizeTravel,
+    parseSwitchState,
+    describePose,
     parseMotorCommand,
     isStopCommand,
     motorCommand,
