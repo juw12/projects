@@ -41,7 +41,7 @@ PAGE_SCRIPT = (
     " locale: !!window.MintLocale, gate: !!document.querySelector('.mint-locale'),"
     " storage: (function () { try { localStorage.setItem('mint.desktop.check', '1');"
     " return localStorage.getItem('mint.desktop.check') === '1'; } catch (e) { return false; } })(),"
-    " width: window.innerWidth, height: window.innerHeight})"
+    " ready: document.readyState, width: window.innerWidth, height: window.innerHeight})"
 )
 
 
@@ -358,12 +358,15 @@ def run_window(url, folder, report_path):
     def self_test():
         deadline = time.time() + TEST_TIMEOUT
         page = {}
+        settled = 0
         while time.time() < deadline:
             try:
                 page = json.loads(window.evaluate_js(PAGE_SCRIPT) or "{}")
             except Exception as error:
                 page = {"error": str(error)}
-            if page.get("locale"):
+            # The front door redirects into Budget: wait until a fully loaded page stays put for a moment.
+            settled = settled + 1 if page.get("locale") and page.get("ready") == "complete" else 0
+            if settled >= 3:
                 break
             time.sleep(0.5)
         renderer = gui
