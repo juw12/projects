@@ -2283,6 +2283,15 @@ class FriendsWindow:
     # ---- location & weather (v2.9) ----
     def _render_location(self):
         self._section_title("\U0001F4CD " + t("wx_title"))
+        if hasattr(self.pet, "set_weather_mode"):     # v2.23: the desktop weather lives on the pet
+            self._label(self.body, "\U0001F326 " + t("wl_hub_hint", name=self.pet.s.get("name", "Pip")), size=8,
+                        fg=self.ACCENT, wrap=self.WIDTH - 70).pack(fill="x")
+            hub_row = tk.Frame(self.body, bg=self.CARD)
+            hub_row.pack(fill="x", pady=(4, 6))
+            self._button(hub_row, "\U0001F4CD " + t("wl_follow"), lambda: self.pet.set_weather_mode("follow"),
+                         small=True, primary=self.pet.s.get("weather_mode") != "follow").pack(side="left")
+            self._button(hub_row, "\U0001F3D9 " + t("wl_pick_other"), self.pet.open_place_picker,
+                         small=True).pack(side="left", padx=4)
         if not self.social.enabled:
             self._label(self.body, t("premium_needs_friends"), size=8, fg=self.MUTED, wrap=self.WIDTH - 70).pack(fill="x")
             return

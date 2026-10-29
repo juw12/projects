@@ -60,6 +60,11 @@ except Exception:  # pragma: no cover - music is optional
     pet_songs = None
 
 try:
+    import weather_live    # v2.23: where am I + live weather on the desktop
+except Exception:  # pragma: no cover - weather is optional
+    weather_live = None
+
+try:
     import social
 except ImportError:  # pragma: no cover - friends / achievements are optional
     social = None
@@ -106,6 +111,10 @@ DEFAULT_PET_SETTINGS = {
     "sound_volume": 60,          # 0..100
     "quiet_focus": True,         # no pet sounds during a focus session
     "trick_song": "own",         # v2.22: music for sing / dance tricks (pet_songs.CHOICES or "sp:<species>")
+    "weather_mode": "ip",        # v2.23: follow (exact, Windows location) | ip (approximate) | city | off
+    "weather_place": None,       # v2.23: the picked place for "city" {name, admin, country, lat, lon}
+    "weather_fx": "pet",         # v2.23: weather animation: pet (around me) | screen | off
+    "weather_share": True,       # v2.23: keep my Friends profile city in sync (when Friends is on)
     "friends": False,            # opt-in: share level / pomodoro counts with friends (social.py)
     "gender": "",                # v2.18: "boy" | "girl" | "" (secret)
     "sick_days": True,           # v2.18: catches a little cold when I skip breaks for 2.5 hours
@@ -2006,6 +2015,7 @@ class DesktopPet:
 
         self._build_window()
         self._apply_offline_time()
+        self._init_weather()
         if self.songs:
             self.root.after(25000, self._prewarm_songs)     # v2.22: songs ready before the first dance
         self.social = None
@@ -2182,6 +2192,7 @@ class DesktopPet:
                 self._update(dt, now)
                 self._render(now)
                 self.bubble.follow()
+            self._follow_weather()
             if now >= self._next_slow:
                 self._slow_tasks(now)
         except Exception:
@@ -2783,6 +2794,7 @@ class DesktopPet:
         elapsed = now - self._last_slow
         self._last_slow = now
         self._next_slow = now + 2.0
+        self._weather_tick()
         minutes = elapsed / 60.0
         st = self.st
         idle = user_idle_seconds()
@@ -3476,6 +3488,242 @@ class DesktopPet:
         return True
 
     # ------------------------------------------------------------ v2.22 songs
+    # ------------------------------------------------------- v2.23 weather
+    def _init_weather(self):
+        self.wx_service = None
+        self.wx_fx = None
+        self.wx_last_cond = None
+        self.wx_told_denied = False
+        self.wx_last_push = None
+        self.wx_picker = None
+        self.wx_pending_report = False
+        self.wx_started = time.monotonic()
+        if weather_live is None:
+            return
+        try:
+            self.wx_service = weather_live.WeatherService(Path(self.base_dir) / "data" / "weather.json",
+                                                          self._wx_lang())
+            mode = self.s.get("weather_mode", "ip")
+            self.wx_service.mode = mode if mode in weather_live.MODES else weather_live.DEFAULT_MODE
+            self.wx_service.city_place = self.s.get("weather_place") or None
+            self.wx_service.start()
+            self.wx_fx = weather_live.WeatherOverlay(self.root, KEY)
+            fx = self.s.get("weather_fx", "pet")
+            self.wx_fx.set_mode(fx if fx in weather_live.FX_MODES else weather_live.DEFAULT_FX)
+            if self.wx_service.weather:
+                self.wx_fx.set_weather(self.wx_service.weather)
+                self.wx_last_cond = weather_live.condition(self.wx_service.weather.get("code"))
+        except Exception as exc:
+            logger.warning("Weather unavailable: %s", exc)
+            self.wx_service = None
+
+    @staticmethod
+    def _wx_lang():
+        try:
+            from i18n import get_language
+            return {"id": "id", "zh_TW": "zh", "zh_CN": "zh"}.get(get_language(), "en")
+        except Exception:
+            return "en"
+
+    def current_weather(self):
+        """(weather, place) - from the live service, else from my Friends profile."""
+        if self.wx_service and self.wx_service.weather and self.s.get("weather_mode") != "off":
+            return self.wx_service.weather, self.wx_service.place
+        if self.social and getattr(self.social, "enabled", False) and self.s.get("weather_mode") != "off":
+            try:
+                weather, loc = self.social.my_weather()
+            except Exception:
+                weather, loc = None, None
+            if weather:
+                return weather, {"name": (loc or {}).get("city", ""), "country": (loc or {}).get("country", "")}
+        return None, None
+
+    def _follow_weather(self):
+        fx = getattr(self, "wx_fx", None)
+        if fx is None:
+            return
+        try:
+            show = (self.visible and not self.fs_hidden and self.px is not None and self.floor_y is not None
+                    and self.s.get("weather_fx", "pet") != "off")
+            if not show:
+                fx.follow(0, 0, self.size, 0, (0, 0, 1, 1), show=False)
+                return
+            _bx, by, _bw, _bh = self.screen_bbox()
+            _mon, work = monitor_rects(self.px, self.floor_y - 10, self.root)
+            umbrella = not (self.dragging or self.falling or self.leap is not None)
+            fx.follow(self.px + self.trick_dx, self.floor_y, self.size, by, work, show=True, umbrella=umbrella)
+        except Exception as exc:
+            logger.debug("weather follow failed: %s", exc)
+
+    def _weather_tick(self):
+        """Pick up what the weather service found (called from the slow tasks)."""
+        if not self.wx_service:
+            return
+        update = self.wx_service.poll()
+        if update is None:
+            if self.wx_fx is not None and self.wx_fx.weather is None:
+                weather, _place = self.current_weather()      # Friends profile weather as a fallback
+                if weather:
+                    self.wx_fx.set_weather(weather)
+            return
+        weather, place = update.get("weather"), update.get("place")
+        if self.wx_fx is not None:
+            self.wx_fx.set_weather(weather)
+        if update.get("status") in ("denied", "nodata", "unavailable") and self.s.get("weather_mode") == "follow" \
+                and not self.wx_told_denied and place:
+            self.wx_told_denied = True
+            self.say(t("wl_denied", city=weather_live.place_label(place)), duration=10, priority=1)
+        if not weather or not place:
+            return
+        cond = weather_live.condition(weather.get("code"))
+        city = weather_live.place_label(place) or "?"
+        if not self.s.get("weather_intro") and self.visible and time.monotonic() - self.wx_started > 20:
+            self.update_setting("weather_intro", True)      # first time: introduce the new feature
+            self.wx_pending_report = False
+            self.say(t("wl_intro", report=self.weather_report(), name=self.s["name"]), duration=10, priority=1)
+        elif self.wx_pending_report:
+            self.wx_pending_report = False
+            self.say(self.weather_report(), duration=6, priority=1)
+        elif self.wx_last_cond is not None and cond != self.wx_last_cond and self.s.get("chatty", True) \
+                and not self.sleeping and not (self.focus and self.s.get("quiet_focus", True)):
+            key = self._weather_change_key(cond, bool(weather.get("is_day", 1)))
+            if key:
+                self.say(t(key, city=city), duration=6, priority=0)
+        self.wx_last_cond = cond
+        if update.get("moved"):
+            self._share_weather_place(place)
+
+    @staticmethod
+    def _weather_change_key(cond, day):
+        if cond in ("drizzle", "rain", "heavy_rain"):
+            return "wl_now_rain"
+        if cond == "storm":
+            return "wl_now_storm"
+        if cond == "snow":
+            return "wl_now_snow"
+        if cond == "fog":
+            return "wl_now_fog"
+        if cond == "clear":
+            return "wl_now_clear" if day else "wl_now_night"
+        return "wl_now_cloudy"
+
+    def weather_report(self) -> str:
+        weather, place = self.current_weather()
+        if not weather:
+            return t("wl_loading")
+        cond = weather_live.condition(weather.get("code"))
+        return t("wl_report", icon=weather_live.icon_for(weather), cond=t("wx_" + cond),
+                 city=weather_live.place_label(place) or "?", temp=round(weather.get("temp") or 0),
+                 feels=round(weather.get("feels") or weather.get("temp") or 0))
+
+    def weather_label(self) -> str:
+        weather, place = self.current_weather()
+        if self.s.get("weather_mode") == "off":
+            return t("wl_off")
+        if not weather:
+            return t("wl_loading")
+        return "%s %d\u00b0 %s" % (weather_live.icon_for(weather), round(weather.get("temp") or 0),
+                                   weather_live.place_label(place))
+
+    def _share_weather_place(self, place):
+        """Keep my Friends profile city in step with where I really am (never un-hides a hidden city)."""
+        social_ctl = self.social
+        if not (social_ctl and getattr(social_ctl, "enabled", False) and self.s.get("weather_share", True)):
+            return
+        if not place or not place.get("name"):
+            return
+        me = (getattr(social_ctl, "board", None) or {}).get("me") or {}
+        if me.get("loc") and not me.get("loc_visible", True):
+            return
+        last = self.wx_last_push
+        if last and weather_live.distance_km(last, place) < 1.0 and last.get("name") == place.get("name"):
+            return
+        self.wx_last_push = dict(place)
+        try:
+            social_ctl.set_location("city", place, quiet=True)
+        except TypeError:
+            social_ctl.set_location("city", place)
+        except Exception as exc:
+            logger.debug("weather share failed: %s", exc)
+
+    def set_weather_mode(self, mode, place=None, announce=True):
+        if weather_live is None or mode not in weather_live.MODES:
+            return
+        if mode == "city":
+            place = place or self.s.get("weather_place")
+            if not place:
+                self.open_place_picker()
+                return
+            place = {k: place.get(k) for k in ("name", "admin", "country", "lat", "lon") if place.get(k) is not None}
+            self.update_setting("weather_place", place)
+        self.update_setting("weather_mode", mode)
+        self.wx_told_denied = False
+        if self.wx_service:
+            self.wx_service.configure(mode, self.s.get("weather_place"))
+        if mode == "off":
+            if self.wx_fx is not None:
+                self.wx_fx.set_weather(None)
+            if announce:
+                self.say(t("wl_now_off"), duration=3, priority=1)
+            return
+        if announce:
+            self.wx_pending_report = True
+            key = {"follow": "wl_set_follow", "ip": "wl_set_ip", "city": "wl_set_city"}[mode]
+            self.say(t(key, city=weather_live.place_label(place) if place else ""), duration=4, priority=1)
+
+    def set_weather_fx(self, fx):
+        if weather_live is None or fx not in weather_live.FX_MODES:
+            return
+        self.update_setting("weather_fx", fx)
+        if self.wx_fx is not None:
+            self.wx_fx.set_mode(fx)
+
+    def refresh_weather(self):
+        if self.wx_service:
+            self.wx_pending_report = True
+            self.wx_service.refresh_now()
+            self.say(t("wl_loading"), duration=2, priority=0)
+
+    def open_place_picker(self):
+        if weather_live is None:
+            return
+        if self.wx_picker is not None and self.wx_picker.alive():
+            try:
+                self.wx_picker.win.lift()
+                return
+            except tk.TclError:
+                pass
+        labels = {"title": t("wl_pick_title"), "hint": t("wl_pick_hint"), "search": t("wx_search"),
+                  "use": t("wx_pick"), "none": t("wx_no_results"), "searching": t("wl_searching"),
+                  "offline": t("wl_offline"), "exact": t("wl_exact")}
+        lang = self._wx_lang()
+        self.wx_picker = weather_live.PlacePicker(
+            self.root, labels, lambda q: weather_live.search_places(q, lang),
+            lambda place: self.set_weather_mode("city", place))
+
+    def _build_weather_menu(self, sub):
+        mode = self.s.get("weather_mode", "ip")
+        fx = self.s.get("weather_fx", "pet")
+        sub.item(weather_live.icon_for(self.current_weather()[0]), self.weather_label(), self.refresh_weather,
+                 hint=t("wl_refresh"))
+        sub.section(t("wl_where"))
+        sub.choice("\U0001F4CD", t("wl_follow"), mode == "follow", lambda: self.set_weather_mode("follow"))
+        sub.choice("\U0001F310", t("wl_ip"), mode == "ip", lambda: self.set_weather_mode("ip"))
+        place = self.s.get("weather_place") or {}
+        city_label = t("wl_city") + ("  \u00b7  " + weather_live.place_label(place) if place else "")
+        sub.choice("\U0001F3D9", city_label, mode == "city", lambda: self.set_weather_mode("city"))
+        sub.item("\U0001F50D", t("wl_pick_other"), self.open_place_picker)
+        sub.choice("\U0001F6AB", t("wl_off"), mode == "off", lambda: self.set_weather_mode("off"))
+        sub.section(t("wl_fx"))
+        sub.choice("\U0001F43E", t("wl_fx_pet", name=self.s["name"]), fx == "pet", lambda: self.set_weather_fx("pet"))
+        sub.choice("\U0001F5A5", t("wl_fx_screen"), fx == "screen", lambda: self.set_weather_fx("screen"))
+        sub.choice("\u2716", t("wl_fx_off"), fx == "off", lambda: self.set_weather_fx("off"))
+        if self.social and getattr(self.social, "enabled", False):
+            sub.section(t("wl_friends"))
+            share = bool(self.s.get("weather_share", True))
+            sub.choice("\U0001F465", t("wl_share"), share,
+                       lambda: self.update_setting("weather_share", not share))
+
     def _song_allowed(self, force=False) -> bool:
         if not self.songs or pet_songs is None or getattr(self, "_destroyed", False):
             return False
@@ -4400,6 +4648,10 @@ class DesktopPet:
 
     def destroy(self):
         self._stop_song()
+        if getattr(self, "wx_service", None):
+            self.wx_service.stop()
+        if getattr(self, "wx_fx", None):
+            self.wx_fx.destroy()
         self._destroyed = True
         for job in (getattr(self, "_greet_job", None), getattr(self, "_regrow_job", None)):
             if job:
@@ -4545,6 +4797,8 @@ class DesktopPet:
                 sub.submenu("\u25CF" if current_in else "\u25CB", t("cat_" + category), build_category,
                             hint=str(len(SPECIES_BY_CATEGORY[category])))
         menu.submenu("\U0001F43E", t("p_animal"), build_animals, hint=species_label(self.s["species"]))
+        if weather_live is not None and getattr(self, "wx_service", None):
+            menu.submenu("\U0001F326", t("wl_menu"), self._build_weather_menu, hint=self.weather_label(), width=300)
 
         def build_colors(sub):
             sub.swatches([(value, t("col_" + label)) for label, value in COLOR_PRESETS],
@@ -4716,6 +4970,22 @@ class DesktopPet:
                 cat_menu.add_command(label=mark + species_label(sp), command=lambda v=sp: self.set_species(v))
             animal_menu.add_cascade(label=t("cat_" + category), menu=cat_menu)
         menu.add_cascade(label=t("p_animal"), menu=animal_menu)
+        if weather_live is not None and getattr(self, "wx_service", None):
+            wx_menu = submenu(menu)
+            wx_menu.add_command(label=self.weather_label(), command=self.refresh_weather)
+            wx_menu.add_separator()
+            current_mode = self.s.get("weather_mode", "ip")
+            for value, key in (("follow", "wl_follow"), ("ip", "wl_ip"), ("city", "wl_city"), ("off", "wl_off")):
+                mark = "\u25cf " if value == current_mode else "   "
+                wx_menu.add_command(label=mark + t(key), command=lambda v=value: self.set_weather_mode(v))
+            wx_menu.add_command(label="   " + t("wl_pick_other"), command=self.open_place_picker)
+            wx_menu.add_separator()
+            current_fx = self.s.get("weather_fx", "pet")
+            for value, label in (("pet", t("wl_fx_pet", name=self.s["name"])), ("screen", t("wl_fx_screen")),
+                                 ("off", t("wl_fx_off"))):
+                mark = "\u25cf " if value == current_fx else "   "
+                wx_menu.add_command(label=mark + label, command=lambda v=value: self.set_weather_fx(v))
+            menu.add_cascade(label=t("wl_menu"), menu=wx_menu)
 
         color_menu = submenu(menu)
         for label, value in COLOR_PRESETS:

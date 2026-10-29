@@ -2,6 +2,33 @@
   "_comment": "Pips version history. Newest first. Feeds the in-app update notice (latest.json), the PPT guide and the update emails.",
   "releases": [
     {
+      "version": "2.23.0",
+      "date": "2026-10-29",
+      "title": "Weather on your desktop",
+      "notes": {
+        "en": [
+          "Your pet now shows the live weather right on your desktop: its own little rain cloud with an umbrella when it rains, a dark storm cloud with lightning, snow piling up at its feet, the sun, the moon and twinkling stars at night, drifting fog and leaves blowing in the wind. Prefer more? Switch the animation to the whole screen - or turn it off.",
+          "New right-click menu → Weather & location: Follow my exact location (Windows location; a laptop is followed as you move), Approximate (from your internet connection), or Pick a place - search a city or paste exact coordinates from Google Maps. The pet tells you when the weather changes.",
+          "Works without Pips Friends (weather from Open-Meteo, no account needed). With Friends on, your profile city follows you too - but a city you hid stays hidden. If Windows location is turned off on your PC, Pips explains how to turn it on and uses your internet location meanwhile."
+        ],
+        "id": [
+          "Pet-mu sekarang menampilkan cuaca langsung di desktop: awan hujan kecil miliknya sendiri lengkap dengan payung saat hujan, awan badai gelap dengan petir, salju yang menumpuk di kakinya, matahari, bulan dan bintang berkelip di malam hari, kabut yang melayang dan daun yang tertiup angin. Mau lebih? Pindahkan animasinya ke seluruh layar - atau matikan.",
+          "Menu klik kanan baru → Cuaca & lokasi: Ikuti lokasi persisku (lokasi Windows; laptop diikuti saat kamu berpindah), Perkiraan (dari koneksi internet), atau Pilih tempat - cari kota atau tempel koordinat persis dari Google Maps. Pet memberi tahu saat cuaca berubah.",
+          "Berfungsi tanpa Pips Friends (cuaca dari Open-Meteo, tanpa akun). Jika Friends aktif, kota di profilmu ikut berpindah - tapi kota yang kamu sembunyikan tetap tersembunyi. Jika lokasi Windows dimatikan di PC-mu, Pips menjelaskan cara menyalakannya dan sementara memakai lokasi internet."
+        ],
+        "zh_TW": [
+          "寵物現在會直接在桌面上顯示即時天氣：下雨時頭上有自己的小雨雲並撐起雨傘、雷雨時是帶閃電的烏雲、下雪時雪會堆在腳邊，還有太陽、夜晚的月亮與閃爍星星、飄動的霧和被風吹起的落葉。想要更多？可以把動畫切換成整個螢幕，或是關閉。",
+          "新的右鍵選單 → 天氣與位置：跟隨我的精確位置（Windows 定位，筆電移動時會跟著你）、大概位置（來自網路連線），或選擇地點：搜尋城市或貼上 Google 地圖的精確座標。天氣變化時寵物會告訴你。",
+          "不需要 Pips 好友也能使用（天氣來自 Open-Meteo，不需帳號）。開啟好友時，個人檔案的城市也會跟著你，但你隱藏的城市會保持隱藏。如果電腦關閉了 Windows 定位，Pips 會說明如何開啟，並暫時使用網路位置。"
+        ],
+        "zh_CN": [
+          "宠物现在会直接在桌面上显示实时天气：下雨时头上有自己的小雨云并撑起雨伞、雷雨时是带闪电的乌云、下雪时雪会堆在脚边，还有太阳、夜晚的月亮与闪烁星星、飘动的雾和被风吹起的落叶。想要更多？可以把动画切换成整个屏幕，或者关闭。",
+          "新的右键菜单 → 天气与位置：跟随我的精确位置（Windows 定位，笔记本移动时会跟着你）、大概位置（来自网络连接），或选择地点：搜索城市或粘贴 Google 地图的精确坐标。天气变化时宠物会告诉你。",
+          "不需要 Pips 好友也能使用（天气来自 Open-Meteo，无需账号）。开启好友时，个人资料的城市也会跟着你，但你隐藏的城市会保持隐藏。如果电脑关闭了 Windows 定位，Pips 会说明如何打开，并暂时使用网络位置。"
+        ]
+      }
+    },
+    {
       "version": "2.22.0",
       "date": "2026-10-29",
       "title": "Sing & dance with music",
