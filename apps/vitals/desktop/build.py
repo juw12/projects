@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Build the downloadable Vitals desktop app for the system this runs on.
 
-    python -m pip install pyinstaller pillow
+    python -m pip install pyinstaller pillow pywebview     (pywebview: Windows and macOS only)
     python apps/vitals/desktop/build.py [--require-installer]
 
 Output in apps/vitals/desktop/dist/ (the names the "vitals" GitHub release uses):
@@ -10,7 +10,8 @@ Output in apps/vitals/desktop/dist/ (the names the "vitals" GitHub release uses)
   macOS    Vitals-macOS-AppleSilicon.dmg or Vitals-macOS-Intel.dmg (the chip of this Mac)
   Linux    Vitals-Linux-x64.deb         Ubuntu, Debian, Mint, Pop!_OS ...
            Vitals-Linux-x64.tar.gz      any distribution with glibc as new as the build machine's
-The bundled app runs the same agent and dashboard as the one-line installers, with Python inside.
+The bundled app runs the same agent and dashboard as the one-line installers, with Python inside,
+and shows the dashboard in its own window (app_window.py) instead of a browser tab.
 """
 
 import argparse
@@ -52,8 +53,9 @@ LINUX_README = """Vitals for Linux {version}
 
 Run it:   ./vitals          (from this folder; some file managers don't start programs on double-click)
 
-The first run adds Vitals to your app menu, starts it quietly when you log in, and opens the
-dashboard in your browser (http://127.0.0.1:8765/). Open Vitals from the menu any time.
+The first run adds Vitals to your app menu and starts it quietly when you log in. Vitals opens
+in its own window, using your system's GTK and WebKit (Debian/Ubuntu: sudo apt install python3-gi
+gir1.2-webkit2-4.1); without them it opens in your browser. Open Vitals from the menu any time.
 
   ./vitals --remove-login-item   stop starting Vitals at login
   ./vitals --stop                stop the background agent
@@ -70,10 +72,11 @@ Maintainer: Juwen Lie <juw12@users.noreply.github.com>
 Homepage: {homepage}
 Installed-Size: {size_kb}
 Depends: libc6 (>= {glibc})
+Recommends: python3-gi, gir1.2-webkit2-4.1 | gir1.2-webkit2-4.0
 Description: Device health copilot
  Undoable storage cleaning (72-hour Undo Vault), battery wear forecast, drain
  detective and a chat that diagnoses problems in plain words. Runs only on this
- computer; the dashboard opens in your browser.
+ computer, in its own window (GTK + WebKitGTK).
 """
 
 
@@ -234,7 +237,7 @@ def package_linux(version):
         handle.write(
             "[Desktop Entry]\nType=Application\nName=Vitals\nComment=Device health copilot\n"
             "Exec=/usr/bin/vitals\nTryExec=/usr/bin/vitals\nIcon=vitals\nTerminal=false\n"
-            "Categories=System;Utility;\n"
+            "Categories=System;Utility;\nStartupWMClass=vitals\n"
         )
     icons = os.path.join(root, "usr", "share", "icons", "hicolor", "512x512", "apps")
     os.makedirs(icons)
@@ -253,7 +256,14 @@ def main():
     parser = argparse.ArgumentParser(description="Build the Vitals desktop app for this system")
     parser.add_argument("--require-installer", action="store_true",
                         help="Windows: fail if Inno Setup is missing instead of building only the portable zip")
+    parser.add_argument("--allow-browser-only", action="store_true",
+                        help="Windows/macOS: build without pywebview (the app then opens in a browser)")
     args = parser.parse_args()
+    if sys.platform in ("win32", "darwin") and not args.allow_browser_only:
+        try:
+            import webview  # noqa: F401  (bundled by vitals.spec)
+        except ImportError:
+            raise SystemExit("The Vitals window needs pywebview: python -m pip install pywebview")
 
     version = read_version()
     os.makedirs(BUILD, exist_ok=True)

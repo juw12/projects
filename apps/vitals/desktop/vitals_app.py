@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 """Vitals desktop app: the entry point of the downloadable Windows, macOS and Linux builds.
 
-Opening the app makes sure the Vitals agent is running quietly in the background, opens the
-dashboard in your browser and exits. The agent is this same program started with --background,
-which is also what runs when you sign in. Python is bundled, so nothing else needs installing.
+Opening the app makes sure the Vitals agent is running quietly in the background and shows the
+dashboard in its own window (app_window.py); closing the window leaves the agent running. The agent
+is this same program started with --background, which is also what runs when you sign in. Python
+is bundled, so nothing else needs installing.
 
-    Vitals                      open the dashboard (starts the agent first if needed)
+    Vitals                      open the Vitals window (starts the agent first if needed)
+    Vitals --browser            show the dashboard in your web browser instead
     Vitals --background         run the agent without opening anything (the sign-in item)
-    Vitals --stop               ask a running agent to exit (used by the installer)
+    Vitals --stop               close the window and stop the agent (used by the installer)
     Vitals --remove-login-item  stop starting Vitals when you sign in
 
 Other options (--port, --data, --home, --lan, --retention, ...) are passed on to the agent.
@@ -54,7 +56,12 @@ BUNDLE_ID = LABEL + ".app"
 STARTUP_SHORTCUT = "Vitals (background).lnk"
 LOG_LIMIT = 1_000_000
 START_TIMEOUT = 30
-OWN_SWITCHES = {"--background": "background", "--stop": "stop", "--remove-login-item": "remove-login-item"}
+OWN_SWITCHES = {
+    "--background": "background",
+    "--browser": "browser",
+    "--stop": "stop",
+    "--remove-login-item": "remove-login-item",
+}
 
 
 # ---------------------------------------------------------------- arguments
@@ -103,13 +110,13 @@ def has_terminal():
         return False
 
 
-def use_log_file(data_dir):
-    """Send output to <data>/agent.log when no terminal shows it (the usual case for an app)."""
+def use_log_file(data_dir, name="agent.log"):
+    """Send output to <data>/<name> when no terminal shows it (the usual case for an app)."""
     if has_terminal():
         return None
     try:
         os.makedirs(data_dir, exist_ok=True)
-        path = os.path.join(data_dir, "agent.log")
+        path = os.path.join(data_dir, name)
         if os.path.exists(path) and os.path.getsize(path) > LOG_LIMIT:
             os.replace(path, path + ".1")
         log = open(path, "a", encoding="utf-8", buffering=1)
@@ -144,12 +151,13 @@ def tell_user(message):
         pass
 
 
-def open_dashboard(port):
-    if os.environ.get("VITALS_NO_BROWSER"):
+def open_dashboard(port, data_dir, browser=False):
+    """Show the dashboard in the Vitals window (or the browser). Blocks while the window is open."""
+    if os.environ.get("VITALS_NO_BROWSER") or os.environ.get("VITALS_NO_WINDOW"):
         return
-    import webbrowser
+    import app_window
 
-    webbrowser.open("http://127.0.0.1:%d/" % port)
+    app_window.show_dashboard("http://127.0.0.1:%d/" % port, data_dir, browser=browser)
 
 
 def agent_command(rest):
@@ -227,6 +235,8 @@ def desktop_entry(exe, background=False, icon=None):
     ]
     if background:
         lines += ["NoDisplay=true", "X-GNOME-Autostart-enabled=true"]
+    else:
+        lines += ["StartupWMClass=vitals"]  # groups the window (linux_window.py) under this icon
     return "\n".join(lines) + "\n"
 
 
@@ -313,17 +323,18 @@ def remove_login_item(data_dir):
 
 
 # --------------------------------------------------------------------- main
-def open_app(rest, port, data_dir):
+def open_app(rest, port, data_dir, browser=False):
     """Double-click: make sure the agent runs, then show the dashboard."""
+    use_log_file(data_dir, "app.log")
     ensure_login_item(data_dir)
     if server.already_running(port):
-        open_dashboard(port)
+        open_dashboard(port, data_dir, browser)
         return 0
     child = start_agent(rest)
     deadline = time.time() + START_TIMEOUT
     while time.time() < deadline:
         if server.already_running(port):
-            open_dashboard(port)
+            open_dashboard(port, data_dir, browser)
             return 0
         if child.poll() is not None and not server.already_running(port):
             break
@@ -343,13 +354,17 @@ def main(argv=None):
         server.main(rest)
         return 0
     if mode == "stop":
-        print("Stopped Vitals." if stop_agent(port) else "Vitals was not running.", flush=True)
+        import app_window
+
+        closed = app_window.close_window(data_dir)
+        stopped = stop_agent(port)
+        print("Stopped Vitals." if (closed or stopped) else "Vitals was not running.", flush=True)
         return 0
     if mode == "remove-login-item":
         removed = remove_login_item(data_dir)
         print("Vitals will no longer start at login." + ("" if removed else " (No login item was set.)"), flush=True)
         return 0
-    return open_app(rest, port, data_dir)
+    return open_app(rest, port, data_dir, browser=(mode == "browser"))
 
 
 if __name__ == "__main__":

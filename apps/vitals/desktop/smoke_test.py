@@ -4,9 +4,12 @@
     python apps/vitals/desktop/smoke_test.py --built          # the build in apps/vitals/desktop/dist
     python apps/vitals/desktop/smoke_test.py PATH/TO/Vitals   # an installed copy
     python apps/vitals/desktop/smoke_test.py --source         # vitals_app.py from this checkout
+    add --window to also open the app window (needs a desktop session; on Linux e.g. xvfb-run)
 
 Opening the app must start the background agent and return; the dashboard and the API must answer
 from the bundled files; opening it again must reuse the running agent; --stop must shut it down.
+With --window: the app must show the live dashboard in its own window (not a browser), a second
+launch must bring that window back instead of opening another, and --stop must close it.
 Uses a free port and throwaway data/home folders, and never opens a browser, dialog or login item.
 """
 
@@ -30,6 +33,7 @@ QUIET = {
     "VITALS_NO_MODEL": "1",
     "VITALS_NO_NOTIFY": "1",
 }
+NO_CONSOLE = {"creationflags": 0x08000000} if os.name == "nt" else {}  # CREATE_NO_WINDOW
 
 
 def built_executable():
@@ -68,7 +72,70 @@ def wait_until(condition, seconds):
     return condition()
 
 
-def run_smoke(command, label):
+def read_report(path, seconds, process=None):
+    """Wait for a VITALS_WINDOW_TEST report; {} if it doesn't come (or the process ends first)."""
+    deadline = time.time() + seconds
+    while time.time() < deadline:
+        try:
+            with open(path, encoding="utf-8") as handle:
+                return json.load(handle)
+        except (OSError, ValueError):
+            pass
+        if process is not None and process.poll() is not None:
+            time.sleep(0.5)
+            try:
+                with open(path, encoding="utf-8") as handle:
+                    return json.load(handle)
+            except (OSError, ValueError):
+                return {}
+        time.sleep(0.3)
+    return {}
+
+
+def run_window_checks(command, options, env, data, sandbox, check):
+    """The app window: live dashboard in a native window, reused by a second launch, closed by --stop."""
+    first_report = os.path.join(sandbox, "window-first.json")
+    second_report = os.path.join(sandbox, "window-second.json")
+    window_env = {key: value for key, value in env.items() if key != "VITALS_NO_BROWSER"}
+    started = time.time()
+    first = subprocess.Popen(
+        command + options,
+        env=dict(window_env, VITALS_WINDOW_TEST=first_report, VITALS_WINDOW_TEST_HOLD="120"),
+        stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, **NO_CONSOLE,
+    )
+    try:
+        info = read_report(first_report, 120, first)
+        check(info.get("method") == "window",
+              "opening the app shows its own window, not a browser (%s %s)"
+              % (info.get("method"), info.get("toolkit") or info.get("platform") or ""))
+        check("Live" in info.get("pill", ""),
+              "the window shows the live dashboard (\"%s\" after %.1f s)" % (info.get("pill", ""), time.time() - started))
+        check(str(info.get("title", "")).startswith("Vitals") and str(info.get("url", "")).startswith("http://127.0.0.1:"),
+              "the window loads the dashboard from the agent (%s)" % info.get("url"))
+        if info.get("method") != "window":
+            return
+        again = subprocess.run(
+            command + options,
+            env=dict(window_env, VITALS_WINDOW_TEST=second_report, VITALS_WINDOW_TEST_HOLD="0"),
+            timeout=90, capture_output=True, text=True, **NO_CONSOLE,
+        )
+        second = read_report(second_report, 5)
+        check(again.returncode == 0 and second.get("method") == "focused" and first.poll() is None,
+              "opening it again brings the open window to the front (%s)" % second.get("method"))
+        stop = subprocess.run(command + ["--stop"] + options, env=env, timeout=90, capture_output=True,
+                              text=True, **NO_CONSOLE)
+        try:
+            first.wait(timeout=30)
+        except subprocess.TimeoutExpired:
+            pass
+        check(stop.returncode == 0 and first.poll() is not None and not os.path.exists(os.path.join(data, "window.json")),
+              "--stop closes the window")
+    finally:
+        if first.poll() is None:
+            first.kill()
+
+
+def run_smoke(command, label, window=False):
     """Run the checks against `command` (the program, without options). Returns the failures."""
     failures = []
 
@@ -88,7 +155,7 @@ def run_smoke(command, label):
     base = "http://127.0.0.1:%d" % port
     try:
         started = time.time()
-        first = subprocess.run(command + options, env=env, timeout=120, capture_output=True, text=True)
+        first = subprocess.run(command + options, env=env, timeout=120, capture_output=True, text=True, **NO_CONSOLE)
         info = health(port)
         check(first.returncode == 0, "opening the app returns (exit %s after %.1f s)" % (first.returncode, time.time() - started))
         check(bool(info) and info.get("app") == "vitals",
@@ -104,21 +171,26 @@ def run_smoke(command, label):
             vitals = json.loads(body.decode("utf-8"))
             check(status == 200 and isinstance(vitals, dict) and len(vitals) > 0,
                   "live vitals are measured (%s)" % ", ".join(sorted(vitals)[:5]))
-            again = subprocess.run(command + options, env=env, timeout=60, capture_output=True, text=True)
+            again = subprocess.run(command + options, env=env, timeout=60, capture_output=True, text=True, **NO_CONSOLE)
             check(again.returncode == 0 and health(port) is not None, "opening it again reuses the running agent")
-        stop = subprocess.run(command + ["--stop"] + options, env=env, timeout=60, capture_output=True, text=True)
+            if window:
+                run_window_checks(command, options, env, data, sandbox, check)
+        stop = subprocess.run(command + ["--stop"] + options, env=env, timeout=60, capture_output=True, text=True,
+                              **NO_CONSOLE)
         check(stop.returncode == 0 and wait_until(lambda: health(port) is None, 15), "--stop shuts the agent down")
         log = os.path.join(data, "agent.log")
         check(os.path.isfile(log), "the agent keeps its log in the data folder")
         if failures:
             for name, result in (("first launch", first), ("--stop", stop)):
                 print("--- %s output ---\n%s%s" % (name, result.stdout, result.stderr))
-            if os.path.isfile(log):
-                with open(log, encoding="utf-8", errors="replace") as handle:
-                    print("--- agent.log ---\n" + handle.read()[-4000:])
+            for name in ("agent.log", "app.log", "window.log"):
+                path = os.path.join(data, name)
+                if os.path.isfile(path):
+                    with open(path, encoding="utf-8", errors="replace") as handle:
+                        print("--- %s ---\n%s" % (name, handle.read()[-4000:]))
     finally:
         if health(port):
-            subprocess.run(command + ["--stop"] + options, env=env, timeout=60, capture_output=True)
+            subprocess.run(command + ["--stop"] + options, env=env, timeout=60, capture_output=True, **NO_CONSOLE)
         wait_until(lambda: health(port) is None, 10)
         shutil.rmtree(sandbox, ignore_errors=True)
     return failures
@@ -126,6 +198,8 @@ def run_smoke(command, label):
 
 def main():
     args = sys.argv[1:]
+    window = "--window" in args
+    args = [arg for arg in args if arg != "--window"]
     if args == ["--source"] or not args:
         command = [sys.executable, os.path.join(DESKTOP, "vitals_app.py")]
         label = "launcher from this checkout"
@@ -138,7 +212,7 @@ def main():
     if command[0] != sys.executable and not os.path.isfile(command[0]):
         print("Not found: %s" % command[0])
         sys.exit(1)
-    failures = run_smoke(command, label)
+    failures = run_smoke(command, label, window=window)
     if failures:
         print("\n%d check(s) failed" % len(failures))
         sys.exit(1)

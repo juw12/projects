@@ -6,9 +6,10 @@ name: Vitals apps
 #   Linux    Vitals-Linux-x64.deb + Vitals-Linux-x64.tar.gz
 #   Android  Vitals-Android.apk (signed)
 #   iPhone   Vitals-iPhone-unsigned.ipa (free sideloading; most people use Add to Home Screen)
-# Every desktop build is opened and checked on its own OS (the Windows installer is installed,
-# run and uninstalled; the .deb is installed and run), the APK runs on an emulator and the iPhone
-# app in the simulator. Only builds that passed are published; links stay the same across releases.
+# Every desktop build is opened and checked on its own OS, including its app window (the Windows
+# installer is installed, run and uninstalled; the .deb is installed and run), the APK runs on an
+# emulator and the iPhone app in the simulator. Only builds that passed are published; links stay
+# the same across releases.
 on:
   push:
     branches: [main]
@@ -56,8 +57,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Install PyInstaller
-        run: python -m pip install --disable-pip-version-check pyinstaller pillow
+      - name: Install PyInstaller (and pywebview for the Windows/Mac app window)
+        run: python -m pip install --disable-pip-version-check pyinstaller pillow ${{ runner.os != 'Linux' && 'pywebview' || '' }}
       - name: Install Inno Setup
         if: runner.os == 'Windows'
         shell: pwsh
@@ -66,6 +67,24 @@ jobs:
           if (-not (Test-Path $iscc) -and -not (Get-Command iscc -ErrorAction SilentlyContinue)) {
             choco install innosetup --no-progress -y
           }
+      - name: Make sure the WebView2 runtime is there (the Windows app window uses it)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $client = '{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}'
+          $keys = "HKLM:\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\$client",
+                  "HKCU:\Software\Microsoft\EdgeUpdate\Clients\$client"
+          $version = $keys | Where-Object { Test-Path $_ } | ForEach-Object { (Get-ItemProperty $_).pv } |
+            Where-Object { $_ -and $_ -ne '0.0.0.0' } | Select-Object -First 1
+          if ($version) { Write-Host "WebView2 runtime $version"; exit 0 }
+          $setup = Join-Path $env:RUNNER_TEMP 'MicrosoftEdgeWebview2Setup.exe'
+          Invoke-WebRequest 'https://go.microsoft.com/fwlink/p/?LinkId=2124703' -OutFile $setup
+          Start-Process -FilePath $setup -ArgumentList '/silent', '/install' -Wait
+      - name: Install GTK, WebKitGTK and a virtual display (the Linux app window uses them)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q python3-gi gir1.2-webkit2-4.1 xvfb
       - name: Stop XProtect scans (they make hdiutil fail with "Resource busy")
         if: runner.os == 'macOS'
         run: |
@@ -73,8 +92,14 @@ jobs:
           for attempt in $(seq 1 20); do pgrep -x XProtect > /dev/null || break; sleep 3; done
       - name: Build and package
         run: python apps/vitals/desktop/build.py --require-installer
-      - name: Open the built app and check it works
-        run: python apps/vitals/desktop/smoke_test.py --built
+      - name: Open the built app and its window, and check they work
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            xvfb-run -a python apps/vitals/desktop/smoke_test.py --built --window
+          else
+            python apps/vitals/desktop/smoke_test.py --built --window
+          fi
       - name: Install with Vitals-Windows-Setup.exe, run it, uninstall it
         if: runner.os == 'Windows'
         shell: pwsh
@@ -94,7 +119,7 @@ jobs:
           $entry = Get-ChildItem 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall' |
             Get-ItemProperty | Where-Object DisplayName -eq 'Vitals'
           if (-not $entry) { throw 'Vitals is missing from Settings > Apps' }
-          python apps/vitals/desktop/smoke_test.py $app
+          python apps/vitals/desktop/smoke_test.py --window $app
           if ($LASTEXITCODE -ne 0) { throw 'The installed app failed its checks' }
           Start-Process -FilePath $entry.UninstallString.Trim('"') -Wait -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART'
           for ($i = 0; $i -lt 60 -and (Test-Path $app); $i++) { Start-Sleep -Seconds 1 }
@@ -107,7 +132,7 @@ jobs:
           sudo apt-get install -y ./apps/vitals/desktop/dist/Vitals-Linux-x64.deb
           test -x /usr/bin/vitals
           test -f /usr/share/applications/vitals.desktop
-          python apps/vitals/desktop/smoke_test.py /usr/bin/vitals
+          xvfb-run -a python apps/vitals/desktop/smoke_test.py --window /usr/bin/vitals
           sudo apt-get remove -y vitals
           test ! -e /usr/bin/vitals
       - name: Check the Mac app and disk image
@@ -115,7 +140,7 @@ jobs:
         run: |
           APP=apps/vitals/desktop/dist/Vitals.app
           test "$(plutil -extract CFBundleIdentifier raw "$APP/Contents/Info.plist")" = "io.github.juw12.vitals.app"
-          test "$(plutil -extract LSUIElement raw "$APP/Contents/Info.plist")" = "true"
+          ! plutil -extract LSUIElement raw "$APP/Contents/Info.plist" > /dev/null 2>&1  # a normal app with a Dock icon
           echo "Architecture: $(lipo -archs "$APP/Contents/MacOS/Vitals")"
           codesign --verify --deep --verbose=2 "$APP"
           for image in apps/vitals/desktop/dist/*.dmg; do hdiutil verify "$image"; done
@@ -344,7 +369,7 @@ jobs:
           | **Android** | [Vitals-Android.apk](https://github.com/juw12/projects/releases/download/vitals/Vitals-Android.apk) | Download it on the phone, open it and allow installing from your browser. |
           | **iPhone** | [Open in Safari](https://juw12.github.io/projects/vitals/mobile.html) | Share → **Add to Home Screen** (free, updates itself). Advanced: [Vitals-iPhone-unsigned.ipa](https://github.com/juw12/projects/releases/download/vitals/Vitals-iPhone-unsigned.ipa) for Sideloadly or AltStore with your own Apple ID (re-sign every 7 days). |
 
-          On a computer, Vitals opens its dashboard in your browser and starts quietly when you sign in; history and the Undo Vault stay in `~/.vitals`. Phones don't let any app clean other apps' data, so the phone app shows your computer's health once paired (on the computer: **Devices → Connect my phone**), plus phone guides.
+          On a computer, Vitals opens in its own window (not a browser tab) and keeps checking quietly in the background, starting when you sign in; history and the Undo Vault stay in `~/.vitals`. Phones don't let any app clean other apps' data, so the phone app shows your computer's health once paired (on the computer: **Devices → Connect my phone**), plus phone guides.
 
           Prefer one line in a terminal? The one-step installers are on https://juw12.github.io/projects/vitals/. Checksums for this build: `SHA256SUMS.txt`.
           EOF

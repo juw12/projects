@@ -39,7 +39,7 @@ import metrics  # noqa: E402
 import storage  # noqa: E402
 import vault as vault_mod  # noqa: E402
 
-VERSION = "1.1.0"
+VERSION = "1.2.0"
 WEB_DIR = os.path.normpath(os.path.join(HERE, "..", "web"))
 DEFAULT_ORIGINS = {"https://juw12.github.io"}
 MIME = {
