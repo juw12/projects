@@ -1295,7 +1295,13 @@
     "Stop smart detection": "停止智慧偵測",
     "Smart detection on": "智慧偵測中",
     "Start / stop smart detection with one click (1.11.11)": "一鍵開始／停止智慧偵測 (1.11.11)",
-    "A Start smart detection button now sits in the camera toolbar next to Snapshot and at the top of Smart detection. Click it to start watching for motion and click again (Stop smart detection, shown in red) to stop. While it is on, the picture shows a Smart detection on badge.": "相機工具列（快照旁）與「智慧偵測」上方新增「開始智慧偵測」按鈕。按一下開始偵測動作，再按一下（紅色的「停止智慧偵測」）即停止。偵測中畫面上會顯示「智慧偵測中」標記。"
+    "A Start smart detection button now sits in the camera toolbar next to Snapshot and at the top of Smart detection. Click it to start watching for motion and click again (Stop smart detection, shown in red) to stop. While it is on, the picture shows a Smart detection on badge.": "相機工具列（快照旁）與「智慧偵測」上方新增「開始智慧偵測」按鈕。按一下開始偵測動作，再按一下（紅色的「停止智慧偵測」）即停止。偵測中畫面上會顯示「智慧偵測中」標記。",
+    "CO-ADMINS ON THE TEAM": "團隊共同管理員",
+    "No co-admins listed yet.": "尚未列出共同管理員。",
+    "Joined on this PC (not on the published team list yet)": "已在此電腦加入（尚未列入公布的團隊名單）",
+    "YOU": "您",
+    "Co-admins listed by name on every PC (1.11.12)": "每台電腦都會依名字列出共同管理員 (1.11.12)",
+    "The Ziris PTB team card now lists every co-admin by name (for example Luar Handoyo) on the owner's PC and everybody else's, not only the person signed in on that PC. The list comes from the AIRIZ website and is read again on start, when the window gets focus and every 10 minutes, so new co-admins appear without an app update.": "Ziris PTB 團隊卡片現在會依名字列出所有共同管理員（例如 Luar Handoyo），負責人與其他人的電腦都看得到，不再只顯示在本機登入的人。名單來自 AIRIZ 網站，啟動時、視窗取得焦點時及每 10 分鐘會重新讀取，因此新的共同管理員不需更新程式就會出現。"
   },
   "html": {
     "AIRIZDEVICE LAB": "AIRIZ<small>裝置實驗室</small>",
@@ -2223,6 +2229,10 @@
     [
       "^Full down sent: (\\d+) steps\\. Let the camera finish before the next move\\.$",
       "降到底已送出：$1 步。請等攝影機停下後再做下一個動作。"
+    ],
+    [
+      "^Co-admin since (\\d{4}-\\d{2}-\\d{2})$",
+      "共同管理員（自 $1 起）"
     ]
   ]
 }

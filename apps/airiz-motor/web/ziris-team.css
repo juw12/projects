@@ -131,3 +131,11 @@
   .team-owner-progress { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .team-owner-url-row { flex-wrap: wrap; }
 }
+
+/* 1.11.12: co-admins by name (published team roster). */
+.team-roster-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 4px; }
+.team-roster-head .eyebrow { font-size: 8px; }
+.team-roster-count { font: 600 11px var(--font-mono); min-width: 22px; text-align: center; padding: 2px 8px; border-radius: 999px; background: var(--ui-muted-surface); }
+.team-coadmin-list { margin: 0; }
+.team-coadmin-list .team-roster-empty { font-size: 12px; padding: 4px 2px; list-style: none; }
+.team-person-coadmin .team-avatar { background: color-mix(in srgb, var(--color-accent) 18%, var(--ui-muted-surface)); }

@@ -1,0 +1,12 @@
+{
+  "_comment": "Ziris PTB co-admins shown by name in every AIRIZ console (Team page). Members join on their own PC, so the owner's app cannot see them by itself: add each co-admin here (airiz-release-kit/add_coadmin.py). The website publishes this file; apps re-read it on start, on focus and every 10 minutes.",
+  "team": "Ziris PTB",
+  "owner": "Juwen Lie",
+  "updated": "2026-10-29",
+  "coadmins": [
+    {
+      "name": "Luar Handoyo",
+      "since": "2026-10-29"
+    }
+  ]
+}

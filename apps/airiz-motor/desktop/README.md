@@ -9,7 +9,7 @@ is required to use the installed app or its hardware-free demo.
 ## Downloads
 
 Windows x64 releases are published under the app-specific tag
-`airiz-desktop-v1.11.11` in this repository's Releases section.
+`airiz-desktop-v1.11.12` in this repository's Releases section.
 
 - **Installer**: assisted, per-user installation with Start-menu/desktop shortcuts
   and an uninstaller. The wizard lets the user choose the installation directory.
@@ -163,6 +163,17 @@ reports whether a framed firmware reply came back. Results can be exported.
 No pairing is accepted without confirmation and no motor command is sent.
 Another program on the PC still cannot open COM4 while this app holds it: that is
 a Windows serial-port rule, which is why the check runs inside the app.
+
+## 1.11.12: Co-admins listed by name on every PC
+
+* Membership is local to each PC (the invite is stored in `airiz.team.v1`), so the owner's app could only show
+  a generic *Co-admins* row. `ziris-team.js` now reads `team-roster.json` from
+  `https://juw12.github.io/projects/airiz-motor/` (then the bundled copy, then the last good list in
+  `airiz.team.roster.v1`) and renders each co-admin under *Co-admins on the team*. A co-admin signed in on this PC
+  who is not published yet is still shown (marked *YOU*).
+* The desktop CSP `connect-src` allows `https://juw12.github.io` for this read (the mobile build too).
+* Tested: `tools/test_team_roster.py` (6 checks, English and Traditional Chinese): owner PC lists Luar Handoyo, a
+  new website entry appears after a refresh without reload, offline falls back to the saved / bundled list.
 
 ## 1.11.11: Start / stop smart detection with one click
 
