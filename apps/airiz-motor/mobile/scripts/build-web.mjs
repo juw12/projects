@@ -18,7 +18,7 @@ html = html.replace('width=device-width, initial-scale=1.0', 'width=device-width
 const hashes = [...html.matchAll(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/gi)]
   .map(match => "'sha256-" + crypto.createHash('sha256').update(match[1]).digest('base64') + "'");
 const csp = "default-src 'self'; script-src 'self' " + hashes.join(' ')
-  + "; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' capacitor: https://0.peerjs.com wss://0.peerjs.com wss://airiz-relay.juw12.workers.dev; object-src 'none'; frame-src 'none'; base-uri 'none'";
+  + "; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' capacitor: https://juw12.github.io https://0.peerjs.com wss://0.peerjs.com wss://airiz-relay.juw12.workers.dev; object-src 'none'; frame-src 'none'; base-uri 'none'";
 html = html.replace('</head>', '<meta http-equiv="Content-Security-Policy" content="' + csp + '"><link rel="stylesheet" href="mobile-native.css"></head>');
 fs.writeFileSync(path.join(output, 'index.html'), html);
 fs.copyFileSync(path.join(root, 'src/mobile-native.css'), path.join(output, 'mobile-native.css'));

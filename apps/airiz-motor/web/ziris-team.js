@@ -16,6 +16,9 @@
  * auto-post setting. A saved receipt prevents repeat invites; HTTP acceptance is not delivery.
  * The private workflow URL is never bundled in the app or read from the clipboard on startup.
  *
+ * 1.11.12: co-admins are listed by name from the published team-roster.json, so the owner's
+ * app (and everybody else's) shows who is on the team, not only the co-admin on this PC.
+ *
  * Transport: the Windows desktop app posts from its main process (airizDesktop.postToTeams),
  * a browser posts directly to the Workflow (Power Automate allows cross-origin POST).
  * Nothing else leaves the PC: the message holds the code, the public watch link, the member
@@ -632,6 +635,138 @@
     }));
   }
 
+  // ------------------------------------------------------------------ roster (1.11.12)
+  // A co-admin joins on their own PC, so the owner's app never saw them. The published roster
+  // (team-roster.json on the website, kept by the owner) lists every co-admin by name and every
+  // console reads it: on start, when the window gets focus and every 10 minutes. The website copy
+  // comes first so installed apps see new names without an update; the bundled copy and the last
+  // good list (saved on this PC) are the offline fallback.
+  const ROSTER_KEY = 'airiz.team.roster.v1';
+  const ROSTER_URLS = [PUBLIC_BASE + 'team-roster.json', 'team-roster.json'];
+  const ROSTER_TIMEOUT_MS = 6000;
+  const ROSTER_REFRESH_MS = 10 * 60 * 1000;
+  const ROSTER_FOCUS_MS = 60 * 1000;
+  const ROSTER_LIMIT = 50;
+  let roster = loadCachedRoster();
+  let rosterLoadedAt = 0;
+  let rosterRequest = null;
+
+  function normalRoster(data) {
+    if (!data || typeof data !== 'object' || !Array.isArray(data.coadmins)) return null;
+    const seen = new Set();
+    const coadmins = [];
+    data.coadmins.forEach(entry => {
+      const name = cleanName(entry && typeof entry === 'object' ? entry.name : entry);
+      const key = name.toLowerCase();
+      if (!name || seen.has(key) || sameName(name, OWNER_NAME)) return;
+      seen.add(key);
+      const since = entry && typeof entry.since === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(entry.since) ? entry.since : '';
+      coadmins.push({ name, since });
+    });
+    const updated = typeof data.updated === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(data.updated) ? data.updated : '';
+    return { coadmins: coadmins.slice(0, ROSTER_LIMIT), updated };
+  }
+
+  function loadCachedRoster() {
+    try {
+      return normalRoster(JSON.parse(localStorage.getItem(ROSTER_KEY) || 'null'));
+    } catch {
+      return null;
+    }
+  }
+
+  async function fetchRoster(url) {
+    const controller = typeof AbortController === 'function' ? new AbortController() : null;
+    const timer = controller ? setTimeout(() => controller.abort(), ROSTER_TIMEOUT_MS) : null;
+    try {
+      const response = await fetch(url, { cache: 'no-store', signal: controller ? controller.signal : undefined });
+      if (!response.ok) return null;
+      return normalRoster(await response.json());
+    } catch {
+      return null;
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+  }
+
+  function refreshRoster() {
+    if (rosterRequest) return rosterRequest;
+    rosterRequest = (async () => {
+      for (const url of ROSTER_URLS) {
+        const next = await fetchRoster(url);
+        if (!next) continue;
+        roster = next;
+        rosterLoadedAt = Date.now();
+        try {
+          localStorage.setItem(ROSTER_KEY, JSON.stringify(next));
+        } catch {
+          // Private mode: the list is simply read again next time.
+        }
+        break;
+      }
+      renderRoster();
+      return roster;
+    })().finally(() => {
+      rosterRequest = null;
+    });
+    return rosterRequest;
+  }
+
+  // Published co-admins, plus the co-admin signed in on this PC if the owner has not listed them yet.
+  function rosterEntries() {
+    const entries = roster ? roster.coadmins.map(entry => ({ ...entry, local: false })) : [];
+    const member = currentMember();
+    if (member && member.role === 'coadmin' && !entries.some(entry => sameName(entry.name, member.name))) {
+      entries.push({ name: member.name, since: '', local: true });
+    }
+    return entries;
+  }
+
+  function initials(name) {
+    const letters = cleanName(name).split(' ').filter(Boolean).slice(0, 2).map(part => part[0]).join('');
+    return letters.toUpperCase() || '?';
+  }
+
+  function renderRoster() {
+    const list = $('team-coadmin-list');
+    if (!list) return;
+    const entries = rosterEntries();
+    const member = currentMember();
+    setText('team-coadmin-count', String(entries.length));
+    if (!entries.length) {
+      const empty = document.createElement('li');
+      empty.className = 'muted team-roster-empty';
+      empty.textContent = 'No co-admins listed yet.';
+      list.replaceChildren(empty);
+      return;
+    }
+    list.replaceChildren(...entries.map(entry => {
+      const item = document.createElement('li');
+      item.className = 'team-person team-person-coadmin';
+      item.dataset.coadmin = entry.name;
+      const avatar = document.createElement('span');
+      avatar.className = 'team-avatar';
+      avatar.setAttribute('aria-hidden', 'true');
+      avatar.setAttribute('data-i18n-skip', '');
+      avatar.textContent = initials(entry.name);
+      const text = document.createElement('div');
+      const name = document.createElement('strong');
+      name.setAttribute('data-i18n-skip', '');
+      name.textContent = entry.name;
+      const note = document.createElement('span');
+      note.textContent = entry.local
+        ? 'Joined on this PC (not on the published team list yet)'
+        : entry.since ? 'Co-admin since ' + entry.since : 'Co-admin';
+      text.append(name, note);
+      const chip = document.createElement('span');
+      chip.className = 'team-role-chip';
+      const isYou = member && member.role === 'coadmin' && sameName(member.name, entry.name);
+      chip.textContent = isYou ? 'YOU' : 'CO-ADMIN';
+      item.append(avatar, text, chip);
+      return item;
+    }));
+  }
+
   function renderMembership() {
     const member = currentMember();
     document.documentElement.classList.toggle('ziris-member', !!member);
@@ -659,6 +794,7 @@
     if (sidebar) sidebar.textContent = member ? member.name + ' \u00b7 ' + member.roleLabel : 'Guest';
     renderShareLine();
     renderLog();
+    renderRoster();
     renderOwnerSetup();
   }
 
@@ -1069,6 +1205,15 @@
         renderMembership();
       }
       if (event.key === LOG_KEY) renderLog();
+      if (event.key === ROSTER_KEY) {
+        roster = loadCachedRoster() || roster;
+        renderRoster();
+      }
+    });
+    refreshRoster();
+    setInterval(refreshRoster, ROSTER_REFRESH_MS);
+    window.addEventListener('focus', () => {
+      if (Date.now() - rosterLoadedAt > ROSTER_FOCUS_MS) refreshRoster();
     });
     document.querySelectorAll('[data-owner-name]').forEach(element => {
       element.textContent = OWNER_NAME;
@@ -1147,6 +1292,10 @@
     publicLink,
     sendShareCode,
     postAlert,
+    refreshRoster,
+    get roster() {
+      return rosterEntries();
+    },
     get member() {
       return currentMember();
     }
