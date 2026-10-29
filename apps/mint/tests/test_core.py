@@ -81,7 +81,8 @@ def static_checks():
           "the installed app opens on Mint Budget (" + manifest.get("start_url", "") + ")")
     check(manifest.get("id") == "projects/mint/app.html", "install identity stays the one Mint PWAs already have")
     front = read("index.html")
-    check("'budget/'" in front and "'app.html'" in front, "index.html forwards to Budget, template links to the studio")
+    check("'budget/'" in front and "out.set('view', 'market')" in front,
+          "index.html forwards to Budget, template links to the Marketplace tab")
     for rel in ["app.html", "web.html", "mobile.html"]:
         check(read(rel).count('href="budget/"') >= 2, rel + " links to Budget in the nav and the tab bar")
     check("/^mint-v\\d/.test(k)" in sw, "sw.js only clears its own mint-v caches (Budget keeps mint-budget-v)")
