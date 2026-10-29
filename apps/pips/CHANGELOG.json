@@ -2,6 +2,41 @@
   "_comment": "Pips version history. Newest first. Feeds the in-app update notice (latest.json), the PPT guide and the update emails.",
   "releases": [
     {
+      "version": "2.14.0",
+      "date": "2026-10-29",
+      "title": "Pokes, tickles & teases",
+      "notes": {
+        "en": [
+          "Poke, tickle, tease, boop or hug a friend from afar - no pet visit needed.",
+          "Right-click your pet → Poke a friend, or use the Poke button in Friends, chat and profiles.",
+          "Your friend gets a pop-up (\"Wendy is teasing you!\"), their pet reacts, and they can poke back with one click.",
+          "During a focus session pokes wait quietly until your break; when your pet is hidden they show in the screen corner.",
+          "Don't want it? Profile → untick \"Let friends poke, tickle & tease me\"."
+        ],
+        "id": [
+          "Colek, gelitik, goda, toel hidung atau peluk teman dari jauh - tanpa perlu pet berkunjung.",
+          "Klik kanan pet → Colek teman, atau pakai tombol Colek di Teman, chat dan profil.",
+          "Temanmu mendapat notifikasi (\"Wendy lagi godain kamu!\"), pet-nya bereaksi, dan bisa colek balik dengan satu klik.",
+          "Saat sesi fokus, colekan menunggu sampai istirahat; jika pet disembunyikan, muncul di pojok layar.",
+          "Tidak mau? Profil → hapus centang \"Izinkan teman mencolek, menggelitik & menggoda saya\"."
+        ],
+        "zh_TW": [
+          "遠端戳一下、搔癢、捉弄、點鼻子或抱抱好友——寵物不用親自跑過去。",
+          "右鍵點寵物 → 戳戳好友，或使用好友、聊天和個人檔案裡的「戳一下」按鈕。",
+          "好友會收到通知（「Wendy 在捉弄你！」），寵物會有反應，一鍵就能戳回去。",
+          "專注時段中的戳戳會等到休息時再顯示；寵物隱藏時會顯示在螢幕角落。",
+          "不想被戳？個人檔案 → 取消勾選「允許好友戳我、搔癢和捉弄我」。"
+        ],
+        "zh_CN": [
+          "远程戳一下、挠痒痒、捉弄、点鼻子或抱抱好友——宠物不用亲自跑过去。",
+          "右键点宠物 → 戳戳好友，或使用好友、聊天和个人资料里的“戳一下”按钮。",
+          "好友会收到通知（“Wendy 在捉弄你！”），宠物会有反应，一键就能戳回去。",
+          "专注时段中的戳戳会等到休息时再显示；宠物隐藏时会显示在屏幕角落。",
+          "不想被戳？个人资料 → 取消勾选“允许好友戳我、挠痒和捉弄我”。"
+        ]
+      }
+    },
+    {
       "version": "2.13.1",
       "date": "2026-10-28",
       "title": "One-click Windows installer",
