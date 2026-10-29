@@ -1883,3 +1883,11 @@ body {
     font-size: 0.8125rem;
   }
 }
+
+/* 1.11.3: zone editing */
+.ptz-zones-edit { display: inline-flex; gap: 6px; }
+.ptz-zones-edit[hidden] { display: none; }
+.ptz-zone-list { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+.ptz-zone-chip { display: inline-flex; align-items: center; gap: 6px; }
+.ptz-zone-x { color: #ef4444; font-weight: 700; }
+.ptz-zones-help { margin: 2px 0 8px; font-size: 0.85em; opacity: 0.85; }

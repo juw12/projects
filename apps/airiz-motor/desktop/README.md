@@ -9,7 +9,7 @@ is required to use the installed app or its hardware-free demo.
 ## Downloads
 
 Windows x64 releases are published under the app-specific tag
-`airiz-desktop-v1.11.2` in this repository's Releases section.
+`airiz-desktop-v1.11.3` in this repository's Releases section.
 
 - **Installer**: assisted, per-user installation with Start-menu/desktop shortcuts
   and an uninstaller. The wizard lets the user choose the installation directory.
@@ -163,6 +163,19 @@ reports whether a framed firmware reply came back. Results can be exported.
 No pairing is accepted without confirmation and no motor command is sent.
 Another program on the PC still cannot open COM4 while this app holds it: that is
 a Windows serial-port rule, which is why the check runs inside the app.
+
+## 1.11.3: Zones you can delete and cancel
+
+* **What zones do, on screen:** *Draw zones* and the Smart detection panel explain that only motion inside a
+  zone counts (photo, clip, auto-track, spotlight, siren, alerts) and that no zones = the whole picture.
+* **Delete one zone:** zones are numbered 1-4 on the live view; the red × in a zone's corner deletes it, and so
+  do the *Zone N* buttons under Smart detection (the others are renumbered). *Clear zones* still deletes all.
+* **Cancel:** Esc or right-click while dragging drops that box. *Cancel* (next to *Draw zones*) restores the
+  zones from before *Draw zones* was opened; *Done* keeps the changes.
+* **At most 4 zones, no surprise:** a fifth zone is refused with a message; before, the oldest zone was
+  silently dropped.
+* Tested: zone unit tests (add / hit test / delete / mask) and a 21-check browser run in English and
+  Traditional Chinese with the demo AIRIZ and a fake camera.
 
 ## 1.11.2: Listen clips of any length
 

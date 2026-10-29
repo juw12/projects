@@ -24,7 +24,7 @@ A downloadable Windows x64 desktop edition now bundles this entire console local
 It is not a website shortcut and does not require Chrome, Edge, Node or Python to run.
 Installer and portable preview builds are available at:
 
-https://github.com/juw12/projects/releases/tag/airiz-desktop-v1.11.2
+https://github.com/juw12/projects/releases/tag/airiz-desktop-v1.11.3
 
 The initial binaries are unsigned. The packaged app was tested with demo/synthetic
 hardware; real-device bench validation is still required. Browser and mobile-web
@@ -56,6 +56,13 @@ streams the AIRIZ microphone back in 2-second clips, about 4 s behind live. Phon
 that has the AIRIZ on USB. Stop motor still works and also interrupts a message being sent. Tested
 against a simulated AIRIZ shell (busybox), not yet on real AIRIZ hardware; the sound format and the
 record/play commands can be changed under *Voice settings*.
+
+**Zones you can delete and cancel (1.11.3):** detection zones decide where Smart detection looks: only
+motion inside a zone triggers the photo, clip, auto-track, spotlight, siren and alerts; no zones = the whole
+picture. *Draw zones* now says so, numbers each zone and puts an × on it to delete it (also as *Zone N* buttons
+under Smart detection). Esc or right-click cancels the box being drawn, *Cancel* brings back the zones from
+before *Draw zones*, *Done* keeps them. A fifth zone is refused with a message instead of silently replacing
+the oldest. Zones are parts of the picture, not of the room.
 
 **Listen clips of any length (1.11.2):** the listen clip length under *Voice settings* takes any
 whole number of seconds from 1 to 3600 (it was limited to 1-4 s). Each clip is heard after it has been

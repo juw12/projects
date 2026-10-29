@@ -1136,7 +1136,16 @@
     "Listen clip length: 1 s to 3600 s. Longer clips have fewer gaps, but each clip is heard only after it has been recorded (about the clip length + 2 s behind live) and the AIRIZ needs about 63 kB of free memory per second of clip. A new length is used the next time you press Listen.": "收聽片段長度：1 到 3600 秒。片段越長，空檔越少，但每段要錄完才會聽到（比即時慢約「片段長度 + 2 秒」），而且片段每秒約需要 AIRIZ 63 kB 的可用記憶體。新的長度會在下次按「收聽」時生效。",
     "Listen clips of any length (1.11.2)": "任意長度的收聽片段 (1.11.2)",
     "The Listen clip length is no longer limited to 4 s: choose anything from 1 s to an hour under Voice settings. Longer clips have fewer gaps; each clip is heard after it has been recorded. The AIRIZ checks that it has memory for the clip first, Stop ends the sound at once, and pressing Listen again while a long clip is still recording waits for it instead of failing.": "收聽片段長度不再限制為 4 秒：可在「語音設定」中選擇 1 秒到 1 小時。片段越長，空檔越少；每段錄完後才會聽到。AIRIZ 會先確認有足夠的記憶體存放片段，按「停止」會立即停止聲音，而在長片段還在錄音時再按「收聽」，會等它錄完而不會失敗。",
-    "The AIRIZ is finishing its previous clip first…": "AIRIZ 正在先完成上一段片段…"
+    "The AIRIZ is finishing its previous clip first…": "AIRIZ 正在先完成上一段片段…",
+    "Done": "完成",
+    "Zones tell Smart detection where to look: only motion inside a box counts. Drag to draw a box (up to 4), click the × on a box to delete it, Esc or right-click cancels the box you are drawing.": "偵測區域告訴智慧偵測要看哪裡：只有框內的動作才算數。拖曳可畫出一個框（最多 4 個），點框上的 × 可刪除，按 Esc 或右鍵可取消正在畫的框。",
+    "Up to 4 zones: delete one first (× on the zone, or in the list under Smart detection).": "最多 4 個偵測區域：請先刪除一個（點區域上的 ×，或智慧偵測下方清單中的區域）。",
+    "Zone drawing cancelled.": "已取消畫偵測區域。",
+    "Zone changes cancelled.": "已取消偵測區域的變更。",
+    "No zones: Smart detection watches the whole picture.": "沒有偵測區域：智慧偵測會監看整個畫面。",
+    "All zones deleted: Smart detection watches the whole picture.": "已刪除所有偵測區域：智慧偵測會監看整個畫面。",
+    "Zones you can delete and cancel (1.11.3)": "可刪除與取消的偵測區域 (1.11.3)",
+    "Draw zones now explains what zones do: only motion inside a zone counts for Smart detection, no zones means the whole picture. Each zone is numbered and has an × to delete it; Esc or right-click cancels the box you are drawing; Cancel brings back the zones you had before, Done keeps them. A fifth zone is refused instead of the oldest one disappearing.": "「畫偵測區域」現在會說明區域的用途：只有區域內的動作才會觸發智慧偵測，沒有區域就是整個畫面。每個區域都有編號和可刪除的 ×；按 Esc 或右鍵可取消正在畫的框；「取消」會還原之前的區域，「完成」則保留。第 5 個區域會被拒絕，不再讓最舊的區域自動消失。"
   },
   "html": {
     "AIRIZDEVICE LAB": "AIRIZ<small>裝置實驗室</small>",
@@ -1232,7 +1241,8 @@
     "Stop motor always works and also stops a message that is being sent. If the AIRIZ does not play or record with the defaults, change the sound format or the commands under Voice settings.": "<strong>停止馬達</strong>隨時有效，也會停止正在傳送的訊息。如果 AIRIZ 用預設值無法播放或錄音，請在<em>語音設定</em>中更改聲音格式或指令。",
     "No PC? An Android phone can be the AIRIZ console: power the AIRIZ from its charger, plug the FT232R cable into the phone with a USB-OTG adapter, open this console in Chrome and press Connect. Keep the page open; Share control then lets other phones control the AIRIZ by code. An iPhone cannot do this (no USB serial).": "沒有 PC？<strong>Android 手機</strong>也能當 AIRIZ 主控台：AIRIZ 接充電器供電，用 USB-OTG 轉接頭把 FT232R 傳輸線接到手機，以 <strong>Chrome</strong> 開啟本主控台並按 <strong>連接裝置</strong>。請保持頁面開啟；之後用 <strong>分享控制</strong> 就能讓其他手機以代碼控制 AIRIZ。iPhone 無法這樣做（不支援 USB 序列埠）。",
     "A phone can share too: an Android phone connected to the AIRIZ by USB (see Getting started) shows Share control like a PC and keeps its screen on while sharing. Its Share control window has its own Stop motor button.": "手機也能分享：以 USB 連接 AIRIZ 的 Android 手機（見「入門」）跟 PC 一樣有 <strong>分享控制</strong>，分享時會保持螢幕開啟。它的分享控制視窗也有自己的 <strong>停止馬達</strong> 按鈕。",
-    "PTZ live view: click the picture to center that spot, hold an arrow to move (release = stop) and use the wheel for digital zoom. Set Home, soft limits and up to 12 saved positions; Auto scan visits them in turn. A phone or PC that controls by code uses the camera position of the console with the AIRIZ cable, so its Go home brings the real camera home, also when someone else moved it.": "<strong>PTZ 即時畫面</strong>：點擊畫面可將該點置中，按住箭頭移動（放開 = 停止），滾輪可數位變焦。可設定<strong>原點</strong>、軟體限位與最多 12 個預設位置；<strong>自動巡航</strong>會依序巡視這些位置。以代碼控制的手機或電腦會使用接著 AIRIZ 傳輸線的主控台所記錄的攝影機位置，所以按<strong>回到原點</strong>時，即使別人移動過攝影機，也會回到真正的原點。"
+    "PTZ live view: click the picture to center that spot, hold an arrow to move (release = stop) and use the wheel for digital zoom. Set Home, soft limits and up to 12 saved positions; Auto scan visits them in turn. A phone or PC that controls by code uses the camera position of the console with the AIRIZ cable, so its Go home brings the real camera home, also when someone else moved it.": "<strong>PTZ 即時畫面</strong>：點擊畫面可將該點置中，按住箭頭移動（放開 = 停止），滾輪可數位變焦。可設定<strong>原點</strong>、軟體限位與最多 12 個預設位置；<strong>自動巡航</strong>會依序巡視這些位置。以代碼控制的手機或電腦會使用接著 AIRIZ 傳輸線的主控台所記錄的攝影機位置，所以按<strong>回到原點</strong>時，即使別人移動過攝影機，也會回到真正的原點。",
+    "Zones decide where Smart detection looks: only motion inside a zone counts (photo, clip, auto-track, spotlight, siren, alerts). No zones = the whole picture. Draw them with Draw zones on the live view; a zone is a part of the picture, not of the room, so after the camera turns it covers whatever is in that part of the picture.": "偵測區域決定智慧偵測要看哪裡：只有區域內的動作才算數（照片、影片、自動追蹤、聚光燈、警報、通知）。沒有區域 = 整個畫面。請在即時畫面上用<em>畫偵測區域</em>來畫；區域是畫面的一部分，不是房間的一部分，所以相機轉動後，區域會涵蓋畫面那個位置上的任何東西。"
   },
   "patterns": [
     [
@@ -1974,6 +1984,26 @@
     [
       "^The AIRIZ has only (\\S+) MB free for clips of (\\d+) s \\(about (\\S+) MB needed\\)\\. Choose a shorter listen clip length\\.$",
       "AIRIZ 只剩 $1 MB 可用空間，$2 秒的片段約需要 $3 MB。請選擇較短的收聽片段長度。"
+    ],
+    [
+      "^Zone (\\d+)$",
+      "區域 $1"
+    ],
+    [
+      "^Delete zone (\\d+)$",
+      "刪除區域 $1"
+    ],
+    [
+      "^Zone (\\d+) deleted\\.$",
+      "已刪除區域 $1。"
+    ],
+    [
+      "^Zone (\\d+) added\\. Only motion inside the zones counts\\.$",
+      "已新增區域 $1。只有區域內的動作才算數。"
+    ],
+    [
+      "^Zones saved: Smart detection watches (\\d+) zones?\\.$",
+      "已儲存偵測區域：智慧偵測會監看 $1 個區域。"
     ]
   ]
 }
