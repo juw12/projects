@@ -157,7 +157,8 @@ let state = {
   cryptoMode: false,
   verifyGates: {},
   generatedFiles: {},
-  currentFile: null
+  currentFile: null,
+  unlocked: false
 };
 
 // Seeded random number generator for deterministic outputs
@@ -445,7 +446,11 @@ async function handleUnlock(event) {
   const passphrase = document.getElementById('unlock-passphrase').value;
   const errorEl = document.getElementById('gate-error');
   
-  if (!state.workspace || state.workspace.name !== name) {
+  // A guest detour replaces state.workspace in memory; always unlock against the stored record.
+  const storedWorkspace = loadStoredWorkspace();
+  if (storedWorkspace) state.workspace = storedWorkspace;
+  
+  if (!state.workspace || state.workspace.guestMode || state.workspace.name !== name) {
     errorEl.textContent = 'Workspace not found';
     errorEl.style.display = 'block';
     return;
@@ -476,7 +481,18 @@ async function handleUnlock(event) {
       state.cryptoKey = key;
       state.projects = parsed.projects || [];
       state.cryptoMode = true;
+      // Older versions could write projects in plain text while signed out; fold them back in
+      // (encrypted on the next save) instead of leaving a readable copy behind.
+      const stray = readLegacyPlaintextProjects();
+      const recovered = mergeProjectLists(state.projects, stray);
+      state.projects = recovered.projects;
       enterApp();
+      if (stray.length) {
+        saveState().then(saved => {
+          if (saved) localStorage.removeItem(LEGACY_PLAINTEXT_KEY);
+        });
+        if (recovered.added) showToast(`Recovered ${recovered.added} unsaved project(s)`);
+      }
     } catch (e) {
       errorEl.textContent = 'Wrong passphrase. Try again.';
       errorEl.style.display = 'block';
@@ -491,18 +507,56 @@ async function handleUnlock(event) {
       errorEl.style.display = 'block';
       return;
     }
+    let saved = [];
     try {
       const unencrypted = state.workspace.unencryptedState;
-      if (unencrypted) {
-        const parsed = JSON.parse(unencrypted);
-        state.projects = parsed.projects || [];
-      }
+      if (unencrypted) saved = JSON.parse(unencrypted).projects || [];
     } catch (e) {
-      state.projects = [];
+      saved = [];
     }
+    // Versions before v20 saved this profile under a separate key that unlock never read.
+    const legacy = readLegacyPlaintextProjects();
+    state.projects = mergeProjectLists(legacy, saved).projects;
     state.cryptoMode = false;
     enterApp();
+    if (legacy.length) saveState();
   }
+}
+
+const LEGACY_PLAINTEXT_KEY = STORAGE_KEYS.STATE + '_unencrypted';
+
+function loadStoredWorkspace() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.WORKSPACE);
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function readLegacyPlaintextProjects() {
+  try {
+    const raw = localStorage.getItem(LEGACY_PLAINTEXT_KEY);
+    const parsed = raw ? JSON.parse(raw) : null;
+    return parsed && Array.isArray(parsed.projects) ? parsed.projects : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+// Keep every project from `primary`, then add the ones from `extra` it does not have yet.
+function mergeProjectLists(primary, extra) {
+  const projects = (primary || []).slice();
+  const known = new Set(projects.map(p => p && p.id));
+  let added = 0;
+  (extra || []).forEach(project => {
+    if (project && project.id && !known.has(project.id)) {
+      projects.push(project);
+      known.add(project.id);
+      added++;
+    }
+  });
+  return { projects, added };
 }
 
 function simpleHash(str) {
@@ -977,6 +1031,7 @@ function generateNewsletter(project) {
 }
 
 function enterApp() {
+  state.unlocked = true;
   document.getElementById('section-gate').style.display = 'none';
   document.getElementById('main-nav').style.display = 'flex';
   document.getElementById('workspace-chip').style.display = 'inline-flex';
@@ -1000,6 +1055,8 @@ function setDisplay(id, value) {
 }
 
 function signOut() {
+  // Lock first so nothing (timers, sync merges, late saves) can write while signed out.
+  state.unlocked = false;
   state.cryptoKey = null;
   state.projects = [];
   state.currentProject = null;
@@ -1008,28 +1065,34 @@ function signOut() {
   state.currentFile = null;
   
   localStorage.removeItem(STORAGE_KEYS.GUEST);
+  // Forget a guest session: the gate unlocks the stored workspace (if there is one).
+  state.workspace = loadStoredWorkspace();
+  state.cryptoMode = !!(state.workspace && state.workspace.cryptoMode);
   
+  // Hide every app section — including ones added by modules (e.g. Studio).
+  document.querySelectorAll('main .section').forEach(section => {
+    if (section.id === 'section-gate') return;
+    section.classList.remove('active');
+    section.style.display = 'none';
+  });
   setDisplay('section-gate', 'block');
-  setDisplay('section-catalog', 'none');
-  setDisplay('section-brief', 'none');
-  setDisplay('section-plan', 'none');
-  setDisplay('section-verify', 'none');
-  setDisplay('section-generate', 'none');
-  setDisplay('section-guide', 'none');
-  setDisplay('section-operator', 'none');
+  document.getElementById('section-gate').classList.add('active');
   setDisplay('main-nav', 'none');
   setDisplay('workspace-chip', 'none');
   setDisplay('signout-btn', 'none');
   setDisplay('nav-plan', 'none');
   setDisplay('nav-verify', 'none');
   setDisplay('nav-generate', 'none');
+  setDisplay('nav-studio', 'none');
   
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-  showGate('unlock');
+  showGate(state.workspace ? 'unlock' : 'create');
   document.getElementById('unlock-passphrase').value = '';
 }
 
 function navigateTo(section) {
+  // Locked (gate showing): bottom-nav taps, shortcuts or stale links must not open the app.
+  if (!state.unlocked) return;
   document.querySelectorAll('.section').forEach(s => {
     s.classList.remove('active');
     setTimeout(() => { if (!s.classList.contains('active')) s.style.display = 'none'; }, 240);
@@ -1435,25 +1498,63 @@ function exportProjectJSON() {
   showToast('Project exported as JSON');
 }
 
-async function saveState() {
+// Saves run one at a time, in order. Each one snapshots the latest state when it starts, so a
+// slow encryption can never finish after (and overwrite) a newer save.
+let saveQueue = Promise.resolve(true);
+
+function saveState() {
+  saveQueue = saveQueue.then(writeStateNow, writeStateNow);
+  return saveQueue;
+}
+
+function isQuotaError(error) {
+  return !!error && (error.name === 'QuotaExceededError' || error.name === 'NS_ERROR_DOM_QUOTA_REACHED' || error.code === 22 || error.code === 1014);
+}
+
+// Resolves true when the state reached storage.
+async function writeStateNow() {
+  if (!state.unlocked || !state.workspace) return false;
   const stateData = JSON.stringify({ projects: state.projects, version: 1 });
-  
-  if (state.workspace && state.workspace.guestMode) {
-    localStorage.setItem(STORAGE_KEYS.STATE + '_guest', stateData);
-  } else if (state.cryptoMode && state.cryptoKey) {
-    try {
-      const encoder = new TextEncoder();
+  try {
+    if (state.workspace.guestMode) {
+      localStorage.setItem(STORAGE_KEYS.STATE + '_guest', stateData);
+    } else if (state.workspace.cryptoMode) {
+      // Never fall back to plain text for an encrypted workspace.
+      if (!state.cryptoKey) return false;
+      const key = state.cryptoKey;
       const iv = crypto.getRandomValues(new Uint8Array(12));
-      const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv: iv }, state.cryptoKey, encoder.encode(stateData));
-      localStorage.setItem(STORAGE_KEYS.STATE, JSON.stringify(Array.from(new Uint8Array(ciphertext))));
+      const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv: iv }, key, new TextEncoder().encode(stateData));
+      if (!state.unlocked || state.cryptoKey !== key) return false; // signed out meanwhile
+      const previousIv = state.workspace.iv;
+      const previousCiphertext = localStorage.getItem(STORAGE_KEYS.STATE);
       state.workspace.iv = Array.from(iv);
-      state.workspace.ciphertext = Array.from(new Uint8Array(ciphertext));
+      delete state.workspace.ciphertext; // older versions kept a second copy here, doubling storage use
+      try {
+        localStorage.setItem(STORAGE_KEYS.STATE, JSON.stringify(Array.from(new Uint8Array(ciphertext))));
+        try {
+          localStorage.setItem(STORAGE_KEYS.WORKSPACE, JSON.stringify(state.workspace));
+        } catch (error) {
+          // The IV and ciphertext must always match on disk: roll the ciphertext back.
+          if (previousCiphertext !== null) localStorage.setItem(STORAGE_KEYS.STATE, previousCiphertext);
+          throw error;
+        }
+      } catch (error) {
+        state.workspace.iv = previousIv;
+        throw error;
+      }
+    } else {
+      // Local profile without WebCrypto (e.g. plain http on a LAN address): stored with the
+      // workspace record, which is where unlock reads it back from.
+      state.workspace.unencryptedState = stateData;
       localStorage.setItem(STORAGE_KEYS.WORKSPACE, JSON.stringify(state.workspace));
-    } catch (e) {
-      showToast('Warning: Failed to encrypt data');
+      localStorage.removeItem(LEGACY_PLAINTEXT_KEY);
     }
-  } else {
-    localStorage.setItem(STORAGE_KEYS.STATE + '_unencrypted', stateData);
+    return true;
+  } catch (error) {
+    showToast(isQuotaError(error)
+      ? 'Browser storage is full — export your projects as JSON, then delete some'
+      : 'Could not save your changes in this browser');
+    return false;
   }
 }
 
@@ -1462,6 +1563,40 @@ function escapeHtml(str) {
   const div = document.createElement('div');
   div.textContent = str;
   return div.innerHTML;
+}
+
+// Copy text and say whether it worked. Falls back to a hidden textarea where the async
+// Clipboard API is missing (plain http) or refused (permissions, unfocused page).
+function copyTextToClipboard(text, successMessage) {
+  const done = () => showToast(successMessage || 'Copied to clipboard');
+  const fallback = () => {
+    if (legacyCopyText(text)) done();
+    else showToast('Copy failed — select the text and copy it manually');
+  };
+  if (navigator.clipboard && window.isSecureContext) {
+    return navigator.clipboard.writeText(String(text)).then(done, fallback);
+  }
+  fallback();
+  return Promise.resolve();
+}
+
+function legacyCopyText(text) {
+  const area = document.createElement('textarea');
+  area.value = String(text);
+  area.setAttribute('readonly', '');
+  area.style.position = 'fixed';
+  area.style.top = '-1000px';
+  area.style.opacity = '0';
+  document.body.appendChild(area);
+  area.select();
+  let copied = false;
+  try {
+    copied = document.execCommand('copy');
+  } catch (e) {
+    copied = false;
+  }
+  area.remove();
+  return copied;
 }
 
 function showToast(message) {
@@ -1474,6 +1609,7 @@ function showToast(message) {
 // === M2: VERIFY VIEW ===
 function renderVerifyView(project) {
   const gatesContainer = document.getElementById('verify-gates');
+  if (!gatesContainer || !project) return;
   gatesContainer.innerHTML = '';
   
   const gates = getVerifyGates(project);
@@ -1551,15 +1687,17 @@ function generateVerifyCommands(project) {
   const commands = [];
   
   if (hasBackend) {
-    commands.push('# Smoke test (backend)');
+    commands.push('# Smoke test (backend) — boots the server on a free port and checks /, /health and assets');
+    commands.push('python tests/test_smoke.py');
+    commands.push('# Or by hand:');
     commands.push('python server/server.py &');
     commands.push('curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/');
     commands.push('curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/health');
     commands.push('');
   } else {
-    commands.push('# Smoke test (static)');
-    commands.push('# Open web/index.html from file:// in browser');
-    commands.push('# Check browser console: expect 0 errors');
+    commands.push('# Smoke test (static) — files exist and every reference in index.html resolves');
+    commands.push('python tests/test_smoke.py');
+    commands.push('# Then open web/index.html from file:// and check the console: expect 0 errors');
     commands.push('');
   }
   
@@ -1592,7 +1730,7 @@ function generateVerifyCommands(project) {
 
 function copyVerifyCommands() {
   const code = document.getElementById('verify-commands-code').textContent;
-  navigator.clipboard.writeText(code).then(() => showToast('Commands copied to clipboard'));
+  copyTextToClipboard(code, 'Commands copied to clipboard');
 }
 
 function markVerified() {
@@ -1607,10 +1745,11 @@ function markVerified() {
 
 // === M3: GENERATE VIEW ===
 function renderGenerateView(project) {
+  const fileList = document.getElementById('generate-file-list');
+  if (!fileList || !project) return;
   state.generatedFiles = generateProjectFiles(project);
   state.currentFile = null;
   
-  const fileList = document.getElementById('generate-file-list');
   fileList.innerHTML = '';
   
   Object.keys(state.generatedFiles).forEach(filename => {
@@ -1630,10 +1769,44 @@ function renderGenerateView(project) {
   document.getElementById('generate-memory-note').textContent = memoryNote;
 }
 
+// --- Text helpers for generated files -------------------------------------------------
+// HTML gets entities; Markdown, YAML, Python, shell and JS each get their own safe quoting,
+// so a name like  Mom's "Best" <Recipes> & Co  survives in every file.
+function scaffoldText(value) {
+  return String(value == null ? '' : value).replace(/\r\n?/g, '\n').trim();
+}
+
+function scaffoldLine(value) {
+  return scaffoldText(value).replace(/\s+/g, ' ');
+}
+
+function escapeHtmlAttr(value) {
+  return escapeHtml(scaffoldLine(value)).replace(/"/g, '&quot;');
+}
+
+function shellQuote(value) {
+  return "'" + scaffoldLine(value).replace(/'/g, "'\\''") + "'";
+}
+
+function powershellQuote(value) {
+  return "'" + scaffoldLine(value).replace(/'/g, "''") + "'";
+}
+
+function pythonDocText(value) {
+  return scaffoldLine(value).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+}
+
+function yamlQuote(value) {
+  // JSON strings are valid YAML double-quoted scalars (colons, quotes, # stay literal).
+  return JSON.stringify(scaffoldLine(value));
+}
+
 function generateProjectFiles(project) {
   const hasBackend = project.capabilityMatrix.backend.on;
-  const appName = escapeHtml(project.name);
-  const kebabName = toKebabCase(project.name);
+  const appName = scaffoldLine(project.name) || 'New App';
+  const oneLiner = scaffoldLine(project.oneLiner);
+  const htmlName = escapeHtml(appName);
+  const kebabName = toKebabCase(appName) || 'app';
   
   const files = {};
   
@@ -1643,19 +1816,22 @@ function generateProjectFiles(project) {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>${appName}</title>
+<meta name="description" content="${escapeHtmlAttr(oneLiner)}">
+<title>${htmlName}</title>
+<link rel="icon" href="data:,">
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 <header class="masthead">
-  <h1 class="masthead-title">${appName.toUpperCase()}</h1>
+  <h1 class="masthead-title">${htmlName}</h1>
 </header>
-<main class="main">
-  <p>${escapeHtml(project.oneLiner)}</p>
+<main class="main" id="app">
+  <p>${escapeHtml(oneLiner)}</p>
 </main>
 <script src="app.js"></script>
 </body>
-</html>`;
+</html>
+`;
   
   // web/styles.css
   files['web/styles.css'] = `:root{
@@ -1666,78 +1842,190 @@ function generateProjectFiles(project) {
   --font-heading:Georgia,'Times New Roman',serif;
   --font-body:Georgia,'Times New Roman',serif;
 }
-body{font-family:var(--font-body);background:var(--color-outer);color:var(--color-ink);margin:0}
+*{box-sizing:border-box}
+body{font-family:var(--font-body);background:var(--color-outer);color:var(--color-ink);margin:0;line-height:1.5}
 .masthead{padding:24px;background:var(--color-paper);border-bottom:3px solid var(--color-accent)}
-.masthead-title{font-family:var(--font-heading);color:var(--color-accent);letter-spacing:0.14em;text-transform:uppercase}
-.main{max-width:800px;margin:0 auto;padding:32px}`;
+.masthead-title{margin:0;font-family:var(--font-heading);color:var(--color-accent);letter-spacing:0.14em;text-transform:uppercase;overflow-wrap:anywhere}
+.main{max-width:800px;margin:0 auto;padding:32px 16px}
+`;
   
-  // web/app.js
-  files['web/app.js'] = `// ${appName} — ${escapeHtml(project.oneLiner)}
-console.log('${appName} loaded');`;
+  // web/app.js — names go through JSON.stringify, so quotes can never break the script
+  files['web/app.js'] = `// ${appName}${oneLiner ? ' — ' + oneLiner : ''}
+(function () {
+  'use strict';
+
+  const APP_NAME = ${JSON.stringify(appName)};
+
+  document.addEventListener('DOMContentLoaded', function () {
+    document.documentElement.setAttribute('data-ready', 'true');
+    console.info(APP_NAME + ' loaded');
+  });
+})();
+`;
   
-  // server/server.py (if backend)
+  // server/server.py (if backend) — serves all of web/ plus /health, from any working directory
   if (hasBackend) {
     files['server/server.py'] = `#!/usr/bin/env python3
-"""${appName} — zero-dependency stdlib server."""
-import http.server
-import socketserver
-import json
+"""${pythonDocText(appName)} — zero-dependency stdlib server.
 
-PORT = 8000
+Serves web/ and GET /health. Works from any directory:
+    python server/server.py            -> http://localhost:8000
+    PORT=9000 python server/server.py
+"""
+import http.server
+import json
+import mimetypes
+import os
+import socketserver
+import sys
+from urllib.parse import unquote
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+WEB_DIR = os.path.realpath(os.path.join(ROOT, "web"))
+HOST = os.environ.get("HOST", "127.0.0.1")
+PORT = int(os.environ.get("PORT", "8000"))
+TYPES = {
+    ".html": "text/html; charset=utf-8",
+    ".css": "text/css; charset=utf-8",
+    ".js": "text/javascript; charset=utf-8",
+    ".json": "application/json",
+    ".svg": "image/svg+xml",
+    ".png": "image/png",
+    ".ico": "image/x-icon",
+    ".webmanifest": "application/manifest+json",
+    ".txt": "text/plain; charset=utf-8",
+}
+
 
 class Handler(http.server.BaseHTTPRequestHandler):
-    def do_GET(self):
-        if self.path == '/' or self.path == '/index.html':
-            self.send_response(200)
-            self.send_header('Content-type', 'text/html')
-            self.end_headers()
-            with open('../web/index.html', 'rb') as f:
-                self.wfile.write(f.read())
-        elif self.path == '/health':
-            self.send_response(200)
-            self.send_header('Content-type', 'application/json')
-            self.end_headers()
-            self.wfile.write(json.dumps({'status': 'ok'}).encode())
-        else:
-            self.send_response(404)
-            self.end_headers()
-    
-    def log_message(self, format, *args):
-        print("[{}] {}".format(self.log_date_time_string(), format % args))
+    def send_body(self, status, body, content_type):
+        self.send_response(status)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        if self.command != "HEAD":
+            self.wfile.write(body)
 
-if __name__ == '__main__':
-    with socketserver.TCPServer(('', PORT), Handler) as httpd:
-        print('Serving at http://localhost:{}'.format(PORT))
-        httpd.serve_forever()`;
+    def do_HEAD(self):
+        self.do_GET()
+
+    def do_GET(self):
+        path = unquote(self.path.split("?", 1)[0].split("#", 1)[0])
+        if path == "/health":
+            self.send_body(200, json.dumps({"status": "ok"}).encode("utf-8"), "application/json")
+            return
+        if path in ("", "/"):
+            path = "/index.html"
+        target = os.path.realpath(os.path.join(WEB_DIR, path.lstrip("/")))
+        if not target.startswith(WEB_DIR + os.sep) or not os.path.isfile(target):
+            self.send_body(404, b"Not found", "text/plain; charset=utf-8")
+            return
+        extension = os.path.splitext(target)[1].lower()
+        content_type = TYPES.get(extension) or mimetypes.guess_type(target)[0] or "application/octet-stream"
+        with open(target, "rb") as handle:
+            self.send_body(200, handle.read(), content_type)
+
+    def log_message(self, format, *args):
+        print("[%s] %s" % (self.log_date_time_string(), format % args), file=sys.stderr)
+
+
+class Server(socketserver.ThreadingMixIn, http.server.HTTPServer):
+    daemon_threads = True
+    allow_reuse_address = True
+
+
+def make_server(port=PORT, host=HOST):
+    return Server((host, port), Handler)
+
+
+if __name__ == "__main__":
+    httpd = make_server()
+    print("Serving %s at http://localhost:%d" % (WEB_DIR, httpd.server_address[1]))
+    try:
+        httpd.serve_forever()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        httpd.server_close()
+`;
   }
   
-  // tests/test_smoke.py
+  // tests/test_smoke.py — checks the files exist and wire up; boots the server when there is one
   files['tests/test_smoke.py'] = `#!/usr/bin/env python3
-"""Smoke test for ${appName}."""
+"""Smoke test for ${pythonDocText(appName)} (stdlib only).
+
+Run from anywhere: python tests/test_smoke.py   (exit code 0 = pass)
+"""
+import os
+import re
 import sys
+import threading
+import urllib.request
 
-def test_import():
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+WEB_DIR = os.path.join(ROOT, "web")
+HAS_SERVER = ${hasBackend ? 'True' : 'False'}
+failures = []
+
+
+def check(condition, message):
+    print(("ok - " if condition else "FAIL - ") + message)
+    if not condition:
+        failures.append(message)
+
+
+def test_static_files():
+    for name in ("index.html", "styles.css", "app.js"):
+        check(os.path.isfile(os.path.join(WEB_DIR, name)), "web/%s exists" % name)
+    index_path = os.path.join(WEB_DIR, "index.html")
+    if not os.path.isfile(index_path):
+        return
+    with open(index_path, encoding="utf-8") as handle:
+        html = handle.read()
+    check("<title>" in html, "index.html has a <title>")
+    for ref in re.findall(r'(?:src|href)="([^"#:]+)"', html):
+        target = os.path.join(WEB_DIR, ref.split("?", 1)[0])
+        check(os.path.isfile(target), "index.html reference %s resolves" % ref)
+
+
+def test_server():
+    sys.path.insert(0, os.path.join(ROOT, "server"))
+    import server
+
+    server.Handler.log_message = lambda *args: None  # keep test output readable
+    httpd = server.make_server(0, "127.0.0.1")
+    threading.Thread(target=httpd.serve_forever, daemon=True).start()
+    base = "http://127.0.0.1:%d" % httpd.server_address[1]
+    # Talk to localhost directly, even when HTTP(S)_PROXY is set.
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
     try:
-        import http.server
-        return True
-    except ImportError:
-        return False
+        for path in ("/", "/health", "/styles.css", "/app.js"):
+            try:
+                with opener.open(base + path, timeout=5) as response:
+                    check(response.status == 200, "GET %s -> 200" % path)
+            except Exception as error:
+                check(False, "GET %s -> %s" % (path, error))
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
 
-if __name__ == '__main__':
-    if test_import():
-        print('ok - imports work')
-        sys.exit(0)
-    print('FAIL - imports broken')
-    sys.exit(1)`;
+
+if __name__ == "__main__":
+    test_static_files()
+    if HAS_SERVER:
+        test_server()
+    print("%d failure(s)" % len(failures) if failures else "All smoke checks passed")
+    sys.exit(1 if failures else 0)
+`;
   
   // verify.ps1
-  files['verify.ps1'] = `# ${appName} — Verification script (PowerShell)
-Write-Host "Running verification for ${appName}..."
+  files['verify.ps1'] = `# ${appName} — verification script (PowerShell). Run from anywhere.
+Set-Location -LiteralPath $PSScriptRoot
+$appName = ${powershellQuote(appName)}
+Write-Host "Running verification for $appName..."
 
-# Check web files exist
-$webFiles = @('web/index.html', 'web/styles.css', 'web/app.js')
-foreach ($file in $webFiles) {
-    if (Test-Path $file) {
+foreach ($file in @('web/index.html', 'web/styles.css', 'web/app.js')) {
+    if (Test-Path -LiteralPath $file) {
         Write-Host "ok - $file exists"
     } else {
         Write-Host "FAIL - $file missing"
@@ -1745,13 +2033,27 @@ foreach ($file in $webFiles) {
     }
 }
 
-Write-Host "All checks passed"
-exit 0`;
+$python = @('python', 'py', 'python3') | Where-Object { Get-Command $_ -ErrorAction SilentlyContinue } | Select-Object -First 1
+if ($python) {
+    & $python tests/test_smoke.py
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host 'FAIL - smoke test'
+        exit 1
+    }
+} else {
+    Write-Host 'skip - Python not found, smoke test not run'
+}
+
+Write-Host 'All checks passed'
+exit 0
+`;
   
   // verify.sh
-  files['verify.sh'] = `#!/bin/bash
-# ${appName} — Verification script (Unix)
-echo "Running verification for ${appName}..."
+  files['verify.sh'] = `#!/usr/bin/env bash
+# ${appName} — verification script (Unix). Run from anywhere.
+cd "$(dirname "$0")" || exit 1
+APP_NAME=${shellQuote(appName)}
+echo "Running verification for $APP_NAME..."
 
 for file in web/index.html web/styles.css web/app.js; do
     if [ -f "$file" ]; then
@@ -1762,25 +2064,36 @@ for file in web/index.html web/styles.css web/app.js; do
     fi
 done
 
+PYTHON="$(command -v python3 || command -v python)"
+if [ -n "$PYTHON" ]; then
+    "$PYTHON" tests/test_smoke.py || { echo "FAIL - smoke test"; exit 1; }
+else
+    echo "skip - Python not found, smoke test not run"
+fi
+
 echo "All checks passed"
-exit 0`;
+exit 0
+`;
   
   files['docs/BRIEF.md'] = `# BRIEF — ${appName}
 
+${oneLiner}
+
 ## Problem
-${escapeHtml(project.problem)}
+${scaffoldText(project.problem)}
 
 ## Target user
-${escapeHtml(project.targetUser)}
+${scaffoldText(project.targetUser)}
 
 ## Job-to-be-done
-${escapeHtml(project.jtbd)}
+${scaffoldText(project.jtbd)}
 
 ## Success criteria
-${project.successChecks.map(c => `- ${c}`).join('\n')}
+${project.successChecks.map(c => `- ${scaffoldLine(c)}`).join('\n')}
 
 ## Non-goals
-${escapeHtml(project.nonGoals)}`;
+${scaffoldText(project.nonGoals)}
+`;
   
   const growPlan = generateGrowPlan(project);
   files['docs/GROW.md'] = `# GROW — ${appName}
@@ -1854,22 +2167,21 @@ Complete Build → Grow → Earn overview.
   // README.md
   files['README.md'] = `# ${appName}
 
-${escapeHtml(project.oneLiner)}
+${oneLiner}
 
 ## Problem
-${escapeHtml(project.problem)}
+${scaffoldText(project.problem)}
 
 ## Target user
-${escapeHtml(project.targetUser)}
+${scaffoldText(project.targetUser)}
 
 ## Quick start
 ${hasBackend ? `
 ### Backend
 \`\`\`bash
-cd server
-python server.py
+python server/server.py
 \`\`\`
-Then open http://localhost:8000
+Then open http://localhost:8000 (set \`PORT\` to change the port).
 ` : `
 ### Static
 Open \`web/index.html\` from \`file://\` in your browser.
@@ -1877,12 +2189,13 @@ Open \`web/index.html\` from \`file://\` in your browser.
 
 ## Verification
 \`\`\`bash
-${hasBackend ? 'python server/server.py &' : '# Open web/index.html from file://'}
-python tests/test_smoke.py
+python tests/test_smoke.py   # files + references${hasBackend ? ' + server (/, /health, assets)' : ''}
+./verify.sh                  # or: pwsh ./verify.ps1
 \`\`\`
 
 ## License
-MIT`;
+MIT
+`;
   
   // .gitignore
   files['.gitignore'] = `# Python
@@ -1910,36 +2223,39 @@ secrets/`;
 
 function generateMemoryNote(project) {
   const date = new Date().toISOString().split('T')[0];
-  const id = `${toKebabCase(project.name)}-${Date.now()}`;
+  const appName = scaffoldLine(project.name) || 'New App';
+  const id = `${toKebabCase(appName) || 'project'}-${Date.now()}`;
+  const audienceTag = toKebabCase(project.targetUser || '').split('-')[0];
+  const tags = ['sweep', 'plan'].concat(audienceTag ? [audienceTag] : []);
   
   const growPlan = generateGrowPlan(project);
   const earnPlan = generateEarnPlan(project);
   
   return `---
 id: ${id}
-app: ${escapeHtml(project.name)}
+app: ${yamlQuote(appName)}
 type: idea
 status: ${project.status}
 date: ${date}
-tags: [sweep, plan, ${toKebabCase(project.targetUser).split('-')[0]}]
+tags: [${tags.join(', ')}]
 links: []
 ---
 
-# ${escapeHtml(project.name)}
+# ${appName}
 
-${escapeHtml(project.oneLiner)}
+${scaffoldText(project.oneLiner)}
 
 ## Problem
-${escapeHtml(project.problem)}
+${scaffoldText(project.problem)}
 
 ## Target user
-${escapeHtml(project.targetUser)}
+${scaffoldText(project.targetUser)}
 
 ## Job-to-be-done
-${escapeHtml(project.jtbd)}
+${scaffoldText(project.jtbd)}
 
 ## Success criteria
-${project.successChecks.map(c => `- [ ] ${c}`).join('\n')}
+${project.successChecks.map(c => `- [ ] ${scaffoldLine(c)}`).join('\n')}
 
 ## Capability matrix
 - Backend: ${project.capabilityMatrix.backend.on ? 'ON' : 'OFF'}
@@ -1947,7 +2263,7 @@ ${project.successChecks.map(c => `- [ ] ${c}`).join('\n')}
 - Mobile: ${project.capabilityMatrix.mobile.on ? 'ON' : 'OFF'}
 
 ## Non-goals
-${escapeHtml(project.nonGoals)}
+${scaffoldText(project.nonGoals)}
 
 ## Grow
 ${growPlan.map(item => `- [ ] ${item.title}`).join('\n')}
@@ -1972,9 +2288,7 @@ function selectFile(filename) {
 
 function copyFileContent() {
   if (!state.currentFile || !state.generatedFiles[state.currentFile]) return;
-  navigator.clipboard.writeText(state.generatedFiles[state.currentFile]).then(() => {
-    showToast('File content copied');
-  });
+  copyTextToClipboard(state.generatedFiles[state.currentFile], 'File content copied');
 }
 
 function downloadFileContent() {
@@ -1993,7 +2307,7 @@ function downloadFileContent() {
 
 function copyMemoryNote() {
   const note = document.getElementById('generate-memory-note').textContent;
-  navigator.clipboard.writeText(note).then(() => showToast('Memory note copied'));
+  copyTextToClipboard(note, 'Memory note copied');
 }
 
 function downloadBundle() {
@@ -2795,7 +3109,7 @@ function copySiteVersion(versionIndex) {
   if (!version) return;
   
   const indexHtml = version.files['index.html'] || '';
-  navigator.clipboard.writeText(indexHtml).then(() => showToast('Site HTML copied'));
+  copyTextToClipboard(indexHtml, 'Site HTML copied');
 }
 
 function restoreSiteVersion(versionIndex) {
@@ -3624,7 +3938,7 @@ function attachDataHandlers() {
 function copyWorkspaceJson() {
   if (!state.currentProject) return;
   const json = JSON.stringify(state.currentProject, null, 2);
-  navigator.clipboard.writeText(json).then(() => showToast('Workspace JSON copied'));
+  copyTextToClipboard(json, 'Workspace JSON copied');
 }
 
 function wipeOperatorData() {
@@ -3665,7 +3979,7 @@ function renderBrandKit(op) {
       <div class="brand-kit-content">
         <div class="brand-logo">${op.brand.logoSvg}</div>
         <div class="brand-palette">
-          ${op.brand.palette.map(c => `<div class="brand-swatch" style="background:${c}" title="${c}" onclick="navigator.clipboard.writeText('${c}');showToast('Copied ${c}')"></div>`).join('')}
+          ${op.brand.palette.map(c => `<div class="brand-swatch" style="background:${c}" title="${c}" onclick="copyTextToClipboard('${c}', 'Copied ${c}')"></div>`).join('')}
         </div>
         <div class="brand-fonts">
           <div><strong>Heading:</strong> <span style="font-family:${op.brand.fonts.heading}">${op.brand.fonts.heading.split(',')[0]}</span></div>
@@ -3913,7 +4227,7 @@ function copyArtifactContent(artifactId) {
   if (!artifact) return;
   
   const content = artifact.copy || artifact.body || artifact.subject || JSON.stringify(artifact, null, 2);
-  navigator.clipboard.writeText(content).then(() => showToast('Content copied'));
+  copyTextToClipboard(content, 'Content copied');
 }
 
 function downloadArtifact(artifactId) {
@@ -3936,7 +4250,7 @@ function downloadArtifact(artifactId) {
 }
 
 function copyFileText(btn, content) {
-  navigator.clipboard.writeText(content).then(() => showToast('File content copied'));
+  copyTextToClipboard(content, 'File content copied');
 }
 
 function renderLedger(op) {
@@ -4097,7 +4411,7 @@ function copyPaymentsConfig() {
   currency: '${op.payments.currency.toLowerCase()}',
   product_data: { name: '${state.currentProject.name}' }
 };`;
-  navigator.clipboard.writeText(config).then(() => showToast('Config copied'));
+  copyTextToClipboard(config, 'Config copied');
 }
 
 function toggleAutopilot() {

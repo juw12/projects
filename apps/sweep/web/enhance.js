@@ -11,6 +11,15 @@
   const PREFS_KEY = 'sweep_prefs_v1';
   const DRAFT_KEY = 'sweep_brief_draft_v1';
   const PHASES = ['M0', 'M1', 'M2', 'M3'];
+  // Project pages that share the flow bar (v20).
+  const PROJECT_SECTIONS = ['plan', 'studio', 'verify', 'generate'];
+  const FLOW_STEPS = [
+    { key: 'plan', label: 'Plan' },
+    { key: 'studio', label: 'Studio' },
+    { key: 'verify', label: 'Verify' },
+    { key: 'generate', label: 'Generate' }
+  ];
+  const fileCounts = {};
   const STATUS_FILTERS = [
     { key: 'all', label: 'All' },
     { key: 'draft', label: 'Draft' },
@@ -293,6 +302,7 @@
         jumpToItem(nextButton.dataset.item);
       });
     }
+    renderFlowbar('plan');
   }
 
   function jumpToItem(itemId) {
@@ -427,6 +437,7 @@
     if (!project) return;
     persist(project);
     renderPlanProgress(project);
+    renderFlowbar('verify');
     const gates = getVerifyGates(project);
     const passed = gates.filter(function (gate, i) { return state.verifyGates['gate-' + i]; }).length;
     if (passed === gates.length && project.status !== 'verified') {
@@ -1472,16 +1483,24 @@
 
   const originalNavigateTo = window.navigateTo;
   window.navigateTo = function (section) {
+    // Project pages need a project; without one (stale link, shortcut, back button) show the catalog.
+    if (PROJECT_SECTIONS.indexOf(section) !== -1 && !state.currentProject) section = 'catalog';
     if (section !== 'brief' && ui.editingId) {
       setEditMode(null);
       fillBriefForm({ idea: '', successChecks: [''] });
     }
-    const result = originalNavigateTo.apply(this, arguments);
+    const result = originalNavigateTo.call(this, section);
+    if (inApp()) {
+      ui.section = section;
+      rememberSection(section);
+    }
     if (section === 'brief') {
       ensureBriefChrome();
       setTimeout(maybeRestoreDraft, 0);
       updateBriefMeter();
     }
+    syncShell();
+    if (PROJECT_SECTIONS.indexOf(section) !== -1) renderFlowbar(section);
     return result;
   };
 
@@ -1505,6 +1524,8 @@
   function syncShell() {
     const button = document.getElementById('palette-btn');
     if (button) button.style.display = inApp() ? 'inline-flex' : 'none';
+    document.body.classList.toggle('sweep-in-app', inApp());
+    syncBottomNav();
   }
 
   // ---------- visual chrome: brand mark + login hero ----------
@@ -1571,12 +1592,181 @@
     document.body.classList.toggle('is-scrolled', window.scrollY > 8);
   }, { passive: true });
 
+
+  // ---------- v20: project flow bar · phone bottom nav · back button ----------
+
+  function generatedFileCount(project) {
+    const cacheKey = project.id + ':' + (project.capabilityMatrix && project.capabilityMatrix.backend.on ? 'b' : 's') + ':' + (window.SweepStudio ? 'st' : '');
+    if (!(cacheKey in fileCounts)) {
+      try {
+        fileCounts[cacheKey] = Object.keys(generateProjectFiles(project)).length;
+      } catch (error) {
+        fileCounts[cacheKey] = 0;
+      }
+    }
+    return fileCounts[cacheKey];
+  }
+
+  // Status shown under each step; null hides the step (e.g. Studio when studio.js is removed).
+  function flowStatus(project, key) {
+    if (key === 'plan') {
+      const progress = projectProgress(project);
+      return { meta: progress.percent + '%', done: progress.percent === 100 };
+    }
+    if (key === 'studio') {
+      const studio = window.SweepStudio;
+      if (!document.getElementById('section-studio') || !studio || typeof studio.scoreSpec !== 'function') return null;
+      const score = studio.scoreSpec(project);
+      return { meta: 'Spec ' + score.grade + ' · ' + score.score, done: score.grade === 'A' };
+    }
+    if (key === 'verify') {
+      const gates = project.capabilityMatrix ? getVerifyGates(project) : [];
+      const gateState = verifyGateState(project);
+      const passed = gates.filter(function (gate, i) { return gateState['gate-' + i]; }).length;
+      return { meta: passed + '/' + gates.length + ' gates', done: project.status === 'verified' || (gates.length > 0 && passed === gates.length) };
+    }
+    return { meta: generatedFileCount(project) + ' files', done: false };
+  }
+
+  function renderFlowbar(sectionKey) {
+    const section = document.getElementById('section-' + sectionKey);
+    if (!section) return;
+    const project = state.currentProject;
+    let bar = $('.flowbar', section);
+    if (!project || !project.capabilityMatrix || !inApp()) {
+      if (bar) bar.hidden = true;
+      return;
+    }
+    if (!bar) {
+      bar = document.createElement('nav');
+      bar.className = 'flowbar';
+      bar.setAttribute('aria-label', 'Project steps');
+      const header = $('.section-header', section);
+      if (header) header.insertAdjacentElement('afterend', bar);
+      else section.insertBefore(bar, section.firstChild);
+      bar.addEventListener('click', function (event) {
+        const step = event.target.closest('[data-flow]');
+        if (step && step.getAttribute('aria-current') !== 'step') navigateTo(step.getAttribute('data-flow'));
+      });
+      section.classList.add('has-flowbar');
+    }
+    // The flow bar replaces the plan header's Studio / Verify / Generate buttons.
+    if (sectionKey === 'plan') {
+      $all('.section-actions button', section).forEach(function (button) {
+        const onclick = button.getAttribute('onclick') || '';
+        if (button.id === 'plan-studio-btn' || /navigateTo\('(verify|generate)'\)/.test(onclick)) button.classList.add('flow-dup');
+      });
+    }
+    let index = 0;
+    const steps = FLOW_STEPS.map(function (step) {
+      const status = flowStatus(project, step.key);
+      if (!status) return '';
+      index += 1;
+      const current = step.key === sectionKey;
+      return '<li><button type="button" class="flowbar-step' + (current ? ' is-current' : '') + (status.done ? ' is-done' : '') + '" data-flow="' + step.key + '"' + (current ? ' aria-current="step"' : '') + '>' +
+        '<span class="flowbar-dot" aria-hidden="true">' + (status.done ? '✓' : index) + '</span>' +
+        '<span class="flowbar-text"><span class="flowbar-label">' + step.label + '</span><span class="flowbar-meta">' + esc(status.meta) + '</span></span>' +
+        '</button></li>';
+    }).join('');
+    bar.hidden = false;
+    bar.innerHTML =
+      '<div class="flowbar-project"><span class="flowbar-name">' + esc(project.name) + '</span>' +
+        (isDemo(project) ? '<span class="flowbar-tag">Demo</span>' : '') + '</div>' +
+      '<ol class="flowbar-steps">' + steps + '</ol>';
+  }
+
+  // mobile.html: bottom tab bar driven by state (works for returning sessions and sign-out too).
+  function syncBottomNav() {
+    const nav = document.getElementById('mobile-bottom-nav');
+    if (!nav) return;
+    nav.hidden = !inApp();
+    const projectTab = $('[data-section="plan"]', nav);
+    if (projectTab) projectTab.hidden = !state.currentProject;
+    const activeKey = PROJECT_SECTIONS.indexOf(ui.section) !== -1 ? 'plan' : ui.section;
+    $all('[data-section]', nav).forEach(function (link) {
+      const active = link.dataset.section === activeKey;
+      link.classList.toggle('active', active);
+      if (active) link.setAttribute('aria-current', 'page');
+      else link.removeAttribute('aria-current');
+    });
+  }
+
+  function bindBottomNav() {
+    const nav = document.getElementById('mobile-bottom-nav');
+    if (!nav || nav.dataset.bound) return;
+    nav.dataset.bound = '1';
+    nav.addEventListener('click', function (event) {
+      const link = event.target.closest('[data-section]');
+      if (!link) return;
+      event.preventDefault();
+      navigateTo(link.dataset.section);
+    });
+  }
+
+  // Back button / swipe-back moves between sections instead of leaving the app; with a dialog
+  // open, it closes the dialog first.
+  let restoringHistory = false;
+
+  function rememberSection(section) {
+    if (restoringHistory || !window.history || typeof history.pushState !== 'function') return;
+    const current = history.state && history.state.sweepSection;
+    if (current === section) return;
+    try {
+      if (current) history.pushState({ sweepSection: section }, '');
+      else history.replaceState({ sweepSection: section }, '');
+    } catch (error) {
+      /* history unavailable (sandboxed frame) */
+    }
+  }
+
+  function closeTopDialog() {
+    const dialogs = $all('[role="dialog"][aria-modal="true"]').filter(function (dialog) {
+      return dialog.getClientRects().length && getComputedStyle(dialog).visibility !== 'hidden';
+    });
+    const top = dialogs[dialogs.length - 1];
+    if (!top) return false;
+    top.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+    return true;
+  }
+
+  window.addEventListener('popstate', function (event) {
+    const target = event.state && event.state.sweepSection;
+    if (!target || !inApp()) return;
+    if (closeTopDialog()) {
+      try {
+        history.pushState({ sweepSection: ui.section || target }, '');
+      } catch (error) {
+        /* ignore */
+      }
+      return;
+    }
+    restoringHistory = true;
+    try {
+      navigateTo(PROJECT_SECTIONS.indexOf(target) !== -1 && !state.currentProject ? 'catalog' : target);
+    } finally {
+      restoringHistory = false;
+    }
+  });
+
+  wrap('updateNavForProject', syncBottomNav);
+  wrap('markVerified', function () {
+    renderFlowbar('verify');
+  });
+
   // Boot: app.js already ran init(); re-render what is on screen so the
   // enhancements apply to the first paint as well.
   ensureBrandMark();
   ensureGateHero();
   ensurePaletteButton();
   ensureBriefChrome();
+  bindBottomNav();
+  if (inApp()) {
+    const visible = $all('main .section').find(function (section) {
+      return section.id !== 'section-gate' && section.style.display !== 'none';
+    });
+    ui.section = visible ? visible.id.replace('section-', '') : 'catalog';
+    rememberSection(ui.section);
+  }
   syncShell();
   if (inApp()) {
     renderCatalog();
@@ -1585,6 +1775,7 @@
   }
 
   window.SweepEnhance = {
+    renderFlowbar: renderFlowbar,
     projectProgress: projectProgress,
     openPalette: openPalette,
     duplicateProject: duplicateProject,

@@ -2,16 +2,16 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="color-scheme" content="light dark">
 <meta name="theme-color" content="#faf8f3">
 <title>Sweep Mobile — From idea to checkable plan</title>
 <link rel="icon" href="icons/app-icon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="styles.css?v=19">
-<link rel="stylesheet" href="enhance.css?v=19">
-<link rel="stylesheet" href="theme.css?v=19">
-<link rel="stylesheet" href="studio.css?v=19">
-<link rel="stylesheet" href="pro.css?v=19">
+<link rel="stylesheet" href="styles.css?v=20">
+<link rel="stylesheet" href="enhance.css?v=20">
+<link rel="stylesheet" href="theme.css?v=20">
+<link rel="stylesheet" href="studio.css?v=20">
+<link rel="stylesheet" href="pro.css?v=20">
 <style>
 /* Mobile-first overrides — optimized for touch and small screens */
 @media (max-width: 480px) {
@@ -225,47 +225,84 @@
   }
 }
 
-/* Mobile nav bar at bottom for easy thumb access */
-.mobile-bottom-nav {
-  display: none;
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  background: var(--color-paper);
-  border-top: 3px solid var(--color-accent);
-  padding: var(--spacing-sm);
-  z-index: 100;
-  box-shadow: 0 -2px 8px rgba(0,0,0,0.1);
-}
-
-.mobile-bottom-nav a {
-  flex: 1;
-  text-align: center;
-  padding: var(--spacing-sm);
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--color-ink-light);
-  text-decoration: none;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  border-radius: var(--radius-card);
-  transition: all 120ms ease;
-}
-
-.mobile-bottom-nav a.active {
-  color: var(--color-accent);
-  background: var(--color-border-light);
-}
+/* Bottom tab bar for thumb reach. enhance.js un-hides it while a workspace is open and keeps
+   the active tab + the contextual Plan tab in sync with navigation. */
+.mobile-bottom-nav { display: none; }
 
 @media (max-width: 480px) {
-  .mobile-bottom-nav {
-    display: flex;
-  }
-  
-  /* Hide top nav on mobile, use bottom nav instead */
+  /* Hide the top nav on phones; the bottom tab bar replaces it. */
   .nav {
     display: none !important;
+  }
+
+  body.sweep-in-app .mobile-bottom-nav:not([hidden]) {
+    display: flex;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 100;
+    gap: 2px;
+    padding: 6px 6px calc(6px + env(safe-area-inset-bottom, 0px));
+    background: color-mix(in srgb, var(--color-paper) 94%, transparent);
+    -webkit-backdrop-filter: saturate(1.2) blur(10px);
+    backdrop-filter: saturate(1.2) blur(10px);
+    border-top: 1px solid var(--color-border);
+    box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.08);
+  }
+
+  .mobile-bottom-nav a {
+    flex: 1 1 0;
+    min-width: 0;
+    min-height: 50px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    padding: 4px 2px;
+    border-radius: 12px;
+    color: var(--color-ink-light);
+    font-family: var(--font-ui, var(--font-sans));
+    font-size: 11px;
+    font-weight: 600;
+    text-decoration: none;
+    -webkit-tap-highlight-color: transparent;
+    transition: background-color 120ms ease, color 120ms ease;
+  }
+
+  .mobile-bottom-nav a[hidden] {
+    display: none;
+  }
+
+  .mobile-bottom-nav a span {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .mobile-bottom-nav a.active {
+    color: var(--color-accent);
+    background: var(--accent-tint-strong, var(--color-border-light));
+  }
+
+  .mobile-bottom-nav a:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: -2px;
+  }
+
+  /* Keep content, toasts and the update banner clear of the tab bar. */
+  body.sweep-in-app .main {
+    padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px));
+  }
+
+  body.sweep-in-app .toast {
+    bottom: calc(84px + env(safe-area-inset-bottom, 0px));
+  }
+
+  body.sweep-in-app .update-banner {
+    bottom: calc(84px + env(safe-area-inset-bottom, 0px));
   }
 }
 </style>
@@ -296,16 +333,20 @@
   <a href="#catalog" class="nav-item active" data-section="catalog">Catalog</a>
   <a href="#brief" class="nav-item" data-section="brief">New Brief</a>
   <a href="#operator" class="nav-item" data-section="operator">Operator</a>
+  <a href="#plan" class="nav-item" data-section="plan" id="nav-plan" style="display:none">Plan</a>
+  <a href="#verify" class="nav-item" data-section="verify" id="nav-verify" style="display:none">Verify</a>
+  <a href="#generate" class="nav-item" data-section="generate" id="nav-generate" style="display:none">Generate</a>
   <a href="#guide" class="nav-item" data-section="guide">How to use</a>
 </nav>
 
-<!-- Mobile bottom navigation -->
-<div class="mobile-bottom-nav" id="mobile-bottom-nav" style="display:none">
-  <a href="#catalog" data-section="catalog">Catalog</a>
-  <a href="#brief" data-section="brief">Brief</a>
-  <a href="#operator" data-section="operator">Operator</a>
-  <a href="#guide" data-section="guide">Guide</a>
-</div>
+<!-- Mobile bottom navigation (shown by enhance.js while a workspace is open) -->
+<nav class="mobile-bottom-nav" id="mobile-bottom-nav" aria-label="Main" hidden>
+  <a href="#catalog" data-section="catalog"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span>Catalog</span></a>
+  <a href="#brief" data-section="brief"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg><span>Brief</span></a>
+  <a href="#plan" data-section="plan" hidden><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/></svg><span>Plan</span></a>
+  <a href="#operator" data-section="operator"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span>Operator</span></a>
+  <a href="#guide" data-section="guide"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1 1-1 1.7"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span>Guide</span></a>
+</nav>
 
 <!-- Main Content -->
 <main class="main">
@@ -506,6 +547,16 @@
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
         Back to catalog
       </button>
+      <div class="section-actions">
+        <button class="btn btn-secondary btn-sm" onclick="navigateTo('verify')">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+          Verify
+        </button>
+        <button class="btn btn-primary btn-sm" onclick="navigateTo('generate')">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Generate
+        </button>
+      </div>
     </div>
 
     <div class="plan-header">
@@ -575,21 +626,25 @@
       </div>
     </div>
 
+    <!-- Grow -->
     <div class="plan-card">
       <h3 class="plan-card-title">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>
         Grow
       </h3>
       <ul class="dod-list" id="grow-list">
+        <!-- Rendered by JS -->
       </ul>
     </div>
 
+    <!-- Earn -->
     <div class="plan-card">
       <h3 class="plan-card-title">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
         Earn
       </h3>
       <ul class="dod-list" id="earn-list">
+        <!-- Rendered by JS -->
       </ul>
     </div>
 
@@ -611,6 +666,121 @@
       </button>
       <button class="btn btn-primary" onclick="navigateTo('catalog')">
         Save to Catalog
+      </button>
+    </div>
+  </section>
+
+  <!-- Verify View Section -->
+  <section id="section-verify" class="section" style="display:none">
+    <div class="section-header">
+      <button class="btn btn-sm btn-text" onclick="navigateTo('plan')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+        Back to plan
+      </button>
+    </div>
+
+    <div class="verify-header">
+      <h2 class="section-title">Verification Gates</h2>
+      <p class="verify-intro">Check off each gate as you complete it. All gates must pass to mark the project as verified.</p>
+    </div>
+
+    <div class="verify-progress">
+      <div class="progress-bar">
+        <div class="progress-fill" id="verify-progress-fill" style="width:0%"></div>
+      </div>
+      <div class="progress-text" id="verify-progress-text">0 / 0 gates passed</div>
+    </div>
+
+    <div class="verify-gates" id="verify-gates">
+      <!-- Rendered by JS -->
+    </div>
+
+    <div class="verify-commands">
+      <h3 class="verify-commands-title">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+        Commands to run
+      </h3>
+      <div class="command-block">
+        <pre><code id="verify-commands-code"></code></pre>
+        <button class="btn btn-sm btn-secondary" onclick="copyVerifyCommands()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          Copy
+        </button>
+      </div>
+      <p class="verify-note">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+        This static page can't execute verification. Run these commands locally, then check the gates above.
+      </p>
+    </div>
+
+    <div class="verify-actions">
+      <button class="btn btn-primary" id="verify-complete-btn" onclick="markVerified()" disabled>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+        Mark as Verified
+      </button>
+    </div>
+  </section>
+
+  <!-- Generate View Section -->
+  <section id="section-generate" class="section" style="display:none">
+    <div class="section-header">
+      <button class="btn btn-sm btn-text" onclick="navigateTo('plan')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+        Back to plan
+      </button>
+    </div>
+
+    <div class="generate-header">
+      <h2 class="section-title">Generate Scaffold</h2>
+      <p class="generate-intro">Generated file contents based on your capability matrix. Copy or download individual files, or download the complete bundle.</p>
+    </div>
+
+    <div class="generate-layout">
+      <div class="generate-files">
+        <h3 class="generate-files-title">Files</h3>
+        <div class="file-list" id="generate-file-list">
+          <!-- Rendered by JS -->
+        </div>
+      </div>
+
+      <div class="generate-viewer">
+        <div class="generate-viewer-header">
+          <span class="generate-filename" id="generate-filename">Select a file</span>
+          <div class="generate-viewer-actions">
+            <button class="btn btn-sm btn-secondary" onclick="copyFileContent()" id="copy-file-btn" disabled>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              Copy
+            </button>
+            <button class="btn btn-sm btn-secondary" onclick="downloadFileContent()" id="download-file-btn" disabled>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              Download
+            </button>
+          </div>
+        </div>
+        <pre class="generate-code-block"><code id="generate-code"></code></pre>
+      </div>
+    </div>
+
+    <div class="generate-memory">
+      <h3 class="generate-memory-title">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+        Obsidian Memory Note
+      </h3>
+      <div class="generate-viewer">
+        <pre class="generate-code-block"><code id="generate-memory-note"></code></pre>
+        <div class="generate-viewer-actions" style="margin-top:var(--spacing-sm)">
+          <button class="btn btn-sm btn-secondary" onclick="copyMemoryNote()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            Copy Note
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="generate-actions">
+      <button class="btn btn-primary" onclick="downloadBundle()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Download Bundle (JSON)
       </button>
     </div>
   </section>
@@ -739,52 +909,12 @@
 <!-- Toast notification -->
 <div class="toast" id="toast"></div>
 
-<script src="i18n.js?v=19"></script>
-<script src="app.js?v=19"></script>
-<script src="enhance.js?v=19"></script>
-<script src="studio.js?v=19"></script>
-<script src="qr.js?v=19"></script>
-<script src="pro.js?v=19"></script>
-<script src="plus.js?v=19"></script>
-<script>
-// Mobile-specific: sync bottom nav with section changes
-(function() {
-  const mobileNav = document.getElementById('mobile-bottom-nav');
-  const mainNav = document.getElementById('main-nav');
-  
-  // Show mobile nav when authenticated
-  const originalEnterApp = window.enterApp;
-  window.enterApp = function() {
-    if (originalEnterApp) originalEnterApp.call(this);
-    mobileNav.style.display = 'flex';
-    mainNav.style.display = 'none';
-  };
-  
-  // Update active state on mobile nav
-  function updateMobileNav(section) {
-    mobileNav.querySelectorAll('a').forEach(a => {
-      a.classList.toggle('active', a.dataset.section === section);
-    });
-  }
-  
-  // Hook into navigateTo
-  const originalNavigateTo = window.navigateTo;
-  window.navigateTo = function(section) {
-    if (originalNavigateTo) originalNavigateTo.call(this, section);
-    updateMobileNav(section);
-  };
-  
-  // Add click handlers to mobile nav
-  mobileNav.querySelectorAll('a').forEach(a => {
-    a.addEventListener('click', function(e) {
-      e.preventDefault();
-      const section = this.dataset.section;
-      if (section) {
-        window.navigateTo(section);
-      }
-    });
-  });
-})();
-</script>
+<script src="i18n.js?v=20"></script>
+<script src="app.js?v=20"></script>
+<script src="enhance.js?v=20"></script>
+<script src="studio.js?v=20"></script>
+<script src="qr.js?v=20"></script>
+<script src="pro.js?v=20"></script>
+<script src="plus.js?v=20"></script>
 </body>
 </html>

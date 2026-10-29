@@ -495,3 +495,145 @@ body { height: auto; min-height: 100%; }
 @media (hover: none) {
   .project-card[data-project-id] .project-card-date { opacity: 0; }
 }
+
+/* ---------- v20: project flow bar (Plan → Studio → Verify → Generate) ---------- */
+.flowbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 20px;
+  margin: 0 0 var(--spacing-lg);
+  padding: 10px 12px 10px 16px;
+  background: var(--color-paper);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  font-family: var(--font-ui, var(--font-sans));
+}
+.flowbar[hidden] { display: none; }
+.flowbar-project { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1 1 160px; }
+.flowbar-name {
+  min-width: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--color-ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.flowbar-tag {
+  flex-shrink: 0;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--color-neutral);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.flowbar-steps { display: flex; align-items: center; gap: 2px; margin: 0; padding: 0; list-style: none; }
+.flowbar-steps li { display: flex; align-items: center; }
+.flowbar-steps li + li::before {
+  content: "";
+  width: 14px;
+  height: 2px;
+  margin: 0 2px;
+  border-radius: 2px;
+  background: var(--color-border);
+}
+.flowbar-step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 12px 5px 5px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--color-ink-light);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 120ms ease, border-color 120ms ease;
+}
+.flowbar-step:hover { background: var(--color-border-light); }
+.flowbar-step:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+.flowbar-step.is-current {
+  border-color: color-mix(in srgb, var(--color-accent) 35%, transparent);
+  background: var(--accent-tint-strong, var(--color-border-light));
+  color: var(--color-accent);
+  cursor: default;
+}
+.flowbar-dot {
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--color-border-light);
+  color: var(--color-ink-light);
+  font-size: 12px;
+  font-weight: 700;
+}
+.flowbar-step.is-done .flowbar-dot { background: var(--color-productive); color: #fff; }
+.flowbar-step.is-current .flowbar-dot { background: var(--color-accent); color: #fff; }
+[data-theme="night"] .flowbar-step.is-done .flowbar-dot,
+[data-theme="night"] .flowbar-step.is-current .flowbar-dot { color: #1a1a1a; }
+.flowbar-text { display: flex; flex-direction: column; line-height: 1.2; }
+.flowbar-label { font-size: 13px; font-weight: 700; }
+.flowbar-meta { font-size: 11px; color: var(--color-muted); white-space: nowrap; }
+.flowbar-step.is-current .flowbar-meta { color: inherit; opacity: 0.85; }
+
+/* The flow bar replaces the plan header's Studio / Verify / Generate buttons. */
+.has-flowbar .flow-dup { display: none !important; }
+
+@media (max-width: 640px) {
+  .flowbar { gap: 8px; padding: 10px; }
+  .flowbar-project { flex-basis: 100%; }
+  .flowbar-steps { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 4px; width: 100%; }
+  .flowbar-steps li + li::before { display: none; }
+  .flowbar-step {
+    flex-direction: column;
+    justify-content: center;
+    gap: 4px;
+    width: 100%;
+    min-height: 64px;
+    padding: 8px 2px;
+    border-radius: 12px;
+    text-align: center;
+  }
+  .flowbar-text { align-items: center; }
+  .flowbar-label { font-size: 12px; }
+  .flowbar-meta { font-size: 10.5px; }
+  /* Header actions wrap instead of overflowing off the left edge. */
+  .section-header .section-actions { flex-wrap: wrap; justify-content: flex-start; }
+  /* Generate: stacked file list + viewer, full-width download buttons. */
+  .generate-actions { flex-wrap: wrap; gap: var(--spacing-sm); }
+  .generate-actions .btn { flex: 1 1 100%; justify-content: center; }
+}
+
+/* Generate: zip + JSON downloads sit side by side. */
+.generate-actions { gap: var(--spacing-sm); flex-wrap: wrap; }
+
+/* Phones: all six Operator tabs visible at once (3 × 2 grid) instead of a hidden scroll strip. */
+@media (max-width: 640px) {
+  body .operator-tabs {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    width: 100%;
+    overflow: visible;
+  }
+  body .operator-tab {
+    padding: 8px 6px;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+/* Very narrow phones: the brand mark alone, so the header actions never clip the wordmark. */
+@media (max-width: 360px) {
+  body .masthead .brand-text { display: none; }
+}
