@@ -125,6 +125,7 @@
       <select id="persona-select" aria-label="Persona"></select>
       <span class="spacer"></span>
       <span id="char-count" class="char-count" aria-live="off"></span>
+      <button class="power-chip" id="power-btn" type="button" aria-pressed="false" title="Full power: complete answers. Click for low power (shorter answers, fewer tokens)."><span class="power-icon">⚡</span><span class="power-text">Full power</span></button>
       <button class="usage-chip" id="usage-btn" type="button" title="Token usage: click for details">◔ 0 today</button>
     </div>
     <div id="usage-pop" class="usage-pop hidden" role="dialog" aria-label="Token usage">
@@ -163,6 +164,38 @@
     </div>
     <label class="note"><input type="checkbox" id="set-sync"> Sync my chats to my account (so they follow me to other devices)</label>
     <p class="note">Sign-in uses <a href="https://puter.com" target="_blank" rel="noopener">Puter</a>, a free third-party account. Glow AI models run on your own free Puter allowance, so there are no API keys and no cost to you or to Glow. API keys you add below are never synced.</p>
+
+    <h4 id="ai-service-title">AI service &amp; power</h4>
+    <div class="row" style="margin-top:4px">
+      <label for="set-ai-service" class="note">Main AI service</label>
+      <select id="set-ai-service">
+        <option value="auto">Auto (recommended)</option>
+        <option value="puter">Puter: free monthly allowance</option>
+        <option value="pollinations">Pollinations: your own Pollen wallet</option>
+        <option value="keys">Only my own API keys</option>
+        <option value="device">Only this device: free and unlimited</option>
+      </select>
+    </div>
+    <p class="note" id="ai-service-note"></p>
+    <div class="service-box">
+      <div class="row">
+        <b>🌸 Pollinations wallet</b>
+        <span class="spacer"></span>
+        <button class="secondary small" id="pollinations-connect" type="button">Connect Pollinations</button>
+        <button class="secondary small hidden" id="pollinations-disconnect" type="button">Disconnect</button>
+      </div>
+      <p class="note" id="pollinations-status">Not connected.</p>
+      <p class="note">Works like Puter, but you choose the budget: sign in at <a href="https://enter.pollinations.ai" target="_blank" rel="noopener">pollinations.ai</a> with GitHub and Glow gets a key that only spends your own Pollen (about 1 Pollen per US$1, plus free Pollen from their quests). Claude Opus, GPT, Gemini, Kimi, Grok and more. The key stays in this browser.</p>
+    </div>
+    <div class="service-box">
+      <div class="row">
+        <b>🧩 Chrome's built-in AI</b>
+        <span class="spacer"></span>
+        <button class="secondary small hidden" id="chrome-ai-get" type="button">Download in Chrome</button>
+      </div>
+      <p class="note" id="chrome-ai-status">Checking this browser…</p>
+    </div>
+    <label class="note"><input type="checkbox" id="set-lowpower"> 🔋 Low power mode: shorter answers and less chat history sent, so every reply uses fewer tokens</label>
 
     <h4>Your persona</h4>
     <div class="row" style="margin-top:4px">

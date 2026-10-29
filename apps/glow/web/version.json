@@ -1,15 +1,15 @@
 {
-  "version": "1.23.1",
-  "released": "2026-10-28",
+  "version": "1.24.0",
+  "released": "2026-10-29",
   "notes": [
+    "🔋 Low power mode: one tap next to the token counter for shorter answers and less chat history sent, so every reply uses fewer tokens",
+    "Choose your main AI service in Settings: Auto, Puter, Pollinations (your own Pollen wallet), only your own keys, or only this device",
+    "🌸 Connect a Pollinations wallet: Claude Opus, GPT, Gemini, Kimi, Grok and more, paid with your own Pollen",
+    "🧩 Chrome's built-in AI (Gemini Nano): free, unlimited and private answers on capable desktop computers",
+    "If a cloud service can't answer and Glow Offline or Chrome's built-in AI is ready, the AI on this device answers instead",
     "No more Puter \"Low Balance\" pop-ups in any Glow app",
     "When your Puter allowance runs out, Glow answers quietly with your Gemini/Groq key (or Glow Free) and keeps your chosen model selected; it tries Puter again by itself every 30 minutes",
-    "📁 Projects: folders for your chats, each with its own instructions and skills",
-    "🧩 Skills: reusable instructions you can turn on in every chat or per project",
-    "🎨 Image and 🎬 Video modes in the model menu",
-    "🔑 Free Google Gemini and Groq keys in Settings: big daily limits without Puter",
-    "When your Puter AI allowance runs out, your Gemini/Groq key (or Glow Free) answers instead of an error",
-    "👑 GlowLead agent bubble on every Glow page; projects and skills sync across devices"
+    "📁 Projects: folders for your chats, each with its own instructions and skills"
   ],
   "android": "https://github.com/juw12/projects/releases/download/glow-android/Glow-android.apk",
   "windows": "https://github.com/juw12/projects/releases/download/glow-windows/Glow-Setup.exe"

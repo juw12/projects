@@ -15,6 +15,13 @@ const TEST_MODE = TEST_HASHES.includes(location.hash);
 const STORE_KEY = TEST_MODE ? "glow.sandbox" : "mufakat.v1";
 const MAX_CONTEXT_CHARS = 24000;
 const MAX_RETRIES = 3;
+// 🔋 Low power mode: shorter answers and less chat history sent, so every reply costs fewer tokens.
+const LOW_POWER_CONTEXT_CHARS = 6000; // about 1,500 tokens of recent chat instead of about 6,000
+const LOW_POWER_MESSAGE_CHARS = 4000; // a long pasted text is shortened in the middle
+const LOW_POWER_MAX_TOKENS = 600; // reply cap; reasoning models get more because their thinking counts too
+const LOW_POWER_REASONING_MAX_TOKENS = 1600;
+const LOW_POWER_INSTRUCTION = "\n\nLow power mode is on: use as few words as fully answer the question (usually 1 to 4 short sentences or a few bullets, under about 120 words). Think briefly. No greeting, no restating the question and no closing summary. Write more only when the user asks for detail.";
+const LOW_POWER_KEY = "glow.lowPower"; // shared with the other Glow apps on this site
 const OPENROUTER_URL = "https://openrouter.ai/api/v1";
 // Free with your own key (no card): Google AI Studio (Gemini) and Groq. Both are OpenAI-compatible and work from the browser.
 const GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/openai";
@@ -26,6 +33,36 @@ const KEY_PROVIDERS = [
 // Free AI for guests with no key or sign-up: Pollinations' anonymous tier (shared and rate-limited).
 const FREE_AI_URL = "https://text.pollinations.ai/openai";
 const FREE_MODEL = { value: "free::openai-fast", label: "Glow Free: GPT-OSS 20B (no sign-in needed)", short: "Glow Free", group: "Free: works right away" };
+// Pollinations (pollinations.ai): an alternative to Puter. Each person connects their own Pollinations wallet
+// ("Bring Your Own Pollen"): they sign in with GitHub, approve a Pollen budget for Glow, and their own Pollen
+// pays for replies. Glow never pays and never sees payment details.
+const POLLINATIONS_URL = "https://gen.pollinations.ai/v1";
+const POLLINATIONS_ACCOUNT_URL = "https://gen.pollinations.ai/account";
+const POLLINATIONS_AUTHORIZE_URL = "https://enter.pollinations.ai/authorize";
+// Optional App Key (pk_…) from enter.pollinations.ai → Apps, with this page as a redirect URI: the approval
+// screen then shows Glow's name instead of the site address.
+const POLLINATIONS_APP_KEY = "";
+const POLLINATIONS_STATE_KEY = "glow.pollinationsState";
+// Chrome's built-in AI (Gemini Nano through the Prompt API): free, unlimited and private on supported desktops.
+const CHROME_AI_MODEL = { value: "chrome::gemini-nano", label: "Chrome built-in AI: Gemini Nano (on this device, unlimited)", short: "Chrome AI", group: "On this device: works offline" };
+// Main AI service (Settings → AI service & power). Every choice except "On this device" keeps Glow Free and the
+// AI on this device as a last resort, so answers don't stop when a service runs out.
+const AI_SERVICES = {
+  auto: { providers: null, note: "Glow uses Puter while your free allowance lasts, then your own free keys, then Glow Free, and finally the AI on this device, so answers never stop." },
+  puter: { providers: ["puter", "puterimg", "putervid"], note: "Top models (Claude, GPT, Gemini and more) on your free monthly Puter allowance. When it runs out, Glow Free and the AI on this device take over." },
+  pollinations: { providers: ["pollen"], note: "Top models paid with your own Pollen. Connect your Pollinations wallet below; Glow Free and the AI on this device answer if it runs out." },
+  keys: { providers: ["gemini", "groq", "openrouter", "custom", "ollama"], note: "Only your own keys (Gemini, Groq, OpenRouter, Ollama or another API), with Glow Free and the AI on this device as backup." },
+  device: { providers: [], note: "Free, unlimited and private: only the AI on this device answers (Glow Offline or Chrome's built-in AI) and nothing you type leaves the device. These models are smaller than cloud AI." },
+};
+const ALWAYS_AVAILABLE_PROVIDERS = ["demo", "local", "chrome"];
+// Chrome's first availability check can take seconds, so the model list waits at most this long for it.
+const CHROME_AI_WAIT_MS = 1500;
+const CHROME_AI_TEXT = {
+  available: "✓ Chrome's built-in AI (Gemini Nano) is ready on this device: free, unlimited and private.",
+  downloadable: "Chrome can download its built-in AI (Gemini Nano) once for free, unlimited and private answers on this device.",
+  downloading: "Chrome is downloading its built-in AI…",
+  unavailable: "Chrome's built-in AI isn't available here (it needs desktop Chrome 148 or newer on a capable computer). Glow Offline, further down in Settings, works on more devices.",
+};
 const SYSTEM_PROMPT = "You are a helpful, accurate and thoughtful assistant. Format answers with Markdown.";
 const MAX_ATTACHMENT_CHARS = 100000;
 const PERSONAS = {
@@ -229,6 +266,9 @@ function loadState() {
       accountTemp: false,
       retentionDays: 0,
       offlineModel: "",
+      lowPower: false,
+      aiService: "auto",
+      pollinationsKey: "",
     },
     conversations: [],
     arenaStats: {},
@@ -415,6 +455,7 @@ function providerConfig(provider) {
   const s = state.settings;
   if (provider === "openrouter") return { base: OPENROUTER_URL, key: s.openrouterKey };
   if (provider === "free") return { base: FREE_AI_URL, key: "" };
+  if (provider === "pollen") return { base: POLLINATIONS_URL, key: s.pollinationsKey };
   if (provider === "ollama") return { base: s.ollamaUrl.replace(/\/$/, "") + "/v1", key: "" };
   if (provider === "custom") return { base: s.customUrl.replace(/\/$/, ""), key: s.customKey };
   const keyed = KEY_PROVIDERS.find((p) => p.id === provider);
@@ -424,7 +465,7 @@ function providerConfig(provider) {
 
 /* ================= Glow Offline: AI on this device (../shared/glow-offline-ai.js) ================= */
 // Providers that need the internet. Without it, a downloaded Glow Offline model answers instead.
-const NETWORK_PROVIDERS = new Set(["puter", "puterimg", "putervid", "free", "openrouter", "custom", "gemini", "groq"]);
+const NETWORK_PROVIDERS = new Set(["puter", "puterimg", "putervid", "free", "pollen", "openrouter", "custom", "gemini", "groq"]);
 function offlineModelOptions() {
   if (!window.GlowOfflineAI) return [];
   return window.GlowOfflineAI.downloaded().map((m) => ({
@@ -468,6 +509,204 @@ function restPuterAllowance(on = true) {
     // Private mode: the next request simply tries Puter again.
   }
 }
+/* ================= 🔋 low power, main AI service, Pollinations wallet, Chrome's built-in AI ================= */
+function lowPowerOn() {
+  return !!state.settings.lowPower;
+}
+function setLowPower(on) {
+  state.settings.lowPower = !!on;
+  saveState();
+  try {
+    localStorage.setItem(LOW_POWER_KEY, on ? "1" : "0");
+  } catch {
+    // Private mode: the setting still applies in this app.
+  }
+  renderPowerButton();
+}
+function renderPowerButton() {
+  const button = $("power-btn");
+  if (!button) return;
+  const on = lowPowerOn();
+  button.classList.toggle("on", on);
+  button.setAttribute("aria-pressed", String(on));
+  button.querySelector(".power-icon").textContent = on ? "🔋" : "⚡";
+  button.querySelector(".power-text").textContent = on ? "Low power" : "Full power";
+  button.title = on
+    ? "Low power is on: shorter answers and less chat history sent, so replies use fewer tokens. Click for full answers."
+    : "Full power: complete answers. Click for low power (shorter answers, fewer tokens).";
+}
+// Reasoning models spend part of the reply budget on thinking, so they get a bigger cap.
+function lowPowerMaxTokens(model) {
+  return /gpt-oss|deepseek-r1|reason|think|qwq|\bo[34]\b|-pro\b|opus|astra|gpt-[56]|kimi-k|grok-4/i.test(String(model)) ? LOW_POWER_REASONING_MAX_TOKENS : LOW_POWER_MAX_TOKENS;
+}
+// Shorten one long message in the middle (the start and the end usually matter most).
+function shortenForLowPower(text) {
+  if (text.length <= LOW_POWER_MESSAGE_CHARS) return text;
+  const head = Math.round(LOW_POWER_MESSAGE_CHARS * 0.7);
+  const tail = LOW_POWER_MESSAGE_CHARS - head;
+  return `${text.slice(0, head)}\n…[shortened by low power mode]…\n${text.slice(-tail)}`;
+}
+// What is sent to the AI: in low power mode only the latest messages, each one shortened.
+function historyForRequest(messages) {
+  if (!lowPowerOn()) return trimHistory(messages);
+  return trimHistory(messages.map((m) => ({ ...m, content: shortenForLowPower(m.content) })), LOW_POWER_CONTEXT_CHARS);
+}
+function puterChatOptions(model, signal) {
+  const options = { model, stream: true, signal };
+  if (lowPowerOn()) options.max_tokens = lowPowerMaxTokens(model);
+  return options;
+}
+
+function mainService() {
+  const chosen = state.settings.aiService;
+  return Object.prototype.hasOwnProperty.call(AI_SERVICES, chosen) ? chosen : "auto";
+}
+// Whether a provider's models may be used with the chosen main AI service.
+function serviceAllows(provider) {
+  const service = mainService();
+  if (ALWAYS_AVAILABLE_PROVIDERS.includes(provider) || service === "auto") return true;
+  if (service === "device") return false;
+  if (provider === "free") return true; // Glow Free stays as a free safety net
+  return AI_SERVICES[service].providers.includes(provider);
+}
+function applyServiceRules(list) {
+  return list.filter((m) => serviceAllows(splitModel(m.value).provider));
+}
+// The AI on this device that can answer right now: Chrome's built-in AI, else a downloaded Glow Offline model.
+function onDeviceModel() {
+  if (models.some((m) => m.value === CHROME_AI_MODEL.value)) return CHROME_AI_MODEL.value;
+  return offlineFallbackModel();
+}
+// When a cloud AI is busy, out of allowance or unreachable, the AI on this device answers instead.
+const RESCUE_ERRORS = /busy|rate.?limit|too many|couldn't reach|didn't answer in time|connection to the ai dropped|allowance|pollen|credit|quota|unreachable|network|offline/i;
+function rescueModelFor(modelValue, error) {
+  const { provider } = splitModel(modelValue || "");
+  if (!NETWORK_PROVIDERS.has(provider) || (error && error.name === "AbortError")) return "";
+  if (!RESCUE_ERRORS.test(errorText(error))) return "";
+  const device = onDeviceModel();
+  return device && device !== modelValue ? device : "";
+}
+
+// Pollinations wallet ("Bring Your Own Pollen")
+function pollinationsConnected() {
+  return !!state.settings.pollinationsKey;
+}
+function pollinationsAuthorizeUrl(stateToken) {
+  const params = new URLSearchParams({ redirect_uri: `${location.origin}${location.pathname}`, models: "text", expiry: "30", scope: "usage", state: stateToken });
+  if (POLLINATIONS_APP_KEY) params.set("client_id", POLLINATIONS_APP_KEY);
+  return `${POLLINATIONS_AUTHORIZE_URL}?${params}`;
+}
+function connectPollinations() {
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  const stateToken = [...bytes].map((b) => b.toString(16).padStart(2, "0")).join("");
+  try {
+    sessionStorage.setItem(POLLINATIONS_STATE_KEY, stateToken);
+  } catch {
+    // Without session storage the returned key can't be checked, so it will be refused.
+  }
+  location.href = pollinationsAuthorizeUrl(stateToken);
+}
+// Back from Pollinations: the approved key arrives in the address fragment (never sent to a server). It must
+// carry the random check made when Connect was pressed; it is saved like your other keys (never synced) and
+// removed from the address bar at once.
+function takePollinationsKey() {
+  const hash = location.hash || "";
+  if (!/[#&](api_key|error)=/.test(hash)) return "";
+  const fragment = new URLSearchParams(hash.slice(1));
+  let expected = "";
+  try {
+    expected = sessionStorage.getItem(POLLINATIONS_STATE_KEY) || "";
+    sessionStorage.removeItem(POLLINATIONS_STATE_KEY);
+  } catch {
+    expected = "";
+  }
+  history.replaceState(null, "", `${location.pathname}${location.search}`);
+  if (fragment.get("error")) return "denied";
+  const key = fragment.get("api_key") || "";
+  if (!/^sk_[A-Za-z0-9_-]{8,}$/.test(key) || !expected || fragment.get("state") !== expected) return "invalid";
+  state.settings.pollinationsKey = key;
+  state.settings.aiService = "pollinations";
+  saveState();
+  return "connected";
+}
+function disconnectPollinations() {
+  state.settings.pollinationsKey = "";
+  if (mainService() === "pollinations") state.settings.aiService = "auto";
+  saveState();
+}
+// Text models the connected key may use (Pollinations hides paid-only models when there is no paid Pollen).
+function pollinationsModelOptions(catalog) {
+  const list = (catalog && (Array.isArray(catalog) ? catalog : catalog.data)) || [];
+  return list
+    .filter((m) => m && m.category === "text" && !m.community && !String(m.id).startsWith("community/")
+      && (!m.health || m.health.status !== "down")
+      && (!m.supported_endpoints || m.supported_endpoints.includes("/v1/chat/completions")))
+    .map((m) => {
+      const out = Math.round(Number((m.pricing || {}).completionTextTokens || 0) * 1e8); // Pollen ≈ US$ per token → cents per million
+      const title = m.title || String(m.id).split("/").pop();
+      return {
+        value: `pollen::${m.id}`,
+        label: `${title}${out ? ` (${(out / 100).toFixed(2)} Pollen per million tokens out)` : ""}`,
+        short: title,
+        group: m.paid_only ? "Pollinations: paid Pollen" : "Pollinations: your Pollen",
+        meta: { out },
+      };
+    });
+}
+async function pollinationsBalance() {
+  if (!pollinationsConnected()) return null;
+  try {
+    const data = await fetchJson(`${POLLINATIONS_ACCOUNT_URL}/balance`, { Authorization: `Bearer ${state.settings.pollinationsKey}` });
+    const value = Number(data.balance ?? data.total ?? data.pollen ?? Number(data.quest || 0) + Number(data.paid || 0));
+    return Number.isFinite(value) ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+// Chrome's built-in AI (Prompt API): "available", "downloadable", "downloading" or "unavailable".
+async function chromeAIStatus() {
+  const api = window.LanguageModel;
+  if (!api || typeof api.availability !== "function") return "unavailable";
+  try {
+    return String(await api.availability());
+  } catch {
+    return "unavailable";
+  }
+}
+async function streamChromeAI(system, messages, onText, signal, usage) {
+  const api = window.LanguageModel;
+  if (!api) throw new Error("Chrome's built-in AI isn't available in this browser.");
+  // Gemini Nano has a small working memory: keep the latest messages that fit.
+  const history = mergeRoles(trimHistory(messages, lowPowerOn() ? LOW_POWER_CONTEXT_CHARS : 9000));
+  let lastUser = history.length - 1;
+  while (lastUser >= 0 && history[lastUser].role !== "user") lastUser -= 1;
+  if (lastUser < 0) throw new Error("There's no question to answer yet.");
+  const initialPrompts = [
+    { role: "system", content: system.slice(0, 2400) },
+    ...history.slice(0, lastUser).map((m) => ({ role: m.role === "assistant" ? "assistant" : "user", content: m.content })),
+  ];
+  const session = await api.create({ initialPrompts, signal });
+  const limit = lowPowerOn() ? LOW_POWER_MAX_TOKENS * 4 : Infinity; // about 4 characters per token
+  let full = "";
+  try {
+    const stream = session.promptStreaming(history[lastUser].content, { signal });
+    const reader = typeof stream[Symbol.asyncIterator] === "function" ? null : stream.getReader();
+    const iterator = reader ? null : stream[Symbol.asyncIterator]();
+    while (true) {
+      const step = reader ? await reader.read() : await iterator.next();
+      if (step.done) break;
+      const chunk = String(step.value);
+      full = full && chunk.startsWith(full) ? chunk : full + chunk; // older Chrome sent the whole text each time
+      onText(full);
+      if (full.length >= limit) break;
+    }
+  } finally {
+    if (typeof session.destroy === "function") session.destroy();
+  }
+  if (usage) usage.out = estimateTokens(full);
+  return full;
+}
 async function streamLocal(key, system, messages, onText, signal, usage) {
   if (!window.GlowOfflineAI) throw new Error("Glow Offline isn't available in this app.");
   // On-device models have a small working memory: keep the latest messages that fit.
@@ -485,6 +724,7 @@ async function streamLocal(key, system, messages, onText, signal, usage) {
       onText,
       onStatus: showStatus,
       signal,
+      maxTokens: lowPowerOn() ? LOW_POWER_MAX_TOKENS : undefined,
     });
   } finally {
     if (/^Starting the AI on this device/.test($("status").textContent)) showStatus("");
@@ -632,9 +872,14 @@ async function loadModels() {
   const s = state.settings;
   const list = [{ value: "demo::demo", label: "Demo agent (offline, canned replies)", short: "Demo", group: "Demo: no setup" }];
   list.push(...offlineModelOptions());
+  const onDeviceEnd = list.length; // Chrome's built-in AI joins the on-device group here
+  const chromeCheck = chromeAIStatus();
+  const chromeSoon = Promise.race([chromeCheck, new Promise((resolve) => setTimeout(resolve, CHROME_AI_WAIT_MS, "pending"))]);
   if (puterSignedIn) list.push(...(await puterModelOptions()));
   if (TEST_MODE) {
-    models = applyRegionRules(list);
+    const chromeNow = await chromeSoon;
+    if (chromeNow === "available") list.splice(onDeviceEnd, 0, CHROME_AI_MODEL);
+    models = applyServiceRules(applyRegionRules(list));
     $("status").textContent = puterSignedIn ? "Glow AI (test double)" : "Demo mode — no provider connected";
     $("banner-text").textContent = "This is a sandboxed demo. Your own chats and keys are untouched.";
     $("banner-settings").textContent = "Open Glow";
@@ -642,11 +887,20 @@ async function loadModels() {
     $("setup-banner").classList.toggle("hidden", models.length > 1);
     upgradeFromDemo();
     refreshModelSelects();
+    if (chromeNow === "pending") chromeCheck.then(addChromeAIModel);
     return;
   }
   list.push(FREE_MODEL);
   const status = puterSignedIn ? [`Glow AI · ${list.length - 2} models`] : ["Free AI ready"];
   const jobs = [];
+
+  if (s.pollinationsKey) {
+    jobs.push(fetchJson(`${POLLINATIONS_URL}/models`, { Authorization: `Bearer ${s.pollinationsKey}` }).then((data) => {
+      const options = pollinationsModelOptions(data);
+      list.push(...options);
+      status.push(`Pollinations · ${options.length} models`);
+    }).catch((error) => status.push(/^40[13]$/.test(String(error.message)) ? "Pollinations key expired: connect again in Settings" : "Pollinations unreachable")));
+  }
 
   if (s.openrouterKey) {
     jobs.push(fetchJson(`${OPENROUTER_URL}/models`).then((data) => {
@@ -697,10 +951,21 @@ async function loadModels() {
   }
 
   await Promise.all(jobs);
-  models = applyRegionRules(list);
+  const chromeNow = await chromeSoon;
+  if (chromeNow === "available") list.splice(onDeviceEnd, 0, CHROME_AI_MODEL);
+  models = applyServiceRules(applyRegionRules(list));
   $("status").textContent = offlineStatusText() || (status.length ? status.join(" · ") : "Demo mode");
   $("setup-banner").classList.toggle("hidden", models.length > 1);
   upgradeFromDemo();
+  refreshModelSelects();
+  if (chromeNow === "pending") chromeCheck.then(addChromeAIModel);
+}
+// Chrome finished its slow first check after the model list was ready: add Gemini Nano to the on-device group.
+function addChromeAIModel(status) {
+  if (status !== "available" || models.some((m) => m.value === CHROME_AI_MODEL.value)) return;
+  if (!regionAllowed(CHROME_AI_MODEL.value) || !serviceAllows("chrome")) return;
+  const lastOnDevice = models.map((m) => m.group).lastIndexOf(CHROME_AI_MODEL.group);
+  models.splice(lastOnDevice === -1 ? Math.min(1, models.length) : lastOnDevice + 1, 0, CHROME_AI_MODEL);
   refreshModelSelects();
 }
 // When real models become available, stop defaulting new or empty chats to the demo bot.
@@ -723,6 +988,13 @@ function modelRank(value) {
     const curated = PUTER_MODELS.findIndex(([id]) => `puter::${id}` === value);
     return curated === -1 ? -0.5 : -1 + curated / 100;
   }
+  if (value.startsWith("pollen::")) {
+    // Pollinations as the main service: its ⚡ Quick list first. Otherwise last, because it costs Pollen.
+    if (mainService() !== "pollinations") return PREFERRED_MODEL_PATTERNS.length + 2;
+    const quick = rankedCategory("quick").findIndex((entry) => entry.value === value);
+    return quick === -1 ? -0.5 : -2 + quick / 100;
+  }
+  if (value.startsWith("chrome::")) return PREFERRED_MODEL_PATTERNS.length + 0.7; // unlimited on this device
   if (value.startsWith("ollama::")) return 0; // local models the user chose to install come first
   if (value.startsWith("free::")) return PREFERRED_MODEL_PATTERNS.length + 0.5; // after strong models from the user's own keys
   if (value.startsWith("local::")) return PREFERRED_MODEL_PATTERNS.length + 0.75; // on-device: smaller, so cloud models come first while online
@@ -807,17 +1079,39 @@ async function fetchWithRetry(doFetch, signal, onWait = () => {}) {
   }
 }
 // Every AI call goes through here so token usage is counted once, for today and (when given) the chat.
+// The model that really answered the latest reply (a backup or the AI on this device may stand in).
+let lastAnswerModel = "";
 async function streamReply(modelValue, system, messages, onText, conv = null) {
   const usage = { in: 0, out: 0, exact: false, images: 0 };
   let reply;
+  let answeredBy = modelValue;
+  lastAnswerModel = "";
   try {
     reply = await streamProvider(modelValue, system, messages, onText, usage);
+    answeredBy = effectiveModel(modelValue);
   } catch (error) {
+    let failure = error;
     const quietRetry = String(modelValue).startsWith("puter::") && ALLOWANCE_GONE.test(errorText(error)) && !puterAllowanceResting();
-    if (!quietRetry) throw error;
-    restPuterAllowance();
-    reply = await streamProvider(modelValue, system, messages, onText, usage);
+    if (quietRetry) {
+      restPuterAllowance();
+      try {
+        reply = await streamProvider(modelValue, system, messages, onText, usage);
+        answeredBy = effectiveModel(modelValue);
+        failure = null;
+      } catch (retryError) {
+        failure = retryError;
+      }
+    }
+    if (failure) {
+      const rescue = rescueModelFor(effectiveModel(modelValue), failure);
+      if (!rescue) throw failure;
+      $("status").textContent = `${modelLabel(effectiveModel(modelValue))} couldn't answer, so the AI on this device answered.`;
+      onText("");
+      reply = await streamProvider(rescue, system, messages, onText, usage);
+      answeredBy = rescue;
+    }
   }
+  lastAnswerModel = answeredBy;
   recordUsage(usage, reply, conv, modelValue);
   return reply;
 }
@@ -837,13 +1131,15 @@ async function streamProvider(modelValue, system, messages, onText, usage) {
     ({ provider, model } = splitModel(fallback));
     $("status").textContent = "You're offline: Glow Offline answers on this device.";
   }
-  const clean = trimHistory(messages.map((m) => ({ role: m.role, content: stripImages(stripThinking(m.content)) })));
+  if (lowPowerOn() && !isMediaModel(modelValue)) system += LOW_POWER_INSTRUCTION;
+  const clean = historyForRequest(messages.map((m) => ({ role: m.role, content: stripImages(stripThinking(m.content)) })));
   usage.in = estimateTokens(system) + clean.reduce((sum, m) => sum + estimateTokens(m.content), 0);
   const controller = new AbortController();
   controllers.add(controller);
   try {
     if (provider === "demo") return await streamDemo(system, clean, onText, controller.signal);
     if (provider === "local") return await streamLocal(model, system, clean, onText, controller.signal, usage);
+    if (provider === "chrome") return await streamChromeAI(system, clean, onText, controller.signal, usage);
     if (provider === "puter") return await streamPuter(model, system, clean, onText, controller.signal, usage);
     if (provider === "puterimg") return await generateImage(model, clean, onText, controller.signal, usage);
     if (provider === "putervid") return await generateVideo(model, clean, onText, controller.signal, usage);
@@ -854,7 +1150,9 @@ async function streamProvider(modelValue, system, messages, onText, usage) {
       headers["HTTP-Referer"] = location.origin;
       headers["X-Title"] = "Glow";
     }
-    const body = JSON.stringify({ model, stream: true, messages: [{ role: "system", content: system }, ...mergeRoles(clean)] });
+    const payload = { model, stream: true, messages: [{ role: "system", content: system }, ...mergeRoles(clean)] };
+    if (lowPowerOn()) payload.max_tokens = lowPowerMaxTokens(model);
+    const body = JSON.stringify(payload);
     // Shared free endpoints sometimes accept a request and never answer, stall mid-stream (or send only
     // keep-alive pings), or drop the connection. Each try gets a watchdog; a stuck or dropped try is sent
     // again once instead of leaving the reply spinning forever. ■ Stop still aborts everything at once.
@@ -1095,7 +1393,7 @@ function systemPromptFor(conv) {
   const personaKey = personaFor(conv.persona) ? conv.persona : "default";
   let prompt = withInstructions(personaFor(personaKey).prompt) + projectContext(conv);
   if (personaKey !== "translator" && window.GlowLocale) prompt += window.GlowLocale.aiContext();
-  if (conv.type === "chat" && state.settings.followUps && personaKey !== "translator" && !isMediaModel(conv.model)) prompt += FOLLOW_UP_INSTRUCTION;
+  if (conv.type === "chat" && state.settings.followUps && !lowPowerOn() && personaKey !== "translator" && !isMediaModel(conv.model)) prompt += FOLLOW_UP_INSTRUCTION;
   return prompt;
 }
 function splitFollowUps(text) {
@@ -1112,6 +1410,10 @@ function friendlyError(status, detail, provider = "") {
   if (provider === "free") {
     if (status === 402 || status === 429 || status >= 500) return "The free guest AI is busy right now. Wait a few seconds and press ↻ Regenerate, or sign in for faster Glow AI models.";
     return `The free guest AI couldn't answer (error ${status}). Try again, or sign in for Glow AI models.`;
+  }
+  if (provider === "pollen") {
+    if (status === 401 || status === 403) return "Your Pollinations key expired or was turned off. Connect Pollinations again in Settings.";
+    if (status === 402) return "Not enough Pollen for this model. Top up or earn free Pollen at enter.pollinations.ai, or pick a cheaper model.";
   }
   if (status === 401) return "The API key was rejected. Check it in Settings.";
   if (status === 402) return "This model needs credit on your account. Pick a free model.";
@@ -1348,7 +1650,7 @@ function agentDisplay(conv, message) {
   }
   if (message.source === "crewroom") return { name: "🏢 GlowRoom", css: "assistant crewroom", meta: "AI crew" };
   if (message.source === "glowlead") return { name: "👑 GlowLead", css: "assistant crewroom glowlead", meta: "AI lead" };
-  return { name: "Glow", css: "assistant", meta: message.model ? modelLabel(message.model) : "" };
+  return { name: "Glow", css: "assistant", meta: message.model ? `${modelLabel(message.model)}${message.lowPower ? " · 🔋" : ""}` : "" };
 }
 function renderMessages(force = false) {
   const box = $("messages");
@@ -1542,7 +1844,7 @@ function partialReply(bubble) {
   return isWaiting(bubble) ? "" : bubble.textContent;
 }
 async function streamAssistant(model, system, history, who, css, view = (text) => text) {
-  const bubble = messageElement(who, css, modelLabel(effectiveModel(model)));
+  const bubble = messageElement(who, css, `${modelLabel(effectiveModel(model))}${lowPowerOn() ? " · 🔋" : ""}`);
   bubble.classList.add("cursor");
   const stopWaiting = startWaiting(bubble);
   const conv = current;
@@ -1595,9 +1897,11 @@ async function replyToChat() {
   const reply = await streamAssistant(current.model, systemPromptFor(current), current.messages, "Glow", "assistant", (text) => splitFollowUps(text).body);
   if (reply) {
     const { body, questions } = splitFollowUps(reply);
-    // The quiet allowance fallback may have answered this message with the backup model.
-    const usedModel = effectiveModel(askedModel) !== answeredBy ? effectiveModel(askedModel) : answeredBy;
-    current.messages.push({ role: "assistant", content: body, model: usedModel, followUps: questions });
+    // A backup (quiet allowance fallback) or the AI on this device may have answered instead.
+    const usedModel = lastAnswerModel || (effectiveModel(askedModel) !== answeredBy ? effectiveModel(askedModel) : answeredBy);
+    const message = { role: "assistant", content: body, model: usedModel, followUps: questions };
+    if (lowPowerOn()) message.lowPower = true;
+    current.messages.push(message);
     state.settings.lastModel = current.model;
   }
   persist(current);
@@ -2223,6 +2527,9 @@ function openSettings() {
   $("set-followups").checked = s.followUps !== false;
   $("set-display-name").value = s.displayName || "";
   $("set-retention").value = String(s.retentionDays || 0);
+  $("set-ai-service").value = mainService();
+  $("set-lowpower").checked = lowPowerOn();
+  renderServicePanel();
   $("data-summary").textContent = dataSummary();
   renderAccount();
   renderOfflinePanel();
@@ -2245,13 +2552,54 @@ async function saveSettings() {
     followUps: $("set-followups").checked,
     displayName: $("set-display-name").value.trim().slice(0, 40),
     retentionDays: Number($("set-retention").value) || 0,
+    aiService: AI_SERVICES[$("set-ai-service").value] ? $("set-ai-service").value : "auto",
   });
+  setLowPower($("set-lowpower").checked);
   saveState();
   const removed = applyRetention();
   if (removed) toast(`Auto-delete removed ${removed} old chat${removed > 1 ? "s" : ""}`);
   renderAccount();
   $("settings-modal").classList.remove("open");
   await loadModels();
+}
+// Settings → AI service & power: what the chosen service does, the Pollinations wallet and Chrome's built-in AI.
+async function renderServicePanel() {
+  const select = $("set-ai-service");
+  if (!select) return;
+  const service = AI_SERVICES[select.value] ? select.value : "auto";
+  $("ai-service-note").textContent = AI_SERVICES[service].note;
+  const connected = pollinationsConnected();
+  $("pollinations-status").textContent = connected ? "Connected: your Pollen pays for Pollinations models." : "Not connected.";
+  $("pollinations-connect").classList.toggle("hidden", connected);
+  $("pollinations-disconnect").classList.toggle("hidden", !connected);
+  const chrome = await chromeAIStatus();
+  $("chrome-ai-status").textContent = CHROME_AI_TEXT[chrome] || CHROME_AI_TEXT.unavailable;
+  $("chrome-ai-get").classList.toggle("hidden", chrome !== "downloadable");
+  if (connected) {
+    const balance = await pollinationsBalance();
+    if (balance !== null && pollinationsConnected()) $("pollinations-status").textContent = `Connected: ${balance.toFixed(2)} Pollen left.`;
+  }
+}
+// Chrome downloads Gemini Nano once; it needs a click (user activation) to start.
+async function downloadChromeAI() {
+  const button = $("chrome-ai-get");
+  button.disabled = true;
+  try {
+    const session = await window.LanguageModel.create({
+      monitor(monitor) {
+        monitor.addEventListener("downloadprogress", (event) => {
+          $("chrome-ai-status").textContent = `Chrome is downloading its built-in AI… ${Math.round((event.loaded || 0) * 100)}%`;
+        });
+      },
+    });
+    if (typeof session.destroy === "function") session.destroy();
+    toast("Chrome's built-in AI is ready: free, unlimited and private");
+    await loadModels();
+  } catch (error) {
+    toast(error.message || "Chrome couldn't download its built-in AI.");
+  }
+  button.disabled = false;
+  renderServicePanel();
 }
 function exportAll() {
   download(`glow-backup-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify({ conversations: state.conversations, arenaStats: state.arenaStats, projects: state.projects, skills: state.skills }, null, 2), "application/json");
@@ -2434,7 +2782,7 @@ async function streamPuter(model, system, messages, onText, signal, usage = null
   let response;
   try {
     response = await Promise.race([
-      sdk.ai.chat([{ role: "system", content: system }, ...mergeRoles(messages)], { model, stream: true, signal }),
+      sdk.ai.chat([{ role: "system", content: system }, ...mergeRoles(messages)], puterChatOptions(model, signal)),
       aborted,
     ]);
   } catch (error) {
@@ -3163,7 +3511,8 @@ function modelBadges(option) {
   const badges = [];
   const out = option.meta ? option.meta.out : null;
   if (value.startsWith("demo::")) badges.push("Offline");
-  if (value.startsWith("local::")) badges.push("Offline", "Local");
+  if (value.startsWith("local::") || value.startsWith("chrome::")) badges.push("Offline", "Local");
+  if (value.startsWith("pollen::")) badges.push("Pollen");
   if (value.startsWith("free::") || /:free$/.test(value)) badges.push("Free");
   if (value.startsWith("ollama::")) badges.push("Local");
   if (value.startsWith("puterimg::")) badges.push("Image");
@@ -3178,7 +3527,7 @@ let regionHiddenPreviews = 0;
 function pickerEntries() {
   const entries = models.map((m) => ({ ...m, locked: false }));
   regionHiddenPreviews = 0;
-  if (!puterSignedIn && !entries.some((e) => e.value.startsWith("puter::"))) {
+  if (!puterSignedIn && serviceAllows("puter") && !entries.some((e) => e.value.startsWith("puter::"))) {
     for (const [id, name] of PUTER_MODELS) {
       if (!regionAllowed(`puter::${id}`)) {
         regionHiddenPreviews += 1;
@@ -3229,19 +3578,25 @@ function rankedCategory(key) {
   } else if (key === "video") {
     ranked = entries.filter((e) => e.value.startsWith("putervid::"));
   } else {
-    // Native Glow AI models only (aggregator duplicates such as "openrouter:…" stay searchable).
-    const native = entries.filter((e) => e.value.startsWith("puter::") && !/[:/]/.test(splitModel(e.value).model));
+    // Native models of the main service: Glow AI (Puter), or your Pollinations wallet when it is the main
+    // service or Puter isn't signed in (aggregator duplicates such as "openrouter:…" stay searchable).
+    const usePollen = entries.some((e) => e.value.startsWith("pollen::"))
+      && (mainService() === "pollinations" || !entries.some((e) => e.value.startsWith("puter::") && !e.locked));
+    const native = usePollen
+      ? entries.filter((e) => e.value.startsWith("pollen::") && !splitModel(e.value).model.includes(":"))
+      : entries.filter((e) => e.value.startsWith("puter::") && !/[:/]/.test(splitModel(e.value).model));
+    const familyId = (value) => splitModel(value).model.split("/").pop();
     // Prefer the plain id over a dated snapshot of the same model (deepseek-v4-pro over deepseek-v4-pro-0813).
-    const nativeIds = new Set(native.map((e) => splitModel(e.value).model));
+    const nativeIds = new Set(native.map((e) => familyId(e.value)));
     const pool = native.filter((e) => {
-      const id = splitModel(e.value).model;
+      const id = familyId(e.value);
       const base = id.replace(/-(\d{4}-\d{2}-\d{2}|\d{4,8})$/, "");
       return base === id || !nativeIds.has(base);
     });
     ranked = [];
     const used = new Set();
     for (const family of CATEGORY_FAMILIES[key] || []) {
-      const best = pool.filter((e) => !used.has(e.value) && family.test(splitModel(e.value).model)).sort(newerFirst)[0];
+      const best = pool.filter((e) => !used.has(e.value) && family.test(familyId(e.value))).sort(newerFirst)[0];
       if (best) {
         ranked.push(best);
         used.add(best.value);
@@ -3258,7 +3613,8 @@ function rankedCategory(key) {
 function currentPickerCategory() {
   const saved = state.settings.modelCategory;
   if (MODEL_CATEGORIES.some((c) => c.key === saved)) return saved;
-  return puterSignedIn ? "best" : "free";
+  const premium = (puterSignedIn && serviceAllows("puter")) || (pollinationsConnected() && serviceAllows("pollen"));
+  return premium ? "best" : "free";
 }
 function updatePickerLabel() {
   const value = $("chat-model").value;
@@ -3976,6 +4332,7 @@ function renderUsagePop() {
     ${percent !== null
       ? `<div class="usage-line"><span>Glow AI allowance</span><b>${percent}% left this month</b></div><div class="usage-bar"><span style="width:${percent}%"></span></div>`
       : `<p class="note">${puterSignedIn ? "Your monthly Glow AI allowance appears here after your first Glow AI reply." : "Sign in to see your free monthly Glow AI allowance."}</p>`}
+    ${lowPowerOn() ? `<p class="note">🔋 Low power is on: replies are capped at about ${LOW_POWER_MAX_TOKENS} tokens and only the latest ~1,500 tokens of the chat are sent.</p>` : ""}
     <p class="note">≈ means estimated (about 4 characters per token); exact numbers are used when the AI provider reports them. To save allowance, Glow sends only the latest ~6,000 tokens of a long chat, and ⚡ Quick models often cost 10× less than ⭐ premium ones.</p>
     <div class="row"><button class="link-btn" type="button" id="usage-reset">Reset these counters</button></div>`;
   byId("usage-reset").addEventListener("click", () => {
@@ -4575,6 +4932,21 @@ function wire() {
   $("persona-btn").addEventListener("click", onPersonaButton);
   $("set-persona-btn").addEventListener("click", onPersonaButton);
   $("usage-btn").addEventListener("click", () => toggleUsagePop());
+  $("power-btn").addEventListener("click", () => {
+    setLowPower(!lowPowerOn());
+    toast(lowPowerOn() ? "🔋 Low power on: shorter answers, fewer tokens" : "⚡ Full power: complete answers");
+    if (!$("usage-pop").classList.contains("hidden")) renderUsagePop();
+  });
+  $("set-ai-service").addEventListener("change", renderServicePanel);
+  $("pollinations-connect").addEventListener("click", connectPollinations);
+  $("pollinations-disconnect").addEventListener("click", async () => {
+    disconnectPollinations();
+    $("set-ai-service").value = mainService();
+    renderServicePanel();
+    await loadModels();
+    toast("Pollinations disconnected. You can also turn the key off at enter.pollinations.ai.");
+  });
+  $("chrome-ai-get").addEventListener("click", downloadChromeAI);
   $("side-usage").addEventListener("click", () => {
     closeSidebar();
     toggleUsagePop(true);
@@ -5245,6 +5617,112 @@ async function selfTest() {
   expect("glow ai: your own free Gemini key is the first backup when the allowance runs out", allowanceBackupModel().value === "gemini::gemini-2.5-flash");
   models = modelsBeforeQuota;
   selectChatModel(quotaModel, false);
+
+  // 🔋 Low power mode
+  chatMode = "ok";
+  setLowPower(true);
+  await sendChat("Explain photosynthesis");
+  const lowCall = chatCalls[chatCalls.length - 1];
+  const lowLast = current.messages[current.messages.length - 1] || {};
+  const lowMeta = [...document.querySelectorAll("#messages .msg.assistant .meta")].pop();
+  expect("low power: replies are capped and asked to be short, without follow-ups", lowCall.options.max_tokens >= LOW_POWER_MAX_TOKENS && lowCall.options.max_tokens <= LOW_POWER_REASONING_MAX_TOKENS
+    && lowCall.messages[0].content.includes("Low power mode is on") && !lowCall.messages[0].content.includes("Follow-ups:"));
+  expect("low power: the reply is marked 🔋 and the switch shows it", lowLast.lowPower === true && !!lowMeta && lowMeta.textContent.includes("🔋")
+    && $("power-btn").getAttribute("aria-pressed") === "true" && localStorage.getItem(LOW_POWER_KEY) === "1");
+  const longHistory = Array.from({ length: 12 }, (_, i) => ({ role: i % 2 ? "assistant" : "user", content: `${i} ${"word ".repeat(1200)}` }));
+  const lowHistory = historyForRequest(longHistory);
+  expect("low power: only the latest messages are sent, long ones shortened", lowHistory.length < longHistory.length
+    && lowHistory.every((m) => m.content.length <= LOW_POWER_MESSAGE_CHARS + 40) && lowHistory[lowHistory.length - 1].content.startsWith("11 "));
+  setLowPower(false);
+  await sendChat("Now the full version");
+  const fullCall = chatCalls[chatCalls.length - 1];
+  expect("low power off: full answers again", fullCall.options.max_tokens === undefined && !fullCall.messages[0].content.includes("Low power mode is on")
+    && historyForRequest(longHistory).length > lowHistory.length && $("power-btn").getAttribute("aria-pressed") === "false");
+
+  // Main AI service switch
+  const savedService = state.settings.aiService;
+  const serviceSample = [{ value: "demo::demo" }, { value: "puter::claude-opus-5-5" }, { value: "pollen::anthropic/claude-opus-5.5" }, { value: "gemini::gemini-3.8-flash" },
+    { value: FREE_MODEL.value }, { value: "local::mini" }, { value: CHROME_AI_MODEL.value }];
+  const keptFor = (service) => {
+    state.settings.aiService = service;
+    return applyServiceRules(serviceSample).map((m) => splitModel(m.value).provider).join(",");
+  };
+  expect("service: Auto keeps every service", keptFor("auto") === "demo,puter,pollen,gemini,free,local,chrome");
+  expect("service: Puter keeps Glow AI plus the free and on-device safety nets", keptFor("puter") === "demo,puter,free,local,chrome");
+  expect("service: Pollinations keeps your Pollen models plus the safety nets", keptFor("pollinations") === "demo,pollen,free,local,chrome");
+  expect("service: your own keys plus the safety nets", keptFor("keys") === "demo,gemini,free,local,chrome");
+  expect("service: on this device only never sends anything to the cloud", keptFor("device") === "demo,local,chrome");
+  state.settings.aiService = savedService;
+
+  // Answers never stop: the AI on this device takes over from a busy cloud AI
+  const modelsBeforeRescue = models;
+  models = [...models, CHROME_AI_MODEL];
+  expect("unlimited: a busy or used-up cloud AI hands over to the AI on this device", rescueModelFor(FREE_MODEL.value, new Error(friendlyError(429, "", "free"))) === CHROME_AI_MODEL.value
+    && rescueModelFor("pollen::openai/gpt-6-luna", new Error(friendlyError(402, "", "pollen"))) === CHROME_AI_MODEL.value
+    && rescueModelFor(FREE_MODEL.value, new Error("The API key was rejected. Check it in Settings.")) === ""
+    && rescueModelFor(CHROME_AI_MODEL.value, new Error("busy")) === "");
+  models = modelsBeforeRescue;
+
+  // Chrome's built-in AI (a stand-in for the Prompt API)
+  const realLanguageModel = window.LanguageModel;
+  let chromePrompt = null;
+  window.LanguageModel = {
+    availability: async () => "available",
+    create: async (options) => ({
+      promptStreaming: (text) => {
+        chromePrompt = { options, text };
+        return (async function* () {
+          yield "Hello ";
+          yield "from Gemini Nano";
+        })();
+      },
+      destroy: () => {},
+    }),
+  };
+  const chromeText = await streamChromeAI("Be brief.", [{ role: "user", content: "Hi" }, { role: "assistant", content: "Hello!" }, { role: "user", content: "Who are you?" }],
+    () => {}, new AbortController().signal, { in: 0, out: 0 });
+  expect("chrome ai: Gemini Nano answers on this device with the chat so far", chromeText === "Hello from Gemini Nano" && chromePrompt.text === "Who are you?"
+    && chromePrompt.options.initialPrompts[0].role === "system" && chromePrompt.options.initialPrompts.length === 3 && (await chromeAIStatus()) === "available");
+  // Chrome's first availability check can take seconds: the model list must not wait for it.
+  let finishChromeCheck = null;
+  window.LanguageModel = { availability: () => new Promise((resolve) => { finishChromeCheck = resolve; }), create: async () => ({}) };
+  const slowLoadStarted = performance.now();
+  await loadModels();
+  const slowLoadMs = performance.now() - slowLoadStarted;
+  const chromeNotYetListed = !models.some((m) => m.value === CHROME_AI_MODEL.value);
+  finishChromeCheck("available");
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  expect("chrome ai: a slow Chrome check never holds up the model list, and Gemini Nano joins when ready",
+    slowLoadMs < CHROME_AI_WAIT_MS + 1500 && chromeNotYetListed && models.some((m) => m.value === CHROME_AI_MODEL.value));
+  models = models.filter((m) => m.value !== CHROME_AI_MODEL.value);
+  refreshModelSelects();
+  if (realLanguageModel === undefined) delete window.LanguageModel;
+  else window.LanguageModel = realLanguageModel;
+
+  // Pollinations wallet
+  const pollenOptions = pollinationsModelOptions({ data: [
+    { id: "anthropic/claude-opus-5.5", title: "Claude Opus 5.5", category: "text", paid_only: true, pricing: { completionTextTokens: "0.000015" }, supported_endpoints: ["/v1/chat/completions"], health: { status: "healthy" } },
+    { id: "openai/gpt-6-luna", title: "GPT-6 Luna", category: "text", pricing: { completionTextTokens: "0.0000005" }, health: { status: "healthy" } },
+    { id: "community/someone/bot", category: "text", community: true },
+    { id: "flux", category: "image" },
+    { id: "broken/model", category: "text", health: { status: "down" } },
+  ] });
+  expect("pollinations: the text models of your wallet are listed with their price", pollenOptions.length === 2 && pollenOptions[0].value === "pollen::anthropic/claude-opus-5.5"
+    && pollenOptions[0].meta.out === 1500 && pollenOptions[0].group === "Pollinations: paid Pollen" && modelBadges(pollenOptions[0]).includes("Premium") && modelBadges(pollenOptions[1]).includes("Pollen"));
+  const signInLink = new URL(pollinationsAuthorizeUrl("check123"));
+  expect("pollinations: Connect asks for text models, a budget you choose and comes back here", signInLink.origin === "https://enter.pollinations.ai"
+    && signInLink.searchParams.get("redirect_uri") === `${location.origin}${location.pathname}` && signInLink.searchParams.get("models") === "text" && signInLink.searchParams.get("state") === "check123");
+  sessionStorage.setItem(POLLINATIONS_STATE_KEY, "abc123");
+  history.replaceState(null, "", `${location.pathname}#api_key=sk_selftest_1234567890&state=abc123`);
+  const pollenResult = takePollinationsKey();
+  expect("pollinations: the approved key is saved, removed from the address bar and becomes the main service", pollenResult === "connected"
+    && state.settings.pollinationsKey === "sk_selftest_1234567890" && !location.hash.includes("api_key") && mainService() === "pollinations");
+  history.replaceState(null, "", `${location.pathname}#api_key=sk_attacker_1234567890&state=wrong`);
+  expect("pollinations: a key without the matching sign-in check is refused", takePollinationsKey() === "invalid" && state.settings.pollinationsKey === "sk_selftest_1234567890");
+  disconnectPollinations();
+  expect("pollinations: disconnect forgets the key and goes back to Auto", !pollinationsConnected() && mainService() === "auto");
+  history.replaceState(null, "", `${location.pathname}#selftest`);
+  selectChatModel(quotaModel, false);
   chatMode = "slow";
   const slowReply = sendChat("Take your time");
   await new Promise((resolve) => setTimeout(resolve, 150));
@@ -5494,6 +5972,7 @@ function applyLaunchParams() {
 }
 
 async function boot() {
+  const pollinationsReturn = TEST_MODE ? "" : takePollinationsKey();
   applyTheme();
   fillPersonaSelect();
   wire();
@@ -5501,8 +5980,12 @@ async function boot() {
   if (!TEST_MODE) applyRetention();
   renderAccount();
   renderUsage();
+  renderPowerButton();
   await loadModels();
   newChat();
+  if (pollinationsReturn === "connected") toast("Pollinations connected: your own Pollen now pays for replies");
+  else if (pollinationsReturn === "denied") toast("Pollinations wasn't connected");
+  else if (pollinationsReturn === "invalid") toast("That Pollinations sign-in couldn't be checked. Press Connect again.");
   const handedOff = importCrewroomInbox();
   if (handedOff) {
     openConversation(handedOff);
