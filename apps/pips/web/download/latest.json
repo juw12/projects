@@ -1,39 +1,39 @@
 {
   "installer": {
     "filename": "Pips-Setup.exe",
-    "sha256": "6fc7072596f3fcd0ec5eebdb002b0b136f507a0046c92a771636152fc72406ab",
-    "size": 22258948,
+    "sha256": "b0ea0ed74647de181d43d1e6e811d6b03f795bdcd4629ef231c207b7f1f0616a",
+    "size": 22271526,
     "architecture": "x64",
     "python_version": "3.13.17",
     "requires_admin": false,
     "url": "https://juw12.github.io/projects/pips/download/Pips-Setup.exe"
   },
-  "version": "2.21.0",
+  "version": "2.22.0",
   "date": "2026-10-29",
-  "title": "Every animal has a voice",
+  "title": "Sing & dance with music",
   "url": "https://juw12.github.io/projects/pips/download/Pips-Windows.zip",
-  "sha256": "9472be332c815b7b3ee885b04c336c3da492e0dcc4a3d36644e7f4078d257ef5",
-  "size": 895350,
+  "sha256": "95130e4e4d629863eae40efcbb0f0976616beaa939c80dba5047a9e605f8a13b",
+  "size": 910979,
   "notes": {
     "en": [
-      "All 51 animals now have their own sound. Before, more than half of them borrowed the cat's meow - now the dog woofs, the cow moos, the sheep baas, the lion roars, the duck quacks, the dolphin clicks and whistles, the dragon flaps and roars with a puff of fire, the ghost goes wooo... and so on.",
-      "Every mood sounds different too: happy, sad, sleepy, hungry or grumpy. Petting, eating and snoring sound right for each kind of animal - furry ones purr and crunch, birds trill and peck, sea animals blow bubbles, bugs hum and magic pets chime.",
-      "A friend's pet that comes to visit now talks in its own voice: it says hi when it arrives and answers when you wave, pet it or give it a snack (it follows your sound settings)."
+      "Sing, Dance, Moonwalk, Breakdance, Yoga, Rain dance and the show tricks now play real music. When your pet sings, it sings the melody in its own voice - a cat meows the tune, a frog ribbits it, a whale hums it - and when it dances, its animal call joins the beat.",
+      "Pick the song: right-click → Do a trick → Song for sing & dance. Choose your animal's own song (every one of the 51 animals has its own tune), the song for its type (Meadow Hoedown for land, Ocean Calypso for water, Cloud Waltz for sky), Happy Pop, Disco Night, 8-bit Adventure, Lullaby, Lo-fi Chill, any other animal's song, Surprise me or No music.",
+      "Songs follow your sound settings (volume, sounds off, quiet during focus) and stop as soon as the trick is interrupted. Tricks your pet does by itself stay quiet."
     ],
     "id": [
-      "Ke-51 hewan sekarang punya suaranya sendiri. Sebelumnya lebih dari separuhnya meminjam suara meong kucing - sekarang anjing menggonggong, sapi melenguh, domba mengembik, singa mengaum, bebek berkwek, lumba-lumba berdecit dan bersiul, naga mengepakkan sayap dan mengaum dengan semburan api, hantu bersuara huuu... dan seterusnya.",
-      "Setiap suasana hati juga terdengar berbeda: senang, sedih, mengantuk, lapar, atau kesal. Suara dielus, makan, dan mendengkur cocok dengan jenis hewannya - hewan berbulu mendengkur dan mengunyah, burung berkicau dan mematuk, hewan laut membuat gelembung, serangga berdengung, dan pet ajaib berdenting.",
-      "Pet teman yang datang berkunjung sekarang bicara dengan suaranya sendiri: ia menyapa saat tiba dan membalas saat kamu melambai, mengelus, atau memberinya camilan (mengikuti pengaturan suaramu)."
+      "Nyanyi, Dansa, Moonwalk, Breakdance, Yoga, Tari hujan, dan trik pertunjukan sekarang memutar musik sungguhan. Saat pet bernyanyi, ia menyanyikan melodinya dengan suaranya sendiri - kucing mengeong mengikuti nada, katak berkwak, paus bersenandung - dan saat berdansa, suara khas hewannya ikut mengikuti irama.",
+      "Pilih lagunya: klik kanan → Lakukan trik → Lagu untuk nyanyi & dansa. Pilih lagu khas hewanmu (ke-51 hewan punya lagu sendiri), lagu untuk tipenya (Dansa Padang Rumput untuk darat, Calypso Samudra untuk air, Waltz Awan untuk udara), Pop Ceria, Malam Disko, Petualangan 8-bit, Nina Bobo, Lo-fi Santai, lagu hewan lain, Kejutkan aku, atau Tanpa musik.",
+      "Lagu mengikuti pengaturan suara (volume, suara mati, senyap saat fokus) dan langsung berhenti saat trik terganggu. Trik yang dilakukan pet sendiri tetap tanpa musik."
     ],
     "zh_TW": [
-      "全部 51 種動物現在都有自己的聲音。以前一半以上的動物都借用貓咪的喵喵叫——現在狗會汪汪、牛會哞哞、羊會咩咩、獅子會吼、鴨子會呱呱、海豚會滴答吹口哨、龍會拍翅膀噴火怒吼、幽靈會嗚嗚……等等。",
-      "每種心情聽起來也不一樣：開心、難過、想睡、肚子餓或生氣。摸摸、吃東西和打呼的聲音也符合每種動物——毛茸茸的會呼嚕和咀嚼、鳥會啾啾和啄食、海洋動物會吐泡泡、昆蟲會嗡嗡、魔法寵物會叮叮響。",
-      "來拜訪的朋友寵物現在會用自己的聲音說話：抵達時會打招呼，你揮手、摸摸或餵點心時也會回應（依照你的音效設定）。"
+      "唱歌、跳舞、月球漫步、霹靂舞、瑜伽、求雨舞和表演招式現在會播放真正的音樂。寵物唱歌時會用自己的聲音唱出旋律——貓咪喵著唱、青蛙呱著唱、鯨魚哼著唱；跳舞時，牠的叫聲也會跟著節拍加入。",
+      "選擇歌曲：右鍵 → 表演招式 → 唱歌跳舞的歌曲。可以選動物專屬的歌（51 種動物各有自己的曲子）、牠類型的歌（陸地：草原土風舞、水中：海洋卡利普索、天空：雲朵華爾滋）、快樂流行曲、迪斯可之夜、8 位元冒險、搖籃曲、Lo-fi 放鬆、其他動物的歌、給我驚喜或不要音樂。",
+      "歌曲會遵循你的音效設定（音量、關閉音效、專注時安靜），招式一被打斷就會停止。寵物自己表演的招式維持安靜。"
     ],
     "zh_CN": [
-      "全部 51 种动物现在都有自己的声音。以前一半以上的动物都借用猫咪的喵喵叫——现在狗会汪汪、牛会哞哞、羊会咩咩、狮子会吼、鸭子会嘎嘎、海豚会嘀嗒吹口哨、龙会拍翅膀喷火怒吼、幽灵会呜呜……等等。",
-      "每种心情听起来也不一样：开心、难过、想睡、肚子饿或生气。摸摸、吃东西和打呼的声音也符合每种动物——毛茸茸的会呼噜和咀嚼、鸟会啾啾和啄食、海洋动物会吐泡泡、昆虫会嗡嗡、魔法宠物会叮叮响。",
-      "来拜访的朋友宠物现在会用自己的声音说话：抵达时会打招呼，你挥手、摸摸或喂点心时也会回应（按照你的音效设置）。"
+      "唱歌、跳舞、月球漫步、霹雳舞、瑜伽、求雨舞和表演招式现在会播放真正的音乐。宠物唱歌时会用自己的声音唱出旋律——猫咪喵着唱、青蛙呱着唱、鲸鱼哼着唱；跳舞时，它的叫声也会跟着节拍加入。",
+      "选择歌曲：右键 → 表演招式 → 唱歌跳舞的歌曲。可以选动物专属的歌（51 种动物各有自己的曲子）、它类型的歌（陆地：草原土风舞、水中：海洋卡利普索、天空：云朵华尔兹）、快乐流行曲、迪斯科之夜、8 位冒险、摇篮曲、Lo-fi 放松、其他动物的歌、给我惊喜或不要音乐。",
+      "歌曲会遵循你的音效设置（音量、关闭音效、专注时安静），招式一被打断就会停止。宠物自己表演的招式保持安静。"
     ]
   },
   "guide": "https://juw12.github.io/projects/pips/download/Pips-Guide.pptx"

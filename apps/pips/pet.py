@@ -55,6 +55,11 @@ except ImportError:  # pragma: no cover - sounds are optional
     pet_sounds = None
 
 try:
+    import pet_songs       # v2.22: songs for sing / dance / other tricks
+except Exception:  # pragma: no cover - music is optional
+    pet_songs = None
+
+try:
     import social
 except ImportError:  # pragma: no cover - friends / achievements are optional
     social = None
@@ -100,6 +105,7 @@ DEFAULT_PET_SETTINGS = {
     "sounds": True,              # little animal voices (meow, ribbit, hoot...)
     "sound_volume": 60,          # 0..100
     "quiet_focus": True,         # no pet sounds during a focus session
+    "trick_song": "own",         # v2.22: music for sing / dance tricks (pet_songs.CHOICES or "sp:<species>")
     "friends": False,            # opt-in: share level / pomodoro counts with friends (social.py)
     "gender": "",                # v2.18: "boy" | "girl" | "" (secret)
     "sick_days": True,           # v2.18: catches a little cold when I skip breaks for 2.5 hours
@@ -1991,9 +1997,17 @@ class DesktopPet:
                 self.voice = pet_sounds.PetVoice()
             except Exception as exc:
                 logger.warning("Pet sounds unavailable: %s", exc)
+        self.songs = None
+        if pet_songs is not None:
+            try:
+                self.songs = pet_songs.SongPlayer()
+            except Exception as exc:
+                logger.warning("Trick songs unavailable: %s", exc)
 
         self._build_window()
         self._apply_offline_time()
+        if self.songs:
+            self.root.after(25000, self._prewarm_songs)     # v2.22: songs ready before the first dance
         self.social = None
         if social is not None:
             try:
@@ -2188,7 +2202,7 @@ class DesktopPet:
         if self.action and now >= self.action_t1:
             finished = self.action
             self.action = None
-            self._end_trick()
+            self._end_trick(stop_song=False)    # the song's last note rings out by itself
             if finished == "yawn_to_sleep":
                 self.sleeping = True
                 self.sleep_started = now
@@ -2840,7 +2854,7 @@ class DesktopPet:
             if (owned and not away and not self.focus and self.action is None and not self.dragging
                     and self.leap is None and not self.falling and self.flight is None
                     and self.mood() in ("happy", "content")):
-                self.do_trick(random.choice(owned))
+                self.do_trick(random.choice(owned), music=False)   # surprise tricks stay quiet
 
         if now >= self._next_vocal:
             # every now and then the pet "talks" in its current mood
@@ -2853,6 +2867,7 @@ class DesktopPet:
             fs = self._fullscreen_hides()
             if fs and not self.fs_hidden:
                 self.fs_hidden = True
+                self._stop_song()
                 self.win.withdraw()
                 self.bubble.hide()
             elif not fs and self.fs_hidden:
@@ -3432,8 +3447,10 @@ class DesktopPet:
                 pass
             self._open_job = None
 
-    def do_trick(self, move: str, force=False) -> bool:
-        """Perform a move from the shop (if owned)."""
+    def do_trick(self, move: str, force=False, music=True) -> bool:
+        """Perform a move from the shop (if owned).
+
+        v2.22: sing / dance (and other show moves) play the chosen song unless ``music`` is False."""
         if pet_shop is None or move not in pet_shop.MOVES:
             return False
         if not force and not (self.shop and self.shop.owns(move)):
@@ -3448,12 +3465,111 @@ class DesktopPet:
             self.cv.config(height=self.H)
             self._last_geom = None
         self.walking = False
-        self.set_action(move, pet_shop.MOVES[move][1])
-        self._voice("happy")
+        song = self._trick_song_for(move) if music else None
+        seconds = pet_shop.MOVES[move][1]
+        if song:
+            seconds = pet_songs.seconds_for(move, seconds)
+        self.set_action(move, seconds)
+        if not (song and self._play_song(song, pet_songs.style_for(move), seconds)):
+            self._voice("happy")
         self._touch()
         return True
 
-    def _end_trick(self):
+    # ------------------------------------------------------------ v2.22 songs
+    def _song_allowed(self, force=False) -> bool:
+        if not self.songs or pet_songs is None or getattr(self, "_destroyed", False):
+            return False
+        if force:
+            return True
+        if not self.s.get("sounds", True) or not self.visible or self.fs_hidden:
+            return False
+        return not (self.focus and self.s.get("quiet_focus", True))
+
+    def trick_song(self) -> str:
+        choice = self.s.get("trick_song", "own")
+        if pet_songs is None or not pet_songs.is_choice(choice):
+            return "own"
+        return choice
+
+    def _trick_song_for(self, move):
+        """The song id for this move with the chosen music (None = this move has no music / music off)."""
+        if pet_songs is None or not pet_songs.style_for(move) or not self._song_allowed():
+            return None
+        return pet_songs.resolve(self.trick_song(), self.s["species"], self.category)
+
+    def _song_volume(self) -> float:
+        try:
+            return max(0, min(100, int(self.s.get("sound_volume", 60)))) / 100.0
+        except (TypeError, ValueError):
+            return 0.6
+
+    def _play_song(self, song_id, style, seconds, force=False) -> bool:
+        if not song_id or not style or not self._song_allowed(force):
+            return False
+        try:
+            return self.songs.play(song_id, self.s["species"], style, seconds, self._song_volume())
+        except Exception as exc:
+            logger.debug("trick song failed: %s", exc)
+            return False
+
+    def _stop_song(self):
+        if getattr(self, "songs", None):
+            try:
+                self.songs.stop()
+            except Exception:
+                pass
+
+    def song_label(self, choice=None) -> str:
+        choice = self.trick_song() if choice is None else choice
+        if isinstance(choice, str) and choice.startswith("sp:"):
+            return t("song_of", animal=species_label(choice[3:]))
+        if choice == "own":
+            return t("song_own", animal=species_label(self.s["species"]))
+        return t("song_" + str(choice))
+
+    def set_trick_song(self, choice):
+        """Pick the music for sing / dance tricks, then show it off with a little preview."""
+        if pet_songs is None or not pet_songs.is_choice(choice):
+            return
+        self.update_setting("trick_song", choice)
+        self.say(t("song_now", song=self.song_label(choice)), duration=3, priority=1)
+        if choice == "off":
+            self._stop_song()
+            return
+        owned = self.shop.moves() if self.shop else []
+        musical = [m for m in ("sing", "dance") if m in owned]
+        musical += [m for m in owned if pet_songs.style_for(m) and m not in musical]
+        if musical:
+            self.do_trick(musical[0])
+        else:
+            song = pet_songs.resolve(choice, self.s["species"], self.category)
+            self.set_action("cheer", 1.4)
+            self._spawn("sparkle", 3)
+            self._play_song(song, "dance", 6.0)
+        self._prewarm_songs()
+
+    def _prewarm_songs(self):
+        """Make the songs for my musical tricks ahead of time so they start right on the beat."""
+        if not self.songs or pet_songs is None or not self.shop or getattr(self, "_destroyed", False):
+            return
+        choice = self.trick_song()
+        if choice in ("off", "random"):
+            return
+        species = self.s["species"]
+        song = pet_songs.resolve(choice, species, self.category)
+        jobs = []
+        for move in self.shop.moves():
+            style = pet_songs.style_for(move)
+            if style:
+                jobs.append((song, species, style, pet_songs.seconds_for(move, pet_shop.MOVES[move][1])))
+        try:
+            self.songs.prewarm(jobs, self._song_volume())
+        except Exception as exc:
+            logger.debug("song prewarm failed: %s", exc)
+
+    def _end_trick(self, stop_song=True):
+        if stop_song:
+            self._stop_song()
         self.trick_dx = 0.0
         self.trick_lift = 0.0
         if self.trick_extra_h:
@@ -4137,6 +4253,7 @@ class DesktopPet:
         self._spawn("sparkle", 4)
         self.update_setting("species", species)
         self._voice("happy")
+        self._prewarm_songs()
 
     def update_setting(self, key, value):
         self.s[key] = value
@@ -4152,8 +4269,11 @@ class DesktopPet:
                 self.win.deiconify()
                 self._apply_position(force=True)
             else:
+                self._stop_song()
                 self.win.withdraw()
                 self.bubble.hide()
+        elif key == "sounds" and not value:
+            self._stop_song()
         elif key == "walk_on_taskbar" and not value:
             self.walking = False
             if self.flight is not None and not self.flight.get("perch"):
@@ -4279,6 +4399,7 @@ class DesktopPet:
             self._regrow_job = self.root.after(12000, self._offer_regrow)
 
     def destroy(self):
+        self._stop_song()
         self._destroyed = True
         for job in (getattr(self, "_greet_job", None), getattr(self, "_regrow_job", None)):
             if job:
@@ -4401,7 +4522,12 @@ class DesktopPet:
         if moves:
             def build_tricks(sub):
                 for move in moves:
-                    sub.item("\u2728", t("mv_" + move).split(":")[0], lambda m=move: self.do_trick(m))
+                    note = " \u266A" if pet_songs is not None and pet_songs.style_for(move) else ""
+                    sub.item("\u2728", t("mv_" + move).split(":")[0] + note, lambda m=move: self.do_trick(m))
+                if pet_songs is not None and self.songs:
+                    sub.section(t("song_section"))
+                    sub.submenu("\U0001F3B5", t("song_menu"), self._build_song_menu,
+                                hint=self.song_label(), width=260)
             menu.submenu("\U0001F3AA", t("p_tricks"), build_tricks, hint=str(len(moves)))
         move = self._move_menu_entry()
         if move:
@@ -4485,6 +4611,41 @@ class DesktopPet:
         menu.popup(event.x_root, event.y_root)
         self._fancy_menu = menu
 
+    def _build_song_menu(self, sub):
+        """v2.22: choose the music for sing / dance — the pet's own song, its type's song, or anything else."""
+        current = self.trick_song()
+        species = self.s["species"]
+        mine = pet_songs.type_song(self.category)
+        icons = pet_songs.ICONS
+
+        def pick(choice):
+            return lambda: self.set_trick_song(choice)
+
+        sub.section(t("song_for", name=self.s["name"]))
+        sub.choice(icons["own"], self.song_label("own"), current == "own", pick("own"))
+        sub.choice(icons[mine], self.song_label(mine), current == mine, pick(mine))
+        sub.section(t("song_more"))
+        for choice in pet_songs.TYPE_SONGS + pet_songs.GENERIC_SONGS:
+            if choice != mine:
+                sub.choice(icons[choice], self.song_label(choice), current == choice, pick(choice))
+
+        def build_animal_songs(animals):
+            for category in CATEGORIES:
+                def build_category(cat_menu, category=category):
+                    for sp in SPECIES_BY_CATEGORY[category]:
+                        if sp != species:
+                            cat_menu.choice(icons["animal"], species_label(sp), current == "sp:" + sp,
+                                            pick("sp:" + sp))
+                inside = current.startswith("sp:") and current[3:] in SPECIES_BY_CATEGORY[category]
+                animals.submenu("\u25CF" if inside else "\u25CB", t("cat_" + category), build_category,
+                                hint=str(len(SPECIES_BY_CATEGORY[category])))
+        other = current.startswith("sp:") and current[3:] != species
+        sub.submenu(icons["animal"], t("song_animals"), build_animal_songs,
+                    hint=species_label(current[3:]) if other else "")
+        sub.separator()
+        sub.choice(icons["random"], self.song_label("random"), current == "random", pick("random"))
+        sub.choice(icons["off"], self.song_label("off"), current == "off", pick("off"))
+
     def _show_native_menu(self, event):
         bg, fg = "#ffffff", "#1a1a1a"
 
@@ -4505,6 +4666,26 @@ class DesktopPet:
             trick_menu = submenu(menu)
             for move in self.shop.moves():
                 trick_menu.add_command(label=t("mv_" + move).split(":")[0], command=lambda m=move: self.do_trick(m))
+            if pet_songs is not None and self.songs:
+                current_song = self.trick_song()
+                song_menu = submenu(trick_menu)
+                mine = pet_songs.type_song(self.category)
+                order = ["own", mine] + [c for c in pet_songs.TYPE_SONGS + pet_songs.GENERIC_SONGS if c != mine]
+                for choice in order + ["random", "off"]:
+                    mark = "\u25cf " if choice == current_song else "   "
+                    song_menu.add_command(label=mark + self.song_label(choice),
+                                          command=lambda c=choice: self.set_trick_song(c))
+                animals_menu = submenu(song_menu)
+                for category in CATEGORIES:
+                    cat_songs = submenu(animals_menu)
+                    for sp in SPECIES_BY_CATEGORY[category]:
+                        mark = "\u25cf " if current_song == "sp:" + sp else "   "
+                        cat_songs.add_command(label=mark + species_label(sp),
+                                              command=lambda c="sp:" + sp: self.set_trick_song(c))
+                    animals_menu.add_cascade(label=t("cat_" + category), menu=cat_songs)
+                song_menu.add_cascade(label=t("song_animals"), menu=animals_menu)
+                trick_menu.add_separator()
+                trick_menu.add_cascade(label=t("song_menu"), menu=song_menu)
             menu.add_cascade(label=t("p_tricks"), menu=trick_menu)
         menu.add_separator()
         menu.add_command(label=t("p_snack"), command=self.feed)

@@ -2,6 +2,33 @@
   "_comment": "Pips version history. Newest first. Feeds the in-app update notice (latest.json), the PPT guide and the update emails.",
   "releases": [
     {
+      "version": "2.22.0",
+      "date": "2026-10-29",
+      "title": "Sing & dance with music",
+      "notes": {
+        "en": [
+          "Sing, Dance, Moonwalk, Breakdance, Yoga, Rain dance and the show tricks now play real music. When your pet sings, it sings the melody in its own voice - a cat meows the tune, a frog ribbits it, a whale hums it - and when it dances, its animal call joins the beat.",
+          "Pick the song: right-click → Do a trick → Song for sing & dance. Choose your animal's own song (every one of the 51 animals has its own tune), the song for its type (Meadow Hoedown for land, Ocean Calypso for water, Cloud Waltz for sky), Happy Pop, Disco Night, 8-bit Adventure, Lullaby, Lo-fi Chill, any other animal's song, Surprise me or No music.",
+          "Songs follow your sound settings (volume, sounds off, quiet during focus) and stop as soon as the trick is interrupted. Tricks your pet does by itself stay quiet."
+        ],
+        "id": [
+          "Nyanyi, Dansa, Moonwalk, Breakdance, Yoga, Tari hujan, dan trik pertunjukan sekarang memutar musik sungguhan. Saat pet bernyanyi, ia menyanyikan melodinya dengan suaranya sendiri - kucing mengeong mengikuti nada, katak berkwak, paus bersenandung - dan saat berdansa, suara khas hewannya ikut mengikuti irama.",
+          "Pilih lagunya: klik kanan → Lakukan trik → Lagu untuk nyanyi & dansa. Pilih lagu khas hewanmu (ke-51 hewan punya lagu sendiri), lagu untuk tipenya (Dansa Padang Rumput untuk darat, Calypso Samudra untuk air, Waltz Awan untuk udara), Pop Ceria, Malam Disko, Petualangan 8-bit, Nina Bobo, Lo-fi Santai, lagu hewan lain, Kejutkan aku, atau Tanpa musik.",
+          "Lagu mengikuti pengaturan suara (volume, suara mati, senyap saat fokus) dan langsung berhenti saat trik terganggu. Trik yang dilakukan pet sendiri tetap tanpa musik."
+        ],
+        "zh_TW": [
+          "唱歌、跳舞、月球漫步、霹靂舞、瑜伽、求雨舞和表演招式現在會播放真正的音樂。寵物唱歌時會用自己的聲音唱出旋律——貓咪喵著唱、青蛙呱著唱、鯨魚哼著唱；跳舞時，牠的叫聲也會跟著節拍加入。",
+          "選擇歌曲：右鍵 → 表演招式 → 唱歌跳舞的歌曲。可以選動物專屬的歌（51 種動物各有自己的曲子）、牠類型的歌（陸地：草原土風舞、水中：海洋卡利普索、天空：雲朵華爾滋）、快樂流行曲、迪斯可之夜、8 位元冒險、搖籃曲、Lo-fi 放鬆、其他動物的歌、給我驚喜或不要音樂。",
+          "歌曲會遵循你的音效設定（音量、關閉音效、專注時安靜），招式一被打斷就會停止。寵物自己表演的招式維持安靜。"
+        ],
+        "zh_CN": [
+          "唱歌、跳舞、月球漫步、霹雳舞、瑜伽、求雨舞和表演招式现在会播放真正的音乐。宠物唱歌时会用自己的声音唱出旋律——猫咪喵着唱、青蛙呱着唱、鲸鱼哼着唱；跳舞时，它的叫声也会跟着节拍加入。",
+          "选择歌曲：右键 → 表演招式 → 唱歌跳舞的歌曲。可以选动物专属的歌（51 种动物各有自己的曲子）、它类型的歌（陆地：草原土风舞、水中：海洋卡利普索、天空：云朵华尔兹）、快乐流行曲、迪斯科之夜、8 位冒险、摇篮曲、Lo-fi 放松、其他动物的歌、给我惊喜或不要音乐。",
+          "歌曲会遵循你的音效设置（音量、关闭音效、专注时安静），招式一被打断就会停止。宠物自己表演的招式保持安静。"
+        ]
+      }
+    },
+    {
       "version": "2.21.0",
       "date": "2026-10-29",
       "title": "Every animal has a voice",
