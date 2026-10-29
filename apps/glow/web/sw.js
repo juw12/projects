@@ -2,7 +2,8 @@
 // this path, so it removes only that worker's old 'glow-vN' caches. GlowChat (./chat/), GlowRoom
 // (./room/) and GlowLead (./lead/) have their own workers; requests for them are left alone here.
 // Pages are network-first with a short timeout, so a weak connection still opens Glow at once.
-const CACHE_NAME = 'glowhome-v8';
+// version.json is never cached, so "Check for updates" always sees the real latest version.
+const CACHE_NAME = 'glowhome-v9';
 const NETWORK_TIMEOUT_MS = 4000;
 const ASSETS = [
   './',
@@ -26,6 +27,7 @@ const ASSETS = [
   './terms.html',
   './shared/glow-locale.js',
   './shared/glow-apps.js',
+  './shared/glow-resume.js',
   './shared/qrcode.js',
   './shared/i18n/ui.id.js',
   './shared/i18n/ui.zh-CN.js',
@@ -74,5 +76,6 @@ self.addEventListener('fetch', (event) => {
   const scope = self.registration.scope;
   if (event.request.method !== 'GET' || url.origin !== self.location.origin || !url.href.startsWith(scope)) return;
   if (url.href.startsWith(scope + 'chat/') || url.href.startsWith(scope + 'room/') || url.href.startsWith(scope + 'lead/')) return;
+  if (url.pathname === new URL('version.json', scope).pathname) return; // always straight from the network
   event.respondWith(networkFirst(event.request));
 });

@@ -15,7 +15,7 @@ class V121Tests(unittest.TestCase):
 
     def test_versions_match(self):
         published = json.loads((WEB / "version.json").read_text(encoding="utf-8"))["version"]
-        self.assertEqual(published, "1.24.1")
+        self.assertEqual(published, "1.25.0")
         self.assertIn(f'const GLOW_VERSION = "{published}";', self.apps)
 
     def test_every_chat_page_has_project_and_skill_buttons(self):
@@ -44,7 +44,8 @@ class V121Tests(unittest.TestCase):
 
     def test_allowance_used_up_is_handled_quietly(self):
         reply = re.search(r"async function streamReply[\s\S]+?\n\}", self.chat).group(0)
-        self.assertIn("ALLOWANCE_GONE.test(errorText(error))", reply)
+        self.assertIn("puterAllowanceError(modelValue, error)", reply)
+        self.assertIn("ALLOWANCE_GONE.test(errorText(error))", self.chat)
         self.assertIn("restPuterAllowance();", reply)
         assistant = re.search(r"async function streamAssistant[\s\S]+?\nconst ALLOWANCE_GONE", self.chat).group(0)
         self.assertNotIn("fillSelect", assistant)

@@ -66,6 +66,44 @@ class GlowInAppTests(unittest.TestCase):
         self.assertIn("puterSession: false", account)
         self.assertNotIn('if (s.account === "puter") saveSettings({ account: "guest"', account)
 
+    def test_version_button_and_updates_by_themselves(self):
+        for needle in ("function mountVersionChip", "data-glow-version-chip", "data-glow-version-slot", "Update to ",
+                       "function maybeAutoUpdate", "function registerBusyCheck", "glow.update.auto", "function triedRecently",
+                       "function showWhatsNew", "function announceUpdate", "glow-update-ready", "Install updates by itself"):
+            self.assertIn(needle, self.switcher)
+        for page in ("index.html", "app.html", "mobile.html"):
+            html = (WEB / "chat" / page).read_text(encoding="utf-8")
+            self.assertIn("data-glow-version-slot", html, f"GlowChat {page} needs a spot for the version button")
+        chat = (WEB / "chat" / "app.js").read_text(encoding="utf-8")
+        self.assertIn("registerBusyCheck", chat, "GlowChat must say when an update has to wait (a reply is streaming)")
+        self.assertIn('dataset.glowDraft = "saved"', chat, "the message box keeps its text through an update")
+        home_worker = (WEB / "sw.js").read_text(encoding="utf-8")
+        self.assertIn("new URL('version.json', scope)", home_worker, "version.json must never come from a cache")
+
+    def test_reopen_where_you_left_off(self):
+        resume = (WEB / "shared" / "glow-resume.js").read_text(encoding="utf-8")
+        for needle in ("glow.lastPlace", "glow.session", '"glow.resume"', "location.replace", 'navigation.type !== "navigate"',
+                       "new URL(document.referrer).origin === location.origin"):
+            self.assertIn(needle, resume)
+        home = (WEB / "index.html").read_text(encoding="utf-8")
+        self.assertLess(home.index("shared/glow-resume.js"), home.index("</head>"), "it must run before Glow home is drawn")
+        self.assertIn("./shared/glow-resume.js", (WEB / "sw.js").read_text(encoding="utf-8"), "and work offline")
+        for needle in ("function recordPlace", "data-glow-resume-toggle", "function showResumeHint"):
+            self.assertIn(needle, self.switcher)
+        chat = (WEB / "chat" / "app.js").read_text(encoding="utf-8")
+        for needle in ("function resumeLastChat", "if (!resumeLastChat()) newChat();", "function restoreDraft", '"glow.chat.draft"',
+                       "rememberOpenChat(conv);", "clearDraft();"):
+            self.assertIn(needle, chat)
+
+    def test_used_up_allowance_never_warns_in_chats(self):
+        chat = (WEB / "chat" / "app.js").read_text(encoding="utf-8")
+        # The rest is kept in memory too (full browser storage), and a request already on its way when the
+        # allowance ran out is answered by the backup instead of showing the warning.
+        for needle in ("let puterRestUntil = 0;", "Math.max(puterRestUntil, saved)", "function puterAllowanceError",
+                       "const backup = allowanceBackupModel().value;", "function mediaErrorText"):
+            self.assertIn(needle, chat)
+        self.assertNotIn("&& !puterAllowanceResting();\n    if (quietRetry)", chat)
+
 
 if __name__ == "__main__":
     unittest.main()

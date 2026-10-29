@@ -94,13 +94,13 @@ class PowerAndServiceTests(unittest.TestCase):
 
     def test_version_and_cache_were_bumped_together(self):
         published = json.loads((WEB / "version.json").read_text(encoding="utf-8"))["version"]
-        self.assertEqual(published, "1.24.1")
+        self.assertEqual(published, "1.25.0")
         apps = (WEB / "shared" / "glow-apps.js").read_text(encoding="utf-8")
         self.assertIn(f'const GLOW_VERSION = "{published}";', apps)
         mobile = json.loads((APP / "mobile" / "package.json").read_text(encoding="utf-8"))
         self.assertEqual(mobile["version"], published)
         worker = (WEB / "chat" / "sw.js").read_text(encoding="utf-8")
-        self.assertIn("const CACHE_NAME = 'glowchat-v16';", worker)
+        self.assertIn("const CACHE_NAME = 'glowchat-v17';", worker)
 
 
 if __name__ == "__main__":
