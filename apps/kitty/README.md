@@ -22,6 +22,8 @@ encrypted.
 | **Tips** | Persona-aware tips: one per day, sometimes after adding a transaction, and on demand. |
 | **Goals** | Savings goals with progress rings and the monthly amount needed to reach the target date. |
 | **Invest** | Holdings (units × price), allocation vs. a target (presets or custom), drift and the trades needed to rebalance, and a compound-growth projection with sliders. Prices are entered manually. |
+| **Languages** | English, Bahasa Indonesia, 简体中文 and Español. Picks your device language on first launch; switch any time from the welcome screen or **Settings → Preferences**. Dates and month names follow the language. |
+| **Share your result** | One tap turns your money animal into a 1080×1350 card in your language (native share sheet on phones, PNG download on desktop) with a link back to the quiz. |
 | **Share** | One link invites people to edit live. Shows presence ("2 online"), people and an activity feed. Works offline: edits queue and sync on reconnect. |
 
 ## Platforms (all free)
@@ -41,6 +43,14 @@ workflow (`mobile/ci/kitty-mobile.yml`, active once copied to `.github/workflows
 [`kitty-mobile` release](https://github.com/juw12/projects/releases/tag/kitty-mobile). See `mobile/README.md`.
 
 App Store and Play Store listings are not included: they need paid developer accounts (Apple $99/year, Google $25 once).
+
+## Languages
+
+All UI text lives in one table, `apps/kitty/i18n/strings.txt` (`English || Indonesian || Chinese || Spanish`, ~760 rows).
+`python3 apps/kitty/i18n/build_i18n.py` validates it (column count, matching `{placeholders}`, duplicates) and writes
+`web/js/lang/{id,zh,es}.js`. At runtime `web/js/i18n.js` picks the language (`?lang=` → saved choice → browser),
+translates rendered text and attributes in place, and leaves user data (budget names, notes, amounts) untouched.
+To add a language, add a column, append its code to `LANGS` in both files and rebuild.
 
 ## How sharing works
 
@@ -86,10 +96,11 @@ No build step and no dependencies: plain HTML, CSS and classic scripts.
 python apps/kitty/tests/test_relay.py       # relay: publish/poll/SSE, 400/413, persistence
 python apps/kitty/tests/test_web_static.py  # files, refs, manifest, no root-absolute paths
 python apps/kitty/tests/test_mobile_static.py  # Capacitor config, icon sizes, release assets, versions
+python apps/kitty/tests/test_i18n.py          # translation table valid, language packs up to date, load order
 ```
 
 In the browser, open `tests.html` for 87 core tests (merge, crypto, parsing, budgets, alerts, planner, portfolio). Add `?relay=https://ntfy.sh` or your relay URL for a live two-client sync test, which brings the total to 92.
 
 ## Caveats
 
-Kitty is a well-tested concept app, not a bank-grade product. Tips and plans are general guidance, not financial advice. Investment prices are manual. Data is only as durable as your browser storage plus whoever you share with, so use **Settings → Backup** for a JSON export.
+Kitty is a free, working app, but it is not a bank: it never connects to your accounts. Translations were written with AI assistance and have not yet had a native-speaker review. Tips and plans are general guidance, not financial advice. Investment prices are manual. Data is only as durable as your browser storage plus whoever you share with, so use **Settings → Backup** for a JSON export.

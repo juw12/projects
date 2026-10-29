@@ -48,6 +48,21 @@
     { id: 'settings', label: 'Settings', icon: 'gear' },
   ];
   const MOBILE_NAV = ['home', 'sheet', 'budget', 'invest', 'you'];
+  const LOGO =
+    '<span class="logo" aria-hidden="true"><svg viewBox="0 0 32 32" width="20" height="20">' +
+    '<path fill="currentColor" d="M6.5 6.2c0-1 1.1-1.6 1.9-1l4.6 3.4a12 12 0 0 1 6 0l4.6-3.4c.8-.6 1.9 0 1.9 1V15a9.5 9.5 0 0 1-19 0z"/>' +
+    '<circle cx="12.4" cy="15.2" r="1.6" fill="var(--logo-ink)"/><circle cx="19.6" cy="15.2" r="1.6" fill="var(--logo-ink)"/>' +
+    '<path d="M14.2 19.4c1 .9 2.6.9 3.6 0" fill="none" stroke="var(--logo-ink)" stroke-width="1.6" stroke-linecap="round"/></svg></span>';
+  const BRAND = '<div class="brand">' + LOGO + '<b>Kitty</b></div>';
+  const T = K.t;
+  function langSelect(extraClass) {
+    return (
+      '<label class="lang-select' + (extraClass ? ' ' + extraClass : '') + '" title="Language">' + icon('globe', 16) +
+      '<select data-act-change="set-lang" aria-label="Language" translate="no">' +
+      K.LANGS.map((l) => '<option value="' + l.code + '"' + (K.i18n.lang === l.code ? ' selected' : '') + '>' + esc(l.name) + '</option>').join('') +
+      '</select></label>'
+    );
+  }
   const MONTH_VIEWS = { home: 1, sheet: 1, budget: 1 };
 
   const S = {
@@ -304,6 +319,8 @@
 
   function notify(title, body) {
     if (!S.profile || !S.profile.notify || !('Notification' in window) || Notification.permission !== 'granted') return;
+    title = K.i18n.tr(title);
+    body = K.i18n.tr(body);
     try {
       new Notification(title, { body: body, icon: 'icon.svg', tag: 'kitty-' + title.slice(0, 20) });
     } catch (e) {
@@ -346,10 +363,170 @@
   }
 
   function shareSheet(title, text, url) {
+    title = K.i18n.tr(title);
+    text = K.i18n.tr(text);
     if (NATIVE) {
       return nativeCall('Share', 'share', { title: title, text: text, url: url, dialogTitle: title });
     }
     return navigator.share({ title: title, text: text, url: url });
+  }
+
+  // ================================================================ shareable result card
+  function wrapLines(ctx, text, maxWidth) {
+    const words = String(text).split(/(\s+)/);
+    const lines = [];
+    let line = '';
+    const pushChars = (chunk) => {
+      // CJK text has no spaces: break by character when a word is too wide.
+      for (const ch of chunk) {
+        if (ctx.measureText(line + ch).width > maxWidth && line) {
+          lines.push(line);
+          line = ch.trim() ? ch : '';
+        } else {
+          line += ch;
+        }
+      }
+    };
+    words.forEach((word) => {
+      if (ctx.measureText(line + word).width <= maxWidth) {
+        line += word;
+      } else if (ctx.measureText(word).width > maxWidth) {
+        pushChars(word);
+      } else {
+        lines.push(line.trim());
+        line = word.trim() ? word : '';
+      }
+    });
+    if (line.trim()) lines.push(line.trim());
+    return lines;
+  }
+
+  function makeResultCard(personaId) {
+    const p = K.PERSONAS[personaId];
+    const W = 1080;
+    const H = 1350;
+    const canvas = document.createElement('canvas');
+    canvas.width = W;
+    canvas.height = H;
+    const ctx = canvas.getContext('2d');
+    const sans = '"Inter", -apple-system, "Segoe UI", "PingFang SC", "Noto Sans SC", Roboto, sans-serif';
+    const tr = (s) => K.i18n.tr(s);
+
+    const bg = ctx.createLinearGradient(0, 0, W, H);
+    bg.addColorStop(0, p.color);
+    bg.addColorStop(1, '#0b0b12');
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = 'rgba(255,255,255,0.08)';
+    ctx.beginPath();
+    ctx.arc(W - 120, 180, 360, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#ffffff';
+    ctx.textBaseline = 'alphabetic';
+    ctx.font = '700 44px ' + sans;
+    ctx.fillText('🐱 Kitty', 80, 130);
+
+    ctx.textAlign = 'center';
+    ctx.font = '300px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif';
+    ctx.fillText(p.emoji, W / 2, 460);
+
+    ctx.fillStyle = 'rgba(255,255,255,0.75)';
+    ctx.font = '600 36px ' + sans;
+    ctx.fillText(tr('My money animal').toUpperCase(), W / 2, 580);
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '800 104px ' + sans;
+    let y = 695;
+    const nameLines = wrapLines(ctx, tr(p.name), W - 160);
+    nameLines.forEach((ln) => {
+      ctx.fillText(ln, W / 2, y);
+      y += 110;
+    });
+    ctx.font = '500 48px ' + sans;
+    ctx.fillStyle = 'rgba(255,255,255,0.88)';
+    ctx.fillText(tr(p.tagline), W / 2, y - 20);
+
+    ctx.font = '600 34px ' + sans;
+    const chips = p.strengths.slice(0, nameLines.length > 1 ? 2 : 3).map(tr);
+    let cy = y + 70;
+    chips.forEach((chip) => {
+      const label = '✓  ' + chip;
+      const width = ctx.measureText(label).width + 64;
+      ctx.fillStyle = 'rgba(255,255,255,0.14)';
+      ctx.beginPath();
+      if (ctx.roundRect) {
+        ctx.roundRect(W / 2 - width / 2, cy - 44, width, 64, 32);
+      } else {
+        ctx.rect(W / 2 - width / 2, cy - 44, width, 64);
+      }
+      ctx.fill();
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText(label, W / 2, cy);
+      cy += 84;
+    });
+
+    const fitText = (text, weight, size, yPos) => {
+      let px = size;
+      ctx.font = weight + ' ' + px + 'px ' + sans;
+      while (ctx.measureText(text).width > W - 140 && px > 20) {
+        px -= 2;
+        ctx.font = weight + ' ' + px + 'px ' + sans;
+      }
+      ctx.fillText(text, W / 2, yPos);
+    };
+    ctx.fillStyle = 'rgba(255,255,255,0.92)';
+    fitText(tr('What kind of money animal are you?'), '700', 40, H - 160);
+    ctx.fillStyle = 'rgba(255,255,255,0.75)';
+    fitText(tr('Find yours in 2 minutes, free.'), '500', 32, H - 108);
+    ctx.fillStyle = 'rgba(255,255,255,0.55)';
+    fitText('juw12.github.io/projects/kitty', '600', 28, H - 62);
+    return canvas;
+  }
+  K.makeResultCard = makeResultCard;
+
+  async function shareResult() {
+    const p = K.PERSONAS[S.profile.persona];
+    if (!p) return startQuiz();
+    const text = K.t("I'm {name} on Kitty. What's your money animal?", { name: K.i18n.tr(p.name) + ' ' + p.emoji });
+    const url = PUBLIC_URL;
+    if (NATIVE) {
+      try {
+        await shareSheet('My money animal', text, url);
+      } catch (err) {
+        /* cancelled */
+      }
+      return;
+    }
+    const canvas = makeResultCard(S.profile.persona);
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
+    const fileName = 'kitty-money-animal-' + S.profile.persona + '.png';
+    const file = typeof File === 'function' && blob ? new File([blob], fileName, { type: 'image/png' }) : null;
+    if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({ files: [file], title: K.i18n.tr('My money animal'), text: text + ' ' + url });
+        return;
+      } catch (err) {
+        if (err && err.name === 'AbortError') return;
+      }
+    }
+    if (blob) {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        URL.revokeObjectURL(a.href);
+        a.remove();
+      }, 1000);
+    }
+    try {
+      await navigator.clipboard.writeText(text + ' ' + url);
+    } catch (err) {
+      /* clipboard may be blocked */
+    }
+    toast({ icon: p.emoji, tone: 'good', title: 'Result card saved', body: 'Find yours in 2 minutes, free.' });
   }
 
   function handleBackButton() {
@@ -466,7 +643,7 @@
     const dark = t === 'dark' || (t === 'system' && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches);
     document.documentElement.dataset.theme = dark ? 'dark' : 'light';
     const meta = $('meta[name="theme-color"]');
-    if (meta) meta.setAttribute('content', dark ? '#0e0f16' : '#f6f5fb');
+    if (meta) meta.setAttribute('content', dark ? '#09090b' : '#f6f6f7');
   }
 
   function render() {
@@ -514,7 +691,7 @@
     return (
       '<div class="shell">' +
       '<aside class="side">' +
-      '<div class="brand"><span class="logo">🐱</span><b>Kitty</b><span class="beta">beta</span></div>' +
+      BRAND +
       '<div id="bookSwitch"></div>' +
       '<nav class="nav" id="nav" aria-label="Main"></nav>' +
       '<div class="side-foot" id="sideFoot"></div>' +
@@ -569,8 +746,8 @@
       .join('');
     $('#top').innerHTML =
       '<div class="top-left">' +
-      '<span class="logo only-mobile">🐱</span>' +
-      '<div><p class="top-book">' + esc(book.meta.name) + '</p><h1 class="top-title">' + esc(viewMeta.label) + '</h1></div>' +
+      LOGO.replace('class="logo"', 'class="logo only-mobile"') +
+      '<div><p class="top-book" translate="no">' + esc(book.meta.name) + '</p><h1 class="top-title">' + esc(viewMeta.label) + '</h1></div>' +
       (MONTH_VIEWS[S.view]
         ? '<div class="month-switch"><button class="icon-btn" data-act="month" data-d="-1" aria-label="Previous month">' + icon('left') + '</button>' +
           '<span>' + esc(K.monthLabel(S.month, true)) + '</span>' +
@@ -1137,7 +1314,7 @@
     const tips = currentTips(st);
     return (
       '<div class="grid-you"><div>' + K.quizUI.personaCard(result, cur()) +
-      '<div class="row-gap center mt"><button class="btn btn-soft" data-act="quiz">Retake the quiz</button><button class="btn btn-ghost" data-act="tip-now">Give me a tip</button></div></div>' +
+      '<div class="row-gap center mt"><button class="btn btn-primary" data-act="share-result">' + icon('share', 16) + ' Share your result</button><button class="btn btn-soft" data-act="quiz">Retake the quiz</button><button class="btn btn-ghost" data-act="tip-now">Give me a tip</button></div></div>' +
       '<div><div class="card"><div class="card-head"><h3>Tips for you right now</h3></div><ul class="tips">' +
       tips.slice(0, 8).map((t) => '<li class="tip-' + t.kind + '"><span>' + esc(t.icon) + '</span><div><b>' + esc(t.title) + '</b><p>' + esc(t.body) + '</p></div></li>').join('') +
       '</ul></div>' + profileCard() + '</div></div>'
@@ -1207,8 +1384,9 @@
       '<label>Currency<select data-k="meta::currency">' + Object.keys(K.CURRENCIES).map((c) => '<option value="' + c + '"' + (b.meta.currency === c ? ' selected' : '') + '>' + c + ' · ' + esc(K.CURRENCIES[c].label) + '</option>').join('') + '</select></label>' +
       '<label class="span2">Warn me when a category reaches <b>' + (b.meta.alertAt || 80) + '%</b><input type="range" min="50" max="100" step="5" data-k="meta::alertAt" value="' + (b.meta.alertAt || 80) + '"></label>' +
       '</div></div>' +
-      '<div class="card"><div class="card-head"><h3>Appearance & nudges</h3></div>' +
-      '<div class="seg" role="group" aria-label="Theme">' + ['system', 'light', 'dark'].map((t) => '<button class="' + (theme === t ? 'is-on' : '') + '" data-act="set-theme" data-theme="' + t + '">' + t[0].toUpperCase() + t.slice(1) + '</button>').join('') + '</div>' +
+      '<div class="card"><div class="card-head"><h3>Preferences</h3></div>' +
+      '<div class="pref-row"><span>Language</span>' + langSelect('lang-field') + '</div>' +
+      '<div class="pref-row"><span>Theme</span><div class="seg" role="group" aria-label="Theme">' + ['system', 'light', 'dark'].map((t) => '<button class="' + (theme === t ? 'is-on' : '') + '" data-act="set-theme" data-theme="' + t + '">' + t[0].toUpperCase() + t.slice(1) + '</button>').join('') + '</div></div>' +
       '<label class="toggle"><input type="checkbox" data-act-change="toggle-tips"' + (S.profile.tips !== false ? ' checked' : '') + '><span></span>Occasional tips from Kitty</label>' +
       '<label class="toggle"><input type="checkbox" data-act-change="toggle-notify"' + (S.profile.notify && notifState === 'granted' ? ' checked' : '') + (notifState === 'unsupported' ? ' disabled' : '') + '><span></span>Browser notifications for warnings & collaborator edits</label>' +
       (notifState === 'denied' ? '<p class="muted small">Notifications are blocked in your browser settings.</p>' : '') +
@@ -1236,17 +1414,17 @@
     const join = S.pendingJoin;
     const hasProfile = !!S.profile;
     const features = [
-      ['🧾', 'A live shared sheet', 'Edit transactions like Google Sheets, together. Cell-level merging means nobody overwrites anybody.'],
-      ['🦉', 'Your money personality', 'A 2-minute quiz finds your money animal and how you really behave with money.'],
-      ['🧠', 'A plan from your income', 'Kitty turns take-home pay into needs, wants, savings and investing envelopes that fit you.'],
-      ['⚠️', 'Warnings before it hurts', 'Alerts at 80%, at 100% and when your pace says you will overspend, for everyone in the budget.'],
-      ['📈', 'Investing portfolio', 'Track holdings, allocation versus target, rebalancing moves and long-term growth.'],
-      ['🔐', 'Private by design', 'No account, local-first, end-to-end encrypted sync. The server never sees your numbers.'],
+      ['sheet', 'A live shared sheet', 'Edit transactions together like a spreadsheet. Cell-level merging means nobody overwrites anybody.'],
+      ['sparkle', 'Your money personality', 'A 2-minute quiz finds your money animal and how you really behave with money.'],
+      ['wallet', 'A plan from your income', 'Kitty turns take-home pay into needs, wants, savings and investing envelopes that fit you.'],
+      ['alert', 'Warnings before it hurts', 'Alerts at 80%, at 100% and when your pace says you will overspend, for everyone in the budget.'],
+      ['chart', 'Investing portfolio', 'Track holdings, allocation versus target, rebalancing moves and long-term growth.'],
+      ['shield', 'Private by design', 'No account, local-first, end-to-end encrypted sync. The server never sees your numbers.'],
     ];
     root.innerHTML =
       '<div class="welcome">' +
-      '<header class="w-top"><div class="brand"><span class="logo">🐱</span><b>Kitty</b><span class="beta">beta</span></div>' +
-      '<button class="icon-btn" data-act="theme-welcome" aria-label="Toggle theme">' + icon(document.documentElement.dataset.theme === 'dark' ? 'sun' : 'moon') + '</button></header>' +
+      '<header class="w-top">' + BRAND + '<div class="w-top-right">' + langSelect() +
+      '<button class="icon-btn" data-act="theme-welcome" aria-label="Toggle theme">' + icon(document.documentElement.dataset.theme === 'dark' ? 'sun' : 'moon') + '</button></div></header>' +
       (join
         ? '<section class="card join-card"><p class="eyebrow">' + icon('users', 16) + ' You are invited</p><h2>Join “' + esc(join.name || 'a shared budget') + '”</h2>' +
           '<p class="muted">Edit it together, live. Your edits are encrypted on this device before they are sent.</p>' +
@@ -1254,21 +1432,26 @@
           '<button class="btn btn-primary btn-lg" data-act="join">Join budget ' + icon('right', 18) + '</button></div></section>'
         : '') +
       '<section class="w-hero"><div class="w-copy">' +
-      '<p class="eyebrow">Shared budgeting · money personality · investing</p>' +
-      '<h1>Budgeting you can <span class="grad">share</span>, that actually <span class="grad">gets you</span>.</h1>' +
-      '<p class="lead">Kitty is like a Google Sheet built only for money, but beautiful. Plan from your income, track every expense together with your partner or housemates, get warned before a limit breaks, and grow your portfolio.</p>' +
+      '<p class="eyebrow">Free on web, iPhone and Android</p>' +
+      '<h1>The shared budget that works the way you do.</h1>' +
+      '<p class="lead">Plan from your income, track every expense together in real time, get warned before a limit breaks, and grow your investments. Private and end-to-end encrypted.</p>' +
       '<div class="row-gap">' +
       (hasProfile
         ? '<button class="btn btn-primary btn-lg" data-act="new-book">' + icon('plus', 18) + ' Create a budget</button>'
-        : '<button class="btn btn-primary btn-lg" data-act="quiz">Take the 2-min money quiz ' + icon('right', 18) + '</button>') +
-      '<button class="btn btn-soft btn-lg" data-act="demo">Explore the live demo</button></div>' +
-      '<p class="fine">' + icon('lock', 14) + ' No sign-up. Your data stays in your browser unless you share it, encrypted.</p></div>' +
+        : '<button class="btn btn-primary btn-lg" data-act="quiz">Get started free ' + icon('right', 18) + '</button>') +
+      '<button class="btn btn-ghost btn-lg" data-act="demo">See a live example</button></div>' +
+      '<ul class="trust"><li>' + icon('lock', 14) + '<span>No sign-up, no ads</span></li><li>' + icon('shield', 14) + '<span>End-to-end encrypted</span></li><li>' + icon('users', 14) + '<span>Share with anyone</span></li></ul></div>' +
       '<div class="w-mock" aria-hidden="true">' + welcomeMock() + '</div></section>' +
-      '<section class="w-features">' + features.map((f, i) => '<div class="card feat" style="--i:' + i + '"><span>' + f[0] + '</span><h3>' + esc(f[1]) + '</h3><p>' + esc(f[2]) + '</p></div>').join('') + '</section>' +
-      '<section class="w-animals"><h2>Six money animals. Which one are you?</h2><div class="animals">' +
+      '<section class="w-features">' + features.map((f, i) => '<div class="card feat" style="--i:' + i + '"><span class="feat-icon">' + icon(f[0], 18) + '</span><h3>' + esc(f[1]) + '</h3><p>' + esc(f[2]) + '</p></div>').join('') + '</section>' +
+      '<section class="w-animals"><h2>Six money animals. Which one are you?</h2><p class="w-sub">Answer 14 quick questions about needs, wants and habits. Kitty builds your budget around the result.</p><div class="animals">' +
       Object.keys(K.PERSONAS).map((k) => '<div class="animal" style="--pc:' + K.PERSONAS[k].color + '"><span>' + K.PERSONAS[k].emoji + '</span><b>' + esc(K.PERSONAS[k].name) + '</b><small>' + esc(K.PERSONAS[k].tagline) + '</small></div>').join('') +
       '</div></section>' +
-      '<footer class="w-foot">' + (NATIVE ? '' : '<a class="get-app-link" href="' + GET_APP_URL + '">📱 Get Kitty for iPhone & Android: free</a><br>') + 'Kitty ' + esc(K.VERSION) + ' · made by <a href="https://juwenlie.pages.dev/" target="_blank" rel="noopener">Juwen Lie</a> · educational tips, not financial advice</footer>' +
+      '<section class="w-cta"><div><h2>Start your shared budget in two minutes.</h2><p>Free forever on web, iPhone and Android. No account needed.</p></div>' +
+      (hasProfile
+        ? '<button class="btn btn-primary btn-lg" data-act="new-book">' + icon('plus', 18) + ' Create a budget</button>'
+        : '<button class="btn btn-primary btn-lg" data-act="quiz">Get started free ' + icon('right', 18) + '</button>') +
+      '</section>' +
+      '<footer class="w-foot">' + (NATIVE ? '' : '<a class="get-app-link" href="' + GET_APP_URL + '">' + icon('download', 14) + '<span>Get Kitty for iPhone & Android</span></a>') + '<span>© Kitty ' + esc(K.VERSION) + '</span><span>Tips are educational, not financial advice.</span></footer>' +
       '</div>';
   }
 
@@ -1838,6 +2021,10 @@
       return render();
     }
     const act = t.dataset.actChange;
+    if (act === 'set-lang') {
+      K.i18n.setLang(t.value);
+      return;
+    }
     if (act === 'switch-book') {
       if (t.value === '__new') {
         t.value = S.book.id;
@@ -2010,6 +2197,8 @@
         return go(el.dataset.view);
       case 'quiz':
         return startQuiz();
+      case 'share-result':
+        return shareResult();
       case 'demo':
         return loadDemo();
       case 'join': {
@@ -2226,6 +2415,13 @@
   if (window.matchMedia) {
     matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => render());
   }
+  // Language switch: rebuild every screen so English source text is re-translated (or restored).
+  window.addEventListener('kitty:lang', () => {
+    const root = $('#app');
+    if (root) root.innerHTML = '';
+    $$('.modal-wrap, .toast').forEach((el) => el.remove());
+    render();
+  });
   window.addEventListener('hashchange', () => {
     const j = K.parseJoin(location.hash);
     if (j) {
