@@ -401,3 +401,18 @@ body.m[data-layout="mobile"] .main { max-width: 560px; margin: 0 auto; width: 10
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
+/* ------------------------------------------------------- install wizard */
+.install { padding: 22px; }
+.steps { margin: 6px 0 16px; padding-left: 22px; line-height: 1.7; }
+.steps.big { font-size: 16px; counter-reset: step; list-style: none; padding-left: 0; }
+.steps.big li { counter-increment: step; position: relative; padding: 6px 0 6px 42px; min-height: 40px; }
+.steps.big li::before { content: counter(step); position: absolute; left: 0; top: 4px; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); font-weight: 800; font-size: 14px; }
+kbd { font-family: var(--mono); font-size: 12px; padding: 1px 6px; border-radius: 6px; border: 1px solid var(--line-strong); border-bottom-width: 2px; background: var(--panel-solid); }
+.cmd { display: flex; gap: 10px; align-items: center; background: var(--bg-2); border: 1px solid var(--line-strong); border-radius: 12px; padding: 8px 8px 8px 14px; }
+.cmd code { flex: 1; font-family: var(--mono); font-size: 13px; overflow-x: auto; white-space: nowrap; scrollbar-width: thin; }
+.install-status { margin-top: 14px; font-size: 13.5px; color: var(--muted); display: flex; align-items: center; gap: 10px; }
+.qr-wrap { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; }
+.qr { width: 200px; height: 200px; border-radius: 14px; overflow: hidden; background: #fff; flex: none; box-shadow: var(--shadow); }
+.qr svg { width: 100%; height: 100%; display: block; }
+body.m .cmd { flex-direction: column; align-items: stretch; }

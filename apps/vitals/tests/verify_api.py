@@ -214,6 +214,31 @@ def main():
         status, q = request(base, "POST", "/api/process/quit", {"pid": 1}, token=token)
         check(status == 400, "system processes are protected from quitting")
 
+        # Phone access can be switched on/off at runtime from this computer.
+        status, lan = request(base, "POST", "/api/lan", {"enable": True}, token=token)
+        if status == 200 and lan.get("lan"):
+            check(lan["pair_urls"] and lan["pair_urls"][0].endswith("#pair=" + lan["code"]), "phone access on: one-scan pairing link")
+            status, off = request(base, "POST", "/api/lan", {"enable": False}, token=token)
+            check(status == 200 and not off["lan"], "phone access can be turned off again")
+        else:
+            check(status == 400 and lan.get("error"), "no network: phone access explains why it can't start")
+        status, pairing = request(base, "GET", "/api/pairing", token=token)
+        check(status == 200 and "code" in pairing and "pair_urls" in pairing, "pairing info available")
+
+        # Pairing with the shown code works once, then the code rotates.
+        code = pairing["code"]
+        status, paired = request(base, "POST", "/api/pair", {"code": code, "device": "test phone"})
+        check(status == 200 and paired.get("token"), "pairing with the shown code succeeds")
+        status, _ = request(base, "POST", "/api/pair", {"code": code, "device": "replay"})
+        check(status == 403, "a pairing code cannot be reused")
+        status, _ = request(base, "GET", "/api/vitals", token=paired.get("token"))
+        check(status == 200, "paired device can read vitals")
+
+        # Launching again while running just reports it (no second server, no error).
+        second = subprocess.run([sys.executable, SERVER, "--port", str(port), "--home", home, "--data", data],
+                                capture_output=True, text=True, timeout=20, env=env)
+        check(second.returncode == 0 and "already running" in second.stdout, "second launch defers to the running agent")
+
         # Direct unit checks of the vault guard.
         import vault as vault_mod
         guard = vault_mod.Vault(os.path.join(root, "guard"), home)
@@ -223,6 +248,13 @@ def main():
                 check(False, "vault guard refuses %s" % bad)
             except vault_mod.VaultError:
                 check(True, "vault guard refuses %s" % os.path.relpath(bad, root) if bad.startswith(root) else bad)
+        status, _ = request(base, "POST", "/api/shutdown", {}, token=token)
+        check(status == 200, "installer can stop the agent for updates")
+        try:
+            proc.wait(timeout=5)
+            check(True, "agent exits after shutdown request")
+        except subprocess.TimeoutExpired:
+            check(False, "agent exits after shutdown request")
     finally:
         proc.terminate()
         try:

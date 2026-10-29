@@ -73,6 +73,37 @@
   };
   const icon = (name) => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (I[name] || I.pulse) + "</svg>";
 
+  const SITE = "https://juw12.github.io/projects/vitals/";
+  const INSTALL = {
+    mac: {
+      name: "Mac",
+      cmd: "curl -fsSL " + SITE + "install.sh | sh",
+      steps: [
+        "Click <b>Copy</b>.",
+        "Open <b>Terminal</b>: press <kbd>⌘</kbd> <kbd>Space</kbd>, type <i>Terminal</i>, press <kbd>Return</kbd>.",
+        "Paste with <kbd>⌘</kbd> <kbd>V</kbd> and press <kbd>Return</kbd>. Vitals installs and opens by itself.",
+      ],
+    },
+    windows: {
+      name: "Windows",
+      cmd: 'powershell -ExecutionPolicy Bypass -c "irm ' + SITE + 'install.ps1 | iex"',
+      steps: [
+        "Click <b>Copy</b>.",
+        "Press <kbd>Win</kbd> + <kbd>R</kbd> to open the Run box.",
+        "Paste with <kbd>Ctrl</kbd> <kbd>V</kbd> and press <kbd>Enter</kbd>. Vitals installs (and Python, if needed) and opens.",
+      ],
+    },
+    linux: {
+      name: "Linux",
+      cmd: "curl -fsSL " + SITE + "install.sh | sh",
+      steps: [
+        "Click <b>Copy</b>.",
+        "Open a terminal (usually <kbd>Ctrl</kbd> <kbd>Alt</kbd> <kbd>T</kbd>).",
+        "Paste with <kbd>Ctrl</kbd> <kbd>Shift</kbd> <kbd>V</kbd> and press <kbd>Enter</kbd>.",
+      ],
+    },
+  };
+
   const VIEWS = [
     { id: "overview", label: "Overview", icon: "overview" },
     { id: "clean", label: "Clean", icon: "clean" },
@@ -162,7 +193,18 @@
           return enterAgent();
         }
       } catch (e) { /* not loopback */ }
-      // Reachable but needs pairing (phone on the LAN).
+      // Reachable but needs pairing (phone on the LAN). A scanned QR carries the code.
+      const scannedCode = new URLSearchParams(location.hash.slice(1)).get("pair");
+      if (scannedCode) {
+        history.replaceState(null, "", location.pathname);
+        try {
+          await pairWith(base, scannedCode);
+          toast("Connected to " + (S.hostname || "your computer") + " 🎉");
+          return;
+        } catch (e) {
+          toast("That code was already used — scan the new code on your computer.");
+        }
+      }
       S.mode = "needs-pair";
       render();
       return;
@@ -519,6 +561,8 @@
       case "exit-demo": return exitDemo();
       case "benchmark": go("performance"); return runBenchmark();
       case "guide": S.guide = a.platform; return go("guides");
+      case "lan-on": return setLan(true);
+      case "lan-off": return setLan(false);
       default: return null;
     }
   }
@@ -573,7 +617,8 @@
   function renderNavOnly() {
     const vaultCount = S.vault.length;
     $("#navlist").innerHTML = VIEWS.map((v) =>
-      '<button class="nav-btn" data-go="' + v.id + '"' + (S.view === v.id ? ' aria-current="page"' : "") + ">" + icon(v.icon) + "<span>" + v.label + "</span>" +
+      '<button class="nav-btn" data-go="' + v.id + '"' + (S.view === v.id ? ' aria-current="page"' : "") + ">" + icon(v.icon) + "<span>" + (v.id === "devices" && S.mode === "browser" ? "Install" : v.label) + "</span>" +
+      (v.id === "devices" && S.mode === "browser" ? '<span class="badge safe">1 step</span>' : "") +
       (v.id === "vault" && vaultCount ? '<span class="badge info">' + vaultCount + "</span>" : "") +
       (v.id === "clean" && S.scanState && S.scanState.status === "running" ? '<span class="badge info">' + (S.scanState.progress || 0) + "%</span>" : "") +
       "</button>").join("");
@@ -591,7 +636,7 @@
   function modePill() {
     if (S.mode === "agent") return '<span class="mode-pill" title="Connected to the local agent"><span class="dot live"></span>Live · ' + esc(S.hostname || "this computer") + "</span>";
     if (S.mode === "demo") return '<button class="mode-pill" data-action="exit-demo" title="Leave demo"><span class="dot warn"></span>Demo data · exit</button>';
-    if (S.mode === "browser") return '<button class="mode-pill" data-go="devices"><span class="dot"></span>Browser mode · connect agent</button>';
+    if (S.mode === "browser") return '<button class="mode-pill" data-go="devices"><span class="dot"></span>Browser mode · get full version</button>';
     return '<span class="mode-pill"><span class="dot"></span>Connecting…</span>';
   }
 
@@ -747,8 +792,8 @@
     const rate = browserDrainRate();
     let html = topbar("Overview", esc(pb ? pb.name : "This device") + " · browser mode");
     html += '<div class="notice" style="margin-bottom:16px"><b>' + (phone ? "Phones don't let any app or website clean other apps' storage." : "A browser tab can't read your disk or processes.") + "</b> " +
-      (phone ? "So Vitals gives you the exact built-in steps that work (Guides), measures what the browser can, and can pair with your laptop's agent." : "Run the free local agent for real scans, the Undo Vault and live vitals — or explore everything with demo data.") +
-      '<div class="row wrap" style="margin-top:10px">' + (phone ? '<button class="btn sm primary" data-action="guide" data-platform="' + S.guide + '">Open ' + esc(pb.name) + " guide</button>" : '<button class="btn sm primary" data-go="devices">Run the agent</button>') +
+      (phone ? "So Vitals gives you the exact built-in steps that work (Guides), measures what the browser can, and can show your computer's health here with one scan." : "Install the free Vitals app with one copy-paste for real scans, the Undo Vault and live vitals — or explore everything with demo data first.") +
+      '<div class="row wrap" style="margin-top:10px">' + (phone ? '<button class="btn sm primary" data-action="guide" data-platform="' + S.guide + '">Open ' + esc(pb.name) + " guide</button>" : '<button class="btn sm primary" data-go="devices">Get the full version — 1 step</button>') +
       '<button class="btn sm" data-action="demo">Explore with demo data</button></div></div>';
     html += '<div class="grid g-4">';
     html += statCard("Battery", b.battery ? b.battery.percent + "%" : "—", b.battery ? (b.battery.charging ? "charging" : rate ? "draining " + rate.toFixed(1) + "%/h" : "on battery — measuring drain") : (S.platform === "iphone" ? "Safari hides battery level" : "not exposed by this browser"));
@@ -952,29 +997,136 @@
 
   function pairCard(onPhone) {
     const saved = LS.get("agentBase", "") || (S.base || "");
-    return '<div class="card"><h2>' + (onPhone ? "Enter the pairing code" : "Connect to a computer") + '</h2><p class="lede">On the computer, start the agent with <code>--lan</code>. It prints a 6-digit code (also shown in its Devices page). One code pairs one device.</p>' +
+    return '<div class="card"><h2>' + (onPhone ? "Type the code instead" : "Connect with a code") + '</h2><p class="lede">Camera not working? On your computer open Vitals → <b>Devices</b> → <b>Connect my phone</b> and type the 6-digit code shown under the QR.</p>' +
       '<form class="stack" data-pair-form style="max-width:420px">' +
-      (S.mode === "needs-pair" && S.base === "" ? "" : '<label class="small muted">Agent address<input name="base" value="' + esc(saved || "http://192.168.1.x:8765") + '" style="width:100%;padding:9px 11px;border-radius:10px;border:1px solid var(--line-strong);background:var(--panel-solid);margin-top:4px"></label>') +
-      '<label class="small muted">Pairing code<input name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="123456" style="width:100%;padding:12px;border-radius:10px;border:1px solid var(--line-strong);background:var(--panel-solid);margin-top:4px;font:600 22px var(--mono);letter-spacing:.3em"></label>' +
-      '<button class="btn primary" type="submit">Pair</button></form></div>';
+      (S.mode === "needs-pair" && S.base === "" ? "" : '<label class="small muted">Computer address<input name="base" value="' + esc(saved || "http://192.168.1.x:8765") + '" style="width:100%;padding:9px 11px;border-radius:10px;border:1px solid var(--line-strong);background:var(--panel-solid);margin-top:4px"></label>') +
+      '<label class="small muted">Code<input name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="123456" style="width:100%;padding:12px;border-radius:10px;border:1px solid var(--line-strong);background:var(--panel-solid);margin-top:4px;font:600 22px var(--mono);letter-spacing:.3em"></label>' +
+      '<button class="btn primary" type="submit">Connect</button></form></div>';
+  }
+
+  function installOs() {
+    if (S.installOs) return S.installOs;
+    return S.platform === "windows" ? "windows" : S.platform === "linux" ? "linux" : "mac";
   }
 
   function viewDevices() {
-    let html = topbar("Devices", "Run the agent, and see your laptop from your phone");
-    if (S.mode === "agent" && S.pairing) {
-      const p = S.pairing;
-      html += '<div class="grid g-2" style="align-items:start"><div class="card"><h2>Pair your phone</h2>' +
-        (p.lan ? '<p class="lede">On your phone (same Wi-Fi), open:</p>' + p.urls.map((u) => '<div class="code-block">' + esc(u) + "</div>").join("") + (p.code ? '<p class="lede" style="margin-top:12px">Then enter this code:</p><div class="pair-code">' + esc(p.code) + "</div>" : "") :
-          '<p class="lede">The agent is only listening on this computer. Restart it with LAN access to pair a phone:</p><div class="code-block">python apps/vitals/server/server.py --lan</div>') +
-        '</div><div class="card"><h2>Paired devices</h2>' + p.devices.map((d) => '<div class="row" style="padding:6px 0;border-bottom:1px solid var(--line)"><span>' + esc(d.device) + '</span><span class="right small muted">' + ago(d.created) + "</span></div>").join("") + "</div></div>";
+    if (S.mode === "agent") return viewDevicesAgent();
+    const phone = S.platform === "iphone" || S.platform === "android";
+    let html = topbar(phone ? "Your computer, on your phone" : "Get the full Vitals", phone ? "Nothing to install on the phone" : "Free · no account · about 30 seconds · removes cleanly");
+    if (phone) {
+      html += '<div class="grid g-2" style="align-items:start"><div class="card"><h2>One scan, no typing</h2><ol class="steps">' +
+        "<li>On your computer, install Vitals (open this page there and follow the one step).</li>" +
+        "<li>In Vitals on the computer, go to <b>Devices → Connect my phone</b>.</li>" +
+        "<li>Point this phone's <b>camera</b> at the code on screen and tap the link. Done — you'll see your computer's health here.</li></ol>" +
+        '<p class="small muted">Both devices need to be on the same Wi-Fi. This phone\'s own tips are in <b>Guides</b>.</p></div>' + pairCard(true) + "</div>";
       return html;
     }
-    html += '<div class="grid g-2" style="align-items:start"><div class="card"><h2>Run the agent on your laptop</h2><p class="lede">A tiny, dependency-free Python program. It reads real metrics, scans storage, and keeps the Undo Vault — all on your machine.</p>' +
-      '<ol class="small" style="padding-left:18px;line-height:1.8"><li>Install Python 3.8+ (macOS: already there; Windows: python.org).</li><li>Download the <a href="https://github.com/juw12/projects/tree/main/apps/vitals" target="_blank" rel="noopener">vitals folder</a>.</li><li>Run it and open the link it prints:</li></ol>' +
-      '<div class="code-block">python apps/vitals/server/server.py --open</div><p class="small muted" style="margin-top:10px">Add <code>--lan</code> to pair a phone. Data stays in <code>~/.vitals</code>. Optional: install Ollama for a local-only AI fallback in chat.</p>' +
-      (S.mode === "browser" ? '<button class="btn" data-action="retry">I started it — connect</button>' : "") + "</div>";
-    html += pairCard(false) + "</div>";
+    const os = installOs();
+    const info = INSTALL[os];
+    html += '<div class="install card">' +
+      '<div class="tabs" role="tablist">' + Object.keys(INSTALL).map((k) => '<button role="tab" data-install-os="' + k + '" aria-selected="' + (k === os) + '">' + INSTALL[k].name + "</button>").join("") + "</div>" +
+      '<ol class="steps big">' + info.steps.map((s) => "<li>" + s + "</li>").join("") + "</ol>" +
+      '<div class="cmd"><code id="installCmd">' + esc(info.cmd) + '</code><button class="btn primary" data-copy-install>Copy</button></div>' +
+      '<div class="install-status" id="installStatus"><span class="typing"><i></i><i></i><i></i></span> Waiting for Vitals to start on this computer — this page connects by itself.</div>' +
+      "</div>";
+    html += '<div class="grid g-3" style="margin-top:16px">' +
+      '<div class="card"><h2>What it does</h2><p class="small muted">Puts Vitals in your user folder (no admin password), adds a Vitals app icon, and starts it quietly when you log in so this page is always live.</p></div>' +
+      '<div class="card"><h2>Safe by design</h2><p class="small muted">Runs only on this computer, never uploads anything, and every cleanup can be undone for 72 hours. The code is open source.</p></div>' +
+      '<div class="card"><h2>Remove anytime</h2><p class="small muted">Run the same line with <code>' + (os === "windows" ? "$env:VITALS_UNINSTALL=1;" : "sh -s -- --uninstall") + '</code> ' + (os === "windows" ? "in front of irm" : "at the end") + '. Details on <a href="https://github.com/juw12/projects/tree/main/apps/vitals" target="_blank" rel="noopener">GitHub</a>.</p></div></div>';
+    html += '<details class="card" style="margin-top:16px"><summary style="cursor:pointer;font-weight:650">Already installed, or a developer?</summary>' +
+      '<p class="small muted" style="margin-top:10px">Open the <b>Vitals</b> app (Spotlight / Start menu), or run it from a checkout:</p><div class="code-block">python apps/vitals/server/server.py --open</div>' +
+      '<p class="small muted">Then this page switches to live automatically. Using Safari? Vitals also opens in its own tab at <a href="http://127.0.0.1:8765/">127.0.0.1:8765</a>.</p>' +
+      '<button class="btn sm" data-action="retry">Check again</button></details>';
+    startInstallWatch();
     return html;
+  }
+
+  function startInstallWatch() {
+    if (S.installWatch) return;
+    S.installWatch = setInterval(async () => {
+      if (S.mode !== "browser" || S.view !== "devices") {
+        clearInterval(S.installWatch);
+        S.installWatch = null;
+        return;
+      }
+      const health = await tryAgent("http://127.0.0.1:8765");
+      if (health) {
+        clearInterval(S.installWatch);
+        S.installWatch = null;
+        const status = $("#installStatus");
+        if (status) status.innerHTML = "✅ Vitals found — connecting…";
+        await connect();
+        if (S.mode === "agent") {
+          toast("Vitals is installed and connected 🎉");
+          botSay("You're all set! I can now see this computer for real. Want me to run a first check?", [
+            { label: "Check my device", action: "say", text: "how is my device", primary: true },
+            { label: "Scan storage", action: "scan" },
+          ]);
+          go("overview");
+        }
+      }
+    }, 2000);
+  }
+
+  function viewDevicesAgent() {
+    const p = S.pairing || { lan: false, devices: [] };
+    let html = topbar("Devices", "See this computer from your phone — one scan, no typing");
+    html += '<div class="grid g-2" style="align-items:start"><div class="card"><h2>Connect my phone</h2>';
+    if (!p.lan) {
+      html += '<p class="lede">Lets a phone on the same Wi-Fi see this computer\'s health and run safe fixes. You can turn it off anytime.</p>' +
+        '<button class="btn primary" data-action="lan-on">Connect my phone</button>';
+    } else {
+      const url = (p.pair_urls || [])[0];
+      if (url && window.VitalsQR) {
+        let svg = "";
+        try {
+          svg = VitalsQR.toSvg(VitalsQR.encode(url), { label: "Scan to connect your phone", border: 3 });
+        } catch (e) {
+          svg = "";
+        }
+        html += '<div class="qr-wrap"><div class="qr">' + svg + '</div><div><p style="margin:0 0 6px"><b>Point your phone\'s camera here</b> and tap the link that appears.</p>' +
+          '<p class="small muted" style="margin:0 0 10px">Same Wi-Fi needed. Each code works once and refreshes after a phone connects.</p>' +
+          '<div class="small muted">Or type this code on the phone:</div><div class="pair-code">' + esc(p.code || "") + "</div>" +
+          '<div class="small faint mono" style="word-break:break-all;margin-top:6px">' + esc((p.urls || [])[0] || "") + "</div></div></div>";
+      } else {
+        html += '<p class="muted">Phone access is on, but this computer has no Wi-Fi/LAN address right now.</p>';
+      }
+      html += '<button class="btn sm ghost" style="margin-top:12px" data-action="lan-off">Stop phone access</button>';
+    }
+    html += '</div><div class="card"><h2>Connected devices</h2>' +
+      (p.devices || []).map((d) => '<div class="row" style="padding:8px 0;border-bottom:1px solid var(--line)"><span>' + esc(d.device) + '</span><span class="right small muted">' + ago(d.created) + "</span></div>").join("") +
+      '<p class="small muted" style="margin-top:12px">Vitals starts by itself when you log in, so this page is always live at <a href="http://127.0.0.1:8765/">127.0.0.1:8765</a>.</p></div></div>';
+    startPairingWatch();
+    return html;
+  }
+
+  function startPairingWatch() {
+    if (S.pairWatch) return;
+    S.pairWatch = setInterval(async () => {
+      if (S.mode !== "agent" || S.view !== "devices") {
+        clearInterval(S.pairWatch);
+        S.pairWatch = null;
+        return;
+      }
+      try {
+        const before = S.pairing ? S.pairing.devices.length : 0;
+        const next = await api("pairing");
+        const changed = JSON.stringify(next) !== JSON.stringify(S.pairing);
+        S.pairing = next;
+        if (next.devices.length > before) toast("📱 Phone connected!");
+        if (changed) softRender();
+      } catch (e) { /* agent restarting */ }
+    }, 3000);
+  }
+
+  async function setLan(enable) {
+    if (S.mode === "demo") return toast("Demo: this would show a QR code for your phone.");
+    try {
+      S.pairing = await api("lan", { body: { enable } });
+      render();
+    } catch (e) {
+      toast(e.message);
+    }
   }
 
   function viewGuides() {
@@ -1004,8 +1156,8 @@
   }
 
   function agentNeeded(why) {
-    return '<div class="card empty">' + icon("devices") + "<div><b>" + esc(why) + "</b><br>Run the free local agent, or explore with demo data.</div><br>" +
-      '<div class="row" style="justify-content:center"><button class="btn primary" data-go="devices">Run the agent</button><button class="btn" data-action="demo">Try demo data</button></div></div>';
+    return '<div class="card empty">' + icon("devices") + "<div><b>" + esc(why) + "</b><br>Install the free Vitals app in one step, or explore with demo data.</div><br>" +
+      '<div class="row" style="justify-content:center"><button class="btn primary" data-go="devices">Install — 1 step</button><button class="btn" data-action="demo">Try demo data</button></div></div>';
   }
 
   // ----------------------------------------------------------- benchmark
@@ -1205,9 +1357,14 @@
   }
 
   document.addEventListener("click", (ev) => {
-    const el = ev.target.closest("[data-go],[data-action],[data-chip],[data-say],[data-toggle-cat],[data-cmode],[data-guide],[data-theme-toggle],[data-chat-close],[data-plan],#chatfab");
+    const el = ev.target.closest("[data-go],[data-action],[data-chip],[data-say],[data-toggle-cat],[data-cmode],[data-guide],[data-theme-toggle],[data-chat-close],[data-plan],[data-install-os],[data-copy-install],#chatfab");
     if (!el) return;
     if (el.id === "chatfab") return openChat();
+    if (el.dataset.installOs) {
+      S.installOs = el.dataset.installOs;
+      return renderMain();
+    }
+    if (el.hasAttribute("data-copy-install")) return copyInstall(el);
     if (el.hasAttribute("data-chat-close")) return $("#shell").classList.remove("chat-open");
     if (el.hasAttribute("data-theme-toggle")) return toggleTheme();
     if (el.dataset.go) return go(el.dataset.go === "more" ? "more" : el.dataset.go);
@@ -1289,6 +1446,27 @@
       $("#chatform").requestSubmit();
     }
   });
+
+  async function copyInstall(button) {
+    const text = INSTALL[installOs()].cmd;
+    let ok = false;
+    try {
+      await navigator.clipboard.writeText(text);
+      ok = true;
+    } catch (e) {
+      const range = document.createRange();
+      const node = $("#installCmd");
+      if (node) {
+        range.selectNodeContents(node);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+        ok = document.execCommand && document.execCommand("copy");
+      }
+    }
+    button.textContent = ok ? "Copied ✓" : "Select & copy";
+    setTimeout(() => { button.textContent = "Copy"; }, 2500);
+  }
 
   function planFromForm() {
     const n = parseFloat($("#goalN").value || "0");

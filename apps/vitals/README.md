@@ -7,7 +7,7 @@ plain words ("my laptop is slow", "free 10 GB without touching downloads").
 
 - **Live (browser mode + demo):** https://juw12.github.io/projects/vitals/ · add `#demo` to explore every feature with simulated data
 - **App / Web / Mobile:** `web/app.html` · `web/index.html` · `web/mobile.html`
-- **Local agent (real scans, Undo Vault, live vitals):** `python apps/vitals/server/server.py --open`
+- **Install (one copy-paste, see below):** real scans, Undo Vault, live vitals, app icon, starts at login
 
 Zero dependencies. The agent runs on the Python 3.8+ standard library (`psutil` is
 used if it happens to be installed, but nothing needs it), and the front-end is a
@@ -27,7 +27,7 @@ PWA with built-in guides, and it can pair with your laptop's agent.
 | **Performance** | 24 h history, **your normal** (CPU by hour of day from local history), anomaly flags ("unusual for you" at z > 2.5), top apps with a polite Quit (system processes locked), read-only startup items, browser **throttle check** (same workload ×6, detects thermal throttling). |
 | **Battery** | Health % from design vs full-charge capacity, cycles, **wear forecast** (trend once a week of data exists, cycle-based estimate before that), measured drain %/h, **Drain Detective** (CPU time by app on battery) and **idle drainers** (busy while you were away), plus charge coaching. |
 | **Chat** | Deterministic intent engine (works offline) that reads your live data and answers with actions you can run. Unrecognized questions go to a **local** Ollama model if one is installed — never to the cloud. |
-| **Devices** | Run `--lan` and pair a phone with a one-time 6-digit code to see and act on your laptop from the phone. |
+| **Devices** | "Connect my phone" shows a QR code; scan it and the phone pairs automatically (single-use codes, switch off anytime). |
 | **Guides** | Checklists for iPhone, Android, Mac and Windows using the built-in tools that actually work, with exact settings paths. Progress is saved locally. |
 
 ## Why it's different
@@ -44,21 +44,45 @@ are hard to copy.
 - **Honest about platforms.** iOS and Android don't let any app clean other apps' data, so Vitals gives exact built-in steps rather than pretending.
 - **No account, no telemetry, open source.** The agent listens on `127.0.0.1` only unless you pass `--lan`.
 
-## Run it
+## Install (one step)
+
+**Mac / Linux:** copy, open Terminal, paste, press Return.
+
+```bash
+curl -fsSL https://juw12.github.io/projects/vitals/install.sh | sh
+```
+
+**Windows:** press <kbd>Win</kbd>+<kbd>R</kbd>, paste, press Enter.
+
+```text
+powershell -ExecutionPolicy Bypass -c "irm https://juw12.github.io/projects/vitals/install.ps1 | iex"
+```
+
+That's it. The installer puts Vitals in your user folder (no admin password), installs
+Python on Windows via `winget` if it's missing (macOS offers Apple's free developer tools),
+adds a **Vitals** app icon (Spotlight / Start menu / Desktop), starts Vitals quietly at
+login, and opens the dashboard. If the web page is open while you install, it connects
+by itself. Re-run the same line to update.
+
+**Phone:** in Vitals open **Devices → Connect my phone** and point the phone's camera at
+the QR code. It pairs automatically (same Wi-Fi). Codes are single-use and phone access
+can be switched off at any time. No restart, no typing.
+
+**Uninstall:** add `sh -s -- --uninstall` at the end (Mac/Linux), or put
+`$env:VITALS_UNINSTALL=1;` in front of `irm` (Windows). History and the Undo Vault in
+`~/.vitals` are kept unless you delete them.
+
+### From a checkout (developers)
 
 ```bash
 python apps/vitals/server/server.py --open        # dashboard at http://127.0.0.1:8765/
-python apps/vitals/server/server.py --lan         # also pair a phone on the same Wi-Fi
 ```
 
 Options: `--home DIR` (what to scan), `--data DIR` (history + vault, default `~/.vitals`),
 `--retention HOURS` (vault, default 72), `--interval SEC` (sampling, default 30),
-`--scan-budget SEC` (default 60). Set `VITALS_MODEL` to choose an Ollama model, or
-`VITALS_NO_MODEL=1` to disable the local AI fallback.
-
-The hosted page can also talk to a locally running agent (it tries
-`http://127.0.0.1:8765`). Chrome/Edge/Firefox allow that. Safari may block it, so use
-the agent's own URL there.
+`--scan-budget SEC` (default 60), `--lan` (listen on all interfaces). Launching it again
+while it's running just opens the dashboard. Set `VITALS_MODEL` to choose an Ollama
+model, or `VITALS_NO_MODEL=1` to disable the local AI fallback.
 
 ## Security model
 
@@ -71,7 +95,8 @@ the agent's own URL there.
 
 ```bash
 python apps/vitals/tests/verify_api.py     # hermetic agent e2e: auth, scan, vault, restore, purge, safety (≈7 s)
-python apps/vitals/tests/verify_brain.py   # 50 brain.js checks in headless Chrome (skips if no Chrome)
+python apps/vitals/tests/verify_brain.py   # 57 brain.js checks in headless Chrome (skips if no Chrome)
+python apps/vitals/tests/verify_install.py # installer: manifest sync, sandboxed install → run → update → uninstall
 ```
 
 ## Layout
@@ -79,14 +104,15 @@ python apps/vitals/tests/verify_brain.py   # 50 brain.js checks in headless Chro
 ```
 apps/vitals/
   server/   server.py (HTTP + auth), metrics.py, storage.py, vault.py, history.py
-  web/      index.html · app.html · mobile.html, app.js (UI), brain.js (score, planner, chat), styles.css, sw.js
+  web/      index.html · app.html · mobile.html, app.js (UI), brain.js (score, planner, chat), qr.js, styles.css, sw.js
+            install.sh · install.ps1 (one-step installers) + files.txt (what they download)
   tests/    verify_api.py, verify_brain.py + brain_test.html
   docs/     COMPETITIVE.md
 ```
 
 ## Known limits
 
-- Windows and Linux readers are written against documented APIs, but so far they have only been exercised on macOS. Windows battery wear needs WMI (`root\wmi`), which some OEMs don't populate.
+- Windows and Linux readers and the Windows installer are written against documented APIs, but so far only macOS has been exercised end to end. Windows battery wear needs WMI (`root\wmi`), which some OEMs don't populate.
 - The browser can't read disk, processes or (in Safari) battery. Browser mode is intentionally partial.
 - Vitals reads startup items but doesn't disable them. It opens the system settings page instead.
 - Vault moves are instant on the same volume. Space is released when a batch expires or you purge it.
