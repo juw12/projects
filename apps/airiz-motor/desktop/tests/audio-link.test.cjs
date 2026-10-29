@@ -165,7 +165,7 @@ test('device scripts, upload plan and commands are self-consistent', () => {
     assert.equal(script.md5, crypto.createHash('md5').update(script.text).digest('hex'));
     assert.equal(Buffer.from(script.base64, 'base64').toString('utf8'), script.text);
     assert.doesNotMatch(script.text, /\r/, 'device scripts use LF only');
-    assert.match(script.text, /1\.10\.0/, 'scripts carry the version (new md5 when they change)');
+    assert.match(script.text, /AIRIZ Console \d+\.\d+\.\d+/, 'scripts carry the version (new md5 when they change)');
   }
   const text = 'A'.repeat(2500);
   const plan = audio.uploadPlan(text, 1000);
@@ -178,6 +178,20 @@ test('device scripts, upload plan and commands are self-consistent', () => {
   const start = audio.commands.listenStart(80, 2, 'diag audio record -p -t {s} -v {gain}');
   assert.match(start, /listen\.sh 80 2 "diag audio record -p -t %T -v %G" \/tmp\/dmic_record_output\.wav/);
   assert.match(audio.commands.listenStart(80, 2, 'rm -rf /; reboot'), /"diag audio record -p -t %T -v %G"/, 'unsafe templates fall back');
+  // 1.11.2: listen clips of any length (1 s .. 1 h; was 1..5 s)
+  assert.equal(audio.MIN_LISTEN_SECONDS, 1);
+  assert.equal(audio.MAX_LISTEN_SECONDS, 3600);
+  assert.match(audio.commands.listenStart(80, 90), /listen\.sh 80 90 /, 'a 90 s clip is kept');
+  assert.match(audio.commands.listenStart(80, 5000), /listen\.sh 80 3600 /, 'more than an hour is limited');
+  assert.match(audio.commands.listenStart(80, 0), /listen\.sh 80 1 /, 'less than 1 s becomes 1 s');
+  const stop = audio.commands.listenStop();
+  assert.match(stop, /rm -f \/tmp\/airiz\/listen\/on;/, 'Stop ends the listen loop');
+  assert.match(stop, /cat \/tmp\/airiz\/listen\/enc/, 'Stop also ends the encoder of the clip being sent');
+  assert.match(stop, /__AZ""LX__/);
+  const listenSh = audio.deviceScripts().find(script => script.name === 'listen.sh').text;
+  assert.match(listenSh, /@AS1,0,wait,\$old/, 'a new run waits for the previous clip');
+  assert.match(listenSh, /@AS1,\$s,nospace,\$a,\$need/, 'a clip that does not fit in /tmp is refused');
+  assert.match(listenSh, /need=\$\(\( T \* 63 \+ 1024 \)\)/, 'about 63 kB per second of 16 kHz stereo');
   assert.match(audio.commands.play(150), /diag audio volume 100 /, 'volume is clamped');
   assert.match(audio.commands.play(60, 'diag audio play {file}'), /diag audio play \/tmp\/airiz\/talk\.wav/);
   assert.match(audio.commands.buildWav(24000, 'mono16'), /awk -v n=24000 -v rate=16000 -v ch=1 -f \/tmp\/airiz\/talk\.awk/);

@@ -3,8 +3,9 @@
  * Talk:   hold the button and speak (phone or PC microphone). The message goes to the AIRIZ
  *         speaker a few seconds later: it is sent over the 115200-baud USB console first,
  *         turned back into a WAV on the AIRIZ, then played.
- * Listen: the AIRIZ microphone records short clips one after the other and sends them as
- *         text; this page plays them, a few seconds behind live, with a short gap between clips.
+ * Listen: the AIRIZ microphone records clips one after the other and sends them as text;
+ *         this page plays them about a clip length + 2 s behind live, with a short gap between
+ *         clips. The clip length is a setting (1 s up to an hour since 1.11.2).
  * The PC that has the AIRIZ on USB does the device work for everyone. Phones that control it
  * by code send their messages to that PC and get the sound from it (remote-control.js, v3).
  * Demo mode simulates the AIRIZ so everything can be tried without hardware.
@@ -20,6 +21,9 @@
   const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
   const remote = () => window.AirizRemoteControl || null;
   const SETTINGS_KEY = 'airiz.voice.v1';
+  // 1.11.2: the listen clip length is up to the user (seconds; the AIRIZ checks its memory).
+  const MIN_CLIP = core.MIN_LISTEN_SECONDS || 1;
+  const MAX_CLIP = core.MAX_LISTEN_SECONDS || 4;
   const DEFAULTS = Object.freeze({
     speaker: 80,
     gain: 80,
@@ -48,7 +52,7 @@
     const settings = Object.assign({}, DEFAULTS, saved);
     settings.speaker = clamp(settings.speaker, 0, 100, DEFAULTS.speaker);
     settings.gain = clamp(settings.gain, 1, 100, DEFAULTS.gain);
-    settings.clip = clamp(settings.clip, 1, 4, DEFAULTS.clip);
+    settings.clip = clamp(settings.clip, MIN_CLIP, MAX_CLIP, DEFAULTS.clip);
     settings.volume = clamp(settings.volume, 0, 300, DEFAULTS.volume);
     if (!core.FORMATS[settings.format]) settings.format = DEFAULTS.format;
     settings.record = core.recordTemplate(settings.record);
@@ -173,6 +177,7 @@
   // ------------------------------------------------------------------ playback (listen)
   let audioContext = null;
   const MAX_BEHIND_SECONDS = 5;
+  const BLOCK_SECONDS = core.BLOCK_SAMPLES / core.RATE;
 
   function context() {
     if (!audioContext) {
@@ -199,6 +204,9 @@
     let ducked = false;
     let underruns = 0;
     let dropped = 0;
+    // Longest clip seen so far: a clip comes in faster than real time once it has been
+    // recorded, so up to a whole clip may wait to be played (1.11.2: clips of any length).
+    let longestClip = 0;
     function schedule(samples) {
       if (!samples.length || stopped) return;
       const now = ctx.currentTime;
@@ -219,7 +227,8 @@
     return {
       push(frame) {
         if (stopped) return;
-        if (nextTime - ctx.currentTime > MAX_BEHIND_SECONDS) {
+        longestClip = Math.max(longestClip, (frame.blk + 1) * BLOCK_SECONDS);
+        if (nextTime - ctx.currentTime > MAX_BEHIND_SECONDS + longestClip) {
           // a burst of old sound (the PC or the network was busy): drop it to stay near live
           dropped++;
           resampler.reset();
@@ -492,6 +501,11 @@
     clients: new Map(),   // phones that said hello (for caps updates)
     orphanFrames: 0,
     skips: 0,
+    devicePid: '',        // listen.sh run that this PC started (1.11.2)
+    oldPid: '',           // older run that is finishing its clip
+    stopNote: '',         // why the AIRIZ stopped (no room for the clip)
+    activeClip: 0,        // clip length of the running listen session
+    previousClip: 0,
     lastNote: '',
     lease: null,
     demo: null,
@@ -546,9 +560,9 @@
 
   function hostBroadcastListen(state, note) {
     for (const [id, client] of hostState.listeners) {
-      if (id !== 'local' && client.connected) client.send({ type: 'voice-listen', state, note: note || '' });
+      if (id !== 'local' && client.connected) client.send({ type: 'voice-listen', state, note: note || '', clip: hostState.activeClip || settings.clip });
     }
-    if (hostState.listeners.has('local')) localListenReport(state, note);
+    if (hostState.listeners.has('local')) localListenReport(state, note, hostState.activeClip || settings.clip);
   }
 
   function hostSetListen(state, note) {
@@ -558,8 +572,29 @@
   }
 
   function hostStatus(status) {
+    // 1.11.2: "start" and "stopped" name their listen.sh run; an older run that ends late
+    // (it finishes its clip after Stop) must not stop the new session.
+    const pid = status.event === 'start' ? (status.args[2] || '') : status.event === 'stopped' ? (status.args[0] || '') : '';
     if (status.event === 'start') {
+      hostState.devicePid = pid;
       if (hostState.listen === 'starting') hostSetListen('on');
+    } else if (status.event === 'wait') {
+      // the previous clip is still being recorded: the new one starts after it
+      hostState.oldPid = status.args[0] || '';
+      if (hostState.listen === 'starting') {
+        armStartTimer(12000 + (hostState.previousClip + hostState.activeClip) * 2000);
+        hostBroadcastListen('starting', 'The AIRIZ is finishing its previous clip first…');
+      }
+    } else if (status.event === 'nospace') {
+      const free = Math.floor(Number(status.args[0]) / 1024);
+      const need = Math.ceil(Number(status.args[1]) / 1024);
+      hostState.stopNote = 'The AIRIZ has only ' + (Number.isFinite(free) ? free : '?') + ' MB free for clips of '
+        + (hostState.activeClip || settings.clip) + ' s (about ' + (Number.isFinite(need) ? need : '?')
+        + ' MB needed). Choose a shorter listen clip length.';
+      hostBroadcastListen(hostState.listen === 'starting' ? 'starting' : hostState.listen === 'off' ? 'off' : 'on', hostState.stopNote);
+    } else if (status.event === 'stopped' && pid
+        && (pid === hostState.oldPid || (hostState.devicePid ? pid !== hostState.devicePid : hostState.listen === 'starting'))) {
+      return; // an older listen.sh run ended (ours has not started yet, or is another run)
     } else if (status.event === 'skip') {
       hostState.skips++;
       hostBroadcastListen('on', 'The AIRIZ could not keep up and skipped a clip.');
@@ -572,7 +607,7 @@
       clearInterval(hostState.renewTimer);
       hostState.renewTimer = null;
       if (!wanted && hostState.listeners.size && !hostState.talk) {
-        hostBroadcastListen('error', 'The AIRIZ stopped listening (its recorder failed or time ran out).');
+        hostBroadcastListen('error', hostState.stopNote || 'The AIRIZ stopped listening (its recorder failed or time ran out).');
         hostState.listeners.clear();
         if (player) {
           player.stop();
@@ -866,6 +901,11 @@
     if (hostListening()) return;
     hostState.orphanFrames = 0;
     hostState.skips = 0;
+    hostState.devicePid = '';
+    hostState.oldPid = '';
+    hostState.stopNote = '';
+    hostState.previousClip = hostState.activeClip;
+    hostState.activeClip = settings.clip;
     hostSetListen('starting');
     if (view.mode.kind === 'demo' || api.getStatus().demoMode) {
       demoListenStart();
@@ -874,24 +914,29 @@
     try {
       await withLease('listen', async io => {
         await ensureScripts(io);
-        await io.run(core.commands.listenStart(settings.gain, settings.clip, settings.record), /__AZLS__/, 6000);
+        await io.run(core.commands.listenStart(settings.gain, settings.clip, settings.record), /__AZLS__/, 12000);
       });
     } catch (error) {
       hostState.listen = 'off';
       throw error;
     }
+    armStartTimer(12000 + settings.clip * 2000);
+    clearInterval(hostState.renewTimer);
+    hostState.renewTimer = setInterval(() => {
+      if (!hostListening() || currentMode().kind !== 'usb') return;
+      withLease('listen-renew', io => io.run(core.commands.listenRenew(), /__AZLR__/, 3000)).catch(() => {});
+    }, 60000);
+  }
+
+  // The first sound arrives after the first clip has been recorded and encoded.
+  function armStartTimer(ms) {
     clearTimeout(hostState.startTimer);
     hostState.startTimer = setTimeout(() => {
       if (hostState.listen === 'starting') {
         hostState.listen = 'off';
         hostBroadcastListen('error', 'The AIRIZ did not start listening. Its recorder log is /tmp/airiz/listen/rec.log.');
       }
-    }, 12000 + settings.clip * 2000);
-    clearInterval(hostState.renewTimer);
-    hostState.renewTimer = setInterval(() => {
-      if (!hostListening() || currentMode().kind !== 'usb') return;
-      withLease('listen-renew', io => io.run(core.commands.listenRenew(), /__AZLR__/, 3000)).catch(() => {});
-    }, 60000);
+    }, ms);
   }
 
   async function hostStopDevice() {
@@ -908,14 +953,15 @@
       await withLease('listen-stop', io => io.run(core.commands.listenStop(), /__AZLX__/, 4000));
     } catch (ignored) { /* disconnected */ }
     for (let waited = 0; hostState.listen === 'stopping' && waited < 5000; waited += 100) await sleep(100);
-    hostState.listen = 'off';
+    // Listen may have been pressed again meanwhile (1.11.2: the AIRIZ waits for its last clip)
+    if (hostState.listen === 'stopping') hostState.listen = 'off';
   }
 
   async function hostAddListener(id, client) {
     hostState.listeners.set(id, client);
     if (hostState.listen === 'on') {
-      if (id === 'local') localListenReport('on');
-      else client.send({ type: 'voice-listen', state: 'on' });
+      if (id === 'local') localListenReport('on', '', hostState.activeClip || settings.clip);
+      else client.send({ type: 'voice-listen', state: 'on', clip: hostState.activeClip || settings.clip });
       return;
     }
     if (hostState.listen === 'starting') return;
@@ -1056,7 +1102,7 @@
         }
         return;
       case 'voice-listen':
-        if (view.listening) localListenReport(message.state, message.note);
+        if (view.listening) localListenReport(message.state, message.note, Number(message.clip) || 0);
         return;
       case 'voice-talk':
         if (message.id !== phoneState.talkId && message.id !== 'replay') return;
@@ -1106,12 +1152,13 @@
   }
 
   // ------------------------------------------------------------------ listen UI (this device)
-  function localListenReport(state, note) {
+  function localListenReport(state, note, clip) {
     view.listenState = state;
     if (!view.listening) return;
-    if (state === 'starting') setStatus('Starting the AIRIZ microphone…');
+    const seconds = clip > 0 ? clip : settings.clip;
+    if (state === 'starting') setStatus(note || 'Starting the AIRIZ microphone…');
     else if (state === 'on') {
-      setStatus(note || ('Listening to the AIRIZ - about ' + (settings.clip + 2) + ' s behind live, with a short gap between clips.'));
+      setStatus(note || ('Listening to the AIRIZ in ' + seconds + ' s clips - about ' + (seconds + 2) + ' s behind live, with a short gap between clips.'));
     } else if (state === 'off') setStatus(note || 'Listening stopped.');
     else if (state === 'error') {
       setStatus(note || 'Listening failed.');
@@ -1159,7 +1206,7 @@
     } else if (hostState.listeners.has('local')) {
       await hostRemoveListener('local').catch(() => {});
     }
-    if (!quiet) setStatus('Listening stopped.');
+    if (!quiet && !view.listening) setStatus('Listening stopped.');
   }
 
   // ------------------------------------------------------------------ demo AIRIZ
@@ -1184,12 +1231,13 @@
     }
   }
 
-  function demoTone(seg, seconds) {
+  function demoTone(seg, seconds, offset) {
     const rate = core.RATE;
     const out = new Int16Array(Math.round(rate * seconds));
     const notes = [523.25, 659.25, 783.99, 659.25];
+    const first = Math.round((offset || 0) * rate);
     for (let i = 0; i < out.length; i++) {
-      const t = i / rate;
+      const t = (first + i) / rate;
       const note = notes[(Math.floor(t / 0.25) + seg) % notes.length];
       const local = t % 0.25;
       const envelope = Math.min(1, local / 0.01) * Math.exp(-local * 9);
@@ -1208,8 +1256,14 @@
     function nextClip() {
       if (!demo.running) return;
       demo.seg += 1;
-      const lines = core.encodeListenMono(demoTone(demo.seg, settings.clip), demo.seg);
-      demo.queue.push(...lines);
+      const encoder = core.createListenEncoder(demo.seg);
+      for (let start = 0; start < settings.clip; start += 1) {
+        const piece = demoTone(demo.seg, Math.min(1, settings.clip - start), start);
+        const lines = [];
+        for (let i = 0; i < piece.length; i++) encoder.push(piece[i], lines);
+        for (const line of lines) demo.queue.push(line);
+      }
+      for (const line of encoder.end([])) demo.queue.push(line);
       demo.timer = setTimeout(nextClip, (clipMs + 150) / speed);
     }
     demo.timer = setTimeout(nextClip, clipMs / speed);
@@ -1363,7 +1417,11 @@
   }
   bindSetting(ui.speaker, 'speaker', value => clamp(value, 0, 100, DEFAULTS.speaker));
   bindSetting(ui.gain, 'gain', value => clamp(value, 1, 100, DEFAULTS.gain));
-  bindSetting(ui.clip, 'clip', value => clamp(value, 1, 4, DEFAULTS.clip));
+  if (ui.clip) {
+    ui.clip.min = String(MIN_CLIP);
+    ui.clip.max = String(MAX_CLIP);
+  }
+  bindSetting(ui.clip, 'clip', value => clamp(value, MIN_CLIP, MAX_CLIP, DEFAULTS.clip));
   bindSetting(ui.format, 'format', value => (core.FORMATS[value] ? value : DEFAULTS.format));
   bindSetting(ui.record, 'record', value => core.recordTemplate(value));
   bindSetting(ui.play, 'play', value => (/^[A-Za-z0-9 ._\/{}-]+$/.test(value.trim()) && value.trim() ? value.trim() : DEFAULTS.play));
@@ -1429,6 +1487,8 @@
         caps: view.caps,
         status: view.message,
         skips: hostState.skips,
+        orphanFrames: hostState.orphanFrames,
+        clip: settings.clip,
         playerBehind: player ? player.behind : null,
         dropped: player ? player.dropped : 0,
         frames: Object.assign({}, stats),

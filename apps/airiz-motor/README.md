@@ -24,7 +24,7 @@ A downloadable Windows x64 desktop edition now bundles this entire console local
 It is not a website shortcut and does not require Chrome, Edge, Node or Python to run.
 Installer and portable preview builds are available at:
 
-https://github.com/juw12/projects/releases/tag/airiz-desktop-v1.11.1
+https://github.com/juw12/projects/releases/tag/airiz-desktop-v1.11.2
 
 The initial binaries are unsigned. The packaged app was tested with demo/synthetic
 hardware; real-device bench validation is still required. Browser and mobile-web
@@ -56,6 +56,14 @@ streams the AIRIZ microphone back in 2-second clips, about 4 s behind live. Phon
 that has the AIRIZ on USB. Stop motor still works and also interrupts a message being sent. Tested
 against a simulated AIRIZ shell (busybox), not yet on real AIRIZ hardware; the sound format and the
 record/play commands can be changed under *Voice settings*.
+
+**Listen clips of any length (1.11.2):** the listen clip length under *Voice settings* takes any
+whole number of seconds from 1 to 3600 (it was limited to 1-4 s). Each clip is heard after it has been
+recorded, so the sound is about one clip length plus 2 s behind live, with a short gap between clips.
+Before each clip the AIRIZ checks that its /tmp has room for it (about 63 kB per second); if not, Listen
+stops with a clear message. Stop also ends the sending of a long clip at once, and Listen pressed again
+while the AIRIZ still records the last clip waits for it instead of failing. Tested against the simulated
+AIRIZ shell (busybox) and in demo mode, not yet on real AIRIZ hardware.
 
 **Go home from a phone (1.11.1):** the console that holds the AIRIZ cable (PC, or phone since 1.11.0)
 shares the camera position it tracks with every device that controls by code (link protocol 4): their
