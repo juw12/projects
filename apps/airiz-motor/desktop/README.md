@@ -9,7 +9,7 @@ is required to use the installed app or its hardware-free demo.
 ## Downloads
 
 Windows x64 releases are published under the app-specific tag
-`airiz-desktop-v1.11.8` in this repository's Releases section.
+`airiz-desktop-v1.11.9` in this repository's Releases section.
 
 - **Installer**: assisted, per-user installation with Start-menu/desktop shortcuts
   and an uninstaller. The wizard lets the user choose the installation directory.
@@ -163,6 +163,15 @@ reports whether a framed firmware reply came back. Results can be exported.
 No pairing is accepted without confirmation and no motor command is sent.
 Another program on the PC still cannot open COM4 while this app holds it: that is
 a Windows serial-port rule, which is why the check runs inside the app.
+
+## 1.11.9: Full rise and full down buttons
+
+* **Full rise / Full down** on *Motor control* (next to the jog pad): one click sends
+  `diag motor rising forward|reverse <Rising speed> 1100` - the whole rising travel. The step count is one constant
+  (`FULL_TRAVEL_STEPS` in `web/console-ui.js`); speed comes from the Rising slider; *Steps per jog* is untouched.
+* Same rules as the jog pad: only when connected and unlocked, paused during macros, locked by the jog switch.
+* Chinese: 升到頂 / 降到底; the jog pad's LOWER is now 下降 (was 下限, "lower limit").
+* Tested: `tools/test_full_travel.py` (10 checks, English and Traditional Chinese, demo device).
 
 ## 1.11.8: Smart detection alerts, own siren sound, simpler calibration
 
