@@ -8,6 +8,8 @@
   var DRAFT_KEY = "mint.studio";
   var AI_KEY = "mint.ai";
   var UI_THEME_KEY = "mint.uitheme";
+  // One theme for all of Mint: Budget (budget/) and Templates share "mint.theme" = light | dark | system.
+  var SHARED_THEME_KEY = "mint.theme";
   var REF_PREFIX = "mint.ref.";
   var REF_DAYS = 30;
 
@@ -2156,16 +2158,50 @@
     });
   }
 
+  function themeChoice() {
+    try {
+      return localStorage.getItem(SHARED_THEME_KEY) || localStorage.getItem(UI_THEME_KEY) || "system";
+    } catch (err) {
+      return "system";
+    }
+  }
+
+  function applyUiTheme() {
+    var choice = themeChoice();
+    var dark = choice === "dark" || (choice === "system" && !!window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches);
+    document.documentElement.setAttribute("data-ui", dark ? "dark" : "light");
+  }
+
   function init() {
     view = document.getElementById("view");
-    var savedTheme = localStorage.getItem(UI_THEME_KEY);
-    if (savedTheme) {
-      document.documentElement.setAttribute("data-ui", savedTheme);
+    applyUiTheme();
+    if (window.matchMedia) {
+      var scheme = window.matchMedia("(prefers-color-scheme: dark)");
+      var onScheme = function () {
+        if (themeChoice() === "system") {
+          applyUiTheme();
+        }
+      };
+      if (scheme.addEventListener) {
+        scheme.addEventListener("change", onScheme);
+      } else if (scheme.addListener) {
+        scheme.addListener(onScheme);
+      }
     }
+    window.addEventListener("storage", function (e) {
+      if (e.key === SHARED_THEME_KEY || e.key === UI_THEME_KEY) {
+        applyUiTheme();
+      }
+    });
     document.getElementById("uiThemeBtn").onclick = function () {
       var next = document.documentElement.getAttribute("data-ui") === "dark" ? "light" : "dark";
       document.documentElement.setAttribute("data-ui", next);
-      localStorage.setItem(UI_THEME_KEY, next);
+      try {
+        localStorage.setItem(SHARED_THEME_KEY, next);
+        localStorage.setItem(UI_THEME_KEY, next);
+      } catch (err) {
+        /* storage blocked: the switch still applies to this page */
+      }
     };
     document.getElementById("accountBtn").onclick = function () {
       go("#/account");

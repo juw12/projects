@@ -566,41 +566,86 @@
     {
       "id": "mint",
       "name": "Mint",
-      "category": "Creator Tools",
-      "desc": "Prompt a spreadsheet template with AI, tweak it with words, and sell it — instant QRIS/e-wallet/card checkout on the seller's own Midtrans, Xendit or Stripe, push notifications, affiliate payouts, Android app",
-      "description": "Live template marketplace for Excel / Google Sheets: describe a sheet in English or Bahasa Indonesia and Mint AI designs it, tweak it with words (&ldquo;add column Supplier&rdquo;), export a real .xlsx with live formulas and a dashboard, then sell it &mdash; buyers pay the seller directly — instantly through the seller's own Midtrans, Xendit or Stripe checkout (QRIS, e-wallets, VA, cards; the file unlocks by itself) or via their payment link with seller confirmation, with tracked affiliate commissions and payouts. Recovery codes, formula-free previews of paid templates, listing reports, order badges and Web Push notifications; Android app (APK) and iPhone Add to Home Screen. Cloudflare Workers + SQLite Durable Object backend.",
-      "summary": "Describe a spreadsheet, tweak it in plain words, export a working .xlsx and sell it on a built-in marketplace.",
+      "category": "Software",
+      "desc": "One app for money and spreadsheets: a live, end-to-end encrypted shared budget with a money-personality plan, limit warnings and a portfolio, plus Mint Templates to prompt, tweak and sell Excel / Google Sheets templates with instant checkout on the seller's own Midtrans, Xendit or Stripe; free on web, iPhone and Android",
+      "summary": "Shared budgets you edit live together, plus an AI spreadsheet-template studio and marketplace. One app on web, iPhone and Android.",
+      "description": "Mint is one app with two halves. <strong>Budget</strong> (it was called Kitty until Mint 3.0) is a budget you share like a Google Sheet, with an interface built only for money: a 30-second setup turns take-home pay into needs / wants / savings / investing envelopes, an optional 2-minute quiz assigns one of six money personalities, a live <strong>sheet</strong> with cell-level merging, warnings at 80%, over the limit or when your pace will overspend (including when someone else's edit tips a category), goals and an <strong>investing portfolio</strong> with drift and rebalancing. Sharing is local-first and end-to-end encrypted (AES-GCM, key in the link fragment) over ntfy.sh or a self-hostable stdlib relay, with no account. <strong>Templates</strong> is a live marketplace for Excel / Google Sheets templates: describe a sheet in English or Bahasa Indonesia and Mint AI designs it, tweak it with words (&ldquo;add column Supplier&rdquo;), export a real .xlsx with live formulas and a dashboard, then sell it &mdash; buyers pay the seller directly through the seller's own Midtrans, Xendit or Stripe checkout (QRIS, e-wallets, VA, cards) or a payment link, with coupons, tracked affiliate commissions, seller insights and Web Push notifications, on a Cloudflare Workers + SQLite Durable Object backend. Both halves share one install, one icon, one light / dark / system theme and one language (Budget in English, Bahasa Indonesia, 简体中文 and Español; Templates in English and Bahasa Indonesia), and update themselves in place. Old Kitty links, invites and installs move over by themselves with every budget intact. Free on the web, as an iPhone home-screen app and as an Android APK. Plain HTML/CSS/JS, no build step.",
       "tags": [
+        "Shared budgeting",
+        "E2E encrypted",
         "Template marketplace",
-        "Midtrans / Xendit / Stripe",
         "Workers AI",
-        "Cloudflare Workers",
+        "Midtrans / Xendit / Stripe",
         "Excel / Sheets",
-        "Affiliate program"
+        "PWA",
+        "Android",
+        "Multilingual"
       ],
       "note_tags": [
+        "mint",
+        "budgeting",
+        "personal-finance",
+        "crdt",
+        "e2e-encryption",
         "template-marketplace",
         "excel",
         "google-sheets",
         "affiliate",
-        "creator-economy",
         "cloudflare-workers",
         "workers-ai",
+        "payments",
+        "web-push",
         "pwa",
+        "offline-first",
         "android",
         "capacitor",
-        "payments",
-        "web-push"
+        "i18n"
       ],
       "image": "mint-card.jpg",
-      "image_alt": "Mint: prompt a spreadsheet template, tweak it, sell it — prompt box with Mint AI and the prompt, tweak, sell flow",
-      "links": {
-        "app": "mint/app.html",
-        "web": "mint/web.html",
-        "mobile": "mint/mobile.html"
+      "image_alt": "Mint: the shared budget overview with the left-to-spend ring and pace chart, and Templates one tap away in the sidebar",
+      "card": {
+        "capture": "mint/budget/demo.html",
+        "label": "mint · budget",
+        "wait_ms": 2500
       },
+      "links": {
+        "app": "mint/budget/index.html",
+        "web": "mint/web.html",
+        "mobile": "mint/budget/get.html"
+      },
+      "card_links": [
+        {
+          "label": "Budget",
+          "path": "mint/budget/index.html"
+        },
+        {
+          "label": "Templates",
+          "path": "mint/app.html"
+        },
+        {
+          "label": "Live demo",
+          "path": "mint/budget/demo.html"
+        },
+        {
+          "label": "Get iPhone/Android",
+          "path": "mint/budget/get.html"
+        }
+      ],
+      "extra_links": [
+        {
+          "label": "Android app (APK)",
+          "url": "https://github.com/juw12/projects/releases/download/mint-android/Mint-android.apk"
+        },
+        {
+          "label": "Source",
+          "url": "https://github.com/juw12/projects/tree/main/apps/mint"
+        }
+      ],
       "status": "shipped",
-      "order": 21
+      "version": "3.0.0",
+      "featured": true,
+      "order": 21,
+      "portfolio_order": -10
     },
     {
       "id": "gamelib",
@@ -799,79 +844,6 @@
       "status": "preliminary",
       "order": 23,
       "portfolio_order": -7
-    },
-    {
-      "id": "kitty",
-      "name": "Kitty",
-      "category": "Software",
-      "desc": "Shared budgeting app: a live, end-to-end encrypted money sheet for couples and housemates, a money-personality quiz that plans your budget from income, limit warnings and an investing portfolio; free on web, iPhone and Android, no account, works offline",
-      "summary": "Shared budgets you edit live together &mdash; 30-second setup, limit warnings, portfolio. 4 languages, free on web, iPhone and Android.",
-      "description": "A budgeting app you can share like a Google Sheet, with an interface built only for money. A 2-minute <strong>onboarding quiz</strong> on needs, wants and behaviour assigns one of six money personalities (Squirrel, Owl, Butterfly, Lion, Dolphin, Turtle) and turns your take-home pay into needs / wants / savings / investing envelopes, adjusted for rent, debt and your emergency fund. Track spending in an editable <strong>sheet</strong> (sort, filter, CSV), watch the left-to-spend ring and pace chart, and get <strong>warnings</strong> at 80%, over the limit, or when your pace will overspend, including when someone else's edit tips a category. Persona-aware tips appear now and then. Goals, plus an <strong>investing portfolio</strong> with target allocation, drift, rebalancing trades and a growth projection. <strong>Sharing</strong> is local-first and end-to-end encrypted (AES-GCM, key in the link fragment) with cell-level merging, presence and an activity feed, over ntfy.sh or a self-hostable stdlib relay. <strong>Free on every platform</strong>: the web app, an iPhone home-screen app (plus an unsigned IPA for sideloading) and a signed Android APK, built by GitHub Actions with Capacitor around the same live site, with haptics, the native share sheet, the Android back button and invite deep links. Version 1.2 adds a cleaner, neutral design system, <strong>four languages</strong> (English, Bahasa Indonesia, 简体中文, Español; auto-detected, switchable in Settings) and a shareable money-animal result card. Version 1.3 makes it simpler: a <strong>30-second setup</strong> (name, take-home pay, who it is for) builds a ready budget with the quiz now optional, a <strong>Getting started</strong> checklist guides the first steps, and new expenses are <strong>auto-categorised</strong> from your history and everyday words in four languages. Version 1.4 is calmer and easier on the eyes: a one-tap <strong>light / dark theme</strong> (or follow the system) on every screen with live previews in Settings, a phone tab bar with a big add button and a <strong>More</strong> sheet, bottom-sheet dialogs you can swipe away, tappable overview figures, search-as-you-type in the sheet and keyboard shortcuts. Version 1.5 keeps itself up to date: when a new version is live, the app says so (toast, bell, Settings) and updates in place with one tap, or by itself the next time you switch away, keeping your budgets and the page you were on, then shows what's new in your language; the iPhone and Android apps update the same way. No account and no build step: plain HTML/CSS/JS.",
-      "tags": [
-        "budgeting",
-        "real-time sync",
-        "E2E encrypted",
-        "personality quiz",
-        "portfolio",
-        "PWA",
-        "Android",
-        "iPhone",
-        "multilingual"
-      ],
-      "note_tags": [
-        "kitty",
-        "budgeting",
-        "personal-finance",
-        "crdt",
-        "e2e-encryption",
-        "pwa",
-        "offline-first",
-        "investing",
-        "android",
-        "ios",
-        "capacitor",
-        "i18n"
-      ],
-      "image": "kitty-card.jpg",
-      "image_alt": "Kitty shared budget: overview with left-to-spend ring and pace chart on desktop, plus the sheet and overview on two phones",
-      "links": {
-        "app": "kitty/index.html",
-        "web": "kitty/web.html",
-        "mobile": "kitty/get.html"
-      },
-      "card_links": [
-        {
-          "label": "Open app",
-          "path": "kitty/index.html"
-        },
-        {
-          "label": "Get iPhone/Android",
-          "path": "kitty/get.html"
-        },
-        {
-          "label": "Live demo",
-          "path": "kitty/demo.html"
-        }
-      ],
-      "extra_links": [
-        {
-          "label": "Try the demo household",
-          "url": "https://juw12.github.io/projects/kitty/demo.html"
-        },
-        {
-          "label": "Install on iPhone & Android",
-          "url": "https://juw12.github.io/projects/kitty/get.html"
-        },
-        {
-          "label": "Source",
-          "url": "https://github.com/juw12/projects/tree/main/apps/kitty"
-        }
-      ],
-      "status": "shipped",
-      "version": "1.5.0",
-      "featured": true,
-      "order": 24,
-      "portfolio_order": -10
     },
     {
       "id": "vitals",

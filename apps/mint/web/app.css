@@ -1472,3 +1472,28 @@ form[data-payout] input { margin: 6px 0; }
 
 /* v2.4: language switch */
 #langBtn { font-weight: 700; font-size: 12px; letter-spacing: .04em; min-width: 34px; }
+
+/* v3.0: Mint is one app — Budget (budget/) and Templates (this page) */
+.nav a.section {
+  color: var(--text);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.nav a.section::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--brand);
+}
+.nav-sep {
+  width: 1px;
+  align-self: stretch;
+  margin: 6px 6px;
+  background: var(--line);
+}
+.tabbar a.section {
+  color: var(--text);
+  font-weight: 700;
+}

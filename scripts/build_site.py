@@ -89,6 +89,14 @@ REDIRECTS = {
     "hookline": "sped",
     "trade-twin": "twin",
     "sheetmint": "mint",
+    # Kitty (shared budgeting) became the Budget half of Mint in Mint 3.0.
+    "kitty": "mint/budget",
+}
+
+# Pages besides index/app/web/mobile that lived at an old path and still get a stub there
+# (only emitted when the page exists at the new path).
+REDIRECT_EXTRA_PAGES = {
+    "kitty": ["get.html", "demo.html", "tests.html"],
 }
 
 # Renamed installable apps whose old service worker must be retired at the old path.
@@ -105,6 +113,10 @@ LEGACY_WORKERS = {
         "reload_clients": True,
     },
     "sheetmint": {"cache_prefixes": ["sheetmint-"], "start": "app.html", "reload_clients": True},
+    # "copy": files from the new path that open copies of the old app still poll. Kitty 1.5 reads
+    # version.json next to itself; seeing the new version it updates in place, lands on the redirect
+    # stub and opens Mint Budget with the same budgets, page and month.
+    "kitty": {"cache_prefixes": ["kitty-"], "start": "", "reload_clients": True, "copy": ["version.json"]},
 }
 
 
@@ -119,6 +131,10 @@ def write_redirects(out_dir, catalog):
             ("app.html", f"../{new_id}/app.html", out_dir / new_id / "app.html"),
             ("web.html", f"../{new_id}/web.html", out_dir / new_id / "web.html"),
             ("mobile.html", f"../{new_id}/mobile.html", out_dir / new_id / "mobile.html"),
+        ]
+        targets += [
+            (page, f"../{new_id}/{page}", out_dir / new_id / page)
+            for page in REDIRECT_EXTRA_PAGES.get(old_id, [])
         ]
         for page, target, target_path in targets:
             if not target_path.exists():
@@ -171,6 +187,10 @@ def write_redirects(out_dir, catalog):
                 "});\n",
                 encoding="utf-8",
             )
+            for name in legacy.get("copy", []):
+                source = out_dir / new_id / name
+                if source.exists():
+                    shutil.copyfile(source, out_dir / old_id / name)
             target_manifest = out_dir / new_id / "manifest.webmanifest"
             if target_manifest.exists():
                 legacy_manifest = json.loads(target_manifest.read_text())

@@ -77,6 +77,14 @@ def static_checks():
 
     manifest = json.loads(read("manifest.webmanifest"))
     check(manifest.get("start_url", "").startswith("./"), "manifest start_url is relative")
+    check(os.path.isfile(os.path.join(WEB, manifest.get("start_url", ""), "index.html")),
+          "the installed app opens on Mint Budget (" + manifest.get("start_url", "") + ")")
+    check(manifest.get("id") == "projects/mint/app.html", "install identity stays the one Mint PWAs already have")
+    front = read("index.html")
+    check("'budget/'" in front and "'app.html'" in front, "index.html forwards to Budget, template links to the studio")
+    for rel in ["app.html", "web.html", "mobile.html"]:
+        check(read(rel).count('href="budget/"') >= 2, rel + " links to Budget in the nav and the tab bar")
+    check("/^mint-v\\d/.test(k)" in sw, "sw.js only clears its own mint-v caches (Budget keeps mint-budget-v)")
     for icon in manifest.get("icons", []):
         check(os.path.isfile(os.path.join(WEB, icon["src"])), "manifest icon exists: " + icon["src"])
 
@@ -376,7 +384,8 @@ console.log(JSON.stringify({
 def i18n_checks():
     print("language switch (EN / ID)")
     source = read("js/i18n.js")
-    for rel in ["index.html", "app.html", "web.html", "mobile.html"]:
+    # index.html is Mint's front door (it forwards to Budget or here); the studio pages carry the scripts.
+    for rel in ["app.html", "web.html", "mobile.html"]:
         html = read(rel)
         has_both = "js/i18n.js" in html and "js/app.js" in html
         check(has_both and html.index("js/i18n.js") < html.index("js/app.js"), rel + " loads i18n.js before app.js")
