@@ -3487,8 +3487,10 @@ class DesktopPet:
         room = social.NEWS_ROOM if self.social.unread(social.NEWS_ROOM) else social.GENERAL_ROOM
         self.social.open_window("chat", room=room)
 
-    def _voice(self, kind, force=False) -> bool:
-        """Play this animal's sound for a mood / event (respects the sound settings)."""
+    def _voice(self, kind, force=False, species=None) -> bool:
+        """Play this animal's sound for a mood / event (respects the sound settings).
+
+        v2.21: ``species`` lets a visiting friend's pet speak with its own voice."""
         if not self.voice or getattr(self, "_destroyed", False):
             return False
         if not force:
@@ -3501,7 +3503,7 @@ class DesktopPet:
         except (TypeError, ValueError):
             volume = 0.6
         try:
-            return self.voice.play(self.s["species"], kind, volume)
+            return self.voice.play(species or self.s["species"], kind, volume)
         except Exception as exc:
             logger.debug("pet voice failed: %s", exc)
             return False

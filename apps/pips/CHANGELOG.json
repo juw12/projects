@@ -2,6 +2,33 @@
   "_comment": "Pips version history. Newest first. Feeds the in-app update notice (latest.json), the PPT guide and the update emails.",
   "releases": [
     {
+      "version": "2.21.0",
+      "date": "2026-10-29",
+      "title": "Every animal has a voice",
+      "notes": {
+        "en": [
+          "All 51 animals now have their own sound. Before, more than half of them borrowed the cat's meow - now the dog woofs, the cow moos, the sheep baas, the lion roars, the duck quacks, the dolphin clicks and whistles, the dragon flaps and roars with a puff of fire, the ghost goes wooo... and so on.",
+          "Every mood sounds different too: happy, sad, sleepy, hungry or grumpy. Petting, eating and snoring sound right for each kind of animal - furry ones purr and crunch, birds trill and peck, sea animals blow bubbles, bugs hum and magic pets chime.",
+          "A friend's pet that comes to visit now talks in its own voice: it says hi when it arrives and answers when you wave, pet it or give it a snack (it follows your sound settings)."
+        ],
+        "id": [
+          "Ke-51 hewan sekarang punya suaranya sendiri. Sebelumnya lebih dari separuhnya meminjam suara meong kucing - sekarang anjing menggonggong, sapi melenguh, domba mengembik, singa mengaum, bebek berkwek, lumba-lumba berdecit dan bersiul, naga mengepakkan sayap dan mengaum dengan semburan api, hantu bersuara huuu... dan seterusnya.",
+          "Setiap suasana hati juga terdengar berbeda: senang, sedih, mengantuk, lapar, atau kesal. Suara dielus, makan, dan mendengkur cocok dengan jenis hewannya - hewan berbulu mendengkur dan mengunyah, burung berkicau dan mematuk, hewan laut membuat gelembung, serangga berdengung, dan pet ajaib berdenting.",
+          "Pet teman yang datang berkunjung sekarang bicara dengan suaranya sendiri: ia menyapa saat tiba dan membalas saat kamu melambai, mengelus, atau memberinya camilan (mengikuti pengaturan suaramu)."
+        ],
+        "zh_TW": [
+          "全部 51 種動物現在都有自己的聲音。以前一半以上的動物都借用貓咪的喵喵叫——現在狗會汪汪、牛會哞哞、羊會咩咩、獅子會吼、鴨子會呱呱、海豚會滴答吹口哨、龍會拍翅膀噴火怒吼、幽靈會嗚嗚……等等。",
+          "每種心情聽起來也不一樣：開心、難過、想睡、肚子餓或生氣。摸摸、吃東西和打呼的聲音也符合每種動物——毛茸茸的會呼嚕和咀嚼、鳥會啾啾和啄食、海洋動物會吐泡泡、昆蟲會嗡嗡、魔法寵物會叮叮響。",
+          "來拜訪的朋友寵物現在會用自己的聲音說話：抵達時會打招呼，你揮手、摸摸或餵點心時也會回應（依照你的音效設定）。"
+        ],
+        "zh_CN": [
+          "全部 51 种动物现在都有自己的声音。以前一半以上的动物都借用猫咪的喵喵叫——现在狗会汪汪、牛会哞哞、羊会咩咩、狮子会吼、鸭子会嘎嘎、海豚会嘀嗒吹口哨、龙会拍翅膀喷火怒吼、幽灵会呜呜……等等。",
+          "每种心情听起来也不一样：开心、难过、想睡、肚子饿或生气。摸摸、吃东西和打呼的声音也符合每种动物——毛茸茸的会呼噜和咀嚼、鸟会啾啾和啄食、海洋动物会吐泡泡、昆虫会嗡嗡、魔法宠物会叮叮响。",
+          "来拜访的朋友宠物现在会用自己的声音说话：抵达时会打招呼，你挥手、摸摸或喂点心时也会回应（按照你的音效设置）。"
+        ]
+      }
+    },
+    {
       "version": "2.20.0",
       "date": "2026-10-29",
       "title": "Come over",

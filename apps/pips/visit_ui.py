@@ -36,6 +36,8 @@ ACTION_ICON = {"wave": "\U0001F44B", "pet": "\u2665", "snack": "\U0001F36A", "vi
                "chat": "\U0001F4AC"}
 ACTION_COOLDOWN_S = {"wave": 4.0, "pet": 4.0, "snack": 4.0, "visit": 120.0, "chat": 1.0}  # visit: server allows 1 / 2 min
 SEND_GAP_S = 20.0           # wave / pet / snack reach your friend at most this often (the visitor still reacts)
+# v2.21: what the visitor says in its own species' voice (pet_sounds kinds)
+VISIT_SOUNDS = {"hi": "greet", "wave": "happy", "pet": "pet", "snack": "eat", "visit": "happy"}
 HINT_VISITS = 3             # on your first visits the visitor tells you to point at it
 NEEDS_FRIEND = ("visit", "chat")            # the others also work for pets of people you don't know yet
 PRESENCE_COLOR = {"online": "#2fb36d", "busy": "#e5484d", "away": "#f5a524", "offline": "#a8a29e"}
@@ -233,6 +235,16 @@ class VisitorPet:
                "bye": "vis_bye"}.get(kind)
         if key:
             self.say(random.choice(lines(key)), seconds=1.9)
+        self._speak(VISIT_SOUNDS.get(kind))
+
+    def _speak(self, sound):
+        """v2.21: the visitor answers in its own species' voice (same sound settings as your pet)."""
+        if not sound:
+            return False
+        try:
+            return bool(self.host._voice(sound, species=self.species))
+        except Exception:
+            return False
 
     def do_action(self, kind):
         """A button on the card: wave / pet / snack / visit back / chat."""
