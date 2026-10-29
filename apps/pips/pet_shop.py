@@ -174,8 +174,74 @@ def fighter_stats(level: int, gear: dict) -> dict:
         kind = stats.get("kind", kind)
     crit = min(40.0, crit)
     return {"hp": round(hp), "atk": round(atk, 1), "def": round(df, 1), "crit": round(crit, 1),
-            "spd": round(spd, 1), "special": special, "weapon_kind": kind,
+            "spd": round(spd, 1), "special": special, "weapon_kind": kind, "level": lvl,
             "power": round(hp / 4 + atk * 3 + df * 3 + crit + spd)}
+# =============================================================================
+# Skill duels (v2.24) - mirrored from the server's SKILLS table (the server is authoritative)
+# =============================================================================
+# id -> (icon, unlock, stats). unlock: level number, ("weapon", kinds) or ("tool", special).
+SKILLS = {
+    "strike": ("\u2694", 1, {"power": 1.0, "acc": 95, "cd": 0}),
+    "heavy": ("\U0001F4A5", 1, {"power": 1.7, "acc": 70, "cd": 1}),
+    "guard": ("\U0001F6E1", 1, {"guard": 0.6, "heal": 0.04, "cd": 2}),
+    "fury": ("\U0001F43E", 4, {"power": 0.55, "hits": 3, "acc": 80, "cd": 2}),
+    "drain": ("\U0001F9DB", 7, {"power": 0.9, "acc": 90, "drain": 0.4, "cd": 2}),
+    "focus": ("\U0001F3AF", 10, {"focus": True, "cd": 3}),
+    "pierce": ("\U0001F3F9", 13, {"power": 1.25, "acc": 92, "pierce": True, "cd": 2}),
+    "stun": ("\U0001F4AB", 16, {"power": 0.7, "acc": 85, "stun": 0.4, "cd": 3}),
+    "snack": ("\U0001F36A", 20, {"heal": 0.22, "cd": 4}),
+    "blast": ("\U0001F52B", ("weapon", ("gun", "launcher")), {"power": 1.4, "acc": 85, "cd": 1}),
+    "slash": ("\U0001F5E1", ("weapon", ("melee",)), {"power": 1.3, "acc": 92, "crit": 15, "cd": 1}),
+    "medkit": ("\u271a", ("tool", "heal"), {"heal": 0.3, "cd": 4}),
+    "bomb": ("\U0001F4A7", ("tool", "bomb"), {"power": 2.2, "acc": 80, "pierce": True, "cd": 4}),
+    "jet": ("\U0001F680", ("tool", "dodge"), {"power": 1.1, "acc": 95, "evade": True, "cd": 3}),
+    "lucky": ("\U0001F340", ("tool", "power"), {"power": 1.6, "acc": 95, "sure_crit": True, "cd": 4}),
+    "field": ("\u25ce", ("tool", "shield"), {"power": 0.8, "acc": 95, "block": True, "cd": 4}),
+}
+DEFAULT_SKILLS = ("strike", "heavy", "guard")
+DUEL_ROUND_CHOICES = (1, 3, 5)
+
+
+def skill_unlocked(skill: str, level: int, gear: dict) -> bool:
+    if skill not in SKILLS:
+        return False
+    unlock = SKILLS[skill][1]
+    stats = fighter_stats(level, gear)
+    if isinstance(unlock, int):
+        return stats["level"] >= unlock
+    kind, value = unlock
+    if kind == "weapon":
+        return stats["weapon_kind"] in value
+    return bool((gear or {}).get("tool")) and stats["special"] == value
+
+
+def unlocked_skills(level: int, gear: dict) -> list:
+    return [s for s in SKILLS if skill_unlocked(s, level, gear)]
+
+
+def clean_skills(skills, level: int, gear: dict) -> list:
+    """Exactly 3 usable skills (same rules as the server): your picks first, then the basics."""
+    out = []
+    for skill in skills or []:
+        if skill not in out and skill_unlocked(skill, level, gear):
+            out.append(skill)
+        if len(out) == 3:
+            break
+    for skill in DEFAULT_SKILLS:
+        if len(out) == 3:
+            break
+        if skill not in out:
+            out.append(skill)
+    return out
+
+
+def stat_breakdown(level: int, gear: dict) -> dict:
+    """{stat: (from level, from equipment)} - shows where each number comes from."""
+    base = fighter_stats(level, {})
+    full = fighter_stats(level, gear)
+    return {k: (base[k], round(full[k] - base[k], 1)) for k in ("hp", "atk", "def", "crit", "spd")}
+
+
 PREMIUM_DAILY_COINS = 30          # Premium: bonus coins every day you use Pips
 PREMIUM_INTERACTION_CAP = 40      # Premium: daily cap for friend-interaction coins (normal: 20)
 TALL_MOVES = {"spider": 230, "fireworks": 70, "rocket": 240, "juggle": 50, "magic": 40, "confetti": 60, "rain_dance": 50, "hearts": 40}      # extra canvas height (px) the move needs above the pet

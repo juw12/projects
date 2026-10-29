@@ -29,6 +29,15 @@ LEFT_X, RIGHT_X = 175, 465
 EVENT_S = 0.95          # seconds per animated round event
 POLL_MS = 1000
 
+def _untopmost(win):
+    try:
+        win.attributes("-topmost", False)
+    except tk.TclError:
+        pass
+
+
+# Timers run on the app's root window (not on these short-lived windows): Tk keeps a pending timer
+# after its window is destroyed, and tkinter would free the callback's command name for reuse.
 SPECIAL_SYMBOL = {"power": "\u2726", "heal": "\u271a", "bomb": "\u25cf", "dodge": "\u27b6", "shield": "\u25ce"}
 
 
@@ -68,11 +77,7 @@ class DuelWindow:
         self.info = tk.Label(bar, text="", font=("Segoe UI", 10, "bold"), fg="#ffd43b", bg="#1d1b2e", anchor="w")
         self.info.pack(side="left")
         self.btns = {}
-        for key in ("special", "guard", "attack"):
-            btn = tk.Label(bar, text="", font=("Segoe UI Symbol", 10, "bold"), padx=12, pady=5, cursor="hand2")
-            btn.pack(side="right", padx=(6, 0))
-            btn.bind("<Button-1>", lambda e, k=key: self._act(k))
-            self.btns[key] = btn
+        self._build_controls(bar)
         bottom = tk.Frame(self.win, bg="#1d1b2e", padx=10)
         bottom.pack(fill="x", pady=(0, 8))
         self.log_lbl = tk.Label(bottom, text="", font=("Segoe UI", 8), fg="#c9c4e8", bg="#1d1b2e", anchor="w",
@@ -85,8 +90,18 @@ class DuelWindow:
         if cached:
             self._take(cached, initial=True)
         soc.load_duel(duel_id)
-        self.win.after(33, self._frame)
-        self.win.after(POLL_MS, self._poll)
+        self.soc.pet.root.after(33, self._frame)
+        self.soc.pet.root.after(POLL_MS, self._poll)
+
+    def _build_controls(self, bar):
+        for key in ("special", "guard", "attack"):
+            btn = tk.Label(bar, text="", font=("Segoe UI Symbol", 10, "bold"), padx=12, pady=5, cursor="hand2")
+            btn.pack(side="right", padx=(6, 0))
+            btn.bind("<Button-1>", lambda e, k=key: self._act(k))
+            self.btns[key] = btn
+
+    def _ev_dur(self, ev) -> float:
+        return EVENT_S
 
     # ---- window plumbing ----
     def alive(self) -> bool:
@@ -107,7 +122,7 @@ class DuelWindow:
             self.win.geometry(f"+{x}+120")
             self.win.lift()
             self.win.attributes("-topmost", True)
-            self.win.after(600, lambda: self.win.attributes("-topmost", False))
+            self.soc.pet.root.after(600, lambda w=self.win: _untopmost(w))
         except tk.TclError:
             pass
 
@@ -119,6 +134,10 @@ class DuelWindow:
             self._take(duel)
 
     def _take(self, duel, initial=False):
+        if duel.get("v") == 2 and not isinstance(self, SkillDuelWindow):
+            # v2.24: this is a skill duel - swap to the skill battle window.
+            self.soc.pet.root.after(10, lambda: self._swap_to_skills())
+            return
         first = self.state is None
         self.state = duel
         self.offset = duel.get("now", time.time()) - time.time()
@@ -135,6 +154,13 @@ class DuelWindow:
             self.shown = len(log)
         self._refresh_controls()
 
+    def _swap_to_skills(self):
+        if not self._alive:
+            return
+        spectate = self.spectate
+        self.close()
+        self.soc.open_duel(self.duel_id, spectate=spectate)
+
     def _poll(self):
         if not self._alive:
             return
@@ -143,8 +169,8 @@ class DuelWindow:
             if not self._poll_busy:
                 self._poll_busy = True
                 self.soc.load_duel(self.duel_id)
-                self.win.after(4000, self._unstick)
-        self.win.after(POLL_MS, self._poll)
+                self.soc.pet.root.after(4000, self._unstick)
+        self.soc.pet.root.after(POLL_MS, self._poll)
 
     def _unstick(self):
         self._poll_busy = False
@@ -172,7 +198,7 @@ class DuelWindow:
     def _forfeit(self):
         if messagebox.askyesno(t("arena_title"), t("duel_forfeit_q"), parent=self.win):
             self.soc.forfeit_duel(self.duel_id)
-            self.win.after(800, lambda: self.soc.load_duel(self.duel_id))
+            self.soc.pet.root.after(800, lambda: self.soc.load_duel(self.duel_id))
 
     def _rematch(self):
         st = self.state or {}
@@ -227,7 +253,7 @@ class DuelWindow:
         if not self._alive:
             return
         now = time.monotonic()
-        if self.anim and now - self.anim["t0"] >= EVENT_S:
+        if self.anim and now - self.anim["t0"] >= self._ev_dur(self.anim["ev"]):
             self._finish_event(self.anim["ev"])
             self.anim = None
             if not self.queue:
@@ -241,7 +267,7 @@ class DuelWindow:
             self._update_info()
         except tk.TclError:
             return
-        self.win.after(33, self._frame)
+        self.soc.pet.root.after(33, self._frame)
 
     def _pos(self, side):
         return LEFT_X if side == "a" else RIGHT_X
@@ -360,7 +386,7 @@ class DuelWindow:
             cv.create_text(W / 2, H / 2, text=t("fr_connecting"), fill="#ffffff", font=("Segoe UI", 12))
             return
         anim = self.anim
-        p = (now - anim["t0"]) / EVENT_S if anim else 0.0
+        p = min(1.0, (now - anim["t0"]) / self._ev_dur(anim["ev"])) if anim else 0.0
         ev = anim["ev"] if anim else {}
         offsets = {"a": 0.0, "b": 0.0}
         aims = {"a": 0.0, "b": 0.0}
@@ -496,3 +522,606 @@ class DuelWindow:
         cv.create_text(W / 2, 104, text=title, fill=colour, font=("Segoe UI", 18, "bold"))
         if sub:
             cv.create_text(W / 2, 132, text=sub, fill="#ffffff", font=("Segoe UI", 10, "bold"))
+
+
+
+# =============================================================================
+# v2.24 skill duels: bring 3 skills, take turns, best-of rounds (server v14)
+# =============================================================================
+SK_EVENT_S = {"round": 1.9, "round_start": 1.3, "stunned": 0.8}
+FX_ICONS = (("guard", "\u26e8", "#74c0fc"), ("focus", "\U0001F3AF", "#ffd43b"), ("stun", "\U0001F4AB", "#ffe066"),
+            ("evade", "\U0001F680", "#a5d8ff"), ("block", "\u25ce", "#d0bfff"))
+STAT_ROWS = (("level", "Lv"), ("hp", "\u2764 HP"), ("atk", "\u2694 ATK"), ("def", "\u26e8 DEF"),
+             ("spd", "\u27b6 SPD"), ("crit", "\u2605 CRIT"))
+
+
+def skill_name(skill: str) -> str:
+    icon = pet_shop.SKILLS.get(skill, ("\u2694",))[0]
+    return f"{icon} {t('sk_' + skill)}"
+
+
+def skill_numbers(skill: str) -> str:
+    """Short stat line for a skill tile, e.g. 'x1.7 · 70% · ⏳1' (damage, hit chance, cooldown)."""
+    info = pet_shop.SKILLS.get(skill)
+    if not info:
+        return ""
+    st = info[2]
+    parts = []
+    if st.get("power"):
+        hits = st.get("hits", 1)
+        parts.append((f"{hits}\u00d7" if hits > 1 else "\u00d7") + f"{st['power']:g}")
+    if st.get("acc"):
+        parts.append(f"{st['acc']}%")
+    if st.get("heal"):
+        parts.append(f"+{round(st['heal'] * 100)}%\u2764")
+    if st.get("guard"):
+        parts.append(f"\u26e8{round(st['guard'] * 100)}%")
+    if st.get("focus"):
+        parts.append("\U0001F3AF")
+    if st.get("cd"):
+        parts.append(f"\u23f3{st['cd']}")
+    return " \u00b7 ".join(parts)
+
+
+def skill_colour(skill: str) -> str:
+    info = pet_shop.SKILLS.get(skill)
+    if not info:
+        return "#e03131"
+    st = info[2]
+    if not isinstance(info[1], int):
+        return "#9c36b5"            # gear skills
+    if st.get("heal") and not st.get("power"):
+        return "#2f9e44" if not st.get("guard") else "#1c7ed6"
+    if st.get("guard") or st.get("focus"):
+        return "#1c7ed6"
+    return "#e03131"
+
+
+def skill_lock_text(skill: str) -> str:
+    unlock = pet_shop.SKILLS[skill][1]
+    if isinstance(unlock, int):
+        return t("sk_lock_lv", n=unlock)
+    kind, value = unlock
+    if kind == "weapon":
+        return t("sk_lock_melee") if "melee" in value else t("sk_lock_gun")
+    return t("sk_lock_tool", name=t("duel_sp_" + value))
+
+
+class BattleSetup:
+    """Before a skill duel: compare both fighters' stats, pick exactly 3 skills and (challenger) the rounds."""
+    BG = "#1d1b2e"
+    CARD = "#2b2849"
+    INK = "#ffffff"
+    MUTED = "#a9a3d1"
+    GOOD = "#69db7c"
+    BAD = "#ff8787"
+    COLS = 4
+
+    def __init__(self, soc, opponent: dict, mode: str = "challenge", on_confirm=None, rounds=None, parent=None):
+        self.soc = soc
+        self.opponent = dict(opponent or {})
+        self.mode = mode                      # challenge | quick | accept
+        self.on_confirm = on_confirm
+        self.level = soc.my_level()
+        self.gear = soc.my_gear()
+        self.unlocked = set(pet_shop.unlocked_skills(self.level, self.gear))
+        self.picked = [s for s in soc.duel_loadout() if s in self.unlocked][:3]
+        self.rounds = rounds if rounds in pet_shop.DUEL_ROUND_CHOICES else soc.duel_rounds()
+        self.tiles = {}
+        self.round_btns = {}
+        self.confirmed = False
+        self.win = tk.Toplevel(parent or soc.pet.root)
+        self.win.title(t("sk_setup_title"))
+        self.win.configure(bg=self.BG)
+        self.win.resizable(False, False)
+        self.win.protocol("WM_DELETE_WINDOW", self.close)
+        icon = soc.pet.cb.get("icon_path") if hasattr(soc.pet, "cb") else None
+        if icon:
+            try:
+                self.win.iconbitmap(icon)
+            except tk.TclError:
+                pass
+        self._build()
+        self._refresh()
+        self._place(parent)
+
+    # ---- helpers ----
+    def _label(self, parent, text, size=9, bold=False, fg=None, bg=None, **kw):
+        return tk.Label(parent, text=text, font=("Segoe UI Symbol", size, "bold" if bold else "normal"),
+                        fg=fg or self.INK, bg=bg or self.BG, **kw)
+
+    def _place(self, parent):
+        try:
+            self.win.update_idletasks()
+            x = max(20, self.soc.pet.root.winfo_screenwidth() // 2 - self.win.winfo_width() // 2)
+            self.win.geometry(f"+{x}+80")
+            self.win.lift()
+            self.win.attributes("-topmost", True)
+            self.soc.pet.root.after(600, lambda w=self.win: _untopmost(w))
+            self.win.focus_force()
+        except tk.TclError:
+            pass
+
+    def alive(self) -> bool:
+        try:
+            return bool(self.win.winfo_exists())
+        except tk.TclError:
+            return False
+
+    def close(self):
+        try:
+            self.win.destroy()
+        except tk.TclError:
+            pass
+
+    def opponent_stats(self) -> dict:
+        opp = self.opponent
+        stats = opp.get("stats")
+        if isinstance(stats, dict) and stats.get("hp"):
+            return stats
+        if opp.get("hp") and opp.get("atk") is not None:
+            return {k: opp.get(k) for k in ("hp", "atk", "def", "crit", "spd", "level", "special", "weapon_kind")}
+        if opp.get("level"):
+            return pet_shop.fighter_stats(int(opp.get("level") or 1), opp.get("gear") or {})
+        return {}
+
+    # ---- layout ----
+    def _build(self):
+        opp_name = self.opponent.get("name", "?")
+        head = {"quick": "\u26a1 " + t("sk_setup_quick", name=opp_name),
+                "accept": "\u2694 " + t("sk_setup_accept", name=opp_name)}.get(
+            self.mode, "\u2694 " + t("sk_setup_challenge", name=opp_name))
+        outer = tk.Frame(self.win, bg=self.BG, padx=14, pady=12)
+        outer.pack(fill="both", expand=True)
+        self._label(outer, head, size=12, bold=True, fg="#ffe066").pack(anchor="w")
+        # stats comparison
+        box = tk.Frame(outer, bg=self.CARD, padx=10, pady=8)
+        box.pack(fill="x", pady=(8, 0))
+        mine = pet_shop.fighter_stats(self.level, self.gear)
+        breakdown = pet_shop.stat_breakdown(self.level, self.gear)
+        theirs = self.opponent_stats()
+        self._label(box, "", bg=self.CARD).grid(row=0, column=0, sticky="w")
+        self._label(box, t("sk_you"), bold=True, bg=self.CARD, fg="#ffd43b").grid(row=0, column=1, sticky="w", padx=8)
+        self._label(box, opp_name, bold=True, bg=self.CARD, fg="#ffd43b").grid(row=0, column=2, sticky="w", padx=8)
+        for r, (key, title) in enumerate(STAT_ROWS, start=1):
+            self._label(box, title, size=9, bg=self.CARD, fg=self.MUTED).grid(row=r, column=0, sticky="w")
+            mv = mine.get(key, 0)
+            ov = theirs.get(key) if theirs else None
+            colour = self.INK
+            if isinstance(ov, (int, float)) and isinstance(mv, (int, float)) and mv != ov:
+                colour = self.GOOD if mv > ov else self.BAD
+            unit = "%" if key == "crit" else ""
+            text = f"{mv:g}{unit}"
+            if key in breakdown:
+                lvl_part, gear_part = breakdown[key]
+                if gear_part:
+                    text += "   " + t("sk_breakdown", lv=f"{lvl_part:g}", gear=f"{gear_part:+g}")
+            self._label(box, text, size=9, bold=True, bg=self.CARD, fg=colour).grid(row=r, column=1, sticky="w", padx=8)
+            other = "?" if ov is None else f"{ov:g}{unit}"
+            self._label(box, other, size=9, bold=True, bg=self.CARD).grid(row=r, column=2, sticky="w", padx=8)
+        gear_names = [t("gr_" + self.gear[slot]) for slot in pet_shop.GEAR_SLOTS if self.gear.get(slot)]
+        self._label(box, (t("arena_gear", items=", ".join(gear_names)) if gear_names else t("arena_no_gear")),
+                    size=8, bg=self.CARD, fg=self.MUTED, wraplength=520, justify="left").grid(
+            row=len(STAT_ROWS) + 1, column=0, columnspan=3, sticky="w", pady=(6, 0))
+        self._label(box, t("sk_stats_note"), size=8, bg=self.CARD, fg=self.MUTED, wraplength=520,
+                    justify="left").grid(row=len(STAT_ROWS) + 2, column=0, columnspan=3, sticky="w")
+        # skills
+        top = tk.Frame(outer, bg=self.BG)
+        top.pack(fill="x", pady=(10, 4))
+        self.count_lbl = self._label(top, "", size=10, bold=True)
+        self.count_lbl.pack(side="left")
+        self._label(top, t("sk_legend"), size=8, fg=self.MUTED).pack(side="right")
+        grid = tk.Frame(outer, bg=self.BG)
+        grid.pack(fill="x")
+        for i, skill in enumerate(pet_shop.SKILLS):
+            tile = tk.Label(grid, text="", font=("Segoe UI Symbol", 8, "bold"), width=19, height=2, padx=4, pady=3,
+                            justify="center", cursor="hand2")
+            tile.grid(row=i // self.COLS, column=i % self.COLS, padx=2, pady=2, sticky="nsew")
+            tile.bind("<Button-1>", lambda e, s=skill: self.toggle(s))
+            tile.bind("<Enter>", lambda e, s=skill: self._describe(s))
+            self.tiles[skill] = tile
+        self.desc = self._label(outer, t("sk_pick_hint"), size=8, fg="#c9c4e8", wraplength=540, justify="left",
+                                anchor="w")
+        self.desc.pack(fill="x", pady=(4, 0))
+        # rounds
+        rrow = tk.Frame(outer, bg=self.BG)
+        rrow.pack(fill="x", pady=(10, 0))
+        self._label(rrow, t("sk_rounds_label"), size=10, bold=True).pack(side="left")
+        if self.mode == "accept":
+            self._label(rrow, "  " + t("sk_best_of", n=self.rounds) + "  \u00b7  " + t("sk_rounds_theirs"),
+                        size=9, fg=self.MUTED).pack(side="left")
+        else:
+            for n in pet_shop.DUEL_ROUND_CHOICES:
+                btn = tk.Label(rrow, text=t("sk_best_of", n=n), font=("Segoe UI", 9, "bold"), padx=10, pady=3,
+                               cursor="hand2")
+                btn.pack(side="left", padx=(6, 0))
+                btn.bind("<Button-1>", lambda e, k=n: self.set_rounds(k))
+                self.round_btns[n] = btn
+        # footer
+        foot = tk.Frame(outer, bg=self.BG)
+        foot.pack(fill="x", pady=(12, 0))
+        self.go_btn = tk.Label(foot, text="", font=("Segoe UI", 10, "bold"), padx=16, pady=5, cursor="hand2")
+        self.go_btn.pack(side="right")
+        self.go_btn.bind("<Button-1>", lambda e: self.confirm())
+        cancel = tk.Label(foot, text=t("sk_cancel"), font=("Segoe UI", 9), fg="#ffffff", bg="#495057", padx=12,
+                          pady=5, cursor="hand2")
+        cancel.pack(side="right", padx=(0, 6))
+        cancel.bind("<Button-1>", lambda e: self.close())
+        self.win.bind("<Return>", lambda e: self.confirm())
+        self.win.bind("<Escape>", lambda e: self.close())
+
+    def _describe(self, skill):
+        text = skill_name(skill) + " \u2014 " + t("sk_" + skill + "_d")
+        if skill not in self.unlocked:
+            text += "  (\U0001F512 " + skill_lock_text(skill) + ")"
+        try:
+            self.desc.config(text=text)
+        except tk.TclError:
+            pass
+
+    def _refresh(self):
+        for skill, tile in self.tiles.items():
+            name = skill_name(skill)
+            if skill not in self.unlocked:
+                tile.config(text=f"\U0001F512 {t('sk_' + skill)}\n{skill_lock_text(skill)}", bg="#2a2840",
+                            fg="#6f6a92", cursor="arrow", relief="flat")
+            elif skill in self.picked:
+                n = self.picked.index(skill) + 1
+                tile.config(text=f"{n}. {name}\n{skill_numbers(skill)}", bg=skill_colour(skill), fg="#ffffff",
+                            cursor="hand2", relief="solid")
+            else:
+                tile.config(text=f"{name}\n{skill_numbers(skill)}", bg="#3a3752", fg="#e9e6ff", cursor="hand2",
+                            relief="flat")
+        self.count_lbl.config(text=t("sk_pick_count", n=len(self.picked)))
+        for n, btn in self.round_btns.items():
+            active = n == self.rounds
+            btn.config(bg="#f59f00" if active else "#3a3752", fg="#1d1b2e" if active else "#e9e6ff")
+        ready = len(self.picked) == 3
+        self.go_btn.config(text="\u2694 " + t("sk_fight"), bg="#e03131" if ready else "#3a3752",
+                           fg="#ffffff" if ready else "#77729a", cursor="hand2" if ready else "arrow")
+
+    # ---- actions ----
+    def toggle(self, skill):
+        if skill not in self.unlocked:
+            self._describe(skill)
+            return
+        if skill in self.picked:
+            self.picked.remove(skill)
+        else:
+            if len(self.picked) >= 3:
+                self.picked.pop(0)
+            self.picked.append(skill)
+        self._describe(skill)
+        self._refresh()
+
+    def set_rounds(self, n):
+        if n in pet_shop.DUEL_ROUND_CHOICES and self.mode != "accept":
+            self.rounds = n
+            self._refresh()
+
+    def confirm(self):
+        if len(self.picked) != 3 or self.confirmed:
+            return
+        self.confirmed = True
+        skills = pet_shop.clean_skills(self.picked, self.level, self.gear)
+        self.soc.save_duel_setup(skills, None if self.mode == "accept" else self.rounds)
+        callback = self.on_confirm
+        self.close()
+        if callback:
+            callback(skills, self.rounds)
+
+
+class SkillDuelWindow(DuelWindow):
+    """Turn-based skill duel: on your turn pick one of your 3 skills; a round ends at a knock-out and the
+    match is best of 1, 3 or 5 rounds."""
+
+    def __init__(self, soc, duel_id: str, spectate: bool = False):
+        self.tiles = []
+        self.sent_turn = None
+        self.sent_at = 0.0
+        self.banner = None
+        self.disp_wins = {"a": 0, "b": 0}
+        super().__init__(soc, duel_id, spectate)
+        self.win.title(t("arena_title") + " \u00b7 " + t("sk_title"))
+        for i in range(3):
+            self.win.bind(str(i + 1), lambda e, k=i: self._use_skill(k))
+
+    def _build_controls(self, bar):
+        row = tk.Frame(self.win, bg="#1d1b2e", padx=10)
+        row.pack(fill="x")
+        self.skill_row = row
+        for i in range(3):
+            tile = tk.Label(row, text="", font=("Segoe UI Symbol", 9, "bold"), width=24, height=2, pady=4,
+                            justify="center", bg="#1d1b2e", cursor="arrow")
+            tile.pack(side="left", padx=(0 if i == 0 else 6, 0), expand=True, fill="x")
+            tile.bind("<Button-1>", lambda e, k=i: self._use_skill(k))
+            self.tiles.append(tile)
+
+    def _ev_dur(self, ev) -> float:
+        return SK_EVENT_S.get(ev.get("act"), EVENT_S)
+
+    # ---- data ----
+    def _take(self, duel, initial=False):
+        first = self.state is None
+        super()._take(duel, initial)
+        if first:
+            log = duel.get("log", [])
+            caught_up = bool(log) and self.shown == len(log) and not self.queue
+            self.disp_wins = dict(duel.get("wins") or {"a": 0, "b": 0}) if caught_up else {"a": 0, "b": 0}
+
+    def _my_skills(self) -> list:
+        side = self.mine
+        if not side:
+            return []
+        return list(((self.state or {}).get("skills") or {}).get(side) or [])
+
+    def can_act(self) -> bool:
+        st = self.state or {}
+        side = self.mine
+        if not side or st.get("status") != "active" or st.get("turn") != side:
+            return False
+        if self.queue or self.anim:
+            return False
+        if self.sent_turn == st.get("round") and time.monotonic() - self.sent_at < 6:
+            return False
+        return True
+
+    def _use_skill(self, index):
+        if not self.can_act():
+            return
+        skills = self._my_skills()
+        if index >= len(skills) or int(skills[index].get("cd", 0)) > 0:
+            return
+        st = self.state or {}
+        self.sent_turn = st.get("round")
+        self.sent_at = time.monotonic()
+        self.soc.duel_skill(self.duel_id, skills[index]["id"], st.get("round"))
+        self.soc.pet.set_action("hop", 0.4)
+        self._refresh_controls()
+
+    def _rematch(self):
+        st = self.state or {}
+        side = self.mine or "a"
+        other = dict(st.get("b" if side == "a" else "a", {}))
+        code = other.get("code")
+        if not code:
+            return
+        mode = "quick" if st.get("mode") == "quick" else "challenge"
+        soc = self.soc
+
+        def go(skills, rounds):
+            if mode == "quick":
+                soc.quick_duel(code, rounds=rounds, skills=skills)
+            else:
+                soc.challenge(code, rounds=rounds, skills=skills)
+
+        BattleSetup(soc, other, mode=mode, on_confirm=go, rounds=st.get("rounds"))
+        self.close()
+
+    def _refresh_controls(self):
+        st = self.state or {}
+        side = self.mine
+        status = st.get("status")
+        skills = self._my_skills()
+        can = self.can_act()
+        show = bool(side) and status == "active"
+        for i, tile in enumerate(self.tiles):
+            if not show or i >= len(skills):
+                tile.config(text="", bg="#1d1b2e", cursor="arrow")
+                continue
+            skill = skills[i]["id"]
+            cd = int(skills[i].get("cd", 0) or 0)
+            sub = ("\u23f3 " + t("sk_cooldown", n=cd)) if cd > 0 else skill_numbers(skill)
+            enabled = can and cd == 0
+            tile.config(text=f"{i + 1}. {skill_name(skill)}\n{sub}",
+                        bg=skill_colour(skill) if enabled else "#3a3752",
+                        fg="#ffffff" if enabled else "#8a85ad", cursor="hand2" if enabled else "arrow")
+        for child in self.extra.winfo_children():
+            child.destroy()
+        if status == "done" and not self.queue and not self.anim:
+            if side:
+                self._small_button(self.extra, "\u21bb " + t("duel_rematch"), self._rematch, "#2f9e44")
+            self._small_button(self.extra, t("duel_close"), self.close, "#495057")
+        elif side and status == "active":
+            self._small_button(self.extra, t("duel_forfeit"), self._forfeit, "#495057")
+
+    # ---- events ----
+    def _start_event(self, ev):
+        st = self.state or {}
+        act = ev.get("act")
+        s = ev.get("s")
+        if act == "round":
+            winner = ev.get("winner")
+            name = st.get(winner, {}).get("name", "?") if winner in ("a", "b") else ""
+            text = t("sk_round_won", n=ev.get("rnd", 1), name=name) if name else t("sk_round_draw", n=ev.get("rnd", 1))
+            self.banner = (text, "#ffd43b" if winner == self.mine or not self.mine else "#ff8787")
+            if winner and winner == self.mine:
+                self.soc.pet.set_action("hop", 0.6)
+        elif act == "round_start":
+            self.banner = (t("sk_round_fight", n=ev.get("rnd", 1)), "#ffffff")
+        elif act == "stunned":
+            self._float(s, "\U0001F4AB " + t("sk_stunned"), "#ffe066", True)
+        elif act in ("afk", "forfeit"):
+            super()._start_event(ev)
+        elif s in ("a", "b"):
+            self._float(s, skill_name(ev.get("skill") or "strike"), "#e599f7", False, -18)
+
+    def _finish_event(self, ev):
+        s = ev.get("s")
+        o = "b" if s == "a" else "a"
+        act = ev.get("act")
+        if act == "attack":
+            if ev.get("shield"):
+                self._float(o, "\u25ce " + t("duel_shielded"), "#d0bfff")
+            elif ev.get("dodge"):
+                self._float(o, t("sk_dodged"), "#ced4da")
+            elif ev.get("miss"):
+                self._float(o, t("duel_miss"), "#ced4da")
+            else:
+                dmg = ev.get("dmg", 0)
+                landed = [h for h in (ev.get("hits") or []) if h]
+                prefix = f"{len(landed)}\u00d7 " if len(landed) > 1 else ""
+                if ev.get("crit"):
+                    self._float(o, t("duel_crit") + f" {prefix}-{dmg}", "#ffd43b", True)
+                elif ev.get("blocked"):
+                    self._float(o, t("duel_block") + f" -{dmg}", "#74c0fc")
+                else:
+                    self._float(o, f"{prefix}-{dmg}", "#ff6b6b", True)
+            if ev.get("stun"):
+                self._float(o, "\U0001F4AB " + t("sk_stunned"), "#ffe066")
+        elif act == "guard":
+            self._float(s, "\u26e8 " + t("duel_guard"), "#74c0fc")
+        elif act == "focus":
+            self._float(s, "\U0001F3AF " + t("sk_focused"), "#ffd43b")
+        if ev.get("heal"):
+            self._float(s, f"+{ev['heal']}", "#69db7c", True)
+        if act == "round" and isinstance(ev.get("wins"), dict):
+            self.disp_wins = dict(ev["wins"])
+        if act in ("round", "round_start"):
+            self.banner = None
+        if "hp_a" in ev:
+            self.disp_hp["a"] = ev["hp_a"]
+            self.disp_hp["b"] = ev["hp_b"]
+        if ev.get("crit"):
+            self.soc.pet.set_action("hop", 0.3)
+
+    def _update_info(self):
+        st = self.state or {}
+        status = st.get("status")
+        side = self.mine
+        rounds = st.get("rounds", 3)
+        if not st:
+            text = t("fr_connecting")
+        elif status == "pending":
+            text = t("duel_waiting_accept") + "  \u00b7  " + t("sk_best_of", n=rounds)
+        elif status in ("expired", "declined"):
+            text = t("duel_expired")
+        elif self.queue or self.anim:
+            ev = (self.anim or {}).get("ev", {})
+            text = t("sk_round", n=ev.get("rnd") or st.get("rnd", 1), total=rounds) + "  \u00b7  \u25b6"
+        elif status == "done":
+            wins = st.get("wins") or {}
+            text = t("sk_score", a=wins.get("a", 0), b=wins.get("b", 0)) + "  \u00b7  " + t("duel_over")
+        else:
+            remaining = max(0, int(st.get("deadline", 0) - (time.time() + self.offset)))
+            text = t("sk_round", n=st.get("rnd", 1), total=rounds) + f"  \u00b7  \u23f1 {remaining}s  \u00b7  "
+            turn = st.get("turn")
+            if side and turn == side:
+                text += t("sk_your_turn")
+            else:
+                text += t("sk_their_turn", name=st.get(turn, {}).get("name", "?"))
+                if not side:
+                    text += "  \u00b7  \U0001F441"
+        self.info.config(text=text)
+        lines = []
+        for ev in (st.get("log") or [])[max(0, self.shown - len(self.queue) - 3):self.shown - len(self.queue)]:
+            lines.append(self._log_line(ev))
+        self.log_lbl.config(text="\n".join(lines[-3:]))
+
+    def _log_line(self, ev):
+        st = self.state or {}
+        act = ev.get("act")
+        who = st.get(ev.get("s"), {}).get("name", "?")
+        if act == "round":
+            winner = ev.get("winner")
+            if winner in ("a", "b"):
+                return t("sk_round_won", n=ev.get("rnd", 1), name=st.get(winner, {}).get("name", "?"))
+            return t("sk_round_draw", n=ev.get("rnd", 1))
+        if act == "round_start":
+            return t("sk_round_fight", n=ev.get("rnd", 1))
+        if act in ("afk", "forfeit"):
+            return t("log_duel_" + act, who=who, r=ev.get("r"))
+        if act == "stunned":
+            return t("sk_log_stunned", who=who)
+        skill = t("sk_" + (ev.get("skill") or "strike"))
+        if act == "guard":
+            text = t("sk_log_guard", who=who, skill=skill)
+        elif act == "focus":
+            text = t("sk_log_focus", who=who, skill=skill)
+        elif act == "heal":
+            text = t("sk_log_heal", who=who, skill=skill, n=ev.get("heal", 0))
+            return text
+        elif ev.get("shield"):
+            text = t("sk_log_shield", who=who, skill=skill)
+        elif ev.get("dodge"):
+            text = t("sk_log_dodge", who=who, skill=skill)
+        elif ev.get("miss"):
+            text = t("sk_log_miss", who=who, skill=skill)
+        else:
+            text = t("sk_log_hit", who=who, skill=skill, dmg=ev.get("dmg", 0))
+            if ev.get("crit"):
+                text += " \u2605"
+            if ev.get("stun"):
+                text += " \U0001F4AB"
+        if ev.get("heal"):
+            text += f" (+{ev['heal']})"
+        return text
+
+    # ---- drawing ----
+    def _draw(self, now):
+        super()._draw(now)
+        st = self.state or {}
+        if not st.get("a"):
+            return
+        cv = self.cv
+        anim = self.anim
+        ev = anim["ev"] if anim else {}
+        rounds = st.get("rounds", 3)
+        rnd = ev.get("rnd") or st.get("rnd", 1)
+        cv.create_text(W / 2, 114, text=t("sk_round", n=rnd, total=rounds), fill="#ffffff",
+                       font=("Segoe UI", 9, "bold"))
+        # whose turn
+        if st.get("status") == "active" and not anim and not self.queue and st.get("turn") in ("a", "b"):
+            x = self._pos(st["turn"])
+            y = FLOOR - SIZE * 1.32 + math.sin(now * 5) * 4
+            cv.create_polygon(x - 10, y - 12, x + 10, y - 12, x, y + 2, fill="#ffd43b", outline="#e67700", width=2)
+        # status effects (guard, focus, stun, jetpack, shield)
+        fx = st.get("fx") or {}
+        if not anim and not self.queue:
+            for side in ("a", "b"):
+                icons = [(sym, col) for key, sym, col in FX_ICONS if (fx.get(side) or {}).get(key)]
+                for k, (sym, col) in enumerate(icons):
+                    x = self._pos(side) + (-70 if side == "a" else 70)
+                    y = FLOOR - 92 + k * 22
+                    cv.create_oval(x - 11, y - 11, x + 11, y + 11, fill="#14122a", outline=col, width=2)
+                    cv.create_text(x, y, text=sym, fill=col, font=("Segoe UI Symbol", 9, "bold"))
+        # round banners
+        if anim and ev.get("act") in ("round", "round_start") and self.banner:
+            text, colour = self.banner
+            cv.create_rectangle(W / 2 - 200, 124, W / 2 + 200, 168, fill="#14122a", outline=colour, width=3)
+            cv.create_text(W / 2, 146, text=text, fill=colour, font=("Segoe UI Symbol", 13, "bold"))
+
+    def _draw_bars(self, st):
+        cv = self.cv
+        need = max(1, int(st.get("need", 2) or 2))
+        for side, x0 in (("a", 14), ("b", W - 14)):
+            f = st.get(side, {})
+            max_hp = max(1, f.get("hp", 1))
+            hp = self.disp_hp.get(side)
+            hp = max_hp if hp is None else hp
+            frac = max(0.0, min(1.0, hp / max_hp))
+            bw = 250
+            left = x0 if side == "a" else x0 - bw
+            cv.create_rectangle(left, 14, left + bw, 70, fill="#14122a", outline="#4b4680", width=2)
+            role = {"owner": " \u265b", "mod": " \U0001F6E1"}.get(f.get("role", ""), " \u2605" if f.get("premium") else "")
+            cv.create_text(left + 8, 26, text=f"{f.get('name', '?')}{role}", anchor="w", fill="#ffffff",
+                           font=("Segoe UI Symbol", 10, "bold"))
+            wins = int(self.disp_wins.get(side, 0) or 0)
+            trophies = "\u25cf" * min(wins, need) + "\u25cb" * max(0, need - wins)
+            cv.create_text(left + bw - 8, 26, text=f"Lv {f.get('level', 1)}  {trophies}", anchor="e", fill="#ffd43b",
+                           font=("Segoe UI Symbol", 9, "bold"))
+            colour = "#51cf66" if frac > 0.5 else "#fcc419" if frac > 0.25 else "#ff6b6b"
+            cv.create_rectangle(left + 8, 36, left + bw - 8, 50, fill="#3b3760", outline="")
+            fill_left = left + 8 if side == "a" else left + bw - 8 - (bw - 16) * frac
+            cv.create_rectangle(fill_left, 36, fill_left + (bw - 16) * frac, 50, fill=colour, outline="")
+            cv.create_text(left + bw / 2, 43, text=f"{int(hp)} / {max_hp}", fill="#ffffff", font=("Segoe UI", 8, "bold"))
+            stats = (f"\u2694{f.get('atk', 0)}  \u26e8{f.get('def', 0)}  \u27b6{f.get('spd', 0)}  "
+                     f"\u2605{f.get('crit', 0)}%")
+            cv.create_text(left + 8, 61, text=stats, anchor="w", fill="#c9c4e8", font=("Segoe UI Symbol", 8))
+
+    def _draw_result(self, st):
+        super()._draw_result(st)
+        wins = st.get("wins") or {}
+        text = "\U0001F3C6 " + t("sk_score", a=wins.get("a", 0), b=wins.get("b", 0))
+        self.cv.create_rectangle(W / 2 - 80, 156, W / 2 + 80, 178, fill="#14122a", outline="#ffd43b", width=2)
+        self.cv.create_text(W / 2, 167, text=text, fill="#ffd43b", font=("Segoe UI Symbol", 10, "bold"))

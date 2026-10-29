@@ -60,7 +60,7 @@ INFO_FIELDS = ("job", "location", "hobbies", "birthday", "fav")
 
 class FriendsWindow:
     WIDTH = 570
-    TABS = ("friends", "chat", "groups", "arena", "ranks", "shop", "achievements", "profile")
+    TABS = ("friends", "chat", "groups", "arena", "games", "ranks", "shop", "profile", "achievements")
 
     def _apply_palette(self):
         p = theme.palette() if theme is not None else {}
@@ -122,6 +122,7 @@ class FriendsWindow:
         self.tabs_frame = tk.Frame(self.outer, bg=self.BG)
         self.tabs_frame.pack(fill="x", pady=(10, 6))
         self.tab_buttons = {}
+        self._last_sub = {}
         self._build_tabs()
         # scrollable body
         box = tk.Frame(self.outer, bg=self.CARD, highlightthickness=1, highlightbackground=self.BORDER)
@@ -146,23 +147,67 @@ class FriendsWindow:
         self.refresh()
         self.win.after(400, self._pump)
 
-    def _tab_keys(self):
-        keys = list(self.TABS)
+    # v2.24: 5 simple top tabs; related pages live in a small sub-tab row underneath.
+    GROUPS = (("friends", ("friends",)), ("chat", ("chat", "groups")), ("play", ("arena", "games", "ranks")),
+              ("shop", ("shop",)), ("me", ("profile", "achievements")))
+    GROUP_ICONS = {"friends": "\U0001F465", "chat": "\U0001F4AC", "play": "\U0001F3AE", "shop": "\U0001F6CD",
+                   "me": "\U0001F642", "mod": "\U0001F6E1"}
+    SUB_ICONS = {"arena": "\u2694 ", "games": "\U0001F3B2 ", "ranks": "\U0001F3C6 ", "groups": "\U0001F46A ",
+                 "chat": "\U0001F4E8 ", "profile": "\U0001F464 ", "achievements": "\U0001F3C5 "}
+
+    def _groups(self):
+        groups = list(self.GROUPS)
         if self.social.enabled and self.social.is_staff:
-            keys.append("mod")
-        return keys
+            groups.append(("mod", ("mod",)))
+        return groups
+
+    def _group_of(self, key):
+        for group, keys in self._groups():
+            if key in keys:
+                return group
+        return "friends"
+
+    def _tab_keys(self):
+        return [key for _group, keys in self._groups() for key in keys]
 
     def _build_tabs(self):
         for child in self.tabs_frame.winfo_children():
             child.destroy()
         self.tab_buttons = {}
-        for key in self._tab_keys():
-            text = {"mod": "\U0001F6E1 ", "arena": "\u2694 "}.get(key, "") + t("fr_tab_" + key)
-            btn = tk.Label(self.tabs_frame, text=text, font=("Segoe UI", 9, "bold"), padx=5, pady=4,
-                           cursor="hand2")
-            btn.pack(side="left", padx=(0, 3))
+        self.group_buttons = {}
+        self.sub_buttons = {}
+        self._sub_group = None
+        top = tk.Frame(self.tabs_frame, bg=self.BG)
+        top.pack(fill="x")
+        self.sub_row = tk.Frame(self.tabs_frame, bg=self.BG)
+        self.sub_row.pack(fill="x")
+        for group, keys in self._groups():
+            btn = tk.Label(top, text="", font=("Segoe UI", 10, "bold"), padx=6, pady=5, cursor="hand2")
+            btn.pack(side="left", padx=(0, 4), fill="x", expand=True)
+            btn.bind("<Button-1>", lambda e, g=group: self.show_group(g))
+            self.group_buttons[group] = btn
+            for key in keys:
+                self.tab_buttons[key] = btn
+
+    def show_group(self, group):
+        keys = dict(self._groups()).get(group) or ("friends",)
+        key = self._last_sub.get(group)
+        self.show_tab(key if key in keys else keys[0])
+
+    def _build_sub_row(self, group):
+        for child in self.sub_row.winfo_children():
+            child.destroy()
+        self.sub_buttons = {}
+        self._sub_group = group
+        keys = dict(self._groups()).get(group) or ()
+        if len(keys) < 2:
+            self.sub_row.configure(height=1)
+            return
+        for key in keys:
+            btn = tk.Label(self.sub_row, text="", font=("Segoe UI", 9), padx=10, pady=2, cursor="hand2")
+            btn.pack(side="left", padx=(0, 4), pady=(5, 0))
             btn.bind("<Button-1>", lambda e, k=key: self.show_tab(k))
-            self.tab_buttons[key] = btn
+            self.sub_buttons[key] = btn
 
     # ---- helpers ----
     def alive(self) -> bool:
@@ -304,6 +349,7 @@ class FriendsWindow:
 
     def show_tab(self, key, room=None):
         self.tab = key
+        self._last_sub[self._group_of(key)] = key
         self.viewing = None
         self.error = ""
         self.social.arena_open = key == "arena"
@@ -356,6 +402,8 @@ class FriendsWindow:
             self._render_achievements()
         elif self.tab == "shop":
             self._render_shop()
+        elif self.tab == "games":
+            self._render_games()
         elif self.tab == "profile":
             self._render_profile_tab()
         elif not self.social.enabled:
@@ -387,21 +435,27 @@ class FriendsWindow:
     def _update_tab_labels(self):
         unread = self.social.total_unread()
         invites = len(self.social.invites)
-        for key, btn in self.tab_buttons.items():
-            active = key == self.tab
-            label = {"mod": "\U0001F6E1 ", "arena": "\u2694 "}.get(key, "") + t("fr_tab_" + key)
-            if key == "arena" and (self.social.arena or {}).get("incoming"):
-                label += f" ({len(self.social.arena['incoming'])})"
-            open_reports = ((self.social.board or {}).get("staff") or {}).get("open_reports", 0)
-            if key == "mod" and open_reports:
-                label += f" ({open_reports})"
-            if key == "chat" and unread:
-                label += f" ({unread})"
-            if key == "groups" and invites:
-                label += f" ({invites})"
-            if key == "friends" and self.social.requests():
-                label += f" ({len(self.social.requests())})"
+        incoming = len((self.social.arena or {}).get("incoming") or [])
+        requests = len(self.social.requests())
+        open_reports = ((self.social.board or {}).get("staff") or {}).get("open_reports", 0)
+        counts = {"friends": requests, "chat": unread, "groups": invites, "arena": incoming, "mod": open_reports}
+        group_counts = {"friends": requests, "chat": unread + invites, "play": incoming, "mod": open_reports}
+        current = self._group_of(self.tab)
+        for group, btn in self.group_buttons.items():
+            active = group == current
+            label = self.GROUP_ICONS.get(group, "") + " " + t("fr_tab_" + group)
+            if group_counts.get(group):
+                label += f" ({group_counts[group]})"
             btn.config(text=label, bg=self.ACCENT if active else self.SOFT, fg=self.ACCENT_INK if active else self.INK)
+        if self._sub_group != current:
+            self._build_sub_row(current)
+        for key, btn in self.sub_buttons.items():
+            active = key == self.tab
+            label = self.SUB_ICONS.get(key, "") + t("fr_sub_" + key)
+            if counts.get(key):
+                label += f" ({counts[key]})"
+            btn.config(text=label, bg=self.BORDER if active else self.BG, fg=self.INK if active else self.MUTED,
+                       font=("Segoe UI", 9, "bold" if active else "normal"))
 
     def _update_status(self):
         note, note_until = getattr(self.social, "staff_note", ("", 0.0))
@@ -1047,7 +1101,7 @@ class FriendsWindow:
         entry.focus_set()
         self._button(entry_row, t("chat_send"), lambda: self._ask_bot(key), primary=True).pack(side="left", padx=(6, 0))
         if key == "arena":
-            self._button(entry_row, "\u26a1 " + t("duel_quick"), lambda: self._quick(bot["code"]), small=True).pack(
+            self._button(entry_row, "\u26a1 " + t("duel_quick"), lambda: self._quick(bot["code"], person=bot), small=True).pack(
                 side="left", padx=(6, 0))
         self.win.after(60, lambda: self.canvas.yview_moveto(1.0))
 
@@ -1601,15 +1655,55 @@ class FriendsWindow:
 
 
     # ---- arena (v2.8) ----
-    def _challenge(self, code):
-        self.error = ""
-        self.social.challenge(code)
-        self.status.config(text=t("fr_connecting"), fg=self.MUTED)
+    def _person_by_code(self, code) -> dict:
+        """Best card we have for someone (arena lobby/top have fighter stats; friends have level)."""
+        data = self.social.arena or {}
+        pools = [data.get("lobby") or [], data.get("top") or [], [i.get("from", {}) for i in data.get("incoming") or []],
+                 self.social.friends()]
+        for pool in pools:
+            for person in pool:
+                if person.get("code") == code:
+                    return dict(person)
+        return {"code": code, "name": "?"}
 
-    def _quick(self, code):
-        self.error = ""
-        self.social.quick_duel(code)
-        self.status.config(text=t("duel_quick_loading"), fg=self.MUTED)
+    def _battle_setup(self, person, mode, on_confirm, rounds=None):
+        """v2.24: compare stats, pick 3 skills (and the rounds) before a skill duel."""
+        import arena_ui
+        return arena_ui.BattleSetup(self.social, person, mode=mode, on_confirm=on_confirm, rounds=rounds,
+                                    parent=self.win)
+
+    def _challenge(self, code, person=None):
+        person = person or self._person_by_code(code)
+
+        def go(skills, rounds):
+            self.error = ""
+            self.social.challenge(code, rounds=rounds, skills=skills)
+            if self._alive:
+                self.status.config(text=t("fr_connecting"), fg=self.MUTED)
+
+        return self._battle_setup(person, "challenge", go)
+
+    def _quick(self, code, person=None):
+        person = person or self._person_by_code(code)
+
+        def go(skills, rounds):
+            self.error = ""
+            self.social.quick_duel(code, rounds=rounds, skills=skills)
+            if self._alive:
+                self.status.config(text=t("duel_quick_loading"), fg=self.MUTED)
+
+        return self._battle_setup(person, "quick", go)
+
+    def _accept_duel(self, item):
+        if item.get("v") != 2:
+            # challenger runs an older Pips: classic battle, nothing to pick
+            self.social.respond_duel(item["id"], True)
+            return None
+
+        def go(skills, rounds):
+            self.social.respond_duel(item["id"], True, skills=skills)
+
+        return self._battle_setup(item.get("from") or {}, "accept", go, rounds=item.get("rounds", 3))
 
     def _fighter_card(self, parent, stats, gear, bg):
         line = t("arena_stats", hp=stats.get("hp", 0), atk=stats.get("atk", 0), df=stats.get("def", 0),
@@ -1640,8 +1734,8 @@ class FriendsWindow:
         for widget in (av, name):
             widget.bind("<Button-1>", lambda e, c=person.get("code"): self.open_profile(c))
         if buttons and person.get("code") != self.social.data.get("code"):
-            self._button(row, "\u26a1", lambda c=person.get("code"): self._quick(c), small=True).pack(side="right", padx=(3, 0))
-            self._button(row, "\u2694 " + t("duel_challenge_short"), lambda c=person.get("code"): self._challenge(c),
+            self._button(row, "\u26a1", lambda p=person: self._quick(p.get("code"), person=p), small=True).pack(side="right", padx=(3, 0))
+            self._button(row, "\u2694 " + t("duel_challenge_short"), lambda p=person: self._challenge(p.get("code"), person=p),
                          primary=True, small=True).pack(side="right")
         return row
 
@@ -1691,7 +1785,7 @@ class FriendsWindow:
                 row = self._arena_person(self.body, item["from"], self.WARM, buttons=False)
                 self._button(row, t("req_decline"), lambda i=item["id"]: self.social.respond_duel(i, False),
                              small=True).pack(side="right", padx=(3, 0))
-                self._button(row, "\u2694 " + t("duel_accept"), lambda i=item["id"]: self.social.respond_duel(i, True),
+                self._button(row, "\u2694 " + t("duel_accept"), lambda it=item: self._accept_duel(it),
                              primary=True, small=True).pack(side="right")
         outgoing = data.get("outgoing", [])
         if outgoing:
@@ -1715,7 +1809,9 @@ class FriendsWindow:
                 row.pack(fill="x", pady=1)
                 a, b = duel["a"], duel["b"]
                 self._label(row, f"{a.get('name')} ({a.get('hp')}/{a.get('max')})  \u2694  {b.get('name')} ({b.get('hp')}/{b.get('max')})"
-                            + "  \u00b7  " + t("duel_round", n=duel.get("round", 1), max=12), size=9, bg=self.TILE).pack(side="left")
+                            + "  \u00b7  " + (t("sk_round", n=duel.get("rnd", 1), total=duel.get("rounds", 3))
+                                              if duel.get("v") == 2 else t("duel_round", n=duel.get("round", 1), max=12)),
+                            size=9, bg=self.TILE).pack(side="left")
                 self._button(row, "\U0001F441 " + t("arena_watch"), lambda i=duel["id"]: self.social.open_duel(i, spectate=True),
                              small=True).pack(side="right")
         if data.get("top"):
@@ -1737,6 +1833,38 @@ class FriendsWindow:
                 self._label(row, mode + text, size=8, fg=self.INK).pack(side="left")
                 self._button(row, t("arena_replay"), lambda i=duel["id"]: self.social.open_duel(i, spectate=True),
                              small=True).pack(side="right")
+
+    # ---- games (v2.24) ----
+    def _render_games(self):
+        try:
+            import minigames
+        except ImportError:
+            minigames = None
+        if minigames is None:
+            self._label(self.body, t("mg_unavailable"), fg=self.MUTED).pack(fill="x")
+            return
+        self._label(self.body, "\U0001F3B2 " + t("mg_hub_title"), size=12, bold=True).pack(fill="x")
+        self._label(self.body, t("mg_hub_note", coins=minigames.GAME_COINS, n=minigames.COIN_GAMES_PER_DAY),
+                    size=8, fg=self.MUTED, wrap=self.WIDTH - 70).pack(fill="x", pady=(0, 6))
+        state = self.pet.st
+        rows = [(key, minigames.ICONS[key], t("mg_" + key), t("mg_" + key + "_how"),
+                 lambda k=key: self.pet.play_minigame(k)) for key in minigames.GAMES]
+        if hasattr(self.pet, "play_game"):
+            rows.append(("leftright", "\u2194", t("mg_leftright"), t("mg_leftright_how"), self.pet.play_game))
+        for key, icon, name, how, command in rows:
+            row = tk.Frame(self.body, bg=self.TILE, padx=8, pady=6)
+            row.pack(fill="x", pady=2)
+            tk.Label(row, text=icon, font=("Segoe UI Emoji", 20), bg=self.TILE, width=2).pack(side="left", padx=(0, 8))
+            box = tk.Frame(row, bg=self.TILE)
+            box.pack(side="left", fill="x", expand=True)
+            self._label(box, name, size=10, bold=True, bg=self.TILE).pack(fill="x")
+            self._label(box, how, size=8, fg=self.MUTED, bg=self.TILE, wrap=self.WIDTH - 230).pack(fill="x")
+            if key in minigames.GAMES:
+                best = minigames.best_score(state, key)
+                plays = int((minigames.records(state).get("plays") or {}).get(key, 0) or 0)
+                stats = t("mg_best", n=best) + "  \u00b7  " + t("mg_plays", n=plays)
+                self._label(box, stats, size=8, fg=self.ACCENT, bg=self.TILE).pack(fill="x")
+            self._button(row, "\u25b6 " + t("mg_play"), command, primary=True, small=True).pack(side="right")
 
     def _arena_help(self):
         messagebox.showinfo(t("arena_title"), t("arena_help"), parent=self.win)
