@@ -1301,7 +1301,17 @@
     "Joined on this PC (not on the published team list yet)": "已在此電腦加入（尚未列入公布的團隊名單）",
     "YOU": "您",
     "Co-admins listed by name on every PC (1.11.12)": "每台電腦都會依名字列出共同管理員 (1.11.12)",
-    "The Ziris PTB team card now lists every co-admin by name (for example Luar Handoyo) on the owner's PC and everybody else's, not only the person signed in on that PC. The list comes from the AIRIZ website and is read again on start, when the window gets focus and every 10 minutes, so new co-admins appear without an app update.": "Ziris PTB 團隊卡片現在會依名字列出所有共同管理員（例如 Luar Handoyo），負責人與其他人的電腦都看得到，不再只顯示在本機登入的人。名單來自 AIRIZ 網站，啟動時、視窗取得焦點時及每 10 分鐘會重新讀取，因此新的共同管理員不需更新程式就會出現。"
+    "The Ziris PTB team card now lists every co-admin by name (for example Luar Handoyo) on the owner's PC and everybody else's, not only the person signed in on that PC. The list comes from the AIRIZ website and is read again on start, when the window gets focus and every 10 minutes, so new co-admins appear without an app update.": "Ziris PTB 團隊卡片現在會依名字列出所有共同管理員（例如 Luar Handoyo），負責人與其他人的電腦都看得到，不再只顯示在本機登入的人。名單來自 AIRIZ 網站，啟動時、視窗取得焦點時及每 10 分鐘會重新讀取，因此新的共同管理員不需更新程式就會出現。",
+    "View": "查看",
+    "Play clip": "播放影片",
+    "Show photo": "顯示照片",
+    "Save photo": "儲存照片",
+    "Save clip": "儲存影片",
+    "‹ Older": "‹ 較舊",
+    "Newer ›": "較新 ›",
+    "Viewing does not save anything. Events stay in memory only until you clear them or close the console.": "查看不會儲存任何檔案。事件只保留在記憶體中，直到您清除或關閉主控台。",
+    "View motion pictures without saving them (1.11.13)": "不用儲存也能查看動作照片 (1.11.13)",
+    "In Smart detection, each motion event now has a View button (or click the small picture): the full photo opens inside the console, with Older / Newer to step through events and Play clip for the recording. Nothing is saved unless you press Save photo or Save clip in the viewer.": "智慧偵測的每個動作事件現在都有「查看」按鈕（或點小圖）：完整照片會在主控台內開啟，可用「較舊／較新」切換事件，並用「播放影片」觀看錄影。除非在檢視器中按「儲存照片」或「儲存影片」，否則不會儲存任何檔案。"
   },
   "html": {
     "AIRIZDEVICE LAB": "AIRIZ<small>裝置實驗室</small>",

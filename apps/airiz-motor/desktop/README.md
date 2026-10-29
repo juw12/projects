@@ -9,7 +9,7 @@ is required to use the installed app or its hardware-free demo.
 ## Downloads
 
 Windows x64 releases are published under the app-specific tag
-`airiz-desktop-v1.11.12` in this repository's Releases section.
+`airiz-desktop-v1.11.13` in this repository's Releases section.
 
 - **Installer**: assisted, per-user installation with Start-menu/desktop shortcuts
   and an uninstaller. The wizard lets the user choose the installation directory.
@@ -163,6 +163,15 @@ reports whether a framed firmware reply came back. Results can be exported.
 No pairing is accepted without confirmation and no motor command is sent.
 Another program on the PC still cannot open COM4 while this app holds it: that is
 a Windows serial-port rule, which is why the check runs inside the app.
+
+## 1.11.13: View motion pictures without saving them
+
+* The *Photo* / *Clip* links in the Smart detection event list were `<a download>` links, so clicking saved a file.
+  They are replaced by *View* and *Play clip* buttons (and a clickable thumbnail) that open `#ptz-viewer`, a modal
+  `<dialog>` showing the full-size photo (the in-memory blob) or the clip. *Older* / *Newer* and the arrow keys step
+  through events; Escape or a click outside closes it. *Save photo* / *Save clip* in the viewer download as before.
+* Tested: `tools/test_event_viewer.py` (6 checks, English and Traditional Chinese): no download on View, thumbnail or
+  Play clip; stepping and arrow keys; exactly one `.jpg` on Save photo.
 
 ## 1.11.12: Co-admins listed by name on every PC
 
