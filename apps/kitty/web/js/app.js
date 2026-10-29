@@ -47,7 +47,9 @@
     { id: 'share', label: 'Share', icon: 'users' },
     { id: 'settings', label: 'Settings', icon: 'gear' },
   ];
-  const MOBILE_NAV = ['home', 'sheet', 'budget', 'invest', 'you'];
+  // Phone tab bar: the two daily views, a big Add button, Budget, and More for everything else.
+  const MOBILE_NAV = ['home', 'sheet', 'add', 'budget', 'more'];
+  const MORE_VIEWS = ['goals', 'invest', 'you', 'share', 'settings'];
   const LOGO =
     '<span class="logo" aria-hidden="true"><svg viewBox="0 0 32 32" width="20" height="20">' +
     '<path fill="currentColor" d="M6.5 6.2c0-1 1.1-1.6 1.9-1l4.6 3.4a12 12 0 0 1 6 0l4.6-3.4c.8-.6 1.9 0 1.9 1V15a9.5 9.5 0 0 1-19 0z"/>' +
@@ -294,7 +296,9 @@
     const host = $('#toasts');
     if (!host) return;
     const el = document.createElement('div');
+    const life = o.timeout || (o.tone === 'bad' || o.tone === 'warn' ? 9000 : 5000);
     el.className = 'toast tone-' + (o.tone || 'info');
+    el.style.setProperty('--life', life + 'ms');
     el.setAttribute('role', o.tone === 'bad' || o.tone === 'warn' ? 'alert' : 'status');
     el.innerHTML =
       '<span class="toast-icon">' + (o.icon ? esc(o.icon) : o.tone === 'bad' ? '🚨' : o.tone === 'warn' ? '⚠️' : o.tone === 'good' ? '✅' : '🐱') + '</span>' +
@@ -302,9 +306,24 @@
       (o.action ? '<button class="toast-action">' + esc(o.action.label) + '</button>' : '') +
       '<button class="toast-x" aria-label="Dismiss">' + icon('x', 16) + '</button>';
     host.appendChild(el);
+    let timer = null;
+    let remaining = life;
+    let startedAt = Date.now();
     const kill = () => {
+      clearTimeout(timer);
       el.classList.add('out');
       setTimeout(() => el.remove(), 250);
+    };
+    const hold = () => {
+      clearTimeout(timer);
+      remaining -= Date.now() - startedAt;
+      el.classList.add('is-held');
+    };
+    const release = () => {
+      clearTimeout(timer);
+      startedAt = Date.now();
+      timer = setTimeout(kill, Math.max(1200, remaining));
+      el.classList.remove('is-held');
     };
     el.querySelector('.toast-x').onclick = kill;
     if (o.action) {
@@ -313,7 +332,50 @@
         kill();
       };
     }
-    setTimeout(kill, o.timeout || (o.tone === 'bad' || o.tone === 'warn' ? 9000 : 5000));
+    // A mouse over the toast holds it; on touch screens a sideways swipe dismisses it.
+    el.addEventListener('pointerenter', (e) => {
+      if (e.pointerType === 'mouse') hold();
+    });
+    el.addEventListener('pointerleave', (e) => {
+      if (e.pointerType === 'mouse') release();
+    });
+    let swipeFrom = null;
+    let swipeBy = 0;
+    el.addEventListener(
+      'touchstart',
+      (e) => {
+        swipeFrom = e.touches[0].clientX;
+        swipeBy = 0;
+        hold();
+        el.style.transition = 'none';
+      },
+      { passive: true }
+    );
+    el.addEventListener(
+      'touchmove',
+      (e) => {
+        if (swipeFrom == null) return;
+        swipeBy = e.touches[0].clientX - swipeFrom;
+        el.style.transform = 'translateX(' + swipeBy + 'px)';
+        el.style.opacity = String(Math.max(0.2, 1 - Math.abs(swipeBy) / 220));
+      },
+      { passive: true }
+    );
+    el.addEventListener('touchend', () => {
+      if (swipeFrom == null) return;
+      swipeFrom = null;
+      el.style.transition = '';
+      if (Math.abs(swipeBy) > 70) {
+        el.style.transform = 'translateX(' + (swipeBy > 0 ? 120 : -120) + '%)';
+        el.style.opacity = '0';
+        kill();
+        return;
+      }
+      el.style.transform = '';
+      el.style.opacity = '';
+      release();
+    });
+    timer = setTimeout(kill, life);
     while (host.children.length > 4) host.firstChild.remove();
   }
 
@@ -590,6 +652,11 @@
     if (!S.profile || S.profile.tips === false) return;
     const today = K.today();
     if (!force && store.get('kitty.tipDay', '') === today) return;
+    // Never drop a tip on top of an open dialog or the quiz; try again once it is closed.
+    if (document.querySelector('.modal-wrap, .quiz-overlay')) {
+      setTimeout(() => S.book && maybeTipToast(K.monthStats(S.book, S.month), force), 4000);
+      return;
+    }
     const tips = currentTips(stats);
     if (!tips.length) return;
     const tip = force ? tips[Math.floor(Math.random() * tips.length)] : tips[0];
@@ -611,7 +678,10 @@
 
   function captureFocus() {
     const el = document.activeElement;
-    if (!el || !el.dataset || !(el.dataset.k || el.dataset.nk)) return null;
+    if (!el || !el.dataset) return null;
+    // The sheet search re-renders the page on every keystroke; keep the caret in the box.
+    if (el.dataset.filter === 'q') return { filter: 'q', start: el.selectionStart, end: el.selectionEnd };
+    if (!(el.dataset.k || el.dataset.nk)) return null;
     return {
       k: el.dataset.k,
       nk: el.dataset.nk,
@@ -623,10 +693,10 @@
   }
   function restoreFocus(f) {
     if (!f) return;
-    const sel = f.k ? '[data-k="' + CSS.escape(f.k) + '"]' : '[data-nk="' + CSS.escape(f.nk) + '"]';
+    const sel = f.filter ? '[data-filter="' + f.filter + '"]' : f.k ? '[data-k="' + CSS.escape(f.k) + '"]' : '[data-nk="' + CSS.escape(f.nk) + '"]';
     const el = $(sel);
     if (!el) return;
-    if (f.dirty || f.nk) {
+    if (!f.filter && (f.dirty || f.nk)) {
       el.value = f.value;
       if (f.dirty) el.dataset.dirty = '1';
     }
@@ -638,12 +708,81 @@
     }
   }
 
-  function applyTheme() {
+  // ---------------------------------------------------------------- theme: light / dark / system
+  function themeMode() {
     const t = (S.profile && S.profile.theme) || params.get('theme') || 'system';
-    const dark = t === 'dark' || (t === 'system' && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches);
+    return t === 'light' || t === 'dark' ? t : 'system';
+  }
+  function systemDark() {
+    return !!(window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches);
+  }
+  function reducedMotion() {
+    return !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+  }
+  function applyTheme() {
+    const t = themeMode();
+    const dark = t === 'dark' || (t === 'system' && systemDark());
     document.documentElement.dataset.theme = dark ? 'dark' : 'light';
     const meta = $('meta[name="theme-color"]');
     if (meta) meta.setAttribute('content', dark ? '#09090b' : '#f6f6f7');
+  }
+  function themeIcon() {
+    return icon(document.documentElement.dataset.theme === 'dark' ? 'sun' : 'moon');
+  }
+  /** Switch and remember the theme. The new look grows out of the pressed button (View Transitions) or cross-fades. */
+  function setTheme(mode, origin) {
+    const next = mode === 'light' || mode === 'dark' ? mode : 'system';
+    const root = document.documentElement;
+    const before = root.dataset.theme;
+    const save = () => {
+      if (S.profile) {
+        S.profile.theme = next;
+        saveProfile();
+      } else {
+        params.set('theme', next);
+        const u = new URL(location.href);
+        u.searchParams.set('theme', next);
+        history.replaceState(null, '', u.pathname + u.search + u.hash);
+      }
+      applyTheme();
+      // Theme pickers that live outside the re-rendered page (the phone "More" sheet) update in place.
+      $$('[data-act="set-theme"]').forEach((b) => {
+        const on = b.dataset.theme === next;
+        b.classList.toggle('is-on', on);
+        if (b.hasAttribute('aria-checked')) b.setAttribute('aria-checked', on ? 'true' : 'false');
+      });
+      render();
+    };
+    const after = next === 'dark' || (next === 'system' && systemDark()) ? 'dark' : 'light';
+    if (after === before || reducedMotion()) return save();
+    root.classList.add('theme-flip');
+    setTimeout(() => root.classList.remove('theme-flip'), 600);
+    if (document.startViewTransition && origin && origin.getBoundingClientRect) {
+      const r = origin.getBoundingClientRect();
+      const x = r.left + r.width / 2;
+      const y = r.top + r.height / 2;
+      const radius = Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y));
+      try {
+        const transition = document.startViewTransition(save);
+        transition.ready
+          .then(() => {
+            root.animate(
+              { clipPath: ['circle(0px at ' + x + 'px ' + y + 'px)', 'circle(' + radius + 'px at ' + x + 'px ' + y + 'px)'] },
+              { duration: 480, easing: 'cubic-bezier(.2, .8, .2, 1)', pseudoElement: '::view-transition-new(root)' }
+            );
+          })
+          .catch(() => {});
+        return;
+      } catch (e) {
+        /* fall back to the cross-fade below */
+      }
+    }
+    root.classList.add('theme-fade');
+    save();
+    setTimeout(() => root.classList.remove('theme-fade'), 450);
+  }
+  function toggleTheme(origin) {
+    setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark', origin);
   }
 
   function render() {
@@ -659,17 +798,48 @@
     renderChrome(stats);
     const view = $('#view');
     const changedView = view.dataset.view !== S.view;
+    // Entrance motion only when a page or month opens. Live re-renders (edits, sync, clock ticks) stay still;
+    // a re-render within 300 ms of an entrance (boot, quick commits) simply restarts it.
+    const animate = changedView || S.animateNext || Date.now() - (S.enterAt || 0) < 300;
+    S.animateNext = false;
+    view.classList.remove('enter');
     view.innerHTML = renderView(stats);
     view.dataset.view = S.view;
-    if (changedView) {
-      view.classList.remove('enter');
+    if (animate) {
+      if (changedView || !S.enterAt || Date.now() - S.enterAt >= 300) S.enterAt = Date.now();
       void view.offsetWidth;
       view.classList.add('enter');
-      window.scrollTo({ top: 0 });
+      countUp(view);
     }
+    if (changedView) window.scrollTo({ top: 0 });
     restoreFocus(focus);
     applyFlash();
     checkAlerts(stats);
+  }
+
+  /** Money figures count up from zero when a page opens (data-count = number, data-short="1" for 1,2 jt style). */
+  function countUp(rootEl) {
+    if (reducedMotion()) return;
+    const els = $$('[data-count]', rootEl).filter((el) => isFinite(Number(el.dataset.count)));
+    if (!els.length) return;
+    els.forEach((el) => {
+      el.textContent = fmt(0, el.dataset.short === '1');
+    });
+    const start = performance.now();
+    const duration = 650;
+    const frame = (now) => {
+      const p = Math.min(1, (now - start) / duration);
+      const eased = 1 - Math.pow(1 - p, 3);
+      let alive = false;
+      els.forEach((el) => {
+        if (!el.isConnected) return;
+        alive = true;
+        const target = Number(el.dataset.count);
+        el.textContent = fmt(p < 1 ? target * eased : target, el.dataset.short === '1');
+      });
+      if (alive && p < 1) requestAnimationFrame(frame);
+    };
+    requestAnimationFrame(frame);
   }
 
   function applyFlash() {
@@ -698,12 +868,11 @@
       '</aside>' +
       '<div class="main"><header class="top" id="top"></header><main id="view" class="view"></main></div>' +
       '<nav class="bottom-nav" id="bottomNav" aria-label="Main"></nav>' +
-      '<button class="fab" data-act="quick-add" aria-label="Add transaction">' + icon('plus', 26) + '</button>' +
       '</div>'
     );
   }
 
-  function syncPill() {
+  function syncInfo() {
     const st = S.status;
     const members = K.list(S.book, 'members');
     const online = members.filter((m) => memberOnline(m.id)).length;
@@ -717,7 +886,10 @@
       error: ['pill-off', '<i class="dot"></i>', 'Sync error'],
       idle: ['pill-local', icon('lock', 14), 'Private'],
     };
-    const m = map[st] || map.local;
+    return map[st] || map.local;
+  }
+  function syncPill() {
+    const m = syncInfo();
     return '<button id="syncPill" class="pill ' + m[0] + '" data-act="go" data-view="share" title="' + esc(S.statusDetail || 'Sharing & sync') + '">' + m[1] + '<span>' + m[2] + '</span></button>';
   }
 
@@ -730,7 +902,7 @@
       '<option value="__new">＋ New budget…</option></select></label>';
     $('#nav').innerHTML = VIEWS.map(
       (v) =>
-        '<button class="nav-item' + (S.view === v.id ? ' is-on' : '') + '" data-act="go" data-view="' + v.id + '">' + icon(v.icon) + '<span>' + v.label + '</span>' +
+        '<button class="nav-item' + (S.view === v.id ? ' is-on' : '') + '" data-act="go" data-view="' + v.id + '"' + (S.view === v.id ? ' aria-current="page"' : '') + '>' + icon(v.icon) + '<span>' + v.label + '</span>' +
         (v.id === 'share' && book.room ? '<em class="nav-badge">' + members.length + '</em>' : '') + '</button>'
     ).join('');
     const p = K.PERSONAS[S.profile.persona];
@@ -744,29 +916,38 @@
       .slice(0, 4)
       .map((m) => '<span class="av-wrap' + (memberOnline(m.id) && book.room ? ' online' : '') + '">' + ui.avatar(m, 30) + '</span>')
       .join('');
-    $('#top').innerHTML =
+    const top = $('#top');
+    top.classList.toggle('has-month', !!MONTH_VIEWS[S.view]);
+    top.innerHTML =
       '<div class="top-left">' +
       LOGO.replace('class="logo"', 'class="logo only-mobile"') +
-      '<div><p class="top-book" translate="no">' + esc(book.meta.name) + '</p><h1 class="top-title">' + esc(viewMeta.label) + '</h1></div>' +
+      '<div class="top-titles"><p class="top-book" translate="no">' + esc(book.meta.name) + '</p><h1 class="top-title">' + esc(viewMeta.label) + '</h1></div>' +
       (MONTH_VIEWS[S.view]
-        ? '<div class="month-switch"><button class="icon-btn" data-act="month" data-d="-1" aria-label="Previous month">' + icon('left') + '</button>' +
+        ? '<div class="month-switch"><button class="icon-btn" data-act="month" data-d="-1" aria-label="Previous month" title="Previous month">' + icon('left') + '</button>' +
           '<span>' + esc(K.monthLabel(S.month, true)) + '</span>' +
-          '<button class="icon-btn" data-act="month" data-d="1" aria-label="Next month">' + icon('right') + '</button></div>'
+          '<button class="icon-btn" data-act="month" data-d="1" aria-label="Next month" title="Next month">' + icon('right') + '</button></div>'
         : '') +
       '</div>' +
       '<div class="top-right">' +
       syncPill() +
       '<div class="av-stack hide-sm">' + avatars + '</div>' +
-      '<button class="btn btn-share" data-act="go" data-view="share">' + icon(book.room ? 'users' : 'share', 18) + '<span class="hide-sm">' + (book.room ? 'Shared' : 'Share') + '</span></button>' +
-      '<div class="bell-wrap"><button class="icon-btn" data-act="bell" aria-label="Alerts">' + icon('bell') + (urgent ? '<em class="badge">' + urgent + '</em>' : '') + '</button>' +
+      '<button class="btn btn-share hide-sm" data-act="go" data-view="share">' + icon(book.room ? 'users' : 'share', 18) + '<span>' + (book.room ? 'Shared' : 'Share') + '</span></button>' +
+      '<button class="icon-btn theme-btn" data-act="theme" aria-label="Toggle theme" title="Toggle theme">' + themeIcon() + '</button>' +
+      '<div class="bell-wrap"><button class="icon-btn" data-act="bell" aria-label="Alerts" title="Alerts">' + icon('bell') + (urgent ? '<em class="badge">' + urgent + '</em>' : '') + '</button>' +
       '<div class="bell-panel" id="bellPanel" hidden></div></div>' +
-      '<button class="icon-btn hide-sm" data-act="theme" aria-label="Toggle theme">' + icon(document.documentElement.dataset.theme === 'dark' ? 'sun' : 'moon') + '</button>' +
-      '<button class="icon-btn only-mobile" data-act="go" data-view="settings" aria-label="Settings">' + icon('gear') + '</button>' +
       '<button class="btn btn-primary hide-sm" data-act="quick-add">' + icon('plus', 18) + '<span>Add</span></button>' +
       '</div>';
+    const moreOn = MORE_VIEWS.indexOf(S.view) >= 0;
     $('#bottomNav').innerHTML = MOBILE_NAV.map((id) => {
+      if (id === 'add') {
+        return '<button class="bn-add" data-act="quick-add" aria-label="Add transaction" title="Add transaction">' + icon('plus', 26) + '</button>';
+      }
+      if (id === 'more') {
+        return '<button class="bn-item' + (moreOn ? ' is-on' : '') + '" data-act="more" aria-haspopup="dialog"' + (moreOn ? ' aria-current="page"' : '') + '>' + icon('grid', 22) + '<span>More</span></button>';
+      }
       const v = VIEWS.find((x) => x.id === id);
-      return '<button class="bn-item' + (S.view === id ? ' is-on' : '') + '" data-act="go" data-view="' + id + '">' + icon(v.icon, 22) + '<span>' + v.label + '</span></button>';
+      const on = S.view === id;
+      return '<button class="bn-item' + (on ? ' is-on' : '') + '" data-act="go" data-view="' + id + '"' + (on ? ' aria-current="page"' : '') + '>' + icon(v.icon, 22) + '<span>' + v.label + '</span></button>';
     }).join('');
   }
 
@@ -925,7 +1106,7 @@
     const hero =
       '<div class="card hero-card">' +
       '<div class="hero-text"><p class="eyebrow">' + esc(greeting()) + ', ' + esc(S.profile.name) + ' 👋</p>' +
-      '<h2 class="hero-amount' + (leftToSpend < 0 ? ' neg' : '') + '">' + esc(fmt(leftToSpend)) + '</h2>' +
+      '<h2 class="hero-amount' + (leftToSpend < 0 ? ' neg' : '') + '" data-count="' + leftToSpend + '">' + esc(fmt(leftToSpend)) + '</h2>' +
       '<p class="muted">' + (leftToSpend < 0 ? 'over your spending limits' : 'left to spend') + ' in ' + esc(K.monthLabel(st.mk, true)) + ' · ' + esc(fmt(st.spent)) + ' of ' + esc(fmt(st.spendLimit)) + ' spent</p>' +
       '<div class="row-gap"><button class="btn btn-primary" data-act="quick-add">' + icon('plus', 18) + ' Add expense</button><button class="btn btn-soft" data-act="go" data-view="sheet">' + icon('sheet', 18) + ' Open sheet</button></div></div>' +
       '<div class="hero-ring">' + ui.ring(spentPct, { size: 150, thickness: 14, color: ringColor, label: pctText(spentPct) }) + '<small>of limits used</small></div>' +
@@ -936,16 +1117,20 @@
         '<p>' + esc(tip.body) + '</p>' +
         '<div class="tip-foot"><span class="muted small">' + (S.tipIndex % tips.length + 1) + ' / ' + tips.length + '</span><button class="btn btn-ghost btn-sm" data-act="next-tip">Next tip ' + icon('right', 16) + '</button></div></div>'
       : '';
-    const kpi = (label, value, sub, tone) =>
-      '<div class="card kpi' + (tone ? ' kpi-' + tone : '') + '"><p class="kpi-label">' + esc(label) + '</p><p class="kpi-value">' + esc(value) + '</p><p class="kpi-sub">' + sub + '</p></div>';
+    // Each figure doubles as a shortcut: Income and Safe to spend open the budget, Spent the sheet, Saved the goals.
+    const kpi = (label, value, sub, tone, view) =>
+      '<button class="card kpi kpi-link' + (tone ? ' kpi-' + tone : '') + '" data-act="go" data-view="' + view + '">' +
+      '<span class="kpi-label">' + esc(label) + '</span>' +
+      '<span class="kpi-value" data-count="' + (Number(value) || 0) + '">' + esc(fmt(value)) + '</span>' +
+      '<span class="kpi-sub">' + sub + '</span>' + icon('right', 16) + '</button>';
     const kpis =
       '<div class="kpis">' +
-      kpi('Income', fmt(st.income), st.actualIncome > 0 ? esc(fmt(st.actualIncome)) + ' received' : esc(fmt(st.plannedIncome)) + ' planned') +
-      kpi('Spent', fmt(st.spent), st.txnCount + ' transactions', st.spent > st.spendLimit && st.spendLimit > 0 ? 'bad' : '') +
-      kpi('Saved & invested', fmt(st.saved), 'Savings rate <b>' + Math.round(Math.max(0, st.savingsRate) * 100) + '%</b>', st.savingsRate >= 0.2 ? 'good' : '') +
+      kpi('Income', st.income, st.actualIncome > 0 ? esc(fmt(st.actualIncome)) + ' received' : esc(fmt(st.plannedIncome)) + ' planned', '', 'budget') +
+      kpi('Spent', st.spent, st.txnCount + ' transactions', st.spent > st.spendLimit && st.spendLimit > 0 ? 'bad' : '', 'sheet') +
+      kpi('Saved & invested', st.saved, 'Savings rate <b>' + Math.round(Math.max(0, st.savingsRate) * 100) + '%</b>', st.savingsRate >= 0.2 ? 'good' : '', 'goals') +
       (st.isCurrent
-        ? kpi('Safe to spend today', fmt(st.safeDaily || 0), st.daysLeft + ' days left this month', 'accent')
-        : kpi('Left over', fmt(st.left), st.left >= 0 ? 'unspent this month' : 'overspent', st.left < 0 ? 'bad' : 'good')) +
+        ? kpi('Safe to spend today', st.safeDaily || 0, st.daysLeft + ' days left this month', 'accent', 'budget')
+        : kpi('Left over', st.left, st.left >= 0 ? 'unspent this month' : 'overspent', st.left < 0 ? 'bad' : 'good', 'budget')) +
       '</div>';
 
     const spendRows = st.rows.filter((r) => !r.isSaving && r.spent > 0).sort((a, b) => b.spent - a.spent);
@@ -1425,12 +1610,28 @@
   }
 
   // ================================================================ view: settings
+  function appearanceCard() {
+    const mode = themeMode();
+    const preview = (id) =>
+      '<span class="tt-preview tt-' + id + '" aria-hidden="true"><i class="tt-bar"></i><i class="tt-card"><b></b><b></b></i><i class="tt-dot"></i></span>';
+    const tile = (id, label, iconName) =>
+      '<button class="theme-tile' + (mode === id ? ' is-on' : '') + '" role="radio" aria-checked="' + (mode === id) + '" data-act="set-theme" data-theme="' + id + '">' +
+      (id === 'system' ? '<span class="tt-split">' + preview('light') + preview('dark') + '</span>' : preview(id)) +
+      '<span class="tt-check" aria-hidden="true">' + icon('check', 12) + '</span>' +
+      '<span class="tt-label">' + icon(iconName, 16) + '<span>' + label + '</span></span></button>';
+    return (
+      '<div class="card appearance-card"><div class="card-head"><h3>Appearance</h3></div>' +
+      '<div class="theme-tiles" role="radiogroup" aria-label="Theme">' + tile('light', 'Light', 'sun') + tile('dark', 'Dark', 'moon') + tile('system', 'System', 'monitor') + '</div>' +
+      '<p class="muted small">Choose how Kitty looks. System follows your device.</p></div>'
+    );
+  }
+
   function viewSettings() {
     const b = S.book;
-    const theme = S.profile.theme || 'system';
     const notifState = !('Notification' in window) ? 'unsupported' : Notification.permission;
     return (
       '<div class="grid-2">' +
+      appearanceCard() +
       '<div class="card"><div class="card-head"><h3>This budget</h3></div><div class="form-grid">' +
       '<label>Name<input data-k="meta::name" value="' + esc(b.meta.name) + '" maxlength="40"></label>' +
       '<label>Currency<select data-k="meta::currency">' + Object.keys(K.CURRENCIES).map((c) => '<option value="' + c + '"' + (b.meta.currency === c ? ' selected' : '') + '>' + c + ' · ' + esc(K.CURRENCIES[c].label) + '</option>').join('') + '</select></label>' +
@@ -1438,11 +1639,11 @@
       '</div></div>' +
       '<div class="card"><div class="card-head"><h3>Preferences</h3></div>' +
       '<div class="pref-row"><span>Language</span>' + langSelect('lang-field') + '</div>' +
-      '<div class="pref-row"><span>Theme</span><div class="seg" role="group" aria-label="Theme">' + ['system', 'light', 'dark'].map((t) => '<button class="' + (theme === t ? 'is-on' : '') + '" data-act="set-theme" data-theme="' + t + '">' + t[0].toUpperCase() + t.slice(1) + '</button>').join('') + '</div></div>' +
       '<label class="toggle"><input type="checkbox" data-act-change="toggle-tips"' + (S.profile.tips !== false ? ' checked' : '') + '><span></span>Occasional tips from Kitty</label>' +
       '<label class="toggle"><input type="checkbox" data-act-change="toggle-notify"' + (S.profile.notify && notifState === 'granted' ? ' checked' : '') + (notifState === 'unsupported' ? ' disabled' : '') + '><span></span>Browser notifications for warnings & collaborator edits</label>' +
       (notifState === 'denied' ? '<p class="muted small">Notifications are blocked in your browser settings.</p>' : '') +
       (NATIVE && notifState === 'unsupported' ? '<p class="muted small">In the app, warnings show as in-app alerts with a gentle vibration.</p>' : '') +
+      '<button class="pref-link hide-sm" data-act="shortcuts">' + icon('keyboard', 18) + '<span>Keyboard shortcuts</span><kbd translate="no">?</kbd></button>' +
       '</div>' +
       '<div class="card"><div class="card-head"><h3>Your data</h3></div><p class="muted small">Everything lives in this browser. Export a backup any time.</p><div class="row-gap">' +
       '<button class="btn btn-soft" data-act="export-json">' + icon('download', 16) + ' Backup (JSON)</button>' +
@@ -1476,7 +1677,7 @@
     root.innerHTML =
       '<div class="welcome">' +
       '<header class="w-top">' + BRAND + '<div class="w-top-right">' + langSelect() +
-      '<button class="icon-btn" data-act="theme-welcome" aria-label="Toggle theme">' + icon(document.documentElement.dataset.theme === 'dark' ? 'sun' : 'moon') + '</button></div></header>' +
+      '<button class="icon-btn theme-btn" data-act="theme-welcome" aria-label="Toggle theme" title="Toggle theme">' + themeIcon() + '</button></div></header>' +
       (join
         ? '<section class="card join-card"><p class="eyebrow">' + icon('users', 16) + ' You are invited</p><h2>Join “' + esc(join.name || 'a shared budget') + '”</h2>' +
           '<p class="muted">Edit it together, live. Your edits are encrypted on this device before they are sent.</p>' +
@@ -1698,17 +1899,27 @@
   }
 
   // ================================================================ modals
+  const openModals = [];
   function modal(html, opts) {
     const o = opts || {};
     const wrap = document.createElement('div');
     wrap.className = 'modal-wrap';
-    wrap.innerHTML = '<div class="modal' + (o.cls ? ' ' + o.cls : '') + '" role="dialog" aria-modal="true">' + '<button class="icon-btn modal-x" data-modal-close aria-label="Close">' + icon('x') + '</button>' + html + '</div>';
+    wrap.innerHTML =
+      '<div class="modal' + (o.cls ? ' ' + o.cls : '') + '" role="dialog" aria-modal="true">' +
+      '<span class="sheet-grip" aria-hidden="true"></span>' +
+      '<button class="icon-btn modal-x" data-modal-close aria-label="Close">' + icon('x') + '</button>' + html + '</div>';
     document.body.appendChild(wrap);
     document.body.classList.add('no-scroll');
+    const box = wrap.querySelector('.modal');
+    let closed = false;
     const close = () => {
+      if (closed) return;
+      closed = true;
       wrap.classList.add('out');
-      document.body.classList.remove('no-scroll');
-      setTimeout(() => wrap.remove(), 180);
+      const at = openModals.indexOf(handle);
+      if (at >= 0) openModals.splice(at, 1);
+      if (!openModals.length) document.body.classList.remove('no-scroll');
+      setTimeout(() => wrap.remove(), 220);
       document.removeEventListener('keydown', onKey);
     };
     const onKey = (e) => {
@@ -1718,9 +1929,48 @@
     wrap.addEventListener('click', (e) => {
       if (e.target === wrap || e.target.closest('[data-modal-close]')) close();
     });
+    // On phones every modal is a bottom sheet: drag its top edge down to dismiss.
+    let dragFrom = null;
+    let dragBy = 0;
+    box.addEventListener(
+      'touchstart',
+      (e) => {
+        if (!matchMedia('(max-width: 560px)').matches || box.scrollTop > 0) return;
+        const y = e.touches[0].clientY;
+        if (y - box.getBoundingClientRect().top > 56) return;
+        dragFrom = y;
+        dragBy = 0;
+        box.style.transition = 'none';
+      },
+      { passive: true }
+    );
+    box.addEventListener(
+      'touchmove',
+      (e) => {
+        if (dragFrom == null) return;
+        dragBy = Math.max(0, e.touches[0].clientY - dragFrom);
+        box.style.transform = 'translateY(' + dragBy + 'px)';
+      },
+      { passive: true }
+    );
+    const endDrag = () => {
+      if (dragFrom == null) return;
+      dragFrom = null;
+      box.style.transition = 'transform .22s ease';
+      if (dragBy > 90) {
+        box.style.transform = 'translateY(100%)';
+        close();
+      } else {
+        box.style.transform = '';
+      }
+    };
+    box.addEventListener('touchend', endDrag);
+    box.addEventListener('touchcancel', endDrag);
     const first = wrap.querySelector('[autofocus]') || wrap.querySelector('input,select,button:not(.modal-x)');
-    if (first) setTimeout(() => first.focus(), 40);
-    return { el: wrap, close: close };
+    if (first && !o.noFocus) setTimeout(() => first.focus({ preventScroll: true }), 40);
+    const handle = { el: wrap, close: close };
+    openModals.push(handle);
+    return handle;
   }
 
   function confirmModal(o) {
@@ -1874,6 +2124,62 @@
       (S.notes.length ? '<h4>Earlier</h4><ul class="notes">' + S.notes.slice(0, 6).map((n) => '<li><b>' + esc(n.title) + '</b><small>' + esc(ui.timeAgo(n.at)) + '</small></li>').join('') + '</ul>' : '') +
       (!S.profile.notify && 'Notification' in window && Notification.permission !== 'denied' ? '<button class="btn btn-soft btn-sm btn-block" data-act="enable-notify">' + icon('bell', 16) + ' Notify me in the browser</button>' : '');
     panel.hidden = false;
+  }
+
+  // ================================================================ phone "More" sheet + keyboard help
+  function openMore() {
+    const mode = themeMode();
+    const persona = K.PERSONAS[S.profile.persona];
+    const themes = [
+      ['light', 'sun', 'Light'],
+      ['dark', 'moon', 'Dark'],
+      ['system', 'monitor', 'System'],
+    ];
+    const rows = [
+      ['goals', 'target', 'Goals', ''],
+      ['invest', 'chart', 'Invest', ''],
+      ['you', 'user', 'You', persona ? persona.emoji + ' ' + persona.name : 'Find your money animal'],
+      ['share', 'users', 'Share', syncInfo()[2]],
+      ['settings', 'gear', 'Settings', ''],
+    ];
+    modal(
+      '<h2>More</h2><p class="more-book muted small" translate="no">' + esc(S.book.meta.name) + '</p>' +
+        '<div class="more-prefs">' +
+        '<div class="pref-row"><span>Theme</span><div class="seg seg-theme" role="radiogroup" aria-label="Theme">' +
+        themes
+          .map((t) => '<button class="' + (mode === t[0] ? 'is-on' : '') + '" role="radio" aria-checked="' + (mode === t[0]) + '" data-act="set-theme" data-theme="' + t[0] + '">' + icon(t[1], 16) + '<span>' + t[2] + '</span></button>')
+          .join('') +
+        '</div></div>' +
+        '<div class="pref-row"><span>Language</span>' + langSelect('lang-field') + '</div></div>' +
+        '<nav class="more-list" aria-label="More">' +
+        rows
+          .map(
+            (r) =>
+              '<button class="more-item' + (S.view === r[0] ? ' is-on' : '') + '" data-act="go" data-view="' + r[0] + '" data-modal-close>' +
+              '<span class="more-icon">' + icon(r[1], 20) + '</span>' +
+              '<span class="more-text"><b>' + esc(r[2]) + '</b>' + (r[3] ? '<small>' + esc(r[3]) + '</small>' : '') + '</span>' + icon('right', 18) + '</button>'
+          )
+          .join('') +
+        '</nav>',
+      { cls: 'modal-more', noFocus: true }
+    );
+  }
+
+  function openShortcuts() {
+    const keys = [
+      ['N', 'Add transaction'],
+      ['T', 'Toggle theme'],
+      ['1 – 8', 'Go to a page'],
+      ['/', 'Search the sheet'],
+      ['?', 'Show shortcuts'],
+      ['Esc', 'Close'],
+    ];
+    modal(
+      '<h2>Keyboard shortcuts</h2><ul class="keys">' +
+        keys.map((k) => '<li><span>' + esc(k[1]) + '</span><kbd translate="no">' + esc(k[0]) + '</kbd></li>').join('') +
+        '</ul>',
+      { cls: 'modal-sm', noFocus: true }
+    );
   }
 
   // ================================================================ import / export
@@ -2106,7 +2412,7 @@
   document.addEventListener('input', (e) => {
     const t = e.target;
     if (t.dataset && t.dataset.k && t.type !== 'range') t.dataset.dirty = '1';
-    if (t.dataset && t.dataset.filter === 'q') {
+    if (t.dataset && t.dataset.filter === 'q' && !e.isComposing) {
       S.sheet.q = t.value;
       scheduleRender();
     }
@@ -2120,6 +2426,15 @@
     if (t.dataset && t.dataset.k === 'meta::alertAt') {
       const b = t.closest('label') && t.closest('label').querySelector('b');
       if (b) b.textContent = t.value + '%';
+    }
+  });
+
+  // Chinese/Japanese input methods: filter once the word is composed, not on every keystroke.
+  document.addEventListener('compositionend', (e) => {
+    const t = e.target;
+    if (t.dataset && t.dataset.filter === 'q') {
+      S.sheet.q = t.value;
+      scheduleRender();
     }
   });
 
@@ -2220,11 +2535,25 @@
       t.blur();
     }
     const typing = /INPUT|SELECT|TEXTAREA/.test(t.tagName) || t.isContentEditable;
-    if (!typing && S.book && !document.querySelector('.modal-wrap,.quiz-overlay')) {
-      if (e.key === 'n' || e.key === 'a') {
-        e.preventDefault();
-        openQuickAdd();
-      }
+    if (typing || e.ctrlKey || e.metaKey || e.altKey || !S.book || document.querySelector('.modal-wrap,.quiz-overlay')) return;
+    const key = String(e.key || '').toLowerCase();
+    if (key === 'n' || key === 'a') {
+      e.preventDefault();
+      openQuickAdd();
+    } else if (key === 't') {
+      e.preventDefault();
+      toggleTheme($('.theme-btn'));
+    } else if (/^[1-8]$/.test(key)) {
+      e.preventDefault();
+      go(VIEWS[Number(key) - 1].id);
+    } else if (key === '/') {
+      e.preventDefault();
+      if (S.view !== 'sheet') go('sheet');
+      const search = $('[data-filter="q"]');
+      if (search) search.focus();
+    } else if (key === '?') {
+      e.preventDefault();
+      openShortcuts();
     }
   });
 
@@ -2349,26 +2678,17 @@
         return joinFromLink(S.pendingJoin, name);
       }
       case 'theme':
-      case 'theme-welcome': {
-        const dark = document.documentElement.dataset.theme === 'dark';
-        if (S.profile) {
-          S.profile.theme = dark ? 'light' : 'dark';
-          saveProfile();
-        } else {
-          document.documentElement.dataset.theme = dark ? 'light' : 'dark';
-          const u = new URL(location.href);
-          u.searchParams.set('theme', dark ? 'light' : 'dark');
-          history.replaceState(null, '', u.pathname + u.search + u.hash);
-          params.set('theme', dark ? 'light' : 'dark');
-        }
-        return render();
-      }
+      case 'theme-welcome':
+        return toggleTheme(el);
       case 'set-theme':
-        S.profile.theme = el.dataset.theme;
-        saveProfile();
-        return render();
+        return setTheme(el.dataset.theme, el);
+      case 'more':
+        return openMore();
+      case 'shortcuts':
+        return openShortcuts();
       case 'month':
         S.month = K.shiftMonth(S.month, Number(el.dataset.d));
+        S.animateNext = true;
         return render();
       case 'quick-add':
         return openQuickAdd();
@@ -2550,13 +2870,20 @@
     if (S.book && (S.view === 'sheet' || S.view === 'share' || S.view === 'home') && !document.querySelector('[data-dirty="1"]') && !document.hidden) scheduleRender();
   }, 30000);
   if (window.matchMedia) {
-    matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => render());
+    matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+      if (themeMode() !== 'system') return;
+      document.documentElement.classList.add('theme-fade');
+      render();
+      setTimeout(() => document.documentElement.classList.remove('theme-fade'), 450);
+    });
   }
   // Language switch: rebuild every screen so English source text is re-translated (or restored).
   window.addEventListener('kitty:lang', () => {
     const root = $('#app');
     if (root) root.innerHTML = '';
+    openModals.slice().forEach((m) => m.close());
     $$('.modal-wrap, .toast').forEach((el) => el.remove());
+    document.body.classList.remove('no-scroll');
     render();
   });
   window.addEventListener('hashchange', () => {
