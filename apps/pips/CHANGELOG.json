@@ -2,6 +2,37 @@
   "_comment": "Pips version history. Newest first. Feeds the in-app update notice (latest.json), the PPT guide and the update emails.",
   "releases": [
     {
+      "version": "2.15.0",
+      "date": "2026-10-29",
+      "title": "Update reminders",
+      "notes": {
+        "en": [
+          "Owner & moderators: the Mod tab now lists who hasn't updated Pips yet (their version and when they were last seen), with one-click reminders by e-mail (sent from your Outlook) or a ready-to-send Teams chat.",
+          "New Work e-mail field in your Profile, filled in from Outlook. Only the owner and moderators can see it (for update reminders and support) - clear it to hide it.",
+          "Pips now tells the Friends server which version it runs, so the update list is always accurate.",
+          "Friends keeps working when a local proxy tool stops answering - Pips falls back to the Windows proxy settings."
+        ],
+        "id": [
+          "Pemilik & moderator: tab Mod kini menampilkan siapa yang belum update Pips (versinya dan kapan terakhir terlihat), dengan pengingat sekali klik lewat email (dikirim dari Outlook-mu) atau chat Teams yang siap kirim.",
+          "Kolom baru Email kerja di Profil, diisi otomatis dari Outlook. Hanya pemilik dan moderator yang bisa melihatnya (untuk pengingat update dan bantuan) - kosongkan untuk menyembunyikan.",
+          "Pips kini memberi tahu server Teman versi yang dipakai, jadi daftar update selalu akurat.",
+          "Fitur Teman tetap jalan saat alat proxy lokal tidak merespons - Pips beralih ke pengaturan proxy Windows."
+        ],
+        "zh_TW": [
+          "擁有者與管理員：Mod 分頁現在會列出還沒更新 Pips 的人（版本與最後上線時間），可一鍵用 e-mail（從你的 Outlook 寄出）或備好訊息的 Teams 聊天提醒。",
+          "個人檔案新增「工作 e-mail」欄位，自動從 Outlook 帶入。只有擁有者和管理員看得到（用於更新提醒與支援），清空即可隱藏。",
+          "Pips 現在會告訴好友伺服器目前的版本，更新名單永遠準確。",
+          "本機代理工具沒有回應時，好友功能仍可使用：Pips 會改用 Windows 的代理設定。"
+        ],
+        "zh_CN": [
+          "所有者与管理员：Mod 标签页现在会列出还没更新 Pips 的人（版本和最后上线时间），可一键用邮件（从你的 Outlook 发送）或备好消息的 Teams 聊天提醒。",
+          "个人资料新增“工作邮箱”栏位，自动从 Outlook 填入。只有所有者和管理员看得到（用于更新提醒和支持），清空即可隐藏。",
+          "Pips 现在会告诉好友服务器当前版本，更新名单始终准确。",
+          "本地代理工具没有响应时，好友功能仍可使用：Pips 会改用 Windows 的代理设置。"
+        ]
+      }
+    },
+    {
       "version": "2.14.3",
       "date": "2026-10-29",
       "title": "Tidy menus",

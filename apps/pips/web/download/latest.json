@@ -1,35 +1,43 @@
 {
   "installer": {
     "filename": "Pips-Setup.exe",
-    "sha256": "c4629340ddb8e69009bdbfd50cc0f7c95c23fb55ce49f21d9dcf664a37129c2f",
-    "size": 22194656,
+    "sha256": "1c845eb6e22c64af14c8133b74131ad8f66dcf35dd1630aa7ff77a977766cce4",
+    "size": 22203860,
     "architecture": "x64",
     "python_version": "3.13.17",
     "requires_admin": false,
     "url": "https://juw12.github.io/projects/pips/download/Pips-Setup.exe"
   },
-  "version": "2.14.3",
+  "version": "2.15.0",
   "date": "2026-10-29",
-  "title": "Tidy menus",
+  "title": "Update reminders",
   "url": "https://juw12.github.io/projects/pips/download/Pips-Windows.zip",
-  "sha256": "28586f2969100451cc86a9cb140d3ae9ccb38003cfb923190ebb1bcc79ef003c",
-  "size": 810570,
+  "sha256": "9a31a207f1c47d596c1bdca36f798ac8361823a689c1d3f66a88a88a8e6baea5",
+  "size": 824152,
   "notes": {
     "en": [
-      "Fixed: a submenu (e.g. Poke a friend) could stay floating on the screen after the right-click menu closed.",
-      "Menus now close by themselves when you move the mouse away and leave them for a few seconds."
+      "Owner & moderators: the Mod tab now lists who hasn't updated Pips yet (their version and when they were last seen), with one-click reminders by e-mail (sent from your Outlook) or a ready-to-send Teams chat.",
+      "New Work e-mail field in your Profile, filled in from Outlook. Only the owner and moderators can see it (for update reminders and support) - clear it to hide it.",
+      "Pips now tells the Friends server which version it runs, so the update list is always accurate.",
+      "Friends keeps working when a local proxy tool stops answering - Pips falls back to the Windows proxy settings."
     ],
     "id": [
-      "Diperbaiki: submenu (mis. Colek teman) bisa tertinggal melayang di layar setelah menu klik kanan ditutup.",
-      "Menu kini menutup sendiri jika mouse dijauhkan dan dibiarkan beberapa detik."
+      "Pemilik & moderator: tab Mod kini menampilkan siapa yang belum update Pips (versinya dan kapan terakhir terlihat), dengan pengingat sekali klik lewat email (dikirim dari Outlook-mu) atau chat Teams yang siap kirim.",
+      "Kolom baru Email kerja di Profil, diisi otomatis dari Outlook. Hanya pemilik dan moderator yang bisa melihatnya (untuk pengingat update dan bantuan) - kosongkan untuk menyembunyikan.",
+      "Pips kini memberi tahu server Teman versi yang dipakai, jadi daftar update selalu akurat.",
+      "Fitur Teman tetap jalan saat alat proxy lokal tidak merespons - Pips beralih ke pengaturan proxy Windows."
     ],
     "zh_TW": [
-      "修正：右鍵選單關閉後，子選單（例如「戳戳好友」）可能會一直浮在螢幕上。",
-      "滑鼠移開幾秒後，選單現在會自動關閉。"
+      "擁有者與管理員：Mod 分頁現在會列出還沒更新 Pips 的人（版本與最後上線時間），可一鍵用 e-mail（從你的 Outlook 寄出）或備好訊息的 Teams 聊天提醒。",
+      "個人檔案新增「工作 e-mail」欄位，自動從 Outlook 帶入。只有擁有者和管理員看得到（用於更新提醒與支援），清空即可隱藏。",
+      "Pips 現在會告訴好友伺服器目前的版本，更新名單永遠準確。",
+      "本機代理工具沒有回應時，好友功能仍可使用：Pips 會改用 Windows 的代理設定。"
     ],
     "zh_CN": [
-      "修复：右键菜单关闭后，子菜单（例如“戳戳好友”）可能会一直浮在屏幕上。",
-      "鼠标移开几秒后，菜单现在会自动关闭。"
+      "所有者与管理员：Mod 标签页现在会列出还没更新 Pips 的人（版本和最后上线时间），可一键用邮件（从你的 Outlook 发送）或备好消息的 Teams 聊天提醒。",
+      "个人资料新增“工作邮箱”栏位，自动从 Outlook 填入。只有所有者和管理员看得到（用于更新提醒和支持），清空即可隐藏。",
+      "Pips 现在会告诉好友服务器当前版本，更新名单始终准确。",
+      "本地代理工具没有响应时，好友功能仍可使用：Pips 会改用 Windows 的代理设置。"
     ]
   },
   "guide": "https://juw12.github.io/projects/pips/download/Pips-Guide.pptx"
