@@ -1,35 +1,39 @@
 {
   "installer": {
     "filename": "Pips-Setup.exe",
-    "sha256": "e8ab7cc53a6a386f149bfca9d203a294c2bb820664f91c1c8471b4ab600eab14",
-    "size": 22191775,
+    "sha256": "2fab9e52d3aa3de60b93332a1e764a6519270663a0c7ea10a59ba75f114b6c1c",
+    "size": 22195005,
     "architecture": "x64",
     "python_version": "3.13.17",
     "requires_admin": false,
     "url": "https://juw12.github.io/projects/pips/download/Pips-Setup.exe"
   },
-  "version": "2.14.1",
+  "version": "2.14.2",
   "date": "2026-10-29",
-  "title": "One pet at a time",
+  "title": "Never miss an update",
   "url": "https://juw12.github.io/projects/pips/download/Pips-Windows.zip",
-  "sha256": "bf6a7de21ea780d89b228052ed1df548ec390a00796f8cefe55a9a126be58685",
-  "size": 808648,
+  "sha256": "ee29fb364e414df8913757eeac6d33d9b7080a5a8fac8116984e78df6384f607",
+  "size": 809881,
   "notes": {
     "en": [
-      "Opening Pips again (Desktop / Start Menu shortcut, autostart) no longer starts a second pet - your pet just pops up and says hi.",
-      "Fixes lag caused by two copies of Pips running at once."
+      "Your pet now reminds you every 2 hours while a new version is waiting (instead of every 6 hours).",
+      "If the reminder can't show (fullscreen app, guided tour, another message), your pet tries again a few minutes later.",
+      "No internet when Pips starts (e.g. VPN off)? It checks again after an hour."
     ],
     "id": [
-      "Membuka Pips lagi (pintasan Desktop / Start Menu, autostart) tidak lagi memunculkan pet kedua - pet-mu cukup muncul dan menyapa.",
-      "Memperbaiki lag karena dua salinan Pips berjalan bersamaan."
+      "Pet-mu kini mengingatkan setiap 2 jam selama ada versi baru (bukan lagi setiap 6 jam).",
+      "Jika pengingat tidak bisa tampil (aplikasi layar penuh, panduan, pesan lain), pet-mu mencoba lagi beberapa menit kemudian.",
+      "Tidak ada internet saat Pips mulai (mis. VPN mati)? Pips memeriksa lagi setelah satu jam."
     ],
     "zh_TW": [
-      "再次開啟 Pips（桌面 / 開始功能表捷徑、開機自動啟動）不會再多出第二隻寵物——你的寵物會直接跳出來打招呼。",
-      "修正同時執行兩個 Pips 造成的卡頓。"
+      "有新版本時，寵物現在每 2 小時提醒一次（原本是每 6 小時）。",
+      "如果提醒無法顯示（全螢幕程式、導覽或其他訊息），寵物會在幾分鐘後再試一次。",
+      "Pips 啟動時沒有網路（例如 VPN 未連線）？一小時後會再檢查。"
     ],
     "zh_CN": [
-      "再次打开 Pips（桌面 / 开始菜单快捷方式、开机自启）不会再多出第二只宠物——你的宠物会直接跳出来打招呼。",
-      "修复同时运行两个 Pips 导致的卡顿。"
+      "有新版本时，宠物现在每 2 小时提醒一次（原来是每 6 小时）。",
+      "如果提醒无法显示（全屏程序、引导或其他消息），宠物会在几分钟后再试一次。",
+      "Pips 启动时没有网络（例如 VPN 未连接）？一小时后会再检查。"
     ]
   },
   "guide": "https://juw12.github.io/projects/pips/download/Pips-Guide.pptx"
