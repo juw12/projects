@@ -1,5 +1,5 @@
 /*
- * Sped shorts toolkit — pure logic for posting to TikTok, Instagram Reels and
+ * Hazel Sped shorts toolkit — pure logic for posting to TikTok, Instagram Reels and
  * YouTube Shorts: platform presets, approximate UI safe zones, caption and
  * hashtag building, export-format choice, a pre-post checklist and
  * visualizer analysis. No DOM or network access, so it runs in JavaScriptCore
@@ -229,7 +229,7 @@
     }
     let videoTitle = null;
     if (p.titleLimit !== null) {
-      videoTitle = title || 'Sped edit';
+      videoTitle = title || 'Hazel Sped edit';
       if (videoTitle.length > p.titleLimit) {
         warnings.push('Title is longer than ' + p.titleLimit + ' characters; it was shortened.');
         videoTitle = videoTitle.slice(0, p.titleLimit - 1) + '…';
@@ -424,7 +424,7 @@
     if (opts.includeAudio !== false && undocumented.length) {
       add('rights', 'warn', 'Permission not recorded for ' + undocumented.length + ' source' + (undocumented.length > 1 ? 's' : ''), 'Externally added commercial music can be muted, claimed or removed. ' + p.soundTip);
     } else if (tracks.length) {
-      add('rights', 'info', 'Permission notes recorded', 'Notes are your own declarations; Sped does not verify licenses.');
+      add('rights', 'info', 'Permission notes recorded', 'Notes are your own declarations; Hazel Sped does not verify licenses.');
     }
     const missingCredit = tracks.filter(function (t) { return t.rights && t.rights.basis !== 'owned' && !t.rights.credit; });
     if (tracks.length && missingCredit.length) {

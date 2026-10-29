@@ -1,4 +1,4 @@
-/* Shortcraft Channel Kit — turn a one-line prompt into a ready-to-create channel:
+/* Hazel Shorts Channel Kit — turn a one-line prompt into a ready-to-create channel:
  * names, handles, bios (EN/ID), content pillars, a posting calendar, avatar + banner.
  * Offline and rule-based (no AI service): it gives a strong starting point to edit.
  */
@@ -561,7 +561,7 @@
       "1. YouTube: youtube.com → profile → Create a channel (use a Brand Account to add managers later); verify phone to unlock custom thumbnails & longer uploads.",
       "2. Instagram: sign up → Settings → Account type → switch to Creator or Business (required for API publishing).",
       "3. TikTok: sign up → add bio/avatar; optional Business account for analytics.",
-      "4. Upload avatar + banner, paste bios, then connect the channel in Shortcraft → Publish.");
+      "4. Upload avatar + banner, paste bios, then connect the channel in Hazel Shorts → Publish.");
     return out.join("\n");
   }
 

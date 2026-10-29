@@ -75,9 +75,9 @@
       if (d.basis === 'unknown') {
         warnings.push(t.name + ': permissions are not documented. Uploading or buying a file does not establish remix or publication rights.');
       } else if (d.basis === 'platform-only') {
-        warnings.push(t.name + ': an in-platform library license does not automatically cover exporting music into Sped, remixing it here, or redistributing the resulting sound. Use the licensed library inside its permitted workflow or obtain separate rights.');
+        warnings.push(t.name + ': an in-platform library license does not automatically cover exporting music into Hazel Sped, remixing it here, or redistributing the resulting sound. Use the licensed library inside its permitted workflow or obtain separate rights.');
       } else {
-        warnings.push(t.name + ': ' + bases[d.basis] + ' is your declaration, not something Sped has verified. Check recording, composition, derivative-use and distribution permissions.');
+        warnings.push(t.name + ': ' + bases[d.basis] + ' is your declaration, not something Hazel Sped has verified. Check recording, composition, derivative-use and distribution permissions.');
       }
       return { name: t.name, declaration: d };
     });

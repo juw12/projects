@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Shortcraft autopost — plan → render → post on a daily schedule, per channel.
+"""Hazel Shorts autopost — plan → render → post on a daily schedule, per channel.
 
 Queue layout (one folder per video):
-    queue/<channel>/<NNN-slug>/project.json   Shortcraft project (from the studio or `plan`)
+    queue/<channel>/<NNN-slug>/project.json   Hazel Shorts project (from the studio or `plan`)
                                video.mp4      rendered by `render`
                                post.json      title / caption / tags + "approved": true|false
                                result.json    what was posted where (written by `run`)
@@ -69,7 +69,7 @@ def post_meta(project):
     tags = HASHTAGS.get(lang, HASHTAGS["en"])
     caption = "\n".join([hook, *bullets, outro, "", " ".join("#" + t for t in tags)]).strip()
     return {
-        "title": project.get("title", "Shortcraft"),
+        "title": project.get("title", "Hazel Shorts"),
         "description": caption,
         "caption": caption,
         "tags": tags,

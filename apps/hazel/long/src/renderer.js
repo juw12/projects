@@ -65,16 +65,16 @@ const GUIDE_RECOMMENDATIONS = [
 // Tour configuration
 const TOUR_STEPS = [
   {
-    title: 'Welcome to Hazel',
-    content: 'Hazel is your desktop studio for creators. Film once, and let Hazel automatically cut silences, repurpose for every platform, and help you learn what works.'
+    title: 'Welcome to Hazel Long',
+    content: 'Hazel Long is the desktop studio in Hazel. Film once, and let Hazel Long automatically cut silences, repurpose for every platform, and help you learn what works.'
   },
   {
     title: 'Import Your Footage',
-    content: 'Click <strong>"Import footage"</strong> to bring in your raw video. Hazel supports all common formats and reads metadata instantly.'
+    content: 'Click <strong>"Import footage"</strong> to bring in your raw video. Hazel Long supports all common formats and reads metadata instantly.'
   },
   {
     title: 'Auto-cut Magic',
-    content: 'Enable <strong>"Remove silences & pauses"</strong> and optionally <strong>"Remove filler words"</strong>. Hazel analyzes your audio and creates a clean cut list automatically.'
+    content: 'Enable <strong>"Remove silences & pauses"</strong> and optionally <strong>"Remove filler words"</strong>. Hazel Long analyzes your audio and creates a clean cut list automatically.'
   },
   {
     title: 'Repurpose & Publish',

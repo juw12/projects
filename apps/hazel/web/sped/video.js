@@ -1,5 +1,5 @@
 /*
- * Sped video — draws the 9:16 short (background, beat-reactive visualizer,
+ * Hazel Sped video — draws the 9:16 short (background, beat-reactive visualizer,
  * title, badge, progress) and records it with the rendered audio.
  *
  * The same draw() feeds the live preview and the export, so the preview is

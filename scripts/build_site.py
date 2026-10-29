@@ -86,17 +86,23 @@ REDIRECTS = {
     "ziris-motor": "airiz-motor",
     "mufakat": "glow/chat",
     "virtual-bots": "glow/room",
-    "hookline": "sped",
+    # Hookline -> Sped -> Hazel Sped: point straight at the current home (no redirect chains).
+    "hookline": "hazel/sped",
     "trade-twin": "twin",
     "sheetmint": "mint",
     # Kitty (shared budgeting) became the Budget half of Mint in Mint 3.0.
     "kitty": "mint/budget",
+    # Shortcraft, Sped and the original Hazel became one app, Hazel, with three branches:
+    # Hazel Shorts, Hazel Sped and Hazel Long (the original Hazel web studio moved to hazel/long).
+    "shortcraft": "hazel/shorts",
+    "sped": "hazel/sped",
 }
 
 # Pages besides index/app/web/mobile that lived at an old path and still get a stub there
 # (only emitted when the page exists at the new path).
 REDIRECT_EXTRA_PAGES = {
     "kitty": ["get.html", "demo.html", "tests.html"],
+    "shortcraft": ["channel.html"],
 }
 
 # Renamed installable apps whose old service worker must be retired at the old path.
@@ -106,6 +112,8 @@ REDIRECT_EXTRA_PAGES = {
 LEGACY_WORKERS = {
     "mufakat": {"cache_prefixes": ["mufakat-"], "start": "app.html", "reload_clients": False},
     "hookline": {"cache_prefixes": ["hookline-v"], "start": "", "reload_clients": False},
+    # Sped 1.4 cached as sped-v1.4.0; Hazel Sped uses hazel-sped-v…, which this prefix never matches.
+    "sped": {"cache_prefixes": ["sped-v"], "start": "", "reload_clients": False},
     "virtual-bots": {"cache_prefixes": ["crewroom-"], "start": "", "reload_clients": True},
     "trade-twin": {
         "cache_prefixes": ["trade-twin:{scope}", "tt-shell-v"],

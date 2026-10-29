@@ -1,4 +1,4 @@
-"""Procedural sound effects for Shortcraft "pop" videos (numpy only, no sample files, no licences).
+"""Procedural sound effects for Hazel Shorts "pop" videos (numpy only, no sample files, no licences).
 
 The idea of "every visible action has a sound, generated in code and placed on its exact frame" comes
 from lemomo-ai/lemo-opuscar (MIT); this is an independent, simplified implementation.

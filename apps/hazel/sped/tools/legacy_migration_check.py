@@ -7,7 +7,7 @@
    unregister, and the next visit must land on Sped.
 
 Stdlib only; uses an isolated temporary Chrome profile. Run from the repo root:
-  python3 apps/sped/tools/legacy_migration_check.py --chrome PATH --artifacts DIR [--old-ref REF]
+  python3 apps/hazel/sped/tools/legacy_migration_check.py --chrome PATH --artifacts DIR [--old-ref REF]
 """
 import argparse
 import functools
@@ -25,7 +25,7 @@ from pathlib import Path
 
 from devtools import DevTools
 
-REPO = Path(__file__).resolve().parents[3]
+REPO = Path(__file__).resolve().parents[4]  # apps/hazel/sped/tools/ -> repo root
 
 
 class QuietHandler(SimpleHTTPRequestHandler):

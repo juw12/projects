@@ -30,7 +30,7 @@ def main():
     parser.add_argument('--artifacts', type=Path, required=True)
     args = parser.parse_args()
     args.artifacts.mkdir(parents=True, exist_ok=True)
-    web = Path(__file__).resolve().parents[1] / 'web'
+    web = Path(__file__).resolve().parents[1].parent / 'web' / 'sped'  # apps/hazel/web/sped
     server = ThreadingHTTPServer(('127.0.0.1', 0), functools.partial(QuietHandler, directory=str(web)))
     threading.Thread(target=server.serve_forever, daemon=True).start()
     url = f'http://127.0.0.1:{server.server_port}'
@@ -85,7 +85,7 @@ def main():
                          height=844 if mobile else 1000, deviceScaleFactor=1, mobile=mobile)
                 cdp.call('Page.navigate', url=url + '/' + page)
                 time.sleep(0.3)
-                wait('window.SpedApp && Sped.VERSION === "1.4.0"')
+                wait('window.SpedApp && Sped.VERSION === "1.5.0"')
                 if 'demo=1' in page:
                     wait('SpedApp.state.output && !SpedApp.state.busy')
 
@@ -325,7 +325,7 @@ def main():
             check('cache activation retains foreign app data', '''(async () => {
                 const foreign = await caches.open('other-app-test');
                 await foreign.put('foreign.txt', new Response('keep'));
-                await caches.open('sped-v0-test');
+                await caches.open('hazel-sped-v0-test');
                 const registration = await navigator.serviceWorker.register('sw.js?test-update=1');
                 await new Promise(resolve => {
                     if (registration.waiting) { resolve(); return; }
@@ -346,7 +346,7 @@ def main():
                     await new Promise(resolve => setTimeout(resolve, 20));
                 }
                 const keys = await caches.keys();
-                if (!keys.includes('other-app-test') || keys.includes('sped-v0-test')) {
+                if (!keys.includes('other-app-test') || keys.includes('hazel-sped-v0-test')) {
                     throw new Error(JSON.stringify({keys, active:registration.active?.scriptURL, waiting:registration.waiting?.scriptURL}));
                 }
                 return true;

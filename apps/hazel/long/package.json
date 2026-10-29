@@ -3,7 +3,7 @@
   "productName": "Hazel",
   "version": "0.1.0",
   "private": true,
-  "description": "Hazel - a desktop studio for creators: film the messy take once, auto-cut the pauses/ums/retakes, fan one clip out to every platform, and see what pulled traffic.",
+  "description": "Hazel Long - the desktop studio in Hazel: film the messy take once, auto-cut the pauses/ums/retakes, fan one clip out to every platform, and see what pulled traffic.",
   "main": "electron/main.js",
   "scripts": {
     "start": "electron .",

@@ -97,24 +97,47 @@
       "id": "hazel",
       "name": "Hazel",
       "category": "Creator Tools",
-      "desc": "Desktop studio for creators — generate a video from a prompt, refine it, fan it out to every platform, and keep your storage from overfilling",
-      "description": "Desktop creator studio: generate a video from a prompt, refine it in the editor and publish to every platform at once &mdash; plus bulk uploads and automatic media backup.",
-      "summary": "Desktop creator studio: generate a video from a prompt, refine it and publish to every platform at once.",
+      "desc": "One creator studio, three apps: Hazel Shorts for faceless 9:16 explainer shorts, Hazel Sped for sped-up, slowed and mashup edits of your songs, and Hazel Long for long-form create, cut, repurpose and publish — in the browser, with a Windows desktop app for auto-cutting",
+      "description": "Hazel brings three creator tools under one name and one switcher. <strong>Hazel Shorts</strong> (formerly Shortcraft): write scenes, add your voice, and export a captioned 1080&times;1920 explainer with generated music, a post kit and YouTube upload, in English or Bahasa Indonesia. <strong>Hazel Sped</strong> (formerly Sped): turn your own songs into sped-up, slowed or mashup 9:16 shorts with a CapCut-style editor and MP4 export, fully offline. <strong>Hazel Long</strong> (the original Hazel): generate a storyboard from a prompt, refine it, package it for every platform &mdash; plus a Windows desktop app that auto-cuts silences and filler words with ffmpeg and Whisper. Local-first: no account, and existing projects from the old apps open as they were.",
+      "summary": "One creator studio with three apps &mdash; Hazel Shorts, Hazel Sped and Hazel Long &mdash; for explainers, sped-up edits and long-form video.",
       "tags": [
-        "AI video",
-        "multi-platform publish",
-        "bulk upload",
-        "backup"
+        "Creator studio",
+        "Hazel Shorts",
+        "Hazel Sped",
+        "Hazel Long",
+        "9:16 video export",
+        "Web Audio",
+        "Bahasa Indonesia",
+        "PWA"
       ],
       "image": "hazel-card.jpg",
-      "image_alt": "Hazel studio generating a video from a prompt, with character casting, scene choice, length and size controls, a storyboard and a timeline",
+      "image_alt": "Hazel home: three app cards for Hazel Shorts, Hazel Sped and Hazel Long with the Hazel switcher",
       "links": {
         "app": "hazel/app.html",
         "web": "hazel/",
         "mobile": "hazel/mobile.html"
       },
+      "card_links": [
+        {
+          "label": "Hazel home",
+          "path": "hazel/"
+        },
+        {
+          "label": "Hazel Shorts",
+          "path": "hazel/shorts/app.html"
+        },
+        {
+          "label": "Hazel Sped",
+          "path": "hazel/sped/"
+        },
+        {
+          "label": "Hazel Long",
+          "path": "hazel/long/"
+        }
+      ],
       "featured": true,
-      "order": 11
+      "order": 9,
+      "version": "2.0.0"
     },
     {
       "id": "sweep",
@@ -402,53 +425,6 @@
       "order": 5,
       "portfolio_order": -5,
       "version": "1.27.3"
-    },
-    {
-      "id": "sped",
-      "name": "Sped",
-      "category": "Creator Tools",
-      "desc": "Sped-up, slowed and mashup edits of your own songs, exported as 9:16 MP4 shorts for TikTok, Reels and YouTube Shorts",
-      "description": "Browser shorts studio for your own audio: sped-up, slowed and mashup styles, a CapCut-style 9:16 editor with captions, and 1080&times;1920 MP4 export for TikTok, Reels and Shorts.",
-      "summary": "Turns your own songs into sped-up, slowed or mashup 9:16 shorts with captions for TikTok, Reels and Shorts.",
-      "tags": [
-        "Web Audio",
-        "9:16 video export",
-        "TikTok / Reels / Shorts",
-        "PWA"
-      ],
-      "image": "sped-card.jpg",
-      "image_alt": "Sped 1.4 shorts editor with a 9:16 preview, timeline and post panel, using synthetic audio fixtures",
-      "links": {
-        "app": "sped/",
-        "web": "sped/web.html",
-        "mobile": "sped/mobile.html"
-      },
-      "featured": true,
-      "order": 10,
-      "version": "1.4.0"
-    },
-    {
-      "id": "shortcraft",
-      "name": "Shortcraft",
-      "category": "Creator Tools",
-      "desc": "Make faceless 9:16 explainer shorts in the browser — captions, music, MP4 export, channel kit and publishing",
-      "description": "Browser studio for faceless explainer shorts in English and Bahasa Indonesia: write scenes, add voice, export a captioned 1080&times;1920 MP4 and post to YouTube, TikTok and Instagram.",
-      "summary": "Browser studio for faceless explainer shorts &mdash; script, voice, captions and 1080&times;1920 MP4 export with auto-posting.",
-      "tags": [
-        "video",
-        "captions",
-        "auto-post",
-        "Bahasa Indonesia"
-      ],
-      "image": "shortcraft-card.jpg",
-      "image_alt": "Shortcraft: two 9:16 explainer frames, a light editorial step tracker and a dark CCTV teardown, next to the Shortcraft title",
-      "links": {
-        "app": "shortcraft/app.html",
-        "web": "shortcraft/",
-        "mobile": "shortcraft/mobile.html"
-      },
-      "featured": true,
-      "order": 9
     },
     {
       "id": "guangyao",

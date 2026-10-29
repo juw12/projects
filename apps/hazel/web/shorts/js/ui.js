@@ -1,7 +1,8 @@
-/* Shortcraft studio UI — editor, preview, voice capture and export. */
+/* Hazel Shorts studio UI — editor, preview, voice capture and export. */
 (function () {
   "use strict";
 
+  // Storage names predate the Hazel rename; keeping them means existing projects and voice clips still load.
   var STORAGE_KEY = "shortcraft.project.v1";
   var SC = window.SC;
   var SAMPLES = window.SC_SAMPLES || [];
@@ -1318,7 +1319,7 @@
   }
 
   function slug(text) {
-    return String(text || "shortcraft").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "shortcraft";
+    return String(text || "hazel-shorts").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "hazel-shorts";
   }
 
   // ------------------------------------------------------------------
@@ -1458,7 +1459,7 @@
           throw new Error("no scenes");
         }
       }).catch(function () {
-        toast("That file is not a Shortcraft project.");
+        toast("That file is not a Hazel Shorts project.");
       });
       $("file-import").value = "";
     });

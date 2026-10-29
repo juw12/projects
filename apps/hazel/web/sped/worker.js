@@ -1,4 +1,4 @@
-/* Sped worker: runs analysis and rendering off the UI thread. */
+/* Hazel Sped worker: runs analysis and rendering off the UI thread. */
 importScripts('engine.js');
 
 const session = self.Sped.createSession();

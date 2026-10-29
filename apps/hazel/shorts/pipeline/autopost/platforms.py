@@ -1,4 +1,4 @@
-"""Platform clients for Shortcraft autopost (standard library only).
+"""Platform clients for Hazel Shorts autopost (standard library only).
 
 YouTube  — Data API v3 resumable upload, OAuth installed-app flow (refresh token).
 TikTok   — Content Posting API, Direct Post with FILE_UPLOAD. Unaudited API clients can only
@@ -75,7 +75,7 @@ def loopback_code(auth_url_builder, port):
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self.end_headers()
-            self.wfile.write(b"<h2>Shortcraft: authorised. You can close this tab.</h2>")
+            self.wfile.write(b"<h2>Hazel Shorts: authorised. You can close this tab.</h2>")
 
         def log_message(self, *args):
             pass

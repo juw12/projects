@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""script_check.py - the /yt-script gate, run on a Shortcraft project before it is rendered.
+"""script_check.py - the /yt-script gate, run on a Hazel Shorts project before it is rendered.
 
 Built on youtube-agent-skill's yt-script (MIT, vendored unchanged in vendor/yt_script/):
 its hookscore.py scores the hook on five properties (specificity, address, stakes, curiosity,

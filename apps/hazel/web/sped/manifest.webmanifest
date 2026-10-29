@@ -1,6 +1,6 @@
 {
-  "name": "Sped — shorts studio",
-  "short_name": "Sped",
+  "name": "Hazel Sped — shorts studio",
+  "short_name": "Hazel Sped",
   "description": "Sped-up, slowed and mashup edits of songs you upload, exported as 9:16 MP4 videos for TikTok, Reels and YouTube Shorts. Runs in your browser.",
   "start_url": "./index.html",
   "scope": "./",

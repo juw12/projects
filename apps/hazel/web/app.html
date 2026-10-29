@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en" data-hazel-branch="home">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Install Hazel</title>
+  <meta name="description" content="Install Hazel — Hazel Shorts, Hazel Sped and Hazel Long in one app on your desktop or home screen.">
+  <meta name="theme-color" content="#0e1116">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/hazel.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/hazel-256.png">
+  <link rel="stylesheet" href="hub.css">
+  <link rel="stylesheet" href="hazel-switch.css">
+  <style>
+    .install {
+      max-width: 620px;
+      margin: 0 auto;
+      padding: 56px 0 40px;
+      text-align: center;
+    }
+
+    .install img {
+      width: 72px;
+      height: 72px;
+    }
+
+    .install h1 {
+      margin: 14px 0 8px;
+      font-size: clamp(28px, 5vw, 40px);
+      letter-spacing: -0.02em;
+    }
+
+    .install p {
+      color: var(--muted);
+    }
+
+    .install .actions {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+      margin: 24px 0;
+    }
+
+    .install .btn.primary {
+      flex: 0 1 auto;
+      --accent: linear-gradient(120deg, var(--leaf), var(--gold));
+    }
+
+    .install ul {
+      display: inline-block;
+      margin: 0;
+      padding-left: 20px;
+      color: var(--muted);
+      text-align: left;
+    }
+
+    #install-hint[hidden] {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <header class="top">
+    <div class="wrap">
+      <a class="brand" href="./" aria-label="Hazel home">
+        <img src="icons/hazel.svg" alt="" width="30" height="30">
+        <span>Hazel</span>
+      </a>
+      <div class="top-links">
+        <details class="hz-switch">
+          <summary aria-label="Switch Hazel app (now: Hazel)"><svg class="hz-leaf" viewBox="0 0 32 32" aria-hidden="true"><path d="M16 2.5C9.3 7.6 5.5 12.6 5.5 17.8a10.5 10.5 0 0 0 21 0c0-5.2-3.8-10.2-10.5-15.3z" fill="#b7d17a"/><path d="M16 5.5V29" stroke="#59682f" stroke-width="1.6" stroke-linecap="round" fill="none"/></svg><span>Hazel</span><span class="hz-caret" aria-hidden="true">▾</span></summary>
+          <nav class="hz-menu" aria-label="Hazel apps">
+            <a href="./" aria-current="page">Hazel home<small>All three Hazel apps</small></a>
+            <hr>
+            <a href="shorts/app.html">Hazel Shorts<small>Faceless 9:16 explainer shorts</small></a>
+            <a href="sped/">Hazel Sped<small>Sped-up, slowed &amp; mashup edits</small></a>
+            <a href="long/">Hazel Long<small>Long-form studio: create, cut, repurpose</small></a>
+          </nav>
+        </details>
+      </div>
+    </div>
+  </header>
+  <main class="wrap install">
+    <img src="icons/hazel.svg" alt="" width="72" height="72">
+    <h1>Install Hazel</h1>
+    <p>One icon for all three Hazel apps. It opens Hazel home; long-press (or right-click) the icon for shortcuts straight
+      into Hazel Shorts, Hazel Sped or Hazel Long.</p>
+    <div class="actions">
+      <button type="button" id="install-btn" class="btn primary" hidden>Install Hazel</button>
+      <a class="btn" href="./">Open in the browser</a>
+    </div>
+    <p id="install-hint" hidden>Your browser didn't offer an install prompt. Use its menu: <b>Install app</b> (Chrome/Edge)
+      or <b>Share → Add to Home Screen</b> (Safari).</p>
+    <ul>
+      <li>Hazel Shorts and Hazel Sped also install on their own from their pages.</li>
+      <li>Hazel Long has a Windows desktop app for auto-cutting footage.</li>
+      <li>Everything stays in this browser — no account needed.</li>
+    </ul>
+  </main>
+  <script src="hazel-switch.js"></script>
+  <script>
+    (function () {
+      "use strict";
+      var deferred = null;
+      var button = document.getElementById("install-btn");
+      window.addEventListener("beforeinstallprompt", function (event) {
+        event.preventDefault();
+        deferred = event;
+        button.hidden = false;
+      });
+      button.addEventListener("click", function () {
+        if (!deferred) {
+          return;
+        }
+        deferred.prompt();
+        deferred.userChoice.then(function () {
+          deferred = null;
+          button.hidden = true;
+        });
+      });
+      window.addEventListener("load", function () {
+        setTimeout(function () {
+          if (!deferred) {
+            document.getElementById("install-hint").hidden = false;
+          }
+        }, 2500);
+      });
+    })();
+  </script>
+</body>
+</html>

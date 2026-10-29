@@ -1,11 +1,11 @@
-# Shortcraft — brief
+# Hazel Shorts (formerly Shortcraft) — brief
 
 ## Why
 
 Faceless explainer accounts ("what's inside", "how it's made", "why does…") grow fast with few posts —
 reference accounts reached 40K+ followers within roughly a dozen posts (public profile counts, Oct 2026).
 Bahasa Indonesia versions of the format are still comparatively thin. Making these videos normally needs
-After Effects/CapCut skills and stock assets; Shortcraft turns the format into a fill-in-the-scenes tool.
+After Effects/CapCut skills and stock assets; Hazel Shorts turns the format into a fill-in-the-scenes tool.
 
 ## Who
 

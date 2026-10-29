@@ -1,9 +1,11 @@
-# Shortcraft
+# Hazel Shorts
+
+*Formerly **Shortcraft**. One of the three [Hazel](../README.md) apps, next to Hazel Sped and Hazel Long. Old `/projects/shortcraft/` links redirect here, and saved projects, voice clips and settings keep loading.*
 
 Make **faceless 9:16 explainer shorts in the browser** — the "what's inside / how it's made" format
 behind fast-growing explainer accounts — in English or Bahasa Indonesia.
 
-- **Live:** https://juw12.github.io/projects/shortcraft/ (studio: `shortcraft/app.html`)
+- **Live:** https://juw12.github.io/projects/hazel/shorts/ (studio: `hazel/shorts/app.html`)
 - **Stack:** static HTML + Canvas 2D + Web Audio + MediaRecorder. No dependencies, no server, no login.
 
 ## What it does
@@ -18,7 +20,7 @@ behind fast-growing explainer accounts — in English or Bahasa Indonesia.
 | Export | Real-time capture to **MP4 (H.264/AAC)** where supported (Chrome/Edge/Safari), otherwise WebM |
 | Helpers | Viral checklist (hook length, ≤ 60 s, numbers, CTA), post kit (title, caption, hashtags EN/ID), JSON save/load, autosave |
 | Publish | **YouTube direct upload** from the browser (your Google OAuth client ID, privacy + scheduled publish), Share / Save to TikTok & Instagram via the system share sheet, copy caption |
-| Channel Kit | `channel.html`: one prompt → name ideas, handles, platform-length bios (EN/ID), content pillars, 30-day hook plan, 800×800 avatar + 2560×1440 YouTube banner, Markdown export |
+| Channel Kit | `shorts/channel.html`: one prompt → name ideas, handles, platform-length bios (EN/ID), content pillars, 30-day hook plan, 800×800 avatar + 2560×1440 YouTube banner, Markdown export |
 
 Samples: *5 gates every gadget passes* (EN/ID, editorial) and *What's inside an outdoor camera* (EN/ID, teardown).
 
@@ -46,14 +48,14 @@ Samples: *5 gates every gadget passes* (EN/ID, editorial) and *What's inside an 
 ## Run locally
 
 ```bash
-python -m http.server 8000 --directory apps/shortcraft/web
-# open http://localhost:8000/app.html   (mic recording needs http(s)/localhost)
+python -m http.server 8000 --directory apps/hazel/web
+# open http://localhost:8000/shorts/app.html   (mic recording needs http(s)/localhost)
 ```
 
 ## Tests
 
 ```bash
-python apps/shortcraft/tests/test_static_integrity.py
+python apps/hazel/tests/test_shorts_static_integrity.py
 ```
 
 The export path was verified end-to-end in headless Chrome (2-scene project + real voice clip →

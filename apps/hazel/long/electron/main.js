@@ -22,7 +22,7 @@ function createWindow() {
     minWidth: 980,
     minHeight: 640,
     backgroundColor: '#0e1116',
-    title: 'Hazel',
+    title: 'Hazel Long',
     icon: path.join(__dirname, '..', 'assets', 'hazel.ico'),
     show: false,
     webPreferences: {

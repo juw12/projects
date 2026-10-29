@@ -1,4 +1,4 @@
-"""Render a Shortcraft project JSON to MP4 without opening a window.
+"""Render a Hazel Shorts project JSON to MP4 without opening a window.
 
 1. Neural voice per scene (edge-tts) unless the project already has voice clips.
 2. Headless Chrome loads the studio, injects the project + voices and runs the same
@@ -23,7 +23,8 @@ from pathlib import Path
 import imageio_ffmpeg
 import websocket
 
-WEB_DIR = Path(__file__).resolve().parents[2] / "web"
+# apps/hazel/shorts/pipeline/autopost/ -> apps/hazel/web/shorts (the Hazel Shorts studio)
+WEB_DIR = Path(__file__).resolve().parents[3] / "web" / "shorts"
 CHROME_CANDIDATES = [
     "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
     "C:/Program Files/Google/Chrome/Application/chrome.exe",

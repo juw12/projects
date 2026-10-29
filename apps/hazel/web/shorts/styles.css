@@ -61,6 +61,13 @@ body {
   border-bottom: 1px solid var(--line);
 }
 
+.brand-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
 .brand {
   display: flex;
   align-items: center;

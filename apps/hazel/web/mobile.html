@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en" data-hazel-branch="home">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Hazel (mobile) — shorts, sped-up edits and long videos</title>
+  <meta name="description" content="Hazel is one creator studio with three apps: Hazel Shorts for faceless 9:16 explainers, Hazel Sped for sped-up, slowed and mashup edits, and Hazel Long for long-form create, cut, repurpose and publish. Runs in your browser.">
+  <meta name="theme-color" content="#0e1116">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/hazel.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/hazel-256.png">
+  <link rel="stylesheet" href="hub.css">
+  <link rel="stylesheet" href="hazel-switch.css">
+</head>
+<body class="mobile">
+  <header class="top">
+    <div class="wrap">
+      <a class="brand" href="mobile.html" aria-label="Hazel home">
+        <img src="icons/hazel.svg" alt="" width="30" height="30">
+        <span>Hazel</span>
+      </a>
+      <div class="top-links">
+        <a class="plain" href="index.html">Desktop view</a>
+        <a class="plain" href="app.html">Install</a>
+        <details class="hz-switch">
+          <summary aria-label="Switch Hazel app (now: Hazel)"><svg class="hz-leaf" viewBox="0 0 32 32" aria-hidden="true"><path d="M16 2.5C9.3 7.6 5.5 12.6 5.5 17.8a10.5 10.5 0 0 0 21 0c0-5.2-3.8-10.2-10.5-15.3z" fill="#b7d17a"/><path d="M16 5.5V29" stroke="#59682f" stroke-width="1.6" stroke-linecap="round" fill="none"/></svg><span>Hazel</span><span class="hz-caret" aria-hidden="true">▾</span></summary>
+          <nav class="hz-menu" aria-label="Hazel apps">
+            <a href="mobile.html" aria-current="page">Hazel home<small>All three Hazel apps</small></a>
+            <hr>
+            <a href="shorts/mobile.html">Hazel Shorts<small>Faceless 9:16 explainer shorts</small></a>
+            <a href="sped/mobile.html">Hazel Sped<small>Sped-up, slowed &amp; mashup edits</small></a>
+            <a href="long/mobile.html">Hazel Long<small>Long-form studio: create, cut, repurpose</small></a>
+          </nav>
+        </details>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="hero">
+      <h1>One studio. <span>Three ways to make video.</span></h1>
+      <p>Hazel brings Shortcraft, Sped and the original Hazel together under one name. Pick what you are making today —
+        everything runs in your browser and your work stays on this device.</p>
+      <div class="continue" id="continue" role="status" hidden>
+        <span id="continue-text"></span>
+        <a id="continue-link" href="shorts/">Continue</a>
+      </div>
+    </section>
+
+    <section class="branches" aria-label="Hazel apps">
+      <article class="branch shorts">
+        <div class="branch-head">
+          <span class="branch-icon" aria-hidden="true">🎬</span>
+          <h2>Hazel Shorts<span class="formerly">formerly Shortcraft</span></h2>
+        </div>
+        <p class="lede">Faceless 9:16 explainer shorts from a few scenes.</p>
+        <ul>
+          <li>Hook → steps → outro, four templates (Editorial, Teardown, Pop, Clean)</li>
+          <li>Your voice or browser voice, auto captions, generated music</li>
+          <li>1080×1920 MP4 export, post kit, YouTube upload, Channel Kit</li>
+        </ul>
+        <div class="actions">
+          <a class="btn primary" href="shorts/mobile.html">Open Hazel Shorts</a>
+          <a class="btn" href="shorts/">About</a>
+          <a class="btn" href="shorts/channel.html">Channel Kit</a>
+        </div>
+      </article>
+
+      <article class="branch sped">
+        <div class="branch-head">
+          <span class="branch-icon" aria-hidden="true">🎧</span>
+          <h2>Hazel Sped<span class="formerly">formerly Sped</span></h2>
+        </div>
+        <p class="lede">Sped-up, slowed and mashup edits of your own songs.</p>
+        <ul>
+          <li>Describe it (“faster, higher, 20 seconds”) or tune tempo and pitch</li>
+          <li>Live 9:16 preview with text, themes and a beat visualizer</li>
+          <li>MP4 for TikTok, Reels and Shorts, plus WAV and cover image</li>
+        </ul>
+        <div class="actions">
+          <a class="btn primary" href="sped/mobile.html">Open Hazel Sped</a>
+          <a class="btn" href="sped/web.html">Desktop layout</a>
+          <a class="btn" href="sped/?demo=1">Try the demo</a>
+        </div>
+      </article>
+
+      <article class="branch long">
+        <div class="branch-head">
+          <span class="branch-icon" aria-hidden="true">🎞️</span>
+          <h2>Hazel Long<span class="formerly">the original Hazel</span></h2>
+        </div>
+        <p class="lede">Long-form videos: create, edit, repurpose and publish.</p>
+        <ul>
+          <li>Generate a storyboard and preview from a prompt, then refine it</li>
+          <li>Publish packages for every platform, plus a media library</li>
+          <li>Desktop app: auto-cut silences and filler words with ffmpeg + Whisper</li>
+        </ul>
+        <div class="actions">
+          <a class="btn primary" href="long/mobile.html">Open Hazel Long</a>
+          <a class="btn" href="long/app.html">Install</a>
+          <a class="btn" href="https://github.com/juw12/projects/tree/main/apps/hazel/long">Desktop app</a>
+        </div>
+      </article>
+    </section>
+
+    <section class="chooser" aria-labelledby="chooser-title">
+      <h2 id="chooser-title">Which Hazel do I need?</h2>
+      <table>
+        <tbody>
+          <tr><th scope="row">You start with…</th><td><b>Shorts:</b> an idea and a few facts</td><td><b>Sped:</b> a song you can use</td><td><b>Long:</b> a prompt or raw footage</td></tr>
+          <tr><th scope="row">You get…</th><td>A captioned 9:16 explainer</td><td>A sped-up / slowed 9:16 clip</td><td>A long video + cut-downs per platform</td></tr>
+          <tr><th scope="row">Typical length</th><td>20–60 s</td><td>10–40 s</td><td>Minutes</td></tr>
+          <tr><th scope="row">Runs on</th><td>Browser (web, mobile)</td><td>Browser, works offline</td><td>Browser + Windows desktop app</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="notes" aria-label="Good to know">
+      <div class="note">
+        <h3>Your work moved with you</h3>
+        Projects, voice clips, looks and settings from Shortcraft, Sped and Hazel open in the new Hazel apps — nothing to export.
+      </div>
+      <div class="note">
+        <h3>Old links still work</h3>
+        <code>/shortcraft/</code>, <code>/sped/</code> and <code>/hookline/</code> redirect to the matching Hazel app.
+      </div>
+      <div class="note">
+        <h3>Local-first</h3>
+        No account and no upload server. Publishing only talks to a platform when you connect it.
+      </div>
+    </section>
+  </main>
+
+  <footer class="wrap">
+    Hazel by Juwen Lie · part of the <a href="../">projects</a> monorepo ·
+    <a href="https://github.com/juw12/projects/tree/main/apps/hazel">source</a>
+  </footer>
+
+  <script src="hazel-switch.js"></script>
+  <script src="hub.js"></script>
+</body>
+</html>

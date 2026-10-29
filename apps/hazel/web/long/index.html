@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-hazel-branch="long">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Hazel Web Studio</title>
+  <title>Hazel Long — Web Studio</title>
   <style>
     :root {
       --bg: #0e1116;
@@ -983,12 +983,29 @@
       justify-content: space-between;
       align-items: center;
     }
+
+    /* Hazel switcher chip sits on the brand row (styles come from hazel-switch.css) */
+    .brand .hz-switch {
+      align-self: center;
+      margin-right: 2px;
+    }
   </style>
+  <link rel="stylesheet" href="hazel-switch.css">
 </head>
 <body>
   <!-- TOP BAR -->
   <header class="topbar">
     <div class="brand">
+      <details class="hz-switch">
+        <summary aria-label="Switch Hazel app (now: Hazel Long)"><svg class="hz-leaf" viewBox="0 0 32 32" aria-hidden="true"><path d="M16 2.5C9.3 7.6 5.5 12.6 5.5 17.8a10.5 10.5 0 0 0 21 0c0-5.2-3.8-10.2-10.5-15.3z" fill="#b7d17a"/><path d="M16 5.5V29" stroke="#59682f" stroke-width="1.6" stroke-linecap="round" fill="none"/></svg><span>Hazel</span><span class="hz-caret" aria-hidden="true">▾</span></summary>
+        <nav class="hz-menu" aria-label="Hazel apps">
+          <a href="../">Hazel home<small>All three Hazel apps</small></a>
+          <hr>
+          <a href="../shorts/app.html">Hazel Shorts<small>Faceless 9:16 explainer shorts</small></a>
+          <a href="../sped/">Hazel Sped<small>Sped-up, slowed &amp; mashup edits</small></a>
+          <a href="../long/" aria-current="page">Hazel Long<small>Long-form studio: create, cut, repurpose</small></a>
+        </nav>
+      </details>
       <svg class="mark" viewBox="0 0 32 32" aria-hidden="true">
         <defs>
           <linearGradient id="hazelLeaf" x1="0" y1="0" x2="1" y2="1">
@@ -1000,7 +1017,7 @@
         <path d="M16 5.5V29" stroke="#59682f" stroke-width="1.3" stroke-linecap="round" opacity="0.75" fill="none"/>
         <path d="M16 11l5.2 4.2M16 11l-5.2 4.2M16 17.5l5.6 4.4M16 17.5l-5.6 4.4" stroke="#59682f" stroke-width="1" stroke-linecap="round" opacity="0.5" fill="none"/>
       </svg>
-      <span class="name">Hazel</span>
+      <span class="name">Hazel Long</span>
       <span class="tag">Film once. Post everywhere. Learn what works.</span>
     </div>
   </header>
@@ -2302,6 +2319,7 @@
       init();
     })();
   </script>
+  <script src="hazel-switch.js"></script>
 </body>
 </html>
 <!--

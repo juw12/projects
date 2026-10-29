@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Sped tests (stdlib only).
+"""Hazel Sped tests (formerly Sped; stdlib only).
 
 1. Static checks: every web entry point loads the scripts it needs, refs are
    relative (GitHub Pages sub-path safe), the service worker caches files that
@@ -15,8 +15,9 @@ import subprocess
 import sys
 from pathlib import Path
 
-APP = Path(__file__).resolve().parent.parent
-WEB = APP / "web"
+APP = Path(__file__).resolve().parent.parent  # apps/hazel
+WEB = APP / "web" / "sped"
+ENGINE_TESTS = APP / "tests" / "sped" / "engine.test.js"
 JSC = Path("/System/Library/Frameworks/JavaScriptCore.framework/Versions/Current/Helpers/jsc")
 
 failures = []
@@ -42,7 +43,7 @@ def static_checks():
     for entry in re.findall(r"'([^']+)'", sw.split("const SHELL = [", 1)[1].split("];", 1)[0]):
         if entry != "./":
             check((WEB / entry).exists(), f"sw.js caches missing file {entry}")
-    check("key.startsWith('sped-v')" in sw, "service worker must not delete other apps' caches")
+    check("key.startsWith('hazel-sped-v')" in sw, "service worker must not delete other apps' caches")
     check("ignoreSearch: true" in sw, "offline demo query must resolve to cached shell")
     check("ACTIVATE_UPDATE" in sw, "updates need explicit activation")
     manifest = json.loads((WEB / "manifest.webmanifest").read_text(encoding="utf-8"))
@@ -55,7 +56,7 @@ def static_checks():
     check("targetBpm: 164" in recipes and "semitones: 4" in recipes, "Paramore recipe tempo/pitch changed")
     engine = (WEB / "engine.js").read_text(encoding="utf-8")
     version = re.search(r"VERSION = '([^']+)'", engine).group(1)
-    check(f"const CACHE = 'sped-v{version}'" in sw, "service worker cache name must match engine VERSION")
+    check(f"const CACHE = 'hazel-sped-v{version}'" in sw, "service worker cache name must match engine VERSION")
     video = (WEB / "video.js").read_text(encoding="utf-8")
     shorts = (WEB / "shorts.js").read_text(encoding="utf-8")
     check("width: 1080, height: 1920" in shorts, "exports must stay 1080x1920 (9:16)")
@@ -69,13 +70,13 @@ def static_checks():
 def engine_tests():
     node = shutil.which("node")
     if node:
-        command = [node, str(APP / "tests" / "engine.test.js"), str(WEB)]
+        command = [node, str(ENGINE_TESTS), str(WEB)]
     elif JSC.exists():
-        command = [str(JSC), str(APP / "tests" / "engine.test.js"), "--", str(WEB)]
+        command = [str(JSC), str(ENGINE_TESTS), "--", str(WEB)]
     else:
         print("SKIP engine tests: neither node nor JavaScriptCore found")
         return
-    result = subprocess.run(command, capture_output=True, text=True, timeout=180)
+    result = subprocess.run(command, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=180)
     print(result.stdout.strip())
     check(result.returncode == 0 and " 0 failed" in result.stdout, "engine tests failed:\n" + result.stderr[-2000:])
 
@@ -88,7 +89,7 @@ def main():
         for failure in failures:
             print(" -", failure)
         sys.exit(1)
-    print("sped: all checks passed")
+    print("hazel sped: all checks passed")
 
 
 if __name__ == "__main__":

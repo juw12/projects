@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate natural neural voiceover clips for a Shortcraft project.
+"""Generate natural neural voiceover clips for a Hazel Shorts project.
 
 Reads a project JSON saved from the studio ("Save JSON") and writes one audio
 file per scene (scene_01.mp3, scene_02.mp3, ...). Upload each clip to its scene
@@ -30,7 +30,7 @@ DEFAULT_VOICES = {
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("project", help="Project JSON saved from the Shortcraft studio")
+    parser.add_argument("project", help="Project JSON saved from the Hazel Shorts studio")
     parser.add_argument("--voice", help="edge-tts voice name (default depends on project language)")
     parser.add_argument("--rate", default="+4%", help="Speaking rate, e.g. +5%% or -10%%")
     parser.add_argument("--out", help="Output folder (default: <project>_voice/)")

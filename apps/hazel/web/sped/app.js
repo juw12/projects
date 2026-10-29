@@ -1,4 +1,4 @@
-/* Sped UI — uploads, request parsing, fine-tuning, rendering, scoring, export. */
+/* Hazel Sped UI — uploads, request parsing, fine-tuning, rendering, scoring, export. */
 (function () {
   'use strict';
   const H = window.Sped;
@@ -15,7 +15,9 @@
     { id: 'post', label: 'Post', icon: '⇪' },
   ];
   const INSPECTOR = ['edit', 'mix', 'look', 'post'];
+  // Storage key predates the Hazel rename; keeping it means saved looks still load.
   const LOOK_KEY = 'sped-look';
+  const HAZEL_LEAF = '<svg class="hz-leaf" viewBox="0 0 32 32" aria-hidden="true"><path d="M16 2.5C9.3 7.6 5.5 12.6 5.5 17.8a10.5 10.5 0 0 0 21 0c0-5.2-3.8-10.2-10.5-15.3z" fill="#b7d17a"/><path d="M16 5.5V29" stroke="#59682f" stroke-width="1.6" stroke-linecap="round" fill="none"/></svg>';
 
   const state = {
     tracks: [],
@@ -173,12 +175,32 @@
     }).join('');
   }
 
+  /** The Hazel app switcher (same markup as the static pages of Hazel home, Shorts and Long). */
+  function hazelSwitch() {
+    const mobile = document.body.classList.contains('layout-mobile');
+    const links = [
+      ['../' + (mobile ? 'mobile.html' : ''), 'Hazel home', 'All three Hazel apps', false],
+      null,
+      ['../shorts/' + (mobile ? 'mobile.html' : 'app.html'), 'Hazel Shorts', 'Faceless 9:16 explainer shorts', false],
+      ['../sped/' + (mobile ? 'mobile.html' : ''), 'Hazel Sped', 'Sped-up, slowed &amp; mashup edits', true],
+      ['../long/' + (mobile ? 'mobile.html' : ''), 'Hazel Long', 'Long-form studio: create, cut, repurpose', false],
+    ];
+    return '<details class="hz-switch"><summary aria-label="Switch Hazel app (now: Hazel Sped)">' + HAZEL_LEAF +
+      '<span>Hazel</span><span class="hz-caret" aria-hidden="true">▾</span></summary><nav class="hz-menu" aria-label="Hazel apps">' +
+      links.map(function (link) {
+        if (!link) {
+          return '<hr>';
+        }
+        return '<a href="' + link[0] + '"' + (link[3] ? ' aria-current="page"' : '') + '>' + link[1] + '<small>' + link[2] + '</small></a>';
+      }).join('') + '</nav></details>';
+  }
+
   function shell() {
     root.innerHTML = [
       '<header class="topbar">',
-      '  <div class="brand"><span class="logo" aria-hidden="true">',
+      '  <div class="brand">' + hazelSwitch() + '<span class="logo" aria-hidden="true">',
       '    <svg viewBox="0 0 32 32" width="30" height="30"><defs><linearGradient id="lg" x1="0" x2="1"><stop offset="0" stop-color="#ff3d7f"/><stop offset="1" stop-color="#22d3ee"/></linearGradient></defs><rect width="32" height="32" rx="9" fill="url(#lg)"/><path d="M7 19c3 0 3-7 6-7s3 10 6 10 3-12 6-12" stroke="#fff" stroke-width="2.6" fill="none" stroke-linecap="round"/></svg>',
-      '  </span><div><h1>Sped</h1><p class="tagline">Sped-up, slowed & mashup shorts from your songs</p></div></div>',
+      '  </span><div><h1>Hazel Sped</h1><p class="tagline">Sped-up, slowed & mashup shorts from your songs</p></div></div>',
       '  <div class="platform-switch" role="group" aria-label="Posting to"><span class="muted small">Posting to</span><span class="pills" id="top-platforms">' + platformPills() + '</span></div>',
       '  <div class="top-actions"><span class="pill" title="Decoding, analysis, rendering and video export run in your browser">🔒 On-device</span>',
       '  <button class="btn primary" data-action="export-open">Export ⇪</button></div>',
@@ -206,8 +228,8 @@
         return '<button type="button" data-tab="' + tab.id + '"><span class="ico" aria-hidden="true">' + tab.icon + '</span>' + escapeHtml(tab.label) + '</button>';
       }).join('') + '</nav>',
       '<footer class="footer">',
-      '  <p>Use songs you have the rights to post. Sped supplies no music license; commercial songs are usually safest added from each platform’s own sound library. Checklists are editing heuristics, not reach predictions.</p>',
-      '  <p>Sped v' + H.VERSION + ' · engine: <span id="engine-mode"></span> · <a href="index.html">App</a> · <a href="web.html">Web</a> · <a href="mobile.html">Mobile</a></p>',
+      '  <p>Use songs you have the rights to post. Hazel Sped supplies no music license; commercial songs are usually safest added from each platform’s own sound library. Checklists are editing heuristics, not reach predictions.</p>',
+      '  <p>Hazel Sped v' + H.VERSION + ' · part of <a href="../">Hazel</a> · engine: <span id="engine-mode"></span> · <a href="index.html">App</a> · <a href="web.html">Web</a> · <a href="mobile.html">Mobile</a></p>',
       '</footer>',
     ].join('\n');
     document.getElementById('engine-mode').textContent = engine.mode();
@@ -1645,7 +1667,7 @@
       exportResultHtml(),
       '<div class="row tight"><button type="button" class="btn ghost" data-action="download" title="Export rendered audio; this does not grant publishing rights">⬇ WAV audio</button>',
       '<button type="button" class="btn ghost" data-action="save-recipe">Save rendered recipe</button></div>',
-      '<p class="muted small">Sped can’t post for you — direct posting needs each platform’s approved developer integration. On phones, Share opens the system sheet with your installed apps; otherwise download and upload.</p>',
+      '<p class="muted small">Hazel Sped can’t post for you — direct posting needs each platform’s approved developer integration. On phones, Share opens the system sheet with your installed apps; otherwise download and upload.</p>',
       out ? '<details class="edit-checks"><summary>Edit checklist details (unvalidated)</summary>' + scoreHtml(out) + '</details>' : '',
     ].join('\n');
     updateCaptionCount();
@@ -1737,7 +1759,7 @@
     }
     const copied = await copyText(state.caption.text);
     try {
-      await navigator.share({ files: [file], title: displayTitle() || 'Sped edit', text: state.caption.text });
+      await navigator.share({ files: [file], title: displayTitle() || 'Hazel Sped edit', text: state.caption.text });
       setStatus(copied ? 'Shared. The caption is also on your clipboard — paste it if the app drops it.' : 'Shared.');
     } catch (err) {
       if (err && err.name === 'AbortError') {
@@ -1872,7 +1894,7 @@
     };
     card.innerHTML = [
       '<h2>Real songs & publishing notes</h2>',
-      '<p class="small">You can edit local song files here. Sped supplies no music license and does not verify permission. Editing capability and permission to publish are different questions; local-only use is not a blanket legal exception.</p>',
+      '<p class="small">You can edit local song files here. Hazel Sped supplies no music license and does not verify permission. Editing capability and permission to publish are different questions; local-only use is not a blanket legal exception.</p>',
       '<p class="muted small">These notes cover the current active session sources, not necessarily an older rendered WAV. They are user declarations, never a “copyright-safe” badge.</p>',
       '<div class="row"><label>Destination <select data-publication="platform">' + options(H.rights.platforms, state.publication.platform) + '</select></label>',
       '<label><input type="checkbox" data-publication="commercial"' + (state.publication.commercial ? ' checked' : '') + '> Commercial / branded use</label></div>',
@@ -1890,7 +1912,7 @@
       '<p class="muted small">JSON exports include source names and the notes you enter. Review before sharing. No audio or permissions are supplied with the notes.</p>',
       '<details><summary>Official platform guidance</summary><ul>' + H.rights.links.map(function (link) {
         return '<li><a href="' + link.url + '" target="_blank" rel="noopener noreferrer">' + link.label + '</a></li>';
-      }).join('') + '</ul><p class="small">For cross-platform remixes, use your own cleared material or a license expressly allowing that output. For a platform-specific video, add music in the destination platform’s permitted library workflow instead of extracting it into Sped.</p></details>',
+      }).join('') + '</ul><p class="small">For cross-platform remixes, use your own cleared material or a license expressly allowing that output. For a platform-specific video, add music in the destination platform’s permitted library workflow instead of extracting it into Hazel Sped.</p></details>',
     ].join('');
     renderRightsSummary();
   }

@@ -1,6 +1,7 @@
 {
-  "name": "Hazel",
-  "short_name": "Hazel",
+  "name": "Hazel Long",
+  "short_name": "Hazel Long",
+  "description": "Hazel Long: the long-form creator studio — create from a prompt, edit, auto-cut, repurpose and publish. Part of Hazel.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",

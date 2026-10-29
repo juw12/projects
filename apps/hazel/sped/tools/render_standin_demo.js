@@ -11,7 +11,7 @@
   const isNode = typeof process !== 'undefined' && process.versions && process.versions.node;
   const log = isNode ? console.log : print;
   const args = isNode ? process.argv.slice(2) : (globalThis.arguments ? Array.prototype.slice.call(globalThis.arguments) : []);
-  const webDir = (args[0] || 'apps/sped/web').replace(/\/$/, '') + '/';
+  const webDir = (args[0] || 'apps/hazel/web/sped').replace(/\/$/, '') + '/';
   function loadScript(path) {
     if (isNode) {
       require('vm').runInThisContext(require('fs').readFileSync(path, 'utf8'), { filename: path });
