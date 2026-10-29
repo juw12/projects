@@ -5,7 +5,8 @@ on:
     branches: [main]
   workflow_dispatch:
   schedule:
-    # Hourly: refresh Twin's public market snapshot (prices, FX, exchange calendars) and redeploy.
+    # Hourly: refresh Twin's public market snapshot (prices, FX, exchange calendars) and
+    # Twin Indonesia's headlines, then redeploy.
     - cron: "17 * * * *"
 
 permissions:
@@ -37,6 +38,7 @@ jobs:
           pip install --quiet exchange_calendars || true
           python apps/twin/scripts/market_calendars.py || git checkout -- apps/twin/web/demo/calendars.json
           python apps/twin/scripts/world_snapshot.py || git checkout -- apps/twin/web/demo/world.json apps/twin/web/demo/world
+          python apps/twin/scripts/indonesia_snapshot.py --news-only || git checkout -- apps/twin/web/id/snapshot.js
 
       - name: Build static site
         run: python scripts/build_site.py

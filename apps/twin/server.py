@@ -18,6 +18,7 @@ Set TWIN_DATA (or the legacy TRADE_TWIN_DATA) to keep accounts somewhere else.
 import argparse
 import hashlib
 import hmac
+import importlib.util
 import math
 import json
 from concurrent.futures import ThreadPoolExecutor
@@ -65,7 +66,8 @@ SESSION_DAYS = 30
 LOCK = threading.RLock()
 # Routes that read-modify-write the profile run under LOCK so quick double taps can't lose updates.
 PROFILE_WRITE_PATHS = {"/api/profile", "/api/quiz", "/api/paper", "/api/paper/order",
-                       "/api/paper/copy", "/api/paper/reset", "/api/broker/order"}
+                       "/api/paper/copy", "/api/paper/reset", "/api/broker/order",
+                       "/api/indonesia/wallet/save"}
 
 # Demo mode replays the day-trader-skill README trade: TSLA, 2026-10-19, 10:15 ET.
 DEMO_NOW = "2026-10-19 10:15"
@@ -86,7 +88,7 @@ TOOL = {
 }
 
 
-VERSION = "1.11.0"
+VERSION = "1.12.0"
 
 
 class AppError(Exception):
@@ -1123,6 +1125,102 @@ def news_feed(uid, profile, p):
     return result
 
 
+# ------------------------------------------------------------ Twin Indonesia
+
+# Tests only: TWIN_FAKE_NEWS points at a JSON file {"<feed url>": "<RSS XML>"} used instead of the network.
+FAKE_NEWS = json.loads(Path(os.environ["TWIN_FAKE_NEWS"]).read_text(encoding="utf-8")) if os.environ.get("TWIN_FAKE_NEWS") else None
+INDONESIA_NEWS_TTL = 600  # seconds between feed fetches (publishers ask readers not to poll faster)
+INDONESIA_NEWS_RETRY = 60  # seconds before trying again when every feed failed
+INDONESIA_NEWS_LOCK = threading.Lock()
+INDONESIA_NEWS_CACHE = {"at": 0.0, "ttl": 0, "payload": None}
+INDONESIA_WALLET_MAX_BYTES = 500_000
+_indonesia_news = None
+
+
+def indonesia_news_module():
+    """scripts/indonesia_news.py, shared with the static snapshot builder (loaded once)."""
+    global _indonesia_news
+    if _indonesia_news is None:
+        spec = importlib.util.spec_from_file_location("twin_indonesia_news", APP_DIR / "scripts" / "indonesia_news.py")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        _indonesia_news = module
+    return _indonesia_news
+
+
+def fetch_feed(url):
+    if FAKE_NEWS is not None:
+        if url not in FAKE_NEWS:
+            raise OSError("feed not available in this test")
+        return FAKE_NEWS[url].encode("utf-8")
+    request = urllib.request.Request(url, headers={"User-Agent": indonesia_news_module().USER_AGENT})
+    with urllib.request.urlopen(request, timeout=10, context=SSL_CTX) as response:
+        return response.read(2_000_000)
+
+
+def indonesia_news():
+    """Every Twin Indonesia headline feed, including the ones a browser can't read (no CORS).
+    Cached for 10 minutes; one request at a time fetches, the rest wait for its result."""
+    with INDONESIA_NEWS_LOCK:
+        cache = INDONESIA_NEWS_CACHE
+        if cache["payload"] is not None and time.time() - cache["at"] < cache["ttl"]:
+            return cache["payload"]
+        try:
+            twin_news = json.loads((STATIC / "demo" / "news.json").read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            twin_news = {}
+        items, status = indonesia_news_module().gather(twin_news, fetch=fetch_feed, limit_per_feed=10, limit=60)
+        payload = {
+            "ok": True,
+            "items": items,
+            "status": status,
+            "fetchedAt": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        }
+        answered = any(entry.get("ok") for entry in status.values())
+        cache.update(at=time.time(), ttl=INDONESIA_NEWS_TTL if answered else INDONESIA_NEWS_RETRY, payload=payload)
+        return payload
+
+
+def indonesia_wallet_path(uid):
+    return user_dir(uid) / "indonesia.json"
+
+
+def wallet_account(uid):
+    """Opaque tag that lets a browser tell which Twin account its local wallet copy belongs to."""
+    return hashlib.sha256(("twin-indonesia:" + uid).encode()).hexdigest()[:16]
+
+
+def indonesia_wallet(uid):
+    """The account's Twin Indonesia (rupiah) practice wallet, or wallet=None before the first save."""
+    record = load_json(indonesia_wallet_path(uid), None)
+    if not isinstance(record, dict) or not isinstance(record.get("state"), dict):
+        return {"ok": True, "wallet": None, "rev": 0, "savedAt": None, "account": wallet_account(uid)}
+    return {"ok": True, "wallet": record["state"], "rev": int(record.get("rev") or 0),
+            "savedAt": record.get("savedAt"), "account": wallet_account(uid)}
+
+
+def save_indonesia_wallet(uid, body):
+    """Store the wallet. The browser sends the revision it last synced; when another device
+    saved in between, nothing is written and the newer copy is returned instead."""
+    state = body.get("state")
+    if not isinstance(state, dict) or state.get("version") != 1 or not isinstance(state.get("wallet"), dict):
+        raise AppError("That isn't a Twin Indonesia wallet.")
+    size = len(json.dumps(state, allow_nan=False))
+    if size > INDONESIA_WALLET_MAX_BYTES:
+        raise AppError("This wallet is too large to sync (%d KB; the limit is %d KB). Export it from Settings instead."
+                       % (size // 1024, INDONESIA_WALLET_MAX_BYTES // 1024))
+    base = body.get("rev", 0)
+    if isinstance(base, bool) or not isinstance(base, int) or base < 0:
+        raise AppError("rev must be a whole number")
+    current = indonesia_wallet(uid)
+    if current["wallet"] is not None and base != current["rev"]:
+        return dict(current, ok=False, conflict=True, error="Your Twin Indonesia wallet changed on another device.")
+    record = {"state": state, "rev": current["rev"] + 1,
+              "savedAt": datetime.now(timezone.utc).isoformat(timespec="seconds")}
+    save_json(indonesia_wallet_path(uid), record)
+    return {"ok": True, "rev": record["rev"], "savedAt": record["savedAt"], "account": wallet_account(uid)}
+
+
 # ------------------------------------------------------------------ HTTP
 
 def verify_password(uid, password):
@@ -1382,6 +1480,10 @@ class Handler(BaseHTTPRequestHandler):
             token = new_session(uid)
             self.send_json({"ok": True, "profile": get_profile(uid)}, cookie=self.session_cookie(token, SESSION_DAYS * 86400))
             return
+        if path == "/api/indonesia/news":
+            # Public headlines (no account needed), like the rest of Twin Indonesia.
+            self.send_json(indonesia_news())
+            return
 
         token = self.cookie_token()
         uid = session_user(token)
@@ -1558,6 +1660,10 @@ class Handler(BaseHTTPRequestHandler):
             self.send_json({"ok": True, "result": result})
         elif path == "/api/news":
             self.send_json(news_feed(uid, profile, body))
+        elif path == "/api/indonesia/wallet":
+            self.send_json(indonesia_wallet(uid))
+        elif path == "/api/indonesia/wallet/save":
+            self.send_json(save_indonesia_wallet(uid, body))
         elif path == "/api/copycat":
             self.send_json(copycat(uid, profile, body.get("action"), body))
         elif path == "/api/trade":

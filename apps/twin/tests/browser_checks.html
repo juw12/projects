@@ -99,7 +99,7 @@
     const keys = await caches.keys();
     check("unrelated app cache survives activation", keys.includes("other-app-keep-me"));
     check("old Twin cache cleaned", !keys.includes("tt-shell-v3"));
-    const current = keys.find((key) => key.startsWith("twin:") && key.endsWith(":1.11.0"));
+    const current = keys.find((key) => key.startsWith("twin:") && key.endsWith(":1.12.0"));
     const offline = await caches.open(current);
     const cached = await offline.keys();
     check("complete demo precached", ["demo.js", "theme.js", "theme.css", "demo/market.json", "demo/monthly.json", "demo/trade.json", "demo/news.json"].every((name) => cached.some((request) => request.url.split("?")[0].endsWith(name))));
@@ -323,7 +323,7 @@
     const copied = JSON.parse(reportField.value);
     check("report fallback contains replayable inputs and ledger", copied.data.points.length >= 120 && copied.strategy.trades.length > 0 && copied.source.symbol === "AAPL");
     check("Strategy Lab never changes practice positions or cash", paperBeforeLab === JSON.stringify((await reloadWindow.api("api/me")).profile.paper));
-    check("Strategy Lab engine is available in offline shell cache", cached.some((request) => request.url.includes("strategy-lab.js?v=1.11.0")));
+    check("Strategy Lab engine is available in offline shell cache", cached.some((request) => request.url.includes("strategy-lab.js?v=1.12.0")));
     reloadWindow.closeSheet();
 
     // TwinAgent: Trade tab view and stock sheet, in the same guest at phone width.
@@ -381,11 +381,11 @@
     await waitFor(() => reloadDoc.querySelector("#sheet #ta-rating"));
     check("stock page opens a TwinAgent report", Boolean(reloadDoc.querySelector("#sheet #ta-rating")) && reloadDoc.getElementById("sheet").textContent.includes("MSFT"));
     check("TwinAgent sheet fits phone width", reloadDoc.documentElement.scrollWidth <= 320);
-    check("TwinAgent engine and fundamentals cached offline", ["twinagent.js?v=1.11.0", "twinagent-ui.js?v=1.11.0", "design.css?v=1.11.0", "neo.css?v=1.11.0", "premium.css?v=1.11.0", "motion.js?v=1.11.0", "icons.js?v=1.11.0", "demo/fundamentals.json"].every((name) => cached.some((request) => request.url.includes(name))));
+    check("TwinAgent engine and fundamentals cached offline", ["twinagent.js?v=1.12.0", "twinagent-ui.js?v=1.12.0", "design.css?v=1.12.0", "neo.css?v=1.12.0", "premium.css?v=1.12.0", "motion.js?v=1.12.0", "icons.js?v=1.12.0", "demo/fundamentals.json"].every((name) => cached.some((request) => request.url.includes(name))));
     reloadWindow.closeSheet();
 
     // Twin Indonesia (1.11): cached with the shell and reachable from Home, Me and Jakarta stock pages.
-    check("Twin Indonesia cached offline with the shell", ["id/", "id/index.html", "id/app.js?v=1.11.0", "id/engine.js?v=1.11.0", "id/snapshot.js?v=1.11.0", "id/styles.css?v=1.11.0"].every((name) => cached.some((request) => request.url.endsWith(name))));
+    check("Twin Indonesia cached offline with the shell", ["id/", "id/index.html", "id/app.js?v=1.12.0", "id/engine.js?v=1.12.0", "id/snapshot.js", "id/styles.css?v=1.12.0"].every((name) => cached.some((request) => request.url.endsWith(name))));
     await reloadWindow.openStock("BBCA.JK");
     await waitFor(() => reloadDoc.getElementById("stock-indonesia"));
     check("Jakarta stock page offers Twin Indonesia", (reloadDoc.getElementById("stock-indonesia") || {}).textContent === "Trade BBCA in rupiah lots · Twin Indonesia");
@@ -400,6 +400,26 @@
     reloadWindow.eval('switchTab("me")');
     await waitFor(() => reloadDoc.getElementById("me-indonesia"));
     check("Me links to Twin Indonesia", ((reloadDoc.getElementById("me-indonesia") || {}).textContent || "").includes("Open Twin Indonesia"));
+    check("no rupiah wallet shown before Twin Indonesia is used", !reloadDoc.getElementById("me-indonesia-wallet"));
+
+    // 1.12: Home and Me show the summary Twin Indonesia leaves in this browser.
+    reloadWindow.localStorage.setItem("twin_id_summary_v1", JSON.stringify({
+      valueIdr: 10250000, cashIdr: 4000000, startingCashIdr: 10000000, returnPct: 2.5, positions: 3,
+      usdIdr: 16000, updatedAt: new Date().toISOString(), simulated: false,
+    }));
+    reloadWindow.eval('switchTab("home")');
+    await waitFor(() => ((reloadDoc.getElementById("home-indonesia") || {}).textContent || "").includes("Rupiah wallet"));
+    check("Home shows the rupiah wallet value and return", /Rupiah wallet Rp\s?10\.250\.000 · \+2\.50%/.test((reloadDoc.getElementById("home-indonesia") || {}).textContent || ""));
+    check("wallet summary keeps the phone layout", reloadDoc.documentElement.scrollWidth <= 320);
+    reloadWindow.eval('switchTab("me")');
+    await waitFor(() => reloadDoc.getElementById("me-indonesia-wallet"));
+    const idCard = (reloadDoc.getElementById("me-indonesia") || {}).textContent || "";
+    check("Me shows the rupiah wallet, return, positions and cash", idCard.includes("10.250.000") && idCard.includes("+2.50%") && idCard.includes("3 positions") && idCard.includes("4.000.000"));
+    reloadWindow.localStorage.setItem("twin_id_summary_v1", "{broken");
+    reloadWindow.eval('switchTab("home")');
+    await waitFor(() => reloadDoc.getElementById("home-indonesia"));
+    check("a broken wallet summary is ignored", ((reloadDoc.getElementById("home-indonesia") || {}).textContent || "").includes("IDX lots"));
+    reloadWindow.localStorage.removeItem("twin_id_summary_v1");
 
     check("no unhandled UI errors", errors.length === 0);
   } catch (error) {

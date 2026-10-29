@@ -498,6 +498,40 @@
     };
   }
 
+  /** The few numbers Twin's Home and Me screens show about this rupiah wallet. */
+  function walletSummary(state, ctx) {
+    const value = portfolioValue(state, ctx);
+    return {
+      valueIdr: Math.round(value.totalIdr),
+      cashIdr: Math.round(value.cashIdr),
+      startingCashIdr: Math.round(state.wallet.startingCashIdr || 0),
+      returnPct: Math.round(value.returnPct * 100) / 100,
+      positions: value.positions.length,
+      usdIdr: ctx.fxRate || null,
+      updatedAt: iso(ctx.now),
+    };
+  }
+
+  /**
+   * What to do after fetching the signed-in Twin account's copy of the wallet.
+   *   local  - this browser's state (or null)
+   *   remote - {wallet, rev, account} from the server; wallet is null before the first save
+   *   meta   - {account, rev} this browser last synced, or null if it never synced
+   * Returns 'adopt' (load the account copy: it changed elsewhere or this browser isn't
+   * linked yet), 'push' (upload this browser's newer wallet), 'detach' (this browser's
+   * wallet belongs to a different account: start fresh) or 'none' (in sync).
+   */
+  function syncAction(local, remote, meta) {
+    const linked = !!meta && meta.account === remote.account;
+    const hasLocal = !!(local && local.profile);
+    if (remote.wallet) {
+      if (!linked || meta.rev !== remote.rev) return 'adopt';
+      return hasLocal && local.savedAt !== remote.wallet.savedAt ? 'push' : 'none';
+    }
+    if (meta && meta.account && !linked) return hasLocal ? 'detach' : 'none';
+    return hasLocal ? 'push' : 'none';
+  }
+
   // ----------------------------------------------------------------- orders
 
   function validateOrder(state, order, ctx) {
@@ -1028,6 +1062,8 @@
     availableCash,
     availableQty,
     portfolioValue,
+    walletSummary,
+    syncAction,
     validateOrder,
     placeOrder,
     processOrders,

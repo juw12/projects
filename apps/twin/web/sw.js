@@ -1,19 +1,20 @@
-// Twin 1.11.0: own cache only; offline shell; live demo data network-first; API never cached.
+// Twin 1.12.0: own cache only; offline shell; live demo data network-first; API never cached.
 // Twin Indonesia (id/) shares this worker and cache: its files are listed below with the same version.
-// Market data (world snapshot, chart files, calendars) refreshes hourly: network first, cache as fallback.
+// Market data (world snapshot, chart files, calendars) and Twin Indonesia's snapshot (hourly headlines)
+// refresh hourly: network first, cache as fallback.
 const PREFIX = "twin:" + self.registration.scope + ":";
-const SHELL = PREFIX + "1.11.0";
+const SHELL = PREFIX + "1.12.0";
 const FILES = [
-  "./", "index.html", "./?v=1.11.0", "index.html?v=1.11.0",
-  "demo.js?v=1.11.0", "pro.js?v=1.11.0", "pro-ui.js?v=1.11.0", "broker-ui.js?v=1.11.0", "academy.js?v=1.11.0", "global.js?v=1.11.0", "theme.js?v=1.11.0", "theme.css?v=1.11.0", "design.css?v=1.11.0", "neo.css?v=1.11.0", "premium.css?v=1.11.0", "motion.js?v=1.11.0", "icons.js?v=1.11.0", "manifest.webmanifest",
-  "strategy-lab.js?v=1.11.0", "strategy-lab-ui.js?v=1.11.0", "twinagent.js?v=1.11.0", "twinagent-ui.js?v=1.11.0",
-  "id/", "id/index.html", "id/styles.css?v=1.11.0", "id/engine.js?v=1.11.0", "id/snapshot.js?v=1.11.0", "id/ideas.js?v=1.11.0", "id/content.js?v=1.11.0", "id/feeds.js?v=1.11.0", "id/app.js?v=1.11.0",
+  "./", "index.html", "./?v=1.12.0", "index.html?v=1.12.0",
+  "demo.js?v=1.12.0", "pro.js?v=1.12.0", "pro-ui.js?v=1.12.0", "broker-ui.js?v=1.12.0", "academy.js?v=1.12.0", "global.js?v=1.12.0", "theme.js?v=1.12.0", "theme.css?v=1.12.0", "design.css?v=1.12.0", "neo.css?v=1.12.0", "premium.css?v=1.12.0", "motion.js?v=1.12.0", "icons.js?v=1.12.0", "manifest.webmanifest",
+  "strategy-lab.js?v=1.12.0", "strategy-lab-ui.js?v=1.12.0", "twinagent.js?v=1.12.0", "twinagent-ui.js?v=1.12.0",
+  "id/", "id/index.html", "id/styles.css?v=1.12.0", "id/engine.js?v=1.12.0", "id/snapshot.js", "id/ideas.js?v=1.12.0", "id/content.js?v=1.12.0", "id/feeds.js?v=1.12.0", "id/app.js?v=1.12.0",
   "icons/apple-touch-icon.png", "icons/icon-192.png", "icons/icon-512.png",
   "demo/meta.json", "demo/market.json", "demo/monthly.json",
   "demo/news.json", "demo/copycat.json", "demo/trade.json", "demo/world.json", "demo/fundamentals.json", "demo/calendars.json",
 ];
 const DATA = PREFIX + "data";
-const LIVE = ["demo/world.json", "demo/calendars.json", "demo/world/"].map((p) => new URL(p, self.registration.scope).href);
+const LIVE = ["demo/world.json", "demo/calendars.json", "demo/world/", "id/snapshot.js"].map((p) => new URL(p, self.registration.scope).href);
 const isLive = (url) => LIVE.some((prefix) => url.split("?")[0] === prefix || (prefix.endsWith("/") && url.startsWith(prefix)));
 const assets = new Set(FILES.map((file) => new URL(file, self.registration.scope).href));
 

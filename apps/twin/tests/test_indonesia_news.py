@@ -1,12 +1,16 @@
 #!/usr/bin/env python3
-"""Offline checks for Twin Indonesia's headline parsing and ticker tagging (no network)."""
+"""Offline checks for Twin Indonesia's headline parsing, ticker tagging, merging and the
+hourly headline refresh of web/id/snapshot.js (no network)."""
+import json
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 
 import indonesia_news as news  # noqa: E402
+import indonesia_snapshot as snapshot_builder  # noqa: E402
 
 IDX_FEED = {"id": "test-idx", "source": "Test", "url": "https://example.com/rss", "market": "IDX", "filter": None}
 GOLD_FEED = {"id": "test-gold", "source": "Test", "url": "https://example.com/gold", "market": "GOLD",
@@ -102,6 +106,91 @@ class SourceTests(unittest.TestCase):
         self.assertEqual(status["test-idx"], {"ok": True, "items": 2})
         self.assertEqual(status["broken"], {"ok": False, "error": "OSError"})
         self.assertEqual([item["link"] for item in items], ["https://example.com/b", "https://example.com/a"])
+
+
+def item(link, time, title="Headline"):
+    return {"id": link, "source": "Test", "title": title, "summary": "", "link": link,
+            "time": time, "market": "IDX", "tickers": []}
+
+
+class MergeTests(unittest.TestCase):
+    def test_fresh_copy_wins_and_links_are_unique(self):
+        fresh = [item("https://example.com/a", "2026-10-28T10:00:00+00:00", "Updated title")]
+        previous = [item("https://example.com/a", "2026-10-28T09:00:00+00:00", "Old title"),
+                    item("https://example.com/b", "2026-10-27T09:00:00+00:00")]
+        merged = news.merge_news(fresh, previous)
+        self.assertEqual([entry["link"] for entry in merged], ["https://example.com/a", "https://example.com/b"])
+        self.assertEqual(merged[0]["title"], "Updated title")
+
+    def test_newest_first_capped_and_undated_last(self):
+        entries = [item(f"https://example.com/{n}", f"2026-10-{10 + n:02d}T00:00:00+00:00") for n in range(5)]
+        entries.append(item("https://example.com/undated", None))
+        merged = news.merge_news(entries, limit=4)
+        self.assertEqual(len(merged), 4)
+        self.assertEqual(merged[0]["link"], "https://example.com/4")
+        self.assertNotIn("https://example.com/undated", [entry["link"] for entry in merged])
+
+    def test_gather_combines_twin_news_and_every_feed(self):
+        twin = {"items": [{"title": "Apple results", "link": "https://example.com/aapl", "touches": ["AAPL"],
+                           "time": "2026-10-27T13:00:00Z"}]}
+        requested = []
+
+        def fake_fetch(url):
+            requested.append(url)
+            if "antaranews" not in url:
+                raise OSError("offline")
+            return SAMPLE_RSS
+
+        items, status = news.gather(twin, fetch=fake_fetch)
+        self.assertEqual(sorted(requested), sorted(feed["url"] for feed in news.FEEDS))
+        self.assertEqual(status["antara-bursa"], {"ok": True, "items": 2})
+        self.assertFalse(status["coindesk"]["ok"])
+        self.assertEqual({entry["link"] for entry in items},
+                         {"https://example.com/a", "https://example.com/b", "https://example.com/aapl"})
+
+
+class SnapshotRefreshTests(unittest.TestCase):
+    """indonesia_snapshot.py --news-only: new headlines in, prices untouched."""
+
+    def make_snapshot(self):
+        return {
+            "takenAt": "2026-10-26T00:00:00+00:00",
+            "sources": {"stocks": "test", "news": {}},
+            "instruments": [{"symbol": "BBCA", "market": "IDX", "price": 9000}],
+            "news": [item("https://example.com/old", "2026-10-26T08:00:00+00:00")],
+        }
+
+    def test_fresh_headlines_merge_with_older_ones(self):
+        snapshot = self.make_snapshot()
+        fetched = snapshot_builder.refresh_news(snapshot, twin_json=lambda path: {"items": []},
+                                                fetch=lambda url: SAMPLE_RSS)
+        links = [entry["link"] for entry in snapshot["news"]]
+        self.assertGreater(fetched, 0)
+        self.assertEqual(links, ["https://example.com/b", "https://example.com/a", "https://example.com/old"])
+        self.assertTrue(snapshot["sources"]["news"]["antara-bursa"]["ok"])
+        self.assertIn("newsTakenAt", snapshot)
+        self.assertEqual(snapshot["instruments"][0]["price"], 9000)
+
+    def test_all_feeds_down_reports_zero_and_keeps_headlines(self):
+        snapshot = self.make_snapshot()
+
+        def offline(url):
+            raise OSError("offline")
+
+        fetched = snapshot_builder.refresh_news(snapshot, twin_json=lambda path: {"items": []}, fetch=offline)
+        self.assertEqual(fetched, 0)
+        self.assertEqual([entry["link"] for entry in snapshot["news"]], ["https://example.com/old"])
+
+    def test_snapshot_file_round_trip_uses_lf_and_keeps_unicode(self):
+        snapshot = self.make_snapshot()
+        snapshot["news"][0]["title"] = "Harga emas naik — rupiah menguat"
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "snapshot.js"
+            snapshot_builder.write_snapshot(snapshot, path)
+            raw = path.read_bytes()
+            self.assertNotIn(b"\r\n", raw)
+            self.assertTrue(raw.decode("utf-8").startswith("/* Generated by"))
+            self.assertEqual(snapshot_builder.read_snapshot(path), json.loads(json.dumps(snapshot)))
 
 
 if __name__ == "__main__":

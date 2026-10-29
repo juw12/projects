@@ -4,8 +4,10 @@
  *   US + IDX stocks, USD/IDR, charts  -> Twin's hourly demo snapshot: ../demo on the
  *                                        same origin, else the published copy
  *   Crypto + gold                     -> CoinGecko public API (CORS *)
- *   News                              -> Twin news.json + Antara RSS (CORS *);
- *                                        other feeds come baked into snapshot.js
+ *   News                              -> Twin's server (every feed) when it runs; else
+ *                                        Twin news.json + Antara RSS (CORS *), with the
+ *                                        other feeds baked into snapshot.js hourly
+ *   Wallet sync                       -> Twin's server, signed-in Twin account only
  */
 (function (root) {
   'use strict';
@@ -41,6 +43,39 @@
   async function fetchJson(url, timeoutMs) {
     const response = await fetchWithTimeout(url, null, timeoutMs);
     return response.json();
+  }
+
+  /** Twin server API next to this module (web/id/ is served from Twin's root). */
+  function serverUrl(path) {
+    return new URL(`../${path}`, location.href).href;
+  }
+
+  /** POST to Twin's server with the session cookie. Resolves {status, data}, or null when
+   *  the server can't be reached. HTTP errors such as 401 resolve too, so callers can tell
+   *  "signed out" from "offline". */
+  async function postServer(path, body, timeoutMs) {
+    const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    const timer = controller ? setTimeout(() => controller.abort(), timeoutMs || 15000) : null;
+    try {
+      const response = await fetch(serverUrl(path), Object.assign({
+        method: 'POST',
+        cache: 'no-store',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body || {}),
+      }, controller ? { signal: controller.signal } : {}));
+      let data = null;
+      try {
+        data = await response.json();
+      } catch (error) {
+        data = null;
+      }
+      return { status: response.status, data };
+    } catch (error) {
+      return null;
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
   }
 
   /** First Twin data file that loads, trying the same-origin copy first. */
@@ -256,16 +291,13 @@
     }
   }
 
-  /** Server feed when available (all markets); otherwise the CORS-friendly sources. */
+  /** Twin's server reads every feed (all markets); otherwise the CORS-friendly sources. */
   async function loadNews(serverAvailable, knownByMarket) {
     if (serverAvailable) {
-      try {
-        const payload = await fetchJson('api/news', 15000);
-        if (payload && Array.isArray(payload.items) && payload.items.length) {
-          return { items: payload.items, source: 'server' };
-        }
-      } catch (error) {
-        // fall through to browser-side sources
+      const result = await postServer('api/indonesia/news', {}, 20000);
+      const payload = result && result.status === 200 ? result.data : null;
+      if (payload && Array.isArray(payload.items) && payload.items.length) {
+        return { items: payload.items, source: 'server', fetchedAt: payload.fetchedAt || null };
       }
     }
     const [us, idx] = await Promise.all([loadTwinNews(knownByMarket), loadAntara(knownByMarket)]);
@@ -273,11 +305,28 @@
     return items.length ? { items, source: 'browser' } : null;
   }
 
-  /** Satu's standalone RSS/state server did not move into Twin, so there is nothing
-   *  to probe (and no 404 in the console). Kept as the single hook to switch on if
-   *  Twin's server gains an Indonesia news endpoint later. */
+  /** True when this page is served by Twin's own server (python server.py), which adds
+   *  the full news feed and account sync. Static hosts (GitHub Pages) and file:// skip
+   *  the probe entirely. */
   async function detectServer() {
-    return false;
+    if (typeof location === 'undefined' || !/^https?:$/.test(location.protocol)) return false;
+    if (/\.github\.io$/.test(location.hostname)) return false;
+    try {
+      const health = await fetchJson(serverUrl('api/health'), 5000);
+      return !!health && (health.app === 'twin' || health.app === 'trade-twin');
+    } catch (error) {
+      return false;
+    }
+  }
+
+  /** The signed-in account's wallet: {status, data:{wallet, rev, account, savedAt}} or null. */
+  function loadWallet() {
+    return postServer('api/indonesia/wallet', {}, 15000);
+  }
+
+  /** Save the wallet on top of revision `rev`; data.conflict means another device saved first. */
+  function saveWallet(state, rev) {
+    return postServer('api/indonesia/wallet/save', { state, rev }, 20000);
   }
 
   root.SatuFeeds = {
@@ -288,6 +337,8 @@
     loadChart,
     loadNews,
     detectServer,
+    loadWallet,
+    saveWallet,
     tagTickers,
   };
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -118,9 +118,12 @@ largest position against your limit, and your crypto share against your cap.
 
 Headlines from Antara, CNBC Indonesia, CoinDesk, Cointelegraph and
 Investing.com (gold) plus US market news, each tagged with the tickers it
-mentions so asset pages show their own news. The browser reads Twin's
-`news.json` (US) and Antara (IDX) live; the other feeds come from the bundled
-snapshot, refreshed with `apps/twin/scripts/indonesia_snapshot.py`.
+mentions so asset pages show their own news. On Twin's local server every
+feed arrives through `POST /api/indonesia/news` (fetched in parallel, cached for
+10 minutes, failures reported per feed). Without the server the browser reads
+Twin's `news.json` (US) and Antara (IDX) live, and the other feeds come from the
+bundled snapshot, whose headlines the GitHub Pages job refreshes every hour
+(`apps/twin/scripts/indonesia_snapshot.py --news-only`).
 
 ### 2.8 Community and Scam Shield
 
@@ -200,8 +203,10 @@ services for launch and do not work in the prototype.
 Profile and markets, risk quiz, **data mode** (live delayed prices, or a
 simulated market that moves every few seconds so you can practise when
 markets are closed), **respect market hours**, and export, import or reset of
-your practice account. Data stays in your browser; Twin's accounts and local
-server do not store it yet.
+your practice account. The wallet lives in your browser. On Twin's local server,
+signed in to a Twin account, it is also kept in that account and follows you to
+other browsers (see 4.1); Settings shows when it last synced. Twin's Home card
+and Me screen show the wallet's value, return, positions and cash.
 
 ---
 
@@ -273,21 +278,48 @@ apps/twin/web/id/   (static module inside Twin, no build step, no dependencies)
   feeds.js     live data:  Twin's own ../demo/world.json, world/<chart>.json and
                            news.json (same origin, hourly), else the published copy
                            CoinGecko (crypto, gold via XAUT), Antara RSS (CORS)
-               fallback:   snapshot.js (bundled, works offline)
+                           Twin's server, when present: all news + account sync
+               fallback:   snapshot.js (bundled, works offline, headlines hourly)
   content.js   analysts, rooms, seed posts, plans, lessons, guide
-  storage      localStorage keys twin_id_state_v1 / twin_id_demo_v1 (per browser)
+  storage      localStorage twin_id_state_v1 / twin_id_demo_v1 (wallet, per browser)
+               twin_id_summary_v1 (read by Twin's Home and Me), twin_id_sync_v1
+               (account + revision last synced), twin_id_state_backup_v1
 
-apps/twin/web/sw.js          Twin's one service worker caches id/ with the rest of Twin
-apps/twin/server.py          serves /id/ (folder URLs open index.html) on the local server
+apps/twin/web/sw.js          Twin's one service worker caches id/ with the rest of Twin;
+                             id/snapshot.js is network-first so hourly headlines arrive
+apps/twin/server.py          serves /id/; POST /api/indonesia/news (public),
+                             /api/indonesia/wallet and /wallet/save (signed in)
 apps/twin/scripts/
-  indonesia_snapshot.py      rebuild web/id/snapshot.js from web/demo + CoinGecko + RSS
+  indonesia_snapshot.py      rebuild web/id/snapshot.js from web/demo + CoinGecko + RSS;
+                             --news-only swaps in fresh headlines (hourly Pages job)
   indonesia_ideas.py         rescore the demo Analyst Desk against that history
-  indonesia_news.py          RSS parsing, UTC timestamps, ticker tagging
+  indonesia_news.py          RSS parsing, UTC timestamps, ticker tagging, merging
 apps/twin/tests/
   verify_indonesia.py        engine checks + app self-test in headless Chrome/Edge
   indonesia_engine_checks.html, indonesia_frame.html (phone-width screenshots)
-  test_indonesia_news.py     offline parser and tagging tests
+  test_indonesia_news.py     offline parser, tagging, merge and refresh tests
+  verify_api.py              server news feed (fake RSS) and wallet sync, per account
 ```
+
+### 4.1 Account sync (Twin's local server)
+
+The server keeps one copy per Twin account in `data/users/<id>/indonesia.json`
+with a revision number. `POST /api/indonesia/wallet` returns the copy, its
+revision and an opaque account tag; `POST /api/indonesia/wallet/save` takes
+`{state, rev}` and only writes when `rev` is still the current revision,
+otherwise it answers `conflict` with the newer copy. In the browser, the pure
+`syncAction()` in engine.js decides what happens after each fetch:
+
+| Situation | Action |
+| --- | --- |
+| The account copy changed since this browser last synced, or the browser was never linked | Load the account copy (the local one is kept in `twin_id_state_backup_v1`) |
+| Same revision, but this browser has newer changes | Upload them |
+| The account has no wallet yet | Upload this browser's wallet, unless it was linked to a different account, in which case start fresh |
+
+The browser fetches when the page opens and whenever the tab becomes visible;
+hidden tabs never upload, so a forgotten tab cannot overwrite trades made
+elsewhere. Saves are capped at 500 KB. The demo (`?demo`) and the self-test
+never sync.
 
 Design choices: the engine is pure so the same functions can later run on a
 server that talks to real partners; every view re-renders from state, so prices
@@ -435,7 +467,7 @@ market as partner agreements close.
 | Market data | Twin's hourly `world.json` (US + the same 19 Jakarta stocks, USD/IDR), chart files and `news.json`, read same-origin | One price service for both wallets |
 | Shell | Twin's theme switch, icons, manifest and service worker (one offline cache) | Shared tab bar and search |
 | Entry points | Home card, Me card, *Trade in rupiah lots* on `.JK` stock pages | Deep links back from Twin Indonesia asset pages to Twin research |
-| Accounts | Not shared: Twin Indonesia keeps its own rupiah wallet in the browser | Twin accounts and the local server storing the rupiah wallet |
+| Accounts | Since 1.12 a Twin account on the local server keeps the rupiah wallet; Home and Me show its summary | One ledger for the rupiah and USD wallets |
 | Research | Analyst Desk scoring, Scam Shield and community rooms (Twin Indonesia only) | TwinAgent reports, Strategy Lab and the 10,000-futures goal planner on IDX, crypto and gold |
 | Real orders | None (practice only) | Twin's Alpaca/IBKR adapters as the template for licensed Indonesian partners |
 
@@ -449,7 +481,7 @@ review), peers (moderation queue, subscriber rooms) and house-of-articles
 
 | Phase | Scope |
 | --- | --- |
-| 0. Prototype (now) | Twin Indonesia inside Twin 1.11: practice trading in four markets, news, rooms, Analyst Desk, Academy, plans |
+| 0. Prototype (now) | Twin Indonesia inside Twin 1.12: practice trading in four markets, news, rooms, Analyst Desk, Academy, plans; account sync on Twin's own server |
 | 1. Beta (0–3 months) | Bahasa Indonesia UI, accounts and cloud sync, price and idea alerts, Twin's goal planner, SM-2 reviews, sharia filter, closed beta with practice money; engage counsel and shortlist partners |
 | 2. Partners (3–9 months) | IDX broker, crypto PAKD, gold provider and a US structure; partner e-KYC; real orders through the same ticket; data and news licences |
 | 3. Marketplace | Verified licensed advisers, Pro launch, holder badges from real positions, moderation team and complaint handling |
@@ -465,8 +497,11 @@ review), peers (moderation queue, subscriber rooms) and house-of-articles
   API); gold is derived from XAUT; US, crypto and gold fees are assumptions.
 - Community posts are stored locally; there is no multi-user backend, login or
   moderation team yet.
-- The prototype's optional RSS/state server was not merged: CNBC Indonesia, CoinDesk,
-  Cointelegraph and Investing.com headlines come from the bundled snapshot.
-- The rupiah wallet is separate from Twin's USD portfolio and accounts.
+- Without Twin's server (GitHub Pages), CNBC Indonesia, CoinDesk, Cointelegraph and
+  Investing.com headlines are at most an hour old (snapshot refresh), not live.
+- The rupiah wallet is separate from Twin's USD portfolio. Account sync needs
+  Twin's local server and a Twin login; on GitHub Pages the wallet stays in the
+  browser. Edits made at the same moment on two visible devices resolve to the
+  account copy (the other is kept as a local backup, not merged).
 - English UI only; no security audit has been done.
 - Demo analysts are fictional and their ideas were picked with hindsight.
