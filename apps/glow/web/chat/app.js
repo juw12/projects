@@ -23,12 +23,18 @@ const LOW_POWER_REASONING_MAX_TOKENS = 1600;
 const LOW_POWER_INSTRUCTION = "\n\nLow power mode is on: use as few words as fully answer the question (usually 1 to 4 short sentences or a few bullets, under about 120 words). Think briefly. No greeting, no restating the question and no closing summary. Write more only when the user asks for detail.";
 const LOW_POWER_KEY = "glow.lowPower"; // shared with the other Glow apps on this site
 const OPENROUTER_URL = "https://openrouter.ai/api/v1";
-// Free with your own key (no card): Google AI Studio (Gemini) and Groq. Both are OpenAI-compatible and work from the browser.
+// Free with your own key (no card): Google AI Studio (Gemini), Groq and Mistral. All are OpenAI-compatible and
+// answer browsers directly (CORS). Each key has its own daily/monthly limit, so together they last much longer.
+// (Checked 2026-10: Cerebras now needs a card and a 30-day trial credit; GitHub Models, SambaNova and NVIDIA
+// don't answer browsers directly, so they can't be used without a server.)
 const GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/openai";
 const GROQ_URL = "https://api.groq.com/openai/v1";
+const MISTRAL_URL = "https://api.mistral.ai/v1";
 const KEY_PROVIDERS = [
-  { id: "gemini", setting: "geminiKey", base: GEMINI_URL, group: "Google Gemini: free with your key", skip: /embed|imagen|veo|tts|aqa|learnlm|image|audio|live|robotics|computer-use/i },
-  { id: "groq", setting: "groqKey", base: GROQ_URL, group: "Groq: free with your key", skip: /whisper|tts|guard|playai|orpheus|prompt-guard|compound/i },
+  { id: "gemini", name: "Gemini", setting: "geminiKey", base: GEMINI_URL, group: "Google Gemini: free with your key", skip: /embed|imagen|veo|tts|aqa|learnlm|image|audio|live|robotics|computer-use/i },
+  { id: "groq", name: "Groq", setting: "groqKey", base: GROQ_URL, group: "Groq: free with your key", skip: /whisper|tts|guard|playai|orpheus|prompt-guard|compound/i },
+  // Mistral lists every model twice (dated and "-latest"); only the "-latest" names are shown.
+  { id: "mistral", name: "Mistral", setting: "mistralKey", base: MISTRAL_URL, group: "Mistral: free with your key", only: /-latest$/, skip: /embed|moderation|ocr|voxtral|transcribe|audio/i },
 ];
 // Free AI for guests with no key or sign-up: Pollinations' anonymous tier (shared and rate-limited).
 const FREE_AI_URL = "https://text.pollinations.ai/openai";
@@ -52,7 +58,7 @@ const AI_SERVICES = {
   auto: { providers: null, note: "Glow uses Puter while your free allowance lasts, then your own free keys, then Glow Free, and finally the AI on this device, so answers never stop." },
   puter: { providers: ["puter", "puterimg", "putervid"], note: "Top models (Claude, GPT, Gemini and more) on your free monthly Puter allowance. When it runs out, Glow Free and the AI on this device take over." },
   pollinations: { providers: ["pollen"], note: "Top models paid with your own Pollen. Connect your Pollinations wallet below; Glow Free and the AI on this device answer if it runs out." },
-  keys: { providers: ["gemini", "groq", "openrouter", "custom", "ollama"], note: "Only your own keys (Gemini, Groq, OpenRouter, Ollama or another API), with Glow Free and the AI on this device as backup." },
+  keys: { providers: ["gemini", "groq", "mistral", "openrouter", "custom", "ollama"], note: "Only your own keys (Gemini, Groq, Mistral, OpenRouter, Ollama or another API), with Glow Free and the AI on this device as backup." },
   device: { providers: [], note: "Free, unlimited and private: only the AI on this device answers (Glow Offline or Chrome's built-in AI) and nothing you type leaves the device. These models are smaller than cloud AI." },
 };
 const ALWAYS_AVAILABLE_PROVIDERS = ["demo", "local", "chrome"];
@@ -246,6 +252,7 @@ function loadState() {
       openrouterKey: "",
       geminiKey: "",
       groqKey: "",
+      mistralKey: "",
       showPaid: false,
       ollamaUrl: "http://localhost:11434",
       customUrl: "",
@@ -466,7 +473,7 @@ function providerConfig(provider) {
 
 /* ================= Glow Offline: AI on this device (../shared/glow-offline-ai.js) ================= */
 // Providers that need the internet. Without it, a downloaded Glow Offline model answers instead.
-const NETWORK_PROVIDERS = new Set(["puter", "puterimg", "putervid", "free", "pollen", "openrouter", "custom", "gemini", "groq"]);
+const NETWORK_PROVIDERS = new Set(["puter", "puterimg", "putervid", "free", "pollen", "openrouter", "custom", "gemini", "groq", "mistral"]);
 function offlineModelOptions() {
   if (!window.GlowOfflineAI) return [];
   return window.GlowOfflineAI.downloaded().map((m) => ({
@@ -950,11 +957,12 @@ async function loadModels() {
   for (const keyed of KEY_PROVIDERS) {
     if (!s[keyed.setting]) continue;
     jobs.push(fetchJson(`${keyed.base}/models`, { Authorization: `Bearer ${s[keyed.setting]}` }).then((data) => {
-      const ids = (data.data || []).map((m) => String(m.id || "").replace(/^models\//, "")).filter((id) => id && !keyed.skip.test(id));
-      ids.sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
+      let ids = (data.data || []).map((m) => String(m.id || "").replace(/^models\//, "")).filter((id) => id && !keyed.skip.test(id));
+      if (keyed.only && ids.some((id) => keyed.only.test(id))) ids = ids.filter((id) => keyed.only.test(id));
+      ids = [...new Set(ids)].sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
       for (const id of ids) list.push({ value: `${keyed.id}::${id}`, label: id, short: id, group: keyed.group });
-      status.push(`${ids.length} ${keyed.id === "gemini" ? "Gemini" : "Groq"}`);
-    }).catch(() => status.push(`${keyed.id === "gemini" ? "Gemini" : "Groq"} key not accepted`)));
+      status.push(`${ids.length} ${keyed.name}`);
+    }).catch(() => status.push(`${keyed.name} key not accepted`)));
   }
 
   if (s.customUrl) {
@@ -1111,17 +1119,29 @@ async function streamReply(modelValue, system, messages, onText, conv = null) {
     // Used-up Puter allowance: rest Puter and let the backup answer this same message, with no warning.
     // This also covers a request that was already on its way when another one found the allowance empty
     // (Arena, Council, a second Glow window), so the backup is asked directly instead of Puter again.
-    if (puterAllowanceError(modelValue, error)) {
-      restPuterAllowance();
-      const backup = allowanceBackupModel().value;
-      failedModel = backup;
-      try {
-        onText("");
-        reply = await streamProvider(backup, system, messages, onText, usage);
-        answeredBy = backup;
-        failure = null;
-      } catch (retryError) {
-        failure = retryError;
+    // A free key that ran into its own limit hands over to your next free key the same way.
+    const allowanceGone = puterAllowanceError(modelValue, error);
+    const freeKeyTired = !allowanceGone && error && error.name !== "AbortError" && isFreeKeyModel(failedModel) && FREE_KEY_LIMIT.test(errorText(error));
+    if (allowanceGone || freeKeyTired) {
+      if (allowanceGone) restPuterAllowance();
+      // (While Puter rests, the failed model already reads as the first backup, so nothing is skipped then.)
+      const tried = new Set(freeKeyTired ? [failedModel] : []);
+      const tiredProvider = freeKeyTired ? splitModel(failedModel).provider : "";
+      for (const backupModel of allowanceBackupModels()) {
+        const backup = backupModel.value;
+        if (tried.has(backup) || (tiredProvider && splitModel(backup).provider === tiredProvider)) continue;
+        tried.add(backup);
+        failedModel = backup;
+        try {
+          onText("");
+          reply = await streamProvider(backup, system, messages, onText, usage);
+          answeredBy = backup;
+          failure = null;
+          break;
+        } catch (retryError) {
+          failure = retryError;
+          if (retryError && retryError.name === "AbortError") break; // ■ Stop
+        }
       }
     }
     if (failure) {
@@ -1895,14 +1915,37 @@ async function streamAssistant(model, system, history, who, css, view = (text) =
   }
 }
 const ALLOWANCE_GONE = /allowance is used up/i;
-// Best model that needs no Puter allowance: your own free Gemini key, then Groq, then Glow Free.
-function allowanceBackupModel() {
-  const prefer = [/^gemini::gemini-[\d.]+-flash(?!-lite)/, /^gemini::gemini-[\d.]+-flash-lite/, /^groq::(openai\/gpt-oss-120b|moonshotai\/kimi|llama-3\.3-70b)/, /^groq::/];
-  for (const pattern of prefer) {
-    const match = models.find((m) => pattern.test(m.value));
-    if (match) return match;
+// Models that need no Puter allowance, best first: one from each of your free keys (Gemini, Groq, Mistral,
+// OpenRouter's free models; each has its own daily limit, so together they last much longer), then Glow Free.
+const BACKUP_PREFERENCES = [
+  [/^gemini::gemini-[\d.]+-flash(?!-lite)/, /^gemini::gemini-[\d.]+-flash-lite/],
+  [/^groq::(openai\/gpt-oss-120b|moonshotai\/kimi|llama-3\.3-70b)/, /^groq::/],
+  [/^mistral::mistral-medium-latest$/, /^mistral::mistral-large-latest$/, /^mistral::mistral-small-latest$/, /^mistral::/],
+];
+function allowanceBackupModels() {
+  const chain = [];
+  for (const patterns of BACKUP_PREFERENCES) {
+    for (const pattern of patterns) {
+      const match = models.find((m) => pattern.test(m.value));
+      if (match) {
+        chain.push(match);
+        break;
+      }
+    }
   }
-  return FREE_MODEL;
+  const openrouterFree = models.find((m) => m.group === "OpenRouter: free models");
+  if (openrouterFree) chain.push(openrouterFree);
+  chain.push(FREE_MODEL);
+  return chain;
+}
+function allowanceBackupModel() {
+  return allowanceBackupModels()[0];
+}
+// A free key that hit its own limit (or isn't accepted any more): the next free key answers instead.
+const FREE_KEY_LIMIT = /rate.?limit|too many|quota|exceeded|limit reached|capacity|overloaded|busy|429|401|403|unauthori[sz]ed|invalid.*key|key not/i;
+function isFreeKeyModel(modelValue) {
+  const { provider } = splitModel(modelValue || "");
+  return KEY_PROVIDERS.some((p) => p.id === provider) || modelValue === FREE_MODEL.value || /^openrouter::.*:free$/.test(modelValue || "");
 }
 async function sendChat(text) {
   current.model = $("chat-model").value;
@@ -2540,6 +2583,7 @@ function openSettings() {
   $("set-openrouter").value = s.openrouterKey;
   $("set-gemini").value = s.geminiKey || "";
   $("set-groq").value = s.groqKey || "";
+  $("set-mistral").value = s.mistralKey || "";
   $("set-paid").checked = s.showPaid;
   $("set-ollama").value = s.ollamaUrl;
   $("set-custom-url").value = s.customUrl;
@@ -2566,6 +2610,7 @@ async function saveSettings() {
     openrouterKey: $("set-openrouter").value.trim(),
     geminiKey: $("set-gemini").value.trim(),
     groqKey: $("set-groq").value.trim(),
+    mistralKey: $("set-mistral").value.trim(),
     showPaid: $("set-paid").checked,
     ollamaUrl: $("set-ollama").value.trim() || "http://localhost:11434",
     customUrl: $("set-custom-url").value.trim(),
@@ -5640,7 +5685,9 @@ async function selfTest() {
   if (!models.some((m) => m.value === FREE_MODEL.value)) models = [...models, FREE_MODEL]; // the live app always lists Glow Free
   // The sandbox has no internet, so the offline demo agent stands in for the backup model here.
   const realBackup = allowanceBackupModel;
+  const realBackups = allowanceBackupModels;
   allowanceBackupModel = () => ({ value: "demo::demo", label: "Demo", short: "Demo" });
+  allowanceBackupModels = () => [allowanceBackupModel()];
   await sendChat("Again please");
   const quotaLast = current.messages[current.messages.length - 1] || {};
   expect("glow ai: used-up allowance: the chosen model stays selected", current.model === quotaModel && $("chat-model").value === quotaModel);
@@ -5669,10 +5716,33 @@ async function selfTest() {
   expect("images: a used-up allowance gets a plain message about pictures, not chat advice",
     /Pictures use your free Puter allowance/.test(mediaErrorText({ error: { code: "insufficient_funds", message: "Insufficient funds" } }, "image")));
   allowanceBackupModel = realBackup;
+  allowanceBackupModels = realBackups;
   restPuterAllowance(false);
   const modelsWithKeys = models;
   models = [...modelsWithKeys, { value: "groq::llama-3.3-70b-versatile", label: "llama", group: "Groq" }, { value: "gemini::gemini-2.5-flash", label: "flash", group: "Gemini" }];
   expect("glow ai: your own free Gemini key is the first backup when the allowance runs out", allowanceBackupModel().value === "gemini::gemini-2.5-flash");
+  models = [...models, { value: "mistral::mistral-small-latest", label: "small", group: "Mistral" }, { value: "mistral::mistral-medium-latest", label: "medium", group: "Mistral" },
+    { value: "openrouter::meta-llama/llama-3.3-70b-instruct:free", label: "llama free", group: "OpenRouter: free models" }];
+  expect("free keys: every free key is a backup in turn (Gemini, Groq, Mistral, OpenRouter free, then Glow Free)",
+    allowanceBackupModels().map((m) => m.value).join(" ") === "gemini::gemini-2.5-flash groq::llama-3.3-70b-versatile mistral::mistral-medium-latest openrouter::meta-llama/llama-3.3-70b-instruct:free " + FREE_MODEL.value);
+  expect("free keys: Mistral is a free-key provider that answers browsers directly", providerConfig("mistral").base === MISTRAL_URL && NETWORK_PROVIDERS.has("mistral")
+    && AI_SERVICES.keys.providers.includes("mistral") && !!$("set-mistral"));
+  const realStreamProvider = streamProvider;
+  const handoffCalls = [];
+  streamProvider = async (modelValue, sys, msgs, onText) => {
+    handoffCalls.push(modelValue);
+    if (modelValue.startsWith("groq::") || modelValue.startsWith("gemini::")) throw new Error("Rate limit reached for this model. Please try again in 20 minutes.");
+    onText(`answer from ${modelValue}`);
+    return `answer from ${modelValue}`;
+  };
+  let handoffReply = "";
+  try {
+    handoffReply = await streamReply("groq::llama-3.3-70b-versatile", "Be brief.", [{ role: "user", content: "hi" }], () => {});
+  } finally {
+    streamProvider = realStreamProvider;
+  }
+  expect("free keys: a key that hit its own limit hands over to the next free key", handoffReply === "answer from mistral::mistral-medium-latest"
+    && handoffCalls.join(" ") === "groq::llama-3.3-70b-versatile gemini::gemini-2.5-flash mistral::mistral-medium-latest" && lastAnswerModel === "mistral::mistral-medium-latest");
   models = modelsBeforeQuota;
   selectChatModel(quotaModel, false);
 

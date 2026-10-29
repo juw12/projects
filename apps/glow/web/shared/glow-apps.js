@@ -10,7 +10,7 @@
   const ROOT = new URL("../", scriptUrl); // .../glow/
   // The Glow family version. Bump it together with ../version.json for every release:
   // an older copy of this script then sees the newer version.json and offers "Update now".
-  const GLOW_VERSION = "1.25.1";
+  const GLOW_VERSION = "1.26.0";
   const LIVE_ROOT = "https://juw12.github.io/projects/glow/";
   const APK_URL = "https://github.com/juw12/projects/releases/download/glow-android/Glow-android.apk";
   const embedded = (function () {
@@ -565,7 +565,7 @@ html.glow-room-open .glow-widget-bubble,html.glow-room-open .glow-widget-panel{d
 
   // ---------------------------------------------------------------------------------------------
   // Updates you can see and that install by themselves.
-  // - A version button sits in the header of every Glow app: "✓ v1.25.1" when up to date (click to
+  // - A version button sits in the header of every Glow app: "✓ v1.26.0" when up to date (click to
   //   check), a bright "⬆ Update to …" when a new version is ready (click to update). It never pushes
   //   the header off screen: on narrower windows it shows just its icon (an update still says
   //   "⬆ Update"), and when even that doesn't fit it steps aside for the orange dot on the Glow apps button.

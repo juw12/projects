@@ -234,10 +234,11 @@
     <input type="password" id="set-openrouter" placeholder="sk-or-…" autocomplete="off">
     <label class="note"><input type="checkbox" id="set-paid"> Also show paid models (billed to your OpenRouter credit)</label>
 
-    <h4>1b. Free keys with big daily limits: Google Gemini and Groq</h4>
-    <p class="note">No card needed. Gemini: get a key at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a> (Gemini Flash, Flash-Lite and more; your limits are shown in AI Studio). Groq: <a href="https://console.groq.com/keys" target="_blank" rel="noopener">console.groq.com/keys</a> (very fast GPT-OSS 120B, Llama 3.3 70B, Kimi; about 1,000 requests and 200,000 tokens a day per model). When your Puter allowance runs out, Glow uses these before Glow Free.</p>
+    <h4>1b. Free keys with big daily limits: Google Gemini, Groq and Mistral</h4>
+    <p class="note">No card needed. Gemini: get a key at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a> (Gemini Flash, Flash-Lite and more; your limits are shown in AI Studio). Groq: <a href="https://console.groq.com/keys" target="_blank" rel="noopener">console.groq.com/keys</a> (very fast GPT-OSS 120B, Llama 3.3 70B, Kimi; about 1,000 requests and 200,000 tokens a day per model). Mistral: <a href="https://console.mistral.ai/api-keys" target="_blank" rel="noopener">console.mistral.ai/api-keys</a> (free Experiment plan, no card: Mistral Medium, Large, Small and Codestral; your limits are shown in the console). Each key has its own limit, so adding all three gives you the most free AI: when your Puter allowance runs out, or one key hits its limit, Glow moves on to the next free key by itself, then Glow Free.</p>
     <input type="password" id="set-gemini" placeholder="Gemini API key (AIza…)" autocomplete="off">
     <input type="password" id="set-groq" placeholder="Groq API key (gsk_…)" autocomplete="off" style="margin-top:6px">
+    <input type="password" id="set-mistral" placeholder="Mistral API key" autocomplete="off" style="margin-top:6px">
 
     <h4>2. Ollama: private models on your own computer</h4>
     <p class="note">Install Ollama, then allow this site: <code>OLLAMA_ORIGINS=https://juw12.github.io ollama serve</code></p>

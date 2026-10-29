@@ -100,7 +100,7 @@ class GlowInAppTests(unittest.TestCase):
         # The rest is kept in memory too (full browser storage), and a request already on its way when the
         # allowance ran out is answered by the backup instead of showing the warning.
         for needle in ("let puterRestUntil = 0;", "Math.max(puterRestUntil, saved)", "function puterAllowanceError",
-                       "const backup = allowanceBackupModel().value;", "function mediaErrorText"):
+                       "for (const backupModel of allowanceBackupModels())", "function mediaErrorText"):
             self.assertIn(needle, chat)
         self.assertNotIn("&& !puterAllowanceResting();\n    if (quietRetry)", chat)
 
