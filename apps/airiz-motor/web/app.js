@@ -50,6 +50,12 @@
   // Listeners for raw device output (Phone remote setup reads the bridge PIN).
   const outputListeners = new Set();
 
+  // 1.10.0 voice link (audio-ui.js): the filter takes the AIRIZ voice lines out of the console
+  // text; a lease gives one voice job the console for a few seconds (its output goes to its tap
+  // and other commands wait). Stop motor always works: it ends the lease first.
+  let incomingFilter = null;
+  let serialLease = null;
+
   // ========================================================================
   // DOM ELEMENTS
   // ========================================================================
@@ -331,6 +337,7 @@
 
   async function disconnect() {
     cancelAutoReconnect();
+    if (serialLease) serialLease.release();
     state.connected = false;
     state.demoMode = false;
     state.macroStop = true;
@@ -432,32 +439,7 @@
           if (done) break;
             if (value) {
               received = true;
-              const text = decoder.decode(value);
-              for (const listener of outputListeners) {
-                try { listener(text); } catch (listenerError) { console.error(listenerError); }
-              }
-
-              if (state.capture.active) {
-                state.capture.chunks.push(text);
-                const probe = state.capture.tail + text;
-                if (probe.indexOf(state.capture.sentinel) !== -1) {
-                  state.capture.active = false;
-                  state.capture.done = true;
-                  if (state.capture.resolve) {
-                    state.capture.resolve();
-                    state.capture.resolve = null;
-                  }
-                } else {
-                  state.capture.tail = probe.slice(-(state.capture.sentinel.length - 1));
-                }
-              } else if (!state.outputMuted) {
-                appendToConsole(text, 'response');
-              }
-
-              // If in demo mode, also add to demo buffer for wait pattern matching
-              if (state.demoMode) {
-                state.demoBuffer += text;
-              }
+              handleIncomingText(decoder.decode(value, { stream: true }));
             }
         }
       } catch (error) {
@@ -485,6 +467,98 @@
     }
     if (state.readLoopActive && state.port === port && state.connected && !state.demoMode) {
       handleDeviceLost(port, port && port.readable ? 'repeated read errors' : 'the serial port closed');
+    }
+  }
+
+  // Everything the AIRIZ prints goes through here (and the demo device's answers too).
+  function handleIncomingText(rawText) {
+    let text = rawText;
+    if (incomingFilter) {
+      try {
+        text = incomingFilter(text);
+      } catch (filterError) {
+        console.error(filterError);
+      }
+    }
+    if (!text) return;
+    if (serialLease && serialLease.tap) {
+      try {
+        serialLease.tap(text);
+      } catch (tapError) {
+        console.error(tapError);
+      }
+      return;
+    }
+    for (const listener of outputListeners) {
+      try { listener(text); } catch (listenerError) { console.error(listenerError); }
+    }
+
+    if (state.capture.active) {
+      state.capture.chunks.push(text);
+      const probe = state.capture.tail + text;
+      if (probe.indexOf(state.capture.sentinel) !== -1) {
+        state.capture.active = false;
+        state.capture.done = true;
+        if (state.capture.resolve) {
+          state.capture.resolve();
+          state.capture.resolve = null;
+        }
+      } else {
+        state.capture.tail = probe.slice(-(state.capture.sentinel.length - 1));
+      }
+    } else if (!state.outputMuted) {
+      appendToConsole(text, 'response');
+    }
+
+    // If in demo mode, also add to demo buffer for wait pattern matching
+    if (state.demoMode) {
+      state.demoBuffer += text;
+    }
+  }
+
+  // ========================================================================
+  // VOICE LINK LEASE (1.10.0)
+  // ========================================================================
+
+  function acquireSerialLease(options) {
+    const settings = options || {};
+    if (serialLease || !state.connected || state.updatePending) return null;
+    const lease = {
+      owner: String(settings.owner || 'voice'),
+      tap: null,
+      abort: typeof settings.abort === 'function' ? settings.abort : null,
+      released: false,
+      release() {
+        if (serialLease === lease) serialLease = null;
+        lease.released = true;
+        lease.tap = null;
+      }
+    };
+    serialLease = lease;
+    return lease;
+  }
+
+  async function waitForLease(timeoutMs) {
+    for (let waited = 0; serialLease && waited < timeoutMs; waited += 50) await sleep(50);
+    return !serialLease;
+  }
+
+  // Raw text to the AIRIZ (no line end added), only for the job that holds the lease.
+  async function writeRaw(text, lease) {
+    if (!lease || lease !== serialLease) return false;
+    if (!state.connected || state.demoMode || !state.port || !state.port.writable) return false;
+    for (let waited = 0; state.port.writable.locked && waited < 2000; waited += 20) await sleep(20);
+    if (!state.port || !state.port.writable || state.port.writable.locked) return false;
+    let writer;
+    try {
+      writer = state.port.writable.getWriter();
+      await writer.write(new TextEncoder().encode(String(text)));
+      return true;
+    } catch (error) {
+      logToConsole(`Send error: ${error.message}`, 'error');
+      return false;
+    } finally {
+      if (writer) writer.releaseLock();
     }
   }
 
@@ -638,14 +712,29 @@
   
   async function sendLine(line, options) {
     const quiet = !!(options && options.quiet);
+    // 1.10.0: lines the voice link sends for itself (they can contain "diag audio record")
+    // are not user commands: no audio auto-save, no PTZ/command listeners.
+    const internal = !!(options && (options.lease || options.internal));
     if (state.updatePending) return false;
+    if (!internal && /\bdiag\s+audio\s+(record|play)\b/i.test(line) && window.AirizVoice && window.AirizVoice.state.listen !== 'off') {
+      logToConsole('The AIRIZ microphone is in use by Listen - stop Listen first, then record or play.', 'warning');
+      return false;
+    }
+    if (serialLease && !(options && options.lease === serialLease)) {
+      // 1.10.0: a voice message is being sent to the AIRIZ: wait a moment, then give up.
+      const wait = options && Number.isFinite(options.leaseWaitMs) ? options.leaseWaitMs : 2500;
+      if (!(await waitForLease(wait))) {
+        if (!quiet) logToConsole('The AIRIZ is busy with a voice message for a moment - command not sent. Stop motor still works.', 'warning');
+        return false;
+      }
+    }
     if (!state.connected) {
       logToConsole('Not connected', 'error');
       return false;
     }
     if (state.demoMode) {
       if (!quiet) appendToConsole(`> ${line}`, 'command');
-      notifyCommandSent(line);
+      if (!internal) notifyCommandSent(line);
       setTimeout(() => {
         if (state.demoMode && state.connected) simulateDemoResponse(line);
       }, 100);
@@ -674,9 +763,9 @@
     } finally {
       if (writer) writer.releaseLock();
     }
-    notifyCommandSent(line);
-    if (/\bdiag\s+audio\s+record\b/i.test(line)) {
-      autoSaveDeviceRecording(line);
+    if (!internal) {
+      notifyCommandSent(line);
+      if (/\bdiag\s+audio\s+record\b/i.test(line)) autoSaveDeviceRecording(line);
     }
     return true;
   }
@@ -741,11 +830,7 @@
     // Always end with prompt
     response += '~ #\r\n';
     
-    for (const listener of outputListeners) {
-      try { listener(response); } catch (listenerError) { console.error(listenerError); }
-    }
-    appendToConsole(response, 'response');
-    state.demoBuffer += response;
+    handleIncomingText(response);
   }
 
   // ========================================================================
@@ -1799,6 +1884,16 @@
   async function stopMotor() {
     if (!state.connected) return false;
     state.macroStop = true;
+    if (serialLease) {
+      // 1.10.0: end a voice job first (it interrupts the AIRIZ with Ctrl-C), then stop.
+      const lease = serialLease;
+      try {
+        if (lease.abort) await Promise.race([lease.abort('stop'), sleep(1500)]);
+      } catch (abortError) {
+        console.error(abortError);
+      }
+      lease.release();
+    }
     const command = state.port && state.port.stopCommand ? state.port.stopCommand : MOTOR_STOP_USB;
     return sendLine(command);
   }
@@ -3658,7 +3753,9 @@
         audioCaptureActive: state.capture.active,
         reconnecting: !!state.autoReconnect && !state.connected,
         // 1.9.1: about to restart to install an update (sharing comes back with the same code)
-        updating: !!state.updatePending
+        updating: !!state.updatePending,
+        // 1.10.0: a voice message holds the console for a few seconds
+        voiceBusy: !!serialLease
       });
     },
     // 1.9.0: after sleep, write one empty line so a dead USB port shows up at once
@@ -3669,6 +3766,17 @@
     },
     sendCommand: sendLine,
     stopMotor,
+    // 1.10.0 voice link
+    acquireSerial: acquireSerialLease,
+    writeRaw,
+    setIncomingFilter(filter) {
+      incomingFilter = typeof filter === 'function' ? filter : null;
+    },
+    injectDemoOutput(text) {
+      if (!state.demoMode || !state.connected) return false;
+      handleIncomingText(String(text));
+      return true;
+    },
     setOutputMuted(muted) {
       state.outputMuted = !!muted;
     },
@@ -3686,7 +3794,7 @@
       await openSerialPort(port, state.baudRate);
     },
     async prepareForUpdate() {
-      if (state.macroRunning || state.capture.active || cameraState.sessionActive
+      if (state.macroRunning || state.capture.active || cameraState.sessionActive || serialLease
           || (cameraState.recorder && cameraState.recorder.state !== 'inactive')) {
         return { ready: false };
       }

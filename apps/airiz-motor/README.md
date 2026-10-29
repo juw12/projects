@@ -24,7 +24,7 @@ A downloadable Windows x64 desktop edition now bundles this entire console local
 It is not a website shortcut and does not require Chrome, Edge, Node or Python to run.
 Installer and portable preview builds are available at:
 
-https://github.com/juw12/projects/releases/tag/airiz-desktop-v1.9.1
+https://github.com/juw12/projects/releases/tag/airiz-desktop-v1.10.0
 
 The initial binaries are unsigned. The packaged app was tested with demo/synthetic
 hardware; real-device bench validation is still required. Browser and mobile-web
@@ -48,6 +48,14 @@ sleeping, then puts the owner's power settings back when sharing stops, the app 
 crash, at the next start. Phones keep reconnecting until the PC stops sharing (no 30-minute limit),
 also after the phone page reloads or the console restarts for an update, with the same code. Up to
 20 phones can control through the relay (was 4).
+
+**Talk & listen (1.10.0):** a new card on Motor control. *Hold to talk* on the PC, or on a phone that
+controls the AIRIZ by code, records up to 15 s; the message is sent over the existing USB serial link
+(8 kHz IMA ADPCM text, checked with MD5) and plays on the AIRIZ speaker a few seconds later. *Listen*
+streams the AIRIZ microphone back in 2-second clips, about 4 s behind live. Phones go through the PC
+that has the AIRIZ on USB. Stop motor still works and also interrupts a message being sent. Tested
+against a simulated AIRIZ shell (busybox), not yet on real AIRIZ hardware; the sound format and the
+record/play commands can be changed under *Voice settings*.
 
 A complete, production-quality, dependency-free browser app that replaces the TeraTerm/CWD serial workflow for AIRIZ device motor testing.
 

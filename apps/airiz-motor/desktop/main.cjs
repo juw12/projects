@@ -176,7 +176,8 @@ function configurePermissions(appSession) {
         type: 'question', title: 'AIRIZ device media access',
         message: 'Allow access to ' + kinds + '?',
         detail: 'Media stays in this local console unless you explicitly save or export it, '
-          + 'or choose Camera → Share to phone (live view for people with the link).',
+          + 'or choose Camera → Share to phone (live view for people with the link). '
+          + 'The microphone is only used while you hold Hold to talk: that message goes to the AIRIZ speaker.',
         buttons: ['Deny', 'Allow'], defaultId: 0, cancelId: 0, noLink: true
       });
       if (result.response === 1) {

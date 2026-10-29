@@ -164,6 +164,42 @@ async function record(name) {
   await page.locator('#btn-camera-stop').click();
   await record('Camera preview works with synthetic device; all workspaces load and the removed Sound FX tab is gone');
 
+  // 1.10.0: Talk & listen in the packaged app with the demo AIRIZ (no microphone or hardware, muted).
+  await page.locator('#tab-controller').click();
+  await page.waitForFunction(() => window.AirizVoice && window.AirizVoice.state.mode === 'demo', null, { timeout: 15000 });
+  await page.evaluate(() => {
+    window.AirizVoiceDemoSpeed = 8;
+    for (const [id, value, type] of [['voice-speaker', '0', 'change'], ['voice-volume', '0', 'input']]) {
+      const input = document.getElementById(id);
+      input.value = value;
+      input.dispatchEvent(new Event(type));
+    }
+    const rate = 48000;
+    const tone = new Float32Array(rate);
+    for (let i = 0; i < tone.length; i++) {
+      tone[i] = 0.2 * Math.sin(2 * Math.PI * 300 * i / rate) * Math.sin(Math.PI * i / tone.length);
+    }
+    window.AirizVoice.send(window.AirizVoice.buildMessage(tone, rate));
+  });
+  await page.waitForFunction(() => document.getElementById('voice-status').textContent === 'Played on the AIRIZ.', null, { timeout: 30000 });
+  // A PC without any sound device (CI runner) cannot create an audio output; Listen needs one.
+  const audioOutput = await page.evaluate(() => {
+    try {
+      const probe = new (window.AudioContext || window.webkitAudioContext)();
+      probe.close();
+      return true;
+    } catch (error) {
+      return false;
+    }
+  });
+  if (audioOutput) {
+    await page.locator('#voice-listen').click();
+    await page.waitForFunction(() => window.AirizVoice.state.frames.framesPlayed > 5, null, { timeout: 30000 });
+    await page.locator('#voice-listen').click();
+    await page.waitForFunction(() => window.AirizVoice.state.listen === 'off' && !window.AirizVoice.state.listening, null, { timeout: 15000 });
+  }
+  await record('Talk & listen works with the demo AIRIZ: a message plays' + (audioOutput ? ' and Listen plays the demo microphone' : ' (no sound device: Listen skipped)'));
+
   await page.locator('#tab-controller').click();
   const logPath = path.join(profile, 'native-export-check.txt');
   await app.evaluate(({ session }, destination) => {

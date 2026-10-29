@@ -1036,7 +1036,75 @@
     "While sharing, the Windows app keeps the PC awake, also on battery, and closing the lid does not stop the share. Your own power settings come back when you stop sharing or close the app.": "分享期間，Windows App 會讓 PC 保持喚醒（使用電池時也一樣），闔上筆電也不會中斷分享。停止分享或關閉 App 後，會恢復您原本的電源設定。",
     "If the PC still sleeps (Sleep or power button) or the network drops, the code stays the same and the phones keep reconnecting by themselves until you stop sharing, also after the console restarts for an update or a phone reloads the page. A dropped AIRIZ USB link reconnects by itself too.": "若 PC 仍進入睡眠（按下睡眠或電源按鈕）或網路中斷，代碼不變，手機會持續自動重新連線，直到您停止分享；主控台為了更新而重新啟動，或手機重新載入頁面後也一樣。AIRIZ 的 USB 連線中斷也會自動重新連線。",
     "Lid-proof sharing, phones never give up, more phones (1.9.1)": "闔上筆電不中斷分享、手機持續重連、支援更多手機（1.9.1）",
-    "While sharing, the Windows app keeps the PC awake on battery too and closing the lid no longer stops the share; your own power settings come back afterwards. Phones keep reconnecting until you stop sharing (no more 30-minute limit), also after a page reload or an app update, with the same code. Up to 20 phones can control at once (was 4).": "分享期間，Windows App 在使用電池時也會讓 PC 保持喚醒，闔上筆電也不再中斷分享；之後會恢復您原本的電源設定。手機會持續重新連線直到您停止分享（不再有 30 分鐘限制），頁面重新載入或 App 更新後也會以同一組代碼回來。最多 20 支手機可同時控制（原本為 4 支）。"
+    "While sharing, the Windows app keeps the PC awake on battery too and closing the lid no longer stops the share; your own power settings come back afterwards. Phones keep reconnecting until you stop sharing (no more 30-minute limit), also after a page reload or an app update, with the same code. Up to 20 phones can control at once (was 4).": "分享期間，Windows App 在使用電池時也會讓 PC 保持喚醒，闔上筆電也不再中斷分享；之後會恢復您原本的電源設定。手機會持續重新連線直到您停止分享（不再有 30 分鐘限制），頁面重新載入或 App 更新後也會以同一組代碼回來。最多 20 支手機可同時控制（原本為 4 支）。",
+    "Talk & listen": "對講與收聽",
+    "AIRIZ SPEAKER / MIC": "AIRIZ 喇叭 / 麥克風",
+    "Hold to talk": "按住說話",
+    "Release to send": "放開即送出",
+    "Listen": "收聽",
+    "Stop listening": "停止收聽",
+    "Connect the AIRIZ by USB, or control it by code, to talk and listen.": "以 USB 連接 AIRIZ，或以代碼控制它，就能對講與收聽。",
+    "Play again on the AIRIZ": "在 AIRIZ 再播一次",
+    "Listen volume": "收聽音量",
+    "Hold the button and speak (up to 15 s), release to send; slide away from the button to cancel. The AIRIZ plays it a few seconds later: its USB link is slow, so the message is sent first and then played. Listen plays the AIRIZ microphone a few seconds behind live.": "按住按鈕說話（最長 15 秒），放開即送出；手指滑離按鈕可取消。AIRIZ 會在幾秒後播放：它的 USB 連線很慢，所以訊息會先傳完再播放。「收聽」會播放 AIRIZ 麥克風的聲音，比即時慢幾秒。",
+    "Voice settings (this PC)": "語音設定（這台 PC）",
+    "AIRIZ speaker volume": "AIRIZ 喇叭音量",
+    "AIRIZ microphone gain": "AIRIZ 麥克風增益",
+    "Listen clip length (s)": "收聽片段長度（秒）",
+    "Sound format on the AIRIZ": "AIRIZ 上的聲音格式",
+    "16 kHz stereo (like the test WAV)": "16 kHz 立體聲（同測試 WAV）",
+    "16 kHz mono (faster)": "16 kHz 單聲道（較快）",
+    "8 kHz mono (fastest)": "8 kHz 單聲道（最快）",
+    "Record command": "錄音指令",
+    "Play command": "播放指令",
+    "Phones that control the AIRIZ by code talk and listen through this PC. If your AIRIZ does not play or record with these defaults, change the format or the commands here.": "以代碼控制 AIRIZ 的手機會透過這台 PC 對講與收聽。如果您的 AIRIZ 用這些預設值無法播放或錄音，請在這裡更改格式或指令。",
+    "Waiting for the PC…": "等待 PC…",
+    "The PC runs an older AIRIZ Console. Update it to 1.10 or later for talk and listen.": "PC 執行的是舊版 AIRIZ Console。請更新到 1.10 以上版本才能對講與收聽。",
+    "Talk and listen need the AIRIZ on USB (on this PC, or on the PC you control by code).": "對講與收聽需要以 USB 連接的 AIRIZ（連在這台 PC，或連在您以代碼控制的 PC）。",
+    "This browser cannot play sound here.": "此瀏覽器無法在這裡播放聲音。",
+    "This browser cannot use the microphone here (it needs https or the Windows app).": "此瀏覽器無法在這裡使用麥克風（需要 https 或 Windows App）。",
+    "Microphone ready. Hold the button while you speak.": "麥克風已就緒。說話時請按住按鈕。",
+    "Cancelled - nothing was sent.": "已取消，沒有送出任何內容。",
+    "Too short. Hold the button while you speak.": "太短了。說話時請按住按鈕。",
+    "Nothing to send - no voice was heard. Check the microphone.": "沒有可送出的內容：沒有收到聲音。請檢查麥克風。",
+    "Sending the message to the PC…": "正在把訊息傳送到 PC…",
+    "Waiting for the AIRIZ…": "等待 AIRIZ…",
+    "Pausing listening for the message…": "暫停收聽以播放訊息…",
+    "Installing the voice helper on the AIRIZ (first time after power-up)…": "正在 AIRIZ 上安裝語音小工具（開機後第一次）…",
+    "The AIRIZ is preparing the sound…": "AIRIZ 正在準備聲音…",
+    "Playing on the AIRIZ speaker…": "正在 AIRIZ 喇叭播放…",
+    "Played on the AIRIZ.": "已在 AIRIZ 播放。",
+    "The AIRIZ is busy with another message. Try again in a moment.": "AIRIZ 正在處理另一則訊息，請稍後再試。",
+    "The message could not be played.": "無法播放這則訊息。",
+    "The AIRIZ could not keep up and skipped a clip.": "AIRIZ 來不及處理，跳過了一個片段。",
+    "The AIRIZ could not record.": "AIRIZ 無法錄音。",
+    "The AIRIZ stopped listening (its recorder failed or time ran out).": "AIRIZ 已停止收聽（錄音失敗或時間已到）。",
+    "The AIRIZ console is busy. Try again in a moment.": "AIRIZ 主控台忙碌中，請稍後再試。",
+    "Stopped.": "已停止。",
+    "The PC could not send to the AIRIZ.": "PC 無法傳送到 AIRIZ。",
+    "The AIRIZ did not answer in time.": "AIRIZ 沒有及時回應。",
+    "The AIRIZ did not receive the message correctly. Try again.": "AIRIZ 沒有正確收到訊息，請再試一次。",
+    "The AIRIZ could not build the sound file (awk or base64 failed).": "AIRIZ 無法產生聲音檔（awk 或 base64 失敗）。",
+    "Stopped (Stop motor was pressed).": "已停止（按下了停止馬達）。",
+    "No message to play again yet.": "還沒有可以再播一次的訊息。",
+    "The AIRIZ did not start listening. Its recorder log is /tmp/airiz/listen/rec.log.": "AIRIZ 沒有開始收聽。錄音記錄檔在 /tmp/airiz/listen/rec.log。",
+    "The PC has no AIRIZ on USB right now.": "PC 目前沒有以 USB 連接 AIRIZ。",
+    "The message was refused (bad size).": "訊息被拒絕（大小不正確）。",
+    "The message arrived incomplete. Try again.": "訊息不完整，請再試一次。",
+    "The message arrived damaged. Try again.": "訊息已損壞，請再試一次。",
+    "Ready. Hold to talk, or press Listen.": "就緒。按住說話，或按「收聽」。",
+    "Talk and listen are not available on the PC right now.": "PC 目前無法使用對講與收聽。",
+    "The PC cannot talk or listen (older version).": "PC 無法對講或收聽（舊版本）。",
+    "Not connected to the PC.": "未連線到 PC。",
+    "No answer from the PC about the message.": "PC 沒有回覆這則訊息的狀態。",
+    "Starting the AIRIZ microphone…": "正在啟動 AIRIZ 麥克風…",
+    "Listening stopped.": "已停止收聽。",
+    "Listening failed.": "收聽失敗。",
+    "This PC": "這台 PC",
+    "Microphone blocked. Allow the microphone for this page, then try again.": "麥克風被封鎖。請允許此頁面使用麥克風，然後再試一次。",
+    "The microphone could not start.": "麥克風無法啟動。",
+    "Talk & listen (1.10.0)": "對講與收聽（1.10.0）",
+    "Hold to talk on the PC, or on a phone that controls the AIRIZ by code: the message plays on the AIRIZ speaker a few seconds later. Listen plays the AIRIZ microphone about 4 s behind live. It all runs over the existing USB serial link; Stop motor still works and also stops a message that is being sent.": "在 PC 上，或在以代碼控制 AIRIZ 的手機上按住說話：訊息會在幾秒後從 AIRIZ 喇叭播放。「收聽」會播放 AIRIZ 麥克風的聲音，比即時慢約 4 秒。全部透過現有的 USB 序列連線運作；停止馬達仍然有效，也會停止正在傳送的訊息。"
   },
   "html": {
     "AIRIZDEVICE LAB": "AIRIZ<small>裝置實驗室</small>",
@@ -1126,7 +1194,11 @@
     "Ziris PTB team → Finish owner setup. The button uses your saved owner address or the one you copied; pasting it first also works.": "Ziris PTB 團隊 → <strong>完成負責人設定</strong>。按鈕會使用已儲存的負責人網址或剛複製的網址；也可以先貼上。",
     "If setup fails, your previous team settings are kept. Check Teams before retrying a timed-out request. Manual invite and resend controls remain under Advanced: personal invite or resend.": "設定失敗時會保留原團隊設定。重試逾時請求前請先查看 Teams。手動邀請及重傳控制仍保留在<strong>進階：個人邀請或重新傳送</strong>中。",
     "The PC operator presses Allow, or Allow & remember to let that phone in by itself next time (switch that off, or Forget a phone, under Remembered devices). Several phones can control at the same time; the PC can disconnect any of them, and a phone that drops right after a motor command triggers a motor stop.": "PC 操作者按 <strong>Allow</strong>，或按 <strong>Allow &amp; remember</strong>（允許並記住）讓該手機下次自動連入（可在「已記住的裝置」中關閉此功能，或按 <strong>Forget</strong> 忘記手機）。多支手機可同時控制；PC 可隨時中斷任何一支，若手機在送出馬達指令後斷線，會自動送出馬達停止。",
-    "Let a phone or another PC control this AIRIZ through this PC - no Bluetooth needed. On the other device open the AIRIZ console and type the code into Control by code. You decide who may control it.": "讓手機或另一台 PC 透過這台 PC 控制這台 AIRIZ - 不需藍牙。在另一台裝置開啟 AIRIZ 主控台，並在<strong>以代碼控制</strong>輸入代碼。由您決定誰可以控制。"
+    "Let a phone or another PC control this AIRIZ through this PC - no Bluetooth needed. On the other device open the AIRIZ console and type the code into Control by code. You decide who may control it.": "讓手機或另一台 PC 透過這台 PC 控制這台 AIRIZ - 不需藍牙。在另一台裝置開啟 AIRIZ 主控台，並在<strong>以代碼控制</strong>輸入代碼。由您決定誰可以控制。",
+    "Talk (Motor control → Talk & listen): hold Hold to talk and speak (up to 15 s), release to send; slide away from the button to cancel. The AIRIZ plays the message a few seconds later: its USB link (115,200 baud) is slow, so the whole message is sent first and then played. Play again on the AIRIZ repeats the last message.": "<strong>對講</strong>（馬達控制 → 對講與收聽）：按住<strong>按住說話</strong>並說話（最長 15 秒），放開即送出；手指滑離按鈕可取消。AIRIZ 會在幾秒後播放：它的 USB 連線（115,200 baud）很慢，所以整則訊息會先傳完再播放。<strong>在 AIRIZ 再播一次</strong>會重播上一則訊息。",
+    "Listen plays the AIRIZ microphone on this PC or phone, about 4 s behind live, with a short gap between 2-second clips. A message being sent pauses listening for a moment.": "<strong>收聽</strong>會在這台 PC 或手機上播放 AIRIZ 麥克風的聲音，比即時慢約 4 秒，每個 2 秒片段之間會有短暫空檔。傳送訊息時會暫停收聽一下。",
+    "Phones that control the AIRIZ by code talk and listen through the PC that has the AIRIZ on USB (that PC needs 1.10 or later). The first message after the AIRIZ powers up also installs a small voice helper (three scripts in /tmp/airiz, gone after a restart).": "以代碼控制 AIRIZ 的手機會透過以 USB 連接 AIRIZ 的 PC 對講與收聽（該 PC 需 1.10 以上版本）。AIRIZ 開機後的第一則訊息也會安裝一個小型語音小工具（<code>/tmp/airiz</code> 中的三個腳本，重新開機後就會消失）。",
+    "Stop motor always works and also stops a message that is being sent. If the AIRIZ does not play or record with the defaults, change the sound format or the commands under Voice settings.": "<strong>停止馬達</strong>隨時有效，也會停止正在傳送的訊息。如果 AIRIZ 用預設值無法播放或錄音，請在<em>語音設定</em>中更改聲音格式或指令。"
   },
   "patterns": [
     [
@@ -1828,6 +1900,34 @@
     [
       "^(.+?) Still trying once a minute \\(attempt (\\d+)\\)…$",
       "$1 每分鐘持續嘗試一次（第 $2 次）…"
+    ],
+    [
+      "^Recording… ([\\d.]+) s of (\\d+) s\\. Release to send\\.$",
+      "錄音中… $1 / $2 秒。放開即送出。"
+    ],
+    [
+      "^Sending to the AIRIZ (\\d+) % \\(about (\\d+) s\\)…$",
+      "正在傳送到 AIRIZ $1 %（約 $2 秒）…"
+    ],
+    [
+      "^Sending to the AIRIZ (\\d+) %…$",
+      "正在傳送到 AIRIZ $1 %…"
+    ],
+    [
+      "^The AIRIZ is preparing the sound \\(about (\\d+) s\\)…$",
+      "AIRIZ 正在準備聲音（約 $1 秒）…"
+    ],
+    [
+      "^The AIRIZ could not record: (.+)$",
+      "AIRIZ 無法錄音：$1"
+    ],
+    [
+      "^Listening to the AIRIZ - about (\\d+) s behind live, with a short gap between clips\\.$",
+      "正在收聽 AIRIZ：比即時慢約 $1 秒，片段之間會有短暫空檔。"
+    ],
+    [
+      "^(.+) sent a voice message to the AIRIZ\\.$",
+      "$1 傳送了一則語音訊息到 AIRIZ。"
     ]
   ]
 }
