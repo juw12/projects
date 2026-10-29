@@ -294,6 +294,7 @@ jobs:
           sleep 25
           xcrun simctl io "$DEVICE" screenshot dist/iphone-simulator.png
           grep -aE 'Vitals|VitalsPhone|Error|error' dist/iphone-console.log | head -n 60 || true
+          grep -aq 'Vitals: phone readings ok' dist/iphone-console.log || { echo "::error::The iPhone app could not read the phone (VitalsPhone plugin)"; exit 1; }
           xcrun simctl spawn "$DEVICE" launchctl list | grep -q io.github.juw12.vitals || { echo "::error::Vitals is not running in the simulator"; exit 1; }
       - name: Build the unsigned iPhone app (for free sideloading)
         run: |
