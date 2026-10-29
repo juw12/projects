@@ -27,6 +27,7 @@ encrypted.
 | **Look & feel** | Light, Dark or System theme in one tap from the top bar (the new theme grows out of the button), with live previews in **Settings → Appearance**. Motion is calm: rings, bars and figures animate when a page or month opens, never on every edit, and *reduce motion* turns it off. |
 | **Phone layout** | One tidy header row and a tab bar with a big **+** in the middle. **More** holds theme, language, Goals, Invest, You, Share and Settings. Dialogs open as bottom sheets you can drag down to close; toasts can be swiped away and never cover an open sheet. |
 | **Keyboard** | `N` add · `T` theme · `1`–`8` pages · `/` search the sheet · `?` lists every shortcut. |
+| **Updates** | Kitty checks for a new version when it opens, every 30 minutes, when you come back to it and when the connection returns. A toast, the bell and **Settings → Updates** say when one is ready; one tap updates in place, keeping your budgets, the page and month you were on. With *Install updates automatically* on (the default) it also updates itself the next time you switch away, never while a sheet or a half-typed field is open. Afterwards a short *What's new* shows the release notes in your language. The iPhone and Android apps load the live site, so they update the same way. |
 | **Languages** | English, Bahasa Indonesia, 简体中文 and Español. Picks your device language on first launch; switch any time from the welcome screen, the phone **More** sheet or **Settings → Preferences**. Dates and month names follow the language. |
 | **Share your result** | One tap turns your money animal into a 1080×1350 card in your language (native share sheet on phones, PNG download on desktop) with a link back to the quiz. |
 | **Share** | One link invites people to edit live. Shows presence ("2 online"), people and an activity feed. Works offline: edits queue and sync on reconnect. |
@@ -93,7 +94,8 @@ No build step and no dependencies: plain HTML, CSS and classic scripts.
 | `web/js/quiz.js` | Onboarding quiz UI |
 | `web/js/ui-kit.js` | Icons, rings, charts, toasts |
 | `web/js/app.js` | Views, routing, editing, alerts wiring |
-| `web/sw.js` | Network-first service worker (offline shell, registered on HTTPS only) |
+| `web/sw.js` | Network-first service worker: revalidates every file, offline shell, registered on HTTPS only |
+| `web/version.json` | The live version and its release notes; the app reads it to notice updates |
 
 ## Tests
 
@@ -104,7 +106,14 @@ python apps/kitty/tests/test_mobile_static.py  # Capacitor config, icon sizes, r
 python apps/kitty/tests/test_i18n.py          # translation table valid, language packs up to date, load order
 ```
 
-In the browser, open `tests.html` for 99 core tests (merge, crypto, parsing, budgets, alerts, planner, portfolio). Add `?relay=https://ntfy.sh` or your relay URL for a live two-client sync test, which brings the total to 104.
+In the browser, open `tests.html` for 103 core tests (merge, crypto, parsing, budgets, alerts, planner, portfolio, versions). Add `?relay=https://ntfy.sh` or your relay URL for a live two-client sync test, which brings the total to 108.
+
+## Releasing
+
+Bump the version in three places together: `K.VERSION` in `web/js/core.js`, `mobile/package.json`, and `web/version.json`
+(with two or three short release notes in English, Indonesian, Chinese and Spanish). Bump `CACHE` in `web/sw.js` too.
+`test_web_static.py` and `test_mobile_static.py` fail if the versions drift apart. Once the site deploys, open copies of
+Kitty notice the new `version.json`, tell their users and update themselves.
 
 ## Caveats
 

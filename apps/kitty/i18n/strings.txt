@@ -808,3 +808,24 @@ Keyboard shortcuts || Pintasan keyboard || 键盘快捷键 || Atajos de teclado
 Go to a page || Buka halaman || 前往页面 || Ir a una página
 Search the sheet || Cari di lembar || 搜索表格 || Buscar en la hoja
 Show shortcuts || Tampilkan pintasan || 显示快捷键 || Mostrar atajos
+Kitty {v} is ready || Kitty {v} sudah siap || Kitty {v} 已就绪 || Kitty {v} está lista
+Tap Update, or it installs itself the next time you switch away. || Ketuk Perbarui, atau pembaruan terpasang sendiri saat kamu beralih aplikasi nanti. || 点“更新”，或在你下次切换到其他应用时自动安装。 || Toca Actualizar o se instalará sola la próxima vez que cambies de app.
+Tap Update to get the newest version. || Ketuk Perbarui untuk mendapatkan versi terbaru. || 点“更新”获取最新版本。 || Toca Actualizar para tener la versión más reciente.
+Update || Perbarui || 更新 || Actualizar
+Update now || Perbarui sekarang || 立即更新 || Actualizar ahora
+Update Kitty || Perbarui Kitty || 更新 Kitty || Actualizar Kitty
+Updating Kitty… || Memperbarui Kitty… || 正在更新 Kitty… || Actualizando Kitty…
+Updated to Kitty {v} || Kitty diperbarui ke {v} || Kitty 已更新到 {v} || Kitty se actualizó a la {v}
+Everything you had is still here. || Semua datamu tetap ada di sini. || 你的所有数据都还在。 || Todo lo que tenías sigue aquí.
+What's new || Yang baru || 新功能 || Novedades
+Small fixes and improvements. || Perbaikan dan penyempurnaan kecil. || 一些小修复和改进。 || Pequeños arreglos y mejoras.
+Later || Nanti || 稍后 || Más tarde
+Got it || Oke || 知道了 || Entendido
+Updates || Pembaruan || 更新 || Actualizaciones
+Version || Versi || 版本 || Versión
+Check for updates || Periksa pembaruan || 检查更新 || Buscar actualizaciones
+Checking for updates… || Memeriksa pembaruan… || 正在检查更新… || Buscando actualizaciones…
+You have the latest version || Kamu sudah memakai versi terbaru || 已是最新版本 || Tienes la versión más reciente
+Could not check right now || Belum bisa memeriksa sekarang || 暂时无法检查 || No se pudo comprobar ahora
+Install updates automatically || Pasang pembaruan otomatis || 自动安装更新 || Instalar actualizaciones automáticamente
+Kitty checks for new versions in the background and updates in place. Your budgets stay on this device. || Kitty memeriksa versi baru di latar belakang dan langsung memperbarui diri. Anggaranmu tetap di perangkat ini. || Kitty 会在后台检查新版本并直接完成更新，你的预算仍保存在本设备上。 || Kitty busca versiones nuevas en segundo plano y se actualiza al momento. Tus presupuestos se quedan en este dispositivo.

@@ -40,6 +40,7 @@ REQUIRED = [
     "js/lang/id.js",
     "js/lang/zh.js",
     "js/lang/es.js",
+    "version.json",
 ]
 
 REF_RE = re.compile(r"""(?:src|href)\s*=\s*["']([^"'#?]+)""", re.I)
@@ -132,6 +133,25 @@ class WebStaticTests(unittest.TestCase):
         self.assertIn("appearanceCard() +", app, "Settings shows the Appearance picker")
         more = app[app.index("function openMore()") : app.index("function openShortcuts()")]
         self.assertIn("set-theme", more, "the phone More sheet offers Light / Dark / System")
+
+    def test_release_manifest_matches_app(self):
+        release = json.loads((WEB / "version.json").read_text(encoding="utf-8"))
+        core = (WEB / "js" / "core.js").read_text(encoding="utf-8")
+        version = re.search(r"K\.VERSION\s*=\s*['\"]([\d.]+)['\"]", core).group(1)
+        self.assertEqual(release["version"], version, "bump web/version.json together with K.VERSION")
+        self.assertRegex(release.get("released", ""), r"^\d{4}-\d{2}-\d{2}$")
+        notes = release["notes"]
+        self.assertEqual(sorted(notes), ["en", "es", "id", "zh"])
+        counts = {lang: len(items) for lang, items in notes.items()}
+        self.assertEqual(len(set(counts.values())), 1, "every language needs the same notes: %s" % counts)
+        for lang, items in notes.items():
+            self.assertTrue(items and all(isinstance(n, str) and n.strip() for n in items), lang)
+
+    def test_service_worker_never_caches_the_release_manifest(self):
+        sw = (WEB / "sw.js").read_text(encoding="utf-8")
+        shell = sw.split("const SHELL", 1)[1].split("];", 1)[0]
+        self.assertNotIn("version.json", shell)
+        self.assertIn("version.json", sw, "the fetch handler must let version.json through to the network")
 
     def test_relay_server_is_stdlib_only(self):
         source = (APP_DIR / "server" / "relay.py").read_text(encoding="utf-8")
