@@ -24,7 +24,7 @@ A downloadable Windows x64 desktop edition now bundles this entire console local
 It is not a website shortcut and does not require Chrome, Edge, Node or Python to run.
 Installer and portable preview builds are available at:
 
-https://github.com/juw12/projects/releases/tag/airiz-desktop-v1.11.12
+https://github.com/juw12/projects/releases/tag/airiz-desktop-v1.11.13
 
 The initial binaries are unsigned. The packaged app was tested with demo/synthetic
 hardware; real-device bench validation is still required. Browser and mobile-web
@@ -56,6 +56,10 @@ streams the AIRIZ microphone back in 2-second clips, about 4 s behind live. Phon
 that has the AIRIZ on USB. Stop motor still works and also interrupts a message being sent. Tested
 against a simulated AIRIZ shell (busybox), not yet on real AIRIZ hardware; the sound format and the
 record/play commands can be changed under *Voice settings*.
+
+**View motion pictures without saving them (1.11.13):** Each Smart detection event has *View* (and a clickable thumbnail) that opens the full photo
+in an in-app viewer with *Older* / *Newer* (arrow keys too) and *Play clip*. The event row no longer downloads on click;
+*Save photo* / *Save clip* in the viewer are the only way to save.
 
 **Co-admins listed by name on every PC (1.11.12):** Co-admins join on their own PC, so the owner's console never knew about them. The *Ziris PTB
 team* card now lists every co-admin by name from `web/team-roster.json` on the website (bundled copy and the last good

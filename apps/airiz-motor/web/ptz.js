@@ -1420,10 +1420,16 @@
     list.replaceChildren(...detection.events.map(event => {
       const item = document.createElement('li');
       if (event.thumb) {
+        const thumbButton = document.createElement('button');
+        thumbButton.type = 'button';
+        thumbButton.className = 'ptz-event-thumb';
+        thumbButton.title = 'View';
+        thumbButton.addEventListener('click', () => openViewer(event, 'photo'));
         const image = document.createElement('img');
         image.src = event.thumb;
         image.alt = 'Motion at ' + event.at.toLocaleTimeString();
-        item.append(image);
+        thumbButton.append(image);
+        item.append(thumbButton);
       }
       const text = document.createElement('div');
       const time = document.createElement('strong');
@@ -1431,19 +1437,22 @@
       text.append(time, document.createTextNode(' \u00b7 ' + (event.fraction * 100).toFixed(1) + '%'));
       const links = document.createElement('div');
       links.className = 'ptz-event-links';
-      if (event.photo) {
-        const photo = document.createElement('a');
-        photo.href = event.photo;
-        photo.download = 'airiz-motion-' + event.at.toISOString().replace(/[:.]/g, '-').slice(0, 19) + '.jpg';
-        photo.textContent = 'Photo';
-        links.append(photo);
-      }
+      // 1.11.13: View opens the picture inside the console; nothing is saved unless you press Save there.
+      const view = document.createElement('button');
+      view.type = 'button';
+      view.className = 'btn btn-sm';
+      view.dataset.eventView = '';
+      view.textContent = 'View';
+      view.addEventListener('click', () => openViewer(event, 'photo'));
+      links.append(view);
       if (event.clip) {
-        const clip = document.createElement('a');
-        clip.href = event.clip;
-        clip.download = 'airiz-motion-' + event.at.toISOString().replace(/[:.]/g, '-').slice(0, 19) + '.webm';
-        clip.textContent = 'Clip';
-        links.append(clip);
+        const play = document.createElement('button');
+        play.type = 'button';
+        play.className = 'btn btn-sm';
+        play.dataset.eventClip = '';
+        play.textContent = 'Play clip';
+        play.addEventListener('click', () => openViewer(event, 'clip'));
+        links.append(play);
       }
       text.append(links);
       if (event.alerts && event.alerts.length) {
@@ -1460,6 +1469,123 @@
       item.append(text);
       return item;
     }));
+    renderViewer();
+  }
+
+  // ------------------------------------------------------------------ event viewer (1.11.13)
+  // Look at a motion event without saving it: the full photo (or the clip) opens inside the console.
+  // Saving is a separate, explicit button in the viewer. Events still live in memory only.
+  // The viewer markup sits at the end of the page (after this script), so it is wired up on first use.
+  const viewer = { event: null, mode: 'photo', bound: false };
+
+  function eventFileName(event, extension) {
+    return 'airiz-motion-' + event.at.toISOString().replace(/[:.]/g, '-').slice(0, 19) + '.' + extension;
+  }
+
+  function openViewer(event, mode) {
+    if (!detection.events.includes(event)) return;
+    bindViewer();
+    viewer.event = event;
+    viewer.mode = mode === 'clip' && event.clip ? 'clip' : 'photo';
+    renderViewer();
+    const dialog = $('ptz-viewer');
+    if (!dialog.open) dialog.showModal();
+  }
+
+  function closeViewer() {
+    const dialog = $('ptz-viewer');
+    if (!dialog) return;
+    const video = $('ptz-viewer-video');
+    video.pause();
+    video.removeAttribute('src');
+    video.load();
+    viewer.event = null;
+    if (dialog.open) dialog.close();
+  }
+
+  // The list is newest first: "older" is further down the list.
+  function stepViewer(delta) {
+    const index = detection.events.indexOf(viewer.event);
+    const next = detection.events[index + delta];
+    if (index < 0 || !next) return;
+    viewer.event = next;
+    viewer.mode = 'photo';
+    renderViewer();
+  }
+
+  function renderViewer() {
+    const dialog = $('ptz-viewer');
+    if (!dialog || !viewer.event) return;
+    const event = viewer.event;
+    const index = detection.events.indexOf(event);
+    if (index < 0) {
+      closeViewer();
+      return;
+    }
+    const image = $('ptz-viewer-image');
+    const video = $('ptz-viewer-video');
+    const showClip = viewer.mode === 'clip' && !!event.clip;
+    image.hidden = showClip;
+    video.hidden = !showClip;
+    if (showClip) {
+      if (video.getAttribute('src') !== event.clip) video.src = event.clip;
+    } else {
+      if (video.getAttribute('src')) {
+        video.pause();
+        video.removeAttribute('src');
+        video.load();
+      }
+      const source = event.photo || event.thumb;
+      if (image.getAttribute('src') !== source) image.src = source;
+      image.alt = 'Motion at ' + event.at.toLocaleTimeString();
+    }
+    $('ptz-viewer-title').textContent = event.at.toLocaleTimeString() + ' \u00b7 ' + (event.fraction * 100).toFixed(1) + '%';
+    $('ptz-viewer-count').textContent = (index + 1) + ' / ' + detection.events.length;
+    $('ptz-viewer-newer').disabled = index === 0;
+    $('ptz-viewer-older').disabled = index === detection.events.length - 1;
+    const mode = $('ptz-viewer-mode');
+    mode.hidden = !event.clip;
+    mode.textContent = showClip ? 'Show photo' : 'Play clip';
+    const savePhoto = $('ptz-viewer-save-photo');
+    const photo = event.photo || event.thumb;
+    savePhoto.hidden = !photo;
+    if (photo) {
+      savePhoto.href = photo;
+      savePhoto.download = eventFileName(event, 'jpg');
+    }
+    const saveClip = $('ptz-viewer-save-clip');
+    saveClip.hidden = !event.clip;
+    if (event.clip) {
+      saveClip.href = event.clip;
+      saveClip.download = eventFileName(event, 'webm');
+    }
+  }
+
+  function bindViewer() {
+    const dialog = $('ptz-viewer');
+    if (!dialog || viewer.bound) return;
+    viewer.bound = true;
+    $('ptz-viewer-close').addEventListener('click', closeViewer);
+    $('ptz-viewer-older').addEventListener('click', () => stepViewer(1));
+    $('ptz-viewer-newer').addEventListener('click', () => stepViewer(-1));
+    $('ptz-viewer-mode').addEventListener('click', () => {
+      viewer.mode = viewer.mode === 'clip' ? 'photo' : 'clip';
+      renderViewer();
+    });
+    dialog.addEventListener('close', () => {
+      if (viewer.event) closeViewer();
+    });
+    // A click on the dark area around the picture closes the viewer.
+    dialog.addEventListener('click', clickEvent => {
+      if (clickEvent.target === dialog) closeViewer();
+    });
+    // Arrow keys follow the buttons: left = older, right = newer (not while the clip player has focus).
+    // Listen on the page: a button that just became disabled drops the focus out of the dialog.
+    document.addEventListener('keydown', keyEvent => {
+      if (!dialog.open || (keyEvent.target && keyEvent.target.tagName === 'VIDEO')) return;
+      if (keyEvent.key === 'ArrowLeft') stepViewer(1);
+      if (keyEvent.key === 'ArrowRight') stepViewer(-1);
+    });
   }
 
   // ------------------------------------------------------------------ event actions
@@ -2040,6 +2166,7 @@
         if (event.photo) URL.revokeObjectURL(event.photo);
         if (event.clip) URL.revokeObjectURL(event.clip);
       }
+      closeViewer();
       detection.events = [];
       renderEvents();
     });
