@@ -15,7 +15,7 @@ class V121Tests(unittest.TestCase):
 
     def test_versions_match(self):
         published = json.loads((WEB / "version.json").read_text(encoding="utf-8"))["version"]
-        self.assertEqual(published, "1.25.1")
+        self.assertEqual(published, "1.26.0")
         self.assertIn(f'const GLOW_VERSION = "{published}";', self.apps)
 
     def test_every_chat_page_has_project_and_skill_buttons(self):
@@ -51,12 +51,13 @@ class V121Tests(unittest.TestCase):
         self.assertNotIn("fillSelect", assistant)
         self.assertNotIn("toast(", assistant)
         self.assertIn('if (provider === "puter" && puterAllowanceResting()) return allowanceBackupModel().value;', self.chat)
-        backup = re.search(r"function allowanceBackupModel\(\) \{([\s\S]+?)\n\}", self.chat).group(1)
-        self.assertIn("return FREE_MODEL;", backup)
+        backup = re.search(r"function allowanceBackupModels\(\) \{([\s\S]+?)\n\}", self.chat).group(1)
+        self.assertIn("chain.push(FREE_MODEL);", backup)  # Glow Free is always the last free backup
 
     def test_free_key_providers_and_backup(self):
         self.assertIn('const GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/openai";', self.chat)
         self.assertIn('const GROQ_URL = "https://api.groq.com/openai/v1";', self.chat)
+        self.assertIn('const MISTRAL_URL = "https://api.mistral.ai/v1";', self.chat)
         self.assertIn("function allowanceBackupModel()", self.chat)
         for page in ("index.html", "app.html", "mobile.html"):
             html = (WEB / "chat" / page).read_text(encoding="utf-8")
