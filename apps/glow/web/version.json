@@ -1,7 +1,9 @@
 {
-  "version": "1.23.0",
+  "version": "1.23.1",
   "released": "2026-10-28",
   "notes": [
+    "No more Puter \"Low Balance\" pop-ups in any Glow app",
+    "When your Puter allowance runs out, Glow answers quietly with your Gemini/Groq key (or Glow Free) and keeps your chosen model selected; it tries Puter again by itself every 30 minutes",
     "📁 Projects: folders for your chats, each with its own instructions and skills",
     "🧩 Skills: reusable instructions you can turn on in every chat or per project",
     "🎨 Image and 🎬 Video modes in the model menu",

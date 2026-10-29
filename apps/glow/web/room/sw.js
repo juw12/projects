@@ -2,7 +2,7 @@
 // Pages are network-first (so updates ship immediately) with a short timeout that falls back to the
 // saved copy on a weak connection; static assets are cache-first.
 (function () {
-  var CACHE_NAME = 'glowroom-v15';
+  var CACHE_NAME = 'glowroom-v16';
   var NETWORK_TIMEOUT_MS = 4000;
   var SCOPE = self.registration.scope;
 

@@ -2,7 +2,7 @@
 // this path, so it removes only that worker's old 'glow-vN' caches. GlowChat (./chat/), GlowRoom
 // (./room/) and GlowLead (./lead/) have their own workers; requests for them are left alone here.
 // Pages are network-first with a short timeout, so a weak connection still opens Glow at once.
-const CACHE_NAME = 'glowhome-v7';
+const CACHE_NAME = 'glowhome-v8';
 const NETWORK_TIMEOUT_MS = 4000;
 const ASSETS = [
   './',
