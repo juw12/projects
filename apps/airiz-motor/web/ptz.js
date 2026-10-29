@@ -29,6 +29,18 @@
   const EVENT_LIMIT = 40;
   const TEAMS_COOLDOWN_MS = 120000;
   const SIREN_WAV = '/audio/16K_16bit_Stereo_Loud.wav';
+  // 1.11.10: user-set durations for the Smart detection actions (clips stay in memory, so they are capped).
+  const DURATION_LIMITS = {
+    clipSeconds: { min: 3, max: 60, fallback: 10 },
+    spotSeconds: { min: 5, max: 600, fallback: 30 }
+  };
+
+  function durationSetting(key, value) {
+    const limits = DURATION_LIMITS[key];
+    const number = Math.round(Number(value));
+    if (!Number.isFinite(number) || number <= 0) return limits.fallback;
+    return Math.min(limits.max, Math.max(limits.min, number));
+  }
 
   // ------------------------------------------------------------------ settings
 
@@ -51,6 +63,8 @@
       spot: false,
       siren: false,
       clip: true,
+      clipSeconds: 10,
+      spotSeconds: 30,
       notify: false,
       teams: false
     },
@@ -1454,10 +1468,10 @@
       spotTimer = setTimeout(() => {
         spotTimer = null;
         if (connected()) api.sendCommand('diag spotled off');
-      }, 30000);
+      }, durationSetting('spotSeconds', settings.spotSeconds) * 1000);
     }
     if (settings.siren && !siren.active) startSiren(store.sirenSeconds);
-    if (settings.clip) recordClip(event, 10);
+    if (settings.clip) recordClip(event, durationSetting('clipSeconds', settings.clipSeconds));
     // 1.11.8: every alert reports back; the event list shows whether it went out.
     event.alerts = [];
     if (settings.notify) {
@@ -1990,6 +2004,15 @@
         if (key === 'track' && !settings.track) stopTracking();
         save();
         renderDetectStatus();
+      });
+    }
+    for (const [id, key] of [['ptz-clip-seconds', 'clipSeconds'], ['ptz-spot-seconds', 'spotSeconds']]) {
+      settings[key] = durationSetting(key, settings[key]);
+      $(id).value = settings[key];
+      $(id).addEventListener('change', () => {
+        settings[key] = durationSetting(key, $(id).value);
+        $(id).value = settings[key];
+        save();
       });
     }
     for (const [id, key] of [['ptz-track-return', 'trackReturn'], ['ptz-cooldown', 'cooldown']]) {
