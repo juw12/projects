@@ -1,0 +1,19 @@
+# Files the one-step installers download (relative to apps/vitals). Kept in sync by tests/verify_install.py.
+server/history.py
+server/metrics.py
+server/server.py
+server/storage.py
+server/vault.py
+web/app.html
+web/app.js
+web/brain.js
+web/icons/icon-192.png
+web/icons/icon-512.png
+web/icons/icon.ico
+web/icons/icon.svg
+web/index.html
+web/manifest.webmanifest
+web/mobile.html
+web/qr.js
+web/styles.css
+web/sw.js

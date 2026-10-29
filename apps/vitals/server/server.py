@@ -172,8 +172,65 @@ class Agent:
         self.pair_code = self._new_code()
         self.pair_failures = 0
         self.lock = threading.Lock()
+        self.port = None
+        self.handler_class = None
+        self.lan_servers = []
+        self.settings_path = os.path.join(data_dir, "settings.json")
+        self.settings = self._load_settings()
         if sampler:
             self.sampler.start()
+
+    # ------------------------------------------------------------ settings
+    def _load_settings(self):
+        try:
+            with open(self.settings_path, encoding="utf-8") as handle:
+                return json.load(handle)
+        except (OSError, ValueError):
+            return {}
+
+    def _save_settings(self):
+        try:
+            with open(self.settings_path, "w", encoding="utf-8") as handle:
+                json.dump(self.settings, handle)
+        except OSError:
+            pass
+
+    # ---------------------------------------------------------- phone access
+    def set_lan(self, enable, remember=True):
+        """Start/stop extra listeners on this computer's Wi-Fi/LAN addresses.
+
+        The loopback listener keeps running, so the desktop dashboard never
+        drops. Binding the specific LAN IP (not 0.0.0.0) avoids clashing with
+        the loopback socket on the same port.
+        """
+        with self.lock:
+            if remember:
+                self.settings["lan"] = bool(enable)
+                self._save_settings()
+            if not enable:
+                for httpd in self.lan_servers:
+                    threading.Thread(target=httpd.shutdown, daemon=True).start()
+                    httpd.server_close()
+                self.lan_servers = []
+                self.lan = False
+                return {"lan": False, "urls": []}
+            if self.lan_servers or self.lan:
+                self.lan = True
+                return {"lan": True, "error": None}
+            errors = []
+            for ip in lan_addresses():
+                try:
+                    httpd = ThreadingHTTPServer((ip, self.port), self.handler_class)
+                except OSError as error:
+                    errors.append("%s: %s" % (ip, error))
+                    continue
+                httpd.daemon_threads = True
+                threading.Thread(target=httpd.serve_forever, daemon=True).start()
+                self.lan_servers.append(httpd)
+            self.lan = bool(self.lan_servers)
+            if not self.lan:
+                return {"lan": False, "error": "No Wi-Fi/LAN connection found" if not errors else "; ".join(errors)}
+            return {"lan": True, "error": None}
 
     @staticmethod
     def _new_code():
@@ -345,10 +402,21 @@ def make_handler(agent):
         return 200, {"token": token, "hostname": socket.gethostname()}
 
     def pairing_info(h, q, b):
-        port = h.server.server_address[1]
-        return 200, {"lan": agent.lan, "code": agent.pair_code if h._client_is_loopback() else None,
-                     "urls": ["http://%s:%d/mobile.html" % (ip, port) for ip in lan_addresses()] if agent.lan else [],
+        port = agent.port or h.server.server_address[1]
+        local = h._client_is_loopback()
+        urls = ["http://%s:%d/mobile.html" % (ip, port) for ip in lan_addresses()] if agent.lan else []
+        return 200, {"lan": agent.lan, "code": agent.pair_code if local else None,
+                     "urls": urls,
+                     "pair_urls": [u + "#pair=" + agent.pair_code for u in urls] if local else [],
                      "devices": [{"device": v["device"], "created": v["created"]} for v in agent.tokens.values()]}
+
+    def lan_toggle(h, q, b):
+        if not h._client_is_loopback():
+            return 403, {"error": "Phone access can only be changed on this computer"}
+        result = agent.set_lan(bool(b.get("enable")))
+        if result.get("error") and not result.get("lan"):
+            return 400, result
+        return pairing_info(h, q, b)
 
     def vitals(h, q, b):
         snap = dict(agent.current())
@@ -434,6 +502,13 @@ def make_handler(agent):
         answer = agent.model.ask(str(b.get("message", "")), context)
         return 200, answer or {"answer": None, "model": None}
 
+    def shutdown(h, q, b):
+        if not h._client_is_loopback():
+            return 403, {"error": "Only this computer can stop Vitals"}
+        # Reply first, then stop (used by the installer when updating).
+        threading.Timer(0.3, lambda: os._exit(0)).start()
+        return 200, {"ok": True}
+
     def model_status(h, q, b):
         return 200, {"models": agent.model.models()}
 
@@ -442,6 +517,7 @@ def make_handler(agent):
         ("GET", "session"): session,
         ("POST", "pair"): pair,
         ("GET", "pairing"): pairing_info,
+        ("POST", "lan"): lan_toggle,
         ("GET", "vitals"): vitals,
         ("GET", "processes"): processes,
         ("POST", "process/quit"): quit_process,
@@ -460,8 +536,18 @@ def make_handler(agent):
         ("GET", "startup"): startup,
         ("POST", "ask"): ask,
         ("GET", "model"): model_status,
+        ("POST", "shutdown"): shutdown,
     }
     return Handler
+
+
+def already_running(port):
+    """True if a Vitals agent already answers on this port."""
+    try:
+        with urllib.request.urlopen("http://127.0.0.1:%d/api/health" % port, timeout=1) as response:
+            return json.loads(response.read().decode("utf-8")).get("app") == "vitals"
+    except (OSError, ValueError, urllib.error.URLError):
+        return False
 
 
 def default_data_dir():
@@ -481,17 +567,35 @@ def main(argv=None):
     parser.add_argument("--open", action="store_true", help="Open the dashboard in your browser")
     args = parser.parse_args(argv)
 
+    dashboard = "http://127.0.0.1:%d/" % args.port
+    if already_running(args.port):
+        # Double-clicking the app again should just show the dashboard.
+        print("Vitals is already running — opening %s" % dashboard, flush=True)
+        if args.open:
+            import webbrowser
+            webbrowser.open(dashboard)
+        return
+
     agent = Agent(args.home, args.data, lan=args.lan, origins=args.allow_origin,
                   sample_interval=args.interval, retention_hours=args.retention, scan_budget=args.scan_budget)
     host = "0.0.0.0" if args.lan else "127.0.0.1"
-    httpd = ThreadingHTTPServer((host, args.port), make_handler(agent))
+    handler = make_handler(agent)
+    try:
+        httpd = ThreadingHTTPServer((host, args.port), handler)
+    except OSError as error:
+        print("Port %d is busy (%s). Try --port 8766." % (args.port, error), flush=True)
+        sys.exit(1)
     httpd.daemon_threads = True
     port = httpd.server_address[1]
+    agent.port = port
+    agent.handler_class = handler
+    if not args.lan and agent.settings.get("lan"):
+        agent.set_lan(True, remember=False)
     print("Vitals %s — dashboard: http://127.0.0.1:%d/" % (VERSION, port), flush=True)
     print("Data (history + Undo Vault): %s" % args.data, flush=True)
-    if args.lan:
+    if agent.lan:
         for ip in lan_addresses():
-            print("Phone: open http://%s:%d/mobile.html and enter pairing code %s" % (ip, port, agent.pair_code), flush=True)
+            print("Phone: open http://%s:%d/mobile.html#pair=%s (or scan the QR in Devices)" % (ip, port, agent.pair_code), flush=True)
     if args.open:
         import webbrowser
         webbrowser.open("http://127.0.0.1:%d/" % port)

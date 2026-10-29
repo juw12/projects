@@ -39,6 +39,10 @@
     "clean junk": "storage",
     "how is my device": "status",
     "hello": "help",
+    "how do i install this": "install",
+    "connect my phone": "install",
+    "download the app": "install",
+    "free 5gb and set up nothing": "goal",
   };
   Object.entries(intents).forEach(([text, want]) => {
     const got = B.detectIntent(text);
@@ -96,6 +100,14 @@
   check(agentReply.plan && agentReply.chips.some((c) => c.action === "clean-plan"), "agent mode returns a cleanable plan");
   const quitReply = B.respond("quit windowserver", { mode: "agent", processes: [{ pid: 9, name: "WindowServer", protected: true, owned: false, rss: 1 }] });
   check(/won't touch/.test(quitReply.text) && !quitReply.chips.length, "refuses to quit system processes");
+
+  // Install answers are one-step and platform-aware.
+  const winReply = B.respond("how do I install", { mode: "browser", platform: "windows" });
+  check(/Win \+ R/.test(winReply.text) && winReply.chips.some((c) => c.view === "devices"), "install answer for Windows uses Win+R");
+  const macReply = B.respond("how do I install", { mode: "browser", platform: "mac" });
+  check(/Terminal/.test(macReply.text), "install answer for Mac uses Terminal");
+  const phoneReply = B.respond("connect my phone", { mode: "browser", platform: "iphone" });
+  check(/scan/i.test(phoneReply.text), "phone install answer is scan-based");
 
   // Platform detection.
   check(B.detectPlatform("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)", "", 5) === "iphone", "detect iPhone");

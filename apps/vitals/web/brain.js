@@ -342,6 +342,7 @@
 
   const INTENTS = [
     { id: "goal", test: (t) => SIZE_RE.test(t) && /(free|clear|make|need|get|reclaim|room|space|delete|clean)/.test(t) },
+    { id: "install", test: (t) => /\b(install|uninstall|set ?up|download|get (the )?(app|full|real)|full version|run the agent|the agent|connect (my )?(phone|laptop|computer|mac|pc)|pair(ing)?|qr|scan the code)\b/.test(t) && !/\b(free|clean|gb|mb)\b/.test(t) },
     { id: "undo", test: (t) => /\b(undo|restore|bring (it|them|back)|put (it|them) back|recover|revert|i need (it|that) back|mistake)\b/.test(t) },
     { id: "ram-myth", test: (t) => /(ram|memory)\s*(clean|boost|booster|free|purge|optimi[sz])|booster|task killer|kill all apps/.test(t) },
     { id: "quit", test: (t) => /\b(quit|close|kill|force quit|stop|end)\b\s+(?!all\b)([a-z0-9][\w .+-]{1,40})/.test(t) && !/battery|charging|draining|startup|login|boot|at launch/.test(t) },
@@ -405,9 +406,9 @@
 
     const needAgent = () => {
       r.text += phone
-        ? "\n\nOn a phone no web page can read other apps' storage — the steps above are the reliable route. To also see your laptop from here, run the Vitals agent on it and pair this phone (Devices)."
-        : "\n\nFor real numbers, run the free local agent on this computer (`python server.py`) — or try **demo data** to see how it works.";
-      r.chips.push(phone ? { label: "Pair with my laptop", action: "view", view: "devices" } : { label: "How to run the agent", action: "view", view: "devices" });
+        ? "\n\nOn a phone no web page can read other apps' storage — the steps above are the reliable route. To also see your computer from here, install Vitals on it and scan its QR code with this phone."
+        : "\n\nFor real numbers, install the free Vitals app — it's **one copy-paste**, about 30 seconds — or try **demo data** first.";
+      r.chips.push(phone ? { label: "Connect my computer", action: "view", view: "devices" } : { label: "Install in 1 step", action: "view", view: "devices", primary: true });
       if (!phone) r.chips.push({ label: "Try demo data", action: "demo" });
     };
 
@@ -590,6 +591,25 @@
         }
         r.text = "Found **" + p.name + "** (pid " + p.pid + ", " + (p.cpu != null ? Math.round(p.cpu) + "% CPU, " : "") + fmtBytes(p.rss) + "). I'll ask it to quit normally, so it can still prompt you to save work.";
         r.chips.push({ label: "Quit " + p.name, action: "quit", pid: p.pid, name: p.name, primary: true });
+        break;
+      }
+      case "install": {
+        if (c.mode === "agent") {
+          r.text = "Vitals is already installed and running on this computer, and it starts by itself when you log in.\n\nTo use it from your phone: **Devices → Connect my phone**, then point the phone's camera at the QR code. No typing, no app to install on the phone.";
+          r.chips.push({ label: "Connect my phone", action: "view", view: "devices", primary: true });
+          break;
+        }
+        if (phone) {
+          r.text = "Nothing to install on the phone. Install Vitals on your **computer** (one copy-paste), then in Vitals open **Devices → Connect my phone** and scan the QR code with this phone's camera.";
+          r.chips.push({ label: "Show me", action: "view", view: "devices", primary: true });
+          break;
+        }
+        const how = c.platform === "windows"
+          ? "press **Win + R**, paste, press **Enter**"
+          : "open **Terminal** (⌘ Space → Terminal), paste, press **Return**";
+        r.text = "It's one step: copy one line, then " + how + ". Vitals installs itself in your user folder (no admin password), adds an app icon, starts quietly at login, and this page connects automatically — you don't need to come back and click anything.";
+        r.chips.push({ label: "Install in 1 step", action: "view", view: "devices", primary: true });
+        r.chips.push({ label: "Try demo first", action: "demo" });
         break;
       }
       case "undo": {
