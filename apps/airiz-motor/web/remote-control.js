@@ -39,7 +39,7 @@
     || 'wss://airiz-relay.juw12.workers.dev';
   const PEER_PREFIX = 'airiz-ctl-';
   const PUBLIC_CONSOLE_URL = 'https://juw12.github.io/projects/airiz-motor/';
-  const PROTOCOL_VERSION = 3; // 3 = 1.10.0 voice messages (talk / listen)
+  const PROTOCOL_VERSION = 4; // 3 = 1.10.0 voice messages (talk / listen), 4 = 1.11.1 shared camera (PTZ)
   const MAX_LINE = 1000;
   const MAX_LINES_PER_SECOND = 25;
   const RX_CHUNK = 12000;
@@ -480,6 +480,23 @@
     }
   }
 
+  // 1.11.1: the camera position this console tracks (ptz.js) counts every move, also those of
+  // the devices that control through it. Each allowed device gets it, so their Go home and
+  // saved positions start from where the real camera is.
+  function hostSendPtz(controller) {
+    const ptz = window.AirizPtz;
+    if (!ptz || typeof ptz.shared !== 'function') return;
+    hostSend(controller, { type: 'ptz-state', state: ptz.shared() });
+  }
+
+  let hostPtzWatched = false;
+  function hostWatchPtz() {
+    const ptz = window.AirizPtz;
+    if (hostPtzWatched || !ptz || typeof ptz.onShared !== 'function') return;
+    hostPtzWatched = true;
+    ptz.onShared(state => hostBroadcast({ type: 'ptz-state', state }, true));
+  }
+
   // Device output goes to every allowed device.
   function hostForwardOutput(text) {
     if (!text) return;
@@ -520,6 +537,8 @@
     if (!host.controllers.has(cid)) return;
     hostDropOlderLinks(controller);
     hostSend(controller, { type: 'state', state: 'approved', remembered: !!controller.remembered, pc: deviceLabel(), v: PROTOCOL_VERSION });
+    hostWatchPtz();
+    hostSendPtz(controller);
     const count = approvedControllers().length;
     let note;
     if (settings.auto === 'auto-remembered') {
@@ -696,6 +715,7 @@
       } else if (controller.trust !== 'checking') {
         send({ type: 'state', state: controller.state === 'approved' ? 'approved' : 'pending',
           remembered: !!controller.remembered, pc: deviceLabel(), v: PROTOCOL_VERSION });
+        if (controller.state === 'approved') hostSendPtz(controller);
         hostRender();
       }
       return;
@@ -715,6 +735,21 @@
     }
     if (message.type === 'tx' && controller.state === 'approved' && typeof message.data === 'string') {
       hostAcceptText(controller, message.data);
+      return;
+    }
+    // 1.11.1: Go home, Set home, soft limits and the rising switch asked for by an allowed
+    // device run here, where every move is known ("sync" = send the camera state again).
+    if (message.type === 'ptz-action' && controller.state === 'approved') {
+      const action = String(message.action || '');
+      if (action === 'sync') {
+        hostSendPtz(controller);
+      } else if (window.AirizPtz && typeof window.AirizPtz.runShared === 'function') {
+        try {
+          window.AirizPtz.runShared(action, message.args, controller.label);
+        } catch (ptzError) {
+          console.error(ptzError);
+        }
+      }
       return;
     }
     // 1.10.0: talk to the AIRIZ speaker / listen to its microphone (audio-ui.js does the work)
@@ -1441,6 +1476,19 @@
         onData(encoder.encode(message.data));
         return;
       }
+      // 1.11.1: the camera position tracked by the console with the cable (ptz.js adopts it).
+      if (message.type === 'ptz-state' && path === active) {
+        phone.ptzState = { state: message.state, at: Date.now() };
+        const ptz = window.AirizPtz;
+        if (ptz && typeof ptz.applyHost === 'function') {
+          try {
+            ptz.applyHost(message.state, phone.ptzState.at);
+          } catch (ptzError) {
+            console.error(ptzError);
+          }
+        }
+        return;
+      }
       if (typeof message.type === 'string' && message.type.startsWith('voice-') && path === active) {
         if (phone.voiceHandler) {
           try {
@@ -1559,6 +1607,12 @@
         active.send(Object.assign({}, message, { cid }));
         return true;
       },
+      // 1.11.1: ask the console with the cable for a camera action (Go home, Set home, ...)
+      sendPtz(message) {
+        if (!active || closed || failed) return false;
+        active.send(Object.assign({}, message, { cid }));
+        return true;
+      },
       async subscribe(dataCallback, lostCallback) {
         onData = dataCallback;
         onLost = lostCallback;
@@ -1600,7 +1654,7 @@
     };
   }
 
-  const phone = { dialog: null, busy: false, cancel: null, retry: null, lastFailure: null, identity: null, link: null, voiceHandler: null };
+  const phone = { dialog: null, busy: false, cancel: null, retry: null, lastFailure: null, identity: null, link: null, voiceHandler: null, ptzState: null };
 
   function phoneIdentity() {
     if (!phone.identity) phone.identity = session.loadIdentity();
@@ -1675,6 +1729,7 @@
     phone.busy = true;
     ui.busy(true);
     ui.status(settings.auto ? 'Reconnecting to the PC with code ' + code + '…' : 'Connecting… then wait for the PC to press Allow.');
+    phone.ptzState = null;
     const link = createCodeLink(code, ui.status, { identity: phoneIdentity() });
     phone.cancel = () => link.close();
     let connected = false;
@@ -2105,6 +2160,21 @@
     },
     setVoiceHandler(handler) {
       phone.voiceHandler = typeof handler === 'function' ? handler : null;
+    },
+    // 1.11.1 shared camera (ptz.js): the link to the console with the cable, its latest camera
+    // state and a way to ask it for Go home / Set home / soft limits / the rising switch.
+    get ptzPeer() {
+      const link = phone.link;
+      const status = api.getStatus();
+      if (!link || !link.active || !status.connected || !isRemoteTransport(status)) return null;
+      return { pcVersion: link.pcVersion };
+    },
+    get ptzState() {
+      return phone.ptzState;
+    },
+    sendPtzAction(action, args) {
+      const link = phone.link;
+      return !!(link && link.active && link.sendPtz({ type: 'ptz-action', action: String(action || ''), args: args || {} }));
     },
   });
 })();

@@ -1120,7 +1120,19 @@
     "Phone: Connect finds no AIRIZ": "手機：按連線找不到 AIRIZ",
     "Use Chrome on an Android phone (not the AIRIZ app, not an iPhone). Use a USB-OTG adapter that carries data, plug in the FT232R cable and allow access when Android asks, then press Connect again.": "請在 Android 手機上使用 Chrome（不是 AIRIZ App，也不是 iPhone）。使用可傳輸資料的 USB-OTG 轉接頭，接上 FT232R 傳輸線，Android 詢問時允許存取，然後再按一次「連接裝置」。",
     "Phone instead of PC (1.11.0)": "用手機取代 PC（1.11.0）",
-    "An Android phone can host the AIRIZ console cable: power the AIRIZ from its charger, plug the FT232R cable into the phone with a USB-OTG adapter and press Connect in Chrome. The phone then works like the PC: commands, motor, Stop motor, Talk & listen and Share control by code. Stop motor is no longer lost while another command is still being sent, and the Share control window has its own Stop motor button.": "Android 手機可以當 AIRIZ 主控台傳輸線的主機：AIRIZ 接充電器供電，用 USB-OTG 轉接頭把 FT232R 傳輸線接到手機，在 Chrome 按「連接裝置」。之後手機就跟 PC 一樣：指令、馬達、停止馬達、對講與收聽，以及以代碼分享控制。另一個指令還在傳送時按下的停止馬達不會再遺失，分享控制視窗也有自己的停止馬達按鈕。"
+    "An Android phone can host the AIRIZ console cable: power the AIRIZ from its charger, plug the FT232R cable into the phone with a USB-OTG adapter and press Connect in Chrome. The phone then works like the PC: commands, motor, Stop motor, Talk & listen and Share control by code. Stop motor is no longer lost while another command is still being sent, and the Share control window has its own Stop motor button.": "Android 手機可以當 AIRIZ 主控台傳輸線的主機：AIRIZ 接充電器供電，用 USB-OTG 轉接頭把 FT232R 傳輸線接到手機，在 Chrome 按「連接裝置」。之後手機就跟 PC 一樣：指令、馬達、停止馬達、對講與收聽，以及以代碼分享控制。另一個指令還在傳送時按下的停止馬達不會再遺失，分享控制視窗也有自己的停止馬達按鈕。",
+    "home": "原點",
+    "Asked the PC to move the camera home…": "已請 PC 把攝影機移回原點…",
+    "Asked the PC to set Home here…": "已請 PC 將此處設為原點…",
+    "Asked the PC to save the soft limit…": "已請 PC 儲存軟體限位…",
+    "Asked the PC to clear the soft limits…": "已請 PC 清除軟體限位…",
+    "Asked the PC to find the rising home…": "已請 PC 尋找升降原點…",
+    "Asked the PC to read the rising switch…": "已請 PC 讀取升降開關…",
+    "Asked the PC…": "已向 PC 送出要求…",
+    "The PC runs an older AIRIZ Console that does not share the camera position, so only the moves sent from this device were counted. Update the AIRIZ Console on the PC.": "PC 上的 AIRIZ Console 版本較舊，不會分享攝影機位置，因此只計算了這台裝置送出的移動。請更新 PC 上的 AIRIZ Console。",
+    "Not fully down yet: lowering until the bottom switch is pressed…": "尚未完全降下：繼續下降直到底部開關被按下…",
+    "Go home from a phone (1.11.1)": "從手機回到原點（1.11.1）",
+    "Go home on a phone or PC that controls by code brings the real camera home again: the console with the AIRIZ cable shares the camera position, and Go home, Set home, soft limits and Find rising home run there. When Home is fully down, Go home checks the bottom switch and keeps lowering until it is pressed. After auto-tracking, the camera also returns home while the console window is minimized.": "以代碼控制的手機或電腦按「回到原點」時，攝影機會再次回到真正的原點：接著 AIRIZ 傳輸線的主控台會分享攝影機位置，回到原點、設為原點、軟體限位與尋找升降原點都在那台主控台上執行。原點在最低位置時，回到原點會檢查底部開關，並持續下降直到開關被按下。自動追蹤之後，即使主控台視窗已縮到最小，攝影機也會回到原點。"
   },
   "html": {
     "AIRIZDEVICE LAB": "AIRIZ<small>裝置實驗室</small>",
@@ -1198,7 +1210,6 @@
     "From now on every share code is sent automatically, one message per code. The Share control window confirms it (“Code … sent to Ziris PTB”). If it fails, press Send to Teams there to retry.": "之後每個分享代碼都會自動傳送，每個代碼一則。分享控制視窗會顯示確認（「Code … sent to Ziris PTB」）。若失敗，在該視窗按 <strong>傳送到 Teams</strong> 重試。",
     "In the Ziris PTB Teams chat press Join Ziris PTB on the invite from Juwen Lie. The invite opens in the browser.": "在 Ziris PTB Teams 聊天中，於 <span data-owner-name=\"\">Juwen Lie</span> 傳送的邀請上按 <strong>Join Ziris PTB</strong>，邀請會在瀏覽器開啟。",
     "Using the AIRIZ Windows app? On the same page press Open in the AIRIZ Windows app and allow the browser to open it: the app joins with the same name. (Or paste the invite link in the app's Ziris PTB team page.)": "使用 AIRIZ Windows App？在同一頁按 <strong>在 AIRIZ Windows App 開啟</strong> 並允許瀏覽器開啟：App 會以同一個名字加入。（或在 App 的 <strong>Ziris PTB team</strong> 頁貼上邀請連結。）",
-    "PTZ live view: click the picture to center that spot, hold an arrow to move (release = stop) and use the wheel for digital zoom. Set Home, soft limits and up to 12 saved positions; Auto scan visits them in turn.": "<strong>PTZ 即時畫面</strong>：點擊畫面可將該點置中，按住箭頭移動（放開 = 停止），滾輪可數位變焦。可設定<strong>原點</strong>、軟體限位與最多 12 個預設位置；<strong>自動巡航</strong>會依序巡視這些位置。",
     "Smart detection watches the preview for motion inside your zones and active hours, saves a photo and a 10 s clip, and can follow the motion, turn the spotlight on, sound the siren, show a desktop notification or alert the Ziris PTB chat. It runs while the console is open.": "<strong>智慧偵測</strong>會在您設定的區域與時段內監看預覽畫面的動作，儲存照片與 10 秒影片，並可跟隨動作、開啟聚光燈、啟動警報、顯示桌面通知或通知 Ziris PTB 聊天室。主控台開著時才會運作。",
     "Privacy lowers the camera to the rising switch and turns the lights off; automatic night vision switches IR-cut and IR LED from the light sensor. The motors report no position, so positions are counted in steps: calibrate once per device under Calibration.": "<strong>隱私</strong>會把攝影機降到升降開關位置並關燈；<strong>自動夜視</strong>依光感測器切換 IR-cut 與 IR LED。馬達不回報位置，因此位置以步數計算：每台裝置請在<em>校正</em>中校正一次。",
     "Copy the Teams workflow address, then press Finish owner setup. One action sets up this PC as Juwen Lie (Owner), submits one shared invite to the workflow, copies the invite link and turns on auto-post.": "複製 Teams 工作流程網址後，按<strong>完成負責人設定</strong>。一個動作即可在此 PC 設定 Juwen Lie（負責人）、向工作流程送出一個共用邀請、複製邀請連結並開啟自動傳送。",
@@ -1216,7 +1227,8 @@
     "Phones that control the AIRIZ by code talk and listen through the PC that has the AIRIZ on USB (that PC needs 1.10 or later). The first message after the AIRIZ powers up also installs a small voice helper (three scripts in /tmp/airiz, gone after a restart).": "以代碼控制 AIRIZ 的手機會透過以 USB 連接 AIRIZ 的 PC 對講與收聽（該 PC 需 1.10 以上版本）。AIRIZ 開機後的第一則訊息也會安裝一個小型語音小工具（<code>/tmp/airiz</code> 中的三個腳本，重新開機後就會消失）。",
     "Stop motor always works and also stops a message that is being sent. If the AIRIZ does not play or record with the defaults, change the sound format or the commands under Voice settings.": "<strong>停止馬達</strong>隨時有效，也會停止正在傳送的訊息。如果 AIRIZ 用預設值無法播放或錄音，請在<em>語音設定</em>中更改聲音格式或指令。",
     "No PC? An Android phone can be the AIRIZ console: power the AIRIZ from its charger, plug the FT232R cable into the phone with a USB-OTG adapter, open this console in Chrome and press Connect. Keep the page open; Share control then lets other phones control the AIRIZ by code. An iPhone cannot do this (no USB serial).": "沒有 PC？<strong>Android 手機</strong>也能當 AIRIZ 主控台：AIRIZ 接充電器供電，用 USB-OTG 轉接頭把 FT232R 傳輸線接到手機，以 <strong>Chrome</strong> 開啟本主控台並按 <strong>連接裝置</strong>。請保持頁面開啟；之後用 <strong>分享控制</strong> 就能讓其他手機以代碼控制 AIRIZ。iPhone 無法這樣做（不支援 USB 序列埠）。",
-    "A phone can share too: an Android phone connected to the AIRIZ by USB (see Getting started) shows Share control like a PC and keeps its screen on while sharing. Its Share control window has its own Stop motor button.": "手機也能分享：以 USB 連接 AIRIZ 的 Android 手機（見「入門」）跟 PC 一樣有 <strong>分享控制</strong>，分享時會保持螢幕開啟。它的分享控制視窗也有自己的 <strong>停止馬達</strong> 按鈕。"
+    "A phone can share too: an Android phone connected to the AIRIZ by USB (see Getting started) shows Share control like a PC and keeps its screen on while sharing. Its Share control window has its own Stop motor button.": "手機也能分享：以 USB 連接 AIRIZ 的 Android 手機（見「入門」）跟 PC 一樣有 <strong>分享控制</strong>，分享時會保持螢幕開啟。它的分享控制視窗也有自己的 <strong>停止馬達</strong> 按鈕。",
+    "PTZ live view: click the picture to center that spot, hold an arrow to move (release = stop) and use the wheel for digital zoom. Set Home, soft limits and up to 12 saved positions; Auto scan visits them in turn. A phone or PC that controls by code uses the camera position of the console with the AIRIZ cable, so its Go home brings the real camera home, also when someone else moved it.": "<strong>PTZ 即時畫面</strong>：點擊畫面可將該點置中，按住箭頭移動（放開 = 停止），滾輪可數位變焦。可設定<strong>原點</strong>、軟體限位與最多 12 個預設位置；<strong>自動巡航</strong>會依序巡視這些位置。以代碼控制的手機或電腦會使用接著 AIRIZ 傳輸線的主控台所記錄的攝影機位置，所以按<strong>回到原點</strong>時，即使別人移動過攝影機，也會回到真正的原點。"
   },
   "patterns": [
     [
@@ -1946,6 +1958,10 @@
     [
       "^(.+) sent a voice message to the AIRIZ\\.$",
       "$1 傳送了一則語音訊息到 AIRIZ。"
+    ],
+    [
+      "^At home: lowered (\\d+) more steps until the bottom switch was pressed\\.$",
+      "已到達原點：再下降 $1 步直到底部開關被按下。"
     ]
   ]
 }

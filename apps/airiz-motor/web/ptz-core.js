@@ -308,6 +308,65 @@
       };
     }
 
+    // 1.11.1: the console that holds the AIRIZ cable sees every move (its own and those of
+    // every phone or PC that controls through it), so it shares this state with them and
+    // they all count from the same moves and the same Home. A move in flight is sent as
+    // "remaining milliseconds" because the two devices' clocks differ.
+    function exportShared(now) {
+      const pending = state.pending;
+      const running = pending && now < pending.startedAt + pending.expectedMs;
+      return {
+        ...snapshot(),
+        pending: running
+          ? {
+            axis: pending.axis,
+            from: pending.from,
+            rawDelta: pending.rawDelta,
+            expectedMs: pending.expectedMs,
+            remainingMs: Math.round(pending.startedAt + pending.expectedMs - now)
+          }
+          : null
+      };
+    }
+
+    // Take over the shared state of the console that holds the cable (received at `now`).
+    function adoptShared(shared, now) {
+      if (!shared || typeof shared !== 'object' || !shared.position) return false;
+      const pan = Number(shared.position.pan);
+      const rising = Number(shared.position.rising);
+      if (!Number.isFinite(pan) || !Number.isFinite(rising)) return false;
+      const limits = emptyLimits();
+      for (const axis of AXES) {
+        const source = (shared.limits && shared.limits[axis]) || {};
+        for (const side of ['min', 'max']) {
+          const value = source[side];
+          limits[axis][side] = value === null || value === undefined || !Number.isFinite(Number(value)) ? null : Math.round(Number(value));
+        }
+      }
+      state.position = { pan: Math.round(pan), rising: Math.round(rising) };
+      state.limits = limits;
+      state.uncertain = !!shared.uncertain;
+      state.homed = !!shared.homed;
+      state.risingRef = !!shared.risingRef;
+      state.homeRising = Number(shared.homeRising) || 0;
+      state.travel = normalizeTravel(shared.travel);
+      const pending = shared.pending;
+      const expectedMs = pending ? Number(pending.expectedMs) : 0;
+      const remainingMs = pending ? Math.min(expectedMs, Number(pending.remainingMs)) : 0;
+      if (pending && AXES.includes(pending.axis) && expectedMs > 0 && remainingMs > 0) {
+        state.pending = {
+          axis: pending.axis,
+          from: Number(pending.from) || 0,
+          rawDelta: Number(pending.rawDelta) || 0,
+          startedAt: now - (expectedMs - remainingMs),
+          expectedMs
+        };
+      } else {
+        state.pending = null;
+      }
+      return true;
+    }
+
     return {
       get position() {
         return { ...state.position };
@@ -347,7 +406,9 @@
       markUncertain() {
         state.uncertain = true;
       },
-      snapshot
+      snapshot,
+      exportShared,
+      adoptShared
     };
   }
 
@@ -492,6 +553,18 @@
     };
   }
 
+  // 1.11.1: after auto-tracking moved the camera away, it goes back once no motion was seen
+  // for `waitMs` (at least 5 s) and no move is running. Checked on a timer, so it also
+  // happens while the window is hidden or minimized (no frames are analysed then).
+  function trackingReturnDue(options) {
+    const o = options || {};
+    if (!o.trackedAway || !o.armed || !o.track) return false;
+    const now = Number(o.now) || 0;
+    if (now < (Number(o.busyUntil) || 0)) return false;
+    const waitMs = Math.max(5000, Number(o.waitMs) || 30000);
+    return now - (Number(o.lastMotionAt) || 0) >= waitMs;
+  }
+
   // ------------------------------------------------------------------ device replies
 
   // "#INFO#0:123#END#" -> { code: 0, value: "123", number: 123 }
@@ -552,6 +625,7 @@
     sensitivityToThresholds,
     detectMotion,
     trackingMove,
+    trackingReturnDue,
     parseInfo,
     nightModeDecision,
     isWithinSchedule
