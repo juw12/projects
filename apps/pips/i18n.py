@@ -175,7 +175,6 @@ S = {
     "p_pet": ("Pet {name} ♥", "Elus {name} ♥", "摸摸 {name} ♥", "摸摸 {name} ♥"),
     "p_wake": ("Wake up ☀", "Bangunkan ☀", "叫醒 ☀", "叫醒 ☀"),
     "p_sleep": ("Put to sleep ☾", "Tidurkan ☾", "哄睡 ☾", "哄睡 ☾"),
-    "p_float": ("Float on desktop", "Melayang di desktop", "飄在桌面上", "飘在桌面上"),
     "p_taskbar": ("Go to the taskbar", "Pergi ke taskbar", "到工作列去", "到任务栏去"),
     "p_colour": ("Colour", "Warna", "顏色", "颜色"),
     "p_custom": ("Custom…", "Pilih sendiri…", "自訂…", "自定义…"),
@@ -254,9 +253,10 @@ S = {
     "f_bubble_reminders": ("Show reminders & notifications as chat bubbles",
                            "Tampilkan pengingat & notifikasi sebagai gelembung chat",
                            "用對話泡泡顯示提醒與通知", "用对话气泡显示提醒与通知"),
-    "f_walk_on_taskbar": ("Walk around on the taskbar", "Jalan-jalan di taskbar", "在工作列上散步", "在任务栏上散步"),
-    "f_gravity": ("Gravity (falls to the taskbar when dropped)", "Gravitasi (jatuh ke taskbar saat dilepas)",
-                  "重力 (放開時掉到工作列)", "重力 (松开时掉到任务栏)"),
+    "f_walk_on_taskbar": ("Move around by myself (walk on the taskbar & windows, swim & splash, fly)",
+                          "Bergerak sendiri (jalan di taskbar & jendela, berenang & melompat, terbang)",
+                          "自己到處跑（在工作列和視窗上走、游泳濺水花、飛來飛去）",
+                          "自己到处跑（在任务栏和窗口上走、游泳溅水花、飞来飞去）"),
     "f_sleep_when_away": ("Nap when I'm away from the PC", "Tidur saat aku tidak di depan PC",
                           "我離開電腦時打個盹", "我离开电脑时打个盹"),
     "f_open_near_pet": ("Open the Pips window next to the pet", "Buka jendela Pips di dekat peliharaan",
@@ -351,10 +351,18 @@ S = {
                    "步驟 1/6 \u00b7 點我一下 - 試試看!",
                    "步骤 1/6 \u00b7 点我一下 - 试试看!"),
     "tour_card": ("Step 2/6 · Hehe, that tickles! Clicking me opens your Pips hub: friends, chat, groups and the shop (earn coins to buy props and moves for me!). The focus timer lives in right-click → Focus timer.", "Langkah 2/6 · Hehe, geli! Klik aku membuka hub Pips: teman, chat, grup dan toko (kumpulkan koin untuk membeli aksesori dan gerakan untukku!). Timer fokus ada di klik kanan → Timer fokus.", "步驟 2/6 · 嘿嘿，好癢！點我會開啟 Pips 中心：好友、聊天、群組和商店 (賺金幣幫我買配件和招式！)。專注計時在右鍵 → 專注計時。", "步骤 2/6 · 嘿嘿，好痒！点我会打开 Pips 中心：好友、聊天、群组和商店 (赚金币帮我买配件和招式！)。专注计时在右键 → 专注计时。"),
-    "tour_drag": ("Step 3/6 \u00b7 Drag me anywhere!\nDrop me on the taskbar and I'll walk along it.",
-                  "Langkah 3/6 \u00b7 Seret aku ke mana saja!\nLepaskan aku di taskbar dan aku akan jalan-jalan di sana.",
-                  "步驟 3/6 \u00b7 把我拖到任何地方!\n放在工作列上我就會在那裡散步。",
-                  "步骤 3/6 \u00b7 把我拖到任何地方!\n放在任务栏上我就会在那里散步。"),
+    "tour_drag": ("Step 3/6 \u00b7 Drag me anywhere and let go!\nI walk on the taskbar and on top of your windows - try dropping me on one.",
+                  "Langkah 3/6 \u00b7 Seret aku ke mana saja lalu lepaskan!\nAku jalan di taskbar dan di atas jendelamu - coba taruh aku di atas jendela.",
+                  "步驟 3/6 \u00b7 把我拖到任何地方再放開!\n我會在工作列和視窗上面散步 - 試著把我放在視窗上。",
+                  "步骤 3/6 \u00b7 把我拖到任何地方再松开!\n我会在任务栏和窗口上面散步 - 试着把我放在窗口上。"),
+    "tour_drag_water": ("Step 3/6 \u00b7 Drag me anywhere and let go!\nThe taskbar is my water - I'll dive back in with a splash.",
+                        "Langkah 3/6 \u00b7 Seret aku ke mana saja lalu lepaskan!\nTaskbar adalah airku - aku akan menyelam lagi dengan cipratan.",
+                        "步驟 3/6 \u00b7 把我拖到任何地方再放開!\n工作列就是我的水 - 我會濺起水花跳回去。",
+                        "步骤 3/6 \u00b7 把我拖到任何地方再松开!\n任务栏就是我的水 - 我会溅起水花跳回去。"),
+    "tour_drag_air": ("Step 3/6 \u00b7 Drag me anywhere and let go!\nI can fly - I'll flutter right where you leave me.",
+                      "Langkah 3/6 \u00b7 Seret aku ke mana saja lalu lepaskan!\nAku bisa terbang - aku akan melayang di tempat kamu meninggalkanku.",
+                      "步驟 3/6 \u00b7 把我拖到任何地方再放開!\n我會飛 - 你放在哪裡我就在那裡拍拍翅膀。",
+                      "步骤 3/6 \u00b7 把我拖到任何地方再松开!\n我会飞 - 你放在哪里我就在那里扑扑翅膀。"),
     "tour_pet": ("Step 4/6 \u00b7 Wheee! Now rub your mouse back and forth over me to pet me \u2665",
                  "Langkah 4/6 \u00b7 Wiii! Sekarang gosok mouse bolak-balik di atasku untuk mengelusku \u2665",
                  "步驟 4/6 \u00b7 咻~! 現在用滑鼠在我身上來回滑動摸摸我 \u2665",
@@ -1452,6 +1460,14 @@ S.update({
     "prof_gender_none": ("Don't show", "Jangan tampilkan", "不顯示", "不显示"),
 })
 
+# --- v2.19 land, sea & sky: walking on windows, splash leaps, flying (roam.py) ---
+S.update({
+    "p_jump_window": ("Jump onto a window", "Lompat ke atas jendela", "跳到視窗上", "跳到窗口上"),
+    "p_splash": ("Splash jump!", "Lompat cipratan!", "跳出水面！", "跳出水面！"),
+    "p_fly": ("Fly around", "Terbang berkeliling", "到處飛", "到处飞"),
+    "p_perch": ("Rest on the taskbar", "Istirahat di taskbar", "停在工作列上休息", "停在任务栏上休息"),
+})
+
 # Random pet lines: key -> (en, id, zh_TW, zh_CN) lists
 L = {
     "sneeze": (
@@ -1557,6 +1573,41 @@ L = {
         ["哇, 有条路! ♪", "我在这里散散步~", "从这里看风景真好!"],
     ),
 }
+
+# v2.19 land, sea & sky
+L.update({
+    "splash": (
+        ["Splash! 💦", "Wheee~ splash!", "The water's lovely!"],
+        ["Byur! 💦", "Wiii~ byur!", "Airnya segar!"],
+        ["噗通！💦", "咻~ 噗通！", "水好舒服！"],
+        ["扑通！💦", "咻~ 扑通！", "水好舒服！"],
+    ),
+    "platform": (
+        ["Nice view from up here!", "I'm on top of your window~", "Hehe, look where I am!"],
+        ["Pemandangannya bagus dari atas sini!", "Aku di atas jendelamu~", "Hehe, lihat aku di mana!"],
+        ["從上面看風景真好！", "我在你的視窗上面~", "嘿嘿，看我在哪裡！"],
+        ["从上面看风景真好！", "我在你的窗口上面~", "嘿嘿，看我在哪里！"],
+    ),
+    "no_platform": (
+        ["No window edge to jump on… (maximised windows don't count)", "Hmm, no windows to climb right now."],
+        ["Tidak ada tepi jendela untuk dilompati… (jendela yang dimaksimalkan tidak dihitung)",
+         "Hmm, sekarang tidak ada jendela untuk dipanjat."],
+        ["沒有視窗邊可以跳上去…（最大化的視窗不算）", "嗯，現在沒有視窗可以爬。"],
+        ["没有窗口边可以跳上去…（最大化的窗口不算）", "嗯，现在没有窗口可以爬。"],
+    ),
+    "taskbar_water": (
+        ["Ahh, nice water~ ♪", "Swimming time!", "Splish splash~"],
+        ["Ahh, airnya enak~ ♪", "Waktunya berenang!", "Ciprat ciprat~"],
+        ["啊~水好舒服 ♪", "游泳時間！", "嘩啦嘩啦~"],
+        ["啊~水好舒服 ♪", "游泳时间！", "哗啦哗啦~"],
+    ),
+    "taskbar_air": (
+        ["A nice spot to rest my wings~", "Landing! ♪", "I'll perch here for a bit."],
+        ["Tempat yang pas untuk istirahat sayap~", "Mendarat! ♪", "Aku hinggap di sini sebentar ya."],
+        ["休息翅膀的好地方~", "降落！♪", "我在這裡停一下。"],
+        ["休息翅膀的好地方~", "降落！♪", "我在这里停一下。"],
+    ),
+})
 
 # Built-in reminder tips (English text from reminders.py -> translations)
 TIPS = {

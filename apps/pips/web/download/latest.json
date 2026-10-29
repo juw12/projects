@@ -1,43 +1,43 @@
 {
   "installer": {
     "filename": "Pips-Setup.exe",
-    "sha256": "12bfa80d71e769b095c7e68cdf94b319e90513e3ee0a32ddddcbc29b61ec2c7a",
-    "size": 22229685,
+    "sha256": "345dea0d92f53b4120b5cc7efec3405a6eea858a4cd69062bb611f503fcd3456",
+    "size": 22239539,
     "architecture": "x64",
     "python_version": "3.13.17",
     "requires_admin": false,
     "url": "https://juw12.github.io/projects/pips/download/Pips-Setup.exe"
   },
-  "version": "2.18.0",
+  "version": "2.19.0",
   "date": "2026-10-29",
-  "title": "Raise your pet",
+  "title": "Land, sea & sky",
   "url": "https://juw12.github.io/projects/pips/download/Pips-Windows.zip",
-  "sha256": "49b886e0d05a0985525d8d470de2cb12f19d9c138c98f5045c72805c210ad6e0",
-  "size": 857820,
+  "sha256": "9149994c6c406f2c2062fe4111889ec2b82a95251cd6603021a5191d4d026ef5",
+  "size": 875246,
   "notes": {
     "en": [
-      "Boy or girl? Pick your pet's gender in Settings: boys get a little hair tuft, girls a pink bow and eyelashes, and a ♂ / ♀ shows next to its name. You can add your own gender to your profile too - friends see a small ♂ / ♀ next to your name.",
-      "Pets grow up now: baby → child → teen → grown-up. Focus sessions, opening Pips each day, games and cuddles help them grow - no care mistakes, no bad endings. Already have a grown-up pet? It will ask whether you'd like to raise it again from a baby (coins, items and stats stay).",
-      "Sick days: work 2.5 hours without a 5-minute break and your pet catches a little cold (sneezes, thermometer, slow steps). A short break cures it - or give medicine from the menu. You can turn this off in Settings.",
-      "New mini-game Left or Right? (pet menu → Play): guess which way your pet will look - 3 out of 5 wins, with coins for your first wins each day."
+      "Land animals walk on the taskbar and on top of your open windows now: they jump up onto window edges, walk along them, ride along when you move the window and hop down when it closes, gets covered or is maximised. They always have gravity - let go of one in mid-air and it lands on the window below or on the taskbar.",
+      "Water animals swim along the taskbar (their water) and every now and then leap high out of it in a big arc, diving back in with a splash, ripples and spray. Drop one anywhere and it dives back into the water.",
+      "Flying animals fly anywhere on the screen: they flutter from place to place, hover, come say hi near your mouse, and sometimes perch on the taskbar or a window edge for a rest. Point at one and it waits for you; they glide down to a perch before a nap.",
+      "New menu moves: Jump onto a window, Splash jump!, Fly around / Rest on the taskbar. \"Move around by myself\" in Pet settings keeps your pet still if you prefer (the old Gravity option is gone - land animals always fall now)."
     ],
     "id": [
-      "Jantan atau betina? Pilih jenis kelamin pet di Pengaturan: jantan punya jambul rambut kecil, betina pita pink dan bulu mata, dan ♂ / ♀ muncul di samping namanya. Kamu juga bisa menambahkan jenis kelaminmu di profil - teman melihat ♂ / ♀ kecil di samping namamu.",
-      "Pet kini bisa tumbuh: bayi → anak → remaja → dewasa. Sesi fokus, membuka Pips setiap hari, permainan, dan pelukan membantunya tumbuh - tanpa kesalahan perawatan, tanpa akhir yang buruk. Pet-mu sudah dewasa? Ia akan bertanya apakah kamu mau membesarkannya lagi dari bayi (koin, item, dan statistik tetap).",
-      "Hari sakit: bekerja 2,5 jam tanpa istirahat 5 menit dan pet-mu masuk angin (bersin, termometer, langkah pelan). Istirahat sebentar menyembuhkannya - atau beri obat dari menu. Bisa dimatikan di Pengaturan.",
-      "Mini-game baru Kiri atau Kanan? (menu pet → Main): tebak ke mana pet-mu akan menoleh - 3 dari 5 menang, dengan koin untuk kemenangan pertama setiap hari."
+      "Hewan darat sekarang berjalan di taskbar dan di atas jendela yang terbuka: mereka melompat ke tepi jendela, berjalan di atasnya, ikut bergerak saat jendela dipindahkan, dan turun saat jendela ditutup, tertutup, atau dimaksimalkan. Mereka selalu punya gravitasi - lepaskan di udara dan ia mendarat di jendela di bawahnya atau di taskbar.",
+      "Hewan air berenang di taskbar (airnya) dan sesekali melompat tinggi membentuk lengkungan besar, lalu menyelam kembali dengan cipratan, riak, dan percikan. Lepaskan di mana saja dan ia menyelam kembali ke air.",
+      "Hewan terbang bisa terbang ke mana saja di layar: berpindah-pindah, melayang, menyapa di dekat mouse-mu, dan kadang hinggap di taskbar atau tepi jendela untuk istirahat. Arahkan mouse ke atasnya dan ia menunggu; sebelum tidur ia turun ke tempat hinggap.",
+      "Gerakan baru di menu: Lompat ke atas jendela, Lompat cipratan!, Terbang berkeliling / Istirahat di taskbar. \"Bergerak sendiri\" di Pengaturan pet membuat pet diam jika kamu mau (opsi Gravitasi lama dihapus - hewan darat sekarang selalu jatuh)."
     ],
     "zh_TW": [
-      "男生還是女生？在設定裡選擇寵物性別：男生有一小撮翹毛，女生有粉紅蝴蝶結和睫毛，名字旁也會顯示 ♂ / ♀。你也可以在個人資料加上自己的性別，好友會在你的名字旁看到小小的 ♂ / ♀。",
-      "寵物現在會長大了：寶寶 → 小朋友 → 青少年 → 大人。專注、每天打開 Pips、玩遊戲和抱抱都能幫助成長，不會照顧失誤，也沒有壞結局。已經是大人的寵物會問你要不要從寶寶重新養一次（金幣、物品和統計都保留）。",
-      "生病日：連續工作 2.5 小時沒休息 5 分鐘，寵物就會小感冒（打噴嚏、含體溫計、走得慢）。休息一下就會好，或從選單餵藥。可以在設定裡關閉。",
-      "新小遊戲「左還是右？」（寵物選單 → 玩耍）：猜寵物會看哪邊，5 回合猜中 3 次就贏，每天前幾次獲勝還有金幣。"
+      "陸地動物現在會在工作列和打開的視窗上面走：牠們會跳上視窗邊緣、沿著走、你移動視窗時跟著移動，視窗關閉、被蓋住或最大化時就跳下來。牠們一直都有重力——在半空中放開，就會落在下面的視窗或工作列上。",
+      "水中動物在工作列（牠們的水）上游泳，不時高高躍出水面劃出大弧線，再濺起水花、漣漪和水滴潛回去。放在任何地方，牠都會潛回水裡。",
+      "會飛的動物可以在整個螢幕上飛：從這裡飛到那裡、懸停、到你的滑鼠旁邊打招呼，有時停在工作列或視窗邊緣休息。滑鼠指著牠時牠會等你；睡覺前會先滑翔到停靠點。",
+      "選單新動作：跳到視窗上、跳出水面！、到處飛／停在工作列上休息。寵物設定裡的「自己到處跑」可以讓寵物不動（舊的重力選項已移除——陸地動物現在一定會掉下來）。"
     ],
     "zh_CN": [
-      "男生还是女生？在设置里选择宠物性别：男生有一小撮翘毛，女生有粉色蝴蝶结和睫毛，名字旁也会显示 ♂ / ♀。你也可以在个人资料加上自己的性别，好友会在你的名字旁看到小小的 ♂ / ♀。",
-      "宠物现在会长大了：宝宝 → 小朋友 → 青少年 → 大人。专注、每天打开 Pips、玩游戏和抱抱都能帮助成长，不会照顾失误，也没有坏结局。已经是大人的宠物会问你要不要从宝宝重新养一次（金币、物品和统计都保留）。",
-      "生病日：连续工作 2.5 小时没休息 5 分钟，宠物就会小感冒（打喷嚏、含体温计、走得慢）。休息一下就会好，或从菜单喂药。可以在设置里关闭。",
-      "新小游戏“左还是右？”（宠物菜单 → 玩耍）：猜宠物会看哪边，5 回合猜中 3 次就赢，每天前几次获胜还有金币。"
+      "陆地动物现在会在任务栏和打开的窗口上面走：它们会跳上窗口边缘、沿着走、你移动窗口时跟着移动，窗口关闭、被盖住或最大化时就跳下来。它们一直都有重力——在半空中松开，就会落在下面的窗口或任务栏上。",
+      "水中动物在任务栏（它们的水）上游泳，不时高高跃出水面划出大弧线，再溅起水花、涟漪和水滴潜回去。放在任何地方，它都会潜回水里。",
+      "会飞的动物可以在整个屏幕上飞：从这里飞到那里、悬停、到你的鼠标旁边打招呼，有时停在任务栏或窗口边缘休息。鼠标指着它时它会等你；睡觉前会先滑翔到停靠点。",
+      "菜单新动作：跳到窗口上、跳出水面！、到处飞／停在任务栏上休息。宠物设置里的「自己到处跑」可以让宠物不动（旧的重力选项已移除——陆地动物现在一定会掉下来）。"
     ]
   },
   "guide": "https://juw12.github.io/projects/pips/download/Pips-Guide.pptx"
