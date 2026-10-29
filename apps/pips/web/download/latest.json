@@ -1,39 +1,39 @@
 {
   "installer": {
     "filename": "Pips-Setup.exe",
-    "sha256": "3b3400e28facd437895c54797d31e8393e10d40fbd0344ed9a3ec1d31f2be39b",
-    "size": 22251178,
+    "sha256": "6fc7072596f3fcd0ec5eebdb002b0b136f507a0046c92a771636152fc72406ab",
+    "size": 22258948,
     "architecture": "x64",
     "python_version": "3.13.17",
     "requires_admin": false,
     "url": "https://juw12.github.io/projects/pips/download/Pips-Setup.exe"
   },
-  "version": "2.20.0",
+  "version": "2.21.0",
   "date": "2026-10-29",
-  "title": "Come over",
+  "title": "Every animal has a voice",
   "url": "https://juw12.github.io/projects/pips/download/Pips-Windows.zip",
-  "sha256": "e074288ea5f3b9ffe68aad1b6785f3c4027effe64a9888e55f9d083094d31cec",
-  "size": 885840,
+  "sha256": "9472be332c815b7b3ee885b04c336c3da492e0dcc4a3d36644e7f4078d257ef5",
+  "size": 895350,
   "notes": {
     "en": [
-      "When a friend's pet comes over it now wears a name tag: your friend's name (or the nickname you gave them), ♂/♀ and an online dot. It walks up to your pet, says hi, and looks at your mouse when you point at it.",
-      "Point at the visitor (or click its name tag) to open its card: whose pet it is, level, how close you two are, and buttons to wave, pet it, give it a snack, visit back or chat. It reacts to everything - hearts, crumbs, happy faces - and your friend sees it too.",
-      "Rub your mouse over the visitor to pet it. Playing with it makes it stay longer, and your pet comes down from a window or the sky to meet it."
+      "All 51 animals now have their own sound. Before, more than half of them borrowed the cat's meow - now the dog woofs, the cow moos, the sheep baas, the lion roars, the duck quacks, the dolphin clicks and whistles, the dragon flaps and roars with a puff of fire, the ghost goes wooo... and so on.",
+      "Every mood sounds different too: happy, sad, sleepy, hungry or grumpy. Petting, eating and snoring sound right for each kind of animal - furry ones purr and crunch, birds trill and peck, sea animals blow bubbles, bugs hum and magic pets chime.",
+      "A friend's pet that comes to visit now talks in its own voice: it says hi when it arrives and answers when you wave, pet it or give it a snack (it follows your sound settings)."
     ],
     "id": [
-      "Saat peliharaan teman datang berkunjung, sekarang ia memakai papan nama: nama temanmu (atau julukan yang kamu berikan), ♂/♀ dan titik status online. Ia berjalan mendekati pet-mu, menyapa, dan melihat ke arah mouse saat kamu mengarahkannya.",
-      "Arahkan mouse ke pengunjung (atau klik papan namanya) untuk membuka kartunya: pet milik siapa, level, seberapa dekat kalian, dan tombol untuk menyapa, mengelus, memberi camilan, balas berkunjung, atau chat. Ia bereaksi pada semuanya - hati, remah, wajah senang - dan temanmu juga melihatnya.",
-      "Gosok-gosokkan mouse di atas pengunjung untuk mengelusnya. Makin sering diajak main, makin lama ia tinggal, dan pet-mu turun dari jendela atau langit untuk menyambutnya."
+      "Ke-51 hewan sekarang punya suaranya sendiri. Sebelumnya lebih dari separuhnya meminjam suara meong kucing - sekarang anjing menggonggong, sapi melenguh, domba mengembik, singa mengaum, bebek berkwek, lumba-lumba berdecit dan bersiul, naga mengepakkan sayap dan mengaum dengan semburan api, hantu bersuara huuu... dan seterusnya.",
+      "Setiap suasana hati juga terdengar berbeda: senang, sedih, mengantuk, lapar, atau kesal. Suara dielus, makan, dan mendengkur cocok dengan jenis hewannya - hewan berbulu mendengkur dan mengunyah, burung berkicau dan mematuk, hewan laut membuat gelembung, serangga berdengung, dan pet ajaib berdenting.",
+      "Pet teman yang datang berkunjung sekarang bicara dengan suaranya sendiri: ia menyapa saat tiba dan membalas saat kamu melambai, mengelus, atau memberinya camilan (mengikuti pengaturan suaramu)."
     ],
     "zh_TW": [
-      "朋友的寵物來拜訪時，現在會戴著名牌：朋友的名字（或你取的暱稱）、♂/♀ 和在線狀態點。牠會走到你的寵物旁邊打招呼，你指著牠時牠會看著你的滑鼠。",
-      "指著來訪的寵物（或點牠的名牌）就會打開牠的小卡片：是誰的寵物、等級、你們有多親近，還有揮手、摸摸、餵點心、回訪和聊天按鈕。牠對每個動作都有反應——愛心、餅乾屑、開心的表情——你的朋友也會收到。",
-      "用滑鼠在牠身上來回摸摸就能摸牠。陪牠玩，牠就會待久一點；你的寵物也會從視窗或天上下來迎接牠。"
+      "全部 51 種動物現在都有自己的聲音。以前一半以上的動物都借用貓咪的喵喵叫——現在狗會汪汪、牛會哞哞、羊會咩咩、獅子會吼、鴨子會呱呱、海豚會滴答吹口哨、龍會拍翅膀噴火怒吼、幽靈會嗚嗚……等等。",
+      "每種心情聽起來也不一樣：開心、難過、想睡、肚子餓或生氣。摸摸、吃東西和打呼的聲音也符合每種動物——毛茸茸的會呼嚕和咀嚼、鳥會啾啾和啄食、海洋動物會吐泡泡、昆蟲會嗡嗡、魔法寵物會叮叮響。",
+      "來拜訪的朋友寵物現在會用自己的聲音說話：抵達時會打招呼，你揮手、摸摸或餵點心時也會回應（依照你的音效設定）。"
     ],
     "zh_CN": [
-      "朋友的宠物来拜访时，现在会戴着名牌：朋友的名字（或你取的昵称）、♂/♀ 和在线状态点。它会走到你的宠物旁边打招呼，你指着它时它会看着你的鼠标。",
-      "指着来访的宠物（或点它的名牌）就会打开它的小卡片：是谁的宠物、等级、你们有多亲近，还有挥手、摸摸、喂点心、回访和聊天按钮。它对每个动作都有反应——爱心、饼干屑、开心的表情——你的朋友也会收到。",
-      "用鼠标在它身上来回摸摸就能摸它。陪它玩，它就会待久一点；你的宠物也会从窗口或天上下来迎接它。"
+      "全部 51 种动物现在都有自己的声音。以前一半以上的动物都借用猫咪的喵喵叫——现在狗会汪汪、牛会哞哞、羊会咩咩、狮子会吼、鸭子会嘎嘎、海豚会嘀嗒吹口哨、龙会拍翅膀喷火怒吼、幽灵会呜呜……等等。",
+      "每种心情听起来也不一样：开心、难过、想睡、肚子饿或生气。摸摸、吃东西和打呼的声音也符合每种动物——毛茸茸的会呼噜和咀嚼、鸟会啾啾和啄食、海洋动物会吐泡泡、昆虫会嗡嗡、魔法宠物会叮叮响。",
+      "来拜访的朋友宠物现在会用自己的声音说话：抵达时会打招呼，你挥手、摸摸或喂点心时也会回应（按照你的音效设置）。"
     ]
   },
   "guide": "https://juw12.github.io/projects/pips/download/Pips-Guide.pptx"
