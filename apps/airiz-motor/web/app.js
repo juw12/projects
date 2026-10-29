@@ -2296,6 +2296,10 @@
       elements.cameraDeviceSelect.addEventListener('change', updateFfmpegHelper);
       elements.cameraDeviceSelect.addEventListener('change', filterCameraModes);
     }
+    // 1.11.6: the camera on its own, in a separate window (camera-view.html)
+    for (const id of ['btn-camera-popout', 'ptz-popout']) {
+      document.getElementById(id)?.addEventListener('click', openCameraWindow);
+    }
     if (elements.cameraStop) {
       elements.cameraStop.addEventListener('click', stopCameraPreview);
     }
@@ -2535,6 +2539,26 @@
     if (select.selectedOptions[0] && select.selectedOptions[0].disabled) select.value = 'auto';
   }
 
+  // 1.11.6: show only the camera in its own window (or browser tab). That window shows this
+  // console's live camera stream (window.AirizConsole.getCameraStream), so the camera is opened
+  // once and recording, snapshots and detection keep working here.
+  let cameraWindow = null;
+  function openCameraWindow() {
+    if (cameraWindow && !cameraWindow.closed) {
+      cameraWindow.focus();
+      return cameraWindow;
+    }
+    cameraWindow = window.open('camera-view.html', 'airiz-camera-view', 'popup=yes,width=1280,height=760');
+    if (!cameraWindow) {
+      showNotice('The browser blocked the new window. Allow pop-ups for this page.');
+      return null;
+    }
+    if (!cameraState.stream || !cameraState.stream.active) {
+      startCameraPreview().catch(() => {});
+    }
+    return cameraWindow;
+  }
+
   async function startCameraPreview() {
     // Check for secure context
     if (!window.isSecureContext) {
@@ -2583,6 +2607,11 @@
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
       cameraState.stream = stream;
       cameraState.selectedDeviceId = deviceId;
+      // 1.11.6: the camera window (camera-view.html) opens this camera when it runs on its own.
+      try {
+        const liveDeviceId = stream.getVideoTracks()[0]?.getSettings?.().deviceId || deviceId;
+        if (liveDeviceId) localStorage.setItem('airiz.camera.lastDevice', liveDeviceId);
+      } catch (ignored) { /* storage blocked */ }
       
       elements.cameraPreview.srcObject = stream;
       elements.cameraPreview.style.display = 'block';
@@ -3868,6 +3897,14 @@
     getCameraStream() {
       const stream = cameraState.stream;
       return stream && stream.active ? stream : null;
+    },
+    // 1.11.6: used by the camera window (camera-view.html)
+    startCamera() {
+      if (cameraState.stream && cameraState.stream.active) return Promise.resolve();
+      return startCameraPreview();
+    },
+    openCameraWindow() {
+      return !!openCameraWindow();
     },
     getStatus() {
       return Object.freeze({

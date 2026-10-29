@@ -9,7 +9,7 @@ is required to use the installed app or its hardware-free demo.
 ## Downloads
 
 Windows x64 releases are published under the app-specific tag
-`airiz-desktop-v1.11.5` in this repository's Releases section.
+`airiz-desktop-v1.11.6` in this repository's Releases section.
 
 - **Installer**: assisted, per-user installation with Start-menu/desktop shortcuts
   and an uninstaller. The wizard lets the user choose the installation directory.
@@ -163,6 +163,23 @@ reports whether a framed firmware reply came back. Results can be exported.
 No pairing is accepted without confirmation and no motor command is sent.
 Another program on the PC still cannot open COM4 while this app holds it: that is
 a Windows serial-port rule, which is why the check runs inside the app.
+
+## 1.11.6: Camera in its own window
+
+* **Camera window:** *Camera > Open in new window* (and *New window* on the PTZ toolbar) opens
+  `camera-view.html` in its own window (1280×760, resizable) with only the live picture, the picture size, *Fill/Fit*,
+  *Always on top* (picture-in-picture) and *Full screen* (also double-click); the tools hide while the mouse rests.
+* **One camera:** the window shows the console's own MediaStream, so the camera is not opened twice and recording,
+  snapshots and detection keep working in the console. Stopping or restarting the preview is followed within half a
+  second; *Start preview in the console* starts it again from the window. Clicking the button again brings the same
+  window to the front, and the window closes with the console.
+* **On its own:** opened without the console, the page offers *Use the camera here* (the camera the console used
+  last).
+* **Desktop app:** only `airiz://app/camera-view.html` may open as a new window (sandboxed, no further windows or
+  navigation away from the app); every other link still goes to the browser.
+* Tested: a 17-check browser run in English and Traditional Chinese with Chromium's fake camera (same stream object as
+  the console, stop/start follow, Fill/Fit, window reuse, standalone camera), plus the camera-modes, PTZ, zones, i18n
+  and remote suites.
 
 ## 1.11.5: Only camera modes the camera can do
 

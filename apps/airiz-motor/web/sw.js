@@ -1,6 +1,6 @@
 ﻿/* AIRIZ Control Center — versioned, scope-isolated offline shell. */
 const CACHE_PREFIX = 'airiz-control-' + encodeURIComponent(self.registration.scope) + '-';
-const CACHE_NAME = CACHE_PREFIX + 'v2.46-1.11.5-camera-modes';
+const CACHE_NAME = CACHE_PREFIX + 'v2.47-1.11.6-camera-window';
 const ASSETS = [
   './',
   './index.html',
@@ -26,6 +26,9 @@ const ASSETS = [
   './device-label.js',
   './remote-session.js',
   './watch.html',
+  './camera-view.html',
+  './camera-view.js',
+  './camera-view.css',
   './watch.js',
   './vendor/peerjs.min.js',
   './iphone.html',
