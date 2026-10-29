@@ -9,7 +9,7 @@ is required to use the installed app or its hardware-free demo.
 ## Downloads
 
 Windows x64 releases are published under the app-specific tag
-`airiz-desktop-v1.11.0` in this repository's Releases section.
+`airiz-desktop-v1.11.1` in this repository's Releases section.
 
 - **Installer**: assisted, per-user installation with Start-menu/desktop shortcuts
   and an uninstaller. The wizard lets the user choose the installation directory.
@@ -163,6 +163,23 @@ reports whether a framed firmware reply came back. Results can be exported.
 No pairing is accepted without confirmation and no motor command is sent.
 Another program on the PC still cannot open COM4 while this app holds it: that is
 a Windows serial-port rule, which is why the check runs inside the app.
+
+## 1.11.1: Go home from a phone
+
+* **One camera position for every controller:** the console with the AIRIZ cable counts every move -
+  its own and those of every device that controls through it by code - and now sends that camera state
+  (position, Home, soft limits, the move in flight with its remaining time, its last PTZ message) to
+  those devices (`ptz-state`, link protocol 4). Their PTZ view shows the real camera.
+* **Go home from a phone brings the real camera home:** *Go home*, *Set home*, soft limits, *Find rising
+  home* and *Read rising switch* on a controller are sent to the console with the cable (`ptz-action`)
+  and run there; its status shows which device asked and the controller shows the answer. Before, the
+  phone planned Go home from its own moves only, so a move made on the PC or by another phone was never
+  undone. A phone on an older PC console keeps the old behaviour and asks to update the PC.
+* **Bottom switch confirms Home:** when Home is fully down, Go home reads the bottom switch and, if the
+  camera is still higher than counted (an interrupted move, a move made outside this console), lowers it
+  in 60-step chunks until the switch is pressed (at most 1800 steps).
+* **Return after auto-tracking while minimized:** the return home after auto-tracking is checked on its
+  own timer, so it also happens while the window is hidden (no frames are analysed then).
 
 ## 1.11.0: Phone instead of PC
 

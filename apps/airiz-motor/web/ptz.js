@@ -83,6 +83,37 @@
   const tracker = core.createTracker(store.tracker);
   tracker.setTravel(store.travel);
 
+  // ------------------------------------------------------------------ shared camera (1.11.1)
+  // The console that holds the AIRIZ cable (a PC, or a phone since 1.11.0) sees every move:
+  // its own and those of every device that controls through it by code. It shares its
+  // tracked camera (position, Home, limits, the move in flight, its last PTZ message) with
+  // those devices, and they ask it to go home, set home, save limits or find the rising
+  // home, so Go home on a phone returns the real camera home even when the PC or another
+  // phone moved it.
+  const sharedListeners = new Set();
+  let sharedTimer = null;
+  let lastStatus = { text: '', error: false, at: 0, from: '' };
+  const remote = { synced: false, statusAt: null, syncAskedAt: 0 };
+
+  function sharedState() {
+    return { ...tracker.exportShared(Date.now()), status: { ...lastStatus } };
+  }
+
+  function sharedChanged() {
+    if (!sharedListeners.size || sharedTimer) return;
+    sharedTimer = setTimeout(() => {
+      sharedTimer = null;
+      const state = sharedState();
+      for (const listener of sharedListeners) {
+        try {
+          listener(state);
+        } catch (error) {
+          console.error(error);
+        }
+      }
+    }, 60);
+  }
+
   function save() {
     store.tracker = tracker.snapshot();
     try {
@@ -90,21 +121,86 @@
     } catch {
       // storage full / private mode: keep working in memory
     }
+    sharedChanged();
   }
 
   // ------------------------------------------------------------------ helpers
 
   const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-  function status(text, isError) {
+  // `from`: the device that asked for this (a phone controlling through this console), shown
+  // first in its own element so the message itself is still translated.
+  function status(text, isError, from) {
+    lastStatus = { text: String(text || ''), error: !!isError, at: Date.now(), from: from ? String(from) : '' };
+    sharedChanged();
     const line = $('ptz-status');
     if (!line) return;
-    line.textContent = text;
+    if (from) {
+      const who = document.createElement('strong');
+      who.className = 'ptz-status-from';
+      who.textContent = from;
+      line.replaceChildren(who, document.createTextNode(' '), document.createTextNode(text));
+    } else {
+      line.textContent = text;
+    }
     line.dataset.state = isError ? 'error' : 'ok';
   }
 
   function connected() {
     return api.getStatus().connected;
+  }
+
+  function remoteControl() {
+    return window.AirizRemoteControl || null;
+  }
+
+  // This console controls the AIRIZ through another console ("Remote control by code").
+  function viaRemote() {
+    const control = remoteControl();
+    return !!(control && typeof control.isRemote === 'function' && control.isRemote());
+  }
+
+  // The console with the cable shares its camera (AIRIZ Console 1.11.1+, link protocol 4).
+  function hostShares() {
+    const control = remoteControl();
+    const peer = control && control.ptzPeer;
+    return !!(peer && peer.pcVersion >= 4);
+  }
+
+  const ASK_TEXT = {
+    'go-home': 'Asked the PC to move the camera home\u2026',
+    'set-home': 'Asked the PC to set Home here\u2026',
+    'set-limit': 'Asked the PC to save the soft limit\u2026',
+    'clear-limits': 'Asked the PC to clear the soft limits\u2026',
+    'find-rising-home': 'Asked the PC to find the rising home\u2026',
+    'read-switch': 'Asked the PC to read the rising switch\u2026'
+  };
+  const OLD_HOST_NOTE = 'The PC runs an older AIRIZ Console that does not share the camera position, so only the moves sent from this device were counted. Update the AIRIZ Console on the PC.';
+
+  // On a controller these actions run on the console with the cable, which knows every move.
+  function askHost(action, args) {
+    if (!viaRemote() || !hostShares()) return false;
+    const control = remoteControl();
+    if (!control || typeof control.sendPtzAction !== 'function' || !control.sendPtzAction(action, args || {})) return false;
+    status(ASK_TEXT[action] || 'Asked the PC\u2026');
+    return true;
+  }
+
+  // A controller takes over the camera tracked by the console with the cable.
+  function applyHostState(state, receivedAt) {
+    if (!viaRemote() || !tracker.adoptShared(state, Number(receivedAt) || Date.now())) return false;
+    const first = !remote.synced;
+    remote.synced = true;
+    save();
+    renderPosition();
+    animatePose();
+    const hostStatus = state.status;
+    if (hostStatus && hostStatus.text && hostStatus.at !== remote.statusAt) {
+      remote.statusAt = hostStatus.at;
+      // Only messages from now on; not an old one from before this device connected.
+      if (!first) status(hostStatus.text, hostStatus.error, 'PC');
+    }
+    return true;
   }
 
   // Send a command and wait for its "#INFO#...#END#" answer (sensors, switches).
@@ -150,7 +246,7 @@
     return token === operation;
   }
 
-  async function runMoves(moves, token) {
+  async function runMoves(moves, token, from) {
     for (const move of moves) {
       if (!(await waitIdle(token))) return false;
       const delta = tracker.clampDelta(move.axis, move.delta);
@@ -158,31 +254,52 @@
       if (!command) continue;
       const sent = await api.sendCommand(command);
       if (!sent) {
-        status('Motor command not sent. Check the connection and the console.', true);
+        status('Motor command not sent. Check the connection and the console.', true, from);
         return false;
       }
     }
     return waitIdle(token);
   }
 
-  async function moveTo(target, label) {
+  async function moveTo(target, label, from) {
     if (!connected()) {
-      status('Connect the AIRIZ first (USB, or Try demo).', true);
+      status('Connect the AIRIZ first (USB, or Try demo).', true, from);
       return false;
     }
     const moves = core.planMove(tracker, target);
     if (!moves.length) {
-      status(label ? label + ': already there.' : 'Already there.');
+      status(label ? label + ': already there.' : 'Already there.', false, from);
       return true;
     }
     const token = newOperation();
-    status((label ? 'Moving to ' + label : 'Moving') + '\u2026');
-    const ok = await runMoves(moves, token);
+    status((label ? 'Moving to ' + label : 'Moving') + '\u2026', false, from);
+    const ok = await runMoves(moves, token, from);
     if (ok) {
       const clipped = moves.some(move => move.clipped);
-      status((label ? 'At ' + label : 'Move finished') + (clipped ? ' (stopped at a soft limit).' : '.'));
+      status((label ? 'At ' + label : 'Move finished') + (clipped ? ' (stopped at a soft limit).' : '.'), false, from);
     }
     return ok;
+  }
+
+  // Go home. When Home is fully down the bottom switch confirms it (1.11.1): if the tracked
+  // height was off (an interrupted move, a move made outside this console), keep lowering
+  // in small steps until the switch is pressed.
+  async function goHome(from) {
+    const home = tracker.home;
+    const ok = await moveTo(home, 'home', from);
+    if (!ok || !tracker.risingRef || home.rising > 0 || !connected() || findingHome) return ok;
+    findingHome = true;
+    try {
+      const pressed = await readSwitch(true);
+      if (pressed !== false) return true;
+      status('Not fully down yet: lowering until the bottom switch is pressed\u2026', false, from);
+      const moved = await findRisingHome(newOperation(), 60, 1800, from);
+      if (moved === null) return false;
+      status('At home: lowered ' + moved + ' more steps until the bottom switch was pressed.', false, from);
+      return true;
+    } finally {
+      findingHome = false;
+    }
   }
 
   // ------------------------------------------------------------------ position UI
@@ -248,7 +365,9 @@
       newOperation();
       if (scan.running) stopScan('Auto scan stopped (motor stop).');
     }
-    if (result.type === 'move' && result.move.axis === 'rising' && result.saturated) {
+    // (Not while lowering to the bottom switch: the counted height is wrong then, the
+    // search reports by itself.)
+    if (result.type === 'move' && result.move.axis === 'rising' && result.saturated && !findingHome) {
       status(result.to === 0
         ? 'The camera reaches the bottom end stop: rising = 0 (fully down).'
         : 'The camera reaches the top end stop: rising = ' + result.to + ' (fully up).');
@@ -625,31 +744,45 @@
 
   // ------------------------------------------------------------------ home, limits, presets
 
-  $('ptz-set-home').addEventListener('click', () => {
+  function setHomeHere(from) {
     tracker.setHome();
     save();
     renderPosition();
-    status('Home set here. Positions are now counted from this point.');
+    status('Home set here. Positions are now counted from this point.', false, from);
+  }
+  $('ptz-set-home').addEventListener('click', () => {
+    if (askHost('set-home')) return;
+    setHomeHere();
   });
-  $('ptz-go-home').addEventListener('click', () => {
+  $('ptz-go-home').addEventListener('click', async () => {
+    if (askHost('go-home')) return;
     stopScan();
-    moveTo(tracker.home, 'home');
+    const ok = await goHome();
+    if (ok && viaRemote() && !hostShares()) status(OLD_HOST_NOTE, true);
   });
-  document.querySelectorAll('[data-limit]').forEach(button => button.addEventListener('click', () => {
-    const [axis, side] = button.dataset.limit.split(':');
+  function setLimitHere(axis, side, from) {
     tracker.setLimit(axis, side, tracker.position[axis]);
     save();
     renderPosition();
-    status('Soft limit saved: ' + axis + ' ' + side + ' = ' + tracker.position[axis] + '. Moves from this console stop there.');
+    status('Soft limit saved: ' + axis + ' ' + side + ' = ' + tracker.position[axis] + '. Moves from this console stop there.', false, from);
+  }
+  document.querySelectorAll('[data-limit]').forEach(button => button.addEventListener('click', () => {
+    const [axis, side] = button.dataset.limit.split(':');
+    if (askHost('set-limit', { axis, side })) return;
+    setLimitHere(axis, side);
   }));
-  $('ptz-clear-limits').addEventListener('click', () => {
+  function clearLimits(from) {
     for (const axis of core.AXES) {
       tracker.setLimit(axis, 'min', null);
       tracker.setLimit(axis, 'max', null);
     }
     save();
     renderPosition();
-    status('Soft limits cleared.');
+    status('Soft limits cleared.', false, from);
+  }
+  $('ptz-clear-limits').addEventListener('click', () => {
+    if (askHost('clear-limits')) return;
+    clearLimits();
   });
 
   $('ptz-preset-save').addEventListener('click', () => {
@@ -762,6 +895,8 @@
     clearTimeout(bottomCheckTimer);
     bottomCheckTimer = setTimeout(() => {
       if (findingHome || !connected() || api.getStatus().macroRunning) return;
+      // A controller leaves this to the console with the cable, which shares the result.
+      if (viaRemote() && hostShares()) return;
       if (Date.now() < tracker.busyUntil()) {
         scheduleBottomCheck(tracker.busyUntil() - Date.now() + 400);
         return;
@@ -770,68 +905,93 @@
     }, Math.max(200, delayMs));
   }
 
-  // On connect: one switch reading tells whether the camera starts fully down.
+  // On connect: one switch reading tells whether the camera starts fully down. A controller
+  // takes over the camera tracked by the console with the cable instead (1.11.1).
   let wasConnected = false;
   setInterval(() => {
     const isConnected = connected();
     if (isConnected && !wasConnected) {
       setTimeout(() => {
-        if (connected() && !api.getStatus().macroRunning && !findingHome) readSwitch(true);
+        if (!connected() || api.getStatus().macroRunning || findingHome) return;
+        if (viaRemote() && hostShares()) return;
+        readSwitch(true);
       }, 1200);
     }
     wasConnected = isConnected;
+    if (!isConnected || !viaRemote()) {
+      remote.synced = false;
+      remote.statusAt = null;
+    } else if (!remote.synced) {
+      const control = remoteControl();
+      const latest = control && control.ptzState;
+      if (latest && latest.state) {
+        applyHostState(latest.state, latest.at);
+      } else if (hostShares() && control && typeof control.sendPtzAction === 'function'
+        && Date.now() - remote.syncAskedAt > 5000) {
+        remote.syncAskedAt = Date.now();
+        control.sendPtzAction('sync', {});
+      }
+    }
   }, 1000);
   $('ptz-read-switch').addEventListener('click', () => {
     if (!connected()) {
       status('Connect the AIRIZ first (USB, or Try demo).', true);
       return;
     }
+    if (askHost('read-switch')) return;
     readSwitch();
   });
 
   // Lower the camera in small steps until the rising switch reports "pressed",
   // then make that the rising zero and the lowest soft limit.
-  $('ptz-find-rising-home').addEventListener('click', async () => {
+  async function findRisingHomeAction(from) {
     if (!connected()) {
-      status('Connect the AIRIZ first (USB, or Try demo).', true);
+      status('Connect the AIRIZ first (USB, or Try demo).', true, from);
       return;
     }
     stopScan();
     const token = newOperation();
-    const chunk = 60;
-    const maxTotal = 1800;
-    status('Finding rising home: lowering until the switch is pressed\u2026');
+    status('Finding rising home: lowering until the switch is pressed\u2026', false, from);
     findingHome = true;
     try {
-      await findRisingHome(token, chunk, maxTotal);
+      const moved = await findRisingHome(token, 60, 1800, from);
+      if (moved !== null) {
+        status('Rising home found after ' + moved + ' steps down. Rising = 0 is now the lowest position (privacy).', false, from);
+      }
     } finally {
       findingHome = false;
     }
+  }
+  $('ptz-find-rising-home').addEventListener('click', () => {
+    if (askHost('find-rising-home')) return;
+    findRisingHomeAction();
   });
 
-  async function findRisingHome(token, chunk, maxTotal) {
+  // Lower in `chunk` steps until the rising switch is pressed. Returns the steps lowered, or
+  // null (stopped by a newer action, no answer from the switch, not found).
+  async function findRisingHome(token, chunk, maxTotal, from) {
     let moved = 0;
     while (moved <= maxTotal) {
-      if (token !== operation) return;
+      if (token !== operation) return null;
       const pressed = await readSwitch();
       if (pressed === null) {
-        status('The rising switch did not answer. Rising home not found.', true);
-        return;
+        status('The rising switch did not answer. Rising home not found.', true, from);
+        return null;
       }
       if (pressed) {
         tracker.setRisingReference();
         save();
         renderPosition();
-        status('Rising home found after ' + moved + ' steps down. Rising = 0 is now the lowest position (privacy).');
-        return;
+        return moved;
       }
       const sent = await api.sendCommand(core.motorCommand('rising', -chunk, store.speeds.rising));
-      if (!sent) return;
+      if (!sent) return null;
       moved += chunk;
-      if (!(await waitIdle(token))) return;
+      if (!(await waitIdle(token))) return null;
       await sleep(150);
     }
-    status('Lowered ' + maxTotal + ' steps without the switch pressing. Check "Switch pressed value" in Calibration.', true);
+    status('Lowered ' + maxTotal + ' steps without the switch pressing. Check "Switch pressed value" in Calibration.', true, from);
+    return null;
   }
 
   $('ptz-privacy-on').addEventListener('click', async () => {
@@ -991,14 +1151,22 @@
   }
 
   function maybeReturnFromTracking(now) {
-    if (!detection.trackedAway || !detection.armed || !store.detect.track) return;
     const wait = Math.max(5, Number(store.detect.trackReturn) || 30) * 1000;
-    if (now - detection.lastMotionAt < wait || Date.now() < tracker.busyUntil()) return;
+    const due = core.trackingReturnDue({
+      trackedAway: detection.trackedAway,
+      armed: detection.armed,
+      track: store.detect.track,
+      lastMotionAt: detection.lastMotionAt,
+      waitMs: wait,
+      busyUntil: tracker.busyUntil(),
+      now
+    });
+    if (!due) return;
     detection.trackedAway = false;
     const target = tracker.homed ? tracker.home : detection.anchor;
     if (target) {
       renderDetectStatus('No motion for ' + Math.round(wait / 1000) + ' s: returning.');
-      moveTo(target, tracker.homed ? 'home' : 'the start position').then(resetDetection);
+      (tracker.homed ? goHome() : moveTo(target, 'the start position')).then(resetDetection);
     }
   }
 
@@ -1430,7 +1598,44 @@
   setArmed(false);
   $('ptz-siren-stop').disabled = true;
   setInterval(analyse, DETECT_INTERVAL_MS);
+  // 1.11.1: the return after auto-tracking is checked on its own timer, so it also happens
+  // while the window is hidden or minimized (the picture is not analysed then).
+  setInterval(() => maybeReturnFromTracking(Date.now()), 1000);
   setInterval(() => renderDetectStatus(), 5000);
+
+  // Actions a device that controls through this console asks for (1.11.1, remote-control.js).
+  function runShared(action, args, from) {
+    const who = String(from || '').replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, 40) || 'Remote device';
+    const options = args && typeof args === 'object' ? args : {};
+    switch (action) {
+      case 'go-home':
+        stopScan();
+        goHome(who);
+        return true;
+      case 'set-home':
+        setHomeHere(who);
+        return true;
+      case 'set-limit':
+        if (!core.AXES.includes(options.axis) || !['min', 'max'].includes(options.side)) return false;
+        setLimitHere(options.axis, options.side, who);
+        return true;
+      case 'clear-limits':
+        clearLimits(who);
+        return true;
+      case 'find-rising-home':
+        findRisingHomeAction(who);
+        return true;
+      case 'read-switch':
+        if (!connected()) {
+          status('Connect the AIRIZ first (USB, or Try demo).', true, who);
+          return true;
+        }
+        readSwitch().then(() => status($('ptz-switch-state').textContent, false, who));
+        return true;
+      default:
+        return false;
+    }
+  }
 
   // Small API for tests and other modules (read-only state + the same actions as the UI).
   window.AirizPtz = Object.freeze({
@@ -1461,6 +1666,22 @@
     get home() {
       return tracker.home;
     },
+    get statusText() {
+      return lastStatus.text;
+    },
+    // 1.11.1 shared camera: the console with the cable publishes, controllers adopt.
+    get synced() {
+      return remote.synced;
+    },
+    shared: () => sharedState(),
+    onShared(listener) {
+      if (typeof listener !== 'function') return () => {};
+      sharedListeners.add(listener);
+      return () => sharedListeners.delete(listener);
+    },
+    runShared,
+    applyHost: (state, receivedAt) => applyHostState(state, receivedAt),
+    goHome: () => goHome(),
     pose(at) {
       const live = tracker.livePosition(at || Date.now());
       return { ...live, ...core.describePose(live, { travel: tracker.travel, risingRef: tracker.risingRef }) };

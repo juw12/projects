@@ -231,3 +231,59 @@ test('switch replies and pose descriptions', () => {
   assert.equal(pose(0, 9600).panTurns, 2);
   assert.deepEqual(core.normalizeTravel({ risingMax: '1070', panPerTurn: -1 }), { risingMax: 1070, panPerTurn: 4800 });
 });
+
+test('the cable console shares its camera: a controller adopts position, Home, limits and the running move', () => {
+  const timing = { pan: 40, rising: 12 };
+  // The PC (holds the cable): home set, then the PC itself and a phone moved the camera.
+  const pc = core.createTracker({ risingRef: true, position: { pan: 0, rising: 400 } });
+  pc.setHome();
+  pc.setLimit('pan', 'min', -900);
+  pc.applyCommand('diag motor pan forward 2 100', 1000, timing);   // 2000 ms
+  pc.applyCommand('diag motor rising forward 3 120', 3500, timing); // 480 ms, still running at 3700
+  const shared = JSON.parse(JSON.stringify(pc.exportShared(3700)));
+  assert.deepEqual(shared.position, { pan: 100, rising: 520 });
+  assert.deepEqual(shared.pending, { axis: 'rising', from: 400, rawDelta: 120, expectedMs: 480, remainingMs: 280 });
+  assert.deepEqual(shared.limits, { pan: { min: -900, max: null }, rising: { min: null, max: null } });
+
+  // The phone only knew its own rising move; its clock is 50 s behind the PC's.
+  const phone = core.createTracker();
+  phone.applyCommand('diag motor rising forward 3 120', -46500, timing);
+  assert.equal(phone.adoptShared(shared, -46300), true);
+  assert.deepEqual(phone.position, { pan: 100, rising: 520 });
+  assert.deepEqual(phone.home, { pan: 0, rising: 400 });
+  assert.equal(phone.homed, true);
+  assert.equal(phone.risingRef, true);
+  assert.deepEqual(phone.limits, shared.limits);
+  // The move still runs for 280 ms on the phone's own clock.
+  assert.equal(phone.busyUntil(), -46300 + 280);
+  // Go home from the phone now plans both axes from the real position.
+  assert.deepEqual(core.planMove(phone, phone.home), [
+    { axis: 'pan', delta: -100, clipped: false },
+    { axis: 'rising', delta: -120, clipped: false }
+  ]);
+
+  // A finished move is not sent as running; broken states are refused and change nothing.
+  assert.equal(pc.exportShared(10000).pending, null);
+  assert.equal(phone.adoptShared(null, 0), false);
+  assert.equal(phone.adoptShared({ position: { pan: 'x', rising: 1 } }, 0), false);
+  assert.deepEqual(phone.position, { pan: 100, rising: 520 });
+  // Missing limits and travel fall back to none / the defaults.
+  const bare = core.createTracker();
+  assert.equal(bare.adoptShared({ position: { pan: 5, rising: 6 } }, 0), true);
+  assert.deepEqual(bare.limits, { pan: { min: null, max: null }, rising: { min: null, max: null } });
+  assert.deepEqual(bare.travel, core.DEFAULT_TRAVEL);
+  assert.equal(bare.busyUntil(), 0);
+});
+
+test('auto-tracking returns after the quiet time, also without new frames (window hidden)', () => {
+  const base = { trackedAway: true, armed: true, track: true, lastMotionAt: 1000, waitMs: 30000, busyUntil: 0 };
+  assert.equal(core.trackingReturnDue({ ...base, now: 30999 }), false);
+  assert.equal(core.trackingReturnDue({ ...base, now: 31000 }), true);
+  assert.equal(core.trackingReturnDue({ ...base, now: 31000, busyUntil: 32000 }), false);
+  assert.equal(core.trackingReturnDue({ ...base, now: 999999, trackedAway: false }), false);
+  assert.equal(core.trackingReturnDue({ ...base, now: 999999, armed: false }), false);
+  assert.equal(core.trackingReturnDue({ ...base, now: 999999, track: false }), false);
+  // Never sooner than 5 s, whatever the setting.
+  assert.equal(core.trackingReturnDue({ ...base, waitMs: 1000, now: 5999 }), false);
+  assert.equal(core.trackingReturnDue({ ...base, waitMs: 1000, now: 6000 }), true);
+});
