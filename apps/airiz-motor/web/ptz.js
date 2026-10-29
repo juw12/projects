@@ -1505,10 +1505,13 @@
     try {
       const desktop = !!window.airizDesktop;
       const note = new Notification(title, { body, icon: desktop || !thumb ? 'icons/icon-192.png' : thumb, tag: 'airiz-motion', silent: false });
-      note.onclick = () => {
-        window.focus();
-        note.close();
-      };
+      // Clicking the pop-up brings the console to the front (optional: never blocks the alert).
+      if (typeof note.addEventListener === 'function') {
+        note.addEventListener('click', () => {
+          window.focus();
+          note.close();
+        });
+      }
     } catch {
       return { ok: false, note: 'Windows refused the notification.' };
     }
