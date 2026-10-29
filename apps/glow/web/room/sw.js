@@ -1,8 +1,9 @@
 // GlowRoom service worker: installable + offline.
-// Pages are network-first (so updates ship immediately) with a short timeout that falls back to the
-// saved copy on a weak connection; static assets are cache-first.
+// Pages, scripts and styles are network-first (so updates ship immediately, including the shared
+// glow-apps.js that shows and installs Glow updates) with a short timeout that falls back to the saved
+// copy on a weak connection; only the big vendor library and images are cache-first.
 (function () {
-  var CACHE_NAME = 'glowroom-v16';
+  var CACHE_NAME = 'glowroom-v17';
   var NETWORK_TIMEOUT_MS = 4000;
   var SCOPE = self.registration.scope;
 
@@ -64,6 +65,12 @@
     return req.mode === 'navigate' || /\.html?$/.test(url.pathname) || url.pathname.endsWith('/');
   }
 
+  // Code changes with every Glow release. When it was cache-first, GlowRoom kept running an old
+  // glow-apps.js (and its hidden update button) until this file changed.
+  function isCode(url) {
+    return /\.(?:js|css|json|webmanifest)$/.test(url.pathname) && url.pathname.indexOf('/vendor/') === -1;
+  }
+
   self.addEventListener('fetch', function (event) {
     var req = event.request;
     if (req.method !== 'GET') return;
@@ -72,7 +79,7 @@
     if (url.origin !== self.location.origin) return;
     if (url.pathname.split('/').indexOf('api') !== -1) return;
 
-    if (isPage(req, url)) {
+    if (isPage(req, url) || isCode(url)) {
       var fromCache = function () {
         return caches.match(req, { ignoreSearch: req.mode === 'navigate' }).then(function (hit) {
           return hit || (req.mode === 'navigate' ? caches.match(resolveUrl('./index.html')) : hit);

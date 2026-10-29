@@ -10,7 +10,7 @@
   const ROOT = new URL("../", scriptUrl); // .../glow/
   // The Glow family version. Bump it together with ../version.json for every release:
   // an older copy of this script then sees the newer version.json and offers "Update now".
-  const GLOW_VERSION = "1.25.0";
+  const GLOW_VERSION = "1.25.1";
   const LIVE_ROOT = "https://juw12.github.io/projects/glow/";
   const APK_URL = "https://github.com/juw12/projects/releases/download/glow-android/Glow-android.apk";
   const embedded = (function () {
@@ -199,9 +199,13 @@ html.glow-room-open .glow-widget-bubble,html.glow-room-open .glow-widget-panel{d
 .glow-version-chip.ready,.glow-version-chip.ready *{color:#fff!important}
 .glow-version-chip.ready{background:#d97757!important;border-color:#d97757!important;opacity:1;animation:glowChipPulse 2.4s ease-out infinite}
 .glow-version-chip.ready:hover{background:#e0865f!important}
+.glow-version-chip.glow-chip-compact{padding:0;width:30px;justify-content:center}
+.glow-version-chip.glow-chip-compact .label{display:none}
+.glow-version-chip.glow-chip-hidden{display:none!important}
 .glow-apps-btn{position:relative}
 .glow-apps-btn.glow-update-ready::after{content:"";position:absolute;top:-4px;right:-4px;width:11px;height:11px;border-radius:50%;background:#d97757;border:2px solid #fff;box-sizing:border-box}
 @keyframes glowChipPulse{0%{box-shadow:0 0 0 0 rgba(217,119,87,.6)}70%{box-shadow:0 0 0 10px rgba(217,119,87,0)}100%{box-shadow:0 0 0 0 rgba(217,119,87,0)}}
+@media (max-width:900px){.glow-version-chip:not(.ready){padding:0;width:30px;justify-content:center}.glow-version-chip:not(.ready) .label,.glow-version-chip .more{display:none}}
 @media (max-width:560px){.glow-version-chip{display:none!important}}
 @media (prefers-reduced-motion:reduce){.glow-version-chip.ready{animation:none}}
 .glow-apps-version-links{flex-basis:100%;font-size:12px;opacity:.85}
@@ -561,8 +565,10 @@ html.glow-room-open .glow-widget-bubble,html.glow-room-open .glow-widget-panel{d
 
   // ---------------------------------------------------------------------------------------------
   // Updates you can see and that install by themselves.
-  // - A version button sits in the header of every Glow app: "✓ v1.25.0" when up to date (click to
-  //   check), a bright "⬆ Update to …" when a new version is ready (click to update).
+  // - A version button sits in the header of every Glow app: "✓ v1.25.1" when up to date (click to
+  //   check), a bright "⬆ Update to …" when a new version is ready (click to update). It never pushes
+  //   the header off screen: on narrower windows it shows just its icon (an update still says
+  //   "⬆ Update"), and when even that doesn't fit it steps aside for the orange dot on the Glow apps button.
   // - "Install updates by itself" (on by default): a ready update installs when Glow opens or as soon
   //   as you switch away from it, never while a reply streams or unsaved text is typed. GlowChat keeps
   //   the open chat and the unsent message, so you come back to the same place.
@@ -713,7 +719,7 @@ html.glow-room-open .glow-widget-bubble,html.glow-room-open .glow-widget-panel{d
     if (updateState === "available" && latest) {
       return {
         cls: "ready",
-        html: `<span class="icon">⬆</span><span class="label">Update to ${escapeHtml(latest.version)}</span>`,
+        html: `<span class="icon">⬆</span><span class="label">Update<span class="more"> to ${escapeHtml(latest.version)}</span></span>`,
         title: `Glow ${latest.version} is ready (you have ${GLOW_VERSION}). Click to update: it takes a few seconds and you come back to the same place.`,
       };
     }
@@ -724,10 +730,102 @@ html.glow-room-open .glow-widget-bubble,html.glow-room-open .glow-widget-panel{d
   }
   function renderChip(chip) {
     const view = chipView();
-    chip.className = "glow-version-chip" + (view.cls ? " " + view.cls : "");
+    const fitted = ["glow-chip-compact", "glow-chip-hidden"].filter((name) => chip.classList.contains(name));
+    chip.className = ["glow-version-chip", view.cls].concat(fitted).filter(Boolean).join(" ");
     chip.innerHTML = view.html;
     chip.title = view.title;
     chip.setAttribute("aria-label", view.title);
+    fitVersionChip(chip);
+  }
+
+  // How tight the header is, in pixels. "hard": it sticks out past the window (or past a box it sits
+  // in). "soft": the things next to the button get squeezed until they overlap (GlowRoom's status
+  // pill), not counting text that is meant to end in "…" or strips that are meant to scroll.
+  function chipCrowding(chip) {
+    const root = document.documentElement;
+    let hard = root.scrollWidth - root.clientWidth;
+    for (let el = chip.parentElement; el && el !== document.body && el !== root; el = el.parentElement) {
+      if (el.clientWidth) hard = Math.max(hard, el.scrollWidth - el.clientWidth);
+    }
+    let soft = 0;
+    const row = chip.parentElement;
+    for (const el of [chip, row]) {
+      const box = el && el.parentElement;
+      if (!box || box === document.body || box === root) continue;
+      for (const neighbour of box.children) {
+        if (neighbour === el || !neighbour.clientWidth) continue;
+        const style = getComputedStyle(neighbour);
+        if (style.textOverflow === "ellipsis" || /auto|scroll/.test(style.overflowX)) continue;
+        soft = Math.max(soft, neighbour.scrollWidth - neighbour.clientWidth);
+      }
+    }
+    return { hard: Math.max(0, hard), soft: Math.max(0, soft) };
+  }
+  // Narrow window, big or wide fonts, zoom, a long account name: if the button makes the header too
+  // wide, show just its icon; if even that is too wide, hide it (the orange dot on the Glow apps button
+  // and the version line in the menus still offer the update). When it only squeezes its neighbours,
+  // a ready update stays as an orange icon. Never touches anything else.
+  function fitVersionChip(chip) {
+    if (!chip || !chip.isConnected) return;
+    chip.classList.remove("glow-chip-compact", "glow-chip-hidden");
+    const full = chipCrowding(chip);
+    if (full.hard <= 1 && full.soft <= 4) return;
+    chip.classList.add("glow-chip-hidden");
+    const without = chipCrowding(chip);
+    chip.classList.remove("glow-chip-hidden");
+    const tighter = (now) => ({ hard: now.hard > without.hard + 1, soft: now.soft > without.soft + 4 });
+    const fullTighter = tighter(full);
+    if (!fullTighter.hard && !fullTighter.soft) return; // something else is too wide; the button isn't the cause
+    chip.classList.add("glow-chip-compact");
+    const compactTighter = tighter(chipCrowding(chip));
+    if (!compactTighter.hard && (!compactTighter.soft || chip.classList.contains("ready"))) return;
+    chip.classList.remove("glow-chip-compact");
+    chip.classList.add("glow-chip-hidden");
+  }
+  function fitVersionChips() {
+    document.querySelectorAll("[data-glow-version-chip]").forEach((chip) => {
+      followAppsButton(chip);
+      fitVersionChip(chip);
+    });
+  }
+  // Some apps rebuild their header after Glow is ready (GlowRoom moves the Glow apps button into its
+  // menu bar): the version button goes with it instead of staying behind in a hidden header.
+  const chipButtons = new WeakMap();
+  function followAppsButton(chip) {
+    const button = chipButtons.get(chip);
+    if (!button || !button.isConnected || button.previousElementSibling === chip) return;
+    button.insertAdjacentElement("beforebegin", chip);
+    watchChipRoom(chip);
+  }
+  let chipFitQueued = false;
+  function queueChipFit() {
+    if (chipFitQueued) return;
+    chipFitQueued = true;
+    const run = () => {
+      chipFitQueued = false;
+      fitVersionChips();
+    };
+    if (window.requestAnimationFrame) window.requestAnimationFrame(run);
+    else setTimeout(run, 16);
+  }
+  let chipResizeBound = false;
+  let chipObserver = null;
+  function watchChipRoom(chip) {
+    if (!chipResizeBound) {
+      chipResizeBound = true;
+      window.addEventListener("resize", fitVersionChips);
+      window.addEventListener("load", queueChipFit);
+      if (document.fonts && document.fonts.ready) document.fonts.ready.then(queueChipFit).catch(() => {});
+    }
+    // The header can also grow without the window changing (signing in shows a name, a button appears).
+    const row = chip.parentElement;
+    if (!row || !("ResizeObserver" in window)) return;
+    chipObserver = chipObserver || new ResizeObserver(queueChipFit);
+    chipObserver.observe(row);
+    Array.from(row.children).forEach((child) => {
+      if (child !== chip) chipObserver.observe(child);
+    });
+    if (row.parentElement && row.parentElement !== document.body) chipObserver.observe(row.parentElement);
   }
   function mountVersionChip(button) {
     if (embedded || !button || button.dataset.glowChip) return;
@@ -749,9 +847,15 @@ html.glow-room-open .glow-widget-bubble,html.glow-room-open .glow-widget-panel{d
     });
     // A page can choose the spot (GlowChat: its top bar); otherwise it sits just left of the Glow apps button.
     const slot = document.querySelector("[data-glow-version-slot]");
-    if (slot) slot.replaceWith(chip);
-    else button.insertAdjacentElement("beforebegin", chip);
+    if (slot) {
+      slot.replaceWith(chip);
+    } else {
+      button.insertAdjacentElement("beforebegin", chip);
+      chipButtons.set(chip, button);
+    }
     renderChip(chip);
+    watchChipRoom(chip);
+    queueChipFit();
   }
 
   function renderVersionLine(box) {
