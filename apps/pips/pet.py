@@ -80,6 +80,11 @@ except ImportError:  # pragma: no cover
     tama = None
 
 try:
+    import minigames             # v2.24: Treat Catch, Bonk the Bugs, Memory Match, Pet Says, Hop Hop
+except ImportError:  # pragma: no cover
+    minigames = None
+
+try:
     import roam                  # v2.19: land walks on windows, water leaps & splashes, air flies
 except ImportError:  # pragma: no cover
     roam = None
@@ -4236,6 +4241,22 @@ class DesktopPet:
         self.walking = False
         self._game_round()
 
+    def play_minigame(self, game="catch"):
+        """v2.24: open one of the arcade minigames (same health / energy checks as Left or Right?)."""
+        if minigames is None:
+            return None
+        self._touch()
+        if self.sleeping:
+            self.wake("poke", quiet=True)
+        if self.health is not None and self.health.sick:
+            self.say(t("tama_game_sick"), actions=self._sick_actions(), duration=10, priority=2)
+            return None
+        if self.st.get("energy", 50) < 8:
+            self.say(t("tama_game_tired"), duration=4, priority=1)
+            return None
+        self.set_action("hop", 0.5)
+        return minigames.open_game(self, game)
+
     def _game_round(self):
         game = self.game
         if game is None:
@@ -4731,7 +4752,9 @@ class DesktopPet:
                 tiles.append(("\U0001F6CD", t("fm_shop"), lambda: self.open_hub("shop")))
         tiles.append(("\U0001F36A", t("fm_snack"), self.feed))
         tiles.append(("\U0001F49E", t("fm_pat"), self.pet))
-        if tama is not None:
+        if minigames is not None:
+            tiles.append(("\U0001F3AE", t("fm_play"), lambda: self.play_minigame()))
+        elif tama is not None:
             tiles.append(("\U0001F3AE", t("fm_play"), self.play_game))
         tiles.append(("\u23F1", t("fm_focus"), lambda: self._call("toggle_window")))
         tiles.append(("\U0001F4CA", t("fm_stats"), lambda: self._call("open_dashboard")))
@@ -4769,6 +4792,17 @@ class DesktopPet:
             online = sum(1 for f in targets if f.get("presence") == "online")
             menu.submenu(social.NUDGE_SYMBOL["poke"], t("nudge_menu"), build_nudge_friends,
                          hint=t("nudge_online", n=online) if online else "", width=240)
+
+        if minigames is not None:
+            def build_games(sub):
+                for key in minigames.GAMES:
+                    best = minigames.best_score(self.st, key)
+                    sub.item(minigames.ICONS[key], t("mg_" + key), lambda k=key: self.play_minigame(k),
+                             hint=("\u2605 " + str(best)) if best else "")
+                if tama is not None:
+                    sub.item("\u2194", t("mg_leftright"), self.play_game)
+            menu.submenu("\U0001F3B2", t("p_games"), build_games, hint=str(len(minigames.GAMES) + (1 if tama else 0)),
+                         width=240)
 
         moves = self.shop.moves() if self.shop else []
         if moves:
@@ -4944,8 +4978,19 @@ class DesktopPet:
         menu.add_separator()
         menu.add_command(label=t("p_snack"), command=self.feed)
         menu.add_command(label=t("p_pet", name=name), command=self.pet)
-        if tama is not None:
+        if minigames is not None:
+            games_menu = submenu(menu)
+            if tama is not None:
+                games_menu.add_command(label="\u2194 " + t("mg_leftright"), command=self.play_game)
+                games_menu.add_separator()
+            for key in minigames.GAMES:
+                best = minigames.best_score(self.st, key)
+                label = f"{minigames.ICONS[key]} {t('mg_' + key)}" + (f"   \u2605 {best}" if best else "")
+                games_menu.add_command(label=label, command=lambda k=key: self.play_minigame(k))
+            menu.add_cascade(label=t("p_games"), menu=games_menu)
+        elif tama is not None:
             menu.add_command(label=t("p_play"), command=self.play_game)
+        if tama is not None:
             if self.health is not None and self.health.sick:
                 menu.add_command(label=t("p_medicine"), command=self.give_medicine)
         if self.sleeping:

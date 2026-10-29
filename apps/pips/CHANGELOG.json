@@ -2,6 +2,33 @@
   "_comment": "Pips version history. Newest first. Feeds the in-app update notice (latest.json), the PPT guide and the update emails.",
   "releases": [
     {
+      "version": "2.24.0",
+      "date": "2026-10-29",
+      "title": "Skill battles, minigames & a simpler Hub",
+      "notes": {
+        "en": [
+          "Arena battles are now turn-based: before a fight compare both pets' stats (level + gear), pick 3 skills, and the challenger chooses best of 1, 3 or 5 rounds. Take turns until one pet is knocked out - new skills unlock as you level up and with weapons and gadgets.",
+          "5 new minigames to play with your pet: Treat Catch, Bonk the Bugs, Memory Match, Pet Says and Hop Hop. Best scores are saved and great scores earn a few coins (right-click → Games, or Hub → Play).",
+          "The Hub is simpler: 5 tabs - Friends, Chat (messages + groups), Play (arena, minigames, ranks), Shop and Me (profile + achievements)."
+        ],
+        "id": [
+          "Duel arena kini bergiliran: sebelum bertarung bandingkan statistik kedua pet (level + gear), pilih 3 skill, dan penantang memilih best of 1, 3 atau 5 ronde. Bergantian sampai salah satu KO - skill baru terbuka saat naik level dan dengan senjata serta gadget.",
+          "5 minigame baru untuk bermain dengan pet: Tangkap Camilan, Pukul Serangga, Cocokkan Kartu, Kata Pet dan Lompat Lompat. Skor terbaik disimpan dan skor hebat dapat beberapa koin (klik kanan → Permainan, atau Hub → Main).",
+          "Hub lebih sederhana: 5 tab - Teman, Chat (pesan + grup), Main (arena, minigame, peringkat), Toko dan Saya (profil + pencapaian)."
+        ],
+        "zh_TW": [
+          "競技場對戰改為回合制：開打前比較雙方能力值（等級＋裝備），選 3 個技能，由挑戰者決定 1、3 或 5 戰制。輪流出招直到一方被擊倒 - 升級和裝備武器、道具會解鎖新技能。",
+          "新增 5 款寵物小遊戲：接點心、打蟲蟲、記憶翻牌、寵物說、跳跳跑。會記錄最佳分數，高分還能拿金幣（右鍵 → 遊戲，或 Hub → 遊戲）。",
+          "Hub 更簡潔：5 個分頁 - 好友、聊天（訊息＋群組）、遊戲（競技場、小遊戲、排行榜）、商店、我（個人檔案＋成就）。"
+        ],
+        "zh_CN": [
+          "竞技场对战改为回合制：开打前比较双方能力值（等级＋装备），选 3 个技能，由挑战者决定 1、3 或 5 局制。轮流出招直到一方被击倒 - 升级和装备武器、道具会解锁新技能。",
+          "新增 5 款宠物小游戏：接点心、打虫虫、记忆翻牌、宠物说、跳跳跑。会记录最佳分数，高分还能拿金币（右键 → 游戏，或 Hub → 游戏）。",
+          "Hub 更简洁：5 个标签 - 好友、聊天（消息＋群组）、游戏（竞技场、小游戏、排行榜）、商店、我（个人资料＋成就）。"
+        ]
+      }
+    },
+    {
       "version": "2.23.0",
       "date": "2026-10-29",
       "title": "Weather on your desktop",

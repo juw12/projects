@@ -1270,19 +1270,61 @@ class Social:
         if self.enabled:
             self._run("arena", api_call, "GET", "/v1/arena" + ("?here=1" if here else ""), None, self.account)
 
-    def challenge(self, code: str):
-        if self.enabled:
-            self._run("duel_challenged", api_call, "POST", "/v1/duel/challenge",
-                      {"code": code, "gear": self.my_gear()}, self.account)
+    # v2.24 skill duels: every fighter brings 3 skills; the challenger picks best of 1 / 3 / 5 rounds.
+    def my_level(self) -> int:
+        stats = self.stats
+        if not stats:
+            try:
+                stats = self.refresh_stats()
+            except Exception:
+                stats = {}
+        try:
+            return max(1, int(stats.get("level", 1) or 1))
+        except (TypeError, ValueError):
+            return 1
 
-    def respond_duel(self, duel_id: str, accept: bool):
-        if self.enabled:
-            self._run("duel_responded", api_call, "POST", "/v1/duel/respond",
-                      {"id": duel_id, "accept": bool(accept), "gear": self.my_gear()}, self.account)
+    def duel_loadout(self) -> list:
+        if pet_shop is None:
+            return ["strike", "heavy", "guard"]
+        return pet_shop.clean_skills(self.data.get("duel_skills"), self.my_level(), self.my_gear())
 
-    def quick_duel(self, code: str):
+    def duel_rounds(self) -> int:
+        try:
+            n = int(self.data.get("duel_rounds", 3) or 3)
+        except (TypeError, ValueError):
+            n = 3
+        return n if n in (1, 3, 5) else 3
+
+    def save_duel_setup(self, skills, rounds=None):
+        self.data["duel_skills"] = [s for s in (skills or []) if isinstance(s, str)][:3]
+        if rounds in (1, 3, 5):
+            self.data["duel_rounds"] = rounds
+        self.save()
+
+    def challenge(self, code: str, rounds=None, skills=None):
         if self.enabled:
-            self._run("duel", api_call, "POST", "/v1/duel/quick", {"code": code, "gear": self.my_gear()}, self.account)
+            body = {"code": code, "gear": self.my_gear(), "v": 2, "rounds": rounds or self.duel_rounds(),
+                    "skills": list(skills or self.duel_loadout())}
+            self._run("duel_challenged", api_call, "POST", "/v1/duel/challenge", body, self.account)
+
+    def respond_duel(self, duel_id: str, accept: bool, skills=None):
+        if self.enabled:
+            body = {"id": duel_id, "accept": bool(accept), "gear": self.my_gear()}
+            if accept:
+                body.update(v=2, skills=list(skills or self.duel_loadout()))
+            self._run("duel_responded", api_call, "POST", "/v1/duel/respond", body, self.account)
+
+    def quick_duel(self, code: str, rounds=None, skills=None):
+        if self.enabled:
+            body = {"code": code, "gear": self.my_gear(), "v": 2, "rounds": rounds or self.duel_rounds(),
+                    "skills": list(skills or self.duel_loadout())}
+            self._run("duel", api_call, "POST", "/v1/duel/quick", body, self.account)
+
+    def duel_skill(self, duel_id: str, skill: str, turn: int):
+        """Skill duels: use one of my skills on my turn (`turn` must match the duel's turn number)."""
+        if self.enabled:
+            self._run("duel", api_call, "POST", "/v1/duel/act",
+                      {"id": duel_id, "skill": skill, "turn": int(turn or 0)}, self.account)
 
     def load_duel(self, duel_id: str):
         if self.enabled:
@@ -1304,7 +1346,9 @@ class Social:
             win.win.deiconify()
             win.win.lift()
             return
-        self.duel_windows[duel_id] = arena_ui.DuelWindow(self, duel_id, spectate=spectate)
+        skill_duel = (self.duels.get(duel_id) or {}).get("v") == 2
+        window_class = arena_ui.SkillDuelWindow if skill_duel else arena_ui.DuelWindow
+        self.duel_windows[duel_id] = window_class(self, duel_id, spectate=spectate)
 
     def _notify_duels(self, duels: list):
         notified = set(self.data.get("notified_duels", []))
