@@ -13,6 +13,7 @@ const { createSerialChooser } = require('./serial-chooser.cjs');
 const { createUpdateController } = require('./update-controller.cjs');
 const { createGrantStore } = require('./device-grants.cjs');
 const { createPowerKeeper } = require('./power-keeper.cjs');
+const { windowsPowerPlan } = require('./power-plan.cjs');
 
 protocol.registerSchemesAsPrivileged([{
   scheme: 'airiz',
@@ -66,6 +67,7 @@ let chooser = null;
 let updates = null;
 let grants = null;
 let powerKeeper = null;
+let powerPlan = null;
 let bluetoothCallback = null;
 let closeConfirmed = false;
 let closeDialogPending = false;
@@ -98,6 +100,13 @@ function buildCsp() {
   ].join('; ');
 }
 
+// Everything the console holds while sharing: the keep-awake requests and the power-plan
+// changes (sleep timers, lid). Put back whenever the page goes away.
+function releaseSharingPower() {
+  powerKeeper?.stop();
+  powerPlan?.update({ sleep: false, lid: false }).catch(() => {});
+}
+
 async function closeSafely(event) {
   if (closeConfirmed) return;
   event.preventDefault();
@@ -118,6 +127,13 @@ async function closeSafely(event) {
       if (result.response !== 1) return;
     }
     chooser?.cancel();
+    // 1.9.1: closing the app stops sharing on purpose, so phones stop reconnecting and the
+    // next start does not share again by itself.
+    const stopped = await mainWindow.webContents.executeJavaScript(
+      'window.AirizRemoteControl && window.AirizRemoteControl.hostCode ? (window.AirizRemoteControl.shareStop(), true) : false'
+    ).catch(() => false);
+    if (stopped) await new Promise(resolve => setTimeout(resolve, 600));
+    releaseSharingPower();
     closeConfirmed = true;
     mainWindow.close();
   } catch {
@@ -208,7 +224,17 @@ async function createWindow() {
     }
   });
 
-  powerKeeper = createPowerKeeper(powerSaveBlocker);
+  // 1.9.1: sleep timers and the lid action are switched off while sharing and put back
+  // afterwards; a killed app is cleaned up here, at the next start.
+  powerPlan = windowsPowerPlan({ stateFile: path.join(app.getPath('userData'), 'power-plan-restore.json') });
+  powerPlan.recover().catch(() => {});
+  powerKeeper = createPowerKeeper(powerSaveBlocker, {
+    // The screen only has to stay on where its idle switch-off can end in standby.
+    display: () => powerPlan.status.standby !== 'classic'
+  });
+  powerPlan.detectStandby().then(() => {
+    if (powerKeeper.active) powerKeeper.set(true);
+  }).catch(() => {});
   mainWindow = new BrowserWindow({
     width: 1460, height: 1040, minWidth: 760, minHeight: 650,
     title: 'AIRIZ Console', backgroundColor: '#0d1117',
@@ -266,17 +292,17 @@ async function createWindow() {
     chooser.cancel();
     if (bluetoothCallback) bluetoothCallback('');
     bluetoothCallback = null;
-    powerKeeper.stop();
+    releaseSharingPower();
   });
   // A reloaded page is not sharing any more until it says so again.
   mainWindow.webContents.on('did-start-loading', () => {
-    powerKeeper.stop();
+    releaseSharingPower();
     mainWindow.webContents.setBackgroundThrottling(true);
   });
   mainWindow.on('close', closeSafely);
   mainWindow.once('ready-to-show', () => mainWindow.show());
   mainWindow.on('closed', () => {
-    powerKeeper.stop();
+    releaseSharingPower();
     mainWindow = null;
   });
 
@@ -284,7 +310,20 @@ async function createWindow() {
   // share recovers with the same code at once.
   ipcMain.handle('airiz:keep-awake', (event, flag) => {
     if (!trustedSender(event)) throw new Error('Untrusted sender');
-    return powerKeeper.set(flag === true);
+    const active = powerKeeper.set(flag === true);
+    // 1.9.1: "Sleep after" / "Hibernate after" -> Never while sharing (Modern Standby laptops
+    // on battery end keep-awake requests 5 minutes after the sleep timeout otherwise).
+    powerPlan.update({ sleep: flag === true }).catch(() => {});
+    return active;
+  });
+  // 1.9.1: closing the lid does not sleep the PC while sharing (owner's setting put back after).
+  ipcMain.handle('airiz:lid-awake', async (event, flag) => {
+    if (!trustedSender(event)) throw new Error('Untrusted sender');
+    return powerPlan.update({ lid: flag === true });
+  });
+  ipcMain.handle('airiz:power-status', async event => {
+    if (!trustedSender(event)) throw new Error('Untrusted sender');
+    return Object.assign({}, powerPlan.status, { keepAwake: powerKeeper.active, screen: powerKeeper.displayHeld });
   });
   // While sharing, a minimized window must keep its timers running (PeerJS heartbeats, relay
   // keepalives, the USB reconnect), or the share code can drop off the server.
@@ -470,4 +509,15 @@ if (!locked) {
     app.quit();
   });
   app.on('window-all-closed', () => app.quit());
+  // Never leave the PC with the sharing power settings: quit, Windows log-off/shutdown, exit.
+  const restorePowerPlan = () => {
+    try {
+      powerPlan?.releaseAllSync();
+    } catch {
+      // Put back at the next start instead.
+    }
+  };
+  app.on('will-quit', restorePowerPlan);
+  app.on('session-end', restorePowerPlan);
+  process.on('exit', restorePowerPlan);
 }

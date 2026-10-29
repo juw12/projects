@@ -47,6 +47,8 @@ contextBridge.exposeInMainWorld('airizDesktop', {
   // 1.9.0: keep the PC awake while sharing; sleep / wake-up notices for the share.
   setKeepAwake: flag => ipcRenderer.invoke('airiz:keep-awake', flag === true),
   setSharing: flag => ipcRenderer.invoke('airiz:sharing', flag === true),
+  setLidAwake: flag => ipcRenderer.invoke('airiz:lid-awake', flag === true),
+  getPowerStatus: () => ipcRenderer.invoke('airiz:power-status'),
   onPowerChange: callback => {
     if (typeof callback !== 'function') throw new TypeError('A callback is required');
     const listener = (_event, state) => callback(String(state));

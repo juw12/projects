@@ -98,7 +98,11 @@ async function record(name) {
   await page.locator('#bluetooth-picker-dialog').waitFor({ state: 'visible' });
   await page.waitForTimeout(3000);
   const airizListed = await page.locator('#bluetooth-picker-list [data-bluetooth-id]').count();
-  await page.locator('#bluetooth-picker-cancel').click();
+  // A PC without a Bluetooth adapter (the GitHub runner) ends the request by itself and
+  // closes the picker before Cancel can be pressed.
+  if (await page.locator('#bluetooth-picker-dialog').isVisible()) {
+    await page.locator('#bluetooth-picker-cancel').click();
+  }
   await page.locator('#bluetooth-picker-dialog').waitFor({ state: 'hidden' });
   await page.waitForFunction(() => !document.getElementById('btn-connect-ble').disabled, null, { timeout: 60000 });
   assert.equal((await page.evaluate(() => AirizConsole.getStatus())).connected, false);

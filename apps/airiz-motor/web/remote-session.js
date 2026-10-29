@@ -8,6 +8,10 @@
  *
  * Also shared by remote-control.js and camera-relay.js: the phone reconnect policy, a
  * liveness check, a sleep/wake hub and the keep-awake switch used while sharing.
+ *
+ * 1.9.1: phones never stop reconnecting by themselves (every minute after the first ten),
+ * a reloaded phone page carries on with the same code, and a PC console that reloads or
+ * restarts for an update shares again with the SAME code (resume records below).
  * Loaded as a plain script (window.AirizRemoteSession) and by the Node unit tests.
  */
 (function (root, factory) {
@@ -203,23 +207,110 @@
   //   pc-silent  the PC stopped answering pings         stopped   the PC operator stopped sharing
   //   denied / revoked / busy  the PC operator said no  cancelled the user on this device stopped
   //   no-pc / timeout / approval-timeout / network      a (re)connect attempt failed
-  const RETRY_START = ['lost', 'pc-gone', 'pc-silent'];
+  //   restart    the PC console restarts for an update and shares again with the same code
+  const RETRY_START = ['lost', 'pc-gone', 'pc-silent', 'restart'];
   const RETRY_CONTINUE = RETRY_START.concat(['no-pc', 'timeout', 'approval-timeout', 'network', 'verify']);
-  const RETRY_WINDOW_MS = 30 * 60 * 1000;
+  // 1.9.1: no time limit any more (it was 30 minutes). After the quick attempts the phone keeps
+  // trying once a minute for as long as its page is open; waking up, coming back online or
+  // showing the page again tries at once. Only a "no" from the PC or Stop on the phone ends it.
+  const RETRY_SLOW_MS = 60 * 1000;
 
   function retryDelay(attempt) {
     if (attempt < 3) return 3000;
     if (attempt < 8) return 8000;
-    return 20000;
+    if (attempt < 38) return 20000;
+    return RETRY_SLOW_MS;
   }
 
   function canStartRetry(reason) {
     return RETRY_START.includes(reason);
   }
 
-  function canContinueRetry(reason, startedAt, now) {
-    const time = now === undefined ? Date.now() : now;
-    return RETRY_CONTINUE.includes(reason) && time - startedAt < RETRY_WINDOW_MS;
+  function canContinueRetry(reason) {
+    return RETRY_CONTINUE.includes(reason);
+  }
+
+  // ------------------------------------------------------------------ resume after a reload (1.9.1)
+  // Phone: the code it controls with, kept in sessionStorage (this tab only). Mobile browsers
+  // reload tabs that slept for a long time; the reloaded page then reconnects by itself.
+  const PHONE_RESUME_KEY = 'airiz.remote.resume.v1';
+  const PHONE_RESUME_MAX_MS = 12 * 60 * 60 * 1000;
+  const CODE_PATTERN = /^\d{6}$/;
+
+  function clock(now) {
+    return now === undefined ? Date.now() : now;
+  }
+
+  function savePhoneResume(storage, code, now) {
+    if (!storage || !CODE_PATTERN.test(String(code || ''))) return false;
+    return writeJson(storage, PHONE_RESUME_KEY, { code: String(code), at: clock(now) });
+  }
+
+  function loadPhoneResume(storage, now) {
+    if (!storage) return null;
+    const saved = readJson(storage, PHONE_RESUME_KEY);
+    if (!saved || !CODE_PATTERN.test(String(saved.code || ''))) return null;
+    const age = clock(now) - Number(saved.at);
+    if (!(age >= -60000 && age < PHONE_RESUME_MAX_MS)) return null;
+    return { code: String(saved.code), at: Number(saved.at) };
+  }
+
+  function clearPhoneResume(storage) {
+    try {
+      if (storage) storage.removeItem(PHONE_RESUME_KEY);
+    } catch (ignored) { /* storage blocked */ }
+  }
+
+  // PC: the share code and the devices allowed in this share (hashes of their keys), refreshed
+  // while sharing. A console that reloads, or restarts to install an update, shares again with
+  // the SAME code within 15 minutes and lets those devices straight back in. Not after it was
+  // closed and opened again: Stop sharing and closing the Windows app clear the record.
+  const SHARE_RESUME_KEY = 'airiz.share.resume.v1';
+  const SHARE_RESUME_MAX_MS = 15 * 60 * 1000;
+  const DEVICE_PATTERN = /^[0-9a-f]{16}$/;
+
+  function cleanApproved(list) {
+    if (!Array.isArray(list)) return [];
+    return list.filter(item => Array.isArray(item) && DEVICE_PATTERN.test(String(item[0])) && HASH_PATTERN.test(String(item[1])))
+      .slice(0, MAX_DEVICES)
+      .map(item => [String(item[0]), String(item[1])]);
+  }
+
+  function saveShareResume(storage, record, now) {
+    if (!storage || !record || !CODE_PATTERN.test(String(record.code || ''))) return false;
+    return writeJson(storage, SHARE_RESUME_KEY, {
+      code: String(record.code),
+      at: clock(now),
+      reason: record.reason === 'update' ? 'update' : 'running',
+      approved: cleanApproved(record.approved),
+    });
+  }
+
+  function loadShareResume(storage) {
+    if (!storage) return null;
+    const saved = readJson(storage, SHARE_RESUME_KEY);
+    if (!saved || !CODE_PATTERN.test(String(saved.code || '')) || !Number.isFinite(Number(saved.at))) return null;
+    return {
+      code: String(saved.code),
+      at: Number(saved.at),
+      reason: saved.reason === 'update' ? 'update' : 'running',
+      approved: cleanApproved(saved.approved),
+    };
+  }
+
+  function clearShareResume(storage) {
+    try {
+      if (storage) storage.removeItem(SHARE_RESUME_KEY);
+    } catch (ignored) { /* storage blocked */ }
+  }
+
+  // navigation: performance navigation type of this page load ('reload', 'navigate', ...).
+  function shouldResumeShare(record, context) {
+    const settings = context || {};
+    if (!record) return false;
+    const age = clock(settings.now) - record.at;
+    if (!(age >= -60000 && age < SHARE_RESUME_MAX_MS)) return false;
+    return record.reason === 'update' || settings.navigation === 'reload';
   }
 
   // ------------------------------------------------------------------ liveness (phone side)
@@ -341,7 +432,8 @@
   }
 
   // ------------------------------------------------------------------ keep awake while sharing
-  // Windows app: a power-save blocker in the main process (system + display stay on).
+  // Windows app: a power-save blocker in the main process (system stays on; the screen too on
+  // Modern Standby PCs) and, 1.9.1, the power plan's sleep timers set to Never while sharing.
   // Browser: the Screen Wake Lock (only while the console tab is visible).
   function createKeepAwake(environment) {
     const env = environment || {};
@@ -418,7 +510,11 @@
     IDENTITY_KEY,
     TRUST_KEY,
     MAX_DEVICES,
-    RETRY_WINDOW_MS,
+    RETRY_SLOW_MS,
+    PHONE_RESUME_KEY,
+    PHONE_RESUME_MAX_MS,
+    SHARE_RESUME_KEY,
+    SHARE_RESUME_MAX_MS,
     memoryStorage,
     loadIdentity,
     validIdentity,
@@ -428,6 +524,13 @@
     retryDelay,
     canStartRetry,
     canContinueRetry,
+    savePhoneResume,
+    loadPhoneResume,
+    clearPhoneResume,
+    saveShareResume,
+    loadShareResume,
+    clearShareResume,
+    shouldResumeShare,
     createLiveness,
     createWakeDetector,
     onWake,
