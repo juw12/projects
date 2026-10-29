@@ -424,6 +424,25 @@ def set_topmost(hwnd):
         pass
 
 
+def point_on_a_monitor(x: float, y: float) -> bool:
+    """False when (x, y) is on no monitor at all (e.g. a screen that was unplugged)."""
+    if _u32 is None:
+        return True
+    try:
+        return bool(_u32.MonitorFromPoint(wt.POINT(int(x), int(y)), 0))   # MONITOR_DEFAULTTONULL
+    except Exception:
+        return True
+
+
+def foreground_window():
+    if _u32 is None:
+        return None
+    try:
+        return _u32.GetForegroundWindow()
+    except Exception:
+        return None
+
+
 def foreground_is_fullscreen(own_hwnds=()) -> bool:
     """True when the foreground window covers its whole monitor (game, video, F11)."""
     if _u32 is None:
@@ -1683,6 +1702,9 @@ class DesktopPet:
         self.last_interaction = time.time()
         self.visible = bool(self.s.get("enabled", True))
         self.fs_hidden = False
+        self._fs_override_hwnd = None   # summoned over this fullscreen window: stay visible while it's in front
+        self._offscreen_since = 0.0     # off every monitor since (monotonic) -> walks back by itself
+        self.summon_hint = ""           # e.g. "Ctrl+Alt+P" (set by the app once the hotkey works)
         self.settings_win = None
         self._last_geom = None
         self._t_last = now
@@ -2108,8 +2130,8 @@ class DesktopPet:
                 self._voice(self.mood())
 
         if self.visible:
-            fs = self.s.get("hide_in_fullscreen", True) and foreground_is_fullscreen(
-                (hwnd_of(self.win), self.bubble.hwnd))
+            self._watch_offscreen(now)
+            fs = self._fullscreen_hides()
             if fs and not self.fs_hidden:
                 self.fs_hidden = True
                 self.win.withdraw()
@@ -2912,6 +2934,79 @@ class DesktopPet:
     def is_visible(self) -> bool:
         return self.visible and not self.fs_hidden
 
+    # ---- find me (v2.17): tray icon, Ctrl+Alt+P and opening Pips again all end up here ----
+    def summon(self, text=None):
+        """Bring the pet back no matter what: un-hide it, wake it up, show it even over a fullscreen
+        window (while that window stays in front) and walk it onto the screen the mouse is on."""
+        self._fs_override_hwnd = foreground_window()
+        if not self.visible:
+            self.set_visible(True)
+        if self.fs_hidden:
+            self.fs_hidden = False
+            try:
+                self.win.deiconify()
+            except tk.TclError:
+                pass
+        if self.sleeping:
+            self.wake("poke", quiet=True)
+        self.come_to_cursor_screen()
+        set_topmost(hwnd_of(self.win))
+        self.set_action("hop", 0.6)
+        self._spawn("sparkle", 6)
+        if text:
+            self.say(text, duration=5, priority=2)
+
+    def come_to_cursor_screen(self) -> bool:
+        """Park on the taskbar of the monitor the mouse is on - unless already visible there."""
+        cx, cy = cursor_pos(self.root)
+        mon, work = monitor_rects(cx, cy, self.root)
+        body_y = (self.floor_y or work[3]) - self.H / 2
+        if self.px is not None and point_on_a_monitor(self.px, body_y):
+            if monitor_rects(self.px, body_y, self.root)[0] == mon:
+                return False
+        self._park_on(work, cx)
+        return True
+
+    def _park_on(self, work, x):
+        """Put the pet on the taskbar edge of a monitor's work area (x kept inside it)."""
+        margin = max(40, self.W // 2 + 10)
+        self.px = float(min(max(x, work[0] + margin), work[2] - margin))
+        self.falling = False
+        self.walking = False
+        self.mode = "taskbar"
+        self.floor_kind = "top"
+        self.floor_y = work[3]
+        self.floor_y = self._floor_for(self.px)
+        self._apply_position(force=True)
+
+    def _watch_offscreen(self, now):
+        """Walk back by itself if the pet ends up on no monitor (unplugged screen, resolution change)."""
+        if self.dragging or self.px is None or self.floor_y is None:
+            return
+        body_y = self.floor_y - self.H / 2
+        if point_on_a_monitor(self.px, body_y):
+            self._offscreen_since = 0.0
+            return
+        if not self._offscreen_since:
+            self._offscreen_since = now
+            return
+        if now - self._offscreen_since < 5.0:
+            return
+        self._offscreen_since = 0.0
+        _mon, work = monitor_rects(self.px, body_y, self.root)
+        self._park_on(work, self.px)
+        self.set_action("hop", 0.6)
+        self.say(t("offscreen_back"), duration=5, priority=1)
+
+    def _fullscreen_hides(self) -> bool:
+        if not self.s.get("hide_in_fullscreen", True):
+            return False
+        if self._fs_override_hwnd:
+            if foreground_window() == self._fs_override_hwnd:
+                return False
+            self._fs_override_hwnd = None
+        return foreground_is_fullscreen((hwnd_of(self.win), self.bubble.hwnd))
+
     def start_tour(self):
         if not self.visible:
             self.set_visible(True)
@@ -3216,7 +3311,8 @@ class DesktopPet:
                              duration=8, priority=1))
         menu.submenu("\u2753", t("m_help"), build_help, badge=t("fm_new") if update else None, width=250)
         menu.item("\u2699", t("p_settings"), self.open_settings)
-        menu.item("\U0001F648", t("p_hide", name=name), lambda: self._call("hide_pet"))
+        menu.item("\U0001F648", t("p_hide", name=name), lambda: self._call("hide_pet"),
+                  hint=t("p_hide_hint", hotkey=self.summon_hint) if self.summon_hint else "")
         menu.separator()
         menu.item("\u23FB", t("p_quit"), lambda: self._call("quit"), danger=True)
         menu.popup(event.x_root, event.y_root)

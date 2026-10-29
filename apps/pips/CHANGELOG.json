@@ -2,6 +2,37 @@
   "_comment": "Pips version history. Newest first. Feeds the in-app update notice (latest.json), the PPT guide and the update emails.",
   "releases": [
     {
+      "version": "2.17.0",
+      "date": "2026-10-29",
+      "title": "Find your pet anytime",
+      "notes": {
+        "en": [
+          "Pips now has an icon next to the clock: click it to bring your pet back; right-click for the focus timer, Friends & chat or Quit.",
+          "Press Ctrl+Alt+P anywhere to call your pet - it pops up on the screen you're using, even if it was hidden, asleep or behind a fullscreen app.",
+          "Opening Pips again from the Start menu or desktop does the same, and your pet walks back by itself if it ever ends up off-screen (e.g. after unplugging a monitor).",
+          "Hiding your pet now tells you how to bring it back."
+        ],
+        "id": [
+          "Pips kini punya ikon di dekat jam: klik untuk memanggil pet kembali; klik kanan untuk timer fokus, Teman & chat, atau Keluar.",
+          "Tekan Ctrl+Alt+P di mana saja untuk memanggil pet - ia muncul di layar yang sedang kamu pakai, bahkan saat tersembunyi, tidur, atau tertutup aplikasi layar penuh.",
+          "Membuka Pips lagi dari menu Start atau desktop juga memanggilnya, dan pet akan kembali sendiri jika sampai keluar layar (misalnya setelah monitor dicabut).",
+          "Saat menyembunyikan pet, Pips kini memberi tahu cara memanggilnya kembali."
+        ],
+        "zh_TW": [
+          "時鐘旁現在有 Pips 圖示：點一下叫寵物回來；按右鍵可開專注計時器、好友與聊天或結束。",
+          "在任何地方按 Ctrl+Alt+P 就能叫寵物出來，它會出現在你正在用的螢幕上，即使原本隱藏、睡著或被全螢幕程式擋住。",
+          "從開始選單或桌面再次開啟 Pips 也一樣；寵物若跑出螢幕（例如拔掉外接螢幕後）會自己走回來。",
+          "隱藏寵物時，Pips 會告訴你怎麼叫它回來。"
+        ],
+        "zh_CN": [
+          "时钟旁现在有 Pips 图标：点一下叫宠物回来；右键可打开专注计时器、好友与聊天或退出。",
+          "在任何地方按 Ctrl+Alt+P 就能叫宠物出来，它会出现在你正在用的屏幕上，即使原本隐藏、睡着或被全屏程序挡住。",
+          "从开始菜单或桌面再次打开 Pips 也一样；宠物若跑出屏幕（例如拔掉外接显示器后）会自己走回来。",
+          "隐藏宠物时，Pips 会告诉你怎么叫它回来。"
+        ]
+      }
+    },
+    {
       "version": "2.16.0",
       "date": "2026-10-29",
       "title": "Pips Community",

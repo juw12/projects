@@ -1,43 +1,43 @@
 {
   "installer": {
     "filename": "Pips-Setup.exe",
-    "sha256": "7c47e4183c77ab9f91d314ea5ff0222c3554170003354dbb82546871e280c37d",
-    "size": 22209477,
+    "sha256": "f5abd02f78cd5f5f337b51bd8c67eaa4a79fe0ef44fee78f4931e1c716c2d319",
+    "size": 22215941,
     "architecture": "x64",
     "python_version": "3.13.17",
     "requires_admin": false,
     "url": "https://juw12.github.io/projects/pips/download/Pips-Setup.exe"
   },
-  "version": "2.16.0",
+  "version": "2.17.0",
   "date": "2026-10-29",
-  "title": "Pips Community",
+  "title": "Find your pet anytime",
   "url": "https://juw12.github.io/projects/pips/download/Pips-Windows.zip",
-  "sha256": "cae5c7266707de2d20d3b5013f8b6af57e7aa9558d6061c70955decae7727eed",
-  "size": 831390,
+  "sha256": "58033fc9497387380c64ea0cc715c7e70904961823bc843d7ab82cfc3eb6cf35",
+  "size": 839537,
   "notes": {
     "en": [
-      "New Pips Community at the top of the Chat tab: a #general channel to chat with everyone who uses Pips, plus #announcements with news from the Pips team.",
-      "Every new Pips version is announced there automatically - see what's new and update with one click.",
-      "Type @name to ping someone in #general. Mute #general any time; owner and moderators can remove messages.",
-      "Open it from your pet's menu too (Pips Community). Fixed: chats no longer clear what you're typing when Pips refreshes in the background."
+      "Pips now has an icon next to the clock: click it to bring your pet back; right-click for the focus timer, Friends & chat or Quit.",
+      "Press Ctrl+Alt+P anywhere to call your pet - it pops up on the screen you're using, even if it was hidden, asleep or behind a fullscreen app.",
+      "Opening Pips again from the Start menu or desktop does the same, and your pet walks back by itself if it ever ends up off-screen (e.g. after unplugging a monitor).",
+      "Hiding your pet now tells you how to bring it back."
     ],
     "id": [
-      "Komunitas Pips baru di bagian atas tab Chat: kanal #umum untuk ngobrol dengan semua pengguna Pips, plus #pengumuman berisi kabar dari tim Pips.",
-      "Setiap versi Pips baru diumumkan di sana secara otomatis - lihat yang baru dan update dengan sekali klik.",
-      "Ketik @nama untuk memanggil seseorang di #umum. Bisukan #umum kapan saja; pemilik dan moderator bisa menghapus pesan.",
-      "Bisa juga dibuka dari menu pet (Komunitas Pips). Diperbaiki: chat tidak lagi menghapus ketikanmu saat Pips memperbarui di latar belakang."
+      "Pips kini punya ikon di dekat jam: klik untuk memanggil pet kembali; klik kanan untuk timer fokus, Teman & chat, atau Keluar.",
+      "Tekan Ctrl+Alt+P di mana saja untuk memanggil pet - ia muncul di layar yang sedang kamu pakai, bahkan saat tersembunyi, tidur, atau tertutup aplikasi layar penuh.",
+      "Membuka Pips lagi dari menu Start atau desktop juga memanggilnya, dan pet akan kembali sendiri jika sampai keluar layar (misalnya setelah monitor dicabut).",
+      "Saat menyembunyikan pet, Pips kini memberi tahu cara memanggilnya kembali."
     ],
     "zh_TW": [
-      "全新 Pips 社群就在聊天分頁最上方：#大廳 可以和所有 Pips 使用者聊天，#公告 有 Pips 團隊的最新消息。",
-      "每個 Pips 新版本都會自動在那裡公告，看看有什麼新功能，一鍵就能更新。",
-      "在 #大廳 輸入 @名字 可以提及某人。隨時可以把 #大廳 靜音；擁有者和管理員可以刪除訊息。",
-      "也可以從寵物選單開啟（Pips 社群）。修正：Pips 在背景更新時，聊天不會再清掉你正在輸入的文字。"
+      "時鐘旁現在有 Pips 圖示：點一下叫寵物回來；按右鍵可開專注計時器、好友與聊天或結束。",
+      "在任何地方按 Ctrl+Alt+P 就能叫寵物出來，它會出現在你正在用的螢幕上，即使原本隱藏、睡著或被全螢幕程式擋住。",
+      "從開始選單或桌面再次開啟 Pips 也一樣；寵物若跑出螢幕（例如拔掉外接螢幕後）會自己走回來。",
+      "隱藏寵物時，Pips 會告訴你怎麼叫它回來。"
     ],
     "zh_CN": [
-      "全新 Pips 社区就在聊天标签最上方：#大厅 可以和所有 Pips 用户聊天，#公告 有 Pips 团队的最新消息。",
-      "每个 Pips 新版本都会自动在那里公告，看看有什么新功能，一键就能更新。",
-      "在 #大厅 输入 @名字 可以提及某人。随时可以把 #大厅 静音；所有者和管理员可以删除消息。",
-      "也可以从宠物菜单打开（Pips 社区）。修复：Pips 在后台刷新时，聊天不会再清掉你正在输入的文字。"
+      "时钟旁现在有 Pips 图标：点一下叫宠物回来；右键可打开专注计时器、好友与聊天或退出。",
+      "在任何地方按 Ctrl+Alt+P 就能叫宠物出来，它会出现在你正在用的屏幕上，即使原本隐藏、睡着或被全屏程序挡住。",
+      "从开始菜单或桌面再次打开 Pips 也一样；宠物若跑出屏幕（例如拔掉外接显示器后）会自己走回来。",
+      "隐藏宠物时，Pips 会告诉你怎么叫它回来。"
     ]
   },
   "guide": "https://juw12.github.io/projects/pips/download/Pips-Guide.pptx"
