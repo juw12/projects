@@ -39,9 +39,10 @@ const FREE_MODEL = { value: "free::openai-fast", label: "Glow Free: GPT-OSS 20B 
 const POLLINATIONS_URL = "https://gen.pollinations.ai/v1";
 const POLLINATIONS_ACCOUNT_URL = "https://gen.pollinations.ai/account";
 const POLLINATIONS_AUTHORIZE_URL = "https://enter.pollinations.ai/authorize";
-// Optional App Key (pk_…) from enter.pollinations.ai → Apps, with this page as a redirect URI: the approval
-// screen then shows Glow's name instead of the site address.
-const POLLINATIONS_APP_KEY = "";
+// Glow's App Key from enter.pollinations.ai → Keys → Apps. It is a publishable key (pk_…, safe to publish);
+// its registered return addresses are …/chat/, …/chat/app.html and …/chat/mobile.html, and the approval
+// screen shows Glow's name.
+const POLLINATIONS_APP_KEY = "pk_vjebfB4FX1ZuzGoS";
 const POLLINATIONS_STATE_KEY = "glow.pollinationsState";
 // Chrome's built-in AI (Gemini Nano through the Prompt API): free, unlimited and private on supported desktops.
 const CHROME_AI_MODEL = { value: "chrome::gemini-nano", label: "Chrome built-in AI: Gemini Nano (on this device, unlimited)", short: "Chrome AI", group: "On this device: works offline" };
@@ -591,8 +592,13 @@ function rescueModelFor(modelValue, error) {
 function pollinationsConnected() {
   return !!state.settings.pollinationsKey;
 }
+// Where Pollinations sends the approved key back to: this page, with a trailing "index.html" dropped so it
+// matches the return addresses registered with Glow's App Key (…/chat/, …/chat/app.html, …/chat/mobile.html).
+function pollinationsReturnUrl() {
+  return `${location.origin}${location.pathname.replace(/\/index\.html$/, "/")}`;
+}
 function pollinationsAuthorizeUrl(stateToken) {
-  const params = new URLSearchParams({ redirect_uri: `${location.origin}${location.pathname}`, models: "text", expiry: "30", scope: "usage", state: stateToken });
+  const params = new URLSearchParams({ redirect_uri: pollinationsReturnUrl(), models: "text", expiry: "30", scope: "usage", state: stateToken });
   if (POLLINATIONS_APP_KEY) params.set("client_id", POLLINATIONS_APP_KEY);
   return `${POLLINATIONS_AUTHORIZE_URL}?${params}`;
 }
@@ -5711,7 +5717,10 @@ async function selfTest() {
     && pollenOptions[0].meta.out === 1500 && pollenOptions[0].group === "Pollinations: paid Pollen" && modelBadges(pollenOptions[0]).includes("Premium") && modelBadges(pollenOptions[1]).includes("Pollen"));
   const signInLink = new URL(pollinationsAuthorizeUrl("check123"));
   expect("pollinations: Connect asks for text models, a budget you choose and comes back here", signInLink.origin === "https://enter.pollinations.ai"
-    && signInLink.searchParams.get("redirect_uri") === `${location.origin}${location.pathname}` && signInLink.searchParams.get("models") === "text" && signInLink.searchParams.get("state") === "check123");
+    && signInLink.searchParams.get("redirect_uri") === pollinationsReturnUrl() && signInLink.searchParams.get("models") === "text" && signInLink.searchParams.get("state") === "check123");
+  expect("pollinations: the return address never ends in index.html, so it matches Glow's registered addresses",
+    pollinationsReturnUrl().startsWith(location.origin) && !pollinationsReturnUrl().endsWith("index.html")
+    && (!POLLINATIONS_APP_KEY || signInLink.searchParams.get("client_id") === POLLINATIONS_APP_KEY));
   sessionStorage.setItem(POLLINATIONS_STATE_KEY, "abc123");
   history.replaceState(null, "", `${location.pathname}#api_key=sk_selftest_1234567890&state=abc123`);
   const pollenResult = takePollinationsKey();

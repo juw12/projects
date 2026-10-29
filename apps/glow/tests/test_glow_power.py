@@ -59,10 +59,14 @@ class PowerAndServiceTests(unittest.TestCase):
     def test_pollinations_wallet_uses_the_official_endpoints(self):
         self.assertIn('"https://enter.pollinations.ai/authorize"', self.chat)
         self.assertIn('"https://gen.pollinations.ai/v1"', self.chat)
-        self.assertIn('const POLLINATIONS_APP_KEY = "";', self.chat)
+        # Glow's publishable App Key (never a secret sk_ key).
+        self.assertRegex(self.chat, r'const POLLINATIONS_APP_KEY = "pk_[A-Za-z0-9]{8,}";')
         self.assertIn("function takePollinationsKey(", self.chat)
         # The key returned in the address bar is removed right away.
         self.assertIn("history.replaceState", self.chat[self.chat.index("function takePollinationsKey("):])
+        # The return address drops a trailing index.html, so it matches the addresses registered with the App Key.
+        self.assertIn('location.pathname.replace(/\\/index\\.html$/, "/")', self.chat)
+        self.assertIn("redirect_uri: pollinationsReturnUrl()", self.chat)
 
     def test_on_device_ai_rescues_cloud_failures(self):
         self.assertIn('const CHROME_AI_MODEL = { value: "chrome::gemini-nano"', self.chat)
@@ -76,6 +80,7 @@ class PowerAndServiceTests(unittest.TestCase):
             "service: on this device only never sends anything to the cloud",
             "chrome ai: Gemini Nano answers on this device with the chat so far",
             "pollinations: a key without the matching sign-in check is refused",
+            "pollinations: the return address never ends in index.html, so it matches Glow's registered addresses",
         ):
             self.assertIn(name, self.chat)
 
@@ -89,13 +94,13 @@ class PowerAndServiceTests(unittest.TestCase):
 
     def test_version_and_cache_were_bumped_together(self):
         published = json.loads((WEB / "version.json").read_text(encoding="utf-8"))["version"]
-        self.assertEqual(published, "1.24.0")
+        self.assertEqual(published, "1.24.1")
         apps = (WEB / "shared" / "glow-apps.js").read_text(encoding="utf-8")
         self.assertIn(f'const GLOW_VERSION = "{published}";', apps)
         mobile = json.loads((APP / "mobile" / "package.json").read_text(encoding="utf-8"))
         self.assertEqual(mobile["version"], published)
         worker = (WEB / "chat" / "sw.js").read_text(encoding="utf-8")
-        self.assertIn("const CACHE_NAME = 'glowchat-v15';", worker)
+        self.assertIn("const CACHE_NAME = 'glowchat-v16';", worker)
 
 
 if __name__ == "__main__":
