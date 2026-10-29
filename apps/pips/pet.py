@@ -2655,6 +2655,13 @@ class DesktopPet:
         if self.social:
             self.social.open_window(tab)
 
+    def open_community(self):
+        """Pips Community (v2.16): unread announcements first, otherwise #general."""
+        if not self.social or social is None or not hasattr(social, "NEWS_ROOM"):
+            return
+        room = social.NEWS_ROOM if self.social.unread(social.NEWS_ROOM) else social.GENERAL_ROOM
+        self.social.open_window("chat", room=room)
+
     def _voice(self, kind, force=False) -> bool:
         """Play this animal's sound for a mood / event (respects the sound settings)."""
         if not self.voice or getattr(self, "_destroyed", False):
@@ -3103,6 +3110,10 @@ class DesktopPet:
         menu.tiles(tiles)
 
         social_ok = self.social is not None and social is not None and getattr(self.social, "enabled", False)
+        if social_ok and hasattr(social, "COMMUNITY_ROOMS"):
+            community_unread = sum(self.social.unread(room) for room in social.COMMUNITY_ROOMS)
+            menu.item("\U0001F310", t("fm_community"), self.open_community, hint=t("fm_community_hint"),
+                      badge=str(community_unread) if community_unread else None)
         targets = self.social.nudge_targets() if social_ok else []
         if targets:
             def build_nudge_friends(sub, people=targets[:14]):
@@ -3223,6 +3234,8 @@ class DesktopPet:
         open_now = bool(self._call("is_window_open"))
         if self.social:
             menu.add_command(label=t("p_friends"), command=lambda: self.open_hub())
+            if getattr(self.social, "enabled", False):
+                menu.add_command(label=t("p_community"), command=self.open_community)
             if self.shop:
                 menu.add_command(label=t("p_shop"), command=lambda: self.open_hub("shop"))
         if self.shop and self.shop.moves():

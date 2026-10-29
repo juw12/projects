@@ -98,6 +98,7 @@ class FriendsWindow:
         self._alive = True
         self.error = ""
         self._chat_sig = None
+        self._drafts = {}        # community room -> unsent text (survives background refreshes)
         self.win = tk.Toplevel(self.pet.root)
         self.win.title(t("fr_title"))
         self.win.configure(bg=self.BG)
@@ -325,6 +326,10 @@ class FriendsWindow:
         # Don't wipe the profile editor while the user is typing (background syncs call refresh).
         if self.tab == "profile" and not self.viewing and getattr(self, "_profile_built", False) and not force:
             return
+        if not force and self._chat_unchanged():
+            self._update_tab_labels()
+            self._update_status()
+            return
         self._profile_built = False
         stats = self.social.stats or self.social.refresh_stats()
         self._imgs = []
@@ -336,23 +341,7 @@ class FriendsWindow:
             self._build_tabs()
             if self.tab not in self.tab_buttons:
                 self.tab = "friends"
-        unread = self.social.total_unread()
-        invites = len(self.social.invites)
-        for key, btn in self.tab_buttons.items():
-            active = key == self.tab
-            label = {"mod": "\U0001F6E1 ", "arena": "\u2694 "}.get(key, "") + t("fr_tab_" + key)
-            if key == "arena" and (self.social.arena or {}).get("incoming"):
-                label += f" ({len(self.social.arena['incoming'])})"
-            open_reports = ((self.social.board or {}).get("staff") or {}).get("open_reports", 0)
-            if key == "mod" and open_reports:
-                label += f" ({open_reports})"
-            if key == "chat" and unread:
-                label += f" ({unread})"
-            if key == "groups" and invites:
-                label += f" ({invites})"
-            if key == "friends" and self.social.requests():
-                label += f" ({len(self.social.requests())})"
-            btn.config(text=label, bg=self.ACCENT if active else self.SOFT, fg=self.ACCENT_INK if active else self.INK)
+        self._update_tab_labels()
         self._render_head(stats)
         if self.viewing and self.social.enabled:
             self._render_profile_view(self.viewing)
@@ -376,6 +365,38 @@ class FriendsWindow:
             self._render_arena()
         else:
             self._render_friends()
+        self._update_status()
+
+    def _chat_unchanged(self) -> bool:
+        """v2.16: an open conversation whose messages didn't change keeps its widgets, so background
+        refreshes (every inbox poll) don't wipe what you're typing or break an IME composition."""
+        if self.tab != "chat" or self.viewing or not self.room or self.room.startswith("bot:"):
+            return False
+        if self._chat_sig is None or list(self.tab_buttons) != self._tab_keys():
+            return False
+        msgs = self.social.rooms.get(self.room, [])
+        return self._chat_sig == (len(msgs), msgs[-1]["id"] if msgs else None)
+
+    def _update_tab_labels(self):
+        unread = self.social.total_unread()
+        invites = len(self.social.invites)
+        for key, btn in self.tab_buttons.items():
+            active = key == self.tab
+            label = {"mod": "\U0001F6E1 ", "arena": "\u2694 "}.get(key, "") + t("fr_tab_" + key)
+            if key == "arena" and (self.social.arena or {}).get("incoming"):
+                label += f" ({len(self.social.arena['incoming'])})"
+            open_reports = ((self.social.board or {}).get("staff") or {}).get("open_reports", 0)
+            if key == "mod" and open_reports:
+                label += f" ({open_reports})"
+            if key == "chat" and unread:
+                label += f" ({unread})"
+            if key == "groups" and invites:
+                label += f" ({invites})"
+            if key == "friends" and self.social.requests():
+                label += f" ({len(self.social.requests())})"
+            btn.config(text=label, bg=self.ACCENT if active else self.SOFT, fg=self.ACCENT_INK if active else self.INK)
+
+    def _update_status(self):
         note, note_until = getattr(self.social, "staff_note", ("", 0.0))
         if self.error:
             self.status.config(text=self.error, fg=self.ACCENT)
@@ -638,11 +659,15 @@ class FriendsWindow:
         if self.room and self.room.startswith("bot:"):
             self._render_bot_chat(self.room[4:])
             return
+        if self.room in social.COMMUNITY_ROOMS:
+            self._render_community_room(self.room)
+            return
         if self.room:
             self._render_conversation(self.room)
             return
         self._chat_sig = None
         items = self._conversations()
+        self._render_community_list()
         self._render_bot_list()
         if items:
             self._section_title("\u2709 " + t("chat_people"))
@@ -670,6 +695,255 @@ class FriendsWindow:
                          padx=6).pack(side="right")
             for widget in (row, box, icon) + tuple(box.winfo_children()):
                 widget.bind("<Button-1>", lambda e, r=room: self.show_tab("chat", room=r))
+
+    # ---- Pips Community (v2.16) ----
+    def _community_preview(self, m):
+        release = social.release_post(m)
+        if release:
+            return "\U0001F389 " + t("com_release_title", v=release.get("v", ""), title=release.get("title", ""))
+        if m.get("kind") == "text":
+            who = t("fr_you") if m.get("mine") else (m.get("from") or {}).get("name", "?")
+            body = " ".join(str(m.get("body", "")).split())
+            return f"{who}: " + (body if len(body) <= 50 else body[:47] + "\u2026")
+        return self._preview(m)
+
+    def _render_community_list(self):
+        self._section_title("\U0001F310 " + t("com_title"))
+        stats = self.social.community or {}
+        if stats.get("members"):
+            self._label(self.body, t("com_stats", members=stats.get("members", 0), online=stats.get("online", 0)),
+                        size=8, fg=self.MUTED).pack(fill="x")
+        for room in social.COMMUNITY_ROOMS:
+            is_news = room == social.NEWS_ROOM
+            msgs = self.social.rooms.get(room, [])
+            last = msgs[-1] if msgs else None
+            unread = self.social.unread(room)
+            row = tk.Frame(self.body, bg=self.CARD, pady=3, cursor="hand2")
+            row.pack(fill="x")
+            icon = tk.Label(row, text="\U0001F4E2" if is_news else "#", font=("Segoe UI Emoji", 13, "bold"),
+                            fg=self.ACCENT, bg=self.CARD, width=2)
+            icon.pack(side="left", padx=(0, 8))
+            box = tk.Frame(row, bg=self.CARD)
+            box.pack(side="left", fill="x", expand=True)
+            title = self.social.room_title(room)
+            if not is_news and self.social.community_muted:
+                title += "  \U0001F515"
+            self._label(box, title, size=10, bold=bool(unread)).pack(fill="x")
+            if last:
+                preview = self._community_preview(last)
+            else:
+                preview = t("com_topic_news" if is_news else "com_topic_general")
+            self._label(box, preview, size=8, fg=self.MUTED).pack(fill="x")
+            if unread:
+                tk.Label(row, text=str(unread), font=("Segoe UI", 8, "bold"), fg=self.ACCENT_INK, bg=self.ACCENT,
+                         padx=6).pack(side="right")
+            for widget in (row, box, icon) + tuple(box.winfo_children()):
+                widget.bind("<Button-1>", lambda e, r=room: self.show_tab("chat", room=r))
+
+    def _render_community_room(self, room):
+        is_news = room == social.NEWS_ROOM
+        msgs = self.social.rooms.get(room, [])
+        self._chat_sig = (len(msgs), msgs[-1]["id"] if msgs else None)
+        top = tk.Frame(self.body, bg=self.CARD)
+        top.pack(fill="x", pady=(0, 2))
+        self._button(top, "\u2039 " + t("chat_back"), lambda: self.show_tab("chat", room=None),
+                     small=True).pack(side="left")
+        self._label(top, "  " + ("\U0001F4E2 " if is_news else "") + self.social.room_title(room), size=11,
+                    bold=True).pack(side="left")
+        if not is_news:
+            muted = self.social.community_muted
+            self._button(top, t("com_unmute") if muted else t("com_mute"), self._toggle_community_mute,
+                         small=True).pack(side="right")
+        topic = t("com_topic_news" if is_news else "com_topic_general")
+        stats = self.social.community or {}
+        if stats.get("members"):
+            topic += "  \u00b7  " + t("com_stats", members=stats.get("members", 0), online=stats.get("online", 0))
+        self._label(self.body, topic, size=8, fg=self.MUTED, wrap=self.WIDTH - 70).pack(fill="x")
+        if not is_news:
+            hint = t("com_hint_general_staff" if self.social.is_staff else "com_hint_general")
+            self._label(self.body, hint, size=7, fg=self.MUTED, wrap=self.WIDTH - 70).pack(fill="x")
+        log = tk.Frame(self.body, bg=self.CARD)
+        log.pack(fill="both", expand=True, pady=(6, 0))
+        if not msgs:
+            self._label(log, t("com_empty_news" if is_news else "com_empty_general"), fg=self.MUTED,
+                        wrap=self.WIDTH - 70).pack(fill="x", pady=10)
+        if is_news:
+            for m in msgs[-40:]:
+                self._news_card(log, m)
+            self._news_composer()
+        else:
+            self._general_log(log, msgs)
+            self._general_composer(room)
+        self.win.after(60, lambda: self.canvas.yview_moveto(1.0))
+
+    def _news_card(self, parent, m):
+        release = social.release_post(m)
+        bg = self.WARM if release else self.TILE
+        card = tk.Frame(parent, bg=bg, padx=10, pady=8)
+        card.pack(fill="x", pady=4)
+        head = tk.Frame(card, bg=bg)
+        head.pack(fill="x")
+        sender = m.get("from") or {}
+        self._label(head, sender.get("name", "?"), size=8, bold=True, fg=self.ACCENT, bg=bg).pack(side="left")
+        self._role_chips(head, sender, bg)
+        stamp = datetime.fromtimestamp(m.get("at", 0))
+        self._label(head, stamp.strftime("%d %b %H:%M"), size=7, fg=self.MUTED, bg=bg).pack(side="right")
+        if self.social.can_delete(m):
+            trash = self._label(head, "\U0001F5D1", size=8, fg=self.MUTED, bg=bg, cursor="hand2")
+            trash.pack(side="right", padx=(0, 6))
+            trash.bind("<Button-1>", lambda e: self._delete_message(m))
+        wrap = self.WIDTH - 110
+        if release:
+            version = release.get("v", "")
+            self._label(card, "\U0001F389 " + t("com_release_title", v=version, title=release.get("title", "")),
+                        size=11, bold=True, bg=bg, wrap=wrap).pack(fill="x", pady=(4, 2))
+            for note in social.release_notes_for(release, social.current_lang()):
+                self._label(card, "\u2022 " + note, size=9, bg=bg, wrap=wrap).pack(fill="x", pady=1)
+            row = tk.Frame(card, bg=bg)
+            row.pack(fill="x", pady=(6, 0))
+            if social.is_newer(version, social.CLIENT_VERSION):
+                self._button(row, t("com_update_now"), self.social.open_update, primary=True,
+                             small=True).pack(side="left")
+            else:
+                self._label(row, t("com_have_it", v=social.CLIENT_VERSION or version), size=8, fg=self.MUTED,
+                            bg=bg).pack(side="left")
+        else:
+            self._label(card, m.get("body", ""), size=9, bg=bg, wrap=wrap).pack(fill="x", pady=(4, 0))
+        self._bind_message_menu(card, m)
+
+    def _news_composer(self):
+        if not self.social.is_staff:
+            self._label(self.body, t("com_news_readonly"), size=8, fg=self.MUTED,
+                        wrap=self.WIDTH - 70).pack(fill="x", pady=(8, 0))
+            return
+        self.composer.pack(fill="x", pady=(6, 0), before=self.status)
+        self._label(self.composer, t("com_post_hint"), size=8, fg=self.MUTED, bg=self.BG,
+                    wrap=self.WIDTH - 40).pack(fill="x", pady=(0, 3))
+        row = tk.Frame(self.composer, bg=self.BG)
+        row.pack(fill="x")
+        box = tk.Text(row, height=3, width=10, wrap="word", font=("Segoe UI", 10), bg=self.ENTRY,
+                      fg=self.ENTRY_INK, insertbackground=self.ENTRY_INK, relief="solid", bd=1,
+                      highlightthickness=0)
+        box.pack(side="left", fill="x", expand=True)
+        draft = self._drafts.get(social.NEWS_ROOM, "")
+        if draft:
+            box.insert("1.0", draft)
+        box.bind("<KeyRelease>", lambda e: self._drafts.__setitem__(social.NEWS_ROOM, box.get("1.0", "end-1c")))
+        box.bind("<Control-Return>", lambda e: self._post_news(box) or "break")
+        box.focus_set()
+        self._button(row, t("com_post"), lambda: self._post_news(box), primary=True).pack(
+            side="left", padx=(6, 0), anchor="s")
+
+    def _post_news(self, box):
+        text = box.get("1.0", "end-1c").strip()
+        if not text:
+            return
+        members = (self.social.community or {}).get("members") or "?"
+        if not messagebox.askyesno(t("com_title"), t("com_post_q", n=members), parent=self.win):
+            return
+        self._drafts.pop(social.NEWS_ROOM, None)
+        box.delete("1.0", "end")
+        self.error = ""
+        self.social.send(social.NEWS_ROOM, "text", text)
+        self.status.config(text=t("fr_connecting"), fg=self.MUTED)
+
+    def _general_log(self, log, msgs):
+        me = str(self.social.data.get("name") or "").strip().lower()
+        last_day = None
+        for m in msgs[-80:]:
+            stamp = datetime.fromtimestamp(m.get("at", 0))
+            day = stamp.strftime("%Y-%m-%d")
+            if day != last_day:
+                last_day = day
+                tk.Label(log, text=stamp.strftime("%d %b"), font=("Segoe UI", 7), fg=self.MUTED,
+                         bg=self.CARD).pack(pady=(4, 2))
+            mine = m.get("mine")
+            body = str(m.get("body", ""))
+            mentioned = bool(not mine and me and ("@" + me) in body.lower())
+            sender = m.get("from") or {}
+            line = tk.Frame(log, bg=self.CARD)
+            line.pack(fill="x", pady=1)
+            bubble_bg = self.MINE if mine else (self.WARM if mentioned else self.THEIRS)
+            bubble = tk.Frame(line, bg=bubble_bg, padx=8, pady=3)
+            bubble.pack(side="right" if mine else "left", padx=(60, 0) if mine else (0, 60))
+            if not mine:
+                name_row = tk.Frame(bubble, bg=bubble_bg)
+                name_row.pack(fill="x")
+                name = self._label(name_row, sender.get("name", "?"), size=7, bold=True, fg=self.ACCENT,
+                                   bg=bubble_bg, cursor="hand2")
+                name.pack(side="left")
+                if sender.get("code"):
+                    name.bind("<Button-1>", lambda e, c=sender["code"]: self.open_profile(c))
+                self._role_chips(name_row, sender, bubble_bg)
+            if m.get("kind") == "text":
+                text = body
+            else:
+                who = t("fr_you") if mine else sender.get("name", "?")
+                text = f"{INTERACTION_SYMBOL.get(m.get('kind'), '')}  {who} \u00b7 " + t("ix_name_" + m.get("kind", "wave"))
+            tk.Label(bubble, text=text, font=("Segoe UI", 9, "italic" if m.get("kind") != "text" else "normal"),
+                     fg=self.INK, bg=bubble_bg, wraplength=self.WIDTH - 170, justify="left",
+                     anchor="w").pack(fill="x")
+            tk.Label(bubble, text=stamp.strftime("%H:%M"), font=("Segoe UI", 7), fg=self.MUTED,
+                     bg=bubble_bg).pack(anchor="e")
+            self._bind_message_menu(bubble, m)
+
+    def _general_composer(self, room):
+        self.composer.pack(fill="x", pady=(6, 0), before=self.status)
+        quick = tk.Frame(self.composer, bg=self.BG)
+        quick.pack(fill="x", pady=(0, 4))
+        for kind in ("cheer", "wave"):
+            self._button(quick, INTERACTION_SYMBOL[kind] + " " + t("ix_btn_" + kind),
+                         lambda k=kind: self._interact(room, k), small=True).pack(side="left", padx=(0, 3))
+        entry_row = tk.Frame(self.composer, bg=self.BG)
+        entry_row.pack(fill="x")
+        var = tk.StringVar(master=self.win, value=self._drafts.get(room, ""))
+        var.trace_add("write", lambda *_args, r=room, v=var: self._drafts.__setitem__(r, v.get()))
+        self.msg_var = var
+        entry = self._entry(entry_row, var, width=10)
+        entry.pack(side="left", fill="x", expand=True, ipady=3)
+        entry.bind("<Return>", lambda e: self._send_text(room))
+        entry.icursor("end")
+        entry.focus_set()
+        self._button(entry_row, t("chat_send"), lambda: self._send_text(room), primary=True).pack(
+            side="left", padx=(6, 0))
+
+    def _toggle_community_mute(self):
+        self.social.set_community_muted(not self.social.community_muted)
+        self.refresh(force=True)
+
+    def _bind_message_menu(self, widget, m):
+        """Right-click a community message: report the sender / delete it (own messages, staff)."""
+        sender = m.get("from") or {}
+        code = sender.get("code")
+        entries = []
+        if not m.get("mine") and code and code not in social.BOT_CODES:
+            entries.append((t("com_report", name=sender.get("name", "?")),
+                            lambda: self._report(code, sender.get("name", "?"))))
+        if self.social.can_delete(m):
+            entries.append((t("com_delete"), lambda: self._delete_message(m)))
+        if not entries:
+            return
+
+        def popup(event):
+            menu = tk.Menu(self.win, tearoff=0)
+            for label, command in entries:
+                menu.add_command(label=label, command=command)
+            try:
+                menu.tk_popup(event.x_root, event.y_root)
+            finally:
+                menu.grab_release()
+
+        def bind_tree(node):
+            node.bind("<Button-3>", popup)
+            for child in node.winfo_children():
+                bind_tree(child)
+
+        bind_tree(widget)
+
+    def _delete_message(self, m):
+        if messagebox.askyesno(t("com_title"), t("com_delete_q"), parent=self.win):
+            self.social.delete_community(m.get("id", 0))
+            self.status.config(text=t("fr_connecting"), fg=self.MUTED)
 
     # ---- chat bots (v2.10) ----
     def _bot_chip(self, parent, bg):
@@ -849,10 +1123,13 @@ class FriendsWindow:
                              small=True).pack(side="left", padx=(0, 2))
         entry_row = tk.Frame(self.composer, bg=self.BG)
         entry_row.pack(fill="x")
-        self.msg_var = tk.StringVar()
-        entry = self._entry(entry_row, self.msg_var, width=10)
+        var = tk.StringVar(master=self.win, value=self._drafts.get(room, ""))
+        var.trace_add("write", lambda *_args, r=room, v=var: self._drafts.__setitem__(r, v.get()))
+        self.msg_var = var
+        entry = self._entry(entry_row, var, width=10)
         entry.pack(side="left", fill="x", expand=True, ipady=3)
         entry.bind("<Return>", lambda e: self._send_text(room))
+        entry.icursor("end")
         entry.focus_set()
         self._button(entry_row, t("chat_send"), lambda: self._send_text(room), primary=True).pack(side="left",
                                                                                                   padx=(6, 0))

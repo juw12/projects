@@ -1,7 +1,7 @@
 (function () {
   'use strict';
 
-  const CACHE_NAME = 'pips-v2.15.0';
+  const CACHE_NAME = 'pips-v2.16.0';
   const ASSETS = [
     './',
     './index.html',
