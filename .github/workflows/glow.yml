@@ -36,6 +36,7 @@ jobs:
           python -m playwright install --with-deps chromium
       - name: Hermetic browser regressions
         run: |
+          python -X utf8 apps/glow/tests/test_glow_chat_selftest.py
           python -X utf8 apps/glow/tests/test_mission_control_browser.py
           python -X utf8 apps/glow/tests/test_glow_hands.py
           python -X utf8 apps/glow/tests/test_glow_app_hands.py

@@ -493,22 +493,32 @@ function effectiveModel(value) {
 }
 // After Puter says the allowance is used up, skip it for a while (no failed request, no Puter pop-up),
 // then try it again by itself, e.g. after the monthly reset.
+// The rest is also kept in memory: when the browser storage is full (every juw12.github.io app shares one
+// small quota) or private, saving it fails, and Puter would otherwise be asked and fail on every message.
 const PUTER_REST_KEY = "glow.puterRestUntil";
 const PUTER_REST_MS = 30 * 60 * 1000;
+let puterRestUntil = 0;
 function puterAllowanceResting() {
+  let saved = 0;
   try {
-    return Number(localStorage.getItem(PUTER_REST_KEY) || 0) > Date.now();
+    saved = Number(localStorage.getItem(PUTER_REST_KEY) || 0);
   } catch {
-    return false;
+    saved = 0;
   }
+  return Math.max(puterRestUntil, saved) > Date.now();
 }
 function restPuterAllowance(on = true) {
+  puterRestUntil = on ? Date.now() + PUTER_REST_MS : 0;
   try {
-    if (on) localStorage.setItem(PUTER_REST_KEY, String(Date.now() + PUTER_REST_MS));
+    if (on) localStorage.setItem(PUTER_REST_KEY, String(puterRestUntil));
     else localStorage.removeItem(PUTER_REST_KEY);
   } catch {
-    // Private mode: the next request simply tries Puter again.
+    // Storage full or private mode: the rest still holds while Glow stays open.
   }
+}
+// A Puter chat model said the free allowance is used up.
+function puterAllowanceError(modelValue, error) {
+  return String(modelValue).startsWith("puter::") && ALLOWANCE_GONE.test(errorText(error));
 }
 /* ================= 🔋 low power, main AI service, Pollinations wallet, Chrome's built-in AI ================= */
 function lowPowerOn() {
@@ -1097,21 +1107,27 @@ async function streamReply(modelValue, system, messages, onText, conv = null) {
     answeredBy = effectiveModel(modelValue);
   } catch (error) {
     let failure = error;
-    const quietRetry = String(modelValue).startsWith("puter::") && ALLOWANCE_GONE.test(errorText(error)) && !puterAllowanceResting();
-    if (quietRetry) {
+    let failedModel = effectiveModel(modelValue);
+    // Used-up Puter allowance: rest Puter and let the backup answer this same message, with no warning.
+    // This also covers a request that was already on its way when another one found the allowance empty
+    // (Arena, Council, a second Glow window), so the backup is asked directly instead of Puter again.
+    if (puterAllowanceError(modelValue, error)) {
       restPuterAllowance();
+      const backup = allowanceBackupModel().value;
+      failedModel = backup;
       try {
-        reply = await streamProvider(modelValue, system, messages, onText, usage);
-        answeredBy = effectiveModel(modelValue);
+        onText("");
+        reply = await streamProvider(backup, system, messages, onText, usage);
+        answeredBy = backup;
         failure = null;
       } catch (retryError) {
         failure = retryError;
       }
     }
     if (failure) {
-      const rescue = rescueModelFor(effectiveModel(modelValue), failure);
+      const rescue = rescueModelFor(failedModel, failure);
       if (!rescue) throw failure;
-      $("status").textContent = `${modelLabel(effectiveModel(modelValue))} couldn't answer, so the AI on this device answered.`;
+      $("status").textContent = `${modelLabel(failedModel)} couldn't answer, so the AI on this device answered.`;
       onText("");
       reply = await streamProvider(rescue, system, messages, onText, usage);
       answeredBy = rescue;
@@ -1611,6 +1627,7 @@ function openConversation(conv) {
   else renderConversation(true);
   renderHistory();
   syncComposerTools();
+  rememberOpenChat(conv);
 }
 function renderConversation(force = false) {
   if (current.type === "arena") renderArena();
@@ -4408,6 +4425,18 @@ async function imageToDataUrl(image) {
     throw new Error("Couldn't save the picture. Try another image model.");
   }
 }
+// Pictures and videos have no free backup model, so a used-up allowance gets its own plain message
+// (chats keep working: their backup answers) instead of the chat advice about keys.
+function mediaErrorText(error, kind) {
+  const text = puterErrorText(error);
+  const label = kind === "video" ? "Video" : "Image";
+  if (ALLOWANCE_GONE.test(text)) {
+    restPuterAllowance();
+    const what = kind === "video" ? "🎬 Videos" : "🎨 Pictures";
+    return `${what} use your free Puter allowance, and it's used up for this month. Your chats keep working (a free backup model answers them). ${label}s come back when the allowance resets.`;
+  }
+  return text.replace("Glow AI (Puter) error", `${label} error`).replace("This Glow AI model", `This ${label.toLowerCase()} model`);
+}
 async function generateImage(model, messages, onText, signal, usage) {
   const sdk = await ensurePuter();
   if (!sdk.auth.isSignedIn()) {
@@ -4433,7 +4462,7 @@ async function generateImage(model, messages, onText, signal, usage) {
     image = await Promise.race([sdk.ai.txt2img(prompt, options), aborted]);
   } catch (error) {
     if (error && error.name === "AbortError") throw error;
-    throw new Error(puterErrorText(error).replace("Glow AI (Puter) error", "Image error").replace("This Glow AI model", "This image model"));
+    throw new Error(mediaErrorText(error, "image"));
   }
   const dataUrl = await imageToDataUrl(image);
   Object.assign(usage, { images: 1, out: 0, exactOut: true });
@@ -4468,7 +4497,7 @@ async function generateVideo(model, messages, onText, signal, usage) {
     video = await Promise.race([sdk.ai.txt2vid(prompt, { model, seconds: VIDEO_SECONDS, puter_output_path: fileName }), aborted]);
   } catch (error) {
     if (error && error.name === "AbortError") throw error;
-    throw new Error(puterErrorText(error).replace("Glow AI (Puter) error", "Video error").replace("This Glow AI model", "This video model"));
+    throw new Error(mediaErrorText(error, "video"));
   }
   const url = String((video && (video.src || video.getAttribute && video.getAttribute("data-source"))) || video || "");
   Object.assign(usage, { images: 1, out: 0, exactOut: true });
@@ -4785,11 +4814,13 @@ function onSend() {
     current.messages.push(message);
     renderUserBubble(message);
     $("input").value = "";
+    clearDraft();
     autoSize();
     return runCouncil(current, 1);
   }
   if (current.type === "arena" && !current.started) return null;
   $("input").value = "";
+  clearDraft();
   autoSize();
   return current.type === "arena" ? sendArena(text) : sendChat(text);
 }
@@ -5616,6 +5647,27 @@ async function selfTest() {
   expect("glow ai: used-up allowance: Puter rests and the backup answers", puterAllowanceResting() && effectiveModel(quotaModel) === "demo::demo");
   expect(`glow ai: used-up allowance: no warning, reply labelled with the backup (${quotaLast.role}/${quotaLast.model})`, !document.querySelector(".msg.notice")
     && quotaLast.role === "assistant" && quotaLast.model === "demo::demo");
+  // Full browser storage (all juw12.github.io apps share one quota) must not bring the warning back.
+  restPuterAllowance(false);
+  const realSetItem = Storage.prototype.setItem;
+  Storage.prototype.setItem = function () {
+    throw new DOMException("The quota has been exceeded.", "QuotaExceededError");
+  };
+  const askQuietly = () => streamReply(quotaModel, "Be brief.", [{ role: "user", content: "hi" }], () => {})
+    .catch((error) => `ERROR ${errorText(error)}`);
+  let fullStorageReplies = [];
+  try {
+    fullStorageReplies = [await askQuietly(), await askQuietly()];
+  } finally {
+    Storage.prototype.setItem = realSetItem;
+  }
+  expect("glow ai: used-up allowance: the backup answers even when the browser storage is full", fullStorageReplies.every((text) => /Demo mode/.test(text)) && puterAllowanceResting());
+  // Two requests on their way when the allowance runs out (Arena, a second Glow window): both get an answer.
+  restPuterAllowance(false);
+  const overlapping = await Promise.all([askQuietly(), askQuietly()]);
+  expect("glow ai: used-up allowance: requests already on their way get the backup's answer too", overlapping.every((text) => /Demo mode/.test(text)));
+  expect("images: a used-up allowance gets a plain message about pictures, not chat advice",
+    /Pictures use your free Puter allowance/.test(mediaErrorText({ error: { code: "insufficient_funds", message: "Insufficient funds" } }, "image")));
   allowanceBackupModel = realBackup;
   restPuterAllowance(false);
   const modelsWithKeys = models;
@@ -5945,6 +5997,78 @@ function askCrew() {
   toast("Opened GlowRoom with this as the crew's mission");
 }
 
+// ↩ Reopen where you left off: GlowChat remembers the chat that was open and the message you hadn't sent,
+// and opens them again next time. They live in small keys of their own (never synced to the cloud), so they
+// still save when the big chat store is close to the browser's storage limit.
+const LAST_CHAT_KEY = "glow.chat.last";
+const DRAFT_KEY = "glow.chat.draft";
+let draftTimer = null;
+function rememberOpenChat(conv) {
+  if (TEST_MODE || !conv || conv.temporary) return;
+  try {
+    localStorage.setItem(LAST_CHAT_KEY, conv.id);
+  } catch {
+    // Storage full: Glow simply starts with a new chat next time.
+  }
+}
+function lastOpenChat() {
+  let id = "";
+  try {
+    id = localStorage.getItem(LAST_CHAT_KEY) || "";
+  } catch {
+    id = "";
+  }
+  return (id && state.conversations.find((c) => c.id === id)) || null;
+}
+// Opening GlowChat again: the chat you had open (if it still exists), unless a link asks for something else.
+function resumeLastChat() {
+  if (TEST_MODE) return false;
+  const params = new URLSearchParams(location.search);
+  if (params.get("open") || params.get("q")) return false;
+  const conv = lastOpenChat();
+  if (!conv) return false;
+  openConversation(conv);
+  return true;
+}
+function saveDraft() {
+  if (TEST_MODE || !current) return;
+  clearTimeout(draftTimer);
+  const chatId = current.id;
+  draftTimer = setTimeout(() => {
+    const text = $("input").value;
+    try {
+      if (text.trim()) localStorage.setItem(DRAFT_KEY, JSON.stringify({ id: chatId, text: text.slice(0, 8000), at: Date.now() }));
+      else localStorage.removeItem(DRAFT_KEY);
+    } catch {
+      // Storage full: the unsent message just isn't kept.
+    }
+  }, 400);
+}
+function clearDraft() {
+  clearTimeout(draftTimer);
+  try {
+    localStorage.removeItem(DRAFT_KEY);
+  } catch {
+    // Nothing saved.
+  }
+}
+// The unsent message comes back into the box for the chat it was typed in (or a new chat that was never sent).
+function restoreDraft() {
+  if (TEST_MODE || !current || $("input").value) return false;
+  let saved = null;
+  try {
+    saved = JSON.parse(localStorage.getItem(DRAFT_KEY) || "null");
+  } catch {
+    saved = null;
+  }
+  if (!saved || typeof saved.text !== "string" || !saved.text.trim()) return false;
+  const savedChatExists = state.conversations.some((c) => c.id === saved.id);
+  if (savedChatExists && saved.id !== current.id) return false;
+  $("input").value = saved.text;
+  $("input").dispatchEvent(new Event("input", { bubbles: true }));
+  return true;
+}
+
 // Glow home can open GlowChat with a question ready (?q=) or jump back into a chat (?open=<id>).
 function launchSendsQuestion() {
   const params = new URLSearchParams(location.search);
@@ -5991,7 +6115,7 @@ async function boot() {
   renderUsage();
   renderPowerButton();
   await loadModels();
-  newChat();
+  if (!resumeLastChat()) newChat();
   if (pollinationsReturn === "connected") toast("Pollinations connected: your own Pollen now pays for replies");
   else if (pollinationsReturn === "denied") toast("Pollinations wasn't connected");
   else if (pollinationsReturn === "invalid") toast("That Pollinations sign-in couldn't be checked. Press Connect again.");
@@ -6022,6 +6146,13 @@ async function boot() {
     }
     applyLaunchParams();
     openFromHash(hash);
+    restoreDraft();
+    $("input").addEventListener("input", saveDraft);
+    $("input").dataset.glowDraft = "saved"; // an update may reload the page: this box keeps its text anyway
+    // Glow updates itself only when that can't lose anything: never mid-reply (the draft is saved anyway).
+    if (window.GlowApps && window.GlowApps.registerBusyCheck) {
+      window.GlowApps.registerBusyCheck(() => $("send-btn").disabled || councilRunning || controllers.size > 0);
+    }
   }
   if (TEST_MODE) {
     localStorage.removeItem(STORE_KEY); // sandbox key only
