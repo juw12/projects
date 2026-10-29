@@ -86,7 +86,7 @@ TOOL = {
 }
 
 
-VERSION = "1.10.1"
+VERSION = "1.11.0"
 
 
 class AppError(Exception):
@@ -1334,7 +1334,10 @@ class Handler(BaseHTTPRequestHandler):
         elif path in ("/", ""):
             self.send_static("index.html")
         else:
-            self.send_static(urllib.parse.unquote(path.lstrip("/")))
+            rel = urllib.parse.unquote(path.lstrip("/"))
+            if rel.endswith("/"):
+                rel += "index.html"  # folders such as /id/ (Twin Indonesia) open their index page
+            self.send_static(rel)
 
     def do_POST(self):
         origin = self.headers.get("Origin")

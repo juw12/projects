@@ -148,6 +148,7 @@ body[data-tab="home"] header.top:not(.scrolled) .help {
 .p-blue { background: linear-gradient(135deg, #0e8fd8, #0b5a94); }
 .p-pink { background: linear-gradient(135deg, #e0458b, #9c2a61); }
 .p-amber { background: linear-gradient(135deg, #c77a12, #8a4d06); }
+.p-teal { background: linear-gradient(135deg, #14b8a6, #0f766e); }
 
 /* --------------------------------------------------------- surfaces */
 :root[data-theme] .card { border-radius: 22px; }

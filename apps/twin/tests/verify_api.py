@@ -181,6 +181,15 @@ def end_to_end(data_dir):
         check("serves the app at /", status == 200 and b"Twin" in body)
         status, body = alice.get("/demo.js")
         check("serves web/demo.js", status == 200 and b"TwinDemo" in body)
+        status, body = alice.get("/id/")
+        check("serves Twin Indonesia at /id/", status == 200 and b"Twin Indonesia" in body)
+        status, body = alice.get("/id/engine.js?v=1.11.0")
+        check("serves the Twin Indonesia engine", status == 200 and b"SatuEngine" in body)
+        try:
+            status, body = alice.get("/demo/")
+        except urllib.error.HTTPError as error:
+            status = error.code
+        check("folder without an index page is 404", status == 404)
 
         status, body = alice.post("/api/me")
         check("API requires login", status == 401)
