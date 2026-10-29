@@ -2,6 +2,37 @@
   "_comment": "Pips version history. Newest first. Feeds the in-app update notice (latest.json), the PPT guide and the update emails.",
   "releases": [
     {
+      "version": "2.16.0",
+      "date": "2026-10-29",
+      "title": "Pips Community",
+      "notes": {
+        "en": [
+          "New Pips Community at the top of the Chat tab: a #general channel to chat with everyone who uses Pips, plus #announcements with news from the Pips team.",
+          "Every new Pips version is announced there automatically - see what's new and update with one click.",
+          "Type @name to ping someone in #general. Mute #general any time; owner and moderators can remove messages.",
+          "Open it from your pet's menu too (Pips Community). Fixed: chats no longer clear what you're typing when Pips refreshes in the background."
+        ],
+        "id": [
+          "Komunitas Pips baru di bagian atas tab Chat: kanal #umum untuk ngobrol dengan semua pengguna Pips, plus #pengumuman berisi kabar dari tim Pips.",
+          "Setiap versi Pips baru diumumkan di sana secara otomatis - lihat yang baru dan update dengan sekali klik.",
+          "Ketik @nama untuk memanggil seseorang di #umum. Bisukan #umum kapan saja; pemilik dan moderator bisa menghapus pesan.",
+          "Bisa juga dibuka dari menu pet (Komunitas Pips). Diperbaiki: chat tidak lagi menghapus ketikanmu saat Pips memperbarui di latar belakang."
+        ],
+        "zh_TW": [
+          "全新 Pips 社群就在聊天分頁最上方：#大廳 可以和所有 Pips 使用者聊天，#公告 有 Pips 團隊的最新消息。",
+          "每個 Pips 新版本都會自動在那裡公告，看看有什麼新功能，一鍵就能更新。",
+          "在 #大廳 輸入 @名字 可以提及某人。隨時可以把 #大廳 靜音；擁有者和管理員可以刪除訊息。",
+          "也可以從寵物選單開啟（Pips 社群）。修正：Pips 在背景更新時，聊天不會再清掉你正在輸入的文字。"
+        ],
+        "zh_CN": [
+          "全新 Pips 社区就在聊天标签最上方：#大厅 可以和所有 Pips 用户聊天，#公告 有 Pips 团队的最新消息。",
+          "每个 Pips 新版本都会自动在那里公告，看看有什么新功能，一键就能更新。",
+          "在 #大厅 输入 @名字 可以提及某人。随时可以把 #大厅 静音；所有者和管理员可以删除消息。",
+          "也可以从宠物菜单打开（Pips 社区）。修复：Pips 在后台刷新时，聊天不会再清掉你正在输入的文字。"
+        ]
+      }
+    },
+    {
       "version": "2.15.0",
       "date": "2026-10-29",
       "title": "Update reminders",

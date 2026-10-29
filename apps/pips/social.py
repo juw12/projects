@@ -93,6 +93,12 @@ INBOX_EVERY_S = 45
 IDLE_AWAY_S = 10 * 60          # idle this long -> "away" (auto status)
 INBOX_FAST_S = 5          # while a chat is open
 MAX_ROOM_HISTORY = 150
+# v2.16: Pips Community - one Discord-style space for everyone with Friends turned on.
+NEWS_ROOM = "pub:news"          # #announcements: posts from the Pips team + every new release
+GENERAL_ROOM = "pub:general"    # #general: everyone can chat
+COMMUNITY_ROOMS = (NEWS_ROOM, GENERAL_ROOM)
+NEWS_MAX_CHARS = 1500
+NEWS_FRESH_S = 7 * 24 * 3600    # first start: announcements newer than this still pop up / count as new
 
 # affinity (friendship) levels: (points needed, i18n key)
 AFFINITY_LEVELS = [(0, "aff_acq"), (20, "aff_buddy"), (60, "aff_good"), (150, "aff_close"),
@@ -382,6 +388,47 @@ def bday_text(month: int, day: int) -> str:
         return ""
     return t("bday_fmt", d=int(day), month=t("month_%d" % int(month)))
 
+
+def version_tuple(text) -> tuple:
+    parts = str(text or "").split(".")
+    if len(parts) < 3:
+        return ()
+    try:
+        return tuple(int(p) for p in parts[:3])
+    except ValueError:
+        return ()
+
+
+def is_newer(version: str, than: str) -> bool:
+    """True when `version` is a newer x.y.z than `than` (an unknown `than` counts as older)."""
+    other = version_tuple(version)
+    mine = version_tuple(than)
+    return bool(other) and (not mine or other > mine)
+
+
+def release_post(m) -> dict | None:
+    """The {v, title, date, notes} payload of a release announcement, or None."""
+    if not isinstance(m, dict) or m.get("kind") != "release":
+        return None
+    try:
+        data = json.loads(m.get("body") or "{}")
+    except ValueError:
+        return None
+    return data if isinstance(data, dict) and data.get("v") else None
+
+
+def release_notes_for(release: dict, lang: str) -> list:
+    notes = release.get("notes") or {}
+    return list(notes.get(lang) or notes.get("en") or [])
+
+
+def current_lang() -> str:
+    try:
+        import i18n
+        return i18n.get_language()
+    except Exception:  # pragma: no cover
+        return "en"
+
 class Social:
     def __init__(self, pet):
         self.pet = pet
@@ -428,6 +475,7 @@ class Social:
         self.new_keys = []          # premium keys generated in this session
         self.show_inactive = False  # Mod tab: also list people not seen for a while
         self.staff_note = ("", 0.0)  # (text, show-until) status line for update reminders
+        self.community = {}         # Pips Community stats from /v1/inbox: {members, online}
         global CLIENT_VERSION
         try:
             get_version = (getattr(pet, "cb", None) or {}).get("version")
@@ -519,6 +567,8 @@ class Social:
         return None
 
     def room_title(self, room: str) -> str:
+        if room in COMMUNITY_ROOMS:
+            return "#" + t("com_ch_news" if room == NEWS_ROOM else "com_ch_general")
         if room.startswith("dm:"):
             f = self.friend(room[3:])
             return f["name"] if f else room[3:]
@@ -526,6 +576,8 @@ class Social:
         return c["name"] if c else "?"
 
     def unread(self, room: str) -> int:
+        if room == GENERAL_ROOM and self.community_muted:
+            return 0
         read = self.data.get("read", {}).get(room, 0)
         return sum(1 for m in self.rooms.get(room, []) if not m.get("mine") and m["id"] > read)
 
@@ -537,6 +589,111 @@ class Social:
         if msgs:
             self.data.setdefault("read", {})[room] = msgs[-1]["id"]
             self.save()
+
+    # ---- Pips Community (v2.16) ----
+    @property
+    def community_muted(self) -> bool:
+        return bool(self.data.get("community_muted"))
+
+    def set_community_muted(self, value: bool):
+        self.data["community_muted"] = bool(value)
+        if value:
+            self.mark_read(GENERAL_ROOM)
+        self.save()
+
+    def can_delete(self, m) -> bool:
+        """Your own community messages; staff: anyone's (mods can't remove the owner's or other mods' posts)."""
+        if m.get("mine"):
+            return True
+        if not self.is_staff:
+            return False
+        role = (m.get("from") or {}).get("role", "")
+        if role == "owner":
+            return False
+        if role == "mod":
+            return self.is_owner
+        return True
+
+    def delete_community(self, msg_id: int):
+        if self.enabled:
+            self._run("com_deleted", self._delete_community, int(msg_id))
+
+    def _delete_community(self, msg_id):
+        api_call("POST", "/v1/community/delete", {"id": msg_id}, self.account)
+        return {"id": msg_id}
+
+    def open_update(self):
+        """Show the updater's offer (or check now) - same as Help > Check for updates."""
+        callbacks = getattr(self.pet, "cb", None) or {}
+        action = callbacks.get("show_update") or callbacks.get("check_updates")
+        if callable(action):
+            action()
+
+    def _take_community_meta(self, result):
+        if not isinstance(result, dict):
+            return
+        if isinstance(result.get("community"), dict):
+            self.community = result["community"]
+        gone = {i for i in (result.get("deleted") or []) if isinstance(i, int)}
+        if gone:
+            for room in COMMUNITY_ROOMS:
+                msgs = self.rooms.get(room)
+                if msgs and any(m.get("id") in gone for m in msgs):
+                    self.rooms[room] = [m for m in msgs if m.get("id") not in gone]
+
+    def _init_community_marks(self):
+        """First time the community shows up: old #general chat counts as read, recent announcements don't."""
+        read = self.data.setdefault("read", {})
+        changed = False
+        general = self.rooms.get(GENERAL_ROOM) or []
+        if GENERAL_ROOM not in read and general:
+            read[GENERAL_ROOM] = general[-1]["id"]
+            changed = True
+        if "news_seen" not in self.data:
+            old = [m["id"] for m in self.rooms.get(NEWS_ROOM) or [] if m.get("at", 0) < time.time() - NEWS_FRESH_S]
+            mark = max(old) if old else 0
+            self.data["news_seen"] = mark
+            read.setdefault(NEWS_ROOM, mark)
+            changed = True
+        if changed:
+            self.save()
+
+    def _take_community(self, fresh, initial):
+        news_seen = int(self.data.get("news_seen", 0))
+        new_posts = [m for m in self.rooms.get(NEWS_ROOM, []) if m["id"] > news_seen]
+        if new_posts:
+            self.data["news_seen"] = new_posts[-1]["id"]
+            self.save()
+            others = [m for m in new_posts if not m.get("mine")]
+            if others and self.chat_open_room != NEWS_ROOM:
+                self._announce(others[-1])
+        if self.community_muted:
+            return
+        # #general only pops up when someone mentions you (@name)
+        name = str(self.data.get("name") or "").strip().lower()
+        cutoff = time.time() - (10 * 60 if initial else 3600)
+        mentions = [m for m in fresh
+                    if m.get("room") == GENERAL_ROOM and m.get("kind") == "text" and m.get("at", 0) >= cutoff
+                    and name and ("@" + name) in str(m.get("body", "")).lower()]
+        for m in mentions[-3:]:
+            self._react_to(m)
+
+    def _announce(self, m):
+        """Pop up a new #announcements post (release posts only when this PC doesn't have that version yet)."""
+        open_news = lambda: self.open_window("chat", room=NEWS_ROOM)  # noqa: E731
+        release = release_post(m)
+        if release:
+            if not is_newer(release.get("v", ""), CLIENT_VERSION):
+                return
+            self.pet.say(t("com_bubble_release", v=release.get("v", ""), title=release.get("title", "")),
+                         actions=[(t("com_update_now"), self.open_update), (t("com_read"), open_news)],
+                         duration=20, priority=1, on_click=open_news)
+            return
+        who = (m.get("from") or {}).get("name", "?")
+        body = " ".join(str(m.get("body", "")).split())
+        body = body if len(body) <= 90 else body[:87] + "\u2026"
+        self.pet.say(t("com_bubble_news", name=who, text=body), duration=10,
+                     priority=0 if self._quiet() else 1, on_click=open_news)
 
     # ---- coins ----
     def affinity_levels(self) -> int:
@@ -1344,11 +1501,14 @@ class Social:
         shop = getattr(self.pet, "shop", None)
         if kind == "visit" and shop and shop.moves() and not body:
             body = random.choice(shop.moves())       # my pet shows off a move when it arrives
-        if shop:
+        if shop and room not in COMMUNITY_ROOMS:
             shop.add_interaction_bonus()
-        payload = {"kind": kind, "body": body[:500], "lang": getattr(self.pet, "lang", "en")}
+        limit = NEWS_MAX_CHARS if room == NEWS_ROOM else 500
+        payload = {"kind": kind, "body": body[:limit], "lang": getattr(self.pet, "lang", "en")}
         if room.startswith("dm:"):
             payload["to"] = room[3:]
+        elif room in COMMUNITY_ROOMS:
+            payload["channel"] = room[4:]
         else:
             payload["circle"] = room[2:]
         if kind == "visit":
@@ -1358,7 +1518,7 @@ class Social:
 
     def _send_then_inbox(self, payload, room, kind):
         api_call("POST", "/v1/send", payload, self.account)
-        result = api_call("GET", f"/v1/inbox?since={self._since()}&nudge=1", None, self.account)
+        result = api_call("GET", f"/v1/inbox?since={self._since()}&nudge=1&community=1", None, self.account)
         result["_room"] = room
         result["_kind"] = kind
         return result
@@ -1378,12 +1538,13 @@ class Social:
             return
         self._inbox_busy = True
         self._run("inbox", api_call, "GET",
-                  f"/v1/inbox?since={self._since()}&idle={self._idle_flag()}&nudge=1", None,
+                  f"/v1/inbox?since={self._since()}&idle={self._idle_flag()}&nudge=1&community=1", None,
                   self.account)
 
     def _take_inbox(self, result, initial=False):
         if isinstance(result, dict) and result.get("duels"):
             self._notify_duels(result["duels"])
+        self._take_community_meta(result)
         seen = int(self.data.get("seen_id", 0))
         fresh = []
         for m in result.get("messages", []):
@@ -1404,8 +1565,11 @@ class Social:
             self.save()
         if self.chat_open_room:
             self.mark_read(self.chat_open_room)
+        self._init_community_marks()
         self.invites = result.get("invites", self.invites)
         self._notify_invites()
+        community_fresh = [m for m in fresh if m.get("room") in COMMUNITY_ROOMS]
+        fresh = [m for m in fresh if m.get("room") not in COMMUNITY_ROOMS]
         # first load after start: only react to things that arrived very recently
         cutoff = time.time() - (10 * 60 if initial else 24 * 3600)
         others = [m for m in fresh if m.get("kind") not in NUDGES]
@@ -1417,6 +1581,7 @@ class Social:
                   and str(m.get("room", "")).startswith("dm:")]
         if nudges:
             self._take_nudges(nudges)
+        self._take_community(community_fresh, initial)
 
     def _notify_invites(self):
         notified = set(self.data.get("notified_invites", []))
@@ -1842,6 +2007,12 @@ class Social:
             self.load_mod()
         elif kind == "redeemed":
             self._refresh_window()
+        elif kind == "com_deleted":
+            gone = payload.get("id")
+            for room in COMMUNITY_ROOMS:
+                if room in self.rooms:
+                    self.rooms[room] = [m for m in self.rooms[room] if m.get("id") != gone]
+            self.staff_status(t("com_deleted_ok"), 5)
         if kind == "leaderboard":
             self.leaderboards[payload.get("sort", "xp")] = dict(payload, _at=time.time())
         elif kind == "user":
