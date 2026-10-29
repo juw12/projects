@@ -66,6 +66,11 @@ jobs:
           if (-not (Test-Path $iscc) -and -not (Get-Command iscc -ErrorAction SilentlyContinue)) {
             choco install innosetup --no-progress -y
           }
+      - name: Stop XProtect scans (they make hdiutil fail with "Resource busy")
+        if: runner.os == 'macOS'
+        run: |
+          sudo pkill -9 XProtect > /dev/null 2>&1 || true
+          for attempt in $(seq 1 20); do pgrep -x XProtect > /dev/null || break; sleep 3; done
       - name: Build and package
         run: python apps/vitals/desktop/build.py --require-installer
       - name: Open the built app and check it works
@@ -352,6 +357,9 @@ jobs:
             gh release upload vitals $FILES SHA256SUMS.txt --clobber --repo "$REPO"
             gh release edit vitals --notes-file notes.md --repo "$REPO"
           else
+            # No --target: if main moved during the build (it often does) and the newer commits touch
+            # .github/workflows, GitHub refuses to let the Actions token tag the older commit (HTTP 403).
+            # The tag is only an anchor for the download links; the notes record the built commit.
             gh release create vitals $FILES SHA256SUMS.txt --title "Vitals for Windows, Mac, Linux, Android and iPhone" \
-              --notes-file notes.md --target "$GITHUB_SHA" --latest=false --repo "$REPO"
+              --notes-file notes.md --latest=false --repo "$REPO"
           fi
