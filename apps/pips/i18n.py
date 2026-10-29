@@ -1468,6 +1468,18 @@ S.update({
     "p_perch": ("Rest on the taskbar", "Istirahat di taskbar", "停在工作列上休息", "停在任务栏上休息"),
 })
 
+# --- v2.20 come over: a visiting friend's pet with a name tag + card (visit_ui.py) ---
+S.update({
+    "vis_wave": ("Wave", "Sapa", "揮手", "挥手"),
+    "vis_pet": ("Pet", "Elus", "摸摸", "摸摸"),
+    "vis_snack": ("Snack", "Camilan", "點心", "点心"),
+    "vis_visit": ("Visit", "Kunjungi", "回訪", "回访"),
+    "vis_chat": ("Chat", "Chat", "聊天", "聊天"),
+    "vis_not_friend": ("Not friends yet", "Belum berteman", "還不是好友", "还不是好友"),
+    "vis_stays": ("Stays {n}s", "Tinggal {n} dtk", "還會待 {n} 秒", "还会待 {n} 秒"),
+    "vis_hint": ("Point at me!", "Arahkan ke aku!", "指著我看看！", "指着我看看！"),
+})
+
 # Random pet lines: key -> (en, id, zh_TW, zh_CN) lists
 L = {
     "sneeze": (
@@ -1606,6 +1618,46 @@ L.update({
         ["Tempat yang pas untuk istirahat sayap~", "Mendarat! ♪", "Aku hinggap di sini sebentar ya."],
         ["休息翅膀的好地方~", "降落！♪", "我在這裡停一下。"],
         ["休息翅膀的好地方~", "降落！♪", "我在这里停一下。"],
+    ),
+})
+
+# v2.20 come over: what a visiting pet says
+L.update({
+    "vis_hi": (
+        ["Hi! 👋", "Hello hello~", "I came to play!"],
+        ["Hai! 👋", "Halo halo~", "Aku datang main!"],
+        ["嗨！👋", "哈囉哈囉~", "我來玩囉！"],
+        ["嗨！👋", "哈喽哈喽~", "我来玩啦！"],
+    ),
+    "vis_wave": (
+        ["Hi hi! 👋", "*waves back*", "Hello to you too!"],
+        ["Hai hai! 👋", "*balas melambai*", "Halo juga!"],
+        ["嗨嗨！👋", "*揮手回應*", "你也好呀！"],
+        ["嗨嗨！👋", "*挥手回应*", "你也好呀！"],
+    ),
+    "vis_pet": (
+        ["Hehe, that tickles~ ♥", "So nice… ♥", "More pets please!"],
+        ["Hehe, geli~ ♥", "Enaknya… ♥", "Elus lagi dong!"],
+        ["嘿嘿，好癢~ ♥", "好舒服… ♥", "再摸摸我！"],
+        ["嘿嘿，好痒~ ♥", "好舒服… ♥", "再摸摸我！"],
+    ),
+    "vis_snack": (
+        ["Nom nom! 🍪", "Yummy, thank you!", "Crunchy~ ♪"],
+        ["Nyam nyam! 🍪", "Enak, makasih!", "Renyah~ ♪"],
+        ["嚼嚼！🍪", "好好吃，謝謝！", "脆脆的~ ♪"],
+        ["嚼嚼！🍪", "好好吃，谢谢！", "脆脆的~ ♪"],
+    ),
+    "vis_visit": (
+        ["Yay, come to my place! 🏠", "Race you there!"],
+        ["Asyik, ayo ke rumahku! 🏠", "Ayo balapan ke sana!"],
+        ["耶，來我家玩！🏠", "比賽誰先到！"],
+        ["耶，来我家玩！🏠", "比赛谁先到！"],
+    ),
+    "vis_bye": (
+        ["Bye bye! 👋", "See you again!", "That was fun!"],
+        ["Dadah! 👋", "Sampai jumpa lagi!", "Seru banget!"],
+        ["掰掰！👋", "下次見！", "好好玩！"],
+        ["拜拜！👋", "下次见！", "好好玩！"],
     ),
 })
 

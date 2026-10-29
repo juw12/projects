@@ -4197,6 +4197,15 @@ class DesktopPet:
         elif self.mode != "taskbar":
             self._start_fall(to_taskbar=True)
 
+    def greet_visitor(self):
+        """v2.20: a friend's pet is coming over - come down to the taskbar to meet it."""
+        if self.dragging or self.mode not in ("fly", "platform"):
+            return
+        try:
+            self.go_to_taskbar()
+        except Exception:
+            logger.debug("greet_visitor: could not come down", exc_info=True)
+
     def float_free(self):
         """Menu: this animal's special move - fly around (air), splash leap (water), jump onto a window (land)."""
         if self.dragging or self.leap is not None or self.falling:
