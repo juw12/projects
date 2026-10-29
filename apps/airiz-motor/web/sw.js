@@ -1,6 +1,6 @@
 ﻿/* AIRIZ Control Center — versioned, scope-isolated offline shell. */
 const CACHE_PREFIX = 'airiz-control-' + encodeURIComponent(self.registration.scope) + '-';
-const CACHE_NAME = CACHE_PREFIX + 'v2.47-1.11.6-camera-window';
+const CACHE_NAME = CACHE_PREFIX + 'v2.48-1.11.7-instant-hold';
 const ASSETS = [
   './',
   './index.html',

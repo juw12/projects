@@ -24,7 +24,7 @@ A downloadable Windows x64 desktop edition now bundles this entire console local
 It is not a website shortcut and does not require Chrome, Edge, Node or Python to run.
 Installer and portable preview builds are available at:
 
-https://github.com/juw12/projects/releases/tag/airiz-desktop-v1.11.6
+https://github.com/juw12/projects/releases/tag/airiz-desktop-v1.11.7
 
 The initial binaries are unsigned. The packaged app was tested with demo/synthetic
 hardware; real-device bench validation is still required. Browser and mobile-web
@@ -56,6 +56,11 @@ streams the AIRIZ microphone back in 2-second clips, about 4 s behind live. Phon
 that has the AIRIZ on USB. Stop motor still works and also interrupts a message being sent. Tested
 against a simulated AIRIZ shell (busybox), not yet on real AIRIZ hardware; the sound format and the
 record/play commands can be changed under *Voice settings*.
+
+**Camera arrows answer at once (1.11.7):** the hold arrows on the PTZ live view react like the Motor control
+jog pad. A press starts the move at once (a move still running, such as click-to-center, tracking or a jog, is
+stopped first instead of waited for), and every release sends the motor stop, also when the time model thinks the
+move is already over, so a camera slower than the model no longer runs on after you let go.
 
 **Camera in its own window (1.11.6):** *Camera > Open in new window* (or *New window* on the PTZ toolbar) shows
 only the camera picture in a separate window that can go to another screen, full screen (button or double-click)
