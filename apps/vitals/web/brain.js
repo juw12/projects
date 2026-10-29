@@ -90,6 +90,50 @@
     return lv;
   }
 
+
+  // ------------------------------------------------- plain-language findings
+  // Simple mode: no jargon (no "swap", "CPU", "pressure"), one sentence each,
+  // and an obvious action when there is one.
+  function deviceNoun(v) {
+    const os = v && v.device && v.device.os;
+    return os === "Darwin" ? "Mac" : os === "Windows" ? "PC" : "computer";
+  }
+
+  function plainFindings(ctx) {
+    const v = ctx.vitals || {};
+    const procs = ctx.processes || [];
+    const noun = deviceNoun(v);
+    const out = [];
+    const disk = v.disk;
+    if (disk && disk.total) {
+      const pct = (100 * disk.free) / disk.total;
+      if (pct < 5) out.push({ tone: "bad", key: "storage", title: "Storage is almost full", text: "Only " + fmtBytes(disk.free) + " of " + fmtBytes(disk.total) + " is free. Your " + noun + " slows down and can't install updates when it's this full.", fix: true });
+      else if (pct < 15) out.push({ tone: "warn", key: "storage", title: "Storage is getting full", text: fmtBytes(disk.free) + " free. Clearing junk now keeps things running smoothly.", fix: true });
+      else out.push({ tone: "good", key: "storage", title: "Plenty of storage", text: fmtBytes(disk.free) + " free." });
+    }
+    const mem = v.memory;
+    if (mem && mem.pressure) {
+      const hog = procs.filter((p) => p.owned && !p.protected).sort((a, b) => b.rss - a.rss)[0];
+      if (mem.pressure === "high") out.push({ tone: "bad", key: "memory", title: "Too many apps open", text: "Your " + noun + " has run out of working memory, so it's borrowing space from storage — that's what makes it feel slow." + (hog ? " " + hog.name + " is using the most." : ""), action: hog ? { action: "quit", pid: hog.pid, name: hog.name, label: "Close " + hog.name } : null });
+      else if (mem.pressure === "elevated") out.push({ tone: "warn", key: "memory", title: "Memory is busy", text: "Closing apps you're not using will make things snappier." + (hog ? " " + hog.name + " is using the most." : ""), action: hog ? { action: "quit", pid: hog.pid, name: hog.name, label: "Close " + hog.name } : null });
+      else out.push({ tone: "good", key: "memory", title: "Running smoothly", text: "Enough memory for what you have open." });
+    }
+    const busy = procs.filter((p) => (p.cpu || 0) > 50 && !p.protected)[0];
+    if (busy) out.push({ tone: "warn", key: "cpu", title: busy.name + " is working very hard", text: "It's using a lot of power right now, which heats the " + noun + " and drains the battery. Close it if you're not using it.", action: busy.owned ? { action: "quit", pid: busy.pid, name: busy.name, label: "Close " + busy.name } : null });
+    const bat = v.battery;
+    if (bat && bat.present && bat.health_percent != null) {
+      const h = Math.round(bat.health_percent);
+      if (h < 80) out.push({ tone: "warn", key: "battery", title: "The battery is getting old", text: "It holds " + h + "% of its original charge, so it runs out sooner. Cleaning can't fix that — a battery replacement can. Protect it from here on with charge limiting.", action: { action: "settings", target: "battery", label: "Battery settings" } });
+      else out.push({ tone: "good", key: "battery", title: "Battery is healthy", text: "Holds " + h + "% of its original charge." });
+    }
+    if (v.uptime && v.uptime > 14 * 86400) out.push({ tone: "warn", key: "restart", title: "Time for a restart", text: "It's been " + Math.floor(v.uptime / 86400) + " days. A restart installs updates and clears up memory." });
+    const rank = { bad: 0, warn: 1, good: 2 };
+    out.sort((a, b) => rank[a.tone] - rank[b.tone]);
+    const worst = out.length ? out[0].tone : "good";
+    const headline = worst === "bad" ? "Your " + noun + " needs some care" : worst === "warn" ? "A few things to tidy up" : "Your " + noun + " is in great shape";
+    return { headline, tone: worst, noun, items: out };
+  }
+
   // -------------------------------------------------------------- fixes
   function recommendations(ctx) {
     const v = ctx.vitals || {};
@@ -342,6 +386,7 @@
 
   const INTENTS = [
     { id: "goal", test: (t) => SIZE_RE.test(t) && /(free|clear|make|need|get|reclaim|room|space|delete|clean)/.test(t) },
+    { id: "fixall", test: (t) => /(fix (it|everything|all|my (mac|pc|computer|laptop))|make it (healthy|fast|faster|better)|clean (it )?(all|everything)|clean up my|one.?click|tune.?up|optimi[sz]e (it|my|this|everything)|speed (it|my \w+) up|do it for me|just fix)/.test(t) },
     { id: "install", test: (t) => /\b(install|uninstall|set ?up|download|get (the )?(app|full|real)|full version|run the agent|the agent|connect (my )?(phone|laptop|computer|mac|pc)|pair(ing)?|qr|scan the code)\b/.test(t) && !/\b(free|clean|gb|mb)\b/.test(t) },
     { id: "undo", test: (t) => /\b(undo|restore|bring (it|them|back)|put (it|them) back|recover|revert|i need (it|that) back|mistake)\b/.test(t) },
     { id: "ram-myth", test: (t) => /(ram|memory)\s*(clean|boost|booster|free|purge|optimi[sz])|booster|task killer|kill all apps/.test(t) },
@@ -593,6 +638,17 @@
         r.chips.push({ label: "Quit " + p.name, action: "quit", pid: p.pid, name: p.name, primary: true });
         break;
       }
+      case "fixall": {
+        if (!agent) {
+          r.text = "I can fix things for you once Vitals is installed on this computer.";
+          needAgent();
+          break;
+        }
+        r.text = "On it. **Fix everything safely** clears junk that rebuilds itself (caches, logs, build leftovers) and keeps a 3-day backup, so you can undo it. It never touches your documents, photos or apps.";
+        r.chips.push({ label: "Fix everything safely", action: "fix-all", primary: true });
+        r.chips.push({ label: "Show me first", action: "view", view: "clean" });
+        break;
+      }
       case "install": {
         if (c.mode === "agent") {
           r.text = "Vitals is already installed and running on this computer, and it starts by itself when you log in.\n\nTo use it from your phone: **Devices → Connect my phone**, then point the phone's camera at the QR code. No typing, no app to install on the phone.";
@@ -726,6 +782,6 @@
 
   root.VitalsBrain = {
     GB, MB, fmtBytes, fmtDuration, healthScore, systemLevels, recommendations, planGoal, parseExclusions,
-    parseSize, detectIntent, respond, findProcess, PLAYBOOKS, shortPath, detectPlatform,
+    parseSize, detectIntent, respond, findProcess, PLAYBOOKS, shortPath, detectPlatform, plainFindings, deviceNoun,
   };
 })(typeof window !== "undefined" ? window : globalThis);

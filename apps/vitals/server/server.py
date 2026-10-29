@@ -177,8 +177,91 @@ class Agent:
         self.lan_servers = []
         self.settings_path = os.path.join(data_dir, "settings.json")
         self.settings = self._load_settings()
+        self.care_lock = threading.Lock()
         if sampler:
             self.sampler.start()
+            threading.Thread(target=self._care_loop, daemon=True).start()
+
+    # ------------------------------------------------------------ auto-care
+    CARE_EVERY = 7 * 86400
+    LOW_DISK_PERCENT = 5.0
+
+    def public_settings(self):
+        return {
+            "auto_care": bool(self.settings.get("auto_care")),
+            "notify": self.settings.get("notify", True),
+            "last_auto_care": self.settings.get("last_auto_care"),
+            "next_auto_care": (self.settings.get("last_auto_care") or time.time()) + self.CARE_EVERY
+            if self.settings.get("auto_care") else None,
+        }
+
+    def update_settings(self, changes):
+        with self.lock:
+            for key in ("auto_care", "notify"):
+                if key in changes:
+                    self.settings[key] = bool(changes[key])
+            if self.settings.get("auto_care") and not self.settings.get("last_auto_care"):
+                # First automatic care about an hour after switching it on.
+                self.settings["last_auto_care"] = time.time() - self.CARE_EVERY + 3600
+            self._save_settings()
+        return self.public_settings()
+
+    def run_care(self, label="Automatic care", notify=True):
+        """Quick scan, then move every Safe category into the Undo Vault."""
+        with self.care_lock:
+            if self.scanner.status().get("status") != "running":
+                self.scanner.start(deep=False)
+            deadline = time.time() + self.scanner.budget + 30
+            while self.scanner.status().get("status") == "running" and time.time() < deadline:
+                time.sleep(0.3)
+            state = self.scanner.status()
+            if state.get("status") != "done":
+                return {"error": "Scan did not finish"}
+            safe = [c["id"] for c in state["result"]["categories"] if c["safety"] == "safe" and c["bytes"] > 0]
+            entries = self.scanner.resolve(self.scanner.ids_for_categories(set(safe)))
+            with self.lock:
+                self.settings["last_auto_care"] = time.time()
+                self._save_settings()
+            if not entries:
+                return {"items": [], "bytes": 0, "message": "Nothing to clean — already tidy."}
+            manifest = self.vault.clean(entries, mode="vault", label=label)
+            with self.scanner.lock:
+                for entry in entries:
+                    self.scanner.targets.pop(entry["id"], None)
+            if notify and self.settings.get("notify", True) and manifest["bytes"] > 50 * 1024 * 1024:
+                metrics.notify("Vitals took care of your computer",
+                               "Cleared %.1f GB of safe junk. You can undo it for 3 days in Vitals."
+                               % (manifest["bytes"] / 1024 ** 3))
+            return manifest
+
+    def care_tick(self, now=None):
+        """One scheduler step (separate from the loop so tests can drive it)."""
+        now = now or time.time()
+        actions = []
+        if self.settings.get("auto_care") and now - (self.settings.get("last_auto_care") or 0) >= self.CARE_EVERY:
+            self.run_care()
+            actions.append("care")
+        disk = metrics.disk(self.home)
+        if disk and disk["total"] and self.settings.get("notify", True):
+            free_pct = 100.0 * disk["free"] / disk["total"]
+            if free_pct < self.LOW_DISK_PERCENT and now - (self.settings.get("last_low_alert") or 0) > 86400:
+                metrics.notify("Your storage is almost full",
+                               "Only %.1f GB left. Open Vitals and press Fix everything to free space safely."
+                               % (disk["free"] / 1024 ** 3))
+                with self.lock:
+                    self.settings["last_low_alert"] = now
+                    self._save_settings()
+                actions.append("low-disk-alert")
+        return actions
+
+    def _care_loop(self):
+        time.sleep(900)  # let the computer settle after login
+        while True:
+            try:
+                self.care_tick()
+            except Exception:
+                pass
+            time.sleep(600)
 
     # ------------------------------------------------------------ settings
     def _load_settings(self):
@@ -509,6 +592,18 @@ def make_handler(agent):
         threading.Timer(0.3, lambda: os._exit(0)).start()
         return 200, {"ok": True}
 
+    def get_settings(h, q, b):
+        return 200, agent.public_settings()
+
+    def set_settings(h, q, b):
+        return 200, agent.update_settings(b)
+
+    def care_now(h, q, b):
+        result = agent.run_care(label=b.get("label") or "Fix everything", notify=False)
+        if result.get("error"):
+            return 500, result
+        return 200, result
+
     def model_status(h, q, b):
         return 200, {"models": agent.model.models()}
 
@@ -537,6 +632,9 @@ def make_handler(agent):
         ("POST", "ask"): ask,
         ("GET", "model"): model_status,
         ("POST", "shutdown"): shutdown,
+        ("GET", "settings"): get_settings,
+        ("POST", "settings"): set_settings,
+        ("POST", "care"): care_now,
     }
     return Handler
 

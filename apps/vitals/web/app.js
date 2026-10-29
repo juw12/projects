@@ -20,7 +20,11 @@
     base: "",
     token: null,
     platform: B.detectPlatform(navigator.userAgent, navigator.platform, navigator.maxTouchPoints || 0),
-    view: "overview",
+    view: "home",
+    simple: LS.get("simple", true),
+    installStep: 0,
+    settings: null,
+    fix: null,
     vitals: null,
     processes: [],
     history: [],
@@ -51,6 +55,11 @@
   // ------------------------------------------------------------------ icons
   const I = {
     overview: '<path d="M3 12h4l3-8 4 16 3-8h4"/>',
+    home: '<path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/>',
+    undo: '<path d="M9 14L4 9l5-5"/><path d="M4 9h11a5 5 0 010 10h-3"/>',
+    tools: '<path d="M4 6h16M4 12h16M4 18h10"/>',
+    phone: '<rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/>',
+    check: '<path d="M5 12l5 5 9-10"/>',
     clean: '<path d="M4 20l7-7"/><path d="M14 4l6 6-7 7-6-6z"/><path d="M3 21h6"/>',
     performance: '<rect x="4" y="4" width="16" height="16" rx="3"/><path d="M9 9h6v6H9z"/><path d="M9 1v3M15 1v3M9 20v3M15 20v3M1 9h3M1 15h3M20 9h3M20 15h3"/>',
     battery: '<rect x="2" y="7" width="18" height="10" rx="2"/><path d="M22 11v2"/><path d="M6 10v4M10 10v4"/>',
@@ -105,6 +114,7 @@
   };
 
   const VIEWS = [
+    { id: "home", label: "Home", icon: "home" },
     { id: "overview", label: "Overview", icon: "overview" },
     { id: "clean", label: "Clean", icon: "clean" },
     { id: "performance", label: "Performance", icon: "performance" },
@@ -215,6 +225,15 @@
 
   function enterAgent() {
     S.mode = "agent";
+    if (!LS.get("welcomed", false)) {
+      // First run after installing: give the computer a checkup right away.
+      LS.set("welcomed", true);
+      S.welcome = true;
+      S.view = S.simple ? "home" : S.view;
+      setTimeout(() => {
+        if (!S.scan) startScan(null, true);
+      }, 600);
+    }
     LS.set("demo", false);
     if (S.base) LS.set("agentBase", S.base);
     render();
@@ -314,9 +333,10 @@
       if (scanState.result && !S.scan) adoptScan(scanState.result);
       if (scanState.status === "running") pollScan();
       render();
-      const [drain, forecast, startup, pairing] = await Promise.all([
-        api("drain?hours=24"), api("battery/forecast"), api("startup"), api("pairing"),
+      const [drain, forecast, startup, pairing, settings] = await Promise.all([
+        api("drain?hours=24"), api("battery/forecast"), api("startup"), api("pairing"), api("settings").catch(() => null),
       ]);
+      S.settings = settings;
       S.drain = drain;
       S.forecast = forecast;
       S.startup = startup.items;
@@ -367,7 +387,7 @@
   }
 
   // ------------------------------------------------------------------- scan
-  async function startScan(then) {
+  async function startScan(then, stay) {
     if (S.mode !== "agent" && S.mode !== "demo") {
       toast("Scanning needs the local agent.");
       go("devices");
@@ -377,7 +397,7 @@
     try {
       await api("scan", { body: { deep: true } });
       S.scanState = { status: "running", progress: 0, step: "Starting" };
-      if (S.view !== "clean" && !then) go("clean");
+      if (S.view !== "clean" && !then && !stay) go("clean");
       else softRender();
       pollScan();
     } catch (e) {
@@ -397,6 +417,14 @@
           { label: "Clean safe items", action: "clean-safe", primary: true },
           { label: "Review", action: "view", view: "clean" },
         ]);
+        if (S.fixAfterScan) {
+          S.fixAfterScan = false;
+          openFixSheet();
+        }
+        if (S.welcome) {
+          S.welcome = false;
+          softRender();
+        }
         if (S.pendingAfterScan) {
           const text = S.pendingAfterScan;
           S.pendingAfterScan = null;
@@ -561,6 +589,13 @@
       case "exit-demo": return exitDemo();
       case "benchmark": go("performance"); return runBenchmark();
       case "guide": S.guide = a.platform; return go("guides");
+      case "fix-all": return fixAll();
+      case "fix-reset": S.fix = null; return renderMain();
+      case "fix-preview": return S.scan ? openFixSheet() : fixAll();
+      case "free-batch": return purgeBatch(a.batch);
+      case "auto-care": return toggleAutoCare();
+      case "simple-on": return setSimple(true);
+      case "simple-off": return setSimple(false);
       case "lan-on": return setLan(true);
       case "lan-off": return setLan(false);
       default: return null;
@@ -592,6 +627,7 @@
   }
 
   function render() {
+    document.body.classList.toggle("simple", !!S.simple);
     renderShell();
     renderMain();
     renderChat();
@@ -616,21 +652,41 @@
 
   function renderNavOnly() {
     const vaultCount = S.vault.length;
-    $("#navlist").innerHTML = VIEWS.map((v) =>
-      '<button class="nav-btn" data-go="' + v.id + '"' + (S.view === v.id ? ' aria-current="page"' : "") + ">" + icon(v.icon) + "<span>" + (v.id === "devices" && S.mode === "browser" ? "Install" : v.label) + "</span>" +
+    const live = S.mode === "agent" || S.mode === "demo";
+    const label = (v) => (v.id === "devices" ? (S.mode === "browser" ? (S.platform === "iphone" || S.platform === "android" ? "My computer" : "Install") : S.simple ? "Phone" : v.label) : v.label);
+    const navButton = (v) =>
+      '<button class="nav-btn" data-go="' + v.id + '"' + (S.view === v.id ? ' aria-current="page"' : "") + ">" + icon(v.id === "devices" && S.simple && live ? "phone" : v.icon) + "<span>" + label(v) + "</span>" +
       (v.id === "devices" && S.mode === "browser" ? '<span class="badge safe">1 step</span>' : "") +
       (v.id === "vault" && vaultCount ? '<span class="badge info">' + vaultCount + "</span>" : "") +
       (v.id === "clean" && S.scanState && S.scanState.status === "running" ? '<span class="badge info">' + (S.scanState.progress || 0) + "%</span>" : "") +
-      "</button>").join("");
-    const tabs = ["overview", "clean", "battery", "guides", "more"];
+      "</button>";
+    let items;
+    if (S.simple) {
+      items = ["home", "devices", "guides"].map((id) => navButton(VIEWS.find((v) => v.id === id))).join("") +
+        '<button class="nav-btn" data-open-chat>' + icon("chat") + "<span>Ask Vitals</span></button>" +
+        '<div class="nav-sep"></div><button class="nav-btn subtle" data-action="simple-off">' + icon("tools") + "<span>All tools</span></button>";
+    } else {
+      items = VIEWS.map(navButton).join("") +
+        '<div class="nav-sep"></div><button class="nav-btn subtle" data-action="simple-on">' + icon("home") + "<span>Simple view</span></button>";
+    }
+    $("#navlist").innerHTML = items;
+    const tabs = S.simple ? ["home", "devices", "chat", "guides", "tools"] : ["home", "clean", "battery", "guides", "more"];
     $("#tabbar").innerHTML = tabs.map((id) => {
+      if (id === "chat") return '<button data-open-chat>' + icon("chat") + "<span>Ask</span></button>";
+      if (id === "tools") return '<button data-action="simple-off">' + icon("tools") + "<span>All tools</span></button>";
       const v = VIEWS.find((x) => x.id === id) || { id: "more", label: "More", icon: "more" };
-      const current = id === "more" ? ["performance", "vault", "devices"].includes(S.view) : S.view === id;
-      return '<button data-go="' + id + '"' + (current ? ' aria-current="page"' : "") + ">" + icon(v.icon) + "<span>" + v.label + "</span></button>";
+      const current = id === "more" ? ["performance", "vault", "devices", "overview"].includes(S.view) : S.view === id;
+      return '<button data-go="' + id + '"' + (current ? ' aria-current="page"' : "") + ">" + icon(id === "devices" && S.simple && live ? "phone" : v.icon) + "<span>" + label(v) + "</span></button>";
     }).join("");
     $("#navfoot").innerHTML = "Local-only · no account · no telemetry<br>" +
       '<button data-theme-toggle>' + (document.documentElement.dataset.theme === "light" ? "Dark" : "Light") + " theme</button> · " +
       '<a href="https://github.com/juw12/projects/tree/main/apps/vitals" target="_blank" rel="noopener">Source</a>';
+  }
+
+  function setSimple(on) {
+    S.simple = on;
+    LS.set("simple", on);
+    go(on ? "home" : "overview");
   }
 
   function modePill() {
@@ -656,7 +712,7 @@
       main.innerHTML = topbar("Pair this device", "The agent is running on your computer — confirm it's you.") + pairCard(true);
       return;
     }
-    const views = { overview: viewOverview, clean: viewClean, performance: viewPerformance, battery: viewBattery, vault: viewVault, devices: viewDevices, guides: viewGuides, more: viewMore };
+    const views = { home: viewHome, overview: viewOverview, clean: viewClean, performance: viewPerformance, battery: viewBattery, vault: viewVault, devices: viewDevices, guides: viewGuides, more: viewMore };
     main.innerHTML = (views[S.view] || viewOverview)();
   }
 
@@ -995,6 +1051,197 @@
     return html;
   }
 
+
+  // ---------------------------------------------------------------- home
+  // Simple mode: one status, plain words, one big safe button, undo nearby.
+  function viewHome() {
+    if (S.mode === "browser") return viewHomeBrowser();
+    const v = S.vitals || {};
+    const f = B.plainFindings({ vitals: v, processes: S.processes });
+    const noun = f.noun;
+    const st = S.scanState;
+    const scanning = st && st.status === "running";
+    const safeBytes = S.scan ? S.scan.categories.filter((c) => c.safety === "safe").reduce((s, c) => s + c.bytes, 0) : null;
+    let html = topbar("Home", esc(v.device && v.device.model ? v.device.model : "This " + noun) + " · checked " + (S.vitals ? "just now" : "…"), simpleToggle());
+
+    if (S.welcome || (scanning && !S.scan)) {
+      html += '<div class="notice welcome"><b>Welcome to Vitals! 👋</b> I\'m giving your ' + noun + " a quick checkup — about a minute. Nothing is changed without your OK.</div>";
+    }
+
+    const attention = f.items.filter((i) => i.tone !== "good").length;
+    html += '<div class="card home-hero tone-' + f.tone + '"><div class="hero-icon">' + icon(f.tone === "good" ? "check" : "pulse") + '</div><div class="hero-text"><h2>' + esc(f.headline) + "</h2>" +
+      '<p class="muted">' + (attention ? attention + (attention === 1 ? " thing" : " things") + " worth a look" : "Nothing needs your attention right now") +
+      (safeBytes ? " · " + fmt(safeBytes) + " of safe junk found" : "") + "</p></div>";
+
+    // The one big button (or its progress / result).
+    if (scanning) {
+      html += '<div class="hero-action"><div class="bigbar"><i style="width:' + (st.progress || 0) + '%"></i></div><div class="small muted">Checking your ' + noun + "… " + (st.progress || 0) + "%</div></div>";
+    } else if (S.fix && S.fix.done) {
+      html += '<div class="hero-action"><div class="fix-done">' + icon("check") + "<div><b>Done — " + fmt(S.fix.bytes) + " cleaned.</b><br><span class=\"small muted\">" +
+        (S.fix.mode === "free" ? "The space is free now." : "Kept as a backup for 3 days in case you need anything back.") + "</span></div></div>" +
+        '<div class="row wrap" style="margin-top:10px">' +
+        (S.fix.mode === "vault" && S.vault.some((b) => b.id === S.fix.batch) ? '<button class="btn primary" data-action="free-batch" data-batch="' + esc(S.fix.batch) + '">Free the space now</button><button class="btn" data-action="restore" data-batch="' + esc(S.fix.batch) + '">' + icon("undo") + "Undo</button>" : "") +
+        '<button class="btn ghost" data-action="fix-reset">OK</button></div></div>';
+    } else {
+      html += '<div class="hero-action"><button class="btn primary huge" data-action="fix-all">' + icon("broom") + "Fix everything safely</button>" +
+        '<div class="small muted" style="margin-top:8px">Clears junk that rebuilds itself · never touches your files · undo for 3 days · <button class="linklike" data-action="fix-preview">see what it does</button></div></div>';
+    }
+    html += "</div>";
+
+    // Findings in plain words.
+    html += '<div class="card"><h2>What I found</h2><ul class="findings">' + (f.items.length ? f.items.map((item) => {
+      const a = item.action;
+      let btn = "";
+      if (a) {
+        const attrs = Object.entries(a).filter(([k]) => k !== "label").map(([k, val]) => "data-" + k + '="' + esc(val) + '"').join(" ");
+        btn = '<button class="btn sm" ' + attrs + ">" + esc(a.label) + "</button>";
+      } else if (item.fix && !(S.fix && S.fix.done)) {
+        btn = '<button class="btn sm" data-action="fix-all">Free up space</button>';
+      }
+      return '<li class="tone-' + item.tone + '"><span class="dot-tone"></span><div><b>' + esc(item.title) + '</b><div class="small muted">' + esc(item.text) + "</div></div>" + btn + "</li>";
+    }).join("") : '<li class="tone-good"><span class="dot-tone"></span><div><b>Collecting readings…</b></div></li>') + "</ul></div>";
+
+    html += '<div class="grid g-2" style="margin-top:16px;align-items:start"><div class="stack home-col">';
+    // Auto-care switch.
+    const auto = S.settings && S.settings.auto_care;
+    html += '<div class="card"><div class="row"><div style="flex:1"><h2>Keep my ' + noun + ' healthy automatically</h2><p class="small muted" style="margin:4px 0 0">Once a week I clear safe junk (always undoable) and tell you if storage gets low. Nothing else changes.</p></div>' +
+      '<button class="switch' + (auto ? " on" : "") + '" role="switch" aria-checked="' + !!auto + '" data-action="auto-care" aria-label="Automatic care"><i></i></button></div>' +
+      (auto && S.settings.next_auto_care ? '<p class="small faint" style="margin:8px 0 0">Next automatic care: ' + new Date(S.settings.next_auto_care * 1000).toLocaleDateString([], { weekday: "long", month: "short", day: "numeric" }) + "</p>" : "") + "</div>";
+    if (S.vault.length) {
+      const last = S.vault[0];
+      html += '<div class="card"><h2>' + icon("undo") + " Changed your mind?</h2><p class=\"small muted\" style=\"margin:4px 0 10px\">Your last cleanup (" + esc(last.label) + ", " + fmt(last.bytes) + ") can still be put back exactly as it was.</p><button class=\"btn\" data-action=\"restore\" data-batch=\"" + esc(last.id) + "\">Undo it</button></div>";
+    }
+    html += '<div class="card"><h2>' + icon("phone") + ' See this on your phone</h2><p class="small muted" style="margin:4px 0 10px">Scan one QR code with your phone camera — no app, no typing.</p><button class="btn" data-go="devices">Connect my phone</button></div>';
+    html += '</div><div class="stack home-col">';
+    // Ask anything.
+    html += '<div class="card"><h2>Something bothering you?</h2><p class="small muted" style="margin:4px 0 10px">Describe it in your own words — I\'ll check and suggest a fix.</p>' +
+      '<form class="ask-inline" data-ask-form><input name="q" placeholder="e.g. my ' + noun + ' is slow / battery dies fast" autocomplete="off"><button class="btn primary" type="submit">Ask</button></form>' +
+      '<div class="chips">' + ["It feels slow", "It gets hot", "Battery dies fast", "Free 10 GB"].map((s) => '<button class="chip" data-say="' + esc(s) + '">' + esc(s) + "</button>").join("") + "</div></div>";
+    html += "</div></div>";
+    html += '<p class="small faint" style="text-align:center;margin-top:18px"><button class="linklike" data-action="simple-off">See all details and tools →</button></p>';
+    return html;
+  }
+
+  function simpleToggle() {
+    return '<button class="btn sm ghost hide-mobile" data-action="' + (S.simple ? "simple-off" : "simple-on") + '">' + (S.simple ? "Detailed view" : "Simple view") + "</button>";
+  }
+
+  function viewHomeBrowser() {
+    const phone = S.platform === "iphone" || S.platform === "android";
+    if (phone) {
+      const pb = B.PLAYBOOKS[S.guide];
+      let html = topbar("Keep your phone healthy", "Simple steps that really work — no app needed");
+      html += '<div class="card"><h2>Free up space in a few taps</h2>' + checklist(S.guide, 0, 3) + '<button class="btn sm" data-action="guide" data-platform="' + S.guide + '">More tips for ' + esc(pb.name) + "</button></div>";
+      html += '<div class="grid g-2" style="margin-top:16px"><div class="card"><h2>Make the battery last</h2>' + checklist(S.guide, 1, 3) + "</div>" +
+        '<div class="card"><h2>' + icon("devices") + ' Check your computer from here</h2><p class="small muted">Install Vitals on your computer, then scan its QR code with this phone.</p><button class="btn" data-go="devices">How it works</button></div></div>';
+      return html;
+    }
+    let html = topbar("Welcome to Vitals", "Keep your computer fast, tidy and healthy — safely, for free");
+    html += installCard(true);
+    html += '<div class="grid g-3" style="margin-top:16px">' +
+      '<div class="card"><h2>' + icon("broom") + ' One button</h2><p class="small muted">"Fix everything safely" clears junk that rebuilds itself. Your files are never touched.</p></div>' +
+      '<div class="card"><h2>' + icon("undo") + ' Always undoable</h2><p class="small muted">Every cleanup is kept as a backup for 3 days. Changed your mind? One click puts it back.</p></div>' +
+      '<div class="card"><h2>' + icon("shield") + ' Private</h2><p class="small muted">Runs only on your computer. No account, no ads, nothing uploaded. Open source.</p></div></div>';
+    html += '<p style="text-align:center;margin-top:18px"><button class="btn" data-action="demo">Just looking? Try it with demo data</button></p>';
+    return html;
+  }
+
+  // ------------------------------------------------------------- fix flow
+  async function fixAll() {
+    if (S.mode !== "agent" && S.mode !== "demo") return go(S.mode === "browser" ? "home" : "devices");
+    if (!S.scan) {
+      S.fixAfterScan = true;
+      await startScan(null, true);
+      softRender();
+      return;
+    }
+    openFixSheet();
+  }
+
+  function openFixSheet() {
+    const cats = S.scan.categories.filter((c) => c.safety === "safe" && c.bytes > 0);
+    const total = cats.reduce((s, c) => s + c.bytes, 0);
+    if (!total) {
+      toast("Already tidy — nothing safe to clean right now 👍");
+      return;
+    }
+    const v = S.vitals || {};
+    const freePct = v.disk && v.disk.total ? (100 * v.disk.free) / v.disk.total : 50;
+    const critical = freePct < 5;
+    let dlg = $("#fixsheet");
+    if (!dlg) {
+      dlg = document.createElement("dialog");
+      dlg.id = "fixsheet";
+      document.body.appendChild(dlg);
+    }
+    dlg.innerHTML = "<h3>Fix everything safely</h3>" +
+      '<p class="muted" style="margin-top:0">I\'ll clear <b>' + fmt(total) + "</b> of junk that apps rebuild by themselves:</p>" +
+      '<ul class="sheet-list">' + cats.map((c) => "<li><span>" + esc(c.name) + '</span><span class="mono">' + fmt(c.bytes) + "</span></li>").join("") + "</ul>" +
+      '<p class="small muted">Your documents, photos, downloads and apps are not touched.</p>' +
+      '<div class="choice"><label><input type="radio" name="fixmode" value="vault"' + (critical ? "" : " checked") + "> <span><b>Keep a backup for 3 days</b> (recommended)<br><span class=\"small muted\">Undo with one click. The space is freed after 3 days.</span></span></label>" +
+      '<label><input type="radio" name="fixmode" value="free"' + (critical ? " checked" : "") + "> <span><b>Free the space right away</b><br><span class=\"small muted\">" +
+      (critical ? "Recommended now — your storage is almost full, so a backup would take the same space." : "No undo for this cleanup.") + "</span></span></label></div>" +
+      '<div class="actions"><button class="btn" value="no">Cancel</button><button class="btn primary" value="yes">Fix it</button></div>';
+    dlg.querySelectorAll(".actions button").forEach((b) => b.addEventListener("click", async () => {
+      const mode = (dlg.querySelector('input[name="fixmode"]:checked') || {}).value || "vault";
+      dlg.close();
+      if (b.value !== "yes") return;
+      try {
+        const res = await api("clean", { body: { categories: cats.map((c) => c.id), mode, label: "Fix everything" } });
+        S.fix = { done: true, bytes: res.bytes, mode, batch: res.id };
+        S.vault = (await api("vault")).batches;
+        S.receipts = (await api("receipts")).receipts;
+        S.vitals = await api("vitals");
+        const gone = new Set(res.items.map((i) => i.original));
+        S.scan.categories.forEach((c) => {
+          c.items = c.items.filter((i) => !gone.has(i.path));
+          c.bytes = c.items.reduce((s, i) => s + i.bytes, 0);
+        });
+        S.scan.reclaimable = S.scan.categories.reduce((s, c) => s + c.bytes, 0);
+        S.scan.safe_reclaimable = S.scan.categories.filter((c) => c.safety === "safe").reduce((s, c) => s + c.bytes, 0);
+        render();
+        toast("Cleaned " + fmt(res.bytes) + (mode === "vault" ? " — undo anytime in the next 3 days" : ""), mode === "vault" ? { label: "Undo", run: () => restoreBatch(res.id) } : null);
+      } catch (e) {
+        toast(e.message);
+      }
+    }));
+    dlg.showModal();
+  }
+
+  async function toggleAutoCare() {
+    const next = !(S.settings && S.settings.auto_care);
+    try {
+      S.settings = await api("settings", { body: { auto_care: next } });
+      toast(next ? "Automatic care is on — I'll look after things weekly." : "Automatic care is off.");
+      renderMain();
+    } catch (e) {
+      toast(e.message);
+    }
+  }
+
+  // ------------------------------------------------------------- install
+  function installCard(hero) {
+    const os = installOs();
+    const info = INSTALL[os];
+    const step = S.installStep;
+    const others = Object.keys(INSTALL).filter((k) => k !== os);
+    const picture = os === "windows"
+      ? '<div class="mock win"><div class="mock-title">Run</div><div class="mock-body"><span class="small">Open:</span><span class="mock-input">' + (step >= 1 ? "<span class=\"paste-hint\">Ctrl + V</span>" : "") + '<i class="caret"></i></span><span class="mock-ok">OK</span></div></div>'
+      : '<div class="mock term"><div class="mock-title"><i></i><i></i><i></i> Terminal</div><div class="mock-body"><span class="prompt">~ %</span> ' + (step >= 1 ? '<span class="paste-hint">' + (os === "mac" ? "⌘ V" : "Ctrl Shift V") + "</span>" : "") + '<i class="caret"></i></div></div>';
+    let html = '<div class="install card' + (hero ? " hero-install" : "") + '">' +
+      '<div class="install-head"><div><h2 style="font-size:20px">Get Vitals for ' + info.name + '</h2><p class="small muted" style="margin:2px 0 0">Free · about 30 seconds · no account · removes cleanly</p></div>' +
+      '<div class="track">' + ["Copy", "Paste", "Done"].map((t, i) => '<span class="tstep' + (i < step ? " done" : i === step ? " current" : "") + '"><b>' + (i < step ? "✓" : i + 1) + "</b>" + t + "</span>").join('<span class="tline"></span>') + "</div></div>" +
+      '<div class="install-body"><div><ol class="steps big">' + info.steps.map((s, i) => '<li class="' + (i === 0 && step >= 1 ? "done-step" : "") + '">' + s + "</li>").join("") + "</ol>" +
+      '<button class="btn primary huge" data-copy-install>' + (step >= 1 ? "Copied ✓ — copy again" : "Copy the install line") + "</button>" +
+      '<div class="cmd-line mono small faint" id="installCmd">' + esc(info.cmd) + "</div></div>" +
+      '<div class="install-pic">' + picture + '<div class="small muted" style="margin-top:8px">' + (os === "windows" ? "Press Win + R, paste here, press Enter." : "Paste here and press " + (os === "mac" ? "Return" : "Enter") + ".") + "</div></div></div>" +
+      '<div class="install-status" id="installStatus"><span class="typing"><i></i><i></i><i></i></span> Waiting for Vitals to start — this page will switch over by itself.</div>' +
+      '<div class="small faint" style="margin-top:10px">Installing on a different computer? ' + others.map((k) => '<button class="linklike" data-install-os="' + k + '">' + INSTALL[k].name + "</button>").join(" · ") + "</div>" +
+      "</div>";
+    startInstallWatch();
+    return html;
+  }
+
   function pairCard(onPhone) {
     const saved = LS.get("agentBase", "") || (S.base || "");
     return '<div class="card"><h2>' + (onPhone ? "Type the code instead" : "Connect with a code") + '</h2><p class="lede">Camera not working? On your computer open Vitals → <b>Devices</b> → <b>Connect my phone</b> and type the 6-digit code shown under the QR.</p>' +
@@ -1021,14 +1268,7 @@
         '<p class="small muted">Both devices need to be on the same Wi-Fi. This phone\'s own tips are in <b>Guides</b>.</p></div>' + pairCard(true) + "</div>";
       return html;
     }
-    const os = installOs();
-    const info = INSTALL[os];
-    html += '<div class="install card">' +
-      '<div class="tabs" role="tablist">' + Object.keys(INSTALL).map((k) => '<button role="tab" data-install-os="' + k + '" aria-selected="' + (k === os) + '">' + INSTALL[k].name + "</button>").join("") + "</div>" +
-      '<ol class="steps big">' + info.steps.map((s) => "<li>" + s + "</li>").join("") + "</ol>" +
-      '<div class="cmd"><code id="installCmd">' + esc(info.cmd) + '</code><button class="btn primary" data-copy-install>Copy</button></div>' +
-      '<div class="install-status" id="installStatus"><span class="typing"><i></i><i></i><i></i></span> Waiting for Vitals to start on this computer — this page connects by itself.</div>' +
-      "</div>";
+    html += installCard(false);
     html += '<div class="grid g-3" style="margin-top:16px">' +
       '<div class="card"><h2>What it does</h2><p class="small muted">Puts Vitals in your user folder (no admin password), adds a Vitals app icon, and starts it quietly when you log in so this page is always live.</p></div>' +
       '<div class="card"><h2>Safe by design</h2><p class="small muted">Runs only on this computer, never uploads anything, and every cleanup can be undone for 72 hours. The code is open source.</p></div>' +
@@ -1037,14 +1277,13 @@
       '<p class="small muted" style="margin-top:10px">Open the <b>Vitals</b> app (Spotlight / Start menu), or run it from a checkout:</p><div class="code-block">python apps/vitals/server/server.py --open</div>' +
       '<p class="small muted">Then this page switches to live automatically. Using Safari? Vitals also opens in its own tab at <a href="http://127.0.0.1:8765/">127.0.0.1:8765</a>.</p>' +
       '<button class="btn sm" data-action="retry">Check again</button></details>';
-    startInstallWatch();
     return html;
   }
 
   function startInstallWatch() {
     if (S.installWatch) return;
     S.installWatch = setInterval(async () => {
-      if (S.mode !== "browser" || S.view !== "devices") {
+      if (S.mode !== "browser" || !["devices", "home"].includes(S.view)) {
         clearInterval(S.installWatch);
         S.installWatch = null;
         return;
@@ -1062,7 +1301,7 @@
             { label: "Check my device", action: "say", text: "how is my device", primary: true },
             { label: "Scan storage", action: "scan" },
           ]);
-          go("overview");
+          go("home");
         }
       }
     }, 2000);
@@ -1222,7 +1461,7 @@
     log.scrollTop = log.scrollHeight;
     const sugg = S.mode === "browser" && (S.platform === "iphone" || S.platform === "android")
       ? ["My phone storage is full", "Battery drains fast", "Is a RAM booster worth it?", "Protect my battery"]
-      : ["How is my device?", "Free 5 GB", "Why is it slow?", "What grew?", "Battery health", "Undo last clean"];
+      : ["Just fix it", "Why is it slow?", "Free 5 GB", "Battery health", "Undo last clean", "How do I install?"];
     $("#chatsuggest").innerHTML = sugg.map((s) => '<button class="chip" data-say="' + esc(s) + '">' + esc(s) + "</button>").join("");
   }
 
@@ -1357,9 +1596,15 @@
   }
 
   document.addEventListener("click", (ev) => {
-    const el = ev.target.closest("[data-go],[data-action],[data-chip],[data-say],[data-toggle-cat],[data-cmode],[data-guide],[data-theme-toggle],[data-chat-close],[data-plan],[data-install-os],[data-copy-install],#chatfab");
+    const el = ev.target.closest("[data-open-chat],[data-go],[data-action],[data-chip],[data-say],[data-toggle-cat],[data-cmode],[data-guide],[data-theme-toggle],[data-chat-close],[data-plan],[data-install-os],[data-copy-install],#chatfab");
     if (!el) return;
     if (el.id === "chatfab") return openChat();
+    if (el.hasAttribute("data-open-chat")) {
+      openChat();
+      const input = $("#chatinput");
+      if (input) input.focus();
+      return;
+    }
     if (el.dataset.installOs) {
       S.installOs = el.dataset.installOs;
       return renderMain();
@@ -1415,6 +1660,12 @@
   });
 
   document.addEventListener("submit", async (ev) => {
+    if (ev.target.hasAttribute("data-ask-form")) {
+      ev.preventDefault();
+      const q = new FormData(ev.target).get("q");
+      ev.target.reset();
+      return answer(String(q || ""));
+    }
     if (ev.target.id === "chatform") {
       ev.preventDefault();
       const input = $("#chatinput");
@@ -1464,8 +1715,12 @@
         ok = document.execCommand && document.execCommand("copy");
       }
     }
-    button.textContent = ok ? "Copied ✓" : "Select & copy";
-    setTimeout(() => { button.textContent = "Copy"; }, 2500);
+    if (ok) {
+      S.installStep = Math.max(S.installStep, 1);
+      renderMain();
+    } else {
+      button.textContent = "Select the line below and copy it";
+    }
   }
 
   function planFromForm() {
@@ -1648,6 +1903,13 @@
         return { ok: true, message: "Demo: asked " + (pr ? pr.name : "it") + " to quit." };
       }
       if (p === "ask") return { answer: null };
+      if (p === "settings") {
+        if (o.body) {
+          st.settings = Object.assign(st.settings || {}, o.body);
+        }
+        const s = st.settings || {};
+        return { auto_care: !!s.auto_care, notify: true, last_auto_care: null, next_auto_care: s.auto_care ? Date.now() / 1000 + 3600 : null };
+      }
       throw new Error("Not available in demo");
     },
   };
@@ -1656,7 +1918,7 @@
   function boot() {
     document.documentElement.dataset.theme = LS.get("theme", window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
     const params = new URLSearchParams(location.hash.slice(1));
-    if (params.get("view")) S.view = params.get("view");
+    S.view = params.get("view") || (S.simple ? "home" : "overview");
     const mq = window.matchMedia("(max-width: 820px)");
     const applyLayout = () => document.body.classList.toggle("m", document.body.dataset.layout === "mobile" || mq.matches);
     mq.addEventListener ? mq.addEventListener("change", applyLayout) : mq.addListener(applyLayout);
@@ -1665,6 +1927,7 @@
     connect().then(() => {
       if (params.get("say")) answer(params.get("say"));
       if (params.get("scan") && (S.mode === "agent" || S.mode === "demo")) startScan();
+      if (params.has("fix") && (S.mode === "agent" || S.mode === "demo")) fixAll();
     });
     if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});
   }

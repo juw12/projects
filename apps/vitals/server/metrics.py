@@ -550,3 +550,37 @@ def open_settings(target):
     except OSError as error:
         return False, str(error)
     return True, "Opened %s settings." % target
+
+
+def notify(title, message):
+    """Best-effort desktop notification. Silent no-op when unavailable.
+
+    Set VITALS_NO_NOTIFY=1 to disable (tests, headless servers).
+    """
+    if os.environ.get("VITALS_NO_NOTIFY"):
+        return False
+    title = str(title).replace('"', "'")[:80]
+    message = str(message).replace('"', "'")[:240]
+    try:
+        if IS_MAC:
+            subprocess.Popen(["osascript", "-e", 'display notification "%s" with title "%s"' % (message, title)],
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            return True
+        if IS_LINUX and shutil.which("notify-send"):
+            subprocess.Popen(["notify-send", title, message], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            return True
+        if IS_WIN:
+            script = (
+                "[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] > $null;"
+                "$x = [Windows.UI.Notifications.ToastNotificationManager]::GetTemplateContent([Windows.UI.Notifications.ToastTemplateType]::ToastText02);"
+                "$t = $x.GetElementsByTagName('text'); $t.Item(0).AppendChild($x.CreateTextNode(\"%s\")) > $null;"
+                "$t.Item(1).AppendChild($x.CreateTextNode(\"%s\")) > $null;"
+                "$id = '{1AC14E77-02E7-4E5D-B744-2EB1AE5198B7}\\WindowsPowerShell\\v1.0\\powershell.exe';"
+                "[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier($id).Show([Windows.UI.Notifications.ToastNotification]::new($x))"
+            ) % (title, message)
+            subprocess.Popen(["powershell", "-NoProfile", "-WindowStyle", "Hidden", "-Command", script],
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, creationflags=0x08000000)
+            return True
+    except OSError:
+        return False
+    return False

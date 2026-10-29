@@ -105,7 +105,7 @@ def main():
     cache_probe = build_home(home)
     port = free_port()
     base = "http://127.0.0.1:%d" % port
-    env = dict(os.environ, VITALS_NO_MODEL="1")  # hermetic: never call a local LLM
+    env = dict(os.environ, VITALS_NO_MODEL="1", VITALS_NO_NOTIFY="1")  # hermetic: no LLM, no pop-ups
     proc = subprocess.Popen(
         [sys.executable, SERVER, "--port", str(port), "--home", home, "--data", data,
          "--interval", "3600", "--scan-budget", "20"],
@@ -214,6 +214,21 @@ def main():
         status, q = request(base, "POST", "/api/process/quit", {"pid": 1}, token=token)
         check(status == 400, "system processes are protected from quitting")
 
+        # Simple-mode "Fix everything" and opt-in automatic care.
+        status, settings = request(base, "GET", "/api/settings", token=token)
+        check(status == 200 and settings["auto_care"] is False, "automatic care is off until the user opts in")
+        status, settings = request(base, "POST", "/api/settings", {"auto_care": True}, token=token)
+        check(status == 200 and settings["auto_care"] and settings["next_auto_care"], "automatic care can be switched on")
+        write(cache_probe + "-again" if os.path.isdir(os.path.dirname(cache_probe)) else cache_probe, 200_000)
+        status, care = request(base, "POST", "/api/care", {"label": "Fix everything"}, token=token)
+        check(status == 200 and "bytes" in care, "Fix everything runs a scan and cleans safe items")
+        status, vlist = request(base, "GET", "/api/vault", token=token)
+        check(any(b["label"] == "Fix everything" for b in vlist["batches"]) or care.get("bytes") == 0,
+              "Fix everything lands in the Undo Vault")
+        check(os.path.isfile(os.path.join(home, "Documents", "keep-me.txt")), "Fix everything never touches personal files")
+        status, settings = request(base, "POST", "/api/settings", {"auto_care": False}, token=token)
+        check(status == 200 and not settings["auto_care"], "automatic care can be switched off")
+
         # Phone access can be switched on/off at runtime from this computer.
         status, lan = request(base, "POST", "/api/lan", {"enable": True}, token=token)
         if status == 200 and lan.get("lan"):
@@ -238,6 +253,27 @@ def main():
         second = subprocess.run([sys.executable, SERVER, "--port", str(port), "--home", home, "--data", data],
                                 capture_output=True, text=True, timeout=20, env=env)
         check(second.returncode == 0 and "already running" in second.stdout, "second launch defers to the running agent")
+
+        # Scheduler: weekly care only when opted in; low-storage alert at most once a day.
+        os.environ["VITALS_NO_NOTIFY"] = "1"
+        import server as server_mod
+        import metrics as metrics_mod
+        sched = server_mod.Agent(home, os.path.join(root, "sched"), sampler=False, scan_budget=10)
+        check(sched.care_tick() in ([], ["low-disk-alert"]), "scheduler does nothing automatic until opted in")
+        sched.update_settings({"auto_care": True})
+        check("care" not in sched.care_tick(), "first automatic care waits about an hour after opting in")
+        sched.settings["last_auto_care"] = time.time() - 8 * 86400
+        check("care" in sched.care_tick(), "automatic care runs once a week")
+        check("care" not in sched.care_tick(), "and not again right after")
+        sched.settings["last_low_alert"] = 0  # the real disk may already have triggered it above
+        real_disk = metrics_mod.disk
+        metrics_mod.disk = lambda path: {"total": 100, "free": 2, "used": 98, "percent": 98}
+        try:
+            first = sched.care_tick()
+            second = sched.care_tick()
+        finally:
+            metrics_mod.disk = real_disk
+        check("low-disk-alert" in first and "low-disk-alert" not in second, "low-storage alert fires once per day, not repeatedly")
 
         # Direct unit checks of the vault guard.
         import vault as vault_mod
