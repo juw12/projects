@@ -1,47 +1,35 @@
 {
   "installer": {
     "filename": "Pips-Setup.exe",
-    "sha256": "01fc62c596d5c51f5c79d181b1d938e914cd68881e52903375e411af044211f6",
-    "size": 22189429,
+    "sha256": "e8ab7cc53a6a386f149bfca9d203a294c2bb820664f91c1c8471b4ab600eab14",
+    "size": 22191775,
     "architecture": "x64",
     "python_version": "3.13.17",
     "requires_admin": false,
     "url": "https://juw12.github.io/projects/pips/download/Pips-Setup.exe"
   },
-  "version": "2.14.0",
+  "version": "2.14.1",
   "date": "2026-10-29",
-  "title": "Pokes, tickles & teases",
+  "title": "One pet at a time",
   "url": "https://juw12.github.io/projects/pips/download/Pips-Windows.zip",
-  "sha256": "cbe43e376908fb252ef55786cbc942f6b586e35b23757fff1361657fe1313a81",
-  "size": 807164,
+  "sha256": "bf6a7de21ea780d89b228052ed1df548ec390a00796f8cefe55a9a126be58685",
+  "size": 808648,
   "notes": {
     "en": [
-      "Poke, tickle, tease, boop or hug a friend from afar - no pet visit needed.",
-      "Right-click your pet → Poke a friend, or use the Poke button in Friends, chat and profiles.",
-      "Your friend gets a pop-up (\"Wendy is teasing you!\"), their pet reacts, and they can poke back with one click.",
-      "During a focus session pokes wait quietly until your break; when your pet is hidden they show in the screen corner.",
-      "Don't want it? Profile → untick \"Let friends poke, tickle & tease me\"."
+      "Opening Pips again (Desktop / Start Menu shortcut, autostart) no longer starts a second pet - your pet just pops up and says hi.",
+      "Fixes lag caused by two copies of Pips running at once."
     ],
     "id": [
-      "Colek, gelitik, goda, toel hidung atau peluk teman dari jauh - tanpa perlu pet berkunjung.",
-      "Klik kanan pet → Colek teman, atau pakai tombol Colek di Teman, chat dan profil.",
-      "Temanmu mendapat notifikasi (\"Wendy lagi godain kamu!\"), pet-nya bereaksi, dan bisa colek balik dengan satu klik.",
-      "Saat sesi fokus, colekan menunggu sampai istirahat; jika pet disembunyikan, muncul di pojok layar.",
-      "Tidak mau? Profil → hapus centang \"Izinkan teman mencolek, menggelitik & menggoda saya\"."
+      "Membuka Pips lagi (pintasan Desktop / Start Menu, autostart) tidak lagi memunculkan pet kedua - pet-mu cukup muncul dan menyapa.",
+      "Memperbaiki lag karena dua salinan Pips berjalan bersamaan."
     ],
     "zh_TW": [
-      "遠端戳一下、搔癢、捉弄、點鼻子或抱抱好友——寵物不用親自跑過去。",
-      "右鍵點寵物 → 戳戳好友，或使用好友、聊天和個人檔案裡的「戳一下」按鈕。",
-      "好友會收到通知（「Wendy 在捉弄你！」），寵物會有反應，一鍵就能戳回去。",
-      "專注時段中的戳戳會等到休息時再顯示；寵物隱藏時會顯示在螢幕角落。",
-      "不想被戳？個人檔案 → 取消勾選「允許好友戳我、搔癢和捉弄我」。"
+      "再次開啟 Pips（桌面 / 開始功能表捷徑、開機自動啟動）不會再多出第二隻寵物——你的寵物會直接跳出來打招呼。",
+      "修正同時執行兩個 Pips 造成的卡頓。"
     ],
     "zh_CN": [
-      "远程戳一下、挠痒痒、捉弄、点鼻子或抱抱好友——宠物不用亲自跑过去。",
-      "右键点宠物 → 戳戳好友，或使用好友、聊天和个人资料里的“戳一下”按钮。",
-      "好友会收到通知（“Wendy 在捉弄你！”），宠物会有反应，一键就能戳回去。",
-      "专注时段中的戳戳会等到休息时再显示；宠物隐藏时会显示在屏幕角落。",
-      "不想被戳？个人资料 → 取消勾选“允许好友戳我、挠痒和捉弄我”。"
+      "再次打开 Pips（桌面 / 开始菜单快捷方式、开机自启）不会再多出第二只宠物——你的宠物会直接跳出来打招呼。",
+      "修复同时运行两个 Pips 导致的卡顿。"
     ]
   },
   "guide": "https://juw12.github.io/projects/pips/download/Pips-Guide.pptx"
