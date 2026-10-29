@@ -1132,7 +1132,11 @@
     "The PC runs an older AIRIZ Console that does not share the camera position, so only the moves sent from this device were counted. Update the AIRIZ Console on the PC.": "PC 上的 AIRIZ Console 版本較舊，不會分享攝影機位置，因此只計算了這台裝置送出的移動。請更新 PC 上的 AIRIZ Console。",
     "Not fully down yet: lowering until the bottom switch is pressed…": "尚未完全降下：繼續下降直到底部開關被按下…",
     "Go home from a phone (1.11.1)": "從手機回到原點（1.11.1）",
-    "Go home on a phone or PC that controls by code brings the real camera home again: the console with the AIRIZ cable shares the camera position, and Go home, Set home, soft limits and Find rising home run there. When Home is fully down, Go home checks the bottom switch and keeps lowering until it is pressed. After auto-tracking, the camera also returns home while the console window is minimized.": "以代碼控制的手機或電腦按「回到原點」時，攝影機會再次回到真正的原點：接著 AIRIZ 傳輸線的主控台會分享攝影機位置，回到原點、設為原點、軟體限位與尋找升降原點都在那台主控台上執行。原點在最低位置時，回到原點會檢查底部開關，並持續下降直到開關被按下。自動追蹤之後，即使主控台視窗已縮到最小，攝影機也會回到原點。"
+    "Go home on a phone or PC that controls by code brings the real camera home again: the console with the AIRIZ cable shares the camera position, and Go home, Set home, soft limits and Find rising home run there. When Home is fully down, Go home checks the bottom switch and keeps lowering until it is pressed. After auto-tracking, the camera also returns home while the console window is minimized.": "以代碼控制的手機或電腦按「回到原點」時，攝影機會再次回到真正的原點：接著 AIRIZ 傳輸線的主控台會分享攝影機位置，回到原點、設為原點、軟體限位與尋找升降原點都在那台主控台上執行。原點在最低位置時，回到原點會檢查底部開關，並持續下降直到開關被按下。自動追蹤之後，即使主控台視窗已縮到最小，攝影機也會回到原點。",
+    "Listen clip length: 1 s to 3600 s. Longer clips have fewer gaps, but each clip is heard only after it has been recorded (about the clip length + 2 s behind live) and the AIRIZ needs about 63 kB of free memory per second of clip. A new length is used the next time you press Listen.": "收聽片段長度：1 到 3600 秒。片段越長，空檔越少，但每段要錄完才會聽到（比即時慢約「片段長度 + 2 秒」），而且片段每秒約需要 AIRIZ 63 kB 的可用記憶體。新的長度會在下次按「收聽」時生效。",
+    "Listen clips of any length (1.11.2)": "任意長度的收聽片段 (1.11.2)",
+    "The Listen clip length is no longer limited to 4 s: choose anything from 1 s to an hour under Voice settings. Longer clips have fewer gaps; each clip is heard after it has been recorded. The AIRIZ checks that it has memory for the clip first, Stop ends the sound at once, and pressing Listen again while a long clip is still recording waits for it instead of failing.": "收聽片段長度不再限制為 4 秒：可在「語音設定」中選擇 1 秒到 1 小時。片段越長，空檔越少；每段錄完後才會聽到。AIRIZ 會先確認有足夠的記憶體存放片段，按「停止」會立即停止聲音，而在長片段還在錄音時再按「收聽」，會等它錄完而不會失敗。",
+    "The AIRIZ is finishing its previous clip first…": "AIRIZ 正在先完成上一段片段…"
   },
   "html": {
     "AIRIZDEVICE LAB": "AIRIZ<small>裝置實驗室</small>",
@@ -1962,6 +1966,14 @@
     [
       "^At home: lowered (\\d+) more steps until the bottom switch was pressed\\.$",
       "已到達原點：再下降 $1 步直到底部開關被按下。"
+    ],
+    [
+      "^Listening to the AIRIZ in (\\d+) s clips - about (\\d+) s behind live, with a short gap between clips\\.$",
+      "正在收聽 AIRIZ（每段 $1 秒）：比即時慢約 $2 秒，片段之間會有短暫空檔。"
+    ],
+    [
+      "^The AIRIZ has only (\\S+) MB free for clips of (\\d+) s \\(about (\\S+) MB needed\\)\\. Choose a shorter listen clip length\\.$",
+      "AIRIZ 只剩 $1 MB 可用空間，$2 秒的片段約需要 $3 MB。請選擇較短的收聽片段長度。"
     ]
   ]
 }

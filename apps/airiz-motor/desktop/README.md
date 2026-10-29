@@ -9,7 +9,7 @@ is required to use the installed app or its hardware-free demo.
 ## Downloads
 
 Windows x64 releases are published under the app-specific tag
-`airiz-desktop-v1.11.1` in this repository's Releases section.
+`airiz-desktop-v1.11.2` in this repository's Releases section.
 
 - **Installer**: assisted, per-user installation with Start-menu/desktop shortcuts
   and an uninstaller. The wizard lets the user choose the installation directory.
@@ -163,6 +163,23 @@ reports whether a framed firmware reply came back. Results can be exported.
 No pairing is accepted without confirmation and no motor command is sent.
 Another program on the PC still cannot open COM4 while this app holds it: that is
 a Windows serial-port rule, which is why the check runs inside the app.
+
+## 1.11.2: Listen clips of any length
+
+* **Any clip length:** *Voice settings > Listen clip length* takes 1 to 3600 s (was 1-4 s; the AIRIZ side
+  allowed at most 5 s). The AIRIZ records `diag audio record -t <seconds>` clips back to back and sends
+  each one after it has been recorded: the sound is about clip length + 2 s behind live.
+* **Long clips are not dropped:** a clip arrives as a burst after it has been recorded; the player now
+  accepts as much sound ahead as the longest clip (before, more than 5 s ahead was dropped).
+* **Memory check:** before each clip listen.sh checks the free space of the recorder's folder
+  (`df -Pk`, about 63 kB per second of 16 kHz stereo plus 1 MB). If a clip does not fit, Listen stops
+  with "The AIRIZ has only N MB free ... Choose a shorter listen clip length."
+* **Stop and Listen again with long clips:** Stop also ends the encoder of the clip being sent (no
+  minutes of leftover text on the console). A new listen run takes over from an older one (pid file):
+  the old one stops encoding at once and ends after its current recording; the new one waits for that
+  ("The AIRIZ is finishing its previous clip first...") instead of failing.
+* Tested with the BusyBox fake AIRIZ (10 s clips, Stop, Listen again, low memory) and demo mode;
+  long `diag audio record -t` values are not yet tested on a real AIRIZ.
 
 ## 1.11.1: Go home from a phone
 
