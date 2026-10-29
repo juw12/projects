@@ -44,19 +44,20 @@
     { id: 'budget', label: 'Budget', icon: 'wallet' },
     { id: 'goals', label: 'Goals', icon: 'target' },
     { id: 'invest', label: 'Invest', icon: 'chart' },
+    { id: 'market', label: 'Marketplace', icon: 'store' },
     { id: 'you', label: 'You', icon: 'user' },
     { id: 'share', label: 'Share', icon: 'users' },
     { id: 'settings', label: 'Settings', icon: 'gear' },
   ];
   // Phone tab bar: the two daily views, a big Add button, Budget, and More for everything else.
   const MOBILE_NAV = ['home', 'sheet', 'add', 'budget', 'more'];
-  const MORE_VIEWS = ['goals', 'invest', 'you', 'share', 'settings'];
+  const MORE_VIEWS = ['goals', 'invest', 'market', 'you', 'share', 'settings'];
   // The Mint mark (the same icon as the home screen and Templates): sidebar, phone header,
   // welcome page and update card.
   const LOGO =
     '<span class="logo mark" aria-hidden="true"><img src="../icons/app-icon.svg" alt="" width="30" height="30" decoding="async"></span>';
-  // Mint Templates (the spreadsheet template studio and marketplace) lives next door in the same app.
-  const TEMPLATES_URL = '../app.html';
+  // The Marketplace (template studio + store) is the Templates page, embedded in Budget's Marketplace view.
+  const MARKET_PAGE = '../app.html';
   const BRAND = '<div class="brand">' + LOGO + '<b>Mint</b></div>';
   const T = K.t;
   function langSelect(extraClass) {
@@ -104,6 +105,13 @@
     baseline: null,
     pendingJoin: null,
     lastTipToast: 0,
+    investTab: 'portfolio',
+    quiz: null,
+    news: null,
+    cloud: null,
+    cloudStatus: 'off',
+    cloudDetail: '',
+    marketRoute: params.get('m') || '',
   };
 
   const me = () => (S.profile ? S.profile.memberId : '');
@@ -128,9 +136,14 @@
     if (!entry) S.books.push({ id: S.book.id, name: S.book.meta.name });
     else entry.name = S.book.meta.name;
     store.set('mint.budget.books', S.books);
+    if (S.cloud) S.cloud.bookChanged(S.book.id);
   }
-  function saveProfile() {
+  function saveProfile(fromSync) {
     store.set('mint.budget.profile', S.profile);
+    if (!fromSync) {
+      store.set('mint.budget.prefsAt', Date.now());
+      if (S.cloud) S.cloud.prefsChanged();
+    }
   }
   window.addEventListener('pagehide', saveBookNow);
   window.addEventListener('beforeunload', saveBookNow);
@@ -829,6 +842,7 @@
     applyTheme();
     const root = $('#app');
     if (!S.profile || !S.book) {
+      if (S.view === 'market') return renderGuestMarket(root);
       renderWelcome(root);
       return;
     }
@@ -845,6 +859,7 @@
     view.classList.remove('enter');
     view.innerHTML = renderView(stats);
     view.dataset.view = S.view;
+    showMarket(S.view === 'market');
     if (animate) {
       if (changedView || !S.enterAt || Date.now() - S.enterAt >= 300) S.enterAt = Date.now();
       void view.offsetWidth;
@@ -904,11 +919,9 @@
       BRAND +
       '<div id="bookSwitch"></div>' +
       '<nav class="nav" id="nav" aria-label="Main"></nav>' +
-      '<div class="side-apps"><p class="side-label">Also in Mint</p>' +
-      '<a class="nav-item nav-templates" href="' + TEMPLATES_URL + '" data-templates>' + icon('template') + '<span>Templates</span></a></div>' +
       '<div class="side-foot" id="sideFoot"></div>' +
       '</aside>' +
-      '<div class="main"><header class="top" id="top"></header><main id="view" class="view"></main></div>' +
+      '<div class="main"><header class="top" id="top"></header><main id="view" class="view"></main><div id="marketHost" class="market-host" hidden></div></div>' +
       '<nav class="bottom-nav" id="bottomNav" aria-label="Main"></nav>' +
       '</div>'
     );
@@ -928,11 +941,23 @@
       error: ['pill-off', '<i class="dot"></i>', 'Sync error'],
       idle: ['pill-local', icon('lock', 14), 'Private'],
     };
+    if ((st === 'local' || st === 'idle') && S.cloud && S.cloudStatus !== 'off') {
+      const cloud = {
+        synced: ['pill-live', icon('cloud', 14), 'Synced'],
+        syncing: ['pill-sync', '<i class="pulse"></i>', 'Syncing…'],
+        pending: ['pill-sync', '<i class="pulse"></i>', 'Syncing…'],
+        offline: ['pill-off', icon('cloud', 14), 'Offline · saved'],
+        locked: ['pill-off', icon('lock', 14), 'Sync locked'],
+        error: ['pill-off', '<i class="dot"></i>', 'Sync error'],
+      }[S.cloudStatus];
+      if (cloud) return cloud;
+    }
     return map[st] || map.local;
   }
   function syncPill() {
     const m = syncInfo();
-    return '<button id="syncPill" class="pill ' + m[0] + '" data-act="go" data-view="share" title="' + esc(S.statusDetail || 'Sharing & sync') + '">' + m[1] + '<span>' + m[2] + '</span></button>';
+    const toAccount = !S.book.room && S.cloud && S.cloudStatus !== 'off';
+    return '<button id="syncPill" class="pill ' + m[0] + '" data-act="go" data-view="' + (toAccount ? 'settings' : 'share') + '" title="' + esc((toAccount ? S.cloudDetail : S.statusDetail) || 'Sharing & sync') + '">' + m[1] + '<span>' + m[2] + '</span></button>';
   }
 
   function renderChrome(stats) {
@@ -1009,6 +1034,8 @@
         return viewShare();
       case 'settings':
         return viewSettings();
+      case 'market':
+        return '';
       default:
         return viewHome(stats);
     }
@@ -1023,6 +1050,7 @@
     const url = new URL(location.href);
     url.searchParams.set('view', S.view);
     url.searchParams.delete('demo');
+    url.searchParams.delete('m');
     history.replaceState(null, '', url.pathname + url.search + url.hash);
     render();
   }
@@ -1149,6 +1177,7 @@
       '<div class="card hero-card">' +
       '<div class="hero-text"><p class="eyebrow">' + esc(greeting()) + ', ' + esc(S.profile.name) + ' 👋</p>' +
       '<h2 class="hero-amount' + (leftToSpend < 0 ? ' neg' : '') + '" data-count="' + leftToSpend + '">' + esc(fmt(leftToSpend)) + '</h2>' +
+      fxNote(leftToSpend) +
       '<p class="muted">' + (leftToSpend < 0 ? 'over your spending limits' : 'left to spend') + ' in ' + esc(K.monthLabel(st.mk, true)) + ' · ' + esc(fmt(st.spent)) + ' of ' + esc(fmt(st.spendLimit)) + ' spent</p>' +
       '<div class="row-gap"><button class="btn btn-primary" data-act="quick-add">' + icon('plus', 18) + ' Add expense</button><button class="btn btn-soft" data-act="go" data-view="sheet">' + icon('sheet', 18) + ' Open sheet</button></div></div>' +
       '<div class="hero-ring">' + ui.ring(spentPct, { size: 150, thickness: 14, color: ringColor, label: pctText(spentPct) }) + '<small>of limits used</small></div>' +
@@ -1311,7 +1340,8 @@
           '<td class="cat-cell"><i class="cat-dot" style="background:' + (c ? ui.catColor(c) : 'transparent') + '"></i><select data-k="txns:' + esc(t.id) + ':cat" aria-label="Category">' + catOptions(t.cat) + '</select></td>' +
           '<td><select data-k="txns:' + esc(t.id) + ':who" aria-label="Who">' + memberOptions(t.who || by) + '</select></td>' +
           '<td><select data-k="txns:' + esc(t.id) + ':type" class="type-sel" aria-label="Type"><option value="expense"' + (t.type !== 'income' ? ' selected' : '') + '>Expense</option><option value="income"' + (t.type === 'income' ? ' selected' : '') + '>Income</option></select></td>' +
-          '<td class="num"><input data-k="txns:' + esc(t.id) + ':amount" inputmode="decimal" value="' + esc(K.fmtPlain(t.amount, cur())) + '" aria-label="Amount"></td>' +
+          '<td class="num' + (t.fx && t.fx.cur ? ' has-fx' : '') + '"><input data-k="txns:' + esc(t.id) + ':amount" inputmode="decimal" value="' + esc(K.fmtPlain(t.amount, cur())) + '" aria-label="Amount">' +
+          (t.fx && t.fx.cur && K.CURRENCIES[t.fx.cur] ? '<small class="fx-tag" translate="no" title="' + esc(K.t('Paid in {cur}', { cur: t.fx.cur })) + '">' + esc(K.fmt(t.fx.amt, t.fx.cur)) + '</small>' : '') + '</td>' +
           '<td class="by-cell" title="Last edited by ' + esc(memberName(by)) + '">' + ui.avatar({ name: memberName(by), color: memberColor(by) }, 22) + '<small>' + esc(ui.timeAgo(t._u)) + '</small></td>' +
           '<td><button class="icon-btn icon-sm" data-act="del-txn" data-id="' + esc(t.id) + '" aria-label="Delete row">' + icon('trash', 16) + '</button></td>' +
           '</tr>'
@@ -1409,13 +1439,16 @@
               (inc) =>
                 '<div class="inc-row" data-row="' + esc(inc.id) + '">' +
                 '<input data-k="incomes:' + esc(inc.id) + ':name" value="' + esc(inc.name || '') + '" maxlength="40" aria-label="Income name">' +
-                '<input class="num" data-k="incomes:' + esc(inc.id) + ':amount" inputmode="decimal" value="' + esc(K.fmtPlain(inc.amount, cur())) + '" aria-label="Amount">' +
+                '<input class="num" data-k="incomes:' + esc(inc.id) + ':amount" inputmode="decimal" value="' + esc(K.fmtPlain(inc.amount, inc.cur || cur())) + '" aria-label="Amount">' +
+                '<select class="cur-sel" data-k="incomes:' + esc(inc.id) + ':cur" aria-label="Currency" translate="no">' + currencyOptions(inc.cur || cur()) + '</select>' +
                 '<select data-k="incomes:' + esc(inc.id) + ':freq" aria-label="Frequency">' + Object.keys(K.FREQ).map((f) => '<option value="' + f + '"' + (inc.freq === f ? ' selected' : '') + '>' + K.FREQ[f].label + '</option>').join('') + '</select>' +
                 '<button class="icon-btn icon-sm" data-act="del" data-c="incomes" data-id="' + esc(inc.id) + '" aria-label="Remove income">' + icon('trash', 16) + '</button></div>'
             )
             .join('')
         : '<p class="muted">Add your take-home pay to unlock Mint\'s plan.</p>') +
-      '<div class="inc-total"><span>Monthly total</span><b>' + esc(fmt(st.plannedIncome)) + '</b></div></div>';
+      '<div class="inc-total"><span>Monthly total</span><b>' + esc(fmt(st.plannedIncome)) + '</b></div>' +
+      (incomes.some((inc) => inc.cur && inc.cur !== cur()) ? '<p class="muted small">' + esc(K.t('Income in other currencies is converted to {cur} at today’s rate.', { cur: cur() })) + '</p>' : '') +
+      '</div>';
     const persona = K.PERSONAS[S.profile.persona];
     const planCard =
       '<div class="card plan-card"><div class="card-head"><h3>' + icon('sparkle', 18) + ' Mint\'s plan' + (persona ? ' for ' + esc(persona.name) : '') + '</h3></div>' +
@@ -1434,7 +1467,8 @@
       '</div>' +
       (plan.notes.length ? '<ul class="plan-notes">' + plan.notes.map((n) => '<li>' + esc(n) + '</li>').join('') + '</ul>' : '') +
       '<div class="row-gap"><button class="btn btn-primary" data-act="apply-plan"' + (plan.income > 0 ? '' : ' disabled') + '>Apply plan to envelopes</button>' +
-      (!persona ? '<button class="btn btn-ghost" data-act="quiz">Personalise with the quiz</button>' : '') + '</div></div>';
+      (!persona ? '<button class="btn btn-ghost" data-act="quiz">Personalise with the quiz</button>' : '') +
+      '<button class="btn btn-ghost" data-act="sell-plan" title="Sell this plan as a template in the Marketplace">' + icon('store', 16) + ' Sell this plan</button>' + '</div></div>';
     const groups = Object.keys(K.GROUPS)
       .map((g) => {
         const rows = st.rows.filter((r) => r.cat.group === g);
@@ -1500,6 +1534,9 @@
 
   // ================================================================ view: invest
   function viewInvest(st) {
+    if (S.investTab === 'learn') return investTabs() + viewLearn();
+    if (S.investTab === 'tips') return investTabs() + viewInvestTips(st);
+    if (S.investTab === 'news') return investTabs() + viewNews();
     const pf = K.portfolio(S.book);
     const target = S.book.meta.target || K.targetFor(S.profile.traits ? S.profile.traits.risk : 50);
     const suggested = K.targetFor(S.profile.traits ? S.profile.traits.risk : NaN);
@@ -1515,9 +1552,9 @@
       '</div>';
     const classOpts = (sel) => Object.keys(K.ASSET_CLASSES).map((k) => '<option value="' + k + '"' + (sel === k ? ' selected' : '') + '>' + esc(K.ASSET_CLASSES[k].label) + '</option>').join('');
     const holdings =
-      '<div class="card"><div class="card-head"><h3>Holdings</h3><span class="muted small">Prices are entered by you; update them any time.</span></div>' +
+      '<div class="card"><div class="card-head"><h3>Holdings</h3><span class="muted small">' + esc(K.t('Prices are in each holding’s currency; values are converted to {cur}.', { cur: cur() })) + '</span></div>' +
       '<div class="sheet-scroll"><table class="grid-table holdings">' +
-      '<thead><tr><th>Symbol</th><th>Name</th><th>Class</th><th class="num">Qty</th><th class="num">Avg cost</th><th class="num">Price</th><th class="num">Value</th><th class="num">Gain</th><th></th></tr></thead><tbody>' +
+      '<thead><tr><th>Symbol</th><th>Name</th><th>Class</th><th>Currency</th><th class="num">Qty</th><th class="num">Avg cost</th><th class="num">Price</th><th class="num">Value</th><th class="num">Gain</th><th></th></tr></thead><tbody>' +
       pf.rows
         .map(
           (h) =>
@@ -1525,15 +1562,17 @@
             '<td><input data-k="holdings:' + esc(h.id) + ':symbol" value="' + esc(h.symbol || '') + '" maxlength="12" class="sym" aria-label="Symbol"></td>' +
             '<td><input data-k="holdings:' + esc(h.id) + ':name" value="' + esc(h.name || '') + '" maxlength="60" aria-label="Name"></td>' +
             '<td><select data-k="holdings:' + esc(h.id) + ':cls" aria-label="Asset class">' + classOpts(h.cls) + '</select></td>' +
+            '<td><select class="cur-sel" data-k="holdings:' + esc(h.id) + ':cur" aria-label="Currency" translate="no">' + currencyOptions(h.cur || cur()) + '</select></td>' +
             '<td class="num"><input data-k="holdings:' + esc(h.id) + ':qty" inputmode="decimal" value="' + esc(h.qty) + '" aria-label="Quantity"></td>' +
-            '<td class="num"><input data-k="holdings:' + esc(h.id) + ':cost" inputmode="decimal" value="' + esc(K.fmtPlain(h.cost, cur())) + '" aria-label="Average cost"></td>' +
-            '<td class="num"><input data-k="holdings:' + esc(h.id) + ':price" inputmode="decimal" value="' + esc(K.fmtPlain(h.price, cur())) + '" aria-label="Price"></td>' +
+            '<td class="num"><input data-k="holdings:' + esc(h.id) + ':cost" inputmode="decimal" value="' + esc(K.fmtPlain(h.cost, h.cur || cur())) + '" aria-label="Average cost"></td>' +
+            '<td class="num"><input data-k="holdings:' + esc(h.id) + ':price" inputmode="decimal" value="' + esc(K.fmtPlain(h.price, h.cur || cur())) + '" aria-label="Price"></td>' +
             '<td class="num"><b>' + esc(fmt(h.value)) + '</b></td>' +
             '<td class="num ' + (h.pl >= 0 ? 'pos' : 'neg') + '">' + (h.pl >= 0 ? '+' : '') + esc(fmt(h.pl, true)) + '<small> ' + (h.plPct * 100).toFixed(1) + '%</small></td>' +
             '<td><button class="icon-btn icon-sm" data-act="del" data-c="holdings" data-id="' + esc(h.id) + '" aria-label="Remove holding">' + icon('trash', 16) + '</button></td></tr>'
         )
         .join('') +
       '<tr class="new-row"><td><input data-nh="symbol" placeholder="＋ Symbol" maxlength="12" class="sym"></td><td><input data-nh="name" placeholder="Name" maxlength="60"></td><td><select data-nh="cls">' + classOpts('stocks') + '</select></td>' +
+      '<td><select class="cur-sel" data-nh="cur" aria-label="Currency" translate="no">' + currencyOptions(cur()) + '</select></td>' +
       '<td class="num"><input data-nh="qty" inputmode="decimal" placeholder="0"></td><td class="num"><input data-nh="cost" inputmode="decimal" placeholder="0"></td><td class="num"><input data-nh="price" inputmode="decimal" placeholder="same as cost"></td>' +
       '<td colspan="3"><button class="btn btn-primary btn-sm" data-act="add-holding">Add ↵</button></td></tr>' +
       '</tbody></table></div></div>';
@@ -1557,7 +1596,8 @@
         })
         .join('') +
       '</tbody></table></div>' +
-      '<p class="muted small">Targets are educational starting points from your quiz risk score, not financial advice.</p></div>';
+      '<p class="muted small">Targets are educational starting points from your quiz risk score, not financial advice.</p>' +
+      '<div class="row-gap"><button class="btn btn-ghost btn-sm" data-act="sell-mix">' + icon('store', 16) + ' Sell this mix</button></div></div>';
     const proj =
       '<div class="card" id="projCard"><div class="card-head"><h3>Growth projection</h3><span class="muted small">Monthly compounding</span></div>' +
       '<div class="proj-controls">' +
@@ -1565,7 +1605,7 @@
       '<label>Expected return / year <b data-proj-label="rate">' + S.proj.rate + '%</b><input type="range" data-proj="rate" min="0" max="15" step="0.5" value="' + S.proj.rate + '"></label>' +
       '<label>Years <b data-proj-label="years">' + S.proj.years + '</b><input type="range" data-proj="years" min="1" max="40" step="1" value="' + S.proj.years + '"></label>' +
       '</div><div id="projOut">' + projOut(pf.total) + '</div></div>';
-    return kpis + holdings + '<div class="grid-2">' + alloc + proj + '</div>';
+    return investTabs() + kpis + holdings + '<div class="grid-2">' + alloc + proj + '</div>';
   }
 
   function projOut(start) {
@@ -1651,6 +1691,522 @@
     );
   }
 
+  // ================================================================ marketplace (Templates studio + store, embedded)
+  function marketSrc(route) {
+    const keep = new URLSearchParams();
+    ['ref', 'coupon', 'api'].forEach((k) => {
+      if (params.get(k)) keep.set(k, params.get(k));
+    });
+    keep.set('embed', '1');
+    keep.set('nolocale', '1');
+    let r = String(route || 'market').replace(/^#/, '');
+    if (r.charAt(0) !== '/') r = '/' + r;
+    return MARKET_PAGE + '?' + keep.toString() + '#' + r;
+  }
+  function marketFrame() {
+    return $('#marketFrame');
+  }
+  // The frame is created once and kept, so browsing state survives switching between Budget pages.
+  function showMarket(on) {
+    const host = $('#marketHost');
+    if (!host) return;
+    host.hidden = !on;
+    const view = $('#view');
+    if (view) view.hidden = on;
+    document.body.classList.toggle('in-market', on);
+    if (!on) return;
+    if (!marketFrame()) {
+      host.innerHTML = '<iframe id="marketFrame" class="market-frame" title="Marketplace" src="' + esc(marketSrc(S.marketRoute || 'market')) + '"></iframe>';
+      S.marketRoute = '';
+    } else if (S.marketRoute) {
+      routeMarket(S.marketRoute);
+    }
+  }
+  function routeMarket(route) {
+    let r = String(route || 'market').replace(/^#/, '');
+    if (r.charAt(0) !== '/') r = '/' + r;
+    const frame = marketFrame();
+    S.marketRoute = '';
+    try {
+      frame.contentWindow.location.hash = '#' + r;
+    } catch (e) {
+      frame.src = marketSrc(r);
+    }
+  }
+  function openMarket(route) {
+    S.marketRoute = route || 'market';
+    if (S.view !== 'market') go('market');
+    else showMarket(true);
+  }
+  function renderGuestMarket(root) {
+    if (!$('.guest-market', root)) {
+      root.innerHTML =
+        '<div class="guest-market"><header class="w-top">' + BRAND + '<div class="w-top-right">' + langSelect() +
+        '<button class="icon-btn theme-btn" data-act="theme-welcome" aria-label="Toggle theme" title="Toggle theme">' + themeIcon() + '</button>' +
+        '<a class="btn btn-primary btn-sm" href="./">' + icon('wallet', 16) + '<span>Start my budget</span></a></div></header>' +
+        '<div id="marketHost" class="market-host"></div></div>';
+    }
+    showMarket(true);
+  }
+
+  // Sell: turn this budget's plan or investing mix into a Marketplace draft (structure only, never real amounts).
+  function sellToMarket(kind) {
+    const spec = kind === 'mix' ? K.mixToSpec(S.book, {}) : K.planToSpec(S.book, {});
+    if (!spec.sheet.rows.length) {
+      return toast({ tone: 'warn', title: kind === 'mix' ? 'Set a target mix first' : 'Add a few envelopes first' });
+    }
+    try {
+      localStorage.setItem('mint.studio', JSON.stringify({ spec: spec, templateId: null, log: [] }));
+    } catch (e) {
+      return toast({ tone: 'bad', title: 'Could not save on this device' });
+    }
+    openMarket('create?from=budget');
+    toast({
+      tone: 'good',
+      icon: '🏷️',
+      title: kind === 'mix' ? 'Your investing mix is ready to sell' : 'Your budget plan is ready to sell',
+      body: 'Only envelopes and percentages are included, never your transactions or real amounts. Check it, then press Publish.',
+    });
+  }
+
+  // Buy → use: the Marketplace calls this (same origin) for templates made from a Mint plan or mix.
+  async function importTemplate(spec) {
+    const plan = K.specToPlan(spec);
+    if (!plan) return false;
+    if (!S.book) {
+      toast({ tone: 'warn', title: 'Create a budget first', body: 'Then open the template again and press Use in my budget.' });
+      return false;
+    }
+    if (plan.kind === 'mix') {
+      const mixText = Object.keys(plan.mix)
+        .map((k) => K.i18n.tr(K.ASSET_CLASSES[k].label) + ' ' + plan.mix[k] + '%')
+        .join(' · ');
+      const ok = await confirmModal({ title: K.t('Use “{name}” as your investing target?', { name: plan.title }), body: mixText, ok: 'Set target' });
+      if (!ok) return false;
+      commit(put('meta', { target: { label: 'Custom', mix: plan.mix } }));
+      S.investTab = 'portfolio';
+      go('invest');
+      toast({ tone: 'good', title: 'Investing target updated' });
+      return true;
+    }
+    const income = K.monthlyIncome(S.book);
+    const n = plan.envelopes.length;
+    const ok = await confirmModal({
+      title: K.t('Apply “{name}” to this budget?', { name: plan.title }),
+      body:
+        income > 0
+          ? K.t('{n} envelopes sized to your income of {income}. Matching envelopes get new limits; missing ones are created. Transactions are untouched.', { n: n, income: fmt(income) })
+          : K.t('{n} envelopes with the template’s example amounts in {cur}. Add your income later and apply again to resize them.', { n: n, cur: cur() }),
+      ok: 'Apply plan',
+    });
+    if (!ok) return false;
+    const byName = {};
+    catList().forEach((c) => (byName[c.name.toLowerCase()] = c));
+    const ops = [];
+    let order = catList().length;
+    plan.envelopes.forEach((e) => {
+      const raw = income > 0 ? e.share * income : K.toBase(e.planned, plan.currency, cur());
+      const limit = K.roundMoney(raw, cur());
+      const ex = byName[e.name.toLowerCase()];
+      if (ex) ops.push(put('categories', { id: ex.id, limit: limit, group: e.group }));
+      else ops.push(put('categories', { name: e.name, emoji: e.emoji || '✨', group: e.group, kind: e.kind, limit: limit, order: order++ }));
+    });
+    commit(ops, true);
+    logActivity({ who: me(), icon: '🛍️', text: 'applied a plan from the Marketplace' });
+    go('budget');
+    toast({ tone: 'good', title: 'Plan applied', body: K.t('{n} envelopes updated.', { n: n }) });
+    return true;
+  }
+
+  // ================================================================ exchange rates
+  const FX_KEY = 'mint.fx';
+  function apiBase() {
+    return window.MintCloud ? window.MintCloud.apiBase() : 'https://mint-api.juw12.workers.dev';
+  }
+  function apiUrl(path) {
+    return apiBase().replace(/\/+$/, '') + '/' + 'api/' + path;
+  }
+  function loadRates() {
+    const cached = store.get(FX_KEY, null);
+    if (cached) K.setRates(cached);
+    if (cached && Date.now() - (cached.fetchedAt || 0) < 12 * 3600 * 1000) return;
+    const direct = () =>
+      fetch('https://open.er-api.com/v6/latest/USD')
+        .then((r) => r.json())
+        .then((d) => (d && d.result === 'success' ? { base: 'USD', date: new Date((d.time_last_update_unix || 0) * 1000).toISOString().slice(0, 10), source: 'open.er-api.com', rates: d.rates } : Promise.reject(new Error('rates'))));
+    fetch(apiUrl('fx'))
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error('rates'))))
+      .catch(direct)
+      .then((data) => {
+        if (!K.setRates(data)) return;
+        data.fetchedAt = Date.now();
+        store.set(FX_KEY, data);
+        if (S.book) scheduleRender();
+      })
+      .catch(() => {});
+  }
+  function regionCurrency() {
+    const L = window.MintLocale;
+    const now = L ? L.current() : null;
+    return now && now.chosen && now.currency && K.CURRENCIES[now.currency] ? now.currency : '';
+  }
+  function currencyOptions(selected) {
+    return Object.keys(K.CURRENCIES)
+      .map((c) => '<option value="' + c + '"' + (selected === c ? ' selected' : '') + '>' + c + '</option>')
+      .join('');
+  }
+  function fxNote(amount) {
+    const rc = regionCurrency();
+    if (!rc || rc === cur()) return '';
+    return '<p class="fx-alt muted small">≈ ' + esc(K.fmt(K.convert(amount, cur(), rc), rc)) + ' <span translate="no">' + rc + '</span></p>';
+  }
+
+  // ================================================================ invest: learn, tips, news
+  function investTabs() {
+    const tabs = [
+      ['portfolio', 'chart', 'Portfolio'],
+      ['learn', 'book', 'Learn'],
+      ['tips', 'sparkle', 'Tips'],
+      ['news', 'news', 'News'],
+    ];
+    return (
+      '<div class="seg invest-tabs" role="tablist" aria-label="Invest">' +
+      tabs
+        .map((t) => '<button role="tab" aria-selected="' + (S.investTab === t[0]) + '" class="' + (S.investTab === t[0] ? 'is-on' : '') + '" data-act="invest-tab" data-tab="' + t[0] + '">' + icon(t[1], 16) + '<span>' + t[2] + '</span></button>')
+        .join('') +
+      '</div>'
+    );
+  }
+
+  function viewLearn() {
+    const Q = K.INVEST_QUIZ;
+    const saved = S.profile.investQuiz || {};
+    const qz = S.quiz;
+    if (!qz) {
+      const badge = saved.best != null ? K.quizBadge(saved.best, Q.length) : null;
+      const topics = Q.map((q) => q.topic).filter((t, i, all) => all.indexOf(t) === i);
+      return (
+        '<div class="card learn-card"><div class="learn-intro"><span class="learn-emoji">🎓</span><div><h3>Investing basics quiz</h3>' +
+        '<p class="muted">12 quick questions on compounding, risk, fees and more. Every answer teaches you something.</p>' +
+        (badge ? '<p class="learn-best">' + badge.emoji + ' <b>' + esc(badge.label) + '</b> · ' + esc(K.t('Best score {score} / {total}', { score: saved.best, total: Q.length })) + '</p>' : '') +
+        '</div></div><div class="chips learn-topics">' + topics.map((t) => '<span class="chip">' + esc(t) + '</span>').join('') + '</div>' +
+        '<div class="row-gap"><button class="btn btn-primary" data-act="quiz-start">' + (badge ? 'Take it again' : 'Start the quiz') + '</button></div></div>'
+      );
+    }
+    if (qz.i >= Q.length) {
+      const badge = K.quizBadge(qz.score, Q.length);
+      return (
+        '<div class="card learn-card learn-result"><span class="learn-emoji big">' + badge.emoji + '</span><h2>' + esc(badge.label) + '</h2>' +
+        '<p class="learn-score">' + esc(K.t('You got {score} of {total} right', { score: qz.score, total: Q.length })) + '</p>' +
+        '<div class="row-gap center"><button class="btn btn-primary" data-act="quiz-start">Try again</button><button class="btn btn-soft" data-act="invest-tab" data-tab="tips">See my tips</button></div></div>'
+      );
+    }
+    const q = Q[qz.i];
+    const answered = qz.picked != null;
+    const right = answered && qz.picked === q.a;
+    return (
+      '<div class="card quiz-card"><div class="quiz-top"><span class="muted small">' + esc(K.t('Question {n} of {total}', { n: qz.i + 1, total: Q.length })) + '</span><span class="chip">' + esc(q.topic) + '</span></div>' +
+      ui.bar(qz.i / Q.length, 'ok') +
+      '<h3 class="quiz-q">' + esc(q.q) + '</h3><div class="quiz-opts">' +
+      q.o
+        .map((o, i) => '<button class="quiz-opt' + (answered ? (i === q.a ? ' is-right' : i === qz.picked ? ' is-wrong' : '') : '') + '" data-act="quiz-answer" data-i="' + i + '"' + (answered ? ' disabled' : '') + '>' + esc(o) + '</button>')
+        .join('') +
+      '</div>' +
+      (answered
+        ? '<div class="quiz-why ' + (right ? 'is-right' : 'is-wrong') + '"><b>' + (right ? 'Correct!' : 'Not quite.') + '</b> <span>' + esc(q.why) + '</span></div>' +
+          '<div class="row-gap end"><button class="btn btn-primary" data-act="quiz-next">' + (qz.i + 1 < Q.length ? 'Next question' : 'See my score') + '</button></div>'
+        : '') +
+      '</div>'
+    );
+  }
+
+  function viewInvestTips(st) {
+    const tips = K.investTips(S.book, st);
+    return (
+      '<div class="tips-grid">' +
+      tips
+        .map((t) => '<div class="card invest-tip tone-' + esc(t.tone || 'info') + '"><div class="tip-head"><span class="tip-icon">' + esc(t.icon) + '</span><h3>' + esc(t.title) + '</h3></div><p>' + esc(t.body) + '</p></div>')
+        .join('') +
+      '</div><p class="muted small">Tips are educational, not financial advice.</p>'
+    );
+  }
+
+  function newsKey() {
+    const L = window.MintLocale;
+    const region = (L && L.current().region) || '';
+    return { region: /^[A-Z]{2}$/.test(region) ? region : 'US', lang: K.i18n.lang };
+  }
+  function loadNews(force) {
+    const k = newsKey();
+    const key = 'mint.news.' + k.region + '.' + k.lang;
+    if (!S.news || S.news.key !== key) S.news = { key: key, data: store.get(key, null), loading: false, error: '' };
+    const n = S.news;
+    if (n.loading) return;
+    if (!force && n.data && Date.now() - (n.data.fetchedAt || 0) < 2 * 3600 * 1000) return;
+    // After a failure, wait a minute before trying again on its own (Refresh still forces a retry).
+    if (!force && n.error && Date.now() - (n.failedAt || 0) < 60 * 1000) return;
+    n.loading = true;
+    n.error = '';
+    fetch(apiUrl('news?region=' + k.region + '&lang=' + k.lang))
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error('news'))))
+      .then((d) => {
+        d.fetchedAt = Date.now();
+        store.set(key, d);
+        if (S.news && S.news.key === key) S.news = { key: key, data: d, loading: false, error: '' };
+      })
+      .catch(() => {
+        if (S.news && S.news.key === key) {
+          S.news.loading = false;
+          S.news.error = 'offline';
+          S.news.failedAt = Date.now();
+        }
+      })
+      .then(() => {
+        if (S.view === 'invest' && S.investTab === 'news') render();
+      });
+  }
+  function viewNews() {
+    loadNews(false);
+    const n = S.news || {};
+    const d = n.data || {};
+    const items = d.items || [];
+    const L = window.MintLocale;
+    const region = newsKey().region;
+    const regionLabel = L ? L.regionName(region, K.i18n.lang) : region;
+    return (
+      '<div class="card news-card"><div class="card-head"><h3>' + icon('news', 18) + ' ' + esc(K.t('Money news · {region}', { region: regionLabel })) + '</h3>' +
+      '<button class="btn btn-ghost btn-sm" data-act="news-refresh"' + (n.loading ? ' disabled' : '') + '>' + icon('refresh', 16) + ' Refresh</button></div>' +
+      (items.length
+        ? '<ul class="news-list">' +
+          items
+            .map(
+              (it) =>
+                '<li><a href="' + esc(it.url) + '" target="_blank" rel="noopener noreferrer"><b translate="no">' + esc(it.title) + '</b>' +
+                '<small><span translate="no">' + esc(it.source || '') + '</span>' + (it.published ? ' · ' + esc(ui.timeAgo(it.published * 1000)) : '') + '</small></a></li>'
+            )
+            .join('') +
+          '</ul>'
+        : '<p class="muted news-empty">' + (n.loading ? 'Loading headlines…' : n.error ? 'Could not load news right now. Check your connection and try again.' : 'Loading headlines…') + '</p>') +
+      (n.error && items.length ? '<p class="muted small">Showing saved headlines (offline).</p>' : '') +
+      '<p class="muted small">' + esc(K.t('Headlines from {source}. Mint does not write or endorse them. Not financial advice.', { source: d.source || K.i18n.tr('news publishers') })) + '</p></div>'
+    );
+  }
+
+  // ================================================================ account + sync across devices
+  const cloudApi = () => window.MintCloud;
+  function setupCloud() {
+    if (!K.createCloudSync || !cloudApi()) return;
+    S.cloud = K.createCloudSync({
+      bookIds: () => S.books.map((b) => b.id),
+      loadBook: (id) => (S.book && S.book.id === id ? S.book : loadBook(id)),
+      saveBook: (book, changed) => {
+        store.set('mint.budget.book.' + book.id, book);
+        const entry = S.books.find((b) => b.id === book.id);
+        if (entry && entry.name !== book.meta.name) {
+          entry.name = book.meta.name;
+          store.set('mint.budget.books', S.books);
+        }
+        if (S.book && S.book.id === book.id && S.room && changed.length) S.room.push(changed);
+      },
+      addBook: (book) => {
+        store.set('mint.budget.book.' + book.id, book);
+        if (!S.books.some((b) => b.id === book.id)) S.books.push({ id: book.id, name: book.meta.name });
+        store.set('mint.budget.books', S.books);
+      },
+      removeBook: (id) => {
+        store.del('mint.budget.book.' + id);
+        store.del('mint.budget.activity.' + id);
+        S.books = S.books.filter((b) => b.id !== id);
+        store.set('mint.budget.books', S.books);
+        if (S.book && S.book.id === id) {
+          disconnectRoom();
+          S.book = null;
+          if (S.books.length) openBook(S.books[0].id);
+          else store.del('mint.budget.current');
+        }
+      },
+      prefs: () => {
+        let theme = '';
+        try {
+          theme = localStorage.getItem('mint.theme') || '';
+        } catch (e) {
+          /* ignore */
+        }
+        const L = window.MintLocale;
+        return { v: 1, updated: store.get('mint.budget.prefsAt', 0) || Date.now(), profile: S.profile, lang: K.i18n.lang, region: (L && L.current().region) || '', theme: theme, current: S.book ? S.book.id : '' };
+      },
+      applyPrefs: (p) => {
+        if (!p || !p.profile) return false;
+        const localAt = store.get('mint.budget.prefsAt', 0);
+        if (S.profile && localAt >= (p.updated || 0)) return false;
+        S.profile = p.profile;
+        saveProfile(true);
+        store.set('mint.budget.prefsAt', p.updated || Date.now());
+        if (p.region && window.MintLocale) window.MintLocale.save(p.lang || K.i18n.lang, p.region);
+        if (p.theme) {
+          try {
+            localStorage.setItem('mint.theme', p.theme);
+          } catch (e) {
+            /* ignore */
+          }
+          applyTheme();
+        }
+        if (p.lang && p.lang !== K.i18n.lang) setTimeout(() => K.i18n.setLang(p.lang), 0);
+        if (S.book) ensureMember();
+        return true;
+      },
+      onStatus: (status, detail) => {
+        S.cloudStatus = status;
+        S.cloudDetail = detail;
+        const pill = $('#syncPill');
+        if (pill && S.book) pill.outerHTML = syncPill();
+        if (S.view === 'settings' && !document.querySelector('[data-dirty="1"]')) scheduleRender();
+      },
+      onChange: () => {
+        if (!S.book && S.profile && S.books.length) {
+          const want = store.get('mint.budget.current', null);
+          openBook(S.books.some((b) => b.id === want) ? want : S.books[0].id);
+        }
+        scheduleRender();
+      },
+    });
+    S.cloud.start();
+  }
+
+  function accountCard() {
+    const MC = cloudApi();
+    if (!MC) return '';
+    if (!MC.signedIn()) {
+      return (
+        '<div class="card account-card"><div class="card-head"><h3>' + icon('cloud', 18) + ' Sync across devices</h3></div>' +
+        '<p class="muted small">Sign in with your Mint account to keep budgets, goals and investments in step on your phone, computer and tablet. Everything is encrypted on this device first.</p>' +
+        '<div class="row-gap"><button class="btn btn-primary" data-act="account-login">Sign in</button><button class="btn btn-soft" data-act="account-register">Create account</button></div></div>'
+      );
+    }
+    const u = MC.user() || {};
+    const st = S.cloudStatus;
+    const label = {
+      synced: 'Synced',
+      syncing: 'Syncing…',
+      pending: 'Syncing…',
+      offline: 'Offline · syncs when you are back online',
+      locked: 'Locked · enter your password to sync',
+      error: 'Sync error',
+      off: 'Not syncing',
+    }[st] || 'Not syncing';
+    const last = S.cloud && S.cloud.lastSync() ? ui.timeAgo(S.cloud.lastSync()) : '';
+    return (
+      '<div class="card account-card"><div class="card-head"><h3>' + icon('cloud', 18) + ' Account & sync</h3></div>' +
+      '<div class="account-row">' + ui.avatar({ name: u.name || '?', color: S.profile.color }, 36) +
+      '<div><b translate="no">' + esc(u.name || '') + '</b><small translate="no">' + esc(u.email || '') + '</small></div></div>' +
+      '<p class="sync-state st-' + esc(st) + '"><i class="dot"></i><span>' + esc(label) + '</span>' + (last && st === 'synced' ? '<small class="muted"> · ' + esc(last) + '</small>' : '') + '</p>' +
+      (S.cloudDetail && (st === 'error' || st === 'locked') ? '<p class="muted small">' + esc(S.cloudDetail) + '</p>' : '') +
+      '<div class="row-gap">' +
+      (st === 'locked' ? '<button class="btn btn-primary" data-act="unlock-sync">Unlock sync</button>' : '<button class="btn btn-soft" data-act="sync-now">' + icon('refresh', 16) + ' Sync now</button>') +
+      '<button class="btn btn-ghost" data-act="new-recovery">New recovery code</button><button class="btn btn-ghost" data-act="account-logout">Sign out</button></div>' +
+      '<p class="muted small">Encrypted on this device before upload, so Mint’s server cannot read your budgets. The same account works in the Marketplace.</p></div>'
+    );
+  }
+
+  function showRecoveryCode(code) {
+    const m = modal(
+      '<h2>Save your recovery code</h2><p class="muted">If you forget your password, this code resets it and keeps your synced budgets readable. Mint cannot show it again.</p>' +
+        '<p class="recovery-code" translate="no">' + esc(code) + '</p>' +
+        '<div class="row-gap end"><button class="btn btn-soft" data-copy-code>' + icon('copy', 16) + ' Copy</button><button class="btn btn-primary" data-modal-close>I saved it</button></div>',
+      { cls: 'modal-sm' }
+    );
+    m.el.querySelector('[data-copy-code]').onclick = () => {
+      if (navigator.clipboard) navigator.clipboard.writeText(code).catch(() => {});
+      toast({ tone: 'good', title: 'Copied' });
+    };
+  }
+
+  function openAccount(mode) {
+    const MC = cloudApi();
+    if (!MC) return;
+    const title = { login: 'Sign in to Mint', register: 'Create your Mint account', unlock: 'Unlock sync', recovery: 'New recovery code' }[mode];
+    const intro = {
+      login: 'One account for syncing your budgets and for the Marketplace.',
+      register: 'One account for syncing your budgets and for the Marketplace.',
+      unlock: 'Enter your password to unlock your encrypted budgets on this device.',
+      recovery: 'Enter your password to create a new recovery code. The old one stops working.',
+    }[mode];
+    const needsEmail = mode === 'login' || mode === 'register';
+    const m = modal(
+      '<form class="auth-form" autocomplete="on"><h2>' + esc(title) + '</h2><p class="muted">' + esc(intro) + '</p>' +
+        (mode === 'register' ? '<label class="field">Name<input name="name" autocomplete="name" maxlength="60" required value="' + esc(S.profile ? S.profile.name : '') + '"></label>' : '') +
+        (needsEmail ? '<label class="field">Email<input name="email" type="email" autocomplete="email" required></label>' : '') +
+        '<label class="field">Password<input name="password" type="password" minlength="8" required autocomplete="' + (mode === 'register' ? 'new-password' : 'current-password') + '"></label>' +
+        '<p class="auth-error" role="alert" hidden></p>' +
+        '<div class="row-gap end">' +
+        (mode === 'login' ? '<button type="button" class="btn btn-ghost" data-switch="register">Create account</button>' : '') +
+        (mode === 'register' ? '<button type="button" class="btn btn-ghost" data-switch="login">I have an account</button>' : '') +
+        '<button class="btn btn-primary" type="submit">' + esc({ login: 'Sign in', register: 'Create account', unlock: 'Unlock', recovery: 'Create code' }[mode]) + '</button></div>' +
+        (mode === 'login' ? '<p class="muted small">Forgot your password? Reset it with your recovery code in Marketplace → Account.</p>' : '') +
+        '</form>',
+      { cls: 'modal-sm' }
+    );
+    const form = m.el.querySelector('form');
+    const errEl = form.querySelector('.auth-error');
+    $$('[data-switch]', form).forEach((b) => {
+      b.onclick = () => {
+        m.close();
+        openAccount(b.dataset.switch);
+      };
+    });
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = form.querySelector('button[type=submit]');
+      btn.disabled = true;
+      errEl.hidden = true;
+      const email = form.email ? form.email.value.trim() : '';
+      const password = form.password.value;
+      try {
+        if (mode === 'register') {
+          const res = await MC.register(email, form.name.value.trim(), password);
+          m.close();
+          await onSignedIn();
+          if (res.recoveryCode) showRecoveryCode(res.recoveryCode);
+        } else if (mode === 'login') {
+          const res = await MC.login(email, password);
+          m.close();
+          if (res.locked) {
+            toast({ tone: 'warn', title: 'Signed in, but sync is locked', body: 'Your synced data was locked with an older password. Use Unlock sync in Settings.' });
+          }
+          await onSignedIn();
+        } else if (mode === 'unlock') {
+          const u = MC.user();
+          await MC.unlock(u ? u.email : '', password);
+          m.close();
+          await onSignedIn();
+        } else {
+          const code = await MC.newRecoveryCode(password);
+          m.close();
+          showRecoveryCode(code);
+        }
+      } catch (err) {
+        btn.disabled = false;
+        errEl.hidden = false;
+        errEl.textContent = K.t(err.message || 'Something went wrong');
+      }
+    });
+  }
+
+  async function onSignedIn() {
+    if (!S.cloud) return;
+    const local = S.books.filter((b) => !/^demo-/.test(b.id)).length;
+    const first = !S.cloud.merged();
+    if (first) await S.cloud.adoptLocal();
+    else await S.cloud.run();
+    render();
+    toast({
+      tone: 'good',
+      icon: '☁️',
+      title: 'Sync is on',
+      body: first && local ? K.t('{n} budget(s) on this device are now in your account. Sign in on your other devices to see them.', { n: local }) : 'Your budgets now follow you to every device you sign in on.',
+    });
+  }
+
   // ================================================================ view: settings
   function appearanceCard() {
     const mode = themeMode();
@@ -1698,16 +2254,23 @@
     const notifState = !('Notification' in window) ? 'unsupported' : Notification.permission;
     return (
       '<div class="grid-2">' +
+      accountCard() +
       appearanceCard() +
       '<div class="card"><div class="card-head"><h3>This budget</h3></div><div class="form-grid">' +
       '<label>Name<input data-k="meta::name" value="' + esc(b.meta.name) + '" maxlength="40"></label>' +
       '<label>Currency<select data-k="meta::currency">' + Object.keys(K.CURRENCIES).map((c) => '<option value="' + c + '"' + (b.meta.currency === c ? ' selected' : '') + '>' + c + ' · ' + esc(K.CURRENCIES[c].label) + '</option>').join('') + '</select></label>' +
       '<label class="span2">Warn me when a category reaches <b>' + (b.meta.alertAt || 80) + '%</b><input type="range" min="50" max="100" step="5" data-k="meta::alertAt" value="' + (b.meta.alertAt || 80) + '"></label>' +
-      '</div></div>' +
+      '</div>' +
+      (regionCurrency() && regionCurrency() !== b.meta.currency
+        ? '<div class="fx-convert"><p class="muted small">' + esc(K.t('Your region uses {region}. Convert this budget from {cur} to {region}?', { region: regionCurrency(), cur: b.meta.currency })) + '</p>' +
+          '<button class="btn btn-soft btn-sm" data-act="convert-book" data-to="' + regionCurrency() + '">' + esc(K.t('Convert to {cur}', { cur: regionCurrency() })) + '</button></div>'
+        : '') +
+      '<p class="muted small fx-source">' + esc(K.t('Exchange rates: {source}, {date}. Updated daily.', { source: K.FX.source === 'built-in' ? 'built-in' : K.FX.source || 'open.er-api.com', date: K.FX.date || '—' })) + '</p>' +
+      '</div>' +
       '<div class="card"><div class="card-head"><h3>Preferences</h3></div>' +
       '<div class="pref-row"><span>Language</span>' + langSelect('lang-field') + '</div>' +
       (window.MintLocale ? '<div class="pref-row"><span>Region</span>' + regionSelect() + '</div>' +
-        '<p class="muted small">Your region sets the currency for new budgets. Existing budgets keep theirs.</p>' : '') +
+        '<p class="muted small">Your region sets the currency for new budgets and for converted totals.</p>' : '') +
       '<label class="toggle"><input type="checkbox" data-act-change="toggle-tips"' + (S.profile.tips !== false ? ' checked' : '') + '><span></span>Occasional tips from Mint</label>' +
       '<label class="toggle"><input type="checkbox" data-act-change="toggle-notify"' + (S.profile.notify && notifState === 'granted' ? ' checked' : '') + (notifState === 'unsupported' ? ' disabled' : '') + '><span></span>Browser notifications for warnings & collaborator edits</label>' +
       (notifState === 'denied' ? '<p class="muted small">Notifications are blocked in your browser settings.</p>' : '') +
@@ -1715,7 +2278,7 @@
       '<button class="pref-link hide-sm" data-act="shortcuts">' + icon('keyboard', 18) + '<span>Keyboard shortcuts</span><kbd translate="no">?</kbd></button>' +
       '</div>' +
       updatesCard() +
-      '<div class="card"><div class="card-head"><h3>Your data</h3></div><p class="muted small">Everything lives in this browser. Export a backup any time.</p><div class="row-gap">' +
+      '<div class="card"><div class="card-head"><h3>Your data</h3></div><p class="muted small">' + (window.MintCloud && window.MintCloud.signedIn() ? 'Saved on this device and synced, encrypted, to your account. Export a backup any time.' : 'Everything lives in this browser. Export a backup any time.') + '</p><div class="row-gap">' +
       '<button class="btn btn-soft" data-act="export-json">' + icon('download', 16) + ' Backup (JSON)</button>' +
       '<button class="btn btn-soft" data-act="import-json">' + icon('upload', 16) + ' Restore backup</button>' +
       '<button class="btn btn-soft" data-act="export-csv-all">' + icon('download', 16) + ' All transactions (CSV)</button>' +
@@ -1742,12 +2305,13 @@
       ['wallet', 'A plan from your income', 'Mint turns take-home pay into needs, wants, savings and investing envelopes that fit you.'],
       ['alert', 'Warnings before it hurts', 'Alerts at 80%, at 100% and when your pace says you will overspend, for everyone in the budget.'],
       ['chart', 'Investing portfolio', 'Track holdings, allocation versus target, rebalancing moves and long-term growth.'],
-      ['shield', 'Private by design', 'No account, local-first, end-to-end encrypted sync. The server never sees your numbers.'],
+      ['shield', 'Private by design', 'Local-first and end-to-end encrypted. Sign in only if you want sync across your devices.'],
     ];
     root.innerHTML =
       '<div class="welcome">' +
       '<header class="w-top">' + BRAND + '<div class="w-top-right">' +
-      '<a class="btn btn-ghost btn-sm w-templates" href="' + TEMPLATES_URL + '" data-templates>' + icon('template', 16) + '<span>Templates</span></a>' + langSelect() +
+      '<a class="btn btn-ghost btn-sm w-templates" href="?view=market">' + icon('store', 16) + '<span>Marketplace</span></a>' +
+      (window.MintCloud ? '<button class="btn btn-ghost btn-sm" data-act="account-login">' + icon('cloud', 16) + '<span>Sign in</span></button>' : '') + langSelect() +
       '<button class="icon-btn theme-btn" data-act="theme-welcome" aria-label="Toggle theme" title="Toggle theme">' + themeIcon() + '</button></div></header>' +
       (join
         ? '<section class="card join-card"><p class="eyebrow">' + icon('users', 16) + ' You are invited</p><h2>Join “' + esc(join.name || 'a shared budget') + '”</h2>' +
@@ -1765,6 +2329,7 @@
         : '<button class="btn btn-primary btn-lg" data-act="setup">Get started free ' + icon('right', 18) + '</button>') +
       '<button class="btn btn-ghost btn-lg" data-act="demo">See a live example</button></div>' +
       (hasProfile ? '' : '<p class="w-setup-note">3 quick questions · about 30 seconds</p>') +
+      (window.MintCloud ? '<p class="w-signin">Already use Mint on another device? <button class="link-btn" data-act="account-login">Sign in to sync your budgets</button></p>' : '') +
       '<ul class="trust"><li>' + icon('lock', 14) + '<span>No sign-up, no ads</span></li><li>' + icon('shield', 14) + '<span>End-to-end encrypted</span></li><li>' + icon('users', 14) + '<span>Share with anyone</span></li></ul></div>' +
       '<div class="w-mock" aria-hidden="true">' + welcomeMock() + '</div></section>' +
       '<section class="w-features">' + features.map((f, i) => '<div class="card feat" style="--i:' + i + '"><span class="feat-icon">' + icon(f[0], 18) + '</span><h3>' + esc(f[1]) + '</h3><p>' + esc(f[2]) + '</p></div>').join('') + '</section>' +
@@ -1776,9 +2341,9 @@
         ? '<button class="btn btn-primary btn-lg" data-act="new-book">' + icon('plus', 18) + ' Create a budget</button>'
         : '<button class="btn btn-primary btn-lg" data-act="setup">Get started free ' + icon('right', 18) + '</button>') +
       '</section>' +
-      '<section class="card w-templates-band"><span class="feat-icon">' + icon('template', 18) + '</span><div><h3>Also in Mint: spreadsheet templates</h3>' +
-      '<p class="muted">Describe a sheet in plain words and get a ready Excel or Google Sheets file, or sell your own templates in the marketplace.</p></div>' +
-      '<a class="btn btn-soft" href="' + TEMPLATES_URL + '" data-templates>Open Templates ' + icon('right', 16) + '</a></section>' +
+      '<section class="card w-templates-band"><span class="feat-icon">' + icon('store', 18) + '</span><div><h3>Also in Mint: the Marketplace</h3>' +
+      '<p class="muted">Buy budget plans, investing mixes and spreadsheet templates, generate your own from a sentence, or sell yours.</p></div>' +
+      '<a class="btn btn-soft" href="?view=market">Open Marketplace ' + icon('right', 16) + '</a></section>' +
       '<footer class="w-foot">' + (NATIVE ? '' : '<a class="get-app-link" href="' + GET_APP_URL + '">' + icon('download', 14) + '<span>Get Mint for Windows, Mac, Android & iPhone</span></a>') + '<span>© Mint ' + esc(K.VERSION) + '</span><span>Tips are educational, not financial advice.</span></footer>' +
       '</div>';
   }
@@ -2091,7 +2656,7 @@
       '<form class="qa" autocomplete="off">' +
       '<h2>Add transaction</h2>' +
       '<div class="seg qa-type" role="group"><button type="button" class="is-on" data-type="expense">Expense</button><button type="button" data-type="income">Income</button></div>' +
-      '<label class="qa-amount"><span>' + esc(cur()) + '</span><input name="amount" inputmode="decimal" placeholder="0" autofocus aria-label="Amount"></label>' +
+      '<label class="qa-amount"><select name="cur" class="qa-cur" aria-label="Currency" translate="no">' + currencyOptions(S.profile.lastCur && K.CURRENCIES[S.profile.lastCur] ? S.profile.lastCur : cur()) + '</select><input name="amount" inputmode="decimal" placeholder="0" autofocus aria-label="Amount"></label>' +
       '<p class="qa-preview muted small" aria-live="polite">&nbsp;</p>' +
       '<input name="desc" placeholder="What was it? (optional)" maxlength="80" aria-label="Description" list="qaRecent">' +
       '<datalist id="qaRecent">' + recentDescriptions().map((d) => '<option value="' + esc(d) + '"></option>').join('') + '</datalist>' +
@@ -2110,9 +2675,18 @@
     const autoNote = form.querySelector('.qa-auto');
     const preview = form.querySelector('.qa-preview');
     const warn = form.querySelector('.qa-warn');
+    const curEl = form.cur;
+    // Spent in another currency? Convert to the budget's currency at today's rate and keep the original.
+    const inBase = (raw) => (curEl.value === cur() ? raw : K.roundMoney(K.toBase(raw, curEl.value, cur()), cur()));
     function updatePreview() {
-      const v = K.parseAmount(amountEl.value, cur());
-      preview.textContent = isFinite(v) && v > 0 ? '= ' + fmt(v) : '\u00a0';
+      const raw = K.parseAmount(amountEl.value, curEl.value);
+      const v = isFinite(raw) ? inBase(raw) : raw;
+      preview.textContent =
+        isFinite(v) && v > 0
+          ? curEl.value === cur()
+            ? '= ' + fmt(v)
+            : '≈ ' + fmt(v) + ' · 1 ' + curEl.value + ' = ' + K.fmt(K.rate(curEl.value, cur()), cur())
+          : '\u00a0';
       const r = stats.rows.find((x) => x.id === catId);
       if (r && type === 'expense' && v > 0 && r.limit > 0 && !r.isSaving) {
         const after = (r.spent + v) / r.limit;
@@ -2129,6 +2703,7 @@
       }
     }
     amountEl.addEventListener('input', updatePreview);
+    curEl.addEventListener('change', updatePreview);
     form.desc.addEventListener('input', () => {
       if (pickedByHand || type !== 'expense') return;
       const guess = K.guessCategory(S.book, form.desc.value);
@@ -2161,7 +2736,8 @@
     });
     form.addEventListener('submit', (e) => {
       e.preventDefault();
-      const amount = K.parseAmount(amountEl.value, cur());
+      const original = K.parseAmount(amountEl.value, curEl.value);
+      const amount = isFinite(original) ? inBase(original) : original;
       if (!(amount > 0)) {
         amountEl.classList.add('shake');
         setTimeout(() => amountEl.classList.remove('shake'), 500);
@@ -2169,6 +2745,11 @@
         return;
       }
       const txn = { date: form.date.value || K.today(), desc: form.desc.value.trim().slice(0, 80) || (type === 'income' ? 'Income' : (S.book.categories[catId] || {}).name || 'Expense'), amount: amount, type: type, cat: type === 'income' ? '' : catId, who: form.who.value || me(), createdAt: Date.now() };
+      if (curEl.value !== cur()) txn.fx = { cur: curEl.value, amt: original, rate: K.rate(curEl.value, cur()) };
+      if ((S.profile.lastCur || cur()) !== curEl.value) {
+        S.profile.lastCur = curEl.value === cur() ? '' : curEl.value;
+        saveProfile();
+      }
       const op = put('txns', txn);
       commit(op);
       m.close();
@@ -2220,7 +2801,8 @@
     ];
     const rows = [
       ['goals', 'target', 'Goals', ''],
-      ['invest', 'chart', 'Invest', ''],
+      ['invest', 'chart', 'Invest', 'Portfolio, quiz, tips and news'],
+      ['market', 'store', 'Marketplace', 'Buy, generate and sell templates'],
       ['you', 'user', 'You', persona ? persona.emoji + ' ' + persona.name : 'Find your money animal'],
       ['share', 'users', 'Share', syncInfo()[2]],
       ['settings', 'gear', 'Settings', ''],
@@ -2247,8 +2829,6 @@
               '<span class="more-text"><b>' + esc(r[2]) + '</b>' + (r[3] ? '<small>' + esc(r[3]) + '</small>' : '') + '</span>' + icon('right', 18) + '</button>'
           )
           .join('') +
-        '<a class="more-item more-templates" href="' + TEMPLATES_URL + '" data-templates><span class="more-icon">' + icon('template', 20) + '</span>' +
-        '<span class="more-text"><b>Templates</b><small>Create, buy and sell spreadsheet templates</small></span>' + icon('right', 18) + '</a>' +
         '</nav>',
       { cls: 'modal-more', noFocus: true }
     );
@@ -2512,6 +3092,13 @@
     }
     el.dataset.dirty = '';
     if (curRec[field] === v) return;
+    if (coll === 'meta' && field === 'currency') {
+      el.value = curRec.currency;
+      return changeBookCurrency(v);
+    }
+    if (coll === 'txns' && field === 'amount' && curRec.fx) {
+      return commit(put('txns', { id: id, amount: v, fx: null }));
+    }
     if (coll === 'meta') {
       const patch = {};
       patch[field] = v;
@@ -2522,6 +3109,59 @@
     const rec = { id: id };
     rec[field] = v;
     commit(put(coll, rec));
+  }
+
+  /** Switch a budget's currency: convert every amount at today's rate, or only change the label. */
+  async function changeBookCurrency(to, convertNow) {
+    const from = S.book.meta.currency;
+    if (!K.CURRENCIES[to] || to === from) return;
+    const r = K.rate(from, to);
+    let convert = convertNow;
+    if (convert == null) {
+      convert = await new Promise((resolve) => {
+        const m = modal(
+          '<h2>' + esc(K.t('Switch this budget to {cur}?', { cur: to })) + '</h2>' +
+            '<p class="muted">' + esc(K.t('Convert every amount at today’s rate (1 {from} = {rate} {to}), or keep the numbers and only change the currency label.', { from: from, rate: isFinite(r) ? K.fmtPlain(r, to) : '?', to: to })) + '</p>' +
+            '<div class="row-gap end"><button class="btn btn-ghost" data-no>Cancel</button><button class="btn btn-soft" data-label>Only change the label</button><button class="btn btn-primary" data-yes' + (isFinite(r) ? '' : ' disabled') + '>Convert amounts</button></div>',
+          { cls: 'modal-sm' }
+        );
+        m.el.querySelector('[data-yes]').onclick = () => {
+          m.close();
+          resolve(true);
+        };
+        m.el.querySelector('[data-label]').onclick = () => {
+          m.close();
+          resolve(false);
+        };
+        m.el.querySelector('[data-no]').onclick = () => {
+          m.close();
+          resolve(null);
+        };
+      });
+    }
+    if (convert == null) return render();
+    const ops = [put('meta', { currency: to })];
+    if (convert && isFinite(r)) {
+      const money = (v) => K.roundMoney((Number(v) || 0) * r, to);
+      K.list(S.book, 'categories').forEach((c) => ops.push(put('categories', { id: c.id, limit: money(c.limit) })));
+      K.list(S.book, 'goals').forEach((g) => ops.push(put('goals', { id: g.id, target: money(g.target), saved: money(g.saved) })));
+      K.list(S.book, 'txns').forEach((t) => {
+        // The original amount is kept; if it was paid in the new currency it becomes exact again.
+        const fx = t.fx && t.fx.cur ? t.fx : { cur: from, amt: Number(t.amount) || 0, rate: r };
+        ops.push(put('txns', { id: t.id, amount: fx.cur === to ? fx.amt : money(t.amount), fx: fx.cur === to ? null : fx }));
+      });
+      // Incomes and holdings keep their own currency and convert live.
+      K.list(S.book, 'incomes').forEach((inc) => {
+        if (!inc.cur) ops.push(put('incomes', { id: inc.id, cur: from }));
+      });
+      K.list(S.book, 'holdings').forEach((h) => {
+        if (!h.cur) ops.push(put('holdings', { id: h.id, cur: from }));
+      });
+    }
+    S.proj = null;
+    commit(ops, true);
+    logActivity({ who: me(), icon: '💱', text: convert ? 'converted the budget to ' + to : 'changed the currency to ' + to });
+    toast({ tone: 'good', title: convert ? K.t('Budget converted to {cur}', { cur: to }) : K.t('Currency set to {cur}', { cur: to }) });
   }
 
   // ================================================================ events
@@ -2673,7 +3313,7 @@
     } else if (key === 't') {
       e.preventDefault();
       toggleTheme($('.theme-btn'));
-    } else if (/^[1-8]$/.test(key)) {
+    } else if (/^[1-9]$/.test(key)) {
       e.preventDefault();
       go(VIEWS[Number(key) - 1].id);
     } else if (key === '/') {
@@ -2698,7 +3338,8 @@
       toast({ tone: 'warn', title: 'Add a symbol, quantity and cost' });
       return;
     }
-    commit(put('holdings', { symbol: symbol, name: get('name').value.trim().slice(0, 60), cls: get('cls').value, qty: qty, cost: cost, price: isFinite(price) ? price : cost }));
+    const hcur = get('cur') ? get('cur').value : cur();
+    commit(put('holdings', { symbol: symbol, name: get('name').value.trim().slice(0, 60), cls: get('cls').value, cur: hcur, qty: qty, cost: cost, price: isFinite(price) ? price : cost }));
     setTimeout(() => {
       const s = $('[data-nh="symbol"]');
       if (s) s.focus();
@@ -2978,6 +3619,7 @@
         store.del('mint.budget.book.' + id);
         store.del('mint.budget.activity.' + id);
         store.del('mint.budget.sync.' + id);
+        if (S.cloud) S.cloud.bookDeleted(id);
         S.books = S.books.filter((b) => b.id !== id);
         store.set('mint.budget.books', S.books);
         S.book = null;
@@ -2996,6 +3638,66 @@
         location.href = location.pathname;
         return;
       }
+      case 'sell-plan':
+        return sellToMarket('plan');
+      case 'sell-mix':
+        return sellToMarket('mix');
+      case 'invest-tab':
+        S.investTab = el.dataset.tab || 'portfolio';
+        S.animateNext = true;
+        return render();
+      case 'quiz-start':
+        S.quiz = { i: 0, score: 0, picked: null };
+        return render();
+      case 'quiz-answer': {
+        if (!S.quiz || S.quiz.picked != null) return;
+        const q = K.INVEST_QUIZ[S.quiz.i];
+        S.quiz.picked = Number(el.dataset.i);
+        if (S.quiz.picked === q.a) {
+          S.quiz.score++;
+          haptic('tap');
+        }
+        return render();
+      }
+      case 'quiz-next': {
+        if (!S.quiz) return;
+        S.quiz.i++;
+        S.quiz.picked = null;
+        if (S.quiz.i >= K.INVEST_QUIZ.length) {
+          const prev = S.profile.investQuiz || {};
+          S.profile.investQuiz = { best: Math.max(prev.best || 0, S.quiz.score), last: S.quiz.score, at: Date.now() };
+          saveProfile();
+          if (S.quiz.score >= K.INVEST_QUIZ.length - 1) ui.confetti();
+        }
+        return render();
+      }
+      case 'news-refresh':
+        loadNews(true);
+        return render();
+      case 'account-login':
+        return openAccount('login');
+      case 'account-register':
+        return openAccount('register');
+      case 'unlock-sync':
+        return openAccount('unlock');
+      case 'new-recovery':
+        return openAccount('recovery');
+      case 'sync-now':
+        if (S.cloud) {
+          await S.cloud.run();
+          toast({ tone: S.cloudStatus === 'synced' ? 'good' : 'warn', title: S.cloudStatus === 'synced' ? 'Everything is synced' : S.cloudDetail || 'Sync will retry shortly' });
+        }
+        return render();
+      case 'account-logout': {
+        const ok = await confirmModal({ title: 'Sign out on this device?', body: 'Your budgets stay on this device. They stop syncing until you sign in again.', ok: 'Sign out' });
+        if (!ok) return;
+        await window.MintCloud.logout();
+        if (S.cloud) S.cloud.reset();
+        toast({ title: 'Signed out' });
+        return render();
+      }
+      case 'convert-book':
+        return changeBookCurrency(el.dataset.to, true);
       default:
         return;
     }
@@ -3254,6 +3956,8 @@
 
   // ================================================================ boot
   function boot() {
+    loadRates();
+    setupCloud();
     const returning = !!(S.profile && S.books.length);
     const join = K.parseJoin(location.hash);
     if (join) S.pendingJoin = join;
@@ -3301,11 +4005,31 @@
         .catch(() => {});
     }
     if (params.get('add') === '1' && S.book) setTimeout(openQuickAdd, 400);
+    if (params.get('importPlan') === '1') {
+      const pending = store.get('mint.plan.import', null);
+      store.del('mint.plan.import');
+      if (pending) setTimeout(() => importTemplate(pending), 400);
+    }
     setupNative();
     window.__mintNative = { native: NATIVE, platform: NATIVE_PLATFORM };
     window.__mintReady = true;
   }
 
-  window.MintBudgetApp = { state: S, render: render, commit: commit, put: put, openBook: openBook, startQuiz: startQuiz, loadDemo: loadDemo };
+  window.MintBudgetApp = {
+    state: S,
+    render: render,
+    commit: commit,
+    put: put,
+    openBook: openBook,
+    startQuiz: startQuiz,
+    loadDemo: loadDemo,
+    // Used by the embedded Marketplace (same origin).
+    importTemplate: importTemplate,
+    canImport: (spec) => !!K.specToPlan(spec),
+    hasBudget: () => !!S.book,
+    openMarket: openMarket,
+    goView: (v) => go(v),
+    openAccount: openAccount,
+  };
   boot();
 })();

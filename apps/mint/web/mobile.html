@@ -14,6 +14,22 @@
   <link rel="icon" href="icons/app-icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <link rel="stylesheet" href="app.css">
+  <script>
+    // Templates now live in Mint as the Marketplace tab. Old links (app.html#/item/…, ?ref=, ?coupon=) open it there.
+    (function () {
+      var q = location.search || '';
+      if (/[?&](embed|standalone)=1(&|$)/.test(q)) return;
+      var inParams = new URLSearchParams(q);
+      var out = new URLSearchParams();
+      ['ref', 'coupon', 'api'].forEach(function (k) {
+        if (inParams.get(k)) out.set(k, inParams.get(k));
+      });
+      out.set('view', 'market');
+      var route = (location.hash || '').replace(/^#/, '');
+      if (route && route !== '/') out.set('m', route);
+      location.replace('budget/?' + out.toString());
+    })();
+  </script>
   <script src="js/locale.js"></script>
   <script>
     (function () {
@@ -61,6 +77,7 @@
   <script src="js/core.js"></script>
   <script src="js/xlsx.js"></script>
   <script src="js/guides.js"></script>
+  <script src="js/mint-cloud.js"></script>
   <script src="js/store.js"></script>
   <script src="js/i18n.js"></script>
   <script src="js/app.js"></script>

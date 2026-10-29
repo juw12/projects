@@ -13,13 +13,25 @@
   <link rel="icon" href="icons/app-icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <script>
-    // Mint's front door. Budget is the home; template links (#/market, #/item/…, ?ref=, ?coupon=)
-    // still open the Templates studio, exactly as they did when this page was the studio itself.
+    // Mint's front door. Budget is the home; template links (#/market, #/item/…, ?ref=, ?coupon=) open the
+    // Marketplace tab inside Mint, exactly where the Templates studio used to be.
     (function () {
       var hash = location.hash || '';
       var search = location.search || '';
-      var templates = /^#\//.test(hash) || /[?&](ref|coupon|listing|item|api)=/.test(search);
-      location.replace((templates ? 'app.html' : 'budget/') + search + hash);
+      var templates = /^#\//.test(hash) || /[?&](ref|coupon|listing|item)=/.test(search);
+      if (!templates) {
+        location.replace('budget/' + search + hash);
+        return;
+      }
+      var inParams = new URLSearchParams(search);
+      var out = new URLSearchParams();
+      ['ref', 'coupon', 'api'].forEach(function (k) {
+        if (inParams.get(k)) out.set(k, inParams.get(k));
+      });
+      out.set('view', 'market');
+      var route = hash.replace(/^#/, '');
+      if (route && route !== '/') out.set('m', route);
+      location.replace('budget/?' + out.toString());
     })();
   </script>
   <noscript><meta http-equiv="refresh" content="0; url=budget/"></noscript>

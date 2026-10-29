@@ -1497,3 +1497,84 @@ form[data-payout] input { margin: 6px 0; }
   color: var(--text);
   font-weight: 700;
 }
+
+/* ---------------- embedded in Mint Budget (Marketplace tab): same look as Budget ---------------- */
+html.embed {
+  --bg: #f6f6f7;
+  --panel: #ffffff;
+  --panel-2: #f4f4f5;
+  --line: rgba(10, 10, 20, 0.1);
+  --text: #0b0b0f;
+  --muted: #6b6b76;
+  --brand: #0b8564;
+  --brand-ink: #ffffff;
+  --brand-soft: rgba(15, 157, 118, 0.1);
+  --bad: #e11d48;
+  --warn: #d97706;
+  --good: #16a34a;
+  --radius: 16px;
+  --shadow: 0 1px 2px rgba(10, 10, 20, 0.04), 0 4px 16px rgba(10, 10, 20, 0.05);
+}
+html.embed[data-ui="dark"] {
+  --bg: #09090b;
+  --panel: #131316;
+  --panel-2: #1a1a1e;
+  --line: rgba(255, 255, 255, 0.09);
+  --text: #f4f4f5;
+  --muted: #a1a1aa;
+  --brand: #34d399;
+  --brand-ink: #04211a;
+  --brand-soft: rgba(52, 211, 153, 0.14);
+  --bad: #fb7185;
+  --warn: #f59e0b;
+  --good: #22c55e;
+}
+html.embed body {
+  font-family: "Inter", ui-sans-serif, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI Variable", "Segoe UI", Roboto, "Helvetica Neue", "PingFang SC", "Microsoft YaHei", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+html.embed .top,
+html.embed .foot,
+html.embed .tabbar,
+html.embed .skip { display: none !important; }
+html.embed main#view { padding-top: 6px; padding-bottom: 24px; }
+html.embed .btn { border-radius: 999px; font-weight: 600; }
+html.embed .panel,
+html.embed .card,
+html.embed .tile { border-radius: var(--radius); }
+html.embed input,
+html.embed select,
+html.embed textarea { border-radius: 10px; }
+.embed-chips {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 16px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--line);
+}
+.embed-chips::-webkit-scrollbar { display: none; }
+.embed-chips a {
+  flex: none;
+  padding: 8px 14px;
+  border-radius: 999px;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text);
+  background: var(--panel-2);
+  border: 1px solid transparent;
+  white-space: nowrap;
+  transition: background .15s, color .15s;
+}
+.embed-chips a:hover { background: var(--brand-soft); }
+.embed-chips a.on { background: var(--brand); color: var(--brand-ink); }
+.embed-chips a.quiet { background: transparent; color: var(--muted); font-weight: 500; }
+.embed-chips a.quiet.on { color: var(--brand); background: var(--brand-soft); }
+.embed-chips .grow { flex: 1; min-width: 8px; }

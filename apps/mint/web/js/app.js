@@ -26,6 +26,15 @@
   // The Mint apps workflow refreshes this file with every Android build (it is the link older pages used too).
   var APK_URL = "https://github.com/juw12/projects/releases/download/mint-android/Mint-android.apk";
   var BASE_TITLE = document.title;
+  // Inside Mint Budget's Marketplace view (an iframe): Budget draws the app chrome, this page shows a chip bar.
+  var EMBED = /[?&]embed=1(&|$)/.test(location.search);
+  function budgetHost() {
+    try {
+      return EMBED && window.parent !== window && window.parent.MintBudgetApp ? window.parent.MintBudgetApp : null;
+    } catch (err) {
+      return null;
+    }
+  }
   var installPrompt = null;
   var countsAt = 0;
 
@@ -48,8 +57,28 @@
     return Core.formatValue(value, "currency", currency || "USD");
   }
 
+  // Buyers see prices in the seller's currency plus an estimate in their own region's currency
+  // (daily rates cached by Mint Budget in "mint.fx").
+  function approxPrice(value, currency) {
+    try {
+      var target = localStorage.getItem("mint.currency");
+      var fx = JSON.parse(localStorage.getItem("mint.fx") || "null");
+      if (!target || target === currency || !Core.CURRENCIES[target] || !fx || !fx.rates) {
+        return "";
+      }
+      var a = Number(fx.rates[currency]);
+      var b = Number(fx.rates[target]);
+      if (!(a > 0 && b > 0)) {
+        return "";
+      }
+      return " \u00b7 \u2248 " + money(value * (b / a), target);
+    } catch (err) {
+      return "";
+    }
+  }
+
   function priceLabel(l) {
-    return l.price > 0 ? money(l.price, l.currency) : "Free";
+    return l.price > 0 ? money(l.price, l.currency) + approxPrice(l.price, l.currency) : "Free";
   }
 
   function stars(rating) {
@@ -876,7 +905,10 @@
       if (l.isSeller) {
         buyArea = "<p class=\"note\">This is your listing.</p><a class=\"btn block\" href=\"#/kit/" + encodeURIComponent(l.id) + "\">\ud83d\udce3 Content kit</a>";
       } else if (owned) {
-        buyArea = "<p class=\"okline\">\u2714 In your library</p><button class=\"btn primary block\" data-dl=\"xlsx\">\u2b07 Download .xlsx</button><button class=\"btn block\" data-dl=\"csv\">\u2b07 CSV</button>";
+        var mintKind = /^mint-(budget-plan|invest-mix)$/.test(l.spec.blueprint || "");
+        buyArea = "<p class=\"okline\">\u2714 In your library</p>" +
+          (mintKind ? "<button class=\"btn primary block\" data-use-mint>" + (l.spec.blueprint === "mint-invest-mix" ? "\ud83d\udcc8 Use as my investing target" : "\ud83d\udcb0 Use in my budget") + "</button>" : "") +
+          "<button class=\"btn " + (mintKind ? "" : "primary ") + "block\" data-dl=\"xlsx\">\u2b07 Download .xlsx</button><button class=\"btn block\" data-dl=\"csv\">\u2b07 CSV</button>";
       } else if (l.pendingOrder && l.pendingOrder.autoPay) {
         var ao = l.pendingOrder;
         buyArea = "<div class=\"orderbox\" data-autopay-order><p class=\"small\"><strong>Order " + esc(ao.ref) + "</strong> \u2014 waiting for payment</p>" +
@@ -919,6 +951,20 @@
       view.onclick = function (e) {
         var b = e.target.closest("button");
         if (!b) {
+          return;
+        }
+        if (b.hasAttribute("data-use-mint")) {
+          var host = budgetHost();
+          if (host && host.importTemplate) {
+            host.importTemplate(l.spec);
+          } else {
+            try {
+              localStorage.setItem("mint.plan.import", JSON.stringify(l.spec));
+            } catch (err) {
+              /* ignore */
+            }
+            window.location.href = "budget/?view=budget&importPlan=1";
+          }
           return;
         }
         if (b.hasAttribute("data-buy")) {
@@ -2073,7 +2119,47 @@
   }
 
   // ------------------------------------------------------------------ shell
+  var CHIP_FOR = { "": "market", market: "market", item: "market", create: "create", sell: "sell", publish: "sell", library: "sell", affiliate: "affiliate", kit: "affiliate", guides: "guides", account: "account" };
+  function renderChips() {
+    var nav = document.getElementById("embedChips");
+    if (!nav) {
+      return;
+    }
+    var on = CHIP_FOR[route().parts[0] || ""] || "";
+    nav.querySelectorAll("[data-chip]").forEach(function (a) {
+      a.classList.toggle("on", a.dataset.chip === on);
+      if (a.dataset.chip === on) {
+        a.setAttribute("aria-current", "page");
+      } else {
+        a.removeAttribute("aria-current");
+      }
+    });
+    var acc = document.getElementById("embedAccount");
+    if (acc) {
+      acc.textContent = user ? "\ud83d\udc64 " + user.name.split(" ")[0] : "Log in";
+    }
+  }
+
+  function buildChips() {
+    var nav = document.createElement("nav");
+    nav.id = "embedChips";
+    nav.className = "embed-chips";
+    nav.setAttribute("aria-label", "Marketplace");
+    nav.innerHTML =
+      "<a href=\"#/market\" data-chip=\"market\">\ud83d\udecd\ufe0f Browse</a>" +
+      "<a href=\"#/create\" data-chip=\"create\">\u2728 Generate</a>" +
+      "<a href=\"#/sell\" data-chip=\"sell\">\ud83c\udff7\ufe0f Sell</a>" +
+      "<a href=\"#/affiliate\" data-chip=\"affiliate\">\ud83e\udd1d Earn</a>" +
+      "<span class=\"grow\"></span>" +
+      "<a href=\"#/guides\" data-chip=\"guides\" class=\"quiet\">Help</a>" +
+      "<a href=\"#/account\" data-chip=\"account\" class=\"quiet\" id=\"embedAccount\">Log in</a>";
+    document.body.insertBefore(nav, document.getElementById("view"));
+  }
+
   function renderHeader() {
+    if (EMBED) {
+      renderChips();
+    }
     var acc = document.getElementById("accountBtn");
     acc.textContent = user ? user.name.split(" ")[0] : "Log in";
     document.getElementById("modeBadge").textContent = store.mode === "cloud" ? "Live" : "Offline";
@@ -2094,6 +2180,15 @@
     refreshCounts(false);
     window.scrollTo(0, 0);
     var page = r.parts[0] || "";
+    if (EMBED && !page) {
+      location.replace("#/market");
+      return;
+    }
+    if (page === "create" && r.query.from === "budget") {
+      // A budget plan or investing mix handed over by Mint Budget's "Sell" button.
+      loadDraftLocal();
+      history.replaceState(null, "", location.pathname + location.search + "#/create");
+    }
     if (page === "create") {
       viewStudio();
       view.onchange = studioChange;
@@ -2202,6 +2297,10 @@
 
   function init() {
     view = document.getElementById("view");
+    if (EMBED) {
+      document.documentElement.classList.add("embed");
+      buildChips();
+    }
     applyUiTheme();
     if (window.matchMedia) {
       var scheme = window.matchMedia("(prefers-color-scheme: dark)");

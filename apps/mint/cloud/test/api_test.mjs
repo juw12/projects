@@ -766,7 +766,7 @@ assert.equal(r.status, 200, JSON.stringify(r.data));
 assert.equal(r.data.base, "USD");
 assert.equal(r.data.rates.IDR, 16300);
 assert.equal(r.data.rates.bogus, undefined);
-assert.equal(r.headers.get("access-control-allow-origin"), ORIGIN);
+assert.equal(r.headers.get("access-control-allow-origin"), "*", "public read-only data is open to every origin (desktop and phone apps too)");
 r = await api("GET", "news?region=ID&lang=id");
 assert.equal(r.status, 200, JSON.stringify(r.data));
 assert.equal(r.data.edition, "ID:id");

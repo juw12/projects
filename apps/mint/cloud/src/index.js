@@ -66,11 +66,13 @@ export default {
     if (!url.pathname.startsWith("/api/")) {
       return json({ ok: true, app: APP, hint: "API lives under /api/" }, 200, cors);
     }
+    // Public, read-only data (exchange rates, headlines): any origin may read it, including the desktop and phone apps.
+    const publicCors = { ...cors, "Access-Control-Allow-Origin": "*" };
     if (request.method === "GET" && url.pathname === "/api/fx") {
-      return withCors(await fxRates(env), cors);
+      return withCors(await fxRates(env), publicCors);
     }
     if (request.method === "GET" && url.pathname === "/api/news") {
-      return withCors(await moneyNews(env, url), cors);
+      return withCors(await moneyNews(env, url), publicCors);
     }
     const id = env.MINT_DB.idFromName("main");
     const headers = new Headers(request.headers);

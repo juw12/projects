@@ -850,3 +850,209 @@ Describe a sheet in plain words and get a ready Excel or Google Sheets file, or 
 Open Templates || Buka Template || 打开模板 || Abrir Plantillas
 Save or share || Simpan atau bagikan || 保存或分享 || Guardar o compartir
 Could not save the file || Tidak bisa menyimpan file || 无法保存文件 || No se pudo guardar el archivo
+
+# Mint 3.2: currencies, Invest learn/tips/news, Marketplace tab, account sync
+Marketplace || Marketplace || 市场 || Mercado
+Open Marketplace || Buka Marketplace || 打开市场 || Abrir Mercado
+Also in Mint: the Marketplace || Juga di Mint: Marketplace || Mint 里还有：市场 || También en Mint: el Mercado
+Buy, generate and sell templates || Beli, buat, dan jual template || 购买、生成和出售模板 || Compra, genera y vende plantillas
+Buy budget plans, investing mixes and spreadsheet templates, generate your own from a sentence, or sell yours. || Beli rencana anggaran, komposisi investasi, dan template spreadsheet, buat sendiri dari satu kalimat, atau jual milikmu. || 购买预算方案、投资组合和电子表格模板，用一句话生成你自己的，或出售你的作品。 || Compra planes de presupuesto, mezclas de inversión y plantillas de hojas de cálculo, genera la tuya con una frase o vende las tuyas.
+Portfolio, quiz, tips and news || Portofolio, kuis, tips, dan berita || 投资组合、测验、建议和新闻 || Cartera, cuestionario, consejos y noticias
+Sign in || Masuk || 登录 || Iniciar sesión
+Sign out || Keluar || 退出登录 || Cerrar sesión
+Sign in to Mint || Masuk ke Mint || 登录 Mint || Inicia sesión en Mint
+Create your Mint account || Buat akun Mint || 创建你的 Mint 账户 || Crea tu cuenta de Mint
+Create account || Buat akun || 创建账户 || Crear cuenta
+I have an account || Saya sudah punya akun || 我已有账户 || Ya tengo cuenta
+Email || Email || 邮箱 || Correo
+Password || Kata sandi || 密码 || Contraseña
+Unlock || Buka kunci || 解锁 || Desbloquear
+Unlock sync || Buka kunci sinkronisasi || 解锁同步 || Desbloquear sincronización
+New recovery code || Kode pemulihan baru || 新的恢复码 || Nuevo código de recuperación
+Create code || Buat kode || 生成恢复码 || Crear código
+One account for syncing your budgets and for the Marketplace. || Satu akun untuk menyinkronkan anggaran dan untuk Marketplace. || 一个账户，既用于同步预算，也用于市场。 || Una cuenta para sincronizar tus presupuestos y para el Mercado.
+Enter your password to unlock your encrypted budgets on this device. || Masukkan kata sandi untuk membuka anggaran terenkripsi di perangkat ini. || 输入密码，在本设备上解锁你的加密预算。 || Escribe tu contraseña para desbloquear tus presupuestos cifrados en este dispositivo.
+Enter your password to create a new recovery code. The old one stops working. || Masukkan kata sandi untuk membuat kode pemulihan baru. Kode lama tidak berlaku lagi. || 输入密码以生成新的恢复码，旧恢复码将失效。 || Escribe tu contraseña para crear un código de recuperación nuevo. El anterior deja de funcionar.
+Forgot your password? Reset it with your recovery code in Marketplace → Account. || Lupa kata sandi? Atur ulang dengan kode pemulihan di Marketplace → Akun. || 忘记密码？可在“市场 → 账户”中用恢复码重设。 || ¿Olvidaste tu contraseña? Restablécela con tu código de recuperación en Mercado → Cuenta.
+Already use Mint on another device? || Sudah pakai Mint di perangkat lain? || 已经在其他设备上使用 Mint？ || ¿Ya usas Mint en otro dispositivo?
+Local-first and end-to-end encrypted. Sign in only if you want sync across your devices. || Data disimpan lokal dan terenkripsi end-to-end. Masuk hanya jika kamu ingin sinkronisasi antarperangkat. || 数据优先保存在本地并端到端加密。只有需要跨设备同步时才需登录。 || Primero en tu dispositivo y con cifrado de extremo a extremo. Inicia sesión solo si quieres sincronizar entre dispositivos.
+Sign in to sync your budgets || Masuk untuk menyinkronkan anggaranmu || 登录以同步你的预算 || Inicia sesión para sincronizar tus presupuestos
+Sign in with your Mint account to keep budgets, goals and investments in step on your phone, computer and tablet. Everything is encrypted on this device first. || Masuk dengan akun Mint agar anggaran, target, dan investasi tetap sama di ponsel, komputer, dan tablet. Semuanya dienkripsi dulu di perangkat ini. || 使用 Mint 账户登录，让预算、目标和投资在手机、电脑和平板上保持一致。所有数据都会先在本设备上加密。 || Inicia sesión con tu cuenta de Mint para mantener presupuestos, metas e inversiones al día en tu teléfono, ordenador y tableta. Todo se cifra primero en este dispositivo.
+Sync across devices || Sinkron antarperangkat || 跨设备同步 || Sincroniza entre dispositivos
+Account & sync || Akun & sinkronisasi || 账户与同步 || Cuenta y sincronización
+Encrypted on this device before upload, so Mint’s server cannot read your budgets. The same account works in the Marketplace. || Dienkripsi di perangkat ini sebelum diunggah, sehingga server Mint tidak bisa membaca anggaranmu. Akun yang sama berlaku di Marketplace. || 上传前已在本设备上加密，Mint 的服务器无法读取你的预算。同一个账户也可在市场中使用。 || Se cifra en este dispositivo antes de subirse, así que el servidor de Mint no puede leer tus presupuestos. La misma cuenta sirve en el Mercado.
+Saved on this device and synced, encrypted, to your account. Export a backup any time. || Disimpan di perangkat ini dan disinkronkan secara terenkripsi ke akunmu. Ekspor cadangan kapan saja. || 保存在本设备上，并以加密方式同步到你的账户。随时可以导出备份。 || Se guarda en este dispositivo y se sincroniza, cifrado, con tu cuenta. Exporta una copia cuando quieras.
+Sync now || Sinkronkan sekarang || 立即同步 || Sincronizar ahora
+Sync is on || Sinkronisasi aktif || 同步已开启 || Sincronización activada
+Synced || Tersinkron || 已同步 || Sincronizado
+Everything is synced || Semua sudah tersinkron || 全部已同步 || Todo está sincronizado
+Not syncing || Tidak menyinkronkan || 未同步 || Sin sincronizar
+Sync locked || Sinkronisasi terkunci || 同步已锁定 || Sincronización bloqueada
+Locked · enter your password to sync || Terkunci · masukkan kata sandi untuk sinkronisasi || 已锁定 · 输入密码以同步 || Bloqueado · escribe tu contraseña para sincronizar
+Offline · syncs when you are back online || Offline · sinkron saat kamu kembali online || 离线 · 恢复联网后自动同步 || Sin conexión · se sincroniza cuando vuelvas a estar en línea
+Sync will retry shortly || Sinkronisasi akan dicoba lagi sebentar lagi || 稍后将重试同步 || La sincronización se reintentará en breve
+Signed in, but sync is locked || Sudah masuk, tetapi sinkronisasi terkunci || 已登录，但同步已锁定 || Sesión iniciada, pero la sincronización está bloqueada
+Signed out || Sudah keluar || 已退出登录 || Sesión cerrada
+Sign out on this device? || Keluar di perangkat ini? || 要在本设备上退出登录吗？ || ¿Cerrar sesión en este dispositivo?
+Your budgets stay on this device. They stop syncing until you sign in again. || Anggaranmu tetap di perangkat ini dan berhenti tersinkron sampai kamu masuk lagi. || 你的预算仍保留在本设备上，在你再次登录前不会同步。 || Tus presupuestos se quedan en este dispositivo. Dejan de sincronizarse hasta que vuelvas a iniciar sesión.
+Your budgets now follow you to every device you sign in on. || Anggaranmu kini mengikutimu ke setiap perangkat tempat kamu masuk. || 现在你的预算会出现在你登录的每台设备上。 || Ahora tus presupuestos te siguen a cada dispositivo donde inicies sesión.
+Save your recovery code || Simpan kode pemulihanmu || 保存你的恢复码 || Guarda tu código de recuperación
+If you forget your password, this code resets it and keeps your synced budgets readable. Mint cannot show it again. || Jika lupa kata sandi, kode ini mengatur ulangnya dan menjaga anggaran tersinkronmu tetap terbaca. Mint tidak bisa menampilkannya lagi. || 忘记密码时，此恢复码可重设密码并让已同步的预算保持可读。Mint 无法再次显示它。 || Si olvidas tu contraseña, este código la restablece y mantiene legibles tus presupuestos sincronizados. Mint no puede volver a mostrarlo.
+I saved it || Sudah saya simpan || 我已保存 || Ya lo guardé
+Copied || Disalin || 已复制 || Copiado
+Something went wrong || Terjadi kesalahan || 出了点问题 || Algo salió mal
+Could not unlock synced data on this device. Sign in again. || Tidak bisa membuka data tersinkron di perangkat ini. Masuk lagi. || 无法在本设备上解锁已同步的数据，请重新登录。 || No se pudieron desbloquear los datos sincronizados en este dispositivo. Vuelve a iniciar sesión.
+This account’s sync key changed on another device. Sign in again to unlock it. || Kunci sinkronisasi akun ini berubah di perangkat lain. Masuk lagi untuk membukanya. || 此账户的同步密钥已在另一台设备上更改，请重新登录以解锁。 || La clave de sincronización de esta cuenta cambió en otro dispositivo. Vuelve a iniciar sesión para desbloquearla.
+Your synced data was locked with an older password. Use Unlock sync in Settings. || Data tersinkronmu dikunci dengan kata sandi lama. Gunakan Buka kunci sinkronisasi di Pengaturan. || 你的同步数据使用旧密码加密，请在设置中使用“解锁同步”。 || Tus datos sincronizados se bloquearon con una contraseña anterior. Usa Desbloquear sincronización en Ajustes.
+A budget is too large to sync. Archive old transactions to a backup. || Ada anggaran yang terlalu besar untuk disinkronkan. Arsipkan transaksi lama ke cadangan. || 有预算过大，无法同步。请把旧交易归档到备份中。 || Un presupuesto es demasiado grande para sincronizarse. Archiva los movimientos antiguos en una copia.
+Exchange rates: {source}, {date}. Updated daily. || Kurs: {source}, {date}. Diperbarui setiap hari. || 汇率：{source}，{date}。每日更新。 || Tipos de cambio: {source}, {date}. Se actualizan a diario.
+Your region sets the currency for new budgets and for converted totals. || Wilayahmu menentukan mata uang untuk anggaran baru dan total hasil konversi. || 你的地区决定新预算和换算总额使用的货币。 || Tu región define la moneda de los presupuestos nuevos y de los totales convertidos.
+Prices are in each holding’s currency; values are converted to {cur}. || Harga dalam mata uang tiap aset; nilai dikonversi ke {cur}. || 价格按各持仓的货币计价，市值换算为 {cur}。 || Los precios están en la moneda de cada inversión; los valores se convierten a {cur}.
+Income in other currencies is converted to {cur} at today’s rate. || Pemasukan dalam mata uang lain dikonversi ke {cur} dengan kurs hari ini. || 其他货币的收入按今日汇率换算为 {cur}。 || Los ingresos en otras monedas se convierten a {cur} al tipo de hoy.
+Paid in {cur} || Dibayar dalam {cur} || 以 {cur} 支付 || Pagado en {cur}
+Currency counts too || Mata uang juga berpengaruh || 货币也很重要 || La moneda también cuenta
+Switch this budget to {cur}? || Ganti anggaran ini ke {cur}? || 要把这份预算切换为 {cur} 吗？ || ¿Cambiar este presupuesto a {cur}?
+Convert every amount at today’s rate (1 {from} = {rate} {to}), or keep the numbers and only change the currency label. || Konversi semua jumlah dengan kurs hari ini (1 {from} = {rate} {to}), atau pertahankan angkanya dan hanya ganti label mata uang. || 按今日汇率（1 {from} = {rate} {to}）换算所有金额，或保留数字、只更改货币标签。 || Convierte cada importe al tipo de hoy (1 {from} = {rate} {to}) o conserva las cifras y cambia solo la etiqueta de la moneda.
+Convert to {cur} || Konversi ke {cur} || 换算为 {cur} || Convertir a {cur}
+Only change the label || Hanya ganti label || 只改标签 || Cambiar solo la etiqueta
+Budget converted to {cur} || Anggaran dikonversi ke {cur} || 预算已换算为 {cur} || Presupuesto convertido a {cur}
+Currency set to {cur} || Mata uang diatur ke {cur} || 货币已设为 {cur} || Moneda cambiada a {cur}
+Your region uses {region}. Convert this budget from {cur} to {region}? || Wilayahmu memakai {region}. Konversi anggaran ini dari {cur} ke {region}? || 你所在地区使用 {region}。要把这份预算从 {cur} 换算为 {region} 吗？ || Tu región usa {region}. ¿Convertir este presupuesto de {cur} a {region}?
+Portfolio || Portofolio || 投资组合 || Cartera
+Learn || Belajar || 学习 || Aprender
+Tips || Tips || 建议 || Consejos
+News || Berita || 新闻 || Noticias
+Refresh || Muat ulang || 刷新 || Actualizar
+Money news · {region} || Berita keuangan · {region} || 财经新闻 · {region} || Noticias de dinero · {region}
+Loading headlines… || Memuat berita utama… || 正在加载新闻… || Cargando titulares…
+Could not load news right now. Check your connection and try again. || Berita belum bisa dimuat. Periksa koneksimu dan coba lagi. || 暂时无法加载新闻，请检查网络后重试。 || No se pudieron cargar las noticias. Revisa tu conexión e inténtalo de nuevo.
+Showing saved headlines (offline). || Menampilkan berita tersimpan (offline). || 正在显示已保存的新闻（离线）。 || Mostrando titulares guardados (sin conexión).
+Headlines from {source}. Mint does not write or endorse them. Not financial advice. || Berita dari {source}. Mint tidak menulis atau mendukungnya. Bukan saran keuangan. || 新闻来自 {source}。Mint 不撰写也不认可这些内容。不构成理财建议。 || Titulares de {source}. Mint no los escribe ni los respalda. No es asesoramiento financiero.
+news publishers || penerbit berita || 新闻媒体 || medios de noticias
+Investing basics quiz || Kuis dasar investasi || 投资基础测验 || Cuestionario de inversión básica
+12 quick questions on compounding, risk, fees and more. Every answer teaches you something. || 12 pertanyaan singkat tentang bunga majemuk, risiko, biaya, dan lainnya. Setiap jawaban mengajarkan sesuatu. || 12 道关于复利、风险、费用等的小题，每个答案都能学到东西。 || 12 preguntas rápidas sobre interés compuesto, riesgo, comisiones y más. Cada respuesta te enseña algo.
+Start the quiz || Mulai kuis || 开始测验 || Empezar el cuestionario
+Question {n} of {total} || Pertanyaan {n} dari {total} || 第 {n} 题，共 {total} 题 || Pregunta {n} de {total}
+Next question || Pertanyaan berikutnya || 下一题 || Siguiente pregunta
+See my score || Lihat skorku || 查看得分 || Ver mi puntuación
+Correct! || Benar! || 答对了！ || ¡Correcto!
+Not quite. || Belum tepat. || 不太对。 || No exactamente.
+You got {score} of {total} right || Kamu menjawab benar {score} dari {total} || 你答对了 {score} / {total} 题 || Acertaste {score} de {total}
+Best score {score} / {total} || Skor terbaik {score} / {total} || 最高分 {score} / {total} || Mejor puntuación {score} / {total}
+Try again || Coba lagi || 再试一次 || Intentar de nuevo
+Take it again || Ulangi kuis || 再做一次 || Hacerlo otra vez
+See my tips || Lihat tipsku || 查看我的建议 || Ver mis consejos
+Money master || Jago keuangan || 理财达人 || Maestro del dinero
+Smart investor || Investor cerdas || 聪明投资者 || Inversor inteligente
+Getting there || Hampir sampai || 渐入佳境 || Vas bien
+Just starting || Baru mulai || 刚刚起步 || Empezando
+Compounding || Bunga majemuk || 复利 || Interés compuesto
+Risk and return || Risiko dan imbal hasil || 风险与回报 || Riesgo y rentabilidad
+Diversification || Diversifikasi || 分散投资 || Diversificación
+Fees || Biaya || 费用 || Comisiones
+Inflation || Inflasi || 通货膨胀 || Inflación
+Index funds || Reksa dana indeks || 指数基金 || Fondos indexados
+Dollar-cost averaging || Investasi rutin (DCA) || 定投 || Inversión periódica
+Staying calm || Tetap tenang || 保持冷静 || Mantener la calma
+Rebalancing || Penyeimbangan ulang || 再平衡 || Rebalanceo
+Safety net || Jaring pengaman || 安全垫 || Colchón de seguridad
+Time horizon || Jangka waktu || 投资期限 || Horizonte temporal
+Scams || Penipuan || 骗局 || Estafas
+You invest once and it grows 7% a year. Roughly how long until it doubles? || Kamu berinvestasi sekali dan tumbuh 7% per tahun. Kira-kira berapa lama sampai jadi dua kali lipat? || 一次性投资，每年增长 7%。大约多久会翻倍？ || Inviertes una vez y crece un 7% al año. ¿Cuánto tarda más o menos en duplicarse?
+About 5 years || Sekitar 5 tahun || 大约 5 年 || Unos 5 años
+About 10 years || Sekitar 10 tahun || 大约 10 年 || Unos 10 años
+About 20 years || Sekitar 20 tahun || 大约 20 年 || Unos 20 años
+Rule of 72: 72 ÷ 7 ≈ 10 years. Your gains start earning gains too. That is compounding. || Aturan 72: 72 ÷ 7 ≈ 10 tahun. Keuntunganmu ikut menghasilkan keuntungan. Itulah bunga majemuk. || 72 法则：72 ÷ 7 ≈ 10 年。收益本身也会再产生收益，这就是复利。 || Regla del 72: 72 ÷ 7 ≈ 10 años. Tus ganancias también empiezan a generar ganancias. Eso es el interés compuesto.
+Which usually has the highest long-term return and the biggest swings? || Mana yang biasanya memberi imbal hasil jangka panjang tertinggi dan naik-turun terbesar? || 哪一种通常长期回报最高、波动也最大？ || ¿Qué suele tener la mayor rentabilidad a largo plazo y las mayores oscilaciones?
+Cash deposits || Deposito tunai || 现金存款 || Depósitos en efectivo
+Government bonds || Obligasi pemerintah || 国债 || Bonos del Estado
+Stocks || Saham || 股票 || Acciones
+Higher expected return comes with bigger ups and downs. That is why time horizon matters. || Imbal hasil yang diharapkan lebih tinggi datang dengan naik-turun lebih besar. Karena itu jangka waktu penting. || 预期回报越高，涨跌幅也越大，所以投资期限很重要。 || Una rentabilidad esperada mayor viene con más altibajos. Por eso importa el horizonte temporal.
+Which is usually the least risky? || Mana yang biasanya paling rendah risikonya? || 哪一种通常风险最低？ || ¿Qué suele ser lo menos arriesgado?
+Shares of one company || Saham satu perusahaan || 单一公司的股票 || Acciones de una sola empresa
+A fund that holds hundreds of companies || Reksa dana yang berisi ratusan perusahaan || 持有数百家公司的基金 || Un fondo con cientos de empresas
+Two companies in the same industry || Dua perusahaan di industri yang sama || 同一行业的两家公司 || Dos empresas del mismo sector
+Spreading money over many companies means one bad result cannot sink your whole portfolio. || Menyebar uang ke banyak perusahaan berarti satu hasil buruk tidak bisa menenggelamkan seluruh portofoliomu. || 把钱分散到多家公司，一次失利就不会拖垮整个投资组合。 || Repartir el dinero entre muchas empresas significa que un mal resultado no puede hundir toda tu cartera.
+One fund charges 2% a year, another 0.2%. Over 30 years the cheaper one… || Satu reksa dana memungut 2% per tahun, yang lain 0,2%. Dalam 30 tahun, yang lebih murah… || 一只基金每年收费 2%，另一只 0.2%。30 年后，费用低的那只… || Un fondo cobra un 2% al año y otro un 0,2%. En 30 años, el más barato…
+Makes almost no difference || Hampir tidak ada bedanya || 几乎没有区别 || Casi no cambia nada
+Can leave you with a lot more money || Bisa membuatmu punya uang jauh lebih banyak || 可能让你多赚很多钱 || Puede dejarte mucho más dinero
+Is always riskier || Selalu lebih berisiko || 总是风险更高 || Siempre es más arriesgado
+Fees compound too. Paying 1.8% more every year can eat roughly 40% of the final amount over 30 years. || Biaya juga berlipat. Membayar 1,8% lebih banyak tiap tahun bisa memakan sekitar 40% hasil akhir dalam 30 tahun. || 费用也会复利。每年多付 1.8%，30 年下来可能吃掉最终金额的约 40%。 || Las comisiones también se acumulan. Pagar un 1,8% más cada año puede comerse cerca del 40% del importe final en 30 años.
+Your savings earn 2% a year while prices rise 4% a year. Your buying power… || Tabunganmu menghasilkan 2% per tahun sementara harga naik 4% per tahun. Daya belimu… || 你的储蓄每年收益 2%，而物价每年上涨 4%。你的购买力… || Tus ahorros rinden un 2% al año y los precios suben un 4% al año. Tu poder de compra…
+Grows || Naik || 增加 || Crece
+Stays the same || Tetap sama || 保持不变 || Se mantiene igual
+Shrinks || Turun || 减少 || Disminuye
+Real return = return − inflation. 2% − 4% means you can buy about 2% less each year. || Imbal hasil riil = imbal hasil − inflasi. 2% − 4% berarti kamu bisa membeli sekitar 2% lebih sedikit tiap tahun. || 实际回报 = 回报 − 通胀。2% − 4% 意味着你每年能买的东西少约 2%。 || Rentabilidad real = rentabilidad − inflación. 2% − 4% significa que cada año puedes comprar cerca de un 2% menos.
+An index fund… || Reksa dana indeks… || 指数基金… || Un fondo indexado…
+Tries to beat the market by picking stocks || Berusaha mengalahkan pasar dengan memilih saham || 通过选股来跑赢市场 || Intenta ganar al mercado eligiendo acciones
+Holds every company in a market index at low cost || Memegang semua perusahaan dalam indeks pasar dengan biaya rendah || 以低成本持有市场指数中的所有公司 || Tiene todas las empresas de un índice a bajo coste
+Only buys bank deposits || Hanya membeli deposito bank || 只买银行存款 || Solo compra depósitos bancarios
+Index funds buy the whole market, so you get its return with low fees and no stock picking. || Reksa dana indeks membeli seluruh pasar, jadi kamu mendapat imbal hasilnya dengan biaya rendah tanpa memilih saham. || 指数基金买下整个市场，你能以低费用获得市场回报，无需选股。 || Los fondos indexados compran todo el mercado, así obtienes su rentabilidad con comisiones bajas y sin elegir acciones.
+Investing the same amount every month, whatever the price, is called… || Berinvestasi dengan jumlah sama setiap bulan, berapa pun harganya, disebut… || 无论价格高低，每月投入相同金额，这叫做… || Invertir la misma cantidad cada mes, sea cual sea el precio, se llama…
+Market timing || Menebak waktu pasar || 择时 || Market timing
+Day trading || Trading harian || 日内交易 || Trading diario
+You automatically buy more when prices are low and never have to guess the perfect moment. || Kamu otomatis membeli lebih banyak saat harga rendah dan tak perlu menebak waktu terbaik. || 价格低时自动多买，不必猜测最佳时机。 || Compras más automáticamente cuando los precios bajan y nunca tienes que adivinar el momento perfecto.
+The market falls 20% and your long-term plan has not changed. A sensible move is usually… || Pasar turun 20% dan rencana jangka panjangmu tidak berubah. Langkah yang masuk akal biasanya… || 市场下跌 20%，而你的长期计划没有变。通常明智的做法是… || El mercado cae un 20% y tu plan a largo plazo no ha cambiado. Lo sensato suele ser…
+Sell everything now || Jual semuanya sekarang || 立刻全部卖出 || Venderlo todo ya
+Stay the course and keep investing || Tetap pada rencana dan terus berinvestasi || 坚持计划，继续投资 || Mantener el rumbo y seguir invirtiendo
+Borrow money to buy more || Berutang untuk membeli lebih banyak || 借钱加仓 || Pedir prestado para comprar más
+Markets have recovered from every major fall so far. Selling in a panic turns a temporary drop into a real loss. || Sejauh ini pasar selalu pulih dari setiap penurunan besar. Menjual karena panik mengubah penurunan sementara menjadi kerugian nyata. || 到目前为止，市场每次大跌后都恢复了。恐慌抛售会把暂时的下跌变成真正的亏损。 || Hasta ahora los mercados se han recuperado de todas las grandes caídas. Vender por pánico convierte una bajada temporal en una pérdida real.
+Your target is 60% stocks and 40% bonds, but stocks grew to 75%. Rebalancing means… || Targetmu 60% saham dan 40% obligasi, tetapi saham naik menjadi 75%. Penyeimbangan ulang berarti… || 你的目标是 60% 股票、40% 债券，但股票涨到了 75%。再平衡意味着… || Tu objetivo es 60% acciones y 40% bonos, pero las acciones subieron al 75%. Rebalancear significa…
+Buying even more stocks || Membeli saham lebih banyak lagi || 买入更多股票 || Comprar aún más acciones
+Moving money back to 60/40 || Memindahkan uang kembali ke 60/40 || 把资金调回 60/40 || Volver a mover el dinero al 60/40
+Never changing anything || Tidak pernah mengubah apa pun || 什么都不改 || No cambiar nunca nada
+Rebalancing keeps your risk where you chose it and quietly sells high and buys low. || Penyeimbangan ulang menjaga risikomu sesuai pilihan dan diam-diam menjual saat tinggi serta membeli saat rendah. || 再平衡让风险保持在你选定的水平，并在不知不觉中高卖低买。 || Rebalancear mantiene tu riesgo donde lo elegiste y, sin darte cuenta, vende caro y compra barato.
+What should usually come before long-term investing? || Apa yang biasanya perlu ada sebelum berinvestasi jangka panjang? || 长期投资之前通常应该先做好什么？ || ¿Qué debería venir normalmente antes de invertir a largo plazo?
+A new credit card || Kartu kredit baru || 一张新信用卡 || Una tarjeta de crédito nueva
+An emergency fund of 3–6 months of expenses || Dana darurat sebesar 3–6 bulan pengeluaran || 相当于 3–6 个月支出的应急资金 || Un fondo de emergencia de 3 a 6 meses de gastos
+A position in crypto || Posisi di kripto || 一笔加密货币持仓 || Una posición en cripto
+With a cash cushion you will not be forced to sell investments at a bad time when life happens. || Dengan cadangan uang tunai, kamu tidak terpaksa menjual investasi di saat buruk ketika ada kejadian tak terduga. || 有了现金缓冲，遇到意外时就不会被迫在糟糕的时机卖出投资。 || Con un colchón de efectivo no tendrás que vender inversiones en mal momento cuando surjan imprevistos.
+Money you need in one year for a house deposit is best kept in… || Uang yang kamu butuhkan dalam satu tahun untuk uang muka rumah sebaiknya disimpan di… || 一年后要用作购房首付的钱，最好放在… || El dinero que necesitas en un año para la entrada de una casa es mejor guardarlo en…
+Cash or short-term deposits || Tunai atau deposito jangka pendek || 现金或短期存款 || Efectivo o depósitos a corto plazo
+Short-term money should not ride the market. A drop right before you need it would hurt. || Uang jangka pendek sebaiknya tidak ikut naik-turun pasar. Penurunan tepat sebelum kamu butuh akan merugikan. || 短期要用的钱不应承受市场波动，临用前一跌就会很伤。 || El dinero a corto plazo no debe depender del mercado. Una caída justo antes de necesitarlo dolería.
+Someone promises "guaranteed 30% a month, no risk". This is most likely… || Seseorang menjanjikan "pasti 30% sebulan, tanpa risiko". Ini kemungkinan besar… || 有人承诺“每月保证 30%，零风险”。这最可能是… || Alguien promete "30% al mes garantizado, sin riesgo". Lo más probable es que sea…
+A great deal || Kesempatan bagus || 好机会 || Una gran oportunidad
+A government bond || Obligasi pemerintah || 国债 || Un bono del Estado
+A scam || Penipuan || 骗局 || Una estafa
+No real investment guarantees high returns with no risk. Walk away and check your regulator's warning list. || Tidak ada investasi sungguhan yang menjamin imbal hasil tinggi tanpa risiko. Tinggalkan dan cek daftar peringatan regulator. || 没有任何真实投资能保证零风险高回报。远离它，并查看监管机构的警示名单。 || Ninguna inversión real garantiza altas rentabilidades sin riesgo. Aléjate y consulta la lista de advertencias de tu regulador.
+Crypto is {pct}% of your portfolio || Kripto mencakup {pct}% portofoliomu || 加密货币占你投资组合的 {pct}% || Las cripto son el {pct}% de tu cartera
+That is a lot of swing. Many planners keep speculative assets under 5–10%. || Itu naik-turunnya besar. Banyak perencana keuangan menjaga aset spekulatif di bawah 5–10%. || 波动很大。许多理财规划师会把投机性资产控制在 5–10% 以内。 || Eso es mucha oscilación. Muchos asesores mantienen los activos especulativos por debajo del 5–10%.
+{cls} is {diff} points off target. Moving about {amount} brings you back to your plan. || {cls} meleset {diff} poin dari target. Memindahkan sekitar {amount} membawamu kembali ke rencana. || {cls} 偏离目标 {diff} 个百分点。调整约 {amount} 即可回到计划。 || {cls} está {diff} puntos fuera del objetivo. Mover unos {amount} te devuelve a tu plan.
+Automate it || Otomatiskan || 设成自动 || Automatízalo
+Set an automatic transfer on payday. Money you never see is money you do not spend. || Atur transfer otomatis saat gajian. Uang yang tidak kamu lihat adalah uang yang tidak kamu belanjakan. || 在发薪日设置自动转账。看不见的钱就不会被花掉。 || Programa una transferencia automática el día de cobro. El dinero que no ves es dinero que no gastas.
+Emergency fund first || Dana darurat dulu || 先备好应急资金 || Primero el fondo de emergencia
+Keep 3–6 months of expenses in cash before taking investment risk. Add it as a goal in Goals. || Simpan 3–6 bulan pengeluaran dalam bentuk tunai sebelum mengambil risiko investasi. Tambahkan sebagai target di Target. || 承担投资风险前，先留出 3–6 个月的现金支出。可在“目标”中添加这一目标。 || Guarda de 3 a 6 meses de gastos en efectivo antes de asumir riesgo. Añádelo como meta en Metas.
+Invest a little more || Investasikan sedikit lebih banyak || 多投一点 || Invierte un poco más
+You plan {pct}% of income for investing. Raising it by 1% of income each year adds up fast. || Kamu merencanakan {pct}% pemasukan untuk investasi. Menaikkannya 1% dari pemasukan tiap tahun cepat bertambah. || 你计划把收入的 {pct}% 用于投资。每年再提高收入的 1%，积少成多。 || Planeas invertir el {pct}% de tus ingresos. Subirlo un 1% de tus ingresos cada año suma rápido.
+Lots of idle cash || Banyak uang menganggur || 闲置现金较多 || Mucho efectivo parado
+Start small || Mulai dari kecil || 从小额开始 || Empieza poco a poco
+You do not need much to begin. A low-cost index fund every month beats waiting for the perfect moment. || Kamu tidak perlu banyak untuk memulai. Reksa dana indeks berbiaya rendah setiap bulan lebih baik daripada menunggu waktu sempurna. || 起步不需要很多钱。每月买一点低成本指数基金，胜过等待完美时机。 || No necesitas mucho para empezar. Un fondo indexado de bajo coste cada mes es mejor que esperar el momento perfecto.
+Check the fees || Cek biayanya || 留意费用 || Revisa las comisiones
+Before buying a fund, look at its yearly fee. Under 0.5% is a good sign for broad index funds. || Sebelum membeli reksa dana, lihat biaya tahunannya. Di bawah 0,5% adalah tanda baik untuk reksa dana indeks yang luas. || 买基金前先看年费。对宽基指数基金来说，低于 0.5% 是好兆头。 || Antes de comprar un fondo, mira su comisión anual. Por debajo del 0,5% es buena señal en fondos indexados amplios.
+Review once a year || Tinjau setahun sekali || 每年检查一次 || Revisa una vez al año
+Checking daily makes you nervous. A yearly check-up to rebalance is enough for most people. || Mengecek setiap hari membuatmu gugup. Pemeriksaan tahunan untuk menyeimbangkan ulang sudah cukup bagi kebanyakan orang. || 天天看盘会让人紧张。对大多数人来说，每年检查并再平衡一次就够了。 || Mirarlo cada día te pone nervioso. Para la mayoría basta con una revisión anual para rebalancear.
+Time beats timing || Waktu mengalahkan menebak waktu || 时间胜过择时 || El tiempo gana al timing
+Staying invested for years matters far more than finding the perfect day to buy. || Tetap berinvestasi selama bertahun-tahun jauh lebih penting daripada mencari hari terbaik untuk membeli. || 长期持有远比找到完美买点重要。 || Seguir invertido durante años importa mucho más que encontrar el día perfecto para comprar.
+Down {pct}%? Breathe. || Turun {pct}%? Tarik napas. || 跌了 {pct}%？深呼吸。 || ¿Bajó un {pct}%? Respira.
+Falls are normal. If your plan and time horizon have not changed, selling now locks in the loss. || Penurunan itu wajar. Jika rencana dan jangka waktumu tidak berubah, menjual sekarang mengunci kerugian. || 下跌很正常。如果计划和投资期限都没变，现在卖出只会锁定亏损。 || Las caídas son normales. Si tu plan y tu horizonte no han cambiado, vender ahora consolida la pérdida.
+Ignore hot tips || Abaikan tips yang lagi ramai || 别追热门消息 || Ignora los soplos de moda
+If everyone is talking about it, the easy gains are usually gone. Stick to your plan. || Kalau semua orang membicarakannya, keuntungan mudah biasanya sudah lewat. Tetap pada rencanamu. || 人人都在谈论时，容易赚的钱通常已经没了。坚持你的计划。 || Si todo el mundo habla de ello, las ganancias fáciles suelen haber pasado. Sigue tu plan.
+Use tax-friendly accounts || Gunakan rekening yang ramah pajak || 利用税收优惠账户 || Usa cuentas con ventajas fiscales
+Many countries offer retirement or tax-advantaged accounts. Ask what exists where you live before investing elsewhere. || Banyak negara menawarkan rekening pensiun atau rekening dengan keuntungan pajak. Cari tahu yang tersedia di tempatmu sebelum berinvestasi di tempat lain. || 许多国家提供养老或税收优惠账户。投资其他产品前，先了解你所在地有哪些。 || Muchos países ofrecen cuentas de jubilación o con ventajas fiscales. Infórmate de las que hay donde vives antes de invertir en otra parte.
+One company can fall hard. Spreading out lowers the risk of a single surprise. || Satu perusahaan bisa jatuh dalam. Menyebar investasi menurunkan risiko dari satu kejutan. || 单一公司可能大跌，分散投资能降低单一意外的风险。 || Una sola empresa puede caer mucho. Diversificar reduce el riesgo de una sola sorpresa.
+Sell this plan || Jual rencana ini || 出售这个方案 || Vender este plan
+Sell this mix || Jual komposisi ini || 出售这个组合 || Vender esta mezcla
+Your budget plan is ready to sell || Rencana anggaranmu siap dijual || 你的预算方案已可出售 || Tu plan de presupuesto está listo para vender
+Your investing mix is ready to sell || Komposisi investasimu siap dijual || 你的投资组合已可出售 || Tu mezcla de inversión está lista para vender
+Only envelopes and percentages are included, never your transactions or real amounts. Check it, then press Publish. || Hanya amplop dan persentase yang disertakan, tidak pernah transaksi atau jumlah aslimu. Periksa, lalu tekan Terbitkan. || 只包含信封和百分比，绝不包含你的交易或真实金额。检查后点“发布”。 || Solo se incluyen sobres y porcentajes, nunca tus movimientos ni importes reales. Revísalo y pulsa Publicar.
+Add a few envelopes first || Tambahkan beberapa amplop dulu || 先添加几个信封 || Añade primero algunos sobres
+Set a target mix first || Atur target komposisi dulu || 先设定目标配置 || Define primero una mezcla objetivo
+Create a budget first || Buat anggaran dulu || 先创建一份预算 || Crea primero un presupuesto
+Then open the template again and press Use in my budget. || Lalu buka template lagi dan tekan Pakai di anggaranku. || 然后再次打开模板，点“用于我的预算”。 || Después abre la plantilla otra vez y pulsa Usar en mi presupuesto.
+Apply “{name}” to this budget? || Terapkan “{name}” ke anggaran ini? || 要把“{name}”应用到这份预算吗？ || ¿Aplicar “{name}” a este presupuesto?
+Apply plan || Terapkan rencana || 应用方案 || Aplicar plan
+Use “{name}” as your investing target? || Pakai “{name}” sebagai target investasimu? || 要把“{name}”设为你的投资目标吗？ || ¿Usar “{name}” como tu objetivo de inversión?
+Set target || Atur target || 设为目标 || Fijar objetivo
+Investing target updated || Target investasi diperbarui || 投资目标已更新 || Objetivo de inversión actualizado
+Start my budget || Mulai anggaranku || 开始我的预算 || Empezar mi presupuesto
+Habits || Kebiasaan || 习惯 || Hábitos

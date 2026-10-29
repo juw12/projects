@@ -14,7 +14,7 @@ Mint is one app with two halves:
 **Live:** https://juw12.github.io/projects/mint/ ·
 [Budget](https://juw12.github.io/projects/mint/budget/) ·
 [demo household](https://juw12.github.io/projects/mint/budget/demo.html) ·
-[Templates](https://juw12.github.io/projects/mint/app.html) ·
+[Marketplace](https://juw12.github.io/projects/mint/budget/?view=market) ·
 [Get it for Windows, Mac, Android & iPhone](https://juw12.github.io/projects/mint/budget/get.html) ·
 [downloads](https://github.com/juw12/projects/releases/tag/mint) ·
 [Budget self-test](https://juw12.github.io/projects/mint/budget/tests.html) ·
@@ -23,11 +23,16 @@ API `https://mint-api.juw12.workers.dev/api/health`
 ## One app
 
 - **Front door.** `web/index.html` sends template links (`#/…`, `?ref=`, `?coupon=`, `?listing=`,
-  `?item=`, `?api=`) to Templates and everything else to Budget, so shared and affiliate links keep
-  working.
-- **Moving between halves.** Budget: *Also in Mint → Templates* in the sidebar, a Templates row in
-  the phone **More** sheet and on the welcome page. Templates: *Budget* in the top bar and first in
-  the phone tab bar.
+  `?item=`) to the **Marketplace** tab (`budget/?view=market&m=<route>`) and everything else to Budget,
+  so shared and affiliate links keep working. `app.html`, `web.html` and `mobile.html` redirect the same
+  way unless they are opened with `?embed=1` (inside Mint) or `?standalone=1`.
+- **Marketplace tab (3.2).** The template studio and store run inside Budget as one tab: a persistent
+  iframe (`../app.html?embed=1&nolocale=1#/…`) styled like Budget, with chips instead of a second nav —
+  Browse, Generate, Sell, Earn, Help, Account. *Sell this plan* / *Sell this mix* (Budget and Invest) turn
+  the budget's envelopes or target mix into a draft template (shares of income only, never transactions
+  or real amounts; `learn.js` → `planToSpec` / `mixToSpec`). Bought `mint-budget-plan` / `mint-invest-mix`
+  templates get *Use in my budget* / *Use as my investing target*, which size the plan to your income or set
+  the target mix. Prices show in the seller's currency plus an estimate in the buyer's region currency.
 - **One install.** A single manifest (`web/manifest.webmanifest`) opens on Budget and covers the
   whole of `/projects/mint/`. Its `id` is the one Mint Templates always had, so existing installs
   carry over. Shortcuts: Add expense, Open sheet, Create a template, Template market.
@@ -41,6 +46,23 @@ API `https://mint-api.juw12.workers.dev/api/health`
   Indonesian, so Chinese and Spanish show Templates in English.
 - **Two service workers.** `web/budget/sw.js` (scope `budget/`, caches `mint-budget-v…`) and
   `web/sw.js` (scope `mint/`, caches `mint-v…`). Each deletes only its own old caches.
+
+## Mint 3.2: currencies, Invest learning, one account
+
+- **Many currencies.** Quick-add, income and holdings take any supported currency. Amounts convert to the
+  budget's currency with daily rates (`GET /api/fx`, cached 6 h at the edge; open.er-api.com, Frankfurter as
+  fallback; a built-in snapshot works offline) and transactions keep the original as `txn.fx = {cur, amt, rate}`.
+  Settings can convert a whole budget to the region's currency or only relabel it.
+- **Invest → Portfolio · Learn · Tips · News.** A 12-question quiz with explanations (best score saved),
+  tips built from your own portfolio and plan, and regional money headlines (`GET /api/news?region=&lang=`:
+  Google News RSS, falling back to regional publisher feeds when Google refuses edge traffic; cached 2 h on the
+  device). Not financial advice; Mint does not write the headlines.
+- **One account, every device.** `js/mint-cloud.js` signs in once for sync and the Marketplace. Budgets and
+  preferences are sealed on the device (AES-GCM, compressed, item key as AAD) with a random data key wrapped by
+  PBKDF2-SHA-256 (210k) keys from the password and from a recovery code; the server only stores ciphertext
+  (`/api/sync`, `/api/sync/key`). `budget/js/cloud-sync.js` pushes 1.2 s after a change, polls every 15 s, merges
+  books per record on conflicts and never uploads demo budgets. Losing both the password and the recovery code
+  means the synced copy cannot be read (the device copy stays).
 
 ### Budgets saved by older versions
 

@@ -1,11 +1,11 @@
 ; Mint for Windows - per-user installer (no admin rights). build.py compiles it with:
-;   iscc /DAppVersion=3.1.0 /DSourceDir=<dist\Mint> /DOutputDir=<dist> /DIconFile=<build\mint.ico> mint.iss
+;   iscc /DAppVersion=3.2.0 /DSourceDir=<dist\Mint> /DOutputDir=<dist> /DIconFile=<build\mint.ico> mint.iss
 ; Installs to %LOCALAPPDATA%\Programs\Mint, adds Mint to the Start menu (and optionally the desktop) and lists it
 ; in Settings > Apps. The window keeps its data (budgets, language, region, sign-in) in %LOCALAPPDATA%\Mint, which
 ; uninstalling leaves in place so a reinstall finds every budget again.
 
 #ifndef AppVersion
-  #define AppVersion "3.1.0"
+  #define AppVersion "3.2.0"
 #endif
 #ifndef SourceDir
   #define SourceDir "dist\Mint"

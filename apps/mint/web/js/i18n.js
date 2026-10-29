@@ -17,6 +17,14 @@
   // ---------------------------------------------------------------- exact phrases
   var ID = {
     // header, nav, footer
+    // Mint 3.2 Marketplace tab (embedded in Budget)
+    "🛍️ Browse": "🛍️ Jelajahi",
+    "🏷️ Sell": "🏷️ Jual",
+    "🤝 Earn": "🤝 Dapatkan komisi",
+    "Help": "Bantuan",
+    "Marketplace": "Marketplace",
+    "💰 Use in my budget": "💰 Pakai di anggaranku",
+    "📈 Use as my investing target": "📈 Jadikan target investasiku",
     "Budget": "Anggaran",
     "Your shared budgets": "Anggaran bersamamu",
     "Create": "Buat",
