@@ -1244,7 +1244,14 @@
     if (window.airizDesktop && typeof window.airizDesktop.setBackgroundWork === 'function') {
       window.airizDesktop.setBackgroundWork(detection.armed).catch(() => {});
     }
-    $('ptz-detect-arm').checked = detection.armed;
+    // 1.11.11: Start / Stop buttons (live-view toolbar and Smart detection) and the badge on the picture.
+    for (const button of document.querySelectorAll('[data-detect-toggle]')) {
+      button.textContent = detection.armed ? 'Stop smart detection' : 'Start smart detection';
+      button.setAttribute('aria-pressed', String(detection.armed));
+      button.classList.toggle('btn-danger', detection.armed);
+      button.classList.toggle('btn-primary', !detection.armed);
+    }
+    $('ptz-detect-badge').hidden = !detection.armed;
     if (detection.armed) {
       detection.anchor = tracker.position;
       detection.trackedAway = false;
@@ -1967,9 +1974,9 @@
 
   function bindDetect() {
     const settings = store.detect;
-    $('ptz-detect-arm').addEventListener('change', () => {
-      setArmed($('ptz-detect-arm').checked);
-    });
+    for (const button of document.querySelectorAll('[data-detect-toggle]')) {
+      button.addEventListener('click', () => setArmed(!detection.armed));
+    }
     const sensitivity = $('ptz-sensitivity');
     sensitivity.value = settings.sensitivity;
     $('ptz-sensitivity-value').textContent = settings.sensitivity;
