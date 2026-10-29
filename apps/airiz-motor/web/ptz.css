@@ -493,3 +493,14 @@
 .ptz-event-alerts .ok { color: var(--success, #2ea043); }
 .ptz-event-alerts .fail { color: var(--danger, #f85149); }
 .ptz-event-alerts span + span { margin-left: 0.8em; }
+
+/* 1.11.10: actions with a user-set duration (clip length, spotlight time). */
+.ptz-act-timed {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.ptz-act-timed .ptz-num {
+  width: 6em;
+}

@@ -1284,7 +1284,13 @@
     "Full rise: 1100 steps up at the Rising speed": "升到頂：以升降軸速度上升 1100 步",
     "Full down: 1100 steps down at the Rising speed": "降到底：以升降軸速度下降 1100 步",
     "Full rise and full down buttons (1.11.9)": "一鍵升到頂、降到底 (1.11.9)",
-    "Motor control has Full rise and Full down buttons next to the jog pad: one click moves the rising axis over its whole travel (1100 steps) at the Rising speed. They follow the same jog lock as the pad, and the Steps per jog setting is left as it is.": "馬達控制的點動面板旁新增「升到頂」與「降到底」：按一下就以升降軸速度走完整個升降行程（1100 步）。它們和點動面板使用同一個鎖定開關，「每次點動步數」維持不變。"
+    "Motor control has Full rise and Full down buttons next to the jog pad: one click moves the rising axis over its whole travel (1100 steps) at the Rising speed. They follow the same jog lock as the pad, and the Steps per jog setting is left as it is.": "馬達控制的點動面板旁新增「升到頂」與「降到底」：按一下就以升降軸速度走完整個升降行程（1100 步）。它們和點動面板使用同一個鎖定開關，「每次點動步數」維持不變。",
+    "Record a clip of": "錄製片段",
+    "Spotlight on for": "開啟聚光燈",
+    "Clip length in seconds": "片段長度（秒）",
+    "Spotlight time in seconds": "聚光燈開啟時間（秒）",
+    "Choose the clip length and spotlight time (1.11.10)": "可自訂錄影秒數與聚光燈時間 (1.11.10)",
+    "Smart detection lets you choose how many seconds each motion clip records (3 to 60 s) and how long the spotlight stays on after motion (5 to 600 s), right next to those two actions. Your choices are saved.": "智慧偵測可在這兩個動作旁邊設定每段動作影片錄幾秒（3 到 60 秒），以及偵測到動作後聚光燈亮多久（5 到 600 秒），設定會自動儲存。"
   },
   "html": {
     "AIRIZDEVICE LAB": "AIRIZ<small>裝置實驗室</small>",
@@ -1362,7 +1368,6 @@
     "From now on every share code is sent automatically, one message per code. The Share control window confirms it (“Code … sent to Ziris PTB”). If it fails, press Send to Teams there to retry.": "之後每個分享代碼都會自動傳送，每個代碼一則。分享控制視窗會顯示確認（「Code … sent to Ziris PTB」）。若失敗，在該視窗按 <strong>傳送到 Teams</strong> 重試。",
     "In the Ziris PTB Teams chat press Join Ziris PTB on the invite from Juwen Lie. The invite opens in the browser.": "在 Ziris PTB Teams 聊天中，於 <span data-owner-name=\"\">Juwen Lie</span> 傳送的邀請上按 <strong>Join Ziris PTB</strong>，邀請會在瀏覽器開啟。",
     "Using the AIRIZ Windows app? On the same page press Open in the AIRIZ Windows app and allow the browser to open it: the app joins with the same name. (Or paste the invite link in the app's Ziris PTB team page.)": "使用 AIRIZ Windows App？在同一頁按 <strong>在 AIRIZ Windows App 開啟</strong> 並允許瀏覽器開啟：App 會以同一個名字加入。（或在 App 的 <strong>Ziris PTB team</strong> 頁貼上邀請連結。）",
-    "Smart detection watches the preview for motion inside your zones and active hours, saves a photo and a 10 s clip, and can follow the motion, turn the spotlight on, sound the siren, show a desktop notification or alert the Ziris PTB chat. It runs while the console is open.": "<strong>智慧偵測</strong>會在您設定的區域與時段內監看預覽畫面的動作，儲存照片與 10 秒影片，並可跟隨動作、開啟聚光燈、啟動警報、顯示桌面通知或通知 Ziris PTB 聊天室。主控台開著時才會運作。",
     "Privacy lowers the camera to the rising switch and turns the lights off; automatic night vision switches IR-cut and IR LED from the light sensor. The motors report no position, so positions are counted in steps: calibrate once per device under Calibration.": "<strong>隱私</strong>會把攝影機降到升降開關位置並關燈；<strong>自動夜視</strong>依光感測器切換 IR-cut 與 IR LED。馬達不回報位置，因此位置以步數計算：每台裝置請在<em>校正</em>中校正一次。",
     "Copy the Teams workflow address, then press Finish owner setup. One action sets up this PC as Juwen Lie (Owner), submits one shared invite to the workflow, copies the invite link and turns on auto-post.": "複製 Teams 工作流程網址後，按<strong>完成負責人設定</strong>。一個動作即可在此 PC 設定 Juwen Lie（負責人）、向工作流程送出一個共用邀請、複製邀請連結並開啟自動傳送。",
     "Open Microsoft Teams, then the Ziris PTB group chat → … → Workflows.": "開啟 Microsoft Teams，進入 <strong>Ziris PTB</strong> 群組聊天 → <strong>…</strong> → <strong>工作流程</strong>。",
@@ -1386,7 +1391,8 @@
     "The rising motor cannot tell how high the camera is, so the console counts the height from the bottom switch. Press Lower to bottom & reset height once after the AIRIZ is powered on, or whenever the height shown looks wrong: the camera goes down in small steps until it touches the switch, and from then on 0 = fully down. Is the camera at the bottom? only asks the switch; nothing moves.": "升降馬達無法得知相機有多高，所以主控台從底部開關開始計算高度。AIRIZ 開機後，或顯示的高度看起來不對時，按一次<em>降到底部並重設高度</em>：相機會一小步一小步往下，直到碰到開關，之後 0 = 完全降下。<em>相機在最底部嗎？</em>只會詢問開關，不會移動。",
     "The siren plays on the AIRIZ speaker at full volume, again and again, and turns the spotlight on. Built-in loud tone is the test sound stored on the AIRIZ. My sound file uses a WAV, MP3, M4A or OGG from this PC (the first 15 s): it is sent to the AIRIZ the first time the siren sounds (a few seconds over USB, longer for long sounds) and then repeats from there. Stop siren stops the repeats; a sound already playing finishes.": "警報器會以最大音量在 AIRIZ 喇叭上重複播放，並開啟聚光燈。<em>內建大聲提示音</em>是存在 AIRIZ 上的測試聲音。<em>我的聲音檔</em>使用這台 PC 上的 WAV、MP3、M4A 或 OGG（前 15 秒）：第一次響起時會傳送到 AIRIZ（透過 USB 約數秒，聲音越長越久），之後從 AIRIZ 重複播放。「停止警報」會停止重複；正在播放的聲音會播完。",
     "Teaches the console how far the picture moves per motor step. Start the camera preview first. Press Start, click a clear object in the picture (a corner, a lamp); the camera turns a little; click the same object again. The camera turns back by itself. Do it once for Pan and once for Rising.": "讓主控台知道馬達每一步會讓畫面移動多少。請先開始相機預覽。按<em>開始</em>，在畫面中點選一個清楚的物體（牆角、燈）；相機會轉動一點；再點選同一個物體。相機會自己轉回來。水平與升降各做一次。",
-    "The motors do not report when they stop, so the console estimates how long a move takes. Press Start test move, watch the camera, and press It stopped the moment it stops moving.": "馬達不會回報何時停止，所以主控台會估計一次移動需要多久。按<em>開始測試移動</em>，注意看相機，在它停止移動的那一刻按<em>已停止</em>。"
+    "The motors do not report when they stop, so the console estimates how long a move takes. Press Start test move, watch the camera, and press It stopped the moment it stops moving.": "馬達不會回報何時停止，所以主控台會估計一次移動需要多久。按<em>開始測試移動</em>，注意看相機，在它停止移動的那一刻按<em>已停止</em>。",
+    "Smart detection watches the preview for motion inside your zones and active hours, saves a photo and a clip (you choose how many seconds), and can follow the motion, turn the spotlight on, sound the siren, show a desktop notification or alert the Ziris PTB chat (Send a test alert checks both). It keeps running while the window is minimized; the siren can play your own sound file.": "<strong>智慧偵測</strong>會在您設定的區域與時段內監看預覽畫面的動作，儲存照片與影片片段（秒數可自訂），並可跟隨動作、開啟聚光燈、啟動警報、顯示桌面通知或通知 Ziris PTB 聊天室（<em>傳送測試警示</em>可一次測試兩者）。視窗最小化時仍會持續運作；警報器可播放您自己的聲音檔。"
   },
   "patterns": [
     [
