@@ -9,7 +9,7 @@ is required to use the installed app or its hardware-free demo.
 ## Downloads
 
 Windows x64 releases are published under the app-specific tag
-`airiz-desktop-v1.11.4` in this repository's Releases section.
+`airiz-desktop-v1.11.5` in this repository's Releases section.
 
 - **Installer**: assisted, per-user installation with Start-menu/desktop shortcuts
   and an uninstaller. The wizard lets the user choose the installation directory.
@@ -163,6 +163,16 @@ reports whether a framed firmware reply came back. Results can be exported.
 No pairing is accepted without confirmation and no motor command is sent.
 Another program on the PC still cannot open COM4 while this app holds it: that is
 a Windows serial-port rule, which is why the check runs inside the app.
+
+## 1.11.5: Only camera modes the camera can do
+
+* **No 4K choice:** 3840×2160 @ 30 is gone from the camera *Mode* list.
+* **Per-camera list:** after a camera's first preview, its reported maximum (width, height, frame rate) is
+  remembered; modes above it are hidden whenever that camera is selected, and a hidden selection goes back to
+  *Auto*. Other cameras keep their own lists.
+* Tested: a 7-check browser run in English and Traditional Chinese with Chromium's fake camera pinned to
+  1920×1080 @ 30 (2560×1440, 1080p60 and 720p60 hidden; 1080p30, 720p30, 480p30 and Auto kept; still trimmed after
+  a reload), plus the PTZ, zones, i18n and remote suites.
 
 ## 1.11.4: Allow prompt, remembered devices and your own code
 

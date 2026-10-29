@@ -2294,6 +2294,7 @@
     }
     if (elements.cameraDeviceSelect) {
       elements.cameraDeviceSelect.addEventListener('change', updateFfmpegHelper);
+      elements.cameraDeviceSelect.addEventListener('change', filterCameraModes);
     }
     if (elements.cameraStop) {
       elements.cameraStop.addEventListener('click', stopCameraPreview);
@@ -2483,6 +2484,7 @@
        
        // Update ffmpeg helper
        updateFfmpegHelper();
+       filterCameraModes();
       
     } catch (error) {
       updateCameraStatus(`Error enumerating devices: ${error.message}`);
@@ -2490,6 +2492,49 @@
     }
   }
   
+  // 1.11.5: the Mode list only offers resolutions / frame rates the selected camera can deliver.
+  // A camera reports its maximum once its preview has run; that is remembered per camera, so the
+  // list is already trimmed the next time (no 4K for a camera that cannot do 4K).
+  const CAMERA_CAPS_KEY = 'airiz.camera.caps.v1';
+
+  function loadCameraCaps() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(CAMERA_CAPS_KEY) || '{}');
+      return saved && typeof saved === 'object' ? saved : {};
+    } catch (ignored) {
+      return {};
+    }
+  }
+
+  function saveCameraCaps(deviceId, caps) {
+    if (!deviceId || !(caps.width > 0) || !(caps.height > 0) || !(caps.frameRate > 0)) return;
+    const all = loadCameraCaps();
+    all[deviceId] = { width: caps.width, height: caps.height, frameRate: caps.frameRate };
+    try {
+      localStorage.setItem(CAMERA_CAPS_KEY, JSON.stringify(all));
+    } catch (ignored) { /* storage blocked: this session only */ }
+  }
+
+  function cameraModeFits(modeValue, caps) {
+    if (modeValue === 'auto' || !caps) return true;
+    const [width, height, frameRate] = modeValue.split('x').map(Number);
+    // Cameras report e.g. 30.000030517578125 fps; allow half a frame per second of rounding.
+    return width <= caps.width && height <= caps.height && frameRate <= caps.frameRate + 0.5;
+  }
+
+  function filterCameraModes() {
+    const select = elements.cameraModeSelect;
+    if (!select) return;
+    const deviceId = elements.cameraDeviceSelect ? elements.cameraDeviceSelect.value : '';
+    const caps = deviceId ? loadCameraCaps()[deviceId] : null;
+    for (const option of select.options) {
+      const fits = cameraModeFits(option.value, caps);
+      option.hidden = !fits;
+      option.disabled = !fits;
+    }
+    if (select.selectedOptions[0] && select.selectedOptions[0].disabled) select.value = 'auto';
+  }
+
   async function startCameraPreview() {
     // Check for secure context
     if (!window.isSecureContext) {
@@ -2577,7 +2622,10 @@
           const maxHeight = capabilities.height?.max;
           const maxFrameRate = capabilities.frameRate?.max;
           if (maxWidth !== undefined && maxHeight !== undefined && maxFrameRate !== undefined) {
-            statusMsg += ` · camera max ${maxWidth}x${maxHeight}@${maxFrameRate}`;
+            statusMsg += ` · camera max ${maxWidth}x${maxHeight}@${Math.round(maxFrameRate)}`;
+            // 1.11.5: from now on the Mode list only offers what this camera can deliver.
+            saveCameraCaps(deviceId || track.getSettings().deviceId, { width: maxWidth, height: maxHeight, frameRate: maxFrameRate });
+            filterCameraModes();
           }
         } catch (e) {
           // getCapabilities not supported
