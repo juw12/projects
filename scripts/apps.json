@@ -30,12 +30,13 @@
       "category": "Apps",
       "desc": "Verified reviews across 32 categories — food, travel, market, AI tools, health and more",
       "description": "Offline-first review app across 32 categories, from food to AI tools, with a built-in Use it / Wait / Skip scorecard. Now with a Ctrl/⌘K command palette, keyboard shortcuts, undo, saved reviews and light/dark themes with custom accents.",
-      "summary": "Offline-first reviews across 32 categories with a Use it / Wait / Skip scorecard, a Ctrl/⌘K palette, saved reviews and dark mode.",
+      "summary": "Offline reviews across 32 categories with a Use it / Wait / Skip scorecard, now also a Windows app with its own database.",
       "tags": [
         "PWA",
         "reviews",
         "32 categories",
-        "offline-first"
+        "offline-first",
+        "Windows app"
       ],
       "image": "peers-card.jpg",
       "image_alt": "Peers app feed screen showing verified reviews",
@@ -58,7 +59,25 @@
         "mobile": "peers/mobile.html"
       },
       "featured": true,
-      "order": 13
+      "order": 13,
+      "card_links": [
+        {
+          "label": "Windows app",
+          "path": "https://github.com/juw12/projects/releases/download/peers/Peers-Windows-Setup.exe"
+        },
+        {
+          "label": "Web",
+          "path": "peers/"
+        },
+        {
+          "label": "Mobile web",
+          "path": "peers/mobile.html"
+        },
+        {
+          "label": "Install",
+          "path": "peers/app.html"
+        }
+      ]
     },
     {
       "id": "house-of-articles",

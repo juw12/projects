@@ -1,0 +1,10 @@
+{
+  "desktop": {
+    "version": "1.0.0",
+    "page": "https://github.com/juw12/projects/releases/tag/peers",
+    "downloads": {
+      "windows": "https://github.com/juw12/projects/releases/download/peers/Peers-Windows-Setup.exe",
+      "windows_portable": "https://github.com/juw12/projects/releases/download/peers/Peers-Windows-Portable.zip"
+    }
+  }
+}
