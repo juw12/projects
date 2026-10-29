@@ -31,6 +31,11 @@ try:
     import weather_fx
 except ImportError:  # pragma: no cover
     weather_fx = None
+
+try:
+    import outreach
+except ImportError:  # pragma: no cover
+    outreach = None
 from social import ACH_IDS, ACH_SYMBOL, INTERACTIONS, INTERACTION_SYMBOL, affinity_level, default_display_name
 from social import NUDGES, NUDGE_SYMBOL
 
@@ -283,7 +288,9 @@ class FriendsWindow:
                     "expired": t("duel_expired"), "gift_limit": t("gift_err_limit"),
                     "wish_limit": t("party_err_wish_limit"), "not_birthday": t("party_err_not_birthday"),
                     "empty": t("gift_pick"), "nudges_off": t("nudge_err_off"),
-                    "nudge_slow": t("nudge_err_slow"), "nudge_limit": t("nudge_err_limit")}
+                    "nudge_slow": t("nudge_err_slow"), "nudge_limit": t("nudge_err_limit"),
+                    "bad_email": t("upd_rem_err_email"), "email_not_found": t("upd_rem_not_found"),
+                    "no_outlook": t("upd_rem_err_outlook"), "send_failed": t("upd_rem_err_send")}
         self.error = messages.get(code, t("fr_err_generic", code=code))
         self.refresh(force=True)
 
@@ -369,8 +376,11 @@ class FriendsWindow:
             self._render_arena()
         else:
             self._render_friends()
+        note, note_until = getattr(self.social, "staff_note", ("", 0.0))
         if self.error:
             self.status.config(text=self.error, fg=self.ACCENT)
+        elif note and time.time() < note_until:
+            self.status.config(text=note, fg=self.MUTED)
         elif self.social.busy:
             self.status.config(text=t("fr_connecting"), fg=self.MUTED)
         elif self.social.enabled and self.social.board_at:
@@ -1567,6 +1577,7 @@ class FriendsWindow:
             self._button(row, "\u2713 " + t("mod_dismiss"),
                          lambda r=rep.get("id"): self.social.mod_action("", "dismiss", report=r),
                          small=True).pack(side="right")
+        self._render_updates()
         if self.social.is_owner:
             self._render_admin()
         log = (self.social.admin_data or {}).get("log") if self.social.is_owner else None
@@ -1579,6 +1590,149 @@ class FriendsWindow:
                          target=entry.get("target", ""), detail=entry.get("detail", ""))
                 self._label(self.body, f"{when}  \u00b7  {text}", size=8, fg=self.MUTED,
                             wrap=self.WIDTH - 70).pack(fill="x")
+
+    # ---- who still needs to update (v2.15, owner + moderators) ----
+    def _ver_label(self, ver: str) -> str:
+        if not ver:
+            return t("upd_rem_ver_unknown")
+        if ver == "2.14":
+            return "v2.14.x"
+        if ver.startswith("<"):
+            return t("upd_rem_ver_old")
+        return "v" + ver
+
+    @staticmethod
+    def _ago(stamp) -> str:
+        if not stamp:
+            return t("upd_rem_seen_never")
+        gap = max(0, time.time() - float(stamp))
+        if gap < 3600:
+            return t("upd_rem_seen_min", n=max(1, int(gap // 60)))
+        if gap < 86400:
+            return t("upd_rem_seen_h", n=int(gap // 3600))
+        return t("upd_rem_seen_d", n=int(gap // 86400))
+
+    def _seen_text(self, person) -> str:
+        if person.get("presence") in ("online", "away"):
+            return t("upd_rem_seen_now")
+        if not person.get("seen"):
+            return t("upd_rem_seen_never")
+        return t("upd_rem_seen", ago=self._ago(person.get("seen")))
+
+    def _render_updates(self):
+        self._section_title("\U0001F4E6 " + t("upd_rem_title"))
+        mod = self.social.mod_data
+        if mod is None:
+            self._label(self.body, t("fr_connecting"), fg=self.MUTED).pack(fill="x")
+            return
+        data = mod.get("versions") or {}
+        if not data.get("ok"):
+            self._label(self.body, t("upd_rem_unavailable"), size=8, fg=self.MUTED,
+                        wrap=self.WIDTH - 70).pack(fill="x")
+            return
+        latest = data.get("latest") or "?"
+        counts = data.get("counts") or {}
+        everyone = data.get("outdated") or []
+        show_inactive = getattr(self.social, "show_inactive", False)
+        people = [p for p in everyone if p.get("active") or show_inactive]
+        recent = social.REMIND_AGAIN_S
+        targets = [p for p in people if p.get("email") and time.time() - p.get("reminded_at", 0) >= recent]
+        head = tk.Frame(self.body, bg=self.CARD)
+        head.pack(fill="x")
+        self._label(head, t("upd_rem_summary", latest=latest, current=counts.get("current", 0),
+                            outdated=counts.get("outdated", 0)), size=9, bold=True).pack(side="left")
+        if targets and outreach is not None:
+            self._button(head, "\u2709 " + t("upd_rem_email_all", n=len({p["email"].lower() for p in targets})),
+                         lambda: self._remind_all(targets, latest), small=True, primary=True).pack(side="right")
+        current = data.get("current") or []
+        if current:
+            names = ", ".join(p.get("name", "?") for p in current[:12]) + (" \u2026" if len(current) > 12 else "")
+            self._label(self.body, t("upd_rem_current", names=names), size=8, fg=self.MUTED,
+                        wrap=self.WIDTH - 70).pack(fill="x")
+        if not people:
+            self._label(self.body, t("upd_rem_all_good"), size=9, fg=self.MUTED).pack(fill="x", pady=(4, 0))
+        for person in people[:40]:
+            self._update_row(person, latest)
+        if len(people) > 40:
+            self._label(self.body, t("upd_rem_more", n=len(people) - 40), size=8, fg=self.MUTED).pack(fill="x")
+        inactive = counts.get("inactive", 0)
+        if inactive:
+            label = (t("upd_rem_inactive_hide") if show_inactive else
+                     t("upd_rem_inactive_show", n=inactive, days=data.get("active_days", 14)))
+            self._button(self.body, label, self._toggle_inactive, small=True).pack(anchor="w", pady=(4, 0))
+        self._label(self.body, t("upd_rem_hint"), size=8, fg=self.MUTED,
+                    wrap=self.WIDTH - 70).pack(fill="x", pady=(4, 0))
+
+    def _update_row(self, person, latest):
+        card = tk.Frame(self.body, bg=self.TILE, padx=8, pady=5)
+        card.pack(fill="x", pady=2)
+        top = self._mini_person(card, person, self.TILE)
+        self._label(top, self._ver_label(person.get("app_ver", "")) + "  \u00b7  " + self._seen_text(person),
+                    size=8, fg=self.GOLD if person.get("active") else self.MUTED, bg=self.TILE).pack(side="left", padx=(8, 0))
+        email = person.get("email", "")
+        line = "\u2709 " + email if email else t("upd_rem_no_email")
+        if person.get("reminded_at"):
+            via = t("upd_rem_via_" + person.get("reminded_via", "email"))
+            line += "   \u00b7   " + t("upd_rem_reminded", ago=self._ago(person["reminded_at"]),
+                                           name=person.get("reminded_by", "?"), via=via)
+        self._label(card, line, size=8, fg=self.INK if email else self.MUTED, bg=self.TILE,
+                    wrap=self.WIDTH - 90).pack(fill="x", pady=(2, 0))
+        row = tk.Frame(card, bg=self.TILE)
+        row.pack(fill="x", pady=(3, 0))
+        if email and outreach is not None:
+            self._button(row, "\u2709 " + t("upd_rem_email"), lambda p=person: self._remind_email(p, latest),
+                         small=True, primary=True).pack(side="left")
+            self._button(row, "\U0001F4AC " + t("upd_rem_teams"), lambda p=person: self._remind_teams(p, latest),
+                         small=True).pack(side="left", padx=(4, 0))
+            self._button(row, "\u270e " + t("upd_rem_edit"), lambda p=person: self._edit_contact(p),
+                         small=True).pack(side="left", padx=(4, 0))
+        else:
+            self._button(row, "+ " + t("upd_rem_add_email"), lambda p=person: self._edit_contact(p),
+                         small=True, primary=True).pack(side="left")
+
+    def _toggle_inactive(self):
+        self.social.show_inactive = not getattr(self.social, "show_inactive", False)
+        self.refresh(force=True)
+
+    def _remind_email(self, person, latest):
+        reminded = person.get("reminded_at", 0)
+        if reminded and time.time() - reminded < social.REMIND_AGAIN_S:
+            if not messagebox.askyesno(t("upd_rem_title"), t("upd_rem_again_q", name=person.get("name", "?"),
+                                                           ago=self._ago(reminded)), parent=self.win):
+                return
+        if self.social.send_update_reminder([person], latest):
+            self.social.staff_status(t("upd_rem_sending"), 60)
+
+    def _remind_all(self, targets, latest):
+        count = len({p["email"].lower() for p in targets})
+        if not messagebox.askyesno(t("upd_rem_title"), t("upd_rem_email_all_q", n=count), parent=self.win):
+            return
+        if self.social.send_update_reminder(targets, latest, bulk=True):
+            self.social.staff_status(t("upd_rem_sending"), 60)
+
+    def _remind_teams(self, person, latest):
+        email = person.get("email", "")
+        if not email or outreach is None:
+            return
+        message = t("upd_rem_teams_msg", name=person.get("name", ""), ver=self._ver_label(person.get("app_ver", "")),
+                    latest=latest, url=outreach.SETUP_URL)
+        try:
+            self.win.clipboard_clear()
+            self.win.clipboard_append(message)
+        except tk.TclError:
+            pass
+        outreach.open_teams_chat(email, message)
+        self.social.note_reminded([person.get("code")], "teams")
+        self.social.staff_status(t("upd_rem_teams_opened", name=person.get("name", "?")), 20)
+
+    def _edit_contact(self, person):
+        from tkinter import simpledialog
+        value = simpledialog.askstring(t("upd_rem_email_title"), t("upd_rem_email_q", name=person.get("name", "?")),
+                                       initialvalue=person.get("email", ""), parent=self.win)
+        if value is None:
+            return
+        self.social.staff_status(t("fr_connecting"), 30)
+        self.social.set_contact(person.get("code", ""), value.strip())
 
     def _reload_mod(self):
         self.social.load_mod()
@@ -1767,6 +1921,13 @@ class FriendsWindow:
             var = tk.StringVar(value=prof["info"].get(key, ""))
             self.info_vars[key] = var
             self._entry(row, var, width=34).pack(side="left")
+        erow = tk.Frame(self.body, bg=self.CARD)
+        erow.pack(fill="x", pady=1)
+        self._label(erow, t("prof_work_email"), width=14).pack(side="left")
+        self.work_email_var = tk.StringVar(value=self.social.work_email())
+        self._entry(erow, self.work_email_var, width=34).pack(side="left")
+        self._label(self.body, "\U0001F512 " + t("prof_work_email_hint"), size=8, fg=self.MUTED,
+                    wrap=self.WIDTH - 80).pack(fill="x")
         actions = tk.Frame(self.body, bg=self.CARD)
         actions.pack(fill="x", pady=(10, 0))
         self._button(actions, t("prof_save"), self._save_profile, primary=True).pack(side="left")
@@ -1974,6 +2135,13 @@ class FriendsWindow:
         self.refresh(force=True)
 
     def _save_profile(self):
+        email_var = getattr(self, "work_email_var", None)
+        if email_var is not None:
+            email = email_var.get().strip()
+            if email and outreach is not None and not outreach.valid_email(email):
+                self.show_error("bad_email")
+                return
+            self.social.set_work_email(email)
         info = {k: v.get().strip() for k, v in self.info_vars.items() if v.get().strip()}
         changes = {
             "visibility": self.vis_var.get(),

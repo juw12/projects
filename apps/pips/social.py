@@ -52,9 +52,17 @@ except ImportError:  # pragma: no cover
     def t(key, lang=None, **kwargs):
         return key.format(**kwargs) if kwargs else key
 
+try:
+    import outreach                 # v2.15 staff update reminders (Outlook / Teams)
+except ImportError:  # pragma: no cover
+    outreach = None
+
 logger = logging.getLogger("social")
 
 API_URL = "https://pips-friends.juwenmondial.workers.dev"
+# v2.15: every call tells the server which Pips version this is (staff see who still needs to update).
+CLIENT_VERSION = ""
+REMIND_AGAIN_S = 12 * 3600       # ask before reminding the same person again within 12 h
 SYNC_EVERY_S = 10 * 60
 BOARD_EVERY_S = 15 * 60
 ACH_CHECK_EVERY_S = 5 * 60
@@ -275,23 +283,74 @@ class ApiError(Exception):
         self.status = status
 
 
+# v2.15: a local proxy helper set in HTTP(S)_PROXY (e.g. localhost:3128) that hangs used to take
+# Friends offline. If a GET fails through it, Pips retries with the Windows proxy settings and keeps
+# using those for a while.
+SYSTEM_PROXY_STICKY_S = 10 * 60
+_SYSTEM_PROXY = {"opener": None, "until": 0.0}
+
+
+def _system_proxy_opener():
+    """urllib opener that uses the Windows proxy settings (Internet Options) instead of HTTP(S)_PROXY."""
+    if _SYSTEM_PROXY["opener"] is None:
+        try:
+            proxies = urllib.request.getproxies_registry()
+        except Exception:  # pragma: no cover - non-Windows
+            proxies = {}
+        _SYSTEM_PROXY["opener"] = urllib.request.build_opener(urllib.request.ProxyHandler(proxies))
+    return _SYSTEM_PROXY["opener"]
+
+
+def _env_proxy_differs_from_system() -> bool:
+    env = urllib.request.getproxies_environment()
+    if not (env.get("https") or env.get("http")):
+        return False
+    try:
+        system = urllib.request.getproxies_registry()
+    except Exception:  # pragma: no cover - non-Windows
+        system = {}
+    return (env.get("https"), env.get("http")) != (system.get("https"), system.get("http"))
+
+
+def _api_error(err) -> "ApiError":
+    try:
+        payload = json.loads(err.read().decode("utf-8"))
+    except Exception:
+        payload = {}
+    return ApiError(payload.get("error", "http_%d" % err.code), err.code)
+
+
 def api_call(method: str, path: str, body=None, account: dict | None = None, timeout=15) -> dict:
     data = json.dumps(body).encode("utf-8") if body is not None else None
     req = urllib.request.Request(API_URL + path, data=data, method=method)
     req.add_header("content-type", "application/json")
-    req.add_header("user-agent", "Pips")
+    req.add_header("user-agent", f"Pips/{CLIENT_VERSION}" if CLIENT_VERSION else "Pips")
+    if CLIENT_VERSION:
+        req.add_header("x-pips-version", CLIENT_VERSION)
     if account:
         req.add_header("authorization", f"Bearer {account['id']}.{account['secret']}")
+    use_system = time.time() < _SYSTEM_PROXY["until"]
+    opener = _system_proxy_opener().open if use_system else urllib.request.urlopen
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
+        with opener(req, timeout=timeout) as resp:
             return json.loads(resp.read().decode("utf-8"))
     except urllib.error.HTTPError as err:
-        try:
-            payload = json.loads(err.read().decode("utf-8"))
-        except Exception:
-            payload = {}
-        raise ApiError(payload.get("error", "http_%d" % err.code), err.code) from None
+        raise _api_error(err) from None
     except (urllib.error.URLError, OSError, ValueError) as err:
+        # Only GETs are retried (a POST may already have reached the server).
+        if not use_system and method == "GET" and _env_proxy_differs_from_system():
+            try:
+                with _system_proxy_opener().open(req, timeout=timeout) as resp:
+                    result = json.loads(resp.read().decode("utf-8"))
+            except urllib.error.HTTPError as err2:
+                _SYSTEM_PROXY["until"] = time.time() + SYSTEM_PROXY_STICKY_S
+                raise _api_error(err2) from None
+            except (urllib.error.URLError, OSError, ValueError):
+                pass
+            else:
+                _SYSTEM_PROXY["until"] = time.time() + SYSTEM_PROXY_STICKY_S
+                logger.warning("social: HTTP(S)_PROXY is not answering - using the Windows proxy settings")
+                return result
         raise ApiError("offline") from err
 
 
@@ -367,6 +426,14 @@ class Social:
         self.mod_data = None        # moderator queue (/v1/mod/reports)
         self.admin_data = None      # owner overview (/v1/admin/overview)
         self.new_keys = []          # premium keys generated in this session
+        self.show_inactive = False  # Mod tab: also list people not seen for a while
+        self.staff_note = ("", 0.0)  # (text, show-until) status line for update reminders
+        global CLIENT_VERSION
+        try:
+            get_version = (getattr(pet, "cb", None) or {}).get("version")
+            CLIENT_VERSION = str(get_version() or "") if callable(get_version) else CLIENT_VERSION
+        except Exception:  # pragma: no cover - defensive
+            pass
         if self.data.get("role") or self.data.get("premium_until"):
             pet.root.after(0, self._apply_owner)
 
@@ -674,7 +741,116 @@ class Social:
 
     def load_mod(self):
         if self.enabled and self.is_staff:
-            self._run("mod", api_call, "GET", "/v1/mod/reports", None, self.account)
+            self._run("mod", self._fetch_mod, self.account)
+
+    @staticmethod
+    def _fetch_mod(account):
+        data = api_call("GET", "/v1/mod/reports", None, account)
+        try:
+            data["versions"] = api_call("GET", "/v1/mod/versions", None, account)
+        except ApiError as err:          # older server / offline: reports still show
+            data["versions"] = {"ok": False, "error": err.code}
+        return data
+
+    # ---- work e-mail + update reminders (v2.15) ----
+    def work_email(self) -> str:
+        """My work e-mail: what I typed in the Profile tab, else the Outlook account on this PC."""
+        if "work_email" in self.data:
+            return str(self.data.get("work_email") or "")
+        return outreach.detect_work_email() if outreach is not None else ""
+
+    def set_work_email(self, email: str):
+        email = (email or "").strip()
+        detected = outreach.detect_work_email() if outreach is not None else ""
+        if "work_email" not in self.data and email == detected:
+            return                       # unchanged - keep following Outlook
+        self.data["work_email"] = email
+        self.save()
+
+    def set_contact(self, code: str, value: str):
+        """Staff: save someone's work e-mail ('' clears). A name is looked up in Outlook."""
+        if self.enabled and self.is_staff:
+            self._run("contact_set", self._set_contact, code, (value or "").strip(), self.account)
+
+    @staticmethod
+    def _set_contact(code, value, account):
+        if value and not (outreach is not None and outreach.valid_email(value)):
+            found = None
+            if outreach is not None:
+                try:
+                    found = outreach.resolve_address(value)
+                except outreach.OutreachError:
+                    found = None
+            if not found:
+                raise ApiError("email_not_found")
+            value = found[0]
+        return api_call("POST", "/v1/mod/contact", {"code": code, "email": value}, account)
+
+    def note_reminded(self, codes, via: str):
+        if self.enabled and self.is_staff and codes:
+            self._run("reminded", api_call, "POST", "/v1/mod/remind", {"codes": list(codes), "via": via},
+                      self.account)
+
+    def send_update_reminder(self, people: list, latest: str, bulk: bool = False) -> int:
+        """E-mail an update reminder through Outlook (background). -> number of recipients."""
+        if not (self.enabled and self.is_staff) or outreach is None:
+            return 0
+        targets = [p for p in people if outreach.valid_email(p.get("email", ""))]
+        if targets:
+            self._run("remind_mail", self._send_update_reminder, targets, latest, bulk)
+        return len(targets)
+
+    def _send_update_reminder(self, targets, latest, bulk):
+        sender = self.data.get("name") or default_display_name()
+        notes, title = self.release_notes(latest)
+        subject = outreach.reminder_subject(latest)
+        emails = sorted({p["email"].strip() for p in targets}, key=str.lower)
+        single = targets[0] if not bulk and len(targets) == 1 else None
+        name = single.get("name", "") if single else ""
+        ver = single.get("app_ver", "") if single else ""
+        try:
+            html_body = outreach.reminder_html(name, ver, latest, sender, notes, title)
+            if single:
+                outreach.send_mail(emails, subject, html_body)
+            else:
+                me = self.work_email()
+                outreach.send_mail([me] if me else [], subject, html_body, bcc=emails)
+            method = "outlook"
+        except outreach.OutreachError as err:
+            if err.code != "no_outlook":
+                raise ApiError(err.code) from None
+            body = outreach.reminder_text(name, ver, latest, sender)
+            if single:
+                outreach.open_mail_draft(emails, subject, body)
+            else:
+                outreach.open_mail_draft([], subject, body, bcc=emails)
+            method = "draft"
+        codes = [p["code"] for p in targets if p.get("code")]
+        try:
+            api_call("POST", "/v1/mod/remind", {"codes": codes, "via": "email"}, self.account)
+        except ApiError:
+            pass
+        return {"method": method, "count": len(emails), "codes": codes}
+
+    def release_notes(self, version: str):
+        """English notes + title of `version` from the local CHANGELOG.json (for reminder mails)."""
+        try:
+            data = json.loads((Path(self.pet.base_dir) / "CHANGELOG.json").read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return [], ""
+        releases = data.get("releases", []) if isinstance(data, dict) else data
+        for rel in releases if isinstance(releases, list) else []:
+            if isinstance(rel, dict) and rel.get("version") == version:
+                notes = rel.get("notes") or {}
+                return list(notes.get("en", []) if isinstance(notes, dict) else notes), rel.get("title", "")
+        return [], ""
+
+    def staff_status(self, text: str, seconds: float = 10.0):
+        """Show a short note in the hub's status line (survives the next refreshes for a few seconds)."""
+        self.staff_note = (text, time.time() + seconds)
+        if self.window and self.window.alive():
+            self.window.error = ""
+            self.window.status.config(text=text, fg=self.window.MUTED)
 
     def mod_action(self, code: str, action: str, **extra):
         body = {"code": code, "action": action}
@@ -1037,7 +1213,7 @@ class Social:
         stats = self.stats or self.refresh_stats()
         unlocked = list(self.data.get("unlocked", {}).keys())
         prof = self.profile()
-        return {
+        payload = {
             "visibility": prof["visibility"],
             "bio": prof["bio"],
             "info": prof["info"],
@@ -1061,6 +1237,10 @@ class Social:
             "gear": self.my_gear(),
             "allow_nudges": self.allow_nudges(),
         }
+        email = self.work_email()
+        if email or "work_email" in self.data:   # never wipe an address staff entered for us
+            payload["email"] = email
+        return payload
 
     def _board_now(self, account=None):
         stats = self.stats or self.refresh_stats()
@@ -1515,6 +1695,8 @@ class Social:
             if payload == "no_location" and self.window and self.window.alive():
                 self.window.show_error("no_location")
                 return
+            if kind in ("remind_mail", "contact_set"):
+                self.staff_note = ("", 0.0)
             if kind not in ("inbox", "avatar", "leaderboard", "arena", "duel") and self.window and self.window.alive():
                 self.window.show_error(payload)
             return
@@ -1648,6 +1830,16 @@ class Social:
         elif kind == "admin_done":
             self.load_admin()
             self._refresh_social_views()
+        elif kind == "contact_set":
+            self.staff_status(t("upd_rem_saved"))
+            self.load_mod()
+        elif kind == "reminded":
+            self.load_mod()
+        elif kind == "remind_mail":
+            self.pet.set_action("hop", 0.55)
+            key = "upd_rem_draft" if payload.get("method") == "draft" else "upd_rem_sent"
+            self.staff_status(t(key, n=payload.get("count", 0)))
+            self.load_mod()
         elif kind == "redeemed":
             self._refresh_window()
         if kind == "leaderboard":
