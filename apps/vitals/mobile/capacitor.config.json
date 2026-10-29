@@ -1,0 +1,25 @@
+{
+  "appId": "io.github.juw12.vitals",
+  "appName": "Vitals",
+  "webDir": "www",
+  "backgroundColor": "#0a0e13",
+  "appendUserAgent": "VitalsApp/1.0",
+  "server": {
+    "androidScheme": "https",
+    "cleartext": true
+  },
+  "android": {
+    "allowMixedContent": true
+  },
+  "ios": {
+    "contentInset": "never",
+    "backgroundColor": "#0a0e13"
+  },
+  "plugins": {
+    "SystemBars": {
+      "insetsHandling": "css",
+      "initialViewportFitValueHint": "cover",
+      "style": "DARK"
+    }
+  }
+}

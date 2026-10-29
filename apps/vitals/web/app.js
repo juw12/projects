@@ -113,6 +113,27 @@
     },
   };
 
+  // Downloadable apps: the "vitals" GitHub release, built by .github/workflows/vitals-apps.yml.
+  const RELEASE = "https://github.com/juw12/projects/releases/download/vitals/";
+  const RELEASE_PAGE = "https://github.com/juw12/projects/releases/tag/vitals";
+  const ANDROID_APK = RELEASE + "Vitals-Android.apk";
+  const IPHONE_WEB = SITE + "mobile.html";
+  const IN_APP = /VitalsApp\//.test(navigator.userAgent); // running inside the Android/iPhone app
+  const DOWNLOADS = {
+    windows: {
+      files: [["Download for Windows", "Vitals-Windows-Setup.exe"]],
+      note: "Windows 10/11 · installs just for you, no admin. If Windows says it protected your PC, choose <b>More info → Run anyway</b> (the app isn't code-signed yet).",
+    },
+    mac: {
+      files: [["Mac with Apple chip", "Vitals-macOS-AppleSilicon.dmg"], ["Mac with Intel chip", "Vitals-macOS-Intel.dmg"]],
+      note: "Open it and drag Vitals to Applications. The first time, macOS asks you to allow it: <b>System Settings → Privacy &amp; Security → Open Anyway</b>.",
+    },
+    linux: {
+      files: [["Ubuntu / Debian (.deb)", "Vitals-Linux-x64.deb"], ["Any Linux (.tar.gz)", "Vitals-Linux-x64.tar.gz"]],
+      note: "Open the .deb with your software app, or run <code>sudo apt install ./Vitals-Linux-x64.deb</code>. For the .tar.gz: extract it and run <code>Vitals/vitals</code>.",
+    },
+  };
+
   const VIEWS = [
     { id: "home", label: "Home", icon: "home" },
     { id: "overview", label: "Overview", icon: "overview" },
@@ -1235,11 +1256,34 @@
       '<button class="btn primary huge" data-copy-install>' + (step >= 1 ? "Copied ✓ — copy again" : "Copy the install line") + "</button>" +
       '<div class="cmd-line mono small faint" id="installCmd">' + esc(info.cmd) + "</div></div>" +
       '<div class="install-pic">' + picture + '<div class="small muted" style="margin-top:8px">' + (os === "windows" ? "Press Win + R, paste here, press Enter." : "Paste here and press " + (os === "mac" ? "Return" : "Enter") + ".") + "</div></div></div>" +
+      downloadRow(os) +
       '<div class="install-status" id="installStatus"><span class="typing"><i></i><i></i><i></i></span> Waiting for Vitals to start — this page will switch over by itself.</div>' +
       '<div class="small faint" style="margin-top:10px">Installing on a different computer? ' + others.map((k) => '<button class="linklike" data-install-os="' + k + '">' + INSTALL[k].name + "</button>").join(" · ") + "</div>" +
       "</div>";
     startInstallWatch();
     return html;
+  }
+
+  function downloadRow(os) {
+    const info = DOWNLOADS[os] || DOWNLOADS.windows;
+    const buttons = info.files.map(([label, file], i) =>
+      '<a class="btn sm' + (i === 0 ? " primary" : "") + '" href="' + RELEASE + file + '" download>' + esc(label) + "</a>").join("");
+    return '<div class="download-row"><div class="small muted">Prefer a regular download? Same Vitals, nothing else to install:</div>' +
+      '<div class="download-buttons">' + buttons + '<a class="btn sm ghost" href="' + RELEASE_PAGE + '" target="_blank" rel="noopener">Other systems</a></div>' +
+      '<p class="small faint" style="margin:6px 0 0">' + info.note + "</p></div>";
+  }
+
+  function phoneAppCard() {
+    if (S.platform === "android") {
+      return '<div class="card" style="margin-top:16px"><h2>Get the Android app</h2>' +
+        '<p class="small muted">The same Vitals as an app on your home screen; it works offline.</p>' +
+        '<a class="btn primary" href="' + ANDROID_APK + '" download>Download Vitals for Android</a>' +
+        '<p class="small faint" style="margin:8px 0 0">Open the downloaded file and allow installing from your browser when Android asks.</p></div>';
+    }
+    return '<div class="card" style="margin-top:16px"><h2>Put Vitals on your home screen</h2><ol class="steps">' +
+      "<li>Open this page in <b>Safari</b>.</li><li>Tap <b>Share</b>, then <b>Add to Home Screen</b>.</li>" +
+      "<li>Open Vitals from its icon: it runs full screen and updates itself.</li></ol>" +
+      '<p class="small faint">Advanced: an unsigned iPhone app for sideloading is on the <a href="' + RELEASE_PAGE + '" target="_blank" rel="noopener">download page</a>.</p></div>';
   }
 
   function pairCard(onPhone) {
@@ -1266,8 +1310,10 @@
         "<li>In Vitals on the computer, go to <b>Devices → Connect my phone</b>.</li>" +
         "<li>Point this phone's <b>camera</b> at the code on screen and tap the link. Done — you'll see your computer's health here.</li></ol>" +
         '<p class="small muted">Both devices need to be on the same Wi-Fi. This phone\'s own tips are in <b>Guides</b>.</p></div>' + pairCard(true) + "</div>";
+      if (!IN_APP) html += phoneAppCard();
       return html;
     }
+    const os = installOs();
     html += installCard(false);
     html += '<div class="grid g-3" style="margin-top:16px">' +
       '<div class="card"><h2>What it does</h2><p class="small muted">Puts Vitals in your user folder (no admin password), adds a Vitals app icon, and starts it quietly when you log in so this page is always live.</p></div>' +
@@ -1334,7 +1380,8 @@
     }
     html += '</div><div class="card"><h2>Connected devices</h2>' +
       (p.devices || []).map((d) => '<div class="row" style="padding:8px 0;border-bottom:1px solid var(--line)"><span>' + esc(d.device) + '</span><span class="right small muted">' + ago(d.created) + "</span></div>").join("") +
-      '<p class="small muted" style="margin-top:12px">Vitals starts by itself when you log in, so this page is always live at <a href="http://127.0.0.1:8765/">127.0.0.1:8765</a>.</p></div></div>';
+      '<p class="small muted" style="margin-top:12px">Vitals starts by itself when you log in, so this page is always live at <a href="http://127.0.0.1:8765/">127.0.0.1:8765</a>.</p>' +
+      '<p class="small muted">Want Vitals as an app on the phone too? <a href="' + ANDROID_APK + '">Android app</a> · iPhone: open <b>' + esc(IPHONE_WEB.replace("https://", "")) + "</b> in Safari → Share → Add to Home Screen.</p></div></div>";
     startPairingWatch();
     return html;
   }

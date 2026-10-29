@@ -147,6 +147,7 @@ a { color: var(--accent-2); }
 .btn.ghost { background: transparent; }
 .btn.sm { padding: 5px 10px; font-size: 12.5px; border-radius: 8px; }
 .btn svg { width: 16px; height: 16px; }
+a.btn { color: inherit; text-decoration: none; }
 .icon-btn { width: 36px; height: 36px; padding: 0; border-radius: 10px; }
 
 .badge {
@@ -414,6 +415,8 @@ kbd { font-family: var(--mono); font-size: 12px; padding: 1px 6px; border-radius
 .cmd { display: flex; gap: 10px; align-items: center; background: var(--bg-2); border: 1px solid var(--line-strong); border-radius: 12px; padding: 8px 8px 8px 14px; }
 .cmd code { flex: 1; font-family: var(--mono); font-size: 13px; overflow-x: auto; white-space: nowrap; scrollbar-width: thin; }
 .install-status { margin-top: 14px; font-size: 13.5px; color: var(--muted); display: flex; align-items: center; gap: 10px; }
+.download-row { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); }
+.download-buttons { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
 .qr-wrap { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; }
 .qr { width: 200px; height: 200px; border-radius: 14px; overflow: hidden; background: #fff; flex: none; box-shadow: var(--shadow); }
 .qr svg { width: 100%; height: 100%; display: block; }

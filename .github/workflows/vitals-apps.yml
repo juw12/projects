@@ -1,0 +1,357 @@
+name: Vitals apps
+
+# Builds the downloadable Vitals apps and publishes them to the "vitals" release from main:
+#   Windows  Vitals-Windows-Setup.exe (per-user installer) + Vitals-Windows-Portable.zip
+#   macOS    Vitals-macOS-AppleSilicon.dmg + Vitals-macOS-Intel.dmg
+#   Linux    Vitals-Linux-x64.deb + Vitals-Linux-x64.tar.gz
+#   Android  Vitals-Android.apk (signed)
+#   iPhone   Vitals-iPhone-unsigned.ipa (free sideloading; most people use Add to Home Screen)
+# Every desktop build is opened and checked on its own OS (the Windows installer is installed,
+# run and uninstalled; the .deb is installed and run), the APK runs on an emulator and the iPhone
+# app in the simulator. Only builds that passed are published; links stay the same across releases.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/vitals/server/**'
+      - 'apps/vitals/web/**'
+      - 'apps/vitals/desktop/**'
+      - 'apps/vitals/mobile/**'
+      - '.github/workflows/vitals-apps.yml'
+  pull_request:
+    paths:
+      - 'apps/vitals/server/**'
+      - 'apps/vitals/web/**'
+      - 'apps/vitals/desktop/**'
+      - 'apps/vitals/mobile/**'
+      - '.github/workflows/vitals-apps.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vitals-apps-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  desktop:
+    name: Desktop (${{ matrix.name }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows
+            os: windows-latest
+          - name: macOS Apple silicon
+            os: macos-15
+          - name: macOS Intel
+            os: macos-15-intel
+          - name: Linux
+            os: ubuntu-22.04
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install PyInstaller
+        run: python -m pip install --disable-pip-version-check pyinstaller pillow
+      - name: Install Inno Setup
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $iscc = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'
+          if (-not (Test-Path $iscc) -and -not (Get-Command iscc -ErrorAction SilentlyContinue)) {
+            choco install innosetup --no-progress -y
+          }
+      - name: Build and package
+        run: python apps/vitals/desktop/build.py --require-installer
+      - name: Open the built app and check it works
+        run: python apps/vitals/desktop/smoke_test.py --built
+      - name: Install with Vitals-Windows-Setup.exe, run it, uninstall it
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $setup = Resolve-Path 'apps/vitals/desktop/dist/Vitals-Windows-Setup.exe'
+          $log = Join-Path $env:RUNNER_TEMP 'vitals-setup.log'
+          $process = Start-Process -FilePath $setup -Wait -PassThru -ArgumentList @(
+            '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/TASKS=startup,desktopicon', "/LOG=$log")
+          if ($process.ExitCode -ne 0) { Get-Content $log -Tail 40; throw "Setup failed with exit code $($process.ExitCode)" }
+          $app = Join-Path $env:LOCALAPPDATA 'Programs\Vitals\Vitals.exe'
+          if (-not (Test-Path $app)) { throw "Vitals.exe was not installed to $app" }
+          $shortcuts = @(
+            (Join-Path ([Environment]::GetFolderPath('Programs')) 'Vitals.lnk'),
+            (Join-Path ([Environment]::GetFolderPath('Startup')) 'Vitals (background).lnk'),
+            (Join-Path ([Environment]::GetFolderPath('Desktop')) 'Vitals.lnk'))
+          foreach ($link in $shortcuts) { if (-not (Test-Path $link)) { throw "Missing shortcut: $link" } }
+          $entry = Get-ChildItem 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall' |
+            Get-ItemProperty | Where-Object DisplayName -eq 'Vitals'
+          if (-not $entry) { throw 'Vitals is missing from Settings > Apps' }
+          python apps/vitals/desktop/smoke_test.py $app
+          if ($LASTEXITCODE -ne 0) { throw 'The installed app failed its checks' }
+          Start-Process -FilePath $entry.UninstallString.Trim('"') -Wait -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART'
+          for ($i = 0; $i -lt 60 -and (Test-Path $app); $i++) { Start-Sleep -Seconds 1 }
+          if (Test-Path $app) { throw 'Uninstalling left Vitals.exe behind' }
+          foreach ($link in $shortcuts) { if (Test-Path $link) { throw "Uninstalling left a shortcut: $link" } }
+          Write-Host 'Installed, ran and uninstalled cleanly'
+      - name: Install the .deb package and run it
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get install -y ./apps/vitals/desktop/dist/Vitals-Linux-x64.deb
+          test -x /usr/bin/vitals
+          test -f /usr/share/applications/vitals.desktop
+          python apps/vitals/desktop/smoke_test.py /usr/bin/vitals
+          sudo apt-get remove -y vitals
+          test ! -e /usr/bin/vitals
+      - name: Check the Mac app and disk image
+        if: runner.os == 'macOS'
+        run: |
+          APP=apps/vitals/desktop/dist/Vitals.app
+          test "$(plutil -extract CFBundleIdentifier raw "$APP/Contents/Info.plist")" = "io.github.juw12.vitals.app"
+          test "$(plutil -extract LSUIElement raw "$APP/Contents/Info.plist")" = "true"
+          echo "Architecture: $(lipo -archs "$APP/Contents/MacOS/Vitals")"
+          codesign --verify --deep --verbose=2 "$APP"
+          for image in apps/vitals/desktop/dist/*.dmg; do hdiutil verify "$image"; done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Vitals-${{ runner.os }}-${{ runner.arch }}
+          path: apps/vitals/desktop/dist/Vitals-*
+          if-no-files-found: error
+          retention-days: 14
+
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: apps/vitals/mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Prepare the Android project
+        run: |
+          npm install --no-fund --no-audit
+          npm run android:prepare
+      - name: Restore the signing key
+        env:
+          VITALS_KEYSTORE_BASE64: ${{ secrets.VITALS_ANDROID_KEYSTORE_BASE64 }}
+          GLOW_KEYSTORE_BASE64: ${{ secrets.GLOW_ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$VITALS_KEYSTORE_BASE64" ]; then
+            echo "$VITALS_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/vitals-signing.p12"
+            echo "VITALS_KEY_SOURCE=vitals" >> "$GITHUB_ENV"
+            echo "VITALS_ANDROID_KEY_ALIAS=vitals" >> "$GITHUB_ENV"
+          elif [ -n "$GLOW_KEYSTORE_BASE64" ]; then
+            # The developer key Glow and Sync are signed with (alias glow).
+            echo "$GLOW_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/vitals-signing.p12"
+            echo "VITALS_KEY_SOURCE=glow" >> "$GITHUB_ENV"
+            echo "VITALS_ANDROID_KEY_ALIAS=glow" >> "$GITHUB_ENV"
+          else
+            echo "::warning::No Android signing key secret; the published APK will be debug-signed."
+            exit 0
+          fi
+          echo "VITALS_ANDROID_KEYSTORE_PATH=$RUNNER_TEMP/vitals-signing.p12" >> "$GITHUB_ENV"
+      - name: Build the release and debug APKs
+        env:
+          VITALS_PASSWORD: ${{ secrets.VITALS_ANDROID_SIGNING_PASSWORD }}
+          GLOW_PASSWORD: ${{ secrets.GLOW_ANDROID_SIGNING_PASSWORD }}
+        run: |
+          if [ "${VITALS_KEY_SOURCE:-}" = "vitals" ]; then
+            export VITALS_ANDROID_SIGNING_PASSWORD="$VITALS_PASSWORD"
+          else
+            export VITALS_ANDROID_SIGNING_PASSWORD="$GLOW_PASSWORD"
+          fi
+          chmod +x android/gradlew
+          cd android
+          if [ -n "${VITALS_ANDROID_KEYSTORE_PATH:-}" ]; then
+            ./gradlew assembleRelease assembleDebug --no-daemon
+          else
+            ./gradlew assembleDebug --no-daemon
+          fi
+      - name: Verify the signature and name the packages
+        run: |
+          mkdir -p dist
+          cp android/app/build/outputs/apk/debug/app-debug.apk dist/Vitals-debug.apk
+          APKSIGNER=$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -n 1)
+          if [ -n "${VITALS_ANDROID_KEYSTORE_PATH:-}" ]; then
+            cp android/app/build/outputs/apk/release/app-release.apk dist/Vitals-Android.apk
+          else
+            cp dist/Vitals-debug.apk dist/Vitals-Android.apk
+          fi
+          "$APKSIGNER" verify --print-certs dist/Vitals-Android.apk | tee dist/android-signature.txt
+          ls -la dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Vitals-Android
+          path: apps/vitals/mobile/dist
+          retention-days: 14
+
+  emulator:
+    needs: android
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: Vitals-Android
+          path: apps/vitals/mobile/dist
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install websocket-client
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Open the app on an emulator and check the dashboard
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none
+          script: python apps/vitals/mobile/scripts/android-smoke.py apps/vitals/mobile/dist/Vitals-debug.apk
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Vitals-Android-emulator-check
+          path: |
+            apps/vitals/mobile/dist/*.png
+            apps/vitals/mobile/dist/*.json
+          retention-days: 7
+
+  ios:
+    runs-on: macos-15
+    timeout-minutes: 40
+    defaults:
+      run:
+        working-directory: apps/vitals/mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Prepare the iOS project
+        run: |
+          npm install --no-fund --no-audit
+          npm run ios:prepare
+      - name: Build for the iOS simulator, launch it and take a screenshot
+        run: |
+          xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Debug \
+            -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build-simulator CODE_SIGNING_ALLOWED=NO build
+          DEVICE=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; d=json.load(sys.stdin); print(next(x["udid"] for a in d["devices"].values() for x in a if x["isAvailable"] and x["name"].startswith("iPhone")))')
+          xcrun simctl boot "$DEVICE" || true
+          xcrun simctl bootstatus "$DEVICE" -b
+          xcrun simctl install "$DEVICE" build-simulator/Build/Products/Debug-iphonesimulator/App.app
+          xcrun simctl launch "$DEVICE" io.github.juw12.vitals
+          sleep 20
+          mkdir -p dist
+          xcrun simctl io "$DEVICE" screenshot dist/iphone-simulator.png
+          xcrun simctl spawn "$DEVICE" launchctl list | grep -q io.github.juw12.vitals || { echo "::error::Vitals is not running in the simulator"; exit 1; }
+      - name: Build the unsigned iPhone app (for free sideloading)
+        run: |
+          xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Release \
+            -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build-device \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build
+          rm -rf ipa && mkdir -p ipa/Payload dist
+          cp -R build-device/Build/Products/Release-iphoneos/App.app ipa/Payload/
+          (cd ipa && zip -qry ../dist/Vitals-iPhone-unsigned.ipa Payload)
+      - name: Check the iPhone app
+        run: |
+          APP=ipa/Payload/App.app
+          test "$(plutil -extract CFBundleIdentifier raw "$APP/Info.plist")" = "io.github.juw12.vitals"
+          test "$(plutil -extract CFBundleShortVersionString raw "$APP/Info.plist")" = "$(node -p "require('./package.json').version")"
+          test "$(plutil -extract NSAppTransportSecurity.NSAllowsLocalNetworking raw "$APP/Info.plist")" = "true"
+          grep -q 'data-layout="mobile"' "$APP/public/index.html"
+          lipo -info "$APP/App" | grep -q arm64
+          unzip -l dist/Vitals-iPhone-unsigned.ipa | grep -q 'Payload/App.app/Info.plist'
+          ls -l dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Vitals-iOS
+          path: apps/vitals/mobile/dist
+          if-no-files-found: error
+          retention-days: 14
+
+  publish:
+    needs: [desktop, android, emulator, ios]
+    if: ${{ !cancelled() && github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: Vitals-*
+          path: dist
+          merge-multiple: true
+      - name: Publish the apps to the vitals release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          ANDROID_CHECK: ${{ needs.emulator.result }}
+        run: |
+          cd dist
+          FILES=""
+          for name in Vitals-Windows-Setup.exe Vitals-Windows-Portable.zip \
+                      Vitals-macOS-AppleSilicon.dmg Vitals-macOS-Intel.dmg \
+                      Vitals-Linux-x64.deb Vitals-Linux-x64.tar.gz \
+                      Vitals-Android.apk Vitals-iPhone-unsigned.ipa; do
+            if [ "$name" = "Vitals-Android.apk" ] && [ "$ANDROID_CHECK" != "success" ]; then
+              echo "::warning::The Android app did not pass its emulator check, so it was not published."
+              continue
+            fi
+            if [ -f "$name" ]; then
+              FILES="$FILES $name"
+            else
+              echo "::warning::$name was not built in this run; the release keeps its previous copy (if any)."
+            fi
+          done
+          if [ -z "$FILES" ]; then
+            echo "::error::No app passed its checks."
+            exit 1
+          fi
+          sha256sum $FILES > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+          cat > notes.md <<'EOF'
+          **Vitals** — a device-health copilot: undoable storage cleaning, battery wear forecast, drain detective and a chat that diagnoses problems in plain words. Free, no account, nothing leaves your device.
+
+          | Your device | Download | How to install |
+          | --- | --- | --- |
+          | **Windows 10/11** | [Vitals-Windows-Setup.exe](https://github.com/juw12/projects/releases/download/vitals/Vitals-Windows-Setup.exe) | Open it and press Install (no admin needed). If Windows says it protected your PC, choose **More info → Run anyway** (the app isn't code-signed yet). Without installing: [Vitals-Windows-Portable.zip](https://github.com/juw12/projects/releases/download/vitals/Vitals-Windows-Portable.zip). |
+          | **Mac with Apple chip (M1 and newer)** | [Vitals-macOS-AppleSilicon.dmg](https://github.com/juw12/projects/releases/download/vitals/Vitals-macOS-AppleSilicon.dmg) | Open it and drag Vitals to Applications. The first time, macOS blocks it because it isn't notarized: **System Settings → Privacy & Security → Open Anyway**. |
+          | **Mac with Intel chip** | [Vitals-macOS-Intel.dmg](https://github.com/juw12/projects/releases/download/vitals/Vitals-macOS-Intel.dmg) | Same as above. Not sure which Mac? Apple menu → About This Mac shows **Chip** (Apple) or **Processor** (Intel). |
+          | **Ubuntu, Debian, Mint** | [Vitals-Linux-x64.deb](https://github.com/juw12/projects/releases/download/vitals/Vitals-Linux-x64.deb) | Double-click it, or `sudo apt install ./Vitals-Linux-x64.deb`. |
+          | **Other Linux** | [Vitals-Linux-x64.tar.gz](https://github.com/juw12/projects/releases/download/vitals/Vitals-Linux-x64.tar.gz) | Extract it and run `Vitals/vitals` (glibc 2.35+: Ubuntu 22.04, Debian 12, Fedora 36 or newer). |
+          | **Android** | [Vitals-Android.apk](https://github.com/juw12/projects/releases/download/vitals/Vitals-Android.apk) | Download it on the phone, open it and allow installing from your browser. |
+          | **iPhone** | [Open in Safari](https://juw12.github.io/projects/vitals/mobile.html) | Share → **Add to Home Screen** (free, updates itself). Advanced: [Vitals-iPhone-unsigned.ipa](https://github.com/juw12/projects/releases/download/vitals/Vitals-iPhone-unsigned.ipa) for Sideloadly or AltStore with your own Apple ID (re-sign every 7 days). |
+
+          On a computer, Vitals opens its dashboard in your browser and starts quietly when you sign in; history and the Undo Vault stay in `~/.vitals`. Phones don't let any app clean other apps' data, so the phone app shows your computer's health once paired (on the computer: **Devices → Connect my phone**), plus phone guides.
+
+          Prefer one line in a terminal? The one-step installers are on https://juw12.github.io/projects/vitals/. Checksums for this build: `SHA256SUMS.txt`.
+          EOF
+          {
+            echo
+            echo "Built from ${GITHUB_SHA::7}."
+            grep -m1 'SHA-256 digest' android-signature.txt | sed 's/^/Android signing certificate (/; s/$/)./' || true
+          } >> notes.md
+          if gh release view vitals --repo "$REPO" > /dev/null 2>&1; then
+            gh release upload vitals $FILES SHA256SUMS.txt --clobber --repo "$REPO"
+            gh release edit vitals --notes-file notes.md --repo "$REPO"
+          else
+            gh release create vitals $FILES SHA256SUMS.txt --title "Vitals for Windows, Mac, Linux, Android and iPhone" \
+              --notes-file notes.md --target "$GITHUB_SHA" --latest=false --repo "$REPO"
+          fi
