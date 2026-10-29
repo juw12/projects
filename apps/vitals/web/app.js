@@ -1792,10 +1792,22 @@
     $("#runPlan").addEventListener("click", () => runAction({ action: "clean-plan", plan }));
   }
 
+  // Inside the Android/iPhone app, keep the clock and battery icons readable on the current theme.
+  function syncSystemBars() {
+    if (!IN_APP) return;
+    try {
+      const bars = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.SystemBars;
+      if (!bars || !bars.setStyle) return;
+      const style = document.documentElement.dataset.theme === "light" ? "LIGHT" : "DARK"; // LIGHT = dark icons
+      Promise.resolve(bars.setStyle({ style: style })).catch(() => {});
+    } catch (e) { /* app shell without the plugin */ }
+  }
+
   function toggleTheme() {
     const next = document.documentElement.dataset.theme === "light" ? "dark" : "light";
     document.documentElement.dataset.theme = next;
     LS.set("theme", next);
+    syncSystemBars();
     renderNavOnly();
     renderMain();
   }
@@ -1967,6 +1979,7 @@
   // ------------------------------------------------------------------ boot
   function boot() {
     document.documentElement.dataset.theme = LS.get("theme", window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
+    syncSystemBars();
     const params = new URLSearchParams(location.hash.slice(1));
     S.view = params.get("view") || (S.simple ? "home" : "overview");
     const mq = window.matchMedia("(max-width: 820px)");
