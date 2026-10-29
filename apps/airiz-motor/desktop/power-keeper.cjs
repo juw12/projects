@@ -1,12 +1,17 @@
 'use strict';
 
 // 1.9.0: keeps Windows awake while the console shares the AIRIZ (phones control it through
-// this PC), and stops as soon as sharing stops or the window goes away. Two blockers:
-// 'prevent-app-suspension' (system stays on) and 'prevent-display-sleep' (screen stays on;
-// on Modern Standby laptops an idle screen-off would otherwise suspend the network too).
-// Closing the lid or choosing Sleep still sleeps the PC; the share then recovers on resume.
-function createPowerKeeper(powerSaveBlocker) {
+// this PC), and stops as soon as sharing stops or the window goes away.
+//   'prevent-app-suspension'  the system stays on (always while sharing)
+//   'prevent-display-sleep'   the screen stays on - 1.9.1: only where it is needed, i.e. on
+//                             Modern Standby PCs, where an idle screen-off can end in standby.
+//                             Classic-sleep PCs may turn the screen off; sharing goes on.
+// Closing the lid and the sleep timers are handled by power-plan.cjs (1.9.1).
+function createPowerKeeper(powerSaveBlocker, options) {
+  const settings = options || {};
+  const wantsDisplay = typeof settings.display === 'function' ? settings.display : () => true;
   const ids = [];
+  let displayHeld = false;
 
   function started(id) {
     try {
@@ -25,16 +30,19 @@ function createPowerKeeper(powerSaveBlocker) {
         // Already released by the system.
       }
     }
+    displayHeld = false;
   }
 
   return {
     set(flag) {
       if (flag === true) {
-        // Re-arm if Windows dropped a request.
-        if (ids.length && !ids.every(started)) stopAll();
+        const display = wantsDisplay() !== false;
+        // Re-arm if Windows dropped a request, or the screen decision changed.
+        if (ids.length && (!ids.every(started) || displayHeld !== display)) stopAll();
         if (!ids.length) {
           ids.push(powerSaveBlocker.start('prevent-app-suspension'));
-          ids.push(powerSaveBlocker.start('prevent-display-sleep'));
+          if (display) ids.push(powerSaveBlocker.start('prevent-display-sleep'));
+          displayHeld = display;
         }
       } else {
         stopAll();
@@ -43,6 +51,9 @@ function createPowerKeeper(powerSaveBlocker) {
     },
     get active() {
       return ids.length > 0 && ids.every(started);
+    },
+    get displayHeld() {
+      return this.active && displayHeld;
     },
     stop() {
       stopAll();

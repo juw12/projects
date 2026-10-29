@@ -13,6 +13,8 @@
  *
  *   wss://<worker>/v1/control/<6-digit code>?role=pc    the PC that is connected to the AIRIZ by USB
  *   wss://<worker>/v1/control/<6-digit code>?role=ctl   up to MAX_CONTROLLERS phones / browsers
+ *   (1.3.0: 20 controllers and 20 camera viewers per code, was 4 and 10 - AIRIZ Console 1.9.1
+ *   lets several phones control one AIRIZ at the same time)
  *
  * Controllers' JSON messages are forwarded to the PC with a "from" id added; the PC's
  * JSON messages go to one controller ("to": id) or to all of them. The PC decides who
@@ -20,8 +22,8 @@
  */
 import { DurableObject } from 'cloudflare:workers';
 
-const MAX_VIEWERS = 10;
-const MAX_CONTROLLERS = 4;
+const MAX_VIEWERS = 20;
+const MAX_CONTROLLERS = 20;
 const MAX_FRAME_BYTES = 512 * 1024;
 const MAX_CONTROL_TO_PC = 8 * 1024;
 const MAX_CONTROL_FROM_PC = 32 * 1024;
@@ -49,7 +51,7 @@ function json(body, status = 200) {
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
-    if (url.pathname === '/v1/status') return json({ ok: true, app: 'airiz-relay', version: '1.2.0', control: true });
+    if (url.pathname === '/v1/status') return json({ ok: true, app: 'airiz-relay', version: '1.3.0', control: true, maxControllers: MAX_CONTROLLERS, maxViewers: MAX_VIEWERS });
 
     const match = /^\/v1\/(room|control)\/([^/]+)$/.exec(url.pathname);
     if (!match) return json({ error: 'not found' }, 404);

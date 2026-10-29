@@ -9,7 +9,7 @@ is required to use the installed app or its hardware-free demo.
 ## Downloads
 
 Windows x64 releases are published under the app-specific tag
-`airiz-desktop-v1.9.0` in this repository's Releases section.
+`airiz-desktop-v1.9.1` in this repository's Releases section.
 
 - **Installer**: assisted, per-user installation with Start-menu/desktop shortcuts
   and an uninstaller. The wizard lets the user choose the installation directory.
@@ -163,6 +163,30 @@ reports whether a framed firmware reply came back. Results can be exported.
 No pairing is accepted without confirmation and no motor command is sent.
 Another program on the PC still cannot open COM4 while this app holds it: that is
 a Windows serial-port rule, which is why the check runs inside the app.
+
+## 1.9.1: Lid-proof sharing, phones never give up, more phones
+
+* **Sleep timers and lid while sharing:** the Windows app now also sets *Sleep after* and *Hibernate
+  after* to Never and *When I close the lid* to Do nothing (plugged in and on battery) through
+  `powercfg`, for the active power plan only. The owner's own values are saved to
+  `power-plan-restore.json` in the app data folder **before** anything changes and are put back when
+  sharing stops, the window reloads or closes, the app quits, and, if the app was killed, at the next
+  start. Settings controlled by IT group policy are left alone and the dialog says so. The new
+  *Keep sharing when the lid is closed* option (on by default) can be switched off.
+* **Screen:** on Modern Standby PCs the screen stays on while sharing (an idle screen there can end in
+  standby; close the lid to turn it off). Classic-sleep PCs may turn the screen off; sharing goes on.
+* **Phones never give up:** after 3 s × 3, 8 s × 5 and 20 s × 30 attempts a phone keeps trying once a
+  minute for as long as its page is open (was: stop after 30 minutes). Only a *no* from the PC (Stop
+  sharing, Deny, Disconnect) or Stop on the phone ends it.
+* **Same code after a reload or an update:** a phone page that the browser reloads reconnects to the
+  same code by itself (this tab, 12 hours). A PC console that reloads, or restarts to install an
+  update, shares again with the **same code** (15 minutes) and lets the devices allowed in that share
+  straight back in; phones are told *restarting for an update* and keep trying meanwhile. Closing the
+  app or Stop sharing still ends the share on purpose.
+* **More phones:** the relay accepts 20 controlling phones per code (was 4) and 20 camera viewers
+  (was 10); relay 1.3.0 reports the limits on `/v1/status`.
+* **Not changed / limits:** choosing Sleep or pressing the power button still sleeps the PC (phones
+  reconnect when it wakes). A physical lid close was not exercised in automated tests.
 
 ## 1.9.0: Several phones, remembered devices, sleep-proof sharing
 

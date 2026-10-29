@@ -57,6 +57,7 @@
   const PHONE_PING_MS = 10000;
   const PHONE_SILENT_MS = 30000;
   const KEEP_AWAKE_KEY = 'airiz.share.keepAwake';
+  const LID_AWAKE_KEY = 'airiz.share.lidAwake';     // 1.9.1, Windows app: lid closed keeps sharing
 
   const $ = id => document.getElementById(id);
   const encoder = new TextEncoder();
@@ -152,7 +153,22 @@
     watchTimer: null,
     tickTimer: null,
     usbLostAt: 0,
+    power: null,              // Windows app: what the power plan does while sharing (1.9.1)
+    resumed: false,           // this share continues a code from before a reload / update
+    resumedApprovals: new Map(), // device id -> key hash, allowed before the reload / update
+    pendingResume: null,      // a share to continue as soon as the AIRIZ is connected
+    hashes: new Map(),        // device id + key -> key hash (for the resume record)
   };
+
+  function storageOf(kind) {
+    try {
+      return kind === 'session' ? window.sessionStorage : window.localStorage;
+    } catch (ignored) {
+      return null;
+    }
+  }
+  const SHARE_STORE = storageOf('local');
+  const PHONE_STORE = storageOf('session');
 
   function hostBuildDialog() {
     const dialog = document.createElement('dialog');
@@ -183,6 +199,8 @@
       + '<ul id="share-trust-list"></ul></section>'
       + '<label class="share-option"><input type="checkbox" id="share-keep-awake"> '
       + '<span>Keep this PC awake while sharing</span></label>'
+      + '<label class="share-option" id="share-lid-row" hidden><input type="checkbox" id="share-lid-awake"> '
+      + '<span>Keep sharing when the lid is closed</span></label>'
       + '<p id="share-awake-note" class="share-control-hint"></p>'
       + '<p class="help-warning">Allowed devices can move the motors and send any console command. '
       + 'Stop motor and Esc on this PC always work; a move already sent finishes unless stopped.</p>'
@@ -205,6 +223,14 @@
     $('share-keep-awake').addEventListener('change', event => {
       try {
         localStorage.setItem(KEEP_AWAKE_KEY, event.target.checked ? '1' : '0');
+      } catch (ignored) { /* storage blocked: applies to this session only */ }
+      hostApplyKeepAwake();
+    });
+    $('share-lid-row').hidden = !desktopPower();
+    $('share-lid-awake').checked = lidWanted();
+    $('share-lid-awake').addEventListener('change', event => {
+      try {
+        localStorage.setItem(LID_AWAKE_KEY, event.target.checked ? '1' : '0');
       } catch (ignored) { /* storage blocked: applies to this session only */ }
       hostApplyKeepAwake();
     });
@@ -335,24 +361,76 @@
     }
   }
 
+  function lidWanted() {
+    try {
+      return localStorage.getItem(LID_AWAKE_KEY) !== '0';
+    } catch (ignored) {
+      return true;
+    }
+  }
+
+  // Windows app 1.9.1+: lid and sleep-timer control through the main process.
+  function desktopPower() {
+    const desktop = window.airizDesktop;
+    return desktop && typeof desktop.setLidAwake === 'function' ? desktop : null;
+  }
+
+  // One sentence per line of the note, so each is translated on its own.
+  function hostAwakeLines(active) {
+    const wanted = keepAwakeWanted();
+    const power = host.power || {};
+    const lines = [];
+    if (keepAwake.mode === 'desktop') {
+      if (!wanted) {
+        lines.push('The PC may go to sleep while sharing. Phones reconnect with the same code when it wakes up.');
+      } else if (host.code && active === false) {
+        lines.push('Windows did not accept the keep-awake request. Set sleep to Never while sharing.');
+      } else if (power.sleep === 'failed') {
+        lines.push('While sharing, this PC stays awake while plugged in. Windows did not allow changing its sleep timer, so on battery it may still sleep.');
+      } else if (power.sleep === 'managed') {
+        lines.push('While sharing, this PC stays awake. Your IT settings control its sleep timer.');
+      } else {
+        lines.push('While sharing, this PC does not go to sleep, also on battery (its sleep timer is set to Never).');
+      }
+      if (wanted) {
+        lines.push(power.standby === 'classic'
+          ? 'The screen can still turn off by itself; sharing goes on.'
+          : 'The screen stays on, because on this PC an idle screen can end in standby.');
+      }
+      if (desktopPower()) {
+        if (!lidWanted()) {
+          lines.push('Closing the lid puts this PC to sleep; phones reconnect with the same code when it wakes up.');
+        } else if (power.lid === 'managed') {
+          lines.push('Your IT settings control the lid: closing it puts this PC to sleep; phones reconnect when it wakes up.');
+        } else if (power.lid === 'failed') {
+          lines.push('Windows did not allow changing the lid setting: closing the lid puts this PC to sleep; phones reconnect when it wakes up.');
+        } else {
+          lines.push('Closing the lid does not stop the share: close it to turn the screen off.');
+        }
+        lines.push('Your own power settings come back when you stop sharing.');
+      } else {
+        lines.push('Closing the lid can still put it to sleep; it then reconnects with the same code when it wakes up.');
+      }
+    } else if (!wanted) {
+      lines.push('The PC may go to sleep while sharing. Phones reconnect with the same code when it wakes up.');
+    } else if (keepAwake.mode === 'screen') {
+      lines.push('This browser keeps the screen on while this tab is visible. The AIRIZ Windows app also keeps the PC awake in the background.');
+    } else {
+      lines.push('This browser cannot keep the PC awake. Use the AIRIZ Windows app, or set Windows sleep to Never while sharing.');
+    }
+    return lines;
+  }
+
   function hostRenderAwake(active) {
     const note = $('share-awake-note');
     if (!note) return;
-    const wanted = keepAwakeWanted();
-    let text;
-    if (!wanted) {
-      text = 'The PC may go to sleep while sharing. Phones reconnect with the same code when it wakes up.';
-    } else if (keepAwake.mode === 'desktop') {
-      text = host.code && active === false
-        ? 'Windows did not accept the keep-awake request. Set sleep to Never while sharing.'
-        : 'While sharing, this PC and its screen stay on. Closing the lid can still put it to sleep; '
-          + 'it then reconnects with the same code when it wakes up.';
-    } else if (keepAwake.mode === 'screen') {
-      text = 'This browser keeps the screen on while this tab is visible. The AIRIZ Windows app also keeps the PC awake in the background.';
-    } else {
-      text = 'This browser cannot keep the PC awake. Use the AIRIZ Windows app, or set Windows sleep to Never while sharing.';
-    }
-    note.textContent = text;
+    const lines = hostAwakeLines(active);
+    note.replaceChildren(...lines.map((line, index) => {
+      const span = makeSpan(line, 'share-awake-line');
+      return index ? [document.createTextNode(' '), span] : [span];
+    }).flat());
+    const lidRow = $('share-lid-row');
+    if (lidRow) lidRow.hidden = !desktopPower();
   }
 
   // In the Windows app, a shared console must keep running at full speed
@@ -370,6 +448,14 @@
     hostApplyBackgroundSharing();
     const wanted = !!host.code && keepAwakeWanted();
     const active = await keepAwake.set(wanted);
+    const desktop = desktopPower();
+    if (desktop) {
+      try {
+        // The lid change waits for the sleep-timer change queued by setKeepAwake.
+        await desktop.setLidAwake(!!host.code && lidWanted());
+        if (typeof desktop.getPowerStatus === 'function') host.power = await desktop.getPowerStatus();
+      } catch (ignored) { /* older desktop build */ }
+    }
     hostRenderAwake(wanted ? active : undefined);
   }
 
@@ -416,6 +502,7 @@
     controller.since = Date.now();
     controller.lastHeard = Date.now();
     if (controller.device) host.sessionApproved.set(controller.device.id, controller.device.key);
+    hostPersistShare('running');
     if (settings.remember && controller.device) {
       const saved = await trustStore.remember(controller.device.id, controller.device.key, controller.label);
       if (saved) {
@@ -533,7 +620,16 @@
     controller.trust = trust;
     controller.remembered = trust === 'remembered';
     if (controller.remembered) trustStore.touch(device.id, controller.label);
-    const sessionApproved = !!device && host.sessionApproved.get(device.id) === device.key;
+    let sessionApproved = !!device && host.sessionApproved.get(device.id) === device.key;
+    if (!sessionApproved && device && host.resumedApprovals.has(device.id)) {
+      // Allowed before this console reloaded or restarted for an update (same code).
+      try {
+        sessionApproved = (await session.hashKey(device.key)) === host.resumedApprovals.get(device.id);
+      } catch (ignored) {
+        sessionApproved = false;
+      }
+      if (!host.controllers.has(controller.cid)) return;
+    }
     const decision = session.decide({ trust, autoAllow: trustStore.autoAllow, sessionApproved });
     if (decision === 'auto-remembered' || decision === 'auto-session') {
       await hostApprove(controller.cid, { auto: decision });
@@ -696,7 +792,7 @@
     peer.on('error', error => {
       if (host.peer !== peer) return;
       if (error && error.type === 'unavailable-id') {
-        if (!host.peerOpened && attempt < 3) {
+        if (!host.peerOpened && attempt < 3 && !host.resumed) {
           // Another PC already uses this code on the PeerJS server: start over with a new code.
           hostStop(null, true);
           hostStart(attempt + 1);
@@ -889,6 +985,7 @@
     hostEnsurePeer('watchdog');
     hostExpireRelayPaths();
     hostDropSilentControllers();
+    hostPersistShare('running');
   }
 
   // After sleep / network change: same code, fresh connections. Nothing is torn down that
@@ -928,10 +1025,92 @@
       }
       return;
     }
+    if (status.updating) {
+      hostPauseForUpdate();
+      return;
+    }
     hostStop('Sharing stopped because the AIRIZ was disconnected from this PC.');
   }
 
-  function hostStart(attempt = 0) {
+  // The console restarts to install an update: phones keep trying, and the share comes back
+  // with the same code once the AIRIZ is reconnected after the restart.
+  function hostPauseForUpdate() {
+    if (!host.code) return;
+    const code = host.code;
+    hostStop(null, true, { restart: true });
+    hostSetStatus('Restarting for the update. Sharing comes back with the same code ' + code + ' after the restart.');
+  }
+  window.addEventListener('airiz:update-restart', hostPauseForUpdate);
+  // The update was called off: share again with the same code once the AIRIZ is back.
+  window.addEventListener('airiz:update-cancelled', () => {
+    const record = session.loadShareResume(SHARE_STORE);
+    if (record && record.reason === 'update' && !host.code) host.pendingResume = record;
+  });
+
+  // ------------------------------------------------------------------ PC: same code after a reload (1.9.1)
+  function hostShareRecord(reason) {
+    const approved = [];
+    for (const [id, key] of host.sessionApproved) {
+      const hash = host.hashes.get(id + ':' + key);
+      if (hash) approved.push([id, hash]);
+    }
+    for (const [id, hash] of host.resumedApprovals) {
+      if (!host.sessionApproved.has(id)) approved.push([id, hash]);
+    }
+    return { code: host.code, reason, approved };
+  }
+
+  async function hostPersistShare(reason) {
+    const code = host.code;
+    if (!code) return;
+    for (const [id, key] of host.sessionApproved) {
+      if (host.hashes.has(id + ':' + key)) continue;
+      try {
+        host.hashes.set(id + ':' + key, await session.hashKey(key));
+      } catch (ignored) { /* no SHA-256 here: the device asks again after a reload */ }
+    }
+    if (host.code !== code) return;
+    session.saveShareResume(SHARE_STORE, hostShareRecord(reason));
+  }
+
+  function navigationType() {
+    try {
+      const entry = performance.getEntriesByType('navigation')[0];
+      return entry ? entry.type : '';
+    } catch (ignored) {
+      return '';
+    }
+  }
+
+  // A share that was running when this page reloaded (or restarted for an update) continues
+  // with the same code once the AIRIZ is connected again; otherwise the old record is dropped.
+  function hostLoadResume() {
+    const record = session.loadShareResume(SHARE_STORE);
+    if (!record) return;
+    if (session.shouldResumeShare(record, { navigation: navigationType() })) host.pendingResume = record;
+    else session.clearShareResume(SHARE_STORE);
+  }
+
+  function hostTryResume() {
+    const record = host.pendingResume;
+    if (!record || host.code) return;
+    if (!session.shouldResumeShare(record, { navigation: 'reload' })) {
+      host.pendingResume = null;
+      session.clearShareResume(SHARE_STORE);
+      return;
+    }
+    const status = api.getStatus();
+    if (!status.connected || status.updating || isRemoteTransport(status)) return;
+    host.pendingResume = null;
+    if (!host.dialog) hostBuildDialog();
+    hostStart(0, { code: record.code, approved: record.approved });
+    if (host.code === record.code) {
+      toast('Sharing resumed with the same code ' + record.code + '. Devices that were connected come back by themselves.');
+    }
+  }
+
+  function hostStart(attempt = 0, options) {
+    const settings = options || {};
     const status = api.getStatus();
     if (!status.connected) {
       hostSetStatus('Connect the AIRIZ to this PC first (USB, or Try demo to test).');
@@ -942,8 +1121,12 @@
       return;
     }
     if (host.code) return;
-    const code = randomDigits();
+    const resumeCode = /^\d{6}$/.test(String(settings.code || '')) ? String(settings.code) : null;
+    const code = resumeCode || randomDigits();
     host.code = code;
+    host.resumed = !!resumeCode;
+    host.resumedApprovals = new Map(resumeCode && Array.isArray(settings.approved) ? settings.approved : []);
+    host.pendingResume = null;
     host.peerOpened = false;
     host.peerBackoff = 0;
     host.peerGaveUp = false;
@@ -959,19 +1142,32 @@
     $('share-control-link-row').hidden = false;
     $('share-control-start').disabled = true;
     $('share-control-stop').disabled = false;
-    hostSetStatus('On the phone or other PC: open the AIRIZ console and type '
-      + code + ' into Control by code (or open the link). Keep this window open while sharing.');
+    if (resumeCode) {
+      hostSetStatus('Sharing again with the same code ' + code + '. Devices that were connected come back by themselves.');
+    } else {
+      hostSetStatus('On the phone or other PC: open the AIRIZ console and type '
+        + code + ' into Control by code (or open the link). Keep this window open while sharing.');
+    }
     clearInterval(host.watchTimer);
     host.watchTimer = setInterval(hostWatch, 2000);
     clearInterval(host.tickTimer);
     host.tickTimer = setInterval(hostTick, HOST_TICK_MS);
     hostApplyKeepAwake();
+    hostPersistShare('running');
     hostRender();
   }
 
-  function hostStop(note, quiet) {
-    // Tell every device the share ended on purpose, so phones do not try to reconnect.
-    hostBroadcast({ type: 'ended', reason: 'stopped' });
+  function hostStop(note, quiet, options) {
+    const settings = options || {};
+    if (settings.restart && host.code) {
+      // Restarting for an update: keep the code for after the restart; phones keep trying.
+      session.saveShareResume(SHARE_STORE, hostShareRecord('update'));
+      hostBroadcast({ type: 'ended', reason: 'restart' });
+    } else {
+      // Tell every device the share ended on purpose, so phones do not try to reconnect.
+      session.clearShareResume(SHARE_STORE);
+      hostBroadcast({ type: 'ended', reason: 'stopped' });
+    }
     const motorRisk = approvedControllers().some(controller => Date.now() - controller.lastMotorAt < MOTOR_STOP_WINDOW_MS);
     const leaving = [...host.controllers.keys()];
     for (const controller of host.controllers.values()) controller.state = 'ended';
@@ -982,6 +1178,8 @@
     }
     if (host.code) document.dispatchEvent(new CustomEvent('airiz:share-code', { detail: { kind: 'control', code: null } }));
     host.code = null;
+    host.resumed = false;
+    host.resumedApprovals = new Map();
     host.sessionApproved.clear();
     host.relayStale.clear();
     host.usbLostAt = 0;
@@ -1202,9 +1400,10 @@
         return;
       }
       if (message.type === 'ended' && (!active || active === path)) {
-        lost(message.reason === 'stopped'
-          ? linkError('stopped', 'The PC stopped sharing control.')
-          : linkError('pc-gone', 'The PC left (asleep or offline?).'));
+        if (message.reason === 'stopped') lost(linkError('stopped', 'The PC stopped sharing control.'));
+        else if (message.reason === 'restart') {
+          lost(linkError('restart', 'The PC is restarting for an update - this device reconnects to the same code by itself.'));
+        } else lost(linkError('pc-gone', 'The PC left (asleep or offline?).'));
       }
     }
 
@@ -1419,6 +1618,7 @@
       await api.connectPort(port);
       connected = true;
       phone.lastFailure = null;
+      session.savePhoneResume(PHONE_STORE, code);
       ui.status(link.remembered
         ? 'Connected (remembered device). You are controlling the AIRIZ through the PC.'
         : 'Connected. You are controlling the AIRIZ through the PC.');
@@ -1430,7 +1630,12 @@
         reason: failure.reason || 'verify',
         message: (error && error.message) || failure.message || 'Could not connect.',
       };
-      if (!settings.auto) ui.status(phone.lastFailure.message);
+      if (!settings.auto && phone.lastFailure.reason === 'restart') {
+        // The PC restarts for an update while this device waited for Allow: follow it.
+        setTimeout(() => phoneLinkLost(code, ui, failure), 0);
+      } else if (!settings.auto) {
+        ui.status(phone.lastFailure.message);
+      }
       return false;
     } finally {
       phone.cancel = null;
@@ -1469,6 +1674,8 @@
         return 'The PC stopped answering (asleep or offline?).';
       case 'pc-gone':
         return 'The PC left (asleep or offline?).';
+      case 'restart':
+        return 'The PC is restarting for an update.';
       default:
         return 'The connection to the PC was lost.';
     }
@@ -1482,10 +1689,12 @@
   function phoneLinkLost(code, ui, error) {
     const reason = (error && error.reason) || 'lost';
     if (!session.canStartRetry(reason)) {
+      session.clearPhoneResume(PHONE_STORE);
       phoneSay(ui, (error && error.message) || 'The connection to the PC was lost.');
       return;
     }
     phoneStopRetry();
+    session.savePhoneResume(PHONE_STORE, code);
     const retry = { code, ui, attempt: 0, startedAt: Date.now(), timer: null, dueAt: 0 };
     phone.retry = retry;
     toast(retryNote(reason) + ' Reconnecting automatically with code ' + code + '…');
@@ -1504,8 +1713,12 @@
   function phoneScheduleRetry(retry, note) {
     if (phone.retry !== retry) return;
     const delay = session.retryDelay(retry.attempt);
+    const attempt = retry.attempt + 1;
     retry.dueAt = Date.now() + delay;
-    phoneSay(retry.ui, note + ' Reconnecting automatically (attempt ' + (retry.attempt + 1) + ')…');
+    // 1.9.1: no time limit. After the quick attempts it keeps trying once a minute.
+    phoneSay(retry.ui, delay >= session.RETRY_SLOW_MS
+      ? note + ' Still trying once a minute (attempt ' + attempt + ')…'
+      : note + ' Reconnecting automatically (attempt ' + attempt + ')…');
     clearTimeout(retry.timer);
     retry.timer = setTimeout(() => phoneRetryNow(retry), delay);
     refreshInline();
@@ -1533,12 +1746,11 @@
       return;
     }
     const failure = phone.lastFailure || {};
-    if (!session.canContinueRetry(failure.reason, retry.startedAt)) {
+    if (!session.canContinueRetry(failure.reason)) {
+      // The PC said no (stopped sharing, denied, ended this device) or the code is wrong.
       phone.retry = null;
-      const expired = Date.now() - retry.startedAt >= session.RETRY_WINDOW_MS;
-      phoneSay(retry.ui, expired
-        ? 'Stopped reconnecting after 30 minutes. Type the code to connect again.'
-        : (failure.message || 'Could not reconnect.'));
+      session.clearPhoneResume(PHONE_STORE);
+      phoneSay(retry.ui, failure.message || 'Could not reconnect.');
       refreshInline();
       return;
     }
@@ -1557,6 +1769,7 @@
     const retry = phone.retry;
     if (!retry) return false;
     phone.retry = null;
+    session.clearPhoneResume(PHONE_STORE);
     clearTimeout(retry.timer);
     if (phone.busy && phone.cancel) phone.cancel();
     if (note) phoneSay(retry.ui, note);
@@ -1628,6 +1841,7 @@
       inlineStatus('Connected. You are controlling the AIRIZ through the PC.');
     }
     if (!status.connected && !phone.retry && !phone.busy && inline.card.dataset.wasRemote === '1') {
+      session.clearPhoneResume(PHONE_STORE);
       inlineStatus('Disconnected. Type a new code to connect again.');
     }
     inline.card.dataset.wasRemote = remote ? '1' : '';
@@ -1693,7 +1907,9 @@
   setInterval(() => {
     refresh();
     refreshInline();
+    hostTryResume();
   }, 1000);
+  hostLoadResume();
   refresh();
   refreshInline();
   setInterval(() => {
@@ -1709,6 +1925,28 @@
     history.replaceState(null, '', location.pathname + location.search);
     setTimeout(() => phoneOpen(match[1], true), 400);
   }
+  // 1.9.1: the browser reloaded this page while it controlled a PC (phones reload tabs that
+  // slept for a long time): reconnect to the same code by itself. A share link wins.
+  function phoneResumeAfterReload() {
+    if (/(?:^|[#&])control=\d{6}\b/.test(location.hash || '')) return;
+    const saved = session.loadPhoneResume(PHONE_STORE);
+    if (!saved || phone.retry || phone.busy || host.code || api.getStatus().connected) return;
+    if (inline.input) inline.input.value = saved.code;
+    const retry = {
+      code: saved.code,
+      ui: { status: inlineStatus, busy: inlineBusy },
+      attempt: 0,
+      startedAt: Date.now(),
+      timer: null,
+      dueAt: Date.now() + 1000,
+    };
+    phone.retry = retry;
+    phoneSay(retry.ui, 'Reconnecting to the PC with code ' + saved.code + '…');
+    retry.timer = setTimeout(() => phoneRetryNow(retry), 1000);
+    refreshInline();
+  }
+
+  phoneResumeAfterReload();
   window.addEventListener('hashchange', openFromHash);
   openFromHash();
 
@@ -1759,6 +1997,19 @@
     },
     get keepAwake() {
       return { wanted: keepAwake.wanted, active: keepAwake.active, mode: keepAwake.mode };
+    },
+    // 1.9.1
+    get power() {
+      return host.power;
+    },
+    get shareResume() {
+      return session.loadShareResume(SHARE_STORE);
+    },
+    get resumedShare() {
+      return host.resumed;
+    },
+    get phoneResume() {
+      return session.loadPhoneResume(PHONE_STORE);
     },
     recover(reason) {
       const recovered = hostRecover(reason || 'manual');

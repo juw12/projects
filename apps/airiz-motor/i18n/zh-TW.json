@@ -995,7 +995,6 @@
     "This device could not be remembered here (secure storage unavailable).": "無法在此記住這個裝置（安全儲存不可用）。",
     "The PC may go to sleep while sharing. Phones reconnect with the same code when it wakes up.": "分享期間 PC 可能進入睡眠。PC 喚醒後，手機會以同一組代碼重新連線。",
     "Windows did not accept the keep-awake request. Set sleep to Never while sharing.": "Windows 未接受保持喚醒的要求。分享期間請將睡眠設為「永不」。",
-    "While sharing, this PC and its screen stay on. Closing the lid can still put it to sleep; it then reconnects with the same code when it wakes up.": "分享期間，這台 PC 與螢幕會保持開啟。闔上筆電仍可能讓它睡眠；喚醒後會以同一組代碼重新連線。",
     "This browser keeps the screen on while this tab is visible. The AIRIZ Windows app also keeps the PC awake in the background.": "此瀏覽器會在此分頁顯示時保持螢幕開啟。AIRIZ Windows App 即使在背景也能讓 PC 保持喚醒。",
     "This browser cannot keep the PC awake. Use the AIRIZ Windows app, or set Windows sleep to Never while sharing.": "此瀏覽器無法讓 PC 保持喚醒。請使用 AIRIZ Windows App，或在分享期間將 Windows 睡眠設為「永不」。",
     "The relay connection dropped right after a motor command - motor stop sent for safety.": "中繼連線在馬達指令後中斷 - 已為安全送出馬達停止。",
@@ -1009,7 +1008,6 @@
     "The PC did not answer (it may be asleep).": "PC 沒有回應（可能在睡眠中）。",
     "The PC operator did not press Allow yet.": "PC 操作者尚未按「允許」。",
     "Reconnected. You are controlling the AIRIZ through the PC.": "已重新連線，您正透過 PC 控制 AIRIZ。",
-    "Stopped reconnecting after 30 minutes. Type the code to connect again.": "30 分鐘後已停止重新連線。請輸入代碼再次連線。",
     "Stopped reconnecting. Type the code to connect again.": "已停止重新連線。請輸入代碼再次連線。",
     "Could not reconnect.": "無法重新連線。",
     "Remote: reconnecting…": "遠端：重新連線中…",
@@ -1017,11 +1015,28 @@
     "Reconnecting to the AIRIZ…": "正在重新連線 AIRIZ…",
     "RECONNECTING": "重新連線中",
     "Share the motor and the camera with one code. Several phones can connect; you press Allow or let remembered phones in.": "用一組代碼分享馬達與相機。可同時連線多支手機；由您按「允許」，或讓已記住的手機自動連入。",
-    "While sharing, the Windows app keeps the PC and its screen awake. If the PC still sleeps (lid closed) or the network drops, it keeps the same code and the phones reconnect by themselves; a dropped AIRIZ USB link reconnects by itself too.": "分享期間，Windows App 會讓 PC 與螢幕保持喚醒。若 PC 仍進入睡眠（闔上筆電）或網路中斷，代碼不變，手機會自動重新連線；AIRIZ 的 USB 連線中斷也會自動重新連線。",
     "CODE": "代碼",
     "Remote control link": "遠端控制連結",
     "Several phones, remembered devices, sleep-proof sharing (1.9.0)": "多支手機同時控制、記住裝置、睡眠不斷線（1.9.0）",
-    "Several phones can control the AIRIZ at the same time. Allow & remember lets a phone in by itself next time (switch it off or Forget a phone any time). While sharing, the Windows app keeps the PC awake; after sleep or a network drop the code stays the same and phones reconnect by themselves, and a dropped USB link to the AIRIZ reconnects automatically.": "多支手機可同時控制 AIRIZ。「允許並記住」讓手機下次自動連入（可隨時關閉或忘記手機）。分享期間 Windows App 會讓 PC 保持喚醒；睡眠或網路中斷後代碼不變、手機自動重新連線，AIRIZ 的 USB 連線中斷也會自動重新連線。"
+    "Several phones can control the AIRIZ at the same time. Allow & remember lets a phone in by itself next time (switch it off or Forget a phone any time). While sharing, the Windows app keeps the PC awake; after sleep or a network drop the code stays the same and phones reconnect by themselves, and a dropped USB link to the AIRIZ reconnects automatically.": "多支手機可同時控制 AIRIZ。「允許並記住」讓手機下次自動連入（可隨時關閉或忘記手機）。分享期間 Windows App 會讓 PC 保持喚醒；睡眠或網路中斷後代碼不變、手機自動重新連線，AIRIZ 的 USB 連線中斷也會自動重新連線。",
+    "Keep sharing when the lid is closed": "闔上筆電時繼續分享",
+    "While sharing, this PC does not go to sleep, also on battery (its sleep timer is set to Never).": "分享期間，這台 PC 不會進入睡眠，使用電池時也一樣（睡眠計時器設為「永不」）。",
+    "While sharing, this PC stays awake while plugged in. Windows did not allow changing its sleep timer, so on battery it may still sleep.": "分享期間，這台 PC 接上電源時會保持喚醒。Windows 不允許變更睡眠計時器，因此使用電池時仍可能進入睡眠。",
+    "While sharing, this PC stays awake. Your IT settings control its sleep timer.": "分享期間，這台 PC 會保持喚醒。睡眠計時器由您的 IT 設定控制。",
+    "The screen can still turn off by itself; sharing goes on.": "螢幕仍可自行關閉；分享會繼續。",
+    "The screen stays on, because on this PC an idle screen can end in standby.": "螢幕會保持開啟，因為在這台 PC 上，螢幕閒置可能導致進入待命。",
+    "Closing the lid puts this PC to sleep; phones reconnect with the same code when it wakes up.": "闔上筆電會讓這台 PC 進入睡眠；喚醒後手機會以同一組代碼重新連線。",
+    "Your IT settings control the lid: closing it puts this PC to sleep; phones reconnect when it wakes up.": "筆電上蓋由您的 IT 設定控制：闔上會讓這台 PC 進入睡眠；喚醒後手機會重新連線。",
+    "Windows did not allow changing the lid setting: closing the lid puts this PC to sleep; phones reconnect when it wakes up.": "Windows 不允許變更上蓋設定：闔上筆電會讓這台 PC 進入睡眠；喚醒後手機會重新連線。",
+    "Closing the lid does not stop the share: close it to turn the screen off.": "闔上筆電不會中斷分享：闔上即可關閉螢幕。",
+    "Your own power settings come back when you stop sharing.": "停止分享後，會恢復您原本的電源設定。",
+    "Closing the lid can still put it to sleep; it then reconnects with the same code when it wakes up.": "闔上筆電仍可能讓它進入睡眠；喚醒後會以同一組代碼重新連線。",
+    "The PC is restarting for an update - this device reconnects to the same code by itself.": "PC 正在重新啟動以安裝更新－此裝置會自動以同一組代碼重新連線。",
+    "The PC is restarting for an update.": "PC 正在重新啟動以安裝更新。",
+    "While sharing, the Windows app keeps the PC awake, also on battery, and closing the lid does not stop the share. Your own power settings come back when you stop sharing or close the app.": "分享期間，Windows App 會讓 PC 保持喚醒（使用電池時也一樣），闔上筆電也不會中斷分享。停止分享或關閉 App 後，會恢復您原本的電源設定。",
+    "If the PC still sleeps (Sleep or power button) or the network drops, the code stays the same and the phones keep reconnecting by themselves until you stop sharing, also after the console restarts for an update or a phone reloads the page. A dropped AIRIZ USB link reconnects by itself too.": "若 PC 仍進入睡眠（按下睡眠或電源按鈕）或網路中斷，代碼不變，手機會持續自動重新連線，直到您停止分享；主控台為了更新而重新啟動，或手機重新載入頁面後也一樣。AIRIZ 的 USB 連線中斷也會自動重新連線。",
+    "Lid-proof sharing, phones never give up, more phones (1.9.1)": "闔上筆電不中斷分享、手機持續重連、支援更多手機（1.9.1）",
+    "While sharing, the Windows app keeps the PC awake on battery too and closing the lid no longer stops the share; your own power settings come back afterwards. Phones keep reconnecting until you stop sharing (no more 30-minute limit), also after a page reload or an app update, with the same code. Up to 20 phones can control at once (was 4).": "分享期間，Windows App 在使用電池時也會讓 PC 保持喚醒，闔上筆電也不再中斷分享；之後會恢復您原本的電源設定。手機會持續重新連線直到您停止分享（不再有 30 分鐘限制），頁面重新載入或 App 更新後也會以同一組代碼回來。最多 20 支手機可同時控制（原本為 4 支）。"
   },
   "html": {
     "AIRIZDEVICE LAB": "AIRIZ<small>裝置實驗室</small>",
@@ -1797,6 +1812,22 @@
     [
       "^This pass is not for the (.+) team\\.$",
       "此通行碼不屬於 $1 團隊。"
+    ],
+    [
+      "^Sharing again with the same code (\\d{6})\\. Devices that were connected come back by themselves\\.$",
+      "以同一組代碼 $1 重新分享。先前連線的裝置會自動回來。"
+    ],
+    [
+      "^Sharing resumed with the same code (\\d{6})\\. Devices that were connected come back by themselves\\.$",
+      "已以同一組代碼 $1 恢復分享。先前連線的裝置會自動回來。"
+    ],
+    [
+      "^Restarting for the update\\. Sharing comes back with the same code (\\d{6}) after the restart\\.$",
+      "正在重新啟動以安裝更新。重新啟動後會以同一組代碼 $1 恢復分享。"
+    ],
+    [
+      "^(.+?) Still trying once a minute \\(attempt (\\d+)\\)…$",
+      "$1 每分鐘持續嘗試一次（第 $2 次）…"
     ]
   ]
 }

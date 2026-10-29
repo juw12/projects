@@ -3656,7 +3656,9 @@
         cameraRecording: !!cameraState.recorder && cameraState.recorder.state !== 'inactive',
         sessionActive: cameraState.sessionActive,
         audioCaptureActive: state.capture.active,
-        reconnecting: !!state.autoReconnect && !state.connected
+        reconnecting: !!state.autoReconnect && !state.connected,
+        // 1.9.1: about to restart to install an update (sharing comes back with the same code)
+        updating: !!state.updatePending
       });
     },
     // 1.9.0: after sleep, write one empty line so a dead USB port shows up at once
@@ -3705,6 +3707,8 @@
         };
       }
       cancelAutoReconnect();
+      // 1.9.1: a running share pauses with its code kept; it continues after the restart.
+      window.dispatchEvent(new CustomEvent('airiz:update-restart'));
       state.updatePending = true;
       if (state.port || state.demoMode) {
         logToConsole('Closing the connection for the update. It reconnects automatically after restart.', 'warning');
@@ -3731,6 +3735,7 @@
     },
     cancelPreparedUpdate() {
       state.updatePending = false;
+      window.dispatchEvent(new CustomEvent('airiz:update-cancelled'));
     }
   });
 
