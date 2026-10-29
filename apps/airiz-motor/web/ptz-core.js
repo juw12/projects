@@ -472,6 +472,37 @@
     return gray;
   }
 
+  // 1.11.3: zone editing. Zones are boxes {x,y,w,h} in 0..1 of the picture (not of the room).
+  const MAX_ZONES = 4;
+  const MIN_ZONE_SIZE = 0.03;   // smaller drags are treated as a click, not a zone
+
+  // Index of the zone under the point (the last drawn wins when zones overlap), or -1.
+  function zoneIndexAt(zones, u, v) {
+    const list = Array.isArray(zones) ? zones : [];
+    for (let i = list.length - 1; i >= 0; i--) {
+      const zone = list[i];
+      if (zone && u >= zone.x && u <= zone.x + zone.w && v >= zone.y && v <= zone.y + zone.h) return i;
+    }
+    return -1;
+  }
+
+  // A new list without zone `index` (the list passed in is not changed).
+  function removeZone(zones, index) {
+    const list = Array.isArray(zones) ? zones.slice() : [];
+    if (Number.isInteger(index) && index >= 0 && index < list.length) list.splice(index, 1);
+    return list;
+  }
+
+  // A new list with `zone` added, or null when it is too small or MAX_ZONES are already drawn.
+  function addZone(zones, zone) {
+    const list = Array.isArray(zones) ? zones.slice() : [];
+    if (!zone || !(zone.w > MIN_ZONE_SIZE) || !(zone.h > MIN_ZONE_SIZE) || list.length >= MAX_ZONES) return null;
+    const x = clamp(zone.x, 0, 1);
+    const y = clamp(zone.y, 0, 1);
+    list.push({ x, y, w: clamp(zone.w, 0, 1 - x), h: clamp(zone.h, 0, 1 - y) });
+    return list;
+  }
+
   // zones: [{x,y,w,h}] in 0..1. No zones = the whole picture.
   function buildZoneMask(zones, width, height) {
     const mask = new Uint8Array(width * height);
@@ -622,6 +653,11 @@
     clampViewCenter,
     toGray,
     buildZoneMask,
+    MAX_ZONES,
+    MIN_ZONE_SIZE,
+    zoneIndexAt,
+    removeZone,
+    addZone,
     sensitivityToThresholds,
     detectMotion,
     trackingMove,

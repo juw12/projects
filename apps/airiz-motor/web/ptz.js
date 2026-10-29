@@ -515,6 +515,9 @@
 
   let lastMotion = null;
   let draftZone = null;
+  // 1.11.3: zone editing - the zones when "Draw zones" was opened (Cancel brings them back)
+  let zonesBeforeEdit = null;
+  const ZONE_HANDLE_PX = 20;   // size of the delete (x) square on a zone, CSS pixels
   let calibrationMark = null;
 
   function drawOverlay() {
@@ -533,12 +536,41 @@
       return [a.x * width, a.y * height, (b.x - a.x) * width, (b.y - a.y) * height];
     };
     ctx.lineWidth = 2 * ratio;
-    for (const zone of store.zones) {
+    store.zones.forEach((zone, index) => {
+      const box = rectOf(zone);
       ctx.fillStyle = 'rgba(56, 189, 248, 0.12)';
       ctx.strokeStyle = 'rgba(56, 189, 248, 0.9)';
-      ctx.fillRect(...rectOf(zone));
-      ctx.strokeRect(...rectOf(zone));
-    }
+      ctx.fillRect(...box);
+      ctx.strokeRect(...box);
+      // zone number (matches "Zone 1..4" in Smart detection)
+      ctx.font = 'bold ' + Math.round(12 * ratio) + 'px sans-serif';
+      ctx.fillStyle = 'rgba(56, 189, 248, 0.9)';
+      ctx.fillRect(box[0], box[1], 18 * ratio, 18 * ratio);
+      ctx.fillStyle = '#0d1117';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(String(index + 1), box[0] + 9 * ratio, box[1] + 9 * ratio);
+      if (view.mode === 'zones') {
+        // delete handle (x) in the top right corner
+        const handle = zoneHandleRect(index);
+        if (handle) {
+          const hx = handle.left * ratio;
+          const hy = handle.top * ratio;
+          const size = ZONE_HANDLE_PX * ratio;
+          ctx.fillStyle = 'rgba(239, 68, 68, 0.92)';
+          ctx.fillRect(hx, hy, size, size);
+          ctx.strokeStyle = '#ffffff';
+          ctx.beginPath();
+          ctx.moveTo(hx + size * 0.3, hy + size * 0.3);
+          ctx.lineTo(hx + size * 0.7, hy + size * 0.7);
+          ctx.moveTo(hx + size * 0.7, hy + size * 0.3);
+          ctx.lineTo(hx + size * 0.3, hy + size * 0.7);
+          ctx.stroke();
+        }
+      }
+    });
+    ctx.textAlign = 'start';
+    ctx.textBaseline = 'alphabetic';
     if (draftZone) {
       ctx.setLineDash([6 * ratio, 4 * ratio]);
       ctx.strokeStyle = '#38bdf8';
@@ -571,18 +603,104 @@
   // Pointer: click = center that spot (or calibration click), drag = pan the digital
   // zoom (move mode) or draw an activity zone (zone mode).
   let pointer = null;
+
+  // Delete (x) square of zone `index` in CSS pixels of the stage, or null when it is off screen.
+  function zoneHandleRect(index) {
+    const zone = store.zones[index];
+    if (!zone) return null;
+    const a = frameToStage(zone.x, zone.y);
+    const b = frameToStage(zone.x + zone.w, zone.y + zone.h);
+    const width = stage.clientWidth;
+    const height = stage.clientHeight;
+    const right = Math.min(b.x, 1) * width;
+    const top = Math.max(a.y, 0) * height;
+    if (right <= 0 || top >= height || b.y <= 0 || a.x >= 1) return null;
+    const left = Math.max(a.x * width, right - ZONE_HANDLE_PX);
+    return { left, top, right: left + ZONE_HANDLE_PX, bottom: top + ZONE_HANDLE_PX };
+  }
+
+  function zoneHandleAt(event) {
+    const rect = stage.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    for (let i = store.zones.length - 1; i >= 0; i--) {
+      const handle = zoneHandleRect(i);
+      if (handle && x >= handle.left && x <= handle.right && y >= handle.top && y <= handle.bottom) return i;
+    }
+    return -1;
+  }
+
+  function zonesChanged() {
+    save();
+    renderZones();
+    resetDetection();
+    drawOverlay();
+  }
+
+  function deleteZone(index) {
+    if (index < 0 || index >= store.zones.length) return;
+    store.zones = core.removeZone(store.zones, index);
+    zonesChanged();
+    status('Zone ' + (index + 1) + ' deleted.');
+  }
+
+  // Esc, right-click or a lost pointer: the box being drawn is dropped, nothing is saved.
+  function cancelDraft(say) {
+    if (!draftZone && !(pointer && view.mode === 'zones')) return false;
+    if (pointer && pointer.id !== undefined && overlay.hasPointerCapture && overlay.hasPointerCapture(pointer.id)) {
+      overlay.releasePointerCapture(pointer.id);
+    }
+    pointer = null;
+    draftZone = null;
+    drawOverlay();
+    if (say) status('Zone drawing cancelled.');
+    return true;
+  }
+
   overlay.addEventListener('pointerdown', event => {
     if (!liveStream) return;
+    if (view.mode === 'zones') {
+      if (event.button !== 0) {
+        cancelDraft(true);
+        return;
+      }
+      const handle = zoneHandleAt(event);
+      if (handle < 0 && store.zones.length >= core.MAX_ZONES) {
+        status('Up to 4 zones: delete one first (\u00d7 on the zone, or in the list under Smart detection).', true);
+        return;
+      }
+      overlay.setPointerCapture(event.pointerId);
+      pointer = { id: event.pointerId, x: event.clientX, y: event.clientY, start: frameFromEvent(event), cx: view.cx, cy: view.cy, moved: false, deleteIndex: handle };
+      return;
+    }
     overlay.setPointerCapture(event.pointerId);
-    pointer = { x: event.clientX, y: event.clientY, start: frameFromEvent(event), cx: view.cx, cy: view.cy, moved: false };
+    pointer = { id: event.pointerId, x: event.clientX, y: event.clientY, start: frameFromEvent(event), cx: view.cx, cy: view.cy, moved: false };
+  });
+  overlay.addEventListener('contextmenu', event => {
+    if (view.mode !== 'zones') return;
+    event.preventDefault();
+    cancelDraft(true);
+  });
+  overlay.addEventListener('pointercancel', () => cancelDraft(false));
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && view.mode === 'zones') cancelDraft(true);
   });
   overlay.addEventListener('pointermove', event => {
-    if (!pointer) return;
+    if (!pointer) {
+      if (view.mode === 'zones') overlay.style.cursor = zoneHandleAt(event) >= 0 ? 'pointer' : 'crosshair';
+      return;
+    }
+    // right button pressed while drawing (a chorded press gives no new pointerdown): cancel the box
+    if (view.mode === 'zones' && (event.buttons & 2)) {
+      cancelDraft(true);
+      return;
+    }
     const dx = event.clientX - pointer.x;
     const dy = event.clientY - pointer.y;
     if (Math.abs(dx) + Math.abs(dy) > 6) pointer.moved = true;
     if (!pointer.moved) return;
     if (view.mode === 'zones') {
+      if (pointer.deleteIndex >= 0) return;   // started on a delete square: no drawing
       const end = frameFromEvent(event);
       draftZone = {
         x: Math.min(pointer.start.u, end.u),
@@ -601,16 +719,23 @@
   overlay.addEventListener('pointerup', event => {
     if (!pointer) return;
     const wasMoved = pointer.moved;
+    const deleteIndex = pointer.deleteIndex;
     pointer = null;
     if (view.mode === 'zones') {
-      if (draftZone && draftZone.w > 0.03 && draftZone.h > 0.03) {
-        store.zones = [...store.zones, draftZone].slice(-4);
-        save();
-        renderZones();
-        resetDetection();
+      if (deleteIndex >= 0 && !wasMoved) {
+        draftZone = null;
+        deleteZone(deleteIndex);
+        return;
       }
+      const added = draftZone ? core.addZone(store.zones, draftZone) : null;
       draftZone = null;
-      drawOverlay();
+      if (added) {
+        store.zones = added;
+        zonesChanged();
+        status('Zone ' + added.length + ' added. Only motion inside the zones counts.');
+      } else {
+        drawOverlay();
+      }
       return;
     }
     if (wasMoved) return;
@@ -687,15 +812,38 @@
   });
 
   function setMode(mode) {
+    const wasZones = view.mode === 'zones';
+    if (wasZones && mode !== 'zones') {
+      cancelDraft(false);
+      zonesBeforeEdit = null;
+    }
+    if (mode === 'zones' && !wasZones) zonesBeforeEdit = store.zones.map(zone => ({ ...zone }));
     view.mode = mode;
     document.querySelectorAll('[data-ptz-mode]').forEach(button => {
       button.setAttribute('aria-pressed', String(button.dataset.ptzMode === mode));
     });
     stage.dataset.mode = mode;
+    overlay.style.cursor = mode === 'zones' ? 'crosshair' : '';
+    $('ptz-zones-edit').hidden = mode !== 'zones';
     $('ptz-hint').textContent = mode === 'zones'
-      ? 'Drag on the picture to draw up to 4 activity zones. Motion outside the zones is ignored.'
+      ? 'Zones tell Smart detection where to look: only motion inside a box counts. Drag to draw a box (up to 4), click the \u00d7 on a box to delete it, Esc or right-click cancels the box you are drawing.'
       : 'Click the picture to center that spot. Hold an arrow to move, release to stop. Wheel = digital zoom, drag = look around when zoomed.';
+    drawOverlay();
   }
+  $('ptz-zones-done').addEventListener('click', () => {
+    setMode('move');
+    status(store.zones.length ? 'Zones saved: Smart detection watches ' + store.zones.length + ' zone' + (store.zones.length > 1 ? 's' : '') + '.'
+      : 'No zones: Smart detection watches the whole picture.');
+  });
+  $('ptz-zones-cancel').addEventListener('click', () => {
+    const before = zonesBeforeEdit;
+    setMode('move');
+    if (before && JSON.stringify(before) !== JSON.stringify(store.zones)) {
+      store.zones = before;
+      zonesChanged();
+    }
+    status('Zone changes cancelled.');
+  });
   document.querySelectorAll('[data-ptz-mode]').forEach(button => button.addEventListener('click', () => setMode(button.dataset.ptzMode)));
   $('ptz-zoom-in').addEventListener('click', () => setZoom(view.zoom + 0.5));
   $('ptz-zoom-out').addEventListener('click', () => setZoom(view.zoom - 0.5));
@@ -1082,6 +1230,25 @@
     $('ptz-zones-count').textContent = store.zones.length
       ? store.zones.length + ' zone' + (store.zones.length > 1 ? 's' : '')
       : 'Whole picture';
+    const list = $('ptz-zones-list');
+    list.replaceChildren(...store.zones.map((zone, index) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'btn btn-sm ptz-zone-chip';
+      button.dataset.zone = String(index);
+      button.setAttribute('aria-label', 'Delete zone ' + (index + 1));
+      button.title = 'Delete zone ' + (index + 1);
+      const label = document.createElement('span');
+      label.textContent = 'Zone ' + (index + 1);
+      const cross = document.createElement('span');
+      cross.className = 'ptz-zone-x';
+      cross.setAttribute('aria-hidden', 'true');
+      cross.textContent = '\u00d7';
+      button.append(label, cross);
+      button.addEventListener('click', () => deleteZone(index));
+      return button;
+    }));
+    $('ptz-zones-clear').disabled = !store.zones.length;
   }
 
   function stopTracking() {
@@ -1543,10 +1710,8 @@
     }
     $('ptz-zones-clear').addEventListener('click', () => {
       store.zones = [];
-      save();
-      renderZones();
-      resetDetection();
-      drawOverlay();
+      zonesChanged();
+      status('All zones deleted: Smart detection watches the whole picture.');
     });
     $('ptz-events-clear').addEventListener('click', () => {
       for (const event of detection.events) {

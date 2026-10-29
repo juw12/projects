@@ -287,3 +287,31 @@ test('auto-tracking returns after the quiet time, also without new frames (windo
   assert.equal(core.trackingReturnDue({ ...base, waitMs: 1000, now: 5999 }), false);
   assert.equal(core.trackingReturnDue({ ...base, waitMs: 1000, now: 6000 }), true);
 });
+
+test('zones (1.11.3): add up to 4, hit test, delete one, tiny drags are not zones', () => {
+  assert.equal(core.MAX_ZONES, 4);
+  let zones = [];
+  zones = core.addZone(zones, { x: 0.1, y: 0.1, w: 0.3, h: 0.3 });
+  zones = core.addZone(zones, { x: 0.3, y: 0.3, w: 0.4, h: 0.4 });
+  assert.equal(zones.length, 2);
+  assert.equal(core.addZone(zones, { x: 0.5, y: 0.5, w: 0.01, h: 0.4 }), null, 'a click is not a zone');
+  // overlap: the last drawn zone wins, outside = -1
+  assert.equal(core.zoneIndexAt(zones, 0.35, 0.35), 1);
+  assert.equal(core.zoneIndexAt(zones, 0.15, 0.15), 0);
+  assert.equal(core.zoneIndexAt(zones, 0.95, 0.05), -1);
+  zones = core.addZone(zones, { x: 0.6, y: 0.0, w: 0.2, h: 0.2 });
+  zones = core.addZone(zones, { x: 0.8, y: 0.8, w: 0.5, h: 0.5 });
+  assert.equal(zones.length, 4);
+  assert.ok(Math.abs(zones[3].w - 0.2) < 1e-9 && Math.abs(zones[3].h - 0.2) < 1e-9, 'kept inside the picture');
+  assert.equal(core.addZone(zones, { x: 0, y: 0, w: 0.5, h: 0.5 }), null, 'a fifth zone is refused (no silent drop)');
+  const before = zones.slice();
+  const fewer = core.removeZone(zones, 1);
+  assert.equal(fewer.length, 3);
+  assert.deepEqual(fewer.map(zone => zone.x), [0.1, 0.6, 0.8]);
+  assert.deepEqual(zones, before, 'the list passed in is not changed');
+  assert.equal(core.removeZone(zones, 9).length, 4, 'a wrong index changes nothing');
+  // the motion mask follows the edited zones
+  const mask = core.buildZoneMask(fewer, 10, 10);
+  assert.equal(mask[1 * 10 + 1], 1, 'zone 1 is watched');
+  assert.equal(mask[4 * 10 + 5], 0, 'the deleted zone is no longer watched');
+});
