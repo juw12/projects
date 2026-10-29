@@ -21,6 +21,7 @@ import shutil
 import subprocess
 import sys
 import tarfile
+import time
 import zipfile
 
 DESKTOP = os.path.dirname(os.path.abspath(__file__))
@@ -163,13 +164,28 @@ def package_macos():
     os.makedirs(stage)
     subprocess.run(["ditto", app, os.path.join(stage, "Vitals.app")], check=True)  # keeps links and signature
     os.symlink("/Applications", os.path.join(stage, "Applications"))
-    if os.path.exists(image):
-        os.remove(image)
-    subprocess.run(
-        ["hdiutil", "create", "-volname", "Vitals", "-srcfolder", stage, "-ov", "-format", "UDZO", image],
-        check=True,
-    )
+    create_disk_image(stage, image)
     return [image]
+
+
+def create_disk_image(stage, image, attempts=5):
+    """hdiutil sometimes fails with "Resource busy" while macOS is still scanning the new
+    volume (common on CI runners), so try a few times before giving up."""
+    command = ["hdiutil", "create", "-volname", "Vitals", "-srcfolder", stage, "-ov", "-format", "UDZO", image]
+    for attempt in range(1, attempts + 1):
+        if os.path.exists(image):
+            os.remove(image)
+        result = subprocess.run(command, capture_output=True, text=True)
+        if result.stdout.strip():
+            print(result.stdout.strip())
+        if result.returncode == 0:
+            return
+        message = (result.stderr or result.stdout).strip() or "exit code %d" % result.returncode
+        if attempt == attempts:
+            raise SystemExit("hdiutil create failed %d times: %s" % (attempts, message))
+        wait = 10 * attempt
+        print("hdiutil create failed (%s); trying again in %d s" % (message, wait))
+        time.sleep(wait)
 
 
 def linux_arch():
