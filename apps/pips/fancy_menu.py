@@ -39,6 +39,8 @@ _active_root = None
 
 
 # ---------------------------------------------------------------- helpers
+IDLE_CLOSE_S = 8.0   # menu closes itself when the mouse has been away this long
+
 def _rgb(color: str) -> tuple:
     color = color.lstrip("#")
     if len(color) == 3:
@@ -174,6 +176,11 @@ class FancyMenu:
         self.master = master
         self.parent = parent
         self.root_menu = parent.root_menu if parent else self
+        # every submenu ever opened under this root - closed together with it (no orphans)
+        self._family = []
+        if parent is not None:
+            self.root_menu._family.append(self)
+        self._outside_since = None
         self.dark = bool(dark)
         self.raw_accent = accent
         self.accent = usable_accent(accent, self.dark)
@@ -377,6 +384,10 @@ class FancyMenu:
         except tk.TclError:
             pass
         if self.parent is None:
+            for menu in list(self._family):
+                if not menu.closed:
+                    menu.close()
+            self._family.clear()
             if _active_root is self:
                 _active_root = None
             _safe(self.on_close)
@@ -460,10 +471,20 @@ class FancyMenu:
             self._draw()
         # click outside closes the whole chain (works even without focus)
         if self.parent is None:
+            inside = self._pointer_inside_chain()
             buttons = _mouse_buttons_down()
             if not buttons:
                 self._armed = True
-            elif self._armed and not self._pointer_inside_chain():
+            elif self._armed and not inside:
+                self.close()
+                return
+            # left alone with the mouse elsewhere: tidy up after a few seconds
+            now = time.monotonic()
+            if inside or now - self._opened_at < 1.0:
+                self._outside_since = None
+            elif self._outside_since is None:
+                self._outside_since = now
+            elif now - self._outside_since > IDLE_CLOSE_S:
                 self.close()
                 return
         self.win.after(FRAME_MS, self._tick)
@@ -816,7 +837,10 @@ class FancyMenu:
         if self.child is not None:
             if self.child_index == index:
                 return
-            self._close_child()
+            # replacing a submenu: always close the old one, even if the pointer is still in its box
+            self.child.close()
+            self.child = None
+            self.child_index = None
         entry = self.entries[index]
         child = FancyMenu(self.master, accent=self.raw_accent, dark=self.dark,
                           width=entry.get("sub_width") or 236, parent=self)

@@ -1,39 +1,35 @@
 {
   "installer": {
     "filename": "Pips-Setup.exe",
-    "sha256": "2fab9e52d3aa3de60b93332a1e764a6519270663a0c7ea10a59ba75f114b6c1c",
-    "size": 22195005,
+    "sha256": "c4629340ddb8e69009bdbfd50cc0f7c95c23fb55ce49f21d9dcf664a37129c2f",
+    "size": 22194656,
     "architecture": "x64",
     "python_version": "3.13.17",
     "requires_admin": false,
     "url": "https://juw12.github.io/projects/pips/download/Pips-Setup.exe"
   },
-  "version": "2.14.2",
+  "version": "2.14.3",
   "date": "2026-10-29",
-  "title": "Never miss an update",
+  "title": "Tidy menus",
   "url": "https://juw12.github.io/projects/pips/download/Pips-Windows.zip",
-  "sha256": "ee29fb364e414df8913757eeac6d33d9b7080a5a8fac8116984e78df6384f607",
-  "size": 809881,
+  "sha256": "28586f2969100451cc86a9cb140d3ae9ccb38003cfb923190ebb1bcc79ef003c",
+  "size": 810570,
   "notes": {
     "en": [
-      "Your pet now reminds you every 2 hours while a new version is waiting (instead of every 6 hours).",
-      "If the reminder can't show (fullscreen app, guided tour, another message), your pet tries again a few minutes later.",
-      "No internet when Pips starts (e.g. VPN off)? It checks again after an hour."
+      "Fixed: a submenu (e.g. Poke a friend) could stay floating on the screen after the right-click menu closed.",
+      "Menus now close by themselves when you move the mouse away and leave them for a few seconds."
     ],
     "id": [
-      "Pet-mu kini mengingatkan setiap 2 jam selama ada versi baru (bukan lagi setiap 6 jam).",
-      "Jika pengingat tidak bisa tampil (aplikasi layar penuh, panduan, pesan lain), pet-mu mencoba lagi beberapa menit kemudian.",
-      "Tidak ada internet saat Pips mulai (mis. VPN mati)? Pips memeriksa lagi setelah satu jam."
+      "Diperbaiki: submenu (mis. Colek teman) bisa tertinggal melayang di layar setelah menu klik kanan ditutup.",
+      "Menu kini menutup sendiri jika mouse dijauhkan dan dibiarkan beberapa detik."
     ],
     "zh_TW": [
-      "有新版本時，寵物現在每 2 小時提醒一次（原本是每 6 小時）。",
-      "如果提醒無法顯示（全螢幕程式、導覽或其他訊息），寵物會在幾分鐘後再試一次。",
-      "Pips 啟動時沒有網路（例如 VPN 未連線）？一小時後會再檢查。"
+      "修正：右鍵選單關閉後，子選單（例如「戳戳好友」）可能會一直浮在螢幕上。",
+      "滑鼠移開幾秒後，選單現在會自動關閉。"
     ],
     "zh_CN": [
-      "有新版本时，宠物现在每 2 小时提醒一次（原来是每 6 小时）。",
-      "如果提醒无法显示（全屏程序、引导或其他消息），宠物会在几分钟后再试一次。",
-      "Pips 启动时没有网络（例如 VPN 未连接）？一小时后会再检查。"
+      "修复：右键菜单关闭后，子菜单（例如“戳戳好友”）可能会一直浮在屏幕上。",
+      "鼠标移开几秒后，菜单现在会自动关闭。"
     ]
   },
   "guide": "https://juw12.github.io/projects/pips/download/Pips-Guide.pptx"
