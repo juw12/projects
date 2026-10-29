@@ -110,6 +110,29 @@ class WebStaticTests(unittest.TestCase):
         for earlier, later in (("core", "sync"), ("core", "app"), ("ui-kit", "app"), ("quiz", "app")):
             self.assertLess(order.index(earlier), order.index(later), "%s must load before %s" % (earlier, later))
 
+    def test_dark_theme_overrides_every_color_token(self):
+        css = (WEB / "styles.css").read_text(encoding="utf-8")
+        light_block = re.search(r":root\s*\{(.*?)\}", css, re.S).group(1)
+        dark_block = re.search(r"\[data-theme=\"dark\"\]\s*\{(.*?)\}", css, re.S).group(1)
+        light = dict(re.findall(r"(--[\w-]+)\s*:\s*([^;]+);", light_block))
+        dark = dict(re.findall(r"(--[\w-]+)\s*:\s*([^;]+);", dark_block))
+        color = re.compile(r"#[0-9a-f]{3,8}\b|rgba?\(", re.I)
+        same_in_both = {"--accent-2", "--accent-ink"}
+        missing = sorted(
+            name for name, value in light.items() if color.search(value) and name not in dark and name not in same_in_both
+        )
+        self.assertEqual(missing, [], "dark theme does not override: %s" % missing)
+
+    def test_theme_switch_is_one_tap_on_every_screen(self):
+        app = (WEB / "js" / "app.js").read_text(encoding="utf-8")
+        buttons = re.findall(r"<button class=\"([^\"]*theme-btn[^\"]*)\" data-act=\"(theme(?:-welcome)?)\"", app)
+        self.assertEqual(sorted(act for _, act in buttons), ["theme", "theme-welcome"], buttons)
+        for classes, _ in buttons:
+            self.assertNotIn("hide-sm", classes, "the theme button must stay visible on phones")
+        self.assertIn("appearanceCard() +", app, "Settings shows the Appearance picker")
+        more = app[app.index("function openMore()") : app.index("function openShortcuts()")]
+        self.assertIn("set-theme", more, "the phone More sheet offers Light / Dark / System")
+
     def test_relay_server_is_stdlib_only(self):
         source = (APP_DIR / "server" / "relay.py").read_text(encoding="utf-8")
         imports = set(re.findall(r"^\s*(?:from|import)\s+([\w.]+)", source, re.M))

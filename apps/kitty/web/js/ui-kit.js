@@ -47,6 +47,9 @@
     menu: '<path d="M4 7h16M4 12h16M4 17h16"/>',
     check: '<path d="m5 12 5 5L20 7"/>',
     alert: '<path d="M12 3 2 21h20L12 3z"/><path d="M12 10v5M12 18v.5"/>',
+    grid: '<rect x="4" y="4" width="6.5" height="6.5" rx="1.6"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.6"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.6"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.6"/>',
+    monitor: '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>',
+    keyboard: '<rect x="2.5" y="6" width="19" height="12" rx="2"/><path d="M6.5 10h.01M10 10h.01M13.5 10h.01M17 10h.01M7.5 14h9"/>',
     users: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c1-3.5 3.5-5.5 6.5-5.5s5.5 2 6.5 5.5"/><circle cx="17" cy="9" r="2.8"/><path d="M16.5 14.6c2.6.2 4.4 2 5 5"/>',
   };
   ui.icon = function (name, size) {
@@ -173,7 +176,7 @@
       });
       const area = line + 'L' + x(series.length - 1).toFixed(1) + ' ' + y(0) + 'L' + x(0) + ' ' + y(0) + 'Z';
       svg += '<path d="' + area + '" fill="url(#gArea)"/>';
-      svg += '<path d="' + line + '" class="spend"/>';
+      svg += '<path d="' + line + '" class="spend" pathLength="1"/>';
       const last = series.length - 1;
       svg += '<circle cx="' + x(last) + '" cy="' + y(series[last]) + '" r="5" class="dot"/>';
     }

@@ -799,3 +799,12 @@ Quick setup || Setup cepat || 快速设置 || Configuración rápida
 Our home || Rumah kita || 我们的家 || Nuestro hogar
 Answer 14 quick questions. Kitty assigns your money animal, builds a plan around your income and sends tips that fit how you actually behave. || Jawab 14 pertanyaan singkat. Kitty menentukan hewan uangmu, menyusun rencana dari penghasilanmu, dan memberi tips yang cocok dengan kebiasaanmu. || 回答 14 个简单问题。Kitty 会找出你的金钱动物，按你的收入制定计划，并给出符合你真实习惯的建议。 || Responde 14 preguntas rápidas. Kitty te asigna tu animal del dinero, arma un plan según tus ingresos y te da consejos que encajan con cómo actúas de verdad.
 Kitty's plan || Rencana Kitty || Kitty 的计划 || El plan de Kitty
+
+# 1.4: appearance, phone tab bar, keyboard shortcuts
+More || Lainnya || 更多 || Más
+Appearance || Tampilan || 外观 || Apariencia
+Choose how Kitty looks. System follows your device. || Pilih tampilan Kitty. Sistem mengikuti perangkatmu. || 选择 Kitty 的外观。“跟随系统”会随设备自动切换。 || Elige cómo se ve Kitty. Sistema sigue a tu dispositivo.
+Keyboard shortcuts || Pintasan keyboard || 键盘快捷键 || Atajos de teclado
+Go to a page || Buka halaman || 前往页面 || Ir a una página
+Search the sheet || Cari di lembar || 搜索表格 || Buscar en la hoja
+Show shortcuts || Tampilkan pintasan || 显示快捷键 || Mostrar atajos
