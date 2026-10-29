@@ -245,25 +245,72 @@ async function fetchText(url, timeoutMs = 8000) {
   }
 }
 
+// Publisher feeds per language: used when Google News is unreachable from the edge (it often refuses
+// datacenter traffic). Region-specific feeds go first for those regions.
+const NEWS_FEEDS = {
+  en: [
+    { name: "CNA", url: "https://www.channelnewsasia.com/api/v1/rss-outbound-feed?_format=xml&category=6936", regions: ["SG", "MY", "PH", "ID"] },
+    { name: "CNBC", url: "https://www.cnbc.com/id/15839069/device/rss/rss.html" },
+    { name: "CNBC", url: "https://www.cnbc.com/id/10000664/device/rss/rss.html" },
+  ],
+  id: [
+    { name: "CNBC Indonesia", url: "https://www.cnbcindonesia.com/market/rss" },
+    { name: "ANTARA", url: "https://www.antaranews.com/rss/ekonomi-finansial.xml" },
+  ],
+  zh: [
+    { name: "中央社", url: "https://feeds.feedburner.com/rsscna/finance" },
+    { name: "自由時報", url: "https://news.ltn.com.tw/rss/business.xml" },
+  ],
+  es: [
+    { name: "Expansión", url: "https://e00-expansion.uecdn.es/rss/mercados.xml", regions: ["ES"] },
+    { name: "Infobae", url: "https://www.infobae.com/arc/outboundfeeds/rss/category/economia/" },
+    { name: "Expansión", url: "https://e00-expansion.uecdn.es/rss/mercados.xml" },
+  ],
+};
+
+function mergeNews(lists, limit = 15) {
+  const seen = new Set();
+  const all = [];
+  for (const list of lists) {
+    for (const item of list) {
+      const key = item.title.toLowerCase().replace(/\W+/g, " ").trim();
+      if (!key || seen.has(key) || seen.has(item.url)) {
+        continue;
+      }
+      seen.add(key);
+      seen.add(item.url);
+      all.push(item);
+    }
+  }
+  all.sort((a, b) => (b.published || 0) - (a.published || 0));
+  return all.slice(0, limit);
+}
+
 async function moneyNews(env, url) {
   const region = /^[A-Z]{2}$/.test(url.searchParams.get("region") || "") ? url.searchParams.get("region") : "US";
   const lang = NEWS_LANGS[url.searchParams.get("lang")] ? url.searchParams.get("lang") : "en";
-  return cachedJson("news/v1/" + region + "/" + lang, NEWS_TTL, async () => {
+  return cachedJson("news/v2/" + region + "/" + lang, NEWS_TTL, async () => {
     const edition = newsEdition(region, lang);
-    const feed = (gl, hl) => env.NEWS_URL
+    const google = (gl, hl) => env.NEWS_URL
       ? env.NEWS_URL + "?gl=" + gl + "&hl=" + hl
       : "https://news.google.com/rss/search?q=" + encodeURIComponent(NEWS_LANGS[lang].query) + "&hl=" + hl + "&gl=" + gl + "&ceid=" + gl + ":" + hl;
-    let items = parseNewsRss(await fetchText(feed(edition.gl, edition.hl)));
-    let used = edition;
-    if (items.length < 3) {
+    let items = parseNewsRss(await fetchText(google(edition.gl, edition.hl)));
+    let used = { edition: edition.gl + ":" + edition.hl, source: "Google News" };
+    if (items.length < 3 && !env.NEWS_URL) {
+      const local = NEWS_FEEDS[lang].filter((f) => !f.regions || f.regions.includes(region));
+      const feeds = local.filter((f, i) => local.findIndex((g) => g.url === f.url) === i).slice(0, 3);
+      const lists = await Promise.all(feeds.map(async (f) => parseNewsRss(await fetchText(f.url), 15).map((it) => ({ ...it, source: it.source || f.name }))));
+      items = mergeNews(lists);
+      used = { edition: region + ":" + lang, source: feeds.map((f) => f.name).filter((n, i, a) => a.indexOf(n) === i).join(", ") };
+    } else if (items.length < 3) {
       const [gl, hl] = NEWS_DEFAULT[lang].split(":");
-      used = { gl, hl };
-      items = parseNewsRss(await fetchText(feed(gl, hl)));
+      items = parseNewsRss(await fetchText(google(gl, hl)));
+      used = { edition: gl + ":" + hl, source: "Google News" };
     }
     if (!items.length) {
       return null;
     }
-    return { region, lang, edition: used.gl + ":" + used.hl, updated: now(), source: "Google News", items };
+    return { region, lang, edition: used.edition, updated: now(), source: used.source, items };
   });
 }
 
