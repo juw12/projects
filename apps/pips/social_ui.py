@@ -36,6 +36,11 @@ try:
     import outreach
 except ImportError:  # pragma: no cover
     outreach = None
+
+try:
+    import tama                  # v2.18: boy / girl badges, life stages
+except ImportError:  # pragma: no cover
+    tama = None
 from social import ACH_IDS, ACH_SYMBOL, INTERACTIONS, INTERACTION_SYMBOL, affinity_level, default_display_name
 from social import NUDGES, NUDGE_SYMBOL
 
@@ -250,10 +255,12 @@ class FriendsWindow:
     def _draw_pet_avatar(self, cv, species, color, size, look):
         try:
             props = pet_shop.clean_look(look) if (pet_shop is not None and look) else {}
-            scale = 0.5 if props else 0.62
+            traits = pet_shop.clean_traits(look) if (pet_shop is not None and look) else {}
+            worn = any(slot in props for slot in getattr(pet_shop, "SLOTS", ()))
+            scale = 0.5 if worn else 0.62
             if pet_shop is not None:
                 pet_shop.draw_props_preview(cv, self.pet_mod, size * scale, species, color, props,
-                                            cx=size / 2, floor=size - 2, t=time.monotonic())
+                                            cx=size / 2, floor=size - 2, t=time.monotonic(), traits=traits)
             else:
                 sp = species if species in self.pet_mod.SPECIES else "cat"
                 pl = self.pet_mod.default_look({"species": sp, "color": color or "#ffc78f", "cheek_color": "#ff8fa3"})
@@ -433,7 +440,13 @@ class FriendsWindow:
         name = self.social.data.get("name") or default_display_name()
         name_line = tk.Frame(info, bg=self.CARD)
         name_line.pack(fill="x")
-        self._label(name_line, f"{name} & {self.pet.s.get('name', 'Pip')}", size=11, bold=True).pack(side="left")
+        my_look = self.social.my_look()
+        self._label(name_line, name, size=11, bold=True).pack(side="left")
+        self._gender_badge(name_line, {"owner_gender": my_look.get("owner_gender", "")}, self.CARD, size=11)
+        self._label(name_line, f" & {self.pet.s.get('name', 'Pip')}", size=11, bold=True).pack(side="left")
+        if tama is not None and my_look.get("gender"):
+            tk.Label(name_line, text=tama.gender_symbol(my_look["gender"]), font=("Segoe UI Symbol", 11, "bold"),
+                     fg=tama.gender_color(my_look["gender"]), bg=self.CARD).pack(side="left", padx=(3, 0))
         my_roles = {"role": self.social.data.get("role", ""), "premium": self.social.is_premium}
         self._role_chips(name_line, my_roles, self.CARD)
         if self.social.enabled and self.social.muted_until:
@@ -874,7 +887,7 @@ class FriendsWindow:
                 name.pack(side="left")
                 if sender.get("code"):
                     name.bind("<Button-1>", lambda e, c=sender["code"]: self.open_profile(c))
-                self._role_chips(name_row, sender, bubble_bg)
+                self._role_chips(name_row, sender, bubble_bg, badge_size=8)
             if m.get("kind") == "text":
                 text = body
             else:
@@ -1094,8 +1107,12 @@ class FriendsWindow:
             if is_group and not mine:
                 sender = m.get("from") or {}
                 is_bot = sender.get("role") == "bot" or sender.get("code") in social.BOT_CODES
-                self._label(bubble, ("\U0001F916 " if is_bot else "") + sender.get("name", "?"), size=7, bold=True,
-                            fg="#5c7cfa" if is_bot else self.ACCENT, bg=bubble_bg).pack(fill="x")
+                sender_row = tk.Frame(bubble, bg=bubble_bg)
+                sender_row.pack(fill="x")
+                self._label(sender_row, ("\U0001F916 " if is_bot else "") + sender.get("name", "?"), size=7, bold=True,
+                            fg="#5c7cfa" if is_bot else self.ACCENT, bg=bubble_bg).pack(side="left")
+                if not is_bot:
+                    self._gender_badge(sender_row, sender, bubble_bg, size=8)
             if m.get("kind") == "text":
                 text = m.get("body", "")
             else:
@@ -1257,8 +1274,23 @@ class FriendsWindow:
         return tk.Label(parent, text="\u2605 " + t("premium_badge"), font=("Segoe UI Symbol", 8, "bold"),
                         fg="#ffffff", bg=self.PREMIUM_PURPLE, padx=5)
 
-    def _role_chips(self, parent, person, bg):
-        """Owner / Mod / Premium badges after a name (premium is implied for staff)."""
+    def _gender_badge(self, parent, person, bg, size=9):
+        """\u2642 / \u2640 after a name when the person shared their gender in their profile (v2.18)."""
+        if tama is None or not isinstance(person, dict):
+            return None
+        look = person.get("look") if isinstance(person.get("look"), dict) else person
+        value = look.get("owner_gender", "")
+        symbol = tama.gender_symbol(value) if value in tama.OWNER_GENDERS else ""
+        if not symbol:
+            return None
+        badge = tk.Label(parent, text=symbol, font=("Segoe UI Symbol", size, "bold"), fg=tama.gender_color(value),
+                         bg=bg)
+        badge.pack(side="left", padx=(3, 0))
+        return badge
+
+    def _role_chips(self, parent, person, bg, badge_size=9):
+        """Gender (v2.18), then Owner / Mod / Premium badges after a name (premium is implied for staff)."""
+        self._gender_badge(parent, person, bg, size=badge_size)
         role = person.get("role", "")
         if role == "bot":
             self._bot_chip(parent, bg).pack(side="left", padx=(6, 0))
@@ -1436,7 +1468,7 @@ class FriendsWindow:
         name_row = tk.Frame(box, bg=self.WARM)
         name_row.pack(fill="x")
         self._label(name_row, user.get("name", "?"), size=14, bold=True, bg=self.WARM).pack(side="left")
-        self._role_chips(name_row, user, self.WARM)
+        self._role_chips(name_row, user, self.WARM, badge_size=13)
         if user.get("visibility") == "private":
             self._label(name_row, "  \U0001F512 " + t("vis_private"), size=8, fg=self.MUTED, bg=self.WARM).pack(side="left")
         state = user.get("presence") or "offline"
@@ -1446,6 +1478,16 @@ class FriendsWindow:
         if full:
             stats += "  \u00b7  " + t("rank_val_xp", n=user.get("xp", 0)) + "  \u00b7  " + t("rank_val_streak", n=user.get("streak", 0))
         self._label(box, stats, size=8, fg=self.MUTED, bg=self.WARM).pack(fill="x", pady=(2, 0))
+        traits = pet_shop.clean_traits(user.get("look")) if pet_shop is not None else {}
+        if tama is not None and (traits.get("gender") or traits.get("stage")):
+            # v2.18: their pet - boy / girl and life stage
+            pet_bits = [self.pet_mod.species_label(user.get("species") or "cat")]
+            if traits.get("gender"):
+                pet_bits[0] += " " + tama.gender_symbol(traits["gender"])
+            if traits.get("stage"):
+                pet_bits.append(f"{tama.STAGE_ICON.get(traits['stage'], '')} {t('stage_' + traits['stage'])}")
+            self._label(box, "\U0001F43E " + "  \u00b7  ".join(pet_bits), size=8, fg=self.MUTED,
+                        bg=self.WARM).pack(fill="x")
         if user.get("rel") == "friend":
             aff = self._affinity_text(user.get("affinity", 0))
             self._label(box, aff, size=8, fg=self.PINK, bg=self.WARM).pack(fill="x")
@@ -2185,6 +2227,17 @@ class FriendsWindow:
         self._label(nrow, t("fr_your_name"), width=14).pack(side="left")
         self.pname_var = tk.StringVar(value=self.social.data.get("name") or default_display_name())
         self._entry(nrow, self.pname_var, width=24).pack(side="left")
+        # v2.18: optional - shows as a little \u2642 / \u2640 next to your name for friends
+        grow = tk.Frame(self.body, bg=self.CARD)
+        grow.pack(fill="x", pady=(4, 0))
+        self._label(grow, t("prof_gender"), width=14).pack(side="left")
+        self.owner_gender_var = tk.StringVar(value=prof.get("gender", "") if prof.get("gender") in ("m", "f") else "")
+        for value, key in (("m", "prof_gender_m"), ("f", "prof_gender_f"), ("", "prof_gender_none")):
+            colour = tama.gender_color(value) if (value and tama is not None) else self.INK
+            tk.Radiobutton(grow, text=t(key), variable=self.owner_gender_var, value=value,
+                           font=("Segoe UI", 9, "bold" if value else "normal"), bg=self.CARD, fg=colour,
+                           selectcolor=self.ENTRY, activebackground=self.CARD,
+                           activeforeground=colour).pack(side="left")
         self.bio_text = tk.Text(self.body, height=3, font=("Segoe UI", 10), wrap="word", bg=self.ENTRY,
                                 fg=self.ENTRY_INK, insertbackground=self.ENTRY_INK, relief="solid", bd=1)
         self.bio_text.insert("1.0", prof["bio"])
@@ -2427,6 +2480,9 @@ class FriendsWindow:
             "bio": self.bio_text.get("1.0", "end").strip()[:300],
             "info": info,
         }
+        gender_var = getattr(self, "owner_gender_var", None)
+        if gender_var is not None:
+            changes["gender"] = gender_var.get() if gender_var.get() in ("m", "f") else ""
         self.social.save_profile(changes, name=self.pname_var.get())
         self.error = ""
         self.pet.set_action("cheer", 1.0)

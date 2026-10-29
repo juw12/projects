@@ -213,10 +213,11 @@ class FancyMenu:
         self.entries.append(entry)
         return entry
 
-    def header(self, title, subtitle="", avatar="", stats=None, avatar_color=None):
+    def header(self, title, subtitle="", avatar="", stats=None, avatar_color=None, badge=None):
+        """badge: optional (symbol, colour) drawn right after the title, e.g. ("\u2640", "#ec4899")."""
         height = 82 if stats else 62
         return self._add("header", height, title=title, subtitle=subtitle, avatar=avatar,
-                         stats=stats or [], avatar_color=avatar_color)
+                         stats=stats or [], avatar_color=avatar_color, badge=badge)
 
     def banner(self, title, subtitle, command, icon="\u2B06", badge="NEW"):
         return self._add("banner", 62, title=title, subtitle=subtitle, command=command,
@@ -524,8 +525,13 @@ class FancyMenu:
         cv.create_oval(cx - radius, cy - radius, cx + radius, cy + radius, fill=avatar_color, outline="")
         cv.create_text(cx, cy, text=entry["avatar"], fill=ink_on(avatar_color), font=self.fonts["avatar"])
         text_x = 60
-        cv.create_text(text_x, y0 + 18, anchor="w", fill=p["ink"], font=self.fonts["title"],
-                       text=self._fit(entry["title"], self.fonts["title"], w - text_x - 14))
+        badge = entry.get("badge")
+        badge_w = self.fonts["title"].measure(" " + badge[0]) if badge and badge[0] else 0
+        title = self._fit(entry["title"], self.fonts["title"], w - text_x - 14 - badge_w)
+        cv.create_text(text_x, y0 + 18, anchor="w", fill=p["ink"], font=self.fonts["title"], text=title)
+        if badge_w:
+            cv.create_text(text_x + self.fonts["title"].measure(title + " "), y0 + 18, anchor="w",
+                           fill=badge[1] or p["ink"], font=self.fonts["title"], text=badge[0])
         if entry["subtitle"]:
             cv.create_text(text_x, y0 + 36, anchor="w", fill=p["muted"], font=self.fonts["small"],
                            text=self._fit(entry["subtitle"], self.fonts["small"], w - text_x - 14))
