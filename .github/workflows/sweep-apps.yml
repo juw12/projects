@@ -1,0 +1,365 @@
+name: Sweep apps
+
+# Builds the downloadable Sweep apps and publishes them to the "sweep" release from main:
+#   Windows  Sweep-Windows-Setup.exe (per-user installer) + Sweep-Windows-Portable.zip
+#   macOS    Sweep-macOS-AppleSilicon.dmg + Sweep-macOS-Intel.dmg
+#   Android  Sweep-Android.apk (always signed with the same key, so it updates earlier installs)
+#   iPhone   Sweep-iPhone-unsigned.ipa (for sideloading; the App Store needs an Apple developer account)
+# The apps are thin native shells around the live site, so every push to apps/sweep/web reaches them through
+# GitHub Pages without a rebuild. This workflow only runs when a shell itself changes. Every build is opened and
+# checked on its own OS first; only builds that passed are published, and the download links never change.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/sweep/desktop/**'
+      - 'apps/sweep/mobile/**'
+      - 'apps/sweep/web/shell.json'
+      - 'apps/sweep/web/icons/**'
+      - '.github/workflows/sweep-apps.yml'
+  pull_request:
+    paths:
+      - 'apps/sweep/desktop/**'
+      - 'apps/sweep/mobile/**'
+      - 'apps/sweep/web/shell.json'
+      - 'apps/sweep/web/icons/**'
+      - '.github/workflows/sweep-apps.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sweep-apps-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  desktop:
+    name: Desktop (${{ matrix.name }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows
+            os: windows-latest
+          - name: macOS Apple silicon
+            os: macos-15
+          - name: macOS Intel
+            os: macos-15-intel
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install PyInstaller, Pillow and pywebview
+        run: python -m pip install --disable-pip-version-check pyinstaller pillow pywebview
+      - name: Install Inno Setup
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $iscc = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'
+          if (-not (Test-Path $iscc) -and -not (Get-Command iscc -ErrorAction SilentlyContinue)) {
+            choco install innosetup --no-progress -y
+          }
+      - name: Make sure the WebView2 runtime is there (the Windows window uses it)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $client = '{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}'
+          $keys = "HKLM:\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\$client",
+                  "HKCU:\Software\Microsoft\EdgeUpdate\Clients\$client"
+          $version = $keys | Where-Object { Test-Path $_ } | ForEach-Object { (Get-ItemProperty $_).pv } |
+            Where-Object { $_ -and $_ -ne '0.0.0.0' } | Select-Object -First 1
+          if ($version) { Write-Host "WebView2 runtime $version"; exit 0 }
+          $setup = Join-Path $env:RUNNER_TEMP 'MicrosoftEdgeWebview2Setup.exe'
+          Invoke-WebRequest 'https://go.microsoft.com/fwlink/p/?LinkId=2124703' -OutFile $setup
+          Start-Process -FilePath $setup -ArgumentList '/silent', '/install' -Wait
+      - name: Stop XProtect scans (they make hdiutil fail with "Resource busy")
+        if: runner.os == 'macOS'
+        run: |
+          sudo pkill -9 XProtect > /dev/null 2>&1 || true
+          for attempt in $(seq 1 20); do pgrep -x XProtect > /dev/null || break; sleep 3; done
+      - name: Build and package
+        run: python apps/sweep/desktop/build.py --require-installer
+      - name: Open the built app and check its window shows this commit's Sweep
+        run: python apps/sweep/desktop/smoke_test.py --built --local-site
+      - name: Install with Sweep-Windows-Setup.exe, run it, uninstall it
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $setup = Resolve-Path 'apps/sweep/desktop/dist/Sweep-Windows-Setup.exe'
+          $log = Join-Path $env:RUNNER_TEMP 'sweep-setup.log'
+          $process = Start-Process -FilePath $setup -Wait -PassThru -ArgumentList @(
+            '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/TASKS=desktopicon', "/LOG=$log")
+          if ($process.ExitCode -ne 0) { Get-Content $log -Tail 40; throw "Setup failed with exit code $($process.ExitCode)" }
+          $app = Join-Path $env:LOCALAPPDATA 'Programs\Sweep\Sweep.exe'
+          if (-not (Test-Path $app)) { throw "Sweep.exe was not installed to $app" }
+          $shortcuts = @(
+            (Join-Path ([Environment]::GetFolderPath('Programs')) 'Sweep.lnk'),
+            (Join-Path ([Environment]::GetFolderPath('Desktop')) 'Sweep.lnk'))
+          foreach ($link in $shortcuts) { if (-not (Test-Path $link)) { throw "Missing shortcut: $link" } }
+          $entry = Get-ChildItem 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall' |
+            Get-ItemProperty | Where-Object DisplayName -eq 'Sweep'
+          if (-not $entry) { throw 'Sweep is missing from Settings > Apps' }
+          python apps/sweep/desktop/smoke_test.py --local-site $app
+          if ($LASTEXITCODE -ne 0) { throw 'The installed app failed its checks' }
+          Start-Process -FilePath $entry.UninstallString.Trim('"') -Wait -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART'
+          for ($i = 0; $i -lt 60 -and (Test-Path $app); $i++) { Start-Sleep -Seconds 1 }
+          if (Test-Path $app) { throw 'Uninstalling left Sweep.exe behind' }
+          foreach ($link in $shortcuts) { if (Test-Path $link) { throw "Uninstalling left a shortcut: $link" } }
+          Write-Host 'Installed, ran and uninstalled cleanly'
+      - name: Check the Mac app and disk image
+        if: runner.os == 'macOS'
+        run: |
+          APP=apps/sweep/desktop/dist/Sweep.app
+          test "$(plutil -extract CFBundleIdentifier raw "$APP/Contents/Info.plist")" = "io.github.juw12.sweep.desktop"
+          test "$(plutil -extract CFBundleShortVersionString raw "$APP/Contents/Info.plist")" = "$(python3 -c 'import json; print(json.load(open("apps/sweep/web/shell.json"))["desktop"]["version"])')"
+          echo "Architecture: $(lipo -archs "$APP/Contents/MacOS/Sweep")"
+          codesign --verify --deep --verbose=2 "$APP"
+          for image in apps/sweep/desktop/dist/*.dmg; do hdiutil verify "$image"; done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Sweep-${{ runner.os }}-${{ runner.arch }}
+          path: apps/sweep/desktop/dist/Sweep-*
+          if-no-files-found: error
+          retention-days: 14
+
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: apps/sweep/mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Prepare the Android project
+        run: |
+          npm install --no-fund --no-audit
+          npm run android:prepare
+      - name: Restore the signing key
+        env:
+          SWEEP_KEYSTORE_BASE64: ${{ secrets.SWEEP_ANDROID_KEYSTORE_BASE64 }}
+          MINT_KEYSTORE_BASE64: ${{ secrets.MINT_ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$SWEEP_KEYSTORE_BASE64" ]; then
+            echo "$SWEEP_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/sweep-signing.p12"
+            echo "SWEEP_KEY_SOURCE=sweep" >> "$GITHUB_ENV"
+            echo "SWEEP_ANDROID_KEY_ALIAS=sweep" >> "$GITHUB_ENV"
+          elif [ -n "$MINT_KEYSTORE_BASE64" ]; then
+            # The developer key Mint is already signed with (alias mint). One key may sign several apps.
+            echo "$MINT_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/sweep-signing.p12"
+            echo "SWEEP_KEY_SOURCE=mint" >> "$GITHUB_ENV"
+            echo "SWEEP_ANDROID_KEY_ALIAS=mint" >> "$GITHUB_ENV"
+          else
+            echo "::warning::No Android signing key secret; the APK will be debug-signed and not published."
+            exit 0
+          fi
+          echo "SWEEP_ANDROID_KEYSTORE_PATH=$RUNNER_TEMP/sweep-signing.p12" >> "$GITHUB_ENV"
+      - name: Build the release and debug APKs
+        env:
+          SWEEP_PASSWORD: ${{ secrets.SWEEP_ANDROID_SIGNING_PASSWORD }}
+          MINT_PASSWORD: ${{ secrets.MINT_ANDROID_SIGNING_PASSWORD }}
+        run: |
+          if [ "${SWEEP_KEY_SOURCE:-}" = "sweep" ]; then
+            export SWEEP_ANDROID_SIGNING_PASSWORD="$SWEEP_PASSWORD"
+          else
+            export SWEEP_ANDROID_SIGNING_PASSWORD="$MINT_PASSWORD"
+          fi
+          chmod +x android/gradlew
+          cd android
+          if [ -n "${SWEEP_ANDROID_KEYSTORE_PATH:-}" ]; then
+            ./gradlew assembleRelease assembleDebug --no-daemon
+          else
+            ./gradlew assembleDebug --no-daemon
+          fi
+      - name: Verify the signature and name the packages
+        run: |
+          mkdir -p dist
+          cp android/app/build/outputs/apk/debug/app-debug.apk dist/Sweep-debug.apk
+          APKSIGNER=$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -n 1)
+          if [ -n "${SWEEP_ANDROID_KEYSTORE_PATH:-}" ]; then
+            cp android/app/build/outputs/apk/release/app-release.apk dist/Sweep-Android.apk
+            "$APKSIGNER" verify --print-certs dist/Sweep-Android.apk | tee dist/android-signature.txt
+            # Same key as the APK people already installed, or Android refuses the update.
+            EXPECTED=$(tr -d ' :\n' < android-certificate-sha256.txt | tr 'A-F' 'a-f' | grep -o '[0-9a-f]\{64\}' | head -n 1)
+            ACTUAL=$(grep -m1 'SHA-256 digest' dist/android-signature.txt | sed 's/.*: //' | tr -d ' :' | tr 'A-F' 'a-f')
+            echo "expected $EXPECTED"
+            echo "actual   $ACTUAL"
+            if [ -n "$EXPECTED" ] && [ "$EXPECTED" != "$ACTUAL" ]; then
+              echo "::error::The APK is not signed with the key in android-certificate-sha256.txt"
+              exit 1
+            fi
+          fi
+          ls -la dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Sweep-Android
+          path: apps/sweep/mobile/dist
+          retention-days: 14
+
+  emulator:
+    needs: android
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: Sweep-Android
+          path: apps/sweep/mobile/dist
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install websocket-client
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Open the app on an emulator and check Sweep loads with its native plugins
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none
+          script: python apps/sweep/mobile/scripts/android-smoke.py apps/sweep/mobile/dist/Sweep-debug.apk
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Sweep-Android-emulator-check
+          path: |
+            apps/sweep/mobile/dist/*.png
+            apps/sweep/mobile/dist/*.json
+          retention-days: 7
+
+  ios:
+    runs-on: macos-15
+    timeout-minutes: 40
+    defaults:
+      run:
+        working-directory: apps/sweep/mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Prepare the iOS project
+        run: |
+          npm install --no-fund --no-audit
+          npm run ios:prepare
+      - name: Build for the iOS simulator, launch it and take a screenshot
+        run: |
+          xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Debug \
+            -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build-simulator CODE_SIGNING_ALLOWED=NO build
+          DEVICE=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; d=json.load(sys.stdin); print(next(x["udid"] for a in d["devices"].values() for x in a if x["isAvailable"] and x["name"].startswith("iPhone")))')
+          xcrun simctl boot "$DEVICE" || true
+          xcrun simctl bootstatus "$DEVICE" -b
+          xcrun simctl install "$DEVICE" build-simulator/Build/Products/Debug-iphonesimulator/App.app
+          mkdir -p dist
+          # --console-pty captures the app's stdout: Capacitor's bridge log and the page's console.
+          xcrun simctl launch --console-pty "$DEVICE" io.github.juw12.sweep > dist/iphone-console.log 2>&1 &
+          sleep 25
+          xcrun simctl io "$DEVICE" screenshot dist/iphone-simulator.png
+          grep -aE 'Sweep|Error|error' dist/iphone-console.log | head -n 60 || true
+          xcrun simctl spawn "$DEVICE" launchctl list | grep -q io.github.juw12.sweep || { echo "::error::Sweep is not running in the simulator"; exit 1; }
+      - name: Build the unsigned iPhone app (for free sideloading)
+        run: |
+          xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Release \
+            -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build-device \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build
+          rm -rf ipa && mkdir -p ipa/Payload dist
+          cp -R build-device/Build/Products/Release-iphoneos/App.app ipa/Payload/
+          (cd ipa && zip -qry ../dist/Sweep-iPhone-unsigned.ipa Payload)
+      - name: Check the iPhone app
+        run: |
+          APP=ipa/Payload/App.app
+          test "$(plutil -extract CFBundleIdentifier raw "$APP/Info.plist")" = "io.github.juw12.sweep"
+          test "$(plutil -extract CFBundleShortVersionString raw "$APP/Info.plist")" = "$(node -p "require('./package.json').version")"
+          grep -q 'juw12.github.io/projects/sweep/mobile.html' "$APP/capacitor.config.json"
+          lipo -info "$APP/App" | grep -q arm64
+          unzip -l dist/Sweep-iPhone-unsigned.ipa | grep -q 'Payload/App.app/Info.plist'
+          ls -l dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Sweep-iOS
+          path: apps/sweep/mobile/dist
+          if-no-files-found: error
+          retention-days: 14
+
+  publish:
+    needs: [desktop, android, emulator, ios]
+    if: ${{ !cancelled() && github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: Sweep-*
+          path: dist
+          merge-multiple: true
+      - name: Publish the apps to the sweep release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          ANDROID_CHECK: ${{ needs.emulator.result }}
+        run: |
+          cd dist
+          FILES=""
+          for name in Sweep-Windows-Setup.exe Sweep-Windows-Portable.zip \
+                      Sweep-macOS-AppleSilicon.dmg Sweep-macOS-Intel.dmg \
+                      Sweep-Android.apk Sweep-iPhone-unsigned.ipa; do
+            if [ "$name" = "Sweep-Android.apk" ] && [ "$ANDROID_CHECK" != "success" ]; then
+              echo "::warning::The Android app did not pass its emulator check, so it was not published."
+              continue
+            fi
+            if [ -f "$name" ]; then
+              FILES="$FILES $name"
+            else
+              echo "::warning::$name was not built in this run; the release keeps its previous copy (if any)."
+            fi
+          done
+          if [ -z "$FILES" ]; then
+            echo "::error::No app passed its checks."
+            exit 1
+          fi
+          sha256sum $FILES > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+          cat > notes.md <<'EOF'
+          **Sweep** — turn an idea into a checkable plan: briefs, project plans, operator runbooks and exports. Works offline; your projects stay on your device.
+
+          | Your device | Download | How to install |
+          | --- | --- | --- |
+          | **Windows 10/11** | [Sweep-Windows-Setup.exe](https://github.com/juw12/projects/releases/download/sweep/Sweep-Windows-Setup.exe) | Open it and press Install (no admin needed). If Windows says it protected your PC, choose **More info → Run anyway** (the app isn't code-signed yet). Without installing: [Sweep-Windows-Portable.zip](https://github.com/juw12/projects/releases/download/sweep/Sweep-Windows-Portable.zip). |
+          | **Mac with Apple chip (M1 and newer)** | [Sweep-macOS-AppleSilicon.dmg](https://github.com/juw12/projects/releases/download/sweep/Sweep-macOS-AppleSilicon.dmg) | Open it and drag Sweep to Applications. The first time, macOS blocks it because it isn't notarized: **System Settings → Privacy & Security → Open Anyway**. |
+          | **Mac with Intel chip** | [Sweep-macOS-Intel.dmg](https://github.com/juw12/projects/releases/download/sweep/Sweep-macOS-Intel.dmg) | Same as above. Not sure which Mac? Apple menu → About This Mac shows **Chip** (Apple) or **Processor** (Intel). |
+          | **Android** | [Sweep-Android.apk](https://github.com/juw12/projects/releases/download/sweep/Sweep-Android.apk) | Download it on the phone, open it and allow installing from your browser. It updates an earlier Sweep app in place. |
+          | **iPhone / iPad** | [Open in Safari](https://juw12.github.io/projects/sweep/app.html) | Share → **Add to Home Screen** (free, full screen, updates itself). Sideloading: [Sweep-iPhone-unsigned.ipa](https://github.com/juw12/projects/releases/download/sweep/Sweep-iPhone-unsigned.ipa) with AltStore or Sideloadly. |
+
+          The apps load Sweep from the web, so new features arrive the moment they are pushed — no reinstall. When the app shell itself changes, Sweep shows an "Update available" banner that links here. Checksums for this build: `SHA256SUMS.txt`.
+          EOF
+          {
+            echo
+            echo "Built from ${GITHUB_SHA::7}."
+            grep -m1 'SHA-256 digest' android-signature.txt 2>/dev/null | sed 's/^/Android signing certificate (/; s/$/)./' || true
+          } >> notes.md
+          if gh release view sweep --repo "$REPO" > /dev/null 2>&1; then
+            gh release upload sweep $FILES SHA256SUMS.txt --clobber --repo "$REPO"
+            gh release edit sweep --notes-file notes.md --repo "$REPO"
+          else
+            gh release create sweep $FILES SHA256SUMS.txt --title "Sweep for Windows, Mac, Android and iPhone" \
+              --notes-file notes.md --latest=false --repo "$REPO"
+          fi

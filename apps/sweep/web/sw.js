@@ -1,7 +1,7 @@
 // Sweep Service Worker — Offline-first caching
 // Network-first for HTML/navigation, cache-first for static assets
 
-const CACHE_NAME = 'sweep-v20-mobile-flow';
+const CACHE_NAME = 'sweep-v21-apps';
 const ASSETS_TO_CACHE = [
   './app.html',
   './index.html',
@@ -20,8 +20,13 @@ const ASSETS_TO_CACHE = [
   './qr.js',
   './vendor/peerjs.min.js',
   './pro.css',
+  './refresh.css',
+  './native.js',
   './manifest.webmanifest',
-  './icons/app-icon.svg'
+  './icons/app-icon.svg',
+  './icons/icon-192.png',
+  './icons/icon-512.png',
+  './icons/apple-touch-icon.png'
 ];
 
 // Determine scope safely (works for subpath deploys)
@@ -78,6 +83,10 @@ self.addEventListener('fetch', function(event) {
   if (url.origin !== self.location.origin) {
     return;
   }
+  // The app-version manifest the desktop and phone apps check: always from the network.
+  if (url.pathname.endsWith('/shell.json')) {
+    return;
+  }
   if (typeof SCOPE === 'string' && SCOPE.indexOf('http') === 0 && request.url.indexOf(SCOPE) !== 0) {
     return;
   }
@@ -116,8 +125,8 @@ async function networkFirst(request) {
       return cachedResponse;
     }
     
-    // If not in cache, try to serve app.html as fallback (SPA)
-    const appHtml = await caches.match('./app.html');
+    // If not in cache, serve the app itself (offline-first)
+    const appHtml = await caches.match('./index.html');
     if (appHtml) {
       return appHtml;
     }

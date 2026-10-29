@@ -122,7 +122,7 @@
       "category": "AI",
       "desc": "Turn a plain-words idea into a scored spec (Kiro-style requirements, design, tasks), a drag-and-drop task board and a Build → Grow → Earn plan — hand it to Lovable, v0, Cursor or Claude Code in one click, share remix links, and let Otto, an offline approval-first AI operator, draft brand, site, posts and outreach",
       "description": "Turns a rough app idea into a scored spec, a task board and a Build &rarr; Grow &rarr; Earn plan, then hands it to Lovable, v0, Cursor or Claude Code in one click. Its local agent Otto drafts brand, site and posts. Fully offline.",
-      "summary": "Turns a rough app idea into a scored spec, task board and launch plan, then hands it to Cursor, v0 or Claude Code.",
+      "summary": "Turns a rough app idea into a scored spec, task board and launch plan; self-updating apps for Windows, Mac, Android and iPhone.",
       "tags": [
         "spec score",
         "task board",
@@ -136,6 +136,28 @@
         "web": "sweep/",
         "mobile": "sweep/mobile.html"
       },
+      "card_links": [
+        {
+          "label": "Windows app",
+          "path": "https://github.com/juw12/projects/releases/download/sweep/Sweep-Windows-Setup.exe"
+        },
+        {
+          "label": "Mac app",
+          "path": "sweep/app.html"
+        },
+        {
+          "label": "Android app",
+          "path": "https://github.com/juw12/projects/releases/download/sweep/Sweep-Android.apk"
+        },
+        {
+          "label": "iPhone",
+          "path": "sweep/app.html#iphone"
+        },
+        {
+          "label": "Web",
+          "path": "sweep/"
+        }
+      ],
       "featured": true,
       "order": 7
     },

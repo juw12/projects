@@ -1,0 +1,19 @@
+{
+  "appId": "io.github.juw12.sweep",
+  "appName": "Sweep",
+  "webDir": "www",
+  "backgroundColor": "#8b1a1a",
+  "appendUserAgent": "SweepApp/1.0",
+  "server": {
+    "url": "https://juw12.github.io/projects/sweep/mobile.html",
+    "errorPath": "offline.html",
+    "cleartext": false
+  },
+  "android": {
+    "allowMixedContent": false
+  },
+  "ios": {
+    "contentInset": "never",
+    "scheme": "Sweep"
+  }
+}
