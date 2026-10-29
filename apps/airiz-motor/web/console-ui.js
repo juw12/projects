@@ -20,10 +20,14 @@
     const jogButtons = [...document.querySelectorAll('[data-jog]')];
     const presetButtons = [...document.querySelectorAll('[data-steps]')];
     const jogInputIds = ['pan-speed', 'pan-steps', 'rising-speed', 'rising-steps'];
+    // 1.11.9: Full rise / Full down move the rising axis over its whole travel in one finite move.
+    const FULL_TRAVEL_STEPS = 1100;
+    const fullTravelButtons = [...document.querySelectorAll('[data-full-travel]')];
     const originalTerminal = document.querySelector('.panel-console');
     const consoleOutput = $('console-output');
     let currentView = 'controller';
     let previewDirection = 'pan-fwd';
+    let previewSteps = null;
     let armed = false;
     let keyboardEnabled = false;
     let busy = false;
@@ -61,15 +65,15 @@
       toastTimeout = setTimeout(() => { $('ui-toast').hidden = true; }, 4500);
     }
 
-    function getJogCommand(direction, validate = false) {
+    function getJogCommand(direction, validate = false, fixedSteps = null) {
       const definition = commandDefinitions.get(direction);
       if (!definition) return null;
       const axis = direction.startsWith('pan') ? 'pan' : 'rising';
       const speedInput = $(axis + '-speed');
       const stepsInput = $(axis + '-steps');
       const speed = Number(speedInput.value);
-      const steps = Number(stepsInput.value);
-      const valid = speedInput.checkValidity() && stepsInput.checkValidity()
+      const steps = fixedSteps === null ? Number(stepsInput.value) : fixedSteps;
+      const valid = speedInput.checkValidity() && (fixedSteps !== null || stepsInput.checkValidity())
         && Number.isInteger(speed) && Number.isInteger(steps)
         && steps >= Number(stepsInput.min) && steps <= Number(stepsInput.max)
         && speed >= Number(speedInput.min) && speed <= Number(speedInput.max);
@@ -95,7 +99,7 @@
           && $('rising-steps').value === button.dataset.steps;
         button.setAttribute('aria-pressed', String(selected));
       }
-      $('jog-command-preview').textContent = getJogCommand(previewDirection) || 'Enter a valid step count to preview';
+      $('jog-command-preview').textContent = getJogCommand(previewDirection, false, previewSteps) || 'Enter a valid step count to preview';
     }
 
     function setKeyboard(enabled) {
@@ -124,6 +128,7 @@
       const canJog = currentView === 'controller' && status.connected && armed
         && !status.macroRunning && !busy;
       jogButtons.forEach(button => { button.disabled = !canJog; });
+      fullTravelButtons.forEach(button => { button.disabled = !canJog; });
       $('arm-jog').disabled = !status.connected;
       $('keyboard-toggle').disabled = !status.connected;
       $('btn-send-raw').disabled = !status.connected;
@@ -172,7 +177,7 @@
       updateAvailability();
     }
 
-    async function jog(direction) {
+    async function jog(direction, fixedSteps = null) {
       const status = api.getStatus();
       if (busy || currentView !== 'controller' || !status.connected || status.macroRunning) return;
       if (!armed) {
@@ -180,8 +185,9 @@
         return;
       }
       previewDirection = direction;
+      previewSteps = fixedSteps;
       updateParameters();
-      const command = getJogCommand(direction, true);
+      const command = getJogCommand(direction, true, fixedSteps);
       if (!command) return;
       busy = true;
       updateAvailability();
@@ -194,13 +200,19 @@
         const stage = $('motion-stage');
         stage.dataset.direction = direction;
         $('stage-state').textContent = status.demoMode ? 'SIMULATED COMMAND' : 'SENT · COMPLETION UNVERIFIED';
-        const button = jogButtons.find((item) => item.dataset.jog === direction);
-        jogButtons.forEach((item) => item.classList.remove('key-active'));
+        const button = fixedSteps === null
+          ? jogButtons.find((item) => item.dataset.jog === direction)
+          : fullTravelButtons.find((item) => item.dataset.fullTravel === direction);
+        jogButtons.concat(fullTravelButtons).forEach((item) => item.classList.remove('key-active'));
         button.classList.add('key-active');
+        if (fixedSteps !== null) {
+          notify((direction === 'rising-fwd' ? 'Full rise sent: ' : 'Full down sent: ') + fixedSteps
+            + ' steps. Let the camera finish before the next move.');
+        }
         clearTimeout(animationTimeout);
         animationTimeout = setTimeout(() => {
           delete stage.dataset.direction;
-          jogButtons.forEach((item) => item.classList.remove('key-active'));
+          jogButtons.concat(fullTravelButtons).forEach((item) => item.classList.remove('key-active'));
           const current = api.getStatus();
           $('stage-state').textContent = current.connected
             ? current.demoMode ? 'SIMULATOR READY' : 'SERIAL CONNECTED'
@@ -267,6 +279,18 @@
       for (const eventName of ['pointerenter', 'focus']) {
         button.addEventListener(eventName, () => {
           previewDirection = button.dataset.jog;
+          previewSteps = null;
+          updateParameters();
+        });
+      }
+    });
+    $('full-travel-steps').textContent = FULL_TRAVEL_STEPS + ' steps';
+    fullTravelButtons.forEach((button) => {
+      button.addEventListener('click', () => jog(button.dataset.fullTravel, FULL_TRAVEL_STEPS));
+      for (const eventName of ['pointerenter', 'focus']) {
+        button.addEventListener(eventName, () => {
+          previewDirection = button.dataset.fullTravel;
+          previewSteps = FULL_TRAVEL_STEPS;
           updateParameters();
         });
       }

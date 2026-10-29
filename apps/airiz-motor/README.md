@@ -24,7 +24,7 @@ A downloadable Windows x64 desktop edition now bundles this entire console local
 It is not a website shortcut and does not require Chrome, Edge, Node or Python to run.
 Installer and portable preview builds are available at:
 
-https://github.com/juw12/projects/releases/tag/airiz-desktop-v1.11.8
+https://github.com/juw12/projects/releases/tag/airiz-desktop-v1.11.9
 
 The initial binaries are unsigned. The packaged app was tested with demo/synthetic
 hardware; real-device bench validation is still required. Browser and mobile-web
@@ -56,6 +56,10 @@ streams the AIRIZ microphone back in 2-second clips, about 4 s behind live. Phon
 that has the AIRIZ on USB. Stop motor still works and also interrupts a message being sent. Tested
 against a simulated AIRIZ shell (busybox), not yet on real AIRIZ hardware; the sound format and the
 record/play commands can be changed under *Voice settings*.
+
+**Full rise and full down buttons (1.11.9):** *Motor control* has *Full rise* and *Full down* next to the jog pad. One click sends
+`diag motor rising forward|reverse <Rising speed> 1100`, i.e. the whole rising travel in one finite move. They
+use the same jog lock as the pad and do not change *Steps per jog*.
 
 **Smart detection alerts, own siren sound, simpler calibration (1.11.8):** Smart detection keeps watching while
 the window is minimized (a worker clock instead of page timers; the Windows app keeps a minimized window awake while

@@ -215,7 +215,7 @@
     "Keyboard shortcuts": "鍵盤快捷鍵",
     "Keyboard shortcuts and jog safety": "鍵盤快捷鍵與點動安全",
     "LAST 25": "最近 25 筆",
-    "LOWER": "下限",
+    "LOWER": "下降",
     "Let a phone or another PC control this AIRIZ through this PC with a 6-digit code (you allow each device). No Bluetooth needed.": "讓手機或另一台 PC 透過這台 PC 以 6 位數代碼控制這台 AIRIZ（每台裝置需您核准）。不需藍牙。",
     "Live console": "即時主控台",
     "Lock jog + stop motor": "鎖定點動 + 停止馬達",
@@ -1274,7 +1274,17 @@
     "Detection keeps watching while this window is minimized or behind other windows, as long as the camera preview runs. Desktop notifications also need Windows notifications turned on for the AIRIZ Console (or your browser): Settings > System > Notifications. Chat alerts need you to be in Ziris PTB on this PC (Team page) and are sent at most once every 2 minutes. Each event below shows whether its alerts went out.": "只要相機預覽仍在執行，視窗最小化或被其他視窗擋住時偵測也會持續。桌面通知還需要為 AIRIZ Console（或你的瀏覽器）開啟 Windows 通知：設定 > 系統 > 通知。聊天警示需要你在這台 PC 上加入 Ziris PTB（團隊頁），且每 2 分鐘最多傳送一次。下方每個事件都會顯示其警示是否已送出。",
     "Optional: the camera works without it. Calibration makes click-to-center, auto-tracking and the position shown more accurate. Do the steps in order; each one saves by itself.": "選用：不校正相機也能使用。校正可讓點選置中、自動追蹤與顯示的位置更準確。請依序完成各步驟，每一步都會自動儲存。",
     "Smart detection alerts, own siren sound, simpler calibration (1.11.8)": "智慧偵測警示、自訂警報聲、更簡單的校正 (1.11.8)",
-    "Smart detection now keeps watching while the window is minimized, and every event shows whether its desktop notification and Ziris PTB chat alert went out; Send a test alert checks both at once. The siren can play your own WAV/MP3 file. The height buttons are now Lower to bottom & reset height and Is the camera at the bottom?, and Calibration is a numbered step-by-step guide with the raw numbers under Advanced.": "智慧偵測在視窗最小化時也會持續，每個事件都會顯示桌面通知與 Ziris PTB 聊天警示是否已送出；「傳送測試警示」可一次測試兩者。警報器可播放你自己的 WAV/MP3 檔。高度按鈕改為「降到底部並重設高度」與「相機在最底部嗎？」，校正則改為有編號的逐步指引，原始數值移到「進階數值」。"
+    "Smart detection now keeps watching while the window is minimized, and every event shows whether its desktop notification and Ziris PTB chat alert went out; Send a test alert checks both at once. The siren can play your own WAV/MP3 file. The height buttons are now Lower to bottom & reset height and Is the camera at the bottom?, and Calibration is a numbered step-by-step guide with the raw numbers under Advanced.": "智慧偵測在視窗最小化時也會持續，每個事件都會顯示桌面通知與 Ziris PTB 聊天警示是否已送出；「傳送測試警示」可一次測試兩者。警報器可播放你自己的 WAV/MP3 檔。高度按鈕改為「降到底部並重設高度」與「相機在最底部嗎？」，校正則改為有編號的逐步指引，原始數值移到「進階數值」。",
+    "Full travel": "全行程",
+    "Full rise": "升到頂",
+    "Full down": "降到底",
+    "Full travel of the rising axis": "升降軸全行程",
+    "Full rise: raise the camera 1100 steps": "升到頂：攝影機上升 1100 步",
+    "Full down: lower the camera 1100 steps": "降到底：攝影機下降 1100 步",
+    "Full rise: 1100 steps up at the Rising speed": "升到頂：以升降軸速度上升 1100 步",
+    "Full down: 1100 steps down at the Rising speed": "降到底：以升降軸速度下降 1100 步",
+    "Full rise and full down buttons (1.11.9)": "一鍵升到頂、降到底 (1.11.9)",
+    "Motor control has Full rise and Full down buttons next to the jog pad: one click moves the rising axis over its whole travel (1100 steps) at the Rising speed. They follow the same jog lock as the pad, and the Steps per jog setting is left as it is.": "馬達控制的點動面板旁新增「升到頂」與「降到底」：按一下就以升降軸速度走完整個升降行程（1100 步）。它們和點動面板使用同一個鎖定開關，「每次點動步數」維持不變。"
   },
   "html": {
     "AIRIZDEVICE LAB": "AIRIZ<small>裝置實驗室</small>",
@@ -2194,6 +2204,14 @@
     [
       "^Ziris PTB chat: not sent\\. (.+)$",
       "Ziris PTB 聊天：未傳送。$1"
+    ],
+    [
+      "^Full rise sent: (\\d+) steps\\. Let the camera finish before the next move\\.$",
+      "升到頂已送出：$1 步。請等攝影機停下後再做下一個動作。"
+    ],
+    [
+      "^Full down sent: (\\d+) steps\\. Let the camera finish before the next move\\.$",
+      "降到底已送出：$1 步。請等攝影機停下後再做下一個動作。"
     ]
   ]
 }
