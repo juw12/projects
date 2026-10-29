@@ -387,6 +387,20 @@ def clean_look(look) -> dict:
     return out
 
 
+def clean_traits(look) -> dict:
+    """v2.18: the pet's gender / life stage and the owner's gender from a friend's look dict."""
+    if not isinstance(look, dict):
+        return {}
+    out = {}
+    if look.get("gender") in ("boy", "girl"):
+        out["gender"] = look["gender"]
+    if look.get("stage") in ("baby", "child", "teen"):
+        out["stage"] = look["stage"]
+    if look.get("owner_gender") in ("m", "f"):
+        out["owner_gender"] = look["owner_gender"]
+    return out
+
+
 # =============================================================================
 # Drawing props
 # =============================================================================
@@ -882,12 +896,18 @@ def darken_hex(color: str, amount: float = 0.3) -> str:
     return "#%02x%02x%02x" % (int(r * (1 - amount)), int(g * (1 - amount)), int(b * (1 - amount)))
 
 
-def draw_props_preview(cv, pet_mod, size, species, color, props, cx=None, floor=None, t=0.0):
-    """Small helper for the shop / avatars: pet + props on a canvas."""
+def draw_props_preview(cv, pet_mod, size, species, color, props, cx=None, floor=None, t=0.0, traits=None):
+    """Small helper for the shop / avatars: pet + props on a canvas (traits: clean_traits() of a look)."""
+    traits = traits or {}
     look = pet_mod.default_look({"species": species if species in pet_mod.SPECIES else "cat",
-                                 "color": color or "#ffc78f", "cheek_color": "#ff8fa3"})
+                                 "color": color or "#ffc78f", "cheek_color": "#ff8fa3",
+                                 "gender": traits.get("gender", ""), "stage": traits.get("stage", "adult")})
     look["t"] = t
     look["mouth"] = "smile"
+    look["head_prop"] = bool((props or {}).get("head"))
+    tama_mod = getattr(pet_mod, "tama", None)
+    if tama_mod is not None:
+        size = size * tama_mod.stage_scale(look.get("stage"))
     cx = cx if cx is not None else int(cv["width"]) / 2
     floor = floor if floor is not None else int(cv["height"]) - 2
     geo = pet_mod.body_geometry(cx, floor, size, look)

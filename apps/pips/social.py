@@ -709,11 +709,26 @@ class Social:
 
     def my_look(self) -> dict:
         shop = getattr(self.pet, "shop", None)
-        if not shop:
-            return {}
-        look = dict(shop.equipped())
-        look["moves"] = shop.moves()
+        look = {}
+        if shop:
+            look = dict(shop.equipped())
+            look["moves"] = shop.moves()
+        # v2.18: the pet is a boy / girl, its life stage, and the person's own gender (\u2642 / \u2640 by names)
+        gender = self.pet.s.get("gender", "")
+        if gender in ("boy", "girl"):
+            look["gender"] = gender
+        growth = getattr(self.pet, "growth", None)
+        if growth is not None and growth.stage in ("baby", "child", "teen"):
+            look["stage"] = growth.stage
+        owner_gender = self.profile().get("gender", "")
+        if owner_gender in ("m", "f"):
+            look["owner_gender"] = owner_gender
         return look
+
+    def look_changed(self):
+        """The pet's gender / life stage (or my gender) changed: sync soon so friends see it."""
+        if self.enabled:
+            self._next_sync = min(self._next_sync, time.monotonic() + 8)
 
     def my_gear(self) -> dict:
         shop = getattr(self.pet, "shop", None)
@@ -776,7 +791,8 @@ class Social:
         threading.Thread(target=worker, daemon=True).start()
 
     # ---- my profile (v2.6) ----
-    PROFILE_DEFAULTS = {"visibility": "public", "bio": "", "info": {}, "status": "auto", "status_text": ""}
+    PROFILE_DEFAULTS = {"visibility": "public", "bio": "", "info": {}, "status": "auto", "status_text": "",
+                        "gender": ""}
 
     def profile(self) -> dict:
         prof = dict(self.PROFILE_DEFAULTS)
@@ -2193,7 +2209,11 @@ class VisitorPet:
         self.who = who
         self.alive = True
         host = self.host
-        self.size = int(host.size * 0.9)
+        visitor_look = who.get("look") if isinstance(who.get("look"), dict) else {}
+        visitor_stage = visitor_look.get("stage") if visitor_look.get("stage") in ("baby", "child", "teen") else "adult"
+        stage_scale = {"baby": 0.72, "child": 0.82, "teen": 0.92}.get(visitor_stage, 1.0)
+        base_size = pet_mod.SIZES.get(host.s.get("size"), host.size) if hasattr(pet_mod, "SIZES") else host.size
+        self.size = int(base_size * 0.9 * stage_scale)
         self.W = int(self.size * 2.0)
         self.H = int(self.size * 2.0)
         species = who.get("species") if who.get("species") in pet_mod.SPECIES else "cat"
@@ -2201,7 +2221,10 @@ class VisitorPet:
         self.trick = who.get("trick") if pet_shop is not None and who.get("trick") in pet_shop.MOVES else None
         self.trick_t0 = None
         self.look_base = pet_mod.default_look({"species": species,
-                                               "color": who.get("color") or pet_mod.SPECIES[species]["color"]})
+                                               "color": who.get("color") or pet_mod.SPECIES[species]["color"],
+                                               "gender": visitor_look.get("gender", ""),
+                                               "stage": visitor_stage})
+        self.look_base["head_prop"] = bool(self.props.get("head"))
         self.win = tk.Toplevel(host.root)
         self.win.overrideredirect(True)
         self.win.attributes("-topmost", True)

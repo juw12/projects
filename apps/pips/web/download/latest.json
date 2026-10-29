@@ -1,43 +1,43 @@
 {
   "installer": {
     "filename": "Pips-Setup.exe",
-    "sha256": "f5abd02f78cd5f5f337b51bd8c67eaa4a79fe0ef44fee78f4931e1c716c2d319",
-    "size": 22215941,
+    "sha256": "12bfa80d71e769b095c7e68cdf94b319e90513e3ee0a32ddddcbc29b61ec2c7a",
+    "size": 22229685,
     "architecture": "x64",
     "python_version": "3.13.17",
     "requires_admin": false,
     "url": "https://juw12.github.io/projects/pips/download/Pips-Setup.exe"
   },
-  "version": "2.17.0",
+  "version": "2.18.0",
   "date": "2026-10-29",
-  "title": "Find your pet anytime",
+  "title": "Raise your pet",
   "url": "https://juw12.github.io/projects/pips/download/Pips-Windows.zip",
-  "sha256": "58033fc9497387380c64ea0cc715c7e70904961823bc843d7ab82cfc3eb6cf35",
-  "size": 839537,
+  "sha256": "49b886e0d05a0985525d8d470de2cb12f19d9c138c98f5045c72805c210ad6e0",
+  "size": 857820,
   "notes": {
     "en": [
-      "Pips now has an icon next to the clock: click it to bring your pet back; right-click for the focus timer, Friends & chat or Quit.",
-      "Press Ctrl+Alt+P anywhere to call your pet - it pops up on the screen you're using, even if it was hidden, asleep or behind a fullscreen app.",
-      "Opening Pips again from the Start menu or desktop does the same, and your pet walks back by itself if it ever ends up off-screen (e.g. after unplugging a monitor).",
-      "Hiding your pet now tells you how to bring it back."
+      "Boy or girl? Pick your pet's gender in Settings: boys get a little hair tuft, girls a pink bow and eyelashes, and a ♂ / ♀ shows next to its name. You can add your own gender to your profile too - friends see a small ♂ / ♀ next to your name.",
+      "Pets grow up now: baby → child → teen → grown-up. Focus sessions, opening Pips each day, games and cuddles help them grow - no care mistakes, no bad endings. Already have a grown-up pet? It will ask whether you'd like to raise it again from a baby (coins, items and stats stay).",
+      "Sick days: work 2.5 hours without a 5-minute break and your pet catches a little cold (sneezes, thermometer, slow steps). A short break cures it - or give medicine from the menu. You can turn this off in Settings.",
+      "New mini-game Left or Right? (pet menu → Play): guess which way your pet will look - 3 out of 5 wins, with coins for your first wins each day."
     ],
     "id": [
-      "Pips kini punya ikon di dekat jam: klik untuk memanggil pet kembali; klik kanan untuk timer fokus, Teman & chat, atau Keluar.",
-      "Tekan Ctrl+Alt+P di mana saja untuk memanggil pet - ia muncul di layar yang sedang kamu pakai, bahkan saat tersembunyi, tidur, atau tertutup aplikasi layar penuh.",
-      "Membuka Pips lagi dari menu Start atau desktop juga memanggilnya, dan pet akan kembali sendiri jika sampai keluar layar (misalnya setelah monitor dicabut).",
-      "Saat menyembunyikan pet, Pips kini memberi tahu cara memanggilnya kembali."
+      "Jantan atau betina? Pilih jenis kelamin pet di Pengaturan: jantan punya jambul rambut kecil, betina pita pink dan bulu mata, dan ♂ / ♀ muncul di samping namanya. Kamu juga bisa menambahkan jenis kelaminmu di profil - teman melihat ♂ / ♀ kecil di samping namamu.",
+      "Pet kini bisa tumbuh: bayi → anak → remaja → dewasa. Sesi fokus, membuka Pips setiap hari, permainan, dan pelukan membantunya tumbuh - tanpa kesalahan perawatan, tanpa akhir yang buruk. Pet-mu sudah dewasa? Ia akan bertanya apakah kamu mau membesarkannya lagi dari bayi (koin, item, dan statistik tetap).",
+      "Hari sakit: bekerja 2,5 jam tanpa istirahat 5 menit dan pet-mu masuk angin (bersin, termometer, langkah pelan). Istirahat sebentar menyembuhkannya - atau beri obat dari menu. Bisa dimatikan di Pengaturan.",
+      "Mini-game baru Kiri atau Kanan? (menu pet → Main): tebak ke mana pet-mu akan menoleh - 3 dari 5 menang, dengan koin untuk kemenangan pertama setiap hari."
     ],
     "zh_TW": [
-      "時鐘旁現在有 Pips 圖示：點一下叫寵物回來；按右鍵可開專注計時器、好友與聊天或結束。",
-      "在任何地方按 Ctrl+Alt+P 就能叫寵物出來，它會出現在你正在用的螢幕上，即使原本隱藏、睡著或被全螢幕程式擋住。",
-      "從開始選單或桌面再次開啟 Pips 也一樣；寵物若跑出螢幕（例如拔掉外接螢幕後）會自己走回來。",
-      "隱藏寵物時，Pips 會告訴你怎麼叫它回來。"
+      "男生還是女生？在設定裡選擇寵物性別：男生有一小撮翹毛，女生有粉紅蝴蝶結和睫毛，名字旁也會顯示 ♂ / ♀。你也可以在個人資料加上自己的性別，好友會在你的名字旁看到小小的 ♂ / ♀。",
+      "寵物現在會長大了：寶寶 → 小朋友 → 青少年 → 大人。專注、每天打開 Pips、玩遊戲和抱抱都能幫助成長，不會照顧失誤，也沒有壞結局。已經是大人的寵物會問你要不要從寶寶重新養一次（金幣、物品和統計都保留）。",
+      "生病日：連續工作 2.5 小時沒休息 5 分鐘，寵物就會小感冒（打噴嚏、含體溫計、走得慢）。休息一下就會好，或從選單餵藥。可以在設定裡關閉。",
+      "新小遊戲「左還是右？」（寵物選單 → 玩耍）：猜寵物會看哪邊，5 回合猜中 3 次就贏，每天前幾次獲勝還有金幣。"
     ],
     "zh_CN": [
-      "时钟旁现在有 Pips 图标：点一下叫宠物回来；右键可打开专注计时器、好友与聊天或退出。",
-      "在任何地方按 Ctrl+Alt+P 就能叫宠物出来，它会出现在你正在用的屏幕上，即使原本隐藏、睡着或被全屏程序挡住。",
-      "从开始菜单或桌面再次打开 Pips 也一样；宠物若跑出屏幕（例如拔掉外接显示器后）会自己走回来。",
-      "隐藏宠物时，Pips 会告诉你怎么叫它回来。"
+      "男生还是女生？在设置里选择宠物性别：男生有一小撮翘毛，女生有粉色蝴蝶结和睫毛，名字旁也会显示 ♂ / ♀。你也可以在个人资料加上自己的性别，好友会在你的名字旁看到小小的 ♂ / ♀。",
+      "宠物现在会长大了：宝宝 → 小朋友 → 青少年 → 大人。专注、每天打开 Pips、玩游戏和抱抱都能帮助成长，不会照顾失误，也没有坏结局。已经是大人的宠物会问你要不要从宝宝重新养一次（金币、物品和统计都保留）。",
+      "生病日：连续工作 2.5 小时没休息 5 分钟，宠物就会小感冒（打喷嚏、含体温计、走得慢）。休息一下就会好，或从菜单喂药。可以在设置里关闭。",
+      "新小游戏“左还是右？”（宠物菜单 → 玩耍）：猜宠物会看哪边，5 回合猜中 3 次就赢，每天前几次获胜还有金币。"
     ]
   },
   "guide": "https://juw12.github.io/projects/pips/download/Pips-Guide.pptx"

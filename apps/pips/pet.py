@@ -64,6 +64,11 @@ try:
 except ImportError:  # pragma: no cover - shop is optional
     pet_shop = None
 
+try:
+    import tama                  # v2.18: boy / girl, growing up, sick days, Left or Right?
+except ImportError:  # pragma: no cover
+    tama = None
+
 logger = logging.getLogger("pet")
 
 # Transparent colour key: pixels of exactly this colour are see-through and
@@ -92,6 +97,8 @@ DEFAULT_PET_SETTINGS = {
     "sound_volume": 60,          # 0..100
     "quiet_focus": True,         # no pet sounds during a focus session
     "friends": False,            # opt-in: share level / pomodoro counts with friends (social.py)
+    "gender": "",                # v2.18: "boy" | "girl" | "" (secret)
+    "sick_days": True,           # v2.18: catches a little cold when I skip breaks for 2.5 hours
 }
 
 COLOR_PRESETS = [
@@ -531,6 +538,9 @@ def default_look(settings: dict) -> dict:
         "tear": False,
         "sweat": False,
         "dangle": False,
+        "gender": settings.get("gender") if settings.get("gender") in ("boy", "girl") else "",
+        "stage": settings.get("stage") if settings.get("stage") in ("baby", "child", "teen") else "adult",
+        "sick": False,
         "t": 0.0,
     }
 
@@ -578,7 +588,10 @@ def draw_pet(cv: tk.Canvas, cx: float, floor: float, size: float, look: dict):
     u = size / 64.0
     t_ = look["t"]
     body = look["color"]
+    if look.get("sick"):
+        body = mix(body, "#c4d6b0", 0.28)      # a little pale and green around the gills
     cheek = look["cheek"]
+    gender = look.get("gender", "")
     outline = darken(body, 0.45)
     dark_body = luminance(body) < 0.32 and not spec.get("face_light")
     eye_col = spec.get("eye_col") or ("#fdfdfd" if dark_body else "#2a2430")
@@ -1028,6 +1041,23 @@ def draw_pet(cv: tk.Canvas, cx: float, floor: float, size: float, look: dict):
         top_x, top_y = ell(92, 1.0)
         cv.create_line(top_x, top_y + 1 * u, top_x - 2 * u, top_y - 5 * u, top_x + 2.5 * u, top_y - 7 * u,
                        top_x + 1.5 * u, top_y - 3.5 * u, smooth=True, width=max(1, 1.7 * u), fill=outline)
+    if gender == "boy" and not look.get("head_prop"):
+        # boys: a little three-strand hair tuft (cowlick) on top of the head (v2.18)
+        top_x, top_y = ell(66 if ears in ("tuft", "sprout") else 90, 1.0)
+        tw = max(1.3, 1.9 * u)
+        for dx1, dx2, dy2, dx3, dy3 in ((-0.7, -2.8, -4.2, -5.6, -4.9), (0.0, 0.5, -5.6, 3.0, -7.6),
+                                        (0.7, 3.4, -3.0, 6.2, -3.2)):
+            cv.create_line(top_x + dx1 * u, top_y + 1.4 * u, top_x + dx2 * u, top_y + dy2 * u,
+                           top_x + dx3 * u, top_y + dy3 * u, smooth=True, width=tw, fill=outline,
+                           capstyle=tk.ROUND)
+    if gender == "girl" and not look.get("head_prop"):
+        # girls: a little pink bow on the head, over one ear like a certain famous cat (v2.18)
+        bx, by = ell(68 if facing >= 0 else 112, 0.98)
+        bow, bow_dark = "#ff5fa2", "#c93b7b"
+        for s in (-1, 1):
+            blob(bx + s * 3.1 * u, by - 0.4 * u, 3.3 * u, 2.4 * u, bow, rot=s * 0.35, out=bow_dark,
+                 width=max(1, 0.9 * u), n=14)
+        blob(bx, by - 0.2 * u, 1.5 * u, 1.5 * u, lighten(bow, 0.25), out=bow_dark, width=max(1, 0.9 * u), n=10)
 
     # ================= feet / lower body =================
     foot_col = darken(body, 0.1)
@@ -1122,7 +1152,7 @@ def draw_pet(cv: tk.Canvas, cx: float, floor: float, size: float, look: dict):
     edx, edy = look["eye_dx"] * u, look["eye_dy"] * u
     ey = cy - 1.5 * u + edy + spec.get("eye_dy", 0) * u
     sep = spec.get("eye_sep", 8.5) * u
-    r = 3.3 * u * spec.get("eye_scale", 1.0)
+    r = 3.3 * u * spec.get("eye_scale", 1.0) * (tama.stage_eyes(look.get("stage")) if tama else 1.0)
     fcx = cx + feature_dx + edx
     mx = cx + feature_dx + edx * 0.6
     my = cy - 1.5 * u + edy + (5.2 + spec.get("mouth_dy", 0)) * u
@@ -1151,7 +1181,7 @@ def draw_pet(cv: tk.Canvas, cx: float, floor: float, size: float, look: dict):
         blob(mx, my + 0.4 * u, 5.4 * u, 3.8 * u, lighten(body, 0.5))
 
     # cheeks
-    cheek_fill = cheek if look["blush"] else mix(cheek, body, 0.55)
+    cheek_fill = cheek if (look["blush"] or gender == "girl") else mix(cheek, body, 0.55)
     cs = spec.get("cheek_scale", 1.0)
     for s in (-1, 1):
         ccx = cx + feature_dx + edx * 0.4 + s * (14 if spec.get("eye_sep", 8.5) < 10 else 16) * u
@@ -1208,6 +1238,23 @@ def draw_pet(cv: tk.Canvas, cx: float, floor: float, size: float, look: dict):
             cv.create_line(*pts_sp, smooth=True, width=max(1, 1.2 * u), fill=eye_col)
         elif eyes == "heart":
             cv.create_polygon(*heart_points(ex, ey, r * 1.35), smooth=True, fill="#ff4d6d", outline="")
+
+    if gender == "girl" and eyes in ("open", "big", "half", "happy", "closed", "blink"):
+        # girls: eyelashes (v2.18)
+        lash = eye_col if eye_col not in ("#ffffff", "#fdfdfd") else "#2b2b2b"
+        lash_w = max(1.0, 1.3 * u)
+        for s in (-1, 1):
+            ex = fcx + s * sep
+            if eyes in ("open", "big"):
+                rr = r * (1.35 if eyes == "big" else 1.0)
+                x1, y1 = ex + s * rr * 0.68, ey - rr * 0.86
+                cv.create_line(x1, y1, x1 + s * 2.3 * u, y1 - 2.5 * u, width=lash_w, fill=lash, capstyle=tk.ROUND)
+                x2, y2 = ex + s * rr * 0.98, ey - rr * 0.38
+                cv.create_line(x2, y2, x2 + s * 2.9 * u, y2 - 1.3 * u, width=lash_w, fill=lash, capstyle=tk.ROUND)
+            else:
+                x1 = ex + s * r * (1.2 if eyes == "half" else 1.0)
+                y1 = ey - r * 0.15 if eyes == "half" else ey + (0.4 * r if eyes == "happy" else 0.0)
+                cv.create_line(x1, y1, x1 + s * 2.3 * u, y1 - 1.7 * u, width=lash_w, fill=lash, capstyle=tk.ROUND)
 
     brows = look["brows"]
     if brows:
@@ -1297,6 +1344,16 @@ def draw_pet(cv: tk.Canvas, cx: float, floor: float, size: float, look: dict):
         cv.create_polygon(sx, sy - 2 * u, sx + side * 5 * u, sy + 1 * u, sx, sy + 2 * u, fill="#3b2f2f",
                           outline="")
 
+    if look.get("sick") and look.get("thermo", True) and not beak:
+        # a thermometer in the mouth (v2.18 sick days)
+        side_k = 1 if facing >= 0 else -1
+        x0, y0 = mx + side_k * 1.2 * u, my + 1.0 * u
+        x1, y1 = mx + side_k * 8.5 * u, my + 4.2 * u
+        cv.create_line(x0, y0, x1, y1, width=max(2, 2.6 * u), fill="#9aa5b1", capstyle=tk.ROUND)
+        cv.create_line(x0, y0, x1, y1, width=max(1, 1.6 * u), fill="#ffffff", capstyle=tk.ROUND)
+        cv.create_line(x0, y0, x0 + (x1 - x0) * 0.55, y0 + (y1 - y0) * 0.55, width=max(1, 0.8 * u),
+                       fill="#e5484d")
+        cv.create_oval(x0 - 1.2 * u, y0 - 1.2 * u, x0 + 1.2 * u, y0 + 1.2 * u, fill="#e5484d", outline="")
     if look["tear"]:
         tx = fcx - sep - 1 * u
         ty = ey + r * 1.6 + (t_ * 6 % 4) * u
@@ -1656,9 +1713,18 @@ class DesktopPet:
             self.s["hub_migrated"] = True
         self.state_path = self.base_dir / "data" / "pet_state.json"
         self.st = self._load_state()
+        # v2.18 Tamagotchi-style care: growing up (baby -> adult), sick days and a guessing game (tama.py)
+        self.growth = tama.Growth(self.st, self._first_run) if tama else None
+        self.health = tama.Health(self.st) if tama else None
+        self.game = None                # Left or Right? in progress (tama.LeftRight)
+        self._game_until = 0.0
+        self._cured_note = ""           # "break" / "rest": say "I feel better!" once the user is back
+        self._sick_note_due = bool(self.health and self.health.sick)
+        self._sick_nag_at = 0.0
+        self._next_sneeze = 0.0
 
         now = time.monotonic()
-        self.size = SIZES[self.s["size"]]
+        self.size = self._body_size()
         self.W = self.H = 0
         self.mode = self.st.get("mode", "taskbar")
         self.floor_kind = self.st.get("floor_kind", "top")
@@ -1789,8 +1855,16 @@ class DesktopPet:
         self.cv.bind("<Enter>", lambda e: setattr(self, "hovering", True))
         self.cv.bind("<Leave>", self._on_leave)
 
+    def _body_size(self) -> int:
+        """Pixel size of the pet: the S/M/L setting, smaller while it is still growing up (v2.18)."""
+        base = SIZES.get(self.s.get("size"), 64)
+        growth = getattr(self, "growth", None)
+        if growth is not None and tama is not None:
+            return max(24, int(round(base * tama.stage_scale(growth.stage))))
+        return base
+
     def _resize_canvas(self):
-        self.size = SIZES.get(self.s["size"], 64)
+        self.size = self._body_size()
         self.W = int(self.size * 2.0)     # room for wings / tails
         self.H = int(self.size * 1.7)     # room for hovering + emotes
         self.cv.config(width=self.W, height=self.H)
@@ -1840,6 +1914,8 @@ class DesktopPet:
         k = min(1.0, minutes / 600.0)
         st["happiness"] += (baseline - st["happiness"]) * k
         self._missed_you = minutes > 8 * 60
+        if self.health is not None and self.health.rested(minutes * 60):
+            self._cured_note = "rest"       # a good long rest cured the little cold
 
     def _place_initial(self):
         if self.px is None or self.floor_y is None:
@@ -1981,7 +2057,8 @@ class DesktopPet:
 
     def _walk(self, dt, now):
         allowed = (self.s.get("walk_on_taskbar", True) and not self.sleeping and self.action is None
-                   and not self.hovering and self.visible and not (self.tour and self.tour.active))
+                   and not self.hovering and self.visible and not (self.tour and self.tour.active)
+                   and self.game is None)
         if not allowed:
             self.walking = False
             return
@@ -1994,6 +2071,8 @@ class DesktopPet:
             speed = 34 if happy > 70 and energy > 40 else (26 if energy > 25 else 15)
             speed *= {"air": 1.3, "water": 1.0}.get(self.category, 1.0)
             speed *= self.u * (0.6 if self.focus else 1.0)
+            if self.health is not None and self.health.sick:
+                speed *= 0.6            # a cold makes for slow little steps
             self.px += self.facing * speed * dt
             self.walk_phase += dt * (10 if speed > 22 * self.u else 6.5)
             arrived = (self.facing > 0 and self.px >= self.walk_target) or (
@@ -2098,6 +2177,13 @@ class DesktopPet:
             elif self.sleep_reason == "manual" and st["energy"] >= 99 and idle < 60 and slept > 1800:
                 self.wake("rested")
 
+        if self.health is not None:
+            self._health_tick(now, idle, away)
+        if self.growth is not None:
+            self._grow("day")
+        if self.game is not None and now > self._game_until and not self.bubble.visible:
+            self.game = None            # the guessing game was left unfinished
+
         if (self.visible and self.s.get("chatty", True) and not self.sleeping and not away
                 and time.time() >= self._prompt_next and not self.bubble.visible):
             if st["fullness"] < 20:
@@ -2155,6 +2241,8 @@ class DesktopPet:
             return "sleeping"
         if time.monotonic() < self.grumpy_until:
             return "grumpy"
+        if self.health is not None and self.health.sick:
+            return "sick"
         st = self.st
         if st["energy"] < 20:
             return "tired"
@@ -2176,6 +2264,9 @@ class DesktopPet:
 
     def compute_look(self, now, track_cursor=True) -> dict:
         L = default_look(self.s)
+        if self.growth is not None:
+            L["stage"] = self.growth.stage
+        L["sick"] = bool(self.health is not None and self.health.sick)
         spec = self.spec
         category = spec["cat"]
         t_ = now
@@ -2227,6 +2318,12 @@ class DesktopPet:
         elif mood == "grumpy":
             L["brows"] = "angry"
             L["mouth"] = "frown"
+        elif mood == "sick":
+            L["eyes"] = "half"
+            L["brows"] = "sad"
+            L["mouth"] = "flat"
+            L["droop"] = 0.5
+            L["sweat"] = (t_ % 9) < 2.5
 
         if self.hovering and not self.walking and not self.sleeping:
             L["blush"] = True
@@ -2361,6 +2458,23 @@ class DesktopPet:
                 L.update(eyes="open", brows="sad", mouth="wavy", droop=0.4)
             elif act == "sip":
                 L.update(eyes="closed", mouth="o", blush=True, squash=math.sin(t_ * 6) * 0.03)
+            elif act == "sneeze":
+                # v2.18 sick days: aaa... CHOO!
+                if p < 0.6:
+                    L.update(eyes="half" if p < 0.35 else "closed", mouth="o", brows="sad", thermo=False,
+                             squash=-0.07 * math.sin(p / 0.6 * math.pi / 2), lean=-self.facing * 1.5 * p)
+                else:
+                    L.update(eyes="closed", mouth="big_open", brows=None, thermo=False,
+                             squash=0.14 * (1 - (p - 0.6) / 0.4), lean=self.facing * 2.5)
+            elif act == "peek":
+                # v2.18 Left or Right?: the pet turns its head to one side
+                L.update(eyes="big" if p < 0.25 else "happy", mouth="big_open" if p < 0.25 else "smile",
+                         blush=True, brows=None, eye_dx=self.facing * 2.6, eye_dy=0.0, lean=self.facing * 3.0,
+                         hop=bump * 4)
+            elif act == "think":
+                # v2.18 Left or Right?: waiting for your guess
+                L.update(eyes="open", mouth="cat", brows=None, eye_dx=math.sin(t_ * 2.4) * 1.6, eye_dy=-0.4,
+                         lean=math.sin(t_ * 2.4) * 0.8)
             elif pet_shop is not None and act in pet_shop.MOVES:
                 pet_shop.trick_pose(L, act, p, t_)
                 if self.trick_lift:
@@ -2373,6 +2487,7 @@ class DesktopPet:
         look = self.compute_look(now)
         self.current_hover = look.get("hover", 0.0) + look.get("hop", 0.0)
         props = self.shop.equipped() if self.shop else {}
+        look["head_prop"] = bool(props.get("head"))      # a hat hides the bow / hair tuft (v2.18)
         if props and pet_shop is not None:
             pet_shop.draw_back_props(cv, body_geometry(self.W / 2, self.H - 1, self.size, look), props, now)
         geo = draw_pet(cv, self.W / 2, self.H - 1, self.size, look)
@@ -2775,6 +2890,7 @@ class DesktopPet:
         self._tour_event("pet")
         self._bump("happiness", 5)
         self._bump("bond", 0.5)
+        self._grow("care")
         self.grumpy_until = min(self.grumpy_until, now + 3)
         if random.random() < 0.4:
             self.say(random.choice(lines("pet")), duration=2.2, priority=0)
@@ -2799,6 +2915,7 @@ class DesktopPet:
         self._bump("happiness", 8)
         self._bump("energy", 5)
         self._bump("bond", 1)
+        self._grow("care")
         self.set_action("eat", 2.0)
         self._voice("eat")
         self._spawn("crumb", 5)
@@ -2847,6 +2964,271 @@ class DesktopPet:
                 self._voice("wake")
                 self.say(random.choice(lines("wake")), duration=2.2, priority=0)
 
+    # ------------------------------------------------- v2.18 Tamagotchi-style care (tama.py)
+    def gender_symbol(self) -> str:
+        return tama.gender_symbol(self.s.get("gender")) if tama else ""
+
+    def stage_text(self) -> str:
+        """e.g. "\U0001f331 Child" ("" without tama)."""
+        if self.growth is None:
+            return ""
+        stage = self.growth.stage
+        return f"{tama.STAGE_ICON.get(stage, '')} {t('stage_' + stage)}"
+
+    def growth_text(self) -> str:
+        """e.g. "\U0001f331 Child \u00b7 2.5 more to grow into a Teen"."""
+        if self.growth is None:
+            return ""
+        nxt, need, _fraction = self.growth.progress()
+        text = self.stage_text()
+        if nxt:
+            amount = ("%.1f" % need).rstrip("0").rstrip(".")
+            text += " \u00b7 " + t("tama_to_next", n=amount, stage=t("stage_" + nxt))
+        return text
+
+    def _look_changed(self):
+        """Gender / life stage changed: let friends see it soon."""
+        social_hub = getattr(self, "social", None)
+        if social_hub is not None and hasattr(social_hub, "look_changed"):
+            try:
+                social_hub.look_changed()
+            except Exception:
+                logger.exception("look sync failed")
+
+    def _grow(self, reason, announce_ms=2800):
+        """A bit of care -> growth points; announces a new life stage."""
+        if self.growth is None:
+            return None
+        try:
+            new_stage = self.growth.add(reason)
+        except Exception:
+            logger.exception("growth failed")
+            return None
+        if new_stage:
+            self._grew_up(new_stage, announce_ms)
+        return new_stage
+
+    def _apply_stage_size(self):
+        floor = self.floor_y
+        self._resize_canvas()
+        self.floor_y = floor
+        self._apply_position(force=True)
+
+    def _grew_up(self, stage, announce_ms=2800):
+        logger.info("Pet grew up: %s", stage)
+        self._apply_stage_size()
+        self.set_action("cheer", 2.2)
+        self._spawn("sparkle", 8)
+        self._spawn("heart", 3)
+        self._voice("happy")
+        self.st.setdefault("grew", {})[stage] = datetime.now().strftime("%Y-%m-%d")
+        self.save_state()
+        self._look_changed()
+        text = t("tama_grew_" + stage, name=self.s["name"])
+        self.root.after(announce_ms, lambda: self.say(text, duration=9, priority=2))
+        if self.settings_win:
+            self.settings_win.refresh_controls()
+
+    def _offer_regrow(self):
+        """Pets from before v2.18 are grown up already: ask (a few times at most) whether to raise them again."""
+        self._regrow_job = None
+        if self.growth is None or not self.st.get("regrow_offer") or getattr(self, "_destroyed", False):
+            return
+        busy = (not self.visible or self.fs_hidden or self.sleeping or self.focus or self.dragging
+                or (self.tour and self.tour.active) or self.bubble.visible or self.game is not None)
+        if busy:
+            self._regrow_job = self.root.after(10 * 60 * 1000, self._offer_regrow)
+            return
+        asked = int(self.st.get("regrow_asked", 0) or 0) + 1
+        self.st["regrow_asked"] = asked
+        if asked >= 3:
+            self.st.pop("regrow_offer", None)       # asked three times: don't nag any more
+        self.save_state()
+        self.set_action("hop", 0.6)
+        self.say(t("tama_regrow_q", name=self.s["name"]),
+                 actions=[(t("tama_regrow_yes"), self.regrow), (t("tama_regrow_no"), self._regrow_no)],
+                 duration=45, priority=2)
+
+    def regrow(self):
+        """Raise the pet again from a baby (the user asked for it). Coins, items and stats stay."""
+        if self.growth is None:
+            return
+        self.growth.restart()
+        self.st.pop("regrow_asked", None)
+        self._apply_stage_size()
+        self.set_action("love", 2.0)
+        self._spawn("sparkle", 8)
+        self._voice("happy")
+        self.save_state()
+        self._look_changed()
+        self.say(t("tama_regrow_done", name=self.s["name"]), duration=10, priority=2)
+        if self.settings_win:
+            self.settings_win.refresh_controls()
+
+    def _regrow_no(self):
+        self.st.pop("regrow_offer", None)
+        self.st.pop("regrow_asked", None)
+        self.save_state()
+        self.say(t("tama_regrow_kept"), duration=6, priority=1)
+
+    def _health_tick(self, now, idle, away):
+        """Sick days: a little cold after 2.5 hours without a 5-minute break (tama.Health)."""
+        health = self.health
+        event = health.tick(time.time(), idle, enabled=bool(self.s.get("sick_days", True)))
+        if event == "sick":
+            logger.info("Pet caught a little cold (no break for %d minutes)", tama.SICK_AFTER_S // 60)
+            self._sick_note_due = True
+            self._sick_nag_at = 0.0
+            self._next_sneeze = now + random.uniform(8, 20)
+            self.save_state()
+        elif event == "cured_break":
+            logger.info("Pet's cold was cured by a break")
+            self._cured_note = "break"
+            self._sick_note_due = False
+            self._sick_nag_at = 0.0
+            self.save_state()
+        showing = self.visible and not self.fs_hidden and not away
+        if not health.sick:
+            if self._cured_note == "break" and idle < 5 and showing and not self.sleeping:
+                self._cured_note = ""
+                self.set_action("cheer", 1.6)
+                self._spawn("sparkle", 6)
+                self._bump("happiness", 6)
+                self.say(t("tama_cured_break", name=self.s["name"]), duration=7, priority=2)
+            return
+        if not showing or self.sleeping or self.game is not None:
+            return
+        quiet = self.focus or self.bubble.visible or self.dragging
+        if self._sick_note_due and not quiet and self.action is None:
+            self._sick_note_due = False
+            self._sick_nag_at = now + 30 * 60
+            self._next_sneeze = now + random.uniform(*tama.SNEEZE_EVERY_S)
+            self.set_action("sneeze", 1.3)
+            self._spawn("drop", 3)
+            self.say(t("tama_sick", name=self.s["name"]), actions=self._sick_actions(), duration=25, priority=2)
+            return
+        if self._sick_nag_at and now >= self._sick_nag_at and not quiet:
+            self._sick_nag_at = now + 30 * 60
+            self.say(t("tama_sick_again"), actions=self._sick_actions(), duration=15, priority=1)
+            return
+        if now >= self._next_sneeze and self.action is None and not self.dragging:
+            self._next_sneeze = now + random.uniform(*tama.SNEEZE_EVERY_S)
+            self.set_action("sneeze", 1.3)
+            self._spawn("drop", 2)
+            if not quiet and random.random() < 0.5:
+                self.say(random.choice(lines("sneeze")), duration=1.8, priority=0)
+
+    def _sick_actions(self):
+        return [("\U0001f48a " + t("tama_medicine"), self.give_medicine),
+                ("\u2615 " + t("tama_break_btn"), self._take_break)]
+
+    def give_medicine(self):
+        """Medicine cures the cold right away (but the 2.5-hour work stretch starts over)."""
+        self._touch()
+        if self.health is None:
+            return
+        if self.sleeping:
+            self.wake("poke", quiet=True)
+        if not self.health.cure("medicine"):
+            self.set_action("hop", 0.55)
+            self.say(t("tama_not_sick"), duration=3, priority=1)
+            return
+        self._cured_note = ""
+        self._sick_note_due = False
+        self._sick_nag_at = 0.0
+        self.st["medicine_total"] = int(self.st.get("medicine_total", 0) or 0) + 1
+        self.set_action("sip", 1.6)
+        self._spawn("sparkle", 5)
+        self._bump("happiness", 3)
+        self.save_state()
+        self.say(t("tama_medicine_done"), duration=7, priority=2)
+
+    def _take_break(self):
+        self._touch()
+        self.set_action("stretch", 1.3)
+        self.say(t("tama_break_ok", name=self.s["name"]), duration=8, priority=2)
+
+    def play_game(self):
+        """Left or Right? - the classic Tamagotchi guessing game: 5 rounds, guess 3 right to win."""
+        if tama is None:
+            return
+        self._touch()
+        if self.sleeping:
+            self.wake("poke", quiet=True)
+        if self.health is not None and self.health.sick:
+            self.say(t("tama_game_sick"), actions=self._sick_actions(), duration=10, priority=2)
+            return
+        if self.st.get("energy", 50) < 12:
+            self.say(t("tama_game_tired"), duration=4, priority=1)
+            return
+        self.game = tama.LeftRight()
+        self.walking = False
+        self._game_round()
+
+    def _game_round(self):
+        game = self.game
+        if game is None:
+            return
+        if game.done:
+            self._game_over()
+            return
+        self._game_until = time.monotonic() + 40
+        text = t("tama_game_q", n=game.round + 1, total=tama.GAME_ROUNDS, score=game.score)
+        actions = [("\u25c0 " + t("tama_left"), lambda: self._game_guess(-1)),
+                   (t("tama_right") + " \u25b6", lambda: self._game_guess(1))]
+        if self.say(text, actions=actions, duration=40, priority=2):
+            self.set_action("think", 40)
+        else:
+            self.game = None
+
+    def _game_guess(self, side):
+        game = self.game
+        if game is None or game.done:
+            return
+        correct, pet_side = game.guess(side)
+        self.facing = pet_side
+        self.set_action("peek", 1.3)
+        self._game_until = time.monotonic() + 40
+        where = t("tama_side_left") if pet_side < 0 else t("tama_side_right")
+        if correct:
+            self._spawn("sparkle", 2)
+        key = "tama_game_right" if correct else "tama_game_wrong"
+        self.say(t(key, side=where, score=game.score, n=game.round), duration=2.0, priority=2)
+        self.root.after(1500, self._game_round)
+
+    def _game_over(self):
+        game, self.game = self.game, None
+        if game is None:
+            return
+        self.st["games_played"] = int(self.st.get("games_played", 0) or 0) + 1
+        self._bump("energy", -3)
+        if game.won:
+            self.st["games_won"] = int(self.st.get("games_won", 0) or 0) + 1
+            coins = tama.game_reward(self.st, True)
+            if coins and self.shop is not None:
+                try:
+                    self.shop.add_gift_coins(coins)
+                except Exception:
+                    logger.exception("game coins failed")
+                    coins = 0
+            elif coins:
+                coins = 0
+            self._bump("happiness", 12)
+            self._bump("bond", 2)
+            self.set_action("love", 2.2)
+            self._spawn("heart", 5)
+            self._voice("happy")
+            text = t("tama_game_won", score=game.score, total=tama.GAME_ROUNDS)
+            if coins:
+                text += " " + t("tama_game_coins", n=coins)
+        else:
+            self._bump("happiness", 4)
+            self.set_action("hop", 0.6)
+            text = t("tama_game_lost", score=game.score, total=tama.GAME_ROUNDS)
+        self.save_state()
+        self.say(text, actions=[(t("tama_again"), self.play_game)], duration=9, priority=2)
+        self._grow("game", announce_ms=4500)
+
     def _call(self, name, *args):
         fn = self.cb.get(name)
         if fn:
@@ -2890,6 +3272,7 @@ class DesktopPet:
             if self.social:
                 # give the app a moment to record the finished session first
                 self.root.after(2500, self.social.on_pomodoro)
+            self._grow("pomodoro", announce_ms=7000)
         elif event == "distracted":
             self.set_action("worried", 2.5)
             self._bump("happiness", -3)
@@ -3067,6 +3450,12 @@ class DesktopPet:
             self._start_fall()
         elif key == "sounds" and value:
             self._voice("happy")
+        elif key == "sick_days" and not value and self.health is not None:
+            self.health.cure("off")
+        elif key == "gender":
+            self.set_action("cheer", 1.2)
+            self._spawn("sparkle", 4)
+            self._look_changed()
         self._call("save_settings", dict(self.s))
         if self.settings_win:
             self.settings_win.refresh_controls()
@@ -3121,11 +3510,16 @@ class DesktopPet:
             hello = t("first_hi", name=self.s["name"])
         elif not self._call("is_window_open"):
             hello += t("click_to_open")
+        if self._cured_note == "rest":
+            self._cured_note = ""
+            hello = t("tama_cured_rest") + "\n" + hello
         self.say(hello, duration=6, priority=1, on_click=lambda: self._call("toggle_window"))
+        if self.growth is not None and self.st.get("regrow_offer"):
+            self._regrow_job = self.root.after(12000, self._offer_regrow)
 
     def destroy(self):
         self._destroyed = True
-        for job in (getattr(self, "_greet_job", None),):
+        for job in (getattr(self, "_greet_job", None), getattr(self, "_regrow_job", None)):
             if job:
                 try:
                     self.root.after_cancel(job)
@@ -3166,15 +3560,21 @@ class DesktopPet:
         update = self._call("update_info") if self.cb.get("update_info") else None
         menu = fm.FancyMenu(self.win, accent=self.color)
         st = self.st
+        subtitle = species_label(self.s["species"])
+        if self.growth is not None:
+            subtitle += " \u00b7 " + self.stage_text()
+        subtitle += " \u00b7 " + self.mood_label()
+        gender = self.s.get("gender", "") if tama else ""
         menu.header(
             name,
-            f"{species_label(self.s['species'])} \u00b7 {self.mood_label()}",
+            subtitle,
             avatar=(name[:1] or "P").upper(),
             stats=[
                 ("\u2665", st.get("happiness", 0), "#e0557a"),
                 ("\u26A1", st.get("energy", 0), "#e2a72e"),
                 ("\U0001F356", st.get("fullness", 0), "#e07b39"),
             ],
+            badge=(tama.gender_symbol(gender), tama.gender_color(gender)) if gender else None,
         )
         if update:
             menu.banner(
@@ -3186,22 +3586,22 @@ class DesktopPet:
             )
 
         tiles = []
+        if self.health is not None and self.health.sick:
+            tiles.append(("\U0001F48A", t("fm_medicine"), self.give_medicine))
         if self.social:
             tiles.append(("\U0001F465", t("fm_friends"), lambda: self.open_hub()))
             if self.shop:
                 tiles.append(("\U0001F6CD", t("fm_shop"), lambda: self.open_hub("shop")))
         tiles.append(("\U0001F36A", t("fm_snack"), self.feed))
         tiles.append(("\U0001F49E", t("fm_pat"), self.pet))
+        if tama is not None:
+            tiles.append(("\U0001F3AE", t("fm_play"), self.play_game))
         tiles.append(("\u23F1", t("fm_focus"), lambda: self._call("toggle_window")))
         tiles.append(("\U0001F4CA", t("fm_stats"), lambda: self._call("open_dashboard")))
         if self.sleeping:
             tiles.append(("\u2600", t("fm_wake"), lambda: self.wake("poke")))
         else:
             tiles.append(("\U0001F319", t("fm_sleep"), lambda: self.go_to_sleep("manual")))
-        if self.mode == "taskbar":
-            tiles.append(("\U0001F388", t("fm_float"), self.float_free))
-        else:
-            tiles.append(("\u2B07", t("fm_dock"), self.go_to_taskbar))
         menu.tiles(tiles)
 
         social_ok = self.social is not None and social is not None and getattr(self.social, "enabled", False)
@@ -3239,6 +3639,10 @@ class DesktopPet:
                 for move in moves:
                     sub.item("\u2728", t("mv_" + move).split(":")[0], lambda m=move: self.do_trick(m))
             menu.submenu("\U0001F3AA", t("p_tricks"), build_tricks, hint=str(len(moves)))
+        if self.mode == "taskbar":
+            menu.item("\U0001F388", t("p_float"), self.float_free)
+        else:
+            menu.item("\u2B07", t("p_taskbar"), self.go_to_taskbar)
 
         menu.section(t("fm_customize"))
 
@@ -3342,6 +3746,10 @@ class DesktopPet:
         menu.add_separator()
         menu.add_command(label=t("p_snack"), command=self.feed)
         menu.add_command(label=t("p_pet", name=name), command=self.pet)
+        if tama is not None:
+            menu.add_command(label=t("p_play"), command=self.play_game)
+            if self.health is not None and self.health.sick:
+                menu.add_command(label=t("p_medicine"), command=self.give_medicine)
         if self.sleeping:
             menu.add_command(label=t("p_wake"), command=lambda: self.wake("poke"))
         else:
@@ -3491,7 +3899,34 @@ class PetSettingsWindow:
         if self.pet.settings_win is self:
             self.pet.settings_win = None
 
+    def _fit_scroll(self, _event=None):
+        """v2.18: the window never gets taller than the screen - the content scrolls instead."""
+        body = getattr(self, "_body", None)
+        if body is None:
+            return
+        try:
+            body.update_idletasks()
+            w, h = body.winfo_reqwidth(), body.winfo_reqheight()
+            bx, by, _bw, _bh = self.pet.screen_bbox()
+            _mon, work = monitor_rects(bx, by, self.pet.root)
+            max_h = max(300, work[3] - work[1] - 60)
+            view_h = min(h, max_h)
+            self._scroll_canvas.config(width=w, height=view_h, scrollregion=(0, 0, w, h))
+            needs_bar = h > view_h
+            if needs_bar and not self._scrollbar.winfo_ismapped():
+                self._scrollbar.pack(side="right", fill="y", before=self._scroll_canvas)
+            elif not needs_bar and self._scrollbar.winfo_ismapped():
+                self._scrollbar.pack_forget()
+                self._scroll_canvas.yview_moveto(0)
+        except tk.TclError:
+            pass
+
+    def _on_wheel(self, event):
+        if self._scrollbar.winfo_ismapped():
+            self._scroll_canvas.yview_scroll(int(-event.delta / 120) * 3, "units")
+
     def _position(self):
+        self._fit_scroll()
         self.win.update_idletasks()
         w, h = self.win.winfo_reqwidth(), self.win.winfo_reqheight()
         bx, by, bw, _bh = self.pet.screen_bbox()
@@ -3521,7 +3956,16 @@ class PetSettingsWindow:
 
     def _build(self):
         pet = self.pet
-        outer = tk.Frame(self.win, bg=self.BG)
+        # v2.18: scrollable body - on small / scaled screens the settings no longer run off the bottom
+        self._scroll_canvas = tk.Canvas(self.win, bg=self.BG, highlightthickness=0, bd=0)
+        self._scrollbar = tk.Scrollbar(self.win, orient="vertical", command=self._scroll_canvas.yview)
+        self._scroll_canvas.configure(yscrollcommand=self._scrollbar.set, yscrollincrement=12)
+        self._scroll_canvas.pack(side="left", fill="both", expand=True)
+        self._body = tk.Frame(self._scroll_canvas, bg=self.BG)
+        self._scroll_canvas.create_window(0, 0, window=self._body, anchor="nw")
+        self._body.bind("<Configure>", self._fit_scroll)
+        self.win.bind("<MouseWheel>", self._on_wheel)
+        outer = tk.Frame(self._body, bg=self.BG)
         outer.pack(fill="both", expand=True, padx=14, pady=12)
 
         # --- status card ---
@@ -3539,8 +3983,11 @@ class PetSettingsWindow:
         self.age_lbl = tk.Label(stats, text="", font=("Segoe UI", 8), fg=self.MUTED, bg=self.CARD, anchor="w")
         self.age_lbl.pack(fill="x", pady=(0, 4))
         self.bars = {}
-        for key, label_key, color in (("happiness", "bar_happy", "#ff6b8b"), ("energy", "bar_energy", "#f5b700"),
-                                      ("fullness", "bar_food", "#5bbf72"), ("bond", "bar_bond", "#8b5cf6")):
+        bar_rows = [("happiness", "bar_happy", "#ff6b8b"), ("energy", "bar_energy", "#f5b700"),
+                    ("fullness", "bar_food", "#5bbf72"), ("bond", "bar_bond", "#8b5cf6")]
+        if pet.growth is not None:
+            bar_rows.append(("growth", "bar_grow", "#2bb5a0"))      # v2.18: progress to the next life stage
+        for key, label_key, color in bar_rows:
             row = tk.Frame(stats, bg=self.CARD)
             row.pack(fill="x", pady=1)
             tk.Label(row, text=t(label_key), width=7, anchor="w", font=("Segoe UI", 8), fg=self.MUTED,
@@ -3559,6 +4006,9 @@ class PetSettingsWindow:
         self.sleep_btn = self._button(actions, t("b_sleep"), self._toggle_sleep)
         self.sleep_btn.pack(side="left")
         self._button(actions, t("b_tickle"), pet.tickle).pack(side="left", padx=6)
+        if tama is not None:
+            self._button(actions, t("b_play"), pet.play_game).pack(side="left")
+            self.medicine_btn = self._button(actions, t("b_medicine"), pet.give_medicine)
 
         # --- animal picker ---
         animal = self._section(outer, t("p_animal"))
@@ -3588,6 +4038,29 @@ class PetSettingsWindow:
         entry.pack(side="left", ipady=2)
         entry.bind("<Return>", lambda e: self._save_name())
         entry.bind("<FocusOut>", lambda e: self._save_name())
+
+        if tama is not None:
+            # v2.18: boy / girl / secret - shows on the pet (hair tuft, bow & lashes) and next to its name
+            row = tk.Frame(look, bg=self.CARD)
+            row.pack(fill="x", pady=(6, 0))
+            tk.Label(row, text=t("l_gender"), font=("Segoe UI", 9), fg=self.INK, bg=self.CARD, width=8,
+                     anchor="w").pack(side="left")
+            self.gender_var = tk.StringVar(value=pet.s.get("gender", ""))
+            for value, key in (("boy", "gender_boy"), ("girl", "gender_girl"), ("", "gender_secret")):
+                tk.Radiobutton(row, text=t(key), value=value, variable=self.gender_var,
+                               command=lambda: pet.update_setting("gender", self.gender_var.get()),
+                               font=("Segoe UI", 9, "bold" if value else "normal"),
+                               fg=tama.gender_color(value) if value else self.INK, bg=self.CARD,
+                               activebackground=self.CARD, cursor="hand2").pack(side="left")
+        if pet.growth is not None:
+            row = tk.Frame(look, bg=self.CARD)
+            row.pack(fill="x", pady=(6, 0))
+            tk.Label(row, text=t("l_stage"), font=("Segoe UI", 9), fg=self.INK, bg=self.CARD, width=8,
+                     anchor="w").pack(side="left")
+            self.stage_lbl = tk.Label(row, text=pet.growth_text(), font=("Segoe UI", 9), fg=self.INK,
+                                      bg=self.CARD, anchor="w")
+            self.stage_lbl.pack(side="left")
+            self._button(row, t("b_regrow"), self._regrow).pack(side="right")
 
         row = tk.Frame(look, bg=self.CARD)
         row.pack(fill="x", pady=(8, 0))
@@ -3634,7 +4107,8 @@ class PetSettingsWindow:
                            cursor="hand2").pack(fill="x", padx=(8, 0))
         self.flag_vars = {}
         for key in ("bubble_reminders", "walk_on_taskbar", "gravity", "sleep_when_away", "open_near_pet",
-                    "start_with_card", "chatty", "hide_in_fullscreen", "auto_update", "sounds", "quiet_focus"):
+                    "start_with_card", "chatty", "hide_in_fullscreen", "auto_update", "sounds", "quiet_focus",
+                    "sick_days"):
             var = tk.BooleanVar(value=bool(pet.s.get(key)))
             self.flag_vars[key] = var
             tk.Checkbutton(beh, text=t("f_" + key), variable=var, anchor="w", font=("Segoe UI", 9), bg=self.CARD,
@@ -3702,7 +4176,8 @@ class PetSettingsWindow:
         for tile, sp in self._tiles:
             tile.delete("all")
             colour = self.pet.s["color"] if sp == current else SPECIES[sp]["color"]
-            look = default_look({"species": sp, "color": colour, "cheek_color": self.pet.s["cheek_color"]})
+            look = default_look({"species": sp, "color": colour, "cheek_color": self.pet.s["cheek_color"],
+                                 "gender": self.pet.s.get("gender", "")})
             look["t"] = now
             look["mouth"] = "smile" if sp == current else "cat"
             spec = SPECIES[sp]
@@ -3734,6 +4209,8 @@ class PetSettingsWindow:
         s = self.pet.s
         self.size_var.set(s["size"])
         self.click_var.set(s["click_action"])
+        if hasattr(self, "gender_var"):
+            self.gender_var.set(s.get("gender", ""))
         for key, var in self.flag_vars.items():
             var.set(bool(s.get(key)))
         self.volume_var.set(int(s.get("sound_volume", 60)))
@@ -3767,6 +4244,19 @@ class PetSettingsWindow:
         else:
             self.pet.go_to_sleep("manual")
 
+    def _regrow(self):
+        from tkinter import messagebox
+        name = self.pet.s["name"]
+        if messagebox.askyesno(t("regrow_title"), t("regrow_confirm", name=name), parent=self.win):
+            self.pet.regrow()
+
+    def _growth_percent(self) -> float:
+        growth = self.pet.growth
+        if growth is None:
+            return 0.0
+        _next_stage, _need, fraction = growth.progress()
+        return 100.0 * fraction
+
     def _tick(self):
         if not self._alive:
             return
@@ -3781,7 +4271,8 @@ class PetSettingsWindow:
             look["foot_l"] = look["foot_r"] = 0
             look["lean"] = max(-3, min(3, look["lean"]))
             self.preview.delete("all")
-            draw_pet(self.preview, 65, 106, 60, look)
+            preview_size = 60 * (tama.stage_scale(look.get("stage")) if tama else 1.0)
+            draw_pet(self.preview, 65, 106, preview_size, look)
             if pet.mood() == "sleeping":
                 phrase = t("sleeping_phrase", name=pet.s["name"])
             else:
@@ -3795,12 +4286,21 @@ class PetSettingsWindow:
             self.age_lbl.config(text=t("s_age", d=days, p=pet.st.get("pets_total", 0),
                                        s=pet.st.get("snacks_total", 0)))
             for key, (bar, value, color) in self.bars.items():
-                v = float(pet.st.get(key, 0))
+                v = self._growth_percent() if key == "growth" else float(pet.st.get(key, 0))
                 bar.delete("all")
                 bar.create_rectangle(0, 0, 130, 9, fill=self.TRACK, outline="")
                 bar.create_rectangle(0, 0, max(2, 130 * v / 100.0), 9, fill=color, outline="")
                 value.config(text="%d" % round(v))
             self.sleep_btn.config(text=t("b_wake") if pet.sleeping else t("b_sleep"))
+            if getattr(self, "stage_lbl", None) is not None:
+                self.stage_lbl.config(text=pet.growth_text())
+            medicine_btn = getattr(self, "medicine_btn", None)
+            if medicine_btn is not None:
+                sick = bool(pet.health is not None and pet.health.sick)
+                if sick and not medicine_btn.winfo_ismapped():
+                    medicine_btn.pack(side="left", padx=6)
+                elif not sick and medicine_btn.winfo_ismapped():
+                    medicine_btn.pack_forget()
             if not getattr(self, "_swatches_drawn", False):
                 self._draw_swatches()
                 self._swatches_drawn = True

@@ -50,8 +50,13 @@ def draw_mini_pet(cv, cx, floor, size, person, props=None, t_=0.0, hop=0.0, faci
         return None
     settings = dict(pet_mod.DEFAULT_PET_SETTINGS)
     species = person.get("species") or "cat"
-    settings.update(species=species, color=person.get("color") or pet_mod.species_spec(species)["color"])
+    person_look = person.get("look") if isinstance(person.get("look"), dict) else {}
+    settings.update(species=species, color=person.get("color") or pet_mod.species_spec(species)["color"],
+                    gender=person_look.get("gender", ""), stage=person_look.get("stage", "adult"))
     look = pet_mod.default_look(settings)
+    tama_mod = getattr(pet_mod, "tama", None)
+    if tama_mod is not None:
+        size = size * tama_mod.stage_scale(look.get("stage"))     # v2.18: little ones are little
     look.update(t=t_, hop=hop, facing=facing, eyes="happy" if hop > 2 else "open", mouth="big_open" if hop > 2 else "smile",
                 blush=True)
     all_props = {}
@@ -60,6 +65,7 @@ def draw_mini_pet(cv, cx, floor, size, person, props=None, t_=0.0, hop=0.0, faci
         if item:
             all_props[slot] = item
     all_props.update(props or {})
+    look["head_prop"] = bool(all_props.get("head"))
     try:
         if pet_shop is not None and all_props.get("back"):
             # back props sit behind the pet: draw once to learn the geometry, remove it, then draw in order
