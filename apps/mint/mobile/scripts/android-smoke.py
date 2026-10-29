@@ -43,6 +43,18 @@ def adb(*args, check=True):
     return result.stdout
 
 
+def evaluate(expression):
+    pages = json.load(urllib.request.urlopen("http://127.0.0.1:9222/json", timeout=5))
+    page = next(entry for entry in pages if entry.get("type") == "page")
+    connection = websocket.create_connection(page["webSocketDebuggerUrl"], timeout=15, suppress_origin=True)
+    try:
+        connection.send(json.dumps({"id": 2, "method": "Runtime.evaluate", "params": {"expression": expression}}))
+        while json.loads(connection.recv()).get("id") != 2:
+            pass
+    finally:
+        connection.close()
+
+
 def page_state():
     pages = json.load(urllib.request.urlopen("http://127.0.0.1:9222/json", timeout=5))
     page = next(entry for entry in pages if entry.get("type") == "page")
@@ -75,6 +87,12 @@ def main():
     adb("wait-for-device")
     adb("install", "-r", apk)
     adb("logcat", "-c", check=False)
+    # A freshly booted emulator can take a while to get a working network; the app would then (correctly)
+    # show its offline page. Wait until the site is reachable before opening the app.
+    for _ in range(60):
+        if " 0% packet loss" in adb("shell", "ping", "-c", "1", "-W", "3", "juw12.github.io", check=False):
+            break
+        time.sleep(2)
     adb("shell", "am", "start", "-W", "-n", PACKAGE + "/.MainActivity")
 
     pid = ""
@@ -89,11 +107,17 @@ def main():
     error = None
     if pid:
         adb("forward", "tcp:9222", "localabstract:webview_devtools_remote_" + pid.split()[0])
+        retried = False
         for _ in range(60):
             try:
                 state = page_state() or {}
                 if state.get("locale") and "/budget/" in state.get("url", ""):
                     break
+                if "offline.html" in state.get("url", "") and not retried:
+                    # Same as a person tapping "Try again" on the offline page.
+                    retried = True
+                    print("  ...  offline page shown; trying again", flush=True)
+                    evaluate("document.querySelector('button').click()")
             except Exception as problem:  # the WebView may still be starting
                 error = problem
             time.sleep(2)
