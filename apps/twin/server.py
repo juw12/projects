@@ -19,6 +19,7 @@ import argparse
 import hashlib
 import hmac
 import importlib.util
+import io
 import math
 import json
 from concurrent.futures import ThreadPoolExecutor
@@ -31,11 +32,13 @@ import socket
 import ssl
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 import urllib.parse
 import urllib.request
 import webbrowser
+import zipfile
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -88,7 +91,7 @@ TOOL = {
 }
 
 
-VERSION = "1.13.0"
+VERSION = "1.14.0"
 
 
 class AppError(Exception):
@@ -1361,6 +1364,236 @@ def wallet_transfer(uid, profile, body):
             "rev": saved["rev"], "account": wallet_account(uid)}
 
 
+# ---------------------------------------------------------- in-app updates
+# The app asks this server whether a newer Twin is published (release.json on the Twin site, cached for
+# an hour). One tap installs it: download the published bundle, check its SHA-256, back up this whole
+# folder (scripts/update_local.py), copy the new files over the old ones (never deleting, never touching
+# data/), then restart with the same command line. Not offered for git clones or with --no-self-update.
+
+UPDATE_URL = os.environ.get("TWIN_UPDATE_URL") or "https://juw12.github.io/projects/twin/release.json"
+SELF_UPDATE = {"enabled": os.environ.get("TWIN_SELF_UPDATE", "1") != "0"}
+UPDATE_TTL = 3600  # seconds between automatic release checks
+UPDATE_FORCE_GAP = 30  # "Check for updates" can't hammer the release page
+RELEASE_MAX_BYTES = 256 * 1024
+BUNDLE_MAX_BYTES = 80 * 1024 * 1024
+UPDATE_CACHE = {"at": 0.0, "release": None, "error": None}
+UPDATE_LOCK = threading.Lock()
+INSTALL_LOCK = threading.Lock()
+RESTART = {"argv": None}
+
+
+def version_tuple(value):
+    match = re.fullmatch(r"(\d+)\.(\d+)\.(\d+)", str(value or "").strip())
+    return tuple(int(part) for part in match.groups()) if match else None
+
+
+def fetch_bytes(url, limit, timeout):
+    request = urllib.request.Request(url, headers={"User-Agent": "Twin/%s (update check)" % VERSION,
+                                                   "Cache-Control": "no-cache"})
+    with urllib.request.urlopen(request, timeout=timeout, context=SSL_CTX) as response:
+        data = response.read(limit + 1)
+    if len(data) > limit:
+        raise AppError("The download is larger than expected, so nothing was installed.")
+    return data
+
+
+def latest_release(force=False):
+    """The published release (version, notes, bundle) and None, or None and the reason."""
+    now = time.time()
+    with UPDATE_LOCK:
+        known = UPDATE_CACHE["release"] is not None or UPDATE_CACHE["error"] is not None
+        if known and now - UPDATE_CACHE["at"] < (UPDATE_FORCE_GAP if force else UPDATE_TTL):
+            return UPDATE_CACHE["release"], UPDATE_CACHE["error"]
+    try:
+        release = json.loads(fetch_bytes(UPDATE_URL, RELEASE_MAX_BYTES, timeout=15).decode("utf-8"))
+        if not isinstance(release, dict) or not version_tuple(release.get("version")):
+            raise ValueError("no version in release.json")
+        error = None
+    except Exception as exc:  # offline, blocked or a broken file: report it, don't crash
+        release = None
+        error = "Couldn't reach the Twin release page (%s)." % (getattr(exc, "reason", None) or exc)
+    with UPDATE_LOCK:
+        UPDATE_CACHE.update(at=now, release=release, error=error)
+    return release, error
+
+
+def git_checkout():
+    for folder in (APP_DIR, *APP_DIR.parents):
+        if (folder / ".git").exists():
+            return folder
+    return None
+
+
+def install_blocker():
+    if not SELF_UPDATE["enabled"]:
+        return "Updates from the app are turned off on this computer (--no-self-update)."
+    repo = git_checkout()
+    if repo:
+        return "This Twin runs from a git clone (%s). Update it with git pull, then restart Twin." % repo
+    if not os.access(APP_DIR, os.W_OK) or not os.access(APP_DIR / "server.py", os.W_OK):
+        return "Twin can't write to its folder (%s). Update it as the user who installed it." % APP_DIR
+    return None
+
+
+def update_status(force=False):
+    status = {"ok": True, "current": VERSION, "latest": None, "available": False, "can_install": False,
+              "reason": None, "title": "", "notes": [], "date": ""}
+    release, error = latest_release(force)
+    if release is None:
+        status["reason"] = error
+        return status
+    latest = release["version"]
+    newer = version_tuple(latest) > version_tuple(VERSION)
+    blocker = install_blocker() if newer else None
+    bundle = release.get("bundle")
+    if newer and not blocker and not (isinstance(bundle, dict) and bundle.get("url") and bundle.get("sha256")):
+        blocker = "This release has no download for local installs yet. Check again later."
+    status.update(
+        latest=latest,
+        available=newer,
+        can_install=bool(newer and not blocker),
+        reason=blocker,
+        title=str(release.get("title") or "")[:200],
+        notes=[str(note)[:300] for note in (release.get("notes") or []) if isinstance(note, str)][:6],
+        date=str(release.get("date") or "")[:40],
+    )
+    return status
+
+
+def safe_extract(archive, destination):
+    """Unpack the bundle, refusing absolute paths and '..' (zip slip); keep executable bits."""
+    root = destination.resolve()
+    for info in archive.infolist():
+        name = info.filename.replace("\\", "/")
+        parts = [part for part in name.split("/") if part not in ("", ".")]
+        if not parts or name.startswith("/") or ".." in parts or ":" in parts[0]:
+            raise AppError("The download contains an unsafe path, so nothing was installed.")
+        target = root.joinpath(*parts)
+        if info.is_dir():
+            target.mkdir(parents=True, exist_ok=True)
+            continue
+        target.parent.mkdir(parents=True, exist_ok=True)
+        with archive.open(info) as source, open(target, "wb") as sink:
+            shutil.copyfileobj(source, sink)
+        if (info.external_attr >> 16) & 0o100:
+            target.chmod(target.stat().st_mode | 0o755)
+
+
+def load_update_local():
+    spec = importlib.util.spec_from_file_location("twin_update_local", APP_DIR / "scripts" / "update_local.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def copy_release(source, new_files, old_files, archive_path):
+    """Copy the new version over this folder; if anything fails, put every touched file back."""
+    done = []
+    try:
+        for rel in new_files:
+            destination = APP_DIR / rel
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(source / rel, destination)
+            done.append(rel)
+    except Exception:
+        with zipfile.ZipFile(archive_path) as backup:
+            for rel in done:
+                if rel in old_files:
+                    with backup.open(rel.as_posix()) as saved, open(APP_DIR / rel, "wb") as sink:
+                        shutil.copyfileobj(saved, sink)
+                else:
+                    (APP_DIR / rel).unlink(missing_ok=True)
+        raise
+
+
+def install_update(expected=None):
+    """Download, verify and install the published release over this folder. Returns what changed."""
+    blocker = install_blocker()
+    if blocker:
+        raise AppError(blocker)
+    release, error = latest_release(force=True)
+    if release is None:
+        raise AppError(error)
+    latest = release["version"]
+    if version_tuple(latest) <= version_tuple(VERSION):
+        raise AppError("Twin %s is already the newest version." % VERSION)
+    if expected and expected != latest:
+        raise AppError("Twin %s is out now instead of %s. Check again, then update." % (latest, expected))
+    bundle = release.get("bundle") if isinstance(release.get("bundle"), dict) else {}
+    digest = str(bundle.get("sha256") or "").lower()
+    if not bundle.get("url") or not re.fullmatch(r"[0-9a-f]{64}", digest):
+        raise AppError("This release has no download for local installs yet. Check again later.")
+    url = urllib.parse.urljoin(UPDATE_URL, str(bundle["url"]))
+    try:
+        data = fetch_bytes(url, BUNDLE_MAX_BYTES, timeout=120)
+    except AppError:
+        raise
+    except Exception as exc:
+        raise AppError("Couldn't download the update (%s). Nothing was changed." % (getattr(exc, "reason", None) or exc))
+    if hashlib.sha256(data).hexdigest() != digest:
+        raise AppError("The download didn't match its checksum, so nothing was installed. Try again in a minute.")
+    with tempfile.TemporaryDirectory(prefix="twin-update-") as scratch:
+        scratch_dir = Path(scratch)
+        try:
+            with zipfile.ZipFile(io.BytesIO(data)) as archive:
+                safe_extract(archive, scratch_dir)
+        except zipfile.BadZipFile:
+            raise AppError("The download is damaged, so nothing was installed.")
+        source = scratch_dir / "twin"
+        new_server = source / "server.py"
+        if not new_server.is_file():
+            raise AppError("The download is not a Twin bundle, so nothing was installed.")
+        match = re.search(r'^VERSION = "([^"]+)"', new_server.read_text(encoding="utf-8"), re.M)
+        if not match or match.group(1) != latest:
+            raise AppError("The download's version doesn't match the release, so nothing was installed.")
+        updater = load_update_local()
+        new_files = list(updater.code_files(source))
+        old_files = set(updater.code_files(APP_DIR))
+        archive_path, backed_up = updater.backup(APP_DIR)
+        copy_release(source, new_files, old_files, archive_path)
+    kept = sorted(str(rel) for rel in old_files - set(new_files))
+    return {"version": latest, "backup": str(archive_path), "backed_up": backed_up,
+            "copied": len(new_files), "kept": kept[:40]}
+
+
+def restart_soon(delay=1.0):
+    """Start the new version with the same command line once the reply has gone out."""
+    def run():
+        time.sleep(delay)
+        argv = list(RESTART["argv"] or [os.path.abspath(sys.argv[0])] + sys.argv[1:])
+        if "--no-browser" not in argv:
+            argv.append("--no-browser")
+        env = dict(os.environ, TWIN_RESTARTED="1")
+        try:
+            print("Restarting Twin with the new version...", flush=True)
+            sys.stderr.flush()
+        except Exception:  # a closed or odd console must never block the restart
+            pass
+        if os.name == "nt":
+            # os.exec* doesn't quote arguments on Windows; start a fresh process instead.
+            subprocess.Popen([sys.executable] + argv, env=env)
+            os._exit(0)
+        os.execve(sys.executable, [sys.executable] + argv, env)
+
+    threading.Thread(target=run, daemon=True).start()
+
+
+def update_install(body):
+    if not INSTALL_LOCK.acquire(blocking=False):
+        raise AppError("An update is already installing.")
+    try:
+        expected = body.get("version")
+        if expected is not None and not version_tuple(expected):
+            raise AppError("version must look like 1.2.3")
+        result = install_update(expected)
+    except BaseException:
+        INSTALL_LOCK.release()
+        raise
+    # Keep the lock: this process is about to be replaced by the new version.
+    restart_soon()
+    return dict(result, ok=True, restarting=True)
+
+
 # ------------------------------------------------------------------ HTTP
 
 def verify_password(uid, password):
@@ -1624,6 +1857,10 @@ class Handler(BaseHTTPRequestHandler):
             # Public headlines (no account needed), like the rest of Twin Indonesia.
             self.send_json(indonesia_news())
             return
+        if path == "/api/update/status":
+            # Public: which Twin this computer runs and whether a newer one is published.
+            self.send_json(update_status(bool(body.get("force"))))
+            return
 
         token = self.cookie_token()
         uid = session_user(token)
@@ -1634,6 +1871,10 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/logout":
             end_session(token)
             self.send_json({"ok": True}, cookie=self.session_cookie("", 0))
+            return
+        if path == "/api/update/install":
+            # Signed-in only: back up this folder, install the published release, restart.
+            self.send_json(update_install(body))
             return
 
         if path in PROFILE_WRITE_PATHS:
@@ -1878,14 +2119,29 @@ def main():
     ap.add_argument("--port", type=int, default=8765)
     ap.add_argument("--lan", action="store_true", help="listen on your Wi-Fi so your iPhone can connect")
     ap.add_argument("--no-browser", action="store_true")
+    ap.add_argument("--no-self-update", action="store_true", help="don't let the app install updates on this computer")
     a = ap.parse_args()
+    RESTART["argv"] = [os.path.abspath(sys.argv[0])] + sys.argv[1:]
+    if a.no_self_update:
+        SELF_UPDATE["enabled"] = False
     for repo in (DAY, INV):
         if not repo.exists():
             sys.exit("missing %s (see README)" % repo)
     DATA.mkdir(parents=True, exist_ok=True)
     threading.Thread(target=backup_loop, daemon=True).start()
     host = "0.0.0.0" if a.lan else "127.0.0.1"
-    server = ThreadingHTTPServer((host, a.port), Handler)
+    # After an in-app update the previous process may still be letting go of the port.
+    attempts = 40 if os.environ.get("TWIN_RESTARTED") else 1
+    for attempt in range(attempts):
+        try:
+            server = ThreadingHTTPServer((host, a.port), Handler)
+            break
+        except OSError:
+            if attempt == attempts - 1:
+                raise
+            time.sleep(0.25)
+    if os.environ.get("TWIN_PID_FILE"):
+        Path(os.environ["TWIN_PID_FILE"]).write_text(str(os.getpid()), encoding="utf-8")
     local = "http://127.0.0.1:%d" % a.port
     print("Twin is running.")
     print("  On this Mac:   %s" % local)

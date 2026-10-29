@@ -43,6 +43,9 @@ jobs:
       - name: Build static site
         run: python scripts/build_site.py
       
+      - name: Build Twin's local-install bundle (lets a Twin server on your own computer update from the app)
+        run: python apps/twin/scripts/build_bundle.py --out _site/twin
+
       - name: Validate static site
         run: python scripts/check_site.py
       
