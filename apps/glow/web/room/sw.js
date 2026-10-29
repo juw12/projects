@@ -3,7 +3,7 @@
 // glow-apps.js that shows and installs Glow updates) with a short timeout that falls back to the saved
 // copy on a weak connection; only the big vendor library and images are cache-first.
 (function () {
-  var CACHE_NAME = 'glowroom-v18';
+  var CACHE_NAME = 'glowroom-v19';
   var NETWORK_TIMEOUT_MS = 4000;
   var SCOPE = self.registration.scope;
 
