@@ -9,7 +9,7 @@ is required to use the installed app or its hardware-free demo.
 ## Downloads
 
 Windows x64 releases are published under the app-specific tag
-`airiz-desktop-v1.11.6` in this repository's Releases section.
+`airiz-desktop-v1.11.7` in this repository's Releases section.
 
 - **Installer**: assisted, per-user installation with Start-menu/desktop shortcuts
   and an uninstaller. The wizard lets the user choose the installation directory.
@@ -163,6 +163,17 @@ reports whether a framed firmware reply came back. Results can be exported.
 No pairing is accepted without confirmation and no motor command is sent.
 Another program on the PC still cannot open COM4 while this app holds it: that is
 a Windows serial-port rule, which is why the check runs inside the app.
+
+## 1.11.7: Camera arrows answer at once
+
+* **No wait on press:** the PTZ hold arrows used to wait until the time model said the previous move (click-to-center,
+  tracking, a jog) was over before moving; now a running move is stopped and the hold move is sent at once.
+* **Stop on every release:** the stop was only sent while the time model still thought the motor was moving. The
+  model is an estimate (uncalibrated by default), so a slower real motor kept running to the end of the long hold
+  move (up to 3000 steps) after the arrow was released. Quick taps could leave such a move running too. Every release
+  of a sent hold move now sends the stop; letting go before the move is written cancels it.
+* Tested: a new 6-check run (`tools/test_ptz_hold.py`) that fails 0/6 on 1.11.6 and passes 6/6 now (press to motor
+  command 2 ms, release to stop 1 ms in demo), plus the PTZ, zones, remote-home, camera-window and i18n suites.
 
 ## 1.11.6: Camera in its own window
 

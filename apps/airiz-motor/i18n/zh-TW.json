@@ -1197,7 +1197,9 @@
     "Show the camera alone in its own window": "在獨立視窗中單獨顯示攝影機畫面",
     "The browser blocked the new window. Allow pop-ups for this page.": "瀏覽器封鎖了新視窗。請允許此頁面的彈出式視窗。",
     "Camera in its own window (1.11.6)": "攝影機獨立視窗 (1.11.6)",
-    "Camera → Open in new window (or New window on the PTZ toolbar) shows only the camera picture in a separate window you can move to another screen, make full screen or keep always on top. It shows the console's own live camera, so recording, snapshots and detection keep working in the console; if the preview is stopped the window offers to start it again. Opened on its own, the page can also open the camera directly.": "相機 → 在新視窗開啟（或 PTZ 工具列的「新視窗」）會在獨立視窗中只顯示攝影機畫面，可移到另一個螢幕、全螢幕或最上層顯示。它顯示的是主控台本身的即時攝影機畫面，所以錄影、快照與偵測仍在主控台運作；預覽停止時，視窗會提供重新開始的按鈕。單獨開啟此頁時，也可直接開啟攝影機。"
+    "Camera → Open in new window (or New window on the PTZ toolbar) shows only the camera picture in a separate window you can move to another screen, make full screen or keep always on top. It shows the console's own live camera, so recording, snapshots and detection keep working in the console; if the preview is stopped the window offers to start it again. Opened on its own, the page can also open the camera directly.": "相機 → 在新視窗開啟（或 PTZ 工具列的「新視窗」）會在獨立視窗中只顯示攝影機畫面，可移到另一個螢幕、全螢幕或最上層顯示。它顯示的是主控台本身的即時攝影機畫面，所以錄影、快照與偵測仍在主控台運作；預覽停止時，視窗會提供重新開始的按鈕。單獨開啟此頁時，也可直接開啟攝影機。",
+    "Camera arrows answer at once (1.11.7)": "攝影機畫面方向鍵立即反應 (1.11.7)",
+    "The hold arrows on the camera live view now react like the Motor control jog pad: a press starts moving at once (a move still running is stopped first instead of waited for) and letting go always stops the motor, so the camera no longer keeps going after you release.": "攝影機即時畫面上的按住方向鍵現在與「馬達控制」點動面板一樣即時：按下立即開始移動（仍在進行的移動會先停止，而不是等待），放開一定會停止馬達，相機不會在放開後繼續移動。"
   },
   "html": {
     "AIRIZDEVICE LAB": "AIRIZ<small>裝置實驗室</small>",

@@ -768,8 +768,12 @@
   }
 
   // Hold an arrow: one long move toward the limit, released = motor stop.
+  // 1.11.7: acts at once like the Motor control jog pad. A press no longer waits for the
+  // time model to say the previous move is over (a move still running is stopped first),
+  // and a release always sends the stop: the model only estimates the motor speed, and a
+  // skipped stop let the camera run on to the end of the long hold move.
   let hold = null;
-  function startHold(button) {
+  async function startHold(button) {
     if (!connected() || hold) return;
     const [axis, direction] = button.dataset.hold.split(':');
     const delta = tracker.clampDelta(axis, Number(direction) * HOLD_MAX_STEPS);
@@ -778,19 +782,32 @@
       return;
     }
     stopScan();
-    const token = newOperation();
-    hold = { token, button };
+    newOperation();
+    const current = { button, released: false, sending: false, sent: false };
+    hold = current;
     button.classList.add('ptz-holding');
-    waitIdle(token).then(idle => {
-      if (!idle || !hold || hold.token !== token) return;
-      api.sendCommand(core.motorCommand(axis, tracker.clampDelta(axis, Number(direction) * HOLD_MAX_STEPS), store.speeds[axis]));
-    });
+    if (Date.now() < tracker.busyUntil()) await api.stopMotor();
+    if (current.released) return;
+    const command = core.motorCommand(axis, tracker.clampDelta(axis, Number(direction) * HOLD_MAX_STEPS), store.speeds[axis]);
+    if (!command) return;
+    current.sending = true;
+    const sent = await api.sendCommand(command);
+    current.sending = false;
+    current.sent = !!sent;
+    if (!sent) {
+      status('Motor command not sent. Check the connection and the console.', true);
+      return;
+    }
+    // Let go while the move was being written: stop it now.
+    if (current.released) api.stopMotor();
   }
   function endHold() {
     if (!hold) return;
-    hold.button.classList.remove('ptz-holding');
+    const current = hold;
     hold = null;
-    if (Date.now() < tracker.busyUntil()) api.stopMotor();
+    current.released = true;
+    current.button.classList.remove('ptz-holding');
+    if (current.sent) api.stopMotor();
     resetDetection();
   }
   document.querySelectorAll('[data-hold]').forEach(button => {
