@@ -12,8 +12,9 @@ plain words ("my laptop is slow", "free 10 GB without touching downloads").
 
 Zero dependencies. The agent runs on the Python 3.8+ standard library (`psutil` is
 used if it happens to be installed, but nothing needs it), and the front-end is a
-static offline PWA. It works on macOS, Windows and Linux. On phones it runs as a
-PWA with built-in guides, and it can pair with your laptop's agent.
+static offline PWA. It works on macOS, Windows and Linux. On phones it checks the phone
+itself (storage, memory, battery, heat, uptime in the Android/iPhone app), gives built-in
+guides, and can pair with your laptop's agent.
 
 ## What it does
 
@@ -71,7 +72,8 @@ Linux), not a browser tab, and keeps checking quietly in the background after yo
 SmartScreen asks you to choose **More info → Run anyway**, and macOS asks you to allow the app once
 in **System Settings → Privacy & Security → Open Anyway**. They run the same agent and dashboard as the one-line installers below, share `~/.vitals`
 with them and replace each other cleanly. Phones can't clean other apps' storage, so the phone app
-shows your computer's health once paired, plus the phone guides. To build the apps yourself, see
+checks the phone's own storage, memory, battery and heat and points to the built-in fixes, and
+shows your computer's health once paired. To build the apps yourself, see
 [`desktop/README.md`](desktop/README.md) and [`mobile/README.md`](mobile/README.md).
 
 ## Install (one step)

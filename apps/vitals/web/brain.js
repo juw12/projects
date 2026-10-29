@@ -134,6 +134,51 @@
     return { headline, tone: worst, noun, items: out };
   }
 
+  // The same plain-words check for a phone, from what the phone itself reports: the Vitals app
+  // reads storage, memory, battery, heat and uptime natively; a browser exposes much less.
+  // Each finding links to the built-in steps that fix it (Guides) - no app can clean a phone.
+  function phoneFindings(p) {
+    const s = p || {};
+    const ios = s.platform === "iphone";
+    const noun = ios ? "iPhone" : "phone";
+    const guide = (section, label) => ({ action: "guide", platform: ios ? "iphone" : "android", section: section, label: label });
+    const out = [];
+    if (s.storageTotal > 0 && s.storageFree != null) {
+      const pct = (100 * s.storageFree) / s.storageTotal;
+      if (pct < 5) out.push({ tone: "bad", key: "storage", title: "Storage is almost full", text: "Only " + fmtBytes(s.storageFree) + " of " + fmtBytes(s.storageTotal) + " is free. A full " + noun + " gets slow, and photos and updates can fail.", action: guide(0, "Free up space") });
+      else if (pct < 15) out.push({ tone: "warn", key: "storage", title: "Storage is getting full", text: fmtBytes(s.storageFree) + " free of " + fmtBytes(s.storageTotal) + ". Freeing a few GB keeps it quick.", action: guide(0, "Free up space") });
+      else out.push({ tone: "good", key: "storage", title: "Plenty of storage", text: fmtBytes(s.storageFree) + " free of " + fmtBytes(s.storageTotal) + "." });
+    }
+    const hot = (s.thermal != null && s.thermal >= 3) || (s.batteryTemperature != null && s.batteryTemperature >= 42) || s.batteryHealth === "overheat";
+    const warm = !hot && ((s.thermal != null && s.thermal === 2) || (s.batteryTemperature != null && s.batteryTemperature >= 38));
+    if (hot) out.push({ tone: "bad", key: "heat", title: "Your " + noun + " is hot", text: (s.batteryTemperature ? "The battery is at " + Math.round(s.batteryTemperature) + " °C. " : "") + "It slows itself down to cool off, and heat wears the battery. Take it out of the sun, remove the case while charging and close games or navigation." });
+    else if (warm) out.push({ tone: "warn", key: "heat", title: "Running warm", text: (s.batteryTemperature ? "Battery at " + Math.round(s.batteryTemperature) + " °C. " : "") + "Fine for a while — if it stays warm while idle, an app is busy in the background.", action: guide(1, "Find the busy app") });
+    if (["dead", "failure", "over_voltage", "cold"].includes(s.batteryHealth)) {
+      out.push({ tone: "bad", key: "battery-health", title: "The battery reports a problem", text: "Android says the battery is \u201c" + s.batteryHealth.replace("_", " ") + "\u201d. Have it checked by the maker or a repair shop." });
+    } else if (s.batteryCycles != null && s.batteryCycles >= 800) {
+      out.push({ tone: "warn", key: "battery-health", title: "The battery is getting worn", text: s.batteryCycles + " charge cycles so far. It will hold less charge than when new — charging to about 80% slows further wear.", action: guide(1, "Protect the battery") });
+    }
+    if (s.batteryPercent != null) {
+      const rate = s.drainRate;
+      if (!s.charging && s.batteryPercent <= 20) out.push({ tone: "warn", key: "battery", title: "Battery is low", text: s.batteryPercent + "% left. " + (ios ? "Low Power Mode" : "Battery Saver") + " stretches it until you can charge.", action: guide(1, "Make it last") });
+      else if (!s.charging && rate != null && rate >= 15) out.push({ tone: "warn", key: "battery", title: "Battery drains fast", text: "It dropped about " + Math.round(rate) + "% an hour while Vitals was open. Check which app uses it in " + (ios ? "Settings › Battery" : "Settings › Battery › Battery usage") + ".", action: guide(1, "Find the drain") });
+      else out.push({ tone: "good", key: "battery", title: "Battery is fine", text: s.batteryPercent + "%" + (s.charging ? " and charging" : "") + (s.batteryCycles != null ? " · " + s.batteryCycles + " charge cycles" : "") + "." });
+    }
+    if (s.memoryTotal > 0 && s.memoryAvailable != null) {
+      const free = s.memoryAvailable / s.memoryTotal;
+      if (s.lowMemory || free < 0.08) out.push({ tone: "warn", key: "memory", title: "Memory is full", text: "Only " + fmtBytes(s.memoryAvailable) + " of " + fmtBytes(s.memoryTotal) + " is free, so apps reload when you switch back. A restart clears it.", action: guide(2, "Speed it up") });
+      else out.push({ tone: "good", key: "memory", title: "Running smoothly", text: fmtBytes(s.memoryAvailable) + " of " + fmtBytes(s.memoryTotal) + " memory free." });
+    }
+    if (s.benchDrop != null && s.benchDrop > 20) out.push({ tone: "warn", key: "throttle", title: "It slows down under load", text: "The speed test dropped " + Math.round(s.benchDrop) + "% from start to finish — the " + noun + " is cutting speed to cool down.", action: guide(2, "Speed it up") });
+    if (s.uptime && s.uptime > 14 * 86400) out.push({ tone: "warn", key: "restart", title: "Time for a restart", text: "It's been on for " + Math.floor(s.uptime / 86400) + " days. A restart clears stuck apps and finishes updates.", action: guide(2, "How to restart") });
+    const rank = { bad: 0, warn: 1, good: 2 };
+    out.sort((a, b) => rank[a.tone] - rank[b.tone]);
+    const worst = out.length ? out[0].tone : "good";
+    const headline = !out.length ? "Let's check your " + noun
+      : worst === "bad" ? "Your " + noun + " needs some care" : worst === "warn" ? "A few things to tidy up" : "Your " + noun + " is in great shape";
+    return { headline, tone: worst, noun, items: out, known: out.length > 0 };
+  }
+
   // -------------------------------------------------------------- fixes
   function recommendations(ctx) {
     const v = ctx.vitals || {};
@@ -331,6 +376,12 @@
           { t: "Use your maker's charge protection", path: "Settings › Battery › Protect battery / Adaptive charging / Charging optimization", why: "Names vary by brand; capping at 80–85% slows battery wear.", gain: "Slower aging" },
           { t: "Dark theme on OLED screens", path: "Settings › Display › Dark theme", why: "Black pixels are off on OLED panels.", gain: "Small to moderate" },
         ] },
+        { title: "Keep it fast", items: [
+          { t: "Keep at least 10% storage free", path: "Settings › Storage", why: "A nearly full phone slows down: Android needs room for app updates and caches.", gain: "Smoother" },
+          { t: "Install system updates", path: "Settings › System › Software update (or Settings › Software update)", why: "Fixes performance and battery bugs and keeps the phone secure.", gain: "Varies" },
+          { t: "Restart once a week", path: "Hold the power button › Restart", why: "Clears stuck apps and memory leaks. Swiping apps closed does not help — Android manages that.", gain: "Snappier" },
+          { t: "Skip 'booster' and 'cleaner' apps", path: "Uninstall them in Settings › Apps", why: "They kill apps that Android restarts, which costs more battery than it saves, and often show ads.", gain: "Less drain" },
+        ] },
       ],
     },
     mac: {
@@ -470,6 +521,14 @@
       }
       case "status": {
         const h = healthScore(v, scan);
+        if (!agent && phone && c.phone) {
+          const pf = phoneFindings(c.phone);
+          if (pf.known) {
+            r.text = "**" + pf.headline + ".**\n\n" + pf.items.map((i) => "- " + (i.tone === "good" ? "✓ " : "") + i.title + ": " + i.text).join("\n");
+            pf.items.filter((i) => i.action).slice(0, 3).forEach((i) => r.chips.push({ label: i.action.label, action: "guide", platform: i.action.platform, section: i.action.section }));
+            break;
+          }
+        }
         if (!h.known) {
           r.text = "I can't see this device's vital signs from the browser alone.";
           needAgent();
@@ -782,6 +841,6 @@
 
   root.VitalsBrain = {
     GB, MB, fmtBytes, fmtDuration, healthScore, systemLevels, recommendations, planGoal, parseExclusions,
-    parseSize, detectIntent, respond, findProcess, PLAYBOOKS, shortPath, detectPlatform, plainFindings, deviceNoun,
+    parseSize, detectIntent, respond, findProcess, PLAYBOOKS, shortPath, detectPlatform, plainFindings, deviceNoun, phoneFindings,
   };
 })(typeof window !== "undefined" ? window : globalThis);

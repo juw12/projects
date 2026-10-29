@@ -1,6 +1,7 @@
 // Creates/updates the Capacitor Android or iOS project for Vitals: icons, splash, version,
 // local-network access (to pair with the Vitals agent on your computer, which speaks plain HTTP
-// on your own Wi-Fi) and Android release signing from CI secrets.
+// on your own Wi-Fi), the VitalsPhone plugin (native/: checks the phone itself) and Android
+// release signing from CI secrets.
 // The dashboard is bundled (www/, from npm run build), so the app works offline.
 import fs from 'node:fs';
 import path from 'node:path';
@@ -135,6 +136,15 @@ if (platform === 'android') {
     '    <item android:gravity="center" android:width="144dp" android:height="144dp" android:drawable="@drawable/splash_logo"/>\n' +
     '</layer-list>\n');
 
+  // Vitals' own native plugin (VitalsPhone): lets the dashboard check this phone itself.
+  const javaPackage = path.join(android, 'app/src/main/java', ...config.appId.split('.'));
+  if (!fs.existsSync(path.join(javaPackage, 'MainActivity.java'))) {
+    throw new Error('MainActivity.java not found in ' + javaPackage);
+  }
+  for (const name of ['VitalsPhonePlugin.java', 'MainActivity.java']) {
+    fs.copyFileSync(path.join(root, 'native/android', name), path.join(javaPackage, name));
+  }
+
   // The smaller Gradle "bin" distribution is enough for command-line builds.
   edit(path.join(android, 'gradle/wrapper/gradle-wrapper.properties'), (props) => props.replace('-all.zip', '-bin.zip'));
 } else {
@@ -159,6 +169,32 @@ if (platform === 'android') {
     .replace(/IPHONEOS_DEPLOYMENT_TARGET = [^;]+;/g, 'IPHONEOS_DEPLOYMENT_TARGET = 16.0;')
     .replace(/MARKETING_VERSION = [^;]+;/g, 'MARKETING_VERSION = ' + pkg.version + ';')
     .replace(/CURRENT_PROJECT_VERSION = [^;]+;/g, 'CURRENT_PROJECT_VERSION = ' + versionCode + ';'));
+
+  // Vitals' own native plugin (VitalsPhone): lets the dashboard check this iPhone itself.
+  // The Swift lives in AppDelegate.swift (already part of the Xcode target) between markers,
+  // and the storyboard starts VitalsViewController, which registers the plugin.
+  const swift = fs.readFileSync(path.join(root, 'native/ios/VitalsPhone.swift'), 'utf8');
+  edit(path.join(target, 'AppDelegate.swift'), (source) => {
+    const begin = '// >>> Vitals phone plugin';
+    const end = '// <<< Vitals phone plugin';
+    let text = source.replace(new RegExp('\\n*' + begin + '[\\s\\S]*?' + end + '\\n?'), '\n');
+    if (!/^import Capacitor$/m.test(text)) {
+      if (!/^import UIKit$/m.test(text)) {
+        throw new Error('AppDelegate.swift layout changed: no "import UIKit"');
+      }
+      text = text.replace(/^import UIKit$/m, 'import UIKit\nimport Capacitor');
+    }
+    return text.trimEnd() + '\n\n' + begin + '\n' + swift.trimEnd() + '\n' + end + '\n';
+  });
+  edit(path.join(target, 'Base.lproj/Main.storyboard'), (storyboard) => {
+    const text = storyboard.replace(
+      /customClass="CAPBridgeViewController" customModule="Capacitor"( customModuleProvider="target")?/,
+      'customClass="VitalsViewController" customModule="App" customModuleProvider="target"');
+    if (!text.includes('customClass="VitalsViewController"')) {
+      throw new Error('Main.storyboard layout changed: could not start VitalsViewController');
+    }
+    return text;
+  });
 
   for (const [set, source] of [['AppIcon.appiconset', 'app-icon-1024.png'], ['Splash.imageset', 'splash-2732.png']]) {
     const folder = path.join(target, 'Assets.xcassets', set);
