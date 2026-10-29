@@ -2,6 +2,33 @@
   "_comment": "Pips version history. Newest first. Feeds the in-app update notice (latest.json), the PPT guide and the update emails.",
   "releases": [
     {
+      "version": "2.24.1",
+      "date": "2026-10-29",
+      "title": "No more surprise pop-ups",
+      "notes": {
+        "en": [
+          "Clicking your pet now only tickles it - no window pops up. Double-click the pet to open the hub (or use the right-click menu).",
+          "The focus card and the dashboard stay hidden when Pips starts; open them only when you want them.",
+          "Prefer the old way? Right-click → Settings → When I click the pet."
+        ],
+        "id": [
+          "Klik pet sekarang hanya menggelitik - tidak ada jendela yang muncul. Klik dua kali pet untuk membuka hub (atau pakai menu klik kanan).",
+          "Kartu fokus dan dashboard tetap tersembunyi saat Pips dimulai; buka hanya saat kamu mau.",
+          "Suka cara lama? Klik kanan → Pengaturan → Saat peliharaan diklik."
+        ],
+        "zh_TW": [
+          "點擊寵物現在只會搔癢，不會再跳出視窗。雙擊寵物即可開啟中心（或使用右鍵選單）。",
+          "Pips 啟動時專注卡片和儀表板保持隱藏，需要時再開啟。",
+          "想用舊方式？右鍵 → 設定 → 點擊寵物時。"
+        ],
+        "zh_CN": [
+          "点击宠物现在只会挠痒，不会再弹出窗口。双击宠物即可打开中心（或使用右键菜单）。",
+          "Pips 启动时专注卡片和仪表板保持隐藏，需要时再打开。",
+          "想用旧方式？右键 → 设置 → 点击宠物时。"
+        ]
+      }
+    },
+    {
       "version": "2.24.0",
       "date": "2026-10-29",
       "title": "Skill battles, minigames & a simpler Hub",

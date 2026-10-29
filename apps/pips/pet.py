@@ -103,7 +103,7 @@ DEFAULT_PET_SETTINGS = {
     "color": "#ffc78f",
     "cheek_color": "#ff8fa3",
     "size": "M",                 # S | M | L
-    "click_action": "tickle_hub",   # tickle_hub | tickle_open (focus timer) | tickle_only | tickle_never
+    "click_action": "tickle_only",  # tickle_only (double-click opens the hub) | tickle_hub | tickle_open | tickle_never
     "bubble_reminders": True,    # show health/break reminders as chat bubbles
     "walk_on_taskbar": True,     # move around by myself: walk (land), swim & leap (water), fly (air)
     "sleep_when_away": True,
@@ -1903,6 +1903,11 @@ class DesktopPet:
             if self.s.get("click_action") in (None, "tickle_open"):
                 self.s["click_action"] = "tickle_hub"
             self.s["hub_migrated"] = True
+        if not self.s.get("click_v224"):
+            # 2.24.1: a single click only tickles - windows open on a double-click (or from the menus)
+            if self.s.get("click_action") in (None, "tickle_hub", "tickle_open"):
+                self.s["click_action"] = "tickle_only"
+            self.s["click_v224"] = True
         self.state_path = self.base_dir / "data" / "pet_state.json"
         self.st = self._load_state()
         # v2.18 Tamagotchi-style care: growing up (baby -> adult), sick days and a guessing game (tama.py)
@@ -3432,7 +3437,10 @@ class DesktopPet:
             return
         if double and click_action == "tickle_only":
             self._cancel_open()
-            self._call("toggle_window")
+            if self.social is not None and getattr(self.social, "enabled", False):
+                self.open_hub()
+            else:
+                self._call("toggle_window")
             return
         self.tickle()
         touring = bool(self.tour and self.tour.waiting_for == "click")
