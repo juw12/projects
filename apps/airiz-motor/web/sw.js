@@ -1,6 +1,6 @@
 ﻿/* AIRIZ Control Center — versioned, scope-isolated offline shell. */
 const CACHE_PREFIX = 'airiz-control-' + encodeURIComponent(self.registration.scope) + '-';
-const CACHE_NAME = CACHE_PREFIX + 'v2.40-1.10.0-talk-listen';
+const CACHE_NAME = CACHE_PREFIX + 'v2.41-1.11.0-phone-usb';
 const ASSETS = [
   './',
   './index.html',
@@ -10,6 +10,7 @@ const ASSETS = [
   './console-ui.js',
   './desktop-integration.js',
   './ble-protocol.js',
+  './usb-serial.js',
   './remote-ui.js',
   './camera-relay.js',
   './camera-frame-relay.js',

@@ -24,7 +24,7 @@ A downloadable Windows x64 desktop edition now bundles this entire console local
 It is not a website shortcut and does not require Chrome, Edge, Node or Python to run.
 Installer and portable preview builds are available at:
 
-https://github.com/juw12/projects/releases/tag/airiz-desktop-v1.10.0
+https://github.com/juw12/projects/releases/tag/airiz-desktop-v1.11.0
 
 The initial binaries are unsigned. The packaged app was tested with demo/synthetic
 hardware; real-device bench validation is still required. Browser and mobile-web
@@ -56,6 +56,18 @@ streams the AIRIZ microphone back in 2-second clips, about 4 s behind live. Phon
 that has the AIRIZ on USB. Stop motor still works and also interrupts a message being sent. Tested
 against a simulated AIRIZ shell (busybox), not yet on real AIRIZ hardware; the sound format and the
 record/play commands can be changed under *Voice settings*.
+
+**Phone instead of PC (1.11.0):** an Android phone can be the AIRIZ console without a PC. Power the
+AIRIZ from its charger, plug the FT232R console cable into the phone with a USB-OTG adapter, open the
+console in Chrome and press *Connect*: the phone drives the cable itself over WebUSB (FTDI FT232R
+driver, 115200 8N1, DTR/RTS on; a CDC-ACM driver covers the AIRIZ USB port in CDC mode). Commands,
+motor, Stop motor, Talk & listen and *Share control* by code work as on a PC, and the page keeps the
+phone screen on while sharing. iPhones cannot do this (iOS has no USB serial for browsers or apps),
+and the AIRIZ Android app's WebView has no WebUSB, so use Chrome. Stop motor now waits for a command
+that is still being written instead of being dropped, and the Share control window has its own Stop
+motor button. Tested with a simulated FT232R and AIRIZ (fake WebUSB device + busybox shell) and the
+real relay, not yet on a real phone with a real AIRIZ. The AIRIZ firmware still cannot start anything
+by itself after power-up (read-only root filesystem), so a USB host, PC or phone, must stay connected.
 
 A complete, production-quality, dependency-free browser app that replaces the TeraTerm/CWD serial workflow for AIRIZ device motor testing.
 

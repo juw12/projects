@@ -205,10 +205,16 @@
       + '<p class="help-warning">Allowed devices can move the motors and send any console command. '
       + 'Stop motor and Esc on this PC always work; a move already sent finishes unless stopped.</p>'
       + '<div class="desktop-update-actions">'
+      // 1.11.0: a phone has no Esc key and this dialog covers the main Stop motor button.
+      + '<button id="share-control-motor-stop" class="btn btn-danger" type="button">Stop motor</button>'
       + '<button id="share-control-start" class="btn btn-primary">Start sharing</button>'
       + '<button id="share-control-stop" class="btn" disabled>Stop sharing</button>'
       + '<button id="share-control-close" class="btn btn-secondary">Close</button></div>';
     document.body.append(dialog);
+    $('share-control-motor-stop').addEventListener('click', async () => {
+      const sent = await api.stopMotor();
+      hostSetStatus(sent ? 'Stop sent. The motor driver halts the current move.' : 'Not connected.');
+    });
     $('share-control-start').addEventListener('click', () => hostStart());
     $('share-control-stop').addEventListener('click', () => hostStop('Sharing stopped.'));
     $('share-control-close').addEventListener('click', () => dialog.close());

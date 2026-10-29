@@ -681,6 +681,8 @@ body.console-redesign { color-scheme: inherit; }
 .share-option { display: flex; align-items: flex-start; gap: 8px; margin: 6px 0; font-size: 0.85rem; cursor: pointer; }
 .share-option input { margin-top: 2px; }
 .share-row-meta { font-size: 0.8rem; opacity: 0.85; }
+/* 1.11.0: the action row (Stop motor first) stays in view while the share dialog scrolls on a phone */
+#share-control-dialog .desktop-update-actions { position: sticky; bottom: 0; z-index: 1; background: var(--color-bg-panel); padding: 10px 0 2px; border-top: 1px solid var(--color-border); }
 .share-row-meta > span + span::before { content: '\00b7'; margin: 0 0.35em; }
 .share-badge { font-size: 0.7rem; padding: 1px 6px; border-radius: 999px; border: 1px solid var(--color-border); }
 .share-badge.is-remembered { color: var(--color-success); border-color: currentColor; }
