@@ -1,5 +1,6 @@
-/* Mint service worker — app shell cache. API calls (api/...) always go to the network. */
-var CACHE = "mint-v2.4.0";
+/* Mint Templates service worker — app shell cache. API calls (api/...) always go to the network.
+ * Mint Budget (budget/) has its own worker with the narrower scope budget/, so it is not cached here. */
+var CACHE = "mint-v3.0.0";
 var SHELL = [
   "./", "index.html", "app.html", "web.html", "mobile.html", "privacy.html", "terms.html", "delete-account.html", "app.css",
   "js/core.js", "js/xlsx.js", "js/guides.js", "js/store.js", "js/i18n.js", "js/app.js",
@@ -18,7 +19,8 @@ self.addEventListener("install", function (event) {
 self.addEventListener("activate", function (event) {
   event.waitUntil(caches.keys().then(function (keys) {
     return Promise.all(keys.filter(function (k) {
-      return k.indexOf("mint-") === 0 && k !== CACHE;
+      // Only this worker's own generations ("mint-v…"); Mint Budget keeps "mint-budget-v…" caches.
+      return /^mint-v\d/.test(k) && k !== CACHE;
     }).map(function (k) {
       return caches.delete(k);
     }));

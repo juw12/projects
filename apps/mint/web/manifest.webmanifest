@@ -1,12 +1,17 @@
 {
-  "name": "Mint — template studio & marketplace",
+  "id": "projects/mint/app.html",
+  "name": "Mint — budgets & spreadsheet templates",
   "short_name": "Mint",
-  "description": "Prompt, tweak and sell Excel / Google Sheets templates.",
-  "start_url": "./app.html",
+  "description": "Shared budgets with smart warnings, plus a studio and marketplace for Excel / Google Sheets templates.",
+  "start_url": "./budget/",
   "scope": "./",
   "display": "standalone",
   "background_color": "#f6f8f7",
   "theme_color": "#0f9d76",
+  "categories": [
+    "finance",
+    "productivity"
+  ],
   "icons": [
     {
       "src": "icons/app-icon.svg",
@@ -25,6 +30,48 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Add expense",
+      "url": "./budget/index.html?view=home&add=1",
+      "icons": [
+        {
+          "src": "icons/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Open sheet",
+      "url": "./budget/index.html?view=sheet",
+      "icons": [
+        {
+          "src": "icons/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Create a template",
+      "url": "./app.html#/create",
+      "icons": [
+        {
+          "src": "icons/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Template market",
+      "url": "./app.html#/market",
+      "icons": [
+        {
+          "src": "icons/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
     }
   ]
 }

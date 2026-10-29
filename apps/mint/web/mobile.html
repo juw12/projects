@@ -14,12 +14,24 @@
   <link rel="icon" href="icons/app-icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <link rel="stylesheet" href="app.css">
+  <script>
+    (function () {
+      try {
+        // Same theme as Mint Budget: light, dark or follow the system (set before first paint).
+        var t = localStorage.getItem('mint.theme') || localStorage.getItem('mint.uitheme') || 'system';
+        var dark = t === 'dark' || (t === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
+        document.documentElement.setAttribute('data-ui', dark ? 'dark' : 'light');
+      } catch (e) {}
+    })();
+  </script>
 </head>
 <body class="is-mobile">
   <a class="skip" href="#view">Skip to content</a>
   <header class="top">
     <a class="brand" href="#/"><img src="icons/app-icon.svg" alt="">Mint</a>
     <nav class="nav" aria-label="Main">
+      <a href="budget/" class="section" title="Your shared budgets">Budget</a>
+      <span class="nav-sep" aria-hidden="true"></span>
       <a href="#/create" data-nav="create">Create</a>
       <a href="#/market" data-nav="market">Market</a>
       <a href="#/library" data-nav="library">Library</a>
@@ -36,6 +48,7 @@
   <main id="view" tabindex="-1"><p class="muted">Loading Mint…</p></main>
   <p class="foot">Mint mobile · buyers pay sellers directly · <a href="#/install" class="web-only">Get the app</a> · <a href="privacy.html">Privacy</a> · <a href="terms.html">Terms</a> · made by <a href="https://juw12.github.io/portfolio/" target="_blank" rel="noopener">Juwen Lie</a></p>
   <nav class="tabbar" aria-label="Main">
+    <a href="budget/" class="section"><span>💰</span>Budget</a>
     <a href="#/create" data-nav="create"><span>✨</span>Create</a>
     <a href="#/market" data-nav="market"><span>🛍</span>Market</a>
     <a href="#/sell" data-nav="sell"><span>💼</span>Sell</a>

@@ -3,6 +3,12 @@
 Capacitor 8 shells around the live app (`https://juw12.github.io/projects/mint/app.html`). The app loads the same
 site, so features and fixes arrive without a new app release, and users keep one account on web, Android and iPhone.
 
+Since Mint 3.0 the site has two halves. The shell opens on Templates; **Budget** (`budget/`, formerly Kitty) is the
+first item in the tab bar and runs in the same WebView. It arrived without rebuilding the app because `server.url`
+did not change. Inside the app, Budget invites use the native share sheet (`@capacitor/share`); haptics and
+Back-button handling would need `@capacitor/haptics` and `@capacitor/app`, which this shell does not include;
+Budget skips them quietly when they are missing.
+
 What the shell changes (detected in `web/js/app.js` through the `MintApp/1.0` user-agent suffix):
 
 - **Downloads.** WebViews ignore `<a download>`, so `.xlsx` / CSV / share cards / recovery codes are written to the
@@ -37,4 +43,6 @@ is in `android-certificate-sha256.txt`.
 ## Known limits
 
 - Needs a connection (the marketplace and accounts are online); the offline page offers a retry.
+- Budget's CSV export, JSON backup and result-card downloads are not routed through the download bridge above, so
+  in the app they need Chrome or the installed web app.
 - Built and signed on a Mac without an emulator or device run; the iOS project has not been compiled (no Xcode).

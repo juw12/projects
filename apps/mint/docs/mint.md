@@ -1,5 +1,13 @@
 # Mint — product note
 
+## Mint 3.0: one app for money and spreadsheets
+
+Kitty, the shared-budget app, became Mint **Budget** and the home screen of Mint; the template studio and
+marketplace became Mint **Templates**. The audiences overlap (people who already run their money in sheets),
+so the two now share one name, install, theme and language, and each points to the other. Budget stays
+account-free and local-first; Templates keeps its accounts and API. The rest of this note is about Templates;
+see `../README.md` for both halves.
+
 ## Why
 
 Selling Sheets / Excel templates still works, but the generic "budget template on Etsy" market is

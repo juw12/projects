@@ -1,0 +1,839 @@
+# Mint Budget UI strings (the app was called Kitty before 3.0). One row per English source string:
+#   English || Bahasa Indonesia || 简体中文 || Español
+# {placeholders} must appear in every column. Run: python3 apps/mint/budget/i18n/build_i18n.py
+
+# en || id || zh || es   (shell, welcome, navigation, overview)
+{a} · {b} || {a} · {b} || {a} · {b} || {a} · {b}
+{label}: {value} || {label}: {value} || {label}：{value} || {label}: {value}
+Overview || Ringkasan || 概览 || Resumen
+Sheet || Lembar || 表格 || Hoja
+Budget || Anggaran || 预算 || Presupuesto
+Budgets || Anggaran || 预算 || Presupuestos
+Goals || Target || 目标 || Metas
+Invest || Investasi || 投资 || Inversión
+You || Kamu || 我的 || Tú
+Share || Bagikan || 共享 || Compartir
+Shared || Dibagikan || 已共享 || Compartido
+Settings || Pengaturan || 设置 || Ajustes
+Main || Utama || 主菜单 || Principal
+Add || Tambah || 添加 || Añadir
+Add transaction || Tambah transaksi || 添加交易 || Añadir movimiento
+Add expense || Tambah pengeluaran || 记一笔支出 || Añadir gasto
+Open sheet || Buka lembar || 打开表格 || Abrir hoja
+Alerts || Peringatan || 提醒 || Alertas
+Toggle theme || Ganti tema || 切换主题 || Cambiar tema
+Previous month || Bulan sebelumnya || 上个月 || Mes anterior
+Next month || Bulan berikutnya || 下个月 || Mes siguiente
+Switch budget || Ganti anggaran || 切换预算 || Cambiar presupuesto
+＋ New budget… || ＋ Anggaran baru… || ＋ 新建预算… || ＋ Nuevo presupuesto…
+Private || Pribadi || 私密 || Privado
+Live || Langsung || 实时 || En vivo
+{n} online || {n} online || {n} 人在线 || {n} en línea
+Connecting… || Menghubungkan… || 正在连接… || Conectando…
+Syncing… || Menyinkronkan… || 正在同步… || Sincronizando…
+Reconnecting… || Menghubungkan ulang… || 正在重新连接… || Reconectando…
+Offline · saved || Offline · tersimpan || 离线 · 已保存 || Sin conexión · guardado
+Sync error || Gagal sinkron || 同步出错 || Error de sincronización
+Sharing & sync || Berbagi & sinkron || 共享与同步 || Compartir y sincronizar
+Language || Bahasa || 语言 || Idioma
+Mint noticed || Mint memperhatikan || Mint 发现 || Mint notó
+Next tip || Tips berikutnya || 下一条建议 || Siguiente consejo
+Give me a tip || Beri saya tips || 给我一条建议 || Dame un consejo
+Find your money animal || Temukan hewan uangmu || 找到你的金钱动物 || Descubre tu animal del dinero
+2-minute quiz || Kuis 2 menit || 2 分钟测试 || Test de 2 minutos
+Good morning, {name} 👋 || Selamat pagi, {name} 👋 || 早上好，{name} 👋 || Buenos días, {name} 👋
+Good afternoon, {name} 👋 || Selamat siang, {name} 👋 || 下午好，{name} 👋 || Buenas tardes, {name} 👋
+Good evening, {name} 👋 || Selamat sore, {name} 👋 || 晚上好，{name} 👋 || Buenas tardes, {name} 👋
+Good night, {name} 👋 || Selamat malam, {name} 👋 || 晚安，{name} 👋 || Buenas noches, {name} 👋
+left to spend in {month} · {spent} of {limit} spent || sisa untuk dibelanjakan di {month} · {spent} dari {limit} terpakai || {month}剩余可花 · 已花 {spent}，共 {limit} || disponible en {month} · {spent} de {limit} gastado
+over your spending limits in {month} · {spent} of {limit} spent || melebihi batas belanja di {month} · {spent} dari {limit} terpakai || {month}已超出支出上限 · 已花 {spent}，共 {limit} || por encima de tus límites en {month} · {spent} de {limit} gastado
+of limits used || batas terpakai || 已用额度 || de los límites usado
+Income || Pemasukan || 收入 || Ingresos
+Spent || Terpakai || 已支出 || Gastado
+Saved & invested || Ditabung & diinvestasikan || 储蓄与投资 || Ahorrado e invertido
+Safe to spend today || Aman dibelanjakan hari ini || 今日可放心花 || Puedes gastar hoy
+Savings rate || Tingkat tabungan || 储蓄率 || Tasa de ahorro
+{amount} received || {amount} diterima || 已到账 {amount} || {amount} recibido
+{amount} planned || {amount} direncanakan || 计划 {amount} || {amount} previsto
+{n} transactions || {n} transaksi || {n} 笔交易 || {n} movimientos
+1 transaction || 1 transaksi || 1 笔交易 || 1 movimiento
+{n} days left this month || {n} hari lagi bulan ini || 本月还剩 {n} 天 || Quedan {n} días este mes
+1 day left this month || 1 hari lagi bulan ini || 本月还剩 1 天 || Queda 1 día este mes
+Spending pace || Laju pengeluaran || 支出节奏 || Ritmo de gasto
+Actual || Aktual || 实际 || Real
+Even pace || Laju merata || 均匀节奏 || Ritmo uniforme
+Budget {amount} || Anggaran {amount} || 预算 {amount} || Presupuesto {amount}
+Cumulative spending this month || Total pengeluaran bulan ini || 本月累计支出 || Gasto acumulado del mes
+You are {amount} ahead of an even pace. || Kamu {amount} lebih cepat dari laju merata. || 比均匀节奏多花了 {amount}。 || Vas {amount} por encima del ritmo uniforme.
+You are {amount} under an even pace. Nice. || Kamu {amount} di bawah laju merata. Mantap. || 比均匀节奏少花了 {amount}，很棒。 || Vas {amount} por debajo del ritmo uniforme. Bien.
+Where it went || Ke mana uangnya || 钱花在哪了 || En qué se fue
+Spending by category || Pengeluaran per kategori || 按类别支出 || Gasto por categoría
+spent || terpakai || 已支出 || gastado
+No spending yet || Belum ada pengeluaran || 还没有支出 || Aún no hay gastos
+See all || Lihat semua || 查看全部 || Ver todo
+Warnings || Peringatan || 预警 || Avisos
+Who spent what || Siapa belanja apa || 谁花了什么 || Quién gastó qué
+{n} people || {n} orang || {n} 人 || {n} personas
+{name} (you) || {name} (kamu) || {name}（你） || {name} (tú)
+Live activity || Aktivitas langsung || 实时动态 || Actividad en vivo
+Changes from you and your collaborators show up here, live. || Perubahan darimu dan rekanmu muncul di sini secara langsung. || 你和协作者的修改会实时显示在这里。 || Aquí aparecen en vivo tus cambios y los de tus colaboradores.
+Every budget is on track. || Semua anggaran sesuai rencana. || 所有预算都在正轨上。 || Todos los presupuestos van bien.
+Nothing to worry about. || Tidak ada yang perlu dikhawatirkan. || 一切正常，无需担心。 || Nada de qué preocuparse.
+Budget together || Kelola anggaran bersama || 一起做预算 || Presupuesto en conjunto
+Budget together, live. || Kelola anggaran bersama, secara langsung. || 一起做预算，实时同步。 || Presupuesto en conjunto, en vivo.
+Invite a partner, family or housemates. Everyone edits the same sheet live, end-to-end encrypted. || Undang pasangan, keluarga, atau teman serumah. Semua mengedit lembar yang sama secara langsung, terenkripsi end-to-end. || 邀请伴侣、家人或室友。大家实时编辑同一张表，端到端加密。 || Invita a tu pareja, familia o compañeros de piso. Todos editan la misma hoja en vivo, con cifrado de extremo a extremo.
+Invite people || Undang orang || 邀请成员 || Invitar personas
+{n}m ago || {n} mnt lalu || {n} 分钟前 || hace {n} min
+{n}h ago || {n} jam lalu || {n} 小时前 || hace {n} h
+{n}d ago || {n} hari lalu || {n} 天前 || hace {n} d
+Now || Baru saja || 刚刚 || Ahora
+Earlier || Sebelumnya || 更早 || Antes
+Online now || Sedang online || 当前在线 || En línea ahora
+Someone || Seseorang || 有人 || Alguien
+added “{desc}” {amount} · {cat} || menambahkan “{desc}” {amount} · {cat} || 添加了“{desc}” {amount} · {cat} || añadió “{desc}” {amount} · {cat}
+added “{desc}” {amount} || menambahkan “{desc}” {amount} || 添加了“{desc}” {amount} || añadió “{desc}” {amount}
+edited “{desc}” {amount} · {cat} || mengubah “{desc}” {amount} · {cat} || 修改了“{desc}” {amount} · {cat} || editó “{desc}” {amount} · {cat}
+edited “{desc}” {amount} || mengubah “{desc}” {amount} || 修改了“{desc}” {amount} || editó “{desc}” {amount}
+deleted “{desc}” {amount} || menghapus “{desc}” {amount} || 删除了“{desc}” {amount} || eliminó “{desc}” {amount}
+updated the {name} budget ({amount}) || memperbarui anggaran {name} ({amount}) || 更新了 {name} 预算（{amount}） || actualizó el presupuesto de {name} ({amount})
+removed the {name} budget || menghapus anggaran {name} || 删除了 {name} 预算 || eliminó el presupuesto de {name}
+updated goal {name} · {amount} saved || memperbarui target {name} · {amount} terkumpul || 更新了目标 {name} · 已存 {amount} || actualizó la meta {name} · {amount} ahorrado
+removed goal {name} || menghapus target {name} || 删除了目标 {name} || eliminó la meta {name}
+updated {name} in the portfolio || memperbarui {name} di portofolio || 更新了投资组合中的 {name} || actualizó {name} en la cartera
+removed {name} in the portfolio || menghapus {name} dari portofolio || 从投资组合中删除了 {name} || eliminó {name} de la cartera
+updated income {name} || memperbarui pemasukan {name} || 更新了收入 {name} || actualizó el ingreso {name}
+removed income {name} || menghapus pemasukan {name} || 删除了收入 {name} || eliminó el ingreso {name}
+changed budget settings || mengubah pengaturan anggaran || 修改了预算设置 || cambió los ajustes del presupuesto
+imported {n} transactions || mengimpor {n} transaksi || 导入了 {n} 笔交易 || importó {n} movimientos
+applied Mint's plan to the envelopes || menerapkan rencana Mint ke amplop || 已把 Mint 的方案应用到预算信封 || aplicó el plan de Mint a los sobres
+joined the budget || bergabung ke anggaran || 加入了预算 || se unió al presupuesto
+Last edited by {name} || Terakhir diubah oleh {name} || 最后由 {name} 修改 || Última edición de {name}
+Welcome, {name}! || Selamat datang, {name}! || 欢迎，{name}！ || ¡Bienvenido, {name}!
+Your budget is ready. Add your first expense with the + button. || Anggaranmu sudah siap. Tambahkan pengeluaran pertama dengan tombol +. || 你的预算已就绪。点 + 按钮记下第一笔支出。 || Tu presupuesto está listo. Añade tu primer gasto con el botón +.
+Free on web, iPhone and Android || Gratis di web, iPhone, dan Android || 网页、iPhone 和安卓均免费 || Gratis en web, iPhone y Android
+The shared budget that works the way you do. || Anggaran bersama yang bekerja sesuai caramu. || 按你的方式运转的共享预算。 || El presupuesto compartido que funciona como tú.
+Plan from your income, track every expense together in real time, get warned before a limit breaks, and grow your investments. Private and end-to-end encrypted. || Rencanakan dari penghasilanmu, catat setiap pengeluaran bersama secara real time, dapat peringatan sebelum batas terlewati, dan kembangkan investasimu. Pribadi dan terenkripsi end-to-end. || 根据收入做计划，实时一起记账，超支前就收到提醒，还能让投资增长。私密且端到端加密。 || Planifica según tus ingresos, registra cada gasto en conjunto y en tiempo real, recibe avisos antes de pasarte de un límite y haz crecer tus inversiones. Privado y con cifrado de extremo a extremo.
+Get started free || Mulai gratis || 免费开始 || Empieza gratis
+See a live example || Lihat contoh langsung || 查看实时示例 || Ver un ejemplo en vivo
+No sign-up, no ads || Tanpa daftar, tanpa iklan || 无需注册，没有广告 || Sin registro ni anuncios
+End-to-end encrypted || Terenkripsi end-to-end || 端到端加密 || Cifrado de extremo a extremo
+Share with anyone || Bagikan ke siapa saja || 可与任何人共享 || Comparte con quien quieras
+Create a budget || Buat anggaran || 创建预算 || Crear un presupuesto
+A live shared sheet || Lembar bersama yang langsung || 实时共享表格 || Una hoja compartida en vivo
+Edit transactions together like a spreadsheet. Cell-level merging means nobody overwrites anybody. || Edit transaksi bersama seperti spreadsheet. Penggabungan per sel membuat tidak ada yang menimpa perubahan orang lain. || 像电子表格一样一起编辑交易。按单元格合并，谁也不会覆盖别人的修改。 || Editen movimientos juntos como en una hoja de cálculo. La fusión por celda evita que nadie sobrescriba a nadie.
+Your money personality || Kepribadian uangmu || 你的金钱性格 || Tu personalidad financiera
+A 2-minute quiz finds your money animal and how you really behave with money. || Kuis 2 menit menemukan hewan uangmu dan bagaimana kamu sebenarnya mengelola uang. || 2 分钟测试，找出你的金钱动物，看清你真实的用钱习惯。 || Un test de 2 minutos descubre tu animal del dinero y cómo te comportas de verdad con él.
+A plan from your income || Rencana dari penghasilanmu || 根据收入定制方案 || Un plan según tus ingresos
+Mint turns take-home pay into needs, wants, savings and investing envelopes that fit you. || Mint mengubah gaji bersih menjadi amplop kebutuhan, keinginan, tabungan, dan investasi yang pas untukmu. || Mint 把到手收入分成适合你的必需、想要、储蓄和投资四个信封。 || Mint convierte tu sueldo neto en sobres de necesidades, deseos, ahorro e inversión a tu medida.
+Warnings before it hurts || Peringatan sebelum terlambat || 超支前先预警 || Avisos antes de que duela
+Alerts at 80%, at 100% and when your pace says you will overspend, for everyone in the budget. || Peringatan di 80%, 100%, dan saat lajumu menandakan akan boros, untuk semua orang di anggaran. || 在 80%、100% 以及按当前节奏将会超支时提醒，预算里的每个人都会收到。 || Avisos al 80 %, al 100 % y cuando tu ritmo indica que te pasarás, para todos en el presupuesto.
+Investing portfolio || Portofolio investasi || 投资组合 || Cartera de inversión
+Track holdings, allocation versus target, rebalancing moves and long-term growth. || Pantau aset, alokasi vs target, langkah rebalancing, dan pertumbuhan jangka panjang. || 跟踪持仓、实际与目标配置、再平衡操作和长期增长。 || Sigue tus posiciones, la asignación frente al objetivo, los rebalanceos y el crecimiento a largo plazo.
+Private by design || Privat sejak awal || 隐私优先设计 || Privado por diseño
+No account, local-first, end-to-end encrypted sync. The server never sees your numbers. || Tanpa akun, data lokal, sinkron terenkripsi end-to-end. Server tidak pernah melihat angkamu. || 无需账号，本地优先，端到端加密同步。服务器永远看不到你的数字。 || Sin cuenta, local primero y sincronización cifrada de extremo a extremo. El servidor nunca ve tus números.
+Six money animals. Which one are you? || Enam hewan uang. Kamu yang mana? || 六种金钱动物，你是哪一种？ || Seis animales del dinero. ¿Cuál eres tú?
+Answer 14 quick questions about needs, wants and habits. Mint builds your budget around the result. || Jawab 14 pertanyaan singkat tentang kebutuhan, keinginan, dan kebiasaan. Mint menyusun anggaranmu dari hasilnya. || 回答 14 个关于必需、想要和习惯的小问题，Mint 会据此为你搭建预算。 || Responde 14 preguntas rápidas sobre necesidades, deseos y hábitos. Mint arma tu presupuesto según el resultado.
+Start your shared budget in two minutes. || Mulai anggaran bersamamu dalam dua menit. || 两分钟开启你的共享预算。 || Empieza tu presupuesto compartido en dos minutos.
+Free forever on web, iPhone and Android. No account needed. || Gratis selamanya di web, iPhone, dan Android. Tanpa akun. || 网页、iPhone 和安卓永久免费，无需账号。 || Gratis para siempre en web, iPhone y Android. Sin cuenta.
+Get Mint for iPhone & Android || Dapatkan Mint untuk iPhone & Android || 获取 iPhone 和安卓版 Mint || Descarga Mint para iPhone y Android
+© Mint {v} || © Mint {v} || © Mint {v} || © Mint {v}
+Tips are educational, not financial advice. || Tips bersifat edukatif, bukan nasihat keuangan. || 建议仅供学习参考，不构成理财建议。 || Los consejos son educativos, no asesoría financiera.
+Our home · October || Rumah kita · Oktober || 我们的家 · 十月 || Nuestra casa · octubre
+Left to spend || Sisa untuk dibelanjakan || 剩余可花 || Disponible
+Groceries || Belanja dapur || 日常买菜 || Supermercado
+Dining out || Makan di luar || 外出就餐 || Comer fuera
+Transport || Transportasi || 交通 || Transporte
+Shopping || Belanja || 购物 || Compras
+Dining out is at 93% || Makan di luar sudah 93% || 外出就餐已用 93% || Comer fuera va al 93 %
+Ayu just added Rp 180.000 · 6 days to go || Ayu baru menambah Rp 180.000 · 6 hari lagi || Ayu 刚记了 Rp 180.000 · 还剩 6 天 || Ayu acaba de añadir Rp 180.000 · quedan 6 días
+You are invited || Kamu diundang || 你收到了邀请 || Te han invitado
+Join “{name}” || Gabung ke “{name}” || 加入“{name}” || Únete a “{name}”
+Join “a shared budget” || Gabung ke “anggaran bersama” || 加入“共享预算” || Únete a “un presupuesto compartido”
+Edit it together, live. Your edits are encrypted on this device before they are sent. || Edit bersama secara langsung. Perubahanmu dienkripsi di perangkat ini sebelum dikirim. || 实时一起编辑。你的修改在发送前就在本设备上加密。 || Edítenlo juntos en vivo. Tus cambios se cifran en este dispositivo antes de enviarse.
+Your name || Namamu || 你的名字 || Tu nombre
+Join budget || Gabung anggaran || 加入预算 || Unirse al presupuesto
+Add transaction ↵ || Tambah transaksi ↵ || 添加交易 ↵ || Añadir movimiento ↵
+
+# en || id || zh || es   (sheet, budget, alerts, tips, plan)
+Search || Cari || 搜索 || Buscar
+Search this month… || Cari di bulan ini… || 搜索本月… || Buscar en este mes…
+Filter category || Filter kategori || 筛选类别 || Filtrar categoría
+Filter person || Filter orang || 筛选成员 || Filtrar persona
+Filter type || Filter jenis || 筛选类型 || Filtrar tipo
+All categories || Semua kategori || 全部类别 || Todas las categorías
+All types || Semua jenis || 全部类型 || Todos los tipos
+Everyone || Semua orang || 所有人 || Todos
+Uncategorized || Tanpa kategori || 未分类 || Sin categoría
+— Uncategorized || — Tanpa kategori || — 未分类 || — Sin categoría
+Date || Tanggal || 日期 || Fecha
+Description || Keterangan || 说明 || Descripción
+Category || Kategori || 类别 || Categoría
+Who || Siapa || 成员 || Quién
+Type || Jenis || 类型 || Tipo
+Amount || Jumlah || 金额 || Importe
+Edited || Diubah || 修改 || Editado
+Expense || Pengeluaran || 支出 || Gasto
+Expenses || Pengeluaran || 支出 || Gastos
+New date || Tanggal baru || 新日期 || Nueva fecha
+New description || Keterangan baru || 新说明 || Nueva descripción
+New amount || Jumlah baru || 新金额 || Nuevo importe
+New type || Jenis baru || 新类型 || Nuevo tipo
+New who || Siapa (baru) || 新成员 || Quién (nuevo)
+＋ Type to add a row… || ＋ Ketik untuk menambah baris… || ＋ 输入以添加一行… || ＋ Escribe para añadir una fila…
+Delete row || Hapus baris || 删除行 || Eliminar fila
+rows || baris || 行 || filas
+rows (filtered) || baris (difilter) || 行（已筛选） || filas (filtradas)
+Net || Bersih || 净额 || Neto
+Export || Ekspor || 导出 || Exportar
+Import CSV || Impor CSV || 导入 CSV || Importar CSV
+Tip: edit any cell like a spreadsheet. || Tips: edit sel mana pun seperti spreadsheet. || 提示：像电子表格一样直接编辑任意单元格。 || Consejo: edita cualquier celda como en una hoja de cálculo.
+Enter || Enter || Enter || Intro
+moves down, || pindah ke bawah, || 下移， || baja,
+Tab || Tab || Tab || Tab
+moves right. Amounts understand || pindah ke kanan. Jumlah bisa ditulis || 右移。金额支持 || va a la derecha. Los importes entienden
+This budget is empty || Anggaran ini masih kosong || 这个预算还是空的 || Este presupuesto está vacío
+Row deleted || Baris dihapus || 已删除该行 || Fila eliminada
+Undo || Urungkan || 撤销 || Deshacer
+Deleted || Dihapus || 已删除 || Eliminado
+Needs || Kebutuhan || 必需 || Necesidades
+Wants || Keinginan || 想要 || Deseos
+Savings || Tabungan || 储蓄 || Ahorro
+Investing || Investasi || 投资 || Inversión
+Bills and essentials || Tagihan dan kebutuhan pokok || 账单和生活必需 || Facturas y básicos
+Lifestyle and fun || Gaya hidup dan hiburan || 生活方式与娱乐 || Estilo de vida y ocio
+Emergency fund, goals, debt payoff || Dana darurat, target, pelunasan utang || 应急金、目标、还债 || Fondo de emergencia, metas, pago de deudas
+Long-term wealth || Kekayaan jangka panjang || 长期财富 || Riqueza a largo plazo
+{pct}% of income · {amount} used || {pct}% dari penghasilan · {amount} terpakai || 占收入 {pct}% · 已用 {amount} || {pct} % de los ingresos · {amount} usado
+{amount} used || {amount} terpakai || 已用 {amount} || {amount} usado
+{amount} left || sisa {amount} || 剩余 {amount} || quedan {amount}
+{amount} spent || {amount} terpakai || 已花 {amount} || {amount} gastado
+{amount} moved || {amount} dipindahkan || 已转入 {amount} || {amount} apartado
+{amount} over || lebih {amount} || 超出 {amount} || {amount} de más
+{pct}% of target || {pct}% dari target || 达成目标的 {pct}% || {pct} % del objetivo
+on pace for {amount} || diperkirakan {amount} || 按节奏将达 {amount} || al ritmo de {amount}
+{a} / {b} || {a} / {b} || {a} / {b} || {a} / {b}
+Add needs envelope || Tambah amplop kebutuhan || 添加必需信封 || Añadir sobre de necesidades
+Add wants envelope || Tambah amplop keinginan || 添加想要信封 || Añadir sobre de deseos
+Add savings envelope || Tambah amplop tabungan || 添加储蓄信封 || Añadir sobre de ahorro
+Add investing envelope || Tambah amplop investasi || 添加投资信封 || Añadir sobre de inversión
+New envelope || Amplop baru || 新信封 || Nuevo sobre
+Category name || Nama kategori || 类别名称 || Nombre de la categoría
+Emoji || Emoji || 表情 || Emoji
+Kind || Sifat || 性质 || Tipo
+Flexible || Fleksibel || 弹性 || Flexible
+Fixed bill || Tagihan tetap || 固定账单 || Factura fija
+Monthly limit || Batas bulanan || 每月额度 || Límite mensual
+Delete category || Hapus kategori || 删除类别 || Eliminar categoría
+Income / month || Pemasukan / bulan || 每月收入 || Ingresos / mes
+Income name || Nama pemasukan || 收入名称 || Nombre del ingreso
+Frequency || Frekuensi || 频率 || Frecuencia
+Weekly || Mingguan || 每周 || Semanal
+Every 2 weeks || Setiap 2 minggu || 每两周 || Cada 2 semanas
+Monthly || Bulanan || 每月 || Mensual
+Quarterly || Per kuartal || 每季度 || Trimestral
+Yearly || Tahunan || 每年 || Anual
+Monthly total || Total bulanan || 每月合计 || Total mensual
+Remove income || Hapus pemasukan || 删除收入 || Eliminar ingreso
+Budgeted || Dianggarkan || 已分配 || Presupuestado
+Left to assign || Sisa untuk dialokasikan || 待分配 || Por asignar
+Left over || Sisa || 结余 || Sobrante
+unspent this month || belum terpakai bulan ini || 本月未花 || sin gastar este mes
+total || total || 合计 || total
+Every unit of income has a job. Zero-based budget achieved ✨ || Setiap rupiah sudah punya tugas. Anggaran berbasis nol tercapai ✨ || 每一分收入都有了去处。零基预算达成 ✨ || Cada unidad de ingreso tiene un destino. Presupuesto base cero logrado ✨
+Give this money a job: savings, a goal, or an envelope. || Beri uang ini tugas: tabungan, target, atau amplop. || 给这笔钱安排去处：储蓄、目标或某个信封。 || Dale un destino a este dinero: ahorro, una meta o un sobre.
+{amount} has no job yet || {amount} belum punya tugas || {amount} 还没有安排去处 || {amount} aún no tiene destino
+Your limits add up to more than your income. Trim a few envelopes. || Total batasmu melebihi penghasilan. Kurangi beberapa amplop. || 各项额度加起来超过了收入，请削减几个信封。 || Tus límites suman más que tus ingresos. Recorta algunos sobres.
+Mint suggests || Saran Mint || Mint 建议 || Mint sugiere
+Mint's plan for you || Rencana Mint untukmu || Mint 为你定制的方案 || El plan de Mint para ti
+Mint's plan for {name} || Rencana Mint untuk {name} || Mint 为{name}定制的方案 || El plan de Mint para {name}
+Apply plan to envelopes || Terapkan rencana ke amplop || 把方案应用到信封 || Aplicar plan a los sobres
+Apply Mint's plan? || Terapkan rencana Mint? || 应用 Mint 的方案？ || ¿Aplicar el plan de Mint?
+Plan applied || Rencana diterapkan || 方案已应用 || Plan aplicado
+plan {pct}% || rencana {pct}% || 方案 {pct}% || plan {pct} %
+From my plan || Dari rencanaku || 来自我的方案 || De mi plan
+Add your income first || Tambahkan penghasilan dulu || 请先添加收入 || Primero añade tus ingresos
+Add your take-home pay to unlock Mint's plan. || Tambahkan gaji bersihmu untuk membuka rencana Mint. || 添加到手收入，即可解锁 Mint 的方案。 || Añade tu sueldo neto para desbloquear el plan de Mint.
+Mint needs your take-home pay to size the envelopes. || Mint perlu gaji bersihmu untuk menentukan ukuran amplop. || Mint 需要你的到手收入来确定各信封的额度。 || Mint necesita tu sueldo neto para dimensionar los sobres.
+Take-home pay || Gaji bersih || 到手收入 || Sueldo neto
+Your safety net is under 3 months, so 5% moves from investing to savings until it is. || Dana daruratmu kurang dari 3 bulan, jadi 5% dipindah dari investasi ke tabungan sampai cukup. || 你的应急金不足 3 个月，所以先把 5% 从投资转到储蓄，直到攒够为止。 || Tu colchón cubre menos de 3 meses, así que un 5 % pasa de inversión a ahorro hasta completarlo.
+An extra 5% goes to debt payoff. Clear the highest-interest debt first (avalanche method). || Tambahan 5% untuk melunasi utang. Lunasi utang berbunga tertinggi dulu (metode avalanche). || 额外 5% 用于还债，先还利率最高的（雪崩法）。 || Un 5 % extra va al pago de deudas. Liquida primero la de mayor interés (método avalancha).
+Housing takes {pct}% of your income, above the common 30% guideline. Needs are raised to fit it. || Tempat tinggal memakan {pct}% penghasilanmu, di atas pedoman umum 30%. Porsi kebutuhan dinaikkan agar cukup. || 住房占你收入的 {pct}%，高于常见的 30% 建议，因此提高了必需支出的比例。 || La vivienda se lleva el {pct} % de tus ingresos, por encima de la pauta habitual del 30 %. Se suben las necesidades para cubrirla.
+You want to grow wealth and your base is solid, so 5% shifts from wants to investing. || Kamu ingin menumbuhkan kekayaan dan pondasimu kuat, jadi 5% dipindah dari keinginan ke investasi. || 你想让财富增长，基础也很稳，所以把 5% 从想要转到投资。 || Quieres hacer crecer tu patrimonio y tu base es sólida, así que un 5 % pasa de deseos a inversión.
+{cat} is over budget || {cat} melebihi anggaran || {cat} 已超预算 || {cat} se pasó del presupuesto
+{cat} is at {pct}% || {cat} sudah {pct}% || {cat} 已用 {pct}% || {cat} va al {pct} %
+{cat} is spending fast || {cat} terlalu cepat terpakai || {cat} 花得太快了 || {cat} se está gastando rápido
+Spent {spent} of {limit} ({over} over). || Terpakai {spent} dari {limit} (lebih {over}). || 已花 {spent}，额度 {limit}（超出 {over}）。 || Gastado {spent} de {limit} ({over} de más).
+{amount} spent with no limit set. || {amount} terpakai tanpa batas. || 已花 {amount}，未设额度。 || {amount} gastado sin límite definido.
+{amount} left with {n} days to go. || Sisa {amount} untuk {n} hari lagi. || 剩余 {amount}，还有 {n} 天。 || Quedan {amount} para {n} días.
+{amount} left with 1 day to go. || Sisa {amount} untuk 1 hari lagi. || 剩余 {amount}，还有 1 天。 || Quedan {amount} para 1 día.
+{amount} left. || Sisa {amount}. || 剩余 {amount}。 || Quedan {amount}.
+At this pace it reaches {a} by month end (limit {b}). || Dengan laju ini akan mencapai {a} di akhir bulan (batas {b}). || 按这个节奏，月底将达到 {a}（额度 {b}）。 || A este ritmo llegará a {a} a fin de mes (límite {b}).
+This puts {cat} to {pct}% of its limit ({amount} over). || Ini membuat {cat} jadi {pct}% dari batasnya (lebih {amount}). || 这会让 {cat} 达到额度的 {pct}%（超出 {amount}）。 || Esto deja {cat} al {pct} % de su límite ({amount} de más).
+This brings {cat} to {pct}% of its limit. || Ini membuat {cat} jadi {pct}% dari batasnya. || 这会让 {cat} 达到额度的 {pct}%。 || Esto lleva {cat} al {pct} % de su límite.
+Rescue {cat} || Selamatkan {cat} || 救救 {cat} || Rescata {cat}
+Slow down on {cat} || Pelan-pelan dengan {cat} || {cat} 要放慢了 || Frena con {cat}
+Move money from a category with room left so the plan stays honest, or pause {cat} for the rest of the month. || Pindahkan uang dari kategori yang masih longgar agar rencana tetap jujur, atau tahan {cat} sampai akhir bulan. || 从还有余额的类别挪点钱过来，让计划保持真实，或者本月剩下的时间暂停{cat}。 || Mueve dinero de una categoría con margen para que el plan sea realista, o pausa {cat} el resto del mes.
+Keep it under {amount} a day to finish the month inside the limit. || Jaga di bawah {amount} per hari agar bulan ini tetap dalam batas. || 每天控制在 {amount} 以内，就能在额度内过完这个月。 || Mantente por debajo de {amount} al día para terminar el mes dentro del límite.
+Give it one: top up savings, your emergency fund or a goal. Money without a plan tends to disappear. || Beri tugas: tambah tabungan, dana darurat, atau target. Uang tanpa rencana cenderung hilang. || 给它安排去处：充实储蓄、应急金或某个目标。没有计划的钱往往会不翼而飞。 || Dale uno: refuerza el ahorro, tu fondo de emergencia o una meta. El dinero sin plan suele desaparecer.
+Planned {amount} more than you earn || Rencana {amount} lebih besar dari penghasilan || 计划支出比收入多 {amount} || Planeaste {amount} más de lo que ganas
+Trim a Wants category or two so your limits add up to your income. || Kurangi satu atau dua kategori Keinginan agar batasmu sesuai penghasilan. || 削减一两个"想要"类别，让额度总和与收入相符。 || Recorta una o dos categorías de Deseos para que tus límites cuadren con tus ingresos.
+Savings rate is {pct}% || Tingkat tabungan {pct}% || 储蓄率为 {pct}% || La tasa de ahorro es del {pct} %
+Aim for at least 10–20%. Automating {amount} on payday is the easiest first step. || Targetkan minimal 10–20%. Otomatiskan {amount} saat gajian sebagai langkah termudah. || 目标至少 10–20%。发薪日自动转出 {amount} 是最简单的第一步。 || Apunta a un 10–20 % como mínimo. Automatizar {amount} el día de cobro es el primer paso más fácil.
+Subscriptions are over 5% of income || Langganan lebih dari 5% penghasilan || 订阅费超过收入的 5% || Las suscripciones superan el 5 % de los ingresos
+List every subscription and cancel the ones you have not used in 30 days. || Daftar semua langganan dan batalkan yang tidak dipakai 30 hari terakhir. || 列出所有订阅，取消 30 天内没用过的。 || Haz una lista de suscripciones y cancela las que no usaste en 30 días.
+{n} transactions without a category || {n} transaksi tanpa kategori || {n} 笔交易未分类 || {n} movimientos sin categoría
+1 transaction without a category || 1 transaksi tanpa kategori || 1 笔交易未分类 || 1 movimiento sin categoría
+Categorise them in the Sheet so warnings and insights stay accurate. || Beri kategori di Lembar agar peringatan dan wawasan tetap akurat. || 在表格中为它们分类，提醒和分析才会准确。 || Categorízalos en la Hoja para que los avisos y análisis sean precisos.
+Start an emergency fund || Mulai dana darurat || 建立应急金 || Crea un fondo de emergencia
+Target 3–6 months of expenses (about {amount}). It turns emergencies into inconveniences. || Targetkan 3–6 bulan pengeluaran (sekitar {amount}). Ini mengubah keadaan darurat jadi sekadar ketidaknyamanan. || 目标是 3–6 个月的开支（约 {amount}），它能把紧急情况变成小麻烦。 || Apunta a 3–6 meses de gastos (unos {amount}). Convierte las emergencias en simples molestias.
+Target 3–6 months of expenses. It turns emergencies into inconveniences. || Targetkan 3–6 bulan pengeluaran. Ini mengubah keadaan darurat jadi sekadar ketidaknyamanan. || 目标是 3–6 个月的开支，它能把紧急情况变成小麻烦。 || Apunta a 3–6 meses de gastos. Convierte las emergencias en simples molestias.
+Portfolio has drifted || Portofolio sudah bergeser || 投资组合已偏离 || Tu cartera se ha desviado
+{cls} is {pct}% above target. Rebalance with new money first, so you sell less. || {cls} {pct}% di atas target. Seimbangkan dulu dengan uang baru agar lebih sedikit yang dijual. || {cls} 高于目标 {pct}%。先用新资金再平衡，这样可以少卖一些。 || {cls} está un {pct} % por encima del objetivo. Rebalancea primero con dinero nuevo para vender menos.
+{cls} is {pct}% below target. Rebalance with new money first, so you sell less. || {cls} {pct}% di bawah target. Seimbangkan dulu dengan uang baru agar lebih sedikit yang dijual. || {cls} 低于目标 {pct}%。先用新资金再平衡，这样可以少卖一些。 || {cls} está un {pct} % por debajo del objetivo. Rebalancea primero con dinero nuevo para vender menos.
+Safe to spend: {amount} a day || Aman dibelanjakan: {amount} per hari || 每日可放心花：{amount} || Puedes gastar: {amount} al día
+That is what is left across your flexible categories, spread over the {n} days remaining. || Itu sisa di semua kategori fleksibel, dibagi rata ke {n} hari tersisa. || 这是所有弹性类别的剩余额度，平摊到剩下的 {n} 天。 || Es lo que queda en tus categorías flexibles, repartido entre los {n} días restantes.
+That is what is left across your flexible categories, spread over the 1 days remaining. || Itu sisa di semua kategori fleksibel, untuk 1 hari tersisa. || 这是所有弹性类别的剩余额度，留给剩下的 1 天。 || Es lo que queda en tus categorías flexibles para el último día.
+Tip for {name} || Tips untuk {name} || 给{name}的建议 || Consejo para {name}
+{name} tip || Tips {name} || {name}建议 || Consejo {name}
+Tips for you right now || Tips untukmu sekarang || 此刻给你的建议 || Consejos para ti ahora
+Dismiss || Tutup || 关闭 || Descartar
+Added {amount} || {amount} ditambahkan || 已添加 {amount} || {amount} añadido
+Income added: {amount} || Pemasukan ditambahkan: {amount} || 已添加收入：{amount} || Ingreso añadido: {amount}
+Added || Ditambahkan || 已添加 || Añadido
+What was it? (optional) || Untuk apa? (opsional) || 买了什么？（可选） || ¿Qué fue? (opcional)
+Amount to add || Jumlah yang ditambahkan || 要添加的金额 || Importe a añadir
+= {amount} || = {amount} || = {amount} || = {amount}
+= {amount} a month || = {amount} per bulan || = 每月 {amount} || = {amount} al mes
+Warnings · {month} || Peringatan · {month} || 预警 · {month} || Avisos · {month}
+Notify me in the browser || Beri tahu saya di browser || 在浏览器中通知我 || Avísame en el navegador
+Notifications on || Notifikasi aktif || 通知已开启 || Notificaciones activadas
+You will hear about warnings and collaborator edits when Mint is in the background. || Kamu akan diberi tahu soal peringatan dan perubahan rekan saat Mint berjalan di latar belakang. || Mint 在后台时，你也会收到预警和协作者修改的通知。 || Te avisaremos de alertas y cambios de colaboradores aunque Mint esté en segundo plano.
+
+# en || id || zh || es   (goals, invest, you, quiz)
+All goals || Semua target || 全部目标 || Todas las metas
+New goal || Target baru || 新目标 || Nueva meta
+Add a goal || Tambah target || 添加目标 || Añadir una meta
+Create goal || Buat target || 创建目标 || Crear meta
+Goal name || Nama target || 目标名称 || Nombre de la meta
+Target || Target || 目标 || Objetivo
+Target date || Tanggal target || 目标日期 || Fecha objetivo
+Saved || Terkumpul || 已存 || Ahorrado
+＋ Add money || ＋ Tambah dana || ＋ 存入 || ＋ Añadir dinero
+Delete goal || Hapus target || 删除目标 || Eliminar meta
+No goals yet || Belum ada target || 还没有目标 || Aún no hay metas
+A goal turns saving into something you can see. || Target membuat tabungan jadi sesuatu yang bisa kamu lihat. || 有了目标，储蓄就看得见。 || Una meta convierte el ahorro en algo que puedes ver.
+Give the goal a name and a target || Beri nama dan nominal target || 请填写目标名称和金额 || Ponle nombre y cantidad a la meta
+Set a date to get a monthly target || Atur tanggal untuk mendapat target bulanan || 设定日期即可得到每月目标 || Pon una fecha para obtener un objetivo mensual
+Save {amount} / month for {n} months || Tabung {amount} / bulan selama {n} bulan || 每月存 {amount}，共 {n} 个月 || Ahorra {amount} / mes durante {n} meses
+{pct}% · {saved} of {target} || {pct}% · {saved} dari {target} || {pct}% · {saved} / {target} || {pct} % · {saved} de {target}
+{saved} of {target} · {monthly} / mo || {saved} dari {target} · {monthly} / bln || {saved} / {target} · 每月 {monthly} || {saved} de {target} · {monthly} / mes
+Goal reached! || Target tercapai! || 目标达成！ || ¡Meta alcanzada!
+Goal reached: {name} || Target tercapai: {name} || 目标达成：{name} || Meta alcanzada: {name}
+Amazing work. Time to set the next one? || Kerja bagus! Saatnya pasang target berikutnya? || 太棒了！要不要设定下一个目标？ || ¡Gran trabajo! ¿Ponemos la siguiente?
+e.g. Bali trip || mis. Liburan ke Bali || 例如：巴厘岛旅行 || p. ej. Viaje a Bali
+e.g. Bali trip 2027 || mis. Liburan ke Bali 2027 || 例如：2027 巴厘岛旅行 || p. ej. Viaje a Bali 2027
+Portfolio value || Nilai portofolio || 组合市值 || Valor de la cartera
+{n} holdings || {n} aset || {n} 项持仓 || {n} posiciones
+Total gain / loss || Total untung / rugi || 总盈亏 || Ganancia / pérdida total
+on {amount} invested || dari {amount} yang diinvestasikan || 投入本金 {amount} || sobre {amount} invertido
+Target mix || Komposisi target || 目标配置 || Mezcla objetivo
+Custom || Kustom || 自定义 || Personalizada
+(risk {n}/100) || (risiko {n}/100) || （风险 {n}/100） || (riesgo {n}/100)
+Conservative || Konservatif || 保守 || Conservadora
+Balanced || Seimbang || 平衡 || Equilibrada
+Growth || Bertumbuh || 成长 || Crecimiento
+Aggressive || Agresif || 激进 || Agresiva
+Growth+ || Bertumbuh+ || 成长+ || Crecimiento+
+Asset allocation || Alokasi aset || 资产配置 || Asignación de activos
+Allocation vs target || Alokasi vs target || 实际与目标配置 || Asignación vs. objetivo
+Class || Kelas || 类别 || Clase
+Drift || Selisih || 偏离 || Desviación
+To rebalance || Untuk rebalancing || 再平衡操作 || Para rebalancear
+Within ±5%, no action || Dalam ±5%, tidak perlu aksi || 偏离在 ±5% 内，无需操作 || Dentro de ±5 %, sin acción
+Buy {amount} || Beli {amount} || 买入 {amount} || Comprar {amount}
+Sell {amount} || Jual {amount} || 卖出 {amount} || Vender {amount}
+Largest drift || Selisih terbesar || 最大偏离 || Mayor desviación
+Time to rebalance || Saatnya rebalancing || 该再平衡了 || Hora de rebalancear
+Target percent || Persen target || 目标百分比 || Porcentaje objetivo
+Targets are educational starting points from your quiz risk score, not financial advice. || Target adalah titik awal edukatif dari skor risiko kuismu, bukan nasihat keuangan. || 目标配置是根据测试风险分给出的学习起点，不构成理财建议。 || Los objetivos son puntos de partida educativos según tu nivel de riesgo del test, no asesoría financiera.
+Holdings || Aset || 持仓 || Posiciones
+Prices are entered by you; update them any time. || Harga kamu isi sendiri; perbarui kapan saja. || 价格由你自行填写，可随时更新。 || Los precios los introduces tú; actualízalos cuando quieras.
+Symbol || Simbol || 代码 || Símbolo
+Name || Nama || 名称 || Nombre
+Asset class || Kelas aset || 资产类别 || Clase de activo
+Qty || Jml || 数量 || Cant.
+Quantity || Jumlah unit || 数量 || Cantidad
+Avg cost || Harga rata-rata || 平均成本 || Coste medio
+Average cost || Harga beli rata-rata || 平均成本 || Coste medio
+Price || Harga || 价格 || Precio
+Value || Nilai || 市值 || Valor
+Gain || Untung || 收益 || Ganancia
+Remove holding || Hapus aset || 删除持仓 || Eliminar posición
+＋ Symbol || ＋ Simbol || ＋ 代码 || ＋ Símbolo
+same as cost || sama dengan harga beli || 同成本价 || igual al coste
+Add a symbol, quantity and cost || Isi simbol, jumlah, dan harga beli || 请填写代码、数量和成本 || Añade símbolo, cantidad y coste
+Stocks & ETFs || Saham & ETF || 股票与 ETF || Acciones y ETF
+Bonds & SBN || Obligasi & SBN || 债券 || Bonos y deuda pública
+Cash & deposits || Kas & deposito || 现金与存款 || Efectivo y depósitos
+Gold || Emas || 黄金 || Oro
+Crypto || Kripto || 加密货币 || Cripto
+Property || Properti || 房产 || Inmuebles
+Other || Lainnya || 其他 || Otros
+Growth projection || Proyeksi pertumbuhan || 增长预测 || Proyección de crecimiento
+Monthly compounding || Bunga majemuk bulanan || 按月复利 || Capitalización mensual
+Monthly contribution || Setoran bulanan || 每月投入 || Aportación mensual
+Expected return / year || Imbal hasil / tahun || 预期年化收益 || Rentabilidad esperada / año
+Years || Tahun || 年数 || Años
+In {n} years || Dalam {n} tahun || {n} 年后 || En {n} años
+You put in || Kamu setor || 你投入 || Aportas
+Projected portfolio value || Proyeksi nilai portofolio || 预计组合市值 || Valor proyectado de la cartera
+Your money traits || Sifat uangmu || 你的金钱特质 || Tus rasgos financieros
+Superpowers || Kekuatan super || 超能力 || Superpoderes
+Watch out for || Waspadai || 需要留意 || Cuidado con
+Retake || Ulangi || 重新测试 || Repetir
+Retake the quiz || Ulangi kuis || 重新测试 || Repetir el test
+Your profile || Profilmu || 你的资料 || Tu perfil
+Display name || Nama tampilan || 显示名称 || Nombre visible
+Colour || Warna || 颜色 || Color
+Colour {hex} || Warna {hex} || 颜色 {hex} || Color {hex}
+Your name and colour show next to your edits for everyone in shared budgets. || Nama dan warnamu tampil di samping perubahanmu untuk semua orang di anggaran bersama. || 在共享预算中，你的名字和颜色会显示在你的修改旁。 || Tu nombre y color aparecen junto a tus cambios para todos en los presupuestos compartidos.
+Discover your money personality || Temukan kepribadian uangmu || 发现你的金钱性格 || Descubre tu personalidad financiera
+Take the 2-minute quiz to get your money personality. || Ikuti kuis 2 menit untuk mengetahui kepribadian uangmu. || 做个 2 分钟测试，得到你的金钱性格。 || Haz el test de 2 minutos para conocer tu personalidad financiera.
+Take the quiz || Ikuti kuis || 开始测试 || Hacer el test
+Take quiz || Ikuti kuis || 测试 || Hacer test
+Want personal tips? || Mau tips pribadi? || 想要个性化建议吗？ || ¿Quieres consejos personales?
+Personalise with the quiz || Personalisasi lewat kuis || 通过测试个性化 || Personaliza con el test
+You are {name} || Kamu adalah {name} || 你是{name} || Eres {name}
+Tips and plan suggestions now follow your personality. || Tips dan saran rencana kini mengikuti kepribadianmu. || 建议和方案现在会贴合你的性格。 || Los consejos y el plan ahora siguen tu personalidad.
+with a bit of {name} || dengan sedikit {name} || 还带点{name}的影子 || con un toque de {name}
+Money personality quiz || Kuis kepribadian uang || 金钱性格测试 || Test de personalidad financiera
+What kind of money animal are you? || Kamu hewan uang yang mana? || 你是哪种金钱动物？ || ¿Qué animal del dinero eres?
+14 quick questions, about 2 minutes. Mint learns what you need, how you spend and what you want, then builds a budget that fits you, not an average person. || 14 pertanyaan singkat, sekitar 2 menit. Mint mempelajari kebutuhan, cara belanja, dan keinginanmu, lalu menyusun anggaran yang pas untukmu, bukan untuk orang rata-rata. || 14 个小问题，约 2 分钟。Mint 了解你的需求、消费方式和愿望，然后为你量身定制预算，而不是套用平均数。 || 14 preguntas rápidas, unos 2 minutos. Mint aprende qué necesitas, cómo gastas y qué quieres, y arma un presupuesto hecho para ti, no para una persona promedio.
+Your answers stay on this device. || Jawabanmu tetap di perangkat ini. || 你的回答只保存在本设备。 || Tus respuestas se quedan en este dispositivo.
+Let's go || Ayo mulai || 开始吧 || Vamos
+Continue || Lanjut || 继续 || Continuar
+Skip || Lewati || 跳过 || Omitir
+Back || Kembali || 返回 || Atrás
+Close || Tutup || 关闭 || Cerrar
+Build my budget || Susun anggaranku || 生成我的预算 || Crear mi presupuesto
+Save my personality || Simpan kepribadianku || 保存我的性格 || Guardar mi personalidad
+Reading your money style… || Membaca gaya uangmu… || 正在分析你的用钱风格… || Analizando tu estilo con el dinero…
+Hi! I'm Mint. What should I call you? || Hai! Aku Mint. Kamu mau dipanggil apa? || 嗨！我是 Mint，该怎么称呼你？ || ¡Hola! Soy Mint. ¿Cómo te llamo?
+Your first name || Nama depanmu || 你的名字 || Tu nombre
+Who is this budget for? || Anggaran ini untuk siapa? || 这个预算是给谁用的？ || ¿Para quién es este presupuesto?
+Just me || Hanya aku || 只有我 || Solo para mí
+Me and my partner || Aku dan pasangan || 我和伴侣 || Mi pareja y yo
+Our family with kids || Keluarga kami dengan anak || 我们一家（有孩子） || Nuestra familia con hijos
+Housemates or friends || Teman serumah atau teman || 室友或朋友 || Compañeros de piso o amigos
+Roughly how much do you take home each month? || Kira-kira berapa penghasilan bersihmu per bulan? || 你每月到手大约多少？ || ¿Cuánto cobras más o menos al mes?
+After tax, all jobs and side income. A rough number is fine; you can change it any time. || Setelah pajak, dari semua pekerjaan dan penghasilan sampingan. Angka kasar tidak apa-apa; bisa diubah kapan saja. || 税后，包括所有工作和副业收入。大概数字就行，之后随时可改。 || Después de impuestos, de todos tus trabajos e ingresos extra. Basta una cifra aproximada; puedes cambiarla cuando quieras.
+e.g. 12jt or 12.000.000 || mis. 12jt atau 12.000.000 || 例如 12jt 或 12.000.000 || p. ej. 12jt o 12.000.000
+How much goes to rent, mortgage or kos each month? || Berapa untuk sewa, cicilan rumah, atau kos tiap bulan? || 每月房租、房贷或宿舍费是多少？ || ¿Cuánto pagas al mes de alquiler o hipoteca?
+Skip if you live rent-free. || Lewati jika kamu tidak bayar sewa. || 如果不用付房租，可跳过。 || Omítelo si no pagas vivienda.
+What do you want your money to do for you? || Kamu ingin uangmu melakukan apa untukmu? || 你希望钱为你做什么？ || ¿Qué quieres que haga tu dinero por ti?
+Pick as many as you like. || Pilih sebanyak yang kamu mau. || 可多选。 || Elige todas las que quieras.
+Build a safety net || Bangun dana darurat || 建立安全垫 || Crear un colchón
+Get out of debt || Bebas dari utang || 摆脱债务 || Salir de deudas
+Buy a home || Beli rumah || 买房 || Comprar casa
+Travel more || Lebih sering liburan || 多去旅行 || Viajar más
+Grow my wealth || Kembangkan kekayaanku || 让财富增长 || Hacer crecer mi patrimonio
+Retire early || Pensiun dini || 提前退休 || Jubilarme pronto
+Education || Pendidikan || 教育 || Educación
+Support family || Bantu keluarga || 供养家人 || Apoyar a la familia
+Payday arrives. What usually happens first? || Hari gajian tiba. Apa yang biasanya terjadi duluan? || 发薪日到了，通常你先做什么？ || Llega el día de cobro. ¿Qué pasa primero?
+Savings move out automatically || Tabungan langsung terpotong otomatis || 储蓄自动转走 || El ahorro sale automáticamente
+Every rupiah already has a job || Setiap rupiah sudah punya tugas || 每一分钱都已有安排 || Cada peso ya tiene un destino
+Treat-yourself time || Waktunya memanjakan diri || 犒劳自己的时候到了 || Hora de darme un gusto
+Pay bills, then see what is left || Bayar tagihan, lalu lihat sisanya || 先交账单，再看剩多少 || Pago facturas y veo qué queda
+You spot something you love that you didn't plan to buy. You… || Kamu lihat barang yang kamu suka tapi tidak direncanakan. Kamu… || 你看到一件很喜欢但没计划买的东西，你会… || Ves algo que te encanta y que no pensabas comprar. Tú…
+Buy it. Life is short || Beli. Hidup cuma sekali || 买！人生苦短 || Lo compro. La vida es corta
+Wait 48 hours and see || Tunggu 48 jam dulu || 等 48 小时再说 || Espero 48 horas
+Check my budget first || Cek anggaran dulu || 先看看预算 || Reviso mi presupuesto primero
+Buy it as a gift for someone || Beli sebagai hadiah untuk orang lain || 买来送人 || Lo compro como regalo para alguien
+How do you feel about checking your bank balance? || Bagaimana perasaanmu saat mengecek saldo rekening? || 查看银行余额时你感觉如何？ || ¿Cómo te sientes al mirar tu saldo?
+I check it often, all calm || Sering cek, santai saja || 经常看，很淡定 || Lo miro seguido, con calma
+Every week or so, fine || Seminggu sekali, biasa saja || 大概每周一次，还好 || Más o menos cada semana, bien
+I'd rather not look || Mending tidak lihat || 宁可不看 || Prefiero no mirar
+It makes me anxious || Bikin cemas || 会让我焦虑 || Me da ansiedad
+You get a surprise bonus. Your first move? || Kamu dapat bonus kejutan. Langkah pertamamu? || 你意外拿到一笔奖金，第一步做什么？ || Recibes un bono inesperado. ¿Qué haces primero?
+Invest most of it || Investasikan sebagian besar || 大部分拿去投资 || Invierto casi todo
+Straight to savings || Langsung ke tabungan || 直接存起来 || Directo al ahorro
+Split: some fun, some saved || Dibagi: sebagian senang-senang, sebagian ditabung || 一部分享受，一部分存起来 || Mitad gusto, mitad ahorro
+Celebrate with people I love || Rayakan dengan orang tersayang || 和爱的人一起庆祝 || Celebro con mi gente
+Your investments drop 20% in a month. You… || Investasimu turun 20% dalam sebulan. Kamu… || 你的投资一个月跌了 20%，你会… || Tus inversiones caen un 20 % en un mes. Tú…
+Buy more, it is on sale || Beli lagi, lagi diskon || 加仓，正在打折 || Compro más, está de oferta
+Hold and ignore the noise || Tahan dan abaikan kebisingan || 持有，不理会噪音 || Mantengo e ignoro el ruido
+Sell some to feel safer || Jual sebagian agar lebih tenang || 卖掉一些求安心 || Vendo algo para estar tranquilo
+I don't invest, too scary || Aku tidak investasi, terlalu menakutkan || 我不投资，太吓人了 || No invierto, me da miedo
+Friends invite you to a dinner you can't really afford. You… || Teman mengajak makan malam yang sebenarnya di luar kemampuanmu. Kamu… || 朋友约你去一顿其实负担不起的晚餐，你会… || Tus amigos te invitan a una cena que no puedes pagar. Tú…
+Go and pay, I'll figure it out || Ikut dan bayar, nanti dipikirkan || 去，钱以后再想办法 || Voy y pago, ya veré
+Suggest a cheaper place || Usulkan tempat yang lebih murah || 提议换个便宜的地方 || Propongo un sitio más barato
+Skip this one || Lewati kali ini || 这次不去了 || Esta vez paso
+Go, then feel guilty after || Ikut, lalu merasa bersalah || 去了，事后内疚 || Voy y luego me siento culpable
+If your income stopped today, how long could you cover your bills? || Jika penghasilanmu berhenti hari ini, berapa lama kamu bisa bayar tagihan? || 如果今天断了收入，你能撑多久？ || Si hoy dejaras de cobrar, ¿cuánto tiempo podrías pagar tus facturas?
+Less than a month || Kurang dari sebulan || 不到一个月 || Menos de un mes
+1–3 months || 1–3 bulan || 1–3 个月 || 1–3 meses
+3–6 months || 3–6 bulan || 3–6 个月 || 3–6 meses
+More than 6 months || Lebih dari 6 bulan || 超过 6 个月 || Más de 6 meses
+Any debt besides a mortgage (cards, paylater, cicilan, loans)? || Ada utang selain KPR (kartu kredit, paylater, cicilan, pinjaman)? || 除房贷外还有其他债务吗（信用卡、先买后付、分期、贷款）？ || ¿Tienes deudas aparte de la hipoteca (tarjetas, pago aplazado, cuotas, préstamos)?
+None || Tidak ada || 没有 || Ninguna
+A little, paid off monthly || Sedikit, lunas tiap bulan || 有一点，每月还清 || Un poco, la pago cada mes
+Some loans or instalments || Beberapa pinjaman atau cicilan || 有一些贷款或分期 || Algunos préstamos o cuotas
+A lot, and it's stressful || Banyak, dan bikin stres || 很多，压力很大 || Mucha, y me estresa
+How much investing experience do you have? || Seberapa berpengalaman kamu berinvestasi? || 你有多少投资经验？ || ¿Cuánta experiencia tienes invirtiendo?
+None yet || Belum ada || 还没有 || Ninguna aún
+Deposits or mutual funds || Deposito atau reksa dana || 定存或基金 || Depósitos o fondos
+Stocks or ETFs regularly || Rutin saham atau ETF || 定期买股票或 ETF || Acciones o ETF con regularidad
+Stocks, crypto and more || Saham, kripto, dan lainnya || 股票、加密货币等 || Acciones, cripto y más
+Saver || Penabung || 储蓄派 || Ahorrador
+Spender || Pembelanja || 消费派 || Gastador
+Planner || Perencana || 计划派 || Planificador
+Spontaneous || Spontan || 随性 || Espontáneo
+Risk appetite || Selera risiko || 风险偏好 || Apetito de riesgo
+Cautious || Hati-hati || 谨慎 || Prudente
+Bold || Berani || 大胆 || Audaz
+Social spender || Belanja sosial || 社交消费 || Gasto social
+Independent || Mandiri || 独立 || Independiente
+Generous || Dermawan || 慷慨 || Generoso
+Money stress || Stres keuangan || 金钱压力 || Estrés financiero
+Calm || Tenang || 淡定 || Tranquilo
+Avoidant || Menghindar || 逃避 || Evitativo
+
+# en || id || zh || es   (share, settings, modals, toasts)
+Invite link || Tautan undangan || 邀请链接 || Enlace de invitación
+Create share link || Buat tautan berbagi || 创建共享链接 || Crear enlace para compartir
+Copy || Salin || 复制 || Copiar
+Link copied || Tautan disalin || 链接已复制 || Enlace copiado
+Share link ready || Tautan berbagi siap || 共享链接已就绪 || Enlace listo
+Copy it and send it to the people you budget with. || Salin dan kirim ke orang yang mengatur anggaran bersamamu. || 复制并发给和你一起做预算的人。 || Cópialo y envíalo a quienes llevan el presupuesto contigo.
+Anyone with this link can view and edit this budget. Share it only with people you trust. || Siapa pun yang punya tautan ini bisa melihat dan mengedit anggaran ini. Bagikan hanya ke orang yang kamu percaya. || 任何拿到此链接的人都能查看和编辑这个预算，请只分享给你信任的人。 || Cualquiera con este enlace puede ver y editar este presupuesto. Compártelo solo con personas de confianza.
+Anyone with it can edit this budget. || Siapa pun yang memilikinya bisa mengedit anggaran ini. || 拥有链接的人都能编辑这个预算。 || Cualquiera que lo tenga puede editar este presupuesto.
+Everyone edits the same sheet in real time, like Google Sheets || Semua mengedit lembar yang sama secara real time, seperti Google Sheets || 大家实时编辑同一张表，就像 Google 表格 || Todos editan la misma hoja en tiempo real, como en Google Sheets
+End-to-end encrypted: the relay only ever sees gibberish || Terenkripsi end-to-end: relay hanya melihat data acak || 端到端加密：中继服务器只能看到乱码 || Cifrado de extremo a extremo: el relé solo ve galimatías
+Warnings reach everyone when a shared limit is close || Peringatan sampai ke semua orang saat batas bersama hampir habis || 共享额度快用完时，所有人都会收到预警 || Los avisos llegan a todos cuando un límite compartido está cerca
+No accounts. Works offline and syncs when you are back || Tanpa akun. Bisa offline dan sinkron saat kamu kembali online || 无需账号。离线可用，恢复联网后自动同步 || Sin cuentas. Funciona sin conexión y sincroniza al volver
+Relay server || Server relay || 中继服务器 || Servidor relé
+Default: the free public || Bawaan: relay publik gratis || 默认：免费的公共 || Predeterminado: el relé público gratuito
+relay, which keeps messages for 12 hours. For always-on sync, run the tiny Mint relay ( || yang menyimpan pesan selama 12 jam. Untuk sinkron yang selalu aktif, jalankan relay Mint yang ringan ( || 中继，消息保留 12 小时。如需始终在线的同步，可运行轻量的 Mint 中继（ || que guarda los mensajes 12 horas. Para sincronizar siempre, ejecuta el pequeño relé de Mint (
+) on any server and paste its URL here. Either way, data is encrypted in your browser before it leaves. || ) di server mana pun dan tempel URL-nya di sini. Bagaimanapun, data dienkripsi di browsermu sebelum dikirim. || ）部署到任意服务器，并把网址粘贴到这里。无论哪种方式，数据都会先在你的浏览器中加密再发出。 || ) en cualquier servidor y pega aquí su URL. En ambos casos, los datos se cifran en tu navegador antes de salir.
+Relay: || Relay: || 中继： || Relé:
+Stop syncing || Berhenti sinkron || 停止同步 || Dejar de sincronizar
+Stop syncing on this device || Hentikan sinkron di perangkat ini || 在此设备上停止同步 || Dejar de sincronizar en este dispositivo
+Stop syncing on this device? || Hentikan sinkron di perangkat ini? || 要在此设备上停止同步吗？ || ¿Dejar de sincronizar en este dispositivo?
+Your local copy stays here. Others keep their copies and can keep editing. || Salinan lokalmu tetap di sini. Orang lain tetap punya salinannya dan bisa terus mengedit. || 你的本地副本会保留，其他人也保留各自的副本并可继续编辑。 || Tu copia local se queda aquí. Los demás conservan sus copias y pueden seguir editando.
+Edits sync live to everyone in this budget. || Perubahan tersinkron langsung ke semua orang di anggaran ini. || 修改会实时同步给这个预算里的所有人。 || Los cambios se sincronizan en vivo con todos en este presupuesto.
+Connected. Changes sync instantly. || Terhubung. Perubahan langsung tersinkron. || 已连接，修改即时同步。 || Conectado. Los cambios se sincronizan al instante.
+Connecting to the relay… || Menghubungkan ke relay… || 正在连接中继… || Conectando con el relé…
+Catching up on recent changes… || Mengejar perubahan terbaru… || 正在同步最近的修改… || Poniéndonos al día con los cambios…
+Waiting for data from your collaborators… || Menunggu data dari rekanmu… || 正在等待协作者的数据… || Esperando datos de tus colaboradores…
+Fetching the latest data from your collaborators… || Mengambil data terbaru dari rekanmu… || 正在获取协作者的最新数据… || Obteniendo los últimos datos de tus colaboradores…
+Offline. Your edits are saved here and will sync when the connection returns. || Offline. Perubahanmu tersimpan di sini dan akan tersinkron saat koneksi kembali. || 已离线。你的修改已保存在本地，恢复联网后会同步。 || Sin conexión. Tus cambios se guardan aquí y se sincronizarán al volver la conexión.
+Relay unreachable, retrying… || Relay tidak terjangkau, mencoba lagi… || 无法连接中继，正在重试… || Relé inaccesible, reintentando…
+Saved locally; will sync when the relay is reachable. || Tersimpan lokal; akan tersinkron saat relay bisa dijangkau. || 已保存在本地，中继可用时会同步。 || Guardado localmente; se sincronizará cuando el relé esté disponible.
+Sharing needs HTTPS || Berbagi butuh HTTPS || 共享需要 HTTPS || Compartir requiere HTTPS
+Open Mint from its https:// address to share. || Buka Mint dari alamat https:// untuk berbagi. || 请通过 https:// 地址打开 Mint 才能共享。 || Abre Mint desde su dirección https:// para compartir.
+This browser cannot sync (needs HTTPS and a modern browser). || Browser ini tidak bisa sinkron (butuh HTTPS dan browser modern). || 此浏览器无法同步（需要 HTTPS 和较新的浏览器）。 || Este navegador no puede sincronizar (requiere HTTPS y un navegador moderno).
+Joined {name} || Bergabung ke {name} || 已加入 {name} || Te uniste a {name}
+Joined the budget || Bergabung ke anggaran || 已加入预算 || Te uniste al presupuesto
+Join my Mint budget || Gabung anggaran Mint-ku || 加入我的 Mint 预算 || Únete a mi presupuesto de Mint
+Let's budget “{name}” together on Mint || Yuk atur anggaran “{name}” bersama di Mint || 一起在 Mint 上管理“{name}”预算吧 || Llevemos juntos el presupuesto “{name}” en Mint
+Member || Anggota || 成员 || Miembro
+Partner || Pasangan || 伴侣 || Pareja
+House mate || Teman serumah || 室友 || Compañero de piso
+Shared budget || Anggaran bersama || 共享预算 || Presupuesto compartido
+This budget || Anggaran ini || 当前预算 || Este presupuesto
+Currency || Mata uang || 货币 || Moneda
+Warn me when a category reaches || Peringatkan saat kategori mencapai || 当类别达到以下比例时提醒我 || Avísame cuando una categoría llegue al
+Preferences || Preferensi || 偏好设置 || Preferencias
+Theme || Tema || 主题 || Tema
+System || Sistem || 跟随系统 || Sistema
+Light || Terang || 浅色 || Claro
+Dark || Gelap || 深色 || Oscuro
+Occasional tips from Mint || Tips sesekali dari Mint || Mint 不时给的建议 || Consejos ocasionales de Mint
+Browser notifications for warnings & collaborator edits || Notifikasi browser untuk peringatan & perubahan rekan || 预警和协作者修改的浏览器通知 || Notificaciones del navegador para avisos y cambios de colaboradores
+Notifications are blocked in your browser settings. || Notifikasi diblokir di pengaturan browsermu. || 浏览器设置中已屏蔽通知。 || Las notificaciones están bloqueadas en la configuración del navegador.
+In the app, warnings show as in-app alerts with a gentle vibration. || Di aplikasi, peringatan muncul sebagai notifikasi dalam aplikasi dengan getaran lembut. || 在 App 中，预警会以应用内提醒加轻微震动的方式出现。 || En la app, los avisos aparecen dentro de la app con una vibración suave.
+Your data || Datamu || 你的数据 || Tus datos
+Everything lives in this browser. Export a backup any time. || Semua data ada di browser ini. Ekspor cadangan kapan saja. || 所有数据都保存在此浏览器中，可随时导出备份。 || Todo vive en este navegador. Exporta una copia cuando quieras.
+Backup (JSON) || Cadangan (JSON) || 备份（JSON） || Copia de seguridad (JSON)
+Restore backup || Pulihkan cadangan || 恢复备份 || Restaurar copia
+All transactions (CSV) || Semua transaksi (CSV) || 全部交易（CSV） || Todos los movimientos (CSV)
+Import bank CSV || Impor CSV bank || 导入银行 CSV || Importar CSV del banco
+Budgets on this device || Anggaran di perangkat ini || 本设备上的预算 || Presupuestos en este dispositivo
+open || terbuka || 当前 || abierto
+Open || Buka || 打开 || Abrir
+New budget || Anggaran baru || 新建预算 || Nuevo presupuesto
+Load demo budget || Muat anggaran demo || 载入示例预算 || Cargar presupuesto de ejemplo
+Danger zone || Zona berbahaya || 危险操作 || Zona de peligro
+Delete this budget from this device || Hapus anggaran ini dari perangkat ini || 从此设备删除这个预算 || Eliminar este presupuesto de este dispositivo
+Reset Mint || Atur ulang Mint || 重置 Mint || Restablecer Mint
+Reset Mint on this device? || Atur ulang Mint di perangkat ini? || 要在此设备上重置 Mint 吗？ || ¿Restablecer Mint en este dispositivo?
+Deletes every budget, your profile and quiz results from this browser. || Menghapus semua anggaran, profil, dan hasil kuis dari browser ini. || 将从此浏览器删除所有预算、个人资料和测试结果。 || Borra todos los presupuestos, tu perfil y los resultados del test de este navegador.
+Reset everything || Atur ulang semua || 全部重置 || Restablecer todo
+Delete “{name}” from this device? || Hapus “{name}” dari perangkat ini? || 要从此设备删除“{name}”吗？ || ¿Eliminar “{name}” de este dispositivo?
+If it is shared, other people keep their copies. This cannot be undone here. || Jika dibagikan, orang lain tetap punya salinannya. Ini tidak bisa dibatalkan di sini. || 如果已共享，其他人仍会保留各自的副本。此操作在本机无法撤销。 || Si está compartido, los demás conservan sus copias. Esto no se puede deshacer aquí.
+Delete || Hapus || 删除 || Eliminar
+Cancel || Batal || 取消 || Cancelar
+Create || Buat || 创建 || Crear
+Get the app || Dapatkan aplikasinya || 下载 App || Descarga la app
+Mint is free on the web, iPhone and Android. Your budgets sync between them with the same invite link. || Mint gratis di web, iPhone, dan Android. Anggaranmu tersinkron di semuanya dengan tautan undangan yang sama. || Mint 在网页、iPhone 和安卓上都免费，用同一个邀请链接即可在各端同步预算。 || Mint es gratis en web, iPhone y Android. Tus presupuestos se sincronizan entre ellos con el mismo enlace.
+About || Tentang || 关于 || Acerca de
+Mint {v} · local-first budgeting with end-to-end encrypted sharing. Investment targets and tips are educational, not financial advice. Source: || Mint {v} · anggaran berbasis lokal dengan berbagi terenkripsi end-to-end. Target investasi dan tips bersifat edukatif, bukan nasihat keuangan. Sumber: || Mint {v} · 本地优先的预算工具，支持端到端加密共享。投资目标和建议仅供学习参考，不构成理财建议。源代码： || Mint {v} · presupuesto local con uso compartido cifrado de extremo a extremo. Los objetivos de inversión y los consejos son educativos, no asesoría financiera. Código:
+One for you, one with your partner, one for a trip with friends… || Satu untukmu, satu dengan pasangan, satu untuk liburan bersama teman… || 一个给自己，一个和伴侣共用，一个用于和朋友旅行… || Uno para ti, otro con tu pareja, otro para un viaje con amigos…
+Let Mint build envelopes from your income and personality, or start from scratch. || Biarkan Mint menyusun amplop dari penghasilan dan kepribadianmu, atau mulai dari nol. || 让 Mint 根据你的收入和性格生成信封，或者从零开始。 || Deja que Mint cree sobres según tus ingresos y personalidad, o empieza desde cero.
+Use Mint's plan || Pakai rencana Mint || 使用 Mint 的方案 || Usar el plan de Mint
+Set up manually || Atur manual || 手动设置 || Configurar a mano
+Family budget || Anggaran keluarga || 家庭预算 || Presupuesto familiar
+House share || Patungan rumah || 合租开支 || Gastos de piso compartido
+Dream trip || Liburan impian || 梦想之旅 || Viaje soñado
+My budget || Anggaranku || 我的预算 || Mi presupuesto
+Demo household || Rumah tangga demo || 示例家庭 || Hogar de ejemplo
+Guest || Tamu || 访客 || Invitado
+Backup restored || Cadangan dipulihkan || 备份已恢复 || Copia restaurada
+Restored || Dipulihkan || 已恢复 || Restaurado
+{name} (restored) || {name} (dipulihkan) || {name}（已恢复） || {name} (restaurado)
+Opened as a new budget. || Dibuka sebagai anggaran baru. || 已作为新预算打开。 || Abierto como un presupuesto nuevo.
+Not a Mint backup || Bukan cadangan Mint || 不是 Mint 备份文件 || No es una copia de Mint
+That file is not valid JSON || File itu bukan JSON yang valid || 该文件不是有效的 JSON || Ese archivo no es un JSON válido
+Imported {n} transactions || {n} transaksi diimpor || 已导入 {n} 笔交易 || {n} movimientos importados
+New categories were added to Wants with no limit; set limits in Budget. || Kategori baru ditambahkan ke Keinginan tanpa batas; atur batasnya di Anggaran. || 新类别已加入"想要"且未设额度，请在预算中设置。 || Las categorías nuevas se añadieron a Deseos sin límite; fíjalo en Presupuesto.
+Could not find date and amount columns || Kolom tanggal dan jumlah tidak ditemukan || 找不到日期和金额列 || No se encontraron columnas de fecha e importe
+Expected headers like date, description, category, amount. || Header yang diharapkan seperti date, description, category, amount. || 需要类似 date、description、category、amount 的表头。 || Se esperaban encabezados como date, description, category, amount.
+No rows found in that CSV || Tidak ada baris di CSV itu || 该 CSV 中没有数据行 || No hay filas en ese CSV
+Could not save on this device || Tidak bisa menyimpan di perangkat ini || 无法保存到此设备 || No se pudo guardar en este dispositivo
+Storage is full or blocked. Export a backup from Settings. || Penyimpanan penuh atau diblokir. Ekspor cadangan dari Pengaturan. || 存储空间已满或被禁用，请在设置中导出备份。 || El almacenamiento está lleno o bloqueado. Exporta una copia desde Ajustes.
+Active || Aktif || 活跃 || Activo
+View || Lihat || 查看 || Ver
+This device || Perangkat ini || 本设备 || Este dispositivo
+Display name || Nama tampilan || 显示名称 || Nombre visible
+
+# en || id || zh || es   (personas)
+The Squirrel || Si Tupai || 松鼠型 || La Ardilla
+The Owl || Si Burung Hantu || 猫头鹰型 || El Búho
+The Butterfly || Si Kupu-kupu || 蝴蝶型 || La Mariposa
+The Lion || Si Singa || 狮子型 || El León
+The Dolphin || Si Lumba-lumba || 海豚型 || El Delfín
+The Turtle || Si Kura-kura || 乌龟型 || La Tortuga
+Squirrel || Tupai || 松鼠 || Ardilla
+Owl || Burung Hantu || 猫头鹰 || Búho
+Butterfly || Kupu-kupu || 蝴蝶 || Mariposa
+Lion || Singa || 狮子 || León
+Dolphin || Lumba-lumba || 海豚 || Delfín
+Turtle || Kura-kura || 乌龟 || Tortuga
+Steady saver || Penabung tekun || 稳健储蓄者 || Ahorrador constante
+Strategic planner || Perencana strategis || 策略规划者 || Planificador estratégico
+Free spirit || Jiwa bebas || 自由灵魂 || Espíritu libre
+Wealth builder || Pembangun kekayaan || 财富建造者 || Constructor de riqueza
+Generous connector || Penghubung yang dermawan || 慷慨的联结者 || Conector generoso
+Cautious avoider || Penghindar yang hati-hati || 谨慎回避者 || Evitador prudente
+You stash away for winter and rarely panic. Saving comes naturally; the risk is saving so hard that money never gets to work, or never gets enjoyed. || Kamu menyimpan untuk musim dingin dan jarang panik. Menabung terasa alami; risikonya, kamu menabung terlalu keras sampai uang tidak pernah bekerja atau dinikmati. || 你会为过冬囤粮，很少慌乱。存钱对你来说很自然；风险在于存得太狠，钱既没有去"工作"，也没被好好享受。 || Guardas para el invierno y casi nunca entras en pánico. Ahorrar te sale natural; el riesgo es ahorrar tanto que el dinero nunca trabaja ni se disfruta.
+Consistent saver || Penabung konsisten || 坚持储蓄 || Ahorra con constancia
+Calm in emergencies || Tenang saat darurat || 遇事冷静 || Calma en emergencias
+Low lifestyle creep || Gaya hidup tidak gampang naik || 不易消费升级 || Poca inflación del estilo de vida
+Cash sitting idle loses to inflation || Uang yang diam kalah oleh inflasi || 闲置现金会被通胀侵蚀 || El efectivo parado pierde frente a la inflación
+Guilt about spending on yourself || Merasa bersalah saat belanja untuk diri sendiri || 为自己花钱会内疚 || Culpa al gastar en ti
+Your emergency fund is the base. Money beyond 6 months of expenses should be invested, not parked. || Dana darurat adalah fondasinya. Uang di atas 6 bulan pengeluaran sebaiknya diinvestasikan, bukan didiamkan. || 应急金是基础。超过 6 个月开支的钱应该拿去投资，而不是闲放。 || Tu fondo de emergencia es la base. El dinero que supere 6 meses de gastos debería invertirse, no quedarse parado.
+Give yourself a guilt-free "fun" envelope. Spending it is part of the plan. || Beri dirimu amplop "senang-senang" tanpa rasa bersalah. Menghabiskannya adalah bagian dari rencana. || 给自己设一个无负担的"娱乐"信封，花掉它本来就是计划的一部分。 || Date un sobre de "diversión" sin culpa. Gastarlo es parte del plan.
+Automate a monthly transfer into a low-cost index fund so your savings grow without extra effort. || Otomatiskan transfer bulanan ke reksa dana indeks berbiaya rendah agar tabunganmu tumbuh tanpa usaha ekstra. || 每月自动转入低费率指数基金，让储蓄毫不费力地增长。 || Automatiza una transferencia mensual a un fondo indexado de bajo coste para que tus ahorros crezcan sin esfuerzo.
+Compare your savings account rate with deposits or money-market funds. A 2–3% gap adds up fast. || Bandingkan bunga tabunganmu dengan deposito atau reksa dana pasar uang. Selisih 2–3% cepat terasa. || 把储蓄账户利率和定存或货币基金比一比，2–3% 的差距很快就会累积起来。 || Compara el interés de tu cuenta de ahorro con depósitos o fondos monetarios. Una diferencia del 2–3 % suma rápido.
+Pick one experience this month and pay for it from the Wants bucket without second-guessing. || Pilih satu pengalaman bulan ini dan bayar dari pos Keinginan tanpa ragu. || 这个月挑一项体验，用"想要"的钱付，不要犹豫。 || Elige una experiencia este mes y págala con el sobre de Deseos sin dudarlo.
+Set a wealth goal (not just a safety goal) so saving has a destination. || Pasang target kekayaan (bukan hanya target aman) agar tabungan punya tujuan. || 设一个财富目标（不只是安全目标），让储蓄有个方向。 || Fija una meta de riqueza (no solo de seguridad) para que el ahorro tenga destino.
+You like a plan, and a spreadsheet does not scare you. Zero-based budgeting suits you: every unit of income gets a job before the month starts. || Kamu suka rencana, dan spreadsheet tidak menakutkanmu. Anggaran berbasis nol cocok untukmu: setiap rupiah punya tugas sebelum bulan dimulai. || 你喜欢做计划，也不怕电子表格。零基预算很适合你：每月开始前，每一分收入都已安排好去处。 || Te gusta tener un plan y una hoja de cálculo no te asusta. El presupuesto base cero es para ti: cada unidad de ingreso tiene destino antes de empezar el mes.
+Detail oriented || Teliti || 注重细节 || Atento al detalle
+Sees problems early || Melihat masalah lebih awal || 能及早发现问题 || Ve los problemas venir
+Great at shared budgets || Jago anggaran bersama || 擅长共同预算 || Genial en presupuestos compartidos
+Over-tracking can burn you out || Mencatat berlebihan bisa bikin lelah || 记账过度会让人疲惫 || Controlar de más puede agotarte
+Plans can feel rigid to partners || Rencana bisa terasa kaku bagi pasangan || 计划可能让伴侣觉得死板 || Los planes pueden parecer rígidos a tu pareja
+Try zero-based budgeting: assign every unit of income until "left to assign" hits zero. || Coba anggaran berbasis nol: alokasikan setiap rupiah sampai "sisa untuk dialokasikan" jadi nol. || 试试零基预算：把每一分收入都分配出去，直到"待分配"归零。 || Prueba el presupuesto base cero: asigna cada unidad de ingreso hasta que "por asignar" llegue a cero.
+Do a 10-minute weekly money review instead of tracking every hour. || Lakukan tinjauan keuangan 10 menit tiap minggu, bukan mencatat setiap jam. || 每周花 10 分钟回顾一次财务，而不是每小时都记账。 || Haz una revisión semanal de 10 minutos en vez de controlar cada hora.
+Leave a small "oops" buffer category so one surprise does not break the plan. || Sisakan kategori cadangan "ups" kecil agar satu kejutan tidak merusak rencana. || 留一个小小的"意外"缓冲类别，免得一次突发就打乱计划。 || Deja una pequeña categoría "imprevistos" para que una sorpresa no rompa el plan.
+Plan sinking funds for yearly costs (insurance, gifts, taxes) and divide them by 12. || Rencanakan dana cadangan untuk biaya tahunan (asuransi, hadiah, pajak) dan bagi 12. || 为年度开支（保险、礼物、税费）设专项基金，再除以 12 按月存。 || Planifica fondos para gastos anuales (seguros, regalos, impuestos) y divídelos entre 12.
+Share the book with your partner and agree on 3 categories each of you owns. || Bagikan anggaran dengan pasangan dan sepakati 3 kategori yang dipegang masing-masing. || 和伴侣共享账本，约定各自负责 3 个类别。 || Comparte el presupuesto con tu pareja y acuerden 3 categorías de las que se encarga cada uno.
+Review last month before planning the next. Adjust limits to reality, not wishes. || Tinjau bulan lalu sebelum merencanakan bulan depan. Sesuaikan batas dengan kenyataan, bukan keinginan. || 规划下个月之前先回顾上个月，按实际情况而不是愿望调整额度。 || Revisa el mes pasado antes de planear el siguiente. Ajusta los límites a la realidad, no a los deseos.
+You live in the moment and make life fun. Willpower budgets will not work for you, so make saving automatic and invisible. || Kamu hidup di saat ini dan membuat hidup seru. Anggaran yang mengandalkan tekad tidak akan cocok, jadi buat tabungan otomatis dan tak terlihat. || 你活在当下，让生活充满乐趣。靠意志力的预算对你没用，所以要让储蓄自动进行、眼不见为净。 || Vives el momento y haces la vida divertida. Los presupuestos de fuerza de voluntad no son para ti, así que haz que el ahorro sea automático e invisible.
+Enjoys life || Menikmati hidup || 享受生活 || Disfruta la vida
+Generous and spontaneous || Dermawan dan spontan || 慷慨又随性 || Generoso y espontáneo
+Adapts quickly || Cepat beradaptasi || 适应力强 || Se adapta rápido
+Impulse buys add up || Belanja impulsif menumpuk || 冲动消费会积少成多 || Las compras impulsivas suman
+Money runs out before the month does || Uang habis sebelum akhir bulan || 钱比月份先花完 || El dinero se acaba antes que el mes
+Automate savings on payday so it leaves before you see it. || Otomatiskan tabungan saat gajian agar terpotong sebelum kamu melihatnya. || 发薪日自动存钱，让钱在你看到之前就转走。 || Automatiza el ahorro el día de cobro para que salga antes de verlo.
+Use the 48-hour rule: add wants to a wishlist and buy only if you still want it 2 days later. || Pakai aturan 48 jam: masukkan keinginan ke daftar dan beli hanya jika 2 hari kemudian masih mau. || 用 48 小时法则：先把想买的加入心愿单，两天后还想要再买。 || Usa la regla de las 48 horas: anota el capricho y cómpralo solo si 2 días después lo sigues queriendo.
+Turn off saved cards and one-click checkout in shopping apps. || Matikan kartu tersimpan dan checkout sekali klik di aplikasi belanja. || 关闭购物 App 里保存的卡片和一键下单。 || Desactiva las tarjetas guardadas y la compra en un clic en las apps de compras.
+Look at "Safe to spend today" before you buy. It is your daily allowance. || Lihat "Aman dibelanjakan hari ini" sebelum membeli. Itu jatah harianmu. || 买东西前先看看"今日可放心花"，那是你的每日额度。 || Mira "Puedes gastar hoy" antes de comprar. Es tu asignación diaria.
+Try a no-spend weekend once a month and treat it as a game. || Coba akhir pekan tanpa belanja sebulan sekali dan anggap sebagai permainan. || 每月试一次零消费周末，把它当成游戏。 || Prueba un fin de semana sin gastar una vez al mes y tómalo como un juego.
+Unsubscribe from promo emails and sale notifications. Fewer triggers, fewer impulse buys. || Berhenti berlangganan email promo dan notifikasi diskon. Lebih sedikit pemicu, lebih sedikit belanja impulsif. || 退订促销邮件和打折通知。诱惑少了，冲动消费也就少了。 || Date de baja de correos promocionales y avisos de ofertas. Menos estímulos, menos compras impulsivas.
+People come first for you: gifts, dinners, helping family. That is beautiful. Give it a budget so generosity never puts your own future at risk. || Orang lain selalu jadi prioritasmu: hadiah, makan malam, membantu keluarga. Itu indah. Beri anggaran agar kemurahan hatimu tidak membahayakan masa depanmu sendiri. || 你总把别人放在第一位：送礼、请客、帮家人。这很美好。给它定个预算，别让慷慨危及你自己的未来。 || Para ti las personas van primero: regalos, cenas, ayudar a la familia. Es precioso. Dale un presupuesto para que tu generosidad nunca ponga en riesgo tu futuro.
+Great at shared money || Jago mengelola uang bersama || 擅长共同理财 || Genial con el dinero compartido
+Strong relationships || Hubungan yang kuat || 人际关系深厚 || Relaciones sólidas
+Saying yes to every invite || Mengiyakan setiap ajakan || 每个邀约都答应 || Decir que sí a todas las invitaciones
+Lending money you need || Meminjamkan uang yang kamu butuhkan || 把自己需要的钱借出去 || Prestar dinero que necesitas
+Create a "Giving & gifts" envelope so generosity is planned, not guilt-driven. || Buat amplop "Sedekah & hadiah" agar kemurahan hati terencana, bukan karena rasa bersalah. || 建一个"人情与礼物"信封，让慷慨有计划，而不是出于内疚。 || Crea un sobre de "Regalos y donaciones" para que la generosidad sea planificada, no por culpa.
+It is OK to suggest a cheaper plan with friends. Most people are relieved. || Tidak apa-apa mengusulkan rencana yang lebih hemat dengan teman. Kebanyakan orang justru lega. || 和朋友提议更省钱的安排完全没问题，大多数人反而会松一口气。 || Está bien proponer un plan más barato a tus amigos. La mayoría lo agradece.
+Before lending money, decide how much you could afford to never get back. || Sebelum meminjamkan uang, tentukan berapa yang rela tidak kembali. || 借钱之前，先想好你能承受多少拿不回来。 || Antes de prestar, decide cuánto podrías permitirte no recuperar nunca.
+Split shared costs in a shared Mint book so nobody keeps mental IOUs. || Bagi biaya bersama di anggaran Mint bersama agar tidak ada yang menyimpan utang di kepala. || 在共享的 Mint 账本里分摊共同开支，谁也不用在心里记账。 || Reparte los gastos comunes en un presupuesto compartido de Mint para que nadie lleve cuentas mentales.
+Plan festive seasons (Lebaran, Christmas, CNY) as sinking funds, 1/12 each month. || Rencanakan musim perayaan (Lebaran, Natal, Imlek) sebagai dana cadangan, 1/12 tiap bulan. || 把节日开支（开斋节、圣诞、春节）当成专项基金，每月存 1/12。 || Planifica las fiestas (Navidad, Año Nuevo Lunar, Lebaran) como fondos, 1/12 cada mes.
+Pay yourself first too. Your future self is someone you care about. || Bayar dirimu sendiri lebih dulu juga. Dirimu di masa depan juga orang yang kamu sayangi. || 也要先付钱给自己。未来的你，也是你在乎的人。 || Págate primero a ti también. Tu yo del futuro también es alguien que te importa.
+Money talk can feel stressful, so it is easy to look away. Small, regular check-ins and a very simple plan will make you feel in control fast. || Membahas uang bisa bikin stres, jadi mudah untuk menghindar. Pengecekan kecil yang rutin dan rencana yang sangat sederhana akan cepat membuatmu merasa memegang kendali. || 谈钱让人有压力，所以很容易选择逃避。小而规律的检查加上非常简单的计划，会让你很快找回掌控感。 || Hablar de dinero puede estresar, así que es fácil mirar a otro lado. Revisiones pequeñas y regulares y un plan muy sencillo te harán sentir en control enseguida.
+Careful with big decisions || Hati-hati dalam keputusan besar || 大事决策谨慎 || Cuidadoso con las grandes decisiones
+Rarely overextends on risk || Jarang mengambil risiko berlebihan || 很少过度冒险 || Rara vez se arriesga de más
+Improves fast with structure || Cepat membaik dengan struktur || 有了框架进步很快 || Mejora rápido con estructura
+Avoiding statements and bills || Menghindari tagihan dan mutasi rekening || 逃避账单和对账单 || Evitar extractos y facturas
+Surprises at month end || Kejutan di akhir bulan || 月底总有意外 || Sorpresas a fin de mes
+Start tiny: a 5-minute check-in every Sunday. Just look, no judging. || Mulai kecil: cek 5 menit setiap Minggu. Cukup lihat, jangan menghakimi. || 从小处开始：每周日花 5 分钟看一看，只看不评判。 || Empieza en pequeño: 5 minutos cada domingo. Solo mira, sin juzgar.
+Keep it to 3 buckets (needs, wants, savings) until it feels easy. || Cukup 3 pos (kebutuhan, keinginan, tabungan) sampai terasa mudah. || 先只用 3 个桶（必需、想要、储蓄），等熟练了再细分。 || Quédate con 3 sobres (necesidades, deseos, ahorro) hasta que sea fácil.
+Turn on Mint warnings. They nudge you before a limit is hit, not after. || Nyalakan peringatan Mint. Peringatan datang sebelum batas terlewati, bukan sesudahnya. || 打开 Mint 预警，它会在超额之前提醒你，而不是之后。 || Activa los avisos de Mint. Te avisan antes de llegar al límite, no después.
+Automate bill payments so nothing is late while you build the habit. || Otomatiskan pembayaran tagihan agar tidak ada yang telat selama kamu membangun kebiasaan. || 账单设为自动支付，养成习惯期间也不会逾期。 || Automatiza el pago de facturas para que nada se retrase mientras creas el hábito.
+Celebrate small wins: every week you stay on budget counts. || Rayakan kemenangan kecil: setiap minggu sesuai anggaran itu berarti. || 庆祝小胜利：每守住预算一周都算数。 || Celebra las pequeñas victorias: cada semana dentro del presupuesto cuenta.
+If debt feels heavy, list every debt with its interest rate. Seeing it makes it smaller. || Jika utang terasa berat, daftar semua utang beserta bunganya. Melihatnya membuatnya terasa lebih kecil. || 如果债务让你喘不过气，把每笔债和利率都列出来。看清了，它就变小了。 || Si la deuda pesa, haz una lista con cada deuda y su interés. Verla la hace más pequeña.
+You think in decades and are comfortable with volatility. Pay yourself first and let compounding do the heavy lifting. Just keep a solid base under the risk. || Kamu berpikir dalam hitungan dekade dan nyaman dengan gejolak. Bayar dirimu dulu dan biarkan bunga majemuk bekerja keras. Pastikan ada pondasi kuat di bawah risikonya. || 你以十年为单位思考，能接受波动。先付钱给自己，让复利去干重活，只要在风险下面垫好坚实的基础。 || Piensas en décadas y la volatilidad no te asusta. Págate primero y deja que el interés compuesto haga el trabajo pesado. Solo mantén una base sólida bajo el riesgo.
+Long-term mindset || Pola pikir jangka panjang || 长期思维 || Mentalidad a largo plazo
+Comfortable with risk || Nyaman dengan risiko || 能承受风险 || Cómodo con el riesgo
+Motivated by growth || Termotivasi oleh pertumbuhan || 以增长为动力 || Motivado por el crecimiento
+Concentrated bets || Taruhan terkonsentrasi || 押注过于集中 || Apuestas concentradas
+Skipping the emergency fund || Melewatkan dana darurat || 忽视应急金 || Saltarse el fondo de emergencia
+Keep 3–6 months of expenses in cash before taking bigger investment risks. || Simpan 3–6 bulan pengeluaran dalam bentuk kas sebelum mengambil risiko investasi lebih besar. || 在承担更大投资风险前，先留好 3–6 个月的现金开支。 || Guarda 3–6 meses de gastos en efectivo antes de asumir más riesgo invirtiendo.
+Keep speculative bets (single stocks, crypto) under 10% of the portfolio. || Jaga taruhan spekulatif (saham tunggal, kripto) di bawah 10% portofolio. || 投机性仓位（个股、加密货币）控制在组合的 10% 以下。 || Mantén las apuestas especulativas (acciones sueltas, cripto) por debajo del 10 % de la cartera.
+Raise your monthly investment by 1% of income every time you get a raise. || Naikkan investasi bulanan sebesar 1% penghasilan setiap kali gajimu naik. || 每次加薪，就把每月投资提高收入的 1%。 || Sube tu inversión mensual un 1 % de tus ingresos cada vez que te suban el sueldo.
+Rebalance when any asset class drifts more than 5% from your target. || Lakukan rebalancing saat kelas aset mana pun bergeser lebih dari 5% dari target. || 任一资产类别偏离目标超过 5% 时就再平衡。 || Rebalancea cuando una clase de activo se desvíe más de un 5 % de tu objetivo.
+Track fees: a 1% yearly fee can eat roughly a quarter of your returns over 30 years. || Perhatikan biaya: biaya 1% per tahun bisa memakan sekitar seperempat imbal hasil selama 30 tahun. || 留意费用：每年 1% 的费用，30 年下来可能吃掉约四分之一的收益。 || Vigila las comisiones: un 1 % anual puede comerse cerca de un cuarto de tu rentabilidad en 30 años.
+Write down why you hold each position. If the reason is gone, so is the position. || Tulis alasan kamu memegang setiap aset. Jika alasannya hilang, lepas asetnya. || 写下你持有每个仓位的理由。理由不在了，仓位也就该走了。 || Anota por qué tienes cada posición. Si la razón desaparece, la posición también.
+
+# en || id || zh || es   (categories, demo data, currencies, misc)
+Housing || Tempat tinggal || 住房 || Vivienda
+Bills & utilities || Tagihan & utilitas || 账单与水电 || Facturas y suministros
+Health & insurance || Kesehatan & asuransi || 健康与保险 || Salud y seguros
+Fun & hobbies || Hiburan & hobi || 娱乐与爱好 || Ocio y aficiones
+Giving & gifts || Sedekah & hadiah || 人情与礼物 || Regalos y donaciones
+Subscriptions || Langganan || 订阅 || Suscripciones
+Emergency fund || Dana darurat || 应急金 || Fondo de emergencia
+Home deposit || DP rumah || 购房首付 || Entrada de la casa
+Goals & sinking funds || Target & dana cadangan || 目标与专项基金 || Metas y fondos
+Debt payoff || Pelunasan utang || 还债 || Pago de deudas
+Travel fund || Dana liburan || 旅行基金 || Fondo de viajes
+Japan trip || Liburan ke Jepang || 日本之旅 || Viaje a Japón
+Salary || Gaji || 工资 || Sueldo
+Design side gigs || Proyek desain sampingan || 设计副业 || Proyectos de diseño extra
+Apartment rent || Sewa apartemen || 公寓房租 || Alquiler del piso
+Auto-transfer to emergency fund || Transfer otomatis ke dana darurat || 自动转入应急金 || Transferencia automática al fondo de emergencia
+BPJS + health insurance || BPJS + asuransi kesehatan || BPJS + 健康保险 || BPJS + seguro médico
+Home deposit savings || Tabungan DP rumah || 首付储蓄 || Ahorro para la entrada
+Monthly index fund buy || Beli reksa dana indeks bulanan || 每月定投指数基金 || Compra mensual de fondo indexado
+Netflix + Spotify + iCloud || Netflix + Spotify + iCloud || Netflix + Spotify + iCloud || Netflix + Spotify + iCloud
+PLN token + internet || Token PLN + internet || 电费 + 网费 || Luz + internet
+Sneakers (sale!) || Sneakers (diskon!) || 运动鞋（打折！） || Zapatillas (¡rebaja!)
+Weekend brunch || Brunch akhir pekan || 周末早午餐 || Brunch del finde
+Supermarket run || Belanja ke supermarket || 去超市采购 || Compra en el súper
+Pasar pagi || Pasar pagi || 早市 || Mercado de la mañana
+Coffee || Kopi || 咖啡 || Café
+Lunch with team || Makan siang dengan tim || 和同事吃午饭 || Comida con el equipo
+Dinner date || Makan malam berdua || 约会晚餐 || Cena romántica
+Cinema || Bioskop || 看电影 || Cine
+Badminton court || Sewa lapangan bulu tangkis || 羽毛球场 || Pista de bádminton
+Birthday gift || Kado ulang tahun || 生日礼物 || Regalo de cumpleaños
+Fuel || Bensin || 加油 || Gasolina
+Gojek / Grab || Gojek / Grab || Gojek / Grab || Gojek / Grab
+Shopee checkout || Checkout Shopee || Shopee 下单 || Compra en Shopee
+Tokopedia order || Pesanan Tokopedia || Tokopedia 订单 || Pedido de Tokopedia
+Money-market fund || Reksa dana pasar uang || 货币基金 || Fondo monetario
+Gold (grams) || Emas (gram) || 黄金（克） || Oro (gramos)
+Indonesian retail bond || Obligasi ritel Indonesia || 印尼零售国债 || Bono minorista de Indonesia
+Bank Central Asia || Bank Central Asia || 中亚银行 || Bank Central Asia
+Telkom Indonesia || Telkom Indonesia || 印尼电信 || Telkom Indonesia
+Bitcoin || Bitcoin || 比特币 || Bitcoin
+Vanguard S&P 500 ETF (fractional) || ETF Vanguard S&P 500 (pecahan) || 先锋标普 500 ETF（碎股） || ETF Vanguard S&P 500 (fraccionado)
+Indonesian rupiah || Rupiah Indonesia || 印尼盾 || Rupia indonesia
+US dollar || Dolar AS || 美元 || Dólar estadounidense
+Singapore dollar || Dolar Singapura || 新加坡元 || Dólar de Singapur
+Euro || Euro || 欧元 || Euro
+British pound || Pound sterling || 英镑 || Libra esterlina
+Malaysian ringgit || Ringgit Malaysia || 马来西亚林吉特 || Ringgit malayo
+Australian dollar || Dolar Australia || 澳元 || Dólar australiano
+Japanese yen || Yen Jepang || 日元 || Yen japonés
+New Taiwan dollar || Dolar Taiwan Baru || 新台币 || Nuevo dólar taiwanés
+Chinese yuan || Yuan Tiongkok || 人民币 || Yuan chino
+Philippine peso || Peso Filipina || 菲律宾比索 || Peso filipino
+Thai baht || Baht Thailand || 泰铢 || Baht tailandés
+Vietnamese dong || Dong Vietnam || 越南盾 || Dong vietnamita
+Indian rupee || Rupee India || 印度卢比 || Rupia india
+Ayu || Ayu || Ayu || Ayu
+iPhone || iPhone || iPhone || iPhone
+Android || Android || 安卓 || Android
+Haptics || Haptik || 触感反馈 || Vibración
+Chart || Grafik || 图表 || Gráfico
+Breakdown || Rincian || 明细 || Desglose
+Undo || Urungkan || 撤销 || Deshacer
+Copy link || Salin tautan || 复制链接 || Copiar enlace
+Share link || Bagikan tautan || 分享链接 || Compartir enlace
+Share your result || Bagikan hasilmu || 分享你的结果 || Comparte tu resultado
+I'm {name} on Mint. What's your money animal? || Aku {name} di Mint. Hewan uangmu apa? || 我在 Mint 上是{name}，你的金钱动物是什么？ || En Mint soy {name}. ¿Cuál es tu animal del dinero?
+Find yours in 2 minutes, free. || Temukan punyamu dalam 2 menit, gratis. || 2 分钟免费测出你的。 || Descubre el tuyo en 2 minutos, gratis.
+Result card saved || Kartu hasil disimpan || 结果卡片已保存 || Tarjeta guardada
+Download card || Unduh kartu || 下载卡片 || Descargar tarjeta
+My money animal || Hewan uangku || 我的金钱动物 || Mi animal del dinero
+
+# crawl round 2
+Add ↵ || Tambah ↵ || 添加 ↵ || Añadir ↵
+Advanced || Lanjutan || 高级 || Avanzado
+New category || Kategori baru || 新类别 || Nueva categoría
+Spending across all non-savings categories. || Pengeluaran di semua kategori selain tabungan. || 除储蓄外所有类别的支出。 || Gasto en todas las categorías que no son de ahorro.
+# 1.3 quick setup, checklist, smart entry
+3 quick questions · about 30 seconds || 3 pertanyaan singkat · sekitar 30 detik || 3 个简单问题 · 约 30 秒 || 3 preguntas rápidas · unos 30 segundos
+Set up your budget in 30 seconds. || Siapkan anggaranmu dalam 30 detik. || 30 秒建好你的预算。 || Configura tu presupuesto en 30 segundos.
+Take the optional 2-minute quiz after setup and Mint tunes your budget and tips to you. || Setelah setup, ikuti kuis opsional 2 menit dan Mint menyesuaikan anggaran serta tipsnya untukmu. || 设置完成后可选做 2 分钟测试，Mint 会按你的风格调整预算和建议。 || Tras configurarlo, haz el test opcional de 2 minutos y Mint ajustará tu presupuesto y consejos a ti.
+Getting started || Langkah awal || 新手上路 || Primeros pasos
+{done} of {total} done || {done} dari {total} selesai || 已完成 {done}/{total} || {done} de {total} hechos
+Create your budget || Buat anggaranmu || 创建你的预算 || Crea tu presupuesto
+Add your first expense || Catat pengeluaran pertamamu || 记下第一笔支出 || Añade tu primer gasto
+Tap + whenever you spend. It takes five seconds. || Ketuk + setiap kali kamu belanja. Cuma lima detik. || 每次花钱时点 +，只需五秒。 || Toca + cada vez que gastes. Son cinco segundos.
+Check your monthly plan || Cek rencana bulananmu || 查看你的月度计划 || Revisa tu plan mensual
+See how Mint split your income. Change any limit with a tap. || Lihat cara Mint membagi penghasilanmu. Ubah batas mana pun dengan sekali ketuk. || 看看 Mint 如何分配你的收入，点一下就能修改任何额度。 || Mira cómo Mint repartió tus ingresos. Cambia cualquier límite con un toque.
+Invite your partner or housemates || Undang pasangan atau teman serumah || 邀请伴侣或室友 || Invita a tu pareja o compañeros de piso
+Optional. Everyone edits the same budget, live. || Opsional. Semua orang mengedit anggaran yang sama secara langsung. || 可选。大家实时编辑同一份预算。 || Opcional. Todos editan el mismo presupuesto en tiempo real.
+Optional 2-minute quiz for tips that fit you. || Kuis opsional 2 menit untuk tips yang cocok denganmu. || 可选的 2 分钟测试，获得适合你的建议。 || Test opcional de 2 minutos para consejos a tu medida.
+Hide || Sembunyikan || 隐藏 || Ocultar
+Start || Mulai || 开始 || Empezar
+Your budget is ready || Anggaranmu sudah siap || 你的预算已就绪 || Tu presupuesto está listo
+Mint split your income into simple envelopes. Add your first expense with the + button. || Mint membagi penghasilanmu ke amplop-amplop sederhana. Catat pengeluaran pertamamu dengan tombol +. || Mint 已把你的收入分成几个简单的信封。点 + 记下第一笔支出。 || Mint repartió tus ingresos en sobres sencillos. Añade tu primer gasto con el botón +.
+Category: {name} || Kategori: {name} || 分类：{name} || Categoría: {name}
+Quick setup || Setup cepat || 快速设置 || Configuración rápida
+Our home || Rumah kita || 我们的家 || Nuestro hogar
+Answer 14 quick questions. Mint assigns your money animal, builds a plan around your income and sends tips that fit how you actually behave. || Jawab 14 pertanyaan singkat. Mint menentukan hewan uangmu, menyusun rencana dari penghasilanmu, dan memberi tips yang cocok dengan kebiasaanmu. || 回答 14 个简单问题。Mint 会找出你的金钱动物，按你的收入制定计划，并给出符合你真实习惯的建议。 || Responde 14 preguntas rápidas. Mint te asigna tu animal del dinero, arma un plan según tus ingresos y te da consejos que encajan con cómo actúas de verdad.
+Mint's plan || Rencana Mint || Mint 的计划 || El plan de Mint
+
+# 1.4: appearance, phone tab bar, keyboard shortcuts
+More || Lainnya || 更多 || Más
+Appearance || Tampilan || 外观 || Apariencia
+Choose how Mint looks. System follows your device. || Pilih tampilan Mint. Sistem mengikuti perangkatmu. || 选择 Mint 的外观。“跟随系统”会随设备自动切换。 || Elige cómo se ve Mint. Sistema sigue a tu dispositivo.
+Keyboard shortcuts || Pintasan keyboard || 键盘快捷键 || Atajos de teclado
+Go to a page || Buka halaman || 前往页面 || Ir a una página
+Search the sheet || Cari di lembar || 搜索表格 || Buscar en la hoja
+Show shortcuts || Tampilkan pintasan || 显示快捷键 || Mostrar atajos
+Mint {v} is ready || Mint {v} sudah siap || Mint {v} 已就绪 || Mint {v} está lista
+Tap Update, or it installs itself the next time you switch away. || Ketuk Perbarui, atau pembaruan terpasang sendiri saat kamu beralih aplikasi nanti. || 点“更新”，或在你下次切换到其他应用时自动安装。 || Toca Actualizar o se instalará sola la próxima vez que cambies de app.
+Tap Update to get the newest version. || Ketuk Perbarui untuk mendapatkan versi terbaru. || 点“更新”获取最新版本。 || Toca Actualizar para tener la versión más reciente.
+Update || Perbarui || 更新 || Actualizar
+Update now || Perbarui sekarang || 立即更新 || Actualizar ahora
+Update Mint || Perbarui Mint || 更新 Mint || Actualizar Mint
+Updating Mint… || Memperbarui Mint… || 正在更新 Mint… || Actualizando Mint…
+Updated to Mint {v} || Mint diperbarui ke {v} || Mint 已更新到 {v} || Mint se actualizó a la {v}
+Everything you had is still here. || Semua datamu tetap ada di sini. || 你的所有数据都还在。 || Todo lo que tenías sigue aquí.
+What's new || Yang baru || 新功能 || Novedades
+Small fixes and improvements. || Perbaikan dan penyempurnaan kecil. || 一些小修复和改进。 || Pequeños arreglos y mejoras.
+Later || Nanti || 稍后 || Más tarde
+Got it || Oke || 知道了 || Entendido
+Updates || Pembaruan || 更新 || Actualizaciones
+Version || Versi || 版本 || Versión
+Check for updates || Periksa pembaruan || 检查更新 || Buscar actualizaciones
+Checking for updates… || Memeriksa pembaruan… || 正在检查更新… || Buscando actualizaciones…
+You have the latest version || Kamu sudah memakai versi terbaru || 已是最新版本 || Tienes la versión más reciente
+Could not check right now || Belum bisa memeriksa sekarang || 暂时无法检查 || No se pudo comprobar ahora
+Install updates automatically || Pasang pembaruan otomatis || 自动安装更新 || Instalar actualizaciones automáticamente
+Mint checks for new versions in the background and updates in place. Your budgets stay on this device. || Mint memeriksa versi baru di latar belakang dan langsung memperbarui diri. Anggaranmu tetap di perangkat ini. || Mint 会在后台检查新版本并直接完成更新，你的预算仍保存在本设备上。 || Mint busca versiones nuevas en segundo plano y se actualiza al momento. Tus presupuestos se quedan en este dispositivo.
+
+# Mint 3.0: the Templates half of the app (Budget and Templates in one Mint)
+Also in Mint || Juga di Mint || Mint 里还有 || También en Mint
+Templates || Template || 模板 || Plantillas
+Create, buy and sell spreadsheet templates || Buat, beli, dan jual template spreadsheet || 创建、购买和出售电子表格模板 || Crea, compra y vende plantillas de hojas de cálculo
+Also in Mint: spreadsheet templates || Juga di Mint: template spreadsheet || Mint 里还有：电子表格模板 || También en Mint: plantillas de hojas de cálculo
+Describe a sheet in plain words and get a ready Excel or Google Sheets file, or sell your own templates in the marketplace. || Jelaskan sheet dengan kata-kata biasa dan dapatkan file Excel atau Google Sheets yang siap pakai, atau jual template buatanmu di marketplace. || 用平常的话描述一张表，即可得到现成的 Excel 或 Google 表格文件，也可以在市场上出售你自己的模板。 || Describe una hoja con tus palabras y obtén un archivo de Excel o Google Sheets listo, o vende tus propias plantillas en el mercado.
+Open Templates || Buka Template || 打开模板 || Abrir Plantillas

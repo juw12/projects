@@ -1,0 +1,26 @@
+{
+  "version": "3.0.0",
+  "released": "2026-10-29",
+  "notes": {
+    "en": [
+      "Kitty is now Mint: same budgets, same invite links, a fresh green look.",
+      "Mint Templates is built in: open Templates from the menu to create, buy and sell spreadsheet templates.",
+      "One app for everything: theme and language follow you between Budget and Templates."
+    ],
+    "id": [
+      "Kitty kini bernama Mint: anggaran dan tautan undangan tetap sama, dengan tampilan hijau yang segar.",
+      "Mint Templates sudah ada di dalamnya: buka Template dari menu untuk membuat, membeli, dan menjual template spreadsheet.",
+      "Satu aplikasi untuk semuanya: tema dan bahasa ikut berpindah antara Anggaran dan Template."
+    ],
+    "zh": [
+      "Kitty 现已更名为 Mint：预算和邀请链接都不变，换上清新的绿色外观。",
+      "内置 Mint 模板：从菜单打开“模板”，即可创建、购买和出售电子表格模板。",
+      "一个应用全搞定：主题和语言在“预算”和“模板”之间保持一致。"
+    ],
+    "es": [
+      "Kitty ahora es Mint: los mismos presupuestos y enlaces de invitación, con un aspecto verde y fresco.",
+      "Mint Plantillas viene incluido: abre Plantillas desde el menú para crear, comprar y vender plantillas de hojas de cálculo.",
+      "Una sola app para todo: el tema y el idioma te acompañan entre Presupuesto y Plantillas."
+    ]
+  }
+}
