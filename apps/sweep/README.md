@@ -34,6 +34,40 @@ encrypted at rest.
   encrypts local data with WebCrypto (PBKDF2 → AES-GCM) when available, otherwise
   it falls back to a clearly labeled unencrypted local profile.
 
+### What's new in v20
+
+- **Project flow bar** — every project page (Plan, Studio, Verify, Generate) starts with one
+  stepper showing where you are and the live status of each step (plan %, Spec grade,
+  gates passed, files). It replaces the plan header's Studio / Verify / Generate buttons,
+  which overflowed off the left edge on phones.
+- **Phones (`mobile.html`)** — Verify and Generate work (they crashed to a blank screen: the
+  page lacked their markup); a bottom tab bar with icons and a contextual **Plan** tab; the bar
+  now appears for returning sessions (it was hidden after a reload, leaving no navigation) and
+  disappears on sign-out; pinch-zoom is allowed again; all six Operator tabs fit on screen.
+- **Back button** — Android back / swipe-back moves between sections (and closes an open dialog
+  first) instead of leaving the app.
+- **Download project (.zip)** in Generate — every generated file in a `<project-name>/` folder
+  plus `docs/MEMORY.md`, ready to unzip; `verify.sh` keeps its executable bit. The JSON bundle
+  is still there.
+- **Generated scaffolds actually pass their own gates** — names with `'`, `"`, `&`, `<`, `$`
+  no longer break `web/app.js` (syntax error) or show up as `&amp;` in Markdown; the memory
+  note's YAML front matter is quoted; `server/server.py` serves all of `web/` (CSS/JS were 404)
+  from any working directory, blocks path traversal and honours `PORT`; `tests/test_smoke.py`
+  now checks files and references and boots the server (`/`, `/health`, assets) instead of
+  only importing `http.server`.
+- **Data safety** — the unencrypted fallback profile (browsers without WebCrypto, e.g. plain
+  http on a LAN address) lost every project on unlock: it now saves where unlock reads, and
+  older data is recovered. Encrypted saves run one at a time (a slow save can no longer overwrite
+  a newer one), stop storing a second copy of the ciphertext in the workspace record, never fall
+  back to plain text while signed out, and report a full browser storage instead of failing
+  silently. Unlocking after a guest detour works ("Workspace not found" before), and sign-out
+  hides every section (Studio stayed visible under the gate).
+- **Copy buttons** fall back to a hidden textarea when the Clipboard API is missing or refused,
+  and say so if copying fails.
+- `tests/test_static_integrity.py` now also checks the `index.html` ↔ `mobile.html` id contract,
+  unique ids, one `?v=` per release matching the `sw.js` cache name, the pre-cache list, zoom,
+  and that the core UI files make no network calls.
+
 ### Studio (`web/studio.js` + `web/studio.css` + `web/badge.svg`)
 
 Turns a plan into a builder-ready spec — offline, no AI call, no sign-up. Opens
@@ -219,7 +253,9 @@ global render functions instead of rewriting them.
 - **Brief** — example ideas, readiness meter, autosaved draft (localStorage for
   guests, sessionStorage for encrypted workspaces), smarter name/user drafting.
 - **Command palette** (Ctrl/⌘ K) and shortcuts (`/`, `N`, `G`+letter, `E`, `T`, `?`).
-- **Generate** — auto-opens a file, line numbers, file-type badges, arrow-key nav.
+- **Generate** — auto-opens a file, line numbers, file-type badges, arrow-key nav;
+  **Download project (.zip)** (Studio) puts every file in a folder, ready to run.
+- **Flow bar, phone tab bar, back button** (v20) — see *What's new in v20* above.
 
 ## Mode B — sync (what the script does)
 

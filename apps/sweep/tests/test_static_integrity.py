@@ -13,6 +13,25 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 WEB_DIR = os.path.join(BASE_DIR, "web")
 
 REQUIRED_FILES = ["index.html", "styles.css", "app.js"]
+PAGES = ["index.html", "mobile.html", "app.html"]
+# Files that must stay offline-only (the optional AI / sync / licence modules may use the network).
+OFFLINE_FILES = ["index.html", "mobile.html", "app.js", "enhance.js"]
+
+
+def read_web(name):
+    with open(os.path.join(WEB_DIR, name), "r", encoding="utf-8") as handle:
+        return handle.read()
+
+
+def local_refs(html):
+    refs = []
+    for ref in re.findall(r'(?:href|src)\s*=\s*"([^"#][^"]*)"', html):
+        if ref.startswith(("http://", "https://", "//", "mailto:", "data:", "tel:", "javascript:")):
+            continue
+        clean = ref.split("#", 1)[0].split("?", 1)[0]
+        if clean:
+            refs.append((ref, clean))
+    return refs
 
 
 def run_tests():
@@ -105,6 +124,84 @@ def run_tests():
     else:
         print("FAIL - missing Morning Paper theme tokens")
         all_passed = False
+
+    # Test 10: every page's local href/src references resolve
+    for page in PAGES:
+        missing = [
+            ref for ref, clean in local_refs(read_web(page))
+            if not (os.path.isdir if clean.endswith("/") else os.path.isfile)(os.path.join(WEB_DIR, clean))
+        ]
+        if missing:
+            print(f"FAIL - {page}: unresolved local refs {missing}")
+            all_passed = False
+        else:
+            print(f"ok - {page}: all local refs resolve")
+
+    # Test 11: markup contract — every element id app.js looks up in index.html also exists in
+    # mobile.html (a missing section made Verify/Generate crash on phones before v20)
+    index_ids = re.findall(r'\bid="([^"]+)"', html)
+    mobile_html = read_web("mobile.html")
+    mobile_ids = re.findall(r'\bid="([^"]+)"', mobile_html)
+    looked_up = set(re.findall(r"getElementById\(\s*['\"]([^'\"]+)['\"]\s*\)", js))
+    contract = sorted(looked_up & set(index_ids))
+    missing_on_mobile = [element_id for element_id in contract if element_id not in mobile_ids]
+    if missing_on_mobile:
+        print(f"FAIL - mobile.html lacks ids the core app uses: {missing_on_mobile}")
+        all_passed = False
+    else:
+        print(f"ok - mobile.html has all {len(contract)} ids the core app looks up")
+
+    # Test 12: ids are unique per page
+    for page, ids in (("index.html", index_ids), ("mobile.html", mobile_ids)):
+        duplicates = sorted({element_id for element_id in ids if ids.count(element_id) > 1})
+        if duplicates:
+            print(f"FAIL - {page}: duplicate ids {duplicates}")
+            all_passed = False
+        else:
+            print(f"ok - {page}: ids are unique")
+
+    # Test 13: one release version — the same ?v= on every page, and the service worker cache
+    # name carries it (so a deploy never serves stale assets from an old cache)
+    versions = set()
+    for page in PAGES:
+        versions.update(re.findall(r"\?v=(\d+)", read_web(page)))
+    sw = read_web("sw.js")
+    cache_match = re.search(r"CACHE_NAME\s*=\s*'([^']+)'", sw)
+    cache_name = cache_match.group(1) if cache_match else ""
+    if len(versions) == 1 and f"v{next(iter(versions))}" in cache_name:
+        print(f"ok - assets use ?v={next(iter(versions))} and sw.js cache '{cache_name}' matches")
+    else:
+        print(f"FAIL - cache-bust mismatch: ?v={sorted(versions)} vs sw.js cache '{cache_name}'")
+        all_passed = False
+
+    # Test 14: every file the service worker pre-caches exists
+    precache = re.findall(r"'\./([^']+)'", sw.split("];", 1)[0])
+    missing_precache = [name for name in precache if not os.path.isfile(os.path.join(WEB_DIR, name))]
+    if precache and not missing_precache:
+        print(f"ok - sw.js pre-caches {len(precache)} existing files")
+    else:
+        print(f"FAIL - sw.js pre-cache list has missing files {missing_precache}")
+        all_passed = False
+
+    # Test 15: phones may pinch-zoom (WCAG 1.4.4)
+    viewport = re.search(r'<meta name="viewport" content="([^"]+)"', mobile_html)
+    viewport_content = viewport.group(1) if viewport else ""
+    if "user-scalable=no" in viewport_content or re.search(r"maximum-scale=1(\.0)?\b", viewport_content):
+        print("FAIL - mobile.html disables zoom")
+        all_passed = False
+    else:
+        print("ok - mobile.html allows zoom")
+
+    # Test 16: the core UI layers stay offline-only
+    offenders = [
+        name for name in OFFLINE_FILES
+        if any(token in read_web(name) for token in ("fetch(", "XMLHttpRequest", "WebSocket"))
+    ]
+    if offenders:
+        print(f"FAIL - network calls in offline-only files: {offenders}")
+        all_passed = False
+    else:
+        print("ok - " + ", ".join(OFFLINE_FILES) + " make no network calls")
 
     print("\n" + "=" * 50)
     if all_passed:

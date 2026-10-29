@@ -1199,7 +1199,7 @@
   // Dynamic strings: [pattern, { zh: replacement, id: replacement }]. "$n" refers to capture groups.
   const PREFIX_LABELS = [
     'Plan', 'Verify', 'Generate', 'Studio', 'Edit brief', 'Duplicate', 'Export JSON',
-    'Download spec pack (.zip)', 'Build in Lovable', 'Open in v0', 'Share / remix link', 'Remix template'
+    'Download project (.zip)', 'Download spec pack (.zip)', 'Build in Lovable', 'Open in v0', 'Share / remix link', 'Remix template'
   ];
   const PATTERNS = [
     [/^(\d+) done · ≈ ([\d.]+) h left \(rough, single developer\)$/, { zh: '已完成 $1 · 剩余约 $2 小时（粗略，单人开发）', id: '$1 selesai · sisa ≈ $2 jam (kasar, 1 developer)' }],
@@ -1220,7 +1220,11 @@
     [/^~([\d.]+) h$/, { zh: '~$1 小时', id: '~$1 jam' }],
     [/^\+(\d+) more suggestions$/, { zh: '还有 $1 条建议', id: '+$1 saran lagi' }],
     [/^Remixed “(.+)” — edit the brief to make it yours$/, { zh: '已复刻“$1”——编辑简报，把它变成你的', id: '“$1” di-remix — edit brief agar jadi milikmu' }],
-    [/^Last synced (.+)$/, { zh: '上次同步：$1', id: 'Terakhir sinkron: $1' }]
+    [/^Last synced (.+)$/, { zh: '上次同步：$1', id: 'Terakhir sinkron: $1' }],
+    [/^Recovered (\d+) unsaved project\(s\)$/, { zh: '已恢复 $1 个未保存的项目', id: '$1 proyek yang belum tersimpan dipulihkan' }],
+    [/^Spec ([A-D]) · (\d+)$/, { zh: '规格 $1 · $2', id: 'Spec $1 · $2' }],
+    [/^(\d+)\/(\d+) gates$/, { zh: '$1/$2 个关卡', id: '$1/$2 gerbang' }],
+    [/^(\d+) files$/, { zh: '$1 个文件', id: '$1 file' }]
   ];
 
   // ---------- coverage pass 2: operator, guide, verify, plan, catalog, palette ----------
@@ -1662,6 +1666,52 @@
     "Share / remix link": "Tautan bagikan / remix",
     "Remix template": "Remix templat",
     "LinkedIn Post": "Post LinkedIn"
+  });
+
+  // ---------- v20: flow bar, phone tab bar, project zip, save/copy messages ----------
+  Object.assign(ZH, {
+    'Brief': '简报',
+    'Main': '主导航',
+    'How to use': '使用说明',
+    'Project steps': '项目步骤',
+    'Download project (.zip)': '下载项目 (.zip)',
+    'Project downloaded — {count} files in {file}': '项目已下载——{file} 中共 {count} 个文件',
+    'Every generated file in folders, plus the memory note — unzip and run python tests/test_smoke.py': '所有生成的文件（按文件夹整理）以及记忆笔记——解压后运行 python tests/test_smoke.py',
+    'Copied to clipboard': '已复制到剪贴板',
+    'Commands copied to clipboard': '命令已复制到剪贴板',
+    'File content copied': '文件内容已复制',
+    'Memory note copied': '记忆笔记已复制',
+    'Site HTML copied': '网站 HTML 已复制',
+    'Workspace JSON copied': '工作区 JSON 已复制',
+    'Content copied': '内容已复制',
+    'Config copied': '配置已复制',
+    'Project exported as JSON': '项目已导出为 JSON',
+    'Bundle downloaded': '打包文件已下载',
+    'Copy failed — select the text and copy it manually': '复制失败——请选中文本后手动复制',
+    'Browser storage is full — export your projects as JSON, then delete some': '浏览器存储已满——请先把项目导出为 JSON，再删除一些',
+    'Could not save your changes in this browser': '无法在此浏览器中保存你的更改'
+  });
+  Object.assign(ID, {
+    'Brief': 'Brief',
+    'Main': 'Navigasi utama',
+    'How to use': 'Cara pakai',
+    'Project steps': 'Langkah proyek',
+    'Download project (.zip)': 'Unduh proyek (.zip)',
+    'Project downloaded — {count} files in {file}': 'Proyek diunduh — {count} file di {file}',
+    'Every generated file in folders, plus the memory note — unzip and run python tests/test_smoke.py': 'Semua file hasil dalam folder, plus catatan memori — ekstrak lalu jalankan python tests/test_smoke.py',
+    'Copied to clipboard': 'Disalin ke papan klip',
+    'Commands copied to clipboard': 'Perintah disalin ke papan klip',
+    'File content copied': 'Isi file disalin',
+    'Memory note copied': 'Catatan memori disalin',
+    'Site HTML copied': 'HTML situs disalin',
+    'Workspace JSON copied': 'JSON ruang kerja disalin',
+    'Content copied': 'Konten disalin',
+    'Config copied': 'Konfigurasi disalin',
+    'Project exported as JSON': 'Proyek diekspor sebagai JSON',
+    'Bundle downloaded': 'Bundel diunduh',
+    'Copy failed — select the text and copy it manually': 'Gagal menyalin — pilih teksnya lalu salin manual',
+    'Browser storage is full — export your projects as JSON, then delete some': 'Penyimpanan browser penuh — ekspor proyekmu sebagai JSON, lalu hapus sebagian',
+    'Could not save your changes in this browser': 'Perubahanmu tidak bisa disimpan di browser ini'
   });
 
   // Whole-paragraph translations for blocks that mix text with inline markup (<strong> etc.).

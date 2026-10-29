@@ -1082,7 +1082,7 @@
 
       const entry = new DataView(new ArrayBuffer(46));
       entry.setUint32(0, 0x02014b50, true);
-      entry.setUint16(4, 20, true);
+      entry.setUint16(4, (3 << 8) | 20, true); // made by Unix, so the mode below is honoured
       entry.setUint16(6, 20, true);
       entry.setUint16(8, 0x0800, true);
       entry.setUint16(10, 0, true);
@@ -1092,6 +1092,8 @@
       entry.setUint32(20, data.length, true);
       entry.setUint32(24, data.length, true);
       entry.setUint16(28, nameBytes.length, true);
+      // Unix mode in the high 16 bits: scripts executable, everything else rw-r--r--.
+      entry.setUint32(38, ((/\.sh$/.test(name) ? 0o100755 : 0o100644) << 16) >>> 0, true);
       entry.setUint32(42, offset, true);
       central.push(new Uint8Array(entry.buffer), nameBytes);
 
@@ -1124,6 +1126,43 @@
     });
     downloadBlob(folder + '-spec-pack.zip', buildZip(prefixed));
     showToast('Spec pack downloaded — ' + Object.keys(files).length + ' files');
+  }
+
+  // The complete generated project as one zip: scaffold, docs, specs and the memory note,
+  // inside a <project-name>/ folder, ready to unzip and run (python tests/test_smoke.py).
+  function downloadProjectZip(project) {
+    if (!project) return;
+    const files = generateProjectFiles(project);
+    const folder = toKebabCase(project.name) || 'sweep-project';
+    const prefixed = {};
+    Object.keys(files).forEach(function (name) {
+      prefixed[folder + '/' + name] = files[name];
+    });
+    prefixed[folder + '/docs/MEMORY.md'] = generateMemoryNote(project);
+    const count = Object.keys(prefixed).length;
+    downloadBlob(folder + '.zip', buildZip(prefixed));
+    showToast(t('Project downloaded — {count} files in {file}', { count: count, file: folder + '.zip' }));
+  }
+
+  function ensureGenerateZip() {
+    const section = document.getElementById('section-generate');
+    const actions = section && $('.generate-actions', section);
+    if (!actions || document.getElementById('generate-zip-btn')) return;
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.id = 'generate-zip-btn';
+    button.className = 'btn btn-primary';
+    button.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download project (.zip)';
+    button.title = 'Every generated file in folders, plus the memory note — unzip and run python tests/test_smoke.py';
+    button.addEventListener('click', function () {
+      downloadProjectZip(state.currentProject);
+    });
+    // The JSON bundle stays available as the secondary option.
+    $all('.btn-primary', actions).forEach(function (other) {
+      other.classList.remove('btn-primary');
+      other.classList.add('btn-secondary');
+    });
+    actions.insertBefore(button, actions.firstChild);
   }
 
   // ---------- tiny markdown renderer (for previews) ----------
@@ -2849,6 +2888,8 @@
     ensurePlanStudio(project);
   });
 
+  wrapAfter('renderGenerateView', ensureGenerateZip);
+
   wrapAfter('navigateTo', function (section) {
     const studioLink = document.getElementById('nav-studio');
     if (studioLink) studioLink.classList.toggle('active', section === 'studio');
@@ -2903,6 +2944,8 @@
   }
 
   window.SweepStudio = {
+    buildZip: buildZip,
+    downloadProjectZip: downloadProjectZip,
     scoreSpec: scoreSpec,
     buildTasks: buildTasks,
     boardSummary: boardSummary,
@@ -2921,6 +2964,7 @@
       const current = state.currentProject;
       if (current) {
         commands.push({ group: 'Go to', label: 'Studio · ' + current.name, hint: 'Board, spec, handoff', run: function () { window.SweepStudio.open('board'); } });
+        commands.push({ group: 'Actions', label: 'Download project (.zip) · ' + current.name, hint: '', run: function () { downloadProjectZip(current); } });
         commands.push({ group: 'Actions', label: 'Download spec pack (.zip) · ' + current.name, hint: '', run: function () { downloadSpecPack(current); } });
         commands.push({ group: 'Actions', label: 'Build in Lovable · ' + current.name, hint: '↗', run: function () { handoff(current, 'lovable'); } });
         commands.push({ group: 'Actions', label: 'Open in v0 · ' + current.name, hint: '↗', run: function () { handoff(current, 'v0'); } });
