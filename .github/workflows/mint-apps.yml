@@ -1,0 +1,293 @@
+name: Mint apps
+
+# Builds the downloadable Mint apps and publishes them to the "mint" release from main:
+#   Windows  Mint-Windows-Setup.exe (per-user installer) + Mint-Windows-Portable.zip
+#   macOS    Mint-macOS-AppleSilicon.dmg + Mint-macOS-Intel.dmg
+#   Android  Mint-Android.apk (signed with the Mint key, so it updates earlier installs)
+# Every build is opened and checked on its own OS first (the Windows installer is installed, run and
+# uninstalled; the APK runs on an emulator). Only builds that passed are published; links stay the same.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/mint/desktop/**'
+      - 'apps/mint/mobile/**'
+      - '.github/workflows/mint-apps.yml'
+  pull_request:
+    paths:
+      - 'apps/mint/desktop/**'
+      - 'apps/mint/mobile/**'
+      - '.github/workflows/mint-apps.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mint-apps-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  desktop:
+    name: Desktop (${{ matrix.name }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows
+            os: windows-latest
+          - name: macOS Apple silicon
+            os: macos-15
+          - name: macOS Intel
+            os: macos-15-intel
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install PyInstaller, Pillow and pywebview
+        run: python -m pip install --disable-pip-version-check pyinstaller pillow pywebview
+      - name: Install Inno Setup
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $iscc = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'
+          if (-not (Test-Path $iscc) -and -not (Get-Command iscc -ErrorAction SilentlyContinue)) {
+            choco install innosetup --no-progress -y
+          }
+      - name: Make sure the WebView2 runtime is there (the Windows window uses it)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $client = '{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}'
+          $keys = "HKLM:\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\$client",
+                  "HKCU:\Software\Microsoft\EdgeUpdate\Clients\$client"
+          $version = $keys | Where-Object { Test-Path $_ } | ForEach-Object { (Get-ItemProperty $_).pv } |
+            Where-Object { $_ -and $_ -ne '0.0.0.0' } | Select-Object -First 1
+          if ($version) { Write-Host "WebView2 runtime $version"; exit 0 }
+          $setup = Join-Path $env:RUNNER_TEMP 'MicrosoftEdgeWebview2Setup.exe'
+          Invoke-WebRequest 'https://go.microsoft.com/fwlink/p/?LinkId=2124703' -OutFile $setup
+          Start-Process -FilePath $setup -ArgumentList '/silent', '/install' -Wait
+      - name: Stop XProtect scans (they make hdiutil fail with "Resource busy")
+        if: runner.os == 'macOS'
+        run: |
+          sudo pkill -9 XProtect > /dev/null 2>&1 || true
+          for attempt in $(seq 1 20); do pgrep -x XProtect > /dev/null || break; sleep 3; done
+      - name: Build and package
+        run: python apps/mint/desktop/build.py --require-installer
+      - name: Open the built app and check its window shows this commit's Mint
+        run: python apps/mint/desktop/smoke_test.py --built --local-site
+      - name: Install with Mint-Windows-Setup.exe, run it, uninstall it
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $setup = Resolve-Path 'apps/mint/desktop/dist/Mint-Windows-Setup.exe'
+          $log = Join-Path $env:RUNNER_TEMP 'mint-setup.log'
+          $process = Start-Process -FilePath $setup -Wait -PassThru -ArgumentList @(
+            '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/TASKS=desktopicon', "/LOG=$log")
+          if ($process.ExitCode -ne 0) { Get-Content $log -Tail 40; throw "Setup failed with exit code $($process.ExitCode)" }
+          $app = Join-Path $env:LOCALAPPDATA 'Programs\Mint\Mint.exe'
+          if (-not (Test-Path $app)) { throw "Mint.exe was not installed to $app" }
+          $shortcuts = @(
+            (Join-Path ([Environment]::GetFolderPath('Programs')) 'Mint.lnk'),
+            (Join-Path ([Environment]::GetFolderPath('Desktop')) 'Mint.lnk'))
+          foreach ($link in $shortcuts) { if (-not (Test-Path $link)) { throw "Missing shortcut: $link" } }
+          $entry = Get-ChildItem 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall' |
+            Get-ItemProperty | Where-Object DisplayName -eq 'Mint'
+          if (-not $entry) { throw 'Mint is missing from Settings > Apps' }
+          python apps/mint/desktop/smoke_test.py --local-site $app
+          if ($LASTEXITCODE -ne 0) { throw 'The installed app failed its checks' }
+          Start-Process -FilePath $entry.UninstallString.Trim('"') -Wait -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART'
+          for ($i = 0; $i -lt 60 -and (Test-Path $app); $i++) { Start-Sleep -Seconds 1 }
+          if (Test-Path $app) { throw 'Uninstalling left Mint.exe behind' }
+          foreach ($link in $shortcuts) { if (Test-Path $link) { throw "Uninstalling left a shortcut: $link" } }
+          Write-Host 'Installed, ran and uninstalled cleanly'
+      - name: Check the Mac app and disk image
+        if: runner.os == 'macOS'
+        run: |
+          APP=apps/mint/desktop/dist/Mint.app
+          test "$(plutil -extract CFBundleIdentifier raw "$APP/Contents/Info.plist")" = "io.github.juw12.mint.desktop"
+          test "$(plutil -extract CFBundleShortVersionString raw "$APP/Contents/Info.plist")" = "$(python3 -c 'import json; print(json.load(open("apps/mint/web/budget/version.json"))["version"])')"
+          echo "Architecture: $(lipo -archs "$APP/Contents/MacOS/Mint")"
+          codesign --verify --deep --verbose=2 "$APP"
+          for image in apps/mint/desktop/dist/*.dmg; do hdiutil verify "$image"; done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Mint-${{ runner.os }}-${{ runner.arch }}
+          path: apps/mint/desktop/dist/Mint-*
+          if-no-files-found: error
+          retention-days: 14
+
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: apps/mint/mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Prepare the Android project
+        run: |
+          npm install --no-fund --no-audit
+          npm run android:prepare
+      - name: Restore the Mint signing key
+        env:
+          MINT_KEYSTORE_BASE64: ${{ secrets.MINT_ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$MINT_KEYSTORE_BASE64" ]; then
+            echo "::warning::No MINT_ANDROID_KEYSTORE_BASE64 secret; the APK will be debug-signed and not published."
+            exit 0
+          fi
+          echo "$MINT_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/mint-signing.p12"
+          echo "MINT_ANDROID_KEYSTORE_PATH=$RUNNER_TEMP/mint-signing.p12" >> "$GITHUB_ENV"
+      - name: Build the release and debug APKs
+        env:
+          MINT_ANDROID_SIGNING_PASSWORD: ${{ secrets.MINT_ANDROID_SIGNING_PASSWORD }}
+        run: |
+          chmod +x android/gradlew
+          cd android
+          if [ -n "${MINT_ANDROID_KEYSTORE_PATH:-}" ]; then
+            ./gradlew assembleRelease assembleDebug --no-daemon
+          else
+            ./gradlew assembleDebug --no-daemon
+          fi
+      - name: Verify the signature and name the packages
+        run: |
+          mkdir -p dist
+          cp android/app/build/outputs/apk/debug/app-debug.apk dist/Mint-debug.apk
+          APKSIGNER=$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -n 1)
+          if [ -n "${MINT_ANDROID_KEYSTORE_PATH:-}" ]; then
+            cp android/app/build/outputs/apk/release/app-release.apk dist/Mint-Android.apk
+            "$APKSIGNER" verify --print-certs dist/Mint-Android.apk | tee dist/android-signature.txt
+            # Same key as the APK people already installed, or Android refuses the update.
+            EXPECTED=$(tr -d ' :\n' < android-certificate-sha256.txt | tr 'A-F' 'a-f' | grep -o '[0-9a-f]\{64\}' | head -n 1)
+            ACTUAL=$(grep -m1 'SHA-256 digest' dist/android-signature.txt | sed 's/.*: //' | tr -d ' :' | tr 'A-F' 'a-f')
+            echo "expected $EXPECTED"
+            echo "actual   $ACTUAL"
+            if [ -n "$EXPECTED" ] && [ "$EXPECTED" != "$ACTUAL" ]; then
+              echo "::error::The APK is not signed with the Mint key in android-certificate-sha256.txt"
+              exit 1
+            fi
+          fi
+          ls -la dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Mint-Android
+          path: apps/mint/mobile/dist
+          retention-days: 14
+
+  emulator:
+    needs: android
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: Mint-Android
+          path: apps/mint/mobile/dist
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install websocket-client
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Open the app on an emulator and check Mint loads with its native plugins
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none
+          script: python apps/mint/mobile/scripts/android-smoke.py apps/mint/mobile/dist/Mint-debug.apk
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Mint-Android-emulator-check
+          path: |
+            apps/mint/mobile/dist/*.png
+            apps/mint/mobile/dist/*.json
+          retention-days: 7
+
+  publish:
+    needs: [desktop, android, emulator]
+    if: ${{ !cancelled() && github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: Mint-*
+          path: dist
+          merge-multiple: true
+      - name: Publish the apps to the mint release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          ANDROID_CHECK: ${{ needs.emulator.result }}
+        run: |
+          cd dist
+          FILES=""
+          for name in Mint-Windows-Setup.exe Mint-Windows-Portable.zip \
+                      Mint-macOS-AppleSilicon.dmg Mint-macOS-Intel.dmg Mint-Android.apk; do
+            if [ "$name" = "Mint-Android.apk" ] && [ "$ANDROID_CHECK" != "success" ]; then
+              echo "::warning::The Android app did not pass its emulator check, so it was not published."
+              continue
+            fi
+            if [ -f "$name" ]; then
+              FILES="$FILES $name"
+            else
+              echo "::warning::$name was not built in this run; the release keeps its previous copy (if any)."
+            fi
+          done
+          if [ -z "$FILES" ]; then
+            echo "::error::No app passed its checks."
+            exit 1
+          fi
+          sha256sum $FILES > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+          cat > notes.md <<'EOF'
+          **Mint** — shared budgets you edit together, plus spreadsheet templates you can build and sell. Free, no account needed for budgets. The first time it opens, Mint asks for your language and region (the region sets your currency).
+
+          | Your device | Download | How to install |
+          | --- | --- | --- |
+          | **Windows 10/11** | [Mint-Windows-Setup.exe](https://github.com/juw12/projects/releases/download/mint/Mint-Windows-Setup.exe) | Open it and press Install (no admin needed). If Windows says it protected your PC, choose **More info → Run anyway** (the app isn't code-signed yet). Without installing: [Mint-Windows-Portable.zip](https://github.com/juw12/projects/releases/download/mint/Mint-Windows-Portable.zip). |
+          | **Mac with Apple chip (M1 and newer)** | [Mint-macOS-AppleSilicon.dmg](https://github.com/juw12/projects/releases/download/mint/Mint-macOS-AppleSilicon.dmg) | Open it and drag Mint to Applications. The first time, macOS blocks it because it isn't notarized: **System Settings → Privacy & Security → Open Anyway**. |
+          | **Mac with Intel chip** | [Mint-macOS-Intel.dmg](https://github.com/juw12/projects/releases/download/mint/Mint-macOS-Intel.dmg) | Same as above. Not sure which Mac? Apple menu → About This Mac shows **Chip** (Apple) or **Processor** (Intel). |
+          | **Android** | [Mint-Android.apk](https://github.com/juw12/projects/releases/download/mint/Mint-Android.apk) | Download it on the phone, open it and allow installing from your browser. It updates an earlier Mint app in place. |
+          | **iPhone** | [Open in Safari](https://juw12.github.io/projects/mint/budget/) | Share → **Add to Home Screen** (free, updates itself). |
+
+          The apps load Mint from the web, so new features arrive without reinstalling. Checksums for this build: `SHA256SUMS.txt`.
+          EOF
+          {
+            echo
+            echo "Built from ${GITHUB_SHA::7}."
+            grep -m1 'SHA-256 digest' android-signature.txt 2>/dev/null | sed 's/^/Android signing certificate (/; s/$/)./' || true
+          } >> notes.md
+          if gh release view mint --repo "$REPO" > /dev/null 2>&1; then
+            gh release upload mint $FILES SHA256SUMS.txt --clobber --repo "$REPO"
+            gh release edit mint --notes-file notes.md --repo "$REPO"
+          else
+            gh release create mint $FILES SHA256SUMS.txt --title "Mint for Windows, Mac and Android" \
+              --notes-file notes.md --latest=false --repo "$REPO"
+          fi
+          # The download link older pages and installs point at.
+          if [ -f Mint-Android.apk ] && gh release view mint-android --repo "$REPO" > /dev/null 2>&1; then
+            cp Mint-Android.apk Mint-android.apk
+            gh release upload mint-android Mint-android.apk --clobber --repo "$REPO"
+          fi

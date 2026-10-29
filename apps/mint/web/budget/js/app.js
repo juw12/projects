@@ -1,8 +1,8 @@
-/* Mint Budget (formerly Kitty): shell, views, interactions. Depends on core.js, sync.js, ui-kit.js, quiz.js.
- * Internal names (window.Kitty, kitty.* storage keys, the relay topic prefix) keep the old name so budgets carry over. */
+/* Mint Budget: shell, views, interactions. Depends on core.js, sync.js, ui-kit.js, quiz.js (and ../js/locale.js,
+ * which runs first and moves budgets saved by older versions to the mint.budget.* storage keys). */
 (function () {
   'use strict';
-  const K = window.Kitty;
+  const K = window.MintBudget;
   const ui = K.ui;
   const esc = ui.esc;
   const icon = ui.icon;
@@ -67,11 +67,28 @@
       '</select></label>'
     );
   }
+  function regionSelect() {
+    const L = window.MintLocale;
+    if (!L) return '';
+    const now = L.current();
+    const lang = K.i18n.lang;
+    const options = L.REGIONS.filter((r) => r.code !== 'XX')
+      .map((r) => ({ code: r.code, name: L.regionName(r.code, lang), currency: r.currency }))
+      .sort((a, b) => a.name.localeCompare(b.name, K.i18n.locale))
+      .concat([{ code: 'XX', name: L.regionName('XX', lang), currency: 'USD' }]);
+    return (
+      '<label class="lang-select lang-field" title="Region">' + icon('globe', 16) +
+      '<select data-act-change="set-region" aria-label="Region" translate="no">' +
+      (now.region ? '' : '<option value="" selected disabled>—</option>') +
+      options.map((r) => '<option value="' + r.code + '"' + (now.region === r.code ? ' selected' : '') + '>' + esc(r.name) + ' · ' + r.currency + '</option>').join('') +
+      '</select></label>'
+    );
+  }
   const MONTH_VIEWS = { home: 1, sheet: 1, budget: 1 };
 
   const S = {
-    profile: store.get('kitty.profile', null),
-    books: store.get('kitty.books', []),
+    profile: store.get('mint.budget.profile', null),
+    books: store.get('mint.budget.books', []),
     book: null,
     view: 'home',
     month: K.monthKey(K.today()),
@@ -96,7 +113,7 @@
 
   // ================================================================ persistence
   function loadBook(id) {
-    return store.get('kitty.book.' + id, null);
+    return store.get('mint.budget.book.' + id, null);
   }
   let saveTimer = null;
   function saveBook() {
@@ -106,14 +123,14 @@
   function saveBookNow() {
     clearTimeout(saveTimer);
     if (!S.book) return;
-    store.set('kitty.book.' + S.book.id, S.book);
+    store.set('mint.budget.book.' + S.book.id, S.book);
     const entry = S.books.find((b) => b.id === S.book.id);
     if (!entry) S.books.push({ id: S.book.id, name: S.book.meta.name });
     else entry.name = S.book.meta.name;
-    store.set('kitty.books', S.books);
+    store.set('mint.budget.books', S.books);
   }
   function saveProfile() {
-    store.set('kitty.profile', S.profile);
+    store.set('mint.budget.profile', S.profile);
   }
   window.addEventListener('pagehide', saveBookNow);
   window.addEventListener('beforeunload', saveBookNow);
@@ -123,9 +140,9 @@
     const b = loadBook(id);
     if (!b) return false;
     S.book = b;
-    store.set('kitty.current', id);
+    store.set('mint.budget.current', id);
     S.baseline = null;
-    S.activity = store.get('kitty.activity.' + id, []);
+    S.activity = store.get('mint.budget.activity.' + id, []);
     S.month = K.monthKey(K.today());
     S.proj = null;
     ensureMember();
@@ -223,7 +240,7 @@
 
   function setupChannel() {
     if (S.bc || !('BroadcastChannel' in window)) return;
-    S.bc = new BroadcastChannel('kitty');
+    S.bc = new BroadcastChannel('mint-budget');
     S.bc.onmessage = (e) => {
       const d = e.data || {};
       if (d.tab === TAB || !S.book || d.bookId !== S.book.id) return;
@@ -262,7 +279,7 @@
       S.activity.unshift(entry);
     }
     S.activity = S.activity.slice(0, 80);
-    store.set('kitty.activity.' + S.book.id, S.activity);
+    store.set('mint.budget.activity.' + S.book.id, S.activity);
   }
 
   function describeOps(ops, from) {
@@ -559,17 +576,17 @@
     if (!p) return startQuiz();
     const text = K.t("I'm {name} on Mint. What's your money animal?", { name: K.i18n.tr(p.name) + ' ' + p.emoji });
     const url = PUBLIC_URL;
-    if (NATIVE) {
-      try {
-        await shareSheet('My money animal', text, url);
-      } catch (err) {
-        /* cancelled */
-      }
-      return;
-    }
     const canvas = makeResultCard(S.profile.persona);
     const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
     const fileName = 'mint-money-animal-' + S.profile.persona + '.png';
+    if (NATIVE) {
+      if (blob) {
+        await nativeSave(fileName, blob, text + ' ' + url);
+      } else {
+        await shareSheet('My money animal', text, url).catch(() => {});
+      }
+      return;
+    }
     const file = typeof File === 'function' && blob ? new File([blob], fileName, { type: 'image/png' }) : null;
     if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
       try {
@@ -621,7 +638,7 @@
     document.documentElement.classList.add('native-app', 'native-' + NATIVE_PLATFORM);
     nativeListen('App', 'backButton', handleBackButton);
     nativeListen('App', 'appUrlOpen', (event) => {
-      // Invite links (https://juw12.github.io/projects/mint/budget/#join=..., or the old /projects/kitty/ ones) opened from chat apps.
+      // Invite links (https://juw12.github.io/projects/mint/budget/#join=..., including ones shared before Mint 3.0) opened from chat apps.
       const url = event && event.url ? String(event.url) : '';
       const at = url.indexOf('#join=');
       if (at >= 0) location.hash = url.slice(at);
@@ -658,7 +675,7 @@
   function maybeTipToast(stats, force) {
     if (!S.profile || S.profile.tips === false) return;
     const today = K.today();
-    if (!force && store.get('kitty.tipDay', '') === today) return;
+    if (!force && store.get('mint.budget.tipDay', '') === today) return;
     // Never drop a tip on top of an open dialog or the quiz; try again once it is closed.
     if (document.querySelector('.modal-wrap, .quiz-overlay')) {
       setTimeout(() => S.book && maybeTipToast(K.monthStats(S.book, S.month), force), 4000);
@@ -667,7 +684,7 @@
     const tips = currentTips(stats);
     if (!tips.length) return;
     const tip = force ? tips[Math.floor(Math.random() * tips.length)] : tips[0];
-    store.set('kitty.tipDay', today);
+    store.set('mint.budget.tipDay', today);
     S.lastTipToast = Date.now();
     toast({ icon: tip.icon, title: tip.title, body: tip.body, timeout: 9000 });
   }
@@ -1689,6 +1706,8 @@
       '</div></div>' +
       '<div class="card"><div class="card-head"><h3>Preferences</h3></div>' +
       '<div class="pref-row"><span>Language</span>' + langSelect('lang-field') + '</div>' +
+      (window.MintLocale ? '<div class="pref-row"><span>Region</span>' + regionSelect() + '</div>' +
+        '<p class="muted small">Your region sets the currency for new budgets. Existing budgets keep theirs.</p>' : '') +
       '<label class="toggle"><input type="checkbox" data-act-change="toggle-tips"' + (S.profile.tips !== false ? ' checked' : '') + '><span></span>Occasional tips from Mint</label>' +
       '<label class="toggle"><input type="checkbox" data-act-change="toggle-notify"' + (S.profile.notify && notifState === 'granted' ? ' checked' : '') + (notifState === 'unsupported' ? ' disabled' : '') + '><span></span>Browser notifications for warnings & collaborator edits</label>' +
       (notifState === 'denied' ? '<p class="muted small">Notifications are blocked in your browser settings.</p>' : '') +
@@ -1707,7 +1726,7 @@
       '<div class="card danger"><div class="card-head"><h3>Danger zone</h3></div><div class="row-gap">' +
       '<button class="btn btn-danger" data-act="delete-book">Delete this budget from this device</button>' +
       '<button class="btn btn-ghost" data-act="reset-all">Reset Mint</button></div></div>' +
-      (NATIVE ? '' : '<div class="card get-app-card"><div class="card-head"><h3>Get the app</h3></div><p class="muted small">Mint is free on the web, iPhone and Android. Your budgets sync between them with the same invite link.</p><div class="row-gap"><a class="btn btn-soft" href="' + GET_APP_URL + '#iphone">' + icon('download', 16) + ' iPhone</a><a class="btn btn-soft" href="' + GET_APP_URL + '#android">' + icon('download', 16) + ' Android</a></div></div>') +
+      (NATIVE ? '' : '<div class="card get-app-card"><div class="card-head"><h3>Get the app</h3></div><p class="muted small">Mint is free on Windows, Mac, Android, iPhone and the web. Your budgets sync between them with the same invite link.</p><div class="row-gap"><a class="btn btn-soft" href="' + GET_APP_URL + '#windows">' + icon('download', 16) + ' Windows</a><a class="btn btn-soft" href="' + GET_APP_URL + '#mac">' + icon('download', 16) + ' Mac</a><a class="btn btn-soft" href="' + GET_APP_URL + '#android">' + icon('download', 16) + ' Android</a><a class="btn btn-soft" href="' + GET_APP_URL + '#iphone">' + icon('download', 16) + ' iPhone</a></div></div>') +
       '<div class="card"><div class="card-head"><h3>About</h3></div><p class="muted small">Mint ' + esc(K.VERSION) + ' · local-first budgeting with end-to-end encrypted sharing. Investment targets and tips are educational, not financial advice. Source: <a href="https://github.com/juw12/projects/tree/main/apps/mint" target="_blank" rel="noopener">github.com/juw12/projects</a></p></div>' +
       '</div>'
     );
@@ -1737,7 +1756,7 @@
           '<button class="btn btn-primary btn-lg" data-act="join">Join budget ' + icon('right', 18) + '</button></div></section>'
         : '') +
       '<section class="w-hero"><div class="w-copy">' +
-      '<p class="eyebrow">Free on web, iPhone and Android</p>' +
+      '<p class="eyebrow">Free on Windows, Mac, Android, iPhone and the web</p>' +
       '<h1>The shared budget that works the way you do.</h1>' +
       '<p class="lead">Plan from your income, track every expense together in real time, get warned before a limit breaks, and grow your investments. Private and end-to-end encrypted.</p>' +
       '<div class="row-gap">' +
@@ -1752,7 +1771,7 @@
       '<section class="w-animals"><h2>Six money animals. Which one are you?</h2><p class="w-sub">Take the optional 2-minute quiz after setup and Mint tunes your budget and tips to you.</p><div class="animals">' +
       Object.keys(K.PERSONAS).map((k) => '<div class="animal" style="--pc:' + K.PERSONAS[k].color + '"><span>' + K.PERSONAS[k].emoji + '</span><b>' + esc(K.PERSONAS[k].name) + '</b><small>' + esc(K.PERSONAS[k].tagline) + '</small></div>').join('') +
       '</div></section>' +
-      '<section class="w-cta"><div><h2>Set up your budget in 30 seconds.</h2><p>Free forever on web, iPhone and Android. No account needed.</p></div>' +
+      '<section class="w-cta"><div><h2>Set up your budget in 30 seconds.</h2><p>Free forever on Windows, Mac, Android, iPhone and the web. No account needed.</p></div>' +
       (hasProfile
         ? '<button class="btn btn-primary btn-lg" data-act="new-book">' + icon('plus', 18) + ' Create a budget</button>'
         : '<button class="btn btn-primary btn-lg" data-act="setup">Get started free ' + icon('right', 18) + '</button>') +
@@ -1760,7 +1779,7 @@
       '<section class="card w-templates-band"><span class="feat-icon">' + icon('template', 18) + '</span><div><h3>Also in Mint: spreadsheet templates</h3>' +
       '<p class="muted">Describe a sheet in plain words and get a ready Excel or Google Sheets file, or sell your own templates in the marketplace.</p></div>' +
       '<a class="btn btn-soft" href="' + TEMPLATES_URL + '" data-templates>Open Templates ' + icon('right', 16) + '</a></section>' +
-      '<footer class="w-foot">' + (NATIVE ? '' : '<a class="get-app-link" href="' + GET_APP_URL + '">' + icon('download', 14) + '<span>Get Mint for iPhone & Android</span></a>') + '<span>© Mint ' + esc(K.VERSION) + '</span><span>Tips are educational, not financial advice.</span></footer>' +
+      '<footer class="w-foot">' + (NATIVE ? '' : '<a class="get-app-link" href="' + GET_APP_URL + '">' + icon('download', 14) + '<span>Get Mint for Windows, Mac, Android & iPhone</span></a>') + '<span>© Mint ' + esc(K.VERSION) + '</span><span>Tips are educational, not financial advice.</span></footer>' +
       '</div>';
   }
 
@@ -1796,6 +1815,9 @@
   function defaultCurrency() {
     if (S.book) return cur();
     if (S.profile && S.profile.currency) return S.profile.currency;
+    // The region chosen on the first visit (or in Settings) decides the currency of new budgets.
+    const chosen = window.MintLocale ? window.MintLocale.current() : null;
+    if (chosen && chosen.chosen && K.CURRENCIES[chosen.currency]) return chosen.currency;
     const deviceLangs = navigator.languages && navigator.languages.length ? Array.from(navigator.languages) : [navigator.language];
     // A chosen non-English UI language is a stronger hint than the browser default (e.g. 中文 -> CNY).
     return K.guessCurrency(K.i18n.lang === 'en' ? deviceLangs : [K.i18n.locale].concat(deviceLangs));
@@ -1890,18 +1912,18 @@
       if ((facts.goals || []).indexOf('travel') >= 0) K.put(book, 'goals', { name: 'Dream trip', emoji: '✈️', target: K.niceRound(facts.income * 1.5, currency), saved: 0, due: K.shiftMonth(K.monthKey(K.today()), 10) }, by);
       if ((facts.goals || []).indexOf('home') >= 0) K.put(book, 'goals', { name: 'Home deposit', emoji: '🏡', target: K.niceRound(facts.income * 24, currency), saved: 0, due: K.shiftMonth(K.monthKey(K.today()), 48) }, by);
     }
-    store.set('kitty.book.' + book.id, book);
+    store.set('mint.budget.book.' + book.id, book);
     S.books.push({ id: book.id, name: book.meta.name });
-    store.set('kitty.books', S.books);
+    store.set('mint.budget.books', S.books);
     openBook(book.id);
   }
 
   function createBlankBook(name) {
-    const book = K.newBook({ name: name || 'New budget', currency: (S.book && cur()) || (S.profile && S.profile.currency) || 'IDR', by: me() });
+    const book = K.newBook({ name: name || 'New budget', currency: (S.book && cur()) || (S.profile && S.profile.currency) || defaultCurrency(), by: me() });
     K.put(book, 'members', { id: me(), name: S.profile.name, color: S.profile.color }, me());
-    store.set('kitty.book.' + book.id, book);
+    store.set('mint.budget.book.' + book.id, book);
     S.books.push({ id: book.id, name: book.meta.name });
-    store.set('kitty.books', S.books);
+    store.set('mint.budget.books', S.books);
     openBook(book.id);
     S.view = 'budget';
     render();
@@ -1917,16 +1939,16 @@
     const book = K.demoBook(K.today(), me());
     book.members[me()].name = S.profile.name;
     book.members[me()].color = S.profile.color;
-    store.set('kitty.book.' + book.id, book);
+    store.set('mint.budget.book.' + book.id, book);
     S.books.push({ id: book.id, name: book.meta.name });
-    store.set('kitty.books', S.books);
+    store.set('mint.budget.books', S.books);
     openBook(book.id);
     S.activity = [
       { who: 'demo-ayu', icon: '🛍️', text: 'added “Sneakers (sale!)” ' + fmt(1150000) + ' · Shopping', at: Date.now() - 1000 * 60 * 26 },
       { who: me(), icon: '🍜', text: 'added “Weekend brunch” ' + fmt(420000) + ' · Dining out', at: Date.now() - 1000 * 60 * 60 * 5 },
       { who: 'demo-ayu', icon: '🗾', text: 'updated goal Japan trip · ' + fmt(21800000) + ' saved', at: Date.now() - 1000 * 60 * 60 * 20 },
     ];
-    store.set('kitty.activity.' + book.id, S.activity);
+    store.set('mint.budget.activity.' + book.id, S.activity);
     S.view = params.get('view') && VIEWS.some((v) => v.id === params.get('view')) ? params.get('view') : 'home';
     render();
   }
@@ -1939,9 +1961,9 @@
     let b = loadBook(join.bookId);
     if (!b) b = K.newBook({ id: join.bookId, name: join.name || 'Shared budget', unstamped: true });
     b.room = { key: join.key, relay: join.relay };
-    store.set('kitty.book.' + b.id, b);
+    store.set('mint.budget.book.' + b.id, b);
     if (!S.books.some((x) => x.id === b.id)) S.books.push({ id: b.id, name: b.meta.name });
-    store.set('kitty.books', S.books);
+    store.set('mint.budget.books', S.books);
     S.pendingJoin = null;
     history.replaceState(null, '', location.pathname + location.search);
     openBook(b.id);
@@ -2250,8 +2272,35 @@
   }
 
   // ================================================================ import / export
+  function blobToBase64(blob) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result).split(',')[1] || '');
+      reader.onerror = () => reject(reader.error);
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  // App WebViews ignore <a download>: save the file to the app's cache and open the share sheet
+  // (Save to Files / Drive, send it, or open it in Sheets / Excel).
+  async function nativeSave(name, blob, text) {
+    try {
+      const data = await blobToBase64(blob);
+      const written = await nativeCall('Filesystem', 'writeFile', { path: name, data: data, directory: 'CACHE' });
+      await nativeCall('Share', 'share', { title: name, text: text || undefined, files: [written.uri], dialogTitle: K.i18n.tr('Save or share') });
+    } catch (err) {
+      const message = String((err && err.message) || err || '');
+      if (/cancel/i.test(message)) return;
+      toast({ tone: 'bad', title: 'Could not save the file', body: message });
+    }
+  }
+
   function download(name, text, type) {
-    const blob = new Blob([text], { type: type });
+    const blob = text instanceof Blob ? text : new Blob([text], { type: type });
+    if (NATIVE) {
+      nativeSave(name, blob);
+      return;
+    }
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = name;
@@ -2399,7 +2448,7 @@
   function exportJSON() {
     const copy = JSON.parse(JSON.stringify(S.book));
     delete copy.room;
-    download('mint-backup-' + S.book.meta.name.replace(/[^\w-]+/g, '-').toLowerCase() + '-' + K.today() + '.json', JSON.stringify({ kitty: 1, exportedAt: new Date().toISOString(), book: copy }, null, 1), 'application/json');
+    download('mint-backup-' + S.book.meta.name.replace(/[^\w-]+/g, '-').toLowerCase() + '-' + K.today() + '.json', JSON.stringify({ mint: 1, exportedAt: new Date().toISOString(), book: copy }, null, 1), 'application/json');
   }
   function importJSON(text) {
     let data;
@@ -2415,9 +2464,9 @@
     book.meta = Object.assign({}, src.meta, { name: (src.meta.name || 'Restored') + ' (restored)', _u: K.tick(), _by: me(), _f: undefined });
     delete book.meta._f;
     book.id = K.uid(18);
-    store.set('kitty.book.' + book.id, book);
+    store.set('mint.budget.book.' + book.id, book);
     S.books.push({ id: book.id, name: book.meta.name });
-    store.set('kitty.books', S.books);
+    store.set('mint.budget.books', S.books);
     openBook(book.id);
     render();
     toast({ tone: 'good', title: 'Backup restored', body: 'Opened as a new budget.' });
@@ -2536,6 +2585,15 @@
     const act = t.dataset.actChange;
     if (act === 'set-lang') {
       K.i18n.setLang(t.value);
+      return;
+    }
+    if (act === 'set-region') {
+      const region = window.MintLocale.save(K.i18n.lang, t.value);
+      if (S.profile && S.profile.currency) {
+        S.profile.currency = region.currency;
+        saveProfile();
+      }
+      toast({ tone: 'good', title: K.t('New budgets will use {currency}', { currency: region.currency }) });
       return;
     }
     if (act === 'switch-book') {
@@ -2917,14 +2975,14 @@
         if (!ok) return;
         const id = S.book.id;
         disconnectRoom();
-        store.del('kitty.book.' + id);
-        store.del('kitty.activity.' + id);
-        store.del('kitty.sync.' + id);
+        store.del('mint.budget.book.' + id);
+        store.del('mint.budget.activity.' + id);
+        store.del('mint.budget.sync.' + id);
         S.books = S.books.filter((b) => b.id !== id);
-        store.set('kitty.books', S.books);
+        store.set('mint.budget.books', S.books);
         S.book = null;
         if (S.books.length) openBook(S.books[0].id);
-        else store.del('kitty.current');
+        else store.del('mint.budget.current');
         S.view = 'home';
         return render();
       }
@@ -2933,7 +2991,7 @@
         if (!ok) return;
         disconnectRoom();
         Object.keys(localStorage)
-          .filter((k) => k.indexOf('kitty.') === 0)
+          .filter((k) => k.indexOf('mint.budget.') === 0)
           .forEach((k) => localStorage.removeItem(k));
         location.href = location.pathname;
         return;
@@ -2956,7 +3014,7 @@
     });
   }
   // Language switch: rebuild every screen so English source text is re-translated (or restored).
-  window.addEventListener('kitty:lang', () => {
+  window.addEventListener('mint:lang', () => {
     const root = $('#app');
     if (root) root.innerHTML = '';
     openModals.slice().forEach((m) => m.close());
@@ -3047,7 +3105,7 @@
     if (!fresh) return;
     // We just tried to install this version and the old files came back (a cache still catching up):
     // keep the Update buttons, but skip the toast and the automatic install for a few minutes.
-    const tried = store.get('kitty.updateTry', null);
+    const tried = store.get('mint.budget.updateTry', null);
     if (tried && tried.version === version && Date.now() - tried.at < UPDATE_QUIET) U.quietUntil = tried.at + UPDATE_QUIET;
     if (S.book) scheduleRender();
     if (Date.now() >= U.quietUntil) announceUpdate();
@@ -3099,11 +3157,11 @@
     U.applying = true;
     saveBookNow();
     try {
-      sessionStorage.setItem('kitty.resume', JSON.stringify({ view: S.view, month: S.month, y: Math.round(window.scrollY), at: Date.now() }));
+      sessionStorage.setItem('mint.budget.resume', JSON.stringify({ view: S.view, month: S.month, y: Math.round(window.scrollY), at: Date.now() }));
     } catch (e) {
       /* private mode: the app simply opens on Overview */
     }
-    if (U.available) store.set('kitty.updateTry', { version: U.available.version, at: Date.now() });
+    if (U.available) store.set('mint.budget.updateTry', { version: U.available.version, at: Date.now() });
     if (!o.quiet) showUpdating();
     refreshAppFiles().then(() => {
       const waiting = U.registration && U.registration.waiting;
@@ -3122,8 +3180,8 @@
 
   function takeResume() {
     try {
-      const raw = sessionStorage.getItem('kitty.resume');
-      sessionStorage.removeItem('kitty.resume');
+      const raw = sessionStorage.getItem('mint.budget.resume');
+      sessionStorage.removeItem('mint.budget.resume');
       const r = raw ? JSON.parse(raw) : null;
       return r && Date.now() - r.at < 2 * 60 * 1000 ? r : null;
     } catch (e) {
@@ -3139,10 +3197,10 @@
   /** After an update, say so once (with the release notes). Returns true when that notice is shown.
    *  `returning` = this device already had a profile and budgets before this page load (the demo creates them on the fly). */
   function noticeAfterUpdate(returning) {
-    const last = store.get('kitty.lastVersion', '');
-    store.set('kitty.lastVersion', K.VERSION);
-    const tried = store.get('kitty.updateTry', null);
-    if (tried && K.compareVersions(K.VERSION, tried.version) >= 0) store.del('kitty.updateTry');
+    const last = store.get('mint.budget.lastVersion', '');
+    store.set('mint.budget.lastVersion', K.VERSION);
+    const tried = store.get('mint.budget.updateTry', null);
+    if (tried && K.compareVersions(K.VERSION, tried.version) >= 0) store.del('mint.budget.updateTry');
     // People who used Mint before 1.5 have budgets but no stored version yet: they just updated too.
     const upgraded = last ? K.compareVersions(K.VERSION, last) > 0 : returning;
     if (!upgraded || !S.book) return false;
@@ -3201,7 +3259,7 @@
     if (join) S.pendingJoin = join;
     const wanted = params.get('view');
     if (S.profile) {
-      const curId = store.get('kitty.current', null);
+      const curId = store.get('mint.budget.current', null);
       const id = (curId && S.books.some((b) => b.id === curId) && curId) || (S.books[0] && S.books[0].id);
       if (id) openBook(id);
     }
@@ -3244,10 +3302,10 @@
     }
     if (params.get('add') === '1' && S.book) setTimeout(openQuickAdd, 400);
     setupNative();
-    window.__kittyNative = { native: NATIVE, platform: NATIVE_PLATFORM };
-    window.__kittyReady = true;
+    window.__mintNative = { native: NATIVE, platform: NATIVE_PLATFORM };
+    window.__mintReady = true;
   }
 
-  window.KittyApp = { state: S, render: render, commit: commit, put: put, openBook: openBook, startQuiz: startQuiz, loadDemo: loadDemo };
+  window.MintBudgetApp = { state: S, render: render, commit: commit, put: put, openBook: openBook, startQuiz: startQuiz, loadDemo: loadDemo };
   boot();
 })();

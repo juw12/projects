@@ -13,7 +13,7 @@
  */
 (function (root) {
   'use strict';
-  const K = root.Kitty;
+  const K = root.MintBudget;
   const te = new TextEncoder();
   const td = new TextDecoder();
 
@@ -113,14 +113,14 @@
   // ---------------------------------------------------------------- room
   function syncState(bookId) {
     try {
-      return JSON.parse(localStorage.getItem('kitty.sync.' + bookId) || '{}');
+      return JSON.parse(localStorage.getItem('mint.budget.sync.' + bookId) || '{}');
     } catch (e) {
       return {};
     }
   }
   function saveSyncState(bookId, st) {
     try {
-      localStorage.setItem('kitty.sync.' + bookId, JSON.stringify(st));
+      localStorage.setItem('mint.budget.sync.' + bookId, JSON.stringify(st));
     } catch (e) {
       /* storage full or blocked: sync still works for this session */
     }
@@ -162,8 +162,9 @@
     }
 
     get topic() {
-      // Topic prefix from the app's first name, kept so budgets shared before the rename keep syncing.
-      return 'kitty-' + this.bookId;
+      // Since 3.1 every budget syncs on "mint-<id>". Devices coming from an older version carry the whole budget
+      // locally and post a full snapshot after their first replay here (lastSnapAt starts at 0), so nothing is lost.
+      return 'mint-' + this.bookId;
     }
     endpoint(suffix) {
       return [this.relay, this.topic].concat(suffix ? [suffix] : []).join('/');

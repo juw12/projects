@@ -49,7 +49,7 @@ def render(rows):
         body = json.dumps(table, ensure_ascii=False, indent=0, sort_keys=True)
         packs[code] = (
             "/* Mint Budget translations (%s). Generated from apps/mint/budget/i18n/strings.txt by build_i18n.py; edit the source. */\n"
-            "Kitty.i18n.add('%s', %s);\n" % (code, code, body)
+            "MintBudget.i18n.add('%s', %s);\n" % (code, code, body)
         )
     return packs
 

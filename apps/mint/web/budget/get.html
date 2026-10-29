@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Get Mint: free on web, iPhone and Android</title>
-  <meta name="description" content="Mint is free everywhere: use it in the browser, add it to your iPhone home screen, or install the Android app.">
+  <title>Get Mint: free on Windows, Mac, Android, iPhone and the web</title>
+  <meta name="description" content="Mint is free everywhere: download it for Windows, Mac or Android, add it to your iPhone home screen, or use it in the browser.">
   <meta name="theme-color" content="#0f9d76">
   <link rel="icon" href="../icons/app-icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="../icons/apple-touch-icon.png">
@@ -27,7 +27,9 @@
     .tabs { display: inline-flex; gap: 4px; padding: 4px; background: var(--surface); border: 1px solid var(--line); border-radius: 999px; margin-bottom: 18px; }
     .tabs button { border: 0; background: none; color: var(--muted); font: inherit; font-weight: 700; padding: 9px 18px; border-radius: 999px; cursor: pointer; }
     .tabs button.is-on { background: var(--accent); color: #fff; }
-    .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+    .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+    .row { display: flex; flex-wrap: wrap; gap: 8px; }
+    .row .btn { flex: 1 1 200px; }
     .card { background: var(--surface); border: 1px solid var(--line); border-radius: 22px; padding: 22px; display: flex; flex-direction: column; gap: 12px; }
     .card.is-mine { border-color: var(--accent); box-shadow: 0 10px 40px rgba(15, 157, 118, .18); }
     .card h2 { margin: 0; font-size: 21px; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
@@ -61,15 +63,42 @@
     </header>
 
     <h1>Mint is <span>free</span> on every device.</h1>
-    <p class="lead">One app for your shared budgets and your spreadsheet templates: use it on the web, put it on your iPhone home screen, or install it on Android. Invite links work across all of them, so a couple on iPhone and Android can share one budget.</p>
+    <p class="lead">One app for your shared budgets and your spreadsheet templates: download it for Windows, Mac or Android, put it on your iPhone home screen, or use it in any browser. Invite links work across all of them, so a family on different devices can share one budget.</p>
 
     <div class="tabs" role="tablist" aria-label="Platform">
-      <button data-tab="iphone">iPhone</button>
+      <button data-tab="windows">Windows</button>
+      <button data-tab="mac">Mac</button>
       <button data-tab="android">Android</button>
-      <button data-tab="web">Computer</button>
+      <button data-tab="iphone">iPhone</button>
     </div>
 
     <div class="grid">
+      <section class="card" id="windows" data-card="windows">
+        <h2>🪟 Windows 10 &amp; 11 <span class="badge">Free</span></h2>
+        <ol>
+          <li>Tap <b>Download for Windows</b> and open <b>Mint-Windows-Setup.exe</b>.</li>
+          <li>Press <b>Install</b> (no admin rights needed). If Windows says it protected your PC, choose <b>More info → Run anyway</b>: the app is free and not code-signed yet.</li>
+          <li>Open <b>Mint</b> from the Start menu. The first time, pick your language and region.</li>
+        </ol>
+        <a class="btn" data-release="mint" data-asset="Mint-Windows-Setup.exe" href="https://github.com/juw12/projects/releases/download/mint/Mint-Windows-Setup.exe">Download for Windows</a>
+        <a class="small" data-release="mint" data-asset="Mint-Windows-Portable.zip" href="https://github.com/juw12/projects/releases/download/mint/Mint-Windows-Portable.zip">No install: portable .zip</a>
+        <button class="btn soft" data-install hidden>Or install from the browser</button>
+      </section>
+
+      <section class="card" id="mac" data-card="mac">
+        <h2>🍏 Mac <span class="badge">Free</span></h2>
+        <ol>
+          <li>Download the version for your Mac's chip (Apple menu → <b>About This Mac</b> shows <b>Chip</b> for Apple or <b>Processor</b> for Intel).</li>
+          <li>Open the <code>.dmg</code> and drag <b>Mint</b> to <b>Applications</b>.</li>
+          <li>The first time, macOS blocks it because it isn't notarized yet: open <b>System Settings → Privacy &amp; Security</b> and click <b>Open Anyway</b>.</li>
+        </ol>
+        <div class="row">
+          <a class="btn" data-mac="arm" data-release="mint" data-asset="Mint-macOS-AppleSilicon.dmg" href="https://github.com/juw12/projects/releases/download/mint/Mint-macOS-AppleSilicon.dmg">Apple chip (M1 and newer)</a>
+          <a class="btn soft" data-mac="intel" data-release="mint" data-asset="Mint-macOS-Intel.dmg" href="https://github.com/juw12/projects/releases/download/mint/Mint-macOS-Intel.dmg">Intel chip</a>
+        </div>
+        <button class="btn soft" data-install hidden>Or install from the browser</button>
+      </section>
+
       <section class="card" id="iphone" data-card="iphone">
         <h2>🍎 iPhone &amp; iPad <span class="badge">Free</span></h2>
         <ol>
@@ -87,23 +116,12 @@
         <ol>
           <li>Tap <b>Download for Android</b> below (a signed <code>.apk</code>, about 3&nbsp;MB).</li>
           <li>Open the file. If asked, allow your browser to <b>install unknown apps</b>.</li>
-          <li>Tap <b>Install</b>, then open <b>Mint</b>. It starts in Templates; tap <b>Budget</b> in the tab bar for your budgets. Web updates arrive automatically.</li>
+          <li>Tap <b>Install</b>, then open <b>Mint</b> and pick your language and region. New features arrive automatically.</li>
         </ol>
-        <a class="btn" data-asset="Mint-android.apk" href="https://github.com/juw12/projects/releases/download/mint-android/Mint-android.apk">Download for Android</a>
+        <a class="btn" data-release="mint" data-asset="Mint-Android.apk" data-fallback="https://github.com/juw12/projects/releases/download/mint-android/Mint-android.apk" href="https://github.com/juw12/projects/releases/download/mint/Mint-Android.apk">Download for Android</a>
         <p class="small" data-pending-note hidden>The Android build is on its way. Until then, open Mint in Chrome and tap <b>⋮ → Add to Home screen</b>. It installs as an app with the same features.</p>
         <button class="btn soft" data-install hidden>Or install the web app</button>
-        <p class="small">Prefer budgets first? Install the web app from Chrome instead: it opens straight on your budget. The native share sheet works in both.</p>
-      </section>
-
-      <section class="card" id="web" data-card="web">
-        <h2>💻 Computer <span class="badge">Free</span></h2>
-        <ol>
-          <li>Open <b>juw12.github.io/projects/mint</b> in any modern browser.</li>
-          <li>In Chrome or Edge, click <b>Install</b> in the address bar (or the button below) to get a desktop window.</li>
-          <li>Your data stays on this device until you share a budget, and shared budgets are end-to-end encrypted.</li>
-        </ol>
-        <a class="btn" href="index.html">Open Mint</a>
-        <button class="btn soft" data-install hidden>Install on this computer</button>
+        <p class="small">In the app, backups, CSV files and result cards open the share sheet, so you can save them to Files or Drive.</p>
       </section>
     </div>
 
@@ -112,7 +130,7 @@
       <div><b>On your computer?</b><p class="small">Scan with your phone's camera to open this page there and install Mint in a few taps.</p></div>
     </div>
 
-    <p class="note">No account needed for budgets, no ads, no subscription. Mint is a free portfolio project by <a href="https://juwenlie.pages.dev/" target="_blank" rel="noopener">Juwen Lie</a>. Source on <a href="https://github.com/juw12/projects/tree/main/apps/mint" target="_blank" rel="noopener">GitHub</a>; the Android app is built from that code (<a href="https://github.com/juw12/projects/releases/tag/mint-android" target="_blank" rel="noopener">release</a>).</p>
+    <p class="note">No account needed for budgets, no ads, no subscription. Mint is a free portfolio project by <a href="https://juwenlie.pages.dev/" target="_blank" rel="noopener">Juwen Lie</a>. Source on <a href="https://github.com/juw12/projects/tree/main/apps/mint" target="_blank" rel="noopener">GitHub</a>; the Windows, Mac and Android apps are built from that code and checked on each system before release (<a href="https://github.com/juw12/projects/releases/tag/mint" target="_blank" rel="noopener">release</a>). Your data stays on your device until you share a budget, and shared budgets are end-to-end encrypted.</p>
   </main>
 
   <script>
@@ -120,10 +138,12 @@
       var ua = navigator.userAgent || '';
       var isIOS = /iPhone|iPad|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
       var isAndroid = /Android/.test(ua);
+      var isMac = !isIOS && /Macintosh|Mac OS X/.test(ua);
       var standalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
-      var mine = isIOS ? 'iphone' : isAndroid ? 'android' : 'web';
+      var mine = isIOS ? 'iphone' : isAndroid ? 'android' : isMac ? 'mac' : 'windows';
       var hashTab = (location.hash || '').replace('#', '');
-      var current = ['iphone', 'android', 'web'].indexOf(hashTab) >= 0 ? hashTab : mine;
+      if (hashTab === 'web' || hashTab === 'computer') hashTab = isMac ? 'mac' : 'windows';
+      var current = ['windows', 'mac', 'android', 'iphone'].indexOf(hashTab) >= 0 ? hashTab : mine;
 
       function select(tab) {
         document.querySelectorAll('[data-tab]').forEach(function (b) {
@@ -174,20 +194,43 @@
         });
       });
 
-      // The Android build is published to the "mint-android" release. If it
+      // Macs with Apple chips report an Apple GPU; put that download first.
+      if (isMac) {
+        var appleChip = null;
+        try {
+          var gl = document.createElement('canvas').getContext('webgl');
+          var info = gl && gl.getExtension('WEBGL_debug_renderer_info');
+          var renderer = info ? String(gl.getParameter(info.UNMASKED_RENDERER_WEBGL)) : '';
+          if (/Apple M\d|Apple GPU/i.test(renderer)) appleChip = true;
+          else if (/Intel|AMD|Radeon/i.test(renderer)) appleChip = false;
+        } catch (e) {}
+        if (appleChip === false) {
+          var arm = document.querySelector('[data-mac="arm"]');
+          var intel = document.querySelector('[data-mac="intel"]');
+          arm.classList.add('soft');
+          intel.classList.remove('soft');
+          arm.parentNode.insertBefore(intel, arm);
+        }
+      }
+
+      // The apps are published to the "mint" release by the Mint apps workflow. If a file
       // isn't there yet, say so instead of linking to a missing file (and fail open on API errors).
       function markPending(link) {
+        if (link.dataset.fallback) {
+          link.href = link.dataset.fallback;
+          return;
+        }
         link.classList.add('pending');
         link.removeAttribute('href');
         link.setAttribute('aria-disabled', 'true');
-        link.textContent = link.dataset.asset.indexOf('.apk') > 0 ? 'Android app: building soon' : '.ipa: building soon';
+        link.textContent = link.textContent + ': coming soon';
         if (link.dataset.asset.indexOf('.apk') > 0) {
           document.querySelectorAll('[data-pending-note]').forEach(function (n) {
             n.hidden = false;
           });
         }
       }
-      fetch('https://api.github.com/repos/juw12/projects/releases/tags/mint-android', {
+      fetch('https://api.github.com/repos/juw12/projects/releases/tags/mint', {
         headers: { Accept: 'application/vnd.github+json' }
       }).then(function (res) {
         if (res.status === 404) return { assets: [] };
@@ -198,7 +241,7 @@
         var names = (release.assets || []).map(function (a) {
           return a.name;
         });
-        document.querySelectorAll('[data-asset]').forEach(function (link) {
+        document.querySelectorAll('[data-release="mint"][data-asset]').forEach(function (link) {
           if (names.indexOf(link.dataset.asset) < 0) markPending(link);
         });
       }).catch(function () {});

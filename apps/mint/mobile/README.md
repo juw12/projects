@@ -1,21 +1,18 @@
 # Mint for Android and iPhone
 
-Capacitor 8 shells around the live app (`https://juw12.github.io/projects/mint/app.html`). The app loads the same
-site, so features and fixes arrive without a new app release, and users keep one account on web, Android and iPhone.
+Capacitor 8 shells around the live app (`https://juw12.github.io/projects/mint/`). The app loads the same site, so
+features and fixes arrive without a new app release, and people keep one account and the same budgets on web,
+Windows, Mac, Android and iPhone. The site's front door opens Budget; Templates is one tap away.
 
-Since Mint 3.0 the site has two halves. The shell opens on Templates; **Budget** (`budget/`, formerly Kitty) is the
-first item in the tab bar and runs in the same WebView. It arrived without rebuilding the app because `server.url`
-did not change. Inside the app, Budget invites use the native share sheet (`@capacitor/share`); haptics and
-Back-button handling would need `@capacitor/haptics` and `@capacitor/app`, which this shell does not include;
-Budget skips them quietly when they are missing.
+What the shell adds (detected through `window.Capacitor` and the `MintApp/1.1` user-agent suffix):
 
-What the shell changes (detected in `web/js/app.js` through the `MintApp/1.0` user-agent suffix):
-
-- **Downloads.** WebViews ignore `<a download>`, so `.xlsx` / CSV / share cards / recovery codes are written to the
-  app cache with `@capacitor/filesystem` and handed to the phone's share sheet (`@capacitor/share`): save to Files or
-  Drive, or open in Excel / Google Sheets.
-- **Checkout links** open in the phone's browser instead of a popup.
-- The "Get the app" link and install page are hidden inside the app.
+- **Files.** WebViews ignore `<a download>`, so Budget backups, CSV exports and result cards and Templates
+  `.xlsx` / CSV files are written to the app cache with `@capacitor/filesystem` and handed to the share sheet
+  (`@capacitor/share`): save to Files or Drive, or open in Excel / Google Sheets.
+- **Back button and haptics** (`@capacitor/app`, `@capacitor/haptics`): Back closes sheets and steps back through
+  Budget before leaving the app; adding an expense and limit warnings give a light vibration.
+- **Invites** open in the app and use the native share sheet; checkout links open in the phone's browser.
+- The first launch asks for language and region like the website does.
 - Brand icon (adaptive), splash and an offline page (`www/offline.html`) when the site cannot load.
 
 ## Build
@@ -30,19 +27,23 @@ npm run ios:prepare                # macOS with Xcode: cap add/sync ios + icons,
 
 Release signing reads `MINT_ANDROID_KEYSTORE_PATH` and `MINT_ANDROID_SIGNING_PASSWORD` (PKCS#12, alias `mint`).
 Keep the keystore safe: Android only installs updates signed with the same key. Its SHA-256 certificate fingerprint
-is in `android-certificate-sha256.txt`.
+is in `android-certificate-sha256.txt`, and CI refuses to publish an APK signed with anything else.
+
+The `Mint apps` workflow (`.github/workflows/mint-apps.yml`) builds the release and debug APKs with the key from the
+repository secrets, opens the debug build on an Android emulator (`scripts/android-smoke.py`: Mint loads, the
+native plugins are there, no crash) and publishes `Mint-Android.apk` to the `mint` release. It also refreshes
+`Mint-android.apk` on the older `mint-android` release so earlier links keep working.
 
 ## Distribution
 
-- **Android:** `Mint-android.apk` on the `mint-android` release of this repository
-  (<https://github.com/juw12/projects/releases/download/mint-android/Mint-android.apk>). Open it on the phone and
-  allow installs from the browser. Google Play needs a developer account ($25 once).
+- **Android:** <https://github.com/juw12/projects/releases/download/mint/Mint-Android.apk>. Open it on the phone and
+  allow installs from the browser; it updates an earlier Mint app in place. Google Play needs a developer account
+  ($25 once).
 - **iPhone:** Apple only installs apps through the App Store/TestFlight (Apple Developer Program, $99/year) or Xcode.
   Until then, iPhone users open Mint in Safari → Share → Add to Home Screen, which runs full-screen with its icon.
 
 ## Known limits
 
-- Needs a connection (the marketplace and accounts are online); the offline page offers a retry.
-- Budget's CSV export, JSON backup and result-card downloads are not routed through the download bridge above, so
-  in the app they need Chrome or the installed web app.
-- Built and signed on a Mac without an emulator or device run; the iOS project has not been compiled (no Xcode).
+- Needs a connection on first launch (the marketplace and accounts are online); the offline page offers a retry.
+- Phone notifications from Templates are not available inside the app (use Chrome or the installed web app).
+- The iOS project has not been compiled (no Xcode in CI for Mint yet).

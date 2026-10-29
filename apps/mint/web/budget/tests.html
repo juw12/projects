@@ -20,7 +20,7 @@
   <script src="js/sync.js"></script>
   <script>
     (async function () {
-      const K = window.Kitty;
+      const K = window.MintBudget;
       const out = document.getElementById('out');
       const results = [];
       function log(ok, name, detail) {
@@ -209,7 +209,7 @@
           wrongKeyFailed = true;
         }
         check('wrong key cannot decrypt', wrongKeyFailed);
-        const link = K.shareLink('https://x.test/kitty/index.html?view=home', demo.id, keyStr, K.DEFAULT_RELAY, 'Our home');
+        const link = K.shareLink('https://x.test/mint/budget/index.html?view=home', demo.id, keyStr, K.DEFAULT_RELAY, 'Our home');
         const parsed = K.parseJoin(link.split('#')[1]);
         eq('share link round trip', [parsed.bookId, parsed.key, parsed.relay, parsed.name], [demo.id, keyStr, K.DEFAULT_RELAY, 'Our home']);
         check('key stays in fragment', link.split('#')[0].indexOf(keyStr) < 0);
@@ -258,7 +258,7 @@
       const failed = results.filter((r) => !r.ok).length;
       document.title = (failed ? 'FAIL ' : 'PASS ') + (results.length - failed) + '/' + results.length;
       out.innerHTML += '\n' + (failed ? '<span class="fail">' + failed + ' failed</span>' : '<span class="pass">All ' + results.length + ' passed</span>') + '\n';
-      window.__kittyTests = { done: true, failed: failed, results: results };
+      window.__mintTests = { done: true, failed: failed, results: results };
     })();
   </script>
 </body>

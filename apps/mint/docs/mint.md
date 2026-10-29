@@ -1,10 +1,11 @@
 # Mint — product note
 
-## Mint 3.0: one app for money and spreadsheets
+## One app for money and spreadsheets
 
-Kitty, the shared-budget app, became Mint **Budget** and the home screen of Mint; the template studio and
-marketplace became Mint **Templates**. The audiences overlap (people who already run their money in sheets),
-so the two now share one name, install, theme and language, and each points to the other. Budget stays
+Mint has two halves: **Budget**, the shared budget and home screen, and **Templates**, the template studio and
+marketplace. The audiences overlap (people who already run their money in sheets), so they share one name,
+install, theme and language, and each points to the other. Since 3.1 Mint asks for a language and a region on
+the first visit (the region sets the currency) and ships as an app for Windows, Mac and Android. Budget stays
 account-free and local-first; Templates keeps its accounts and API. The rest of this note is about Templates;
 see `../README.md` for both halves.
 
@@ -47,8 +48,8 @@ promote with a generated content kit → buyer pays the seller → file unlocks.
 ## Status
 
 - **Live:**
-  - the PWA on GitHub Pages, plus an Android app (Capacitor shell, `Mint-android.apk` on the
-    `mint-android` release) and an iPhone home-screen app (Add to Home Screen);
+  - the PWA on GitHub Pages, desktop apps for Windows and Mac, an Android app (all on the `mint` release,
+    built and checked by the `Mint apps` workflow) and an iPhone home-screen app (Add to Home Screen);
   - the API on Cloudflare (https://mint-api.juw12.workers.dev): Worker plus a SQLite Durable Object, Workers AI;
   - accounts that work across devices, with recovery codes, password change and account deletion;
   - the marketplace, orders (expire after 14 days), affiliate ledger and payouts;
@@ -65,7 +66,8 @@ promote with a generated content kit → buyer pays the seller → file unlocks.
     → commission paid → change password → forgot password with recovery code → delete account →
     install page → offline fallback.
   - 160 static and JS-core checks.
-  - The Android APK is built and signed locally; it has not been run on a physical phone.
+  - The Windows, Mac and Android apps are opened and checked on their own OS in CI (Windows: installed, run and
+    uninstalled; Android: on an emulator); none has been tried on a physical phone or a reviewer's own Mac.
 
 ## Next decisions
 

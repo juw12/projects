@@ -5,7 +5,7 @@ Mint is one app with two halves:
 - **Budget** (`web/budget/`, the home screen): a budget you share like a Google Sheet, with an
   interface built only for money. It plans from your income, works out your money personality,
   warns you before a limit breaks and tracks your investments. No account; shared budgets sync
-  end-to-end encrypted. Until Mint 3.0 this was a separate app called **Kitty**.
+  end-to-end encrypted.
 - **Templates** (`web/app.html`): describe a spreadsheet in English or Bahasa Indonesia and
   **Mint AI** designs a themed Excel / Google Sheets template with live formulas, dropdowns, colour
   rules and a dashboard. Tweak it with words or by hand, then sell it on the marketplace. Buyers pay
@@ -15,8 +15,8 @@ Mint is one app with two halves:
 [Budget](https://juw12.github.io/projects/mint/budget/) ·
 [demo household](https://juw12.github.io/projects/mint/budget/demo.html) ·
 [Templates](https://juw12.github.io/projects/mint/app.html) ·
-[Get it for iPhone & Android](https://juw12.github.io/projects/mint/budget/get.html) ·
-[Android app (APK)](https://github.com/juw12/projects/releases/download/mint-android/Mint-android.apk) ·
+[Get it for Windows, Mac, Android & iPhone](https://juw12.github.io/projects/mint/budget/get.html) ·
+[downloads](https://github.com/juw12/projects/releases/tag/mint) ·
 [Budget self-test](https://juw12.github.io/projects/mint/budget/tests.html) ·
 API `https://mint-api.juw12.workers.dev/api/health`
 
@@ -31,25 +31,25 @@ API `https://mint-api.juw12.workers.dev/api/health`
 - **One install.** A single manifest (`web/manifest.webmanifest`) opens on Budget and covers the
   whole of `/projects/mint/`. Its `id` is the one Mint Templates always had, so existing installs
   carry over. Shortcuts: Add expense, Open sheet, Create a template, Template market.
+- **Language and region first.** `web/js/locale.js` loads before everything else on every Budget and
+  Templates page. On the first visit it asks for a language (English, Bahasa Indonesia, 简体中文, Español)
+  and a region (29 choices); the region sets the currency of new budgets and templates. Both can be changed
+  later (Budget: **Settings → Preferences**). Stored as `mint.lang`, `mint.region`, `mint.currency`.
+  `?demo=1`, `demo.html`, `tests.html` and `get.html` never stop at the question.
 - **Shared settings.** Light / Dark / System lives in `mint.theme` and both halves follow it, even
-  in a tab that is already open. Language too: Budget keeps `kitty.lang` (en / id / zh / es) and
-  Templates `mint.lang` (en / id); each writes both, and Chinese or Spanish show Templates in English.
+  in a tab that is already open. Both halves read the one `mint.lang`; Templates is translated into
+  Indonesian, so Chinese and Spanish show Templates in English.
 - **Two service workers.** `web/budget/sw.js` (scope `budget/`, caches `mint-budget-v…`) and
   `web/sw.js` (scope `mint/`, caches `mint-v…`). Each deletes only its own old caches.
 
-### Coming from Kitty
+### Budgets saved by older versions
 
-- `/projects/kitty/…` pages are redirect stubs written by `scripts/build_site.py`. They keep the
-  hash and query, so invite links (`#join=…`) still open the right budget. `get.html`, `demo.html`
-  and `tests.html` redirect too.
-- `/projects/kitty/version.json` serves the current Budget release, so a Kitty 1.5 tab that is still
-  open announces the update and reloads into Mint. `/projects/kitty/sw.js` is a retiring worker that
-  clears the old `kitty-*` caches and reloads its pages.
-- Budgets, profiles and shares carry over untouched. Storage keys (`kitty.*`), the `window.Kitty`
-  namespace, the `kitty` BroadcastChannel and the relay topics (`kitty-<bookId>`) keep their old
-  names on purpose: renaming them would strand existing data and split live shares.
-- A Kitty icon already on a home screen opens the redirect and lands in Budget. Installing Mint
-  gives the new icon and app window.
+- `locale.js` moves any budget data saved under the pre-3.1 storage prefix to `mint.budget.*` once, before
+  any other script reads storage, then removes the old keys. Profiles, budgets, activity and sync state carry over.
+- Shared budgets sync on relay topics `mint-<bookId>`. A device coming from an older version holds the whole
+  budget locally and posts a full snapshot after its first replay on the new topic, so nothing is lost.
+- Addresses from before Mint 3.0 are forwarded by redirect stubs that `scripts/build_site.py` writes (hash and
+  query kept, so old invite links still open the right budget), and a retiring worker there clears the old caches.
 
 ## Budget
 
@@ -78,9 +78,16 @@ API `https://mint-api.juw12.workers.dev/api/health`
 
 | Platform | How to get it | What you get |
 | --- | --- | --- |
-| **Web** (any computer or phone) | Open https://juw12.github.io/projects/mint/ | The full app. Chrome/Edge's install button gives a desktop window that opens on Budget. |
+| **Windows 10/11** | [`Mint-Windows-Setup.exe`](https://github.com/juw12/projects/releases/download/mint/Mint-Windows-Setup.exe) (per-user, no admin) or the [portable zip](https://github.com/juw12/projects/releases/download/mint/Mint-Windows-Portable.zip) | Mint in its own window (Edge WebView2, `desktop/`). Budgets persist between launches; exports save to Downloads. |
+| **Mac** | [`Mint-macOS-AppleSilicon.dmg`](https://github.com/juw12/projects/releases/download/mint/Mint-macOS-AppleSilicon.dmg) or [`Mint-macOS-Intel.dmg`](https://github.com/juw12/projects/releases/download/mint/Mint-macOS-Intel.dmg) | The same window app with WebKit. Not notarized: first open needs **Privacy & Security → Open Anyway**. |
+| **Android** | [`Mint-Android.apk`](https://github.com/juw12/projects/releases/download/mint/Mint-Android.apk) | The Capacitor app in `mobile/`: opens on Budget, Back button, haptics, and backups / CSV / result cards / .xlsx go to the share sheet. Signed with the Mint key, so it updates earlier installs. |
 | **iPhone / iPad** | Safari → [get.html](https://juw12.github.io/projects/mint/budget/get.html) → Share → **Add to Home Screen** | Full-screen home-screen app with its own icon, offline Budget and app shortcuts. |
-| **Android** | [`Mint-android.apk`](https://github.com/juw12/projects/releases/download/mint-android/Mint-android.apk), or install the web app from Chrome | The APK is the Capacitor shell in `mobile/`. It loads the live site, opens on Templates and has Budget first in the tab bar; invites use the native share sheet. The Chrome-installed web app opens straight on Budget. |
+| **Web** (any computer or phone) | Open https://juw12.github.io/projects/mint/ | The full app; Chrome/Edge can also install it as a window. |
+
+The `Mint apps` workflow (`.github/workflows/mint-apps.yml`) builds the Windows, Mac and Android apps, opens each one
+on its own OS (the Windows installer is installed, run and uninstalled; the APK runs on an emulator) and publishes the
+ones that pass to the [`mint` release](https://github.com/juw12/projects/releases/tag/mint). The apps load the live site,
+so new features arrive without reinstalling.
 
 App Store and Play Store listings are not included: they need paid developer accounts (Apple $99/year, Google $25 once).
 
@@ -114,7 +121,7 @@ python apps/mint/budget/server/relay.py --port 8787 --data ./relay-data
 `budget/server/relay.py` is a single stdlib-only file that implements the subset of the ntfy API Budget uses
 (`POST /<topic>`, `GET /<topic>/sse?since=…`, `GET /<topic>/json?poll=1`, `GET /health`). It persists messages to
 JSONL, has CORS, a 64 KB message limit and per-IP rate limiting, and never logs message bodies. Settings:
-`--port` / `PORT`, `--data` / `MINT_RELAY_DATA`, `MINT_RELAY_VERBOSE` (the old `KITTY_RELAY_*` names still work).
+`--port` / `PORT`, `--data` / `MINT_RELAY_DATA`, `MINT_RELAY_VERBOSE`.
 
 ### Budget files
 
@@ -215,7 +222,8 @@ apps/mint/
   web/                      static app (GitHub Pages, /projects/mint/)
     index.html              front door: template links → app.html, everything else → budget/
     manifest.webmanifest    the one Mint install (opens on Budget)   icons/  shared by both halves
-    budget/                 Budget (was Kitty): index/demo/get/tests/web/mobile.html, styles.css, sw.js, version.json
+    budget/                 Budget: index/demo/get/tests/web/mobile.html, styles.css, sw.js, version.json
+    js/locale.js            first-visit language & region, storage migration (loaded first by both halves)
       js/                   core, sync, quiz, ui-kit, app, i18n + lang/{id,zh,es}.js
     js/core.js              Templates generator, tweaks, formula engine, themes, promo kit, AI prompt (pure; also bundled into the worker)
     js/xlsx.js              .xlsx / CSV writer
@@ -235,7 +243,8 @@ apps/mint/
   tests/test_core.py        Templates static + JS core/xlsx checks
   tests/test_budget_*.py    Budget: web files and cross-links, translations, relay
   tools/build_seed.py       regenerates data/seed.json
-  mobile/                   Capacitor 8 Android/iOS shell (server.url = live Templates, UA MintApp/1.0); see mobile/README.md
+  desktop/                  Windows + Mac app (pywebview window, PyInstaller, Inno Setup); see desktop/README.md
+  mobile/                   Capacitor 8 Android/iOS shell (server.url = live Mint, UA MintApp/1.1); see mobile/README.md
 apps/mint/cloud/github-workflow.yml   (move to .github/workflows/) test on local workerd → deploy from main → live smoke test (incl. AI)
 ```
 
@@ -243,7 +252,7 @@ apps/mint/cloud/github-workflow.yml   (move to .github/workflows/) test on local
 
 ```bash
 python3 scripts/build_site.py && python3 -m http.server -d _site 8000
-# open http://127.0.0.1:8000/mint/ (front door), /mint/budget/demo.html (sample household), /kitty/ (old links)
+# open http://127.0.0.1:8000/mint/ (front door), /mint/budget/demo.html (sample household)
 
 cd apps/mint/cloud && npm install
 npm run dev                                   # API on http://127.0.0.1:8787 (local SQLite)
@@ -251,7 +260,7 @@ node test/api_test.mjs http://127.0.0.1:8787  # 30 end-to-end API checks (starts
 # open http://127.0.0.1:8000/mint/app.html?api=http://127.0.0.1:8787   (?api= is remembered; clear with localStorage "mint.api")
 
 python3 apps/mint/tests/test_core.py          # Templates core, xlsx, front door, manifest, workers
-python3 apps/mint/tests/test_budget_web.py    # Budget files, refs, links to Templates, shared keys, cache isolation, Kitty redirects
+python3 apps/mint/tests/test_budget_web.py    # Budget files, refs, language & region, storage migration, apps, cache isolation, old-address redirects
 python3 apps/mint/tests/test_budget_i18n.py   # translation table valid, language packs up to date, load order
 python3 apps/mint/tests/test_budget_relay.py  # relay: publish/poll/SSE, 400/413, persistence
 ```
@@ -268,8 +277,10 @@ Deploy the API: `cd apps/mint/cloud && npx wrangler deploy` (after `npx wrangler
 
 - **Budget:** bump `K.VERSION` in `web/budget/js/core.js` and `web/budget/version.json` together (two or three short
   release notes in English, Indonesian, Chinese and Spanish), and `CACHE` in `web/budget/sw.js`.
-  `test_budget_web.py` fails if the versions drift apart. Once the site deploys, open copies of Budget (and old Kitty
-  tabs, through `/projects/kitty/version.json`) notice the new version, tell their users and update themselves.
+  `test_budget_web.py` fails if the versions drift apart. Once the site deploys, open copies of Budget notice the
+  new version, tell their users and update themselves.
+- **Apps:** bump `VERSION` in `desktop/mint_app.py` with the Budget version and `version` in `mobile/package.json`
+  for a new Android build; pushing changes under `desktop/` or `mobile/` rebuilds and republishes them.
 - **Templates:** bump `CACHE` in `web/sw.js` so browsers pick up the new shell; the Worker deploys from `cloud/`.
 - Update `version` for `mint` in `scripts/apps.json`; the portfolio card reads it.
 
@@ -281,9 +292,8 @@ Deploy the API: `cd apps/mint/cloud && npx wrangler deploy` (after `npx wrangler
   had a native-speaker review.
 - Templates speaks English and Indonesian only. Strings missing from its dictionary (and server error messages not
   listed there) fall back to English; the legal pages and the downloaded .xlsx / sheet contents stay in English.
-- The Android APK opens on Templates (Budget is one tap away) and was not rebuilt for the merge: the shell loads the
-  live site, so Budget arrived without an app update. Its download bridge covers Templates files; for Budget's CSV,
-  backup and result-card downloads use Chrome or the installed web app.
+- The desktop apps are not code-signed or notarized (SmartScreen / Gatekeeper ask once). They need an internet
+  connection the first time they open; after that Budget also works offline.
 - Automatic payments use each seller's own provider account (no platform money flow, so no
   payment licence needed); they were tested against local provider mocks and the real APIs'
   key validation, not with a real paid transaction. Mint collecting a fee automatically would
@@ -291,7 +301,8 @@ Deploy the API: `cd apps/mint/cloud && npx wrangler deploy` (after `npx wrangler
 - Email needs a Resend API key + verified sender domain; until then notifications are Web Push
   + in-app badges. Push doesn't work inside the Android WebView app (use Chrome / installed PWA).
 - iPhone: no App Store build (needs the Apple Developer Program and Xcode); the Add to Home
-  Screen PWA is the iPhone app. The Android APK is sideloaded, not on Google Play.
+  Screen PWA is the iPhone app. The Android APK is sideloaded, not on Google Play; neither is the
+  Microsoft Store or Mac App Store.
 - Privacy and Terms pages are plain-language summaries, not lawyer-reviewed.
 - Everything in Templates lives in one Durable Object. That is fine for thousands of users and
   listings, but would need sharding at real scale.

@@ -8,7 +8,7 @@
  */
 (function (root) {
   'use strict';
-  const K = (root.Kitty = root.Kitty || {});
+  const K = (root.MintBudget = root.MintBudget || {});
 
   const LANGS = [
     { code: 'en', name: 'English', short: 'EN', locale: 'en-US' },
@@ -16,10 +16,8 @@
     { code: 'zh', name: '简体中文', short: '中文', locale: 'zh-CN' },
     { code: 'es', name: 'Español', short: 'ES', locale: 'es-ES' },
   ];
-  const STORE_KEY = 'kitty.lang';
-  // Mint Templates (../app.html) keeps its own choice under 'mint.lang' (English / Indonesian only).
-  // Both halves of Mint read and write each other's key so the whole app speaks one language.
-  const SHARED_KEY = 'mint.lang';
+  // One language for all of Mint (Budget and Templates), chosen on the first visit (../js/locale.js).
+  const STORE_KEY = 'mint.lang';
   const dicts = { en: {} };
   const compiled = {};
   const missing = new Set();
@@ -36,8 +34,6 @@
       if (fromUrl && supported(fromUrl)) return fromUrl;
       const stored = root.localStorage.getItem(STORE_KEY);
       if (stored && supported(stored)) return stored;
-      const shared = root.localStorage.getItem(SHARED_KEY);
-      if (shared && supported(shared)) return shared;
     } catch (e) {
       /* storage blocked: fall through to the browser language */
     }
@@ -238,14 +234,12 @@
     lang = code;
     try {
       root.localStorage.setItem(STORE_KEY, code);
-      // Templates only speaks English and Indonesian; anything else shows it in English.
-      root.localStorage.setItem(SHARED_KEY, code === 'id' ? 'id' : 'en');
     } catch (e) {
       /* ignore */
     }
     if (root.document) {
       root.document.documentElement.lang = info(code).locale;
-      if (!opts || !opts.silent) root.dispatchEvent(new root.CustomEvent('kitty:lang', { detail: { lang: code } }));
+      if (!opts || !opts.silent) root.dispatchEvent(new root.CustomEvent('mint:lang', { detail: { lang: code } }));
       translateDOM(root.document.body);
     }
   }
