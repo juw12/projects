@@ -9,7 +9,9 @@ class VitalsViewController: CAPBridgeViewController {
     }
 }
 
-@objc(VitalsPhonePlugin)
+// The Objective-C name matches the plugin id, so Capacitor also finds it on first call
+// (CapacitorBridge.handleJSCall falls back to NSClassFromString(pluginId)).
+@objc(VitalsPhone)
 public class VitalsPhonePlugin: CAPPlugin, CAPBridgedPlugin {
     public let identifier = "VitalsPhonePlugin"
     public let jsName = "VitalsPhone"
