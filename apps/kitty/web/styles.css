@@ -854,3 +854,36 @@ input:focus, select:focus, textarea:focus { box-shadow: 0 0 0 3px color-mix(in s
   .w-hero h1 { font-size: 38px; }
   .lang-select select { max-width: 104px; }
 }
+
+/* ---------- 1.3: quick setup + getting-started checklist ---------- */
+.w-setup-note { margin: 10px 0 0; font-size: 13px; color: var(--muted); }
+.setup-card { padding: 18px 20px; margin-bottom: 16px; }
+.setup-card .card-head { align-items: flex-start; margin-bottom: 10px; }
+.setup-card h3 { margin: 2px 0 0; }
+.setup-progress { height: 6px; border-radius: 999px; background: var(--surface-2); overflow: hidden; margin-bottom: 8px; }
+.setup-progress span { display: block; height: 100%; border-radius: inherit; background: var(--accent); transition: width .4s ease; }
+.setup-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.setup-steps li { display: grid; grid-template-columns: 24px 1fr auto; align-items: center; gap: 12px; padding: 10px 2px; border-top: 1px solid var(--line); }
+.setup-steps li:first-child { border-top: 0; }
+.setup-check { width: 22px; height: 22px; border-radius: 50%; border: 1.5px solid var(--line-strong, var(--line)); display: grid; place-items: center; color: #fff; }
+.setup-steps li.is-done .setup-check { background: var(--good); border-color: var(--good); }
+.setup-steps li.is-next .setup-check { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.setup-text { display: grid; gap: 2px; min-width: 0; }
+.setup-text b { font-size: 14px; font-weight: 600; }
+.setup-text small { font-size: 12.5px; color: var(--muted); line-height: 1.4; }
+.setup-steps li.is-done .setup-text b { color: var(--muted); font-weight: 500; text-decoration: line-through; text-decoration-color: var(--line); }
+.qa-auto { margin: -4px 0 0; }
+@media (max-width: 560px) {
+  .setup-card { padding: 16px; }
+  .setup-steps li { grid-template-columns: 22px 1fr auto; gap: 10px; }
+}
+.quiz-body > .q-input { flex: none; }
+.setup-steps li { padding: 8px 2px; }
+@media (max-width: 760px) {
+  .hero-card { display: block; position: relative; text-align: left; }
+  .hero-card .hero-ring { position: absolute; top: 18px; right: 16px; }
+  .hero-card .hero-ring svg { width: 72px; height: 72px; }
+  .hero-card .hero-ring small { display: none; }
+  .hero-card .hero-text > :not(.row-gap) { padding-right: 84px; }
+  .hero-card .hero-amount { font-size: 30px; }
+}

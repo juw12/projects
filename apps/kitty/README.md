@@ -13,9 +13,11 @@ encrypted.
 
 | Area | What it does |
 | --- | --- |
+| **30-second setup** | Three questions (name, take-home pay, who it is for) and Kitty builds a ready-to-use budget. Currency is guessed from your language and device. A *Getting started* checklist on Home walks through the first expense, the plan, inviting people and the optional quiz, then disappears. |
 | **Onboarding quiz** | 14 quick questions on needs, wants and behaviour → 5 traits (spender↔saver, spontaneous↔planner, cautious↔bold, independent↔generous, calm↔avoidant) → one of 6 personas: 🐿️ Squirrel, 🦉 Owl, 🦋 Butterfly, 🦁 Lion, 🐬 Dolphin, 🐢 Turtle. |
 | **Plan from income** | Converts take-home pay into needs / wants / savings / investing envelopes tuned to the persona, then adjusts for emergency fund, debt and actual rent (it never budgets housing below what you pay). One click turns the plan into envelopes and goals. |
 | **Overview** | "Left to spend" ring, safe daily spend, spending pace vs. budget, category donut, budget bars, warnings, who-spent-what, live activity and goals. |
+| **Fast entry** | Type the amount and what it was; Kitty picks the category from your own history first, then common words in English, Indonesian, Chinese and Spanish ("coffee", "Grab", "listrik", "午饭", "almuerzo"). Recent descriptions autocomplete. |
 | **Sheet** | Spreadsheet-style grid: edit any cell inline, Enter moves down, sort, filter, search, add rows, CSV import and export. Remote edits flash in place. |
 | **Budget** | Income sources (monthly/weekly/yearly), left-to-assign, "Kitty's plan vs actual" with *Apply plan*, and editable envelopes by group. |
 | **Warnings** | Alert at a configurable threshold (default 80%), when a limit is over, and when the current pace will overspend before month end. Shown as toasts, in the bell and (optionally) as browser notifications, including for edits made by other people. Quick-add shows "this brings Groceries to 86%" before you save. |
@@ -99,7 +101,7 @@ python apps/kitty/tests/test_mobile_static.py  # Capacitor config, icon sizes, r
 python apps/kitty/tests/test_i18n.py          # translation table valid, language packs up to date, load order
 ```
 
-In the browser, open `tests.html` for 87 core tests (merge, crypto, parsing, budgets, alerts, planner, portfolio). Add `?relay=https://ntfy.sh` or your relay URL for a live two-client sync test, which brings the total to 92.
+In the browser, open `tests.html` for 99 core tests (merge, crypto, parsing, budgets, alerts, planner, portfolio). Add `?relay=https://ntfy.sh` or your relay URL for a live two-client sync test, which brings the total to 104.
 
 ## Caveats
 

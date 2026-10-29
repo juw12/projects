@@ -793,11 +793,62 @@
 
   function go(view) {
     S.view = VIEWS.some((v) => v.id === view) ? view : 'home';
+    if (S.view === 'budget' && S.profile && !(S.profile.seen || {}).budget) {
+      S.profile.seen = Object.assign({}, S.profile.seen, { budget: true });
+      saveProfile();
+    }
     const url = new URL(location.href);
     url.searchParams.set('view', S.view);
     url.searchParams.delete('demo');
     history.replaceState(null, '', url.pathname + url.search + url.hash);
     render();
+  }
+
+  // ================================================================ getting-started checklist
+  function setupSteps() {
+    const b = S.book;
+    return [
+      { id: 'create', done: true, title: 'Create your budget' },
+      { id: 'expense', done: K.list(b, 'txns').length > 0, title: 'Add your first expense', body: 'Tap + whenever you spend. It takes five seconds.', act: 'quick-add' },
+      { id: 'plan', done: !!(S.profile.seen || {}).budget, title: 'Check your monthly plan', body: 'See how Kitty split your income. Change any limit with a tap.', act: 'go', view: 'budget' },
+      { id: 'share', done: !!b.room, title: 'Invite your partner or housemates', body: 'Optional. Everyone edits the same budget, live.', act: 'go', view: 'share' },
+      { id: 'quiz', done: !!S.profile.persona, title: 'Find your money animal', body: 'Optional 2-minute quiz for tips that fit you.', act: 'quiz' },
+    ];
+  }
+
+  function checklistVisible() {
+    if (!S.book || !S.profile || S.profile.demo || String(S.book.id).indexOf('demo-') === 0) return false;
+    if ((S.profile.hideSetup || {})[S.book.id]) return false;
+    return setupSteps().some((s) => !s.done);
+  }
+
+  function checklistCard() {
+    if (!checklistVisible()) return '';
+    const steps = setupSteps();
+    const done = steps.filter((s) => s.done).length;
+    const next = steps.find((s) => !s.done);
+    return (
+      '<div class="card setup-card">' +
+      '<div class="card-head"><div><p class="eyebrow">Getting started</p><h3>' + done + ' of ' + steps.length + ' done</h3></div>' +
+      '<button class="link" data-act="hide-setup">Hide</button></div>' +
+      '<div class="setup-progress" aria-hidden="true"><span style="width:' + Math.round((done / steps.length) * 100) + '%"></span></div>' +
+      '<ol class="setup-steps">' +
+      steps
+        .map((s) => {
+          const isNext = s === next;
+          return (
+            '<li class="' + (s.done ? 'is-done' : isNext ? 'is-next' : '') + '">' +
+            '<span class="setup-check">' + (s.done ? icon('check', 14) : '') + '</span>' +
+            '<div class="setup-text"><b>' + esc(s.title) + '</b>' + (isNext && s.body ? '<small>' + esc(s.body) + '</small>' : '') + '</div>' +
+            (s.done
+              ? ''
+              : '<button class="btn btn-sm ' + (isNext ? 'btn-primary' : 'btn-soft') + '" data-act="' + s.act + '"' + (s.view ? ' data-view="' + s.view + '"' : '') + '>' + (isNext ? 'Start' : 'Open') + '</button>') +
+            '</li>'
+          );
+        })
+        .join('') +
+      '</ol></div>'
+    );
   }
 
   // ================================================================ helpers for views
@@ -966,6 +1017,7 @@
         '</div>'
       : '';
     return (
+      checklistCard() +
       '<div class="grid-hero">' + hero + tipCard + '</div>' +
       kpis +
       '<div class="grid-2">' + paceCard + donutCard + '</div>' +
@@ -1438,18 +1490,19 @@
       '<div class="row-gap">' +
       (hasProfile
         ? '<button class="btn btn-primary btn-lg" data-act="new-book">' + icon('plus', 18) + ' Create a budget</button>'
-        : '<button class="btn btn-primary btn-lg" data-act="quiz">Get started free ' + icon('right', 18) + '</button>') +
+        : '<button class="btn btn-primary btn-lg" data-act="setup">Get started free ' + icon('right', 18) + '</button>') +
       '<button class="btn btn-ghost btn-lg" data-act="demo">See a live example</button></div>' +
+      (hasProfile ? '' : '<p class="w-setup-note">3 quick questions · about 30 seconds</p>') +
       '<ul class="trust"><li>' + icon('lock', 14) + '<span>No sign-up, no ads</span></li><li>' + icon('shield', 14) + '<span>End-to-end encrypted</span></li><li>' + icon('users', 14) + '<span>Share with anyone</span></li></ul></div>' +
       '<div class="w-mock" aria-hidden="true">' + welcomeMock() + '</div></section>' +
       '<section class="w-features">' + features.map((f, i) => '<div class="card feat" style="--i:' + i + '"><span class="feat-icon">' + icon(f[0], 18) + '</span><h3>' + esc(f[1]) + '</h3><p>' + esc(f[2]) + '</p></div>').join('') + '</section>' +
-      '<section class="w-animals"><h2>Six money animals. Which one are you?</h2><p class="w-sub">Answer 14 quick questions about needs, wants and habits. Kitty builds your budget around the result.</p><div class="animals">' +
+      '<section class="w-animals"><h2>Six money animals. Which one are you?</h2><p class="w-sub">Take the optional 2-minute quiz after setup and Kitty tunes your budget and tips to you.</p><div class="animals">' +
       Object.keys(K.PERSONAS).map((k) => '<div class="animal" style="--pc:' + K.PERSONAS[k].color + '"><span>' + K.PERSONAS[k].emoji + '</span><b>' + esc(K.PERSONAS[k].name) + '</b><small>' + esc(K.PERSONAS[k].tagline) + '</small></div>').join('') +
       '</div></section>' +
-      '<section class="w-cta"><div><h2>Start your shared budget in two minutes.</h2><p>Free forever on web, iPhone and Android. No account needed.</p></div>' +
+      '<section class="w-cta"><div><h2>Set up your budget in 30 seconds.</h2><p>Free forever on web, iPhone and Android. No account needed.</p></div>' +
       (hasProfile
         ? '<button class="btn btn-primary btn-lg" data-act="new-book">' + icon('plus', 18) + ' Create a budget</button>'
-        : '<button class="btn btn-primary btn-lg" data-act="quiz">Get started free ' + icon('right', 18) + '</button>') +
+        : '<button class="btn btn-primary btn-lg" data-act="setup">Get started free ' + icon('right', 18) + '</button>') +
       '</section>' +
       '<footer class="w-foot">' + (NATIVE ? '' : '<a class="get-app-link" href="' + GET_APP_URL + '">' + icon('download', 14) + '<span>Get Kitty for iPhone & Android</span></a>') + '<span>© Kitty ' + esc(K.VERSION) + '</span><span>Tips are educational, not financial advice.</span></footer>' +
       '</div>';
@@ -1484,11 +1537,54 @@
     };
   }
 
+  function defaultCurrency() {
+    if (S.book) return cur();
+    if (S.profile && S.profile.currency) return S.profile.currency;
+    const deviceLangs = navigator.languages && navigator.languages.length ? Array.from(navigator.languages) : [navigator.language];
+    // A chosen non-English UI language is a stronger hint than the browser default (e.g. 中文 -> CNY).
+    return K.guessCurrency(K.i18n.lang === 'en' ? deviceLangs : [K.i18n.locale].concat(deviceLangs));
+  }
+
+  // Three questions (name, take-home pay, who it is for), then a ready-made budget. The quiz stays optional.
+  function startSetup() {
+    const hadProfile = !!S.profile;
+    const known = hadProfile && S.profile.facts ? S.profile.facts : {};
+    K.quizUI.open({
+      only: ['name', 'income', 'household'],
+      skipName: hadProfile,
+      skipIntro: true,
+      quick: true,
+      initial: { income: known.income || undefined, household: known.household || undefined },
+      currency: defaultCurrency(),
+      onCancel: () => {},
+      onDone: (answers, result, currency) => {
+        const base = hadProfile ? S.profile : newProfile(result.facts.name);
+        // Unknowns get neutral defaults so the plan does not assume debt or a missing safety net.
+        const facts = Object.assign({ goals: [], ef: 2, debt: 0, housing: 0 }, known, {
+          income: result.facts.income,
+          household: result.facts.household || 'solo',
+        });
+        S.profile = Object.assign({}, base, {
+          name: result.facts.name || base.name,
+          facts: facts,
+          currency: currency,
+          setupAt: Date.now(),
+        });
+        if (S.profile.tips == null) S.profile.tips = true;
+        saveProfile();
+        createBookFromProfile(currency);
+        S.view = 'home';
+        render();
+        toast({ icon: '🎉', title: 'Your budget is ready', body: 'Kitty split your income into simple envelopes. Add your first expense with the + button.', tone: 'good' });
+      },
+    });
+  }
+
   function startQuiz(opts) {
     const o = opts || {};
     K.quizUI.open({
       initial: S.profile && S.profile.answers ? S.profile.answers : {},
-      currency: S.book ? cur() : (S.profile && S.profile.currency) || 'IDR',
+      currency: defaultCurrency(),
       onCancel: o.cancellable === false ? null : () => {},
       finishLabel: S.book ? 'Save my personality' : 'Build my budget',
       onDone: (answers, result, currency) => {
@@ -1524,7 +1620,7 @@
   function createBookFromProfile(currency) {
     const p = S.profile;
     const facts = p.facts || { income: 0, goals: [], ef: 1, debt: 0, household: 'solo' };
-    const book = K.newBook({ name: HOUSEHOLD_NAMES[facts.household] || 'My budget', currency: currency || 'IDR', target: K.targetFor(p.traits ? p.traits.risk : 50), by: p.memberId });
+    const book = K.newBook({ name: K.i18n.tr(HOUSEHOLD_NAMES[facts.household] || 'My budget'), currency: currency || 'IDR', target: K.targetFor(p.traits ? p.traits.risk : 50), by: p.memberId });
     const by = p.memberId;
     K.put(book, 'members', { id: by, name: p.name, color: p.color }, by);
     if (facts.income > 0) K.put(book, 'incomes', { name: 'Take-home pay', amount: facts.income, freq: 'monthly', owner: by }, by);
@@ -1596,7 +1692,7 @@
     S.view = 'home';
     render();
     toast({ icon: '🤝', title: 'Joined ' + (join.name || 'the budget'), body: 'Fetching the latest data from your collaborators…', tone: 'good' });
-    if (!S.profile.persona) {
+    if (!S.profile.persona && !checklistVisible()) {
       setTimeout(() => toast({ icon: '🐱', title: 'Want personal tips?', body: 'Take the 2-minute quiz to get your money personality.', action: { label: 'Take quiz', fn: () => startQuiz() }, timeout: 12000 }), 4000);
     }
   }
@@ -1641,6 +1737,22 @@
     });
   }
 
+  function recentDescriptions() {
+    const seen = new Set();
+    const out = [];
+    K.list(S.book, 'txns')
+      .filter((t) => t.type !== 'income' && t.desc)
+      .sort((a, b) => String(b.date).localeCompare(String(a.date)) || (b.createdAt || 0) - (a.createdAt || 0))
+      .forEach((t) => {
+        const d = String(t.desc).trim();
+        if (d && !seen.has(d.toLowerCase()) && out.length < 12) {
+          seen.add(d.toLowerCase());
+          out.push(d);
+        }
+      });
+    return out;
+  }
+
   function openQuickAdd() {
     const stats = K.monthStats(S.book, K.monthKey(K.today()));
     const cats = catList();
@@ -1654,8 +1766,10 @@
       '<div class="seg qa-type" role="group"><button type="button" class="is-on" data-type="expense">Expense</button><button type="button" data-type="income">Income</button></div>' +
       '<label class="qa-amount"><span>' + esc(cur()) + '</span><input name="amount" inputmode="decimal" placeholder="0" autofocus aria-label="Amount"></label>' +
       '<p class="qa-preview muted small" aria-live="polite">&nbsp;</p>' +
+      '<input name="desc" placeholder="What was it? (optional)" maxlength="80" aria-label="Description" list="qaRecent">' +
+      '<datalist id="qaRecent">' + recentDescriptions().map((d) => '<option value="' + esc(d) + '"></option>').join('') + '</datalist>' +
+      '<p class="qa-auto muted small" hidden></p>' +
       '<div class="qa-cats">' + rows.map(chip).join('') + '</div>' +
-      '<input name="desc" placeholder="What was it? (optional)" maxlength="80" aria-label="Description">' +
       '<div class="qa-row"><input type="date" name="date" value="' + K.today() + '" aria-label="Date"><select name="who" aria-label="Who">' + memberOptions(me()) + '</select></div>' +
       '<p class="qa-warn" hidden></p>' +
       '<button class="btn btn-primary btn-block btn-lg" type="submit">Add</button></form>',
@@ -1664,7 +1778,9 @@
     const form = m.el.querySelector('form');
     let type = 'expense';
     let catId = '';
+    let pickedByHand = false;
     const amountEl = form.amount;
+    const autoNote = form.querySelector('.qa-auto');
     const preview = form.querySelector('.qa-preview');
     const warn = form.querySelector('.qa-warn');
     function updatePreview() {
@@ -1686,6 +1802,19 @@
       }
     }
     amountEl.addEventListener('input', updatePreview);
+    form.desc.addEventListener('input', () => {
+      if (pickedByHand || type !== 'expense') return;
+      const guess = K.guessCategory(S.book, form.desc.value);
+      if (guess === catId) return;
+      catId = guess;
+      $$('[data-cat]', form).forEach((b) => b.classList.toggle('is-on', b.dataset.cat === catId));
+      const chipEl = catId && form.querySelector('[data-cat="' + catId + '"]');
+      if (chipEl && chipEl.scrollIntoView) chipEl.scrollIntoView({ block: 'nearest' });
+      const cat = guess && S.book.categories[guess];
+      autoNote.hidden = !cat;
+      if (cat) autoNote.textContent = K.t('Category: {name}', { name: (cat.emoji ? cat.emoji + ' ' : '') + K.i18n.tr(cat.name) });
+      updatePreview();
+    });
     form.addEventListener('click', (e) => {
       const t = e.target.closest('[data-type]');
       if (t) {
@@ -1696,6 +1825,8 @@
       }
       const c = e.target.closest('[data-cat]');
       if (c) {
+        pickedByHand = true;
+        autoNote.hidden = true;
         catId = catId === c.dataset.cat ? '' : c.dataset.cat;
         $$('[data-cat]', form).forEach((b) => b.classList.toggle('is-on', b.dataset.cat === catId));
         updatePreview();
@@ -2197,6 +2328,12 @@
         return go(el.dataset.view);
       case 'quiz':
         return startQuiz();
+      case 'setup':
+        return startSetup();
+      case 'hide-setup':
+        S.profile.hideSetup = Object.assign({}, S.profile.hideSetup, { [S.book.id]: true });
+        saveProfile();
+        return render();
       case 'share-result':
         return shareResult();
       case 'demo':
@@ -2375,7 +2512,7 @@
         openBook(el.dataset.id);
         return render();
       case 'new-book':
-        if (!S.profile) return startQuiz();
+        if (!S.profile) return startSetup();
         return promptNewBook();
       case 'delete-book': {
         const ok = await confirmModal({ title: 'Delete “' + S.book.meta.name + '” from this device?', body: 'If it is shared, other people keep their copies. This cannot be undone here.', ok: 'Delete', danger: true });
