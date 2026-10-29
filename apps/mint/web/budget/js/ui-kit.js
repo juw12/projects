@@ -1,7 +1,7 @@
 /* Mint Budget UI kit: escaping, icons and hand-rolled SVG charts (no libraries). */
 (function (root) {
   'use strict';
-  const K = root.Kitty;
+  const K = root.MintBudget;
   const ui = (K.ui = {});
 
   ui.esc = function (s) {

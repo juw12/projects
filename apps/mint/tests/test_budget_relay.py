@@ -84,7 +84,7 @@ class RelayTests(unittest.TestCase):
 
     def test_cors_preflight(self):
         with RunningRelay(self.tmp) as r:
-            status, headers, _ = r.request("OPTIONS", "/kitty_topic")
+            status, headers, _ = r.request("OPTIONS", "/mint_topic")
             self.assertEqual(status, 204)
             self.assertIn("POST", headers.get("Access-Control-Allow-Methods", ""))
 
@@ -92,23 +92,23 @@ class RelayTests(unittest.TestCase):
         with RunningRelay(self.tmp) as r:
             ids = []
             for i in range(3):
-                status, msg = r.publish("kitty_abc", "ciphertext-%d" % i)
+                status, msg = r.publish("mint_abc", "ciphertext-%d" % i)
                 self.assertEqual(status, 200)
                 self.assertEqual(msg["event"], "message")
-                self.assertEqual(msg["topic"], "kitty_abc")
+                self.assertEqual(msg["topic"], "mint_abc")
                 self.assertEqual(msg["message"], "ciphertext-%d" % i)
                 self.assertTrue(msg["id"])
                 ids.append(msg["id"])
-            status, messages = r.poll("kitty_abc")
+            status, messages = r.poll("mint_abc")
             self.assertEqual(status, 200)
             self.assertEqual([m["message"] for m in messages], ["ciphertext-0", "ciphertext-1", "ciphertext-2"])
 
             # since=<id> returns only newer messages
-            _, newer = r.poll("kitty_abc", since=ids[0])
+            _, newer = r.poll("mint_abc", since=ids[0])
             self.assertEqual([m["message"] for m in newer], ["ciphertext-1", "ciphertext-2"])
 
             # other topics are isolated
-            _, other = r.poll("kitty_other")
+            _, other = r.poll("mint_other")
             self.assertEqual(other, [])
 
     def test_invalid_topic_rejected(self):
@@ -123,23 +123,23 @@ class RelayTests(unittest.TestCase):
     def test_oversized_message_rejected(self):
         with RunningRelay(self.tmp) as r:
             big = b"x" * (relay.MAX_BODY + 1)
-            status, _, _ = r.request("POST", "/kitty_big", body=big)
+            status, _, _ = r.request("POST", "/mint_big", body=big)
             self.assertEqual(status, 413)
-            _, messages = r.poll("kitty_big")
+            _, messages = r.poll("mint_big")
             self.assertEqual(messages, [])
 
     def test_sse_streams_backlog_then_live(self):
         with RunningRelay(self.tmp) as r:
-            r.publish("kitty_sse", "before")
+            r.publish("mint_sse", "before")
             conn = http.client.HTTPConnection("127.0.0.1", r.port, timeout=10)
-            conn.request("GET", "/kitty_sse/sse?since=all")
+            conn.request("GET", "/mint_sse/sse?since=all")
             response = conn.getresponse()
             self.assertEqual(response.status, 200)
             self.assertIn("text/event-stream", response.getheader("Content-Type"))
 
             def publish_later():
                 time.sleep(0.3)
-                r.publish("kitty_sse", "after")
+                r.publish("mint_sse", "after")
 
             threading.Thread(target=publish_later, daemon=True).start()
             received = []
@@ -155,11 +155,11 @@ class RelayTests(unittest.TestCase):
 
     def test_persistence_across_restart(self):
         with RunningRelay(self.tmp) as r:
-            r.publish("kitty_persist", "survives")
+            r.publish("mint_persist", "survives")
         with RunningRelay(self.tmp) as r:
-            _, messages = r.poll("kitty_persist")
+            _, messages = r.poll("mint_persist")
             self.assertEqual([m["message"] for m in messages], ["survives"])
-        self.assertTrue((Path(self.tmp) / "kitty_persist.jsonl").exists())
+        self.assertTrue((Path(self.tmp) / "mint_persist.jsonl").exists())
 
 
 if __name__ == "__main__":

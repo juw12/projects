@@ -1,7 +1,7 @@
 /* Mint Budget onboarding quiz + personality reveal. */
 (function (root) {
   'use strict';
-  const K = root.Kitty;
+  const K = root.MintBudget;
   const ui = K.ui;
   const esc = ui.esc;
 
@@ -135,7 +135,7 @@
         '<span class="quiz-count">' + (step + 1) + '/' + questions.length + '</span>' +
         (o.onCancel ? '<button class="icon-btn" data-act="cancel" aria-label="Close">' + ui.icon('x') + '</button>' : '') + '</div>' +
         '<div class="quiz-body" key="' + step + '">' +
-        '<div class="kitty-bubble"><span class="kitty-face">🌿</span></div>' +
+        '<div class="mint-bubble"><span class="mint-face">🌿</span></div>' +
         '<h2 class="q-title">' + esc(q.q) + '</h2>' +
         (q.hint ? '<p class="q-hint">' + esc(q.hint) + '</p>' : '') +
         body +
@@ -215,7 +215,7 @@
       const result = K.scoreQuiz(answers);
       host.innerHTML =
         '<div class="quiz quiz-result"><div class="quiz-body">' +
-        '<div class="computing"><span class="kitty-face spin">🌿</span><p>Reading your money style…</p></div>' +
+        '<div class="computing"><span class="mint-face spin">🌿</span><p>Reading your money style…</p></div>' +
         '</div></div>';
       setTimeout(() => {
         host.innerHTML =

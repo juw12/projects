@@ -1,10 +1,10 @@
 /* Mint Budget service worker: network-first app shell so updates land immediately, cache as offline fallback.
  * Scope is budget/ only; Mint Templates (../app.html) has its own worker at ../sw.js. */
-const CACHE = 'mint-budget-v8';
-// Caches this worker owns: its own generations, plus the ones Kitty (the old name of this app) left behind.
+const CACHE = 'mint-budget-v9';
+// Caches this worker owns: its own generations, plus the ones versions before Mint 3.0 left behind.
 // Never touch other caches: every app on this origin shares one CacheStorage.
 const OWN_CACHE = /^(mint-budget-v|kitty-v)/;
-const SHELL = ['index.html', 'styles.css', 'js/core.js', 'js/i18n.js', 'js/lang/id.js', 'js/lang/zh.js', 'js/lang/es.js', 'js/sync.js', 'js/ui-kit.js', 'js/quiz.js', 'js/app.js', 'get.html', '../manifest.webmanifest', '../icons/app-icon.svg', '../icons/icon-192.png', '../icons/apple-touch-icon.png'];
+const SHELL = ['index.html', '../js/locale.js', 'styles.css', 'js/core.js', 'js/i18n.js', 'js/lang/id.js', 'js/lang/zh.js', 'js/lang/es.js', 'js/sync.js', 'js/ui-kit.js', 'js/quiz.js', 'js/app.js', 'get.html', '../manifest.webmanifest', '../icons/app-icon.svg', '../icons/icon-192.png', '../icons/apple-touch-icon.png'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(SHELL)).then(() => self.skipWaiting()));

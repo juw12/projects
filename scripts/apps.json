@@ -567,9 +567,9 @@
       "id": "mint",
       "name": "Mint",
       "category": "Software",
-      "desc": "One app for money and spreadsheets: a live, end-to-end encrypted shared budget with a money-personality plan, limit warnings and a portfolio, plus Mint Templates to prompt, tweak and sell Excel / Google Sheets templates with instant checkout on the seller's own Midtrans, Xendit or Stripe; free on web, iPhone and Android",
-      "summary": "Shared budgets you edit live together, plus an AI spreadsheet-template studio and marketplace. One app on web, iPhone and Android.",
-      "description": "Mint is one app with two halves. <strong>Budget</strong> (it was called Kitty until Mint 3.0) is a budget you share like a Google Sheet, with an interface built only for money: a 30-second setup turns take-home pay into needs / wants / savings / investing envelopes, an optional 2-minute quiz assigns one of six money personalities, a live <strong>sheet</strong> with cell-level merging, warnings at 80%, over the limit or when your pace will overspend (including when someone else's edit tips a category), goals and an <strong>investing portfolio</strong> with drift and rebalancing. Sharing is local-first and end-to-end encrypted (AES-GCM, key in the link fragment) over ntfy.sh or a self-hostable stdlib relay, with no account. <strong>Templates</strong> is a live marketplace for Excel / Google Sheets templates: describe a sheet in English or Bahasa Indonesia and Mint AI designs it, tweak it with words (&ldquo;add column Supplier&rdquo;), export a real .xlsx with live formulas and a dashboard, then sell it &mdash; buyers pay the seller directly through the seller's own Midtrans, Xendit or Stripe checkout (QRIS, e-wallets, VA, cards) or a payment link, with coupons, tracked affiliate commissions, seller insights and Web Push notifications, on a Cloudflare Workers + SQLite Durable Object backend. Both halves share one install, one icon, one light / dark / system theme and one language (Budget in English, Bahasa Indonesia, 简体中文 and Español; Templates in English and Bahasa Indonesia), and update themselves in place. Old Kitty links, invites and installs move over by themselves with every budget intact. Free on the web, as an iPhone home-screen app and as an Android APK. Plain HTML/CSS/JS, no build step.",
+      "desc": "One app for money and spreadsheets: a live, end-to-end encrypted shared budget with a money-personality plan, limit warnings and a portfolio, plus Mint Templates to prompt, tweak and sell Excel / Google Sheets templates with instant checkout on the seller's own Midtrans, Xendit or Stripe; asks your language and region first; free on Windows, Mac, Android, iPhone and the web",
+      "summary": "Shared budgets you edit live together, plus an AI spreadsheet-template studio and marketplace. Free on Windows, Mac, Android, iPhone and the web.",
+      "description": "Mint is one app with two halves. <strong>Budget</strong> is a budget you share like a Google Sheet, with an interface built only for money: a 30-second setup turns take-home pay into needs / wants / savings / investing envelopes, an optional 2-minute quiz assigns one of six money personalities, a live <strong>sheet</strong> with cell-level merging, warnings at 80%, over the limit or when your pace will overspend (including when someone else's edit tips a category), goals and an <strong>investing portfolio</strong> with drift and rebalancing. Sharing is local-first and end-to-end encrypted (AES-GCM, key in the link fragment) over ntfy.sh or a self-hostable stdlib relay, with no account. <strong>Templates</strong> is a live marketplace for Excel / Google Sheets templates: describe a sheet in English or Bahasa Indonesia and Mint AI designs it, tweak it with words (&ldquo;add column Supplier&rdquo;), export a real .xlsx with live formulas and a dashboard, then sell it &mdash; buyers pay the seller directly through the seller's own Midtrans, Xendit or Stripe checkout (QRIS, e-wallets, VA, cards) or a payment link, with coupons, tracked affiliate commissions, seller insights and Web Push notifications, on a Cloudflare Workers + SQLite Durable Object backend. The first time it opens, Mint asks for a language (English, Bahasa Indonesia, 简体中文 or Español) and a region, and the region sets the currency of new budgets and templates. Both halves share one install, one icon, one light / dark / system theme and that one language (Templates is in English and Bahasa Indonesia), and update themselves in place. Free as a Windows and Mac desktop app, an Android app, an iPhone home-screen app and on the web; the desktop and Android builds are opened and checked on their own systems before every release. Plain HTML/CSS/JS, no build step.",
       "tags": [
         "Shared budgeting",
         "E2E encrypted",
@@ -577,6 +577,7 @@
         "Workers AI",
         "Midtrans / Xendit / Stripe",
         "Excel / Sheets",
+        "Windows / Mac",
         "PWA",
         "Android",
         "Multilingual"
@@ -599,7 +600,9 @@
         "offline-first",
         "android",
         "capacitor",
-        "i18n"
+        "i18n",
+        "desktop",
+        "pywebview"
       ],
       "image": "mint-card.jpg",
       "image_alt": "Mint: the shared budget overview with the left-to-spend ring and pace chart, and Templates one tap away in the sidebar",
@@ -630,14 +633,22 @@
           "path": "mint/budget/demo.html"
         },
         {
-          "label": "Get iPhone/Android",
+          "label": "Get the app",
           "path": "mint/budget/get.html"
         }
       ],
       "extra_links": [
         {
+          "label": "Windows app",
+          "url": "https://github.com/juw12/projects/releases/download/mint/Mint-Windows-Setup.exe"
+        },
+        {
+          "label": "Mac app",
+          "url": "https://github.com/juw12/projects/releases/tag/mint"
+        },
+        {
           "label": "Android app (APK)",
-          "url": "https://github.com/juw12/projects/releases/download/mint-android/Mint-android.apk"
+          "url": "https://github.com/juw12/projects/releases/download/mint/Mint-Android.apk"
         },
         {
           "label": "Source",
@@ -645,7 +656,7 @@
         }
       ],
       "status": "shipped",
-      "version": "3.0.0",
+      "version": "3.1.0",
       "featured": true,
       "order": 21,
       "portfolio_order": -10

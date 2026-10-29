@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Static checks for Mint Budget (apps/mint/web/budget, formerly Kitty) and how it joins Mint Templates. Stdlib only.
+"""Static checks for Mint Budget (apps/mint/web/budget) and how it joins Mint Templates. Stdlib only.
 
 - required files exist and every local <script>/<link> reference resolves
 - the shared Mint manifest is valid, opens on Budget and covers Templates too
@@ -7,8 +7,10 @@
 - JS never uses root-absolute string literals ("/path"), which break on GitHub Pages
 - no external runtime dependencies (no CDN scripts)
 - Budget and Templates link to each other and share one theme and one language
-- budgets made under the old name keep working (storage keys, relay topics)
-- old /kitty/ links, invites and installs land on Mint Budget (scripts/build_site.py)
+- budgets saved by older versions move to the mint.budget.* keys before anything reads them
+- the first visit asks for a language and a region (js/locale.js); the region picks the currency
+- old addresses, invites and installs from before Mint 3.0 land on Mint Budget (scripts/build_site.py)
+- the Windows/Mac app and the Android app are wired to the live site and the download page
 """
 
 import importlib.util
@@ -146,7 +148,7 @@ class BudgetWebTests(unittest.TestCase):
         css = read(WEB / "styles.css")
         light_block = re.search(r":root\s*\{(.*?)\}", css, re.S).group(1)
         self.assertIn("--accent: #0b8564;", light_block)
-        self.assertNotRegex(css, r"#4f46e5|#8f7bff|108,\s*92,\s*231", "no leftovers of Kitty's indigo")
+        self.assertNotRegex(css, r"#4f46e5|#8f7bff|108,\s*92,\s*231", "no leftovers of the old indigo theme")
 
     def test_theme_switch_is_one_tap_on_every_screen(self):
         app = read(WEB / "js" / "app.js")
@@ -199,31 +201,84 @@ class BudgetWebTests(unittest.TestCase):
         self.assertIn("localStorage.setItem(SHARED_THEME_KEY, next)", templates_app, "Templates saves the shared theme")
         for page in ("app.html", "web.html", "mobile.html"):
             self.assertIn("localStorage.getItem('mint.theme')", read(MINT_WEB / page), "%s paints the shared theme early" % page)
-        self.assertIn("const SHARED_KEY = 'mint.lang';", budget_i18n)
-        self.assertIn("root.localStorage.setItem(SHARED_KEY", budget_i18n)
-        self.assertIn('var BUDGET_KEY = "kitty.lang";', templates_i18n)
-        self.assertIn("localStorage.setItem(BUDGET_KEY, lang)", templates_i18n)
+        self.assertIn("const STORE_KEY = 'mint.lang';", budget_i18n)
+        self.assertIn('var KEY = "mint.lang";', templates_i18n)
+        self.assertNotIn("kitty", budget_i18n + templates_i18n)
 
-    def test_budgets_from_before_the_rename_keep_working(self):
+    def test_saved_budgets_move_to_the_mint_keys_first(self):
         app = read(WEB / "js" / "app.js")
         sync = read(WEB / "js" / "sync.js")
-        core = read(WEB / "js" / "core.js")
-        for key in ("'kitty.profile'", "'kitty.books'", "'kitty.book.'", "'kitty.activity.'", "'kitty.lastVersion'", "'kitty.resume'"):
-            self.assertIn(key, app, "storage key %s must not change (budgets live there)" % key)
-        self.assertIn("return 'kitty-' + this.bookId;", sync, "relay topic must not change (shared budgets sync there)")
-        self.assertIn("root.Kitty = root.Kitty || {}", core)
+        locale = read(MINT_WEB / "js" / "locale.js")
+        for key in ("'mint.budget.profile'", "'mint.budget.books'", "'mint.budget.book.'", "'mint.budget.activity.'",
+                    "'mint.budget.lastVersion'", "'mint.budget.resume'", "'mint.budget.current'"):
+            self.assertIn(key, app)
+        self.assertIn("'mint.budget.sync.'", sync)
+        self.assertIn("return 'mint-' + this.bookId;", sync)
+        # The one-time move runs in locale.js, which every Budget page loads before anything reads storage.
+        self.assertIn("var LEGACY_PREFIX = 'kitty.';", locale)
+        self.assertIn("'mint.budget.' + key.slice(LEGACY_PREFIX.length)", locale)
+        boot = read(WEB / "index.html")
+        self.assertLess(boot.index('src="../js/locale.js"'), boot.index("mint.budget.profile"), "move the keys before the boot script reads them")
+        self.assertLess(boot.index('src="../js/locale.js"'), boot.index('src="js/core.js"'))
 
-    def test_no_kitty_left_in_the_interface(self):
+    def test_the_old_name_is_gone(self):
         offenders = []
-        for path in [WEB / "index.html", WEB / "get.html", WEB / "version.json"] + list(WEB.glob("js/*.js")):
+        paths = [p for p in WEB.rglob("*") if p.is_file() and p.suffix in (".html", ".js", ".css", ".json")]
+        paths += [p for p in MINT_WEB.glob("*.html")] + list((MINT_WEB / "js").glob("*.js"))
+        paths += [APP_DIR / "README.md", APP_DIR / "docs" / "mint.md", APP_DIR / "mobile" / "README.md",
+                  APP_DIR / "budget" / "i18n" / "strings.txt", APP_DIR / "budget" / "server" / "relay.py"]
+        for path in paths:
             for lineno, line in enumerate(read(path).splitlines(), 1):
-                for match in re.finditer(r"(?<![\w.$/])Kitty(?![\w])", line):
-                    context = line[max(0, match.start() - 30) : match.end() + 30]
-                    allowed = ("window.Kitty", "root.Kitty", "formerly Kitty", "Kitty.i18n", "Kitty is now Mint", "called Kitty",
-                               "Kitty (the old name", "Kitty kini", "Kitty 现已", "Kitty ahora", "Kitty's shell")
-                    if not any(a in context for a in allowed):
-                        offenders.append("%s:%d %s" % (path.name, lineno, context.strip()))
+                if re.search(r"kitty", line, re.I):
+                    # Allowed: the migration that reads old keys, and the worker that clears old caches.
+                    if "LEGACY_PREFIX" in line or "LEGACY_LANG" in line or "OWN_CACHE" in line:
+                        continue
+                    offenders.append("%s:%d %s" % (path.relative_to(APP_DIR), lineno, line.strip()[:120]))
         self.assertEqual(offenders, [])
+
+    def test_language_and_region_are_asked_first(self):
+        locale = read(MINT_WEB / "js" / "locale.js")
+        core = read(WEB / "js" / "core.js")
+        regions = re.findall(r"\['([A-Z]{2})', '([A-Z]{3})'\]", locale)
+        self.assertGreaterEqual(len(regions), 25)
+        currencies = set(re.findall(r"^\s+([A-Z]{3}): \{ locale:", core, re.M))
+        for region, currency in regions:
+            self.assertIn(currency, currencies, "region %s uses %s, which Budget can't format" % (region, currency))
+        for lang in ("en", "id", "zh", "es"):
+            self.assertIn("code: '%s'" % lang, locale)
+            self.assertRegex(locale, r"\n    %s: \{\n      title:" % lang, "gate text in %s" % lang)
+        self.assertIn("params.get('demo') === '1'", locale, "the demo never stops at the question")
+        for page in ("app.html", "web.html", "mobile.html"):
+            html = read(MINT_WEB / page)
+            self.assertLess(html.index('src="js/locale.js"'), html.index('src="js/core.js"'), page)
+        budget_app = read(WEB / "js" / "app.js")
+        self.assertIn("data-act-change=\"set-region\"", budget_app, "Settings can change the region later")
+        self.assertIn("window.MintLocale.current()", budget_app, "new budgets use the chosen currency")
+        templates_app = read(MINT_WEB / "js" / "app.js")
+        self.assertIn("Core.generate(prompt, { currency: regionCurrency() })", templates_app)
+        for worker, entry in ((WEB / "sw.js", "'../js/locale.js'"), (MINT_WEB / "sw.js", '"js/locale.js"')):
+            self.assertIn(entry, read(worker), "%s caches locale.js for offline use" % worker.name)
+
+    def test_apps_for_every_device(self):
+        get = read(WEB / "get.html")
+        for asset in ("Mint-Windows-Setup.exe", "Mint-macOS-AppleSilicon.dmg", "Mint-macOS-Intel.dmg", "Mint-Android.apk"):
+            self.assertIn("releases/download/mint/" + asset, get)
+        workflow = read(REPO / ".github" / "workflows" / "mint-apps.yml")
+        for asset in ("Mint-Windows-Setup.exe", "Mint-Windows-Portable.zip", "Mint-macOS-AppleSilicon.dmg", "Mint-macOS-Intel.dmg", "Mint-Android.apk"):
+            self.assertIn(asset, workflow)
+        desktop = read(APP_DIR / "desktop" / "mint_app.py")
+        self.assertIn('"https://juw12.github.io/projects/mint/"', desktop)
+        self.assertIn('webview.settings["ALLOW_DOWNLOADS"] = True', desktop, "exports must be able to save files")
+        self.assertIn("private_mode=False", desktop, "budgets must survive a restart")
+        version = json.loads(read(WEB / "version.json"))["version"]
+        self.assertIn('VERSION = "%s"' % version, desktop)
+        capacitor = json.loads(read(APP_DIR / "mobile" / "capacitor.config.json"))
+        self.assertEqual(capacitor["server"]["url"], "https://juw12.github.io/projects/mint/")
+        package = json.loads(read(APP_DIR / "mobile" / "package.json"))
+        for plugin in ("@capacitor/app", "@capacitor/haptics", "@capacitor/filesystem", "@capacitor/share"):
+            self.assertIn(plugin, package["dependencies"])
+        budget_app = read(WEB / "js" / "app.js")
+        self.assertIn("nativeCall('Filesystem', 'writeFile'", budget_app, "exports work inside the Android app")
 
     def test_release_manifest_matches_app(self):
         release = json.loads(read(WEB / "version.json"))
@@ -250,7 +305,7 @@ class BudgetWebTests(unittest.TestCase):
         templates = re.compile(re.search(r"return /(.+?)/\.test\(k\)", templates_sw).group(1))
         budget_cache = re.search(r"const CACHE = '([^']+)'", read(WEB / "sw.js")).group(1)
         templates_cache = re.search(r'var CACHE = "([^"]+)"', templates_sw).group(1)
-        self.assertTrue(budget.search("kitty-v7"), "Budget retires Kitty's old cache")
+        self.assertTrue(budget.search("kitty-v7"), "Budget clears the caches versions before 3.0 left behind")
         self.assertFalse(budget.search(templates_cache), "Budget must not delete the Templates cache")
         self.assertFalse(templates.search(budget_cache), "Templates must not delete the Budget cache")
         for other_app in ("glow-v3", "twin-shell-v2", "sync-v1", "crewroom-1"):
@@ -264,8 +319,8 @@ class BudgetWebTests(unittest.TestCase):
         self.assertTrue(imports <= allowed, "unexpected imports: %s" % (imports - allowed))
 
 
-class OldKittyAddressTests(unittest.TestCase):
-    """The Pages build leaves stubs at /kitty/ so links, invites and installs from before 3.0 land on Mint Budget."""
+class OldAddressTests(unittest.TestCase):
+    """The Pages build leaves stubs at the address Budget used before Mint 3.0, so old links, invites and installs land on Mint Budget."""
 
     @classmethod
     def setUpClass(cls):
@@ -300,7 +355,7 @@ class OldKittyAddressTests(unittest.TestCase):
         self.assertIn("destination.hash = location.hash", script, "#join=<book>.<key> invites must survive")
         self.assertIn("destination.search = location.search", script)
 
-    def test_open_kitty_tabs_see_the_new_version(self):
+    def test_open_old_tabs_see_the_new_version(self):
         old_release = json.loads((self.old / "version.json").read_text(encoding="utf-8"))
         new_release = json.loads((WEB / "version.json").read_text(encoding="utf-8"))
         self.assertEqual(old_release["version"], new_release["version"])

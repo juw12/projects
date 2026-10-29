@@ -1,4 +1,4 @@
-# Mint Budget UI strings (the app was called Kitty before 3.0). One row per English source string:
+# Mint Budget UI strings. One row per English source string:
 #   English || Bahasa Indonesia || 简体中文 || Español
 # {placeholders} must appear in every column. Run: python3 apps/mint/budget/i18n/build_i18n.py
 
@@ -36,6 +36,9 @@ Offline · saved || Offline · tersimpan || 离线 · 已保存 || Sin conexión
 Sync error || Gagal sinkron || 同步出错 || Error de sincronización
 Sharing & sync || Berbagi & sinkron || 共享与同步 || Compartir y sincronizar
 Language || Bahasa || 语言 || Idioma
+Region || Wilayah || 地区 || Región
+New budgets will use {currency} || Anggaran baru akan memakai {currency} || 新预算将使用 {currency} || Los presupuestos nuevos usarán {currency}
+Your region sets the currency for new budgets. Existing budgets keep theirs. || Wilayah menentukan mata uang untuk anggaran baru. Anggaran yang sudah ada tetap memakai mata uangnya. || 地区决定新预算使用的货币，现有预算保持不变。 || Tu región define la moneda de los presupuestos nuevos. Los existentes conservan la suya.
 Mint noticed || Mint memperhatikan || Mint 发现 || Mint notó
 Next tip || Tips berikutnya || 下一条建议 || Siguiente consejo
 Give me a tip || Beri saya tips || 给我一条建议 || Dame un consejo
@@ -110,7 +113,7 @@ joined the budget || bergabung ke anggaran || 加入了预算 || se unió al pre
 Last edited by {name} || Terakhir diubah oleh {name} || 最后由 {name} 修改 || Última edición de {name}
 Welcome, {name}! || Selamat datang, {name}! || 欢迎，{name}！ || ¡Bienvenido, {name}!
 Your budget is ready. Add your first expense with the + button. || Anggaranmu sudah siap. Tambahkan pengeluaran pertama dengan tombol +. || 你的预算已就绪。点 + 按钮记下第一笔支出。 || Tu presupuesto está listo. Añade tu primer gasto con el botón +.
-Free on web, iPhone and Android || Gratis di web, iPhone, dan Android || 网页、iPhone 和安卓均免费 || Gratis en web, iPhone y Android
+Free on Windows, Mac, Android, iPhone and the web || Gratis di Windows, Mac, Android, iPhone, dan web || Windows、Mac、安卓、iPhone 和网页均免费 || Gratis en Windows, Mac, Android, iPhone y la web
 The shared budget that works the way you do. || Anggaran bersama yang bekerja sesuai caramu. || 按你的方式运转的共享预算。 || El presupuesto compartido que funciona como tú.
 Plan from your income, track every expense together in real time, get warned before a limit breaks, and grow your investments. Private and end-to-end encrypted. || Rencanakan dari penghasilanmu, catat setiap pengeluaran bersama secara real time, dapat peringatan sebelum batas terlewati, dan kembangkan investasimu. Pribadi dan terenkripsi end-to-end. || 根据收入做计划，实时一起记账，超支前就收到提醒，还能让投资增长。私密且端到端加密。 || Planifica según tus ingresos, registra cada gasto en conjunto y en tiempo real, recibe avisos antes de pasarte de un límite y haz crecer tus inversiones. Privado y con cifrado de extremo a extremo.
 Get started free || Mulai gratis || 免费开始 || Empieza gratis
@@ -134,8 +137,8 @@ No account, local-first, end-to-end encrypted sync. The server never sees your n
 Six money animals. Which one are you? || Enam hewan uang. Kamu yang mana? || 六种金钱动物，你是哪一种？ || Seis animales del dinero. ¿Cuál eres tú?
 Answer 14 quick questions about needs, wants and habits. Mint builds your budget around the result. || Jawab 14 pertanyaan singkat tentang kebutuhan, keinginan, dan kebiasaan. Mint menyusun anggaranmu dari hasilnya. || 回答 14 个关于必需、想要和习惯的小问题，Mint 会据此为你搭建预算。 || Responde 14 preguntas rápidas sobre necesidades, deseos y hábitos. Mint arma tu presupuesto según el resultado.
 Start your shared budget in two minutes. || Mulai anggaran bersamamu dalam dua menit. || 两分钟开启你的共享预算。 || Empieza tu presupuesto compartido en dos minutos.
-Free forever on web, iPhone and Android. No account needed. || Gratis selamanya di web, iPhone, dan Android. Tanpa akun. || 网页、iPhone 和安卓永久免费，无需账号。 || Gratis para siempre en web, iPhone y Android. Sin cuenta.
-Get Mint for iPhone & Android || Dapatkan Mint untuk iPhone & Android || 获取 iPhone 和安卓版 Mint || Descarga Mint para iPhone y Android
+Free forever on Windows, Mac, Android, iPhone and the web. No account needed. || Gratis selamanya di Windows, Mac, Android, iPhone, dan web. Tanpa akun. || Windows、Mac、安卓、iPhone 和网页永久免费，无需账号。 || Gratis para siempre en Windows, Mac, Android, iPhone y la web. Sin cuenta.
+Get Mint for Windows, Mac, Android & iPhone || Dapatkan Mint untuk Windows, Mac, Android & iPhone || 获取 Windows、Mac、安卓和 iPhone 版 Mint || Descarga Mint para Windows, Mac, Android y iPhone
 © Mint {v} || © Mint {v} || © Mint {v} || © Mint {v}
 Tips are educational, not financial advice. || Tips bersifat edukatif, bukan nasihat keuangan. || 建议仅供学习参考，不构成理财建议。 || Los consejos son educativos, no asesoría financiera.
 Our home · October || Rumah kita · Oktober || 我们的家 · 十月 || Nuestra casa · octubre
@@ -576,7 +579,7 @@ Delete || Hapus || 删除 || Eliminar
 Cancel || Batal || 取消 || Cancelar
 Create || Buat || 创建 || Crear
 Get the app || Dapatkan aplikasinya || 下载 App || Descarga la app
-Mint is free on the web, iPhone and Android. Your budgets sync between them with the same invite link. || Mint gratis di web, iPhone, dan Android. Anggaranmu tersinkron di semuanya dengan tautan undangan yang sama. || Mint 在网页、iPhone 和安卓上都免费，用同一个邀请链接即可在各端同步预算。 || Mint es gratis en web, iPhone y Android. Tus presupuestos se sincronizan entre ellos con el mismo enlace.
+Mint is free on Windows, Mac, Android, iPhone and the web. Your budgets sync between them with the same invite link. || Mint gratis di Windows, Mac, Android, iPhone, dan web. Anggaranmu tersinkron di semuanya dengan tautan undangan yang sama. || Mint 在 Windows、Mac、安卓、iPhone 和网页上都免费，用同一个邀请链接即可在各端同步预算。 || Mint es gratis en Windows, Mac, Android, iPhone y la web. Tus presupuestos se sincronizan entre ellos con el mismo enlace.
 About || Tentang || 关于 || Acerca de
 Mint {v} · local-first budgeting with end-to-end encrypted sharing. Investment targets and tips are educational, not financial advice. Source: || Mint {v} · anggaran berbasis lokal dengan berbagi terenkripsi end-to-end. Target investasi dan tips bersifat edukatif, bukan nasihat keuangan. Sumber: || Mint {v} · 本地优先的预算工具，支持端到端加密共享。投资目标和建议仅供学习参考，不构成理财建议。源代码： || Mint {v} · presupuesto local con uso compartido cifrado de extremo a extremo. Los objetivos de inversión y los consejos son educativos, no asesoría financiera. Código:
 One for you, one with your partner, one for a trip with friends… || Satu untukmu, satu dengan pasangan, satu untuk liburan bersama teman… || 一个给自己，一个和伴侣共用，一个用于和朋友旅行… || Uno para ti, otro con tu pareja, otro para un viaje con amigos…
@@ -755,6 +758,14 @@ Philippine peso || Peso Filipina || 菲律宾比索 || Peso filipino
 Thai baht || Baht Thailand || 泰铢 || Baht tailandés
 Vietnamese dong || Dong Vietnam || 越南盾 || Dong vietnamita
 Indian rupee || Rupee India || 印度卢比 || Rupia india
+Hong Kong dollar || Dolar Hong Kong || 港元 || Dólar de Hong Kong
+South Korean won || Won Korea Selatan || 韩元 || Won surcoreano
+New Zealand dollar || Dolar Selandia Baru || 新西兰元 || Dólar neozelandés
+Canadian dollar || Dolar Kanada || 加拿大元 || Dólar canadiense
+Mexican peso || Peso Meksiko || 墨西哥比索 || Peso mexicano
+Colombian peso || Peso Kolombia || 哥伦比亚比索 || Peso colombiano
+Brazilian real || Real Brasil || 巴西雷亚尔 || Real brasileño
+UAE dirham || Dirham UEA || 阿联酋迪拉姆 || Dírham de los EAU
 Ayu || Ayu || Ayu || Ayu
 iPhone || iPhone || iPhone || iPhone
 Android || Android || 安卓 || Android
@@ -837,3 +848,5 @@ Create, buy and sell spreadsheet templates || Buat, beli, dan jual template spre
 Also in Mint: spreadsheet templates || Juga di Mint: template spreadsheet || Mint 里还有：电子表格模板 || También en Mint: plantillas de hojas de cálculo
 Describe a sheet in plain words and get a ready Excel or Google Sheets file, or sell your own templates in the marketplace. || Jelaskan sheet dengan kata-kata biasa dan dapatkan file Excel atau Google Sheets yang siap pakai, atau jual template buatanmu di marketplace. || 用平常的话描述一张表，即可得到现成的 Excel 或 Google 表格文件，也可以在市场上出售你自己的模板。 || Describe una hoja con tus palabras y obtén un archivo de Excel o Google Sheets listo, o vende tus propias plantillas en el mercado.
 Open Templates || Buka Template || 打开模板 || Abrir Plantillas
+Save or share || Simpan atau bagikan || 保存或分享 || Guardar o compartir
+Could not save the file || Tidak bisa menyimpan file || 无法保存文件 || No se pudo guardar el archivo

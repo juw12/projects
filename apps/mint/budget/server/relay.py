@@ -15,7 +15,7 @@ Endpoints (the subset of the ntfy API that Mint Budget uses):
 Run:
   python relay.py --port 8787 --data ./relay-data
 Then in Mint: Budget -> Share -> Relay -> http(s)://your-host:8787
-(MINT_RELAY_DATA / MINT_RELAY_VERBOSE; the older KITTY_RELAY_* names still work.)
+(MINT_RELAY_DATA / MINT_RELAY_VERBOSE.)
 """
 
 import argparse
@@ -146,7 +146,7 @@ def make_handler(store, limiter):
         protocol_version = "HTTP/1.1"
 
         def log_message(self, fmt, *args):  # keep test output quiet; never log bodies
-            if os.environ.get("MINT_RELAY_VERBOSE") or os.environ.get("KITTY_RELAY_VERBOSE"):
+            if os.environ.get("MINT_RELAY_VERBOSE"):
                 super().log_message(fmt, *args)
 
         def _cors(self):
@@ -268,7 +268,7 @@ def main():
     parser = argparse.ArgumentParser(description="Mint relay (ntfy-compatible, ciphertext only)")
     parser.add_argument("--host", default="0.0.0.0")
     parser.add_argument("--port", type=int, default=int(os.environ.get("PORT", "8787")))
-    parser.add_argument("--data", default=os.environ.get("MINT_RELAY_DATA") or os.environ.get("KITTY_RELAY_DATA", "relay-data"))
+    parser.add_argument("--data", default=os.environ.get("MINT_RELAY_DATA", "relay-data"))
     parser.add_argument("--max-messages", type=int, default=DEFAULT_MAX_MESSAGES)
     args = parser.parse_args()
     server = serve(args.host, args.port, args.data, args.max_messages)

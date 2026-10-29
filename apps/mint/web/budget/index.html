@@ -17,12 +17,13 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <link rel="manifest" href="../manifest.webmanifest">
   <link rel="stylesheet" href="styles.css">
+  <script src="../js/locale.js"></script>
   <script>
     (function () {
       try {
         // One theme for all of Mint: the shared choice (also set from Templates) wins, then this device's budget profile.
         var shared = localStorage.getItem('mint.theme');
-        var p = JSON.parse(localStorage.getItem('kitty.profile') || 'null');
+        var p = JSON.parse(localStorage.getItem('mint.budget.profile') || 'null');
         var t = shared || (p && p.theme) || new URLSearchParams(location.search).get('theme') || 'system';
         var dark = t === 'dark' || (t === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
         document.documentElement.dataset.theme = dark ? 'dark' : 'light';

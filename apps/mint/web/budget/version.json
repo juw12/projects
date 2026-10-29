@@ -1,26 +1,30 @@
 {
-  "version": "3.0.0",
+  "version": "3.1.0",
   "released": "2026-10-29",
   "notes": {
     "en": [
-      "Kitty is now Mint: same budgets, same invite links, a fresh green look.",
-      "Mint Templates is built in: open Templates from the menu to create, buy and sell spreadsheet templates.",
-      "One app for everything: theme and language follow you between Budget and Templates."
+      "Choose your language and region the first time you open Mint; your region sets the currency for new budgets and templates.",
+      "Mint for Windows and Mac: download the desktop app from the Get the app page.",
+      "New Android app with saving and sharing of backups, CSV files and result cards.",
+      "More currencies: Hong Kong dollar, South Korean won, New Zealand dollar, Canadian dollar, Mexican peso, Colombian peso, Brazilian real and UAE dirham."
     ],
     "id": [
-      "Kitty kini bernama Mint: anggaran dan tautan undangan tetap sama, dengan tampilan hijau yang segar.",
-      "Mint Templates sudah ada di dalamnya: buka Template dari menu untuk membuat, membeli, dan menjual template spreadsheet.",
-      "Satu aplikasi untuk semuanya: tema dan bahasa ikut berpindah antara Anggaran dan Template."
+      "Pilih bahasa dan wilayah saat pertama kali membuka Mint; wilayah menentukan mata uang untuk anggaran dan template baru.",
+      "Mint untuk Windows dan Mac: unduh aplikasi desktop dari halaman Dapatkan aplikasi.",
+      "Aplikasi Android baru yang bisa menyimpan dan membagikan cadangan, file CSV, dan kartu hasil.",
+      "Mata uang baru: dolar Hong Kong, won Korea Selatan, dolar Selandia Baru, dolar Kanada, peso Meksiko, peso Kolombia, real Brasil, dan dirham UEA."
     ],
     "zh": [
-      "Kitty 现已更名为 Mint：预算和邀请链接都不变，换上清新的绿色外观。",
-      "内置 Mint 模板：从菜单打开“模板”，即可创建、购买和出售电子表格模板。",
-      "一个应用全搞定：主题和语言在“预算”和“模板”之间保持一致。"
+      "首次打开 Mint 时选择语言和地区；地区决定新预算和新模板使用的货币。",
+      "Mint 支持 Windows 和 Mac：在“获取应用”页面下载桌面版。",
+      "全新 Android 应用，可保存并分享备份、CSV 文件和结果卡片。",
+      "新增货币：港元、韩元、新西兰元、加拿大元、墨西哥比索、哥伦比亚比索、巴西雷亚尔和阿联酋迪拉姆。"
     ],
     "es": [
-      "Kitty ahora es Mint: los mismos presupuestos y enlaces de invitación, con un aspecto verde y fresco.",
-      "Mint Plantillas viene incluido: abre Plantillas desde el menú para crear, comprar y vender plantillas de hojas de cálculo.",
-      "Una sola app para todo: el tema y el idioma te acompañan entre Presupuesto y Plantillas."
+      "Elige tu idioma y tu región la primera vez que abras Mint; la región define la moneda de los presupuestos y plantillas nuevos.",
+      "Mint para Windows y Mac: descarga la app de escritorio desde la página Obtener la app.",
+      "Nueva app para Android que guarda y comparte copias de seguridad, archivos CSV y tarjetas de resultados.",
+      "Más monedas: dólar de Hong Kong, won surcoreano, dólar neozelandés, dólar canadiense, peso mexicano, peso colombiano, real brasileño y dírham de los EAU."
     ]
   }
 }

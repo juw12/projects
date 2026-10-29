@@ -9,10 +9,9 @@
 (function (root) {
   "use strict";
 
+  // One language for all of Mint (en / id / zh / es), chosen on the first visit (js/locale.js).
+  // Templates is translated into Indonesian; Chinese and Spanish show it in English.
   var KEY = "mint.lang";
-  // Mint Budget (budget/) stores its language under "kitty.lang" (en / id / zh / es). Both halves of Mint
-  // read and write each other's key so the whole app speaks one language.
-  var BUDGET_KEY = "kitty.lang";
   var LANGS = { en: "English", id: "Bahasa Indonesia" };
 
   // ---------------------------------------------------------------- exact phrases
@@ -747,12 +746,8 @@
   function detect() {
     try {
       var saved = localStorage.getItem(KEY);
-      if (saved && LANGS[saved]) {
-        return saved;
-      }
-      var budget = localStorage.getItem(BUDGET_KEY);
-      if (budget) {
-        return budget === "id" ? "id" : "en";
+      if (saved) {
+        return saved === "id" ? "id" : "en";
       }
     } catch (err) {
       /* storage blocked */
@@ -961,7 +956,6 @@
     current = lang;
     try {
       localStorage.setItem(KEY, lang);
-      localStorage.setItem(BUDGET_KEY, lang);
     } catch (err) {
       /* storage blocked */
     }

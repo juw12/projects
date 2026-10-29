@@ -1,4 +1,4 @@
-/* Mint Budget core (formerly Kitty): pure budgeting logic (no DOM). Shared by the app and tests.html.
+/* Mint Budget core: pure budgeting logic (no DOM). Shared by the app and tests.html.
  *
  * Data model: a "book" is a shared budget. Every record carries
  *   _u  (update clock, ms; Lamport-adjusted)   _by (member id)   _del (tombstone)
@@ -7,8 +7,8 @@
  */
 (function (root) {
   'use strict';
-  const K = (root.Kitty = root.Kitty || {});
-  K.VERSION = '3.0.0';
+  const K = (root.MintBudget = root.MintBudget || {});
+  K.VERSION = '3.1.0';
 
   /** Compare dotted versions numerically: 1, 0 or -1 ("1.10.0" is newer than "1.9.9"). */
   K.compareVersions = function (a, b) {
@@ -232,7 +232,8 @@
   const REGION_CURRENCY = {
     ID: 'IDR', US: 'USD', SG: 'SGD', GB: 'GBP', MY: 'MYR', AU: 'AUD', JP: 'JPY', TW: 'TWD', CN: 'CNY', PH: 'PHP',
     TH: 'THB', VN: 'VND', IN: 'INR', DE: 'EUR', FR: 'EUR', ES: 'EUR', IT: 'EUR', NL: 'EUR', IE: 'EUR', PT: 'EUR',
-    AT: 'EUR', BE: 'EUR', FI: 'EUR', GR: 'EUR',
+    AT: 'EUR', BE: 'EUR', FI: 'EUR', GR: 'EUR', HK: 'HKD', KR: 'KRW', NZ: 'NZD', CA: 'CAD', MX: 'MXN', CO: 'COP',
+    BR: 'BRL', AE: 'AED',
   };
   const LANG_CURRENCY = { id: 'IDR', ms: 'MYR', ja: 'JPY', th: 'THB', vi: 'VND', zh: 'CNY', de: 'EUR', fr: 'EUR', it: 'EUR', nl: 'EUR', pt: 'EUR', es: 'EUR' };
   K.guessCurrency = function (languages) {
@@ -263,6 +264,14 @@
     THB: { locale: 'th-TH', dec: 2, label: 'Thai baht' },
     VND: { locale: 'vi-VN', dec: 0, label: 'Vietnamese dong' },
     INR: { locale: 'en-IN', dec: 2, label: 'Indian rupee' },
+    HKD: { locale: 'zh-HK', dec: 2, label: 'Hong Kong dollar' },
+    KRW: { locale: 'ko-KR', dec: 0, label: 'South Korean won' },
+    NZD: { locale: 'en-NZ', dec: 2, label: 'New Zealand dollar' },
+    CAD: { locale: 'en-CA', dec: 2, label: 'Canadian dollar' },
+    MXN: { locale: 'es-MX', dec: 2, label: 'Mexican peso' },
+    COP: { locale: 'es-CO', dec: 0, label: 'Colombian peso' },
+    BRL: { locale: 'pt-BR', dec: 2, label: 'Brazilian real' },
+    AED: { locale: 'en-AE', dec: 2, label: 'UAE dirham' },
   };
   const fmtCache = {};
   function formatter(cur, short) {

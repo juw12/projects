@@ -22,6 +22,8 @@
 
   // Inside the Android/iPhone app shell (Capacitor around this same site) a few things work differently.
   var NATIVE = /MintApp\//.test(navigator.userAgent) || !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+  var RELEASE_URL = "https://github.com/juw12/projects/releases/download/mint/";
+  // The Mint apps workflow refreshes this file with every Android build (it is the link older pages used too).
   var APK_URL = "https://github.com/juw12/projects/releases/download/mint-android/Mint-android.apk";
   var BASE_TITLE = document.title;
   var installPrompt = null;
@@ -368,6 +370,25 @@
     });
   }
 
+  // Currency for new templates: the region chosen on the first visit (js/locale.js), when Templates has sample
+  // prices for it; otherwise US dollars. A currency named in the prompt always wins.
+  function regionCurrency() {
+    var chosen = window.MintLocale ? window.MintLocale.current() : null;
+    return chosen && chosen.currency && Core.CURRENCIES[chosen.currency] ? chosen.currency : "USD";
+  }
+
+  function promptNamesCurrency(prompt) {
+    return Core.generate(prompt, { currency: "IDR" }).spec.currency === Core.generate(prompt, { currency: "USD" }).spec.currency;
+  }
+
+  function withRegionCurrency(spec, prompt) {
+    var currency = regionCurrency();
+    if (currency === "USD" || spec.currency !== "USD" || promptNamesCurrency(prompt)) {
+      return spec;
+    }
+    return Core.applyTweak(spec, "currency " + currency).spec;
+  }
+
   function generateDraft(prompt, useAi) {
     prompt = String(prompt || "").trim();
     if (!prompt) {
@@ -376,14 +397,14 @@
     }
     var cfg = aiConfig();
     function fallback(err) {
-      var g = Core.generate(prompt);
+      var g = Core.generate(prompt, { currency: regionCurrency() });
       g.notes.unshift("AI unavailable (" + errorMessage(err) + ") \u2014 used the quick generator.");
       return g;
     }
     var path;
     if (useAi && cfg.endpoint && cfg.key) {
       path = aiGenerate(prompt).then(function (spec) {
-        return { spec: spec, notes: ["Generated with your AI model (" + (cfg.model || "default") + ")."] };
+        return { spec: withRegionCurrency(spec, prompt), notes: ["Generated with your AI model (" + (cfg.model || "default") + ")."] };
       }).catch(fallback);
     } else if (useAi && store.ai) {
       path = store.aiTemplate(prompt).then(function (res) {
@@ -393,10 +414,10 @@
         if (typeof res.remaining === "number" && res.remaining <= 3) {
           notes.push(res.remaining + " AI generations left today.");
         }
-        return { spec: spec, notes: notes };
+        return { spec: withRegionCurrency(spec, prompt), notes: notes };
       }).catch(fallback);
     } else {
-      path = Promise.resolve(Core.generate(prompt));
+      path = Promise.resolve(Core.generate(prompt, { currency: regionCurrency() }));
     }
     return path.then(function (g) {
       draft = { spec: g.spec, templateId: null };
@@ -1884,10 +1905,17 @@
     var ios = "<div class=\"panel" + (isIos ? " pick" : "") + "\" data-install-ios><h2>\ud83d\udcf1 iPhone &amp; iPad</h2>" +
       "<ol class=\"steps small\"><li>Open <strong>juw12.github.io/projects/mint</strong> in <strong>Safari</strong>.</li><li>Tap <strong>Share</strong> (the square with the arrow) \u2192 <strong>Add to Home Screen</strong> \u2192 <strong>Add</strong>.</li><li>Open Mint from the home screen \u2014 it runs full-screen with its own icon.</li></ol>" +
       "<p class=\"muted small\">Not in the App Store yet (that needs an Apple developer account). The home-screen app is the same Mint with the same account.</p></div>";
-    var desktop = "<div class=\"panel\"><h2>\ud83d\udcbb Computer</h2><p class=\"small\">Chrome or Edge: click the install icon in the address bar (or menu \u2192 <strong>Install Mint</strong>). Everything also works right here in the browser.</p>" +
-      (installPrompt && !isAndroid ? "<button class=\"btn\" data-install-pwa>Install Mint</button>" : "") + "</div>";
+    var isMac = !isIos && /Macintosh|Mac OS X/.test(ua);
+    var desktop = "<div class=\"panel" + (!isIos && !isAndroid ? " pick" : "") + "\" data-install-desktop><h2>\ud83d\udcbb Windows &amp; Mac</h2>" +
+      "<p class=\"row\"><a class=\"btn" + (isMac ? "" : " primary") + "\" href=\"" + RELEASE_URL + "Mint-Windows-Setup.exe\" rel=\"noopener\">\u2b07 Windows 10/11</a> " +
+      "<a class=\"btn" + (isMac ? " primary" : "") + "\" href=\"" + RELEASE_URL + "Mint-macOS-AppleSilicon.dmg\" rel=\"noopener\">\u2b07 Mac (Apple chip)</a> " +
+      "<a class=\"btn\" href=\"" + RELEASE_URL + "Mint-macOS-Intel.dmg\" rel=\"noopener\">\u2b07 Mac (Intel)</a></p>" +
+      "<ol class=\"steps small\"><li>Windows: open <strong>Mint-Windows-Setup.exe</strong> and press Install. If SmartScreen appears, choose <strong>More info \u2192 Run anyway</strong> (the app isn\u2019t code-signed yet).</li>" +
+      "<li>Mac: open the .dmg and drag Mint to Applications. The first time, allow it in <strong>System Settings \u2192 Privacy &amp; Security \u2192 Open Anyway</strong>.</li></ol>" +
+      "<p class=\"muted small\">Or install from Chrome or Edge with the install icon in the address bar.</p>" +
+      (installPrompt && !isAndroid ? "<button class=\"btn\" data-install-pwa>Install from the browser</button>" : "") + "</div>";
     var order = isIos ? [ios, android, desktop] : isAndroid ? [android, ios, desktop] : [desktop, android, ios];
-    view.innerHTML = "<section class=\"narrow\"><h1>\ud83d\udcf2 Get the Mint app</h1><p class=\"muted\">One account everywhere: web, Android and iPhone. The apps load the live Mint, so new features arrive without updating.</p>" + order.join("") + "</section>";
+    view.innerHTML = "<section class=\"narrow\"><h1>\ud83d\udcf2 Get the Mint app</h1><p class=\"muted\">One account everywhere: Windows, Mac, Android, iPhone and the web. The apps load the live Mint, so new features arrive without updating.</p>" + order.join("") + "</section>";
     view.onclick = function (e) {
       var b = e.target.closest("button[data-install-pwa]");
       if (!b || !installPrompt) {
