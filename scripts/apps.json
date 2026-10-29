@@ -1,5 +1,5 @@
 {
-  "_comment": "Single source of truth for the software apps shipped by this monorepo. Consumed by scripts/build_site.py (GitHub Pages landing page + deploy copy list) and scripts/publish_portfolio.py (portfolio cards + Obsidian notes). `summary` is the one-line portfolio-card copy (HTML-ready, keep it under ~120 visible characters so cards stay even); `description` is the full copy shown in the card's Details view and the Obsidian note (HTML-ready); `desc` is the short landing-page blurb. Optional `portfolio_order` overrides `order` for the portfolio card sequence only (the lowest values are the featured cards shown first); `portfolio: false` keeps an app off the portfolio without changing the landing page or notes. `links` are relative to the deployed site root (https://juw12.github.io/projects/<rel>). Extra fields `image_alt`, `project_id`, `label` (thumbnail aria-label) and `desc` reproduce the live markup verbatim.",
+  "_comment": "Single source of truth for the software apps shipped by this monorepo. Consumed by scripts/build_site.py (GitHub Pages landing page + deploy copy list) and scripts/publish_portfolio.py (portfolio cards + Obsidian notes). `summary` is the one-line portfolio-card copy (HTML-ready, keep it under ~120 visible characters so cards stay even); `description` is the full copy shown in the card's Details view and the Obsidian note (HTML-ready); `desc` is the short landing-page blurb. Optional `portfolio_order` overrides `order` for the portfolio card sequence only (the lowest values are the featured cards shown first); `portfolio: false` keeps an app off the portfolio without changing the landing page or notes. `links` are relative to the deployed site root (https://juw12.github.io/projects/<rel>). Extra fields `image_alt`, `project_id`, `label` (thumbnail aria-label) and `desc` reproduce the live markup verbatim. Card art (`image`, in the portfolio's assets/projects) must be house style: a 1600x1000 live-UI screenshot framed in the standard browser window on the dark accent gradient. Make it with `python scripts/portfolio_card.py <id>` (optional per-app `card` object: capture, frame_image, click, wait_ms, label, theme, accent, accent2) and never hand-draw, halftone or paste raw screenshots; publish_portfolio.py refuses cards that are missing, undersized or greyscale.",
   "apps": [
     {
       "id": "orbis",
@@ -725,8 +725,12 @@
         "tkinter",
         "i18n"
       ],
-      "image": "pips-pet-hero.jpg",
+      "image": "pips-card.jpg",
       "image_alt": "Pips: twelve of the 23 desktop pet animals next to the Pomodoro card",
+      "card": {
+        "frame_image": "pips-pet-hero.jpg",
+        "label": "pips · desktop pet"
+      },
       "links": {
         "app": "pips/",
         "web": "pips/web.html",
@@ -789,7 +793,6 @@
       ],
       "image": "plm-aml-approval-card.jpg",
       "image_alt": "PLM AML Approval Assistant: six automated steps from part search to a verified approval form, stopping before Submit",
-      "files": "https://github.com/juw12/projects/tree/main/apps/plm-aml-approval",
       "status": "preliminary",
       "order": 23,
       "portfolio_order": -7
@@ -893,6 +896,16 @@
       ],
       "image": "vitals-card.jpg",
       "image_alt": "Vitals overview: health score orb with an itemized why-this-score list, live vitals and ranked one-click fixes",
+      "card": {
+        "capture": "vitals/index.html#demo",
+        "click": [
+          "text=Detailed view"
+        ],
+        "label": "vitals · overview",
+        "theme": "dark",
+        "accent": "#1fc8a0",
+        "accent2": "#3a7bd5"
+      },
       "links": {
         "app": "vitals/app.html",
         "web": "vitals/index.html",

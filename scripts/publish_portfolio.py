@@ -7,11 +7,13 @@ What it does:
     PROJECTS:MANAGED:START / END markers in <portfolio>/index.html.
   * Writes one Obsidian project note per app (Portfolio/Projects/<Name>.md).
   * Writes one timestamped Update Log entry (Update Log/<date> <HHmm> portfolio.md).
+  * Refuses to publish while a card image is missing, undersized or greyscale. Card art
+    must be house style - make it with scripts/portfolio_card.py <id>.
   * Idempotent: re-running with an unchanged catalog changes nothing.
 
 Usage:
   python scripts/publish_portfolio.py [--portfolio-dir DIR] [--vault DIR]
-                                      [--dry-run] [--push]
+                                      [--dry-run] [--push] [--allow-card-issues]
 """
 
 import argparse
@@ -210,6 +212,20 @@ def app_url(app, key):
     return urljoin(SITE_BASE, app["links"][key])
 
 
+def check_card_art(portfolio_dir, apps, strict):
+    """Stop before publishing when card art breaks the house style (rules in portfolio_card.py)."""
+    from portfolio_card import card_problems, fix_hint  # local import: portfolio_card imports this module
+
+    problems = card_problems(portfolio_dir, apps)
+    if not problems:
+        print("Card art: every portfolio card follows the house style")
+        return
+    for problem in problems:
+        print(f"{'ERROR' if strict else 'WARNING'}: {problem}")
+    if strict:
+        raise SystemExit(fix_hint(problems) + "\n(--allow-card-issues publishes anyway.)")
+
+
 def render_note(app, today):
     note_tags = app.get("note_tags") or app["tags"]
     tags_yaml = "[" + ", ".join(unescape(t) for t in note_tags) + "]"
@@ -402,6 +418,10 @@ def main():
     parser.add_argument("--dry-run", action="store_true", help="Print changes, write nothing")
     parser.add_argument("--push", action="store_true", help="Commit and push the portfolio repo")
     parser.add_argument("--no-notes", action="store_true", help="Skip Obsidian notes + update log (CI)")
+    parser.add_argument(
+        "--allow-card-issues", action="store_true",
+        help="Publish even when card art breaks the house style (only warn; the hourly CI sync uses this)",
+    )
     args = parser.parse_args()
 
     portfolio_dir = Path(args.portfolio_dir).expanduser().resolve()
@@ -415,6 +435,8 @@ def main():
     print(f"Vault: {vault}")
     if args.dry_run:
         print("DRY RUN - no files will be written")
+
+    check_card_art(portfolio_dir, apps, strict=not (args.allow_card_issues or args.dry_run))
 
     changed = update_index(portfolio_dir, apps, args.dry_run)
     print(f"index.html: {'would change' if changed else 'unchanged'}")
