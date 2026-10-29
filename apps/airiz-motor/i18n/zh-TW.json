@@ -1145,7 +1145,36 @@
     "No zones: Smart detection watches the whole picture.": "沒有偵測區域：智慧偵測會監看整個畫面。",
     "All zones deleted: Smart detection watches the whole picture.": "已刪除所有偵測區域：智慧偵測會監看整個畫面。",
     "Zones you can delete and cancel (1.11.3)": "可刪除與取消的偵測區域 (1.11.3)",
-    "Draw zones now explains what zones do: only motion inside a zone counts for Smart detection, no zones means the whole picture. Each zone is numbered and has an × to delete it; Esc or right-click cancels the box you are drawing; Cancel brings back the zones you had before, Done keeps them. A fifth zone is refused instead of the oldest one disappearing.": "「畫偵測區域」現在會說明區域的用途：只有區域內的動作才會觸發智慧偵測，沒有區域就是整個畫面。每個區域都有編號和可刪除的 ×；按 Esc 或右鍵可取消正在畫的框；「取消」會還原之前的區域，「完成」則保留。第 5 個區域會被拒絕，不再讓最舊的區域自動消失。"
+    "Draw zones now explains what zones do: only motion inside a zone counts for Smart detection, no zones means the whole picture. Each zone is numbered and has an × to delete it; Esc or right-click cancels the box you are drawing; Cancel brings back the zones you had before, Done keeps them. A fifth zone is refused instead of the oldest one disappearing.": "「畫偵測區域」現在會說明區域的用途：只有區域內的動作才會觸發智慧偵測，沒有區域就是整個畫面。每個區域都有編號和可刪除的 ×；按 Esc 或右鍵可取消正在畫的框；「取消」會還原之前的區域，「完成」則保留。第 5 個區域會被拒絕，不再讓最舊的區域自動消失。",
+    "Your code": "您的代碼",
+    "Use my code": "使用我的代碼",
+    "Use random codes": "改用隨機代碼",
+    "Change code": "更改代碼",
+    "6 digits": "6 位數字",
+    "New 6 digits": "新的 6 位數字",
+    "Your own 6-digit code": "您自己的 6 位數代碼",
+    "Several phones or PCs can control at the same time. Allow & remember lets a device in by itself next time, also after the code changes.": "多支手機或 PC 可同時控制。按「允許並記住」後，該裝置下次會自動連入，代碼變更後也一樣。",
+    "Remember every device I allow": "記住每一台我允許的裝置",
+    "Your own code:": "您自己的代碼：",
+    "It is used every time you share, like a password. Change it any time; the old code then stops working.": "每次分享都使用這組代碼，就像密碼一樣。可隨時更改；更改後舊代碼即失效。",
+    "A new random code is made each time you share. Type your own 6 digits to keep one code, like a password you can change any time.": "每次分享都會產生新的隨機代碼。輸入您自己的 6 位數字即可固定使用一組代碼，就像可隨時更改的密碼。",
+    "That code is too easy to guess, and another AIRIZ owner may pick it too. Try less obvious digits.": "這組代碼太容易猜到，其他 AIRIZ 使用者也可能選用。請改用較不明顯的數字。",
+    "This browser could not save the code (storage blocked).": "此瀏覽器無法儲存代碼（儲存空間被封鎖）。",
+    "Use exactly 6 digits.": "請輸入剛好 6 位數字。",
+    "Devices you allow are remembered and come back without asking.": "您允許的裝置會被記住，下次不需再詢問即可連入。",
+    "Allow lets a device in once. Use Allow & remember to remember it.": "「允許」只讓裝置連入這一次。要記住裝置請按「允許並記住」。",
+    "Random codes from the next time you share. The current code keeps working until you stop sharing.": "下次分享起改用隨機代碼。目前的代碼在停止分享前仍可使用。",
+    "A new random code is made each time you share.": "每次分享都會產生新的隨機代碼。",
+    "Allow once": "只允許這次",
+    "Allow now; ask again next time": "現在允許，下次再詢問",
+    "This device cannot be remembered (its browser keeps no data).": "無法記住此裝置（其瀏覽器不保留資料）。",
+    "A device asks to control the AIRIZ": "有裝置要求控制 AIRIZ",
+    "Allow & remember lets the device in by itself next time, also after the code changes. Forget it any time in Share control.": "「允許並記住」讓該裝置下次自動連入，代碼變更後也一樣。可隨時在「分享控制」中忘記它。",
+    "Decide later": "稍後決定",
+    "Its key does not match the remembered device. Check it before allowing.": "其金鑰與已記住的裝置不符。允許前請先確認。",
+    "The PC owner changed the code. Ask them for the new code.": "PC 擁有者已更改代碼，請向對方索取新代碼。",
+    "Allow prompt, remembered devices and your own code (1.11.4)": "允許視窗、記住裝置與自訂代碼 (1.11.4)",
+    "When a phone asks to control, a window now pops up on the PC with Allow & remember, Allow once and Deny, even when Share control is closed (the Windows app also flashes in the taskbar). Allow & remember is the main button and is on by default, so the same phone comes back without asking. Share control → Your code lets you keep your own 6-digit code like a password and change it any time; phones on the old code are told it changed, and remembered phones get in again with the new code.": "手機要求控制時，PC 上會跳出視窗，提供「允許並記住」、「只允許這次」與「拒絕」，即使「分享控制」視窗沒開也一樣（Windows App 也會在工作列閃爍提醒）。「允許並記住」是主要按鈕且預設開啟，同一支手機下次不必再詢問即可連入。在「分享控制 → 您的代碼」可設定自己的 6 位數代碼（就像密碼），並可隨時更改；使用舊代碼的手機會收到代碼已變更的通知，已記住的手機輸入新代碼後即可再次連入。"
   },
   "html": {
     "AIRIZDEVICE LAB": "AIRIZ<small>裝置實驗室</small>",
@@ -1233,7 +1262,6 @@
     "Once in Teams: add Send webhook alerts to a chat for Ziris PTB, authorize it and copy the workflow address. Use an Anyone trigger only if your organization permits private bearer webhooks.": "在 Teams 完成一次：為 Ziris PTB 新增 <strong>Send webhook alerts to a chat</strong>，授權後複製工作流程網址。只有在組織允許私人持有者 webhook 時，才使用 <strong>Anyone（任何人）</strong> 觸發程序。",
     "Ziris PTB team → Finish owner setup. The button uses your saved owner address or the one you copied; pasting it first also works.": "Ziris PTB 團隊 → <strong>完成負責人設定</strong>。按鈕會使用已儲存的負責人網址或剛複製的網址；也可以先貼上。",
     "If setup fails, your previous team settings are kept. Check Teams before retrying a timed-out request. Manual invite and resend controls remain under Advanced: personal invite or resend.": "設定失敗時會保留原團隊設定。重試逾時請求前請先查看 Teams。手動邀請及重傳控制仍保留在<strong>進階：個人邀請或重新傳送</strong>中。",
-    "The PC operator presses Allow, or Allow & remember to let that phone in by itself next time (switch that off, or Forget a phone, under Remembered devices). Several phones can control at the same time; the PC can disconnect any of them, and a phone that drops right after a motor command triggers a motor stop.": "PC 操作者按 <strong>Allow</strong>，或按 <strong>Allow &amp; remember</strong>（允許並記住）讓該手機下次自動連入（可在「已記住的裝置」中關閉此功能，或按 <strong>Forget</strong> 忘記手機）。多支手機可同時控制；PC 可隨時中斷任何一支，若手機在送出馬達指令後斷線，會自動送出馬達停止。",
     "Let a phone or another PC control this AIRIZ through this PC - no Bluetooth needed. On the other device open the AIRIZ console and type the code into Control by code. You decide who may control it.": "讓手機或另一台 PC 透過這台 PC 控制這台 AIRIZ - 不需藍牙。在另一台裝置開啟 AIRIZ 主控台，並在<strong>以代碼控制</strong>輸入代碼。由您決定誰可以控制。",
     "Talk (Motor control → Talk & listen): hold Hold to talk and speak (up to 15 s), release to send; slide away from the button to cancel. The AIRIZ plays the message a few seconds later: its USB link (115,200 baud) is slow, so the whole message is sent first and then played. Play again on the AIRIZ repeats the last message.": "<strong>對講</strong>（馬達控制 → 對講與收聽）：按住<strong>按住說話</strong>並說話（最長 15 秒），放開即送出；手指滑離按鈕可取消。AIRIZ 會在幾秒後播放：它的 USB 連線（115,200 baud）很慢，所以整則訊息會先傳完再播放。<strong>在 AIRIZ 再播一次</strong>會重播上一則訊息。",
     "Listen plays the AIRIZ microphone on this PC or phone, about 4 s behind live, with a short gap between 2-second clips. A message being sent pauses listening for a moment.": "<strong>收聽</strong>會在這台 PC 或手機上播放 AIRIZ 麥克風的聲音，比即時慢約 4 秒，每個 2 秒片段之間會有短暫空檔。傳送訊息時會暫停收聽一下。",
@@ -1242,7 +1270,9 @@
     "No PC? An Android phone can be the AIRIZ console: power the AIRIZ from its charger, plug the FT232R cable into the phone with a USB-OTG adapter, open this console in Chrome and press Connect. Keep the page open; Share control then lets other phones control the AIRIZ by code. An iPhone cannot do this (no USB serial).": "沒有 PC？<strong>Android 手機</strong>也能當 AIRIZ 主控台：AIRIZ 接充電器供電，用 USB-OTG 轉接頭把 FT232R 傳輸線接到手機，以 <strong>Chrome</strong> 開啟本主控台並按 <strong>連接裝置</strong>。請保持頁面開啟；之後用 <strong>分享控制</strong> 就能讓其他手機以代碼控制 AIRIZ。iPhone 無法這樣做（不支援 USB 序列埠）。",
     "A phone can share too: an Android phone connected to the AIRIZ by USB (see Getting started) shows Share control like a PC and keeps its screen on while sharing. Its Share control window has its own Stop motor button.": "手機也能分享：以 USB 連接 AIRIZ 的 Android 手機（見「入門」）跟 PC 一樣有 <strong>分享控制</strong>，分享時會保持螢幕開啟。它的分享控制視窗也有自己的 <strong>停止馬達</strong> 按鈕。",
     "PTZ live view: click the picture to center that spot, hold an arrow to move (release = stop) and use the wheel for digital zoom. Set Home, soft limits and up to 12 saved positions; Auto scan visits them in turn. A phone or PC that controls by code uses the camera position of the console with the AIRIZ cable, so its Go home brings the real camera home, also when someone else moved it.": "<strong>PTZ 即時畫面</strong>：點擊畫面可將該點置中，按住箭頭移動（放開 = 停止），滾輪可數位變焦。可設定<strong>原點</strong>、軟體限位與最多 12 個預設位置；<strong>自動巡航</strong>會依序巡視這些位置。以代碼控制的手機或電腦會使用接著 AIRIZ 傳輸線的主控台所記錄的攝影機位置，所以按<strong>回到原點</strong>時，即使別人移動過攝影機，也會回到真正的原點。",
-    "Zones decide where Smart detection looks: only motion inside a zone counts (photo, clip, auto-track, spotlight, siren, alerts). No zones = the whole picture. Draw them with Draw zones on the live view; a zone is a part of the picture, not of the room, so after the camera turns it covers whatever is in that part of the picture.": "偵測區域決定智慧偵測要看哪裡：只有區域內的動作才算數（照片、影片、自動追蹤、聚光燈、警報、通知）。沒有區域 = 整個畫面。請在即時畫面上用<em>畫偵測區域</em>來畫；區域是畫面的一部分，不是房間的一部分，所以相機轉動後，區域會涵蓋畫面那個位置上的任何東西。"
+    "Zones decide where Smart detection looks: only motion inside a zone counts (photo, clip, auto-track, spotlight, siren, alerts). No zones = the whole picture. Draw them with Draw zones on the live view; a zone is a part of the picture, not of the room, so after the camera turns it covers whatever is in that part of the picture.": "偵測區域決定智慧偵測要看哪裡：只有區域內的動作才算數（照片、影片、自動追蹤、聚光燈、警報、通知）。沒有區域 = 整個畫面。請在即時畫面上用<em>畫偵測區域</em>來畫；區域是畫面的一部分，不是房間的一部分，所以相機轉動後，區域會涵蓋畫面那個位置上的任何東西。",
+    "When a phone asks, a window pops up on the PC with Allow & remember, Allow once and Deny. A remembered phone is let in by itself next time, also after the code changes (switch that off, or Forget a phone, under Remembered devices). Several phones can control at the same time; the PC can disconnect any of them, and a phone that drops right after a motor command triggers a motor stop.": "手機要求連線時，PC 上會跳出視窗，提供 <strong>Allow &amp; remember</strong>（允許並記住）、<strong>Allow once</strong>（只允許這次）與 <strong>Deny</strong>（拒絕）。已記住的手機下次會自動連入，代碼變更後也一樣（可在「已記住的裝置」中關閉此功能，或按 <strong>Forget</strong> 忘記手機）。多支手機可同時控制；PC 可隨時中斷任何一支，若手機在送出馬達指令後斷線，會自動送出馬達停止。",
+    "Want the same code every time? Under Your code type your own 6 digits (like a password) and press Use my code. Change it any time: devices on the old code are disconnected, and remembered devices come back by themselves once they type the new code.": "想每次都用同一組代碼？在 <strong>Your code</strong>（您的代碼）輸入您自己的 6 位數字（就像密碼），再按 <strong>Use my code</strong>（使用我的代碼）。可隨時更改：使用舊代碼的裝置會被中斷，已記住的裝置輸入新代碼後會自動連入。"
   },
   "patterns": [
     [
@@ -2004,6 +2034,30 @@
     [
       "^Zones saved: Smart detection watches (\\d+) zones?\\.$",
       "已儲存偵測區域：智慧偵測會監看 $1 個區域。"
+    ],
+    [
+      "^(.+) asks to control the AIRIZ\\.$",
+      "$1 要求控制 AIRIZ。"
+    ],
+    [
+      "^You are already sharing with code (\\d{6})\\. It stays your code\\.$",
+      "您已在使用代碼 $1 分享，它會保留為您的代碼。"
+    ],
+    [
+      "^Saved\\. Your code (\\d{6}) is used every time you share\\.$",
+      "已儲存。每次分享都會使用您的代碼 $1。"
+    ],
+    [
+      "^Code changed to (\\d{6})\\. Devices on the old code were disconnected; tell the people you trust the new code\\.$",
+      "代碼已改為 $1。使用舊代碼的裝置已中斷連線；請把新代碼告訴您信任的人。"
+    ],
+    [
+      "^Sharing with your own code (\\d{6})\\. On the phone or other PC: open the AIRIZ console and type it into Control by code\\. Keep this window open while sharing\\.$",
+      "正以您自己的代碼 $1 分享。在手機或其他 PC 上：開啟 AIRIZ 主控台，在「以代碼控制」輸入此代碼。分享期間請保持此視窗開啟。"
+    ],
+    [
+      "^Code (\\d{6}) is now shared by another AIRIZ console \\(another PC or window\\), so sharing stopped here\\. Choose a different code in Share control, then Start sharing\\.$",
+      "代碼 $1 已被另一個 AIRIZ 主控台（另一台 PC 或視窗）使用，因此這裡已停止分享。請在「分享控制」中選擇其他代碼，再按「開始分享」。"
     ]
   ]
 }
