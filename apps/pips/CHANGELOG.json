@@ -2,6 +2,33 @@
   "_comment": "Pips version history. Newest first. Feeds the in-app update notice (latest.json), the PPT guide and the update emails.",
   "releases": [
     {
+      "version": "2.24.2",
+      "date": "2026-10-29",
+      "title": "Auto battle",
+      "notes": {
+        "en": [
+          "Arena battles can now play themselves: switch on 🤖 Auto (button in the battle, the A key, or the tick box before a fight) and your pet picks its skills - it finishes off a weak opponent, heals when low and saves Focus for long fights.",
+          "Prefer to play yourself? Leave Auto off and press the skill buttons (or keys 1-3) as before. You can switch any time, even mid-battle.",
+          "Your choice is remembered for the next fight."
+        ],
+        "id": [
+          "Duel arena kini bisa main sendiri: nyalakan 🤖 Otomatis (tombol di pertarungan, tombol A, atau centang sebelum bertarung) dan pet memilih skill sendiri - menghabisi lawan yang lemah, menyembuhkan diri saat HP rendah, dan memakai Fokus di pertarungan panjang.",
+          "Mau main sendiri? Biarkan Otomatis mati dan tekan tombol skill (atau 1-3) seperti biasa. Bisa diganti kapan saja, bahkan di tengah pertarungan.",
+          "Pilihanmu diingat untuk pertarungan berikutnya."
+        ],
+        "zh_TW": [
+          "競技場對戰現在可以自動進行：開啟 🤖 自動（對戰中的按鈕、A 鍵，或開打前勾選），寵物會自己選技能 - 能擊倒就補刀、血少時回復、長期戰先專注。",
+          "想自己玩？保持自動關閉，像以前一樣按技能按鈕（或 1-3）。隨時都能切換，對戰中也可以。",
+          "你的選擇會保留到下一場。"
+        ],
+        "zh_CN": [
+          "竞技场对战现在可以自动进行：开启 🤖 自动（对战中的按钮、A 键，或开打前勾选），宠物会自己选技能 - 能击倒就补刀、血少时回复、持久战先专注。",
+          "想自己玩？保持自动关闭，像以前一样按技能按钮（或 1-3）。随时都能切换，对战中也可以。",
+          "你的选择会保留到下一场。"
+        ]
+      }
+    },
+    {
       "version": "2.24.1",
       "date": "2026-10-29",
       "title": "No more surprise pop-ups",

@@ -529,6 +529,7 @@ class DuelWindow:
 # v2.24 skill duels: bring 3 skills, take turns, best-of rounds (server v14)
 # =============================================================================
 SK_EVENT_S = {"round": 1.9, "round_start": 1.3, "stunned": 0.8}
+AUTO_DELAY_S = 0.8          # auto battle: short pause so you can see whose turn it is
 FX_ICONS = (("guard", "\u26e8", "#74c0fc"), ("focus", "\U0001F3AF", "#ffd43b"), ("stun", "\U0001F4AB", "#ffe066"),
             ("evade", "\U0001F680", "#a5d8ff"), ("block", "\u25ce", "#d0bfff"))
 STAT_ROWS = (("level", "Lv"), ("hp", "\u2764 HP"), ("atk", "\u2694 ATK"), ("def", "\u26e8 DEF"),
@@ -585,6 +586,58 @@ def skill_lock_text(skill: str) -> str:
     if kind == "weapon":
         return t("sk_lock_melee") if "melee" in value else t("sk_lock_gun")
     return t("sk_lock_tool", name=t("duel_sp_" + value))
+
+
+def auto_pick(state: dict, side: str):
+    """Auto battle: choose one of my ready skills like a sensible player would.
+    Returns the index into state["skills"][side] (or None if nothing is usable)."""
+    skills = list(((state or {}).get("skills") or {}).get(side) or [])
+    ready = [(i, s.get("id")) for i, s in enumerate(skills) if int(s.get("cd", 0) or 0) == 0 and s.get("id") in pet_shop.SKILLS]
+    if not ready:
+        return None
+    other = "b" if side == "a" else "a"
+    me = (state or {}).get(side) or {}
+    op = (state or {}).get(other) or {}
+    my_max = max(1, me.get("hp", 1) or 1)
+    my_hp = me.get("hp_now", my_max)
+    op_hp = op.get("hp_now", op.get("hp", 1)) or 1
+    focused = bool((((state or {}).get("fx") or {}).get(side) or {}).get("focus"))
+
+    def expected(skill):
+        st = pet_shop.SKILLS[skill][2]
+        if not st.get("power"):
+            return 0.0
+        dmg = (me.get("atk", 10) or 10) * st["power"] * 1.6 * st.get("hits", 1) * st.get("acc", 90) / 100.0
+        if not st.get("pierce"):
+            dmg *= 100.0 / (100.0 + (op.get("def", 0) or 0) * 4)
+        if st.get("sure_crit"):
+            dmg *= 1.7
+        if focused:
+            dmg *= 1.5
+        return dmg
+
+    heals = [(i, s) for i, s in ready if pet_shop.SKILLS[s][2].get("heal") and not pet_shop.SKILLS[s][2].get("power")
+             and not pet_shop.SKILLS[s][2].get("guard")]
+    attacks = sorted(((expected(s), i, s) for i, s in ready if expected(s) > 0), reverse=True)
+    # 1) finish them off with the most reliable hit that is enough
+    finishers = [(pet_shop.SKILLS[s][2].get("acc", 90), i) for dmg, i, s in attacks if dmg >= op_hp]
+    if finishers:
+        return max(finishers)[1]
+    # 2) low on HP: heal, else guard
+    if my_hp / my_max < 0.35:
+        if heals:
+            return heals[0][0]
+        guards = [i for i, s in ready if pet_shop.SKILLS[s][2].get("guard")]
+        if guards and my_hp / my_max < 0.2:
+            return guards[0]
+    # 3) charge up with Focus when the fight is still long
+    focus = [i for i, s in ready if pet_shop.SKILLS[s][2].get("focus")]
+    if focus and not focused and attacks and op_hp > attacks[0][0] * 2.5:
+        return focus[0]
+    # 4) otherwise the hardest expected hit
+    if attacks:
+        return attacks[0][1]
+    return ready[0][0]
 
 
 class BattleSetup:
@@ -737,6 +790,12 @@ class BattleSetup:
                 btn.pack(side="left", padx=(6, 0))
                 btn.bind("<Button-1>", lambda e, k=n: self.set_rounds(k))
                 self.round_btns[n] = btn
+        # auto battle
+        self.auto_var = tk.BooleanVar(value=bool(self.soc.data.get("duel_auto")))
+        tk.Checkbutton(outer, text="\U0001F916 " + t("sk_auto_setup"), variable=self.auto_var,
+                       font=("Segoe UI Symbol", 9), fg="#e9e6ff", bg=self.BG, selectcolor="#3a3752",
+                       activebackground=self.BG, activeforeground="#ffffff", anchor="w",
+                       cursor="hand2").pack(fill="x", pady=(8, 0))
         # footer
         foot = tk.Frame(outer, bg=self.BG)
         foot.pack(fill="x", pady=(12, 0))
@@ -804,6 +863,7 @@ class BattleSetup:
             return
         self.confirmed = True
         skills = pet_shop.clean_skills(self.picked, self.level, self.gear)
+        self.soc.data["duel_auto"] = bool(self.auto_var.get())
         self.soc.save_duel_setup(skills, None if self.mode == "accept" else self.rounds)
         callback = self.on_confirm
         self.close()
@@ -821,7 +881,10 @@ class SkillDuelWindow(DuelWindow):
         self.sent_at = 0.0
         self.banner = None
         self.disp_wins = {"a": 0, "b": 0}
+        self.auto = bool(soc.data.get("duel_auto"))
+        self._auto_due = 0.0
         super().__init__(soc, duel_id, spectate)
+        self.win.bind("<a>", lambda e: self.toggle_auto())
         self.win.title(t("arena_title") + " \u00b7 " + t("sk_title"))
         for i in range(3):
             self.win.bind(str(i + 1), lambda e, k=i: self._use_skill(k))
@@ -879,6 +942,33 @@ class SkillDuelWindow(DuelWindow):
         self.soc.pet.set_action("hop", 0.4)
         self._refresh_controls()
 
+    def toggle_auto(self):
+        if not self.mine:
+            return
+        self.auto = not self.auto
+        self.soc.data["duel_auto"] = self.auto
+        try:
+            self.soc.save()
+        except Exception:
+            pass
+        self._auto_due = 0.0
+        self._refresh_controls()
+
+    def _auto_tick(self):
+        """Auto battle: on my turn (after the animations) pick a skill by myself."""
+        if not self.auto or not self.can_act():
+            self._auto_due = 0.0
+            return
+        now = time.monotonic()
+        if not self._auto_due:
+            self._auto_due = now + AUTO_DELAY_S
+            return
+        if now >= self._auto_due:
+            self._auto_due = 0.0
+            index = auto_pick(self.state or {}, self.mine)
+            if index is not None:
+                self._use_skill(index)
+
     def _rematch(self):
         st = self.state or {}
         side = self.mine or "a"
@@ -923,6 +1013,8 @@ class SkillDuelWindow(DuelWindow):
                 self._small_button(self.extra, "\u21bb " + t("duel_rematch"), self._rematch, "#2f9e44")
             self._small_button(self.extra, t("duel_close"), self.close, "#495057")
         elif side and status == "active":
+            self._small_button(self.extra, "\U0001F916 " + (t("sk_auto_on") if self.auto else t("sk_auto_off")),
+                               self.toggle_auto, "#7048e8" if self.auto else "#495057")
             self._small_button(self.extra, t("duel_forfeit"), self._forfeit, "#495057")
 
     # ---- events ----
@@ -986,6 +1078,7 @@ class SkillDuelWindow(DuelWindow):
             self.soc.pet.set_action("hop", 0.3)
 
     def _update_info(self):
+        self._auto_tick()
         st = self.state or {}
         status = st.get("status")
         side = self.mine
@@ -1006,7 +1099,9 @@ class SkillDuelWindow(DuelWindow):
             remaining = max(0, int(st.get("deadline", 0) - (time.time() + self.offset)))
             text = t("sk_round", n=st.get("rnd", 1), total=rounds) + f"  \u00b7  \u23f1 {remaining}s  \u00b7  "
             turn = st.get("turn")
-            if side and turn == side:
+            if side and turn == side and self.auto:
+                text += "\U0001F916 " + t("sk_auto_playing")
+            elif side and turn == side:
                 text += t("sk_your_turn")
             else:
                 text += t("sk_their_turn", name=st.get(turn, {}).get("name", "?"))

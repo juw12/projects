@@ -1,39 +1,39 @@
 {
   "installer": {
     "filename": "Pips-Setup.exe",
-    "sha256": "9a668254f9ce5294eb1d079ac4234e214a8ae9212049230d0acbae3da7269cbf",
-    "size": 22307039,
+    "sha256": "7aa221dfff81ddd666c9178bf42c732094d7863727a571f0d1248479621d54ac",
+    "size": 22310266,
     "architecture": "x64",
     "python_version": "3.13.17",
     "requires_admin": false,
     "url": "https://juw12.github.io/projects/pips/download/Pips-Setup.exe"
   },
-  "version": "2.24.1",
+  "version": "2.24.2",
   "date": "2026-10-29",
-  "title": "No more surprise pop-ups",
+  "title": "Auto battle",
   "url": "https://juw12.github.io/projects/pips/download/Pips-Windows.zip",
-  "sha256": "6c49c5cd9026322832c97c6817c7f27b1dd1f98079e7c11c60a90a73d3502555",
-  "size": 961746,
+  "sha256": "8019c2f8017aa2d2f309b9830db6ad5b7d195446ab459af6dd6295ef01e2c93a",
+  "size": 964834,
   "notes": {
     "en": [
-      "Clicking your pet now only tickles it - no window pops up. Double-click the pet to open the hub (or use the right-click menu).",
-      "The focus card and the dashboard stay hidden when Pips starts; open them only when you want them.",
-      "Prefer the old way? Right-click → Settings → When I click the pet."
+      "Arena battles can now play themselves: switch on 🤖 Auto (button in the battle, the A key, or the tick box before a fight) and your pet picks its skills - it finishes off a weak opponent, heals when low and saves Focus for long fights.",
+      "Prefer to play yourself? Leave Auto off and press the skill buttons (or keys 1-3) as before. You can switch any time, even mid-battle.",
+      "Your choice is remembered for the next fight."
     ],
     "id": [
-      "Klik pet sekarang hanya menggelitik - tidak ada jendela yang muncul. Klik dua kali pet untuk membuka hub (atau pakai menu klik kanan).",
-      "Kartu fokus dan dashboard tetap tersembunyi saat Pips dimulai; buka hanya saat kamu mau.",
-      "Suka cara lama? Klik kanan → Pengaturan → Saat peliharaan diklik."
+      "Duel arena kini bisa main sendiri: nyalakan 🤖 Otomatis (tombol di pertarungan, tombol A, atau centang sebelum bertarung) dan pet memilih skill sendiri - menghabisi lawan yang lemah, menyembuhkan diri saat HP rendah, dan memakai Fokus di pertarungan panjang.",
+      "Mau main sendiri? Biarkan Otomatis mati dan tekan tombol skill (atau 1-3) seperti biasa. Bisa diganti kapan saja, bahkan di tengah pertarungan.",
+      "Pilihanmu diingat untuk pertarungan berikutnya."
     ],
     "zh_TW": [
-      "點擊寵物現在只會搔癢，不會再跳出視窗。雙擊寵物即可開啟中心（或使用右鍵選單）。",
-      "Pips 啟動時專注卡片和儀表板保持隱藏，需要時再開啟。",
-      "想用舊方式？右鍵 → 設定 → 點擊寵物時。"
+      "競技場對戰現在可以自動進行：開啟 🤖 自動（對戰中的按鈕、A 鍵，或開打前勾選），寵物會自己選技能 - 能擊倒就補刀、血少時回復、長期戰先專注。",
+      "想自己玩？保持自動關閉，像以前一樣按技能按鈕（或 1-3）。隨時都能切換，對戰中也可以。",
+      "你的選擇會保留到下一場。"
     ],
     "zh_CN": [
-      "点击宠物现在只会挠痒，不会再弹出窗口。双击宠物即可打开中心（或使用右键菜单）。",
-      "Pips 启动时专注卡片和仪表板保持隐藏，需要时再打开。",
-      "想用旧方式？右键 → 设置 → 点击宠物时。"
+      "竞技场对战现在可以自动进行：开启 🤖 自动（对战中的按钮、A 键，或开打前勾选），宠物会自己选技能 - 能击倒就补刀、血少时回复、持久战先专注。",
+      "想自己玩？保持自动关闭，像以前一样按技能按钮（或 1-3）。随时都能切换，对战中也可以。",
+      "你的选择会保留到下一场。"
     ]
   },
   "guide": "https://juw12.github.io/projects/pips/download/Pips-Guide.pptx"

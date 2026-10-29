@@ -1746,6 +1746,17 @@ S.update({
 })
 
 
+S.update({
+    "sk_auto_on": ("Auto: ON", "Otomatis: ON", "自動：開", "自动：开"),
+    "sk_auto_off": ("Auto: OFF", "Otomatis: OFF", "自動：關", "自动：关"),
+    "sk_auto_playing": ("Auto battle - your pet picks a skill…", "Otomatis - pet-mu memilih skill…",
+                        "自動戰鬥 - 寵物正在選技能…", "自动战斗 - 宠物正在选技能…"),
+    "sk_auto_setup": ("Auto battle (your pet picks the skills; switch it any time with the Auto button or A)",
+                      "Bertarung otomatis (pet memilih skill; ubah kapan saja dengan tombol Otomatis atau A)",
+                      "自動戰鬥（寵物自己選技能；隨時可用「自動」按鈕或 A 鍵切換）",
+                      "自动战斗（宠物自己选技能；随时可用“自动”按钮或 A 键切换）"),
+})
+
 L = {
     "sneeze": (
         ["Achoo! 🤧", "*sniff sniff*", "Ah... ah... CHOO!", "*sniffle*"],
