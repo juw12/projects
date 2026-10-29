@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html data-theme="dark" lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>AIRIZ camera</title>
+<link href="icons/app-icon.svg" rel="icon" type="image/svg+xml"/>
+<link href="camera-view.css" rel="stylesheet"/>
+</head>
+<body>
+<!-- 1.11.6: the AIRIZ camera on its own, in a separate window or tab (Camera > Open in new window). -->
+<main class="cv-stage" id="cv-stage">
+<video autoplay="" id="cv-video" muted="" playsinline=""></video>
+<div class="cv-message" id="cv-message" role="status">
+<p id="cv-message-text">Connecting to the AIRIZ Console…</p>
+<div class="cv-message-actions">
+<button class="cv-btn cv-btn-primary" hidden="" id="cv-start-console" type="button">Start preview in the console</button>
+<button class="cv-btn" hidden="" id="cv-start-here" type="button">Use the camera here</button>
+</div>
+</div>
+<div aria-label="Camera window tools" class="cv-toolbar" id="cv-toolbar" role="toolbar">
+<span class="cv-info" id="cv-info"></span>
+<button class="cv-btn" data-fit="contain" id="cv-fit" type="button">Fill</button>
+<button class="cv-btn" hidden="" id="cv-pip" type="button" title="A small camera window that stays on top of other windows">Always on top</button>
+<button class="cv-btn" id="cv-fullscreen" type="button" title="Double-click the picture also switches full screen">Full screen</button>
+</div>
+</main>
+<script src="i18n-strings.js"></script>
+<script src="camera-view.js"></script>
+</body>
+</html>

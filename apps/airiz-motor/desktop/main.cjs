@@ -79,6 +79,17 @@ const contentTypes = {
   '.png': 'image/png', '.ico': 'image/x-icon'
 };
 
+// 1.11.6: the camera on its own (camera-view.html), opened from the console.
+const cameraWindows = new Set();
+function isCameraWindowUrl(url) {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === 'airiz:' && parsed.host === 'app' && parsed.pathname === '/camera-view.html';
+  } catch (error) {
+    return false;
+  }
+}
+
 function trustedSender(event) {
   return mainWindow && event.sender === mainWindow.webContents
     && event.senderFrame === mainWindow.webContents.mainFrame
@@ -279,8 +290,37 @@ async function createWindow() {
   });
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    // 1.11.6: Camera > Open in new window - only the app's own camera page opens in the app.
+    if (isCameraWindowUrl(url)) {
+      return {
+        action: 'allow',
+        overrideBrowserWindowOptions: {
+          width: 1280, height: 760, minWidth: 320, minHeight: 200,
+          title: 'AIRIZ camera', backgroundColor: '#000000',
+          icon: path.join(__dirname, 'assets', 'app.ico'), autoHideMenuBar: true,
+          webPreferences: {
+            nodeIntegration: false, contextIsolation: true, sandbox: true,
+            webSecurity: true, allowRunningInsecureContent: false,
+            spellcheck: false, webviewTag: false
+          }
+        }
+      };
+    }
     if (canOpenExternal(url)) shell.openExternal(url);
     return { action: 'deny' };
+  });
+  // The camera window may not open further windows or leave the app.
+  mainWindow.webContents.on('did-create-window', child => {
+    cameraWindows.add(child);
+    child.on('closed', () => cameraWindows.delete(child));
+    child.webContents.setWindowOpenHandler(({ url }) => {
+      if (canOpenExternal(url)) shell.openExternal(url);
+      return { action: 'deny' };
+    });
+    child.webContents.on('will-navigate', (event, url) => {
+      if (!isCameraWindowUrl(url)) event.preventDefault();
+    });
+    child.webContents.on('will-attach-webview', event => event.preventDefault());
   });
   mainWindow.webContents.on('will-navigate', (event, url) => {
     if (!isAppUrl(url)) {
@@ -305,6 +345,11 @@ async function createWindow() {
   mainWindow.on('closed', () => {
     releaseSharingPower();
     mainWindow = null;
+    // 1.11.6: a camera window shows the console's camera, so it closes with the console.
+    for (const child of cameraWindows) {
+      if (!child.isDestroyed()) child.close();
+    }
+    cameraWindows.clear();
   });
 
   // 1.9.0: keep the PC awake while sharing; tell the page about sleep and wake-up so the
