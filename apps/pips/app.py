@@ -28,7 +28,7 @@ except ImportError:  # pragma: no cover - i18n ships with Pips
     def T(key, lang=None, **kwargs):
         return key
 
-APP_VERSION = "2.14.1"
+APP_VERSION = "2.14.2"
 APP_OWNER = "Juwen Lie"
 USER_GUIDE_URL = "https://juw12.github.io/projects/pips/download/Pips-Guide.pptx"
 SITE_URL = "https://juw12.github.io/projects/pips/"
@@ -1827,17 +1827,29 @@ class ProductivityWidget:
         pet_settings = self.pet.s if self.pet else (self.cfg.get("pet") or {})
         return bool(pet_settings.get("auto_update", True))
     
+    UPDATE_CHECK_MS = 6 * 3600 * 1000      # normal background check
+    UPDATE_REMIND_MS = 2 * 3600 * 1000     # an update is waiting: remind every 2 hours
+    UPDATE_OFFLINE_MS = 3600 * 1000        # no connection (VPN off?): try again in an hour
+    UPDATE_RETRY_SHOW_MS = 2 * 60 * 1000   # pet busy / hidden / fullscreen: show the offer later
+
     def _auto_update_tick(self):
-        try:
-            if self._auto_update_enabled():
-                self._check_updates(manual=False)
-        finally:
-            self.root.after(6 * 3600 * 1000, self._auto_update_tick)
+        started = self._auto_update_enabled() and self._check_updates(manual=False)
+        if not started:
+            self.root.after(self.UPDATE_CHECK_MS, self._auto_update_tick)
+
+    def _schedule_auto_update(self, kind: str, skipped: bool = False):
+        if kind == "found" and not skipped:
+            delay = self.UPDATE_REMIND_MS
+        elif kind == "offline":
+            delay = self.UPDATE_OFFLINE_MS
+        else:
+            delay = self.UPDATE_CHECK_MS
+        self.root.after(delay, self._auto_update_tick)
     
     def _check_updates(self, manual: bool = False):
         """Check the published manifest in a background thread."""
         if not updater or self._update_busy:
-            return
+            return False
         self._update_busy = True
         
         def worker():
@@ -1850,14 +1862,17 @@ class ProductivityWidget:
             self.root.after(0, lambda: self._on_update_result(outcome, manual))
         
         threading.Thread(target=worker, daemon=True).start()
+        return True
     
     def _on_update_result(self, outcome, manual: bool):
         self._update_busy = False
         kind, payload = outcome
+        skipped = kind == "found" and (self.cfg.get("updates") or {}).get("skipped_version") == payload.get("version")
+        if not manual:
+            self._schedule_auto_update(kind, skipped)
         if kind == "found":
             self._update_manifest = payload
-            skipped = (self.cfg.get("updates") or {}).get("skipped_version")
-            if not manual and skipped == payload.get("version"):
+            if not manual and skipped:
                 return
             self._offer_update(payload)
         elif kind == "latest":
@@ -1884,7 +1899,7 @@ class ProductivityWidget:
         notes_text = "\n".join("\u2022 " + n for n in notes)
         text = T("upd_available", v=version, notes=notes_text)
         if self.pet and self.pet.is_visible():
-            self.pet.say(
+            shown = self.pet.say(
                 text,
                 actions=[
                     (T("upd_now"), lambda: self._install_update(manifest)),
@@ -1894,11 +1909,19 @@ class ProductivityWidget:
                 duration=90,
                 priority=2,
             )
+            if not shown:
+                # fullscreen app, guided tour or another message: try again in a little while
+                self.root.after(self.UPDATE_RETRY_SHOW_MS, lambda v=version: self._reoffer_update(v))
             return
         from tkinter import messagebox
         if messagebox.askyesno("Pips", text + "\n\n" + T("upd_now") + "?", parent=self.card_frame):
             self._install_update(manifest)
     
+    def _reoffer_update(self, version: str):
+        manifest = self._update_manifest
+        if manifest and manifest.get("version") == version:
+            self._offer_update(manifest)
+
     def _show_pending_update(self):
         """Menu banner click: show the update offer (or re-check if it went stale)."""
         if self._update_manifest:
