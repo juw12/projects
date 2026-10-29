@@ -793,6 +793,7 @@
       ],
       "image": "plm-aml-approval-card.jpg",
       "image_alt": "PLM AML Approval Assistant: six automated steps from part search to a verified approval form, stopping before Submit",
+      "files": "https://github.com/juw12/projects/tree/main/apps/plm-aml-approval",
       "status": "preliminary",
       "order": 23,
       "portfolio_order": -7
