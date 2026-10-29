@@ -1,13 +1,13 @@
 // End-to-end API test for the Mint worker.
 // Usage: node test/api_test.mjs http://127.0.0.1:8787   (against `npm run dev`, PLATFORM_FEE_PCT=10)
 import assert from "node:assert/strict";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import path from "node:path";
 import crypto from "node:crypto";
 import { startMockServices, VALID_KEYS } from "./mock_services.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-await import(path.join(here, "../../web/js/core.js"));
+await import(pathToFileURL(path.join(here, "../../web/js/core.js")).href);
 const Core = globalThis.MintCore;
 
 const BASE = (process.argv[2] || "http://127.0.0.1:8787").replace(/\/$/, "");
@@ -689,6 +689,96 @@ const missing = await fetch(`${BASE}/s/no-such-listing`, { redirect: "manual" })
 assert.equal(missing.status, 302);
 assert.match(missing.headers.get("location"), /#\/market$/);
 ok("share links render Open Graph previews and redirect into the app safely");
+
+// ---- cross-device sync (ciphertext only; the browser encrypts)
+const wrap = (seed) => "w1." + crypto.createHash("sha256").update(seed).digest("base64url") + "." + crypto.randomBytes(24).toString("base64url");
+const blob = (text) => "s1." + crypto.randomBytes(12).toString("base64url") + "." + Buffer.from(text).toString("base64url");
+r = await api("GET", "sync");
+assert.equal(r.status, 401);
+r = await api("POST", "sync", { token: buyer2.token, body: { items: [{ key: "book:abc", data: blob("x") }] } });
+assert.equal(r.status, 409, "push before a key exists");
+r = await api("POST", "sync/key", { token: buyer2.token, body: { keyId: "short", wrapPw: "x" } });
+assert.equal(r.status, 400);
+r = await api("GET", "sync/key", { token: buyer2.token });
+assert.equal(r.data.key, null);
+r = await api("POST", "sync/key", { token: buyer2.token, body: { keyId: "key-one-123", wrapPw: wrap("pw"), wrapRc: wrap("rc") } });
+assert.equal(r.status, 200, JSON.stringify(r.data));
+r = await api("GET", "sync/key", { token: buyer2.token });
+assert.equal(r.data.key.keyId, "key-one-123");
+assert.ok(r.data.key.wrapRc.startsWith("w1."));
+r = await api("POST", "sync/key", { token: buyer2.token, body: { keyId: "key-one-123", wrapPw: wrap("pw2") } });
+assert.equal(r.status, 200);
+assert.ok(r.data.key.wrapRc.startsWith("w1."), "re-wrapping with a new password keeps the recovery wrap");
+ok("sync key: validation, set, re-wrap keeps the recovery copy");
+
+const first = blob("budget v1");
+r = await api("POST", "sync", { token: buyer2.token, body: { keyId: "key-one-123", items: [{ key: "book:abc", data: first, base: 0 }, { key: "prefs", data: blob("prefs") }] } });
+assert.equal(r.status, 200, JSON.stringify(r.data));
+assert.equal(r.data.rev, 2);
+r = await api("POST", "sync", { token: buyer2.token, body: { items: [{ key: "book:abc", data: blob("budget v2"), base: 1 }] } });
+assert.equal(r.data.results[0].rev, 3);
+r = await api("POST", "sync", { token: buyer2.token, body: { items: [{ key: "book:abc", data: blob("stale"), base: 1 }] } });
+assert.equal(r.data.results[0].conflict, true, "stale base is a conflict");
+assert.equal(r.data.results[0].rev, 3);
+r = await api("GET", "sync?since=0", { token: buyer2.token });
+assert.equal(r.data.rev, 3);
+assert.equal(r.data.items.length, 2);
+assert.equal(r.data.keyId, "key-one-123");
+assert.equal(r.data.items.find((i) => i.key === "book:abc").rev, 3);
+r = await api("GET", "sync?since=3", { token: buyer2.token });
+assert.equal(r.data.items.length, 0);
+r = await api("GET", "sync?since=0", { token: buyer.token });
+assert.equal(r.data.items.length, 0, "accounts never see each other's items");
+ok("sync push/pull with revisions and conflict detection, per account");
+
+r = await api("POST", "sync", { token: buyer2.token, body: { items: [{ key: "book:../etc", data: blob("x") }] } });
+assert.equal(r.status, 400);
+r = await api("POST", "sync", { token: buyer2.token, body: { items: [{ key: "book:abc", data: "not base64!" }] } });
+assert.equal(r.status, 400);
+r = await api("POST", "sync", { token: buyer2.token, body: { items: [{ key: "book:big", data: "s1." + "A".repeat(350001) }] } });
+assert.ok([413].includes(r.status), "oversized item " + r.status);
+r = await api("POST", "sync", { token: buyer2.token, body: { keyId: "key-old-999", items: [{ key: "book:abc", data: blob("x") }] } });
+assert.equal(r.status, 409);
+assert.equal(r.data.keyChanged, true);
+r = await api("POST", "sync", { token: buyer2.token, body: { items: [{ key: "book:abc", deleted: true, base: 3 }] } });
+assert.equal(r.data.results[0].rev, 4);
+r = await api("GET", "sync?since=3", { token: buyer2.token });
+assert.equal(r.data.items[0].deleted, true);
+assert.equal(r.data.items[0].data, "");
+ok("sync rejects bad keys, junk, oversized items and stale device keys; deletions sync");
+
+r = await api("POST", "sync/key", { token: buyer2.token, body: { keyId: "key-two-456", wrapPw: wrap("pw3") } });
+assert.equal(r.status, 409);
+assert.equal(r.data.key.keyId, "key-one-123");
+r = await api("POST", "sync/key", { token: buyer2.token, body: { keyId: "key-two-456", wrapPw: wrap("pw3"), replace: true } });
+assert.equal(r.status, 200);
+r = await api("GET", "sync?since=0", { token: buyer2.token });
+assert.equal(r.data.items.length, 0, "a new key clears unreadable items");
+r = await api("DELETE", "sync", { token: buyer2.token });
+assert.equal(r.status, 200);
+r = await api("GET", "sync/key", { token: buyer2.token });
+assert.equal(r.data.key, null);
+ok("sync key replacement and reset");
+
+// ---- exchange rates + money news (edge-cached, mocked upstreams)
+r = await api("GET", "fx");
+assert.equal(r.status, 200, JSON.stringify(r.data));
+assert.equal(r.data.base, "USD");
+assert.equal(r.data.rates.IDR, 16300);
+assert.equal(r.data.rates.bogus, undefined);
+assert.equal(r.headers.get("access-control-allow-origin"), ORIGIN);
+r = await api("GET", "news?region=ID&lang=id");
+assert.equal(r.status, 200, JSON.stringify(r.data));
+assert.equal(r.data.edition, "ID:id");
+assert.equal(r.data.items.length, 3, "javascript: links are dropped");
+assert.equal(r.data.items[0].title, "Market note 1 for ID & friends");
+assert.equal(r.data.items[0].source, "Kompas");
+r = await api("GET", "news?region=AE&lang=en");
+assert.equal(r.data.edition, "US:en", "unknown editions fall back to the language's main edition");
+r = await api("GET", "news?region=<x>&lang=klingon");
+assert.equal(r.data.region, "US");
+assert.equal(r.data.lang, "en");
+ok("exchange rates and regional money news");
 
 // ---- AI endpoint (no binding locally → 503; live → spec)
 r = await api("POST", "ai/template", { token: buyer.token, body: { prompt: "habit tracker" } });
