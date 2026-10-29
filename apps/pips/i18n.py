@@ -1162,6 +1162,7 @@ S.update({
     "gift_sent": ("🎁 Gift sent to {name}!", "🎁 Hadiah terkirim ke {name}!", "🎁 禮物已送給 {name}！", "🎁 礼物已送给 {name}！"),
     "gift_failed": ("Couldn't send the gift ({err}).", "Hadiah gagal dikirim ({err}).", "禮物送出失敗（{err}）。", "礼物送出失败（{err}）。"),
     "gift_err_limit": ("You can send up to 20 gifts a day.", "Kamu bisa mengirim maksimal 20 hadiah per hari.", "每天最多可以送 20 份禮物。", "每天最多可以送 20 份礼物。"),
+    "already_running": ("I'm already here! \U0001F44B", "Aku sudah di sini! \U0001F44B", "我已經在這裡啦！\U0001F44B", "我已经在这里啦！\U0001F44B"),
     # ---- v2.14 pokes, tickles & teases ----
     "nudge_btn": ("Poke", "Colek", "戳一下", "戳一下"),
     "nudge_menu": ("Poke a friend", "Colek teman", "戳戳好友", "戳戳好友"),

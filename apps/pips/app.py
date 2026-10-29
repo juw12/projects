@@ -28,7 +28,7 @@ except ImportError:  # pragma: no cover - i18n ships with Pips
     def T(key, lang=None, **kwargs):
         return key
 
-APP_VERSION = "2.14.0"
+APP_VERSION = "2.14.1"
 APP_OWNER = "Juwen Lie"
 USER_GUIDE_URL = "https://juw12.github.io/projects/pips/download/Pips-Guide.pptx"
 SITE_URL = "https://juw12.github.io/projects/pips/"
@@ -72,6 +72,82 @@ logging.basicConfig(
 )
 logger = logging.getLogger("widget")
 
+
+
+# =============================================================================
+# SINGLE INSTANCE - one pet per Windows session
+# =============================================================================
+
+class SingleInstance:
+    """Named mutex + 'show yourself' event. Opening Pips a second time (Desktop / Start Menu
+    shortcut, autostart, installer) wakes the running pet instead of starting a second one."""
+
+    MUTEX = "Local\\Pips.DesktopPet.Instance"
+    EVENT = "Local\\Pips.DesktopPet.ShowRequest"
+    ERROR_ALREADY_EXISTS = 183
+    EVENT_MODIFY_STATE = 0x0002
+
+    def __init__(self):
+        self.mutex = None
+        self.event = None
+        self._k32 = None
+        self._ctypes = None
+        if os.name != "nt":
+            return
+        try:
+            import ctypes
+            from ctypes import wintypes
+            k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+            k32.CreateMutexW.argtypes = [ctypes.c_void_p, wintypes.BOOL, wintypes.LPCWSTR]
+            k32.CreateMutexW.restype = wintypes.HANDLE
+            k32.CreateEventW.argtypes = [ctypes.c_void_p, wintypes.BOOL, wintypes.BOOL, wintypes.LPCWSTR]
+            k32.CreateEventW.restype = wintypes.HANDLE
+            k32.OpenEventW.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.LPCWSTR]
+            k32.OpenEventW.restype = wintypes.HANDLE
+            k32.SetEvent.argtypes = [wintypes.HANDLE]
+            k32.WaitForSingleObject.argtypes = [wintypes.HANDLE, wintypes.DWORD]
+            k32.WaitForSingleObject.restype = wintypes.DWORD
+            k32.CloseHandle.argtypes = [wintypes.HANDLE]
+            self._k32 = k32
+            self._ctypes = ctypes
+        except Exception as e:  # never let the guard stop Pips from starting
+            logger.warning(f"Single-instance guard unavailable: {e}")
+
+    def acquire(self, wait_s: float = 10.0) -> bool:
+        """True if this process may run. Otherwise the running Pips is asked to show itself.
+
+        Waits a little before giving up, so an update restart (old Pips still closing) works."""
+        k32 = self._k32
+        if k32 is None:
+            return True
+        deadline = time.monotonic() + wait_s
+        asked = False
+        while True:
+            handle = k32.CreateMutexW(None, False, self.MUTEX)
+            exists = self._ctypes.get_last_error() == self.ERROR_ALREADY_EXISTS
+            if not handle:
+                return True
+            if not exists:
+                self.mutex = handle
+                self.event = k32.CreateEventW(None, False, False, self.EVENT)
+                return True
+            k32.CloseHandle(handle)
+            if not asked:
+                asked = self.request_show()
+            if time.monotonic() >= deadline:
+                return False
+            time.sleep(0.25)
+
+    def request_show(self) -> bool:
+        event = self._k32.OpenEventW(self.EVENT_MODIFY_STATE, False, self.EVENT)
+        if not event:
+            return False
+        self._k32.SetEvent(event)
+        self._k32.CloseHandle(event)
+        return True
+
+    def show_requested(self) -> bool:
+        return bool(self.event) and self._k32.WaitForSingleObject(self.event, 0) == 0
 
 # =============================================================================
 # DEFAULT CONFIGURATION (falls back if config.json missing)
@@ -713,6 +789,31 @@ class ProductivityWidget:
         
         # Handle window close
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
+
+        # Someone opened Pips again (shortcut / autostart): wake this pet instead
+        if getattr(self, "single_instance", None) is not None:
+            self.root.after(1000, self._poll_instance)
+
+    def _poll_instance(self):
+        try:
+            if self.single_instance.show_requested():
+                self._greet_second_launch()
+        except Exception as e:
+            logger.warning(f"Show request failed: {e}")
+        self.root.after(700, self._poll_instance)
+
+    def _greet_second_launch(self):
+        """Pips was opened again while running: show the pet and say hi."""
+        pet = self.pet
+        if not pet:
+            self._show_card()
+            return
+        if not pet.visible:
+            pet.set_visible(True)
+        if getattr(pet, "sleeping", False):
+            pet.wake("poke", quiet=True)
+        pet.set_action("hop", 0.6)
+        pet.say(T("already_running"), duration=4, priority=2)
     
     def _build_card(self):
         """Build the compact floating card."""
@@ -4071,6 +4172,14 @@ def main(argv=None) -> int:
     parser.add_argument("--version", action="version", version=f"Pips {APP_VERSION} - by {APP_OWNER}")
     
     args = parser.parse_args(argv)
+
+    # One Pips at a time: a second launch just wakes the running pet
+    instance = None
+    if not args.selftest:
+        instance = SingleInstance()
+        if not instance.acquire():
+            logger.info("Pips is already running - asked it to show itself")
+            return 0
     
     # Load config
     cfg = load_config()
@@ -4176,6 +4285,7 @@ def main(argv=None) -> int:
     # Normal mode
     try:
         app = ProductivityWidget(cfg, con, no_track=args.no_track)
+        app.single_instance = instance
         app.build()
         app.run()
         return 0

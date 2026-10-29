@@ -2,6 +2,29 @@
   "_comment": "Pips version history. Newest first. Feeds the in-app update notice (latest.json), the PPT guide and the update emails.",
   "releases": [
     {
+      "version": "2.14.1",
+      "date": "2026-10-29",
+      "title": "One pet at a time",
+      "notes": {
+        "en": [
+          "Opening Pips again (Desktop / Start Menu shortcut, autostart) no longer starts a second pet - your pet just pops up and says hi.",
+          "Fixes lag caused by two copies of Pips running at once."
+        ],
+        "id": [
+          "Membuka Pips lagi (pintasan Desktop / Start Menu, autostart) tidak lagi memunculkan pet kedua - pet-mu cukup muncul dan menyapa.",
+          "Memperbaiki lag karena dua salinan Pips berjalan bersamaan."
+        ],
+        "zh_TW": [
+          "再次開啟 Pips（桌面 / 開始功能表捷徑、開機自動啟動）不會再多出第二隻寵物——你的寵物會直接跳出來打招呼。",
+          "修正同時執行兩個 Pips 造成的卡頓。"
+        ],
+        "zh_CN": [
+          "再次打开 Pips（桌面 / 开始菜单快捷方式、开机自启）不会再多出第二只宠物——你的宠物会直接跳出来打招呼。",
+          "修复同时运行两个 Pips 导致的卡顿。"
+        ]
+      }
+    },
+    {
       "version": "2.14.0",
       "date": "2026-10-29",
       "title": "Pokes, tickles & teases",
