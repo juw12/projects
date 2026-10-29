@@ -1,19 +1,19 @@
-// Twin 1.14.0: own cache only; offline shell; live demo data network-first; API never cached.
+// Twin 1.15.0: own cache only; offline shell; live demo data network-first; API never cached.
 // Updates wait for you: a new version downloads in the background, then the page (update.js) shows
 // "Update ready" and posts TWIN_SKIP_WAITING when you tap Update. Nothing takes over by surprise.
 // Twin Indonesia (id/) shares this worker and cache: its files are listed below with the same version.
 // Market data (world snapshot, chart files, calendars) and Twin Indonesia's snapshot (hourly headlines)
 // refresh hourly: network first, cache as fallback.
-const VERSION = "1.14.0";
+const VERSION = "1.15.0";
 // Pages before this version cannot show the update notice; they reload by themselves when a new worker takes over.
 const PROMPT_SINCE = "1.14.0";
 const PREFIX = "twin:" + self.registration.scope + ":";
 const SHELL = PREFIX + VERSION;
 const FILES = [
-  "./", "index.html", "./?v=1.14.0", "index.html?v=1.14.0",
-  "demo.js?v=1.14.0", "pro.js?v=1.14.0", "pro-ui.js?v=1.14.0", "broker-ui.js?v=1.14.0", "academy.js?v=1.14.0", "global.js?v=1.14.0", "theme.js?v=1.14.0", "theme.css?v=1.14.0", "design.css?v=1.14.0", "neo.css?v=1.14.0", "premium.css?v=1.14.0", "motion.js?v=1.14.0", "icons.js?v=1.14.0", "update.js?v=1.14.0", "manifest.webmanifest",
-  "strategy-lab.js?v=1.14.0", "strategy-lab-ui.js?v=1.14.0", "twinagent.js?v=1.14.0", "twinagent-ui.js?v=1.14.0",
-  "id/", "id/index.html", "id/styles.css?v=1.14.0", "id/engine.js?v=1.14.0", "id/snapshot.js", "id/ideas.js?v=1.14.0", "id/content.js?v=1.14.0", "id/feeds.js?v=1.14.0", "id/app.js?v=1.14.0",
+  "./", "index.html", "./?v=1.15.0", "index.html?v=1.15.0",
+  "demo.js?v=1.15.0", "pro.js?v=1.15.0", "pro-ui.js?v=1.15.0", "broker-ui.js?v=1.15.0", "academy.js?v=1.15.0", "global.js?v=1.15.0", "theme.js?v=1.15.0", "theme.css?v=1.15.0", "design.css?v=1.15.0", "neo.css?v=1.15.0", "premium.css?v=1.15.0", "motion.js?v=1.15.0", "icons.js?v=1.15.0", "update.js?v=1.15.0", "manifest.webmanifest",
+  "strategy-lab.js?v=1.15.0", "strategy-lab-ui.js?v=1.15.0", "twinagent.js?v=1.15.0", "twinagent-ui.js?v=1.15.0",
+  "id/", "id/index.html", "id/styles.css?v=1.15.0", "id/engine.js?v=1.15.0", "id/snapshot.js", "id/ideas.js?v=1.15.0", "id/content.js?v=1.15.0", "id/feeds.js?v=1.15.0", "id/app.js?v=1.15.0",
   "icons/apple-touch-icon.png", "icons/icon-192.png", "icons/icon-512.png",
   "demo/meta.json", "demo/market.json", "demo/monthly.json",
   "demo/news.json", "demo/copycat.json", "demo/trade.json", "demo/world.json", "demo/fundamentals.json", "demo/calendars.json",

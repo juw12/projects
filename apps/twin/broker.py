@@ -32,6 +32,16 @@ PREVIEW_TTL = 120
 ORDER_TYPES = ("market", "limit", "stop", "stop_limit", "trailing_stop")
 DEFAULT_MAX_ORDER = {"paper": 25000.0, "live": 1000.0}
 LIVE_DEFAULT_DAILY_ORDERS = 3
+# Where people add money. Deposits happen at the broker, never inside Twin.
+FUND_URLS = {
+    "alpaca": "https://app.alpaca.markets/",
+    "ibkr": "https://www.interactivebrokers.com/portal/",
+}
+OPEN_ACCOUNT_URLS = {
+    "alpaca": "https://alpaca.markets/",
+    "ibkr": "https://www.interactivebrokers.com/en/home.php",
+}
+DEPOSIT_WATCH_DAYS = 10
 
 
 # Yahoo-style exchange suffixes for listings outside the US (US share classes use one letter: BRK.B).
@@ -184,6 +194,53 @@ class Broker:
             "pattern_day_trader": bool(acct.get("pattern_day_trader")),
             "daytrade_count": acct.get("daytrade_count"),
             "account_number_hint": ("…" + str(acct.get("account_number", ""))[-4:]) if acct.get("account_number") else None,
+        }
+
+    # ------------------------------------------------------------- funding
+    def funding(self, uid):
+        """Cash, buying power and recent bank deposits/withdrawals (read-only).
+
+        Money moves only inside Alpaca: an individual Trading API account cannot start a deposit
+        through the API, so Twin links to Alpaca's dashboard (Live account -> Banking) and then
+        watches /v2/account/activities for the CSD (cash deposit) entry."""
+        cfg = self._require(uid)
+        mode = cfg.get("mode", "paper")
+        account = self._account_summary(self._request(cfg, "GET", "/v2/account"))
+        transfers = []
+        history_error = None
+        try:
+            rows = self._request(cfg, "GET", "/v2/account/activities?activity_types=CSD,CSW&direction=desc&page_size=25")
+        except BrokerError as exc:
+            rows = []
+            history_error = str(exc)
+        for row in rows if isinstance(rows, list) else []:
+            try:
+                amount = abs(float(row.get("net_amount")))
+            except (TypeError, ValueError):
+                continue
+            if not math.isfinite(amount):
+                continue
+            transfers.append({
+                "id": str(row.get("id") or ""),
+                "type": "deposit" if row.get("activity_type") == "CSD" else "withdrawal",
+                "amount": round(amount, 2),
+                "currency": account.get("currency") or "USD",
+                "date": row.get("date"),
+                "status": row.get("status") or "executed",
+            })
+        return {
+            "provider": "alpaca", "mode": mode, "currency": account.get("currency") or "USD",
+            "cash": account.get("cash"), "buying_power": account.get("buying_power"), "equity": account.get("equity"),
+            "balances": [{"currency": account.get("currency") or "USD", "cash": account.get("cash")}],
+            "transfers": transfers, "history": "activities", "history_error": history_error,
+            "can_deposit": mode == "live",
+            "fund_url": FUND_URLS["alpaca"],
+            "fund_steps": [
+                "Open the Alpaca dashboard and sign in.",
+                "Switch to your Live account, then open Banking.",
+                "Link your bank (ACH) or choose wire transfer and enter the amount.",
+                "Come back here: Twin shows the deposit as soon as Alpaca books it (ACH usually takes 1-3 business days).",
+            ],
         }
 
     def connect(self, uid, key_id, secret, mode, phrase="", max_order_usd=None, password_ok=False):
@@ -515,6 +572,7 @@ class BrokerRouter:
         import ibkr  # local module; imported here so Alpaca-only installs never load it at import time
 
         self.load_json = load_json
+        self.save_json = save_json
         self.data_dir = data_dir
         self.alpaca = Broker(data_dir, ssl_ctx, load_json, save_json, quote_fn)
         self.ibkr = ibkr.IbkrBroker(data_dir, load_json, save_json, quote_fn, fx_fn)
@@ -575,3 +633,83 @@ class BrokerRouter:
     def selftest(self, uid, symbol="AAPL"):
         """Read-only IBKR gateway check (works before connecting in Twin)."""
         return self.ibkr.selftest(uid, symbol)
+
+    # --------------------------------------------------------- adding money
+    # Twin never holds money. Deposits happen in the person's own brokerage account (bank link,
+    # ACH or wire at Alpaca / IBKR); Twin shows balances, links to the broker's funding page and
+    # confirms the deposit once the broker books it.
+    def _watch_path(self, uid):
+        return self.data_dir / "users" / uid / "deposit_watch.json"
+
+    def _connected(self, uid):
+        cfg = self.load_json(self.data_dir / "users" / uid / "broker.json", None)
+        return isinstance(cfg, dict) and bool(cfg.get("provider") or cfg.get("key_id"))
+
+    @staticmethod
+    def _arrivals(info, watch):
+        if info.get("history") == "activities":
+            known = set(watch.get("known_ids") or [])
+            return [t for t in info.get("transfers") or []
+                    if t.get("type") == "deposit" and t.get("id") and t["id"] not in known]
+        baseline = watch.get("baseline_cash")
+        cash = info.get("cash")
+        if not isinstance(baseline, (int, float)) or not isinstance(cash, (int, float)):
+            return []
+        increase = round(cash - baseline, 2)
+        expected = watch.get("expected_amount")
+        threshold = max(1.0, 0.5 * expected) if isinstance(expected, (int, float)) and expected > 0 else 1.0
+        if increase < threshold:
+            return []
+        return [{"id": "", "type": "deposit", "amount": increase, "currency": info.get("currency") or "USD",
+                 "date": datetime.now(timezone.utc).date().isoformat(), "status": "detected", "estimated": True}]
+
+    def funding(self, uid):
+        base = {"open_account_urls": dict(OPEN_ACCOUNT_URLS), "fund_urls": dict(FUND_URLS)}
+        if not self._connected(uid):
+            return dict(base, connected=False, watch=None)
+        info = dict(self._active(uid).funding(uid), connected=True, **base)
+        path = self._watch_path(uid)
+        watch = self.load_json(path, None)
+        if not isinstance(watch, dict) or watch.get("provider") != info.get("provider") or watch.get("mode") != info.get("mode"):
+            info["watch"] = None
+            return info
+        if watch.get("state") == "waiting":
+            arrivals = self._arrivals(info, watch)
+            started = watch.get("started_at") or 0
+            if arrivals:
+                watch.update(state="arrived", arrived=arrivals, arrived_at=int(time.time()))
+                self.save_json(path, watch)
+            elif time.time() - started > DEPOSIT_WATCH_DAYS * 86400:
+                watch["state"] = "expired"
+                self.save_json(path, watch)
+        info["watch"] = {key: watch.get(key) for key in
+                         ("state", "started_at", "expected_amount", "baseline_cash", "arrived", "arrived_at")}
+        return info
+
+    def watch_deposit(self, uid, expected_amount=None):
+        """Remember the account as it is now, so the next refresh can say when the deposit lands."""
+        if not self._connected(uid):
+            raise BrokerError("Connect your brokerage account first (Me → Real trading).")
+        info = self._active(uid).funding(uid)
+        if not info.get("can_deposit"):
+            raise BrokerError("This is a paper (practice) account with simulated money. Connect your LIVE account "
+                              "in Me → Real trading to add real money.")
+        amount = None
+        if expected_amount not in (None, ""):
+            amount = round(_num(expected_amount, "Amount", 0, 10_000_000), 2)
+        watch = {
+            "state": "waiting", "provider": info.get("provider"), "mode": info.get("mode"),
+            "started_at": int(time.time()), "expected_amount": amount,
+            "baseline_cash": info.get("cash"),
+            "known_ids": [t.get("id") for t in info.get("transfers") or [] if t.get("id")],
+        }
+        self.save_json(self._watch_path(uid), watch)
+        return self.funding(uid)
+
+    def clear_deposit_watch(self, uid):
+        path = self._watch_path(uid)
+        try:
+            path.unlink()
+        except FileNotFoundError:
+            pass
+        return self.funding(uid)

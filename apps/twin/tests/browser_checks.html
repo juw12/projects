@@ -99,7 +99,7 @@
     const keys = await caches.keys();
     check("unrelated app cache survives activation", keys.includes("other-app-keep-me"));
     check("old Twin cache cleaned", !keys.includes("tt-shell-v3"));
-    const current = keys.find((key) => key.startsWith("twin:") && key.endsWith(":1.14.0"));
+    const current = keys.find((key) => key.startsWith("twin:") && key.endsWith(":1.15.0"));
     const offline = await caches.open(current);
     const cached = await offline.keys();
     check("complete demo precached", ["demo.js", "theme.js", "theme.css", "demo/market.json", "demo/monthly.json", "demo/trade.json", "demo/news.json"].every((name) => cached.some((request) => request.url.split("?")[0].endsWith(name))));
@@ -323,7 +323,7 @@
     const copied = JSON.parse(reportField.value);
     check("report fallback contains replayable inputs and ledger", copied.data.points.length >= 120 && copied.strategy.trades.length > 0 && copied.source.symbol === "AAPL");
     check("Strategy Lab never changes practice positions or cash", paperBeforeLab === JSON.stringify((await reloadWindow.api("api/me")).profile.paper));
-    check("Strategy Lab engine is available in offline shell cache", cached.some((request) => request.url.includes("strategy-lab.js?v=1.14.0")));
+    check("Strategy Lab engine is available in offline shell cache", cached.some((request) => request.url.includes("strategy-lab.js?v=1.15.0")));
     reloadWindow.closeSheet();
 
     // TwinAgent: Trade tab view and stock sheet, in the same guest at phone width.
@@ -381,11 +381,11 @@
     await waitFor(() => reloadDoc.querySelector("#sheet #ta-rating"));
     check("stock page opens a TwinAgent report", Boolean(reloadDoc.querySelector("#sheet #ta-rating")) && reloadDoc.getElementById("sheet").textContent.includes("MSFT"));
     check("TwinAgent sheet fits phone width", reloadDoc.documentElement.scrollWidth <= 320);
-    check("TwinAgent engine and fundamentals cached offline", ["twinagent.js?v=1.14.0", "twinagent-ui.js?v=1.14.0", "design.css?v=1.14.0", "neo.css?v=1.14.0", "premium.css?v=1.14.0", "motion.js?v=1.14.0", "icons.js?v=1.14.0", "demo/fundamentals.json"].every((name) => cached.some((request) => request.url.includes(name))));
+    check("TwinAgent engine and fundamentals cached offline", ["twinagent.js?v=1.15.0", "twinagent-ui.js?v=1.15.0", "design.css?v=1.15.0", "neo.css?v=1.15.0", "premium.css?v=1.15.0", "motion.js?v=1.15.0", "icons.js?v=1.15.0", "demo/fundamentals.json"].every((name) => cached.some((request) => request.url.includes(name))));
     reloadWindow.closeSheet();
 
     // Twin Indonesia (1.11): cached with the shell and reachable from Home, Me and Jakarta stock pages.
-    check("Twin Indonesia cached offline with the shell", ["id/", "id/index.html", "id/app.js?v=1.14.0", "id/engine.js?v=1.14.0", "id/snapshot.js", "id/styles.css?v=1.14.0"].every((name) => cached.some((request) => request.url.endsWith(name))));
+    check("Twin Indonesia cached offline with the shell", ["id/", "id/index.html", "id/app.js?v=1.15.0", "id/engine.js?v=1.15.0", "id/snapshot.js", "id/styles.css?v=1.15.0"].every((name) => cached.some((request) => request.url.endsWith(name))));
     await reloadWindow.openStock("BBCA.JK");
     await waitFor(() => reloadDoc.getElementById("stock-indonesia"));
     check("Jakarta stock page offers Twin Indonesia", (reloadDoc.getElementById("stock-indonesia") || {}).textContent === "Trade BBCA in rupiah lots · Twin Indonesia");
@@ -422,7 +422,7 @@
     // 1.14: Me shows the version and a way to check for updates; no Update button until one is ready.
     const updateCard = reloadDoc.getElementById("me-update");
     check("Me shows the app version and Check for updates",
-      Boolean(updateCard) && updateCard.textContent.includes("Twin v1.14.0") && Boolean(reloadDoc.getElementById("me-update-check")));
+      Boolean(updateCard) && updateCard.textContent.includes("Twin v1.15.0") && Boolean(reloadDoc.getElementById("me-update-check")));
     const applyNow = reloadDoc.getElementById("me-update-apply");
     check("no Update button until an update is ready",
       Boolean(applyNow) && applyNow.hidden && reloadWindow.getComputedStyle(applyNow).display === "none" && applyNow.offsetHeight === 0);
@@ -436,7 +436,7 @@
     // 1.13: in the browser version, Twin's demo engine moves money between both wallets.
     await new Promise((resolve, reject) => {
       const script = document.createElement("script");
-      script.src = "id/engine.js?v=1.14.0";
+      script.src = "id/engine.js?v=1.15.0";
       script.onload = resolve;
       script.onerror = reject;
       document.head.append(script);
@@ -468,7 +468,7 @@
     // 1.14: update.js — the "Update ready" notice and one-tap updates, driven by a fake service worker and server.
     await new Promise((resolve, reject) => {
       const script = document.createElement("script");
-      script.src = "update.js?v=1.14.0";
+      script.src = "update.js?v=1.15.0";
       script.onload = resolve;
       script.onerror = reject;
       document.head.append(script);
@@ -506,7 +506,7 @@
         registration,
         listeners,
         sw: {
-          controller: fakeWorker("1.14.0"),
+          controller: fakeWorker("1.15.0"),
           register: async () => registration,
           addEventListener(type, fn) {
             (listeners[type] = listeners[type] || []).push(fn);
@@ -525,13 +525,13 @@
     const bannerText = () => (banner() || {}).textContent || "";
     const tap = (action) => banner().querySelector(`[data-tu="${action}"]`).click();
     check("version compare: 1.10.0 is newer than 1.9.9",
-      TU.compareVersions("1.10.0", "1.9.9") === 1 && TU.compareVersions("1.14.0", "1.14.0") === 0 && TU.compareVersions("x", "1.0.0") === 0);
+      TU.compareVersions("1.10.0", "1.9.9") === 1 && TU.compareVersions("1.15.0", "1.15.0") === 0 && TU.compareVersions("x", "1.0.0") === 0);
 
     // An installed web app with a new version downloaded in the background.
     const web = fakeServiceWorker("1.15.0");
     let webReloads = 0;
     const webUpdate = TU.createController({
-      version: "1.14.0", appName: "Twin", serviceWorker: web.sw, storage: updateStorage, offset: 70,
+      version: "1.15.0", appName: "Twin", serviceWorker: web.sw, storage: updateStorage, offset: 70,
       reload: () => { webReloads += 1; },
       fetch: async (url) => (String(url).includes("release.json")
         ? jsonResponse({ version: "1.15.0", title: "Faster charts", notes: ["Charts draw twice as fast", "New colours"] })
@@ -560,10 +560,10 @@
     }
 
     // A page opened fresh while online already runs the new version: take the new offline copy quietly.
-    const fresh = fakeServiceWorker("1.14.0");
+    const fresh = fakeServiceWorker("1.15.0");
     let freshReloads = 0;
     const freshUpdate = TU.createController({
-      version: "1.14.0", serviceWorker: fresh.sw, storage: updateStorage, render: false,
+      version: "1.15.0", serviceWorker: fresh.sw, storage: updateStorage, render: false,
       reload: () => { freshReloads += 1; }, fetch: async () => ({ ok: false, status: 404, json: async () => ({}) }),
     });
     await freshUpdate.start("sw.js");
@@ -575,15 +575,15 @@
 
     // Your own Twin server: a newer release is published; install it from the app.
     let installs = 0;
-    let serverVersion = "1.14.0";
+    let serverVersion = "1.15.0";
     let serverReloads = 0;
     const serverUpdate = TU.createController({
-      version: "1.14.0", appName: "Twin", serviceWorker: null, storage: updateStorage, serverMode: () => true,
+      version: "1.15.0", appName: "Twin", serviceWorker: null, storage: updateStorage, serverMode: () => true,
       reload: () => { serverReloads += 1; },
       fetch: async (url) => {
         const path = String(url);
         if (path.endsWith("api/update/status")) {
-          return jsonResponse({ ok: true, current: "1.14.0", latest: "1.15.0", available: true, can_install: true, title: "Faster charts", notes: ["One"] });
+          return jsonResponse({ ok: true, current: "1.15.0", latest: "1.16.0", available: true, can_install: true, title: "Faster charts", notes: ["One"] });
         }
         if (path.endsWith("api/update/install")) {
           installs += 1;
@@ -610,18 +610,18 @@
 
     // A git clone is told how to update; a signed-out install explains what to do.
     const blockedUpdate = TU.createController({
-      version: "1.14.0", serviceWorker: null, storage: updateStorage, serverMode: () => true, render: false, reload: () => {},
+      version: "1.15.0", serviceWorker: null, storage: updateStorage, serverMode: () => true, render: false, reload: () => {},
       fetch: async (url) => (String(url).endsWith("api/update/status")
-        ? jsonResponse({ ok: true, current: "1.14.0", latest: "1.15.0", available: true, can_install: false, reason: "This Twin runs from a git clone (/x). Update it with git pull, then restart Twin." })
+        ? jsonResponse({ ok: true, current: "1.15.0", latest: "1.16.0", available: true, can_install: false, reason: "This Twin runs from a git clone (/x). Update it with git pull, then restart Twin." })
         : jsonResponse({ ok: false, error: "login required", auth: false })),
     });
     await blockedUpdate.start(null);
     await waitUntil(() => blockedUpdate.state.status === "ready");
     check("a git clone is told to git pull instead", TU.describeStatus(blockedUpdate.state, "Twin").includes("git pull"));
     const signedOut = TU.createController({
-      version: "1.14.0", serviceWorker: null, storage: updateStorage, serverMode: () => true, render: false, reload: () => {},
+      version: "1.15.0", serviceWorker: null, storage: updateStorage, serverMode: () => true, render: false, reload: () => {},
       fetch: async (url) => (String(url).endsWith("api/update/status")
-        ? jsonResponse({ ok: true, current: "1.14.0", latest: "1.15.0", available: true, can_install: true })
+        ? jsonResponse({ ok: true, current: "1.15.0", latest: "1.16.0", available: true, can_install: true })
         : jsonResponse({ ok: false, error: "login required", auth: false })),
     });
     await signedOut.start(null);

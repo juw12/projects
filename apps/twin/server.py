@@ -91,7 +91,7 @@ TOOL = {
 }
 
 
-VERSION = "1.14.0"
+VERSION = "1.15.0"
 
 
 class AppError(Exception):
@@ -2083,6 +2083,14 @@ class Handler(BaseHTTPRequestHandler):
                 "orders": broker_call(BROKER.orders, uid, "open"),
                 "recent": broker_call(BROKER.orders, uid, "closed")[:15],
             })
+        elif path == "/api/broker/funding":
+            self.send_json({"ok": True, "funding": broker_call(BROKER.funding, uid)})
+        elif path == "/api/broker/funding/watch":
+            if body.get("action") == "stop":
+                funding = broker_call(BROKER.clear_deposit_watch, uid)
+            else:
+                funding = broker_call(BROKER.watch_deposit, uid, body.get("amount"))
+            self.send_json({"ok": True, "funding": funding})
         elif path == "/api/broker/preview":
             self.send_json({"ok": True, "preview": broker_call(BROKER.preview, uid, body.get("order") or {}, profile.get("limits") or {})})
         elif path == "/api/broker/order":

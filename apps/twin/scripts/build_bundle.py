@@ -2,7 +2,7 @@
 
     python apps/twin/scripts/build_bundle.py --out _site/twin
 
-Writes <out>/download/twin-local-<version>.zip — this Twin folder without tests, data or caches, inside
+Writes <out>/download/twin-local-<version>.zip — this Twin folder without tests, data, the desktop app's build files or caches, inside
 a top-level twin/ folder, with fixed timestamps so the same files always give the same SHA-256 — and adds
 "bundle": {url, sha256, size, files} to <out>/release.json (copied there from web/ by the site build).
 The server checks that SHA-256 and the version inside before it installs anything (server.py).
@@ -17,7 +17,7 @@ import zipfile
 from pathlib import Path
 
 APP = Path(__file__).resolve().parent.parent
-SKIP_DIRS = {"tests", "data", "__pycache__", ".git", ".pytest_cache", "node_modules"}
+SKIP_DIRS = {"tests", "data", "desktop", "__pycache__", ".git", ".pytest_cache", "node_modules"}
 SKIP_SUFFIXES = {".pyc", ".pyo"}
 EXECUTABLE_SUFFIXES = {".command", ".sh"}
 FIXED_TIME = (2020, 1, 1, 0, 0, 0)

@@ -245,3 +245,10 @@
 :root[data-theme] .row > .badge-ic { flex: none; }
 /* Compact buttons keep their label on one line */
 :root[data-theme] .btn.small { white-space: nowrap; }
+
+/* Add money (1.15): deposit arrived */
+.ok-box { overflow-wrap: anywhere; background: rgba(16,185,129,.12); border: 1px solid rgba(16,185,129,.4);
+  border-radius: 14px; padding: 11px 13px; font-size: 13.5px; margin: 10px 0; }
+.ok-box b { color: var(--green, #10b981); font-size: 16px; }
+#funding-history { width: 100%; }
+#funding-history td { padding: 4px 2px; }

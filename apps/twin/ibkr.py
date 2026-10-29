@@ -290,6 +290,50 @@ class IbkrBroker:
             result["error"] = str(exc)
         return result
 
+    # ------------------------------------------------------------- funding
+    def funding(self, uid):
+        """Cash by currency from the gateway's ledger (read-only).
+
+        Individual IBKR accounts are funded in IBKR's own portal (Transfer & Pay -> Transfer Funds ->
+        Make a Deposit). The Client Portal gateway has no deposit history for individuals, so a
+        pending deposit is confirmed when the account's cash rises (see BrokerRouter.funding)."""
+        cfg = self._require(uid)
+        account, is_paper = self._session()
+        if account != cfg.get("account"):
+            raise BrokerError("The gateway is logged in to a different IBKR account. Reconnect in Me → Real trading.")
+        summary = self._summary(account)
+        balances = []
+        base_cash = None
+        try:
+            ledger = self._request("GET", "/portfolio/%s/ledger" % urllib.parse.quote(account))
+        except BrokerError:
+            ledger = {}
+        for key, row in (ledger.items() if isinstance(ledger, dict) else []):
+            if not isinstance(row, dict):
+                continue
+            cash = _f({str(k).lower(): v for k, v in row.items()}, "cashbalance", "settledcash")
+            if cash is None or not math.isfinite(cash):
+                continue
+            if str(key).upper() == "BASE":
+                base_cash = round(cash, 2)
+                continue
+            balances.append({"currency": str(row.get("currency") or key).upper(), "cash": round(cash, 2)})
+        mode = cfg.get("mode", "paper")
+        cash = base_cash if base_cash is not None else summary.get("cash")
+        return {
+            "provider": "ibkr", "mode": mode, "currency": summary.get("currency") or "USD",
+            "cash": cash, "buying_power": summary.get("buying_power"), "equity": summary.get("equity"),
+            "balances": balances, "transfers": [], "history": "balance", "history_error": None,
+            "can_deposit": mode == "live" and not is_paper,
+            "fund_url": "https://www.interactivebrokers.com/portal/",
+            "fund_steps": [
+                "Open IBKR's Client Portal and sign in.",
+                "Go to Transfer & Pay → Transfer Funds → Make a Deposit.",
+                "Pick your currency and method (bank wire, ACH, SEPA, local transfer) and follow IBKR's instructions.",
+                "Come back here: Twin confirms the deposit when your IBKR cash goes up.",
+            ],
+        }
+
     def connect(self, uid, mode, phrase="", max_order_usd=None, password_ok=False):
         if mode not in ("paper", "live"):
             raise BrokerError("mode must be paper or live")

@@ -135,7 +135,7 @@ function brokerCard() {
   if (!brokerAvailable()) {
     put(card,
       h("p", { class: "small muted" }, "Real trading connects your own brokerage account — Alpaca for US stocks, or Interactive Brokers for stocks on most world exchanges — through Twin running on your computer. This web/guest version never asks for broker keys or logins — never paste them into a public website."),
-      h("p", { class: "small" }, "To use it: run Twin on your Mac (", h("code", {}, "python3 apps/twin/server.py --lan"), "), sign in, then open Me → Real trading."),
+      h("p", { class: "small" }, "To use it: get the Twin desktop app for Windows or Mac (or run ", h("code", {}, "python3 apps/twin/server.py --lan"), "), sign in, then open Me → Real trading."),
       h("button", { class: "btn ghost", onclick: () => { state.academyFocus = "trading"; switchTab("learn"); } }, "🎓 Take the Real-money readiness class first"));
     return card;
   }
@@ -442,14 +442,14 @@ function openBrokerQuestion(question) {
 /* ------------------------------------------------------ real account view */
 async function investReal(body) {
   if (!brokerAvailable()) {
-    put(body, brokerCard());
+    put(body, fundingNotAvailableCard(), brokerCard());
     return;
   }
   put(body, spinner("Loading your broker account…"));
   const status = await brokerStatus(true);
   body.replaceChildren();
   if (!status || !status.connected) {
-    put(body, brokerCard());
+    put(body, fundingCard(), brokerCard());
     return;
   }
   const name = brokerName(status.provider);
@@ -465,6 +465,7 @@ async function investReal(body) {
     h("div", { class: "grid2", style: "margin-top:10px" },
       h("div", { class: "stat" }, h("div", { class: "k" }, "Cash"), h("div", { class: "v" }, brokerMoney(acct.cash, cur))),
       h("div", { class: "stat" }, h("div", { class: "k" }, "Buying power"), h("div", { class: "v" }, brokerMoney(acct.buying_power, cur))))));
+  put(body, fundingCard());
   const data = await api("api/broker/portfolio");
   if (!data.ok) {
     put(body, errorBox(data.error));
@@ -520,4 +521,198 @@ async function investReal(body) {
         h("td", { class: "r" }, o.filled_avg_price ? `${o.filled_qty} @ ${fmtPrice(Number(o.filled_avg_price))}` : (o.qty || "$" + o.notional)))))));
   }
   put(body, h("p", { class: "tiny muted" }, `Data from ${status.provider === "ibkr" ? "Interactive Brokers" : "Alpaca"}. Twin is not a broker; orders execute at ${name} under their terms.`));
+}
+
+/* ------------------------------------------------------------ Add money (1.15)
+ * Twin never holds money. You deposit in your own brokerage account (Alpaca dashboard → Banking,
+ * IBKR portal → Transfer & Pay); Twin shows your real cash, opens the right page and tells you
+ * when the deposit has landed, ready to invest. */
+const FUNDING_POLL_MS = 60000;
+const TWIN_DESKTOP_RELEASE = "https://github.com/juw12/projects/releases/tag/twin";
+
+function openExternal(url) {
+  if (!url) {
+    return;
+  }
+  // Twin desktop: the broker's site opens in the default browser, where its login and bank links work.
+  const desktop = window.pywebview && window.pywebview.api;
+  if (desktop && typeof desktop.open_external === "function") {
+    desktop.open_external(url);
+    return;
+  }
+  const opened = window.open(url, "_blank", "noopener");
+  if (!opened) {
+    location.href = url;
+  }
+}
+
+function fundingNotAvailableCard() {
+  return h("div", { class: "card", id: "funding-card" },
+    h("h3", { style: "margin-top:0" }, "Invest real money"),
+    h("p", { class: "small" }, "Real money lives in your own brokerage account — Alpaca (US stocks & ETFs) or Interactive Brokers (most world exchanges, including Indonesia). Twin connects to it from your own computer, never from a public website."),
+    h("ol", { class: "small", style: "padding-left:18px;margin:8px 0" },
+      h("li", {}, "Get the Twin desktop app for Windows or Mac (it runs Twin on your computer)."),
+      h("li", {}, "Open an account at Alpaca or Interactive Brokers and add money there."),
+      h("li", {}, "Connect it in Me → Real trading. Your cash and deposits show up here.")),
+    h("div", { style: "display:flex;gap:8px;flex-wrap:wrap" },
+      h("button", { class: "btn", id: "get-desktop", onclick: () => openExternal(TWIN_DESKTOP_RELEASE) }, "Get the desktop app"),
+      h("button", { class: "btn ghost", onclick: () => { state.academyFocus = "trading"; switchTab("learn"); } }, "Real-money readiness class")));
+}
+
+function fundingTransfers(f) {
+  const rows = (f.transfers || []).slice(0, 6);
+  if (!rows.length) {
+    return f.history === "balance"
+      ? h("p", { class: "tiny muted" }, "IBKR doesn't share deposit history with apps; Twin confirms a deposit when your cash goes up.")
+      : h("p", { class: "tiny muted" }, "No deposits yet.");
+  }
+  return h("table", { class: "small", id: "funding-history" }, rows.map((t) => h("tr", {},
+    h("td", {}, h("span", { class: "pill " + (t.type === "deposit" ? "green" : "amber") }, t.type === "deposit" ? "In" : "Out")),
+    h("td", {}, t.date || ""),
+    h("td", { class: "r" }, (t.type === "deposit" ? "+" : "−") + brokerMoney(t.amount, t.currency)))));
+}
+
+function fundingWatchBox(f, redraw) {
+  const watch = f.watch;
+  if (!watch) {
+    return null;
+  }
+  if (watch.state === "arrived") {
+    const total = (watch.arrived || []).reduce((sum, t) => sum + Number(t.amount || 0), 0);
+    return h("div", { class: "ok-box", id: "deposit-arrived", role: "status" },
+      h("b", {}, `✓ ${brokerMoney(total, f.currency)} arrived`),
+      h("div", { class: "small" }, (watch.arrived || []).some((t) => t.estimated)
+        ? "Your cash went up by this much since you started waiting — your deposit has landed."
+        : "Your broker booked the deposit. It's ready to invest."),
+      h("div", { style: "display:flex;gap:8px;margin-top:8px" },
+        h("button", { class: "btn small", onclick: () => switchTab("trade") }, "Invest it"),
+        h("button", { class: "btn small ghost", onclick: async () => {
+          const r = await api("api/broker/funding/watch", { action: "stop" });
+          redraw(r.ok ? r.funding : f);
+        } }, "Done")));
+  }
+  if (watch.state === "expired") {
+    return h("div", { class: "warn" }, "No deposit showed up within 10 days. Check the transfer at your broker, then start waiting again.");
+  }
+  const since = watch.started_at ? new Date(watch.started_at * 1000).toLocaleString() : "";
+  return h("div", { class: "card", id: "deposit-waiting", style: "padding:10px;margin:8px 0" },
+    h("div", { class: "small" }, h("span", { class: "spinner", style: "display:inline-block;width:12px;height:12px;vertical-align:-2px;margin-right:6px" }),
+      h("b", {}, watch.expected_amount ? `Waiting for your ${brokerMoney(watch.expected_amount, f.currency)} deposit` : "Waiting for your deposit")),
+    h("div", { class: "tiny muted" }, `Since ${since}. Twin checks every minute while it's open. Bank transfers usually take 1–3 business days.`),
+    h("button", { class: "btn small ghost", style: "margin-top:6px", onclick: async () => {
+      const r = await api("api/broker/funding/watch", { action: "stop" });
+      redraw(r.ok ? r.funding : f);
+    } }, "Stop waiting"));
+}
+
+function openAddMoney(f, redraw) {
+  const name = f.provider === "ibkr" ? "Interactive Brokers" : "Alpaca";
+  const amount = h("input", { type: "number", inputmode: "decimal", min: "1", step: "any", id: "deposit-amount",
+    placeholder: "Amount (optional)", "aria-label": "How much are you depositing?" });
+  const errorSlot = h("div");
+  const wait = h("button", { class: "btn", id: "deposit-sent" }, "I've sent it — tell me when it arrives");
+  wait.addEventListener("click", async () => {
+    wait.disabled = true;
+    const r = await api("api/broker/funding/watch", { amount: amount.value });
+    wait.disabled = false;
+    if (!r.ok) {
+      errorSlot.replaceChildren(errorBox(r.error));
+      return;
+    }
+    closeSheet();
+    toast("Twin will tell you when it arrives");
+    redraw(r.funding);
+  });
+  openSheet(
+    h("h2", {}, "Add money"),
+    h("p", { class: "small" }, `Money goes straight from your bank into your own ${name} account — Twin never touches it. ${name} is the regulated broker that holds it.`),
+    h("ol", { class: "small", style: "padding-left:18px" }, (f.fund_steps || []).map((step) => h("li", { style: "margin:4px 0" }, step))),
+    h("button", { class: "btn", id: "open-broker-funding", onclick: () => openExternal(f.fund_url) }, `Open ${name} to deposit ↗`),
+    h("div", { style: "height:14px" }),
+    h("label", { class: "f" }, "How much are you sending? (helps Twin recognise it)"),
+    amount, errorSlot,
+    h("div", { style: "height:8px" }),
+    wait,
+    h("p", { class: "tiny muted" }, "Only deposit what you can afford to lose. Investing involves risk, including losing money. Twin gives no advice."));
+}
+
+function fundingCard() {
+  const card = h("div", { class: "card", id: "funding-card" }, h("h3", { style: "margin-top:0" }, "Add money"), spinner("Checking your cash…"));
+  let timer = null;
+
+  function stopPolling() {
+    if (timer) {
+      clearInterval(timer);
+      timer = null;
+    }
+  }
+
+  async function refresh() {
+    if (!card.isConnected) {
+      stopPolling();
+      return;
+    }
+    const r = await api("api/broker/funding");
+    if (r.ok) {
+      const before = card.dataset.watchState;
+      draw(r.funding);
+      if (before === "waiting" && r.funding.watch && r.funding.watch.state === "arrived") {
+        toast("Your deposit arrived 🎉", 4000);
+        brokerCache.status = null;
+      }
+    }
+  }
+
+  function draw(f) {
+    stopPolling();
+    card.replaceChildren(h("h3", { style: "margin-top:0" }, "Add money"));
+    if (!f.connected) {
+      put(card,
+        h("p", { class: "small" }, "To invest real money, open an account at a regulated broker, add money there, then connect it to Twin."),
+        h("div", { class: "grid2" },
+          h("button", { class: "btn ghost", onclick: () => openExternal(f.open_account_urls && f.open_account_urls.alpaca) }, "Alpaca ↗", h("div", { class: "tiny muted" }, "US stocks & ETFs")),
+          h("button", { class: "btn ghost", onclick: () => openExternal(f.open_account_urls && f.open_account_urls.ibkr) }, "Interactive Brokers ↗", h("div", { class: "tiny muted" }, "Global, incl. Indonesia"))),
+        h("button", { class: "btn", style: "margin-top:8px", onclick: () => switchTab("me") }, "Connect my account"),
+        h("p", { class: "tiny muted" }, "Which broker accepts you depends on your country. Twin can't open accounts or move money for you."));
+      card.dataset.watchState = "";
+      return;
+    }
+    const name = brokerName(f.provider);
+    put(card,
+      h("div", { class: "between" }, h("div", { class: "muted small" }, `${name} cash`), brokerBadge(f.mode, f.provider)),
+      h("div", { class: "big", id: "funding-cash" }, brokerMoney(f.cash, f.currency)),
+      h("div", { class: "small muted" }, `Buying power ${brokerMoney(f.buying_power, f.currency)}`),
+      (f.balances || []).length > 1
+        ? h("div", { class: "tiny muted", style: "margin-top:4px" }, f.balances.map((b) => brokerMoney(b.cash, b.currency)).join(" · "))
+        : null);
+    if (!f.can_deposit) {
+      put(card,
+        h("p", { class: "small" }, `This is ${name} paper trading — practice money. To invest real money, connect your LIVE ${name} account.`),
+        h("button", { class: "btn ghost", onclick: () => switchTab("me") }, "Switch to my live account"));
+      card.dataset.watchState = "";
+      return;
+    }
+    const watchBox = fundingWatchBox(f, draw);
+    put(card,
+      watchBox,
+      !f.watch || f.watch.state !== "waiting"
+        ? h("button", { class: "btn", id: "add-money", style: "margin-top:10px", onclick: () => openAddMoney(f, draw) }, "＋ Add money")
+        : null,
+      h("h4", { style: "margin:14px 0 4px" }, "Recent deposits & withdrawals"),
+      fundingTransfers(f),
+      f.history_error ? h("p", { class: "tiny muted" }, "History unavailable right now: " + f.history_error) : null);
+    card.dataset.watchState = f.watch ? f.watch.state : "";
+    if (f.watch && f.watch.state === "waiting") {
+      timer = setInterval(refresh, FUNDING_POLL_MS);
+    }
+  }
+
+  api("api/broker/funding").then((r) => {
+    if (!r.ok) {
+      card.replaceChildren(h("h3", { style: "margin-top:0" }, "Add money"), errorBox(r.error));
+      return;
+    }
+    draw(r.funding);
+  });
+  return card;
 }

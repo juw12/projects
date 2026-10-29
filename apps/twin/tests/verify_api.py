@@ -229,7 +229,7 @@ def end_to_end(data_dir):
         check("serves web/demo.js", status == 200 and b"TwinDemo" in body)
         status, body = alice.get("/id/")
         check("serves Twin Indonesia at /id/", status == 200 and b"Twin Indonesia" in body)
-        status, body = alice.get("/id/engine.js?v=1.14.0")
+        status, body = alice.get("/id/engine.js?v=1.15.0")
         check("serves the Twin Indonesia engine", status == 200 and b"SatuEngine" in body)
         try:
             status, body = alice.get("/demo/")
