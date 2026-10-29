@@ -79,18 +79,21 @@
 
     <section class="stage" aria-label="Preview and export">
       <div class="canvas-wrap">
-        <canvas id="preview" width="1080" height="1920" aria-label="Video preview"></canvas>
+        <canvas id="preview" width="1080" height="1920" aria-label="Video preview — click to play or pause" title="Click to play / pause"></canvas>
       </div>
       <div class="transport">
-        <button type="button" id="btn-play" class="btn">▶ Play</button>
+        <button type="button" id="btn-play" class="btn" aria-pressed="false">▶ Play</button>
         <button type="button" id="btn-restart" class="btn ghost" aria-label="Restart">⟲</button>
         <input type="range" id="scrub" min="0" max="1000" value="0" aria-label="Scrub timeline">
         <span id="time" class="mono">0.0 / 0.0 s</span>
       </div>
+      <p class="hint shortcuts"><kbd>Space</kbd> play/pause · <kbd>←</kbd>/<kbd>→</kbd> ±1 s (<kbd>Shift</kbd> ±5 s) · <kbd>,</kbd>/<kbd>.</kbd> previous/next scene</p>
       <div class="panel">
         <h2>Export</h2>
         <p class="hint">Exports in real time (a 50 s video takes 50 s). Keep this tab visible while exporting.</p>
         <button type="button" id="btn-export" class="btn primary">⬇ Export video</button>
+        <progress id="export-progress" max="1000" value="0" hidden aria-label="Export progress"></progress>
+        <button type="button" id="btn-cancel-export" class="btn ghost small" hidden>Cancel export</button>
         <div id="export-status" class="hint" role="status"></div>
         <a id="download-link" class="btn ghost" hidden>Download</a>
       </div>
@@ -124,7 +127,10 @@
         <div id="pub-status" class="hint" role="status"></div>
       </div>
       <div class="panel">
-        <h2>Viral checklist</h2>
+        <div class="panel-head">
+          <h2>Viral checklist</h2>
+          <span id="checklist-score" class="score" aria-label="Checklist items done"></span>
+        </div>
         <ul id="checklist" class="checklist"></ul>
       </div>
       <div class="panel">
@@ -137,6 +143,11 @@
     </section>
   </main>
 
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden>
+    <span id="toast-msg"></span>
+    <button type="button" id="toast-action" class="btn small" hidden></button>
+  </div>
+
   <template id="scene-tpl">
     <article class="scene">
       <div class="scene-head">
@@ -147,6 +158,7 @@
           <button type="button" class="btn icon" data-act="preview" aria-label="Preview scene">▶</button>
           <button type="button" class="btn icon" data-act="up" aria-label="Move up">↑</button>
           <button type="button" class="btn icon" data-act="down" aria-label="Move down">↓</button>
+          <button type="button" class="btn icon" data-act="duplicate" aria-label="Duplicate scene">⧉</button>
           <button type="button" class="btn icon danger" data-act="delete" aria-label="Delete scene">✕</button>
         </div>
       </div>
@@ -158,6 +170,10 @@
         <label>Big stat<input data-k="stat" type="text" placeholder="e.g. 850 nm"></label>
         <label>Stat label<input data-k="statLabel" type="text"></label>
       </div>
+      <div class="layout-box" hidden>
+        <label>Layout (Pop / Clean templates)<select data-k="layout"></select></label>
+        <div class="layout-fields"></div>
+      </div>
       <label>Narration (what is said)<textarea data-k="narration" rows="3"></textarea></label>
       <label>Caption override (optional — what is shown)<textarea data-k="caption" rows="2"></textarea></label>
       <div class="grid2">
@@ -165,11 +181,12 @@
         <label>Image<input data-act="image" type="file" accept="image/*"></label>
       </div>
       <div class="voice-row">
-        <button type="button" class="btn small" data-act="record">● Record voice</button>
-        <label class="btn small ghost file-btn">Upload audio<input data-act="audio" type="file" accept="audio/*" hidden></label>
+        <button type="button" class="btn small" data-act="record" aria-pressed="false">● Record voice</button>
+        <button type="button" class="btn small ghost" data-act="pick-audio">Upload audio</button>
+        <input data-act="audio" type="file" accept="audio/*" hidden>
         <button type="button" class="btn small ghost" data-act="clear-voice">Clear voice</button>
         <button type="button" class="btn small ghost" data-act="clear-image">Remove image</button>
-        <span class="voice-status hint"></span>
+        <span class="voice-status hint" aria-live="polite"></span>
       </div>
     </article>
   </template>
