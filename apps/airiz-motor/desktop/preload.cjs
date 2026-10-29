@@ -47,6 +47,8 @@ contextBridge.exposeInMainWorld('airizDesktop', {
   // 1.9.0: keep the PC awake while sharing; sleep / wake-up notices for the share.
   setKeepAwake: flag => ipcRenderer.invoke('airiz:keep-awake', flag === true),
   setSharing: flag => ipcRenderer.invoke('airiz:sharing', flag === true),
+  // 1.11.8: Smart detection armed: a minimized window keeps watching the camera.
+  setBackgroundWork: flag => ipcRenderer.invoke('airiz:background-work', flag === true),
   requestAttention: flag => ipcRenderer.invoke('airiz:attention', flag === true),
   setLidAwake: flag => ipcRenderer.invoke('airiz:lid-awake', flag === true),
   getPowerStatus: () => ipcRenderer.invoke('airiz:power-status'),

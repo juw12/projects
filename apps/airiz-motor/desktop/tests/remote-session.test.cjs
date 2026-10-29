@@ -503,8 +503,9 @@ test('the console wires the new session pieces together', () => {
   assert.ok(preload.includes("'airiz:keep-awake'") && preload.includes("'airiz:power'"));
   const main = fs.readFileSync(path.join(__dirname, '..', 'main.cjs'), 'utf8');
   assert.ok(main.includes("ipcMain.handle('airiz:keep-awake'"));
-  assert.ok(main.includes("ipcMain.handle('airiz:sharing'") && main.includes('setBackgroundThrottling(flag !== true)'),
-    'a minimized window keeps its timers while sharing');
+  assert.ok(main.includes("ipcMain.handle('airiz:sharing'") && main.includes('backgroundWork.sharing = flag === true')
+    && main.includes('setBackgroundThrottling(!(backgroundWork.sharing || backgroundWork.detection))'),
+    'a minimized window keeps its timers while sharing (1.11.8: also while Smart detection is armed)');
   assert.ok(preload.includes("'airiz:sharing'"));
   assert.ok(remote.includes('desktop.setSharing(!!host.code)'),
     'the console turns background throttling off while a share code is open');
