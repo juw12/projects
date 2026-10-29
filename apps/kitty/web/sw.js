@@ -1,6 +1,6 @@
 /* Kitty service worker: network-first app shell so updates land immediately, cache as offline fallback. */
-const CACHE = 'kitty-v2';
-const SHELL = ['index.html', 'styles.css', 'js/core.js', 'js/sync.js', 'js/ui-kit.js', 'js/quiz.js', 'js/app.js', 'icon.svg', 'icon-192.png', 'apple-touch-icon.png', 'manifest.webmanifest', 'get.html'];
+const CACHE = 'kitty-v3';
+const SHELL = ['index.html', 'styles.css', 'js/core.js', 'js/i18n.js', 'js/lang/id.js', 'js/lang/zh.js', 'js/lang/es.js', 'js/sync.js', 'js/ui-kit.js', 'js/quiz.js', 'js/app.js', 'icon.svg', 'icon-192.png', 'apple-touch-icon.png', 'manifest.webmanifest', 'get.html'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(SHELL)).then(() => self.skipWaiting()));

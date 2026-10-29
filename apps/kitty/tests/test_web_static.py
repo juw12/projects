@@ -36,6 +36,10 @@ REQUIRED = [
     "js/ui-kit.js",
     "js/quiz.js",
     "js/app.js",
+    "js/i18n.js",
+    "js/lang/id.js",
+    "js/lang/zh.js",
+    "js/lang/es.js",
 ]
 
 REF_RE = re.compile(r"""(?:src|href)\s*=\s*["']([^"'#?]+)""", re.I)

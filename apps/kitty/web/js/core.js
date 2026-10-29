@@ -8,7 +8,7 @@
 (function (root) {
   'use strict';
   const K = (root.Kitty = root.Kitty || {});
-  K.VERSION = '1.1.0';
+  K.VERSION = '1.2.0';
 
   // ---------------------------------------------------------------- ids, clock
   const B62 = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
@@ -336,7 +336,8 @@
   };
   K.monthLabel = function (mk, long) {
     const d = new Date(Number(mk.slice(0, 4)), Number(mk.slice(5, 7)) - 1, 1);
-    return d.toLocaleDateString('en-US', { month: long ? 'long' : 'short', year: 'numeric' });
+    const locale = (K.i18n && K.i18n.locale) || 'en-US';
+    return d.toLocaleDateString(locale, { month: long ? 'long' : 'short', year: 'numeric' });
   };
 
   // ---------------------------------------------------------------- budgeting math
@@ -749,7 +750,7 @@
       blurb:
         'You live in the moment and make life fun. Willpower budgets will not work for you, so make saving automatic and invisible.',
       strengths: ['Enjoys life', 'Generous and spontaneous', 'Adapts quickly'],
-      watch: ['Impulse buys add up', 'Month ends before the money does'],
+      watch: ['Impulse buys add up', 'Money runs out before the month does'],
       tips: [
         'Automate savings on payday so it leaves before you see it.',
         'Use the 48-hour rule: add wants to a wishlist and buy only if you still want it 2 days later.',
