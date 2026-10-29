@@ -12,7 +12,7 @@
   const SNAP = window.SATU_SNAPSHOT;
   const C = window.SATU_CONTENT;
   const IDEAS = window.SATU_IDEAS || [];
-  const VERSION = '1.13.0'; // Twin release that ships this module
+  const VERSION = '1.14.0'; // Twin release that ships this module
 
   const params = new URLSearchParams(location.search);
   const SELFTEST = params.has('selftest');
@@ -2208,6 +2208,9 @@
           <b>Data sources</b>
           <div class="muted" style="margin-top:6px">US & IDX stocks: ${stocksLine}<br>Crypto & gold: ${cryptoLine} (CoinGecko; gold via XAUT ÷ 31.1035 g)<br>USD/IDR: ${E.formatIdr(runtime.fxRate)}<br>News: ${runtime.newsSource === 'server' ? 'Twin server (all feeds, every 10 min)' : runtime.newsSource === 'browser' ? 'Twin + Antara (live)' : 'bundled snapshot'}${SNAP.newsTakenAt ? ` · snapshot headlines ${esc(fmtDateTime(Date.parse(SNAP.newsTakenAt)))}` : ''}</div>
           <hr class="sep">
+          <b>App version</b>
+          <div id="id-update" style="margin-top:6px">${updateRowHtml()}</div>
+          <hr class="sep">
           <b>About</b>
           <p class="muted" style="margin-top:6px">Twin Indonesia ${VERSION} · prototype. Practice money only, not investment advice, not a licensed broker. <a href="#guide">How Twin Indonesia works</a></p>
         </div>
@@ -2296,6 +2299,15 @@
   // -------------------------------------------------------------- actions
 
   const actions = {
+    'update-check': async (data, button) => {
+      if (!window.TwinUpdate) return;
+      button.disabled = true;
+      await window.TwinUpdate.check(true);
+      paintUpdateRow();
+    },
+    'update-apply': () => {
+      if (window.TwinUpdate) window.TwinUpdate.apply();
+    },
     'ob-next': () => {
       runtime.onboarding.step = Math.min(3, runtime.onboarding.step + 1);
       renderOnboarding();
@@ -3323,6 +3335,54 @@
     }
   }
 
+
+  // ------------------------------------------------------------- app updates (1.14)
+  // update.js (shared with Twin) shows the "Update ready" banner; this row mirrors it on the Me screen.
+  function updateState() {
+    return (window.TwinUpdate && window.TwinUpdate.state) || { status: 'idle' };
+  }
+
+  function updateRowHtml() {
+    const current = updateState();
+    const text = window.TwinUpdate ? window.TwinUpdate.describeStatus(current, 'Twin') : 'Twin checks for updates automatically.';
+    const busy = ['checking', 'downloading', 'updating', 'installing', 'restarting'].includes(current.status);
+    const blocked = current.kind === 'server' && current.server && current.server.can_install === false;
+    const canApply = current.status === 'ready' && !blocked;
+    const applyLabel = current.kind === 'server' ? 'Update Twin on this computer' : current.message === 'elsewhere' ? 'Reload' : 'Update now';
+    return `<p class="small muted" id="id-update-status">Twin ${esc(VERSION)} · ${esc(text)}</p>
+          <div class="row wrap">
+            <button class="btn small" data-action="update-check" id="id-update-check" ${busy ? 'disabled' : ''}>Check for updates</button>
+            ${canApply ? `<button class="btn small primary" data-action="update-apply" id="id-update-apply">${esc(applyLabel)}</button>` : ''}
+          </div>`;
+  }
+
+  function paintUpdateRow() {
+    const row = document.getElementById('id-update');
+    if (row) row.innerHTML = updateRowHtml();
+  }
+
+  function startUpdates() {
+    if (!window.TwinUpdate) {
+      if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
+        navigator.serviceWorker.register('../sw.js', { scope: '../' }).catch(() => {});
+      }
+      return;
+    }
+    // One worker for all of Twin: Twin's own worker at the app root, shared update notice.
+    window.TwinUpdate.init({
+      version: VERSION,
+      appName: 'Twin',
+      swUrl: /^https?:$/.test(location.protocol) ? '../sw.js' : null,
+      scope: '../',
+      releaseUrl: '../release.json',
+      apiBase: '../',
+      serverMode: () => serverDetected(),
+      isBusy: () => modalOpen(),
+      offset: 76,
+    });
+    window.TwinUpdate.subscribe(paintUpdateRow);
+  }
+
   // ------------------------------------------------------------------ boot
 
   function boot() {
@@ -3346,10 +3406,7 @@
       connectServer().then(refreshNews);
       if (!isSimulated()) refreshLive();
     }
-    if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
-      // One worker for all of Twin: register Twin's own worker at the app root.
-      navigator.serviceWorker.register('../sw.js', { scope: '../' }).catch(() => {});
-    }
+    startUpdates();
   }
 
   window.addEventListener('error', (event) => {

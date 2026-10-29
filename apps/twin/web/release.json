@@ -1,0 +1,11 @@
+{
+  "app": "twin",
+  "version": "1.14.0",
+  "date": "2026-10-29",
+  "title": "Updates inside the app",
+  "notes": [
+    "Twin now tells you when a new version is ready and updates in one tap — no reinstalling, nothing reloads by surprise.",
+    "Running Twin on your own computer? It can update itself too: it backs up the Twin folder first and keeps your accounts and data.",
+    "Me → App version shows what you're running and checks for updates."
+  ]
+}

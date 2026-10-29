@@ -103,7 +103,7 @@ Refresh its offline data with `python apps/twin/scripts/indonesia_snapshot.py`, 
 | Trade | entry → exit → **Time Machine** (10,000 replays + every past session) → size → risk → ticket; breakout scanner; **Replay Lab** (trade a hidden past session bar by bar) | day-trader-skill, TradingView replay |
 | Learn | **Twin Academy**: 3 levels × 4 interactive lessons, quizzes, points, streak, badges, completion card | Fidelity Learn, Duolingo-style levels |
 | News | headlines for watchlist + holdings, movers, tags | moomoo / Public feeds |
-| Me | profile, personality result, editable limits, home currency, guide, **Real trading** connection | Fidelity Learn |
+| Me | profile, personality result, editable limits, home currency, guide, **Real trading** connection, app version and **Check for updates** | Fidelity Learn |
 
 **Stock page.** Scrub the chart with a finger to read any day's price and change; SMA / EMA / RSI
 overlays; the ticket previews cost, fees, risk and what happens if a stop or target hits.
@@ -209,7 +209,21 @@ it's real-time or delayed), and an IBKR *what-if* that prices a 1-share order wi
 
 * The server zips `data/` (accounts, practice portfolios, settings, broker connections) once a day into
   `data/backups/twin-data-YYYYMMDD.zip` and keeps the last 14.
-* To update an existing install, don't copy folders over it — run
+* **Updates inside the app (1.14).** The installed app (Home Screen / PWA, Twin Indonesia included) checks
+  for a new version when you open it, come back to it or reconnect, and every 30 minutes while it's open.
+  The new version downloads in the background; then **Update ready · Twin X** appears with what's new.
+  Nothing reloads until you tap **Update** (**Later** hides it for 12 hours). Me → *App version* shows the
+  version you're on and has **Check for updates**.
+* **Your own server updates itself too.** On `python server.py` the app also shows when a newer Twin is
+  published (the server reads [`release.json`](https://juw12.github.io/projects/twin/release.json) at most
+  once an hour). **Update Twin on this computer** asks first; the server then downloads
+  `twin-local-<version>.zip`, checks its SHA-256 and version, backs up the whole install to
+  `data/backups/pre-update-<time>.zip`, copies the new files over the old ones (nothing is deleted and
+  `data/` is never touched; a failed copy puts every touched file back) and restarts with the same command
+  line. The page reloads into the new version and you stay signed in. Installing needs a signed-in account.
+  Git clones are told to `git pull` instead. Turn it off with `python server.py --no-self-update` (or
+  `TWIN_SELF_UPDATE=0`); `TWIN_UPDATE_URL` points at a different release file.
+* To update an existing install by hand, don't copy folders over it — run
   `python3 apps/twin/scripts/update_local.py /path/to/your/twin`. It backs up the whole install first,
   copies the new version over the old files and never deletes anything (unused old files are listed).
 
@@ -270,6 +284,7 @@ node --test apps/twin/tests/strategy_lab.test.js apps/twin/tests/twinagent.test.
 python apps/twin/tests/test_twinagent_server.py
 python apps/twin/tests/verify_browser.py     # isolated Chrome/Chromium/Edge, including phone-width lab UI
 python apps/twin/tests/verify_indonesia.py   # Twin Indonesia: engine checks + app self-test in Chrome/Edge
+python apps/twin/tests/verify_update.py      # in-app updates: bundle, checksum, backup, self-update + restart in a temp copy
 ```
 
 Hermetic (temp data dir, free port, no network): health + static files, accounts and isolation,
@@ -314,6 +329,16 @@ history and are not predictions. Not financial advice.
 
 ## Changelog
 
+- **1.14.0 — Updates inside the app.** The installed app tells you when a new version is ready
+  (**Update ready · Twin X** with the release notes) and installs it in one tap; nothing reloads on its own,
+  **Later** snoozes it for 12 hours, and Me shows the version with **Check for updates**. The service worker
+  now waits for your tap instead of taking over mid-session (the move from 1.13 still happens once,
+  automatically). On your own server, **Update Twin on this computer** downloads the published bundle,
+  verifies its SHA-256 and version, backs up the install, copies the new files (never deleting, never
+  touching `data/`, rolling back on a failed copy) and restarts; `POST /api/update/status` (public) and
+  `POST /api/update/install` (signed in). Git clones are pointed to `git pull`; `--no-self-update` turns it
+  off. GitHub Pages publishes `release.json` and `download/twin-local-<version>.zip`
+  (`scripts/build_bundle.py`).
 - **1.13.0 — Two wallets, one picture.** Move practice money between the US dollar portfolio and the Twin
   Indonesia rupiah wallet at the delayed mid rate minus a 0.5% practice spread (amounts rounded down; at
   least $1 or Rp10.000). On your own server `POST /api/wallet/transfer` changes both ledgers in one

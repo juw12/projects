@@ -227,6 +227,13 @@ other browsers (see 4.1); Settings shows when it last synced. Twin's Home card
 and Me screen show the wallet's value, return, positions and cash; Me also shows
 both wallets combined and *Move money between wallets*.
 
+**App version and updates (1.14).** Me shows the version with *Check for
+updates*. When a new Twin is ready, Twin Indonesia shows the same **Update
+ready** notice as Twin (one shared service worker) and updates in one tap;
+nothing reloads before you tap. On Twin's own server the notice can also update
+Twin on that computer (see Twin's README, *Your data: daily backups and safe
+updates*).
+
 ---
 
 ## 3. How the numbers work
@@ -309,6 +316,8 @@ apps/twin/web/demo.js        Twin's browser engine; also answers wallet/transfer
                              Twin server runs (both copies live in this browser)
 apps/twin/web/sw.js          Twin's one service worker caches id/ with the rest of Twin;
                              id/snapshot.js is network-first so hourly headlines arrive
+apps/twin/web/update.js      shared update notice (Update ready -> one tap), used by
+                             Twin and id/; release notes come from release.json
 apps/twin/server.py          serves /id/; POST /api/indonesia/news (public),
                              /api/indonesia/wallet and /wallet/save (signed in),
                              /api/wallet/transfer (signed in, both ledgers at once)
@@ -523,7 +532,7 @@ review), peers (moderation queue, subscriber rooms) and house-of-articles
 
 | Phase | Scope |
 | --- | --- |
-| 0. Prototype (now) | Twin Indonesia inside Twin 1.13: practice trading in four markets, news, rooms, Analyst Desk, Academy, plans; account sync on Twin's own server; transfers between the USD and rupiah wallets |
+| 0. Prototype (now) | Twin Indonesia inside Twin 1.14: practice trading in four markets, news, rooms, Analyst Desk, Academy, plans; account sync on Twin's own server; transfers between the USD and rupiah wallets; in-app update notice |
 | 1. Beta (0–3 months) | Bahasa Indonesia UI, accounts and cloud sync, price and idea alerts, Twin's goal planner, SM-2 reviews, sharia filter, closed beta with practice money; engage counsel and shortlist partners |
 | 2. Partners (3–9 months) | IDX broker, crypto PAKD, gold provider and a US structure; partner e-KYC; real orders through the same ticket; data and news licences |
 | 3. Marketplace | Verified licensed advisers, Pro launch, holder badges from real positions, moderation team and complaint handling |
