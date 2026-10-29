@@ -2,7 +2,7 @@
 // updates ship at once, but a slow connection falls back to the saved copy after a few seconds.
 // AI requests always go to the network (they are cross-origin, so this worker never sees them).
 // Glow Offline models are stored by WebLLM itself in its own caches ("webllm/…"), never deleted here.
-const CACHE_NAME = 'glowchat-v19';
+const CACHE_NAME = 'glowchat-v20';
 const SHARED = new URL('../shared/', self.registration.scope).href;
 const NETWORK_TIMEOUT_MS = 4000;
 const ASSETS_TO_CACHE = [

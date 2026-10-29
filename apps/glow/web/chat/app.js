@@ -39,6 +39,28 @@ const KEY_PROVIDERS = [
 // Free AI for guests with no key or sign-up: Pollinations' anonymous tier (shared and rate-limited).
 const FREE_AI_URL = "https://text.pollinations.ai/openai";
 const FREE_MODEL = { value: "free::openai-fast", label: "Glow Free: GPT-OSS 20B (no sign-in needed)", short: "Glow Free", group: "Free: works right away" };
+// More free AI with no key and no sign-up, built in like Glow Free (checked 2026-10; both answer browsers directly):
+// OVHcloud AI Endpoints' anonymous tier (2 requests a minute for each model, per network) and LLM7.io's anonymous
+// tier (about 10 requests a minute per network). Every service and every OVHcloud model has its own limit, so when
+// one is busy or used up Glow switches to the next one by itself. (Checked and left out: AI Horde, a slow volunteer
+// queue of mostly role-play models; DeepInfra, mlvoca and others that now need a key or don't answer browsers.)
+const OVH_FREE_URL = "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1";
+const LLM7_URL = "https://api.llm7.io/v1";
+const KEYLESS_PROVIDERS = {
+  ovh: { name: "OVHcloud", base: OVH_FREE_URL, limitPerModel: true },
+  llm7: { name: "LLM7", base: LLM7_URL, limitPerModel: false },
+};
+// Best first: this is also the order in which they take over from each other.
+const KEYLESS_MODELS = [
+  { value: "ovh::Meta-Llama-3_3-70B-Instruct", label: "Free: Llama 3.3 70B (OVHcloud, no sign-in needed)", short: "Llama 3.3 70B", group: FREE_MODEL.group },
+  { value: "ovh::gpt-oss-120b", label: "Free: GPT-OSS 120B (OVHcloud, no sign-in needed)", short: "GPT-OSS 120B", group: FREE_MODEL.group },
+  { value: "ovh::Qwen3.5-397B-A17B", label: "Free: Qwen 3.5 397B (OVHcloud, no sign-in needed)", short: "Qwen 3.5 397B", group: FREE_MODEL.group },
+  { value: "ovh::Mistral-Small-3.2-24B-Instruct-2506", label: "Free: Mistral Small 3.2 (OVHcloud, no sign-in needed)", short: "Mistral Small 3.2", group: FREE_MODEL.group },
+  { value: "llm7::default", label: "Free: LLM7 auto-pick (no sign-in needed)", short: "LLM7", group: FREE_MODEL.group },
+];
+function isKeylessProvider(provider) {
+  return Object.prototype.hasOwnProperty.call(KEYLESS_PROVIDERS, provider);
+}
 // Pollinations (pollinations.ai): an alternative to Puter. Each person connects their own Pollinations wallet
 // ("Bring Your Own Pollen"): they sign in with GitHub, approve a Pollen budget for Glow, and their own Pollen
 // pays for replies. Glow never pays and never sees payment details.
@@ -55,7 +77,7 @@ const CHROME_AI_MODEL = { value: "chrome::gemini-nano", label: "Chrome built-in 
 // Main AI service (Settings → AI service & power). Every choice except "On this device" keeps Glow Free and the
 // AI on this device as a last resort, so answers don't stop when a service runs out.
 const AI_SERVICES = {
-  auto: { providers: null, note: "Glow uses Puter while your free allowance lasts, then your own free keys, then Glow Free, and finally the AI on this device, so answers never stop." },
+  auto: { providers: null, note: "Glow uses Puter while your free allowance lasts, then your own free keys, then free AI that needs no sign-in (OVHcloud, LLM7 and Glow Free), and finally the AI on this device, so answers never stop." },
   puter: { providers: ["puter", "puterimg", "putervid"], note: "Top models (Claude, GPT, Gemini and more) on your free monthly Puter allowance. When it runs out, Glow Free and the AI on this device take over." },
   pollinations: { providers: ["pollen"], note: "Top models paid with your own Pollen. Connect your Pollinations wallet below; Glow Free and the AI on this device answer if it runs out." },
   keys: { providers: ["gemini", "groq", "mistral", "openrouter", "custom", "ollama"], note: "Only your own keys (Gemini, Groq, Mistral, OpenRouter, Ollama or another API), with Glow Free and the AI on this device as backup." },
@@ -463,6 +485,7 @@ function providerConfig(provider) {
   const s = state.settings;
   if (provider === "openrouter") return { base: OPENROUTER_URL, key: s.openrouterKey };
   if (provider === "free") return { base: FREE_AI_URL, key: "" };
+  if (isKeylessProvider(provider)) return { base: KEYLESS_PROVIDERS[provider].base, key: "" };
   if (provider === "pollen") return { base: POLLINATIONS_URL, key: s.pollinationsKey };
   if (provider === "ollama") return { base: s.ollamaUrl.replace(/\/$/, "") + "/v1", key: "" };
   if (provider === "custom") return { base: s.customUrl.replace(/\/$/, ""), key: s.customKey };
@@ -473,7 +496,7 @@ function providerConfig(provider) {
 
 /* ================= Glow Offline: AI on this device (../shared/glow-offline-ai.js) ================= */
 // Providers that need the internet. Without it, a downloaded Glow Offline model answers instead.
-const NETWORK_PROVIDERS = new Set(["puter", "puterimg", "putervid", "free", "pollen", "openrouter", "custom", "gemini", "groq", "mistral"]);
+const NETWORK_PROVIDERS = new Set(["puter", "puterimg", "putervid", "free", "ovh", "llm7", "pollen", "openrouter", "custom", "gemini", "groq", "mistral"]);
 function offlineModelOptions() {
   if (!window.GlowOfflineAI) return [];
   return window.GlowOfflineAI.downloaded().map((m) => ({
@@ -584,7 +607,7 @@ function serviceAllows(provider) {
   const service = mainService();
   if (ALWAYS_AVAILABLE_PROVIDERS.includes(provider) || service === "auto") return true;
   if (service === "device") return false;
-  if (provider === "free") return true; // Glow Free stays as a free safety net
+  if (provider === "free" || isKeylessProvider(provider)) return true; // Glow Free and the other no-sign-in AI stay as a free safety net
   return AI_SERVICES[service].providers.includes(provider);
 }
 function applyServiceRules(list) {
@@ -915,6 +938,7 @@ async function loadModels() {
   }
   list.push(FREE_MODEL);
   const status = puterSignedIn ? [`Glow AI · ${list.length - 2} models`] : ["Free AI ready"];
+  list.push(...KEYLESS_MODELS);
   const jobs = [];
 
   if (s.pollinationsKey) {
@@ -1021,6 +1045,7 @@ function modelRank(value) {
   if (value.startsWith("chrome::")) return PREFERRED_MODEL_PATTERNS.length + 0.7; // unlimited on this device
   if (value.startsWith("ollama::")) return 0; // local models the user chose to install come first
   if (value.startsWith("free::")) return PREFERRED_MODEL_PATTERNS.length + 0.5; // after strong models from the user's own keys
+  if (isKeylessProvider(splitModel(value).provider)) return PREFERRED_MODEL_PATTERNS.length + 0.6; // more no-sign-in AI, after Glow Free
   if (value.startsWith("local::")) return PREFERRED_MODEL_PATTERNS.length + 0.75; // on-device: smaller, so cloud models come first while online
   const index = PREFERRED_MODEL_PATTERNS.findIndex((pattern) => pattern.test(value));
   return index === -1 ? PREFERRED_MODEL_PATTERNS.length + 1 : index + 1;
@@ -1082,7 +1107,9 @@ async function freeLimitWaitMs(response) {
   if (stated) return (Math.min(Number(stated[1]), 60) + 1) * 1000;
   return /free limit/i.test(text) ? 16000 : 0;
 }
-async function fetchWithRetry(doFetch, signal, onWait = () => {}) {
+async function fetchWithRetry(doFetch, signal, onWait = () => {}, patient = true) {
+  // Not patient: one try only (the no-sign-in free AI hands a busy request to the next service instead of waiting).
+  if (!patient) return doFetch();
   let limitWaits = 0;
   for (let attempt = 0; ; attempt++) {
     const response = await doFetch();
@@ -1121,15 +1148,17 @@ async function streamReply(modelValue, system, messages, onText, conv = null) {
     // (Arena, Council, a second Glow window), so the backup is asked directly instead of Puter again.
     // A free key that ran into its own limit hands over to your next free key the same way.
     const allowanceGone = puterAllowanceError(modelValue, error);
-    const freeKeyTired = !allowanceGone && error && error.name !== "AbortError" && isFreeKeyModel(failedModel) && FREE_KEY_LIMIT.test(errorText(error));
+    // The no-sign-in free AI (OVHcloud, LLM7) hands over on any failure: those services change and fill up often.
+    const freeKeyTired = !allowanceGone && freeModelTired(failedModel, error);
     if (allowanceGone || freeKeyTired) {
       if (allowanceGone) restPuterAllowance();
+      if (freeKeyTired) restFreeModel(failedModel);
       // (While Puter rests, the failed model already reads as the first backup, so nothing is skipped then.)
       const tried = new Set(freeKeyTired ? [failedModel] : []);
-      const tiredProvider = freeKeyTired ? splitModel(failedModel).provider : "";
+      const tiredProviders = new Set(freeKeyTired ? [limitedTogether(failedModel)].filter(Boolean) : []);
       for (const backupModel of allowanceBackupModels()) {
         const backup = backupModel.value;
-        if (tried.has(backup) || (tiredProvider && splitModel(backup).provider === tiredProvider)) continue;
+        if (tried.has(backup) || tiredProviders.has(splitModel(backup).provider) || freeModelResting(backup)) continue;
         tried.add(backup);
         failedModel = backup;
         try {
@@ -1141,6 +1170,11 @@ async function streamReply(modelValue, system, messages, onText, conv = null) {
         } catch (retryError) {
           failure = retryError;
           if (retryError && retryError.name === "AbortError") break; // ■ Stop
+          if (freeModelTired(backup, retryError)) {
+            restFreeModel(backup);
+            const together = limitedTogether(backup);
+            if (together) tiredProviders.add(together);
+          }
         }
       }
     }
@@ -1199,6 +1233,8 @@ async function streamProvider(modelValue, system, messages, onText, usage) {
     // keep-alive pings), or drop the connection. Each try gets a watchdog; a stuck or dropped try is sent
     // again once instead of leaving the reply spinning forever. ■ Stop still aborts everything at once.
     const limits = chatTimeouts();
+    // No-sign-in free AI (OVHcloud, LLM7): a busy or failed request goes straight to the next free AI.
+    const handsOver = isKeylessProvider(provider);
     for (let tryNo = 0; ; tryNo++) {
       const watchdog = replyWatchdog(controller.signal);
       let latest = "";
@@ -1213,7 +1249,7 @@ async function streamProvider(modelValue, system, messages, onText, usage) {
         const dropped = !stuck && error && error.name === "TypeError";
         if (!stuck && !dropped) throw error;
         if (latest.replace(/<think>[\s\S]*?(<\/think>|$)/g, "").trim().length > 200) return latest; // keep a long partial answer
-        if (tryNo >= 1) {
+        if (tryNo >= 1 || handsOver) {
           throw new Error(stuck
             ? "The AI didn't answer in time. Press ↻ Regenerate or try again in a minute; signing in gives faster models."
             : "The connection to the AI dropped. Press ↻ Regenerate or try again.");
@@ -1247,11 +1283,12 @@ async function streamProvider(modelValue, system, messages, onText, usage) {
             }
             showRateWait(provider, seconds, attempt);
           },
+          !handsOver,
         );
       } finally {
         if (waiting) rateNotice.waiting -= 1;
       }
-      if (response.status === 429) {
+      if (response.status === 429 && !handsOver) {
         showRateLimited(provider);
       } else if (waiting) {
         settleRateNotice();
@@ -1452,6 +1489,9 @@ function friendlyError(status, detail, provider = "") {
   if (provider === "free") {
     if (status === 402 || status === 429 || status >= 500) return "The free guest AI is busy right now. Wait a few seconds and press ↻ Regenerate, or sign in for faster Glow AI models.";
     return `The free guest AI couldn't answer (error ${status}). Try again, or sign in for Glow AI models.`;
+  }
+  if (isKeylessProvider(provider) && (status === 402 || status === 429 || status >= 500)) {
+    return `The free ${KEYLESS_PROVIDERS[provider].name} AI is busy right now. Wait a minute and press ↻ Regenerate, or pick another free model.`;
   }
   if (provider === "pollen") {
     if (status === 401 || status === 403) return "Your Pollinations key expired or was turned off. Connect Pollinations again in Settings.";
@@ -1935,17 +1975,47 @@ function allowanceBackupModels() {
   }
   const openrouterFree = models.find((m) => m.group === "OpenRouter: free models");
   if (openrouterFree) chain.push(openrouterFree);
+  // Then the free AI that needs no key or sign-in, each with its own limit, and Glow Free last.
+  chain.push(...KEYLESS_MODELS.filter((m) => serviceAllows(splitModel(m.value).provider) && regionAllowed(m.value)));
   chain.push(FREE_MODEL);
   return chain;
 }
 function allowanceBackupModel() {
-  return allowanceBackupModels()[0];
+  const chain = allowanceBackupModels();
+  return chain.find((m) => !freeModelResting(m.value)) || chain[0];
 }
 // A free key that hit its own limit (or isn't accepted any more): the next free key answers instead.
 const FREE_KEY_LIMIT = /rate.?limit|too many|quota|exceeded|limit reached|capacity|overloaded|busy|429|401|403|unauthori[sz]ed|invalid.*key|key not/i;
 function isFreeKeyModel(modelValue) {
   const { provider } = splitModel(modelValue || "");
-  return KEY_PROVIDERS.some((p) => p.id === provider) || modelValue === FREE_MODEL.value || /^openrouter::.*:free$/.test(modelValue || "");
+  return KEY_PROVIDERS.some((p) => p.id === provider) || isKeylessProvider(provider) || modelValue === FREE_MODEL.value || /^openrouter::.*:free$/.test(modelValue || "");
+}
+// Whether a failed free model should hand over to the next free AI.
+function freeModelTired(modelValue, error) {
+  if (!error || error.name === "AbortError" || !isFreeKeyModel(modelValue)) return false;
+  return isKeylessProvider(splitModel(modelValue).provider) || FREE_KEY_LIMIT.test(errorText(error));
+}
+// The provider whose other models share the same limit ("" when each model has its own, like OVHcloud).
+function limitedTogether(modelValue) {
+  const { provider } = splitModel(modelValue || "");
+  if (isKeylessProvider(provider) && KEYLESS_PROVIDERS[provider].limitPerModel) return "";
+  return provider;
+}
+// A no-sign-in model that just hit its limit is skipped for a minute (their limits are per minute), so the next
+// replies go straight to one that has room. Glow Free and your own keys are always asked again.
+const FREE_MODEL_REST_MS = 60000;
+const restingFreeModels = new Map();
+function restFreeModel(modelValue, rest = true) {
+  if (!isKeylessProvider(splitModel(modelValue || "").provider)) return;
+  if (rest) restingFreeModels.set(modelValue, Date.now() + FREE_MODEL_REST_MS);
+  else restingFreeModels.delete(modelValue);
+}
+function freeModelResting(modelValue) {
+  const until = restingFreeModels.get(modelValue);
+  if (!until) return false;
+  if (Date.now() < until) return true;
+  restingFreeModels.delete(modelValue);
+  return false;
 }
 async function sendChat(text) {
   current.model = $("chat-model").value;
@@ -5265,6 +5335,8 @@ async function selfTest() {
   const noticeRect = noticeBox.getBoundingClientRect();
   expect("rate limit: stays visible after retries run out", !noticeBox.classList.contains("hidden") && noticeBox.classList.contains("failed")
     && /still too busy/.test($("rate-text").textContent) && finalError.includes("busy") && noticeRect.height > 0 && noticeRect.bottom <= innerHeight);
+  expect("rate limit: a busy Glow Free hands over to the no-sign-in free AI first (each was asked once and now rests)",
+    KEYLESS_MODELS.every((m) => freeModelResting(m.value)));
   $("rate-close").click();
   expect("rate limit: notice can be dismissed", noticeBox.classList.contains("hidden"));
 
@@ -5723,8 +5795,9 @@ async function selfTest() {
   expect("glow ai: your own free Gemini key is the first backup when the allowance runs out", allowanceBackupModel().value === "gemini::gemini-2.5-flash");
   models = [...models, { value: "mistral::mistral-small-latest", label: "small", group: "Mistral" }, { value: "mistral::mistral-medium-latest", label: "medium", group: "Mistral" },
     { value: "openrouter::meta-llama/llama-3.3-70b-instruct:free", label: "llama free", group: "OpenRouter: free models" }];
-  expect("free keys: every free key is a backup in turn (Gemini, Groq, Mistral, OpenRouter free, then Glow Free)",
-    allowanceBackupModels().map((m) => m.value).join(" ") === "gemini::gemini-2.5-flash groq::llama-3.3-70b-versatile mistral::mistral-medium-latest openrouter::meta-llama/llama-3.3-70b-instruct:free " + FREE_MODEL.value);
+  expect("free keys: every free key is a backup in turn (Gemini, Groq, Mistral, OpenRouter free, then the no-sign-in AI and Glow Free)",
+    allowanceBackupModels().map((m) => m.value).join(" ") === "gemini::gemini-2.5-flash groq::llama-3.3-70b-versatile mistral::mistral-medium-latest openrouter::meta-llama/llama-3.3-70b-instruct:free "
+      + KEYLESS_MODELS.map((m) => m.value).join(" ") + " " + FREE_MODEL.value);
   expect("free keys: Mistral is a free-key provider that answers browsers directly", providerConfig("mistral").base === MISTRAL_URL && NETWORK_PROVIDERS.has("mistral")
     && AI_SERVICES.keys.providers.includes("mistral") && !!$("set-mistral"));
   const realStreamProvider = streamProvider;
@@ -5743,6 +5816,47 @@ async function selfTest() {
   }
   expect("free keys: a key that hit its own limit hands over to the next free key", handoffReply === "answer from mistral::mistral-medium-latest"
     && handoffCalls.join(" ") === "groq::llama-3.3-70b-versatile gemini::gemini-2.5-flash mistral::mistral-medium-latest" && lastAnswerModel === "mistral::mistral-medium-latest");
+  // Free AI with no key or sign-in, built in like Glow Free: OVHcloud (a limit for each model) and LLM7 (one limit).
+  restingFreeModels.clear(); // the rate-limit checks above left them all busy
+  models = [modelsBeforeQuota[0], FREE_MODEL, ...KEYLESS_MODELS];
+  expect("no sign-in: OVHcloud and LLM7 answer browsers with no key and are listed with Glow Free",
+    providerConfig("ovh").base === OVH_FREE_URL && providerConfig("ovh").key === "" && providerConfig("llm7").base === LLM7_URL && providerConfig("llm7").key === ""
+      && NETWORK_PROVIDERS.has("ovh") && NETWORK_PROVIDERS.has("llm7") && KEYLESS_MODELS.every((m) => m.group === FREE_MODEL.group && isFreeKeyModel(m.value)));
+  expect("no sign-in: without keys the no-sign-in AI back up Puter first, best first, with Glow Free last",
+    allowanceBackupModels().map((m) => m.value).join(" ") === KEYLESS_MODELS.map((m) => m.value).join(" ") + " " + FREE_MODEL.value
+      && allowanceBackupModel().value === "ovh::Meta-Llama-3_3-70B-Instruct");
+  let limitTries = 0;
+  const busyResponse = await fetchWithRetry(async () => {
+    limitTries += 1;
+    return new Response("Rate limit exceeded. Retry after 28 seconds.", { status: 429 });
+  }, new AbortController().signal, () => {}, false);
+  expect("no sign-in: a busy no-sign-in AI is not waited for (one try, then the next one answers)", busyResponse.status === 429 && limitTries === 1);
+  const keylessCalls = [];
+  streamProvider = async (modelValue, sys, msgs, onText) => {
+    keylessCalls.push(modelValue);
+    if (modelValue === "ovh::Meta-Llama-3_3-70B-Instruct" || modelValue.startsWith("llm7::")) throw new Error("Rate limited by the provider. Wait a moment or pick another free model.");
+    if (modelValue === "ovh::gpt-oss-120b") throw new Error("Provider error 404. The model does not exist.");
+    onText(`answer from ${modelValue}`);
+    return `answer from ${modelValue}`;
+  };
+  let keylessReply = "";
+  let llm7Reply = "";
+  let keylessBackup = "";
+  try {
+    keylessReply = await streamReply("ovh::Meta-Llama-3_3-70B-Instruct", "Be brief.", [{ role: "user", content: "hi" }], () => {});
+    const firstCalls = keylessCalls.splice(0);
+    expect("no sign-in: a used-up OVHcloud model hands over to the next model, skipping any that fail",
+      keylessReply === "answer from ovh::Qwen3.5-397B-A17B" && firstCalls.join(" ") === "ovh::Meta-Llama-3_3-70B-Instruct ovh::gpt-oss-120b ovh::Qwen3.5-397B-A17B"
+        && lastAnswerModel === "ovh::Qwen3.5-397B-A17B");
+    llm7Reply = await streamReply("llm7::default", "Be brief.", [{ role: "user", content: "hi" }], () => {});
+    keylessBackup = allowanceBackupModel().value;
+  } finally {
+    streamProvider = realStreamProvider;
+  }
+  expect("no sign-in: models that just hit their limit rest for a minute, so the next reply goes straight to one with room",
+    llm7Reply === "answer from ovh::Qwen3.5-397B-A17B" && keylessCalls.join(" ") === "llm7::default ovh::Qwen3.5-397B-A17B"
+      && freeModelResting("ovh::Meta-Llama-3_3-70B-Instruct") && freeModelResting("llm7::default") && keylessBackup === "ovh::Qwen3.5-397B-A17B");
+  restingFreeModels.clear();
   models = modelsBeforeQuota;
   selectChatModel(quotaModel, false);
 
