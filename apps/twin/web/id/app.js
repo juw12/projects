@@ -1,7 +1,8 @@
 /* Twin Indonesia app shell (codename Satu): state, routing, views and interactions.
  * Hosted inside Twin at web/id/; shares Twin's theme, service worker and demo data.
  * Depends on engine.js (logic), feeds.js (live data), snapshot.js, ideas.js and
- * content.js (data). Works from file:// with no server.
+ * content.js (data), plus Twin's ../demo.js for wallet transfers in the browser
+ * version. Works from file:// with no server.
  */
 (function () {
   'use strict';
@@ -11,7 +12,7 @@
   const SNAP = window.SATU_SNAPSHOT;
   const C = window.SATU_CONTENT;
   const IDEAS = window.SATU_IDEAS || [];
-  const VERSION = '1.12.0'; // Twin release that ships this module
+  const VERSION = '1.13.0'; // Twin release that ships this module
 
   const params = new URLSearchParams(location.search);
   const SELFTEST = params.has('selftest');
@@ -49,6 +50,10 @@
     server: false,
     // Account sync with Twin's server (signed-in Twin account only).
     sync: { enabled: false, status: 'off', account: null, rev: 0, pushing: false, pending: false, lastSyncedAt: null },
+    serverProbe: null,
+    // Twin's US dollar practice portfolio, linked for transfers (see linkUsdWallet).
+    usd: { kind: null, paper: null, checking: false, checkedAt: 0, reason: '', error: '' },
+    transfer: null,
     summaryAt: 0,
     storageOk: true,
     charts: {},
@@ -396,9 +401,12 @@
     plans: viewPlans,
     guide: viewGuide,
     risk: viewRisk,
+    // #transfer (optionally #transfer/idr_to_usd) opens Portfolio with the transfer sheet;
+    // Twin's Me screen links here.
+    transfer: viewPortfolio,
   };
 
-  const NAV_FOR = { asset: 'markets', desk: 'community', lesson: 'learn' };
+  const NAV_FOR = { asset: 'markets', desk: 'community', lesson: 'learn', transfer: 'portfolio' };
 
   function parseHash() {
     const raw = location.hash.replace(/^#\/?/, '');
@@ -490,6 +498,9 @@
 
   function afterRender(route) {
     revealActiveChips();
+    if (route.name === 'portfolio' || route.name === 'transfer') {
+      linkUsdWallet(false);
+    }
     if (route.name === 'asset' && INSTRUMENTS[route.arg]) {
       ensureChart(route.arg);
     }
@@ -1208,9 +1219,10 @@
       <div class="card">
         <div class="muted small">Total value</div>
         <div class="big-number num" data-pv="total">${E.formatIdr(value.totalIdr)}</div>
-        <div class="small"><span data-pv="return">${E.formatPct(value.returnPct)}</span> since you started with ${E.formatIdr(state.wallet.startingCashIdr)}</div>
+        <div class="small"><span data-pv="return">${E.formatPct(value.returnPct)}</span> ${basisText(value)}</div>
         ${allocationHtml(value, false)}
       </div>
+      ${walletsCardHtml(value)}
       <div class="kpis" style="margin-top:12px">
         ${kpi('Cash available', E.formatIdr(value.availableIdr))}
         ${kpi('Held for orders', E.formatIdr(value.reservedIdr))}
@@ -1228,6 +1240,451 @@
       <div class="section-title"><h2>History</h2></div>
       <div class="list">${history.map((order) => orderRow(order, false)).join('') || '<div class="empty">Your filled and cancelled orders appear here.</div>'}</div>
       ${footnoteHtml()}`;
+  }
+
+  // ------------------------------------------------------ two wallets (1.13)
+  // Twin keeps practice money in two wallets: US dollars (Twin's portfolio) and rupiah
+  // (this module). Money moves between them at the USD/IDR mid rate minus a practice
+  // spread (E.quoteTransfer). On Twin's server one request updates both ledgers; in the
+  // browser version Twin's demo engine (../demo.js) updates both copies in this browser.
+  // The demo account and the self-test never move money.
+
+  function basisText(value) {
+    const start = E.formatIdr(state.wallet.startingCashIdr || 0);
+    const moved = value.contributionsIdr || 0;
+    if (!moved) return `since you started with ${start}`;
+    return `on ${E.formatIdr(value.basisIdr)} put in (${start} to start, ${moved > 0 ? '+' : '−'}${E.formatIdr(Math.abs(moved))} moved between wallets)`;
+  }
+
+  function guestSessionActive() {
+    try {
+      return sessionStorage.getItem('tt-guest-active') === '1';
+    } catch (error) {
+      return false;
+    }
+  }
+
+  function twinPrefersServer() {
+    try {
+      return localStorage.getItem('tt-runtime-mode') === 'server';
+    } catch (error) {
+      return false;
+    }
+  }
+
+  /** Is Twin's own server behind this page? Asked once per page view. */
+  function serverDetected() {
+    if (!runtime.serverProbe) runtime.serverProbe = OFFLINE ? Promise.resolve(false) : F.detectServer();
+    return runtime.serverProbe;
+  }
+
+  /**
+   * Which US dollar wallet Twin uses here, decided the way Twin decides: 'server' (the
+   * signed-in account on Twin's server), 'guest' (this tab's guest session), 'browser'
+   * (a profile saved in this browser), or null when there is none to link.
+   */
+  async function usdWalletKind() {
+    if (!SYNCS) return null;
+    if (await serverDetected()) return 'server';
+    if (!window.TwinDemo || !/^https?:$/.test(location.protocol)) return null;
+    // Twin ran on its server here before: while it is down, don't link a different (browser) account.
+    if (!/\.github\.io$/.test(location.hostname) && twinPrefersServer()) return null;
+    return guestSessionActive() && window.TwinDemo.hasGuest() ? 'guest' : 'browser';
+  }
+
+  function twinDemoCall(kind, path, body) {
+    return window.TwinDemo[kind === 'guest' ? 'guest' : 'api'](path, body || {});
+  }
+
+  /** Load Twin's US dollar portfolio (cash and value) for the wallets card and transfers. */
+  async function linkUsdWallet(force) {
+    const usd = runtime.usd;
+    if (!SYNCS || usd.checking) return;
+    if (!force && usd.checkedAt && Date.now() - usd.checkedAt < 30000) return;
+    usd.checking = true;
+    let kind = null;
+    let paper = null;
+    let reason = '';
+    let error = '';
+    try {
+      kind = await usdWalletKind();
+      if (kind === 'server') {
+        const result = await F.loadPaper();
+        if (!result) {
+          reason = 'offline';
+        } else if (result.status === 401) {
+          reason = 'signed-out';
+        } else if (result.data && result.data.ok) {
+          paper = result.data.paper;
+        } else {
+          reason = 'error';
+          error = (result.data && result.data.error) || '';
+        }
+      } else if (kind) {
+        const result = await twinDemoCall(kind, 'api/paper');
+        if (result && result.ok) {
+          paper = result.paper;
+        } else if (result && result.auth === false) {
+          reason = 'signed-out';
+        } else {
+          reason = 'error';
+          error = (result && result.error) || '';
+        }
+      } else {
+        reason = window.TwinDemo && /^https?:$/.test(location.protocol) ? 'offline' : 'unavailable';
+      }
+    } catch (failure) {
+      reason = 'error';
+      error = String((failure && failure.message) || failure || '');
+    } finally {
+      Object.assign(usd, { kind, paper, reason, error, checking: false, checkedAt: Date.now() });
+    }
+    refreshWalletsCard();
+    if (runtime.transfer && modalOpen()) renderTransferPreview();
+  }
+
+  /** Why the US dollar wallet isn't linked (plain text), or '' when it is. */
+  function usdLinkMessage() {
+    const usd = runtime.usd;
+    if (usd.paper) return '';
+    if (usd.checking || !usd.checkedAt) return 'Linking your US dollar wallet…';
+    if (usd.reason === 'signed-out') {
+      return usd.kind === 'server'
+        ? 'Log in to Twin on this server to link your US dollar wallet.'
+        : 'Log in to Twin in this browser (or start a guest session) to link your US dollar wallet.';
+    }
+    if (usd.reason === 'offline') return "Can't reach your Twin server right now, so your US dollar wallet isn't linked.";
+    if (usd.reason === 'error') return `Couldn't load your US dollar wallet${usd.error ? `: ${usd.error}` : ''}.`;
+    return 'Open Twin Indonesia from Twin (not as a file) to link your US dollar wallet.';
+  }
+
+  function transferRowHtml(record) {
+    const toIdr = record.direction === 'usd_to_idr';
+    const when = Date.parse(record.at);
+    const fee = record.feeCurrency === 'USD' ? E.formatUsd(record.fee) : E.formatIdr(record.fee);
+    const amounts = toIdr
+      ? `${E.formatUsd(record.usd)} → ${E.formatIdr(record.idr)}`
+      : `${E.formatIdr(record.idr)} → ${E.formatUsd(record.usd)}`;
+    return `<div class="list-item" style="cursor:default">
+      <span class="li-main"><span class="li-title">${toIdr ? 'To rupiah' : 'To US dollars'}</span>
+        <span class="li-sub">${when ? esc(fmtDateTime(when)) : ''} · ${esc(E.formatIdr(record.mid))}/USD</span></span>
+      <span class="li-right"><span class="num">${esc(amounts)}</span><span class="tiny muted">spread ${esc(fee)}</span></span>
+    </div>`;
+  }
+
+  function walletsCardHtml(value) {
+    const head = '<div class="row between"><b>Your two wallets</b><span class="badge">practice</span></div>';
+    if (!SYNCS) {
+      return `<div class="card" id="wallets-card" style="margin-top:12px">${head}
+        <p class="small muted" style="margin:8px 0 0">Twin keeps practice money in US dollars and in rupiah. Moving money between them is off in the demo account and the self-test.</p></div>`;
+    }
+    const usd = runtime.usd;
+    const rate = runtime.fxRate;
+    const paper = usd.paper;
+    const tile = (label, big, sub) => `<div class="kpi"><div class="label">${label}</div><div class="value">${big}</div><div class="tiny muted">${sub}</div></div>`;
+    const rupiahTile = tile('Rupiah wallet (here)', `<span data-pv="total">${E.formatIdr(value.totalIdr)}</span>`,
+      `Free cash <span data-pv="free">${E.formatIdr(value.availableIdr)}</span>`);
+    let usdTile = '';
+    let combinedLine = '';
+    if (paper) {
+      const usdValue = Number(paper.value) || 0;
+      const usdCash = Number(paper.cash) || 0;
+      usdTile = tile('US dollar wallet (Twin)', E.formatUsd(usdValue), `Cash ${E.formatUsd(usdCash)} ≈ ${E.formatIdr(usdCash * rate)}`);
+      const combined = E.combinedWallets(value.totalIdr, usdValue, rate);
+      if (combined) {
+        combinedLine = `<div class="row between small" style="margin-top:10px"><span>All practice money</span>
+          <span class="num"><b data-pv="combined">≈ ${E.formatIdr(combined.idr)}</b> · <span data-pv="combined-usd">${E.formatUsd(combined.usd)}</span></span></div>`;
+      }
+    } else {
+      usdTile = tile('US dollar wallet (Twin)', '—', esc(usdLinkMessage()));
+    }
+    let extra = '';
+    if (!paper && usd.checkedAt && !usd.checking) {
+      extra = usd.reason === 'signed-out'
+        ? '<a class="btn small ghost" href="../">Open Twin</a>'
+        : '<button class="btn small ghost" data-action="wallets-retry">Try again</button>';
+    }
+    const disabled = paper ? '' : 'disabled';
+    const recent = (state.transfers || []).slice(0, 3);
+    return `<div class="card" id="wallets-card" style="margin-top:12px">${head}
+      <div class="kpis" style="grid-template-columns:1fr 1fr;margin-top:10px">${rupiahTile}${usdTile}</div>
+      ${combinedLine}
+      <div class="tiny muted" style="margin-top:4px">1 USD = <span data-pv="fx">${E.formatIdr(rate)}</span> (mid rate, delayed)</div>
+      <div class="row wrap" style="margin-top:10px">
+        <button class="btn small" data-action="transfer-open" data-direction="usd_to_idr" ${disabled}>US dollars → rupiah</button>
+        <button class="btn small" data-action="transfer-open" data-direction="idr_to_usd" ${disabled}>Rupiah → US dollars</button>
+        ${extra}
+      </div>
+      ${recent.length ? `<div class="list" style="margin-top:10px">${recent.map(transferRowHtml).join('')}</div>` : ''}
+      <p class="tiny muted" style="margin:8px 0 0">Moves convert at the mid rate minus a ${(E.FX_SPREAD * 100).toFixed(1)}% practice spread. Money you move counts as money put in, so returns show only investment gains and the spread shows as a small cost.</p>
+    </div>`;
+  }
+
+  function refreshWalletsCard() {
+    const card = document.getElementById('wallets-card');
+    if (!card || !state || !state.profile || !state.profile.onboarded) return;
+    card.outerHTML = walletsCardHtml(E.portfolioValue(state, ctx()));
+  }
+
+  /** US dollar amounts: "100", "1,000", "12,5", "1.234,56" and "$1,234.56" all work. */
+  function parseUsd(value) {
+    let text = String(value == null ? '' : value).replace(/[\s$]/g, '');
+    const lastComma = text.lastIndexOf(',');
+    const lastDot = text.lastIndexOf('.');
+    if (lastComma > lastDot) {
+      // A comma is the decimal mark ("12,5", "1.234,56") unless it groups thousands ("1,000").
+      text = lastDot === -1 && /,\d{3}$/.test(text) ? text.replace(/,/g, '') : text.replace(/\./g, '').replace(',', '.');
+    } else {
+      text = text.replace(/,/g, '');
+    }
+    const number = parseFloat(text);
+    return Number.isFinite(number) && number > 0 ? number : 0;
+  }
+
+  function openTransfer(direction) {
+    if (DEMO) {
+      toast('Moving money between wallets is off in the demo account.', 'error');
+      return;
+    }
+    if (!state || !state.profile || !state.profile.onboarded) return;
+    runtime.transfer = { direction: direction === 'idr_to_usd' ? 'idr_to_usd' : 'usd_to_idr', amount: '', busy: false };
+    renderTransfer();
+    linkUsdWallet(false);
+  }
+
+  /** What can be moved: US dollar cash in Twin, or rupiah cash not held for open orders. */
+  function transferAvailable(direction) {
+    if (direction === 'idr_to_usd') return Math.max(0, E.availableCash(state));
+    const paper = runtime.usd.paper;
+    return paper ? Math.max(0, Number(paper.cash) || 0) : 0;
+  }
+
+  function transferQuote() {
+    const draft = runtime.transfer;
+    const amount = draft.direction === 'usd_to_idr' ? parseUsd(draft.amount) : parseAmount(draft.amount);
+    return E.quoteTransfer(draft.direction, amount, runtime.fxRate);
+  }
+
+  function transferCheck() {
+    const draft = runtime.transfer;
+    const quote = transferQuote();
+    const errors = [];
+    if (!runtime.usd.paper) {
+      errors.push(usdLinkMessage());
+    } else if (!quote.ok) {
+      if (String(draft.amount).trim()) errors.push(quote.error);
+    } else if (draft.direction === 'usd_to_idr' && quote.usd > transferAvailable('usd_to_idr') + 0.005) {
+      errors.push(`Not enough US dollar cash: ${E.formatUsd(transferAvailable('usd_to_idr'))} available.`);
+    } else if (draft.direction === 'idr_to_usd' && quote.idr > transferAvailable('idr_to_usd') + 0.5) {
+      errors.push(`Only ${E.formatIdr(transferAvailable('idr_to_usd'))} of rupiah cash is free (the rest is held for open orders).`);
+    }
+    return { quote, errors, ok: quote.ok && !errors.length };
+  }
+
+  function renderTransfer() {
+    const draft = runtime.transfer;
+    if (!draft) return;
+    const toIdr = draft.direction === 'usd_to_idr';
+    const available = transferAvailable(draft.direction);
+    const availableText = toIdr ? (runtime.usd.paper ? E.formatUsd(available) : '—') : E.formatIdr(available);
+    openModal(`
+      <div class="modal-head"><h2 style="margin:0">Move money <span class="badge">practice</span></h2>
+        <button class="close-x" data-action="close-modal" aria-label="Close">×</button></div>
+      <div class="segmented" style="margin-bottom:12px">
+        <button class="${toIdr ? 'active' : ''}" data-action="transfer-direction" data-value="usd_to_idr">US dollars → rupiah</button>
+        <button class="${toIdr ? '' : 'active'}" data-action="transfer-direction" data-value="idr_to_usd">Rupiah → US dollars</button>
+      </div>
+      <label class="field"><span>${toIdr ? 'US dollars to move from Twin' : 'Rupiah to move to Twin'} · available <b id="transfer-available">${esc(availableText)}</b></span>
+        <input type="text" id="transfer-amount" inputmode="${toIdr ? 'decimal' : 'numeric'}" value="${esc(draft.amount)}" data-input="transfer-amount" placeholder="${toIdr ? 'e.g. 100' : 'e.g. 1.000.000'}" aria-label="${toIdr ? 'Amount in US dollars' : 'Amount in rupiah'}"></label>
+      <div class="row wrap" style="margin:-4px 0 10px">
+        <button class="btn small" data-action="transfer-fill" data-pct="25">25%</button>
+        <button class="btn small" data-action="transfer-fill" data-pct="50">50%</button>
+        <button class="btn small" data-action="transfer-fill" data-pct="100">Max</button>
+      </div>
+      <div id="transfer-preview"></div>
+      <button class="btn primary block" id="transfer-confirm" data-action="transfer-confirm" style="margin-top:12px">Move money</button>
+      <p class="tiny muted" style="margin-top:8px">Practice money only: nothing real is converted. Rates are delayed, and the ${(E.FX_SPREAD * 100).toFixed(1)}% spread is a practice assumption; real banks and apps charge different spreads and fees.</p>`);
+    renderTransferPreview();
+  }
+
+  function renderTransferPreview() {
+    const holder = document.getElementById('transfer-preview');
+    const draft = runtime.transfer;
+    if (!holder || !draft) return;
+    const check = transferCheck();
+    const quote = check.quote;
+    const toIdr = draft.direction === 'usd_to_idr';
+    const available = document.getElementById('transfer-available');
+    if (available) {
+      const amount = transferAvailable(draft.direction);
+      available.textContent = toIdr ? (runtime.usd.paper ? E.formatUsd(amount) : '—') : E.formatIdr(amount);
+    }
+    let table = '';
+    if (quote.ok) {
+      const fee = quote.feeCurrency === 'USD' ? E.formatUsd(quote.fee) : E.formatIdr(quote.fee);
+      const rows = [
+        ['You send', toIdr ? E.formatUsd(quote.usd) : E.formatIdr(quote.idr)],
+        ['Mid rate', `1 USD = ${E.formatIdr(quote.mid)}`],
+        [`Practice spread (${(quote.spread * 100).toFixed(1)}%)`, `−${fee}`],
+      ];
+      table = `<table class="preview-table">${rows.map((row) => `<tr><td>${row[0]}</td><td>${row[1]}</td></tr>`).join('')}
+        <tr class="total"><td>You get (est.)</td><td>${toIdr ? E.formatIdr(quote.idr) : E.formatUsd(quote.usd)}</td></tr></table>`;
+      if (check.ok) {
+        const usdCash = Number(runtime.usd.paper.cash) || 0;
+        const idrFree = E.availableCash(state);
+        const usdAfter = toIdr ? usdCash - quote.usd : usdCash + quote.usd;
+        const idrAfter = toIdr ? idrFree + quote.idr : idrFree - quote.idr;
+        table += `<p class="small muted" style="margin-top:8px">Afterwards: US dollar cash ${E.formatUsd(usdAfter)} · free rupiah cash ${E.formatIdr(idrAfter)}</p>`;
+      }
+    }
+    const notes = [];
+    if (check.errors.length) {
+      notes.push(`<div class="notice error"><ul>${check.errors.map((error) => `<li>${esc(error)}</li>`).join('')}</ul></div>`);
+    }
+    if (check.ok) {
+      notes.push(`<div class="notice info">This counts as money moved ${toIdr ? 'into your rupiah wallet' : 'back to Twin'}, not as a profit or loss. The final amount uses the rate when you confirm.</div>`);
+    }
+    holder.innerHTML = `${table}<div class="stack" style="margin-top:10px">${notes.join('')}</div>`;
+    const confirm = document.getElementById('transfer-confirm');
+    if (confirm) {
+      confirm.disabled = !check.ok || draft.busy;
+      if (draft.busy) {
+        confirm.textContent = 'Moving…';
+      } else if (quote.ok) {
+        confirm.textContent = `Move ${toIdr ? E.formatUsd(quote.usd) : E.formatIdr(quote.idr)} to ${toIdr ? 'rupiah' : 'US dollars'}`;
+      } else {
+        confirm.textContent = 'Move money';
+      }
+    }
+  }
+
+  async function confirmTransfer() {
+    const draft = runtime.transfer;
+    if (!draft || draft.busy) return;
+    const check = transferCheck();
+    if (!check.ok) {
+      renderTransferPreview();
+      return;
+    }
+    if (!SYNCS) {
+      toast('Moving money is off in the demo account and the self-test.', 'error');
+      return;
+    }
+    draft.busy = true;
+    renderTransferPreview();
+    const amount = draft.direction === 'usd_to_idr' ? check.quote.usd : check.quote.idr;
+    let outcome = null;
+    try {
+      outcome = await executeTransfer(draft, amount);
+    } catch (error) {
+      outcome = { ok: false, error: 'Something went wrong, so nothing was moved.' };
+    }
+    draft.busy = false;
+    if (outcome.ok) {
+      const record = outcome.transfer;
+      if (runtime.transfer === draft) closeModal();
+      toast(record.direction === 'usd_to_idr'
+        ? `Moved ${E.formatUsd(record.usd)} → ${E.formatIdr(record.idr)} into your rupiah wallet.`
+        : `Moved ${E.formatIdr(record.idr)} → ${E.formatUsd(record.usd)} back to Twin.`, 'ok');
+      render();
+      return;
+    }
+    if (outcome.error) toast(outcome.error, 'error');
+    if (runtime.transfer === draft && modalOpen()) renderTransferPreview();
+  }
+
+  /** Wait for any upload in flight, then pull: adopts a newer account copy or uploads ours. */
+  async function settleWalletSync() {
+    clearTimeout(runtime.saveTimer);
+    for (let waited = 0; runtime.sync.pushing && waited < 15000; waited += 100) {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+    await pullWallet();
+  }
+
+  async function executeTransfer(draft, amount) {
+    const direction = draft.direction;
+    const kind = runtime.usd.kind;
+    if (kind === 'server') {
+      if (!runtime.server) runtime.server = await serverDetected();
+      // Bring this browser's rupiah wallet in line with the account first, so the move
+      // builds on the latest copy and the revision check passes.
+      await settleWalletSync();
+      if (runtime.transfer !== draft) {
+        return { ok: false, error: 'Your rupiah wallet was just updated from your Twin account. Check the amounts and try again.' };
+      }
+      if (!runtime.sync.enabled) {
+        return {
+          ok: false,
+          error: runtime.sync.status === 'offline'
+            ? "Can't reach Twin's server, so nothing was moved."
+            : 'Log in to Twin on this server to move money between your wallets.',
+        };
+      }
+      let result = await F.transferWallets(direction, amount, runtime.sync.rev);
+      if (result && result.data && result.data.code === 'no_wallet') {
+        await pushWallet();
+        result = await F.transferWallets(direction, amount, runtime.sync.rev);
+      }
+      if (!result) return { ok: false, error: "Can't reach Twin's server, so nothing was moved." };
+      if (result.status === 401) {
+        runtime.sync.enabled = false;
+        runtime.sync.status = 'signed-out';
+        Object.assign(runtime.usd, { paper: null, reason: 'signed-out' });
+        return { ok: false, error: 'Your Twin session has ended, so nothing was moved. Log in to Twin again.' };
+      }
+      const data = result.data || {};
+      if (data.conflict) {
+        await pullWallet();
+        return { ok: false, error: 'Your rupiah wallet changed on another device, so nothing was moved. It is up to date here now; try again.' };
+      }
+      if (!data.ok) return { ok: false, error: data.error || 'The move failed, so nothing was moved.' };
+      runtime.sync.rev = data.rev;
+      writeSyncMeta();
+      adoptTransferResult(data.wallet, data.paper);
+      markSynced();
+      refreshSyncNote();
+      return { ok: true, transfer: data.transfer };
+    }
+    if (kind === 'guest' || kind === 'browser') {
+      // Twin's demo engine reads the rupiah wallet from this browser's storage.
+      persistLocal();
+      const result = await twinDemoCall(kind, 'api/wallet/transfer', { direction, amount });
+      if (!result || !result.ok) {
+        if (result && result.auth === false) Object.assign(runtime.usd, { paper: null, reason: 'signed-out' });
+        return { ok: false, error: (result && result.error) || 'The move failed, so nothing was moved.' };
+      }
+      adoptTransferResult(result.wallet, result.paper);
+      if (!result.paper) linkUsdWallet(true);
+      return { ok: true, transfer: result.transfer };
+    }
+    return { ok: false, error: usdLinkMessage() || "Your US dollar wallet isn't linked." };
+  }
+
+  /** Both ledgers come back from the move: keep the rupiah wallet and Twin's cash in step. */
+  function adoptTransferResult(wallet, paper) {
+    const next = wallet ? E.migrateState(wallet) : null;
+    if (next && next.profile) {
+      state = next;
+      persistLocal();
+    }
+    if (paper) {
+      Object.assign(runtime.usd, { paper, reason: '', error: '', checkedAt: Date.now() });
+    }
+  }
+
+  /** #transfer (from Twin's Me screen) opens the transfer sheet over Portfolio. */
+  function maybeOpenTransferFromHash() {
+    const route = parseHash();
+    if (route.name !== 'transfer' || !state || !state.profile || !state.profile.onboarded) return false;
+    try {
+      history.replaceState(null, '', '#portfolio');
+    } catch (error) {
+      // the address bar keeps #transfer; nothing else depends on it
+    }
+    runtime.lastRouteKey = 'portfolio/';
+    openTransfer(route.arg === 'idr_to_usd' ? 'idr_to_usd' : 'usd_to_idr');
+    return true;
   }
 
   // ----------------------------------------------------------- community
@@ -1819,6 +2276,7 @@
   function closeModal() {
     document.getElementById('modal-root').innerHTML = '';
     runtime.ticket = null;
+    runtime.transfer = null;
   }
 
   function modalOpen() {
@@ -1931,6 +2389,25 @@
       renderTicket();
     },
     'ticket-confirm': () => confirmTicket(),
+    'transfer-open': (data) => openTransfer(data.direction),
+    'transfer-direction': (data) => {
+      const draft = runtime.transfer;
+      if (!draft || draft.busy) return;
+      draft.direction = data.value === 'idr_to_usd' ? 'idr_to_usd' : 'usd_to_idr';
+      draft.amount = '';
+      renderTransfer();
+    },
+    'transfer-fill': (data) => {
+      const draft = runtime.transfer;
+      if (!draft || draft.busy) return;
+      const amount = transferAvailable(draft.direction) * (clamp(Number(data.pct) || 0, 0, 100) / 100);
+      draft.amount = draft.direction === 'usd_to_idr'
+        ? (Math.floor(amount * 100 + 1e-6) / 100).toFixed(2)
+        : Math.floor(amount + 1e-6).toLocaleString('id-ID');
+      renderTransfer();
+    },
+    'transfer-confirm': () => confirmTransfer(),
+    'wallets-retry': () => linkUsdWallet(true),
     'close-modal': () => closeModal(),
     backdrop: (data, target, event) => {
       if (event.target === target) closeModal();
@@ -2067,6 +2544,11 @@
       runtime.ticket.limit = el.value;
       renderTicketPreview();
     },
+    'transfer-amount': (el) => {
+      if (!runtime.transfer || runtime.transfer.busy) return;
+      runtime.transfer.amount = el.value;
+      renderTransferPreview();
+    },
     composer: (el) => {
       runtime.draft = el.value;
       const check = document.getElementById('composer-check');
@@ -2147,6 +2629,18 @@
     window.addEventListener('hashchange', () => {
       if (modalOpen()) closeModal();
       render();
+      maybeOpenTransferFromHash();
+    });
+    // Another tab changed this wallet (a trade or a transfer): load its copy, so this tab
+    // never saves an older wallet over it and both wallets stay in step.
+    window.addEventListener('storage', (event) => {
+      if (!SYNCS || event.key !== STORAGE_KEY || !event.newValue) return;
+      const next = load();
+      if (!next || !next.profile || JSON.stringify(next) === JSON.stringify(state)) return;
+      state = next;
+      render();
+      if (runtime.transfer && modalOpen()) renderTransferPreview();
+      if (runtime.ticket && modalOpen()) renderTicketPreview();
     });
   }
 
@@ -2177,17 +2671,36 @@
       document.querySelectorAll('[data-pv="day"]').forEach((el) => {
         el.textContent = E.formatIdr(value.dayChangeIdr, { sign: true });
       });
+      document.querySelectorAll('[data-pv="free"]').forEach((el) => {
+        el.textContent = E.formatIdr(value.availableIdr);
+      });
+      document.querySelectorAll('[data-pv="fx"]').forEach((el) => {
+        el.textContent = E.formatIdr(runtime.fxRate);
+      });
+      const paper = runtime.usd.paper;
+      const combined = paper ? E.combinedWallets(value.totalIdr, Number(paper.value) || 0, runtime.fxRate) : null;
+      if (combined) {
+        document.querySelectorAll('[data-pv="combined"]').forEach((el) => {
+          el.textContent = `≈ ${E.formatIdr(combined.idr)}`;
+        });
+        document.querySelectorAll('[data-pv="combined-usd"]').forEach((el) => {
+          el.textContent = E.formatUsd(combined.usd);
+        });
+      }
       document.querySelectorAll('[data-posval]').forEach((el) => {
         const position = value.positions.find((item) => item.symbol === el.dataset.posval);
         if (position) el.textContent = E.formatIdr(position.valueIdr);
       });
     }
     if (runtime.ticket && modalOpen()) renderTicketPreview();
+    if (runtime.transfer && modalOpen() && !runtime.transfer.busy) renderTransferPreview();
     if (state && state.profile && state.profile.onboarded) updateChrome(parseHash());
   }
 
   function afterPriceUpdate() {
     if (!state || !state.profile || !state.profile.onboarded) return;
+    // While a move between wallets is in flight, fills wait: the move returns the new wallet.
+    if (runtime.transfer && runtime.transfer.busy) return;
     const outcome = E.processOrders(state, ctx());
     if (outcome.fills.length) {
       state = outcome.state;
@@ -2299,7 +2812,7 @@
   // hidden tabs never upload, and every pull happens before any upload (see E.syncAction).
 
   async function connectServer() {
-    runtime.server = await F.detectServer();
+    runtime.server = await serverDetected();
     if (!runtime.server || !SYNCS) return;
     await pullWallet();
     document.addEventListener('visibilitychange', () => {
@@ -2759,6 +3272,40 @@
       return summary.valueIdr;
     });
 
+    step('wallet transfers: quote, ledger effect and transfer sheet', () => {
+      const quote = E.quoteTransfer('usd_to_idr', 100, 16290);
+      assert(quote.ok && quote.idr === 1620855 && quote.fee === 8145 && quote.basis === 1629000, `usd_to_idr quote ${JSON.stringify(quote)}`);
+      const back = E.quoteTransfer('idr_to_usd', 1000000, 16290);
+      assert(back.ok && back.usd === 61.08 && back.fee === 0.31 && back.basis === 61.39, `idr_to_usd quote ${JSON.stringify(back)}`);
+      const before = E.portfolioValue(state, ctx());
+      const applied = E.applyTransferToState(state, quote);
+      assert(applied.ok, applied.error);
+      const after = E.portfolioValue(applied.state, ctx());
+      assert(Math.abs(after.totalIdr - before.totalIdr - 1620855) < 1, 'the rupiah total should grow by what arrived');
+      assert(Math.abs(after.gainIdr - (before.gainIdr - 8145)) < 1, 'the spread should show as a cost, not a gain');
+      assert(applied.state.transfers[0].direction === 'usd_to_idr', 'transfer not logged');
+      location.hash = '#portfolio';
+      render();
+      assert(document.getElementById('wallets-card'), 'wallets card missing');
+      runtime.usd = { kind: 'selftest', paper: { cash: 500, value: 650 }, checking: false, checkedAt: Date.now(), reason: '', error: '' };
+      openTransfer('usd_to_idr');
+      runtime.transfer.amount = '100';
+      renderTransferPreview();
+      assert(/You get/.test(document.getElementById('transfer-preview').textContent), 'transfer preview missing');
+      assert(!document.getElementById('transfer-confirm').disabled, 'a $100 move should be allowed');
+      runtime.transfer.amount = '900';
+      renderTransferPreview();
+      assert(document.getElementById('transfer-confirm').disabled, 'moving more than the USD cash must be blocked');
+      actions['transfer-direction']({ value: 'idr_to_usd' });
+      actions['transfer-fill']({ pct: '100' });
+      assert(parseAmount(runtime.transfer.amount) === Math.floor(E.availableCash(state)), 'Max should fill the free rupiah cash');
+      assert(parseUsd('1,000') === 1000 && parseUsd('12,5') === 12.5 && parseUsd('1.234,56') === 1234.56 && parseUsd('$1,234.56') === 1234.56, 'USD amount parsing');
+      closeModal();
+      assert(!runtime.transfer, 'closing the sheet should drop the draft');
+      runtime.usd = { kind: null, paper: null, checking: false, checkedAt: 0, reason: '', error: '' };
+      return quote.idr;
+    });
+
     step('reset returns to onboarding', () => {
       actions.reset();
       assert(document.querySelector('.onboard'), 'not back to onboarding');
@@ -2794,6 +3341,7 @@
     render();
     startTimers();
     openLinkedTicket(location.search);
+    maybeOpenTransferFromHash();
     if (!OFFLINE) {
       connectServer().then(refreshNews);
       if (!isSimulated()) refreshLive();

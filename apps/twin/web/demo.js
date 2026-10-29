@@ -15,6 +15,10 @@
   // Storage keys keep the pre-rename "trade-twin" prefix so saved profiles and guests survive the rename.
   const STORE = "trade-twin-demo-v1";
   const GUEST_STORE = "trade-twin-guest-v1";
+  // Twin Indonesia's rupiah wallet (web/id/) in the same browser; transfers move money between the two.
+  const IDR_STORE = "twin_id_state_v1";
+  // Snapshot files sit next to this script, so the engine also works from pages in sub-folders (id/).
+  const DATA = new URL("demo/", (document.currentScript && document.currentScript.src) || location.href).href;
   let guestMemory = null;
   let guestStorage = "tab";
   const cache = {};
@@ -24,7 +28,7 @@
   const FRESH = new Set(["world", "calendars"]);
   async function load(name) {
     if (!cache[name]) {
-      const response = await fetch("demo/" + name + ".json", { cache: FRESH.has(name) ? "no-cache" : "force-cache" });
+      const response = await fetch(DATA + name + ".json", { cache: FRESH.has(name) ? "no-cache" : "force-cache" });
       if (!response.ok) {
         throw new Error("demo data missing: " + name);
       }
@@ -265,7 +269,7 @@
   const chartCache = {};
   async function worldChart(symbol) {
     if (!chartCache[symbol]) {
-      chartCache[symbol] = fetch("demo/world/" + chartFile(symbol), { cache: "no-cache" })
+      chartCache[symbol] = fetch(DATA + "world/" + chartFile(symbol), { cache: "no-cache" })
         .then((r) => (r.ok ? r.json() : null))
         .catch(() => null);
     }
@@ -383,12 +387,18 @@
     } else {
       snaps.push([today, value]);
     }
+    // Money moved to or from the rupiah wallet is a deposit or withdrawal, not a gain or loss.
+    const contributions = Number(paper.contributions) || 0;
+    const basis = paper.start_cash + contributions;
     return {
       cash: round2(paper.cash),
       start_cash: paper.start_cash,
+      contributions: round2(contributions),
+      basis: round2(basis),
       value,
-      gain: round2(value - paper.start_cash),
-      gain_pct: round2((value / paper.start_cash - 1) * 100),
+      gain: round2(value - basis),
+      gain_pct: basis > 0 ? round2((value / basis - 1) * 100) : 0,
+      transfers: (paper.transfers || []).slice(0, 20),
       positions: rows,
       history: paper.history.slice(-50).reverse(),
       snapshots: snaps.slice(-365),
@@ -843,7 +853,9 @@
           const result = scoreQuiz(body.answers || {});
           profile.quiz = result;
           profile.limits = limitsFor(result.risk_level, profile.budget || 5000);
-          if (body.paper_cash && !Object.keys(profile.paper.positions).length && !profile.paper.history.length) {
+          // Only an untouched portfolio: no trades and no money moved to or from the rupiah wallet.
+          if (body.paper_cash && !Object.keys(profile.paper.positions).length && !profile.paper.history.length
+              && !(profile.paper.transfers || []).length) {
             const cash = num(body.paper_cash, "practice money", 100, 1e9);
             profile.paper.cash = cash;
             profile.paper.start_cash = cash;
@@ -926,6 +938,58 @@
           const paper = await paperState(profile);
           save();
           return { ok: true, fills, errors, paper };
+        }
+        case "wallet/transfer": {
+          const engine = window.SatuEngine;
+          if (!engine) {
+            return fail("Open Twin Indonesia to move money between your wallets.");
+          }
+          // Fetch the rate first: from here on nothing waits, so both copies change together.
+          const globalData = await world().catch(() => null);
+          const usdPerIdr = globalData && globalData.fx_usd && globalData.fx_usd.IDR;
+          const previousIdr = localStorage.getItem(IDR_STORE);
+          let idrState = null;
+          try {
+            idrState = engine.migrateState(JSON.parse(previousIdr));
+          } catch (error) {
+            idrState = null;
+          }
+          if (!idrState || !idrState.profile) {
+            return fail("Open Twin Indonesia once so your rupiah wallet exists, then try again.");
+          }
+          const quote = engine.quoteTransfer(body.direction, num(body.amount, "amount", 0, 1e13), usdPerIdr ? 1 / usdPerIdr : null);
+          if (!quote.ok) {
+            return fail(quote.error);
+          }
+          const paper = profile.paper;
+          if (quote.direction === "usd_to_idr" && quote.usd > paper.cash + 0.005) {
+            return fail(`Not enough USD cash ($${paper.cash.toFixed(2)} available).`);
+          }
+          const applied = engine.applyTransferToState(idrState, quote);
+          if (!applied.ok) {
+            return fail(applied.error);
+          }
+          const record = applied.record;
+          applied.state.savedAt = record.at;
+          paper.contributions = Number(paper.contributions) || 0;
+          if (quote.direction === "usd_to_idr") {
+            paper.cash -= quote.usd;
+            paper.contributions = round2(paper.contributions - quote.usd);
+          } else {
+            paper.cash += quote.usd;
+            paper.contributions = round2(paper.contributions + quote.basis);
+          }
+          paper.transfers = [record].concat(paper.transfers || []).slice(0, 200);
+          localStorage.setItem(IDR_STORE, JSON.stringify(applied.state));
+          try {
+            save();
+          } catch (error) {
+            localStorage.setItem(IDR_STORE, previousIdr); // keep the two wallets in step
+            throw error;
+          }
+          // The move is saved; a valuation problem must not report it as failed.
+          const paperNow = await paperState(profile).catch(() => null);
+          return { ok: true, transfer: record, paper: paperNow, wallet: applied.state };
         }
         case "paper/reset": {
           const cash = num(body.cash, "practice money", 100, 1e9, profile.paper.start_cash);

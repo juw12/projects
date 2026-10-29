@@ -356,6 +356,97 @@
         eq(E.syncAction(local, { wallet: null, rev: 0, account: 'acc2' }, { account: 'acc1', rev: 5 }), 'detach');
         eq(E.syncAction(null, { wallet: null, rev: 0, account: 'acc2' }, { account: 'acc1', rev: 5 }), 'none');
       });
+      // ---- wallet transfers (1.13): USD portfolio <-> rupiah wallet
+      check('transfer quote: $100 to rupiah at 16,290 minus 0.5%', () => {
+        const quote = E.quoteTransfer('usd_to_idr', 100, 16290);
+        ok(quote.ok, quote.error);
+        eq(quote.usd, 100);
+        eq(quote.idr, 1620855, 'floor(100 x 16,290 x 0.995)');
+        eq(quote.fee, 8145, 'spread in rupiah');
+        eq(quote.feeCurrency, 'IDR');
+        eq(quote.basis, 1629000, 'money put in at the mid rate');
+        eq(quote.idr + quote.fee, quote.basis, 'received + spread = mid value');
+      });
+      check('transfer quote: Rp1,000,000 to US dollars at 16,290 minus 0.5%', () => {
+        const quote = E.quoteTransfer('idr_to_usd', 1000000, 16290);
+        ok(quote.ok, quote.error);
+        eq(quote.idr, 1000000);
+        eq(quote.usd, 61.08, 'floor to cents of 1,000,000 / 16,290 x 0.995');
+        eq(quote.fee, 0.31);
+        eq(quote.feeCurrency, 'USD');
+        eq(quote.basis, 61.39);
+      });
+      check('transfer quote rounds the amount sent down and never creates money', () => {
+        eq(E.quoteTransfer('usd_to_idr', 100.129, 16000).usd, 100.12);
+        eq(E.quoteTransfer('idr_to_usd', 1000000.9, 16000).idr, 1000000);
+        const there = E.quoteTransfer('usd_to_idr', 100, 16290);
+        const back = E.quoteTransfer('idr_to_usd', there.idr, 16290);
+        ok(back.usd < 100 && back.usd >= 98.9, `a round trip should cost about two spreads, got $${back.usd}`);
+      });
+      check('transfer quote rejects bad input', () => {
+        ok(!E.quoteTransfer('usd_to_idr', 0.99, 16000).ok, 'below $1');
+        ok(!E.quoteTransfer('idr_to_usd', 9999, 16000).ok, 'below Rp10,000');
+        ok(!E.quoteTransfer('usd_to_idr', NaN, 16000).ok, 'NaN amount');
+        ok(!E.quoteTransfer('usd_to_idr', -5, 16000).ok, 'negative amount');
+        ok(!E.quoteTransfer('sideways', 100, 16000).ok, 'unknown direction');
+        ok(!E.quoteTransfer('usd_to_idr', 100, 0).ok, 'no rate');
+        ok(!E.quoteTransfer('usd_to_idr', 100, Infinity).ok, 'infinite rate');
+      });
+      check('transfer in: cash and money put in grow, the spread is a cost', () => {
+        const state = E.createState({ startingCashIdr: 10000000 });
+        const quote = E.quoteTransfer('usd_to_idr', 100, 16290);
+        const result = E.applyTransferToState(state, quote, { now: Date.parse('2026-10-28T03:00:00Z'), id: 'tr_test' });
+        ok(result.ok, result.error);
+        eq(state.wallet.cashIdr, 10000000, 'input state untouched');
+        eq(result.state.wallet.cashIdr, 11620855);
+        eq(result.state.wallet.contributionsIdr, 1629000);
+        eq(result.state.transfers.length, 1);
+        eq(result.state.transfers[0].id, 'tr_test');
+        eq(result.state.transfers[0].at, '2026-10-28T03:00:00.000Z');
+        eq(result.state.transfers[0].direction, 'usd_to_idr');
+        eq(result.state.transfers[0].fee, 8145);
+        const value = E.portfolioValue(result.state, base);
+        eq(value.totalIdr, 11620855);
+        eq(value.basisIdr, 11629000);
+        eq(value.gainIdr, -8145);
+        near(value.returnPct, (-8145 / 11629000) * 100, 1e-9);
+      });
+      check('transfer out: only free rupiah cash can leave', () => {
+        const state = E.createState({ startingCashIdr: 10000000 });
+        state.orders.push({ id: 'o1', status: 'open', side: 'buy', symbol: 'BBCA', reservedIdr: 9500000 });
+        const tooMuch = E.applyTransferToState(state, E.quoteTransfer('idr_to_usd', 1000000, 16000));
+        ok(!tooMuch.ok && /free/.test(tooMuch.error), 'money held for an open order must stay');
+        const fine = E.applyTransferToState(state, E.quoteTransfer('idr_to_usd', 400000, 16000));
+        ok(fine.ok, fine.error);
+        eq(fine.state.wallet.cashIdr, 9600000);
+        eq(fine.state.wallet.contributionsIdr, -400000);
+        eq(E.portfolioValue(fine.state, base).gainIdr, 0, 'moving money out is not a loss');
+      });
+      check('transfer log keeps the newest 200 moves', () => {
+        const state = E.createState({ startingCashIdr: 10000000 });
+        state.transfers = Array.from({ length: 200 }, (item, index) => ({ id: `old${index}` }));
+        const result = E.applyTransferToState(state, E.quoteTransfer('usd_to_idr', 5, 16000), { id: 'newest' });
+        eq(result.state.transfers.length, 200);
+        eq(result.state.transfers[0].id, 'newest');
+        eq(result.state.transfers[199].id, 'old198');
+      });
+      check('wallets saved before 1.13 load with no moves and the same return', () => {
+        const old = E.createState({ startingCashIdr: 10000000 });
+        delete old.wallet.contributionsIdr;
+        delete old.transfers;
+        old.wallet.cashIdr = 12000000;
+        const migrated = E.migrateState(JSON.parse(JSON.stringify(old)));
+        eq(migrated.wallet.contributionsIdr, 0);
+        ok(Array.isArray(migrated.transfers) && migrated.transfers.length === 0, 'transfers list');
+        near(E.portfolioValue(migrated, base).returnPct, 20, 1e-9);
+        eq(E.walletSummary(migrated, base).contributionsIdr, 0);
+      });
+      check('combined total of both wallets at one rate', () => {
+        const combined = E.combinedWallets(10000000, 650, 16000);
+        eq(combined.idr, 20400000);
+        eq(combined.usd, 1275);
+        eq(E.combinedWallets(1, 1, 0), null);
+      });
       check('snapshot has all four markets', () => {
         const markets = new Set(SATU_SNAPSHOT.instruments.map((item) => item.market));
         eq(markets.size, 4);

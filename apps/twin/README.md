@@ -54,7 +54,7 @@ Bank Central Asia, Samsung, Reliance, Petrobras, Nestlé and so on.
   estimates (shown as “est.”) until the exchanges confirm them;
   Shanghai/Shenzhen and India are covered through 2026 until the package publishes later years.
 
-## Twin Indonesia (1.11, account sync in 1.12)
+## Twin Indonesia (1.11, account sync in 1.12, two wallets in 1.13)
 
 The rupiah side of Twin, merged from the *Satu* prototype: https://juw12.github.io/projects/twin/id/.
 Open it from the teal **Twin Indonesia** card on Home, **Me → Twin Indonesia**, or **Trade … in rupiah
@@ -70,7 +70,16 @@ lots** on any Jakarta (`.JK`) stock page; the **Twin** logo in its top bar comes
 - **Academy and plans.** Nine interactive lessons in three levels (fees and break-even, lots and price
   steps, spotting *investasi bodong*, position sizing…) and Free / Plus / Pro plan concepts.
 - **Your rupiah wallet on Home and Me (1.12).** Twin's Home card and Me screen show its value, return,
-  positions and cash. It stays separate from the USD portfolio.
+  positions and cash.
+- **Two wallets, one picture (1.13).** Practice money lives in two wallets — US dollars (Twin's portfolio)
+  and rupiah (Twin Indonesia). **Portfolio → Your two wallets** in Twin Indonesia (or **Me → Move money
+  between wallets** in Twin) moves money either way at the delayed USD/IDR mid rate minus a 0.5% practice
+  spread, rounded down so no money is created. Moved money counts as money put in (or taken out), so each
+  wallet's return shows investment results only and the spread shows as a small cost. Rupiah held for open
+  orders can't be moved. On `python server.py` one request (`POST /api/wallet/transfer`) updates both
+  ledgers under the account lock and the same revision check as wallet sync; in the browser version Twin's
+  demo engine updates both copies in this browser (browser profiles and guest sessions). Portfolio and Me
+  show both wallets and the combined total. Not available in the `?demo` account.
 - **Account sync on your own server (1.12).** Signed in to Twin on `python server.py`, the wallet is kept in
   your account (`data/users/<id>/indonesia.json`) and follows you to other browsers. Each save names the
   revision it builds on, so a stale tab can't overwrite newer trades: the account copy wins and the replaced
@@ -305,6 +314,15 @@ history and are not predictions. Not financial advice.
 
 ## Changelog
 
+- **1.13.0 — Two wallets, one picture.** Move practice money between the US dollar portfolio and the Twin
+  Indonesia rupiah wallet at the delayed mid rate minus a 0.5% practice spread (amounts rounded down; at
+  least $1 or Rp10.000). On your own server `POST /api/wallet/transfer` changes both ledgers in one
+  revision-checked request, so a stale tab or device can't undo a move; the browser version does the same
+  in this browser through the demo engine. Moves count as money put in or taken out: Twin's portfolio
+  reports `contributions` and `basis`, the gain and the Home chart baseline use the basis, and the rupiah
+  wallet's return is measured the same way. New transfer sheet and *Your two wallets* card on Twin
+  Indonesia's Portfolio (deep link `id/#transfer`), combined total and *Move money between wallets* on Me,
+  and tabs pick up wallet changes made in another tab.
 - **1.12.0 — Twin Indonesia wallet and news everywhere.** Home's Twin Indonesia card and the Me screen now
   show your rupiah practice wallet (value, return, positions, cash). On your own server, a signed-in Twin
   account keeps the wallet (`/api/indonesia/wallet`, `/api/indonesia/wallet/save`) with revision checks, so

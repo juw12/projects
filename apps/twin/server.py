@@ -67,7 +67,7 @@ LOCK = threading.RLock()
 # Routes that read-modify-write the profile run under LOCK so quick double taps can't lose updates.
 PROFILE_WRITE_PATHS = {"/api/profile", "/api/quiz", "/api/paper", "/api/paper/order",
                        "/api/paper/copy", "/api/paper/reset", "/api/broker/order",
-                       "/api/indonesia/wallet/save"}
+                       "/api/indonesia/wallet/save", "/api/wallet/transfer"}
 
 # Demo mode replays the day-trader-skill README trade: TSLA, 2026-10-19, 10:15 ET.
 DEMO_NOW = "2026-10-19 10:15"
@@ -88,7 +88,7 @@ TOOL = {
 }
 
 
-VERSION = "1.12.0"
+VERSION = "1.13.0"
 
 
 class AppError(Exception):
@@ -879,12 +879,18 @@ def paper_state(profile):
         snaps[-1][1] = value
     else:
         snaps.append([today, value])
+    # Money moved to or from the rupiah wallet is a deposit or withdrawal, not a gain or loss.
+    contributions = float(paper.get("contributions") or 0)
+    basis = paper["start_cash"] + contributions
     return {
         "cash": round(paper["cash"], 2),
         "start_cash": paper["start_cash"],
+        "contributions": round(contributions, 2),
+        "basis": round(basis, 2),
         "value": value,
-        "gain": round(value - paper["start_cash"], 2),
-        "gain_pct": round((value / paper["start_cash"] - 1) * 100, 2),
+        "gain": round(value - basis, 2),
+        "gain_pct": round((value / basis - 1) * 100, 2) if basis > 0 else 0.0,
+        "transfers": paper.get("transfers", [])[:20],
         "positions": rows,
         "history": paper["history"][-50:][::-1],
         "snapshots": snaps[-365:],
@@ -1219,6 +1225,140 @@ def save_indonesia_wallet(uid, body):
               "savedAt": datetime.now(timezone.utc).isoformat(timespec="seconds")}
     save_json(indonesia_wallet_path(uid), record)
     return {"ok": True, "rev": record["rev"], "savedAt": record["savedAt"], "account": wallet_account(uid)}
+
+
+# ------------------------------------------------------- wallet transfers
+# Practice money lives in two wallets: USD (this portfolio) and rupiah (Twin Indonesia).
+# Moves convert at the USD/IDR mid rate minus a spread, with the same rounding as
+# quoteTransfer() in web/id/engine.js, and update both ledgers under LOCK.
+
+FX_SPREAD = 0.005  # practice assumption: real apps' FX spreads vary
+TRANSFER_MIN_USD = 1.0
+TRANSFER_MIN_IDR = 10000
+TRANSFER_LOG_MAX = 200
+
+
+def floor_cents(value):
+    return math.floor(value * 100 + 1e-6) / 100
+
+
+def floor_rupiah(value):
+    return math.floor(value + 1e-6)
+
+
+def round_half_up(value, digits=0):
+    """JavaScript's Math.round for positive amounts (Python's round() rounds halves to even)."""
+    scale = 10 ** digits
+    return math.floor(value * scale + 0.5) / scale if digits else math.floor(value + 0.5)
+
+
+def quote_transfer(direction, amount, mid, spread=FX_SPREAD):
+    if direction not in ("usd_to_idr", "idr_to_usd"):
+        raise AppError("Choose which way to move the money.")
+    if not mid or not math.isfinite(mid) or mid <= 0:
+        raise AppError("No USD/IDR rate right now. Try again in a moment.")
+    if direction == "usd_to_idr":
+        usd = floor_cents(amount)
+        if usd < TRANSFER_MIN_USD:
+            raise AppError("Move at least $1.00.")
+        gross = usd * mid
+        idr = floor_rupiah(gross * (1 - spread))
+        return {"direction": direction, "usd": usd, "idr": idr, "mid": mid, "spread": spread,
+                "fee": round_half_up(gross - idr), "feeCurrency": "IDR", "basis": round_half_up(gross)}
+    idr = floor_rupiah(amount)
+    if idr < TRANSFER_MIN_IDR:
+        raise AppError("Move at least Rp10.000.")
+    gross = idr / mid
+    usd = floor_cents(gross * (1 - spread))
+    if usd <= 0:
+        raise AppError("That amount is too small to convert.")
+    return {"direction": direction, "usd": usd, "idr": idr, "mid": mid, "spread": spread,
+            "fee": round_half_up(gross - usd, 2), "feeCurrency": "USD", "basis": round_half_up(gross, 2)}
+
+
+def usd_idr_mid():
+    """Rupiah per US dollar, or 0 when no rate is available (quote_transfer then explains)."""
+    try:
+        return 1 / fx_usd("IDR")
+    except (AppError, ZeroDivisionError):
+        return 0
+
+
+def idr_reserved(state):
+    """Rupiah held for open or queued buy orders (engine.js reservedCash)."""
+    return sum(float(order.get("reservedIdr") or 0) for order in state.get("orders") or []
+               if isinstance(order, dict) and order.get("status") in ("open", "queued"))
+
+
+def wallet_transfer(uid, profile, body):
+    """Move practice money between the USD portfolio and the account's rupiah wallet.
+    Both ledgers change together or not at all; the rupiah side follows the same revision
+    rules as /api/indonesia/wallet/save, so a stale browser can't undo the move."""
+    direction = body.get("direction")
+    amount = number(body.get("amount"), "amount", low=0, high=1e13)
+    base = body.get("rev", 0)
+    if isinstance(base, bool) or not isinstance(base, int) or base < 0:
+        raise AppError("rev must be a whole number")
+    current = indonesia_wallet(uid)
+    if current["wallet"] is None:
+        return {"ok": False, "code": "no_wallet",
+                "error": "Open Twin Indonesia once so your rupiah wallet exists, then try again."}
+    if base != current["rev"]:
+        return dict(current, ok=False, conflict=True, error="Your rupiah wallet changed on another device.")
+    state = current["wallet"]
+    wallet = state.get("wallet")
+    if not isinstance(wallet, dict) or not isinstance(wallet.get("cashIdr"), (int, float)):
+        raise AppError("Your rupiah wallet looks damaged. Export it from Twin Indonesia settings.")
+    quote = quote_transfer(direction, amount, usd_idr_mid())
+    paper = profile["paper"]
+    if direction == "usd_to_idr":
+        if quote["usd"] > paper["cash"] + 0.005:
+            raise AppError("Not enough USD cash ($%.2f available)." % paper["cash"])
+    else:
+        free = wallet["cashIdr"] - idr_reserved(state)
+        if quote["idr"] > free + 0.5:
+            raise AppError("Only Rp%s of rupiah cash is free (the rest is held for open orders)."
+                           % format(int(max(0, free)), ",").replace(",", "."))
+    now = datetime.now(timezone.utc)
+    record = {
+        "id": "tr_" + secrets.token_hex(6),
+        "at": now.isoformat(timespec="milliseconds").replace("+00:00", "Z"),
+        "direction": direction,
+        "usd": quote["usd"],
+        "idr": quote["idr"],
+        "mid": quote["mid"],
+        "spread": quote["spread"],
+        "fee": quote["fee"],
+        "feeCurrency": quote["feeCurrency"],
+    }
+    contributions_idr = float(wallet.get("contributionsIdr") or 0)
+    contributions_usd = float(paper.get("contributions") or 0)
+    if direction == "usd_to_idr":
+        paper["cash"] -= quote["usd"]
+        contributions_usd -= quote["usd"]
+        wallet["cashIdr"] += quote["idr"]
+        contributions_idr += quote["basis"]
+    else:
+        wallet["cashIdr"] -= quote["idr"]
+        contributions_idr -= quote["idr"]
+        paper["cash"] += quote["usd"]
+        contributions_usd += quote["basis"]
+    wallet["contributionsIdr"] = contributions_idr
+    paper["contributions"] = round(contributions_usd, 2)
+    state["transfers"] = ([record] + list(state.get("transfers") or []))[:TRANSFER_LOG_MAX]
+    state["savedAt"] = record["at"]
+    paper["transfers"] = ([record] + list(paper.get("transfers") or []))[:TRANSFER_LOG_MAX]
+    paper_now = paper_state(profile)
+    previous = load_json(indonesia_wallet_path(uid), None)
+    saved = {"state": state, "rev": current["rev"] + 1, "savedAt": now.isoformat(timespec="seconds")}
+    save_json(indonesia_wallet_path(uid), saved)
+    try:
+        put_profile(uid, profile)
+    except Exception:
+        save_json(indonesia_wallet_path(uid), previous)  # keep the two ledgers in step
+        raise
+    return {"ok": True, "transfer": record, "paper": paper_now, "wallet": state,
+            "rev": saved["rev"], "account": wallet_account(uid)}
 
 
 # ------------------------------------------------------------------ HTTP
@@ -1569,7 +1709,9 @@ class Handler(BaseHTTPRequestHandler):
             profile["limits"] = limits_for(result["risk_level"], profile.get("budget", 5000))
             if body.get("paper_cash"):
                 cash = number(body["paper_cash"], "practice money", low=100, high=1e9)
-                if not profile["paper"]["positions"] and not profile["paper"]["history"]:
+                # Only an untouched portfolio: no trades and no money moved to or from the rupiah wallet.
+                if (not profile["paper"]["positions"] and not profile["paper"]["history"]
+                        and not profile["paper"].get("transfers")):
                     profile["paper"]["cash"] = cash
                     profile["paper"]["start_cash"] = cash
             put_profile(uid, profile)
@@ -1664,6 +1806,8 @@ class Handler(BaseHTTPRequestHandler):
             self.send_json(indonesia_wallet(uid))
         elif path == "/api/indonesia/wallet/save":
             self.send_json(save_indonesia_wallet(uid, body))
+        elif path == "/api/wallet/transfer":
+            self.send_json(wallet_transfer(uid, profile, body))
         elif path == "/api/copycat":
             self.send_json(copycat(uid, profile, body.get("action"), body))
         elif path == "/api/trade":

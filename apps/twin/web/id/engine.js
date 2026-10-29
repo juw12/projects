@@ -392,7 +392,8 @@
       profile: opts.profile || null,
       settings: { dataMode: 'live', respectHours: true },
       plan: { id: 'free', since: null, renewsAt: null },
-      wallet: { cashIdr: startingCashIdr, startingCashIdr },
+      wallet: { cashIdr: startingCashIdr, startingCashIdr, contributionsIdr: 0 },
+      transfers: [],
       positions: {},
       orders: [],
       realizedIdr: 0,
@@ -421,6 +422,9 @@
     merged.orders = Array.isArray(raw.orders) ? raw.orders : [];
     merged.alerts = Array.isArray(raw.alerts) ? raw.alerts : [];
     merged.watchlist = Array.isArray(raw.watchlist) ? raw.watchlist : [];
+    merged.wallet = Object.assign({}, raw.wallet);
+    if (!Number.isFinite(merged.wallet.contributionsIdr)) merged.wallet.contributionsIdr = 0;
+    merged.transfers = Array.isArray(raw.transfers) ? raw.transfers : [];
     return merged;
   }
 
@@ -482,7 +486,9 @@
     positions.sort((a, b) => b.valueIdr - a.valueIdr);
     const reserved = reservedCash(state);
     const totalIdr = state.wallet.cashIdr + positionsIdr;
-    const start = state.wallet.startingCashIdr || 1;
+    // Money moved in from (or out to) the USD wallet is a deposit, not a gain or loss.
+    const contributionsIdr = state.wallet.contributionsIdr || 0;
+    const basisIdr = (state.wallet.startingCashIdr || 0) + contributionsIdr;
     return {
       cashIdr: state.wallet.cashIdr,
       reservedIdr: reserved,
@@ -494,7 +500,10 @@
       unrealizedIdr: positionsIdr - costIdr,
       realizedIdr: state.realizedIdr || 0,
       dayChangeIdr,
-      returnPct: ((totalIdr - start) / start) * 100,
+      contributionsIdr,
+      basisIdr,
+      gainIdr: totalIdr - basisIdr,
+      returnPct: basisIdr > 0 ? ((totalIdr - basisIdr) / basisIdr) * 100 : 0,
     };
   }
 
@@ -505,6 +514,7 @@
       valueIdr: Math.round(value.totalIdr),
       cashIdr: Math.round(value.cashIdr),
       startingCashIdr: Math.round(state.wallet.startingCashIdr || 0),
+      contributionsIdr: Math.round(value.contributionsIdr),
       returnPct: Math.round(value.returnPct * 100) / 100,
       positions: value.positions.length,
       usdIdr: ctx.fxRate || null,
@@ -530,6 +540,100 @@
     }
     if (meta && meta.account && !linked) return hasLocal ? 'detach' : 'none';
     return hasLocal ? 'push' : 'none';
+  }
+
+  // ------------------------------------------------------ wallet transfers
+  // Twin keeps practice money in two wallets: USD (Twin's portfolio) and rupiah (this
+  // module). Moving money converts at the USD/IDR mid rate minus a spread. The same
+  // rules run in server.py (signed-in accounts) so both ledgers always agree.
+
+  const FX_SPREAD = 0.005; // practice assumption: real apps' FX spreads vary, check before moving real money
+  const TRANSFER_MIN_USD = 1;
+  const TRANSFER_MIN_IDR = 10000;
+  const TRANSFER_LOG_MAX = 200;
+  const TRANSFER_DIRECTIONS = ['usd_to_idr', 'idr_to_usd'];
+
+  /** Rounded-down amounts (never create money): cents for USD, whole rupiah for IDR. */
+  function floorCents(value) {
+    return Math.floor(value * 100 + 1e-6) / 100;
+  }
+
+  function floorRupiah(value) {
+    return Math.floor(value + 1e-6);
+  }
+
+  /**
+   * Price a move between wallets. `amount` is in the sending currency (USD for
+   * usd_to_idr, rupiah for idr_to_usd); `mid` is rupiah per US dollar.
+   * Returns { ok, error } or { ok, direction, usd, idr, mid, spread, fee, feeCurrency, basis }
+   * where `basis` is the amount at the mid rate that the receiving wallet books as money
+   * put in, so the spread shows there as a cost.
+   */
+  function quoteTransfer(direction, amount, mid, spread) {
+    const rate = Number(mid);
+    const cut = spread == null ? FX_SPREAD : Number(spread);
+    const value = Number(amount);
+    if (TRANSFER_DIRECTIONS.indexOf(direction) === -1) return { ok: false, error: 'Choose which way to move the money.' };
+    if (!(rate > 0) || !Number.isFinite(rate)) return { ok: false, error: 'No USD/IDR rate yet. Try again in a moment.' };
+    if (!Number.isFinite(value) || value <= 0) return { ok: false, error: 'Enter an amount to move.' };
+    if (!(cut >= 0 && cut < 0.2)) return { ok: false, error: 'Invalid spread.' };
+    if (direction === 'usd_to_idr') {
+      const usd = floorCents(value);
+      if (usd < TRANSFER_MIN_USD) return { ok: false, error: `Move at least $${TRANSFER_MIN_USD.toFixed(2)}.` };
+      const gross = usd * rate;
+      const idr = floorRupiah(gross * (1 - cut));
+      return { ok: true, direction, usd, idr, mid: rate, spread: cut, fee: Math.round(gross - idr), feeCurrency: 'IDR', basis: Math.round(gross) };
+    }
+    const idr = floorRupiah(value);
+    if (idr < TRANSFER_MIN_IDR) return { ok: false, error: `Move at least ${formatIdr(TRANSFER_MIN_IDR)}.` };
+    const gross = idr / rate;
+    const usd = floorCents(gross * (1 - cut));
+    if (!(usd > 0)) return { ok: false, error: 'That amount is too small to convert.' };
+    return { ok: true, direction, usd, idr, mid: rate, spread: cut, fee: Math.round((gross - usd) * 100) / 100, feeCurrency: 'USD', basis: Math.round(gross * 100) / 100 };
+  }
+
+  /**
+   * Apply a priced transfer to the rupiah wallet. Returns { ok, error } or { ok, state }
+   * with a new state: cash moves, the money-put-in basis follows and the move is logged.
+   * Money held for open buy orders can't be sent away.
+   */
+  function applyTransferToState(state, quote, options) {
+    if (!quote || !quote.ok) return { ok: false, error: (quote && quote.error) || 'Invalid transfer.' };
+    const opts = options || {};
+    const next = clone(state);
+    next.wallet.contributionsIdr = next.wallet.contributionsIdr || 0;
+    if (quote.direction === 'idr_to_usd') {
+      const free = availableCash(next);
+      if (quote.idr > free + 0.5) {
+        return { ok: false, error: `Only ${formatIdr(Math.max(0, free))} of rupiah cash is free (the rest is held for open orders).` };
+      }
+      next.wallet.cashIdr -= quote.idr;
+      next.wallet.contributionsIdr -= quote.idr;
+    } else {
+      next.wallet.cashIdr += quote.idr;
+      next.wallet.contributionsIdr += quote.basis;
+    }
+    const record = {
+      id: opts.id || `tr_${nowMs(opts).toString(36)}_${Math.random().toString(36).slice(2, 7)}`,
+      at: iso(nowMs(opts)),
+      direction: quote.direction,
+      usd: quote.usd,
+      idr: quote.idr,
+      mid: quote.mid,
+      spread: quote.spread,
+      fee: quote.fee,
+      feeCurrency: quote.feeCurrency,
+    };
+    next.transfers = [record].concat(Array.isArray(next.transfers) ? next.transfers : []).slice(0, TRANSFER_LOG_MAX);
+    return { ok: true, state: next, record };
+  }
+
+  /** Both wallets in one currency at today's rate (for display; no combined return). */
+  function combinedWallets(idrValue, usdValue, mid) {
+    const rate = Number(mid);
+    if (!(rate > 0)) return null;
+    const idr = (Number(idrValue) || 0) + (Number(usdValue) || 0) * rate;
+    return { idr: Math.round(idr), usd: Math.round((idr / rate) * 100) / 100 };
   }
 
   // ----------------------------------------------------------------- orders
@@ -1064,6 +1168,12 @@
     portfolioValue,
     walletSummary,
     syncAction,
+    FX_SPREAD,
+    TRANSFER_MIN_USD,
+    TRANSFER_MIN_IDR,
+    quoteTransfer,
+    applyTransferToState,
+    combinedWallets,
     validateOrder,
     placeOrder,
     processOrders,
