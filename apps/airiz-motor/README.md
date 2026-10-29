@@ -24,7 +24,7 @@ A downloadable Windows x64 desktop edition now bundles this entire console local
 It is not a website shortcut and does not require Chrome, Edge, Node or Python to run.
 Installer and portable preview builds are available at:
 
-https://github.com/juw12/projects/releases/tag/airiz-desktop-v1.11.4
+https://github.com/juw12/projects/releases/tag/airiz-desktop-v1.11.5
 
 The initial binaries are unsigned. The packaged app was tested with demo/synthetic
 hardware; real-device bench validation is still required. Browser and mobile-web
@@ -56,6 +56,10 @@ streams the AIRIZ microphone back in 2-second clips, about 4 s behind live. Phon
 that has the AIRIZ on USB. Stop motor still works and also interrupts a message being sent. Tested
 against a simulated AIRIZ shell (busybox), not yet on real AIRIZ hardware; the sound format and the
 record/play commands can be changed under *Voice settings*.
+
+**Only camera modes the camera can do (1.11.5):** the camera *Mode* list no longer offers 3840×2160. Once a
+preview has run, modes above what the selected camera reports (resolution or frame rate) are hidden for that
+camera, remembered for next time, and a hidden selection falls back to *Auto*.
 
 **Allow prompt, remembered devices and your own code (1.11.4):** when a phone asks to control, the PC
 shows a prompt on top of the page with *Allow & remember*, *Allow once* and *Deny*, also when Share control is
