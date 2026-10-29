@@ -7,7 +7,7 @@
  *   News                              -> Twin's server (every feed) when it runs; else
  *                                        Twin news.json + Antara RSS (CORS *), with the
  *                                        other feeds baked into snapshot.js hourly
- *   Wallet sync                       -> Twin's server, signed-in Twin account only
+ *   Wallet sync + transfers           -> Twin's server, signed-in Twin account only
  */
 (function (root) {
   'use strict';
@@ -329,6 +329,16 @@
     return postServer('api/indonesia/wallet/save', { state, rev }, 20000);
   }
 
+  /** The signed-in account's USD practice portfolio (Twin's paper wallet). */
+  function loadPaper() {
+    return postServer('api/paper', {}, 20000);
+  }
+
+  /** Move money between the USD portfolio and the rupiah wallet on the server (both ledgers at once). */
+  function transferWallets(direction, amount, rev) {
+    return postServer('api/wallet/transfer', { direction, amount, rev }, 25000);
+  }
+
   root.SatuFeeds = {
     TWIN_BASE,
     TWIN_BASES,
@@ -339,6 +349,8 @@
     detectServer,
     loadWallet,
     saveWallet,
+    loadPaper,
+    transferWallets,
     tagTickers,
   };
 })(typeof window !== 'undefined' ? window : globalThis);

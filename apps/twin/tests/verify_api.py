@@ -4,6 +4,7 @@
 Starts the server on a free port with a temporary data directory, then checks:
 health + static files, accounts (signup, login, wrong password, isolation),
 Twin Indonesia's server news feed (fake RSS) and per-account wallet sync,
+moving practice money between the USD portfolio and the rupiah wallet,
 the personality test -> limits mapping, budget recalculation, the cross-site
 guard, input validation (NaN/inf/negative amounts, path traversal, bad
 Content-Length), and the full demo day-trade flow on the bundled TSLA replay.
@@ -44,7 +45,9 @@ class Client:
     def __init__(self, base):
         self.base = base
         self.run_ids = {}
-        self.opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+        # Loopback only: never route through an HTTP(S)_PROXY from the environment.
+        self.opener = urllib.request.build_opener(urllib.request.ProxyHandler({}),
+                                                  urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
 
     def post(self, path, body=None, headers=None):
         body = dict(body or {})
@@ -156,6 +159,28 @@ def unit_tests(data_dir):
     except server.AppError:
         check("can't sell more than you hold", True)
 
+    print("unit: wallet transfers (same rounding as web/id/engine.js)")
+    quote = server.quote_transfer("usd_to_idr", 100, 16290)
+    check("$100 at 16,290 minus 0.5% = Rp1,620,855 (spread Rp8,145)",
+          quote["idr"] == 1620855 and quote["fee"] == 8145 and quote["basis"] == 1629000, str(quote))
+    quote = server.quote_transfer("idr_to_usd", 1_000_000, 16290)
+    check("Rp1,000,000 at 16,290 minus 0.5% = $61.08 (spread $0.31)",
+          quote["usd"] == 61.08 and quote["fee"] == 0.31 and quote["basis"] == 61.39, str(quote))
+    check("halves round up like JavaScript's Math.round",
+          server.round_half_up(0.5) == 1 and server.round_half_up(2.5) == 3 and server.round_half_up(0.125, 2) == 0.13)
+    for direction, amount, label in [("usd_to_idr", 0.99, "under $1"), ("idr_to_usd", 9999, "under Rp10,000"),
+                                     ("sideways", 100, "in an unknown direction")]:
+        try:
+            server.quote_transfer(direction, amount, 16290)
+            check("transfer " + label + " refused", False)
+        except server.AppError:
+            check("transfer " + label + " refused", True)
+    try:
+        server.quote_transfer("usd_to_idr", 100, 0)
+        check("no USD/IDR rate: refused with a plain message", False)
+    except server.AppError as error:
+        check("no USD/IDR rate: refused with a plain message", "No USD/IDR rate" in str(error), str(error))
+
 
 FAKE_ANTARA_RSS = """<?xml version="1.0"?><rss version="2.0"><channel>
 <item><title>BBCA naik, IHSG menguat</title><link>https://example.com/id-1</link>
@@ -176,7 +201,10 @@ def end_to_end(data_dir):
     fake_news = Path(data_dir) / "fake-news.json"
     fake_news.write_text(json.dumps({"https://www.antaranews.com/rss/ekonomi-bursa.xml": FAKE_ANTARA_RSS}),
                          encoding="utf-8")
-    env = dict(os.environ, TWIN_DATA=data_dir, TWIN_FAKE_NEWS=str(fake_news))
+    # A fixed USD/IDR rate (16,290 rupiah per dollar) for wallet transfers; no live quotes needed.
+    fake_quotes = Path(data_dir) / "fake-quotes.json"
+    fake_quotes.write_text(json.dumps({"quotes": {}, "fx_usd": {"IDR": 1 / 16290}}), encoding="utf-8")
+    env = dict(os.environ, TWIN_DATA=data_dir, TWIN_FAKE_NEWS=str(fake_news), TWIN_FAKE_QUOTES=str(fake_quotes))
     proc = subprocess.Popen(
         [sys.executable, str(SERVER), "--port", str(port), "--no-browser"],
         env=env,
@@ -185,9 +213,10 @@ def end_to_end(data_dir):
     )
     base = f"http://127.0.0.1:{port}"
     try:
+        direct = urllib.request.build_opener(urllib.request.ProxyHandler({}))
         for _ in range(100):
             try:
-                urllib.request.urlopen(base + "/api/health", timeout=1)
+                direct.open(base + "/api/health", timeout=1)
                 break
             except OSError:
                 time.sleep(0.1)
@@ -200,7 +229,7 @@ def end_to_end(data_dir):
         check("serves web/demo.js", status == 200 and b"TwinDemo" in body)
         status, body = alice.get("/id/")
         check("serves Twin Indonesia at /id/", status == 200 and b"Twin Indonesia" in body)
-        status, body = alice.get("/id/engine.js?v=1.12.0")
+        status, body = alice.get("/id/engine.js?v=1.13.0")
         check("serves the Twin Indonesia engine", status == 200 and b"SatuEngine" in body)
         try:
             status, body = alice.get("/demo/")
@@ -223,6 +252,8 @@ def end_to_end(data_dir):
         check("Indonesia news items are tagged", idx_item.get("market") == "IDX" and "BBCA" in idx_item.get("tickers", []))
         status, body = alice.post("/api/indonesia/wallet")
         check("Indonesia wallet requires login", status == 401)
+        status, body = alice.post("/api/wallet/transfer", {"direction": "usd_to_idr", "amount": 100, "rev": 0})
+        check("wallet transfers require login", status == 401)
         status, body = alice.post("/api/signup", {"username": "alice", "password": "short", "name": "A"})
         check("weak password rejected", not body.get("ok"))
         status, body = alice.post("/api/signup", {"username": "alice", "password": "correct-horse-1", "name": "Alice", "email": "a@example.com"})
@@ -272,6 +303,73 @@ def end_to_end(data_dir):
         status, body = alice.post("/api/indonesia/wallet/save", {"state": newer, "rev": 2},
                                   headers={"Origin": "http://evil.example"})
         check("cross-site wallet save blocked", status == 403)
+
+        # 1.13: moving practice money between the USD portfolio and the rupiah wallet.
+        status, paper_before = alice.post("/api/paper")
+        before = paper_before["paper"]
+        check("a new portfolio has no money moved in or out",
+              before["contributions"] == 0 and before["basis"] == before["start_cash"], str(before)[:200])
+        status, moved = alice.post("/api/wallet/transfer", {"direction": "usd_to_idr", "amount": 100, "rev": 2})
+        check("move $100 to rupiah at 16,290 minus 0.5%",
+              moved.get("ok") is True and moved["transfer"]["idr"] == 1620855 and moved["transfer"]["fee"] == 8145
+              and moved.get("rev") == 3, str(moved)[:300])
+        if moved.get("ok"):
+            check("USD cash down $100, counted as money moved out, gain unchanged",
+                  abs(moved["paper"]["cash"] - (before["cash"] - 100)) < 1e-6 and moved["paper"]["contributions"] == -100.0
+                  and abs(moved["paper"]["gain"] - before["gain"]) < 0.01, str(moved["paper"])[:300])
+            check("rupiah cash up Rp1,620,855 with Rp1,629,000 counted as money put in",
+                  moved["wallet"]["wallet"]["cashIdr"] == 9_000_000 + 1620855
+                  and moved["wallet"]["wallet"]["contributionsIdr"] == 1629000
+                  and moved["wallet"]["transfers"][0]["id"] == moved["transfer"]["id"], str(moved["wallet"])[:300])
+        status, wallet = alice.post("/api/indonesia/wallet")
+        check("the account's rupiah wallet keeps the move (rev 3)",
+              wallet.get("rev") == 3 and wallet["wallet"]["wallet"]["cashIdr"] == 10_620_855, str(wallet)[:200])
+        status, paper_after = alice.post("/api/paper")
+        check("the USD portfolio keeps the move",
+              abs(paper_after["paper"]["cash"] - (before["cash"] - 100)) < 1e-6
+              and paper_after["paper"]["transfers"][0]["id"] == moved.get("transfer", {}).get("id"), str(paper_after)[:200])
+        status, stale = alice.post("/api/wallet/transfer", {"direction": "usd_to_idr", "amount": 100, "rev": 2})
+        check("a move on a stale wallet revision is refused with the newer copy",
+              stale.get("ok") is False and stale.get("conflict") is True and stale.get("rev") == 3, str(stale)[:200])
+        status, body = alice.post("/api/wallet/transfer", {"direction": "usd_to_idr", "amount": 1e9, "rev": 3})
+        check("can't move more US dollars than the cash", body.get("ok") is False and "Not enough" in body.get("error", ""))
+        status, body = alice.post("/api/wallet/transfer", {"direction": "idr_to_usd", "amount": 50_000_000, "rev": 3})
+        check("can't move more rupiah than the free cash", body.get("ok") is False and "free" in body.get("error", ""))
+        for bad, label in [({"direction": "usd_to_idr", "amount": "NaN", "rev": 3}, "a NaN amount"),
+                           ({"direction": "usd_to_idr", "amount": "1e999", "rev": 3}, "an infinite amount"),
+                           ({"direction": "sideways", "amount": 100, "rev": 3}, "an unknown direction"),
+                           ({"direction": "usd_to_idr", "amount": 0.5, "rev": 3}, "an amount under $1"),
+                           ({"direction": "usd_to_idr", "amount": 100, "rev": "3"}, "a text revision")]:
+            status, body = alice.post("/api/wallet/transfer", bad)
+            check("transfer rejects " + label, body.get("ok") is False, str(body)[:200])
+        status, wallet = alice.post("/api/indonesia/wallet")
+        status, paper_now = alice.post("/api/paper")
+        check("refused moves change neither wallet",
+              wallet.get("rev") == 3 and abs(paper_now["paper"]["cash"] - (before["cash"] - 100)) < 1e-6)
+        held = dict(wallet["wallet"], savedAt="2026-10-28T11:00:00.000Z",
+                    orders=[{"id": "o1", "status": "open", "side": "buy", "symbol": "BBCA", "reservedIdr": 10_000_000}])
+        status, saved = alice.post("/api/indonesia/wallet/save", {"state": held, "rev": 3})
+        status, body = alice.post("/api/wallet/transfer", {"direction": "idr_to_usd", "amount": 1_000_000, "rev": 4})
+        check("rupiah held for open orders can't be moved",
+              saved.get("rev") == 4 and body.get("ok") is False and "free" in body.get("error", ""), str(body)[:200])
+        status, back = alice.post("/api/wallet/transfer", {"direction": "idr_to_usd", "amount": 500_000, "rev": 4})
+        check("move Rp500,000 back: $30.54 at 16,290 minus 0.5%",
+              back.get("ok") is True and back["transfer"]["usd"] == 30.54 and back["transfer"]["fee"] == 0.15
+              and back.get("rev") == 5, str(back)[:300])
+        if back.get("ok"):
+            check("both ledgers net the two moves",
+                  abs(back["paper"]["cash"] - (before["cash"] - 100 + 30.54)) < 1e-6
+                  and back["paper"]["contributions"] == -69.31
+                  and back["wallet"]["wallet"]["cashIdr"] == 10_120_855
+                  and back["wallet"]["wallet"]["contributionsIdr"] == 1_129_000, str(back)[:300])
+        status, body = alice.post("/api/wallet/transfer", {"direction": "usd_to_idr", "amount": 100, "rev": 5},
+                                  headers={"Origin": "http://evil.example"})
+        check("cross-site transfer blocked", status == 403)
+        cash_now = alice.post("/api/paper")[1]["paper"]["cash"]
+        alice.post("/api/quiz", {"answers": {"risk_points": [4, 4, 4, 4, 4, 4], "style_points": [5, 5, 4, 5], "flags": []},
+                                 "paper_cash": 50000})
+        check("retaking the quiz after a move keeps the USD cash",
+              abs(alice.post("/api/paper")[1]["paper"]["cash"] - cash_now) < 1e-6)
 
         # Guard-rail: a 1R plan is refused for a profile whose minimum reward:risk is 1.5.
         alice.post("/api/trade", {"step": "entry", "mode": "demo", "params": {"symbol": "TSLA"}})
@@ -358,6 +456,8 @@ def end_to_end(data_dir):
         status, wallet = bob.post("/api/indonesia/wallet")
         check("second user has their own Indonesia wallet",
               wallet.get("wallet") is None and wallet.get("rev") == 0 and wallet.get("account") != alice_account)
+        status, body = bob.post("/api/wallet/transfer", {"direction": "usd_to_idr", "amount": 100, "rev": 0})
+        check("no transfer before the rupiah wallet exists", body.get("ok") is False and body.get("code") == "no_wallet")
         status, body = bob.post("/api/login", {"username": "alice", "password": "wrong-password"})
         check("wrong password rejected", not body.get("ok"))
 

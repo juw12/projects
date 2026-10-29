@@ -99,7 +99,7 @@
     const keys = await caches.keys();
     check("unrelated app cache survives activation", keys.includes("other-app-keep-me"));
     check("old Twin cache cleaned", !keys.includes("tt-shell-v3"));
-    const current = keys.find((key) => key.startsWith("twin:") && key.endsWith(":1.12.0"));
+    const current = keys.find((key) => key.startsWith("twin:") && key.endsWith(":1.13.0"));
     const offline = await caches.open(current);
     const cached = await offline.keys();
     check("complete demo precached", ["demo.js", "theme.js", "theme.css", "demo/market.json", "demo/monthly.json", "demo/trade.json", "demo/news.json"].every((name) => cached.some((request) => request.url.split("?")[0].endsWith(name))));
@@ -323,7 +323,7 @@
     const copied = JSON.parse(reportField.value);
     check("report fallback contains replayable inputs and ledger", copied.data.points.length >= 120 && copied.strategy.trades.length > 0 && copied.source.symbol === "AAPL");
     check("Strategy Lab never changes practice positions or cash", paperBeforeLab === JSON.stringify((await reloadWindow.api("api/me")).profile.paper));
-    check("Strategy Lab engine is available in offline shell cache", cached.some((request) => request.url.includes("strategy-lab.js?v=1.12.0")));
+    check("Strategy Lab engine is available in offline shell cache", cached.some((request) => request.url.includes("strategy-lab.js?v=1.13.0")));
     reloadWindow.closeSheet();
 
     // TwinAgent: Trade tab view and stock sheet, in the same guest at phone width.
@@ -381,11 +381,11 @@
     await waitFor(() => reloadDoc.querySelector("#sheet #ta-rating"));
     check("stock page opens a TwinAgent report", Boolean(reloadDoc.querySelector("#sheet #ta-rating")) && reloadDoc.getElementById("sheet").textContent.includes("MSFT"));
     check("TwinAgent sheet fits phone width", reloadDoc.documentElement.scrollWidth <= 320);
-    check("TwinAgent engine and fundamentals cached offline", ["twinagent.js?v=1.12.0", "twinagent-ui.js?v=1.12.0", "design.css?v=1.12.0", "neo.css?v=1.12.0", "premium.css?v=1.12.0", "motion.js?v=1.12.0", "icons.js?v=1.12.0", "demo/fundamentals.json"].every((name) => cached.some((request) => request.url.includes(name))));
+    check("TwinAgent engine and fundamentals cached offline", ["twinagent.js?v=1.13.0", "twinagent-ui.js?v=1.13.0", "design.css?v=1.13.0", "neo.css?v=1.13.0", "premium.css?v=1.13.0", "motion.js?v=1.13.0", "icons.js?v=1.13.0", "demo/fundamentals.json"].every((name) => cached.some((request) => request.url.includes(name))));
     reloadWindow.closeSheet();
 
     // Twin Indonesia (1.11): cached with the shell and reachable from Home, Me and Jakarta stock pages.
-    check("Twin Indonesia cached offline with the shell", ["id/", "id/index.html", "id/app.js?v=1.12.0", "id/engine.js?v=1.12.0", "id/snapshot.js", "id/styles.css?v=1.12.0"].every((name) => cached.some((request) => request.url.endsWith(name))));
+    check("Twin Indonesia cached offline with the shell", ["id/", "id/index.html", "id/app.js?v=1.13.0", "id/engine.js?v=1.13.0", "id/snapshot.js", "id/styles.css?v=1.13.0"].every((name) => cached.some((request) => request.url.endsWith(name))));
     await reloadWindow.openStock("BBCA.JK");
     await waitFor(() => reloadDoc.getElementById("stock-indonesia"));
     check("Jakarta stock page offers Twin Indonesia", (reloadDoc.getElementById("stock-indonesia") || {}).textContent === "Trade BBCA in rupiah lots · Twin Indonesia");
@@ -415,11 +415,48 @@
     await waitFor(() => reloadDoc.getElementById("me-indonesia-wallet"));
     const idCard = (reloadDoc.getElementById("me-indonesia") || {}).textContent || "";
     check("Me shows the rupiah wallet, return, positions and cash", idCard.includes("10.250.000") && idCard.includes("+2.50%") && idCard.includes("3 positions") && idCard.includes("4.000.000"));
+    // 1.13: both wallets combined, and a way to move money between them.
+    await waitFor(() => reloadDoc.getElementById("me-combined") && !reloadDoc.getElementById("me-combined").hidden);
+    check("Me shows both wallets combined", ((reloadDoc.getElementById("me-combined") || {}).textContent || "").includes("All practice money"));
+    check("Me offers moving money between wallets", Boolean(reloadDoc.getElementById("me-move-money")));
+    check("combined total keeps the phone layout", reloadDoc.documentElement.scrollWidth <= 320);
     reloadWindow.localStorage.setItem("twin_id_summary_v1", "{broken");
     reloadWindow.eval('switchTab("home")');
     await waitFor(() => reloadDoc.getElementById("home-indonesia"));
     check("a broken wallet summary is ignored", ((reloadDoc.getElementById("home-indonesia") || {}).textContent || "").includes("IDX lots"));
     reloadWindow.localStorage.removeItem("twin_id_summary_v1");
+
+    // 1.13: in the browser version, Twin's demo engine moves money between both wallets.
+    await new Promise((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src = "id/engine.js?v=1.13.0";
+      script.onload = resolve;
+      script.onerror = reject;
+      document.head.append(script);
+    });
+    const SE = window.SatuEngine;
+    const login = await api("api/login", { username: "alice", password: "unique-demo-pass" });
+    check("browser profile signs in for transfers", login.ok);
+    localStorage.setItem("twin_id_state_v1", JSON.stringify(SE.createState({ startingCashIdr: 10000000, profile: { name: "Alice", onboarded: true } })));
+    const paperBefore = (await api("api/paper")).paper;
+    const worldData = await (await fetch("demo/world.json", { cache: "no-cache" })).json();
+    const mid = 1 / worldData.fx_usd.IDR;
+    const expectedIn = SE.quoteTransfer("usd_to_idr", 100, mid);
+    const moved = await api("api/wallet/transfer", { direction: "usd_to_idr", amount: 100 });
+    const rupiahAfter = JSON.parse(localStorage.getItem("twin_id_state_v1"));
+    check("browser engine moves $100 into the rupiah wallet", moved.ok && moved.transfer.idr === expectedIn.idr && Math.abs(moved.paper.cash - (paperBefore.cash - 100)) < 1e-6);
+    check("both browser ledgers record it as money moved, not profit",
+      rupiahAfter.wallet.cashIdr === 10000000 + expectedIn.idr && rupiahAfter.wallet.contributionsIdr === expectedIn.basis
+      && moved.paper.contributions === -100 && Math.abs(moved.paper.gain - paperBefore.gain) < 0.01 && rupiahAfter.transfers[0].id === moved.transfer.id);
+    const tooMuch = await api("api/wallet/transfer", { direction: "usd_to_idr", amount: 1e9 });
+    check("browser engine refuses more than the USD cash, changing nothing",
+      !tooMuch.ok && JSON.parse(localStorage.getItem("twin_id_state_v1")).wallet.cashIdr === rupiahAfter.wallet.cashIdr);
+    const back = await api("api/wallet/transfer", { direction: "idr_to_usd", amount: 500000 });
+    check("browser engine moves rupiah back to US dollars", back.ok && back.transfer.usd === SE.quoteTransfer("idr_to_usd", 500000, mid).usd
+      && JSON.parse(localStorage.getItem("twin_id_state_v1")).wallet.cashIdr === rupiahAfter.wallet.cashIdr - 500000);
+    localStorage.removeItem("twin_id_state_v1");
+    const noWallet = await api("api/wallet/transfer", { direction: "usd_to_idr", amount: 100 });
+    check("no browser transfer before the rupiah wallet exists", !noWallet.ok);
 
     check("no unhandled UI errors", errors.length === 0);
   } catch (error) {

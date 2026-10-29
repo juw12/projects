@@ -13,13 +13,13 @@
 <link rel="manifest" href="manifest.webmanifest">
 <title>Twin — invest &amp; day-trade with 10,000 replays</title>
 <meta name="description" content="Twin: a personality-matched investing and day-trading companion. Paper trading, 10,000-future goal planner, copy a famous investor's 13F, news feed and the day-trader-skill Time Machine.">
-<script src="theme.js?v=1.12.0"></script>
-<script src="icons.js?v=1.12.0"></script>
-<link rel="stylesheet" href="theme.css?v=1.12.0">
-<link rel="stylesheet" href="design.css?v=1.12.0">
-<link rel="stylesheet" href="neo.css?v=1.12.0">
-<link rel="stylesheet" href="premium.css?v=1.12.0">
-<script src="motion.js?v=1.12.0" defer></script>
+<script src="theme.js?v=1.13.0"></script>
+<script src="icons.js?v=1.13.0"></script>
+<link rel="stylesheet" href="theme.css?v=1.13.0">
+<link rel="stylesheet" href="design.css?v=1.13.0">
+<link rel="stylesheet" href="neo.css?v=1.13.0">
+<link rel="stylesheet" href="premium.css?v=1.13.0">
+<script src="motion.js?v=1.13.0" defer></script>
 <style>
   :root {
     --bg: #0b0f14;
@@ -227,16 +227,16 @@
 <div class="sheet" id="sheet" inert aria-hidden="true"></div>
 <div class="toast" id="toast"></div>
 
-<script src="demo.js?v=1.12.0"></script>
-<script src="pro.js?v=1.12.0"></script>
-<script src="pro-ui.js?v=1.12.0"></script>
-<script src="broker-ui.js?v=1.12.0"></script>
-<script src="academy.js?v=1.12.0"></script>
-<script src="global.js?v=1.12.0"></script>
-<script src="strategy-lab.js?v=1.12.0"></script>
-<script src="strategy-lab-ui.js?v=1.12.0"></script>
-<script src="twinagent.js?v=1.12.0"></script>
-<script src="twinagent-ui.js?v=1.12.0"></script>
+<script src="demo.js?v=1.13.0"></script>
+<script src="pro.js?v=1.13.0"></script>
+<script src="pro-ui.js?v=1.13.0"></script>
+<script src="broker-ui.js?v=1.13.0"></script>
+<script src="academy.js?v=1.13.0"></script>
+<script src="global.js?v=1.13.0"></script>
+<script src="strategy-lab.js?v=1.13.0"></script>
+<script src="strategy-lab-ui.js?v=1.13.0"></script>
+<script src="twinagent.js?v=1.13.0"></script>
+<script src="twinagent-ui.js?v=1.13.0"></script>
 <script>
 "use strict";
 
@@ -1269,7 +1269,7 @@ function renderAuth(mode = "login") {
     h("div", { class: "guest-actions" },
       h("button", { class: "btn primary", id: "continue-guest", onclick: () => startGuest() }, "Continue as guest"),
       h("p", { class: "tiny muted center" }, "No login, email or quiz required. $10,000 practice cash and dated sample data; never real trades."),
-      h("p", { class: "tiny muted center land-new" }, h("span", { class: "land-new-dot" }), "New in 1.12: your Twin Indonesia rupiah wallet on Home and Me, synced to your account on your own server, and fresher Indonesian headlines.")),
+      h("p", { class: "tiny muted center land-new" }, h("span", { class: "land-new-dot" }), "New in 1.13: move practice money between your US dollar and rupiah wallets, with both totals in one place.")),
     h("section", { class: "card land-signin" },
       h("h3", {}, isLogin ? "Or sign in" : "Optional profile"),
       DEMO ? h("p", { class: "tiny muted" }, "Saved profiles are optional and stay in this browser.") :
@@ -1637,7 +1637,9 @@ async function renderHome(main) {
       h("span", {}, "Buying power ", h("b", {}, fmtMoney(p.cash))),
       h("a", { href: "#invest", onclick: (e) => { e.preventDefault(); state.investView = "portfolio"; switchTab("invest"); } }, "Positions ›"));
     const values = p.snapshots.map((s) => s[1]);
-    afterPaint(() => lineChart(heroCanvas, values.length > 1 ? values : [p.start_cash, p.value], { baseline: p.start_cash, height: 84, hero: true }));
+    // Money moved to or from the rupiah wallet shifts the baseline, so the chart shows gains, not deposits.
+    const baseline = p.basis ?? p.start_cash;
+    afterPaint(() => lineChart(heroCanvas, values.length > 1 ? values : [baseline, p.value], { baseline, height: 84, hero: true }));
   } else {
     heroFoot.replaceChildren(errorBox(paperResult.error));
   }
@@ -1728,7 +1730,10 @@ async function investPortfolio(body) {
     h("div", { class: "glass-stats" },
       h("div", {}, h("span", {}, "Cash"), h("b", {}, fmtMoney(p.cash, 0))),
       h("div", {}, h("span", {}, "Invested"), h("b", {}, fmtMoney(Math.max(0, p.value - p.cash), 0))),
-      h("div", {}, h("span", {}, "Started with"), h("b", {}, fmtMoney(p.start_cash, 0))))));
+      p.contributions
+        ? h("div", { id: "invest-money-in", title: `Started with ${fmtMoney(p.start_cash, 0)}, ${p.contributions > 0 ? "+" : "−"}${fmtMoney(Math.abs(p.contributions), 0)} moved between wallets` },
+          h("span", {}, "Money in"), h("b", {}, fmtMoney(p.basis, 0)))
+        : h("div", {}, h("span", {}, "Started with"), h("b", {}, fmtMoney(p.start_cash, 0))))));
   heroCount(investValue, p.value);
 
   put(body, TwinGlobal.searchBar());
@@ -2323,6 +2328,31 @@ function renderMe(main) {
   };
   const meInitials = (p.name || "?").split(/\s+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase();
   const meIdWallet = indonesiaWallet();
+  // Both practice wallets in rupiah and dollars, at the rate the rupiah summary was written with.
+  const meCombined = h("div", { class: "between", id: "me-combined", hidden: "" });
+  const showCombined = (paper) => {
+    const rate = meIdWallet && Number(meIdWallet.usdIdr);
+    if (!paper || !(rate > 0) || !Number.isFinite(paper.value)) {
+      return;
+    }
+    const idr = meIdWallet.valueIdr + paper.value * rate;
+    meCombined.replaceChildren(
+      h("div", {}, h("div", { class: "muted small" }, "All practice money (USD + rupiah)"), h("b", {}, "≈ " + fmtIdr(idr))),
+      h("b", {}, fmtMoney(idr / rate)));
+    meCombined.hidden = false;
+  };
+  if (meIdWallet) {
+    if (state.paper) {
+      showCombined(state.paper);
+    } else {
+      api("api/paper").then((result) => {
+        if (result && result.ok) {
+          state.paper = result.paper;
+          showCombined(result.paper);
+        }
+      });
+    }
+  }
   put(main,
     h("section", { class: "me-head" },
       h("div", { class: "me-avatar" }, meInitials),
@@ -2340,8 +2370,11 @@ function renderMe(main) {
         meIdWallet.positions + (meIdWallet.positions === 1 ? " position" : " positions") + " · cash " + fmtIdr(meIdWallet.cashIdr) +
         (meIdWallet.updatedAt ? " · updated " + new Date(meIdWallet.updatedAt).toLocaleString() : "") +
         (meIdWallet.simulated ? " · simulated prices" : "")) : null,
-      h("p", { class: "small muted" }, "IDX stocks in 100-share lots with broker fees and tick sizes, crypto and gold priced in rupiah, community rooms with Scam Shield and an Analyst Desk scored in public. Its rupiah practice wallet is separate from this USD portfolio."),
-      h("button", { class: "btn", onclick: () => { location.href = "id/"; } }, "Open Twin Indonesia")),
+      meCombined,
+      h("p", { class: "small muted" }, "IDX stocks in 100-share lots with broker fees and tick sizes, crypto and gold priced in rupiah, community rooms with Scam Shield and an Analyst Desk scored in public. Its rupiah practice wallet is separate from this USD portfolio; you can move money between the two at the delayed mid rate minus a 0.5% practice spread."),
+      h("div", { class: "row" },
+        h("button", { class: "btn", onclick: () => { location.href = "id/"; } }, "Open Twin Indonesia"),
+        meIdWallet ? h("button", { class: "btn", id: "me-move-money", onclick: () => { location.href = "id/#transfer"; } }, "Move money between wallets") : null)),
     brokerCard(),
     marketDataCard(),
     GUEST ? h("div", { class: "card" },
@@ -2426,7 +2459,7 @@ function renderMe(main) {
       }, "Save limits")),
     h("div", { class: "card" }, h("h3", {}, "Guide"), guideList()),
     h("div", { class: "card small muted" },
-      h("b", { style: "color:var(--text)" }, "Twin · v1.12.0"),
+      h("b", { style: "color:var(--text)" }, "Twin · v1.13.0"),
       h("p", {}, "Twin is built on two free, MIT-licensed skill packs by Jake Schincariol (day-trader-skill and trader-skill). Data: Yahoo Finance (delayed, unofficial), SEC EDGAR."),
       h("p", {}, "Not financial advice. Practice money only. You can lose money investing; past performance and simulations do not guarantee future results.")),
     h("button", {

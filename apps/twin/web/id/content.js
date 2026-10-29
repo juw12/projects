@@ -352,7 +352,7 @@ window.SATU_CONTENT = {
     {
       title: 'Your data',
       body: [
-        'Everything is stored in this browser. Export or reset it under Me. Your Twin Indonesia practice account is separate from Twin\'s US-dollar practice portfolio.',
+        'Everything is stored in this browser. Export or reset it under Me. Your Twin Indonesia practice account sits next to Twin\'s US-dollar practice portfolio: Portfolio → Your two wallets moves money between them at the delayed mid rate minus a 0.5% practice spread, and moved money counts as money put in, not profit.',
       ],
     },
   ],

@@ -50,7 +50,8 @@ to teach people to compare real costs and real track records instead.
 ### 2.1 Start
 
 - **Start as guest:** no account, email or money. Your rupiah practice account
-  lives in this browser, separate from Twin's US-dollar practice portfolio.
+  lives in this browser, next to Twin's US-dollar practice portfolio; since 1.13
+  you can move money between the two (see 2.6).
 - **Explore a demo account** (`?demo`): a filled-in portfolio with six
   positions, an open limit order, posts and lesson progress.
 
@@ -113,6 +114,23 @@ for orders, unrealised and realised P/L, value by market, positions, open
 orders (cancel any time) and full history. **Portfolio X-ray** (Plus) shows
 your US-dollar exposure (and what a 10% rupiah move does to your total), your
 largest position against your limit, and your crypto share against your cap.
+
+**Your two wallets (1.13).** The card under the total shows this rupiah wallet,
+Twin's US-dollar portfolio (value and cash), the USD/IDR rate and all practice
+money combined. *US dollars → rupiah* and *Rupiah → US dollars* open the
+transfer sheet (also reachable as `id/#transfer` from Twin's Me screen):
+
+- The rate is the delayed USD/IDR mid rate minus a **0.5% practice spread**,
+  shown as a line in the preview. The amount received is rounded down (whole
+  rupiah, US cents), so a move never creates money; a round trip costs about
+  two spreads. Minimums: $1 or Rp10.000.
+- Only free cash moves: rupiah held for open or queued buy orders stays.
+- Moved money counts as money put in (or taken out), not as profit or loss.
+  The receiving wallet books the amount at the mid rate, so the spread shows as
+  a small cost in its return; the return line reads "on Rp… put in".
+- The last three moves are listed on the card; the preview's amount is an
+  estimate and the move uses the rate at the moment you confirm.
+- The demo account (`?demo`) and the self-test never move money.
 
 ### 2.7 News
 
@@ -206,7 +224,8 @@ markets are closed), **respect market hours**, and export, import or reset of
 your practice account. The wallet lives in your browser. On Twin's local server,
 signed in to a Twin account, it is also kept in that account and follows you to
 other browsers (see 4.1); Settings shows when it last synced. Twin's Home card
-and Me screen show the wallet's value, return, positions and cash.
+and Me screen show the wallet's value, return, positions and cash; Me also shows
+both wallets combined and *Move money between wallets*.
 
 ---
 
@@ -278,17 +297,21 @@ apps/twin/web/id/   (static module inside Twin, no build step, no dependencies)
   feeds.js     live data:  Twin's own ../demo/world.json, world/<chart>.json and
                            news.json (same origin, hourly), else the published copy
                            CoinGecko (crypto, gold via XAUT), Antara RSS (CORS)
-                           Twin's server, when present: all news + account sync
+                           Twin's server, when present: all news, account sync,
+                           Twin's USD portfolio and wallet transfers
                fallback:   snapshot.js (bundled, works offline, headlines hourly)
   content.js   analysts, rooms, seed posts, plans, lessons, guide
   storage      localStorage twin_id_state_v1 / twin_id_demo_v1 (wallet, per browser)
                twin_id_summary_v1 (read by Twin's Home and Me), twin_id_sync_v1
                (account + revision last synced), twin_id_state_backup_v1
 
+apps/twin/web/demo.js        Twin's browser engine; also answers wallet/transfer when no
+                             Twin server runs (both copies live in this browser)
 apps/twin/web/sw.js          Twin's one service worker caches id/ with the rest of Twin;
                              id/snapshot.js is network-first so hourly headlines arrive
 apps/twin/server.py          serves /id/; POST /api/indonesia/news (public),
-                             /api/indonesia/wallet and /wallet/save (signed in)
+                             /api/indonesia/wallet and /wallet/save (signed in),
+                             /api/wallet/transfer (signed in, both ledgers at once)
 apps/twin/scripts/
   indonesia_snapshot.py      rebuild web/id/snapshot.js from web/demo + CoinGecko + RSS;
                              --news-only swaps in fresh headlines (hourly Pages job)
@@ -298,7 +321,7 @@ apps/twin/tests/
   verify_indonesia.py        engine checks + app self-test in headless Chrome/Edge
   indonesia_engine_checks.html, indonesia_frame.html (phone-width screenshots)
   test_indonesia_news.py     offline parser, tagging, merge and refresh tests
-  verify_api.py              server news feed (fake RSS) and wallet sync, per account
+  verify_api.py              server news feed (fake RSS), wallet sync and transfers
 ```
 
 ### 4.1 Account sync (Twin's local server)
@@ -320,6 +343,25 @@ The browser fetches when the page opens and whenever the tab becomes visible;
 hidden tabs never upload, so a forgotten tab cannot overwrite trades made
 elsewhere. Saves are capped at 500 KB. The demo (`?demo`) and the self-test
 never sync.
+
+### 4.2 Wallet transfers (1.13)
+
+Both ledgers change in one step or not at all:
+
+| Where | How |
+| --- | --- |
+| Twin's local server, signed in | `POST /api/wallet/transfer` with `{direction, amount, rev}`. Under the profile lock the server checks `rev` against the rupiah wallet (stale → `conflict` plus the newer copy; no wallet yet → `code: no_wallet`), prices the move at `1 / fx_usd("IDR")` with `quote_transfer()` (the same rounding as `quoteTransfer()` in engine.js), checks USD cash or free rupiah cash, then writes `indonesia.json` (rev + 1) and the profile; if the profile write fails the wallet file is restored. The reply carries both new ledgers, which the browser adopts. |
+| Browser version (GitHub Pages, guest or browser profile) | `TwinDemo.api/guest("api/wallet/transfer")` in `../demo.js` reads the rupiah wallet from `twin_id_state_v1`, prices the move with `SatuEngine.quoteTransfer()` at the snapshot's USD/IDR rate, updates the browser profile's paper portfolio and writes the rupiah wallet back. |
+
+Each move is logged on both sides (`transfers`, newest first, 200 kept) with the
+rate, spread and amounts. Twin's `paper` reports `contributions` (USD moved in
+minus out) and `basis` (`start_cash + contributions`); `gain` and the Home chart
+baseline use the basis. The rupiah wallet keeps `wallet.contributionsIdr` and
+measures its return against `startingCashIdr + contributionsIdr`. Before
+transferring, the browser settles the rupiah wallet with the account (pull, then
+upload any newer local changes) so the revision check passes; other tabs reload
+the wallet when it changes (`storage` event), so an older tab cannot save over a
+move.
 
 Design choices: the engine is pure so the same functions can later run on a
 server that talks to real partners; every view re-renders from state, so prices
@@ -467,7 +509,7 @@ market as partner agreements close.
 | Market data | Twin's hourly `world.json` (US + the same 19 Jakarta stocks, USD/IDR), chart files and `news.json`, read same-origin | One price service for both wallets |
 | Shell | Twin's theme switch, icons, manifest and service worker (one offline cache) | Shared tab bar and search |
 | Entry points | Home card, Me card, *Trade in rupiah lots* on `.JK` stock pages | Deep links back from Twin Indonesia asset pages to Twin research |
-| Accounts | Since 1.12 a Twin account on the local server keeps the rupiah wallet; Home and Me show its summary | One ledger for the rupiah and USD wallets |
+| Accounts | Since 1.12 a Twin account on the local server keeps the rupiah wallet; since 1.13 money moves between it and the USD portfolio in one revision-checked step | One ledger (one document, one revision) for both wallets |
 | Research | Analyst Desk scoring, Scam Shield and community rooms (Twin Indonesia only) | TwinAgent reports, Strategy Lab and the 10,000-futures goal planner on IDX, crypto and gold |
 | Real orders | None (practice only) | Twin's Alpaca/IBKR adapters as the template for licensed Indonesian partners |
 
@@ -481,7 +523,7 @@ review), peers (moderation queue, subscriber rooms) and house-of-articles
 
 | Phase | Scope |
 | --- | --- |
-| 0. Prototype (now) | Twin Indonesia inside Twin 1.12: practice trading in four markets, news, rooms, Analyst Desk, Academy, plans; account sync on Twin's own server |
+| 0. Prototype (now) | Twin Indonesia inside Twin 1.13: practice trading in four markets, news, rooms, Analyst Desk, Academy, plans; account sync on Twin's own server; transfers between the USD and rupiah wallets |
 | 1. Beta (0–3 months) | Bahasa Indonesia UI, accounts and cloud sync, price and idea alerts, Twin's goal planner, SM-2 reviews, sharia filter, closed beta with practice money; engage counsel and shortlist partners |
 | 2. Partners (3–9 months) | IDX broker, crypto PAKD, gold provider and a US structure; partner e-KYC; real orders through the same ticket; data and news licences |
 | 3. Marketplace | Verified licensed advisers, Pro launch, holder badges from real positions, moderation team and complaint handling |
@@ -499,9 +541,16 @@ review), peers (moderation queue, subscriber rooms) and house-of-articles
   moderation team yet.
 - Without Twin's server (GitHub Pages), CNBC Indonesia, CoinDesk, Cointelegraph and
   Investing.com headlines are at most an hour old (snapshot refresh), not live.
-- The rupiah wallet is separate from Twin's USD portfolio. Account sync needs
-  Twin's local server and a Twin login; on GitHub Pages the wallet stays in the
-  browser. Edits made at the same moment on two visible devices resolve to the
-  account copy (the other is kept as a local backup, not merged).
+- The rupiah wallet and Twin's USD portfolio are two ledgers joined by
+  transfers, not one account. Account sync needs Twin's local server and a Twin
+  login; on GitHub Pages the wallet stays in the browser. Edits made at the same
+  moment on two visible devices resolve to the account copy (the other is kept
+  as a local backup, not merged).
+- Transfers: the 0.5% spread is a practice assumption, not a quote from any
+  bank or app; the rate is delayed (Yahoo on the server, the hourly snapshot on
+  GitHub Pages), so the preview is an estimate. In the browser version the
+  rupiah wallet belongs to this browser, not to a Twin profile: money moved in
+  from a guest session stays there after the guest leaves. Twin's own tabs show
+  a move after their next refresh of the portfolio.
 - English UI only; no security audit has been done.
 - Demo analysts are fictional and their ideas were picked with hindsight.
