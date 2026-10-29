@@ -504,3 +504,35 @@
 .ptz-act-timed .ptz-num {
   width: 6em;
 }
+
+/* 1.11.11: one-click Start / Stop smart detection (toolbar + Smart detection), badge on the picture. */
+.ptz-detect-toggle {
+  min-width: 11.5em;
+}
+.ptz-detect-badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 3;
+  padding: 3px 9px 3px 8px;
+  border-radius: 999px;
+  background: rgba(200, 30, 30, 0.85);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  pointer-events: none;
+}
+.ptz-detect-badge::before {
+  content: "";
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: #fff;
+  vertical-align: 1px;
+  animation: ptz-detect-pulse 1.4s ease-in-out infinite;
+}
+@keyframes ptz-detect-pulse {
+  50% { opacity: 0.3; }
+}

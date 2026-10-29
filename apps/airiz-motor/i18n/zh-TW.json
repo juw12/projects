@@ -1290,7 +1290,12 @@
     "Clip length in seconds": "片段長度（秒）",
     "Spotlight time in seconds": "聚光燈開啟時間（秒）",
     "Choose the clip length and spotlight time (1.11.10)": "可自訂錄影秒數與聚光燈時間 (1.11.10)",
-    "Smart detection lets you choose how many seconds each motion clip records (3 to 60 s) and how long the spotlight stays on after motion (5 to 600 s), right next to those two actions. Your choices are saved.": "智慧偵測可在這兩個動作旁邊設定每段動作影片錄幾秒（3 到 60 秒），以及偵測到動作後聚光燈亮多久（5 到 600 秒），設定會自動儲存。"
+    "Smart detection lets you choose how many seconds each motion clip records (3 to 60 s) and how long the spotlight stays on after motion (5 to 600 s), right next to those two actions. Your choices are saved.": "智慧偵測可在這兩個動作旁邊設定每段動作影片錄幾秒（3 到 60 秒），以及偵測到動作後聚光燈亮多久（5 到 600 秒），設定會自動儲存。",
+    "Start smart detection": "開始智慧偵測",
+    "Stop smart detection": "停止智慧偵測",
+    "Smart detection on": "智慧偵測中",
+    "Start / stop smart detection with one click (1.11.11)": "一鍵開始／停止智慧偵測 (1.11.11)",
+    "A Start smart detection button now sits in the camera toolbar next to Snapshot and at the top of Smart detection. Click it to start watching for motion and click again (Stop smart detection, shown in red) to stop. While it is on, the picture shows a Smart detection on badge.": "相機工具列（快照旁）與「智慧偵測」上方新增「開始智慧偵測」按鈕。按一下開始偵測動作，再按一下（紅色的「停止智慧偵測」）即停止。偵測中畫面上會顯示「智慧偵測中」標記。"
   },
   "html": {
     "AIRIZDEVICE LAB": "AIRIZ<small>裝置實驗室</small>",

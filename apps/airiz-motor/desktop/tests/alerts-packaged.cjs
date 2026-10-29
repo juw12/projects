@@ -50,7 +50,7 @@ const profile = path.join(root, '.test-data', 'alerts');
     const throttled = () => app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.getBackgroundThrottling());
     assert.equal(await throttled(), true);
     await page.evaluate(() => document.querySelectorAll('#ptz-card details').forEach(item => { item.open = true; }));
-    await page.locator('#ptz-detect-arm').check();
+    await page.locator('#ptz-detect-toggle').click();
     await page.waitForTimeout(500);
     assert.equal(await throttled(), false);
     console.log('PASS: arming detection keeps a minimized window working (no background throttling)');
@@ -63,7 +63,7 @@ const profile = path.join(root, '.test-data', 'alerts');
     console.log('PASS: motion is still detected while the window is minimized (visibility: ' + hidden + ')');
 
     await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].restore());
-    await page.locator('#ptz-detect-arm').uncheck();
+    await page.locator('#ptz-detect-toggle').click();
     await page.waitForTimeout(500);
     assert.equal(await throttled(), true);
     console.log('PASS: disarming puts normal background throttling back');
