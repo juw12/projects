@@ -1,39 +1,39 @@
 {
   "installer": {
     "filename": "Pips-Setup.exe",
-    "sha256": "b0ea0ed74647de181d43d1e6e811d6b03f795bdcd4629ef231c207b7f1f0616a",
-    "size": 22271526,
+    "sha256": "11b18ef3b1c3c6f7b4c86a2a99dced049095ce82e71d1c9f51ad7b237a9041a5",
+    "size": 22287300,
     "architecture": "x64",
     "python_version": "3.13.17",
     "requires_admin": false,
     "url": "https://juw12.github.io/projects/pips/download/Pips-Setup.exe"
   },
-  "version": "2.22.0",
+  "version": "2.23.0",
   "date": "2026-10-29",
-  "title": "Sing & dance with music",
+  "title": "Weather on your desktop",
   "url": "https://juw12.github.io/projects/pips/download/Pips-Windows.zip",
-  "sha256": "95130e4e4d629863eae40efcbb0f0976616beaa939c80dba5047a9e605f8a13b",
-  "size": 910979,
+  "sha256": "d685452e3ea85fe6b856afa73ac40c8dce52fc8ae9cda6418bd5ea3fba6bdc92",
+  "size": 933119,
   "notes": {
     "en": [
-      "Sing, Dance, Moonwalk, Breakdance, Yoga, Rain dance and the show tricks now play real music. When your pet sings, it sings the melody in its own voice - a cat meows the tune, a frog ribbits it, a whale hums it - and when it dances, its animal call joins the beat.",
-      "Pick the song: right-click → Do a trick → Song for sing & dance. Choose your animal's own song (every one of the 51 animals has its own tune), the song for its type (Meadow Hoedown for land, Ocean Calypso for water, Cloud Waltz for sky), Happy Pop, Disco Night, 8-bit Adventure, Lullaby, Lo-fi Chill, any other animal's song, Surprise me or No music.",
-      "Songs follow your sound settings (volume, sounds off, quiet during focus) and stop as soon as the trick is interrupted. Tricks your pet does by itself stay quiet."
+      "Your pet now shows the live weather right on your desktop: its own little rain cloud with an umbrella when it rains, a dark storm cloud with lightning, snow piling up at its feet, the sun, the moon and twinkling stars at night, drifting fog and leaves blowing in the wind. Prefer more? Switch the animation to the whole screen - or turn it off.",
+      "New right-click menu → Weather & location: Follow my exact location (Windows location; a laptop is followed as you move), Approximate (from your internet connection), or Pick a place - search a city or paste exact coordinates from Google Maps. The pet tells you when the weather changes.",
+      "Works without Pips Friends (weather from Open-Meteo, no account needed). With Friends on, your profile city follows you too - but a city you hid stays hidden. If Windows location is turned off on your PC, Pips explains how to turn it on and uses your internet location meanwhile."
     ],
     "id": [
-      "Nyanyi, Dansa, Moonwalk, Breakdance, Yoga, Tari hujan, dan trik pertunjukan sekarang memutar musik sungguhan. Saat pet bernyanyi, ia menyanyikan melodinya dengan suaranya sendiri - kucing mengeong mengikuti nada, katak berkwak, paus bersenandung - dan saat berdansa, suara khas hewannya ikut mengikuti irama.",
-      "Pilih lagunya: klik kanan → Lakukan trik → Lagu untuk nyanyi & dansa. Pilih lagu khas hewanmu (ke-51 hewan punya lagu sendiri), lagu untuk tipenya (Dansa Padang Rumput untuk darat, Calypso Samudra untuk air, Waltz Awan untuk udara), Pop Ceria, Malam Disko, Petualangan 8-bit, Nina Bobo, Lo-fi Santai, lagu hewan lain, Kejutkan aku, atau Tanpa musik.",
-      "Lagu mengikuti pengaturan suara (volume, suara mati, senyap saat fokus) dan langsung berhenti saat trik terganggu. Trik yang dilakukan pet sendiri tetap tanpa musik."
+      "Pet-mu sekarang menampilkan cuaca langsung di desktop: awan hujan kecil miliknya sendiri lengkap dengan payung saat hujan, awan badai gelap dengan petir, salju yang menumpuk di kakinya, matahari, bulan dan bintang berkelip di malam hari, kabut yang melayang dan daun yang tertiup angin. Mau lebih? Pindahkan animasinya ke seluruh layar - atau matikan.",
+      "Menu klik kanan baru → Cuaca & lokasi: Ikuti lokasi persisku (lokasi Windows; laptop diikuti saat kamu berpindah), Perkiraan (dari koneksi internet), atau Pilih tempat - cari kota atau tempel koordinat persis dari Google Maps. Pet memberi tahu saat cuaca berubah.",
+      "Berfungsi tanpa Pips Friends (cuaca dari Open-Meteo, tanpa akun). Jika Friends aktif, kota di profilmu ikut berpindah - tapi kota yang kamu sembunyikan tetap tersembunyi. Jika lokasi Windows dimatikan di PC-mu, Pips menjelaskan cara menyalakannya dan sementara memakai lokasi internet."
     ],
     "zh_TW": [
-      "唱歌、跳舞、月球漫步、霹靂舞、瑜伽、求雨舞和表演招式現在會播放真正的音樂。寵物唱歌時會用自己的聲音唱出旋律——貓咪喵著唱、青蛙呱著唱、鯨魚哼著唱；跳舞時，牠的叫聲也會跟著節拍加入。",
-      "選擇歌曲：右鍵 → 表演招式 → 唱歌跳舞的歌曲。可以選動物專屬的歌（51 種動物各有自己的曲子）、牠類型的歌（陸地：草原土風舞、水中：海洋卡利普索、天空：雲朵華爾滋）、快樂流行曲、迪斯可之夜、8 位元冒險、搖籃曲、Lo-fi 放鬆、其他動物的歌、給我驚喜或不要音樂。",
-      "歌曲會遵循你的音效設定（音量、關閉音效、專注時安靜），招式一被打斷就會停止。寵物自己表演的招式維持安靜。"
+      "寵物現在會直接在桌面上顯示即時天氣：下雨時頭上有自己的小雨雲並撐起雨傘、雷雨時是帶閃電的烏雲、下雪時雪會堆在腳邊，還有太陽、夜晚的月亮與閃爍星星、飄動的霧和被風吹起的落葉。想要更多？可以把動畫切換成整個螢幕，或是關閉。",
+      "新的右鍵選單 → 天氣與位置：跟隨我的精確位置（Windows 定位，筆電移動時會跟著你）、大概位置（來自網路連線），或選擇地點：搜尋城市或貼上 Google 地圖的精確座標。天氣變化時寵物會告訴你。",
+      "不需要 Pips 好友也能使用（天氣來自 Open-Meteo，不需帳號）。開啟好友時，個人檔案的城市也會跟著你，但你隱藏的城市會保持隱藏。如果電腦關閉了 Windows 定位，Pips 會說明如何開啟，並暫時使用網路位置。"
     ],
     "zh_CN": [
-      "唱歌、跳舞、月球漫步、霹雳舞、瑜伽、求雨舞和表演招式现在会播放真正的音乐。宠物唱歌时会用自己的声音唱出旋律——猫咪喵着唱、青蛙呱着唱、鲸鱼哼着唱；跳舞时，它的叫声也会跟着节拍加入。",
-      "选择歌曲：右键 → 表演招式 → 唱歌跳舞的歌曲。可以选动物专属的歌（51 种动物各有自己的曲子）、它类型的歌（陆地：草原土风舞、水中：海洋卡利普索、天空：云朵华尔兹）、快乐流行曲、迪斯科之夜、8 位冒险、摇篮曲、Lo-fi 放松、其他动物的歌、给我惊喜或不要音乐。",
-      "歌曲会遵循你的音效设置（音量、关闭音效、专注时安静），招式一被打断就会停止。宠物自己表演的招式保持安静。"
+      "宠物现在会直接在桌面上显示实时天气：下雨时头上有自己的小雨云并撑起雨伞、雷雨时是带闪电的乌云、下雪时雪会堆在脚边，还有太阳、夜晚的月亮与闪烁星星、飘动的雾和被风吹起的落叶。想要更多？可以把动画切换成整个屏幕，或者关闭。",
+      "新的右键菜单 → 天气与位置：跟随我的精确位置（Windows 定位，笔记本移动时会跟着你）、大概位置（来自网络连接），或选择地点：搜索城市或粘贴 Google 地图的精确坐标。天气变化时宠物会告诉你。",
+      "不需要 Pips 好友也能使用（天气来自 Open-Meteo，无需账号）。开启好友时，个人资料的城市也会跟着你，但你隐藏的城市会保持隐藏。如果电脑关闭了 Windows 定位，Pips 会说明如何打开，并暂时使用网络位置。"
     ]
   },
   "guide": "https://juw12.github.io/projects/pips/download/Pips-Guide.pptx"

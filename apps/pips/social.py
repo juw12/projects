@@ -1075,12 +1075,23 @@ class Social:
         me = (self.board or {}).get("me") or {}
         return me.get("weather"), me.get("loc")
 
-    def set_location(self, mode: str, place: dict | None = None):
+    def set_location(self, mode: str, place: dict | None = None, quiet: bool = False):
+        """Profile city. v2.23: quiet=True for the pet's own location updates (no bubble);
+        a city picked here also becomes the pet's weather place."""
         body = {"mode": mode}
         if place:
             body.update(city=place.get("name", ""), country=place.get("country", ""),
                         lat=place.get("lat"), lon=place.get("lon"))
+        self._quiet_location = bool(quiet)
         self._act("location_set", "/v1/location", body)
+        if not quiet and hasattr(self.pet, "set_weather_mode"):
+            try:
+                if mode == "city" and place:
+                    self.pet.set_weather_mode("city", place, announce=False)
+                elif mode == "auto" and self.pet.s.get("weather_mode") in ("off", "city"):
+                    self.pet.set_weather_mode("ip", announce=False)
+            except Exception as exc:
+                logger.debug("pet weather sync failed: %s", exc)
 
     def search_city(self, query: str):
         if self.enabled and len(query.strip()) >= 2:
@@ -1958,7 +1969,9 @@ class Social:
         if kind == "location_set":
             result = payload.get("_result", {})
             self.geo_results = None
-            if result.get("loc"):
+            quiet = getattr(self, "_quiet_location", False)
+            self._quiet_location = False
+            if result.get("loc") and not quiet:
                 weather = result.get("weather") or {}
                 self.pet.set_action("hop", 0.55)
                 self.pet.say(t("wx_set", city=result["loc"].get("city", "?"),
