@@ -9,7 +9,7 @@ is required to use the installed app or its hardware-free demo.
 ## Downloads
 
 Windows x64 releases are published under the app-specific tag
-`airiz-desktop-v1.9.1` in this repository's Releases section.
+`airiz-desktop-v1.10.0` in this repository's Releases section.
 
 - **Installer**: assisted, per-user installation with Start-menu/desktop shortcuts
   and an uninstaller. The wizard lets the user choose the installation directory.
@@ -163,6 +163,33 @@ reports whether a framed firmware reply came back. Results can be exported.
 No pairing is accepted without confirmation and no motor command is sent.
 Another program on the PC still cannot open COM4 while this app holds it: that is
 a Windows serial-port rule, which is why the check runs inside the app.
+
+## 1.10.0: Talk & listen
+
+* **Talk:** the new *Talk & listen* card (Motor control) records up to 15 s while *Hold to talk* is held
+  (slide away to cancel). The PC turns it into 8 kHz mono IMA ADPCM (about 4 kB per second of voice),
+  sends it to the AIRIZ over the console's USB serial link with `head -c` (falls back to `echo` lines
+  when the link drops characters), checks it with `md5sum`, and an awk script on the AIRIZ turns it
+  into a WAV (16 kHz stereo like the built-in test WAV by default) that `diag audio play` plays.
+  Sending takes roughly half a second per second of voice (the 115,200-baud link limit), then the
+  AIRIZ decodes it before playing.
+* **Listen:** the AIRIZ records back-to-back 2-second clips (`diag audio record -p -t 2 -v <gain>`), an
+  awk encoder turns each clip into text lines that the PC removes from the console and plays, about
+  4 s behind live with a short gap between clips. The loop stops by itself 3 minutes after the PC
+  stops renewing it, so a PC that goes away does not leave it running.
+* **Phones:** a phone that controls the AIRIZ by code talks and listens through the PC (remote
+  protocol 3); the PC must run 1.10.0 or later.
+* **Safety:** Stop motor interrupts a message being sent (Ctrl-C first, then the motor stop, within
+  about 0.4 s in tests); while a voice step owns the console, other commands wait up to 2.5 s. A manual
+  `diag audio record` or `diag audio play` is refused while Listen uses the microphone, and voice commands
+  never start the DMIC auto-save.
+* **Helper scripts:** the first message after the AIRIZ powers up installs `enc.awk`, `talk.awk` and
+  `listen.sh` in `/tmp/airiz` (checked by MD5 each time; gone after a restart). Only busybox `sh`, `awk`,
+  `head`, `od`, `base64` and `md5sum` are used.
+* **Not verified on real hardware:** everything above was tested against a simulated AIRIZ shell
+  (busybox-w32 running the same scripts, bit-exact sound), the real relay with a phone, and the
+  Windows app; not yet on a real AIRIZ. The AIRIZ CPU speed (awk decode time) is unknown, and the
+  sound format and the record/play commands can be changed under *Voice settings* if needed.
 
 ## 1.9.1: Lid-proof sharing, phones never give up, more phones
 

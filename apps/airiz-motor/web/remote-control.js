@@ -39,7 +39,7 @@
     || 'wss://airiz-relay.juw12.workers.dev';
   const PEER_PREFIX = 'airiz-ctl-';
   const PUBLIC_CONSOLE_URL = 'https://juw12.github.io/projects/airiz-motor/';
-  const PROTOCOL_VERSION = 2;
+  const PROTOCOL_VERSION = 3; // 3 = 1.10.0 voice messages (talk / listen)
   const MAX_LINE = 1000;
   const MAX_LINES_PER_SECOND = 25;
   const RX_CHUNK = 12000;
@@ -584,6 +584,13 @@
     const controller = host.controllers.get(cid);
     if (!controller) return;
     host.controllers.delete(cid);
+    if (window.AirizVoice && typeof window.AirizVoice.hostClientGone === 'function') {
+      try {
+        window.AirizVoice.hostClientGone(cid);
+      } catch (voiceError) {
+        console.error(voiceError);
+      }
+    }
     for (const [key, closer] of controller.closers) {
       host.pathOwner.delete(key);
       try {
@@ -702,7 +709,40 @@
     }
     if (message.type === 'tx' && controller.state === 'approved' && typeof message.data === 'string') {
       hostAcceptText(controller, message.data);
+      return;
     }
+    // 1.10.0: talk to the AIRIZ speaker / listen to its microphone (audio-ui.js does the work)
+    if (typeof message.type === 'string' && message.type.startsWith('voice-')) {
+      if (controller.state !== 'approved') return;
+      const voice = window.AirizVoice;
+      if (voice && typeof voice.hostMessage === 'function') {
+        try {
+          voice.hostMessage(hostVoiceClient(controller), message);
+        } catch (voiceError) {
+          console.error(voiceError);
+        }
+      } else {
+        hostSend(controller, { type: 'voice-state', state: 'unsupported' });
+      }
+    }
+  }
+
+  function hostVoiceClient(controller) {
+    if (!controller.voiceClient) {
+      controller.voiceClient = {
+        id: controller.cid,
+        get label() {
+          return controller.label;
+        },
+        get connected() {
+          return host.controllers.get(controller.cid) === controller && controller.state === 'approved';
+        },
+        send(message) {
+          hostSend(controller, message);
+        },
+      };
+    }
+    return controller.voiceClient;
   }
 
   function hostAcceptText(controller, text) {
@@ -1395,6 +1435,16 @@
         onData(encoder.encode(message.data));
         return;
       }
+      if (typeof message.type === 'string' && message.type.startsWith('voice-') && path === active) {
+        if (phone.voiceHandler) {
+          try {
+            phone.voiceHandler(message);
+          } catch (voiceError) {
+            console.error(voiceError);
+          }
+        }
+        return;
+      }
       if (message.type === 'pc-sleep' && path === active) {
         report('The PC is going to sleep. This device reconnects by itself when it wakes up.');
         return;
@@ -1491,6 +1541,18 @@
       get remembered() {
         return remembered;
       },
+      // 1.10.0: the PC's protocol version (3 = voice messages) and a way to send them
+      get pcVersion() {
+        return pcVersion;
+      },
+      get active() {
+        return !!active && !closed && !failed;
+      },
+      sendVoice(message) {
+        if (!active || closed || failed) return false;
+        active.send(Object.assign({}, message, { cid }));
+        return true;
+      },
       async subscribe(dataCallback, lostCallback) {
         onData = dataCallback;
         onLost = lostCallback;
@@ -1532,7 +1594,7 @@
     };
   }
 
-  const phone = { dialog: null, busy: false, cancel: null, retry: null, lastFailure: null, identity: null };
+  const phone = { dialog: null, busy: false, cancel: null, retry: null, lastFailure: null, identity: null, link: null, voiceHandler: null };
 
   function phoneIdentity() {
     if (!phone.identity) phone.identity = session.loadIdentity();
@@ -1611,12 +1673,14 @@
     phone.cancel = () => link.close();
     let connected = false;
     const port = new ble.VerifiedSerialPort(link, lostPort => {
+      if (phone.link === link) phone.link = null;
       window.dispatchEvent(new CustomEvent('airiz-port-lost', { detail: lostPort }));
       if (connected) phoneLinkLost(code, ui, link.lastError);
     }, VERIFY_TIMEOUT_MS);
     try {
       await api.connectPort(port);
       connected = true;
+      phone.link = link;
       phone.lastFailure = null;
       session.savePhoneResume(PHONE_STORE, code);
       ui.status(link.remembered
@@ -2021,6 +2085,20 @@
     },
     testSleep(ms, options) {
       return hostTestSleep(ms, !(options && options.destroyPeer === false));
+    },
+    // 1.10.0 voice link (audio-ui.js): this phone's link to the PC
+    get voicePeer() {
+      const link = phone.link;
+      const status = api.getStatus();
+      if (!link || !link.active || !status.connected || !isRemoteTransport(status)) return null;
+      return { pcVersion: link.pcVersion };
+    },
+    sendVoice(message) {
+      const link = phone.link;
+      return !!(link && link.active && link.sendVoice(message));
+    },
+    setVoiceHandler(handler) {
+      phone.voiceHandler = typeof handler === 'function' ? handler : null;
     },
   });
 })();
