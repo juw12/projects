@@ -40,6 +40,9 @@
     "how is my device": "status",
     "hello": "help",
     "how do i install this": "install",
+    "just fix it": "fixall",
+    "make it faster": "fixall",
+    "optimize my laptop": "fixall",
     "connect my phone": "install",
     "download the app": "install",
     "free 5gb and set up nothing": "goal",
@@ -108,6 +111,15 @@
   check(/Terminal/.test(macReply.text), "install answer for Mac uses Terminal");
   const phoneReply = B.respond("connect my phone", { mode: "browser", platform: "iphone" });
   check(/scan/i.test(phoneReply.text), "phone install answer is scan-based");
+
+  // Simple mode findings: plain words, worst first, no jargon.
+  const pf = B.plainFindings({ vitals: Object.assign({ device: { os: "Darwin" } }, v), processes: [{ pid: 5, name: "Chrome", owned: true, protected: false, rss: 3 * GB, cpu: 10 }] });
+  check(pf.headline === "Your Mac needs some care" && pf.items[0].tone === "bad", "simple headline speaks plainly, worst finding first");
+  check(!/swap|pressure|cpu|load/i.test(pf.items.map((i) => i.title + " " + i.text).join(" ")), "simple findings avoid jargon");
+  check(pf.items.some((i) => i.action && i.action.label === "Close Chrome"), "memory finding offers to close the heaviest app");
+  check(B.plainFindings({ vitals: { device: { os: "Windows" }, disk: { total: 100 * GB, free: 60 * GB } } }).headline === "Your PC is in great shape", "healthy PC gets a reassuring headline");
+  const fixReply = B.respond("just fix it", { mode: "agent", platform: "mac" });
+  check(fixReply.chips.some((c) => c.action === "fix-all"), "chat offers one-tap Fix everything");
 
   // Platform detection.
   check(B.detectPlatform("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)", "", 5) === "iphone", "detect iPhone");

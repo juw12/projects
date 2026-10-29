@@ -18,6 +18,9 @@ PWA with built-in guides, and it can pair with your laptop's agent.
 
 | Area | Features |
 | --- | --- |
+| **Home (Simple mode, default)** | One status in plain words ("A few things to tidy up"), one big **Fix everything safely** button, and a short "What I found" list where each item has its own one-tap fix. No scores or jargon unless you open **Detailed view**. The first launch runs a checkup automatically. |
+| **Fix everything safely** | Shows exactly what will be cleared (only categories that rebuild themselves), then lets you pick *keep a 3-day backup* (default) or *free the space now* (suggested when the disk is under 5% free). The result card has **Undo** and **Free it now** buttons. In chat, "just fix it" or "make it faster" does the same thing. |
+| **Automatic care** | One switch: weekly safe cleanup into the Undo Vault, and a desktop notification (macOS, Linux and Windows toast) if storage drops under 5%. Off until you turn it on. |
 | **Overview** | Health score that starts at 100 and lists every penalty with its measured cause ("Storage almost full −30: 1.1 GB free"). Four-ring vital-signs orb, live CPU/memory sparklines, fixes ranked by impact with one-click actions. |
 | **Clean** | Read-only, time-boxed scan with safety-graded categories (**Safe** = rebuilds itself / **Review** = your call). Each category explains *why* and *what happens after*. Covers caches, logs, Xcode data, package-manager caches, `node_modules` in idle projects, old installers, stale downloads, device backups, Trash, exact duplicates (content-hashed) and large files. |
 | **Goal planner** | "Free 10 GB without touching downloads" → lowest-risk mix: Safe first, then duplicates, then Review, with your exclusions honored. If the goal can't be reached, it says so. |
@@ -94,8 +97,8 @@ model, or `VITALS_NO_MODEL=1` to disable the local AI fallback.
 ## Tests
 
 ```bash
-python apps/vitals/tests/verify_api.py     # hermetic agent e2e: auth, scan, vault, restore, purge, safety (≈7 s)
-python apps/vitals/tests/verify_brain.py   # 57 brain.js checks in headless Chrome (skips if no Chrome)
+python apps/vitals/tests/verify_api.py     # hermetic agent e2e: auth, scan, vault, restore, purge, safety, auto-care scheduler (≈8 s)
+python apps/vitals/tests/verify_brain.py   # 65 brain.js checks in headless Chrome (skips if no Chrome)
 python apps/vitals/tests/verify_install.py # installer: manifest sync, sandboxed install → run → update → uninstall
 ```
 
@@ -113,6 +116,7 @@ apps/vitals/
 ## Known limits
 
 - Windows and Linux readers and the Windows installer are written against documented APIs, but so far only macOS has been exercised end to end. Windows battery wear needs WMI (`root\wmi`), which some OEMs don't populate.
+- Automatic-care notifications use `osascript` (macOS), `notify-send` (Linux) or a PowerShell toast (Windows). The Windows path hasn't been tested yet. Set `VITALS_NO_NOTIFY=1` to turn them off.
 - The browser can't read disk, processes or (in Safari) battery. Browser mode is intentionally partial.
 - Vitals reads startup items but doesn't disable them. It opens the system settings page instead.
 - Vault moves are instant on the same volume. Space is released when a batch expires or you purge it.
