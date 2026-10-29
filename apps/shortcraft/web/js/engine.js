@@ -778,6 +778,9 @@
       var chord = cfg.chords[k % cfg.chords.length];
       var segLen = Math.min(cfg.len, duration - t0);
       var at = startAt + t0;
+      if (at + segLen < actx.currentTime) {
+        continue;   // already over (playback started mid-video)
+      }
       chord.forEach(function (note) {
         [1, 1.003].forEach(function (detune) {
           var osc = actx.createOscillator();
@@ -889,14 +892,15 @@
       return "• " + line;
     });
     var outro = scenes.length > 1 ? scenes[scenes.length - 1].narration : "";
+    var caption = [hook].concat(bullets, [outro]).filter(function (line) {
+      return line && line !== "• ";
+    });
     return [
       "TITLE:",
       (project.title || "") + " #shorts",
       "",
       "CAPTION:",
-      hook,
-      bullets.join("\n"),
-      outro,
+      caption.join("\n"),
       "",
       "HASHTAGS:",
       HASHTAGS[project.lang] || HASHTAGS.en
@@ -912,7 +916,7 @@
       { ok: timeline.total <= 60, text: "Total length ≤ 60 s (" + timeline.total.toFixed(0) + " s)" },
       { ok: project.captions !== false, text: "Burned-in captions on" },
       { ok: /\?|follow|ikuti|komen|comment|next|berikutnya/i.test(lastText), text: "Last scene asks a question / CTA" },
-      { ok: project.scenes.some(function (s) { return /\d/.test(s.stat || s.narration || ""); }), text: "Uses at least one concrete number" },
+      { ok: project.scenes.some(function (s) { return /\d/.test((s.stat || "") + " " + (s.narration || "")); }), text: "Uses at least one concrete number" },
       { ok: project.scenes.length >= 4 && project.scenes.length <= 9, text: "4–9 scenes" }
     ];
   }

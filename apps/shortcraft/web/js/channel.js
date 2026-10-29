@@ -452,26 +452,91 @@
 
     var info = el("dl", "kit-info");
     [["Handle (check availability)", "@" + channel.handle],
-      ["TikTok bio (≤ 80)", channel.bios.tiktok],
-      ["Instagram bio (≤ 150)", channel.bios.instagram],
+      ["TikTok bio (" + channel.bios.tiktok.length + " / 80)", channel.bios.tiktok],
+      ["Instagram bio (" + channel.bios.instagram.length + " / 150)", channel.bios.instagram],
       ["YouTube description", channel.bios.youtube]].forEach(function (pair) {
-      info.appendChild(el("dt", "", pair[0]));
+      var dt = el("dt", "", pair[0]);
+      var copy = el("button", "btn small ghost kit-copy", "Copy");
+      copy.type = "button";
+      copy.dataset.copy = pair[1];
+      copy.setAttribute("aria-label", "Copy " + pair[0]);
+      dt.appendChild(copy);
+      info.appendChild(dt);
       info.appendChild(el("dd", "", pair[1]));
     });
     box.appendChild(info);
 
+    var shown = 15;
+    var heading = el("h3", "");
     var table = el("table", "kit-plan");
-    var head = el("tr");
-    ["Day", "Slot", "Pillar", "Hook idea"].forEach(function (h) { head.appendChild(el("th", "", h)); });
-    table.appendChild(head);
-    channel.plan.slice(0, 15).forEach(function (row) {
-      var tr = el("tr");
-      [row.day, row.slot, row.pillar, row.hook].forEach(function (c) { tr.appendChild(el("td", "", String(c))); });
-      table.appendChild(tr);
+    var more = el("button", "btn small ghost", "");
+    more.type = "button";
+    function renderPlan() {
+      table.innerHTML = "";
+      var head = el("tr");
+      ["Day", "Slot", "Pillar", "Hook idea", ""].forEach(function (h) { head.appendChild(el("th", "", h)); });
+      table.appendChild(head);
+      channel.plan.slice(0, shown).forEach(function (row) {
+        var tr = el("tr");
+        [row.day, row.slot, row.pillar, row.hook].forEach(function (c) { tr.appendChild(el("td", "", String(c))); });
+        var cell = el("td");
+        var link = el("a", "", "Make it →");
+        link.href = studioLink(row.hook, channel.lang);
+        link.title = "Open this hook as a draft in the studio";
+        cell.appendChild(link);
+        tr.appendChild(cell);
+        table.appendChild(tr);
+      });
+      heading.textContent = "Posting plan (" + (shown >= channel.plan.length ? "all" : "first " + shown + " of") + " " + channel.plan.length + " slots)";
+      more.textContent = shown >= channel.plan.length ? "Show fewer" : "Show all " + channel.plan.length;
+    }
+    more.addEventListener("click", function () {
+      shown = shown >= channel.plan.length ? 15 : channel.plan.length;
+      renderPlan();
     });
-    box.appendChild(el("h3", "", "Posting plan (first 15 of " + channel.plan.length + " slots)"));
-    box.appendChild(table);
+    renderPlan();
+    box.appendChild(heading);
+    var scroller = el("div", "kit-plan-wrap");
+    scroller.appendChild(table);
+    box.appendChild(scroller);
+    if (channel.plan.length > 15) {
+      box.appendChild(more);
+    }
     return box;
+  }
+
+  function studioLink(hook, lang) {
+    return "app.html?hook=" + encodeURIComponent(hook) + "&lang=" + encodeURIComponent(lang);
+  }
+
+  function copyText(text, button) {
+    var done = function () {
+      var label = button.textContent;
+      button.textContent = "Copied ✓";
+      setTimeout(function () { button.textContent = label; }, 1400);
+    };
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(text).then(done, function () { /* ignore */ });
+      return;
+    }
+    var area = document.createElement("textarea");
+    area.value = text;
+    area.style.position = "fixed";
+    area.style.opacity = "0";
+    document.body.appendChild(area);
+    area.select();
+    try {
+      if (document.execCommand("copy")) {
+        done();
+      }
+    } catch (err) {
+      /* ignore */
+    }
+    document.body.removeChild(area);
+  }
+
+  function cell(text) {
+    return String(text).replace(/\|/g, "\\|");
   }
 
   function kitMarkdown() {
@@ -488,7 +553,7 @@
       out.push("- YouTube description: " + c.bios.youtube, "");
       out.push("| Day | Slot | Pillar | Hook |", "| --- | --- | --- | --- |");
       c.plan.forEach(function (r) {
-        out.push("| " + r.day + " | " + r.slot + " | " + r.pillar + " | " + r.hook + " |");
+        out.push("| " + r.day + " | " + r.slot + " | " + cell(r.pillar) + " | " + cell(r.hook) + " |");
       });
       out.push("");
     });
@@ -500,18 +565,70 @@
     return out.join("\n");
   }
 
+  var PREFS_KEY = "shortcraft.channelKit.v1";
+
+  function savePrefs() {
+    try {
+      localStorage.setItem(PREFS_KEY, JSON.stringify({
+        prompt: $("k-prompt").value,
+        en: $("k-en").checked,
+        id: $("k-id").checked,
+        perDay: $("k-perday").value
+      }));
+    } catch (err) {
+      /* storage blocked: nothing to remember */
+    }
+  }
+
+  function restorePrefs() {
+    try {
+      var prefs = JSON.parse(localStorage.getItem(PREFS_KEY) || "null");
+      if (prefs) {
+        $("k-prompt").value = prefs.prompt || "";
+        $("k-en").checked = prefs.en !== false;
+        $("k-id").checked = prefs.id !== false;
+        if (prefs.perDay) {
+          $("k-perday").value = prefs.perDay;
+        }
+        return true;
+      }
+    } catch (err) {
+      /* corrupt prefs: ignore */
+    }
+    return false;
+  }
+
   document.addEventListener("DOMContentLoaded", function () {
-    $("btn-generate").addEventListener("click", generate);
+    $("btn-generate").addEventListener("click", function () {
+      savePrefs();
+      generate();
+    });
+    $("k-prompt").addEventListener("keydown", function (event) {
+      if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
+        event.preventDefault();
+        savePrefs();
+        generate();
+      }
+    });
+    $("kit-out").addEventListener("click", function (event) {
+      var btn = event.target.closest("[data-copy]");
+      if (btn) {
+        copyText(btn.dataset.copy, btn);
+      }
+    });
     $("btn-kit-md").addEventListener("click", function () {
       var blob = new Blob([kitMarkdown()], { type: "text/markdown" });
       var a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
       a.download = "channel-kit.md";
       a.click();
+      setTimeout(function () { URL.revokeObjectURL(a.href); }, 2000);
     });
     var params = new URLSearchParams(window.location.search);
     if (params.get("prompt")) {
       $("k-prompt").value = params.get("prompt");
+      generate();
+    } else if (restorePrefs() && $("k-prompt").value.trim()) {
       generate();
     }
   });

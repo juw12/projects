@@ -37,7 +37,8 @@
   function kitParts() {
     var project = studio().state.project;
     var kit = window.SC.postKit(project);
-    var title = (project.title || "Shortcraft").slice(0, 95);
+    // YouTube rejects titles over 100 characters and any "<" or ">"; " #Shorts" is appended later.
+    var title = (project.title || "Shortcraft").replace(/[<>]/g, "").trim().slice(0, 100 - " #Shorts".length) || "Shortcraft";
     var caption = kit.split("CAPTION:")[1] || "";
     caption = caption.split("HASHTAGS:")[0].trim();
     var tags = (kit.split("HASHTAGS:")[1] || "").trim();
@@ -101,6 +102,11 @@
     if (!exp) {
       return;
     }
+    var scheduled = $("yt-schedule").value;
+    if (scheduled && !(new Date(scheduled).getTime() > Date.now() + 60000)) {
+      status("Pick a schedule time in the future (or clear it to publish now).");
+      return;
+    }
     var ready = token ? Promise.resolve(token) : connectYouTube();
     ready.then(function (accessToken) {
       var kit = kitParts();
@@ -110,7 +116,7 @@
       var meta = {
         snippet: {
           title: kit.title + " #Shorts",
-          description: kit.full,
+          description: kit.full.replace(/[<>]/g, "").slice(0, 5000),
           tags: kit.hashtags.split(/\s+/).map(function (t) { return t.replace(/^#/, ""); }).filter(Boolean).slice(0, 15),
           categoryId: "27",
           defaultLanguage: project.lang || "en",

@@ -16,12 +16,12 @@ WEB_DIR = os.path.join(BASE_DIR, "web")
 REQUIRED = [
     "index.html", "app.html", "mobile.html", "styles.css", "manifest.webmanifest",
     "icons/icon.svg", "js/engine.js", "js/ui.js", "js/samples.js",
-    "channel.html", "js/channel.js", "js/publish.js", "js/pop.js",
+    "channel.html", "js/channel.js", "js/publish.js", "js/pop.js", "js/clean.js",
 ]
 HTML_FILES = ["index.html", "app.html", "mobile.html", "channel.html"]
-JS_FILES = ["js/engine.js", "js/ui.js", "js/samples.js", "js/channel.js", "js/publish.js", "js/pop.js"]
+JS_FILES = ["js/engine.js", "js/ui.js", "js/samples.js", "js/channel.js", "js/publish.js", "js/pop.js", "js/clean.js"]
 # Only the opt-in publisher talks to the network (Google sign-in + YouTube upload).
-OFFLINE_JS = ["js/engine.js", "js/ui.js", "js/samples.js", "js/channel.js", "js/pop.js"]
+OFFLINE_JS = ["js/engine.js", "js/ui.js", "js/samples.js", "js/channel.js", "js/pop.js", "js/clean.js"]
 PUBLISH_HOSTS = ("accounts.google.com", "www.googleapis.com", "youtube.com")  # last one: result link only
 
 
@@ -120,6 +120,38 @@ def run():
 
     # 9. mobile entry redirects to the studio
     check("app.html?view=mobile" in texts["mobile.html"], "mobile.html opens the studio in mobile view")
+
+    # 10. studio robustness + editing UX
+    ui = texts["js/ui.js"]
+    check(re.search(r"function load\(\)[\s\S]{0,300}normalizeProject\(", ui) is not None,
+          "autosave is validated on load (a corrupt project must not brick the studio)")
+    check(ui.count("normalizeProject(") >= 3, "imported / URL projects go through normalizeProject")
+    check("indexedDB" in ui, "voice clips persist across reloads (IndexedDB)")
+    spec_block = re.search(r"var LAYOUT_SPECS = \{([\s\S]*?)\n  \};", ui)
+    check(spec_block is not None, "ui.js defines LAYOUT_SPECS (scene layout editor)")
+    if spec_block:
+        editable = set(re.findall(r"^    (\w+): \{ name:", spec_block.group(1), re.M))
+        for template_js in ("js/pop.js", "js/clean.js"):
+            layouts = set(re.findall(r"LAYOUTS\.(\w+) = function", texts[template_js]))
+            check(bool(layouts) and layouts <= editable,
+                  f"every {template_js} layout is editable in the studio ({', '.join(sorted(layouts - editable)) or 'all covered'})")
+    select = re.search(r'<select id="f-template">([\s\S]*?)</select>', texts["app.html"])
+    loaded = re.findall(r'<script src="(js/[^"]+)"', texts["app.html"])
+    for value in re.findall(r'<option value="([a-z]+)"', select.group(1) if select else ""):
+        registered = value in ("editorial", "teardown") or any(
+            f"SC_TEMPLATES.{value} =" in read(src) for src in loaded)
+        check(registered, f"template '{value}' has a renderer loaded by app.html")
+    for rel in HTML_FILES:
+        check(not re.search(r"<label[^>]*>[^<]*<input[^>]*\bhidden\b", texts[rel]),
+              f"{rel}: no hidden inputs inside labels (keyboard users cannot reach them)")
+    check(":focus-visible" in texts["styles.css"], "styles.css shows a visible keyboard focus ring")
+    check("app.html?hook=" in texts["js/channel.js"] and 'params.get("hook")' in ui,
+          "Channel Kit plan ideas open as studio drafts")
+    check(re.search(r'replaceState', ui) is not None, "sample/idea links are stripped from the URL so a reload keeps edits")
+    check(re.search(r'100 - " #Shorts"\.length', texts["js/publish.js"]) is not None,
+          "YouTube title stays within 100 characters including ' #Shorts'")
+    check(re.search(r'/\\d/\.test\(\(s\.stat \|\| ""\) \+', texts["js/engine.js"]) is not None,
+          "checklist finds numbers in narration even when a non-numeric stat is set")
 
     print("\n" + "=" * 50)
     if failures:
