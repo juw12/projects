@@ -28,7 +28,7 @@ except ImportError:  # pragma: no cover - i18n ships with Pips
     def T(key, lang=None, **kwargs):
         return key
 
-APP_VERSION = "2.16.0"
+APP_VERSION = "2.17.0"
 APP_OWNER = "Juwen Lie"
 USER_GUIDE_URL = "https://juw12.github.io/projects/pips/download/Pips-Guide.pptx"
 SITE_URL = "https://juw12.github.io/projects/pips/"
@@ -37,6 +37,11 @@ try:
     import updater
 except ImportError:  # pragma: no cover
     updater = None
+
+try:
+    import tray                  # v2.17: icon next to the clock + Ctrl+Alt+P
+except ImportError:  # pragma: no cover
+    tray = None
 
 # Windows-specific imports (guarded)
 try:
@@ -794,6 +799,10 @@ class ProductivityWidget:
         if getattr(self, "single_instance", None) is not None:
             self.root.after(1000, self._poll_instance)
 
+        # Always a way back to the pet: tray icon next to the clock + Ctrl+Alt+P
+        self._tray = None
+        self.root.after(1200, self._start_tray)
+
     def _poll_instance(self):
         try:
             if self.single_instance.show_requested():
@@ -803,17 +812,97 @@ class ProductivityWidget:
         self.root.after(700, self._poll_instance)
 
     def _greet_second_launch(self):
-        """Pips was opened again while running: show the pet and say hi."""
-        pet = self.pet
-        if not pet:
+        """Pips was opened again while running: bring the pet back (even if hidden / off-screen) and say hi."""
+        self._summon_pet(T("already_running"), source="launch")
+
+    # ------------------------------------------------------------------
+    # Find your pet (v2.17): tray icon, Ctrl+Alt+P, opening Pips again
+    # ------------------------------------------------------------------
+    HIDE_TIPS = 5   # how many times hiding the pet shows "how to bring it back"
+
+    def _pet_name(self) -> str:
+        return (self.pet.s.get("name") if self.pet else None) or "Pip"
+
+    def _start_tray(self):
+        if tray is None or os.name != "nt":
+            return
+        try:
+            icon = BASE_DIR / "assets" / "widget.ico"
+            self._tray = tray.TrayIcon(icon if icon.exists() else None, self._tray_tip(""), self._tray_labels)
+            if not self._tray.start():
+                self._tray = None
+                return
+            key = self._tray.hotkey_label
+            self._tray.set_tooltip(self._tray_tip(key))
+            if self.pet:
+                self.pet.summon_hint = key
+            logger.info(f"Tray icon ready (hotkey {key or 'none'})")
+            self.root.after(150, self._poll_tray)
+        except Exception as e:
+            logger.warning(f"Tray icon unavailable: {e}")
+            self._tray = None
+
+    def _tray_labels(self) -> dict:
+        """Menu texts (called from the tray thread each time the menu opens)."""
+        name = self._pet_name()
+        return {"summon": T("tray_summon", name=name), "card": T("tray_card"),
+                "friends": T("tray_friends"), "quit": T("tray_quit")}
+
+    def _tray_tip(self, key: str) -> str:
+        name = self._pet_name()
+        return T("tray_tip_key", name=name, hotkey=key) if key else T("tray_tip", name=name)
+
+    def _poll_tray(self):
+        if not self._tray:
+            return
+        for command in self._tray.drain():
+            try:
+                self._tray_command(command)
+            except Exception as e:
+                logger.warning(f"Tray command {command} failed: {e}")
+        if self._tray:          # "Quit Pips" from the tray menu has already closed everything
+            try:
+                self.root.after(150, self._poll_tray)
+            except tk.TclError:
+                pass
+
+    def _tray_command(self, command: str):
+        if command in ("summon", "hotkey"):
+            now = time.monotonic()
+            if now - getattr(self, "_last_tray_summon", 0.0) < 0.6:
+                return          # double-click on the icon = one summon
+            self._last_tray_summon = now
+            self._summon_pet(source="hotkey" if command == "hotkey" else "tray")
+        elif command == "card":
+            self._show_card(near_pet=True)
+        elif command == "friends":
+            if self.pet:
+                self.pet.open_hub()
+            else:
+                self._show_card()
+        elif command == "quit":
+            self._on_close()
+
+    def _summon_pet(self, text=None, source="menu"):
+        """Bring the pet back wherever it is (hidden, asleep, off-screen, behind a fullscreen app)."""
+        logger.info(f"Pet summoned ({source})")
+        if not self.pet:
             self._show_card()
             return
-        if not pet.visible:
-            pet.set_visible(True)
-        if getattr(pet, "sleeping", False):
-            pet.wake("poke", quiet=True)
-        pet.set_action("hop", 0.6)
-        pet.say(T("already_running"), duration=4, priority=2)
+        self.pet.summon(text or T("summon_here"))
+
+    def _hide_tip(self):
+        """After hiding: tell how to bring the pet back (the first few times)."""
+        if not self._tray or not self.pet:
+            return
+        shown = int(self.pet.s.get("hide_tips_shown", 0) or 0)
+        if shown >= self.HIDE_TIPS:
+            return
+        name = self._pet_name()
+        key = self._tray.hotkey_label
+        body = T("tray_hidden_text_key", name=name, hotkey=key) if key else T("tray_hidden_text", name=name)
+        if self._tray.notify(T("tray_hidden_title", name=name), body):
+            self.pet.update_setting("hide_tips_shown", shown + 1)
     
     def _build_card(self):
         """Build the compact floating card."""
@@ -1276,7 +1365,7 @@ class ProductivityWidget:
             self._on_close()
             return
         if not self.pet.visible:
-            self.pet.set_visible(True)
+            self.pet.summon()
         self.card_frame.withdraw()
         self.pet.react("card_hidden")
     
@@ -1292,6 +1381,7 @@ class ProductivityWidget:
         self.pet.set_visible(False)
         if not self._card_visible():
             self._show_card()
+        self._hide_tip()
     
     def _toggle_pet_visible(self):
         if not self.pet:
@@ -1299,7 +1389,7 @@ class ProductivityWidget:
         if self.pet.visible:
             self._hide_pet()
         else:
-            self.pet.set_visible(True)
+            self._summon_pet()
     
     def _place_card_near_pet(self):
         """Pop the card up right next to the pet, kept inside the monitor's work area."""
@@ -2007,6 +2097,8 @@ class ProductivityWidget:
         if self.pet:
             self.pet.refresh_language()
             self.pet.react("language_changed")
+        if getattr(self, "_tray", None):
+            self._tray.set_tooltip(self._tray_tip(self._tray.hotkey_label))
         logger.info(f"Language set to {code}")
     
     def _set_theme(self, name: str):
@@ -4151,6 +4243,9 @@ class ProductivityWidget:
     
     def _on_close(self):
         """Handle application close."""
+        if getattr(self, "_tray", None):
+            self._tray.stop()
+            self._tray = None
         # Stop refresh
         if self._refresh_after_id:
             self.root.after_cancel(self._refresh_after_id)
