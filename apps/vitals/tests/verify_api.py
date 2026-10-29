@@ -141,8 +141,12 @@ def main():
         status, vit = request(base, "GET", "/api/vitals", token=token)
         check(status == 200 and "cpu" in vit and "memory" in vit and "battery" in vit, "vitals snapshot shape")
         check(vit["disk"] and vit["disk"]["total"] > 0, "disk usage measured")
+        asked_at = time.time()
         status, procs = request(base, "GET", "/api/processes?limit=5", token=token)
+        took = time.time() - asked_at
         check(status == 200 and len(procs["processes"]) > 0, "process list returned")
+        check(took < 5, "process list is quick (%.1f s; tasklist /v took 40 s on managed Windows PCs)" % took)
+        check(any(p.get("rss") for p in procs["processes"]), "process list includes memory use")
 
         status, started = request(base, "POST", "/api/scan", {"deep": True}, token=token)
         check(status == 200 and started.get("id"), "scan started")
