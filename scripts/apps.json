@@ -586,7 +586,8 @@
         "Nostr",
         "direct payments",
         "haircut shorts",
-        "creator commissions"
+        "creator commissions",
+        "Windows app"
       ],
       "image": "fade-card.jpg",
       "image_alt": "Fade screens: home with trending barbers, a haircut short with a paid-partnership tag, and creator earnings, using fictional demo data",
@@ -597,7 +598,25 @@
       },
       "featured": true,
       "order": 6,
-      "version": "3.4.0"
+      "version": "3.4.0",
+      "card_links": [
+        {
+          "label": "Windows app",
+          "path": "https://github.com/juw12/projects/releases/download/fade/Fade-Windows-Setup.exe"
+        },
+        {
+          "label": "Open app",
+          "path": "fade/"
+        },
+        {
+          "label": "Web",
+          "path": "fade/web.html"
+        },
+        {
+          "label": "Mobile",
+          "path": "fade/mobile.html"
+        }
+      ]
     },
     {
       "id": "mint",
