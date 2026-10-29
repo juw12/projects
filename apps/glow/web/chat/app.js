@@ -444,8 +444,29 @@ function offlineFallbackModel() {
 // The model that really answers: with no internet a downloaded Glow Offline model stands in for cloud ones.
 function effectiveModel(value) {
   const { provider } = splitModel(value || "");
-  if (navigator.onLine || !NETWORK_PROVIDERS.has(provider)) return value;
-  return offlineFallbackModel() || value;
+  if (!navigator.onLine && NETWORK_PROVIDERS.has(provider)) return offlineFallbackModel() || value;
+  // Puter allowance used up: answer quietly with the backup; the chosen model stays selected.
+  if (provider === "puter" && puterAllowanceResting()) return allowanceBackupModel().value;
+  return value;
+}
+// After Puter says the allowance is used up, skip it for a while (no failed request, no Puter pop-up),
+// then try it again by itself, e.g. after the monthly reset.
+const PUTER_REST_KEY = "glow.puterRestUntil";
+const PUTER_REST_MS = 30 * 60 * 1000;
+function puterAllowanceResting() {
+  try {
+    return Number(localStorage.getItem(PUTER_REST_KEY) || 0) > Date.now();
+  } catch {
+    return false;
+  }
+}
+function restPuterAllowance(on = true) {
+  try {
+    if (on) localStorage.setItem(PUTER_REST_KEY, String(Date.now() + PUTER_REST_MS));
+    else localStorage.removeItem(PUTER_REST_KEY);
+  } catch {
+    // Private mode: the next request simply tries Puter again.
+  }
 }
 async function streamLocal(key, system, messages, onText, signal, usage) {
   if (!window.GlowOfflineAI) throw new Error("Glow Offline isn't available in this app.");
@@ -788,7 +809,15 @@ async function fetchWithRetry(doFetch, signal, onWait = () => {}) {
 // Every AI call goes through here so token usage is counted once, for today and (when given) the chat.
 async function streamReply(modelValue, system, messages, onText, conv = null) {
   const usage = { in: 0, out: 0, exact: false, images: 0 };
-  const reply = await streamProvider(modelValue, system, messages, onText, usage);
+  let reply;
+  try {
+    reply = await streamProvider(modelValue, system, messages, onText, usage);
+  } catch (error) {
+    const quietRetry = String(modelValue).startsWith("puter::") && ALLOWANCE_GONE.test(errorText(error)) && !puterAllowanceResting();
+    if (!quietRetry) throw error;
+    restPuterAllowance();
+    reply = await streamProvider(modelValue, system, messages, onText, usage);
+  }
   recordUsage(usage, reply, conv, modelValue);
   return reply;
 }
@@ -798,6 +827,7 @@ async function streamProvider(modelValue, system, messages, onText, usage) {
     throw new Error(`${modelLabel(modelValue)} isn't offered in ${where}. Pick another model, or change your region in Language & region.`);
   }
   let { provider, model } = splitModel(modelValue);
+  if (provider === "puter" && navigator.onLine && puterAllowanceResting()) ({ provider, model } = splitModel(allowanceBackupModel().value));
   // No internet: a downloaded Glow Offline model answers instead of the cloud model.
   if (!navigator.onLine && NETWORK_PROVIDERS.has(provider)) {
     const fallback = effectiveModel(modelValue);
@@ -1535,14 +1565,6 @@ async function streamAssistant(model, system, history, who, css, view = (text) =
     }
     bubble.parentElement.remove();
     const message = errorText(error);
-    // Puter allowance used up: answer this message with Glow Free (no allowance needed) instead of stopping.
-    if (ALLOWANCE_GONE.test(message) && String(model).startsWith("puter::") && conv && conv.type === "chat") {
-      const backup = allowanceBackupModel();
-      conv.model = backup.value;
-      if (conv === current) fillSelect($("chat-model"), backup.value);
-      toast(`Your Puter AI allowance is used up, so ${backup.short || backup.label} answers instead`);
-      return streamAssistant(backup.value, system, history, who, css, view);
-    }
     showNotice(message);
     return "";
   }
@@ -1573,8 +1595,8 @@ async function replyToChat() {
   const reply = await streamAssistant(current.model, systemPromptFor(current), current.messages, "Glow", "assistant", (text) => splitFollowUps(text).body);
   if (reply) {
     const { body, questions } = splitFollowUps(reply);
-    // The allowance fallback may have switched this chat to Glow Free mid-reply.
-    const usedModel = current.model === askedModel ? answeredBy : effectiveModel(current.model);
+    // The quiet allowance fallback may have answered this message with the backup model.
+    const usedModel = effectiveModel(askedModel) !== answeredBy ? effectiveModel(askedModel) : answeredBy;
     current.messages.push({ role: "assistant", content: body, model: usedModel, followUps: questions });
     state.settings.lastModel = current.model;
   }
@@ -5207,9 +5229,17 @@ async function selfTest() {
   const quotaModel = $("chat-model").value;
   const modelsBeforeQuota = models;
   if (!models.some((m) => m.value === FREE_MODEL.value)) models = [...models, FREE_MODEL]; // the live app always lists Glow Free
+  // The sandbox has no internet, so the offline demo agent stands in for the backup model here.
+  const realBackup = allowanceBackupModel;
+  allowanceBackupModel = () => ({ value: "demo::demo", label: "Demo", short: "Demo" });
   await sendChat("Again please");
-  expect("glow ai: used-up allowance hands the message to Glow Free instead of stopping", current.model === FREE_MODEL.value && $("chat-model").value === FREE_MODEL.value
-    && /allowance is used up/.test(puterErrorText({ error: { code: "insufficient_funds", message: "Insufficient funds" } })));
+  const quotaLast = current.messages[current.messages.length - 1] || {};
+  expect("glow ai: used-up allowance: the chosen model stays selected", current.model === quotaModel && $("chat-model").value === quotaModel);
+  expect("glow ai: used-up allowance: Puter rests and the backup answers", puterAllowanceResting() && effectiveModel(quotaModel) === "demo::demo");
+  expect(`glow ai: used-up allowance: no warning, reply labelled with the backup (${quotaLast.role}/${quotaLast.model})`, !document.querySelector(".msg.notice")
+    && quotaLast.role === "assistant" && quotaLast.model === "demo::demo");
+  allowanceBackupModel = realBackup;
+  restPuterAllowance(false);
   const modelsWithKeys = models;
   models = [...modelsWithKeys, { value: "groq::llama-3.3-70b-versatile", label: "llama", group: "Groq" }, { value: "gemini::gemini-2.5-flash", label: "flash", group: "Gemini" }];
   expect("glow ai: your own free Gemini key is the first backup when the allowance runs out", allowanceBackupModel().value === "gemini::gemini-2.5-flash");

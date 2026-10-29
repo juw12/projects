@@ -15,7 +15,7 @@ class V121Tests(unittest.TestCase):
 
     def test_versions_match(self):
         published = json.loads((WEB / "version.json").read_text(encoding="utf-8"))["version"]
-        self.assertEqual(published, "1.23.0")
+        self.assertEqual(published, "1.23.1")
         self.assertIn(f'const GLOW_VERSION = "{published}";', self.apps)
 
     def test_every_chat_page_has_project_and_skill_buttons(self):
@@ -42,11 +42,14 @@ class V121Tests(unittest.TestCase):
         self.assertNotRegex(self.chat, r'startsWith\("puterimg::"\)\) return 1000')
         self.assertIn("if (isMediaModel(value)) return 1000;", self.chat)
 
-    def test_allowance_used_up_falls_back_to_glow_free(self):
-        block = re.search(r"async function streamAssistant[\s\S]+?\nconst ALLOWANCE_GONE", self.chat).group(0)
-        self.assertIn("ALLOWANCE_GONE.test(message)", block)
-        self.assertIn("const backup = allowanceBackupModel();", block)
-        self.assertIn("return streamAssistant(backup.value", block)
+    def test_allowance_used_up_is_handled_quietly(self):
+        reply = re.search(r"async function streamReply[\s\S]+?\n\}", self.chat).group(0)
+        self.assertIn("ALLOWANCE_GONE.test(errorText(error))", reply)
+        self.assertIn("restPuterAllowance();", reply)
+        assistant = re.search(r"async function streamAssistant[\s\S]+?\nconst ALLOWANCE_GONE", self.chat).group(0)
+        self.assertNotIn("fillSelect", assistant)
+        self.assertNotIn("toast(", assistant)
+        self.assertIn('if (provider === "puter" && puterAllowanceResting()) return allowanceBackupModel().value;', self.chat)
         backup = re.search(r"function allowanceBackupModel\(\) \{([\s\S]+?)\n\}", self.chat).group(1)
         self.assertIn("return FREE_MODEL;", backup)
 
@@ -59,6 +62,10 @@ class V121Tests(unittest.TestCase):
             self.assertIn('id="set-gemini"', html, page)
             self.assertIn('id="set-groq"', html, page)
             self.assertIn("media-src 'self' https: blob: data:", html, page)
+
+    def test_puter_usage_dialog_is_hidden(self):
+        self.assertIn('querySelectorAll("usage-limit-dialog")', self.apps)
+        self.assertIn("quietPuterDialogs();", self.apps)
 
     def test_agent_bubble_and_donations(self):
         self.assertIn("function mountWidget()", self.apps)

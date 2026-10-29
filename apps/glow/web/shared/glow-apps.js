@@ -10,7 +10,7 @@
   const ROOT = new URL("../", scriptUrl); // .../glow/
   // The Glow family version. Bump it together with ../version.json for every release:
   // an older copy of this script then sees the newer version.json and offers "Update now".
-  const GLOW_VERSION = "1.23.0";
+  const GLOW_VERSION = "1.23.1";
   const LIVE_ROOT = "https://juw12.github.io/projects/glow/";
   const APK_URL = "https://github.com/juw12/projects/releases/download/glow-android/Glow-android.apk";
   const embedded = (function () {
@@ -892,6 +892,33 @@ html.glow-room-open .glow-widget-bubble,html.glow-room-open .glow-widget-panel{d
     widgetBubble.classList.toggle("busy", !!event.data.busy);
   });
 
+  /* ===== Quiet Puter: hide Puter's own "Low Balance" / usage-limit pop-up =====
+     Glow handles a used-up allowance itself (it answers with a backup model), so Puter's upgrade
+     dialog only interrupts. The dialog is added to <body> and opened in the same task; removing it
+     in the MutationObserver callback (a microtask) happens before the page is drawn. */
+  function hidePuterUsageDialogs(root) {
+    const found = root.matches && root.matches("usage-limit-dialog") ? [root] : [...(root.querySelectorAll ? root.querySelectorAll("usage-limit-dialog") : [])];
+    for (const dialog of found) {
+      try {
+        if (typeof dialog.close === "function") dialog.close();
+      } catch (error) {
+        // Already closed.
+      }
+      dialog.remove();
+    }
+  }
+  function quietPuterDialogs() {
+    if (!document.body || typeof MutationObserver === "undefined") return;
+    hidePuterUsageDialogs(document.body);
+    new MutationObserver((records) => {
+      for (const record of records) {
+        for (const node of record.addedNodes) {
+          if (node.nodeType === 1) hidePuterUsageDialogs(node);
+        }
+      }
+    }).observe(document.body, { childList: true });
+  }
+
   function startUpdateChecks() {
     refreshVersionViews();
     if (embedded) return;
@@ -908,6 +935,7 @@ html.glow-room-open .glow-widget-bubble,html.glow-room-open .glow-widget-panel{d
     startUpdateChecks();
     prepareOffline();
     mountWidget();
+    quietPuterDialogs();
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", autoMount);
   else autoMount();
