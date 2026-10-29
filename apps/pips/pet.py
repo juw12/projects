@@ -3102,6 +3102,31 @@ class DesktopPet:
             tiles.append(("\u2B07", t("fm_dock"), self.go_to_taskbar))
         menu.tiles(tiles)
 
+        social_ok = self.social is not None and social is not None and getattr(self.social, "enabled", False)
+        targets = self.social.nudge_targets() if social_ok else []
+        if targets:
+            def build_nudge_friends(sub, people=targets[:14]):
+                for friend in people:
+                    code = friend.get("code", "")
+                    presence = friend.get("presence") or "offline"
+                    dot = "\u25CF" if presence == "online" else "\u25CB"
+                    if friend.get("nudges") is False:
+                        sub.item("\U0001F515", friend.get("name", "?"),
+                                 lambda f=friend: self.say(t("nudge_err_off_name", name=f.get("name", "?")),
+                                                           duration=3, priority=1),
+                                 hint=t("nudge_off_short"))
+                        continue
+
+                    def build_kinds(kinds_menu, c=code):
+                        for kind in social.NUDGES:
+                            kinds_menu.item(social.NUDGE_SYMBOL[kind], t("nudge_kind_" + kind),
+                                            lambda k=kind, cc=c: self.social.nudge(cc, k),
+                                            hint=t("nudge_hint_" + kind))
+                    sub.submenu(dot, friend.get("name", "?"), build_kinds, hint=t("st_" + presence), width=250)
+            online = sum(1 for f in targets if f.get("presence") == "online")
+            menu.submenu(social.NUDGE_SYMBOL["poke"], t("nudge_menu"), build_nudge_friends,
+                         hint=t("nudge_online", n=online) if online else "", width=240)
+
         moves = self.shop.moves() if self.shop else []
         if moves:
             def build_tricks(sub):

@@ -92,6 +92,17 @@ AFFINITY_LEVELS = [(0, "aff_acq"), (20, "aff_buddy"), (60, "aff_good"), (150, "a
 INTERACTIONS = ("wave", "pet", "snack", "highfive", "visit")
 INTERACTION_SYMBOL = {"wave": "\u270b", "pet": "\u2665", "snack": "\u2615", "highfive": "\u2605",
                       "visit": "\u2302", "cheer": "\u266b"}
+# v2.14 nudges: poke / tickle / tease / boop / hug a friend from a distance (no pet visit)
+try:
+    from nudge_ui import NUDGES, NUDGE_SYMBOL
+except ImportError:  # pragma: no cover
+    NUDGES = ("poke", "tickle", "tease", "boop", "hug")
+    NUDGE_SYMBOL = {"poke": "\U0001F449", "tickle": "\U0001F606", "tease": "\U0001F61C",
+                    "boop": "\U0001F443", "hug": "\U0001F917"}
+INTERACTION_SYMBOL.update(NUDGE_SYMBOL)
+NUDGE_GAP_S = 3.2         # matches the server limit per friend
+NUDGE_RALLY_S = 90        # poll the inbox fast for a while after a nudge (poke wars!)
+NUDGE_ERRORS = {"nudges_off": "nudge_err_off", "nudge_slow": "nudge_err_slow", "nudge_limit": "nudge_err_limit"}
 
 
 def affinity_level(points: int):
@@ -345,6 +356,10 @@ class Social:
         self.parties = {}           # host code -> /v1/party payload (v2.13)
         self.party_windows = {}     # host code -> PartyWindow
         self._pending_gift = None
+        self._nudge_sent = {}        # friend code -> monotonic time of my last nudge
+        self._nudge_queue = []       # incoming nudges waiting for focus / fullscreen to end
+        self._nudge_held = False
+        self._rally_until = 0.0
         self.arena_open = False     # Arena tab visible -> fast lobby polling + "in arena" presence
         self._next_arena = 0.0
         self.duels: dict = {}       # duel id -> latest /v1/duel view
@@ -1044,6 +1059,7 @@ class Social:
             "mood": self.pet.mood(),
             "look": self.my_look(),
             "gear": self.my_gear(),
+            "allow_nudges": self.allow_nudges(),
         }
 
     def _board_now(self, account=None):
@@ -1162,7 +1178,7 @@ class Social:
 
     def _send_then_inbox(self, payload, room, kind):
         api_call("POST", "/v1/send", payload, self.account)
-        result = api_call("GET", f"/v1/inbox?since={self._since()}", None, self.account)
+        result = api_call("GET", f"/v1/inbox?since={self._since()}&nudge=1", None, self.account)
         result["_room"] = room
         result["_kind"] = kind
         return result
@@ -1181,7 +1197,8 @@ class Social:
         if not self.enabled or self._inbox_busy:
             return
         self._inbox_busy = True
-        self._run("inbox", api_call, "GET", f"/v1/inbox?since={self._since()}&idle={self._idle_flag()}", None,
+        self._run("inbox", api_call, "GET",
+                  f"/v1/inbox?since={self._since()}&idle={self._idle_flag()}&nudge=1", None,
                   self.account)
 
     def _take_inbox(self, result, initial=False):
@@ -1211,9 +1228,15 @@ class Social:
         self._notify_invites()
         # first load after start: only react to things that arrived very recently
         cutoff = time.time() - (10 * 60 if initial else 24 * 3600)
-        for m in fresh[-5:]:
+        others = [m for m in fresh if m.get("kind") not in NUDGES]
+        for m in others[-5:]:
             if m.get("at", 0) >= cutoff:
                 self._react_to(m)
+        nudge_cutoff = time.time() - (10 * 60 if initial else 3600)
+        nudges = [m for m in fresh if m.get("kind") in NUDGES and m.get("at", 0) >= nudge_cutoff
+                  and str(m.get("room", "")).startswith("dm:")]
+        if nudges:
+            self._take_nudges(nudges)
 
     def _notify_invites(self):
         notified = set(self.data.get("notified_invites", []))
@@ -1275,6 +1298,167 @@ class Social:
         group = "" if room.startswith("dm:") else self.room_title(room)
         pet.say(t("ix_in_" + kind, name=who, pet=pet_name, group=group), duration=6, priority=1, on_click=open_chat)
 
+    # ---- pokes, tickles & teases (v2.14) ----
+    def allow_nudges(self) -> bool:
+        return bool(self.data.get("allow_nudges", True))
+
+    def set_allow_nudges(self, value: bool):
+        self.data["allow_nudges"] = bool(value)
+        self.save()
+        self.sync()
+
+    def nudge_targets(self) -> list:
+        """Friends you can nudge, online first."""
+        order = {"online": 0, "busy": 1, "away": 2, "offline": 3}
+        people = [f for f in self.friends() if f.get("code") and f.get("code") not in BOT_CODES]
+        return sorted(people, key=lambda f: (order.get(f.get("presence") or "offline", 3),
+                                             -f.get("affinity", 0), f.get("name", "").lower()))
+
+    def nudge(self, code: str, kind: str):
+        """Poke / tickle / tease / boop / hug a friend - it pops up on their screen."""
+        if not self.enabled or kind not in NUDGES:
+            return
+        friend = self.friend(code)
+        if not friend:
+            return
+        if friend.get("nudges") is False:
+            self.pet.say(t("nudge_err_off_name", name=friend.get("name", "?")), duration=4, priority=1)
+            return
+        now = time.monotonic()
+        if now - self._nudge_sent.get(code, 0.0) < NUDGE_GAP_S:
+            self.pet.say(t("nudge_err_slow"), duration=3, priority=1)
+            return
+        self._nudge_sent[code] = now
+        self._start_rally()
+        self.mark_read("dm:" + code)   # answering a poke means you've seen it
+        self.send("dm:" + code, kind)
+
+    def _start_rally(self):
+        now = time.monotonic()
+        self._rally_until = now + NUDGE_RALLY_S
+        self._next_inbox = min(self._next_inbox, now + INBOX_FAST_S)
+
+    def _take_nudges(self, msgs):
+        groups = {}
+        for m in msgs:
+            sender = dict(m.get("from") or {})
+            code = sender.get("code") or str(m.get("room", ""))[3:]
+            group = groups.setdefault(code, {"code": code, "who": sender, "count": 0, "kind": m["kind"]})
+            group["count"] += 1
+            group["kind"] = m["kind"]   # react to the latest one
+        self._nudge_queue.extend(groups.values())
+        self._start_rally()
+        self._flush_nudges()
+
+    def _nudge_blocked(self) -> bool:
+        """Hold nudges while a fullscreen app runs or during a focus session - shown at the break."""
+        pet = self.pet
+        return bool(getattr(pet, "fs_hidden", False) or getattr(pet, "focus", False)
+                    or getattr(pet, "_destroyed", False))
+
+    def _flush_nudges(self):
+        if not self._nudge_queue:
+            return
+        if self._nudge_blocked():
+            self._nudge_held = True
+            return
+        queue, self._nudge_queue = self._nudge_queue, []
+        merged = {}
+        for group in queue:
+            known = merged.get(group["code"])
+            if known:
+                known["count"] += group["count"]
+                known["kind"] = group["kind"]
+            else:
+                merged[group["code"]] = dict(group)
+        groups = list(merged.values())
+        held, self._nudge_held = self._nudge_held, False
+        if len(groups) == 1 and not held:
+            self._show_nudge(groups[0])
+        else:
+            self._show_nudge_summary(groups)
+
+    def _nudge_text(self, group) -> str:
+        who = group["who"].get("name") or "?"
+        text = NUDGE_SYMBOL.get(group["kind"], "") + " " + t("nudge_in_" + group["kind"], name=who,
+                                                              pet=self.pet.s.get("name", "Pip"))
+        if group["count"] > 1:
+            text += " " + t("nudge_times", n=group["count"])
+        return text
+
+    def _show_nudge(self, group):
+        code, kind = group["code"], group["kind"]
+        actions = [
+            (NUDGE_SYMBOL[kind] + " " + t("nudge_back_" + kind), lambda c=code, k=kind: self.nudge(c, k)),
+            ("\U0001F4AC", lambda c=code: self.open_window("chat", room="dm:" + c)),
+        ]
+        text = self._nudge_text(group)
+        pet = self.pet
+        if pet.visible and not pet.fs_hidden:
+            if getattr(pet, "sleeping", False):
+                pet.wake("poke", quiet=True)
+            self._nudge_react(kind)
+            if pet.say(text, actions=actions, duration=10, priority=2):
+                return
+        self._nudge_toast(group["who"], text, actions)
+
+    def _show_nudge_summary(self, groups):
+        parts = ["%s %s%s" % (g["who"].get("name") or "?", NUDGE_SYMBOL.get(g["kind"], ""),
+                              "\u00d7%d" % g["count"] if g["count"] > 1 else "") for g in groups[:4]]
+        if len(groups) > 4:
+            parts.append("+%d" % (len(groups) - 4))
+        text = t("nudge_summary", list=" \u00b7 ".join(parts))
+
+        def back_all(items=groups):
+            for g in items:
+                self.nudge(g["code"], g["kind"])
+
+        actions = [(NUDGE_SYMBOL["poke"] + " " + t("nudge_back_all"), back_all),
+                   ("\U0001F465", lambda: self.open_window("friends"))]
+        pet = self.pet
+        if pet.visible and not pet.fs_hidden:
+            self._nudge_react(groups[-1]["kind"])
+            if pet.say(text, actions=actions, duration=12, priority=2):
+                return
+        self._nudge_toast(groups[-1]["who"], text, actions)
+
+    def _nudge_react(self, kind):
+        pet = self.pet
+        try:
+            if kind == "poke":
+                pet.set_action("startle", 0.9)
+                pet._spawn("bang", 1)
+                pet._voice("greet")
+            elif kind == "tickle":
+                pet.set_action("tickle", 1.6)
+                pet._spawn("note", 2)
+                pet._spawn("sparkle", 2)
+                pet._voice("tickle")
+                pet._bump("happiness", 2)
+            elif kind == "tease":
+                pet.set_action("angry", 1.3)
+                pet._spawn("dots", 1)
+                pet._voice("grumpy")
+            elif kind == "boop":
+                pet.set_action("dizzy", 1.0)
+                pet._spawn("sparkle", 3)
+                pet._voice("happy")
+            elif kind == "hug":
+                pet.set_action("love", 2.2)
+                pet._spawn("heart", 5)
+                pet._voice("pet")
+                pet._bump("happiness", 3)
+                pet._bump("bond", 0.5)
+        except Exception:
+            logger.exception("nudge reaction failed")
+
+    def _nudge_toast(self, who, text, actions):
+        try:
+            import nudge_ui
+            nudge_ui.NudgeToast(self.pet.root, who, text, actions)
+        except Exception:
+            logger.exception("nudge toast failed")
+
     def start_visit(self, who: dict):
         if len(self.visitors) >= 2 or not self.pet.visible or self.pet.fs_hidden:
             return
@@ -1323,6 +1507,11 @@ class Social:
                 if kind == "gift_sent":
                     self.pet.say(t("gift_failed", err=payload), duration=5, priority=1)
                     return
+            if kind == "sent" and payload in NUDGE_ERRORS:
+                self.pet.say(t(NUDGE_ERRORS[payload]), duration=4, priority=1)
+                if self.window and self.window.alive():
+                    self.window.show_error(payload)
+                return
             if payload == "no_location" and self.window and self.window.alive():
                 self.window.show_error("no_location")
                 return
@@ -1338,7 +1527,7 @@ class Social:
             if kind == "sent":
                 pet = self.pet
                 pet.set_action("hop", 0.55)
-                if payload.get("_kind") in INTERACTIONS:
+                if payload.get("_kind") in INTERACTIONS or payload.get("_kind") in NUDGES:
                     pet.say(t("ix_sent_" + payload["_kind"], name=self.room_title(payload["_room"])),
                             duration=3, priority=1)
                     if payload["_kind"] == "visit":
@@ -1582,7 +1771,9 @@ class Social:
         if self.arena_open and self.window and self.window.alive() and now >= self._next_arena:
             self._next_arena = now + 3
             self.load_arena(here=True)
-        fast = self.window and self.window.alive() and self.chat_open_room
+        fast = (self.window and self.window.alive() and self.chat_open_room) or now < self._rally_until
+        if self._nudge_queue:
+            self._flush_nudges()
         if now >= self._next_inbox:
             self._next_inbox = now + (INBOX_FAST_S if fast else INBOX_EVERY_S)
             self.poll_inbox()

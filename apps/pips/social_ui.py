@@ -32,6 +32,7 @@ try:
 except ImportError:  # pragma: no cover
     weather_fx = None
 from social import ACH_IDS, ACH_SYMBOL, INTERACTIONS, INTERACTION_SYMBOL, affinity_level, default_display_name
+from social import NUDGES, NUDGE_SYMBOL
 
 try:
     from i18n import t
@@ -281,7 +282,8 @@ class FriendsWindow:
                     "bot_limit": t("bot_err_limit"), "bot": t("bot_err_friend"),
                     "expired": t("duel_expired"), "gift_limit": t("gift_err_limit"),
                     "wish_limit": t("party_err_wish_limit"), "not_birthday": t("party_err_not_birthday"),
-                    "empty": t("gift_pick")}
+                    "empty": t("gift_pick"), "nudges_off": t("nudge_err_off"),
+                    "nudge_slow": t("nudge_err_slow"), "nudge_limit": t("nudge_err_limit")}
         self.error = messages.get(code, t("fr_err_generic", code=code))
         self.refresh(force=True)
 
@@ -559,6 +561,7 @@ class FriendsWindow:
         chat_label = "\u2709 " + t("ix_btn_chat") + (f" ({unread})" if unread else "")
         buttons = [self._button(acts, chat_label, lambda r=room: self.show_tab("chat", room=r), small=True,
                                 primary=bool(unread))]
+        buttons.append(self._nudge_button(acts, person))
         for kind in INTERACTIONS:
             buttons.append(self._button(acts, INTERACTION_SYMBOL[kind] + " " + t("ix_btn_" + kind),
                                         lambda k=kind, r=room: self._interact(r, k), small=True))
@@ -576,6 +579,28 @@ class FriendsWindow:
             self._label(parent, chip, size=8, bold=days == 0, fg=self.PINK, bg=bg).pack(fill="x")
         for i, btn in enumerate(buttons):
             btn.grid(row=i // 3, column=i % 3, sticky="ew", padx=(0, 3), pady=(0, 2))
+
+    def _nudge_button(self, parent, person):
+        """'Poke' button that opens the poke / tickle / tease / boop / hug picker."""
+        code = person.get("code", "")
+        if person.get("nudges") is False:
+            return self._button(parent, "\U0001F515 " + t("nudge_btn"), lambda: self.show_error("nudges_off"),
+                                small=True)
+        button = self._button(parent, NUDGE_SYMBOL["poke"] + " " + t("nudge_btn") + " \u25be", lambda: None,
+                              small=True)
+        button.bind("<Button-1>", lambda e, c=code, w=button: self._nudge_menu(w, c))
+        return button
+
+    def _nudge_menu(self, widget, code):
+        try:
+            import nudge_ui
+            self.error = ""
+            nudge_ui.open_nudge_menu(self.win, self.social, code, widget.winfo_rootx(),
+                                     widget.winfo_rooty() + widget.winfo_height() + 2, accent=self.ACCENT)
+        except Exception:
+            import logging
+            logging.getLogger("social_ui").exception("nudge menu failed")
+        return "break"
 
     def _interact(self, room, kind):
         self.error = ""
@@ -805,6 +830,9 @@ class FriendsWindow:
         for kind in kinds:
             self._button(quick, INTERACTION_SYMBOL[kind] + " " + t("ix_btn_" + kind),
                          lambda k=kind: self._interact(room, k), small=True).pack(side="left", padx=(0, 3))
+        if not is_group and room.startswith("dm:"):
+            friend = self.social.friend(room[3:]) or {"code": room[3:]}
+            self._nudge_button(quick, friend).pack(side="left", padx=(0, 3))
         if is_group:
             for bot in social.BOTS:
                 self._button(quick, "@" + bot["handle"], lambda h=bot["handle"]: self._insert_mention(h),
@@ -1156,6 +1184,8 @@ class FriendsWindow:
             for kind in ("wave", "visit"):
                 self._button(acts, INTERACTION_SYMBOL[kind] + " " + t("ix_btn_" + kind),
                              lambda k=kind: self._interact(room, k), small=True).pack(side="left", padx=(4, 0))
+            friend = self.social.friend(code) or {"code": code}
+            self._nudge_button(acts, friend).pack(side="left", padx=(4, 0))
             lb = self._button(acts, "\u2661 " + t("lbl_set"), lambda: None, small=True)
             lb.bind("<Button-1>", lambda e: self._label_menu(e, code, user.get("label", "")))
             lb.pack(side="left", padx=(4, 0))
@@ -1693,6 +1723,12 @@ class FriendsWindow:
                                 selectcolor=self.ENTRY, activebackground=self.CARD, activeforeground=self.INK,
                                 anchor="w", justify="left", wraplength=self.WIDTH - 80)
             rb.pack(fill="x")
+        self.nudge_var = tk.BooleanVar(value=self.social.allow_nudges())
+        tk.Checkbutton(self.body, text=NUDGE_SYMBOL["poke"] + " " + t("nudge_allow"), variable=self.nudge_var,
+                       command=lambda: self.social.set_allow_nudges(self.nudge_var.get()),
+                       font=("Segoe UI", 9), bg=self.CARD, fg=self.INK, selectcolor=self.ENTRY,
+                       activebackground=self.CARD, activeforeground=self.INK, anchor="w").pack(fill="x", pady=(6, 0))
+        self._label(self.body, t("nudge_allow_hint"), size=8, fg=self.MUTED, wrap=self.WIDTH - 80).pack(fill="x")
         # status
         self._section_title(t("prof_status"))
         srow = tk.Frame(self.body, bg=self.CARD)
