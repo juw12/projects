@@ -606,7 +606,10 @@
       "card": {
         "capture": "mint/budget/demo.html",
         "label": "mint · budget",
-        "wait_ms": 2500
+        "wait_ms": 2500,
+        "accent": "#0f9d76",
+        "accent2": "#2f699e",
+        "theme": "dark"
       },
       "links": {
         "app": "mint/budget/index.html",
