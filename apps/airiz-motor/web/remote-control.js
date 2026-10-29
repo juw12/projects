@@ -158,6 +158,9 @@
     resumedApprovals: new Map(), // device id -> key hash, allowed before the reload / update
     pendingResume: null,      // a share to continue as soon as the AIRIZ is connected
     hashes: new Map(),        // device id + key -> key hash (for the resume record)
+    ownCode: false,           // 1.11.4: sharing with the owner's own code (not a random one)
+    ask: null,                // 1.11.4: the "asks to control" prompt
+    attention: false,         // 1.11.4: someone waits for Allow (taskbar flash, tab title)
   };
 
   function storageOf(kind) {
@@ -184,18 +187,30 @@
       + '<input id="share-control-link" class="input" readonly aria-label="Remote control link">'
       + '<button id="share-control-copy" class="btn">Copy link</button></div>'
       + '<p id="share-control-status" class="phone-remote-status" role="status"></p>'
+      // 1.11.4: the owner's own code (like a password) instead of a new random code each time.
+      + '<section class="phone-remote-clients share-own-code" aria-labelledby="share-code-title">'
+      + '<h3 id="share-code-title">Your code</h3>'
+      + '<p id="share-code-note" class="share-control-hint"></p>'
+      + '<div class="share-code-row">'
+      + '<input id="share-code-input" class="input" inputmode="numeric" autocomplete="off" maxlength="6" '
+      + 'pattern="[0-9]*" placeholder="6 digits" aria-label="Your own 6-digit code">'
+      + '<button id="share-code-save" class="btn btn-secondary" type="button">Use my code</button>'
+      + '<button id="share-code-random" class="btn" type="button" hidden>Use random codes</button></div>'
+      + '<p id="share-code-error" class="share-code-error" role="alert" hidden></p></section>'
       // Ziris PTB co-admins: ziris-team.js fills this line (auto-post to Teams) and the resend button.
       + '<div class="share-control-teams-row"><p id="share-control-teams" class="share-control-teams-status" aria-live="polite" hidden></p>'
       + '<button id="share-control-teams-send" class="btn btn-sm btn-secondary" type="button" hidden>Send to Teams</button></div>'
       + '<section class="phone-remote-clients" aria-labelledby="share-control-list-title">'
       + '<h3 id="share-control-list-title">Controllers</h3>'
       + '<p class="share-control-hint">Several phones or PCs can control at the same time. '
-      + 'Allow &amp; remember lets a device in by itself next time.</p>'
+      + 'Allow &amp; remember lets a device in by itself next time, also after the code changes.</p>'
       + '<ul id="share-control-list" aria-live="polite"><li class="muted">Nobody yet.</li></ul></section>'
       + '<section class="phone-remote-clients share-trust" aria-labelledby="share-trust-title">'
       + '<h3 id="share-trust-title">Remembered devices</h3>'
       + '<label class="share-option"><input type="checkbox" id="share-trust-auto"> '
       + '<span>Let remembered devices in automatically (no Allow needed)</span></label>'
+      + '<label class="share-option"><input type="checkbox" id="share-trust-remember"> '
+      + '<span>Remember every device I allow</span></label>'
       + '<ul id="share-trust-list"></ul></section>'
       + '<label class="share-option"><input type="checkbox" id="share-keep-awake"> '
       + '<span>Keep this PC awake while sharing</span></label>'
@@ -225,6 +240,21 @@
         ? 'Remembered devices are let in automatically.'
         : 'Remembered devices now wait for Allow like any other device.');
     });
+    $('share-trust-remember').addEventListener('change', event => {
+      trustStore.setAutoRemember(event.target.checked);
+      toast(event.target.checked
+        ? 'Devices you allow are remembered and come back without asking.'
+        : 'Allow lets a device in once. Use Allow & remember to remember it.');
+      hostRender();
+    });
+    $('share-code-save').addEventListener('click', () => hostSetOwnCode($('share-code-input').value));
+    $('share-code-input').addEventListener('keydown', event => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        hostSetOwnCode(event.target.value);
+      }
+    });
+    $('share-code-random').addEventListener('click', hostUseRandomCodes);
     $('share-keep-awake').checked = keepAwakeWanted();
     $('share-keep-awake').addEventListener('change', event => {
       try {
@@ -242,6 +272,7 @@
     });
     host.dialog = dialog;
     hostRenderTrust();
+    hostRenderOwnCode();
     hostRenderAwake();
     document.dispatchEvent(new CustomEvent('airiz:share-dialog'));
     return dialog;
@@ -313,13 +344,7 @@
       meta.append(makeSpan(stateText), makeSpan(pathText(controller)), makeSpan(ageText(controller.since)));
       item.append(meta);
       if (controller.state === 'pending') {
-        item.append(makeButton('Allow', 'btn btn-primary', () => hostApprove(controller.cid)));
-        if (controller.device) {
-          item.append(makeButton('Allow & remember', 'btn btn-secondary share-allow-remember',
-            () => hostApprove(controller.cid, { remember: true }),
-            'Allow now and let this device in by itself next time'));
-        }
-        item.append(makeButton('Deny', 'btn', () => hostDeny(controller.cid, 'denied')));
+        item.append(...decisionButtons(controller));
       } else {
         if (controller.device && !controller.remembered) {
           item.append(makeButton('Remember', 'btn btn-secondary share-remember',
@@ -331,6 +356,199 @@
     });
     list.replaceChildren(...(rows.length ? rows
       : [Object.assign(document.createElement('li'), { className: 'muted', textContent: host.code ? 'Waiting for a device to connect…' : 'Nobody yet.' })]));
+    hostRenderAsk();
+  }
+
+  // 1.11.4: one set of decision buttons for the Controllers list and the "asks to control" prompt.
+  // With "Remember every device I allow" (default on) the main button remembers the device.
+  function decisionButtons(controller) {
+    const cid = controller.cid;
+    const buttons = [];
+    const canRemember = !!controller.device;
+    if (canRemember && trustStore.autoRemember) {
+      buttons.push(makeButton('Allow & remember', 'btn btn-primary share-allow-remember',
+        () => hostApprove(cid, { remember: true }),
+        'Allow now and let this device in by itself next time'));
+      buttons.push(makeButton('Allow once', 'btn btn-secondary share-allow-once',
+        () => hostApprove(cid, { remember: false }), 'Allow now; ask again next time'));
+    } else {
+      buttons.push(makeButton('Allow', 'btn btn-primary share-allow',
+        () => hostApprove(cid, { remember: false })));
+      if (canRemember) {
+        buttons.push(makeButton('Allow & remember', 'btn btn-secondary share-allow-remember',
+          () => hostApprove(cid, { remember: true }),
+          'Allow now and let this device in by itself next time'));
+      }
+    }
+    buttons.push(makeButton('Deny', 'btn share-deny', () => hostDeny(cid, 'denied')));
+    if (!canRemember) {
+      buttons.push(makeSpan('This device cannot be remembered (its browser keeps no data).', 'share-row-note'));
+    }
+    return buttons;
+  }
+
+  function pendingControllers() {
+    return [...host.controllers.values()].filter(controller => controller.state === 'pending' && controller.trust !== 'checking');
+  }
+
+  // A prompt on top of everything else, so a request is never just a toast that goes away.
+  function hostBuildAsk() {
+    const dialog = document.createElement('dialog');
+    dialog.id = 'share-ask-dialog';
+    dialog.className = 'help-dialog share-ask-dialog';
+    dialog.setAttribute('aria-labelledby', 'share-ask-title');
+    dialog.innerHTML = '<h2 id="share-ask-title">A device asks to control the AIRIZ</h2>'
+      + '<ul id="share-ask-list" class="share-ask-list"></ul>'
+      + '<p class="share-control-hint">Allow &amp; remember lets the device in by itself next time, also after the code changes. '
+      + 'Forget it any time in Share control.</p>'
+      + '<div class="desktop-update-actions">'
+      + '<button id="share-ask-later" class="btn btn-secondary" type="button">Decide later</button></div>';
+    document.body.append(dialog);
+    $('share-ask-later').addEventListener('click', () => dialog.close());
+    host.ask = dialog;
+    return dialog;
+  }
+
+  function hostRenderAsk() {
+    const pending = host.code ? pendingControllers() : [];
+    hostAttention(pending.length);
+    const dialog = host.ask;
+    if (!dialog) return;
+    if (!pending.length) {
+      if (dialog.open) dialog.close();
+      return;
+    }
+    $('share-ask-list').replaceChildren(...pending.map(controller => {
+      const item = document.createElement('li');
+      item.dataset.cid = controller.cid;
+      const name = document.createElement('strong');
+      name.textContent = controller.label;
+      item.append(name);
+      if (controller.trust === 'mismatch') {
+        item.append(makeSpan('key changed', 'share-badge is-warning'),
+          makeSpan('Its key does not match the remembered device. Check it before allowing.', 'share-row-note'));
+      }
+      const meta = document.createElement('span');
+      meta.className = 'share-row-meta';
+      meta.append(makeSpan('asks to control'), makeSpan(pathText(controller)), makeSpan(ageText(controller.since)));
+      const actions = document.createElement('span');
+      actions.className = 'share-ask-actions';
+      actions.append(...decisionButtons(controller));
+      item.append(meta, actions);
+      return item;
+    }));
+  }
+
+  // A new request: show it where the owner is looking. The Share control dialog, when open,
+  // already lists it (scrolled into view); otherwise the prompt opens on top of the page.
+  function hostShowRequest(controller) {
+    if (host.dialog && host.dialog.open) {
+      const row = document.querySelector('#share-control-list li[data-cid="' + controller.cid + '"]');
+      if (row) row.scrollIntoView({ block: 'nearest' });
+      return;
+    }
+    const dialog = host.ask || hostBuildAsk();
+    hostRenderAsk();
+    if (!dialog.open) {
+      try {
+        dialog.showModal();
+      } catch (ignored) {
+        dialog.setAttribute('open', '');
+      }
+    }
+    const first = dialog.querySelector('button.btn-primary');
+    if (first) first.focus();
+  }
+
+  // Taskbar flash (Windows app) and a tab title mark while someone waits for Allow.
+  function hostAttention(count) {
+    const waiting = count > 0;
+    if (host.attention === waiting) return;
+    host.attention = waiting;
+    const mark = '(!) ';
+    if (waiting && !document.title.startsWith(mark)) document.title = mark + document.title;
+    if (!waiting && document.title.startsWith(mark)) document.title = document.title.slice(mark.length);
+    const desktop = window.airizDesktop;
+    if (desktop && typeof desktop.requestAttention === 'function') {
+      try {
+        const pending = desktop.requestAttention(waiting);
+        if (pending && typeof pending.catch === 'function') pending.catch(() => {});
+      } catch (ignored) { /* older desktop build */ }
+    }
+  }
+
+  // ------------------------------------------------------------------ PC: the owner's own code (1.11.4)
+  function hostRenderOwnCode() {
+    const note = $('share-code-note');
+    if (!note) return;
+    const own = session.loadOwnCode(SHARE_STORE);
+    note.replaceChildren();
+    if (own) {
+      note.append(makeSpan('Your own code:'), document.createTextNode(' '),
+        Object.assign(document.createElement('strong'), { className: 'share-own-code-value', textContent: own }),
+        document.createTextNode(' '),
+        makeSpan('It is used every time you share, like a password. Change it any time; the old code then stops working.'));
+    } else {
+      note.append(makeSpan('A new random code is made each time you share. '
+        + 'Type your own 6 digits to keep one code, like a password you can change any time.'));
+    }
+    $('share-code-random').hidden = !own;
+    $('share-code-save').textContent = own ? 'Change code' : 'Use my code';
+    $('share-code-input').placeholder = own ? 'New 6 digits' : '6 digits';
+  }
+
+  function hostCodeError(text) {
+    const error = $('share-code-error');
+    if (!error) return;
+    error.textContent = text || '';
+    error.hidden = !text;
+  }
+
+  function hostSetOwnCode(value) {
+    const result = session.saveOwnCode(SHARE_STORE, String(value || '').replace(/[\s-]/g, ''));
+    if (!result.ok) {
+      hostCodeError(result.reason === 'easy'
+        ? 'That code is too easy to guess, and another AIRIZ owner may pick it too. Try less obvious digits.'
+        : result.reason === 'storage'
+          ? 'This browser could not save the code (storage blocked).'
+          : 'Use exactly 6 digits.');
+      return result;
+    }
+    hostCodeError('');
+    $('share-code-input').value = '';
+    hostRenderOwnCode();
+    const code = result.code;
+    if (host.code && host.code !== code) {
+      hostChangeCode(code);
+    } else if (host.code) {
+      host.ownCode = true;
+      toast('You are already sharing with code ' + code + '. It stays your code.');
+    } else {
+      toast('Saved. Your code ' + code + ' is used every time you share.');
+    }
+    return result;
+  }
+
+  function hostUseRandomCodes() {
+    session.clearOwnCode(SHARE_STORE);
+    hostCodeError('');
+    hostRenderOwnCode();
+    toast(host.code
+      ? 'Random codes from the next time you share. The current code keeps working until you stop sharing.'
+      : 'A new random code is made each time you share.');
+  }
+
+  // Sharing moves to the new code at once: devices on the old code are disconnected and told the
+  // code changed. Remembered devices are let in by themselves once they type the new code.
+  function hostChangeCode(code) {
+    hostStop(null, true, { reason: 'code-changed' });
+    hostStart(0, { code, own: true });
+    if (host.code === code) {
+      const text = 'Code changed to ' + code + '. Devices on the old code were disconnected; '
+        + 'tell the people you trust the new code.';
+      hostSetStatus(text);
+      toast(text);
+    }
   }
 
   function hostRenderTrust() {
@@ -338,6 +556,8 @@
     const list = $('share-trust-list');
     if (!auto || !list) return;
     auto.checked = trustStore.autoAllow;
+    const rememberAll = $('share-trust-remember');
+    if (rememberAll) rememberAll.checked = trustStore.autoRemember;
     const devices = trustStore.list();
     if (!devices.length) {
       list.replaceChildren(Object.assign(document.createElement('li'), {
@@ -671,9 +891,11 @@
     hostSend(controller, { type: 'state', state: 'pending', pc: deviceLabel(), v: PROTOCOL_VERSION });
     toast(decision === 'ask-warning'
       ? controller.label + ' asks to control the AIRIZ, but its key does not match the remembered device. Check it before allowing.'
-      : controller.label + ' asks to control the AIRIZ. Allow it in Share control.');
-    if (host.dialog && !host.dialog.open) host.dialog.showModal();
+      : controller.label + ' asks to control the AIRIZ.');
     hostRender();
+    // 1.11.4: Allow / Allow & remember / Deny right where the owner is looking (was: only the
+    // list inside Share control, which a toast pointed to).
+    hostShowRequest(controller);
   }
 
   // A transport path (one PeerJS connection or one relay controller id) said something.
@@ -873,13 +1095,14 @@
     peer.on('error', error => {
       if (host.peer !== peer) return;
       if (error && error.type === 'unavailable-id') {
-        if (!host.peerOpened && attempt < 3 && !host.resumed) {
+        if (!host.peerOpened && attempt < 3 && !host.resumed && !host.ownCode) {
           // Another PC already uses this code on the PeerJS server: start over with a new code.
           hostStop(null, true);
           hostStart(attempt + 1);
           return;
         }
-        // Our own registration from before a sleep is still held: keep the code, try again soon.
+        // Our own registration from before a sleep is still held (or, for the owner's own code,
+        // another console holds it - the relay check below stops one of them): keep the code.
         hostRecreatePeer(code, 'id-held');
       }
       // Other PeerJS errors: the AIRIZ relay keeps serving controllers; the health check repairs this.
@@ -1002,12 +1225,32 @@
       host.relayStale.delete(key);
       hostReceive(key, hostRelaySender(from), null, message);
     });
-    socket.addEventListener('close', () => {
+    socket.addEventListener('close', event => {
       if (host.relay !== socket) return;
       host.relay = null;
+      // 1.11.4: the relay closes a PC socket with 4000 when another PC joins the same code. With a
+      // random code that is our own newer socket (handled above); with the owner's own code it can
+      // be another console using the same code: stop here instead of taking turns with it.
+      if (event && event.code === 4000 && host.ownCode && host.code === code) {
+        hostCodeTaken(code);
+        return;
+      }
       hostRelayDetached();
       if (host.code === code && !host.asleep) host.relayRetry = setTimeout(() => hostStartRelay(code), RELAY_RETRY_MS);
     });
+  }
+
+  function hostCodeTaken(code) {
+    hostStop(null, true);
+    const text = 'Code ' + code + ' is now shared by another AIRIZ console (another PC or window), so sharing stopped here. '
+      + 'Choose a different code in Share control, then Start sharing.';
+    hostSetStatus(text);
+    toast(text);
+    if (host.dialog && !host.dialog.open) {
+      try {
+        host.dialog.showModal();
+      } catch (ignored) { /* another modal is open */ }
+    }
   }
 
   // The PC's relay socket closed or was replaced. Devices on the relay keep their place for a
@@ -1202,9 +1445,13 @@
       return;
     }
     if (host.code) return;
-    const resumeCode = /^\d{6}$/.test(String(settings.code || '')) ? String(settings.code) : null;
-    const code = resumeCode || randomDigits();
+    const givenCode = /^\d{6}$/.test(String(settings.code || '')) ? String(settings.code) : null;
+    // 1.11.4: the owner's own code (Share control > Your code) instead of a random one.
+    const ownCode = session.loadOwnCode(SHARE_STORE);
+    const resumeCode = givenCode && !settings.own ? givenCode : null;
+    const code = givenCode || ownCode || randomDigits();
     host.code = code;
+    host.ownCode = !!ownCode && code === ownCode;
     host.resumed = !!resumeCode;
     host.resumedApprovals = new Map(resumeCode && Array.isArray(settings.approved) ? settings.approved : []);
     host.pendingResume = null;
@@ -1225,6 +1472,9 @@
     $('share-control-stop').disabled = false;
     if (resumeCode) {
       hostSetStatus('Sharing again with the same code ' + code + '. Devices that were connected come back by themselves.');
+    } else if (host.ownCode) {
+      hostSetStatus('Sharing with your own code ' + code + '. On the phone or other PC: open the AIRIZ console and type it '
+        + 'into Control by code. Keep this window open while sharing.');
     } else {
       hostSetStatus('On the phone or other PC: open the AIRIZ console and type '
         + code + ' into Control by code (or open the link). Keep this window open while sharing.');
@@ -1246,8 +1496,10 @@
       hostBroadcast({ type: 'ended', reason: 'restart' });
     } else {
       // Tell every device the share ended on purpose, so phones do not try to reconnect.
+      // 1.11.4: 'code-changed' = the owner moved to a new code (phones say so, and stop).
       session.clearShareResume(SHARE_STORE);
-      hostBroadcast({ type: 'ended', reason: 'stopped' });
+      if (settings.reason === 'code-changed') hostBroadcast({ type: 'ended', reason: 'code-changed' });
+      else hostBroadcast({ type: 'ended', reason: 'stopped' });
     }
     const motorRisk = approvedControllers().some(controller => Date.now() - controller.lastMotorAt < MOTOR_STOP_WINDOW_MS);
     const leaving = [...host.controllers.keys()];
@@ -1259,6 +1511,7 @@
     }
     if (host.code) document.dispatchEvent(new CustomEvent('airiz:share-code', { detail: { kind: 'control', code: null } }));
     host.code = null;
+    host.ownCode = false;
     host.resumed = false;
     host.resumedApprovals = new Map();
     host.sessionApproved.clear();
@@ -1505,7 +1758,10 @@
       }
       if (message.type === 'ended' && (!active || active === path)) {
         if (message.reason === 'stopped') lost(linkError('stopped', 'The PC stopped sharing control.'));
-        else if (message.reason === 'restart') {
+        else if (message.reason === 'code-changed') {
+          // 1.11.4: the owner moved to a new code; this device needs the new one (no retrying).
+          lost(linkError('code-changed', 'The PC owner changed the code. Ask them for the new code.'));
+        } else if (message.reason === 'restart') {
           lost(linkError('restart', 'The PC is restarting for an update - this device reconnects to the same code by itself.'));
         } else lost(linkError('pc-gone', 'The PC left (asleep or offline?).'));
       }
@@ -1816,6 +2072,9 @@
     if (!session.canStartRetry(reason)) {
       session.clearPhoneResume(PHONE_STORE);
       phoneSay(ui, (error && error.message) || 'The connection to the PC was lost.');
+      // 1.11.4: keep this reason on screen (not the generic "Disconnected" line after it).
+      if (inline.card) inline.card.dataset.wasRemote = '';
+      if (reason === 'code-changed') toast(error.message);
       return;
     }
     phoneStopRetry();
@@ -2116,6 +2375,27 @@
     },
     get autoAllowRemembered() {
       return trustStore.autoAllow;
+    },
+    // 1.11.4: Allow remembers the device; the owner's own code.
+    get autoRemember() {
+      return trustStore.autoRemember;
+    },
+    get ownCode() {
+      return session.loadOwnCode(SHARE_STORE);
+    },
+    get usingOwnCode() {
+      return !!host.ownCode;
+    },
+    setOwnCode(code) {
+      if (!host.dialog) hostBuildDialog();
+      return hostSetOwnCode(code);
+    },
+    useRandomCodes() {
+      if (!host.dialog) hostBuildDialog();
+      hostUseRandomCodes();
+    },
+    get pendingRequests() {
+      return pendingControllers().map(controller => controller.label);
     },
     get reconnecting() {
       return !!phone.retry;

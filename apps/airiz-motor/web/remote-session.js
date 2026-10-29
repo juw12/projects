@@ -9,6 +9,9 @@
  * Also shared by remote-control.js and camera-relay.js: the phone reconnect policy, a
  * liveness check, a sleep/wake hub and the keep-awake switch used while sharing.
  *
+ * 1.11.4: the owner can keep one code of their own (like a password, changeable any time) and
+ * devices the owner allows are remembered by default ("Remember every device I allow").
+ *
  * 1.9.1: phones never stop reconnecting by themselves (every minute after the first ten),
  * a reloaded phone page carries on with the same code, and a PC console that reloads or
  * restarts for an update shares again with the SAME code (resume records below).
@@ -111,12 +114,17 @@
       const devices = Array.isArray(saved.devices)
         ? saved.devices.filter(item => item && ID_PATTERN.test(item.id) && HASH_PATTERN.test(item.keyHash))
         : [];
-      return { autoAllow: saved.autoAllow !== false, devices };
+      // 1.11.4: autoRemember (default on) = Allow also remembers the device.
+      return { autoAllow: saved.autoAllow !== false, autoRemember: saved.autoRemember !== false, devices };
     }
 
     function save(data) {
       data.devices.sort((first, second) => (second.lastSeen || 0) - (first.lastSeen || 0));
-      return writeJson(store, TRUST_KEY, { autoAllow: data.autoAllow, devices: data.devices.slice(0, MAX_DEVICES) });
+      return writeJson(store, TRUST_KEY, {
+        autoAllow: data.autoAllow,
+        autoRemember: data.autoRemember,
+        devices: data.devices.slice(0, MAX_DEVICES),
+      });
     }
 
     return {
@@ -126,6 +134,14 @@
       setAutoAllow(flag) {
         const data = load();
         data.autoAllow = !!flag;
+        return save(data);
+      },
+      get autoRemember() {
+        return load().autoRemember;
+      },
+      setAutoRemember(flag) {
+        const data = load();
+        data.autoRemember = !!flag;
         return save(data);
       },
       list() {
@@ -311,6 +327,58 @@
     const age = clock(settings.now) - record.at;
     if (!(age >= -60000 && age < SHARE_RESUME_MAX_MS)) return false;
     return record.reason === 'update' || settings.navigation === 'reload';
+  }
+
+  // ------------------------------------------------------------------ PC: the owner's own code (1.11.4)
+  // The share code is also the address phones look the PC up by (PeerJS id and relay room), so
+  // it stays 6 digits. Codes anyone would try first are refused: another AIRIZ owner picking the
+  // same code would take turns with this PC for the same address.
+  const OWN_CODE_KEY = 'airiz.share.ownCode.v1';
+
+  function easyCode(code) {
+    const digits = Array.from(code, Number);
+    const steps = digits.slice(1).map((digit, index) => (digit - digits[index] + 10) % 10);
+    if (steps.every(step => step === 0)) return true;                       // 111111
+    if (steps.every(step => step === 1) || steps.every(step => step === 9)) return true; // 123456, 654321, 890123
+    if (code.slice(0, 2).repeat(3) === code) return true;                    // 121212
+    if (code.slice(0, 3).repeat(2) === code) return true;                    // 123123
+    if (code === code.split('').reverse().join('')) return true;             // 123321
+    if (code[0] === code[1] && code[2] === code[3] && code[4] === code[5]) {
+      const pairs = [digits[0], digits[2], digits[4]];
+      const up = (pairs[1] - pairs[0] + 10) % 10;
+      if (up === (pairs[2] - pairs[1] + 10) % 10) return true;              // 112233, 332211, 777777
+    }
+    return false;
+  }
+
+  // { ok: true, code } or { ok: false, reason: 'format' | 'easy' }
+  function checkOwnCode(value) {
+    const code = String(value == null ? '' : value).replace(/\s+/g, '');
+    if (!CODE_PATTERN.test(code)) return { ok: false, reason: 'format' };
+    if (easyCode(code)) return { ok: false, reason: 'easy' };
+    return { ok: true, code };
+  }
+
+  function loadOwnCode(storage) {
+    if (!storage) return null;
+    const saved = readJson(storage, OWN_CODE_KEY);
+    const check = checkOwnCode(saved && saved.code);
+    return check.ok ? check.code : null;
+  }
+
+  function saveOwnCode(storage, value, now) {
+    const check = checkOwnCode(value);
+    if (!check.ok) return check;
+    if (!storage || !writeJson(storage, OWN_CODE_KEY, { code: check.code, at: clock(now) })) {
+      return { ok: false, reason: 'storage' };
+    }
+    return check;
+  }
+
+  function clearOwnCode(storage) {
+    try {
+      if (storage) storage.removeItem(OWN_CODE_KEY);
+    } catch (ignored) { /* storage blocked */ }
   }
 
   // ------------------------------------------------------------------ liveness (phone side)
@@ -515,6 +583,7 @@
     PHONE_RESUME_MAX_MS,
     SHARE_RESUME_KEY,
     SHARE_RESUME_MAX_MS,
+    OWN_CODE_KEY,
     memoryStorage,
     loadIdentity,
     validIdentity,
@@ -531,6 +600,10 @@
     loadShareResume,
     clearShareResume,
     shouldResumeShare,
+    checkOwnCode,
+    loadOwnCode,
+    saveOwnCode,
+    clearOwnCode,
     createLiveness,
     createWakeDetector,
     onWake,

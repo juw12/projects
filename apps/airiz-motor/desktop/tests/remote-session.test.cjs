@@ -529,3 +529,73 @@ test('the console wires the new session pieces together', () => {
   const relay = fs.readFileSync(path.join(__dirname, '..', '..', 'relay', 'src', 'index.js'), 'utf8');
   assert.match(relay, /const MAX_CONTROLLERS = 20;/, 'up to 20 phones control through the relay');
 });
+
+
+// 1.11.4: the owner's own code, Allow remembers by default, a request is never only a toast.
+test('the owner can keep an own 6-digit code; easy codes are refused', () => {
+  for (const good of ['482913', '905172', '246810', '135790', '070809']) {
+    assert.deepEqual(session.checkOwnCode(good), { ok: true, code: good }, good);
+  }
+  for (const easy of ['000000', '111111', '123456', '654321', '890123', '121212', '123123', '123321', '112233', '332211']) {
+    assert.deepEqual(session.checkOwnCode(easy), { ok: false, reason: 'easy' }, easy);
+  }
+  for (const bad of ['', '12345', '1234567', 'abcdef', '12a456', null, undefined]) {
+    assert.equal(session.checkOwnCode(bad).reason, 'format', String(bad));
+  }
+  assert.deepEqual(session.checkOwnCode(' 482 913 '), { ok: true, code: '482913' }, 'spaces are ignored');
+
+  const storage = session.memoryStorage();
+  assert.equal(session.loadOwnCode(storage), null, 'random codes until the owner sets one');
+  assert.equal(session.saveOwnCode(storage, '123456').ok, false);
+  assert.equal(session.loadOwnCode(storage), null, 'a refused code is not stored');
+  assert.deepEqual(session.saveOwnCode(storage, '482913'), { ok: true, code: '482913' });
+  assert.equal(session.loadOwnCode(storage), '482913');
+  assert.deepEqual(session.saveOwnCode(storage, '905172'), { ok: true, code: '905172' }, 'changed any time');
+  assert.equal(session.loadOwnCode(storage), '905172');
+  storage.setItem(session.OWN_CODE_KEY, JSON.stringify({ code: '111111' }));
+  assert.equal(session.loadOwnCode(storage), null, 'a stored easy code is ignored');
+  session.saveOwnCode(storage, '482913');
+  session.clearOwnCode(storage);
+  assert.equal(session.loadOwnCode(storage), null, 'back to random codes');
+  assert.equal(session.saveOwnCode(null, '482913').reason, 'storage');
+});
+
+test('Allow remembers a device by default; the owner can turn that off', () => {
+  const storage = session.memoryStorage();
+  const trust = session.createTrustStore(storage);
+  assert.equal(trust.autoRemember, true, 'on by default');
+  assert.equal(trust.autoAllow, true);
+  trust.setAutoRemember(false);
+  assert.equal(trust.autoRemember, false);
+  assert.equal(session.createTrustStore(storage).autoRemember, false, 'kept in storage');
+  assert.equal(trust.autoAllow, true, 'the other switch is untouched');
+  trust.setAutoAllow(false);
+  assert.equal(trust.autoRemember, false, 'and the other way round');
+  trust.setAutoRemember(true);
+  assert.equal(trust.autoRemember, true);
+  // 1.9.x stores (no autoRemember field) get the new default.
+  storage.setItem(session.TRUST_KEY, JSON.stringify({ autoAllow: true, devices: [] }));
+  assert.equal(session.createTrustStore(storage).autoRemember, true);
+});
+
+test('1.11.4 wiring: request prompt, own code, code change, taskbar flash', () => {
+  const remote = fs.readFileSync(path.join(WEB, 'remote-control.js'), 'utf8');
+  assert.ok(remote.includes("dialog.id = 'share-ask-dialog'") && remote.includes('hostShowRequest(controller)'),
+    'a new request opens the Allow prompt (not only a toast)');
+  assert.ok(!remote.includes('Allow it in Share control.'), 'the old toast-only hint is gone');
+  assert.ok(remote.includes("'Allow & remember'") && remote.includes("'Allow once'") && remote.includes('trustStore.autoRemember'));
+  assert.ok(remote.includes('session.loadOwnCode(SHARE_STORE)') && remote.includes('givenCode || ownCode || randomDigits()'),
+    'Start sharing uses the owner code when there is one');
+  assert.ok(remote.includes('!host.resumed && !host.ownCode'), 'a busy PeerJS id never swaps the owner code for a random one');
+  assert.ok(remote.includes("hostBroadcast({ type: 'ended', reason: 'code-changed' })"));
+  assert.ok(remote.includes("linkError('code-changed'"), 'phones are told the code changed');
+  assert.ok(!session.canStartRetry('code-changed') && !session.canContinueRetry('code-changed'),
+    'phones do not keep retrying an old code');
+  assert.ok(remote.includes('event.code === 4000 && host.ownCode') && remote.includes('hostCodeTaken(code)'),
+    'two consoles on one own code: the older one stops instead of taking turns');
+  const preload = fs.readFileSync(path.join(__dirname, '..', 'preload.cjs'), 'utf8');
+  const main = fs.readFileSync(path.join(__dirname, '..', 'main.cjs'), 'utf8');
+  assert.ok(preload.includes("requestAttention: flag => ipcRenderer.invoke('airiz:attention', flag === true)"));
+  assert.ok(main.includes("ipcMain.handle('airiz:attention'") && main.includes('mainWindow.flashFrame(wanted)'));
+  assert.ok(remote.includes('desktop.requestAttention(waiting)'));
+});

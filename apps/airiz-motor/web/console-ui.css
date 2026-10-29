@@ -687,6 +687,19 @@ body.console-redesign { color-scheme: inherit; }
 .share-badge { font-size: 0.7rem; padding: 1px 6px; border-radius: 999px; border: 1px solid var(--color-border); }
 .share-badge.is-remembered { color: var(--color-success); border-color: currentColor; }
 .share-badge.is-warning { color: var(--color-danger); border-color: currentColor; }
+/* 1.11.4: the owner's own code, the "asks to control" prompt */
+.share-code-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 4px 0; }
+.share-code-row .input { width: 11ch; font-size: 1.1rem; letter-spacing: 0.2em; text-align: center; font-variant-numeric: tabular-nums; }
+.share-code-row .input::placeholder { letter-spacing: normal; font-size: 0.85rem; }
+.share-code-error { margin: 2px 0 0; font-size: 0.8rem; color: var(--color-danger); }
+.share-own-code-value { font-size: 1rem; letter-spacing: 0.12em; font-variant-numeric: tabular-nums; }
+.share-row-note { display: block; font-size: 0.75rem; opacity: 0.8; }
+.share-ask-dialog { max-width: min(520px, calc(100vw - 24px)); }
+.share-ask-list { list-style: none; margin: 0.5rem 0; padding: 0; display: grid; gap: 10px; }
+.share-ask-list li { display: grid; gap: 4px; padding: 10px; border: 1px solid var(--color-border); border-radius: 8px; }
+.share-ask-list strong { font-size: 1rem; }
+.share-ask-actions { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 4px; }
+.share-ask-actions .btn { min-height: 40px; }
 #share-trust-list { margin: 0; padding-left: 1.2rem; font-size: 0.85rem; display: grid; gap: 2px; }
 #share-trust-list li { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 2px 0; }
 #share-trust-list li .btn { padding: 2px 10px; min-height: 0; }

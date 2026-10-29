@@ -333,6 +333,15 @@ async function createWindow() {
     mainWindow.webContents.setBackgroundThrottling(flag !== true);
     return flag === true;
   });
+  // 1.11.4: a device asks to control while this window is minimized or behind others: flash the
+  // taskbar button until the owner looks (Windows stops the flash when the window is focused).
+  ipcMain.handle('airiz:attention', (event, flag) => {
+    if (!trustedSender(event)) throw new Error('Untrusted sender');
+    if (!mainWindow || mainWindow.isDestroyed()) return false;
+    const wanted = flag === true && !mainWindow.isFocused();
+    mainWindow.flashFrame(wanted);
+    return wanted;
+  });
   for (const state of ['suspend', 'resume']) {
     powerMonitor.on(state, () => {
       if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('airiz:power', state);

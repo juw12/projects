@@ -47,6 +47,7 @@ contextBridge.exposeInMainWorld('airizDesktop', {
   // 1.9.0: keep the PC awake while sharing; sleep / wake-up notices for the share.
   setKeepAwake: flag => ipcRenderer.invoke('airiz:keep-awake', flag === true),
   setSharing: flag => ipcRenderer.invoke('airiz:sharing', flag === true),
+  requestAttention: flag => ipcRenderer.invoke('airiz:attention', flag === true),
   setLidAwake: flag => ipcRenderer.invoke('airiz:lid-awake', flag === true),
   getPowerStatus: () => ipcRenderer.invoke('airiz:power-status'),
   onPowerChange: callback => {

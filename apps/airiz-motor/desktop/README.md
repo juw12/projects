@@ -9,7 +9,7 @@ is required to use the installed app or its hardware-free demo.
 ## Downloads
 
 Windows x64 releases are published under the app-specific tag
-`airiz-desktop-v1.11.3` in this repository's Releases section.
+`airiz-desktop-v1.11.4` in this repository's Releases section.
 
 - **Installer**: assisted, per-user installation with Start-menu/desktop shortcuts
   and an uninstaller. The wizard lets the user choose the installation directory.
@@ -163,6 +163,23 @@ reports whether a framed firmware reply came back. Results can be exported.
 No pairing is accepted without confirmation and no motor command is sent.
 Another program on the PC still cannot open COM4 while this app holds it: that is
 a Windows serial-port rule, which is why the check runs inside the app.
+
+## 1.11.4: Allow prompt, remembered devices and your own code
+
+* **The Allow buttons cannot be missed:** a phone asking to control opens a prompt on top of the page with
+  *Allow & remember*, *Allow once* and *Deny* (before, with Share control closed it was only a toast). The tab
+  title shows "(!)" and the Windows app flashes its taskbar button while someone waits.
+* **Same device, no asking:** *Remember every device I allow* (on by default) makes *Allow & remember* the main
+  button; a remembered phone is let in by itself next time, also after the code changes. *Allow once* and
+  *Forget* are still there; a device whose browser keeps no data says it cannot be remembered.
+* **Your own code:** *Share control > Your code* keeps one 6-digit code (like a password) instead of a new
+  random one each time; easy codes (111111, 123456, 121212, 123321...) are refused. *Change code* while
+  sharing moves to the new code at once: phones on the old code are disconnected, told the code changed and
+  stop retrying. *Use random codes* goes back to random codes from the next share.
+* **One code, one PC:** a second console that starts sharing the same own code takes it over; the first one
+  stops and says why instead of taking turns with it on the relay.
+* Tested: remote-session unit tests, a 24-check browser run (two phones over the real PeerJS server and relay)
+  in English and Traditional Chinese, and the existing several-phones run (48 checks).
 
 ## 1.11.3: Zones you can delete and cancel
 
