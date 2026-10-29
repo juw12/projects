@@ -1511,7 +1511,8 @@ class Social:
         self._act("circle_kicked", "/v1/circles/kick", {"circle": circle_id, "code": code})
 
     # ---- chat & interactions ----
-    def send(self, room: str, kind: str = "text", body: str = ""):
+    def send(self, room: str, kind: str = "text", body: str = "", quiet: bool = False):
+        """quiet: don't have your own pet announce it (e.g. the visitor card already reacted)."""
         if not self.enabled:
             return
         shop = getattr(self.pet, "shop", None)
@@ -1530,13 +1531,14 @@ class Social:
         if kind == "visit":
             self.data["visits_sent"] = int(self.data.get("visits_sent", 0)) + 1
             self.save()
-        self._run("sent", self._send_then_inbox, payload, room, kind)
+        self._run("sent", self._send_then_inbox, payload, room, kind, quiet)
 
-    def _send_then_inbox(self, payload, room, kind):
+    def _send_then_inbox(self, payload, room, kind, quiet=False):
         api_call("POST", "/v1/send", payload, self.account)
         result = api_call("GET", f"/v1/inbox?since={self._since()}&nudge=1&community=1", None, self.account)
         result["_room"] = room
         result["_kind"] = kind
+        result["_quiet"] = bool(quiet)
         return result
 
     def _since(self) -> int:
@@ -1824,7 +1826,11 @@ class Social:
         if len(self.visitors) >= 2 or not self.pet.visible or self.pet.fs_hidden:
             return
         try:
-            self.visitors.append(VisitorPet(self, who))
+            import visit_ui                     # v2.20: name tag + interactive card
+            greet = getattr(self.pet, "greet_visitor", None)
+            if greet is not None:
+                greet()                         # your pet comes down to the taskbar to meet it
+            self.visitors.append(visit_ui.VisitorPet(self, who))
         except Exception:
             logger.exception("visit failed")
 
@@ -1890,7 +1896,8 @@ class Social:
             if kind == "sent":
                 pet = self.pet
                 pet.set_action("hop", 0.55)
-                if payload.get("_kind") in INTERACTIONS or payload.get("_kind") in NUDGES:
+                if (payload.get("_kind") in INTERACTIONS or payload.get("_kind") in NUDGES) \
+                        and not payload.get("_quiet"):
                     pet.say(t("ix_sent_" + payload["_kind"], name=self.room_title(payload["_room"])),
                             duration=3, priority=1)
                     if payload["_kind"] == "visit":
@@ -2194,142 +2201,12 @@ class Social:
 
 
 # =============================================================================
-# A friend's pet visiting your desktop
+# A friend's pet visiting your desktop: moved to visit_ui.py in v2.20 ("Come over")
 # =============================================================================
 
-class VisitorPet:
-    DURATION_S = 25.0
-
-    def __init__(self, social: Social, who: dict):
-        import pet as pet_mod  # late import: pet imports social
-
-        self.pet_mod = pet_mod
-        self.social = social
-        self.host = social.pet
-        self.who = who
-        self.alive = True
-        host = self.host
-        visitor_look = who.get("look") if isinstance(who.get("look"), dict) else {}
-        visitor_stage = visitor_look.get("stage") if visitor_look.get("stage") in ("baby", "child", "teen") else "adult"
-        stage_scale = {"baby": 0.72, "child": 0.82, "teen": 0.92}.get(visitor_stage, 1.0)
-        base_size = pet_mod.SIZES.get(host.s.get("size"), host.size) if hasattr(pet_mod, "SIZES") else host.size
-        self.size = int(base_size * 0.9 * stage_scale)
-        self.W = int(self.size * 2.0)
-        self.H = int(self.size * 2.0)
-        species = who.get("species") if who.get("species") in pet_mod.SPECIES else "cat"
-        self.props = pet_shop.clean_look(who.get("look")) if pet_shop is not None else {}
-        self.trick = who.get("trick") if pet_shop is not None and who.get("trick") in pet_shop.MOVES else None
-        self.trick_t0 = None
-        self.look_base = pet_mod.default_look({"species": species,
-                                               "color": who.get("color") or pet_mod.SPECIES[species]["color"],
-                                               "gender": visitor_look.get("gender", ""),
-                                               "stage": visitor_stage})
-        self.look_base["head_prop"] = bool(self.props.get("head"))
-        self.win = tk.Toplevel(host.root)
-        self.win.overrideredirect(True)
-        self.win.attributes("-topmost", True)
-        self.win.configure(bg=pet_mod.KEY)
-        try:
-            self.win.attributes("-transparentcolor", pet_mod.KEY)
-        except tk.TclError:
-            pass
-        self.cv = tk.Canvas(self.win, width=self.W, height=self.H, bg=pet_mod.KEY, highlightthickness=0,
-                            cursor="hand2")
-        self.cv.pack()
-        self.cv.bind("<Button-1>", self._on_click)
-        wx, wy, w, h = host.window_rect()
-        screen_w = host.root.winfo_screenwidth()
-        self.side = -1 if wx + w + self.W > screen_w - 10 else 1   # which side of your pet
-        self.floor = wy + h
-        self.target_x = (wx - self.W + 10) if self.side < 0 else (wx + w - 10)
-        self.x = float(self.target_x + self.side * 160)
-        self.t0 = time.monotonic()
-        self.hop_until = self.t0 + 1.5
-        self.hearts = []
-        self.leaving = False
-        self._frame()
-
-    def _on_click(self, _event):
-        self.hop_until = time.monotonic() + 0.8
-        self.hearts.append([self.W / 2, self.H - self.size * 1.1, time.monotonic()])
-
-    def leave(self, now=False):
-        if now:
-            self.alive = False
-            try:
-                self.win.destroy()
-            except tk.TclError:
-                pass
-        else:
-            self.leaving = True
-
-    def _frame(self):
-        if not self.alive:
-            return
-        now = time.monotonic()
-        age = now - self.t0
-        if age > self.DURATION_S:
-            self.leaving = True
-        goal = self.target_x + (self.side * 220 if self.leaving else 0)
-        walking = abs(goal - self.x) > 2
-        if walking:
-            step = 3.2 if self.leaving else 2.6
-            self.x += step if goal > self.x else -step
-        elif self.leaving:
-            self.leave(now=True)
-            return
-        look = dict(self.look_base)
-        look["t"] = now
-        look["facing"] = (1 if goal > self.x else -1) if walking else -self.side
-        phase = now * 9
-        if walking:
-            look["foot_l"] = math.sin(phase) * 3
-            look["foot_r"] = -math.sin(phase) * 3
-            look["hop"] = abs(math.sin(phase)) * 2
-        if now < self.hop_until:
-            look["hop"] = abs(math.sin((self.hop_until - now) * 9)) * 10
-            look["mouth"] = "open"
-        else:
-            look["mouth"] = "smile"
-        if int(age * 2) % 9 == 0 and not walking:
-            look["eyes"] = "happy"
-        if self.look_base["species"] in self.pet_mod.SPECIES and \
-                self.pet_mod.SPECIES[self.look_base["species"]].get("cat") == "air":
-            look["flap"] = math.sin(now * 14)
-            look["hover"] = 6 + math.sin(now * 2) * 3
-        if self.trick and not walking and not self.leaving and age > 2.5:
-            if self.trick_t0 is None:
-                self.trick_t0 = now
-            span = min(pet_shop.MOVES[self.trick][1], 4.0)
-            p = (now - self.trick_t0) / span
-            if p <= 1.0 and self.trick not in ("spider", "moonwalk"):
-                pet_shop.trick_pose(look, self.trick, p, now)
-            elif p <= 1.0:
-                pet_shop.trick_pose(look, "dance", p, now)
-        if not walking and age > 3 and int(age) % 5 == 0 and not self.hearts:
-            self.hearts.append([self.W / 2 + random.uniform(-8, 8), self.H - self.size * 1.1, now])
-        try:
-            self.cv.delete("all")
-            if self.props:
-                pet_shop.draw_back_props(self.cv, self.pet_mod.body_geometry(self.W / 2, self.H - 4, self.size, look),
-                                         self.props, now)
-            geo = self.pet_mod.draw_pet(self.cv, self.W / 2, self.H - 4, self.size, look)
-            if self.props:
-                pet_shop.draw_front_props(self.cv, geo, self.props, now)
-            name = (self.who.get("name") or "?")[:16]
-            label_y = self.H - self.size * 1.25 - look.get("hop", 0) - look.get("hover", 0)
-            self.cv.create_text(self.W / 2, max(8, label_y), text=name, font=("Segoe UI", 8, "bold"),
-                                fill="#8b1a1a")
-            keep = []
-            for hx, hy, born in self.hearts:
-                life = now - born
-                if life < 1.6:
-                    self.cv.create_text(hx, hy - life * 25, text="\u2665", fill="#ff6b8b",
-                                        font=("Segoe UI Symbol", 12))
-                    keep.append([hx, hy, born])
-            self.hearts = keep
-            self.win.geometry("%dx%d+%d+%d" % (self.W, self.H, int(self.x), int(self.floor - self.H)))
-        except tk.TclError:
-            self.alive = False
-            return
-        self.host.root.after(40, self._frame)
+def __getattr__(name):
+    """Keep `social.VisitorPet` working for older callers (PEP 562 lazy attribute)."""
+    if name == "VisitorPet":
+        import visit_ui
+        return visit_ui.VisitorPet
+    raise AttributeError("module 'social' has no attribute %r" % name)
