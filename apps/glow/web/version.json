@@ -1,7 +1,8 @@
 {
-  "version": "1.24.0",
+  "version": "1.24.1",
   "released": "2026-10-29",
   "notes": [
+    "🌸 Connecting a Pollinations wallet now shows Glow by name on the approval screen and always brings you back to GlowChat, also when it was opened as …/index.html",
     "🔋 Low power mode: one tap next to the token counter for shorter answers and less chat history sent, so every reply uses fewer tokens",
     "Choose your main AI service in Settings: Auto, Puter, Pollinations (your own Pollen wallet), only your own keys, or only this device",
     "🌸 Connect a Pollinations wallet: Claude Opus, GPT, Gemini, Kimi, Grok and more, paid with your own Pollen",
