@@ -7,18 +7,25 @@
 3. The app window's plumbing (app_window.py): one window at a time (show/quit over loopback),
    sizes that fit the screen, test mode never opening a browser, the Linux helper bowing out
    cleanly without GTK. (The window itself is opened by smoke_test.py --window in CI.)
-4. Every download link in app.js, README.md and scripts/apps.json names a file that the release
+4. Agent start-up: no reverse-DNS stall when the agent binds its port, the launcher gives up at
+   once if the agent dies but waits for a slow one, and a hung start-up gets logged.
+5. Every download link in app.js, README.md and scripts/apps.json names a file that the release
    workflow (.github/workflows/vitals-apps.yml) publishes.
 """
 
+import faulthandler
 import json
 import os
 import re
+import socket
 import subprocess
 import sys
 import tempfile
 import threading
 import time
+import urllib.error
+import urllib.request
+from http.server import BaseHTTPRequestHandler
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 APP_ROOT = os.path.normpath(os.path.join(HERE, ".."))
@@ -43,6 +50,87 @@ def check(condition, label):
 def read(*parts):
     with open(os.path.join(*parts), encoding="utf-8") as handle:
         return handle.read()
+
+
+class FakeAgent:
+    """Stands in for the agent process in the launcher checks."""
+
+    pid = 4242
+
+    def __init__(self, exit_code):
+        self.exit_code = exit_code
+
+    def poll(self):
+        return self.exit_code
+
+
+def check_agent_startup():
+    real_getfqdn = socket.getfqdn
+
+    def no_dns(*_args):
+        raise AssertionError("reverse DNS lookup")
+
+    socket.getfqdn = no_dns
+    try:
+        httpd = vitals_app.server.LocalHTTPServer(("127.0.0.1", 0), BaseHTTPRequestHandler)
+        bound = True
+    except AssertionError:
+        httpd = None
+        bound = False
+    finally:
+        socket.getfqdn = real_getfqdn
+    check(bound and httpd.server_name == "127.0.0.1",
+          "the agent opens its port without a reverse-DNS lookup (it stalls 30-70 s on some Macs)")
+    if httpd:
+        threading.Thread(target=httpd.serve_forever, daemon=True).start()
+        loopback = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+        try:
+            loopback.open("http://127.0.0.1:%d/" % httpd.server_address[1], timeout=5)
+            status = 200
+        except urllib.error.HTTPError as error:
+            status = error.code  # 501: the bare handler has no GET, but the server answered
+        except OSError:
+            status = None
+        httpd.shutdown()
+        httpd.server_close()
+        check(status is not None, "that server still answers requests")
+
+    messages = []
+    saved = (vitals_app.start_agent, vitals_app.server.already_running, vitals_app.tell_user,
+             vitals_app.use_log_file, vitals_app.ensure_login_item, vitals_app.START_TIMEOUT)
+    vitals_app.server.already_running = lambda port: False
+    vitals_app.tell_user = messages.append
+    vitals_app.use_log_file = lambda *args, **kwargs: None
+    vitals_app.ensure_login_item = lambda data_dir: None
+    vitals_app.START_TIMEOUT = 1.5
+    folder = tempfile.mkdtemp(prefix="vitals-launch-check-")
+    try:
+        vitals_app.start_agent = lambda rest: FakeAgent(exit_code=1)
+        started = time.time()
+        result = vitals_app.open_app([], 9, folder)
+        check(result == 1 and time.time() - started < 1 and "could not start" in (messages or [""])[-1],
+              "the launcher reports a failed start at once when the agent exits")
+        vitals_app.start_agent = lambda rest: FakeAgent(exit_code=None)
+        started = time.time()
+        result = vitals_app.open_app([], 9, folder)
+        waited = time.time() - started
+        check(result == 1 and waited >= 1.4 and "taking unusually long" in (messages or [""])[-1],
+              "the launcher keeps waiting while a slow agent is still starting (then says so)")
+    finally:
+        (vitals_app.start_agent, vitals_app.server.already_running, vitals_app.tell_user,
+         vitals_app.use_log_file, vitals_app.ensure_login_item, vitals_app.START_TIMEOUT) = saved
+    check(vitals_app.START_TIMEOUT >= 60, "a first start may take up to %d s before the launcher gives up"
+          % vitals_app.START_TIMEOUT)
+
+    armed = vitals_app.watch_startup(3600)
+    faulthandler.cancel_dump_traceback_later()
+    real_stderr = sys.stderr
+    sys.stderr = None
+    try:
+        unarmed = vitals_app.watch_startup(3600)
+    finally:
+        sys.stderr = real_stderr
+    check(armed and not unarmed, "a hung agent start-up dumps its stacks to the log (and never crashes without one)")
 
 
 def check_window_plumbing():
@@ -128,6 +216,9 @@ def main():
     menu = vitals_app.desktop_entry("/opt/vitals/vitals", icon="/tmp/vitals.png")
     check("StartupWMClass=vitals" in menu and "NoDisplay" not in menu,
           "Linux menu entry groups the Vitals window under its icon")
+
+    print("Agent start-up")
+    check_agent_startup()
 
     print("App window")
     check_window_plumbing()

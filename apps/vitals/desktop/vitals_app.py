@@ -55,7 +55,12 @@ LABEL = "io.github.juw12.vitals"
 BUNDLE_ID = LABEL + ".app"
 STARTUP_SHORTCUT = "Vitals (background).lnk"
 LOG_LIMIT = 1_000_000
-START_TIMEOUT = 30
+# How long a newly started agent may take to answer. Its first start after an install can be slow
+# while the system checks the new files; we stop waiting as soon as its process ends.
+START_TIMEOUT = 90
+# An agent that still isn't listening after this many seconds writes every thread's stack to its
+# log (faulthandler), so a hang can be diagnosed. server.main() disarms it once the port is open.
+STARTUP_WATCHDOG = 20
 OWN_SWITCHES = {
     "--background": "background",
     "--browser": "browser",
@@ -125,6 +130,17 @@ def use_log_file(data_dir, name="agent.log"):
     sys.stdout = log
     sys.stderr = log
     return path
+
+
+def watch_startup(seconds=STARTUP_WATCHDOG):
+    """Log where the agent is stuck if it isn't serving after `seconds` (see STARTUP_WATCHDOG)."""
+    try:
+        import faulthandler
+
+        faulthandler.dump_traceback_later(seconds, exit=False, file=sys.stderr)
+        return True
+    except (AttributeError, RuntimeError, ValueError, OSError):  # no usable stderr (windowed build)
+        return False
 
 
 def tell_user(message):
@@ -331,18 +347,23 @@ def open_app(rest, port, data_dir, browser=False):
         open_dashboard(port, data_dir, browser)
         return 0
     child = start_agent(rest)
-    deadline = time.time() + START_TIMEOUT
-    while time.time() < deadline:
+    print("Started the Vitals agent (pid %d)" % child.pid, flush=True)
+    started = time.time()
+    while time.time() - started < START_TIMEOUT:
         if server.already_running(port):
             open_dashboard(port, data_dir, browser)
             return 0
-        if child.poll() is not None and not server.already_running(port):
+        if child.poll() is not None:
+            if server.already_running(port):  # another launch got there first
+                open_dashboard(port, data_dir, browser)
+                return 0
             break
         time.sleep(0.25)
-    tell_user(
-        "Vitals could not start on port %d. Another program may be using it.\n\nDetails: %s"
-        % (port, os.path.join(data_dir, "agent.log"))
-    )
+    log = os.path.join(data_dir, "agent.log")
+    if child.poll() is None:
+        tell_user("Vitals is taking unusually long to start. Try opening it again in a minute.\n\nDetails: %s" % log)
+    else:
+        tell_user("Vitals could not start on port %d. Another program may be using it.\n\nDetails: %s" % (port, log))
     return 1
 
 
@@ -351,6 +372,7 @@ def main(argv=None):
     port, data_dir = agent_settings(rest)
     if mode == "background":
         use_log_file(data_dir)
+        watch_startup()
         server.main(rest)
         return 0
     if mode == "stop":

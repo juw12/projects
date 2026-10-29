@@ -72,6 +72,35 @@ def wait_until(condition, seconds):
     return condition()
 
 
+def agent_processes(port):
+    """PIDs of agents started for this port (macOS/Linux; [] elsewhere)."""
+    if os.name == "nt" or not shutil.which("pgrep"):
+        return []
+    found = subprocess.run(["pgrep", "-f", "--", "--background.*--port %d( |$)" % port], capture_output=True, text=True)
+    return [int(pid) for pid in found.stdout.split() if pid.isdigit() and int(pid) != os.getpid()]
+
+
+def describe_stuck_agents(port):
+    """Print agents that run but never answered, with where they are stuck (macOS), then end them."""
+    for pid in agent_processes(port):
+        ps = subprocess.run(["ps", "-o", "pid,stat,etime,command", "-p", str(pid)], capture_output=True, text=True)
+        print("--- agent process that never answered ---\n%s" % ps.stdout.strip())
+        if sys.platform == "darwin" and shutil.which("sample"):
+            report = os.path.join(tempfile.gettempdir(), "vitals-agent-%d.sample.txt" % pid)
+            subprocess.run(["sample", str(pid), "2", "-file", report], capture_output=True, timeout=90)
+            try:
+                with open(report, encoding="utf-8", errors="replace") as handle:
+                    lines = handle.read().splitlines()
+                start = next((i for i, line in enumerate(lines) if line.startswith("Call graph:")), 0)
+                print("--- where it is (sample, main thread first) ---\n" + "\n".join(lines[start:start + 70]))
+            except OSError:
+                pass
+        try:
+            os.kill(pid, 9)
+        except OSError:
+            pass
+
+
 def read_report(path, seconds, process=None):
     """Wait for a VITALS_WINDOW_TEST report; {} if it doesn't come (or the process ends first)."""
     deadline = time.time() + seconds
@@ -156,10 +185,13 @@ def run_smoke(command, label, window=False):
     try:
         started = time.time()
         first = subprocess.run(command + options, env=env, timeout=120, capture_output=True, text=True, **NO_CONSOLE)
+        first_seconds = time.time() - started
         info = health(port)
-        check(first.returncode == 0, "opening the app returns (exit %s after %.1f s)" % (first.returncode, time.time() - started))
+        check(first.returncode == 0, "opening the app returns (exit %s after %.1f s)" % (first.returncode, first_seconds))
         check(bool(info) and info.get("app") == "vitals",
               "the background agent answers on port %d (Vitals %s on %s)" % (port, (info or {}).get("version"), (info or {}).get("os")))
+        if info and first_seconds > 15:
+            print("  note: the first start took %.0f s; agent.log:\n%s" % (first_seconds, tail(os.path.join(data, "agent.log"))))
         if info:
             status, page = fetch(base + "/")
             check(status == 200 and b"app.js" in page, "the dashboard page is served")
@@ -183,17 +215,30 @@ def run_smoke(command, label, window=False):
         if failures:
             for name, result in (("first launch", first), ("--stop", stop)):
                 print("--- %s output ---\n%s%s" % (name, result.stdout, result.stderr))
+            describe_stuck_agents(port)
             for name in ("agent.log", "app.log", "window.log"):
                 path = os.path.join(data, name)
                 if os.path.isfile(path):
-                    with open(path, encoding="utf-8", errors="replace") as handle:
-                        print("--- %s ---\n%s" % (name, handle.read()[-4000:]))
+                    print("--- %s ---\n%s" % (name, tail(path)))
     finally:
         if health(port):
             subprocess.run(command + ["--stop"] + options, env=env, timeout=60, capture_output=True, **NO_CONSOLE)
         wait_until(lambda: health(port) is None, 10)
+        for pid in agent_processes(port):  # never leave a stuck agent behind
+            try:
+                os.kill(pid, 9)
+            except OSError:
+                pass
         shutil.rmtree(sandbox, ignore_errors=True)
     return failures
+
+
+def tail(path, size=6000):
+    try:
+        with open(path, encoding="utf-8", errors="replace") as handle:
+            return handle.read()[-size:]
+    except OSError:
+        return "(no %s)" % os.path.basename(path)
 
 
 def main():

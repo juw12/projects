@@ -18,11 +18,13 @@ Security model
 """
 
 import argparse
+import faulthandler
 import json
 import os
 import platform
 import secrets
 import socket
+import socketserver
 import sys
 import threading
 import time
@@ -39,7 +41,7 @@ import metrics  # noqa: E402
 import storage  # noqa: E402
 import vault as vault_mod  # noqa: E402
 
-VERSION = "1.2.0"
+VERSION = "1.2.1"
 WEB_DIR = os.path.normpath(os.path.join(HERE, "..", "web"))
 DEFAULT_ORIGINS = {"https://juw12.github.io"}
 MIME = {
@@ -48,6 +50,21 @@ MIME = {
     ".png": "image/png", ".jpg": "image/jpeg", ".webmanifest": "application/manifest+json",
     ".ico": "image/x-icon", ".txt": "text/plain; charset=utf-8", ".md": "text/plain; charset=utf-8",
 }
+
+
+class LocalHTTPServer(ThreadingHTTPServer):
+    """ThreadingHTTPServer without the reverse-DNS lookup that http.server does when it binds.
+
+    HTTPServer.server_bind() calls socket.getfqdn() on the listening address. On macOS 15 and
+    some networks that lookup stalls for 30-70 seconds, so the agent looked like it never started.
+    The name is never used for anything here, so the address itself is good enough.
+    """
+
+    def server_bind(self):
+        socketserver.TCPServer.server_bind(self)
+        host, port = self.server_address[:2]
+        self.server_name = str(host)
+        self.server_port = port
 
 
 def lan_addresses():
@@ -303,7 +320,7 @@ class Agent:
             errors = []
             for ip in lan_addresses():
                 try:
-                    httpd = ThreadingHTTPServer((ip, self.port), self.handler_class)
+                    httpd = LocalHTTPServer((ip, self.port), self.handler_class)
                 except OSError as error:
                     errors.append("%s: %s" % (ip, error))
                     continue
@@ -680,7 +697,7 @@ def main(argv=None):
     host = "0.0.0.0" if args.lan else "127.0.0.1"
     handler = make_handler(agent)
     try:
-        httpd = ThreadingHTTPServer((host, args.port), handler)
+        httpd = LocalHTTPServer((host, args.port), handler)
     except OSError as error:
         print("Port %d is busy (%s). Try --port 8766." % (args.port, error), flush=True)
         sys.exit(1)
@@ -692,6 +709,7 @@ def main(argv=None):
         agent.set_lan(True, remember=False)
     print("Vitals %s — dashboard: http://127.0.0.1:%d/" % (VERSION, port), flush=True)
     print("Data (history + Undo Vault): %s" % args.data, flush=True)
+    faulthandler.cancel_dump_traceback_later()  # up and listening: disarm the app's startup watchdog
     if agent.lan:
         for ip in lan_addresses():
             print("Phone: open http://%s:%d/mobile.html#pair=%s (or scan the QR in Devices)" % (ip, port, agent.pair_code), flush=True)
