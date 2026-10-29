@@ -79,6 +79,13 @@ const contentTypes = {
   '.png': 'image/png', '.ico': 'image/x-icon'
 };
 
+// Timers of a minimized window are slowed down unless the page shares or watches the camera.
+const backgroundWork = { sharing: false, detection: false };
+function applyBackgroundWork() {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  mainWindow.webContents.setBackgroundThrottling(!(backgroundWork.sharing || backgroundWork.detection));
+}
+
 // 1.11.6: the camera on its own (camera-view.html), opened from the console.
 const cameraWindows = new Set();
 function isCameraWindowUrl(url) {
@@ -338,7 +345,9 @@ async function createWindow() {
   // A reloaded page is not sharing any more until it says so again.
   mainWindow.webContents.on('did-start-loading', () => {
     releaseSharingPower();
-    mainWindow.webContents.setBackgroundThrottling(true);
+    backgroundWork.sharing = false;
+    backgroundWork.detection = false;
+    applyBackgroundWork();
   });
   mainWindow.on('close', closeSafely);
   mainWindow.once('ready-to-show', () => mainWindow.show());
@@ -375,7 +384,15 @@ async function createWindow() {
   // keepalives, the USB reconnect), or the share code can drop off the server.
   ipcMain.handle('airiz:sharing', (event, flag) => {
     if (!trustedSender(event)) throw new Error('Untrusted sender');
-    mainWindow.webContents.setBackgroundThrottling(flag !== true);
+    backgroundWork.sharing = flag === true;
+    applyBackgroundWork();
+    return flag === true;
+  });
+  // 1.11.8: Smart detection armed - the camera is still watched while the window is minimized.
+  ipcMain.handle('airiz:background-work', (event, flag) => {
+    if (!trustedSender(event)) throw new Error('Untrusted sender');
+    backgroundWork.detection = flag === true;
+    applyBackgroundWork();
     return flag === true;
   });
   // 1.11.4: a device asks to control while this window is minimized or behind others: flash the

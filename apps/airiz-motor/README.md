@@ -24,7 +24,7 @@ A downloadable Windows x64 desktop edition now bundles this entire console local
 It is not a website shortcut and does not require Chrome, Edge, Node or Python to run.
 Installer and portable preview builds are available at:
 
-https://github.com/juw12/projects/releases/tag/airiz-desktop-v1.11.7
+https://github.com/juw12/projects/releases/tag/airiz-desktop-v1.11.8
 
 The initial binaries are unsigned. The packaged app was tested with demo/synthetic
 hardware; real-device bench validation is still required. Browser and mobile-web
@@ -56,6 +56,14 @@ streams the AIRIZ microphone back in 2-second clips, about 4 s behind live. Phon
 that has the AIRIZ on USB. Stop motor still works and also interrupts a message being sent. Tested
 against a simulated AIRIZ shell (busybox), not yet on real AIRIZ hardware; the sound format and the
 record/play commands can be changed under *Voice settings*.
+
+**Smart detection alerts, own siren sound, simpler calibration (1.11.8):** Smart detection keeps watching while
+the window is minimized (a worker clock instead of page timers; the Windows app keeps a minimized window awake while
+detection is armed). Each motion event lists its alerts (*Desktop: shown*, *Ziris PTB chat: sent*, or why not), and
+*Send a test alert* tries both at once. *Night vision & siren > Siren sound* plays your own WAV/MP3/M4A/OGG (first 15 s;
+sent to the AIRIZ once, then repeated from there). The height buttons are now *Lower to bottom & reset height* and
+*Is the camera at the bottom?* with an explanation, and *Calibration* is a numbered guide (speed, aim, timing, travel)
+with the raw numbers under *Advanced numbers* and a reset.
 
 **Camera arrows answer at once (1.11.7):** the hold arrows on the PTZ live view react like the Motor control
 jog pad. A press starts the move at once (a move still running, such as click-to-center, tracking or a jog, is

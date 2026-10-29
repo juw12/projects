@@ -56,7 +56,8 @@
     },
     night: { auto: false, darkBelow: 10, brightAbove: 40 },
     scanDwell: 5,
-    sirenSeconds: 10
+    sirenSeconds: 10,
+    sirenSound: 'builtin'
   };
 
   function loadStore() {
@@ -172,7 +173,7 @@
     'set-home': 'Asked the PC to set Home here\u2026',
     'set-limit': 'Asked the PC to save the soft limit\u2026',
     'clear-limits': 'Asked the PC to clear the soft limits\u2026',
-    'find-rising-home': 'Asked the PC to find the rising home\u2026',
+    'find-rising-home': 'Asked the PC to lower the camera to the bottom\u2026',
     'read-switch': 'Asked the PC to read the rising switch\u2026'
   };
   const OLD_HOST_NOTE = 'The PC runs an older AIRIZ Console that does not share the camera position, so only the moves sent from this device were counted. Update the AIRIZ Console on the PC.';
@@ -435,9 +436,9 @@
       : signed + ' steps');
     let note = 'Height counts from the bottom switch (0) up to full travel; pan 0 = Home.';
     if (!tracker.risingRef) {
-      note = 'Height unknown until the console sees the bottom switch: lower the camera fully and press Read rising switch, or use Find rising home.';
+      note = 'Height unknown: press Lower to bottom & reset height (Position group).';
     } else if (tracker.uncertain) {
-      note = 'Estimated after an interrupted move: Find rising home and Set home again to re-sync.';
+      note = 'Estimated after an interrupted move: press Lower to bottom & reset height, then Set home again.';
     }
     setText('ptz-pose-note', note);
   }
@@ -1032,10 +1033,14 @@
     const info = await query('diag button get rising-det', 2500, background ? { quiet: true } : undefined);
     const pressed = core.parseSwitchState(info, store.switchPressedValue);
     if (pressed === null) {
-      $('ptz-switch-state').textContent = info ? 'Rising switch: unknown answer "' + info.value + '".' : 'No answer from the rising switch.';
+      $('ptz-switch-state').textContent = info
+        ? 'The bottom switch gave an unexpected answer (' + info.value + '). Check "Bottom switch reads, when pressed" under Calibration > Advanced numbers.'
+        : 'The bottom switch did not answer. Check the connection and try again.';
       return null;
     }
-    $('ptz-switch-state').textContent = 'Rising switch: ' + info.value + (pressed ? ' (pressed, camera down)' : ' (released)');
+    $('ptz-switch-state').textContent = pressed
+      ? 'Yes: the camera is fully down (bottom switch pressed).'
+      : 'No: the camera is above the bottom (bottom switch not pressed).';
     if (pressed && Date.now() >= tracker.busyUntil()) {
       const wasReferenced = tracker.risingRef;
       const correction = tracker.setRisingReference();
@@ -1046,7 +1051,7 @@
       renderPosition();
     } else if (!pressed && tracker.risingRef && tracker.position.rising <= 0 && Date.now() >= tracker.busyUntil()) {
       tracker.markUncertain();
-      status('The bottom switch is not pressed although the camera should be fully down: height estimated. Use Find rising home.', true);
+      status('The bottom switch is not pressed although the camera should be fully down: height estimated. Press Lower to bottom & reset height.', true);
       save();
       renderPosition();
     }
@@ -1116,12 +1121,12 @@
     }
     stopScan();
     const token = newOperation();
-    status('Finding rising home: lowering until the switch is pressed\u2026', false, from);
+    status('Lowering slowly until the camera touches the bottom switch\u2026', false, from);
     findingHome = true;
     try {
       const moved = await findRisingHome(token, 60, 1800, from);
       if (moved !== null) {
-        status('Rising home found after ' + moved + ' steps down. Rising = 0 is now the lowest position (privacy).', false, from);
+        status('Bottom found after ' + moved + ' steps down: height is now 0 (fully down).', false, from);
       }
     } finally {
       findingHome = false;
@@ -1140,7 +1145,7 @@
       if (token !== operation) return null;
       const pressed = await readSwitch();
       if (pressed === null) {
-        status('The rising switch did not answer. Rising home not found.', true, from);
+        status('The bottom switch did not answer, so the bottom was not found. Check the connection and try again.', true, from);
         return null;
       }
       if (pressed) {
@@ -1155,7 +1160,7 @@
       if (!(await waitIdle(token))) return null;
       await sleep(150);
     }
-    status('Lowered ' + maxTotal + ' steps without the switch pressing. Check "Switch pressed value" in Calibration.', true, from);
+    status('Lowered ' + maxTotal + ' steps without reaching the bottom switch. If the camera is already at the bottom, change "Bottom switch reads, when pressed" under Calibration > Advanced numbers.', true, from);
     return null;
   }
 
@@ -1167,7 +1172,7 @@
     const softLowest = tracker.limits.rising.min;
     const lowest = Number.isFinite(softLowest) ? softLowest : (tracker.risingRef ? 0 : null);
     if (!Number.isFinite(lowest)) {
-      status('Set the lowest rising position first: "Find rising home", or lower the camera and press "Set lowest".', true);
+      status('Set the lowest position first: press "Lower to bottom & reset height", or lower the camera and press "Set lowest".', true);
       return;
     }
     stopScan();
@@ -1221,6 +1226,10 @@
 
   function setArmed(on) {
     detection.armed = !!on;
+    // 1.11.8: the Windows app keeps a minimized window working while detection is armed.
+    if (window.airizDesktop && typeof window.airizDesktop.setBackgroundWork === 'function') {
+      window.airizDesktop.setBackgroundWork(detection.armed).catch(() => {});
+    }
     $('ptz-detect-arm').checked = detection.armed;
     if (detection.armed) {
       detection.anchor = tracker.position;
@@ -1273,7 +1282,8 @@
   }
 
   function analyse() {
-    if (!liveStream || !video.videoWidth || document.hidden) return;
+    // 1.11.8: also while the window is minimized or hidden (alerts matter most then).
+    if (!liveStream || !video.videoWidth) return;
     const now = Date.now();
     // Ignore the picture while the camera itself moves (and shortly after).
     if (now < tracker.busyUntil() + SETTLE_MS) {
@@ -1415,6 +1425,17 @@
         links.append(clip);
       }
       text.append(links);
+      if (event.alerts && event.alerts.length) {
+        const alerts = document.createElement('div');
+        alerts.className = 'ptz-event-alerts';
+        for (const alert of event.alerts) {
+          const part = document.createElement('span');
+          part.className = alert.ok === true ? 'ok' : alert.ok === false ? 'fail' : '';
+          part.textContent = (alert.channel === 'Teams' ? 'Ziris PTB chat' : 'Desktop') + ': ' + alert.note;
+          alerts.append(part);
+        }
+        text.append(alerts);
+      }
       item.append(text);
       return item;
     }));
@@ -1437,24 +1458,107 @@
     }
     if (settings.siren && !siren.active) startSiren(store.sirenSeconds);
     if (settings.clip) recordClip(event, 10);
-    if (settings.notify && 'Notification' in window && Notification.permission === 'granted') {
-      try {
-        new Notification('AIRIZ motion', { body: 'Motion at ' + event.at.toLocaleTimeString(), icon: event.thumb || undefined, silent: false });
-      } catch {
-        // some platforms refuse page notifications; the event list still has it
+    // 1.11.8: every alert reports back; the event list shows whether it went out.
+    event.alerts = [];
+    if (settings.notify) {
+      const shown = showDesktopAlert('AIRIZ motion', 'Motion at ' + event.at.toLocaleTimeString(), event.thumb);
+      event.alerts.push({ channel: 'Desktop', ok: shown.ok, note: shown.note });
+      if (!shown.ok) renderAlertStatus('Desktop notification: ' + shown.note);
+    }
+    if (settings.teams) {
+      const entry = { channel: 'Teams', ok: null, note: 'sending\u2026' };
+      event.alerts.push(entry);
+      const wait = TEAMS_COOLDOWN_MS - (Date.now() - detection.lastTeamsAt);
+      if (!window.AirizTeam || !window.AirizTeam.member) {
+        entry.ok = false;
+        entry.note = 'Join Ziris PTB on the Team page first.';
+        renderAlertStatus('Ziris PTB chat: ' + entry.note);
+      } else if (wait > 0) {
+        entry.ok = false;
+        entry.note = 'skipped (at most one chat alert every 2 minutes)';
+      } else {
+        detection.lastTeamsAt = Date.now();
+        window.AirizTeam.postAlert({
+          title: 'AIRIZ motion alert',
+          text: 'Motion detected by the AIRIZ camera at ' + event.at.toLocaleTimeString() + ' ('
+            + (event.fraction * 100).toFixed(1) + '% of the watched area).'
+        }).then(result => {
+          entry.ok = !!result.ok;
+          entry.note = result.ok ? 'sent' : result.error;
+          if (!result.ok) renderAlertStatus('Ziris PTB chat: not sent. ' + result.error);
+          renderEvents();
+        });
       }
     }
-    if (settings.teams && window.AirizTeam && Date.now() - detection.lastTeamsAt > TEAMS_COOLDOWN_MS) {
-      detection.lastTeamsAt = Date.now();
-      window.AirizTeam.postAlert({
-        title: 'AIRIZ motion alert',
-        text: 'Motion detected by the AIRIZ camera at ' + event.at.toLocaleTimeString() + ' ('
-          + (event.fraction * 100).toFixed(1) + '% of the watched area).'
-      }).then(result => {
-        if (!result.ok) renderDetectStatus('Teams alert not sent: ' + result.error);
-      });
-    }
+    renderEvents();
   }
+
+  // Desktop notification (Windows toast). Returns { ok, note }.
+  function showDesktopAlert(title, body, thumb) {
+    if (!('Notification' in window)) return { ok: false, note: 'this browser has no desktop notifications.' };
+    if (Notification.permission === 'denied') {
+      return { ok: false, note: 'blocked for this page. Allow notifications in the browser site settings (lock icon left of the address).' };
+    }
+    if (Notification.permission !== 'granted') {
+      return { ok: false, note: 'not allowed yet. Tick Desktop notification again and choose Allow.' };
+    }
+    try {
+      const desktop = !!window.airizDesktop;
+      const note = new Notification(title, { body, icon: desktop || !thumb ? 'icons/icon-192.png' : thumb, tag: 'airiz-motion', silent: false });
+      note.onclick = () => {
+        window.focus();
+        note.close();
+      };
+    } catch {
+      return { ok: false, note: 'Windows refused the notification.' };
+    }
+    // The Windows app also flashes its taskbar button while the window is not in front.
+    if (window.airizDesktop && typeof window.airizDesktop.requestAttention === 'function' && (document.hidden || !document.hasFocus())) {
+      window.airizDesktop.requestAttention(true).catch(() => {});
+    }
+    return { ok: true, note: 'shown' };
+  }
+
+  // One line per alert channel (each line is translated on its own).
+  function renderAlertStatus(text) {
+    const box = $('ptz-alert-status');
+    box.replaceChildren(...String(text || '').split('\n').filter(Boolean).map(line => {
+      const row = document.createElement('div');
+      row.textContent = line;
+      return row;
+    }));
+  }
+
+  // "Send a test alert": both alerts at once, no motion and no 2-minute pause needed.
+  async function testAlerts() {
+    const settings = store.detect;
+    if (!settings.notify && !settings.teams) {
+      renderAlertStatus('Tick Desktop notification and/or Alert the Ziris PTB chat first.');
+      return;
+    }
+    const lines = [];
+    if (settings.notify) {
+      if ('Notification' in window && Notification.permission === 'default') await Notification.requestPermission();
+      const shown = showDesktopAlert('AIRIZ test alert', 'This is how a motion alert looks.', '');
+      lines.push(shown.ok
+        ? 'Desktop notification: shown. No pop-up seen? Turn on Windows notifications for this app: Settings > System > Notifications.'
+        : 'Desktop notification: ' + shown.note);
+    }
+    if (settings.teams) {
+      if (!window.AirizTeam || !window.AirizTeam.member) {
+        lines.push('Ziris PTB chat: join Ziris PTB on the Team page first.');
+      } else {
+        renderAlertStatus(lines.concat('Ziris PTB chat: sending\u2026').join('\n'));
+        const result = await window.AirizTeam.postAlert({
+          title: 'AIRIZ test alert',
+          text: 'Test from the AIRIZ console: motion alerts reach this chat.'
+        });
+        lines.push(result.ok ? 'Ziris PTB chat: sent. Check the chat.' : 'Ziris PTB chat: not sent. ' + result.error);
+      }
+    }
+    renderAlertStatus(lines.join('\n'));
+  }
+  $('ptz-test-alerts').addEventListener('click', testAlerts);
 
   function recordClip(event, seconds) {
     if (clipRecorder || !liveStream || typeof MediaRecorder !== 'function') return;
@@ -1485,10 +1589,103 @@
 
   // Siren: the AIRIZ speaker plays the loud test sound repeatedly, spotlight on.
   // (The firmware has no "stop playback" command: the sound in progress finishes.)
+  // 1.11.8: or the user's own sound file. It goes to the AIRIZ like a voice message (talk.wav)
+  // the first time, then every repeat plays that file again.
+  const SIREN_SOUND_KEY = 'airiz.siren.sound.v1';
+  const SIREN_RATE = 16000;
+  const SIREN_MAX_SECONDS = 15;
+  const TALK_FILE = '/tmp/airiz/talk.wav';
   const siren = { active: false, timer: null, until: 0 };
+  let sirenSound = loadSirenSound();
+  let sirenMessage = null;
+
+  function loadSirenSound() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(SIREN_SOUND_KEY) || 'null');
+      return saved && saved.pcm && saved.name ? saved : null;
+    } catch {
+      return null;
+    }
+  }
+
+  function sirenSamples() {
+    if (!sirenSound) return null;
+    const bytes = Uint8Array.from(atob(sirenSound.pcm), char => char.charCodeAt(0));
+    const pcm = new Int16Array(bytes.buffer, 0, Math.floor(bytes.length / 2));
+    const samples = new Float32Array(pcm.length);
+    for (let index = 0; index < pcm.length; index += 1) samples[index] = pcm[index] / 32768;
+    return samples;
+  }
+
+  // Any audio file the browser can play -> mono 16 kHz, first 15 s, loudness raised to full scale.
+  async function decodeSirenFile(file) {
+    const data = await file.arrayBuffer();
+    const Context = window.AudioContext || window.webkitAudioContext;
+    const context = new Context();
+    let decoded;
+    try {
+      decoded = await context.decodeAudioData(data);
+    } finally {
+      context.close().catch(() => {});
+    }
+    const seconds = Math.min(SIREN_MAX_SECONDS, decoded.duration);
+    const offline = new OfflineAudioContext(1, Math.max(1, Math.round(seconds * SIREN_RATE)), SIREN_RATE);
+    const source = offline.createBufferSource();
+    source.buffer = decoded;
+    source.connect(offline.destination);
+    source.start(0);
+    const rendered = await offline.startRendering();
+    const samples = rendered.getChannelData(0);
+    let peak = 0;
+    for (const value of samples) peak = Math.max(peak, Math.abs(value));
+    const gain = peak > 0.001 ? 0.97 / peak : 1;
+    const pcm = new Int16Array(samples.length);
+    for (let index = 0; index < samples.length; index += 1) {
+      pcm[index] = Math.max(-32768, Math.min(32767, Math.round(samples[index] * gain * 32767)));
+    }
+    let binary = '';
+    const bytes = new Uint8Array(pcm.buffer);
+    for (let index = 0; index < bytes.length; index += 0x8000) {
+      binary += String.fromCharCode.apply(null, bytes.subarray(index, index + 0x8000));
+    }
+    return { name: file.name, seconds: Math.round(seconds * 10) / 10, rate: SIREN_RATE, pcm: btoa(binary), cut: decoded.duration > SIREN_MAX_SECONDS };
+  }
+
+  function renderSirenSound() {
+    $('ptz-siren-sound').value = store.sirenSound === 'custom' && sirenSound ? 'custom' : 'builtin';
+    $('ptz-siren-file-name').textContent = sirenSound
+      ? sirenSound.name + ' (' + sirenSound.seconds + ' s)'
+      : 'No sound file chosen.';
+    $('ptz-siren-preview').disabled = !sirenSound;
+    $('ptz-siren-clear').disabled = !sirenSound;
+  }
+
+  function useCustomSiren() {
+    return store.sirenSound === 'custom' && !!sirenSound && !!window.AirizVoice;
+  }
+
+  // The voice message for the chosen file (built once; same file -> same checksum).
+  function customSirenMessage() {
+    if (!sirenMessage) sirenMessage = window.AirizVoice.buildMessage(sirenSamples(), sirenSound.rate);
+    return sirenMessage;
+  }
+
+  // Plays the chosen sound once on the AIRIZ: sends it first if the AIRIZ does not have it yet.
+  async function playCustomSiren() {
+    const message = customSirenMessage();
+    const last = window.AirizVoice.state.lastTalk;
+    if (last && last.md5 === message.md5) {
+      await api.sendCommand('diag audio play ' + TALK_FILE);
+      return;
+    }
+    status('Sending your siren sound to the AIRIZ (first time only)\u2026');
+    await window.AirizVoice.send(message);
+  }
+
   async function startSiren(seconds) {
     if (!connected() || siren.active) return;
     const duration = Math.min(120, Math.max(3, Number(seconds) || 10));
+    const custom = useCustomSiren();
     siren.active = true;
     siren.until = Date.now() + duration * 1000;
     $('ptz-siren').disabled = true;
@@ -1497,16 +1694,25 @@
     await sleep(400);
     await api.sendCommand('diag audio volume 100');
     await api.sendCommand('diag spotled on');
+    const gap = custom ? Math.max(4000, Math.round(sirenSound.seconds * 1000) + 500) : 4000;
     const play = async () => {
       if (!siren.active || Date.now() >= siren.until) {
         stopSiren();
         return;
       }
-      await api.sendCommand('diag audio play ' + SIREN_WAV);
-      siren.timer = setTimeout(play, 4000);
+      if (custom) {
+        try {
+          await playCustomSiren();
+        } catch {
+          await api.sendCommand('diag audio play ' + SIREN_WAV);
+        }
+      } else {
+        await api.sendCommand('diag audio play ' + SIREN_WAV);
+      }
+      if (siren.active) siren.timer = setTimeout(play, gap);
     };
     play();
-    status('Siren on for ' + duration + ' s.');
+    status('Siren on for ' + duration + ' s' + (custom ? ' (your sound).' : '.'));
   }
   function stopSiren() {
     if (!siren.active) return;
@@ -1517,6 +1723,61 @@
     if (connected()) api.sendCommand('diag spotled off');
     status('Siren stopped.');
   }
+
+  $('ptz-siren-sound').addEventListener('change', () => {
+    if ($('ptz-siren-sound').value === 'custom' && !sirenSound) {
+      $('ptz-siren-file').click();
+      return;
+    }
+    store.sirenSound = $('ptz-siren-sound').value;
+    save();
+    renderSirenSound();
+  });
+  $('ptz-siren-file-btn').addEventListener('click', () => $('ptz-siren-file').click());
+  $('ptz-siren-file').addEventListener('change', async () => {
+    const file = $('ptz-siren-file').files[0];
+    $('ptz-siren-file').value = '';
+    if (!file) {
+      renderSirenSound();
+      return;
+    }
+    $('ptz-siren-file-name').textContent = 'Reading the sound file\u2026';
+    try {
+      const sound = await decodeSirenFile(file);
+      localStorage.setItem(SIREN_SOUND_KEY, JSON.stringify(sound));
+      sirenSound = sound;
+      sirenMessage = null;
+      store.sirenSound = 'custom';
+      save();
+      renderSirenSound();
+      status(sound.cut ? 'Siren sound saved: only its first 15 s are used.' : 'Siren sound saved.');
+    } catch (error) {
+      renderSirenSound();
+      status('This file could not be read as sound. Try a WAV or MP3 file.', true);
+    }
+  });
+  $('ptz-siren-preview').addEventListener('click', () => {
+    if (!sirenSound) return;
+    const samples = sirenSamples();
+    const context = new (window.AudioContext || window.webkitAudioContext)();
+    const buffer = context.createBuffer(1, samples.length, sirenSound.rate);
+    buffer.copyToChannel(samples, 0);
+    const source = context.createBufferSource();
+    source.buffer = buffer;
+    source.connect(context.destination);
+    source.onended = () => context.close().catch(() => {});
+    source.start();
+  });
+  $('ptz-siren-clear').addEventListener('click', () => {
+    localStorage.removeItem(SIREN_SOUND_KEY);
+    sirenSound = null;
+    sirenMessage = null;
+    store.sirenSound = 'builtin';
+    save();
+    renderSirenSound();
+    status('Siren back to the built-in loud tone.');
+  });
+  renderSirenSound();
   $('ptz-siren').addEventListener('click', () => startSiren($('ptz-siren-seconds').value));
   $('ptz-siren-stop').addEventListener('click', stopSiren);
 
@@ -1570,7 +1831,7 @@
         }
         await sleep(500);
         calibration.waiting = true;
-        $('ptz-cal-status').textContent = 'Now click the SAME object again.';
+        $('ptz-cal-status').textContent = 'Step 2 of 2: the camera moved. Click the SAME object again.';
       });
       return;
     }
@@ -1582,7 +1843,7 @@
       store.calibration[calibration.axis === 'pan' ? 'panStepsPerFrame' : 'risingStepsPerFrame'] = perFrame;
       save();
       renderCalibration();
-      $('ptz-cal-status').textContent = 'Calibrated: ' + perFrame + ' steps per picture ' + (calibration.axis === 'pan' ? 'width' : 'height') + '. Moving back\u2026';
+      $('ptz-cal-status').textContent = 'Done: aim saved (' + perFrame + ' steps per picture ' + (calibration.axis === 'pan' ? 'width' : 'height') + '). The camera turns back.';
     } catch (error) {
       $('ptz-cal-status').textContent = error.message;
     }
@@ -1592,7 +1853,7 @@
 
   $('ptz-cal-start').addEventListener('click', () => {
     if (!liveStream || !connected()) {
-      $('ptz-cal-status').textContent = 'Connect the AIRIZ and Start Preview first.';
+      $('ptz-cal-status').textContent = 'Connect the AIRIZ and start the camera preview first.';
       return;
     }
     setMode('move');
@@ -1600,7 +1861,7 @@
     calibration.steps = Math.min(2000, Math.max(10, Number($('ptz-cal-steps').value) || 100));
     calibration.first = null;
     calibration.waiting = true;
-    $('ptz-cal-status').textContent = 'Click a clear object in the picture (a corner, a lamp\u2026).';
+    $('ptz-cal-status').textContent = 'Step 1 of 2: click a clear object in the picture (a corner, a lamp\u2026).';
   });
 
   // Timing: run a move and press "It stopped" when the motor stops.
@@ -1622,7 +1883,7 @@
     if (!sent) return;
     timingTest.startedAt = performance.now();
     $('ptz-time-done').disabled = false;
-    $('ptz-cal-status').textContent = 'Watch the camera and press "It stopped" the moment it stops.';
+    $('ptz-cal-status').textContent = 'The camera is moving: press "It stopped" the moment it stops.';
   });
   $('ptz-time-done').addEventListener('click', () => {
     if (!timingTest.startedAt) return;
@@ -1634,8 +1895,15 @@
     store.timing[timingTest.axis] = Math.round(k * 10) / 10;
     save();
     renderCalibration();
-    $('ptz-cal-status').textContent = timingTest.axis + ': ' + timingTest.steps + ' steps took ' + (measured / 1000).toFixed(2)
-      + ' s at speed ' + timingTest.speed + ' \u2192 timing ' + store.timing[timingTest.axis] + '.';
+    $('ptz-cal-status').textContent = 'Done: timing saved (' + timingTest.steps + ' steps took ' + (measured / 1000).toFixed(1) + ' s).';
+  });
+
+  $('ptz-cal-reset').addEventListener('click', () => {
+    store.calibration = { ...core.DEFAULT_CALIBRATION };
+    store.timing = { ...core.DEFAULT_TIMING };
+    save();
+    renderCalibration();
+    $('ptz-cal-status').textContent = 'Calibration reset to the defaults.';
   });
 
   function renderCalibration() {
@@ -1709,6 +1977,10 @@
         if (key === 'notify' && settings.notify && 'Notification' in window && Notification.permission === 'default') {
           await Notification.requestPermission();
         }
+        if (key === 'notify' && settings.notify) {
+          renderAlertStatus(!('Notification' in window) || Notification.permission === 'granted'
+            ? '' : 'Desktop notification: ' + showDesktopAlert('', '', '').note);
+        }
         if (key === 'teams' && settings.teams && !(window.AirizTeam && window.AirizTeam.member)) {
           renderDetectStatus('Teams alerts need Ziris PTB membership (Team page).');
         }
@@ -1779,7 +2051,21 @@
   applyZoom();
   setArmed(false);
   $('ptz-siren-stop').disabled = true;
-  setInterval(analyse, DETECT_INTERVAL_MS);
+  // 1.11.8: a worker keeps the detection ticks steady while the window is minimized (page
+  // timers are slowed down to once a minute there); the Windows app also keeps working.
+  (function startDetectClock() {
+    try {
+      const clock = new Worker('ptz-clock.js');
+      clock.onmessage = () => analyse();
+      clock.onerror = () => {
+        clock.terminate();
+        setInterval(analyse, DETECT_INTERVAL_MS);
+      };
+      clock.postMessage(DETECT_INTERVAL_MS);
+    } catch {
+      setInterval(analyse, DETECT_INTERVAL_MS);
+    }
+  })();
   // 1.11.1: the return after auto-tracking is checked on its own timer, so it also happens
   // while the window is hidden or minimized (the picture is not analysed then).
   setInterval(() => maybeReturnFromTracking(Date.now()), 1000);

@@ -1199,7 +1199,82 @@
     "Camera in its own window (1.11.6)": "攝影機獨立視窗 (1.11.6)",
     "Camera → Open in new window (or New window on the PTZ toolbar) shows only the camera picture in a separate window you can move to another screen, make full screen or keep always on top. It shows the console's own live camera, so recording, snapshots and detection keep working in the console; if the preview is stopped the window offers to start it again. Opened on its own, the page can also open the camera directly.": "相機 → 在新視窗開啟（或 PTZ 工具列的「新視窗」）會在獨立視窗中只顯示攝影機畫面，可移到另一個螢幕、全螢幕或最上層顯示。它顯示的是主控台本身的即時攝影機畫面，所以錄影、快照與偵測仍在主控台運作；預覽停止時，視窗會提供重新開始的按鈕。單獨開啟此頁時，也可直接開啟攝影機。",
     "Camera arrows answer at once (1.11.7)": "攝影機畫面方向鍵立即反應 (1.11.7)",
-    "The hold arrows on the camera live view now react like the Motor control jog pad: a press starts moving at once (a move still running is stopped first instead of waited for) and letting go always stops the motor, so the camera no longer keeps going after you release.": "攝影機即時畫面上的按住方向鍵現在與「馬達控制」點動面板一樣即時：按下立即開始移動（仍在進行的移動會先停止，而不是等待），放開一定會停止馬達，相機不會在放開後繼續移動。"
+    "The hold arrows on the camera live view now react like the Motor control jog pad: a press starts moving at once (a move still running is stopped first instead of waited for) and letting go always stops the motor, so the camera no longer keeps going after you release.": "攝影機即時畫面上的按住方向鍵現在與「馬達控制」點動面板一樣即時：按下立即開始移動（仍在進行的移動會先停止，而不是等待），放開一定會停止馬達，相機不會在放開後繼續移動。",
+    "Height reference (bottom switch)": "高度基準（底部開關）",
+    "Lower to bottom & reset height": "降到底部並重設高度",
+    "Is the camera at the bottom?": "相機在最底部嗎？",
+    "Lowers the camera slowly until it touches the bottom switch, then counts the height from there": "慢慢降低相機直到碰到底部開關，之後從那裡開始計算高度",
+    "Asks the bottom switch whether the camera is fully down": "詢問底部開關相機是否已完全降下",
+    "Yes: the camera is fully down (bottom switch pressed).": "是：相機已完全降下（底部開關已按下）。",
+    "No: the camera is above the bottom (bottom switch not pressed).": "否：相機在底部以上（底部開關未按下）。",
+    "The bottom switch did not answer. Check the connection and try again.": "底部開關沒有回應。請檢查連線後再試一次。",
+    "Lowering slowly until the camera touches the bottom switch…": "正在慢慢降低，直到相機碰到底部開關…",
+    "The bottom switch did not answer, so the bottom was not found. Check the connection and try again.": "底部開關沒有回應，因此未找到底部。請檢查連線後再試一次。",
+    "Height unknown: press Lower to bottom & reset height (Position group).": "高度未知：請按「降到底部並重設高度」（位置區）。",
+    "Estimated after an interrupted move: press Lower to bottom & reset height, then Set home again.": "移動中斷後為估計值：請按「降到底部並重設高度」，再重新設定原點。",
+    "The bottom switch is not pressed although the camera should be fully down: height estimated. Press Lower to bottom & reset height.": "相機應已完全降下但底部開關未按下：高度為估計值。請按「降到底部並重設高度」。",
+    "Set the lowest position first: press \"Lower to bottom & reset height\", or lower the camera and press \"Set lowest\".": "請先設定最低位置：按「降到底部並重設高度」，或將相機降低後按「設為最低」。",
+    "Asked the PC to lower the camera to the bottom…": "已請 PC 將相機降到底部…",
+    "Siren (sound: see Night vision & siren)": "警報器（聲音：見「夜視與警報器」）",
+    "Send a test alert": "傳送測試警示",
+    "Tries the desktop notification and the Ziris PTB chat now, without waiting for motion.": "立即測試桌面通知與 Ziris PTB 聊天，不必等待偵測到動作。",
+    "AIRIZ motion": "AIRIZ 動作",
+    "AIRIZ test alert": "AIRIZ 測試警示",
+    "This is how a motion alert looks.": "動作警示看起來就像這樣。",
+    "Tick Desktop notification and/or Alert the Ziris PTB chat first.": "請先勾選「桌面通知」和／或「通知 Ziris PTB 聊天」。",
+    "Desktop notification: shown. No pop-up seen? Turn on Windows notifications for this app: Settings > System > Notifications.": "桌面通知：已顯示。沒看到彈出視窗？請為此 App 開啟 Windows 通知：設定 > 系統 > 通知。",
+    "Ziris PTB chat: sent. Check the chat.": "Ziris PTB 聊天：已傳送。請查看聊天。",
+    "Ziris PTB chat: join Ziris PTB on the Team page first.": "Ziris PTB 聊天：請先在「團隊」頁加入 Ziris PTB。",
+    "Ziris PTB chat: sending…": "Ziris PTB 聊天：傳送中…",
+    "Join Ziris PTB on the Team page first.": "請先在「團隊」頁加入 Ziris PTB。",
+    "Desktop: shown": "桌面：已顯示",
+    "Ziris PTB chat: sent": "Ziris PTB 聊天：已傳送",
+    "Ziris PTB chat: Join Ziris PTB on the Team page first.": "Ziris PTB 聊天：請先在「團隊」頁加入 Ziris PTB。",
+    "Ziris PTB chat: skipped (at most one chat alert every 2 minutes)": "Ziris PTB 聊天：略過（每 2 分鐘最多一則聊天警示）",
+    "Desktop notification: blocked for this page. Allow notifications in the browser site settings (lock icon left of the address).": "桌面通知：此頁面已封鎖通知。請在瀏覽器的網站設定中允許通知（網址左側的鎖頭圖示）。",
+    "Desktop notification: not allowed yet. Tick Desktop notification again and choose Allow.": "桌面通知：尚未允許。請再勾選一次「桌面通知」並選擇「允許」。",
+    "Desktop notification: this browser has no desktop notifications.": "桌面通知：此瀏覽器不支援桌面通知。",
+    "Desktop notification: Windows refused the notification.": "桌面通知：Windows 拒絕了此通知。",
+    "Siren sound": "警報聲音",
+    "Built-in loud tone": "內建大聲提示音",
+    "My sound file": "我的聲音檔",
+    "Choose sound file…": "選擇聲音檔…",
+    "No sound file chosen.": "尚未選擇聲音檔。",
+    "Play on this PC": "在這台 PC 播放",
+    "Remove file": "移除檔案",
+    "Reading the sound file…": "正在讀取聲音檔…",
+    "Siren sound saved.": "已儲存警報聲音。",
+    "Siren sound saved: only its first 15 s are used.": "已儲存警報聲音：只使用前 15 秒。",
+    "This file could not be read as sound. Try a WAV or MP3 file.": "無法將此檔案讀取為聲音。請改用 WAV 或 MP3 檔。",
+    "Siren back to the built-in loud tone.": "警報已改回內建大聲提示音。",
+    "Sending your siren sound to the AIRIZ (first time only)…": "正在將你的警報聲音傳送到 AIRIZ（僅第一次）…",
+    "Calibration (once per camera)": "校正（每台相機一次）",
+    "Motor speed": "馬達速度",
+    "1 = slowest and strongest, higher = faster. Used by all moves on this page.": "1 = 最慢且最有力，數字越大越快。本頁所有移動都會使用。",
+    "Aim (click-to-center)": "瞄準（點選置中）",
+    "Move timing": "移動時間",
+    "Travel": "行程",
+    "Only change these if you know your camera's numbers.": "只有在你知道相機的實際數值時才更改。",
+    "Pan (left / right)": "水平（左／右）",
+    "Rising (up / down)": "升降（上／下）",
+    "Move": "移動",
+    "Start": "開始",
+    "Start test move": "開始測試移動",
+    "Rising, bottom to top": "升降，底部到頂部",
+    "Pan, one full turn": "水平，轉一整圈",
+    "Advanced numbers": "進階數值",
+    "(milliseconds per step × speed)": "（每步毫秒數 × 速度）",
+    "Bottom switch reads, when pressed": "底部開關按下時的讀值",
+    "Reset calibration to defaults": "將校正重設為預設值",
+    "Calibration reset to the defaults.": "校正已重設為預設值。",
+    "Step 1 of 2: click a clear object in the picture (a corner, a lamp…).": "第 1 步（共 2 步）：在畫面中點選一個清楚的物體（牆角、燈…）。",
+    "Step 2 of 2: the camera moved. Click the SAME object again.": "第 2 步（共 2 步）：相機已移動。請再點選「同一個」物體。",
+    "Connect the AIRIZ and start the camera preview first.": "請先連接 AIRIZ 並開始相機預覽。",
+    "The camera is moving: press \"It stopped\" the moment it stops.": "相機正在移動：在它停下的那一刻按「已停止」。",
+    "Detection keeps watching while this window is minimized or behind other windows, as long as the camera preview runs. Desktop notifications also need Windows notifications turned on for the AIRIZ Console (or your browser): Settings > System > Notifications. Chat alerts need you to be in Ziris PTB on this PC (Team page) and are sent at most once every 2 minutes. Each event below shows whether its alerts went out.": "只要相機預覽仍在執行，視窗最小化或被其他視窗擋住時偵測也會持續。桌面通知還需要為 AIRIZ Console（或你的瀏覽器）開啟 Windows 通知：設定 > 系統 > 通知。聊天警示需要你在這台 PC 上加入 Ziris PTB（團隊頁），且每 2 分鐘最多傳送一次。下方每個事件都會顯示其警示是否已送出。",
+    "Optional: the camera works without it. Calibration makes click-to-center, auto-tracking and the position shown more accurate. Do the steps in order; each one saves by itself.": "選用：不校正相機也能使用。校正可讓點選置中、自動追蹤與顯示的位置更準確。請依序完成各步驟，每一步都會自動儲存。",
+    "Smart detection alerts, own siren sound, simpler calibration (1.11.8)": "智慧偵測警示、自訂警報聲、更簡單的校正 (1.11.8)",
+    "Smart detection now keeps watching while the window is minimized, and every event shows whether its desktop notification and Ziris PTB chat alert went out; Send a test alert checks both at once. The siren can play your own WAV/MP3 file. The height buttons are now Lower to bottom & reset height and Is the camera at the bottom?, and Calibration is a numbered step-by-step guide with the raw numbers under Advanced.": "智慧偵測在視窗最小化時也會持續，每個事件都會顯示桌面通知與 Ziris PTB 聊天警示是否已送出；「傳送測試警示」可一次測試兩者。警報器可播放你自己的 WAV/MP3 檔。高度按鈕改為「降到底部並重設高度」與「相機在最底部嗎？」，校正則改為有編號的逐步指引，原始數值移到「進階數值」。"
   },
   "html": {
     "AIRIZDEVICE LAB": "AIRIZ<small>裝置實驗室</small>",
@@ -1297,7 +1372,11 @@
     "PTZ live view: click the picture to center that spot, hold an arrow to move (release = stop) and use the wheel for digital zoom. Set Home, soft limits and up to 12 saved positions; Auto scan visits them in turn. A phone or PC that controls by code uses the camera position of the console with the AIRIZ cable, so its Go home brings the real camera home, also when someone else moved it.": "<strong>PTZ 即時畫面</strong>：點擊畫面可將該點置中，按住箭頭移動（放開 = 停止），滾輪可數位變焦。可設定<strong>原點</strong>、軟體限位與最多 12 個預設位置；<strong>自動巡航</strong>會依序巡視這些位置。以代碼控制的手機或電腦會使用接著 AIRIZ 傳輸線的主控台所記錄的攝影機位置，所以按<strong>回到原點</strong>時，即使別人移動過攝影機，也會回到真正的原點。",
     "Zones decide where Smart detection looks: only motion inside a zone counts (photo, clip, auto-track, spotlight, siren, alerts). No zones = the whole picture. Draw them with Draw zones on the live view; a zone is a part of the picture, not of the room, so after the camera turns it covers whatever is in that part of the picture.": "偵測區域決定智慧偵測要看哪裡：只有區域內的動作才算數（照片、影片、自動追蹤、聚光燈、警報、通知）。沒有區域 = 整個畫面。請在即時畫面上用<em>畫偵測區域</em>來畫；區域是畫面的一部分，不是房間的一部分，所以相機轉動後，區域會涵蓋畫面那個位置上的任何東西。",
     "When a phone asks, a window pops up on the PC with Allow & remember, Allow once and Deny. A remembered phone is let in by itself next time, also after the code changes (switch that off, or Forget a phone, under Remembered devices). Several phones can control at the same time; the PC can disconnect any of them, and a phone that drops right after a motor command triggers a motor stop.": "手機要求連線時，PC 上會跳出視窗，提供 <strong>Allow &amp; remember</strong>（允許並記住）、<strong>Allow once</strong>（只允許這次）與 <strong>Deny</strong>（拒絕）。已記住的手機下次會自動連入，代碼變更後也一樣（可在「已記住的裝置」中關閉此功能，或按 <strong>Forget</strong> 忘記手機）。多支手機可同時控制；PC 可隨時中斷任何一支，若手機在送出馬達指令後斷線，會自動送出馬達停止。",
-    "Want the same code every time? Under Your code type your own 6 digits (like a password) and press Use my code. Change it any time: devices on the old code are disconnected, and remembered devices come back by themselves once they type the new code.": "想每次都用同一組代碼？在 <strong>Your code</strong>（您的代碼）輸入您自己的 6 位數字（就像密碼），再按 <strong>Use my code</strong>（使用我的代碼）。可隨時更改：使用舊代碼的裝置會被中斷，已記住的裝置輸入新代碼後會自動連入。"
+    "Want the same code every time? Under Your code type your own 6 digits (like a password) and press Use my code. Change it any time: devices on the old code are disconnected, and remembered devices come back by themselves once they type the new code.": "想每次都用同一組代碼？在 <strong>Your code</strong>（您的代碼）輸入您自己的 6 位數字（就像密碼），再按 <strong>Use my code</strong>（使用我的代碼）。可隨時更改：使用舊代碼的裝置會被中斷，已記住的裝置輸入新代碼後會自動連入。",
+    "The rising motor cannot tell how high the camera is, so the console counts the height from the bottom switch. Press Lower to bottom & reset height once after the AIRIZ is powered on, or whenever the height shown looks wrong: the camera goes down in small steps until it touches the switch, and from then on 0 = fully down. Is the camera at the bottom? only asks the switch; nothing moves.": "升降馬達無法得知相機有多高，所以主控台從底部開關開始計算高度。AIRIZ 開機後，或顯示的高度看起來不對時，按一次<em>降到底部並重設高度</em>：相機會一小步一小步往下，直到碰到開關，之後 0 = 完全降下。<em>相機在最底部嗎？</em>只會詢問開關，不會移動。",
+    "The siren plays on the AIRIZ speaker at full volume, again and again, and turns the spotlight on. Built-in loud tone is the test sound stored on the AIRIZ. My sound file uses a WAV, MP3, M4A or OGG from this PC (the first 15 s): it is sent to the AIRIZ the first time the siren sounds (a few seconds over USB, longer for long sounds) and then repeats from there. Stop siren stops the repeats; a sound already playing finishes.": "警報器會以最大音量在 AIRIZ 喇叭上重複播放，並開啟聚光燈。<em>內建大聲提示音</em>是存在 AIRIZ 上的測試聲音。<em>我的聲音檔</em>使用這台 PC 上的 WAV、MP3、M4A 或 OGG（前 15 秒）：第一次響起時會傳送到 AIRIZ（透過 USB 約數秒，聲音越長越久），之後從 AIRIZ 重複播放。「停止警報」會停止重複；正在播放的聲音會播完。",
+    "Teaches the console how far the picture moves per motor step. Start the camera preview first. Press Start, click a clear object in the picture (a corner, a lamp); the camera turns a little; click the same object again. The camera turns back by itself. Do it once for Pan and once for Rising.": "讓主控台知道馬達每一步會讓畫面移動多少。請先開始相機預覽。按<em>開始</em>，在畫面中點選一個清楚的物體（牆角、燈）；相機會轉動一點；再點選同一個物體。相機會自己轉回來。水平與升降各做一次。",
+    "The motors do not report when they stop, so the console estimates how long a move takes. Press Start test move, watch the camera, and press It stopped the moment it stops moving.": "馬達不會回報何時停止，所以主控台會估計一次移動需要多久。按<em>開始測試移動</em>，注意看相機，在它停止移動的那一刻按<em>已停止</em>。"
   },
   "patterns": [
     [
@@ -2083,6 +2162,38 @@
     [
       "^Code (\\d{6}) is now shared by another AIRIZ console \\(another PC or window\\), so sharing stopped here\\. Choose a different code in Share control, then Start sharing\\.$",
       "代碼 $1 已被另一個 AIRIZ 主控台（另一台 PC 或視窗）使用，因此這裡已停止分享。請在「分享控制」中選擇其他代碼，再按「開始分享」。"
+    ],
+    [
+      "^Bottom found after (\\d+) steps down: height is now 0 \\(fully down\\)\\.$",
+      "已找到底部，往下 $1 步：高度現在為 0（完全降下）。"
+    ],
+    [
+      "^Lowered (\\d+) steps without reaching the bottom switch\\. If the camera is already at the bottom, change \\\"Bottom switch reads, when pressed\\\" under Calibration > Advanced numbers\\.$",
+      "已降低 $1 步仍未碰到底部開關。如果相機已在最底部，請在「校正 > 進階數值」中更改「底部開關按下時的讀值」。"
+    ],
+    [
+      "^Done: aim saved \\((\\d+) steps per picture width\\)\\. The camera turns back\\.$",
+      "完成：已儲存瞄準（每個畫面寬度 $1 步）。相機正在轉回。"
+    ],
+    [
+      "^Done: aim saved \\((\\d+) steps per picture height\\)\\. The camera turns back\\.$",
+      "完成：已儲存瞄準（每個畫面高度 $1 步）。相機正在轉回。"
+    ],
+    [
+      "^Done: timing saved \\((\\d+) steps took ([\\d.]+) s\\)\\.$",
+      "完成：已儲存時間（$1 步花了 $2 秒）。"
+    ],
+    [
+      "^Siren on for (\\d+) s \\(your sound\\)\\.$",
+      "警報器開啟 $1 秒（你的聲音）。"
+    ],
+    [
+      "^(.+) \\(([\\d.]+) s\\)$",
+      "$1（$2 秒）"
+    ],
+    [
+      "^Ziris PTB chat: not sent\\. (.+)$",
+      "Ziris PTB 聊天：未傳送。$1"
     ]
   ]
 }

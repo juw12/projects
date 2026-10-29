@@ -1,6 +1,6 @@
 ﻿/* AIRIZ Control Center — versioned, scope-isolated offline shell. */
 const CACHE_PREFIX = 'airiz-control-' + encodeURIComponent(self.registration.scope) + '-';
-const CACHE_NAME = CACHE_PREFIX + 'v2.48-1.11.7-instant-hold';
+const CACHE_NAME = CACHE_PREFIX + 'v2.49-1.11.8-alerts-siren-calibration';
 const ASSETS = [
   './',
   './index.html',
@@ -29,6 +29,7 @@ const ASSETS = [
   './camera-view.html',
   './camera-view.js',
   './camera-view.css',
+  './ptz-clock.js',
   './watch.js',
   './vendor/peerjs.min.js',
   './iphone.html',

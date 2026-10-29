@@ -9,7 +9,7 @@ is required to use the installed app or its hardware-free demo.
 ## Downloads
 
 Windows x64 releases are published under the app-specific tag
-`airiz-desktop-v1.11.7` in this repository's Releases section.
+`airiz-desktop-v1.11.8` in this repository's Releases section.
 
 - **Installer**: assisted, per-user installation with Start-menu/desktop shortcuts
   and an uninstaller. The wizard lets the user choose the installation directory.
@@ -163,6 +163,21 @@ reports whether a framed firmware reply came back. Results can be exported.
 No pairing is accepted without confirmation and no motor command is sent.
 Another program on the PC still cannot open COM4 while this app holds it: that is
 a Windows serial-port rule, which is why the check runs inside the app.
+
+## 1.11.8: Smart detection alerts, own siren sound, simpler calibration
+
+* **Alerts while minimized:** detection skipped every frame while the page was hidden, so a minimized console never
+  raised alerts. It now runs on a worker clock (`ptz-clock.js`), and the Windows app turns background throttling off
+  while detection is armed (`airiz:background-work`, combined with the sharing flag).
+* **Alerts report back:** every event lists *Desktop: shown / blocked ...* and *Ziris PTB chat: sent / skipped (2-minute
+  pause) / join Ziris PTB first / error*. *Send a test alert* tries both without waiting for motion. The Windows app
+  also flashes its taskbar button on an alert while it is not in front.
+* **Own siren sound:** *Siren sound: My sound file* decodes any audio file in the browser (mono 16 kHz, first 15 s,
+  normalised), sends it once like a voice message (`/tmp/airiz/talk.wav`) and repeats it with `diag audio play`.
+* **Plain words:** *Lower to bottom & reset height*, *Is the camera at the bottom?* (Yes / No), and a numbered
+  *Calibration (once per camera)* guide with *Advanced numbers* and *Reset calibration to defaults*.
+* Tested: a new 15-check run (`tools/test_ptz_alerts.py`, English and Traditional Chinese) with stand-ins for the
+  Windows notification and the Teams member, plus the PTZ, hold, zones, remote-home, camera-window and i18n suites.
 
 ## 1.11.7: Camera arrows answer at once
 

@@ -478,3 +478,18 @@
     min-width: 0;
   }
 }
+
+/* 1.11.8: clearer height reference, alerts, siren sound and step-by-step calibration */
+.ptz-subhead { margin-top: 10px; font-weight: 600; font-size: 0.85rem; }
+.ptz-steps { margin: 6px 0 0; padding-left: 1.4em; display: grid; gap: 10px; }
+.ptz-steps > li > strong { display: block; }
+.ptz-steps > li > .ptz-note { display: block; margin: 2px 0 4px; }
+.ptz-cal-status:not(:empty), .ptz-alert-status:not(:empty) {
+  padding: 6px 10px; border-radius: 6px; background: var(--surface-2, rgba(127, 127, 127, 0.12));
+  border-left: 3px solid var(--accent, #1f6feb); }
+.ptz-advanced { margin-top: 8px; }
+.ptz-advanced > summary { cursor: pointer; font-size: 0.85rem; }
+.ptz-event-alerts { font-size: 0.8rem; opacity: 0.85; }
+.ptz-event-alerts .ok { color: var(--success, #2ea043); }
+.ptz-event-alerts .fail { color: var(--danger, #f85149); }
+.ptz-event-alerts span + span { margin-left: 0.8em; }
