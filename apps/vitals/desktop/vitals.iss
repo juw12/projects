@@ -1,5 +1,5 @@
 ; Vitals for Windows - per-user installer (no admin rights). build.py compiles it with:
-;   iscc /DAppVersion=1.2.0 /DSourceDir=<dist\Vitals> /DOutputDir=<dist> vitals.iss
+;   iscc /DAppVersion=1.2.1 /DSourceDir=<dist\Vitals> /DOutputDir=<dist> vitals.iss
 ; Installs to %LOCALAPPDATA%\Programs\Vitals, adds Vitals to the Start menu (and optionally the
 ; desktop and sign-in), and lists it in Settings > Apps. Vitals opens in its own window (Edge
 ; WebView2, which keeps its data in %LOCALAPPDATA%\Vitals\WebView2 and is removed on uninstall).
@@ -7,7 +7,7 @@
 ; and are kept on uninstall.
 
 #ifndef AppVersion
-  #define AppVersion "1.2.0"
+  #define AppVersion "1.2.1"
 #endif
 #ifndef SourceDir
   #define SourceDir "dist\Vitals"

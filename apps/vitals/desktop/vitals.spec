@@ -13,7 +13,7 @@ import sys
 DESKTOP = os.path.dirname(os.path.abspath(SPEC))  # noqa: F821 (provided by PyInstaller)
 APP = os.path.dirname(DESKTOP)
 WEB = os.environ.get("VITALS_STAGE_WEB") or os.path.join(APP, "web")
-VERSION = os.environ.get("VITALS_VERSION", "1.2.0")
+VERSION = os.environ.get("VITALS_VERSION", "1.2.1")
 VERSION_FILE = os.environ.get("VITALS_VERSION_FILE") or None
 IS_WIN = sys.platform == "win32"
 IS_MAC = sys.platform == "darwin"
