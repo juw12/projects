@@ -8,7 +8,7 @@
 (function (root) {
   'use strict';
   const K = (root.Kitty = root.Kitty || {});
-  K.VERSION = '1.2.0';
+  K.VERSION = '1.3.0';
 
   // ---------------------------------------------------------------- ids, clock
   const B62 = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
@@ -217,6 +217,26 @@
   };
 
   // ---------------------------------------------------------------- money
+  // Best-guess currency from the device languages (e.g. 'id-ID' -> IDR, 'en-GB' -> GBP). Users can change it in setup.
+  const REGION_CURRENCY = {
+    ID: 'IDR', US: 'USD', SG: 'SGD', GB: 'GBP', MY: 'MYR', AU: 'AUD', JP: 'JPY', TW: 'TWD', CN: 'CNY', PH: 'PHP',
+    TH: 'THB', VN: 'VND', IN: 'INR', DE: 'EUR', FR: 'EUR', ES: 'EUR', IT: 'EUR', NL: 'EUR', IE: 'EUR', PT: 'EUR',
+    AT: 'EUR', BE: 'EUR', FI: 'EUR', GR: 'EUR',
+  };
+  const LANG_CURRENCY = { id: 'IDR', ms: 'MYR', ja: 'JPY', th: 'THB', vi: 'VND', zh: 'CNY', de: 'EUR', fr: 'EUR', it: 'EUR', nl: 'EUR', pt: 'EUR', es: 'EUR' };
+  K.guessCurrency = function (languages) {
+    const list = Array.isArray(languages) ? languages : [languages];
+    for (let i = 0; i < list.length; i++) {
+      const m = /^([a-z]{2,3})(?:[-_](?:[A-Za-z]{4}[-_])?([A-Za-z]{2}))?/i.exec(String(list[i] || ''));
+      if (!m) continue;
+      const region = m[2] ? m[2].toUpperCase() : '';
+      if (region && REGION_CURRENCY[region]) return REGION_CURRENCY[region];
+      const lang = m[1].toLowerCase();
+      if (LANG_CURRENCY[lang]) return LANG_CURRENCY[lang];
+    }
+    return 'USD';
+  };
+
   K.CURRENCIES = {
     IDR: { locale: 'id-ID', dec: 0, label: 'Indonesian rupiah' },
     USD: { locale: 'en-US', dec: 2, label: 'US dollar' },
@@ -861,6 +881,38 @@
 
   // ---------------------------------------------------------------- planner
   const HOUSEHOLD_GROCERY = { solo: 0.3, couple: 0.38, family: 0.45, shared: 0.32 };
+
+  // Pick a category from what the user typed: first from their own history, then from common words
+  // (English, Indonesian, Chinese, Spanish) mapped to Kitty's default envelopes, then by category name.
+  const CATEGORY_HINTS = [
+    ['Dining out', /coffee|kopi|caf[eé]|lunch|dinner|breakfast|brunch|makan|resto|restaurant|food|boba|bakso|nasi|咖啡|午饭|午餐|晚饭|晚餐|早餐|外卖|餐|奶茶|comida|cena|almuerzo|desayuno|restaurante/i],
+    ['Groceries', /grocer|supermarket|indomaret|alfamart|sayur|\bpasar\b|超市|买菜|菜市场|supermercado|\bmercado\b/i],
+    ['Transport', /\bgrab\b|gojek|uber|taxi|taksi|bensin|fuel|petrol|parkir|parking|\btol\b|toll|train|\bkrl\b|\bmrt\b|\bbus\b|ojek|地铁|打车|出租车|加油|公交|gasolina|\bmetro\b|autob[uú]s/i],
+    ['Bills & utilities', /listrik|electric|\bpln\b|water bill|pdam|internet|wifi|indihome|pulsa|phone bill|token|电费|水费|网费|话费|\bluz\b|factura/i],
+    ['Subscriptions', /netflix|spotify|youtube|disney|icloud|subscription|langganan|订阅|会员|suscripci[oó]n/i],
+    ['Shopping', /shopee|tokopedia|lazada|amazon|clothes|baju|shoes|sepatu|\bmall\b|淘宝|京东|衣服|\bropa\b|zapatos|compras/i],
+    ['Health & insurance', /doctor|dokter|pharmacy|apotek|\bobat\b|medicine|hospital|rumah sakit|bpjs|insurance|asuransi|医院|药|保险|m[eé]dico|farmacia|seguro/i],
+    ['Fun & hobbies', /movie|cinema|bioskop|\bgame|steam|concert|konser|\bgym\b|电影|游戏|\bcine\b|juego|concierto/i],
+    ['Housing', /\brent\b|\bsewa\b|\bkost?\b|mortgage|\bkpr\b|房租|租金|alquiler|hipoteca/i],
+  ];
+  K.guessCategory = function (book, desc) {
+    const text = String(desc || '').trim().toLowerCase();
+    if (text.length < 2) return '';
+    const cats = K.list(book, 'categories');
+    const alive = (id) => cats.some((x) => x.id === id);
+    const past = K.list(book, 'txns')
+      .filter((t) => t.cat && t.type !== 'income' && String(t.desc || '').trim().toLowerCase() === text && alive(t.cat))
+      .sort((a, b) => String(b.date).localeCompare(String(a.date)) || (b.createdAt || 0) - (a.createdAt || 0));
+    if (past.length) return past[0].cat;
+    for (let i = 0; i < CATEGORY_HINTS.length; i++) {
+      if (!CATEGORY_HINTS[i][1].test(text)) continue;
+      const wanted = CATEGORY_HINTS[i][0].toLowerCase();
+      const hit = cats.find((x) => String(x.name || '').toLowerCase() === wanted);
+      if (hit) return hit.id;
+    }
+    const named = cats.find((x) => x.name && String(x.name).length > 2 && text.indexOf(String(x.name).toLowerCase()) >= 0);
+    return named ? named.id : '';
+  };
 
   K.suggestPlan = function (profile, currencyOpt) {
     const cur = currencyOpt || profile.currency || 'IDR';

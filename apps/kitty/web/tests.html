@@ -47,6 +47,26 @@
         eq('parse 1.234,56', K.parseAmount('1.234,56', 'EUR'), 1234.56);
         eq('parse $4.99', K.parseAmount('$4.99', 'USD'), 4.99);
         eq('parse 2m', K.parseAmount('2m', 'USD'), 2000000);
+        // 1.3: setup and entry helpers
+        eq('currency id-ID', K.guessCurrency(['id-ID']), 'IDR');
+        eq('currency en-GB', K.guessCurrency(['en-GB', 'en']), 'GBP');
+        eq('currency zh-Hans-CN', K.guessCurrency(['zh-Hans-CN']), 'CNY');
+        eq('currency bare es', K.guessCurrency(['es']), 'EUR');
+        eq('currency fallback', K.guessCurrency(['xx']), 'USD');
+        (function () {
+          const book = K.newBook({ name: 'Guess', currency: 'IDR', by: 'a' });
+          const dining = K.put(book, 'categories', { name: 'Dining out', group: 'wants', limit: 1 }, 'a').id;
+          const transport = K.put(book, 'categories', { name: 'Transport', group: 'needs', limit: 1 }, 'a').id;
+          const gym = K.put(book, 'categories', { name: 'Fitness', group: 'wants', limit: 1 }, 'a').id;
+          eq('guess keyword en', K.guessCategory(book, 'Coffee'), dining);
+          eq('guess keyword id', K.guessCategory(book, 'makan siang'), dining);
+          eq('guess keyword zh', K.guessCategory(book, '午饭'), dining);
+          eq('guess grab = transport', K.guessCategory(book, 'Grab'), transport);
+          eq('guess grabfood = dining', K.guessCategory(book, 'GrabFood'), dining);
+          eq('guess unknown', K.guessCategory(book, 'zzz'), '');
+          K.put(book, 'txns', { desc: 'Anytime', amount: 10, cat: gym, date: '2026-10-01', type: 'expense' }, 'a');
+          eq('guess learns from history', K.guessCategory(book, 'anytime'), gym);
+        })();
         check('parse garbage is NaN', isNaN(K.parseAmount('abc', 'IDR')));
         eq('fmtPlain IDR', K.fmtPlain(1250000, 'IDR'), '1.250.000');
         eq('round trip IDR', K.parseAmount(K.fmtPlain(1250000, 'IDR'), 'IDR'), 1250000);

@@ -52,13 +52,14 @@
     const o = opts || {};
     const answers = Object.assign({}, o.initial || {});
     let currency = o.currency || 'IDR';
-    let step = -1; // -1 intro, QUIZ.length = result
-    const questions = K.QUIZ.filter((q) => !(o.skipName && q.id === 'name'));
+    // quick: a short setup (o.only question ids), no intro and no personality result.
+    let step = o.skipIntro ? 0 : -1; // -1 intro, QUIZ.length = result
+    const questions = K.QUIZ.filter((q) => !(o.skipName && q.id === 'name') && (!o.only || o.only.indexOf(q.id) >= 0));
     const host = document.createElement('div');
     host.className = 'quiz-overlay';
     host.setAttribute('role', 'dialog');
     host.setAttribute('aria-modal', 'true');
-    host.setAttribute('aria-label', 'Money personality quiz');
+    host.setAttribute('aria-label', o.quick ? 'Quick setup' : 'Money personality quiz');
     document.body.appendChild(host);
     document.body.classList.add('no-scroll');
 
@@ -72,12 +73,16 @@
       draw();
     }
     function back() {
+      if (o.skipIntro && step === 0) {
+        close();
+        return o.onCancel && o.onCancel();
+      }
       step = Math.max(-1, step - 1);
       draw();
     }
 
     function draw() {
-      if (step >= questions.length) return drawResult();
+      if (step >= questions.length) return o.quick ? finishQuick() : drawResult();
       if (step < 0) return drawIntro();
       const q = questions[step];
       const pct = Math.round((step / questions.length) * 100);
@@ -198,6 +203,12 @@
         '<button class="btn btn-primary btn-lg" data-act="start">Let\'s go ' + ui.icon('right', 18) + '</button>' +
         '<p class="fine">' + ui.icon('lock', 14) + ' Your answers stay on this device.</p>' +
         '</div></div>';
+    }
+
+    function finishQuick() {
+      const result = K.scoreQuiz(answers);
+      close();
+      if (o.onDone) o.onDone(answers, result, currency);
     }
 
     function drawResult() {
