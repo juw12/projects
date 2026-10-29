@@ -246,8 +246,12 @@
   lang = detect();
   if (root.document) {
     root.document.documentElement.lang = info(lang).locale;
-    if (root.document.readyState === 'loading') root.document.addEventListener('DOMContentLoaded', observe);
-    else observe();
+    // Watch from the start: app.js may render synchronously before DOMContentLoaded.
+    observe();
+    const sweep = () => translateDOM(root.document.body);
+    if (root.document.readyState === 'loading') root.document.addEventListener('DOMContentLoaded', sweep);
+    else sweep();
+    root.addEventListener('load', sweep);
   }
 
   K.LANGS = LANGS;
