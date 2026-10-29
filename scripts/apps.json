@@ -140,52 +140,52 @@
       "order": 7
     },
     {
-      "id": "airiz-motor",
-      "name": "Airiz Motor",
-      "category": "Automation",
-      "desc": "Windows, Android and browser console for AIRIZ motor testing: USB or Bluetooth jog, LEDs, macros and live camera sharing to phones",
-      "description": "Downloadable Windows console with a locally bundled controller, serial port chooser, camera tools, macros and offline demo. A PIN-protected on-device Bluetooth remote adds wireless pan, up/down, LED control and a real motor stop from Android or iPhone (Bluefy). Camera → Share to phone streams the AIRIZ camera to phones by link or 6-digit code over WebRTC, with an HTTPS frame relay (Cloudflare Worker) that keeps it working on company networks that block WebRTC. The browser and mobile-web editions remain available.",
-      "summary": "AIRIZ test console for Windows, Android, iPhone and web &mdash; USB/Bluetooth jog, motor stop, LEDs, macros, phone camera sharing.",
-      "tags": [
-        "Windows app",
-        "Web Serial",
-        "Bluetooth control",
-        "camera sharing",
-        "macro runner",
-        "offline demo"
-      ],
-      "image": "airiz-motor-card.jpg",
-      "image_alt": "Airiz Motor Test Console dashboard: command library, serial console and macro notepad for AIRIZ device motor testing",
-      "links": {
-        "app": "https://github.com/juw12/projects/releases/download/airiz-desktop-v1.11.2/AIRIZ-Console-Setup-1.11.2-x64.exe",
-        "web": "airiz-motor/",
-        "mobile": "airiz-motor/"
+     "id": "airiz-motor",
+     "name": "Airiz Motor",
+     "category": "Automation",
+     "desc": "Windows, Android and browser console for AIRIZ motor testing: USB or Bluetooth jog, LEDs, macros and live camera sharing to phones",
+     "description": "Downloadable Windows console with a locally bundled controller, serial port chooser, camera tools, macros and offline demo. A PIN-protected on-device Bluetooth remote adds wireless pan, up/down, LED control and a real motor stop from Android or iPhone (Bluefy). Camera → Share to phone streams the AIRIZ camera to phones by link or 6-digit code over WebRTC, with an HTTPS frame relay (Cloudflare Worker) that keeps it working on company networks that block WebRTC. The browser and mobile-web editions remain available.",
+     "summary": "AIRIZ test console for Windows, Android, iPhone and web &mdash; USB/Bluetooth jog, motor stop, LEDs, macros, phone camera sharing.",
+     "tags": [
+      "Windows app",
+      "Web Serial",
+      "Bluetooth control",
+      "camera sharing",
+      "macro runner",
+      "offline demo"
+     ],
+     "image": "airiz-motor-card.jpg",
+     "image_alt": "Airiz Motor Test Console dashboard: command library, serial console and macro notepad for AIRIZ device motor testing",
+     "links": {
+      "app": "https://github.com/juw12/projects/releases/download/airiz-desktop-v1.11.2/AIRIZ-Console-Setup-1.11.2-x64.exe",
+      "web": "airiz-motor/",
+      "mobile": "airiz-motor/"
+     },
+     "featured": true,
+     "order": 1,
+     "portfolio_order": -6,
+     "card_links": [
+      {
+       "label": "Windows app",
+       "path": "https://github.com/juw12/projects/releases/download/airiz-desktop-v1.11.2/AIRIZ-Console-Setup-1.11.2-x64.exe"
       },
-      "featured": true,
-      "order": 1,
-      "portfolio_order": -6,
-      "card_links": [
-        {
-          "label": "Windows app",
-          "path": "https://github.com/juw12/projects/releases/download/airiz-desktop-v1.11.2/AIRIZ-Console-Setup-1.11.2-x64.exe"
-        },
-        {
-          "label": "Web",
-          "path": "airiz-motor/"
-        },
-        {
-          "label": "Mobile web",
-          "path": "airiz-motor/"
-        },
-        {
-          "label": "Android app",
-          "path": "https://github.com/juw12/projects/releases/download/airiz-mobile-v1.0.2/AIRIZ-Mobile-1.0.2-android.apk"
-        },
-        {
-          "label": "iPhone (Bluefy)",
-          "path": "airiz-motor/iphone.html"
-        }
-      ]
+      {
+       "label": "Web",
+       "path": "airiz-motor/"
+      },
+      {
+       "label": "Mobile web",
+       "path": "airiz-motor/"
+      },
+      {
+       "label": "Android app",
+       "path": "https://github.com/juw12/projects/releases/download/airiz-mobile-v1.0.2/AIRIZ-Mobile-1.0.2-android.apk"
+      },
+      {
+       "label": "iPhone (Bluefy)",
+       "path": "airiz-motor/iphone.html"
+      }
+     ]
     },
     {
       "id": "vertex",
