@@ -89,7 +89,8 @@
         "mobile": "house-of-articles/"
       },
       "featured": true,
-      "order": 16
+      "order": 16,
+      "portfolio": false
     },
     {
       "id": "hazel",
