@@ -404,18 +404,12 @@ def processes(limit=25):
             except Exception:
                 continue
     elif IS_WIN:
-        out = run(["tasklist", "/fo", "csv", "/nh", "/v"], timeout=10)
-        for line in out.splitlines():
-            cols = [c.strip('"') for c in line.split('","')]
-            if len(cols) < 8:
-                continue
-            try:
-                rss = int(re.sub(r"[^\d]", "", cols[4]) or 0) * 1024
-                cpu_seconds = _parse_cputime(cols[7]) if ":" in cols[7] else 0.0
-                rows.append({"pid": int(cols[1]), "name": cols[0], "user": cols[6],
-                             "cpu": None, "rss": rss, "cpu_seconds": cpu_seconds})
-            except (ValueError, IndexError):
-                continue
+        try:
+            rows = _windows_processes()
+        except Exception:
+            rows = []
+        if not rows:
+            rows = _tasklist_processes()
     else:
         out = run(["ps", "-Ao", "pid=,user=,%cpu=,rss=,time=,comm="])
         for line in out.splitlines():
@@ -439,6 +433,156 @@ def processes(limit=25):
         row["owned"] = bool(current_user) and user == current_user.lower()
     rows.sort(key=lambda r: ((r["cpu"] or 0), r["rss"]), reverse=True)
     return rows[:limit] if limit else rows
+
+
+# Windows without psutil: read processes straight from the Win32 API. `tasklist /v` resolves every
+# owner name (a domain lookup on managed PCs) and every window title, which can take 40 s or more.
+_WIN_PREV_CPU = {}
+_WELL_KNOWN_SIDS = {"S-1-5-18": "SYSTEM", "S-1-5-19": "LOCAL SERVICE", "S-1-5-20": "NETWORK SERVICE"}
+
+
+def _windows_processes():
+    """pid, name, owner, working set and CPU time per process via Toolhelp + per-process queries."""
+    from ctypes import wintypes
+
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)  # type: ignore[attr-defined]
+    advapi32 = ctypes.WinDLL("advapi32", use_last_error=True)  # type: ignore[attr-defined]
+
+    class PROCESSENTRY32W(ctypes.Structure):
+        _fields_ = [("dwSize", wintypes.DWORD), ("cntUsage", wintypes.DWORD),
+                    ("th32ProcessID", wintypes.DWORD), ("th32DefaultHeapID", ctypes.c_size_t),
+                    ("th32ModuleID", wintypes.DWORD), ("cntThreads", wintypes.DWORD),
+                    ("th32ParentProcessID", wintypes.DWORD), ("pcPriClassBase", ctypes.c_long),
+                    ("dwFlags", wintypes.DWORD), ("szExeFile", ctypes.c_wchar * 260)]
+
+    class FILETIME(ctypes.Structure):
+        _fields_ = [("low", wintypes.DWORD), ("high", wintypes.DWORD)]
+
+    class PROCESS_MEMORY_COUNTERS(ctypes.Structure):
+        _fields_ = [("cb", wintypes.DWORD), ("PageFaultCount", wintypes.DWORD),
+                    ("PeakWorkingSetSize", ctypes.c_size_t), ("WorkingSetSize", ctypes.c_size_t),
+                    ("QuotaPeakPagedPoolUsage", ctypes.c_size_t), ("QuotaPagedPoolUsage", ctypes.c_size_t),
+                    ("QuotaPeakNonPagedPoolUsage", ctypes.c_size_t), ("QuotaNonPagedPoolUsage", ctypes.c_size_t),
+                    ("PagefileUsage", ctypes.c_size_t), ("PeakPagefileUsage", ctypes.c_size_t)]
+
+    handle_t = ctypes.c_void_p
+    kernel32.CreateToolhelp32Snapshot.argtypes = [wintypes.DWORD, wintypes.DWORD]
+    kernel32.CreateToolhelp32Snapshot.restype = handle_t
+    kernel32.Process32FirstW.argtypes = [handle_t, ctypes.POINTER(PROCESSENTRY32W)]
+    kernel32.Process32NextW.argtypes = [handle_t, ctypes.POINTER(PROCESSENTRY32W)]
+    kernel32.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+    kernel32.OpenProcess.restype = handle_t
+    kernel32.CloseHandle.argtypes = [handle_t]
+    kernel32.GetCurrentProcess.restype = handle_t
+    kernel32.GetProcessTimes.argtypes = [handle_t] + [ctypes.POINTER(FILETIME)] * 4
+    kernel32.K32GetProcessMemoryInfo.argtypes = [handle_t, ctypes.POINTER(PROCESS_MEMORY_COUNTERS), wintypes.DWORD]
+    kernel32.LocalFree.argtypes = [ctypes.c_void_p]
+    advapi32.OpenProcessToken.argtypes = [handle_t, wintypes.DWORD, ctypes.POINTER(handle_t)]
+    advapi32.GetTokenInformation.argtypes = [handle_t, ctypes.c_int, ctypes.c_void_p, wintypes.DWORD,
+                                             ctypes.POINTER(wintypes.DWORD)]
+    advapi32.ConvertSidToStringSidW.argtypes = [ctypes.c_void_p, ctypes.POINTER(ctypes.c_wchar_p)]
+
+    query_limited, token_query = 0x1000, 0x0008
+
+    def owner_sid(process):
+        token = handle_t()
+        if not advapi32.OpenProcessToken(process, token_query, ctypes.byref(token)):
+            return ""
+        try:
+            buffer = ctypes.create_string_buffer(256)
+            needed = wintypes.DWORD()
+            if not advapi32.GetTokenInformation(token, 1, buffer, 256, ctypes.byref(needed)):  # TokenUser
+                return ""
+            sid_pointer = ctypes.cast(buffer, ctypes.POINTER(ctypes.c_void_p))[0]
+            text = ctypes.c_wchar_p()
+            if not advapi32.ConvertSidToStringSidW(sid_pointer, ctypes.byref(text)):
+                return ""
+            value = text.value or ""
+            kernel32.LocalFree(text)
+            return value
+        finally:
+            kernel32.CloseHandle(token)
+
+    my_sid = owner_sid(kernel32.GetCurrentProcess())
+    my_name = _current_user()
+
+    def sample():
+        snapshot = kernel32.CreateToolhelp32Snapshot(0x2, 0)  # TH32CS_SNAPPROCESS
+        if not snapshot or snapshot == ctypes.c_void_p(-1).value:
+            return []
+        found = []
+        try:
+            entry = PROCESSENTRY32W()
+            entry.dwSize = ctypes.sizeof(PROCESSENTRY32W)
+            more = kernel32.Process32FirstW(snapshot, ctypes.byref(entry))
+            while more:
+                found.append((int(entry.th32ProcessID), entry.szExeFile))
+                more = kernel32.Process32NextW(snapshot, ctypes.byref(entry))
+        finally:
+            kernel32.CloseHandle(snapshot)
+        result = []
+        for pid, name in found:
+            row = {"pid": pid, "name": name, "user": "", "cpu": None, "rss": 0, "cpu_seconds": 0.0}
+            process = kernel32.OpenProcess(query_limited, False, pid) if pid else None
+            if process:
+                try:
+                    created, ended, kernel_time, user_time = FILETIME(), FILETIME(), FILETIME(), FILETIME()
+                    if kernel32.GetProcessTimes(process, ctypes.byref(created), ctypes.byref(ended),
+                                                ctypes.byref(kernel_time), ctypes.byref(user_time)):
+                        ticks = ((kernel_time.high << 32) | kernel_time.low) + ((user_time.high << 32) | user_time.low)
+                        row["cpu_seconds"] = round(ticks / 1e7, 1)
+                    counters = PROCESS_MEMORY_COUNTERS()
+                    counters.cb = ctypes.sizeof(PROCESS_MEMORY_COUNTERS)
+                    if kernel32.K32GetProcessMemoryInfo(process, ctypes.byref(counters), counters.cb):
+                        row["rss"] = int(counters.WorkingSetSize)
+                    sid = owner_sid(process)
+                    row["user"] = my_name if (sid and sid == my_sid) else _WELL_KNOWN_SIDS.get(sid, "")
+                finally:
+                    kernel32.CloseHandle(process)
+            result.append(row)
+        return result
+
+    started = time.monotonic()
+    rows = sample()
+    if rows and not _WIN_PREV_CPU and time.monotonic() - started < 1.0:
+        # first call: take a second sample shortly after so CPU % is available right away
+        _WIN_PREV_CPU.update({(r["pid"], r["name"]): (r["cpu_seconds"], started, None) for r in rows})
+        time.sleep(0.4)
+        rows = sample()
+    now = time.monotonic()
+    cores = cpu_count() or 1
+    previous = dict(_WIN_PREV_CPU)
+    _WIN_PREV_CPU.clear()
+    for row in rows:
+        key = (row["pid"], row["name"])
+        last = previous.get(key)
+        if last and now - last[1] < 0.2:
+            # asked again almost at once: keep the baseline and repeat the last reading
+            _WIN_PREV_CPU[key] = last
+            row["cpu"] = last[2]
+            continue
+        if last:
+            elapsed = now - last[1]
+            row["cpu"] = round(max(0.0, row["cpu_seconds"] - last[0]) / (elapsed * cores) * 100, 1)
+        _WIN_PREV_CPU[key] = (row["cpu_seconds"], now, row["cpu"])
+    return rows
+
+
+def _tasklist_processes():
+    """Fallback without owner names or window titles (the slow part of `tasklist /v`)."""
+    rows = []
+    out = run(["tasklist", "/fo", "csv", "/nh"], timeout=10)
+    for line in out.splitlines():
+        cols = [c.strip('"') for c in line.split('","')]
+        if len(cols) < 5:
+            continue
+        try:
+            rss = int(re.sub(r"[^\d]", "", cols[4]) or 0) * 1024
+            rows.append({"pid": int(cols[1]), "name": cols[0], "user": "", "cpu": None,
+                         "rss": rss, "cpu_seconds": 0.0})
+        except (ValueError, IndexError):
+            continue
+    return rows
 
 
 def _current_user():
