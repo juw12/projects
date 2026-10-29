@@ -112,28 +112,69 @@
       return d.user;
     });
   };
+  // Account actions go through MintCloud (../js/mint-cloud.js) when it is loaded, so the same login also unlocks
+  // (and re-wraps after password changes) the encrypted key Mint Budget uses to sync across devices.
+  function cloud() {
+    return root.MintCloud || null;
+  }
   ApiStore.prototype.register = function (email, name, password) {
     var self = this;
+    if (cloud()) {
+      return cloud().register(email, name, password).then(function (res) {
+        self.lastRecoveryCode = res.recoveryCode || "";
+        return res.user;
+      });
+    }
     return this.call("POST", "auth/register", { email: email, name: name, password: password }).then(function (d) { return self.session(d); });
   };
   ApiStore.prototype.login = function (email, password) {
     var self = this;
+    if (cloud()) {
+      return cloud().login(email, password).then(function (res) {
+        self.lastRecoveryCode = "";
+        return res.user;
+      });
+    }
     return this.call("POST", "auth/login", { email: email, password: password }).then(function (d) { return self.session(d); });
   };
   ApiStore.prototype.recover = function (email, recoveryCode, newPassword) {
     var self = this;
+    if (cloud()) {
+      return cloud().recover(email, recoveryCode, newPassword).then(function (res) {
+        self.lastRecoveryCode = res.recoveryCode || "";
+        return res.user;
+      });
+    }
     return this.call("POST", "auth/recover", { email: email, recoveryCode: recoveryCode, newPassword: newPassword }).then(function (d) { return self.session(d); });
   };
-  ApiStore.prototype.changePassword = function (currentPassword, newPassword) { return this.call("POST", "me/password", { currentPassword: currentPassword, newPassword: newPassword }); };
-  ApiStore.prototype.newRecoveryCode = function (password) { return this.call("POST", "me/recovery-code", { password: password }).then(function (d) { return d.recoveryCode; }); };
+  ApiStore.prototype.changePassword = function (currentPassword, newPassword) {
+    if (cloud()) {
+      return cloud().changePassword(currentPassword, newPassword);
+    }
+    return this.call("POST", "me/password", { currentPassword: currentPassword, newPassword: newPassword });
+  };
+  ApiStore.prototype.newRecoveryCode = function (password) {
+    if (cloud()) {
+      return cloud().newRecoveryCode(password);
+    }
+    return this.call("POST", "me/recovery-code", { password: password }).then(function (d) { return d.recoveryCode; });
+  };
   ApiStore.prototype.deleteAccount = function (password) {
     return this.call("POST", "me/delete", { password: password }).then(function (d) {
       localStorage.removeItem(TOKEN_KEY);
+      if (cloud()) {
+        cloud().forget();
+      }
       return d;
     });
   };
   ApiStore.prototype.report = function (id, reason) { return this.call("POST", "listings/" + enc(id) + "/report", { reason: reason }); };
   ApiStore.prototype.logout = function () {
+    if (cloud()) {
+      return cloud().logout().then(function () {
+        return { ok: true };
+      });
+    }
     return this.call("POST", "auth/logout", {}).catch(function () {}).then(function () {
       localStorage.removeItem(TOKEN_KEY);
       return { ok: true };

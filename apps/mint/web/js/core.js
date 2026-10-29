@@ -29,6 +29,7 @@
     midnight: ["midnight", "dark", "gelap", "night"]
   };
 
+  // scale = rough units per 1 USD, used only to size sample numbers in generated templates.
   var CURRENCIES = {
     USD: { symbol: "$", locale: "en-US", scale: 1, decimals: 2 },
     IDR: { symbol: "Rp", locale: "id-ID", scale: 15000, decimals: 0 },
@@ -37,7 +38,21 @@
     SGD: { symbol: "S$", locale: "en-SG", scale: 1.35, decimals: 2 },
     MYR: { symbol: "RM", locale: "ms-MY", scale: 4.7, decimals: 2 },
     JPY: { symbol: "\u00a5", locale: "ja-JP", scale: 150, decimals: 0 },
-    CNY: { symbol: "\u00a5", locale: "zh-CN", scale: 7.2, decimals: 2 }
+    CNY: { symbol: "\u00a5", locale: "zh-CN", scale: 7.2, decimals: 2 },
+    AUD: { symbol: "A$", locale: "en-AU", scale: 1.5, decimals: 2 },
+    TWD: { symbol: "NT$", locale: "zh-TW", scale: 32, decimals: 0 },
+    PHP: { symbol: "\u20b1", locale: "en-PH", scale: 58, decimals: 2 },
+    THB: { symbol: "\u0e3f", locale: "th-TH", scale: 35, decimals: 2 },
+    VND: { symbol: "\u20ab", locale: "vi-VN", scale: 25000, decimals: 0 },
+    INR: { symbol: "\u20b9", locale: "en-IN", scale: 85, decimals: 2 },
+    HKD: { symbol: "HK$", locale: "zh-HK", scale: 7.8, decimals: 2 },
+    KRW: { symbol: "\u20a9", locale: "ko-KR", scale: 1350, decimals: 0 },
+    NZD: { symbol: "NZ$", locale: "en-NZ", scale: 1.7, decimals: 2 },
+    CAD: { symbol: "C$", locale: "en-CA", scale: 1.38, decimals: 2 },
+    MXN: { symbol: "MX$", locale: "es-MX", scale: 18, decimals: 2 },
+    COP: { symbol: "COL$", locale: "es-CO", scale: 4000, decimals: 0 },
+    BRL: { symbol: "R$", locale: "pt-BR", scale: 5.4, decimals: 2 },
+    AED: { symbol: "AED", locale: "en-AE", scale: 3.67, decimals: 2 }
   };
 
   var CURRENCY_WORDS = [
@@ -48,6 +63,20 @@
     [/\b(myr|ringgit)\b/, "MYR"],
     [/\b(jpy|yen)\b/, "JPY"],
     [/\b(cny|rmb|yuan|renminbi)\b/, "CNY"],
+    [/\b(twd|ntd|nt\$|new taiwan dollar)\b/, "TWD"],
+    [/\b(thb|baht)\b/, "THB"],
+    [/\b(vnd|dong)\b/, "VND"],
+    [/\b(inr|rupee|rupees)\b/, "INR"],
+    [/\b(krw|won)\b/, "KRW"],
+    [/\b(hkd)\b/, "HKD"],
+    [/\b(aud)\b/, "AUD"],
+    [/\b(nzd)\b/, "NZD"],
+    [/\b(cad)\b/, "CAD"],
+    [/\b(mxn)\b/, "MXN"],
+    [/\b(cop)\b/, "COP"],
+    [/\b(brl|reais)\b/, "BRL"],
+    [/\b(aed|dirham|dirhams)\b/, "AED"],
+    [/\b(php|philippine peso)\b/, "PHP"],
     [/\b(usd|dollar|dollars)\b|\$/, "USD"]
   ];
 

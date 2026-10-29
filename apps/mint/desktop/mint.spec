@@ -6,7 +6,7 @@ import os
 import sys
 
 DESKTOP = os.path.dirname(os.path.abspath(SPEC))  # noqa: F821 (provided by PyInstaller)
-VERSION = os.environ.get("MINT_VERSION", "3.1.0")
+VERSION = os.environ.get("MINT_VERSION", "3.2.0")
 VERSION_FILE = os.environ.get("MINT_VERSION_FILE") or None
 ICON = os.environ.get("MINT_ICON") or None
 IS_WIN = sys.platform == "win32"

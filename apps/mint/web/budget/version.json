@@ -1,30 +1,30 @@
 {
-  "version": "3.1.0",
+  "version": "3.2.0",
   "released": "2026-10-29",
   "notes": {
     "en": [
-      "Choose your language and region the first time you open Mint; your region sets the currency for new budgets and templates.",
-      "Mint for Windows and Mac: download the desktop app from the Get the app page.",
-      "New Android app with saving and sharing of backups, CSV files and result cards.",
-      "More currencies: Hong Kong dollar, South Korean won, New Zealand dollar, Canadian dollar, Mexican peso, Colombian peso, Brazilian real and UAE dirham."
+      "Many currencies: add an expense or a holding in any currency and Mint converts it to your budget's currency with daily exchange rates, keeping the original amount too.",
+      "Invest now has Learn (a 12-question quiz), personal Tips and money News for your region.",
+      "Marketplace is now a tab inside Mint: browse templates, generate one from a sentence, and sell your own budget plan or investing mix (shares only, never your real amounts). Prices show in your own currency.",
+      "Sign in with one Mint account to keep your budgets in sync across phone, computer and browser. Your data is encrypted on your device before it is uploaded; keep your recovery code safe."
     ],
     "id": [
-      "Pilih bahasa dan wilayah saat pertama kali membuka Mint; wilayah menentukan mata uang untuk anggaran dan template baru.",
-      "Mint untuk Windows dan Mac: unduh aplikasi desktop dari halaman Dapatkan aplikasi.",
-      "Aplikasi Android baru yang bisa menyimpan dan membagikan cadangan, file CSV, dan kartu hasil.",
-      "Mata uang baru: dolar Hong Kong, won Korea Selatan, dolar Selandia Baru, dolar Kanada, peso Meksiko, peso Kolombia, real Brasil, dan dirham UEA."
+      "Banyak mata uang: catat pengeluaran atau aset dalam mata uang apa pun dan Mint mengonversinya ke mata uang anggaranmu dengan kurs harian, sambil tetap menyimpan jumlah aslinya.",
+      "Investasi kini punya Belajar (kuis 12 pertanyaan), Tips pribadi, dan Berita keuangan untuk wilayahmu.",
+      "Marketplace kini menjadi tab di dalam Mint: jelajahi template, buat dari satu kalimat, dan jual rencana anggaran atau komposisi investasimu (hanya persentase, tidak pernah jumlah aslimu). Harga tampil dalam mata uangmu sendiri.",
+      "Masuk dengan satu akun Mint agar anggaranmu tersinkron di ponsel, komputer, dan browser. Datamu dienkripsi di perangkatmu sebelum diunggah; simpan kode pemulihanmu baik-baik."
     ],
     "zh": [
-      "首次打开 Mint 时选择语言和地区；地区决定新预算和新模板使用的货币。",
-      "Mint 支持 Windows 和 Mac：在“获取应用”页面下载桌面版。",
-      "全新 Android 应用，可保存并分享备份、CSV 文件和结果卡片。",
-      "新增货币：港元、韩元、新西兰元、加拿大元、墨西哥比索、哥伦比亚比索、巴西雷亚尔和阿联酋迪拉姆。"
+      "多币种：可用任意货币记录支出或持仓，Mint 按每日汇率换算成预算货币，并保留原始金额。",
+      "投资页新增“学习”（12 题测验）、个人建议和你所在地区的财经新闻。",
+      "市场现在是 Mint 内的一个标签页：浏览模板、用一句话生成模板，并出售你的预算方案或投资组合（只含比例，不含你的真实金额）。价格以你自己的货币显示。",
+      "使用同一个 Mint 账户登录，即可在手机、电脑和浏览器之间同步预算。数据在上传前已在你的设备上加密；请妥善保管恢复码。"
     ],
     "es": [
-      "Elige tu idioma y tu región la primera vez que abras Mint; la región define la moneda de los presupuestos y plantillas nuevos.",
-      "Mint para Windows y Mac: descarga la app de escritorio desde la página Obtener la app.",
-      "Nueva app para Android que guarda y comparte copias de seguridad, archivos CSV y tarjetas de resultados.",
-      "Más monedas: dólar de Hong Kong, won surcoreano, dólar neozelandés, dólar canadiense, peso mexicano, peso colombiano, real brasileño y dírham de los EAU."
+      "Varias monedas: registra un gasto o una inversión en cualquier moneda y Mint lo convierte a la moneda de tu presupuesto con tipos de cambio diarios, guardando también el importe original.",
+      "Invertir ahora incluye Aprender (un cuestionario de 12 preguntas), Consejos personales y Noticias de dinero de tu región.",
+      "El Mercado ahora es una pestaña dentro de Mint: explora plantillas, genera una con una frase y vende tu plan de presupuesto o tu mezcla de inversión (solo porcentajes, nunca tus importes reales). Los precios se muestran en tu moneda.",
+      "Inicia sesión con una cuenta de Mint para sincronizar tus presupuestos entre teléfono, ordenador y navegador. Tus datos se cifran en tu dispositivo antes de subirse; guarda bien tu código de recuperación."
     ]
   }
 }

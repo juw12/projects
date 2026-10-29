@@ -8,7 +8,7 @@
 (function (root) {
   'use strict';
   const K = (root.MintBudget = root.MintBudget || {});
-  K.VERSION = '3.1.0';
+  K.VERSION = '3.2.0';
 
   /** Compare dotted versions numerically: 1, 0 or -1 ("1.10.0" is newer than "1.9.9"). */
   K.compareVersions = function (a, b) {
@@ -350,6 +350,51 @@
     return Math.round(v / step) * step;
   };
 
+  // ---------------------------------------------------------------- exchange rates
+  // Units of each currency per 1 USD. Starts from a built-in snapshot (open.er-api.com, 29 Oct 2026) so
+  // conversion works offline from the first run; the app refreshes it daily from the Mint API.
+  K.FX = {
+    base: 'USD',
+    date: '2026-10-29',
+    source: 'built-in',
+    rates: { IDR: 18181.61, USD: 1, SGD: 1.28178, EUR: 0.897215, GBP: 0.751538, MYR: 4.077375, AUD: 1.419838, JPY: 157.91, TWD: 32.42, CNY: 6.680538, PHP: 64.0, THB: 33.77, VND: 25834.04, INR: 95.3, HKD: 7.845294, KRW: 1340.24, NZD: 1.778098, CAD: 1.401824, MXN: 18.65, COP: 3146.9, BRL: 5.346831, AED: 3.6725 },
+  };
+  /** Load a rates payload ({base:'USD', date, rates}) if it is usable. Returns true when applied. */
+  K.setRates = function (data) {
+    if (!data || data.base !== 'USD' || !data.rates || typeof data.rates !== 'object') return false;
+    const rates = {};
+    Object.keys(data.rates).forEach((code) => {
+      const v = Number(data.rates[code]);
+      if (/^[A-Z]{3}$/.test(code) && isFinite(v) && v > 0) rates[code] = v;
+    });
+    rates.USD = 1;
+    if (Object.keys(rates).length < 5) return false;
+    K.FX = { base: 'USD', date: String(data.date || ''), source: String(data.source || ''), rates: rates };
+    return true;
+  };
+  /** How many `to` you get for 1 `from` (NaN when a rate is unknown). */
+  K.rate = function (from, to) {
+    if (!from || !to || from === to) return 1;
+    const a = K.FX.rates[from];
+    const b = K.FX.rates[to];
+    return a > 0 && b > 0 ? b / a : NaN;
+  };
+  K.convert = function (amount, from, to) {
+    return (Number(amount) || 0) * K.rate(from, to);
+  };
+  /** Convert into the budget currency; unknown currencies fall back to the number as entered. */
+  K.toBase = function (amount, from, base) {
+    const v = Number(amount) || 0;
+    if (!from || from === base) return v;
+    const r = K.rate(from, base);
+    return isFinite(r) ? v * r : v;
+  };
+  /** Round a converted amount to the currency's decimals. */
+  K.roundMoney = function (amount, cur) {
+    const f = Math.pow(10, K.decimals(cur));
+    return Math.round((Number(amount) || 0) * f) / f;
+  };
+
   // ---------------------------------------------------------------- dates
   function pad(n) {
     return (n < 10 ? '0' : '') + n;
@@ -389,9 +434,12 @@
     yearly: { label: 'Yearly', perMonth: 1 / 12 },
   };
   K.monthlyIncome = function (book) {
+    const base = (book && book.meta && book.meta.currency) || 'IDR';
     return K.list(book, 'incomes').reduce((s, inc) => {
       const f = K.FREQ[inc.freq] || K.FREQ.monthly;
-      return s + (Number(inc.amount) || 0) * f.perMonth;
+      // Income paid in another currency counts at today's rate.
+      const amount = K.toBase(Number(inc.amount) || 0, inc.cur, base);
+      return s + amount * f.perMonth;
     }, 0);
   };
 
@@ -1068,12 +1116,14 @@
 
   K.portfolio = function (book) {
     const target = (book.meta.target && book.meta.target.mix) || K.targetFor(50).mix;
+    const base = (book.meta && book.meta.currency) || 'IDR';
     const rows = K.list(book, 'holdings').map((h) => {
       const qty = Number(h.qty) || 0;
       const price = Number(h.price) || 0;
       const cost = Number(h.cost) || 0;
-      const value = qty * price;
-      const basis = qty * cost;
+      // Prices are entered in the holding's own currency (e.g. a US stock in USD); totals use the budget's.
+      const value = K.toBase(qty * price, h.cur, base);
+      const basis = K.toBase(qty * cost, h.cur, base);
       return Object.assign({}, h, {
         value: value,
         basis: basis,

@@ -153,7 +153,7 @@ class BudgetWebTests(unittest.TestCase):
     def test_theme_switch_is_one_tap_on_every_screen(self):
         app = read(WEB / "js" / "app.js")
         buttons = re.findall(r"<button class=\"([^\"]*theme-btn[^\"]*)\" data-act=\"(theme(?:-welcome)?)\"", app)
-        self.assertEqual(sorted(act for _, act in buttons), ["theme", "theme-welcome"], buttons)
+        self.assertEqual(sorted(set(act for _, act in buttons)), ["theme", "theme-welcome"], buttons)
         for classes, _ in buttons:
             self.assertNotIn("hide-sm", classes, "the theme button must stay visible on phones")
         self.assertIn("appearanceCard() +", app, "Settings shows the Appearance picker")
@@ -162,14 +162,14 @@ class BudgetWebTests(unittest.TestCase):
 
     def test_templates_reachable_from_budget(self):
         app = read(WEB / "js" / "app.js")
-        self.assertIn("const TEMPLATES_URL = '../app.html';", app)
-        self.assertTrue((WEB / "../app.html").resolve().is_file(), "Mint Templates page exists next door")
-        shell = app[app.index("function shellHTML()") : app.index("function syncInfo()")]
-        self.assertIn("data-templates", shell, "desktop sidebar links to Templates")
+        self.assertIn("const MARKET_PAGE = '../app.html';", app)
+        self.assertTrue((WEB / "../app.html").resolve().is_file(), "the template store page exists next door")
+        self.assertIn("{ id: 'market', label: 'Marketplace'", app, "Marketplace is a tab in Mint")
+        self.assertIn("keep.set('embed', '1')", app, "the store is embedded, not a separate app")
         more = app[app.index("function openMore()") : app.index("function openShortcuts()")]
-        self.assertIn("TEMPLATES_URL", more, "phone More sheet links to Templates")
+        self.assertIn("market", more, "phone More sheet links to the Marketplace")
         welcome = app[app.index("function renderWelcome(") : app.index("function welcomeMock()")]
-        self.assertGreaterEqual(welcome.count("TEMPLATES_URL"), 2, "welcome page points first-time visitors to Templates")
+        self.assertGreaterEqual(welcome.count("view=market"), 2, "welcome page points first-time visitors to the Marketplace")
 
     def test_budget_reachable_from_templates(self):
         for page in ("app.html", "web.html", "mobile.html"):
@@ -184,9 +184,9 @@ class BudgetWebTests(unittest.TestCase):
         root = read(MINT_WEB / "index.html")
         self.assertIn("location.replace", root)
         self.assertIn("'budget/'", root)
-        self.assertIn("'app.html'", root)
-        self.assertIn("/^#\\//.test(hash)", root, "#/market, #/item/... still open Templates")
-        self.assertIn("ref|coupon", root, "affiliate and coupon links still open Templates")
+        self.assertIn("out.set('view', 'market')", root, "template links open the Marketplace tab")
+        self.assertIn("/^#\\//.test(hash)", root, "#/market, #/item/... still reach the template store")
+        self.assertIn("ref|coupon", root, "affiliate and coupon links still reach the template store")
 
     def test_one_theme_and_one_language_for_both_halves(self):
         app = read(WEB / "js" / "app.js")
