@@ -121,6 +121,22 @@
   const fixReply = B.respond("just fix it", { mode: "agent", platform: "mac" });
   check(fixReply.chips.some((c) => c.action === "fix-all"), "chat offers one-tap Fix everything");
 
+  // A phone checks itself: storage, heat, battery, memory and uptime in plain words.
+  const fullPhone = B.phoneFindings({ platform: "android", storageTotal: 128 * GB, storageFree: 3 * GB, memoryTotal: 8 * GB, memoryAvailable: 3 * GB, batteryPercent: 64, charging: false, batteryTemperature: 31, batteryCycles: 220, uptime: 20 * 86400, thermal: 0 });
+  check(fullPhone.headline === "Your phone needs some care" && fullPhone.items[0].key === "storage", "a nearly full phone leads with storage");
+  check(fullPhone.items[0].action && fullPhone.items[0].action.action === "guide" && fullPhone.items[0].action.platform === "android", "phone findings point to the built-in steps that fix them");
+  check(fullPhone.items.some((i) => i.key === "restart" && i.tone === "warn"), "a phone on for 20 days is told to restart");
+  check(fullPhone.items.some((i) => i.key === "memory" && i.tone === "good"), "memory with room to spare is fine");
+  const hotPhone = B.phoneFindings({ platform: "android", batteryTemperature: 44, batteryPercent: 80, charging: true });
+  check(hotPhone.items[0].key === "heat" && hotPhone.items[0].tone === "bad", "a hot battery is the top finding");
+  const wornPhone = B.phoneFindings({ platform: "android", batteryPercent: 50, batteryCycles: 950 });
+  check(wornPhone.items.some((i) => i.key === "battery-health" && i.tone === "warn"), "many charge cycles means a worn battery");
+  const iphone = B.phoneFindings({ platform: "iphone", storageTotal: 256 * GB, storageFree: 120 * GB, batteryPercent: 15, charging: false, thermal: 0 });
+  check(iphone.noun === "iPhone" && iphone.items[0].key === "battery" && /Low Power Mode/.test(iphone.items[0].text), "an iPhone at 15% is pointed to Low Power Mode");
+  check(B.phoneFindings({ platform: "iphone", storageTotal: 256 * GB, storageFree: 200 * GB, batteryPercent: 90, charging: true }).headline === "Your iPhone is in great shape", "a healthy iPhone gets a reassuring headline");
+  check(B.phoneFindings({ platform: "iphone" }).known === false, "with no readings it says so instead of guessing");
+  check(B.PLAYBOOKS.android.sections.length >= 3 && B.PLAYBOOKS.iphone.sections.length >= 3, "both phone guides have storage, battery and speed steps");
+
   // Platform detection.
   check(B.detectPlatform("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)", "", 5) === "iphone", "detect iPhone");
   check(B.detectPlatform("Mozilla/5.0 (Linux; Android 14; Pixel 8)", "", 5) === "android", "detect Android");

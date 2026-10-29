@@ -4,12 +4,17 @@ Capacitor 8 apps around the Vitals dashboard. The dashboard files are **bundled*
 `../web` by `npm run build`, using the same `web/files.txt` list as the desktop installers), so the
 app opens instantly and works offline. It starts on the phone layout (`mobile.html`).
 
-What a phone app can do: iOS and Android don't let any app clean other apps' storage, so the phone
-app does what is honest — your **computer's** health once paired (on the computer: Vitals →
-**Devices → Connect my phone**, then type the code and address in the app, or scan the QR with the
-camera), plus the phone **Guides**, the demo and the chat. The agent on the computer speaks plain
-HTTP on your own Wi-Fi, so the Android app allows cleartext/mixed content and the iPhone app sets
-`NSAllowsLocalNetworking`; nothing else is loaded from the network.
+What a phone app can do: it **checks the phone itself**. A small read-only plugin
+(`native/`, VitalsPhone — copied into the generated projects by `scripts/prepare-native.mjs`) reads
+storage, memory, battery level and charging, heat, uptime and, on Android, battery temperature,
+health and charge cycles (Android 14+). The home screen turns that into plain findings with the
+exact built-in steps to fix them. iOS and Android don't let any app clean other apps' storage, so
+Vitals points to the phone's own tools instead of pretending. It can also show your **computer's**
+health once paired (on the computer: Vitals → **Devices → Connect my phone**, then scan the QR).
+The agent on the computer speaks plain HTTP on your own Wi-Fi, so the Android app allows
+cleartext/mixed content and the iPhone app sets `NSAllowsLocalNetworking`; nothing else is loaded
+from the network. In a phone browser (no app) only the speed test and, on Android, the battery
+level are available.
 
 ## Build
 
@@ -42,5 +47,6 @@ via `.github/workflows/vitals-apps.yml`:
 ## Checks
 
 CI installs the debug APK on an Android emulator and reads the live page through the WebView
-debugger (`scripts/android-smoke.py`), and launches the iPhone build in the simulator. Pairing with
-a computer from inside the iPhone app has not been tested on a device yet.
+debugger (`scripts/android-smoke.py`) — including the phone plugin's storage, memory and battery
+readings — and launches the iPhone build in the simulator. The iPhone plugin and pairing from
+inside the iPhone app have not been tested on a real device yet.

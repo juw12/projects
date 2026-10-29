@@ -49,8 +49,10 @@
     guide: null,
     guideDone: LS.get("guideDone", {}),
     hostname: null,
+    phone: null, // { signals, checkedAt }: this phone's own readings (see readPhoneSignals)
   };
   S.guide = ["iphone", "android", "mac", "windows"].includes(S.platform) ? S.platform : "mac";
+  const IS_PHONE = S.platform === "iphone" || S.platform === "android";
 
   // ------------------------------------------------------------------ icons
   const I = {
@@ -266,7 +268,15 @@
   function enterBrowser() {
     S.mode = "browser";
     render();
-    readBrowserSignals();
+    readBrowserSignals().then(readPhoneSignals);
+    if (IS_PHONE && !S.phonePoll) {
+      S.phonePoll = setInterval(() => {
+        if (S.mode === "browser" && !document.hidden) readPhoneSignals();
+      }, 30000);
+      document.addEventListener("visibilitychange", () => {
+        if (S.mode === "browser" && !document.hidden) readPhoneSignals();
+      });
+    }
   }
 
   function startDemo(fromHash) {
@@ -382,11 +392,7 @@
         const bat = await navigator.getBattery();
         const update = () => {
           b.battery = { percent: Math.round(bat.level * 100), charging: bat.charging, dischargingTime: bat.dischargingTime };
-          if (!bat.charging) {
-            b.drainLog.push({ t: Date.now(), p: bat.level * 100 });
-            b.drainLog = b.drainLog.filter((x) => Date.now() - x.t < 6 * 3600e3).slice(-200);
-            LS.set("drainLog", b.drainLog);
-          }
+          if (!bat.charging) logDrain(bat.level * 100);
           softRender();
         };
         bat.addEventListener("levelchange", update);
@@ -395,6 +401,60 @@
       } catch (e) { /* not allowed */ }
     }
     softRender();
+  }
+
+  function logDrain(percent) {
+    const b = S.browser;
+    b.drainLog.push({ t: Date.now(), p: percent });
+    b.drainLog = b.drainLog.filter((x) => Date.now() - x.t < 6 * 3600e3).slice(-200);
+    LS.set("drainLog", b.drainLog);
+  }
+
+  // ------------------------------------------------------------ this phone
+  // Inside the Vitals Android/iPhone app a small native plugin (VitalsPhone, added by
+  // mobile/scripts/prepare-native.mjs) reports storage, memory, battery, heat and uptime.
+  // In a phone browser we keep what the browser exposes (battery on Android, the speed test).
+  function nativeCall(plugin, method, options) {
+    const cap = window.Capacitor;
+    if (!IN_APP || !cap) return Promise.resolve(null);
+    try {
+      // nativePromise goes straight to the native bridge (no @capacitor/core bundle needed).
+      if (typeof cap.nativePromise === "function") return cap.nativePromise(plugin, method, options || {}).catch(() => null);
+      const proxy = cap.Plugins && cap.Plugins[plugin];
+      if (proxy && typeof proxy[method] === "function") return Promise.resolve(proxy[method](options || {})).catch(() => null);
+    } catch (e) { /* this build has no such plugin */ }
+    return Promise.resolve(null);
+  }
+
+  async function readPhoneSignals() {
+    if (!IS_PHONE) return;
+    const timeout = new Promise((resolve) => setTimeout(() => resolve(null), 4000));
+    const native = await Promise.race([nativeCall("VitalsPhone", "snapshot"), timeout]);
+    const b = S.browser;
+    const s = Object.assign({}, native || {}, { platform: S.platform, native: !!native });
+    if (native && native.batteryPercent != null) {
+      b.battery = { percent: native.batteryPercent, charging: !!native.charging };
+      if (!native.charging) logDrain(native.batteryPercent);
+    } else if (b.battery) {
+      s.batteryPercent = b.battery.percent;
+      s.charging = b.battery.charging;
+    }
+    s.drainRate = browserDrainRate();
+    const last = S.bench[S.bench.length - 1];
+    if (last) s.benchDrop = 100 * (1 - last.rounds[last.rounds.length - 1] / Math.max(...last.rounds));
+    S.phone = { signals: s, checkedAt: Date.now() };
+    softRender();
+  }
+
+  function phoneLabel(sig) {
+    const ios = S.platform === "iphone";
+    let model = sig.model || "";
+    if (/^(iPhone|iPad|iPod)\d/.test(model)) model = model.replace(/\d.*$/, "");
+    if (model && sig.manufacturer && !model.toLowerCase().startsWith(sig.manufacturer.toLowerCase())) {
+      model = sig.manufacturer.charAt(0).toUpperCase() + sig.manufacturer.slice(1) + " " + model;
+    }
+    const os = sig.osVersion ? (ios ? "iOS " : "Android ") + sig.osVersion : "";
+    return [model, os].filter(Boolean).join(" · ") || (ios ? "iPhone" : "Android phone");
   }
 
   function browserDrainRate() {
@@ -609,7 +669,14 @@
       case "demo": return startDemo(false);
       case "exit-demo": return exitDemo();
       case "benchmark": go("performance"); return runBenchmark();
-      case "guide": S.guide = a.platform; return go("guides");
+      case "phone-check": return phoneCheck();
+      case "guide": {
+        S.guide = a.platform;
+        go("guides");
+        const section = a.section != null && a.section !== "" ? $("#guide-sec-" + a.section) : null;
+        if (section) section.scrollIntoView({ block: "start" });
+        return null;
+      }
       case "fix-all": return fixAll();
       case "fix-reset": S.fix = null; return renderMain();
       case "fix-preview": return S.scan ? openFixSheet() : fixAll();
@@ -713,7 +780,10 @@
   function modePill() {
     if (S.mode === "agent") return '<span class="mode-pill" title="Connected to the local agent"><span class="dot live"></span>Live · ' + esc(S.hostname || "this computer") + "</span>";
     if (S.mode === "demo") return '<button class="mode-pill" data-action="exit-demo" title="Leave demo"><span class="dot warn"></span>Demo data · exit</button>';
-    if (S.mode === "browser" && IN_APP) return '<button class="mode-pill" data-go="devices"><span class="dot"></span>Phone guides · connect your computer</button>';
+    if (S.mode === "browser" && IS_PHONE) {
+      const live = S.phone && S.phone.signals && S.phone.signals.native;
+      return '<span class="mode-pill" title="' + (live ? "Readings from this phone" : "What this browser can read on this phone") + '"><span class="dot' + (live ? " live" : "") + '"></span>This ' + (S.platform === "iphone" ? "iPhone" : "phone") + (live ? " · live" : "") + "</span>";
+    }
     if (S.mode === "browser") return '<button class="mode-pill" data-go="devices"><span class="dot"></span>Browser mode · get full version</button>';
     return '<span class="mode-pill"><span class="dot"></span>Connecting…</span>';
   }
@@ -870,7 +940,7 @@
     const rate = browserDrainRate();
     let html = topbar("Overview", esc(pb ? pb.name : "This device") + " · browser mode");
     html += '<div class="notice" style="margin-bottom:16px"><b>' + (phone ? "Phones don't let any app or website clean other apps' storage." : "A browser tab can't read your disk or processes.") + "</b> " +
-      (phone ? "So Vitals gives you the exact built-in steps that work (Guides), measures what the browser can, and can show your computer's health here with one scan." : "Install the free Vitals app with one copy-paste for real scans, the Undo Vault and live vitals — or explore everything with demo data first.") +
+      (phone ? "So Vitals reads what this phone reports (Home), gives you the exact built-in steps that work (Guides), and can show your computer's health here with one scan." : "Install the free Vitals app with one copy-paste for real scans, the Undo Vault and live vitals — or explore everything with demo data first.") +
       '<div class="row wrap" style="margin-top:10px">' + (phone ? '<button class="btn sm primary" data-action="guide" data-platform="' + S.guide + '">Open ' + esc(pb.name) + " guide</button>" : '<button class="btn sm primary" data-go="devices">Get the full version — 1 step</button>') +
       '<button class="btn sm" data-action="demo">Explore with demo data</button></div></div>';
     html += '<div class="grid g-4">';
@@ -1148,16 +1218,73 @@
     return '<button class="btn sm ghost hide-mobile" data-action="' + (S.simple ? "simple-off" : "simple-on") + '">' + (S.simple ? "Detailed view" : "Simple view") + "</button>";
   }
 
+  // Home on a phone: this phone's own health first, the computer second.
+  function viewHomePhone() {
+    const sig = (S.phone && S.phone.signals) || { platform: S.platform };
+    const f = B.phoneFindings(sig);
+    const ios = S.platform === "iphone";
+    const live = !!sig.native;
+    const checked = S.phone ? "checked " + ago(S.phone.checkedAt / 1000) : "checking…";
+    let html = topbar("This " + f.noun, esc(phoneLabel(sig)) + " · " + checked);
+
+    const attention = f.items.filter((i) => i.tone !== "good").length;
+    html += '<div class="card home-hero tone-' + f.tone + '"><div class="hero-icon">' + icon(f.known && f.tone === "good" ? "check" : "pulse") + '</div><div class="hero-text"><h2>' + esc(f.headline) + "</h2>" +
+      '<p class="muted">' + (f.known ? (attention ? attention + (attention === 1 ? " thing" : " things") + " worth a look" : "Nothing needs your attention right now") : "Reading what this " + f.noun + " reports…") + "</p></div>";
+    if (S.benchRunning) {
+      html += '<div class="hero-action"><div class="bigbar"><i style="width:' + Math.round((100 * S.benchRunning) / 6) + '%"></i></div><div class="small muted">Speed test… round ' + S.benchRunning + " of 6</div></div>";
+    } else {
+      html += '<div class="hero-action"><button class="btn primary huge" data-action="phone-check">' + icon("pulse") + "Check my " + f.noun + "</button>" +
+        '<div class="small muted" style="margin-top:8px">Reads ' + (live ? "storage, memory, battery and temperature" : "what this browser can see") + " and runs a 10-second speed test · nothing leaves your " + f.noun + "</div></div>";
+    }
+    html += "</div>";
+
+    if (!live) {
+      html += '<div class="notice" style="margin-top:16px">' + (ios
+        ? "<b>Safari doesn't let websites read your iPhone's storage, battery or temperature.</b> The steps below show exactly where iPhone keeps them (Settings › General › iPhone Storage, Settings › Battery). The Vitals iPhone app reads them directly."
+        : "<b>A browser can only see a little of this phone.</b> The free Vitals Android app also reads storage, memory, battery temperature and charge cycles.") +
+        '<div class="row wrap" style="margin-top:10px">' + (ios
+          ? '<a class="btn sm" href="' + RELEASE_PAGE + '" target="_blank" rel="noopener">iPhone app (sideload)</a>'
+          : '<a class="btn sm primary" href="' + ANDROID_APK + '">Get the Android app</a>') + "</div></div>";
+    }
+
+    html += '<div class="card" style="margin-top:16px"><h2>What I found</h2><ul class="findings">' + (f.items.length ? f.items.map((item) => {
+      const a = item.action;
+      const btn = a ? '<button class="btn sm" ' + Object.entries(a).filter(([k]) => k !== "label").map(([k, val]) => "data-" + k + '="' + esc(val) + '"').join(" ") + ">" + esc(a.label) + "</button>" : "";
+      return '<li class="tone-' + item.tone + '"><span class="dot-tone"></span><div><b>' + esc(item.title) + '</b><div class="small muted">' + esc(item.text) + "</div></div>" + btn + "</li>";
+    }).join("") : '<li class="tone-good"><span class="dot-tone"></span><div><b>Nothing measured yet</b><div class="small muted">Tap “Check my ' + f.noun + '” for the speed test, or follow the steps below.</div></div></li>') + "</ul></div>";
+
+    const storage = sig.storageTotal ? fmt(sig.storageFree) + " free" : "—";
+    const storageSub = sig.storageTotal ? "of " + fmt(sig.storageTotal) : ios ? "Settings › General › iPhone Storage" : "Settings › Storage";
+    const storagePct = sig.storageTotal ? 100 - (100 * sig.storageFree) / sig.storageTotal : null;
+    const battery = sig.batteryPercent != null ? sig.batteryPercent + "%" : "—";
+    const batterySub = sig.batteryPercent != null
+      ? (sig.charging ? "charging" : sig.drainRate ? "draining " + sig.drainRate.toFixed(1) + "%/h" : "on battery") + (sig.batteryTemperature != null ? " · " + Math.round(sig.batteryTemperature) + " °C" : "")
+      : ios ? "Settings › Battery" : "not shown by this browser";
+    const memory = sig.memoryTotal && sig.memoryAvailable != null ? fmt(sig.memoryAvailable) + " free" : S.browser.memoryGB ? "≥ " + S.browser.memoryGB + " GB" : "—";
+    const memorySub = sig.memoryTotal && sig.memoryAvailable != null ? "of " + fmt(sig.memoryTotal) : S.browser.memoryGB ? "browser estimate" : sig.memoryTotal ? fmt(sig.memoryTotal) + " in total" : "not shown by this browser";
+    const last = S.bench[S.bench.length - 1];
+    html += '<div class="grid g-4" style="margin-top:16px">' +
+      statCard("Storage", storage, storageSub, storagePct != null ? '<div class="bar ' + (storagePct > 95 ? "bad" : storagePct > 85 ? "warn" : "") + '"><i style="width:' + storagePct.toFixed(0) + '%"></i></div>' : "") +
+      statCard("Battery", battery, batterySub, sig.batteryPercent != null ? '<div class="bar ' + (sig.batteryPercent < 20 ? "bad" : "") + '"><i style="width:' + sig.batteryPercent + '%"></i></div>' : "") +
+      statCard("Memory", memory, memorySub) +
+      (sig.uptime ? statCard("On for", B.fmtDuration(sig.uptime), "since the last restart") : statCard("Speed test", last ? String(last.score) : "—", last ? "score · " + ago(last.t / 1000) : "tap Check to run it")) +
+      "</div>";
+
+    html += '<div class="grid g-2" style="margin-top:16px;align-items:start">' +
+      '<div class="card"><h2>Free up space in a few taps</h2>' + checklist(S.guide, 0, 3) + '<button class="btn sm" data-action="guide" data-platform="' + S.guide + '" data-section="0">All storage steps</button></div>' +
+      '<div class="card"><h2>Make the battery last</h2>' + checklist(S.guide, 1, 3) + '<button class="btn sm" data-action="guide" data-platform="' + S.guide + '" data-section="1">All battery steps</button></div></div>';
+    html += '<div class="card" style="margin-top:16px"><h2>' + icon("devices") + ' Check your computer too</h2><p class="small muted" style="margin:4px 0 10px">Install Vitals on your computer, then scan its QR code with this ' + f.noun + " to see the computer's health here.</p><button class=\"btn\" data-go=\"devices\">Connect my computer</button></div>";
+    return html;
+  }
+
+  function phoneCheck() {
+    readPhoneSignals();
+    runBenchmark();
+  }
+
   function viewHomeBrowser() {
     const phone = S.platform === "iphone" || S.platform === "android";
-    if (phone) {
-      const pb = B.PLAYBOOKS[S.guide];
-      let html = topbar("Keep your phone healthy", "Simple steps that really work — no app needed");
-      html += '<div class="card"><h2>Free up space in a few taps</h2>' + checklist(S.guide, 0, 3) + '<button class="btn sm" data-action="guide" data-platform="' + S.guide + '">More tips for ' + esc(pb.name) + "</button></div>";
-      html += '<div class="grid g-2" style="margin-top:16px"><div class="card"><h2>Make the battery last</h2>' + checklist(S.guide, 1, 3) + "</div>" +
-        '<div class="card"><h2>' + icon("devices") + ' Check your computer from here</h2><p class="small muted">Install Vitals on your computer, then scan its QR code with this phone.</p><button class="btn" data-go="devices">How it works</button></div></div>';
-      return html;
-    }
+    if (phone) return viewHomePhone();
     let html = topbar("Welcome to Vitals", "Keep your computer fast, tidy and healthy — safely, for free");
     html += installCard(true);
     html += '<div class="grid g-3" style="margin-top:16px">' +
@@ -1423,7 +1550,7 @@
     html += '<div class="tabs" role="tablist">' + Object.keys(B.PLAYBOOKS).map((k) => '<button role="tab" data-guide="' + k + '" aria-selected="' + (S.guide === k) + '">' + esc(B.PLAYBOOKS[k].name) + "</button>").join("") + "</div>";
     const pb = B.PLAYBOOKS[S.guide];
     html += '<div class="notice" style="margin-bottom:16px">' + esc(pb.intro) + "</div>";
-    html += '<div class="grid g-2" style="align-items:start">' + pb.sections.map((s, i) => '<div class="card"><h2>' + esc(s.title) + " " + progressBadge(S.guide, i) + "</h2>" + checklist(S.guide, i) + "</div>").join("") + "</div>";
+    html += '<div class="grid g-2" style="align-items:start">' + pb.sections.map((s, i) => '<div class="card" id="guide-sec-' + i + '"><h2>' + esc(s.title) + " " + progressBadge(S.guide, i) + "</h2>" + checklist(S.guide, i) + "</div>").join("") + "</div>";
     return html;
   }
 
@@ -1485,6 +1612,7 @@
         worker.terminate();
         softRender();
         const drop = Math.round(100 * (1 - rounds[rounds.length - 1] / Math.max(...rounds)));
+        if (IS_PHONE && S.mode === "browser") readPhoneSignals();
         botSay("Throttle check done: score **" + score + "**, sustained drop **" + drop + "%**. " + (drop > 20 ? "That's thermal throttling — the device slows itself to cool down. Check for a busy background app, a hot room or blocked vents." : "Performance stayed steady under load. 👍"));
       } else {
         S.benchRunning = ev.data.round + 1 > 6 ? 6 : ev.data.round + 1;
@@ -1564,8 +1692,10 @@
   }
 
   function chatContext() {
+    const browserVitals = { battery: S.browser.battery ? { present: true, percent: S.browser.battery.percent, charging: S.browser.battery.charging } : null };
     return {
-      mode: S.mode, platform: S.platform, vitals: S.mode === "browser" ? { battery: S.browser.battery ? { present: true, percent: S.browser.battery.percent, charging: S.browser.battery.charging } : null } : S.vitals,
+      mode: S.mode, platform: S.platform, vitals: S.mode === "browser" ? browserVitals : S.vitals,
+      phone: S.mode === "browser" && S.phone ? S.phone.signals : null,
       scan: S.scan, processes: S.processes, anomalies: S.baseline ? S.baseline.anomalies : [], drain: S.drain, forecast: S.forecast,
       vault: S.vault, startup: S.startup,
     };

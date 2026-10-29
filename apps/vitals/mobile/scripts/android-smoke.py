@@ -28,7 +28,16 @@ PAGE_STATE = """(() => {
     url: location.href,
     userAgent: navigator.userAgent,
     sample: text.slice(0, 300),
+    phoneLive: /storage, memory, battery and temperature/.test(text) && /[KMGT]B free/.test(text),
   };
+})()"""
+# The VitalsPhone plugin (mobile/native/android) answers through the Capacitor bridge.
+PHONE_SNAPSHOT = """(async () => {
+  try {
+    return await window.Capacitor.nativePromise('VitalsPhone', 'snapshot', {});
+  } catch (problem) {
+    return { error: String(problem && problem.message || problem) };
+  }
 })()"""
 
 
@@ -39,7 +48,7 @@ def adb(*args, check=True):
     return result.stdout
 
 
-def page_state():
+def page_state(expression=PAGE_STATE):
     pages = json.load(urllib.request.urlopen("http://127.0.0.1:9222/json", timeout=5))
     page = next(entry for entry in pages if entry.get("type") == "page")
     connection = websocket.create_connection(page["webSocketDebuggerUrl"], timeout=15, suppress_origin=True)
@@ -47,7 +56,7 @@ def page_state():
         connection.send(json.dumps({
             "id": 1,
             "method": "Runtime.evaluate",
-            "params": {"expression": PAGE_STATE, "returnByValue": True},
+            "params": {"expression": expression, "returnByValue": True, "awaitPromise": True},
         }))
         while True:
             reply = json.loads(connection.recv())
@@ -93,22 +102,40 @@ def main():
                 error = problem
             time.sleep(2)
 
+    phone = {}
+    if state.get("ready"):
+        try:
+            phone = page_state(PHONE_SNAPSHOT) or {}
+        except Exception as problem:
+            phone = {"error": str(problem)}
+        # give the home screen a moment to show the phone's own readings
+        for _ in range(10):
+            state = page_state() or state
+            if state.get("phoneLive"):
+                break
+            time.sleep(1)
+
     with open(os.path.join(out, "android-emulator.png"), "wb") as handle:
         handle.write(subprocess.run(["adb", "exec-out", "screencap", "-p"], capture_output=True, timeout=60).stdout)
     with open(os.path.join(out, "android-page.json"), "w", encoding="utf-8") as handle:
-        json.dump({"state": state, "error": str(error) if error else None}, handle, indent=2)
+        json.dump({"state": state, "phone": phone, "error": str(error) if error else None}, handle, indent=2)
 
     check(state.get("ready") is True, "the dashboard rendered: %r" % (state.get("sample", "")[:80] or error))
     check(state.get("mobileLayout") is True, "it uses the phone layout")
     check("VitalsApp/" in state.get("userAgent", ""), "the native app identifies itself (VitalsApp user agent)")
     check(state.get("url", "").startswith("https://localhost/"), "the bundled files are served offline (%s)" % state.get("url"))
+    check(phone.get("platform") == "android" and phone.get("storageTotal", 0) > 0,
+          "the phone plugin reads storage (%s)" % (phone.get("error") or "%.1f GB" % (phone.get("storageTotal", 0) / 1e9)))
+    check(phone.get("memoryTotal", 0) > 0 and "batteryPercent" in phone,
+          "the phone plugin reads memory and battery (%s%% battery)" % phone.get("batteryPercent"))
+    check(state.get("phoneLive") is True, "the home screen shows this phone's own readings")
     crashes = [line for line in adb("logcat", "-d", "-b", "crash", check=False).splitlines() if PACKAGE in line]
     check(not crashes, "no crash in logcat")
 
     if failures:
         print("\n%d check(s) failed" % len(failures))
         sys.exit(1)
-    print("\nVitals for Android opens and shows the dashboard")
+    print("\nVitals for Android opens, checks the phone itself and shows the dashboard")
 
 
 if __name__ == "__main__":
