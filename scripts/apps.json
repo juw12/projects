@@ -90,7 +90,8 @@
       },
       "featured": true,
       "order": 16,
-      "portfolio": false
+      "portfolio": false,
+      "feed": false
     },
     {
       "id": "hazel",
