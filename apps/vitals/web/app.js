@@ -713,6 +713,7 @@
   function modePill() {
     if (S.mode === "agent") return '<span class="mode-pill" title="Connected to the local agent"><span class="dot live"></span>Live · ' + esc(S.hostname || "this computer") + "</span>";
     if (S.mode === "demo") return '<button class="mode-pill" data-action="exit-demo" title="Leave demo"><span class="dot warn"></span>Demo data · exit</button>';
+    if (S.mode === "browser" && IN_APP) return '<button class="mode-pill" data-go="devices"><span class="dot"></span>Phone guides · connect your computer</button>';
     if (S.mode === "browser") return '<button class="mode-pill" data-go="devices"><span class="dot"></span>Browser mode · get full version</button>';
     return '<span class="mode-pill"><span class="dot"></span>Connecting…</span>';
   }
@@ -1306,7 +1307,9 @@
     let html = topbar(phone ? "Your computer, on your phone" : "Get the full Vitals", phone ? "Nothing to install on the phone" : "Free · no account · about 30 seconds · removes cleanly");
     if (phone) {
       html += '<div class="grid g-2" style="align-items:start"><div class="card"><h2>One scan, no typing</h2><ol class="steps">' +
-        "<li>On your computer, install Vitals (open this page there and follow the one step).</li>" +
+        "<li>On your computer, install Vitals " + (IN_APP
+          ? "from <b>" + esc(SITE.replace(/^https:\/\//, "").replace(/\/$/, "")) + "</b> (Windows, Mac or Linux)."
+          : "(open this page there and follow the one step).") + "</li>" +
         "<li>In Vitals on the computer, go to <b>Devices → Connect my phone</b>.</li>" +
         "<li>Point this phone's <b>camera</b> at the code on screen and tap the link. Done — you'll see your computer's health here.</li></ol>" +
         '<p class="small muted">Both devices need to be on the same Wi-Fi. This phone\'s own tips are in <b>Guides</b>.</p></div>' + pairCard(true) + "</div>";
