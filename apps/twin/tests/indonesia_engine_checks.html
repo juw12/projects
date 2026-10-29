@@ -1,0 +1,327 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Twin Indonesia engine checks</title>
+</head>
+<body>
+  <pre id="results">running</pre>
+  <script src="../web/id/engine.js"></script>
+  <script src="../web/id/snapshot.js"></script>
+  <script src="../web/id/ideas.js"></script>
+  <script src="../web/id/content.js"></script>
+  <script>
+    (function () {
+      'use strict';
+      const E = window.SatuEngine;
+      const results = [];
+
+      function check(name, fn) {
+        try {
+          fn();
+          results.push({ name, ok: true });
+        } catch (error) {
+          results.push({ name, ok: false, error: String((error && error.message) || error) });
+        }
+      }
+
+      function eq(actual, expected, message) {
+        if (actual !== expected) {
+          throw new Error(`${message || ''} expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
+        }
+      }
+
+      function near(actual, expected, tolerance, message) {
+        if (!(Math.abs(actual - expected) <= tolerance)) {
+          throw new Error(`${message || ''} expected ≈${expected}, got ${actual}`);
+        }
+      }
+
+      function ok(condition, message) {
+        if (!condition) {
+          throw new Error(message || 'assertion failed');
+        }
+      }
+
+      const instruments = {};
+      const prices = {};
+      for (const instrument of SATU_SNAPSHOT.instruments) {
+        instruments[instrument.symbol] = instrument;
+        prices[instrument.symbol] = { price: instrument.price, prev: instrument.prev };
+      }
+      const fxRate = 16000; // fixed so expected values are exact
+      const base = { instruments, prices, fxRate, respectHours: false, now: Date.parse('2026-10-28T03:00:00Z') };
+      const withPrice = (symbol, price) =>
+        Object.assign({}, base, { prices: Object.assign({}, prices, { [symbol]: { price, prev: price } }) });
+
+      // ---- fees
+      check('IDX break-even is (1.0015 / 0.9975) - 1', () => near(E.breakEvenPct('IDX'), (1.0015 / 0.9975 - 1) * 100, 1e-9));
+      check('US break-even is (1.005 / 0.995) - 1', () => near(E.breakEvenPct('US'), (1.005 / 0.995 - 1) * 100, 1e-9));
+      check('Gold break-even is (1.01 / 0.99) - 1', () => near(E.breakEvenPct('GOLD'), (1.01 / 0.99 - 1) * 100, 1e-9));
+      check('IDX buy: 1 lot at Rp5,000', () => {
+        const quote = E.quoteOrder({ market: 'IDX', side: 'buy', qty: 100, price: 5000, fxRate });
+        eq(quote.grossIdr, 500000);
+        eq(quote.feeIdr, 750);
+        eq(quote.totalIdr, 500750);
+      });
+      check('IDX sell includes the 0.1% sales tax line', () => {
+        const quote = E.quoteOrder({ market: 'IDX', side: 'sell', qty: 100, price: 5000, fxRate });
+        eq(quote.lines.length, 2);
+        eq(quote.feeIdr, 1250);
+        eq(quote.totalIdr, 498750);
+      });
+      check('US buy converts at the FX rate', () => {
+        const quote = E.quoteOrder({ market: 'US', side: 'buy', qty: 2, price: 100, fxRate });
+        eq(quote.grossIdr, 3200000);
+        eq(quote.feeIdr, 16000);
+        eq(quote.totalIdr, 3216000);
+      });
+
+      // ---- IDX price steps
+      check('IDX tick table', () => {
+        eq(E.idxTick(150), 1);
+        eq(E.idxTick(200), 2);
+        eq(E.idxTick(499), 2);
+        eq(E.idxTick(500), 5);
+        eq(E.idxTick(1999), 5);
+        eq(E.idxTick(2000), 10);
+        eq(E.idxTick(4990), 10);
+        eq(E.idxTick(5000), 25);
+      });
+      check('roundToTick', () => {
+        eq(E.roundToTick(3003), 3000);
+        eq(E.roundToTick(3006), 3010);
+        eq(E.roundToTick(5012, 'down'), 5000);
+        eq(E.roundToTick(5012, 'up'), 5025);
+        eq(E.roundToTick(5000, 'up'), 5000);
+      });
+      check('isOnTick', () => {
+        ok(E.isOnTick(3010));
+        ok(!E.isOnTick(3005));
+        ok(E.isOnTick(5275));
+        ok(!E.isOnTick(5280));
+      });
+
+      // ---- sizing by amount
+      check('qtyForAmount gives whole IDX lots', () => eq(E.qtyForAmount({ market: 'IDX', amountIdr: 1000000, price: 4500, fxRate }), 200));
+      check('qtyForAmount stays within budget (US)', () => {
+        const qty = E.qtyForAmount({ market: 'US', amountIdr: 200000, price: 707.52, fxRate });
+        const quote = E.quoteOrder({ market: 'US', side: 'buy', qty, price: 707.52, fxRate });
+        ok(quote.totalIdr <= 200000, `over budget: ${quote.totalIdr}`);
+        ok(quote.totalIdr > 199000, `too far under: ${quote.totalIdr}`);
+      });
+      check('qtyForAmount stays within budget (crypto)', () => {
+        const qty = E.qtyForAmount({ market: 'CRYPTO', amountIdr: 100000, price: 1474085986, fxRate });
+        const quote = E.quoteOrder({ market: 'CRYPTO', side: 'buy', qty, price: 1474085986, fxRate });
+        ok(quote.totalIdr <= 100000 && quote.totalIdr >= 99990, `total ${quote.totalIdr}`);
+      });
+
+      // ---- orders
+      check('market buy fills and debits cash', () => {
+        const outcome = E.placeOrder(E.createState({ startingCashIdr: 10000000 }), { symbol: 'BBCA', side: 'buy', type: 'market', qty: 200 }, base);
+        ok(outcome.result.ok, JSON.stringify(outcome.result.errors));
+        const expected = E.quoteOrder({ market: 'IDX', side: 'buy', qty: 200, price: prices.BBCA.price, fxRate }).totalIdr;
+        eq(outcome.state.wallet.cashIdr, 10000000 - expected);
+        eq(outcome.state.positions.BBCA.qty, 200);
+      });
+      check('odd IDX lot is rejected', () => ok(!E.placeOrder(E.createState({}), { symbol: 'BBCA', side: 'buy', type: 'market', qty: 150 }, base).result.ok));
+      check('insufficient cash is rejected', () => {
+        const outcome = E.placeOrder(E.createState({ startingCashIdr: 100000 }), { symbol: 'BBCA', side: 'buy', type: 'market', qty: 100 }, base);
+        ok(!outcome.result.ok);
+        ok(/Not enough/.test(outcome.result.errors[0]));
+      });
+      check('US minimum is $1', () => ok(!E.placeOrder(E.createState({}), { symbol: 'VOO', side: 'buy', type: 'market', qty: 0.001 }, base).result.ok));
+      check('crypto minimum is Rp10,000', () => ok(!E.placeOrder(E.createState({}), { symbol: 'DOGE', side: 'buy', type: 'market', qty: 1 }, base).result.ok));
+      check('cannot sell more than held', () => {
+        const held = E.placeOrder(E.createState({}), { symbol: 'BBCA', side: 'buy', type: 'market', qty: 100 }, base).state;
+        ok(!E.placeOrder(held, { symbol: 'BBCA', side: 'sell', type: 'market', qty: 200 }, base).result.ok);
+      });
+      check('a flat round trip loses exactly the fees', () => {
+        let state = E.placeOrder(E.createState({}), { symbol: 'BBCA', side: 'buy', type: 'market', qty: 100 }, base).state;
+        state = E.placeOrder(state, { symbol: 'BBCA', side: 'sell', type: 'market', qty: 100 }, base).state;
+        const gross = prices.BBCA.price * 100;
+        const expected = -(Math.round(gross * 0.0015) + Math.round(gross * 0.0015) + Math.round(gross * 0.001));
+        eq(state.realizedIdr, expected);
+        eq(state.wallet.cashIdr, 10000000 + expected);
+        ok(!state.positions.BBCA);
+      });
+      check('partial sell keeps the average price', () => {
+        let state = E.placeOrder(E.createState({ startingCashIdr: 100000000 }), { symbol: 'VOO', side: 'buy', type: 'market', qty: 2 }, base).state;
+        const average = state.positions.VOO.costLocal / state.positions.VOO.qty;
+        state = E.placeOrder(state, { symbol: 'VOO', side: 'sell', type: 'market', qty: 0.5 }, base).state;
+        near(state.positions.VOO.qty, 1.5, 1e-9);
+        near(state.positions.VOO.costLocal / state.positions.VOO.qty, average, 1e-9);
+      });
+      check('limit buy reserves cash, waits, then fills at the better price', () => {
+        let outcome = E.placeOrder(E.createState({}), { symbol: 'BBCA', side: 'buy', type: 'limit', qty: 100, limitPrice: 5000 }, withPrice('BBCA', 5275));
+        ok(outcome.result.ok);
+        let state = outcome.state;
+        eq(state.orders[0].status, 'open');
+        ok(E.availableCash(state) < state.wallet.cashIdr);
+        eq(E.processOrders(state, withPrice('BBCA', 5275)).fills.length, 0);
+        const filled = E.processOrders(state, withPrice('BBCA', 4990));
+        eq(filled.fills.length, 1);
+        state = filled.state;
+        eq(state.positions.BBCA.qty, 100);
+        eq(state.orders[0].fillPrice, 4990);
+        eq(E.availableCash(state), state.wallet.cashIdr);
+      });
+      check('marketable limit fills immediately', () => {
+        const outcome = E.placeOrder(E.createState({}), { symbol: 'BBCA', side: 'buy', type: 'limit', qty: 100, limitPrice: 5500 }, withPrice('BBCA', 5275));
+        eq(outcome.result.order.status, 'filled');
+        eq(outcome.result.order.fillPrice, 5275);
+      });
+      check('market order queues while IDX is closed and fills at the open', () => {
+        const closed = Object.assign({}, base, { respectHours: true, now: Date.parse('2026-10-28T12:00:00Z') });
+        const outcome = E.placeOrder(E.createState({}), { symbol: 'BBCA', side: 'buy', type: 'market', qty: 100 }, closed);
+        eq(outcome.result.order.status, 'queued');
+        eq(E.processOrders(outcome.state, closed).fills.length, 0);
+        const opened = E.processOrders(outcome.state, Object.assign({}, closed, { now: Date.parse('2026-10-29T02:30:00Z') }));
+        eq(opened.fills.length, 1);
+        eq(opened.state.positions.BBCA.qty, 100);
+      });
+      check('cancel releases the reservation', () => {
+        const outcome = E.placeOrder(E.createState({}), { symbol: 'BBCA', side: 'buy', type: 'limit', qty: 100, limitPrice: 4000 }, base);
+        const state = E.cancelOrder(outcome.state, outcome.result.order.id);
+        eq(state.orders[0].status, 'cancelled');
+        eq(E.availableCash(state), state.wallet.cashIdr);
+      });
+      check('open sell limit reserves holdings', () => {
+        let state = E.placeOrder(E.createState({}), { symbol: 'BBCA', side: 'buy', type: 'market', qty: 200 }, base).state;
+        state = E.placeOrder(state, { symbol: 'BBCA', side: 'sell', type: 'limit', qty: 200, limitPrice: 9000 }, base).state;
+        eq(E.availableQty(state, 'BBCA'), 0);
+        ok(!E.placeOrder(state, { symbol: 'BBCA', side: 'sell', type: 'market', qty: 100 }, base).result.ok);
+      });
+      check('portfolio value adds up across four markets', () => {
+        let state = E.createState({ startingCashIdr: 50000000 });
+        for (const [symbol, qty] of [['BBCA', 300], ['VOO', 1.25], ['BTC', 0.001], ['XAU', 3]]) {
+          const outcome = E.placeOrder(state, { symbol, side: 'buy', type: 'market', qty }, base);
+          ok(outcome.result.ok, `${symbol}: ${JSON.stringify(outcome.result.errors)}`);
+          state = outcome.state;
+        }
+        const value = E.portfolioValue(state, base);
+        near(value.cashIdr + value.byMarket.US + value.byMarket.IDX + value.byMarket.CRYPTO + value.byMarket.GOLD, value.totalIdr, 1e-6);
+        near(value.byMarket.US, 1.25 * prices.VOO.price * fxRate, 1e-6);
+        ok(value.unrealizedIdr < 0, 'buy fees should show as a small unrealised loss');
+      });
+      check('guard-rail warns above the per-asset limit', () => {
+        const risk = E.riskProfile({ goal: 0, horizon: 0, drawdown: 0, experience: 0, emergencyFund: true });
+        const state = E.createState({ startingCashIdr: 10000000, profile: { risk } });
+        const check = E.validateOrder(state, { symbol: 'BBCA', side: 'buy', type: 'market', qty: 500 }, base);
+        ok(check.ok);
+        ok(check.warnings.length >= 1, 'expected a warning');
+      });
+
+      // ---- market hours (28 Oct 2026 is a Wednesday; US DST ends 1 Nov 2026)
+      check('IDX open Wednesday 10:00 WIB', () => ok(E.marketStatus('IDX', Date.parse('2026-10-28T03:00:00Z')).open));
+      check('IDX lunch break Wednesday 12:30 WIB', () => eq(E.marketStatus('IDX', Date.parse('2026-10-28T05:30:00Z')).state, 'break'));
+      check('IDX Friday break at 12:00 WIB', () => eq(E.marketStatus('IDX', Date.parse('2026-10-30T05:00:00Z')).state, 'break'));
+      check('IDX closed Saturday', () => ok(!E.marketStatus('IDX', Date.parse('2026-10-31T03:00:00Z')).open));
+      check('US open 10:00 New York (EDT)', () => ok(E.marketStatus('US', Date.parse('2026-10-28T14:00:00Z')).open));
+      check('US closed 08:00 New York', () => ok(!E.marketStatus('US', Date.parse('2026-10-28T12:00:00Z')).open));
+      check('US open 10:00 New York after DST ends (EST)', () => ok(E.marketStatus('US', Date.parse('2026-11-02T15:00:00Z')).open));
+      check('crypto open on Saturday night', () => ok(E.marketStatus('CRYPTO', Date.parse('2026-10-31T20:00:00Z')).open));
+
+      // ---- risk profile
+      check('risk levels at the extremes', () => {
+        eq(E.riskProfile({ goal: 0, horizon: 0, drawdown: 0, experience: 0, emergencyFund: true }).id, 'conservative');
+        eq(E.riskProfile({ goal: 3, horizon: 3, drawdown: 3, experience: 3, emergencyFund: true }).id, 'aggressive');
+      });
+      check('no emergency fund caps the profile at Balanced', () => {
+        const risk = E.riskProfile({ goal: 3, horizon: 3, drawdown: 3, experience: 3, emergencyFund: false });
+        eq(risk.id, 'balanced');
+        ok(risk.capped);
+      });
+
+      // ---- Scam Shield
+      check('lesson examples are classified as labelled', () => {
+        for (const example of SATU_CONTENT.scamExamples) {
+          eq(E.scamCheck(example.text).blocked, example.scam, example.text);
+        }
+      });
+      check('only the two seeded scam posts are blocked', () => {
+        const blocked = SATU_CONTENT.posts.filter((post) => E.scamCheck(post.text).blocked).map((post) => post.id).sort();
+        eq(JSON.stringify(blocked), JSON.stringify(['p10', 'p7']));
+      });
+      check('no false positive on "naik 3% hari ini"', () => ok(!E.scamCheck('BBCA naik 3% hari ini, volume tinggi').blocked));
+      check('blocks a fixed weekly return', () => ok(E.scamCheck('profit 5% per minggu konsisten').blocked));
+      check('blocks illegal platforms', () => ok(E.scamCheck('main di binomo yuk').blocked));
+      check('cashtags only link known symbols', () => eq(JSON.stringify(E.cashtags('Compare $BBCA and $BMRI vs $FAKE', ['BBCA', 'BMRI'])), '["BBCA","BMRI"]'));
+
+      // ---- learning maths
+      check('compound at 0% equals deposits', () => {
+        const result = E.compound({ initialIdr: 1000000, monthlyIdr: 100000, annualPct: 0, years: 2 });
+        eq(result.futureIdr, 3400000);
+        eq(result.growthIdr, 0);
+      });
+      check('compound at 12% for a year', () => near(E.compound({ initialIdr: 1000000, monthlyIdr: 0, annualPct: 12, years: 1 }).futureIdr, 1000000 * Math.pow(1.01, 12), 1e-6));
+      check('weekly earnings on Rp100,000 at 5%', () => near(E.weeklyEarnings(100000, 5), 96.15, 0.01));
+      check('position size lesson example', () => eq(E.positionSize({ capitalIdr: 10000000, riskPct: 1, entry: 1000, stop: 900, lotSize: 100 }).units, 1000));
+      check('FX-adjusted return for +10% stock, -5% USD/IDR', () => near(E.fxAdjustedReturn(10, -5), 4.5, 1e-9));
+      check('single-asset volatility', () => near(E.portfolioVolatility({ US: 100 }), 18, 1e-9));
+      check('diversified volatility below the weighted average', () => ok(E.portfolioVolatility({ US: 25, IDX: 25, CRYPTO: 25, GOLD: 25 }) < (18 + 20 + 65 + 15) / 4));
+
+      // ---- analyst ideas
+      check('closed ideas score at their target or stop', () => {
+        for (const idea of SATU_IDEAS.filter((item) => item.closed)) {
+          const score = E.scoreIdea(idea, 1, Date.now(), null);
+          const direction = idea.direction === 'SELL' ? -1 : 1;
+          near(score.returnPct, (direction * (idea.closed.price - idea.entry)) / idea.entry * 100, 1e-9, idea.id);
+          eq(score.status, idea.closed.reason, idea.id);
+        }
+      });
+      check('open idea scored on the current price', () => {
+        const idea = SATU_IDEAS.find((item) => !item.closed);
+        const score = E.scoreIdea(idea, idea.entry * 1.05, Date.parse(idea.createdAt) + 86400000, null);
+        near(score.returnPct, idea.direction === 'SELL' ? -5 : 5, 1e-9);
+      });
+      check('scorecard maths', () => {
+        const card = E.scorecard([{ returnPct: 10, excessPct: 5 }, { returnPct: -5, excessPct: -6 }, { returnPct: 2, excessPct: null }]);
+        eq(card.count, 3);
+        eq(card.wins, 2);
+        near(card.avgReturnPct, 7 / 3, 1e-9);
+        near(card.avgExcessPct, -0.5, 1e-9);
+      });
+
+      // ---- misc
+      check('streak counts consecutive days', () => {
+        const day = Date.parse('2026-10-26T05:00:00Z');
+        let streak = E.bumpStreak({ count: 0, lastDay: null }, day);
+        streak = E.bumpStreak(streak, day + 3600000);
+        eq(streak.count, 1);
+        streak = E.bumpStreak(streak, day + 86400000);
+        eq(streak.count, 2);
+        streak = E.bumpStreak(streak, day + 3 * 86400000);
+        eq(streak.count, 1);
+      });
+      check('plan access ranks', () => {
+        ok(E.canAccess('pro', 'plus'));
+        ok(!E.canAccess('free', 'plus'));
+        ok(E.canAccess('plus', 'free'));
+      });
+      check('rupiah formatting', () => {
+        eq(E.formatIdr(10000000), 'Rp10.000.000');
+        eq(E.formatIdr(-1250, { sign: true }), '-Rp1.250');
+        eq(E.formatIdr(2500000, { compact: true }), 'Rp2.5 jt');
+      });
+      check('IDX quantity formatting', () => eq(E.formatQty('IDX', 300), '3 lots (300 shares)'));
+      check('migrateState rejects junk', () => {
+        eq(E.migrateState(null), null);
+        eq(E.migrateState({ version: 2 }), null);
+        ok(E.migrateState(E.createState({})));
+      });
+      check('simulation is deterministic for a seed', () => {
+        eq(E.simulateStep(1000, 'IDX', 0.02, E.makeRng(42)), E.simulateStep(1000, 'IDX', 0.02, E.makeRng(42)));
+      });
+      check('snapshot has all four markets', () => {
+        const markets = new Set(SATU_SNAPSHOT.instruments.map((item) => item.market));
+        eq(markets.size, 4);
+        ok(SATU_SNAPSHOT.fx.USDIDR > 1000);
+      });
+
+      const failed = results.filter((item) => !item.ok);
+      document.getElementById('results').textContent = JSON.stringify({ ok: failed.length === 0, total: results.length, failed });
+    })();
+  </script>
+</body>
+</html>

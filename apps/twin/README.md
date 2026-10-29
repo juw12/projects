@@ -54,6 +54,28 @@ Bank Central Asia, Samsung, Reliance, Petrobras, Nestlé and so on.
   estimates (shown as “est.”) until the exchanges confirm them;
   Shanghai/Shenzhen and India are covered through 2026 until the package publishes later years.
 
+## Twin Indonesia (1.11)
+
+The rupiah side of Twin, merged from the *Satu* prototype: https://juw12.github.io/projects/twin/id/.
+Open it from the teal **Twin Indonesia** card on Home, **Me → Twin Indonesia**, or **Trade … in rupiah
+lots** on any Jakarta (`.JK`) stock page; the **Twin** logo in its top bar comes back.
+
+- **Four markets, one rupiah practice wallet.** The same 19 IDX stocks Twin lists, traded in 100-share
+  lots with IDX price steps and broker fees shown before you confirm; US stocks at the shown USD/IDR
+  rate; crypto and gold priced in rupiah (gold per gram).
+- **Community with Scam Shield.** Market rooms plus subscriber rooms; posts promising fixed returns
+  ("pasti cuan"), private signal groups or unlicensed platforms are blocked and explained.
+- **Analyst Desk.** Only licensed advisers may publish ideas, and every idea is scored against real
+  prices, losses included. The demo analysts are fictional.
+- **Academy and plans.** Nine interactive lessons in three levels (fees and break-even, lots and price
+  steps, spotting *investasi bodong*, position sizing…) and Free / Plus / Pro plan concepts.
+- Its wallet is separate from the USD portfolio and stays in this browser. Prices come from Twin's own
+  hourly snapshot (same origin), CoinGecko and Antara, with a bundled offline snapshot as fallback.
+
+Guide, architecture and the path to a licensed product in Indonesia: [docs/INDONESIA.md](docs/INDONESIA.md).
+Refresh its offline data with `python apps/twin/scripts/indonesia_snapshot.py`, then
+`python apps/twin/scripts/indonesia_ideas.py`.
+
 ## Features
 
 | Tab | What it does | Inspired by |
@@ -229,6 +251,7 @@ python -m unittest discover -s apps/twin/tests -p 'test_*.py'
 node --test apps/twin/tests/strategy_lab.test.js apps/twin/tests/twinagent.test.js
 python apps/twin/tests/test_twinagent_server.py
 python apps/twin/tests/verify_browser.py     # isolated Chrome/Chromium/Edge, including phone-width lab UI
+python apps/twin/tests/verify_indonesia.py   # Twin Indonesia: engine checks + app self-test in Chrome/Edge
 ```
 
 Hermetic (temp data dir, free port, no network): health + static files, accounts and isolation,
@@ -273,6 +296,13 @@ history and are not predictions. Not financial advice.
 
 ## Changelog
 
+- **1.11.0 — Twin Indonesia.** The *Satu* prototype joins Twin as its rupiah side at `id/`: IDX stocks
+  in 100-share lots with price steps and fees, US stocks at the shown USD/IDR rate, crypto and gold in
+  rupiah, community rooms with Scam Shield, an Analyst Desk scored against real prices and nine
+  interactive lessons, all with a separate rupiah practice wallet. Open it from a new Home card, Me, or
+  any Jakarta stock page. It reads Twin's hourly snapshot on the same origin and shares Twin's theme
+  and service worker (Satu's own worker, which would have cleared other apps' caches on the shared
+  GitHub Pages origin, was dropped). The local server now opens folder URLs such as `/id/`.
 - **1.10.1 — Premium landing.** The welcome screen is new: a big "Invest smarter. Practice first." headline,
   a glowing practice-balance card with a live sparkline, three feature tiles, a gradient "Continue as guest"
   button and the sign-in form in its own card. The desktop page (web.html) gets the same dark premium look

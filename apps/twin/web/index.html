@@ -13,13 +13,13 @@
 <link rel="manifest" href="manifest.webmanifest">
 <title>Twin — invest &amp; day-trade with 10,000 replays</title>
 <meta name="description" content="Twin: a personality-matched investing and day-trading companion. Paper trading, 10,000-future goal planner, copy a famous investor's 13F, news feed and the day-trader-skill Time Machine.">
-<script src="theme.js?v=1.10.1"></script>
-<script src="icons.js?v=1.10.1"></script>
-<link rel="stylesheet" href="theme.css?v=1.10.1">
-<link rel="stylesheet" href="design.css?v=1.10.1">
-<link rel="stylesheet" href="neo.css?v=1.10.1">
-<link rel="stylesheet" href="premium.css?v=1.10.1">
-<script src="motion.js?v=1.10.1" defer></script>
+<script src="theme.js?v=1.11.0"></script>
+<script src="icons.js?v=1.11.0"></script>
+<link rel="stylesheet" href="theme.css?v=1.11.0">
+<link rel="stylesheet" href="design.css?v=1.11.0">
+<link rel="stylesheet" href="neo.css?v=1.11.0">
+<link rel="stylesheet" href="premium.css?v=1.11.0">
+<script src="motion.js?v=1.11.0" defer></script>
 <style>
   :root {
     --bg: #0b0f14;
@@ -227,16 +227,16 @@
 <div class="sheet" id="sheet" inert aria-hidden="true"></div>
 <div class="toast" id="toast"></div>
 
-<script src="demo.js?v=1.10.1"></script>
-<script src="pro.js?v=1.10.1"></script>
-<script src="pro-ui.js?v=1.10.1"></script>
-<script src="broker-ui.js?v=1.10.1"></script>
-<script src="academy.js?v=1.10.1"></script>
-<script src="global.js?v=1.10.1"></script>
-<script src="strategy-lab.js?v=1.10.1"></script>
-<script src="strategy-lab-ui.js?v=1.10.1"></script>
-<script src="twinagent.js?v=1.10.1"></script>
-<script src="twinagent-ui.js?v=1.10.1"></script>
+<script src="demo.js?v=1.11.0"></script>
+<script src="pro.js?v=1.11.0"></script>
+<script src="pro-ui.js?v=1.11.0"></script>
+<script src="broker-ui.js?v=1.11.0"></script>
+<script src="academy.js?v=1.11.0"></script>
+<script src="global.js?v=1.11.0"></script>
+<script src="strategy-lab.js?v=1.11.0"></script>
+<script src="strategy-lab-ui.js?v=1.11.0"></script>
+<script src="twinagent.js?v=1.11.0"></script>
+<script src="twinagent-ui.js?v=1.11.0"></script>
 <script>
 "use strict";
 
@@ -1256,7 +1256,7 @@ function renderAuth(mode = "login") {
     h("div", { class: "guest-actions" },
       h("button", { class: "btn primary", id: "continue-guest", onclick: () => startGuest() }, "Continue as guest"),
       h("p", { class: "tiny muted center" }, "No login, email or quiz required. $10,000 practice cash and dated sample data; never real trades."),
-      h("p", { class: "tiny muted center land-new" }, h("span", { class: "land-new-dot" }), "New in 1.10: the premium design on every screen. Guests can save progress any time.")),
+      h("p", { class: "tiny muted center land-new" }, h("span", { class: "land-new-dot" }), "New in 1.11: Twin Indonesia — IDX lots, crypto and gold in rupiah. Guests can save progress any time.")),
     h("section", { class: "card land-signin" },
       h("h3", {}, isLogin ? "Or sign in" : "Optional profile"),
       DEMO ? h("p", { class: "tiny muted" }, "Saved profiles are optional and stay in this browser.") :
@@ -1576,6 +1576,7 @@ async function renderHome(main) {
   const promo = (id, tone, icon, title, sub, onclick) => h("button", { class: "promo " + tone, id, onclick },
     h("span", { class: "promo-ic" }, TwinIcons.svg(icon)), h("b", {}, title), h("span", {}, sub));
   put(main, h("div", { class: "promo-row", role: "list" },
+    promo("home-indonesia", "p-teal", "globe", "Twin Indonesia", "IDX lots, crypto & gold in rupiah, plus community", () => { location.href = "id/"; }),
     promo("home-twinagent", "p-violet", "bot", "Ask TwinAgent", "Five analysts argue bull vs bear, with sources", () => { state.tradeView = "agent"; switchTab("trade"); }),
     promo("home-replay", "p-blue", "rewind", "Replay Lab", "Trade a hidden past session bar by bar", () => { state.tradeView = "replay"; switchTab("trade"); }),
     promo("home-daytrade", "p-pink", "zap", "Day-trade drill", "TSLA opening-range replay, no risk", () => { state.tradeView = "checklist"; state.tradeMode = "demo"; state.tradeSymbol = "TSLA"; switchTab("trade"); }),
@@ -2313,6 +2314,10 @@ function renderMe(main) {
     h("div", { class: "card" }, h("h3", {}, "Appearance"), appearanceControls(),
       h("p", { class: "tiny muted" }, "System follows your device. Appearance is saved on this browser, separately from accounts.")),
     TwinGlobal.currencyCard(),
+    h("div", { class: "card", id: "me-indonesia" },
+      h("h3", {}, "Twin Indonesia"),
+      h("p", { class: "small muted" }, "IDX stocks in 100-share lots with broker fees and tick sizes, crypto and gold priced in rupiah, community rooms with Scam Shield and an Analyst Desk scored in public. Its rupiah practice wallet is separate from this USD portfolio."),
+      h("button", { class: "btn", onclick: () => { location.href = "id/"; } }, "Open Twin Indonesia")),
     brokerCard(),
     marketDataCard(),
     GUEST ? h("div", { class: "card" },
@@ -2397,7 +2402,7 @@ function renderMe(main) {
       }, "Save limits")),
     h("div", { class: "card" }, h("h3", {}, "Guide"), guideList()),
     h("div", { class: "card small muted" },
-      h("b", { style: "color:var(--text)" }, "Twin · v1.10.1"),
+      h("b", { style: "color:var(--text)" }, "Twin · v1.11.0"),
       h("p", {}, "Twin is built on two free, MIT-licensed skill packs by Jake Schincariol (day-trader-skill and trader-skill). Data: Yahoo Finance (delayed, unofficial), SEC EDGAR."),
       h("p", {}, "Not financial advice. Practice money only. You can lose money investing; past performance and simulations do not guarantee future results.")),
     h("button", {

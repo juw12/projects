@@ -1,11 +1,13 @@
-// Twin 1.10.1: own cache only; offline shell; live demo data network-first; API never cached.
+// Twin 1.11.0: own cache only; offline shell; live demo data network-first; API never cached.
+// Twin Indonesia (id/) shares this worker and cache: its files are listed below with the same version.
 // Market data (world snapshot, chart files, calendars) refreshes hourly: network first, cache as fallback.
 const PREFIX = "twin:" + self.registration.scope + ":";
-const SHELL = PREFIX + "1.10.1";
+const SHELL = PREFIX + "1.11.0";
 const FILES = [
-  "./", "index.html", "./?v=1.10.1", "index.html?v=1.10.1",
-  "demo.js?v=1.10.1", "pro.js?v=1.10.1", "pro-ui.js?v=1.10.1", "broker-ui.js?v=1.10.1", "academy.js?v=1.10.1", "global.js?v=1.10.1", "theme.js?v=1.10.1", "theme.css?v=1.10.1", "design.css?v=1.10.1", "neo.css?v=1.10.1", "premium.css?v=1.10.1", "motion.js?v=1.10.1", "icons.js?v=1.10.1", "manifest.webmanifest",
-  "strategy-lab.js?v=1.10.1", "strategy-lab-ui.js?v=1.10.1", "twinagent.js?v=1.10.1", "twinagent-ui.js?v=1.10.1",
+  "./", "index.html", "./?v=1.11.0", "index.html?v=1.11.0",
+  "demo.js?v=1.11.0", "pro.js?v=1.11.0", "pro-ui.js?v=1.11.0", "broker-ui.js?v=1.11.0", "academy.js?v=1.11.0", "global.js?v=1.11.0", "theme.js?v=1.11.0", "theme.css?v=1.11.0", "design.css?v=1.11.0", "neo.css?v=1.11.0", "premium.css?v=1.11.0", "motion.js?v=1.11.0", "icons.js?v=1.11.0", "manifest.webmanifest",
+  "strategy-lab.js?v=1.11.0", "strategy-lab-ui.js?v=1.11.0", "twinagent.js?v=1.11.0", "twinagent-ui.js?v=1.11.0",
+  "id/", "id/index.html", "id/styles.css?v=1.11.0", "id/engine.js?v=1.11.0", "id/snapshot.js?v=1.11.0", "id/ideas.js?v=1.11.0", "id/content.js?v=1.11.0", "id/feeds.js?v=1.11.0", "id/app.js?v=1.11.0",
   "icons/apple-touch-icon.png", "icons/icon-192.png", "icons/icon-512.png",
   "demo/meta.json", "demo/market.json", "demo/monthly.json",
   "demo/news.json", "demo/copycat.json", "demo/trade.json", "demo/world.json", "demo/fundamentals.json", "demo/calendars.json",

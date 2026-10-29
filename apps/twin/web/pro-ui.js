@@ -879,6 +879,11 @@ async function openStockPro(symbol) {
           switchTab("trade");
         },
       }, "⏪ Practise orders in Replay Lab"),
+      /\.JK$/.test(symbol) ? h("button", {
+        class: "btn",
+        id: "stock-indonesia",
+        onclick: () => { location.href = "id/#asset/" + encodeURIComponent(symbol.replace(/\.JK$/, "")); },
+      }, `Trade ${symbol.replace(/\.JK$/, "")} in rupiah lots · Twin Indonesia`) : null,
       h("p", { class: "tiny muted" }, `${d.exchange || ""} · delayed quote · practice money only`),
       isIndex ? null : h("div", { class: "fab-row dock" },
         h("button", { class: "btn red", disabled: held ? null : "", onclick: () => openOrderPro(symbol, "sell", d.price, held) }, "Sell"),
