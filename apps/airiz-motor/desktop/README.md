@@ -9,7 +9,7 @@ is required to use the installed app or its hardware-free demo.
 ## Downloads
 
 Windows x64 releases are published under the app-specific tag
-`airiz-desktop-v1.10.0` in this repository's Releases section.
+`airiz-desktop-v1.11.0` in this repository's Releases section.
 
 - **Installer**: assisted, per-user installation with Start-menu/desktop shortcuts
   and an uninstaller. The wizard lets the user choose the installation directory.
@@ -163,6 +163,27 @@ reports whether a framed firmware reply came back. Results can be exported.
 No pairing is accepted without confirmation and no motor command is sent.
 Another program on the PC still cannot open COM4 while this app holds it: that is
 a Windows serial-port rule, which is why the check runs inside the app.
+
+## 1.11.0: Phone instead of PC
+
+* **An Android phone is the USB host:** with the AIRIZ on its charger, the FT232R console cable plugs
+  into the phone through a USB-OTG adapter. In Chrome, *Connect* opens it over WebUSB (new
+  `web/usb-serial.js`: FTDI FT232R driver with reset, DTR/RTS on, no flow control, 115200 baud, 8N1 and
+  purge, 2 status bytes stripped from every 64-byte packet; a CDC-ACM driver for the AIRIZ USB port in
+  CDC mode). The port behaves like a PC serial port: auto-reconnect after unplug/replug, Talk & listen
+  and *Share control* by code, with the screen kept on while sharing. Windows keeps Web Serial.
+* **Advice instead of silence:** an iPhone or iPad (no USB serial in iOS) and the AIRIZ Android app's
+  WebView (no WebUSB) explain what to use instead; the advice and the phone's connect note also show as
+  a notice, so they are translated (the console itself never is).
+* **Stop motor is never dropped:** a command that is still being written (a background query, the
+  voice link or a slower phone USB transfer) used to make Stop motor fail with "writer is busy"; every
+  command, Stop motor included, now waits up to 1.5 s for the writer. Stop motor is enabled the moment a
+  connection opens, and the Share control window has its own Stop motor button (pinned at the bottom),
+  because a phone has no Esc key and the window covers the main button.
+* **Not verified on real hardware:** tested with a fake FT232R WebUSB device bridged to a simulated
+  AIRIZ shell (busybox), an Android phone emulated in Edge, the real relay with a second controller,
+  unplug/replug and a deliberately slow USB write; not yet on a real phone with a real AIRIZ. The AIRIZ
+  firmware is unchanged, so it still needs a USB host (PC or phone) to run the console.
 
 ## 1.10.0: Talk & listen
 

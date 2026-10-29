@@ -29,7 +29,9 @@ no command service. This bridge adds one without changing the firmware:
 The root filesystem is a read-only squashfs. The boot scripts (`/etc/init.d/rcS`,
 `startZiris`) only read `/data/usbmode` as a value, root's home is the RAM disk
 `/tmp`, and no boot step executes anything from `/data` or `/other`. Auto-start
-needs a firmware change (e.g. one line in `startZiris`: `[ -x /data/airiz/start.sh ] && sh /data/airiz/start.sh &`).
+needs a firmware change, e.g. one line at the end of `startZiris`:
+`[ -f /data/airiz/start.sh ] && (sleep 20; sh /data/airiz/start.sh) > /tmp/airiz-boot.log 2>&1 &`
+(`-f`, not `-x`: the installer does not make `start.sh` executable; the delay lets Bluetooth come up first).
 
 ## Use
 

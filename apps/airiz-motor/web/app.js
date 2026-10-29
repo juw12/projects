@@ -211,6 +211,13 @@
         if (state.autoReconnect) scheduleReconnectAttempt(state.autoReconnect, 300);
       });
     }
+    // 1.11.0: the AIRIZ on an Android phone's USB port (WebUSB) - reconnect when it is plugged back in.
+    const usbCable = window.AirizUsbSerial;
+    if (usbCable && usbCable.preferred()) {
+      usbCable.onConnect(() => {
+        if (state.autoReconnect) scheduleReconnectAttempt(state.autoReconnect, 300);
+      });
+    }
 
     window.addEventListener('airiz-port-lost', event => {
       if (state.port && event.detail === state.port) {
@@ -291,8 +298,16 @@
   
   async function handleConnect() {
     if (state.updatePending) return;
+    const usbCable = window.AirizUsbSerial;
+    // 1.11.0: an Android phone or tablet is the AIRIZ's USB host (USB OTG cable) - no PC needed.
+    if (usbCable && usbCable.preferred()) {
+      await connectPhoneUsb(usbCable);
+      return;
+    }
     if (!('serial' in navigator)) {
-      logToConsole('Web Serial is unavailable. Use Chrome or Edge on localhost/HTTPS, or choose Try demo.', 'warning');
+      const reason = usbCable ? usbCable.unavailableReason() : '';
+      logToConsole(reason || 'Web Serial is unavailable. Use Chrome or Edge on localhost/HTTPS, or choose Try demo.', 'warning');
+      if (reason) showNotice(reason);
       return;
     }
     try {
@@ -305,6 +320,47 @@
         logToConsole(`Connection error: ${error.message}`, 'error');
       }
     }
+  }
+
+  // 1.11.0: the console is never translated; the phone USB advice also shows as a notice, which is.
+  function showNotice(text) {
+    const notice = document.getElementById('ui-toast');
+    if (!notice) return;
+    notice.textContent = text;
+    notice.hidden = false;
+    clearTimeout(showNotice.timer);
+    showNotice.timer = setTimeout(() => { notice.hidden = true; }, 12000);
+  }
+
+  async function connectPhoneUsb(usbCable) {
+    let port;
+    try {
+      port = await usbCable.requestPort();
+    } catch (error) {
+      // NotFoundError = the chooser was closed without picking a device.
+      if (error && error.name !== 'NotFoundError' && error.name !== 'AbortError') {
+        logToConsole(`Connection error: ${error.message}`, 'error');
+      }
+      return;
+    }
+    if (state.updatePending) return;
+    try {
+      await stopAutoReconnectAndWait();
+      await openSerialPort(port, parseInt(elements.baudSelect.value, 10));
+    } catch (error) {
+      let advice = '';
+      if (error && error.name === 'SecurityError') {
+        advice = 'Android did not allow Chrome to use this USB device. Unplug and replug the AIRIZ, then allow access when Android asks.';
+      } else if (error && error.name === 'NetworkError') {
+        advice = 'The phone could not open the AIRIZ USB port. Unplug and replug the cable, close other apps or tabs that use it, then press Connect.';
+      }
+      logToConsole(advice || `Connection error: ${error && error.message}`, 'error');
+      if (advice) showNotice(advice);
+      return;
+    }
+    const connectedNote = 'Connected through this phone\'s USB port. Keep this page open. Share control lets other phones control the AIRIZ by code.';
+    logToConsole(connectedNote, 'note');
+    showNotice(connectedNote);
   }
 
   async function openSerialPort(port, baudRate) {
@@ -397,6 +453,10 @@
     elements.btnDisconnect.disabled = !connected && !reconnecting;
     elements.baudSelect.disabled = connected || reconnecting;
     elements.btnDemo.disabled = connected;
+    // 1.11.0: Stop motor is usable the moment a connection exists (remote-ui.js only
+    // re-checks it every 500 ms, and a first jog can be sent sooner than that).
+    const stopButton = document.getElementById('btn-stop-motor');
+    if (stopButton) stopButton.disabled = !connected;
     
     if (connected) {
       elements.connectionStatus.textContent = isDemo ? 'Demo Mode' : 'Connected';
@@ -648,8 +708,15 @@
   }
 
   async function findReconnectPort(job) {
-    if (!navigator.serial || typeof navigator.serial.getPorts !== 'function') return null;
-    const ports = await navigator.serial.getPorts();
+    // 1.11.0: a port on an Android phone's USB host is found again through WebUSB.
+    const usbCable = window.AirizUsbSerial;
+    let ports;
+    if (usbCable && usbCable.isUsbCablePort(job.port)) {
+      ports = await usbCable.getPorts();
+    } else {
+      if (!navigator.serial || typeof navigator.serial.getPorts !== 'function') return null;
+      ports = await navigator.serial.getPorts();
+    }
     if (ports.includes(job.port)) return job.port;
     if (job.info.usbVendorId == null) return null;
     const matches = ports.filter(port => {
@@ -743,6 +810,21 @@
     if (!state.port || !state.port.writable) {
       logToConsole('Serial port is not writable', 'error');
       return false;
+    }
+    if (state.port.writable.locked) {
+      // 1.11.0: another write is still in flight (a background query, the voice link, or a
+      // phone's USB transfer, which takes longer than a PC's serial driver): wait for it
+      // instead of dropping the command - above all Stop motor. No await may sit between
+      // the final check and getWriter(), so two waiting commands never collide.
+      const writerWaitMs = options && Number.isFinite(options.writerWaitMs) ? options.writerWaitMs : 1500;
+      for (let waited = 0; waited < writerWaitMs; waited += 10) {
+        if (!state.port || !state.port.writable || !state.port.writable.locked) break;
+        await sleep(10);
+      }
+      if (!state.connected || !state.port || !state.port.writable) {
+        logToConsole('Serial port is not writable', 'error');
+        return false;
+      }
     }
     if (state.port.writable.locked) {
       logToConsole('Serial writer is busy; command not sent. Retry when idle.', 'warning');

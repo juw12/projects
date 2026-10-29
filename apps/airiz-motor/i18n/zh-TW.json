@@ -1104,7 +1104,23 @@
     "Microphone blocked. Allow the microphone for this page, then try again.": "麥克風被封鎖。請允許此頁面使用麥克風，然後再試一次。",
     "The microphone could not start.": "麥克風無法啟動。",
     "Talk & listen (1.10.0)": "對講與收聽（1.10.0）",
-    "Hold to talk on the PC, or on a phone that controls the AIRIZ by code: the message plays on the AIRIZ speaker a few seconds later. Listen plays the AIRIZ microphone about 4 s behind live. It all runs over the existing USB serial link; Stop motor still works and also stops a message that is being sent.": "在 PC 上，或在以代碼控制 AIRIZ 的手機上按住說話：訊息會在幾秒後從 AIRIZ 喇叭播放。「收聽」會播放 AIRIZ 麥克風的聲音，比即時慢約 4 秒。全部透過現有的 USB 序列連線運作；停止馬達仍然有效，也會停止正在傳送的訊息。"
+    "Hold to talk on the PC, or on a phone that controls the AIRIZ by code: the message plays on the AIRIZ speaker a few seconds later. Listen plays the AIRIZ microphone about 4 s behind live. It all runs over the existing USB serial link; Stop motor still works and also stops a message that is being sent.": "在 PC 上，或在以代碼控制 AIRIZ 的手機上按住說話：訊息會在幾秒後從 AIRIZ 喇叭播放。「收聽」會播放 AIRIZ 麥克風的聲音，比即時慢約 4 秒。全部透過現有的 USB 序列連線運作；停止馬達仍然有效，也會停止正在傳送的訊息。",
+    "An iPhone or iPad cannot use a USB cable to the AIRIZ (Apple allows no USB serial ports in browsers or apps). Use Connect by code, or Connect Bluetooth.": "iPhone 或 iPad 無法用 USB 傳輸線連接 AIRIZ（Apple 不允許瀏覽器或 App 使用 USB 序列埠）。請改用「以代碼連線」或「藍牙連線」。",
+    "On an Android phone the USB cable works in Chrome: open https://juw12.github.io/projects/airiz-motor/ in Chrome, plug in the AIRIZ, then press Connect.": "Android 手機請在 Chrome 使用 USB 傳輸線：用 Chrome 開啟 https://juw12.github.io/projects/airiz-motor/，接上 AIRIZ，再按「連接裝置」。",
+    "This USB device is not a serial cable. Use the FT232R USB-serial cable (or the AIRIZ USB port in CDC mode).": "這個 USB 裝置不是序列傳輸線。請使用 FT232R USB 轉序列線（或 CDC 模式的 AIRIZ USB 連接埠）。",
+    "The USB-serial cable did not accept the baud rate. Unplug and replug it, then press Connect.": "USB 轉序列線不接受此鮑率。請拔掉再重新插上，然後按「連接裝置」。",
+    "The USB cable was unplugged.": "USB 傳輸線已拔除。",
+    "The USB port is closed.": "USB 連接埠已關閉。",
+    "The AIRIZ did not accept the data (USB stall).": "AIRIZ 未接受資料（USB stall）。",
+    "The port is already open.": "連接埠已經開啟。",
+    "WebUSB is not available in this browser.": "這個瀏覽器不支援 WebUSB。",
+    "Android did not allow Chrome to use this USB device. Unplug and replug the AIRIZ, then allow access when Android asks.": "Android 未允許 Chrome 使用這個 USB 裝置。請拔掉 AIRIZ 再重新插上，Android 詢問時請允許存取。",
+    "The phone could not open the AIRIZ USB port. Unplug and replug the cable, close other apps or tabs that use it, then press Connect.": "手機無法開啟 AIRIZ 的 USB 連接埠。請拔掉傳輸線再重新插上，關閉其他使用它的 App 或分頁，然後按「連接裝置」。",
+    "Connected through this phone's USB port. Keep this page open. Share control lets other phones control the AIRIZ by code.": "已透過這支手機的 USB 連接埠連線。請保持此頁面開啟。「分享控制」可讓其他手機以代碼控制 AIRIZ。",
+    "Phone: Connect finds no AIRIZ": "手機：按連線找不到 AIRIZ",
+    "Use Chrome on an Android phone (not the AIRIZ app, not an iPhone). Use a USB-OTG adapter that carries data, plug in the FT232R cable and allow access when Android asks, then press Connect again.": "請在 Android 手機上使用 Chrome（不是 AIRIZ App，也不是 iPhone）。使用可傳輸資料的 USB-OTG 轉接頭，接上 FT232R 傳輸線，Android 詢問時允許存取，然後再按一次「連接裝置」。",
+    "Phone instead of PC (1.11.0)": "用手機取代 PC（1.11.0）",
+    "An Android phone can host the AIRIZ console cable: power the AIRIZ from its charger, plug the FT232R cable into the phone with a USB-OTG adapter and press Connect in Chrome. The phone then works like the PC: commands, motor, Stop motor, Talk & listen and Share control by code. Stop motor is no longer lost while another command is still being sent, and the Share control window has its own Stop motor button.": "Android 手機可以當 AIRIZ 主控台傳輸線的主機：AIRIZ 接充電器供電，用 USB-OTG 轉接頭把 FT232R 傳輸線接到手機，在 Chrome 按「連接裝置」。之後手機就跟 PC 一樣：指令、馬達、停止馬達、對講與收聽，以及以代碼分享控制。另一個指令還在傳送時按下的停止馬達不會再遺失，分享控制視窗也有自己的停止馬達按鈕。"
   },
   "html": {
     "AIRIZDEVICE LAB": "AIRIZ<small>裝置實驗室</small>",
@@ -1198,7 +1214,9 @@
     "Talk (Motor control → Talk & listen): hold Hold to talk and speak (up to 15 s), release to send; slide away from the button to cancel. The AIRIZ plays the message a few seconds later: its USB link (115,200 baud) is slow, so the whole message is sent first and then played. Play again on the AIRIZ repeats the last message.": "<strong>對講</strong>（馬達控制 → 對講與收聽）：按住<strong>按住說話</strong>並說話（最長 15 秒），放開即送出；手指滑離按鈕可取消。AIRIZ 會在幾秒後播放：它的 USB 連線（115,200 baud）很慢，所以整則訊息會先傳完再播放。<strong>在 AIRIZ 再播一次</strong>會重播上一則訊息。",
     "Listen plays the AIRIZ microphone on this PC or phone, about 4 s behind live, with a short gap between 2-second clips. A message being sent pauses listening for a moment.": "<strong>收聽</strong>會在這台 PC 或手機上播放 AIRIZ 麥克風的聲音，比即時慢約 4 秒，每個 2 秒片段之間會有短暫空檔。傳送訊息時會暫停收聽一下。",
     "Phones that control the AIRIZ by code talk and listen through the PC that has the AIRIZ on USB (that PC needs 1.10 or later). The first message after the AIRIZ powers up also installs a small voice helper (three scripts in /tmp/airiz, gone after a restart).": "以代碼控制 AIRIZ 的手機會透過以 USB 連接 AIRIZ 的 PC 對講與收聽（該 PC 需 1.10 以上版本）。AIRIZ 開機後的第一則訊息也會安裝一個小型語音小工具（<code>/tmp/airiz</code> 中的三個腳本，重新開機後就會消失）。",
-    "Stop motor always works and also stops a message that is being sent. If the AIRIZ does not play or record with the defaults, change the sound format or the commands under Voice settings.": "<strong>停止馬達</strong>隨時有效，也會停止正在傳送的訊息。如果 AIRIZ 用預設值無法播放或錄音，請在<em>語音設定</em>中更改聲音格式或指令。"
+    "Stop motor always works and also stops a message that is being sent. If the AIRIZ does not play or record with the defaults, change the sound format or the commands under Voice settings.": "<strong>停止馬達</strong>隨時有效，也會停止正在傳送的訊息。如果 AIRIZ 用預設值無法播放或錄音，請在<em>語音設定</em>中更改聲音格式或指令。",
+    "No PC? An Android phone can be the AIRIZ console: power the AIRIZ from its charger, plug the FT232R cable into the phone with a USB-OTG adapter, open this console in Chrome and press Connect. Keep the page open; Share control then lets other phones control the AIRIZ by code. An iPhone cannot do this (no USB serial).": "沒有 PC？<strong>Android 手機</strong>也能當 AIRIZ 主控台：AIRIZ 接充電器供電，用 USB-OTG 轉接頭把 FT232R 傳輸線接到手機，以 <strong>Chrome</strong> 開啟本主控台並按 <strong>連接裝置</strong>。請保持頁面開啟；之後用 <strong>分享控制</strong> 就能讓其他手機以代碼控制 AIRIZ。iPhone 無法這樣做（不支援 USB 序列埠）。",
+    "A phone can share too: an Android phone connected to the AIRIZ by USB (see Getting started) shows Share control like a PC and keeps its screen on while sharing. Its Share control window has its own Stop motor button.": "手機也能分享：以 USB 連接 AIRIZ 的 Android 手機（見「入門」）跟 PC 一樣有 <strong>分享控制</strong>，分享時會保持螢幕開啟。它的分享控制視窗也有自己的 <strong>停止馬達</strong> 按鈕。"
   },
   "patterns": [
     [
