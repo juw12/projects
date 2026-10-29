@@ -2,6 +2,37 @@
   "_comment": "Pips version history. Newest first. Feeds the in-app update notice (latest.json), the PPT guide and the update emails.",
   "releases": [
     {
+      "version": "2.19.0",
+      "date": "2026-10-29",
+      "title": "Land, sea & sky",
+      "notes": {
+        "en": [
+          "Land animals walk on the taskbar and on top of your open windows now: they jump up onto window edges, walk along them, ride along when you move the window and hop down when it closes, gets covered or is maximised. They always have gravity - let go of one in mid-air and it lands on the window below or on the taskbar.",
+          "Water animals swim along the taskbar (their water) and every now and then leap high out of it in a big arc, diving back in with a splash, ripples and spray. Drop one anywhere and it dives back into the water.",
+          "Flying animals fly anywhere on the screen: they flutter from place to place, hover, come say hi near your mouse, and sometimes perch on the taskbar or a window edge for a rest. Point at one and it waits for you; they glide down to a perch before a nap.",
+          "New menu moves: Jump onto a window, Splash jump!, Fly around / Rest on the taskbar. \"Move around by myself\" in Pet settings keeps your pet still if you prefer (the old Gravity option is gone - land animals always fall now)."
+        ],
+        "id": [
+          "Hewan darat sekarang berjalan di taskbar dan di atas jendela yang terbuka: mereka melompat ke tepi jendela, berjalan di atasnya, ikut bergerak saat jendela dipindahkan, dan turun saat jendela ditutup, tertutup, atau dimaksimalkan. Mereka selalu punya gravitasi - lepaskan di udara dan ia mendarat di jendela di bawahnya atau di taskbar.",
+          "Hewan air berenang di taskbar (airnya) dan sesekali melompat tinggi membentuk lengkungan besar, lalu menyelam kembali dengan cipratan, riak, dan percikan. Lepaskan di mana saja dan ia menyelam kembali ke air.",
+          "Hewan terbang bisa terbang ke mana saja di layar: berpindah-pindah, melayang, menyapa di dekat mouse-mu, dan kadang hinggap di taskbar atau tepi jendela untuk istirahat. Arahkan mouse ke atasnya dan ia menunggu; sebelum tidur ia turun ke tempat hinggap.",
+          "Gerakan baru di menu: Lompat ke atas jendela, Lompat cipratan!, Terbang berkeliling / Istirahat di taskbar. \"Bergerak sendiri\" di Pengaturan pet membuat pet diam jika kamu mau (opsi Gravitasi lama dihapus - hewan darat sekarang selalu jatuh)."
+        ],
+        "zh_TW": [
+          "陸地動物現在會在工作列和打開的視窗上面走：牠們會跳上視窗邊緣、沿著走、你移動視窗時跟著移動，視窗關閉、被蓋住或最大化時就跳下來。牠們一直都有重力——在半空中放開，就會落在下面的視窗或工作列上。",
+          "水中動物在工作列（牠們的水）上游泳，不時高高躍出水面劃出大弧線，再濺起水花、漣漪和水滴潛回去。放在任何地方，牠都會潛回水裡。",
+          "會飛的動物可以在整個螢幕上飛：從這裡飛到那裡、懸停、到你的滑鼠旁邊打招呼，有時停在工作列或視窗邊緣休息。滑鼠指著牠時牠會等你；睡覺前會先滑翔到停靠點。",
+          "選單新動作：跳到視窗上、跳出水面！、到處飛／停在工作列上休息。寵物設定裡的「自己到處跑」可以讓寵物不動（舊的重力選項已移除——陸地動物現在一定會掉下來）。"
+        ],
+        "zh_CN": [
+          "陆地动物现在会在任务栏和打开的窗口上面走：它们会跳上窗口边缘、沿着走、你移动窗口时跟着移动，窗口关闭、被盖住或最大化时就跳下来。它们一直都有重力——在半空中松开，就会落在下面的窗口或任务栏上。",
+          "水中动物在任务栏（它们的水）上游泳，不时高高跃出水面划出大弧线，再溅起水花、涟漪和水滴潜回去。放在任何地方，它都会潜回水里。",
+          "会飞的动物可以在整个屏幕上飞：从这里飞到那里、悬停、到你的鼠标旁边打招呼，有时停在任务栏或窗口边缘休息。鼠标指着它时它会等你；睡觉前会先滑翔到停靠点。",
+          "菜单新动作：跳到窗口上、跳出水面！、到处飞／停在任务栏上休息。宠物设置里的「自己到处跑」可以让宠物不动（旧的重力选项已移除——陆地动物现在一定会掉下来）。"
+        ]
+      }
+    },
+    {
       "version": "2.18.0",
       "date": "2026-10-29",
       "title": "Raise your pet",

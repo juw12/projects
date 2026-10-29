@@ -69,6 +69,11 @@ try:
 except ImportError:  # pragma: no cover
     tama = None
 
+try:
+    import roam                  # v2.19: land walks on windows, water leaps & splashes, air flies
+except ImportError:  # pragma: no cover
+    roam = None
+
 logger = logging.getLogger("pet")
 
 # Transparent colour key: pixels of exactly this colour are see-through and
@@ -85,8 +90,7 @@ DEFAULT_PET_SETTINGS = {
     "size": "M",                 # S | M | L
     "click_action": "tickle_hub",   # tickle_hub | tickle_open (focus timer) | tickle_only | tickle_never
     "bubble_reminders": True,    # show health/break reminders as chat bubbles
-    "walk_on_taskbar": True,
-    "gravity": False,            # (land animals) dropped in mid-air -> fall to the taskbar
+    "walk_on_taskbar": True,     # move around by myself: walk (land), swim & leap (water), fly (air)
     "sleep_when_away": True,
     "away_minutes": 5,
     "open_near_pet": True,       # open the Pips card next to the pet
@@ -1570,6 +1574,171 @@ class SpeechBubble:
 
 
 # =============================================================================
+# Splashes on the water (v2.19)
+# =============================================================================
+
+class SplashFx:
+    """A splash + ripples where a water animal leaves or hits the water (the taskbar).
+
+    The pet's own window flies off with the pet, so each splash gets a small see-through window
+    of its own that stays where the water was hit and hides itself when the drops have fallen."""
+
+    LIFE = 1.2
+
+    def __init__(self, root):
+        self.root = root
+        self.win = None
+        self.cv = None
+        self.job = None
+        self.active = False
+        self.started = 0.0
+        self.drops = []
+        self.crown = []
+        self.big = False
+        self.size = 64
+        self.w = self.h = 0
+        self.water_y = 0
+
+    def _ensure(self) -> bool:
+        if self.win is not None:
+            return True
+        try:
+            win = tk.Toplevel(self.root)
+            win.overrideredirect(True)
+            win.attributes("-topmost", True)
+            win.configure(bg=KEY)
+            try:
+                win.attributes("-transparentcolor", KEY)
+            except tk.TclError:
+                pass
+            cv = tk.Canvas(win, bg=KEY, highlightthickness=0, bd=0)
+            cv.pack(fill="both", expand=True)
+            win.withdraw()
+            self.win, self.cv = win, cv
+            return True
+        except tk.TclError:
+            return False
+
+    def play(self, x, y, size, big=False):
+        """Splash at screen point (x, y) = where the pet meets the water."""
+        if not self._ensure():
+            return
+        u = size / 64.0
+        self.size = size
+        self.big = bool(big)
+        self.w = int(size * (4.2 if big else 3.4))
+        self.h = int(size * (2.8 if big else 2.2))
+        self.water_y = self.h - int(size * 0.35)
+        power = 1.35 if big else 1.0
+        self.drops = []
+        for _ in range(16 if big else 10):
+            self.drops.append({
+                "x": random.uniform(-6, 6) * u,
+                "y": 0.0,
+                "vx": random.uniform(-110, 110) * u * power,
+                "vy": -random.uniform(130, 250) * u * power,
+                "r": random.uniform(1.6, 3.0) * u,
+            })
+        # a little crown of water thrown up where the pet goes in / comes out
+        count = 7 if big else 5
+        self.crown = [(math.radians(-55 + 110 * i / (count - 1)) + random.uniform(-0.1, 0.1),
+                       size * random.uniform(0.32, 0.55) * power) for i in range(count)]
+        self.started = time.monotonic()
+        self.active = True
+        try:
+            self.cv.config(width=self.w, height=self.h)
+            self.win.geometry("%dx%d+%d+%d" % (self.w, self.h, int(x - self.w / 2), int(y - self.water_y)))
+            self.win.deiconify()
+            self.win.attributes("-topmost", True)
+        except tk.TclError:
+            self.active = False
+            return
+        if self.job is None:
+            self._tick()
+
+    def _tick(self):
+        self.job = None
+        if not self.active or self.cv is None:
+            return
+        age = time.monotonic() - self.started
+        if age >= self.LIFE:
+            self.hide()
+            return
+        cv = self.cv
+        u = self.size / 64.0
+        cx = self.w / 2.0
+        wy = self.water_y
+        p = age / self.LIFE
+        try:
+            cv.delete("all")
+            # ripples spreading over the water
+            for delay in (0.0, 0.22):
+                q = (p - delay) / (1.0 - delay)
+                if 0.0 < q < 1.0:
+                    rx = self.size * (0.3 + (1.7 if self.big else 1.35) * q)
+                    ry = rx * 0.2
+                    width = max(1.0, (3.0 if self.big else 2.4) * (1.0 - q) * u)
+                    cv.create_oval(cx - rx, wy - ry, cx + rx, wy + ry, outline="#5bb8f5", width=width,
+                                   dash=(4, 3) if q > 0.6 else None)
+            # foam where the water was hit
+            if p < 0.3:
+                k = 1.0 - p / 0.3
+                fr = self.size * (0.36 if self.big else 0.28) * (0.6 + 0.4 * k)
+                cv.create_oval(cx - fr, wy - fr * 0.3, cx + fr, wy + fr * 0.3, fill="#e6f6ff", outline="")
+            # the crown: streaks of water shooting up, then falling apart
+            if p < 0.45:
+                k = p / 0.45
+                for angle, length in self.crown:
+                    reach = length * math.sin(min(1.0, k * 1.8) * math.pi / 2)
+                    x0 = cx + math.sin(angle) * self.size * 0.14
+                    x1 = x0 + math.sin(angle) * reach * 0.7
+                    y1 = wy - math.cos(angle) * reach
+                    cv.create_line(x0, wy, x1, y1, fill="#9fd8ff", width=max(1.0, 2.8 * u * (1.0 - k)),
+                                   capstyle="round")
+            # flying drops
+            g = 520 * u
+            for d in self.drops:
+                dx = d["x"] + d["vx"] * age
+                dy = d["y"] + d["vy"] * age + 0.5 * g * age * age
+                if dy > 2:
+                    continue            # back in the water
+                r = d["r"]
+                x = cx + dx
+                y = wy + dy
+                cv.create_oval(x - r, y - r * 1.25, x + r, y + r, fill="#7cc6f2", outline="")
+                cv.create_oval(x - r * 0.35, y - r * 0.8, x + r * 0.15, y - r * 0.3, fill="#ffffff", outline="")
+        except tk.TclError:
+            self.active = False
+            return
+        self.job = self.root.after(30, self._tick)
+
+    def hide(self):
+        self.active = False
+        if self.job is not None:
+            try:
+                self.root.after_cancel(self.job)
+            except tk.TclError:
+                pass
+            self.job = None
+        if self.win is not None:
+            try:
+                self.cv.delete("all")
+                self.win.withdraw()
+            except tk.TclError:
+                pass
+
+    def destroy(self):
+        self.hide()
+        if self.win is not None:
+            try:
+                self.win.destroy()
+            except tk.TclError:
+                pass
+            self.win = None
+            self.cv = None
+
+
+# =============================================================================
 # Interactive first-run guide
 # =============================================================================
 
@@ -1615,7 +1784,10 @@ class Tour:
     def show(self):
         key, wait = self.STEPS[self.index]
         pet = self.pet
-        text = t(key, name=pet.s["name"])
+        text_key = key
+        if key == "tour_drag":          # v2.19: land walks on windows, water splashes, air flies
+            text_key = {"water": "tour_drag_water", "air": "tour_drag_air"}.get(pet.category, key)
+        text = t(text_key, name=pet.s["name"])
         if key == "tour_welcome":
             actions = [(t("tour_go"), self.next), (t("tour_skip"), lambda: self.finish(skipped=True))]
             pet.set_action("cheer", 1.4)
@@ -1757,7 +1929,24 @@ class DesktopPet:
         self.falling = False
         self.vy = 0.0
         self.fall_start = 0.0
+        # v2.19 land, sea & sky (roam.py)
+        self.leap = None                # a jump / dolphin leap in progress
+        self.flight = None              # where a flying animal is heading
+        self.platform = None            # the window edge the pet stands on (mode "platform")
+        self.fall_vx = 0.0
+        self._fall_voluntary = False
+        self._fall_prev = 0.0
+        self._fall_platforms = []
+        self._fall_exclude = None
+        self._plat_cache = None
+        self._plat_cache_t = 0.0
+        self._plat_scan_at = 0.0
+        self._pending_sleep = None      # fall asleep once the jump / flight has landed
+        self._said_platform = False
+        self._fx = []                   # SplashFx windows (water animals)
         self.hovering = False
+        self._hover_real = False
+        self._hover_xy = None
         self.hover_hist = []
         self.pet_cooldown = 0.0
         self.tickles = []
@@ -1852,7 +2041,7 @@ class DesktopPet:
         self.cv.bind("<ButtonRelease-1>", self._on_release)
         self.cv.bind("<Button-3>", self._show_menu)
         self.cv.bind("<Motion>", self._on_hover_motion)
-        self.cv.bind("<Enter>", lambda e: setattr(self, "hovering", True))
+        self.cv.bind("<Enter>", self._on_enter)
         self.cv.bind("<Leave>", self._on_leave)
 
     def _body_size(self) -> int:
@@ -1887,7 +2076,7 @@ class DesktopPet:
     def save_state(self):
         try:
             self.st.update({
-                "mode": self.mode if self.mode in ("free", "taskbar") else "taskbar",
+                "mode": self.mode if self.mode in ("fly", "taskbar") else "taskbar",
                 "floor_kind": self.floor_kind,
                 "px": round(self.px, 1) if self.px is not None else None,
                 "floor_y": round(self.floor_y, 1) if self.floor_y is not None else None,
@@ -1918,6 +2107,11 @@ class DesktopPet:
             self._cured_note = "rest"       # a good long rest cured the little cold
 
     def _place_initial(self):
+        # v2.19: window edges are gone after a restart, older versions let pets float ("free")
+        if self.mode == "free" and self.category == "air":
+            self.mode = "fly"
+        if self.mode not in ("taskbar", "fly") or (self.mode == "fly" and self.category != "air"):
+            self.mode = "taskbar"
         if self.px is None or self.floor_y is None:
             _mon, work = monitor_rects(0, 0, self.root)
             self.px = work[2] - 380
@@ -2004,32 +2198,23 @@ class DesktopPet:
 
         if self.dragging:
             pass
+        elif self.leap is not None:
+            self._leap_step(now)
         elif self.falling:
-            self.vy += 2600 * dt
-            self.floor_y += self.vy * dt
-            target = self._floor_for(self.px)
-            if self.floor_y >= target:
-                self.floor_y = target
-                self.falling = False
-                self.mode = "taskbar"
-                drop = target - self.fall_start
-                if self.pending_dizzy:
-                    self._start_dizzy()
-                elif drop > 450:
-                    self.set_action("oof", 1.6)
-                    self._bump("happiness", -2)
-                    self.say(random.choice(lines("oof")), duration=2.5, priority=0)
-                else:
-                    self.set_action("land", 0.35)
-                self._maybe_taskbar_hello()
+            self._fall_step(dt)
         elif self.mode == "taskbar":
             self.floor_y = self._floor_for(self.px)
             self._walk(dt, now)
-        elif self.mode == "free" and self.s.get("gravity") and self.category == "land":
-            self._start_fall()
+        elif self.mode == "platform":
+            self._platform_step(dt, now)
+        elif self.mode == "fly":
+            self._fly_step(dt, now)
+        else:
+            self._settle_free()
 
         if (not self.dragging and not self.falling and not self.walking and not self.sleeping
-                and self.action is None and now >= self.next_idle_action):
+                and self.action is None and self.leap is None and self.flight is None
+                and now >= self.next_idle_action):
             self._idle_action(now)
 
         if self.sleeping and now >= self.next_zzz:
@@ -2050,21 +2235,19 @@ class DesktopPet:
             p["y"] += p["vy"] * dt
             if p["kind"] == "drop":
                 p["vy"] += 60 * self.u * dt
+            elif p["kind"] == "spray":
+                p["vy"] += 230 * self.u * dt
             p["life"] -= dt
         self.particles = [p for p in self.particles if p["life"] > 0]
 
         self._apply_position()
 
     def _walk(self, dt, now):
-        allowed = (self.s.get("walk_on_taskbar", True) and not self.sleeping and self.action is None
-                   and not self.hovering and self.visible and not (self.tour and self.tour.active)
-                   and self.game is None)
-        if not allowed:
+        """Walk (land), swim (water) or hop along (perched air) on the taskbar or a window edge."""
+        if not self._may_roam():
             self.walking = False
             return
-        mon, _work = monitor_rects(self.px, self.floor_y - 10, self.root)
-        lo = mon[0] + self.W / 2 + 2
-        hi = mon[2] - self.W / 2 - 2
+        lo, hi = self._walk_bounds()
         if self.walking:
             energy = self.st["energy"]
             happy = self.st["happiness"]
@@ -2077,7 +2260,8 @@ class DesktopPet:
             self.walk_phase += dt * (10 if speed > 22 * self.u else 6.5)
             arrived = (self.facing > 0 and self.px >= self.walk_target) or (
                 self.facing < 0 and self.px <= self.walk_target)
-            if arrived or self.px <= lo or self.px >= hi:
+            at_edge = self.px <= lo or self.px >= hi
+            if arrived or at_edge:
                 self.px = max(lo, min(hi, self.px))
                 self.walking = False
                 pause = random.uniform(4, 12)
@@ -2086,10 +2270,16 @@ class DesktopPet:
                 if self.focus:
                     pause *= 2.5
                 self.next_walk_at = now + pause
+                if (at_edge and self.mode == "platform" and self.category == "land" and not self._calm()
+                        and random.random() < 0.45):
+                    self._hop_off(self.facing)          # walk off the end of the window and drop down
         elif now >= self.next_walk_at:
+            if self._roam_move(now):
+                return
+            mon, _work = monitor_rects(self.px, self.floor_y - 10, self.root)
             if random.random() < 0.25:
                 cx, cy = cursor_pos(self.root)
-                if cy > self.floor_y - 250 and mon[0] <= cx <= mon[2]:
+                if self.floor_y - 250 < cy < self.floor_y + 120 and mon[0] <= cx <= mon[2]:
                     target = cx
                 else:
                     target = self.px + random.choice((-1, 1)) * random.uniform(80, 400)
@@ -2102,6 +2292,448 @@ class DesktopPet:
             self.walk_target = target
             self.facing = 1 if target > self.px else -1
             self.walking = True
+
+    # ------------------------------------------------- v2.19 land, sea & sky (roam.py)
+    def _has_visitors(self) -> bool:
+        return bool(self.social is not None and getattr(self.social, "visitors", None))
+
+    def _may_roam(self) -> bool:
+        """May the pet start a new walk, jump or flight right now?"""
+        return bool(self.s.get("walk_on_taskbar", True) and not self.sleeping and self.action is None
+                    and not self.hovering and self.visible and not (self.tour and self.tour.active)
+                    and self.game is None and not self.dragging and not self._has_visitors())
+
+    def _calm(self) -> bool:
+        """Focus session, a cold or low energy: fewer big moves."""
+        return bool(self.focus or (self.health is not None and self.health.sick) or self.st["energy"] < 25)
+
+    def _monitor_of(self, x, y):
+        if not point_on_a_monitor(x, y):
+            return None
+        return monitor_rects(x, y, self.root)
+
+    def _platforms(self, max_age=0.8):
+        """Free window edges the pet could stand on (cached briefly; [] without Win32)."""
+        if roam is None:
+            return []
+        now = time.monotonic()
+        if self._plat_cache is not None and now - self._plat_cache_t < max_age:
+            return self._plat_cache
+        try:
+            plats = roam.platforms_from_windows(roam.scan_windows(), self._monitor_of,
+                                                bounds=virtual_screen(self.root), headroom=self.size * 1.1,
+                                                min_segment=max(roam.MIN_SEGMENT, self.size * 1.1))
+        except Exception as exc:
+            logger.debug("window platform scan failed: %s", exc)
+            plats = []
+        self._plat_cache = plats
+        self._plat_cache_t = now
+        return plats
+
+    def _walk_bounds(self):
+        if self.mode == "platform" and self.platform and roam is not None:
+            seg = roam.segment_at(self.platform, self.px, tolerance=self.size)
+            if seg:
+                margin = self.size * 0.4
+                if seg[1] - seg[0] > 2 * margin:
+                    return seg[0] + margin, seg[1] - margin
+                mid = (seg[0] + seg[1]) / 2.0
+                return mid, mid
+        mon, _work = monitor_rects(self.px, self.floor_y - 10, self.root)
+        return mon[0] + self.W / 2 + 2, mon[2] - self.W / 2 - 2
+
+    def _roam_move(self, now) -> bool:
+        """Instead of a plain walk: jump onto a window (land), leap out of the water, take off (air)."""
+        if roam is None:
+            return False
+        calm = self._calm()
+        r = random.random()
+        category = self.category
+        if category == "land":
+            return r < (0.1 if calm else 0.25) and self.jump_somewhere()
+        if category == "water":
+            return self.mode == "taskbar" and r < (0.05 if calm else 0.22) and self.splash_leap()
+        if category == "air":
+            return r < (0.2 if calm else 0.45) and self.take_off()
+        return False
+
+    # --- jumps & leaps
+    def jump_somewhere(self, windows_only=False, max_rise=None, max_dx=520.0) -> bool:
+        """Land animals: jump onto a window edge - or down to the taskbar from one."""
+        if roam is None or self.category != "land" or self.leap is not None or self.falling or self.dragging:
+            return False
+        if self.mode not in ("taskbar", "platform"):
+            return False
+        mon, _work = monitor_rects(self.px, self.floor_y - 10, self.root)
+        current = self.platform if self.mode == "platform" else None
+        targets = roam.jump_targets(self._platforms(), self.px, self.floor_y, self.size, mon,
+                                    self._floor_for(self.px), current=current, max_rise=max_rise, max_dx=max_dx)
+        if windows_only:
+            targets = [target for target in targets if target[2] is not None]
+        if not targets:
+            return False
+        x, y, plat = random.choice(targets)
+        self._start_leap(x, y, roam.jump_apex(self.px, self.floor_y, x, y), plat, kind="jump", delay=0.22)
+        return True
+
+    def splash_leap(self) -> bool:
+        """Water animals: leap out of the water (the taskbar) in a big arc and dive back in with a splash."""
+        if (roam is None or self.category != "water" or self.mode != "taskbar" or self.leap is not None
+                or self.falling or self.dragging):
+            return False
+        mon, work = monitor_rects(self.px, self.floor_y - 10, self.root)
+        x1, apex = roam.water_leap(self.px, self.floor_y, self.facing, mon, work, self.size)
+        if self.floor_y - apex < 60:
+            return False                # no room above the water (tiny screen)
+        self._start_leap(x1, self.floor_y, apex, None, kind="splash", delay=0.25)
+        return True
+
+    def _start_leap(self, x1, y1, apex_y, plat=None, kind="jump", delay=0.0):
+        path = roam.leap_path(self.px, self.floor_y, x1, y1, apex_y)
+        self.walking = False
+        if abs(x1 - self.px) > 4:
+            self.facing = 1 if x1 > self.px else -1
+        self.leap = {"path": path, "t0": time.monotonic() + delay, "kind": kind,
+                     "platform": dict(plat) if plat else None, "launched": False}
+        self.mode = "leap"
+        self.platform = None
+        if delay > 0:
+            self.set_action("crouch", delay)
+
+    def _leap_step(self, now):
+        leap = self.leap
+        t_rel = now - leap["t0"]
+        if t_rel < 0:
+            return                      # still crouching
+        path = leap["path"]
+        if not leap["launched"]:
+            leap["launched"] = True
+            if leap["kind"] == "splash":
+                self._splash(path["x0"], path["y0"], big=False)
+                self._spawn("spray", 4)
+        x, y, _vy = roam.leap_pos(path, t_rel)
+        self.px, self.floor_y = x, y
+        if t_rel >= path["T"]:
+            self._end_leap()
+
+    def _end_leap(self):
+        leap = self.leap
+        self.leap = None
+        path = leap["path"]
+        self.px, self.floor_y = path["x1"], path["y1"]
+        plat = leap.get("platform")
+        if plat is not None:
+            frame = roam.window_frame(plat["hwnd"])
+            if frame is None or not frame[0] - 4 <= self.px <= frame[2] + 4:
+                self._start_fall()      # the window went away mid-jump
+                return
+            plat.update(left=frame[0], top=frame[1], right=frame[2])
+            self.floor_y = frame[1]
+            self._set_platform(plat)
+        else:
+            self.mode = "taskbar"
+            self.floor_y = self._floor_for(self.px)
+        if leap["kind"] == "splash":
+            self._splash(self.px, self.floor_y, big=True)
+            self._spawn("spray", 7)
+            if random.random() < 0.3:
+                self.say(random.choice(lines("splash")), duration=2.0, priority=0)
+        self.set_action("land", 0.35)
+        self.next_walk_at = time.monotonic() + random.uniform(2, 5)
+        if plat is not None:
+            self._maybe_platform_hello()
+        self._after_move_landed()
+
+    def _hop_off(self, direction):
+        """Walk off the end of a window edge: a little hop outwards, then gravity."""
+        hwnd = self.platform.get("hwnd") if self.platform else None
+        self._start_fall(vx=direction * 200.0, vy=-300.0, exclude=hwnd, voluntary=True)
+
+    # --- standing on a window
+    def _set_platform(self, plat):
+        self.mode = "platform"
+        self.platform = plat
+        self._plat_scan_at = time.monotonic() + 1.0
+
+    def _platform_step(self, dt, now):
+        """Ride along when the window moves; drop off when it closes, minimises or gets covered."""
+        plat = self.platform
+        if plat is None or roam is None:
+            self._lose_platform()
+            return
+        frame = roam.window_frame(plat["hwnd"])
+        if frame is None:
+            self._lose_platform()
+            return
+        left, top, right, _bottom = frame
+        if (left, top, right) != (plat["left"], plat["top"], plat["right"]):
+            dx = left - plat["left"]
+            if right - left == plat["right"] - plat["left"]:
+                if dx:
+                    self.px += dx
+                    plat["segs"] = [(a + dx, b + dx) for a, b in plat["segs"]]
+            else:
+                plat["segs"] = [(max(a, left), min(b, right)) for a, b in plat["segs"] if min(b, right) > max(a, left)]
+            plat.update(left=left, top=top, right=right)
+            self._plat_scan_at = min(self._plat_scan_at, now + 0.35)    # what covers it now?
+        self.floor_y = plat["top"]
+        if not left - 4 <= self.px <= right + 4:
+            self._lose_platform()
+            return
+        if now >= self._plat_scan_at:
+            self._plat_scan_at = now + 1.0
+            fresh = roam.find_platform(self._platforms(max_age=0.3), plat["hwnd"])
+            if fresh is None or roam.segment_at(fresh, self.px, tolerance=self.size * 0.3) is None:
+                self._lose_platform()   # covered by another window / moved too high
+                return
+            plat["segs"] = fresh["segs"]
+            plat.update(left=fresh["left"], top=fresh["top"], right=fresh["right"])
+            self.floor_y = plat["top"]
+        self._walk(dt, now)
+
+    def _lose_platform(self):
+        """The window under the pet closed, moved away or got covered."""
+        self.platform = None
+        self.walking = False
+        if self.category == "air":
+            if self.sleeping:
+                self.wake("grab", quiet=True)
+            self.mode = "fly"           # birds just take off
+            self.flight = None
+            self.next_walk_at = time.monotonic() + random.uniform(1, 3)
+            return
+        if self.sleeping:
+            self.wake("grab", quiet=True)
+        self._start_fall()
+
+    # --- falling (land & water have gravity)
+    def _start_fall(self, vx=0.0, vy=0.0, exclude=None, to_taskbar=False, voluntary=False):
+        self.mode = "falling"
+        self._fall_voluntary = voluntary            # hopped down by itself: no "oof"
+        self.falling = True
+        self.leap = None
+        self.flight = None
+        self.platform = None
+        self.walking = False
+        self.vy = float(vy)
+        self.fall_vx = float(vx)
+        self.fall_start = self.floor_y
+        self._fall_prev = self.floor_y - 8
+        self._fall_exclude = exclude
+        use_windows = self.category == "land" and not to_taskbar and roam is not None
+        self._fall_platforms = self._platforms(max_age=0.25) if use_windows else []
+
+    def _fall_step(self, dt):
+        self.vy += (roam.GRAVITY if roam is not None else 2600.0) * dt
+        self.floor_y += self.vy * dt
+        if self.fall_vx:
+            self.px += self.fall_vx * dt
+            self.fall_vx *= max(0.0, 1.0 - 1.2 * dt)
+            mon, _work = monitor_rects(self.px, self.floor_y - 10, self.root)
+            lo, hi = mon[0] + self.W / 2 + 2, mon[2] - self.W / 2 - 2
+            if not lo <= self.px <= hi:
+                self.px = max(lo, min(hi, self.px))
+                self.fall_vx = -self.fall_vx * 0.4      # bonk off the edge of the screen
+        if self.vy <= 0:
+            self._fall_prev = self.floor_y              # still going up
+            return
+        taskbar_y = self._floor_for(self.px)
+        if roam is not None:
+            hit = roam.floor_crossed(self._fall_platforms, self.px, self._fall_prev, self.floor_y, taskbar_y,
+                                     exclude=self._fall_exclude)
+        else:
+            hit = (taskbar_y, None) if self.floor_y >= taskbar_y else None
+        if hit is not None:
+            self._land_from_fall(hit[0], hit[1])
+            return
+        self._fall_prev = self.floor_y
+
+    def _land_from_fall(self, target_y, plat):
+        self.floor_y = target_y
+        self.falling = False
+        self.fall_vx = 0.0
+        self._fall_platforms = []
+        self._fall_exclude = None
+        drop = target_y - self.fall_start
+        if plat is not None:
+            self._set_platform(dict(plat))
+        else:
+            self.mode = "taskbar"
+        into_water = self.category == "water" and plat is None
+        if into_water:
+            self._splash(self.px, target_y, big=drop > 160)
+            self._spawn("spray", 6)
+        if self.pending_dizzy:
+            self._start_dizzy()
+        elif drop > 450 and self.category == "land" and not self._fall_voluntary:
+            self.set_action("oof", 1.6)
+            self._bump("happiness", -2)
+            self.say(random.choice(lines("oof")), duration=2.5, priority=0)
+        else:
+            self.set_action("land", 0.35)
+            if into_water and drop > 160 and random.random() < 0.5:
+                self.say(random.choice(lines("splash")), duration=2.0, priority=0)
+        if plat is None:
+            self._maybe_taskbar_hello()
+        else:
+            self._maybe_platform_hello()
+        self.next_walk_at = time.monotonic() + random.uniform(2, 5)
+        self._after_move_landed()
+
+    def _settle_free(self):
+        """Pets left floating by older versions (or in an odd state): flyers fly, the others drop down."""
+        if self.category == "air":
+            self.mode = "fly"
+            self.flight = None
+        else:
+            self._start_fall(to_taskbar=self.category == "water")
+
+    # --- flying (air)
+    def take_off(self) -> bool:
+        """Air animals: fly off somewhere on the screen."""
+        if roam is None or self.category != "air" or self.leap is not None or self.falling or self.dragging:
+            return False
+        _mon, work = monitor_rects(self.px, self.floor_y - 10, self.root)
+        start_y = self.floor_y - (120 if self.mode != "fly" else 0)
+        x, y = roam.flight_target(self.px, start_y, work, self.W, self.H)
+        if self.mode != "fly" and y > self.floor_y - 60:
+            y = max(roam.fly_bounds(work, self.W, self.H)[1], self.floor_y - random.uniform(120, 320))
+        self.mode = "fly"
+        self.platform = None
+        self._fly_to(x, y)
+        return True
+
+    def _fly_to(self, x, y, perch=None):
+        speed = roam.FLY_SPEED * (0.6 if self._calm() else 1.0) * (1.3 if self.mood() == "happy" else 1.0)
+        self.flight = {"path": roam.flight_path(self.px, self.floor_y, x, y, speed), "t": 0.0, "perch": perch}
+        if abs(x - self.px) > 4:
+            self.facing = 1 if x > self.px else -1
+        self.walking = True
+
+    def _fly_step(self, dt, now):
+        flight = self.flight
+        if flight is not None and roam is not None:
+            # wait while you point at it (not when it merely flies under a resting mouse) or while it acts
+            paused = (self.hovering and self._hover_real) or (
+                self.action is not None and self.action not in ("look", "twitch"))
+            if not paused:
+                flight["t"] += dt
+                self.walk_phase += dt * 9
+            x, y, progress = roam.flight_pos(flight["path"], flight["t"])
+            self.px, self.floor_y = x, y
+            self.walking = not paused
+            if progress >= 1.0:
+                self.flight = None
+                self.walking = False
+                self._arrive(flight.get("perch"), now)
+            return
+        self.flight = None
+        self.walking = False
+        _mon, work = monitor_rects(self.px, self.floor_y - 10, self.root)
+        if roam is not None:
+            lo_x, lo_y, hi_x, hi_y = roam.fly_bounds(work, self.W, self.H)
+            self.px = max(lo_x, min(hi_x, self.px))
+            self.floor_y = max(lo_y, min(hi_y, self.floor_y))
+        if now >= self.next_walk_at and self._may_roam() and roam is not None:
+            self._next_flight(now, work)
+
+    def _next_flight(self, now, work):
+        r = random.random()
+        if self.st["energy"] < 25 or r < 0.18:
+            self._perch_flight()
+            return
+        cursor = cursor_pos(self.root) if (r < 0.33 and not self.focus) else None   # come say hi sometimes
+        x, y = roam.flight_target(self.px, self.floor_y, work, self.W, self.H, cursor=cursor)
+        if math.hypot(x - self.px, y - self.floor_y) < 30:
+            self.next_walk_at = now + random.uniform(2, 5)
+            return
+        self._fly_to(x, y)
+
+    def _perch_flight(self, prefer_taskbar=False) -> bool:
+        """Air animals: glide down onto a free window edge or the taskbar for a rest."""
+        if roam is None:
+            self.mode = "taskbar"
+            self.floor_y = self._floor_for(self.px)
+            return True
+        mon, _work = monitor_rects(self.px, self.floor_y - 10, self.root)
+        margin = self.size * 0.45
+        if not prefer_taskbar:
+            spots = []
+            for plat in self._platforms():
+                for a, b in plat["segs"]:
+                    lo, hi = a + margin, b - margin
+                    if hi < lo:
+                        continue
+                    x = min(max(self.px + random.uniform(-120, 120), lo), hi)
+                    if abs(x - self.px) <= 600 and mon[0] <= x <= mon[2]:
+                        spots.append((x, plat))
+            if spots and random.random() < 0.6:
+                x, plat = random.choice(spots)
+                self._fly_to(x, plat["top"], perch=dict(plat))
+                return True
+        lo, hi = mon[0] + self.W / 2 + 2, mon[2] - self.W / 2 - 2
+        x = max(lo, min(hi, self.px + random.uniform(-150, 150)))
+        self._fly_to(x, self._floor_for(x), perch="taskbar")
+        return True
+
+    def _arrive(self, perch, now):
+        if perch == "taskbar":
+            self.mode = "taskbar"
+            self.floor_y = self._floor_for(self.px)
+            self.set_action("land", 0.3)
+            self._maybe_taskbar_hello()
+        elif isinstance(perch, dict):
+            frame = roam.window_frame(perch["hwnd"])
+            if frame is None or not frame[0] <= self.px <= frame[2]:
+                self.mode = "fly"       # that window went away - keep flying
+            else:
+                perch.update(left=frame[0], top=frame[1], right=frame[2])
+                self.floor_y = frame[1]
+                self._set_platform(perch)
+                self.set_action("land", 0.3)
+                self._maybe_platform_hello()
+        pause = random.uniform(4, 12)
+        if self.st["energy"] < 30:
+            pause *= 2
+        if self.focus:
+            pause *= 2.5
+        self.next_walk_at = now + pause
+        self._after_move_landed()
+
+    # --- splashes, greetings, pending naps
+    def _splash(self, x, y, big=False):
+        if not self.visible or self.fs_hidden:
+            return
+        if not self._fx:
+            self._fx = [SplashFx(self.root), SplashFx(self.root)]
+        fx = min(self._fx, key=lambda f: (f.active, f.started))     # an idle one, else the oldest
+        fx.play(x, y, self.size, big=big)
+
+    def _maybe_platform_hello(self):
+        if not self._said_platform:
+            self._said_platform = True
+            self.say(random.choice(lines("platform")), duration=2.5, priority=0)
+
+    def _after_move_landed(self):
+        reason = self._pending_sleep
+        if reason and not self.sleeping:
+            self._pending_sleep = None
+            self.go_to_sleep(reason)
+
+    def _move_menu_entry(self):
+        """(icon, label, callback) for the 'how I get around' menu item, or None."""
+        category = self.category
+        if category == "air":
+            if self.mode == "fly":
+                return "\u2B07", t("p_perch"), self.go_to_taskbar
+            return "\U0001F54A", t("p_fly"), self.float_free
+        if self.mode == "platform":
+            return "\u2B07", t("p_taskbar"), self.go_to_taskbar
+        if self.mode != "taskbar" or roam is None:
+            return None
+        if category == "water":
+            return "\U0001F4A6", t("p_splash"), self.float_free
+        return "\U0001F998", t("p_jump_window"), self.float_free
 
     def _idle_action(self, now):
         self.next_idle_action = now + random.uniform(6, 16)
@@ -2206,6 +2838,7 @@ class DesktopPet:
             self._next_trick = now + random.uniform(12 * 60, 25 * 60)
             owned = self.shop.moves() if self.shop else []
             if (owned and not away and not self.focus and self.action is None and not self.dragging
+                    and self.leap is None and not self.falling and self.flight is None
                     and self.mood() in ("happy", "content")):
                 self.do_trick(random.choice(owned))
 
@@ -2364,6 +2997,28 @@ class DesktopPet:
                 L["hop"] = abs(math.sin(wp)) * 1.3
                 L["lean"] = self.facing * 1.5
 
+        if self.leap is not None and not self.dragging and roam is not None:
+            # v2.19: mid-jump (land) / mid-leap out of the water
+            t_rel = now - self.leap["t0"]
+            if t_rel >= 0:
+                path = self.leap["path"]
+                _x, _y, vy = roam.leap_pos(path, t_rel)
+                k = max(-1.0, min(1.0, vy / max(1.0, path["vy0"])))      # -1 take-off .. +1 landing
+                L["squash"] = -0.04 - 0.1 * abs(k)
+                L["lean"] = self.facing * (3.2 if category == "water" else 2.2)
+                L["eye_dx"] = self.facing * 1.6
+                L["eye_dy"] = -0.8 if k < 0 else 0.8
+                L["eyes"] = "happy" if k < 0.35 else "big"
+                L["mouth"] = "big_open" if category == "water" else ("smile" if k < 0 else "o")
+                L["brows"] = None
+                L["hop"] = 0.0
+                L["foot_l"] = L["foot_r"] = 0.0
+                L["wag"] = math.sin(t_ * 14) * 4
+                if category != "air":
+                    L["hover"] = 0.0
+                else:
+                    L["flap"] = math.sin(t_ * flap_hz * 1.5)
+
         if now < self.blink_until and L["eyes"] in ("open", "big"):
             L["eyes"] = "blink"
 
@@ -2395,8 +3050,13 @@ class DesktopPet:
                 L["mouth"] = "o"
             L["brows"] = None
         elif self.falling:
-            L["eyes"] = "big"
-            L["mouth"] = "o"
+            if category == "water":
+                L["eyes"] = "happy"         # wheee - back into the water!
+                L["mouth"] = "big_open"
+                L["hover"] = 0.0
+            else:
+                L["eyes"] = "big"
+                L["mouth"] = "o"
             L["squash"] = -0.1
 
         act = self.action
@@ -2475,6 +3135,10 @@ class DesktopPet:
                 # v2.18 Left or Right?: waiting for your guess
                 L.update(eyes="open", mouth="cat", brows=None, eye_dx=math.sin(t_ * 2.4) * 1.6, eye_dy=-0.4,
                          lean=math.sin(t_ * 2.4) * 0.8)
+            elif act == "crouch":
+                # v2.19: getting ready to jump / leap
+                L.update(squash=0.2 * min(1.0, p * 1.6), eyes="happy", mouth="smile", brows=None,
+                         eye_dx=self.facing * 1.8, hop=0.0)
             elif pet_shop is not None and act in pet_shop.MOVES:
                 pet_shop.trick_pose(L, act, p, t_)
                 if self.trick_lift:
@@ -2529,6 +3193,9 @@ class DesktopPet:
             elif kind == "drop":
                 r = self.u * 1.4
                 cv.create_oval(x - r, y - r * 1.3, x + r, y + r, fill="#8fd3ff", outline="")
+            elif kind == "spray":
+                r = self.u * (1.0 + 0.6 * frac)
+                cv.create_oval(x - r, y - r * 1.3, x + r, y + r, fill="#7cc6f2", outline="")
 
     def _spawn(self, kind, count=1):
         for _ in range(count):
@@ -2545,6 +3212,10 @@ class DesktopPet:
             elif kind == "drop":
                 p = dict(x=random.uniform(-2, 2) * self.u, y=-self.size * 0.02,
                          vx=random.uniform(-9, 9) * self.u, vy=-random.uniform(22, 30) * self.u, life=1.0)
+            elif kind == "spray":
+                # v2.19: water thrown up around a water animal leaving / hitting the water
+                p = dict(x=random.uniform(-10, 10) * self.u, y=self.size * 0.88,
+                         vx=random.uniform(-55, 55) * self.u, vy=-random.uniform(40, 80) * self.u, life=0.75)
             else:
                 p = dict(x=random.uniform(-18, 18) * self.u, y=random.uniform(-2, 8) * self.u,
                          vx=random.uniform(-6, 6) * self.u, vy=-random.uniform(12, 20) * self.u, life=1.6)
@@ -2574,6 +3245,7 @@ class DesktopPet:
 
     def _touch(self):
         self.last_interaction = time.time()
+        self._pending_sleep = None      # you're here: no nap after the current jump / flight
 
     def _on_press(self, event):
         self.press = (event.x_root, event.y_root, time.monotonic(), self.px, self.floor_y)
@@ -2608,6 +3280,9 @@ class DesktopPet:
         self.dragging = True
         self.walking = False
         self.falling = False
+        self.leap = None
+        self.flight = None
+        self.platform = None
         self.action = None
         if random.random() < 0.35:
             self.say(random.choice(lines("drag")), duration=1.8, priority=0)
@@ -2642,6 +3317,10 @@ class DesktopPet:
         mon, work = monitor_rects(self.px, self.floor_y - 5, self.root)
         bottom_taskbar = work[3] < mon[3]
         fy = self.floor_y
+        self.platform = None
+        self.flight = None
+        self.leap = None
+        throw = max(-600.0, min(600.0, self.drag_vx * 0.35))
         if bottom_taskbar and fy >= work[3] - 16:
             self.floor_kind = "inside" if fy > work[3] + 10 else "top"
             self.mode = "taskbar"
@@ -2649,22 +3328,35 @@ class DesktopPet:
             if fy >= target:
                 self.floor_y = target
                 self._after_landing()
+                if self.category == "water":
+                    self._splash(self.px, self.floor_y)
             else:
-                self._start_fall()
+                self._start_fall(to_taskbar=True)
         elif not bottom_taskbar and fy >= work[3] - 30:
             self.floor_kind = "top"
             self.mode = "taskbar"
             self.floor_y = work[3]
             self._after_landing()
-        elif self.s.get("gravity") and self.category == "land":
-            self.floor_kind = "top"
-            self._start_fall()
-        else:
-            # water animals float, air animals hover - they stay where you leave them
-            self.mode = "free"
-            self.px = max(mon[0] + 10, min(mon[2] - 10, self.px))
-            self.floor_y = max(mon[1] + self.H * 0.6, min(mon[3], self.floor_y))
+            if self.category == "water":
+                self._splash(self.px, self.floor_y)
+        elif self.category == "air":
+            # flyers stay where you leave them - or perch on the window edge you put them on
+            perch = roam.perch_at(self._platforms(max_age=0.3), self.px, fy) if roam is not None else None
+            if perch is not None:
+                self.floor_y = perch["top"]
+                self._set_platform(dict(perch))
+            else:
+                self.mode = "fly"
+                if roam is not None:
+                    lo_x, lo_y, hi_x, hi_y = roam.fly_bounds(work, self.W, self.H)
+                    self.px = max(lo_x, min(hi_x, self.px))
+                    self.floor_y = max(lo_y, min(hi_y, self.floor_y))
             self._after_landing(taskbar=False)
+        else:
+            # v2.19: land and water animals have gravity - back onto a window edge / into the water
+            self.floor_kind = "top"
+            self._start_fall(vx=throw if self.category == "land" else throw * 0.5,
+                             to_taskbar=self.category == "water")
         self.drag_vx = 0.0
         self.save_state()
         self._tour_event("drop")
@@ -2677,17 +3369,13 @@ class DesktopPet:
         if taskbar:
             self._maybe_taskbar_hello()
         self.next_walk_at = time.monotonic() + random.uniform(2, 5)
+        self._after_move_landed()
 
     def _maybe_taskbar_hello(self):
         if not self._said_taskbar and self.s.get("walk_on_taskbar", True):
             self._said_taskbar = True
-            self.say(random.choice(lines("taskbar")), duration=2.5, priority=0)
-
-    def _start_fall(self):
-        self.mode = "falling"
-        self.falling = True
-        self.vy = 0.0
-        self.fall_start = self.floor_y
+            key = {"water": "taskbar_water", "air": "taskbar_air"}.get(self.category, "taskbar")
+            self.say(random.choice(lines(key)), duration=2.5, priority=0)
 
     def _start_dizzy(self):
         self.pending_dizzy = False
@@ -2851,6 +3539,8 @@ class DesktopPet:
     def _on_hover_motion(self, event):
         if self.dragging or (event.state & 0x0100):
             return
+        if (event.x_root, event.y_root) != self._hover_xy:
+            self._hover_real = True         # the mouse moved (not just the pet flying under it)
         now = time.monotonic()
         self.hover_hist.append((now, event.x_root))
         self.hover_hist = [(t0, x) for t0, x in self.hover_hist if now - t0 < 1.4]
@@ -2871,8 +3561,14 @@ class DesktopPet:
             self.hover_hist.clear()
             self.pet()
 
+    def _on_enter(self, event):
+        self.hovering = True
+        self._hover_real = False            # v2.19: set once the mouse really moves over the pet
+        self._hover_xy = (event.x_root, event.y_root)
+
     def _on_leave(self, _event):
         self.hovering = False
+        self._hover_real = False
         self.hover_hist.clear()
 
     def pet(self):
@@ -2924,6 +3620,15 @@ class DesktopPet:
     def go_to_sleep(self, reason="manual"):
         if self.sleeping:
             return
+        if self.leap is not None or self.falling or self.dragging:
+            self._pending_sleep = reason            # nap once we've landed
+            return
+        if self.category == "air" and self.mode == "fly":
+            self._pending_sleep = reason            # flyers glide down to a perch first
+            if self.flight is None or not self.flight.get("perch"):
+                self._perch_flight()
+            return
+        self._pending_sleep = None
         self.walking = False
         self.sleep_reason = reason
         self.set_action("yawn_to_sleep", 1.4)
@@ -3356,6 +4061,9 @@ class DesktopPet:
         self.px = float(min(max(x, work[0] + margin), work[2] - margin))
         self.falling = False
         self.walking = False
+        self.leap = None
+        self.flight = None
+        self.platform = None
         self.mode = "taskbar"
         self.floor_kind = "top"
         self.floor_y = work[3]
@@ -3417,12 +4125,12 @@ class DesktopPet:
     def set_species(self, species: str, recolor: bool = True):
         if species not in SPECIES:
             return
+        old_category = self.category
         self.s["species"] = species
         if recolor:
             self.s["color"] = SPECIES[species]["color"]
-        if self.category != "land" and self.mode == "falling":
-            self.falling = False
-            self.mode = "free"
+        if self.category != old_category:
+            self._category_changed()
         self.set_action("cheer", 1.2)
         self._spawn("sparkle", 4)
         self.update_setting("species", species)
@@ -3446,8 +4154,8 @@ class DesktopPet:
                 self.bubble.hide()
         elif key == "walk_on_taskbar" and not value:
             self.walking = False
-        elif key == "gravity" and value and self.mode == "free" and self.category == "land":
-            self._start_fall()
+            if self.flight is not None and not self.flight.get("perch"):
+                self.flight = None          # stop flying around (a glide down to a perch still finishes)
         elif key == "sounds" and value:
             self._voice("happy")
         elif key == "sick_days" and not value and self.health is not None:
@@ -3467,18 +4175,60 @@ class DesktopPet:
             self.open_settings()
 
     def go_to_taskbar(self):
+        """Menu: back down to the taskbar (jump off a window / glide down / fall)."""
         self.floor_kind = "top"
-        if self.mode != "taskbar":
-            self._start_fall()
+        if self.dragging or self.leap is not None or self.falling:
+            return
+        self._touch()
+        if self.sleeping:
+            self.wake("poke", quiet=True)
+        if self.mode == "fly":
+            self._perch_flight(prefer_taskbar=True)
+        elif self.mode == "platform" and self.category == "air":
+            self.mode = "fly"
+            self.platform = None
+            self._perch_flight(prefer_taskbar=True)
+        elif self.mode == "platform" and roam is not None:
+            mon, _work = monitor_rects(self.px, self.floor_y - 10, self.root)
+            lo, hi = mon[0] + self.W / 2 + 2, mon[2] - self.W / 2 - 2
+            x = max(lo, min(hi, self.px + self.facing * random.uniform(40, 140)))
+            y = self._floor_for(x)
+            self._start_leap(x, y, roam.jump_apex(self.px, self.floor_y, x, y), None, kind="jump", delay=0.2)
+        elif self.mode != "taskbar":
+            self._start_fall(to_taskbar=True)
 
     def float_free(self):
-        self.mode = "free"
-        self.falling = False
-        self.walking = False
-        _mon, work = monitor_rects(self.px, self.floor_y - 10, self.root)
-        self.floor_y = max(work[1] + self.H, work[3] - 140)
-        self.set_action("hop", 0.55)
-        self._apply_position(force=True)
+        """Menu: this animal's special move - fly around (air), splash leap (water), jump onto a window (land)."""
+        if self.dragging or self.leap is not None or self.falling:
+            return
+        self._touch()
+        if self.sleeping:
+            self.wake("poke", quiet=True)
+        category = self.category
+        if category == "air":
+            self.take_off()
+        elif category == "water":
+            if not self.splash_leap() and self.mode != "taskbar":
+                self.go_to_taskbar()
+        elif not self.jump_somewhere(windows_only=True, max_rise=100000.0, max_dx=100000.0):
+            self.say(random.choice(lines("no_platform")), duration=3.5, priority=1)
+
+    def _category_changed(self):
+        """Switched to an animal that moves differently (v2.19)."""
+        self.flight = None
+        self.leap = None
+        category = self.category
+        if category == "air":
+            if self.falling or self.mode not in ("taskbar", "platform"):
+                self.falling = False
+                self.mode = "fly"
+        elif category == "water":
+            if self.mode != "taskbar" and not self.falling:
+                self._start_fall(to_taskbar=True)
+            elif self.falling:
+                self._fall_platforms = []       # water animals always dive back into the water
+        elif self.mode in ("fly", "free", "leap"):
+            self._start_fall()
 
     def open_settings(self):
         if self.settings_win and self.settings_win.alive():
@@ -3537,6 +4287,9 @@ class DesktopPet:
         if self.settings_win:
             self.settings_win.close()
         self.bubble.destroy()
+        for fx in self._fx:
+            fx.destroy()
+        self._fx = []
         try:
             self.win.destroy()
         except tk.TclError:
@@ -3639,10 +4392,9 @@ class DesktopPet:
                 for move in moves:
                     sub.item("\u2728", t("mv_" + move).split(":")[0], lambda m=move: self.do_trick(m))
             menu.submenu("\U0001F3AA", t("p_tricks"), build_tricks, hint=str(len(moves)))
-        if self.mode == "taskbar":
-            menu.item("\U0001F388", t("p_float"), self.float_free)
-        else:
-            menu.item("\u2B07", t("p_taskbar"), self.go_to_taskbar)
+        move = self._move_menu_entry()
+        if move:
+            menu.item(*move)
 
         menu.section(t("fm_customize"))
 
@@ -3754,10 +4506,9 @@ class DesktopPet:
             menu.add_command(label=t("p_wake"), command=lambda: self.wake("poke"))
         else:
             menu.add_command(label=t("p_sleep"), command=lambda: self.go_to_sleep("manual"))
-        if self.mode == "taskbar":
-            menu.add_command(label=t("p_float"), command=self.float_free)
-        else:
-            menu.add_command(label=t("p_taskbar"), command=self.go_to_taskbar)
+        move = self._move_menu_entry()
+        if move:
+            menu.add_command(label=move[1], command=move[2])
         focus_menu = submenu(menu)
         focus_menu.add_command(label=t("p_hide_window") if open_now else t("p_open"),
                                command=lambda: self._call("toggle_window"))
@@ -4106,7 +4857,7 @@ class PetSettingsWindow:
                            font=("Segoe UI", 9), bg=self.CARD, activebackground=self.CARD, anchor="w",
                            cursor="hand2").pack(fill="x", padx=(8, 0))
         self.flag_vars = {}
-        for key in ("bubble_reminders", "walk_on_taskbar", "gravity", "sleep_when_away", "open_near_pet",
+        for key in ("bubble_reminders", "walk_on_taskbar", "sleep_when_away", "open_near_pet",
                     "start_with_card", "chatty", "hide_in_fullscreen", "auto_update", "sounds", "quiet_focus",
                     "sick_days"):
             var = tk.BooleanVar(value=bool(pet.s.get(key)))
