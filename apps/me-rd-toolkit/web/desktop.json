@@ -1,0 +1,10 @@
+{
+  "desktop": {
+    "version": "1.0.0",
+    "page": "https://github.com/juw12/projects/releases/tag/me-rd-toolkit",
+    "downloads": {
+      "windows": "https://github.com/juw12/projects/releases/download/me-rd-toolkit/ME-RD-Toolkit-Windows-Setup.exe",
+      "windows_portable": "https://github.com/juw12/projects/releases/download/me-rd-toolkit/ME-RD-Toolkit-Windows-Portable.zip"
+    }
+  }
+}

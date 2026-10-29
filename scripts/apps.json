@@ -747,7 +747,8 @@
         "checklists",
         "Cpk",
         "PWA",
-        "offline-first"
+        "offline-first",
+        "Windows app"
       ],
       "note_tags": [
         "npi",
@@ -765,6 +766,16 @@
         "web": "me-rd-toolkit/index.html",
         "mobile": "me-rd-toolkit/index.html"
       },
+      "card_links": [
+        {
+          "label": "Windows app",
+          "path": "https://github.com/juw12/projects/releases/download/me-rd-toolkit/ME-RD-Toolkit-Windows-Setup.exe"
+        },
+        {
+          "label": "Open app",
+          "path": "me-rd-toolkit/index.html"
+        }
+      ],
       "status": "shipped",
       "order": 22,
       "portfolio_order": -9
