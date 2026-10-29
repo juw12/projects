@@ -1,0 +1,268 @@
+/* Sweep v21 "App" refresh — loaded last on every page.
+   Calmer chrome in the style of today's best productivity apps: the new app icon as the brand mark,
+   a sentence-case wordmark, a translucent sticky header, quieter borders, consistent hit targets,
+   safe-area padding for notched phones and the desktop/phone app shells (native.js adds
+   .native-app / .native-android / .native-ios / .native-desktop on <html>).
+   Tokens come from styles.css + theme.css, so Night Edition keeps working. */
+
+:root {
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --hit: 40px;
+  --refresh-blur: saturate(1.4) blur(14px);
+}
+
+/* ---------- header ---------- */
+.masthead {
+  position: relative;
+  z-index: 60;
+  padding-top: calc(12px + var(--safe-top));
+  padding-bottom: 12px;
+  padding-left: calc(28px + var(--safe-left));
+  padding-right: calc(28px + var(--safe-right));
+  background: color-mix(in srgb, var(--color-paper) 82%, transparent);
+  -webkit-backdrop-filter: var(--refresh-blur);
+  backdrop-filter: var(--refresh-blur);
+  border-bottom: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
+  box-shadow: none;
+}
+
+.brand-mark {
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  background: url("icons/app-icon.svg") center / cover no-repeat;
+  box-shadow: 0 1px 2px rgba(60, 20, 20, 0.18), 0 6px 14px -8px rgba(139, 26, 26, 0.6);
+}
+.brand-mark svg { display: none; }
+
+.masthead-title,
+h1.masthead-title {
+  font-family: var(--font-ui, var(--font-sans));
+  font-size: 20px;
+  font-weight: 750;
+  letter-spacing: -0.01em;
+  text-transform: none;
+  color: var(--color-ink);
+  text-shadow: none;
+}
+.masthead-subtitle {
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  font-weight: 500;
+  color: var(--color-muted);
+}
+
+.masthead-actions { gap: 6px; }
+.masthead .icon-btn {
+  width: var(--hit);
+  height: var(--hit);
+  border-radius: 12px;
+  border: 1px solid transparent;
+  transition: background-color 140ms ease, border-color 140ms ease;
+}
+.masthead .icon-btn:hover { background: var(--accent-tint, rgba(139, 26, 26, 0.08)); border-color: var(--color-border-light); }
+
+#signout-btn {
+  border-radius: 12px;
+  font-family: var(--font-ui, var(--font-sans));
+  font-weight: 600;
+}
+
+/* Nav: pill tabs under the header */
+.nav {
+  font-family: var(--font-ui, var(--font-sans));
+  padding-left: calc(24px + var(--safe-left));
+  padding-right: calc(24px + var(--safe-right));
+}
+.nav-item { border-radius: 999px; font-weight: 600; letter-spacing: 0; text-transform: none; }
+
+/* ---------- surfaces ---------- */
+.project-card,
+.plan-card,
+.gate-card,
+.stat-card {
+  border-color: color-mix(in srgb, var(--color-border) 75%, transparent);
+}
+.project-card { transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease; }
+@media (hover: hover) {
+  .project-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-lift, var(--shadow-card)); }
+}
+
+.btn { min-height: 36px; border-radius: var(--radius-ctl, 10px); }
+.btn-primary { box-shadow: 0 1px 0 rgba(255, 255, 255, 0.18) inset, 0 6px 14px -8px color-mix(in srgb, var(--color-accent) 80%, transparent); }
+
+.toast {
+  border-radius: 14px;
+  -webkit-backdrop-filter: var(--refresh-blur);
+  backdrop-filter: var(--refresh-blur);
+  bottom: calc(24px + var(--safe-bottom));
+}
+
+/* ---------- phones ---------- */
+@media (max-width: 480px) {
+  .masthead,
+  html .masthead {
+    position: sticky;
+    top: 0;
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: nowrap;
+    padding-top: calc(10px + var(--safe-top));
+    padding-bottom: 10px;
+    padding-left: calc(14px + var(--safe-left));
+    padding-right: calc(10px + var(--safe-right));
+    gap: 8px;
+  }
+  .masthead-subtitle { display: none; }
+  .masthead-title { font-size: 19px; }
+  .brand-mark { width: 30px; height: 30px; border-radius: 8px; }
+  .masthead-actions { width: auto; gap: 2px; justify-content: flex-end; flex-wrap: nowrap; }
+  .masthead .icon-btn { width: 38px; height: 38px; }
+  /* "Sign out" becomes an icon button; the text stays as its accessible name. */
+  #signout-btn {
+    width: 38px;
+    min-width: 38px;
+    height: 38px;
+    padding: 0;
+    font-size: 0;
+    border: 1px solid transparent;
+    background: center / 18px no-repeat
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236b6b6b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4'/%3E%3Cpolyline points='16 17 21 12 16 7'/%3E%3Cline x1='21' y1='12' x2='9' y2='12'/%3E%3C/svg%3E");
+  }
+  .main { padding-left: calc(12px + var(--safe-left)); padding-right: calc(12px + var(--safe-right)); }
+  .toast { bottom: calc(84px + var(--safe-bottom)); }
+}
+
+/* ---------- inside the desktop / phone apps ---------- */
+.native-app body { overscroll-behavior-y: none; }
+.native-android body,
+.native-ios body { -webkit-tap-highlight-color: transparent; }
+.native-app .get-apps-link,
+.native-app .pwa-install-only { display: none !important; }
+
+/* ---------- Get the apps link (gate) ---------- */
+.get-apps-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 14px;
+  font-family: var(--font-ui, var(--font-sans));
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-accent);
+  text-decoration: none;
+}
+.get-apps-link:hover { text-decoration: underline; }
+.get-apps-link img { width: 18px; height: 18px; border-radius: 5px; }
+
+/* ---------- banners (shell update), offline pill, What's new sheet ---------- */
+.sweep-banner {
+  position: fixed;
+  z-index: 1200;
+  left: 50%;
+  top: calc(12px + var(--safe-top));
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: min(560px, calc(100vw - 24px));
+  padding: 10px 10px 10px 16px;
+  border-radius: 16px;
+  border: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-paper) 92%, transparent);
+  -webkit-backdrop-filter: var(--refresh-blur);
+  backdrop-filter: var(--refresh-blur);
+  box-shadow: var(--shadow-lift, 0 12px 30px rgba(0, 0, 0, 0.18));
+  font-family: var(--font-ui, var(--font-sans));
+  font-size: 14px;
+  color: var(--color-ink);
+  animation: sweep-drop 220ms ease;
+}
+.sweep-banner .btn { width: auto; }
+.sweep-banner-close {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  font-size: 20px;
+  line-height: 1;
+  color: var(--color-muted);
+}
+.sweep-banner-close:hover { background: var(--color-border-light); }
+
+.sweep-offline {
+  position: fixed;
+  z-index: 1100;
+  left: 50%;
+  bottom: calc(18px + var(--safe-bottom));
+  transform: translateX(-50%);
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: #2b2723;
+  color: #f5efe6;
+  font-family: var(--font-ui, var(--font-sans));
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: 0 10px 24px -10px rgba(0, 0, 0, 0.5);
+}
+.sweep-offline.is-online { background: var(--color-productive); color: #fff; }
+@media (max-width: 480px) {
+  body.sweep-in-app .sweep-offline { bottom: calc(76px + var(--safe-bottom)); }
+}
+
+.sweep-sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 1300;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(20, 14, 10, 0.42);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  animation: sweep-fade 180ms ease;
+}
+.sweep-sheet-card {
+  width: min(440px, 100%);
+  padding: 26px 24px 20px;
+  border-radius: 22px;
+  background: var(--color-paper);
+  border: 1px solid var(--color-border);
+  box-shadow: 0 30px 80px -30px rgba(0, 0, 0, 0.5);
+  font-family: var(--font-ui, var(--font-sans));
+}
+.sweep-sheet-icon { display: block; border-radius: 12px; margin-bottom: 14px; }
+.sweep-sheet-card h2 { font-size: 22px; margin-bottom: 12px; }
+.sweep-sheet-card ul { margin: 0 0 20px; padding-left: 18px; color: var(--color-ink-light); font-size: 14px; line-height: 1.55; }
+.sweep-sheet-card li + li { margin-top: 6px; }
+.sweep-sheet-actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+.sweep-sheet-actions .btn { width: auto; }
+@media (max-width: 480px) {
+  .sweep-sheet { place-items: end center; padding: 0; }
+  .sweep-sheet-card { width: 100%; border-radius: 22px 22px 0 0; padding-bottom: calc(20px + var(--safe-bottom)); }
+  .sweep-sheet-actions .btn { flex: 1; }
+}
+
+/* Settings → Apps & updates */
+.sweep-apps-panel {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--color-border-light);
+  font-family: var(--font-ui, var(--font-sans));
+}
+.sweep-apps-panel h3 { font-family: var(--font-ui, var(--font-sans)); font-size: 15px; margin-bottom: 4px; }
+.sweep-apps-meta { font-size: 12px; font-weight: 600; color: var(--color-accent); margin-bottom: 6px; }
+.sweep-apps-copy { font-size: 13px; color: var(--color-muted); margin-bottom: 12px; }
+.sweep-apps-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.sweep-apps-actions .btn { width: auto; }
+
+@keyframes sweep-drop { from { opacity: 0; transform: translate(-50%, -8px); } to { opacity: 1; transform: translate(-50%, 0); } }
+@keyframes sweep-fade { from { opacity: 0; } to { opacity: 1; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .sweep-banner, .sweep-sheet, .project-card { animation: none; transition: none; }
+}

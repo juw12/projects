@@ -203,6 +203,60 @@ def run_tests():
     else:
         print("ok - " + ", ".join(OFFLINE_FILES) + " make no network calls")
 
+    # Test 17: the native bridge loads last on both app pages (it wraps downloads and the palette)
+    for page in ("index.html", "mobile.html"):
+        scripts = re.findall(r'<script src="([^"?]+)', read_web(page))
+        if scripts and scripts[-1] == "native.js" and "refresh.css" in read_web(page):
+            print(f"ok - {page}: native.js loads last, refresh.css present")
+        else:
+            print(f"FAIL - {page}: native.js must be the last script (got {scripts[-1:]})")
+            all_passed = False
+
+    # Test 18: shell.json (what installed apps compare against) matches the shells' own versions
+    import json
+    app_dir = os.path.dirname(WEB_DIR)
+    shell = json.loads(read_web("shell.json"))
+    desktop_src = open(os.path.join(app_dir, "desktop", "sweep_app.py"), encoding="utf-8").read()
+    desktop_version = re.search(r'^VERSION = "([^"]+)"', desktop_src, re.M)
+    mobile_package = json.load(open(os.path.join(app_dir, "mobile", "package.json"), encoding="utf-8"))
+    expected = {
+        "desktop": desktop_version.group(1) if desktop_version else None,
+        "android": mobile_package.get("version"),
+        "ios": mobile_package.get("version"),
+    }
+    actual = {name: (shell.get(name) or {}).get("version") for name in expected}
+    if actual == expected:
+        print(f"ok - shell.json versions match the desktop and phone shells {actual}")
+    else:
+        print(f"FAIL - shell.json versions {actual} != shells {expected}")
+        all_passed = False
+
+    # Test 19: the update manifest is never served from the service-worker cache
+    if "shell.json" in sw and "shell.json" not in sw.split("];", 1)[0]:
+        print("ok - sw.js always fetches shell.json from the network")
+    else:
+        print("FAIL - sw.js must bypass (and not pre-cache) shell.json")
+        all_passed = False
+
+    # Test 20: install icons exist (PWA manifest, iOS home screen, desktop builds)
+    manifest = json.loads(read_web("manifest.webmanifest"))
+    icon_files = [icon["src"] for icon in manifest.get("icons", [])] + ["icons/apple-touch-icon.png", "icons/icon-512.png"]
+    missing_icons = [name for name in icon_files if not os.path.isfile(os.path.join(WEB_DIR, name))]
+    if not missing_icons and any(icon.get("purpose") == "maskable" for icon in manifest.get("icons", [])):
+        print(f"ok - {len(set(icon_files))} app icons present, including a maskable one")
+    else:
+        print(f"FAIL - missing app icons {missing_icons} or no maskable icon")
+        all_passed = False
+
+    # Test 21: the bridge only talks to this site's shell.json
+    native = read_web("native.js")
+    fetch_targets = re.findall(r"fetch\(\s*'([^']*)'", native)
+    if set(fetch_targets) <= {"shell.json"} and "XMLHttpRequest" not in native and "WebSocket" not in native:
+        print("ok - native.js only fetches shell.json")
+    else:
+        print(f"FAIL - native.js makes unexpected requests {fetch_targets}")
+        all_passed = False
+
     print("\n" + "=" * 50)
     if all_passed:
         print("SUMMARY: ALL TESTS PASSED")

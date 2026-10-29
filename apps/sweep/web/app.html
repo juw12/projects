@@ -2,441 +2,208 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="color-scheme" content="light dark">
-<meta name="theme-color" content="#faf8f3">
-<title>Install Sweep App</title>
+<meta name="theme-color" content="#8b1a1a">
+<meta name="description" content="Get Sweep for Windows, Mac, Android and iPhone. One app that turns ideas into checkable plans, and updates itself.">
+<title>Get Sweep — Windows, Mac, Android &amp; iPhone</title>
+<link rel="icon" href="icons/app-icon.svg" type="image/svg+xml">
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="apple-touch-icon" href="icons/app-icon.svg">
-<link rel="stylesheet" href="styles.css?v=20">
-<link rel="stylesheet" href="theme.css?v=20">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Sweep">
+<link rel="stylesheet" href="styles.css?v=21">
+<link rel="stylesheet" href="theme.css?v=21">
+<link rel="stylesheet" href="refresh.css?v=21">
 <style>
-/* App Install Page — Morning Paper theme */
-.app-install-container {
-  max-width: 600px;
-  margin: 0 auto;
-  padding: var(--spacing-xl);
-  min-height: calc(100vh - 200px);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-}
-
-.app-masthead {
-  text-align: center;
-  margin-bottom: var(--spacing-xxl);
-  padding: var(--spacing-xl);
-  background: var(--color-paper);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-card);
-  box-shadow: var(--shadow-card);
-  width: 100%;
-}
-
-.app-masthead-title {
-  font-family: var(--font-heading);
-  font-size: 48px;
-  font-weight: 700;
-  color: var(--color-accent);
-  letter-spacing: 0.15em;
-  text-transform: uppercase;
-  margin-bottom: var(--spacing-xs);
-  display: block;
-}
-
-.app-masthead-subtitle {
-  font-family: var(--font-sans);
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--color-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  display: block;
-}
-
-.app-benefits {
-  background: var(--color-paper);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-card);
-  padding: var(--spacing-xl);
-  margin-bottom: var(--spacing-xl);
-  width: 100%;
-}
-
-.app-benefits-title {
-  font-family: var(--font-heading);
-  font-size: 18px;
-  color: var(--color-ink);
-  margin-bottom: var(--spacing-md);
-  text-align: center;
-}
-
-.app-benefits-list {
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-md);
-}
-
-.app-benefit-item {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--spacing-md);
-  padding: var(--spacing-md);
-  background: var(--color-border-light);
-  border-radius: var(--radius-card);
-}
-
-.app-benefit-icon {
-  flex-shrink: 0;
-  width: 24px;
-  height: 24px;
-  color: var(--color-accent);
-}
-
-.app-benefit-text {
-  font-size: 14px;
-  color: var(--color-ink-light);
-  line-height: 1.5;
-}
-
-.app-install-actions {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-md);
-  width: 100%;
-  max-width: 400px;
-  margin-bottom: var(--spacing-xl);
-}
-
-.app-install-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--spacing-sm);
-  padding: 16px 32px;
-  background: var(--color-accent);
-  color: white;
-  border: none;
-  border-radius: var(--radius-card);
-  font-family: var(--font-sans);
-  font-size: 16px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  cursor: pointer;
-  transition: all 120ms ease;
-  width: 100%;
-}
-
-.app-install-btn:hover {
-  background: var(--color-accent-dark);
-}
-
-.app-install-btn:active {
-  transform: scale(0.98);
-}
-
-.app-install-btn:disabled {
-  background: var(--color-muted);
-  cursor: not-allowed;
-  opacity: 0.6;
-}
-
-.app-secondary-links {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-sm);
-  width: 100%;
-  max-width: 400px;
-}
-
-.app-secondary-link {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--spacing-sm);
-  padding: var(--spacing-sm) var(--spacing-md);
-  background: transparent;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-card);
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--color-ink-light);
-  text-decoration: none;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  transition: all 120ms ease;
-}
-
-.app-secondary-link:hover {
-  background: var(--color-border-light);
-  border-color: var(--color-accent);
-  color: var(--color-ink);
-}
-
-.app-manual-install {
-  display: none;
-  background: var(--color-border-light);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-card);
-  padding: var(--spacing-md);
-  margin-top: var(--spacing-md);
-  font-size: 13px;
-  color: var(--color-ink-light);
-  text-align: center;
-  line-height: 1.6;
-}
-
-.app-manual-install strong {
-  color: var(--color-accent);
-}
-
-.app-manual-install ol {
-  text-align: left;
-  margin: var(--spacing-sm) 0;
-  padding-left: var(--spacing-lg);
-}
-
-.app-manual-install li {
-  margin-bottom: var(--spacing-xs);
-}
-
-@media (max-width: 480px) {
-  .app-install-container {
-    padding: var(--spacing-md);
-  }
-  
-  .app-masthead {
-    padding: var(--spacing-lg);
-  }
-  
-  .app-masthead-title {
-    font-size: 32px;
-    letter-spacing: 0.1em;
-  }
-  
-  .app-masthead-subtitle {
-    font-size: 11px;
-  }
-  
-  .app-benefits {
-    padding: var(--spacing-md);
-  }
-  
-  .app-benefit-item {
-    flex-direction: column;
-    align-items: center;
-    text-align: center;
-  }
-  
-  .app-install-btn {
-    padding: 14px 24px;
-    font-size: 14px;
-  }
-}
-
-[data-theme="night"] .app-install-btn {
-  background: var(--color-accent);
-}
-
-[data-theme="night"] .app-install-btn:hover {
-  background: var(--color-accent-dark);
+.get-page { max-width: 1040px; margin: 0 auto; padding: 32px 24px 64px; font-family: var(--font-ui, var(--font-sans)); }
+.get-hero { display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 40px; align-items: center; padding: 24px 0 36px; }
+.get-hero-icon { width: 76px; height: 76px; border-radius: 18px; box-shadow: 0 18px 40px -18px rgba(139, 26, 26, 0.7); }
+.get-hero h1 { font-family: var(--font-heading); font-size: clamp(34px, 5vw, 52px); line-height: 1.05; margin: 18px 0 12px; letter-spacing: -0.01em; }
+.get-hero h1 em { color: var(--color-accent); font-style: italic; }
+.get-hero p { font-size: 17px; color: var(--color-ink-light); max-width: 520px; line-height: 1.55; }
+.get-primary { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 24px; align-items: center; }
+.get-primary .btn { width: auto; min-height: 48px; padding: 0 22px; font-size: 15px; display: inline-flex; align-items: center; gap: 10px; text-decoration: none; }
+.get-primary small { flex-basis: 100%; color: var(--color-muted); font-size: 13px; }
+.get-qr { justify-self: center; text-align: center; padding: 18px; border-radius: 22px; background: var(--color-paper); border: 1px solid var(--color-border); box-shadow: var(--shadow-card); }
+.get-qr-code { width: 188px; height: 188px; margin: 0 auto 10px; border-radius: 12px; overflow: hidden; }
+.get-qr-code svg { width: 100%; height: 100%; display: block; }
+.get-qr p { font-size: 13px; color: var(--color-muted); max-width: 200px; margin: 0 auto; }
+.get-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin-top: 8px; }
+.get-card { position: relative; display: flex; flex-direction: column; gap: 8px; padding: 20px; border-radius: 18px; background: var(--color-paper); border: 1px solid var(--color-border); box-shadow: var(--shadow-card); }
+.get-card.is-yours { border-color: var(--color-accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 18%, transparent), var(--shadow-card); }
+.get-card.is-yours::before { content: "This device"; order: -1; align-self: flex-start; font-size: 11px; font-weight: 700; color: var(--color-accent); background: color-mix(in srgb, var(--color-accent) 10%, transparent); padding: 3px 8px; border-radius: 999px; }
+.get-card h2 { font-family: var(--font-ui, var(--font-sans)); font-size: 17px; display: flex; align-items: center; gap: 10px; }
+.get-card h2 svg { color: var(--color-accent); }
+.get-card p { font-size: 13px; color: var(--color-ink-light); line-height: 1.5; flex: 1; }
+.get-card .get-links { display: flex; flex-wrap: wrap; gap: 8px; }
+.get-card .btn { width: auto; text-decoration: none; display: inline-flex; align-items: center; }
+.get-section-title { font-family: var(--font-heading); font-size: 26px; margin: 40px 0 6px; }
+.get-section-lead { color: var(--color-muted); font-size: 14px; margin-bottom: 18px; }
+.get-features { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; }
+.get-feature { padding: 16px 18px; border-radius: 16px; background: color-mix(in srgb, var(--color-paper) 70%, transparent); border: 1px solid var(--color-border-light); }
+.get-feature strong { display: block; font-size: 14px; margin-bottom: 4px; }
+.get-feature span { font-size: 13px; color: var(--color-ink-light); line-height: 1.5; }
+.get-steps { margin: 10px 0 0 18px; font-size: 13px; color: var(--color-ink-light); line-height: 1.6; }
+.get-footer { margin-top: 44px; padding-top: 18px; border-top: 1px solid var(--color-border-light); display: flex; flex-wrap: wrap; gap: 16px; font-size: 13px; }
+.get-footer a { color: var(--color-accent); font-weight: 600; text-decoration: none; }
+#install-pwa[hidden] { display: none !important; }
+@media (max-width: 760px) {
+  .get-hero { grid-template-columns: 1fr; gap: 24px; padding-top: 8px; }
+  .get-qr { display: none; }
+  .get-page { padding: 20px 16px 48px; }
 }
 </style>
 </head>
 <body>
 
-<!-- Masthead -->
 <header class="masthead">
-  <div class="masthead-brand">
-    <span class="masthead-title">SWEEP</span>
-    <span class="masthead-subtitle">App</span>
-  </div>
+  <a class="masthead-brand" href="./" style="text-decoration:none">
+    <span class="brand-mark" aria-hidden="true"></span>
+    <div class="brand-text">
+      <span class="masthead-title">Sweep</span>
+      <span class="masthead-subtitle">From idea to checkable plan</span>
+    </div>
+  </a>
   <div class="masthead-actions">
-    <button class="icon-btn" id="theme-toggle" aria-label="Toggle dark mode" title="Toggle Night Edition">
-      <svg class="icon-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
-      <svg class="icon-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="display:none"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-    </button>
+    <a class="btn btn-sm btn-secondary" href="./" style="text-decoration:none">Open in browser</a>
   </div>
 </header>
 
-<!-- Main Content -->
-<main class="main">
-  
-  <div class="app-install-container">
-    
-    <!-- Masthead Card -->
-    <div class="app-masthead">
-      <span class="app-masthead-title">SWEEP</span>
-      <span class="app-masthead-subtitle">From idea to checkable plan</span>
-    </div>
-    
-    <!-- Benefits -->
-    <div class="app-benefits">
-      <h2 class="app-benefits-title">Why install Sweep?</h2>
-      <ul class="app-benefits-list">
-        <li class="app-benefit-item">
-          <svg class="app-benefit-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-          <span class="app-benefit-text"><strong>Guided intake</strong> — Type your idea in plain words. Sweep drafts the brief locally — no AI, no network</span>
-        </li>
-        <li class="app-benefit-item">
-          <svg class="app-benefit-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>
-          <span class="app-benefit-text"><strong>Studio: spec → board → build</strong> — Spec Score, Kiro-style requirements / design / tasks, a kanban task board and one-click handoff to Lovable, v0, Cursor or Claude Code</span>
-        </li>
-        <li class="app-benefit-item">
-          <svg class="app-benefit-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-          <span class="app-benefit-text"><strong>Works offline</strong> — Your data is encrypted at rest in your browser. No server, no network required</span>
-        </li>
-        <li class="app-benefit-item">
-          <svg class="app-benefit-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
-          <span class="app-benefit-text"><strong>Share &amp; remix</strong> — Remix links, share cards, a README badge and six ready-made templates to start from</span>
-        </li>
-      </ul>
-    </div>
-    
-    <!-- Install Actions -->
-    <div class="app-install-actions">
-      <button class="app-install-btn" id="install-btn">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-        Install app
-      </button>
-      
-      <div class="app-manual-install" id="manual-install-hint">
-        <strong>Manual install not available</strong>
-        <p style="margin: var(--spacing-sm) 0;">Your browser or device doesn't support the install prompt. Try one of these alternatives:</p>
-        <ol>
-          <li><strong>Chrome/Edge:</strong> Click the install icon in the address bar</li>
-          <li><strong>Safari (iOS):</strong> Tap Share → Add to Home Screen</li>
-          <li><strong>Samsung Internet:</strong> Menu → Add page to → Home screen</li>
-        </ol>
+<main class="get-page">
+  <section class="get-hero">
+    <div>
+      <img class="get-hero-icon" src="icons/app-icon.svg" alt="Sweep app icon" width="76" height="76">
+      <h1>Sweep, on <em>every</em> device.</h1>
+      <p>Turn a rough idea into a checkable plan on Windows, Mac, Android and iPhone. The apps load the live Sweep, so every new feature and fix arrives on its own — no reinstalling, ever.</p>
+      <div class="get-primary">
+        <a class="btn btn-primary" id="primary-download" href="https://github.com/juw12/projects/releases/tag/sweep">Download Sweep</a>
+        <button class="btn btn-secondary" id="install-pwa" type="button" hidden>Install from this browser</button>
+        <small id="primary-note">Free. Your projects stay on your device.</small>
       </div>
     </div>
-    
-    <!-- Secondary Links -->
-    <div class="app-secondary-links">
-      <a class="app-secondary-link" href="./">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-        Open web app
-      </a>
-      <a class="app-secondary-link" href="mobile.html">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
-        Open mobile
-      </a>
-      <a class="app-secondary-link" href="../">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7H4a3 3 0 0 1-3-3V5a3 3 0 0 1 3-3h9l2-3h6a3 3 0 0 1 3 3v5a3 3 0 0 1-3 3h-6"/><path d="M4 13h12"/></svg>
-        All projects
-      </a>
+    <div class="get-qr" aria-label="Scan to get Sweep on your phone">
+      <div class="get-qr-code" id="phone-qr"></div>
+      <p>Scan with your phone's camera to get Sweep for Android or iPhone.</p>
     </div>
-    
+  </section>
+
+  <div class="get-grid">
+    <article class="get-card" data-platform="windows">
+      <h2><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 5.5 10 4.5v7H3zM11 4.3 21 3v8.5H11zM3 12.5h7v7l-7-1zM11 12.5h10V21l-10-1.4z"/></svg>Windows 10 &amp; 11</h2>
+      <p>Installs per user (no admin rights), adds Start-menu and desktop shortcuts, saves exports with a real Save dialog.</p>
+      <div class="get-links">
+        <a class="btn btn-sm btn-primary" href="https://github.com/juw12/projects/releases/download/sweep/Sweep-Windows-Setup.exe">Installer (.exe)</a>
+        <a class="btn btn-sm btn-ghost" href="https://github.com/juw12/projects/releases/download/sweep/Sweep-Windows-Portable.zip">Portable .zip</a>
+      </div>
+    </article>
+    <article class="get-card" data-platform="mac">
+      <h2><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16.4 12.6c0-2.4 2-3.5 2-3.6-1.1-1.6-2.8-1.8-3.4-1.8-1.4-.2-2.8.8-3.5.8s-1.8-.8-3-.8C6.9 7.3 5.4 8.2 4.6 9.7c-1.7 2.9-.4 7.2 1.2 9.6.8 1.2 1.8 2.5 3 2.4 1.2 0 1.7-.8 3.1-.8s1.9.8 3.1.8c1.3 0 2.1-1.2 2.9-2.4.9-1.3 1.3-2.6 1.3-2.7-.1 0-2.6-1-2.8-4zM14.2 5.5c.6-.8 1.1-1.9 1-3-1 0-2.1.6-2.8 1.4-.6.7-1.2 1.8-1 2.9 1.1.1 2.1-.5 2.8-1.3z"/></svg>Mac</h2>
+      <p>A native window with its own Dock icon. Pick your chip: Apple menu → About This Mac shows <em>Chip</em> (Apple) or <em>Processor</em> (Intel).</p>
+      <div class="get-links">
+        <a class="btn btn-sm btn-primary" href="https://github.com/juw12/projects/releases/download/sweep/Sweep-macOS-AppleSilicon.dmg">Apple chip</a>
+        <a class="btn btn-sm btn-ghost" href="https://github.com/juw12/projects/releases/download/sweep/Sweep-macOS-Intel.dmg">Intel</a>
+      </div>
+    </article>
+    <article class="get-card" data-platform="android">
+      <h2><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 9h10a1 1 0 0 1 1 1v7a2 2 0 0 1-2 2h-1v2.5a1.5 1.5 0 0 1-3 0V19h-0v2.5a1.5 1.5 0 0 1-3 0V19H8a2 2 0 0 1-2-2v-7a1 1 0 0 1 1-1zm-3.5 0A1.5 1.5 0 0 1 5 10.5v5a1.5 1.5 0 0 1-3 0v-5A1.5 1.5 0 0 1 3.5 9zm17 0a1.5 1.5 0 0 1 1.5 1.5v5a1.5 1.5 0 0 1-3 0v-5A1.5 1.5 0 0 1 20.5 9zM7.2 8a5 5 0 0 1 9.6 0z"/></svg>Android</h2>
+      <p>Back button, haptics, and exports straight to the share sheet (Drive, Files, any app). Updates install over the old version.</p>
+      <div class="get-links">
+        <a class="btn btn-sm btn-primary" href="https://github.com/juw12/projects/releases/download/sweep/Sweep-Android.apk">Download APK</a>
+      </div>
+      <ol class="get-steps"><li>Open the downloaded file.</li><li>Allow installing from your browser when asked.</li></ol>
+    </article>
+    <article class="get-card" data-platform="ios" id="iphone">
+      <h2><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="6" y="2" width="12" height="20" rx="3"/><line x1="11" y1="18" x2="13" y2="18"/></svg>iPhone &amp; iPad</h2>
+      <p>Full-screen app from your Home Screen, offline-ready and always up to date. Free — no App Store account needed.</p>
+      <ol class="get-steps"><li>Open <strong>juw12.github.io/projects/sweep</strong> in Safari.</li><li>Tap <strong>Share</strong> → <strong>Add to Home Screen</strong>.</li></ol>
+      <div class="get-links">
+        <a class="btn btn-sm btn-primary" href="mobile.html">Open in Safari</a>
+        <a class="btn btn-sm btn-ghost" href="https://github.com/juw12/projects/releases/download/sweep/Sweep-iPhone-unsigned.ipa">Sideload .ipa</a>
+      </div>
+    </article>
   </div>
-  
+
+  <h2 class="get-section-title">Built like a real app</h2>
+  <p class="get-section-lead">The same Sweep everywhere, with the parts a browser tab can't do.</p>
+  <div class="get-features">
+    <div class="get-feature"><strong>Updates itself</strong><span>New features land the moment they ship. When the app shell itself changes, Sweep tells you and links the new version.</span></div>
+    <div class="get-feature"><strong>Native save &amp; share</strong><span>Project zips, briefs and runbooks open a Save dialog on desktop and the share sheet on phones.</span></div>
+    <div class="get-feature"><strong>Works offline</strong><span>Everything runs on your device. An offline badge shows when you're disconnected; nothing is lost.</span></div>
+    <div class="get-feature"><strong>Private by default</strong><span>Encrypted workspaces stay on the device. Optional Sync uses your own GitHub Gist.</span></div>
+    <div class="get-feature"><strong>Shortcuts</strong><span>Right-click / long-press the app icon for New brief, Operator and Catalog. Ctrl/⌘ K opens the command palette.</span></div>
+    <div class="get-feature"><strong>Dark mode</strong><span>Night Edition follows your system, on every platform.</span></div>
+  </div>
+
+  <footer class="get-footer">
+    <a href="./">Open Sweep in the browser</a>
+    <a href="https://github.com/juw12/projects/releases/tag/sweep">All downloads &amp; checksums</a>
+    <a href="../">More apps</a>
+  </footer>
 </main>
 
+<script src="qr.js?v=21"></script>
 <script>
-// Theme toggle (same as index.html)
-(function() {
-  const STORAGE_KEY = 'sweep_theme_v1';
-  const savedTheme = localStorage.getItem(STORAGE_KEY);
-  const sunIcon = document.querySelector('.icon-sun');
-  const moonIcon = document.querySelector('.icon-moon');
-  const themeToggle = document.getElementById('theme-toggle');
-  
-  if (savedTheme === 'night') {
-    document.documentElement.setAttribute('data-theme', 'night');
-    sunIcon.style.display = 'none';
-    moonIcon.style.display = 'block';
-  }
-  
-  themeToggle.addEventListener('click', function() {
-    const isNight = document.documentElement.getAttribute('data-theme') === 'night';
-    if (isNight) {
-      document.documentElement.removeAttribute('data-theme');
-      localStorage.setItem(STORAGE_KEY, 'light');
-      sunIcon.style.display = 'block';
-      moonIcon.style.display = 'none';
-    } else {
-      document.documentElement.setAttribute('data-theme', 'night');
-      localStorage.setItem(STORAGE_KEY, 'night');
-      sunIcon.style.display = 'none';
-      moonIcon.style.display = 'block';
-    }
-  });
-})();
+(function () {
+  'use strict';
+  var RELEASE = 'https://github.com/juw12/projects/releases/download/sweep/';
+  var PAGE = 'https://juw12.github.io/projects/sweep/app.html';
+  var ua = navigator.userAgent || '';
+  var touchMac = /Macintosh/.test(ua) && navigator.maxTouchPoints > 1;
+  var device = /Android/i.test(ua) ? 'android'
+    : (/iPhone|iPad|iPod/i.test(ua) || touchMac) ? 'ios'
+    : /Windows/i.test(ua) ? 'windows'
+    : /Mac OS X|Macintosh/i.test(ua) ? 'mac'
+    : 'other';
 
-// Service Worker Registration (defensive)
-(function() {
-  if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
-    navigator.serviceWorker.register('./sw.js')
-      .then(function(registration) {
-        console.log('ServiceWorker registered:', registration.scope);
-      })
-      .catch(function(error) {
-        console.log('ServiceWorker registration failed:', error);
-      });
+  var primary = document.getElementById('primary-download');
+  var note = document.getElementById('primary-note');
+  var choices = {
+    windows: ['Download for Windows', RELEASE + 'Sweep-Windows-Setup.exe', 'Windows 10 and 11 · per-user install, no admin needed.'],
+    mac: ['Download for Mac', RELEASE + 'Sweep-macOS-AppleSilicon.dmg', 'Apple chip (M1 and newer). Intel Mac? Use the Intel download below.'],
+    android: ['Download for Android', RELEASE + 'Sweep-Android.apk', 'Open the file once it has downloaded, then allow the install.'],
+    ios: ['Add to your iPhone', '#iphone', 'In Safari: Share → Add to Home Screen. Free and always up to date.']
+  };
+  var choice = choices[device];
+  if (choice) {
+    primary.textContent = choice[0];
+    primary.href = choice[1];
+    note.textContent = choice[2];
+    var card = document.querySelector('.get-card[data-platform="' + device + '"]');
+    if (card) card.classList.add('is-yours');
   }
-})();
 
-// Install Prompt Handling
-(function() {
-  let deferredPrompt = null;
-  const installBtn = document.getElementById('install-btn');
-  const manualHint = document.getElementById('manual-install-hint');
-  
-  // Listen for beforeinstallprompt event
-  window.addEventListener('beforeinstallprompt', function(e) {
-    // Prevent the mini-infobar from appearing on mobile
-    e.preventDefault();
-    // Stash the event so it can be triggered later
-    deferredPrompt = e;
-    // Show the install button
-    installBtn.style.display = 'inline-flex';
-    console.log('beforeinstallprompt event fired');
+  // QR for phones (desktop visitors scan it to get the phone app).
+  var qr = document.getElementById('phone-qr');
+  if (qr && window.SweepQR) {
+    try { qr.innerHTML = window.SweepQR.svg(PAGE, { ecc: 'M', border: 2, label: 'QR code: get Sweep on your phone' }); } catch (error) { qr.remove(); }
+  }
+
+  // Browsers that can install the web app directly (Chrome, Edge, Android).
+  var deferred = null;
+  var installButton = document.getElementById('install-pwa');
+  window.addEventListener('beforeinstallprompt', function (event) {
+    event.preventDefault();
+    deferred = event;
+    installButton.hidden = false;
   });
-  
-  // Handle install button click
-  installBtn.addEventListener('click', async function() {
-    if (!deferredPrompt) {
-      console.log('Install prompt not available');
-      return;
-    }
-    
-    // Show the install prompt
-    deferredPrompt.prompt();
-    
-    // Wait for the user's response
-    const { outcome } = await deferredPrompt.userChoice;
-    console.log('User response to install prompt:', outcome);
-    
-    if (outcome === 'accepted') {
-      console.log('User accepted the install prompt');
-      // Optionally hide the install button
-      installBtn.style.display = 'none';
-    } else if (outcome === 'dismissed') {
-      console.log('User dismissed the install prompt');
-      // Show manual install hint
-      manualHint.style.display = 'block';
-    }
-    
-    // Clear the deferred prompt
-    deferredPrompt = null;
+  installButton.addEventListener('click', function () {
+    if (!deferred) return;
+    deferred.prompt();
+    deferred.userChoice.finally(function () {
+      deferred = null;
+      installButton.hidden = true;
+    });
   });
-  
-  // Handle app installed event
-  window.addEventListener('appinstalled', function() {
-    console.log('Sweep app was installed');
-    installBtn.style.display = 'none';
-    manualHint.style.display = 'none';
-  });
-  
-  // If no beforeinstallprompt after 2 seconds, show manual hint
-  setTimeout(function() {
-    if (!deferredPrompt && installBtn.style.display !== 'none') {
-      manualHint.style.display = 'block';
-      console.log('beforeinstallprompt did not fire, showing manual install hint');
-    }
-  }, 2000);
+
+  // Theme: same preference as the app.
+  try {
+    if (localStorage.getItem('sweep_theme_v1') === 'night') document.documentElement.setAttribute('data-theme', 'night');
+  } catch (error) { /* storage unavailable */ }
+
+  if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
+    navigator.serviceWorker.register('./sw.js').catch(function () { /* offline support unavailable */ });
+  }
 })();
 </script>
 </body>

@@ -34,7 +34,29 @@ encrypted at rest.
   encrypts local data with WebCrypto (PBKDF2 → AES-GCM) when available, otherwise
   it falls back to a clearly labeled unencrypted local profile.
 
-### What's new in v20
+### What's new in v21 — Sweep apps for every device
+
+- **Windows, Mac, Android and iPhone apps** that update themselves. They are thin native shells
+  around this site (`desktop/` — pywebview; `mobile/` — Capacitor 8), so every push to `web/`
+  reaches them on the next launch. When a shell itself changes, `web/shell.json` carries the new
+  version and installed apps show *"Sweep 1.x is available → Update"*. The *Sweep apps* workflow
+  (`.github/workflows/sweep-apps.yml`) builds, installs and smoke-tests each platform (Windows
+  installer install/run/uninstall, macOS app + dmg checks, Android emulator, iOS simulator) and
+  publishes to the `sweep` release with stable links.
+- **Native bridge** (`web/native.js`): exports open a real Save dialog on desktop and the share
+  sheet on phones (WebViews drop `<a download>`); Android Back closes sheets then returns to the
+  catalog; light haptics; external links open in the system browser; offline indicator;
+  *What's new* sheet once per release; launch shortcuts (`?action=brief|operator|catalog`, also in
+  the PWA manifest); *Settings → Apps & updates*; palette commands.
+- **Refreshed look** (`web/refresh.css`): new app icon (ring + check), sentence-case wordmark,
+  translucent header, quieter borders, icon-only Sign out and sticky app bar on phones, safe-area
+  padding for notched phones and the app shells.
+- **Get Sweep page** (`web/app.html`): detects the visitor's device, one-tap download, QR code for
+  phones, iPhone *Add to Home Screen* steps, install-from-browser button.
+- PNG icons (192/512/maskable/apple-touch) for installs; `mobile/scripts/make-icons.py` regenerates
+  every icon and splash from one geometry. Service worker never caches `shell.json`.
+
+## What's new in v20
 
 - **Project flow bar** — every project page (Plan, Studio, Verify, Generate) starts with one
   stepper showing where you are and the live status of each step (plan %, Spec grade,

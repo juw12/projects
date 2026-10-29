@@ -1,0 +1,21 @@
+{
+  "comment": "Versions of the native Sweep apps. Bump a version here when its shell (apps/sweep/desktop or apps/sweep/mobile) changes; installed apps compare it with their own version and offer the update. Web changes need no bump: every app loads the live site.",
+  "release": "https://github.com/juw12/projects/releases/tag/sweep",
+  "getPage": "https://juw12.github.io/projects/sweep/app.html",
+  "desktop": {
+    "version": "1.0.0",
+    "windows": "https://github.com/juw12/projects/releases/download/sweep/Sweep-Windows-Setup.exe",
+    "windowsPortable": "https://github.com/juw12/projects/releases/download/sweep/Sweep-Windows-Portable.zip",
+    "macAppleSilicon": "https://github.com/juw12/projects/releases/download/sweep/Sweep-macOS-AppleSilicon.dmg",
+    "macIntel": "https://github.com/juw12/projects/releases/download/sweep/Sweep-macOS-Intel.dmg"
+  },
+  "android": {
+    "version": "1.0.0",
+    "url": "https://github.com/juw12/projects/releases/download/sweep/Sweep-Android.apk"
+  },
+  "ios": {
+    "version": "1.0.0",
+    "url": "https://juw12.github.io/projects/sweep/app.html#iphone",
+    "ipa": "https://github.com/juw12/projects/releases/download/sweep/Sweep-iPhone-unsigned.ipa"
+  }
+}
