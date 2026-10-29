@@ -5,6 +5,9 @@
  * Data: accounts, drafts, listings, orders (pending → paid via the seller's own
  * payment link, confirmed by the seller), affiliate links + commissions, reviews.
  * AI: POST /api/ai/template turns a prompt into a template with Workers AI.
+ * Sync: /api/sync keeps each account's Mint budgets in step across devices. Items are encrypted in the
+ * browser before upload (the key is wrapped with the user's password), so the server stores ciphertext only.
+ * Market data: /api/fx (daily exchange rates) and /api/news (money headlines per region), cached at the edge.
  */
 import { DurableObject } from "cloudflare:workers";
 import "../../web/js/core.js";
@@ -15,7 +18,7 @@ import * as Notify from "./notify.js";
 const Core = globalThis.MintCore;
 
 const APP = "mint";
-const VERSION = "2.3.0";
+const VERSION = "3.2.0";
 const APP_URL_DEFAULT = "https://juw12.github.io/projects/mint/app.html";
 const ORDER_EXPIRY_DAYS = 14;
 const REPORT_HIDE_THRESHOLD = 5;
@@ -31,6 +34,14 @@ const COUPON_RE = /^[A-Z0-9][A-Z0-9_-]{2,23}$/;
 const DAY = 86400;
 const REF_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const STUDIO_EMAIL = "studio@mint.local";
+const SYNC_PAGE = 100;
+const SYNC_BATCH = 20;
+const SYNC_MAX_ITEM = 350000;
+const SYNC_MAX_ITEMS = 200;
+const SYNC_ITEM_KEY_RE = /^(prefs|book:[A-Za-z0-9_-]{1,40})$/;
+const SYNC_KEY_ID_RE = /^[A-Za-z0-9_-]{8,64}$/;
+const SYNC_WRAP_RE = /^[A-Za-z0-9_.-]{40,400}$/;
+const SYNC_BLOB_RE = /^[A-Za-z0-9_.-]+$/;
 
 class ApiError extends Error {
   constructor(status, message) {
@@ -55,6 +66,12 @@ export default {
     if (!url.pathname.startsWith("/api/")) {
       return json({ ok: true, app: APP, hint: "API lives under /api/" }, 200, cors);
     }
+    if (request.method === "GET" && url.pathname === "/api/fx") {
+      return withCors(await fxRates(env), cors);
+    }
+    if (request.method === "GET" && url.pathname === "/api/news") {
+      return withCors(await moneyNews(env, url), cors);
+    }
     const id = env.MINT_DB.idFromName("main");
     const headers = new Headers(request.headers);
     headers.set("x-mint-ip", request.headers.get("CF-Connecting-IP") || "local");
@@ -78,6 +95,177 @@ export default {
     return new Response(response.body, { status: response.status, headers: out });
   },
 };
+
+function withCors(response, cors) {
+  const out = new Headers(response.headers);
+  for (const [key, value] of Object.entries(cors)) {
+    out.set(key, value);
+  }
+  return new Response(response.body, { status: response.status, headers: out });
+}
+
+// ------------------------------------------------------------------ exchange rates
+// Daily reference rates (USD base) from open.er-api.com, with frankfurter.app (ECB) as a fallback.
+// Cached at the edge for 6 hours; the app caches the last good copy on the device for offline use.
+const FX_TTL = 6 * 3600;
+
+async function cachedJson(cacheKey, ttl, produce) {
+  const cache = typeof caches !== "undefined" ? caches.default : null;
+  const key = new Request("https://mint-cache.internal/" + cacheKey);
+  if (cache) {
+    const hit = await cache.match(key);
+    if (hit) {
+      return hit;
+    }
+  }
+  const payload = await produce();
+  if (!payload) {
+    return json({ error: "Upstream unavailable — try again later" }, 503);
+  }
+  const response = json(payload, 200, { "Cache-Control": "public, max-age=" + ttl });
+  if (cache) {
+    await cache.put(key, response.clone());
+  }
+  return response;
+}
+
+async function fetchJson(url, timeoutMs = 8000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { signal: controller.signal, headers: { "User-Agent": "MintApp/3.2 (+https://juw12.github.io/projects/mint/)" } });
+    return res.ok ? await res.json() : null;
+  } catch (err) {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function cleanRates(raw) {
+  const rates = {};
+  for (const [code, value] of Object.entries(raw || {})) {
+    const n = Number(value);
+    if (/^[A-Z]{3}$/.test(code) && Number.isFinite(n) && n > 0) {
+      rates[code] = n;
+    }
+  }
+  rates.USD = 1;
+  return rates;
+}
+
+async function fxRates(env) {
+  return cachedJson("fx/v1", FX_TTL, async () => {
+    const primary = await fetchJson(env.FX_URL || "https://open.er-api.com/v6/latest/USD");
+    if (primary && primary.result === "success" && primary.rates) {
+      const updated = Number(primary.time_last_update_unix) || now();
+      return { base: "USD", date: new Date(updated * 1000).toISOString().slice(0, 10), updated, source: "open.er-api.com", rates: cleanRates(primary.rates) };
+    }
+    const backup = await fetchJson(env.FX_FALLBACK_URL || "https://api.frankfurter.app/latest?from=USD");
+    if (backup && backup.rates) {
+      return { base: "USD", date: String(backup.date || ""), updated: now(), source: "frankfurter.app (ECB)", rates: cleanRates(backup.rates) };
+    }
+    return null;
+  });
+}
+
+// ------------------------------------------------------------------ money news
+// Headlines from Google News RSS for the user's region and language, cached for 2 hours.
+const NEWS_TTL = 2 * 3600;
+const NEWS_LANGS = {
+  en: { hl: "en", query: "investing OR \"stock market\" OR \"personal finance\" OR inflation" },
+  id: { hl: "id", query: "investasi OR saham OR \"keuangan pribadi\" OR inflasi OR reksa dana" },
+  zh: { hl: "zh-Hant", query: "投資 OR 股市 OR 理財 OR 通膨" },
+  es: { hl: "es-419", query: "inversión OR bolsa OR \"finanzas personales\" OR inflación" },
+};
+// Google News editions that exist (region:language); anything else falls back to the language's main edition.
+const NEWS_EDITIONS = new Set([
+  "US:en", "GB:en", "AU:en", "CA:en", "IN:en", "SG:en", "MY:en", "PH:en", "NZ:en", "IE:en", "ID:en", "HK:en",
+  "ID:id", "TW:zh-Hant", "HK:zh-Hant", "CN:zh-Hans", "SG:zh-Hans", "MX:es-419", "CO:es-419", "US:es-419",
+  "AR:es-419", "ES:es",
+]);
+const NEWS_DEFAULT = { en: "US:en", id: "ID:id", zh: "TW:zh-Hant", es: "MX:es-419" };
+
+function newsEdition(region, lang) {
+  const variants = lang === "zh" ? ["zh-Hans", "zh-Hant"] : lang === "es" ? ["es-419", "es"] : [lang];
+  for (const v of variants) {
+    if (NEWS_EDITIONS.has(region + ":" + v)) {
+      return { gl: region, hl: v };
+    }
+  }
+  const [gl, hl] = NEWS_DEFAULT[lang].split(":");
+  return { gl, hl };
+}
+
+function decodeXml(text) {
+  return String(text || "")
+    .replace(/^<!\[CDATA\[|\]\]>$/g, "")
+    .replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'")
+    .replace(/&#(\d+);/g, (m, d) => String.fromCodePoint(Number(d)))
+    .replace(/&amp;/g, "&")
+    .trim();
+}
+
+function tagText(block, tag) {
+  const m = block.match(new RegExp("<" + tag + "(?:\\s[^>]*)?>([\\s\\S]*?)</" + tag + ">"));
+  return m ? decodeXml(m[1]) : "";
+}
+
+function parseNewsRss(xml, limit = 15) {
+  const items = [];
+  for (const block of String(xml || "").split("<item>").slice(1)) {
+    let title = tagText(block, "title");
+    const link = tagText(block, "link");
+    const source = tagText(block, "source");
+    const published = Date.parse(tagText(block, "pubDate"));
+    if (source && title.endsWith(" - " + source)) {
+      title = title.slice(0, -(source.length + 3));
+    }
+    if (!title || !/^https:\/\//.test(link)) {
+      continue;
+    }
+    items.push({ title: title.slice(0, 220), url: link.slice(0, 1000), source: source.slice(0, 80), published: Number.isFinite(published) ? Math.round(published / 1000) : 0 });
+    if (items.length >= limit) {
+      break;
+    }
+  }
+  return items;
+}
+
+async function fetchText(url, timeoutMs = 8000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { signal: controller.signal, headers: { "User-Agent": "Mozilla/5.0 (compatible; MintApp/3.2)" } });
+    return res.ok ? await res.text() : "";
+  } catch (err) {
+    return "";
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function moneyNews(env, url) {
+  const region = /^[A-Z]{2}$/.test(url.searchParams.get("region") || "") ? url.searchParams.get("region") : "US";
+  const lang = NEWS_LANGS[url.searchParams.get("lang")] ? url.searchParams.get("lang") : "en";
+  return cachedJson("news/v1/" + region + "/" + lang, NEWS_TTL, async () => {
+    const edition = newsEdition(region, lang);
+    const feed = (gl, hl) => env.NEWS_URL
+      ? env.NEWS_URL + "?gl=" + gl + "&hl=" + hl
+      : "https://news.google.com/rss/search?q=" + encodeURIComponent(NEWS_LANGS[lang].query) + "&hl=" + hl + "&gl=" + gl + "&ceid=" + gl + ":" + hl;
+    let items = parseNewsRss(await fetchText(feed(edition.gl, edition.hl)));
+    let used = edition;
+    if (items.length < 3) {
+      const [gl, hl] = NEWS_DEFAULT[lang].split(":");
+      used = { gl, hl };
+      items = parseNewsRss(await fetchText(feed(gl, hl)));
+    }
+    if (!items.length) {
+      return null;
+    }
+    return { region, lang, edition: used.gl + ":" + used.hl, updated: now(), source: "Google News", items };
+  });
+}
 
 function corsHeaders(origin, env) {
   const allowed = String(env.ALLOWED_ORIGINS || "").split(",").map((s) => s.trim()).filter(Boolean);
@@ -453,6 +641,13 @@ export class MintDB extends DurableObject {
     this.run(`CREATE TABLE IF NOT EXISTS push_subs (endpoint TEXT PRIMARY KEY, user_id TEXT NOT NULL, p256dh TEXT NOT NULL,
       auth TEXT NOT NULL, created REAL NOT NULL)`);
     this.run("CREATE INDEX IF NOT EXISTS push_subs_user ON push_subs (user_id)");
+    // Cross-device sync: one encrypted blob per budget ("book:<id>") plus "prefs"; rev is a per-user counter.
+    this.run(`CREATE TABLE IF NOT EXISTS sync_items (user_id TEXT NOT NULL, key TEXT NOT NULL, rev INTEGER NOT NULL,
+      data TEXT NOT NULL, deleted INTEGER NOT NULL DEFAULT 0, updated REAL NOT NULL, PRIMARY KEY (user_id, key))`);
+    this.run("CREATE INDEX IF NOT EXISTS sync_items_rev ON sync_items (user_id, rev)");
+    // The data key, wrapped in the browser with the password (and optionally the recovery code).
+    this.run(`CREATE TABLE IF NOT EXISTS sync_keys (user_id TEXT PRIMARY KEY, key_id TEXT NOT NULL, wrap_pw TEXT NOT NULL,
+      wrap_rc TEXT NOT NULL DEFAULT '', updated REAL NOT NULL)`);
   }
 
   expireOrders() {
@@ -629,9 +824,11 @@ export class MintDB extends DurableObject {
         payProviders: Object.entries(Pay.PROVIDERS).map(([id, p]) => ({
           id, label: p.label, methods: p.methods, currencies: p.currencies, keyHelp: p.keyHelp,
         })),
+        sync: true, fx: true, news: true,
       };
     }
-    if (method === "POST") {
+    // Sync has its own per-account budget (it saves often while someone edits), so it skips the network-wide one.
+    if (method === "POST" && head !== "sync") {
       this.requireLimit("w:" + ip, 240, 600, "Too many changes from your network — wait a few minutes");
     }
     switch (head) {
@@ -667,6 +864,8 @@ export class MintDB extends DurableObject {
         break;
       case "push":
         return this.routePush(request, method, parts.slice(1));
+      case "sync":
+        return this.routeSync(request, method, parts.slice(1), query);
       case "pay":
         if (method === "POST" && parts[1] === "notify" && parts[2]) {
           return this.paymentWebhook(request, parts[2]);
@@ -681,6 +880,122 @@ export class MintDB extends DurableObject {
         break;
     }
     throw new ApiError(404, "Not found");
+  }
+
+  // ---- cross-device sync (end-to-end encrypted in the browser)
+  syncKeyRow(userId) {
+    const row = this.one("SELECT * FROM sync_keys WHERE user_id = ?", userId);
+    return row ? { keyId: row.key_id, wrapPw: row.wrap_pw, wrapRc: row.wrap_rc, updated: row.updated } : null;
+  }
+
+  syncRev(userId) {
+    const row = this.one("SELECT MAX(rev) AS rev FROM sync_items WHERE user_id = ?", userId);
+    return (row && row.rev) || 0;
+  }
+
+  async routeSync(request, method, parts, query) {
+    const user = await this.currentUser(request);
+    const what = parts[0] || "";
+    if (what === "key") {
+      if (method === "GET") {
+        return { key: this.syncKeyRow(user.id) };
+      }
+      if (method === "POST") {
+        this.requireLimit("synckey:" + user.id, 30, 3600, "Too many key changes — try again later");
+        const data = await this.readJson(request);
+        const keyId = String(data.keyId || "");
+        const wrapPw = String(data.wrapPw || "");
+        const wrapRc = String(data.wrapRc || "");
+        if (!SYNC_KEY_ID_RE.test(keyId) || !SYNC_WRAP_RE.test(wrapPw) || (wrapRc && !SYNC_WRAP_RE.test(wrapRc))) {
+          throw new ApiError(400, "Invalid sync key");
+        }
+        const existing = this.syncKeyRow(user.id);
+        if (existing && existing.keyId !== keyId) {
+          if (!data.replace) {
+            return { __http: 409, body: { error: "This account already has a sync key", key: existing } };
+          }
+          // A new key makes the old encrypted items unreadable, so they go (devices upload again).
+          this.run("DELETE FROM sync_items WHERE user_id = ?", user.id);
+        }
+        const keepRc = existing && existing.keyId === keyId && data.wrapRc === undefined ? existing.wrapRc : wrapRc;
+        this.run(
+          "INSERT OR REPLACE INTO sync_keys (user_id, key_id, wrap_pw, wrap_rc, updated) VALUES (?, ?, ?, ?, ?)",
+          user.id, keyId, wrapPw, keepRc, now(),
+        );
+        return { key: this.syncKeyRow(user.id) };
+      }
+      throw new ApiError(405, "Method not allowed");
+    }
+    if (what) {
+      throw new ApiError(404, "Not found");
+    }
+    if (method === "GET") {
+      this.requireLimit("syncr:" + user.id, 900, 600, "Syncing too often — slow down");
+      const since = Math.max(0, parseInt(query.since || "0", 10) || 0);
+      const rows = this.all(
+        "SELECT key, rev, data, deleted, updated FROM sync_items WHERE user_id = ? AND rev > ? ORDER BY rev ASC LIMIT ?",
+        user.id, since, SYNC_PAGE + 1,
+      );
+      const more = rows.length > SYNC_PAGE;
+      const items = rows.slice(0, SYNC_PAGE).map((r) => ({ key: r.key, rev: r.rev, data: r.deleted ? "" : r.data, deleted: Boolean(r.deleted), updated: r.updated }));
+      const key = this.one("SELECT key_id FROM sync_keys WHERE user_id = ?", user.id);
+      return { rev: this.syncRev(user.id), items, more, keyId: key ? key.key_id : "" };
+    }
+    if (method === "POST") {
+      this.requireLimit("syncw:" + user.id, 600, 600, "Syncing too often — slow down");
+      const data = await this.readJson(request);
+      const keyRow = this.one("SELECT key_id FROM sync_keys WHERE user_id = ?", user.id);
+      if (!keyRow) {
+        throw new ApiError(409, "Set up the sync key first");
+      }
+      if (data.keyId !== undefined && String(data.keyId) !== keyRow.key_id) {
+        return { __http: 409, body: { error: "This device has an old sync key — sign in again", keyChanged: true } };
+      }
+      const list = Array.isArray(data.items) ? data.items : [];
+      if (!list.length || list.length > SYNC_BATCH) {
+        throw new ApiError(400, "Send 1–" + SYNC_BATCH + " items");
+      }
+      let rev = this.syncRev(user.id);
+      const count = this.one("SELECT COUNT(*) AS n FROM sync_items WHERE user_id = ?", user.id).n;
+      let added = 0;
+      const results = [];
+      for (const item of list) {
+        const key = String((item && item.key) || "");
+        if (!SYNC_ITEM_KEY_RE.test(key)) {
+          throw new ApiError(400, "Invalid item key");
+        }
+        const deleted = Boolean(item.deleted);
+        const blob = deleted ? "" : String(item.data || "");
+        if (!deleted && (!blob || blob.length > SYNC_MAX_ITEM || !SYNC_BLOB_RE.test(blob))) {
+          throw new ApiError(blob.length > SYNC_MAX_ITEM ? 413 : 400, blob.length > SYNC_MAX_ITEM ? "This budget is too large to sync" : "Invalid item data");
+        }
+        const current = this.one("SELECT rev FROM sync_items WHERE user_id = ? AND key = ?", user.id, key);
+        const base = item.base === undefined || item.base === null ? null : Number(item.base);
+        if (base !== null && (current ? current.rev : 0) !== base) {
+          results.push({ key, conflict: true, rev: current ? current.rev : 0 });
+          continue;
+        }
+        if (!current && count + added >= SYNC_MAX_ITEMS) {
+          throw new ApiError(413, "Too many budgets to sync (max " + SYNC_MAX_ITEMS + ")");
+        }
+        rev += 1;
+        this.run(
+          "INSERT OR REPLACE INTO sync_items (user_id, key, rev, data, deleted, updated) VALUES (?, ?, ?, ?, ?, ?)",
+          user.id, key, rev, blob, deleted ? 1 : 0, now(),
+        );
+        if (!current) {
+          added += 1;
+        }
+        results.push({ key, rev });
+      }
+      return { rev, results };
+    }
+    if (method === "DELETE") {
+      this.run("DELETE FROM sync_items WHERE user_id = ?", user.id);
+      this.run("DELETE FROM sync_keys WHERE user_id = ?", user.id);
+      return { ok: true };
+    }
+    throw new ApiError(405, "Method not allowed");
   }
 
   // ---- auth
@@ -820,6 +1135,8 @@ export class MintDB extends DurableObject {
       this.run("DELETE FROM sessions WHERE user_id = ?", user.id);
       this.run("DELETE FROM payment_accounts WHERE user_id = ?", user.id);
       this.run("DELETE FROM push_subs WHERE user_id = ?", user.id);
+      this.run("DELETE FROM sync_items WHERE user_id = ?", user.id);
+      this.run("DELETE FROM sync_keys WHERE user_id = ?", user.id);
       this.run(
         "UPDATE users SET email = ?, name = 'Deleted user', pw_hash = '!', salt = '', payout_info = '', recovery_hash = '' WHERE id = ?",
         "deleted-" + user.id + "@mint.invalid", user.id,

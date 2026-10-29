@@ -31,3 +31,5 @@ VAPID_PUBLIC_KEY = "BNq3skxzM1mcXmvTn8cohb6LtLywxSE3vK4jxbcvvoZ69ViyUyx_AK3lb_NQ
 VAPID_PRIVATE_KEY = "SOQUAI6tFYKyngHyGFwG4Tjos-9VDCrq84CN0rlgwfY"
 VAPID_SUBJECT = "mailto:mint@example.test"
 PUSH_ALLOW_HTTP = "1"
+FX_URL = "http://127.0.0.1:8799/fx"
+NEWS_URL = "http://127.0.0.1:8799/news"

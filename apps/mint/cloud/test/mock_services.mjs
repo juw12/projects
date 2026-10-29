@@ -44,6 +44,20 @@ export function startMockServices(port = 8799) {
         body = Object.fromEntries(new URLSearchParams(raw.toString()));
       }
 
+      // ---- exchange rates (open.er-api.com shape) and Google News RSS
+      if (req.method === "GET" && path === "/fx") {
+        return send(res, 200, { result: "success", time_last_update_unix: 1761696000, rates: { USD: 1, IDR: 16300, EUR: 0.92, SGD: 1.3, JPY: 151.5, bogus: "x" } });
+      }
+      if (req.method === "GET" && path === "/news") {
+        state.newsHits = (state.newsHits || 0) + 1;
+        const gl = url.searchParams.get("gl");
+        const item = (n) => `<item><title><![CDATA[Market note ${n} for ${gl} &amp; friends - Kompas]]></title><link>https://news.example/${gl}/${n}</link>` +
+          `<pubDate>Wed, 29 Oct 2026 0${n}:00:00 GMT</pubDate><source url="https://kompas.example">Kompas</source></item>`;
+        const bad = "<item><title>No link</title><link>javascript:alert(1)</link></item>";
+        res.writeHead(200, { "Content-Type": "application/rss+xml" });
+        return res.end(`<?xml version="1.0"?><rss><channel><title>t</title>${item(1)}${bad}${item(2)}${item(3)}</channel></rss>`);
+      }
+
       // ---- Midtrans
       if (path.startsWith("/midtrans")) {
         if (key !== VALID_KEYS.midtrans) {
