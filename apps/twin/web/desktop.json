@@ -1,0 +1,12 @@
+{
+  "desktop": {
+    "version": "1.0.0",
+    "page": "https://github.com/juw12/projects/releases/tag/twin",
+    "downloads": {
+      "windows": "https://github.com/juw12/projects/releases/download/twin/Twin-Windows-Setup.exe",
+      "windows_portable": "https://github.com/juw12/projects/releases/download/twin/Twin-Windows-Portable.zip",
+      "macos_apple_silicon": "https://github.com/juw12/projects/releases/download/twin/Twin-macOS-AppleSilicon.dmg",
+      "macos_intel": "https://github.com/juw12/projects/releases/download/twin/Twin-macOS-Intel.dmg"
+    }
+  }
+}

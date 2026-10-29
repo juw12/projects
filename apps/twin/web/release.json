@@ -1,11 +1,11 @@
 {
   "app": "twin",
-  "version": "1.14.0",
+  "version": "1.15.0",
   "date": "2026-10-29",
-  "title": "Updates inside the app",
+  "title": "Twin desktop app and Add money",
   "notes": [
-    "Twin now tells you when a new version is ready and updates in one tap — no reinstalling, nothing reloads by surprise.",
-    "Running Twin on your own computer? It can update itself too: it backs up the Twin folder first and keeps your accounts and data.",
-    "Me → App version shows what you're running and checks for updates."
+    "New Twin desktop app for Windows and Mac: your own Twin server in one program — real trading with Alpaca or Interactive Brokers, no Python or terminal needed.",
+    "Add money: Invest → Real shows your broker cash and buying power, walks you through a deposit at your broker and tells you when the money arrives.",
+    "Twin never holds your money — deposits go straight to your own regulated brokerage account."
   ]
 }

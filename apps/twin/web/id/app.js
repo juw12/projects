@@ -12,7 +12,7 @@
   const SNAP = window.SATU_SNAPSHOT;
   const C = window.SATU_CONTENT;
   const IDEAS = window.SATU_IDEAS || [];
-  const VERSION = '1.14.0'; // Twin release that ships this module
+  const VERSION = '1.15.0'; // Twin release that ships this module
 
   const params = new URLSearchParams(location.search);
   const SELFTEST = params.has('selftest');

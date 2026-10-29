@@ -177,6 +177,15 @@ The lab never submits orders or changes the practice portfolio.
   Wi-Fi) → Share → Add to Home Screen. Accounts are salted PBKDF2 hashes with HttpOnly session
   cookies, stored in `apps/twin/data/` (git-ignored). Live delayed quotes (Yahoo Finance),
   SEC EDGAR 13Fs (needs your email as the SEC user agent), news, and the full skill tools.
+* **Desktop app (Windows and Mac, 1.15).** Download **Twin** from the
+  [twin release](https://github.com/juw12/projects/releases/tag/twin): `Twin-Windows-Setup.exe`
+  (or `Twin-Windows-Portable.zip`), `Twin-macOS-AppleSilicon.dmg` or `Twin-macOS-Intel.dmg`. It is this
+  same server and app in one program — no Python or terminal: it copies Twin's code to your user folder,
+  starts `server.py` on a private loopback port and shows the app in its own window (Edge WebView2 /
+  WKWebView). Accounts and broker connections live in `%LOCALAPPDATA%\Twin\data` or
+  `~/Library/Application Support/Twin/data`; closing the window stops the server. Real trading, real-time
+  prices and in-app updates work exactly as on a server you run yourself. Source and build steps:
+  [`desktop/`](desktop/README.md).
 * **Web demo (GitHub Pages).** When no server answers, `web/demo.js` takes over: the same app runs
   in the browser on bundled data (`web/demo/`: 16 US tickers' prices and charts, ~280 global stocks/ETFs
   + 34 indices + 30 FX rates in `world.json` with per-symbol charts in `world/`, exchange calendars,
@@ -249,6 +258,16 @@ One broker is connected at a time.
 
 Then trade from any stock's ticket with the account switch (Practice / Alpaca or IBKR), or see equity,
 positions and open orders in **Invest → Real**.
+
+**Add money (1.15).** Money for real trades sits in **your own brokerage account**, never with Twin.
+**Invest → Real → Add money** shows the account's cash, buying power and recent deposits/withdrawals
+(Alpaca `GET /v2/account/activities?activity_types=CSD,CSW`, IBKR `/portfolio/{account}/ledger`), walks you
+through a deposit at the broker (Alpaca dashboard → Banking, IBKR portal → Transfer & Pay → Transfer Funds)
+and opens the broker's site in your browser. Tap **I've sent it** with the amount and Twin checks for the
+money every minute while you're on the screen (Alpaca: a new cash deposit; IBKR: cash up by at least half
+the amount), tells you when it arrives and stops after 10 days. Deposits can't be started through the
+brokers' APIs for individual accounts, and Twin never touches your bank details. Not connected yet? The card
+links to open an Alpaca or IBKR account first; paper accounts don't take real deposits.
 
 IBKR specifics: Twin maps the Yahoo symbol to IBKR's listing (`7203.T` → Toyota on TSEJ, `BBCA.JK` →
 IDX, `VOD.L` → LSE …) and asks you to pick when there are several; orders are **whole shares** in the
@@ -329,6 +348,15 @@ history and are not predictions. Not financial advice.
 
 ## Changelog
 
+- **1.15.0 — Twin desktop app and Add money.** Twin for Windows and macOS (`desktop/`): one program that
+  runs this server and app in a native window, so real trading no longer needs Python or a terminal —
+  per-user code copy (in-app updates install over it), data in the user folder, a fixed loopback port,
+  one window at a time, the server stops with the window, and the program doubles as the Python that runs
+  Twin's tools. Built and smoke-tested on Windows and macOS by `.github/workflows/twin-apps.yml`, which
+  publishes the installers to the `twin` release. **Add money** in Invest → Real: broker cash, buying power
+  and transfer history, step-by-step deposit at Alpaca or IBKR, and an arrival watch
+  (`POST /api/broker/funding`, `POST /api/broker/funding/watch`); the web demo points to the desktop app.
+  Twin never holds money — deposits go to your own brokerage account.
 - **1.14.0 — Updates inside the app.** The installed app tells you when a new version is ready
   (**Update ready · Twin X** with the release notes) and installs it in one tap; nothing reloads on its own,
   **Later** snoozes it for 12 hours, and Me shows the version with **Check for updates**. The service worker
