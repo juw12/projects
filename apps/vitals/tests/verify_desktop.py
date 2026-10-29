@@ -4,13 +4,21 @@
 1. The launcher from this checkout (desktop/vitals_app.py) starts the background agent, serves the
    dashboard, reuses a running agent and stops on --stop (the same checks CI runs on every build).
 2. The sign-in items it writes (macOS LaunchAgent, Linux autostart entry) are well formed.
-3. Every download link in app.js, README.md and scripts/apps.json names a file that the release
+3. The app window's plumbing (app_window.py): one window at a time (show/quit over loopback),
+   sizes that fit the screen, test mode never opening a browser, the Linux helper bowing out
+   cleanly without GTK. (The window itself is opened by smoke_test.py --window in CI.)
+4. Every download link in app.js, README.md and scripts/apps.json names a file that the release
    workflow (.github/workflows/vitals-apps.yml) publishes.
 """
 
+import json
 import os
 import re
+import subprocess
 import sys
+import tempfile
+import threading
+import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 APP_ROOT = os.path.normpath(os.path.join(HERE, ".."))
@@ -18,6 +26,7 @@ DESKTOP = os.path.join(APP_ROOT, "desktop")
 REPO = os.path.normpath(os.path.join(APP_ROOT, "..", ".."))
 sys.path.insert(0, DESKTOP)
 
+import app_window  # noqa: E402
 import smoke_test  # noqa: E402
 import vitals_app  # noqa: E402
 
@@ -36,6 +45,69 @@ def read(*parts):
         return handle.read()
 
 
+def check_window_plumbing():
+    folder = tempfile.mkdtemp(prefix="vitals-window-check-")
+    shown = threading.Event()
+    quit_asked = threading.Event()
+    control = app_window.WindowControl(folder, on_show=shown.set, on_quit=quit_asked.set)
+    info = app_window.window_info(folder)
+    check(bool(info) and info["pid"] == os.getpid() and info["port"] > 0, "an open window announces itself in window.json")
+    check(app_window.send_to_window(folder, "show") and shown.wait(5),
+          "a second launch can bring the open window to the front")
+    check(not app_window.send_to_window(folder, "explode", timeout=1), "unknown requests are ignored")
+    with open(os.path.join(folder, app_window.CONTROL_FILE), encoding="utf-8") as handle:
+        genuine = json.load(handle)
+    with open(os.path.join(folder, app_window.CONTROL_FILE), "w", encoding="utf-8") as handle:
+        json.dump(dict(genuine, token="0" * 32), handle)
+    check(not app_window.send_to_window(folder, "quit", timeout=1) and not quit_asked.is_set(),
+          "requests without the window's token are refused")
+    with open(os.path.join(folder, app_window.CONTROL_FILE), "w", encoding="utf-8") as handle:
+        json.dump(genuine, handle)
+    check(app_window.send_to_window(folder, "quit") and quit_asked.wait(5), "--stop can ask the window to close")
+    control.close()
+    check(not os.path.exists(os.path.join(folder, app_window.CONTROL_FILE)), "a closed window removes window.json")
+    with open(os.path.join(folder, app_window.CONTROL_FILE), "w", encoding="utf-8") as handle:
+        json.dump({"pid": 999999, "port": smoke_test.free_port(), "token": "x"}, handle)
+    started = time.time()
+    check(not app_window.send_to_window(folder, "show") and time.time() - started < 3,
+          "a stale window.json (crashed window) just opens a new window")
+    check(app_window.close_window(folder) is False, "--stop with no window open is a no-op")
+
+    check(app_window.fit_size((1280, 860), (1366, 728)) == (1280, 688),
+          "the window fits a small laptop screen (1366x768 with taskbar)")
+    check(app_window.fit_size((100, 100), None) == app_window.MIN_SIZE, "the window never gets smaller than its minimum")
+    check(app_window.saved_size(folder) == app_window.DEFAULT_SIZE, "first launch uses the default size")
+    app_window.save_size(folder, 1000, 700)
+    check(app_window.saved_size(folder) == (1000, 700), "the window size is remembered")
+    check(all(isinstance(path, str) for path in app_window.browser_candidates()),
+          "browser app-mode fallback candidates are listed")
+
+    report = os.path.join(folder, "report.json")
+    os.environ["VITALS_WINDOW_TEST"] = report
+    try:
+        method = app_window.show_dashboard("http://127.0.0.1:9/", folder, browser=True)
+    finally:
+        del os.environ["VITALS_WINDOW_TEST"]
+    with open(report, encoding="utf-8") as handle:
+        recorded = json.load(handle).get("method")
+    check(method == "browser" and recorded == "browser", "test mode reports instead of opening a browser")
+
+    helper = subprocess.run(
+        [sys.executable, os.path.join(DESKTOP, "linux_window.py"), "--url", "http://127.0.0.1:9/",
+         "--data", folder, "--storage", os.path.join(folder, "webkit")],
+        capture_output=True, text=True, timeout=60,
+    )
+    try:
+        import gi  # noqa: F401
+        has_gtk = True
+    except ImportError:
+        has_gtk = False
+    if has_gtk:
+        print("SKIP: Linux window without GTK (this Python has GTK bindings)")
+    else:
+        check(helper.returncode == 3, "without GTK the Linux window exits with status 3, so the app falls back")
+
+
 def main():
     FAILURES.extend(smoke_test.run_smoke([sys.executable, os.path.join(DESKTOP, "vitals_app.py")],
                                          "launcher from this checkout"))
@@ -52,6 +124,13 @@ def main():
           "Linux autostart entry quotes the path and is skipped once the app is gone")
     mode, rest = vitals_app.split_args(["--background", "--port", "9", "-psn_0_123"])
     check(mode == "background" and rest == ["--port", "9"], "launcher switches are kept apart from agent options")
+    check(vitals_app.split_args(["--browser"])[0] == "browser", "--browser opens the dashboard in the web browser instead")
+    menu = vitals_app.desktop_entry("/opt/vitals/vitals", icon="/tmp/vitals.png")
+    check("StartupWMClass=vitals" in menu and "NoDisplay" not in menu,
+          "Linux menu entry groups the Vitals window under its icon")
+
+    print("App window")
+    check_window_plumbing()
 
     print("Download links")
     workflow_path = os.path.join(REPO, ".github", "workflows", "vitals-apps.yml")

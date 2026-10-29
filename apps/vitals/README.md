@@ -60,14 +60,16 @@ is nothing else to install.
 | Windows 10/11 | [Vitals-Windows-Setup.exe](https://github.com/juw12/projects/releases/download/vitals/Vitals-Windows-Setup.exe) | Per-user installer, no admin: Start menu, optional desktop icon, starts at sign-in, remove it in Settings → Apps. Or the [portable zip](https://github.com/juw12/projects/releases/download/vitals/Vitals-Windows-Portable.zip). |
 | Mac with Apple chip | [Vitals-macOS-AppleSilicon.dmg](https://github.com/juw12/projects/releases/download/vitals/Vitals-macOS-AppleSilicon.dmg) | Drag Vitals to Applications. It starts at login after the first open. |
 | Mac with Intel chip | [Vitals-macOS-Intel.dmg](https://github.com/juw12/projects/releases/download/vitals/Vitals-macOS-Intel.dmg) | Same as above. |
-| Ubuntu, Debian, Mint | [Vitals-Linux-x64.deb](https://github.com/juw12/projects/releases/download/vitals/Vitals-Linux-x64.deb) | Open it in your software app, or `sudo apt install ./Vitals-Linux-x64.deb`. |
+| Ubuntu, Debian, Mint | [Vitals-Linux-x64.deb](https://github.com/juw12/projects/releases/download/vitals/Vitals-Linux-x64.deb) | Open it in your software app, or `sudo apt install ./Vitals-Linux-x64.deb` (also brings the GTK/WebKit libraries its window uses). |
 | Other Linux | [Vitals-Linux-x64.tar.gz](https://github.com/juw12/projects/releases/download/vitals/Vitals-Linux-x64.tar.gz) | Extract it and run `Vitals/vitals` (glibc 2.35+: Ubuntu 22.04, Debian 12, Fedora 36 or newer). |
 | Android | [Vitals-Android.apk](https://github.com/juw12/projects/releases/download/vitals/Vitals-Android.apk) | Open it on the phone and allow installing from your browser. |
 | iPhone | Safari → https://juw12.github.io/projects/vitals/mobile.html → Share → **Add to Home Screen** | For sideloading: [Vitals-iPhone-unsigned.ipa](https://github.com/juw12/projects/releases/download/vitals/Vitals-iPhone-unsigned.ipa) with Sideloadly or AltStore (re-sign every 7 days). |
 
-The desktop apps aren't code-signed yet: Windows SmartScreen asks you to choose **More info → Run
-anyway**, and macOS asks you to allow the app once in **System Settings → Privacy & Security → Open
-Anyway**. They run the same agent and dashboard as the one-line installers below, share `~/.vitals`
+On a computer, Vitals opens in **its own window** (Edge WebView2 on Windows, WebKit on Mac and
+Linux), not a browser tab, and keeps checking quietly in the background after you close it; run
+`Vitals --browser` if you'd rather use your browser. The desktop apps aren't code-signed yet: Windows
+SmartScreen asks you to choose **More info → Run anyway**, and macOS asks you to allow the app once
+in **System Settings → Privacy & Security → Open Anyway**. They run the same agent and dashboard as the one-line installers below, share `~/.vitals`
 with them and replace each other cleanly. Phones can't clean other apps' storage, so the phone app
 shows your computer's health once paired, plus the phone guides. To build the apps yourself, see
 [`desktop/README.md`](desktop/README.md) and [`mobile/README.md`](mobile/README.md).

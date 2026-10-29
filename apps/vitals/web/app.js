@@ -1980,6 +1980,16 @@
   function boot() {
     document.documentElement.dataset.theme = LS.get("theme", window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
     syncSystemBars();
+    // In the Vitals window on Windows/macOS (pywebview), links to other sites open in the default browser.
+    document.addEventListener("click", (ev) => {
+      if (!window.pywebview) return;
+      const link = ev.target.closest && ev.target.closest("a[href]");
+      if (!link || link.target === "_blank") return;
+      const url = new URL(link.href, location.href);
+      if (url.origin === location.origin || !/^(https?|mailto):$/.test(url.protocol)) return;
+      ev.preventDefault();
+      window.open(url.href, "_blank", "noopener");
+    }, true);
     const params = new URLSearchParams(location.hash.slice(1));
     S.view = params.get("view") || (S.simple ? "home" : "overview");
     const mq = window.matchMedia("(max-width: 820px)");

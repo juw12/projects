@@ -1,11 +1,13 @@
 ; Vitals for Windows - per-user installer (no admin rights). build.py compiles it with:
-;   iscc /DAppVersion=1.1.0 /DSourceDir=<dist\Vitals> /DOutputDir=<dist> vitals.iss
+;   iscc /DAppVersion=1.2.0 /DSourceDir=<dist\Vitals> /DOutputDir=<dist> vitals.iss
 ; Installs to %LOCALAPPDATA%\Programs\Vitals, adds Vitals to the Start menu (and optionally the
-; desktop and sign-in), and lists it in Settings > Apps. History and the Undo Vault stay in
-; %USERPROFILE%\.vitals, shared with the one-line installer, and are kept on uninstall.
+; desktop and sign-in), and lists it in Settings > Apps. Vitals opens in its own window (Edge
+; WebView2, which keeps its data in %LOCALAPPDATA%\Vitals\WebView2 and is removed on uninstall).
+; History and the Undo Vault stay in %USERPROFILE%\.vitals, shared with the one-line installer,
+; and are kept on uninstall.
 
 #ifndef AppVersion
-  #define AppVersion "1.1.0"
+  #define AppVersion "1.2.0"
 #endif
 #ifndef SourceDir
   #define SourceDir "dist\Vitals"
@@ -66,7 +68,12 @@ Filename: "{app}\Vitals.exe"; Parameters: "--stop"; Flags: runhidden waituntilte
 Filename: "{app}\Vitals.exe"; Description: "Open Vitals"; Flags: nowait postinstall skipifsilent
 
 [UninstallRun]
+; Closes the Vitals window too, so its files can be removed.
 Filename: "{app}\Vitals.exe"; Parameters: "--stop"; Flags: runhidden waituntilterminated; RunOnceId: "StopVitals"
+
+[UninstallDelete]
+Type: filesandordirs; Name: "{localappdata}\Vitals\WebView2"
+Type: dirifempty; Name: "{localappdata}\Vitals"
 
 [Code]
 function PrepareToInstall(var NeedsRestart: Boolean): String;
@@ -74,7 +81,7 @@ var
   ResultCode: Integer;
 begin
   Result := '';
-  { Updating: stop the running agent first so its files can be replaced. }
+  { Updating: close the Vitals window and stop the agent first so their files can be replaced. }
   if FileExists(ExpandConstant('{app}\Vitals.exe')) then
     Exec(ExpandConstant('{app}\Vitals.exe'), '--stop', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
 end;
