@@ -7,6 +7,7 @@ plain words ("my laptop is slow", "free 10 GB without touching downloads").
 
 - **Live (browser mode + demo):** https://juw12.github.io/projects/vitals/ · add `#demo` to explore every feature with simulated data
 - **App / Web / Mobile:** `web/app.html` · `web/index.html` · `web/mobile.html`
+- **Download the app (Windows, Mac, Linux, Android, iPhone):** https://github.com/juw12/projects/releases/tag/vitals · see [Download](#download)
 - **Install (one copy-paste, see below):** real scans, Undo Vault, live vitals, app icon, starts at login
 
 Zero dependencies. The agent runs on the Python 3.8+ standard library (`psutil` is
@@ -46,6 +47,30 @@ are hard to copy.
 - **Learns *your* normal.** Local history makes advice personal, and that history can't be copied.
 - **Honest about platforms.** iOS and Android don't let any app clean other apps' data, so Vitals gives exact built-in steps rather than pretending.
 - **No account, no telemetry, open source.** The agent listens on `127.0.0.1` only unless you pass `--lan`.
+
+## Download
+
+Ready-made apps, built and tested on every change by
+[`.github/workflows/vitals-apps.yml`](../../.github/workflows/vitals-apps.yml) and published to the
+[`vitals` release](https://github.com/juw12/projects/releases/tag/vitals). Python is bundled, so there
+is nothing else to install.
+
+| Device | Download | Notes |
+| --- | --- | --- |
+| Windows 10/11 | [Vitals-Windows-Setup.exe](https://github.com/juw12/projects/releases/download/vitals/Vitals-Windows-Setup.exe) | Per-user installer, no admin: Start menu, optional desktop icon, starts at sign-in, remove it in Settings → Apps. Or the [portable zip](https://github.com/juw12/projects/releases/download/vitals/Vitals-Windows-Portable.zip). |
+| Mac with Apple chip | [Vitals-macOS-AppleSilicon.dmg](https://github.com/juw12/projects/releases/download/vitals/Vitals-macOS-AppleSilicon.dmg) | Drag Vitals to Applications. It starts at login after the first open. |
+| Mac with Intel chip | [Vitals-macOS-Intel.dmg](https://github.com/juw12/projects/releases/download/vitals/Vitals-macOS-Intel.dmg) | Same as above. |
+| Ubuntu, Debian, Mint | [Vitals-Linux-x64.deb](https://github.com/juw12/projects/releases/download/vitals/Vitals-Linux-x64.deb) | Open it in your software app, or `sudo apt install ./Vitals-Linux-x64.deb`. |
+| Other Linux | [Vitals-Linux-x64.tar.gz](https://github.com/juw12/projects/releases/download/vitals/Vitals-Linux-x64.tar.gz) | Extract it and run `Vitals/vitals` (glibc 2.35+: Ubuntu 22.04, Debian 12, Fedora 36 or newer). |
+| Android | [Vitals-Android.apk](https://github.com/juw12/projects/releases/download/vitals/Vitals-Android.apk) | Open it on the phone and allow installing from your browser. |
+| iPhone | Safari → https://juw12.github.io/projects/vitals/mobile.html → Share → **Add to Home Screen** | For sideloading: [Vitals-iPhone-unsigned.ipa](https://github.com/juw12/projects/releases/download/vitals/Vitals-iPhone-unsigned.ipa) with Sideloadly or AltStore (re-sign every 7 days). |
+
+The desktop apps aren't code-signed yet: Windows SmartScreen asks you to choose **More info → Run
+anyway**, and macOS asks you to allow the app once in **System Settings → Privacy & Security → Open
+Anyway**. They run the same agent and dashboard as the one-line installers below, share `~/.vitals`
+with them and replace each other cleanly. Phones can't clean other apps' storage, so the phone app
+shows your computer's health once paired, plus the phone guides. To build the apps yourself, see
+[`desktop/README.md`](desktop/README.md) and [`mobile/README.md`](mobile/README.md).
 
 ## Install (one step)
 
@@ -100,6 +125,8 @@ model, or `VITALS_NO_MODEL=1` to disable the local AI fallback.
 python apps/vitals/tests/verify_api.py     # hermetic agent e2e: auth, scan, vault, restore, purge, safety, auto-care scheduler (≈8 s)
 python apps/vitals/tests/verify_brain.py   # 65 brain.js checks in headless Chrome (skips if no Chrome)
 python apps/vitals/tests/verify_install.py # installer: manifest sync, sandboxed install → run → update → uninstall
+python apps/vitals/tests/verify_desktop.py # desktop launcher: start → dashboard → reuse → stop, download links
+python apps/vitals/desktop/smoke_test.py --built   # the same checks against a PyInstaller build
 ```
 
 ## Layout
@@ -109,12 +136,17 @@ apps/vitals/
   server/   server.py (HTTP + auth), metrics.py, storage.py, vault.py, history.py
   web/      index.html · app.html · mobile.html, app.js (UI), brain.js (score, planner, chat), qr.js, styles.css, sw.js
             install.sh · install.ps1 (one-step installers) + files.txt (what they download)
-  tests/    verify_api.py, verify_brain.py + brain_test.html
+  desktop/  vitals_app.py (desktop app launcher), vitals.spec (PyInstaller), build.py, vitals.iss (Windows installer), smoke_test.py
+  mobile/   Capacitor 8 Android + iPhone app around the bundled dashboard (scripts/, assets/)
+  tests/    verify_api.py, verify_brain.py + brain_test.html, verify_install.py, verify_desktop.py
   docs/     COMPETITIVE.md
 ```
 
 ## Known limits
 
+- The downloadable apps are built and started in CI on Windows, macOS (Apple silicon and Intel) and
+  Linux, the APK runs on an Android emulator and the iPhone app in the simulator. They are not
+  code-signed or notarized, and pairing from inside the iPhone app hasn't been tried on a device.
 - Windows and Linux readers and the Windows installer are written against documented APIs, but so far only macOS has been exercised end to end. Windows battery wear needs WMI (`root\wmi`), which some OEMs don't populate.
 - Automatic-care notifications use `osascript` (macOS), `notify-send` (Linux) or a PowerShell toast (Windows). The Windows path hasn't been tested yet. Set `VITALS_NO_NOTIFY=1` to turn them off.
 - The browser can't read disk, processes or (in Safari) battery. Browser mode is intentionally partial.

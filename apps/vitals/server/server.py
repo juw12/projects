@@ -39,7 +39,7 @@ import metrics  # noqa: E402
 import storage  # noqa: E402
 import vault as vault_mod  # noqa: E402
 
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 WEB_DIR = os.path.normpath(os.path.join(HERE, "..", "web"))
 DEFAULT_ORIGINS = {"https://juw12.github.io"}
 MIME = {
@@ -641,8 +641,9 @@ def make_handler(agent):
 
 def already_running(port):
     """True if a Vitals agent already answers on this port."""
+    loopback = urllib.request.build_opener(urllib.request.ProxyHandler({}))  # never via HTTP_PROXY
     try:
-        with urllib.request.urlopen("http://127.0.0.1:%d/api/health" % port, timeout=1) as response:
+        with loopback.open("http://127.0.0.1:%d/api/health" % port, timeout=1) as response:
             return json.loads(response.read().decode("utf-8")).get("app") == "vitals"
     except (OSError, ValueError, urllib.error.URLError):
         return False

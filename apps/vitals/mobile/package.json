@@ -1,0 +1,19 @@
+{
+  "name": "vitals-mobile",
+  "version": "1.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build-web.mjs",
+    "android:prepare": "node scripts/build-web.mjs && node scripts/prepare-native.mjs android",
+    "ios:prepare": "node scripts/build-web.mjs && node scripts/prepare-native.mjs ios"
+  },
+  "dependencies": {
+    "@capacitor/android": "8.5.3",
+    "@capacitor/core": "8.5.3",
+    "@capacitor/ios": "8.5.3"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "8.5.3"
+  }
+}
