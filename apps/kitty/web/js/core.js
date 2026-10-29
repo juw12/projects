@@ -8,7 +8,18 @@
 (function (root) {
   'use strict';
   const K = (root.Kitty = root.Kitty || {});
-  K.VERSION = '1.4.0';
+  K.VERSION = '1.5.0';
+
+  /** Compare dotted versions numerically: 1, 0 or -1 ("1.10.0" is newer than "1.9.9"). */
+  K.compareVersions = function (a, b) {
+    const pa = String(a || '0').split('.').map((x) => parseInt(x, 10) || 0);
+    const pb = String(b || '0').split('.').map((x) => parseInt(x, 10) || 0);
+    for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+      const d = (pa[i] || 0) - (pb[i] || 0);
+      if (d) return d > 0 ? 1 : -1;
+    }
+    return 0;
+  };
 
   // ---------------------------------------------------------------- ids, clock
   const B62 = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';

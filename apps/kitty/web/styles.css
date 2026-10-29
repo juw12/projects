@@ -1038,3 +1038,32 @@ html.theme-fade, html.theme-fade *, html.theme-fade *::before, html.theme-fade *
 @media (max-width: 360px) {
   .logo.only-mobile { display: none !important; }
 }
+
+/* ============================================================ 1.5: updates arrive by themselves */
+.update-card { display: flex; align-items: center; gap: 10px; padding: 10px 12px; margin: 0 0 14px; border-radius: 14px; background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent); }
+.update-mark { flex: none; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 10px; background: var(--surface); color: var(--accent); }
+.update-text { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
+.update-text b { font-size: 14px; }
+.link-btn { border: 0; background: none; padding: 0; color: var(--accent); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.link-btn:hover { text-decoration: underline; }
+.release-notes { margin: 12px 0 18px; padding-left: 20px; display: flex; flex-direction: column; gap: 9px; line-height: 1.45; }
+.release-notes li::marker { color: var(--accent); }
+.whats-version { margin-top: -2px; }
+.update-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.update-row .btn { display: inline-flex; align-items: center; gap: 6px; }
+.update-status { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin: 12px 0 0; font-size: 13.5px; color: var(--muted); }
+.update-status.is-ready { color: var(--accent); font-weight: 600; }
+.update-status .link-btn { margin-left: 4px; }
+.updates-card .toggle { margin-top: 14px; }
+.updates-card .toggle + .muted { margin-top: 8px; }
+.more-update { background: var(--accent-soft); }
+.more-update:hover { background: color-mix(in srgb, var(--accent) 16%, transparent); }
+.more-update .more-icon { color: var(--accent); background: var(--surface); }
+.updating { position: fixed; inset: 0; z-index: 200; display: grid; place-items: center; background: color-mix(in srgb, var(--bg) 70%, transparent); backdrop-filter: blur(8px); animation: fade .2s ease; }
+.updating-card { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 24px 30px; border-radius: 20px; background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow-lg); }
+.updating-bar { position: relative; display: block; width: 150px; height: 4px; border-radius: 999px; background: var(--track); overflow: hidden; }
+.updating-bar::after { content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 40%; border-radius: inherit; background: var(--accent); animation: updatingBar 1s ease-in-out infinite; }
+@keyframes updatingBar { from { transform: translateX(-100%); } to { transform: translateX(260%); } }
+@media (prefers-reduced-motion: reduce) {
+  .updating-bar::after { animation: none; width: 100%; }
+}

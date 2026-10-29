@@ -933,7 +933,7 @@
       '<div class="av-stack hide-sm">' + avatars + '</div>' +
       '<button class="btn btn-share hide-sm" data-act="go" data-view="share">' + icon(book.room ? 'users' : 'share', 18) + '<span>' + (book.room ? 'Shared' : 'Share') + '</span></button>' +
       '<button class="icon-btn theme-btn" data-act="theme" aria-label="Toggle theme" title="Toggle theme">' + themeIcon() + '</button>' +
-      '<div class="bell-wrap"><button class="icon-btn" data-act="bell" aria-label="Alerts" title="Alerts">' + icon('bell') + (urgent ? '<em class="badge">' + urgent + '</em>' : '') + '</button>' +
+      '<div class="bell-wrap"><button class="icon-btn" data-act="bell" aria-label="Alerts" title="Alerts">' + icon('bell') + (urgent + (U.available ? 1 : 0) ? '<em class="badge">' + (urgent + (U.available ? 1 : 0)) + '</em>' : '') + '</button>' +
       '<div class="bell-panel" id="bellPanel" hidden></div></div>' +
       '<button class="btn btn-primary hide-sm" data-act="quick-add">' + icon('plus', 18) + '<span>Add</span></button>' +
       '</div>';
@@ -1626,6 +1626,31 @@
     );
   }
 
+  function updatesCard() {
+    const info = U.available;
+    let status = '';
+    if (info) {
+      status = '<p class="update-status is-ready">' + icon('sparkle', 16) + '<span>Kitty ' + esc(info.version) + ' is ready</span><button class="link-btn" data-act="whats-new">What\'s new</button></p>';
+    } else if (U.checking) {
+      status = '<p class="update-status">Checking for updates…</p>';
+    } else if (U.result === 'current') {
+      status = '<p class="update-status">' + icon('check', 16) + '<span>You have the latest version</span></p>';
+    } else if (U.result === 'failed') {
+      status = '<p class="update-status">Could not check right now</p>';
+    }
+    return (
+      '<div class="card updates-card"><div class="card-head"><h3>Updates</h3></div>' +
+      '<div class="update-row"><span>Version <b translate="no">' + esc(K.VERSION) + '</b></span>' +
+      (info
+        ? '<button class="btn btn-primary btn-sm" data-act="update-now">' + icon('download', 16) + '<span>Update now</span></button>'
+        : '<button class="btn btn-soft btn-sm" data-act="check-update"' + (U.checking ? ' disabled' : '') + '>' + icon('refresh', 16) + '<span>Check for updates</span></button>') +
+      '</div>' +
+      status +
+      '<label class="toggle"><input type="checkbox" data-act-change="toggle-autoupdate"' + (autoUpdates() ? ' checked' : '') + '><span></span>Install updates automatically</label>' +
+      '<p class="muted small">Kitty checks for new versions in the background and updates in place. Your budgets stay on this device.</p></div>'
+    );
+  }
+
   function viewSettings() {
     const b = S.book;
     const notifState = !('Notification' in window) ? 'unsupported' : Notification.permission;
@@ -1645,6 +1670,7 @@
       (NATIVE && notifState === 'unsupported' ? '<p class="muted small">In the app, warnings show as in-app alerts with a gentle vibration.</p>' : '') +
       '<button class="pref-link hide-sm" data-act="shortcuts">' + icon('keyboard', 18) + '<span>Keyboard shortcuts</span><kbd translate="no">?</kbd></button>' +
       '</div>' +
+      updatesCard() +
       '<div class="card"><div class="card-head"><h3>Your data</h3></div><p class="muted small">Everything lives in this browser. Export a backup any time.</p><div class="row-gap">' +
       '<button class="btn btn-soft" data-act="export-json">' + icon('download', 16) + ' Backup (JSON)</button>' +
       '<button class="btn btn-soft" data-act="import-json">' + icon('upload', 16) + ' Restore backup</button>' +
@@ -2118,7 +2144,13 @@
     }
     const stats = K.monthStats(S.book, S.month);
     const alerts = K.alertsFor(stats, cur());
+    const update = U.available
+      ? '<div class="update-card"><span class="update-mark" aria-hidden="true">' + icon('sparkle', 18) + '</span>' +
+        '<div class="update-text"><b>Kitty ' + esc(U.available.version) + ' is ready</b><button class="link-btn" data-act="whats-new">What\'s new</button></div>' +
+        '<button class="btn btn-primary btn-sm" data-act="update-now">Update</button></div>'
+      : '';
     panel.innerHTML =
+      update +
       '<h4>Warnings · ' + esc(K.monthLabel(S.month)) + '</h4>' +
       (alerts.length ? '<ul class="alerts compact">' + alerts.map((a) => '<li class="al-' + a.level + '"><span>' + (a.level === 'over' ? '🚨' : a.level === 'warn' ? '⚠️' : '⚡') + '</span><div><b>' + esc(a.title) + '</b><p>' + esc(a.body) + '</p></div></li>').join('') + '</ul>' : '<p class="muted small">✨ Nothing to worry about.</p>') +
       (S.notes.length ? '<h4>Earlier</h4><ul class="notes">' + S.notes.slice(0, 6).map((n) => '<li><b>' + esc(n.title) + '</b><small>' + esc(ui.timeAgo(n.at)) + '</small></li>').join('') + '</ul>' : '') +
@@ -2152,6 +2184,10 @@
         '</div></div>' +
         '<div class="pref-row"><span>Language</span>' + langSelect('lang-field') + '</div></div>' +
         '<nav class="more-list" aria-label="More">' +
+        (U.available
+          ? '<button class="more-item more-update" data-act="update-now" data-modal-close><span class="more-icon">' + icon('sparkle', 20) + '</span>' +
+            '<span class="more-text"><b>Update Kitty</b><small translate="no">' + esc(K.VERSION) + ' → ' + esc(U.available.version) + '</small></span>' + icon('right', 18) + '</button>'
+          : '') +
         rows
           .map(
             (r) =>
@@ -2484,6 +2520,11 @@
       saveProfile();
       return;
     }
+    if (act === 'toggle-autoupdate') {
+      S.profile.autoUpdate = t.checked;
+      saveProfile();
+      return;
+    }
     if (act === 'toggle-notify') {
       if (t.checked && 'Notification' in window) {
         Notification.requestPermission().then((perm) => {
@@ -2686,6 +2727,12 @@
         return openMore();
       case 'shortcuts':
         return openShortcuts();
+      case 'update-now':
+        return applyUpdate();
+      case 'check-update':
+        return checkForUpdate({ force: true, render: true });
+      case 'whats-new':
+        return openWhatsNew(U.available || U.current || { version: K.VERSION, notes: {} }, !!U.available);
       case 'month':
         S.month = K.shiftMonth(S.month, Number(el.dataset.d));
         S.animateNext = true;
@@ -2895,8 +2942,230 @@
     }
   });
 
+  // ================================================================ updates: notice a new version and update in place
+  // Every release publishes version.json next to index.html. Kitty reads it at start, every 30 minutes, when you come
+  // back to the app and when the connection returns. A newer version shows a toast, a bell entry and Update buttons.
+  // With "Install updates automatically" on (the default) it also installs itself the next time you switch away,
+  // unless you are in the middle of something. Budgets, the open page, the month and the scroll position survive.
+  const UPDATE_EVERY = 30 * 60 * 1000;
+  const UPDATE_GAP = 5 * 60 * 1000;
+  const UPDATE_QUIET = 10 * 60 * 1000;
+  const U = {
+    available: null, // { version, notes } of a newer release
+    current: null, // version.json when it describes this build (for "What's new")
+    checking: false,
+    lastCheck: 0,
+    result: '', // '' | 'current' | 'available' | 'failed'
+    announced: '',
+    applying: false,
+    quietUntil: 0,
+    registration: null,
+  };
+
+  function autoUpdates() {
+    return !S.profile || S.profile.autoUpdate !== false;
+  }
+  function releaseNotes(info) {
+    const notes = (info && info.notes) || {};
+    const list = notes[K.i18n.lang] && notes[K.i18n.lang].length ? notes[K.i18n.lang] : notes.en;
+    return Array.isArray(list) ? list.slice(0, 5) : [];
+  }
+  function releaseNotesHTML(info) {
+    const list = releaseNotes(info);
+    return list.length ? '<ul class="release-notes" translate="no">' + list.map((n) => '<li>' + esc(n) + '</li>').join('') + '</ul>' : '';
+  }
+  function fetchRelease() {
+    return fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then((res) => (res.ok ? res.json() : null));
+  }
+
+  function checkForUpdate(opts) {
+    const o = opts || {};
+    if (!window.fetch || U.checking || U.applying) return Promise.resolve(U.available);
+    if (!o.force && Date.now() - U.lastCheck < UPDATE_GAP) return Promise.resolve(U.available);
+    U.checking = true;
+    U.lastCheck = Date.now();
+    if (o.render) scheduleRender();
+    return fetchRelease()
+      .then((info) => {
+        if (!info || !info.version) {
+          U.result = 'failed';
+        } else if (K.compareVersions(info.version, K.VERSION) > 0) {
+          U.result = 'available';
+          foundUpdate(info);
+        } else {
+          U.result = 'current';
+          U.available = null;
+          if (String(info.version) === K.VERSION) U.current = info;
+        }
+      })
+      .catch(() => {
+        U.result = 'failed';
+      })
+      .then(() => {
+        U.checking = false;
+        // Settings shows the result live; elsewhere only an explicit check re-renders.
+        if (o.render || (S.book && S.view === 'settings')) scheduleRender();
+        return U.available;
+      });
+  }
+
+  function foundUpdate(info) {
+    const version = String(info.version);
+    const fresh = !U.available || U.available.version !== version;
+    U.available = { version: version, notes: info.notes || {} };
+    if (!fresh) return;
+    // We just tried to install this version and the old files came back (a cache still catching up):
+    // keep the Update buttons, but skip the toast and the automatic install for a few minutes.
+    const tried = store.get('kitty.updateTry', null);
+    if (tried && tried.version === version && Date.now() - tried.at < UPDATE_QUIET) U.quietUntil = tried.at + UPDATE_QUIET;
+    if (S.book) scheduleRender();
+    if (Date.now() >= U.quietUntil) announceUpdate();
+  }
+
+  function announceUpdate() {
+    const info = U.available;
+    if (!info || !S.book || U.announced === info.version) return;
+    U.announced = info.version;
+    toast({
+      icon: '✨',
+      title: 'Kitty ' + info.version + ' is ready',
+      body: autoUpdates() ? 'Tap Update, or it installs itself the next time you switch away.' : 'Tap Update to get the newest version.',
+      action: { label: 'Update', fn: () => applyUpdate() },
+      timeout: 15000,
+    });
+  }
+
+  /** Automatic installs never interrupt: no open sheet, quiz, half-typed field or focused input. */
+  function safeToUpdate() {
+    if (U.applying || !U.available || Date.now() < U.quietUntil) return false;
+    if (document.querySelector('.modal-wrap, .quiz-overlay, [data-dirty="1"]')) return false;
+    const a = document.activeElement;
+    return !(a && a !== document.body && /^(INPUT|SELECT|TEXTAREA)$/.test(a.tagName));
+  }
+
+  function refreshAppFiles() {
+    // Download every file this page runs, past the browser cache, so the reload below starts the new version.
+    const sameOrigin = (u) => {
+      try {
+        return new URL(u, location.href).origin === location.origin;
+      } catch (e) {
+        return false;
+      }
+    };
+    const files = [location.href.split('#')[0]]
+      .concat(
+        $$('script[src]').map((s) => s.src),
+        $$('link[rel="stylesheet"]').map((l) => l.href)
+      )
+      .filter(sameOrigin);
+    const all = Promise.all(files.map((u) => fetch(u, { cache: 'reload' }).catch(() => null)));
+    return Promise.race([all, new Promise((resolve) => setTimeout(resolve, 8000))]);
+  }
+
+  function applyUpdate(opts) {
+    const o = opts || {};
+    if (U.applying) return;
+    U.applying = true;
+    saveBookNow();
+    try {
+      sessionStorage.setItem('kitty.resume', JSON.stringify({ view: S.view, month: S.month, y: Math.round(window.scrollY), at: Date.now() }));
+    } catch (e) {
+      /* private mode: the app simply opens on Overview */
+    }
+    if (U.available) store.set('kitty.updateTry', { version: U.available.version, at: Date.now() });
+    if (!o.quiet) showUpdating();
+    refreshAppFiles().then(() => {
+      const waiting = U.registration && U.registration.waiting;
+      if (waiting) waiting.postMessage({ type: 'SKIP_WAITING' });
+      location.reload();
+    });
+  }
+
+  function showUpdating() {
+    const el = document.createElement('div');
+    el.className = 'updating';
+    el.setAttribute('role', 'status');
+    el.innerHTML = '<div class="updating-card">' + LOGO + '<b>Updating Kitty…</b><i class="updating-bar" aria-hidden="true"></i></div>';
+    document.body.appendChild(el);
+  }
+
+  function takeResume() {
+    try {
+      const raw = sessionStorage.getItem('kitty.resume');
+      sessionStorage.removeItem('kitty.resume');
+      const r = raw ? JSON.parse(raw) : null;
+      return r && Date.now() - r.at < 2 * 60 * 1000 ? r : null;
+    } catch (e) {
+      return null;
+    }
+  }
+  function restoreResume(r) {
+    if (!r || !S.book) return;
+    if (VIEWS.some((v) => v.id === r.view)) S.view = r.view;
+    if (/^\d{4}-\d{2}$/.test(r.month || '')) S.month = r.month;
+  }
+
+  /** After an update, say so once (with the release notes). Returns true when that notice is shown.
+   *  `returning` = this device already had a profile and budgets before this page load (the demo creates them on the fly). */
+  function noticeAfterUpdate(returning) {
+    const last = store.get('kitty.lastVersion', '');
+    store.set('kitty.lastVersion', K.VERSION);
+    const tried = store.get('kitty.updateTry', null);
+    if (tried && K.compareVersions(K.VERSION, tried.version) >= 0) store.del('kitty.updateTry');
+    // People who used Kitty before 1.5 have budgets but no stored version yet: they just updated too.
+    const upgraded = last ? K.compareVersions(K.VERSION, last) > 0 : returning;
+    if (!upgraded || !S.book) return false;
+    fetchRelease()
+      .catch(() => null)
+      .then((info) => {
+        if (info && String(info.version) === K.VERSION) U.current = info;
+        if (info && K.compareVersions(info.version, K.VERSION) > 0) foundUpdate(info);
+        const mine = U.current || { version: K.VERSION, notes: {} };
+        const notes = releaseNotes(mine);
+        toast({
+          icon: '🎉',
+          title: 'Updated to Kitty ' + K.VERSION,
+          body: notes[0] || 'Everything you had is still here.',
+          action: notes.length ? { label: "What's new", fn: () => openWhatsNew(mine, false) } : null,
+          timeout: 9000,
+        });
+      });
+    return true;
+  }
+
+  function openWhatsNew(info, pending) {
+    modal(
+      '<h2>What\'s new</h2><p class="muted small whats-version">Kitty <b translate="no">' + esc(info.version) + '</b></p>' +
+        (releaseNotesHTML(info) || '<p class="muted">Small fixes and improvements.</p>') +
+        '<div class="row-gap end">' +
+        (pending
+          ? '<button class="btn btn-ghost" data-modal-close>Later</button><button class="btn btn-primary" data-act="update-now" data-modal-close>Update now</button>'
+          : '<button class="btn btn-primary" data-modal-close>Got it</button>') +
+        '</div>',
+      { cls: 'modal-sm', noFocus: true }
+    );
+  }
+
+  function setupUpdates(returning) {
+    const noticed = noticeAfterUpdate(returning);
+    setTimeout(() => checkForUpdate({ force: true }), noticed ? 8000 : 4000);
+    setInterval(() => {
+      if (!document.hidden) checkForUpdate();
+    }, UPDATE_EVERY);
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) {
+        checkForUpdate();
+      } else if (autoUpdates() && safeToUpdate()) {
+        applyUpdate({ quiet: true });
+      }
+    });
+    window.addEventListener('online', () => checkForUpdate({ force: true }));
+    return noticed;
+  }
+
   // ================================================================ boot
   function boot() {
+    const returning = !!(S.profile && S.books.length);
     const join = K.parseJoin(location.hash);
     if (join) S.pendingJoin = join;
     const wanted = params.get('view');
@@ -2906,10 +3175,13 @@
       if (id) openBook(id);
     }
     if (wanted && VIEWS.some((v) => v.id === wanted)) S.view = wanted;
+    const resume = takeResume();
+    restoreResume(resume);
     if (params.get('demo') === '1' && !join) {
       const existingDemo = S.books.find((b) => /^demo-/.test(b.id));
       if (existingDemo) {
         openBook(existingDemo.id);
+        restoreResume(resume);
         render();
       } else {
         loadDemo();
@@ -2928,9 +3200,16 @@
     } else {
       render();
     }
-    if (S.book) setTimeout(() => maybeTipToast(K.monthStats(S.book, S.month)), 2500);
+    if (resume && resume.y) requestAnimationFrame(() => window.scrollTo(0, resume.y));
+    const justUpdated = setupUpdates(returning);
+    if (S.book && !justUpdated) setTimeout(() => maybeTipToast(K.monthStats(S.book, S.month)), 2500);
     if ('serviceWorker' in navigator && location.protocol === 'https:') {
-      navigator.serviceWorker.register('sw.js').catch(() => {});
+      navigator.serviceWorker
+        .register('sw.js')
+        .then((reg) => {
+          U.registration = reg;
+        })
+        .catch(() => {});
     }
     if (params.get('add') === '1' && S.book) setTimeout(openQuickAdd, 400);
     setupNative();
