@@ -28,7 +28,7 @@ except ImportError:  # pragma: no cover - i18n ships with Pips
     def T(key, lang=None, **kwargs):
         return key
 
-APP_VERSION = "2.24.0"
+APP_VERSION = "2.24.1"
 APP_OWNER = "Juwen Lie"
 USER_GUIDE_URL = "https://juw12.github.io/projects/pips/download/Pips-Guide.pptx"
 SITE_URL = "https://juw12.github.io/projects/pips/"
@@ -781,8 +781,8 @@ class ProductivityWidget:
         
         # Desktop pet (lives on the desktop / taskbar; click it to open the card)
         self._build_pet()
-        if self.pet and self.pet.is_visible() and not self.pet.s.get("start_with_card", False):
-            self.card_frame.withdraw()
+        if not self.pet or self.pet.s.get("start_with_card", False):
+            self.card_frame.deiconify()     # no pet (or the user asked for it): show the card
         
         # Start refresh loop
         self._schedule_refresh()
@@ -908,6 +908,7 @@ class ProductivityWidget:
         """Build the compact floating card."""
         # Create frameless toplevel
         self.card_frame = tk.Toplevel(self.root)
+        self.card_frame.withdraw()      # 2.24.1: hidden until asked for (no flash at start-up)
         self.card_frame.overrideredirect(True)
         self.card_frame.attributes("-topmost", True)
         self.card_frame.attributes("-alpha", self.cfg["ui"]["alpha"])
