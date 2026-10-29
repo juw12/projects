@@ -418,18 +418,30 @@
     const cap = window.Capacitor;
     if (!IN_APP || !cap) return Promise.resolve(null);
     try {
+      const failed = (e) => {
+        console.warn("Vitals: " + plugin + "." + method + " failed: " + ((e && (e.message || e.code)) || e));
+        return null;
+      };
       // nativePromise goes straight to the native bridge (no @capacitor/core bundle needed).
-      if (typeof cap.nativePromise === "function") return cap.nativePromise(plugin, method, options || {}).catch(() => null);
+      if (typeof cap.nativePromise === "function") return cap.nativePromise(plugin, method, options || {}).catch(failed);
       const proxy = cap.Plugins && cap.Plugins[plugin];
-      if (proxy && typeof proxy[method] === "function") return Promise.resolve(proxy[method](options || {})).catch(() => null);
-    } catch (e) { /* this build has no such plugin */ }
+      if (proxy && typeof proxy[method] === "function") return Promise.resolve(proxy[method](options || {})).catch(failed);
+      console.warn("Vitals: no Capacitor bridge for " + plugin);
+    } catch (e) {
+      console.warn("Vitals: " + plugin + " threw " + (e && e.message));
+    }
     return Promise.resolve(null);
   }
 
   async function readPhoneSignals() {
     if (!IS_PHONE) return;
-    const timeout = new Promise((resolve) => setTimeout(() => resolve(null), 4000));
-    const native = await Promise.race([nativeCall("VitalsPhone", "snapshot"), timeout]);
+    const timeout = new Promise((resolve) => setTimeout(() => resolve("timeout"), 4000));
+    let native = await Promise.race([nativeCall("VitalsPhone", "snapshot"), timeout]);
+    if (native === "timeout") {
+      console.warn("Vitals: VitalsPhone.snapshot timed out");
+      native = null;
+    }
+    if (IN_APP) console.log("Vitals: phone readings " + (native ? "ok (" + Object.keys(native).length + " values)" : "unavailable"));
     const b = S.browser;
     const s = Object.assign({}, native || {}, { platform: S.platform, native: !!native });
     if (native && native.batteryPercent != null) {
