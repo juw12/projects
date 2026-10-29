@@ -1,5 +1,5 @@
 /*
- * Sped presets and curated recipes.
+ * Hazel Sped presets and curated recipes.
  *
  * Presets are plain-language requests: they go through the same request parser a
  * user's own words do, so there is one source of truth for "what sped up means".

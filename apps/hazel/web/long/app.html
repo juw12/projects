@@ -1,12 +1,13 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-hazel-branch="long">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Hazel App</title>
+  <title>Hazel Long — install the app</title>
   <link rel="manifest" href="manifest.webmanifest">
   <meta name="theme-color" content="#0e1116">
   <link rel="apple-touch-icon" href="icons/app-icon.svg">
+  <link rel="stylesheet" href="hazel-switch.css">
   <style>
     :root {
       --bg: #0e1116;
@@ -43,6 +44,12 @@
       align-items: center;
       justify-content: center;
       text-align: center;
+    }
+
+    .container > .hz-switch {
+      position: absolute;
+      top: 16px;
+      left: 16px;
     }
 
     .masthead {
@@ -231,14 +238,24 @@
 </head>
 <body>
   <div class="container">
+    <details class="hz-switch">
+      <summary aria-label="Switch Hazel app (now: Hazel Long)"><svg class="hz-leaf" viewBox="0 0 32 32" aria-hidden="true"><path d="M16 2.5C9.3 7.6 5.5 12.6 5.5 17.8a10.5 10.5 0 0 0 21 0c0-5.2-3.8-10.2-10.5-15.3z" fill="#b7d17a"/><path d="M16 5.5V29" stroke="#59682f" stroke-width="1.6" stroke-linecap="round" fill="none"/></svg><span>Hazel</span><span class="hz-caret" aria-hidden="true">▾</span></summary>
+      <nav class="hz-menu" aria-label="Hazel apps">
+        <a href="../">Hazel home<small>All three Hazel apps</small></a>
+        <hr>
+        <a href="../shorts/app.html">Hazel Shorts<small>Faceless 9:16 explainer shorts</small></a>
+        <a href="../sped/">Hazel Sped<small>Sped-up, slowed &amp; mashup edits</small></a>
+        <a href="../long/" aria-current="page">Hazel Long<small>Long-form studio: create, cut, repurpose</small></a>
+      </nav>
+    </details>
     <div class="masthead">
       <div class="logo">
         <div class="logo-inner"></div>
       </div>
-      <div class="wordmark">Hazel</div>
+      <div class="wordmark">Hazel Long</div>
     </div>
 
-    <h1>Hazel — a creator studio for video, as an app</h1>
+    <h1>Hazel Long — the long-form creator studio, as an app</h1>
 
     <div class="benefits">
       <ul>
@@ -254,12 +271,13 @@
     </div>
 
     <div id="installHint" class="install-hint">
-      To install Hazel: open your browser menu and select "Add to Home Screen" or "Install app".
+      To install Hazel Long: open your browser menu and select "Add to Home Screen" or "Install app".
     </div>
 
     <div class="links">
       <a href="./mobile.html" class="link">Open mobile studio</a>
-      <a href="../" class="link">All projects</a>
+      <a href="../" class="link">Hazel home</a>
+      <a href="../../" class="link">All projects</a>
     </div>
   </div>
 
@@ -308,5 +326,6 @@
       });
     }
   </script>
+  <script src="hazel-switch.js"></script>
 </body>
 </html>

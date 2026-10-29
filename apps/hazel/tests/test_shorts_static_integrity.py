@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Static integrity tests for the Shortcraft web studio (zero-dep, offline-first).
+"""Static integrity tests for the Hazel Shorts web studio (formerly Shortcraft; zero-dep, offline-first).
 
 Hermetic and stdlib-only. Exits 0 on success, 1 on failure — so it participates
 in scripts/run_all_tests.py.
@@ -10,13 +10,14 @@ import os
 import re
 import sys
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-WEB_DIR = os.path.join(BASE_DIR, "web")
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # apps/hazel
+WEB_DIR = os.path.join(BASE_DIR, "web", "shorts")
 
 REQUIRED = [
     "index.html", "app.html", "mobile.html", "styles.css", "manifest.webmanifest",
     "icons/icon.svg", "js/engine.js", "js/ui.js", "js/samples.js",
     "channel.html", "js/channel.js", "js/publish.js", "js/pop.js", "js/clean.js",
+    "hazel-switch.css", "hazel-switch.js",
 ]
 HTML_FILES = ["index.html", "app.html", "mobile.html", "channel.html"]
 JS_FILES = ["js/engine.js", "js/ui.js", "js/samples.js", "js/channel.js", "js/publish.js", "js/pop.js", "js/clean.js"]

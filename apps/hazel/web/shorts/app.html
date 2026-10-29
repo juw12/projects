@@ -1,20 +1,33 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-hazel-branch="shorts">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Shortcraft — make faceless 9:16 explainer shorts in your browser. Scenes, captions, music and export, no install.">
-  <title>Shortcraft Studio</title>
+  <meta name="description" content="Hazel Shorts — make faceless 9:16 explainer shorts in your browser. Scenes, captions, music and export, no install.">
+  <title>Hazel Shorts — Studio</title>
   <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="hazel-switch.css">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
 </head>
 <body class="studio">
   <header class="topbar">
-    <a class="brand" href="index.html" aria-label="Shortcraft home">
-      <img src="icons/icon.svg" alt="" width="28" height="28">
-      <span>Shortcraft</span>
-    </a>
+    <div class="brand-group">
+      <details class="hz-switch">
+        <summary aria-label="Switch Hazel app (now: Hazel Shorts)"><svg class="hz-leaf" viewBox="0 0 32 32" aria-hidden="true"><path d="M16 2.5C9.3 7.6 5.5 12.6 5.5 17.8a10.5 10.5 0 0 0 21 0c0-5.2-3.8-10.2-10.5-15.3z" fill="#b7d17a"/><path d="M16 5.5V29" stroke="#59682f" stroke-width="1.6" stroke-linecap="round" fill="none"/></svg><span>Hazel</span><span class="hz-caret" aria-hidden="true">▾</span></summary>
+        <nav class="hz-menu" aria-label="Hazel apps">
+          <a href="../">Hazel home<small>All three Hazel apps</small></a>
+          <hr>
+          <a href="../shorts/app.html" aria-current="page">Hazel Shorts<small>Faceless 9:16 explainer shorts</small></a>
+          <a href="../sped/">Hazel Sped<small>Sped-up, slowed &amp; mashup edits</small></a>
+          <a href="../long/">Hazel Long<small>Long-form studio: create, cut, repurpose</small></a>
+        </nav>
+      </details>
+      <a class="brand" href="index.html" aria-label="Hazel Shorts home">
+        <img src="icons/icon.svg" alt="" width="28" height="28">
+        <span>Hazel Shorts</span>
+      </a>
+    </div>
     <div class="topbar-actions">
       <label class="sr-only" for="sample-select">Load a sample</label>
       <select id="sample-select" aria-label="Load a sample"></select>
@@ -197,5 +210,6 @@
   <script src="js/clean.js"></script>
   <script src="js/ui.js"></script>
   <script src="js/publish.js"></script>
+  <script src="hazel-switch.js"></script>
 </body>
 </html>

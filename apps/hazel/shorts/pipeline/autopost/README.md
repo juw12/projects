@@ -1,8 +1,8 @@
-# Shortcraft autopost — plan → render → review → post
+# Hazel Shorts autopost — plan → render → review → post
 
 Runs on **your** computer and posts with **your** accounts through each platform's official API.
 Nothing here creates accounts. Every platform requires a real person to sign up and verify, and
-automated sign-up breaks their terms. Use the [Channel Kit](../../web/channel.html) to get names,
+automated sign-up breaks their terms. Use the [Channel Kit](../../../web/shorts/channel.html) to get names,
 bios, avatar and banner, then create the accounts yourself (about 5 minutes each).
 
 ```text
@@ -15,7 +15,7 @@ topics.txt ──plan──▶ queue/<channel>/<NNN-slug>/project.json + post.js
 ## 1. Install (once)
 
 ```bash
-cd apps/shortcraft/pipeline
+cd apps/hazel/shorts/pipeline
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt          # edge-tts, imageio-ffmpeg, websocket-client, numpy, pillow
 cd autopost && cp config.example.json config.json
@@ -111,7 +111,7 @@ tail -f /tmp/shortcraft-autopost.log
 Or use cron (Linux, or macOS with Full Disk Access for cron):
 
 ```cron
-*/15 * * * * cd /ABSOLUTE/PATH/apps/shortcraft/pipeline/autopost && ../.venv/bin/python autopost.py run >> /tmp/shortcraft-autopost.log 2>&1
+*/15 * * * * cd /ABSOLUTE/PATH/apps/hazel/shorts/pipeline/autopost && ../.venv/bin/python autopost.py run >> /tmp/shortcraft-autopost.log 2>&1
 ```
 
 The computer must be awake at slot time. Missed slots are posted at the next run that day.

@@ -1,4 +1,4 @@
-/* Shortcraft template "clean" — calm, minimal, poll-first layouts for A/B shorts.
+/* Hazel Shorts template "clean" — calm, minimal, poll-first layouts for A/B shorts.
  *
  * Same scene data as "pop" (hook, price, bars, chat, math, stamp, poll), drawn with:
  *   - a flat navy canvas, faint drifting dot grid, one soft glow (no colour blobs)

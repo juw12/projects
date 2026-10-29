@@ -1,0 +1,100 @@
+/* Hazel switcher — the chip + menu every Hazel app shows (Hazel home, Shorts, Sped, Long).
+ * Source: apps/hazel/web/hazel-switch.css. Each branch ships a byte-identical copy next to its pages so
+ * the branch's own offline cache can serve it; tests/test_hazel.py keeps the copies in sync. */
+.hz-switch {
+  position: relative;
+  display: inline-block;
+  flex: none;
+  z-index: 1000;
+  font: 600 13px/1.2 system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.hz-switch > summary {
+  list-style: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px 6px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(183, 209, 122, 0.45);
+  background: rgba(183, 209, 122, 0.1);
+  color: #e8edf2;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.hz-switch > summary::-webkit-details-marker {
+  display: none;
+}
+
+.hz-switch > summary:hover {
+  background: rgba(183, 209, 122, 0.18);
+}
+
+.hz-switch > summary:focus-visible {
+  outline: 2px solid #b7d17a;
+  outline-offset: 2px;
+}
+
+.hz-switch .hz-leaf {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+
+.hz-switch .hz-caret {
+  font-size: 10px;
+  opacity: 0.7;
+}
+
+.hz-menu {
+  position: absolute;
+  left: 0;
+  top: calc(100% + 6px);
+  width: max-content;
+  min-width: 240px;
+  max-width: calc(100vw - 24px);
+  padding: 6px;
+  border-radius: 12px;
+  border: 1px solid #262e38;
+  background: #151a21;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+  text-align: left;
+}
+
+.hz-menu a {
+  display: block;
+  padding: 9px 10px;
+  border-radius: 8px;
+  color: #e8edf2;
+  text-decoration: none;
+  font-weight: 650;
+}
+
+.hz-menu a small {
+  display: block;
+  margin-top: 2px;
+  color: #8b97a5;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.hz-menu a:hover,
+.hz-menu a:focus-visible {
+  background: #1b2129;
+  outline: none;
+}
+
+.hz-menu a[aria-current="page"] {
+  background: rgba(183, 209, 122, 0.14);
+  box-shadow: inset 3px 0 0 #b7d17a;
+}
+
+.hz-menu hr {
+  margin: 6px 4px;
+  border: 0;
+  border-top: 1px solid #262e38;
+}

@@ -1,8 +1,8 @@
-/* Shortcraft Publish — opt-in network features (the rest of the studio is offline).
+/* Hazel Shorts Publish — opt-in network features (the rest of the studio is offline).
  *
  *  - YouTube: direct upload from the browser via Google OAuth (token client) and the
  *    YouTube Data API v3 resumable upload. Needs your own OAuth Client ID (Web app,
- *    authorised JavaScript origin = where Shortcraft runs). Docs: videos.insert —
+ *    authorised JavaScript origin = where Hazel Shorts runs). Docs: videos.insert —
  *    100 uploads/day per project; unverified projects are not forced to private.
  *  - TikTok / Instagram: their posting APIs need a server-side secret and app review
  *    (TikTok: unaudited apps can only post SELF_ONLY). In the browser we use the
@@ -38,7 +38,7 @@
     var project = studio().state.project;
     var kit = window.SC.postKit(project);
     // YouTube rejects titles over 100 characters and any "<" or ">"; " #Shorts" is appended later.
-    var title = (project.title || "Shortcraft").replace(/[<>]/g, "").trim().slice(0, 100 - " #Shorts".length) || "Shortcraft";
+    var title = (project.title || "Hazel Shorts").replace(/[<>]/g, "").trim().slice(0, 100 - " #Shorts".length) || "Hazel Shorts";
     var caption = kit.split("CAPTION:")[1] || "";
     caption = caption.split("HASHTAGS:")[0].trim();
     var tags = (kit.split("HASHTAGS:")[1] || "").trim();

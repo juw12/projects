@@ -1,0 +1,40 @@
+{
+  "name": "Hazel",
+  "short_name": "Hazel",
+  "description": "One creator studio, three apps: Hazel Shorts (explainer shorts), Hazel Sped (sped-up & slowed edits) and Hazel Long (long-form create, cut, repurpose).",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0e1116",
+  "theme_color": "#0e1116",
+  "icons": [
+    {
+      "src": "icons/hazel.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/hazel-256.png",
+      "sizes": "256x256",
+      "type": "image/png"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Hazel Shorts",
+      "short_name": "Shorts",
+      "url": "./shorts/app.html"
+    },
+    {
+      "name": "Hazel Sped",
+      "short_name": "Sped",
+      "url": "./sped/"
+    },
+    {
+      "name": "Hazel Long",
+      "short_name": "Long",
+      "url": "./long/"
+    }
+  ]
+}

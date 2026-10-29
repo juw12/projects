@@ -1,4 +1,4 @@
-/* Shortcraft sample projects. Plain data — edit freely.
+/* Hazel Shorts sample projects. Plain data — edit freely.
  * SAMPLES:START
  */
 window.SC_SAMPLES = [

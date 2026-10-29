@@ -1,4 +1,4 @@
-/* Shortcraft engine — timeline, canvas templates, audio and export.
+/* Hazel Shorts engine — timeline, canvas templates, audio and export.
  * Zero dependencies. Everything runs in the browser (Canvas 2D, Web Audio,
  * MediaRecorder). Exposed as window.SC.
  */

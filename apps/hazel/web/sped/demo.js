@@ -1,5 +1,5 @@
 /*
- * Sped demo stand-ins — procedurally synthesised pop-punk style tracks with a
+ * Hazel Sped demo stand-ins — procedurally synthesised pop-punk style tracks with a
  * known tempo, key and verse/chorus layout. Used for the in-app demo and as test
  * fixtures. They are NOT recordings of any real song.
  */

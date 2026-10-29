@@ -1,6 +1,6 @@
-# Shortcraft pipeline (optional)
+# Hazel Shorts pipeline (optional)
 
-The web studio (`../web/`) needs nothing installed. This folder is for creators who want
+The web studio (`../../web/shorts/`) needs nothing installed. This folder is for creators who want
 **neural voiceovers** or **full-quality offline renders** with custom animation.
 
 ```bash

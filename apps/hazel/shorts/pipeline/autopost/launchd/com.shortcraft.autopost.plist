@@ -7,8 +7,8 @@
   <string>com.shortcraft.autopost</string>
   <key>ProgramArguments</key>
   <array>
-    <string>/ABSOLUTE/PATH/apps/shortcraft/pipeline/.venv/bin/python</string>
-    <string>/ABSOLUTE/PATH/apps/shortcraft/pipeline/autopost/autopost.py</string>
+    <string>/ABSOLUTE/PATH/apps/hazel/shorts/pipeline/.venv/bin/python</string>
+    <string>/ABSOLUTE/PATH/apps/hazel/shorts/pipeline/autopost/autopost.py</string>
     <string>run</string>
   </array>
   <key>StartInterval</key>

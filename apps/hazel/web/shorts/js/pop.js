@@ -1,4 +1,4 @@
-/* Shortcraft template "pop" — bold, high-energy layouts for trend/explainer shorts.
+/* Hazel Shorts template "pop" — bold, high-energy layouts for trend/explainer shorts.
  *
  * Each scene picks a layout with `scene.layout`:
  *   hook   — badge + giant punch headline (+ optional counting stat)

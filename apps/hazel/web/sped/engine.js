@@ -1,5 +1,5 @@
 /*
- * Sped engine — dependency-free audio DSP for short-form "short-form" remixes.
+ * Hazel Sped engine — dependency-free audio DSP for short-form "short-form" remixes.
  *
  * Runs unchanged in browsers, Web Workers, Node and JavaScriptCore and exposes a
  * single global `Sped`. Audio is always an array of Float32Array channels at
@@ -19,7 +19,7 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
   'use strict';
 
-  const VERSION = '1.4.0';
+  const VERSION = '1.5.0';
   const SHARP_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
   const FLAT_NAMES = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
   // Krumhansl–Kessler key profiles.

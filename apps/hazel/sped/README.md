@@ -1,16 +1,22 @@
-# Sped 1.4 — shorts studio for sped-up, slowed & mashup edits
+# Hazel Sped 1.5 — shorts studio for sped-up, slowed & mashup edits
 
-*Formerly **Hookline**. Old `/projects/hookline/` links redirect here, and recipe files saved under the old name still load.*
+*Formerly **Sped** (and before that **Hookline**). One of the three [Hazel](../README.md) apps, next to Hazel Shorts and Hazel Long.
+Old `/projects/sped/` and `/projects/hookline/` links redirect here, saved looks keep loading, and recipe files saved under the old names still load.*
 
-[Open app](https://juw12.github.io/projects/sped/) ·
-[Web](https://juw12.github.io/projects/sped/web.html) ·
-[Mobile](https://juw12.github.io/projects/sped/mobile.html)
+[Open app](https://juw12.github.io/projects/hazel/sped/) ·
+[Web](https://juw12.github.io/projects/hazel/sped/web.html) ·
+[Mobile](https://juw12.github.io/projects/hazel/sped/mobile.html)
 
 Upload your audio, describe a direction such as “higher, faster, no reverb,
 20 seconds,” audition the result, and export a WAV. Processing happens in your
 browser; there is no audio-upload server, account, or external AI service.
 
-## Built for posting (new in 1.4)
+## New in 1.5 (Hazel)
+
+- Sped is now **Hazel Sped**, part of the unified Hazel app at `/projects/hazel/`. The Hazel chip in the header switches to Hazel Shorts, Hazel Long or Hazel home.
+- The offline cache is now `hazel-sped-v1.5.0`; the old worker at `/projects/sped/` is retired and only its own `sped-v…` caches are cleared.
+
+## Built for posting (since 1.4)
 
 TikTok, Instagram Reels and YouTube Shorts accept video, not audio-only files, so
 Sped now turns the edit into a ready-to-post **9:16 MP4**:
@@ -113,7 +119,7 @@ missing permission notes are treated as unknown, never inferred as licensed.
    for accidental mismatches, not cryptographic identity. Older v1.0 recipes
    used temporary IDs; recreate/save them in 1.1 rather than silently remapping.
 
-The offline service worker deletes **only Sped caches**, caches local assets
+The offline service worker deletes **only Hazel Sped caches**, caches local assets
 only, and stages new versions until you choose to reload. Reloading clears
 loaded audio; export it first. Audio itself is never persisted in the cache.
 
@@ -139,10 +145,10 @@ review; this app neither clears rights nor bypasses platform restrictions.
 No build dependencies. Serve the web directory using Python's HTTP server.
 The App/Web/Mobile entry points share the same engine and UI.
 
-- `tests/test_sped.py`: static asset/cache checks and 44 engine regressions
+- `apps/hazel/tests/test_sped.py`: static asset/cache checks and 44 engine regressions
   under Node or macOS JavaScriptCore. CI supplies Node; local absence is reported
   as a skip rather than a fabricated test pass.
-- `tools/browser_smoke.py`: 21 isolated headless-Chrome checks with real workers,
+- `apps/hazel/sped/tools/browser_smoke.py`: 21 isolated headless-Chrome checks with real workers,
   uploads, recipe roundtrip, failure/timeout/cancel recovery, mobile and offline
   behavior. Supply `--chrome` and `--artifacts`; no personal browser profile is used.
 - `tools/render_standin_demo.js`: generates a synthetic test render, never a real

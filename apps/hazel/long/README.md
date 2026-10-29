@@ -1,6 +1,10 @@
-# Hazel
+# Hazel Long
 
-A desktop studio for creators: film the messy take once, Hazel auto-cuts the
+*The long-form branch of [Hazel](../README.md) (this was the original "Hazel" app). The web studio lives at
+`/projects/hazel/long/`; this folder holds the native desktop app. Its data folder, export folder (`~/Videos/Hazel`)
+and settings are unchanged by the rename.*
+
+A desktop studio for creators: film the messy take once, Hazel Long auto-cuts the
 silences and pauses (and, coming soon, the "ums" and retakes), then fans one
 clip out to every platform and shows you what pulled traffic.
 
@@ -42,7 +46,7 @@ publish → traffic → storage. Retake removal and the API posting path are nex
 ## Structure
 
 ```
-apps/hazel/
+apps/hazel/long/
   electron/   main process + preload (IPC bridge)
   engine/     auto-cut · transcribe · repurpose · publish · analytics · storage
   src/        renderer (HTML/CSS/JS — no build step)
@@ -52,10 +56,11 @@ apps/hazel/
 
 ## Run
 
-This machine has **no system Node.js or ffmpeg**; Hazel uses the portable
+This machine has **no system Node.js or ffmpeg**; Hazel Long uses the portable
 Node.js and bundles ffmpeg, so it runs anywhere.
 
 ```powershell
+cd apps/hazel/long
 $pn="C:\Users\juwen_lie\.config\opencode\skills\portable-nodejs\bin\node-v24.14.1-win-x64"
 $env:PATH="$pn;$env:PATH"
 npm install        # electron + ffmpeg-static + ffprobe-static
@@ -87,7 +92,7 @@ detection + render. Exits `0` on pass, `1` on fail.
 
 ## Note on monorepo conventions
 
-Unlike the other `apps/*` (zero-dependency static PWAs), Hazel is a **native
+Unlike the other `apps/*` (zero-dependency static PWAs), Hazel Long's desktop build is a **native
 desktop app** and necessarily depends on npm packages (Electron + a bundled
 ffmpeg). It keeps the repo's spirit where it can: **local-first**, no servers,
 and no build step for the renderer.

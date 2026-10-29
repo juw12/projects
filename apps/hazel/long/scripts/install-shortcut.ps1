@@ -7,20 +7,24 @@ Write-Host ("OS: {0} build {1}" -f $os.DisplayVersion, $os.CurrentBuildNumber)
 
 $ws = New-Object -ComObject WScript.Shell
 $desktop = [Environment]::GetFolderPath('Desktop')
-$lnk = Join-Path $desktop 'Hazel.lnk'
+$lnk = Join-Path $desktop 'Hazel Long.lnk'
+$oldLnk = Join-Path $desktop 'Hazel.lnk'   # pre-rename shortcut
+if (Test-Path $oldLnk) { Remove-Item $oldLnk -Force }
 
 $sc = $ws.CreateShortcut($lnk)
 $sc.TargetPath = $electron
 $sc.Arguments = '"' + $appDir + '"'
 $sc.WorkingDirectory = $appDir
 $sc.IconLocation = "$icon,0"
-$sc.Description = 'Hazel - desktop studio for creators'
+$sc.Description = 'Hazel Long - desktop studio for creators (part of Hazel)'
 $sc.Save()
 Write-Host "desktop shortcut: $lnk"
 
 $pinned = Join-Path $env:APPDATA 'Microsoft\Internet Explorer\Quick Launch\User Pinned\TaskBar'
 if (-not (Test-Path $pinned)) { New-Item -ItemType Directory -Force -Path $pinned | Out-Null }
-Copy-Item $lnk (Join-Path $pinned 'Hazel.lnk') -Force
+$oldPin = Join-Path $pinned 'Hazel.lnk'
+if (Test-Path $oldPin) { Remove-Item $oldPin -Force }
+Copy-Item $lnk (Join-Path $pinned 'Hazel Long.lnk') -Force
 Write-Host "copied to: $pinned"
 
 Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue
