@@ -3,6 +3,7 @@
 
 Starts the server on a free port with a temporary data directory, then checks:
 health + static files, accounts (signup, login, wrong password, isolation),
+Twin Indonesia's server news feed (fake RSS) and per-account wallet sync,
 the personality test -> limits mapping, budget recalculation, the cross-site
 guard, input validation (NaN/inf/negative amounts, path traversal, bad
 Content-Length), and the full demo day-trade flow on the bundled TSLA replay.
@@ -156,10 +157,26 @@ def unit_tests(data_dir):
         check("can't sell more than you hold", True)
 
 
+FAKE_ANTARA_RSS = """<?xml version="1.0"?><rss version="2.0"><channel>
+<item><title>BBCA naik, IHSG menguat</title><link>https://example.com/id-1</link>
+<pubDate>Wed, 28 Oct 2026 09:00:00 +0700</pubDate></item>
+</channel></rss>"""
+
+
+def indonesia_wallet_state(cash=10_000_000, saved_at="2026-10-28T09:00:00.000Z"):
+    """A minimal Twin Indonesia state document (engine.js createState, version 1)."""
+    return {"version": 1, "savedAt": saved_at, "profile": {"name": "Alice", "onboarded": True},
+            "wallet": {"cashIdr": cash, "startingCashIdr": 10_000_000}, "positions": {}, "orders": []}
+
+
 def end_to_end(data_dir):
     print("end-to-end: server")
     port = free_port()
-    env = dict(os.environ, TWIN_DATA=data_dir)
+    # Only the Antara feed answers; every other Indonesia feed fails, as when offline.
+    fake_news = Path(data_dir) / "fake-news.json"
+    fake_news.write_text(json.dumps({"https://www.antaranews.com/rss/ekonomi-bursa.xml": FAKE_ANTARA_RSS}),
+                         encoding="utf-8")
+    env = dict(os.environ, TWIN_DATA=data_dir, TWIN_FAKE_NEWS=str(fake_news))
     proc = subprocess.Popen(
         [sys.executable, str(SERVER), "--port", str(port), "--no-browser"],
         env=env,
@@ -183,7 +200,7 @@ def end_to_end(data_dir):
         check("serves web/demo.js", status == 200 and b"TwinDemo" in body)
         status, body = alice.get("/id/")
         check("serves Twin Indonesia at /id/", status == 200 and b"Twin Indonesia" in body)
-        status, body = alice.get("/id/engine.js?v=1.11.0")
+        status, body = alice.get("/id/engine.js?v=1.12.0")
         check("serves the Twin Indonesia engine", status == 200 and b"SatuEngine" in body)
         try:
             status, body = alice.get("/demo/")
@@ -193,6 +210,19 @@ def end_to_end(data_dir):
 
         status, body = alice.post("/api/me")
         check("API requires login", status == 401)
+
+        print("Twin Indonesia: news feed + wallet sync")
+        status, news = alice.post("/api/indonesia/news")
+        links = [item.get("link") for item in news.get("items", [])]
+        check("Indonesia news is public and includes every answering feed",
+              status == 200 and news.get("ok") and "https://example.com/id-1" in links, str(news)[:200])
+        check("Indonesia news reports failed feeds instead of failing",
+              news.get("status", {}).get("antara-bursa", {}).get("ok") is True
+              and news.get("status", {}).get("coindesk", {}).get("ok") is False)
+        idx_item = next((item for item in news.get("items", []) if item.get("link") == "https://example.com/id-1"), {})
+        check("Indonesia news items are tagged", idx_item.get("market") == "IDX" and "BBCA" in idx_item.get("tickers", []))
+        status, body = alice.post("/api/indonesia/wallet")
+        check("Indonesia wallet requires login", status == 401)
         status, body = alice.post("/api/signup", {"username": "alice", "password": "short", "name": "A"})
         check("weak password rejected", not body.get("ok"))
         status, body = alice.post("/api/signup", {"username": "alice", "password": "correct-horse-1", "name": "Alice", "email": "a@example.com"})
@@ -212,6 +242,36 @@ def end_to_end(data_dir):
 
         status, body = alice.post("/api/paper", headers={"Origin": "http://evil.example"})
         check("cross-site request blocked", status == 403)
+
+        status, wallet = alice.post("/api/indonesia/wallet")
+        check("new account has no Indonesia wallet yet",
+              status == 200 and wallet.get("ok") and wallet.get("wallet") is None and wallet.get("rev") == 0)
+        alice_account = wallet.get("account")
+        status, saved = alice.post("/api/indonesia/wallet/save", {"state": indonesia_wallet_state(), "rev": 0})
+        check("first wallet save", saved.get("ok") is True and saved.get("rev") == 1, str(saved))
+        status, wallet = alice.post("/api/indonesia/wallet")
+        check("wallet round-trips unchanged",
+              wallet.get("wallet") == indonesia_wallet_state() and wallet.get("rev") == 1, str(wallet)[:200])
+        newer = indonesia_wallet_state(cash=9_000_000, saved_at="2026-10-28T10:00:00.000Z")
+        status, stale = alice.post("/api/indonesia/wallet/save", {"state": newer, "rev": 0})
+        check("stale save is refused and returns the newer copy",
+              stale.get("ok") is False and stale.get("conflict") is True and stale.get("rev") == 1
+              and stale.get("wallet") == indonesia_wallet_state(), str(stale)[:200])
+        status, saved = alice.post("/api/indonesia/wallet/save", {"state": newer, "rev": 1})
+        check("save on the current revision", saved.get("ok") is True and saved.get("rev") == 2)
+        status, body = alice.post("/api/indonesia/wallet/save", {"state": {"version": 2, "wallet": {}}, "rev": 2})
+        check("non-wallet documents rejected", body.get("ok") is False and "wallet" in body.get("error", ""))
+        status, body = alice.post("/api/indonesia/wallet/save", {"state": newer, "rev": "2"})
+        check("text revision rejected", body.get("ok") is False)
+        oversized = dict(newer, notes="x" * 600_000)
+        status, body = alice.post("/api/indonesia/wallet/save", {"state": oversized, "rev": 2})
+        check("oversized wallet rejected", body.get("ok") is False and "too large" in body.get("error", ""))
+        status, wallet = alice.post("/api/indonesia/wallet")
+        check("rejected saves leave the wallet untouched",
+              wallet.get("rev") == 2 and wallet.get("wallet", {}).get("wallet", {}).get("cashIdr") == 9_000_000)
+        status, body = alice.post("/api/indonesia/wallet/save", {"state": newer, "rev": 2},
+                                  headers={"Origin": "http://evil.example"})
+        check("cross-site wallet save blocked", status == 403)
 
         # Guard-rail: a 1R plan is refused for a profile whose minimum reward:risk is 1.5.
         alice.post("/api/trade", {"step": "entry", "mode": "demo", "params": {"symbol": "TSLA"}})
@@ -295,6 +355,9 @@ def end_to_end(data_dir):
         bob.post("/api/signup", {"username": "bob", "password": "another-pass-2", "name": "Bob"})
         status, body = bob.post("/api/me")
         check("second user is isolated", body["profile"]["name"] == "Bob" and body["profile"]["quiz"] is None)
+        status, wallet = bob.post("/api/indonesia/wallet")
+        check("second user has their own Indonesia wallet",
+              wallet.get("wallet") is None and wallet.get("rev") == 0 and wallet.get("account") != alice_account)
         status, body = bob.post("/api/login", {"username": "alice", "password": "wrong-password"})
         check("wrong password rejected", not body.get("ok"))
 

@@ -11,13 +11,21 @@
   const SNAP = window.SATU_SNAPSHOT;
   const C = window.SATU_CONTENT;
   const IDEAS = window.SATU_IDEAS || [];
-  const VERSION = '1.11.0'; // Twin release that ships this module
+  const VERSION = '1.12.0'; // Twin release that ships this module
 
   const params = new URLSearchParams(location.search);
   const SELFTEST = params.has('selftest');
   const OFFLINE = params.has('offline') || SELFTEST;
   const DEMO = params.has('demo');
   const STORAGE_KEY = SELFTEST ? 'twin_id_selftest_v1' : DEMO ? 'twin_id_demo_v1' : 'twin_id_state_v1';
+  // Only the real wallet (not the demo or self-test) is summarised for Twin and synced.
+  const SYNCS = !DEMO && !SELFTEST;
+  // Twin's Home and Me screens read this summary (same origin) to show the rupiah wallet.
+  const SUMMARY_KEY = 'twin_id_summary_v1';
+  // The Twin account and server revision this browser's wallet last synced with.
+  const SYNC_KEY = 'twin_id_sync_v1';
+  // A local wallet replaced by the account copy is kept here, just in case.
+  const BACKUP_KEY = 'twin_id_state_backup_v1';
 
   const INSTRUMENTS = {};
   const KNOWN_BY_MARKET = { US: [], IDX: [], CRYPTO: [], GOLD: [] };
@@ -39,6 +47,9 @@
     news: SNAP.news.slice(),
     newsSource: 'snapshot',
     server: false,
+    // Account sync with Twin's server (signed-in Twin account only).
+    sync: { enabled: false, status: 'off', account: null, rev: 0, pushing: false, pending: false, lastSyncedAt: null },
+    summaryAt: 0,
     storageOk: true,
     charts: {},
     chartPoints: {},
@@ -120,20 +131,38 @@
   function save() {
     if (!state) return;
     state.savedAt = new Date().toISOString();
+    persistLocal();
+    if (runtime.sync.enabled) scheduleSync();
+  }
+
+  /** Write the wallet (and Twin's summary of it) to this browser, keeping savedAt. */
+  function persistLocal() {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     } catch (error) {
       runtime.storageOk = false;
     }
-    if (runtime.server && !DEMO && !SELFTEST) {
-      clearTimeout(runtime.saveTimer);
-      runtime.saveTimer = setTimeout(() => {
-        fetch('api/state', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(state),
-        }).catch(() => {});
-      }, 800);
+    writeSummary();
+  }
+
+  /** The numbers Twin shows on Home and Me. Price ticks refresh it at most every 10 s. */
+  function writeSummary(throttled) {
+    if (!SYNCS || !state || !state.profile || !state.profile.onboarded) return;
+    if (throttled && Date.now() - runtime.summaryAt < 10000) return;
+    runtime.summaryAt = Date.now();
+    try {
+      localStorage.setItem(SUMMARY_KEY, JSON.stringify(Object.assign(E.walletSummary(state, ctx()), { simulated: isSimulated() })));
+    } catch (error) {
+      // Twin just won't show the summary
+    }
+  }
+
+  function clearSummary() {
+    if (!SYNCS) return;
+    try {
+      localStorage.removeItem(SUMMARY_KEY);
+    } catch (error) {
+      // nothing stored
     }
   }
 
@@ -1710,7 +1739,7 @@
       <div class="grid-2" style="margin-top:14px">
         <div class="card">
           <b>Your data</b>
-          <p class="small muted">Stored in this browser${runtime.server ? ' and on this computer\'s server' : ''}. ${runtime.storageOk ? '' : '<span class="down">Storage is blocked here, so changes are lost when you close the tab.</span>'}</p>
+          <p class="small muted" id="sync-note">${syncNote()} ${runtime.storageOk ? '' : '<span class="down">Storage is blocked here, so changes are lost when you close the tab.</span>'}</p>
           <div class="row wrap">
             <button class="btn small" data-action="export">Export JSON</button>
             <label class="btn small" style="cursor:pointer">Import JSON<input type="file" accept="application/json" data-input="import" style="display:none"></label>
@@ -1720,7 +1749,7 @@
         </div>
         <div class="card small">
           <b>Data sources</b>
-          <div class="muted" style="margin-top:6px">US & IDX stocks: ${stocksLine}<br>Crypto & gold: ${cryptoLine} (CoinGecko; gold via XAUT ÷ 31.1035 g)<br>USD/IDR: ${E.formatIdr(runtime.fxRate)}<br>News: ${runtime.newsSource === 'server' ? 'local server (RSS)' : runtime.newsSource === 'browser' ? 'Twin + Antara (live)' : 'bundled snapshot'}</div>
+          <div class="muted" style="margin-top:6px">US & IDX stocks: ${stocksLine}<br>Crypto & gold: ${cryptoLine} (CoinGecko; gold via XAUT ÷ 31.1035 g)<br>USD/IDR: ${E.formatIdr(runtime.fxRate)}<br>News: ${runtime.newsSource === 'server' ? 'Twin server (all feeds, every 10 min)' : runtime.newsSource === 'browser' ? 'Twin + Antara (live)' : 'bundled snapshot'}${SNAP.newsTakenAt ? ` · snapshot headlines ${esc(fmtDateTime(Date.parse(SNAP.newsTakenAt)))}` : ''}</div>
           <hr class="sep">
           <b>About</b>
           <p class="muted" style="margin-top:6px">Twin Indonesia ${VERSION} · prototype. Practice money only, not investment advice, not a licensed broker. <a href="#guide">How Twin Indonesia works</a></p>
@@ -2007,6 +2036,7 @@
         // storage blocked: memory state is discarded below anyway
       }
       state = null;
+      clearSummary();
       runtime.onboarding = freshOnboarding();
       runtime.lessonState = {};
       location.hash = '';
@@ -2171,6 +2201,7 @@
         return;
       }
     }
+    writeSummary(true);
     updateLive();
   }
 
@@ -2257,24 +2288,191 @@
       runtime.timers.push(setInterval(refreshNews, 900000));
     }
     runtime.timers.push(setInterval(afterPriceUpdate, 30000));
+    runtime.timers.push(setInterval(() => {
+      if (runtime.sync.enabled && runtime.sync.status === 'offline') pullWallet();
+    }, 60000));
   }
+
+  // ------------------------------------------------------- account sync
+  // On Twin's own server, a signed-in Twin account keeps a copy of this wallet, so it
+  // follows you to other browsers. The account copy wins when it changed elsewhere;
+  // hidden tabs never upload, and every pull happens before any upload (see E.syncAction).
 
   async function connectServer() {
     runtime.server = await F.detectServer();
-    if (!runtime.server || DEMO || SELFTEST) return;
+    if (!runtime.server || !SYNCS) return;
+    await pullWallet();
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) pullWallet();
+    });
+  }
+
+  function readSyncMeta() {
     try {
-      const response = await fetch('api/state', { cache: 'no-store' });
-      if (!response.ok) return;
-      const payload = await response.json();
-      const remote = E.migrateState(payload.state);
-      if (remote && remote.profile && (!state || (remote.savedAt || '') > (state.savedAt || ''))) {
-        state = remote;
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-        render();
-      }
+      const meta = JSON.parse(localStorage.getItem(SYNC_KEY) || 'null');
+      return meta && typeof meta === 'object' ? meta : null;
     } catch (error) {
-      // the server is optional
+      return null;
     }
+  }
+
+  function writeSyncMeta() {
+    try {
+      localStorage.setItem(SYNC_KEY, JSON.stringify({ account: runtime.sync.account, rev: runtime.sync.rev }));
+    } catch (error) {
+      // sync still works for this page view
+    }
+  }
+
+  function backupLocal() {
+    if (!state || !state.profile) return;
+    try {
+      localStorage.setItem(BACKUP_KEY, JSON.stringify(state));
+    } catch (error) {
+      // best effort
+    }
+  }
+
+  function markSynced() {
+    runtime.sync.status = 'synced';
+    runtime.sync.lastSyncedAt = Date.now();
+  }
+
+  async function pullWallet() {
+    if (!runtime.server || !SYNCS) return;
+    try {
+      await pullWalletOnce();
+    } finally {
+      refreshSyncNote();
+    }
+  }
+
+  async function pullWalletOnce() {
+    const sync = runtime.sync;
+    const result = await F.loadWallet();
+    if (!result) {
+      sync.status = 'offline';
+      return;
+    }
+    if (result.status === 401) {
+      sync.enabled = false;
+      sync.status = 'signed-out';
+      return;
+    }
+    const data = result.data;
+    if (result.status !== 200 || !data || !data.ok) {
+      sync.status = 'error';
+      return;
+    }
+    const remoteState = data.wallet ? E.migrateState(data.wallet) : null;
+    const remote = { wallet: remoteState, rev: data.rev, account: data.account };
+    const action = E.syncAction(state, remote, readSyncMeta());
+    sync.enabled = true;
+    sync.account = data.account;
+    sync.rev = data.rev;
+    writeSyncMeta();
+    if (action === 'adopt') {
+      adoptWallet(remoteState);
+    } else if (action === 'detach') {
+      detachWallet();
+    } else if (action === 'push') {
+      await pushWallet();
+      return;
+    }
+    markSynced();
+  }
+
+  function adoptWallet(incoming) {
+    const changed = !state || JSON.stringify(state) !== JSON.stringify(incoming);
+    if (changed) backupLocal();
+    state = incoming;
+    persistLocal();
+    if (!changed) return;
+    startTimers();
+    if (modalOpen()) closeModal();
+    render();
+    toast('Loaded your rupiah wallet from your Twin account.', 'ok');
+  }
+
+  function detachWallet() {
+    backupLocal();
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+    } catch (error) {
+      // memory state is discarded below anyway
+    }
+    clearSummary();
+    state = null;
+    runtime.onboarding = freshOnboarding();
+    if (modalOpen()) closeModal();
+    location.hash = '';
+    render();
+    toast('This Twin account has no rupiah wallet yet, so you start fresh. The other wallet stays with its own account.', 'ok');
+  }
+
+  function scheduleSync() {
+    clearTimeout(runtime.saveTimer);
+    runtime.saveTimer = setTimeout(pushWallet, 800);
+  }
+
+  async function pushWallet() {
+    const sync = runtime.sync;
+    if (!sync.enabled || !state || !state.profile) return;
+    // A background tab never uploads: it pulls first when it becomes visible again.
+    if (typeof document !== 'undefined' && document.hidden) return;
+    if (sync.pushing) {
+      sync.pending = true;
+      return;
+    }
+    sync.pushing = true;
+    sync.pending = false;
+    let conflict = false;
+    try {
+      const result = await F.saveWallet(state, sync.rev);
+      if (!result) {
+        sync.status = 'offline';
+      } else if (result.status === 401) {
+        sync.enabled = false;
+        sync.status = 'signed-out';
+      } else if (result.data && result.data.ok) {
+        sync.rev = result.data.rev;
+        writeSyncMeta();
+        markSynced();
+      } else if (result.data && result.data.conflict) {
+        conflict = true;
+      } else {
+        sync.status = 'error';
+      }
+    } finally {
+      sync.pushing = false;
+    }
+    if (conflict) {
+      // Another browser saved first: its copy wins (this one is kept as a backup).
+      await pullWallet();
+    } else if (sync.pending && sync.enabled) {
+      scheduleSync();
+    }
+    refreshSyncNote();
+  }
+
+  /** Keep Settings' "Your data" line current when a sync finishes in the background. */
+  function refreshSyncNote() {
+    const note = document.getElementById('sync-note');
+    if (!note) return;
+    const blocked = runtime.storageOk ? '' : '<span class="down">Storage is blocked here, so changes are lost when you close the tab.</span>';
+    note.innerHTML = `${syncNote()} ${blocked}`;
+  }
+
+  function syncNote() {
+    if (!runtime.server || !SYNCS) return 'Stored in this browser.';
+    const sync = runtime.sync;
+    if (sync.enabled) {
+      const when = sync.lastSyncedAt ? ` Last synced ${esc(fmtDateTime(sync.lastSyncedAt))}.` : '';
+      const problem = sync.status === 'offline' ? ' <span class="down">Server unreachable; changes upload when it is back.</span>'
+        : sync.status === 'error' ? ' <span class="down">The last sync failed; it retries on your next change.</span>' : '';
+      return `Stored in this browser and synced to your Twin account on this server.${when}${problem}`;
+    }
+    return 'Stored in this browser. <a href="../">Log in to Twin</a> on this server to keep it in your account and use it on other devices.';
   }
 
   // ------------------------------------------------------------- demo
@@ -2357,6 +2555,14 @@
       if (!condition) throw new Error(message);
     };
     const view = () => document.getElementById('view');
+    const storedSummary = () => {
+      try {
+        return localStorage.getItem(SUMMARY_KEY);
+      } catch (error) {
+        return null;
+      }
+    };
+    const summaryBefore = storedSummary();
 
     try {
       localStorage.removeItem(STORAGE_KEY);
@@ -2541,6 +2747,16 @@
       const demo = demoState();
       assert(Object.keys(demo.positions).length === 6, `demo positions: ${Object.keys(demo.positions).length}`);
       assert(demo.orders.some((order) => order.status === 'open'), 'demo limit order missing');
+    });
+
+    step('wallet summary for Twin matches the portfolio', () => {
+      const summary = E.walletSummary(state, ctx());
+      const value = E.portfolioValue(state, ctx());
+      assert(summary.valueIdr === Math.round(value.totalIdr), 'summary value differs from the portfolio');
+      assert(summary.positions === value.positions.length, 'position count differs');
+      assert(storedSummary() === summaryBefore, "the self-test changed Twin's wallet summary");
+      assert(!runtime.sync.enabled, 'the self-test must never sync');
+      return summary.valueIdr;
     });
 
     step('reset returns to onboarding', () => {

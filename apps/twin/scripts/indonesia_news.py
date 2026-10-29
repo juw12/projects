@@ -1,4 +1,5 @@
-"""News feed helpers for Twin Indonesia (web/id/), used by indonesia_snapshot.py.
+"""News feed helpers for Twin Indonesia (web/id/), used by indonesia_snapshot.py and
+by Twin's server (POST /api/indonesia/news).
 
 Standard library only. Feeds are RSS 2.0; every item is normalised to:
 
@@ -14,15 +15,17 @@ import hashlib
 import html
 import re
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor
 import xml.etree.ElementTree as ElementTree
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 
-USER_AGENT = "TwinIndonesia/1.11 (+https://github.com/juw12/projects)"
+USER_AGENT = "TwinIndonesia/1.12 (+https://github.com/juw12/projects)"
 
 # Feeds verified reachable on 28 Oct 2026. Only Antara sends CORS headers, so the
-# browser reads it live; the others are baked into web/id/snapshot.js by
-# indonesia_snapshot.py (a static site cannot proxy them).
+# browser reads it live. The others reach the browser through Twin's server when it
+# runs, and are baked into web/id/snapshot.js every hour for the static site
+# (indonesia_snapshot.py --news-only), which cannot proxy them.
 # Production use needs content licences from each publisher.
 FEEDS = [
     {
@@ -238,16 +241,45 @@ def from_twin_news(payload: dict, limit: int = 12) -> list[dict]:
 
 
 def collect(feeds: list[dict] | None = None, fetch=fetch_bytes, limit_per_feed: int = 10):
-    """Fetch every feed; return (items sorted newest first, per-feed status)."""
+    """Fetch every feed in parallel; return (items sorted newest first, per-feed status)."""
     feeds = feeds or FEEDS
+
+    def read_feed(feed: dict):
+        try:
+            return parse_rss(fetch(feed["url"]), feed, limit=limit_per_feed), None
+        except Exception as error:  # network/parse errors are reported, not raised
+            return [], type(error).__name__
+
+    with ThreadPoolExecutor(max_workers=max(1, min(8, len(feeds)))) as pool:
+        results = list(pool.map(read_feed, feeds))
     all_items: list[dict] = []
     status = {}
-    for feed in feeds:
-        try:
-            items = parse_rss(fetch(feed["url"]), feed, limit=limit_per_feed)
-            all_items.extend(items)
-            status[feed["id"]] = {"ok": True, "items": len(items)}
-        except Exception as error:  # network/parse errors are reported, not raised
-            status[feed["id"]] = {"ok": False, "error": type(error).__name__}
+    for feed, (items, error) in zip(feeds, results):
+        all_items.extend(items)
+        status[feed["id"]] = {"ok": True, "items": len(items)} if error is None else {"ok": False, "error": error}
     all_items.sort(key=lambda item: item.get("time") or "", reverse=True)
     return all_items, status
+
+
+def merge_news(fresh: list[dict], previous: list[dict] | None = None, limit: int = 48) -> list[dict]:
+    """Fresh items first (one per link), topped up with previous ones; newest first, capped."""
+    seen: set[str] = set()
+    merged: list[dict] = []
+    for item in list(fresh) + list(previous or []):
+        link = item.get("link") if isinstance(item, dict) else None
+        if not link or link in seen:
+            continue
+        seen.add(link)
+        merged.append(item)
+    merged.sort(key=lambda item: item.get("time") or "", reverse=True)
+    return merged[:limit]
+
+
+def gather(twin_payload: dict | None, fetch=fetch_bytes, limit_per_feed: int = 10, limit: int = 48):
+    """Every headline Twin Indonesia shows: Twin's US news.json plus all RSS feeds.
+
+    Returns (items newest first, per-feed status). Feeds that fail are reported in the
+    status and simply contribute nothing."""
+    twin_items = from_twin_news(twin_payload or {}, limit=limit_per_feed)
+    feed_items, status = collect(fetch=fetch, limit_per_feed=limit_per_feed)
+    return merge_news(twin_items + feed_items, limit=limit), status

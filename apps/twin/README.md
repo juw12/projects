@@ -54,7 +54,7 @@ Bank Central Asia, Samsung, Reliance, Petrobras, Nestlé and so on.
   estimates (shown as “est.”) until the exchanges confirm them;
   Shanghai/Shenzhen and India are covered through 2026 until the package publishes later years.
 
-## Twin Indonesia (1.11)
+## Twin Indonesia (1.11, account sync in 1.12)
 
 The rupiah side of Twin, merged from the *Satu* prototype: https://juw12.github.io/projects/twin/id/.
 Open it from the teal **Twin Indonesia** card on Home, **Me → Twin Indonesia**, or **Trade … in rupiah
@@ -69,12 +69,21 @@ lots** on any Jakarta (`.JK`) stock page; the **Twin** logo in its top bar comes
   prices, losses included. The demo analysts are fictional.
 - **Academy and plans.** Nine interactive lessons in three levels (fees and break-even, lots and price
   steps, spotting *investasi bodong*, position sizing…) and Free / Plus / Pro plan concepts.
-- Its wallet is separate from the USD portfolio and stays in this browser. Prices come from Twin's own
-  hourly snapshot (same origin), CoinGecko and Antara, with a bundled offline snapshot as fallback.
+- **Your rupiah wallet on Home and Me (1.12).** Twin's Home card and Me screen show its value, return,
+  positions and cash. It stays separate from the USD portfolio.
+- **Account sync on your own server (1.12).** Signed in to Twin on `python server.py`, the wallet is kept in
+  your account (`data/users/<id>/indonesia.json`) and follows you to other browsers. Each save names the
+  revision it builds on, so a stale tab can't overwrite newer trades: the account copy wins and the replaced
+  local copy is kept as a backup. On GitHub Pages it stays in the browser.
+- **Headlines.** On the local server every feed (Antara, CNBC Indonesia, CoinDesk, Cointelegraph, Investing.com
+  gold) comes through `POST /api/indonesia/news`, cached for 10 minutes. On GitHub Pages the hourly job
+  refreshes the headlines inside `web/id/snapshot.js`, which the service worker fetches network-first.
+  Prices come from Twin's own hourly snapshot (same origin) and CoinGecko, with the bundled snapshot as
+  fallback.
 
 Guide, architecture and the path to a licensed product in Indonesia: [docs/INDONESIA.md](docs/INDONESIA.md).
 Refresh its offline data with `python apps/twin/scripts/indonesia_snapshot.py`, then
-`python apps/twin/scripts/indonesia_ideas.py`.
+`python apps/twin/scripts/indonesia_ideas.py`; `--news-only` refreshes just the headlines (the hourly job).
 
 ## Features
 
@@ -296,6 +305,13 @@ history and are not predictions. Not financial advice.
 
 ## Changelog
 
+- **1.12.0 — Twin Indonesia wallet and news everywhere.** Home's Twin Indonesia card and the Me screen now
+  show your rupiah practice wallet (value, return, positions, cash). On your own server, a signed-in Twin
+  account keeps the wallet (`/api/indonesia/wallet`, `/api/indonesia/wallet/save`) with revision checks, so
+  two devices or a forgotten tab can't silently overwrite each other; hidden tabs never upload. Every
+  Indonesian, crypto and gold feed now reaches the browser through the server (`/api/indonesia/news`,
+  10-minute cache, failures reported per feed), and on GitHub Pages the hourly job refreshes the headlines
+  in `id/snapshot.js`, which the service worker now fetches network-first. Feeds are fetched in parallel.
 - **1.11.0 — Twin Indonesia.** The *Satu* prototype joins Twin as its rupiah side at `id/`: IDX stocks
   in 100-share lots with price steps and fees, US stocks at the shown USD/IDR rate, crypto and gold in
   rupiah, community rooms with Scam Shield, an Analyst Desk scored against real prices and nine
