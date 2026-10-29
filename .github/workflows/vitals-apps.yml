@@ -277,6 +277,8 @@ jobs:
         run: |
           npm install --no-fund --no-audit
           npm run ios:prepare
+          grep -o 'customClass="[^"]*" customModule="[^"]*"' ios/App/App/Base.lproj/Main.storyboard
+          grep -c 'Vitals phone plugin' ios/App/App/AppDelegate.swift
       - name: Build for the iOS simulator, launch it and take a screenshot
         run: |
           xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Debug \
@@ -286,10 +288,12 @@ jobs:
           xcrun simctl boot "$DEVICE" || true
           xcrun simctl bootstatus "$DEVICE" -b
           xcrun simctl install "$DEVICE" build-simulator/Build/Products/Debug-iphonesimulator/App.app
-          xcrun simctl launch "$DEVICE" io.github.juw12.vitals
-          sleep 20
           mkdir -p dist
+          # --console-pty captures the app's stdout: Capacitor's bridge log and the page's console.
+          xcrun simctl launch --console-pty "$DEVICE" io.github.juw12.vitals > dist/iphone-console.log 2>&1 &
+          sleep 25
           xcrun simctl io "$DEVICE" screenshot dist/iphone-simulator.png
+          grep -aE 'Vitals|VitalsPhone|Error|error' dist/iphone-console.log | head -n 60 || true
           xcrun simctl spawn "$DEVICE" launchctl list | grep -q io.github.juw12.vitals || { echo "::error::Vitals is not running in the simulator"; exit 1; }
       - name: Build the unsigned iPhone app (for free sideloading)
         run: |

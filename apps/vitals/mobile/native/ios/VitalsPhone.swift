@@ -5,6 +5,7 @@
 class VitalsViewController: CAPBridgeViewController {
     override open func capacitorDidLoad() {
         bridge?.registerPluginInstance(VitalsPhonePlugin())
+        print("Vitals: VitalsPhone plugin registered (bridge \(bridge == nil ? "missing" : "ready"))")
     }
 }
 
