@@ -1339,7 +1339,12 @@
     "waiting for PC": "等待 PC",
     "paused": "已暫停",
     "Speed uses the firmware’s native scale, not RPM. Jog controls start at 100 steps; presets set both axes to 100, 600 or 1100 steps.": "速度採用韌體原生刻度，不是 RPM。點動控制從 100 步開始；預設值可將兩軸設為 100、600 或 1100 步。",
-    "The code now carries the camera from the moment sharing starts, even if the camera preview on the AIRIZ PC starts later, and a restarted preview (new mode or camera) keeps reaching the viewers. The phone or PC that connects by code keeps reconnecting by itself until the picture arrives instead of giving up after the first try. Share control on the Motor page shows whether the preview runs and who is watching, with a Start camera preview button. The Phone viewer card was removed from the Camera tab: Remote by code does it all. Step presets on Motor control are now 100, 600 and 1100 steps (were 1, 10 and 100).": "從開始分享的那一刻起，代碼就帶著相機，即使 AIRIZ PC 上的相機預覽較晚才開始；重新啟動的預覽（換模式或換相機）也會持續送到觀看者。以代碼連線的手機或 PC 會自動重新連線直到畫面出現，不再第一次失敗就放棄。馬達頁的分享控制會顯示預覽是否在執行、誰在觀看，並提供「開始相機預覽」按鈕。相機分頁的「手機觀看」卡片已移除：以代碼遠端連線即可完成一切。馬達控制的步數預設值改為 100、600、1100 步（原為 1、10、100）。"
+    "Left/right: same direction": "左右：同方向",
+    "Left/right: opposite direction": "左右：反方向",
+    "Left/right now opposite: left sends pan reverse (old mapping).": "左右已改為反方向：左鍵送出水平反轉（舊的對應）。",
+    "Left/right now the same direction: left turns the camera left.": "左右已改為同方向：按左鍵相機向左轉。",
+    "Click to switch. Same direction: pressing left turns the camera left. Opposite direction: the old mapping (left = pan reverse).": "點一下切換。同方向：按左鍵相機向左轉。反方向：舊的對應（左 = 水平反轉）。",
+    "The code now carries the camera from the moment sharing starts, even if the camera preview on the AIRIZ PC starts later, and a restarted preview (new mode or camera) keeps reaching the viewers. The phone or PC that connects by code keeps reconnecting by itself until the picture arrives instead of giving up after the first try. Share control on the Motor page shows whether the preview runs and who is watching, with a Start camera preview button. The Phone viewer card was removed from the Camera tab: Remote by code does it all. Step presets on Motor control are now 100, 600 and 1100 steps (were 1, 10 and 100). Left and right now turn the camera the same way as the arrow (jog pad, arrow keys and camera hold arrows); Left/right: same direction / opposite direction switches it back.": "從開始分享的那一刻起，代碼就帶著相機，即使 AIRIZ PC 上的相機預覽較晚才開始；重新啟動的預覽（換模式或換相機）也會持續送到觀看者。以代碼連線的手機或 PC 會自動重新連線直到畫面出現，不再第一次失敗就放棄。馬達頁的分享控制會顯示預覽是否在執行、誰在觀看，並提供「開始相機預覽」按鈕。相機分頁的「手機觀看」卡片已移除：以代碼遠端連線即可完成一切。馬達控制的步數預設值改為 100、600、1100 步（原為 1、10、100）。左右鍵現在讓相機朝箭頭同方向轉動（點動鍵盤、方向鍵與相機按住箭頭）；可用「左右：同方向 / 反方向」切換回舊的方式。"
   },
   "html": {
     "AIRIZDEVICE LAB": "AIRIZ<small>裝置實驗室</small>",
@@ -2299,6 +2304,18 @@
     [
       "^Code (\\d{6}) also carries the camera once Camera → Start Preview runs on this PC\\.$",
       "只要此 PC 上的 相機 → 開始預覽 一執行，代碼 $1 也會帶著相機。"
+    ],
+    [
+      "^Jog (left|right) \\(pan (forward|reverse)\\)$",
+      "點動 $1（水平 $2）"
+    ],
+    [
+      "^Hold to turn (left|right) \\(pan (forward|reverse)\\)$",
+      "按住轉向 $1（水平 $2）"
+    ],
+    [
+      "^Pan (forward|reverse) / Arrow (left|right)$",
+      "水平 $1 / 方向鍵 $2"
     ]
   ]
 }
