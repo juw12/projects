@@ -1,6 +1,6 @@
 ﻿/* AIRIZ Control Center — versioned, scope-isolated offline shell. */
 const CACHE_PREFIX = 'airiz-control-' + encodeURIComponent(self.registration.scope) + '-';
-const CACHE_NAME = CACHE_PREFIX + 'v2.61-1.11.18-owner-code';
+const CACHE_NAME = CACHE_PREFIX + 'v2.62-1.11.19-wobble';
 const ASSETS = [
   './',
   './index.html',
@@ -31,6 +31,11 @@ const ASSETS = [
   './camera-view.js',
   './camera-view.css',
   './ptz-clock.js',
+  './ptz-core.js',
+  './ptz.js',
+  './ptz.css',
+  './wobble-core.js',
+  './wobble.js',
   './watch.js',
   './vendor/peerjs.min.js',
   './iphone.html',

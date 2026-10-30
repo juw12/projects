@@ -1422,7 +1422,58 @@
     "Set your own 6-digit code first. It works like a password: you choose it, it stays the same every time you share, and you can change it any time.": "請先設定你自己的 6 位數代碼。它就像密碼：由你決定，每次分享都相同，隨時可以變更。",
     "Set your own 6-digit code first (Your code, below), then press Start sharing.": "請先設定你自己的 6 位數代碼（下方「你的代碼」），再按「開始分享」。",
     "Type the 6 digits you want to use, then press Save my code.": "輸入你想使用的 6 位數，然後按「儲存我的代碼」。",
-    "Could not start sharing. Check your code and that the AIRIZ is connected, then try again.": "無法開始分享。請確認代碼以及 AIRIZ 已連線，然後再試一次。"
+    "Could not start sharing. Check your code and that the AIRIZ is connected, then try again.": "無法開始分享。請確認代碼以及 AIRIZ 已連線，然後再試一次。",
+    "Wobble test (rising up / down)": "晃動測試（升降）",
+    "Measures how much the camera head wobbles while it rises and goes down, from the camera picture, and grades it like the bench test: the limit is grade 1. The AIRIZ lowers to the bottom, stays still for 1 s (to measure the camera noise), rises to the top and goes back down. The worse direction decides the grade. The grade uses the sideways shake (across the travel); the shake along the travel is shown too but not graded, because it also holds the motor's normal speed ripple.": "依攝影機畫面測量鏡頭在上升與下降時的晃動程度，並依照工作台目視標準評級：上限為 1 級。AIRIZ 會先降到底部、靜止 1 秒（測量攝影機雜訊），再升到頂部後降回。以較差的方向決定等級。等級依據側向晃動（垂直於行程方向）；沿行程方向的晃動也會顯示但不評級，因為其中也包含馬達正常的速度波動。",
+    "Before you start: AIRIZ on USB, camera preview on, and the camera pointed at a detailed, well-lit scene that does not move (a printed pattern, a shelf; not a plain wall, no people walking by). Do not touch the AIRIZ or the table during the test.": "開始前：AIRIZ 以 USB 連接、開啟攝影機預覽，並將攝影機對準細節豐富、光線充足且靜止的場景（印刷圖樣、書架；不要是素面牆，也不要有人走動）。測試期間請勿觸碰 AIRIZ 或桌面。",
+    "1 · No wobbling": "1 · 無晃動",
+    "2 · Very slight": "2 · 極輕微",
+    "3 · Slight": "3 · 輕微",
+    "4 · Wobbling": "4 · 晃動",
+    "not visible at 15 cm": "15 公分處看不出來",
+    "visible at 15 cm, not at 30 cm": "15 公分處看得出，30 公分處看不出",
+    "slightly visible at 30 cm": "30 公分處略可看出",
+    "obvious at 30 cm": "30 公分處明顯可見",
+    "Start wobble test": "開始晃動測試",
+    "What did you see by eye?": "您目視看到的是？",
+    "Not checked": "未目視檢查",
+    "Save my grade": "儲存我的評級",
+    "Grade borders & settings": "等級界線與設定",
+    "Fit the grade borders": "依目視結果調整等級界線",
+    "Forget graded units": "清除目視評級資料",
+    "Pass up to grade": "合格上限等級",
+    "Grade-1 limit": "1 級上限",
+    "Camera view width": "攝影機視角寬度",
+    "Recent tests": "最近的測試",
+    "Grade": "等級",
+    "Sideways wobble during the worst move (degrees, peak to peak)": "最差那次移動的側向晃動（度，峰對峰）",
+    "No tests yet.": "尚無測試。",
+    "No units graded by eye yet.": "尚未有目視評級的機台。",
+    "Connect the AIRIZ first (USB).": "請先連接 AIRIZ（USB）。",
+    "Run the wobble test on the PC that has the AIRIZ on USB (it needs the camera picture there).": "請在以 USB 連接 AIRIZ 的電腦上執行晃動測試（需要該電腦上的攝影機畫面）。",
+    "Start the camera preview first (Camera → Start Preview). The test measures the shake in the camera picture.": "請先開啟攝影機預覽（攝影機 → 開始預覽）。此測試是從攝影機畫面測量晃動。",
+    "Lowering to the bottom first (not measured)…": "先降到底部（不測量）…",
+    "Measuring the camera noise (head still, 1 s)…": "測量攝影機雜訊（鏡頭靜止 1 秒）…",
+    "Rising to the top – measuring…": "上升到頂部 – 測量中…",
+    "Lowering to the bottom – measuring…": "下降到底部 – 測量中…",
+    "Stopping… (motor stop sent)": "停止中…（已送出馬達停止）",
+    "The move to the bottom was not sent.": "降到底部的指令未送出。",
+    "The wobble test failed.": "晃動測試失敗。",
+    "The picture has too little detail to track. Point the camera at a detailed, well-lit scene (a printed pattern or a shelf, not a plain wall) and keep people out of it.": "畫面細節太少，無法追蹤。請將攝影機對準細節豐富、光線充足的場景（印刷圖樣或書架，不要是素面牆），並避免有人入鏡。",
+    "Wobble test not reliable – test again (see the notes).": "晃動測試結果不可靠 – 請重新測試（見下方說明）。",
+    "NOT RELIABLE · test again": "不可靠 · 請重新測試",
+    "Demo mode: no real AIRIZ moved, the grade only reflects the camera picture.": "示範模式：沒有實體 AIRIZ 移動，等級僅反映攝影機畫面。",
+    "Run a test, then choose the grade you saw by eye.": "請先執行測試，再選擇您目視看到的等級。",
+    "Grade a few units by eye first (after each test: \"What did you see by eye?\").": "請先目視評級幾台機台（每次測試後：「您目視看到的是？」）。",
+    "Graded units forgotten.": "已清除目視評級資料。",
+    "Not visible at 15 cm": "15 公分處看不出來",
+    "Visible at 15 cm, not at 30 cm": "15 公分處看得出，30 公分處看不出",
+    "Slightly visible at 30 cm": "30 公分處略可看出",
+    "Obviously visible at 30 cm": "30 公分處明顯可見",
+    "No wobbling": "無晃動",
+    "Very slight wobbling": "極輕微晃動",
+    "Slight wobbling": "輕微晃動",
+    "Wobbling": "晃動"
   },
   "html": {
     "AIRIZDEVICE LAB": "AIRIZ<small>裝置實驗室</small>",
@@ -1522,7 +1573,9 @@
     "On the PC: press Remote by code (start screen) or Share control (Motor page). One 6-digit code shares the motor and the camera; the camera preview starts by itself. If it cannot start yet, start it later under Camera → Start Preview: the code already carries the camera.": "在 PC 上：按 <strong>以代碼遠端連線</strong>（開始畫面）或 <strong>分享控制</strong>（馬達頁）。一個 <strong>6 位數代碼</strong> 同時分享馬達與相機；相機預覽會自動開始。若暫時無法開始，之後在 相機 → <strong>開始預覽</strong> 啟動即可：代碼已經帶著相機。",
     "On the phone or the other PC: open the AIRIZ console → Remote by code → type the code. The camera opens by itself in a floating window and keeps reconnecting until the picture arrives.": "在手機或另一台 PC 上：開啟 AIRIZ 主控台 → <strong>以代碼遠端連線</strong> → 輸入代碼。相機會自動在浮動視窗開啟，並持續重新連線直到畫面出現。",
     "The Share control window shows whether the camera preview runs and who is watching. Behind a company firewall the picture comes through the AIRIZ relay as quick snapshots.": "分享控制視窗會顯示相機預覽是否在執行以及誰在觀看。在公司防火牆後，畫面會經由 AIRIZ 中繼以快速快照方式傳送。",
-    "The siren plays on the AIRIZ speaker at full volume, again and again, and turns the spotlight on. Siren (wail tone) is a real rising and falling siren made by this console (3 s, 650 to 1500 Hz). AIRIZ test sound is the test recording stored on the AIRIZ. My sound file uses a WAV, MP3, M4A or OGG from this PC (the first 15 s). The wail tone and your file are sent to the AIRIZ the first time the siren sounds (a few seconds over USB) and then repeat from there. Stop siren stops the repeats; a sound already playing finishes.": "警報器會以最大音量在 AIRIZ 喇叭上重複播放，並開啟聚光燈。<em>警報（起伏警笛聲）</em>是由此主控台產生的真正高低起伏警笛聲（3 秒，650 至 1500 Hz）。<em>AIRIZ 測試音</em>是存在 AIRIZ 上的測試錄音。<em>我的聲音檔</em>使用這台 PC 上的 WAV、MP3、M4A 或 OGG（前 15 秒）。警笛聲與您的聲音檔會在第一次響起時傳送到 AIRIZ（透過 USB 約數秒），之後從 AIRIZ 重複播放。「停止警報」會停止重複；正在播放的聲音會播完。"
+    "The siren plays on the AIRIZ speaker at full volume, again and again, and turns the spotlight on. Siren (wail tone) is a real rising and falling siren made by this console (3 s, 650 to 1500 Hz). AIRIZ test sound is the test recording stored on the AIRIZ. My sound file uses a WAV, MP3, M4A or OGG from this PC (the first 15 s). The wail tone and your file are sent to the AIRIZ the first time the siren sounds (a few seconds over USB) and then repeat from there. Stop siren stops the repeats; a sound already playing finishes.": "警報器會以最大音量在 AIRIZ 喇叭上重複播放，並開啟聚光燈。<em>警報（起伏警笛聲）</em>是由此主控台產生的真正高低起伏警笛聲（3 秒，650 至 1500 Hz）。<em>AIRIZ 測試音</em>是存在 AIRIZ 上的測試錄音。<em>我的聲音檔</em>使用這台 PC 上的 WAV、MP3、M4A 或 OGG（前 15 秒）。警笛聲與您的聲音檔會在第一次響起時傳送到 AIRIZ（透過 USB 約數秒），之後從 AIRIZ 重複播放。「停止警報」會停止重複；正在播放的聲音會播完。",
+    "The grade borders are a wobble angle (degrees, peak to peak) and grow with viewing distance: grade 2 starts above the grade-1 limit, grade 3 above 2× it, grade 4 above 4× it. The grade-1 limit starts as an estimate. To make it match your eyes: test a few units, grade each one by eye with What did you see by eye?, then press Fit the grade borders.": "等級界線是晃動角度（度，峰對峰），並隨觀看距離放大：超過 1 級上限為 2 級，超過其 2 倍為 3 級，超過其 4 倍為 4 級。1 級上限一開始是估計值。若要符合您的目視判斷：測試幾台機台，每台用<em>您目視看到的是？</em>評級，再按<em>依目視結果調整等級界線</em>。",
+    "Wobble test for the rising head (1.11.19)": "升降鏡頭晃動測試（1.11.19）"
   },
   "patterns": [
     [
@@ -2484,6 +2537,134 @@
     [
       "^Siren on for (\\d+) s \\((the siren tone|your siren sound|AIRIZ test sound)\\)\\.$",
       "警報開啟 $1 秒。"
+    ],
+    [
+      "^Wobble test finished: grade (\\d) – No\\ wobbling – PASS\\.$",
+      "晃動測試完成：$1 級 – 無晃動 – 合格。"
+    ],
+    [
+      "^Wobble test finished: grade (\\d) – No\\ wobbling – FAIL\\.$",
+      "晃動測試完成：$1 級 – 無晃動 – 不合格。"
+    ],
+    [
+      "^Wobble test finished: grade (\\d) – Very\\ slight\\ wobbling – PASS\\.$",
+      "晃動測試完成：$1 級 – 極輕微晃動 – 合格。"
+    ],
+    [
+      "^Wobble test finished: grade (\\d) – Very\\ slight\\ wobbling – FAIL\\.$",
+      "晃動測試完成：$1 級 – 極輕微晃動 – 不合格。"
+    ],
+    [
+      "^Wobble test finished: grade (\\d) – Slight\\ wobbling – PASS\\.$",
+      "晃動測試完成：$1 級 – 輕微晃動 – 合格。"
+    ],
+    [
+      "^Wobble test finished: grade (\\d) – Slight\\ wobbling – FAIL\\.$",
+      "晃動測試完成：$1 級 – 輕微晃動 – 不合格。"
+    ],
+    [
+      "^Wobble test finished: grade (\\d) – Wobbling – PASS\\.$",
+      "晃動測試完成：$1 級 – 晃動 – 合格。"
+    ],
+    [
+      "^Wobble test finished: grade (\\d) – Wobbling – FAIL\\.$",
+      "晃動測試完成：$1 級 – 晃動 – 不合格。"
+    ],
+    [
+      "^PASS · limit: grade (\\d)$",
+      "合格 · 上限：$1 級"
+    ],
+    [
+      "^FAIL · limit: grade (\\d)$",
+      "不合格 · 上限：$1 級"
+    ],
+    [
+      "^Analysing the up move \\((\\d+) frames\\)…$",
+      "分析上升移動中（$1 張畫面）…"
+    ],
+    [
+      "^Analysing the down move \\((\\d+) frames\\)…$",
+      "分析下降移動中（$1 張畫面）…"
+    ],
+    [
+      "^Analysing the up move… (\\d+) %$",
+      "分析上升移動中… $1 %"
+    ],
+    [
+      "^Analysing the down move… (\\d+) %$",
+      "分析下降移動中… $1 %"
+    ],
+    [
+      "^The (up|down) move was not sent\\.$",
+      "移動指令未送出（$1）。"
+    ],
+    [
+      "^The camera picture hardly updates \\((\\d+) frames in 1 s\\)\\. Close other camera windows and busy programs, keep the console window in front, and try again\\.$",
+      "攝影機畫面幾乎沒有更新（1 秒內 $1 張）。請關閉其他攝影機視窗與忙碌的程式，讓主控台視窗保持在前景，再試一次。"
+    ],
+    [
+      "^Rising up: ([\\d.]+)° \\(grade (\\d) · along the travel ([\\d.]+)°, not graded · (\\d+) frames\\)$",
+      "上升：$1°（$2 級 · 沿行程方向 $3°，不評級 · $4 張畫面）"
+    ],
+    [
+      "^Going down: ([\\d.]+)° \\(grade (\\d) · along the travel ([\\d.]+)°, not graded · (\\d+) frames\\)$",
+      "下降：$1°（$2 級 · 沿行程方向 $3°，不評級 · $4 張畫面）"
+    ],
+    [
+      "^Worst: ([\\d.]+)° = (\\d+) % of the grade-1 limit \\(([\\d.]+)°, taught\\)\\.$",
+      "最差：$1° = 1 級上限的 $2 %（$3°，已依目視調整）。"
+    ],
+    [
+      "^Worst: ([\\d.]+)° = (\\d+) % of the grade-1 limit \\(([\\d.]+)°, estimate\\)\\.$",
+      "最差：$1° = 1 級上限的 $2 %（$3°，估計值）。"
+    ],
+    [
+      "^No movement was seen in the camera picture during the up move\\.$",
+      "上升移動期間，攝影機畫面中沒有看到移動。"
+    ],
+    [
+      "^No movement was seen in the camera picture during the down move\\.$",
+      "下降移動期間，攝影機畫面中沒有看到移動。"
+    ],
+    [
+      "^Part of the (up|down) move could not be tracked well \\(blur or plain picture\\)\\.$",
+      "部分移動（$1）無法良好追蹤（模糊或畫面太單調）。"
+    ],
+    [
+      "^The (up|down) move was short \\(([\\d.]+) s of steady travel measured\\): use a slower rising speed for a more reliable grade\\.$",
+      "移動（$1）太短（只測到 $2 秒的穩定行程）：請使用較慢的升降速度以取得更可靠的等級。"
+    ],
+    [
+      "^Only (\\d+) frames per second: fast shaking may be under-measured\\.$",
+      "每秒只有 $1 張畫面：快速晃動可能會被低估。"
+    ],
+    [
+      "^The camera noise \\(([\\d.]+)°\\) is large compared with the grade-1 limit: use more light and a detailed scene for a reliable grade\\.$",
+      "攝影機雜訊（$1°）相對於 1 級上限偏大：請增加照明並使用細節豐富的場景，以取得可靠的等級。"
+    ],
+    [
+      "^Not a reliable result: (.+)\\. The unit is not passed\\. Close other camera windows and busy programs, keep the console window in front with the camera preview visible, and test again\\.$",
+      "結果不可靠：$1。此機台不判定合格。請關閉其他攝影機視窗與忙碌的程式，讓主控台視窗保持在前景並顯示攝影機預覽，然後重新測試。"
+    ],
+    [
+      "^Grade 1 up to ([\\d.]+)° · grade 2 up to ([\\d.]+)° · grade 3 up to ([\\d.]+)° · grade 4 above\\. \\(Fitted to graded units\\.\\)$",
+      "1 級至 $1° · 2 級至 $2° · 3 級至 $3° · 超過為 4 級。（已依目視評級調整。）"
+    ],
+    [
+      "^Grade 1 up to ([\\d.]+)° · grade 2 up to ([\\d.]+)° · grade 3 up to ([\\d.]+)° · grade 4 above\\. \\(Estimate: fit it to units graded by eye\\.\\)$",
+      "1 級至 $1° · 2 級至 $2° · 3 級至 $3° · 超過為 4 級。（估計值：請依目視評級的機台調整。）"
+    ],
+    [
+      "^(\\d+) units? graded by eye so far\\.$",
+      "目前已有 $1 台目視評級。"
+    ],
+    [
+      "^Saved: you saw grade (\\d) by eye, the console measured ([\\d.]+)°\\.$",
+      "已儲存：您目視為 $1 級，主控台測得 $2°。"
+    ],
+    [
+      "^Grade borders fitted to (\\d+) graded units: grade-1 limit ([\\d.]+)° \\((\\d+) of (\\d+) would be graded differently\\)\\.$",
+      "已依 $1 台目視評級調整等級界線：1 級上限 $2°（$4 台中有 $3 台的評級會不同）。"
     ]
   ]
 }
