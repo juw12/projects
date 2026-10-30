@@ -9,7 +9,7 @@
 //
 // AI provider: Glow AI by default — the same AI and account as GlowChat (same origin, so the
 // sign-in is shared). Guests get Glow Free instantly; signing in unlocks GPT-5 mini, Claude, Gemini…
-// Or bring your own key
+// Or bring your own key (hidden for now, see OWN_PROVIDERS_SHOWN)
 // (OpenAI, Anthropic, Google Gemini, OpenRouter, Groq, or any OpenAI-compatible server).
 // Web access: DuckDuckGo results + page reading via the Jina reader, Wikipedia as fallback.
 (function () {
@@ -20,6 +20,10 @@
   const RUNS_KEY = 'crew-runs-v1';
   const MAX_RUNS = 30;
 
+  // Bring-your-own providers (OpenAI, Anthropic, Gemini, OpenRouter, Groq and Custom/Ollama) are hidden for now,
+  // like GlowChat's own keys: only Glow AI is offered, and a saved own provider falls back to Glow (saved keys,
+  // models and addresses stay stored). true brings them back.
+  const OWN_PROVIDERS_SHOWN = false;
   const PROVIDERS = {
     glow: {
       label: 'Glow AI (default)',
@@ -461,7 +465,8 @@
     } catch (err) {
       saved = {};
     }
-    const provider = saved.provider === 'free' ? 'glow' : (PROVIDERS[saved.provider] ? saved.provider : 'glow');
+    const known = saved.provider === 'free' ? 'glow' : (PROVIDERS[saved.provider] ? saved.provider : 'glow');
+    const provider = OWN_PROVIDERS_SHOWN ? known : 'glow';
     const key = saved.rememberKey ? (saved.apiKey || '') : (sessionStorage.getItem(SESSION_KEY) || '');
     return {
       provider,
@@ -1733,6 +1738,19 @@
     }).join('') + '</div>';
   }
 
+  // Provider picker, API key, model and endpoint fields (only while own providers are shown).
+  function ownProviderFields(s, p, isGlow) {
+    return `
+      <div class="crx-field"><label>Provider</label>
+        <select data-set="provider">${Object.entries(PROVIDERS).map(([k, v]) => `<option value="${k}" ${k === s.provider ? 'selected' : ''}>${esc(v.label)}</option>`).join('')}</select>
+        <small>${esc(p.note)}</small></div>
+      ${p.needsKey || s.provider === 'custom' ? `<div class="crx-field"><label>API key${p.needsKey ? '' : ' (optional)'}</label><input data-set="apiKey" type="password" autocomplete="off" placeholder="Paste key" value="${esc(s.apiKey)}"></div>
+      <label class="crx-check"><input type="checkbox" data-set="rememberKey" ${s.rememberKey ? 'checked' : ''}> Remember key on this device (otherwise cleared when the tab closes)</label>` : ''}
+      ${isGlow ? '' : `<div class="crx-field"><label>Model</label><input data-set="model" placeholder="${esc(p.model)}" value="${esc(s.model)}"><small>Leave empty for the default (${esc(p.model)}).</small></div>`}
+      ${s.provider === 'custom' ? `<div class="crx-field"><label>Endpoint URL</label><input data-set="baseUrl" placeholder="${esc(p.url)}" value="${esc(s.baseUrl)}"></div>` : ''}
+    `;
+  }
+
   function settingsHtml() {
     const s = getSettings();
     const p = PROVIDERS[s.provider];
@@ -1751,15 +1769,11 @@
         </div>
       </div>`;
     return `
-      <div class="crx-note">Your crew needs an AI model to think. <b>Glow AI</b> works instantly — no key, no sign-up. Prefer your own provider? Pick it below; keys stay in this browser and go only to that provider.</div>
+      <div class="crx-note">${OWN_PROVIDERS_SHOWN
+        ? 'Your crew needs an AI model to think. <b>Glow AI</b> works instantly — no key, no sign-up. Prefer your own provider? Pick it below; keys stay in this browser and go only to that provider.'
+        : 'Your crew thinks with <b>Glow AI</b>: it works instantly — no key, no sign-up.'}</div>
       ${glowCard}
-      <div class="crx-field"><label>Provider</label>
-        <select data-set="provider">${Object.entries(PROVIDERS).map(([k, v]) => `<option value="${k}" ${k === s.provider ? 'selected' : ''}>${esc(v.label)}</option>`).join('')}</select>
-        <small>${esc(p.note)}</small></div>
-      ${p.needsKey || s.provider === 'custom' ? `<div class="crx-field"><label>API key${p.needsKey ? '' : ' (optional)'}</label><input data-set="apiKey" type="password" autocomplete="off" placeholder="Paste key" value="${esc(s.apiKey)}"></div>
-      <label class="crx-check"><input type="checkbox" data-set="rememberKey" ${s.rememberKey ? 'checked' : ''}> Remember key on this device (otherwise cleared when the tab closes)</label>` : ''}
-      ${isGlow ? '' : `<div class="crx-field"><label>Model</label><input data-set="model" placeholder="${esc(p.model)}" value="${esc(s.model)}"><small>Leave empty for the default (${esc(p.model)}).</small></div>`}
-      ${s.provider === 'custom' ? `<div class="crx-field"><label>Endpoint URL</label><input data-set="baseUrl" placeholder="${esc(p.url)}" value="${esc(s.baseUrl)}"></div>` : ''}
+      ${OWN_PROVIDERS_SHOWN ? ownProviderFields(s, p, isGlow) : ''}
       <label class="crx-check"><input type="checkbox" data-set="webAccess" ${s.webAccess ? 'checked' : ''}> Let Scout search and read the live web</label>
       <label class="crx-check"><input type="checkbox" data-set="realMode" ${s.realMode ? 'checked' : ''}> Commands produce real AI results (off = demo simulation only)</label>
       <div class="crx-actions"><button class="crx-btn primary" data-act="test">Test connection</button><button class="crx-btn" data-act="history">View results</button></div>

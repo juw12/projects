@@ -1,8 +1,8 @@
 {
-  "version": "1.27.2",
+  "version": "1.27.3",
   "released": "2026-10-29",
   "notes": [
-    "Simpler Settings: your own AI keys and services (OpenRouter, Gemini, Groq, Mistral, Ollama and other APIs) are hidden for now. The built-in free AI covers it, no keys or setup needed",
+    "Simpler settings: your own AI keys and services (OpenRouter, Gemini, Groq, Mistral, OpenAI, Claude, Ollama and other APIs) are hidden for now in GlowChat and GlowRoom. The built-in free AI covers it, no keys or setup needed",
     "🆓 More free AI with no sign-in, built in like Puter: Llama 3.3 70B, GPT-OSS 120B, Qwen 3.5 397B and Mistral Small 3.2 (OVHcloud) plus LLM7 sit next to Glow Free. No key, no account",
     "Auto-switch: when one free AI is busy or used up, the next one answers the same message right away (OVHcloud, LLM7 and Glow Free, then the AI on this device). A used-up one is skipped for a minute",
     "⬆ The version button now fits every window: on narrower screens it shows just its icon (an update still says Update) instead of pushing the top bar off the screen",
