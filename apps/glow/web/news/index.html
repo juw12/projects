@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'">
+<title>AI News today — Glow AI briefing, updated twice a day</title>
+<meta name="description" content="The latest AI news in one place: model launches, research, tools, funding and policy from OpenAI, Google, NVIDIA, Hugging Face, TechCrunch, The Verge and more. Grouped by story, summarised, updated twice a day. Free.">
+<meta name="theme-color" content="#262624">
+<link rel="canonical" href="https://juw12.github.io/projects/glow/news/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Glow">
+<meta property="og:title" content="AI News today — Glow AI briefing">
+<meta property="og:description" content="The day's AI news grouped by story, with sources and a 5-point briefing. Updated twice a day.">
+<meta property="og:url" content="https://juw12.github.io/projects/glow/news/">
+<meta property="og:image" content="https://juw12.github.io/projects/glow/icons/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://juw12.github.io/projects/glow/icons/og-image.png">
+<link rel="stylesheet" href="../home.css">
+<link rel="stylesheet" href="./news.css">
+<link rel="icon" type="image/svg+xml" href="../icons/app-icon.svg">
+<link rel="manifest" href="../manifest.webmanifest">
+<link rel="apple-touch-icon" href="../icons/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Glow">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+</head>
+<body class="news-page">
+<header class="top">
+  <a class="logo" href="../" aria-label="Glow home"><img src="../icons/app-icon.svg" alt="" width="34" height="34"><span>Glow</span></a>
+  <div class="top-right">
+    <button class="icon-btn" id="theme-btn" type="button" title="Light or dark">☀</button>
+    <button class="icon-btn" id="glow-apps-btn" type="button" data-glow-apps aria-label="Glow apps" title="Glow apps"></button>
+    <button id="profile-btn" type="button" data-glow-profile></button>
+  </div>
+</header>
+
+<main class="news-main">
+  <section class="news-head">
+    <h1><span aria-hidden="true">📰</span> <span data-i18n="news.title">AI News</span></h1>
+    <p class="news-meta" id="news-meta" aria-live="polite">Loading the latest edition…</p>
+  </section>
+
+  <section class="brief" id="brief" hidden aria-labelledby="brief-title">
+    <div class="brief-top">
+      <h2 id="brief-title"><span aria-hidden="true">⚡</span> <span id="brief-headline" data-i18n="news.brief">The briefing</span></h2>
+      <span class="brief-tag" id="brief-tag"></span>
+    </div>
+    <ol id="brief-points"></ol>
+    <div class="brief-actions">
+      <button type="button" class="btn small primary" id="brief-ask"><span aria-hidden="true">💬</span> <span data-i18n="news.askBrief">Discuss today's AI news with Glow</span></button>
+      <button type="button" class="btn small" id="brief-copy"><span aria-hidden="true">⧉</span> <span data-i18n="news.copy">Copy briefing</span></button>
+    </div>
+  </section>
+
+  <section class="news-tools" aria-label="Filter the news">
+    <div class="chips" id="topic-chips" role="tablist" aria-label="Topics"></div>
+    <div class="news-row">
+      <label class="sr-only" for="news-search">Search the news</label>
+      <input id="news-search" type="search" placeholder="Search stories, companies, models…" data-i18n-placeholder="news.search" autocomplete="off">
+      <button type="button" class="toggle" id="only-new" aria-pressed="false" title="Only stories that came in since your last visit">✨ <span data-i18n="news.onlyNew">New for you</span> <b id="new-count"></b></button>
+      <button type="button" class="toggle" id="only-saved" aria-pressed="false" title="Stories you saved">🔖 <span data-i18n="news.saved">Saved</span> <b id="saved-count"></b></button>
+    </div>
+  </section>
+
+  <section class="stories" id="stories" aria-live="polite"></section>
+  <p class="empty-note" id="empty-note" hidden></p>
+
+  <footer class="news-foot">
+    <p id="sources-line"></p>
+    <p class="fine" data-i18n="news.fine">Stories come from the publishers linked on each card. Summaries marked ✦ AI are written by free AI from the publishers' own text and can contain mistakes: open the source before you rely on one.</p>
+  </footer>
+</main>
+
+<div class="toast" id="news-toast" role="status" hidden></div>
+
+<script src="../shared/glow-locale.js"></script>
+<script src="../shared/glow-apps.js"></script>
+<script src="./news.js"></script>
+</body>
+</html>

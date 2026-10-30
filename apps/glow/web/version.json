@@ -1,15 +1,15 @@
 {
-  "version": "1.27.3",
-  "released": "2026-10-29",
+  "version": "1.28.0",
+  "released": "2026-10-30",
   "notes": [
+    "📰 New: AI News in the Glow apps menu. The day's AI stories in one place, refreshed twice a day (07:00 and 19:00 WIB)",
+    "The same story from different outlets is shown once with all its sources, ranked by how widely it's covered, community votes and freshness",
+    "A 5-point briefing, a 'why it matters' line on top stories, topics (Models, Research, Tools, Business, Policy & safety, Open source) and search",
+    "✨ 'New for you' shows only what came in since your last visit; 🔖 save stories to read later, even after they leave the edition",
+    "💬 Ask Glow on any story (or the whole briefing) opens GlowChat with the story and its sources ready to discuss",
+    "Glow home shows today's top 3 AI stories, and the last edition you saw still opens offline",
     "Simpler settings: your own AI keys and services (OpenRouter, Gemini, Groq, Mistral, OpenAI, Claude, Ollama and other APIs) are hidden for now in GlowChat and GlowRoom. The built-in free AI covers it, no keys or setup needed",
-    "🆓 More free AI with no sign-in, built in like Puter: Llama 3.3 70B, GPT-OSS 120B, Qwen 3.5 397B and Mistral Small 3.2 (OVHcloud) plus LLM7 sit next to Glow Free. No key, no account",
-    "Auto-switch: when one free AI is busy or used up, the next one answers the same message right away (OVHcloud, LLM7 and Glow Free, then the AI on this device). A used-up one is skipped for a minute",
-    "⬆ The version button now fits every window: on narrower screens it shows just its icon (an update still says Update) instead of pushing the top bar off the screen",
-    "GlowRoom shows the version / Update button too, and always loads the newest Glow (it could keep an old copy with the update button hidden in a menu)",
-    "↩ Glow reopens where you left off: the app you were in, the chat you had open and the message you hadn't sent yet (turn it off in the Glow apps menu)",
-    "⬆ Your version is always shown at the top of every Glow app; when a new version is ready it turns into an orange Update button",
-    "Updates install by themselves when Glow opens or when you switch away, never in the middle of a reply; then \"Glow updated\" shows What's new"
+    "🆓 More free AI with no sign-in, built in like Puter: Llama 3.3 70B, GPT-OSS 120B, Qwen 3.5 397B and Mistral Small 3.2 (OVHcloud) plus LLM7 sit next to Glow Free. No key, no account"
   ],
   "android": "https://github.com/juw12/projects/releases/download/glow-android/Glow-android.apk",
   "windows": "https://github.com/juw12/projects/releases/download/glow-windows/Glow-Setup.exe"

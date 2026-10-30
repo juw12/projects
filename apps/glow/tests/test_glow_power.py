@@ -94,7 +94,7 @@ class PowerAndServiceTests(unittest.TestCase):
 
     def test_version_and_cache_were_bumped_together(self):
         published = json.loads((WEB / "version.json").read_text(encoding="utf-8"))["version"]
-        self.assertEqual(published, "1.27.3")
+        self.assertEqual(published, "1.28.0")
         apps = (WEB / "shared" / "glow-apps.js").read_text(encoding="utf-8")
         self.assertIn(f'const GLOW_VERSION = "{published}";', apps)
         mobile = json.loads((APP / "mobile" / "package.json").read_text(encoding="utf-8"))
