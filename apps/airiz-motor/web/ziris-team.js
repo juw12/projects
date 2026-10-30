@@ -280,7 +280,7 @@
     const instructions = test
       ? 'Auto-post to ' + TEAM_NAME + ' works on this PC.'
       : camera
-        ? 'Phone: open the AIRIZ console \u2192 Camera \u2192 enter the code \u2192 Watch, or tap the button below.'
+        ? 'Phone or PC: open the AIRIZ console \u2192 Remote by code \u2192 type the code, or tap the button below.'
         : 'Phone or PC: open the AIRIZ console \u2192 Remote by code \u2192 type the code (the camera opens by itself). '
           + 'The PC operator presses Allow.';
     const when = new Date().toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });

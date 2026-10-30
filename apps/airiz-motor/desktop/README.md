@@ -9,7 +9,7 @@ is required to use the installed app or its hardware-free demo.
 ## Downloads
 
 Windows x64 releases are published under the app-specific tag
-`airiz-desktop-v1.11.15` in this repository's Releases section.
+`airiz-desktop-v1.11.16` in this repository's Releases section.
 
 - **Installer**: assisted, per-user installation with Start-menu/desktop shortcuts
   and an uninstaller. The wizard lets the user choose the installation directory.
@@ -164,6 +164,24 @@ No pairing is accepted without confirmation and no motor command is sent.
 Another program on the PC still cannot open COM4 while this app holds it: that is
 a Windows serial-port rule, which is why the check runs inside the app.
 
+## 1.11.16: Camera always reaches the other PC
+
+* Field problem: one PC shared with Remote by code, the other typed the code, controlled the motor, but never saw
+  the camera. Cause: the camera was registered under the code only if the preview already ran at the moment sharing
+  started (`shareWithCode` returned `false` otherwise and nothing retried), a stopped or restarted preview ended the
+  camera share for good, and the viewer gave up after its first failed attempt.
+* `web/camera-relay.js`: the camera is registered under the code for the whole share, with or without a preview.
+  Viewers that connect before the preview runs get `{type: 'waiting'}` and are called as soon as it starts (older
+  viewers ignore the message and are simply called later). A restarted preview is swapped into running calls with
+  `RTCRtpSender.replaceTrack`. PeerJS registration problems (`unavailable-id`, network) retry with back-off while
+  the AIRIZ relay keeps serving. The viewer keeps reconnecting while it is connected by code. The Camera-tab
+  *Phone viewer* card is gone; the module keeps its video / picture elements off-screen for `quick-connect.js`.
+* `web/quick-connect.js`: the camera share follows `AirizRemoteControl.hostCode` (also after a restored share or a new
+  own code); *Share control* shows "Camera: shared with code ... · N watching: ..." or a *Start camera preview* button.
+* Test: `node tests/camera-share-e2e.cjs` (two browser profiles, fake webcam, real PeerJS + relay). 1.11.15 fails it
+  (no picture after 60 s); 1.11.16 passes, also with a 1.11.15 viewer
+  (`node tests/camera-share-e2e.cjs ../web <old web folder>`).
+
 ## 1.11.15: Notification when someone asks to join
 
 * `web/remote-control.js` (`hostNotifyJoin`): a new request on the sharing PC plays a two-note chime (Web Audio) and,
@@ -177,7 +195,7 @@ a Windows serial-port rule, which is why the check runs inside the app.
 ## 1.11.14: Full-screen camera on iPhone and Android
 
 * New `web/phone-fullscreen.js` (`AirizFullscreen.attach`) used by `watch.html`, the quick-connect camera window
-  (⛶ button) and the Camera tab *Watch* viewer (`#relay-remote-stage`, *Full screen* button). Order: Fullscreen API on
+  (⛶ button). Order: Fullscreen API on
   the camera box + `screen.orientation.lock('landscape')` for a landscape picture; else `video.webkitEnterFullscreen()`
   (iPhone, WebRTC video); else a fixed fill-the-screen mode (iPhone, relay JPEG frames). Double-tap, Esc and a
   *✕ Exit full screen* button leave it. The old watch-page button did nothing on iPhone for relay pictures.
