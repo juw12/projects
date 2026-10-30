@@ -28,14 +28,34 @@ def find_text(root, label):
     return next((node for node in root.iter('node') if node.get('text') == label or node.get('content-desc') == label), None)
 
 
-def tap_text(label):
-    node = find_text(hierarchy(), label)
-    if node is None:
-        raise AssertionError('Visible control not found: ' + label)
+def tap_node(node):
     numbers = [int(number) for number in re.findall(r'\d+', node.attrib['bounds'])]
     x = (numbers[0] + numbers[2]) // 2
     y = (numbers[1] + numbers[3]) // 2
     adb('shell', 'input', 'tap', str(x), str(y))
+
+
+def tap_text(label):
+    node = find_text(hierarchy(), label)
+    if node is None:
+        raise AssertionError('Visible control not found: ' + label)
+    tap_node(node)
+
+
+def dismiss_blockers(root):
+    """Clear dialogs that cover the console: emulator ANR prompts and the first-run language dialog."""
+    texts = [node.get('text', '') for node in root.iter('node')]
+    if any("isn't responding" in text for text in texts):
+        wait_button = find_text(root, 'Wait')
+        if wait_button is not None:
+            tap_node(wait_button)
+            return True
+    if find_text(root, 'Welcome to AIRIZ Console') is not None:
+        continue_button = find_text(root, 'Continue')
+        if continue_button is not None:
+            tap_node(continue_button)
+            return True
+    return False
 
 
 adb('install', '-r', str(apk))
@@ -43,9 +63,12 @@ adb('shell', 'am', 'start', '-n', PACKAGE + '/.MainActivity')
 time.sleep(20)
 try:
     ready = False
-    for attempt in range(8):
+    for attempt in range(15):
         try:
             initial = hierarchy()
+            if dismiss_blockers(initial):
+                time.sleep(2)
+                continue
             ready = find_text(initial, 'Connect Bluetooth') is not None
             if ready:
                 break
