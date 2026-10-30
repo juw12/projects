@@ -7,6 +7,10 @@ minigames.py - quick arcade games to play with your pet (v2.24).
     Pet Says     - repeat the growing colour + sound pattern (Simon)
     Hop Hop      - your pet runs; jump over the obstacles
 
+v2.25: every game can also be played with friends (2-8 players, "party" rooms on the Friends server):
+everyone gets the same seeded round (same treats, bugs, cards, pattern, obstacles), starts on the same
+countdown and sees the others' scores live; the best score wins the round. See PartyGameWindow.
+
 Every game has a small, timing-independent logic class (step(dt) + input methods) so it can be
 tested headless, and one GameWindow (tkinter) that draws it. Finishing a game makes the pet happier,
 records your best score, and a good score gives a few coins (limited per day).
@@ -130,12 +134,17 @@ class BonkGame:
                     self.holes[i] = None
         self._spawn_in -= dt
         if self._spawn_in <= 0:
+            # always draw the same 3 numbers per spawn, so friends playing the same seed (v2.25) get the
+            # same bugs in the same holes even when someone's board is fuller than another's
+            roll = self.rng.random()
+            jitter = self.rng.uniform(0.85, 1.15)
+            pick = self.rng.randrange(self.HOLES)
             empty = [i for i, h in enumerate(self.holes) if h is None]
             if empty:
-                roll = self.rng.random()
                 kind = "gold" if roll < 0.1 else "flower" if roll < 0.3 else "bug"
-                stay = max(0.55, 1.25 - self.elapsed * 0.022) * self.rng.uniform(0.85, 1.15)
-                self.holes[self.rng.choice(empty)] = {"kind": kind, "left": stay, "hit": False}
+                stay = max(0.55, 1.25 - self.elapsed * 0.022) * jitter
+                index = pick if pick in empty else empty[pick % len(empty)]
+                self.holes[index] = {"kind": kind, "left": stay, "hit": False}
             self._spawn_in = max(0.28, 0.8 - self.elapsed * 0.016)
         if self.time_left <= 0:
             self.done = True
@@ -454,10 +463,13 @@ class GameWindow:
             self.picker[key] = btn
         self.hud = tk.Label(top, text="", font=("Segoe UI", 10, "bold"), fg=self.INK, bg=self.BG, anchor="e")
         self.hud.pack(side="right")
-        self.cv = tk.Canvas(self.win, width=CW, height=CH, bg="#ffffff", highlightthickness=0)
-        self.cv.pack(padx=10)
+        self.mid = tk.Frame(self.win, bg=self.BG)
+        self.mid.pack(padx=10, fill="x")
+        self.cv = tk.Canvas(self.mid, width=CW, height=CH, bg="#ffffff", highlightthickness=0)
+        self.cv.pack(side="left")
         foot = tk.Frame(self.win, bg=self.BG, padx=10, pady=6)
         foot.pack(fill="x")
+        self.foot = foot
         self.tip = tk.Label(foot, text="", font=("Segoe UI", 8), fg=self.MUTED, bg=self.BG, anchor="w",
                             justify="left", wraplength=CW - 120)
         self.tip.pack(side="left")
@@ -465,13 +477,53 @@ class GameWindow:
                          cursor="hand2")
         close.pack(side="right")
         close.bind("<Button-1>", lambda e: self.close())
+        self.close_btn = close
+        self._setup_extra()
         self.cv.bind("<Button-1>", self._click)
         self.cv.bind("<Motion>", self._motion)
         self.win.bind("<KeyPress>", self._key_down)
         self.win.bind("<KeyRelease>", self._key_up)
         self.load(game)
         self._place()
+        self._pet_mood = (None, 0.0)    # (happy | sad, until) - the pet reacts inside the game
+        self._take_pet()
         self.pet.root.after(16, self._tick)
+
+    def _setup_extra(self):
+        """Hook for subclasses (party mode adds its scoreboard here, before the first load)."""
+
+    # ---- v2.25: the pet leaves the desktop and plays inside the game window ----
+    def _take_pet(self):
+        enter = getattr(self.pet, "enter_game", None)
+        if callable(enter):
+            try:
+                enter(self)
+            except Exception:
+                pass
+
+    def _release_pet(self):
+        leave = getattr(self.pet, "leave_game", None)
+        if callable(leave):
+            try:
+                leave(self)
+            except Exception:
+                pass
+
+    def _react(self, mood, seconds=0.6):
+        self._pet_mood = (mood, time.monotonic() + seconds)
+
+    def _pet_extra(self, now):
+        mood, until = getattr(self, "_pet_mood", (None, 0.0))
+        if now >= until:
+            return None
+        if mood == "happy":
+            return {"mouth": "big_open"}
+        return {"eyes": "closed", "mouth": "wavy"}
+
+    def _draw_buddy(self, now, x, floor, size, facing=-1):
+        """The pet watching / cheering from a corner (games where it isn't the player)."""
+        bob = 2 * math.sin(now * 4) if getattr(self, "_pet_mood", (None, 0))[0] == "happy" and now < self._pet_mood[1] else 0
+        self._draw_pet(x, floor - abs(bob) * 3, size, facing=facing, extra=self._pet_extra(now))
 
     # ---- plumbing ----
     def alive(self) -> bool:
@@ -488,6 +540,7 @@ class GameWindow:
     def close(self):
         global _window
         self._alive = False
+        self._release_pet()
         if _window is self:
             _window = None
         try:
@@ -517,8 +570,11 @@ class GameWindow:
             btn.config(bg="#ffd8a8" if key == self.game_key else self.BG)
         self.tip.config(text=t("mg_" + self.game_key + "_how"))
 
+    def _new_rng(self):
+        return None                   # solo: a fresh random game every time
+
     def start(self):
-        self.game = LOGIC[self.game_key]()
+        self.game = LOGIC[self.game_key](rng=self._new_rng())
         self.state = "play"
         self.result = None
         self.effects = []
@@ -546,13 +602,15 @@ class GameWindow:
         key = event.keysym.lower()
         self.keys.add(key)
         if key in ("return", "space") and self.state != "play":
-            self.start()
+            self._overlay_action()
             return
         if self.state != "play":
             return
         if self.game_key == "hop" and key in ("space", "up", "w"):
-            if self.game.jump() and self._sounds():
-                _beep(660, 40)
+            if self.game.jump():
+                self._react("happy", 0.35)
+                if self._sounds():
+                    _beep(660, 40)
         elif self.game_key == "simon" and key in ("1", "2", "3", "4"):
             self._simon_press(int(key) - 1)
 
@@ -566,7 +624,7 @@ class GameWindow:
     def _click(self, event):
         if self.state != "play":
             if self._button_hit(event.x, event.y):
-                self.start()
+                self._overlay_action()
             return
         g = self.game
         if self.game_key == "hop":
@@ -576,6 +634,7 @@ class GameWindow:
             if index is not None:
                 what = g.bonk(index)
                 if what:
+                    self._react("sad" if what == "flower" else "happy")
                     cx, cy = self._hole_xy(index)
                     text = {"bug": "+1", "gold": "+3", "flower": "-2"}[what]
                     colour = "#e03131" if what == "flower" else "#2f9e44"
@@ -586,13 +645,19 @@ class GameWindow:
                 what = g.flip(index)
                 if what == "miss":
                     self.memory_hide_at = time.monotonic() + 0.75
+                    self._react("sad")
                 elif what == "match":
+                    self._react("happy", 0.9)
                     x, y = self._card_xy(index)
                     self.effects.append((x, y - 30, "\u2728", "#f59f00", time.monotonic()))
         elif self.game_key == "simon":
             pad = self._pad_index(event.x, event.y)
             if pad is not None:
                 self._simon_press(pad)
+
+    def _overlay_action(self):
+        """The big button on the intro / game-over card (solo: start a new game)."""
+        self.start()
 
     def _sounds(self) -> bool:
         try:
@@ -615,6 +680,10 @@ class GameWindow:
         if self._sounds():
             _beep(self.PAD_TONES[pad], 160)
         what = self.game.press(pad)
+        if what == "wrong":
+            self._react("sad", 1.5)
+        elif what == "round":
+            self._react("happy", 0.9)
         if what == "round":
             self.effects.append((CW / 2, CH / 2, "\u2714", "#2f9e44", time.monotonic()))
             self._play_pattern(delay=0.8)
@@ -636,7 +705,7 @@ class GameWindow:
 
     def _card_xy(self, index):
         col, row = index % 4, index // 4
-        return 70 + col * 100, 50 + row * 80
+        return 60 + col * 92, 50 + row * 80        # leaves room on the right for the pet
 
     def _card_index(self, x, y):
         for i in range(16):
@@ -659,7 +728,7 @@ class GameWindow:
         return None
 
     def _button_hit(self, x, y):
-        return abs(x - CW / 2) < 80 and abs(y - (CH - 70)) < 22
+        return abs(x - CW / 2) < 110 and abs(y - (CH - 70)) < 22
 
     # ---- loop ----
     def _tick(self):
@@ -689,6 +758,7 @@ class GameWindow:
             g.step(dt)
             if self.game_key == "catch":
                 for kind, x, y in g.events:
+                    self._react("sad" if kind == "ouch" else "happy", 0.5)
                     text = {"cookie": "+1", "fish": "+2", "star": "+5", "ouch": "\U0001F4A5"}[kind]
                     self.effects.append((x, y - 20, text, "#e03131" if kind == "ouch" else "#2f9e44", now))
                 g.events.clear()
@@ -747,6 +817,9 @@ class GameWindow:
                 keep.append((x, y, text, colour, t0))
                 cv.create_text(x, y - age * 40, text=text, fill=colour, font=("Segoe UI Emoji", 14, "bold"))
         self.effects = keep
+        self._draw_overlay(now)
+
+    def _draw_overlay(self, now):
         if self.state == "intro":
             self._overlay(f"{ICONS[self.game_key]} {t('mg_' + self.game_key)}", t("mg_" + self.game_key + "_how"),
                           "\u25b6 " + t("mg_start"))
@@ -760,14 +833,15 @@ class GameWindow:
             lines.append(t("mg_pet_happy", name=self.pet.s.get("name", "Pips")))
             self._overlay(t("mg_over"), "\n".join(lines), "\u21bb " + t("mg_again"))
 
-    def _overlay(self, title, body, button):
+    def _overlay(self, title, body, button, body_y=150, top=False):
         cv = self.cv
         cv.create_rectangle(30, 40, CW - 30, CH - 30, fill="#ffffff", outline="#ffa94d", width=3)
         cv.create_text(CW / 2, 74, text=title, fill=self.ACCENT, font=("Segoe UI Emoji", 16, "bold"))
-        cv.create_text(CW / 2, 150, text=body, fill=self.INK, font=("Segoe UI Emoji", 10), width=CW - 100,
-                       justify="center")
-        cv.create_rectangle(CW / 2 - 80, CH - 92, CW / 2 + 80, CH - 48, fill=self.ACCENT, outline="")
-        cv.create_text(CW / 2, CH - 70, text=button, fill="#ffffff", font=("Segoe UI Symbol", 11, "bold"))
+        cv.create_text(CW / 2, body_y, text=body, fill=self.INK, font=("Segoe UI Emoji", 10), width=CW - 100,
+                       justify="center", anchor="n" if top else "center")
+        if button:
+            cv.create_rectangle(CW / 2 - 110, CH - 92, CW / 2 + 110, CH - 48, fill=self.ACCENT, outline="")
+            cv.create_text(CW / 2, CH - 70, text=button, fill="#ffffff", font=("Segoe UI Symbol", 11, "bold"))
 
     def _draw_catch(self, now):
         cv = self.cv
@@ -786,7 +860,7 @@ class GameWindow:
                                    outline="#495057", width=2)
                 else:
                     cv.create_text(item["x"], item["y"], text=symbol, font=("Segoe UI Emoji", 18))
-        self._draw_pet(x, CH - 26, 56, extra={"mouth": "big_open"} if g and g.items else None)
+        self._draw_pet(x, CH - 26, 56, extra=self._pet_extra(now) or ({"mouth": "big_open"} if g and g.items else None))
 
     def _draw_bonk(self, now):
         cv = self.cv
@@ -804,6 +878,7 @@ class GameWindow:
                     cv.create_text(cx, cy - 46, text="\U0001F4A5", font=("Segoe UI Emoji", 16))
             cv.create_arc(cx - 46, cy - 14, cx + 46, cy + 18, start=180, extent=180, style="arc", outline="#3b2418",
                           width=3)
+        self._draw_buddy(now, CW - 32, CH - 4, 58)
 
     def _draw_memory(self, now):
         cv = self.cv
@@ -820,6 +895,7 @@ class GameWindow:
                 cv.create_text(x, y, text=g.cards[i], font=("Segoe UI Emoji", 24))
             else:
                 cv.create_text(x, y, text="?", fill="#f3d9fa", font=("Segoe UI", 20, "bold"))
+        self._draw_buddy(now, CW - 34, CH - 6, 60)
 
     def _draw_simon(self, now):
         cv = self.cv
@@ -831,6 +907,9 @@ class GameWindow:
             cv.create_rectangle(x0, y0, x1, y1, fill=light if lit else dark, outline="#ffffff" if lit else "#343a40",
                                 width=4)
             cv.create_text(x0 + 14, y0 + 14, text=str(pad + 1), fill="#ffffff", font=("Segoe UI", 10, "bold"))
+        if not self.input_ok and self.state == "play":
+            self._react("happy", 0.2)       # "watch me!" while it shows the pattern
+        self._draw_buddy(now, CW - 34, CH - 30, 60)
         g = self.game
         if g is not None and self.state == "play":
             text = t("mg_simon_watch") if not self.input_ok else t("mg_simon_go", n=g.pos, total=len(g.seq))
@@ -857,5 +936,448 @@ class GameWindow:
                 else:
                     cv.create_rectangle(x0, top, x1, HopGame.GROUND, fill=colour, outline="#2b2b2b", width=1)
         y = g.y if g else 0
-        extra = {"eyes": "closed", "mouth": "wavy"} if g and g.done else None
+        extra = {"eyes": "closed", "mouth": "wavy"} if g and g.done else self._pet_extra(now)
         self._draw_pet(HopGame.PET_X, HopGame.GROUND - y, 50, extra=extra)
+
+
+# =============================================================================
+# Play together (v2.25): party rooms for 2-8 friends
+# =============================================================================
+PARTY_MAX = 8                  # players per room (the host + 7 friends)
+PARTY_SCORE_EVERY = 1.2        # seconds between live score updates while playing
+PARTY_POLL_EVERY = 1.5         # seconds between room refreshes while waiting
+PARTY_FINAL_RETRY = 2.5        # resend the final score until the server has it
+PARTY_MEDALS = ("\U0001F947", "\U0001F948", "\U0001F949")
+_party_windows: dict = {}
+
+
+def party_standings(players: list) -> list:
+    """Players who took part, best score first, each with a 'place' (ties share a place)."""
+    playing = [dict(p) for p in players or [] if p.get("status") == "joined" or (p.get("status") == "left" and p.get("score"))]
+    playing.sort(key=lambda p: (-int(p.get("score") or 0), -int(p.get("wins") or 0), str(p.get("name") or "")))
+    place, last = 0, None
+    for i, p in enumerate(playing, 1):
+        score = int(p.get("score") or 0)
+        if score != last:
+            place, last = i, score
+        p["place"] = place
+    return playing
+
+
+def party_place(players: list, code: str) -> tuple:
+    """(place, number of players) for `code`, or (0, n) if they didn't play."""
+    table = party_standings(players)
+    for p in table:
+        if p.get("code") == code:
+            return p["place"], len(table)
+    return 0, len(table)
+
+
+def party_reward(pet, place: int, players: int) -> dict:
+    """A party round: the pet enjoys playing with friends; winning makes it extra happy (no coins)."""
+    won = place == 1 and players >= 2
+    happy, bond = (8, 3) if won else (5, 2)
+    try:
+        pet._bump("happiness", happy)
+        pet._bump("bond", bond)
+        pet.st["party_rounds"] = int(pet.st.get("party_rounds", 0) or 0) + 1
+        if won:
+            pet.st["party_wins"] = int(pet.st.get("party_wins", 0) or 0) + 1
+            pet.set_action("love", 2.0)
+            pet._spawn("heart", 5)
+        else:
+            pet.set_action("hop", 0.6)
+        pet.save_state()
+    except Exception:
+        pass
+    return {"won": won, "happy": happy, "bond": bond}
+
+
+def open_party(pet, room: dict):
+    """Open (or refresh) the window for a party room. Only one party window is open at a time."""
+    room_id = (room or {}).get("id")
+    if not room_id:
+        return None
+    win = party_window(room_id, pet)
+    if win is not None:
+        win.take_room(room)
+        win.lift()
+        return win
+    for key, other in list(_party_windows.items()):
+        if key[0] == id(pet):
+            if other.alive():
+                other.close(leave=True)
+            _party_windows.pop(key, None)
+    win = PartyGameWindow(pet, room)
+    _party_windows[(id(pet), room_id)] = win
+    return win
+
+
+def party_window(room_id: str, pet=None):
+    """The open window for a room (of this pet, if given - tests run two pets in one process)."""
+    for (pet_id, rid), win in list(_party_windows.items()):
+        if rid == room_id and (pet is None or pet_id == id(pet)) and win.alive():
+            return win
+    return None
+
+
+def party_windows(pet=None) -> list:
+    return [w for (pet_id, _rid), w in list(_party_windows.items()) if w.alive() and (pet is None or pet_id == id(pet))]
+
+
+class PartyGameWindow(GameWindow):
+    """One of the minigames played together. States:
+    lobby (room open) -> countdown -> play -> wait (I finished, friends still playing) -> over (results)
+    -> countdown (host starts the next round) ...  and closed (room ended / not found)."""
+
+    SIDE_W = 200
+
+    def __init__(self, pet, room):
+        self.room = dict(room)
+        self.social = getattr(pet, "social", None)
+        self.me = (self.social.data.get("code") if self.social is not None else "") or ""
+        self.round_no = 0             # round being played / last played here
+        self.seed = None
+        self.start_at = 0.0
+        self.final_score = None       # my score once I finished the round
+        self.final_acked = False
+        self.reacted_round = 0        # round whose result the pet already reacted to
+        self.next_game = room.get("game") if room.get("game") in GAMES else "catch"
+        self.error_text = ""
+        self._busy = False            # a room request is on its way
+        self._next_send = 0.0
+        self._next_poll = 0.0
+        self._last_sent = None
+        self._board_sig = None
+        self._left = False
+        self._ready = False           # the first load() (from GameWindow.__init__) always goes through
+        super().__init__(pet, self.next_game)
+        self._ready = True
+        self.take_room(room)
+
+    # ---- layout ----
+    def _setup_extra(self):
+        side = tk.Frame(self.mid, bg="#fff1dc", width=self.SIDE_W, height=CH, padx=8, pady=6)
+        side.pack(side="left", fill="y", padx=(8, 0))
+        side.pack_propagate(False)
+        self.side_title = tk.Label(side, text="", font=("Segoe UI", 9, "bold"), fg=self.ACCENT, bg="#fff1dc",
+                                   anchor="w", justify="left", wraplength=self.SIDE_W - 16)
+        self.side_title.pack(fill="x")
+        self.board = tk.Label(side, text="", font=("Segoe UI Emoji", 8), fg=self.INK, bg="#fff1dc", anchor="nw",
+                              justify="left", wraplength=self.SIDE_W - 16)
+        self.board.pack(fill="both", expand=True, pady=(4, 0))
+        self.close_btn.config(text=t("mp_leave"))
+
+    def _place(self):
+        try:
+            self.win.update_idletasks()
+            width = CW + self.SIDE_W + 40
+            x = max(20, self.pet.root.winfo_screenwidth() // 2 - width // 2)
+            self.win.geometry(f"+{x}+100")
+            self.lift()
+        except tk.TclError:
+            pass
+
+    # ---- helpers ----
+    @property
+    def is_host(self) -> bool:
+        return bool(self.me) and self.room.get("host") == self.me
+
+    def _players(self) -> list:
+        return self.room.get("players") or []
+
+    def _joined(self) -> list:
+        return [p for p in self._players() if p.get("status") == "joined"]
+
+    def _name(self, code) -> str:
+        for p in self._players():
+            if p.get("code") == code:
+                return p.get("name") or "?"
+        return "?"
+
+    def _new_rng(self):
+        return random.Random(self.seed) if self.seed is not None else None
+
+    # ---- the game picker: only the host, only between rounds ----
+    def load(self, game):
+        if self.state in ("play", "countdown", "wait") and self.game is not None:
+            return
+        if self._ready and not self.is_host:
+            return
+        super().load(game)
+        self.next_game = self.game_key
+        self.state = self._idle_state()
+        self.win.title(f"\U0001F465 {ICONS[self.game_key]} {t('mg_' + self.game_key)}")
+
+    def _idle_state(self) -> str:
+        status = (getattr(self, "room", None) or {}).get("status")
+        return {"open": "lobby", "done": "over", "closed": "closed"}.get(status, "lobby")
+
+    def _update_picker(self):
+        can_pick = self.is_host and self.room.get("status") in ("open", "done")
+        for key, btn in self.picker.items():
+            selected = key == self.game_key
+            btn.config(bg="#ffd8a8" if selected else self.BG, fg=self.INK if (can_pick or selected) else "#c9c4bb",
+                       cursor="hand2" if can_pick else "arrow")
+
+    # ---- room updates (from social.py) ----
+    def take_room(self, room: dict):
+        if not self._alive or not room or room.get("id") != self.room.get("id"):
+            return
+        self._busy = False
+        self.error_text = ""
+        self.room = dict(room)
+        status = room.get("status")
+        mine = room.get("mine") or {}
+        if mine.get("done") and self.final_score is not None:
+            self.final_acked = True
+        if status == "playing" and int(room.get("round") or 0) != self.round_no:
+            self._begin_round(room)
+        elif status == "playing" and self.state in ("lobby", "over", "intro"):
+            self._begin_round(room)
+        elif status == "done":
+            if self.state == "play" and self.game is not None:
+                self.finish()              # deadline: the round ended while I was still playing
+            if self.state in ("play", "wait", "countdown", "lobby", "intro") or self.reacted_round != self.round_no:
+                self.state = "over"
+                self._react_to_result()
+            if self.is_host and self.next_game:
+                self.game_key = self.next_game
+        elif status == "open":
+            if self.state not in ("play", "countdown"):
+                self.state = "lobby"
+                if not self.is_host and room.get("game") in GAMES and room.get("game") != self.game_key:
+                    GameWindow.load(self, room["game"])
+                    self.state = "lobby"
+        elif status == "closed":
+            self.state = "closed"
+        self._update_picker()
+        self._refresh_board(force=True)
+
+    def _begin_round(self, room):
+        self.round_no = int(room.get("round") or 1)
+        self.seed = int(room.get("seed") or 0) or None
+        game = room.get("game") if room.get("game") in GAMES else "catch"
+        GameWindow.load(self, game)           # resets the canvas state for this game
+        self.next_game = game
+        self.win.title(f"\U0001F465 {ICONS[game]} {t('mg_' + game)}")
+        self.start_at = time.monotonic() + max(0.0, float(room.get("starts_in") or 0))
+        self.final_score = None
+        self.final_acked = False
+        self._last_sent = None
+        self.state = "countdown"
+        if (room.get("mine") or {}).get("status") != "joined":
+            self.state = "over"            # I'm only watching this round
+
+    def _react_to_result(self):
+        if self.reacted_round == self.round_no or not self.round_no:
+            return
+        self.reacted_round = self.round_no
+        place, count = party_place(self._players(), self.me)
+        if not place:
+            return
+        reward = party_reward(self.pet, place, count)
+        name = self.pet.s.get("name", "Pips")
+        try:
+            if reward["won"]:
+                self.pet.say(t("mp_pet_won", name=name, game=t("mg_" + self.game_key)), duration=6, priority=1)
+                if self._sounds():
+                    _beep(784, 120)
+                    _beep(988, 180)
+        except Exception:
+            pass
+
+    def on_error(self, code):
+        self._busy = False
+        if code == "not_found":
+            self.state = "closed"
+        self.error_text = {"need_players": t("mp_err_need_players"), "game_started": t("mp_err_started"),
+                           "room_full": t("mp_err_full"), "expired": t("mp_err_closed"),
+                           "not_found": t("mp_err_closed"), "too_fast": t("fr_err_too_fast"),
+                           "offline": t("fr_err_offline")}.get(code, t("fr_err_generic", code=code))
+        if code == "expired":
+            self.state = "closed"
+
+    # ---- server calls ----
+    def _request(self, fn, *args, **kwargs):
+        if self.social is None or self._busy:
+            return
+        self._busy = True
+        try:
+            fn(*args, **kwargs)
+        except Exception:
+            self._busy = False
+
+    def _overlay_action(self):
+        if self.state == "closed":
+            self.close(leave=False)
+        elif self.is_host and self.state in ("lobby", "over"):
+            if len(self._joined()) < 2:
+                self.error_text = t("mp_err_need_players")
+                return
+            self._request(self.social.mp_start, self.room["id"], game=self.next_game)
+
+    # ---- the round ----
+    def finish(self):
+        if self.state != "play":
+            return
+        score = self.game.score if self.game is not None else 0
+        self.final_score = score
+        try:
+            self.result = record_result(self.pet.st, self.game_key, score)   # personal best still counts
+        except Exception:
+            self.result = {"best": False}
+        self.result["score"] = score
+        self.state = "wait"
+        self._send_score(final=True)
+
+    def _send_score(self, final=False):
+        if self.social is None:
+            return
+        score = self.final_score if final else (self.game.score if self.game is not None else 0)
+        self._busy = True
+        self._last_sent = score
+        self.social.mp_score(self.room["id"], self.round_no, int(score or 0), done=final)
+
+    def _tick(self):
+        if self._alive:
+            now = time.monotonic()
+            if self.state == "countdown" and now >= self.start_at:
+                self.start()
+                self._next_send = now + PARTY_SCORE_EVERY
+            elif self.state == "play" and self.game is not None and now >= self._next_send and not self._busy:
+                self._next_send = now + PARTY_SCORE_EVERY
+                if self.game.score != self._last_sent or now >= self._next_poll:
+                    self._next_poll = now + 4
+                    self._send_score()
+            elif self.state == "wait" and not self.final_acked and now >= self._next_send and not self._busy:
+                self._next_send = now + PARTY_FINAL_RETRY
+                self._send_score(final=True)
+            elif self.state in ("lobby", "wait", "over", "countdown") and now >= self._next_poll and not self._busy:
+                self._next_poll = now + PARTY_POLL_EVERY
+                self._request(self.social.mp_load, self.room["id"])
+            self._refresh_board()
+        super()._tick()
+
+    # ---- scoreboard ----
+    def _refresh_board(self, force=False):
+        players = [dict(p) for p in self._players() if p.get("status") in ("joined", "invited", "left")]
+        live = self.state == "play" and self.game is not None
+        for p in players:
+            if p.get("code") == self.me and live:
+                p["score"] = self.game.score      # my own score is always fresher locally
+        sig = (self.state, self.round_no, tuple((p.get("code"), p.get("status"), p.get("score"), p.get("done"),
+                                                 p.get("wins")) for p in players))
+        if not force and sig == self._board_sig:
+            return
+        self._board_sig = sig
+        title = t("mp_round", n=max(1, self.round_no or int(self.room.get("round") or 1)))
+        host = self._name(self.room.get("host"))
+        self.side_title.config(text=f"\U0001F465 {title}  \u00b7  {t('mp_host_short')}: {host}")
+        joined = [p for p in players if p.get("status") == "joined"]
+        joined.sort(key=lambda p: (-int(p.get("score") or 0), str(p.get("name") or "")))
+        rows = []
+        show_scores = self.state not in ("lobby",)
+        for i, p in enumerate(joined):
+            medal = PARTY_MEDALS[i] if show_scores and i < 3 and int(p.get("score") or 0) > 0 else "\u2022"
+            name = (p.get("name") or "?")[:9]
+            if p.get("code") == self.me:
+                name = "\u25b8" + name           # that's me
+            line = f"{medal} {name}"
+            if show_scores:
+                line += f"  {int(p.get('score') or 0)}"
+                if p.get("done") and self.state in ("play", "wait"):
+                    line += " \u2714"
+            if int(p.get("wins") or 0):
+                line += f" \U0001F451{p['wins']}"
+            rows.append(line)
+        waiting = [p for p in players if p.get("status") == "invited"]
+        if waiting:
+            rows.append("")
+            rows.append(t("mp_invited_list"))
+            rows.extend(f"\u2026 {(p.get('name') or '?')[:14]}" for p in waiting)
+        gone = [p for p in players if p.get("status") == "left"]
+        if gone:
+            rows.append("")
+            rows.extend(f"\u2716 {(p.get('name') or '?')[:14]} ({t('mp_left_short')})" for p in gone)
+        self.board.config(text="\n".join(rows))
+
+    # ---- drawing ----
+    def _draw_overlay(self, now):
+        joined = self._joined()
+        game_name = f"{ICONS[self.game_key]} {t('mg_' + self.game_key)}"
+        err = ("\n\u26a0 " + self.error_text) if self.error_text else ""
+        host_name = self._name(self.room.get("host"))
+        self._update_tip()
+        if self.state == "lobby":
+            names = ", ".join(p.get("name", "?") for p in joined)
+            body = t("mp_lobby_body", game=t("mg_" + self.game_key), n=len(joined), names=names)
+            button = None
+            if self.is_host and len(joined) >= 2:
+                button = "\u25b6 " + t("mp_start", n=len(joined))
+            elif self.is_host:
+                body += "\n\n" + t("mp_wait_join")
+            else:
+                body += "\n\n" + t("mp_wait_host", name=host_name)
+            self._overlay("\U0001F465 " + game_name, body + err, button, body_y=104, top=True)
+        elif self.state == "countdown":
+            left = max(0.0, self.start_at - now)
+            self._overlay("\U0001F465 " + game_name, t("mp_get_ready", n=len(joined)), None, body_y=104, top=True)
+            self.cv.create_text(CW / 2, CH - 100, text=str(int(math.ceil(left))) if left > 0.05 else t("mp_go"),
+                                fill=self.ACCENT, font=("Segoe UI", 34, "bold"))
+        elif self.state == "wait":
+            done = sum(1 for p in joined if p.get("done"))
+            body = t("mg_final", n=self.final_score or 0) + "\n" + t("mp_waiting_others", done=done, n=len(joined))
+            if self.result and self.result.get("best"):
+                body += "\n\U0001F3C6 " + t("mg_new_best")
+            self._overlay(t("mg_over"), body + err, None, body_y=104, top=True)
+        elif self.state == "over":
+            table = party_standings(self._players())
+            place, count = party_place(self._players(), self.me)
+            if place == 1 and count >= 2 and table and int(table[0].get("score") or 0) > 0:
+                head = "\U0001F3C6 " + t("mp_you_won")
+            elif place:
+                head = t("mp_you_placed", place=place, n=count)
+            else:
+                head = t("mp_round_over")
+            lines = []
+            for p in table[:3]:
+                medal = PARTY_MEDALS[p["place"] - 1] if p["place"] <= 3 and int(p.get("score") or 0) > 0 else f"{p['place']}."
+                lines.append(f"{medal} {p.get('name', '?')}  {int(p.get('score') or 0)}")
+            body = head + "\n" + "\n".join(lines)
+            button = None
+            if self.is_host and len(joined) >= 2:
+                button = "\u21bb " + t("mp_next_round")
+            elif self.is_host:
+                body += "\n" + t("mp_err_need_players")
+            else:
+                body += "\n" + t("mp_wait_host", name=host_name)
+            title = t("mp_results", n=max(1, self.round_no or int(self.room.get("round") or 1)))
+            self._overlay(title, body + err, button, body_y=100, top=True)
+        elif self.state == "closed":
+            self._overlay(t("mp_title"), t("mp_err_closed") + err, t("mg_close"), body_y=104, top=True)
+
+    def _update_tip(self):
+        """Footer line: the host's 'switch game' hint between rounds, otherwise how to play."""
+        text = t("mp_pick_hint") if self.is_host and self.state in ("lobby", "over") else t("mg_" + self.game_key + "_how")
+        try:
+            if self.tip.cget("text") != text:
+                self.tip.config(text=text)
+        except tk.TclError:
+            pass
+
+    # ---- closing ----
+    def close(self, leave=True):
+        if leave and not self._left and self.social is not None and self.room.get("status") != "closed":
+            self._left = True
+            try:
+                self.social.mp_leave(self.room["id"])
+            except Exception:
+                pass
+        self._alive = False
+        self._release_pet()
+        _party_windows.pop((id(self.pet), self.room.get("id")), None)
+        try:
+            self.win.destroy()
+        except tk.TclError:
+            pass

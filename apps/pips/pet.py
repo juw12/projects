@@ -1982,6 +1982,7 @@ class DesktopPet:
         self.last_interaction = time.time()
         self.visible = bool(self.s.get("enabled", True))
         self.fs_hidden = False
+        self._game_windows = set()      # v2.25: minigame windows the pet has jumped into (hidden from the desktop)
         self._fs_override_hwnd = None   # summoned over this fullscreen window: stay visible while it's in front
         self._offscreen_since = 0.0     # off every monitor since (monotonic) -> walks back by itself
         self.summon_hint = ""           # e.g. "Ctrl+Alt+P" (set by the app once the hotkey works)
@@ -2886,7 +2887,7 @@ class DesktopPet:
 
         if self.visible:
             self._watch_offscreen(now)
-            fs = self._fullscreen_hides()
+            fs = self.in_game or self._fullscreen_hides()
             if fs and not self.fs_hidden:
                 self.fs_hidden = True
                 self._stop_song()
@@ -4417,11 +4418,45 @@ class DesktopPet:
     def is_visible(self) -> bool:
         return self.visible and not self.fs_hidden
 
+    # ---- v2.25: while a minigame is open the pet leaves the desktop and plays inside the game ----
+    @property
+    def in_game(self) -> bool:
+        return bool(getattr(self, "_game_windows", None))
+
+    def enter_game(self, window):
+        """A minigame window opened: hide the desktop pet (it is drawn inside the game instead)."""
+        self._game_windows.add(window)
+        if self.fs_hidden:
+            return
+        self.fs_hidden = True
+        self._stop_song()
+        try:
+            self.bubble.hide()
+            self.win.withdraw()
+        except tk.TclError:
+            pass
+
+    def leave_game(self, window):
+        """The minigame window closed: the pet comes back to the desktop (unless something else hides it)."""
+        self._game_windows.discard(window)
+        if self.in_game or not self.fs_hidden or not self.visible:
+            return
+        if self._fullscreen_hides():
+            return                      # a fullscreen app is in front: the normal check brings it back later
+        self.fs_hidden = False
+        try:
+            self.win.deiconify()
+            self._apply_position(force=True)
+            self.set_action("hop", 0.6)
+        except tk.TclError:
+            pass
+
     # ---- find me (v2.17): tray icon, Ctrl+Alt+P and opening Pips again all end up here ----
     def summon(self, text=None):
         """Bring the pet back no matter what: un-hide it, wake it up, show it even over a fullscreen
         window (while that window stays in front) and walk it onto the screen the mouse is on."""
         self._fs_override_hwnd = foreground_window()
+        self._game_windows.clear()
         if not self.visible:
             self.set_visible(True)
         if self.fs_hidden:
@@ -4803,14 +4838,18 @@ class DesktopPet:
 
         if minigames is not None:
             def build_games(sub):
+                if social_ok:
+                    sub.item("\U0001F465", t("mp_menu_friends"), lambda: self.open_hub("games"),
+                             hint=str(len(self.social.mp_invites)) if getattr(self.social, "mp_invites", None) else "")
+                    sub.item("\u2694", t("mg_duel"), lambda: self.open_hub("arena"))
                 for key in minigames.GAMES:
                     best = minigames.best_score(self.st, key)
                     sub.item(minigames.ICONS[key], t("mg_" + key), lambda k=key: self.play_minigame(k),
                              hint=("\u2605 " + str(best)) if best else "")
                 if tama is not None:
                     sub.item("\u2194", t("mg_leftright"), self.play_game)
-            menu.submenu("\U0001F3B2", t("p_games"), build_games, hint=str(len(minigames.GAMES) + (1 if tama else 0)),
-                         width=240)
+            menu.submenu("\U0001F3B2", t("p_games"), build_games,
+                         hint=str(len(minigames.GAMES) + (1 if tama else 0) + (2 if social_ok else 0)), width=240)
 
         moves = self.shop.moves() if self.shop else []
         if moves:
@@ -4988,6 +5027,10 @@ class DesktopPet:
         menu.add_command(label=t("p_pet", name=name), command=self.pet)
         if minigames is not None:
             games_menu = submenu(menu)
+            if self.social is not None and getattr(self.social, "enabled", False):
+                games_menu.add_command(label="\U0001F465 " + t("mp_menu_friends"), command=lambda: self.open_hub("games"))
+                games_menu.add_command(label="\u2694 " + t("mg_duel"), command=lambda: self.open_hub("arena"))
+                games_menu.add_separator()
             if tama is not None:
                 games_menu.add_command(label="\u2194 " + t("mg_leftright"), command=self.play_game)
                 games_menu.add_separator()
