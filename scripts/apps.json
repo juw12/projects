@@ -863,7 +863,7 @@
       "id": "vitals",
       "name": "Vitals",
       "category": "Apps",
-      "desc": "Device health copilot — undoable storage cleaning, battery wear forecast, drain detective and a diagnostic chat for laptops and phones",
+      "desc": "Device health copilot — desktop apps for Windows, Mac and Linux, Android and iPhone apps that check the phone itself (storage, memory, battery, heat), undoable storage cleaning, battery wear forecast, drain detective and a diagnostic chat",
       "description": "Honest device-health copilot for Mac, Windows, Linux, iPhone and Android. Simple mode by default: one plain-words status, one &ldquo;Fix everything safely&rdquo; button (undoable for 3 days) and an optional weekly automatic care switch. Safety-graded storage cleaning where every cleanup sits in a 72-hour Undo Vault with measured before/after receipts; a goal planner (&ldquo;free 10&nbsp;GB without touching downloads&rdquo;); a transparent health score; battery wear forecast, Drain Detective and idle-drainer alerts; a baseline that learns <em>your</em> normal; and a chat that diagnoses from plain words and runs reversible fixes. Desktop apps for Windows, Mac and Linux that open in their own window and keep checking in the background (Python bundled; starts at login), Android and iPhone apps that check the phone itself (storage, memory, battery, heat and uptime, plus battery temperature, health and charge cycles on Android) and point to the built-in fixes, Add to Home Screen on iPhone, or a one-line install; pair a phone with your computer by scanning a QR code. Zero-dependency Python agent + offline PWA, local-only, no telemetry.",
       "summary": "Device health copilot: desktop apps for Windows, Mac and Linux; Android and iPhone apps check the phone itself. Undoable cleaning.",
       "tags": [
@@ -919,6 +919,10 @@
         {
           "label": "Android",
           "path": "https://github.com/juw12/projects/releases/download/vitals/Vitals-Android.apk"
+        },
+        {
+          "label": "iPhone",
+          "path": "https://github.com/juw12/projects/releases/tag/vitals"
         },
         {
           "label": "Web",
