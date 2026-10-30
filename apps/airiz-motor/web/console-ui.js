@@ -19,6 +19,8 @@
     );
     const jogButtons = [...document.querySelectorAll('[data-jog]')];
     const presetButtons = [...document.querySelectorAll('[data-steps]')];
+    // 1.11.16: step presets 100 / 600 / 1100 (was 1 / 10 / 100); the console starts on the first one.
+    const JOG_PRESET_STEPS = presetButtons.map((button) => Number(button.dataset.steps));
     const jogInputIds = ['pan-speed', 'pan-steps', 'rising-speed', 'rising-steps'];
     // 1.11.9: Full rise / Full down move the rising axis over its whole travel in one finite move.
     const FULL_TRAVEL_STEPS = 1100;
@@ -54,7 +56,7 @@
       Object.assign($(axis + '-steps'), {
         min: stepsParameter.min,
         max: stepsParameter.max,
-        value: 1
+        value: JOG_PRESET_STEPS[0]
       });
     }
 

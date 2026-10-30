@@ -395,7 +395,6 @@
     "Speed": "速度",
     "Speed (ms)": "速度（毫秒）",
     "Speed / strength": "速度／力道",
-    "Speed uses the firmware’s native scale, not RPM. New jog controls start at 1 step.": "速度採用韌體原生刻度，不是 RPM。新的點動控制從 1 步開始。",
     "Spot LED duty cycle 0 to 100": "Spot LED 佔空比 0 到 100",
     "Spot LED:": "Spot LED：",
     "Spot Light LED": "聚光 LED",
@@ -1329,7 +1328,6 @@
     "Its key does not match the remembered device. Check it before allowing. Click to decide.": "它的金鑰與記住的裝置不符。允許前請先確認。點一下以決定。",
     "A remembered device is controlling the AIRIZ through this PC.": "一台已記住的裝置正透過這台電腦控制 AIRIZ。",
     "Camera always reaches the other PC (1.11.16)": "相機畫面一定送到另一台 PC (1.11.16)",
-    "The code now carries the camera from the moment sharing starts, even if the camera preview on the AIRIZ PC starts later, and a restarted preview (new mode or camera) keeps reaching the viewers. The phone or PC that connects by code keeps reconnecting by itself until the picture arrives instead of giving up after the first try. Share control on the Motor page shows whether the preview runs and who is watching, with a Start camera preview button. The Phone viewer card was removed from the Camera tab: Remote by code does it all.": "從開始分享的那一刻起，代碼就帶著相機，即使 AIRIZ PC 上的相機預覽較晚才開始；重新啟動的預覽（換模式或換相機）也會持續送到觀看者。以代碼連線的手機或 PC 會自動重新連線直到畫面出現，不再第一次失敗就放棄。馬達頁的分享控制會顯示預覽是否在執行、誰在觀看，並提供「開始相機預覽」按鈕。相機分頁的「手機觀看」卡片已移除：以代碼遠端連線即可完成一切。",
     "Start camera preview": "開始相機預覽",
     "Camera: shared together with the code while sharing is on.": "相機：分享期間會與代碼一起分享。",
     "Waiting for the AIRIZ PC to share the camera…": "等待 AIRIZ PC 分享相機…",
@@ -1339,7 +1337,9 @@
     "The picture paused on the PC. Reconnecting…": "PC 上的畫面已暫停，正在重新連線…",
     "Connected to the AIRIZ PC. Its camera preview is not running yet: the picture appears as soon as Camera → Start Preview runs on that PC.": "已連線到 AIRIZ PC，但其相機預覽尚未執行：只要該 PC 上的 相機 → 開始預覽 一執行，畫面就會出現。",
     "waiting for PC": "等待 PC",
-    "paused": "已暫停"
+    "paused": "已暫停",
+    "Speed uses the firmware’s native scale, not RPM. Jog controls start at 100 steps; presets set both axes to 100, 600 or 1100 steps.": "速度採用韌體原生刻度，不是 RPM。點動控制從 100 步開始；預設值可將兩軸設為 100、600 或 1100 步。",
+    "The code now carries the camera from the moment sharing starts, even if the camera preview on the AIRIZ PC starts later, and a restarted preview (new mode or camera) keeps reaching the viewers. The phone or PC that connects by code keeps reconnecting by itself until the picture arrives instead of giving up after the first try. Share control on the Motor page shows whether the preview runs and who is watching, with a Start camera preview button. The Phone viewer card was removed from the Camera tab: Remote by code does it all. Step presets on Motor control are now 100, 600 and 1100 steps (were 1, 10 and 100).": "從開始分享的那一刻起，代碼就帶著相機，即使 AIRIZ PC 上的相機預覽較晚才開始；重新啟動的預覽（換模式或換相機）也會持續送到觀看者。以代碼連線的手機或 PC 會自動重新連線直到畫面出現，不再第一次失敗就放棄。馬達頁的分享控制會顯示預覽是否在執行、誰在觀看，並提供「開始相機預覽」按鈕。相機分頁的「手機觀看」卡片已移除：以代碼遠端連線即可完成一切。馬達控制的步數預設值改為 100、600、1100 步（原為 1、10、100）。"
   },
   "html": {
     "AIRIZDEVICE LAB": "AIRIZ<small>裝置實驗室</small>",
