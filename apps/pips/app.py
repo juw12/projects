@@ -28,7 +28,7 @@ except ImportError:  # pragma: no cover - i18n ships with Pips
     def T(key, lang=None, **kwargs):
         return key
 
-APP_VERSION = "2.25.1"
+APP_VERSION = "2.25.2"
 APP_OWNER = "Juwen Lie"
 USER_GUIDE_URL = "https://juw12.github.io/projects/pips/download/Pips-Guide.pptx"
 SITE_URL = "https://juw12.github.io/projects/pips/"
@@ -790,7 +790,11 @@ class ProductivityWidget:
         # Background update checks (first one shortly after start, then every 6 hours)
         self._update_busy = False
         self._update_manifest = None
+        self._update_snooze_until = 0.0      # "Later": hide the update bubble until this time.monotonic()
+        self._update_dialog_shown = set()    # versions already offered in a dialog this session
+        self._update_installing = False
         self.root.after(25_000, self._auto_update_tick)
+        self.root.after(self.UPDATE_WATCH_MS, self._update_watchdog)
         
         # Handle window close
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
@@ -1920,24 +1924,44 @@ class ProductivityWidget:
         pet_settings = self.pet.s if self.pet else (self.cfg.get("pet") or {})
         return bool(pet_settings.get("auto_update", True))
     
-    UPDATE_CHECK_MS = 6 * 3600 * 1000      # normal background check
-    UPDATE_REMIND_MS = 2 * 3600 * 1000     # an update is waiting: remind every 2 hours
-    UPDATE_OFFLINE_MS = 3600 * 1000        # no connection (VPN off?): try again in an hour
-    UPDATE_RETRY_SHOW_MS = 2 * 60 * 1000   # pet busy / hidden / fullscreen: show the offer later
+    UPDATE_CHECK_MS = 30 * 60 * 1000       # background check - no need to press "Check for updates"
+    UPDATE_OFFLINE_MS = 15 * 60 * 1000     # no connection (VPN off?): try again soon
+    UPDATE_WATCH_MS = 60 * 1000            # keep the update bubble on screen until the user decides
+    UPDATE_SNOOZE_S = 60 * 60              # "Later" / x hides the bubble for an hour
+    UPDATE_BUBBLE_S = 24 * 3600            # the update bubble stays up (it never times out by itself)
 
     def _auto_update_tick(self):
         started = self._auto_update_enabled() and self._check_updates(manual=False)
         if not started:
             self.root.after(self.UPDATE_CHECK_MS, self._auto_update_tick)
 
-    def _schedule_auto_update(self, kind: str, skipped: bool = False):
-        if kind == "found" and not skipped:
-            delay = self.UPDATE_REMIND_MS
-        elif kind == "offline":
-            delay = self.UPDATE_OFFLINE_MS
-        else:
-            delay = self.UPDATE_CHECK_MS
+    def _schedule_auto_update(self, kind: str):
+        delay = self.UPDATE_OFFLINE_MS if kind == "offline" else self.UPDATE_CHECK_MS
         self.root.after(delay, self._auto_update_tick)
+
+    def _update_skipped(self, manifest) -> bool:
+        skipped = (self.cfg.get("updates") or {}).get("skipped_version")
+        return bool(manifest) and skipped == manifest.get("version")
+
+    def _update_bubble_showing(self) -> bool:
+        bubble = getattr(self.pet, "bubble", None) if self.pet else None
+        return bool(bubble and bubble.visible and getattr(bubble, "_pips_update", False))
+
+    def _update_watchdog(self):
+        """While an update is waiting, keep its bubble on screen (it comes back after other messages)."""
+        try:
+            manifest = self._update_manifest
+            if (manifest and self._auto_update_enabled() and not self._update_busy
+                    and not self._update_installing
+                    and not self._update_skipped(manifest)
+                    and time.monotonic() >= self._update_snooze_until
+                    and not self._update_bubble_showing()):
+                bubble = getattr(self.pet, "bubble", None) if self.pet else None
+                if not (bubble and bubble.visible):
+                    self._offer_update(manifest, manual=False)
+        except Exception as e:
+            logger.info(f"Update watchdog: {e}")
+        self.root.after(self.UPDATE_WATCH_MS, self._update_watchdog)
     
     def _check_updates(self, manual: bool = False):
         """Check the published manifest in a background thread."""
@@ -1960,16 +1984,25 @@ class ProductivityWidget:
     def _on_update_result(self, outcome, manual: bool):
         self._update_busy = False
         kind, payload = outcome
-        skipped = kind == "found" and (self.cfg.get("updates") or {}).get("skipped_version") == payload.get("version")
         if not manual:
-            self._schedule_auto_update(kind, skipped)
+            self._schedule_auto_update(kind)
         if kind == "found":
+            previous = (self._update_manifest or {}).get("version")
             self._update_manifest = payload
-            if not manual and skipped:
+            if manual:
+                self._update_snooze_until = 0.0
+                self._offer_update(payload, manual=True)
                 return
-            self._offer_update(payload)
+            if previous and previous != payload.get("version"):
+                self._update_snooze_until = 0.0   # an even newer version: show it right away
+            if self._update_skipped(payload) or time.monotonic() < self._update_snooze_until:
+                return
+            if not self._update_bubble_showing():
+                self._offer_update(payload, manual=False)
         elif kind == "latest":
             self._update_manifest = None
+            if self._update_bubble_showing():
+                self.pet.bubble.hide()
             if manual:
                 self._tell(T("upd_latest", v=APP_VERSION))
         elif manual:
@@ -1985,35 +2018,43 @@ class ProductivityWidget:
         except Exception:
             logger.info(text)
     
-    def _offer_update(self, manifest: dict):
+    def _snooze_update(self):
+        self._update_snooze_until = time.monotonic() + self.UPDATE_SNOOZE_S
+
+    def _offer_update(self, manifest: dict, manual: bool = True):
         version = manifest.get("version", "?")
         lang = i18n.get_language() if i18n else "en"
         notes = updater.notes_for(manifest, lang)[:4]
         notes_text = "\n".join("\u2022 " + n for n in notes)
         text = T("upd_available", v=version, notes=notes_text)
         if self.pet and self.pet.is_visible():
+            # stays up until the user picks something; if another message pushes it away,
+            # the watchdog brings it back a minute later
             shown = self.pet.say(
                 text,
                 actions=[
                     (T("upd_now"), lambda: self._install_update(manifest)),
-                    (T("upd_later"), None),
+                    (T("upd_later"), self._snooze_update),
                     (T("upd_skip"), lambda: self._skip_version(version)),
                 ],
-                duration=90,
+                duration=self.UPDATE_BUBBLE_S,
                 priority=2,
+                sticky=True,
+                on_close=self._snooze_update,
             )
-            if not shown:
-                # fullscreen app, guided tour or another message: try again in a little while
-                self.root.after(self.UPDATE_RETRY_SHOW_MS, lambda v=version: self._reoffer_update(v))
+            if shown:
+                self.pet.bubble._pips_update = True
             return
+        if not manual:
+            # pet hidden in the tray (not fullscreen): ask once per session, otherwise wait for the pet
+            if not self.pet or self.pet.fs_hidden or version in self._update_dialog_shown:
+                return
+            self._update_dialog_shown.add(version)
         from tkinter import messagebox
         if messagebox.askyesno("Pips", text + "\n\n" + T("upd_now") + "?", parent=self.card_frame):
             self._install_update(manifest)
-    
-    def _reoffer_update(self, version: str):
-        manifest = self._update_manifest
-        if manifest and manifest.get("version") == version:
-            self._offer_update(manifest)
+        else:
+            self._snooze_update()
 
     def _show_pending_update(self):
         """Menu banner click: show the update offer (or re-check if it went stale)."""
@@ -2038,6 +2079,9 @@ class ProductivityWidget:
     def _install_update(self, manifest: dict):
         if not updater:
             return
+        if self._update_installing:
+            return
+        self._update_installing = True
         version = manifest.get("version", "?")
         self._tell(T("upd_downloading"), duration=120, priority=3)
         
@@ -2052,6 +2096,8 @@ class ProductivityWidget:
             except Exception as e:
                 logger.error(f"Update failed: {e}")
                 message = str(e)
+                self._update_installing = False
+                self._update_snooze_until = time.monotonic() + self.UPDATE_SNOOZE_S
                 self.root.after(0, lambda: self._tell(
                     T("upd_failed", err=message),
                     actions=[(T("upd_open_site"), lambda: os.startfile(SITE_URL))],

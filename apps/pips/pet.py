@@ -1430,6 +1430,7 @@ class SpeechBubble:
         self.hover = False
         self._button_hit = False
         self.sticky = False
+        self.on_close = None
         self.cv.bind("<ButtonRelease-1>", self._on_click)
         self.cv.bind("<Enter>", lambda e: setattr(self, "hover", True))
         self.cv.bind("<Leave>", lambda e: setattr(self, "hover", False))
@@ -1438,11 +1439,14 @@ class SpeechBubble:
     def hwnd(self):
         return hwnd_of(self.win)
 
-    def show(self, text, actions=None, duration=6.0, priority=1, on_click=None, sticky=False) -> bool:
+    def show(self, text, actions=None, duration=6.0, priority=1, on_click=None, sticky=False,
+             on_close=None) -> bool:
         now = time.monotonic()
         if self.visible and priority < self.priority and now < self.hide_at:
             return False
         self.sticky = sticky
+        self.on_close = on_close
+        self._pips_update = False   # app.py marks its update offer so it can keep it on screen
         self.text = text
         self.actions = list(actions or [])
         self.on_click = on_click
@@ -1538,7 +1542,13 @@ class SpeechBubble:
 
     def _on_close_click(self, _event):
         self._button_hit = True
+        callback = self.on_close
         self.hide()
+        if callback:
+            try:
+                callback()
+            except Exception as exc:
+                logger.warning("Bubble close failed: %s", exc)
         if self.pet.tour:
             self.pet.tour.finish(skipped=True)
 
@@ -1908,6 +1918,10 @@ class DesktopPet:
             if self.s.get("click_action") in (None, "tickle_hub", "tickle_open"):
                 self.s["click_action"] = "tickle_only"
             self.s["click_v224"] = True
+        if not self.s.get("auto_update_v2252"):
+            # 2.25.2: automatic update checks are on for everyone (they can still be switched off)
+            self.s["auto_update"] = True
+            self.s["auto_update_v2252"] = True
         self.state_path = self.base_dir / "data" / "pet_state.json"
         self.st = self._load_state()
         # v2.18 Tamagotchi-style care: growing up (baby -> adult), sick days and a guessing game (tama.py)
@@ -4340,13 +4354,15 @@ class DesktopPet:
         return None
 
     # ------------------------------------------------------------ public API
-    def say(self, text, actions=None, duration=5.0, priority=1, on_click=None) -> bool:
+    def say(self, text, actions=None, duration=5.0, priority=1, on_click=None, sticky=False,
+            on_close=None) -> bool:
         if not self.visible or self.fs_hidden or getattr(self, "_destroyed", False):
             return False
         if self.tour and self.tour.active and priority < 3:
             return False
         try:
-            return self.bubble.show(text, actions=actions, duration=duration, priority=priority, on_click=on_click)
+            return self.bubble.show(text, actions=actions, duration=duration, priority=priority,
+                                    on_click=on_click, sticky=sticky, on_close=on_close)
         except tk.TclError:
             return False
 

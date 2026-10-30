@@ -104,6 +104,10 @@ def notes_for(manifest: dict, lang: str) -> list:
 def install(manifest: dict, app_dir, current_version: str, progress=None) -> str:
     """Download, verify and install an update. Returns the backup folder path."""
     app_dir = Path(app_dir)
+    if (app_dir / "release.py").exists():
+        # the developer's source folder (release.py is never shipped): installing the public
+        # zip here would overwrite dev-only settings - publish with release.py instead
+        raise RuntimeError("this is the Pips developer copy - it is updated with release.py, not the in-app updater")
 
     def report(stage):
         if progress:
