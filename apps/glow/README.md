@@ -9,6 +9,7 @@
 | **GlowRoom** | A virtual office of AI agents (formerly Crewroom) that research, write code and make media for a mission | https://juw12.github.io/projects/glow/room/ |
 | **Profile & settings** 👤 | Your name, avatar, Puter account, persona, usage and data, shared by every Glow app (avatar at the top right) | https://juw12.github.io/projects/glow/account/ |
 | **GlowLead** 👑 | The AI lead (orchestrator) and owner of GlowRoom: plans a goal, delegates the steps to GlowChat and the GlowRoom crew, checks the work and reports | https://juw12.github.io/projects/glow/lead/ |
+| **GlowNews** 📰 | The day's AI news, refreshed twice a day: one card per story with every source, a 5-point briefing, topics, *New for you*, and Ask Glow on any story | https://juw12.github.io/projects/glow/news/ |
 
 GlowChat installable app: `glow/chat/app.html`, mobile: `glow/chat/mobile.html`. GlowRoom: `glow/room/app.html`, `glow/room/mobile.html`.
 AI-suggested resources in GlowChat are not automatically browsed or verified; GlowChat does no autonomous building or execution (that is GlowRoom's job, and its results should still be reviewed).
