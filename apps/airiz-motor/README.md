@@ -24,7 +24,7 @@ A downloadable Windows x64 desktop edition now bundles this entire console local
 It is not a website shortcut and does not require Chrome, Edge, Node or Python to run.
 Installer and portable preview builds are available at:
 
-https://github.com/juw12/projects/releases/tag/airiz-desktop-v1.11.13
+https://github.com/juw12/projects/releases/tag/airiz-desktop-v1.11.14
 
 The initial binaries are unsigned. The packaged app was tested with demo/synthetic
 hardware; real-device bench validation is still required. Browser and mobile-web
@@ -56,6 +56,11 @@ streams the AIRIZ microphone back in 2-second clips, about 4 s behind live. Phon
 that has the AIRIZ on USB. Stop motor still works and also interrupts a message being sent. Tested
 against a simulated AIRIZ shell (busybox), not yet on real AIRIZ hardware; the sound format and the
 record/play commands can be changed under *Voice settings*.
+
+**Full-screen camera on iPhone and Android (1.11.14):** `web/phone-fullscreen.js` gives the watch page, the phone *Remote by code* camera window
+and *Camera → Watch* one Full screen that works on phones: the Fullscreen API (plus a landscape lock) where it exists
+(Android, desktop, iPad), the native player for WebRTC video on iPhone, and a fill-the-screen mode for relay pictures on
+iPhone. Double-tap toggles it. AIRIZ Mobile 1.0.3 is rebuilt from this console (no Sound FX tab).
 
 **View motion pictures without saving them (1.11.13):** Each Smart detection event has *View* (and a clickable thumbnail) that opens the full photo
 in an in-app viewer with *Older* / *Newer* (arrow keys too) and *Play clip*. The event row no longer downloads on click;

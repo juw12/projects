@@ -18,7 +18,9 @@
   .live { display: none; padding: 2px 8px; border-radius: 6px; background: #da3633; color: #fff; font-size: 0.75rem; font-weight: 700; }
   .live.on { display: inline-block; }
   main { flex: 1; display: flex; align-items: center; justify-content: center; min-height: 0; }
+  main { position: relative; }
   video, #relay-image { width: 100%; height: 100%; object-fit: contain; background: #000; }
+  .tip { color: #9da7b3; font-size: 0.8rem; }
   form { display: flex; gap: 8px; padding: 24px; flex-direction: column; align-items: center; text-align: center; }
   input { font-size: 1.6rem; letter-spacing: 0.25em; width: 8em; text-align: center; padding: 8px; border-radius: 10px;
     border: 1px solid #30363d; background: #0d1117; color: #e6edf3; }
@@ -47,6 +49,7 @@
 <script src="vendor/peerjs.min.js"></script>
 <script src="device-label.js"></script>
 <script src="camera-frame-relay.js"></script>
+<script src="phone-fullscreen.js"></script>
 <script src="watch.js"></script>
 </body>
 </html>

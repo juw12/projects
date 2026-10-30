@@ -57,6 +57,7 @@
     peer = null;
     closeRelay();
     video.srcObject = null;
+    if (fullView && fullView.active) fullView.exit();
     show(null);
   }
 
@@ -113,7 +114,7 @@
             clearTimeout(timer);
             retry.hidden = true;
             show('relay');
-            status('Live from the AIRIZ console through the AIRIZ relay (view only).');
+            status('Live from the AIRIZ console through the AIRIZ relay (view only). Double-tap the picture for full screen.');
           }
         },
         onStatus(pcPresent) {
@@ -173,7 +174,7 @@
         video.play().catch(() => {});
         clearTimeout(timer);
         retry.hidden = true;
-        status('Live from the AIRIZ console (view only).');
+        status('Live from the AIRIZ console (view only). Double-tap the picture for full screen.');
       });
       call.on('close', () => {
         if (!isCurrent()) return;
@@ -211,16 +212,11 @@
     const code = codeFromUrl();
     if (code) watch(code);
   });
-  fullscreen.addEventListener('click', () => {
-    if (!relayImage.hidden) {
-      const target = document.querySelector('main');
-      if (target.requestFullscreen) target.requestFullscreen().catch(() => {});
-      else if (target.webkitRequestFullscreen) target.webkitRequestFullscreen();
-      return;
-    }
-    if (video.requestFullscreen) video.requestFullscreen().catch(() => {});
-    else if (video.webkitEnterFullscreen) video.webkitEnterFullscreen();
-  });
+  // 1.11.14: full screen that also works on iPhone (relay pictures fill the screen, video uses the
+  // iPhone player) and Android (real full screen, landscape). Double-tap the picture works too.
+  const fullView = window.AirizFullscreen
+    ? window.AirizFullscreen.attach({ container: document.querySelector('main'), button: fullscreen, video, image: relayImage })
+    : null;
   window.addEventListener('hashchange', () => {
     const code = codeFromUrl();
     if (code) watch(code);

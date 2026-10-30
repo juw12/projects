@@ -283,9 +283,18 @@
 
   const NETWORK_HINT = 'The PC’s network is blocking the video (company firewall). Update the AIRIZ console on the PC to the latest version, or put the phone and the PC on the same Wi-Fi, then try again.';
 
+  // 1.11.14: Full screen for the watched camera (phones included).
+  const remoteFull = window.AirizFullscreen && $('relay-remote-stage')
+    ? window.AirizFullscreen.attach({ container: $('relay-remote-stage'), button: $('btn-relay-fullscreen'),
+      video: els.video, image: els.relayImage })
+    : null;
+
   function showRemote(mode) {
     els.video.hidden = mode !== 'video';
     if (els.relayImage) els.relayImage.hidden = mode !== 'relay';
+    const fullButton = $('btn-relay-fullscreen');
+    if (fullButton) fullButton.hidden = !mode;
+    if (!mode && remoteFull && remoteFull.active) remoteFull.exit();
   }
 
   function closeViewerRelay() {
