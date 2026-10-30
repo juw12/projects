@@ -3,12 +3,12 @@
   "files": [
     {
       "url": "https://github.com/juw12/projects/releases/download/airiz-desktop-v1.11.15/AIRIZ-Console-Setup-1.11.15-x64.exe",
-      "sha512": "KrgvhCDNLZA532Ul8qga7AYHHmwwbSX+S/OJ8/VGSQORzZQctO1tuBB7zbYzH8vc7JXniZuptddq5M8q2TVioQ==",
-      "size": 121949232
+      "sha512": "ipwtZQYze542VVA0af4Z60rGnEvjJ+LUWyExgtIssQTQ7JmsoSAfw3ihPXNImj9CjkLjsLyzoVMjucU2V/ggdg==",
+      "size": 121949247
     }
   ],
   "path": "https://github.com/juw12/projects/releases/download/airiz-desktop-v1.11.15/AIRIZ-Console-Setup-1.11.15-x64.exe",
-  "sha512": "KrgvhCDNLZA532Ul8qga7AYHHmwwbSX+S/OJ8/VGSQORzZQctO1tuBB7zbYzH8vc7JXniZuptddq5M8q2TVioQ==",
-  "releaseDate": "2026-10-30T03:00:46.745823+00:00",
+  "sha512": "ipwtZQYze542VVA0af4Z60rGnEvjJ+LUWyExgtIssQTQ7JmsoSAfw3ihPXNImj9CjkLjsLyzoVMjucU2V/ggdg==",
+  "releaseDate": "2026-10-30T03:14:20.528218+00:00",
   "releaseName": "AIRIZ Console 1.11.15"
 }
