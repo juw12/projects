@@ -76,12 +76,6 @@
     toast.timer = setTimeout(() => { notice.hidden = true; }, 9000);
   }
 
-  function randomDigits() {
-    const value = new Uint32Array(1);
-    crypto.getRandomValues(value);
-    return String(value[0] % 1000000).padStart(6, '0');
-  }
-
   function randomId() {
     const bytes = new Uint8Array(8);
     crypto.getRandomValues(bytes);
@@ -158,7 +152,7 @@
     resumedApprovals: new Map(), // device id -> key hash, allowed before the reload / update
     pendingResume: null,      // a share to continue as soon as the AIRIZ is connected
     hashes: new Map(),        // device id + key -> key hash (for the resume record)
-    ownCode: false,           // 1.11.4: sharing with the owner's own code (not a random one)
+    ownCode: false,           // 1.11.4: sharing with the owner's own code (1.11.18: always)
     ask: null,                // 1.11.4: the "asks to control" prompt
     attention: false,         // 1.11.4: someone waits for Allow (taskbar flash, tab title)
   };
@@ -187,15 +181,14 @@
       + '<input id="share-control-link" class="input" readonly aria-label="Remote control link">'
       + '<button id="share-control-copy" class="btn">Copy link</button></div>'
       + '<p id="share-control-status" class="phone-remote-status" role="status"></p>'
-      // 1.11.4: the owner's own code (like a password) instead of a new random code each time.
+      // 1.11.18: the code is always the owner's own code (like a password); no random codes.
       + '<section class="phone-remote-clients share-own-code" aria-labelledby="share-code-title">'
       + '<h3 id="share-code-title">Your code</h3>'
       + '<p id="share-code-note" class="share-control-hint"></p>'
       + '<div class="share-code-row">'
       + '<input id="share-code-input" class="input" inputmode="numeric" autocomplete="off" maxlength="6" '
       + 'pattern="[0-9]*" placeholder="6 digits" aria-label="Your own 6-digit code">'
-      + '<button id="share-code-save" class="btn btn-secondary" type="button">Use my code</button>'
-      + '<button id="share-code-random" class="btn" type="button" hidden>Use random codes</button></div>'
+      + '<button id="share-code-save" class="btn btn-secondary" type="button">Save my code</button></div>'
       + '<p id="share-code-error" class="share-code-error" role="alert" hidden></p></section>'
       // Ziris PTB co-admins: ziris-team.js fills this line (auto-post to Teams) and the resend button.
       + '<div class="share-control-teams-row"><p id="share-control-teams" class="share-control-teams-status" aria-live="polite" hidden></p>'
@@ -272,7 +265,6 @@
         hostSetOwnCode(event.target.value);
       }
     });
-    $('share-code-random').addEventListener('click', hostUseRandomCodes);
     $('share-keep-awake').checked = keepAwakeWanted();
     $('share-keep-awake').addEventListener('change', event => {
       try {
@@ -328,24 +320,28 @@
     return 'reconnecting…';
   }
 
-  function hostRender() {
-    const list = $('share-control-list');
-    const button = $('btn-share-control');
+  // 1.11.18: one entry point, the header "Remote by code" button, shows the share state.
+  function hostRenderHeader() {
+    const button = $('qc-open');
     const approved = approvedControllers();
     const pending = [...host.controllers.values()].filter(item => item.state === 'pending').length;
     if (button) {
-      const label = button.querySelector('span') || button;
-      let text = 'Share control';
+      const label = button.querySelector('.qc-open-text') || button;
+      let text = 'Remote by code';
       if (host.code) {
         if (approved.length === 1) text = 'Shared · ' + approved[0].label;
         else if (approved.length > 1) text = 'Shared · ' + approved.length + ' devices';
-        else if (pending) text = 'Share control · ' + pending + ' waiting';
-        else text = 'Sharing control';
+        else if (pending) text = 'Sharing · ' + pending + ' waiting';
+        else text = 'Sharing · ' + host.code;
       }
-      label.textContent = text;
-      button.classList.toggle('btn-primary', !!host.code);
-      button.classList.toggle('btn-secondary', !host.code);
+      if (label.textContent !== text) label.textContent = text;
+      button.classList.toggle('is-sharing', !!host.code);
     }
+  }
+
+  function hostRender() {
+    const list = $('share-control-list');
+    hostRenderHeader();
     if (!list) return;
     const rows = [...host.controllers.values()].filter(controller => controller.state !== 'ended').map(controller => {
       const item = document.createElement('li');
@@ -419,7 +415,7 @@
     dialog.innerHTML = '<h2 id="share-ask-title">A device asks to control the AIRIZ</h2>'
       + '<ul id="share-ask-list" class="share-ask-list"></ul>'
       + '<p class="share-control-hint">Allow &amp; remember lets the device in by itself next time, also after the code changes. '
-      + 'Forget it any time in Share control.</p>'
+      + 'Forget it any time in Remote by code \u2192 Manage sharing.</p>'
       + '<div class="desktop-update-actions">'
       + '<button id="share-ask-later" class="btn btn-secondary" type="button">Decide later</button></div>';
     document.body.append(dialog);
@@ -686,12 +682,13 @@
         document.createTextNode(' '),
         makeSpan('It is used every time you share, like a password. Change it any time; the old code then stops working.'));
     } else {
-      note.append(makeSpan('A new random code is made each time you share. '
-        + 'Type your own 6 digits to keep one code, like a password you can change any time.'));
+      note.append(makeSpan('Set your own 6-digit code first. It works like a password: you choose it, '
+        + 'it stays the same every time you share, and you can change it any time.'));
     }
-    $('share-code-random').hidden = !own;
-    $('share-code-save').textContent = own ? 'Change code' : 'Use my code';
+    $('share-code-save').textContent = own ? 'Change code' : 'Save my code';
     $('share-code-input').placeholder = own ? 'New 6 digits' : '6 digits';
+    $('share-control-start').disabled = !own || !!host.code;
+    document.dispatchEvent(new CustomEvent('airiz:own-code', { detail: { code: own } }));
   }
 
   function hostCodeError(text) {
@@ -722,17 +719,9 @@
       toast('You are already sharing with code ' + code + '. It stays your code.');
     } else {
       toast('Saved. Your code ' + code + ' is used every time you share.');
+      if ($('share-control-status')) hostSetStatus('Your code is ' + code + '. Press Start sharing.');
     }
     return result;
-  }
-
-  function hostUseRandomCodes() {
-    session.clearOwnCode(SHARE_STORE);
-    hostCodeError('');
-    hostRenderOwnCode();
-    toast(host.code
-      ? 'Random codes from the next time you share. The current code keeps working until you stop sharing.'
-      : 'A new random code is made each time you share.');
   }
 
   // Sharing moves to the new code at once: devices on the old code are disconnected and told the
@@ -1294,12 +1283,7 @@
     peer.on('error', error => {
       if (host.peer !== peer) return;
       if (error && error.type === 'unavailable-id') {
-        if (!host.peerOpened && attempt < 3 && !host.resumed && !host.ownCode) {
-          // Another PC already uses this code on the PeerJS server: start over with a new code.
-          hostStop(null, true);
-          hostStart(attempt + 1);
-          return;
-        }
+        // 1.11.18: the code is the owner's own code and is never swapped for another one.
         // Our own registration from before a sleep is still held (or, for the owner's own code,
         // another console holds it - the relay check below stops one of them): keep the code.
         hostRecreatePeer(code, 'id-held');
@@ -1442,7 +1426,7 @@
   function hostCodeTaken(code) {
     hostStop(null, true);
     const text = 'Code ' + code + ' is now shared by another AIRIZ console (another PC or window), so sharing stopped here. '
-      + 'Choose a different code in Share control, then Start sharing.';
+      + 'Choose a different code under Remote by code \u2192 Change, then share again.';
     hostSetStatus(text);
     toast(text);
     if (host.dialog && !host.dialog.open) {
@@ -1626,6 +1610,19 @@
     if (!status.connected || status.updating || isRemoteTransport(status)) return;
     host.pendingResume = null;
     if (!host.dialog) hostBuildDialog();
+    // 1.11.18: a share from an older version may still hold a random code: continue only with
+    // the owner's own code (or not at all until the owner sets one).
+    const own = session.loadOwnCode(SHARE_STORE);
+    if (!own) {
+      session.clearShareResume(SHARE_STORE);
+      return;
+    }
+    if (record.code !== own) {
+      session.clearShareResume(SHARE_STORE);
+      hostStart(0, { code: own, own: true });
+      if (host.code === own) toast('Sharing resumed with your code ' + own + '.');
+      return;
+    }
     hostStart(0, { code: record.code, approved: record.approved });
     if (host.code === record.code) {
       toast('Sharing resumed with the same code ' + record.code + '. Devices that were connected come back by themselves.');
@@ -1640,15 +1637,22 @@
       return;
     }
     if (isRemoteTransport(status)) {
-      hostSetStatus('This console is itself remote-controlled. Share control from the PC that has the USB cable.');
+      hostSetStatus('This console is itself remote-controlled. Share from the PC that has the USB cable.');
       return;
     }
     if (host.code) return;
     const givenCode = /^\d{6}$/.test(String(settings.code || '')) ? String(settings.code) : null;
-    // 1.11.4: the owner's own code (Share control > Your code) instead of a random one.
+    // 1.11.18: the code is always the owner's own code (set under Your code); never random.
     const ownCode = session.loadOwnCode(SHARE_STORE);
     const resumeCode = givenCode && !settings.own ? givenCode : null;
-    const code = givenCode || ownCode || randomDigits();
+    const code = givenCode || ownCode;
+    if (!code) {
+      hostSetStatus('Set your own 6-digit code first (Your code, below), then press Start sharing.');
+      hostCodeError('Type the 6 digits you want to use, then press Save my code.');
+      const input = $('share-code-input');
+      if (input) input.focus();
+      return;
+    }
     host.code = code;
     host.ownCode = !!ownCode && code === ownCode;
     host.resumed = !!resumeCode;
@@ -1746,7 +1750,7 @@
       $('share-control-code-box').hidden = true;
       $('share-control-link-row').hidden = true;
       $('share-control-link').value = '';
-      $('share-control-start').disabled = false;
+      $('share-control-start').disabled = !session.loadOwnCode(SHARE_STORE);
       $('share-control-stop').disabled = true;
     }
     hostApplyKeepAwake();
@@ -1976,7 +1980,7 @@
     function checkNoPc() {
       if (active || pcSeen) return;
       if (paths.length && paths.every(path => path.dead || path.noPc || path.unavailable)) {
-        lost(linkError('no-pc', 'No PC is sharing control with code ' + code + '. Check the code on the PC (Share control).'));
+        lost(linkError('no-pc', 'No PC is sharing control with code ' + code + '. Check the code on the PC (Remote by code).'));
       }
     }
 
@@ -2123,7 +2127,7 @@
     dialog.setAttribute('aria-labelledby', 'connect-code-title');
     dialog.innerHTML = '<h2 id="connect-code-title">Connect by code</h2>'
       + '<p>Control an AIRIZ that is connected to another PC by USB - no Bluetooth needed. '
-      + 'On that PC press <strong>Share control</strong>, then enter the 6-digit code here.</p>'
+      + 'Enter the 6-digit code the owner set on that PC (Remote by code).</p>'
       + '<label class="connect-code-field">6-digit code '
       + '<input id="connect-code-input" class="input" inputmode="numeric" autocomplete="one-time-code" maxlength="7" placeholder="123456"></label>'
       + '<p id="connect-code-status" class="phone-remote-status" role="status"></p>'
@@ -2454,38 +2458,32 @@
   if (inline.other) {
     inline.other.addEventListener('click', () => {
       const shown = document.documentElement.classList.toggle('show-other-ways');
-      inline.other.textContent = shown ? 'Hide other ways' : 'Other ways (Bluetooth, Windows app)';
+      inline.other.textContent = shown ? 'Hide other ways' : 'Other ways (Windows app)';
       inline.other.setAttribute('aria-expanded', String(shown));
     });
   }
 
   // =================================================================== buttons and state
-  const shareButton = $('btn-share-control');
-  const codeButton = $('btn-connect-code');
-
-  if (shareButton) {
-    shareButton.addEventListener('click', () => {
-      const dialog = host.dialog || hostBuildDialog();
-      if (!host.code) hostSetStatus(api.getStatus().connected ? 'Press Start sharing to get a code.' : 'Connect the AIRIZ to this PC first.');
-      hostRender();
-      hostRenderTrust();
-      hostRenderAwake();
-      if (!dialog.open) dialog.showModal();
-    });
-  }
-  if (codeButton) {
-    codeButton.addEventListener('click', () => phoneOpen(''));
+  // 1.11.18: the separate "Share control" and "Connect by code" buttons are gone; the header
+  // "Remote by code" launcher (quick-connect.js) opens this dialog, and phones type the code
+  // into the Control by code box.
+  function hostOpenDialog() {
+    const dialog = host.dialog || hostBuildDialog();
+    if (!host.code) {
+      const own = session.loadOwnCode(SHARE_STORE);
+      hostSetStatus(!api.getStatus().connected ? 'Connect the AIRIZ to this PC first.'
+        : own ? 'Press Start sharing. Phones connect with your code ' + own + '.'
+          : 'Set your own 6-digit code first (Your code, below), then press Start sharing.');
+    }
+    hostRender();
+    hostRenderTrust();
+    hostRenderOwnCode();
+    hostRenderAwake();
+    if (!dialog.open) dialog.showModal();
   }
 
   function refresh() {
-    const status = api.getStatus();
-    const remote = status.connected && isRemoteTransport(status);
-    if (shareButton) shareButton.disabled = !host.code && (!status.connected || remote);
-    if (codeButton) codeButton.disabled = status.connected && !remote;
-    if (codeButton) {
-      const text = codeButton.querySelector('span') || codeButton;
-      text.textContent = remote ? 'Remote: connected' : phone.retry ? 'Remote: reconnecting…' : 'Connect by code';
-    }
+    hostRenderHeader();
   }
   setInterval(() => {
     refresh();
@@ -2549,7 +2547,7 @@
       if (host.code) hostStop('Sharing stopped.');
     },
     openShareDialog() {
-      if (shareButton) shareButton.click();
+      hostOpenDialog();
     },
     connectWithCode(code, ui) {
       return connectWithCode(code, ui);
@@ -2588,10 +2586,6 @@
     setOwnCode(code) {
       if (!host.dialog) hostBuildDialog();
       return hostSetOwnCode(code);
-    },
-    useRandomCodes() {
-      if (!host.dialog) hostBuildDialog();
-      hostUseRandomCodes();
     },
     get pendingRequests() {
       return pendingControllers().map(controller => controller.label);

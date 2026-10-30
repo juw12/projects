@@ -3,9 +3,9 @@
 <head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>AIRIZ on iPhone (Bluefy)</title>
+<title>AIRIZ on iPhone</title>
 <meta content="#0d1117" name="theme-color"/>
-<meta content="Open the AIRIZ console in Bluefy on iPhone and connect over Bluetooth" name="description"/>
+<meta content="Control the AIRIZ from an iPhone in Safari or Chrome with the 6-digit code. No app, no Bluetooth." name="description"/>
 <style>
   :root { color-scheme: dark; }
   body {
@@ -27,23 +27,16 @@
     border-radius: 12px;
     font-weight: 600;
     text-decoration: none;
+    background: #2f81f7;
+    color: #fff;
   }
-  .btn-primary { background: #2f81f7; color: #fff; }
-  .btn-secondary { background: #21262d; color: #e6edf3; border: 1px solid #30363d; }
-  .status { min-height: 1.5em; color: #e3b341; }
-  .small { font-size: .85rem; }
-  [hidden] { display: none !important; }
 </style>
 </head>
 <body>
 <main>
   <h1>AIRIZ on iPhone</h1>
-  <p id="intro">iPhone browsers have no Bluetooth for websites. The free <strong>Bluefy</strong> browser does. This page opens the AIRIZ console in Bluefy and starts connecting.</p>
-  <div class="status" id="status" role="status"></div>
-  <a class="btn btn-primary" id="open-bluefy" href="./?ble=connect">Open in Bluefy</a>
-  <a class="btn btn-secondary" id="get-bluefy" href="https://apps.apple.com/app/id1492822055">Get Bluefy (free, App Store)</a>
-  <a class="btn btn-secondary" id="open-console" href="./">Open the console here</a>
-  <p class="small">Start the phone link first: plug the AIRIZ into a PC by USB, then in the console choose <strong>Phone remote → Install &amp; start</strong> and note the PIN.</p>
+  <p id="intro">No app and no Bluetooth needed. Open the console in Safari or Chrome and type the 6-digit code of the AIRIZ PC.</p>
+  <a class="btn" id="open-console" href="./">Open the AIRIZ console</a>
 </main>
 <script src="iphone.js"></script>
 </body>

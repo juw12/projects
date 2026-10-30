@@ -57,6 +57,8 @@ that has the AIRIZ on USB. Stop motor still works and also interrupts a message 
 against a simulated AIRIZ shell (busybox), not yet on real AIRIZ hardware; the sound format and the
 record/play commands can be changed under *Voice settings*.
 
+**Owner-set code, no Bluetooth, one share button (1.11.18):** sharing never generates a random code: the owner sets a 6-digit code once in *Remote by code* (header) and it is used every time (`remote-session.js` own-code store; easy codes such as 123456 are refused). Without a code, sharing does not start. A share resumed after a restart continues only with the owner code. Phones (iPhone Safari/Chrome, Android Chrome) connect with the code, no app or Bluetooth. Removed: *Connect Bluetooth*, *iPhone: open in Bluefy*, *Phone remote* (Bluetooth bridge installer), and the duplicates *Share control*, *Connect by code* and the Camera-page *Left/right* switch; `iphone.html` now just opens the console. *Bluetooth test* stays (AIRIZ hardware self-test). Checked in Chromium with the demo device and an iPhone Chrome user agent.
+
 **Real device facts instead of decoration (1.11.17):** the dashboard no longer shows invented values. The strip under the
 buttons shows the firmware the connected AIRIZ reports (`diag ver sw`, asked once after connecting) next to the firmware
 the command list was written for (0.0.0.9), and the last *Bluetooth test* result. *Bluetooth test* (`diag ble on`) now

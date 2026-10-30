@@ -848,3 +848,12 @@ body.console-redesign { color-scheme: inherit; }
 .hwcheck-status { min-height: 1.4em; }
 .hwcheck-report { margin-top: 10px; max-height: 46vh; overflow: auto; padding: 12px; border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-bg-console); font: 11px/1.5 var(--font-mono); white-space: pre-wrap; }
 .hwcheck-report:empty { display: none; }
+
+/* 1.11.18: the owner's own code in the Remote by code launcher */
+.qc-own { margin: 4px 0 10px; }
+.qc-own-note { margin: 0 0 6px; font-size: 13px; color: var(--color-text-muted); }
+.qc-own-value { font-size: 18px; letter-spacing: 0.12em; color: var(--color-text); }
+.qc-own-change { background: none; border: 0; padding: 0 0 0 6px; color: var(--color-accent, #2f81f7); text-decoration: underline; cursor: pointer; font-size: 13px; }
+.qc-own-error { margin: 6px 0 0; color: var(--color-danger, #f85149); font-size: 13px; }
+.qc-own .qc-row[hidden] { display: none; }
+.qc-open.is-sharing { border-color: var(--color-success, #3fb950); }

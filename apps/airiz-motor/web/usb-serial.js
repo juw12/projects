@@ -60,7 +60,7 @@
   ];
 
   const MESSAGES = {
-    iphone: 'An iPhone or iPad cannot use a USB cable to the AIRIZ (Apple allows no USB serial ports in browsers or apps). Use Connect by code, or Connect Bluetooth.',
+    iphone: 'An iPhone or iPad cannot use a USB cable to the AIRIZ (Apple allows no USB serial ports in browsers or apps). Type the code of the AIRIZ PC into Control by code instead (works in Safari and Chrome).',
     androidChrome: 'On an Android phone the USB cable works in Chrome: open ' + PUBLIC_CONSOLE_URL + ' in Chrome, plug in the AIRIZ, then press Connect.',
     noSerialPort: 'This USB device is not a serial cable. Use the FT232R USB-serial cable (or the AIRIZ USB port in CDC mode).',
     baudFailed: 'The USB-serial cable did not accept the baud rate. Unplug and replug it, then press Connect.',

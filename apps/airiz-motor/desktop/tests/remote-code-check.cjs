@@ -75,7 +75,9 @@ async function launchPhone(browser) {
 async function shareFrom(pc) {
   await pc.click('#btn-demo');
   await pc.waitForTimeout(1200);
-  await pc.click('#btn-share-control');
+  // 1.11.18: the owner sets the code (no random codes); Remote by code opens the sharing window.
+  await pc.evaluate(value => AirizRemoteControl.setOwnCode(value), process.env.AIRIZ_TEST_CODE || '739164');
+  await pc.evaluate(() => AirizRemoteControl.openShareDialog());
   await pc.click('#share-control-start');
   for (let index = 0; index < 40; index += 1) {
     const code = (await pc.locator('#share-control-code').innerText().catch(() => '')).trim();
@@ -86,9 +88,8 @@ async function shareFrom(pc) {
 }
 
 async function joinAndApprove(pc, controller, code, label) {
-  await controller.click('#btn-connect-code');
-  await controller.fill('#connect-code-input', code);
-  await controller.click('#connect-code-go');
+  // 1.11.18: no separate Connect by code button; a share link opens the connect window.
+  await controller.evaluate(value => { location.hash = 'control=' + value; }, code);
   let allowed = false;
   for (let second = 1; second <= 45; second += 1) {
     await controller.waitForTimeout(1000);
