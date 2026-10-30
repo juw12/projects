@@ -236,7 +236,7 @@
   });
 
   // ------------------------------------------------------------------ floating camera window
-  const panel = { root: null, video: null, image: null, note: null, code: null, since: 0, hidden: false };
+  const panel = { root: null, video: null, image: null, note: null, code: null, since: 0, hidden: false, full: null };
 
   function buildPanel() {
     const root = document.createElement('aside');
@@ -247,6 +247,7 @@
     root.innerHTML = ''
       + '<div class="qc-camera-bar"><strong>AIRIZ camera</strong>'
       + '<span class="qc-camera-live" id="qc-camera-live">connecting…</span>'
+      + '<button aria-label="Full screen" class="qc-camera-btn" id="qc-camera-full" title="Full screen" type="button">⛶</button>'
       + '<button aria-label="Bigger or smaller" class="qc-camera-btn" id="qc-camera-size" type="button">⤢</button>'
       + '<button aria-label="Hide camera" class="qc-camera-btn" id="qc-camera-hide" type="button">✕</button></div>'
       + '<div class="qc-camera-view"><video autoplay id="qc-camera-video" muted playsinline></video>'
@@ -264,8 +265,14 @@
     panel.video = $('qc-camera-video');
     panel.image = $('qc-camera-image');
     panel.note = $('qc-camera-note');
+    // 1.11.14: full screen on phones too (double-tap the picture works as well).
+    panel.full = window.AirizFullscreen
+      ? window.AirizFullscreen.attach({ container: root.querySelector('.qc-camera-view'), button: $('qc-camera-full'),
+        video: panel.video, image: panel.image, iconButton: true })
+      : null;
     $('qc-camera-size').addEventListener('click', () => root.classList.toggle('is-large'));
     $('qc-camera-hide').addEventListener('click', () => {
+      if (panel.full && panel.full.active) panel.full.exit();
       panel.hidden = true;
       root.hidden = true;
       pill.hidden = false;
@@ -293,6 +300,7 @@
   function stopCamera() {
     if (!panel.root || !panel.code) return;
     panel.code = null;
+    if (panel.full && panel.full.active) panel.full.exit();
     if (camera) camera.stopWatch();
     panel.video.srcObject = null;
     panel.image.removeAttribute('src');
@@ -383,5 +391,12 @@
   setInterval(watchConnection, 700);
   setTimeout(showAtStartup, 900);
 
-  window.AirizQuickConnect = Object.freeze({ open: () => openLauncher(true) });
+  window.AirizQuickConnect = Object.freeze({
+    open: () => openLauncher(true),
+    // The floating camera window (built on first use); used by the phone full-screen self-test.
+    cameraWindow() {
+      if (!panel.root) buildPanel();
+      return panel.root;
+    }
+  });
 })();

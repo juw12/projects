@@ -1311,7 +1311,11 @@
     "Newer ›": "較新 ›",
     "Viewing does not save anything. Events stay in memory only until you clear them or close the console.": "查看不會儲存任何檔案。事件只保留在記憶體中，直到您清除或關閉主控台。",
     "View motion pictures without saving them (1.11.13)": "不用儲存也能查看動作照片 (1.11.13)",
-    "In Smart detection, each motion event now has a View button (or click the small picture): the full photo opens inside the console, with Older / Newer to step through events and Play clip for the recording. Nothing is saved unless you press Save photo or Save clip in the viewer.": "智慧偵測的每個動作事件現在都有「查看」按鈕（或點小圖）：完整照片會在主控台內開啟，可用「較舊／較新」切換事件，並用「播放影片」觀看錄影。除非在檢視器中按「儲存照片」或「儲存影片」，否則不會儲存任何檔案。"
+    "In Smart detection, each motion event now has a View button (or click the small picture): the full photo opens inside the console, with Older / Newer to step through events and Play clip for the recording. Nothing is saved unless you press Save photo or Save clip in the viewer.": "智慧偵測的每個動作事件現在都有「查看」按鈕（或點小圖）：完整照片會在主控台內開啟，可用「較舊／較新」切換事件，並用「播放影片」觀看錄影。除非在檢視器中按「儲存照片」或「儲存影片」，否則不會儲存任何檔案。",
+    "Full-screen camera on iPhone and Android (1.11.14)": "iPhone 與 Android 可全螢幕觀看相機 (1.11.14)",
+    "When a phone watches the shared AIRIZ camera (share link, Remote by code or Camera → Watch), Full screen now works on iPhone and Android: on Android the camera goes truly full screen and turns sideways for a wide picture; on iPhone the video opens in the iPhone player and relay pictures fill the whole screen. Double-tap the picture to switch too. The AIRIZ Mobile phone app is rebuilt from this console (1.0.3), so its old Sound FX tab is gone.": "手機觀看共享的 AIRIZ 相機（分享連結、以代碼遠端連線或「相機 → 觀看」）時，全螢幕在 iPhone 與 Android 上都能使用：Android 會真正全螢幕並轉為橫向；iPhone 的影片會用 iPhone 播放器開啟，中繼畫面則填滿整個螢幕。也可以點兩下畫面切換。AIRIZ Mobile 手機 App 已用此版主控台重新建置（1.0.3），舊的「音效」分頁已移除。",
+    "✕ Exit full screen": "✕ 結束全螢幕",
+    "Turn the phone sideways for a bigger picture": "把手機轉成橫向，畫面更大"
   },
   "html": {
     "AIRIZDEVICE LAB": "AIRIZ<small>裝置實驗室</small>",

@@ -9,7 +9,7 @@ is required to use the installed app or its hardware-free demo.
 ## Downloads
 
 Windows x64 releases are published under the app-specific tag
-`airiz-desktop-v1.11.13` in this repository's Releases section.
+`airiz-desktop-v1.11.14` in this repository's Releases section.
 
 - **Installer**: assisted, per-user installation with Start-menu/desktop shortcuts
   and an uninstaller. The wizard lets the user choose the installation directory.
@@ -163,6 +163,15 @@ reports whether a framed firmware reply came back. Results can be exported.
 No pairing is accepted without confirmation and no motor command is sent.
 Another program on the PC still cannot open COM4 while this app holds it: that is
 a Windows serial-port rule, which is why the check runs inside the app.
+
+## 1.11.14: Full-screen camera on iPhone and Android
+
+* New `web/phone-fullscreen.js` (`AirizFullscreen.attach`) used by `watch.html`, the quick-connect camera window
+  (⛶ button) and the Camera tab *Watch* viewer (`#relay-remote-stage`, *Full screen* button). Order: Fullscreen API on
+  the camera box + `screen.orientation.lock('landscape')` for a landscape picture; else `video.webkitEnterFullscreen()`
+  (iPhone, WebRTC video); else a fixed fill-the-screen mode (iPhone, relay JPEG frames). Double-tap, Esc and a
+  *✕ Exit full screen* button leave it. The old watch-page button did nothing on iPhone for relay pictures.
+* Tested: `tools/test_phone_fullscreen.py` (7 checks; iPhone emulated without the Fullscreen API, Android with it).
 
 ## 1.11.13: View motion pictures without saving them
 

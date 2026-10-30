@@ -1,6 +1,6 @@
 ﻿/* AIRIZ Control Center — versioned, scope-isolated offline shell. */
 const CACHE_PREFIX = 'airiz-control-' + encodeURIComponent(self.registration.scope) + '-';
-const CACHE_NAME = CACHE_PREFIX + 'v2.55-1.11.13-event-viewer';
+const CACHE_NAME = CACHE_PREFIX + 'v2.56-1.11.14-phone-fullscreen';
 const ASSETS = [
   './',
   './index.html',
@@ -14,6 +14,7 @@ const ASSETS = [
   './remote-ui.js',
   './camera-relay.js',
   './camera-frame-relay.js',
+  './phone-fullscreen.js',
   './remote-control.js',
   './audio-link.js',
   './audio-ui.js',
