@@ -22,6 +22,55 @@
     // 1.11.16: step presets 100 / 600 / 1100 (was 1 / 10 / 100); the console starts on the first one.
     const JOG_PRESET_STEPS = presetButtons.map((button) => Number(button.dataset.steps));
     const jogInputIds = ['pan-speed', 'pan-steps', 'rising-speed', 'rising-steps'];
+    // 1.11.16: left / right controls turn the camera the same way as the arrow. Before, left sent
+    // "pan reverse" and the camera picture moved right. "Opposite direction" brings the old mapping
+    // back. One setting for the Motor control jog pad, the arrow keys and the PTZ hold arrows.
+    const PAN_SWAP_KEY = 'airiz.panArrowsOpposite';
+    function panArrowsOpposite() {
+      try {
+        return localStorage.getItem(PAN_SWAP_KEY) === '1';
+      } catch (error) {
+        return false;
+      }
+    }
+    function panCommandFor(side) {
+      const leftCommand = panArrowsOpposite() ? 'pan-rev' : 'pan-fwd';
+      if (side === 'left') return leftCommand;
+      return leftCommand === 'pan-fwd' ? 'pan-rev' : 'pan-fwd';
+    }
+    function applyPanArrows() {
+      for (const side of ['left', 'right']) {
+        const command = panCommandFor(side);
+        const word = command === 'pan-fwd' ? 'forward' : 'reverse';
+        const jogButton = document.querySelector('.jog-' + side);
+        if (jogButton) {
+          jogButton.dataset.jog = command;
+          const caption = jogButton.querySelector('span');
+          if (caption) caption.textContent = command === 'pan-fwd' ? 'FWD' : 'REV';
+          jogButton.setAttribute('aria-label', 'Jog ' + side + ' (pan ' + word + ')');
+          jogButton.title = 'Pan ' + word + ' / Arrow ' + side;
+        }
+        const holdButton = document.querySelector('.ptz-hold-' + side);
+        if (holdButton) {
+          holdButton.dataset.hold = 'pan:' + (command === 'pan-fwd' ? 1 : -1);
+          holdButton.setAttribute('aria-label', 'Hold to turn ' + side + ' (pan ' + word + ')');
+        }
+      }
+      const opposite = panArrowsOpposite();
+      document.querySelectorAll('[data-pan-swap]').forEach((button) => {
+        button.setAttribute('aria-pressed', String(opposite));
+        const label = button.querySelector('span') || button;
+        label.textContent = opposite ? 'Left/right: opposite direction' : 'Left/right: same direction';
+        button.title = 'Click to switch. Same direction: pressing left turns the camera left. '
+          + 'Opposite direction: the old mapping (left = pan reverse).';
+      });
+    }
+    function setPanArrowsOpposite(opposite) {
+      try {
+        localStorage.setItem(PAN_SWAP_KEY, opposite ? '1' : '0');
+      } catch (error) { /* storage blocked: this session only */ }
+      applyPanArrows();
+    }
     // 1.11.9: Full rise / Full down move the rising axis over its whole travel in one finite move.
     const FULL_TRAVEL_STEPS = 1100;
     const fullTravelButtons = [...document.querySelectorAll('[data-full-travel]')];
@@ -200,7 +249,9 @@
           return;
         }
         const stage = $('motion-stage');
-        stage.dataset.direction = direction;
+        stage.dataset.direction = direction.startsWith('pan')
+          ? (direction === panCommandFor('left') ? 'pan-left' : 'pan-right')
+          : direction;
         $('stage-state').textContent = status.demoMode ? 'SIMULATED COMMAND' : 'SENT · COMPLETION UNVERIFIED';
         const button = fixedSteps === null
           ? jogButtons.find((item) => item.dataset.jog === direction)
@@ -286,6 +337,18 @@
         });
       }
     });
+    applyPanArrows();
+    document.querySelectorAll('[data-pan-swap]').forEach((button) => {
+      button.addEventListener('click', () => {
+        setPanArrowsOpposite(!panArrowsOpposite());
+        notify(panArrowsOpposite()
+          ? 'Left/right now opposite: left sends pan reverse (old mapping).'
+          : 'Left/right now the same direction: left turns the camera left.');
+      });
+    });
+    window.addEventListener('storage', (event) => {
+      if (event.key === PAN_SWAP_KEY) applyPanArrows();
+    });
     $('full-travel-steps').textContent = FULL_TRAVEL_STEPS + ' steps';
     fullTravelButtons.forEach((button) => {
       button.addEventListener('click', () => jog(button.dataset.fullTravel, FULL_TRAVEL_STEPS));
@@ -370,8 +433,8 @@
       const directions = {
         ArrowUp: 'rising-fwd',
         ArrowDown: 'rising-rev',
-        ArrowLeft: 'pan-rev',
-        ArrowRight: 'pan-fwd'
+        ArrowLeft: panCommandFor('left'),
+        ArrowRight: panCommandFor('right')
       };
       if (keyboardEnabled && armed && document.hasFocus() && !document.hidden
           && currentView === 'controller' && directions[event.key]) {

@@ -188,6 +188,9 @@ kbd { font: 10px var(--font-mono); border: 1px solid var(--color-border); border
 #device-head { transform-origin: 190px 185px; transition: transform 350ms ease; }
 .motion-stage[data-direction="pan-fwd"] #device-head { transform: translateX(5px) skewY(-2deg); }
 .motion-stage[data-direction="pan-rev"] #device-head { transform: translateX(-5px) skewY(2deg); }
+.motion-stage[data-direction="pan-right"] #device-head { transform: translateX(5px) skewY(-2deg); }
+.motion-stage[data-direction="pan-left"] #device-head { transform: translateX(-5px) skewY(2deg); }
+.pan-swap-toggle { margin-top: 8px; }
 .motion-stage[data-direction="rising-fwd"] #device-head { transform: translateY(-6px); }
 .motion-stage[data-direction="rising-rev"] #device-head { transform: translateY(5px); }
 .motion-stage[data-direction] .orbit-one { border-color: #c0ee9670; }
