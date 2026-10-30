@@ -506,7 +506,7 @@
         registration,
         listeners,
         sw: {
-          controller: fakeWorker("1.15.0"),
+          controller: fakeWorker("1.14.0"),
           register: async () => registration,
           addEventListener(type, fn) {
             (listeners[type] = listeners[type] || []).push(fn);
@@ -525,13 +525,13 @@
     const bannerText = () => (banner() || {}).textContent || "";
     const tap = (action) => banner().querySelector(`[data-tu="${action}"]`).click();
     check("version compare: 1.10.0 is newer than 1.9.9",
-      TU.compareVersions("1.10.0", "1.9.9") === 1 && TU.compareVersions("1.15.0", "1.15.0") === 0 && TU.compareVersions("x", "1.0.0") === 0);
+      TU.compareVersions("1.10.0", "1.9.9") === 1 && TU.compareVersions("1.14.0", "1.14.0") === 0 && TU.compareVersions("x", "1.0.0") === 0);
 
     // An installed web app with a new version downloaded in the background.
     const web = fakeServiceWorker("1.15.0");
     let webReloads = 0;
     const webUpdate = TU.createController({
-      version: "1.15.0", appName: "Twin", serviceWorker: web.sw, storage: updateStorage, offset: 70,
+      version: "1.14.0", appName: "Twin", serviceWorker: web.sw, storage: updateStorage, offset: 70,
       reload: () => { webReloads += 1; },
       fetch: async (url) => (String(url).includes("release.json")
         ? jsonResponse({ version: "1.15.0", title: "Faster charts", notes: ["Charts draw twice as fast", "New colours"] })
@@ -560,10 +560,10 @@
     }
 
     // A page opened fresh while online already runs the new version: take the new offline copy quietly.
-    const fresh = fakeServiceWorker("1.15.0");
+    const fresh = fakeServiceWorker("1.14.0");
     let freshReloads = 0;
     const freshUpdate = TU.createController({
-      version: "1.15.0", serviceWorker: fresh.sw, storage: updateStorage, render: false,
+      version: "1.14.0", serviceWorker: fresh.sw, storage: updateStorage, render: false,
       reload: () => { freshReloads += 1; }, fetch: async () => ({ ok: false, status: 404, json: async () => ({}) }),
     });
     await freshUpdate.start("sw.js");
@@ -575,15 +575,15 @@
 
     // Your own Twin server: a newer release is published; install it from the app.
     let installs = 0;
-    let serverVersion = "1.15.0";
+    let serverVersion = "1.14.0";
     let serverReloads = 0;
     const serverUpdate = TU.createController({
-      version: "1.15.0", appName: "Twin", serviceWorker: null, storage: updateStorage, serverMode: () => true,
+      version: "1.14.0", appName: "Twin", serviceWorker: null, storage: updateStorage, serverMode: () => true,
       reload: () => { serverReloads += 1; },
       fetch: async (url) => {
         const path = String(url);
         if (path.endsWith("api/update/status")) {
-          return jsonResponse({ ok: true, current: "1.15.0", latest: "1.16.0", available: true, can_install: true, title: "Faster charts", notes: ["One"] });
+          return jsonResponse({ ok: true, current: "1.14.0", latest: "1.15.0", available: true, can_install: true, title: "Faster charts", notes: ["One"] });
         }
         if (path.endsWith("api/update/install")) {
           installs += 1;
@@ -610,18 +610,18 @@
 
     // A git clone is told how to update; a signed-out install explains what to do.
     const blockedUpdate = TU.createController({
-      version: "1.15.0", serviceWorker: null, storage: updateStorage, serverMode: () => true, render: false, reload: () => {},
+      version: "1.14.0", serviceWorker: null, storage: updateStorage, serverMode: () => true, render: false, reload: () => {},
       fetch: async (url) => (String(url).endsWith("api/update/status")
-        ? jsonResponse({ ok: true, current: "1.15.0", latest: "1.16.0", available: true, can_install: false, reason: "This Twin runs from a git clone (/x). Update it with git pull, then restart Twin." })
+        ? jsonResponse({ ok: true, current: "1.14.0", latest: "1.15.0", available: true, can_install: false, reason: "This Twin runs from a git clone (/x). Update it with git pull, then restart Twin." })
         : jsonResponse({ ok: false, error: "login required", auth: false })),
     });
     await blockedUpdate.start(null);
     await waitUntil(() => blockedUpdate.state.status === "ready");
     check("a git clone is told to git pull instead", TU.describeStatus(blockedUpdate.state, "Twin").includes("git pull"));
     const signedOut = TU.createController({
-      version: "1.15.0", serviceWorker: null, storage: updateStorage, serverMode: () => true, render: false, reload: () => {},
+      version: "1.14.0", serviceWorker: null, storage: updateStorage, serverMode: () => true, render: false, reload: () => {},
       fetch: async (url) => (String(url).endsWith("api/update/status")
-        ? jsonResponse({ ok: true, current: "1.15.0", latest: "1.16.0", available: true, can_install: true })
+        ? jsonResponse({ ok: true, current: "1.14.0", latest: "1.15.0", available: true, can_install: true })
         : jsonResponse({ ok: false, error: "login required", auth: false })),
     });
     await signedOut.start(null);
