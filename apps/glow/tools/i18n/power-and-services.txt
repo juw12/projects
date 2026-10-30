@@ -65,3 +65,8 @@ There's no question to answer yet. || Belum ada pertanyaan untuk dijawab. || 还
 
 # When a cloud service can't answer, the AI on this device steps in
 re:^(.+) couldn't answer, so the AI on this device answered\.$ || $1 tidak bisa menjawab, jadi AI di perangkat ini yang menjawab. || $1 无法回答，所以由本设备上的 AI 回答。
+
+# Glow 1.27.2: own AI keys and services hidden for now
+Chat with free AI right away, no sign-up. Everything stays in this browser, including the chats you already have. || Langsung chat dengan AI gratis, tanpa daftar. Semuanya tetap di browser ini, termasuk chat yang sudah kamu punya. || 无需注册即可立即与免费 AI 聊天。所有内容（包括已有的聊天）都只保存在此浏览器中。
+Choose your AI service, change the theme and back up your data. || Pilih layanan AI, ganti tema, dan cadangkan datamu. || 选择 AI 服务、更换主题并备份你的数据。
+Models, AI service and custom instructions || Model, layanan AI dan instruksi khusus || 模型、AI 服务和自定义指令

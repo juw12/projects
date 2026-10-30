@@ -33,6 +33,12 @@ const MISTRAL_URL = "https://api.mistral.ai/v1";
 // Your own free keys (OpenRouter, Gemini, Groq, Mistral) are hidden for now: Settings doesn't show them, their
 // models aren't listed or used as backups, and keys saved earlier stay stored (unused). true brings them back.
 const OWN_FREE_KEYS_SHOWN = false;
+// Ollama and "Any OpenAI-compatible API" (incl. the China providers) are hidden for now the same way: no Settings
+// fields, no models from them, saved addresses and keys kept (unused). true brings them back.
+const OWN_AI_SERVICES_SHOWN = false;
+// With both hidden, the whole "Your own AI keys" section, the "Only my own API keys" service and the
+// "🔑 Use my own keys" button are hidden too.
+const OWN_AI_SETUP_SHOWN = OWN_FREE_KEYS_SHOWN || OWN_AI_SERVICES_SHOWN;
 const KEY_PROVIDERS = [
   { id: "gemini", name: "Gemini", setting: "geminiKey", base: GEMINI_URL, group: "Google Gemini: free with your key", skip: /embed|imagen|veo|tts|aqa|learnlm|image|audio|live|robotics|computer-use/i },
   { id: "groq", name: "Groq", setting: "groqKey", base: GROQ_URL, group: "Groq: free with your key", skip: /whisper|tts|guard|playai|orpheus|prompt-guard|compound/i },
@@ -607,6 +613,7 @@ function puterChatOptions(model, signal) {
 
 function mainService() {
   const chosen = state.settings.aiService;
+  if (chosen === "keys" && !OWN_AI_SETUP_SHOWN) return "auto"; // "Only my own API keys" is hidden for now
   return Object.prototype.hasOwnProperty.call(AI_SERVICES, chosen) ? chosen : "auto";
 }
 // Whether a provider's models may be used with the chosen main AI service.
@@ -978,7 +985,7 @@ async function loadModels() {
     }).catch(() => status.push("OpenRouter unreachable")));
   }
 
-  jobs.push(fetchJson(`${s.ollamaUrl.replace(/\/$/, "")}/api/tags`).then((data) => {
+  if (OWN_AI_SERVICES_SHOWN) jobs.push(fetchJson(`${s.ollamaUrl.replace(/\/$/, "")}/api/tags`).then((data) => {
     for (const m of data.models || []) {
       list.push({ value: `ollama::${m.name}`, label: `${m.name} (local)`, short: m.name, group: "Ollama on this computer" });
     }
@@ -996,7 +1003,7 @@ async function loadModels() {
     }).catch(() => status.push(`${keyed.name} key not accepted`)));
   }
 
-  if (s.customUrl) {
+  if (OWN_AI_SERVICES_SHOWN && s.customUrl) {
     const config = providerConfig("custom");
     jobs.push(fetchJson(`${config.base}/models`, config.key ? { Authorization: `Bearer ${config.key}` } : {}).then((data) => {
       for (const m of data.data || []) {
@@ -2658,6 +2665,8 @@ function openSettings() {
   const preset = window.GlowLocale && window.GlowLocale.chinaProviders.find((p) => p.url === s.customUrl);
   if ($("set-china-provider")) $("set-china-provider").value = preset ? preset.id : "";
   $("own-free-keys").hidden = !OWN_FREE_KEYS_SHOWN;
+  $("own-ai-services").hidden = !OWN_AI_SERVICES_SHOWN;
+  $("own-ai-setup").hidden = !OWN_AI_SETUP_SHOWN;
   $("set-openrouter").value = s.openrouterKey;
   $("set-gemini").value = s.geminiKey || "";
   $("set-groq").value = s.groqKey || "";
@@ -3543,7 +3552,7 @@ const TOUR_STEPS = [
   { target: "#export-btn", title: "Export", text: "Download the current conversation as a Markdown file." },
   { target: "#theme-toggle", title: "Light or dark", text: "Switch the theme any time. Glow follows your device until you pick one." },
   { target: "#account-box", sidebar: true, title: "Your account", text: "See who's signed in, sign in to get free Glow AI, or sign out." },
-  { target: "#settings-btn", sidebar: true, title: "Settings & models", text: "Add your own OpenRouter, Ollama or OpenAI-compatible keys, change the theme and back up your data." },
+  { target: "#settings-btn", sidebar: true, title: "Settings & models", text: OWN_AI_SETUP_SHOWN ? "Add your own OpenRouter, Ollama or OpenAI-compatible keys, change the theme and back up your data." : "Choose your AI service, change the theme and back up your data." },
   { target: "#help-btn", title: "That's it!", text: "Press ? any time to replay this tour. Now go turn a spark into something real." },
 ];
 const tour = { active: false, index: 0, steps: [] };
@@ -3903,7 +3912,7 @@ function renderModelMenu() {
       const empty = document.createElement("div");
       empty.className = "model-empty";
       empty.textContent = category === "free"
-        ? (OWN_FREE_KEYS_SHOWN ? "Add your own OpenRouter key or Ollama in Settings to see more here." : "Add Ollama or another AI service in Settings to see more here.")
+        ? (OWN_FREE_KEYS_SHOWN ? "Add your own OpenRouter key or Ollama in Settings to see more here." : OWN_AI_SERVICES_SHOWN ? "Add Ollama or another AI service in Settings to see more here." : "Sign in (free) to unlock these models.")
         : "Sign in (free) to unlock these models.";
       list.appendChild(empty);
     }
@@ -3936,6 +3945,7 @@ function renderModelMenu() {
     unlock.textContent = "🔓 Sign in free to unlock GPT, Claude, Gemini, images…";
     foot.appendChild(unlock);
   }
+  if (!OWN_AI_SETUP_SHOWN) return; // "Use my own keys" is hidden for now
   const keys = document.createElement("button");
   keys.type = "button";
   keys.className = "link-btn";
@@ -5099,6 +5109,10 @@ function wire() {
     toast(lowPowerOn() ? "🔋 Low power on: shorter answers, fewer tokens" : "⚡ Full power: complete answers");
     if (!$("usage-pop").classList.contains("hidden")) renderUsagePop();
   });
+  if (!OWN_AI_SETUP_SHOWN) {
+    const keysOption = $("set-ai-service").querySelector('option[value="keys"]');
+    if (keysOption) keysOption.remove(); // "Only my own API keys" is hidden for now
+  }
   $("set-ai-service").addEventListener("change", renderServicePanel);
   $("pollinations-connect").addEventListener("click", connectPollinations);
   $("pollinations-disconnect").addEventListener("click", async () => {
@@ -5830,6 +5844,9 @@ async function selfTest() {
   expect("free keys: hidden for now (Settings, model list and notes), keys saved earlier are kept",
     OWN_FREE_KEYS_SHOWN || ($("own-free-keys").hidden && ownFreeKeyProviders().length === 0
       && !/free keys/.test(AI_SERVICES.auto.note) && !/Gemini/.test(AI_SERVICES.keys.note) && "openrouterKey" in state.settings));
+  expect("own services: Ollama and any OpenAI-compatible API hidden for now, with the whole own-keys section",
+    OWN_AI_SERVICES_SHOWN || ($("own-ai-services").hidden && (OWN_AI_SETUP_SHOWN || ($("own-ai-setup").hidden
+      && !$("set-ai-service").querySelector('option[value="keys"]') && !TOUR_STEPS.some((step) => /Ollama/.test(step.text))))));
   // Free AI with no key or sign-in, built in like Glow Free: OVHcloud (a limit for each model) and LLM7 (one limit).
   restingFreeModels.clear(); // the rate-limit checks above left them all busy
   models = [modelsBeforeQuota[0], FREE_MODEL, ...KEYLESS_MODELS];
@@ -5906,7 +5923,8 @@ async function selfTest() {
   expect("service: Auto keeps every service", keptFor("auto") === "demo,puter,pollen,gemini,free,local,chrome");
   expect("service: Puter keeps Glow AI plus the free and on-device safety nets", keptFor("puter") === "demo,puter,free,local,chrome");
   expect("service: Pollinations keeps your Pollen models plus the safety nets", keptFor("pollinations") === "demo,pollen,free,local,chrome");
-  expect("service: your own keys plus the safety nets", keptFor("keys") === "demo,gemini,free,local,chrome");
+  expect("service: your own keys plus the safety nets (falls back to Auto while hidden)",
+    OWN_AI_SETUP_SHOWN ? keptFor("keys") === "demo,gemini,free,local,chrome" : keptFor("keys") === keptFor("auto"));
   expect("service: on this device only never sends anything to the cloud", keptFor("device") === "demo,local,chrome");
   state.settings.aiService = savedService;
 
