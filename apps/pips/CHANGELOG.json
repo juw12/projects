@@ -2,6 +2,25 @@
   "_comment": "Pips version history. Newest first. Feeds the in-app update notice (latest.json), the PPT guide and the update emails.",
   "releases": [
     {
+      "version": "2.25.1",
+      "date": "2026-10-30",
+      "title": "Quiet hide",
+      "notes": {
+        "en": [
+          "Hiding your pet no longer opens the Pomodoro card - the pet just disappears. Bring it back with the tray icon or the shortcut (Ctrl+Alt+P)."
+        ],
+        "id": [
+          "Menyembunyikan pet tidak lagi membuka kartu Pomodoro - pet langsung menghilang. Panggil kembali lewat ikon tray atau pintasan (Ctrl+Alt+P)."
+        ],
+        "zh_TW": [
+          "隱藏寵物時不再跳出番茄鐘卡片 - 寵物直接消失。可用系統匣圖示或快捷鍵（Ctrl+Alt+P）叫回來。"
+        ],
+        "zh_CN": [
+          "隐藏宠物时不再弹出番茄钟卡片 - 宠物直接消失。可用系统托盘图标或快捷键（Ctrl+Alt+P）叫回来。"
+        ]
+      }
+    },
+    {
       "version": "2.25.0",
       "date": "2026-10-30",
       "title": "Play with friends",

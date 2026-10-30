@@ -28,7 +28,7 @@ except ImportError:  # pragma: no cover - i18n ships with Pips
     def T(key, lang=None, **kwargs):
         return key
 
-APP_VERSION = "2.25.0"
+APP_VERSION = "2.25.1"
 APP_OWNER = "Juwen Lie"
 USER_GUIDE_URL = "https://juw12.github.io/projects/pips/download/Pips-Guide.pptx"
 SITE_URL = "https://juw12.github.io/projects/pips/"
@@ -1377,10 +1377,12 @@ class ProductivityWidget:
             self._on_close()
     
     def _hide_pet(self):
+        """Hide the desktop pet. 2.25.1: the Pomodoro card no longer pops up - the tray icon and the
+        hotkey bring the pet back. Only without a tray icon (nothing else on screen) does the card show."""
         if not self.pet:
             return
         self.pet.set_visible(False)
-        if not self._card_visible():
+        if not self._tray and not self._card_visible():
             self._show_card()
         self._hide_tip()
     
