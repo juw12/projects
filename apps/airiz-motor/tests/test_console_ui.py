@@ -106,7 +106,7 @@ class ControllerShellTests(unittest.TestCase):
             self.assertEqual(speed['max'], speed_max)
             self.assertEqual(steps['min'], '1')
             self.assertEqual(steps['max'], '99999')
-            self.assertEqual(steps['value'], '1')
+            self.assertEqual(steps['value'], '100')  # 1.11.16: presets 100 / 600 / 1100
         self.assertNotIn('checked', self.by_id['arm-jog'][1])
         self.assertIn('not position feedback', self.html.lower())
         self.assertIn('does not stop an in-flight move', self.html)
