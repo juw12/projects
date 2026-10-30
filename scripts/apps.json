@@ -424,14 +424,16 @@
       "id": "glow",
       "name": "Glow",
       "category": "AI",
-      "desc": "One home for your AI: GlowLead plans goals and runs the other apps; GlowChat for chat with ranked models, your own persona, images, a Council with a Judge and a model Arena; GlowRoom for an AI crew that researches, codes and reports back. One free Glow account with Profile & settings in every app, in English, Bahasa Indonesia, 简体中文 or 繁體中文, with AI models matched to your region; free built-in AI with no keys or sign-up that switches to the next free service by itself when one runs out",
-      "description": "One home, one free account, three AI apps. <strong>GlowLead</strong>: give one goal and the AI lead plans it, hands each step to GlowChat or the GlowRoom crew, checks the work against clear done-criteria and reports back. <strong>GlowChat</strong>: chat with any model (ranked by category), your own persona, images, a usage meter, temporary chats, a Council with a Judge and an Arena. <strong>GlowRoom</strong>: an AI crew that searches the web, runs code and cites sources, in a warm Glow Studio office. <strong>Free AI built in</strong>: no keys or setup. Puter, OVHcloud (Llama 3.3 70B, GPT-OSS 120B, Qwen 3.5 397B, Mistral Small), LLM7 and Glow Free back each other up: when one is busy or used up, the next answers the same message, with the AI on your device as the last backup. One avatar in every app opens <strong>Profile &amp; settings</strong>: name, Puter account, persona, token usage and allowance, privacy and your data. <strong>Speaks your language</strong>: pick English, Bahasa Indonesia, 简体中文 or 繁體中文 and your region on first open; the region decides which AI models you get (only providers that serve mainland China there, with PIPL consent), plus local prices and privacy notes. Free for guests.",
-      "summary": "Three AI apps on one free account, in 4 languages &mdash; GlowLead plans, GlowChat compares models, GlowRoom researches; free built-in AI, no keys, switches by itself when one runs out.",
+      "desc": "One home for your AI: GlowLead plans goals and runs the other apps; GlowChat for chat with ranked models, your own persona, images, a Council with a Judge and a model Arena; GlowRoom for an AI crew that researches, codes and reports back; GlowNews for the day's AI news, grouped by story with every source and refreshed twice a day. One free Glow account with Profile & settings in every app, in English, Bahasa Indonesia, 简体中文 or 繁體中文, with AI models matched to your region; free built-in AI with no keys or sign-up that switches to the next free service by itself when one runs out",
+      "description": "One home, one free account, four AI apps. <strong>GlowLead</strong>: give one goal and the AI lead plans it, hands each step to GlowChat or the GlowRoom crew, checks the work against clear done-criteria and reports back. <strong>GlowChat</strong>: chat with any model (ranked by category), your own persona, images, a usage meter, temporary chats, a Council with a Judge and an Arena. <strong>GlowRoom</strong>: an AI crew that searches the web, runs code and cites sources, in a warm Glow Studio office. <strong>GlowNews</strong>: the day's AI news in one place, a new edition twice a day; the same story from many outlets becomes one card with every source, ranked and tagged by topic, with free-AI summaries, a 5-point briefing, &ldquo;new for you&rdquo; and one tap to discuss any story in GlowChat. <strong>Free AI built in</strong>: no keys or setup. Puter, OVHcloud (Llama 3.3 70B, GPT-OSS 120B, Qwen 3.5 397B, Mistral Small), LLM7 and Glow Free back each other up: when one is busy or used up, the next answers the same message, with the AI on your device as the last backup. One avatar in every app opens <strong>Profile &amp; settings</strong>: name, Puter account, persona, token usage and allowance, privacy and your data. <strong>Speaks your language</strong>: pick English, Bahasa Indonesia, 简体中文 or 繁體中文 and your region on first open; the region decides which AI models you get (only providers that serve mainland China there, with PIPL consent), plus local prices and privacy notes. Free for guests.",
+      "summary": "Four AI apps, one free account &mdash; GlowLead plans, GlowChat compares models, GlowRoom researches, GlowNews briefs you on AI news.",
       "tags": [
         "AI ecosystem",
         "GlowLead",
         "GlowChat",
         "GlowRoom",
+        "GlowNews",
+        "AI news",
         "AI agents",
         "orchestrator",
         "multilingual"
@@ -459,6 +461,10 @@
         {
           "label": "GlowRoom",
           "path": "glow/room/"
+        },
+        {
+          "label": "GlowNews",
+          "path": "glow/news/"
         },
         {
           "label": "Download",
