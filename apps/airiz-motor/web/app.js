@@ -360,7 +360,7 @@
       if (advice) showNotice(advice);
       return;
     }
-    const connectedNote = 'Connected through this phone\'s USB port. Keep this page open. Share control lets other phones control the AIRIZ by code.';
+    const connectedNote = 'Connected through this phone\'s USB port. Keep this page open. Remote by code \u2192 Share this AIRIZ lets other phones control the AIRIZ with your code.';
     logToConsole(connectedNote, 'note');
     showNotice(connectedNote);
   }

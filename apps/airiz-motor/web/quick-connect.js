@@ -75,7 +75,15 @@
       + '</section>'
       + '<section class="qc-option qc-host" id="qc-host">'
       + '<h3><span aria-hidden="true">💻</span> This PC has the AIRIZ (USB)</h3>'
-      + '<p>Share the motor and the camera with one code. Several phones can connect; you press Allow or let remembered phones in.</p>'
+      + '<p>Share the motor and the camera with your own code. Several phones can connect; you press Allow or let remembered phones in.</p>'
+      // 1.11.18: the owner sets the code like a password; there are no random codes.
+      + '<div class="qc-own" id="qc-own">'
+      + '<p class="qc-own-note" id="qc-own-note"></p>'
+      + '<div class="qc-row" id="qc-own-row"><input aria-label="Your own 6-digit code" autocomplete="off" class="input qc-code" '
+      + 'id="qc-own-input" inputmode="numeric" maxlength="6" pattern="[0-9]*" placeholder="Your 6 digits">'
+      + '<button class="btn btn-secondary" id="qc-own-save" type="button">Save code</button></div>'
+      + '<p class="qc-own-error" hidden id="qc-own-error" role="alert"></p>'
+      + '</div>'
       + '<button class="btn btn-secondary qc-big" id="qc-share" type="button">Share this AIRIZ</button>'
       + '<p class="qc-status" id="qc-share-status" role="status"></p>'
       + '</section>'
@@ -95,7 +103,93 @@
     $('qc-join').addEventListener('click', join);
     $('qc-share').addEventListener('click', share);
     $('qc-close').addEventListener('click', () => dialog.close());
+    const ownInput = $('qc-own-input');
+    ownInput.addEventListener('input', () => {
+      const digits = ownInput.value.replace(/\D/g, '').slice(0, 6);
+      if (ownInput.value !== digits) ownInput.value = digits;
+      ownError('');
+    });
+    ownInput.addEventListener('keydown', event => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        saveOwnCode();
+      }
+    });
+    $('qc-own-save').addEventListener('click', saveOwnCode);
+    document.addEventListener('airiz:own-code', renderOwnCode);
     return dialog;
+  }
+
+  // ------------------------------------------------------------------ the owner's own code
+  let ownEditing = false;
+
+  function ownError(text) {
+    const error = $('qc-own-error');
+    if (!error) return;
+    error.textContent = text || '';
+    error.hidden = !text;
+  }
+
+  function ownReasonText(reason) {
+    if (reason === 'easy') {
+      return 'That code is too easy to guess, and another AIRIZ owner may pick it too. Try less obvious digits.';
+    }
+    if (reason === 'storage') return 'This browser could not save the code (storage blocked).';
+    return 'Use exactly 6 digits.';
+  }
+
+  function renderOwnCode() {
+    const note = $('qc-own-note');
+    if (!note) return;
+    const own = remote.ownCode;
+    const row = $('qc-own-row');
+    note.replaceChildren();
+    if (own && !ownEditing) {
+      const value = document.createElement('strong');
+      value.className = 'qc-own-value';
+      value.textContent = own;
+      const change = document.createElement('button');
+      change.type = 'button';
+      change.className = 'qc-own-change';
+      change.textContent = 'Change';
+      change.addEventListener('click', () => {
+        ownEditing = true;
+        renderOwnCode();
+        $('qc-own-input').focus();
+      });
+      const label = document.createElement('span');
+      label.textContent = 'Your code:';
+      note.append(label, document.createTextNode(' '), value, document.createTextNode(' '), change);
+      row.hidden = true;
+    } else {
+      const text = document.createElement('span');
+      text.textContent = own
+        ? 'Type a new 6-digit code. Phones on the old code are disconnected and need the new one.'
+        : 'Choose your own 6-digit code, like a password. Phones type it to connect; it stays the same every time you share.';
+      note.append(text);
+      row.hidden = false;
+      $('qc-own-save').textContent = own ? 'Save new code' : 'Save code';
+    }
+    const sharing = !!remote.hostCode;
+    $('qc-share').textContent = sharing ? 'Manage sharing' : 'Share this AIRIZ';
+  }
+
+  function saveOwnCode() {
+    const input = $('qc-own-input');
+    const result = remote.setOwnCode(input.value);
+    if (!result || !result.ok) {
+      ownError(ownReasonText(result && result.reason));
+      input.focus();
+      return false;
+    }
+    ownError('');
+    input.value = '';
+    ownEditing = false;
+    renderOwnCode();
+    shareStatus(remote.hostCode
+      ? 'Sharing now uses your new code ' + result.code + '.'
+      : 'Saved. Your code ' + result.code + ' is used every time you share.');
+    return true;
   }
 
   function joinStatus(text) {
@@ -110,8 +204,9 @@
     const box = dialog || buildDialog();
     const status = api.getStatus();
     const hostSection = $('qc-host');
-    // Phones cannot hold the AIRIZ on USB; they only connect.
-    hostSection.hidden = phoneLayout() && !isDesktopApp;
+    // Phones usually only connect; an Android phone with the AIRIZ on USB can share too.
+    const usbHere = status.connected && !remoteCode(status);
+    hostSection.hidden = phoneLayout() && !isDesktopApp && !usbHere;
     const code = remoteCode(status);
     if (code) {
       $('qc-code').value = code;
@@ -122,6 +217,9 @@
       if (!fromButton) joinStatus('');
     }
     if (remote.hostCode) shareStatus('Sharing with code ' + remote.hostCode + '.');
+    ownEditing = false;
+    ownError('');
+    renderOwnCode();
     if (!box.open) box.showModal();
     if (!code) setTimeout(() => $('qc-code').focus(), 50);
   }
@@ -214,6 +312,18 @@
         shareStatus('This console is itself remote-controlled. Share from the PC that has the USB cable.');
         return;
       }
+      if (remote.hostCode) {
+        dialog.close();
+        remote.openShareDialog(); // Allow requests, controllers, remembered devices
+        return;
+      }
+      if (!remote.ownCode) {
+        // Typed digits but did not press Save: save them now.
+        if (!$('qc-own-input').value || !saveOwnCode()) {
+          if (!$('qc-own-input').value) ownError('Set your own 6-digit code first.');
+          return;
+        }
+      }
       if (!status.connected) {
         shareStatus('Choose the AIRIZ port…');
         const connect = $('btn-connect');
@@ -227,7 +337,7 @@
       status = api.getStatus();
       const code = remote.hostCode || remote.shareStart();
       if (!code) {
-        shareStatus('Could not start sharing. Use Share control in Device connection.');
+        shareStatus('Could not start sharing. Check your code and that the AIRIZ is connected, then try again.');
         return;
       }
       shareStatus('Sharing motor control with code ' + code + '. Starting the camera…');
@@ -240,6 +350,7 @@
       remote.openShareDialog(); // shows the big code, the link and the Allow requests
     } finally {
       button.disabled = false;
+      renderOwnCode();
     }
   }
 

@@ -93,20 +93,13 @@ async function record(name) {
   assert.equal(await app.evaluate(() => globalThis.__chosenPort), 'smoke-fake-port');
   await record('Native serial chooser opens and cancels; synthetic selection works without opening physical hardware');
 
-  assert.equal(await page.locator('#btn-connect-ble').isVisible(), true);
-  await page.locator('#btn-connect-ble').click();
-  await page.locator('#bluetooth-picker-dialog').waitFor({ state: 'visible' });
-  await page.waitForTimeout(3000);
-  const airizListed = await page.locator('#bluetooth-picker-list [data-bluetooth-id]').count();
-  // A PC without a Bluetooth adapter (the GitHub runner) ends the request by itself and
-  // closes the picker before Cancel can be pressed.
-  if (await page.locator('#bluetooth-picker-dialog').isVisible()) {
-    await page.locator('#bluetooth-picker-cancel').click();
+  // 1.11.18: Bluetooth connect, Phone remote, Share control and Connect by code buttons are gone;
+  // phones use Remote by code (header button) with the owner's own code.
+  for (const id of ['btn-connect-ble', 'btn-phone-remote', 'btn-share-control', 'btn-connect-code']) {
+    assert.equal(await page.locator('#' + id).count(), 0, id + ' removed');
   }
-  await page.locator('#bluetooth-picker-dialog').waitFor({ state: 'hidden' });
-  await page.waitForFunction(() => !document.getElementById('btn-connect-ble').disabled, null, { timeout: 60000 });
-  assert.equal((await page.evaluate(() => AirizConsole.getStatus())).connected, false);
-  await record('Connect Bluetooth opens the in-app device picker (' + airizListed + ' AIRIZ device(s) in range) and cancels without connecting');
+  assert.equal(await page.locator('#qc-open').isVisible(), true);
+  await record('Bluetooth and duplicate share buttons are gone; Remote by code is the one entry point');
 
   await page.locator('#btn-demo').click();
   for (const direction of ['pan-fwd', 'rising-fwd', 'pan-rev', 'rising-rev']) {

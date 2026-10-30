@@ -585,9 +585,13 @@ test('1.11.4 wiring: request prompt, own code, code change, taskbar flash', () =
     'a new request opens the Allow prompt (not only a toast)');
   assert.ok(!remote.includes('Allow it in Share control.'), 'the old toast-only hint is gone');
   assert.ok(remote.includes("'Allow & remember'") && remote.includes("'Allow once'") && remote.includes('trustStore.autoRemember'));
-  assert.ok(remote.includes('session.loadOwnCode(SHARE_STORE)') && remote.includes('givenCode || ownCode || randomDigits()'),
-    'Start sharing uses the owner code when there is one');
-  assert.ok(remote.includes('!host.resumed && !host.ownCode'), 'a busy PeerJS id never swaps the owner code for a random one');
+  // 1.11.18: the owner always sets the code; there are no random codes at all.
+  assert.ok(remote.includes('session.loadOwnCode(SHARE_STORE)') && remote.includes('const code = givenCode || ownCode;'),
+    'Start sharing uses the owner code');
+  assert.ok(!remote.includes('randomDigits') && !remote.includes('share-code-random') && !remote.includes('useRandomCodes'),
+    'no random share codes anywhere');
+  assert.ok(remote.includes('Set your own 6-digit code first'), 'sharing without an owner code asks for one');
+  assert.ok(remote.includes('if (record.code !== own)'), 'a resumed share only continues with the owner code');
   assert.ok(remote.includes("hostBroadcast({ type: 'ended', reason: 'code-changed' })"));
   assert.ok(remote.includes("linkError('code-changed'"), 'phones are told the code changed');
   assert.ok(!session.canStartRetry('code-changed') && !session.canContinueRetry('code-changed'),

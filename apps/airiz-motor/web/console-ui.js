@@ -719,7 +719,7 @@
           showBluetoothResult('OK' + (result.address ? ' \u00b7 ' + result.address : ''), 'ok',
             'diag ble on answered #INFO#0 at ' + time + (result.address ? '. Controller address ' + result.address + '.' : '.'));
           notify('Bluetooth self-test passed' + (result.address ? ': controller ' + result.address : '')
-            + '. This is a firmware test only - a phone connects through Phone remote \u2192 Start remote (AIRIZ-BT).');
+            + '. This is a firmware test only - phones connect with Remote by code.');
         } else if (result.code !== null) {
           showBluetoothResult('failed (code ' + result.code + ')', 'failed',
             'diag ble on answered #INFO#' + result.code + (result.detail ? ':' + result.detail : '') + ' at ' + time + '. See the console for the BlueZ output.');
