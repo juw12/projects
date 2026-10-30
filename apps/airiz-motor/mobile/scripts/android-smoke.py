@@ -50,11 +50,16 @@ def dismiss_blockers(root):
         if wait_button is not None:
             tap_node(wait_button)
             return True
-    if find_text(root, 'Welcome to AIRIZ Console') is not None:
-        continue_button = find_text(root, 'Continue')
-        if continue_button is not None:
-            tap_node(continue_button)
-            return True
+    first_run_dialogs = (
+        ('Welcome to AIRIZ Console', 'Continue'),
+        ('Remote control by code', 'Not now'),
+    )
+    for marker, button_label in first_run_dialogs:
+        if find_text(root, marker) is not None:
+            button = find_text(root, button_label)
+            if button is not None:
+                tap_node(button)
+                return True
     return False
 
 
