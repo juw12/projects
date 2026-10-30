@@ -30,6 +30,9 @@ const OPENROUTER_URL = "https://openrouter.ai/api/v1";
 const GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/openai";
 const GROQ_URL = "https://api.groq.com/openai/v1";
 const MISTRAL_URL = "https://api.mistral.ai/v1";
+// Your own free keys (OpenRouter, Gemini, Groq, Mistral) are hidden for now: Settings doesn't show them, their
+// models aren't listed or used as backups, and keys saved earlier stay stored (unused). true brings them back.
+const OWN_FREE_KEYS_SHOWN = false;
 const KEY_PROVIDERS = [
   { id: "gemini", name: "Gemini", setting: "geminiKey", base: GEMINI_URL, group: "Google Gemini: free with your key", skip: /embed|imagen|veo|tts|aqa|learnlm|image|audio|live|robotics|computer-use/i },
   { id: "groq", name: "Groq", setting: "groqKey", base: GROQ_URL, group: "Groq: free with your key", skip: /whisper|tts|guard|playai|orpheus|prompt-guard|compound/i },
@@ -58,6 +61,10 @@ const KEYLESS_MODELS = [
   { value: "ovh::Mistral-Small-3.2-24B-Instruct-2506", label: "Free: Mistral Small 3.2 (OVHcloud, no sign-in needed)", short: "Mistral Small 3.2", group: FREE_MODEL.group },
   { value: "llm7::default", label: "Free: LLM7 auto-pick (no sign-in needed)", short: "LLM7", group: FREE_MODEL.group },
 ];
+// The free-key services whose keys are used (none while they are hidden).
+function ownFreeKeyProviders() {
+  return OWN_FREE_KEYS_SHOWN ? KEY_PROVIDERS : [];
+}
 function isKeylessProvider(provider) {
   return Object.prototype.hasOwnProperty.call(KEYLESS_PROVIDERS, provider);
 }
@@ -77,10 +84,10 @@ const CHROME_AI_MODEL = { value: "chrome::gemini-nano", label: "Chrome built-in 
 // Main AI service (Settings → AI service & power). Every choice except "On this device" keeps Glow Free and the
 // AI on this device as a last resort, so answers don't stop when a service runs out.
 const AI_SERVICES = {
-  auto: { providers: null, note: "Glow uses Puter while your free allowance lasts, then your own free keys, then free AI that needs no sign-in (OVHcloud, LLM7 and Glow Free), and finally the AI on this device, so answers never stop." },
+  auto: { providers: null, note: `Glow uses Puter while your free allowance lasts, then ${OWN_FREE_KEYS_SHOWN ? "your own free keys, then " : ""}free AI that needs no sign-in (OVHcloud, LLM7 and Glow Free), and finally the AI on this device, so answers never stop.` },
   puter: { providers: ["puter", "puterimg", "putervid"], note: "Top models (Claude, GPT, Gemini and more) on your free monthly Puter allowance. When it runs out, Glow Free and the AI on this device take over." },
   pollinations: { providers: ["pollen"], note: "Top models paid with your own Pollen. Connect your Pollinations wallet below; Glow Free and the AI on this device answer if it runs out." },
-  keys: { providers: ["gemini", "groq", "mistral", "openrouter", "custom", "ollama"], note: "Only your own keys (Gemini, Groq, Mistral, OpenRouter, Ollama or another API), with Glow Free and the AI on this device as backup." },
+  keys: { providers: ["gemini", "groq", "mistral", "openrouter", "custom", "ollama"], note: `Only your own keys (${OWN_FREE_KEYS_SHOWN ? "Gemini, Groq, Mistral, OpenRouter, " : ""}Ollama or another API), with Glow Free and the AI on this device as backup.` },
   device: { providers: [], note: "Free, unlimited and private: only the AI on this device answers (Glow Offline or Chrome's built-in AI) and nothing you type leaves the device. These models are smaller than cloud AI." },
 };
 const ALWAYS_AVAILABLE_PROVIDERS = ["demo", "local", "chrome"];
@@ -949,7 +956,7 @@ async function loadModels() {
     }).catch((error) => status.push(/^40[13]$/.test(String(error.message)) ? "Pollinations key expired: connect again in Settings" : "Pollinations unreachable")));
   }
 
-  if (s.openrouterKey) {
+  if (OWN_FREE_KEYS_SHOWN && s.openrouterKey) {
     jobs.push(fetchJson(`${OPENROUTER_URL}/models`).then((data) => {
       const entries = data.data
         .map((m) => {
@@ -978,7 +985,7 @@ async function loadModels() {
     if ((data.models || []).length) status.push(`${data.models.length} local`);
   }).catch(() => {}));
 
-  for (const keyed of KEY_PROVIDERS) {
+  for (const keyed of ownFreeKeyProviders()) {
     if (!s[keyed.setting]) continue;
     jobs.push(fetchJson(`${keyed.base}/models`, { Authorization: `Bearer ${s[keyed.setting]}` }).then((data) => {
       let ids = (data.data || []).map((m) => String(m.id || "").replace(/^models\//, "")).filter((id) => id && !keyed.skip.test(id));
@@ -2650,6 +2657,7 @@ function openSettings() {
   fillChinaProviders();
   const preset = window.GlowLocale && window.GlowLocale.chinaProviders.find((p) => p.url === s.customUrl);
   if ($("set-china-provider")) $("set-china-provider").value = preset ? preset.id : "";
+  $("own-free-keys").hidden = !OWN_FREE_KEYS_SHOWN;
   $("set-openrouter").value = s.openrouterKey;
   $("set-gemini").value = s.geminiKey || "";
   $("set-groq").value = s.groqKey || "";
@@ -2838,7 +2846,9 @@ function puterErrorText(error) {
   const code = String(inner.code || error.code || "");
   const both = `${code} ${message}`;
   if (/insufficient|funds|quota|allowance|usage.?limit|credits|exceeded/i.test(both)) {
-    return "Your free Puter AI allowance is used up for now. Glow Free keeps working without it; for premium models add your own OpenRouter key in Settings, or wait for the monthly reset.";
+    return OWN_FREE_KEYS_SHOWN
+      ? "Your free Puter AI allowance is used up for now. Glow Free keeps working without it; for premium models add your own OpenRouter key in Settings, or wait for the monthly reset."
+      : "Your free Puter AI allowance is used up for now. The free AI that needs no sign-in keeps answering; premium models come back after the monthly reset.";
   }
   if (/auth|unauthori[sz]ed|401|token/i.test(both)) return "Your sign-in has expired. Sign in again from the sidebar.";
   if (/model.*(not|unavailable|unknown)|not.?found/i.test(both)) return "This Glow AI model isn't available right now. Pick another model.";
@@ -3893,7 +3903,7 @@ function renderModelMenu() {
       const empty = document.createElement("div");
       empty.className = "model-empty";
       empty.textContent = category === "free"
-        ? "Add your own OpenRouter key or Ollama in Settings to see more here."
+        ? (OWN_FREE_KEYS_SHOWN ? "Add your own OpenRouter key or Ollama in Settings to see more here." : "Add Ollama or another AI service in Settings to see more here.")
         : "Sign in (free) to unlock these models.";
       list.appendChild(empty);
     }
@@ -5816,6 +5826,10 @@ async function selfTest() {
   }
   expect("free keys: a key that hit its own limit hands over to the next free key", handoffReply === "answer from mistral::mistral-medium-latest"
     && handoffCalls.join(" ") === "groq::llama-3.3-70b-versatile gemini::gemini-2.5-flash mistral::mistral-medium-latest" && lastAnswerModel === "mistral::mistral-medium-latest");
+  // Your own free keys are hidden for now: no Settings fields, no models from them, no mention in the notes.
+  expect("free keys: hidden for now (Settings, model list and notes), keys saved earlier are kept",
+    OWN_FREE_KEYS_SHOWN || ($("own-free-keys").hidden && ownFreeKeyProviders().length === 0
+      && !/free keys/.test(AI_SERVICES.auto.note) && !/Gemini/.test(AI_SERVICES.keys.note) && "openrouterKey" in state.settings));
   // Free AI with no key or sign-in, built in like Glow Free: OVHcloud (a limit for each model) and LLM7 (one limit).
   restingFreeModels.clear(); // the rate-limit checks above left them all busy
   models = [modelsBeforeQuota[0], FREE_MODEL, ...KEYLESS_MODELS];

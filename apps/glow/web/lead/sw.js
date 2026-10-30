@@ -1,6 +1,6 @@
 // GlowLead service worker: network first, cached copy when offline or when the network is slow.
 // Removes only its own old caches.
-const CACHE_NAME = 'glowlead-v27';
+const CACHE_NAME = 'glowlead-v28';
 const NETWORK_TIMEOUT_MS = 4000;
 const ASSETS = ['./', './index.html', './lead.css', './lead.js', './manifest.webmanifest', './icons/lead-icon.svg', '../room/crew-engine.js', '../shared/glow-locale.js', '../shared/i18n/ui.id.js', '../shared/i18n/ui.zh-CN.js', '../shared/i18n/ui.zh-TW.js', '../shared/glow-apps.js', '../shared/glow-plans.js'];
 
