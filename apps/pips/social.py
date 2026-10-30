@@ -118,6 +118,15 @@ NUDGE_GAP_S = 3.2         # matches the server limit per friend
 NUDGE_RALLY_S = 90        # poll the inbox fast for a while after a nudge (poke wars!)
 NUDGE_ERRORS = {"nudges_off": "nudge_err_off", "nudge_slow": "nudge_err_slow", "nudge_limit": "nudge_err_limit"}
 
+# v2.25 play the minigames together: party rooms for up to 8 friends (the host + 7 invites)
+try:
+    import minigames
+except ImportError:  # pragma: no cover
+    minigames = None
+MP_MAX_INVITES = 7
+MP_ERRORS = {"need_players": "mp_err_need_players", "game_started": "mp_err_started", "room_full": "mp_err_full",
+             "expired": "mp_err_closed", "not_found": "mp_err_closed", "bad_game": "mp_err_closed"}
+
 
 def affinity_level(points: int):
     """-> (level index 0.., i18n key, points of this level, points of next level or None)."""
@@ -470,6 +479,11 @@ class Social:
         self._next_arena = 0.0
         self.duels: dict = {}       # duel id -> latest /v1/duel view
         self.duel_windows: dict = {}
+        self.mp_rooms: dict = {}    # v2.25 play together: room id -> latest /v1/games room view
+        self.mp_list_data = None    # my rooms (/v1/games), None until loaded
+        self.mp_invites: list = []  # pending party invites (from /v1/inbox)
+        self._next_mp = 0.0
+        self._mp_open_next = None   # room to open in a window once it has loaded
         self.mod_data = None        # moderator queue (/v1/mod/reports)
         self.admin_data = None      # owner overview (/v1/admin/overview)
         self.new_keys = []          # premium keys generated in this session
@@ -1350,6 +1364,99 @@ class Social:
         window_class = arena_ui.SkillDuelWindow if skill_duel else arena_ui.DuelWindow
         self.duel_windows[duel_id] = window_class(self, duel_id, spectate=spectate)
 
+    # ---- v2.25: play the minigames together (party rooms for 2-8 friends) ----
+    def mp_list(self):
+        if self.enabled:
+            self._run("mp_list", api_call, "GET", "/v1/games", None, self.account)
+
+    def mp_load(self, room_id: str):
+        if self.enabled:
+            self._run("mp_room", api_call, "GET", f"/v1/games?id={room_id}", None, self.account)
+
+    def mp_create(self, game: str, codes):
+        if self.enabled:
+            body = {"game": game, "codes": [c for c in codes if isinstance(c, str)][:MP_MAX_INVITES]}
+            self._run("mp_created", api_call, "POST", "/v1/games/create", body, self.account)
+
+    def mp_invite(self, room_id: str, codes):
+        if self.enabled:
+            body = {"id": room_id, "codes": [c for c in codes if isinstance(c, str)][:MP_MAX_INVITES]}
+            self._run("mp_room", api_call, "POST", "/v1/games/invite", body, self.account)
+
+    def mp_respond(self, room_id: str, accept: bool):
+        self.mp_invites = [g for g in self.mp_invites if g.get("id") != room_id]
+        if self.enabled:
+            self._run("mp_joined" if accept else "mp_declined", api_call, "POST", "/v1/games/respond",
+                      {"id": room_id, "accept": bool(accept)}, self.account)
+
+    def mp_start(self, room_id: str, game=None):
+        if self.enabled:
+            body = {"id": room_id}
+            if game:
+                body["game"] = game
+            self._run("mp_room", api_call, "POST", "/v1/games/start", body, self.account)
+
+    def mp_score(self, room_id: str, round_no: int, score: int, done: bool = False):
+        if self.enabled:
+            body = {"id": room_id, "round": int(round_no or 0), "score": max(0, int(score or 0)), "done": bool(done)}
+            self._run("mp_score", api_call, "POST", "/v1/games/score", body, self.account)
+
+    def mp_leave(self, room_id: str):
+        self.mp_rooms.pop(room_id, None)
+        if self.mp_list_data:
+            self.mp_list_data = [r for r in self.mp_list_data if r.get("id") != room_id]
+        if self.enabled:
+            self._run("mp_left", api_call, "POST", "/v1/games/leave", {"id": room_id}, self.account)
+
+    def mp_open(self, room_id: str):
+        """Open the party window for a room I'm in (loads it first if needed)."""
+        room = self.mp_rooms.get(room_id)
+        if room and minigames is not None:
+            minigames.open_party(self.pet, room)
+        self._mp_open_next = room_id
+        self.mp_load(room_id)
+
+    def mp_pending(self) -> int:
+        """Party invites waiting for an answer (for the Hub badge)."""
+        return len(self.mp_invites)
+
+    def _take_mp_room(self, room: dict, open_window: bool = False):
+        room_id = room.get("id")
+        if not room_id:
+            return
+        self.mp_rooms[room_id] = room
+        if self.mp_list_data is not None:
+            rest = [r for r in self.mp_list_data if r.get("id") != room_id]
+            mine = (room.get("mine") or {}).get("status")
+            self.mp_list_data = ([room] + rest) if mine in ("joined", "invited") and room.get("status") != "closed" else rest
+        if minigames is None:
+            return
+        if open_window or getattr(self, "_mp_open_next", None) == room_id:
+            self._mp_open_next = None
+            if (room.get("mine") or {}).get("status") == "joined" and room.get("status") != "closed":
+                minigames.open_party(self.pet, room)
+                return
+        win = minigames.party_window(room_id, self.pet)
+        if win is not None:
+            win.take_room(room)
+
+    def _notify_games(self, games: list):
+        self.mp_invites = [g for g in games or [] if g.get("id")]
+        notified = set(self.data.get("notified_games", []))
+        for g in self.mp_invites:
+            if g["id"] in notified:
+                continue
+            notified.add(g["id"])
+            game = g.get("game", "catch")
+            icon = minigames.ICONS.get(game, "") if minigames is not None else ""
+            self.pet.set_action("hop", 0.55)
+            self.pet._voice("greet")
+            self.pet.say(t("mp_invite_bubble", name=g.get("from", {}).get("name", "?"), game=f"{icon} {t('mg_' + game)}"),
+                         actions=[("▶ " + t("mp_join"), lambda i=g["id"]: self.mp_respond(i, True)),
+                                  (t("mp_later"), lambda: self.open_window("games"))],
+                         duration=20, priority=2)
+        self.data["notified_games"] = sorted(notified)[-50:]
+
     def _notify_duels(self, duels: list):
         notified = set(self.data.get("notified_duels", []))
         for d in duels or []:
@@ -1617,6 +1724,8 @@ class Social:
     def _take_inbox(self, result, initial=False):
         if isinstance(result, dict) and result.get("duels"):
             self._notify_duels(result["duels"])
+        if isinstance(result, dict) and "games" in result:
+            self._notify_games(result.get("games") or [])
         self._take_community_meta(result)
         seen = int(self.data.get("seen_id", 0))
         fresh = []
@@ -1918,6 +2027,9 @@ class Social:
                     self.data.pop(key, None)
                 self.save()
                 self.pet.update_setting("friends", False)
+            if kind.startswith("mp_"):
+                self._mp_error(kind, payload)
+                return
             if kind == "bot_reply":
                 self.bot_pending = None
             if kind in ("party", "party_wish", "gift_sent"):
@@ -2021,6 +2133,26 @@ class Social:
                 self.pet.say(t("wx_set", city=result["loc"].get("city", "?"),
                                temp=round(weather.get("temp", 0)) if weather else "?"), duration=5, priority=1)
             if self.window and self.window.alive():
+                self.window.refresh(force=True)
+        if kind in ("mp_room", "mp_created", "mp_joined", "mp_declined", "mp_score"):
+            room = payload.get("room") if isinstance(payload, dict) else None
+            if room:
+                self._take_mp_room(room, open_window=kind in ("mp_created", "mp_joined"))
+            if kind != "mp_score" and self.window and self.window.alive() and self.window.tab == "games":
+                self.window.refresh(force=True)
+            if kind == "mp_created" and payload.get("invited") is not None and room:
+                self.pet.say(t("mp_created", n=payload.get("invited", 0)), duration=5, priority=1)
+        elif kind == "mp_list":
+            self.mp_list_data = payload.get("rooms", []) if isinstance(payload, dict) else []
+            for room in self.mp_list_data:
+                self.mp_rooms[room["id"]] = room
+                win = minigames.party_window(room["id"], self.pet) if minigames is not None else None
+                if win is not None:
+                    win.take_room(room)
+            if self.window and self.window.alive() and self.window.tab == "games":
+                self.window.refresh(force=True)
+        elif kind == "mp_left":
+            if self.window and self.window.alive() and self.window.tab == "games":
                 self.window.refresh(force=True)
         if kind == "arena":
             self.arena = dict(payload, _at=time.time())
@@ -2178,6 +2310,26 @@ class Social:
                                  duration=6, priority=1, on_click=self.open_window)
                     break
 
+    def _mp_error(self, kind, code):
+        """Party-game request failed: tell the open party window (or the Hub)."""
+        room_id = getattr(self, "_mp_open_next", None)
+        wins = minigames.party_windows(self.pet) if minigames is not None else []
+        if wins:
+            for win in wins:
+                if kind == "mp_score" and code in ("offline", "timeout"):
+                    win._busy = False          # just try again with the next update
+                else:
+                    win.on_error(code)
+            return
+        if room_id and code == "not_found":
+            self._mp_open_next = None
+        if kind in ("mp_score", "mp_left", "mp_list"):
+            return
+        if self.window and self.window.alive():
+            self.window.show_error(code)
+        elif kind in ("mp_joined", "mp_created"):
+            self.pet.say(t(MP_ERRORS[code]) if code in MP_ERRORS else t("fr_err_generic", code=code), duration=5, priority=1)
+
     def _refresh_window(self):
         if self.window and self.window.alive():
             self.window.refresh()
@@ -2211,6 +2363,9 @@ class Social:
         elif now >= self._next_board:
             self._next_board = now + BOARD_EVERY_S
             self.sync()
+        if self.window and self.window.alive() and getattr(self.window, "tab", "") == "games" and now >= self._next_mp:
+            self._next_mp = now + 5
+            self.mp_list()
         if self.arena_open and self.window and self.window.alive() and now >= self._next_arena:
             self._next_arena = now + 3
             self.load_arena(here=True)

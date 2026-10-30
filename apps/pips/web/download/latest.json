@@ -1,39 +1,47 @@
 {
   "installer": {
     "filename": "Pips-Setup.exe",
-    "sha256": "7aa221dfff81ddd666c9178bf42c732094d7863727a571f0d1248479621d54ac",
-    "size": 22310266,
+    "sha256": "108e7f1f3a2ed2479f19cc0ce7443aef49e26d43aafe0a664ddbb9cf3d82aad6",
+    "size": 22319144,
     "architecture": "x64",
     "python_version": "3.13.17",
     "requires_admin": false,
     "url": "https://juw12.github.io/projects/pips/download/Pips-Setup.exe"
   },
-  "version": "2.24.2",
-  "date": "2026-10-29",
-  "title": "Auto battle",
+  "version": "2.25.0",
+  "date": "2026-10-30",
+  "title": "Play with friends",
   "url": "https://juw12.github.io/projects/pips/download/Pips-Windows.zip",
-  "sha256": "8019c2f8017aa2d2f309b9830db6ad5b7d195446ab459af6dd6295ef01e2c93a",
-  "size": 964834,
+  "sha256": "ab201ecd64a333a71da8d4c062cdb96b243a8555e4c583528febbbcc5e3bdb67",
+  "size": 980443,
   "notes": {
     "en": [
-      "Arena battles can now play themselves: switch on 🤖 Auto (button in the battle, the A key, or the tick box before a fight) and your pet picks its skills - it finishes off a weak opponent, heals when low and saves Focus for long fights.",
-      "Prefer to play yourself? Leave Auto off and press the skill buttons (or keys 1-3) as before. You can switch any time, even mid-battle.",
-      "Your choice is remembered for the next fight."
+      "All 5 minigames can now be played with friends: Hub → Play → Minigames → ＋ New game with friends, pick a game and up to 7 friends (8 players in total).",
+      "Everyone gets the same round at the same time (same treats, bugs, cards, pattern and obstacles) after a 3-2-1 countdown, and a live scoreboard shows how your friends are doing. Best score wins the round.",
+      "Friends get the invite from their pet (Join / Later) or in the Minigames page. The host can start the next round or switch game in the same room; round wins are counted with a 👑.",
+      "While you play a minigame your pet leaves the desktop and jumps into the game window - it plays, watches and cheers (or pouts) inside the game, and walks back onto the desktop when you close it.",
+      "Pet Duel is now one of the games inside Minigames - the separate Arena tab is gone (challenges still show as a badge on Play → Minigames)."
     ],
     "id": [
-      "Duel arena kini bisa main sendiri: nyalakan 🤖 Otomatis (tombol di pertarungan, tombol A, atau centang sebelum bertarung) dan pet memilih skill sendiri - menghabisi lawan yang lemah, menyembuhkan diri saat HP rendah, dan memakai Fokus di pertarungan panjang.",
-      "Mau main sendiri? Biarkan Otomatis mati dan tekan tombol skill (atau 1-3) seperti biasa. Bisa diganti kapan saja, bahkan di tengah pertarungan.",
-      "Pilihanmu diingat untuk pertarungan berikutnya."
+      "Kelima minigame kini bisa dimainkan bersama teman: Hub → Main → Minigame → ＋ Main baru bersama teman, pilih permainan dan hingga 7 teman (total 8 pemain).",
+      "Semua mendapat ronde yang sama di waktu yang sama (camilan, serangga, kartu, pola, dan rintangan yang sama) setelah hitungan 3-2-1, dan papan skor langsung menunjukkan skor teman-temanmu. Skor terbaik memenangkan ronde.",
+      "Teman mendapat undangan dari pet-nya (Gabung / Nanti) atau di halaman Minigame. Tuan rumah bisa memulai ronde berikutnya atau ganti permainan di ruang yang sama; kemenangan ronde dihitung dengan 👑.",
+      "Saat kamu main minigame, pet-mu meninggalkan desktop dan masuk ke jendela permainan - ia bermain, menonton dan bersorak (atau cemberut) di dalam game, lalu kembali ke desktop saat jendela ditutup.",
+      "Duel Pet kini menjadi salah satu permainan di Minigame - tab Arena terpisah sudah dihapus (tantangan tetap muncul sebagai lencana di Main → Minigame)."
     ],
     "zh_TW": [
-      "競技場對戰現在可以自動進行：開啟 🤖 自動（對戰中的按鈕、A 鍵，或開打前勾選），寵物會自己選技能 - 能擊倒就補刀、血少時回復、長期戰先專注。",
-      "想自己玩？保持自動關閉，像以前一樣按技能按鈕（或 1-3）。隨時都能切換，對戰中也可以。",
-      "你的選擇會保留到下一場。"
+      "5 個小遊戲現在都能和朋友一起玩：中心 → 遊戲 → 小遊戲 → ＋ 和朋友開新局，選遊戲和最多 7 位朋友（共 8 人）。",
+      "倒數 3-2-1 後大家同時玩同一回合（同樣的零食、蟲子、卡牌、順序和障礙），即時計分板顯示朋友的分數。最高分贏得該回合。",
+      "朋友會由寵物通知邀請（加入／稍後），也能在小遊戲頁面看到。房主可以在同一房間開下一回合或換遊戲；回合勝場以 👑 計算。",
+      "玩小遊戲時，寵物會離開桌面、跳進遊戲視窗 - 在遊戲裡一起玩、觀戰、歡呼（或嘟嘴），關掉視窗後再走回桌面。",
+      "寵物對決現在是小遊戲裡的一個遊戲 - 不再有獨立的競技場分頁（挑戰仍會在 遊戲 → 小遊戲 顯示數字）。"
     ],
     "zh_CN": [
-      "竞技场对战现在可以自动进行：开启 🤖 自动（对战中的按钮、A 键，或开打前勾选），宠物会自己选技能 - 能击倒就补刀、血少时回复、持久战先专注。",
-      "想自己玩？保持自动关闭，像以前一样按技能按钮（或 1-3）。随时都能切换，对战中也可以。",
-      "你的选择会保留到下一场。"
+      "5 个小游戏现在都能和朋友一起玩：中心 → 游戏 → 小游戏 → ＋ 和朋友开新局，选游戏和最多 7 位朋友（共 8 人）。",
+      "倒数 3-2-1 后大家同时玩同一回合（同样的零食、虫子、卡牌、顺序和障碍），实时计分板显示朋友的分数。最高分赢得该回合。",
+      "朋友会由宠物通知邀请（加入／稍后），也能在小游戏页面看到。房主可以在同一房间开下一回合或换游戏；回合胜场以 👑 计算。",
+      "玩小游戏时，宠物会离开桌面、跳进游戏窗口 - 在游戏里一起玩、观战、欢呼（或嘟嘴），关掉窗口后再走回桌面。",
+      "宠物对决现在是小游戏里的一个游戏 - 不再有独立的竞技场分页（挑战仍会在 游戏 → 小游戏 显示数字）。"
     ]
   },
   "guide": "https://juw12.github.io/projects/pips/download/Pips-Guide.pptx"

@@ -154,6 +154,8 @@ class FriendsWindow:
                    "me": "\U0001F642", "mod": "\U0001F6E1"}
     SUB_ICONS = {"arena": "\u2694 ", "games": "\U0001F3B2 ", "ranks": "\U0001F3C6 ", "groups": "\U0001F46A ",
                  "chat": "\U0001F4E8 ", "profile": "\U0001F464 ", "achievements": "\U0001F3C5 "}
+    # v2.25: the Pet Duel arena lives inside Games (a tile there), not as its own sub-tab
+    HIDDEN_SUBS = {"arena": "games"}
 
     def _groups(self):
         groups = list(self.GROUPS)
@@ -200,10 +202,12 @@ class FriendsWindow:
         self.sub_buttons = {}
         self._sub_group = group
         keys = dict(self._groups()).get(group) or ()
-        if len(keys) < 2:
+        if len([k for k in keys if k not in self.HIDDEN_SUBS]) < 2:
             self.sub_row.configure(height=1)
             return
         for key in keys:
+            if key in self.HIDDEN_SUBS:
+                continue
             btn = tk.Label(self.sub_row, text="", font=("Segoe UI", 9), padx=10, pady=2, cursor="hand2")
             btn.pack(side="left", padx=(0, 4), pady=(5, 0))
             btn.bind("<Button-1>", lambda e, k=key: self.show_tab(k))
@@ -343,7 +347,9 @@ class FriendsWindow:
                     "empty": t("gift_pick"), "nudges_off": t("nudge_err_off"),
                     "nudge_slow": t("nudge_err_slow"), "nudge_limit": t("nudge_err_limit"),
                     "bad_email": t("upd_rem_err_email"), "email_not_found": t("upd_rem_not_found"),
-                    "no_outlook": t("upd_rem_err_outlook"), "send_failed": t("upd_rem_err_send")}
+                    "no_outlook": t("upd_rem_err_outlook"), "send_failed": t("upd_rem_err_send"),
+                    "need_players": t("mp_err_need_players"), "game_started": t("mp_err_started"),
+                    "room_full": t("mp_err_full"), "bad_game": t("mp_err_closed")}
         self.error = messages.get(code, t("fr_err_generic", code=code))
         self.refresh(force=True)
 
@@ -359,6 +365,9 @@ class FriendsWindow:
         if key == "mod":
             self.social.load_mod()
             self.social.load_admin()
+        if key == "games" and self.social.enabled and hasattr(self.social, "mp_list"):
+            self.social._next_mp = time.monotonic() + 5
+            self.social.mp_list()
         if key == "ranks":
             board = self.social.leaderboards.get(self.rank_sort)
             if not board or time.time() - board.get("_at", 0) > 60:
@@ -438,8 +447,9 @@ class FriendsWindow:
         incoming = len((self.social.arena or {}).get("incoming") or [])
         requests = len(self.social.requests())
         open_reports = ((self.social.board or {}).get("staff") or {}).get("open_reports", 0)
-        counts = {"friends": requests, "chat": unread, "groups": invites, "arena": incoming, "mod": open_reports}
-        group_counts = {"friends": requests, "chat": unread + invites, "play": incoming, "mod": open_reports}
+        games = incoming + (self.social.mp_pending() if hasattr(self.social, "mp_pending") else 0)
+        counts = {"friends": requests, "chat": unread, "groups": invites, "games": games, "mod": open_reports}
+        group_counts = {"friends": requests, "chat": unread + invites, "play": games, "mod": open_reports}
         current = self._group_of(self.tab)
         for group, btn in self.group_buttons.items():
             active = group == current
@@ -449,8 +459,9 @@ class FriendsWindow:
             btn.config(text=label, bg=self.ACCENT if active else self.SOFT, fg=self.ACCENT_INK if active else self.INK)
         if self._sub_group != current:
             self._build_sub_row(current)
+        shown_tab = self.HIDDEN_SUBS.get(self.tab, self.tab)
         for key, btn in self.sub_buttons.items():
-            active = key == self.tab
+            active = key == shown_tab
             label = self.SUB_ICONS.get(key, "") + t("fr_sub_" + key)
             if counts.get(key):
                 label += f" ({counts[key]})"
@@ -1740,6 +1751,10 @@ class FriendsWindow:
         return row
 
     def _render_arena(self):
+        back = tk.Frame(self.body, bg=self.CARD)
+        back.pack(fill="x", pady=(0, 6))
+        self._button(back, "\u2039 " + t("mp_back_games"), lambda: self.show_tab("games"), small=True).pack(side="left")
+        self._label(back, "\u2694 " + t("mg_duel"), size=11, bold=True).pack(side="left", padx=8)
         if not self.social.enabled:
             self._render_off()
             return
@@ -1834,7 +1849,7 @@ class FriendsWindow:
                 self._button(row, t("arena_replay"), lambda i=duel["id"]: self.social.open_duel(i, spectate=True),
                              small=True).pack(side="right")
 
-    # ---- games (v2.24) ----
+    # ---- games (v2.24; v2.25: play with friends + Pet Duel inside Games) ----
     def _render_games(self):
         try:
             import minigames
@@ -1845,7 +1860,10 @@ class FriendsWindow:
             return
         self._label(self.body, "\U0001F3B2 " + t("mg_hub_title"), size=12, bold=True).pack(fill="x")
         self._label(self.body, t("mg_hub_note", coins=minigames.GAME_COINS, n=minigames.COIN_GAMES_PER_DAY),
-                    size=8, fg=self.MUTED, wrap=self.WIDTH - 70).pack(fill="x", pady=(0, 6))
+                    size=8, fg=self.MUTED, wrap=self.WIDTH - 70).pack(fill="x", pady=(0, 4))
+        self._render_party_section(minigames)
+        self._render_duel_tile()
+        self._section_title("\U0001F3AE " + t("mg_solo"))
         state = self.pet.st
         rows = [(key, minigames.ICONS[key], t("mg_" + key), t("mg_" + key + "_how"),
                  lambda k=key: self.pet.play_minigame(k)) for key in minigames.GAMES]
@@ -1865,6 +1883,76 @@ class FriendsWindow:
                 stats = t("mg_best", n=best) + "  \u00b7  " + t("mg_plays", n=plays)
                 self._label(box, stats, size=8, fg=self.ACCENT, bg=self.TILE).pack(fill="x")
             self._button(row, "\u25b6 " + t("mg_play"), command, primary=True, small=True).pack(side="right")
+
+    def _render_party_section(self, minigames):
+        """Play together: invitations, my party rooms and 'new game with friends'."""
+        self._section_title("\U0001F465 " + t("mp_section"))
+        card = tk.Frame(self.body, bg=self.WARM, padx=10, pady=8)
+        card.pack(fill="x")
+        if not self.social.enabled:
+            self._label(card, t("mp_need_friends"), size=9, bg=self.WARM, wrap=self.WIDTH - 90).pack(fill="x")
+            self._button(card, "\U0001F465 " + t("fr_tab_friends"), lambda: self.show_tab("friends"),
+                         small=True).pack(anchor="w", pady=(6, 0))
+            return
+        self._label(card, t("mp_intro", n=getattr(minigames, "PARTY_MAX", 8)), size=9, bg=self.WARM,
+                    wrap=self.WIDTH - 90).pack(fill="x")
+        self._button(card, "\uff0b " + t("mp_new"), self._party_setup, primary=True).pack(anchor="w", pady=(6, 0))
+        for invite in list(self.social.mp_invites):
+            row = tk.Frame(card, bg=self.CARD, padx=8, pady=5)
+            row.pack(fill="x", pady=(6, 0))
+            game = invite.get("game", "catch")
+            self._button(row, t("req_decline"), lambda i=invite["id"]: self.social.mp_respond(i, False),
+                         small=True).pack(side="right", padx=(3, 0))
+            self._button(row, "\u25b6 " + t("mp_join"), lambda i=invite["id"]: self.social.mp_respond(i, True),
+                         primary=True, small=True).pack(side="right")
+            tk.Label(row, text=minigames.ICONS.get(game, "\U0001F3B2"), font=("Segoe UI Emoji", 16),
+                     bg=self.CARD).pack(side="left", padx=(0, 6))
+            self._label(row, t("mp_invite_row", name=invite.get("from", {}).get("name", "?"), game=t("mg_" + game)),
+                        size=9, bold=True, bg=self.CARD, wrap=self.WIDTH - 300).pack(side="left", fill="x", expand=True)
+        rooms = [r for r in (self.social.mp_list_data or []) if (r.get("mine") or {}).get("status") == "joined"]
+        if self.social.mp_list_data is None:
+            self._label(card, t("fr_connecting"), size=8, fg=self.MUTED, bg=self.WARM).pack(fill="x", pady=(6, 0))
+        for room in rooms:
+            row = tk.Frame(card, bg=self.CARD, padx=8, pady=5)
+            row.pack(fill="x", pady=(6, 0))
+            game = room.get("game", "catch")
+            self._button(row, "\u2716", lambda i=room["id"]: self.social.mp_leave(i), small=True).pack(side="right", padx=(3, 0))
+            self._button(row, "\u25b6 " + t("mp_open"), lambda i=room["id"]: self.social.mp_open(i), primary=True,
+                         small=True).pack(side="right")
+            tk.Label(row, text=minigames.ICONS.get(game, "\U0001F3B2"), font=("Segoe UI Emoji", 16),
+                     bg=self.CARD).pack(side="left", padx=(0, 6))
+            box = tk.Frame(row, bg=self.CARD)
+            box.pack(side="left", fill="x", expand=True)
+            joined = [p for p in room.get("players") or [] if p.get("status") == "joined"]
+            self._label(box, t("mg_" + game), size=9, bold=True, bg=self.CARD).pack(fill="x")
+            names = ", ".join(p.get("name", "?") for p in joined)
+            status = t("mp_status_" + room.get("status", "open"), n=room.get("round", 1))
+            self._label(box, status + "  \u00b7  " + t("mp_players_line", n=len(joined), names=names), size=8,
+                        fg=self.MUTED, bg=self.CARD, wrap=self.WIDTH - 300).pack(fill="x")
+
+    def _render_duel_tile(self):
+        """v2.25: the Pet Duel arena is one of the games (opens the arena view)."""
+        incoming = len((self.social.arena or {}).get("incoming") or [])
+        row = tk.Frame(self.body, bg=self.TILE, padx=8, pady=6)
+        row.pack(fill="x", pady=(8, 2))
+        self._button(row, "\u25b6 " + t("mp_open"), lambda: self.show_tab("arena"), primary=True,
+                     small=True).pack(side="right")
+        tk.Label(row, text="\u2694", font=("Segoe UI Emoji", 20), bg=self.TILE, width=2).pack(side="left", padx=(0, 8))
+        box = tk.Frame(row, bg=self.TILE)
+        box.pack(side="left", fill="x", expand=True)
+        title = t("mg_duel") + (f"  ({t('mg_duel_waiting', n=incoming)})" if incoming else "")
+        self._label(box, title, size=10, bold=True, bg=self.TILE, fg=self.ACCENT if incoming else self.INK).pack(fill="x")
+        self._label(box, t("mg_duel_how"), size=8, fg=self.MUTED, bg=self.TILE, wrap=self.WIDTH - 230).pack(fill="x")
+        if self.social.enabled:
+            me = (self.social.arena or {}).get("me") or {}
+            stats = t("arena_record", rating=me.get("rating", self.social.data.get("rating", 1000)),
+                      w=me.get("wins", 0), l=me.get("losses", 0))
+            self._label(box, stats, size=8, fg=self.ACCENT, bg=self.TILE).pack(fill="x")
+        if self.social.enabled and self.social.arena is None:
+            self.social.load_arena()
+
+    def _party_setup(self):
+        PartySetup(self)
 
     def _arena_help(self):
         messagebox.showinfo(t("arena_title"), t("arena_help"), parent=self.win)
@@ -2914,3 +3002,107 @@ class FriendsWindow:
     def _disable(self):
         if messagebox.askyesno(t("fr_title"), t("fr_turn_off_q"), parent=self.win):
             self.social.disable_and_delete()
+
+
+class PartySetup:
+    """v2.25: pick a minigame and up to 7 friends, then create a party room (opens the game lobby)."""
+
+    def __init__(self, hub: "FriendsWindow"):
+        import minigames
+
+        self.hub = hub
+        self.social = hub.social
+        self.minigames = minigames
+        self.win = tk.Toplevel(hub.win)
+        self.win.title(t("mp_new"))
+        self.win.configure(bg=hub.BG)
+        self.win.resizable(False, False)
+        self.win.transient(hub.win)
+        pad = tk.Frame(self.win, bg=hub.BG, padx=14, pady=12)
+        pad.pack(fill="both", expand=True)
+        tk.Label(pad, text="\U0001F465 " + t("mp_new"), font=("Segoe UI", 12, "bold"), fg=hub.INK, bg=hub.BG,
+                 anchor="w").pack(fill="x")
+        tk.Label(pad, text=t("mp_setup_note"), font=("Segoe UI", 8), fg=hub.MUTED, bg=hub.BG, anchor="w",
+                 justify="left", wraplength=360).pack(fill="x", pady=(0, 8))
+        tk.Label(pad, text=t("mp_pick_game"), font=("Segoe UI", 9, "bold"), fg=hub.ACCENT, bg=hub.BG,
+                 anchor="w").pack(fill="x")
+        self.game = tk.StringVar(value=self.social.data.get("mp_last_game") or "catch")
+        if self.game.get() not in minigames.GAMES:
+            self.game.set("catch")
+        games = tk.Frame(pad, bg=hub.BG)
+        games.pack(fill="x", pady=(2, 8))
+        for i, key in enumerate(minigames.GAMES):
+            rb = tk.Radiobutton(games, text=f"{minigames.ICONS[key]} {t('mg_' + key)}", variable=self.game, value=key,
+                                font=("Segoe UI Emoji", 9), bg=hub.BG, fg=hub.INK, selectcolor=hub.CARD,
+                                activebackground=hub.BG, anchor="w")
+            rb.grid(row=i // 2, column=i % 2, sticky="w", padx=(0, 12))
+        tk.Label(pad, text=t("mp_pick_friends", n=minigames_max_invites()), font=("Segoe UI", 9, "bold"),
+                 fg=hub.ACCENT, bg=hub.BG, anchor="w").pack(fill="x")
+        box = tk.Frame(pad, bg=hub.CARD, highlightthickness=1, highlightbackground=hub.BORDER)
+        box.pack(fill="both", expand=True, pady=(2, 6))
+        canvas = tk.Canvas(box, bg=hub.CARD, highlightthickness=0, height=220, width=360)
+        scroll = tk.Scrollbar(box, orient="vertical", command=canvas.yview)
+        canvas.configure(yscrollcommand=scroll.set)
+        scroll.pack(side="right", fill="y")
+        canvas.pack(side="left", fill="both", expand=True)
+        inner = tk.Frame(canvas, bg=hub.CARD, padx=6, pady=4)
+        canvas.create_window((0, 0), window=inner, anchor="nw")
+        inner.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+        order = {"online": 0, "busy": 1, "away": 2, "offline": 3}
+        friends = [f for f in self.social.friends()
+                   if f.get("role") != "bot" and not str(f.get("code", "")).startswith("BOT")]
+        friends.sort(key=lambda f: (order.get(f.get("presence") or "offline", 3), str(f.get("name", "")).lower()))
+        self.picks = {}
+        for friend in friends:
+            var = tk.BooleanVar(value=False)
+            presence = friend.get("presence") or "offline"
+            dot = "\u25CF" if presence != "offline" else "\u25CB"
+            cb = tk.Checkbutton(inner, text=f"{dot} {friend.get('name', '?')}   ({t('st_' + presence)})", variable=var,
+                                command=self._update, font=("Segoe UI", 9), bg=hub.CARD, fg=hub.INK,
+                                selectcolor=hub.CARD, activebackground=hub.CARD, anchor="w")
+            cb.pack(fill="x", anchor="w")
+            self.picks[friend["code"]] = (var, cb)
+        if not friends:
+            tk.Label(inner, text=t("mp_no_friends"), font=("Segoe UI", 9), fg=hub.MUTED, bg=hub.CARD,
+                     wraplength=330, justify="left").pack(fill="x")
+        foot = tk.Frame(pad, bg=hub.BG)
+        foot.pack(fill="x")
+        self.count = tk.Label(foot, text="", font=("Segoe UI", 8), fg=hub.MUTED, bg=hub.BG, anchor="w")
+        self.count.pack(side="left")
+        self.go = hub._button(foot, "\u25b6 " + t("mp_create"), self._create, primary=True)
+        self.go.pack(side="right")
+        hub._button(foot, t("mg_close"), self.win.destroy).pack(side="right", padx=6)
+        self._update()
+        self.win.update_idletasks()
+        try:
+            x = hub.win.winfo_rootx() + 60
+            y = hub.win.winfo_rooty() + 120
+            self.win.geometry(f"+{x}+{y}")
+        except tk.TclError:
+            pass
+
+    def chosen(self) -> list:
+        return [code for code, (var, _cb) in self.picks.items() if var.get()]
+
+    def _update(self):
+        chosen = self.chosen()
+        limit = minigames_max_invites()
+        for code, (var, cb) in self.picks.items():
+            cb.config(state="normal" if var.get() or len(chosen) < limit else "disabled")
+        self.count.config(text=t("mp_chosen", n=len(chosen), max=limit))
+        self.go.config(bg=self.hub.ACCENT if chosen else self.hub.BORDER)
+
+    def _create(self):
+        codes = self.chosen()
+        if not codes:
+            self.count.config(text=t("mp_pick_someone"), fg=self.hub.ACCENT)
+            return
+        self.social.data["mp_last_game"] = self.game.get()
+        self.social.save()
+        self.social.mp_create(self.game.get(), codes)
+        self.hub.status.config(text=t("fr_connecting"), fg=self.hub.MUTED)
+        self.win.destroy()
+
+
+def minigames_max_invites() -> int:
+    return int(getattr(social, "MP_MAX_INVITES", 7) or 7) if social is not None else 7
