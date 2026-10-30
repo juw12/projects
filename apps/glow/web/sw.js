@@ -3,9 +3,9 @@
 // (./room/) and GlowLead (./lead/) have their own workers; requests for them are left alone here.
 // Pages are network-first with a short timeout, so a weak connection still opens Glow at once.
 // version.json is never cached, so "Check for updates" always sees the real latest version.
-// AI News (./news/) is network-first like every page: a new edition shows as soon as it is online,
+// GlowNews (./news/) is network-first like every page: a new edition shows as soon as it is online,
 // and the last edition you saw still opens offline.
-const CACHE_NAME = 'glowhome-v16';
+const CACHE_NAME = 'glowhome-v17';
 const NETWORK_TIMEOUT_MS = 4000;
 const ASSETS = [
   './',

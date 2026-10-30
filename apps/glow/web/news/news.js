@@ -1,4 +1,4 @@
-// Glow AI News: the day's AI stories, grouped by story with every source, a 5-point briefing,
+// GlowNews: the day's AI stories, grouped by story with every source, a 5-point briefing,
 // topics, search, "new since your last visit", saved stories, and one tap to discuss any story
 // with GlowChat. The edition (news.json) is built twice a day by apps/glow/tools/ai_news.py.
 (function () {
@@ -297,7 +297,7 @@
         const card = document.getElementById(location.hash.slice(1));
         if (card) setTimeout(() => card.scrollIntoView({ block: "center" }), 60);
       }
-      if (quiet && changed) toast("✨ A new AI News edition is here");
+      if (quiet && changed) toast("✨ A new GlowNews edition is here");
       return true;
     } catch (error) {
       if (!edition) {
@@ -395,7 +395,7 @@
     const byId = Object.fromEntries((edition.stories || []).map((s) => [s.id, s]));
     const lines = (brief.points || []).map((p, index) => `${index + 1}. ${p.text}${byId[p.id] ? " " + safeUrl(byId[p.id].url) : ""}`);
     const title = brief.headline || "Today in AI";
-    if (await copyText(`${title}\n\n${lines.join("\n")}\n\nvia Glow AI News: ${location.origin}${location.pathname}`)) toast("Briefing copied");
+    if (await copyText(`${title}\n\n${lines.join("\n")}\n\nvia GlowNews: ${location.origin}${location.pathname}`)) toast("Briefing copied");
   });
 
   // A new edition arrives twice a day: check again when the page comes back into view.
@@ -416,6 +416,13 @@
       window.GlowLocale.apply();
       if (edition) renderAll();
     });
+  }
+  // Glow home's "AI news" choice opens GlowNews searching for what you typed (?q=).
+  const startQuery = new URLSearchParams(location.search).get("q");
+  if (startQuery) {
+    view.query = startQuery.slice(0, 200);
+    $("news-search").value = view.query;
+    history.replaceState(null, "", location.pathname + location.hash);
   }
   load(false).then(() => {
     // Seen once: next visit, only stories that arrive after now count as new.

@@ -1,4 +1,4 @@
-"""Glow AI News: build apps/glow/web/news/news.json twice a day (stdlib only, plus an optional free AI pass).
+"""GlowNews: build apps/glow/web/news/news.json twice a day (stdlib only, plus an optional free AI pass).
 
 What it does
   1. Reads AI news from official lab blogs, major tech outlets, research and community sources

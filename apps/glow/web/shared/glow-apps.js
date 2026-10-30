@@ -10,7 +10,7 @@
   const ROOT = new URL("../", scriptUrl); // .../glow/
   // The Glow family version. Bump it together with ../version.json for every release:
   // an older copy of this script then sees the newer version.json and offers "Update now".
-  const GLOW_VERSION = "1.28.0";
+  const GLOW_VERSION = "1.28.1";
   const LIVE_ROOT = "https://juw12.github.io/projects/glow/";
   const APK_URL = "https://github.com/juw12/projects/releases/download/glow-android/Glow-android.apk";
   const embedded = (function () {
@@ -32,7 +32,7 @@
     { id: "lead", name: "GlowLead", icon: "👑", desc: "Your AI lead: plans, delegates to the apps, checks", page: "lead/" },
     { id: "chat", name: "GlowChat", icon: "💬", desc: "Chat, Council and Arena with any AI model", page: onMobilePage ? "chat/mobile.html" : "chat/" },
     { id: "room", name: "GlowRoom", icon: "🏢", desc: "An AI crew that researches, codes and reports back", page: onMobilePage ? "room/mobile.html" : "room/" },
-    { id: "news", name: "AI News", icon: "📰", desc: "Latest AI news, refreshed twice a day", page: "news/" },
+    { id: "news", name: "GlowNews", icon: "📰", desc: "Latest AI news, refreshed twice a day", page: "news/" },
   ];
 
   // Language & region come from glow-locale.js (loaded first); English when it is missing.

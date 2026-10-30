@@ -1,4 +1,4 @@
-"""Glow AI News (1.28.0): static checks, stdlib only.
+"""GlowNews (1.28.0, renamed and on Glow home in 1.28.1): static checks, stdlib only.
 
 The page exists and follows the Glow rules (CSP, no inline script, local refs resolve), it is in the
 Glow apps menu and on Glow home, works offline through the home service worker, the committed edition
@@ -38,7 +38,7 @@ class GlowNewsTests(unittest.TestCase):
 
     def test_in_glow_apps_menu_and_home(self):
         apps = (WEB / "shared" / "glow-apps.js").read_text(encoding="utf-8")
-        self.assertIn('{ id: "news", name: "AI News"', apps)
+        self.assertIn('{ id: "news", name: "GlowNews"', apps)
         self.assertIn('if (/\\/news\\//.test(path)) return "news";', apps)
         self.assertIn('if (/^news\\//.test(rest)) return "news";', apps)
         locale = (WEB / "shared" / "glow-locale.js").read_text(encoding="utf-8")
@@ -47,6 +47,14 @@ class GlowNewsTests(unittest.TestCase):
             self.assertEqual(locale.count(f'"{key}"'), 4, f"{key} translated in all 4 languages")
         home = (WEB / "index.html").read_text(encoding="utf-8")
         self.assertIn('id="today-ai"', home)
+        self.assertIn('<a class="app-tile news" id="open-news" href="./news/">', home, "GlowNews tile next to the other Glow apps")
+        self.assertIn('<b>GlowNews</b>', home)
+        self.assertIn('id="start-news"', home, "'AI news' choice under the start box")
+        for key in ("home.tile.news", "home.pill.news"):
+            self.assertEqual(locale.count(f'"{key}"'), 4, key)
+        self.assertIn('target === "news"', (WEB / "home.js").read_text(encoding="utf-8"))
+        self.assertIn(">GlowNews<", self.html)
+        self.assertNotIn("AI News", self.html)
         self.assertIn('href="./news/"', home)
         self.assertIn("./news/news.json", (WEB / "home.js").read_text(encoding="utf-8"))
 
@@ -54,7 +62,7 @@ class GlowNewsTests(unittest.TestCase):
         sw = (WEB / "sw.js").read_text(encoding="utf-8")
         for asset in ("./news/", "./news/news.css", "./news/news.js", "./news/news.json"):
             self.assertIn(f"'{asset}'", sw)
-        self.assertNotIn("glowhome-v15", sw, "cache name bumped with the new assets")
+        self.assertNotIn("glowhome-v16", sw, "cache name bumped with the new assets")
         published = json.loads((WEB / "version.json").read_text(encoding="utf-8"))["version"]
         self.assertIn(f'const GLOW_VERSION = "{published}";', (WEB / "shared" / "glow-apps.js").read_text(encoding="utf-8"))
         self.assertIn("https://juw12.github.io/projects/glow/news/", (WEB / "sitemap.xml").read_text(encoding="utf-8"))

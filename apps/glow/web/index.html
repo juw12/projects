@@ -54,7 +54,8 @@
   "Glow AI",
   "GlowChat",
   "GlowRoom",
-  "GlowLead"
+  "GlowLead",
+  "GlowNews"
  ],
  "url": "https://juw12.github.io/projects/glow/",
  "description": "Glow is a free AI app: chat with top AI models, compare them in a Council or Arena, send an AI crew to research and code, or hand GlowLead a whole goal. Works offline with AI that runs on your device.",
@@ -85,6 +86,7 @@
   "Council and Arena: several AI models discuss or compete",
   "GlowRoom: an AI crew that researches the web and runs code",
   "GlowLead: plans a goal, delegates the work and checks it",
+  "GlowNews: the day's AI stories grouped by story with sources, refreshed twice a day",
   "Glow Offline: AI that runs on your device with no internet",
   "English, Bahasa Indonesia, Simplified and Traditional Chinese"
  ],
@@ -132,6 +134,7 @@
       <button type="button" class="pill" id="start-chat" data-target="chat" data-i18n="home.pill.chat">💬 Chat</button>
       <button type="button" class="pill" id="start-room" data-target="room" data-i18n="home.pill.room">🏢 AI crew</button>
       <button type="button" class="pill" id="start-lead" data-target="lead" data-i18n="home.pill.lead">👑 Lead a goal</button>
+      <button type="button" class="pill" id="start-news" data-target="news" data-i18n="home.pill.news">📰 AI news</button>
     </div>
   </section>
 
@@ -151,11 +154,16 @@
       <span class="app-text"><b>GlowLead</b><small data-i18n="home.tile.lead">Give one big goal; it plans and checks the work.</small></span>
       <span class="go-arrow" aria-hidden="true">→</span>
     </a>
+    <a class="app-tile news" id="open-news" href="./news/">
+      <span class="app-icon" aria-hidden="true">📰</span>
+      <span class="app-text"><b>GlowNews</b><small data-i18n="home.tile.news">Today's AI news, grouped and summarised twice a day.</small></span>
+      <span class="go-arrow" aria-hidden="true">→</span>
+    </a>
   </section>
 
   <section class="today-ai" id="today-ai" hidden aria-labelledby="today-ai-title">
     <div class="today-ai-head">
-      <h2 id="today-ai-title" data-i18n="home.news">📰 Today in AI</h2>
+      <h2 id="today-ai-title" data-i18n="home.news">📰 GlowNews · Today in AI</h2>
       <a href="./news/" id="today-ai-all" data-i18n="home.newsAll">All AI news →</a>
     </div>
     <ul id="today-ai-list"></ul>
