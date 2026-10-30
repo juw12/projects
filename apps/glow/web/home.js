@@ -99,6 +99,12 @@
   }
   function launch(target) {
     const text = $("start-input").value.trim();
+    if (target === "news") {
+      const newsUrl = new URL("./news/", location.href);
+      if (text) newsUrl.searchParams.set("q", text.slice(0, 200));
+      location.href = newsUrl.toString();
+      return;
+    }
     const page = target === "room" ? roomPage : target === "lead" ? leadPage : chatPage;
     const url = new URL(page, location.href);
     if (text) {
@@ -122,7 +128,7 @@
     }
     launch(suggestedTarget());
   });
-  for (const name of ["chat", "room", "lead"]) {
+  for (const name of ["chat", "room", "lead", "news"]) {
     $("start-" + name).addEventListener("click", () => launch(name));
   }
   document.querySelectorAll("[data-example]").forEach((button) => {
@@ -252,7 +258,7 @@
 
   window.GlowHome = { renderRecent, renderAccount, suggest, suggestedTarget, launch };
 
-  // ---- 📰 Today in AI: the top 3 stories of the current AI News edition ----
+  // ---- 📰 Today in AI: the top 3 stories of the current GlowNews edition ----
   function renderTodayInAi(edition) {
     const stories = (edition && Array.isArray(edition.stories) ? edition.stories : []).slice(0, 3);
     if (!stories.length) return;

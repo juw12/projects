@@ -74,13 +74,14 @@ h1 { margin: 0; font-size: clamp(36px, 7vw, 62px); line-height: 1.04; letter-spa
 .pill:hover { color: var(--accent); }
 .pill.suggested { color: var(--text); background: color-mix(in srgb, var(--accent) 16%, transparent); text-decoration: none; }
 
-.apps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 44px; }
+.apps { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-top: 44px; }
 .app-tile { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-radius: 18px; background: var(--panel); border: 1px solid var(--border); text-decoration: none; transition: border-color .15s, transform .15s; }
 .app-tile:hover { border-color: var(--accent); transform: translateY(-2px); }
 .app-icon { width: 42px; height: 42px; flex: none; border-radius: 12px; display: grid; place-items: center; font-size: 21px; background: var(--card); border: 1px solid var(--border); }
 .app-tile.chat .app-icon { background: color-mix(in srgb, var(--accent) 16%, var(--card)); }
 .app-tile.room .app-icon { background: color-mix(in srgb, var(--room) 16%, var(--card)); }
 .app-tile.lead .app-icon { background: color-mix(in srgb, var(--gold) 18%, var(--card)); }
+.app-tile.news .app-icon { background: color-mix(in srgb, #5fa8d3 20%, var(--card)); }
 .app-text { display: flex; flex-direction: column; min-width: 0; flex: 1; }
 .app-text b { font-size: 16px; }
 .app-text small { color: var(--muted); font-size: 13px; line-height: 1.35; }

@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
   schedule:
     # Hourly: refresh Twin's public market snapshot (prices, FX, exchange calendars) and
-    # Twin Indonesia's headlines, then redeploy. Glow AI News makes a new edition on the first
+    # Twin Indonesia's headlines, then redeploy. GlowNews makes a new edition on the first
     # run after 00:00 and 12:00 UTC (07:00 and 19:00 in Batam) and reuses it the rest of the time.
     - cron: "17 * * * *"
 
@@ -41,7 +41,7 @@ jobs:
           python apps/twin/scripts/world_snapshot.py || git checkout -- apps/twin/web/demo/world.json apps/twin/web/demo/world
           python apps/twin/scripts/indonesia_snapshot.py --news-only || git checkout -- apps/twin/web/id/snapshot.js
 
-      - name: Refresh Glow AI News (new edition at 00:00 and 12:00 UTC; reuses the live one in between)
+      - name: Refresh GlowNews (new edition at 00:00 and 12:00 UTC; reuses the live one in between)
         continue-on-error: true
         timeout-minutes: 12
         run: |
