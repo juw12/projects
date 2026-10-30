@@ -87,6 +87,17 @@ h1 { margin: 0; font-size: clamp(36px, 7vw, 62px); line-height: 1.04; letter-spa
 .go-arrow { color: var(--muted); }
 .app-tile:hover .go-arrow { color: var(--accent); }
 
+.today-ai { margin-top: 28px; background: var(--panel); border: 1px solid var(--border); border-radius: 18px; padding: 14px 16px 10px; }
+.today-ai-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.today-ai h2 { margin: 0; font-size: 16px; letter-spacing: -.01em; }
+.today-ai-head a { color: var(--accent); font-size: 14px; font-weight: 600; text-decoration: none; white-space: nowrap; }
+.today-ai-head a:hover { text-decoration: underline; }
+.today-ai ul { list-style: none; margin: 8px 0 0; padding: 0; }
+.today-ai li a { display: flex; gap: 10px; align-items: baseline; padding: 7px 6px; border-radius: 10px; text-decoration: none; }
+.today-ai li a:hover { background: var(--card); }
+.today-ai li .t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.today-ai li .s { color: var(--muted); font-size: 12.5px; white-space: nowrap; }
+.today-ai-meta { margin: 4px 6px 0; color: var(--muted); font-size: 12.5px; }
 .recent { margin-top: 36px; }
 .recent h2 { margin: 0 0 12px; font-size: 18px; letter-spacing: -.01em; }
 .recent-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; }

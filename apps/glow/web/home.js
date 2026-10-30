@@ -251,4 +251,26 @@
   }
 
   window.GlowHome = { renderRecent, renderAccount, suggest, suggestedTarget, launch };
+
+  // ---- 📰 Today in AI: the top 3 stories of the current AI News edition ----
+  function renderTodayInAi(edition) {
+    const stories = (edition && Array.isArray(edition.stories) ? edition.stories : []).slice(0, 3);
+    if (!stories.length) return;
+    const escape = (value) => String(value == null ? "" : value).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+    $("today-ai-list").innerHTML = stories
+      .map((story) => {
+        const count = (story.sources || []).length;
+        return `<li><a href="./news/#story-${escape(story.id)}"><span class="t">${escape(story.title)}</span><span class="s">${escape(story.source)}${count > 1 ? ` +${count - 1}` : ""}</span></a></li>`;
+      })
+      .join("");
+    const generated = Date.parse(edition.generated_at || "");
+    const hours = generated ? Math.max(0, Math.round((Date.now() - generated) / 3600000)) : null;
+    $("today-ai-meta").textContent = hours == null ? "" : `Updated ${hours < 1 ? "less than an hour" : hours + " h"} ago · refreshed twice a day`;
+    $("today-ai").hidden = false;
+  }
+  fetch("./news/news.json", { cache: "no-cache" })
+    .then((response) => (response.ok ? response.json() : null))
+    .then(renderTodayInAi)
+    .catch(() => {});
+
 })();
