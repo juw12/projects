@@ -211,7 +211,7 @@
       "name": "Airiz Motor",
       "category": "Automation",
       "desc": "Windows, Android and browser console for AIRIZ motor testing: USB or Bluetooth jog, remote control and camera by code, live device checks",
-      "description": "Downloadable Windows console (v1.11.17) with a locally bundled controller, serial port chooser, macros and offline demo. Remote by code lets a phone or another PC control the AIRIZ and see its camera through this PC with a 6-digit code, and a PIN-protected on-device Bluetooth remote adds wireless pan, up/down, LEDs and a real motor stop from Android or iPhone (Bluefy). The dashboard shows real device facts: the firmware the AIRIZ reports, a Bluetooth self-test result, live link activity, a camera check that confirms each jog really moved the camera, automatic aim and timing calibration from the camera picture, and a read-only hardware check report. Camera tools add presets, motion detection, a siren and talk / listen through the AIRIZ speaker and microphone. The browser and mobile-web editions remain available.",
+      "description": "Downloadable Windows console (v1.11.18) with a locally bundled controller, serial port chooser, macros and offline demo. Remote by code lets a phone or another PC control the AIRIZ and see its camera through this PC with a 6-digit code, and a PIN-protected on-device Bluetooth remote adds wireless pan, up/down, LEDs and a real motor stop from Android or iPhone (Bluefy). The dashboard shows real device facts: the firmware the AIRIZ reports, a Bluetooth self-test result, live link activity, a camera check that confirms each jog really moved the camera, automatic aim and timing calibration from the camera picture, and a read-only hardware check report. Camera tools add presets, motion detection, a siren and talk / listen through the AIRIZ speaker and microphone. The browser and mobile-web editions remain available.",
       "summary": "AIRIZ test console for Windows, Android, iPhone and web &mdash; USB/Bluetooth jog, remote control by code, live device checks.",
       "tags": [
         "Windows app",
@@ -224,7 +224,7 @@
       "image": "airiz-motor-card.jpg",
       "image_alt": "Airiz Motor Test Console dashboard: command library, serial console and macro notepad for AIRIZ device motor testing",
       "links": {
-        "app": "https://github.com/juw12/projects/releases/download/airiz-desktop-v1.11.17/AIRIZ-Console-Setup-1.11.17-x64.exe",
+        "app": "https://github.com/juw12/projects/releases/download/airiz-desktop-v1.11.18/AIRIZ-Console-Setup-1.11.18-x64.exe",
         "web": "airiz-motor/",
         "mobile": "airiz-motor/"
       },
@@ -234,7 +234,7 @@
       "card_links": [
         {
           "label": "Windows app",
-          "path": "https://github.com/juw12/projects/releases/download/airiz-desktop-v1.11.17/AIRIZ-Console-Setup-1.11.17-x64.exe"
+          "path": "https://github.com/juw12/projects/releases/download/airiz-desktop-v1.11.18/AIRIZ-Console-Setup-1.11.18-x64.exe"
         },
         {
           "label": "Web",
