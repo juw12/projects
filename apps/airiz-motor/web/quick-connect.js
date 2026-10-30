@@ -172,16 +172,37 @@
 
   let cameraSharedByUs = null; // code we shared the camera with
 
-  async function shareCameraWith(code) {
-    if (!camera || !code) return false;
-    if (camera.shareCode && camera.shareCode !== code && cameraSharedByUs !== camera.shareCode) {
-      return true; // the operator shares the camera separately; leave it alone
+  // 1.11.16: the camera is registered under the control code right away, also when the
+  // preview cannot start yet; viewers get the picture as soon as Camera -> Start Preview runs.
+  // Resolves to true when the preview is running (picture available now).
+  function registerCamera(code) {
+    if (!camera || !code || remote.hostCode !== code) return false;
+    if (camera.shareCode === code) {
+      cameraSharedByUs = code;
+      return true;
     }
-    if (!(await ensureCameraStream())) return false;
-    if (remote.hostCode !== code) return false; // sharing stopped meanwhile
     const ok = camera.shareWithCode(code);
     if (ok) cameraSharedByUs = code;
     return ok;
+  }
+
+  async function shareCameraWith(code) {
+    if (!registerCamera(code)) return false;
+    const preview = await ensureCameraStream();
+    return preview && remote.hostCode === code;
+  }
+
+  // Keep the camera share tied to the control share: also after a restart that restores
+  // sharing, a new own code, or a camera share that ended for any other reason.
+  function superviseCameraShare() {
+    if (!camera) return;
+    const code = remote.hostCode;
+    if (code) {
+      if (camera.shareCode !== code) registerCamera(code);
+    } else if (cameraSharedByUs && camera.shareCode === cameraSharedByUs) {
+      camera.stopShare();
+      cameraSharedByUs = null;
+    }
   }
 
   async function share() {
@@ -213,7 +234,8 @@
       const cameraOk = await shareCameraWith(code);
       shareStatus(cameraOk
         ? 'Sharing motor + camera with code ' + code + '.'
-        : 'Sharing motor control with code ' + code + '. No AIRIZ camera preview, so the camera is not shared.');
+        : 'Sharing motor + camera with code ' + code + '. The camera preview is not running yet: '
+          + 'the picture reaches the other devices as soon as Camera → Start Preview runs.');
       dialog.close();
       remote.openShareDialog(); // shows the big code, the link and the Allow requests
     } finally {
@@ -227,13 +249,54 @@
     if (detail.kind !== 'control') return;
     if (detail.code) {
       shareCameraWith(detail.code).then(ok => {
-        if (ok) toast('The camera is shared with the same code ' + detail.code + '.');
+        toast(ok
+          ? 'The camera is shared with the same code ' + detail.code + '.'
+          : 'Code ' + detail.code + ' also carries the camera once Camera → Start Preview runs on this PC.');
       });
     } else if (camera && cameraSharedByUs && camera.shareCode === cameraSharedByUs) {
       camera.stopShare();
       cameraSharedByUs = null;
     }
   });
+
+  // ------------------------------------------------------------------ camera line in Share control
+  function renderCameraShareLine() {
+    const status = $('share-control-status');
+    if (!status || !camera) return;
+    let line = $('share-control-camera');
+    if (!line) {
+      line = document.createElement('div');
+      line.id = 'share-control-camera';
+      line.className = 'share-control-camera';
+      line.setAttribute('aria-live', 'polite');
+      line.innerHTML = '<span id="share-control-camera-text"></span>'
+        + '<button class="btn btn-sm btn-primary" hidden id="share-control-camera-start" type="button">Start camera preview</button>';
+      status.after(line);
+      $('share-control-camera-start').addEventListener('click', () => {
+        ensureCameraStream();
+      });
+    }
+    const state = camera.hostState;
+    const text = $('share-control-camera-text');
+    const startButton = $('share-control-camera-start');
+    if (!state.code) {
+      text.textContent = 'Camera: shared together with the code while sharing is on.';
+      startButton.hidden = true;
+      return;
+    }
+    if (!state.preview) {
+      text.textContent = 'Camera: shared with code ' + state.code + ', but the preview is not running, so '
+        + 'nobody sees a picture yet.';
+      startButton.hidden = false;
+      return;
+    }
+    startButton.hidden = true;
+    const names = state.viewers.map(row => row.label + ' (' + row.path + ')');
+    text.textContent = 'Camera: shared with code ' + state.code + ' · '
+      + (names.length ? names.length + ' watching: ' + names.join(', ') : 'nobody watching yet');
+  }
+  document.addEventListener('airiz:share-dialog', renderCameraShareLine);
+  document.addEventListener('airiz:camera-share', renderCameraShareLine);
 
   // ------------------------------------------------------------------ floating camera window
   const panel = { root: null, video: null, image: null, note: null, code: null, since: 0, hidden: false, full: null };
@@ -321,9 +384,10 @@
       }
       panel.video.hidden = false;
       panel.image.hidden = true;
-      panel.note.textContent = '';
-      live.textContent = 'live';
-      live.classList.add('is-live');
+      const flowing = camera.live;
+      panel.note.textContent = flowing ? '' : (camera.status || 'The picture paused on the PC. Reconnecting…');
+      live.textContent = flowing ? 'live' : 'paused';
+      live.classList.toggle('is-live', flowing);
     } else if (frames && frames.getAttribute('src')) {
       if (panel.image.getAttribute('src') !== frames.getAttribute('src')) panel.image.src = frames.getAttribute('src');
       panel.image.hidden = false;
@@ -332,11 +396,16 @@
       live.textContent = 'live (relay)';
       live.classList.add('is-live');
     } else {
-      live.textContent = 'connecting…';
+      panel.video.srcObject = null;
+      panel.image.removeAttribute('src');
+      live.textContent = camera.waitingForPreview ? 'waiting for PC' : 'connecting…';
       live.classList.remove('is-live');
-      if (Date.now() - panel.since > NO_VIDEO_HINT_MS) {
-        panel.note.textContent = 'No camera picture yet. On the AIRIZ PC open Camera → Start Preview; '
-          + 'it is shared automatically with the same code.';
+      if (camera.waitingForPreview) {
+        panel.note.textContent = camera.status;
+      } else if (Date.now() - panel.since > NO_VIDEO_HINT_MS) {
+        panel.note.textContent = (camera.status ? camera.status + ' ' : '')
+          + 'On the AIRIZ PC, Camera → Start Preview must be running; it is shared automatically with the same code. '
+          + 'This window keeps trying by itself.';
       } else {
         panel.note.textContent = camera.status || 'Connecting to the camera…';
       }
@@ -346,6 +415,7 @@
   // Any remote-control connection (launcher, Control by code box, old dialog, link) opens the camera.
   let lastRemoteCode = null;
   function watchConnection() {
+    superviseCameraShare();
     const code = remoteCode(api.getStatus());
     if (code && code !== lastRemoteCode) startCameraFor(code);
     if (!code && lastRemoteCode) stopCamera();

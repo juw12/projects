@@ -47,7 +47,6 @@
 .share-control-teams-status { margin: 0; font-size: 0.85rem; padding: 6px 10px; border-radius: 6px; border: 1px solid var(--color-border); background: var(--ui-accent-soft); flex: 1 1 260px; }
 .share-control-teams-status[data-state="sent"] { color: var(--color-success); }
 .share-control-teams-status[data-state="failed"] { color: var(--color-danger); }
-.camera-relay-live-label { font-size: 0.85rem; color: var(--color-text-muted, inherit); }
 
 .guide-layout { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 24px; align-items: start; margin-bottom: 30px; }
 .guide-toc { position: sticky; top: 16px; display: grid; gap: 2px; padding: 14px; border: 1px solid var(--color-border); border-radius: 11px; background: var(--color-bg-panel); }
