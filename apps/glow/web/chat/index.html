@@ -226,6 +226,8 @@
     <p class="note">Download a small AI model once and GlowChat keeps answering with no internet. It runs on this device's graphics chip and nothing you type leaves the device. Offline models are smaller than cloud AI: good for writing, rewriting, translating and quick questions.</p>
     <div id="offline-ai-panel" class="offline-ai"><p class="note">Checking this device…</p></div>
 
+    <!-- Your own AI keys and services: hidden for now (OWN_FREE_KEYS_SHOWN / OWN_AI_SERVICES_SHOWN in app.js). -->
+    <div id="own-ai-setup" hidden>
     <h4>Your own AI keys (optional)</h4>
     <p class="note">Keys, chats and votes are stored in this browser. Keys are only sent to the provider they belong to.</p>
 
@@ -243,6 +245,7 @@
     <input type="password" id="set-mistral" placeholder="Mistral API key" autocomplete="off" style="margin-top:6px">
     </div>
 
+    <div id="own-ai-services" hidden>
     <h4>Ollama: private models on your own computer</h4>
     <p class="note">Install Ollama, then allow this site: <code>OLLAMA_ORIGINS=https://juw12.github.io ollama serve</code></p>
     <input type="url" id="set-ollama" placeholder="http://localhost:11434">
@@ -253,6 +256,8 @@
     <p class="note hidden" id="china-provider-note">Pick a provider to fill in the API address, then paste your key from its console. Requests go straight from this browser to that provider.</p>
     <input type="url" id="set-custom-url" placeholder="https://api.example.com/v1">
     <input type="password" id="set-custom-key" placeholder="API key" autocomplete="off" style="margin-top:6px">
+    </div>
+    </div>
 
     <h4>Your data</h4>
     <p class="note" id="data-summary"></p>
@@ -293,7 +298,7 @@
     <p class="signin-error hidden" id="signin-error" role="alert"></p>
     <div class="divider"><span>or</span></div>
     <button class="secondary big" id="guest-btn" type="button">Continue as guest</button>
-    <p class="note">Chat with free AI right away, no sign-up. You can also use local Ollama or another AI service. Everything stays in this browser, including chats and keys you already have.</p>
+    <p class="note">Chat with free AI right away, no sign-up. Everything stays in this browser, including the chats you already have.</p>
   </div>
 </div>
 

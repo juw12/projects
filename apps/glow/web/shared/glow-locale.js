@@ -69,7 +69,9 @@
     CN: { cloud: "" },
   };
 
-  // OpenAI-compatible AI providers that serve mainland China, for "Your own AI keys" in GlowChat.
+  // GlowChat's "Your own AI keys" section is hidden for now, so its tip in the region summary is too.
+const OWN_KEY_TIP_SHOWN = false;
+// OpenAI-compatible AI providers that serve mainland China, for "Your own AI keys" in GlowChat.
   // The keys stay in the browser and requests go straight to the provider.
   const CHINA_PROVIDERS = [
     { id: "deepseek", name: "DeepSeek 深度求索", url: "https://api.deepseek.com/v1", keys: "https://platform.deepseek.com/api_keys" },
@@ -434,7 +436,8 @@
     }
     for (const key of Object.values(region.caution || {})) lines.push("⚠ " + t(`caution.${key}`, null, lang));
     if (region.network) lines.push("📶 " + t("welcome.network", null, lang));
-    if (code === "CN") lines.push("🔑 " + t("welcome.chinaKeys", null, lang));
+    // Own AI keys are hidden in GlowChat for now (OWN_AI_SERVICES_SHOWN in chat/app.js), so the key tip is too.
+  if (code === "CN" && OWN_KEY_TIP_SHOWN) lines.push("🔑 " + t("welcome.chinaKeys", null, lang));
     if (code !== "INTL") lines.push(t("welcome.local", { currency: region.currency, units: t(`units.${region.units}`, null, lang) }, lang));
     return lines;
   }
