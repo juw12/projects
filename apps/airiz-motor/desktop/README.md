@@ -9,7 +9,7 @@ is required to use the installed app or its hardware-free demo.
 ## Downloads
 
 Windows x64 releases are published under the app-specific tag
-`airiz-desktop-v1.11.16` in this repository's Releases section.
+`airiz-desktop-v1.11.17` in this repository's Releases section.
 
 - **Installer**: assisted, per-user installation with Start-menu/desktop shortcuts
   and an uninstaller. The wizard lets the user choose the installation directory.
@@ -163,6 +163,23 @@ reports whether a framed firmware reply came back. Results can be exported.
 No pairing is accepted without confirmation and no motor command is sent.
 Another program on the PC still cannot open COM4 while this app holds it: that is
 a Windows serial-port rule, which is why the check runs inside the app.
+
+## 1.11.17: Real device facts instead of decoration
+
+* Audit outcome: the FW strip showed the command list's firmware, the header said LOCAL SESSION, the clock counted page
+  time, the sidebar wave was static, Bluetooth on only sent a command, and the siren was the AIRIZ test recording.
+* `web/console-ui.js`: `runDeviceCommand` (send + collect until `#INFO#...#END#` or the shell prompt). Firmware query
+  on connect (`diag ver sw`, quiet, 3 tries; Bluetooth transports use the firmware they already know), Bluetooth
+  self-test parsing (code + controller address), link activity from `onOutput` / `onCommandSent` (bytes/s, last reply,
+  connected-for), camera move check around each jog (grey 96 px frames, noise-adaptive threshold, idle noise sampled
+  once a second), and the read-only *Hardware check* dialog with a saved report.
+* `web/ptz-core.js`: `frameDifference`, `frameContrast`, `estimateShift` (pyramid block matching), `motionStopTime`,
+  `sirenWave`. Unit tests in `tests/ptz-core.test.cjs`.
+* `web/ptz.js`: *Measure automatically* for aim and timing; siren choices `tone` (default, generated) / `testwav` /
+  `custom`; a stored `builtin` becomes `tone`. The tone and files go out through `AirizVoice` and fall back to the test
+  WAV if the voice link fails.
+* `web/app.js`: demo answer for `diag ble on`.
+* Test: `node tests/device-facts-e2e.cjs` (demo device, fake webcam, 17 checks).
 
 ## 1.11.16: Camera always reaches the other PC
 

@@ -24,7 +24,7 @@ A downloadable Windows x64 desktop edition now bundles this entire console local
 It is not a website shortcut and does not require Chrome, Edge, Node or Python to run.
 Installer and portable preview builds are available at:
 
-https://github.com/juw12/projects/releases/tag/airiz-desktop-v1.11.16
+https://github.com/juw12/projects/releases/tag/airiz-desktop-v1.11.17
 
 The initial binaries are unsigned. The packaged app was tested with demo/synthetic
 hardware; real-device bench validation is still required. Browser and mobile-web
@@ -56,6 +56,21 @@ streams the AIRIZ microphone back in 2-second clips, about 4 s behind live. Phon
 that has the AIRIZ on USB. Stop motor still works and also interrupts a message being sent. Tested
 against a simulated AIRIZ shell (busybox), not yet on real AIRIZ hardware; the sound format and the
 record/play commands can be changed under *Voice settings*.
+
+**Real device facts instead of decoration (1.11.17):** the dashboard no longer shows invented values. The strip under the
+buttons shows the firmware the connected AIRIZ reports (`diag ver sw`, asked once after connecting) next to the firmware
+the command list was written for (0.0.0.9), and the last *Bluetooth test* result. *Bluetooth test* (`diag ble on`) now
+reads the answer: `#INFO#0` = OK with the controller address from the BlueZ dump, otherwise the error code. The header
+pill shows the link and the age of the last reply, *Connected for* replaces the session clock, and the sidebar bars are
+the real bytes per second to / from the AIRIZ console. With the camera preview on, each jog compares small grey frames
+before and after the move ("the camera picture moved" / "no movement seen"). Calibration gets *Measure automatically*
+for the aim (block matching of the picture shift, `ptz-core.js estimateShift`) and for the timing (the move ends when the
+picture stops changing). The siren default is a generated wail (650-1500 Hz, 3 s) sent like a voice message; the AIRIZ
+test sound stays selectable. *Listen volume* is renamed *PC playback volume*. *Hardware check* (read-only, optional
+20-step test move) reads firmware, motor driver sysfs files, accelerometer, buttons, light sensor, kernel, storage and the
+camera's zoom / pan / tilt capabilities and saves a text report. Checked in demo mode with a fake webcam
+(`desktop/tests/device-facts-e2e.cjs`); the real-AIRIZ answers (accelerometer format, motor status file) still need a
+bench run of the hardware check.
 
 **Camera always reaches the other PC (1.11.16):** the Remote by code / Share control code now registers the camera
 from the moment sharing starts, also when the camera preview cannot start yet (before, the camera was only shared

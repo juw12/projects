@@ -315,3 +315,87 @@ test('zones (1.11.3): add up to 4, hit test, delete one, tiny drags are not zone
   assert.equal(mask[1 * 10 + 1], 1, 'zone 1 is watched');
   assert.equal(mask[4 * 10 + 5], 0, 'the deleted zone is no longer watched');
 });
+
+// 1.11.17: camera measurements for the jog check, automatic aim calibration and timing
+function texturedScene(width, height, seed) {
+  const scene = new Uint8ClampedArray(width * height);
+  let state = seed;
+  for (let i = 0; i < scene.length; i += 1) {
+    state = (state * 1103515245 + 12345) % 2147483648;
+    scene[i] = state % 256;
+  }
+  // smooth a little so the picture has blobs, like a real room
+  const out = new Uint8ClampedArray(scene.length);
+  for (let y = 1; y < height - 1; y += 1) {
+    for (let x = 1; x < width - 1; x += 1) {
+      let sum = 0;
+      for (let oy = -1; oy <= 1; oy += 1) {
+        for (let ox = -1; ox <= 1; ox += 1) sum += scene[(y + oy) * width + x + ox];
+      }
+      out[y * width + x] = sum / 9;
+    }
+  }
+  return out;
+}
+
+function crop(scene, sceneWidth, left, top, width, height) {
+  const out = new Uint8ClampedArray(width * height);
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) out[y * width + x] = scene[(top + y) * sceneWidth + left + x];
+  }
+  return out;
+}
+
+test('estimateShift finds how far the picture moved', () => {
+  const sceneWidth = 320;
+  const sceneHeight = 200;
+  const scene = texturedScene(sceneWidth, sceneHeight, 7);
+  const width = 160;
+  const height = 90;
+  const before = crop(scene, sceneWidth, 80, 50, width, height);
+  // camera turned right: the content moves 24 px left; and 9 px up
+  const after = crop(scene, sceneWidth, 104, 59, width, height);
+  const shift = core.estimateShift(before, after, width, height, { maxShift: 0.35 });
+  assert.equal(shift.pixelsX, -24);
+  assert.equal(shift.pixelsY, -9);
+  assert.ok(Math.abs(shift.dx - (-24 / width)) < 1e-9);
+  assert.ok(shift.confidence > 0.8, 'confident match: ' + shift.confidence);
+  const still = core.estimateShift(before, before, width, height);
+  assert.equal(still.pixelsX, 0);
+  assert.equal(still.pixelsY, 0);
+  const flat = new Uint8ClampedArray(width * height).fill(90);
+  assert.equal(core.estimateShift(flat, flat, width, height).confidence, 0);
+  // the calibration sign convention: content moving left by 24/160 of the width for 100 steps
+  assert.equal(core.calibrateAxis(0, shift.dx, 100), Math.round(100 / (24 / width)));
+});
+
+test('frameDifference and motionStopTime detect when the picture stops changing', () => {
+  const a = new Uint8ClampedArray([10, 20, 30, 40]);
+  const b = new Uint8ClampedArray([14, 16, 30, 40]);
+  assert.equal(core.frameDifference(a, b), 2);
+  assert.equal(core.frameDifference(a, a), 0);
+  assert.ok(core.frameContrast(a) > 10);
+  const samples = [];
+  for (let t = 0; t <= 4000; t += 100) samples.push({ t, diff: t >= 300 && t <= 2500 ? 9 : 1 });
+  assert.deepEqual(core.motionStopTime(samples, 4, 700), { startedAt: 300, stoppedAt: 2500 });
+  assert.equal(core.motionStopTime(samples.slice(0, 28), 4, 700), null, 'not still long enough yet');
+  assert.equal(core.motionStopTime(samples.map(s => ({ t: s.t, diff: 1 })), 4, 700), null, 'never moved');
+});
+
+test('sirenWave is a loud sweeping tone', () => {
+  const rate = 16000;
+  const wave = core.sirenWave(rate, 3);
+  assert.equal(wave.length, 48000);
+  let peak = 0;
+  for (const value of wave) peak = Math.max(peak, Math.abs(value));
+  assert.ok(peak > 0.9 && peak <= 0.95 + 1e-6, 'peak ' + peak);
+  const crossings = (from, to) => {
+    let count = 0;
+    for (let i = from + 1; i < to; i += 1) if ((wave[i - 1] < 0) !== (wave[i] < 0)) count += 1;
+    return count / 2 / ((to - from) / rate);
+  };
+  const low = crossings(0, 800);           // start of the sweep: near 650 Hz
+  const high = crossings(11600, 12400);    // top of the sweep (0.75 s): near 1500 Hz
+  assert.ok(low > 550 && low < 800, 'low ' + low);
+  assert.ok(high > 1300 && high < 1600, 'high ' + high);
+});

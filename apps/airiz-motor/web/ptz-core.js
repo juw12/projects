@@ -472,6 +472,155 @@
     return gray;
   }
 
+  // ------------------------------------------------------------------ camera measurements (1.11.17)
+  // Grey frames are Uint8 arrays (width x height). Used by the jog check on Motor control, the
+  // automatic aim calibration and the automatic timing test.
+
+  // Mean absolute difference of two equal-size grey frames (0 = identical, 255 = inverted).
+  function frameDifference(a, b) {
+    if (!a || !b || a.length !== b.length || !a.length) return 0;
+    let sum = 0;
+    for (let i = 0; i < a.length; i += 1) sum += Math.abs(a[i] - b[i]);
+    return sum / a.length;
+  }
+
+  // Standard deviation of a grey frame: a flat picture (a wall, darkness) has too little detail
+  // to measure a shift from.
+  function frameContrast(gray) {
+    if (!gray || !gray.length) return 0;
+    let sum = 0;
+    let squares = 0;
+    for (let i = 0; i < gray.length; i += 1) {
+      sum += gray[i];
+      squares += gray[i] * gray[i];
+    }
+    const mean = sum / gray.length;
+    return Math.sqrt(Math.max(0, squares / gray.length - mean * mean));
+  }
+
+  function halveFrame(gray, width, height) {
+    const w = Math.floor(width / 2);
+    const h = Math.floor(height / 2);
+    const out = new Uint8ClampedArray(w * h);
+    for (let y = 0; y < h; y += 1) {
+      for (let x = 0; x < w; x += 1) {
+        const i = 2 * y * width + 2 * x;
+        out[y * w + x] = (gray[i] + gray[i + 1] + gray[i + width] + gray[i + width + 1]) >> 2;
+      }
+    }
+    return { gray: out, width: w, height: h };
+  }
+
+  // Mean |a(x,y) - b(x+dx, y+dy)| over the overlap; Infinity when the overlap is too small.
+  function shiftError(a, b, width, height, dx, dy, minOverlap) {
+    const x0 = Math.max(0, -dx);
+    const x1 = Math.min(width, width - dx);
+    const y0 = Math.max(0, -dy);
+    const y1 = Math.min(height, height - dy);
+    const count = (x1 - x0) * (y1 - y0);
+    if (x1 <= x0 || y1 <= y0 || count < minOverlap * width * height) return Infinity;
+    let sum = 0;
+    for (let y = y0; y < y1; y += 1) {
+      const rowA = y * width;
+      const rowB = (y + dy) * width + dx;
+      for (let x = x0; x < x1; x += 1) sum += Math.abs(a[rowA + x] - b[rowB + x]);
+    }
+    return sum / count;
+  }
+
+  // How far the picture content moved from frame a to frame b (block matching on an image
+  // pyramid). Returns { dx, dy } as fractions of the width / height (+dx = content moved right,
+  // +dy = content moved down), the matching error, the error without a shift and a confidence
+  // (0..1, 0 = no usable match).
+  function estimateShift(a, b, width, height, options) {
+    const maxFraction = Math.min(0.45, (options && options.maxShift) || 0.35);
+    const minOverlap = 1 - maxFraction - 0.05;
+    const levels = [{ gray: a, width, height, other: b }];
+    while (levels.length < 4 && levels[levels.length - 1].width >= 48 && levels[levels.length - 1].height >= 32) {
+      const top = levels[levels.length - 1];
+      const halfA = halveFrame(top.gray, top.width, top.height);
+      const halfB = halveFrame(top.other, top.width, top.height);
+      levels.push({ gray: halfA.gray, width: halfA.width, height: halfA.height, other: halfB.gray });
+    }
+    let dx = 0;
+    let dy = 0;
+    for (let level = levels.length - 1; level >= 0; level -= 1) {
+      const current = levels[level];
+      const coarsest = level === levels.length - 1;
+      const rangeX = coarsest ? Math.ceil(current.width * maxFraction) : 2;
+      const rangeY = coarsest ? Math.ceil(current.height * maxFraction) : 2;
+      if (!coarsest) {
+        dx *= 2;
+        dy *= 2;
+      }
+      let best = Infinity;
+      let bestX = dx;
+      let bestY = dy;
+      for (let oy = dy - rangeY; oy <= dy + rangeY; oy += 1) {
+        for (let ox = dx - rangeX; ox <= dx + rangeX; ox += 1) {
+          const error = shiftError(current.gray, current.other, current.width, current.height, ox, oy, minOverlap);
+          if (error < best) {
+            best = error;
+            bestX = ox;
+            bestY = oy;
+          }
+        }
+      }
+      dx = bestX;
+      dy = bestY;
+    }
+    const error = shiftError(a, b, width, height, dx, dy, 0);
+    const still = shiftError(a, b, width, height, 0, 0, 0);
+    const contrast = Math.min(frameContrast(a), frameContrast(b));
+    // A good match removes most of the difference that the move caused.
+    const confidence = contrast < 6 || !(still > 0) ? 0 : Math.max(0, Math.min(1, 1 - error / still));
+    return { dx: dx / width, dy: dy / height, pixelsX: dx, pixelsY: dy, error, still, contrast, confidence };
+  }
+
+  // Automatic timing: samples [{ t, diff }] (ms after the command was sent, difference to the
+  // previous frame). The move "stopped" at the last sample above the threshold once the picture
+  // then stayed still for quietMs. Returns null while that has not happened (yet).
+  function motionStopTime(samples, threshold, quietMs) {
+    let firstMoving = null;
+    let lastMoving = null;
+    for (const sample of samples || []) {
+      if (sample.diff > threshold) {
+        if (firstMoving === null) firstMoving = sample.t;
+        lastMoving = sample.t;
+      }
+    }
+    if (lastMoving === null) return null;
+    const last = samples[samples.length - 1];
+    if (last.t - lastMoving < quietMs) return null;
+    return { startedAt: firstMoving, stoppedAt: lastMoving };
+  }
+
+  // 1.11.17: a real siren for the AIRIZ speaker (generated, no file needed): a wail that sweeps
+  // 650 -> 1500 -> 650 Hz once per period, slightly squared for loudness on a small speaker.
+  function sirenWave(rate, seconds, options) {
+    const sampleRate = Math.max(8000, Number(rate) || 16000);
+    const length = Math.max(1, Math.round(sampleRate * Math.max(0.2, Number(seconds) || 3)));
+    const low = (options && options.low) || 650;
+    const high = (options && options.high) || 1500;
+    const period = (options && options.period) || 1.5;
+    const out = new Float32Array(length);
+    const fade = Math.round(sampleRate * 0.02);
+    let phase = 0;
+    for (let i = 0; i < length; i += 1) {
+      const t = i / sampleRate;
+      const position = (t % period) / period;
+      const sweep = position < 0.5 ? position * 2 : 2 - position * 2;
+      const frequency = low + (high - low) * sweep;
+      phase += (2 * Math.PI * frequency) / sampleRate;
+      if (phase > 2 * Math.PI) phase -= 2 * Math.PI;
+      let value = Math.tanh(2.5 * Math.sin(phase)) / Math.tanh(2.5);
+      if (i < fade) value *= i / fade;
+      if (i > length - fade) value *= (length - i) / fade;
+      out[i] = value * 0.95;
+    }
+    return out;
+  }
+
   // 1.11.3: zone editing. Zones are boxes {x,y,w,h} in 0..1 of the picture (not of the room).
   const MAX_ZONES = 4;
   const MIN_ZONE_SIZE = 0.03;   // smaller drags are treated as a click, not a zone
@@ -652,6 +801,11 @@
     viewToFrame,
     clampViewCenter,
     toGray,
+    frameDifference,
+    frameContrast,
+    estimateShift,
+    motionStopTime,
+    sirenWave,
     buildZoneMask,
     MAX_ZONES,
     MIN_ZONE_SIZE,

@@ -224,7 +224,7 @@
      "image": "airiz-motor-card.jpg",
      "image_alt": "Airiz Motor Test Console dashboard: command library, serial console and macro notepad for AIRIZ device motor testing",
      "links": {
-      "app": "https://github.com/juw12/projects/releases/download/airiz-desktop-v1.11.16/AIRIZ-Console-Setup-1.11.16-x64.exe",
+      "app": "https://github.com/juw12/projects/releases/download/airiz-desktop-v1.11.17/AIRIZ-Console-Setup-1.11.17-x64.exe",
       "web": "airiz-motor/",
       "mobile": "airiz-motor/"
      },
@@ -234,7 +234,7 @@
      "card_links": [
       {
        "label": "Windows app",
-       "path": "https://github.com/juw12/projects/releases/download/airiz-desktop-v1.11.16/AIRIZ-Console-Setup-1.11.16-x64.exe"
+       "path": "https://github.com/juw12/projects/releases/download/airiz-desktop-v1.11.17/AIRIZ-Console-Setup-1.11.17-x64.exe"
       },
       {
        "label": "Web",

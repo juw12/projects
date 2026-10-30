@@ -53,7 +53,6 @@
     "Auto-send the camera share code (Camera → Share to phone)": "自動傳送相機分享代碼（相機 → Share to phone）",
     "Autoscroll": "自動捲動",
     "BLE / Thread test": "BLE / Thread 測試",
-    "BUILT FOR THE BENCH": "為測試台而生",
     "Before the console": "主控台之前",
     "Blue off": "藍燈關",
     "Blue on": "藍燈開",
@@ -67,7 +66,6 @@
     "Browser install": "瀏覽器安裝",
     "Button": "按鍵",
     "CO-ADMIN": "共同管理員",
-    "COMMAND REFERENCE": "指令參考",
     "CONTENTS": "目錄",
     "Camera": "相機",
     "Camera & sound": "相機與音效",
@@ -348,7 +346,6 @@
     "Run motor, camera and audio tests and share the camera": "執行馬達、相機與音訊測試並分享相機",
     "Runs locally in its own window. No browser required. Windows x64 · unsigned first release.": "在獨立視窗中本機執行，不需瀏覽器。Windows x64 · 首版未簽章。",
     "Runs the ring LED 'chasing' effect, then cycles the rising motor up/down. (from test_motor.ttl)": "先執行環形 LED「追逐」效果，再讓升降馬達上下循環。（取自 test_motor.ttl）",
-    "SESSION TIME": "工作時間",
     "SIMULATOR READY": "模擬器就緒",
     "STANDBY": "待機",
     "Save": "儲存",
@@ -831,7 +828,6 @@
     "Sound siren": "啟動警報",
     "Stop siren": "停止警報",
     "Siren stopped.": "警報已停止。",
-    "The siren plays the loud test sound on the AIRIZ speaker every 4 s and turns the spotlight on. A sound already playing finishes (the firmware has no stop for playback).": "警報會每 4 秒在 AIRIZ 喇叭播放大聲測試音並開啟聚光燈。已在播放的聲音會播完（韌體沒有停止播放的指令）。",
     "ALS did not answer.": "光感測器沒有回應。",
     "Reading the light sensor…": "讀取光感測器中…",
     "Calibration": "校正",
@@ -864,7 +860,7 @@
     "Move finished.": "移動完成。",
     "Move finished (stopped at a soft limit).": "移動完成（停在軟體限位）。",
     "Moving…": "移動中…",
-    "Motor command not sent. Check the connection and the console.": "馬達指令未送出。請檢查連線與主控台。",
+    "Motor command not sent. Check the connection and the console.": "馬達指令未送出，請檢查連線與主控台。",
     "Auto scan stopped (motor stop).": "自動巡航已停止（馬達停止）。",
     "Auto scan stopped.": "自動巡航已停止。",
     "Home set here. Positions are now counted from this point.": "已將此處設為原點。位置現在從這裡開始計算。",
@@ -1043,7 +1039,6 @@
     "Stop listening": "停止收聽",
     "Connect the AIRIZ by USB, or control it by code, to talk and listen.": "以 USB 連接 AIRIZ，或以代碼控制它，就能對講與收聽。",
     "Play again on the AIRIZ": "在 AIRIZ 再播一次",
-    "Listen volume": "收聽音量",
     "Hold the button and speak (up to 15 s), release to send; slide away from the button to cancel. The AIRIZ plays it a few seconds later: its USB link is slow, so the message is sent first and then played. Listen plays the AIRIZ microphone a few seconds behind live.": "按住按鈕說話（最長 15 秒），放開即送出；手指滑離按鈕可取消。AIRIZ 會在幾秒後播放：它的 USB 連線很慢，所以訊息會先傳完再播放。「收聽」會播放 AIRIZ 麥克風的聲音，比即時慢幾秒。",
     "Voice settings (this PC)": "語音設定（這台 PC）",
     "AIRIZ speaker volume": "AIRIZ 喇叭音量",
@@ -1234,7 +1229,6 @@
     "Desktop notification: this browser has no desktop notifications.": "桌面通知：此瀏覽器不支援桌面通知。",
     "Desktop notification: Windows refused the notification.": "桌面通知：Windows 拒絕了此通知。",
     "Siren sound": "警報聲音",
-    "Built-in loud tone": "內建大聲提示音",
     "My sound file": "我的聲音檔",
     "Choose sound file…": "選擇聲音檔…",
     "No sound file chosen.": "尚未選擇聲音檔。",
@@ -1244,7 +1238,6 @@
     "Siren sound saved.": "已儲存警報聲音。",
     "Siren sound saved: only its first 15 s are used.": "已儲存警報聲音：只使用前 15 秒。",
     "This file could not be read as sound. Try a WAV or MP3 file.": "無法將此檔案讀取為聲音。請改用 WAV 或 MP3 檔。",
-    "Siren back to the built-in loud tone.": "警報已改回內建大聲提示音。",
     "Sending your siren sound to the AIRIZ (first time only)…": "正在將你的警報聲音傳送到 AIRIZ（僅第一次）…",
     "Calibration (once per camera)": "校正（每台相機一次）",
     "Motor speed": "馬達速度",
@@ -1344,14 +1337,80 @@
     "Left/right now opposite: left sends pan reverse (old mapping).": "左右已改為反方向：左鍵送出水平反轉（舊的對應）。",
     "Left/right now the same direction: left turns the camera left.": "左右已改為同方向：按左鍵相機向左轉。",
     "Click to switch. Same direction: pressing left turns the camera left. Opposite direction: the old mapping (left = pan reverse).": "點一下切換。同方向：按左鍵相機向左轉。反方向：舊的對應（左 = 水平反轉）。",
-    "The code now carries the camera from the moment sharing starts, even if the camera preview on the AIRIZ PC starts later, and a restarted preview (new mode or camera) keeps reaching the viewers. The phone or PC that connects by code keeps reconnecting by itself until the picture arrives instead of giving up after the first try. Share control on the Motor page shows whether the preview runs and who is watching, with a Start camera preview button. The Phone viewer card was removed from the Camera tab: Remote by code does it all. Step presets on Motor control are now 100, 600 and 1100 steps (were 1, 10 and 100). Left and right now turn the camera the same way as the arrow (jog pad, arrow keys and camera hold arrows); Left/right: same direction / opposite direction switches it back.": "從開始分享的那一刻起，代碼就帶著相機，即使 AIRIZ PC 上的相機預覽較晚才開始；重新啟動的預覽（換模式或換相機）也會持續送到觀看者。以代碼連線的手機或 PC 會自動重新連線直到畫面出現，不再第一次失敗就放棄。馬達頁的分享控制會顯示預覽是否在執行、誰在觀看，並提供「開始相機預覽」按鈕。相機分頁的「手機觀看」卡片已移除：以代碼遠端連線即可完成一切。馬達控制的步數預設值改為 100、600、1100 步（原為 1、10、100）。左右鍵現在讓相機朝箭頭同方向轉動（點動鍵盤、方向鍵與相機按住箭頭）；可用「左右：同方向 / 反方向」切換回舊的方式。"
+    "The code now carries the camera from the moment sharing starts, even if the camera preview on the AIRIZ PC starts later, and a restarted preview (new mode or camera) keeps reaching the viewers. The phone or PC that connects by code keeps reconnecting by itself until the picture arrives instead of giving up after the first try. Share control on the Motor page shows whether the preview runs and who is watching, with a Start camera preview button. The Phone viewer card was removed from the Camera tab: Remote by code does it all. Step presets on Motor control are now 100, 600 and 1100 steps (were 1, 10 and 100). Left and right now turn the camera the same way as the arrow (jog pad, arrow keys and camera hold arrows); Left/right: same direction / opposite direction switches it back.": "從開始分享的那一刻起，代碼就帶著相機，即使 AIRIZ PC 上的相機預覽較晚才開始；重新啟動的預覽（換模式或換相機）也會持續送到觀看者。以代碼連線的手機或 PC 會自動重新連線直到畫面出現，不再第一次失敗就放棄。馬達頁的分享控制會顯示預覽是否在執行、誰在觀看，並提供「開始相機預覽」按鈕。相機分頁的「手機觀看」卡片已移除：以代碼遠端連線即可完成一切。馬達控制的步數預設值改為 100、600、1100 步（原為 1、10、100）。左右鍵現在讓相機朝箭頭同方向轉動（點動鍵盤、方向鍵與相機按住箭頭）；可用「左右：同方向 / 反方向」切換回舊的方式。",
+    "LINK ACTIVITY": "連線活動",
+    "No AIRIZ connected": "未連接 AIRIZ",
+    "Demo: simulated replies": "示範：模擬回應",
+    "No reply yet": "尚未收到回應",
+    "NOT CONNECTED": "未連線",
+    "RECONNECTING…": "重新連線中…",
+    "DEMO · SIMULATED": "示範 · 模擬",
+    "CONNECTED FOR": "已連線時間",
+    "How long the AIRIZ has been connected": "AIRIZ 已連線多久",
+    "Connection to the AIRIZ and when it last answered": "與 AIRIZ 的連線，以及最後一次回應的時間",
+    "Bytes sent to and received from the AIRIZ console per second, last 12 seconds (newest on the right)": "每秒傳送到 AIRIZ 主控台與從其接收的位元組數，最近 12 秒（最新的在右邊）",
+    "DEVICE": "裝置",
+    "Firmware": "韌體",
+    "Commands written for FW": "指令清單適用韌體",
+    "Bluetooth test": "藍牙測試",
+    "not connected": "未連線",
+    "not run": "未執行",
+    "reading…": "讀取中…",
+    "no answer": "無回應",
+    "not read": "未讀取",
+    "running…": "執行中…",
+    "no result": "無結果",
+    "not sent": "未送出",
+    "Firmware version the connected AIRIZ reports (diag ver sw)": "已連接的 AIRIZ 回報的韌體版本（diag ver sw）",
+    "The command list in this console was written for this firmware": "此主控台的指令清單是依這個韌體版本撰寫",
+    "Hardware check": "硬體檢查",
+    "Read-only hardware check: firmware, motor driver files, accelerometer, buttons, light sensor, storage and camera controls. Saves a report.": "唯讀硬體檢查：韌體、馬達驅動檔案、加速度計、按鈕、光感測器、儲存空間與攝影機控制項，並可儲存報告。",
+    "Firmware Bluetooth self-test (diag ble on): reports whether the Bluetooth controller came up and its address. This does NOT make the phone see the device - use Phone remote for that.": "韌體藍牙自我測試（diag ble on）：回報藍牙控制器是否啟動及其位址。這不會讓手機看到裝置——請使用「手機遙控」。",
+    "Move check: start the camera preview to see whether each jog really moves the camera.": "移動確認：開啟攝影機預覽，即可確認每次微動是否真的讓攝影機移動。",
+    "With the camera preview on, each jog compares the picture before and after the move": "攝影機預覽開啟時，每次微動都會比較移動前後的畫面",
+    "Move check: watching the camera…": "移動確認：正在觀察攝影機畫面…",
+    "Move check: demo - there is no real camera move to check.": "移動確認：示範模式——沒有實際的攝影機移動可確認。",
+    "Move check: the command was not sent.": "移動確認：指令未送出。",
+    "PC playback volume": "PC 播放音量",
+    "Loudness of the AIRIZ microphone sound on this PC. It does not change the AIRIZ speaker.": "AIRIZ 麥克風聲音在這台 PC 上的音量，不會改變 AIRIZ 喇叭。",
+    "Siren (wail tone)": "警報（起伏警笛聲）",
+    "AIRIZ test sound": "AIRIZ 測試音",
+    "Siren back to the wail tone.": "警報已改回起伏警笛聲。",
+    "Play the chosen siren sound on this PC": "在這台 PC 播放所選的警報聲",
+    "The AIRIZ test sound is stored on the AIRIZ, so it cannot be played here.": "AIRIZ 測試音存在 AIRIZ 上，無法在這裡播放。",
+    "Measure automatically": "自動量測",
+    "Moves the chosen axis a little and back, and measures from the camera picture how far the picture moved. Point the camera at a scene with detail (not a plain wall).": "讓所選的軸稍微移動再移回，並從攝影機畫面量測畫面移動了多少。請讓攝影機對著有細節的場景（不要對著素色牆面）。",
+    "Runs the test move and watches the camera picture: the move ends when the picture stops changing. Then the camera goes back.": "執行測試移動並觀察攝影機畫面：畫面停止變化即視為移動結束，之後攝影機會移回。",
+    "Measurement cancelled.": "量測已取消。",
+    "Timing measurement cancelled.": "時間量測已取消。",
+    "Connect the AIRIZ and start the camera preview first (or use Start test move and press It stopped).": "請先連接 AIRIZ 並開啟攝影機預覽（或使用「開始測試移動」並按「已停止」）。",
+    "Measuring the picture noise…": "正在量測畫面雜訊…",
+    "The camera picture changed size during the test. Try again.": "測試期間攝影機畫面尺寸改變了，請再試一次。",
+    "The picture has too little detail to measure (plain wall or dark). Point the camera at a busier scene, or use Start (click an object twice).": "畫面細節太少無法量測（素色牆面或太暗）。請對著較豐富的場景，或使用「開始」（點選物體兩次）。",
+    "The picture kept changing (people or lights moving?). Try again with a still scene, or press It stopped by hand.": "畫面一直在變化（有人或燈光在動？）。請在靜止的場景再試一次，或手動按「已停止」。",
+    "No movement seen in the camera picture. Check that the preview shows the AIRIZ camera, or use Start test move and It stopped.": "攝影機畫面中沒有看到移動。請確認預覽顯示的是 AIRIZ 攝影機，或使用「開始測試移動」和「已停止」。",
+    "Reads what the AIRIZ itself reports: firmware, the motor driver files, accelerometer, buttons, light sensor, kernel and storage, plus the zoom / focus controls the camera offers to this PC. It only reads; nothing is changed on the AIRIZ.": "讀取 AIRIZ 本身回報的資訊：韌體、馬達驅動檔案、加速度計、按鈕、光感測器、核心與儲存空間，以及攝影機提供給這台 PC 的變焦／對焦控制項。只讀取，不會變更 AIRIZ 上的任何設定。",
+    "Also make a tiny test move (pan 20 steps forward and back) and read the motor files during the move": "同時做一次小幅測試移動（水平前進再後退 20 步），並在移動中讀取馬達檔案",
+    "Run check": "開始檢查",
+    "Copy report": "複製報告",
+    "Save report": "儲存報告",
+    "Close hardware check": "關閉硬體檢查",
+    "Reading the camera controls…": "正在讀取攝影機控制項…",
+    "Test move: pan 20 steps forward, reading the motor files during the move…": "測試移動：水平前進 20 步，並在移動中讀取馬達檔案…",
+    "Done. Save the report and send it to the Ziris PTB team.": "完成。請儲存報告並傳給 Ziris PTB 團隊。",
+    "Report copied.": "報告已複製。",
+    "Could not copy: select the report text and press Ctrl+C.": "無法複製：請選取報告文字後按 Ctrl+C。",
+    "Bluetooth test was not sent. Check the console.": "藍牙測試未送出，請檢查主控台。",
+    "The Bluetooth test gave no result within 12 s. Check the console.": "藍牙測試在 12 秒內沒有結果，請檢查主控台。",
+    "The AIRIZ did not answer diag ver sw. Is it at the shell prompt?": "AIRIZ 沒有回應 diag ver sw，它是否在命令提示字元狀態？",
+    "The console was busy. Run diag ver sw to see it.": "主控台忙碌中。請執行 diag ver sw 查看。",
+    "Real device facts instead of decoration (1.11.17)": "以真實裝置資訊取代裝飾 (1.11.17)",
+    "The strip under the buttons now shows the firmware the AIRIZ reports (diag ver sw) next to the firmware the command list was written for. Bluetooth test reads the answer: OK with the controller address, or the error code. The header shows the link and when the AIRIZ last answered, the clock counts how long it has been connected, and the sidebar bars show the real bytes per second. With the camera preview on, every jog compares the picture before and after and says whether the camera really moved. Calibration can measure the aim and the timing automatically from the camera picture. The siren is now a real rising and falling siren tone (the AIRIZ test sound is still available). The Listen slider is now called PC playback volume. New Hardware check button: reads firmware, motor driver files, accelerometer, buttons, light sensor, kernel, storage and the camera's zoom controls, and saves a report.": "按鈕下方的資訊列現在顯示 AIRIZ 回報的韌體版本（diag ver sw），以及指令清單適用的韌體版本。藍牙測試會讀取回應：成功時顯示控制器位址，失敗時顯示錯誤代碼。頁首顯示連線方式與 AIRIZ 最後一次回應的時間，時鐘改為計算已連線多久，側邊欄長條顯示實際每秒位元組數。攝影機預覽開啟時，每次微動都會比較移動前後的畫面，告訴您攝影機是否真的移動。校正可從攝影機畫面自動量測瞄準值與移動時間。警報改為真正高低起伏的警笛聲（仍可選擇 AIRIZ 測試音）。收聽音量滑桿改名為 PC 播放音量。新增「硬體檢查」按鈕：讀取韌體、馬達驅動檔案、加速度計、按鈕、光感測器、核心、儲存空間與攝影機的變焦控制項，並可儲存報告。"
   },
   "html": {
     "AIRIZDEVICE LAB": "AIRIZ<small>裝置實驗室</small>",
     "WORKSPACE 01": "工作區 <span>01</span>",
-    "One workspace.Every device interaction.": "一個工作區。<br>涵蓋所有裝置操作。",
     "CONTROL CONSOLE UI / 02": "控制主控台 <span>UI / 02</span>",
-    "LOCAL SESSION": "<span class=\"signal-dot\"></span>本機工作階段",
     "AWD8833DUAL-AXIS DRIVER": "AWD8833<small>雙軸驅動器</small>",
     "+ COMMAND VISUALIZATION NOT POSITION FEEDBACK": "<span class=\"tiny-cross\">+</span> 指令視覺化 <span>非位置回饋</span>",
     "A little nudge.The right direction.": "輕輕一點。<br>方向正確。",
@@ -1440,13 +1499,13 @@
     "When a phone asks, a window pops up on the PC with Allow & remember, Allow once and Deny. A remembered phone is let in by itself next time, also after the code changes (switch that off, or Forget a phone, under Remembered devices). Several phones can control at the same time; the PC can disconnect any of them, and a phone that drops right after a motor command triggers a motor stop.": "手機要求連線時，PC 上會跳出視窗，提供 <strong>Allow &amp; remember</strong>（允許並記住）、<strong>Allow once</strong>（只允許這次）與 <strong>Deny</strong>（拒絕）。已記住的手機下次會自動連入，代碼變更後也一樣（可在「已記住的裝置」中關閉此功能，或按 <strong>Forget</strong> 忘記手機）。多支手機可同時控制；PC 可隨時中斷任何一支，若手機在送出馬達指令後斷線，會自動送出馬達停止。",
     "Want the same code every time? Under Your code type your own 6 digits (like a password) and press Use my code. Change it any time: devices on the old code are disconnected, and remembered devices come back by themselves once they type the new code.": "想每次都用同一組代碼？在 <strong>Your code</strong>（您的代碼）輸入您自己的 6 位數字（就像密碼），再按 <strong>Use my code</strong>（使用我的代碼）。可隨時更改：使用舊代碼的裝置會被中斷，已記住的裝置輸入新代碼後會自動連入。",
     "The rising motor cannot tell how high the camera is, so the console counts the height from the bottom switch. Press Lower to bottom & reset height once after the AIRIZ is powered on, or whenever the height shown looks wrong: the camera goes down in small steps until it touches the switch, and from then on 0 = fully down. Is the camera at the bottom? only asks the switch; nothing moves.": "升降馬達無法得知相機有多高，所以主控台從底部開關開始計算高度。AIRIZ 開機後，或顯示的高度看起來不對時，按一次<em>降到底部並重設高度</em>：相機會一小步一小步往下，直到碰到開關，之後 0 = 完全降下。<em>相機在最底部嗎？</em>只會詢問開關，不會移動。",
-    "The siren plays on the AIRIZ speaker at full volume, again and again, and turns the spotlight on. Built-in loud tone is the test sound stored on the AIRIZ. My sound file uses a WAV, MP3, M4A or OGG from this PC (the first 15 s): it is sent to the AIRIZ the first time the siren sounds (a few seconds over USB, longer for long sounds) and then repeats from there. Stop siren stops the repeats; a sound already playing finishes.": "警報器會以最大音量在 AIRIZ 喇叭上重複播放，並開啟聚光燈。<em>內建大聲提示音</em>是存在 AIRIZ 上的測試聲音。<em>我的聲音檔</em>使用這台 PC 上的 WAV、MP3、M4A 或 OGG（前 15 秒）：第一次響起時會傳送到 AIRIZ（透過 USB 約數秒，聲音越長越久），之後從 AIRIZ 重複播放。「停止警報」會停止重複；正在播放的聲音會播完。",
     "Teaches the console how far the picture moves per motor step. Start the camera preview first. Press Start, click a clear object in the picture (a corner, a lamp); the camera turns a little; click the same object again. The camera turns back by itself. Do it once for Pan and once for Rising.": "讓主控台知道馬達每一步會讓畫面移動多少。請先開始相機預覽。按<em>開始</em>，在畫面中點選一個清楚的物體（牆角、燈）；相機會轉動一點；再點選同一個物體。相機會自己轉回來。水平與升降各做一次。",
     "The motors do not report when they stop, so the console estimates how long a move takes. Press Start test move, watch the camera, and press It stopped the moment it stops moving.": "馬達不會回報何時停止，所以主控台會估計一次移動需要多久。按<em>開始測試移動</em>，注意看相機，在它停止移動的那一刻按<em>已停止</em>。",
     "Smart detection watches the preview for motion inside your zones and active hours, saves a photo and a clip (you choose how many seconds), and can follow the motion, turn the spotlight on, sound the siren, show a desktop notification or alert the Ziris PTB chat (Send a test alert checks both). It keeps running while the window is minimized; the siren can play your own sound file.": "<strong>智慧偵測</strong>會在您設定的區域與時段內監看預覽畫面的動作，儲存照片與影片片段（秒數可自訂），並可跟隨動作、開啟聚光燈、啟動警報、顯示桌面通知或通知 Ziris PTB 聊天室（<em>傳送測試警示</em>可一次測試兩者）。視窗最小化時仍會持續運作；警報器可播放您自己的聲音檔。",
     "On the PC: press Remote by code (start screen) or Share control (Motor page). One 6-digit code shares the motor and the camera; the camera preview starts by itself. If it cannot start yet, start it later under Camera → Start Preview: the code already carries the camera.": "在 PC 上：按 <strong>以代碼遠端連線</strong>（開始畫面）或 <strong>分享控制</strong>（馬達頁）。一個 <strong>6 位數代碼</strong> 同時分享馬達與相機；相機預覽會自動開始。若暫時無法開始，之後在 相機 → <strong>開始預覽</strong> 啟動即可：代碼已經帶著相機。",
     "On the phone or the other PC: open the AIRIZ console → Remote by code → type the code. The camera opens by itself in a floating window and keeps reconnecting until the picture arrives.": "在手機或另一台 PC 上：開啟 AIRIZ 主控台 → <strong>以代碼遠端連線</strong> → 輸入代碼。相機會自動在浮動視窗開啟，並持續重新連線直到畫面出現。",
-    "The Share control window shows whether the camera preview runs and who is watching. Behind a company firewall the picture comes through the AIRIZ relay as quick snapshots.": "分享控制視窗會顯示相機預覽是否在執行以及誰在觀看。在公司防火牆後，畫面會經由 AIRIZ 中繼以快速快照方式傳送。"
+    "The Share control window shows whether the camera preview runs and who is watching. Behind a company firewall the picture comes through the AIRIZ relay as quick snapshots.": "分享控制視窗會顯示相機預覽是否在執行以及誰在觀看。在公司防火牆後，畫面會經由 AIRIZ 中繼以快速快照方式傳送。",
+    "The siren plays on the AIRIZ speaker at full volume, again and again, and turns the spotlight on. Siren (wail tone) is a real rising and falling siren made by this console (3 s, 650 to 1500 Hz). AIRIZ test sound is the test recording stored on the AIRIZ. My sound file uses a WAV, MP3, M4A or OGG from this PC (the first 15 s). The wail tone and your file are sent to the AIRIZ the first time the siren sounds (a few seconds over USB) and then repeat from there. Stop siren stops the repeats; a sound already playing finishes.": "警報器會以最大音量在 AIRIZ 喇叭上重複播放，並開啟聚光燈。<em>警報（起伏警笛聲）</em>是由此主控台產生的真正高低起伏警笛聲（3 秒，650 至 1500 Hz）。<em>AIRIZ 測試音</em>是存在 AIRIZ 上的測試錄音。<em>我的聲音檔</em>使用這台 PC 上的 WAV、MP3、M4A 或 OGG（前 15 秒）。警笛聲與您的聲音檔會在第一次響起時傳送到 AIRIZ（透過 USB 約數秒），之後從 AIRIZ 重複播放。「停止警報」會停止重複；正在播放的聲音會播完。"
   },
   "patterns": [
     [
@@ -2316,6 +2375,98 @@
     [
       "^Pan (forward|reverse) / Arrow (left|right)$",
       "水平 $1 / 方向鍵 $2"
+    ],
+    [
+      "^TX (.+) · RX (.+)$",
+      "傳送 $1 · 接收 $2"
+    ],
+    [
+      "^Last reply (\\d+) (s|min) ago$",
+      "上次回應：$1 $2 前"
+    ],
+    [
+      "^(.+) · LAST REPLY (\\d+) (S|MIN) AGO$",
+      "$1 · 上次回應 $2 $3 前"
+    ],
+    [
+      "^(.+) · NO REPLY YET$",
+      "$1 · 尚未回應"
+    ],
+    [
+      "^(\\d+\\.\\d+\\.\\d+\\.\\d+) \\(demo\\)$",
+      "$1（示範）"
+    ],
+    [
+      "^failed \\(code (-?\\d+)\\)$",
+      "失敗（代碼 $1）"
+    ],
+    [
+      "^Move check: the camera picture moved ✓ \\((.+), seen after ([\\d.]+) s\\)\\.$",
+      "移動確認：攝影機畫面有移動 ✓（$1，$2 秒後看到）。"
+    ],
+    [
+      "^Move check: sent (.+), not confirmed \\(camera preview is off\\)\\.$",
+      "移動確認：已送出 $1，未確認（攝影機預覽未開啟）。"
+    ],
+    [
+      "^Move check: no movement seen in the camera picture for (.+)\\. The command was sent - check the AIRIZ \\(motor power, end of travel\\) and that the preview shows the AIRIZ camera\\.$",
+      "移動確認：$1 在攝影機畫面中沒有看到移動。指令已送出——請檢查 AIRIZ（馬達電源、是否到行程盡頭），並確認預覽顯示的是 AIRIZ 攝影機。"
+    ],
+    [
+      "^Bluetooth self-test passed(?:: controller ([0-9A-F:]+))?\\. This is a firmware test only - a phone connects through Phone remote → Start remote \\(AIRIZ-BT\\)\\.$",
+      "藍牙自我測試通過（控制器 $1）。這只是韌體測試——手機需透過「手機遙控 → 啟動遙控」（AIRIZ-BT）連線。"
+    ],
+    [
+      "^Bluetooth self-test failed \\(code (-?\\d+)\\)\\. The console shows the BlueZ output\\.$",
+      "藍牙自我測試失敗（代碼 $1）。主控台會顯示 BlueZ 輸出。"
+    ],
+    [
+      "^Reading (\\d+) of (\\d+)( \\(\\+ test move\\))?: (.+)…$",
+      "讀取中 $1／$2：$4…"
+    ],
+    [
+      "^Report saved as (.+)\\.$",
+      "報告已儲存為 $1。"
+    ],
+    [
+      "^Stopped: (.+)$",
+      "已停止：$1"
+    ],
+    [
+      "^Measuring: moving (pan|rising) (\\d+) steps and back…$",
+      "量測中：$1 軸移動 $2 步再移回…"
+    ],
+    [
+      "^Watching the camera while (pan|rising) moves (\\d+) steps…$",
+      "$1 軸移動 $2 步時正在觀察攝影機畫面…"
+    ],
+    [
+      "^Not enough room before the soft limits for a (\\d+)-step test move\\.$",
+      "軟體限位前的空間不足以進行 $1 步的測試移動。"
+    ],
+    [
+      "^Not enough room before the soft limits for (\\d+) steps\\.$",
+      "軟體限位前的空間不足以移動 $1 步。"
+    ],
+    [
+      "^Could not measure a clear picture shift \\(match (\\d+) %\\)\\. Keep people and moving things out of view, or use Start \\(click an object twice\\)\\.$",
+      "無法量測到清楚的畫面位移（吻合度 $1 %）。請避免有人或移動中的物體入鏡，或使用「開始」（點選物體兩次）。"
+    ],
+    [
+      "^Done: (\\d+) steps moved the picture ([\\d.]+) % of its (width|height) \\(match (\\d+) %\\)\\. Aim saved: (-?\\d+) steps per picture (width|height)\\. The camera turns back\\.$",
+      "完成：$1 步讓畫面移動了 $2 %（吻合度 $4 %）。已儲存瞄準值：每個畫面 $5 步。攝影機會轉回。"
+    ],
+    [
+      "^Done: timing saved from the camera \\((\\d+) steps took about ([\\d.]+) s at speed (\\d+)\\)\\. The camera goes back\\.$",
+      "完成：已依攝影機畫面儲存時間（速度 $3 時 $1 步約需 $2 秒）。攝影機會移回。"
+    ],
+    [
+      "^Sending (the siren tone|your siren sound) to the AIRIZ \\(first time only\\)…$",
+      "正在將警報聲傳送到 AIRIZ（僅第一次）…"
+    ],
+    [
+      "^Siren on for (\\d+) s \\((the siren tone|your siren sound|AIRIZ test sound)\\)\\.$",
+      "警報開啟 $1 秒。"
     ]
   ]
 }

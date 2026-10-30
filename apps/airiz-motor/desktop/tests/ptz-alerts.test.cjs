@@ -33,7 +33,11 @@ test('own siren sound and plainer height / calibration controls', () => {
   const ptz = read('ptz.js');
   const html = read('index.html');
   assert.ok(html.includes('id="ptz-siren-file"') && html.includes('id="ptz-siren-sound"'));
-  assert.ok(ptz.includes("'diag audio play ' + TALK_FILE") && ptz.includes('window.AirizVoice.send(message)'));
+  assert.ok(ptz.includes("'diag audio play ' + TALK_FILE") && ptz.includes('window.AirizVoice.send(sound.message)'));
+  // 1.11.17: the generated wail tone is the default; the AIRIZ test sound stays available
+  assert.ok(html.includes('<option value="tone">Siren (wail tone)</option>') && html.includes('<option value="testwav">'));
+  assert.ok(ptz.includes('core.sirenWave(SIREN_RATE, SIREN_TONE_SECONDS)'));
+  assert.ok(html.includes('id="ptz-cal-auto"') && html.includes('id="ptz-time-auto"') && ptz.includes('core.estimateShift('));
   assert.ok(html.includes('Lower to bottom &amp; reset height') && html.includes('Is the camera at the bottom?'));
   assert.ok(html.includes('Calibration (once per camera)') && html.includes('id="ptz-cal-reset"'));
 });
