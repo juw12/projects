@@ -531,6 +531,7 @@
     },
     {
       "id": "sync",
+      "portfolio": false,
       "name": "Sync",
       "category": "Apps",
       "desc": "Listen to music together in real time from anywhere: Spotify, Apple Music and YouTube listeners in one room, shared files, and voice chat that lowers the music when friends talk. On the web, Android and iPhone",
@@ -576,6 +577,7 @@
     },
     {
       "id": "fade",
+      "portfolio": false,
       "name": "Fade",
       "category": "Apps",
       "desc": "Book barbers, watch haircut shorts and pay them directly: free, online, 0% fees",
