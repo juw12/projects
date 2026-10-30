@@ -71,7 +71,8 @@
     night: { auto: false, darkBelow: 10, brightAbove: 40 },
     scanDwell: 5,
     sirenSeconds: 10,
-    sirenSound: 'builtin'
+    // 1.11.17: 'tone' (generated wail), 'testwav' (test sound on the AIRIZ) or 'custom'
+    sirenSound: 'tone'
   };
 
   function loadStore() {
@@ -86,6 +87,8 @@
         speeds: { ...defaults.speeds, ...(stored.speeds || {}) },
         detect: { ...defaults.detect, ...(stored.detect || {}) },
         night: { ...defaults.night, ...(stored.night || {}) },
+        // 1.11.17: the old "built-in loud tone" (the AIRIZ test sound) becomes the real siren tone
+        sirenSound: ['tone', 'testwav', 'custom'].includes(stored.sirenSound) ? stored.sirenSound : 'tone',
         presets: Array.isArray(stored.presets) ? stored.presets.slice(0, 12) : [],
         zones: Array.isArray(stored.zones) ? stored.zones.slice(0, 4) : []
       };
@@ -1801,41 +1804,61 @@
     return { name: file.name, seconds: Math.round(seconds * 10) / 10, rate: SIREN_RATE, pcm: btoa(binary), cut: decoded.duration > SIREN_MAX_SECONDS };
   }
 
+  // 1.11.17: the real siren - a generated wail (ptz-core sirenWave), 3 s, repeated.
+  const SIREN_TONE_SECONDS = 3;
+  let sirenToneSamples = null;
+  let sirenToneMessage = null;
+  function toneSamples() {
+    if (!sirenToneSamples) sirenToneSamples = core.sirenWave(SIREN_RATE, SIREN_TONE_SECONDS);
+    return sirenToneSamples;
+  }
+
+  function sirenChoice() {
+    if (store.sirenSound === 'custom' && sirenSound) return 'custom';
+    return store.sirenSound === 'testwav' ? 'testwav' : 'tone';
+  }
+
   function renderSirenSound() {
-    $('ptz-siren-sound').value = store.sirenSound === 'custom' && sirenSound ? 'custom' : 'builtin';
+    const choice = sirenChoice();
+    $('ptz-siren-sound').value = choice;
     $('ptz-siren-file-name').textContent = sirenSound
       ? sirenSound.name + ' (' + sirenSound.seconds + ' s)'
       : 'No sound file chosen.';
-    $('ptz-siren-preview').disabled = !sirenSound;
+    $('ptz-siren-preview').disabled = choice === 'testwav';
+    $('ptz-siren-preview').title = choice === 'testwav'
+      ? 'The AIRIZ test sound is stored on the AIRIZ, so it cannot be played here.'
+      : 'Play the chosen siren sound on this PC';
     $('ptz-siren-clear').disabled = !sirenSound;
   }
 
-  function useCustomSiren() {
-    return store.sirenSound === 'custom' && !!sirenSound && !!window.AirizVoice;
+  // Wail tone and sound file go to the AIRIZ like a voice message; the test sound is already there.
+  function voiceSiren() {
+    const choice = sirenChoice();
+    if (choice === 'testwav' || !window.AirizVoice) return null;
+    if (choice === 'custom') {
+      if (!sirenMessage) sirenMessage = window.AirizVoice.buildMessage(sirenSamples(), sirenSound.rate);
+      return { message: sirenMessage, seconds: sirenSound.seconds, label: 'your siren sound' };
+    }
+    if (!sirenToneMessage) sirenToneMessage = window.AirizVoice.buildMessage(toneSamples(), SIREN_RATE);
+    return { message: sirenToneMessage, seconds: SIREN_TONE_SECONDS, label: 'the siren tone' };
   }
 
-  // The voice message for the chosen file (built once; same file -> same checksum).
-  function customSirenMessage() {
-    if (!sirenMessage) sirenMessage = window.AirizVoice.buildMessage(sirenSamples(), sirenSound.rate);
-    return sirenMessage;
-  }
-
-  // Plays the chosen sound once on the AIRIZ: sends it first if the AIRIZ does not have it yet.
-  async function playCustomSiren() {
-    const message = customSirenMessage();
+  // Plays the siren sound once on the AIRIZ: sends it first if the AIRIZ does not have it yet
+  // (same sound -> same checksum as the last voice message -> just play it again).
+  async function playVoiceSiren(sound) {
     const last = window.AirizVoice.state.lastTalk;
-    if (last && last.md5 === message.md5) {
+    if (last && last.md5 === sound.message.md5) {
       await api.sendCommand('diag audio play ' + TALK_FILE);
       return;
     }
-    status('Sending your siren sound to the AIRIZ (first time only)\u2026');
-    await window.AirizVoice.send(message);
+    status('Sending ' + sound.label + ' to the AIRIZ (first time only)\u2026');
+    await window.AirizVoice.send(sound.message);
   }
 
   async function startSiren(seconds) {
     if (!connected() || siren.active) return;
     const duration = Math.min(120, Math.max(3, Number(seconds) || 10));
-    const custom = useCustomSiren();
+    const sound = voiceSiren();
     siren.active = true;
     siren.until = Date.now() + duration * 1000;
     $('ptz-siren').disabled = true;
@@ -1844,16 +1867,17 @@
     await sleep(400);
     await api.sendCommand('diag audio volume 100');
     await api.sendCommand('diag spotled on');
-    const gap = custom ? Math.max(4000, Math.round(sirenSound.seconds * 1000) + 500) : 4000;
+    const gap = sound ? Math.max(4000, Math.round(sound.seconds * 1000) + 500) : 4000;
     const play = async () => {
       if (!siren.active || Date.now() >= siren.until) {
         stopSiren();
         return;
       }
-      if (custom) {
+      if (sound) {
         try {
-          await playCustomSiren();
+          await playVoiceSiren(sound);
         } catch {
+          // the voice link failed (busy, Listen on, older firmware): the test sound still works
           await api.sendCommand('diag audio play ' + SIREN_WAV);
         }
       } else {
@@ -1862,7 +1886,7 @@
       if (siren.active) siren.timer = setTimeout(play, gap);
     };
     play();
-    status('Siren on for ' + duration + ' s' + (custom ? ' (your sound).' : '.'));
+    status('Siren on for ' + duration + ' s' + (sound ? ' (' + sound.label + ').' : ' (AIRIZ test sound).'));
   }
   function stopSiren() {
     if (!siren.active) return;
@@ -1907,10 +1931,12 @@
     }
   });
   $('ptz-siren-preview').addEventListener('click', () => {
-    if (!sirenSound) return;
-    const samples = sirenSamples();
+    const choice = sirenChoice();
+    if (choice === 'testwav') return;
+    const samples = choice === 'custom' ? sirenSamples() : toneSamples();
+    const rate = choice === 'custom' ? sirenSound.rate : SIREN_RATE;
     const context = new (window.AudioContext || window.webkitAudioContext)();
-    const buffer = context.createBuffer(1, samples.length, sirenSound.rate);
+    const buffer = context.createBuffer(1, samples.length, rate);
     buffer.copyToChannel(samples, 0);
     const source = context.createBufferSource();
     source.buffer = buffer;
@@ -1922,10 +1948,10 @@
     localStorage.removeItem(SIREN_SOUND_KEY);
     sirenSound = null;
     sirenMessage = null;
-    store.sirenSound = 'builtin';
+    store.sirenSound = 'tone';
     save();
     renderSirenSound();
-    status('Siren back to the built-in loud tone.');
+    status('Siren back to the wail tone.');
   });
   renderSirenSound();
   $('ptz-siren').addEventListener('click', () => startSiren($('ptz-siren-seconds').value));
@@ -2046,6 +2072,176 @@
     save();
     renderCalibration();
     $('ptz-cal-status').textContent = 'Done: timing saved (' + timingTest.steps + ' steps took ' + (measured / 1000).toFixed(1) + ' s).';
+  });
+
+  // 1.11.17: automatic calibration from the camera picture.
+  function grayFrame(width) {
+    const canvas = grabFrame(width);
+    if (!canvas) return null;
+    const pixels = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
+    return { gray: core.toGray(pixels), width: canvas.width, height: canvas.height };
+  }
+
+  // Forward if there is room before the soft limit, otherwise backward; null if neither fits.
+  function roomFor(axis, steps) {
+    if (tracker.clampDelta(axis, steps) === steps) return steps;
+    if (tracker.clampDelta(axis, -steps) === -steps) return -steps;
+    return null;
+  }
+
+  const autoCal = { busy: false };
+
+  // Aim: move a little, measure how far the picture moved (block matching), move back.
+  $('ptz-cal-auto').addEventListener('click', async () => {
+    if (!liveStream || !connected()) {
+      $('ptz-cal-status').textContent = 'Connect the AIRIZ and start the camera preview first.';
+      return;
+    }
+    if (autoCal.busy) return;
+    const axis = $('ptz-cal-axis').value === 'rising' ? 'rising' : 'pan';
+    const key = axis === 'pan' ? 'panStepsPerFrame' : 'risingStepsPerFrame';
+    const perFrameNow = Math.abs(store.calibration[key]) || Math.abs(core.DEFAULT_CALIBRATION[key]);
+    // about 15 % of the picture: enough to measure, small enough to keep most of the scene
+    const steps = Math.min(2000, Math.max(10, Math.round(perFrameNow * 0.15)));
+    const delta = roomFor(axis, steps);
+    if (delta === null) {
+      $('ptz-cal-status').textContent = 'Not enough room before the soft limits for a ' + steps + '-step test move.';
+      return;
+    }
+    autoCal.busy = true;
+    try {
+      await sleep(300);
+      const before = grayFrame(160);
+      if (!before || core.frameContrast(before.gray) < 8) {
+        $('ptz-cal-status').textContent = 'The picture has too little detail to measure (plain wall or dark). Point the camera at a busier scene, or use Start (click an object twice).';
+        return;
+      }
+      $('ptz-cal-status').textContent = 'Measuring: moving ' + axis + ' ' + Math.abs(delta) + ' steps and back\u2026';
+      const ok = await runMoves([{ axis, delta }], newOperation());
+      if (!ok) {
+        $('ptz-cal-status').textContent = 'Measurement cancelled.';
+        return;
+      }
+      await sleep(600);
+      const after = grayFrame(160);
+      runMoves([{ axis, delta: -delta }], newOperation());
+      if (!after || after.width !== before.width || after.height !== before.height) {
+        $('ptz-cal-status').textContent = 'The camera picture changed size during the test. Try again.';
+        return;
+      }
+      const shift = core.estimateShift(before.gray, after.gray, before.width, before.height, { maxShift: 0.4 });
+      const along = axis === 'pan' ? shift.dx : shift.dy;
+      const across = axis === 'pan' ? shift.dy : shift.dx;
+      if (shift.confidence < 0.35 || Math.abs(along) < 0.02 || Math.abs(across) > Math.abs(along)) {
+        $('ptz-cal-status').textContent = 'Could not measure a clear picture shift (match ' + Math.round(shift.confidence * 100)
+          + ' %). Keep people and moving things out of view, or use Start (click an object twice).';
+        return;
+      }
+      const perFrame = core.calibrateAxis(0, along, delta);
+      store.calibration[key] = perFrame;
+      save();
+      renderCalibration();
+      $('ptz-cal-status').textContent = 'Done: ' + Math.abs(delta) + ' steps moved the picture ' + Math.abs(along * 100).toFixed(1) + ' % of its '
+        + (axis === 'pan' ? 'width' : 'height') + ' (match ' + Math.round(shift.confidence * 100) + ' %). Aim saved: '
+        + perFrame + ' steps per picture ' + (axis === 'pan' ? 'width' : 'height') + '. The camera turns back.';
+    } catch (error) {
+      $('ptz-cal-status').textContent = error.message;
+    } finally {
+      autoCal.busy = false;
+    }
+  });
+
+  // Timing: run the test move and watch the picture; the move ended when the picture stopped
+  // changing. Each frame is compared with the one about 240 ms earlier (slow moves change a
+  // small picture very little from one frame to the next).
+  const TIMING_LAG_MS = 240;
+  $('ptz-time-auto').addEventListener('click', async () => {
+    if (!liveStream || !connected()) {
+      $('ptz-cal-status').textContent = 'Connect the AIRIZ and start the camera preview first (or use Start test move and press It stopped).';
+      return;
+    }
+    if (autoCal.busy) return;
+    const axis = $('ptz-time-axis').value === 'rising' ? 'rising' : 'pan';
+    const steps = Math.min(5000, Math.max(20, Number($('ptz-time-steps').value) || 200));
+    const speed = store.speeds[axis];
+    const delta = roomFor(axis, steps);
+    if (delta === null) {
+      $('ptz-cal-status').textContent = 'Not enough room before the soft limits for ' + steps + ' steps.';
+      return;
+    }
+    autoCal.busy = true;
+    const frames = [];
+    const sample = (start) => {
+      const frame = grayFrame(96);
+      if (!frame) return null;
+      const t = performance.now() - start;
+      let reference = null;
+      for (let index = frames.length - 1; index >= 0; index -= 1) {
+        if (t - frames[index].t >= TIMING_LAG_MS) {
+          reference = frames[index];
+          break;
+        }
+      }
+      frames.push({ t, gray: frame.gray });
+      if (frames.length > 40) frames.shift();
+      return reference && reference.gray.length === frame.gray.length
+        ? { t, diff: core.frameDifference(reference.gray, frame.gray) }
+        : null;
+    };
+    try {
+      const token = newOperation();
+      if (!(await waitIdle(token))) return;
+      $('ptz-cal-status').textContent = 'Measuring the picture noise\u2026';
+      let noise = 0;
+      const idleStart = performance.now();
+      while (performance.now() - idleStart < 900) {
+        const result = sample(idleStart);
+        if (result) noise = Math.max(noise, result.diff);
+        await sleep(80);
+      }
+      const threshold = Math.max(2, noise * 1.8 + 1);
+      frames.length = 0;
+      const expectedMs = core.estimateMoveMs(axis, steps, speed, store.timing);
+      const maxMs = Math.min(45000, expectedMs * 3 + 4000);
+      const sent = await api.sendCommand(core.motorCommand(axis, delta, speed));
+      if (!sent) {
+        $('ptz-cal-status').textContent = 'Motor command not sent. Check the connection and the console.';
+        return;
+      }
+      const start = performance.now();
+      $('ptz-cal-status').textContent = 'Watching the camera while ' + axis + ' moves ' + steps + ' steps\u2026';
+      const samples = [];
+      let stop = null;
+      while (performance.now() - start < maxMs) {
+        await sleep(80);
+        if (token !== operation) {
+          $('ptz-cal-status').textContent = 'Timing measurement cancelled.';
+          return;
+        }
+        const result = sample(start);
+        if (result) samples.push(result);
+        stop = core.motionStopTime(samples, threshold, 800);
+        if (stop) break;
+        if (performance.now() - start > 3500 && !samples.some(item => item.diff > threshold)) break;
+      }
+      runMoves([{ axis, delta: -delta }], newOperation());
+      if (!stop) {
+        $('ptz-cal-status').textContent = samples.some(item => item.diff > threshold)
+          ? 'The picture kept changing (people or lights moving?). Try again with a still scene, or press It stopped by hand.'
+          : 'No movement seen in the camera picture. Check that the preview shows the AIRIZ camera, or use Start test move and It stopped.';
+        return;
+      }
+      const measured = Math.max(50, stop.stoppedAt - TIMING_LAG_MS / 2);
+      const k = core.timingFromMeasurement(steps, speed, measured);
+      if (!k) return;
+      store.timing[axis] = Math.round(k * 10) / 10;
+      save();
+      renderCalibration();
+      $('ptz-cal-status').textContent = 'Done: timing saved from the camera (' + steps + ' steps took about ' + (measured / 1000).toFixed(1)
+        + ' s at speed ' + speed + '). The camera goes back.';
+    } finally {
+      autoCal.busy = false;
+    }
   });
 
   $('ptz-cal-reset').addEventListener('click', () => {

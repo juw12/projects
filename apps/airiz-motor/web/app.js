@@ -167,8 +167,10 @@
 
   function renderHeader() {
     if (window.AIRIZ_COMMANDS && window.AIRIZ_COMMANDS.meta) {
-      elements.fwVersion.textContent = window.AIRIZ_COMMANDS.meta.fwVersion;
-      elements.dataSource.textContent = window.AIRIZ_COMMANDS.meta.source;
+      // 1.11.17: "Firmware" shows what the connected AIRIZ reports (console-ui.js asks it with
+      // diag ver sw); the command list's own firmware is shown as "Commands written for FW".
+      elements.fwVersion.textContent = 'not connected';
+      elements.dataSource.textContent = window.AIRIZ_COMMANDS.meta.fwVersion;
     }
   }
 
@@ -899,6 +901,10 @@
       demoDevice[demoAxis] += (demoMove[2].toLowerCase() === 'forward' ? 1 : -1) * Number(demoMove[3]);
       // Like the real mechanism: the rising camera stops at the bottom switch and at full travel.
       if (demoAxis === 'rising') demoDevice.rising = Math.min(DEMO_RISING_TRAVEL, Math.max(0, demoDevice.rising));
+    }
+    if (/^diag\s+ble\s+on$/i.test(String(command).trim())) {
+      // Shaped like the firmware: BlueZ controller dump, then the result code.
+      response = 'pegaDiag_BleOn\r\nController 00:1A:7D:DA:71:13 AIRIZ-DEMO [default]\r\n\tPowered: yes\r\n#INFO#0#END#\r\n';
     }
     if (/^diag\s+button\s+get\s+rising-det$/i.test(String(command).trim())) {
       // Simulated detect switch, answered like the firmware ("Pressed" when fully down).
