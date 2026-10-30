@@ -607,12 +607,12 @@
         requireInteraction: asking,
         silent: sound
       });
-      note.onclick = () => {
+      note.addEventListener('click', () => {
         hostBringToFront();
         note.close();
         const current = host.controllers.get(controller.cid);
         if (current && current.state === 'pending') hostShowRequest(current);
-      };
+      });
       if (asking) joinNotes.set(controller.cid, note);
       result.popup = true;
     } catch (ignored) {
