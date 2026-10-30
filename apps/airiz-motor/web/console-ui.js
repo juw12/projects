@@ -289,9 +289,13 @@
         headerText = label + ' \u00b7 ' + (age === null ? 'NO REPLY YET' : 'LAST REPLY ' + ageText(age).toUpperCase() + ' AGO');
         if (age !== null && age < 60) dotClass += ' active';
       }
-      $('link-last').textContent = lastText;
-      $('header-link-text').textContent = headerText;
-      $('header-link-dot').className = dotClass;
+      const setText = (id, value) => {
+        const element = $(id);
+        if (element && element.textContent !== value) element.textContent = value;
+      };
+      setText('link-last', lastText);
+      setText('header-link-text', headerText);
+      if ($('header-link-dot')) $('header-link-dot').className = dotClass;
       if (connectedAt && status.connected) {
         const elapsed = Math.floor((now - connectedAt) / 1000);
         const parts = [Math.floor(elapsed / 3600), Math.floor((elapsed % 3600) / 60), elapsed % 60];

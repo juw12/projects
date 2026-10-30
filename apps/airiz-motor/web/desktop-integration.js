@@ -38,8 +38,10 @@
     restoreConnectionAfterUpdate();
     host.getAppInfo().then(info => {
       document.title = 'AIRIZ Console — Windows ' + info.version;
+      // 1.11.17: the header pill shows the live AIRIZ link (console-ui.js); the app version
+      // goes into its tooltip instead of replacing the text.
       const badge = document.querySelector('.header-session');
-      if (badge) badge.textContent = 'WINDOWS APP / ' + info.version;
+      if (badge) badge.title = 'Windows app ' + info.version + '. Connection to the AIRIZ and when it last answered.';
       const footer = document.querySelector('.sidebar-footer');
       if (footer) footer.textContent = 'LOCAL DESKTOP EDITION';
     });
