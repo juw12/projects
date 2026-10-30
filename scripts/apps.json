@@ -3,6 +3,7 @@
   "apps": [
     {
       "id": "orbis",
+      "portfolio": false,
       "name": "Orbis",
       "category": "Apps",
       "desc": "Communication, identity and protection in one app, with live multi-user Orbis Chat",
@@ -26,6 +27,7 @@
     },
     {
       "id": "peers",
+      "portfolio": false,
       "name": "Peers",
       "category": "Apps",
       "desc": "Verified reviews across 32 categories — food, travel, market, AI tools, health and more",
@@ -160,6 +162,7 @@
     },
     {
       "id": "sweep",
+      "portfolio": false,
       "name": "Sweep",
       "category": "AI",
       "desc": "Turn a plain-words idea into a scored spec (Kiro-style requirements, design, tasks), a drag-and-drop task board and a Build → Grow → Earn plan — hand it to Lovable, v0, Cursor or Claude Code in one click, share remix links, and let Otto, an offline approval-first AI operator, draft brand, site, posts and outreach",
@@ -253,6 +256,7 @@
     },
     {
       "id": "vertex",
+      "portfolio": false,
       "name": "Vertex",
       "category": "CAD &amp; 3D",
       "desc": "One local 3D app — build parts and export 3D files (STL/OBJ/glTF/3MF/DXF), repair models and plan assemblies in ANY 3D software, ask design questions, reverse-engineer scans, turn drawings into CAD, automate batches, and simulate",
@@ -317,6 +321,7 @@
     },
     {
       "id": "3d-models-library",
+      "portfolio": false,
       "name": "3D Models Library",
       "category": "CAD &amp; 3D",
       "work": true,
@@ -364,6 +369,7 @@
     },
     {
       "id": "twin",
+      "portfolio": false,
       "name": "Twin",
       "category": "Apps",
       "desc": "Desktop app for Windows and Mac with real trading and Add money, TwinAgent research team, stocks from any country with real exchange calendars, real-time prices from your own broker or data key, multi-currency practice, optional real trading via Alpaca or Interactive Brokers, and Twin Indonesia: IDX lots, crypto and gold in rupiah",
@@ -784,6 +790,7 @@
     },
     {
       "id": "lingua",
+      "portfolio": false,
       "name": "Lingua",
       "category": "AI",
       "desc": "Universal language helper: translate text with tone and glossary, read the words in any picture, and live-translate Teams captions on laptop, iPhone and Android",
