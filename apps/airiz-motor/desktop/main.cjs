@@ -404,6 +404,16 @@ async function createWindow() {
     mainWindow.flashFrame(wanted);
     return wanted;
   });
+  // 1.11.15: clicking a "asks to join" Windows pop-up brings the console to the front,
+  // also when it was minimized.
+  ipcMain.handle('airiz:show-window', event => {
+    if (!trustedSender(event)) throw new Error('Untrusted sender');
+    if (!mainWindow || mainWindow.isDestroyed()) return false;
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.show();
+    mainWindow.focus();
+    return true;
+  });
   for (const state of ['suspend', 'resume']) {
     powerMonitor.on(state, () => {
       if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('airiz:power', state);

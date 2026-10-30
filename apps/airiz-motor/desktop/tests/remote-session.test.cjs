@@ -599,4 +599,8 @@ test('1.11.4 wiring: request prompt, own code, code change, taskbar flash', () =
   assert.ok(preload.includes("requestAttention: flag => ipcRenderer.invoke('airiz:attention', flag === true)"));
   assert.ok(main.includes("ipcMain.handle('airiz:attention'") && main.includes('mainWindow.flashFrame(wanted)'));
   assert.ok(remote.includes('desktop.requestAttention(waiting)'));
+  // 1.11.15: clicking an "asks to join" notification restores the window.
+  assert.ok(preload.includes("showWindow: () => ipcRenderer.invoke('airiz:show-window')"));
+  assert.ok(main.includes("ipcMain.handle('airiz:show-window'") && main.includes('mainWindow.restore()'));
+  assert.ok(remote.includes('desktop.showWindow()') && remote.includes("hostNotifyJoin(controller, 'joined')"));
 });

@@ -9,7 +9,7 @@ is required to use the installed app or its hardware-free demo.
 ## Downloads
 
 Windows x64 releases are published under the app-specific tag
-`airiz-desktop-v1.11.14` in this repository's Releases section.
+`airiz-desktop-v1.11.15` in this repository's Releases section.
 
 - **Installer**: assisted, per-user installation with Start-menu/desktop shortcuts
   and an uninstaller. The wizard lets the user choose the installation directory.
@@ -163,6 +163,16 @@ reports whether a framed firmware reply came back. Results can be exported.
 No pairing is accepted without confirmation and no motor command is sent.
 Another program on the PC still cannot open COM4 while this app holds it: that is
 a Windows serial-port rule, which is why the check runs inside the app.
+
+## 1.11.15: Notification when someone asks to join
+
+* `web/remote-control.js` (`hostNotifyJoin`): a new request on the sharing PC plays a two-note chime (Web Audio) and,
+  when the console is not in front, shows a Windows notification "<device> asks to join the AIRIZ"
+  (`requireInteraction`, closed once allowed / denied / gone). Click → `airizDesktop.showWindow()` (new IPC
+  `airiz:show-window`: restore + show + focus) and the Allow prompt. Remembered devices let in automatically get a
+  non-sticky "<device> joined the AIRIZ" notification. Setting `airiz-share-join-notify` (default on) and a *Test*
+  button in Share control. Notification permission is asked on *Start sharing*; Electron already allows it.
+* Tested: `tools/test_join_notify.py` (20 checks, PC + two phones over the real relay, recorded notifications/chime).
 
 ## 1.11.14: Full-screen camera on iPhone and Android
 
