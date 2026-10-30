@@ -22,6 +22,11 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
+# Print arrows and other non-ASCII check names on any console (Windows defaults to cp1252).
+for _stream in (sys.stdout, sys.stderr):
+    if hasattr(_stream, "reconfigure"):
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+
 APP_DIR = Path(__file__).resolve().parent.parent
 FAILURES = []
 PAPER_KEY = ("PKTESTPAPER123", "papersecretpapersecret1234")

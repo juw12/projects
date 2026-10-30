@@ -29,6 +29,12 @@ on:
 permissions:
   contents: read
 
+# Twin's tests and build scripts print arrows and other non-ASCII text; the Windows runner's default
+# console code page (cp1252) cannot encode them and Python stops with UnicodeEncodeError.
+env:
+  PYTHONUTF8: "1"
+  PYTHONIOENCODING: utf-8
+
 concurrency:
   group: twin-apps-${{ github.ref }}
   cancel-in-progress: true
