@@ -3,7 +3,7 @@
 // (./room/) and GlowLead (./lead/) have their own workers; requests for them are left alone here.
 // Pages are network-first with a short timeout, so a weak connection still opens Glow at once.
 // version.json is never cached, so "Check for updates" always sees the real latest version.
-const CACHE_NAME = 'glowhome-v14';
+const CACHE_NAME = 'glowhome-v15';
 const NETWORK_TIMEOUT_MS = 4000;
 const ASSETS = [
   './',

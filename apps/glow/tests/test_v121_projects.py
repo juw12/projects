@@ -15,7 +15,7 @@ class V121Tests(unittest.TestCase):
 
     def test_versions_match(self):
         published = json.loads((WEB / "version.json").read_text(encoding="utf-8"))["version"]
-        self.assertEqual(published, "1.27.2")
+        self.assertEqual(published, "1.27.3")
         self.assertIn(f'const GLOW_VERSION = "{published}";', self.apps)
 
     def test_every_chat_page_has_project_and_skill_buttons(self):

@@ -492,7 +492,7 @@
     const list = [];
     if (window.CrewEngine) {
       list.push(
-        { label: 'AI settings (provider, API key, model)', group: 'AI', run: () => CrewEngine.openSettings() },
+        { label: 'AI settings (model, web access)', group: 'AI', run: () => CrewEngine.openSettings() },
         { label: 'View results', group: 'AI', run: () => CrewEngine.openHistory() }
       );
     }
