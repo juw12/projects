@@ -1315,7 +1315,20 @@
     "Full-screen camera on iPhone and Android (1.11.14)": "iPhone 與 Android 可全螢幕觀看相機 (1.11.14)",
     "When a phone watches the shared AIRIZ camera (share link, Remote by code or Camera → Watch), Full screen now works on iPhone and Android: on Android the camera goes truly full screen and turns sideways for a wide picture; on iPhone the video opens in the iPhone player and relay pictures fill the whole screen. Double-tap the picture to switch too. The AIRIZ Mobile phone app is rebuilt from this console (1.0.3), so its old Sound FX tab is gone.": "手機觀看共享的 AIRIZ 相機（分享連結、以代碼遠端連線或「相機 → 觀看」）時，全螢幕在 iPhone 與 Android 上都能使用：Android 會真正全螢幕並轉為橫向；iPhone 的影片會用 iPhone 播放器開啟，中繼畫面則填滿整個螢幕。也可以點兩下畫面切換。AIRIZ Mobile 手機 App 已用此版主控台重新建置（1.0.3），舊的「音效」分頁已移除。",
     "✕ Exit full screen": "✕ 結束全螢幕",
-    "Turn the phone sideways for a bigger picture": "把手機轉成橫向，畫面更大"
+    "Turn the phone sideways for a bigger picture": "把手機轉成橫向，畫面更大",
+    "Notification when someone asks to join (1.11.15)": "有人要求加入時會通知 (1.11.15)",
+    "While this PC shares remote control by code, a phone or PC asking to join now shows a Windows pop-up and plays a short sound, also when the console is minimized or behind other windows. Click the pop-up to bring the console forward and Allow or Deny. A remembered device that comes back by itself shows a quieter pop-up saying it joined. Turn it off or press Test in Share control.": "這台電腦以代碼分享遠端控制時，若有手機或電腦要求加入，現在會顯示 Windows 彈出通知並播放短提示音，主控台最小化或被其他視窗擋住時也一樣。點彈出通知即可把主控台叫到前面並選擇允許或拒絕。已記住的裝置自動回來時，會顯示較安靜的「已加入」通知。可在「分享控制」中關閉或按「測試」。",
+    "Notify me when someone asks to join (Windows pop-up + sound)": "有人要求加入時通知我（Windows 彈出通知＋提示音）",
+    "Test": "測試",
+    "Pop-ups are blocked for this page. Allow notifications in the site settings (lock icon left of the address); the sound still plays.": "此頁面的彈出通知已被封鎖。請在網站設定（網址左側的鎖頭圖示）允許通知；提示音仍會播放。",
+    "This browser has no desktop pop-ups; the sound and the prompt still work.": "此瀏覽器不支援桌面彈出通知；提示音與確認視窗仍可使用。",
+    "Test sent: sound played and a Windows pop-up was shown. Not seen? Turn on notifications for this app: Settings > System > Notifications.": "已送出測試：已播放提示音並顯示 Windows 彈出通知。沒看到？請開啟此 App 的通知：設定 > 系統 > 通知。",
+    "Test sent: a Windows pop-up was shown, but the sound is blocked.": "已送出測試：已顯示 Windows 彈出通知，但提示音被封鎖。",
+    "Test sent: sound played, but no Windows pop-up (notifications are not allowed for this page).": "已送出測試：已播放提示音，但沒有 Windows 彈出通知（此頁面未允許通知）。",
+    "Test failed: notifications are not allowed and the sound is blocked.": "測試失敗：未允許通知，且提示音被封鎖。",
+    "Wants to control the AIRIZ through this PC. Click to Allow or Deny.": "想透過這台電腦控制 AIRIZ。點一下以允許或拒絕。",
+    "Its key does not match the remembered device. Check it before allowing. Click to decide.": "它的金鑰與記住的裝置不符。允許前請先確認。點一下以決定。",
+    "A remembered device is controlling the AIRIZ through this PC.": "一台已記住的裝置正透過這台電腦控制 AIRIZ。"
   },
   "html": {
     "AIRIZDEVICE LAB": "AIRIZ<small>裝置實驗室</small>",
@@ -2247,6 +2260,14 @@
     [
       "^Co-admin since (\\d{4}-\\d{2}-\\d{2})$",
       "共同管理員（自 $1 起）"
+    ],
+    [
+      "^(.+) asks to join the AIRIZ$",
+      "$1 要求加入 AIRIZ"
+    ],
+    [
+      "^(.+) joined the AIRIZ$",
+      "$1 已加入 AIRIZ"
     ]
   ]
 }

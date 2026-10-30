@@ -212,6 +212,12 @@
       + '<label class="share-option"><input type="checkbox" id="share-trust-remember"> '
       + '<span>Remember every device I allow</span></label>'
       + '<ul id="share-trust-list"></ul></section>'
+      // 1.11.15: Windows pop-up + sound on this PC when someone asks to join.
+      + '<div class="share-join-notify-row" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
+      + '<label class="share-option" style="margin:0"><input type="checkbox" id="share-join-notify"> '
+      + '<span>Notify me when someone asks to join (Windows pop-up + sound)</span></label>'
+      + '<button id="share-join-notify-test" class="btn btn-sm btn-secondary" type="button">Test</button></div>'
+      + '<p id="share-join-notify-note" class="share-control-hint" hidden></p>'
       + '<label class="share-option"><input type="checkbox" id="share-keep-awake"> '
       + '<span>Keep this PC awake while sharing</span></label>'
       + '<label class="share-option" id="share-lid-row" hidden><input type="checkbox" id="share-lid-awake"> '
@@ -230,7 +236,19 @@
       const sent = await api.stopMotor();
       hostSetStatus(sent ? 'Stop sent. The motor driver halts the current move.' : 'Not connected.');
     });
-    $('share-control-start').addEventListener('click', () => hostStart());
+    $('share-control-start').addEventListener('click', () => {
+      hostAskNotifyPermission();
+      hostStart();
+    });
+    $('share-join-notify').checked = joinNotifyWanted();
+    $('share-join-notify').addEventListener('change', event => {
+      try {
+        localStorage.setItem(JOIN_NOTIFY_KEY, event.target.checked ? '1' : '0');
+      } catch (ignored) { /* storage blocked: applies to this session only */ }
+      if (event.target.checked) hostAskNotifyPermission();
+      hostRenderJoinNotifyNote();
+    });
+    $('share-join-notify-test').addEventListener('click', hostTestJoinNotify);
     $('share-control-stop').addEventListener('click', () => hostStop('Sharing stopped.'));
     $('share-control-close').addEventListener('click', () => dialog.close());
     $('share-control-copy').addEventListener('click', hostCopyLink);
@@ -274,6 +292,7 @@
     hostRenderTrust();
     hostRenderOwnCode();
     hostRenderAwake();
+    hostRenderJoinNotifyNote();
     document.dispatchEvent(new CustomEvent('airiz:share-dialog'));
     return dialog;
   }
@@ -412,6 +431,7 @@
   function hostRenderAsk() {
     const pending = host.code ? pendingControllers() : [];
     hostAttention(pending.length);
+    hostCloseJoinNotes();
     const dialog = host.ask;
     if (!dialog) return;
     if (!pending.length) {
@@ -458,6 +478,183 @@
     }
     const first = dialog.querySelector('button.btn-primary');
     if (first) first.focus();
+  }
+
+  // ------------------------------------------------------------------ PC: join notifications (1.11.15)
+  // The PC with the USB cable gets a Windows pop-up and a short sound when a device asks to join,
+  // also when the console is minimized or behind other windows. Clicking the pop-up brings the
+  // console to the front with Allow / Deny. A remembered device that comes in by itself gets a
+  // quieter "joined" pop-up. The in-app prompt and taskbar flash stay as they were.
+  const JOIN_NOTIFY_KEY = 'airiz-share-join-notify';
+  const joinNotes = new Map(); // cid -> Notification still asking (closed once decided)
+
+  function joinNotifyWanted() {
+    try {
+      return localStorage.getItem(JOIN_NOTIFY_KEY) !== '0';
+    } catch (ignored) {
+      return true;
+    }
+  }
+
+  // Notification text is not in the page, so the page translator never sees it: translate here.
+  function translated(text) {
+    try {
+      return window.AirizI18n && typeof window.AirizI18n.t === 'function' ? window.AirizI18n.t(text) : text;
+    } catch (ignored) {
+      return text;
+    }
+  }
+
+  function notifyPermission() {
+    return 'Notification' in window ? Notification.permission : 'unsupported';
+  }
+
+  function hostAskNotifyPermission() {
+    if (!joinNotifyWanted() || notifyPermission() !== 'default') return;
+    try {
+      const asked = Notification.requestPermission(() => hostRenderJoinNotifyNote());
+      if (asked && typeof asked.then === 'function') asked.then(hostRenderJoinNotifyNote, () => {});
+    } catch (ignored) { /* very old browser */ }
+  }
+
+  function hostRenderJoinNotifyNote() {
+    const note = $('share-join-notify-note');
+    if (!note) return;
+    const permission = notifyPermission();
+    let text = '';
+    if (joinNotifyWanted()) {
+      if (permission === 'denied') {
+        text = 'Pop-ups are blocked for this page. Allow notifications in the site settings (lock icon left of the address); the sound still plays.';
+      } else if (permission === 'unsupported') {
+        text = 'This browser has no desktop pop-ups; the sound and the prompt still work.';
+      }
+    }
+    note.textContent = text;
+    note.hidden = !text;
+  }
+
+  let chimeContext = null;
+  function hostChime(kind) {
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return false;
+      chimeContext = chimeContext || new AudioCtx();
+      const context = chimeContext;
+      if (context.state === 'suspended' && typeof context.resume === 'function') context.resume().catch(() => {});
+      // Asking: two rising notes, played twice. Joined by itself: one soft note.
+      const notes = kind === 'joined' ? [[660, 0]] : [[660, 0], [880, 0.16], [660, 0.5], [880, 0.66]];
+      const start = context.currentTime + 0.02;
+      for (const [frequency, offset] of notes) {
+        const oscillator = context.createOscillator();
+        const gain = context.createGain();
+        oscillator.type = 'sine';
+        oscillator.frequency.value = frequency;
+        gain.gain.setValueAtTime(0.0001, start + offset);
+        gain.gain.exponentialRampToValueAtTime(0.25, start + offset + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, start + offset + 0.14);
+        oscillator.connect(gain).connect(context.destination);
+        oscillator.start(start + offset);
+        oscillator.stop(start + offset + 0.16);
+      }
+      return true;
+    } catch (ignored) {
+      return false;
+    }
+  }
+
+  function hostBringToFront() {
+    const desktop = window.airizDesktop;
+    if (desktop && typeof desktop.showWindow === 'function') {
+      try {
+        const shown = desktop.showWindow();
+        if (shown && typeof shown.catch === 'function') shown.catch(() => {});
+      } catch (ignored) { /* older desktop build */ }
+    }
+    try {
+      window.focus();
+    } catch (ignored) { /* not allowed */ }
+  }
+
+  // kind: 'ask' | 'ask-warning' (key changed) | 'joined' (remembered device let in by itself).
+  // Returns { sound, popup, reason } so tests and the Test button can report what happened.
+  function hostNotifyJoin(controller, kind, options) {
+    const settings = options || {};
+    if (!joinNotifyWanted() && !settings.force) return { sound: false, popup: false, reason: 'off' };
+    const sound = hostChime(kind);
+    const result = { sound, popup: false, reason: '' };
+    // The owner already looks at the console: the prompt is enough, no extra Windows pop-up.
+    const looking = !document.hidden && document.hasFocus();
+    if (looking && !settings.force) {
+      result.reason = 'console in front';
+      return result;
+    }
+    if (notifyPermission() !== 'granted') {
+      result.reason = 'permission ' + notifyPermission();
+      return result;
+    }
+    const asking = kind !== 'joined';
+    const title = asking ? controller.label + ' asks to join the AIRIZ' : controller.label + ' joined the AIRIZ';
+    const body = kind === 'ask-warning'
+      ? 'Its key does not match the remembered device. Check it before allowing. Click to decide.'
+      : asking
+        ? 'Wants to control the AIRIZ through this PC. Click to Allow or Deny.'
+        : 'A remembered device is controlling the AIRIZ through this PC.';
+    try {
+      const note = new Notification(translated(title), {
+        body: translated(body),
+        icon: 'icons/icon-192.png',
+        tag: 'airiz-join-' + controller.cid,
+        requireInteraction: asking,
+        silent: sound
+      });
+      note.onclick = () => {
+        hostBringToFront();
+        note.close();
+        const current = host.controllers.get(controller.cid);
+        if (current && current.state === 'pending') hostShowRequest(current);
+      };
+      if (asking) joinNotes.set(controller.cid, note);
+      result.popup = true;
+    } catch (ignored) {
+      result.reason = 'Windows refused the pop-up';
+    }
+    return result;
+  }
+
+  // Close pop-ups for requests that were allowed, denied or left.
+  function hostCloseJoinNotes() {
+    for (const [cid, note] of joinNotes) {
+      const controller = host.controllers.get(cid);
+      if (controller && controller.state === 'pending' && host.code) continue;
+      try {
+        note.close();
+      } catch (ignored) { /* already gone */ }
+      joinNotes.delete(cid);
+    }
+  }
+
+  function hostTestJoinNotify() {
+    hostAskNotifyPermission();
+    const result = hostNotifyJoin({ cid: 'test', label: 'Test phone' }, 'ask', { force: true });
+    let text;
+    if (result.popup && result.sound) {
+      text = 'Test sent: sound played and a Windows pop-up was shown. Not seen? Turn on notifications for this app: Settings > System > Notifications.';
+    } else if (result.popup) {
+      text = 'Test sent: a Windows pop-up was shown, but the sound is blocked.';
+    } else if (result.sound) {
+      text = 'Test sent: sound played, but no Windows pop-up (notifications are not allowed for this page).';
+    } else {
+      text = 'Test failed: notifications are not allowed and the sound is blocked.';
+    }
+    hostSetStatus(text);
+    hostRenderJoinNotifyNote();
+    setTimeout(() => {
+      const note = joinNotes.get('test');
+      if (note) {
+        note.close();
+        joinNotes.delete('test');
+      }
+    }, 8000);
   }
 
   // Taskbar flash (Windows app) and a tab title mark while someone waits for Allow.
@@ -885,6 +1082,7 @@
     const decision = session.decide({ trust, autoAllow: trustStore.autoAllow, sessionApproved });
     if (decision === 'auto-remembered' || decision === 'auto-session') {
       await hostApprove(controller.cid, { auto: decision });
+      if (decision === 'auto-remembered' && host.controllers.has(controller.cid)) hostNotifyJoin(controller, 'joined');
       hostRenderTrust();
       return;
     }
@@ -896,6 +1094,7 @@
     // 1.11.4: Allow / Allow & remember / Deny right where the owner is looking (was: only the
     // list inside Share control, which a toast pointed to).
     hostShowRequest(controller);
+    hostNotifyJoin(controller, decision === 'ask-warning' ? 'ask-warning' : 'ask');
   }
 
   // A transport path (one PeerJS connection or one relay controller id) said something.

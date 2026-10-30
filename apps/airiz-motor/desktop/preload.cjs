@@ -50,6 +50,7 @@ contextBridge.exposeInMainWorld('airizDesktop', {
   // 1.11.8: Smart detection armed: a minimized window keeps watching the camera.
   setBackgroundWork: flag => ipcRenderer.invoke('airiz:background-work', flag === true),
   requestAttention: flag => ipcRenderer.invoke('airiz:attention', flag === true),
+  showWindow: () => ipcRenderer.invoke('airiz:show-window'),
   setLidAwake: flag => ipcRenderer.invoke('airiz:lid-awake', flag === true),
   getPowerStatus: () => ipcRenderer.invoke('airiz:power-status'),
   onPowerChange: callback => {
