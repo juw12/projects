@@ -3996,11 +3996,15 @@
       await stopAutoReconnectAndWait();
       await openSerialPort(port, state.baudRate);
     },
-    async prepareForUpdate() {
+    async prepareForUpdate(requireIdleMs = 0) {
       if (state.macroRunning || state.capture.active || cameraState.sessionActive || serialLease
           || (cameraState.recorder && cameraState.recorder.state !== 'inactive')) {
         return { ready: false };
       }
+      // Auto-update has no dialog: re-check the untouched-for-N-minutes rule here, at
+      // the moment the port is closed, so a command issued while the main process was
+      // asking cannot be cut off by an unattended restart.
+      if (requireIdleMs > 0 && userIdleMs() < requireIdleMs) return { ready: false };
       let reconnect = null;
       if (state.port && state.connected && !state.demoMode) {
         const info = typeof state.port.getInfo === 'function' ? state.port.getInfo() : {};

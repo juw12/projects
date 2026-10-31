@@ -69,7 +69,9 @@ class WindowsDesktopTests(unittest.TestCase):
         self.assertIn('updater.autoDownload = false', controller)
         self.assertIn('updater.autoInstallOnAppQuit = false', controller)
         self.assertIn('updater.allowDowngrade = false', controller)
-        self.assertIn('prepareForInstall()', controller)
+        # The install path always prepares (closes the port safely) first; since 1.11.22 the
+        # call carries the auto-update idle requirement, e.g. prepareForInstall(byAuto ? autoIdleMs : 0).
+        self.assertRegex(controller, r'await prepareForInstall\(')
         self.assertNotIn('verifyUpdateCodeSignature =', controller)
 
     def test_release_feed_matches_the_current_desktop_version(self):

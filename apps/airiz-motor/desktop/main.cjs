@@ -523,8 +523,9 @@ async function createWindow() {
       });
       return answer.response === 1;
     },
-    prepareForInstall: async () => {
-      const result = await mainWindow.webContents.executeJavaScript('window.AirizConsole?.prepareForUpdate?.() || null');
+    prepareForInstall: async requireIdleMs => {
+      const idle = Number(requireIdleMs) > 0 ? Number(requireIdleMs) : 0;
+      const result = await mainWindow.webContents.executeJavaScript('window.AirizConsole?.prepareForUpdate?.(' + idle + ') || null');
       if (!result || result.ready !== true) return false;
       if (result.reconnect) grants.savePendingReconnect(result.reconnect);
       chooser.cancel();
