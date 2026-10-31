@@ -28,7 +28,7 @@ except ImportError:  # pragma: no cover - i18n ships with Pips
     def T(key, lang=None, **kwargs):
         return key
 
-APP_VERSION = "2.27.0"
+APP_VERSION = "2.27.1"
 APP_OWNER = "Juwen Lie"
 USER_GUIDE_URL = "https://juw12.github.io/projects/pips/download/Pips-Guide.pptx"
 SITE_URL = "https://juw12.github.io/projects/pips/"
@@ -4068,6 +4068,7 @@ class ProductivityWidget:
             )
         menu.tiles([
             ("\U0001F4CA", T("fm_stats"), self._open_dashboard),
+            ("\U0001F3C3", T("mg_trail"), self._open_focus_trail),
             ("\U0001F570", T("fm_history"), self._open_history),
             ("\U0001F4C5", T("fm_weekly"), self._open_weekly_report),
             ("\U0001F5D3", T("fm_monthly"), self._open_monthly_report),
@@ -4131,6 +4132,7 @@ class ProductivityWidget:
     def _show_native_card_menu(self, event):
         menu = tk.Menu(self.card_frame, tearoff=0, bg=THEME["white"], fg=THEME["ink_black"])
         menu.add_command(label=T("m_dashboard"), command=self._open_dashboard)
+        menu.add_command(label=T("mg_trail"), command=self._open_focus_trail)
         menu.add_command(label=T("m_history"), command=self._open_history)
         menu.add_command(label=T("m_weekly"), command=self._open_weekly_report)
         menu.add_command(label=T("m_monthly"), command=self._open_monthly_report)
