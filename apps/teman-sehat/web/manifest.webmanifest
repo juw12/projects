@@ -1,0 +1,37 @@
+{
+  "id": "./",
+  "name": "Teman Sehat – GERD, Diet & Fit, Kulit",
+  "short_name": "Teman Sehat",
+  "description": "Pengingat gaya hidup GERD, diet & fit tanpa puasa, dan perawatan jerawat.",
+  "lang": "id",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f4f7f5",
+  "theme_color": "#2f7d5b",
+  "categories": [
+    "health",
+    "lifestyle",
+    "fitness"
+  ],
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

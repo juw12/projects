@@ -1,0 +1,1933 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#2f7d5b">
+<meta name="description" content="Pengingat gaya hidup GERD, diet & fit tanpa puasa, dan perawatan jerawat.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Teman Sehat">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Teman Sehat – GERD, Diet & Fit, Kulit</title>
+<style>
+  :root {
+    --green: #2f7d5b;
+    --green-light: #e6f4ec;
+    --amber: #e8a33d;
+    --red: #c9483b;
+    --pink: #c2577f;
+    --text: #1f2a24;
+    --muted: #6b7a72;
+    --card: #ffffff;
+    --bg: #f4f7f5;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding-bottom: calc(84px + env(safe-area-inset-bottom));
+  }
+  header { background: var(--green); color: #fff; padding: calc(18px + env(safe-area-inset-top)) 20px 14px; }
+  header h1 { margin: 0; font-size: 1.4rem; }
+  header p { margin: 4px 0 0; opacity: .85; font-size: .88rem; }
+  main { max-width: 680px; margin: 0 auto; padding: 14px; }
+  nav {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    display: flex; background: #fff;
+    border-top: 1px solid #dde5e0; z-index: 10;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  @media (min-width: 760px) {
+    nav {
+      left: 50%; right: auto; width: 680px; transform: translateX(-50%);
+      border: 1px solid #dde5e0; border-bottom: 0; border-radius: 14px 14px 0 0;
+    }
+  }
+  /* Desktop: two columns of cards */
+  @media (min-width: 1100px) {
+    main { max-width: 1120px; }
+    main > section.active, .sub {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start;
+    }
+    main > section.active > .subtabs, main > section.active > .sub { grid-column: 1 / -1; }
+    .card { margin-bottom: 0; }
+    nav { width: 1120px; }
+  }
+  .sub[hidden] { display: none !important; }
+  nav button {
+    flex: 1; border: 0; background: none; padding: 8px 2px 10px;
+    font-size: .72rem; color: var(--muted); cursor: pointer;
+  }
+  nav button span { display: block; font-size: 1.25rem; }
+  nav button.active { color: var(--green); font-weight: 600; }
+  section { display: none; }
+  section.active { display: block; }
+  .card {
+    background: var(--card); border-radius: 14px; padding: 16px;
+    margin-bottom: 14px; box-shadow: 0 1px 3px rgba(0,0,0,.06);
+  }
+  .card h2 { margin: 0 0 10px; font-size: 1.05rem; }
+  .card h3 { margin: 14px 0 6px; font-size: .95rem; }
+  .muted { color: var(--muted); font-size: .88rem; }
+  .small { font-size: .78rem; }
+  .btn {
+    background: var(--green); color: #fff; border: 0; border-radius: 10px;
+    padding: 10px 14px; font-size: .95rem; cursor: pointer;
+  }
+  .btn.secondary { background: var(--green-light); color: var(--green); }
+  .btn.danger { background: #fbe9e7; color: var(--red); }
+  .btn:disabled { opacity: .5; cursor: default; }
+  .timer { font-size: 2.1rem; font-weight: 700; margin: 6px 0; font-variant-numeric: tabular-nums; }
+  .timer.ok { color: var(--green); }
+  .timer.wait { color: var(--amber); }
+  .checklist label {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 0; border-bottom: 1px solid #eef2ef; cursor: pointer;
+  }
+  .checklist label:last-child { border-bottom: 0; }
+  .checklist input { width: 20px; height: 20px; accent-color: var(--green); flex: none; }
+  .checklist .group { font-weight: 600; font-size: .82rem; color: var(--muted); margin-top: 10px; text-transform: uppercase; letter-spacing: .04em; }
+  .progress { height: 10px; background: #e3ebe6; border-radius: 6px; overflow: hidden; margin: 6px 0; }
+  .progress div { height: 100%; background: var(--green); transition: width .3s; }
+  .progress div.over { background: var(--amber); }
+  .chart { display: flex; gap: 5px; align-items: flex-end; height: 100px; margin-top: 8px; }
+  .chart .day { flex: 1; text-align: center; font-size: .68rem; color: var(--muted); }
+  .chart .bar { background: var(--green); border-radius: 5px 5px 0 0; margin: 0 auto 4px; width: 70%; min-height: 3px; }
+  .chart.pink .bar { background: var(--pink); }
+  .reminder, .item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 0; border-bottom: 1px solid #eef2ef;
+  }
+  .reminder:last-child, .item:last-child { border-bottom: 0; }
+  .reminder input[type=time] { font-size: 1rem; padding: 4px; border: 1px solid #cfdad3; border-radius: 6px; }
+  .reminder .info, .item .info { flex: 1; min-width: 0; }
+  .reminder .info b { display: block; font-size: .95rem; }
+  .reminder .info small { color: var(--muted); }
+  .reminder button, .item button { background: none; border: 0; font-size: 1.05rem; cursor: pointer; color: var(--muted); }
+  input[type=text], input[type=number], textarea, select {
+    width: 100%; padding: 9px; border: 1px solid #cfdad3; border-radius: 8px;
+    font-size: .95rem; font-family: inherit; margin: 4px 0 10px; background: #fff;
+  }
+  .row { display: flex; gap: 8px; }
+  .row > * { flex: 1; min-width: 0; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 10px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 12px; }
+  .chip {
+    border: 1px solid #cfdad3; background: #fff; border-radius: 20px;
+    padding: 6px 11px; font-size: .85rem; cursor: pointer;
+  }
+  .chip.on { background: var(--green); color: #fff; border-color: var(--green); }
+  input[type=range] { width: 100%; accent-color: var(--green); }
+  .log-item { padding: 10px 0; border-bottom: 1px solid #eef2ef; }
+  .log-item:last-child { border-bottom: 0; }
+  .sev { display: inline-block; min-width: 34px; text-align: center; border-radius: 6px; color: #fff; font-weight: 600; padding: 2px 6px; margin-right: 6px; }
+  .tips li { margin-bottom: 8px; line-height: 1.4; }
+  .alert { background: #fdecea; border-left: 4px solid var(--red); }
+  .banner { background: #fff6e5; border-left: 4px solid var(--amber); }
+  .link { background: #eef6ff; border-left: 4px solid #4a86c5; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; }
+  .stat { background: var(--green-light); border-radius: 10px; padding: 10px; }
+  .stat b { display: block; font-size: 1.25rem; color: var(--green); }
+  .stat span { font-size: .78rem; color: var(--muted); }
+  table { width: 100%; border-collapse: collapse; font-size: .88rem; }
+  td, th { text-align: left; padding: 6px 4px; border-bottom: 1px solid #eef2ef; vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; }
+  .subtabs { display: flex; gap: 6px; margin-bottom: 12px; }
+  .subtabs button { flex: 1; }
+  #toast {
+    position: fixed; left: 50%; top: 16px; transform: translateX(-50%) translateY(-150%);
+    background: var(--text); color: #fff; padding: 12px 16px; border-radius: 12px;
+    max-width: 92%; width: 420px; z-index: 20; transition: transform .35s;
+    box-shadow: 0 6px 20px rgba(0,0,0,.25);
+    opacity: 0; visibility: hidden; pointer-events: none;
+    transition: transform .35s, opacity .35s, visibility .35s;
+  }
+  #toast.show { transform: translateX(-50%) translateY(0); opacity: 1; visibility: visible; pointer-events: auto; }
+  #toast b { display: block; margin-bottom: 2px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🌿 Teman Sehat</h1>
+  <p id="todayLabel"></p>
+</header>
+
+<main>
+  <!-- ================= HARI INI ================= -->
+  <section id="tab-today" class="active">
+    <div class="card">
+      <h2>⏰ Pengingat berikutnya</h2>
+      <div id="nextReminder" class="muted">–</div>
+    </div>
+
+    <div class="card">
+      <h2>📊 Ringkasan hari ini</h2>
+      <div class="stats" id="todayStats"></div>
+    </div>
+
+    <div class="card">
+      <h2>🍽️ Timer setelah makan</h2>
+      <p class="muted">Tekan setelah selesai makan. Tetap tegak 3 jam. Jalan santai boleh langsung, olahraga berat tunggu ±2 jam.</p>
+      <div id="mealTimer" class="timer ok">Bebas</div>
+      <div id="mealInfo" class="muted"></div>
+      <div id="exerciseInfo" class="muted" style="margin-top:4px"></div>
+      <div class="row" style="margin-top:10px">
+        <button class="btn" id="btnAte">Saya baru makan</button>
+        <button class="btn secondary" id="btnMealReset">Reset</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>✅ Kebiasaan GERD hari ini</h2>
+      <div class="progress"><div id="habitBar" style="width:0"></div></div>
+      <div id="habitPct" class="muted"></div>
+      <div class="checklist" id="habitList"></div>
+    </div>
+
+    <div class="card">
+      <h2>📈 Kebiasaan GERD – 7 hari terakhir</h2>
+      <div class="chart" id="weekChart"></div>
+    </div>
+  </section>
+
+  <!-- ================= PENGINGAT ================= -->
+  <section id="tab-reminders">
+    <div class="card banner" id="notifBanner">
+      <b>Aktifkan notifikasi</b>
+      <p class="muted">Agar pengingat muncul walau Anda membuka tab lain. Biarkan aplikasi ini tetap terbuka di browser.</p>
+      <button class="btn" id="btnNotif">Izinkan notifikasi</button>
+    </div>
+
+    <div class="card">
+      <h2>⏰ Jadwal pengingat</h2>
+      <div id="reminderList"></div>
+      <div class="row" style="margin-top:10px">
+        <button class="btn secondary" id="btnTest">🔔 Tes pengingat</button>
+        <button class="btn danger" id="btnResetReminders">Kembalikan default</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>➕ Tambah pengingat</h2>
+      <div class="row">
+        <div style="flex:0 0 120px">
+          <label class="muted">Jam</label>
+          <input type="text" id="newTime" placeholder="08:00" maxlength="5">
+        </div>
+        <div>
+          <label class="muted">Judul</label>
+          <input type="text" id="newTitle" placeholder="mis. Minum obat">
+        </div>
+      </div>
+      <label class="muted">Pesan</label>
+      <input type="text" id="newBody" placeholder="mis. Minum 30 menit sebelum sarapan">
+      <button class="btn" id="btnAdd">Tambah</button>
+    </div>
+  </section>
+
+  <!-- ================= CATATAN GEJALA GERD ================= -->
+  <section id="tab-log">
+    <div class="card">
+      <h2>📝 Catat gejala GERD</h2>
+      <label class="muted">Tingkat keluhan (heartburn/asam naik): <b id="sevVal">3</b>/10</label>
+      <input type="range" id="sev" min="0" max="10" value="3">
+      <label class="muted">Kemungkinan pemicu</label>
+      <div class="chips" id="triggerChips"></div>
+      <label class="muted">Catatan</label>
+      <textarea id="logNote" rows="2" placeholder="mis. makan nasi padang jam 20.00"></textarea>
+      <button class="btn" id="btnLog">Simpan catatan</button>
+    </div>
+
+    <div class="card">
+      <h2>🔍 Pemicu terbanyak (30 hari)</h2>
+      <div id="triggerStats" class="muted">Belum ada data.</div>
+    </div>
+
+    <div class="card">
+      <h2>📚 Riwayat</h2>
+      <div id="logList" class="muted">Belum ada catatan.</div>
+    </div>
+  </section>
+
+  <!-- ================= DIET & FIT ================= -->
+  <section id="tab-fit">
+    <div class="subtabs">
+      <button class="btn" data-sub="fit-food">Makan</button>
+      <button class="btn secondary" data-sub="fit-move">Olahraga</button>
+      <button class="btn secondary" data-sub="fit-profile">Profil & Berat</button>
+      <button class="btn secondary" data-sub="fit-guide">Panduan</button>
+    </div>
+
+    <!-- Makan -->
+    <div id="fit-food" class="sub">
+      <div class="card">
+        <h2>🎯 Target harian</h2>
+        <div id="targetSummary" class="muted">Isi profil dulu di "Profil & Berat".</div>
+      </div>
+
+      <div class="card">
+        <h2>🍽️ Catatan makan hari ini</h2>
+        <div class="muted">Kalori: <b id="kcalText">0</b></div>
+        <div class="progress"><div id="kcalBar" style="width:0"></div></div>
+        <div class="muted">Protein: <b id="proteinText">0 g</b></div>
+        <div class="progress"><div id="proteinBar" style="width:0"></div></div>
+
+        <h3>Tambah cepat (ramah GERD)</h3>
+        <select id="foodPreset"></select>
+        <div class="row">
+          <div style="flex:0 0 110px">
+            <label class="muted">Porsi ×</label>
+            <input type="number" id="foodQty" value="1" min="0.25" step="0.25">
+          </div>
+          <div style="display:flex;align-items:flex-end;padding-bottom:10px">
+            <button class="btn" id="btnAddPreset" style="width:100%">Tambah</button>
+          </div>
+        </div>
+
+        <h3>Makanan lain</h3>
+        <input type="text" id="foodName" placeholder="Nama makanan">
+        <div class="row">
+          <div><label class="muted">Kalori (kkal)</label><input type="number" id="foodKcal" min="0"></div>
+          <div><label class="muted">Protein (g)</label><input type="number" id="foodProtein" min="0" step="0.5"></div>
+        </div>
+        <button class="btn secondary" id="btnAddCustomFood">Tambah makanan lain</button>
+
+        <h3>Hari ini</h3>
+        <div id="foodList" class="muted">Belum ada.</div>
+        <p class="muted small">Angka kalori/protein adalah perkiraan rata-rata. Masakan dengan banyak minyak/santan bisa jauh lebih tinggi.</p>
+      </div>
+    </div>
+
+    <!-- Olahraga -->
+    <div id="fit-move" class="sub" hidden>
+      <div class="card">
+        <h2>🏃 Status olahraga</h2>
+        <div id="exerciseStatus" class="muted"></div>
+      </div>
+
+      <div class="card">
+        <h2>➕ Catat olahraga</h2>
+        <div class="row">
+          <div>
+            <label class="muted">Jenis</label>
+            <select id="exType">
+              <option value="cardio">Kardio (jalan cepat, sepeda, renang)</option>
+              <option value="strength">Latihan kekuatan (beban, push-up, squat)</option>
+              <option value="flex">Yoga / peregangan</option>
+            </select>
+          </div>
+          <div style="flex:0 0 110px">
+            <label class="muted">Menit</label>
+            <input type="number" id="exMin" value="30" min="1">
+          </div>
+        </div>
+        <button class="btn" id="btnAddExercise">Simpan</button>
+        <h3>Hari ini</h3>
+        <div id="exerciseList" class="muted">Belum ada.</div>
+      </div>
+
+      <div class="card">
+        <h2>📅 7 hari terakhir</h2>
+        <div class="muted">Kardio: <b id="cardioWeek">0</b> / 150 menit</div>
+        <div class="progress"><div id="cardioBar" style="width:0"></div></div>
+        <div class="muted">Hari latihan kekuatan: <b id="strengthWeek">0</b> / 2–3 hari</div>
+        <div class="progress"><div id="strengthBar" style="width:0"></div></div>
+        <div class="chart" id="exerciseChart"></div>
+      </div>
+    </div>
+
+    <!-- Profil & berat -->
+    <div id="fit-profile" class="sub" hidden>
+      <div class="card">
+        <h2>👤 Profil</h2>
+        <div class="grid2">
+          <div>
+            <label class="muted">Jenis kelamin</label>
+            <select id="pSex"><option value="m">Laki-laki</option><option value="f">Perempuan</option></select>
+          </div>
+          <div><label class="muted">Usia (tahun)</label><input type="number" id="pAge" min="15" max="90"></div>
+          <div><label class="muted">Tinggi (cm)</label><input type="number" id="pHeight" min="120" max="220"></div>
+          <div><label class="muted">Berat sekarang (kg)</label><input type="number" id="pWeight" min="30" max="250" step="0.1"></div>
+        </div>
+        <label class="muted">Aktivitas harian</label>
+        <select id="pActivity">
+          <option value="1.2">Jarang bergerak (kerja duduk, tidak olahraga)</option>
+          <option value="1.375">Ringan (olahraga 1–3×/minggu)</option>
+          <option value="1.55">Sedang (olahraga 3–5×/minggu)</option>
+          <option value="1.725">Tinggi (olahraga berat 6–7×/minggu)</option>
+        </select>
+        <div class="grid2">
+          <div>
+            <label class="muted">Tujuan</label>
+            <select id="pGoal">
+              <option value="lose">Turunkan lemak</option>
+              <option value="maintain">Pertahankan & bentuk badan</option>
+              <option value="gain">Tambah otot</option>
+            </select>
+          </div>
+          <div><label class="muted">Target berat (kg, opsional)</label><input type="number" id="pGoalWeight" min="30" max="250" step="0.1"></div>
+        </div>
+        <button class="btn" id="btnSaveProfile">Simpan & hitung</button>
+        <div id="profileResult" style="margin-top:12px"></div>
+      </div>
+
+      <div class="card">
+        <h2>⚖️ Catat berat badan</h2>
+        <p class="muted">Timbang 1–2× seminggu, pagi hari setelah ke toilet, sebelum makan.</p>
+        <div class="row">
+          <input type="number" id="weightInput" placeholder="kg" step="0.1" min="30" max="250">
+          <button class="btn" id="btnAddWeight" style="flex:0 0 110px;margin:4px 0 10px">Simpan</button>
+        </div>
+        <div id="weightChart"></div>
+        <div id="weightList" class="muted"></div>
+      </div>
+    </div>
+
+    <!-- Panduan -->
+    <div id="fit-guide" class="sub" hidden>
+      <div class="card">
+        <h2>💡 Diet tanpa puasa (ramah GERD)</h2>
+        <ul class="tips">
+          <li><b>Lemak turun karena defisit kalori kecil</b>, bukan karena puasa. ±300–500 kkal di bawah kebutuhan → turun ±0,25–0,5 kg/minggu.</li>
+          <li><b>4–5 kali makan porsi kecil.</b> Lambung tidak terlalu penuh, asam lebih jarang naik, lapar lebih terkendali.</li>
+          <li><b>Protein di setiap makan</b> (ayam, ikan, telur, tahu, tempe, yogurt). Bikin kenyang dan menjaga otot.</li>
+          <li><b>Kurangi lemak, bukan karbohidrat seluruhnya.</b> Gorengan & santan memicu GERD sekaligus sangat tinggi kalori.</li>
+          <li><b>Setengah piring sayur</b>, karbohidrat ¼ piring (nasi merah, kentang/ubi rebus, oat), protein ¼ piring.</li>
+          <li><b>Makan malam paling lambat 3 jam sebelum tidur</b>, dan buat porsinya paling ringan.</li>
+          <li><b>Minum air putih</b> sedikit-sedikit sepanjang hari, jangan banyak sekaligus saat makan.</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <h2>🍱 Contoh menu sehari</h2>
+        <table>
+          <tr><th>Jam</th><th>Menu</th></tr>
+          <tr><td>07:00</td><td>Oatmeal + pisang + 1 telur rebus</td></tr>
+          <tr><td>10:00</td><td>Yogurt plain atau pepaya</td></tr>
+          <tr><td>12:30</td><td>Nasi merah ¾ centong + ikan/ayam kukus + sayur bening</td></tr>
+          <tr><td>15:30</td><td>Tahu/tempe kukus atau segenggam almond</td></tr>
+          <tr><td>18:30</td><td>Kentang/ubi rebus + ayam panggang + tumis sayur sedikit minyak</td></tr>
+        </table>
+      </div>
+
+      <div class="card">
+        <h2>🏋️ Olahraga dengan GERD</h2>
+        <ul class="tips">
+          <li><b>Jalan santai 10–15 menit setelah makan</b> justru membantu pencernaan.</li>
+          <li><b>Olahraga berat tunggu ±2–3 jam</b> setelah makan besar.</li>
+          <li><b>Pilihan aman:</b> jalan cepat, sepeda, renang, latihan beban, yoga ringan.</li>
+          <li><b>Hati-hati:</b> sit-up/crunch berat, posisi kepala di bawah, lompat intens saat perut penuh, menahan napas/mengejan saat angkat beban sangat berat.</li>
+          <li><b>Target mingguan:</b> 150 menit kardio + 2–3 hari latihan kekuatan. Latihan kekuatanlah yang membuat badan terlihat "fit".</li>
+          <li><b>Turun 5–10% berat badan</b> (jika berlebih) sering membuat gejala GERD jauh berkurang.</li>
+        </ul>
+      </div>
+
+      <div class="card link">
+        <h2>✨ Hubungan dengan kulit</h2>
+        <p class="muted">Suplemen <b>whey protein</b> bisa memicu jerawat pada sebagian orang dan bisa membuat kembung. Utamakan protein dari makanan. Minuman manis dan makanan tinggi gula juga bisa memperparah jerawat. Lihat tab Kulit.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= KULIT / JERAWAT ================= -->
+  <section id="tab-skin">
+    <div class="subtabs">
+      <button class="btn" data-sub="skin-routine">Rutinitas</button>
+      <button class="btn secondary" data-sub="skin-guide">Cara mengatasi</button>
+    </div>
+
+    <div id="skin-routine" class="sub">
+      <div class="card">
+        <h2>✨ Rutinitas kulit hari ini</h2>
+        <div class="progress"><div id="skinBar" style="width:0"></div></div>
+        <div id="skinPct" class="muted"></div>
+        <div class="checklist" id="skinList"></div>
+      </div>
+
+      <div class="card">
+        <h2>🔴 Jerawat aktif hari ini</h2>
+        <p class="muted">Hitung jerawat meradang (merah/bernanah) di wajah. Pantau trennya. Hasil perawatan biasanya terlihat setelah 6–12 minggu.</p>
+        <div class="row">
+          <input type="number" id="acneCount" min="0" max="200" placeholder="jumlah">
+          <button class="btn" id="btnSaveAcne" style="flex:0 0 110px;margin:4px 0 10px">Simpan</button>
+        </div>
+        <div class="chart pink" id="acneChart"></div>
+      </div>
+    </div>
+
+    <div id="skin-guide" class="sub" hidden>
+      <div class="card">
+        <h2>🧴 Rutinitas dasar</h2>
+        <table>
+          <tr><th>Pagi</th><td>1. Sabun cuci muka lembut (pH seimbang)<br>2. Pelembap <i>non-comedogenic</i><br>3. Sunscreen SPF 30+ (penting jika memakai obat jerawat)</td></tr>
+          <tr><th>Malam</th><td>1. Cuci muka (bersihkan sunscreen/makeup)<br>2. Obat jerawat, oles tipis ke seluruh area berjerawat<br>3. Pelembap</td></tr>
+        </table>
+        <p class="muted">Cuci muka cukup 2× sehari + setelah berkeringat. Terlalu sering atau digosok keras justru membuat iritasi.</p>
+      </div>
+
+      <div class="card">
+        <h2>💊 Bahan aktif (mulai dari SATU dulu)</h2>
+        <table>
+          <tr><th>Bahan</th><th>Fungsi</th></tr>
+          <tr><td><b>Benzoyl peroxide 2,5–5%</b></td><td>Membunuh bakteri jerawat, bagus untuk jerawat merah. Bisa memudarkan warna handuk/sarung bantal.</td></tr>
+          <tr><td><b>Asam salisilat 0,5–2%</b></td><td>Membuka pori, bagus untuk komedo (hitam/putih).</td></tr>
+          <tr><td><b>Adapalene / retinoid</b></td><td>Mencegah pori tersumbat, efektif jangka panjang. Tanyakan ke dokter/apoteker. Tidak untuk ibu hamil.</td></tr>
+          <tr><td><b>Azelaic acid</b></td><td>Mengurangi jerawat dan bekas gelap/merah, cukup lembut.</td></tr>
+          <tr><td><b>Niacinamide 2–5%</b></td><td>Menenangkan kemerahan dan mengontrol minyak.</td></tr>
+        </table>
+        <p class="muted">Mulai 2–3 malam per minggu, seukuran kacang polong untuk seluruh wajah, lalu naikkan bertahap. Kering/sedikit perih di awal itu wajar. Beri waktu <b>6–12 minggu</b> sebelum menilai.</p>
+      </div>
+
+      <div class="card">
+        <h2>🚫 Hindari</h2>
+        <ul class="tips">
+          <li><b>Memencet jerawat</b>, karena memicu bekas dan bopeng.</li>
+          <li>Scrub kasar, pasta gigi, jeruk nipis, alkohol, atau "masker" rumahan yang perih.</li>
+          <li><b>Krim tanpa izin BPOM / krim racikan tidak jelas</b>, yang berisiko mengandung merkuri, hidrokuinon, atau steroid. Cek di <i>cekbpom.pom.go.id</i>.</li>
+          <li>Produk rambut/wajah yang sangat berminyak. Pilih label <i>non-comedogenic</i>.</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <h2>🥗 Gaya hidup (sejalan dengan diet GERD)</h2>
+        <ul class="tips">
+          <li>Kurangi <b>minuman manis, gula, dan karbohidrat olahan</b>, yang bisa memperparah jerawat pada sebagian orang.</li>
+          <li><b>Susu (terutama skim) dan whey protein</b> memicu jerawat pada sebagian orang. Amati di catatan Anda.</li>
+          <li><b>Mandi/cuci muka setelah olahraga</b>, jangan biarkan keringat menempel lama.</li>
+          <li>Ganti sarung bantal 2–3× seminggu. Bersihkan layar HP dan masker.</li>
+          <li><b>Tidur 7–8 jam & kelola stres</b>, karena hormon stres dapat memicu jerawat dan GERD.</li>
+        </ul>
+      </div>
+
+      <div class="card link">
+        <h2>⚠️ Penting untuk penderita GERD</h2>
+        <p class="muted">Jika dokter meresepkan antibiotik jerawat seperti <b>doksisiklin atau minosiklin</b>, obat ini bisa melukai kerongkongan. Minum dengan <b>segelas penuh air</b> sambil duduk/berdiri, <b>jangan berbaring minimal 30–60 menit</b>, dan jangan diminum tepat sebelum tidur. Tambahkan sebagai pengingat. Isotretinoin hanya boleh dengan pengawasan dokter.</p>
+      </div>
+
+      <div class="card alert">
+        <h2>🩺 Ke dokter kulit jika:</h2>
+        <ul class="tips">
+          <li>Jerawat besar, dalam, dan nyeri (nodul/kista)</li>
+          <li>Mulai meninggalkan bopeng atau bekas gelap</li>
+          <li>Tidak membaik setelah 2–3 bulan perawatan bebas</li>
+          <li>Muncul tiba-tiba saat dewasa, disertai haid tidak teratur atau rambut berlebih (kemungkinan hormonal)</li>
+          <li>Jerawat membuat Anda sangat tidak percaya diri</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= TIPS GERD ================= -->
+  <section id="tab-tips">
+    <div class="card banner" id="installCard">
+      <h2>📲 Pasang sebagai aplikasi</h2>
+      <div id="installText" class="muted">Pasang Teman Sehat di HP atau komputer agar bisa dibuka seperti aplikasi biasa, juga saat offline.</div>
+      <button class="btn" id="btnInstall" style="margin-top:10px;display:none">Pasang aplikasi</button>
+    </div>
+
+    <div class="card">
+      <h2>💡 Gaya hidup untuk GERD</h2>
+      <ul class="tips">
+        <li><b>Makan porsi kecil, lebih sering.</b> Lambung yang terlalu penuh mendorong asam naik.</li>
+        <li><b>Jangan berbaring 3 jam setelah makan.</b> Makan malam paling lambat 3 jam sebelum tidur.</li>
+        <li><b>Tinggikan kepala tempat tidur 15–20 cm</b> (ganjal kaki ranjang atau bantal baji), bukan sekadar menumpuk bantal.</li>
+        <li><b>Tidur miring ke kiri</b> bisa mengurangi refluks di malam hari.</li>
+        <li><b>Kenali pemicu pribadi Anda.</b> Yang umum: kopi, cokelat, alkohol, soda, pedas, berlemak/gorengan, asam (jeruk, tomat), dan mint.</li>
+        <li><b>Jaga berat badan ideal.</b> Lihat tab Fit.</li>
+        <li><b>Berhenti merokok.</b> Rokok melemahkan katup antara kerongkongan dan lambung.</li>
+        <li><b>Hindari pakaian/ikat pinggang ketat</b> dan membungkuk lama setelah makan.</li>
+        <li><b>Kelola stres:</b> napas dalam, tidur cukup, olahraga ringan teratur.</li>
+        <li><b>Minum obat sesuai anjuran dokter</b> (mis. PPI biasanya 30–60 menit sebelum makan). Tambahkan sebagai pengingat.</li>
+      </ul>
+    </div>
+
+    <div class="card alert">
+      <h2>🚨 Segera ke dokter jika:</h2>
+      <ul class="tips">
+        <li>Sulit atau sakit saat menelan</li>
+        <li>Berat badan turun tanpa sebab</li>
+        <li>Muntah darah / muntah seperti ampas kopi, atau BAB hitam</li>
+        <li>Nyeri dada berat, terutama menjalar ke lengan/rahang atau disertai sesak napas: <b>hubungi 119 / IGD</b></li>
+        <li>Gejala tetap muncul lebih dari 2 kali seminggu meski sudah mengubah gaya hidup</li>
+      </ul>
+      <p class="muted">Aplikasi ini hanya pengingat dan panduan gaya hidup, bukan pengganti diagnosis atau pengobatan dari dokter, dokter kulit, atau ahli gizi.</p>
+    </div>
+
+    <div class="card">
+      <h2>🗑️ Data</h2>
+      <p class="muted">Semua data tersimpan hanya di browser ini.</p>
+      <button class="btn danger" id="btnClearAll">Hapus semua data</button>
+    </div>
+  </section>
+</main>
+
+<nav>
+  <button data-tab="today" class="active"><span>🏠</span>Hari Ini</button>
+  <button data-tab="reminders"><span>⏰</span>Pengingat</button>
+  <button data-tab="log"><span>📝</span>Gejala</button>
+  <button data-tab="fit"><span>💪</span>Fit</button>
+  <button data-tab="skin"><span>✨</span>Kulit</button>
+  <button data-tab="tips"><span>💡</span>Tips</button>
+</nav>
+
+<div id="toast"></div>
+
+<script>
+"use strict";
+
+// ---------- Storage helpers ----------
+// "#demo" shows sample data in separate storage (used for screenshots); real data is untouched.
+const DEMO = location.hash === "#demo";
+const PREFIX = DEMO ? "temanSehatDemo_" : "temanGerd_";
+
+const store = {
+  get(key, fallback) {
+    try {
+      const raw = localStorage.getItem(PREFIX + key);
+      return raw === null ? fallback : JSON.parse(raw);
+    } catch (err) {
+      return fallback;
+    }
+  },
+  set(key, value) {
+    localStorage.setItem(PREFIX + key, JSON.stringify(value));
+  },
+};
+
+const $ = (selector) => document.querySelector(selector);
+const pad = (n) => String(n).padStart(2, "0");
+const clone = (value) => JSON.parse(JSON.stringify(value));
+const DAY_NAMES = ["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"];
+
+function dateKey(d = new Date()) {
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+function hhmm(d = new Date()) {
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function daysAgo(offset) {
+  const d = new Date();
+  d.setDate(d.getDate() - offset);
+  return d;
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  }[c]));
+}
+
+function setBar(el, value, target) {
+  const pct = target > 0 ? (value / target) * 100 : 0;
+  el.style.width = Math.min(100, pct) + "%";
+  el.classList.toggle("over", pct > 110);
+}
+
+function barChart(el, items) {
+  el.innerHTML = items
+    .map((item) => `<div class="day"><div class="bar" style="height:${Math.max(3, Math.min(100, item.pct) * 0.6)}px" title="${escapeHtml(item.text)}"></div>${escapeHtml(item.label)}<br>${escapeHtml(item.text)}</div>`)
+    .join("");
+}
+
+// ---------- Default content ----------
+const DEFAULT_REMINDERS = [
+  { id: 1, time: "07:00", title: "Sarapan porsi kecil", body: "Makan secukupnya dan kunyah pelan. Hindari kopi saat perut kosong.", on: true },
+  { id: 2, time: "10:00", title: "Minum air putih", body: "Pilih air putih daripada soda atau minuman berkafein.", on: true },
+  { id: 3, time: "12:00", title: "Makan siang secukupnya", body: "Porsi kecil, kurangi gorengan, pedas, dan asam.", on: true },
+  { id: 4, time: "13:00", title: "Jangan langsung berbaring", body: "Tetap tegak 3 jam setelah makan. Jalan santai 10 menit sangat membantu.", on: true },
+  { id: 5, time: "15:30", title: "Cek pakaian & postur", body: "Longgarkan ikat pinggang, hindari membungkuk lama setelah makan.", on: true },
+  { id: 6, time: "18:30", title: "Batas makan malam", body: "Makan malam sekarang agar ada jarak minimal 3 jam sebelum tidur.", on: true },
+  { id: 7, time: "21:30", title: "Siap-siap tidur", body: "Kepala tempat tidur ditinggikan 15–20 cm, tidur miring ke kiri.", on: true },
+  { id: 101, time: "06:30", title: "Rutinitas kulit pagi", body: "Cuci muka lembut, pelembap non-comedogenic, lalu sunscreen SPF 30+.", on: true },
+  { id: 102, time: "17:00", title: "Waktu olahraga", body: "Jalan cepat atau latihan kekuatan. Pastikan sudah ±2 jam sejak makan besar.", on: true },
+  { id: 103, time: "21:00", title: "Rutinitas kulit malam", body: "Cuci muka, oles obat jerawat tipis-tipis, pelembap. Jangan dipencet!", on: true },
+];
+
+const HABITS = [
+  "Makan porsi kecil (tidak kekenyangan)",
+  "Tidak berbaring 3 jam setelah makan",
+  "Makan malam ≥ 3 jam sebelum tidur",
+  "Menghindari makanan pemicu saya",
+  "Tidak merokok / tidak minum alkohol",
+  "Bergerak / jalan kaki 30 menit",
+  "Kepala tempat tidur ditinggikan",
+  "Mengelola stres (napas dalam, istirahat cukup)",
+];
+
+const SKIN_HABITS = [
+  { group: "Pagi", text: "Cuci muka dengan sabun lembut" },
+  { group: "Pagi", text: "Pelembap non-comedogenic" },
+  { group: "Pagi", text: "Sunscreen SPF 30+" },
+  { group: "Malam", text: "Cuci muka (bersihkan sunscreen/makeup)" },
+  { group: "Malam", text: "Oles obat jerawat (tipis, merata)" },
+  { group: "Malam", text: "Pelembap" },
+  { group: "Sepanjang hari", text: "Tidak memencet / menyentuh jerawat" },
+  { group: "Sepanjang hari", text: "Cuci muka/mandi setelah berkeringat" },
+  { group: "Sepanjang hari", text: "Tidur 7–8 jam" },
+];
+
+const TRIGGERS = [
+  "Kopi", "Teh kental", "Pedas", "Gorengan/berlemak", "Cokelat", "Soda",
+  "Asam/jeruk/tomat", "Alkohol", "Mint", "Porsi besar", "Makan larut",
+  "Olahraga setelah makan", "Rokok", "Stres", "Kurang tidur",
+];
+
+// Approximate values per listed portion.
+const FOODS = [
+  { name: "Dada ayam panggang/rebus (100 g)", kcal: 165, protein: 31 },
+  { name: "Ikan kukus/pepes (100 g)", kcal: 130, protein: 26 },
+  { name: "Telur rebus (1 butir)", kcal: 75, protein: 6 },
+  { name: "Putih telur rebus (2 butir)", kcal: 35, protein: 7 },
+  { name: "Tahu kukus (100 g)", kcal: 80, protein: 8 },
+  { name: "Tempe kukus/bakar (50 g)", kcal: 100, protein: 10 },
+  { name: "Yogurt plain rendah lemak (150 g)", kcal: 95, protein: 8 },
+  { name: "Susu rendah lemak (250 ml)", kcal: 105, protein: 8 },
+  { name: "Nasi merah (100 g, ±¾ centong)", kcal: 110, protein: 2.5 },
+  { name: "Nasi putih (100 g, ±¾ centong)", kcal: 130, protein: 2.7 },
+  { name: "Oatmeal (40 g kering)", kcal: 150, protein: 5 },
+  { name: "Roti gandum (1 lembar)", kcal: 70, protein: 3.5 },
+  { name: "Kentang rebus (150 g)", kcal: 130, protein: 3 },
+  { name: "Ubi rebus (150 g)", kcal: 115, protein: 2 },
+  { name: "Sayur bening / tumis sedikit minyak (1 mangkuk)", kcal: 50, protein: 2 },
+  { name: "Pisang (1 buah sedang)", kcal: 105, protein: 1.3 },
+  { name: "Pepaya (150 g)", kcal: 65, protein: 0.7 },
+  { name: "Melon / semangka (200 g)", kcal: 65, protein: 1.2 },
+  { name: "Apel (1 buah)", kcal: 95, protein: 0.5 },
+  { name: "Almond (15 g, ±12 butir)", kcal: 90, protein: 3 },
+  { name: "⚠️ Gorengan (1 buah)", kcal: 140, protein: 2, trigger: true },
+  { name: "⚠️ Nasi goreng (1 piring)", kcal: 550, protein: 15, trigger: true },
+  { name: "⚠️ Mi instan (1 bungkus)", kcal: 380, protein: 8, trigger: true },
+  { name: "⚠️ Nasi + rendang + sambal (1 porsi)", kcal: 750, protein: 25, trigger: true },
+  { name: "⚠️ Minuman manis / boba (1 gelas)", kcal: 300, protein: 2, trigger: true },
+];
+
+const MEAL_WAIT_MS = 3 * 60 * 60 * 1000;
+const EXERCISE_WAIT_MS = 2 * 60 * 60 * 1000;
+const KCAL_PER_KG_FAT = 7700;
+
+// ---------- Platform detection ----------
+// Inside the Capacitor iOS/Android app, reminders use native local notifications
+// so they fire even when the app is closed.
+const isNative = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+const NativeNotifications = isNative
+  ? ((window.Capacitor.Plugins && window.Capacitor.Plugins.LocalNotifications)
+    || (window.Capacitor.registerPlugin ? window.Capacitor.registerPlugin("LocalNotifications") : null))
+  : null;
+const NATIVE_MEAL_ID = 900001;
+const NATIVE_EXERCISE_ID = 900002;
+const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent)
+  || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+const isStandalone = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+let swRegistration = null;
+
+// ---------- Demo data ----------
+function seedDemoData() {
+  if (!DEMO) {
+    return;
+  }
+  Object.keys(localStorage)
+    .filter((k) => k.startsWith(PREFIX))
+    .forEach((k) => localStorage.removeItem(k));
+
+  const DAY_MS = 24 * 60 * 60 * 1000;
+  const now = Date.now();
+  const today = dateKey();
+  const todayAt = (hour, minute) => {
+    const d = new Date();
+    d.setHours(hour, minute, 0, 0);
+    return d.getTime();
+  };
+  const firstN = (n) => Array.from({ length: n }, (_, i) => i);
+
+  store.set("profile", {
+    sex: "m", age: 28, height: 170, weight: 76.4,
+    activity: 1.375, goal: "lose", goalWeight: 70,
+  });
+  store.set("weights", [80.2, 79.6, 79.1, 78.5, 78.0, 77.4, 76.9, 76.4].map((kg, i) => ({
+    at: now - (7 - i) * 7 * DAY_MS,
+    kg,
+  })));
+
+  const habits = {};
+  const skin = {};
+  const acne = {};
+  const exercise = {};
+  for (let offset = 13; offset >= 0; offset--) {
+    const key = dateKey(daysAgo(offset));
+    const progress = 13 - offset;
+    habits[key] = firstN(Math.min(8, 3 + Math.round(progress / 2.5)));
+    skin[key] = firstN(Math.min(9, 4 + Math.round(progress / 3)));
+    acne[key] = Math.max(2, 9 - Math.round(progress * 0.5));
+    exercise[key] = offset % 2 === 0
+      ? [{ type: "cardio", min: 30 }]
+      : [{ type: "strength", min: 40 }, { type: "cardio", min: 15 }];
+  }
+  habits[today] = firstN(6);
+  skin[today] = [0, 1, 2, 6, 7];
+  exercise[today] = [{ type: "cardio", min: 25 }];
+  store.set("habits", habits);
+  store.set("skinHabits", skin);
+  store.set("acneCounts", acne);
+  store.set("exercise", exercise);
+
+  store.set("food", {
+    [today]: [
+      { name: "Oatmeal (40 g kering)", kcal: 150, protein: 5, at: todayAt(7, 5) },
+      { name: "Pisang (1 buah sedang)", kcal: 105, protein: 1.3, at: todayAt(7, 5) },
+      { name: "Telur rebus (1 butir) ×2", kcal: 150, protein: 12, at: todayAt(7, 10) },
+      { name: "Yogurt plain rendah lemak (150 g)", kcal: 95, protein: 8, at: todayAt(10, 0) },
+      { name: "Nasi merah (100 g, ±¾ centong)", kcal: 110, protein: 2.5, at: todayAt(12, 30) },
+      { name: "Ikan kukus/pepes (100 g) ×1.5", kcal: 195, protein: 39, at: todayAt(12, 30) },
+      { name: "Sayur bening / tumis sedikit minyak (1 mangkuk)", kcal: 50, protein: 2, at: todayAt(12, 30) },
+    ],
+  });
+  store.set("logs", [
+    { at: now - 5 * DAY_MS, sev: 6, triggers: ["Kopi", "Makan larut"], note: "Kopi sore + makan malam jam 21.00" },
+    { at: now - 4 * DAY_MS, sev: 5, triggers: ["Gorengan/berlemak", "Porsi besar"], note: "" },
+    { at: now - 2 * DAY_MS, sev: 3, triggers: ["Kopi"], note: "" },
+    { at: now - 1 * DAY_MS, sev: 2, triggers: ["Stres"], note: "Deadline kerja" },
+    { at: todayAt(13, 30), sev: 1, triggers: [], note: "Hampir tidak ada keluhan" },
+  ]);
+  store.set("mealAt", now - 75 * 60 * 1000);
+  store.set("mealNotified", false);
+  store.set("exerciseNotified", false);
+}
+
+seedDemoData();
+
+// ---------- State ----------
+let reminders = store.get("reminders", null);
+let seenDefaultIds = store.get("seenDefaultIds", null);
+let firedToday = store.get("fired", {});
+let habitsByDay = store.get("habits", {});
+let skinByDay = store.get("skinHabits", {});
+let acneByDay = store.get("acneCounts", {});
+let logs = store.get("logs", []);
+let mealAt = store.get("mealAt", null);
+let mealNotified = store.get("mealNotified", false);
+let exerciseNotified = store.get("exerciseNotified", false);
+let profile = store.get("profile", {});
+let foodByDay = store.get("food", {});
+let exerciseByDay = store.get("exercise", {});
+let weights = store.get("weights", []);
+let selectedTriggers = new Set();
+
+// Add new default reminders for people who used the earlier version,
+// without re-adding defaults they deliberately deleted.
+if (reminders === null) {
+  reminders = clone(DEFAULT_REMINDERS);
+  seenDefaultIds = DEFAULT_REMINDERS.map((r) => r.id);
+} else {
+  if (seenDefaultIds === null) {
+    seenDefaultIds = [1, 2, 3, 4, 5, 6, 7];
+  }
+  DEFAULT_REMINDERS.forEach((def) => {
+    if (!seenDefaultIds.includes(def.id)) {
+      if (!reminders.some((r) => r.id === def.id)) {
+        reminders.push(clone(def));
+      }
+      seenDefaultIds.push(def.id);
+    }
+  });
+}
+store.set("reminders", reminders);
+store.set("seenDefaultIds", seenDefaultIds);
+
+// ---------- Notifications, sound, toast ----------
+let toastTimer = null;
+
+function showToast(title, body) {
+  const toast = $("#toast");
+  toast.innerHTML = `<b>${escapeHtml(title)}</b>${escapeHtml(body || "")}`;
+  toast.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.classList.remove("show"), 8000);
+}
+
+function beep() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    [0, 0.35].forEach((offset) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.frequency.value = 880;
+      gain.gain.setValueAtTime(0.0001, ctx.currentTime + offset);
+      gain.gain.exponentialRampToValueAtTime(0.25, ctx.currentTime + offset + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + offset + 0.3);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(ctx.currentTime + offset);
+      osc.stop(ctx.currentTime + offset + 0.32);
+    });
+  } catch (err) {
+    // Audio not available; ignore.
+  }
+}
+
+function notify(title, body) {
+  showToast(title, body);
+  beep();
+  if (isNative) {
+    // Native app: scheduled reminders are delivered by the OS; the toast covers in-app alerts.
+    return;
+  }
+  if (!("Notification" in window) || Notification.permission !== "granted") {
+    return;
+  }
+  const options = { body, tag: title, icon: "icons/icon-192.png", badge: "icons/favicon-32.png" };
+  if (swRegistration && swRegistration.showNotification) {
+    // Required on Android Chrome and iPhone home-screen apps.
+    swRegistration.showNotification("🌿 " + title, options).catch(() => {});
+  } else {
+    try {
+      new Notification("🌿 " + title, options);
+    } catch (err) {
+      // Notifications not available in this context.
+    }
+  }
+}
+
+async function updateNotifBanner() {
+  if (isNative && NativeNotifications) {
+    try {
+      const status = await NativeNotifications.checkPermissions();
+      $("#notifBanner").style.display = status.display === "granted" ? "none" : "block";
+    } catch (err) {
+      $("#notifBanner").style.display = "block";
+    }
+    return;
+  }
+  const supported = "Notification" in window;
+  const granted = supported && Notification.permission === "granted";
+  $("#notifBanner").style.display = granted ? "none" : "block";
+  if (!supported) {
+    $("#btnNotif").disabled = true;
+    $("#btnNotif").textContent = isIOS && !isStandalone
+      ? "Pasang ke Layar Utama dulu (lihat tab Tips)"
+      : "Browser tidak mendukung notifikasi";
+  }
+}
+
+// ---------- Native (iOS/Android app) reminders ----------
+async function syncNativeReminders() {
+  if (!NativeNotifications) {
+    return;
+  }
+  try {
+    const pending = await NativeNotifications.getPending();
+    const stale = (pending.notifications || [])
+      .filter((n) => n.id < 900000)
+      .map((n) => ({ id: n.id }));
+    if (stale.length) {
+      await NativeNotifications.cancel({ notifications: stale });
+    }
+    const scheduled = reminders
+      .filter((r) => r.on)
+      .map((r) => {
+        const [hour, minute] = r.time.split(":").map(Number);
+        return {
+          id: r.id,
+          title: "🌿 " + r.title,
+          body: r.body,
+          schedule: { on: { hour, minute }, allowWhileIdle: true },
+        };
+      });
+    if (scheduled.length) {
+      await NativeNotifications.schedule({ notifications: scheduled });
+    }
+  } catch (err) {
+    console.warn("Native reminder sync failed", err);
+  }
+}
+
+async function syncNativeMealAlerts() {
+  if (!NativeNotifications) {
+    return;
+  }
+  try {
+    await NativeNotifications.cancel({ notifications: [{ id: NATIVE_MEAL_ID }, { id: NATIVE_EXERCISE_ID }] });
+    if (!mealAt) {
+      return;
+    }
+    const alerts = [];
+    const exerciseAt = mealAt + EXERCISE_WAIT_MS;
+    const lieDownAt = mealAt + MEAL_WAIT_MS;
+    if (exerciseAt > Date.now()) {
+      alerts.push({
+        id: NATIVE_EXERCISE_ID,
+        title: "🌿 Boleh olahraga",
+        body: "Sudah ±2 jam sejak makan. Waktunya bergerak! (Tetap belum boleh berbaring.)",
+        schedule: { at: new Date(exerciseAt), allowWhileIdle: true },
+      });
+    }
+    if (lieDownAt > Date.now()) {
+      alerts.push({
+        id: NATIVE_MEAL_ID,
+        title: "🌿 3 jam sudah lewat",
+        body: "Sekarang aman untuk berbaring/tidur.",
+        schedule: { at: new Date(lieDownAt), allowWhileIdle: true },
+      });
+    }
+    if (alerts.length) {
+      await NativeNotifications.schedule({ notifications: alerts });
+    }
+  } catch (err) {
+    console.warn("Native meal alert failed", err);
+  }
+}
+
+// ---------- Tabs & sub-tabs ----------
+document.querySelectorAll("nav button").forEach((button) => {
+  button.addEventListener("click", () => {
+    document.querySelectorAll("nav button").forEach((b) => b.classList.remove("active"));
+    document.querySelectorAll("main > section").forEach((s) => s.classList.remove("active"));
+    button.classList.add("active");
+    $("#tab-" + button.dataset.tab).classList.add("active");
+    window.scrollTo(0, 0);
+  });
+});
+
+document.querySelectorAll(".subtabs").forEach((bar) => {
+  const buttons = bar.querySelectorAll("button");
+  buttons.forEach((button) => {
+    button.addEventListener("click", () => {
+      buttons.forEach((b) => {
+        b.classList.toggle("secondary", b !== button);
+        $("#" + b.dataset.sub).hidden = b !== button;
+      });
+    });
+  });
+});
+
+// ---------- Reminders ----------
+function sortReminders() {
+  reminders.sort((a, b) => a.time.localeCompare(b.time));
+}
+
+function saveReminders() {
+  sortReminders();
+  store.set("reminders", reminders);
+  renderReminders();
+  renderNext();
+  syncNativeReminders();
+}
+
+function renderReminders() {
+  const list = $("#reminderList");
+  list.innerHTML = "";
+  reminders.forEach((r) => {
+    const row = document.createElement("div");
+    row.className = "reminder";
+    row.innerHTML = `
+      <input type="checkbox" ${r.on ? "checked" : ""} title="Aktif">
+      <input type="time" value="${escapeHtml(r.time)}">
+      <div class="info"><b>${escapeHtml(r.title)}</b><small>${escapeHtml(r.body)}</small></div>
+      <button title="Hapus">🗑️</button>`;
+    const [toggle, timeInput] = row.querySelectorAll("input");
+    toggle.addEventListener("change", () => {
+      r.on = toggle.checked;
+      saveReminders();
+    });
+    timeInput.addEventListener("change", () => {
+      if (timeInput.value) {
+        r.time = timeInput.value;
+        saveReminders();
+      }
+    });
+    row.querySelector("button").addEventListener("click", () => {
+      if (confirm(`Hapus pengingat "${r.title}"?`)) {
+        reminders = reminders.filter((x) => x.id !== r.id);
+        saveReminders();
+      }
+    });
+    list.appendChild(row);
+  });
+  if (reminders.length === 0) {
+    list.innerHTML = '<p class="muted">Belum ada pengingat.</p>';
+  }
+}
+
+function renderNext() {
+  const now = hhmm();
+  const active = reminders.filter((r) => r.on);
+  if (active.length === 0) {
+    $("#nextReminder").textContent = "Tidak ada pengingat aktif.";
+    return;
+  }
+  const upcoming = active.find((r) => r.time > now) || active[0];
+  const tomorrow = upcoming.time <= now ? " (besok)" : "";
+  $("#nextReminder").innerHTML =
+    `<b style="font-size:1.3rem;color:var(--text)">${upcoming.time}${tomorrow}</b> — ${escapeHtml(upcoming.title)}<br>${escapeHtml(upcoming.body)}`;
+}
+
+function checkReminders() {
+  const today = dateKey();
+  const now = hhmm();
+  if (firedToday._day !== today) {
+    firedToday = { _day: today };
+  }
+  reminders.forEach((r) => {
+    if (r.on && r.time === now && !firedToday[r.id]) {
+      firedToday[r.id] = true;
+      notify(r.title, r.body);
+    }
+  });
+  store.set("fired", firedToday);
+  renderNext();
+}
+
+$("#btnNotif").addEventListener("click", async () => {
+  if (isNative && NativeNotifications) {
+    const result = await NativeNotifications.requestPermissions();
+    await updateNotifBanner();
+    if (result.display === "granted") {
+      await syncNativeReminders();
+      await syncNativeMealAlerts();
+      showToast("Notifikasi aktif", "Pengingat akan muncul walau aplikasi ditutup.");
+    } else {
+      showToast("Notifikasi ditolak", "Aktifkan lewat Pengaturan HP → Teman Sehat → Notifikasi.");
+    }
+    return;
+  }
+  if (!("Notification" in window)) {
+    return;
+  }
+  const result = await Notification.requestPermission();
+  updateNotifBanner();
+  if (result === "granted") {
+    notify("Notifikasi aktif", "Pengingat akan muncul di sini.");
+  } else {
+    showToast("Notifikasi ditolak", "Pengingat tetap muncul di dalam aplikasi saat terbuka.");
+  }
+});
+
+$("#btnTest").addEventListener("click", () => {
+  notify("Tes pengingat", "Begini tampilan pengingat Anda. 👍");
+});
+
+$("#btnResetReminders").addEventListener("click", () => {
+  if (confirm("Kembalikan jadwal pengingat ke default?")) {
+    reminders = clone(DEFAULT_REMINDERS);
+    saveReminders();
+  }
+});
+
+$("#btnAdd").addEventListener("click", () => {
+  const time = $("#newTime").value.trim().replace(".", ":");
+  const title = $("#newTitle").value.trim();
+  const body = $("#newBody").value.trim();
+  const match = /^([01]?\d|2[0-3]):([0-5]\d)$/.exec(time);
+  if (!match) {
+    showToast("Jam tidak valid", "Gunakan format JJ:MM, mis. 08:00");
+    return;
+  }
+  if (!title) {
+    showToast("Judul kosong", "Isi judul pengingat.");
+    return;
+  }
+  const nextId = Math.max(1000, reminders.reduce((m, r) => Math.max(m, r.id), 0)) + 1;
+  const cleanTime = `${pad(match[1])}:${match[2]}`;
+  reminders.push({ id: nextId, time: cleanTime, title, body, on: true });
+  saveReminders();
+  $("#newTime").value = "";
+  $("#newTitle").value = "";
+  $("#newBody").value = "";
+  showToast("Pengingat ditambahkan", `${title} pukul ${cleanTime}`);
+});
+
+// ---------- Meal timer (shared by GERD + exercise) ----------
+function formatDuration(ms) {
+  const totalSec = Math.max(0, Math.round(ms / 1000));
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  return `${h}:${pad(m)}:${pad(s)}`;
+}
+
+function exerciseStatusText() {
+  if (!mealAt) {
+    return "🟢 Boleh olahraga. Pastikan tidak dalam keadaan sangat kenyang.";
+  }
+  const remaining = mealAt + EXERCISE_WAIT_MS - Date.now();
+  if (remaining > 0) {
+    return `🟡 Olahraga berat: tunggu sampai pukul ${hhmm(new Date(mealAt + EXERCISE_WAIT_MS))} (${formatDuration(remaining)} lagi). Jalan santai boleh sekarang.`;
+  }
+  return "🟢 Sudah ±2 jam sejak makan. Boleh olahraga berat.";
+}
+
+function renderMealTimer() {
+  const timer = $("#mealTimer");
+  const info = $("#mealInfo");
+  $("#exerciseInfo").textContent = exerciseStatusText();
+  $("#exerciseStatus").textContent = exerciseStatusText();
+
+  if (!mealAt) {
+    timer.textContent = "Bebas";
+    timer.className = "timer ok";
+    info.textContent = "Belum ada waktu makan yang dicatat.";
+    return;
+  }
+  const remaining = mealAt + MEAL_WAIT_MS - Date.now();
+  const okTime = hhmm(new Date(mealAt + MEAL_WAIT_MS));
+  if (remaining > 0) {
+    timer.textContent = formatDuration(remaining);
+    timer.className = "timer wait";
+    info.textContent = `Makan pukul ${hhmm(new Date(mealAt))}. Tetap tegak sampai pukul ${okTime}.`;
+  } else {
+    timer.textContent = "Sudah boleh berbaring ✓";
+    timer.className = "timer ok";
+    info.textContent = `3 jam sudah lewat sejak makan pukul ${hhmm(new Date(mealAt))}.`;
+    if (!mealNotified) {
+      mealNotified = true;
+      store.set("mealNotified", true);
+      notify("3 jam sudah lewat", "Sekarang aman untuk berbaring/tidur.");
+    }
+  }
+  if (Date.now() >= mealAt + EXERCISE_WAIT_MS && !exerciseNotified) {
+    exerciseNotified = true;
+    store.set("exerciseNotified", true);
+    if (remaining > 0) {
+      notify("Boleh olahraga", "Sudah ±2 jam sejak makan. Waktunya bergerak! (Tetap belum boleh berbaring.)");
+    }
+  }
+}
+
+$("#btnAte").addEventListener("click", () => {
+  mealAt = Date.now();
+  mealNotified = false;
+  exerciseNotified = false;
+  store.set("mealAt", mealAt);
+  store.set("mealNotified", false);
+  store.set("exerciseNotified", false);
+  renderMealTimer();
+  syncNativeMealAlerts();
+  showToast("Timer dimulai", "Jangan berbaring 3 jam. Olahraga berat setelah ±2 jam. Jalan santai boleh sekarang!");
+});
+
+$("#btnMealReset").addEventListener("click", () => {
+  mealAt = null;
+  store.set("mealAt", null);
+  renderMealTimer();
+  syncNativeMealAlerts();
+});
+
+// ---------- Generic daily checklist ----------
+function dayList(map, key = dateKey()) {
+  if (!map[key]) {
+    map[key] = [];
+  }
+  return map[key];
+}
+
+function renderChecklist(container, items, map, storageKey, onChange) {
+  const done = dayList(map);
+  container.innerHTML = "";
+  let lastGroup = null;
+  items.forEach((item, index) => {
+    const text = typeof item === "string" ? item : item.text;
+    const group = typeof item === "string" ? null : item.group;
+    if (group && group !== lastGroup) {
+      const heading = document.createElement("div");
+      heading.className = "group";
+      heading.textContent = group;
+      container.appendChild(heading);
+      lastGroup = group;
+    }
+    const label = document.createElement("label");
+    label.innerHTML = `<input type="checkbox" ${done.includes(index) ? "checked" : ""}> <span>${escapeHtml(text)}</span>`;
+    label.querySelector("input").addEventListener("change", (event) => {
+      const key = dateKey();
+      const current = dayList(map, key);
+      if (event.target.checked && !current.includes(index)) {
+        current.push(index);
+      } else if (!event.target.checked) {
+        map[key] = current.filter((i) => i !== index);
+      }
+      store.set(storageKey, map);
+      onChange();
+    });
+    container.appendChild(label);
+  });
+}
+
+// ---------- GERD habits ----------
+function renderHabits() {
+  renderChecklist($("#habitList"), HABITS, habitsByDay, "habits", () => {
+    renderHabitProgress();
+    renderWeek();
+    renderTodayStats();
+  });
+  renderHabitProgress();
+}
+
+function renderHabitProgress() {
+  const count = dayList(habitsByDay).length;
+  const pct = Math.round((count / HABITS.length) * 100);
+  $("#habitBar").style.width = pct + "%";
+  let msg = `${count} dari ${HABITS.length} kebiasaan (${pct}%)`;
+  if (pct === 100) {
+    msg += " — luar biasa! 🎉";
+  } else if (pct >= 60) {
+    msg += " — bagus, pertahankan!";
+  }
+  $("#habitPct").textContent = msg;
+}
+
+function renderWeek() {
+  const items = [];
+  for (let offset = 6; offset >= 0; offset--) {
+    const d = daysAgo(offset);
+    const pct = Math.round(((habitsByDay[dateKey(d)] || []).length / HABITS.length) * 100);
+    items.push({ label: offset === 0 ? "Hari ini" : DAY_NAMES[d.getDay()], pct, text: pct + "%" });
+  }
+  barChart($("#weekChart"), items);
+}
+
+// ---------- Skin ----------
+function renderSkin() {
+  renderChecklist($("#skinList"), SKIN_HABITS, skinByDay, "skinHabits", () => {
+    renderSkinProgress();
+    renderTodayStats();
+  });
+  renderSkinProgress();
+  renderAcneChart();
+  const todayCount = acneByDay[dateKey()];
+  $("#acneCount").value = todayCount === undefined ? "" : todayCount;
+}
+
+function renderSkinProgress() {
+  const count = dayList(skinByDay).length;
+  const pct = Math.round((count / SKIN_HABITS.length) * 100);
+  $("#skinBar").style.width = pct + "%";
+  $("#skinPct").textContent = `${count} dari ${SKIN_HABITS.length} langkah (${pct}%)`;
+}
+
+function renderAcneChart() {
+  const values = [];
+  for (let offset = 13; offset >= 0; offset--) {
+    const d = daysAgo(offset);
+    values.push({ d, count: acneByDay[dateKey(d)] });
+  }
+  const max = Math.max(1, ...values.map((v) => v.count || 0));
+  barChart($("#acneChart"), values.map((v, i) => ({
+    label: i === values.length - 1 ? "Hr ini" : String(v.d.getDate()),
+    pct: v.count === undefined ? 0 : (v.count / max) * 100,
+    text: v.count === undefined ? "–" : String(v.count),
+  })));
+}
+
+$("#btnSaveAcne").addEventListener("click", () => {
+  const value = parseInt($("#acneCount").value, 10);
+  if (Number.isNaN(value) || value < 0) {
+    showToast("Angka tidak valid", "Masukkan jumlah jerawat aktif (0 atau lebih).");
+    return;
+  }
+  acneByDay[dateKey()] = value;
+  store.set("acneCounts", acneByDay);
+  renderAcneChart();
+  renderTodayStats();
+  showToast("Tersimpan", "Konsisten 6–12 minggu, lalu lihat trennya.");
+});
+
+// ---------- Diet: targets ----------
+function computeTargets(p) {
+  if (!p.age || !p.height || !p.weight) {
+    return null;
+  }
+  const heightM = p.height / 100;
+  const bmi = p.weight / (heightM * heightM);
+  const bmr = 10 * p.weight + 6.25 * p.height - 5 * p.age + (p.sex === "m" ? 5 : -161);
+  const tdee = bmr * p.activity;
+
+  let target = tdee;
+  let note = "";
+  if (p.goal === "lose") {
+    const floor = p.sex === "m" ? 1500 : 1200;
+    target = tdee - Math.min(500, tdee * 0.2);
+    if (target < floor) {
+      target = Math.min(floor, tdee);
+      note = "Kebutuhan Anda sudah rendah, jadi kalori tidak diturunkan lebih jauh. Tambah aktivitas atau konsultasikan ke ahli gizi.";
+    }
+    if (bmi < 18.5) {
+      note = "BMI Anda di bawah normal. Menurunkan berat tidak disarankan. Pilih 'Pertahankan' atau 'Tambah otot'.";
+    }
+  } else if (p.goal === "gain") {
+    target = tdee + 250;
+  }
+  target = Math.round(target / 10) * 10;
+
+  // For higher BMI, base protein on a reference weight (BMI 25) to avoid overestimating.
+  const refWeight = bmi > 27 ? 25 * heightM * heightM : p.weight;
+  const proteinPerKg = p.goal === "maintain" ? 1.2 : 1.6;
+  const protein = Math.round(refWeight * proteinPerKg);
+  const fat = Math.round((target * 0.25) / 9);
+  const carbs = Math.max(0, Math.round((target - protein * 4 - fat * 9) / 4));
+  const weeklyKg = ((target - tdee) * 7) / KCAL_PER_KG_FAT;
+
+  let bmiCat = "Normal";
+  if (bmi < 18.5) {
+    bmiCat = "Kurang";
+  } else if (bmi >= 30) {
+    bmiCat = "Obesitas II";
+  } else if (bmi >= 25) {
+    bmiCat = "Obesitas I";
+  } else if (bmi >= 23) {
+    bmiCat = "Berlebih";
+  }
+
+  return { bmi, bmiCat, bmr, tdee, target, protein, fat, carbs, weeklyKg, note };
+}
+
+function renderTargets() {
+  const t = computeTargets(profile);
+  const summary = $("#targetSummary");
+  const result = $("#profileResult");
+  if (!t) {
+    summary.innerHTML = "Isi profil dulu di <b>Profil & Berat</b>.";
+    result.innerHTML = "";
+    return;
+  }
+  const meals = [
+    ["Sarapan", 0.25],
+    ["Camilan pagi", 0.1],
+    ["Makan siang", 0.3],
+    ["Camilan sore", 0.15],
+    ["Makan malam (paling ringan)", 0.2],
+  ];
+  const mealRows = meals
+    .map(([name, share]) => `<tr><td>${name}</td><td>±${Math.round((t.target * share) / 10) * 10} kkal</td><td>±${Math.round(t.protein * share)} g protein</td></tr>`)
+    .join("");
+  const weekly = t.weeklyKg < -0.01
+    ? `Perkiraan turun ±${Math.abs(t.weeklyKg).toFixed(2)} kg/minggu`
+    : t.weeklyKg > 0.01
+      ? `Perkiraan naik ±${t.weeklyKg.toFixed(2)} kg/minggu (idealnya sebagian besar otot, dengan latihan kekuatan)`
+      : "Berat dipertahankan";
+  const noteHtml = t.note ? `<p class="muted" style="color:var(--red)">${escapeHtml(t.note)}</p>` : "";
+
+  const html = `
+    <div class="stats">
+      <div class="stat"><b>${t.target}</b><span>kkal / hari</span></div>
+      <div class="stat"><b>${t.protein} g</b><span>protein / hari</span></div>
+      <div class="stat"><b>${t.carbs} g</b><span>karbohidrat</span></div>
+      <div class="stat"><b>${t.fat} g</b><span>lemak</span></div>
+    </div>
+    <p class="muted">BMI ${t.bmi.toFixed(1)} (${t.bmiCat}, standar Asia) · Kebutuhan harian ±${Math.round(t.tdee)} kkal · ${weekly}</p>
+    ${noteHtml}
+    <h3>Bagi jadi 5 kali makan kecil</h3>
+    <table>${mealRows}</table>`;
+  summary.innerHTML = html;
+  result.innerHTML = html;
+}
+
+function loadProfileForm() {
+  $("#pSex").value = profile.sex || "m";
+  $("#pAge").value = profile.age || "";
+  $("#pHeight").value = profile.height || "";
+  $("#pWeight").value = profile.weight || "";
+  $("#pActivity").value = String(profile.activity || 1.2);
+  $("#pGoal").value = profile.goal || "lose";
+  $("#pGoalWeight").value = profile.goalWeight || "";
+}
+
+$("#btnSaveProfile").addEventListener("click", () => {
+  const next = {
+    sex: $("#pSex").value,
+    age: parseFloat($("#pAge").value),
+    height: parseFloat($("#pHeight").value),
+    weight: parseFloat($("#pWeight").value),
+    activity: parseFloat($("#pActivity").value),
+    goal: $("#pGoal").value,
+    goalWeight: parseFloat($("#pGoalWeight").value) || null,
+  };
+  if (!(next.age >= 15 && next.age <= 90) || !(next.height >= 120 && next.height <= 220) || !(next.weight >= 30 && next.weight <= 250)) {
+    showToast("Data belum lengkap", "Isi usia (15–90), tinggi (120–220 cm), dan berat (30–250 kg).");
+    return;
+  }
+  const weightChanged = next.weight !== profile.weight;
+  profile = next;
+  store.set("profile", profile);
+  if (weightChanged) {
+    addWeight(next.weight, false);
+  }
+  renderTargets();
+  renderFood();
+  renderWeights();
+  renderTodayStats();
+  showToast("Profil disimpan", "Target kalori & protein sudah dihitung.");
+});
+
+// ---------- Diet: food log ----------
+function renderFoodPresets() {
+  $("#foodPreset").innerHTML = FOODS
+    .map((f, i) => `<option value="${i}">${escapeHtml(f.name)} — ${f.kcal} kkal, ${f.protein} g</option>`)
+    .join("");
+}
+
+function todayTotals() {
+  const items = foodByDay[dateKey()] || [];
+  return items.reduce(
+    (acc, item) => ({ kcal: acc.kcal + item.kcal, protein: acc.protein + item.protein }),
+    { kcal: 0, protein: 0 },
+  );
+}
+
+function addFood(name, kcal, protein, isTrigger) {
+  dayList(foodByDay).push({
+    name,
+    kcal: Math.round(kcal),
+    protein: Math.round(protein * 10) / 10,
+    trigger: !!isTrigger,
+    at: Date.now(),
+  });
+  store.set("food", foodByDay);
+  renderFood();
+  renderTodayStats();
+  if (isTrigger) {
+    showToast("Dicatat, tapi hati-hati", "Makanan ini sering memicu GERD dan tinggi kalori. Porsi kecil, jangan menjelang tidur.");
+  } else {
+    showToast("Dicatat", `${name}: ${Math.round(kcal)} kkal`);
+  }
+}
+
+function renderFood() {
+  const t = computeTargets(profile);
+  const totals = todayTotals();
+  const items = foodByDay[dateKey()] || [];
+  $("#kcalText").textContent = t ? `${totals.kcal} / ${t.target} kkal` : `${totals.kcal} kkal`;
+  $("#proteinText").textContent = t ? `${Math.round(totals.protein)} / ${t.protein} g` : `${Math.round(totals.protein)} g`;
+  setBar($("#kcalBar"), totals.kcal, t ? t.target : 0);
+  setBar($("#proteinBar"), totals.protein, t ? t.protein : 0);
+
+  const list = $("#foodList");
+  if (items.length === 0) {
+    list.textContent = "Belum ada.";
+    return;
+  }
+  list.innerHTML = "";
+  items.forEach((item, index) => {
+    const row = document.createElement("div");
+    row.className = "item";
+    const time = item.at ? hhmm(new Date(item.at)) : "";
+    row.innerHTML = `<div class="info"><b style="color:var(--text)">${escapeHtml(item.name)}</b><br><span class="small">${time} · ${item.kcal} kkal · ${item.protein} g protein</span></div><button title="Hapus">🗑️</button>`;
+    row.querySelector("button").addEventListener("click", () => {
+      items.splice(index, 1);
+      store.set("food", foodByDay);
+      renderFood();
+      renderTodayStats();
+    });
+    list.appendChild(row);
+  });
+}
+
+$("#btnAddPreset").addEventListener("click", () => {
+  const food = FOODS[parseInt($("#foodPreset").value, 10)];
+  const qty = parseFloat($("#foodQty").value) || 1;
+  const label = qty === 1 ? food.name : `${food.name} ×${qty}`;
+  addFood(label, food.kcal * qty, food.protein * qty, food.trigger);
+  $("#foodQty").value = 1;
+});
+
+$("#btnAddCustomFood").addEventListener("click", () => {
+  const name = $("#foodName").value.trim();
+  const kcal = parseFloat($("#foodKcal").value);
+  const protein = parseFloat($("#foodProtein").value) || 0;
+  if (!name || !(kcal >= 0)) {
+    showToast("Belum lengkap", "Isi nama makanan dan kalorinya.");
+    return;
+  }
+  addFood(name, kcal, protein, false);
+  $("#foodName").value = "";
+  $("#foodKcal").value = "";
+  $("#foodProtein").value = "";
+});
+
+// ---------- Exercise ----------
+const EXERCISE_LABELS = { cardio: "Kardio", strength: "Latihan kekuatan", flex: "Yoga/peregangan" };
+
+function renderExercise() {
+  const items = exerciseByDay[dateKey()] || [];
+  const list = $("#exerciseList");
+  if (items.length === 0) {
+    list.textContent = "Belum ada.";
+  } else {
+    list.innerHTML = "";
+    items.forEach((item, index) => {
+      const row = document.createElement("div");
+      row.className = "item";
+      row.innerHTML = `<div class="info"><b style="color:var(--text)">${EXERCISE_LABELS[item.type]}</b> · ${item.min} menit</div><button title="Hapus">🗑️</button>`;
+      row.querySelector("button").addEventListener("click", () => {
+        items.splice(index, 1);
+        store.set("exercise", exerciseByDay);
+        renderExercise();
+        renderTodayStats();
+      });
+      list.appendChild(row);
+    });
+  }
+
+  let cardio = 0;
+  let strengthDays = 0;
+  const chartItems = [];
+  for (let offset = 6; offset >= 0; offset--) {
+    const d = daysAgo(offset);
+    const dayItems = exerciseByDay[dateKey(d)] || [];
+    const dayMinutes = dayItems.reduce((sum, item) => sum + item.min, 0);
+    cardio += dayItems.filter((item) => item.type === "cardio").reduce((sum, item) => sum + item.min, 0);
+    if (dayItems.some((item) => item.type === "strength")) {
+      strengthDays += 1;
+    }
+    chartItems.push({
+      label: offset === 0 ? "Hari ini" : DAY_NAMES[d.getDay()],
+      pct: (dayMinutes / 60) * 100,
+      text: dayMinutes + "m",
+    });
+  }
+  $("#cardioWeek").textContent = cardio;
+  $("#strengthWeek").textContent = strengthDays;
+  setBar($("#cardioBar"), cardio, 150);
+  setBar($("#strengthBar"), strengthDays, 2);
+  $("#strengthBar").classList.remove("over");
+  barChart($("#exerciseChart"), chartItems);
+}
+
+$("#btnAddExercise").addEventListener("click", () => {
+  const minutes = parseInt($("#exMin").value, 10);
+  if (!(minutes > 0)) {
+    showToast("Menit tidak valid", "Masukkan durasi olahraga.");
+    return;
+  }
+  const type = $("#exType").value;
+  dayList(exerciseByDay).push({ type, min: minutes });
+  store.set("exercise", exerciseByDay);
+  renderExercise();
+  renderTodayStats();
+  showToast("Mantap! 💪", "Jangan lupa mandi/cuci muka setelah berkeringat supaya kulit tidak berjerawat.");
+});
+
+// ---------- Weight ----------
+function addWeight(kg, updateProfile = true) {
+  weights.push({ at: Date.now(), kg: Math.round(kg * 10) / 10 });
+  store.set("weights", weights);
+  if (updateProfile && profile.height) {
+    profile.weight = Math.round(kg * 10) / 10;
+    store.set("profile", profile);
+    loadProfileForm();
+    renderTargets();
+    renderFood();
+  }
+}
+
+function renderWeights() {
+  const box = $("#weightChart");
+  const points = weights.slice(-30);
+  if (points.length < 2) {
+    box.innerHTML = '<p class="muted">Catat berat minimal 2 kali untuk melihat grafik.</p>';
+  } else {
+    const W = 600;
+    const H = 170;
+    const P = 26;
+    const values = points.map((p) => p.kg);
+    let min = Math.min(...values);
+    let max = Math.max(...values);
+    if (profile.goalWeight) {
+      min = Math.min(min, profile.goalWeight);
+      max = Math.max(max, profile.goalWeight);
+    }
+    if (max - min < 1) {
+      max += 0.5;
+      min -= 0.5;
+    }
+    const x = (i) => P + (i * (W - 2 * P)) / (points.length - 1);
+    const y = (v) => H - P - ((v - min) * (H - 2 * P)) / (max - min);
+    const line = points.map((p, i) => `${x(i).toFixed(1)},${y(p.kg).toFixed(1)}`).join(" ");
+    const dots = points.map((p, i) => `<circle cx="${x(i).toFixed(1)}" cy="${y(p.kg).toFixed(1)}" r="4" fill="#2f7d5b"/>`).join("");
+    let goalLine = "";
+    if (profile.goalWeight) {
+      const gy = y(profile.goalWeight).toFixed(1);
+      goalLine = `<line x1="${P}" x2="${W - P}" y1="${gy}" y2="${gy}" stroke="#e8a33d" stroke-dasharray="6 4"/>
+        <text x="${W - P}" y="${gy - 5}" text-anchor="end" font-size="13" fill="#e8a33d">Target ${profile.goalWeight} kg</text>`;
+    }
+    box.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="100%">
+      ${goalLine}
+      <polyline points="${line}" fill="none" stroke="#2f7d5b" stroke-width="3"/>
+      ${dots}
+      <text x="4" y="16" font-size="13" fill="#6b7a72">${max.toFixed(1)} kg</text>
+      <text x="4" y="${H - 6}" font-size="13" fill="#6b7a72">${min.toFixed(1)} kg</text>
+    </svg>`;
+  }
+
+  const list = $("#weightList");
+  if (weights.length === 0) {
+    list.textContent = "";
+    return;
+  }
+  const first = weights[0].kg;
+  const last = weights[weights.length - 1].kg;
+  const diff = last - first;
+  let text = `Terakhir: <b style="color:var(--text)">${last} kg</b> · Perubahan sejak awal: ${diff > 0 ? "+" : ""}${diff.toFixed(1)} kg`;
+  if (profile.goalWeight) {
+    const toGo = last - profile.goalWeight;
+    text += ` · ${Math.abs(toGo) < 0.1 ? "Target tercapai! 🎉" : `${Math.abs(toGo).toFixed(1)} kg lagi menuju target`}`;
+  }
+  list.innerHTML = text;
+}
+
+$("#btnAddWeight").addEventListener("click", () => {
+  const kg = parseFloat($("#weightInput").value);
+  if (!(kg >= 30 && kg <= 250)) {
+    showToast("Berat tidak valid", "Masukkan berat dalam kg (30–250).");
+    return;
+  }
+  addWeight(kg, true);
+  $("#weightInput").value = "";
+  renderWeights();
+  showToast("Berat dicatat", `${kg} kg. Fokus pada tren, bukan angka harian.`);
+});
+
+// ---------- GERD symptom log ----------
+function sevColor(sev) {
+  if (sev >= 7) {
+    return "var(--red)";
+  }
+  if (sev >= 4) {
+    return "var(--amber)";
+  }
+  return "var(--green)";
+}
+
+function renderTriggerChips() {
+  const box = $("#triggerChips");
+  box.innerHTML = "";
+  TRIGGERS.forEach((trigger) => {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "chip" + (selectedTriggers.has(trigger) ? " on" : "");
+    chip.textContent = trigger;
+    chip.addEventListener("click", () => {
+      if (selectedTriggers.has(trigger)) {
+        selectedTriggers.delete(trigger);
+      } else {
+        selectedTriggers.add(trigger);
+      }
+      renderTriggerChips();
+    });
+    box.appendChild(chip);
+  });
+}
+
+function renderLogs() {
+  const list = $("#logList");
+  if (logs.length === 0) {
+    list.innerHTML = "Belum ada catatan.";
+  } else {
+    list.innerHTML = logs
+      .slice()
+      .reverse()
+      .slice(0, 50)
+      .map((entry) => {
+        const d = new Date(entry.at);
+        const when = d.toLocaleString("id-ID", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+        const triggers = entry.triggers.length ? ` · ${escapeHtml(entry.triggers.join(", "))}` : "";
+        const note = entry.note ? `<br><span style="color:var(--text)">${escapeHtml(entry.note)}</span>` : "";
+        return `<div class="log-item"><span class="sev" style="background:${sevColor(entry.sev)}">${entry.sev}</span>${when}${triggers}${note}</div>`;
+      })
+      .join("");
+  }
+  renderTriggerStats();
+}
+
+function renderTriggerStats() {
+  const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
+  const counts = {};
+  const severitySum = {};
+  logs
+    .filter((entry) => entry.at >= cutoff)
+    .forEach((entry) => {
+      entry.triggers.forEach((t) => {
+        counts[t] = (counts[t] || 0) + 1;
+        severitySum[t] = (severitySum[t] || 0) + entry.sev;
+      });
+    });
+  const ranked = Object.keys(counts)
+    .map((t) => ({ t, n: counts[t], avg: severitySum[t] / counts[t] }))
+    .sort((a, b) => b.n * b.avg - a.n * a.avg)
+    .slice(0, 5);
+  if (ranked.length === 0) {
+    $("#triggerStats").textContent = "Belum ada data. Catat gejala beberapa hari untuk melihat pola.";
+    return;
+  }
+  $("#triggerStats").innerHTML = ranked
+    .map((r) => `<div style="margin:4px 0"><b style="color:var(--text)">${escapeHtml(r.t)}</b> — ${r.n}× · rata-rata keluhan ${r.avg.toFixed(1)}/10</div>`)
+    .join("") + '<p class="muted" style="margin-top:8px">Coba kurangi pemicu teratas selama 2 minggu dan lihat perubahannya.</p>';
+}
+
+$("#sev").addEventListener("input", (event) => {
+  $("#sevVal").textContent = event.target.value;
+});
+
+$("#btnLog").addEventListener("click", () => {
+  const entry = {
+    at: Date.now(),
+    sev: Number($("#sev").value),
+    triggers: Array.from(selectedTriggers),
+    note: $("#logNote").value.trim(),
+  };
+  logs.push(entry);
+  store.set("logs", logs);
+  selectedTriggers.clear();
+  $("#logNote").value = "";
+  renderTriggerChips();
+  renderLogs();
+  renderTodayStats();
+  if (entry.sev >= 8) {
+    showToast("Keluhan cukup berat", "Jika disertai nyeri dada, sesak, atau sulit menelan, segera cari pertolongan medis. Lihat tab Tips.");
+  } else {
+    showToast("Tersimpan", "Catatan gejala sudah disimpan.");
+  }
+});
+
+// ---------- Today summary (unified) ----------
+function renderTodayStats() {
+  const t = computeTargets(profile);
+  const totals = todayTotals();
+  const exerciseMin = (exerciseByDay[dateKey()] || []).reduce((sum, item) => sum + item.min, 0);
+  const gerdPct = Math.round((dayList(habitsByDay).length / HABITS.length) * 100);
+  const skinPct = Math.round((dayList(skinByDay).length / SKIN_HABITS.length) * 100);
+  const acne = acneByDay[dateKey()];
+  const todayKey = dateKey();
+  const todaySymptoms = logs.filter((entry) => dateKey(new Date(entry.at)) === todayKey);
+  const maxSev = todaySymptoms.length ? Math.max(...todaySymptoms.map((e) => e.sev)) : null;
+
+  const stats = [
+    { value: t ? `${totals.kcal}/${t.target}` : `${totals.kcal}`, label: "kkal dimakan" },
+    { value: t ? `${Math.round(totals.protein)}/${t.protein} g` : `${Math.round(totals.protein)} g`, label: "protein" },
+    { value: `${exerciseMin} mnt`, label: "olahraga" },
+    { value: `${gerdPct}%`, label: "kebiasaan GERD" },
+    { value: `${skinPct}%`, label: "rutinitas kulit" },
+    { value: maxSev === null ? "–" : `${maxSev}/10`, label: "keluhan GERD tertinggi" },
+    { value: acne === undefined ? "–" : String(acne), label: "jerawat aktif" },
+  ];
+  $("#todayStats").innerHTML = stats
+    .map((s) => `<div class="stat"><b>${escapeHtml(s.value)}</b><span>${escapeHtml(s.label)}</span></div>`)
+    .join("");
+}
+
+// ---------- Clear data ----------
+$("#btnClearAll").addEventListener("click", () => {
+  if (confirm("Hapus SEMUA data (pengingat, makan, olahraga, berat, kulit, gejala)? Tindakan ini tidak bisa dibatalkan.")) {
+    Object.keys(localStorage)
+      .filter((k) => k.startsWith(PREFIX))
+      .forEach((k) => localStorage.removeItem(k));
+    location.reload();
+  }
+});
+
+// ---------- Init ----------
+function setupInstall() {
+  const card = $("#installCard");
+  const textEl = $("#installText");
+  const button = $("#btnInstall");
+  let deferredPrompt = null;
+
+  if (isNative || isStandalone) {
+    card.style.display = "none";
+    return;
+  }
+  if (location.protocol === "file:") {
+    textEl.innerHTML = "Anda membuka file lokal. Untuk memasang di HP/komputer, buka aplikasi lewat alamat web (https://…) atau jalankan <b>Buka-Aplikasi-Desktop.cmd</b>.";
+    return;
+  }
+  if (isIOS) {
+    textEl.innerHTML = "<b>iPhone/iPad:</b> buka di <b>Safari</b> → tekan tombol <b>Bagikan</b> (kotak dengan panah ↑) → <b>Tambah ke Layar Utama</b> → <b>Tambah</b>. Lalu buka dari ikon di layar utama dan izinkan notifikasi di tab Pengingat.";
+    return;
+  }
+  textEl.innerHTML = "<b>Android (Chrome):</b> menu ⋮ → <b>Instal aplikasi</b>. <b>Komputer (Chrome/Edge):</b> ikon pasang di kolom alamat, atau tombol di bawah.";
+  window.addEventListener("beforeinstallprompt", (event) => {
+    event.preventDefault();
+    deferredPrompt = event;
+    button.style.display = "inline-block";
+  });
+  button.addEventListener("click", async () => {
+    if (!deferredPrompt) {
+      return;
+    }
+    deferredPrompt.prompt();
+    await deferredPrompt.userChoice;
+    deferredPrompt = null;
+    button.style.display = "none";
+  });
+  window.addEventListener("appinstalled", () => {
+    card.style.display = "none";
+    showToast("Terpasang! 🎉", "Teman Sehat sekarang ada di layar utama / menu Start Anda.");
+  });
+}
+
+function registerServiceWorker() {
+  if (isNative || !("serviceWorker" in navigator) || !/^https?:$/.test(location.protocol)) {
+    return;
+  }
+  navigator.serviceWorker
+    .register("sw.js")
+    .then(() => navigator.serviceWorker.ready)
+    .then((registration) => {
+      swRegistration = registration;
+    })
+    .catch((err) => console.warn("Service worker failed", err));
+}
+
+function renderDate() {
+  $("#todayLabel").textContent = new Date().toLocaleDateString("id-ID", {
+    weekday: "long", day: "numeric", month: "long", year: "numeric",
+  }) + " · GERD • Diet & Fit • Kulit" + (DEMO ? " · contoh data" : "");
+}
+
+function renderAll() {
+  renderDate();
+  renderNext();
+  renderHabits();
+  renderWeek();
+  renderSkin();
+  renderTargets();
+  renderFood();
+  renderExercise();
+  renderWeights();
+  renderTodayStats();
+}
+
+sortReminders();
+registerServiceWorker();
+setupInstall();
+updateNotifBanner();
+renderReminders();
+renderFoodPresets();
+loadProfileForm();
+renderTriggerChips();
+renderLogs();
+renderMealTimer();
+renderAll();
+checkReminders();
+syncNativeReminders();
+syncNativeMealAlerts();
+
+let lastDay = dateKey();
+setInterval(() => {
+  renderMealTimer();
+  if (new Date().getSeconds() % 10 === 0) {
+    checkReminders();
+  }
+  if (dateKey() !== lastDay) {
+    lastDay = dateKey();
+    renderAll();
+  }
+}, 1000);
+</script>
+</body>
+</html>
