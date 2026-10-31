@@ -1473,7 +1473,11 @@
     "No wobbling": "無晃動",
     "Very slight wobbling": "極輕微晃動",
     "Slight wobbling": "輕微晃動",
-    "Wobbling": "晃動"
+    "Wobbling": "晃動",
+    "Cancel auto-install": "取消自動安裝",
+    "Auto-install cancelled. The verified update remains ready; press Install when it suits you.": "已取消自動安裝。已驗證的更新仍然就緒，方便時再按「安裝」。",
+    "Auto-update turned off. The verified update remains ready; press Install when it suits you.": "已關閉自動更新。已驗證的更新仍然就緒，方便時再按「安裝」。",
+    "The console became busy, so auto-update is waiting until it is idle again.": "主控台正在忙碌，自動更新會等到它再次閒置。"
   },
   "html": {
     "AIRIZDEVICE LAB": "AIRIZ<small>裝置實驗室</small>",
@@ -1575,7 +1579,8 @@
     "The Share control window shows whether the camera preview runs and who is watching. Behind a company firewall the picture comes through the AIRIZ relay as quick snapshots.": "分享控制視窗會顯示相機預覽是否在執行以及誰在觀看。在公司防火牆後，畫面會經由 AIRIZ 中繼以快速快照方式傳送。",
     "The siren plays on the AIRIZ speaker at full volume, again and again, and turns the spotlight on. Siren (wail tone) is a real rising and falling siren made by this console (3 s, 650 to 1500 Hz). AIRIZ test sound is the test recording stored on the AIRIZ. My sound file uses a WAV, MP3, M4A or OGG from this PC (the first 15 s). The wail tone and your file are sent to the AIRIZ the first time the siren sounds (a few seconds over USB) and then repeat from there. Stop siren stops the repeats; a sound already playing finishes.": "警報器會以最大音量在 AIRIZ 喇叭上重複播放，並開啟聚光燈。<em>警報（起伏警笛聲）</em>是由此主控台產生的真正高低起伏警笛聲（3 秒，650 至 1500 Hz）。<em>AIRIZ 測試音</em>是存在 AIRIZ 上的測試錄音。<em>我的聲音檔</em>使用這台 PC 上的 WAV、MP3、M4A 或 OGG（前 15 秒）。警笛聲與您的聲音檔會在第一次響起時傳送到 AIRIZ（透過 USB 約數秒），之後從 AIRIZ 重複播放。「停止警報」會停止重複；正在播放的聲音會播完。",
     "The grade borders are a wobble angle (degrees, peak to peak) and grow with viewing distance: grade 2 starts above the grade-1 limit, grade 3 above 2× it, grade 4 above 4× it. The grade-1 limit starts as an estimate. To make it match your eyes: test a few units, grade each one by eye with What did you see by eye?, then press Fit the grade borders.": "等級界線是晃動角度（度，峰對峰），並隨觀看距離放大：超過 1 級上限為 2 級，超過其 2 倍為 3 級，超過其 4 倍為 4 級。1 級上限一開始是估計值。若要符合您的目視判斷：測試幾台機台，每台用<em>您目視看到的是？</em>評級，再按<em>依目視結果調整等級界線</em>。",
-    "Wobble test for the rising head (1.11.19)": "升降鏡頭晃動測試（1.11.19）"
+    "Wobble test for the rising head (1.11.19)": "升降鏡頭晃動測試（1.11.19）",
+    "Auto-update – downloads new releases and installs them only after the console has been untouched for 5 minutes (no command, click, key, macro, recording or camera session). A 30 s countdown with Cancel appears first.": "<strong>自動更新</strong>：自動下載新版本，並且只在主控台連續 5 分鐘無人操作時才安裝（沒有指令、點擊、按鍵、巨集、錄影或攝影機工作階段）。安裝前會先顯示 30 秒倒數與「取消」按鈕。"
   },
   "patterns": [
     [
@@ -2033,6 +2038,14 @@
     [
       "^Test failed: (.+)$",
       "測試失敗：$1"
+    ],
+    [
+      "^Installed: (.+?) · Available: (.+?)( · Portable)? · Auto-update on$",
+      "已安裝：$1 · 可用：$2$3 · 自動更新已開啟"
+    ],
+    [
+      "^Installed: (.+?)( · Portable)? · Auto-update on$",
+      "已安裝：$1$2 · 自動更新已開啟"
     ],
     [
       "^Installed: (.+?) · Available: (.+?)( · Portable)?$",
@@ -2665,6 +2678,22 @@
     [
       "^Grade borders fitted to (\\d+) graded units: grade-1 limit ([\\d.]+)° \\((\\d+) of (\\d+) would be graded differently\\)\\.$",
       "已依 $1 台目視評級調整等級界線：1 級上限 $2°（$4 台中有 $3 台的評級會不同）。"
+    ],
+    [
+      "^Auto-update installs (.+?) and restarts in (\\d+) s if the console stays idle\\. Press Cancel auto-install to keep working\\.$",
+      "自動更新將安裝 $1，若主控台保持閒置，$2 秒後重新啟動。按「取消自動安裝」即可繼續工作。"
+    ],
+    [
+      "^AIRIZ Console (.*?) ?is ready\\. Auto-update restarts the app soon unless you cancel\\.$",
+      "AIRIZ Console $1 已就緒。除非取消，自動更新即將重新啟動應用程式。"
+    ],
+    [
+      "^Could not change auto-update: (.+)$",
+      "無法變更自動更新：$1"
+    ],
+    [
+      "^Auto-update is waiting until (.+?), then installs and restarts\\. The device reconnects after restart\\.$",
+      "自動更新正在等待（$1），之後會安裝並重新啟動。重新啟動後裝置會自動重新連線。"
     ]
   ]
 }
