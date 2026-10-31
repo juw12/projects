@@ -369,3 +369,134 @@ test('a manual schedule is not cancelled by turning auto-update off', async () =
   assert.equal(controller.snapshot().status, 'scheduled');
   controller.cancelScheduled();
 });
+
+
+test('the auto path hands the idle rule to the renderer before the port is closed', async () => {
+  const idleRequirements = [];
+  const fixtureData = fixture({
+    autoUpdate: true,
+    prepareForInstall: async requireIdleMs => { idleRequirements.push(requireIdleMs); return true; }
+  });
+  await readyWithCheck(fixtureData);
+  await sleep(50);
+  assert.deepEqual(idleRequirements, [AUTO_IDLE_MS]);
+  assert.equal(fixtureData.updater.installs.length, 1);
+});
+
+test('a manual install does not impose the auto idle rule on the renderer', async () => {
+  const idleRequirements = [];
+  const fixtureData = fixture({
+    prepareForInstall: async requireIdleMs => { idleRequirements.push(requireIdleMs); return true; }
+  });
+  await ready(fixtureData);
+  await fixtureData.controller.install();
+  assert.deepEqual(idleRequirements, [0]);
+  assert.equal(fixtureData.updater.installs.length, 1);
+});
+
+test('an auto-install that cannot prepare keeps waiting instead of giving up', async () => {
+  let prepared = false;
+  const fixtureData = fixture({ autoUpdate: true, prepareForInstall: async () => prepared });
+  await readyWithCheck(fixtureData);
+  await sleep(50);
+  assert.equal(fixtureData.updater.installs.length, 0, 'no install while preparation fails');
+  prepared = true;
+  await sleep(40);
+  assert.equal(fixtureData.updater.installs.length, 1, 'the auto path retries until the console is ready');
+});
+
+test('a manual install that cannot prepare never turns into an unattended auto-install', async () => {
+  const fixtureData = fixture({
+    autoUpdate: true, autoInstallDelayMs: 10000, prepareForInstall: async () => false
+  });
+  await fixtureData.controller.check();
+  assert.equal(fixtureData.controller.snapshot().status, 'downloaded');
+  await fixtureData.controller.install();
+  assert.equal(fixtureData.controller.snapshot().status, 'downloaded');
+  assert.match(fixtureData.controller.snapshot().message, /was not installed/);
+  await sleep(40);
+  assert.equal(fixtureData.updater.installs.length, 0, 'no silent unattended restart');
+});
+
+test('a double-click on Install and restart runs the installer once', async () => {
+  const fixtureData = fixture();
+  await ready(fixtureData);
+  await Promise.all([fixtureData.controller.install(), fixtureData.controller.install()]);
+  assert.equal(fixtureData.confirmations.length, 1, 'only one confirmation dialog');
+  assert.equal(fixtureData.updater.installs.length, 1, 'only one install');
+});
+
+test('cancelling a scheduled install while the poll is reading the console still cancels it', async () => {
+  let device = { connected: true, demoMode: false, macroRunning: true };
+  let release = null;
+  const fixtureData = fixture({
+    getDeviceState: async () => {
+      if (release) { const wait = release; release = null; await wait; }
+      return device;
+    }
+  });
+  await ready(fixtureData);
+  await fixtureData.controller.install();
+  assert.equal(fixtureData.controller.snapshot().status, 'scheduled');
+  let unblock;
+  release = new Promise(resolve => { unblock = resolve; });
+  await sleep(20);
+  fixtureData.controller.cancelScheduled();
+  device = { connected: true, demoMode: false };
+  unblock();
+  await sleep(30);
+  assert.equal(fixtureData.updater.installs.length, 0, 'a cancelled schedule must never install');
+});
+
+test('Cancel auto-install pressed while the countdown is reading the console still cancels it', async () => {
+  let release = null;
+  const fixtureData = fixture({
+    autoUpdate: true,
+    getDeviceState: async () => {
+      if (release) {
+        const wait = release;
+        release = null;
+        await wait;
+      }
+      return { connected: true, demoMode: false, idleMs: IDLE };
+    }
+  });
+  let unblock;
+  release = new Promise(resolve => { unblock = resolve; });
+  await fixtureData.controller.check();
+  assert.equal(fixtureData.controller.snapshot().status, 'downloaded');
+  await sleep(25); // the 10 ms countdown has fired and is waiting for the console state
+  fixtureData.controller.cancelAutoInstall();
+  unblock();
+  await sleep(30);
+  assert.equal(fixtureData.updater.installs.length, 0, 'a cancelled countdown must never install');
+  assert.equal(fixtureData.controller.snapshot().status, 'downloaded');
+  assert.equal(fixtureData.controller.snapshot().autoInstallAt, null);
+});
+
+test('turning auto-update off and on during the console read does not let the stale countdown install early', async () => {
+  let release = null;
+  const fixtureData = fixture({
+    autoUpdate: true,
+    autoInstallDelayMs: 10,
+    getDeviceState: async () => {
+      if (release) {
+        const wait = release;
+        release = null;
+        await wait;
+      }
+      return { connected: true, demoMode: false, idleMs: IDLE };
+    }
+  });
+  let unblock;
+  release = new Promise(resolve => { unblock = resolve; });
+  await fixtureData.controller.check();
+  await sleep(25);
+  fixtureData.controller.setAutoUpdate(false);
+  fixtureData.controller.setAutoUpdate(true); // re-arms a fresh countdown
+  unblock();
+  await sleep(2);
+  assert.equal(fixtureData.updater.installs.length, 0, 'the stale run must not install');
+  await sleep(40);
+  assert.equal(fixtureData.updater.installs.length, 1, 'the fresh countdown installs exactly once');
+});

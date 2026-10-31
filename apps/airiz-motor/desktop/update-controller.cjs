@@ -71,6 +71,7 @@ function createUpdateController(options) {
   let scheduleTimer = null;
   let autoInstallTimer = null;
   let scheduledByAuto = false;
+  let installInFlight = false;
   const autoSeconds = Math.round(autoInstallDelayMs / 1000);
   let state = {
     status: packaged ? 'idle' : 'development', currentVersion, availableVersion: null,
@@ -98,13 +99,18 @@ function createUpdateController(options) {
   function startSchedule(isBusy, byAuto) {
     stopSchedule();
     scheduledByAuto = byAuto;
-    scheduleTimer = setInterval(async () => {
+    const timer = setInterval(async () => {
       try {
-        if (!isBusy(await getDeviceState())) await runInstall();
+        const status = await getDeviceState();
+        // The user may have cancelled (or re-made) the schedule while the console state
+        // was being read: only this still-current schedule may install.
+        if (state.status !== 'scheduled' || scheduleTimer !== timer) return;
+        if (!isBusy(status)) await runInstall(scheduledByAuto);
       } catch (error) {
         fail(error);
       }
     }, pollIntervalMs);
+    scheduleTimer = timer;
   }
   function fail(error) {
     stopSchedule();
@@ -170,19 +176,22 @@ function createUpdateController(options) {
   }
 
   async function autoInstallNow() {
-    autoInstallTimer = null;
-    state = { ...state, autoInstallAt: null };
+    // Keep the fired timer as this run's token until the decision: Cancel auto-install,
+    // a manual Install or a re-arm replaces/clears it, and a stale run must then stop.
+    const token = autoInstallTimer;
     if (!autoUpdate || state.status !== 'downloaded') return;
     try {
-      const reason = autoBusyReason(await getDeviceState(), autoIdleMs);
-      if (!autoUpdate || state.status !== 'downloaded') return;
+      const status = await getDeviceState();
+      if (autoInstallTimer !== token || !autoUpdate || state.status !== 'downloaded') return;
+      stopAutoInstall();
+      const reason = autoBusyReason(status, autoIdleMs);
       if (reason) {
         change('scheduled', 'Auto-update is waiting until ' + waitPhrase(reason)
           + ', then installs and restarts. The device reconnects after restart.');
         startSchedule(status => autoBusyReason(status, autoIdleMs), true);
         return;
       }
-      await runInstall();
+      await runInstall(true);
     } catch (error) {
       fail(error);
     }
@@ -221,12 +230,24 @@ function createUpdateController(options) {
     return snapshot();
   }
 
-  async function runInstall() {
+  // One install at a time: a double-click on "Install and restart", or a schedule
+  // timer firing while a dialog is open, must never run the installer twice.
+  async function runInstall(byAuto = false) {
+    if (installInFlight) return snapshot();
+    installInFlight = true;
+    try {
+      return await installNow(byAuto);
+    } finally {
+      installInFlight = false;
+    }
+  }
+  async function installNow(byAuto) {
     stopSchedule();
     stopAutoInstall();
     change('installing', 'Closing the device connection safely and installing the update…');
-    const byAuto = scheduledByAuto || autoUpdate;
-    const prepared = await prepareForInstall();
+    // The auto path has no dialog, so the renderer re-checks the untouched-for-five-
+    // minutes rule itself, right before it closes the port.
+    const prepared = await prepareForInstall(byAuto ? autoIdleMs : 0);
     if (!prepared) {
       if (byAuto && autoUpdate) {
         change('scheduled', 'The console became busy, so auto-update is waiting until it is idle again.');
@@ -242,8 +263,9 @@ function createUpdateController(options) {
   }
 
   async function install() {
-    if (portable || !downloaded || !['downloaded', 'scheduled'].includes(state.status)) return snapshot();
+    if (portable || !downloaded || installInFlight || !['downloaded', 'scheduled'].includes(state.status)) return snapshot();
     // A person pressed Install: stop any countdown and use the normal confirmed flow.
+    installInFlight = true;
     stopAutoInstall();
     try {
       const status = await getDeviceState();
@@ -265,10 +287,12 @@ function createUpdateController(options) {
         change('downloaded', 'The console became busy during confirmation. Use Install again to schedule it.');
         return snapshot();
       }
-      return await runInstall();
+      return await installNow(false);
     } catch (error) {
       await Promise.resolve(abortInstall()).catch(() => {});
       fail(error);
+    } finally {
+      installInFlight = false;
     }
     return snapshot();
   }
