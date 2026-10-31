@@ -1,39 +1,31 @@
 {
   "installer": {
     "filename": "Pips-Setup.exe",
-    "sha256": "e65a92377fcf5a0a37e0ef9afa65dd2b5d12b975c91f604321f092bfc6092e22",
-    "size": 22338241,
+    "sha256": "68d01f1b0e2f62a2f92499a3b441b05d379d51b463c69739334b4ba67f743303",
+    "size": 22338964,
     "architecture": "x64",
     "python_version": "3.13.17",
     "requires_admin": false,
     "url": "https://juw12.github.io/projects/pips/download/Pips-Setup.exe"
   },
-  "version": "2.27.0",
+  "version": "2.27.1",
   "date": "2026-11-01",
-  "title": "Focus Trail you can read",
+  "title": "Focus Trail in your menus",
   "url": "https://juw12.github.io/projects/pips/download/Pips-Windows.zip",
-  "sha256": "e49f15f7dadb231511ee8a0988323468873afc15b81e330d20e2d3dfd2472c81",
-  "size": 1005796,
+  "sha256": "ac81d2f21daed7feaf5149f360f635651819ae5d68fba4d3fec122eabe62f111",
+  "size": 1005595,
   "notes": {
     "en": [
-      "Every bend in your Focus Trail now means something: the trail turns clockwise through the day (direction = time of day), runs straight while you stay in one app and kinks when you switch apps. Grey loops are still distracting time.",
-      "Time markers on the trail (08:00, 10:00, 12:00 ... or Mon-Fri in the week view) and a one-line key on every sticker, so friends understand it too.",
-      "New 'How to read your trail' strip in the Focus Trail window, and a tip when most of your time counts as neutral: mark your top apps as Productive or Distracting with one click."
+      "Focus Trail is now one click away: right-click your pet (next to Focus and Stats) or right-click the timer card."
     ],
     "id": [
-      "Setiap belokan di Jejak Fokus kini punya arti: jejak berputar searah jarum jam sepanjang hari (arah = jam), lurus saat kamu bertahan di satu aplikasi dan berbelok saat berganti aplikasi. Lingkaran abu-abu tetap waktu distraksi.",
-      "Penanda waktu di jejak (08:00, 10:00, 12:00 ... atau Sen-Jum di tampilan mingguan) dan satu baris keterangan di setiap stiker, supaya teman juga paham.",
-      "Baru: panel 'Cara membaca jejakmu' di jendela Jejak Fokus, dan tips saat sebagian besar waktumu dihitung netral: tandai aplikasi teratas sebagai Produktif atau Distraksi dengan sekali klik."
+      "Jejak Fokus kini cukup sekali klik: klik kanan pet-mu (di samping Fokus dan Statistik) atau klik kanan kartu timer."
     ],
     "zh_TW": [
-      "專注軌跡的每個轉彎現在都有意義：軌跡隨時間順時針轉彎（方向 = 時間），一直用同一個程式時走直線，切換程式時會轉折。灰色圈圈仍代表分心時間。",
-      "軌跡上有時間標記（08:00、10:00、12:00…，週檢視則是週一到週五），每張貼圖也多了一行說明，朋友也看得懂。",
-      "專注軌跡視窗新增「怎麼看你的軌跡」說明；當大部分時間算一般時，會提示你一鍵把常用程式設為高效或分心。"
+      "專注軌跡現在一鍵就到：在寵物上按右鍵（在「專注」和「統計」旁邊），或在計時卡片上按右鍵。"
     ],
     "zh_CN": [
-      "专注轨迹的每个转弯现在都有意义：轨迹随时间顺时针转弯（方向 = 时间），一直用同一个程序时走直线，切换程序时会转折。灰色圈圈仍代表分心时间。",
-      "轨迹上有时间标记（08:00、10:00、12:00…，周视图则是周一到周五），每张贴图也多了一行说明，朋友也看得懂。",
-      "专注轨迹窗口新增「怎么看你的轨迹」说明；当大部分时间算一般时，会提示你一键把常用程序设为高效或分心。"
+      "专注轨迹现在一键就到：在宠物上点右键（在「专注」和「统计」旁边），或在计时卡片上点右键。"
     ]
   },
   "guide": "https://juw12.github.io/projects/pips/download/Pips-Guide.pptx"

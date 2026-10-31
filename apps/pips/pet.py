@@ -4817,6 +4817,8 @@ class DesktopPet:
             tiles.append(("\U0001F3AE", t("fm_play"), self.play_game))
         tiles.append(("\u23F1", t("fm_focus"), lambda: self._call("toggle_window")))
         tiles.append(("\U0001F4CA", t("fm_stats"), lambda: self._call("open_dashboard")))
+        if self.cb.get("open_focus_trail"):
+            tiles.append(("\U0001F3C3", t("mg_trail"), lambda: self._call("open_focus_trail")))
         if self.sleeping:
             tiles.append(("\u2600", t("fm_wake"), lambda: self.wake("poke")))
         else:
@@ -5071,6 +5073,8 @@ class DesktopPet:
         focus_menu.add_command(label=t("p_hide_window") if open_now else t("p_open"),
                                command=lambda: self._call("toggle_window"))
         focus_menu.add_command(label=t("p_dashboard"), command=lambda: self._call("open_dashboard"))
+        if self.cb.get("open_focus_trail"):
+            focus_menu.add_command(label=t("mg_trail"), command=lambda: self._call("open_focus_trail"))
         menu.add_cascade(label=t("p_focus"), menu=focus_menu)
         menu.add_separator()
 

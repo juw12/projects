@@ -2,6 +2,25 @@
   "_comment": "Pips version history. Newest first. Feeds the in-app update notice (latest.json), the PPT guide and the update emails.",
   "releases": [
     {
+      "version": "2.27.1",
+      "date": "2026-11-01",
+      "title": "Focus Trail in your menus",
+      "notes": {
+        "en": [
+          "Focus Trail is now one click away: right-click your pet (next to Focus and Stats) or right-click the timer card."
+        ],
+        "id": [
+          "Jejak Fokus kini cukup sekali klik: klik kanan pet-mu (di samping Fokus dan Statistik) atau klik kanan kartu timer."
+        ],
+        "zh_TW": [
+          "專注軌跡現在一鍵就到：在寵物上按右鍵（在「專注」和「統計」旁邊），或在計時卡片上按右鍵。"
+        ],
+        "zh_CN": [
+          "专注轨迹现在一键就到：在宠物上点右键（在「专注」和「统计」旁边），或在计时卡片上点右键。"
+        ]
+      }
+    },
+    {
       "version": "2.27.0",
       "date": "2026-11-01",
       "title": "Focus Trail you can read",
