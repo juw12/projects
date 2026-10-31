@@ -857,7 +857,35 @@
   // 1.8.0: the PTZ module keeps the camera position from every motor command sent,
   // whichever view, macro or remote controller sent it.
   const commandSentListeners = new Set();
+  // Auto-update only restarts the app once nobody has touched it for a while:
+  // any motor command (typed, macro, PTZ or phone remote), click, key, wheel or a
+  // held-down button counts as use. Starts at load time, so a fresh launch is "busy".
+  let lastUserActivityAt = Date.now();
+  let pointersHeld = 0;
+  function markUserActivity() {
+    lastUserActivityAt = Date.now();
+  }
+  window.addEventListener('pointerdown', () => {
+    pointersHeld++;
+    markUserActivity();
+  }, true);
+  for (const type of ['pointerup', 'pointercancel']) {
+    window.addEventListener(type, () => {
+      pointersHeld = Math.max(0, pointersHeld - 1);
+      markUserActivity();
+    }, true);
+  }
+  window.addEventListener('blur', () => {
+    pointersHeld = 0;
+  });
+  for (const type of ['keydown', 'wheel']) {
+    window.addEventListener(type, markUserActivity, { capture: true, passive: true });
+  }
+  function userIdleMs() {
+    return pointersHeld > 0 ? 0 : Math.max(0, Date.now() - lastUserActivityAt);
+  }
   function notifyCommandSent(line) {
+    markUserActivity();
     for (const listener of commandSentListeners) {
       try { listener(String(line)); } catch (listenerError) { console.error(listenerError); }
     }
@@ -3928,7 +3956,9 @@
         // 1.9.1: about to restart to install an update (sharing comes back with the same code)
         updating: !!state.updatePending,
         // 1.10.0: a voice message holds the console for a few seconds
-        voiceBusy: !!serialLease
+        voiceBusy: !!serialLease,
+        // 1.11.22: time since the last command, click or key (auto-update waits for this)
+        idleMs: userIdleMs()
       });
     },
     // 1.9.0: after sleep, write one empty line so a dead USB port shows up at once

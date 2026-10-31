@@ -10,6 +10,9 @@ contextBridge.exposeInMainWorld('airizDesktop', {
   downloadUpdate: () => ipcRenderer.invoke('airiz:update-download'),
   installUpdate: () => ipcRenderer.invoke('airiz:update-install'),
   cancelScheduledUpdate: () => ipcRenderer.invoke('airiz:update-cancel-schedule'),
+  cancelAutoInstallUpdate: () => ipcRenderer.invoke('airiz:update-cancel-auto-install'),
+  getAutoUpdatePreference: () => ipcRenderer.invoke('airiz:get-auto-update'),
+  setAutoUpdatePreference: enabled => ipcRenderer.invoke('airiz:set-auto-update', enabled === true),
   takePendingReconnect: () => ipcRenderer.invoke('airiz:take-pending-reconnect'),
   chooseBluetoothDevice: id => ipcRenderer.invoke('airiz:bluetooth-choice', id),
   onBluetoothDevices: callback => {

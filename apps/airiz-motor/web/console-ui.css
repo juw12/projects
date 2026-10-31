@@ -604,6 +604,8 @@ body.console-redesign { color-scheme: inherit; }
 
 .desktop-update-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
 .desktop-update-note { font-size: 10px !important; color: var(--color-text-muted); }
+.desktop-update-auto { display: flex; align-items: flex-start; gap: 8px; margin-top: 12px; font-size: 12px; font-weight: 400; line-height: 1.45; color: var(--color-text-secondary, var(--color-text-muted)); cursor: pointer; }
+.desktop-update-auto input { margin-top: 2px; flex: none; accent-color: var(--color-accent); }
 #desktop-update-progress { width: 100%; margin-top: 14px; accent-color: var(--color-accent); }
 #desktop-updates-title { font-size: 22px; font-weight: 500; }
 

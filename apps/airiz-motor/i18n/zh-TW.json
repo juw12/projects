@@ -1480,7 +1480,11 @@
     "1 = slowest and strongest, higher = faster. Used by all moves on this page and the wobble test.": "1 = 最慢且最有力，數字越大越快。本頁所有移動與晃動測試都會使用。",
     "Measures how much the camera head wobbles while it rises and goes down, from the camera picture, and grades it like the bench test: the limit is grade 1. The AIRIZ lowers to the bottom (skipped when it is already fully down, e.g. after the last test), stays still for 1 s (to measure the camera noise), rises to the top and goes back down. The worse direction decides the grade. The grade uses the sideways shake (across the travel); the shake along the travel is shown too but not graded, because it also holds the motor's normal speed ripple.": "依攝影機畫面測量鏡頭在上升與下降時的晃動程度，並依照工作台目視標準評級：上限為 1 級。AIRIZ 會先降到底部（若已完全降下，例如上次測試後，則略過）、靜止 1 秒（測量攝影機雜訊），再升到頂部後降回。以較差的方向決定等級。等級依據側向晃動（垂直於行程方向）；沿行程方向的晃動也會顯示但不評級，因為其中也包含馬達正常的速度波動。",
     "Already fully down (bottom switch pressed): no lowering needed. Measuring the camera noise (head still, 1 s)…": "已在最底部（底部開關已按下）：不需先降下。測量攝影機雜訊（鏡頭靜止 1 秒）…",
-    "Already fully down after the last test: no lowering needed. Measuring the camera noise (head still, 1 s)…": "上次測試後已在最底部：不需先降下。測量攝影機雜訊（鏡頭靜止 1 秒）…"
+    "Already fully down after the last test: no lowering needed. Measuring the camera noise (head still, 1 s)…": "上次測試後已在最底部：不需先降下。測量攝影機雜訊（鏡頭靜止 1 秒）…",
+    "Cancel auto-install": "取消自動安裝",
+    "Auto-install cancelled. The verified update remains ready; press Install when it suits you.": "已取消自動安裝。已驗證的更新仍然就緒，方便時再按「安裝」。",
+    "Auto-update turned off. The verified update remains ready; press Install when it suits you.": "已關閉自動更新。已驗證的更新仍然就緒，方便時再按「安裝」。",
+    "The console became busy, so auto-update is waiting until it is idle again.": "主控台正在忙碌，自動更新會等到它再次閒置。"
   },
   "html": {
     "AIRIZDEVICE LAB": "AIRIZ<small>裝置實驗室</small>",
@@ -1583,7 +1587,8 @@
     "The grade borders are a wobble angle (degrees, peak to peak) and grow with viewing distance: grade 2 starts above the grade-1 limit, grade 3 above 2× it, grade 4 above 4× it. The grade-1 limit starts as an estimate. To make it match your eyes: test a few units, grade each one by eye with What did you see by eye?, then press Fit the grade borders.": "等級界線是晃動角度（度，峰對峰），並隨觀看距離放大：超過 1 級上限為 2 級，超過其 2 倍為 3 級，超過其 4 倍為 4 級。1 級上限一開始是估計值。若要符合您的目視判斷：測試幾台機台，每台用<em>您目視看到的是？</em>評級，再按<em>依目視結果調整等級界線</em>。",
     "Wobble test for the rising head (1.11.19)": "升降鏡頭晃動測試（1.11.19）",
     "Privacy lowers the camera to the rising switch and turns the lights off; automatic night vision switches IR-cut and IR LED from the light sensor. The motors report no position, so positions are counted in steps from Home; Motor speed is set in the Position group.": "<strong>隱私</strong>會把攝影機降到升降開關位置並關燈；<strong>自動夜視</strong>依光感測器切換 IR-cut 與 IR LED。馬達不回報位置，因此位置以從原點起算的步數計算；<em>馬達速度</em>在「位置」區設定。",
-    "Wobble test fixes, simpler Position group (1.11.20)": "晃動測試修正、位置區更簡潔（1.11.20）"
+    "Wobble test fixes, simpler Position group (1.11.20)": "晃動測試修正、位置區更簡潔（1.11.20）",
+    "Auto-update – downloads new releases and installs them only after the console has been untouched for 5 minutes (no command, click, key, macro, recording or camera session). A 30 s countdown with Cancel appears first.": "<strong>自動更新</strong>：自動下載新版本，並且只在主控台連續 5 分鐘無人操作時才安裝（沒有指令、點擊、按鍵、巨集、錄影或攝影機工作階段）。安裝前會先顯示 30 秒倒數與「取消」按鈕。"
   },
   "patterns": [
     [
@@ -2049,6 +2054,14 @@
     [
       "^Test failed: (.+)$",
       "測試失敗：$1"
+    ],
+    [
+      "^Installed: (.+?) · Available: (.+?)( · Portable)? · Auto-update on$",
+      "已安裝：$1 · 可用：$2$3 · 自動更新已開啟"
+    ],
+    [
+      "^Installed: (.+?)( · Portable)? · Auto-update on$",
+      "已安裝：$1$2 · 自動更新已開啟"
     ],
     [
       "^Installed: (.+?) · Available: (.+?)( · Portable)?$",
@@ -2681,6 +2694,22 @@
     [
       "^Grade borders fitted to (\\d+) graded units: grade-1 limit ([\\d.]+)° \\((\\d+) of (\\d+) would be graded differently\\)\\.$",
       "已依 $1 台目視評級調整等級界線：1 級上限 $2°（$4 台中有 $3 台的評級會不同）。"
+    ],
+    [
+      "^Auto-update installs (.+?) and restarts in (\\d+) s if the console stays idle\\. Press Cancel auto-install to keep working\\.$",
+      "自動更新將安裝 $1，若主控台保持閒置，$2 秒後重新啟動。按「取消自動安裝」即可繼續工作。"
+    ],
+    [
+      "^AIRIZ Console (.*?) ?is ready\\. Auto-update restarts the app soon unless you cancel\\.$",
+      "AIRIZ Console $1 已就緒。除非取消，自動更新即將重新啟動應用程式。"
+    ],
+    [
+      "^Could not change auto-update: (.+)$",
+      "無法變更自動更新：$1"
+    ],
+    [
+      "^Auto-update is waiting until (.+?), then installs and restarts\\. The device reconnects after restart\\.$",
+      "自動更新正在等待（$1），之後會安裝並重新啟動。重新啟動後裝置會自動重新連線。"
     ]
   ]
 }
