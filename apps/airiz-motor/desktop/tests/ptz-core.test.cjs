@@ -139,6 +139,38 @@ test('device replies, automatic night mode and schedules', () => {
   assert.equal(core.nightModeDecision(60, 'night', thresholds), 'day');
   assert.equal(core.nightModeDecision(5, 'night', thresholds), null);
   assert.equal(core.nightModeDecision(NaN, 'day', thresholds), null);
+});
+
+test('camera-based darkness: meanLuminance, cameraDarknessDecision, combinedNightDecision', () => {
+  const dark = new Uint8ClampedArray(20 * 20).fill(8);
+  const grey = new Uint8ClampedArray(20 * 20).fill(80);
+  const bright = new Uint8ClampedArray(20 * 20).fill(200);
+  const half = new Uint8ClampedArray(20 * 20);
+  for (let i = 0; i < half.length; i += 1) half[i] = i % 2 ? 5 : 240;
+  assert.equal(core.meanLuminance(dark), 8);
+  assert.equal(core.meanLuminance(grey), 80);
+  assert.equal(core.meanLuminance(bright), 200);
+  assert.equal(core.meanLuminance(half), (5 + 240) / 2);
+  assert.equal(core.meanLuminance(new Uint8ClampedArray(0)), 0);
+  assert.equal(core.meanLuminance(null), 0);
+
+  const camThresholds = { darkBelow: 22, brightAbove: 60 };
+  assert.equal(core.cameraDarknessDecision(20, 'day', camThresholds), 'night');
+  assert.equal(core.cameraDarknessDecision(40, 'night', camThresholds), null);
+  assert.equal(core.cameraDarknessDecision(70, 'night', camThresholds), 'day');
+  assert.equal(core.cameraDarknessDecision(20, 'night', camThresholds), null);
+  assert.equal(core.cameraDarknessDecision(70, 'day', camThresholds), null);
+  assert.equal(core.cameraDarknessDecision(NaN, 'day', camThresholds), null);
+
+  const combinedThresholds = { darkBelow: 10, brightAbove: 40 };
+  assert.deepEqual(core.combinedNightDecision({ number: 5 }, { mean: 120 }, 'day', combinedThresholds), { mode: 'night', source: 'als' });
+  assert.deepEqual(core.combinedNightDecision({ number: 200 }, { mean: 10 }, 'day', combinedThresholds), { mode: 'night', source: 'camera' });
+  assert.deepEqual(core.combinedNightDecision({ number: 60 }, { mean: 70 }, 'night', combinedThresholds), { mode: 'day', source: 'both' });
+  assert.deepEqual(core.combinedNightDecision({ number: 60 }, { mean: NaN }, 'night', combinedThresholds), { mode: 'day', source: 'als' });
+  assert.deepEqual(core.combinedNightDecision({ number: NaN }, { mean: 70 }, 'night', combinedThresholds), { mode: 'day', source: 'camera' });
+  assert.equal(core.combinedNightDecision({ number: 25 }, { mean: 25 }, 'day', combinedThresholds), null);
+  assert.equal(core.combinedNightDecision({ number: 25 }, { mean: 50 }, 'day', combinedThresholds), null);
+  assert.equal(core.combinedNightDecision({ number: 50 }, { mean: 25 }, 'night', combinedThresholds), null);
   const at = (h, m) => new Date(2026, 9, 28, h, m);
   assert.equal(core.isWithinSchedule(at(23, 0), '22:00', '06:00'), true);
   assert.equal(core.isWithinSchedule(at(5, 59), '22:00', '06:00'), true);

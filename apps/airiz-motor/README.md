@@ -24,7 +24,7 @@ A downloadable Windows x64 desktop edition now bundles this entire console local
 It is not a website shortcut and does not require Chrome, Edge, Node or Python to run.
 Installer and portable preview builds are available at:
 
-https://github.com/juw12/projects/releases/tag/airiz-desktop-v1.11.19
+https://github.com/juw12/projects/releases/tag/airiz-desktop-v1.11.21
 
 The initial binaries are unsigned. The packaged app was tested with demo/synthetic
 hardware; real-device bench validation is still required. Browser and mobile-web
@@ -58,6 +58,8 @@ against a simulated AIRIZ shell (busybox), not yet on real AIRIZ hardware; the s
 record/play commands can be changed under *Voice settings*.
 
 **Wobble test (1.11.19):** Camera tab → *Wobble test* (`web/wobble-core.js`, `web/wobble.js`). The rising head lowers, rises and goes down; frames are read straight from the camera track (`MediaStreamTrackProcessor`, camera timestamps), tracked frame-to-frame with sub-pixel block matching, the steady part of each move is fitted with a Gaussian-weighted local line, and the sideways residual (peak to peak, camera noise removed) is converted to degrees with the camera view width. Grades: 1 ≤ T, 2 ≤ 2T, 3 ≤ 4T, 4 above, T = grade-1 limit (0.12° estimate, teachable from units graded by eye). Fewer than 12 fps → NOT RELIABLE, never PASS. Tests: `desktop/tests/wobble-core.test.cjs` (incl. a rendered-frame pipeline test).
+
+**Go home key + camera-based night mode (1.11.21):** pressing **Home** on the keyboard now sends the camera home when the Camera tab is in front (outside fields, dialogs, and the side nav, no modifiers, no key-repeat) — mirroring the existing *Go home* button, which is now exception-safe so any thrown error from the move or the bottom switch becomes a visible status line, not a silent no-op. Auto night vision (`web/ptz.js`, `web/ptz-core.js`) now uses **both** the on-board light sensor and the camera picture: camera mean luminance is sampled on the main thread every ~700 ms (camera detection cannot run inside the `analyse()` worker, which has no DOM), a 6-sample rolling buffer smooths it, hysteresis applies (defaults `cameraDarkBelow: 22` / `cameraBrightAbove: 60` in 0..255 luminance units, tunable in the UI), and `combinedNightDecision` says **night** when either source says dark while only switching back to **day** when both say bright — so a covered ALS or a covered lens no longer freezes the wrong mode. ALS-only behaviour is preserved with one click (`Also use the camera picture` off). Tests: `desktop/tests/ptz-core.test.cjs` (`meanLuminance`, `cameraDarknessDecision`, `combinedNightDecision`), `desktop/tests/ptz-go-home.test.cjs` (click + Home-key wiring).
 
 **Owner-set code, no Bluetooth, one share button (1.11.18):** sharing never generates a random code: the owner sets a 6-digit code once in *Remote by code* (header) and it is used every time (`remote-session.js` own-code store; easy codes such as 123456 are refused). Without a code, sharing does not start. A share resumed after a restart continues only with the owner code. Phones (iPhone Safari/Chrome, Android Chrome) connect with the code, no app or Bluetooth. Removed: *Connect Bluetooth*, *iPhone: open in Bluefy*, *Phone remote* (Bluetooth bridge installer), and the duplicates *Share control*, *Connect by code* and the Camera-page *Left/right* switch; `iphone.html` now just opens the console. *Bluetooth test* stays (AIRIZ hardware self-test). Checked in Chromium with the demo device and an iPhone Chrome user agent.
 
