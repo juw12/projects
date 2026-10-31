@@ -1,0 +1,18 @@
+{
+  "appId": "io.github.juw12.temansehat",
+  "appName": "Teman Sehat",
+  "webDir": "../web",
+  "backgroundColor": "#f4f7f5",
+  "server": {
+    "androidScheme": "https"
+  },
+  "ios": {
+    "contentInset": "never",
+    "backgroundColor": "#2f7d5b"
+  },
+  "plugins": {
+    "LocalNotifications": {
+      "iconColor": "#2f7d5b"
+    }
+  }
+}
