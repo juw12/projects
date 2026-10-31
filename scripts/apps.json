@@ -2,6 +2,18 @@
   "_comment": "Single source of truth for the software apps shipped by this monorepo. Consumed by scripts/build_site.py (GitHub Pages landing page + deploy copy list) and scripts/publish_portfolio.py (portfolio cards + Obsidian notes). `summary` is the one-line portfolio-card copy (HTML-ready, keep it under ~120 visible characters so cards stay even); `description` is the full copy shown in the card's Details view and the Obsidian note (HTML-ready); `desc` is the short landing-page blurb. Optional `portfolio_order` overrides `order` for the portfolio card sequence only (the lowest values are the featured cards shown first); `portfolio: false` keeps an app off the portfolio without changing the landing page or notes. `links` are relative to the deployed site root (https://juw12.github.io/projects/<rel>). Extra fields `image_alt`, `project_id`, `label` (thumbnail aria-label) and `desc` reproduce the live markup verbatim. Card art (`image`, in the portfolio's assets/projects) must be house style: a 1600x1000 live-UI screenshot framed in the standard browser window on the dark accent gradient. Make it with `python scripts/portfolio_card.py <id>` (optional per-app `card` object: capture, frame_image, click, wait_ms, label, theme, accent, accent2) and never hand-draw, halftone or paste raw screenshots; publish_portfolio.py refuses cards that are missing, undersized or greyscale.",
   "apps": [
     {
+      "id": "outlook-archiver",
+      "name": "Outlook Archiver",
+      "category": "Apps",
+      "desc": "Windows Outlook COM automation: archive mailbox folders to Markdown, run via scheduled task",
+      "description": "Windows-only utility that automates Outlook (via COM) to archive mailbox folders into Markdown, scheduled-task friendly, with launcher scripts and a watchdog. Stdlib only.",
+      "tags": ["Outlook", "COM", "Windows", "automation", "archive"],
+      "image": "",
+      "image_alt": "Outlook Archiver icon",
+      "links": {"app": "outlook-archiver/", "web": "outlook-archiver/README.md", "mobile": "outlook-archiver/"},
+      "order": 0
+    },
+    {
       "id": "orbis",
       "portfolio": false,
       "name": "Orbis",

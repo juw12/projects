@@ -42,3 +42,9 @@ desktop.ini
 # ---- Local scratch (not part of the monorepo) ----
 3d/
 apps/glow/windows/dist/
+
+# ---- Audit (2026-10-31) — sweep.ps1 git add -A used to commit all of these ----
+.venv3d/
+**/traces.jsonl                       # agent trace files — may contain raw PII
+*.log
+orbis-loker-recovery/                 # recovery transcript dump — scratch, not source
