@@ -2,6 +2,33 @@
   "_comment": "Pips version history. Newest first. Feeds the in-app update notice (latest.json), the PPT guide and the update emails.",
   "releases": [
     {
+      "version": "2.27.0",
+      "date": "2026-11-01",
+      "title": "Focus Trail you can read",
+      "notes": {
+        "en": [
+          "Every bend in your Focus Trail now means something: the trail turns clockwise through the day (direction = time of day), runs straight while you stay in one app and kinks when you switch apps. Grey loops are still distracting time.",
+          "Time markers on the trail (08:00, 10:00, 12:00 ... or Mon-Fri in the week view) and a one-line key on every sticker, so friends understand it too.",
+          "New 'How to read your trail' strip in the Focus Trail window, and a tip when most of your time counts as neutral: mark your top apps as Productive or Distracting with one click."
+        ],
+        "id": [
+          "Setiap belokan di Jejak Fokus kini punya arti: jejak berputar searah jarum jam sepanjang hari (arah = jam), lurus saat kamu bertahan di satu aplikasi dan berbelok saat berganti aplikasi. Lingkaran abu-abu tetap waktu distraksi.",
+          "Penanda waktu di jejak (08:00, 10:00, 12:00 ... atau Sen-Jum di tampilan mingguan) dan satu baris keterangan di setiap stiker, supaya teman juga paham.",
+          "Baru: panel 'Cara membaca jejakmu' di jendela Jejak Fokus, dan tips saat sebagian besar waktumu dihitung netral: tandai aplikasi teratas sebagai Produktif atau Distraksi dengan sekali klik."
+        ],
+        "zh_TW": [
+          "專注軌跡的每個轉彎現在都有意義：軌跡隨時間順時針轉彎（方向 = 時間），一直用同一個程式時走直線，切換程式時會轉折。灰色圈圈仍代表分心時間。",
+          "軌跡上有時間標記（08:00、10:00、12:00…，週檢視則是週一到週五），每張貼圖也多了一行說明，朋友也看得懂。",
+          "專注軌跡視窗新增「怎麼看你的軌跡」說明；當大部分時間算一般時，會提示你一鍵把常用程式設為高效或分心。"
+        ],
+        "zh_CN": [
+          "专注轨迹的每个转弯现在都有意义：轨迹随时间顺时针转弯（方向 = 时间），一直用同一个程序时走直线，切换程序时会转折。灰色圈圈仍代表分心时间。",
+          "轨迹上有时间标记（08:00、10:00、12:00…，周视图则是周一到周五），每张贴图也多了一行说明，朋友也看得懂。",
+          "专注轨迹窗口新增「怎么看你的轨迹」说明；当大部分时间算一般时，会提示你一键把常用程序设为高效或分心。"
+        ]
+      }
+    },
+    {
       "version": "2.26.1",
       "date": "2026-10-31",
       "title": "Focus Trail follows your focus",

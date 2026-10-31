@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import hashlib
 import io
+import json
 import logging
 import math
 import os
@@ -249,13 +250,20 @@ def chaikin(points: list, iterations: int = 3) -> list:
 
 # How each kind of screen time moves the trail (v2.26.1):
 #   productive  -> long, smooth strides along the course (this is the "distance")
-#   neutral     -> shorter steps that wobble
+#   neutral     -> shorter steps (half speed)
 #   distracting -> loops on the spot: you go in circles and barely move forward
 TRAIL_STYLE = {
-    "productive": {"length": 1.0, "wobble": 6.0},
-    "neutral": {"length": 0.55, "wobble": 28.0},
-    "distracting": {"length": 0.0, "wobble": 0.0},
+    "productive": {"length": 1.0},
+    "neutral": {"length": 0.55},
+    "distracting": {"length": 0.0},
 }
+# direction = time of day: heading sweeps clockwise across the work window
+CLOCK_START = -90.0         # start of the window points "up" on the sticker
+CLOCK_SWEEP = 180.0         # ...and the end of the window points "down" (half a clock turn)
+# kinks = app switches: turn = MIN + RANGE * (how split that hour was across apps)
+SWITCH_TURN_MIN = 18.0
+SWITCH_TURN_RANGE = 62.0
+SWITCH_DECAY = 0.55         # how quickly a kink straightens out (per step)
 # distracting time = going in circles: one loop per step, coiling slowly forward
 LOOP_SUBSTEPS = 10          # points per loop
 LOOP_SIZE = 0.9             # loop circumference per sub-step (in productive-step units)
@@ -284,33 +292,54 @@ def chaikin_tagged(points: list, tags: list, iterations: int = 3) -> tuple[list,
     return points, tags
 
 
-def build_trail(hours: list, step_seconds: int) -> tuple[list, list]:
-    """Route from hourly screen time, shaped by productivity.
+def build_trail(hours: list, step_seconds: int, start_hour: int = 8, end_hour: int = 17,
+                markers: list | None = None) -> tuple[list, list]:
+    """Route from hourly screen time where every bend means something (v2.27).
 
-    ``hours`` = [[(app, seconds, category), ...], ...] in time order. Returns
-    (points, tags) where tags[k] is the category of the segment ending at points[k]."""
+    * step length  = time, scaled by productivity (see TRAIL_STYLE)
+    * direction    = time of day: the trail turns slowly clockwise from the start
+                     of the work window to the end, like a clock hand (half a turn)
+    * kinks        = switching apps: each change of app within an hour bends the
+                     trail, sharper the more that hour was split across apps;
+                     an hour spent in one app runs straight
+    * loops        = distracting time (going in circles)
+
+    ``hours`` = [(hour, [(app, seconds, category), ...], label_or_None), ...] in time order
+    (the label is optional). Labelled blocks drop a marker - (x, y, label) - into
+    ``markers`` where they start, e.g. "10:00" or "Tue", so readers can see the time.
+    Returns (points, tags); tags[k] is the category of the segment ending at points[k]."""
     x = y = 0.0
-    heading = None
     points = [(x, y)]
     tags = ["productive"]
-    step_index = 0
-    for apps in hours:
-        for _app, seconds, category in apps:
+    span = max(1, end_hour - start_hour)
+    zig = 1
+    for block in hours:
+        hour, apps = block[0], block[1]
+        label = block[2] if len(block) > 2 else None
+        if label and markers is not None:
+            markers.append((x, y, label))
+        hour_total = sum(seconds for _app, seconds, _cat in apps) or 1
+        top_share = max(seconds for _app, seconds, _cat in apps) / hour_total if apps else 1.0
+        split = 1.0 - top_share                       # 0 = one app all hour, ->1 = scattered
+        kink = SWITCH_TURN_MIN + SWITCH_TURN_RANGE * split
+        elapsed = 0
+        offset = 0.0
+        for index, (_app, seconds, category) in enumerate(apps):
             if category not in TRAIL_STYLE:
                 category = "neutral"
-            style = TRAIL_STYLE[category]
+            if index > 0 and seconds >= 30:
+                zig = -zig
+                offset = zig * kink                   # an app switch: bend left / right
             remaining = seconds
             while remaining >= 30:
                 chunk = min(step_seconds, remaining)
                 remaining -= chunk
-                step_index += 1
                 share = chunk / step_seconds
-                # the "course": a slow, looping run route that every step follows
-                course = 2.2 * step_index + 70 * math.sin(step_index / 9.0)
-                if heading is None:
-                    heading = course
+                clock = (hour - start_hour + (elapsed + chunk / 2) / 3600) / span
+                elapsed += chunk
+                heading = CLOCK_START + CLOCK_SWEEP * max(0.0, min(1.0, clock)) + offset
+                offset *= SWITCH_DECAY               # the kink straightens out again
                 if category == "distracting":
-                    # one loop (scaled by the chunk length), then creep forward a little
                     turn = 360.0 * share / LOOP_SUBSTEPS
                     loop_heading = heading - 90
                     for _ in range(LOOP_SUBSTEPS):
@@ -324,17 +353,14 @@ def build_trail(hours: list, step_seconds: int) -> tuple[list, list]:
                     points.append((x, y))
                     tags.append(category)
                     continue
-                difference = (course - heading + 180) % 360 - 180
-                noise = hashlib.md5(str(step_index).encode()).digest()[0] / 255 - 0.5
-                heading += 0.4 * difference + noise * style["wobble"]
-                length = style["length"] * share
+                length = TRAIL_STYLE[category]["length"] * share
                 x += length * math.cos(math.radians(heading))
                 y += length * math.sin(math.radians(heading))
                 points.append((x, y))
                 tags.append(category)
     if len(points) < 2:
         return [], []
-    return chaikin_tagged(points, tags)
+    return chaikin_tagged(points, tags, iterations=2)
 
 
 def period_stats(con, cfg: dict, kind: str, anchor: date) -> dict:
@@ -349,6 +375,7 @@ def period_stats(con, cfg: dict, kind: str, anchor: date) -> dict:
 
     screen = productive = focus_secs = pomos = window = 0
     apps = Counter()
+    app_category = {}
     trail_hours = []
     per_day = []
     per_hour = {h: [0, 0] for h in range(start, end)}
@@ -360,6 +387,7 @@ def period_stats(con, cfg: dict, kind: str, anchor: date) -> dict:
         for hour, app, seconds in rows:
             seconds = int(seconds or 0)
             category = _category(app, cfg)
+            app_category[app] = category
             by_hour.setdefault(int(hour), []).append((app, seconds, category))
             apps[app] += seconds
             day_screen += seconds
@@ -368,8 +396,12 @@ def period_stats(con, cfg: dict, kind: str, anchor: date) -> dict:
                 day_productive += seconds
             per_hour[int(hour)][0] += seconds
             per_hour[int(hour)][1] += seconds if is_productive else 0
-        for hour in sorted(by_hour):
-            trail_hours.append(sorted(by_hour[hour], key=lambda item: -item[1]))
+        for position, hour in enumerate(sorted(by_hour)):
+            if kind == "week":
+                label = f"{day:%a}" if position == 0 else None      # one marker per day
+            else:
+                label = f"{hour:02d}:00" if hour % 2 == 0 else None  # every two hours
+            trail_hours.append((hour, sorted(by_hour[hour], key=lambda item: -item[1]), label))
         count, seconds = _sessions(con, day, start, end)
         pomos += count
         focus_secs += seconds
@@ -391,7 +423,12 @@ def period_stats(con, cfg: dict, kind: str, anchor: date) -> dict:
         title = fmt_day(anchor)
         subtitle = f"{start:02d}:00-{end:02d}:00"
     score = sum(scores) / len(scores) if scores else None
-    trail, trail_tags = build_trail(trail_hours, 300 if kind == "day" else 900)
+    trail_marks = []
+    trail, trail_tags = build_trail(trail_hours, 300 if kind == "day" else 900, start, end,
+                                    markers=trail_marks)
+    neutral_seconds = sum(sec for app, sec in apps.items() if app_category.get(app) == "neutral")
+    neutral_apps = [(app, pretty_app(app), sec) for app, sec in apps.most_common()
+                    if app_category.get(app) == "neutral"][:3]
     return {
         "kind": kind,
         "title": title,
@@ -408,6 +445,9 @@ def period_stats(con, cfg: dict, kind: str, anchor: date) -> dict:
         "bars": bars,
         "trail": trail,
         "trail_tags": trail_tags,
+        "trail_marks": trail_marks,
+        "neutral_pct": round(100 * neutral_seconds / screen) if screen else 0,
+        "neutral_apps": neutral_apps,
     }
 
 
@@ -538,7 +578,7 @@ def _runs(mapped, tags):
     return runs
 
 
-def draw_trail(p: Painter, points, box, accent, width, glow=False, shadow=True, tags=None):
+def draw_trail(p: Painter, points, box, accent, width, glow=False, shadow=True, tags=None, marks=None):
     x0, y0, x1, y1 = box
     if len(points) < 2:
         p.text((x0 + x1) / 2, (y0 + y1) / 2, T("ft_no_data"), 44, "semibold",
@@ -573,6 +613,8 @@ def draw_trail(p: Painter, points, box, accent, width, glow=False, shadow=True, 
         rr = run_w / 2
         for cx, cy in (run[0], run[-1]):
             top.ellipse([cx - rr, cy - rr, cx + rr, cy + rr], fill=fill)
+    if marks:
+        _draw_marks(p, marks, mapped, k, off_x, off_y, line_w, shadow)
     sx, sy = mapped[0]
     r = line_w * 0.95
     top.ellipse([sx - r, sy - r, sx + r, sy + r], fill=WHITE,
@@ -581,6 +623,38 @@ def draw_trail(p: Painter, points, box, accent, width, glow=False, shadow=True, 
     r = line_w * 1.25
     top.ellipse([ex - r, ey - r, ex + r, ey + r], fill=color,
                 outline=WHITE, width=max(1, int(line_w * 0.35)))
+
+
+def _draw_marks(p: Painter, marks, mapped, k, off_x, off_y, line_w, shadow):
+    """Time markers: a small white dot on the trail and its label ("10:00" / "Tue")
+    placed on the outside of the curve, away from the trail's centre."""
+    s = p.s
+    cx = sum(pt[0] for pt in mapped) / len(mapped)
+    cy = sum(pt[1] for pt in mapped) / len(mapped)
+    size = max(18, int(line_w / s * 1.5))
+    font = get_font(int(size * s), "bold", _needs_cjk("".join(m[2] for m in marks)))
+    top = p.draw["top"]
+    r = max(2.0, line_w * 0.42)
+    for mx, my, label in marks:
+        px = (off_x + k * mx) * s
+        py = (off_y + k * my) * s
+        dx, dy = px - cx, py - cy
+        dist = math.hypot(dx, dy) or 1.0
+        lx = px + dx / dist * (line_w * 1.4 + size * s * 1.1)
+        ly = py + dy / dist * (line_w * 1.4 + size * s * 0.8)
+        top.ellipse([px - r, py - r, px + r, py + r], fill=WHITE, outline=(20, 20, 26, 255),
+                    width=max(1, int(r * 0.45)))
+        if shadow:
+            p.draw["shadow"].text((lx, ly + 2 * s), label, font=font, fill=(0, 0, 0, 200), anchor="mm")
+        top.text((lx, ly), label, font=font, fill=(255, 255, 255, 235), anchor="mm")
+
+
+def draw_shape_key(p: Painter, cx, cy, tags, size=24, shadow=True):
+    """One plain-language line that travels with every shared sticker."""
+    parts = [T("ft_key_straight"), T("ft_key_kinks")]
+    if tags and "distracting" in tags:
+        parts.append(T("ft_key_loops"))
+    p.text(cx, cy, "  \u00b7  ".join(parts), size, "semibold", fill=(255, 255, 255, 200), shadow=shadow)
 
 
 def draw_trail_legend(p: Painter, cx, cy, accent, tags, size=26, shadow=True):
@@ -646,10 +720,12 @@ def tpl_strava(st, accent, show_top_app, scale):
         x = 180 + index * 360
         p.text(x, 95, label, 34, "regular", fill=(255, 255, 255, 240))
         p.text(x, 168, value, 74, "black")
-    draw_trail(p, st["trail"], (110, 270, 970, 1080), accent, 16, tags=st.get("trail_tags"))
-    draw_trail_legend(p, 540, 1140, accent, st.get("trail_tags"), 28)
-    p.text(540, 1205, "PIPS · FOCUS TRAIL", 44, "black", fill=accent + (255,))
-    p.text(540, 1265, _footer(st, show_top_app), 32, "semibold")
+    draw_trail(p, st["trail"], (130, 280, 950, 1040), accent, 16, tags=st.get("trail_tags"),
+               marks=st.get("trail_marks"))
+    draw_trail_legend(p, 540, 1105, accent, st.get("trail_tags"), 28)
+    draw_shape_key(p, 540, 1150, st.get("trail_tags"), 26)
+    p.text(540, 1218, "PIPS · FOCUS TRAIL", 44, "black", fill=accent + (255,))
+    p.text(540, 1274, _footer(st, show_top_app), 32, "semibold")
     return p.compose()
 
 
@@ -664,8 +740,10 @@ def tpl_badge(st, accent, show_top_app, scale):
                            outline=(255, 255, 255, 45), width=max(1, int(3 * scale)))
     p.text(540, 160, "FOCUS TRAIL", 44, "black", fill=accent + (255,), shadow=False)
     p.text(540, 212, st["title"].upper(), 28, "semibold", fill=(255, 255, 255, 170), shadow=False)
-    draw_trail(p, st["trail"], (310, 255, 770, 560), accent, 12, shadow=False, tags=st.get("trail_tags"))
-    draw_trail_legend(p, 540, 605, accent, st.get("trail_tags"), 22, shadow=False)
+    draw_trail(p, st["trail"], (330, 262, 750, 530), accent, 12, shadow=False, tags=st.get("trail_tags"),
+               marks=st.get("trail_marks"))
+    draw_trail_legend(p, 540, 572, accent, st.get("trail_tags"), 22, shadow=False)
+    draw_shape_key(p, 540, 604, st.get("trail_tags"), 19, shadow=False)
     p.text(540, 690, fmt_duration(st["screen"]), 116, "black", shadow=False)
     p.text(540, 772, T("ft_screen").upper(), 30, "bold", fill=(255, 255, 255, 150), shadow=False)
     p.text(540, 838, T("ft_badge_line", pct=st["productive_pct"], n=st["pomos"]),
@@ -679,8 +757,10 @@ def tpl_badge(st, accent, show_top_app, scale):
 
 def tpl_minimal(st, accent, show_top_app, scale):
     p = Painter(1080, 1080, scale)
-    draw_trail(p, st["trail"], (120, 80, 960, 760), accent, 22, tags=st.get("trail_tags"))
-    draw_trail_legend(p, 540, 815, accent, st.get("trail_tags"), 28)
+    draw_trail(p, st["trail"], (150, 80, 930, 690), accent, 22, tags=st.get("trail_tags"),
+               marks=st.get("trail_marks"))
+    draw_trail_legend(p, 540, 752, accent, st.get("trail_tags"), 28)
+    draw_shape_key(p, 540, 794, st.get("trail_tags"), 26)
     p.text(540, 895, fmt_duration(st["screen"]), 128, "black")
     p.text(540, 995, T("ft_screen").lower() + "  ·  " + _footer(st, show_top_app), 32, "semibold")
     return p.compose()
@@ -723,9 +803,10 @@ def tpl_neon(st, accent, show_top_app, scale):
     p.text(100, 122, "FOCUS TRAIL", 44, "black", fill=accent + (255,), anchor="lm", shadow=False)
     p.text(980, 122, st["title"], 32, "semibold", fill=(255, 255, 255, 190), anchor="rm",
            shadow=False)
-    draw_trail(p, st["trail"], (140, 210, 940, 830), accent, 11, glow=True, shadow=False,
-               tags=st.get("trail_tags"))
-    draw_trail_legend(p, 540, 875, accent, st.get("trail_tags"), 24, shadow=False)
+    draw_trail(p, st["trail"], (160, 215, 920, 790), accent, 11, glow=True, shadow=False,
+               tags=st.get("trail_tags"), marks=st.get("trail_marks"))
+    draw_trail_legend(p, 540, 840, accent, st.get("trail_tags"), 24, shadow=False)
+    draw_shape_key(p, 540, 878, st.get("trail_tags"), 22, shadow=False)
     cells = [
         (T("ft_screen").upper(), fmt_duration(st["screen"])),
         (T("ft_productive").upper(), fmt_duration(st["productive"])),
@@ -867,7 +948,7 @@ class FocusTrailWindow:
 
         tk.Label(left, text=T("ft_title"), bg=p["bg"], fg=p["accent"],
                  font=("Segoe UI Semibold", 17)).pack(anchor="w")
-        tk.Label(left, text=T("ft_subtitle", start=f"{start:02d}", end=f"{end:02d}"),
+        tk.Label(left, text=T("ft_subtitle_short", start=f"{start:02d}", end=f"{end:02d}"),
                  bg=p["bg"], fg=p["muted"], font=("Segoe UI", 9),
                  wraplength=320, justify="left").pack(anchor="w")
 
@@ -944,11 +1025,107 @@ class FocusTrailWindow:
                  font=("Segoe UI", 9), wraplength=320, justify="left").pack(anchor="w",
                                                                              pady=(8, 0))
 
+        self._build_how_to_read(right)
+        # v2.27: "your trail is mostly neutral" nudge with one-click app categories
+        self.nudge = tk.Frame(right, bg=p["bg"])
+        self.nudge.pack(fill="x", padx=14)
         self.canvas = tk.Canvas(right, bg=p["bg"], highlightthickness=0)
-        self.canvas.pack(fill="both", expand=True, padx=14, pady=14)
+        self.canvas.pack(fill="both", expand=True, padx=14, pady=(4, 14))
         self.canvas.bind("<Configure>", lambda e: self.schedule_redraw())
 
         self._refresh_choices()
+        self.refresh()
+
+    # ---- v2.27: help new users read the trail -----------------------------
+    def _build_how_to_read(self, parent):
+        """The trail's visual dictionary: five tiny drawings with a few words each,
+        laid out as a compact 3 x 2 strip above the preview."""
+        tk = self.tk
+        p = self.p
+        strip = tk.Frame(parent, bg=p["bg"])
+        strip.pack(fill="x", padx=14, pady=(12, 0))
+        tk.Label(strip, text=T("ft_how_title"), bg=p["bg"], fg=p["ink"],
+                 font=("Segoe UI Semibold", 9)).pack(anchor="w")
+        items = [("stride", T("ft_read_distance")), ("straight", T("ft_read_straight")),
+                 ("kinks", T("ft_read_kinks")), ("loops", T("ft_read_loops")),
+                 ("clock", T("ft_read_clock"))]
+        col_w, row_h, cols = 236, 30, 3
+        canvas = tk.Canvas(strip, width=col_w * cols, height=row_h * 2, bg=p["bg"], highlightthickness=0)
+        canvas.pack(anchor="w")
+        accent = self.color
+        tint = "#%02x%02x%02x" % tuple(round(c + (255 - c) * 0.55) for c in hex_rgb(accent))
+        for index, (kind, text) in enumerate(items):
+            x0 = (index % cols) * col_w
+            y = (index // cols) * row_h + row_h / 2
+            if kind == "stride":
+                canvas.create_line(x0 + 4, y, x0 + 16, y, fill=tint, width=3, capstyle="round")
+                canvas.create_line(x0 + 16, y, x0 + 44, y, fill=accent, width=5, capstyle="round")
+            elif kind == "straight":
+                canvas.create_line(x0 + 4, y + 5, x0 + 44, y - 5, fill=accent, width=4, capstyle="round")
+            elif kind == "kinks":
+                canvas.create_line(x0 + 4, y, x0 + 12, y - 6, x0 + 20, y + 6, x0 + 28, y - 6,
+                                   x0 + 36, y + 5, x0 + 44, y, fill=tint, width=3,
+                                   joinstyle="round", capstyle="round")
+            elif kind == "loops":
+                canvas.create_line(x0 + 4, y + 4, x0 + 14, y + 4, fill=tint, width=3)
+                canvas.create_oval(x0 + 14, y - 8, x0 + 27, y + 5, outline="#9696a0", width=2)
+                canvas.create_oval(x0 + 21, y - 8, x0 + 34, y + 5, outline="#9696a0", width=2)
+                canvas.create_line(x0 + 34, y + 4, x0 + 44, y + 4, fill=accent, width=3)
+            else:
+                canvas.create_arc(x0 + 2, y - 6, x0 + 46, y + 34, start=35, extent=110, style="arc",
+                                  outline=accent, width=3)
+                canvas.create_oval(x0 + 21, y - 9, x0 + 27, y - 3, fill="white", outline="#202026")
+                canvas.create_text(x0 + 24, y + 8, text="10:00", fill=p["ink"], font=("Segoe UI", 6, "bold"))
+            canvas.create_text(x0 + 52, y, text=text, anchor="w", fill=p["muted"], font=("Segoe UI", 8),
+                               width=col_w - 58)
+
+    def _render_nudge(self):
+        """Most of the time counts as neutral -> the trail is pale. Offer one-click fixes."""
+        tk = self.tk
+        p = self.p
+        for child in self.nudge.winfo_children():
+            child.destroy()
+        st = self.stats or {}
+        if st.get("screen", 0) < 1800 or st.get("neutral_pct", 0) < 70 or not st.get("neutral_apps"):
+            return
+        box = tk.Frame(self.nudge, bg=p["card"], padx=10, pady=8,
+                       highlightthickness=1, highlightbackground=p["accent"])
+        box.pack(anchor="w", fill="x", pady=(8, 0))
+        tk.Label(box, text="\U0001F4A1 " + T("ft_nudge", pct=st["neutral_pct"]), bg=p["card"],
+                 fg=p["ink"], font=("Segoe UI", 9), wraplength=640, justify="left").pack(anchor="w")
+        apps_row = tk.Frame(box, bg=p["card"])
+        apps_row.pack(anchor="w", fill="x")
+        for app, name, seconds in st["neutral_apps"]:
+            row = tk.Frame(apps_row, bg=p["card"], padx=6)
+            row.pack(side="left", pady=(6, 0))
+            tk.Label(row, text=f"{name[:16]}  {fmt_duration(seconds)}", bg=p["card"], fg=p["ink"],
+                     font=("Segoe UI Semibold", 9)).pack(anchor="w")
+            buttons = tk.Frame(row, bg=p["card"])
+            buttons.pack(anchor="w", pady=(2, 0))
+            self._button(buttons, T("ft_mark_prod"), lambda a=app: self.mark_app(a, "productive"),
+                         primary=True).pack(side="left")
+            self._button(buttons, T("ft_mark_dist"), lambda a=app: self.mark_app(a, "distracting")).pack(
+                side="left", padx=(4, 0))
+
+    def mark_app(self, app: str, category: str):
+        """Put ``app`` in a category list - live (the widget shares this cfg) and in config.json."""
+        lists = self.cfg.setdefault("category", {})
+        for key in ("productive", "neutral", "distracting"):
+            names = lists.setdefault(key, [])
+            lists[key] = [n for n in names if str(n).lower() != app.lower()]
+        lists[category].append(app.lower())
+        path = BASE_DIR / "config.json"
+        try:
+            disk = {}
+            if path.exists():
+                disk = json.loads(path.read_text(encoding="utf-8-sig"))
+            disk["category"] = lists
+            temp = path.with_suffix(".json.tmp")
+            temp.write_text(json.dumps(disk, indent=2, ensure_ascii=False), encoding="utf-8")
+            os.replace(temp, path)
+        except Exception as exc:
+            logger.warning(f"focus_trail could not save the app category: {exc}")
+        self.status.set(T("ft_marked", app=pretty_app(app), cat=T("ft_cat_" + category)))
         self.refresh()
 
     # ---- widgets ------------------------------------------------------------
@@ -1039,6 +1216,7 @@ class FocusTrailWindow:
             score=_score_text(st)))
         apps = "\n".join(f"{name[:14]:<14} {fmt_duration(sec):>8}" for name, sec in st["top_apps"])
         self.apps.config(text=apps or T("ft_no_data"))
+        self._render_nudge()
         self.schedule_redraw()
 
     def schedule_redraw(self):
