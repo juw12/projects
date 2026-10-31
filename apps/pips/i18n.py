@@ -1889,6 +1889,9 @@ S.update({
                      "Strava 風格的上班專注貼圖：把你的一天或一週畫成路線。可儲存、複製或分享給朋友。",
                      "Strava 风格的工作专注贴图：把你的一天或一周画成路线。可保存、复制或分享给朋友。"),
     "arena_trail_btn": ("Focus Trail", "Jejak Fokus", "專注軌跡", "专注轨迹"),
+    "ft_cat_productive": ("productive", "produktif", "高效", "高效"),
+    "ft_cat_neutral": ("neutral", "netral", "一般", "一般"),
+    "ft_cat_distracting": ("distracting", "distraksi", "分心", "分心"),
 })
 
 

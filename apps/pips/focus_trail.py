@@ -1,5 +1,5 @@
 """
-focus_trail.py - Strava-style "Focus Trail" stickers for Pips (v2.26).
+focus_trail.py - Strava-style "Focus Trail" stickers for Pips (v2.26; productivity-shaped trail v2.26.1).
 
 Turns the weekday work-hours screen time that tracker.py already records
 (hour_usage, idle excluded) into a route-like "footprint" and exports it as a
@@ -247,33 +247,94 @@ def chaikin(points: list, iterations: int = 3) -> list:
     return points
 
 
-def build_trail(hours: list, step_seconds: int) -> list:
-    """Route from hourly app usage: every app pulls the trail in its own
-    direction; step length = time spent. ``hours`` = [[(app, secs), ...], ...]."""
+# How each kind of screen time moves the trail (v2.26.1):
+#   productive  -> long, smooth strides along the course (this is the "distance")
+#   neutral     -> shorter steps that wobble
+#   distracting -> loops on the spot: you go in circles and barely move forward
+TRAIL_STYLE = {
+    "productive": {"length": 1.0, "wobble": 6.0},
+    "neutral": {"length": 0.55, "wobble": 28.0},
+    "distracting": {"length": 0.0, "wobble": 0.0},
+}
+# distracting time = going in circles: one loop per step, coiling slowly forward
+LOOP_SUBSTEPS = 10          # points per loop
+LOOP_SIZE = 0.9             # loop circumference per sub-step (in productive-step units)
+LOOP_DRIFT = 0.35           # how far each loop creeps forward
+TRAIL_CATEGORIES = ("productive", "neutral", "distracting")
+
+
+def chaikin_tagged(points: list, tags: list, iterations: int = 3) -> tuple[list, list]:
+    """Chaikin smoothing that keeps a category per vertex.
+
+    ``tags[k]`` is the category of the segment that ends at ``points[k]``
+    (``tags[0]`` is unused). New points inherit the tag of their segment."""
+    for _ in range(iterations):
+        if len(points) < 3:
+            break
+        smooth = [points[0]]
+        smooth_tags = [tags[0]]
+        for index, ((ax, ay), (bx, by)) in enumerate(zip(points, points[1:])):
+            tag = tags[index + 1]
+            smooth.append((0.75 * ax + 0.25 * bx, 0.75 * ay + 0.25 * by))
+            smooth.append((0.25 * ax + 0.75 * bx, 0.25 * ay + 0.75 * by))
+            smooth_tags.extend((tag, tag))
+        smooth.append(points[-1])
+        smooth_tags.append(tags[-1])
+        points, tags = smooth, smooth_tags
+    return points, tags
+
+
+def build_trail(hours: list, step_seconds: int) -> tuple[list, list]:
+    """Route from hourly screen time, shaped by productivity.
+
+    ``hours`` = [[(app, seconds, category), ...], ...] in time order. Returns
+    (points, tags) where tags[k] is the category of the segment ending at points[k]."""
     x = y = 0.0
     heading = None
     points = [(x, y)]
+    tags = ["productive"]
     step_index = 0
     for apps in hours:
-        for app, seconds in apps:
+        for _app, seconds, category in apps:
+            if category not in TRAIL_STYLE:
+                category = "neutral"
+            style = TRAIL_STYLE[category]
             remaining = seconds
             while remaining >= 30:
                 chunk = min(step_seconds, remaining)
                 remaining -= chunk
                 step_index += 1
-                # slow meanders keep single-app days from becoming a straight line
-                target = (app_heading(app) + 55 * math.sin(step_index / 4.0)
-                          + 35 * math.sin(step_index / 11.0))
+                share = chunk / step_seconds
+                # the "course": a slow, looping run route that every step follows
+                course = 2.2 * step_index + 70 * math.sin(step_index / 9.0)
                 if heading is None:
-                    heading = target
-                difference = (target - heading + 180) % 360 - 180
-                jitter = (hashlib.md5(str(step_index).encode()).digest()[0] / 255 - 0.5) * 14
-                heading += 0.35 * difference + jitter
-                length = chunk / step_seconds
+                    heading = course
+                if category == "distracting":
+                    # one loop (scaled by the chunk length), then creep forward a little
+                    turn = 360.0 * share / LOOP_SUBSTEPS
+                    loop_heading = heading - 90
+                    for _ in range(LOOP_SUBSTEPS):
+                        loop_heading += turn
+                        x += LOOP_SIZE * share * math.cos(math.radians(loop_heading))
+                        y += LOOP_SIZE * share * math.sin(math.radians(loop_heading))
+                        points.append((x, y))
+                        tags.append(category)
+                    x += LOOP_DRIFT * share * math.cos(math.radians(heading))
+                    y += LOOP_DRIFT * share * math.sin(math.radians(heading))
+                    points.append((x, y))
+                    tags.append(category)
+                    continue
+                difference = (course - heading + 180) % 360 - 180
+                noise = hashlib.md5(str(step_index).encode()).digest()[0] / 255 - 0.5
+                heading += 0.4 * difference + noise * style["wobble"]
+                length = style["length"] * share
                 x += length * math.cos(math.radians(heading))
                 y += length * math.sin(math.radians(heading))
                 points.append((x, y))
-    return chaikin(points) if len(points) > 1 else []
+                tags.append(category)
+    if len(points) < 2:
+        return [], []
+    return chaikin_tagged(points, tags)
 
 
 def period_stats(con, cfg: dict, kind: str, anchor: date) -> dict:
@@ -298,10 +359,11 @@ def period_stats(con, cfg: dict, kind: str, anchor: date) -> dict:
         day_screen = day_productive = 0
         for hour, app, seconds in rows:
             seconds = int(seconds or 0)
-            by_hour.setdefault(int(hour), []).append((app, seconds))
+            category = _category(app, cfg)
+            by_hour.setdefault(int(hour), []).append((app, seconds, category))
             apps[app] += seconds
             day_screen += seconds
-            is_productive = _category(app, cfg) == "productive"
+            is_productive = category == "productive"
             if is_productive:
                 day_productive += seconds
             per_hour[int(hour)][0] += seconds
@@ -329,6 +391,7 @@ def period_stats(con, cfg: dict, kind: str, anchor: date) -> dict:
         title = fmt_day(anchor)
         subtitle = f"{start:02d}:00-{end:02d}:00"
     score = sum(scores) / len(scores) if scores else None
+    trail, trail_tags = build_trail(trail_hours, 300 if kind == "day" else 900)
     return {
         "kind": kind,
         "title": title,
@@ -343,7 +406,8 @@ def period_stats(con, cfg: dict, kind: str, anchor: date) -> dict:
         "stars": _stars(score, cfg),
         "top_apps": [(pretty_app(a), s) for a, s in apps.most_common(5)],
         "bars": bars,
-        "trail": build_trail(trail_hours, 300 if kind == "day" else 900),
+        "trail": trail,
+        "trail_tags": trail_tags,
     }
 
 
@@ -439,12 +503,49 @@ def _thin(points, spacing):
     return kept
 
 
-def draw_trail(p: Painter, points, box, accent, width, glow=False, shadow=True):
+def _thin_tagged(points, tags, spacing):
+    """Drop vertices closer than ``spacing`` but never across a category change."""
+    kept = [points[0]]
+    kept_tags = [tags[0]]
+    for (x, y), tag in zip(points[1:-1], tags[1:-1]):
+        if tag != kept_tags[-1] or math.hypot(x - kept[-1][0], y - kept[-1][1]) >= spacing:
+            kept.append((x, y))
+            kept_tags.append(tag)
+    kept.append(points[-1])
+    kept_tags.append(tags[-1])
+    return kept, kept_tags
+
+
+def trail_colors(accent) -> dict:
+    """Category -> RGBA. Productive = your colour, neutral = a lighter tint, distracting = grey."""
+    tint = tuple(round(c + (255 - c) * 0.55) for c in accent)
+    return {
+        "productive": accent + (255,),
+        "neutral": tint + (235,),
+        "distracting": (150, 150, 160, 225),
+    }
+
+
+def _runs(mapped, tags):
+    """Split a polyline into [(category, [points...]), ...] runs of one category."""
+    runs = []
+    for index in range(1, len(mapped)):
+        tag = tags[index]
+        if runs and runs[-1][0] == tag:
+            runs[-1][1].append(mapped[index])
+        else:
+            runs.append((tag, [mapped[index - 1], mapped[index]]))
+    return runs
+
+
+def draw_trail(p: Painter, points, box, accent, width, glow=False, shadow=True, tags=None):
     x0, y0, x1, y1 = box
     if len(points) < 2:
         p.text((x0 + x1) / 2, (y0 + y1) / 2, T("ft_no_data"), 44, "semibold",
                fill=(255, 255, 255, 210), shadow=shadow)
         return
+    if not tags or len(tags) != len(points):
+        tags = ["productive"] * len(points)
     xs = [pt[0] for pt in points]
     ys = [pt[1] for pt in points]
     span_x = max(xs) - min(xs) or 1e-6
@@ -454,17 +555,24 @@ def draw_trail(p: Painter, points, box, accent, width, glow=False, shadow=True):
     off_y = (y0 + y1) / 2 - k * (min(ys) + max(ys)) / 2
     s = p.s
     line_w = max(1, int(width * s))
-    mapped = _thin([((off_x + k * a) * s, (off_y + k * b) * s) for a, b in points], line_w * 0.6)
-    color = accent + (255,)
+    mapped, tags = _thin_tagged([((off_x + k * a) * s, (off_y + k * b) * s) for a, b in points],
+                                tags, line_w * 0.6)
+    colors = trail_colors(accent)
+    color = colors["productive"]
     if shadow:
         p.draw["shadow"].line(mapped, fill=(0, 0, 0, 170), width=int(line_w * 1.5), joint="curve")
-    if glow:
-        p.draw["glow"].line(mapped, fill=color, width=int(line_w * 2.4), joint="curve")
     top = p.draw["top"]
-    top.line(mapped, fill=color, width=line_w, joint="curve")
     r = line_w / 2
-    for cx, cy in (mapped[0], mapped[-1]):
-        top.ellipse([cx - r, cy - r, cx + r, cy + r], fill=color)
+    for category, run in _runs(mapped, tags):
+        fill = colors.get(category, colors["neutral"])
+        width_share = {"productive": 1.0, "neutral": 0.8, "distracting": 0.55}.get(category, 0.8)
+        run_w = max(1, int(line_w * width_share))
+        if glow and category == "productive":
+            p.draw["glow"].line(run, fill=fill, width=int(line_w * 2.4), joint="curve")
+        top.line(run, fill=fill, width=run_w, joint="curve")
+        rr = run_w / 2
+        for cx, cy in (run[0], run[-1]):
+            top.ellipse([cx - rr, cy - rr, cx + rr, cy + rr], fill=fill)
     sx, sy = mapped[0]
     r = line_w * 0.95
     top.ellipse([sx - r, sy - r, sx + r, sy + r], fill=WHITE,
@@ -473,6 +581,33 @@ def draw_trail(p: Painter, points, box, accent, width, glow=False, shadow=True):
     r = line_w * 1.25
     top.ellipse([ex - r, ey - r, ex + r, ey + r], fill=color,
                 outline=WHITE, width=max(1, int(line_w * 0.35)))
+
+
+def draw_trail_legend(p: Painter, cx, cy, accent, tags, size=26, shadow=True):
+    """Small key under the trail: only the categories that appear on it."""
+    present = [c for c in TRAIL_CATEGORIES if tags and c in tags]
+    if len(present) < 2:
+        return
+    colors = trail_colors(accent)
+    font = get_font(int(size * p.s), "semibold", _needs_cjk(T("ft_cat_productive")))
+    swatch = size * 1.4
+    gap = size * 0.5
+    spacing = size * 1.3
+    items = []
+    total = 0.0
+    for category in present:
+        label = T("ft_cat_" + category)
+        text_w = p.draw["top"].textlength(label, font=font) / p.s
+        items.append((category, label, text_w))
+        total += swatch + gap + text_w
+    total += spacing * (len(items) - 1)
+    x = cx - total / 2
+    for category, label, text_w in items:
+        p.draw["top"].line(p.box(x, cy, x + swatch, cy), fill=colors[category],
+                           width=max(1, int(size * 0.32 * p.s)))
+        p.text(x + swatch + gap, cy, label, size, "semibold", fill=(255, 255, 255, 220),
+               anchor="lm", shadow=shadow)
+        x += swatch + gap + text_w + spacing
 
 
 def draw_stars(p: Painter, cx, cy, count, size, accent, layer="top"):
@@ -511,7 +646,8 @@ def tpl_strava(st, accent, show_top_app, scale):
         x = 180 + index * 360
         p.text(x, 95, label, 34, "regular", fill=(255, 255, 255, 240))
         p.text(x, 168, value, 74, "black")
-    draw_trail(p, st["trail"], (110, 290, 970, 1110), accent, 16)
+    draw_trail(p, st["trail"], (110, 270, 970, 1080), accent, 16, tags=st.get("trail_tags"))
+    draw_trail_legend(p, 540, 1140, accent, st.get("trail_tags"), 28)
     p.text(540, 1205, "PIPS · FOCUS TRAIL", 44, "black", fill=accent + (255,))
     p.text(540, 1265, _footer(st, show_top_app), 32, "semibold")
     return p.compose()
@@ -528,7 +664,8 @@ def tpl_badge(st, accent, show_top_app, scale):
                            outline=(255, 255, 255, 45), width=max(1, int(3 * scale)))
     p.text(540, 160, "FOCUS TRAIL", 44, "black", fill=accent + (255,), shadow=False)
     p.text(540, 212, st["title"].upper(), 28, "semibold", fill=(255, 255, 255, 170), shadow=False)
-    draw_trail(p, st["trail"], (310, 262, 770, 585), accent, 12, shadow=False)
+    draw_trail(p, st["trail"], (310, 255, 770, 560), accent, 12, shadow=False, tags=st.get("trail_tags"))
+    draw_trail_legend(p, 540, 605, accent, st.get("trail_tags"), 22, shadow=False)
     p.text(540, 690, fmt_duration(st["screen"]), 116, "black", shadow=False)
     p.text(540, 772, T("ft_screen").upper(), 30, "bold", fill=(255, 255, 255, 150), shadow=False)
     p.text(540, 838, T("ft_badge_line", pct=st["productive_pct"], n=st["pomos"]),
@@ -542,7 +679,8 @@ def tpl_badge(st, accent, show_top_app, scale):
 
 def tpl_minimal(st, accent, show_top_app, scale):
     p = Painter(1080, 1080, scale)
-    draw_trail(p, st["trail"], (120, 90, 960, 790), accent, 22)
+    draw_trail(p, st["trail"], (120, 80, 960, 760), accent, 22, tags=st.get("trail_tags"))
+    draw_trail_legend(p, 540, 815, accent, st.get("trail_tags"), 28)
     p.text(540, 895, fmt_duration(st["screen"]), 128, "black")
     p.text(540, 995, T("ft_screen").lower() + "  ·  " + _footer(st, show_top_app), 32, "semibold")
     return p.compose()
@@ -585,7 +723,9 @@ def tpl_neon(st, accent, show_top_app, scale):
     p.text(100, 122, "FOCUS TRAIL", 44, "black", fill=accent + (255,), anchor="lm", shadow=False)
     p.text(980, 122, st["title"], 32, "semibold", fill=(255, 255, 255, 190), anchor="rm",
            shadow=False)
-    draw_trail(p, st["trail"], (140, 220, 940, 850), accent, 11, glow=True, shadow=False)
+    draw_trail(p, st["trail"], (140, 210, 940, 830), accent, 11, glow=True, shadow=False,
+               tags=st.get("trail_tags"))
+    draw_trail_legend(p, 540, 875, accent, st.get("trail_tags"), 24, shadow=False)
     cells = [
         (T("ft_screen").upper(), fmt_duration(st["screen"])),
         (T("ft_productive").upper(), fmt_duration(st["productive"])),
