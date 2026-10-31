@@ -1424,7 +1424,6 @@
     "Type the 6 digits you want to use, then press Save my code.": "輸入你想使用的 6 位數，然後按「儲存我的代碼」。",
     "Could not start sharing. Check your code and that the AIRIZ is connected, then try again.": "無法開始分享。請確認代碼以及 AIRIZ 已連線，然後再試一次。",
     "Wobble test (rising up / down)": "晃動測試（升降）",
-    "Measures how much the camera head wobbles while it rises and goes down, from the camera picture, and grades it like the bench test: the limit is grade 1. The AIRIZ lowers to the bottom, stays still for 1 s (to measure the camera noise), rises to the top and goes back down. The worse direction decides the grade. The grade uses the sideways shake (across the travel); the shake along the travel is shown too but not graded, because it also holds the motor's normal speed ripple.": "依攝影機畫面測量鏡頭在上升與下降時的晃動程度，並依照工作台目視標準評級：上限為 1 級。AIRIZ 會先降到底部、靜止 1 秒（測量攝影機雜訊），再升到頂部後降回。以較差的方向決定等級。等級依據側向晃動（垂直於行程方向）；沿行程方向的晃動也會顯示但不評級，因為其中也包含馬達正常的速度波動。",
     "Before you start: AIRIZ on USB, camera preview on, and the camera pointed at a detailed, well-lit scene that does not move (a printed pattern, a shelf; not a plain wall, no people walking by). Do not touch the AIRIZ or the table during the test.": "開始前：AIRIZ 以 USB 連接、開啟攝影機預覽，並將攝影機對準細節豐富、光線充足且靜止的場景（印刷圖樣、書架；不要是素面牆，也不要有人走動）。測試期間請勿觸碰 AIRIZ 或桌面。",
     "1 · No wobbling": "1 · 無晃動",
     "2 · Very slight": "2 · 極輕微",
@@ -1473,7 +1472,15 @@
     "No wobbling": "無晃動",
     "Very slight wobbling": "極輕微晃動",
     "Slight wobbling": "輕微晃動",
-    "Wobbling": "晃動"
+    "Wobbling": "晃動",
+    "Height unknown until the camera has been fully down once (the height counts from the bottom).": "攝影機尚未完全降下過，高度未知（高度從底部起算）。",
+    "Estimated after an interrupted move: lower the camera fully once, then Set home again.": "移動中斷後為估計值：請將相機完全降下一次，再重新設定原點。",
+    "The bottom switch is not pressed although the camera should be fully down: height estimated.": "相機應已完全降下但底部開關未按下：高度為估計值。",
+    "Set the lowest position first: lower the camera fully and press \"Set lowest\".": "請先設定最低位置：將相機完全降下後按「設為最低」。",
+    "1 = slowest and strongest, higher = faster. Used by all moves on this page and the wobble test.": "1 = 最慢且最有力，數字越大越快。本頁所有移動與晃動測試都會使用。",
+    "Measures how much the camera head wobbles while it rises and goes down, from the camera picture, and grades it like the bench test: the limit is grade 1. The AIRIZ lowers to the bottom (skipped when it is already fully down, e.g. after the last test), stays still for 1 s (to measure the camera noise), rises to the top and goes back down. The worse direction decides the grade. The grade uses the sideways shake (across the travel); the shake along the travel is shown too but not graded, because it also holds the motor's normal speed ripple.": "依攝影機畫面測量鏡頭在上升與下降時的晃動程度，並依照工作台目視標準評級：上限為 1 級。AIRIZ 會先降到底部（若已完全降下，例如上次測試後，則略過）、靜止 1 秒（測量攝影機雜訊），再升到頂部後降回。以較差的方向決定等級。等級依據側向晃動（垂直於行程方向）；沿行程方向的晃動也會顯示但不評級，因為其中也包含馬達正常的速度波動。",
+    "Already fully down (bottom switch pressed): no lowering needed. Measuring the camera noise (head still, 1 s)…": "已在最底部（底部開關已按下）：不需先降下。測量攝影機雜訊（鏡頭靜止 1 秒）…",
+    "Already fully down after the last test: no lowering needed. Measuring the camera noise (head still, 1 s)…": "上次測試後已在最底部：不需先降下。測量攝影機雜訊（鏡頭靜止 1 秒）…"
   },
   "html": {
     "AIRIZDEVICE LAB": "AIRIZ<small>裝置實驗室</small>",
@@ -1578,6 +1585,14 @@
     "Wobble test for the rising head (1.11.19)": "升降鏡頭晃動測試（1.11.19）"
   },
   "patterns": [
+    [
+      "^The camera picture hardly updates \\((\\d+) frames per second\\)\\. In dim light many USB cameras slow down to 5–8 frames per second: add light on the scene\\. Also close other camera windows and busy programs, then press Start again \\(the head stays down, it will not lower again\\)\\.$",
+      "攝影機畫面幾乎沒有更新（每秒 $1 張）。光線不足時許多 USB 攝影機會降到每秒 5–8 張：請為場景補光。也請關閉其他攝影機視窗與忙碌的程式，再按「開始」（鏡頭會留在底部，不會再降一次）。"
+    ],
+    [
+      "^The camera picture hardly updates \\((\\d+) frames per second, camera set to (\\d+)\\)\\. In dim light many USB cameras slow down to 5–8 frames per second: add light on the scene\\. Also close other camera windows and busy programs, then press Start again \\(the head stays down, it will not lower again\\)\\.$",
+      "攝影機畫面幾乎沒有更新（每秒 $1 張，攝影機設定為 $2）。光線不足時許多 USB 攝影機會降到每秒 5–8 張：請為場景補光。也請關閉其他攝影機視窗與忙碌的程式，再按「開始」（鏡頭會留在底部，不會再降一次）。"
+    ],
     [
       "^Shared · (\\d+) devices$",
       "已分享 · $1 台裝置"

@@ -3,9 +3,10 @@
  * Rising up/down wobble, graded like the bench standard (limit = grade 1):
  *   1 No wobbling (not visible at 15 cm) · 2 Very slight (15 cm, not 30 cm)
  *   3 Slight (30 cm) · 4 Wobbling (obvious at 30 cm)
- * Sequence: lower to the bottom (not measured) -> 1 s still (camera noise) -> full rise
- * (measured "up") -> full down (measured "down"). Frames are recorded during each move and
- * analysed afterwards (wobble-core.js). The worse direction decides the grade.
+ * Sequence: lower to the bottom (not measured; skipped when the head is already fully down)
+ * -> 1 s still (camera noise) -> full rise (measured "up") -> full down (measured "down").
+ * Frames are recorded during each move and analysed afterwards (wobble-core.js). The worse
+ * direction decides the grade.
  * The grade borders come from one number, the grade-1 limit T (degrees, peak to peak): T, 2T, 4T.
  * T starts as an estimate; "What did you see by eye?" collects graded units and
  * "Fit the grade borders" sets T from them.
@@ -24,8 +25,10 @@
   const FRAME_WIDTH = 240;
   const MAX_SHIFT_PX = 16;
   const STILL_MS = 1000;
+  const NOISE_MAX_MS = 3000;    // the still part may wait this long for the first second of frames
   const SETTLE_MS = 1000;
   const HISTORY_MAX = 50;
+  const MIN_CAMERA_FPS = 6;     // below this the test does not even start
   const MIN_FPS = 12;           // below this a few-Hz wobble cannot be measured reliably
   const MIN_STEADY_SAMPLES = 15; // frames in the measured (steady) part of each move
 
@@ -244,6 +247,44 @@
   const run = { active: false, cancelled: false };
   const lastAnalysis = {};
 
+  // 1.11.20: where the head is between tests. A test that got past the lowering leaves the head
+  // fully down, so the next test starts with the rise instead of driving down into the bottom
+  // end stop again. Any rising move or motor stop sent outside a test makes it unknown again.
+  const head = { atBottom: false };
+  api.onCommandSent(line => {
+    if (run.active) return;
+    const move = ptz.parseMotorCommand(line);
+    if ((move && move.axis === 'rising') || ptz.isStopCommand(line)) head.atBottom = false;
+  });
+
+  // 'last-test' / 'switch' when the head is known to be fully down, else null.
+  async function knownAtBottom() {
+    if (head.atBottom) return 'last-test';
+    const ptzApi = window.AirizPtz;
+    if (!ptzApi || typeof ptzApi.readSwitch !== 'function') return null;
+    try {
+      return (await ptzApi.readSwitch(true)) === true ? 'switch' : null;
+    } catch (ignored) {
+      return null;
+    }
+  }
+
+  // The desktop app slows a hidden or covered window down (few camera frames); keep it at full
+  // speed while a test runs, then hand the setting back to Smart detection.
+  function keepFullSpeed(on) {
+    const desktop = window.airizDesktop;
+    if (!desktop || typeof desktop.setBackgroundWork !== 'function') return;
+    const detectionArmed = !!(window.AirizPtz && window.AirizPtz.armed);
+    desktop.setBackgroundWork(on || detectionArmed).catch(() => {});
+  }
+
+  function cameraFrameRate() {
+    const stream = api.getCameraStream();
+    const track = stream && stream.getVideoTracks()[0];
+    const settings = track && typeof track.getSettings === 'function' ? track.getSettings() : null;
+    return settings && settings.frameRate > 0 ? Math.round(settings.frameRate) : null;
+  }
+
   function risingSpeed() {
     const input = $('ptz-rising-speed') || $('rising-speed');
     return Math.max(1, Math.min(30, Number(input && input.value) || 3));
@@ -334,7 +375,13 @@
   }
 
   async function measureNoise(video) {
-    const frames = await record(video, { maxMs: STILL_MS });
+    // 1 s of frames counted from the first frame that arrives (a new camera reader can take a few
+    // hundred ms to deliver it), waiting at most NOISE_MAX_MS.
+    const frames = await record(video, {
+      maxMs: NOISE_MAX_MS,
+      stop: recorded => recorded.length > 1 && recorded[recorded.length - 1].t - recorded[0].t >= STILL_MS,
+    });
+    const spanMs = frames.length > 1 ? frames[frames.length - 1].t - frames[0].t : 0;
     const tracked = await pathOf(frames);
     // the head stands still: across / along the (vertical) travel direction of the test
     const shake = core.wobbleFromPath(tracked.path, { direction: { x: 0, y: 1 } });
@@ -345,6 +392,7 @@
       acrossPx: shake.acrossPx,
       alongPx: shake.alongPx,
       frames: frames.length,
+      fps: spanMs > 0 ? (frames.length - 1) / (spanMs / 1000) : 0,
       frameDifference: frames.length > 1 ? difference / (frames.length - 1) : 1,
       unsureShare: tracked.unsureShare,
     };
@@ -369,19 +417,33 @@
     run.active = true;
     run.cancelled = false;
     renderButtons();
+    keepFullSpeed(true);
     $('wobble-result').hidden = true;
     const speed = risingSpeed();
     try {
-      setStatus('Lowering to the bottom first (not measured)\u2026', 'busy');
-      if (!(await sendMove('down', speed))) throw new Error('The move to the bottom was not sent.');
-      await sleep(expectedMoveMs(speed) + 1200);
+      const atBottom = await knownAtBottom();
       if (run.cancelled) throw new Error('Stopped.');
+      let alreadyDown = '';
+      if (atBottom) {
+        alreadyDown = atBottom === 'switch'
+          ? 'Already fully down (bottom switch pressed): no lowering needed. '
+          : 'Already fully down after the last test: no lowering needed. ';
+      } else {
+        setStatus('Lowering to the bottom first (not measured)\u2026', 'busy');
+        if (!(await sendMove('down', speed))) throw new Error('The move to the bottom was not sent.');
+        await sleep(expectedMoveMs(speed) + 1200);
+        if (run.cancelled) throw new Error('Stopped.');
+      }
+      head.atBottom = true;
 
-      setStatus('Measuring the camera noise (head still, 1 s)\u2026', 'busy');
+      setStatus(alreadyDown + 'Measuring the camera noise (head still, 1 s)\u2026', 'busy');
       const noise = await measureNoise(video);
-      if (noise.frames < 6) {
-        throw new Error('The camera picture hardly updates (' + noise.frames + ' frames in 1 s). Close other camera '
-          + 'windows and busy programs, keep the console window in front, and try again.');
+      if (noise.frames < 2 || noise.fps < MIN_CAMERA_FPS) {
+        const setFps = cameraFrameRate();
+        throw new Error('The camera picture hardly updates (' + Math.round(noise.fps) + ' frames per second'
+          + (setFps ? ', camera set to ' + setFps : '') + '). In dim light many USB cameras slow down to 5\u20138 frames '
+          + 'per second: add light on the scene. Also close other camera windows and busy programs, then press Start '
+          + 'again (the head stays down, it will not lower again).');
       }
       if (noise.unsureShare > 0.5) {
         throw new Error('The picture has too little detail to track. Point the camera at a detailed, well-lit scene '
@@ -392,16 +454,20 @@
       for (const direction of ['up', 'down']) {
         if (run.cancelled) throw new Error('Stopped.');
         setStatus(direction === 'up' ? 'Rising to the top \u2013 measuring\u2026' : 'Lowering to the bottom \u2013 measuring\u2026', 'busy');
+        head.atBottom = false;
         const measured = await measureMove(video, direction, speed, noise);
         if (run.cancelled) throw new Error('Stopped.');
+        if (direction === 'down') head.atBottom = true;
         results.push(await analyse(direction, measured, noise));
       }
       finishTest(results, status.demoMode);
     } catch (error) {
+      if (run.cancelled) head.atBottom = false;
       setStatus((error && error.message) || 'The wobble test failed.', 'warn');
     } finally {
       run.active = false;
       run.cancelled = false;
+      keepFullSpeed(false);
       renderButtons();
     }
   }

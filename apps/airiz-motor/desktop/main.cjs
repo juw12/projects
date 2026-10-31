@@ -350,7 +350,14 @@ async function createWindow() {
     applyBackgroundWork();
   });
   mainWindow.on('close', closeSafely);
-  mainWindow.once('ready-to-show', () => mainWindow.show());
+  // 1.11.20: 'ready-to-show' does not always fire (seen on Windows: the console kept running
+  // with its window hidden, and starting it again did nothing). Show it anyway after a moment.
+  const showMainWindow = () => {
+    if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.isVisible()) mainWindow.show();
+  };
+  mainWindow.once('ready-to-show', showMainWindow);
+  mainWindow.webContents.once('did-finish-load', () => setTimeout(showMainWindow, 1500));
+  setTimeout(showMainWindow, 8000);
   mainWindow.on('closed', () => {
     releaseSharingPower();
     mainWindow = null;

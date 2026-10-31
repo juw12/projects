@@ -453,9 +453,9 @@
       : signed + ' steps');
     let note = 'Height counts from the bottom switch (0) up to full travel; pan 0 = Home.';
     if (!tracker.risingRef) {
-      note = 'Height unknown: press Lower to bottom & reset height (Position group).';
+      note = 'Height unknown until the camera has been fully down once (the height counts from the bottom).';
     } else if (tracker.uncertain) {
-      note = 'Estimated after an interrupted move: press Lower to bottom & reset height, then Set home again.';
+      note = 'Estimated after an interrupted move: lower the camera fully once, then Set home again.';
     }
     setText('ptz-pose-note', note);
   }
@@ -1068,7 +1068,7 @@
       renderPosition();
     } else if (!pressed && tracker.risingRef && tracker.position.rising <= 0 && Date.now() >= tracker.busyUntil()) {
       tracker.markUncertain();
-      status('The bottom switch is not pressed although the camera should be fully down: height estimated. Press Lower to bottom & reset height.', true);
+      status('The bottom switch is not pressed although the camera should be fully down: height estimated.', true);
       save();
       renderPosition();
     }
@@ -1189,7 +1189,7 @@
     const softLowest = tracker.limits.rising.min;
     const lowest = Number.isFinite(softLowest) ? softLowest : (tracker.risingRef ? 0 : null);
     if (!Number.isFinite(lowest)) {
-      status('Set the lowest position first: press "Lower to bottom & reset height", or lower the camera and press "Set lowest".', true);
+      status('Set the lowest position first: lower the camera fully and press "Set lowest".', true);
       return;
     }
     stopScan();
