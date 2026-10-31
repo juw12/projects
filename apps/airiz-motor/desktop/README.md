@@ -9,7 +9,7 @@ is required to use the installed app or its hardware-free demo.
 ## Downloads
 
 Windows x64 releases are published under the app-specific tag
-`airiz-desktop-v1.11.19` in this repository's Releases section.
+`airiz-desktop-v1.11.20` in this repository's Releases section.
 
 - **Installer**: assisted, per-user installation with Start-menu/desktop shortcuts
   and an uninstaller. The wizard lets the user choose the installation directory.
@@ -163,6 +163,9 @@ reports whether a framed firmware reply came back. Results can be exported.
 No pairing is accepted without confirmation and no motor command is sent.
 Another program on the PC still cannot open COM4 while this app holds it: that is
 a Windows serial-port rule, which is why the check runs inside the app.
+
+## 1.11.20: Wobble test fixes, simpler Position group
+A second wobble test right after the first starts with the rise instead of driving the head down into the bottom end stop again (also when the bottom switch reports the head is down); a manual rising jog in between makes the test lower first again. The camera frame check counts one second from the first frame and the console stays at full speed while the test runs, even when the window is covered; a camera that really is slow (dim light) gets a clear message, and Start again does not lower a second time. Height reference and Calibration are hidden; Motor speed moved to the Position group. The console window always shows on start, even when Windows misses the first paint.
 
 ## 1.11.19: Wobble test for the rising head
 Camera tab → Wobble test: the AIRIZ lowers, rises and goes down while the console tracks the camera picture and grades the sideways wobble 1–4 (PASS up to grade 1). Too few camera frames → NOT RELIABLE, never PASS. Grade borders can be fitted to units graded by eye; history and CSV export.
