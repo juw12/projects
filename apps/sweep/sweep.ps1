@@ -4,7 +4,8 @@ param(
   [string]$VaultPath = "",
   [string]$NoteFolder = "Update Log",
   [switch]$NoPush,
-  [switch]$DryRun
+  [switch]$DryRun,
+  [switch]$SkipValidation
 )
 
 $ErrorActionPreference = "Stop"
@@ -51,6 +52,34 @@ $changed = $staged.Count
 
 if (-not $Message) {
   $Message = "sweep: sync projects ($(Get-Date -Format 'yyyy-MM-dd HH:mm'))"
+}
+
+if (-not $SkipValidation) {
+  $py = $null
+  foreach ($candidate in @(
+    (Get-Command python -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty Source),
+    (Get-Command py -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty Source)
+  )) {
+    if ($candidate -and (Test-Path $candidate)) { $py = $candidate; break }
+  }
+  if (-not $py) { Write-Error "validation requires python on PATH"; exit 1 }
+
+  foreach ($gate in @("scripts\check_site.py", "scripts\run_all_tests.py")) {
+    Write-Host ("[validate] running {0}" -f $gate)
+    $prevEap = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    try {
+      & $py $gate
+      $gateCode = $LASTEXITCODE
+    } finally {
+      $ErrorActionPreference = $prevEap
+    }
+    if ($gateCode -ne 0) {
+      Write-Error ("validation gate failed: {0} (exit {1})" -f $gate, $gateCode)
+      exit $gateCode
+    }
+  }
+  Write-Host "[validate] all gates passed"
 }
 
 $commit = ""

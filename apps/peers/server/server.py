@@ -316,6 +316,46 @@ def get_all() -> dict:
     return data
 
 
+def _hash_password(password: str) -> str:
+    salt = secrets.token_bytes(16)
+    digest = hashlib.scrypt(
+        password.encode("utf-8"),
+        salt=salt,
+        n=_SCRYPT_N, r=_SCRYPT_R, p=_SCRYPT_P,
+        dklen=_SCRYPT_DKLEN,
+    )
+    return f"scrypt${base64.b64encode(salt).decode('ascii')}${base64.b64encode(digest).decode('ascii')}"
+
+
+def _verify_password(password: str, stored: str) -> bool:
+    if not stored.startswith("scrypt$"):
+        return False
+    try:
+        _, salt_b64, hash_b64 = stored.split("$", 2)
+        salt = base64.b64decode(salt_b64)
+        expected = base64.b64decode(hash_b64)
+    except Exception:
+        return False
+    candidate = hashlib.scrypt(
+        password.encode("utf-8"),
+        salt=salt,
+        n=_SCRYPT_N, r=_SCRYPT_R, p=_SCRYPT_P,
+        dklen=len(expected),
+    )
+    return hmac.compare_digest(candidate, expected)
+
+
+import base64
+import hashlib
+import hmac
+import secrets
+
+_SCRYPT_N = 2**14
+_SCRYPT_R = 8
+_SCRYPT_P = 1
+_SCRYPT_DKLEN = 32
+
+
 def create_user(email: str, password_hash: str, name: str) -> dict:
     with _DB_LOCK:
         conn = _connect()
@@ -559,8 +599,7 @@ class PeersHandler(BaseHTTPRequestHandler):
                 if len(password) < 6:
                     self.send_error_json(400, "password too short")
                     return
-                import hashlib
-                pw_hash = hashlib.sha256(password.encode()).hexdigest()
+                pw_hash = _hash_password(password)
                 try:
                     user = create_user(email, pw_hash, name)
                     self.send_json(200, {"ok": True, "user": {"id": user["id"], "email": user["email"], "name": user["name"]}})
@@ -573,14 +612,12 @@ class PeersHandler(BaseHTTPRequestHandler):
                 if not email or not password:
                     self.send_error_json(400, "email and password required")
                     return
-                import hashlib
-                pw_hash = hashlib.sha256(password.encode()).hexdigest()
                 user = get_user_by_email(email)
-                if user and user["password_hash"] == pw_hash:
+                if user and _verify_password(password, user["password_hash"]):
                     self.send_json(200, {"ok": True, "user": {"id": user["id"], "email": user["email"], "name": user["name"]}})
                 else:
                     self.send_error_json(401, "invalid credentials")
-                return
+                    return
             if action == "logout":
                 self.send_json(200, {"ok": True})
                 return
