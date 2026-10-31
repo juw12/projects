@@ -34,34 +34,81 @@ function busyReason(status) {
   return null;
 }
 
+// Auto-update has no confirmation dialog, so nobody sees the "finish any motion
+// first" warning. It therefore also waits for a voice message and for the console
+// to sit untouched (no command, click or key) for autoIdleMs: closing the port does
+// not stop a move that was already sent. An unknown idle time counts as busy.
+const AUTO_IDLE_MS = 5 * 60 * 1000;
+function autoBusyReason(status, idleMs = AUTO_IDLE_MS) {
+  const reason = busyReason(status);
+  if (reason) return reason;
+  if (status.voiceBusy) return 'a voice message is playing';
+  if (typeof status.idleMs !== 'number' || !(status.idleMs >= idleMs)) {
+    return 'the console has been idle for ' + Math.round(idleMs / 60000) + ' minutes';
+  }
+  return null;
+}
+
+// Turns a busy reason into the condition being waited for, e.g.
+// "a macro is running" -> "the macro finishes" (was "the macro is running finishes").
+function waitPhrase(reason) {
+  if (/^the console has been idle/.test(reason)) return reason;
+  if (reason === 'the console state is unknown') return 'the console reports its state again';
+  if (reason === 'a camera session is open') return 'the camera session is closed';
+  return reason.replace(/^an? /, 'the ').replace(/ is (running|playing)$/, '') + ' finishes';
+}
+
 function createUpdateController(options) {
   const {
     updater, getDeviceState, confirmInstall, confirmSchedule, prepareForInstall, abortInstall,
     publish, currentVersion, portable = false, packaged = true, openPortable,
-    pollIntervalMs = 3000
+    pollIntervalMs = 3000, autoInstallDelayMs = 10000, autoIdleMs = AUTO_IDLE_MS
   } = options;
+  let autoUpdate = options.autoUpdate === true;
   let candidate = null;
   let downloaded = false;
   let checking = false;
   let scheduleTimer = null;
+  let autoInstallTimer = null;
+  let scheduledByAuto = false;
+  const autoSeconds = Math.round(autoInstallDelayMs / 1000);
   let state = {
     status: packaged ? 'idle' : 'development', currentVersion, availableVersion: null,
-    portable, percent: 0,
+    portable, percent: 0, autoUpdate, autoInstallAt: null,
     message: packaged
       ? 'Updates are checked on startup and every six hours. You can install while connected; the device reconnects after restart.'
       : 'Updates are available in the packaged Windows app.'
   };
   const snapshot = () => ({ ...state });
   function change(status, message, extra = {}) {
-    state = { ...state, status, message, ...extra };
+    state = { ...state, status, message, autoInstallAt: autoInstallTimer ? state.autoInstallAt : null, ...extra };
     publish(snapshot());
   }
   function stopSchedule() {
     if (scheduleTimer) clearInterval(scheduleTimer);
     scheduleTimer = null;
+    scheduledByAuto = false;
+  }
+  function stopAutoInstall() {
+    if (autoInstallTimer) clearTimeout(autoInstallTimer);
+    autoInstallTimer = null;
+    state = { ...state, autoInstallAt: null };
+  }
+  // One polling loop for both the manual "install when finished" and the auto path.
+  function startSchedule(isBusy, byAuto) {
+    stopSchedule();
+    scheduledByAuto = byAuto;
+    scheduleTimer = setInterval(async () => {
+      try {
+        if (!isBusy(await getDeviceState())) await runInstall();
+      } catch (error) {
+        fail(error);
+      }
+    }, pollIntervalMs);
   }
   function fail(error) {
     stopSchedule();
+    stopAutoInstall();
     if (state.status === 'installing') Promise.resolve(abortInstall()).catch(() => {});
     change('error', error?.message || String(error));
   }
@@ -79,7 +126,9 @@ function createUpdateController(options) {
       downloaded = false;
       change('available', portable
         ? 'A newer portable app is available. Download it and replace your portable executable manually.'
-        : 'An update is available. You can download it while the device stays connected.',
+        : (autoUpdate
+            ? 'A newer AIRIZ Console is available. Downloading it now (auto-update is on); the device stays connected.'
+            : 'An update is available. You can download it while the device stays connected.'),
       { availableVersion: info.version, percent: 0 });
     } catch (error) {
       candidate = null;
@@ -99,8 +148,9 @@ function createUpdateController(options) {
     try {
       candidate = validateUpdate(info);
       downloaded = true;
-      change('downloaded', 'Update verified and ready. Install now; a connected device reconnects automatically after restart.',
-        { availableVersion: info.version, percent: 100 });
+      state = { ...state, availableVersion: info.version, percent: 100 };
+      if (autoUpdate && !portable) armAutoInstall();
+      else change('downloaded', 'Update verified and ready. Install now; a connected device reconnects automatically after restart.');
     } catch (error) {
       downloaded = false;
       fail(error);
@@ -108,11 +158,45 @@ function createUpdateController(options) {
   });
   updater.on('error', fail);
 
+  // Auto-update: after a verified download, show a visible countdown (the Updates
+  // dialog opens itself) so a person at the PC can cancel. When it runs out, install
+  // only if the console is idle by the stricter auto rule; otherwise wait for that.
+  function armAutoInstall() {
+    stopAutoInstall();
+    const autoInstallAt = Date.now() + autoInstallDelayMs;
+    autoInstallTimer = setTimeout(autoInstallNow, autoInstallDelayMs);
+    change('downloaded', 'Update verified and ready. Auto-update installs it in ' + autoSeconds
+      + ' seconds if the console is idle. Press Cancel auto-install to keep working.', { autoInstallAt });
+  }
+
+  async function autoInstallNow() {
+    autoInstallTimer = null;
+    state = { ...state, autoInstallAt: null };
+    if (!autoUpdate || state.status !== 'downloaded') return;
+    try {
+      const reason = autoBusyReason(await getDeviceState(), autoIdleMs);
+      if (!autoUpdate || state.status !== 'downloaded') return;
+      if (reason) {
+        change('scheduled', 'Auto-update is waiting until ' + waitPhrase(reason)
+          + ', then installs and restarts. The device reconnects after restart.');
+        startSchedule(status => autoBusyReason(status, autoIdleMs), true);
+        return;
+      }
+      await runInstall();
+    } catch (error) {
+      fail(error);
+    }
+  }
+
   async function check() {
     if (!packaged || checking || ['downloading', 'downloaded', 'scheduled', 'installing'].includes(state.status)) return snapshot();
     checking = true;
     try {
       await updater.checkForUpdates();
+      // Auto-update path: if a fresh update became available and the user opted in,
+      // kick off the download straight away. The 'update-available' handler has
+      // already validated the manifest and updated the snapshot.
+      if (autoUpdate && !portable && state.status === 'available') await download();
     } catch (error) {
       fail(error);
     } finally {
@@ -139,9 +223,16 @@ function createUpdateController(options) {
 
   async function runInstall() {
     stopSchedule();
+    stopAutoInstall();
     change('installing', 'Closing the device connection safely and installing the update…');
+    const byAuto = scheduledByAuto || autoUpdate;
     const prepared = await prepareForInstall();
     if (!prepared) {
+      if (byAuto && autoUpdate) {
+        change('scheduled', 'The console became busy, so auto-update is waiting until it is idle again.');
+        startSchedule(status => autoBusyReason(status, autoIdleMs), true);
+        return snapshot();
+      }
       change('downloaded', 'The console became busy, so the update was not installed. Try again when the macro or recording finishes.');
       return snapshot();
     }
@@ -152,6 +243,8 @@ function createUpdateController(options) {
 
   async function install() {
     if (portable || !downloaded || !['downloaded', 'scheduled'].includes(state.status)) return snapshot();
+    // A person pressed Install: stop any countdown and use the normal confirmed flow.
+    stopAutoInstall();
     try {
       const status = await getDeviceState();
       const reason = busyReason(status);
@@ -163,15 +256,8 @@ function createUpdateController(options) {
       if (reason) {
         if (state.status === 'scheduled') return snapshot();
         if (!await confirmSchedule(candidate.version, reason)) return snapshot();
-        change('scheduled', 'Update scheduled: it installs automatically when ' + reason.replace(/^an? /, 'the ') + ' finishes. The device reconnects after restart.');
-        scheduleTimer = setInterval(async () => {
-          try {
-            const current = await getDeviceState();
-            if (!busyReason(current)) await runInstall();
-          } catch (error) {
-            fail(error);
-          }
-        }, pollIntervalMs);
+        change('scheduled', 'Update scheduled: it installs automatically when ' + waitPhrase(reason) + '. The device reconnects after restart.');
+        startSchedule(busyReason, false);
         return snapshot();
       }
       if (!await confirmInstall(candidate.version, connected)) return snapshot();
@@ -194,7 +280,35 @@ function createUpdateController(options) {
     return snapshot();
   }
 
-  return { snapshot, check, download, install, cancelScheduled };
+  function cancelAutoInstall() {
+    if (state.status === 'scheduled' && scheduledByAuto) {
+      stopSchedule();
+      change('downloaded', 'Auto-install cancelled. The verified update remains ready; press Install when it suits you.');
+      return snapshot();
+    }
+    if (state.status !== 'downloaded' || !autoInstallTimer) return snapshot();
+    stopAutoInstall();
+    change('downloaded', 'Auto-install cancelled. The verified update remains ready; press Install when it suits you.');
+    return snapshot();
+  }
+
+  function setAutoUpdate(enabled) {
+    autoUpdate = enabled === true;
+    if (!autoUpdate) {
+      stopAutoInstall();
+      if (state.status === 'scheduled' && scheduledByAuto) {
+        stopSchedule();
+        change('downloaded', 'Auto-update turned off. The verified update remains ready; press Install when it suits you.', { autoUpdate });
+        return snapshot();
+      }
+    }
+    change(state.status, state.message, { autoUpdate });
+    if (autoUpdate && !portable && state.status === 'available') download();
+    else if (autoUpdate && !portable && state.status === 'downloaded') armAutoInstall();
+    return snapshot();
+  }
+
+  return { snapshot, check, download, install, cancelScheduled, cancelAutoInstall, setAutoUpdate };
 }
 
-module.exports = { FEED, installerUrl, validateUpdate, busyReason, createUpdateController };
+module.exports = { FEED, AUTO_IDLE_MS, installerUrl, validateUpdate, busyReason, autoBusyReason, createUpdateController };

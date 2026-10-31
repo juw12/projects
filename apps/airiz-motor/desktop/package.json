@@ -1,6 +1,6 @@
 {
   "name": "airiz-console-desktop",
-  "version": "1.11.21",
+  "version": "1.11.22",
   "description": "AIRIZ offline motor, serial, camera and macro control console for Windows",
   "productName": "AIRIZ Console",
   "author": "AIRIZ",
@@ -35,6 +35,7 @@
       "security.cjs",
       "serial-chooser.cjs",
       "device-grants.cjs",
+      "preferences.cjs",
       "update-controller.cjs",
       "power-keeper.cjs",
       "power-plan.cjs",

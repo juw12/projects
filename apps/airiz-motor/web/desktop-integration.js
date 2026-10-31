@@ -116,30 +116,57 @@
       + '<p id="desktop-update-version"></p><p id="desktop-update-message" role="status"></p>'
       + '<progress id="desktop-update-progress" max="100" value="0" hidden></progress>'
       + '<p class="desktop-update-note">Checks run automatically. You can install while connected: the port closes briefly and reconnects after restart. During a macro or recording, the install waits until it finishes. Portable builds require manual replacement.</p>'
+      + '<label class="desktop-update-auto"><input id="desktop-update-auto-toggle" type="checkbox"/><span><strong>Auto-update</strong> – downloads new releases and installs them only after the console has been untouched for 5 minutes (no command, click, key, macro, recording or camera session). A 30 s countdown with Cancel appears first.</span></label>'
       + '<div class="desktop-update-actions"><button id="desktop-update-check" class="btn">Check now</button>'
       + '<button id="desktop-update-download" class="btn btn-primary" hidden>Download update</button>'
       + '<button id="desktop-update-install" class="btn btn-primary" hidden>Install and restart</button>'
       + '<button id="desktop-update-cancel-schedule" class="btn btn-secondary" hidden>Cancel scheduled install</button>'
+      + '<button id="desktop-update-cancel-auto" class="btn btn-secondary" hidden>Cancel auto-install</button>'
       + '<button id="desktop-update-close" class="btn btn-secondary">Close</button></div>';
     document.body.append(modal);
     const $ = id => document.getElementById(id);
+    let lastState = null;
+    let countdownTimer = null;
+    function countdownText(state) {
+      const seconds = Math.max(0, Math.ceil((state.autoInstallAt - Date.now()) / 1000));
+      return 'Auto-update installs ' + (state.availableVersion || 'the update') + ' and restarts in '
+        + seconds + ' s if the console stays idle. Press Cancel auto-install to keep working.';
+    }
+    function tickCountdown() {
+      if (!lastState || !lastState.autoInstallAt) return;
+      $('desktop-update-message').textContent = countdownText(lastState);
+    }
     function render(state) {
+      const countdownStarted = !!state.autoInstallAt && !(lastState && lastState.autoInstallAt === state.autoInstallAt);
+      lastState = state;
+      clearInterval(countdownTimer);
+      countdownTimer = null;
+      if (state.autoInstallAt) countdownTimer = setInterval(tickCountdown, 500);
       $('desktop-update-version').textContent = 'Installed: ' + state.currentVersion
         + (state.availableVersion ? ' · Available: ' + state.availableVersion : '')
-        + (state.portable ? ' · Portable' : '');
-      $('desktop-update-message').textContent = state.message;
+        + (state.portable ? ' · Portable' : '')
+        + (state.autoUpdate ? ' · Auto-update on' : '');
+      $('desktop-update-message').textContent = state.autoInstallAt ? countdownText(state) : state.message;
+      $('desktop-update-auto-toggle').checked = state.autoUpdate === true;
       $('desktop-update-progress').hidden = state.status !== 'downloading';
       $('desktop-update-progress').value = state.percent || 0;
       $('desktop-update-check').disabled = ['checking', 'downloading', 'downloaded', 'installing'].includes(state.status);
-      $('desktop-update-download').hidden = state.status !== 'available';
+      $('desktop-update-download').hidden = state.status !== 'available' || !!state.autoUpdate;
       $('desktop-update-download').textContent = state.portable ? 'Download portable app' : 'Download update';
       $('desktop-update-install').hidden = state.status !== 'downloaded';
       $('desktop-update-cancel-schedule').hidden = state.status !== 'scheduled';
+      // Only while a countdown is really running; a waiting auto-install uses Cancel scheduled install.
+      $('desktop-update-cancel-auto').hidden = !state.autoInstallAt;
       button.textContent = state.status === 'available' ? 'Update available'
         : state.status === 'downloading' ? 'Downloading ' + Math.round(state.percent || 0) + '%'
         : state.status === 'downloaded' ? 'Install update'
         : state.status === 'scheduled' ? 'Update scheduled' : 'Updates';
       document.body.inert = state.status === 'installing';
+      // An unattended restart must never be a surprise: show the countdown on screen.
+      if (countdownStarted) {
+        if (!modal.open) modal.showModal();
+        notify('AIRIZ Console ' + (state.availableVersion || '') + ' is ready. Auto-update restarts the app soon unless you cancel.');
+      }
     }
     function open() {
       if (!modal.open) modal.showModal();
@@ -151,6 +178,13 @@
     $('desktop-update-download').addEventListener('click', () => host.downloadUpdate().then(render));
     $('desktop-update-install').addEventListener('click', () => host.installUpdate().then(render));
     $('desktop-update-cancel-schedule').addEventListener('click', () => host.cancelScheduledUpdate().then(render));
+    $('desktop-update-cancel-auto').addEventListener('click', () => host.cancelAutoInstallUpdate().then(render));
+    $('desktop-update-auto-toggle').addEventListener('change', event => {
+      host.setAutoUpdatePreference(event.target.checked)
+        .then(() => host.getUpdateState())
+        .then(render)
+        .catch(error => notify('Could not change auto-update: ' + error.message));
+    });
     host.onUpdateState(render);
     host.onShowUpdates(open);
     host.getUpdateState().then(render);
