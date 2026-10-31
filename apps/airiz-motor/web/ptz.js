@@ -68,7 +68,7 @@
       notify: false,
       teams: false
     },
-    night: { auto: false, darkBelow: 10, brightAbove: 40 },
+    night: { auto: false, darkBelow: 10, brightAbove: 40, camera: true, cameraDarkBelow: 22, cameraBrightAbove: 60 },
     scanDwell: 5,
     sirenSeconds: 10,
     // 1.11.17: 'tone' (generated wail), 'testwav' (test sound on the AIRIZ) or 'custom'
@@ -702,6 +702,14 @@
   overlay.addEventListener('pointercancel', () => cancelDraft(false));
   document.addEventListener('keydown', event => {
     if (event.key === 'Escape' && view.mode === 'zones') cancelDraft(true);
+    if (event.key === 'Home' && !event.ctrlKey && !event.metaKey && !event.altKey && !event.repeat
+        && !$('view-camera').hidden && !document.querySelector('dialog[open]')
+        && !event.target.closest('input, textarea, select, [contenteditable="true"], .side-nav')) {
+      event.preventDefault();
+      if (askHost('go-home')) return;
+      stopScan();
+      goHome().catch(error => status('Go home failed: ' + (error && error.message ? error.message : error), true));
+    }
   });
   overlay.addEventListener('pointermove', event => {
     if (!pointer) {
@@ -940,8 +948,12 @@
   $('ptz-go-home').addEventListener('click', async () => {
     if (askHost('go-home')) return;
     stopScan();
-    const ok = await goHome();
-    if (ok && viaRemote() && !hostShares()) status(OLD_HOST_NOTE, true);
+    try {
+      const ok = await goHome();
+      if (ok && viaRemote() && !hostShares()) status(OLD_HOST_NOTE, true);
+    } catch (error) {
+      status('Go home failed: ' + (error && error.message ? error.message : error), true);
+    }
   });
   function setLimitHere(axis, side, from) {
     tracker.setLimit(axis, side, tracker.position[axis]);
@@ -1959,32 +1971,93 @@
 
   // ------------------------------------------------------------------ automatic night vision
 
-  const night = { mode: null, lux: null, busy: false };
+  const night = { mode: null, lux: null, cameraMean: null, cameraSamples: [], busy: false };
+  const CAMERA_SAMPLE_LIMIT = 6;
+
+  function nightStateText() {
+    const luxPart = Number.isFinite(night.lux) ? 'ALS ' + night.lux : 'ALS: -';
+    const camPart = Number.isFinite(night.cameraMean) ? 'cam ' + Math.round(night.cameraMean) : 'cam: -';
+    const modePart = night.mode === 'night' ? 'Night (IR)' : night.mode === 'day' ? 'Day' : 'between thresholds';
+    return luxPart + ' \u00b7 ' + camPart + ' \u00b7 ' + modePart;
+  }
+
+  async function applyNightMode(mode, source) {
+    if (mode === 'night') {
+      await api.sendCommand('diag ircut night');
+      await api.sendCommand('diag irled on');
+    } else if (mode === 'day') {
+      await api.sendCommand('diag irled off');
+      await api.sendCommand('diag ircut day');
+    }
+    night.mode = mode;
+    status(source === 'camera'
+      ? 'Night mode: scene is dark in the camera picture (auto).'
+      : source === 'als'
+        ? 'Night mode: the light sensor reported dark (auto).'
+        : 'Night mode: back to day (auto).');
+    $('ptz-night-state').textContent = nightStateText();
+  }
+
   async function nightTick() {
     if (!store.night.auto || night.busy || !connected() || api.getStatus().macroRunning) return;
     night.busy = true;
     try {
       const info = await query('diag als value');
+      const alsNumber = info && info.number !== null ? info.number : NaN;
+      night.lux = Number.isFinite(alsNumber) ? alsNumber : null;
+      const camera = store.night.camera ? { mean: night.cameraMean } : { mean: NaN };
+      const decision = core.combinedNightDecision({ number: alsNumber }, camera, night.mode, store.night);
+      if (decision && decision.mode !== night.mode) {
+        await applyNightMode(decision.mode, decision.source);
+      } else {
+        $('ptz-night-state').textContent = nightStateText();
+      }
       if (!info || info.number === null) {
-        $('ptz-night-state').textContent = 'ALS did not answer.';
-        return;
+        $('ptz-night-state').textContent = (Number.isFinite(night.cameraMean) ? 'ALS did not answer \u00b7 ' : 'ALS did not answer \u00b7 ') + nightStateText().replace(/^ALS[^\u00b7]*\u00b7 /, '');
       }
-      night.lux = info.number;
-      const next = core.nightModeDecision(info.number, night.mode, store.night);
-      if (next === 'night') {
-        await api.sendCommand('diag ircut night');
-        await api.sendCommand('diag irled on');
-      } else if (next === 'day') {
-        await api.sendCommand('diag irled off');
-        await api.sendCommand('diag ircut day');
-      }
-      if (next) night.mode = next;
-      $('ptz-night-state').textContent = 'ALS ' + info.number + ' \u00b7 ' + (night.mode === 'night' ? 'Night (IR)' : night.mode === 'day' ? 'Day' : 'between thresholds');
     } finally {
       night.busy = false;
     }
   }
   setInterval(nightTick, 15000);
+
+  async function cameraNightSample() {
+    if (!store.night.auto || !store.night.camera || night.busy || !connected() || api.getStatus().macroRunning) return;
+    const stream = api.getCameraStream();
+    if (!stream || !video.videoWidth) return;
+    try {
+      const width = ANALYSIS_WIDTH;
+      const height = Math.max(1, Math.round(ANALYSIS_WIDTH * video.videoHeight / video.videoWidth));
+      const ctx = detection.canvas.getContext('2d', { willReadFrequently: true });
+      detection.canvas.width = width;
+      detection.canvas.height = height;
+      ctx.drawImage(video, 0, 0, width, height);
+      const gray = core.toGray(ctx.getImageData(0, 0, width, height).data);
+      const mean = core.meanLuminance(gray);
+      night.cameraSamples.push(mean);
+      if (night.cameraSamples.length > CAMERA_SAMPLE_LIMIT) night.cameraSamples.shift();
+      const avg = night.cameraSamples.reduce((sum, value) => sum + value, 0) / night.cameraSamples.length;
+      night.cameraMean = avg;
+      if (night.cameraSamples.length < CAMERA_SAMPLE_LIMIT) return;
+      const decision = core.cameraDarknessDecision(avg, night.mode, {
+        darkBelow: store.night.cameraDarkBelow,
+        brightAbove: store.night.cameraBrightAbove
+      });
+      if (decision && decision !== night.mode) {
+        night.busy = true;
+        try {
+          await applyNightMode(decision, 'camera');
+        } finally {
+          night.busy = false;
+        }
+      } else {
+        $('ptz-night-state').textContent = nightStateText();
+      }
+    } catch (error) {
+      console.error('cameraNightSample failed:', error);
+    }
+  }
+  setInterval(cameraNightSample, 700);
 
   // ------------------------------------------------------------------ calibration
 
@@ -2370,21 +2443,38 @@
     $('ptz-auto-night').addEventListener('change', () => {
       store.night.auto = $('ptz-auto-night').checked;
       night.mode = null;
+      night.cameraSamples = [];
+      night.cameraMean = null;
       save();
       $('ptz-night-state').textContent = store.night.auto ? 'Reading the light sensor\u2026' : '';
       if (store.night.auto) nightTick();
     });
-    for (const [id, key] of [['ptz-night-dark', 'darkBelow'], ['ptz-night-bright', 'brightAbove']]) {
+    for (const [id, key] of [['ptz-night-dark', 'darkBelow'], ['ptz-night-bright', 'brightAbove'],
+      ['ptz-camera-night-dark', 'cameraDarkBelow'], ['ptz-camera-night-bright', 'cameraBrightAbove']]) {
       $(id).value = store.night[key];
       $(id).addEventListener('change', () => {
         const value = Number($(id).value);
-        if (Number.isFinite(value) && value >= 0) store.night[key] = value;
-        if (store.night.brightAbove <= store.night.darkBelow) store.night.brightAbove = store.night.darkBelow + 1;
-        $('ptz-night-dark').value = store.night.darkBelow;
-        $('ptz-night-bright').value = store.night.brightAbove;
+        const max = key.startsWith('camera') ? 255 : Infinity;
+        if (Number.isFinite(value) && value >= 0 && value <= max) store.night[key] = value;
+        if (key === 'darkBelow' || key === 'brightAbove') {
+          if (store.night.brightAbove <= store.night.darkBelow) store.night.brightAbove = store.night.darkBelow + 1;
+          $('ptz-night-dark').value = store.night.darkBelow;
+          $('ptz-night-bright').value = store.night.brightAbove;
+        } else {
+          if (store.night.cameraBrightAbove <= store.night.cameraDarkBelow) store.night.cameraBrightAbove = store.night.cameraDarkBelow + 1;
+          $('ptz-camera-night-dark').value = store.night.cameraDarkBelow;
+          $('ptz-camera-night-bright').value = store.night.cameraBrightAbove;
+        }
         save();
       });
     }
+    $('ptz-camera-night').checked = store.night.camera;
+    $('ptz-camera-night').addEventListener('change', () => {
+      store.night.camera = $('ptz-camera-night').checked;
+      night.cameraSamples = [];
+      night.cameraMean = null;
+      save();
+    });
     $('ptz-siren-seconds').value = store.sirenSeconds;
     $('ptz-siren-seconds').addEventListener('change', () => {
       store.sirenSeconds = Math.min(120, Math.max(3, Number($('ptz-siren-seconds').value) || 10));

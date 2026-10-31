@@ -766,6 +766,37 @@
     return null;
   }
 
+  // Average brightness of a grey frame (0..255).
+  function meanLuminance(gray) {
+    if (!gray || !gray.length) return 0;
+    let sum = 0;
+    for (let i = 0; i < gray.length; i += 1) sum += gray[i];
+    return sum / gray.length;
+  }
+
+  // Camera-based darkness using the same hysteresis as nightModeDecision. Thresholds are
+  // in 0..255 luminance units, independent of the ALS lux thresholds.
+  function cameraDarknessDecision(mean, currentMode, thresholds) {
+    if (!Number.isFinite(mean)) return null;
+    const darkBelow = Number(thresholds && thresholds.darkBelow);
+    const brightAbove = Number(thresholds && thresholds.brightAbove);
+    if (mean <= darkBelow && currentMode !== 'night') return 'night';
+    if (mean >= brightAbove && currentMode !== 'day') return 'day';
+    return null;
+  }
+
+  // Either source can pull the mode to night; only a confident "day" on both sources
+  // pulls it back, so a covered ALS or a covered lens does not freeze the wrong mode.
+  function combinedNightDecision(als, camera, currentMode, thresholds) {
+    const alsDecision = nightModeDecision(als.number, currentMode, thresholds);
+    const camDecision = cameraDarknessDecision(camera.mean, currentMode, thresholds);
+    if (alsDecision === 'night' || camDecision === 'night') return { mode: 'night', source: alsDecision === 'night' ? 'als' : 'camera' };
+    if (alsDecision === 'day' && camDecision === 'day') return { mode: 'day', source: 'both' };
+    if (alsDecision === 'day' && !Number.isFinite(camera.mean)) return { mode: 'day', source: 'als' };
+    if (camDecision === 'day' && !Number.isFinite(als.number)) return { mode: 'day', source: 'camera' };
+    return null;
+  }
+
   // "HH:MM" window, may cross midnight. Empty window = always.
   function isWithinSchedule(date, start, end) {
     const parse = value => {
@@ -818,6 +849,9 @@
     trackingReturnDue,
     parseInfo,
     nightModeDecision,
+    meanLuminance,
+    cameraDarknessDecision,
+    combinedNightDecision,
     isWithinSchedule
   });
 });
