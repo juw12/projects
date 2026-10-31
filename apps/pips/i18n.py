@@ -1841,6 +1841,57 @@ S.update({
 })
 
 
+# v2.26 Focus Trail (focus_trail.py) - Strava-style stickers of your work-hours screen time
+S.update({
+    "ft_title": ("Focus Trail", "Jejak Fokus", "專注軌跡", "专注轨迹"),
+    "ft_subtitle": ("Your weekday screen time between {start}:00 and {end}:00 drawn as a route. Pick a day or week, a style and a colour, then save or share it.",
+                    "Waktu layar hari kerjamu antara {start}:00 dan {end}:00 digambar sebagai rute. Pilih hari atau minggu, gaya dan warna, lalu simpan atau bagikan.",
+                    "把你平日 {start}:00 到 {end}:00 的螢幕時間畫成一條路線。選擇日或週、樣式和顏色，然後儲存或分享。",
+                    "把你工作日 {start}:00 到 {end}:00 的屏幕时间画成一条路线。选择日或周、样式和颜色，然后保存或分享。"),
+    "ft_sub_week": ("Mon-Fri · {start}:00-{end}:00", "Sen-Jum · {start}:00-{end}:00", "週一至週五 · {start}:00-{end}:00", "周一至周五 · {start}:00-{end}:00"),
+    "ft_today": ("today", "hari ini", "今天", "今天"),
+    "ft_this_week": ("this week", "minggu ini", "本週", "本周"),
+    "ft_caption": ("My Focus Trail {when}: {screen} screen time, {productive} productive, {pomos} pomodoros. #Pips #FocusTrail",
+                   "Jejak Fokusku {when}: {screen} waktu layar, {productive} produktif, {pomos} pomodoro. #Pips #FocusTrail",
+                   "我{when}的專注軌跡：螢幕時間 {screen}，高效 {productive}，{pomos} 個番茄鐘。#Pips #FocusTrail",
+                   "我{when}的专注轨迹：屏幕时间 {screen}，高效 {productive}，{pomos} 个番茄钟。#Pips #FocusTrail"),
+    "ft_no_data": ("No work-hours data yet", "Belum ada data jam kerja", "還沒有上班時段的資料", "还没有工作时段的数据"),
+    "ft_top": ("Top app: {app}", "Aplikasi teratas: {app}", "最常用：{app}", "最常用：{app}"),
+    "ft_screen": ("Screen time", "Waktu layar", "螢幕時間", "屏幕时间"),
+    "ft_productive": ("Productive", "Produktif", "高效", "高效"),
+    "ft_pomos": ("Pomodoros", "Pomodoro", "番茄鐘", "番茄钟"),
+    "ft_score": ("Score", "Skor", "分數", "分数"),
+    "ft_badge_line": ("{pct}% productive · {n} pomodoros", "{pct}% produktif · {n} pomodoro", "{pct}% 高效 · {n} 個番茄鐘", "{pct}% 高效 · {n} 个番茄钟"),
+    "ft_bars_legend": ("solid = productive  ·  faded = all screen time", "pekat = produktif  ·  pudar = semua waktu layar",
+                       "實色 = 高效  ·  淡色 = 全部螢幕時間", "实色 = 高效  ·  淡色 = 全部屏幕时间"),
+    "ft_day": ("Day", "Hari", "日", "日"),
+    "ft_week": ("Week", "Minggu", "週", "周"),
+    "ft_today_btn": ("Latest", "Terbaru", "最新", "最新"),
+    "ft_style": ("Style & colour", "Gaya & warna", "樣式與顏色", "样式与颜色"),
+    "ft_show_top": ("Show my top app on the sticker", "Tampilkan aplikasi teratas di stiker", "在貼圖上顯示最常用的程式", "在贴图上显示最常用的程序"),
+    "ft_save": ("Save PNG", "Simpan PNG", "儲存 PNG", "保存 PNG"),
+    "ft_copy": ("Copy", "Salin", "複製", "复制"),
+    "ft_open": ("Open folder", "Buka folder", "開啟資料夾", "打开文件夹"),
+    "ft_share": ("Share (sticker is copied - paste it in the post)", "Bagikan (stiker disalin - tempel di postingan)",
+                 "分享（貼圖已複製，貼到貼文裡）", "分享（贴图已复制，粘贴到帖子里）"),
+    "ft_saved": ("Saved {name}", "Tersimpan {name}", "已儲存 {name}", "已保存 {name}"),
+    "ft_copied": ("Copied {name} to the clipboard", "{name} disalin ke clipboard", "已把 {name} 複製到剪貼簿", "已把 {name} 复制到剪贴板"),
+    "ft_shared": ("Opened {site} - {name} is on your clipboard, paste it into the post.",
+                  "{site} dibuka - {name} ada di clipboard, tempel di postingan.",
+                  "已開啟 {site}，{name} 已在剪貼簿，貼到貼文裡吧。", "已打开 {site}，{name} 已在剪贴板，粘贴到帖子里吧。"),
+    "ft_shared_short": ("Focus Trail ready for {site}!", "Jejak Fokus siap untuk {site}!", "專注軌跡準備好分享到 {site}！", "专注轨迹准备好分享到 {site}！"),
+    "ft_unavailable": ("Focus Trail isn't available (focus_trail.py or Pillow missing).",
+                       "Jejak Fokus tidak tersedia (focus_trail.py atau Pillow tidak ada).",
+                       "無法使用專注軌跡（缺少 focus_trail.py 或 Pillow）。", "无法使用专注轨迹（缺少 focus_trail.py 或 Pillow）。"),
+    "mg_trail": ("Focus Trail", "Jejak Fokus", "專注軌跡", "专注轨迹"),
+    "mg_trail_how": ("Strava-style sticker of your work-hours focus: your day or week as a route. Save it, copy it or share it with friends.",
+                     "Stiker ala Strava dari fokus jam kerjamu: hari atau mingguanmu sebagai rute. Simpan, salin atau bagikan ke teman.",
+                     "Strava 風格的上班專注貼圖：把你的一天或一週畫成路線。可儲存、複製或分享給朋友。",
+                     "Strava 风格的工作专注贴图：把你的一天或一周画成路线。可保存、复制或分享给朋友。"),
+    "arena_trail_btn": ("Focus Trail", "Jejak Fokus", "專注軌跡", "专注轨迹"),
+})
+
+
 L = {
     "sneeze": (
         ["Achoo! 🤧", "*sniff sniff*", "Ah... ah... CHOO!", "*sniffle*"],

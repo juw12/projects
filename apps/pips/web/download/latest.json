@@ -1,39 +1,39 @@
 {
   "installer": {
     "filename": "Pips-Setup.exe",
-    "sha256": "267fa2b76f7848407b06f8b36b8fe30cc6df5697b01537d54e21066cd576668f",
-    "size": 22322199,
+    "sha256": "cb74aa2d1e385f8e23c8d3036aef3418511f2ba3fd4688d64402347be1794194",
+    "size": 22333988,
     "architecture": "x64",
     "python_version": "3.13.17",
     "requires_admin": false,
     "url": "https://juw12.github.io/projects/pips/download/Pips-Setup.exe"
   },
-  "version": "2.25.2",
-  "date": "2026-10-30",
-  "title": "Updates find you",
+  "version": "2.26.0",
+  "date": "2026-10-31",
+  "title": "Focus Trail",
   "url": "https://juw12.github.io/projects/pips/download/Pips-Windows.zip",
-  "sha256": "842fccd21af750ea7cf8d78cbbb37e65a576d10ea2f2fc217fc7f9f82ad53624",
-  "size": 982192,
+  "sha256": "8ef25623235de3ac2b4509c20e4b59aaed80dcc3777d3c65fa151bd9fcaeed69",
+  "size": 997532,
   "notes": {
     "en": [
-      "No need to press \"Check for updates\" anymore - Pips checks by itself every 30 minutes.",
-      "When an update is ready, your pet keeps the update bubble on screen until you choose Update now, Later (hides it for an hour) or Skip this version. If another message pushes it away, it comes back a minute later.",
-      "\"Check for updates automatically\" is now switched on for everyone (you can still turn it off in Settings)."
+      "New Focus Trail: a Strava-style sticker of your work-hours focus - your day or week drawn as a route, with screen time, productive time and pomodoros.",
+      "Open it from the hub: Play -> Games (Focus Trail row) or the Focus Trail button in the Pet Duel arena. Works even with Friends turned off.",
+      "5 styles (Strava, Badge, Minimal, Bars, Neon) and colours. Save the PNG, copy it, or share it to X, LinkedIn, Facebook or Instagram - the sticker is copied so you just paste it."
     ],
     "id": [
-      "Tidak perlu lagi menekan \"Cek update\" - Pips memeriksa sendiri setiap 30 menit.",
-      "Saat ada update, pet-mu tetap menampilkan gelembung update sampai kamu memilih Update sekarang, Nanti (disembunyikan satu jam) atau Lewati versi ini. Jika tertutup pesan lain, gelembung muncul lagi semenit kemudian.",
-      "\"Cek update otomatis\" kini aktif untuk semua orang (tetap bisa dimatikan di Pengaturan)."
+      "Baru: Jejak Fokus - stiker ala Strava dari fokus jam kerjamu: hari atau minggumu digambar sebagai rute, lengkap dengan waktu layar, waktu produktif dan pomodoro.",
+      "Buka dari hub: Main -> Game (baris Jejak Fokus) atau tombol Jejak Fokus di arena Duel Pet. Tetap bisa dipakai walau Teman dimatikan.",
+      "5 gaya (Strava, Badge, Minimal, Bars, Neon) dan pilihan warna. Simpan PNG, salin, atau bagikan ke X, LinkedIn, Facebook atau Instagram - stiker sudah tersalin, tinggal tempel."
     ],
     "zh_TW": [
-      "不用再按「檢查更新」了 - Pips 每 30 分鐘會自動檢查。",
-      "有新版本時，寵物會一直顯示更新對話泡泡，直到你選擇「立即更新」、「稍後」（隱藏一小時）或「略過此版本」。若被其他訊息蓋掉，一分鐘後會再出現。",
-      "「自動檢查更新」現在預設為所有人開啟（仍可在設定中關閉）。"
+      "新功能「專注軌跡」：Strava 風格的上班專注貼圖，把你的一天或一週畫成路線，附上螢幕時間、高效時間和番茄鐘。",
+      "從中心開啟：遊戲 -> 遊戲（專注軌跡）或寵物對決競技場中的「專注軌跡」按鈕。沒開好友功能也能用。",
+      "5 種樣式（Strava、Badge、Minimal、Bars、Neon）和多種顏色。可儲存 PNG、複製，或分享到 X、LinkedIn、Facebook、Instagram - 貼圖已自動複製，直接貼上即可。"
     ],
     "zh_CN": [
-      "不用再按「检查更新」了 - Pips 每 30 分钟会自动检查。",
-      "有新版本时，宠物会一直显示更新对话气泡，直到你选择「立即更新」、「稍后」（隐藏一小时）或「跳过此版本」。若被其他消息盖掉，一分钟后会再出现。",
-      "「自动检查更新」现在默认为所有人开启（仍可在设置中关闭）。"
+      "新功能「专注轨迹」：Strava 风格的工作专注贴图，把你的一天或一周画成路线，附上屏幕时间、高效时间和番茄钟。",
+      "从中心打开：游戏 -> 游戏（专注轨迹）或宠物对决竞技场中的「专注轨迹」按钮。没开好友功能也能用。",
+      "5 种样式（Strava、Badge、Minimal、Bars、Neon）和多种颜色。可保存 PNG、复制，或分享到 X、LinkedIn、Facebook、Instagram - 贴图已自动复制，直接粘贴即可。"
     ]
   },
   "guide": "https://juw12.github.io/projects/pips/download/Pips-Guide.pptx"

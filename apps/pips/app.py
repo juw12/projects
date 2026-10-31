@@ -28,7 +28,7 @@ except ImportError:  # pragma: no cover - i18n ships with Pips
     def T(key, lang=None, **kwargs):
         return key
 
-APP_VERSION = "2.25.2"
+APP_VERSION = "2.26.0"
 APP_OWNER = "Juwen Lie"
 USER_GUIDE_URL = "https://juw12.github.io/projects/pips/download/Pips-Guide.pptx"
 SITE_URL = "https://juw12.github.io/projects/pips/"
@@ -1314,6 +1314,7 @@ class ProductivityWidget:
                     "set_theme": self._set_theme,
                     "check_updates": lambda: self._check_updates(manual=True),
                     "open_user_guide": self._open_user_guide,
+                    "open_focus_trail": self._open_focus_trail,
                     "version": lambda: APP_VERSION,
                     "owner": lambda: APP_OWNER,
                     "update_info": lambda: self._update_manifest,
@@ -2116,6 +2117,29 @@ class ProductivityWidget:
         
         self.root.after(2200, relaunch)
     
+    def _open_focus_trail(self):
+        """v2.26: open (or bring back) the Strava-style Focus Trail sticker window."""
+        try:
+            import focus_trail
+        except Exception as e:
+            logger.warning(f"Focus Trail unavailable: {e}")
+            return False
+        window = getattr(self, "_focus_trail_win", None)
+        try:
+            if window is not None and window.alive():
+                window.show()
+                return True
+        except Exception:
+            pass
+        pet = getattr(self, "pet", None)
+        notify = pet.say if pet is not None and hasattr(pet, "say") else None
+        try:
+            self._focus_trail_win = focus_trail.open_window(self.root, self.con, self.cfg, notify=notify)
+            return True
+        except Exception as e:
+            logger.error(f"Focus Trail failed to open: {e}")
+            return False
+
     def _open_user_guide(self):
         local = BASE_DIR / "Pips-Guide.pptx"
         try:

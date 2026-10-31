@@ -207,52 +207,52 @@
       "order": 7
     },
     {
-     "id": "airiz-motor",
-     "name": "Airiz Motor",
-     "category": "Automation",
-     "desc": "Windows, Android and browser console for AIRIZ motor testing: USB or Bluetooth jog, remote control and camera by code, live device checks",
-     "description": "Downloadable Windows console (v1.11.20) with a locally bundled controller, serial port chooser, macros and offline demo. Remote by code lets a phone or another PC control the AIRIZ and see its camera through this PC with the owner's 6-digit code. The dashboard shows real device facts: the firmware the AIRIZ reports, live link activity, a camera check that confirms each jog really moved the camera, automatic aim and timing calibration from the camera picture, a camera-based wobble test that grades the rising head 1 to 4, and a read-only hardware check report. Camera tools add presets, motion detection, a siren and talk / listen through the AIRIZ speaker and microphone. The browser and mobile-web editions remain available.",
-     "summary": "AIRIZ test console for Windows, Android, iPhone and web &mdash; USB/Bluetooth jog, remote control by code, live device checks.",
-     "tags": [
-      "Windows app",
-      "Web Serial",
-      "Bluetooth control",
-      "camera sharing",
-      "macro runner",
-      "offline demo"
-     ],
-     "image": "airiz-motor-card.jpg",
-     "image_alt": "Airiz Motor Test Console dashboard: command library, serial console and macro notepad for AIRIZ device motor testing",
-     "links": {
-      "app": "https://github.com/juw12/projects/releases/download/airiz-desktop-v1.11.20/AIRIZ-Console-Setup-1.11.20-x64.exe",
-      "web": "airiz-motor/",
-      "mobile": "airiz-motor/"
-     },
-     "featured": true,
-     "order": 1,
-     "portfolio_order": -6,
-     "card_links": [
-      {
-       "label": "Windows app",
-       "path": "https://github.com/juw12/projects/releases/download/airiz-desktop-v1.11.20/AIRIZ-Console-Setup-1.11.20-x64.exe"
+      "id": "airiz-motor",
+      "name": "Airiz Motor",
+      "category": "Automation",
+      "desc": "Windows, Android and browser console for AIRIZ motor testing: USB or Bluetooth jog, remote control and camera by code, live device checks",
+      "description": "Downloadable Windows console (v1.11.20) with a locally bundled controller, serial port chooser, macros and offline demo. Remote by code lets a phone or another PC control the AIRIZ and see its camera through this PC with the owner's 6-digit code. The dashboard shows real device facts: the firmware the AIRIZ reports, live link activity, a camera check that confirms each jog really moved the camera, automatic aim and timing calibration from the camera picture, a camera-based wobble test that grades the rising head 1 to 4, and a read-only hardware check report. Camera tools add presets, motion detection, a siren and talk / listen through the AIRIZ speaker and microphone. The browser and mobile-web editions remain available.",
+      "summary": "AIRIZ test console for Windows, Android, iPhone and web &mdash; USB/Bluetooth jog, remote control by code, live device checks.",
+      "tags": [
+        "Windows app",
+        "Web Serial",
+        "Bluetooth control",
+        "camera sharing",
+        "macro runner",
+        "offline demo"
+      ],
+      "image": "airiz-motor-card.jpg",
+      "image_alt": "Airiz Motor Test Console dashboard: command library, serial console and macro notepad for AIRIZ device motor testing",
+      "links": {
+        "app": "https://github.com/juw12/projects/releases/download/airiz-desktop-v1.11.20/AIRIZ-Console-Setup-1.11.20-x64.exe",
+        "web": "airiz-motor/",
+        "mobile": "airiz-motor/"
       },
-      {
-       "label": "Web",
-       "path": "airiz-motor/"
-      },
-      {
-       "label": "Mobile web",
-       "path": "airiz-motor/"
-      },
-      {
-       "label": "Android app",
-       "path": "https://github.com/juw12/projects/releases/download/airiz-mobile-v1.0.3/AIRIZ-Mobile-1.0.3-android.apk"
-      },
-      {
-       "label": "iPhone (Bluefy)",
-       "path": "airiz-motor/iphone.html"
-      }
-     ]
+      "featured": true,
+      "order": 1,
+      "portfolio_order": -6,
+      "card_links": [
+        {
+          "label": "Windows app",
+          "path": "https://github.com/juw12/projects/releases/download/airiz-desktop-v1.11.20/AIRIZ-Console-Setup-1.11.20-x64.exe"
+        },
+        {
+          "label": "Web",
+          "path": "airiz-motor/"
+        },
+        {
+          "label": "Mobile web",
+          "path": "airiz-motor/"
+        },
+        {
+          "label": "Android app",
+          "path": "https://github.com/juw12/projects/releases/download/airiz-mobile-v1.0.3/AIRIZ-Mobile-1.0.3-android.apk"
+        },
+        {
+          "label": "iPhone (Bluefy)",
+          "path": "airiz-motor/iphone.html"
+        }
+      ]
     },
     {
       "id": "vertex",
@@ -906,7 +906,7 @@
           "url": "https://github.com/juw12/projects/tree/main/apps/pips"
         }
       ],
-      "version": "2.25.2",
+      "version": "2.26.0",
       "featured": true,
       "order": 5,
       "portfolio_order": -8
