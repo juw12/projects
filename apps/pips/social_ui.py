@@ -1787,6 +1787,7 @@ class FriendsWindow:
         btns.pack(fill="x", pady=(6, 0))
         self._button(btns, t("arena_get_gear"), lambda: self.show_tab("shop"), small=True).pack(side="left")
         self._button(btns, "? " + t("arena_how_btn"), self._arena_help, small=True).pack(side="left", padx=4)
+        self._button(btns, "\U0001F3C3 " + t("arena_trail_btn"), self._open_focus_trail, small=True).pack(side="left")
         if me.get("active"):
             self._button(btns, "\u25b6 " + t("arena_return"), lambda: self.social.open_duel(me["active"]), primary=True,
                          small=True).pack(side="right")
@@ -1863,6 +1864,7 @@ class FriendsWindow:
                     size=8, fg=self.MUTED, wrap=self.WIDTH - 70).pack(fill="x", pady=(0, 4))
         self._render_party_section(minigames)
         self._render_duel_tile()
+        self._render_trail_tile()
         self._section_title("\U0001F3AE " + t("mg_solo"))
         state = self.pet.st
         rows = [(key, minigames.ICONS[key], t("mg_" + key), t("mg_" + key + "_how"),
@@ -1929,6 +1931,30 @@ class FriendsWindow:
             status = t("mp_status_" + room.get("status", "open"), n=room.get("round", 1))
             self._label(box, status + "  \u00b7  " + t("mp_players_line", n=len(joined), names=names), size=8,
                         fg=self.MUTED, bg=self.CARD, wrap=self.WIDTH - 300).pack(fill="x")
+
+    def _render_trail_tile(self):
+        """v2.26: Strava-style Focus Trail stickers sit next to the Pet Duel arena (works offline too)."""
+        row = tk.Frame(self.body, bg=self.TILE, padx=8, pady=6)
+        row.pack(fill="x", pady=2)
+        self._button(row, "\u25b6 " + t("mp_open"), self._open_focus_trail, primary=True,
+                     small=True).pack(side="right")
+        tk.Label(row, text="\U0001F3C3", font=("Segoe UI Emoji", 20), bg=self.TILE, width=2).pack(side="left", padx=(0, 8))
+        box = tk.Frame(row, bg=self.TILE)
+        box.pack(side="left", fill="x", expand=True)
+        self._label(box, t("mg_trail"), size=10, bold=True, bg=self.TILE).pack(fill="x")
+        self._label(box, t("mg_trail_how"), size=8, fg=self.MUTED, bg=self.TILE, wrap=self.WIDTH - 230).pack(fill="x")
+
+    def _open_focus_trail(self):
+        opener = self.pet.cb.get("open_focus_trail") if hasattr(self.pet, "cb") else None
+        opened = False
+        if opener:
+            try:
+                opened = opener() is not False
+            except Exception:
+                opened = False
+        if not opened:
+            self.error = t("ft_unavailable")
+            self._update_status()
 
     def _render_duel_tile(self):
         """v2.25: the Pet Duel arena is one of the games (opens the arena view)."""

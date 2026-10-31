@@ -2,6 +2,33 @@
   "_comment": "Pips version history. Newest first. Feeds the in-app update notice (latest.json), the PPT guide and the update emails.",
   "releases": [
     {
+      "version": "2.26.0",
+      "date": "2026-10-31",
+      "title": "Focus Trail",
+      "notes": {
+        "en": [
+          "New Focus Trail: a Strava-style sticker of your work-hours focus - your day or week drawn as a route, with screen time, productive time and pomodoros.",
+          "Open it from the hub: Play -> Games (Focus Trail row) or the Focus Trail button in the Pet Duel arena. Works even with Friends turned off.",
+          "5 styles (Strava, Badge, Minimal, Bars, Neon) and colours. Save the PNG, copy it, or share it to X, LinkedIn, Facebook or Instagram - the sticker is copied so you just paste it."
+        ],
+        "id": [
+          "Baru: Jejak Fokus - stiker ala Strava dari fokus jam kerjamu: hari atau minggumu digambar sebagai rute, lengkap dengan waktu layar, waktu produktif dan pomodoro.",
+          "Buka dari hub: Main -> Game (baris Jejak Fokus) atau tombol Jejak Fokus di arena Duel Pet. Tetap bisa dipakai walau Teman dimatikan.",
+          "5 gaya (Strava, Badge, Minimal, Bars, Neon) dan pilihan warna. Simpan PNG, salin, atau bagikan ke X, LinkedIn, Facebook atau Instagram - stiker sudah tersalin, tinggal tempel."
+        ],
+        "zh_TW": [
+          "新功能「專注軌跡」：Strava 風格的上班專注貼圖，把你的一天或一週畫成路線，附上螢幕時間、高效時間和番茄鐘。",
+          "從中心開啟：遊戲 -> 遊戲（專注軌跡）或寵物對決競技場中的「專注軌跡」按鈕。沒開好友功能也能用。",
+          "5 種樣式（Strava、Badge、Minimal、Bars、Neon）和多種顏色。可儲存 PNG、複製，或分享到 X、LinkedIn、Facebook、Instagram - 貼圖已自動複製，直接貼上即可。"
+        ],
+        "zh_CN": [
+          "新功能「专注轨迹」：Strava 风格的工作专注贴图，把你的一天或一周画成路线，附上屏幕时间、高效时间和番茄钟。",
+          "从中心打开：游戏 -> 游戏（专注轨迹）或宠物对决竞技场中的「专注轨迹」按钮。没开好友功能也能用。",
+          "5 种样式（Strava、Badge、Minimal、Bars、Neon）和多种颜色。可保存 PNG、复制，或分享到 X、LinkedIn、Facebook、Instagram - 贴图已自动复制，直接粘贴即可。"
+        ]
+      }
+    },
+    {
       "version": "2.25.2",
       "date": "2026-10-30",
       "title": "Updates find you",
