@@ -390,9 +390,6 @@ def main():
     write_redirects(out_dir, catalog)
     write_nojekyll(out_dir)
 
-    repo_name = get_repo_name().replace("-", " ").title()
-    generate_index(out_dir, repo_name, build_landing_apps(catalog))
-
     print()
     print("Build complete!")
     print(f"Output: {out_dir.absolute()}")
