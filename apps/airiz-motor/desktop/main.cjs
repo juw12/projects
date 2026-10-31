@@ -12,6 +12,7 @@ const {
 const { createSerialChooser } = require('./serial-chooser.cjs');
 const { createUpdateController } = require('./update-controller.cjs');
 const { createGrantStore } = require('./device-grants.cjs');
+const { createPreferencesStore } = require('./preferences.cjs');
 const { createPowerKeeper } = require('./power-keeper.cjs');
 const { windowsPowerPlan } = require('./power-plan.cjs');
 
@@ -66,6 +67,7 @@ let mainWindow = null;
 let chooser = null;
 let updates = null;
 let grants = null;
+let preferences = null;
 let powerKeeper = null;
 let powerPlan = null;
 let bluetoothCallback = null;
@@ -267,6 +269,7 @@ async function createWindow() {
   });
   configurePermissions(session.defaultSession);
   grants = createGrantStore(app.getPath('userData'));
+  preferences = createPreferencesStore(app.getPath('userData'));
   // Only ports the user explicitly chose before are reopened automatically.
   session.defaultSession.setDevicePermissionHandler(details => {
     return details.deviceType === 'serial' && isAppUrl(details.origin) && grants.allows(details.device);
@@ -493,6 +496,8 @@ async function createWindow() {
     currentVersion: app.getVersion(),
     packaged: app.isPackaged,
     portable: !!process.env.PORTABLE_EXECUTABLE_FILE,
+    autoUpdate: preferences.get('autoUpdate'),
+    autoInstallDelayMs: 30 * 1000,
     publish: state => {
       if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('airiz:update-state', state);
     },
@@ -542,13 +547,24 @@ async function createWindow() {
     ['airiz:update-check', () => updates.check()],
     ['airiz:update-download', () => updates.download()],
     ['airiz:update-install', () => updates.install()],
-    ['airiz:update-cancel-schedule', () => updates.cancelScheduled()]
+    ['airiz:update-cancel-schedule', () => updates.cancelScheduled()],
+    ['airiz:update-cancel-auto-install', () => updates.cancelAutoInstall()]
   ]) {
     ipcMain.handle(channel, event => {
       if (!trustedSender(event)) throw new Error('Untrusted update request.');
       return action();
     });
   }
+  ipcMain.handle('airiz:get-auto-update', event => {
+    if (!trustedSender(event)) throw new Error('Untrusted update request.');
+    return preferences.get('autoUpdate');
+  });
+  ipcMain.handle('airiz:set-auto-update', (event, enabled) => {
+    if (!trustedSender(event)) throw new Error('Untrusted update request.');
+    const value = preferences.set('autoUpdate', enabled === true);
+    if (updates && updates.setAutoUpdate) updates.setAutoUpdate(value);
+    return value;
+  });
   if (app.isPackaged) {
     setTimeout(() => updates.check(), 5000).unref();
     setInterval(() => updates.check(), 6 * 60 * 60 * 1000).unref();
