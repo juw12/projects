@@ -164,9 +164,6 @@ No pairing is accepted without confirmation and no motor command is sent.
 Another program on the PC still cannot open COM4 while this app holds it: that is
 a Windows serial-port rule, which is why the check runs inside the app.
 
-## 1.11.19: Wobble test for the rising head
-Camera tab → Wobble test: the AIRIZ lowers, rises and goes down while the console tracks the camera picture and grades the sideways wobble 1–4 (PASS up to grade 1). Too few camera frames → NOT RELIABLE, never PASS. Grade borders can be fitted to units graded by eye; history and CSV export.
-
 ## 1.11.22: Safe auto-update (opt-in)
 
 * **Opt-in auto-update.** Updates dialog → *Auto-update* (off by default, stored in `preferences.json` in the app's user-data folder). New releases download by themselves; the install waits until the console has been untouched for 5 minutes (no command, click, key or held button; no macro, recording, camera session, device audio transfer or voice message). `AirizConsole.getStatus().idleMs` reports the idle time; an unknown idle time counts as busy.
@@ -179,6 +176,13 @@ Camera tab → Wobble test: the AIRIZ lowers, rises and goes down while the cons
 * **Home key sends the camera home.** Pressing **Home** on the keyboard on the Camera tab (outside fields, dialogs, and the side nav, no modifiers, no key-repeat) now runs the same `goHome()` path as the *Go home* button — routed through `askHost('go-home')` first so a remote controller still asks the cable console. The button path itself is now `try`/`catch`-wrapped, so any thrown error from `moveTo` / `readSwitch` / `findRisingHome` becomes a visible status line (`Go home failed: …`), not a silent no-op.
 * **Auto night vision now uses the camera too.** The existing `diag als value` path stays (15 s tick, hysteresis with `darkBelow` / `brightAbove` in lux). Added in `web/ptz-core.js`: `meanLuminance(gray)`, `cameraDarknessDecision(mean, currentMode, thresholds)` (thresholds in 0..255 luminance units), and `combinedNightDecision({number}, {mean}, currentMode, thresholds)` which says **night** when either source says dark and only switches back to **day** when both say bright — so a covered ALS or a covered lens no longer freezes the wrong mode. `web/ptz.js`: new `cameraNightSample()` runs on the **main thread** every ~700 ms (the camera path cannot live inside the worker that owns `analyse()`, which has no DOM / `api.sendCommand`); a 6-sample rolling buffer smooths the camera mean; new `store.night.camera` flag (default on) plus `cameraDarkBelow: 22` / `cameraBrightAbove: 60` thresholds persisted in `airiz.ptz.v1` and tunable in the UI (Night vision &amp; siren → "Also use the camera picture" + Camera night below / Camera day above). Status line now shows both readings: `ALS 12 · cam 18 · Night (IR)`.
 * **Tests.** `desktop/tests/ptz-core.test.cjs` +12 assertions covering `meanLuminance`, `cameraDarknessDecision`, and `combinedNightDecision` (ALS wins, camera wins, both-day, ALS-only-day, camera-only-day, both-in-band → null). New `desktop/tests/ptz-go-home.test.cjs` locks the click + Home-key wiring so it cannot silently regress. All existing tests still pass (`ptz-alerts`, `ptz-hold`, `test_console_ui`).
+
+## 1.11.20: Wobble test fixes
+
+The wobble test starts with the rise when the head is already down (after a test or with the bottom switch pressed); the camera frame check counts from the first frame and keeps the window at full speed during the test; height reference and calibration are hidden (motor speed moved to Position); the console window always shows on start.
+
+## 1.11.19: Wobble test for the rising head
+Camera tab → Wobble test: the AIRIZ lowers, rises and goes down while the console tracks the camera picture and grades the sideways wobble 1–4 (PASS up to grade 1). Too few camera frames → NOT RELIABLE, never PASS. Grade borders can be fitted to units graded by eye; history and CSV export.
 
 ## 1.11.18: Owner-set share code, Bluetooth removed, one share button
 
