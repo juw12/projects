@@ -46,6 +46,8 @@ VERSION = "1.0.0"
 TITLE = "ME R&D Toolkit"
 DATA_FOLDER = "ME-RD-Toolkit"
 PREFERRED_PORT = 8781  # the vault's default is 8780
+VERTEX_PORT = 8792  # the vertex CAD bridge's default
+PTB_PORT = 8050  # the PTB RDME widget's default
 START_PAGE = "index.html"
 DEFAULT_SIZE = (1360, 880)
 MIN_SIZE = (420, 560)
@@ -549,6 +551,141 @@ class VaultHost:
         return self.module.unalias(path) if self.module else path
 
 
+# -------------------------------------------------------- the sub-apps
+class VertexHost:
+    r"""vertex/server/bridge.py, imported in-process; the CAD bridge on its own loopback port.
+
+    It is plain source loaded by path (its main() is never called - that would block and open a
+    browser). Its own ThreadingHTTPServer answers http://127.0.0.1:<port>/ with permissive CORS,
+    so the toolkit window can reach it. A failure to start is recorded, not raised: the toolkit
+    still runs without the bridge.
+    """
+
+    def __init__(self):
+        self.httpd = None
+        self.port = None
+        self.error = None
+
+    @property
+    def started(self):
+        return self.httpd is not None
+
+    def start(self, preferred=VERTEX_PORT):
+        path = os.path.join(toolkit_folder(), "vertex", "server", "bridge.py")
+        if not os.path.isfile(path):
+            self.error = "vertex bridge not found: %s" % path
+            log(self.error)
+            return False
+        port = preferred if port_free(preferred) else free_port()
+        try:
+            spec = importlib.util.spec_from_file_location("merd_vertex", path)
+            module = importlib.util.module_from_spec(spec)
+            sys.modules["merd_vertex"] = module
+            spec.loader.exec_module(module)
+            self.httpd = module.ThreadingHTTPServer(("127.0.0.1", port), module.VertexHandler)
+            self.httpd.daemon_threads = True
+            self.port = self.httpd.server_address[1]
+            threading.Thread(target=self.httpd.serve_forever, name="merd-vertex", daemon=True).start()
+        except (ImportError, OSError) as error:
+            self.error = "the vertex bridge could not start: %s" % error
+            log(self.error)
+            self.httpd = None
+            return False
+        log("vertex CAD bridge on http://127.0.0.1:%d/" % self.port)
+        return True
+
+    def stop(self):
+        if self.httpd:
+            self.httpd.shutdown()
+            self.httpd.server_close()
+            self.httpd = None
+
+
+class PtbHost:
+    r"""ptb-rdme/server, imported as a package; the OT / email-drafts widget on its own loopback port.
+
+    The frozen bundle is read-only, so the widget's data (SQLite) is re-pointed at a writable
+    folder in the data folder before it starts; the module-level init would otherwise crash on a
+    read-only path. Its scheduler (Teams reminders) is optional and degrades if Outlook/COM is
+    missing. A failure to start is recorded, not raised: the toolkit still runs without it.
+    """
+
+    def __init__(self, data_root):
+        self.data_root = data_root
+        self.server = None
+        self.scheduler = None
+        self.port = None
+        self.error = None
+
+    @property
+    def started(self):
+        return self.server is not None
+
+    def start(self, preferred=PTB_PORT):
+        import pathlib
+        pkg_root = os.path.join(toolkit_folder(), "ptb-rdme")
+        if not os.path.isfile(os.path.join(pkg_root, "server", "server.py")):
+            self.error = "ptb server not found: %s" % pkg_root
+            log(self.error)
+            return False
+        data_dir = os.path.join(self.data_root, "ptb-rdme-data")
+        os.makedirs(data_dir, exist_ok=True)
+        db_path = pathlib.Path(data_dir) / "ptb_rdme.sqlite3"
+        web_dir = os.path.join(pkg_root, "web")
+        if pkg_root not in sys.path:
+            sys.path.insert(0, pkg_root)
+        try:
+            db = importlib.import_module("server.db")
+            server_mod = importlib.import_module("server.server")
+            scheduler_mod = importlib.import_module("server.scheduler")
+        except (ImportError, OSError) as error:
+            self.error = "the ptb widget could not be imported: %s" % error
+            log(self.error)
+            return False
+        # Re-point the read-only, __file__-relative paths at the writable data folder before starting.
+        db.DB_PATH = db_path
+        server_mod.DB_PATH = db_path
+        server_mod.DATA_DIR = pathlib.Path(data_dir)
+        server_mod.WEB = pathlib.Path(web_dir)
+        try:
+            db.init_db(db_path)
+        except OSError as error:
+            self.error = "the ptb widget database could not be initialised: %s" % error
+            log(self.error)
+            return False
+        port = preferred if port_free(preferred) else free_port()
+        try:
+            self.server = server_mod.start("127.0.0.1", port)
+            self.port = self.server.server_address[1]
+        except OSError as error:
+            self.error = "the ptb widget could not start: %s" % error
+            log(self.error)
+            self.server = None
+            return False
+        try:
+            self.scheduler = scheduler_mod.Scheduler(db_path, "")
+            self.scheduler.start()
+        except Exception:
+            self.scheduler = None  # reminders are optional; the widget still works
+        log("ptb rdme widget on http://127.0.0.1:%d/" % self.port)
+        return True
+
+    def stop(self):
+        if self.scheduler:
+            try:
+                self.scheduler.stop()
+            except Exception:
+                pass
+            self.scheduler = None
+        if self.server:
+            try:
+                self.server.shutdown()
+                self.server.server_close()
+            except Exception:
+                pass
+            self.server = None
+
+
 # ----------------------------------------------------- the loopback server
 class DesktopHandler(BaseHTTPRequestHandler):
     server_version = "MERDToolkitDesktop/" + VERSION
@@ -650,6 +787,9 @@ class DesktopHandler(BaseHTTPRequestHandler):
         return self.send_json(404, {"error": "not found"})
 
     def serve_web(self, path):
+        sub = self.serve_subapp(path)
+        if sub is not None:
+            return sub
         web = self.server.app.web_dir
         if path in ("", "/"):
             path = "/" + START_PAGE
@@ -672,6 +812,34 @@ class DesktopHandler(BaseHTTPRequestHandler):
             body = self.server.app.inject(body)
         return self.send_bytes(200, body, content_type)
 
+    def serve_subapp(self, path):
+        r"""/vertex/... and /ptb-rdme/... serve the sub-apps' own web folders as a static fallback
+        (their live APIs stay on their own ports, exposed to the page via MERD_SUBAPPS)."""
+        parts = urllib.parse.unquote(path).split("/")
+        if len(parts) < 2 or parts[1] not in ("vertex", "ptb-rdme"):
+            return None
+        base = os.path.abspath(os.path.join(toolkit_folder(), parts[1], "web"))
+        relative = posixpath.normpath("/".join(parts[2:]))
+        if relative in ("", ".", "..") or relative.startswith(".."):
+            relative = "index.html"
+        full = os.path.abspath(os.path.join(base, *relative.split("/")))
+        if os.path.isdir(full):
+            full = os.path.abspath(os.path.join(full, "index.html"))
+        if full != base and not full.startswith(base + os.sep):
+            return self.send_json(404, {"error": "not found"})
+        if not os.path.isfile(full):
+            return self.send_json(404, {"error": "not found"})
+        with open(full, "rb") as handle:
+            body = handle.read()
+        content_type = mimetypes.guess_type(full)[0] or "application/octet-stream"
+        if full.endswith(".webmanifest"):
+            content_type = "application/manifest+json"
+        elif full.endswith(".js"):
+            content_type = "text/javascript"
+        if content_type.startswith("text/") or content_type.endswith(("json", "javascript")):
+            content_type += "; charset=utf-8"
+        return self.send_bytes(200, body, content_type)
+
 
 class DesktopServer:
     def __init__(self, root, web_dir, test_mode=False):
@@ -682,21 +850,29 @@ class DesktopServer:
         self.token = secrets.token_urlsafe(24)
         self.storage = SavedStorage(os.path.join(root, STORAGE_FILE))
         self.vault = VaultHost(self.private_dir)
+        self.vertex = VertexHost()
+        self.ptb = PtbHost(root)
         self.test_mode = test_mode
         self.opened = []
         self.httpd = None
         self.port = None
 
     def inject(self, html):
-        boot = ('<script>window.__MERD_DESKTOP={token:%s,version:%s,platform:%s};</script>'
-                '<script src="/__desktop/shim.js?v=%s"></script>'
-                % (json.dumps(self.token), json.dumps(VERSION), json.dumps(sys.platform), VERSION))
+        subapps = {}
+        if self.vertex.started:
+            subapps["vertex"] = self.vertex.port
+        if self.ptb.started:
+            subapps["ptb"] = self.ptb.port
+        head = "<script>window.MERD_SUBAPPS=%s;</script>" % json.dumps(subapps)
+        head += ('<script>window.__MERD_DESKTOP={token:%s,version:%s,platform:%s};</script>'
+                 '<script src="/__desktop/shim.js?v=%s"></script>'
+                 % (json.dumps(self.token), json.dumps(VERSION), json.dumps(sys.platform), VERSION))
         text = html.decode("utf-8")
         marker = text.lower().find("<head>")
         if marker < 0:
-            return (boot + text).encode("utf-8")
+            return (head + text).encode("utf-8")
         marker += len("<head>")
-        return (text[:marker] + boot + text[marker:]).encode("utf-8")
+        return (text[:marker] + head + text[marker:]).encode("utf-8")
 
     def start(self, port):
         self.httpd = ThreadingHTTPServer(("127.0.0.1", port), DesktopHandler)
@@ -715,6 +891,8 @@ class DesktopServer:
             self.httpd.server_close()
             self.httpd = None
         self.vault.stop()
+        self.vertex.stop()
+        self.ptb.stop()
 
     def save_pack(self, pack):
         target = os.path.join(self.private_dir, "pack.json")
@@ -1059,6 +1237,8 @@ def run_window(root, report_path):
     settings = read_json(settings_path, {})
     server = DesktopServer(root, os.path.join(toolkit_folder(), "web"), test_mode=bool(report_path))
     server.vault.start(share=True)
+    server.vertex.start()
+    server.ptb.start()
     server.start(choose_port(settings_path, free_port() if report_path else None))
     start_url = server.url()
 
@@ -1137,7 +1317,10 @@ def run_window(root, report_path):
             renderer = getattr(sys.modules.get("webview.platforms.winforms"), "renderer", gui)
         write_report(report_path, method="window", toolkit=renderer, runtime=runtime, server_url=start_url,
                      data_folder=root, frozen=frozen(), vault=server.vault.enabled, vault_shared=server.vault.lan_url,
-                     vault_error=server.vault.error, page=info, checks=checks)
+                     vault_error=server.vault.error,
+                     vertex=server.vertex.started, vertex_port=server.vertex.port, vertex_error=server.vertex.error,
+                     ptb=server.ptb.started, ptb_port=server.ptb.port, ptb_error=server.ptb.error,
+                     page=info, checks=checks)
         window.destroy()
 
     def on_loaded():

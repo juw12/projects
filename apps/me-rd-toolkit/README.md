@@ -17,6 +17,10 @@ file indexes live in a private *data pack* that is loaded at runtime and never c
   enclosure openings (IEC), colour ΔE, test margin and unit conversion. Limits are editable and
   can be preset from the data pack.
 - **File Vault** (optional): browse shared folders by category, search, open or download files
+- **Engineering apps**: two sub-apps embedded as sections — **Vertex** (offline CAD copilot: diagnose/repair
+  broken models, plan assemblies) and **PTB RDME** (the PTB RD ME team's overtime submission + Outlook drafts).
+  The Windows app starts their local servers and embeds them live; on the static build Vertex falls back to its
+  deployed offline copy
 - Bookmarks, recent items, dark mode, built-in "How to use" guide; installable PWA that works offline
 
 ## Layout
@@ -25,6 +29,8 @@ file indexes live in a private *data pack* that is loaded at runtime and never c
 apps/me-rd-toolkit/
   web/       static front-end (deployed to GitHub Pages)
   server/    optional stdlib-only vault server + example config
+  vertex/    Vertex sub-app (CAD copilot PWA + stdlib bridge), embedded as a section
+  ptb-rdme/  PTB RDME sub-app (overtime/Outlook widget + stdlib server), embedded as a section
   tests/     hermetic stdlib-only tests
 ```
 

@@ -11,6 +11,7 @@ serves the shipped `web/` (and, when configured, `server/vault_server.py`) to a 
 | **Open real files** | File and folder paths from the data pack get an **↗ Open** button (clicking a file name works too) that opens them in their own program - SolidWorks, Excel, a PDF reader, or Explorer for folders. Programs and scripts (`.exe`, `.bat`, `.ps1`, `.lnk`, ...) are never launched. |
 | **File Vault built in** | Copy `server/vault_config.example.json` to `private\vault_config.json` and set your roots and categories. The vault then runs inside the app: browse, search and open shared files in the window (opened from disk, respecting the vault's exclusions), while teammates use the same vault at `http://<this-pc>:<port>/` with the shared password, read-only and logged - exactly as `vault_server.py`. |
 | **Desktop basics** | One window at a time (`--stop` closes it), window size remembered, CSV/backup downloads, printing, update notice from `web/desktop.json`. |
+| **Engineering apps built in** | The window also starts two sub-app servers — **Vertex** (CAD bridge, `127.0.0.1:8792`) and **PTB RDME** (overtime/Outlook widget, `127.0.0.1:8050`) — hands their live ports to the page (`window.MERD_SUBAPPS`), and serves their `web/` folders as a static fallback. Their data lives under the app's data folder, not the read-only bundle. |
 
 Keep the vault on your internal network: HTTP Basic auth is not encrypted (see the toolkit README). Windows
 Firewall asks once when the vault first shares on the network.

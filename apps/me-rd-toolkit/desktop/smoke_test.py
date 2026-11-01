@@ -123,6 +123,10 @@ def problems_in(result):
         problems.append("the toolkit did not start")
     if not result.get("vault") or not page.get("serverMode"):
         problems.append("the file vault is not on in the window (%s)" % result.get("vault_error"))
+    if not result.get("vertex"):
+        problems.append("the vertex bridge did not start (%s)" % result.get("vertex_error"))
+    if not result.get("ptb"):
+        problems.append("the ptb widget did not start (%s)" % result.get("ptb_error"))
     if (result.get("checks") or {}).get("error"):
         problems.append(result["checks"]["error"])
     return problems
