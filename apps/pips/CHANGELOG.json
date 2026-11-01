@@ -2,6 +2,37 @@
   "_comment": "Pips version history. Newest first. Feeds the in-app update notice (latest.json), the PPT guide and the update emails.",
   "releases": [
     {
+      "version": "2.27.2",
+      "date": "2026-11-01",
+      "title": "Tidier right-click menus",
+      "notes": {
+        "en": [
+          "Cleaner pet menu: one row of everyday actions (Focus, Snack, Pat, Play). Stats and Focus Trail are under My progress; Friends, Community, Shop and Nudge are under Friends.",
+          "When your pet is sick, a Medicine banner appears at the top instead of an extra tile.",
+          "Timer-card menu: Stats, Focus Trail and History tiles; weekly and monthly reports now live in Reports & diary.",
+          "New: Phone Trail for your phone's screen time - juw12.github.io/projects/pips/trail/"
+        ],
+        "id": [
+          "Menu pet lebih rapi: satu baris aksi harian (Fokus, Camilan, Elus, Main). Statistik dan Jejak Fokus ada di Progres saya; Teman, Komunitas, Toko dan Colek ada di Teman.",
+          "Saat pet-mu sakit, banner Obat muncul di atas, bukan ubin tambahan.",
+          "Menu kartu timer: ubin Statistik, Jejak Fokus dan Riwayat; laporan mingguan dan bulanan sekarang ada di Laporan & diary.",
+          "Baru: Jejak HP untuk screen time HP-mu - juw12.github.io/projects/pips/trail/"
+        ],
+        "zh_TW": [
+          "寵物選單更清爽：一排常用動作（專注、點心、摸摸、玩）。統計和專注軌跡在「我的進度」；好友、社群、商店和戳一下在「好友」。",
+          "寵物生病時，頂端會出現「吃藥」橫幅，不再多一格。",
+          "計時卡片選單：統計、專注軌跡、歷史三格；週報和月報移到「報告與日記」。",
+          "新功能：手機軌跡，把手機螢幕使用時間畫成路線 - juw12.github.io/projects/pips/trail/"
+        ],
+        "zh_CN": [
+          "宠物菜单更清爽：一排常用动作（专注、点心、摸摸、玩）。统计和专注轨迹在「我的进度」；好友、社区、商店和戳一下在「好友」。",
+          "宠物生病时，顶部会出现「吃药」横幅，不再多一格。",
+          "计时卡片菜单：统计、专注轨迹、历史三格；周报和月报移到「报告与日记」。",
+          "新功能：手机轨迹，把手机屏幕使用时间画成路线 - juw12.github.io/projects/pips/trail/"
+        ]
+      }
+    },
+    {
       "version": "2.27.1",
       "date": "2026-11-01",
       "title": "Focus Trail in your menus",

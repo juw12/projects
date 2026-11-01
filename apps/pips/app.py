@@ -28,7 +28,7 @@ except ImportError:  # pragma: no cover - i18n ships with Pips
     def T(key, lang=None, **kwargs):
         return key
 
-APP_VERSION = "2.27.1"
+APP_VERSION = "2.27.2"
 APP_OWNER = "Juwen Lie"
 USER_GUIDE_URL = "https://juw12.github.io/projects/pips/download/Pips-Guide.pptx"
 SITE_URL = "https://juw12.github.io/projects/pips/"
@@ -4070,15 +4070,17 @@ class ProductivityWidget:
             ("\U0001F4CA", T("fm_stats"), self._open_dashboard),
             ("\U0001F3C3", T("mg_trail"), self._open_focus_trail),
             ("\U0001F570", T("fm_history"), self._open_history),
-            ("\U0001F4C5", T("fm_weekly"), self._open_weekly_report),
-            ("\U0001F5D3", T("fm_monthly"), self._open_monthly_report),
         ])
         
-        def build_diary(sub):
+        # v2.27.2: weekly / monthly reports live with the diary instead of crowding the tiles.
+        def build_reports(sub):
+            sub.item("\U0001F4C5", T("m_weekly"), self._open_weekly_report)
+            sub.item("\U0001F5D3", T("m_monthly"), self._open_monthly_report)
+            sub.section(T("fm_diary"))
             sub.item("\u270D", T("m_gen_diary"), self._generate_diary)
             sub.item("\U0001F4C2", T("m_open_diary"), self._open_diary_folder)
             sub.item("\U0001F680", T("m_publish"), self._publish_diary)
-        menu.submenu("\U0001F4D4", T("fm_diary"), build_diary, width=250)
+        menu.submenu("\U0001F4D1", T("fm_reports"), build_reports, width=250)
         menu.item("\U0001F504", T("m_refresh_maas"), self._refresh_maas_now)
         
         if self.sound_engine:
@@ -4134,11 +4136,14 @@ class ProductivityWidget:
         menu.add_command(label=T("m_dashboard"), command=self._open_dashboard)
         menu.add_command(label=T("mg_trail"), command=self._open_focus_trail)
         menu.add_command(label=T("m_history"), command=self._open_history)
-        menu.add_command(label=T("m_weekly"), command=self._open_weekly_report)
-        menu.add_command(label=T("m_monthly"), command=self._open_monthly_report)
-        menu.add_command(label=T("m_gen_diary"), command=self._generate_diary)
-        menu.add_command(label=T("m_open_diary"), command=self._open_diary_folder)
-        menu.add_command(label=T("m_publish"), command=self._publish_diary)
+        reports_menu = tk.Menu(menu, tearoff=0, bg=THEME["white"], fg=THEME["ink_black"])
+        reports_menu.add_command(label=T("m_weekly"), command=self._open_weekly_report)
+        reports_menu.add_command(label=T("m_monthly"), command=self._open_monthly_report)
+        reports_menu.add_separator()
+        reports_menu.add_command(label=T("m_gen_diary"), command=self._generate_diary)
+        reports_menu.add_command(label=T("m_open_diary"), command=self._open_diary_folder)
+        reports_menu.add_command(label=T("m_publish"), command=self._publish_diary)
+        menu.add_cascade(label=T("fm_reports"), menu=reports_menu)
         menu.add_command(label=T("m_refresh_maas"), command=self._refresh_maas_now)
         menu.add_separator()
         

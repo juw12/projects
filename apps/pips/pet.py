@@ -4802,36 +4802,37 @@ class DesktopPet:
                 badge=t("fm_new"),
             )
 
-        tiles = []
+        # v2.27.2: one row of everyday actions; everything else is grouped below.
         if self.health is not None and self.health.sick:
-            tiles.append(("\U0001F48A", t("fm_medicine"), self.give_medicine))
-        if self.social:
-            tiles.append(("\U0001F465", t("fm_friends"), lambda: self.open_hub()))
-            if self.shop:
-                tiles.append(("\U0001F6CD", t("fm_shop"), lambda: self.open_hub("shop")))
+            menu.banner(
+                t("fm_sick_title", name=name),
+                t("fm_sick_sub"),
+                self.give_medicine,
+                icon="\U0001F48A",
+                badge=t("fm_medicine"),
+            )
+        tiles = [("\u23F1", t("fm_focus"), lambda: self._call("toggle_window"))]
         tiles.append(("\U0001F36A", t("fm_snack"), self.feed))
         tiles.append(("\U0001F49E", t("fm_pat"), self.pet))
         if minigames is not None:
             tiles.append(("\U0001F3AE", t("fm_play"), lambda: self.play_minigame()))
         elif tama is not None:
             tiles.append(("\U0001F3AE", t("fm_play"), self.play_game))
-        tiles.append(("\u23F1", t("fm_focus"), lambda: self._call("toggle_window")))
-        tiles.append(("\U0001F4CA", t("fm_stats"), lambda: self._call("open_dashboard")))
-        if self.cb.get("open_focus_trail"):
-            tiles.append(("\U0001F3C3", t("mg_trail"), lambda: self._call("open_focus_trail")))
-        if self.sleeping:
-            tiles.append(("\u2600", t("fm_wake"), lambda: self.wake("poke")))
-        else:
-            tiles.append(("\U0001F319", t("fm_sleep"), lambda: self.go_to_sleep("manual")))
         menu.tiles(tiles)
 
+        def build_progress(sub):
+            sub.item("\U0001F4CA", t("fm_stats"), lambda: self._call("open_dashboard"))
+            if self.cb.get("open_focus_trail"):
+                sub.item("\U0001F3C3", t("mg_trail"), lambda: self._call("open_focus_trail"))
+        menu.submenu("\U0001F4C8", t("fm_progress"), build_progress,
+                     hint=t("fm_progress_hint") if self.cb.get("open_focus_trail") else "", width=230)
+
         social_ok = self.social is not None and social is not None and getattr(self.social, "enabled", False)
+        community_unread = 0
         if social_ok and hasattr(social, "COMMUNITY_ROOMS"):
             community_unread = sum(self.social.unread(room) for room in social.COMMUNITY_ROOMS)
-            menu.item("\U0001F310", t("fm_community"), self.open_community, hint=t("fm_community_hint"),
-                      badge=str(community_unread) if community_unread else None)
         targets = self.social.nudge_targets() if social_ok else []
-        if targets:
+        if self.social:
             def build_nudge_friends(sub, people=targets[:14]):
                 for friend in people:
                     code = friend.get("code", "")
@@ -4850,9 +4851,20 @@ class DesktopPet:
                                             lambda k=kind, cc=c: self.social.nudge(cc, k),
                                             hint=t("nudge_hint_" + kind))
                     sub.submenu(dot, friend.get("name", "?"), build_kinds, hint=t("st_" + presence), width=250)
-            online = sum(1 for f in targets if f.get("presence") == "online")
-            menu.submenu(social.NUDGE_SYMBOL["poke"], t("nudge_menu"), build_nudge_friends,
-                         hint=t("nudge_online", n=online) if online else "", width=240)
+
+            def build_friends(sub):
+                sub.item("\U0001F465", t("fm_friends"), lambda: self.open_hub())
+                if social_ok and hasattr(social, "COMMUNITY_ROOMS"):
+                    sub.item("\U0001F310", t("fm_community"), self.open_community, hint=t("fm_community_hint"),
+                             badge=str(community_unread) if community_unread else None)
+                if self.shop:
+                    sub.item("\U0001F6CD", t("fm_shop"), lambda: self.open_hub("shop"))
+                if targets:
+                    online = sum(1 for f in targets if f.get("presence") == "online")
+                    sub.submenu(social.NUDGE_SYMBOL["poke"], t("nudge_menu"), build_nudge_friends,
+                                hint=t("nudge_online", n=online) if online else "", width=240)
+            menu.submenu("\U0001F465", t("fm_friends"), build_friends,
+                         badge=str(community_unread) if community_unread else None, width=250)
 
         if minigames is not None:
             def build_games(sub):
@@ -4883,6 +4895,10 @@ class DesktopPet:
         move = self._move_menu_entry()
         if move:
             menu.item(*move)
+        if self.sleeping:
+            menu.item("\u2600", t("fm_wake"), lambda: self.wake("poke"))
+        else:
+            menu.item("\U0001F319", t("fm_sleep"), lambda: self.go_to_sleep("manual"))
 
         menu.section(t("fm_customize"))
 
