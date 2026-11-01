@@ -41,7 +41,7 @@ from store import DEFAULT_CHANNELS, Store  # noqa: E402
 VERSION = "0.1.0"
 WEB_ROOT = (Path(__file__).resolve().parent.parent / "web").resolve()
 MAX_BODY = 256 * 1024
-CHANNELS = {"webpush", "fcm", "ntfy", "apprise", "inapp"}
+CHANNELS = {"webpush", "fcm", "ntfy", "bark", "gotify", "apprise", "inapp"}
 URGENCIES = {"very-low", "low", "normal", "high"}
 TAG_RE = re.compile(r"^[\w:.\-]{1,64}$")
 
@@ -583,23 +583,28 @@ class Handler(BaseHTTPRequestHandler):
 
     @route("POST", r"/v1/contacts", "sender")
     def add_contact(self):
-        """Register an ntfy topic or Apprise URL as a subscriber (backend/admin only)."""
+        """Register an ntfy topic, Bark device, Gotify app or Apprise URL (backend/admin only)."""
         body = self.read_json()
         app = self.resolve_app(body)
         channel = body.get("channel")
         address = _text(body.get("address"), "address", 2000, required=True)
+        secret = _text(body.get("secret"), "secret", 200)
         try:
             if channel == "ntfy":
                 address = channels.validate_ntfy(address, test_push_hosts())
+            elif channel == "bark":
+                address = channels.validate_bark(address, test_push_hosts())
+            elif channel == "gotify":
+                address = channels.validate_gotify(address, secret, test_push_hosts())
             elif channel == "apprise":
                 address = channels.validate_apprise(address)
             else:
-                raise ApiError(400, "channel must be ntfy or apprise")
+                raise ApiError(400, f"channel must be one of {', '.join(channels.CONTACT_CHANNELS)}")
         except channels.ChannelError as exc:
             raise ApiError(400, str(exc)) from exc
         sub_id, _token = self.server.store.upsert_subscriber(
             app["id"], channel, address,
-            auth=_text(body.get("secret"), "secret", 200) if channel == "ntfy" else "",
+            auth=secret.strip() if channel in ("ntfy", "gotify") else "",
             user_id=_text(body.get("user_id"), "user_id", 128),
             tags=_tags(body.get("tags")),
             platform=_text(body.get("label") or channel, "label", 32),

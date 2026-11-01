@@ -167,7 +167,7 @@ class Dispatcher:
         for subscriber in recipients:
             if subscriber["channel"] == "webpush":
                 futures.append(self.pool.submit(self._send_webpush, app, message, subscriber, body))
-            elif subscriber["channel"] in ("ntfy", "apprise"):
+            elif subscriber["channel"] in channels.CONTACT_CHANNELS:
                 futures.append(self.pool.submit(self._send_contact, message, subscriber, payload))
             elif fcm_sender is not None:
                 futures.append(self.pool.submit(self._send_fcm, fcm_sender, message, subscriber, payload))
@@ -226,7 +226,7 @@ class Dispatcher:
         self._outcome(message, subscriber, status, dead=status in (404, 410))
 
     def _send_contact(self, message: dict, subscriber: dict, payload: dict) -> None:
-        """ntfy topic or Apprise URL (see channels.py)."""
+        """ntfy topic, Bark device, Gotify app or Apprise URL (see channels.py)."""
         status = 0
         last_error = ""
         for attempt in range(3):
@@ -234,6 +234,11 @@ class Dispatcher:
                 if subscriber["channel"] == "ntfy":
                     status = channels.send_ntfy(subscriber["address"], subscriber["auth"], payload,
                                                 message["urgency"])
+                elif subscriber["channel"] == "bark":
+                    status = channels.send_bark(subscriber["address"], payload, message["urgency"])
+                elif subscriber["channel"] == "gotify":
+                    status = channels.send_gotify(subscriber["address"], subscriber["auth"], payload,
+                                                  message["urgency"])
                 else:
                     status = channels.send_apprise(subscriber["address"], payload)
             except ChannelError as exc:  # e.g. apprise uninstalled since registration

@@ -78,13 +78,20 @@ curl -X POST https://push.example.com/v1/send \
 | `GET/POST /v1/apps…` | admin | create apps, update settings, rotate secrets, list subscribers |
 | `POST /v1/subscribe`, `/v1/register-device`, `/v1/update`, `/v1/unsubscribe`, `GET /v1/inbox`, `POST /v1/track` | public (`pk_`) | used by `beacon.js` / `beacon-sw.js` |
 
-## More channels: ntfy and Apprise
+## More channels: ntfy, Bark, Gotify and Apprise
 
 Besides Web Push, FCM and in-app, a subscriber can be a **contact**:
 
 - **ntfy** ([ntfy.sh](https://github.com/binwiederhier/ntfy), Apache-2.0) — anyone with the free ntfy app
   subscribed to the topic gets the notification. Zero dependencies. Hosts are allow-listed
   (`BEACON_NTFY_HOSTS`, default `ntfy.sh`); protected topics take an access token (`secret`).
+- **Bark** ([Finb/Bark](https://github.com/Finb/Bark), MIT) — native iPhone notifications through APNs with
+  no Apple developer account: paste the device URL the Bark app shows (`https://api.day.app/<device_key>`).
+  Urgency maps to iOS levels (`high` → time-sensitive, `low` → passive). Self-hosted
+  [bark-server](https://github.com/Finb/bark-server): add its host to `BEACON_BARK_HOSTS`.
+- **Gotify** ([gotify/server](https://github.com/gotify/server), MIT) — your own push server with an Android app.
+  Address = server URL, `secret` = the Gotify app token. Gotify is always self-hosted, so its hosts must be
+  listed in `BEACON_GOTIFY_HOSTS` before contacts can be added.
 - **Apprise** ([caronc/apprise](https://github.com/caronc/apprise), BSD-2) — Telegram, Slack, Discord, Teams,
   email, Pushover, Gotify and 100+ more, one URL per contact. Optional: `pip install apprise` on the server.
 
@@ -95,11 +102,15 @@ curl -X POST $BEACON/v1/contacts -H "Authorization: Bearer sk_…" -H "Content-T
   -d '{"channel":"ntfy","address":"https://ntfy.sh/my-team-alerts","tags":["team"]}'
 curl -X POST $BEACON/v1/contacts -H "Authorization: Bearer sk_…" -H "Content-Type: application/json" \
   -d '{"channel":"apprise","address":"tgram://BOTTOKEN/CHATID","tags":["oncall"]}'
+curl -X POST $BEACON/v1/contacts -H "Authorization: Bearer sk_…" -H "Content-Type: application/json" \
+  -d '{"channel":"bark","address":"https://api.day.app/DEVICEKEY","tags":["oncall"]}'
+curl -X POST $BEACON/v1/contacts -H "Authorization: Bearer sk_…" -H "Content-Type: application/json" \
+  -d '{"channel":"gotify","address":"https://push.example.com","secret":"APPTOKEN","tags":["ops"]}'
 ```
 
 Only app secrets / the admin token can add contacts (never the public subscribe API), and contact URLs are
-masked in listings because they often embed tokens. Messages go to all push channels by default
-(`webpush`, `fcm`, `ntfy`, `apprise`); pass `channels` to narrow it.
+masked in listings because they often embed tokens (Bark keys, Gotify tokens). Messages go to all push channels by default
+(`webpush`, `fcm`, `ntfy`, `bark`, `gotify`, `apprise`); pass `channels` to narrow it.
 
 ## Workflows: digest and fallback
 
@@ -177,6 +188,7 @@ Pair Beacon with [Tether](../tether#push-qa-with-beacon) to check that pushes ac
 python apps/beacon/tests/verify_api.py        # 72 end-to-end checks, no network needed
 python apps/beacon/tests/verify_webpush.py    # crypto known-answer vectors (same as Orbis)
 python apps/beacon/tests/verify_channels.py   # ntfy + Apprise (40)
+python apps/beacon/tests/verify_bark_gotify.py  # Bark + Gotify (36)
 python apps/beacon/tests/verify_tunnel.py     # Go live / cloudflared (22)
 python apps/beacon/tests/verify_workflows.py  # digest + fallback (23)
 ```

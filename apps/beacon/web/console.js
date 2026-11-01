@@ -257,7 +257,7 @@
       image: compose.image.value,
       urgency: compose.urgency.value,
       ttl: Number(compose.ttl.value),
-      channels: ["webpush", "fcm", "ntfy", "apprise", "inapp"].filter((c) => compose[`ch_${c}`].checked),
+      channels: ["webpush", "fcm", "ntfy", "bark", "gotify", "apprise", "inapp"].filter((c) => compose[`ch_${c}`].checked),
     };
     const audience = compose.audience.value;
     const values = list(compose.audienceValue.value);
@@ -379,10 +379,10 @@
             <td>${s.id}</td><td>${s.channel}</td><td>${escapeHtml(s.user_id || "—")}</td>
             <td class="wrap">${s.tags.map(escapeHtml).join(", ") || "—"}</td>
             <td>${escapeHtml(s.platform || "—")}</td><td>${when(s.created)}</td>
-            <td class="muted small">${escapeHtml(s.address_preview)}${["ntfy", "apprise"].includes(s.channel) ? "" : "…"}</td>
+            <td class="muted small">${escapeHtml(s.address_preview)}${["ntfy", "bark", "gotify", "apprise"].includes(s.channel) ? "" : "…"}</td>
             <td><button class="small ghost" data-remove="${s.id}" title="Remove subscriber">✕</button></td>
           </tr>`)
-        .join("") || `<tr><td colspan="8" class="muted">No subscribers yet — add the snippet from Setup to your app, or add an ntfy/Apprise contact above.</td></tr>`;
+        .join("") || `<tr><td colspan="8" class="muted">No subscribers yet — add the snippet from Setup to your app, or add an ntfy/Bark/Gotify/Apprise contact above.</td></tr>`;
       $$("[data-remove]", $("#subsBody")).forEach((button) => button.addEventListener("click", async () => {
         if (!confirm(`Remove subscriber #${button.dataset.remove}?`)) {
           return;
@@ -401,14 +401,39 @@
 
   const contactForm = $("#contactForm");
 
+  const CONTACT_HINTS = {
+    ntfy: {
+      placeholder: "https://ntfy.sh/my-team-alerts",
+      secret: "ntfy access token (optional)",
+      note: () => "Subscribe to the same topic in the ntfy app.",
+    },
+    bark: {
+      placeholder: "https://api.day.app/<device key from the Bark app>",
+      secret: null,
+      note: () => "Copy the server URL + key from the Bark app on the iPhone.",
+    },
+    gotify: {
+      placeholder: "https://push.example.com",
+      secret: "Gotify app token (required)",
+      note: (caps) => (caps.gotify || {}).available
+        ? `Allowed Gotify hosts: ${caps.gotify.hosts.join(", ")}`
+        : "Server needs BEACON_GOTIFY_HOSTS=your.gotify.host",
+    },
+    apprise: {
+      placeholder: "tgram://bottoken/chatid  ·  slack://…  ·  mailto://…",
+      secret: null,
+      note: (caps) => (caps.apprise || {}).available
+        ? `Apprise ${caps.apprise.version || ""} ready on the server.`
+        : "Server needs: pip install apprise",
+    },
+  };
+
   function updateContactHints() {
-    const isNtfy = contactForm.channel.value === "ntfy";
-    const apprise = (state.channels && state.channels.apprise) || {};
-    contactForm.address.placeholder = isNtfy ? "https://ntfy.sh/my-team-alerts" : "tgram://bottoken/chatid  ·  slack://…  ·  mailto://…";
-    contactForm.secret.hidden = !isNtfy;
-    $("#contactNote").textContent = isNtfy
-      ? "Subscribe to the same topic in the ntfy app."
-      : apprise.available ? `Apprise ${apprise.version || ""} ready on the server.` : "Server needs: pip install apprise";
+    const hint = CONTACT_HINTS[contactForm.channel.value] || CONTACT_HINTS.ntfy;
+    contactForm.address.placeholder = hint.placeholder;
+    contactForm.secret.hidden = !hint.secret;
+    contactForm.secret.placeholder = hint.secret || "";
+    $("#contactNote").textContent = hint.note(state.channels || {});
   }
 
   contactForm.channel.addEventListener("change", updateContactHints);

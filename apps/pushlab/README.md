@@ -30,7 +30,7 @@ CLI (`scripts/pushlab_cli.py`) that finds this lab's keys by itself:
 | Skill | For |
 | --- | --- |
 | `tether-android-qa` | look → act → verify on a phone, Maestro/Tether flows, logcat, screen recording |
-| `beacon-push` | send pushes, digest bursts, fallback to ntfy/Apprise, delivery stats |
+| `beacon-push` | send pushes, digest bursts, fallback to ntfy/Bark/Gotify/Apprise, delivery stats |
 | `push-qa-e2e` | send via Beacon → assert it shows on the phone → tap → verify, with video evidence |
 
 ```text
@@ -55,6 +55,8 @@ prompts work against it too.
 | [cloudflared](https://github.com/cloudflare/cloudflared) (Apache-2.0) | Beacon "Go live": public HTTPS in one click |
 | [ntfy](https://github.com/binwiederhier/ntfy) (Apache-2.0) | Beacon channel: ntfy app topics |
 | [Apprise](https://github.com/caronc/apprise) (BSD-2) | Beacon channel: Telegram/Slack/Discord/email… |
+| [Bark](https://github.com/Finb/Bark) (MIT) | Beacon channel: native iPhone pushes (bark-server API v2) |
+| [Gotify](https://github.com/gotify/server) (MIT) | Beacon channel: self-hosted push server + Android app |
 | [android-emulator-runner](https://github.com/ReactiveCircus/android-emulator-runner) (Apache-2.0) | CI template |
 | [mobile-mcp](https://github.com/mobile-next/mobile-mcp) (Apache-2.0) | tool names/arguments Tether's MCP server is compatible with |
 | [Agent Skills](https://github.com/anthropics/skills) format | the `plugin/` skills pack |
@@ -65,7 +67,7 @@ All are optional downloads or optional pip installs — Beacon and Tether stay z
 
 ## What's verified
 
-- **Automated (all hermetic, no phone needed):** 504 checks — Beacon 72 API + 40 channels + 22 tunnel + 25 crypto
+- **Automated (all hermetic, no phone needed):** 540 checks — Beacon 72 API + 40 channels + 36 Bark/Gotify + 22 tunnel + 25 crypto
   + 23 workflows; Tether 65 API + 30 Beacon link + 62 Maestro + 36 HD (+7 in headless Edge: WebCodecs decode,
   clicks, WebM and MP4 recording) + 52 mobile-mcp/recording/clipboard + 26 AI steps + 18 ARTEMIS engine; Push Lab plugin 26
   (manifests, SKILL.md and the CLI end to end against real Beacon + Tether).
