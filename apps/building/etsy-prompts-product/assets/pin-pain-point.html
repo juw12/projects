@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Pinterest Pin — Pain Point</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    width: 1000px; height: 1500px;
+    background: #F8F4EE;
+    font-family: 'Playfair Display', Georgia, 'Times New Roman', serif;
+    color: #1F1A17;
+    overflow: hidden;
+    display: grid;
+    grid-template-rows: 700px 400px 400px;
+  }
+
+  .top {
+    background: #F8F4EE;
+    padding: 70px 70px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .hook {
+    font-family: 'Playfair Display', Georgia, serif;
+    font-size: 68px;
+    line-height: 1.05;
+    font-weight: 700;
+    color: #1F1A17;
+  }
+
+  .subhook {
+    font-family: 'Playfair Display', Georgia, serif;
+    font-style: italic;
+    font-size: 52px;
+    line-height: 1.1;
+    color: #C76E4A;
+    margin-top: 24px;
+  }
+
+  .middle {
+    background: #F8F4EE;
+    padding: 0 70px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+  }
+
+  .card-row {
+    display: flex;
+    gap: 0;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+    height: 360px;
+    width: 100%;
+  }
+
+  .card {
+    width: 240px;
+    height: 360px;
+    background: #FFFFFF;
+    border-top: 5px solid #C76E4A;
+    border-radius: 5px;
+    padding: 24px 20px;
+    box-shadow: 0 8px 24px rgba(31, 26, 23, 0.10);
+    display: flex;
+    flex-direction: column;
+  }
+
+  .card .num {
+    font-family: 'Inter', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    color: #C76E4A;
+    text-transform: uppercase;
+  }
+
+  .card .title {
+    font-family: 'Playfair Display', Georgia, serif;
+    font-size: 22px;
+    line-height: 1.15;
+    font-weight: 700;
+    color: #1F1A17;
+    margin-top: 10px;
+  }
+
+  .c1 { transform: rotate(-5deg) translateX(-20px); z-index: 1; }
+  .c2 { transform: rotate(0deg) translateX(40px); z-index: 2; }
+  .c3 { transform: rotate(5deg) translateX(100px); z-index: 3; }
+  .c4 { transform: rotate(10deg) translateX(160px); z-index: 4; }
+
+  .bottom {
+    background: #C76E4A;
+    padding: 70px 70px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .cta {
+    font-family: 'Inter', sans-serif;
+    font-size: 60px;
+    line-height: 1;
+    font-weight: 800;
+    color: #F8F4EE;
+    letter-spacing: 1.5px;
+    text-align: center;
+  }
+
+  .tag {
+    font-family: 'Inter', sans-serif;
+    font-size: 22px;
+    color: #F8F4EE;
+    margin-top: 22px;
+    letter-spacing: 1px;
+    opacity: 0.85;
+  }
+</style>
+</head>
+<body>
+  <div class="top">
+    <div class="hook">Writing Etsy listings<br>takes 45 minutes?</div>
+    <div class="subhook">It shouldn't.</div>
+  </div>
+
+  <div class="middle">
+    <div class="card-row">
+      <div class="card c1">
+        <div class="num">SECTION 01</div>
+        <div class="title">Titles That Rank</div>
+      </div>
+      <div class="card c2">
+        <div class="num">SECTION 02</div>
+        <div class="title">Descriptions</div>
+      </div>
+      <div class="card c3">
+        <div class="num">SECTION 03</div>
+        <div class="title">Tags &amp; SEO</div>
+      </div>
+      <div class="card c4">
+        <div class="num">SECTION 09</div>
+        <div class="title">Diagnosis</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="bottom">
+    <div class="cta">150 CHATGPT PROMPTS.<br>THE SYSTEM. →</div>
+    <div class="tag">For Etsy Sellers</div>
+  </div>
+</body>
+</html>

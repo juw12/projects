@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Cover Preview</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    width: 2000px; height: 2000px;
+    background: #F8F4EE;
+    font-family: 'Playfair Display', Georgia, 'Times New Roman', serif;
+    color: #1F1A17;
+    overflow: hidden;
+    display: grid;
+    grid-template-rows: 666px 668px 666px;
+  }
+
+  .top {
+    background: #C76E4A;
+    padding: 80px 100px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: flex-start;
+  }
+
+  .big {
+    font-family: 'Playfair Display', Georgia, serif;
+    font-size: 156px;
+    line-height: 0.95;
+    font-weight: 700;
+    color: #F8F4EE;
+    letter-spacing: -3px;
+  }
+
+  .sub {
+    font-family: 'Inter', sans-serif;
+    font-size: 56px;
+    line-height: 1;
+    color: #F8F4EE;
+    margin-top: 16px;
+    font-weight: 400;
+  }
+
+  .middle {
+    background: #F8F4EE;
+    padding: 80px 100px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+  }
+
+  .card-row {
+    display: flex;
+    gap: -40px;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+    height: 480px;
+    width: 100%;
+  }
+
+  .card {
+    width: 340px;
+    height: 480px;
+    background: #FFFFFF;
+    border-top: 6px solid #C76E4A;
+    border-radius: 6px;
+    padding: 36px 30px;
+    box-shadow: 0 10px 32px rgba(31, 26, 23, 0.10), 0 4px 8px rgba(31, 26, 23, 0.06);
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+
+  .card .num {
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: #C76E4A;
+    text-transform: uppercase;
+  }
+
+  .card .title {
+    font-family: 'Playfair Display', Georgia, serif;
+    font-size: 28px;
+    line-height: 1.1;
+    font-weight: 700;
+    color: #1F1A17;
+  }
+
+  .card .prompt {
+    font-family: 'Courier New', Consolas, monospace;
+    font-size: 14px;
+    line-height: 1.5;
+    color: #4A413B;
+    background: #FAF6F0;
+    border-left: 3px solid #C76E4A;
+    padding: 14px 16px;
+    margin-top: auto;
+  }
+
+  .c1 { transform: rotate(-6deg) translateX(-30px); z-index: 1; }
+  .c2 { transform: rotate(-2deg) translateX(60px); z-index: 2; }
+  .c3 { transform: rotate(2deg) translateX(150px); z-index: 3; }
+  .c4 { transform: rotate(6deg) translateX(240px); z-index: 4; }
+  .c5 { transform: rotate(10deg) translateX(330px); z-index: 5; }
+
+  .bottom {
+    background: #C76E4A;
+    padding: 60px 100px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .cta {
+    font-family: 'Inter', sans-serif;
+    font-size: 84px;
+    line-height: 1;
+    font-weight: 800;
+    color: #F8F4EE;
+    letter-spacing: 2px;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+  <div class="top">
+    <div class="big">150 ChatGPT<br>PROMPTS</div>
+    <div class="sub">for Etsy Sellers</div>
+  </div>
+
+  <div class="middle">
+    <div class="card-row">
+      <div class="card c1">
+        <div class="num">SECTION 01</div>
+        <div class="title">Titles That Rank</div>
+        <div class="prompt">// 15 prompts<br>// 140-char<br>// 2026 search</div>
+      </div>
+      <div class="card c2">
+        <div class="num">SECTION 02</div>
+        <div class="title">Descriptions That Convert</div>
+        <div class="prompt">// 20 prompts<br>// 5-section framework</div>
+      </div>
+      <div class="card c3">
+        <div class="num">SECTION 03</div>
+        <div class="title">Tags &amp; Etsy SEO</div>
+        <div class="prompt">// 15 prompts<br>// 13 tags, 20-char max</div>
+      </div>
+      <div class="card c4">
+        <div class="num">SECTION 09</div>
+        <div class="title">Diagnosis &amp; Strategy</div>
+        <div class="prompt">// 15 prompts<br>// Fix what isn't selling</div>
+      </div>
+      <div class="card c5">
+        <div class="num">+ 5 MORE</div>
+        <div class="title">Service, Social, Email, Photos, Research</div>
+        <div class="prompt">// 105 more prompts<br>// 9 sections total</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="bottom">
+    <div class="cta">WRITING SYSTEM · PDF + NOTION</div>
+  </div>
+</body>
+</html>

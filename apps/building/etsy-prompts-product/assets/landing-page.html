@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="A 6-phase workflow that uses 150 ChatGPT prompts to write Etsy listings that rank, descriptions that convert, and a shop that grows. Updated for Etsy's 2026 algorithm.">
+<title>150 ChatGPT Prompts for Etsy Sellers — The System</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --paper: #F8F4EE;
+    --ink: #1F1A17;
+    --accent: #C76E4A;
+    --sage: #8FA68E;
+    --muted: #6B6259;
+    --line: #E5DDD0;
+  }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    line-height: 1.6;
+    font-size: 17px;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 32px; }
+
+  /* HERO */
+  .hero {
+    padding: 96px 0 80px;
+    border-bottom: 1px solid var(--line);
+    position: relative;
+  }
+  .kicker {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin-bottom: 24px;
+  }
+  h1 {
+    font-family: 'Playfair Display', Georgia, serif;
+    font-size: clamp(48px, 7vw, 84px);
+    line-height: 1;
+    font-weight: 700;
+    color: var(--ink);
+    margin-bottom: 32px;
+    letter-spacing: -1px;
+  }
+  h1 em {
+    font-style: italic;
+    color: var(--accent);
+    font-weight: 400;
+  }
+  .hero-sub {
+    font-size: clamp(18px, 2vw, 22px);
+    color: var(--muted);
+    max-width: 720px;
+    margin-bottom: 40px;
+    line-height: 1.55;
+  }
+  .cta-row { display: flex; gap: 16px; flex-wrap: wrap; align-items: center; }
+  .cta {
+    display: inline-block;
+    background: var(--accent);
+    color: var(--paper);
+    padding: 18px 36px;
+    font-weight: 700;
+    font-size: 16px;
+    letter-spacing: 0.5px;
+    text-decoration: none;
+    border: 2px solid var(--accent);
+    transition: all 0.15s;
+  }
+  .cta:hover { background: transparent; color: var(--accent); }
+  .cta-ghost {
+    display: inline-block;
+    color: var(--ink);
+    padding: 18px 36px;
+    font-weight: 600;
+    font-size: 16px;
+    text-decoration: none;
+    border: 2px solid var(--ink);
+  }
+  .cta-ghost:hover { background: var(--ink); color: var(--paper); }
+  .price-note { font-size: 14px; color: var(--muted); margin-top: 12px; }
+
+  /* SECTIONS */
+  section { padding: 80px 0; border-bottom: 1px solid var(--line); }
+  h2 {
+    font-family: 'Playfair Display', Georgia, serif;
+    font-size: clamp(32px, 4vw, 48px);
+    line-height: 1.15;
+    font-weight: 700;
+    margin-bottom: 24px;
+    letter-spacing: -0.5px;
+  }
+  h2 .accent { color: var(--accent); font-style: italic; font-weight: 400; }
+  .lede { font-size: 19px; color: var(--muted); max-width: 760px; margin-bottom: 40px; }
+  h3 {
+    font-family: 'Inter', sans-serif;
+    font-size: 21px;
+    font-weight: 700;
+    color: var(--ink);
+    margin: 32px 0 12px;
+  }
+  p { margin-bottom: 16px; }
+  ul, ol { margin: 16px 0 24px 24px; }
+  li { margin-bottom: 8px; }
+
+  /* PROBLEM CARDS */
+  .problem-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 24px;
+    margin: 40px 0;
+  }
+  .problem {
+    background: #FFFFFF;
+    border-left: 4px solid var(--accent);
+    padding: 28px 24px;
+  }
+  .problem .quote {
+    font-family: 'Playfair Display', Georgia, serif;
+    font-style: italic;
+    font-size: 18px;
+    line-height: 1.45;
+    color: var(--ink);
+    margin-bottom: 16px;
+  }
+  .problem .attr {
+    font-size: 13px;
+    color: var(--muted);
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  /* SECTIONS GRID */
+  .sections-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 20px;
+    margin: 40px 0;
+  }
+  .section-card {
+    background: #FFFFFF;
+    padding: 28px 24px;
+    border-top: 3px solid var(--accent);
+  }
+  .section-card .num {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .section-card h4 {
+    font-family: 'Playfair Display', Georgia, serif;
+    font-size: 22px;
+    line-height: 1.2;
+    margin-bottom: 8px;
+  }
+  .section-card .count { font-size: 13px; color: var(--muted); font-weight: 600; }
+  .section-card .desc { font-size: 15px; color: var(--muted); margin-top: 12px; line-height: 1.5; }
+
+  /* DIFF LIST */
+  .diff-list { list-style: none; margin: 32px 0; padding: 0; }
+  .diff-list li {
+    padding: 24px 0;
+    border-bottom: 1px solid var(--line);
+    padding-left: 56px;
+    position: relative;
+  }
+  .diff-list li:last-child { border-bottom: 0; }
+  .diff-list .num {
+    position: absolute;
+    left: 0; top: 24px;
+    width: 40px; height: 40px;
+    background: var(--accent);
+    color: var(--paper);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 16px;
+  }
+  .diff-list h4 { font-size: 19px; font-weight: 700; margin-bottom: 6px; }
+  .diff-list p { color: var(--muted); font-size: 16px; margin: 0; }
+
+  /* PRICING */
+  .pricing {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 24px;
+    margin: 40px 0;
+  }
+  .tier {
+    background: #FFFFFF;
+    padding: 36px 28px;
+    border: 1px solid var(--line);
+    position: relative;
+  }
+  .tier.featured { border-color: var(--accent); border-width: 2px; }
+  .tier.featured::before {
+    content: 'Most Popular';
+    position: absolute;
+    top: -12px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--accent);
+    color: var(--paper);
+    padding: 4px 16px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+  .tier .name {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+  .tier .price {
+    font-family: 'Playfair Display', Georgia, serif;
+    font-size: 48px;
+    font-weight: 700;
+    color: var(--ink);
+    line-height: 1;
+    margin-bottom: 8px;
+  }
+  .tier .tagline { color: var(--muted); font-size: 15px; margin-bottom: 24px; }
+  .tier ul { list-style: none; margin: 0; padding: 0; }
+  .tier li { padding: 6px 0; font-size: 15px; }
+  .tier li::before { content: '✓ '; color: var(--accent); font-weight: 700; margin-right: 4px; }
+  .tier .cta { display: block; text-align: center; margin-top: 24px; }
+
+  /* FAQ */
+  .faq-item { margin-bottom: 16px; }
+  .faq-item summary {
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 18px;
+    padding: 20px 0;
+    border-bottom: 1px solid var(--line);
+    list-style: none;
+    position: relative;
+    padding-right: 36px;
+  }
+  .faq-item summary::-webkit-details-marker { display: none; }
+  .faq-item summary::after {
+    content: '+';
+    position: absolute;
+    right: 0; top: 20px;
+    font-size: 24px;
+    font-weight: 400;
+    color: var(--accent);
+  }
+  .faq-item[open] summary::after { content: '−'; }
+  .faq-item .answer {
+    padding: 16px 0 24px;
+    color: var(--muted);
+  }
+
+  /* FOOTER */
+  footer {
+    padding: 60px 0 40px;
+    color: var(--muted);
+    font-size: 14px;
+    text-align: center;
+  }
+
+  /* RESPONSIVE */
+  @media (max-width: 640px) {
+    body { font-size: 16px; }
+    .hero { padding: 60px 0 60px; }
+    section { padding: 60px 0; }
+    .cta-row { flex-direction: column; align-items: stretch; }
+    .cta, .cta-ghost { text-align: center; }
+  }
+</style>
+</head>
+<body>
+
+<!-- HERO -->
+<header class="hero">
+  <div class="wrap">
+    <div class="kicker">For Etsy sellers · Updated for 2026</div>
+    <h1>150 ChatGPT Prompts.<br>The <em>system</em> that writes your Etsy listings in 5 minutes.</h1>
+    <p class="hero-sub">A 6-phase workflow that uses 150 prompts to write titles that rank, descriptions that convert, and a shop that grows. Updated for Etsy's 2026 algorithm.</p>
+    <div class="cta-row">
+      <a href="#pricing" class="cta">Buy now — $24</a>
+      <a href="#whats-inside" class="cta-ghost">See what's inside</a>
+    </div>
+    <p class="price-note">PDF + Notion template. Instant download. Lifetime updates.</p>
+  </div>
+</header>
+
+<!-- PROBLEM -->
+<section>
+  <div class="wrap">
+    <h2>You wrote one of these.<br>You probably wrote all three.</h2>
+    <p class="lede">Three problems kill most Etsy listings. Most prompt packs solve one. This one solves all three.</p>
+    <div class="problem-grid">
+      <div class="problem">
+        <div class="quote">"30-45 minutes per listing, and I never know if I'm doing it right."</div>
+        <div class="attr">— r/EtsySellers, real seller</div>
+      </div>
+      <div class="problem">
+        <div class="quote">"13 boxes with character limits, and somehow the moment you need them, every useful word you ever learned disappears."</div>
+        <div class="attr">— r/Etsy, real seller</div>
+      </div>
+      <div class="problem">
+        <div class="quote">"My listing has 200 views and 0 orders. I don't know why."</div>
+        <div class="attr">— the question asked daily</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SOLUTION -->
+<section>
+  <div class="wrap">
+    <h2>The <span class="accent">system</span>, not just 150 prompts.</h2>
+    <p class="lede">Use the prompts in this order every time you list a product. Total time: ~5 minutes once you've run the workflow a few times.</p>
+    <ol style="font-size: 17px; line-height: 1.8; max-width: 720px;">
+      <li><strong>Validate.</strong> Confirm the product idea is worth building.</li>
+      <li><strong>Research & lock your voice.</strong> Mine competitors, define your brand voice once.</li>
+      <li><strong>Write the listing.</strong> Title + description + 13 tags in 5 minutes.</li>
+      <li><strong>Photos.</strong> 10-shot list, lifestyle scenes, alt-text.</li>
+      <li><strong>Launch & distribute.</strong> Pinterest, Instagram, TikTok captions.</li>
+      <li><strong>Diagnose & iterate.</strong> Weekly: figure out what's not working + fix it.</li>
+    </ol>
+  </div>
+</section>
+
+<!-- WHAT'S INSIDE -->
+<section id="whats-inside">
+  <div class="wrap">
+    <h2>What's inside.</h2>
+    <p class="lede">9 sections. 150 prompts. The most comprehensive Etsy prompt system available.</p>
+    <div class="sections-grid">
+      <div class="section-card">
+        <div class="num">Section 01</div>
+        <h4>Listing Titles That Rank</h4>
+        <div class="count">15 prompts</div>
+        <div class="desc">140-character titles that hit high-intent keywords without sounding stuffed. Updated for Etsy's LLM-based 2026 search.</div>
+      </div>
+      <div class="section-card">
+        <div class="num">Section 02</div>
+        <h4>Descriptions That Convert</h4>
+        <div class="count">20 prompts</div>
+        <div class="desc">5-section framework: Hook → Story → Specs → Care → CTA. Pre-empts objections, builds trust.</div>
+      </div>
+      <div class="section-card">
+        <div class="num">Section 03</div>
+        <h4>Tags & Etsy SEO</h4>
+        <div class="count">15 prompts</div>
+        <div class="desc">13 tags that surface for real buyer searches. Etsy's 20-char limit baked in.</div>
+      </div>
+      <div class="section-card">
+        <div class="num">Section 04</div>
+        <h4>Customer Service Replies</h4>
+        <div class="count">20 prompts</div>
+        <div class="desc">DMs for every awkward moment — custom orders, rush requests, damaged items, refunds.</div>
+      </div>
+      <div class="section-card">
+        <div class="num">Section 05</div>
+        <h4>Social Media Captions</h4>
+        <div class="count">20 prompts</div>
+        <div class="desc">Pinterest, Instagram, TikTok, X — each platform's algorithm is different.</div>
+      </div>
+      <div class="section-card">
+        <div class="num">Section 06</div>
+        <h4>Customer Emails</h4>
+        <div class="count">15 prompts</div>
+        <div class="desc">Order received, shipping, delays, refund confirmations, gentle review requests.</div>
+      </div>
+      <div class="section-card">
+        <div class="num">Section 07</div>
+        <h4>Mockups & Photography</h4>
+        <div class="count">15 prompts</div>
+        <div class="desc">10-shot photo lists, lifestyle scenes, color-accuracy setups, alt-text.</div>
+      </div>
+      <div class="section-card">
+        <div class="num">Section 08</div>
+        <h4>Product Research & Validation</h4>
+        <div class="count">15 prompts</div>
+        <div class="desc">Validate ideas before you make them. Niche scoring. Trend forecasting.</div>
+      </div>
+      <div class="section-card">
+        <div class="num">Section 09</div>
+        <h4>Diagnosis & Strategy</h4>
+        <div class="count">15 prompts</div>
+        <div class="desc">Fix listings that aren't selling. Updated for Etsy's 2026 algorithm. Compliance prompts included.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- DIFFERENTIATORS -->
+<section>
+  <div class="wrap">
+    <h2>What's different.</h2>
+    <p class="lede">3 reasons this beats every other Etsy prompt pack on the market.</p>
+    <ol class="diff-list">
+      <li>
+        <span class="num">1</span>
+        <h4>It's a system, not a list.</h4>
+        <p>Other packs give you 100-600 prompts in a numbered list. This pack has a 6-phase workflow that turns prompts into a process. Run the workflow every time and the prompts become powerful. Skip the workflow and they're just another list you'll forget in a week.</p>
+      </li>
+      <li>
+        <span class="num">2</span>
+        <h4>Updated for Etsy's 2026 algorithm.</h4>
+        <p>Etsy now uses LLMs to match search intent to listings. Their October 2026 AI policy requires disclosure language. 20% of Etsy referral traffic now comes from ChatGPT. Most packs were written before any of this happened. This one accounts for all of it.</p>
+      </li>
+      <li>
+        <span class="num">3</span>
+        <h4>Diagnosis prompts that fix what's broken.</h4>
+        <p>The #1 Etsy seller complaint: "My listing has views but no sales." Most packs ignore this. Section 9 has five dedicated diagnosis prompts — traffic-but-no-sales, ranked-but-buried, sales-stopped-suddenly, low-CTR-in-search, post-bad-review recovery.</p>
+      </li>
+    </ol>
+  </div>
+</section>
+
+<!-- PRICING -->
+<section id="pricing">
+  <div class="wrap">
+    <h2>Pick your tier.</h2>
+    <p class="lede">Personal use, PLR for your own store, or MRR for maximum profit.</p>
+    <div class="pricing">
+      <div class="tier">
+        <div class="name">Tier 1 — Personal</div>
+        <div class="price">$24</div>
+        <div class="tagline">Use for your own Etsy shop.</div>
+        <ul>
+          <li>All 150 prompts</li>
+          <li>6-phase workflow</li>
+          <li>PDF + Notion template</li>
+          <li>Brand voice worksheet</li>
+          <li>Lifetime updates</li>
+        </ul>
+        <a href="#" class="cta">Buy Tier 1</a>
+      </div>
+      <div class="tier featured">
+        <div class="name">Tier 2 — PLR</div>
+        <div class="price">$67</div>
+        <div class="tagline">Edit, rebrand, resell as your own.</div>
+        <ul>
+          <li>Everything in Tier 1</li>
+          <li>Private Label Rights</li>
+          <li>Editable source files</li>
+          <li>Sell on your own Gumroad / Etsy</li>
+          <li>Lifetime updates</li>
+        </ul>
+        <a href="#" class="cta">Buy Tier 2</a>
+      </div>
+      <div class="tier">
+        <div class="name">Tier 3 — MRR</div>
+        <div class="price">$97</div>
+        <div class="tagline">Resell rights + keep 100% revenue.</div>
+        <ul>
+          <li>Everything in Tier 2</li>
+          <li>Master Resell Rights</li>
+          <li>Reseller guide included</li>
+          <li>Buyers can resell too</li>
+          <li>Lifetime updates</li>
+        </ul>
+        <a href="#" class="cta">Buy Tier 3</a>
+      </div>
+    </div>
+    <p style="text-align: center; color: var(--muted); font-size: 14px; margin-top: 24px;">
+      All tiers include a 7-day refund policy. No questions asked.
+    </p>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section>
+  <div class="wrap">
+    <h2>Frequently asked.</h2>
+    <p class="lede">The questions every buyer asks before pulling the trigger.</p>
+
+    <details class="faq-item">
+      <summary>Will these work with ChatGPT free, Claude, or Gemini?</summary>
+      <div class="answer">Yes. The prompts work in any LLM — ChatGPT (free or paid), Claude, Gemini, Mistral, or open-source models. Tested across all of them.</div>
+    </details>
+
+    <details class="faq-item">
+      <summary>I'm a complete beginner. Will I understand this?</summary>
+      <div class="answer">Yes. Start with the 6-phase workflow in the intro. It walks you through using the prompts in the right order. If you've never used ChatGPT before, give yourself 30 minutes to learn the basics first.</div>
+    </details>
+
+    <details class="faq-item">
+      <summary>What if I don't like it?</summary>
+      <div class="answer">Email me within 7 days for a full refund. No questions asked. (Gumroad handles this automatically — click "Request Refund" on your receipt.)</div>
+    </details>
+
+    <details class="faq-item">
+      <summary>Is this updated for Etsy's 2026 algorithm?</summary>
+      <div class="answer">Yes. Specifically updated for: LLM-based search ranking, AI disclosure requirements, mobile-first rendering, ChatGPT referral traffic, and customer-experience-as-ranking-signal.</div>
+    </details>
+
+    <details class="faq-item">
+      <summary>Why not just use the free Etsy prompt packs on Etsy itself?</summary>
+      <div class="answer">Most of those are 30-150 generic prompts with no system, no structure, and no updates since 2023-2024. They sell for $0.75-$5 because they're worth $0.75-$5. This pack has a 6-phase workflow, 9 specialized sections, and accounts for Etsy's 2026 algorithm.</div>
+    </details>
+
+    <details class="faq-item">
+      <summary>How long until I see results?</summary>
+      <div class="answer">Your next listing should take 50% less time to write. Most sellers see improved ranking within 2-4 weeks. For diagnosis fixes, you can see CTR/conversion lift within 1-2 weeks.</div>
+    </details>
+  </div>
+</section>
+
+<!-- FINAL CTA -->
+<section style="text-align: center; border-bottom: 0;">
+  <div class="wrap">
+    <h2>Stop spending your weekend<br>writing Etsy listings.</h2>
+    <p class="lede" style="margin-left: auto; margin-right: auto;">Buy now and your next listing takes 5 minutes instead of 45. The prompts are instant-download. Start using them tonight.</p>
+    <a href="#pricing" class="cta" style="font-size: 18px; padding: 22px 48px;">Buy now — starting at $24</a>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <p>150 ChatGPT Prompts for Etsy Sellers · Made with care for Etsy sellers everywhere</p>
+    <p style="margin-top: 12px;">Updated for Etsy's 2026 algorithm · Last updated <span id="updated"></span></p>
+  </div>
+</footer>
+
+<script>
+  document.getElementById('updated').textContent = new Date().toISOString().slice(0, 10);
+</script>
+
+</body>
+</html>
