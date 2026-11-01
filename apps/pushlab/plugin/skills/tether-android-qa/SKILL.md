@@ -15,7 +15,7 @@ it; every command prints JSON and exits 0 on success, 1 when a check fails and
 1. Run `python scripts/pushlab_cli.py status`.
    - `tether.error` means Tether is not running. Ask the user to start it
      (`python apps/pushlab/pushlab.py` starts Tether + Beacon together, or
-     `python apps/tether/server/server.py`) or to set `TETHER_URL` and `TETHER_TOKEN`.
+     `python apps/pushlab/tether/server/server.py`) or to set `TETHER_URL` and `TETHER_TOKEN`.
    - `tether.devices` must list a device with `state: "device"`. `unauthorized`
      means the user must accept the USB-debugging prompt on the phone.
 2. With more than one device, pass `--serial <serial>` before the command.
@@ -96,7 +96,7 @@ exploration and visual checks, not for the regression suite.
 
 ## MCP alternative
 
-Tether also ships an MCP server (`apps/tether/server/mcp_server.py`) with
+Tether also ships an MCP server (`apps/pushlab/tether/server/mcp_server.py`) with
 mobile-mcp compatible tools (`mobile_list_elements_on_screen`,
 `mobile_click_on_screen_at_coordinates`, ...). If those tools are available in
 this session, you may use them instead of the CLI; the workflow is the same.

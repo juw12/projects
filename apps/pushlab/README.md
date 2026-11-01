@@ -1,12 +1,27 @@
-# Push Lab — Beacon + Tether
+# Push Lab
 
-**Send push notifications from your own server, and prove they work on a real phone.** It's zero-dependency (Python standard library only), self-hosted and free.
+**Send push notifications from your own server, and prove they work on a real phone.** One self-hosted,
+zero-dependency toolkit (Python standard library only), free. Status: work in progress.
 
-| | |
-| --- | --- |
-| **[Beacon](../beacon)** | Your own push service (like OneSignal / PushNotif). Web Push for every PWA, FCM for Capacitor Android apps, in-app banners, targeting, scheduling, stats, a console and MCP. |
-| **[Tether](../tether)** | Your phone in the browser (like TapFlow, for Android on Windows). Live screen, record and replay QA flows, notification checks, CI, MCP. |
-| **Push Lab** | Both, already linked, in one double-click. |
+Push Lab has two built-in parts that start together and are already linked:
+
+| Part | Folder | What it does |
+| --- | --- | --- |
+| **Beacon** — the push server | [`beacon/`](beacon) | Your own push service (like OneSignal). Web Push for every PWA, FCM for Android, in-app banners, ntfy / Bark (iPhone) / Gotify / Apprise channels, targeting, scheduling, digests, escalation, Gatus uptime alerts, a console and MCP. |
+| **Tether** — the device lab | [`tether/`](tether) | Your Android phone in the browser. Live HD screen, record and replay QA flows (Maestro YAML), notification checks, AI steps (incl. Google ARTEMIS), performance budgets (startup, jank, memory, CPU), CI and MCP. |
+| Agent skills | [`plugin/`](plugin) | Claude Code / Codex skills + CLI that drive both parts. |
+
+```text
+apps/pushlab/
+  pushlab.py, start-push-lab.bat   one command starts Beacon + Tether, linked and signed in
+  beacon/                          push server   (server/, web/, tests/, docs/, examples/)
+  tether/                          device lab    (server/, web/, tests/, examples/)
+  plugin/                          agent skills + pushlab_cli.py
+  tests/                           end-to-end test of the skills against both parts
+```
+
+Each part can also run on its own (`python apps/pushlab/beacon/server/server.py`,
+`python apps/pushlab/tether/server/server.py`); their own READMEs have the details.
 
 ## Start (2 minutes)
 
@@ -20,7 +35,7 @@ There's no HTTPS or deployment needed for testing. Tether forwards your local Be
 
 ## Ship it to real users
 
-Deploy Beacon on HTTPS. It takes about 10 minutes with a Cloudflare Tunnel or Docker + Caddy: see [beacon/docs/DEPLOY.md](../beacon/docs/DEPLOY.md). Then add two lines to any of your apps (see the console's **Setup** tab). Keep Tether pointed at the deployed Beacon to test production pushes on your phone.
+Deploy Beacon on HTTPS. It takes about 10 minutes with a Cloudflare Tunnel or Docker + Caddy: see [beacon/docs/DEPLOY.md](beacon/docs/DEPLOY.md). Then add two lines to any of your apps (see the console's **Setup** tab). Keep Tether pointed at the deployed Beacon to test production pushes on your phone.
 
 ## Agent skills (Claude Code, Codex, any SKILL.md agent)
 
