@@ -788,6 +788,178 @@ if (r.status === 200) {
 }
 ok("AI endpoint answers (" + r.status + ")");
 
+// ---- WhatsApp: link a phone, log by chat, sealed inbox only this account's devices can open
+const subtle = crypto.webcrypto.subtle;
+const WA_SECRET = "wa_test_app_secret";
+let waSeq = 0;
+async function waPost(payload, { sign = true } = {}) {
+  const raw = JSON.stringify(payload);
+  const headers = { "Content-Type": "application/json" };
+  if (sign) {
+    headers["X-Hub-Signature-256"] = "sha256=" + crypto.createHmac("sha256", WA_SECRET).update(raw).digest("hex");
+  }
+  const res = await fetch(BASE + "/api/whatsapp/webhook", { method: "POST", headers, body: raw });
+  return { status: res.status, data: await res.json().catch(() => ({})) };
+}
+function waMessage(from, textBody, { id, type = "text" } = {}) {
+  waSeq += 1;
+  const message = { from, id: id || "wamid.test" + stamp + waSeq, timestamp: String(Math.floor(Date.now() / 1000)), type };
+  if (type === "text") {
+    message.text = { body: textBody };
+  } else {
+    message.image = { id: "media1", mime_type: "image/jpeg" };
+  }
+  return {
+    object: "whatsapp_business_account",
+    entry: [{ id: "WABA", changes: [{ field: "messages", value: { messaging_product: "whatsapp", metadata: { display_phone_number: "628110000", phone_number_id: "100200300" }, contacts: [{ wa_id: from, profile: { name: "Tester" } }], messages: [message] } }] }],
+  };
+}
+async function waSay(from, textBody, opts) {
+  const before = mock.state.whatsapp.length;
+  const res = await waPost(waMessage(from, textBody, opts));
+  assert.equal(res.status, 200, JSON.stringify(res.data));
+  return mock.state.whatsapp.slice(before);
+}
+async function openInbox(privateKey, blobText) {
+  const [tag, epkPart, ivPart, ctPart] = blobText.split(".");
+  assert.equal(tag, "e1");
+  const epkRaw = Buffer.from(epkPart, "base64url");
+  const epk = await subtle.importKey("raw", epkRaw, { name: "ECDH", namedCurve: "P-256" }, false, []);
+  const shared = await subtle.deriveBits({ name: "ECDH", public: epk }, privateKey, 256);
+  const ikm = await subtle.importKey("raw", shared, "HKDF", false, ["deriveKey"]);
+  const key = await subtle.deriveKey(
+    { name: "HKDF", hash: "SHA-256", salt: epkRaw, info: Buffer.from("mint-wa-inbox-v1") },
+    ikm, { name: "AES-GCM", length: 256 }, false, ["decrypt"],
+  );
+  const plain = await subtle.decrypt(
+    { name: "AES-GCM", iv: Buffer.from(ivPart, "base64url"), additionalData: Buffer.from("mint-wa-inbox") },
+    key, Buffer.from(ctPart, "base64url"),
+  );
+  return JSON.parse(Buffer.from(plain).toString());
+}
+
+r = await api("GET", "health");
+assert.equal(r.data.whatsapp, true);
+assert.equal(r.data.whatsappNumber, "6281100001234");
+let verify = await fetch(BASE + "/api/whatsapp/webhook?hub.mode=subscribe&hub.verify_token=wa_test_verify_token&hub.challenge=12345");
+assert.equal(verify.status, 200);
+assert.equal(await verify.text(), "12345");
+verify = await fetch(BASE + "/api/whatsapp/webhook?hub.mode=subscribe&hub.verify_token=wrong&hub.challenge=12345");
+assert.equal(verify.status, 403);
+assert.equal((await waPost(waMessage("6281234567890", "coffee 25k"), { sign: false })).status, 401);
+const forged = waMessage("6281234567890", "coffee 25k");
+const forgedRes = await fetch(BASE + "/api/whatsapp/webhook", {
+  method: "POST",
+  headers: { "Content-Type": "application/json", "X-Hub-Signature-256": "sha256=" + "0".repeat(64) },
+  body: JSON.stringify(forged),
+});
+assert.equal(forgedRes.status, 401);
+ok("whatsapp webhook: subscription check, unsigned and forged posts refused");
+
+r = await api("GET", "whatsapp");
+assert.equal(r.status, 401);
+r = await api("POST", "whatsapp/link", { token: buyer.token, body: {} });
+assert.equal(r.status, 409, "a link code needs the inbox key first");
+const inboxKeys = await subtle.generateKey({ name: "ECDH", namedCurve: "P-256" }, true, ["deriveBits"]);
+const inboxPublic = await subtle.exportKey("jwk", inboxKeys.publicKey);
+r = await api("POST", "whatsapp/key", { token: buyer2.token, body: { publicKey: { ...inboxPublic, d: "secret" }, sealed: blob("k") } });
+assert.equal(r.status, 400, "private key material is refused");
+r = await api("POST", "whatsapp/key", { token: buyer2.token, body: { publicKey: inboxPublic, sealed: blob("sealed private key"), currency: "IDR" } });
+assert.equal(r.status, 200, JSON.stringify(r.data));
+assert.equal(r.data.key.publicKey.x, inboxPublic.x);
+assert.equal(r.data.key.currency, "IDR");
+assert.deepEqual(r.data.phones, []);
+r = await api("POST", "whatsapp/link", { token: buyer2.token, body: {} });
+assert.equal(r.status, 200, JSON.stringify(r.data));
+assert.match(r.data.code, /^MINT-[A-Z2-9]{6}$/);
+assert.equal(r.data.url, "https://wa.me/6281100001234?text=" + encodeURIComponent("link " + r.data.code));
+const linkCode = r.data.code;
+ok("whatsapp: inbox key saved (public half only), one-time link code + wa.me link");
+
+const phone = "6281234567890";
+let replies = await waSay(phone, "coffee 25k");
+assert.equal(replies.length, 1);
+assert.equal(replies[0].to, phone);
+assert.equal(replies[0].phoneNumberId, "100200300");
+assert.match(replies[0].body, /Settings → WhatsApp/);
+replies = await waSay(phone, "coffee 25k");
+assert.equal(replies.length, 0, "unlinked numbers get the hint once a day, not every time");
+replies = await waSay(phone, "link MINT-ZZZZZZ");
+assert.match(replies[0].body, /wrong or has expired/);
+replies = await waSay(phone, "Link " + linkCode.toLowerCase());
+assert.match(replies[0].body, /Linked to Mint \(Citra\)/);
+r = await api("GET", "whatsapp", { token: buyer2.token });
+assert.equal(r.data.phones.length, 1);
+assert.equal(r.data.phones[0].masked, "•••7890");
+replies = await waSay("6289999999999", "link " + linkCode);
+assert.match(replies[0].body, /wrong or has expired/, "a code works once");
+ok("whatsapp: unlinked hint, wrong code, linking by code (case-insensitive, single use), masked number");
+
+const entryId = "wamid.entry" + stamp;
+replies = await waSay(phone, "coffee 25k\ngrab 18rb\nhello there", { id: entryId });
+assert.equal(replies.length, 1);
+assert.match(replies[0].body, /Saved for Mint/);
+assert.match(replies[0].body, /25\.000 · coffee/);
+assert.match(replies[0].body, /18\.000 · grab/);
+assert.match(replies[0].body, /Skipped \(no amount\): “hello there”/);
+replies = await waSay(phone, "coffee 25k", { id: entryId });
+assert.equal(replies.length, 0, "a redelivered message is handled once");
+replies = await waSay(phone, "lunch 12 usd yesterday");
+assert.match(replies[0].body, /\$12\.00 · lunch \(yesterday\)/);
+replies = await waSay(phone, "what's up");
+assert.match(replies[0].body, /couldn't find an amount/);
+replies = await waSay(phone, "", { type: "image" });
+assert.match(replies[0].body, /only read text/);
+replies = await waSay(phone, "TOTAL");
+assert.match(replies[0].body, /end-to-end encrypted/);
+replies = await waSay(phone, "help");
+assert.match(replies[0].body, /coffee 25k/);
+replies = await waSay(phone, "undo");
+assert.match(replies[0].body, /removes your last WhatsApp entry/);
+ok("whatsapp: entries parsed + confirmed, duplicates ignored, help/total/undo/photo answers");
+
+r = await api("GET", "whatsapp/inbox", { token: buyer2.token });
+assert.equal(r.status, 200);
+assert.equal(r.data.items.length, 3, "two entry messages + one undo; chatter and commands are not stored");
+assert.equal(r.data.more, false);
+for (const item of r.data.items) {
+  assert.ok(!/coffee|grab|lunch/i.test(item.data), "the server stores ciphertext only");
+}
+const opened = [];
+for (const item of r.data.items) {
+  opened.push(await openInbox(inboxKeys.privateKey, item.data));
+}
+assert.equal(opened[0].k, "txt");
+assert.equal(opened[0].text, "coffee 25k\ngrab 18rb\nhello there");
+assert.equal(opened[0].mid, entryId);
+assert.equal(opened[1].text, "lunch 12 usd yesterday");
+assert.equal(opened[2].k, "undo");
+r = await api("GET", "whatsapp/inbox", { token: buyer.token });
+assert.equal(r.data.items.length, 0, "inboxes are per account");
+const waitingIds = (await api("GET", "whatsapp/inbox", { token: buyer2.token })).data.items.map((i) => i.id);
+r = await api("POST", "whatsapp/inbox/ack", { token: buyer.token, body: { ids: waitingIds } });
+r = await api("GET", "whatsapp/inbox", { token: buyer2.token });
+assert.equal(r.data.items.length, 3, "another account cannot acknowledge (delete) these items");
+r = await api("POST", "whatsapp/inbox/ack", { token: buyer2.token, body: { ids: r.data.items.map((i) => i.id) } });
+assert.equal(r.data.removed, 3);
+r = await api("GET", "whatsapp", { token: buyer2.token });
+assert.equal(r.data.pending, 0);
+ok("whatsapp inbox: sealed to the device key (ECIES P-256/HKDF/AES-GCM), per account, cleared on ack");
+
+const otherKeys = await subtle.generateKey({ name: "ECDH", namedCurve: "P-256" }, true, ["deriveBits"]);
+await waSay(phone, "parkir 5000");
+r = await api("POST", "whatsapp/key", { token: buyer2.token, body: { publicKey: await subtle.exportKey("jwk", otherKeys.publicKey), sealed: blob("a replacement sealed private key") } });
+assert.equal(r.status, 200, JSON.stringify(r.data));
+assert.equal(r.data.pending, 0, "a new inbox key drops items nobody can open any more");
+replies = await waSay(phone, "stop");
+assert.match(replies[0].body, /unlinked/);
+r = await api("GET", "whatsapp", { token: buyer2.token });
+assert.equal(r.data.phones.length, 0);
+r = await api("DELETE", "whatsapp", { token: buyer2.token });
+r = await api("GET", "whatsapp", { token: buyer2.token });
+assert.equal(r.data.key, null);
+ok("whatsapp: key rotation, 'stop' unlinks, disconnect forgets everything");
+
 // ---- non-JSON post rejected, logout
 const raw = await fetch(BASE + "/api/templates", { method: "POST", headers: { Authorization: "Bearer " + seller.token, "Content-Type": "text/plain" }, body: "{}" });
 assert.equal(raw.status, 415);

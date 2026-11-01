@@ -1056,3 +1056,33 @@ Set target || Atur target || 设为目标 || Fijar objetivo
 Investing target updated || Target investasi diperbarui || 投资目标已更新 || Objetivo de inversión actualizado
 Start my budget || Mulai anggaranku || 开始我的预算 || Empezar mi presupuesto
 Habits || Kebiasaan || 习惯 || Hábitos
+
+# WhatsApp: log expenses by chat (Settings → WhatsApp)
+Text what you spend to Mint on WhatsApp and it lands in your budget. || Kirim pengeluaranmu ke Mint lewat WhatsApp dan langsung masuk ke anggaranmu. || 在 WhatsApp 上把花费发给 Mint，就会自动记入你的预算。 || Escribe lo que gastas a Mint por WhatsApp y se añade a tu presupuesto.
+Sign in to your Mint account to connect WhatsApp. || Masuk ke akun Mint untuk menghubungkan WhatsApp. || 登录 Mint 账户即可连接 WhatsApp。 || Inicia sesión en tu cuenta de Mint para conectar WhatsApp.
+Unlock sync to use WhatsApp || Buka sinkronisasi untuk memakai WhatsApp || 解锁同步以使用 WhatsApp || Desbloquea la sincronización para usar WhatsApp
+Checking… || Memeriksa… || 正在检查… || Comprobando…
+WhatsApp is not switched on for this Mint server yet. || WhatsApp belum diaktifkan di server Mint ini. || 此 Mint 服务器尚未开启 WhatsApp。 || WhatsApp aún no está activado en este servidor de Mint.
+Add entries to || Masukkan ke || 记入 || Añadir a
+Connect WhatsApp || Hubungkan WhatsApp || 连接 WhatsApp || Conectar WhatsApp
+Each message is sealed to a key only your signed-in devices hold, so Mint’s server cannot read it or your budget. WhatsApp (Meta) still carries the chat itself. || Setiap pesan dikunci dengan kunci yang hanya dimiliki perangkatmu yang sudah masuk, jadi server Mint tidak bisa membacanya maupun anggaranmu. Percakapannya sendiri tetap lewat WhatsApp (Meta). || 每条消息都用只有你已登录设备才持有的密钥加密，Mint 服务器无法读取消息或你的预算。聊天本身仍经由 WhatsApp（Meta）传输。 || Cada mensaje se cifra con una clave que solo tienen tus dispositivos con sesión iniciada, así que el servidor de Mint no puede leerlo ni leer tu presupuesto. El chat en sí sigue pasando por WhatsApp (Meta).
+{n} waiting to be added || {n} menunggu dimasukkan || {n} 条等待记入 || {n} pendientes de añadir
+Check now || Periksa sekarang || 立即检查 || Comprobar ahora
+Add another phone || Tambah ponsel lain || 添加另一部手机 || Añadir otro teléfono
+Disconnect || Putuskan || 断开连接 || Desconectar
+Could not connect WhatsApp || Tidak bisa menghubungkan WhatsApp || 无法连接 WhatsApp || No se pudo conectar WhatsApp
+Send this message to Mint on WhatsApp. It links your number to your account. || Kirim pesan ini ke Mint di WhatsApp. Nomormu akan terhubung ke akunmu. || 在 WhatsApp 上把这条消息发给 Mint，即可将你的号码与账户关联。 || Envía este mensaje a Mint por WhatsApp. Vincula tu número con tu cuenta.
+To {number}. The code works for 15 minutes. || Ke {number}. Kode berlaku 15 menit. || 发送至 {number}。验证码 15 分钟内有效。 || A {number}. El código vale durante 15 minutos.
+Open WhatsApp || Buka WhatsApp || 打开 WhatsApp || Abrir WhatsApp
+Waiting for your message… || Menunggu pesanmu… || 正在等待你的消息… || Esperando tu mensaje…
+WhatsApp connected || WhatsApp terhubung || WhatsApp 已连接 || WhatsApp conectado
+Try it: send “coffee 25k”. || Coba kirim “kopi 25rb”. || 试试发送“咖啡 25”。 || Pruébalo: envía “café 25”.
+{n} added from WhatsApp || {n} dimasukkan dari WhatsApp || 已从 WhatsApp 记入 {n} 笔 || {n} añadidos desde WhatsApp
+Last WhatsApp entry removed || Catatan WhatsApp terakhir dihapus || 已删除最后一条 WhatsApp 记录 || Último registro de WhatsApp eliminado
+WhatsApp entries go to {name} || Catatan WhatsApp masuk ke {name} || WhatsApp 记录将记入 {name} || Los registros de WhatsApp van a {name}
+Nothing new from WhatsApp || Tidak ada yang baru dari WhatsApp || WhatsApp 暂无新记录 || Nada nuevo de WhatsApp
+Disconnect WhatsApp? || Putuskan WhatsApp? || 断开 WhatsApp？ || ¿Desconectar WhatsApp?
+Your numbers are unlinked and anything still waiting is deleted. Entries already in your budget stay. || Nomormu dilepas dan yang masih menunggu dihapus. Catatan yang sudah ada di anggaranmu tetap tersimpan. || 你的号码将解除关联，尚在等待的记录会被删除。已记入预算的记录会保留。 || Tus números se desvinculan y lo que aún esté pendiente se elimina. Lo que ya está en tu presupuesto se queda.
+WhatsApp disconnected || WhatsApp diputuskan || WhatsApp 已断开 || WhatsApp desconectado
+Could not remove it || Tidak bisa menghapusnya || 无法移除 || No se pudo quitar
+Remove || Hapus || 移除 || Quitar

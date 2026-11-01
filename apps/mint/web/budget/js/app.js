@@ -109,6 +109,8 @@
     quiz: null,
     news: null,
     cloud: null,
+    wa: null,
+    waLoading: false,
     cloudStatus: 'off',
     cloudDetail: '',
     marketRoute: params.get('m') || '',
@@ -160,8 +162,18 @@
     S.proj = null;
     ensureMember();
     connectRoom();
+    flushChatOps(id);
     setupChannel();
     return true;
+  }
+
+  // Entries filed from WhatsApp into a shared budget that was not open wait here for its room.
+  function flushChatOps(id) {
+    const queued = store.get('mint.budget.waRoom.' + id, null);
+    if (queued && queued.length && S.room) {
+      S.room.push(queued);
+      store.del('mint.budget.waRoom.' + id);
+    }
   }
 
   function ensureMember() {
@@ -2071,6 +2083,145 @@
       },
     });
     S.cloud.start();
+    setupWhatsApp();
+  }
+
+  // ================================================================ WhatsApp → budget (see js/whatsapp.js)
+  function setupWhatsApp() {
+    if (!K.createWhatsApp || !cloudApi()) return;
+    S.wa = K.createWhatsApp({
+      bookIds: () => S.books.map((b) => b.id),
+      currentBookId: () => (S.book ? S.book.id : ''),
+      loadBook: (id) => (S.book && S.book.id === id ? S.book : loadBook(id)),
+      currency: (id) => {
+        const b = S.book && S.book.id === id ? S.book : loadBook(id);
+        return b ? b.meta.currency : '';
+      },
+      me: () => me(),
+      fileOps: (bookId, book, ops) => {
+        if (S.book && S.book.id === bookId) {
+          commit(ops);
+          return;
+        }
+        store.set('mint.budget.book.' + bookId, book);
+        if (S.cloud) S.cloud.bookChanged(bookId);
+        if (book.room && book.room.key) {
+          const queued = store.get('mint.budget.waRoom.' + bookId, []);
+          store.set('mint.budget.waRoom.' + bookId, queued.concat(ops).slice(-500));
+        }
+      },
+      onFiled: (s) => {
+        const book = S.book && S.book.id === s.bookId ? S.book : loadBook(s.bookId);
+        const bookCur = book ? book.meta.currency : cur();
+        const list = s.added.slice(0, 3).map((t) => (t.type === 'income' ? '+' : '') + K.fmt(t.amount, bookCur) + ' · ' + t.desc);
+        if (s.added.length > 3) list.push('…');
+        haptic('tap');
+        toast({
+          tone: 'good',
+          title: s.added.length
+            ? '💬 ' + K.t('{n} added from WhatsApp', { n: s.added.length })
+            : '💬 ' + K.i18n.tr('Last WhatsApp entry removed'),
+          body: s.added.length ? list.join(', ') + (book && S.book && book.id !== S.book.id ? ' → ' + book.meta.name : '') : s.removed.map((t) => t.desc).join(', '),
+        });
+        scheduleRender();
+      },
+      onStatus: () => {
+        if (S.view === 'settings' && !document.querySelector('[data-dirty="1"]')) scheduleRender();
+      },
+    });
+    S.wa.start();
+  }
+
+  function whatsAppCard() {
+    const MC = cloudApi();
+    if (!MC || !S.wa) return '';
+    const head = '<div class="card wa-card"><div class="card-head"><h3>💬 WhatsApp</h3></div>' +
+      '<p class="muted small">Text what you spend to Mint on WhatsApp and it lands in your budget.</p>';
+    if (!MC.signedIn()) {
+      return head + '<p class="muted small">Sign in to your Mint account to connect WhatsApp.</p><div class="row-gap"><button class="btn btn-soft" data-act="account-login">Sign in</button></div></div>';
+    }
+    if (!MC.unlocked()) {
+      return head + '<div class="row-gap"><button class="btn btn-soft" data-act="unlock-sync">Unlock sync to use WhatsApp</button></div></div>';
+    }
+    const st = S.wa.status();
+    if (!st) {
+      if (!S.waLoading) {
+        S.waLoading = true;
+        S.wa.refresh().catch(() => null).then(() => {
+          S.waLoading = false;
+          scheduleRender();
+        });
+      }
+      return head + '<p class="muted small">Checking…</p></div>';
+    }
+    if (!st.enabled) {
+      return head + '<p class="muted small">WhatsApp is not switched on for this Mint server yet.</p></div>';
+    }
+    const target = S.wa.bookId();
+    const books = S.books.filter((b) => !/^demo-/.test(b.id));
+    const picker = books.length > 1
+      ? '<label class="field">Add entries to<select data-act-change="wa-book">' +
+        books.map((b) => '<option value="' + esc(b.id) + '"' + (b.id === target ? ' selected' : '') + '>' + esc(S.book && b.id === S.book.id ? S.book.meta.name : b.name) + '</option>').join('') +
+        '</select></label>'
+      : '';
+    const examples = '<p class="muted small wa-examples"><span translate="no"><code>coffee 25k</code> · <code>grab 18rb</code> · <code>lunch 12 usd yesterday</code> · <code>+5jt salary</code> · <code>undo</code></span></p>';
+    const privacy = '<p class="muted small">🔒 Each message is sealed to a key only your signed-in devices hold, so Mint’s server cannot read it or your budget. WhatsApp (Meta) still carries the chat itself.</p>';
+    if (!st.phones.length) {
+      return head + picker + '<div class="row-gap"><button class="btn btn-primary" data-act="wa-connect">Connect WhatsApp</button></div>' + examples + privacy + '</div>';
+    }
+    return (
+      head +
+      '<ul class="book-list">' +
+      st.phones.map((p) => '<li><span translate="no">📱 ' + esc(p.masked) + '</span><button class="btn btn-ghost btn-sm" data-act="wa-remove-phone" data-id="' + esc(p.id) + '">Remove</button></li>').join('') +
+      '</ul>' + picker +
+      (st.pending ? '<p class="muted small">' + esc(K.t('{n} waiting to be added', { n: st.pending })) + '</p>' : '') +
+      '<div class="row-gap"><button class="btn btn-soft" data-act="wa-sync">' + icon('refresh', 16) + ' Check now</button>' +
+      '<button class="btn btn-ghost" data-act="wa-connect">Add another phone</button>' +
+      '<button class="btn btn-ghost" data-act="wa-disconnect">Disconnect</button></div>' +
+      examples + privacy + '</div>'
+    );
+  }
+
+  async function connectWhatsApp() {
+    let link;
+    try {
+      link = await S.wa.connect(S.wa.bookId());
+    } catch (e) {
+      return toast({ tone: 'warn', title: 'Could not connect WhatsApp', body: (e && e.message) || '' });
+    }
+    const before = (S.wa.status() && S.wa.status().phones.length) || 0;
+    const m = modal(
+      '<h2>Connect WhatsApp</h2><p class="muted">Send this message to Mint on WhatsApp. It links your number to your account.</p>' +
+        '<p class="recovery-code" translate="no">' + esc(link.message) + '</p>' +
+        '<p class="muted small">' + esc(K.t('To {number}. The code works for 15 minutes.', { number: '+' + link.number })) + '</p>' +
+        '<div class="row-gap end"><button class="btn btn-soft" data-copy-wa>' + icon('copy', 16) + ' Copy</button>' +
+        '<a class="btn btn-primary" href="' + esc(link.url) + '" target="_blank" rel="noopener">Open WhatsApp</a></div>' +
+        '<p class="muted small">Waiting for your message…</p>',
+      { cls: 'modal-sm' }
+    );
+    m.el.querySelector('[data-copy-wa]').onclick = () => {
+      if (navigator.clipboard) navigator.clipboard.writeText(link.message).catch(() => {});
+      toast({ tone: 'good', title: 'Copied' });
+    };
+    const started = Date.now();
+    const poll = setInterval(async () => {
+      if (!document.body.contains(m.el) || Date.now() - started > 15 * 60 * 1000) {
+        clearInterval(poll);
+        return;
+      }
+      try {
+        const st = await S.wa.refresh();
+        if (st && st.phones.length > before) {
+          clearInterval(poll);
+          m.close();
+          haptic('tap');
+          toast({ tone: 'good', title: 'WhatsApp connected', body: K.i18n.tr('Try it: send “coffee 25k”.') });
+          render();
+        }
+      } catch (e) {
+        /* keep waiting */
+      }
+    }, 3000);
   }
 
   function accountCard() {
@@ -2255,6 +2406,7 @@
     return (
       '<div class="grid-2">' +
       accountCard() +
+      whatsAppCard() +
       appearanceCard() +
       '<div class="card"><div class="card-head"><h3>This budget</h3></div><div class="form-grid">' +
       '<label>Name<input data-k="meta::name" value="' + esc(b.meta.name) + '" maxlength="40"></label>' +
@@ -3244,6 +3396,14 @@
       openBook(t.value);
       return render();
     }
+    if (act === 'wa-book') {
+      if (S.wa) {
+        S.wa.setBook(t.value).catch(() => null).then(() => render());
+        const b = S.books.find((x) => x.id === t.value);
+        toast({ tone: 'good', title: K.t('WhatsApp entries go to {name}', { name: b ? b.name : '' }) });
+      }
+      return;
+    }
     if (act === 'toggle-tips') {
       S.profile.tips = t.checked;
       saveProfile();
@@ -3688,11 +3848,33 @@
           toast({ tone: S.cloudStatus === 'synced' ? 'good' : 'warn', title: S.cloudStatus === 'synced' ? 'Everything is synced' : S.cloudDetail || 'Sync will retry shortly' });
         }
         return render();
+      case 'wa-connect':
+        if (S.wa) return connectWhatsApp();
+        return;
+      case 'wa-sync': {
+        if (!S.wa) return;
+        const n = await S.wa.run();
+        toast({ tone: n ? 'good' : 'info', title: n ? K.t('{n} added from WhatsApp', { n: n }) : 'Nothing new from WhatsApp' });
+        return render();
+      }
+      case 'wa-remove-phone':
+        if (!S.wa) return;
+        await S.wa.removePhone(el.dataset.id).catch((e) => toast({ tone: 'warn', title: (e && e.message) || 'Could not remove it' }));
+        return render();
+      case 'wa-disconnect': {
+        if (!S.wa) return;
+        const ok = await confirmModal({ title: 'Disconnect WhatsApp?', body: 'Your numbers are unlinked and anything still waiting is deleted. Entries already in your budget stay.', ok: 'Disconnect', danger: true });
+        if (!ok) return;
+        await S.wa.disconnect().catch(() => null);
+        toast({ title: 'WhatsApp disconnected' });
+        return render();
+      }
       case 'account-logout': {
         const ok = await confirmModal({ title: 'Sign out on this device?', body: 'Your budgets stay on this device. They stop syncing until you sign in again.', ok: 'Sign out' });
         if (!ok) return;
         await window.MintCloud.logout();
         if (S.cloud) S.cloud.reset();
+        if (S.wa) S.wa.reset();
         toast({ title: 'Signed out' });
         return render();
       }

@@ -1,4 +1,4 @@
-// Local stand-ins for Midtrans, Xendit, Stripe, Web Push services and Resend, used by api_test.mjs.
+// Local stand-ins for Midtrans, Xendit, Stripe, Web Push services, Resend and the WhatsApp Cloud API, used by api_test.mjs.
 // They mimic the request/response shapes Mint relies on; they are not the real providers.
 import http from "node:http";
 
@@ -9,7 +9,7 @@ export const VALID_KEYS = {
 };
 
 export function startMockServices(port = 8799) {
-  const state = { midtrans: {}, xendit: {}, stripe: {}, pushes: [], emails: [], notifyUrls: {} };
+  const state = { midtrans: {}, xendit: {}, stripe: {}, pushes: [], emails: [], notifyUrls: {}, whatsapp: [] };
   let counter = 0;
 
   function keyFrom(req) {
@@ -157,6 +157,16 @@ export function startMockServices(port = 8799) {
       if (req.method === "GET" && path.startsWith("/checkout/")) {
         res.writeHead(200, { "Content-Type": "text/html" });
         return res.end("<!doctype html><title>Mock checkout</title><h1>Mock provider checkout</h1>");
+      }
+
+      // ---- WhatsApp Cloud API (Graph): outgoing messages
+      const wa = path.match(/^\/graph\/([^/]+)\/messages$/);
+      if (req.method === "POST" && wa) {
+        if (key !== "wa_test_token") {
+          return send(res, 401, { error: { message: "Invalid OAuth access token", code: 190 } });
+        }
+        state.whatsapp.push({ phoneNumberId: wa[1], to: body.to, type: body.type, body: body.text && body.text.body });
+        return send(res, 200, { messaging_product: "whatsapp", contacts: [{ input: body.to, wa_id: body.to }], messages: [{ id: "wamid.out" + state.whatsapp.length }] });
       }
 
       // ---- Web Push service + Resend

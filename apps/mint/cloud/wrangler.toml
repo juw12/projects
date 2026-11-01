@@ -26,5 +26,9 @@ APP_URL = "https://juw12.github.io/projects/mint/app.html"
 VAPID_PUBLIC_KEY = "BOhu8JmT9qM2p5kCYUB-oHkY_zwN1lDfAOG_g8ZuHoyUWnhnhYdOJ5IhvqhL24eKuzeXuyoK37WNm7dz7rDAIyU"
 VAPID_SUBJECT = "https://juw12.github.io/projects/mint/"
 
+# WhatsApp expense logging turns on when WHATSAPP_TOKEN, WHATSAPP_APP_SECRET, WHATSAPP_VERIFY_TOKEN,
+# WHATSAPP_HASH_SECRET, WHATSAPP_PHONE_NUMBER_ID and WHATSAPP_NUMBER are set as Worker secrets
+# (`npx wrangler secret put …`). Webhook: https://<worker>/api/whatsapp/webhook. See ../docs/whatsapp.md.
+
 [observability]
 enabled = true

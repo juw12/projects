@@ -94,6 +94,7 @@ API `https://mint-api.juw12.workers.dev/api/health`
 | **Updates** | Mint checks for a new version when it opens, every 30 minutes, when you come back to it and when the connection returns. A toast, the bell and **Settings → Updates** say when one is ready; one tap updates in place, keeping your budgets, the page and month you were on. With *Install updates automatically* on (the default) it also updates itself the next time you switch away, never while a sheet or a half-typed field is open. Afterwards a short *What's new* shows the release notes in your language. |
 | **Languages** | English, Bahasa Indonesia, 简体中文 and Español. Picks your device language on first launch; switch any time from the welcome screen, the phone **More** sheet or **Settings → Preferences**. Dates and month names follow the language. |
 | **Share your result** | One tap turns your money animal into a 1080×1350 card in your language (native share sheet on phones, PNG download on desktop) with a link back to the quiz. |
+| **WhatsApp** | Text `coffee 25k`, `grab 18rb` or `+5jt salary` to Mint's WhatsApp number and it lands in your budget, categorised like Quick add (several per message, any currency, `undo`). Messages are sealed to a key only your devices hold, so the server never stores anything it can read. Settings → WhatsApp. Setup and privacy model: [`docs/whatsapp.md`](docs/whatsapp.md). |
 | **Share** | One link invites people to edit live. Shows presence ("2 online"), people and an activity feed. Works offline: edits queue and sync on reconnect. |
 
 ### Platforms (all free)
@@ -152,6 +153,7 @@ No build step and no dependencies: plain HTML, CSS and classic scripts.
 | File | Role |
 | --- | --- |
 | `web/budget/js/core.js` | Data model, merge/CRDT, money parsing (`25k`, `1,5jt`, `Rp 25.000`), budget maths, alerts, tips, quiz scoring, planner, portfolio maths, demo data |
+| `web/budget/js/whatsapp.js` | WhatsApp inbox: opens sealed chat entries on the device and files them into a budget (stable ids, undo) |
 | `web/budget/js/sync.js` | AES-GCM crypto, snapshot chunking, relay transport (SSE + POST), outbox, presence |
 | `web/budget/js/quiz.js` | Onboarding quiz UI |
 | `web/budget/js/ui-kit.js` | Icons, rings, charts, toasts |
