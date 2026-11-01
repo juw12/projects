@@ -7,8 +7,8 @@ D (LangGraph).
 > Goal: a *coding agent I use every day* — not a Cursor competitor.
 
 The full design lives in [`docs/PLAN.md`](docs/PLAN.md). This folder is at
-**M1**: a working read-only agent that can explore a repo and answer questions
-about it. (Writing and shell access are M2.)
+**M2**: a working agent that can explore a repo, make minimal edits, and run
+commands — all gated behind **guardrails** (a command deny-list + confirmation).
 
 ## Why stdlib-only
 
@@ -125,18 +125,75 @@ python agents-lab\E-coder\tests\test_loop.py    # the loop (llm.chat mocked)
 
 Both are hermetic (temp dir + mocked model — no real network), exit `0`/`1`.
 
+## M2 — write/run tools + guardrails (the safety milestone)
+
+The agent can now **write files** and **run shell commands**. Because that is a
+loaded gun, it is wrapped in guardrails and is **safe by default**.
+
+### Tools added (`tools.py`)
+
+| Tool | Args | Gate |
+| --- | --- | --- |
+| `write_file` | `path`, `content` | unified diff + confirmation (unless `--yolo`) |
+| `run_command` | `command` | command deny-list **+** confirmation (unless `--yolo`) |
+
+`write_file` shows a unified diff before writing; `run_command` runs
+`subprocess.run(..., shell=True)` **only after** `guardrails.check_command` passes.
+
+### Guardrails (`guardrails.py`)
+
+Two fail-closed layers:
+
+- **`check_command` (hard deny-list).** In order: rejects empty commands; rejects any
+  shell control operator (`;` `&` `|` backtick `>` `<`, newlines, `$(`) so
+  `true && rm -rf /` can't sneak past; then rejects deny patterns — `rm -rf`,
+  `del /f|/s|/q`, `rmdir /s`, `format`, `mkfs`, `dd if=`, `git push`,
+  `git reset --hard`, `git clean -fd`, `shutdown`, `reboot`, `curl`, `wget`,
+  `invoke-webrequest`/`iwr`, `pip install`, `npm install`/`npm i`, `chmod 777`,
+  the `:(){` fork bomb, and writes to `/dev/`.
+- **`confirm` (yes/no gate).** `interactive=False` **always declines** (a
+  non-interactive run never auto-approves). `interactive=True` prints the detail
+  and accepts only `y`/`yes` (Ctrl-C / EOF also decline).
+
+### Safe by default
+
+A `ToolContext(root, yolo=False, interactive=True)` controls the mutating tools.
+`yolo=False` + `interactive=False` (the default when no context is passed) means
+**nothing mutating is ever approved**. `--yolo` skips confirmation but **never**
+the deny-list. `--no-interactive` turns confirmation off entirely, so writes and
+commands are always declined — effectively read-only, and safe for scripts.
+
+### Run the CLI (M2)
+
+```powershell
+python coder.py "add a docstring to main() in server.py"   # asks before writing
+python coder.py "..." --yolo          # skip the confirmation prompt (careful!)
+python coder.py "..." --no-interactive # never write/run; read-only in effect
+```
+
+### Test
+
+```powershell
+python agents-lab\E-coder\tests\test_guardrails.py  # deny-list + confirm gate
+```
+
+Hermetic (deny-list is string-based; `input` and `subprocess.run` are mocked; the
+one real command runs local python, no network), exit `0`/`1`.
+
 ## Files
 
 ```
-llm.py            # M0: provider adapter (urllib) + echo REPL
-prompt.py         # M1: SYSTEM_PROMPT
-tools.py          # M1: read-only tools (list/read/search) + path sandbox + schemas
-loop.py           # M1: the ReAct agent loop
-coder.py          # M1: CLI entrypoint
-tests/test_llm.py # hermetic stdlib-only tests (M0)
-tests/test_tools.py # hermetic stdlib-only tests (M1)
-tests/test_loop.py  # hermetic stdlib-only tests (M1, llm.chat mocked)
-docs/PLAN.md      # full design + build order
+llm.py             # M0: provider adapter (urllib) + echo REPL
+prompt.py          # M1: SYSTEM_PROMPT (M2: write/run care)
+tools.py           # M1+M2: list/read/search + write_file/run_command + path sandbox + schemas
+guardrails.py      # M2: command deny-list + confirmation gate
+loop.py            # M1: the ReAct agent loop (M2: threads a ToolContext)
+coder.py           # M1+M2: CLI entrypoint (--yolo / --no-interactive)
+tests/test_llm.py        # hermetic stdlib-only tests (M0)
+tests/test_tools.py      # hermetic stdlib-only tests (M1+M2: tools + sandbox + write/run)
+tests/test_loop.py       # hermetic stdlib-only tests (M1, llm.chat mocked)
+tests/test_guardrails.py # hermetic stdlib-only tests (M2: deny-list + confirm)
+docs/PLAN.md         # full design + build order
 README.md
 ```
 
@@ -146,6 +203,6 @@ README.md
 | --- | --- | --- |
 | **M0** | `llm.py` — one `chat()`, no tools, echo works | ✅ done |
 | **M1** | read-only tools (`list/read/search`) + loop | ✅ done |
-| **M2** | `write_file` + `run_command` + guardrails + confirm | — |
+| **M2** | `write_file` + `run_command` + guardrails + confirm | ✅ done |
 | **M3** | gitignore-aware context builder (the hard part) | — |
 | **M4** | tests + docs + README | — |

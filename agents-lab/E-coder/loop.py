@@ -21,7 +21,7 @@ from typing import Callable
 
 import llm
 from prompt import SYSTEM_PROMPT
-from tools import TOOL_SCHEMAS, ToolError, dispatch
+from tools import TOOL_SCHEMAS, ToolContext, ToolError, dispatch
 
 # on_step is an optional callback for tracing: on_step({"step": n, ...}).
 StepCallback = Callable[[dict], None]
@@ -34,15 +34,22 @@ def run_agent(
     max_steps: int = 12,
     provider: str | None = None,
     model: str | None = None,
+    yolo: bool = False,
+    interactive: bool = True,
     on_step: StepCallback | None = None,
 ) -> str:
-    """Run the read-only agent on `task` within repo `root`; return the final text.
+    """Run the agent on `task` within repo `root`; return the final text.
 
     Stops early when the model answers without a tool call, or returns a clear
     "[stopped after N steps ...]" message if `max_steps` is hit first.
+
+    Mutating tools (write_file / run_command) are gated by one ToolContext built
+    from `yolo` / `interactive`: with yolo=False and interactive=False (the safe
+    default for non-interactive runs) they are always declined.
     """
     prov = (provider or os.environ.get("ECODER_PROVIDER", "ollama")).lower()
     root = os.path.realpath(root)
+    ctx = ToolContext(root=root, yolo=yolo, interactive=interactive)
     messages: list[dict] = [
         {"role": "system", "content": SYSTEM_PROMPT},
         {"role": "user", "content": task},
@@ -63,7 +70,7 @@ def run_agent(
         # Run each requested tool and append a provider-native tool-result message.
         executed: list[dict] = []
         for tc in reply.tool_calls:
-            result = _run_tool(tc, root)
+            result = _run_tool(tc, ctx)
             executed.append({"name": tc.name, "arguments": tc.arguments, "result": result})
             if prov == "openai":
                 # OpenAI requires the tool_call_id to match the assistant's call.
@@ -79,14 +86,14 @@ def run_agent(
 
 
 # --- Helpers ------------------------------------------------------------------
-def _run_tool(tc: llm.ToolCall, root: str) -> str:
+def _run_tool(tc: llm.ToolCall, ctx: ToolContext) -> str:
     """Dispatch one tool call, converting any failure into a feed-back string.
 
     A ToolError becomes "error: ..."; any other exception is caught too so a tool
     bug can never crash the loop.
     """
     try:
-        return dispatch(tc.name, tc.arguments, root)
+        return dispatch(tc.name, tc.arguments, ctx.root, ctx=ctx)
     except ToolError as e:
         return f"error: {e}"
     except Exception as e:  # noqa: BLE001 — last-resort guard: never crash the loop

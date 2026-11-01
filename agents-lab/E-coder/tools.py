@@ -1,10 +1,16 @@
 """
-E — E-coder read-only tools (M1).
+E — E-coder tools (M1 read-only + M2 write/run).
 
-Three read-only tools plus a dispatcher, all confined to a repo `root` via a
-path sandbox. This is the M1 slice of guardrails: the agent can look around the
-repo but cannot reach outside it. `write_file` / `run_command` (and full
-guardrails) are M2.
+Five tools plus a dispatcher, all confined to a repo `root` via a path sandbox:
+
+  M1 (read-only): list_files, read_file, search
+  M2 (careful):   write_file, run_command
+
+`write_file` and `run_command` are SAFE BY DEFAULT: they only act when the
+caller passes a `ToolContext` with `yolo=True`, or when an interactive user
+confirms. A non-interactive context always declines. `run_command` additionally
+passes `guardrails.check_command` (a hard command deny-list) before doing
+anything.
 
 Stdlib only. The tools return *strings* (text the model can read), and raise
 `ToolError` for anything that is wrong — the agent loop turns a `ToolError` into
@@ -12,9 +18,14 @@ a tool result and feeds it back to the model instead of crashing.
 """
 from __future__ import annotations
 
+import difflib
 import inspect
 import os
 import re
+import subprocess
+from dataclasses import dataclass
+
+import guardrails
 
 # Directories we never descend into or list (noise + size). Extend as needed.
 SKIP_DIRS = {
@@ -35,6 +46,28 @@ class ToolError(Exception):
 
     The message is meant to be fed back to the model so it can recover.
     """
+
+
+# --- Tool context -------------------------------------------------------------
+@dataclass
+class ToolContext:
+    """Per-run policy for the mutating tools (`write_file` / `run_command`).
+
+    SAFE BY DEFAULT: `yolo=False` + `interactive=False` means nothing mutating is
+    ever approved. `yolo=True` skips confirmation (an explicit opt-in);
+    `interactive=True` asks the user and requires an explicit y/yes.
+    """
+
+    root: str
+    yolo: bool = False
+    interactive: bool = True
+
+
+def _effective_ctx(ctx: ToolContext | None, root: str) -> ToolContext:
+    """Return `ctx`, or a safe read-only default (never auto-approves) if None."""
+    if ctx is not None:
+        return ctx
+    return ToolContext(root=root, yolo=False, interactive=False)
 
 
 # --- Path sandbox -------------------------------------------------------------
@@ -138,29 +171,129 @@ def search(pattern: str, path: str = ".", root: str = ".", max_results: int = 10
     return "\n".join(results) if results else "(no matches)"
 
 
+# --- Mutating tools (M2) ------------------------------------------------------
+def write_file(
+    path: str,
+    content: str,
+    root: str = ".",
+    *,
+    ctx: ToolContext | None = None,
+    max_bytes: int = 200000,
+) -> str:
+    """Create or overwrite the file at `path` (relative to `root`) with `content`.
+
+    SAFE BY DEFAULT: unless `ctx.yolo` is True, this requires user confirmation;
+    a non-interactive context always declines (raises ToolError).
+    """
+    ctx = _effective_ctx(ctx, root)
+    target = _resolve_inside(ctx.root, path)
+    if len(content) > max_bytes:
+        raise ToolError(f"content too large ({len(content)} > {max_bytes} chars)")
+
+    # Read current contents ("" for a new file) so we can show a unified diff.
+    is_new = not os.path.isfile(target)
+    old = ""
+    if not is_new:
+        with open(target, "r", encoding="utf-8", errors="replace") as f:
+            old = f.read()
+
+    diff = "\n".join(
+        difflib.unified_diff(
+            old.splitlines(),
+            content.splitlines(),
+            fromfile=f"a/{path}",
+            tofile=f"b/{path}",
+            lineterm="",
+        )
+    )
+
+    if not ctx.yolo:
+        detail = f"write {path}\n" + (diff if diff.strip() else "(empty diff)")
+        if not guardrails.confirm("write", detail, interactive=ctx.interactive):
+            raise ToolError("write declined by user")
+
+    parent = os.path.dirname(target)
+    if parent:
+        os.makedirs(parent, exist_ok=True)
+    with open(target, "w", encoding="utf-8") as f:
+        f.write(content)
+
+    note = " (new file)" if is_new else ""
+    return f"wrote {len(content)} chars to {path}{note}\n" + (diff if diff.strip() else "(no changes)")
+
+
+def run_command(
+    command: str,
+    root: str = ".",
+    *,
+    ctx: ToolContext | None = None,
+    timeout: int = 60,
+    max_output: int = 20000,
+) -> str:
+    """Run a shell command inside `ctx.root` and return its (truncated) output.
+
+    SAFE BY DEFAULT: the command must first pass `guardrails.check_command` (a
+    hard deny-list); then, unless `ctx.yolo` is True, it requires confirmation.
+    Returns "exit=<code>\\n<stdout>\\n<stderr>".
+    """
+    ctx = _effective_ctx(ctx, root)
+    # Hard deny-list first: a GuardrailError surfaces as a ToolError.
+    try:
+        guardrails.check_command(command)
+    except guardrails.GuardrailError as e:
+        raise ToolError(f"blocked command: {e}") from e
+    # Confirmation gate (skipped under --yolo).
+    if not ctx.yolo:
+        if not guardrails.confirm("run", command, interactive=ctx.interactive):
+            raise ToolError("command declined by user")
+    # Run it (shell=True, but only AFTER check_command passed).
+    try:
+        proc = subprocess.run(
+            command,
+            shell=True,
+            cwd=ctx.root,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+        )
+    except subprocess.TimeoutExpired as e:
+        raise ToolError(f"command timed out after {timeout}s") from e
+    out = f"exit={proc.returncode}\n{proc.stdout}\n{proc.stderr}"
+    if len(out) > max_output:
+        out = out[:max_output] + f"\n... [truncated at {max_output} chars]"
+    return out
+
+
 # --- Dispatch + tool schemas --------------------------------------------------
 # Registry: tool name -> callable. Each callable accepts `root` plus its own args.
 _TOOLS = {
     "list_files": list_files,
     "read_file": read_file,
     "search": search,
+    "write_file": write_file,
+    "run_command": run_command,
 }
 
 
-def dispatch(name: str, arguments: dict, root: str) -> str:
-    """Run tool `name` with `arguments` confined to `root`, returning its string result.
+def dispatch(name: str, arguments: dict, root: str, *, ctx: ToolContext | None = None) -> str:
+    """Run tool `name` with `arguments`, returning its string result.
 
-    Only the keys the tool actually accepts are passed through (extra keys are
-    dropped); `root` is always set by us, never by the model. Unknown tool names
-    raise ToolError.
+    The 3-argument call (name, arguments, root) still works, as in M1. A `ToolContext`
+    may be passed for the mutating tools; if omitted, a SAFE read-only default is
+    built (yolo=False, interactive=False) so write/run are declined by default.
+    Only the keys a tool accepts are passed through; `root` and `ctx` are forced
+    by us, never by the model. Unknown tool names raise ToolError.
     """
     fn = _TOOLS.get(name)
     if fn is None:
         raise ToolError(f"unknown tool: {name!r} (available: {', '.join(sorted(_TOOLS))})")
+    context = _effective_ctx(ctx, root)
     args = arguments if isinstance(arguments, dict) else {}
     accepted = set(inspect.signature(fn).parameters)
     kwargs = {k: v for k, v in args.items() if k in accepted}
-    kwargs["root"] = root
+    kwargs["root"] = context.root
+    if "ctx" in accepted:  # only the mutating tools take a context
+        kwargs["ctx"] = context
     return fn(**kwargs)
 
 
@@ -220,6 +353,46 @@ TOOL_SCHEMAS: list[dict] = [
                     },
                 },
                 "required": ["pattern"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "write_file",
+            "description": "Create or overwrite a file, relative to the repo root. "
+            "Requires user confirmation unless the agent runs with --yolo.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "description": "File to write, relative to the repo root.",
+                    },
+                    "content": {
+                        "type": "string",
+                        "description": "Full new contents of the file.",
+                    },
+                },
+                "required": ["path", "content"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "run_command",
+            "description": "Run a shell command inside the repo root. Blocked by a command "
+            "deny-list; requires user confirmation unless the agent runs with --yolo.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "command": {
+                        "type": "string",
+                        "description": "A single shell command (no chaining/redirects).",
+                    },
+                },
+                "required": ["command"],
             },
         },
     },
