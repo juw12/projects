@@ -9,7 +9,7 @@ is required to use the installed app or its hardware-free demo.
 ## Downloads
 
 Windows x64 releases are published under the app-specific tag
-`airiz-desktop-v1.11.23` in this repository's Releases section.
+`airiz-desktop-v1.11.24` in this repository's Releases section.
 
 - **Installer**: assisted, per-user installation with Start-menu/desktop shortcuts
   and an uninstaller. The wizard lets the user choose the installation directory.
@@ -163,6 +163,13 @@ reports whether a framed firmware reply came back. Results can be exported.
 No pairing is accepted without confirmation and no motor command is sent.
 Another program on the PC still cannot open COM4 while this app holds it: that is
 a Windows serial-port rule, which is why the check runs inside the app.
+
+## 1.11.24: Chinese guide and Bluetooth check text brought up to date
+
+* **Bluetooth check picker.** The device chooser shown by *Bluetooth test* still described the old "Phone remote → Start remote" flow. It now reads "Choose the AIRIZ Bluetooth device" and explains Cancel, connecting over USB and running the test again (`desktop-integration.js`).
+* **zh-TW / zh-CN.** 19 guide paragraphs whose English had changed since they were translated (phones, share, remote code card, teams, getting started on Android, wobble test, Fine/Small/Large presets, Bluetooth test note) and 18 labels (section 8 title, update dialog, Check now, Cancel scan, Export CSV, mobile banner, picker texts, the `Installed: … · Portable` line) are translated again. What is still English in Chinese mode is part numbers, the owner name and protocol names.
+* **Update panel and tooltips in Chinese.** Every status line of the Updates panel (checking, available, downloaded, scheduled / waiting with the reason, cancelled, verification errors) and the PWA, Bluetooth test and connection-badge tooltips now have zh-TW / zh-CN text. Native Windows dialogs from the main process (close warning, install confirmation) remain English.
+* History of the app gains the 1.11.24 entry.
 
 ## 1.11.23: Camera tab layout and history put right
 

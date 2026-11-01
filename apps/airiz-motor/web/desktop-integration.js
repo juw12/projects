@@ -254,10 +254,12 @@
     dialog.id = 'bluetooth-picker-dialog';
     dialog.className = 'help-dialog bluetooth-check-dialog';
     dialog.setAttribute('aria-labelledby', 'bluetooth-picker-title');
-    dialog.innerHTML = '<h2 id="bluetooth-picker-title">Connect Bluetooth</h2>'
-      + '<p>Choose <strong>AIRIZ-BT</strong>. If it is not listed, start it over USB first: '
-      + '<strong>Phone remote \u2192 Start remote</strong> (again after every power-up). '
-      + 'While a phone is connected the AIRIZ may stop advertising; the Phone remote dialog shows who is connected.</p>'
+    // 1.11.24: the Phone remote that used to start the AIRIZ Bluetooth bridge was removed in 1.11.18;
+    // the Bluetooth check itself now turns the radio on (diag ble on) before this list opens.
+    dialog.innerHTML = '<h2 id="bluetooth-picker-title">Choose the AIRIZ Bluetooth device</h2>'
+      + '<p>Choose <strong>AIRIZ-BT</strong>. If it is not listed, press <strong>Cancel</strong>, connect the AIRIZ over USB '
+      + 'and run <strong>Bluetooth test</strong> again: it turns the AIRIZ radio on first (needed after every power-up). '
+      + 'While another device is connected to it over Bluetooth, the AIRIZ may stop advertising.</p>'
       + '<p id="bluetooth-picker-status" class="bluetooth-check-result" role="status">Searching\u2026</p>'
       + '<div id="bluetooth-picker-list" class="native-serial-list" role="group" aria-label="Bluetooth devices found"></div>'
       + '<div class="desktop-update-actions"><button id="bluetooth-picker-cancel" class="btn btn-secondary">Cancel</button></div>';
