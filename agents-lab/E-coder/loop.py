@@ -36,6 +36,7 @@ def run_agent(
     model: str | None = None,
     yolo: bool = False,
     interactive: bool = True,
+    context: str | None = None,
     on_step: StepCallback | None = None,
 ) -> str:
     """Run the agent on `task` within repo `root`; return the final text.
@@ -46,14 +47,19 @@ def run_agent(
     Mutating tools (write_file / run_command) are gated by one ToolContext built
     from `yolo` / `interactive`: with yolo=False and interactive=False (the safe
     default for non-interactive runs) they are always declined.
+
+    `context`, when provided (e.g. from repo.build_context), is inserted as one
+    extra system message right after the system prompt.
     """
     prov = (provider or os.environ.get("ECODER_PROVIDER", "ollama")).lower()
     root = os.path.realpath(root)
     ctx = ToolContext(root=root, yolo=yolo, interactive=interactive)
-    messages: list[dict] = [
-        {"role": "system", "content": SYSTEM_PROMPT},
-        {"role": "user", "content": task},
-    ]
+    messages: list[dict] = [{"role": "system", "content": SYSTEM_PROMPT}]
+    if context:
+        messages.append(
+            {"role": "system", "content": "Repository context (use it, but verify with tools):\n" + context}
+        )
+    messages.append({"role": "user", "content": task})
 
     for step in range(1, max_steps + 1):
         reply = llm.chat(messages, tools=TOOL_SCHEMAS, provider=provider, model=model)

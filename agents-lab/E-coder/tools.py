@@ -1,10 +1,11 @@
 """
-E — E-coder tools (M1 read-only + M2 write/run).
+E — E-coder tools (M1 read-only + M2 write/run + M3 repo tree).
 
-Five tools plus a dispatcher, all confined to a repo `root` via a path sandbox:
+Six tools plus a dispatcher, all confined to a repo `root` via a path sandbox:
 
   M1 (read-only): list_files, read_file, search
   M2 (careful):   write_file, run_command
+  M3 (read-only): repo_tree  (a gitignore-aware tree, built by repo.py)
 
 `write_file` and `run_command` are SAFE BY DEFAULT: they only act when the
 caller passes a `ToolContext` with `yolo=True`, or when an interactive user
@@ -171,6 +172,20 @@ def search(pattern: str, path: str = ".", root: str = ".", max_results: int = 10
     return "\n".join(results) if results else "(no matches)"
 
 
+def repo_tree(path: str = ".", root: str = ".", max_entries: int = 500) -> str:
+    """A gitignore-aware tree of `path` (relative to `root`), confined to `root`.
+
+    The `repo` import is local to avoid a circular import (repo.py imports
+    SKIP_DIRS from this module).
+    """
+    from repo import build_tree
+
+    target = _resolve_inside(root, path)
+    if not os.path.isdir(target):
+        raise ToolError(f"not a directory: {path!r}")
+    return build_tree(target, max_entries=max_entries)
+
+
 # --- Mutating tools (M2) ------------------------------------------------------
 def write_file(
     path: str,
@@ -270,6 +285,7 @@ _TOOLS = {
     "list_files": list_files,
     "read_file": read_file,
     "search": search,
+    "repo_tree": repo_tree,
     "write_file": write_file,
     "run_command": run_command,
 }
@@ -353,6 +369,23 @@ TOOL_SCHEMAS: list[dict] = [
                     },
                 },
                 "required": ["pattern"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "repo_tree",
+            "description": "Show a gitignore-aware tree of a directory, relative to the repo root. "
+            "Directories are listed with a trailing slash; ignored entries are omitted.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "description": "Directory to show, relative to the repo root. Default '.'.",
+                    },
+                },
             },
         },
     },
