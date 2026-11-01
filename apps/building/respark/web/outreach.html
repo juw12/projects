@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Respark — Outreach</title>
+<link rel="stylesheet" href="/static/style.css" />
+</head>
+<body class="app">
+
+<nav class="topnav">
+  <div class="nav-inner">
+    <a href="/outreach" class="logo">
+      <span class="logo-mark">R</span>
+      <span>Respark <span style="color:var(--ink-3);font-weight:500;font-size:14px;">/ outreach</span></span>
+    </a>
+    <div class="nav-links">
+      <a href="/app">← App</a>
+      <span id="who" class="who"></span>
+      <button id="logoutBtn" class="btn btn-ghost">Log out</button>
+    </div>
+  </div>
+</nav>
+
+<main class="wrap">
+
+  <header class="app-head">
+    <div>
+      <h1>Outreach pipeline</h1>
+      <p class="sub" style="margin:4px 0 0;font-size:14.5px;">Find prospects → auto-send → track opens → close deals → auto-onboard.</p>
+    </div>
+  </header>
+
+  <section id="statsRow" class="stats-row"></section>
+
+  <div class="grid-2">
+    <section class="card-block">
+      <h2>Import leads (CSV)</h2>
+      <p class="step-help">Paste a CSV exported from Google Maps, Yelp, or any source. Required: <code>business_name</code> + <code>email</code>. Optional: <code>contact_name</code>, <code>industry</code>, <code>city</code>, <code>phone</code>, <code>website</code>, <code>review_count</code>.</p>
+      <textarea id="csvInput" rows="6" placeholder="business_name,contact_name,email,industry,city
+Joe's Plumbing,Joe Smith,joe@joesplumbing.com,plumber,Austin
+Bright Smile Dental,Sarah Chen,sarah@brightsmile.com,dentist,Austin"></textarea>
+      <div class="row">
+        <button id="importBtn" class="btn btn-brand">Import + auto-schedule</button>
+        <span id="importMsg" class="msg"></span>
+      </div>
+    </section>
+
+    <section class="card-block">
+      <h2>Settings</h2>
+      <form id="settingsForm" class="settings-grid">
+        <div class="field">
+          <label>Operator name</label>
+          <input type="text" name="operator_name" />
+        </div>
+        <div class="field">
+          <label>Operator email</label>
+          <input type="email" name="operator_email" />
+        </div>
+        <div class="field">
+          <label>Daily send limit</label>
+          <input type="number" name="daily_send_limit" min="1" max="500" />
+        </div>
+        <div class="field">
+          <label>Delay between sends (seconds)</label>
+          <input type="number" name="delay_between_seconds" min="10" max="600" />
+        </div>
+        <div class="field">
+          <label>Follow-up after (days)</label>
+          <input type="number" name="followup_after_days" min="1" max="30" />
+        </div>
+        <div class="field">
+          <label>Max follow-ups</label>
+          <input type="number" name="max_followups" min="1" max="5" />
+        </div>
+        <div class="row" style="grid-column:1/-1;">
+          <button type="submit" class="btn btn-brand">Save</button>
+          <span id="settingsMsg" class="msg"></span>
+        </div>
+      </form>
+    </section>
+  </div>
+
+  <section class="card-block">
+    <div class="filter-row">
+      <h2>Leads</h2>
+      <div class="filter-controls">
+        <select id="filterStatus">
+          <option value="">All statuses</option>
+          <option value="new">New</option>
+          <option value="sent">Sent</option>
+          <option value="opened">Opened</option>
+          <option value="replied">Replied</option>
+          <option value="interested">Interested</option>
+          <option value="booked">Booked</option>
+          <option value="closed_won">Closed won</option>
+          <option value="dead">Dead</option>
+          <option value="unsubscribed">Unsubscribed</option>
+        </select>
+        <select id="filterIndustry">
+          <option value="">All industries</option>
+          <option value="plumber">Plumber / HVAC</option>
+          <option value="dentist">Dentist</option>
+          <option value="trainer">Trainer</option>
+          <option value="salon">Salon / Spa</option>
+          <option value="mechanic">Mechanic</option>
+          <option value="realtor">Realtor</option>
+          <option value="restaurant">Restaurant</option>
+        </select>
+        <button id="refreshLeads" class="btn btn-ghost">Refresh</button>
+      </div>
+    </div>
+
+    <div id="leadsTable"></div>
+  </section>
+
+</main>
+
+<div id="closeModal" class="modal hidden">
+  <div class="modal-inner">
+    <h2>Close-won — auto-onboard</h2>
+    <p class="step-help">Mark this lead as closed and auto-create their Respark account + draft campaign. They'll receive their login by email.</p>
+    <form id="closeForm">
+      <input type="hidden" name="lead_id" />
+      <div class="field">
+        <label>Client email (their login)</label>
+        <input type="email" name="client_email" required />
+      </div>
+      <div class="field">
+        <label>Industry</label>
+        <select name="industry">
+          <option value="plumber">Plumber</option>
+          <option value="dentist">Dentist</option>
+          <option value="trainer">Trainer</option>
+          <option value="salon">Salon</option>
+          <option value="mechanic">Mechanic</option>
+          <option value="realtor">Realtor</option>
+          <option value="restaurant">Restaurant</option>
+        </select>
+      </div>
+      <div class="row">
+        <button type="button" class="btn btn-ghost" data-close>Cancel</button>
+        <button type="submit" class="btn btn-brand">Close + onboard</button>
+      </div>
+      <div id="closeMsg" class="msg"></div>
+    </form>
+  </div>
+</div>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const $$ = (s) => document.querySelectorAll(s);
+
+async function api(method, path, body) {
+  const opts = { method, credentials: "same-origin", headers: {} };
+  if (body) {
+    opts.headers["Content-Type"] = "application/json";
+    opts.body = JSON.stringify(body);
+  }
+  const r = await fetch(path, opts);
+  const data = await r.json().catch(() => ({}));
+  return { ok: r.ok, status: r.status, data };
+}
+
+async function init() {
+  const me = await api("GET", "/api/me");
+  if (!me.ok) { location.href = "/"; return; }
+  $("#who").textContent = me.data.email;
+
+  if (location.search.includes("checkout=success")) {
+    const banner = $("#checkoutBanner");
+    banner.textContent = "Payment successful — welcome aboard. Your subscription is now active.";
+    banner.classList.remove("hidden");
+    banner.classList.add("ok");
+  } else if (location.search.includes("checkout=cancel")) {
+    const banner = $("#checkoutBanner");
+    banner.textContent = "Checkout canceled. No charge made.";
+    banner.classList.remove("hidden");
+  }
+
+  await loadBilling();
+  await loadCampaigns();
+}
+
+async function loadBilling() {
+  const { data } = await api("GET", "/api/billing/status");
+  const card = $("#billingCard");
+  if (!data.subscription) return;
+  const s = data.subscription;
+  card.classList.remove("hidden");
+  $("#billingPlan").textContent = (s.plan || "").toUpperCase() + " plan";
+  const statusEl = $("#billingStatus");
+  statusEl.textContent = s.status === "active" ? "Active" : (s.status || "Inactive");
+  statusEl.className = "billing-status " + s.status;
+  $("#manageBillingBtn").onclick = async () => {
+    const r = await api("POST", "/api/billing/portal");
+    if (r.ok && r.data.url) location.href = r.data.url;
+    else alert(r.data.error || "Could not open billing portal");
+  };
+}
+
+async function loadCampaigns() {
+  const status = $("#filterStatus").value;
+  const industry = $("#filterIndustry").value;
+  const params = new URLSearchParams();
+  if (status) params.set("status", status);
+  if (industry) params.set("industry", industry);
+  const { data } = await api("GET", "/api/outreach/leads?" + params.toString());
+  const table = $("#leadsTable");
+  if (!data.leads || data.leads.length === 0) {
+    table.innerHTML = `<div class="empty-state"><h3>No leads yet</h3><p>Import a CSV above to get started.</p></div>`;
+    return;
+  }
+  table.innerHTML = `
+    <table class="leads-table">
+      <thead>
+        <tr><th>Business</th><th>Contact</th><th>Email</th><th>Industry</th><th>City</th><th>Status</th><th>Actions</th></tr>
+      </thead>
+      <tbody>
+        ${data.leads.map(l => `
+          <tr>
+            <td><strong>${escapeHtml(l.business_name)}</strong><br><small style="color:var(--ink-3)">${escapeHtml(l.website || '')}</small></td>
+            <td>${escapeHtml(l.contact_name || '')}</td>
+            <td><a href="mailto:${escapeHtml(l.email)}">${escapeHtml(l.email)}</a></td>
+            <td>${escapeHtml(l.industry || '')}</td>
+            <td>${escapeHtml(l.city || '')}</td>
+            <td><span class="lead-status status-${l.status}">${l.status}</span></td>
+            <td class="actions-cell">
+              <button class="btn-mini js-send" data-id="${l.id}" ${l.status === 'closed_won' || l.status === 'dead' || l.status === 'unsubscribed' ? 'disabled' : ''}>Send</button>
+              <button class="btn-mini js-int" data-id="${l.id}">Interested</button>
+              <button class="btn-mini js-dead" data-id="${l.id}">Dead</button>
+              <button class="btn-mini btn-brand-mini js-close" data-id="${l.id}" data-name="${escapeHtml(l.business_name)}">Close + onboard</button>
+            </td>
+          </tr>
+        `).join("")}
+      </tbody>
+    </table>
+  `;
+  $$(".js-send").forEach(b => b.onclick = async () => {
+    const r = await api("POST", "/api/outreach/leads/" + b.dataset.id + "/send");
+    if (r.ok) { b.textContent = r.data.sent ? "Sent!" : "Failed"; loadStats(); loadLeads(); }
+  });
+  $$(".js-int").forEach(b => b.onclick = async () => {
+    await api("POST", "/api/outreach/leads/" + b.dataset.id + "/patch", { status: "interested" });
+    loadStats(); loadLeads();
+  });
+  $$(".js-dead").forEach(b => b.onclick = async () => {
+    await api("POST", "/api/outreach/leads/" + b.dataset.id + "/patch", { status: "dead" });
+    loadStats(); loadLeads();
+  });
+  $$(".js-close").forEach(b => b.onclick = () => {
+    $("#closeForm").elements["lead_id"].value = b.dataset.id;
+    $("#closeModal").classList.remove("hidden");
+  });
+}
+
+$("#importBtn").onclick = async () => {
+  const csv = $("#csvInput").value.trim();
+  if (!csv) return;
+  const msg = $("#importMsg");
+  msg.className = "msg"; msg.textContent = "Importing…";
+  const { ok, data } = await api("POST", "/api/outreach/leads/import", { csv });
+  if (ok) {
+    msg.classList.add("ok");
+    msg.textContent = `Imported ${data.imported} leads, scheduled ${data.queued} follow-ups.`;
+    $("#csvInput").value = "";
+    loadStats(); loadLeads();
+  } else {
+    msg.classList.add("err");
+    msg.textContent = data.error || "Import failed";
+  }
+};
+
+$("#settingsForm").onsubmit = async (e) => {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const body = {};
+  for (const [k, v] of fd.entries()) body[k] = v;
+  const msg = $("#settingsMsg");
+  msg.className = "msg"; msg.textContent = "Saving…";
+  const { ok } = await api("POST", "/api/outreach/settings", body);
+  if (ok) { msg.classList.add("ok"); msg.textContent = "Saved."; }
+  else { msg.classList.add("err"); msg.textContent = "Failed."; }
+};
+
+$("#closeForm").onsubmit = async (e) => {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const lid = fd.get("lead_id");
+  const msg = $("#closeMsg");
+  msg.className = "msg"; msg.textContent = "Onboarding…";
+  const { ok, data } = await api("POST", "/api/outreach/leads/" + lid + "/close", {
+    client_email: fd.get("client_email"),
+    industry: fd.get("industry"),
+  });
+  if (ok) {
+    msg.classList.add("ok");
+    let txt = `Onboarded. Campaign ${data.campaign_id.slice(0,8)} created.`;
+    if (data.client_password) txt += ` Temp password: ${data.client_password}`;
+    msg.textContent = txt;
+    loadStats(); loadLeads();
+  } else {
+    msg.classList.add("err");
+    msg.textContent = data.error || "Failed";
+  }
+};
+
+$$("[data-close]").forEach(b => b.onclick = () => $("#closeModal").classList.add("hidden"));
+
+$("#filterStatus").onchange = loadLeads;
+$("#filterIndustry").onchange = loadLeads;
+$("#refreshLeads").onclick = () => { loadStats(); loadLeads(); };
+
+$("#logoutBtn").onclick = async () => { await api("POST", "/api/auth/logout"); location.href = "/"; };
+
+function escapeHtml(s) {
+  return String(s || "").replace(/[&<>"']/g, m => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;"
+  })[m]);
+}
+
+init();
+</script>
+</body>
+</html>

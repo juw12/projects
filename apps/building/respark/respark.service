@@ -1,0 +1,23 @@
+[Unit]
+Description=Respark Customer Reactivation Server
+After=network.target
+
+[Service]
+Type=simple
+User=respark
+Group=respark
+WorkingDirectory=/opt/respark
+EnvironmentFile=/opt/respark/.env
+ExecStart=/usr/bin/python3 /opt/respark/server/server.py
+Restart=always
+RestartSec=3
+StandardOutput=append:/var/log/respark/app.log
+StandardError=append:/var/log/respark/app.log
+
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/respark /var/log/respark
+
+[Install]
+WantedBy=multi-user.target

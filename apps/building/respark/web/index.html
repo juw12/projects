@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Respark — Win back the customers you lost</title>
+<link rel="stylesheet" href="/static/style.css" />
+</head>
+<body class="landing">
+
+<nav class="topnav">
+  <div class="nav-inner">
+    <a href="/" class="logo">
+      <span class="logo-mark">R</span>
+      <span>Respark</span>
+    </a>
+    <div class="nav-links">
+      <a href="#how">How it works</a>
+      <a href="#pricing">Pricing</a>
+      <a href="#login">Log in</a>
+    </div>
+    <a href="#signup" class="btn btn-brand">Start free</a>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="wrap">
+    <span class="eyebrow">For local service businesses</span>
+    <h1>Win back the customers <span class="accent">you already paid to acquire.</span></h1>
+    <p class="lede">
+      Respark automatically re-engages your past customers with personalized email and SMS.
+      You focus on the new ones. We bring the old ones back.
+    </p>
+    <div class="hero-cta">
+      <a href="#signup" class="btn btn-brand btn-lg">Start free</a>
+      <a href="#how" class="btn btn-ghost btn-lg">See how it works</a>
+    </div>
+  </div>
+</header>
+
+<section id="how" class="how">
+  <div class="wrap">
+    <h2>Three steps. Zero work after setup.</h2>
+    <p class="sub">We connect to your customer list, write the campaigns, and run them on autopilot.</p>
+    <div class="how-grid">
+      <div class="how-card">
+        <div class="how-num">1</div>
+        <h3>Sign up & upload your list</h3>
+        <p>Free account. Upload a CSV of past customers (or skip — we'll show you the format). 10 minutes.</p>
+      </div>
+      <div class="how-card">
+        <div class="how-num">2</div>
+        <h3>Preview your campaign</h3>
+        <p>Personalized emails and SMS tailored to your industry. You approve before we send anything.</p>
+      </div>
+      <div class="how-card">
+        <div class="how-num">3</div>
+        <h3>Customers come back</h3>
+        <p>Past customers book appointments automatically. You get a weekly report showing who reactivated.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="pricing" class="pricing">
+  <div class="wrap">
+    <h2>Simple, no-risk pricing</h2>
+    <p class="sub">Setup once. Pay a small monthly fee. Cancel any time.</p>
+    <div class="price-grid">
+      <div class="price-card">
+        <div class="price-name">Starter</div>
+        <div class="price-amount">$497<small> one-time</small></div>
+        <div class="price-desc">Setup + first campaign. Best for testing with one offer.</div>
+        <ul class="price-features">
+          <li>Up to 1,000 past customers</li>
+          <li>1 reactivation campaign</li>
+          <li>Email + SMS channels</li>
+        </ul>
+      </div>
+      <div class="price-card featured">
+        <div class="price-name">Growth</div>
+        <div class="price-amount">$497<small> + $97/mo</small></div>
+        <div class="price-desc">Full reactivation engine. Most clients choose this.</div>
+        <ul class="price-features">
+          <li>Unlimited past customers</li>
+          <li>Unlimited campaigns & offers</li>
+          <li>Email + SMS channels</li>
+          <li>Weekly performance report</li>
+          <li>Priority support</li>
+        </ul>
+        <button class="btn btn-brand btn-lg js-checkout" data-plan="growth" style="width:100%;justify-content:center;">Start with Growth</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="signup" class="auth">
+  <div class="wrap narrow">
+    <h2>Start free</h2>
+    <p class="sub">No credit card. 14-day trial. Cancel anytime.</p>
+
+    <div class="tabs">
+      <button type="button" class="tab active" data-tab="signup">Sign up</button>
+      <button type="button" class="tab" data-tab="login" id="login">Log in</button>
+    </div>
+
+    <form id="signupForm" class="auth-form active" data-tab="signup">
+      <div class="field">
+        <label>Email</label>
+        <input type="email" name="email" required autocomplete="email" />
+      </div>
+      <div class="field">
+        <label>Password</label>
+        <input type="password" name="password" required minlength="8" autocomplete="new-password" />
+      </div>
+      <div class="field">
+        <label>Business name</label>
+        <input type="text" name="business_name" />
+      </div>
+      <div class="field">
+        <label>Industry</label>
+        <select name="industry">
+          <option value="">Select one (optional)</option>
+          <option value="plumber">Plumbing / HVAC</option>
+          <option value="dentist">Dental practice</option>
+          <option value="trainer">Personal trainer / Gym</option>
+          <option value="salon">Hair salon / Spa</option>
+          <option value="mechanic">Auto mechanic</option>
+          <option value="realtor">Real estate agent</option>
+          <option value="restaurant">Restaurant</option>
+        </select>
+      </div>
+      <button type="submit" class="btn btn-brand btn-lg" style="width:100%;justify-content:center;">Create account</button>
+      <div class="msg" id="signupMsg"></div>
+    </form>
+
+    <form id="loginForm" class="auth-form" data-tab="login">
+      <div class="field">
+        <label>Email</label>
+        <input type="email" name="email" required autocomplete="email" />
+      </div>
+      <div class="field">
+        <label>Password</label>
+        <input type="password" name="password" required autocomplete="current-password" />
+      </div>
+      <button type="submit" class="btn btn-brand btn-lg" style="width:100%;justify-content:center;">Log in</button>
+      <div class="msg" id="loginMsg"></div>
+    </form>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">© 2026 Respark. Built to make local service businesses money.</div>
+</footer>
+
+<script>
+document.querySelectorAll(".tab").forEach(t => {
+  t.addEventListener("click", () => {
+    document.querySelectorAll(".tab").forEach(x => x.classList.remove("active"));
+    document.querySelectorAll(".auth-form").forEach(x => x.classList.remove("active"));
+    t.classList.add("active");
+    document.querySelector(`.auth-form[data-tab="${t.dataset.tab}"]`).classList.add("active");
+  });
+});
+
+async function postJSON(url, body) {
+  const r = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+    credentials: "same-origin",
+  });
+  const data = await r.json().catch(() => ({}));
+  return { ok: r.ok, status: r.status, data };
+}
+
+document.getElementById("signupForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const msg = document.getElementById("signupMsg");
+  msg.className = "msg";
+  msg.textContent = "Creating account…";
+  const { ok, data } = await postJSON("/api/auth/signup", {
+    email: fd.get("email"),
+    password: fd.get("password"),
+    business_name: fd.get("business_name"),
+    industry: fd.get("industry"),
+  });
+  if (ok) {
+    msg.classList.add("ok");
+    msg.textContent = "Account created. Redirecting…";
+    setTimeout(() => location.href = "/app", 400);
+  } else {
+    msg.classList.add("err");
+    msg.textContent = data.error || "Signup failed";
+  }
+});
+
+document.getElementById("loginForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const msg = document.getElementById("loginMsg");
+  msg.className = "msg";
+  msg.textContent = "Logging in…";
+  const { ok, data } = await postJSON("/api/auth/login", {
+    email: fd.get("email"),
+    password: fd.get("password"),
+  });
+  if (ok) {
+    msg.classList.add("ok");
+    msg.textContent = "Welcome back. Redirecting…";
+    setTimeout(() => location.href = "/app", 400);
+  } else {
+    msg.classList.add("err");
+    msg.textContent = data.error || "Login failed";
+  }
+});
+
+document.querySelectorAll(".js-checkout").forEach(btn => {
+  btn.addEventListener("click", async () => {
+    const me = await fetch("/api/me", { credentials: "same-origin" });
+    if (!me.ok) {
+      location.href = "#signup";
+      document.getElementById("signup").scrollIntoView({ behavior: "smooth" });
+      return;
+    }
+    btn.disabled = true;
+    btn.textContent = "Redirecting…";
+    const { ok, data } = await postJSON("/api/checkout", { plan: btn.dataset.plan });
+    if (ok && data.url) {
+      location.href = data.url;
+    } else {
+      alert(data.error || "Checkout failed — Stripe may not be configured on this server yet.");
+      btn.disabled = false;
+      btn.textContent = "Try again";
+    }
+  });
+});
+</script>
+</body>
+</html>

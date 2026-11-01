@@ -29,6 +29,14 @@ Concepts, drafts, and brainstorming that are not yet committed launches. Promote
 
 See [`apps/building/`](apps/building) for what counts as WIP and how items graduate.
 
+## Archive
+
+Past projects and experiments. Kept for reference, not actively developed.
+
+| Project | What it is | Status |
+| --- | --- | --- |
+| [`saas-content-engine`](saas-content-engine) | Freelance SaaS content writing toolkit — Fiverr/Upwork profiles, 3 portfolio samples, 50-company target list, 10 cold email templates, 4 ready-to-send personalized emails, lead tracker template, 30-day plan, daily action coach, building notes | **NEW** |
+
 ## Ownership and content
 
 Maintained by [Juwen Lie (@juw12)](https://github.com/juw12).
