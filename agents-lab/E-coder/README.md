@@ -7,8 +7,9 @@ D (LangGraph).
 > Goal: a *coding agent I use every day* — not a Cursor competitor.
 
 The full design lives in [`docs/PLAN.md`](docs/PLAN.md). This folder is at
-**M2**: a working agent that can explore a repo, make minimal edits, and run
-commands — all gated behind **guardrails** (a command deny-list + confirmation).
+**M3**: a working agent that can explore a repo, make minimal edits, and run
+commands — gated behind **guardrails** (a command deny-list + confirmation), and
+it builds a **gitignore-aware context** so it reads only what the task needs.
 
 ## Why stdlib-only
 
@@ -180,19 +181,62 @@ python agents-lab\E-coder\tests\test_guardrails.py  # deny-list + confirm gate
 Hermetic (deny-list is string-based; `input` and `subprocess.run` are mocked; the
 one real command runs local python, no network), exit `0`/`1`.
 
+## M3 — the gitignore-aware context builder (the "hard part")
+
+Context window is ~80% of the difficulty: reading every file blows the model's
+budget. So instead of dumping the whole repo, `repo.py` builds a **compact,
+task-relevant** context and injects it as one extra system message.
+
+### How it works (`repo.py`)
+
+1. **`.gitignore` matcher** — a small hand-rolled matcher (no `pathspec`):
+   `#`/blank stripped, `!` negation, trailing `/` dir-only, leading `/` or any
+   internal `/` anchors to the root, a bare pattern matches the basename at any
+   depth, and `*`/`?`/`**` wildcards. `SKIP_DIRS` and the `.gitignore` itself are
+   always skipped. A file under an ignored directory is ignored too.
+2. **`walk`** — non-ignored file paths only; ignored dirs are pruned so
+   `os.walk` never descends into them.
+3. **`build_tree`** — an indented tree built *from the file list*, so a dir whose
+   contents are all ignored (e.g. `logs/` with only `*.log`) does not appear —
+   like `git ls-files`.
+4. **`build_context`** — header + tree, then the most relevant files (task tokens
+   matched in the **path** weigh more than in the **content**; smaller files win
+   ties), each capped, up to `budget_chars`.
+
+> M3 reads only the **root** `.gitignore`; nested `.gitignore` files are a
+> noted TODO.
+
+A new read-only tool `repo_tree` exposes the tree to the model. `coder.py` builds
+the context by default: `--no-context` disables it, `--context-budget N` caps it.
+
+```powershell
+python coder.py "add a /health endpoint" --context-budget 8000
+python coder.py "..." --no-context          # no prebuilt context
+```
+
+### Test
+
+```powershell
+python agents-lab\E-coder\tests\test_repo.py   # matcher + walk + tree + context budget
+```
+
+Hermetic (temp repo, no network, no model), exit `0`/`1`.
+
 ## Files
 
 ```
 llm.py             # M0: provider adapter (urllib) + echo REPL
 prompt.py          # M1: SYSTEM_PROMPT (M2: write/run care)
-tools.py           # M1+M2: list/read/search + write_file/run_command + path sandbox + schemas
+tools.py           # M1+M2+M3: list/read/search/repo_tree + write_file/run_command + sandbox + schemas
 guardrails.py      # M2: command deny-list + confirmation gate
-loop.py            # M1: the ReAct agent loop (M2: threads a ToolContext)
-coder.py           # M1+M2: CLI entrypoint (--yolo / --no-interactive)
+repo.py            # M3: .gitignore matcher + walk + tree + build_context
+loop.py            # M1: the ReAct agent loop (M2: ToolContext; M3: injects context)
+coder.py           # M1+M2+M3: CLI entrypoint (--yolo / --no-interactive / --context)
 tests/test_llm.py        # hermetic stdlib-only tests (M0)
 tests/test_tools.py      # hermetic stdlib-only tests (M1+M2: tools + sandbox + write/run)
 tests/test_loop.py       # hermetic stdlib-only tests (M1, llm.chat mocked)
 tests/test_guardrails.py # hermetic stdlib-only tests (M2: deny-list + confirm)
+tests/test_repo.py       # hermetic stdlib-only tests (M3: gitignore + tree + context budget)
 docs/PLAN.md         # full design + build order
 README.md
 ```
@@ -204,5 +248,5 @@ README.md
 | **M0** | `llm.py` — one `chat()`, no tools, echo works | ✅ done |
 | **M1** | read-only tools (`list/read/search`) + loop | ✅ done |
 | **M2** | `write_file` + `run_command` + guardrails + confirm | ✅ done |
-| **M3** | gitignore-aware context builder (the hard part) | — |
+| **M3** | gitignore-aware context builder (the hard part) | ✅ done |
 | **M4** | tests + docs + README | — |

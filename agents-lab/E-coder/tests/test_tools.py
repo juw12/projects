@@ -163,7 +163,8 @@ class SchemaTests(unittest.TestCase):
     def test_schema_names_and_shape(self) -> None:
         names = {s["function"]["name"] for s in TOOL_SCHEMAS}
         self.assertEqual(
-            names, {"list_files", "read_file", "search", "write_file", "run_command"}
+            names,
+            {"list_files", "read_file", "search", "repo_tree", "write_file", "run_command"},
         )
         for s in TOOL_SCHEMAS:
             self.assertEqual(s["type"], "function")

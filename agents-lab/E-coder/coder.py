@@ -1,11 +1,12 @@
 """
-E — E-coder CLI entrypoint (M2).
+E — E-coder CLI entrypoint (M3).
 
 Run a coding agent against a repo:
 
     python coder.py "<task>" [--repo PATH] [--max-steps N]
                           [--provider P] [--model M] [--verbose]
                           [--yolo] [--no-interactive]
+                          [--no-context] [--context-budget N]
 
 The default repo is the current directory. Provider/model fall back to the
 ECODER_PROVIDER / ECODER_MODEL environment variables (see llm.py).
@@ -13,6 +14,9 @@ ECODER_PROVIDER / ECODER_MODEL environment variables (see llm.py).
 By default the agent is SAFE: it will not write files or run commands unless the
 user confirms. `--yolo` skips confirmation (an explicit opt-in); `--no-interactive`
 turns confirmation OFF entirely, so nothing mutating is ever approved.
+
+A compact gitignore-aware repository context is built and injected by default
+(`--no-context` to disable, `--context-budget N` to cap it in chars).
 """
 from __future__ import annotations
 
@@ -20,6 +24,7 @@ import argparse
 import sys
 
 import llm
+import repo
 from loop import run_agent
 
 
@@ -36,7 +41,7 @@ def _on_step_verbose(step: dict) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="E-coder: a stdlib-only coding agent with read/write/run tools (M2)."
+        description="E-coder: a stdlib-only coding agent with read/write/run tools + repo context (M3)."
     )
     parser.add_argument("task", help="The task to perform, in plain language.")
     parser.add_argument("--repo", default=".", help="Repo root to operate within (default: current dir).")
@@ -48,7 +53,17 @@ def main() -> None:
                         help="Skip confirmation for writes/commands (NOT the default; use with care).")
     parser.add_argument("--no-interactive", action="store_true",
                         help="Never prompt; decline all writes/commands (safe default for scripts).")
+    parser.add_argument("--no-context", action="store_true",
+                        help="Disable the prebuilt repository context (default: on).")
+    parser.add_argument("--context-budget", type=int, default=20000,
+                        help="Max chars for the prebuilt repository context (default 20000).")
     args = parser.parse_args()
+
+    context = None
+    if not args.no_context:
+        context = repo.build_context(args.repo, args.task, budget_chars=args.context_budget)
+        if args.verbose:
+            print(f"  [context] {len(context)} chars")
 
     try:
         answer = run_agent(
@@ -59,6 +74,7 @@ def main() -> None:
             model=args.model,
             yolo=args.yolo,
             interactive=not args.no_interactive,
+            context=context,
             on_step=_on_step_verbose if args.verbose else None,
         )
     except llm.LLMError as e:
