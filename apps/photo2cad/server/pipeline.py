@@ -19,6 +19,9 @@ import sandbox
 import validate
 from config import Config
 
+#: Total LLM attempts: 1 initial build + (MAX_ATTEMPTS - 1) self-repair retries.
+MAX_ATTEMPTS = 3
+
 
 # ---------------------------------------------------------------------------
 # Job helpers
@@ -83,6 +86,9 @@ def generate(
 
     program: str | None = None
     run_result: dict | None = None
+    last_error = ""
+    last_stage = "llm"
+    last_logs = ""
 
     # ---- Input validation --------------------------------------------------
     if not isinstance(prd, str) or not prd.strip():
@@ -94,90 +100,94 @@ def generate(
             "logs": "",
         }
 
-    # ---- LLM stage: build CadQuery program ---------------------------------
-    try:
-        program = cadgen.build_program(
-            cfg,
-            prd=prd,
-            images=images or {},
-            use_vision=bool(use_vision),
-            model=model,
+    for attempt in range(MAX_ATTEMPTS):
+        # ---- LLM: build the program (attempt 0) or repair it (retries) -----
+        try:
+            if attempt == 0:
+                program = cadgen.build_program(
+                    cfg,
+                    prd=prd,
+                    images=images or {},
+                    use_vision=bool(use_vision),
+                    model=model,
+                )
+            else:
+                program = cadgen.repair_program(
+                    cfg, prd=prd, program=program, error=last_error, model=model,
+                )
+        except Exception as exc:  # maas + cadgen errors both surface here
+            return {
+                "ok": False,
+                "stage": "llm",
+                "error": "LLM call failed: %s" % exc,
+                "program": program,
+                "logs": last_logs,
+                "attempts": attempt + 1,
+            }
+
+        # Save the latest source for debugging / download.
+        (job_dir / "program.py").write_text(program, encoding="utf-8")
+
+        # ---- AST guard -----------------------------------------------------
+        allowed, reason = sandbox.guard(program)
+        if not allowed:
+            last_stage = "exec"
+            last_error = "sandbox rejected program: %s" % reason
+            last_logs = ""
+            continue
+
+        # ---- Subprocess execution -----------------------------------------
+        run_result = sandbox.run_program(
+            source=program,
+            outdir=job_dir,
+            timeout=cfg.sandbox_timeout,
         )
-    except Exception as exc:  # maas + cadgen errors both surface here
-        return {
-            "ok": False,
-            "stage": "llm",
-            "error": "LLM call failed: %s" % exc,
-            "program": None,
-            "logs": "",
-        }
+        if not run_result.get("ok"):
+            last_stage = "exec"
+            last_error = run_result.get("error") or "sandbox did not produce STEP+STL"
+            last_logs = _logs(run_result)
+            continue
 
-    # Save the source for debugging / download even before execution.
-    (job_dir / "program.py").write_text(program, encoding="utf-8")
+        # ---- Validation ---------------------------------------------------
+        try:
+            report = validate.validate_step(run_result["step_path"])
+        except Exception as exc:
+            last_stage = "validate"
+            last_error = "validate_step raised: %s" % exc
+            last_logs = _logs(run_result)
+            continue
 
-    # ---- AST guard ---------------------------------------------------------
-    allowed, reason = sandbox.guard(program)
-    if not allowed:
-        return {
-            "ok": False,
-            "stage": "exec",
-            "error": "sandbox rejected program: %s" % reason,
-            "program": program,
-            "logs": "",
-        }
+        if not report.get("valid"):
+            last_stage = "validate"
+            last_error = (
+                "validator rejected model: solids=%s, bbox_mm=%s, warnings=%s"
+                % (report.get("solids"), report.get("bbox_mm"), report.get("warnings"))
+            )
+            last_logs = _logs(run_result)
+            continue
 
-    # ---- Subprocess execution ---------------------------------------------
-    run_result = sandbox.run_program(
-        source=program,
-        outdir=job_dir,
-        timeout=cfg.sandbox_timeout,
-    )
-    if not run_result.get("ok"):
+        # ---- Success ------------------------------------------------------
+        _write_report(job_dir, report)
         return {
-            "ok": False,
-            "stage": "exec",
-            "error": run_result.get("error") or "sandbox did not produce STEP+STL",
+            "ok": True,
+            "job_id": job_id,
+            "step_url": "/api/artifacts/%s/model.stp" % job_id,
+            "stl_url": "/api/artifacts/%s/model.stl" % job_id,
+            "report": report,
             "program": program,
             "logs": _logs(run_result),
+            "seconds": round(time.time() - started, 3),
+            "attempts": attempt + 1,
         }
 
-    # ---- Validation --------------------------------------------------------
-    try:
-        report = validate.validate_step(run_result["step_path"])
-    except Exception as exc:
-        return {
-            "ok": False,
-            "stage": "validate",
-            "error": "validate_step raised: %s" % exc,
-            "program": program,
-            "logs": _logs(run_result),
-        }
-
-    _write_report(job_dir, report)
-
-    if not report.get("valid"):
-        # Soft validation failure — STEP exists, but did not satisfy the
-        # "exactly one solid + non-empty bbox" rule.
-        return {
-            "ok": False,
-            "stage": "validate",
-            "error": "validator rejected model: solids=%s, bbox_mm=%s, warnings=%s" % (
-                report.get("solids"), report.get("bbox_mm"), report.get("warnings"),
-            ),
-            "program": program,
-            "logs": _logs(run_result),
-        }
-
-    # ---- Success -----------------------------------------------------------
+    # ---- All attempts exhausted -------------------------------------------
     return {
-        "ok": True,
-        "job_id": job_id,
-        "step_url": "/api/artifacts/%s/model.stp" % job_id,
-        "stl_url": "/api/artifacts/%s/model.stl" % job_id,
-        "report": report,
+        "ok": False,
+        "stage": last_stage,
+        "error": "failed after %d attempt(s): %s" % (MAX_ATTEMPTS, last_error),
         "program": program,
-        "logs": _logs(run_result),
-        "seconds": round(time.time() - started, 3),
+        "logs": last_logs,
+        "attempts": MAX_ATTEMPTS,
     }
 
 

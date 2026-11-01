@@ -46,6 +46,15 @@ top of the file, then build the geometry from those constants. Do not embed \
 magic numbers inside chained method calls.
 6. Output only the program. Do not write prose around it. Do not include \
 Markdown headings or commentary outside a single fenced Python block.
+7. Common CadQuery pitfalls — avoid these:
+   - `.fillet()` / `.chamfer()` act on the EDGES of a 3D solid. You CANNOT \
+fillet a 2D sketch/wire. Build the solid first (e.g. extrude), then fillet its \
+edges, e.g. `.rect(L,W).extrude(T).edges("|Z").fillet(3)`.
+   - `.hole()` / `.cboreHole()` must run on a workplane located on a face, \
+e.g. `.faces(">Z").workplane().hole(6)`.
+   - Do not call edge/face selectors before a solid exists.
+   - Prefer primitives (`box`, `cylinder`) or a 2D sketch + `.extrude()`; keep \
+the result a single connected solid.
 
 When reference photographs are supplied (`use_vision` true) treat them as \
 visual reference only — the PRD drives the exact parametric dimensions. \
@@ -172,7 +181,7 @@ def build_program(
         messages,
         model=model,
         temperature=0,
-        timeout=max(60, cfg.sandbox_timeout),
+        timeout=max(300, cfg.sandbox_timeout),
     )
     code = _extract_code(raw)
     if not code:
@@ -180,9 +189,65 @@ def build_program(
     return code
 
 
+REPAIR_TEMPLATE = """\
+The CadQuery program below FAILED when it was executed. Fix it and return a
+corrected program that builds the same part, following the same rules.
+
+---FAILED PROGRAM---
+{program}
+---END PROGRAM---
+
+---ERROR---
+{error}
+---END ERROR---
+
+Common CadQuery pitfalls to check:
+- `.fillet()` / `.chamfer()` need the EDGES of a 3D solid; you cannot fillet a
+  2D sketch/wire. Extrude first, then fillet edges
+  (e.g. `.rect(L,W).extrude(T).edges("|Z").fillet(3)`).
+- `.hole()` / `.pushPoints()` must run on a workplane located on a face.
+- Keep `import cadquery as cq` and `import math` only; assign the final solid
+  to `SHAPE`.
+
+Return exactly ONE fenced ```python block containing only the corrected program.
+"""
+
+
+def build_repair_messages(prd: str, program: str, error: str) -> list[dict]:
+    """Messages asking the model to fix a program that failed to execute."""
+    return [
+        {"role": "system", "content": CADGEN_CONTRACT},
+        {"role": "user", "content": REPAIR_TEMPLATE.format(program=program, error=error)},
+    ]
+
+
+def repair_program(
+    cfg: Config,
+    prd: str,
+    program: str,
+    error: str,
+    model: str | None = None,
+) -> str:
+    """Ask the LLM to repair ``program`` given the execution ``error``."""
+    messages = build_repair_messages(prd, program, error)
+    raw = maas.chat(
+        cfg,
+        messages,
+        model=model,
+        temperature=0,
+        timeout=max(300, cfg.sandbox_timeout),
+    )
+    code = _extract_code(raw)
+    if not code:
+        raise RuntimeError("repair: LLM returned an empty program")
+    return code
+
+
 __all__ = [
     "CADGEN_CONTRACT",
     "build_messages",
     "build_program",
+    "build_repair_messages",
+    "repair_program",
     "_extract_code",
 ]
