@@ -4,13 +4,14 @@
  * deletes every other "pips-*" cache. Only our own "phonetrail-*" caches are cleaned here.
  */
 const PREFIX = "phonetrail-";
-const VERSION = PREFIX + "v3";
+const VERSION = PREFIX + "v4";
 const FILES = [
   "./",
   "index.html",
   "app.js",
   "trail.js",
   "categories.js",
+  "import.js",
   "manifest.webmanifest",
   "icon.svg",
   "icon-180.png",
