@@ -40,6 +40,23 @@ def copy_app_web(apps_dir, app_name, out_dir, site_subdir):
     return copied
 
 
+def copy_subapp_web(apps_dir, app_id, sub, out_dir):
+    """Copy a parent app's nested sub-app web directory to output."""
+    src = apps_dir / app_id / sub / "web"
+    dst = out_dir / app_id / sub
+
+    if not src.exists():
+        print(f"  [SKIP] {app_id}/{sub}/web does not exist")
+        return
+    if not src.is_dir():
+        print(f"  [SKIP] {app_id}/{sub}/web is not a directory")
+        return
+
+    shutil.copytree(src, dst, dirs_exist_ok=True)
+    copied = list(dst.rglob("*"))
+    print(f"  [OK] Copied {app_id}/{sub}/web -> {app_id}/{sub}/ ({len(copied)} items)")
+
+
 def write_nojekyll(out_dir):
     """Write empty .nojekyll file to disable Jekyll processing."""
     nojekyll = out_dir / ".nojekyll"
@@ -384,6 +401,8 @@ def main():
         if app.get("external") or app.get("work"):
             continue
         copy_app_web(apps_dir, app["id"], out_dir, app["id"])
+        for sub in app.get("subapps", []):
+            copy_subapp_web(apps_dir, app["id"], sub, out_dir)
 
     print()
 

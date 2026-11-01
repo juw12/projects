@@ -18,19 +18,30 @@ VAULT = os.path.join(TOOLKIT, "server", "vault_server.py")
 VAULT_EXAMPLE = os.path.join(TOOLKIT, "server", "vault_config.example.json")
 SKIP_DIRS = {"data", "__pycache__", ".pytest_cache", "node_modules"}
 SKIP_SUFFIXES = {".pyc", ".pyo", ".db", ".db-journal", ".db-wal", ".db-shm"}
+VERTEX_DIRS = ("web", "server", "connectors", "docs")
+PTB_DIRS = ("web", "server", "scripts")
 
 
-def toolkit_files():
-    """(source, folder in the bundle) for web/ and the vault server, under me-rd-toolkit/ (never private/)."""
-    pairs = []
-    for current, dirs, files in os.walk(os.path.join(TOOLKIT, "web")):
+def _walk(root, bundle_subpath, pairs):
+    for current, dirs, files in os.walk(root):
         dirs[:] = sorted(d for d in dirs if d not in SKIP_DIRS)
-        target = os.path.join("me-rd-toolkit", os.path.relpath(current, TOOLKIT))
+        rel = os.path.relpath(current, root)
+        target = bundle_subpath if rel == os.curdir else os.path.join(bundle_subpath, rel)
         for name in sorted(files):
             if os.path.splitext(name)[1].lower() not in SKIP_SUFFIXES:
                 pairs.append((os.path.join(current, name), target))
+
+
+def toolkit_files():
+    """(source, folder in the bundle) for web/, the vault and the two sub-apps, under me-rd-toolkit/ (never private/)."""
+    pairs = []
+    _walk(os.path.join(TOOLKIT, "web"), "me-rd-toolkit/web", pairs)
     pairs.append((VAULT, os.path.join("me-rd-toolkit", "server")))
     pairs.append((VAULT_EXAMPLE, os.path.join("me-rd-toolkit", "server")))
+    for name in VERTEX_DIRS:
+        _walk(os.path.join(TOOLKIT, "vertex", name), "me-rd-toolkit/vertex/" + name, pairs)
+    for name in PTB_DIRS:
+        _walk(os.path.join(TOOLKIT, "ptb-rdme", name), "me-rd-toolkit/ptb-rdme/" + name, pairs)
     return pairs
 
 
@@ -51,7 +62,8 @@ EXCLUDES = ["tkinter", "unittest", "test", "idlelib", "lib2to3"]
 OTHER_BACKENDS = ["webview.platforms.qt", "webview.platforms.gtk", "webview.platforms.cef",
                   "webview.platforms.android", "PyQt5", "PyQt6", "PySide2", "PySide6", "qtpy", "gi"]
 if IS_WIN:
-    HIDDEN = ["webview", "webview.platforms.winforms", "webview.platforms.edgechromium", "clr"]
+    HIDDEN = ["webview", "webview.platforms.winforms", "webview.platforms.edgechromium", "clr",
+              "win32com", "win32com.client", "pythoncom"]
     EXCLUDES += OTHER_BACKENDS + ["webview.platforms.cocoa"]
 else:
     HIDDEN = ["webview", "webview.platforms.cocoa"]

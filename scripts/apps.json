@@ -255,31 +255,6 @@
      ]
     },
     {
-      "id": "vertex",
-      "portfolio": false,
-      "name": "Vertex",
-      "category": "CAD &amp; 3D",
-      "desc": "One local 3D app — build parts and export 3D files (STL/OBJ/glTF/3MF/DXF), repair models and plan assemblies in ANY 3D software, ask design questions, reverse-engineer scans, turn drawings into CAD, automate batches, and simulate",
-      "description": "Offline parametric CAD builder and engineering copilot: diagnoses broken models, plans repairs, checks clearance and motion, and exports STL, OBJ, glTF, 3MF and DXF.",
-      "summary": "Offline parametric CAD and engineering copilot that repairs models, checks clearances and exports STL, 3MF and DXF.",
-      "tags": [
-        "parametric CAD",
-        "model repair",
-        "simulation",
-        "offline-first"
-      ],
-      "image": "vertex-card.jpg",
-      "image_alt": "Vertex: a dark 3D engineering workspace with a fitted part in a viewport, a ranked repair plan, a universal adapter strip (Fusion, SOLIDWORKS, FreeCAD, Blender, open formats) and review-gated export/apply steps",
-      "links": {
-        "app": "vertex/app.html",
-        "web": "vertex/index.html",
-        "mobile": "vertex/mobile.html"
-      },
-      "featured": true,
-      "order": 2,
-      "portfolio_order": -7
-    },
-    {
       "id": "soma",
       "name": "SOMA",
       "category": "Tools I Use",
@@ -790,8 +765,13 @@
         {
           "label": "Open app",
           "path": "me-rd-toolkit/index.html"
+        },
+        {
+          "label": "Vertex",
+          "path": "me-rd-toolkit/vertex/index.html"
         }
       ],
+      "subapps": ["vertex"],
       "status": "shipped",
       "order": 22,
       "portfolio_order": -9

@@ -248,6 +248,11 @@ mark { background: #fde68a; color: #111; padding: 0 1px; border-radius: 2px; }
 #bottombar { display: none; }
 
 /* ---------- mobile ---------- */
+/* ---------- sub-app iframe ---------- */
+.app-frame { width: 100%; height: calc(100vh - 158px); min-height: 420px; border: 0; border-radius: var(--radius); background: var(--panel); display: block; }
+.subapp-note { margin: 6px 0 10px; font-size: 12px; color: var(--muted); }
+
+/* ---------- mobile ---------- */
 @media (max-width: 900px) {
   :root { --bottom-h: 62px; }
   body { font-size: 15px; }

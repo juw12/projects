@@ -308,7 +308,9 @@
     moon: '<path d="M20 14.5A8 8 0 019.5 4a8 8 0 1010.5 10.5z"/>',
     help: '<circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 015 .5c0 1.7-2.5 2-2.5 3.5M12 17h.01"/>',
     vault: '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="12" cy="12" r="3.5"/><path d="M12 8.5V7M15.5 12H17M7 20v1M17 20v1"/>',
-    sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>'
+    sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
+    vertex: '<path d="M4 8l8-4 8 4v8l-8 4-8-4z"/><path d="M4 8l8 4 8-4M12 12v8"/>',
+    ptb: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2.5"/>'
   };
 
   function icon(name) {
@@ -444,6 +446,9 @@
     { id: "vault", label: "File Vault", icon: "vault" },
     { id: "projects", label: "Project Folders", icon: "folder", count: () => P.projects.length, need: () => P.projects.length },
     { id: "library", label: "Library", icon: "library", count: () => P.library.length, need: () => P.library.length },
+    { group: "Engineering Apps" },
+    { id: "vertex", label: "Vertex", icon: "vertex" },
+    { id: "ptb", label: "PTB RDME", icon: "ptb" },
     { group: "Settings" },
     { id: "data", label: "Data & Backup", icon: "data" }
   ];

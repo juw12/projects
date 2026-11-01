@@ -1,0 +1,8 @@
+# PyInstaller output
+build/
+dist/
+# runtime data and logs
+data/
+logs/
+__pycache__/
+*.pyc

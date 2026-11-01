@@ -479,4 +479,49 @@
       '<div class="card"><h3>' + esc(a.notesTitle || "Review notes") + '</h3><ul>' + a.notes.map((n) => "<li>" + esc(n) + "</li>").join("") + "</ul></div>" +
       '<div class="card"><h3>Reference documents</h3>' + P().library.filter((d) => new RegExp(a.docGroups || "approval", "i").test(d.group)).map((d) => '<div style="margin:4px 0">' + docLink(d.name, d.path) + "</div>").join("") + "</div></div>";
   };
+
+  // ------------------------------------------------------------------ sub-apps (Vertex, PTB RDME)
+  function renderSubApp(cfg) {
+    const port = (window.MERD_SUBAPPS && window.MERD_SUBAPPS[cfg.id]) || cfg.defaultPort;
+    const origin = "http://127.0.0.1:" + port + "/";
+    const html = "<h1>" + APP.icon(cfg.icon) + " " + esc(cfg.title) + "</h1>" +
+      '<div class="toolbar no-print">' +
+      '<button class="btn small" id="subapp-reload">Reload</button>' +
+      '<a class="btn small" id="subapp-open" target="_blank" href="#">Open in new tab</a>' +
+      '<span class="spacer"></span><span class="subapp-note" id="subapp-status">Probing…</span></div>' +
+      '<div id="subapp-container"></div>';
+    $("#view").innerHTML = html;
+
+    function setSrc(src, note) {
+      $("#subapp-status").textContent = note || "";
+      $("#subapp-open").href = src;
+      $("#subapp-container").innerHTML = '<iframe class="app-frame" src="' + esc(src) + '" title="' + esc(cfg.title) + '"></iframe>';
+    }
+
+    function probe() {
+      $("#subapp-status").textContent = "Probing " + origin + "…";
+      fetch(origin + cfg.healthPath, { mode: "no-cors", signal: AbortSignal.timeout(900) })
+        .then(() => setSrc(origin, "Connected to local server (port " + port + ")"))
+        .catch(() => {
+          if (cfg.staticSrc) {
+            setSrc(cfg.staticSrc, "Offline copy — open the ME R&D Toolkit for Windows for live features.");
+          } else {
+            $("#subapp-container").innerHTML = '<div class="card" style="margin-top:4px">' + esc(cfg.desktopHint) + "</div>";
+            $("#subapp-status").textContent = "Local server not reachable.";
+            $("#subapp-open").href = origin;
+          }
+        });
+    }
+
+    $("#subapp-reload").addEventListener("click", probe);
+    probe();
+  }
+
+  V.vertex = function () {
+    renderSubApp({ id: "vertex", title: "Vertex", icon: "vertex", defaultPort: 8792, healthPath: "/api/health", staticSrc: "vertex/index.html", desktopHint: "Vertex runs live when the ME R&D Toolkit for Windows is open (it starts the local CAD engine)." });
+  };
+
+  V.ptb = function () {
+    renderSubApp({ id: "ptb", title: "PTB RDME", icon: "ptb", defaultPort: 8050, healthPath: "/api/status", staticSrc: null, desktopHint: "The PTB RDME widget needs the ME R&D Toolkit for Windows — it reads your local Outlook drafts and a shared overtime database." });
+  };
 })();
