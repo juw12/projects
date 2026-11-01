@@ -18,6 +18,7 @@
   <pre id="out"></pre>
   <script src="js/core.js"></script>
   <script src="js/sync.js"></script>
+  <script src="js/whatsapp.js"></script>
   <script>
     (async function () {
       const K = window.MintBudget;
@@ -214,7 +215,36 @@
         eq('share link round trip', [parsed.bookId, parsed.key, parsed.relay, parsed.name], [demo.id, keyStr, K.DEFAULT_RELAY, 'Our home']);
         check('key stays in fragment', link.split('#')[0].indexOf(keyStr) < 0);
 
-        // ---------------------------------------------------------- live sync through a relay
+        // ---------------------------------------------------------- WhatsApp chat entries
+      const qt = (s) => K.parseQuickText(s);
+      eq('chat: coffee 25k', [qt('coffee 25k').amount, qt('coffee 25k').desc, qt('coffee 25k').type], [25000, 'coffee', 'expense']);
+      eq('chat: amount first', [qt('25rb grab').amount, qt('25rb grab').desc], [25000, 'grab']);
+      eq('chat: + is income', [qt('+5jt gaji').amount, qt('+5jt gaji').type], [5000000, 'income']);
+      eq('chat: salary word is income', qt('gaji 5jt').type, 'income');
+      eq('chat: currency + yesterday', [qt('lunch 12 usd yesterday').cur, qt('lunch 12 usd yesterday').dayOffset, qt('lunch 12 usd yesterday').desc], ['USD', -1, 'lunch']);
+      eq('chat: Rp with space', [qt('Rp 25.000 makan siang').amount, qt('Rp 25.000 makan siang').cur, qt('Rp 25.000 makan siang').desc], [25000, 'IDR', 'makan siang']);
+      eq('chat: money-looking amount wins', [qt('2 coffees 50k').amount, qt('2 coffees 50k').desc], [50000, '2 coffees']);
+      eq('chat: suffix as a word', qt('kopi kenangan 35 rb').amount, 35000);
+      check('chat: no amount → null', qt('hello there') === null);
+      eq('chat: several lines', K.parseQuickLines('coffee 25k\ngrab 18k; hi').map((l) => !!l.parsed), [true, true, false]);
+      eq('chat: stable ids', K.chatTxnId('wamid.A', 0), K.chatTxnId('wamid.A', 0));
+      check('chat: ids differ per line', K.chatTxnId('wamid.A', 0) !== K.chatTxnId('wamid.A', 1));
+      {
+        const wb = K.newBook({ name: 'Chat', currency: 'IDR', by: 'me' });
+        K.put(wb, 'categories', { name: 'Dining out', emoji: '🍜', limit: 1000000 }, 'me');
+        K.put(wb, 'categories', { name: 'Transport', emoji: '🚕', limit: 500000 }, 'me');
+        const at = Math.floor(Date.now() / 1000);
+        const first = K.applyChatItem(wb, { k: 'txt', text: 'kopi 25k\ngrab 18rb\nhi', mid: 'm1', at: at }, 'me');
+        eq('chat → book: two entries filed', first.added.length, 2);
+        eq('chat → book: categories guessed', first.added.map((t) => wb.categories[t.cat].name), ['Dining out', 'Transport']);
+        eq('chat → book: same message again is a no-op', K.applyChatItem(wb, { k: 'txt', text: 'kopi 25k', mid: 'm1', at: at }, 'me').added.length, 0);
+        K.applyChatItem(wb, { k: 'txt', text: 'parkir 5000', mid: 'm2', at: at }, 'me');
+        const undo = K.applyChatItem(wb, { k: 'undo', at: at }, 'me');
+        eq('chat → book: undo removes the newest entry even within the same second', undo.removed.map((t) => t.desc), ['parkir']);
+        eq('chat → book: what is left', K.list(wb, 'txns').map((t) => t.desc).sort(), ['grab', 'kopi']);
+      }
+
+      // ---------------------------------------------------------- live sync through a relay
         const relay = new URLSearchParams(location.search).get('relay');
         if (relay) {
           const owner = K.demoBook(today, 'owner');

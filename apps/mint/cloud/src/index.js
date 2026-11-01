@@ -8,14 +8,19 @@
  * Sync: /api/sync keeps each account's Mint budgets in step across devices. Items are encrypted in the
  * browser before upload (the key is wrapped with the user's password), so the server stores ciphertext only.
  * Market data: /api/fx (daily exchange rates) and /api/news (money headlines per region), cached at the edge.
+ * WhatsApp: /api/whatsapp lets people log expenses by chatting with Mint's number. Messages are sealed to a key
+ * only the user's devices hold, the moment they arrive (see whatsapp.js).
  */
 import { DurableObject } from "cloudflare:workers";
 import "../../web/js/core.js";
+import "../../web/budget/js/core.js";
 import seedData from "../../web/data/seed.json";
 import * as Pay from "./payments.js";
 import * as Notify from "./notify.js";
+import * as WA from "./whatsapp.js";
 
 const Core = globalThis.MintCore;
+const Budget = globalThis.MintBudget;
 
 const APP = "mint";
 const VERSION = "3.2.0";
@@ -42,6 +47,10 @@ const SYNC_ITEM_KEY_RE = /^(prefs|book:[A-Za-z0-9_-]{1,40})$/;
 const SYNC_KEY_ID_RE = /^[A-Za-z0-9_-]{8,64}$/;
 const SYNC_WRAP_RE = /^[A-Za-z0-9_.-]{40,400}$/;
 const SYNC_BLOB_RE = /^[A-Za-z0-9_.-]+$/;
+const WA_CODE_MINUTES = 15;
+const WA_INBOX_MAX = 500;
+const WA_INBOX_PAGE = 100;
+const WA_ITEM_ID_RE = /^[A-Za-z0-9_-]{8,80}$/;
 
 class ApiError extends Error {
   constructor(status, message) {
@@ -697,6 +706,18 @@ export class MintDB extends DurableObject {
     // The data key, wrapped in the browser with the password (and optionally the recovery code).
     this.run(`CREATE TABLE IF NOT EXISTS sync_keys (user_id TEXT PRIMARY KEY, key_id TEXT NOT NULL, wrap_pw TEXT NOT NULL,
       wrap_rc TEXT NOT NULL DEFAULT '', updated REAL NOT NULL)`);
+    // WhatsApp: the account's inbox public key (+ private key sealed by the browser), linked phones (HMAC only),
+    // one-time link codes, sealed inbox items waiting for a device, and message ids already handled (Meta retries).
+    this.run(`CREATE TABLE IF NOT EXISTS wa_keys (user_id TEXT PRIMARY KEY, public_jwk TEXT NOT NULL, sealed TEXT NOT NULL,
+      currency TEXT NOT NULL DEFAULT '', updated REAL NOT NULL)`);
+    this.run(`CREATE TABLE IF NOT EXISTS wa_phones (phone_hash TEXT PRIMARY KEY, user_id TEXT NOT NULL, masked TEXT NOT NULL,
+      created REAL NOT NULL, last_at REAL NOT NULL)`);
+    this.run("CREATE INDEX IF NOT EXISTS wa_phones_user ON wa_phones (user_id)");
+    this.run("CREATE TABLE IF NOT EXISTS wa_codes (code TEXT PRIMARY KEY, user_id TEXT NOT NULL, expires REAL NOT NULL)");
+    this.run(`CREATE TABLE IF NOT EXISTS wa_inbox (id TEXT PRIMARY KEY, user_id TEXT NOT NULL, data TEXT NOT NULL,
+      created REAL NOT NULL)`);
+    this.run("CREATE INDEX IF NOT EXISTS wa_inbox_user ON wa_inbox (user_id, created)");
+    this.run("CREATE TABLE IF NOT EXISTS wa_seen (msg_id TEXT PRIMARY KEY, at REAL NOT NULL)");
   }
 
   expireOrders() {
@@ -874,10 +895,13 @@ export class MintDB extends DurableObject {
           id, label: p.label, methods: p.methods, currencies: p.currencies, keyHelp: p.keyHelp,
         })),
         sync: true, fx: true, news: true,
+        whatsapp: WA.enabled(this.env), whatsappNumber: WA.enabled(this.env) ? WA.displayNumber(this.env) : "",
       };
     }
     // Sync has its own per-account budget (it saves often while someone edits), so it skips the network-wide one.
-    if (method === "POST" && head !== "sync") {
+    // So does the WhatsApp webhook: every request is signed by Meta and comes from Meta's servers.
+    const waWebhook = head === "whatsapp" && parts[1] === "webhook";
+    if (method === "POST" && head !== "sync" && !waWebhook) {
       this.requireLimit("w:" + ip, 240, 600, "Too many changes from your network — wait a few minutes");
     }
     switch (head) {
@@ -915,6 +939,8 @@ export class MintDB extends DurableObject {
         return this.routePush(request, method, parts.slice(1));
       case "sync":
         return this.routeSync(request, method, parts.slice(1), query);
+      case "whatsapp":
+        return this.routeWhatsApp(request, method, parts.slice(1), query);
       case "pay":
         if (method === "POST" && parts[1] === "notify" && parts[2]) {
           return this.paymentWebhook(request, parts[2]);
@@ -1045,6 +1071,233 @@ export class MintDB extends DurableObject {
       return { ok: true };
     }
     throw new ApiError(405, "Method not allowed");
+  }
+
+  // ---- WhatsApp: log expenses by chatting (privacy model in whatsapp.js)
+  waKeyRow(userId) {
+    return this.one("SELECT * FROM wa_keys WHERE user_id = ?", userId);
+  }
+
+  waForget(userId) {
+    this.run("DELETE FROM wa_phones WHERE user_id = ?", userId);
+    this.run("DELETE FROM wa_codes WHERE user_id = ?", userId);
+    this.run("DELETE FROM wa_inbox WHERE user_id = ?", userId);
+    this.run("DELETE FROM wa_keys WHERE user_id = ?", userId);
+  }
+
+  waStatus(user) {
+    const on = WA.enabled(this.env);
+    const key = this.waKeyRow(user.id);
+    return {
+      enabled: on,
+      number: on ? WA.displayNumber(this.env) : "",
+      phones: this.all("SELECT phone_hash, masked, created, last_at FROM wa_phones WHERE user_id = ? ORDER BY created", user.id)
+        .map((p) => ({ id: p.phone_hash.slice(0, 16), masked: p.masked, created: p.created, lastAt: p.last_at })),
+      key: key ? { publicKey: JSON.parse(key.public_jwk), sealed: key.sealed, currency: key.currency } : null,
+      pending: this.one("SELECT COUNT(*) AS n FROM wa_inbox WHERE user_id = ?", user.id).n,
+    };
+  }
+
+  async routeWhatsApp(request, method, parts, query) {
+    const what = parts[0] || "";
+    if (what === "webhook") {
+      if (method === "GET") {
+        return this.waVerify(query);
+      }
+      if (method === "POST") {
+        return this.waWebhook(request);
+      }
+      throw new ApiError(405, "Method not allowed");
+    }
+    const user = await this.currentUser(request);
+    if (!what && method === "GET") {
+      return this.waStatus(user);
+    }
+    if (!what && method === "DELETE") {
+      this.waForget(user.id);
+      return { ok: true };
+    }
+    if (what === "key" && method === "POST") {
+      this.requireLimit("wakey:" + user.id, 30, 3600, "Too many changes — try again later");
+      const data = await this.readJson(request);
+      const jwk = WA.cleanPublicJwk(data.publicKey);
+      const sealed = String(data.sealed || "");
+      const currency = String(data.currency || "").toUpperCase();
+      if (!jwk || sealed.length < 40 || sealed.length > 8000 || !SYNC_BLOB_RE.test(sealed)) {
+        throw new ApiError(400, "Invalid inbox key");
+      }
+      if (currency && !Object.prototype.hasOwnProperty.call(Budget.CURRENCIES, currency)) {
+        throw new ApiError(400, "Unknown currency");
+      }
+      const existing = this.waKeyRow(user.id);
+      const publicJson = JSON.stringify(jwk);
+      if (existing && existing.public_jwk !== publicJson) {
+        // Items sealed to the old key can no longer be opened by any device.
+        this.run("DELETE FROM wa_inbox WHERE user_id = ?", user.id);
+      }
+      this.run(
+        "INSERT OR REPLACE INTO wa_keys (user_id, public_jwk, sealed, currency, updated) VALUES (?, ?, ?, ?, ?)",
+        user.id, publicJson, sealed, currency, now(),
+      );
+      return this.waStatus(user);
+    }
+    if (what === "link" && method === "POST") {
+      if (!WA.enabled(this.env)) {
+        throw new ApiError(503, "WhatsApp is not set up on this Mint server yet");
+      }
+      if (!this.waKeyRow(user.id)) {
+        throw new ApiError(409, "Set up the WhatsApp inbox key first");
+      }
+      this.requireLimit("walink:" + user.id, 20, 3600, "Too many codes — try again in an hour");
+      this.run("DELETE FROM wa_codes WHERE user_id = ? OR expires <= ?", user.id, now());
+      const bytes = crypto.getRandomValues(new Uint8Array(6));
+      const code = [...bytes].map((b) => REF_ALPHABET[b % REF_ALPHABET.length]).join("");
+      const expires = now() + WA_CODE_MINUTES * 60;
+      this.run("INSERT INTO wa_codes (code, user_id, expires) VALUES (?, ?, ?)", code, user.id, expires);
+      const message = "link MINT-" + code;
+      const number = WA.displayNumber(this.env);
+      return { code: "MINT-" + code, message, number, expires, url: "https://wa.me/" + number + "?text=" + encodeURIComponent(message) };
+    }
+    if (what === "phones" && parts[1] && method === "DELETE") {
+      this.run("DELETE FROM wa_phones WHERE user_id = ? AND substr(phone_hash, 1, 16) = ?", user.id, String(parts[1]).slice(0, 16));
+      return this.waStatus(user);
+    }
+    if (what === "inbox" && !parts[1] && method === "GET") {
+      const rows = this.all(
+        "SELECT id, data, created FROM wa_inbox WHERE user_id = ? ORDER BY created, id LIMIT ?",
+        user.id, WA_INBOX_PAGE + 1,
+      );
+      return {
+        items: rows.slice(0, WA_INBOX_PAGE).map((r) => ({ id: r.id, data: r.data, at: r.created })),
+        more: rows.length > WA_INBOX_PAGE,
+      };
+    }
+    if (what === "inbox" && parts[1] === "ack" && method === "POST") {
+      const data = await this.readJson(request);
+      const ids = Array.isArray(data.ids) ? data.ids.slice(0, 200).map(String).filter((id) => WA_ITEM_ID_RE.test(id)) : [];
+      for (const id of ids) {
+        this.run("DELETE FROM wa_inbox WHERE user_id = ? AND id = ?", user.id, id);
+      }
+      return { ok: true, removed: ids.length };
+    }
+    throw new ApiError(404, "Not found");
+  }
+
+  /** Meta's one-time subscription check: echo hub.challenge when the verify token matches. */
+  waVerify(query) {
+    if (!WA.enabled(this.env)) {
+      throw new ApiError(404, "Not found");
+    }
+    if (query["hub.mode"] === "subscribe" && safeEqual(String(query["hub.verify_token"] || ""), this.env.WHATSAPP_VERIFY_TOKEN)) {
+      return new Response(String(query["hub.challenge"] || "").slice(0, 200), { status: 200, headers: { "Content-Type": "text/plain" } });
+    }
+    throw new ApiError(403, "Verification failed");
+  }
+
+  async waWebhook(request) {
+    if (!WA.enabled(this.env)) {
+      throw new ApiError(404, "Not found");
+    }
+    const raw = await request.text();
+    if (!(await WA.verifySignature(this.env, raw, request.headers.get("X-Hub-Signature-256")))) {
+      throw new ApiError(401, "Bad signature");
+    }
+    let payload;
+    try {
+      payload = JSON.parse(raw);
+    } catch (err) {
+      throw new ApiError(400, "Invalid JSON");
+    }
+    const ownNumber = String(this.env.WHATSAPP_PHONE_NUMBER_ID || "");
+    let handled = 0;
+    for (const message of WA.messagesFrom(payload)) {
+      if (message.phoneNumberId && ownNumber && message.phoneNumberId !== ownNumber) {
+        continue;
+      }
+      // Meta redelivers until it gets a 200; handle each message id once.
+      if (this.one("SELECT 1 AS x FROM wa_seen WHERE msg_id = ?", message.id)) {
+        continue;
+      }
+      this.run("INSERT INTO wa_seen (msg_id, at) VALUES (?, ?)", message.id, now());
+      const reply = await this.waHandle(message);
+      if (reply) {
+        await WA.sendText(this.env, message.from, reply);
+      }
+      handled += 1;
+    }
+    if (Math.random() < 0.05) {
+      this.run("DELETE FROM wa_seen WHERE at < ?", now() - 7 * DAY);
+      this.run("DELETE FROM wa_codes WHERE expires <= ?", now());
+      this.run("DELETE FROM wa_inbox WHERE created < ?", now() - 60 * DAY);
+    }
+    return { ok: true, handled };
+  }
+
+  async waEnqueue(userId, keyRow, value) {
+    const id = "w" + randomToken(15);
+    const data = await WA.sealForInbox(JSON.parse(keyRow.public_jwk), Object.assign({ v: 1 }, value));
+    this.run("INSERT INTO wa_inbox (id, user_id, data, created) VALUES (?, ?, ?, ?)", id, userId, data, now());
+    return id;
+  }
+
+  /** One incoming message → what Mint answers (or null for silence). */
+  async waHandle(message) {
+    const hash = await WA.phoneHash(this.env, message.from);
+    if (!this.limit("wa:" + hash, 60, 3600).ok) {
+      return null;
+    }
+    const textBody = message.text.trim();
+    const link = textBody.match(WA.COMMANDS.link);
+    if (link) {
+      const row = this.one("SELECT * FROM wa_codes WHERE code = ? AND expires > ?", link[1].toUpperCase(), now());
+      if (!row) {
+        return "⌛ That code is wrong or has expired. Open Mint → Settings → WhatsApp to get a new one.";
+      }
+      this.run("DELETE FROM wa_codes WHERE code = ?", row.code);
+      this.run(
+        "INSERT OR REPLACE INTO wa_phones (phone_hash, user_id, masked, created, last_at) VALUES (?, ?, ?, ?, ?)",
+        hash, row.user_id, WA.maskPhone(message.from), now(), now(),
+      );
+      const owner = this.one("SELECT name FROM users WHERE id = ?", row.user_id);
+      return "✅ Linked to Mint" + (owner ? " (" + owner.name + ")" : "") + "!\n\n" + WA.HELP_TEXT;
+    }
+    const phone = this.one("SELECT * FROM wa_phones WHERE phone_hash = ?", hash);
+    if (!phone) {
+      return this.limit("wa-unlinked:" + hash, 1, DAY).ok
+        ? "👋 This is Mint. To log expenses by WhatsApp, open Mint → Settings → WhatsApp → Connect, then send the code it shows here."
+        : null;
+    }
+    const keyRow = this.waKeyRow(phone.user_id);
+    if (!keyRow) {
+      return "Mint's WhatsApp link needs setting up again: open Mint → Settings → WhatsApp.";
+    }
+    this.run("UPDATE wa_phones SET last_at = ? WHERE phone_hash = ?", now(), hash);
+    if (!textBody) {
+      return "📷 I can only read text for now. Type the amount and what it was, like *lunch 45k*.";
+    }
+    if (WA.COMMANDS.help.test(textBody)) {
+      return WA.HELP_TEXT;
+    }
+    if (WA.COMMANDS.stop.test(textBody)) {
+      this.run("DELETE FROM wa_phones WHERE phone_hash = ?", hash);
+      return "👋 This number is unlinked from Mint. Connect again any time from Mint → Settings → WhatsApp.";
+    }
+    if (WA.COMMANDS.totals.test(textBody)) {
+      return "🔒 Mint can't see your totals from here: your budget is end-to-end encrypted, so only your own devices can read it. Open Mint to see what's left.";
+    }
+    const pending = this.one("SELECT COUNT(*) AS n FROM wa_inbox WHERE user_id = ?", phone.user_id).n;
+    if (pending >= WA_INBOX_MAX) {
+      return "📥 Mint has " + pending + " WhatsApp entries waiting. Open Mint once to file them, then keep going.";
+    }
+    if (WA.COMMANDS.undo.test(textBody)) {
+      await this.waEnqueue(phone.user_id, keyRow, { k: "undo", mid: message.id, at: message.at });
+      return "↩️ Got it. Mint removes your last WhatsApp entry the next time it opens.";
+    }
+    const lines = Budget.parseQuickLines(textBody);
+    if (lines.some((l) => l.parsed)) {
+      await this.waEnqueue(phone.user_id, keyRow, { k: "txt", text: textBody.slice(0, 2000), mid: message.id, at: message.at });
+    }
+    return WA.entryReply(Budget, lines, keyRow.currency);
   }
 
   // ---- auth
@@ -1186,6 +1439,7 @@ export class MintDB extends DurableObject {
       this.run("DELETE FROM push_subs WHERE user_id = ?", user.id);
       this.run("DELETE FROM sync_items WHERE user_id = ?", user.id);
       this.run("DELETE FROM sync_keys WHERE user_id = ?", user.id);
+      this.waForget(user.id);
       this.run(
         "UPDATE users SET email = ?, name = 'Deleted user', pw_hash = '!', salt = '', payout_info = '', recovery_hash = '' WHERE id = ?",
         "deleted-" + user.id + "@mint.invalid", user.id,

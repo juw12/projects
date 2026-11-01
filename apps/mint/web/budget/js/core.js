@@ -947,6 +947,128 @@
     return { raw: raw, traits: traits, persona: ranking[0].key, ranking: ranking, facts: facts };
   };
 
+  // ---------------------------------------------------------------- chat entry (WhatsApp, quick box)
+  // One line typed in a chat: "coffee 25k", "25rb grab", "+5jt gaji", "lunch 12 usd yesterday".
+  // Returns {amount, cur, desc, type, dayOffset} or null when the line has no amount.
+  // cur is '' unless the line names a currency ("12 usd", "eur 9", "rp25k"); then the app converts.
+  const QT_SUFFIX = /^(ribu|rb|k|juta|jt|mn|m|miliar|milyar|bn)$/i;
+  const QT_INCOME = /^(income|salary|paycheck|payday|gaji|gajian|pemasukan|thr|收入|工资|薪水|ingreso|sueldo|salario)$/i;
+  const QT_DAYS = [
+    [/(^|\s)(yesterday|kemarin|kemaren|ayer|昨天)(?=\s|$)/i, -1],
+    [/(^|\s)(today|hari ini|hoy|今天)(?=\s|$)/i, 0],
+  ];
+  const QT_SYMBOLS = [
+    [/^rp/i, 'IDR'],
+    [/^us\$/i, 'USD'],
+    [/^s\$/i, 'SGD'],
+    [/^rm/i, 'MYR'],
+    [/^€/, 'EUR'],
+    [/^£/, 'GBP'],
+  ];
+  function quickCode(word) {
+    const w = String(word || '').toUpperCase();
+    return /^[A-Z]{3}$/.test(w) && has(K.CURRENCIES, w) ? w : '';
+  }
+  K.parseQuickText = function (input) {
+    let s = String(input == null ? '' : input)
+      .replace(/[\u200b-\u200d\ufeff*_~]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+    if (!s) return null;
+    let type = 'expense';
+    if (/^\+/.test(s)) {
+      type = 'income';
+      s = s.slice(1).trim();
+    }
+    let dayOffset = 0;
+    QT_DAYS.forEach(function (d) {
+      if (d[0].test(s)) {
+        dayOffset = d[1];
+        s = s.replace(d[0], ' ').replace(/\s+/g, ' ').trim();
+      }
+    });
+    const words = s.split(' ').filter(Boolean);
+    const found = [];
+    for (let i = 0; i < words.length; i++) {
+      let w = words[i].replace(/^-(?=[0-9])/, '');
+      const used = [i];
+      let cur = '';
+      let strong = false;
+      const lead = w.match(/^([a-z]{3})([0-9][0-9.,]*[a-z]*)$/i);
+      if (lead && quickCode(lead[1])) {
+        cur = quickCode(lead[1]);
+        w = lead[2];
+        strong = true;
+      }
+      if (!/[0-9]/.test(w)) continue;
+      QT_SYMBOLS.forEach(function (sym) {
+        if (!cur && sym[0].test(w)) {
+          cur = sym[1];
+          strong = true;
+        }
+      });
+      if (/^[^a-z]*$/i.test(w) && i + 1 < words.length && QT_SUFFIX.test(words[i + 1])) {
+        w += words[i + 1];
+        used.push(i + 1);
+      }
+      const v = K.parseAmount(w);
+      if (!(v > 0)) continue;
+      if (/[a-z]$/i.test(w) || /[.,]\d{3}(\D|$)/.test(w) || /^[^0-9]/.test(w)) strong = true;
+      const after = used[used.length - 1] + 1;
+      if (!cur && after < words.length && quickCode(words[after])) {
+        cur = quickCode(words[after]);
+        used.push(after);
+        strong = true;
+      } else if (!cur && i > 0 && !found.some((f) => f.used.indexOf(i - 1) >= 0)) {
+        const prev = words[i - 1];
+        const symbol = /^(rp|us\$|s\$|rm|\$|€|£)$/i.test(prev) ? QT_SYMBOLS.find((sym) => sym[0].test(prev)) : null;
+        if (quickCode(prev) || /^(rp|us\$|s\$|rm|\$|€|£)$/i.test(prev)) {
+          cur = quickCode(prev) || (symbol ? symbol[1] : '');
+          used.unshift(i - 1);
+          strong = true;
+        }
+      }
+      found.push({ v: v, cur: cur, used: used, strong: strong });
+    }
+    if (!found.length) return null;
+    // "2 coffees 50k": prefer the amount that looks like money, then the largest.
+    const pool = found.some((f) => f.strong) ? found.filter((f) => f.strong) : found;
+    const pick = pool.reduce((a, b) => (b.v > a.v ? b : a));
+    const desc = words
+      .filter((_, i) => pick.used.indexOf(i) < 0)
+      .join(' ')
+      .replace(/^[\s\-–—:;,.@=|]+|[\s\-–—:;,@=|]+$/g, '')
+      .slice(0, 80);
+    if (type === 'expense' && desc && QT_INCOME.test(desc.split(' ')[0])) type = 'income';
+    return { amount: pick.v, cur: pick.cur, desc: desc, type: type, dayOffset: dayOffset };
+  };
+
+  /** A chat message can hold several entries, one per line (or separated by ";"). Max 20. */
+  K.parseQuickLines = function (input) {
+    return String(input == null ? '' : input)
+      .split(/\r?\n|;/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .slice(0, 20)
+      .map((line) => ({ line: line.slice(0, 200), parsed: K.parseQuickText(line) }));
+  };
+
+  /** Stable record id for entry `index` of chat message `messageId`, so every device that
+   *  imports the same message writes the same transaction (and merging keeps one copy). */
+  K.chatTxnId = function (messageId, index) {
+    const str = String(messageId) + '#' + (index || 0);
+    let h1 = 0xdeadbeef;
+    let h2 = 0x41c6ce57;
+    for (let i = 0; i < str.length; i++) {
+      const ch = str.charCodeAt(i);
+      h1 = Math.imul(h1 ^ ch, 2654435761);
+      h2 = Math.imul(h2 ^ ch, 1597334677);
+    }
+    h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+    h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+    return 'wa' + (h2 >>> 0).toString(36) + (h1 >>> 0).toString(36);
+  };
+
   // ---------------------------------------------------------------- planner
   const HOUSEHOLD_GROCERY = { solo: 0.3, couple: 0.38, family: 0.45, shared: 0.32 };
 
