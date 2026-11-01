@@ -1,0 +1,64 @@
+/* PTB RDME — ME R&D Toolkit embed mode */
+
+/* Toolkit tokens — light (default) */
+html.merd-embed {
+  --tk-bg: #f5f6fa;
+  --tk-panel: #ffffff;
+  --tk-panel2: #f8f9fc;
+  --tk-ink: #0f172a;
+  --tk-muted: #64748b;
+  --tk-line: #e5e8ef;
+  --tk-accent: #4f46e5;
+  --tk-accent-soft: #eef2ff;
+  --tk-font: "Segoe UI", system-ui, -apple-system, "Microsoft JhengHei", "Noto Sans TC", Roboto, sans-serif;
+  --radius: 14px;
+  color-scheme: light;
+}
+
+/* Toolkit tokens — dark */
+html.merd-embed[data-merd-theme="dark"] {
+  --tk-bg: #0b1120;
+  --tk-panel: #111827;
+  --tk-panel2: #0f172a;
+  --tk-ink: #e5e7eb;
+  --tk-muted: #94a3b8;
+  --tk-line: #1f2937;
+  --tk-accent: #4f46e5;
+  --tk-accent-soft: #1e1b4b;
+  color-scheme: dark;
+}
+
+/* Remap widget tokens to toolkit tokens */
+html.merd-embed,
+html.merd-embed[data-merd-theme] {
+  --bg: var(--tk-bg);
+  --surface: var(--tk-panel);
+  --surface-2: var(--tk-panel2);
+  --ink: var(--tk-ink);
+  --ink-2: var(--tk-muted);
+  --ink-3: var(--tk-muted);
+  --line: var(--tk-line);
+  --line-2: var(--tk-line);
+  --accent: var(--tk-accent);
+  --accent-press: var(--tk-accent);
+  --accent-soft: var(--tk-accent-soft);
+  --font: var(--tk-font);
+}
+
+/* Body: force toolkit bg + text colour */
+html.merd-embed body {
+  background: var(--tk-bg);
+  color: var(--tk-ink);
+}
+
+/* Hide widget chrome (topbar + tabbar) */
+html.merd-embed .topbar,
+html.merd-embed .tabbar {
+  display: none !important;
+}
+
+/* Fill width: remove 760px cap and 88px tabbar bottom reserve */
+html.merd-embed .view {
+  max-width: 100%;
+  padding: 16px;
+}

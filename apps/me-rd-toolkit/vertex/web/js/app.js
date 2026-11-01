@@ -1549,8 +1549,8 @@
     /* Fetch connector/adapter status */
     fetchConnectorStatus();
 
-    /* Register service worker */
-    if ('serviceWorker' in navigator) {
+    /* Register service worker (skip when embedded in ME R&D Toolkit to avoid nested SW conflict) */
+    if ('serviceWorker' in navigator && !document.documentElement.classList.contains('merd-embed')) {
       navigator.serviceWorker.register('./sw.js')
         .then(function(reg) {
           console.log('SW registered:', reg.scope);

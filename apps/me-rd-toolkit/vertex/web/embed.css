@@ -1,0 +1,79 @@
+/**
+ * Vertex embed mode — ME R&D Toolkit theme bridge
+ * All selectors are scoped under html.merd-embed so standalone Vertex is untouched.
+ */
+
+/* ── Toolkit tokens (light default) ──────────────────────────────────────── */
+html.merd-embed {
+  --tk-bg: #f5f6fa;
+  --tk-panel: #ffffff;
+  --tk-panel2: #f8f9fc;
+  --tk-ink: #0f172a;
+  --tk-muted: #64748b;
+  --tk-line: #e5e8ef;
+  --tk-accent: #4f46e5;
+  --tk-accent2: #6366f1;
+  --tk-accent-soft: #eef2ff;
+  --tk-radius: 14px;
+  --tk-font: "Segoe UI", system-ui, -apple-system, "Microsoft JhengHei", "Noto Sans TC", Roboto, sans-serif;
+
+  background: var(--tk-bg);
+  color-scheme: light;
+}
+
+/* ── Toolkit tokens (dark override) ──────────────────────────────────────── */
+html.merd-embed[data-merd-theme="dark"] {
+  --tk-bg: #0b1120;
+  --tk-panel: #111827;
+  --tk-panel2: #0f172a;
+  --tk-ink: #e5e7eb;
+  --tk-muted: #94a3b8;
+  --tk-line: #1f2937;
+  --tk-accent: #4f46e5;
+  --tk-accent-soft: #1e1b4b;
+
+  background: var(--tk-bg);
+  color-scheme: dark;
+}
+
+/* ── Remap Vertex tokens to toolkit tokens ─────────────────────────────────
+   Selector list beats :root[data-theme="light"] (0,2,0) — each selector here
+   is (0,3,0) or higher.
+   The remap always points to var(--tk-*); the actual values are controlled
+   by data-merd-theme on the same element.
+──────────────────────────────────────────────────────────────────────────── */
+html.merd-embed,
+html.merd-embed[data-theme],
+html.merd-embed[data-theme="light"],
+html.merd-embed[data-theme="dark"] {
+  --bg: var(--tk-bg);
+  --panel: var(--tk-panel);
+  --raised: var(--tk-panel2);
+  --inset: var(--tk-panel2);
+  --line: var(--tk-line);
+  --hairline: var(--tk-line);
+  --text: var(--tk-ink);
+  --text-2: var(--tk-muted);
+  --text-3: var(--tk-muted);
+  --accent: var(--tk-accent);
+  --accent-dim: var(--tk-accent-soft);
+  --accent-contrast: var(--tk-accent);
+  --font-sans: var(--tk-font);
+}
+
+/* ── Hide standalone chrome ───────────────────────────────────────────────── */
+html.merd-embed .topbar,
+html.merd-embed .app-topbar,
+html.merd-embed .hero-section,
+html.merd-embed .footer-bar,
+html.merd-embed .variant-nav,
+html.merd-embed .install-callout {
+  display: none !important;
+}
+
+/* ── Body: adopt toolkit font, bg, colour ─────────────────────────────────── */
+html.merd-embed body {
+  background: var(--tk-bg);
+  color: var(--tk-ink);
+  font-family: var(--tk-font);
+}
