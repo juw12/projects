@@ -1,4 +1,4 @@
-/* Pips Phone Trail - page logic (manual entry from Screen Time / Digital Wellbeing). */
+/* Pips Phone Trail - page logic: 1 add screen time (screenshot / paste / type), 2 check apps, 3 trail sticker. */
 (function () {
   "use strict";
 
@@ -19,6 +19,44 @@
       keyStraight: "straight = one app", keyKinks: "kinks = switching", keyLoops: "loops = distracting",
       top: "top: {app}", savedToast: "Saved", copied: "Image copied", clearConfirm: "Clear this day?",
       appPlaceholder: "App name",
+      trailEmpty: "Add your screen time in step 1 and your trail appears here.",
+      showAll: "Show all {n} apps",
+      showLess: "Show fewer",
+      s1: "Add your screen time",
+      s2: "Check your apps",
+      s3: "Your trail",
+      shotBtn: "Choose a Screen Time screenshot",
+      shotHelpIos: "On iPhone: Settings › Screen Time › See All App & Website Activity, then take a screenshot.",
+      shotHelpAndroid: "On Android: Settings › Digital Wellbeing, then take a screenshot.",
+      androidBox: "On Android it can be automatic:",
+      androidGet: "Get the free app",
+      androidSub: "Reads your screen time by itself. Switch on Usage access once.",
+      androidLink: "Android app",
+      orLabel: "or use a screenshot",
+      trySample: "Try a sample",
+      typeIt: "Type it in",
+      pasteIt: "Paste text",
+      appName: "App name",
+      addBtn: "Add",
+      pasteHint: "Paste the text from your Screen Time screenshot (iPhone: open it in Photos, press and hold the text, Select All, Copy).",
+      emptyList: "Your apps will show up here.",
+      dotHint: "Tap a dot to change:",
+      summary: "{time} · {n} apps",
+      timesTitle: "Times of day (optional)",
+      timesHint: "Screen Time only gives a total per app, so we spread them over your day. Change the hours here if you remember them.",
+      dayWindow: "My day",
+      shotFor: "Next screenshot is for",
+      wholeDay: "the whole day",
+      oneHour: "{hour} only",
+      clearDay: "Clear this day",
+      shapesTitle: "What do the shapes mean?",
+      readingPct: "Reading your screenshot… {pct}%",
+      loadingOcr: "Getting ready… (the first time takes a moment)",
+      foundOk: "✓ Added {n} apps · {time}",
+      noneFound: "Couldn't find any app times. Use the Screen Time list page (the one with minutes next to each app).",
+      readFailed: "Couldn't read that picture here. Try “Paste text” instead.",
+      replaceAsk: "Replace the apps already on this day?",
+      privacy: "Everything stays on this phone.",
       importBtn: "From screenshot", importChoose: "Choose screenshot", importApply: "Add to my day",
       importHow: "Take a screenshot of Settings > Screen Time > See All App & Website Activity (Android: Digital Wellbeing), then choose it here.",
       importPaste: "...or paste the text here (iPhone: open the screenshot in Photos, press and hold the text, Select All, Copy)",
@@ -52,6 +90,44 @@
       keyStraight: "lurus = satu aplikasi", keyKinks: "tikungan = ganti", keyLoops: "putaran = mengganggu",
       top: "top: {app}", savedToast: "Tersimpan", copied: "Gambar disalin", clearConfirm: "Hapus hari ini?",
       appPlaceholder: "Nama aplikasi",
+      trailEmpty: "Masukkan screen time di langkah 1, jejakmu muncul di sini.",
+      showAll: "Tampilkan semua {n} aplikasi",
+      showLess: "Tampilkan lebih sedikit",
+      s1: "Masukkan screen time kamu",
+      s2: "Cek aplikasimu",
+      s3: "Jejakmu",
+      shotBtn: "Pilih screenshot Durasi Layar",
+      shotHelpIos: "Di iPhone: Pengaturan › Durasi Layar › Lihat Semua Aktivitas App & Situs Web, lalu ambil screenshot.",
+      shotHelpAndroid: "Di Android: Pengaturan › Digital Wellbeing, lalu ambil screenshot.",
+      androidBox: "Di Android bisa otomatis:",
+      androidGet: "Ambil aplikasi gratis",
+      androidSub: "Membaca screen time sendiri. Nyalakan Akses penggunaan sekali saja.",
+      androidLink: "Aplikasi Android",
+      orLabel: "atau pakai screenshot",
+      trySample: "Coba contoh",
+      typeIt: "Ketik sendiri",
+      pasteIt: "Tempel teks",
+      appName: "Nama aplikasi",
+      addBtn: "Tambah",
+      pasteHint: "Tempel teks dari screenshot Durasi Layar (iPhone: buka di Foto, tekan lama teksnya, Pilih Semua, Salin).",
+      emptyList: "Aplikasimu akan muncul di sini.",
+      dotHint: "Ketuk titik untuk mengganti:",
+      summary: "{time} · {n} aplikasi",
+      timesTitle: "Jam pemakaian (opsional)",
+      timesHint: "Durasi Layar hanya memberi total per aplikasi, jadi kami sebar di harimu. Ubah jamnya di sini kalau kamu ingat.",
+      dayWindow: "Hariku",
+      shotFor: "Screenshot berikutnya untuk",
+      wholeDay: "seharian",
+      oneHour: "jam {hour} saja",
+      clearDay: "Hapus hari ini",
+      shapesTitle: "Apa arti bentuknya?",
+      readingPct: "Membaca screenshot… {pct}%",
+      loadingOcr: "Bersiap… (pertama kali agak lama)",
+      foundOk: "✓ {n} aplikasi ditambahkan · {time}",
+      noneFound: "Tidak ada waktu aplikasi. Pakai halaman daftar Durasi Layar (yang ada menit di samping tiap aplikasi).",
+      readFailed: "Gambar tidak bisa dibaca di sini. Coba “Tempel teks”.",
+      replaceAsk: "Ganti aplikasi yang sudah ada di hari ini?",
+      privacy: "Semua tersimpan di HP ini.",
       importBtn: "Dari screenshot", importChoose: "Pilih screenshot", importApply: "Tambahkan ke hariku",
       importHow: "Ambil screenshot Pengaturan > Durasi Layar > Lihat Semua Aktivitas App & Situs Web (Android: Digital Wellbeing), lalu pilih di sini.",
       importPaste: "...atau tempel teksnya di sini (iPhone: buka screenshot di Foto, tekan lama teksnya, Pilih Semua, Salin)",
@@ -85,6 +161,44 @@
       keyStraight: "直線 = 同一個 App", keyKinks: "轉折 = 切換", keyLoops: "繞圈 = 分心",
       top: "最多：{app}", savedToast: "已儲存", copied: "已複製圖片", clearConfirm: "清除這一天？",
       appPlaceholder: "App 名稱",
+      trailEmpty: "在第 1 步加入螢幕使用時間，軌跡就會出現在這裡。",
+      showAll: "顯示全部 {n} 個 App",
+      showLess: "收起",
+      s1: "加入你的螢幕使用時間",
+      s2: "確認 App",
+      s3: "你的軌跡",
+      shotBtn: "選擇螢幕使用時間截圖",
+      shotHelpIos: "iPhone：設定 › 螢幕使用時間 › 查看所有 App 與網站活動，然後截圖。",
+      shotHelpAndroid: "Android：設定 › 數位健康，然後截圖。",
+      androidBox: "Android 可以自動記錄：",
+      androidGet: "下載免費 App",
+      androidSub: "自動讀取螢幕使用時間。只要開啟一次「使用情形存取權」。",
+      androidLink: "Android App",
+      orLabel: "或用截圖",
+      trySample: "看示範",
+      typeIt: "手動輸入",
+      pasteIt: "貼上文字",
+      appName: "App 名稱",
+      addBtn: "加入",
+      pasteHint: "貼上螢幕使用時間截圖的文字（iPhone：在「照片」打開，長按文字，全選，拷貝）。",
+      emptyList: "你的 App 會顯示在這裡。",
+      dotHint: "點圓點切換：",
+      summary: "{time} · {n} 個 App",
+      timesTitle: "使用時段（選填）",
+      timesHint: "螢幕使用時間只給每個 App 的總時間，所以我們平均分配到你的一天。記得的話可以在這裡改時段。",
+      dayWindow: "我的一天",
+      shotFor: "下一張截圖是",
+      wholeDay: "整天",
+      oneHour: "只有 {hour}",
+      clearDay: "清除這一天",
+      shapesTitle: "形狀代表什麼？",
+      readingPct: "正在讀取截圖…… {pct}%",
+      loadingOcr: "準備中……（第一次會久一點）",
+      foundOk: "✓ 已加入 {n} 個 App · {time}",
+      noneFound: "找不到 App 時間。請用螢幕使用時間的 App 列表頁（每個 App 旁邊有分鐘數的那頁）。",
+      readFailed: "這裡無法讀取這張圖。請改用「貼上文字」。",
+      replaceAsk: "要取代這一天已有的 App 嗎？",
+      privacy: "所有資料只存在這支手機。",
       importBtn: "從截圖匯入", importChoose: "選擇截圖", importApply: "加入今天",
       importHow: "截圖「設定 > 螢幕使用時間 > 查看所有 App 與網站活動」（Android：數位健康），然後在這裡選擇。",
       importPaste: "……或把文字貼在這裡（iPhone：在「照片」打開截圖，長按文字，全選，拷貝）",
@@ -118,6 +232,44 @@
       keyStraight: "直线 = 同一个 App", keyKinks: "转折 = 切换", keyLoops: "绕圈 = 分心",
       top: "最多：{app}", savedToast: "已保存", copied: "已复制图片", clearConfirm: "清除这一天？",
       appPlaceholder: "App 名称",
+      trailEmpty: "在第 1 步加入屏幕使用时间，轨迹就会出现在这里。",
+      showAll: "显示全部 {n} 个 App",
+      showLess: "收起",
+      s1: "加入你的屏幕使用时间",
+      s2: "确认 App",
+      s3: "你的轨迹",
+      shotBtn: "选择屏幕使用时间截图",
+      shotHelpIos: "iPhone：设置 › 屏幕使用时间 › 查看所有 App 与网站活动，然后截图。",
+      shotHelpAndroid: "Android：设置 › 数字健康，然后截图。",
+      androidBox: "Android 可以自动记录：",
+      androidGet: "下载免费 App",
+      androidSub: "自动读取屏幕使用时间。只需开启一次“使用情况访问权限”。",
+      androidLink: "Android App",
+      orLabel: "或用截图",
+      trySample: "看示例",
+      typeIt: "手动输入",
+      pasteIt: "粘贴文字",
+      appName: "App 名称",
+      addBtn: "加入",
+      pasteHint: "粘贴屏幕使用时间截图的文字（iPhone：在“照片”打开，长按文字，全选，拷贝）。",
+      emptyList: "你的 App 会显示在这里。",
+      dotHint: "点圆点切换：",
+      summary: "{time} · {n} 个 App",
+      timesTitle: "使用时段（可选）",
+      timesHint: "屏幕使用时间只给每个 App 的总时间，所以我们平均分配到你的一天。记得的话可以在这里改时段。",
+      dayWindow: "我的一天",
+      shotFor: "下一张截图是",
+      wholeDay: "全天",
+      oneHour: "只有 {hour}",
+      clearDay: "清除这一天",
+      shapesTitle: "形状代表什么？",
+      readingPct: "正在读取截图…… {pct}%",
+      loadingOcr: "准备中……（第一次会久一点）",
+      foundOk: "✓ 已加入 {n} 个 App · {time}",
+      noneFound: "找不到 App 时间。请用屏幕使用时间的 App 列表页（每个 App 旁边有分钟数的那页）。",
+      readFailed: "这里无法读取这张图。请改用“粘贴文字”。",
+      replaceAsk: "要替换这一天已有的 App 吗？",
+      privacy: "所有数据只保存在这部手机。",
       importBtn: "从截图导入", importChoose: "选择截图", importApply: "加入今天",
       importHow: "截图“设置 > 屏幕使用时间 > 查看所有 App 与网站活动”（Android：数字健康），然后在这里选择。",
       importPaste: "……或把文字粘贴到这里（iPhone：在“照片”打开截图，长按文字，全选，拷贝）",
@@ -155,13 +307,19 @@
 
   const $ = (id) => document.getElementById(id);
   const store = window.localStorage;
+  const OCR_SCRIPT = "https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js";
+  const OCR_LANGS = { en: "eng", id: "eng", zh_TW: "chi_tra+eng", zh_CN: "chi_sim+eng" };
+
   let lang = store.getItem("pt.lang") || detectLang();
   let prefs = JSON.parse(store.getItem("pt.prefs") || "{}");
   prefs = Object.assign({ accent: ACCENTS[0], bg: "transparent", start: 7, end: 23 }, prefs);
   let userCats = JSON.parse(store.getItem("pt.cats") || "{}");
   let day = todayIso();
   let state = loadDay(day);
+  let showAllApps = false;
+  const SHORT_LIST = 8;
 
+  // ---------- basics ----------
   function detectLang() {
     const n = (navigator.language || "en").toLowerCase();
     if (n.startsWith("id")) return "id";
@@ -170,6 +328,15 @@
   }
   function t(key) {
     return (STRINGS[lang] && STRINGS[lang][key]) || STRINGS.en[key] || key;
+  }
+  function fill(template, values) {
+    return template.replace(/\{(\w+)\}/g, (_, key) => (key in values ? values[key] : ""));
+  }
+  function hh(hour) {
+    return String(hour).padStart(2, "0") + ":00";
+  }
+  function fmtMinutes(minutes) {
+    return PipsTrail.fmtDuration(minutes * 60);
   }
   function todayIso() {
     const d = new Date();
@@ -184,21 +351,67 @@
   function savePrefs() {
     store.setItem("pt.prefs", JSON.stringify(prefs));
   }
-
+  function keyOf(app) {
+    return (app || "").trim().toLowerCase();
+  }
   function categoryFor(app) {
-    const key = (app || "").trim().toLowerCase();
+    const key = keyOf(app);
     if (userCats[key]) return userCats[key];
     const table = (window.PIPS_CATEGORIES && window.PIPS_CATEGORIES.apps) || {};
     return table[key] || "neutral";
   }
-
   function toast(msg) {
     const el = $("toast");
     el.textContent = msg;
     el.classList.add("show");
-    setTimeout(() => el.classList.remove("show"), 1600);
+    setTimeout(() => el.classList.remove("show"), 1800);
+  }
+  function setStatus(message, kind, busy) {
+    const el = $("importStatus");
+    el.className = "status" + (kind ? " " + kind : "");
+    el.innerHTML = "";
+    if (!message) return;
+    if (busy) {
+      const spinner = document.createElement("span");
+      spinner.className = "spin";
+      el.appendChild(spinner);
+    }
+    el.appendChild(document.createTextNode(message));
+  }
+  function detectPlatform() {
+    const ua = navigator.userAgent || "";
+    if (/Android/i.test(ua)) return "android";
+    if (/iPhone|iPad|iPod/i.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1)) return "ios";
+    return "other";
   }
 
+  // ---------- language + selects ----------
+  function hourOptions(select, from, to, value) {
+    select.innerHTML = "";
+    for (let h = from; h <= to; h++) {
+      const opt = document.createElement("option");
+      opt.value = h;
+      opt.textContent = hh(h);
+      if (h === value) opt.selected = true;
+      select.appendChild(opt);
+    }
+  }
+  function importWhenOptions() {
+    const select = $("importWhen");
+    const previous = select.value || "spread";
+    select.innerHTML = "";
+    const whole = document.createElement("option");
+    whole.value = "spread";
+    whole.textContent = t("wholeDay");
+    select.appendChild(whole);
+    for (let h = prefs.start; h < prefs.end; h++) {
+      const opt = document.createElement("option");
+      opt.value = String(h);
+      opt.textContent = fill(t("oneHour"), { hour: hh(h) });
+      select.appendChild(opt);
+    }
+    select.value = [...select.options].some((o) => o.value === previous) ? previous : "spread";
+  }
   function applyLanguage() {
     document.documentElement.lang = lang.replace("_", "-");
     document.querySelectorAll("[data-i18n]").forEach((el) => {
@@ -207,113 +420,193 @@
     document.querySelectorAll("[data-i18n-placeholder]").forEach((el) => {
       el.placeholder = t(el.dataset.i18nPlaceholder);
     });
-    if ($("importWhen")) {
-      importWhenOptions();
-    }
     $("lang").value = lang;
+    importWhenOptions();
   }
 
-  function hourOptions(select, from, to, value) {
-    select.innerHTML = "";
-    for (let h = from; h <= to; h++) {
-      const opt = document.createElement("option");
-      opt.value = h;
-      opt.textContent = String(h).padStart(2, "0") + ":00";
-      if (h === value) opt.selected = true;
-      select.appendChild(opt);
+  // ---------- app list (step 2) ----------
+  function appGroups() {
+    const groups = new Map();
+    for (const e of state.entries) {
+      const key = keyOf(e.app);
+      if (!key) continue;
+      const group = groups.get(key) || { key, app: e.app.trim(), minutes: 0, category: e.category || categoryFor(e.app) };
+      group.minutes += Number(e.minutes) || 0;
+      groups.set(key, group);
     }
+    return [...groups.values()].sort((a, b) => b.minutes - a.minutes);
   }
 
-  function defaultHour() {
-    const now = new Date().getHours();
-    return Math.min(prefs.end - 1, Math.max(prefs.start, now));
+  function spreadEntries(app, minutes) {
+    return PipsImport.placeEntries([{ app, minutes }], { mode: "spread", startHour: prefs.start, endHour: prefs.end })
+      .map((e) => ({ app: e.app, hour: e.hour, minutes: e.minutes, category: categoryFor(app) }));
   }
 
-  function renderChips() {
-    const box = $("chips");
-    box.innerHTML = "";
-    for (const app of QUICK_APPS) {
-      const b = document.createElement("button");
-      b.className = "chip " + categoryFor(app);
-      b.textContent = "+ " + app;
-      b.onclick = () => {
-        state.entries.push({ app, hour: defaultHour(), minutes: 15, category: categoryFor(app) });
-        commit();
-      };
-      box.appendChild(b);
-    }
-  }
-
-  function renderEntries() {
-    const box = $("entries");
-    box.innerHTML = "";
-    if (!state.entries.length) {
-      const p = document.createElement("div");
-      p.className = "empty";
-      p.textContent = t("empty");
-      box.appendChild(p);
+  // Change an app's total but keep the hours it already has.
+  function setAppMinutes(key, minutes) {
+    const own = state.entries.filter((e) => keyOf(e.app) === key);
+    if (!own.length) return;
+    if (!(minutes > 0)) {
+      removeApp(key);
       return;
     }
-    state.entries.forEach((entry, index) => {
+    const old = own.reduce((s, e) => s + Number(e.minutes), 0) || 1;
+    let remaining = minutes;
+    own.forEach((e, i) => {
+      const share = i === own.length - 1 ? remaining : Math.round((Number(e.minutes) * minutes) / old);
+      e.minutes = Math.max(1, Math.min(60, share));
+      remaining -= e.minutes;
+    });
+    if (remaining > 0) {
+      state.entries.push(...spreadEntries(own[0].app, remaining));
+    } else if (remaining < 0) {
+      for (const e of own.slice().sort((a, b) => b.minutes - a.minutes)) {
+        const cut = Math.min(-remaining, e.minutes - 1);
+        e.minutes -= cut;
+        remaining += cut;
+        if (!remaining) break;
+      }
+    }
+  }
+  function removeApp(key) {
+    state.entries = state.entries.filter((e) => keyOf(e.app) !== key);
+  }
+  function cycleCategory(key) {
+    const next = CYCLE[(appGroups().find((g) => g.key === key) || {}).category] || "neutral";
+    userCats[key] = next;
+    store.setItem("pt.cats", JSON.stringify(userCats));
+    state.entries.forEach((e) => {
+      if (keyOf(e.app) === key) e.category = next;
+    });
+  }
+  function renameApp(key, name) {
+    const clean = name.trim();
+    if (!clean) return;
+    state.entries.forEach((e) => {
+      if (keyOf(e.app) === key) {
+        e.app = clean;
+        e.category = categoryFor(clean);
+      }
+    });
+  }
+
+  function renderApps() {
+    const box = $("apps");
+    box.innerHTML = "";
+    const groups = appGroups();
+    $("legend").hidden = !groups.length;
+    document.body.classList.toggle("has-data", groups.length > 0);
+    $("step1").classList.toggle("done", groups.length > 0);
+    const total = groups.reduce((s, g) => s + g.minutes, 0);
+    $("summary").textContent = groups.length ? fill(t("summary"), { time: fmtMinutes(total), n: groups.length }) : "";
+    if (!groups.length) {
+      $("showAll").hidden = true;
+      const empty = document.createElement("div");
+      empty.className = "empty";
+      empty.textContent = t("emptyList");
+      box.appendChild(empty);
+      return;
+    }
+    const more = $("showAll");
+    more.hidden = groups.length <= SHORT_LIST;
+    more.textContent = showAllApps ? t("showLess") : fill(t("showAll"), { n: groups.length });
+    const visible = showAllApps ? groups : groups.slice(0, SHORT_LIST);
+    for (const g of visible) {
       const row = document.createElement("div");
-      row.className = "entry";
+      row.className = "app-row";
 
-      const app = document.createElement("input");
-      app.className = "app";
-      app.value = entry.app;
-      app.placeholder = t("appPlaceholder");
-      app.onchange = () => {
-        entry.app = app.value.trim();
-        entry.category = categoryFor(entry.app);
+      const dot = document.createElement("button");
+      dot.className = "dot " + g.category;
+      dot.title = t(g.category);
+      dot.setAttribute("aria-label", t(g.category));
+      dot.onclick = () => {
+        cycleCategory(g.key);
         commit();
       };
 
-      const hour = document.createElement("select");
-      hourOptions(hour, prefs.start, prefs.end - 1, Number(entry.hour));
-      hour.onchange = () => {
-        entry.hour = Number(hour.value);
-        commit(false);
-      };
-
-      const minutes = document.createElement("input");
-      minutes.className = "min";
-      minutes.type = "number";
-      minutes.min = "1";
-      minutes.max = "60";
-      minutes.inputMode = "numeric";
-      minutes.value = entry.minutes;
-      minutes.oninput = () => {
-        entry.minutes = Math.max(0, Math.min(60, Number(minutes.value) || 0));
-        commit(false);
-      };
-
-      const cat = document.createElement("button");
-      cat.className = "cat " + entry.category;
-      cat.title = t(entry.category);
-      cat.onclick = () => {
-        entry.category = CYCLE[entry.category] || "neutral";
-        if (entry.app) {
-          userCats[entry.app.trim().toLowerCase()] = entry.category;
-          store.setItem("pt.cats", JSON.stringify(userCats));
-          state.entries.forEach((e) => {
-            if (e.app.trim().toLowerCase() === entry.app.trim().toLowerCase()) e.category = entry.category;
-          });
-        }
+      const name = document.createElement("input");
+      name.className = "name";
+      name.value = g.app;
+      name.onchange = () => {
+        renameApp(g.key, name.value);
         commit();
       };
+
+      const mins = document.createElement("input");
+      mins.className = "mins";
+      mins.type = "number";
+      mins.min = "0";
+      mins.inputMode = "numeric";
+      mins.value = g.minutes;
+      mins.onchange = () => {
+        setAppMinutes(g.key, Math.round(Number(mins.value) || 0));
+        commit();
+      };
+
+      const unit = document.createElement("span");
+      unit.className = "unit";
+      unit.textContent = "min";
 
       const del = document.createElement("button");
       del.className = "del";
       del.textContent = "×";
+      del.setAttribute("aria-label", "remove");
       del.onclick = () => {
-        state.entries.splice(index, 1);
+        removeApp(g.key);
         commit();
       };
-      row.append(app, hour, minutes, cat, del);
+      row.append(dot, name, mins, unit, del);
       box.appendChild(row);
-    });
+    }
   }
 
+  // Per-hour table inside "Times of day"
+  function renderEntries() {
+    const box = $("entries");
+    box.innerHTML = "";
+    state.entries
+      .map((entry, index) => ({ entry, index }))
+      .sort((a, b) => a.entry.hour - b.entry.hour)
+      .forEach(({ entry, index }) => {
+        const row = document.createElement("div");
+        row.className = "entry";
+        const hour = document.createElement("select");
+        hourOptions(hour, prefs.start, prefs.end - 1, Number(entry.hour));
+        hour.onchange = () => {
+          entry.hour = Number(hour.value);
+          commit();
+        };
+        const app = document.createElement("input");
+        app.value = entry.app;
+        app.onchange = () => {
+          entry.app = app.value.trim();
+          entry.category = categoryFor(entry.app);
+          commit();
+        };
+        const minutes = document.createElement("input");
+        minutes.type = "number";
+        minutes.min = "1";
+        minutes.max = "60";
+        minutes.inputMode = "numeric";
+        minutes.value = entry.minutes;
+        minutes.onchange = () => {
+          entry.minutes = Math.max(0, Math.min(60, Number(minutes.value) || 0));
+          state.entries = state.entries.filter((e) => e.minutes > 0);
+          commit();
+        };
+        const del = document.createElement("button");
+        del.className = "del";
+        del.textContent = "×";
+        del.onclick = () => {
+          state.entries.splice(index, 1);
+          commit();
+        };
+        row.append(hour, app, minutes, del);
+        box.appendChild(row);
+      });
+  }
+
+  // ---------- sticker (step 3) ----------
   function labels() {
     return {
       screen: t("screen"), productive: t("productive"), pickups: t("pickupsCol"), noData: t("noData"),
@@ -321,14 +614,12 @@
       keyKinks: t("keyKinks"), keyLoops: t("keyLoops"), top: t("top"),
     };
   }
-
   function stickerTitle() {
     const d = new Date(day + "T12:00:00");
     const locale = { en: "en-GB", id: "id-ID", zh_TW: "zh-TW", zh_CN: "zh-CN" }[lang];
     const dateText = d.toLocaleDateString(locale, { weekday: "short", day: "numeric", month: "short" });
-    return `${dateText}  ·  ${String(prefs.start).padStart(2, "0")}:00-${String(prefs.end).padStart(2, "0")}:00`;
+    return `${dateText}  ·  ${hh(prefs.start)}-${hh(prefs.end)}`;
   }
-
   function renderSticker() {
     const hours = PipsTrail.hoursFromEntries(state.entries, prefs.start, prefs.end);
     PipsTrail.renderSticker($("canvas"), {
@@ -336,7 +627,6 @@
       accent: prefs.accent, background: prefs.bg, title: stickerTitle(), labels: labels(),
     });
   }
-
   function renderSwatches() {
     const box = $("swatches");
     box.innerHTML = "";
@@ -344,127 +634,61 @@
       const s = document.createElement("button");
       s.className = "sw" + (color === prefs.accent ? " on" : "");
       s.style.background = color;
+      s.setAttribute("aria-label", color);
       s.onclick = () => {
         prefs.accent = color;
         savePrefs();
-        document.documentElement.style.setProperty("--accent", color);
         document.documentElement.style.setProperty("--prod", color);
         renderSwatches();
+        renderApps();
         renderSticker();
       };
       box.appendChild(s);
     }
   }
 
-  function commit(rebuildRows = true) {
+  function commit() {
     saveDay();
-    if (rebuildRows) {
-      renderEntries();
-      renderChips();
-    }
+    $("pickups").value = state.pickups || "";
+    renderApps();
+    renderEntries();
     renderSticker();
   }
 
-  function canvasBlob() {
-    return new Promise((resolve) => $("canvas").toBlob(resolve, "image/png"));
-  }
-
-  async function share() {
-    const blob = await canvasBlob();
-    const file = new File([blob], `pips-phone-trail-${day}.png`, { type: "image/png" });
-    const sum = PipsTrail.summarize(PipsTrail.hoursFromEntries(state.entries, prefs.start, prefs.end));
-    const textLine = `${t("screen")} ${PipsTrail.fmtDuration(sum.screen)} · ${t("productive")} ${PipsTrail.fmtDuration(sum.productive)} #PipsTrail`;
-    if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      try {
-        await navigator.share({ files: [file], text: textLine });
-        return;
-      } catch (err) {
-        if (err && err.name === "AbortError") return;
-      }
-    }
-    if (navigator.clipboard && window.ClipboardItem) {
-      try {
-        await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
-        toast(t("copied"));
-        return;
-      } catch (err) {
-        /* fall through to download */
-      }
-    }
-    download(blob);
-  }
-
-  function download(blob) {
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `pips-phone-trail-${day}.png`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 2000);
-    toast(t("savedToast"));
-  }
-
-  function detectPlatform() {
-    const ua = navigator.userAgent || "";
-    if (/Android/i.test(ua)) {
-      return "android";
-    }
-    if (/iPhone|iPad|iPod/i.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1)) {
-      return "ios";
-    }
-    return "other";
-  }
-
-  // ---- Import from a Screen Time / Digital Wellbeing screenshot (read on the phone, nothing uploaded) ----
-  const OCR_SCRIPT = "https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js";
-  const OCR_LANGS = { en: "eng", id: "eng", zh_TW: "chi_tra+eng", zh_CN: "chi_sim+eng" };
-
-  function fill(template, values) {
-    return template.replace(/\{(\w+)\}/g, (_, key) => (key in values ? values[key] : ""));
-  }
-
-  function hh(hour) {
-    return String(hour).padStart(2, "0") + ":00";
-  }
-
-  function importWhenOptions() {
-    const select = $("importWhen");
-    const previous = select.value || "spread";
-    select.innerHTML = "";
-    const spread = document.createElement("option");
-    spread.value = "spread";
-    spread.textContent = fill(t("importSpread"), { start: hh(prefs.start), end: hh(prefs.end) });
-    select.appendChild(spread);
-    for (let h = prefs.start; h < prefs.end; h++) {
-      const opt = document.createElement("option");
-      opt.value = String(h);
-      opt.textContent = fill(t("importAt"), { hour: hh(h) });
-      select.appendChild(opt);
-    }
-    select.value = [...select.options].some((o) => o.value === previous) ? previous : "spread";
-  }
-
-  function importStatus(message) {
-    $("importStatus").textContent = message || "";
-  }
-
-  function previewImport() {
-    const parsed = PipsImport.parseUsageText($("importText").value);
+  // ---------- step 1: getting data in ----------
+  function applyParsed(parsed) {
     if (!parsed.apps.length) {
-      importStatus(t("importNone"));
-      return parsed;
+      setStatus(t("noneFound"), "warn");
+      return false;
     }
-    const minutes = parsed.apps.reduce((sum, a) => sum + a.minutes, 0);
-    importStatus(fill(t("importFound"), { n: parsed.apps.length, time: PipsTrail.fmtDuration(minutes * 60) }));
-    return parsed;
+    const when = $("importWhen").value;
+    const options = { startHour: prefs.start, endHour: prefs.end };
+    let placed;
+    if (when === "spread") {
+      if (state.entries.length && !confirm(t("replaceAsk"))) {
+        setStatus("");
+        return false;
+      }
+      placed = PipsImport.placeEntries(parsed.apps, Object.assign({ mode: "spread" }, options));
+      state.entries = [];
+      if (parsed.pickups !== null) state.pickups = String(parsed.pickups);
+    } else {
+      const hour = Number(when);
+      placed = PipsImport.placeEntries(parsed.apps, Object.assign({ mode: "hour", hour }, options));
+      state.entries = state.entries.filter((e) => Number(e.hour) !== hour);
+    }
+    for (const e of placed) {
+      state.entries.push({ app: e.app, hour: e.hour, minutes: e.minutes, category: categoryFor(e.app) });
+    }
+    commit();
+    const minutes = parsed.apps.reduce((s, a) => s + a.minutes, 0);
+    setStatus(fill(t("foundOk"), { n: parsed.apps.length, time: fmtMinutes(minutes) }), "ok");
+    $("step2").scrollIntoView({ behavior: "smooth", block: "start" });
+    return true;
   }
 
   function loadOcr() {
-    if (window.Tesseract) {
-      return Promise.resolve(window.Tesseract);
-    }
+    if (window.Tesseract) return Promise.resolve(window.Tesseract);
     return new Promise((resolve, reject) => {
       const script = document.createElement("script");
       script.src = OCR_SCRIPT;
@@ -502,7 +726,7 @@
   }
 
   async function readScreenshot(file) {
-    importStatus(t("importLoading"));
+    setStatus(t("loadingOcr"), "", true);
     let worker = null;
     try {
       const Tesseract = await loadOcr();
@@ -510,89 +734,93 @@
       worker = await Tesseract.createWorker(OCR_LANGS[lang] || "eng", 1, {
         logger: (m) => {
           if (m.status === "recognizing text") {
-            importStatus(fill(t("importReading"), { pct: Math.round(m.progress * 100) }));
+            setStatus(fill(t("readingPct"), { pct: Math.round(m.progress * 100) }), "", true);
           }
         },
       });
       const result = await worker.recognize(canvas);
-      $("importText").value = result.data.text.trim();
-      previewImport();
+      const text = result.data.text.trim();
+      $("importText").value = text;
+      applyParsed(PipsImport.parseUsageText(text));
     } catch (err) {
-      importStatus(t("importFailed"));
+      setStatus(t("readFailed"), "warn");
+      $("pasteBox").hidden = false;
     } finally {
-      if (worker) {
-        worker.terminate().catch(() => {});
-      }
+      if (worker) worker.terminate().catch(() => {});
     }
   }
 
-  function applyImport() {
-    const parsed = previewImport();
-    if (!parsed.apps.length) {
+  function addTyped() {
+    const app = $("newApp").value.trim();
+    const minutes = Math.round(Number($("newMinutes").value) || 0);
+    if (!app || minutes <= 0) {
+      (app ? $("newMinutes") : $("newApp")).focus();
       return;
     }
-    const when = $("importWhen").value;
-    const options = { startHour: prefs.start, endHour: prefs.end };
-    let placed;
-    if (when === "spread") {
-      if (state.entries.length && !confirm(t("importReplace"))) {
-        return;
-      }
-      placed = PipsImport.placeEntries(parsed.apps, Object.assign({ mode: "spread" }, options));
-      state.entries = [];
-      if (parsed.pickups !== null) {
-        state.pickups = String(parsed.pickups);
-        $("pickups").value = state.pickups;
-      }
+    const key = keyOf(app);
+    const existing = appGroups().find((g) => g.key === key);
+    if (existing) {
+      setAppMinutes(key, existing.minutes + minutes);
     } else {
-      const hour = Number(when);
-      placed = PipsImport.placeEntries(parsed.apps, Object.assign({ mode: "hour", hour }, options));
-      state.entries = state.entries.filter((e) => Number(e.hour) !== hour);
+      state.entries.push(...spreadEntries(app, minutes));
     }
-    for (const entry of placed) {
-      state.entries.push({ app: entry.app, hour: entry.hour, minutes: entry.minutes, category: categoryFor(entry.app) });
-    }
+    $("newApp").value = "";
+    $("newMinutes").value = "";
     commit();
-    toast(fill(t("importAdded"), { n: parsed.apps.length }));
-    $("importPanel").hidden = true;
+    $("newApp").focus();
   }
 
-  function initImport() {
-    importWhenOptions();
-    $("importToggle").onclick = () => {
-      $("importPanel").hidden = !$("importPanel").hidden;
-    };
-    $("importFile").onchange = () => {
-      const file = $("importFile").files[0];
-      $("importFile").value = "";
-      if (file) {
-        readScreenshot(file);
+  // ---------- share ----------
+  function canvasBlob() {
+    return new Promise((resolve) => $("canvas").toBlob(resolve, "image/png"));
+  }
+  async function share() {
+    const blob = await canvasBlob();
+    const file = new File([blob], `pips-phone-trail-${day}.png`, { type: "image/png" });
+    const sum = PipsTrail.summarize(PipsTrail.hoursFromEntries(state.entries, prefs.start, prefs.end));
+    const textLine = `${t("screen")} ${PipsTrail.fmtDuration(sum.screen)} · ${t("productive")} ${PipsTrail.fmtDuration(sum.productive)} #PipsTrail`;
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({ files: [file], text: textLine });
+        return;
+      } catch (err) {
+        if (err && err.name === "AbortError") return;
       }
-    };
-    $("importText").oninput = () => {
-      if ($("importText").value.trim()) {
-        previewImport();
-      } else {
-        importStatus("");
+    }
+    if (navigator.clipboard && window.ClipboardItem) {
+      try {
+        await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+        toast(t("copied"));
+        return;
+      } catch (err) {
+        /* fall through to download */
       }
-    };
-    $("importApply").onclick = applyImport;
+    }
+    download(blob);
+  }
+  function download(blob) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `pips-phone-trail-${day}.png`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+    toast(t("savedToast"));
   }
 
+  // ---------- wiring ----------
   function init() {
     const platform = detectPlatform();
-    if (platform !== "other") {
-      document.body.classList.add("is-" + platform);
-    }
+    if (platform !== "other") document.body.classList.add("is-" + platform);
     applyLanguage();
-    initImport();
-    document.documentElement.style.setProperty("--accent", prefs.accent);
     document.documentElement.style.setProperty("--prod", prefs.accent);
     $("date").value = day;
-    $("pickups").value = state.pickups || "";
     $("bg").value = prefs.bg;
     hourOptions($("start"), 0, 22, prefs.start);
     hourOptions($("end"), 1, 24, prefs.end);
+    $("appNames").innerHTML = QUICK_APPS.map((a) => `<option value="${a}">`).join("");
 
     $("lang").onchange = () => {
       lang = $("lang").value;
@@ -603,12 +831,48 @@
     $("date").onchange = () => {
       day = $("date").value || todayIso();
       state = loadDay(day);
-      $("pickups").value = state.pickups || "";
+      setStatus("");
       commit();
+    };
+    $("importFile").onchange = () => {
+      const file = $("importFile").files[0];
+      $("importFile").value = "";
+      if (file) readScreenshot(file);
+    };
+    $("typeToggle").onclick = () => {
+      $("typeBox").hidden = !$("typeBox").hidden;
+      $("pasteBox").hidden = true;
+      if (!$("typeBox").hidden) $("newApp").focus();
+    };
+    $("pasteToggle").onclick = () => {
+      $("pasteBox").hidden = !$("pasteBox").hidden;
+      $("typeBox").hidden = true;
+      if (!$("pasteBox").hidden) $("importText").focus();
+    };
+    $("addApp").onclick = addTyped;
+    $("newMinutes").onkeydown = (ev) => {
+      if (ev.key === "Enter") addTyped();
+    };
+    $("importApply").onclick = () => {
+      if (applyParsed(PipsImport.parseUsageText($("importText").value))) $("pasteBox").hidden = true;
+    };
+    $("sample").onclick = () => {
+      state.entries = SAMPLE.map(([hour, app, minutes, category]) => ({ app, hour, minutes, category }));
+      state.pickups = "63";
+      setStatus("");
+      commit();
+    };
+    $("clear").onclick = () => {
+      if (!state.entries.length || confirm(t("clearConfirm"))) {
+        state = { entries: [], pickups: "" };
+        setStatus("");
+        commit();
+      }
     };
     $("pickups").oninput = () => {
       state.pickups = $("pickups").value;
-      commit(false);
+      saveDay();
+      renderSticker();
     };
     $("start").onchange = () => {
       prefs.start = Math.min(Number($("start").value), prefs.end - 1);
@@ -627,24 +891,9 @@
       savePrefs();
       renderSticker();
     };
-    $("add").onclick = () => {
-      state.entries.push({ app: "", hour: defaultHour(), minutes: 10, category: "neutral" });
-      commit();
-      const inputs = document.querySelectorAll(".entry input.app");
-      if (inputs.length) inputs[inputs.length - 1].focus();
-    };
-    $("sample").onclick = () => {
-      state.entries = SAMPLE.map(([hour, app, minutes, category]) => ({ app, hour, minutes, category }));
-      state.pickups = "63";
-      $("pickups").value = "63";
-      commit();
-    };
-    $("clear").onclick = () => {
-      if (!state.entries.length || confirm(t("clearConfirm"))) {
-        state = { entries: [], pickups: "" };
-        $("pickups").value = "";
-        commit();
-      }
+    $("showAll").onclick = () => {
+      showAllApps = !showAllApps;
+      renderApps();
     };
     $("share").onclick = share;
     $("save").onclick = async () => download(await canvasBlob());
@@ -654,9 +903,7 @@
     if ("serviceWorker" in navigator && location.protocol === "https:") {
       navigator.serviceWorker.register("sw.js").catch(() => {});
     }
-    if (new URLSearchParams(location.search).has("sample")) {
-      $("sample").click();
-    }
+    if (new URLSearchParams(location.search).has("sample")) $("sample").click();
   }
 
   init();

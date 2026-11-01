@@ -12,79 +12,115 @@
   <link rel="apple-touch-icon" href="icon-180.png">
   <style>
     :root {
-      --bg: #16171c; --card: #22242b; --ink: #f4f2ee; --muted: #9a9ca6; --line: #33363f;
-      --accent: #D0484C; --prod: #D0484C; --neu: #eba9ab; --dis: #9696a0;
+      --bg: #16171c; --card: #22242b; --card2: #2b2e36; --ink: #f4f2ee; --muted: #9a9ca6; --line: #33363f;
+      --accent: #D0484C; --prod: #D0484C; --neu: #eba9ab; --dis: #9696a0; --ok: #5bd18b;
     }
     * { box-sizing: border-box; }
     html, body { margin: 0; background: var(--bg); color: var(--ink);
-      font: 16px/1.4 "Segoe UI", system-ui, -apple-system, "PingFang TC", "Microsoft JhengHei", sans-serif; }
-    body { padding: env(safe-area-inset-top) 0 calc(env(safe-area-inset-bottom) + 90px); }
-    header { display: flex; align-items: center; gap: 12px; padding: 16px 18px 6px; }
+      font: 16px/1.45 "Segoe UI", system-ui, -apple-system, "PingFang TC", "Microsoft JhengHei", sans-serif; }
+    body { padding: env(safe-area-inset-top) 0 calc(env(safe-area-inset-bottom) + 24px); overflow-x: hidden; }
+    body.has-data { padding-bottom: calc(env(safe-area-inset-bottom) + 96px); }
+    header { display: flex; align-items: center; gap: 12px; padding: 16px 18px 4px; max-width: 560px; margin: 0 auto; }
     header .logo { width: 40px; height: 40px; border-radius: 12px; background: var(--accent);
-      display: grid; place-items: center; font-weight: 900; font-size: 22px; }
+      display: grid; place-items: center; font-weight: 900; font-size: 22px; flex: none; }
     header h1 { font-size: 20px; margin: 0; }
     header p { margin: 0; color: var(--muted); font-size: 13px; }
-    header select { margin-left: auto; background: var(--card); color: var(--ink); border: 1px solid var(--line);
-      border-radius: 10px; padding: 6px 8px; font-size: 13px; }
+    header select { margin-left: auto; }
     main { max-width: 560px; margin: 0 auto; padding: 0 14px; }
-    .card { background: var(--card); border-radius: 18px; padding: 14px; margin: 12px 0; }
-    .card h2 { font-size: 15px; margin: 0 0 10px; display: flex; flex-wrap: wrap; align-items: baseline;
-      gap: 2px 8px; }
-    .card h2 .hint { margin-left: auto; font-weight: 400; color: var(--muted); font-size: 12px; }
-    .card, .row > div { min-width: 0; }
-    body { overflow-x: hidden; }
-    .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-    label.small { color: var(--muted); font-size: 12px; display: block; margin-bottom: 4px; }
-    input, select { font: inherit; color: var(--ink); background: #2b2e36; border: 1px solid var(--line);
-      border-radius: 10px; padding: 9px 10px; min-width: 0; }
-    input[type=date] { color-scheme: dark; }
-    .chips { display: flex; flex-wrap: wrap; gap: 6px; }
-    .chip { border: 0; border-radius: 999px; padding: 7px 12px; font: inherit; font-size: 14px; color: #111;
-      cursor: pointer; }
-    .chip.productive { background: var(--prod); color: #fff; }
-    .chip.neutral { background: var(--neu); }
-    .chip.distracting { background: var(--dis); }
-    .entries { display: flex; flex-direction: column; gap: 8px; }
-    .entry { display: grid; grid-template-columns: 1fr 76px 70px 34px 30px; gap: 6px; align-items: center; }
-    .entry input.app { width: 100%; }
-    .entry select, .entry input.min { width: 100%; padding: 9px 6px; }
-    .cat { width: 34px; height: 34px; border-radius: 50%; border: 2px solid #fff3; cursor: pointer; }
-    .cat.productive { background: var(--prod); } .cat.neutral { background: var(--neu); } .cat.distracting { background: var(--dis); }
-    .del { background: none; border: 0; color: var(--muted); font-size: 22px; cursor: pointer; }
-    .empty { color: var(--muted); font-size: 14px; text-align: center; padding: 10px; }
-    .btn { border: 0; border-radius: 12px; padding: 11px 14px; font: inherit; font-weight: 600; cursor: pointer;
-      background: #2f323b; color: var(--ink); }
+
+    .card { background: var(--card); border-radius: 20px; padding: 16px; margin: 14px 0; min-width: 0; }
+    .step-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+    .step-head h2 { font-size: 18px; margin: 0; flex: 1; }
+    .num { width: 28px; height: 28px; border-radius: 50%; background: var(--accent); color: #fff; flex: none;
+      display: grid; place-items: center; font-weight: 800; font-size: 15px; }
+    .card.done .num { background: var(--ok); color: #10301d; }
+    .side { color: var(--muted); font-size: 13px; text-align: right; }
+
+    input, select, textarea { font: inherit; color: var(--ink); background: var(--card2); border: 1px solid var(--line);
+      border-radius: 12px; padding: 10px 12px; min-width: 0; }
+    input[type=date] { color-scheme: dark; padding: 6px 10px; font-size: 14px; }
+    select { padding: 8px 10px; font-size: 14px; }
+    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: 0; border-radius: 14px;
+      padding: 12px 16px; font: inherit; font-weight: 650; cursor: pointer; background: var(--card2); color: var(--ink);
+      text-decoration: none; }
     .btn.primary { background: var(--accent); color: #fff; }
-    .preview { position: relative; border-radius: 18px; overflow: hidden;
+    .btn.big { width: 100%; padding: 16px; font-size: 17px; border-radius: 16px; }
+    .file-btn { position: relative; overflow: hidden; }
+    .file-btn input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+    .help { margin: 10px 2px 0; color: var(--muted); font-size: 14px; }
+    .status { margin: 12px 0 0; font-size: 15px; min-height: 0; }
+    .status:empty { display: none; }
+    .status.ok { color: var(--ok); }
+    .status.warn { color: #ffb36b; }
+    .links { display: flex; flex-wrap: wrap; gap: 6px 16px; justify-content: center; margin-top: 14px; }
+    .link { background: none; border: 0; color: var(--ink); opacity: .8; font: inherit; font-size: 14px; cursor: pointer;
+      text-decoration: underline; text-underline-offset: 3px; padding: 4px 0; }
+    .android-box { display: none; background: var(--card2); border-radius: 16px; padding: 12px; margin-bottom: 12px; }
+    body.is-android .android-box { display: block; }
+    .android-box p { margin: 0 0 10px; font-size: 14px; }
+    .android-box .sub { margin: 8px 0 0; color: var(--muted); font-size: 13px; }
+    .help-android { display: none; }
+    body.is-android .help-android { display: block; }
+    body.is-android .help-ios { display: none; }
+    .or { text-align: center; color: var(--muted); font-size: 13px; margin: 0 0 12px; display: none; }
+    body.is-android .or { display: block; }
+    .box { background: var(--card2); border-radius: 16px; padding: 12px; margin-top: 12px; }
+    .box[hidden] { display: none; }
+    .box p { margin: 0 0 8px; font-size: 13px; color: var(--muted); }
+    .box textarea { width: 100%; background: #1f2128; font-size: 14px; }
+    .row { display: flex; gap: 8px; align-items: center; }
+    .row > input.grow { flex: 1; }
+
+    .apps { display: flex; flex-direction: column; gap: 8px; }
+    .app-row { display: flex; align-items: center; gap: 10px; background: var(--card2); border-radius: 14px; padding: 8px 10px; }
+    .app-row .name { flex: 1; background: none; border: 0; padding: 6px 0; font-weight: 600; }
+    .app-row .mins { width: 64px; text-align: right; padding: 6px 8px; }
+    .app-row .unit { color: var(--muted); font-size: 13px; margin-left: -4px; }
+    .dot { width: 30px; height: 30px; border-radius: 50%; border: 2px solid #fff3; cursor: pointer; flex: none; }
+    .dot.productive { background: var(--prod); } .dot.neutral { background: var(--neu); } .dot.distracting { background: var(--dis); }
+    .del { background: none; border: 0; color: var(--muted); font-size: 22px; cursor: pointer; padding: 0 4px; }
+    .empty { color: var(--muted); text-align: center; padding: 18px 8px; font-size: 15px; }
+    .legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 13px; color: var(--muted); margin: 0 0 10px; }
+    .legend i { display: inline-block; width: 12px; height: 12px; border-radius: 50%; vertical-align: -1px; margin-right: 5px; }
+    .legend[hidden] { display: none; }
+
+    details { margin-top: 12px; }
+    details summary { cursor: pointer; color: var(--muted); font-size: 14px; padding: 6px 0; list-style-position: inside; }
+    details .inner { padding-top: 8px; }
+    .settings { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+    .settings label { font-size: 12px; color: var(--muted); display: block; margin-bottom: 4px; }
+    .settings .wide { grid-column: 1 / -1; }
+    .entries { display: flex; flex-direction: column; gap: 6px; }
+    .entry { display: grid; grid-template-columns: 82px 1fr 64px 30px; gap: 6px; align-items: center; }
+    .entry select, .entry input { width: 100%; padding: 8px 6px; font-size: 14px; }
+    .ghost { background: none; border: 0; color: var(--muted); font: inherit; font-size: 13px; cursor: pointer;
+      padding: 10px 0 0; text-decoration: underline; }
+
+    .preview { border-radius: 18px; overflow: hidden;
       background: repeating-conic-gradient(#2a2c33 0 25%, #23252b 0 50%) 0 0 / 24px 24px; }
     .preview canvas { width: 100%; height: auto; display: block; }
+    .style-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
     .swatches { display: flex; gap: 8px; }
     .sw { width: 30px; height: 30px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; }
     .sw.on { border-color: #fff; }
-    .legend { display: flex; gap: 12px; font-size: 12px; color: var(--muted); flex-wrap: wrap; }
-    .legend i { display: inline-block; width: 18px; height: 5px; border-radius: 3px; vertical-align: middle; margin-right: 5px; }
-    .how { font-size: 13px; color: var(--muted); margin: 6px 0 0; padding-left: 18px; }
+    .how { font-size: 14px; color: var(--muted); margin: 6px 0 0; padding-left: 18px; }
+
     .bar { position: fixed; left: 0; right: 0; bottom: 0; padding: 10px 14px calc(env(safe-area-inset-bottom) + 10px);
-      background: #16171ce6; backdrop-filter: blur(10px); display: flex; gap: 8px; justify-content: center; }
-    .bar .btn { flex: 1; max-width: 180px; }
-    .toast { position: fixed; left: 50%; bottom: 96px; transform: translateX(-50%); background: #000c; color: #fff;
-      padding: 8px 14px; border-radius: 999px; font-size: 14px; opacity: 0; transition: opacity .2s; pointer-events: none; }
+      background: #16171ce6; backdrop-filter: blur(10px); display: none; gap: 8px; justify-content: center; }
+    body.has-data .bar { display: flex; }
+    .bar .btn { flex: 1; max-width: 200px; }
+    footer { max-width: 560px; margin: 0 auto; padding: 4px 18px; color: var(--muted); font-size: 12px; text-align: center; }
+    footer a { color: var(--muted); }
+    .toast { position: fixed; left: 50%; bottom: 100px; transform: translateX(-50%); background: #000d; color: #fff;
+      padding: 9px 16px; border-radius: 999px; font-size: 14px; opacity: 0; transition: opacity .2s; pointer-events: none; }
     .toast.show { opacity: 1; }
-    .auto-text { margin: 0 0 10px; font-size: 14px; color: var(--ink); }
-    .auto .btn.auto-get { display: inline-block; text-decoration: none; text-align: center; width: 100%; }
-    .auto-steps { margin: 10px 0 0; }
-    .auto-ios { color: var(--muted); font-size: 13px; margin: 10px 0 0; }
-    body.is-android .auto-ios, body.is-ios .auto-android { display: none; }
-    body.is-ios .auto-ios { color: var(--ink); margin: 0; }
-    .import { background: #2b2e36; border-radius: 14px; padding: 12px; margin: 4px 0 12px; }
-    .import[hidden] { display: none; }
-    .import-how, .import-note { margin: 0 0 10px; font-size: 13px; color: var(--muted); }
-    .import-note { margin: 10px 0 0; }
-    .import-status { margin: 8px 0; font-size: 13px; min-height: 1em; }
-    .import textarea { width: 100%; font: 13px/1.35 ui-monospace, Menlo, Consolas, monospace; color: var(--ink);
-      background: #1f2128; border: 1px solid var(--line); border-radius: 10px; padding: 8px; resize: vertical; }
-    .file-btn { display: inline-block; position: relative; overflow: hidden; }
-    .file-btn input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+    .spin { display: inline-block; width: 14px; height: 14px; border: 2px solid #fff4; border-top-color: #fff; border-radius: 50%;
+      animation: spin 0.8s linear infinite; vertical-align: -2px; margin-right: 6px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .when-empty { color: var(--muted); text-align: center; padding: 14px 8px 6px; font-size: 15px; }
+    body.has-data .when-empty { display: none; }
+    body:not(.has-data) .when-data { display: none !important; }
+    .more { width: 100%; margin-top: 8px; }
   </style>
 </head>
 <body>
@@ -103,84 +139,121 @@
   </header>
 
   <main>
-    <section class="card auto" id="auto">
-      <h2><span data-i18n="autoTitle">Automatic</span><span class="hint" data-i18n="autoHint">no typing</span></h2>
-      <div class="auto-android">
-        <p class="auto-text" data-i18n="autoAndroid">Android: get the app. It reads your screen time by itself and keeps a trail for every day.</p>
-        <a class="btn primary auto-get" href="download/PipsPhoneTrail.apk" download data-i18n="autoGet">Download Android app</a>
-        <ol class="how auto-steps">
-          <li data-i18n="autoStep1">Open the download and tap Install (allow installs from your browser once).</li>
-          <li data-i18n="autoStep2">In Phone Trail tap Open settings and switch on Usage access.</li>
-          <li data-i18n="autoStep3">Done: your trail fills in by itself. Tap an app to change its type.</li>
-        </ol>
+    <!-- Step 1: get the data in -->
+    <section class="card" id="step1">
+      <div class="step-head">
+        <span class="num">1</span>
+        <h2 data-i18n="s1">Add your screen time</h2>
+        <input id="date" type="date" aria-label="Day">
       </div>
-      <p class="auto-text auto-ios" data-i18n="autoIos">iPhone: Apple keeps Screen Time data for App Store apps only. Free way: take a screenshot of Settings &gt; Screen Time &gt; See All App &amp; Website Activity and tap From screenshot below.</p>
+
+      <div class="android-box">
+        <p data-i18n="androidBox">On Android it can be automatic:</p>
+        <a class="btn primary big" href="download/PipsPhoneTrail.apk" download data-i18n="androidGet">Get the free app</a>
+        <p class="sub" data-i18n="androidSub">Reads your screen time by itself. Switch on Usage access once.</p>
+      </div>
+      <p class="or" data-i18n="orLabel">or</p>
+
+      <label class="btn primary big file-btn" id="shotBtn">
+        <span>&#128247;</span><span data-i18n="shotBtn">Choose a Screen Time screenshot</span>
+        <input type="file" id="importFile" accept="image/*">
+      </label>
+      <p class="help help-ios" data-i18n="shotHelpIos">On iPhone: Settings › Screen Time › See All App &amp; Website Activity, then take a screenshot.</p>
+      <p class="help help-android" data-i18n="shotHelpAndroid">On Android: Settings › Digital Wellbeing, then take a screenshot.</p>
+      <p class="status" id="importStatus"></p>
+
+      <div class="links">
+        <button class="link" id="sample" data-i18n="trySample">Try a sample</button>
+        <button class="link" id="typeToggle" data-i18n="typeIt">Type it in</button>
+        <button class="link" id="pasteToggle" data-i18n="pasteIt">Paste text</button>
+      </div>
+
+      <div class="box" id="typeBox" hidden>
+        <div class="row">
+          <input class="grow" id="newApp" list="appNames" autocomplete="off" data-i18n-placeholder="appName">
+          <input id="newMinutes" type="number" min="1" max="600" inputmode="numeric" style="width:76px" placeholder="min">
+          <button class="btn primary" id="addApp" data-i18n="addBtn">Add</button>
+        </div>
+        <datalist id="appNames"></datalist>
+      </div>
+
+      <div class="box" id="pasteBox" hidden>
+        <p data-i18n="pasteHint">Paste the text from your Screen Time screenshot.</p>
+        <textarea id="importText" rows="5"></textarea>
+        <button class="btn primary" id="importApply" style="margin-top:8px" data-i18n="addBtn">Add</button>
+      </div>
     </section>
 
-    <section class="card">
-      <h2><span data-i18n="day">Day</span><span class="hint" data-i18n="saved">saved on this phone</span></h2>
-      <div class="row">
-        <div style="flex:1 1 140px"><label class="small" data-i18n="date">Date</label><input id="date" type="date" style="width:100%"></div>
-        <div><label class="small" data-i18n="pickups">Pickups</label><input id="pickups" type="number" min="0" inputmode="numeric" style="width:90px" placeholder="-"></div>
-        <div><label class="small" data-i18n="window">Window</label>
-          <div class="row" style="flex-wrap:nowrap;gap:4px">
-            <select id="start"></select><span>-</span><select id="end"></select>
-          </div>
-        </div>
+    <!-- Step 2: check the apps -->
+    <section class="card" id="step2">
+      <div class="step-head">
+        <span class="num">2</span>
+        <h2 data-i18n="s2">Check your apps</h2>
+        <span class="side" id="summary"></span>
       </div>
-    </section>
-
-    <section class="card">
-      <h2><span data-i18n="apps">Apps you used</span><span class="hint" data-i18n="fromScreenTime">copy from Screen Time / Digital Wellbeing</span></h2>
-      <div class="chips" id="chips"></div>
-      <div class="row" style="margin:10px 0 6px;color:var(--muted);font-size:12px">
-        <span style="flex:1" data-i18n="colApp">App</span><span style="width:76px" data-i18n="colHour">Hour</span>
-        <span style="width:70px" data-i18n="colMin">Minutes</span><span style="width:70px" data-i18n="colType">Type</span>
-      </div>
-      <div class="import" id="importPanel" hidden>
-        <p class="import-how" data-i18n="importHow">Take a screenshot of Settings &gt; Screen Time &gt; See All App &amp; Website Activity (Android: Digital Wellbeing), then choose it here.</p>
-        <label class="btn file-btn"><span data-i18n="importChoose">Choose screenshot</span>
-          <input type="file" id="importFile" accept="image/*"></label>
-        <p class="import-status" id="importStatus"></p>
-        <textarea id="importText" rows="5" data-i18n-placeholder="importPaste"></textarea>
-        <div class="row" style="margin-top:8px">
-          <select id="importWhen" style="flex:1 1 160px"></select>
-          <button class="btn primary" id="importApply" data-i18n="importApply">Add to my day</button>
-        </div>
-        <p class="import-note" data-i18n="importNote">Screen Time only shows a total per app, so the hours are a guess you can change. Tip: tap one hour bar in Screen Time, screenshot it and pick that hour above.</p>
-      </div>
-      <div class="entries" id="entries"></div>
-      <div class="row" style="margin-top:10px">
-        <button class="btn primary" id="importToggle" data-i18n="importBtn">From screenshot</button>
-        <button class="btn" id="add" data-i18n="add">+ Add app</button>
-        <button class="btn" id="sample" data-i18n="sample">Try a sample day</button>
-        <button class="btn" id="clear" data-i18n="clear">Clear</button>
-      </div>
-      <div class="legend" style="margin-top:10px">
+      <div class="legend" id="legend" hidden>
+        <span data-i18n="dotHint">Tap a dot to change:</span>
         <span><i style="background:var(--prod)"></i><span data-i18n="productive">Productive</span></span>
         <span><i style="background:var(--neu)"></i><span data-i18n="neutral">Neutral</span></span>
         <span><i style="background:var(--dis)"></i><span data-i18n="distracting">Distracting</span></span>
-        <span data-i18n="tapDot">tap a dot to change</span>
       </div>
+      <div class="apps" id="apps"></div>
+      <button class="btn more when-data" id="showAll" hidden></button>
+
+      <details id="timesDetails" class="when-data">
+        <summary data-i18n="timesTitle">Times of day (optional)</summary>
+        <div class="inner">
+          <p class="help" style="margin:0 0 12px" data-i18n="timesHint">Screen Time only gives a total per app, so we spread them over your day.</p>
+          <div class="settings">
+            <div>
+              <label data-i18n="dayWindow">My day</label>
+              <div class="row" style="gap:4px"><select id="start"></select><span>-</span><select id="end"></select></div>
+            </div>
+            <div>
+              <label data-i18n="pickups">Pickups</label>
+              <input id="pickups" type="number" min="0" inputmode="numeric" style="width:100%" placeholder="-">
+            </div>
+            <div class="wide">
+              <label data-i18n="shotFor">Next screenshot is for</label>
+              <select id="importWhen" style="width:100%"></select>
+            </div>
+          </div>
+          <div class="entries" id="entries"></div>
+        </div>
+      </details>
+      <button class="ghost when-data" id="clear" data-i18n="clearDay">Clear this day</button>
     </section>
 
-    <section class="card">
-      <h2><span data-i18n="sticker">Sticker</span></h2>
-      <div class="preview"><canvas id="canvas" width="1080" height="1350"></canvas></div>
-      <div class="row" style="margin-top:10px;justify-content:space-between">
+    <!-- Step 3: the sticker -->
+    <section class="card" id="step3">
+      <div class="step-head">
+        <span class="num">3</span>
+        <h2 data-i18n="s3">Your trail</h2>
+      </div>
+      <p class="when-empty" data-i18n="trailEmpty">Add your screen time in step 1 and your trail appears here.</p>
+      <div class="preview when-data"><canvas id="canvas" width="1080" height="1350"></canvas></div>
+      <div class="style-row when-data">
         <div class="swatches" id="swatches"></div>
         <select id="bg">
           <option value="transparent" data-i18n="bgClear">Clear background</option>
           <option value="dark" data-i18n="bgDark">Dark background</option>
         </select>
       </div>
-      <ul class="how">
-        <li data-i18n="how1">Direction = time of day: the trail turns clockwise from morning to night.</li>
-        <li data-i18n="how2">Long straight strides = productive apps. Short steps = neutral.</li>
-        <li data-i18n="how3">Kinks = switching apps. Loops = distracting apps (going in circles).</li>
-      </ul>
+      <details class="when-data">
+        <summary data-i18n="shapesTitle">What do the shapes mean?</summary>
+        <ul class="how">
+          <li data-i18n="how1">Direction = time of day: the trail turns clockwise from morning to night.</li>
+          <li data-i18n="how2">Long straight strides = productive apps. Short steps = neutral.</li>
+          <li data-i18n="how3">Kinks = switching apps. Loops = distracting apps (going in circles).</li>
+        </ul>
+      </details>
     </section>
   </main>
+
+  <footer>
+    <span data-i18n="privacy">Everything stays on this phone.</span>
+    · <a href="download/PipsPhoneTrail.apk" download data-i18n="androidLink">Android app</a>
+  </footer>
 
   <div class="bar">
     <button class="btn primary" id="share" data-i18n="share">Share</button>
