@@ -4,7 +4,7 @@
  * deletes every other "pips-*" cache. Only our own "phonetrail-*" caches are cleaned here.
  */
 const PREFIX = "phonetrail-";
-const VERSION = PREFIX + "v4";
+const VERSION = PREFIX + "v5";
 const FILES = [
   "./",
   "index.html",
