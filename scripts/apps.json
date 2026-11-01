@@ -848,13 +848,14 @@
       "id": "pips",
       "name": "Pips",
       "category": "Software",
-      "desc": "A cute desktop pet for Windows (51 animals that walk, swim and fly) plus a Pomodoro focus widget, with friends and chat, turn-based skill battles you play yourself or on auto, minigames and live weather; free download in 4 languages",
-      "summary": "Desktop pet + Pomodoro for Windows &mdash; 51 animals, friends &amp; chat, skill battles with auto play, minigames, 4 languages.",
-      "description": "A tiny animated pet that lives on your desktop: <strong>51 animals</strong> &mdash; land animals walk the taskbar and ride along on your open windows, water animals swim and leap out with a splash, sky animals fly anywhere and perch. Every animal has its own voice and song; pets have moods, grow up from baby to grown-up, catch a little cold when you skip breaks and show the live weather on your desktop. Click to tickle, double-click to open the Hub. <strong>Pips Friends</strong>: chat, groups and the Pips Community, pet visits, pokes, birthdays and gifts. <strong>Arena</strong>: turn-based skill battles (best of 1, 3 or 5) &mdash; press the skills yourself or switch on <strong>Auto</strong> and let your pet fight &mdash; plus minigames and a shop of hats, wings, moves and arena gear. Underneath, an always-on-top Pomodoro timer with soundscapes, app-usage tracking, a daily 1&ndash;5 star score, goals, streaks and history. English, Bahasa Indonesia, 繁體中文 and 简体中文. One-click Windows installer with in-app updates; focus history stays local, social features use the Pips online service.",
+      "desc": "A cute desktop pet for Windows (51 animals that walk, swim and fly) plus a Pomodoro focus widget, with friends and chat, turn-based skill battles you play yourself or on auto, minigames, live weather and a Strava-style Focus Trail of your work day - plus a Phone Trail for your phone's screen time; free download in 4 languages",
+      "summary": "Desktop pet + Pomodoro for Windows &mdash; 51 animals, friends, skill battles, a Strava-style Focus Trail and Phone Trail, 4 languages.",
+      "description": "A tiny animated pet that lives on your desktop: <strong>51 animals</strong> &mdash; land animals walk the taskbar and ride along on your open windows, water animals swim and leap out with a splash, sky animals fly anywhere and perch. Every animal has its own voice and song; pets have moods, grow up from baby to grown-up, catch a little cold when you skip breaks and show the live weather on your desktop. Click to tickle, double-click to open the Hub. <strong>Pips Friends</strong>: chat, groups and the Pips Community, pet visits, pokes, birthdays and gifts. <strong>Arena</strong>: turn-based skill battles (best of 1, 3 or 5) &mdash; press the skills yourself or switch on <strong>Auto</strong> and let your pet fight &mdash; plus minigames and a shop of hats, wings, moves and arena gear. Underneath, an always-on-top Pomodoro timer with soundscapes, app-usage tracking, a daily 1&ndash;5 star score, goals, streaks and history. <strong>Focus Trail</strong> turns your work day into a Strava-style route sticker: the trail turns clockwise through the day, runs straight while you stay in one app, kinks when you switch and loops on distracting time &mdash; save it or share it. <strong>Phone Trail</strong> does the same for your phone's screen time (<a href=\"https://juw12.github.io/projects/pips/trail/\">web page</a> for any phone, plus Android and iPhone apps). English, Bahasa Indonesia, 繁體中文 and 简体中文. One-click Windows installer with in-app updates; focus history stays local, social features use the Pips online service.",
       "tags": [
         "Windows app",
         "desktop pet",
         "Pomodoro",
+        "Focus Trail",
         "skill battles",
         "Python",
         "4 languages"
@@ -900,6 +901,10 @@
         {
           "label": "User guide (PPT)",
           "url": "https://juw12.github.io/projects/pips/download/Pips-Guide.pptx"
+        },
+        {
+          "label": "Phone Trail (any phone)",
+          "url": "https://juw12.github.io/projects/pips/trail/"
         },
         {
           "label": "Source",
