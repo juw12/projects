@@ -138,6 +138,21 @@ curl -X POST $BEACON/v1/send -H "Authorization: Bearer sk_…" -H "Content-Type:
   `pending → sent | skipped | cancelled`). Cancel with `POST /v1/messages/{id}/cancel-fallback`.
   The condition is per message, not per recipient: one click anywhere counts.
 
+## Uptime alerts from Gatus
+
+[Gatus](https://github.com/TwiN/gatus) (Apache-2.0) checks your endpoints and has a `custom` alert provider.
+Point it at `POST /v1/hooks/gatus` with the app secret and every **TRIGGERED** / **RESOLVED** alert becomes a
+push on all Beacon channels — ready-made config: [`examples/gatus/config.yaml`](examples/gatus/config.yaml).
+
+- Down → high urgency `🔴 core / api is down` (description + errors); recovered → `✅ core / api is back up`.
+  Both share the tag `gatus:<group>-<name>`, so the recovery replaces the alert on the device, and a RESOLVED
+  alert **cancels any pending escalation** of that endpoint.
+- Routing lives in the hook URL: `tags=oncall`, `users=alice`, `channels=bark,ntfy`, `page=<status page>`,
+  `escalate_after=600&escalate_channels=bark` (re-send if nobody taps), `digest=120` (one push per alert storm),
+  `resolved=operational` (custom placeholder words).
+- Gatus fills its template by plain text replacement, so names or conditions with quotes produce broken JSON;
+  Beacon reads those bodies leniently instead of rejecting the alert.
+
 ## Go live (public HTTPS in one click)
 
 Console → **🌍 Go live** (or `server.py --tunnel`, or `POST /v1/tunnel/start` with the admin token) downloads
@@ -189,6 +204,7 @@ python apps/beacon/tests/verify_api.py        # 72 end-to-end checks, no network
 python apps/beacon/tests/verify_webpush.py    # crypto known-answer vectors (same as Orbis)
 python apps/beacon/tests/verify_channels.py   # ntfy + Apprise (40)
 python apps/beacon/tests/verify_bark_gotify.py  # Bark + Gotify (36)
+python apps/beacon/tests/verify_gatus.py     # Gatus alert hook (28)
 python apps/beacon/tests/verify_tunnel.py     # Go live / cloudflared (22)
 python apps/beacon/tests/verify_workflows.py  # digest + fallback (23)
 ```

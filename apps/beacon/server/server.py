@@ -35,6 +35,7 @@ import webpush  # noqa: E402
 from dispatcher import MAX_PAYLOAD_BYTES, Dispatcher, build_payload, payload_size, test_push_hosts  # noqa: E402
 from fcm import FcmError, FcmSender  # noqa: E402
 import channels  # noqa: E402
+import gatus  # noqa: E402
 from tunnel import Tunnel  # noqa: E402
 from store import DEFAULT_CHANNELS, Store  # noqa: E402
 
@@ -313,11 +314,14 @@ class Handler(BaseHTTPRequestHandler):
         headers.update(extra or {})
         self.send_body(status, json.dumps(payload).encode(), "application/json; charset=utf-8", headers)
 
-    def read_json(self) -> dict:
+    def read_raw(self) -> bytes:
         length = int(self.headers.get("Content-Length") or 0)
         if length > MAX_BODY:
             raise ApiError(413, "request body too large")
-        raw = self.rfile.read(length) if length else b""
+        return self.rfile.read(length) if length else b""
+
+    def read_json(self) -> dict:
+        raw = self.read_raw()
         if not raw:
             return {}
         try:
@@ -565,6 +569,22 @@ class Handler(BaseHTTPRequestHandler):
         message, merged = self.server.store.send_or_digest(app["id"], fields)
         self.server.dispatcher.nudge()
         self.send_json({"ok": True, "message": self.message_view(message), "digested": merged}, 202)
+
+    @route("POST", r"/v1/hooks/gatus", "sender")
+    def gatus_hook(self):
+        """Gatus `custom` alert -> notification (routing via query string, see gatus.py)."""
+        app = self.resolve_app()
+        try:
+            alert = gatus.parse_alert(self.read_raw())
+            body, resolved = gatus.to_message(alert, self.query, DEFAULT_CHANNELS)
+        except gatus.HookError as exc:
+            raise ApiError(400, str(exc)) from exc
+        fields = validate_message(body)
+        cancelled = self.server.store.cancel_fallbacks_for_tag(app["id"], fields["tag"]) if resolved else 0
+        message, merged = self.server.store.send_or_digest(app["id"], fields)
+        self.server.dispatcher.nudge()
+        self.send_json({"ok": True, "message": self.message_view(message), "digested": merged,
+                        "resolved": resolved, "escalations_cancelled": cancelled}, 202)
 
     @route("GET", r"/v1/app", "sender")
     def whoami(self):

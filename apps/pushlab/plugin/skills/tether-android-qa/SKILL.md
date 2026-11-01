@@ -40,6 +40,15 @@ it; every command prints JSON and exits 0 on success, 1 when a check fails and
 - `logcat --package <package> --lines 300` for that app's log; search it for
   `FATAL EXCEPTION`, `ANR` and `E/` lines when something misbehaves.
 
+## Performance
+
+- `perf <package>`: memory (PSS), frames (jank %, 90th percentile frame time) and CPU share.
+- `perf <package> --startup --runs 3`: cold launch time (median); add `--warm` for a warm start.
+- To measure one scenario: `perf <package> --reset`, perform it (scroll, open a screen),
+  then `perf <package> --max-jank 10 --max-p90-ms 24` — exit 1 means over budget.
+- In flows use `perf_startup` / `perf_reset` / `perf_assert` steps (see Tether README).
+  Report numbers with the device model; emulator numbers only show trends.
+
 ## Repeatable tests (flows)
 
 Write the steps as a Maestro YAML flow (portable to Maestro CLI and Maestro

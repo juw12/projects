@@ -306,6 +306,105 @@ def fake_screenrecord(cmd):
     return 0
 
 
+# ------------------------------------------------------------- performance
+PERF_DEFAULTS = {
+    "startup_ms": 812, "wait_ms": 830, "pss_kb": 97280, "java_kb": 12288, "native_kb": 20480,
+    "frames": 1200, "janky": 36, "jank_pct": "3.00", "p50": 7, "p90": 12, "p95": 16, "p99": 32,
+    "reset_frames": 240, "reset_janky": 48, "reset_jank_pct": "20.00", "reset_p90": 28,
+    "cpu_app_delta": 200, "cpu_total_delta": 1000, "cores": 8,
+}
+
+
+def perf_settings():
+    """Defaults, overridden by fake-perf.json next to the fake log (written by tests)."""
+    settings = dict(PERF_DEFAULTS)
+    path = state_file("fake-perf.json")
+    if os.path.exists(path):
+        with open(path, encoding="utf-8") as handle:
+            settings.update(json.load(handle))
+    return settings
+
+
+def fake_am_start_wait(cmd):
+    component = cmd[cmd.index("-n") + 1]
+    if component.endswith(".Missing"):
+        sys.stdout.write("Starting: Intent { cmp=%s }\nError type 3\n"
+                         "Error: Activity class {%s} does not exist.\n" % (component, component))
+        return 1
+    s = perf_settings()
+    cold = "-S" in cmd
+    log(("startup cold " if cold else "startup warm ") + component)
+    sys.stdout.write(
+        "Starting: Intent { act=android.intent.action.MAIN cmp=%s }\n"
+        "Status: ok\nLaunchState: %s\nActivity: %s\nTotalTime: %d\nWaitTime: %d\nComplete\n"
+        % (component, "COLD" if cold else "WARM", component,
+           s["startup_ms"] if cold else s["startup_ms"] // 3, s["wait_ms"] if cold else s["wait_ms"] // 3))
+    return 0
+
+
+def fake_meminfo(package):
+    if package == "com.not.running":
+        return "No process found for: com.not.running\n"
+    s = perf_settings()
+    return (
+        "Applications Memory Usage (in Kilobytes):\nUptime: 1000 Realtime: 1000\n\n"
+        "** MEMINFO in pid 4242 [%s] **\n"
+        "                   Pss  Private  Private  SwapPss      Rss     Heap     Heap     Heap\n"
+        "                 Total    Dirty    Clean    Dirty    Total     Size    Alloc     Free\n"
+        "  Native Heap    %d    %d        0        0    %d    32768    30000     2768\n"
+        "        TOTAL    %d    60000    10000      100   180000    50000    45000     5000\n\n"
+        " App Summary\n                       Pss(KB)                        Rss(KB)\n"
+        "           Java Heap:    %d                          30000\n"
+        "         Native Heap:    %d                          21000\n"
+        "            Graphics:     8192                           8192\n"
+        "           TOTAL PSS:    %d            TOTAL RSS:   180000       TOTAL SWAP PSS:      100\n"
+        % (package, s["native_kb"], s["native_kb"], s["native_kb"], s["pss_kb"], s["java_kb"], s["native_kb"],
+           s["pss_kb"])
+    )
+
+
+def fake_gfxinfo(package, reset):
+    if package == "com.not.running":
+        return "No process found for: com.not.running\n"
+    s = perf_settings()
+    marker = state_file("fake-gfx-reset")
+    if reset:
+        open(marker, "w").close()
+        log("gfxinfo reset " + package)
+    after_reset = os.path.exists(marker) and not reset
+    frames, janky, pct, p90 = ((s["reset_frames"], s["reset_janky"], s["reset_jank_pct"], s["reset_p90"])
+                               if after_reset else (s["frames"], s["janky"], s["jank_pct"], s["p90"]))
+    return (
+        "Applications Graphics Acceleration Info:\nUptime: 1000 Realtime: 1000\n\n"
+        "** Graphics info for pid 4242 [%s] **\n\nStats since: 123456789ns\n"
+        "Total frames rendered: %d\nJanky frames: %d (%s%%)\nJanky frames (legacy): %d (%s%%)\n"
+        "50th percentile: %dms\n90th percentile: %dms\n95th percentile: %dms\n99th percentile: %dms\n"
+        "Number Missed Vsync: 3\n"
+        % (package, frames, janky, pct, janky, pct, s["p50"], p90, s["p95"], s["p99"])
+    )
+
+
+def fake_cpu_window(script):
+    """`cat /proc/stat /proc/<pid>/stat; echo ===TETHER===; sleep N; cat ...` (no real sleep)."""
+    s = perf_settings()
+    pid = script.split("/proc/")[2].split("/")[0]
+
+    def block(total_extra, app_extra):
+        user = 1000 + total_extra // 2
+        idle = 8000 + total_extra - total_extra // 2
+        lines = ["cpu  %d 0 500 %d 100 0 0 0 0 0" % (user, idle)]
+        lines += ["cpu%d 100 0 50 1000 10 0 0 0 0 0" % i for i in range(s["cores"])]
+        lines += ["intr 1 2 3", "ctxt 999"]
+        utime = 100 + app_extra * 3 // 4
+        stime = 50 + app_extra - app_extra * 3 // 4
+        lines.append("%s (com.demo.app) S 1 %s 0 0 -1 4194624 1000 0 0 0 %d %d 0 0 20 0 30 0"
+                     % (pid, pid, utime, stime))
+        return "\n".join(lines) + "\n"
+
+    log("cpu sample " + pid)
+    return block(0, 0) + "===TETHER===\n" + block(s["cpu_total_delta"], s["cpu_app_delta"])
+
+
 def main(argv):
     out = sys.stdout.buffer
     if argv[:1] == ["version"]:
@@ -456,6 +555,24 @@ def main(argv):
         log(" ".join(cmd))
         if cmd[1:2] == ["tap"]:
             on_tap(int(cmd[2]), int(cmd[3]))
+        return 0
+    if cmd[:3] == ["cmd", "package", "resolve-activity"]:
+        if cmd[-1] == "com.demo.app":
+            out.write(b"priority=0 preferredOrder=0 match=0x108000 specificIndex=-1 isDefault=false\n"
+                      b"com.demo.app/.MainActivity\n")
+        else:
+            out.write(b"No activity found\n")
+        return 0
+    if cmd[:2] == ["am", "start"] and "-W" in cmd:
+        return fake_am_start_wait(cmd)
+    if cmd[:2] == ["dumpsys", "meminfo"]:
+        out.write(fake_meminfo(cmd[2]).encode())
+        return 0
+    if cmd[:2] == ["dumpsys", "gfxinfo"]:
+        out.write(fake_gfxinfo(cmd[2], reset=cmd[3:4] == ["reset"]).encode())
+        return 0
+    if len(cmd) == 1 and cmd[0].startswith("cat /proc/stat"):
+        out.write(fake_cpu_window(cmd[0]).encode())
         return 0
     if cmd[:2] == ["am", "start"] and "-d" in cmd:
         url = cmd[cmd.index("-d") + 1].strip("'")

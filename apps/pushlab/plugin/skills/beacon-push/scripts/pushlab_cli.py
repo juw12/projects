@@ -275,6 +275,29 @@ def cmd_ai(args, config):
     return result, (0 if report.get("passed") else 1)
 
 
+def cmd_perf(args, config):
+    """App performance (SoloPi-style): snapshot, --startup time, or --reset the frame window.
+    Any --max-* budget turns it into a pass/fail check (exit 1 when over budget)."""
+    tether = Tether(config, args.serial)
+    budgets = {key: value for key, value in (
+        ("max_pss_mb", args.max_pss_mb), ("max_jank_percent", args.max_jank),
+        ("max_p90_ms", args.max_p90_ms), ("max_cpu_percent", args.max_cpu),
+    ) if value is not None}
+    if args.startup:
+        step = {"action": "perf_startup", "package": args.package, "cold": not args.warm, "runs": args.runs}
+        if args.max_ms is not None:
+            step["max_ms"] = args.max_ms
+    elif args.reset:
+        step = {"action": "perf_reset", "package": args.package}
+    elif budgets:
+        step = {"action": "perf_assert", "package": args.package, **budgets}
+    else:
+        return tether.call("GET", "/api/perf?" + tether.q(package=args.package))["perf"]
+    report = tether.call("POST", "/api/flow/run", {"serial": tether.serial, "flow": {"name": "perf", "steps": [step]}},
+                         timeout=600)["report"]
+    return report["steps"][0], (0 if report.get("passed") else 1)
+
+
 def cmd_record(args, config):
     tether = Tether(config, args.serial)
     if args.action == "start":
@@ -395,6 +418,17 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--app", help="ARTEMIS: keep the agent inside this package")
     p.add_argument("--max-steps", type=int, default=10, help="builtin engine: action limit")
     add("flow", cmd_flow, "run a Tether JSON flow or Maestro YAML; exit 1 if it fails").add_argument("file")
+    p = add("perf", cmd_perf, "app performance: memory, frames/jank, CPU; --startup time; --max-* budgets")
+    p.add_argument("package")
+    p.add_argument("--startup", action="store_true", help="measure launch time (am start -W)")
+    p.add_argument("--warm", action="store_true", help="with --startup: warm start instead of cold")
+    p.add_argument("--runs", type=int, default=3, help="with --startup: runs to take the median of (1-10)")
+    p.add_argument("--max-ms", type=float, help="with --startup: fail above this launch time")
+    p.add_argument("--reset", action="store_true", help="start a fresh frame window before a scenario")
+    p.add_argument("--max-pss-mb", type=float, help="fail if memory (PSS) is above this")
+    p.add_argument("--max-jank", type=float, help="fail if janky frames %% is above this")
+    p.add_argument("--max-p90-ms", type=float, help="fail if the 90th percentile frame time is above this")
+    p.add_argument("--max-cpu", type=float, help="fail if the app's CPU share %% is above this")
     p = add("record", cmd_record, "screen recording (adb screenrecord, max 180 s)")
     p.add_argument("action", choices=["start", "stop"])
     p.add_argument("--out", help="MP4 path for stop")
