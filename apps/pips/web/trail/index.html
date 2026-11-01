@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#16171c">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Pips Phone Trail</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon-180.png">
+  <style>
+    :root {
+      --bg: #16171c; --card: #22242b; --ink: #f4f2ee; --muted: #9a9ca6; --line: #33363f;
+      --accent: #D0484C; --prod: #D0484C; --neu: #eba9ab; --dis: #9696a0;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; background: var(--bg); color: var(--ink);
+      font: 16px/1.4 "Segoe UI", system-ui, -apple-system, "PingFang TC", "Microsoft JhengHei", sans-serif; }
+    body { padding: env(safe-area-inset-top) 0 calc(env(safe-area-inset-bottom) + 90px); }
+    header { display: flex; align-items: center; gap: 12px; padding: 16px 18px 6px; }
+    header .logo { width: 40px; height: 40px; border-radius: 12px; background: var(--accent);
+      display: grid; place-items: center; font-weight: 900; font-size: 22px; }
+    header h1 { font-size: 20px; margin: 0; }
+    header p { margin: 0; color: var(--muted); font-size: 13px; }
+    header select { margin-left: auto; background: var(--card); color: var(--ink); border: 1px solid var(--line);
+      border-radius: 10px; padding: 6px 8px; font-size: 13px; }
+    main { max-width: 560px; margin: 0 auto; padding: 0 14px; }
+    .card { background: var(--card); border-radius: 18px; padding: 14px; margin: 12px 0; }
+    .card h2 { font-size: 15px; margin: 0 0 10px; display: flex; flex-wrap: wrap; align-items: baseline;
+      gap: 2px 8px; }
+    .card h2 .hint { margin-left: auto; font-weight: 400; color: var(--muted); font-size: 12px; }
+    .card, .row > div { min-width: 0; }
+    body { overflow-x: hidden; }
+    .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    label.small { color: var(--muted); font-size: 12px; display: block; margin-bottom: 4px; }
+    input, select { font: inherit; color: var(--ink); background: #2b2e36; border: 1px solid var(--line);
+      border-radius: 10px; padding: 9px 10px; min-width: 0; }
+    input[type=date] { color-scheme: dark; }
+    .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+    .chip { border: 0; border-radius: 999px; padding: 7px 12px; font: inherit; font-size: 14px; color: #111;
+      cursor: pointer; }
+    .chip.productive { background: var(--prod); color: #fff; }
+    .chip.neutral { background: var(--neu); }
+    .chip.distracting { background: var(--dis); }
+    .entries { display: flex; flex-direction: column; gap: 8px; }
+    .entry { display: grid; grid-template-columns: 1fr 76px 70px 34px 30px; gap: 6px; align-items: center; }
+    .entry input.app { width: 100%; }
+    .entry select, .entry input.min { width: 100%; padding: 9px 6px; }
+    .cat { width: 34px; height: 34px; border-radius: 50%; border: 2px solid #fff3; cursor: pointer; }
+    .cat.productive { background: var(--prod); } .cat.neutral { background: var(--neu); } .cat.distracting { background: var(--dis); }
+    .del { background: none; border: 0; color: var(--muted); font-size: 22px; cursor: pointer; }
+    .empty { color: var(--muted); font-size: 14px; text-align: center; padding: 10px; }
+    .btn { border: 0; border-radius: 12px; padding: 11px 14px; font: inherit; font-weight: 600; cursor: pointer;
+      background: #2f323b; color: var(--ink); }
+    .btn.primary { background: var(--accent); color: #fff; }
+    .preview { position: relative; border-radius: 18px; overflow: hidden;
+      background: repeating-conic-gradient(#2a2c33 0 25%, #23252b 0 50%) 0 0 / 24px 24px; }
+    .preview canvas { width: 100%; height: auto; display: block; }
+    .swatches { display: flex; gap: 8px; }
+    .sw { width: 30px; height: 30px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; }
+    .sw.on { border-color: #fff; }
+    .legend { display: flex; gap: 12px; font-size: 12px; color: var(--muted); flex-wrap: wrap; }
+    .legend i { display: inline-block; width: 18px; height: 5px; border-radius: 3px; vertical-align: middle; margin-right: 5px; }
+    .how { font-size: 13px; color: var(--muted); margin: 6px 0 0; padding-left: 18px; }
+    .bar { position: fixed; left: 0; right: 0; bottom: 0; padding: 10px 14px calc(env(safe-area-inset-bottom) + 10px);
+      background: #16171ce6; backdrop-filter: blur(10px); display: flex; gap: 8px; justify-content: center; }
+    .bar .btn { flex: 1; max-width: 180px; }
+    .toast { position: fixed; left: 50%; bottom: 96px; transform: translateX(-50%); background: #000c; color: #fff;
+      padding: 8px 14px; border-radius: 999px; font-size: 14px; opacity: 0; transition: opacity .2s; pointer-events: none; }
+    .toast.show { opacity: 1; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="logo">P</div>
+    <div>
+      <h1 data-i18n="title">Phone Trail</h1>
+      <p data-i18n="subtitle">Your phone screen time as a route</p>
+    </div>
+    <select id="lang" aria-label="Language">
+      <option value="en">EN</option>
+      <option value="id">ID</option>
+      <option value="zh_TW">繁中</option>
+      <option value="zh_CN">简中</option>
+    </select>
+  </header>
+
+  <main>
+    <section class="card">
+      <h2><span data-i18n="day">Day</span><span class="hint" data-i18n="saved">saved on this phone</span></h2>
+      <div class="row">
+        <div style="flex:1 1 140px"><label class="small" data-i18n="date">Date</label><input id="date" type="date" style="width:100%"></div>
+        <div><label class="small" data-i18n="pickups">Pickups</label><input id="pickups" type="number" min="0" inputmode="numeric" style="width:90px" placeholder="-"></div>
+        <div><label class="small" data-i18n="window">Window</label>
+          <div class="row" style="flex-wrap:nowrap;gap:4px">
+            <select id="start"></select><span>-</span><select id="end"></select>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2><span data-i18n="apps">Apps you used</span><span class="hint" data-i18n="fromScreenTime">copy from Screen Time / Digital Wellbeing</span></h2>
+      <div class="chips" id="chips"></div>
+      <div class="row" style="margin:10px 0 6px;color:var(--muted);font-size:12px">
+        <span style="flex:1" data-i18n="colApp">App</span><span style="width:76px" data-i18n="colHour">Hour</span>
+        <span style="width:70px" data-i18n="colMin">Minutes</span><span style="width:70px" data-i18n="colType">Type</span>
+      </div>
+      <div class="entries" id="entries"></div>
+      <div class="row" style="margin-top:10px">
+        <button class="btn" id="add" data-i18n="add">+ Add app</button>
+        <button class="btn" id="sample" data-i18n="sample">Try a sample day</button>
+        <button class="btn" id="clear" data-i18n="clear">Clear</button>
+      </div>
+      <div class="legend" style="margin-top:10px">
+        <span><i style="background:var(--prod)"></i><span data-i18n="productive">Productive</span></span>
+        <span><i style="background:var(--neu)"></i><span data-i18n="neutral">Neutral</span></span>
+        <span><i style="background:var(--dis)"></i><span data-i18n="distracting">Distracting</span></span>
+        <span data-i18n="tapDot">tap a dot to change</span>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2><span data-i18n="sticker">Sticker</span></h2>
+      <div class="preview"><canvas id="canvas" width="1080" height="1350"></canvas></div>
+      <div class="row" style="margin-top:10px;justify-content:space-between">
+        <div class="swatches" id="swatches"></div>
+        <select id="bg">
+          <option value="transparent" data-i18n="bgClear">Clear background</option>
+          <option value="dark" data-i18n="bgDark">Dark background</option>
+        </select>
+      </div>
+      <ul class="how">
+        <li data-i18n="how1">Direction = time of day: the trail turns clockwise from morning to night.</li>
+        <li data-i18n="how2">Long straight strides = productive apps. Short steps = neutral.</li>
+        <li data-i18n="how3">Kinks = switching apps. Loops = distracting apps (going in circles).</li>
+      </ul>
+    </section>
+  </main>
+
+  <div class="bar">
+    <button class="btn primary" id="share" data-i18n="share">Share</button>
+    <button class="btn" id="save" data-i18n="save">Save image</button>
+  </div>
+  <div class="toast" id="toast"></div>
+
+  <script src="categories.js"></script>
+  <script src="trail.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
