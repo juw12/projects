@@ -35,6 +35,7 @@ Past projects and experiments. Kept for reference, not actively developed.
 
 | Project | What it is | Status |
 | --- | --- | --- |
+| [`saltbridge`](saltbridge) | **Saltbridge** — bilingual EN/中文 freelance services for SaaS, e-commerce, and DTC brands. Translation, English product descriptions for Chinese sellers (Amazon/Etsy/Shopify), bilingual EN/中文 email copy. Full launch package built: 3 Fiverr gigs, Upwork profile, 3 portfolio samples, cold-outreach system, day-by-day action plan, competitive analysis, 3 gig images, and a deployable portfolio site. $0 capital, 1–2 hr/day. Tagline: *Preserving value across languages.* | **NEW** |
 | [`saas-content-engine`](saas-content-engine) | Freelance SaaS content writing toolkit — Fiverr/Upwork profiles, 3 portfolio samples, 50-company target list, 10 cold email templates, 4 ready-to-send personalized emails, lead tracker template, 30-day plan, daily action coach, building notes | **NEW** |
 
 ## Ownership and content
