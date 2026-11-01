@@ -1086,9 +1086,17 @@
         "engineering"
       ],
       "files": "https://github.com/juw12/projects/tree/main/apps/photo2cad",
+      "image": "photo2cad-card.jpg",
+      "image_alt": "photo2cad workbench: a PRD editor and six reference-photo slots beside a CAD viewport",
+      "card": {
+        "label": "photo2cad \u00b7 workbench",
+        "theme": "dark",
+        "accent": "#2fa8ff",
+        "accent2": "#f5a623"
+      },
       "status": "preliminary",
       "order": 27,
-      "portfolio": false
+      "portfolio": true
     }
   ]
 }
