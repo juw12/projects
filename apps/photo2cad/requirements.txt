@@ -1,0 +1,4 @@
+# photo2cad runtime dependencies.
+# This app is the documented exception to the monorepo's stdlib-only rule:
+# real STEP (.stp) generation requires a BREP kernel.
+cadquery==2.8.0

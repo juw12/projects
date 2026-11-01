@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#eef1f5">
+  <meta name="description" content="photo2cad — turn a product PRD and six reference photos into a validated, manufacturable STEP CAD model (with an STL preview), drafted by an LLM as CadQuery and built + validated in a sandbox.">
+  <title>photo2cad — PRD + photos to STEP</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='rgb(14,42,71)'/><path d='M16 6l8 4.5v9L16 24l-8-4.5v-9z' fill='none' stroke='rgb(95,208,255)' stroke-width='1.7' stroke-linejoin='round'/><path d='M8 10.5l8 4.5 8-4.5M16 15v9' fill='none' stroke='rgb(95,208,255)' stroke-width='1.7' stroke-linejoin='round'/></svg>">
+
+  <!-- Set theme before first paint (reads a single non-sensitive pref, then system). -->
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem("photo2cad.theme");
+        if (!t) t = (window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches) ? "dark" : "light";
+        document.documentElement.setAttribute("data-theme", t === "dark" ? "dark" : "light");
+      } catch (e) { document.documentElement.setAttribute("data-theme", "light"); }
+    })();
+  </script>
+
+  <!-- three.js via CDN import map (ESM, no build step). Pinned to 0.160.0.
+       The addons import the bare specifier "three", which this map resolves to a
+       single concrete module so the viewer, STLLoader and OrbitControls share one
+       THREE instance. Loaded lazily by js/viewer.js only when a model exists. -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- ======================= masthead ======================= -->
+  <header class="masthead">
+    <div class="brand">
+      <svg class="brand-mark" viewBox="0 0 40 40" aria-hidden="true">
+        <rect class="bm-base" x="1.5" y="1.5" width="37" height="37" rx="10"></rect>
+        <path class="bm-cube" d="M20 9l9 5v10l-9 5-9-5V14z"></path>
+        <path class="bm-cube" d="M11 14l9 5 9-5M20 19v10"></path>
+      </svg>
+      <div class="brand-txt">
+        <span class="brand-name">photo2cad</span>
+        <span class="brand-tag">PHOTO &rarr; STEP</span>
+      </div>
+    </div>
+    <div class="masthead-right">
+      <span id="status-pill" class="pill status" role="status" aria-live="polite"><span class="dot"></span><span class="status-txt">checking…</span></span>
+      <button id="theme-btn" class="icon-btn" type="button" aria-label="Toggle dark mode">
+        <svg class="ic ic-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.2"></circle><path d="M12 2v2.4M12 19.6V22M4.2 4.2l1.7 1.7M18.1 18.1l1.7 1.7M2 12h2.4M19.6 12H22M4.2 19.8l1.7-1.7M18.1 5.9l1.7-1.7"></path></svg>
+        <svg class="ic ic-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 019.5 4a7 7 0 1010.5 10.5z"></path></svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- ======================= hero ======================= -->
+  <section class="hero">
+    <p class="eyebrow mono">CAD GENERATOR &middot; UNITS&nbsp;MM</p>
+    <h1>Turn a <span class="hl">PRD</span> and six photos into a <span class="hl">STEP</span> model.</h1>
+    <p class="lede">Describe the part, drop a reference photo of each face, and photo2cad drafts a CadQuery program, builds the solid, validates it, and returns a manufacturable <b>STEP</b> with an <b>STL</b> preview.</p>
+    <div class="flow" aria-hidden="true">
+      <span class="flow-node">PRD + 6 photos</span><span class="flow-arrow">&rarr;</span>
+      <span class="flow-node">LLM</span><span class="flow-arrow">&rarr;</span>
+      <span class="flow-node">CadQuery build</span><span class="flow-arrow">&rarr;</span>
+      <span class="flow-node">Validate</span><span class="flow-arrow">&rarr;</span>
+      <span class="flow-node out">STEP + STL</span>
+    </div>
+  </section>
+
+  <!-- ======================= app grid ======================= -->
+  <main class="app">
+    <!-- ---------- input ---------- -->
+    <section class="panel input-panel" aria-labelledby="input-title">
+      <div class="panel-head">
+        <span class="panel-no mono">01</span>
+        <h2 id="input-title">Input</h2>
+        <span class="panel-rule"></span>
+      </div>
+
+      <div class="field">
+        <label class="lbl" for="prd">Product requirements <span class="req">required</span></label>
+        <p class="hint">What is the part? Give geometry, key dimensions in&nbsp;mm, materials and features (holes, bosses, fillets, ribs, cutouts) and any tolerances. The PRD drives the parametric model.</p>
+        <textarea id="prd" class="prd" rows="7" spellcheck="true"
+          placeholder="e.g. Aluminium control box, 120 &times; 80 &times; 40 mm, 2 mm wall, four M3 mounting bosses at the corners, one 30 mm circular cut-out on the front face, 3 mm fillets on external edges…"></textarea>
+        <span class="field-err" id="prd-err" role="alert" hidden>Please enter a short product requirement (PRD) first.</span>
+      </div>
+
+      <div class="photos">
+        <div class="photos-head">
+          <span class="lbl" id="photos-label">Reference photos <span class="opt">optional</span></span>
+          <span class="photo-count mono" id="photo-count" aria-hidden="true">0 / 6</span>
+        </div>
+        <p class="hint">Drop a photo on each face you have — <b>front, back, left, right, top, bottom</b>. Photos are visual reference / dimension assist only; the PRD drives the geometry.</p>
+        <div id="slots" class="slots" role="group" aria-labelledby="photos-label"></div>
+
+        <label class="switch-row" for="use-vision">
+          <span class="switch">
+            <input type="checkbox" id="use-vision" checked class="sr-only">
+            <span class="track" aria-hidden="true"><span class="knob"></span></span>
+          </span>
+          <span class="switch-txt">Send photos to the vision model <span class="mono dim">use_vision</span></span>
+        </label>
+
+        <details class="advanced">
+          <summary>Advanced</summary>
+          <div class="adv-body">
+            <label class="lbl sm" for="model-input">Model override <span class="opt">optional</span></label>
+            <input id="model-input" type="text" class="text" placeholder="e.g. gpt-4o" autocomplete="off" spellcheck="false">
+            <p class="hint">Leave empty to use the server&rsquo;s configured model.</p>
+          </div>
+        </details>
+      </div>
+
+      <div class="actions">
+        <button id="generate-btn" class="btn primary generate" type="button">
+          <span class="btn-spin" hidden aria-hidden="true"><span class="spin"></span></span>
+          <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.9 4.6L18.5 9l-4.6 1.9L12 15l-1.9-4.1L5.5 9l4.6-1.4zM19 14l.9 2.1L22 17l-2.1.9L19 20l-.9-2.1L16 17l2.1-.9z"></path></svg>
+          <span class="btn-label">Generate model</span>
+        </button>
+        <button id="reset-btn" class="btn ghost" type="button">Reset</button>
+        <span class="actions-hint mono" id="actions-hint" aria-live="polite"></span>
+      </div>
+    </section>
+
+    <!-- ---------- results ---------- -->
+    <section class="panel results-panel" aria-labelledby="results-title">
+      <div class="panel-head">
+        <span class="panel-no mono">02</span>
+        <h2 id="results-title">Result</h2>
+        <span class="panel-status mono" id="panel-status" aria-live="polite"></span>
+      </div>
+      <div id="results" class="results" role="region" aria-label="Generation result" aria-live="polite" aria-busy="false"></div>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <span class="mono">photo2cad</span>
+    <span class="foot-sep" aria-hidden="true">&middot;</span>
+    <span>STEP (ISO-10303-21) + STL preview &middot; LLM-drafted CadQuery, sandbox-built, validated</span>
+    <span class="foot-sep" aria-hidden="true">&middot;</span>
+    <span class="muted">Photos are reference only — the PRD drives the geometry.</span>
+  </footer>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
