@@ -22,6 +22,30 @@ There's no HTTPS or deployment needed for testing. Tether forwards your local Be
 
 Deploy Beacon on HTTPS. It takes about 10 minutes with a Cloudflare Tunnel or Docker + Caddy: see [beacon/docs/DEPLOY.md](../beacon/docs/DEPLOY.md). Then add two lines to any of your apps (see the console's **Setup** tab). Keep Tether pointed at the deployed Beacon to test production pushes on your phone.
 
+## Agent skills (Claude Code, Codex, any SKILL.md agent)
+
+[`plugin/`](plugin) packages three [Agent Skills](https://github.com/anthropics/skills) with a zero-dependency
+CLI (`scripts/pushlab_cli.py`) that finds this lab's keys by itself:
+
+| Skill | For |
+| --- | --- |
+| `tether-android-qa` | look → act → verify on a phone, Maestro/Tether flows, logcat, screen recording |
+| `beacon-push` | send pushes, digest bursts, fallback to ntfy/Apprise, delivery stats |
+| `push-qa-e2e` | send via Beacon → assert it shows on the phone → tap → verify, with video evidence |
+
+```text
+# Claude Code
+/plugin marketplace add juw12/projects
+/plugin install push-lab@juw12-projects
+
+# other agents: copy apps/pushlab/plugin/skills/* into the agent's skills folder
+# (e.g. ~/.codex/skills/ or .claude/skills/), or use `npx skills add juw12/projects`
+```
+
+The marketplace file is [`/.claude-plugin/marketplace.json`](../../.claude-plugin/marketplace.json). Tether's MCP
+server additionally speaks [mobile-mcp](https://github.com/mobile-next/mobile-mcp)'s tool names, so mobile-mcp
+prompts work against it too.
+
 ## Built on open source
 
 | Project | Used for |
@@ -32,13 +56,21 @@ Deploy Beacon on HTTPS. It takes about 10 minutes with a Cloudflare Tunnel or Do
 | [ntfy](https://github.com/binwiederhier/ntfy) (Apache-2.0) | Beacon channel: ntfy app topics |
 | [Apprise](https://github.com/caronc/apprise) (BSD-2) | Beacon channel: Telegram/Slack/Discord/email… |
 | [android-emulator-runner](https://github.com/ReactiveCircus/android-emulator-runner) (Apache-2.0) | CI template |
+| [mobile-mcp](https://github.com/mobile-next/mobile-mcp) (Apache-2.0) | tool names/arguments Tether's MCP server is compatible with |
+| [Agent Skills](https://github.com/anthropics/skills) format | the `plugin/` skills pack |
+| [Ollama](https://github.com/ollama/ollama) (MIT) or any OpenAI-compatible server | optional Tether AI steps |
 
 All are optional downloads or optional pip installs — Beacon and Tether stay zero-dependency Python.
 
 ## What's verified
 
-- **Automated:** about 165 checks — Beacon 70, Tether 65, Beacon×Tether integration 30. They cover the RFC 8291/8292 crypto known-answer vectors, decrypt-what-we-sent, FCM RS256, failure modes and the installer.
+- **Automated (all hermetic, no phone needed):** 486 checks — Beacon 72 API + 40 channels + 22 tunnel + 25 crypto
+  + 23 workflows; Tether 65 API + 30 Beacon link + 62 Maestro + 36 HD (+7 in headless Edge: WebCodecs decode,
+  clicks, WebM and MP4 recording) + 52 mobile-mcp/recording/clipboard + 26 AI steps; Push Lab plugin 26
+  (manifests, SKILL.md and the CLI end to end against real Beacon + Tether).
 - **Live on this PC:**
-  - **Push:** real pushes went through Microsoft's push service to Edge and appeared on screen, sent from Tether and delivered by Beacon.
+  - **Push:** real pushes went through Microsoft's push service to Edge and appeared on screen, sent from Tether and delivered by Beacon. ntfy.sh publish and Apprise 2.1.0 worked through the corporate proxy.
   - **adb:** the one-click adb install worked through a corporate proxy.
-- **Not yet verified:** a physical Android phone (none was attached) and FCM against a real Firebase project.
+- **Not yet verified:** a physical Android phone (none was attached) — so HD, screen recording, clipboard and
+  AI steps ran only against the fake adb/scrcpy device and a fake model server; FCM against a real Firebase
+  project; the plugin installed into a real Claude Code / Codex session.

@@ -85,7 +85,8 @@ TOOLS = [
         "description": (
             "Send (or schedule) a push notification. Channels: webpush (browsers/PWAs), fcm (native "
             "Android), ntfy (ntfy app topics), apprise (Telegram/Slack/Discord/email… contacts), inapp "
-            "(banner inside the app). Default: all push channels. Give send_at (ISO 8601 with offset) to schedule."
+            "(banner inside the app). Default: all push channels. Give send_at (ISO 8601 with offset) to schedule, "
+            "digest to batch bursts, fallback to escalate unread messages to another channel."
         ),
         "inputSchema": {
             "type": "object",
@@ -101,6 +102,28 @@ TOOLS = [
                 "ttl": {"type": "integer", "description": "Seconds the push service keeps trying (default 86400)"},
                 "send_at": {"type": "string", "description": "ISO 8601 with timezone, e.g. 2026-11-03T09:00:00+07:00"},
                 "data": {"type": "object"},
+                "digest": {
+                    "type": "object",
+                    "description": "Batch messages with the same key arriving within `window` seconds into one "
+                                   "notification, e.g. {\"key\": \"comments:post42\", \"window\": 600, "
+                                   "\"title\": \"{count} new comments\"}",
+                    "properties": {"key": {"type": "string"}, "window": {"type": "number"}, "title": {"type": "string"}},
+                    "required": ["key"],
+                },
+                "fallback": {
+                    "type": "object",
+                    "description": "Escalate if nobody clicked (or it was not shown/delivered) `after` seconds after "
+                                   "sending, on other channels, e.g. {\"after\": 3600, \"unless\": \"clicked\", "
+                                   "\"channels\": [\"ntfy\"], \"title\": \"Reminder: ...\"}",
+                    "properties": {
+                        "after": {"type": "number"},
+                        "unless": {"type": "string", "enum": ["clicked", "shown", "delivered"]},
+                        "channels": {"type": "array", "items": {"type": "string", "enum": ["webpush", "fcm", "ntfy", "apprise", "inapp"]}},
+                        "title": {"type": "string"},
+                        "body": {"type": "string"},
+                    },
+                    "required": ["channels"],
+                },
             },
             "required": ["app_id", "title"],
             "additionalProperties": False,

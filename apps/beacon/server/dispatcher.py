@@ -117,6 +117,7 @@ class Dispatcher:
     def _loop(self) -> None:
         while not self.stopping:
             try:
+                self.store.process_fallbacks()
                 for message in self.store.claim_due():
                     self._deliver(message)
             except Exception:  # never let the dispatcher die

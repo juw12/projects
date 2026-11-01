@@ -13,12 +13,19 @@ with the Python standard library only. Register it in your MCP client, e.g.
   }
 
 Typical agent loop: screenshot -> ui_elements -> tap_element / tap -> screenshot.
+
+It also serves mobile-mcp compatible tools (mobile_list_elements_on_screen,
+mobile_click_on_screen_at_coordinates, ... see mobile_compat.py), so prompts and
+skills written for mobile-next/mobile-mcp work unchanged. Pick the tool set with
+`--tools tether|mobile|all` or TETHER_MCP_TOOLS (default all; some clients cap
+the number of tools).
 """
 
 from __future__ import annotations
 
 import base64
 import json
+import os
 import sys
 import time
 import traceback
@@ -30,6 +37,7 @@ from adb import KEYCODES, Adb, AdbError, find_element, find_notification  # noqa
 from beacon_link import BeaconError, BeaconLink  # noqa: E402
 from flows import FlowError, run_flow, subscribe_device  # noqa: E402
 import maestro  # noqa: E402
+from mobile_compat import MOBILE_TOOLS, MobileMcpTools  # noqa: E402
 
 SERVER_INFO = {"name": "tether", "version": "0.1.0"}
 SUPPORTED_PROTOCOLS = ("2025-06-18", "2025-03-26", "2024-11-05")
@@ -209,14 +217,14 @@ TOOLS = [
 ]
 
 
-class TetherTools:
+class TetherTools(MobileMcpTools):
     def __init__(self, adb: Adb | None = None):
         self.adb = adb or Adb()
         self.scale: dict[str, int] = {}
 
     def _serial(self, args: dict) -> str:
-        if args.get("serial"):
-            return args["serial"]
+        if args.get("serial") or args.get("device"):
+            return args.get("serial") or args["device"]
         ready = [d["serial"] for d in self.adb.devices() if d["state"] == "device"]
         if len(ready) == 1:
             return ready[0]
@@ -231,10 +239,13 @@ class TetherTools:
         return round(x * factor), round(y * factor)
 
     def call(self, name: str, args: dict) -> list[dict]:
-        handler = getattr(self, "tool_" + name, None)
+        handler = getattr(self, "tool_" + str(name), None)
         if handler is None:
             raise KeyError(name)
-        return handler(args)
+        try:
+            return handler(args)
+        except KeyError as exc:
+            raise ValueError(f"missing argument {exc}") from None
 
     @staticmethod
     def _text(payload) -> list[dict]:
@@ -401,7 +412,15 @@ class TetherTools:
         return content
 
 
-def handle(tools: TetherTools, message: dict) -> dict | None:
+def tool_list(tool_set: str = "all") -> list[dict]:
+    if tool_set == "tether":
+        return TOOLS
+    if tool_set == "mobile":
+        return MOBILE_TOOLS
+    return TOOLS + MOBILE_TOOLS
+
+
+def handle(tools: TetherTools, message: dict, tool_set: str = "all") -> dict | None:
     method = message.get("method")
     msg_id = message.get("id")
     params = message.get("params") or {}
@@ -424,16 +443,20 @@ def handle(tools: TetherTools, message: dict) -> dict | None:
             "instructions": (
                 "Tether drives real Android devices over adb. Start with list_devices, then "
                 "screenshot and ui_elements to see the screen. Prefer tap_element; take a new "
-                "screenshot after each action to confirm the result."
+                "screenshot after each action to confirm the result. mobile_* tools follow "
+                "mobile-mcp conventions: mobile_list_elements_on_screen returns @eN refs to tap, "
+                "coordinates are screen pixels, and mobile_batch_commands groups known sequences."
             ),
         })
     if method == "ping":
         return reply({})
     if method == "tools/list":
-        return reply({"tools": TOOLS})
+        return reply({"tools": tool_list(tool_set)})
     if method == "tools/call":
         name = params.get("name")
         arguments = params.get("arguments") or {}
+        if name not in {tool["name"] for tool in tool_list(tool_set)}:
+            return error(-32602, f"unknown tool {name!r}")
         try:
             content = tools.call(name, arguments)
             return reply({"content": content, "isError": False})
@@ -444,7 +467,14 @@ def handle(tools: TetherTools, message: dict) -> dict | None:
     return error(-32601, f"method not found: {method}")
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Tether MCP server (stdio)")
+    parser.add_argument("--tools", choices=["all", "tether", "mobile"],
+                        default=os.environ.get("TETHER_MCP_TOOLS", "all"),
+                        help="tool set to expose (mobile = mobile-mcp compatible names only)")
+    tool_set = parser.parse_args(argv).tools
     tools = TetherTools()
     stdin = sys.stdin.buffer
     stdout = sys.stdout.buffer
@@ -458,7 +488,7 @@ def main() -> int:
             response = {"jsonrpc": "2.0", "id": None, "error": {"code": -32700, "message": "parse error"}}
         else:
             try:
-                response = handle(tools, message)
+                response = handle(tools, message, tool_set)
             except Exception as exc:  # keep the server alive for the client
                 traceback.print_exc(file=sys.stderr)
                 response = {

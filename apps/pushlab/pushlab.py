@@ -108,6 +108,8 @@ def main(argv: list[str] | None = None) -> int:
         ]))
         wait_ready(beacon_url + "/v1/health")
         ensure_app(beacon_url, config)
+        config["beacon_url"] = beacon_url
+        config["tether_url"] = tether_url  # read by plugin/skills/*/scripts/pushlab_cli.py
         save_config(config)
 
         processes.append(subprocess.Popen([

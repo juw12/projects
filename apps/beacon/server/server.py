@@ -148,7 +148,7 @@ def validate_message(body: dict) -> dict:
     urgency = body.get("urgency", "normal")
     if urgency not in URGENCIES:
         raise ApiError(400, f"urgency must be one of {sorted(URGENCIES)}")
-    return {
+    fields = {
         "title": _text(body.get("title"), "title", 120, required=True),
         "body": _text(body.get("body"), "body", 600),
         "url": _url(body.get("url"), "url"),
@@ -162,6 +162,52 @@ def validate_message(body: dict) -> dict:
         "urgency": urgency,
         "send_at": _send_at(body),
     }
+    if body.get("digest") is not None:
+        fields["digest"] = validate_digest(body["digest"])
+    if body.get("fallback") is not None:
+        fields["fallback"] = validate_fallback(body["fallback"])
+    return fields
+
+
+def validate_digest(spec) -> dict:
+    """{"key": "comments:post42", "window": 600, "title": "{count} new comments"}"""
+    if not isinstance(spec, dict):
+        raise ApiError(400, "digest must be an object")
+    key = _text(spec.get("key"), "digest.key", 128, required=True)
+    try:
+        window = float(spec.get("window", 300))
+    except (TypeError, ValueError):
+        raise ApiError(400, "digest.window must be a number of seconds") from None
+    if not 1 <= window <= 86400:
+        raise ApiError(400, "digest.window must be 1-86400 seconds")
+    clean = {"key": key, "window": window}
+    if spec.get("title"):
+        clean["title"] = _text(spec["title"], "digest.title", 120)
+    return clean
+
+
+def validate_fallback(spec) -> dict:
+    """{"after": 600, "unless": "clicked", "channels": ["ntfy"], "title"?, "body"?}"""
+    if not isinstance(spec, dict):
+        raise ApiError(400, "fallback must be an object")
+    try:
+        after = float(spec.get("after", 600))
+    except (TypeError, ValueError):
+        raise ApiError(400, "fallback.after must be a number of seconds") from None
+    if not 1 <= after <= 7 * 86400:
+        raise ApiError(400, "fallback.after must be 1-604800 seconds")
+    unless = spec.get("unless", "clicked")
+    if unless not in ("clicked", "shown", "delivered"):
+        raise ApiError(400, "fallback.unless must be clicked, shown or delivered")
+    channels = spec.get("channels")
+    if not isinstance(channels, list) or not channels or not set(channels) <= CHANNELS:
+        raise ApiError(400, f"fallback.channels must be a non-empty subset of {sorted(CHANNELS)}")
+    clean = {"after": after, "unless": unless, "channels": sorted(set(channels))}
+    if spec.get("title"):
+        clean["title"] = _text(spec["title"], "fallback.title", 120)
+    if spec.get("body"):
+        clean["body"] = _text(spec["body"], "fallback.body", 600)
+    return clean
 
 
 # ------------------------------------------------------------------- server
@@ -516,9 +562,9 @@ class Handler(BaseHTTPRequestHandler):
         if payload_size(probe) > MAX_PAYLOAD_BYTES:
             raise ApiError(400, f"notification too large ({payload_size(probe)} > {MAX_PAYLOAD_BYTES} bytes); "
                                 "shorten the text or data")
-        message = self.server.store.create_message(app["id"], fields)
+        message, merged = self.server.store.send_or_digest(app["id"], fields)
         self.server.dispatcher.nudge()
-        self.send_json({"ok": True, "message": self.message_view(message)}, 202)
+        self.send_json({"ok": True, "message": self.message_view(message), "digested": merged}, 202)
 
     @route("GET", r"/v1/app", "sender")
     def whoami(self):
@@ -591,6 +637,13 @@ class Handler(BaseHTTPRequestHandler):
         message = self._own_message(message_id)
         if not self.server.store.cancel_message(message["id"]):
             raise ApiError(409, f"cannot cancel a message that is {message['status']}")
+        self.send_json({"ok": True})
+
+    @route("POST", r"/v1/messages/(\d+)/cancel-fallback", "sender")
+    def cancel_fallback(self, message_id):
+        message = self._own_message(message_id)
+        if not self.server.store.cancel_fallback(message["id"]):
+            raise ApiError(409, "this message has no pending fallback")
         self.send_json({"ok": True})
 
     @route("GET", r"/v1/stats", "sender")

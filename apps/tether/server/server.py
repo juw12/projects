@@ -31,7 +31,7 @@ from urllib.parse import parse_qs, urlparse
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from adb import Adb, AdbError, find_element, find_notification, png_size  # noqa: E402
+from adb import Adb, AdbError, ScreenRecorder, find_element, find_notification, png_size  # noqa: E402
 from beacon_link import BeaconError, BeaconLink  # noqa: E402
 from flows import FlowError, report_to_json, run_flow, subscribe_device, validate_flow  # noqa: E402
 import maestro  # noqa: E402
@@ -145,6 +145,9 @@ class TetherServer(ThreadingHTTPServer):
         self.hub = FrameHub(adb, max_fps=max_fps)
         self.flow_lock = threading.Lock()
         self.hd = scrcpy.SessionManager(adb)
+        self.recorder = ScreenRecorder(adb)
+        self.recordings_dir = Path(os.environ.get("TETHER_RECORDINGS_DIR")
+                                   or Path(tempfile.gettempdir()) / "tether-recordings")
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -446,6 +449,58 @@ class Handler(BaseHTTPRequestHandler):
         finally:
             session.unsubscribe(viewer)
 
+    # ------------------------------------------------- recording + clipboard
+    def api_record_start(self, query):
+        body = self._body_json()
+        serial = self._serial(query, body)
+        safe = "".join(c if c.isalnum() or c in "-_" else "-" for c in serial)
+        name = f"tether-{safe}-{time.strftime('%Y%m%d-%H%M%S')}.mp4"
+        output = self.server.recordings_dir / name
+        status = self.server.recorder.start(serial, str(output), int(body.get("time_limit") or 180))
+        self._json({"ok": True, "name": name, "time_limit": status["time_limit"]})
+
+    def api_record_status(self, query):
+        self._json({"ok": True, **self.server.recorder.status(self._serial(query))})
+
+    def api_record_stop(self, query):
+        body = self._body_json()
+        result = self.server.recorder.stop(self._serial(query, body))
+        name = Path(result["path"]).name
+        self._json({"ok": True, "name": name, "size": result["size"], "duration": result["duration"],
+                    "url": f"/api/record/file?name={name}"})
+
+    def api_record_file(self, query):
+        name = (query.get("name") or [""])[0]
+        if not name or Path(name).name != name or not name.endswith(".mp4"):
+            raise ValueError("bad recording name")
+        target = self.server.recordings_dir / name
+        if not target.is_file():
+            self._error(404, "recording not found")
+            return
+        self._send(200, target.read_bytes(), "video/mp4",
+                   {"Content-Disposition": f'attachment; filename="{name}"'})
+
+    def api_clipboard_get(self, query):
+        serial = self._serial(query)
+        try:
+            text = scrcpy.clipboard(self.server.adb, serial, None, self.server.hd)
+        except scrcpy.ScrcpyError as exc:
+            self._error(502, str(exc))
+            return
+        self._json({"ok": True, "text": text})
+
+    def api_clipboard_set(self, query):
+        body = self._body_json()
+        serial = self._serial(query, body)
+        if not isinstance(body.get("text"), str):
+            raise ValueError("text is required")
+        try:
+            scrcpy.clipboard(self.server.adb, serial, body["text"], self.server.hd)
+        except scrcpy.ScrcpyError as exc:
+            self._error(502, str(exc))
+            return
+        self._json({"ok": True})
+
     def api_ui(self, query):
         serial = self._serial(query)
         elements = self.server.adb.ui_elements(serial)
@@ -660,6 +715,12 @@ ROUTES = {
     ("POST", "/api/pair"): Handler.api_pair,
     ("POST", "/api/connect"): Handler.api_connect,
     ("POST", "/api/beacon/subscribe-device"): Handler.api_subscribe_device,
+    ("POST", "/api/record/start"): Handler.api_record_start,
+    ("GET", "/api/record/status"): Handler.api_record_status,
+    ("POST", "/api/record/stop"): Handler.api_record_stop,
+    ("GET", "/api/record/file"): Handler.api_record_file,
+    ("GET", "/api/clipboard"): Handler.api_clipboard_get,
+    ("POST", "/api/clipboard"): Handler.api_clipboard_set,
 }
 
 

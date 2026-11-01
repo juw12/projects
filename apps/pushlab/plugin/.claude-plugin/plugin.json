@@ -1,0 +1,27 @@
+{
+  "name": "push-lab",
+  "version": "0.1.0",
+  "displayName": "Push Lab",
+  "description": "Agent skills for Android device QA with Tether and self-hosted push notifications with Beacon: drive a phone, run Maestro flows, send pushes and verify them on the device.",
+  "author": {
+    "name": "Juwen Lie",
+    "url": "https://github.com/juw12"
+  },
+  "homepage": "https://github.com/juw12/projects/tree/main/apps/pushlab",
+  "repository": "https://github.com/juw12/projects",
+  "license": "MIT",
+  "keywords": [
+    "android",
+    "adb",
+    "qa",
+    "maestro",
+    "push-notifications",
+    "web-push",
+    "skills"
+  ],
+  "skills": [
+    "./skills/tether-android-qa",
+    "./skills/beacon-push",
+    "./skills/push-qa-e2e"
+  ]
+}

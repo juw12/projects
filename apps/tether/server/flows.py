@@ -33,6 +33,10 @@ Push QA (with Beacon — set BEACON_URL + BEACON_KEY)
   beacon_subscribe   {"tags"?, "user"?}         open Beacon's subscribe page on the phone, tap
                      Enable + Allow (local Beacon is reached via `adb reverse`)
 
+AI steps (optional; any OpenAI-compatible endpoint such as a local Ollama — see ai.py)
+  ai                 {"goal", "max_steps"?}      the model looks at the screen and acts until done
+  ai_assert          {"condition"}               the model judges the screen; fails with its reason
+
 Any step may set "optional": true — a failure is reported but does not fail the flow.
 
 Maestro: `python flows.py run login.yaml` runs a Maestro flow directly; see maestro.py
@@ -64,6 +68,7 @@ if __package__ in (None, ""):
 
 from adb import Adb, AdbError, find_element, find_notification  # noqa: E402
 from beacon_link import BeaconError, BeaconLink  # noqa: E402
+import ai  # noqa: E402
 import maestro  # noqa: E402
 
 ELEMENT_KEYS = ("text", "resource_id", "desc")
@@ -122,6 +127,12 @@ def validate_flow(flow: dict) -> list[dict]:
             raise FlowError(f"step {index + 1}: push needs a `title`")
         if action in ("wait_notification", "tap_notification") and not (step.get("title") or step.get("text")):
             raise FlowError(f"step {index + 1}: give the notification `title` or `text`")
+        if action == "ai" and not (isinstance(step.get("goal"), str) and step["goal"].strip()):
+            raise FlowError(f"step {index + 1}: ai needs a `goal`")
+        if action == "ai" and not 1 <= int(step.get("max_steps", 10)) <= 40:
+            raise FlowError(f"step {index + 1}: `max_steps` must be 1-40")
+        if action == "ai_assert" and not (isinstance(step.get("condition"), str) and step["condition"].strip()):
+            raise FlowError(f"step {index + 1}: ai_assert needs a `condition`")
     return steps
 
 
@@ -365,6 +376,14 @@ def _beacon_subscribe(adb, serial, step):
     return {"beacon": result}
 
 
+def _ai(adb, serial, step):
+    return {"ai": ai.ai_act(adb, serial, step["goal"], int(step.get("max_steps", 10)))}
+
+
+def _ai_assert(adb, serial, step):
+    return {"ai": ai.ai_assert(adb, serial, step["condition"])}
+
+
 STEP_HANDLERS = {
     "launch": _launch,
     "stop": _stop,
@@ -387,6 +406,8 @@ STEP_HANDLERS = {
     "tap_notification": _tap_notification,
     "close_notifications": _close_notifications,
     "beacon_subscribe": _beacon_subscribe,
+    "ai": _ai,
+    "ai_assert": _ai_assert,
 }
 
 
@@ -416,7 +437,7 @@ def run_flow(adb: Adb, serial: str, flow: dict, settle_ms: int = 250,
             extra = STEP_HANDLERS[step["action"]](adb, serial, step) or {}
             if "png" in extra:
                 screenshots.append({"step": index, "name": extra["name"], "png": extra["png"]})
-            for key in ("beacon", "notification"):
+            for key in ("beacon", "notification", "ai"):
                 if key in extra:
                     result[key] = extra[key]
             if "element" in extra:

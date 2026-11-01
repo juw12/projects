@@ -101,6 +101,32 @@ Only app secrets / the admin token can add contacts (never the public subscribe 
 masked in listings because they often embed tokens. Messages go to all push channels by default
 (`webpush`, `fcm`, `ntfy`, `apprise`); pass `channels` to narrow it.
 
+## Workflows: digest and fallback
+
+Two Novu-style workflow features, set per message on `POST /v1/send` (and the MCP `send_notification` tool):
+
+```bash
+# Digest: sends with the same key inside the window become ONE notification
+curl -X POST $BEACON/v1/send -H "Authorization: Bearer sk_…" -H "Content-Type: application/json" \
+  -d '{"title":"Ana commented","url":"/post/42","target":{"user_ids":["u1"]},
+       "digest":{"key":"comments:post42:u1","window":600,"title":"{count} new comments"}}'
+
+# Fallback: in-app first; if nobody clicks within an hour, re-send on ntfy
+curl -X POST $BEACON/v1/send -H "Authorization: Bearer sk_…" -H "Content-Type: application/json" \
+  -d '{"title":"Your invoice is ready","channels":["inapp"],"target":{"user_ids":["u1"]},
+       "fallback":{"after":3600,"unless":"clicked","channels":["ntfy"],"title":"Reminder: invoice ready"}}'
+```
+
+- **Digest** — the first message waits `window` seconds (1–86400); later sends with the same `key` are folded
+  in (response `"digested": true`, same message id). The notification says *"N new …"* (`title` template with
+  `{count}`), lists the newest titles in the body, opens the newest item's URL and carries up to 8 items in
+  `data.digest`. Make the key per recipient (e.g. include the user id) when targets differ.
+- **Fallback** — `after` seconds (1–604800) after the message finishes, Beacon checks its counter
+  (`unless`: `clicked` default, `shown`, or `delivered`). If it is still 0, a follow-up goes out on
+  `channels` to the same target (`parent_id` / `fallback_id` link both; `fallback_state` is
+  `pending → sent | skipped | cancelled`). Cancel with `POST /v1/messages/{id}/cancel-fallback`.
+  The condition is per message, not per recipient: one click anywhere counts.
+
 ## Go live (public HTTPS in one click)
 
 Console → **🌍 Go live** (or `server.py --tunnel`, or `POST /v1/tunnel/start` with the admin token) downloads
@@ -148,8 +174,11 @@ Pair Beacon with [Tether](../tether#push-qa-with-beacon) to check that pushes ac
 ## Tests
 
 ```bash
-python apps/beacon/tests/verify_api.py      # 70 end-to-end checks, no network needed
-python apps/beacon/tests/verify_webpush.py  # crypto known-answer vectors (same as Orbis)
+python apps/beacon/tests/verify_api.py        # 72 end-to-end checks, no network needed
+python apps/beacon/tests/verify_webpush.py    # crypto known-answer vectors (same as Orbis)
+python apps/beacon/tests/verify_channels.py   # ntfy + Apprise (40)
+python apps/beacon/tests/verify_tunnel.py     # Go live / cloudflared (22)
+python apps/beacon/tests/verify_workflows.py  # digest + fallback (23)
 ```
 
 The end-to-end test runs a fake push service that verifies each VAPID JWT and **decrypts every payload with the browser's private key**, plus fake Google OAuth/FCM endpoints that verify the RS256 signature.
