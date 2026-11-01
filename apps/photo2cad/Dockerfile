@@ -18,8 +18,13 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY server ./server
 COPY web ./web
 
-# Optional persistent artifact root (deploy skill mounts /data when a PVC is requested).
-RUN mkdir -p /data/artifacts
+# Persistent artifact root (the deploy skill mounts /data when a PVC is requested).
+# Run as a non-root user (required by the CI security scan and the deploy security context).
+RUN groupadd --gid 1000 app \
+    && useradd --uid 1000 --gid 1000 --create-home --shell /usr/sbin/nologin app \
+    && mkdir -p /data/artifacts \
+    && chown -R app:app /app /data
+USER app
 
 EXPOSE 8000
 CMD ["python", "server/server.py", "--lan", "--port", "8000"]

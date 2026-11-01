@@ -216,7 +216,10 @@ def run_program(source: str, outdir: str | os.PathLike, timeout: int = 120) -> d
 
     started = time.time()
     try:
-        completed = subprocess.run(
+        # Runs the LLM-generated program in a separate process. The argv is fixed
+        # (sys.executable + an internal, non-user-controlled harness path); there is
+        # no shell and no user-controlled command, so this is not injection-prone.
+        completed = subprocess.run(  # nosemgrep: python.lang.security.audit.dangerous-subprocess-use-audit
             [sys.executable, str(harness_path)],
             cwd=str(work),
             capture_output=True,
