@@ -25,7 +25,6 @@ Concepts, drafts, and brainstorming that are not yet committed launches. Promote
 | --- | --- | --- |
 | [`apps/building/postpilot`](apps/building/postpilot) | LinkedIn ghostwriting service for B2B coaches and consultants. 3 on-brand posts/week delivered every Monday, voice-trained on the client's own past posts. Founder pricing $49/$99/$199/mo. | Brainstorm / pre-launch |
 | [`apps/building/respark`](apps/building/respark) | **Respark** — customer reactivation SaaS for local service businesses (dentists, plumbers, salons, trainers, mechanics, realtors, restaurants). Operator sells setup ($497) + monthly retainer ($97/mo). Auto-onboards clients, auto-runs 5-message customer reactivation campaigns, auto-collects via Stripe. Includes built-in cold outreach pipeline (`/outreach`) — import CSV → auto-send → track opens → close-won → auto-create client account. Zero-dependency Python stdlib + SQLite. 43 tests passing. | Ready for first client (pending deploy + Stripe/SMTP setup) |
-| [`agency-starter`](agency-starter) | **Handoff** — AI automation agency for SMBs worldwide + the SaaS product that funds it. Five Next.js apps (portfolio, saas landing, review-responder demo, listing-writer demo, fake-door validator) with cold-outreach copy, 5 scored niches, 14-day validation playbook, Lemon Squeezy checkout + webhook. All code complete and pushed to [juw12/loop-zero](https://github.com/juw12/loop-zero) (5 commits). | Ready to deploy (pending Vercel + Lemon Squeezy API key + LLM API key — ~15 min human setup) |
 
 See [`apps/building/`](apps/building) for what counts as WIP and how items graduate.
 
@@ -37,6 +36,7 @@ Past projects and experiments. Kept for reference, not actively developed.
 | --- | --- | --- |
 | [`saltbridge`](saltbridge) | **Saltbridge** — bilingual EN/中文 freelance services for SaaS, e-commerce, and DTC brands. Translation, English product descriptions for Chinese sellers (Amazon/Etsy/Shopify), bilingual EN/中文 email copy. Full launch package built: 3 Fiverr gigs, Upwork profile, 3 portfolio samples, cold-outreach system, day-by-day action plan, competitive analysis, 3 gig images, and a deployable portfolio site. $0 capital, 1–2 hr/day. Tagline: *Preserving value across languages.* | **NEW** |
 | [`saas-content-engine`](saas-content-engine) | Freelance SaaS content writing toolkit — Fiverr/Upwork profiles, 3 portfolio samples, 50-company target list, 10 cold email templates, 4 ready-to-send personalized emails, lead tracker template, 30-day plan, daily action coach, building notes | **NEW** |
+| [`agency-starter`](agency-starter) | **Handoff** — AI automation agency + SaaS product for SMBs worldwide. Five Next.js apps (portfolio, saas landing with Lemon Squeezy checkout, AI review-responder, AI listing-writer, fake-door niche validator). Cold-outreach copy, 5 globally-scored niches, 14-day validation playbook. All code complete and pushed to [juw12/loop-zero](https://github.com/juw12/loop-zero). $29/mo Pro, $99/mo Team. | **NEW** |
 
 ## Ownership and content
 
