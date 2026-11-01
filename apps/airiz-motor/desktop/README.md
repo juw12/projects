@@ -9,7 +9,7 @@ is required to use the installed app or its hardware-free demo.
 ## Downloads
 
 Windows x64 releases are published under the app-specific tag
-`airiz-desktop-v1.11.24` in this repository's Releases section.
+`airiz-desktop-v1.11.25` in this repository's Releases section.
 
 - **Installer**: assisted, per-user installation with Start-menu/desktop shortcuts
   and an uninstaller. The wizard lets the user choose the installation directory.
@@ -163,6 +163,14 @@ reports whether a framed firmware reply came back. Results can be exported.
 No pairing is accepted without confirmation and no motor command is sent.
 Another program on the PC still cannot open COM4 while this app holds it: that is
 a Windows serial-port rule, which is why the check runs inside the app.
+
+## 1.11.25: Windows dialogs and menu in your language
+
+* **Native dialogs and menu follow the console language.** New `native-i18n.cjs` reads the generated `web/i18n-strings.js`, so dialogs use the same zh-TW / zh-CN dictionary as the UI. The renderer reports the language (`airizDesktop.setLanguage`, IPC `airiz:set-language`) at start and on every change; it is stored as `language` in `preferences.json`, so even the startup error box uses it. Covered: close warnings, update install / schedule confirmations, camera / microphone permission, Bluetooth pairing, About, startup error, and every menu label (including Undo / Copy / Paste roles). A missing dictionary falls back to English.
+* **Fixed wording.** "Install X automatically when the macro is running finishes?" now reads "… when the macro finishes?" (uses the update controller's `waitPhrase`). The permission dialog names the camera / microphone instead of Chromium's `video` / `audio`.
+* **Removed dead code.** `ble-protocol.js` no longer contains the browser Web Bluetooth connect path (`requestWebBluetoothPort`, GATT connect, Bluefy help, PIN dialog) or its CSS; nothing has called it since 1.11.18. `VerifiedSerialPort` (remote tunnel, mobile app) is unchanged.
+* New test `tests/native-i18n.test.cjs`: every native dialog / menu string has zh-TW and zh-CN text.
+* **Code signing:** builds are still unsigned. electron-builder signs automatically when `CSC_LINK` (path or base64 of a .pfx code-signing certificate) and `CSC_KEY_PASSWORD` are set in the build environment; no config change needed.
 
 ## 1.11.24: Chinese guide and Bluetooth check text brought up to date
 

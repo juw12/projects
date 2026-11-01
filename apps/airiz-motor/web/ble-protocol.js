@@ -369,105 +369,11 @@
     }
   }
 
-  // ---------------------------------------------------------------- browser UI
-  const pinStore = {
-    key: id => 'airiz.bt.pin.' + String(id || 'default'),
-    get(id) {
-      try { return localStorage.getItem(pinStore.key(id)); } catch (ignored) { return null; }
-    },
-    set(id, pin) {
-      try { localStorage.setItem(pinStore.key(id), pin); } catch (ignored) { /* Private mode */ }
-    },
-    clear(id) {
-      try { localStorage.removeItem(pinStore.key(id)); } catch (ignored) { /* Private mode */ }
-    }
-  };
+  // 1.11.25: the browser Web Bluetooth path (Connect Bluetooth, Bluefy on iPhone, its PIN
+  // dialog) was removed from the UI in 1.11.18 and is now removed here too. Phones connect
+  // with Remote by code; VerifiedSerialPort stays for the remote tunnel and the mobile app.
 
-  function askPin(request) {
-    const doc = root && root.document;
-    if (!doc) return Promise.resolve(null);
-    let dialog = doc.getElementById('airiz-pin-dialog');
-    if (!dialog) {
-      dialog = doc.createElement('dialog');
-      dialog.id = 'airiz-pin-dialog';
-      dialog.className = 'help-dialog airiz-pin-dialog';
-      dialog.setAttribute('aria-labelledby', 'airiz-pin-title');
-      dialog.innerHTML = '<form method="dialog">'
-        + '<h2 id="airiz-pin-title">Bluetooth PIN</h2>'
-        + '<p id="airiz-pin-message"></p>'
-        + '<input id="airiz-pin-input" class="input" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" placeholder="6 digits" aria-label="6-digit PIN">'
-        + '<div class="mobile-dialog-actions"><button value="cancel" class="btn btn-secondary" formnovalidate>Cancel</button>'
-        + '<button value="ok" id="airiz-pin-ok" class="btn btn-primary">Unlock</button></div></form>';
-      doc.body.append(dialog);
-    }
-    return new Promise(resolve => {
-      const input = doc.getElementById('airiz-pin-input');
-      doc.getElementById('airiz-pin-message').textContent = request.message;
-      input.value = '';
-      const done = () => {
-        dialog.removeEventListener('close', done);
-        resolve(dialog.returnValue === 'ok' ? input.value : null);
-      };
-      dialog.returnValue = '';
-      dialog.addEventListener('close', done);
-      dialog.showModal();
-      input.focus();
-    });
-  }
-
-  function webBluetoothLink(device, rx, tx) {
-    let lostHandler = null;
-    let dataHandler = null;
-    const onValue = event => {
-      const view = event.target.value;
-      if (dataHandler) dataHandler(new Uint8Array(view.buffer, view.byteOffset, view.byteLength));
-    };
-    const onLost = () => {
-      if (lostHandler) lostHandler(new Error('Bluetooth connection lost'));
-    };
-    // iOS/Bluefy: 'write without response' delivers the data but can reject the
-    // promise, which aborted the connection. Acknowledged writes are reliable there.
-    const quick = !isIos() && rx.properties && rx.properties.writeWithoutResponse
-      && typeof rx.writeValueWithoutResponse === 'function';
-    return {
-      label: 'Bluetooth LE · ' + (device.name || 'AIRIZ-BT'),
-      async subscribe(onData, onDisconnect) {
-        dataHandler = onData;
-        lostHandler = onDisconnect;
-        tx.addEventListener('characteristicvaluechanged', onValue);
-        device.addEventListener('gattserverdisconnected', onLost);
-        try {
-          await tx.startNotifications();
-        } catch (error) {
-          throw stageError('notifications', error);
-        }
-      },
-      async write(bytes) {
-        for (const part of chunks(bytes, 20)) {
-          if (quick) {
-            await rx.writeValueWithoutResponse(part);
-            await new Promise(resolve => setTimeout(resolve, 25));
-          } else if (typeof rx.writeValueWithResponse === 'function') {
-            await rx.writeValueWithResponse(part);
-          } else {
-            await rx.writeValue(part);
-          }
-        }
-      },
-      async close() {
-        lostHandler = null;
-        dataHandler = null;
-        tx.removeEventListener('characteristicvaluechanged', onValue);
-        device.removeEventListener('gattserverdisconnected', onLost);
-        try { await tx.stopNotifications(); } catch (ignored) { /* Already gone */ }
-        try { if (device.gatt.connected) device.gatt.disconnect(); } catch (ignored) { /* Already gone */ }
-      }
-    };
-  }
-
-  // Web Bluetooth chooser -> verified (and PIN-unlocked) port.
-  // Turns an error without a message (common in Bluefy/iOS) into one that says
-  // which step failed, so "Bluetooth connection failed" never hides the cause.
+  // Turns an error without a message into one that says which step failed.
   function stageError(stage, error) {
     const name = error && error.name ? error.name : '';
     const message = error && error.message ? error.message : '';
@@ -479,68 +385,11 @@
     return wrapped;
   }
 
-  const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
-
-  // Connect and discover the UART service. iOS sometimes drops the first link or
-  // returns an empty service list right after connecting, so retry a few times.
-  async function connectGatt(device, attempts = 3) {
-    let lastError = null;
-    for (let attempt = 1; attempt <= attempts; attempt += 1) {
-      let stage = 'connect';
-      try {
-        const server = await device.gatt.connect();
-        stage = 'service discovery';
-        const service = await server.getPrimaryService(NUS_SERVICE);
-        stage = 'characteristic discovery';
-        const rx = await service.getCharacteristic(NUS_WRITE);
-        const tx = await service.getCharacteristic(NUS_NOTIFY);
-        return { rx, tx };
-      } catch (error) {
-        lastError = stageError(stage, error);
-        try {
-          if (device.gatt.connected) device.gatt.disconnect();
-        } catch (ignored) { /* Already gone */ }
-        if (attempt < attempts) await sleep(800 * attempt);
-      }
-    }
-    throw lastError;
-  }
-
-  async function requestWebBluetoothPort(onDisconnect, options = {}) {
-    const bluetooth = root && root.navigator && root.navigator.bluetooth;
-    if (!bluetooth) throw new Error(webBluetoothHelp());
-    // Bluefy (iPhone) is most reliable with an unfiltered list; choose AIRIZ-BT.
-    const device = await bluetooth.requestDevice(isIos()
-      ? { acceptAllDevices: true, optionalServices: [NUS_SERVICE] }
-      : { filters: [{ services: [NUS_SERVICE] }, { namePrefix: 'AIRIZ' }], optionalServices: [NUS_SERVICE] });
-    const { rx, tx } = await connectGatt(device);
-    const id = device.id || device.name;
-    const port = new VerifiedSerialPort(webBluetoothLink(device, rx, tx), onDisconnect, 10000, {
-      askPin,
-      savedPin: pinStore.get(id) || (/^\d{6}$/.test(options.pinHint || '') ? options.pinHint : null),
-      rememberPin: pin => pinStore.set(id, pin),
-      forgetPin: () => pinStore.clear(id)
-    });
-    return port;
-  }
-
-  function isIos() {
-    const nav = root && root.navigator;
-    if (!nav) return false;
-    return /iPhone|iPad|iPod/.test(nav.userAgent) || (nav.platform === 'MacIntel' && nav.maxTouchPoints > 1);
-  }
-
-  function webBluetoothHelp() {
-    return isIos()
-      ? 'Safari on iPhone has no Bluetooth access for websites. Install the free "Bluefy – Web BLE Browser" app from the App Store and open this page in it.'
-      : 'This browser has no Web Bluetooth. Use Chrome or Edge (Android, Windows, macOS), or Bluefy on iPhone.';
-  }
-
   return {
     FIRMWARE_QUERY, SPP_UUID, NUS_SERVICE, NUS_WRITE, NUS_NOTIFY, HM10_SERVICE,
     MOTOR_STOP_USB, MOTOR_STOP_BRIDGE,
     normalizeUuid, discoverProfiles, customProfile, firmwareVersion, authReply, chunks,
     parseWho, bridgeVersion, rememberWho, recallWho, describeClient,
-    VerifiedSerialPort, pinStore, askPin, requestWebBluetoothPort, webBluetoothHelp, isIos, stageError
+    VerifiedSerialPort, stageError
   };
 }));

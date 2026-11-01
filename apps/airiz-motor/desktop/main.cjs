@@ -10,7 +10,8 @@ const {
   isAppUrl, resolveAsset, canOpenExternal, isTeamsWorkflowUrl, teamsWorkflowFromClipboard, DEEP_LINK_SCHEME, findTeamInvite
 } = require('./security.cjs');
 const { createSerialChooser } = require('./serial-chooser.cjs');
-const { createUpdateController } = require('./update-controller.cjs');
+const { createUpdateController, waitPhrase } = require('./update-controller.cjs');
+const { createNativeI18n } = require('./native-i18n.cjs');
 const { createGrantStore } = require('./device-grants.cjs');
 const { createPreferencesStore } = require('./preferences.cjs');
 const { createPowerKeeper } = require('./power-keeper.cjs');
@@ -74,6 +75,11 @@ let bluetoothCallback = null;
 let closeConfirmed = false;
 let closeDialogPending = false;
 const webRoot = app.isPackaged ? path.join(__dirname, 'web') : path.resolve(__dirname, '../web');
+// 1.11.25: native dialogs and the menu follow the console language (see native-i18n.cjs).
+const nativeText = createNativeI18n(webRoot);
+function showDialog(options) {
+  return dialog.showMessageBox(mainWindow, nativeText.dialog(options));
+}
 const contentTypes = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
   '.css': 'text/css; charset=utf-8', '.json': 'application/json',
@@ -137,7 +143,7 @@ async function closeSafely(event) {
     const active = (state.connected && !state.demoMode) || state.macroRunning
       || state.cameraRecording || state.sessionActive;
     if (active) {
-      const result = await dialog.showMessageBox(mainWindow, {
+      const result = await showDialog({
         type: 'warning', title: 'Finish the device session before closing',
         message: 'A device connection, macro, recording or session is active.',
         detail: 'Closing disconnects this console. It does NOT stop a motor move already sent. Finish or safely stop your bench test first. Unsaved recording/session output may be interrupted.',
@@ -158,7 +164,7 @@ async function closeSafely(event) {
     mainWindow.close();
   } catch {
     // A failed renderer must not silently discard a potentially active session.
-    const result = await dialog.showMessageBox(mainWindow, {
+    const result = await showDialog({
       type: 'warning', title: 'Close AIRIZ Console?',
       message: 'The console state could not be read.',
       detail: 'Confirm the device is safe before closing. Closing this app is not a motor-stop command.',
@@ -191,8 +197,9 @@ function configurePermissions(appSession) {
       return;
     }
     if (permission === 'media') {
-      const kinds = details.mediaTypes?.join(' and ') || 'camera or microphone';
-      const result = await dialog.showMessageBox(mainWindow, {
+      const names = (details.mediaTypes || []).map(kind => (kind === 'video' ? 'camera' : kind === 'audio' ? 'microphone' : kind));
+      const kinds = names.length ? names.join(' and ') : 'camera or microphone';
+      const result = await showDialog({
         type: 'question', title: 'AIRIZ device media access',
         message: 'Allow access to ' + kinds + '?',
         detail: 'Media stays in this local console unless you explicitly save or export it, '
@@ -270,6 +277,7 @@ async function createWindow() {
   configurePermissions(session.defaultSession);
   grants = createGrantStore(app.getPath('userData'));
   preferences = createPreferencesStore(app.getPath('userData'));
+  nativeText.setLanguage(preferences.get('language'));
   // Only ports the user explicitly chose before are reopened automatically.
   session.defaultSession.setDevicePermissionHandler(details => {
     return details.deviceType === 'serial' && isAppUrl(details.origin) && grants.allows(details.device);
@@ -290,7 +298,7 @@ async function createWindow() {
       callback({ confirmed: false });
       return;
     }
-    const answer = await dialog.showMessageBox(mainWindow, {
+    const answer = await showDialog({
       type: 'question', title: 'Pair Bluetooth device?',
       message: 'Pair with the selected Bluetooth device?',
       detail: details.pin ? 'Confirm this PIN matches the device: ' + details.pin : 'Only pair with your own AIRIZ device.',
@@ -510,7 +518,7 @@ async function createWindow() {
     },
     getDeviceState: () => mainWindow.webContents.executeJavaScript('window.AirizConsole?.getStatus?.() || null'),
     confirmInstall: async (version, connected) => {
-      const answer = await dialog.showMessageBox(mainWindow, {
+      const answer = await showDialog({
         type: 'question', title: 'Install AIRIZ update?',
         message: 'Install AIRIZ Console ' + version + ' now?',
         detail: (connected
@@ -522,9 +530,9 @@ async function createWindow() {
       return answer.response === 1;
     },
     confirmSchedule: async (version, reason) => {
-      const answer = await dialog.showMessageBox(mainWindow, {
+      const answer = await showDialog({
         type: 'question', title: 'Install AIRIZ update when finished?',
-        message: 'Install ' + version + ' automatically when ' + reason.replace(/^an? /, 'the ') + ' finishes?',
+        message: 'Install ' + version + ' automatically when ' + waitPhrase(reason) + '?',
         detail: 'You can keep working. When it finishes, the app installs the update, restarts and reconnects to the same device.',
         buttons: ['Not now', 'Install when finished'], defaultId: 1, cancelId: 0, noLink: true
       });
@@ -578,23 +586,41 @@ async function createWindow() {
     setInterval(() => updates.check(), 6 * 60 * 60 * 1000).unref();
   }
 
+  buildAppMenu();
+  ipcMain.handle('airiz:set-language', (event, language) => {
+    if (!trustedSender(event)) throw new Error('Untrusted language request.');
+    if (nativeText.setLanguage(String(language))) buildAppMenu();
+    preferences.set('language', nativeText.language());
+    return nativeText.language();
+  });
+  await mainWindow.loadURL('airiz://app/');
+}
+
+function buildAppMenu() {
+  const t = nativeText.t;
   Menu.setApplicationMenu(Menu.buildFromTemplate([
-    { label: 'File', submenu: [{ label: 'Close AIRIZ Console', accelerator: 'Alt+F4', click: () => mainWindow.close() }] },
-    { label: 'Edit', submenu: [{ role: 'undo' }, { role: 'redo' }, { type: 'separator' }, { role: 'cut' }, { role: 'copy' }, { role: 'paste' }, { role: 'selectAll' }] },
-    { label: 'View', submenu: [{ role: 'resetZoom' }, { role: 'zoomIn' }, { role: 'zoomOut' }, { type: 'separator' }, { role: 'togglefullscreen' }] },
-    { label: 'Help', submenu: [
-      { label: 'Check for updates…', click: () => {
+    { label: t('File'), submenu: [{ label: t('Close AIRIZ Console'), accelerator: 'Alt+F4', click: () => mainWindow.close() }] },
+    { label: t('Edit'), submenu: [
+      { role: 'undo', label: t('Undo') }, { role: 'redo', label: t('Redo') }, { type: 'separator' },
+      { role: 'cut', label: t('Cut') }, { role: 'copy', label: t('Copy') }, { role: 'paste', label: t('Paste') },
+      { role: 'selectAll', label: t('Select All') }
+    ] },
+    { label: t('View'), submenu: [
+      { role: 'resetZoom', label: t('Actual Size') }, { role: 'zoomIn', label: t('Zoom In') }, { role: 'zoomOut', label: t('Zoom Out') },
+      { type: 'separator' }, { role: 'togglefullscreen', label: t('Toggle Full Screen') }
+    ] },
+    { label: t('Help'), submenu: [
+      { label: t('Check for updates…'), click: () => {
         mainWindow.webContents.send('airiz:show-updates');
         updates.check();
       } },
-      { label: 'About AIRIZ Console', click: () => dialog.showMessageBox(mainWindow, {
+      { label: t('About AIRIZ Console'), click: () => showDialog({
         title: 'AIRIZ Console', message: 'AIRIZ Console ' + app.getVersion(),
         detail: 'Windows desktop edition. The full interface is bundled locally.\n\nHardware control requires a compatible connected device. UI locking is not a hardware emergency stop.'
       }) },
-      { label: 'Release notes and downloads', click: () => shell.openExternal('https://github.com/juw12/projects/releases/tag/airiz-desktop-v' + app.getVersion()) }
+      { label: t('Release notes and downloads'), click: () => shell.openExternal('https://github.com/juw12/projects/releases/tag/airiz-desktop-v' + app.getVersion()) }
     ] }
   ]));
-  await mainWindow.loadURL('airiz://app/');
 }
 
 const locked = app.requestSingleInstanceLock();
@@ -611,7 +637,7 @@ if (!locked) {
     }
   });
   app.whenReady().then(createWindow).catch(error => {
-    dialog.showErrorBox('AIRIZ Console startup failed', error.message);
+    dialog.showErrorBox(nativeText.t('AIRIZ Console startup failed'), error.message);
     app.quit();
   });
   app.on('window-all-closed', () => app.quit());

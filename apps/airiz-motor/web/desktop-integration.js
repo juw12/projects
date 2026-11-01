@@ -26,6 +26,17 @@
     return;
   }
 
+  // 1.11.25: tell the Windows side which language the console shows, so its native dialogs
+  // (close warning, install confirmation, camera permission) and the menu match.
+  function initializeNativeLanguage() {
+    if (typeof host.setLanguage !== 'function') return;
+    const send = language => {
+      if (language) host.setLanguage(language).catch(() => {});
+    };
+    send(window.AirizI18n && typeof window.AirizI18n.language === 'function' ? window.AirizI18n.language() : 'en');
+    window.addEventListener('airiz:language', event => send(event.detail && event.detail.language));
+  }
+
   function initializeDesktop() {
     document.documentElement.classList.add('desktop-edition');
     const downloadPanel = document.getElementById('desktop-download-banner');
@@ -33,6 +44,7 @@
     document.getElementById('btn-install-app').hidden = true;
 
     initializeUpdates();
+    initializeNativeLanguage();
     initializeBluetoothCheck();
     initializeBluetoothPicker();
     restoreConnectionAfterUpdate();

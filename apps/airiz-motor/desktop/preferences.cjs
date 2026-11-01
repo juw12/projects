@@ -6,8 +6,17 @@ const path = require('node:path');
 const DEFAULTS = Object.freeze({
   // True: the desktop app auto-downloads and auto-installs updates when the device
   // is idle. False: the existing manual flow (Updates dialog) stays in charge.
-  autoUpdate: false
+  autoUpdate: false,
+  // 1.11.25: console language, so native dialogs and the menu match the UI from the first moment.
+  language: 'en'
 });
+const LANGUAGES = new Set(['en', 'zh-TW', 'zh-CN']);
+
+function normalizeValue(key, value) {
+  if (key === 'autoUpdate') return value === true;
+  if (key === 'language') return LANGUAGES.has(value) ? value : DEFAULTS.language;
+  return value;
+}
 
 function readJson(file, fallback) {
   try {
@@ -32,9 +41,10 @@ function createPreferencesStore(directory) {
   let current = { ...DEFAULTS, ...readJson(file, {}) };
   // Defensive: unknown keys from older versions do not leak into the persisted file.
   current = {
-    autoUpdate: current.autoUpdate === true
+    autoUpdate: normalizeValue('autoUpdate', current.autoUpdate),
+    language: normalizeValue('language', current.language)
   };
-  if (current.autoUpdate !== DEFAULTS.autoUpdate) writeJson(file, current);
+  if (current.autoUpdate !== DEFAULTS.autoUpdate || current.language !== DEFAULTS.language) writeJson(file, current);
 
   return {
     get(key) {
@@ -42,7 +52,7 @@ function createPreferencesStore(directory) {
     },
     set(key, value) {
       if (!(key in DEFAULTS)) throw new Error('Unknown preference: ' + key);
-      const normalized = key === 'autoUpdate' ? value === true : value;
+      const normalized = normalizeValue(key, value);
       if (current[key] === normalized) return current[key];
       current = { ...current, [key]: normalized };
       writeJson(file, current);
