@@ -1058,6 +1058,37 @@
       "status": "public-beta",
       "order": 26,
       "portfolio_order": -10
+    },
+    {
+      "id": "photo2cad",
+      "name": "Photo2CAD",
+      "category": "Engineering",
+      "work": true,
+      "desc": "Turn a product PRD plus six reference photos into a real STEP (.stp) CAD model - an LLM writes a CadQuery program, a sandbox builds the solid and the server validates it",
+      "description": "Engineering service that turns a product requirements document (PRD) and six reference photographs (front/back/left/right/top/bottom) into a real CAD file. A Pegatron MAAS LLM writes a parametric CadQuery program from the PRD (the photos are visual/dimension reference), a sandboxed child process builds it, and the server re-imports the STEP to validate a single solid with its bounding box and volume - returning a downloadable .stp plus an STL preview. Ships as a deployable web service (Docker + Kubernetes). Output is STEP; Creo .prt is proprietary and not produced (Creo imports STEP).",
+      "summary": "PRD + six reference photos to a validated STEP (.stp) CAD model via an LLM-written CadQuery program - a deployable service.",
+      "tags": [
+        "CAD",
+        "STEP",
+        "CadQuery",
+        "LLM",
+        "Python",
+        "deployable service"
+      ],
+      "note_tags": [
+        "cad",
+        "step",
+        "stp",
+        "cadquery",
+        "opencascade",
+        "llm",
+        "python",
+        "engineering"
+      ],
+      "files": "https://github.com/juw12/projects/tree/main/apps/photo2cad",
+      "status": "preliminary",
+      "order": 27,
+      "portfolio": false
     }
   ]
 }
