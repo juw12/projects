@@ -1,0 +1,6 @@
+__pycache__/
+beacon-data/
+*.db
+*.db-wal
+*.db-shm
+tools/
