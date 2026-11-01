@@ -3,7 +3,7 @@
   python apps/pushlab/tests/verify_plugin.py
 
 The end-to-end part starts a real Beacon and a real Tether (with the fake adb
-from apps/tether/tests) and drives them only through the skills' CLI, the way an
+from apps/pushlab/tether/tests) and drives them only through the skills' CLI, the way an
 agent would: status, ui, tap, flow (Maestro YAML), record, push, push-check.
 """
 
@@ -23,7 +23,7 @@ PUSHLAB = HERE.parent
 APPS = PUSHLAB.parent
 REPO = APPS.parent
 PLUGIN = PUSHLAB / "plugin"
-TETHER_TESTS = APPS / "tether" / "tests"
+TETHER_TESTS = PUSHLAB / "tether" / "tests"
 FLAGS = (subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.CREATE_NO_WINDOW) if os.name == "nt" else 0
 ADMIN = "adm_plugin_test"
 TOKEN = "plugin-test-token"
@@ -124,7 +124,7 @@ def e2e(cli: Path) -> None:
         try:
             beacon_port = link.free_port()
             processes.append(subprocess.Popen(
-                [sys.executable, str(APPS / "beacon" / "server" / "server.py"), "--port", str(beacon_port),
+                [sys.executable, str(PUSHLAB / "beacon" / "server" / "server.py"), "--port", str(beacon_port),
                  "--data", str(tmp / "beacon.db"), "--admin-token", ADMIN],
                 env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, creationflags=FLAGS))
             link.wait_port(beacon_port)
@@ -137,7 +137,7 @@ def e2e(cli: Path) -> None:
                                                          "tags": ["qa:device"]})
             tether_port = link.free_port()
             processes.append(subprocess.Popen(
-                [sys.executable, str(APPS / "tether" / "server" / "server.py"), "--port", str(tether_port),
+                [sys.executable, str(PUSHLAB / "tether" / "server" / "server.py"), "--port", str(tether_port),
                  "--token", TOKEN, "--no-browser", "--beacon-url", beacon, "--beacon-key", secret],
                 env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, creationflags=FLAGS))
             link.wait_port(tether_port)

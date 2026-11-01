@@ -24,7 +24,7 @@ import webbrowser
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-ROOT = HERE.parent  # apps/ (beacon/ and tether/ live next to pushlab/)
+ROOT = HERE  # beacon/ and tether/ live inside apps/pushlab/
 LAB_DIR = HERE / ".pushlab"
 CONFIG = LAB_DIR / "lab.json"
 DIRECT = urllib.request.build_opener(urllib.request.ProxyHandler({}))
