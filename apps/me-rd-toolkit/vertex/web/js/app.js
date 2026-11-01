@@ -1573,7 +1573,7 @@ function createVertexApp(doc, win, opts) {
 
     /* Service worker is a standalone-page concern; skip it in the embedded mount
        to avoid a nested-SW conflict with the host page. */
-    if (!EMBEDDED && 'serviceWorker' in navigator && !doc.documentElement.classList.contains('merd-embed')) {
+    if (!EMBEDDED && 'serviceWorker' in navigator) {
       navigator.serviceWorker.register('./sw.js')
         .then(function(reg) {
           console.log('SW registered:', reg.scope);
