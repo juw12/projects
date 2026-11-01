@@ -192,6 +192,20 @@ class Handler(BaseHTTPRequestHandler):
     def log_message(self, fmt, *args):
         log.debug(fmt % args)
 
+    def send_response(self, code, message=None):
+        # Runs on every response — JSON, static files, the .xlsx export, and the
+        # send_error 404/500 pages — so the origin header reaches all paths from one
+        # spot. Don't re-add it in the per-route helpers (would duplicate).
+        super().send_response(code, message)
+        self.send_header("Access-Control-Allow-Origin", "*")
+
+    def do_OPTIONS(self):
+        self.send_response(200)
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+
     def do_GET(self):
         try:
             parsed = urllib.parse.urlparse(self.path)

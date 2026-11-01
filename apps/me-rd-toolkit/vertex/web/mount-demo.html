@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vertex — Mount Demo (Shadow DOM, no iframe)</title>
+  <style>
+    html, body { margin: 0; height: 100%; font-family: system-ui, -apple-system, sans-serif; background: #f5f5f7; color: #111; }
+    .demo-bar { display: flex; gap: 8px; align-items: center; padding: 10px 14px; background: #111; color: #fff; font-size: 13px; height: 48px; box-sizing: border-box; }
+    .demo-bar .spacer { margin-left: auto; }
+    .demo-bar button { font: inherit; padding: 4px 10px; cursor: pointer; }
+    .status { padding: 2px 8px; border-radius: 4px; font-size: 12px; background: #444; }
+    .status.ok { background: #1f8a4c; }
+    .status.err { background: #b23b3b; }
+    #vertex-host { width: 100%; height: calc(100vh - 48px); }
+  </style>
+</head>
+<body>
+  <div class="demo-bar">
+    <strong>Vertex Mount Demo</strong>
+    <span>full cockpit rendered in an open Shadow Root (no iframe)</span>
+    <span id="status" class="status">mounting&hellip;</span>
+    <span class="spacer"></span>
+    <button id="theme" type="button">Toggle theme</button>
+    <button id="unmount" type="button">Unmount</button>
+  </div>
+  <div id="vertex-host"></div>
+
+  <script src="vertex-mount.js"></script>
+  <script>
+    (function () {
+      'use strict';
+      var host = document.getElementById('vertex-host');
+      var status = document.getElementById('status');
+      var theme = 'light';
+
+      function setStatus(msg, cls) { status.textContent = msg; status.className = 'status ' + (cls || ''); }
+
+      window.VertexMount.mount(host, { apiBase: '', theme: theme })
+        .then(function (handle) {
+          window.__vertexHandle = handle;
+          setStatus('mounted', 'ok');
+        })
+        .catch(function (err) {
+          setStatus('error: ' + err.message, 'err');
+          console.error(err);
+        });
+
+      document.getElementById('theme').addEventListener('click', function () {
+        theme = theme === 'light' ? 'dark' : 'light';
+        host.setAttribute('data-theme', theme);
+        window.dispatchEvent(new Event('resize'));
+      });
+
+      document.getElementById('unmount').addEventListener('click', function () {
+        window.VertexMount.unmount();
+        host.removeAttribute('data-theme');
+        setStatus('unmounted', 'err');
+      });
+    })();
+  </script>
+</body>
+</html>

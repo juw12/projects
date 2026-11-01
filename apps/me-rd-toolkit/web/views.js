@@ -481,67 +481,272 @@
   };
 
   // ------------------------------------------------------------------ sub-apps (Vertex, PTB RDME)
-  let subAppThemeObserver = null;
-
-  function renderSubApp(cfg) {
-    const port = (window.MERD_SUBAPPS && window.MERD_SUBAPPS[cfg.id]) || cfg.defaultPort;
-    const origin = "http://127.0.0.1:" + port + "/";
-    const theme = document.documentElement.dataset.theme || "light";
-    const withEmbed = (url) => url + (url.includes("?") ? "&" : "?") + "embed=1&theme=" + theme;
-    const html = "<h1>" + APP.icon(cfg.icon) + " " + esc(cfg.title) + "</h1>" +
-      '<div class="toolbar no-print">' +
-      '<button class="btn small" id="subapp-reload">Reload</button>' +
-      '<a class="btn small" id="subapp-open" target="_blank" href="#">Open in new tab</a>' +
-      '<span class="spacer"></span><span class="subapp-note" id="subapp-status">Probing…</span></div>' +
-      '<div id="subapp-container"></div>';
-    $("#view").innerHTML = html;
-
-    function postTheme(iframe) {
-      if (iframe && iframe.contentWindow) {
-        iframe.contentWindow.postMessage({ type: "merd:theme", theme: document.documentElement.dataset.theme || "light" }, "*");
-      }
+  const loadedScripts = {};
+  function loadScriptOnce(src) {
+    if (!loadedScripts[src]) {
+      loadedScripts[src] = new Promise((resolve, reject) => {
+        const s = document.createElement("script");
+        s.src = src;
+        s.async = false;
+        s.addEventListener("load", () => resolve());
+        s.addEventListener("error", () => reject(new Error("failed to load " + src)));
+        document.head.appendChild(s);
+      });
     }
-
-    function setSrc(src, note) {
-      $("#subapp-status").textContent = note || "";
-      $("#subapp-open").href = src;
-      $("#subapp-container").innerHTML = '<iframe class="app-frame" src="' + esc(src) + '" title="' + esc(cfg.title) + '"></iframe>';
-      const iframe = $("#subapp-container iframe");
-      iframe.addEventListener("load", () => postTheme(iframe));
-    }
-
-    if (subAppThemeObserver) {
-      subAppThemeObserver.disconnect();
-    }
-    subAppThemeObserver = new MutationObserver(() => {
-      postTheme($("#subapp-container iframe"));
-    });
-    subAppThemeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
-
-    function probe() {
-      $("#subapp-status").textContent = "Probing " + origin + "…";
-      fetch(origin + cfg.healthPath, { mode: "no-cors", signal: AbortSignal.timeout(900) })
-        .then(() => setSrc(withEmbed(origin.replace(/\/$/, "") + cfg.livePath), "Connected to local server (port " + port + ")"))
-        .catch(() => {
-          if (cfg.staticSrc) {
-            setSrc(cfg.staticSrc, "Offline copy — open the ME R&D Toolkit for Windows for live features.");
-          } else {
-            $("#subapp-container").innerHTML = '<div class="card" style="margin-top:4px">' + esc(cfg.desktopHint) + "</div>";
-            $("#subapp-status").textContent = "Local server not reachable.";
-            $("#subapp-open").href = withEmbed(origin);
-          }
-        });
-    }
-
-    $("#subapp-reload").addEventListener("click", probe);
-    probe();
+    return loadedScripts[src];
   }
 
-  V.vertex = function () {
-    renderSubApp({ id: "vertex", title: "Vertex", icon: "vertex", defaultPort: 8792, healthPath: "/api/health", livePath: "/app.html", staticSrc: "vertex/app.html", desktopHint: "Vertex runs live when the ME R&D Toolkit for Windows is open (it starts the local CAD engine)." });
+  V.vertex = async function () {
+    const port = (window.MERD_SUBAPPS && window.MERD_SUBAPPS.vertex) || 8792;
+    $("#view").innerHTML =
+      "<h1>" + APP.icon("vertex") + " Vertex</h1>" +
+      '<div class="muted">Offline CAD copilot — diagnose and repair broken models, plan assemblies.</div>' +
+      '<div id="vertex-host" class="subapp-host"></div>';
+    const host = $("#vertex-host");
+    if (!host) return;
+    try {
+      await loadScriptOnce("vertex/vertex-mount.js");
+    } catch (e) {
+      host.innerHTML = '<div class="card" style="margin-top:12px">Could not load Vertex: ' + esc(e.message) + "</div>";
+      return;
+    }
+    if (!window.VertexMount) {
+      host.innerHTML = '<div class="card" style="margin-top:12px">Vertex mount is unavailable.</div>';
+      return;
+    }
+    if (window.VertexMount.isMounted()) {
+      try { window.VertexMount.unmount(); } catch (e) {}
+    }
+    try {
+      await window.VertexMount.mount(host, {
+        assetBase: "vertex/",
+        apiBase: "http://127.0.0.1:" + port + "/",
+        theme: document.documentElement.dataset.theme || "light"
+      });
+    } catch (e) {
+      host.innerHTML = '<div class="card" style="margin-top:12px">Vertex could not start: ' + esc(e.message) + "</div>";
+      return;
+    }
+    const syncTheme = () => {
+      try { host.setAttribute("data-theme", document.documentElement.dataset.theme || "light"); } catch (e) {}
+      window.dispatchEvent(new Event("resize"));
+    };
+    const themeObserver = new MutationObserver(syncTheme);
+    themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+    const onHash = () => {
+      if (!location.hash.startsWith("#vertex")) {
+        window.removeEventListener("hashchange", onHash);
+        themeObserver.disconnect();
+        try { window.VertexMount.unmount(); } catch (e) {}
+      }
+    };
+    window.addEventListener("hashchange", onHash);
   };
 
-  V.ptb = function () {
-    renderSubApp({ id: "ptb", title: "PTB RDME", icon: "ptb", defaultPort: 8050, healthPath: "/api/status", livePath: "/", staticSrc: null, desktopHint: "The PTB RDME widget needs the ME R&D Toolkit for Windows — it reads your local Outlook drafts and a shared overtime database." });
+  V.ptb = async function (r) {
+    const sub = r.sub === "drafts" ? "drafts" : (r.sub === "team" ? "team" : "ot");
+    const port = (window.MERD_SUBAPPS && window.MERD_SUBAPPS.ptb) || 8050;
+    const api = "http://127.0.0.1:" + port + "/api";
+    const rowStyle = "display:flex;gap:12px;align-items:flex-start;padding:9px 0;border-bottom:1px solid var(--line)";
+    const loading = '<div class="card" style="margin-top:12px"><span class="muted">Loading…</span></div>';
+
+    // toast is local to app.js in the static build; the Windows desktop build may expose it
+    // globally. Prefer the global when present, otherwise drive the shared #toast node.
+    function toast(message) {
+      if (typeof window.toast === "function") { window.toast(message); return; }
+      const el = $("#toast");
+      if (!el) { return; }
+      el.textContent = message;
+      el.classList.remove("hidden");
+      clearTimeout(toast._t);
+      toast._t = setTimeout(() => el.classList.add("hidden"), 2200);
+    }
+
+    function hours(start, end) {
+      const a = (start || "0:0").split(":").map(Number);
+      const b = (end || "0:0").split(":").map(Number);
+      let mins = (b[0] * 60 + b[1]) - (a[0] * 60 + a[1]);
+      if (mins < 0) { mins += 24 * 60; }
+      return Math.round((mins / 60) * 100) / 100;
+    }
+
+    function fmtTime(iso) {
+      if (!iso) { return ""; }
+      try { return new Date(iso).toLocaleString(); } catch (e) { return String(iso); }
+    }
+
+    function frame(title, subtext, inner) {
+      const chips =
+        '<div class="chips" style="margin:12px 0">' +
+        '<a class="chip' + (sub === "ot" ? " active" : "") + '" href="#ptb/ot">Overtime</a>' +
+        '<a class="chip' + (sub === "drafts" ? " active" : "") + '" href="#ptb/drafts">Drafts</a>' +
+        '<a class="chip' + (sub === "team" ? " active" : "") + '" href="#ptb/team">Team</a></div>';
+      return '<h1>' + APP.icon("ptb") + " " + title + '</h1><div class="muted">' + subtext + "</div>" + chips + inner;
+    }
+
+    async function renderOt() {
+      $("#view").innerHTML = frame("PTB RDME", "Overtime", loading);
+      let today, colleagues;
+      try {
+        [today, colleagues] = await Promise.all([
+          fetch(api + "/ot/today").then((x) => x.json()),
+          fetch(api + "/colleagues").then((x) => x.json())
+        ]);
+      } catch (e) {
+        $("#view").innerHTML = frame("PTB RDME", "Overtime",
+          '<div class="card banner" style="margin-top:12px"><b>Error loading overtime.</b> ' + esc(e.message) + "</div>");
+        return;
+      }
+      const submitted = new Set(today.submitted_ids || []);
+      const opts = colleagues.map((c) => '<option value="' + esc(c.id) + '">' + esc(c.name) + " (" + esc(c.id) + ")</option>").join("");
+
+      const submitCard =
+        '<div class="card" style="margin-top:12px"><h3>Submit your overtime</h3>' +
+        '<div class="form-row"><label>Colleague</label><select id="ptb-cid"><option value="">Select colleague…</option>' + opts + "</select></div>" +
+        '<div class="form-grid">' +
+        '<div class="form-row"><label>Start / 起</label><input type="time" id="ptb-start" value="17:00"></div>' +
+        '<div class="form-row"><label>End / 迄</label><input type="time" id="ptb-end" value="20:00"></div>' +
+        '<div class="form-row"><label>Project / 專案</label><input type="text" id="ptb-proj" value="PTB"></div></div>' +
+        '<div class="form-row"><label>Reason / 事由</label><textarea id="ptb-reason" rows="2" placeholder="加班事由 / reason"></textarea></div>' +
+        '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin:11px 0 2px"><input type="checkbox" id="ptb-sat" style="min-height:0;width:auto;padding:0;border:0;background:none;accent-color:var(--accent)"><span>Friday → add Saturday OT</span></label>' +
+        '<div class="toolbar" style="margin:14px 0 0"><button class="btn primary" id="ptb-submit">Submit OT</button>' +
+        '<a class="btn ghost" href="' + api + '/ot/export?date=' + esc(today.date) + '" download="ot_' + esc(today.date) + '.xlsx">Download .xlsx</a>' +
+        '<span class="spacer"></span><button class="btn" id="ptb-refresh">Refresh</button></div></div>';
+
+      const rows = today.rows || [];
+      const subList =
+        '<div class="card" style="margin-top:12px"><h3>Submitted today (' + submitted.size + ")</h3>" +
+        (rows.length
+          ? '<div>' + rows.map((row) => {
+              const sat = row.includes_saturday_ot
+                ? '<div class="small" style="margin-top:4px"><span class="pill blue">Sat</span> <span class="muted">' + esc(row.saturday_start_time || "?") + "–" + esc(row.saturday_end_time || "?") + "</span></div>"
+                : "";
+              return '<div style="' + rowStyle + '">' +
+                '<div style="flex:1;min-width:0"><b>' + esc(row.name || row.colleague_id) + "</b>" +
+                '<div class="small muted" style="white-space:pre-wrap">' + esc(row.reason || "(no reason)") + "</div>" +
+                '<div class="small muted">Project: ' + esc(row.project_code || "—") + " · " + esc(fmtTime(row.submitted_at)) + "</div></div>" +
+                '<div class="small" style="text-align:right;white-space:nowrap"><b>' + esc(row.start_time) + "–" + esc(row.end_time) + "</b> · " + esc(row.total_hours) + "h" + sat + "</div>" +
+                "</div>";
+            }).join("") + "</div>"
+          : '<div class="muted">No submissions yet.</div>') +
+        "</div>";
+
+      const pending = colleagues.filter((c) => !submitted.has(c.id));
+      const pendList =
+        '<div class="card" style="margin-top:12px"><h3>Awaiting submission (' + pending.length + ")</h3>" +
+        (pending.length
+          ? '<div>' + pending.map((c) =>
+              '<div style="' + rowStyle + '">' +
+              '<div style="flex:1;min-width:0"><b>' + esc(c.name) + ' <span class="muted">(' + esc(c.id) + ")</span></b></div>" +
+              '<div class="small muted" style="white-space:nowrap;text-align:right">' + esc(c.supervisor || "") + "</div></div>"
+            ).join("") + "</div>"
+          : '<div class="muted">Everyone submitted.</div>') +
+        "</div>";
+
+      $("#view").innerHTML = frame("Today: " + esc(today.date), submitted.size + " / " + colleagues.length + " submitted", submitCard + subList + pendList);
+
+      $("#ptb-submit").addEventListener("click", () => {
+        const payload = {
+          colleague_id: $("#ptb-cid").value,
+          start_time: $("#ptb-start").value,
+          end_time: $("#ptb-end").value,
+          total_hours: hours($("#ptb-start").value, $("#ptb-end").value),
+          reason: $("#ptb-reason").value.trim(),
+          project_code: $("#ptb-proj").value.trim() || "PTB",
+          ot_date: today.date,
+          includes_saturday_ot: $("#ptb-sat").checked
+        };
+        if (!payload.colleague_id) { toast("Pick a colleague"); return; }
+        if (!payload.reason) { toast("Reason required"); return; }
+        fetch(api + "/ot", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) })
+          .then((x) => x.json())
+          .then((res) => {
+            if (res && res.ok) { toast("OT submitted (#" + res.id + ")"); renderOt(); }
+            else { toast("Failed: " + ((res && res.error) || "unknown error")); }
+          })
+          .catch((e) => toast("Failed: " + e.message));
+      });
+      $("#ptb-refresh").addEventListener("click", () => renderOt());
+    }
+
+    async function renderDrafts() {
+      $("#view").innerHTML = frame("Email drafts", "Your local Outlook Drafts folder (only on this PC)", loading);
+      let drafts = null, unread = null, draftsErr = null;
+      try {
+        drafts = await fetch(api + "/email/drafts").then((x) => x.json());
+      } catch (e) {
+        draftsErr = e;
+      }
+      try {
+        unread = await fetch(api + "/email/inbox-unread").then((x) => x.json());
+      } catch (e) {
+        unread = null;
+      }
+
+      let cards = "";
+      if (draftsErr) {
+        cards += '<div class="card banner" style="margin-top:12px"><b>Error loading drafts.</b> ' + esc(draftsErr.message) + "</div>";
+      } else if (!drafts || drafts.length === 0) {
+        cards += '<div class="card" style="margin-top:12px"><h3>Email drafts</h3><div class="muted">No drafts in Outlook. Or Outlook desktop isn\'t installed on this PC.</div></div>';
+      } else if (drafts[0] && drafts[0].error) {
+        cards += '<div class="card banner" style="margin-top:12px"><h3>Outlook COM not available</h3><p>Run the ME R&amp;D Toolkit on the same PC as Outlook desktop.</p></div>';
+      } else {
+        cards += '<div class="card" style="margin-top:12px"><h3>Recent drafts (' + drafts.length + ")</h3><div>" +
+          drafts.map((d) =>
+            '<div style="' + rowStyle + '">' +
+            '<div style="flex:1;min-width:0"><b>' + esc(d.subject || "(no subject)") + "</b>" +
+            '<div class="small muted">To: ' + esc(d.to || "—") + "</div>" +
+            (d.body_preview ? '<div class="small muted" style="white-space:pre-wrap">' + esc(d.body_preview) + "</div>" : "") +
+            "</div>" +
+            '<div class="small muted" style="white-space:nowrap;text-align:right">' + esc(fmtTime(d.creation_time)) + "</div></div>"
+          ).join("") + "</div></div>";
+      }
+      if (unread) {
+        const n = unread.unread;
+        cards += '<div class="card" style="margin-top:12px"><h3>Inbox</h3><div class="kv"><div class="k">Unread</div><div>' + (n < 0 ? "n/a" : esc(n)) + "</div></div></div>";
+      }
+      $("#view").innerHTML = frame("Email drafts", "Your local Outlook Drafts folder (only on this PC)", cards);
+    }
+
+    async function renderTeam() {
+      $("#view").innerHTML = frame("Team", "PTB RD ME — colleagues", loading);
+      let rows;
+      try {
+        rows = await fetch(api + "/colleagues").then((x) => x.json());
+      } catch (e) {
+        $("#view").innerHTML = frame("Team", "PTB RD ME — colleagues",
+          '<div class="card banner" style="margin-top:12px"><b>Error loading colleagues.</b> ' + esc(e.message) + "</div>");
+        return;
+      }
+      const list = (rows && rows.length)
+        ? '<div class="card" style="margin-top:12px"><div>' + rows.map((c) =>
+            '<div style="' + rowStyle + '">' +
+            '<div style="flex:1;min-width:0"><b>' + esc(c.name) + (c.is_consolidator ? ' <span class="pill blue">consolidator</span>' : "") + "</b>" +
+            '<div class="small muted">' + esc(c.id) + (c.email ? " · " + esc(c.email) : "") + "</div></div>" +
+            '<div class="small muted" style="white-space:nowrap;text-align:right">Dept: ' + esc(c.department || "PTB RD ME") + "<br>Supervisor: " + esc(c.supervisor || "—") + "</div></div>"
+          ).join("") + "</div></div>"
+        : '<div class="card" style="margin-top:12px"><div class="muted">No colleagues yet.</div></div>';
+      $("#view").innerHTML = frame("Team", "PTB RD ME — colleagues", list);
+    }
+
+    $("#view").innerHTML = frame("PTB RDME", "PTB RD ME overtime & Outlook drafts", loading);
+
+    // Opaque probe: resolves when the local server answers, rejects on no-server / timeout.
+    let up = false;
+    try {
+      await fetch(api + "/status", { mode: "no-cors", signal: AbortSignal.timeout(900) });
+      up = true;
+    } catch (e) {
+      up = false;
+    }
+    if (!up) {
+      $("#view").innerHTML = frame("PTB RDME", "PTB RD ME overtime & Outlook drafts",
+        '<div class="card banner" style="margin-top:12px"><b>Local server not reachable.</b> The PTB RDME widget needs the <b>ME R&amp;D Toolkit for Windows</b> running on this PC — it reads your local Outlook drafts and a shared overtime database (port ' + port + "). Start it, then reload.</div>");
+      return;
+    }
+
+    if (sub === "drafts") { renderDrafts(); }
+    else if (sub === "team") { renderTeam(); }
+    else { renderOt(); }
   };
 })();
