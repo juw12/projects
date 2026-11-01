@@ -1,31 +1,43 @@
 {
   "installer": {
     "filename": "Pips-Setup.exe",
-    "sha256": "68d01f1b0e2f62a2f92499a3b441b05d379d51b463c69739334b4ba67f743303",
-    "size": 22338964,
+    "sha256": "faf1878d28182d0f7dbccbf4ce1701713171a08a9085ad5c421381adacd49ee2",
+    "size": 22340240,
     "architecture": "x64",
     "python_version": "3.13.17",
     "requires_admin": false,
     "url": "https://juw12.github.io/projects/pips/download/Pips-Setup.exe"
   },
-  "version": "2.27.1",
+  "version": "2.27.2",
   "date": "2026-11-01",
-  "title": "Focus Trail in your menus",
+  "title": "Tidier right-click menus",
   "url": "https://juw12.github.io/projects/pips/download/Pips-Windows.zip",
-  "sha256": "ac81d2f21daed7feaf5149f360f635651819ae5d68fba4d3fec122eabe62f111",
-  "size": 1005595,
+  "sha256": "26ea434b0b9f6c467a9a015091ddbd12054ec15e14aded2f670cf7cc47c8b1d8",
+  "size": 1007524,
   "notes": {
     "en": [
-      "Focus Trail is now one click away: right-click your pet (next to Focus and Stats) or right-click the timer card."
+      "Cleaner pet menu: one row of everyday actions (Focus, Snack, Pat, Play). Stats and Focus Trail are under My progress; Friends, Community, Shop and Nudge are under Friends.",
+      "When your pet is sick, a Medicine banner appears at the top instead of an extra tile.",
+      "Timer-card menu: Stats, Focus Trail and History tiles; weekly and monthly reports now live in Reports & diary.",
+      "New: Phone Trail for your phone's screen time - juw12.github.io/projects/pips/trail/"
     ],
     "id": [
-      "Jejak Fokus kini cukup sekali klik: klik kanan pet-mu (di samping Fokus dan Statistik) atau klik kanan kartu timer."
+      "Menu pet lebih rapi: satu baris aksi harian (Fokus, Camilan, Elus, Main). Statistik dan Jejak Fokus ada di Progres saya; Teman, Komunitas, Toko dan Colek ada di Teman.",
+      "Saat pet-mu sakit, banner Obat muncul di atas, bukan ubin tambahan.",
+      "Menu kartu timer: ubin Statistik, Jejak Fokus dan Riwayat; laporan mingguan dan bulanan sekarang ada di Laporan & diary.",
+      "Baru: Jejak HP untuk screen time HP-mu - juw12.github.io/projects/pips/trail/"
     ],
     "zh_TW": [
-      "專注軌跡現在一鍵就到：在寵物上按右鍵（在「專注」和「統計」旁邊），或在計時卡片上按右鍵。"
+      "寵物選單更清爽：一排常用動作（專注、點心、摸摸、玩）。統計和專注軌跡在「我的進度」；好友、社群、商店和戳一下在「好友」。",
+      "寵物生病時，頂端會出現「吃藥」橫幅，不再多一格。",
+      "計時卡片選單：統計、專注軌跡、歷史三格；週報和月報移到「報告與日記」。",
+      "新功能：手機軌跡，把手機螢幕使用時間畫成路線 - juw12.github.io/projects/pips/trail/"
     ],
     "zh_CN": [
-      "专注轨迹现在一键就到：在宠物上点右键（在「专注」和「统计」旁边），或在计时卡片上点右键。"
+      "宠物菜单更清爽：一排常用动作（专注、点心、摸摸、玩）。统计和专注轨迹在「我的进度」；好友、社区、商店和戳一下在「好友」。",
+      "宠物生病时，顶部会出现「吃药」横幅，不再多一格。",
+      "计时卡片菜单：统计、专注轨迹、历史三格；周报和月报移到「报告与日记」。",
+      "新功能：手机轨迹，把手机屏幕使用时间画成路线 - juw12.github.io/projects/pips/trail/"
     ]
   },
   "guide": "https://juw12.github.io/projects/pips/download/Pips-Guide.pptx"

@@ -585,8 +585,9 @@ class FancyMenu:
                        text=self._fit(entry["subtitle"], self.fonts["small"], max_w))
 
     def _tile_rect(self, entry, sub):
-        col, row = sub % 4, sub // 4
-        tile_w = (self.width - 20 - 3 * TILE_GAP) / 4
+        cols = max(1, min(4, len(entry["items"])))
+        col, row = sub % cols, sub // cols
+        tile_w = (self.width - 20 - (cols - 1) * TILE_GAP) / cols
         x1 = 10 + col * (tile_w + TILE_GAP)
         y1 = entry["y0"] + 5 + row * (TILE_H + TILE_GAP)
         return x1, y1, x1 + tile_w, y1 + TILE_H
