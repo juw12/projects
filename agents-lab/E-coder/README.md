@@ -6,8 +6,9 @@ D (LangGraph).
 
 > Goal: a *coding agent I use every day* — not a Cursor competitor.
 
-The full design lives in [`docs/PLAN.md`](docs/PLAN.md). This folder is currently
-at **M0**: only the model adapter exists.
+The full design lives in [`docs/PLAN.md`](docs/PLAN.md). This folder is at
+**M1**: a working read-only agent that can explore a repo and answer questions
+about it. (Writing and shell access are M2.)
 
 ## Why stdlib-only
 
@@ -71,11 +72,70 @@ python agents-lab\E-coder\tests\test_llm.py
 
 Hermetic (`urllib.request.urlopen` is mocked — no real network), exits `0`/`1`.
 
+## M1 — read-only tools + agent loop
+
+A minimal **ReAct** loop: the model inspects the repo with read-only tools, and
+keeps going until it answers in plain text (or hits `--max-steps`).
+
+```
+you: "which file defines the health endpoint?"
+  [step 1] search({"pattern": "health"}) -> server/server.py:14: def health()...
+  [step 2] read_file({"path": "server/server.py"}) -> ...
+it:  The health endpoint is defined in server/server.py (def health(), line 14).
+```
+
+### Tools (`tools.py`) — all confined to the repo root
+
+| Tool | Args | What it does |
+| --- | --- | --- |
+| `list_files` | `path="."` | sorted listing; dirs get a trailing `/`; skips `node_modules`, `.git`, `__pycache__`, … |
+| `read_file` | `path` | file text (UTF-8, size-capped, truncation note) |
+| `search` | `pattern`, `path="."` | regex search → `relpath:lineno: line` matches |
+
+**Path sandbox:** every path is resolved with `os.path.realpath` and checked with
+`os.path.commonpath` against the repo root; anything that escapes (`../..`, an
+absolute path, a symlink) raises `ToolError`. The `root` is always set by the
+caller, never by the model. Tool failures become a `"error: ..."` string fed back
+to the model, so the loop never crashes.
+
+### Loop (`loop.py`)
+
+`run_agent(task, root, *, max_steps=12, provider=None, model=None, on_step=None)`.
+It threads **provider-native** messages (Ollama vs OpenAI) for both the assistant
+turn and the tool results, so the conversation stays valid across turns.
+
+### Run the CLI (`coder.py`)
+
+```powershell
+python coder.py "list the top-level directories"                 # default repo = .
+python coder.py "find where the DB connection is created" --repo apps\orbis
+python coder.py "..." --max-steps 8 --verbose                     # see each tool step
+python coder.py "..." --provider openai --model gpt-4o-mini        # any OpenAI-compatible endpoint
+```
+
+`--provider` / `--model` fall back to `ECODER_PROVIDER` / `ECODER_MODEL`.
+Needs a reachable model (Ollama by default). `--verbose` prints each step.
+
+### Test
+
+```powershell
+python agents-lab\E-coder\tests\test_tools.py   # tools + path sandbox
+python agents-lab\E-coder\tests\test_loop.py    # the loop (llm.chat mocked)
+```
+
+Both are hermetic (temp dir + mocked model — no real network), exit `0`/`1`.
+
 ## Files
 
 ```
 llm.py            # M0: provider adapter (urllib) + echo REPL
-tests/test_llm.py # hermetic stdlib-only tests
+prompt.py         # M1: SYSTEM_PROMPT
+tools.py          # M1: read-only tools (list/read/search) + path sandbox + schemas
+loop.py           # M1: the ReAct agent loop
+coder.py          # M1: CLI entrypoint
+tests/test_llm.py # hermetic stdlib-only tests (M0)
+tests/test_tools.py # hermetic stdlib-only tests (M1)
+tests/test_loop.py  # hermetic stdlib-only tests (M1, llm.chat mocked)
 docs/PLAN.md      # full design + build order
 README.md
 ```
@@ -85,7 +145,7 @@ README.md
 | Milestone | Deliverable | Status |
 | --- | --- | --- |
 | **M0** | `llm.py` — one `chat()`, no tools, echo works | ✅ done |
-| **M1** | read-only tools (`list/read/search`) + loop | next |
+| **M1** | read-only tools (`list/read/search`) + loop | ✅ done |
 | **M2** | `write_file` + `run_command` + guardrails + confirm | — |
 | **M3** | gitignore-aware context builder (the hard part) | — |
 | **M4** | tests + docs + README | — |
