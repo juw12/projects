@@ -59,18 +59,19 @@ prompts work against it too.
 | [mobile-mcp](https://github.com/mobile-next/mobile-mcp) (Apache-2.0) | tool names/arguments Tether's MCP server is compatible with |
 | [Agent Skills](https://github.com/anthropics/skills) format | the `plugin/` skills pack |
 | [Ollama](https://github.com/ollama/ollama) (MIT) or any OpenAI-compatible server | optional Tether AI steps |
+| [ARTEMIS](https://github.com/google/artemis) (Apache-2.0) | optional engine for Tether AI steps (Flash/Pro agents); its "explore, then write deterministic tests" mindset in the QA skill |
 
 All are optional downloads or optional pip installs — Beacon and Tether stay zero-dependency Python.
 
 ## What's verified
 
-- **Automated (all hermetic, no phone needed):** 486 checks — Beacon 72 API + 40 channels + 22 tunnel + 25 crypto
+- **Automated (all hermetic, no phone needed):** 504 checks — Beacon 72 API + 40 channels + 22 tunnel + 25 crypto
   + 23 workflows; Tether 65 API + 30 Beacon link + 62 Maestro + 36 HD (+7 in headless Edge: WebCodecs decode,
-  clicks, WebM and MP4 recording) + 52 mobile-mcp/recording/clipboard + 26 AI steps; Push Lab plugin 26
+  clicks, WebM and MP4 recording) + 52 mobile-mcp/recording/clipboard + 26 AI steps + 18 ARTEMIS engine; Push Lab plugin 26
   (manifests, SKILL.md and the CLI end to end against real Beacon + Tether).
 - **Live on this PC:**
   - **Push:** real pushes went through Microsoft's push service to Edge and appeared on screen, sent from Tether and delivered by Beacon. ntfy.sh publish and Apprise 2.1.0 worked through the corporate proxy.
   - **adb:** the one-click adb install worked through a corporate proxy.
 - **Not yet verified:** a physical Android phone (none was attached) — so HD, screen recording, clipboard and
-  AI steps ran only against the fake adb/scrcpy device and a fake model server; FCM against a real Firebase
+  AI steps (built-in and ARTEMIS) ran only against the fake adb/scrcpy device, a fake model server and a fake ARTEMIS daemon; FCM against a real Firebase
   project; the plugin installed into a real Claude Code / Codex session.

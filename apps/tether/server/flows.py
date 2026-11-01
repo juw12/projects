@@ -36,6 +36,9 @@ Push QA (with Beacon — set BEACON_URL + BEACON_KEY)
 AI steps (optional; any OpenAI-compatible endpoint such as a local Ollama — see ai.py)
   ai                 {"goal", "max_steps"?}      the model looks at the screen and acts until done
   ai_assert          {"condition"}               the model judges the screen; fails with its reason
+  Both take "engine": "builtin" (default) or "artemis" — Google's ARTEMIS agent daemon
+  (see artemis.py; extra keys "profile": flash|pro, "app": lock to a package,
+  "expected_output", "timeout_s"). TETHER_AI_ENGINE=artemis makes it the default.
 
 Any step may set "optional": true — a failure is reported but does not fail the flow.
 
@@ -69,6 +72,7 @@ if __package__ in (None, ""):
 from adb import Adb, AdbError, find_element, find_notification  # noqa: E402
 from beacon_link import BeaconError, BeaconLink  # noqa: E402
 import ai  # noqa: E402
+import artemis  # noqa: E402
 import maestro  # noqa: E402
 
 ELEMENT_KEYS = ("text", "resource_id", "desc")
@@ -133,6 +137,13 @@ def validate_flow(flow: dict) -> list[dict]:
             raise FlowError(f"step {index + 1}: `max_steps` must be 1-40")
         if action == "ai_assert" and not (isinstance(step.get("condition"), str) and step["condition"].strip()):
             raise FlowError(f"step {index + 1}: ai_assert needs a `condition`")
+        if action in ("ai", "ai_assert"):
+            if step.get("engine", "builtin") not in AI_ENGINES:
+                raise FlowError(f"step {index + 1}: engine must be one of {', '.join(AI_ENGINES)}")
+            if step.get("profile", "flash") not in artemis.PROFILES:
+                raise FlowError(f"step {index + 1}: profile must be flash or pro")
+            if not 1 <= float(step.get("timeout_s", 600)) <= 7200:
+                raise FlowError(f"step {index + 1}: `timeout_s` must be 1-7200")
     return steps
 
 
@@ -376,11 +387,26 @@ def _beacon_subscribe(adb, serial, step):
     return {"beacon": result}
 
 
+AI_ENGINES = ("builtin", "artemis")
+
+
+def _engine(step: dict) -> str:
+    import os
+
+    return step.get("engine") or os.environ.get("TETHER_AI_ENGINE", "builtin")
+
+
 def _ai(adb, serial, step):
+    if _engine(step) == "artemis":
+        return {"ai": artemis.act(serial, step["goal"], step.get("profile", "flash"), step.get("app"),
+                                  step.get("expected_output"), float(step.get("timeout_s", 600)))}
     return {"ai": ai.ai_act(adb, serial, step["goal"], int(step.get("max_steps", 10)))}
 
 
 def _ai_assert(adb, serial, step):
+    if _engine(step) == "artemis":
+        return {"ai": artemis.check(serial, step["condition"], step.get("profile", "flash"),
+                                    float(step.get("timeout_s", 300)))}
     return {"ai": ai.ai_assert(adb, serial, step["condition"])}
 
 

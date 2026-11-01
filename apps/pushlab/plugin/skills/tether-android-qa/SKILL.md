@@ -64,6 +64,21 @@ scroll, scrollUntilVisible, swipe, back, pressKey, hideKeyboard, openLink,
 extendedWaitUntil, waitForAnimationToEnd and takeScreenshot; anything else is
 skipped and reported in `maestro_warnings`.
 
+## Fuzzy goals: AI steps, then deterministic flows
+
+When the path through the app is unknown, let an AI step find it first:
+
+- `ai "Book the earliest slot for tomorrow"` (Tether's built-in agent, any
+  OpenAI-compatible model such as a local Ollama), or add `--engine artemis
+  --profile pro` to use Google's ARTEMIS agent if its daemon is running.
+- `ai "The booking confirmation shows 9:00" --check` judges the screen (PASS/FAIL).
+
+Then follow the ARTEMIS testing mindset: explore with AI, but deliver a
+deterministic flow. Re-read the screens with `ui`, write the discovered path as
+Maestro YAML with explicit selectors and waits, and run it with `flow` until it
+passes repeatedly. AI steps are slow and non-deterministic; keep them for
+exploration and visual checks, not for the regression suite.
+
 ## Evidence for bug reports
 
 - `record start` then reproduce, then `record stop --out bug.mp4` (MP4 from

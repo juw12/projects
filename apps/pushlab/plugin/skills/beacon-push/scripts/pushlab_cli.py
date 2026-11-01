@@ -256,6 +256,25 @@ def cmd_flow(args, config):
     return report, (0 if report.get("passed") else 1)
 
 
+def cmd_ai(args, config):
+    """One AI step on the device: reach a goal, or --check a condition (PASS/FAIL)."""
+    tether = Tether(config, args.serial)
+    if args.check:
+        step = {"action": "ai_assert", "condition": args.text}
+    else:
+        step = {"action": "ai", "goal": args.text, "max_steps": args.max_steps}
+    if args.engine:
+        step["engine"] = args.engine
+    if args.engine == "artemis":
+        step["profile"] = args.profile
+        if args.app:
+            step["app"] = args.app
+    flow = {"name": "ai", "steps": [step]}
+    report = tether.call("POST", "/api/flow/run", {"serial": tether.serial, "flow": flow}, timeout=7300)["report"]
+    result = report["steps"][0]
+    return result, (0 if report.get("passed") else 1)
+
+
 def cmd_record(args, config):
     tether = Tether(config, args.serial)
     if args.action == "start":
@@ -367,6 +386,14 @@ def build_parser() -> argparse.ArgumentParser:
     p = add("logcat", cmd_logcat, "recent device log")
     p.add_argument("--package")
     p.add_argument("--lines", type=int, default=300)
+    p = add("ai", cmd_ai, "AI step: reach a goal in plain language, or --check a condition")
+    p.add_argument("text", help="goal, or the condition with --check")
+    p.add_argument("--check", action="store_true", help="judge the screen instead of acting (PASS/FAIL)")
+    p.add_argument("--engine", choices=["builtin", "artemis"],
+                   help="builtin = Tether + any OpenAI-compatible model; artemis = Google's ARTEMIS daemon")
+    p.add_argument("--profile", choices=["flash", "pro"], default="flash", help="ARTEMIS profile")
+    p.add_argument("--app", help="ARTEMIS: keep the agent inside this package")
+    p.add_argument("--max-steps", type=int, default=10, help="builtin engine: action limit")
     add("flow", cmd_flow, "run a Tether JSON flow or Maestro YAML; exit 1 if it fails").add_argument("file")
     p = add("record", cmd_record, "screen recording (adb screenrecord, max 180 s)")
     p.add_argument("action", choices=["start", "stop"])

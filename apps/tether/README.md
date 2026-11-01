@@ -118,6 +118,23 @@ at a time (`tap`, `type`, `swipe`, `key`, `done`, `fail`); invented element numb
 caps the loop, and the report lists every action taken. Nothing is sent anywhere unless a flow contains one of
 these steps. Prefer normal steps for anything deterministic — AI steps are for fuzzy goals and visual checks.
 
+**ARTEMIS engine.** For harder, multi-app goals, the same steps can run on
+[google/artemis](https://github.com/google/artemis) (Apache-2.0; Flash and Pro agents, 99%+ on AndroidWorld).
+Start ARTEMIS its own way (`start.bat` / `uv run artemis`, with its own model keys), then add
+`"engine": "artemis"` to a step — or set `TETHER_AI_ENGINE=artemis` for all of them:
+
+```json
+{"action": "ai", "engine": "artemis", "goal": "Book the 9:00 slot for tomorrow", "profile": "pro", "app": "com.example.clinic"}
+{"action": "ai_assert", "engine": "artemis", "condition": "The booking confirmation shows 9:00"}
+```
+
+Tether talks to the ARTEMIS daemon with a standard-library port of its `artemis-client` HTTP protocol
+(`ARTEMIS_BASE_URL`, default `http://127.0.0.1:8000`; `ARTEMIS_TOKEN`), so nothing extra is installed in Tether.
+`profile` is `flash` (fast) or `pro` (plan → act → verify), `app` keeps the agent inside one package and
+`timeout_s` stops the remote task when exceeded. `ai_assert` asks ARTEMIS to only look and answer PASS/FAIL.
+From a shell: `pushlab_cli.py ai "goal" --engine artemis --profile pro` or `pushlab_cli.py ai "condition" --check`.
+Turn Tether's HD mode off while ARTEMIS drives the phone — both want the device's scrcpy session.
+
 ## CI on an emulator
 
 [`examples/ci/android-emulator.yml`](examples/ci/android-emulator.yml) is a GitHub Actions template that boots an
@@ -211,6 +228,7 @@ apps/tether/
   server/maestro.py     Maestro YAML import/export
   server/scrcpy.py      HD mode: scrcpy video + control (+ clipboard)
   server/ai.py          optional AI steps (OpenAI-compatible endpoint)
+  server/artemis.py     optional ARTEMIS engine for AI steps (HTTP client, stdlib)
   web/                  static UI (no build step)
   tests/                hermetic tests with a fake adb
   examples/             sample flows
@@ -225,4 +243,5 @@ python apps/tether/tests/verify_maestro.py        # Maestro YAML import/export (
 python apps/tether/tests/verify_hd.py --browser   # scrcpy protocol + WebCodecs + recording in headless Edge
 python apps/tether/tests/verify_mobile_mcp.py     # mobile-mcp tools, recording, clipboard (52)
 python apps/tether/tests/verify_ai.py             # AI steps against a fake OpenAI-compatible server (26)
+python apps/tether/tests/verify_artemis.py        # ARTEMIS engine against a fake ARTEMIS daemon (18)
 ```
