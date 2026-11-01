@@ -13,7 +13,18 @@
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="icon" type="image/png" sizes="192x192" href="/static/icons/icon-192.png">
   <link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png">
+  <script>
+  /* ME R&D Toolkit embed — early guard (sets class before CSS applies, prevents FOUC) */
+  (function () {
+    var p = new URLSearchParams(location.search);
+    if (p.get('embed') === '1') {
+      document.documentElement.classList.add('merd-embed');
+      document.documentElement.dataset.merdTheme = p.get('theme') || 'light';
+    }
+  })();
+  </script>
   <link rel="stylesheet" href="/static/style.css">
+  <link rel="stylesheet" href="/static/embed.css">
 </head>
 <body>
   <header class="topbar">
@@ -52,5 +63,6 @@
   <div class="toast" id="toast" hidden></div>
 
   <script src="/static/app.js"></script>
+  <script src="/static/embed.js" defer></script>
 </body>
 </html>

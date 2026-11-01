@@ -13,7 +13,18 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Vertex">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <script>
+    /* ME R&D Toolkit embed guard — must run before styles to prevent theme flash */
+    (function () {
+      var p = new URLSearchParams(location.search);
+      if (p.get('embed') === '1') {
+        document.documentElement.classList.add('merd-embed');
+        document.documentElement.dataset.merdTheme = p.get('theme') || 'light';
+      }
+    })();
+  </script>
   <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="embed.css">
   <script>
     (function() {
       var theme = localStorage.getItem('vertex.theme');
@@ -773,6 +784,7 @@
     </nav>
   </div>
 
+  <script src="embed.js" defer></script>
   <!-- Scripts: load in order per spec -->
   <script src="js/vertex.js"></script>
   <script src="js/viewport.js"></script>

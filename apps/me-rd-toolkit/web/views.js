@@ -481,9 +481,13 @@
   };
 
   // ------------------------------------------------------------------ sub-apps (Vertex, PTB RDME)
+  let subAppThemeObserver = null;
+
   function renderSubApp(cfg) {
     const port = (window.MERD_SUBAPPS && window.MERD_SUBAPPS[cfg.id]) || cfg.defaultPort;
     const origin = "http://127.0.0.1:" + port + "/";
+    const theme = document.documentElement.dataset.theme || "light";
+    const withEmbed = (url) => url + (url.includes("?") ? "&" : "?") + "embed=1&theme=" + theme;
     const html = "<h1>" + APP.icon(cfg.icon) + " " + esc(cfg.title) + "</h1>" +
       '<div class="toolbar no-print">' +
       '<button class="btn small" id="subapp-reload">Reload</button>' +
@@ -492,23 +496,39 @@
       '<div id="subapp-container"></div>';
     $("#view").innerHTML = html;
 
+    function postTheme(iframe) {
+      if (iframe && iframe.contentWindow) {
+        iframe.contentWindow.postMessage({ type: "merd:theme", theme: document.documentElement.dataset.theme || "light" }, "*");
+      }
+    }
+
     function setSrc(src, note) {
       $("#subapp-status").textContent = note || "";
       $("#subapp-open").href = src;
       $("#subapp-container").innerHTML = '<iframe class="app-frame" src="' + esc(src) + '" title="' + esc(cfg.title) + '"></iframe>';
+      const iframe = $("#subapp-container iframe");
+      iframe.addEventListener("load", () => postTheme(iframe));
     }
+
+    if (subAppThemeObserver) {
+      subAppThemeObserver.disconnect();
+    }
+    subAppThemeObserver = new MutationObserver(() => {
+      postTheme($("#subapp-container iframe"));
+    });
+    subAppThemeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
 
     function probe() {
       $("#subapp-status").textContent = "Probing " + origin + "…";
       fetch(origin + cfg.healthPath, { mode: "no-cors", signal: AbortSignal.timeout(900) })
-        .then(() => setSrc(origin, "Connected to local server (port " + port + ")"))
+        .then(() => setSrc(withEmbed(origin.replace(/\/$/, "") + cfg.livePath), "Connected to local server (port " + port + ")"))
         .catch(() => {
           if (cfg.staticSrc) {
             setSrc(cfg.staticSrc, "Offline copy — open the ME R&D Toolkit for Windows for live features.");
           } else {
             $("#subapp-container").innerHTML = '<div class="card" style="margin-top:4px">' + esc(cfg.desktopHint) + "</div>";
             $("#subapp-status").textContent = "Local server not reachable.";
-            $("#subapp-open").href = origin;
+            $("#subapp-open").href = withEmbed(origin);
           }
         });
     }
@@ -518,10 +538,10 @@
   }
 
   V.vertex = function () {
-    renderSubApp({ id: "vertex", title: "Vertex", icon: "vertex", defaultPort: 8792, healthPath: "/api/health", staticSrc: "vertex/index.html", desktopHint: "Vertex runs live when the ME R&D Toolkit for Windows is open (it starts the local CAD engine)." });
+    renderSubApp({ id: "vertex", title: "Vertex", icon: "vertex", defaultPort: 8792, healthPath: "/api/health", livePath: "/app.html", staticSrc: "vertex/app.html", desktopHint: "Vertex runs live when the ME R&D Toolkit for Windows is open (it starts the local CAD engine)." });
   };
 
   V.ptb = function () {
-    renderSubApp({ id: "ptb", title: "PTB RDME", icon: "ptb", defaultPort: 8050, healthPath: "/api/status", staticSrc: null, desktopHint: "The PTB RDME widget needs the ME R&D Toolkit for Windows — it reads your local Outlook drafts and a shared overtime database." });
+    renderSubApp({ id: "ptb", title: "PTB RDME", icon: "ptb", defaultPort: 8050, healthPath: "/api/status", livePath: "/", staticSrc: null, desktopHint: "The PTB RDME widget needs the ME R&D Toolkit for Windows — it reads your local Outlook drafts and a shared overtime database." });
   };
 })();
