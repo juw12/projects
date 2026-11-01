@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Respark — Dashboard</title>
+<link rel="stylesheet" href="/static/style.css" />
+</head>
+<body class="app">
+
+<nav class="topnav">
+  <div class="nav-inner">
+    <a href="/app" class="logo">
+      <span class="logo-mark">R</span>
+      <span>Respark</span>
+    </a>
+    <div class="nav-links">
+      <a href="/outreach">Outreach</a>
+      <span id="who" class="who"></span>
+      <button id="logoutBtn" class="btn btn-ghost">Log out</button>
+    </div>
+  </div>
+</nav>
+
+<main class="wrap">
+  <header class="app-head">
+    <h1>Campaigns</h1>
+    <button id="newCampaignBtn" class="btn btn-brand">+ New campaign</button>
+  </header>
+
+  <div id="checkoutBanner" class="checkout-banner hidden"></div>
+
+  <section id="billingCard" class="billing-card hidden">
+    <div class="billing-info">
+      <div class="billing-plan" id="billingPlan"></div>
+      <div class="billing-status" id="billingStatus"></div>
+    </div>
+    <button id="manageBillingBtn" class="btn btn-ghost">Manage billing</button>
+  </section>
+
+  <section id="campaignsList" class="campaigns-list"></section>
+
+  <div id="newCampaignModal" class="modal hidden">
+    <div class="modal-inner">
+      <h2>New campaign</h2>
+      <form id="newCampaignForm">
+        <div class="field">
+          <label>Campaign name</label>
+          <input type="text" name="name" required placeholder="e.g. Q4 Reactivation - Plumbers" />
+        </div>
+        <div class="field">
+          <label>Industry</label>
+          <select name="industry" required>
+            <option value="plumber">Plumbing / HVAC</option>
+            <option value="dentist">Dental practice</option>
+            <option value="trainer">Personal trainer / Gym</option>
+            <option value="salon">Hair salon / Spa</option>
+            <option value="mechanic">Auto mechanic</option>
+            <option value="realtor">Real estate agent</option>
+            <option value="restaurant">Restaurant</option>
+          </select>
+        </div>
+        <div class="row">
+          <button type="button" class="btn btn-ghost" data-close>Cancel</button>
+          <button type="submit" class="btn btn-brand">Create</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <section id="campaignDetail" class="detail hidden">
+    <button class="back-link" id="backBtn">← Back to campaigns</button>
+    <header class="detail-head">
+      <h2 id="detailName"></h2>
+      <span id="detailStatus" class="badge"></span>
+    </header>
+
+    <div class="stats-row" id="statsRow"></div>
+
+    <div class="steps">
+      <div class="step" id="step1">
+        <div class="step-head">
+          <span class="step-num">1</span>
+          <h3>Upload customer list (CSV)</h3>
+        </div>
+        <p class="step-help">
+          Required columns: <code>first_name</code>, <code>email</code>.
+          Optional: <code>last_name</code>, <code>phone</code>, <code>last_service</code>, <code>last_service_date</code>.
+        </p>
+        <textarea id="csvInput" rows="8" placeholder="first_name,last_name,email,phone,last_service,last_service_date
+Alice,Smith,alice@example.com,555-0100,Cleaning,2026-08-15
+Bob,Lee,bob@example.com,555-0101,Repair,2026-09-01"></textarea>
+        <div class="row">
+          <button id="uploadBtn" class="btn btn-brand">Upload customers</button>
+          <span id="uploadMsg" class="msg"></span>
+        </div>
+      </div>
+
+      <div class="step" id="step2">
+        <div class="step-head">
+          <span class="step-num">2</span>
+          <h3>Preview messages</h3>
+        </div>
+        <p class="step-help">
+          Click below to generate the 5-message campaign for every uploaded customer. You can review before launching.
+        </p>
+        <button id="generateBtn" class="btn btn-brand">Generate messages</button>
+        <div id="previewArea" class="preview hidden"></div>
+      </div>
+
+      <div class="step" id="step3">
+        <div class="step-head">
+          <span class="step-num">3</span>
+          <h3>Launch</h3>
+        </div>
+        <p class="step-help">
+          Once you launch, the scheduler starts sending messages on their scheduled dates (Day 1, 5, 12, 21, 30).
+        </p>
+        <button id="launchBtn" class="btn btn-brand">Launch campaign</button>
+        <span id="launchMsg" class="msg"></span>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
