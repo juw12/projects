@@ -164,15 +164,15 @@ No pairing is accepted without confirmation and no motor command is sent.
 Another program on the PC still cannot open COM4 while this app holds it: that is
 a Windows serial-port rule, which is why the check runs inside the app.
 
-## 1.11.19: Wobble test for the rising head
-Camera tab → Wobble test: the AIRIZ lowers, rises and goes down while the console tracks the camera picture and grades the sideways wobble 1–4 (PASS up to grade 1). Too few camera frames → NOT RELIABLE, never PASS. Grade borders can be fitted to units graded by eye; history and CSV export.
-
 ## 1.11.22: Safe auto-update (opt-in)
 
 * **Opt-in auto-update.** Updates dialog → *Auto-update* (off by default, stored in `preferences.json` in the app's user-data folder). New releases download by themselves; the install waits until the console has been untouched for 5 minutes (no command, click, key or held button; no macro, recording, camera session, device audio transfer or voice message). `AirizConsole.getStatus().idleMs` reports the idle time; an unknown idle time counts as busy.
 * **Never a silent restart.** When an update is ready the Updates dialog opens by itself with a 30 s countdown and a toast; *Cancel auto-install* keeps the verified update ready for a manual install. A busy console turns the countdown into a wait (*Cancel scheduled install* stops it); turning auto-update off cancels that wait, while a manual "install when finished" schedule is kept.
 * **Manual Install always confirms.** Pressing Install still shows the confirmation with the "closing the port does not stop an already-issued move" warning, also with auto-update on. Portable builds never auto-download.
 * **Packaging guard.** `preferences.cjs` is now in `build.files`; `tests/packaging.test.cjs` fails if any module `main.cjs`/`preload.cjs` requires is not shipped. Tests: `tests/updates.test.cjs` (idle rule, voice busy, manual confirm with auto on, countdown deadline, auto/manual schedule cancel). zh-TW / zh-CN strings added.
+
+## 1.11.19: Wobble test for the rising head
+Camera tab → Wobble test: the AIRIZ lowers, rises and goes down while the console tracks the camera picture and grades the sideways wobble 1–4 (PASS up to grade 1). Too few camera frames → NOT RELIABLE, never PASS. Grade borders can be fitted to units graded by eye; history and CSV export.
 
 ## 1.11.21: Go home keyboard shortcut + camera-based auto night mode
 
