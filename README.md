@@ -17,6 +17,17 @@ runnable, deployable project.
 | [`apps/plm-aml-approval`](apps/plm-aml-approval) | PLM AML final / conditional approval submission assistant â€” fills the Windchill approval workflow form and stops before Submit (v0.1 preliminary) | Python + Playwright driving Microsoft Edge; site settings in a local, git-ignored config |
 | [`apps/vitals`](apps/vitals) | Vitals: device health copilot â€” desktop apps for Windows, Mac and Linux plus Android and iPhone apps that check the phone itself; safety-graded cleaning with a 72 h Undo Vault and measured receipts, goal planner, battery wear forecast, drain detective, personal baseline and a fix-it chat | Zero-dependency Python stdlib agent + offline PWA, PyInstaller desktop apps, Capacitor phone apps with a native phone-check plugin |
 
+## Archive
+
+Past projects and experiments. Kept for reference, not actively developed.
+
+| Project | What it is | Status |
+| --- | --- | --- |
+| [`saltbridge`](saltbridge) | **Saltbridge** — bilingual EN/?? freelance services for SaaS, e-commerce, and DTC brands. Translation, English product descriptions for Chinese sellers (Amazon/Etsy/Shopify), bilingual EN/?? email copy. Full launch package built: 3 Fiverr gigs, Upwork profile, 3 portfolio samples, cold-outreach system, day-by-day action plan, competitive analysis, 3 gig images, and a deployable portfolio site. $0 capital, 1–2 hr/day. Tagline: *Preserving value across languages.* | **NEW** |
+| [`saas-content-engine`](saas-content-engine) | Freelance SaaS content writing toolkit — Fiverr/Upwork profiles, 3 portfolio samples, 50-company target list, 10 cold email templates, 4 ready-to-send personalized emails, lead tracker template, 30-day plan, daily action coach, building notes | **NEW** |
+| [`agency-starter`](agency-starter) | **Handoff** — AI automation agency + SaaS product for SMBs worldwide. Five Next.js apps (portfolio, saas landing with Lemon Squeezy checkout, AI review-responder, AI listing-writer, fake-door niche validator). Cold-outreach copy, 5 globally-scored niches, 14-day validation playbook. All code complete and pushed to [juw12/loop-zero](https://github.com/juw12/loop-zero). $29/mo Pro, $99/mo Team. | Launched — pending Vercel + Lemon Squeezy + LLM keys (˜15 min human setup) |
+
+
 ## Ownership and content
 
 Maintained by [Juwen Lie (@juw12)](https://github.com/juw12).
