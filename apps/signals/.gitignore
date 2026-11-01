@@ -1,0 +1,10 @@
+# Crypto Signal Bot — runtime
+.env
+.venv/
+__pycache__/
+paper_trades.csv
+bot.log
+bot.log.*
+bot.out
+bot.err
+*.pyc
