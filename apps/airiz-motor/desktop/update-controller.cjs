@@ -335,4 +335,4 @@ function createUpdateController(options) {
   return { snapshot, check, download, install, cancelScheduled, cancelAutoInstall, setAutoUpdate };
 }
 
-module.exports = { FEED, AUTO_IDLE_MS, installerUrl, validateUpdate, busyReason, autoBusyReason, createUpdateController };
+module.exports = { FEED, AUTO_IDLE_MS, installerUrl, validateUpdate, busyReason, autoBusyReason, waitPhrase, createUpdateController };

@@ -1547,7 +1547,54 @@
     "Auto-update is waiting until the camera session is closed, then installs and restarts. The device reconnects after restart.": "自動更新會等到相機工作階段關閉，再安裝並重新啟動。重新啟動後裝置會自動重新連線。",
     "Auto-update is waiting until the console reports its state again, then installs and restarts. The device reconnects after restart.": "自動更新會等到主控台再次回報狀態，再安裝並重新啟動。重新啟動後裝置會自動重新連線。",
     "Auto-update is waiting until the voice message finishes, then installs and restarts. The device reconnects after restart.": "自動更新會等到語音訊息播放完畢，再安裝並重新啟動。重新啟動後裝置會自動重新連線。",
-    "The device picker of the Bluetooth check no longer talks about the old phone remote: it now asks you to choose the AIRIZ, or to cancel and connect over USB. In Chinese, the guide sections on phones, sharing, teams, the wobble test and the jog presets, the Updates panel messages, several tooltips and buttons are now translated instead of showing English.": "藍牙檢查的裝置選擇視窗不再提到舊的手機遙控：現在會請你選擇 AIRIZ，或取消後改用 USB 連線。中文模式下，說明中的手機、分享、團隊、晃動測試與微調預設等章節，以及「更新」面板訊息、多個提示文字與按鈕，現在都已翻譯，不再顯示英文。"
+    "The device picker of the Bluetooth check no longer talks about the old phone remote: it now asks you to choose the AIRIZ, or to cancel and connect over USB. In Chinese, the guide sections on phones, sharing, teams, the wobble test and the jog presets, the Updates panel messages, several tooltips and buttons are now translated instead of showing English.": "藍牙檢查的裝置選擇視窗不再提到舊的手機遙控：現在會請你選擇 AIRIZ，或取消後改用 USB 連線。中文模式下，說明中的手機、分享、團隊、晃動測試與微調預設等章節，以及「更新」面板訊息、多個提示文字與按鈕，現在都已翻譯，不再顯示英文。",
+    "Finish the device session before closing": "關閉前請先結束裝置工作階段",
+    "A device connection, macro, recording or session is active.": "裝置連線、巨集、錄影或工作階段仍在進行中。",
+    "Closing disconnects this console. It does NOT stop a motor move already sent. Finish or safely stop your bench test first. Unsaved recording/session output may be interrupted.": "關閉會中斷此主控台的連線，但「不會」停止已送出的馬達動作。請先完成或安全停止台架測試。尚未儲存的錄影或工作階段輸出可能會中斷。",
+    "Keep app open": "保持 App 開啟",
+    "Close anyway": "仍要關閉",
+    "Close AIRIZ Console?": "要關閉 AIRIZ Console 嗎？",
+    "The console state could not be read.": "無法讀取主控台狀態。",
+    "Confirm the device is safe before closing. Closing this app is not a motor-stop command.": "關閉前請確認裝置處於安全狀態。關閉此 App 並不是馬達停止指令。",
+    "AIRIZ device media access": "AIRIZ 裝置媒體存取",
+    "Allow access to camera?": "允許存取相機？",
+    "Allow access to microphone?": "允許存取麥克風？",
+    "Allow access to camera and microphone?": "允許存取相機與麥克風？",
+    "Allow access to microphone and camera?": "允許存取麥克風與相機？",
+    "Allow access to camera or microphone?": "允許存取相機或麥克風？",
+    "Media stays in this local console unless you explicitly save or export it, or choose Camera → Share to phone (live view for people with the link). The microphone is only used while you hold Hold to talk: that message goes to the AIRIZ speaker.": "媒體只會留在這台本機主控台，除非你明確儲存或匯出，或選擇「相機 → 分享到手機」（擁有連結的人可看即時畫面）。麥克風只在你按住「按住說話」時使用：那段訊息會送到 AIRIZ 喇叭。",
+    "Pair Bluetooth device?": "要配對藍牙裝置嗎？",
+    "Pair with the selected Bluetooth device?": "要與選取的藍牙裝置配對嗎？",
+    "Only pair with your own AIRIZ device.": "只與你自己的 AIRIZ 裝置配對。",
+    "Pair": "配對",
+    "Install AIRIZ update?": "要安裝 AIRIZ 更新嗎？",
+    "The device connection closes briefly, the update installs, and the app restarts and reconnects to the same device automatically. Finish any motion in progress first: closing the port does not stop an already-issued move. This release is unsigned.": "裝置連線會短暫關閉，更新安裝後 App 會重新啟動，並自動重新連線到同一台裝置。請先完成進行中的動作：關閉連接埠不會停止已送出的動作。此版本未經數位簽章。",
+    "The app installs the update and restarts automatically. Finish any motion in progress first: closing the port does not stop an already-issued move. This release is unsigned.": "App 會安裝更新並自動重新啟動。請先完成進行中的動作：關閉連接埠不會停止已送出的動作。此版本未經數位簽章。",
+    "Install AIRIZ update when finished?": "要在完成後安裝 AIRIZ 更新嗎？",
+    "You can keep working. When it finishes, the app installs the update, restarts and reconnects to the same device.": "你可以繼續工作。完成後 App 會安裝更新、重新啟動並重新連線到同一台裝置。",
+    "Install when finished": "完成後安裝",
+    "Windows desktop edition. The full interface is bundled locally.": "Windows 桌面版。完整介面都內建在本機。",
+    "Hardware control requires a compatible connected device. UI locking is not a hardware emergency stop.": "硬體控制需要連接相容的裝置。鎖定介面並不是硬體緊急停止。",
+    "AIRIZ Console startup failed": "AIRIZ Console 啟動失敗",
+    "File": "檔案",
+    "Close AIRIZ Console": "關閉 AIRIZ Console",
+    "Edit": "編輯",
+    "Undo": "復原",
+    "Redo": "重做",
+    "Cut": "剪下",
+    "Copy": "複製",
+    "Paste": "貼上",
+    "Select All": "全選",
+    "Actual Size": "實際大小",
+    "Zoom In": "放大",
+    "Zoom Out": "縮小",
+    "Toggle Full Screen": "切換全螢幕",
+    "Help": "說明",
+    "Check for updates…": "檢查更新…",
+    "About AIRIZ Console": "關於 AIRIZ Console",
+    "Release notes and downloads": "版本資訊與下載",
+    "Windows dialogs and menu in your language (1.11.25)": "Windows 對話框與選單也使用你的語言（1.11.25）",
+    "With the console set to 繁體中文 or 简体中文, the Windows dialogs (close warning, update install question, camera and microphone permission, Bluetooth pairing, About) and the menu bar now use that language too. The question to install an update when work finishes now reads correctly (for example: when the macro finishes). Old browser Bluetooth code that nothing used any more was removed.": "主控台設為繁體中文或简体中文時，Windows 對話框（關閉警告、更新安裝提問、相機與麥克風權限、藍牙配對、關於）和選單列現在也會使用該語言。工作結束後安裝更新的提問現在文字正確（例如：等巨集執行完畢）。也移除了已不再使用的舊瀏覽器藍牙程式碼。"
   },
   "html": {
     "AIRIZDEVICE LAB": "AIRIZ<small>裝置實驗室</small>",
@@ -2813,6 +2860,30 @@
     [
       "^Windows app (.+)\\. Connection to the AIRIZ and when it last answered\\.$",
       "Windows App $1。與 AIRIZ 的連線，以及最後一次回應的時間。"
+    ],
+    [
+      "^Confirm this PIN matches the device: (.+)$",
+      "請確認此 PIN 碼與裝置上顯示的相同：$1"
+    ],
+    [
+      "^Install AIRIZ Console (\\S+) now\\?$",
+      "現在安裝 AIRIZ Console $1？"
+    ],
+    [
+      "^Install (\\S+) automatically when the macro finishes\\?$",
+      "要在巨集執行完畢後自動安裝 $1 嗎？"
+    ],
+    [
+      "^Install (\\S+) automatically when the camera recording finishes\\?$",
+      "要在相機錄影結束後自動安裝 $1 嗎？"
+    ],
+    [
+      "^Install (\\S+) automatically when the device audio transfer finishes\\?$",
+      "要在裝置音訊傳輸結束後自動安裝 $1 嗎？"
+    ],
+    [
+      "^Install (\\S+) automatically when the camera session is closed\\?$",
+      "要在相機工作階段關閉後自動安裝 $1 嗎？"
     ]
   ]
 }

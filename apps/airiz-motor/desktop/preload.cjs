@@ -5,6 +5,8 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('airizDesktop', {
   platform: 'win32',
   getAppInfo: () => ipcRenderer.invoke('airiz:app-info'),
+  // 1.11.25: native dialogs and the menu use the console language.
+  setLanguage: language => ipcRenderer.invoke('airiz:set-language', String(language)),
   getUpdateState: () => ipcRenderer.invoke('airiz:update-state'),
   checkForUpdates: () => ipcRenderer.invoke('airiz:update-check'),
   downloadUpdate: () => ipcRenderer.invoke('airiz:update-download'),
