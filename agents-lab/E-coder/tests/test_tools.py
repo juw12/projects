@@ -14,6 +14,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 # tools.py lives one directory up from this test file; make it importable when we
 # run this file directly as well as via unittest.
@@ -22,11 +23,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from tools import (  # noqa: E402
     SKIP_DIRS,
     TOOL_SCHEMAS,
+    ToolContext,
     ToolError,
     dispatch,
     list_files,
     read_file,
+    run_command,
     search,
+    write_file,
 )
 
 
@@ -158,7 +162,9 @@ class DispatchTests(unittest.TestCase):
 class SchemaTests(unittest.TestCase):
     def test_schema_names_and_shape(self) -> None:
         names = {s["function"]["name"] for s in TOOL_SCHEMAS}
-        self.assertEqual(names, {"list_files", "read_file", "search"})
+        self.assertEqual(
+            names, {"list_files", "read_file", "search", "write_file", "run_command"}
+        )
         for s in TOOL_SCHEMAS:
             self.assertEqual(s["type"], "function")
             self.assertIn("parameters", s["function"])
@@ -166,6 +172,76 @@ class SchemaTests(unittest.TestCase):
     def test_skip_dirs_includes_common_noise(self) -> None:
         self.assertIn("node_modules", SKIP_DIRS)
         self.assertIn(".git", SKIP_DIRS)
+
+
+class WriteFileTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.tmp = tempfile.mkdtemp()
+        self.outside = tempfile.mkdtemp()  # a path outside the repo root
+        _make_repo(self.tmp)
+        self.yolo = ToolContext(root=self.tmp, yolo=True)
+
+    def test_write_new_file_with_yolo(self) -> None:
+        out = write_file("new.txt", "hello new", root=self.tmp, ctx=self.yolo)
+        self.assertIn("new.txt", out)
+        self.assertIn("new file", out)
+        with open(Path(self.tmp) / "new.txt", encoding="utf-8") as f:
+            self.assertEqual(f.read(), "hello new")
+
+    def test_write_existing_shows_diff(self) -> None:
+        out = write_file("a.txt", "alpha\nGAMMA\n", root=self.tmp, ctx=self.yolo)
+        self.assertIn("GAMMA", out)
+        self.assertIn("alpha", out)  # unchanged context line appears in the diff
+        with open(Path(self.tmp) / "a.txt", encoding="utf-8") as f:
+            self.assertEqual(f.read(), "alpha\nGAMMA\n")
+
+    def test_write_outside_root_raises(self) -> None:
+        rel = os.path.relpath(self.outside, self.tmp)
+        with self.assertRaises(ToolError):
+            write_file(rel, "x", root=self.tmp, ctx=self.yolo)
+
+    def test_declined_when_not_interactive(self) -> None:
+        ctx = ToolContext(root=self.tmp, yolo=False, interactive=False)
+        with self.assertRaises(ToolError):
+            write_file("new2.txt", "x", root=self.tmp, ctx=ctx)
+        self.assertFalse((Path(self.tmp) / "new2.txt").exists())  # nothing was written
+
+    def test_dispatch_default_ctx_declines_write(self) -> None:
+        # The 3-arg dispatch (no ctx) builds a safe read-only default -> declined.
+        with self.assertRaises(ToolError):
+            dispatch("write_file", {"path": "x.txt", "content": "y"}, self.tmp)
+
+
+class RunCommandTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.tmp = tempfile.mkdtemp()
+        self.yolo = ToolContext(root=self.tmp, yolo=True)
+
+    def test_harmless_command_runs(self) -> None:
+        out = run_command('python -c "print(42)"', root=self.tmp, ctx=self.yolo)
+        self.assertIn("exit=0", out)
+        self.assertIn("42", out)
+
+    def test_denied_command_raises_even_with_yolo(self) -> None:
+        # --yolo skips confirmation but never the deny-list.
+        with self.assertRaises(ToolError):
+            run_command("rm -rf /", root=self.tmp, ctx=self.yolo)
+
+    def test_shell_operator_raises(self) -> None:
+        with self.assertRaises(ToolError):
+            run_command("ls && reboot", root=self.tmp, ctx=self.yolo)
+
+    def test_declined_when_not_interactive(self) -> None:
+        ctx = ToolContext(root=self.tmp, yolo=False, interactive=False)
+        with self.assertRaises(ToolError):
+            run_command('python -c "print(1)"', root=self.tmp, ctx=ctx)
+
+    def test_timeout_raises(self) -> None:
+        import subprocess
+
+        with mock.patch("subprocess.run", side_effect=subprocess.TimeoutExpired(cmd="sleep", timeout=1)):
+            with self.assertRaises(ToolError):
+                run_command("sleep 5", root=self.tmp, ctx=self.yolo, timeout=1)
 
 
 if __name__ == "__main__":
