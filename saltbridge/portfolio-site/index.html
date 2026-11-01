@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bilingual EN/中文 — Translation & Copywriting</title>
+<meta name="description" content="Native bilingual English/Chinese translation and copywriting for SaaS, e-commerce, and DTC brands.">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { font-family: -apple-system, 'Helvetica Neue', 'Microsoft YaHei', Arial, sans-serif; color: #1a1a1a; line-height: 1.6; }
+  
+  nav { padding: 24px 48px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; background: #fff; position: sticky; top: 0; z-index: 10; }
+  nav .logo { font-weight: 700; font-size: 18px; letter-spacing: 1px; }
+  nav .logo span { color: #c8102e; }
+  nav .links a { color: #1a1a1a; text-decoration: none; margin-left: 32px; font-size: 14px; font-weight: 500; }
+  nav .links a:hover { color: #c8102e; }
+  
+  .hero { padding: 96px 48px 64px; text-align: center; background: #f5f1e8; }
+  .hero h1 { font-size: 56px; font-weight: 800; letter-spacing: -1px; max-width: 800px; margin: 0 auto 24px; }
+  .hero h1 .accent { color: #c8102e; }
+  .hero p.subtitle { font-size: 20px; color: #4b5563; max-width: 600px; margin: 0 auto 32px; }
+  .hero .cta { display: inline-block; padding: 14px 32px; background: #1a1a1a; color: #fff; text-decoration: none; border-radius: 4px; font-weight: 600; font-size: 15px; }
+  .hero .cta:hover { background: #c8102e; }
+  .hero .meta { margin-top: 24px; font-size: 13px; color: #6b7280; letter-spacing: 1px; }
+  
+  section { padding: 80px 48px; max-width: 1200px; margin: 0 auto; }
+  section h2 { font-size: 32px; font-weight: 700; margin-bottom: 8px; letter-spacing: -0.5px; }
+  section h2 + .lede { color: #6b7280; font-size: 16px; margin-bottom: 48px; max-width: 600px; }
+  
+  .services { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px; }
+  .service { padding: 32px; border: 1px solid #e5e7eb; border-radius: 8px; transition: all 0.2s; }
+  .service:hover { border-color: #c8102e; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.04); }
+  .service .num { font-size: 13px; color: #c8102e; font-weight: 700; letter-spacing: 2px; margin-bottom: 12px; }
+  .service h3 { font-size: 22px; font-weight: 700; margin-bottom: 12px; }
+  .service p { color: #4b5563; font-size: 15px; margin-bottom: 20px; }
+  .service .price { font-size: 13px; color: #6b7280; padding-top: 16px; border-top: 1px solid #f3f4f6; }
+  .service .price strong { color: #1a1a1a; }
+  
+  .portfolio { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 32px; }
+  .work { padding: 0; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; }
+  .work .label { padding: 16px 24px; background: #f9fafb; font-size: 12px; font-weight: 700; letter-spacing: 2px; color: #6b7280; }
+  .work .body { padding: 24px; }
+  .work .body .en { font-size: 14px; color: #4b5563; margin-bottom: 12px; font-style: italic; }
+  .work .body .arrow { color: #c8102e; font-size: 18px; margin: 12px 0; }
+  .work .body .zh { font-size: 15px; color: #1a1a1a; }
+  .work .body .zh-zh { font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif; }
+  
+  .about { background: #f9fafb; max-width: none; padding: 80px 48px; }
+  .about-inner { max-width: 800px; margin: 0 auto; }
+  .about-inner h2 { margin-bottom: 24px; }
+  .about-inner p { font-size: 16px; color: #4b5563; margin-bottom: 16px; }
+  
+  .contact { text-align: center; padding: 96px 48px; background: #1a1a1a; color: #fff; max-width: none; }
+  .contact h2 { color: #fff; }
+  .contact h2 + .lede { color: #9ca3af; margin: 8px auto 32px; }
+  .contact .cta { display: inline-block; padding: 16px 40px; background: #c8102e; color: #fff; text-decoration: none; border-radius: 4px; font-weight: 700; font-size: 16px; }
+  .contact .cta:hover { background: #fff; color: #c8102e; }
+  
+  footer { padding: 32px 48px; text-align: center; font-size: 13px; color: #6b7280; border-top: 1px solid #eee; }
+  
+  @media (max-width: 640px) {
+    nav { padding: 16px 24px; }
+    nav .links { display: none; }
+    .hero { padding: 64px 24px 48px; }
+    .hero h1 { font-size: 36px; }
+    section { padding: 48px 24px; }
+  }
+</style>
+</head>
+<body>
+
+  <nav>
+  <div class="logo">Saltbridge · <span>EN ↔ 中文</span></div>
+  <div class="links">
+    <a href="#services">Services</a>
+    <a href="#portfolio">Portfolio</a>
+    <a href="#about">About</a>
+    <a href="#contact">Contact</a>
+  </div>
+</nav>
+
+<header class="hero">
+  <h1><span class="accent">Saltbridge</span> — preserving value across languages.</h1>
+  <p class="subtitle">Bilingual EN/中文 translation & copywriting for SaaS, e-commerce, and DTC brands. Native in both. Not translated — written for each market.</p>
+  <a href="#contact" class="cta">Message me with a sample →</a>
+  <p class="meta">24-HOUR TURNAROUND · PER-CLIENT GLOSSARY · NATIVE BOTH LANGUAGES</p>
+</header>
+
+<section id="services">
+  <h2>Services</h2>
+  <p class="lede">Three ways I work with clients. All delivered in native-grade English and Chinese, with a per-client glossary on every project.</p>
+  <div class="services">
+    <div class="service">
+      <div class="num">01</div>
+      <h3>EN ↔ 中文 Translation</h3>
+      <p>Marketing copy, web content, pitch decks, product pages, internal docs. Native both directions, with terminology locked across your full document set.</p>
+      <div class="price"><strong>From $35</strong> · 500-word basic · 24h delivery</div>
+    </div>
+    <div class="service">
+      <div class="num">02</div>
+      <h3>English Product Descriptions</h3>
+      <p>For Chinese sellers on Amazon, Etsy, and Shopify. I read your Chinese source and write the English the way your buyer actually responds to — benefit-led, keyword-aware, platform-formatted.</p>
+      <div class="price"><strong>From $40</strong> · 2 listings basic · 24h delivery</div>
+    </div>
+    <div class="service">
+      <div class="num">03</div>
+      <h3>Bilingual Email & Newsletter</h3>
+      <p>One campaign. Two native versions — not a translation of one into the other. Subject lines and CTAs tuned per culture, plus a strategy note explaining what changed per market.</p>
+      <div class="price"><strong>From $70</strong> · 1 email, both languages · 24h delivery</div>
+    </div>
+  </div>
+</section>
+
+<section id="portfolio">
+  <h2>Portfolio</h2>
+  <p class="lede">Recent work samples. Full versions available on request.</p>
+  <div class="portfolio">
+    <div class="work">
+      <div class="label">EN → ZH · SaaS LANDING PAGE</div>
+      <div class="body">
+        <div class="en">"Trusted by 10,000+ teams worldwide. The fastest way to ship software your customers actually want."</div>
+        <div class="arrow">→</div>
+        <div class="zh zh-zh">"全球 10,000+ 团队的信赖之选。用最快的速度，交付客户真正想要的软件。"</div>
+      </div>
+    </div>
+    <div class="work">
+      <div class="label">ZH → EN · D2C BRAND STORY</div>
+      <div class="body">
+        <div class="en zh-zh">"我们相信，好的产品不需要喧嚣的营销。只需要诚实的材料，扎实的工艺，和一个愿意倾听的小团队。"</div>
+        <div class="arrow">→</div>
+        <div class="zh">"We believe good products don't need loud marketing. Just honest materials, careful craft, and a small team that actually listens."</div>
+      </div>
+    </div>
+    <div class="work">
+      <div class="label">PRODUCT DESCRIPTION REWRITE</div>
+      <div class="body">
+        <div class="en">"Premium wireless earbuds with noise cancellation. Bluetooth 5.3. Waterproof. 36-hour battery. Black."</div>
+        <div class="arrow">→</div>
+        <div class="zh">"Hear what matters. Block what doesn't. Our flagship earbuds pair industry-leading 36-hour battery life with adaptive noise cancellation that learns your environment — so your music stays clear whether you're on a crowded train or a quiet call. IPX5 water resistance means rain, sweat, and the occasional spill won't slow you down."</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="about" class="about">
+  <div class="about-inner">
+    <h2>About</h2>
+    <p>I'm a bilingual English / 中文 (Simplified + Traditional) writer specializing in business content that reads like a native wrote it — not like a translator rearranged it.</p>
+    <p>I work with SaaS, e-commerce, and DTC brands on EN ↔ ZH translation, English product descriptions for Chinese sellers on Amazon/Etsy/Shopify, and bilingual EN/中文 email copy.</p>
+    <p>Every project includes a per-client glossary, terminology consistency across your full content set, and tight turnarounds (24h for short pieces). Reply within an hour during business hours. Treat your first project like it's the only one I have.</p>
+    <p style="margin-top:24px;"><em>Message me with a sample — I'll send back a free 100-word preview so you can judge the style before you order.</em></p>
+  </div>
+</section>
+
+<section id="contact" class="contact">
+  <h2>Let's work together</h2>
+  <p class="lede">Send a sample of your content and I'll reply within the hour with a free preview.</p>
+  <a href="mailto:juwpegatron@gmail.com?subject=Sample%20project%20inquiry" class="cta">Email me →</a>
+  <p style="margin-top:24px;font-size:14px;color:#9ca3af;">Or find me on <a href="#" style="color:#fff;">Fiverr</a> · <a href="#" style="color:#fff;">Upwork</a> · <a href="#" style="color:#fff;">LinkedIn</a></p>
+</section>
+
+<footer>
+  © 2026 Saltbridge · <em>Preserving value across languages.</em> · Saltbridge serves SaaS, e-commerce, and DTC brands.
+</footer>
+
+</body>
+</html>

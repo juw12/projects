@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 769" width="1280" height="769">
+  <defs>
+    <style>
+      .bg { fill: #E8E2D5; }
+      .teal { fill: #0F3D3E; }
+      .ink { fill: #1A1A1A; }
+      .accent { fill: #D4A574; }
+      .card { fill: #FFFFFF; }
+      .muted { fill: #6B7280; }
+      .sans { font-family: 'Helvetica Neue', Arial, sans-serif; }
+    </style>
+  </defs>
+
+  <rect class="bg" width="1280" height="769"/>
+
+  <text x="640" y="100" class="sans teal" font-size="48" font-weight="800" text-anchor="middle" letter-spacing="2">LISTINGS THAT CONVERT</text>
+
+  <text x="640" y="160" class="sans teal" font-size="32" font-weight="300" text-anchor="middle" font-style="italic">not translate</text>
+
+  <g transform="translate(340, 230)">
+    <rect class="card" width="600" height="380" rx="8"/>
+
+    <rect x="40" y="40" width="80" height="80" fill="#F3F4F6"/>
+    <text x="80" y="90" class="sans muted" font-size="11" text-anchor="middle" font-weight="600">PHOTO</text>
+
+    <text x="140" y="70" class="sans ink" font-size="22" font-weight="700">Premium Wireless Earbuds</text>
+    <text x="140" y="95" class="sans muted" font-size="14">Sound that moves with you</text>
+
+    <text x="140" y="130" class="sans accent" font-size="28" font-weight="800">$79.99</text>
+    <text x="220" y="130" class="sans muted" font-size="14" text-decoration="line-through">$129.99</text>
+
+    <text x="40" y="180" class="sans ink" font-size="14" font-weight="700">✓ 36-hour battery life</text>
+    <text x="40" y="205" class="sans ink" font-size="14" font-weight="700">✓ Active noise cancellation</text>
+    <text x="40" y="230" class="sans ink" font-size="14" font-weight="700">✓ IPX5 water resistance</text>
+    <text x="40" y="255" class="sans ink" font-size="14" font-weight="700">✓ Touch controls + voice assistant</text>
+
+    <rect x="40" y="290" width="180" height="44" class="teal" rx="2"/>
+    <text x="130" y="318" class="sans" font-size="14" font-weight="700" fill="#FFFFFF" text-anchor="middle">Add to Cart</text>
+
+    <text x="240" y="318" class="sans accent" font-size="14" font-weight="600">Buy Now →</text>
+  </g>
+
+  <text x="640" y="690" class="sans teal" font-size="20" font-weight="600" text-anchor="middle" letter-spacing="4">AMAZON · ETSY · SHOPIFY</text>
+
+  <text x="40" y="60" class="sans teal" font-size="16" font-weight="700" letter-spacing="3">PRODUCT DESCRIPTIONS</text>
+  <line x1="40" y1="76" x2="160" y2="76" stroke="#D4A574" stroke-width="2"/>
+</svg>

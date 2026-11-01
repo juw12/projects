@@ -17,6 +17,16 @@ runnable, deployable project.
 | [`apps/plm-aml-approval`](apps/plm-aml-approval) | PLM AML final / conditional approval submission assistant — fills the Windchill approval workflow form and stops before Submit (v0.1 preliminary) | Python + Playwright driving Microsoft Edge; site settings in a local, git-ignored config |
 | [`apps/vitals`](apps/vitals) | Vitals: device health copilot — desktop apps for Windows, Mac and Linux plus Android and iPhone apps that check the phone itself; safety-graded cleaning with a 72 h Undo Vault and measured receipts, goal planner, battery wear forecast, drain detective, personal baseline and a fix-it chat | Zero-dependency Python stdlib agent + offline PWA, PyInstaller desktop apps, Capacitor phone apps with a native phone-check plugin |
 
+## Building (work in progress)
+
+Concepts, drafts, and brainstorming that are not yet committed launches. Promoted to `apps/` when they ship.
+
+| Project | What it is | Stage |
+| --- | --- | --- |
+| [`apps/building/postpilot`](apps/building/postpilot) | LinkedIn ghostwriting service for B2B coaches and consultants. 3 on-brand posts/week delivered every Monday, voice-trained on the client's own past posts. Founder pricing $49/$99/$199/mo. | Brainstorm / pre-launch |
+
+See [`apps/building/`](apps/building) for what counts as WIP and how items graduate.
+
 ## Ownership and content
 
 Maintained by [Juwen Lie (@juw12)](https://github.com/juw12).

@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 769" width="1280" height="769">
+  <defs>
+    <style>
+      .bg { fill: #F5F1E8; }
+      .ink { fill: #0E1F2C; }
+      .red { fill: #C8102E; }
+      .serif { font-family: Georgia, 'Times New Roman', serif; }
+      .sans { font-family: 'Helvetica Neue', Arial, sans-serif; }
+      .cjk { font-family: 'Microsoft YaHei', 'PingFang SC', 'Hiragino Sans GB', sans-serif; }
+    </style>
+  </defs>
+
+  <rect class="bg" width="1280" height="769"/>
+
+  <text x="60" y="80" class="serif ink" font-size="22" font-weight="400" letter-spacing="6">TRANSLATION</text>
+  <line x1="60" y1="100" x2="180" y2="100" stroke="#C8102E" stroke-width="2"/>
+
+  <text x="60" y="440" class="cjk red" font-size="320" font-weight="700">翻译</text>
+
+  <text x="60" y="520" class="serif ink" font-size="28" font-style="italic">Translation · 翻譯</text>
+
+  <rect x="680" y="80" width="540" height="610" class="ink" rx="6"/>
+
+  <text x="720" y="200" class="sans" font-size="64" font-weight="700" fill="#F5F1E8">EN ↔ 中文</text>
+
+  <text x="720" y="290" class="sans" font-size="32" font-weight="400" fill="#E8B4B8">Native both sides</text>
+
+  <line x1="720" y1="340" x2="840" y2="340" stroke="#C8102E" stroke-width="2"/>
+
+  <text x="720" y="410" class="sans" font-size="28" font-weight="400" fill="#F5F1E8">24-hour turnaround</text>
+  <text x="720" y="450" class="sans" font-size="28" font-weight="400" fill="#F5F1E8">Per-client glossary</text>
+  <text x="720" y="490" class="sans" font-size="28" font-weight="400" fill="#F5F1E8">Business content focus</text>
+
+  <text x="720" y="630" class="sans" font-size="18" font-weight="400" fill="#9CA3AF" letter-spacing="2">SAAS · E-COMMERCE · DTC · FINTECH</text>
+</svg>
