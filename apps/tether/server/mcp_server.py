@@ -37,6 +37,7 @@ from adb import KEYCODES, Adb, AdbError, find_element, find_notification  # noqa
 from beacon_link import BeaconError, BeaconLink  # noqa: E402
 from flows import FlowError, run_flow, subscribe_device  # noqa: E402
 import maestro  # noqa: E402
+import perf  # noqa: E402
 from mobile_compat import MOBILE_TOOLS, MobileMcpTools  # noqa: E402
 
 SERVER_INFO = {"name": "tether", "version": "0.1.0"}
@@ -160,6 +161,29 @@ TOOLS = [
         }),
     },
     {
+        "name": "perf_snapshot",
+        "description": (
+            "Performance of a running app (SoloPi-style): memory (PSS, Java/native heap), frames "
+            "(janky %, 50/90/95/99th percentile frame time since the last reset) and CPU share over a "
+            "short window. Set reset_frames=true first, exercise the screen, then call again to measure "
+            "just that scenario."
+        ),
+        "inputSchema": _schema({
+            "package": {"type": "string"},
+            "reset_frames": {"type": "boolean", "description": "Only reset the frame counters and return"},
+            "cpu_window_s": {"type": "number", "default": 1},
+        }, ["package"]),
+    },
+    {
+        "name": "perf_startup",
+        "description": "Measure app launch time with `am start -W` (cold by default; median of runs).",
+        "inputSchema": _schema({
+            "package": {"type": "string"},
+            "cold": {"type": "boolean", "default": True},
+            "runs": {"type": "integer", "default": 1, "minimum": 1, "maximum": 10},
+        }, ["package"]),
+    },
+    {
         "name": "list_notifications",
         "description": "Notifications currently on the device (package, title, text). Use after send_push to verify delivery.",
         "inputSchema": _schema({}),
@@ -254,6 +278,17 @@ class TetherTools(MobileMcpTools):
         return [{"type": "text", "text": payload}]
 
     # ------------------------------------------------------------------ tools
+    def tool_perf_snapshot(self, args):
+        serial = self._serial(args)
+        if args.get("reset_frames"):
+            perf.reset_frames(self.adb, serial, args["package"])
+            return self._text({"package": args["package"], "frames": "reset"})
+        return self._text(perf.snapshot(self.adb, serial, args["package"], float(args.get("cpu_window_s", 1))))
+
+    def tool_perf_startup(self, args):
+        return self._text(perf.startup(self.adb, self._serial(args), args["package"],
+                                       cold=args.get("cold", True) is not False, runs=int(args.get("runs", 1))))
+
     def tool_list_devices(self, args):
         return self._text(self.adb.devices())
 

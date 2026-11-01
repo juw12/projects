@@ -135,6 +135,32 @@ Tether talks to the ARTEMIS daemon with a standard-library port of its `artemis-
 From a shell: `pushlab_cli.py ai "goal" --engine artemis --profile pro` or `pushlab_cli.py ai "condition" --check`.
 Turn Tether's HD mode off while ARTEMIS drives the phone — both want the device's scrcpy session.
 
+## Performance (startup, memory, jank, CPU)
+
+The metric set of [SoloPi](https://github.com/alipay/SoloPi)'s performance tools (Apache-2.0), measured from the
+host with stock adb — nothing is installed on the phone:
+
+| Metric | Source | Fields |
+| --- | --- | --- |
+| Startup | `am start -W` (`-S` = cold) | `total_ms` (median of runs), `launch_state` COLD/WARM/HOT |
+| Memory | `dumpsys meminfo <pkg>` | `pss_mb`, `java_heap_mb`, `native_heap_mb`, `rss_mb` |
+| Frames | `dumpsys gfxinfo <pkg> [reset]` | `frames`, `jank_percent`, `p50/p90/p95/p99_ms` |
+| CPU | `/proc/stat` + `/proc/<pid>/stat` over a window | `percent` (of the device), `core_percent` (top-style) |
+
+Budgets make them regression tests. `perf_reset` starts a fresh frame window, so the jank you assert is the
+scenario's own, not the app's lifetime average:
+
+```json
+{"action": "perf_startup", "package": "com.example.app", "runs": 3, "max_ms": 1500}
+{"action": "perf_reset", "package": "com.example.app"}
+{"action": "scroll_until_visible", "text": "Load more"}
+{"action": "perf_assert", "package": "com.example.app", "max_jank_percent": 10, "max_p90_ms": 24, "max_pss_mb": 250}
+```
+
+Also available as `GET /api/perf`, `POST /api/perf/startup`, `POST /api/perf/reset`, the MCP tools
+`perf_snapshot` / `perf_startup`, and `pushlab_cli.py perf <package> [--startup] [--reset] [--max-jank 10 ...]`
+(exit 1 when over budget). Numbers from emulators are only good for trends; judge budgets on real devices.
+
 ## CI on an emulator
 
 [`examples/ci/android-emulator.yml`](examples/ci/android-emulator.yml) is a GitHub Actions template that boots an
@@ -229,6 +255,7 @@ apps/tether/
   server/scrcpy.py      HD mode: scrcpy video + control (+ clipboard)
   server/ai.py          optional AI steps (OpenAI-compatible endpoint)
   server/artemis.py     optional ARTEMIS engine for AI steps (HTTP client, stdlib)
+  server/perf.py        startup / memory / frames / CPU measurement and budgets (SoloPi-style)
   web/                  static UI (no build step)
   tests/                hermetic tests with a fake adb
   examples/             sample flows
@@ -244,4 +271,5 @@ python apps/tether/tests/verify_hd.py --browser   # scrcpy protocol + WebCodecs 
 python apps/tether/tests/verify_mobile_mcp.py     # mobile-mcp tools, recording, clipboard (52)
 python apps/tether/tests/verify_ai.py             # AI steps against a fake OpenAI-compatible server (26)
 python apps/tether/tests/verify_artemis.py        # ARTEMIS engine against a fake ARTEMIS daemon (18)
+python apps/tether/tests/verify_perf.py           # startup / memory / jank / CPU parsers, flows, API, MCP (39)
 ```

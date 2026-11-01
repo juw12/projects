@@ -35,6 +35,7 @@ from adb import Adb, AdbError, ScreenRecorder, find_element, find_notification, 
 from beacon_link import BeaconError, BeaconLink  # noqa: E402
 from flows import FlowError, report_to_json, run_flow, subscribe_device, validate_flow  # noqa: E402
 import maestro  # noqa: E402
+import perf  # noqa: E402
 import scrcpy  # noqa: E402
 import adb_setup  # noqa: E402
 
@@ -582,6 +583,35 @@ class Handler(BaseHTTPRequestHandler):
         text = self.server.adb.logcat(serial, lines=lines, package=package)
         self._json({"ok": True, "log": text})
 
+    def api_perf(self, query):
+        """GET /api/perf?serial=&package=[&cpu_window=1][&only=memory,frames,cpu]"""
+        serial = self._serial(query)
+        package = (query.get("package") or [""])[0]
+        if not package:
+            raise ValueError("package is required")
+        only = (query.get("only") or ["memory,frames,cpu"])[0].split(",")
+        groups = tuple(g for g in ("memory", "frames", "cpu") if g in only)
+        window = float((query.get("cpu_window") or ["1"])[0])
+        self._json({"ok": True, "perf": perf.snapshot(self.server.adb, serial, package, window, groups)})
+
+    def api_perf_startup(self, query):
+        """POST /api/perf/startup {serial, package, cold?, runs?}"""
+        body = self._body_json()
+        serial = self._serial(query, body)
+        if not body.get("package"):
+            raise ValueError("package is required")
+        result = perf.startup(self.server.adb, serial, body["package"], cold=body.get("cold", True) is not False,
+                              runs=int(body.get("runs", 1)))
+        self._json({"ok": True, "startup": result})
+
+    def api_perf_reset(self, query):
+        body = self._body_json()
+        serial = self._serial(query, body)
+        if not body.get("package"):
+            raise ValueError("package is required")
+        perf.reset_frames(self.server.adb, serial, body["package"])
+        self._json({"ok": True})
+
     def api_flow_run(self, query):
         body = self._body_json()
         serial = self._serial(query, body)
@@ -699,6 +729,9 @@ ROUTES = {
     ("POST", "/api/clear"): Handler.api_clear,
     ("POST", "/api/install"): Handler.api_install,
     ("GET", "/api/logcat"): Handler.api_logcat,
+    ("GET", "/api/perf"): Handler.api_perf,
+    ("POST", "/api/perf/startup"): Handler.api_perf_startup,
+    ("POST", "/api/perf/reset"): Handler.api_perf_reset,
     ("POST", "/api/flow/run"): Handler.api_flow_run,
     ("POST", "/api/flow/maestro/import"): Handler.api_maestro_import,
     ("GET", "/api/hd/status"): Handler.api_hd_status,

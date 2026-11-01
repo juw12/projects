@@ -467,6 +467,11 @@ class Store:
                 created.append(follow_up)
         return created
 
+    def cancel_fallbacks_for_tag(self, app_id: int, tag: str) -> int:
+        """Stop pending escalations of earlier messages with this tag (e.g. an alert that resolved)."""
+        return self.x("UPDATE messages SET fallback_state = 'cancelled' WHERE app_id = ? AND tag = ?"
+                      " AND fallback_state = 'pending'", (app_id, tag)).rowcount
+
     def cancel_fallback(self, message_id: int) -> bool:
         return bool(self.x("UPDATE messages SET fallback_state = 'cancelled' WHERE id = ? AND fallback_state = 'pending'",
                            (message_id,)).rowcount)

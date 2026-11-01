@@ -40,6 +40,14 @@ AI steps (optional; any OpenAI-compatible endpoint such as a local Ollama — se
   (see artemis.py; extra keys "profile": flash|pro, "app": lock to a package,
   "expected_output", "timeout_s"). TETHER_AI_ENGINE=artemis makes it the default.
 
+Performance (SoloPi-style, see perf.py — stock adb, nothing installed on the phone)
+  perf_startup       {"package", "cold"?: true, "runs"?: 1-10, "max_ms"?}
+                     launch time via `am start -W` (median of runs); fails above max_ms
+  perf_reset         {"package"}              start a fresh frame window (gfxinfo reset)
+  perf_assert        {"package", "max_pss_mb"?, "max_jank_percent"?, "max_p90_ms"?,
+                     "max_p99_ms"?, "max_cpu_percent"?, "cpu_window_s"?}
+                     measure memory / frames since perf_reset / CPU and fail over budget
+
 Any step may set "optional": true — a failure is reported but does not fail the flow.
 
 Maestro: `python flows.py run login.yaml` runs a Maestro flow directly; see maestro.py
@@ -74,6 +82,7 @@ from beacon_link import BeaconError, BeaconLink  # noqa: E402
 import ai  # noqa: E402
 import artemis  # noqa: E402
 import maestro  # noqa: E402
+import perf  # noqa: E402
 
 ELEMENT_KEYS = ("text", "resource_id", "desc")
 URL_RE = re.compile(r"^[a-zA-Z][\w+.\-]*:\S{1,2000}$")
@@ -113,7 +122,8 @@ def validate_flow(flow: dict) -> list[dict]:
         if action in ("tap_element", "wait_for", "assert_text", "assert_gone", "scroll_until_visible"):
             if not any(step.get(key) for key in ELEMENT_KEYS):
                 raise FlowError(f"step {index + 1}: give text, resource_id or desc")
-        if action in ("launch", "stop", "clear_data") and not step.get("package"):
+        if action in ("launch", "stop", "clear_data", "perf_startup", "perf_reset", "perf_assert") \
+                and not step.get("package"):
             raise FlowError(f"step {index + 1}: `package` is required")
         if action == "text" and not isinstance(step.get("text"), str):
             raise FlowError(f"step {index + 1}: `text` is required")
@@ -144,6 +154,19 @@ def validate_flow(flow: dict) -> list[dict]:
                 raise FlowError(f"step {index + 1}: profile must be flash or pro")
             if not 1 <= float(step.get("timeout_s", 600)) <= 7200:
                 raise FlowError(f"step {index + 1}: `timeout_s` must be 1-7200")
+        if action == "perf_startup":
+            if not 1 <= int(step.get("runs", 1)) <= 10:
+                raise FlowError(f"step {index + 1}: `runs` must be 1-10")
+            if "max_ms" in step and not (isinstance(step["max_ms"], (int, float)) and step["max_ms"] > 0):
+                raise FlowError(f"step {index + 1}: `max_ms` must be a positive number")
+        if action == "perf_assert":
+            budgets = {k: v for k, v in step.items() if k in perf.BUDGET_KEYS}
+            if not budgets:
+                raise FlowError(f"step {index + 1}: perf_assert needs a budget ({', '.join(perf.BUDGET_KEYS)})")
+            if not all(isinstance(v, (int, float)) and v >= 0 for v in budgets.values()):
+                raise FlowError(f"step {index + 1}: budgets must be non-negative numbers")
+            if not 0.2 <= float(step.get("cpu_window_s", 1)) <= 10:
+                raise FlowError(f"step {index + 1}: `cpu_window_s` must be 0.2-10")
     return steps
 
 
@@ -410,6 +433,30 @@ def _ai_assert(adb, serial, step):
     return {"ai": ai.ai_assert(adb, serial, step["condition"])}
 
 
+def _perf_startup(adb, serial, step):
+    result = perf.startup(adb, serial, step["package"], cold=step.get("cold", True) is not False,
+                          runs=int(step.get("runs", 1)), activity=step.get("activity"))
+    if "max_ms" in step and result["total_ms"] > float(step["max_ms"]):
+        raise perf.PerfBudgetError(f"startup {result['total_ms']} ms > budget {step['max_ms']} ms "
+                                   f"({result['mode']}, samples {result['samples']})")
+    return {"perf": result}
+
+
+def _perf_reset(adb, serial, step):
+    perf.reset_frames(adb, serial, step["package"])
+    return {"perf": {"package": step["package"], "frames": "reset"}}
+
+
+def _perf_assert(adb, serial, step):
+    budgets = {k: v for k, v in step.items() if k in perf.BUDGET_KEYS}
+    measured = perf.snapshot(adb, serial, step["package"], float(step.get("cpu_window_s", 1)),
+                             include=perf.budget_groups(budgets))
+    problems = perf.check_budgets(measured, budgets)
+    if problems:
+        raise perf.PerfBudgetError("over budget: " + "; ".join(problems))
+    return {"perf": measured}
+
+
 STEP_HANDLERS = {
     "launch": _launch,
     "stop": _stop,
@@ -434,6 +481,9 @@ STEP_HANDLERS = {
     "beacon_subscribe": _beacon_subscribe,
     "ai": _ai,
     "ai_assert": _ai_assert,
+    "perf_startup": _perf_startup,
+    "perf_reset": _perf_reset,
+    "perf_assert": _perf_assert,
 }
 
 
@@ -463,7 +513,7 @@ def run_flow(adb: Adb, serial: str, flow: dict, settle_ms: int = 250,
             extra = STEP_HANDLERS[step["action"]](adb, serial, step) or {}
             if "png" in extra:
                 screenshots.append({"step": index, "name": extra["name"], "png": extra["png"]})
-            for key in ("beacon", "notification", "ai"):
+            for key in ("beacon", "notification", "ai", "perf"):
                 if key in extra:
                     result[key] = extra[key]
             if "element" in extra:

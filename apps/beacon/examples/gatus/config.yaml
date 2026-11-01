@@ -1,0 +1,60 @@
+# Gatus (https://github.com/TwiN/gatus) -> Beacon push notifications.
+#
+# Gatus watches your endpoints; when one fails (or recovers) its `custom` alert
+# POSTs to Beacon, which pushes to every channel you use: Web Push, Android (FCM),
+# ntfy, Bark (iPhone), Gotify, Apprise and the in-app inbox.
+#
+# 1. Create an app in the Beacon console and copy its secret key (sk_...).
+# 2. export BEACON_SECRET=sk_...   (Gatus expands ${VAR} in its config)
+# 3. Point `url` at your Beacon server. The query string routes the alert:
+#      tags=oncall            only subscribers tagged "oncall" (omit = everyone)
+#      escalate_after=600     re-send if the push isn't clicked within 10 minutes
+#      escalate_channels=bark ... on Bark (iPhone)
+#      digest=120             one push for alert storms within 2 minutes
+#      page=https://...       link opened on tap (default: the endpoint URL)
+#
+# A RESOLVED alert replaces the TRIGGERED notification (same tag) and cancels
+# any pending escalation for that endpoint.
+
+alerting:
+  custom:
+    url: "https://beacon.example.com/v1/hooks/gatus?tags=oncall&escalate_after=600&escalate_channels=bark&digest=120"
+    method: "POST"
+    headers:
+      Authorization: "Bearer ${BEACON_SECRET}"
+      Content-Type: "application/json"
+    body: |
+      {
+        "status": "[ALERT_TRIGGERED_OR_RESOLVED]",
+        "group": "[ENDPOINT_GROUP]",
+        "name": "[ENDPOINT_NAME]",
+        "url": "[ENDPOINT_URL]",
+        "description": "[ALERT_DESCRIPTION]",
+        "errors": "[RESULT_ERRORS]",
+        "conditions": "[RESULT_CONDITIONS]"
+      }
+    default-alert:
+      failure-threshold: 3
+      success-threshold: 2
+      send-on-resolved: true
+      description: "health check failed"
+
+endpoints:
+  - name: api
+    group: core
+    url: "https://api.example.com/health"
+    interval: 1m
+    conditions:
+      - "[STATUS] == 200"
+      - "[RESPONSE_TIME] < 800"
+    alerts:
+      - type: custom
+
+  - name: website
+    group: core
+    url: "https://www.example.com"
+    interval: 5m
+    conditions:
+      - "[STATUS] == 200"
+    alerts:
+      - type: custom

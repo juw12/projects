@@ -29,7 +29,7 @@ CLI (`scripts/pushlab_cli.py`) that finds this lab's keys by itself:
 
 | Skill | For |
 | --- | --- |
-| `tether-android-qa` | look → act → verify on a phone, Maestro/Tether flows, logcat, screen recording |
+| `tether-android-qa` | look → act → verify on a phone, Maestro/Tether flows, logcat, perf budgets, screen recording |
 | `beacon-push` | send pushes, digest bursts, fallback to ntfy/Bark/Gotify/Apprise, delivery stats |
 | `push-qa-e2e` | send via Beacon → assert it shows on the phone → tap → verify, with video evidence |
 
@@ -57,6 +57,8 @@ prompts work against it too.
 | [Apprise](https://github.com/caronc/apprise) (BSD-2) | Beacon channel: Telegram/Slack/Discord/email… |
 | [Bark](https://github.com/Finb/Bark) (MIT) | Beacon channel: native iPhone pushes (bark-server API v2) |
 | [Gotify](https://github.com/gotify/server) (MIT) | Beacon channel: self-hosted push server + Android app |
+| [Gatus](https://github.com/TwiN/gatus) (Apache-2.0) | uptime checks → Beacon alerts via `/v1/hooks/gatus` |
+| [SoloPi](https://github.com/alipay/SoloPi) (Apache-2.0) | metric set for Tether's perf tools (startup, memory, jank, CPU) |
 | [android-emulator-runner](https://github.com/ReactiveCircus/android-emulator-runner) (Apache-2.0) | CI template |
 | [mobile-mcp](https://github.com/mobile-next/mobile-mcp) (Apache-2.0) | tool names/arguments Tether's MCP server is compatible with |
 | [Agent Skills](https://github.com/anthropics/skills) format | the `plugin/` skills pack |
@@ -67,9 +69,10 @@ All are optional downloads or optional pip installs — Beacon and Tether stay z
 
 ## What's verified
 
-- **Automated (all hermetic, no phone needed):** 540 checks — Beacon 72 API + 40 channels + 36 Bark/Gotify + 22 tunnel + 25 crypto
-  + 23 workflows; Tether 65 API + 30 Beacon link + 62 Maestro + 36 HD (+7 in headless Edge: WebCodecs decode,
-  clicks, WebM and MP4 recording) + 52 mobile-mcp/recording/clipboard + 26 AI steps + 18 ARTEMIS engine; Push Lab plugin 26
+- **Automated (all hermetic, no phone needed):** 607 checks — Beacon 72 API + 40 channels + 36 Bark/Gotify + 28 Gatus hook + 22 tunnel
+  + 25 crypto + 23 workflows; Tether 65 API + 30 Beacon link + 62 Maestro + 36 HD (+7 in headless Edge: WebCodecs
+  decode, clicks, WebM and MP4 recording) + 52 mobile-mcp/recording/clipboard + 26 AI steps + 18 ARTEMIS engine
+  + 39 perf; Push Lab plugin 26
   (manifests, SKILL.md and the CLI end to end against real Beacon + Tether).
 - **Live on this PC:**
   - **Push:** real pushes went through Microsoft's push service to Edge and appeared on screen, sent from Tether and delivered by Beacon. ntfy.sh publish and Apprise 2.1.0 worked through the corporate proxy.
