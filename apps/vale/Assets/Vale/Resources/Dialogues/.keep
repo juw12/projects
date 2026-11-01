@@ -1,0 +1,3 @@
+# DialogueData ScriptableObjects used by NPCs. Optional — NPCs can also
+# reference their dialogues directly via NPCData.dialogues without going
+# through Resources.

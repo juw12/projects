@@ -1,0 +1,3 @@
+# ScriptableObject .asset files (.asset is YAML, .asset.meta is binary-ish GUID).
+# Sub-folders: Quests/, Dialogues/, NPCs/, Collectibles/.
+# Files in here are authored in the Unity editor (right-click → Create → Vale → ...).

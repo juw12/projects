@@ -1,0 +1,22 @@
+{
+    "name": "Vale.Runtime",
+    "rootNamespace": "Vale",
+    "references": [
+        "Unity.RenderPipelines.HighDefinition.Runtime",
+        "Unity.RenderPipelines.Core.Runtime",
+        "Unity.Cinemachine",
+        "Unity.InputSystem",
+        "Unity.VisualEffectGraph.Runtime",
+        "Unity.TextMeshPro",
+        "UnityEngine.UI"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
