@@ -1,0 +1,9 @@
+# Put your Gmail relay Web App URL on the first line below
+# Example: https://script.google.com/macros/s/AKfycb.../exec
+https://PASTE-YOUR-RELAY-URL-HERE/exec
+
+# Send delay in seconds between each email (default 60)
+SEND_DELAY=60
+
+# Daily send limit (script stops after this many sends per run)
+DAILY_LIMIT=10

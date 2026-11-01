@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="PostPilot writes 3 on-brand LinkedIn posts every week. You just hit publish. For B2B coaches and consultants who'd rather coach than write.">
+<meta property="og:title" content="PostPilot — 3 LinkedIn posts a week, in your voice">
+<meta property="og:description" content="AI ghostwriting for B2B coaches and consultants. 3 on-brand posts every Monday. You approve, you post.">
+<meta property="og:type" content="website">
+<meta name="theme-color" content="#0F172A">
+<title>PostPilot — 3 LinkedIn posts a week, in your voice</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#0F172A;
+  --paper:#FFFFFF;
+  --paper-soft:#F8FAFC;
+  --paper-line:#E2E8F0;
+  --muted:#64748B;
+  --accent:#F97316;
+  --accent-hover:#EA580C;
+  --accent-soft:#FFF7ED;
+  --success:#10B981;
+  --shadow:0 1px 2px rgba(15,23,42,.06),0 4px 12px rgba(15,23,42,.05);
+  --radius:12px;
+  --radius-sm:8px;
+  --maxw:1120px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:var(--ink);background:var(--paper);line-height:1.55;font-size:16px;-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}
+img,svg{max-width:100%;display:block}
+h1,h2,h3,h4{font-weight:700;line-height:1.2;letter-spacing:-.02em;color:var(--ink)}
+h1{font-size:clamp(2rem,5vw,3.5rem);font-weight:800}
+h2{font-size:clamp(1.6rem,3.5vw,2.5rem);margin-bottom:1rem}
+h3{font-size:1.25rem;margin-bottom:.5rem}
+p{margin-bottom:1rem;color:var(--ink)}
+.container{max-width:var(--maxw);margin:0 auto;padding:0 1.25rem}
+
+/* NAV */
+.nav{position:sticky;top:0;z-index:50;background:rgba(255,255,255,.92);backdrop-filter:saturate(180%) blur(8px);border-bottom:1px solid var(--paper-line)}
+.nav-inner{display:flex;align-items:center;justify-content:space-between;height:64px}
+.brand{font-weight:800;font-size:1.15rem;letter-spacing:-.02em;display:flex;align-items:center;gap:.5rem}
+.brand-dot{width:10px;height:10px;border-radius:50%;background:var(--accent)}
+.nav-links{display:flex;gap:1.75rem;align-items:center}
+.nav-links a{font-size:.95rem;color:var(--muted);font-weight:500;transition:color .15s}
+.nav-links a:hover{color:var(--ink)}
+.nav-cta{background:var(--ink);color:#fff;padding:.55rem 1.1rem;border-radius:var(--radius-sm);font-weight:600;font-size:.9rem;transition:background .15s}
+.nav-cta:hover{background:#1E293B}
+
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:.5rem;padding:.85rem 1.5rem;border-radius:var(--radius-sm);font-weight:600;font-size:1rem;transition:all .15s;cursor:pointer;border:none;white-space:nowrap}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{background:var(--accent-hover);transform:translateY(-1px)}
+.btn-secondary{background:transparent;color:var(--ink);border:1.5px solid var(--paper-line)}
+.btn-secondary:hover{border-color:var(--ink)}
+.btn-large{padding:1rem 1.75rem;font-size:1.05rem}
+
+/* HERO */
+.hero{padding:5rem 0 4rem;text-align:center}
+.hero-eyebrow{display:inline-flex;align-items:center;gap:.4rem;background:var(--accent-soft);color:var(--accent-hover);font-size:.85rem;font-weight:600;padding:.4rem .85rem;border-radius:99px;margin-bottom:1.5rem}
+.hero-eyebrow-dot{width:6px;height:6px;border-radius:50%;background:var(--accent);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.hero-sub{font-size:clamp(1.05rem,1.6vw,1.25rem);color:var(--muted);max-width:580px;margin:1.25rem auto 2rem}
+.hero-cta-row{display:flex;flex-wrap:wrap;gap:.75rem;justify-content:center;margin-bottom:.75rem}
+.hero-small{font-size:.85rem;color:var(--muted)}
+.hero-trust{display:flex;gap:1.5rem;justify-content:center;margin-top:2.5rem;flex-wrap:wrap;font-size:.85rem;color:var(--muted)}
+.hero-trust-item{display:flex;align-items:center;gap:.4rem}
+.hero-trust-check{color:var(--success);font-weight:700}
+
+/* HOW */
+.section{padding:4rem 0}
+.section-alt{background:var(--paper-soft)}
+.section-head{text-align:center;max-width:620px;margin:0 auto 3rem}
+.section-eyebrow{font-size:.85rem;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:.08em;margin-bottom:.5rem}
+.section-sub{color:var(--muted);font-size:1.05rem}
+.steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1.5rem;max-width:900px;margin:0 auto}
+.step{background:#fff;border:1px solid var(--paper-line);border-radius:var(--radius);padding:1.75rem;position:relative}
+.step-num{display:inline-block;width:32px;height:32px;border-radius:50%;background:var(--accent-soft);color:var(--accent-hover);font-weight:700;font-size:.95rem;line-height:32px;text-align:center;margin-bottom:1rem}
+.step-time{font-size:.8rem;color:var(--muted);font-weight:500;margin-top:.5rem}
+
+/* SAMPLES */
+.samples{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:1.5rem}
+.sample-card{background:#fff;border:1px solid var(--paper-line);border-radius:var(--radius);padding:1.5rem;box-shadow:var(--shadow)}
+.sample-tag{display:inline-block;font-size:.75rem;font-weight:600;color:var(--accent);background:var(--accent-soft);padding:.25rem .6rem;border-radius:99px;margin-bottom:1rem;text-transform:uppercase;letter-spacing:.05em}
+.sample-body{font-size:.95rem;color:var(--ink);line-height:1.65}
+.sample-body p{margin-bottom:.85rem;color:var(--ink)}
+.sample-meta{margin-top:1rem;padding-top:1rem;border-top:1px solid var(--paper-line);font-size:.8rem;color:var(--muted);display:flex;justify-content:space-between}
+
+/* PRICING */
+.pricing{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1.25rem;max-width:1000px;margin:0 auto}
+.tier{background:#fff;border:1.5px solid var(--paper-line);border-radius:var(--radius);padding:2rem 1.5rem;position:relative;display:flex;flex-direction:column}
+.tier-popular{border-color:var(--accent);box-shadow:0 8px 24px rgba(249,115,22,.12)}
+.tier-badge{position:absolute;top:-12px;left:50%;transform:translateX(-50%);background:var(--accent);color:#fff;font-size:.75rem;font-weight:700;padding:.35rem .85rem;border-radius:99px;text-transform:uppercase;letter-spacing:.05em;white-space:nowrap}
+.tier-name{font-size:.95rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.5rem}
+.tier-price{display:flex;align-items:baseline;gap:.3rem;margin-bottom:.25rem}
+.tier-price-amount{font-size:2.5rem;font-weight:800;color:var(--ink)}
+.tier-price-period{color:var(--muted);font-size:.95rem}
+.tier-desc{color:var(--muted);font-size:.9rem;margin-bottom:1.25rem;min-height:2.5rem}
+.tier-features{list-style:none;margin-bottom:1.5rem;flex-grow:1}
+.tier-features li{font-size:.92rem;padding:.4rem 0;padding-left:1.6rem;position:relative;color:var(--ink)}
+.tier-features li::before{content:"✓";position:absolute;left:0;color:var(--success);font-weight:700}
+.tier-cta{width:100%;justify-content:center}
+.tier-popular .tier-cta{background:var(--accent);color:#fff}
+.tier-popular .tier-cta:hover{background:var(--accent-hover)}
+
+/* FAQ */
+.faq{max-width:720px;margin:0 auto}
+.faq-item{border-bottom:1px solid var(--paper-line);padding:1.25rem 0}
+.faq-q{font-weight:600;font-size:1.05rem;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:1rem;color:var(--ink)}
+.faq-q::after{content:"+";font-size:1.4rem;color:var(--muted);transition:transform .2s;flex-shrink:0}
+.faq-item.open .faq-q::after{transform:rotate(45deg)}
+.faq-a{color:var(--muted);max-height:0;overflow:hidden;transition:max-height .3s ease,margin-top .3s ease}
+.faq-item.open .faq-a{max-height:300px;margin-top:.85rem}
+
+/* FINAL CTA */
+.final-cta{background:var(--ink);color:#fff;border-radius:var(--radius);padding:3rem 2rem;text-align:center;max-width:900px;margin:0 auto}
+.final-cta h2{color:#fff;margin-bottom:.75rem}
+.final-cta p{color:#CBD5E1;margin-bottom:1.75rem}
+.final-cta .btn-primary{background:var(--accent);color:#fff}
+.final-cta .btn-primary:hover{background:var(--accent-hover)}
+
+/* FOOTER */
+.footer{padding:2.5rem 0 2rem;border-top:1px solid var(--paper-line);margin-top:3rem}
+.footer-inner{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;font-size:.9rem;color:var(--muted)}
+.footer-links{display:flex;gap:1.5rem}
+.footer-links a:hover{color:var(--ink)}
+
+/* RESPONSIVE */
+@media(max-width:640px){
+  .nav-links a:not(.nav-cta){display:none}
+  .hero{padding:3.5rem 0 3rem}
+  .section{padding:3rem 0}
+  .final-cta{padding:2rem 1.25rem}
+  .footer-inner{flex-direction:column;text-align:center}
+}
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="container nav-inner">
+    <a href="#" class="brand"><span class="brand-dot"></span>PostPilot</a>
+    <div class="nav-links">
+      <a href="#how">How it works</a>
+      <a href="#samples">Samples</a>
+      <a href="#pricing">Pricing</a>
+      <a href="#faq">FAQ</a>
+      <a href="#start" class="nav-cta">Start free</a>
+    </div>
+  </div>
+</nav>
+
+<main>
+
+<section class="hero">
+  <div class="container">
+    <div class="hero-eyebrow"><span class="hero-eyebrow-dot"></span>Now onboarding first 5 clients at 50% off</div>
+    <h1>3 on-brand LinkedIn posts every week.<br>You just hit publish.</h1>
+    <p class="hero-sub">AI ghostwriting for B2B coaches and consultants who'd rather coach than write. We learn your voice in 10 minutes. You get drafts every Monday. You approve and post.</p>
+    <div class="hero-cta-row">
+      <a href="#start" class="btn btn-primary btn-large">Start free →</a>
+      <a href="#samples" class="btn btn-secondary btn-large">See sample posts</a>
+    </div>
+    <p class="hero-small">No credit card required · First month free if you're not happy</p>
+    <div class="hero-trust">
+      <span class="hero-trust-item"><span class="hero-trust-check">✓</span> Delivered every Monday</span>
+      <span class="hero-trust-item"><span class="hero-trust-check">✓</span> You own everything</span>
+      <span class="hero-trust-item"><span class="hero-trust-check">✓</span> Cancel anytime</span>
+    </div>
+  </div>
+</section>
+
+<section class="section section-alt" id="how">
+  <div class="container">
+    <div class="section-head">
+      <div class="section-eyebrow">How it works</div>
+      <h2>Three steps. About 15 minutes a week from you.</h2>
+      <p class="section-sub">We do the writing. You do the approving.</p>
+    </div>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <h3>Send voice samples</h3>
+        <p>Fill out a 10-minute form. Drop 5-10 of your past LinkedIn posts. Tell us what you never want to say again.</p>
+        <div class="step-time">⏱ 10 minutes, one time</div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <h3>Get drafts Monday</h3>
+        <p>Every Monday at 9am, you get 3 ready-to-post drafts in your voice. Read, edit, or ship as-is.</p>
+        <div class="step-time">⏱ 5 minutes to review</div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <h3>Approve and post</h3>
+        <p>Hit publish on LinkedIn. We learn from every edit so the next batch needs less from you.</p>
+        <div class="step-time">⏱ 0 minutes (you've already approved)</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="samples">
+  <div class="container">
+    <div class="section-head">
+      <div class="section-eyebrow">Sample posts</div>
+      <h2>Real output. Real voices. Different coaches.</h2>
+      <p class="section-sub">Each example was generated by PostPilot after one onboarding session.</p>
+    </div>
+    <div class="samples">
+      <div class="sample-card">
+        <div class="sample-tag">Sample — Leadership coach</div>
+        <div class="sample-body">
+          <p><strong>Most "leadership advice" is just recycled common sense.</strong></p>
+          <p>I keep seeing posts that say "be vulnerable" or "listen more." True. Also useless.</p>
+          <p>Here's what actually works: tell your team the thing you're most afraid to say this week. Not the safe version. The real one.</p>
+          <p>I told mine we might miss Q3 numbers. Two senior people quit the next day. The other eight worked harder than I've seen in 18 months.</p>
+          <p>Which worked? The eight.</p>
+          <p>What's the thing you're not saying?</p>
+        </div>
+        <div class="sample-meta"><span>Sample — for demo only</span><span>189 words</span></div>
+      </div>
+      <div class="sample-card">
+        <div class="sample-tag">Sample — Sales coach</div>
+        <div class="sample-body">
+          <p><strong>The cold email mistake nobody talks about.</strong></p>
+          <p>Everyone optimizes the subject line. Nobody fixes the close.</p>
+          <p>I watched a rep send 400 emails with a 65% open rate and an 0% reply rate. Her subject lines were great. Her asks were generic.</p>
+          <p>The fix took 4 minutes: instead of "let me know if you'd like to chat," she asked a specific question that required a response.</p>
+          <p>"Worth a 15-minute look next Tuesday or Thursday?"</p>
+          <p>Same list. Same subject lines. Reply rate went from 0% to 12%.</p>
+          <p>The ask is the email. Not the subject line.</p>
+        </div>
+        <div class="sample-meta"><span>Sample — for demo only</span><span>157 words</span></div>
+      </div>
+      <div class="sample-card">
+        <div class="sample-tag">Sample — Pricing strategist</div>
+        <div class="sample-body">
+          <p><strong>You don't have a lead gen problem. You have a pricing problem.</strong></p>
+          <p>Most coaches I work with say "I need more leads." Then I look at their pricing page.</p>
+          <p>They have 3 tiers. The middle one is the obvious choice. So nobody chooses it — they just buy the cheapest or feel weird about the most expensive.</p>
+          <p>I rebuilt one client's pricing last quarter. Cut it to 2 tiers. Raised the high one by 40%. Revenue went up 28%. Lead count went down.</p>
+          <p>Fewer leads. More money. Less work.</p>
+          <p>If your pricing page needs a "which one is right for me?" section, it's broken.</p>
+        </div>
+        <div class="sample-meta"><span>Sample — for demo only</span><span>168 words</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section section-alt" id="pricing">
+  <div class="container">
+    <div class="section-head">
+      <div class="section-eyebrow">Pricing</div>
+      <h2>Pick the cadence that matches your business.</h2>
+      <p class="section-sub">All plans include voice training, weekly delivery, and unlimited revisions on the first month.</p>
+    </div>
+    <div class="pricing">
+      <div class="tier">
+        <div class="tier-name">Starter</div>
+        <div class="tier-price"><span class="tier-price-amount">$99</span><span class="tier-price-period">/month</span></div>
+        <div class="tier-desc">For solo coaches getting consistent on LinkedIn.</div>
+        <ul class="tier-features">
+          <li>3 posts per week</li>
+          <li>Voice trained on your samples</li>
+          <li>Monday morning delivery</li>
+          <li>Unlimited edits for 30 days</li>
+        </ul>
+        <a href="#start" class="btn btn-secondary tier-cta">Start free</a>
+      </div>
+      <div class="tier tier-popular">
+        <div class="tier-badge">Most popular</div>
+        <div class="tier-name">Growth</div>
+        <div class="tier-price"><span class="tier-price-amount">$199</span><span class="tier-price-period">/month</span></div>
+        <div class="tier-desc">For coaches who want presence plus conversations.</div>
+        <ul class="tier-features">
+          <li>5 posts per week</li>
+          <li>5 engagement replies on relevant posts</li>
+          <li>Voice trained on your samples</li>
+          <li>Monthly content audit</li>
+        </ul>
+        <a href="#start" class="btn tier-cta">Start free</a>
+      </div>
+      <div class="tier">
+        <div class="tier-name">Scale</div>
+        <div class="tier-price"><span class="tier-price-amount">$399</span><span class="tier-price-period">/month</span></div>
+        <div class="tier-desc">For agencies and high-ticket coaches running outbound.</div>
+        <ul class="tier-features">
+          <li>Daily post</li>
+          <li>Comment engine (10/week)</li>
+          <li>Voice + topic strategy</li>
+          <li>Monthly content audit + strategy call</li>
+        </ul>
+        <a href="#start" class="btn btn-secondary tier-cta">Start free</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="faq">
+  <div class="container">
+    <div class="section-head">
+      <div class="section-eyebrow">FAQ</div>
+      <h2>The questions everyone asks first.</h2>
+    </div>
+    <div class="faq">
+      <div class="faq-item">
+        <div class="faq-q">What if I want to cancel?</div>
+        <div class="faq-a"><p>Cancel anytime from your dashboard. No email back-and-forth. If you're on the Starter or Growth plan, you keep everything you've already received — it's yours.</p></div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">How fast is the turnaround?</div>
+        <div class="faq-a"><p>Drafts land in your inbox every Monday at 9am your local time. You have until Friday to approve. If you need something sooner, message us.</p></div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">Will it actually sound like me?</div>
+        <div class="faq-a"><p>After you onboard, we run every draft through a voice-check step. If it doesn't match your samples, we rewrite before you see it. First month includes unlimited revisions so we dial it in.</p></div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">Who owns the content?</div>
+        <div class="faq-a"><p>You do. All of it. You can post it, edit it, rewrite it, sell it, or burn it. We don't repurpose your content anywhere.</p></div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">What's the refund policy?</div>
+        <div class="faq-a"><p>If your first month doesn't deliver posts you'd actually publish, we refund it. No questions, no forms.</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section section-alt" id="start">
+  <div class="container">
+    <div class="final-cta">
+      <h2>Stop writing. Start posting.</h2>
+      <p>10 minutes to onboard. First posts land next Monday.</p>
+      <a href="#" class="btn btn-primary btn-large">Start free →</a>
+      <p style="margin-top:1.5rem;font-size:.85rem;color:#94A3B8">No credit card required · First 5 clients get 50% off month 1</p>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer class="footer">
+  <div class="container footer-inner">
+    <div>© 2026 PostPilot, by Sisyphus Operator. Built for B2B coaches who'd rather coach.</div>
+    <div class="footer-links">
+      <a href="mailto:hello@postpilot.example">Contact</a>
+      <a href="#faq">FAQ</a>
+      <a href="#pricing">Pricing</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+document.querySelectorAll('.faq-q').forEach(q=>{
+  q.addEventListener('click',()=>{
+    q.parentElement.classList.toggle('open');
+  });
+});
+</script>
+
+</body>
+</html>
