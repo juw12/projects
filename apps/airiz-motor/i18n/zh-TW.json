@@ -1497,7 +1497,57 @@
     "Also use the camera picture (works when ALS is blocked or absent)": "同時使用相機畫面（光感測器被遮住或沒有時也能用）",
     "Camera night below": "相機：低於此值為夜間",
     "Camera day above": "相機：高於此值為白天",
-    "Sharing never makes a random code any more: the owner sets a 6-digit code once under Remote by code (like a password), it is used every time, and Change replaces it. Phones need no app and no Bluetooth: iPhone works in Safari or Chrome with the code. Removed: Connect Bluetooth, iPhone: open in Bluefy, Phone remote, and the duplicate Share control, Connect by code and Camera-page Left/right buttons. Remote by code in the top bar is the one place to share; Manage sharing there shows Allow requests and remembered devices.": "分享不再產生隨機代碼：擁有者在「以代碼遠端連線」中設定一次 6 位數代碼（像密碼一樣），每次都使用它，按「變更」可換新代碼。手機不需要 App 也不需要藍牙：iPhone 用 Safari 或 Chrome 輸入代碼即可。已移除：藍牙連線、iPhone：用 Bluefy 開啟、手機遙控，以及重複的分享控制、以代碼連線和相機頁的左右按鈕。頂端列的「以代碼遠端連線」是唯一的分享入口；其中的「管理分享」會顯示允許請求與已記住的裝置。"
+    "Sharing never makes a random code any more: the owner sets a 6-digit code once under Remote by code (like a password), it is used every time, and Change replaces it. Phones need no app and no Bluetooth: iPhone works in Safari or Chrome with the code. Removed: Connect Bluetooth, iPhone: open in Bluefy, Phone remote, and the duplicate Share control, Connect by code and Camera-page Left/right buttons. Remote by code in the top bar is the one place to share; Manage sharing there shows Allow requests and remembered devices.": "分享不再產生隨機代碼：擁有者在「以代碼遠端連線」中設定一次 6 位數代碼（像密碼一樣），每次都使用它，按「變更」可換新代碼。手機不需要 App 也不需要藍牙：iPhone 用 Safari 或 Chrome 輸入代碼即可。已移除：藍牙連線、iPhone：用 Bluefy 開啟、手機遙控，以及重複的分享控制、以代碼連線和相機頁的左右按鈕。頂端列的「以代碼遠端連線」是唯一的分享入口；其中的「管理分享」會顯示允許請求與已記住的裝置。",
+    "8. Phones (no Bluetooth needed)": "8. 手機（不需藍牙）",
+    "Phones (no Bluetooth needed)": "手機（不需藍牙）",
+    "AIRIZ updates": "AIRIZ 更新",
+    "Auto-send share codes to Ziris PTB (Remote by code)": "自動將分享代碼傳送到 Ziris PTB（以代碼遠端連線）",
+    "Cancel scan": "取消掃描",
+    "Cancel scheduled install": "取消排定的安裝",
+    "Check now": "立即檢查",
+    "Checks run automatically. You can install while connected: the port closes briefly and reconnects after restart. During a macro or recording, the install waits until it finishes. Portable builds require manual replacement.": "會自動檢查更新。連線中也可以安裝：連接埠會短暫關閉，重新啟動後再重新連線。執行巨集或錄影時，安裝會等到結束後才進行。免安裝版需要手動替換。",
+    "Export CSV": "匯出 CSV",
+    "Export results": "匯出結果",
+    "If the PC still sleeps (Sleep or power button) or the network drops, the code stays the same and the phones keep reconnecting by themselves until you stop sharing, also after the console restarts for an update or a phone reloads the page.": "若 PC 仍然進入睡眠（睡眠或電源鍵）或網路中斷，代碼不會改變，手機會自動持續重新連線直到您停止分享；主控台因更新而重新啟動或手機重新載入頁面後也一樣。",
+    "LOCAL DESKTOP EDITION": "本機桌面版",
+    "Windows desktop app · browser (Chrome/Edge/Safari) · Android · iPhone (Safari or Chrome, by code)": "Windows 桌面 App · 瀏覽器（Chrome/Edge/Safari）· Android · iPhone（Safari 或 Chrome，以代碼）",
+    "iPhone or Android: open this page in Safari or Chrome and type the code from the AIRIZ PC. The Android app is optional.": "iPhone 或 Android：用 Safari 或 Chrome 開啟此頁面，輸入 AIRIZ PC 的代碼。Android App 為選用。",
+    "Choose the AIRIZ Bluetooth device": "選擇 AIRIZ 藍牙裝置",
+    "Bluetooth devices found": "找到的藍牙裝置",
+    "Chinese guide and Bluetooth check text brought up to date (1.11.24)": "中文說明與藍牙檢查文字更新（1.11.24）",
+    "Updates are available in the packaged Windows app.": "更新功能只在安裝版或免安裝版的 Windows 應用程式中提供。",
+    "Checking the AIRIZ desktop release channel…": "正在檢查 AIRIZ 桌面版的發行頻道…",
+    "You have the latest published AIRIZ desktop version.": "你使用的已是最新發布的 AIRIZ 桌面版。",
+    "Updates are checked on startup and every six hours. You can install while connected; the device reconnects after restart.": "啟動時及每六小時會檢查一次更新。連線中也可以安裝；重新啟動後裝置會自動重新連線。",
+    "A newer portable app is available. Download it and replace your portable executable manually.": "有較新的免安裝版。請下載後手動取代你的免安裝執行檔。",
+    "A newer AIRIZ Console is available. Downloading it now (auto-update is on); the device stays connected.": "有較新的 AIRIZ Console，正在下載（自動更新已開啟）；裝置會保持連線。",
+    "An update is available. You can download it while the device stays connected.": "有可用的更新。下載時裝置可以保持連線。",
+    "Closing the device connection safely and installing the update…": "正在安全關閉裝置連線並安裝更新…",
+    "Scheduled installation cancelled. The verified update remains ready.": "已取消排定的安裝。已驗證的更新仍隨時可以安裝。",
+    "The console became busy during confirmation. Use Install again to schedule it.": "確認期間主控台變為忙碌。請再按一次「安裝」來排定安裝。",
+    "The console became busy, so the update was not installed. Try again when the macro or recording finishes.": "主控台忙碌中，因此未安裝更新。請在巨集或錄影結束後再試一次。",
+    "Invalid update checksum or size.": "更新檔的校驗碼或大小不正確。",
+    "Unexpected update files.": "更新檔案不符預期。",
+    "Unsupported update version.": "不支援的更新版本。",
+    "Update is not an official AIRIZ Windows installer.": "此更新不是官方的 AIRIZ Windows 安裝檔。",
+    "Update verified and ready. Install now; a connected device reconnects automatically after restart.": "更新已驗證完成。可立即安裝；重新啟動後，已連線的裝置會自動重新連線。",
+    "Installation paused: the console state is unknown. Reopen the Updates panel and try again.": "安裝已暫停：無法得知主控台狀態。請重新開啟「更新」面板再試一次。",
+    "Browser app shortcut (PWA). Use Download installer for the Windows desktop app.": "瀏覽器 App 捷徑（PWA）。Windows 桌面版請使用「下載安裝檔」。",
+    "Firmware Bluetooth self-test (diag ble on): reports whether the Bluetooth controller came up and its address. It only tests the AIRIZ hardware; phones connect with Remote by code.": "韌體藍牙自我測試（diag ble on）：回報藍牙控制器是否啟動及其位址。這只測試 AIRIZ 硬體；手機請用「以代碼遠端連線」。",
+    "Turn on the device radio through the current connection, scan with this PC and verify a Bluetooth command channel.": "透過目前的連線開啟裝置的藍牙無線電，用這台 PC 掃描並確認藍牙指令通道。",
+    "From the device command list": "來自裝置指令清單",
+    "Phones": "手機",
+    "Update scheduled: it installs automatically when the macro finishes. The device reconnects after restart.": "已排定更新：等巨集執行完畢後會自動安裝。重新啟動後裝置會自動重新連線。",
+    "Update scheduled: it installs automatically when the camera recording finishes. The device reconnects after restart.": "已排定更新：等相機錄影結束後會自動安裝。重新啟動後裝置會自動重新連線。",
+    "Update scheduled: it installs automatically when the device audio transfer finishes. The device reconnects after restart.": "已排定更新：等裝置音訊傳輸結束後會自動安裝。重新啟動後裝置會自動重新連線。",
+    "Update scheduled: it installs automatically when the camera session is closed. The device reconnects after restart.": "已排定更新：等相機工作階段關閉後會自動安裝。重新啟動後裝置會自動重新連線。",
+    "Auto-update is waiting until the macro finishes, then installs and restarts. The device reconnects after restart.": "自動更新會等到巨集執行完畢，再安裝並重新啟動。重新啟動後裝置會自動重新連線。",
+    "Auto-update is waiting until the camera recording finishes, then installs and restarts. The device reconnects after restart.": "自動更新會等到相機錄影結束，再安裝並重新啟動。重新啟動後裝置會自動重新連線。",
+    "Auto-update is waiting until the device audio transfer finishes, then installs and restarts. The device reconnects after restart.": "自動更新會等到裝置音訊傳輸結束，再安裝並重新啟動。重新啟動後裝置會自動重新連線。",
+    "Auto-update is waiting until the camera session is closed, then installs and restarts. The device reconnects after restart.": "自動更新會等到相機工作階段關閉，再安裝並重新啟動。重新啟動後裝置會自動重新連線。",
+    "Auto-update is waiting until the console reports its state again, then installs and restarts. The device reconnects after restart.": "自動更新會等到主控台再次回報狀態，再安裝並重新啟動。重新啟動後裝置會自動重新連線。",
+    "Auto-update is waiting until the voice message finishes, then installs and restarts. The device reconnects after restart.": "自動更新會等到語音訊息播放完畢，再安裝並重新啟動。重新啟動後裝置會自動重新連線。",
+    "The device picker of the Bluetooth check no longer talks about the old phone remote: it now asks you to choose the AIRIZ, or to cancel and connect over USB. In Chinese, the guide sections on phones, sharing, teams, the wobble test and the jog presets, the Updates panel messages, several tooltips and buttons are now translated instead of showing English.": "藍牙檢查的裝置選擇視窗不再提到舊的手機遙控：現在會請你選擇 AIRIZ，或取消後改用 USB 連線。中文模式下，說明中的手機、分享、團隊、晃動測試與微調預設等章節，以及「更新」面板訊息、多個提示文字與按鈕，現在都已翻譯，不再顯示英文。"
   },
   "html": {
     "AIRIZDEVICE LAB": "AIRIZ<small>裝置實驗室</small>",
@@ -1605,7 +1655,27 @@
     "On the Camera tab the Home key now does the same as Go home (not while typing in a field or with a dialog open); if Go home fails, the status line says why instead of nothing happening. Automatic night vision can now also use the camera picture: it switches to night when the light sensor or the camera says dark, and back to day only when both say bright, so a covered sensor or lens no longer keeps the wrong mode. Switch this on or off and set the levels under Night vision & siren.": "在相機分頁按 <kbd>Home</kbd> 鍵，效果與<em>回到原點</em>相同（在欄位中輸入或開著對話框時除外）；回到原點失敗時，狀態列會說明原因，不再毫無反應。自動夜視現在也能參考相機畫面：光感測器或相機任一判定變暗就切到夜間，兩者都判定變亮才切回白天，因此遮住感測器或鏡頭不會再卡在錯誤的模式。可在<em>夜視與警報</em>中開關此功能並設定門檻。",
     "Pressing Start wobble test again right after a test starts with the rise: the head is already down, so it no longer drives into the bottom end stop first (also when the bottom switch says the head is down). The camera check counts one second from the first frame and the console keeps full speed during the test, even behind other windows; a camera that is really slow (dim light) gets a clear message, and Start again does not lower a second time. Height reference and Calibration are hidden; Motor speed moved to the Position group. The console window always shows on start.": "測試剛結束後再按一次<em>開始晃動測試</em>，會直接從上升開始：鏡頭已在最底部，不會再先撞向底部限位（底部開關回報鏡頭在底部時也一樣）。相機檢查從第一張影格起算一秒，測試期間即使視窗被其他視窗蓋住，主控台也保持全速；相機真的太慢（光線太暗）時會顯示清楚的訊息，再按開始也不會第二次降下。高度基準與校正已隱藏；馬達速度移到「位置」區。主控台視窗啟動時一定會顯示。",
     "Camera tab → Wobble test: the AIRIZ lowers, rises to the top and goes back down while the console tracks the camera picture, then grades the sideways wobble 1 (no wobbling) to 4 (wobbling) like the bench standard, with PASS up to grade 1. The start and stop of each move are left out; a test with too few camera frames is marked NOT RELIABLE and never passes. The grade borders start as an estimate: grade a few units by eye after testing and press Fit the grade borders. History and CSV export included.": "相機分頁 → <em>晃動測試</em>：AIRIZ 先降下、升到最高再降回，主控台全程追蹤相機畫面，然後依照工作台標準把橫向晃動評為 1（不晃）到 4（晃動），等級 1 以內為通過。每次移動的開始與結束不納入計算；相機影格太少的測試會標示為「不可靠」，永遠不會通過。等級界線一開始是估計值：測試後以目視為幾台評級，再按<em>依目視結果調整等級界線</em>。附歷史紀錄與 CSV 匯出。",
-    "Privacy lowers the camera to the rising switch and turns the lights off; automatic night vision switches IR-cut and IR LED from the light sensor and, when Also use the camera picture is on, from the camera picture too. The motors report no position, so positions are counted in steps from Home; Motor speed is set in the Position group.": "<strong>隱私</strong>會把攝影機降到升降開關位置並關燈；<strong>自動夜視</strong>依光感測器切換 IR-cut 與 IR LED，開啟<em>同時使用相機畫面</em>時也會參考相機畫面。馬達不回報位置，因此位置以從原點起算的步數計算；<em>馬達速度</em>在「位置」區設定。"
+    "Privacy lowers the camera to the rising switch and turns the lights off; automatic night vision switches IR-cut and IR LED from the light sensor and, when Also use the camera picture is on, from the camera picture too. The motors report no position, so positions are counted in steps from Home; Motor speed is set in the Position group.": "<strong>隱私</strong>會把攝影機降到升降開關位置並關燈；<strong>自動夜視</strong>依光感測器切換 IR-cut 與 IR LED，開啟<em>同時使用相機畫面</em>時也會參考相機畫面。馬達不回報位置，因此位置以從原點起算的步數計算；<em>馬達速度</em>在「位置」區設定。",
+    "Wobble test (Camera tab, 1.11.19): with the camera preview on and the camera aimed at a detailed, still scene, press Start wobble test. The result is grade 1–4 for rising up and going down (the worse one counts); limit grade 1 = PASS. Grade a few units by eye with What did you see by eye? and press Fit the grade borders so the grades match your bench.": "<strong>晃動測試</strong>（相機分頁，1.11.19）：開啟相機預覽，把相機對準細節多且靜止的場景，按<em>開始晃動測試</em>。結果分為升起與降下的等級 1–4（以較差者為準）；上限等級 1 = 通過。用<em>您目視看到的是？</em>以目視為幾台評級，再按<em>依目視結果調整等級界線</em>，讓等級與您的工作台一致。",
+    "Phones control the AIRIZ with Remote by code (section 7) in Safari or Chrome. The old Bluetooth phone remote, Connect Bluetooth and the Bluefy iPhone browser are no longer used (removed in 1.11.18).": "手機用<strong>以代碼遠端連線</strong>（第 7 節）在 Safari 或 Chrome 中控制 AIRIZ。舊的藍牙手機遙控、藍牙連線與 iPhone 的 Bluefy 瀏覽器已不再使用（1.11.18 移除）。",
+    "On the PC: press Remote by code (top bar) → Share this AIRIZ. Your own 6-digit code shares the motor and the camera; the camera preview starts by itself. If it cannot start yet, start it later under Camera → Start Preview: the code already carries the camera.": "在 PC 上：按<strong>以代碼遠端連線</strong>（頂端列）→<strong>分享這台 AIRIZ</strong>。您自己的<strong>6 位數代碼</strong>會分享馬達與相機；相機預覽會自動開始。若暫時無法開始，之後可在相機 →<strong>開始預覽</strong>啟動：代碼已經帶著相機。",
+    "On the PC connected by USB: Remote by code (top bar) → under This PC has the AIRIZ type your own 6 digits once and press Save code. It works like a password: you choose it, it stays the same every time you share, and there are no random codes.": "在以 USB 連接的 PC 上：<strong>以代碼遠端連線</strong>（頂端列）→ 在<strong>這台 PC 連著 AIRIZ</strong>下輸入您自己的 6 位數字一次，再按<strong>儲存代碼</strong>。它就像密碼：由您決定，每次分享都相同，不會有隨機代碼。",
+    "The sharing window (Remote by code → Manage sharing) shows whether the camera preview runs and who is watching. Behind a company firewall the picture comes through the AIRIZ relay as quick snapshots.": "分享視窗（<strong>以代碼遠端連線</strong>→<strong>管理分享</strong>）會顯示相機預覽是否在執行、誰在觀看。在公司防火牆後方，畫面會經由 AIRIZ 中繼以快速快照傳送。",
+    "Type the 6-digit code of the AIRIZ PC (the owner sets it under Remote by code). It connects by itself in any browser, also Safari or Chrome on iPhone. No Bluetooth, no app.": "輸入 AIRIZ PC 的 6 位數代碼（由擁有者在<b>以代碼遠端連線</b>中設定）。在任何瀏覽器都會自動連線，iPhone 上的 Safari 或 Chrome 也可以。不需藍牙，也不需 App。",
+    "When you share with Remote by code, the 6-digit code (motor + camera) is posted to the Ziris PTB chat in Microsoft Teams automatically, once per code.": "用<strong>以代碼遠端連線</strong>分享時，6 位數代碼（馬達＋相機）會自動張貼到 Microsoft Teams 的<strong>Ziris PTB</strong>聊天，每個代碼一次。",
+    "When a phone asks, a window pops up on the PC with Allow & remember, Allow once and Deny. A remembered phone is let in by itself next time, also after the code changes (switch that off, or Forget a device, under Remote by code → Manage sharing).": "手機要求連線時，PC 上會跳出視窗，提供<strong>允許並記住</strong>、<strong>只允許這次</strong>與<strong>拒絕</strong>。已記住的手機下次會自動進入，代碼變更後也一樣（可在<strong>以代碼遠端連線</strong>→<strong>管理分享</strong>中關閉此功能，或<strong>忘記</strong>某台裝置）。",
+    "Press Share this AIRIZ. Change the code any time with Change: devices on the old code are disconnected, and remembered devices come back by themselves once they type the new code.": "按<strong>分享這台 AIRIZ</strong>。隨時可用<strong>變更</strong>換代碼：使用舊代碼的裝置會被中斷，已記住的裝置輸入新代碼後會自動回來。",
+    "No PC? An Android phone can be the AIRIZ console: power the AIRIZ from its charger, plug the FT232R cable into the phone with a USB-OTG adapter, open this console in Chrome and press Connect. Keep the page open; Remote by code → Share this AIRIZ then lets other phones control the AIRIZ by code. An iPhone cannot do this (no USB serial).": "沒有 PC？<strong>Android 手機</strong>也能當 AIRIZ 主控台：用充電器為 AIRIZ 供電，以 USB-OTG 轉接頭把 FT232R 線接到手機，在<strong>Chrome</strong>開啟此主控台並按<strong>連線</strong>。保持頁面開啟；接著<strong>以代碼遠端連線</strong>→<strong>分享這台 AIRIZ</strong>就能讓其他手機以代碼控制 AIRIZ。iPhone 無法這樣做（沒有 USB 序列埠）。",
+    "On the phone or another PC: open the AIRIZ console in any browser (Safari or Chrome on iPhone, Chrome on Android, Chrome/Edge on a PC) and type the code into Control by code. No Bluetooth and no app: it goes over the internet.": "在手機或另一台 PC 上：用任何瀏覽器開啟 AIRIZ 主控台（iPhone 用 Safari 或 Chrome、Android 用 Chrome、PC 用 Chrome/Edge），在<strong>以代碼控制</strong>中輸入代碼。不需藍牙也不需 App：透過網際網路連線。",
+    "For Ziris PTB co-admins only. When you share with Remote by code, the code is posted straight to the Ziris PTB group chat in Microsoft Teams, so whoever holds the phone just opens Teams and taps Open AIRIZ console. Nobody has to read the number off the screen.": "僅限 Ziris PTB 共同管理員。用以代碼遠端連線分享時，代碼會直接張貼到 Microsoft Teams 的<strong>Ziris PTB</strong>群組聊天，拿著手機的人只要開啟 Teams 並點<em>開啟 AIRIZ 主控台</em>。沒有人需要從螢幕上念出號碼。",
+    "A phone can share too: an Android phone connected to the AIRIZ by USB (see Getting started) shows Share this AIRIZ under Remote by code like a PC and keeps its screen on while sharing. Its sharing window has its own Stop motor button.": "手機也能分享：以 USB 連接 AIRIZ 的 Android 手機（見「入門」）會像 PC 一樣在以代碼遠端連線中顯示<strong>分享這台 AIRIZ</strong>，分享期間保持螢幕開啟。它的分享視窗有自己的<strong>停止馬達</strong>按鈕。",
+    "Fine 100": "微調 <span>100</span>",
+    "From now on every share code is sent automatically, one message per code. The sharing window confirms it (“Code … sent to Ziris PTB”). If it fails, press Send to Teams there to retry.": "從現在起每個分享代碼都會自動傳送，每個代碼一則訊息。分享視窗會確認（「代碼 … 已傳送到 Ziris PTB」）。若失敗，在該處按<strong>傳送到 Teams</strong>重試。",
+    "Large 1100": "大 <span>1100</span>",
+    "Small 600": "小 <span>600</span>",
+    "Bluetooth test in the status bar only checks the AIRIZ's own Bluetooth chip (firmware self-test).": "狀態列的<em>藍牙測試</em>只檢查 AIRIZ 自己的藍牙晶片（韌體自我測試）。",
+    "Choose AIRIZ-BT. If it is not listed, press Cancel, connect the AIRIZ over USB and run Bluetooth test again: it turns the AIRIZ radio on first (needed after every power-up). While another device is connected to it over Bluetooth, the AIRIZ may stop advertising.": "選擇<strong>AIRIZ-BT</strong>。若清單中沒有，按<strong>取消</strong>，以 USB 連接 AIRIZ 後再執行一次<strong>藍牙測試</strong>：它會先開啟 AIRIZ 的無線電（每次開機後都需要）。若有其他裝置已透過藍牙連著 AIRIZ，AIRIZ 可能會停止廣播。",
+    "8 Phones (no Bluetooth needed)": "<span>8</span> 手機（不需藍牙）"
   },
   "patterns": [
     [
@@ -2727,6 +2797,22 @@
     [
       "^Auto-update is waiting until (.+?), then installs and restarts\\. The device reconnects after restart\\.$",
       "自動更新正在等待（$1），之後會安裝並重新啟動。重新啟動後裝置會自動重新連線。"
+    ],
+    [
+      "^Installed: (.+?)( · Portable)?$",
+      "已安裝：$1$2"
+    ],
+    [
+      "^Auto-update is waiting until the console has been idle for (\\d+) minutes, then installs and restarts\\. The device reconnects after restart\\.$",
+      "自動更新會等到主控台已閒置 $1 分鐘，再安裝並重新啟動。重新啟動後裝置會自動重新連線。"
+    ],
+    [
+      "^Update verified and ready\\. Auto-update installs it in (\\d+) seconds if the console is idle\\. Press Cancel auto-install to keep working\\.$",
+      "更新已驗證完成。若主控台閒置，自動更新會在 $1 秒後安裝。若要繼續工作，請按「取消自動安裝」。"
+    ],
+    [
+      "^Windows app (.+)\\. Connection to the AIRIZ and when it last answered\\.$",
+      "Windows App $1。與 AIRIZ 的連線，以及最後一次回應的時間。"
     ]
   ]
 }
