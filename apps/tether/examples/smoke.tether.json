@@ -1,0 +1,13 @@
+{
+  "name": "Settings smoke test (any Android device)",
+  "steps": [
+    {"action": "key", "key": "home"},
+    {"action": "launch", "package": "com.android.settings"},
+    {"action": "wait_for", "text": "Settings", "timeout_ms": 10000},
+    {"action": "screenshot", "name": "settings-open"},
+    {"action": "swipe", "x": 0.5, "y": 0.8, "x2": 0.5, "y2": 0.3, "duration_ms": 300},
+    {"action": "wait", "ms": 500},
+    {"action": "screenshot", "name": "settings-scrolled"},
+    {"action": "key", "key": "back"}
+  ]
+}

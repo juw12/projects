@@ -1,0 +1,41 @@
+{
+  "name": "Push QA \u2014 Beacon notification reaches the phone and opens the right page",
+  "steps": [
+    {
+      "action": "close_notifications"
+    },
+    {
+      "action": "push",
+      "title": "Order shipped {run}",
+      "body": "Tap to track your order",
+      "url": "/orders/42",
+      "target": {
+        "tags": [
+          "qa:device"
+        ]
+      }
+    },
+    {
+      "action": "wait_notification",
+      "title": "Order shipped {run}",
+      "timeout_ms": 20000
+    },
+    {
+      "action": "tap_notification",
+      "title": "Order shipped {run}"
+    },
+    {
+      "action": "wait",
+      "ms": 1500
+    },
+    {
+      "action": "assert_text",
+      "text": "Order 42",
+      "timeout_ms": 10000
+    },
+    {
+      "action": "screenshot",
+      "name": "order-page"
+    }
+  ]
+}

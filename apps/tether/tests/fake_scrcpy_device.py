@@ -1,0 +1,109 @@
+"""Fake on-device scrcpy server, started by fake_adb.py for `adb forward tcp:PORT localabstract:scrcpy_*`.
+
+Speaks the scrcpy v5 protocol on 127.0.0.1:PORT: refuses connections until the
+fake `app_process` has "started" (like a real adb forward with nothing listening
+yet), then sends the dummy byte, device name, codec id, a session packet and a
+real H.264 stream (tests/fixtures/demo-360x780.h264pkt, looped at 30 fps).
+Bytes received on the control socket are appended to TETHER_FAKE_LOG as
+"scrcpy-control <hex>".
+"""
+
+import os
+import socket
+import struct
+import sys
+import threading
+import time
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+FIXTURE = HERE / "fixtures" / "demo-360x780.h264pkt"
+FLAG_CONFIG = 1 << 62
+FLAG_KEY = 1 << 61
+
+
+def state_dir() -> Path:
+    log = os.environ.get("TETHER_FAKE_LOG")
+    return Path(log).parent if log else Path(os.environ.get("TEMP", "."))
+
+
+def log(line: str) -> None:
+    path = os.environ.get("TETHER_FAKE_LOG")
+    if path:
+        with open(path, "a", encoding="utf-8") as handle:
+            handle.write(line + "\n")
+
+
+def load_fixture():
+    data = FIXTURE.read_bytes()
+    assert data[:6] == b"TH264\0"
+    width, height = struct.unpack(">HH", data[6:10])
+    packets, offset = [], 10
+    while offset < len(data):
+        kind, pts, size = struct.unpack(">BQI", data[offset:offset + 13])
+        offset += 13
+        packets.append((kind, pts, data[offset:offset + size]))
+        offset += size
+    return width, height, packets
+
+
+def serve_control(conn: socket.socket) -> None:
+    try:
+        while True:
+            chunk = conn.recv(4096)
+            if not chunk:
+                break
+            log("scrcpy-control " + chunk.hex())
+    except OSError:
+        pass
+
+
+def stream(video: socket.socket, width: int, height: int, packets) -> None:
+    name = b"Fake Pixel 7".ljust(64, b"\0")
+    video.sendall(name)
+    if os.environ.get("FAKE_SCRCPY_MODE") == "nocapture":
+        video.sendall(struct.pack(">I", 1))
+        return
+    video.sendall(struct.pack(">I", 0x68323634))
+    video.sendall(struct.pack(">III", 0x80000000, width, height))
+    loop_pts = 0
+    while True:
+        for kind, pts, payload in packets:
+            if kind == 1:
+                header = struct.pack(">QI", FLAG_CONFIG, len(payload))
+            else:
+                flags = FLAG_KEY if kind == 2 else 0
+                header = struct.pack(">QI", (loop_pts + pts) | flags, len(payload))
+                time.sleep(1 / 30)
+            video.sendall(header + payload)
+        loop_pts += packets[-1][1] + 33333
+
+
+def main(port: int) -> int:
+    width, height, packets = load_fixture()
+    started = state_dir() / "fake-scrcpy-started"
+    server = socket.socket()
+    server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    server.bind(("127.0.0.1", port))
+    server.listen(4)
+    while True:
+        video, _ = server.accept()
+        if not started.exists():
+            video.close()  # nothing listening on the device yet
+            continue
+        try:
+            video.sendall(b"\0")
+            server.settimeout(5)
+            control, _ = server.accept()
+            server.settimeout(None)
+            threading.Thread(target=serve_control, args=(control,), daemon=True).start()
+            stream(video, width, height, packets)
+        except OSError:
+            pass
+        finally:
+            server.settimeout(None)
+            video.close()
+
+
+if __name__ == "__main__":
+    sys.exit(main(int(sys.argv[1])))
