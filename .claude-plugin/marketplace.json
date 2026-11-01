@@ -1,0 +1,21 @@
+{
+  "name": "juw12-projects",
+  "description": "Juwen Lie's agent plugins: Android QA (Tether) and self-hosted push (Beacon).",
+  "owner": {
+    "name": "Juwen Lie",
+    "url": "https://github.com/juw12"
+  },
+  "plugins": [
+    {
+      "name": "push-lab",
+      "description": "Agent skills for Android device QA with Tether and self-hosted push notifications with Beacon: drive a phone, run Maestro flows, send pushes and verify them on the device.",
+      "author": {
+        "name": "Juwen Lie"
+      },
+      "category": "development",
+      "source": "./apps/pushlab/plugin",
+      "homepage": "https://github.com/juw12/projects/tree/main/apps/pushlab",
+      "license": "MIT"
+    }
+  ]
+}

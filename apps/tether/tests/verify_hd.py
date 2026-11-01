@@ -242,7 +242,10 @@ def browser_tests(env: dict, log_path: Path, shots: Path) -> None:
         print("  skip: devtools/cdp.py not available")
         return
     server, port = start_server(env)
-    browser = cdp.Edge(Path(tempfile.mkdtemp(prefix="tether-hd-edge-")), port=9347, width=1280, height=900)
+    with socket.socket() as probe:  # a free DevTools port: never attach to a leftover browser
+        probe.bind(("127.0.0.1", 0))
+        devtools_port = probe.getsockname()[1]
+    browser = cdp.Edge(Path(tempfile.mkdtemp(prefix="tether-hd-edge-")), port=devtools_port, width=1280, height=900)
     try:
         browser.goto(f"http://127.0.0.1:{port}/#token={TOKEN}", wait=3)
         browser.eval("document.querySelector('#hdBtn').click(); true")
@@ -276,8 +279,35 @@ def browser_tests(env: dict, log_path: Path, shots: Path) -> None:
               f"click on the canvas → scrcpy touch at ({x}, {y})")
         shots.mkdir(parents=True, exist_ok=True)
         browser.screenshot(shots / "screenshot-hd.png")
+
+        # ⏺ while HD is on: MediaRecorder on the canvas (WebM made in the browser)
+        browser.eval("document.querySelector('#videoBtn').click(); true")
+        time.sleep(2.5)
+        mode = browser.eval("window.__tetherRec.mode")
+        browser.eval("document.querySelector('#videoBtn').click(); true")
+        time.sleep(1.5)
+        webm = browser.eval("[window.__tetherRec.mode, window.__tetherRec.lastSize || 0]")
+        check(mode == "browser" and webm[0] == "" and webm[1] > 1000,
+              f"record in HD: browser WebM from the canvas ({webm[1]} bytes)")
+
         browser.eval("document.querySelector('#hdBtn').click(); true")
-        time.sleep(1)
+        time.sleep(2)
+
+        # ⏺ without HD: adb screenrecord on the device, MP4 downloaded through the API
+        browser.eval("window.__tetherRec.lastSize = 0; document.querySelector('#videoBtn').click(); true")
+        time.sleep(1.5)
+        mode = browser.eval("window.__tetherRec.mode")
+        browser.eval("document.querySelector('#videoBtn').click(); true")
+        mp4 = 0
+        for _ in range(20):
+            time.sleep(0.5)
+            mp4 = browser.eval("window.__tetherRec.lastSize || 0")
+            if mp4:
+                break
+        log_lines = log_path.read_text(encoding="utf-8").splitlines() if log_path.exists() else []
+        toast_text = browser.eval("document.querySelector('.toast') ? document.querySelector('.toast').textContent : ''")
+        check(mode == "adb" and mp4 > 1000 and "screenrecord stop" in log_lines,
+              f"record without HD: adb screenrecord MP4 via /api/record ({mp4} bytes; mode={mode}; {toast_text})")
     finally:
         browser.close()
         server.terminate()

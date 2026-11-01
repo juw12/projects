@@ -219,3 +219,10 @@ dialog label { display: block; margin-top: 6px; }
 
 #hdBtn { font-weight: 700; letter-spacing: .5px; }
 #hdBtn.active { color: var(--accent); border-color: var(--accent); }
+
+#videoBtn.active {
+  color: #fff;
+  background: #d93025;
+  border-color: #d93025;
+  font-variant-numeric: tabular-nums;
+}

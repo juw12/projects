@@ -91,6 +91,21 @@ PUSH_CHANNELS = ("webpush", "fcm", "ntfy", "apprise")  # channels with per-subsc
 DEFAULT_CHANNELS = list(PUSH_CHANNELS)
 MESSAGE_COUNTERS = ("targeted", "delivered", "failed", "pruned", "shown", "clicked")
 PRUNE_AFTER_FAILURES = 10
+DIGEST_MAX_ITEMS = 8  # kept small: the list travels in the push payload (~4 KB limit)
+FALLBACK_COUNTERS = {"clicked": "clicked", "shown": "shown", "delivered": "delivered"}
+
+
+def render_digest(template: str | None, items: list[dict], count: int) -> tuple[str, str]:
+    """Title/body of a digest that has absorbed `count` messages (items keeps the newest)."""
+    if template:
+        title = template.replace("{count}", str(count))[:120]
+    else:
+        title = f"{count} new notifications"
+    titles = [item["title"] for item in items[-5:]]
+    body = "; ".join(reversed(titles))
+    if count > len(titles):
+        body += f" and {count - len(titles)} more"
+    return title, body[:600]
 
 
 def sha256_hex(value: str) -> str:
@@ -132,9 +147,26 @@ class Store:
         self.lock = threading.RLock()
         with self.lock:
             self.db.executescript(SCHEMA)
+            self._migrate()
         self.server_secret = self._setting("server_secret") or self._set_setting(
             "server_secret", secrets.token_hex(32)
         )
+
+    WORKFLOW_COLUMNS = (
+        ("digest_key", "TEXT NOT NULL DEFAULT ''"),
+        ("digest_count", "INTEGER NOT NULL DEFAULT 0"),
+        ("fallback", "TEXT NOT NULL DEFAULT ''"),          # JSON spec, '' = none
+        ("fallback_state", "TEXT NOT NULL DEFAULT ''"),    # '' | pending | skipped | sent
+        ("fallback_id", "INTEGER"),                        # the follow-up message
+        ("parent_id", "INTEGER"),                          # set on a follow-up
+    )
+
+    def _migrate(self) -> None:
+        have = {row[1] for row in self.db.execute("PRAGMA table_info(messages)").fetchall()}
+        for name, decl in self.WORKFLOW_COLUMNS:
+            if name not in have:
+                self.db.execute(f"ALTER TABLE messages ADD COLUMN {name} {decl}")
+        self.db.execute("CREATE INDEX IF NOT EXISTS messages_digest ON messages(app_id, digest_key, status)")
 
     # ---------------------------------------------------------------- helpers
     def q(self, sql: str, args: tuple = ()) -> list[sqlite3.Row]:
@@ -340,9 +372,12 @@ class Store:
     # --------------------------------------------------------------- messages
     def create_message(self, app_id: int, fields: dict) -> dict:
         now = time.time()
+        digest = fields.get("digest") or {}
+        fallback = fields.get("fallback") or None
         cursor = self.x(
             "INSERT INTO messages(app_id, title, body, url, icon, image, tag, data, target, channels,"
-            " ttl, urgency, send_at, status, created) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            " ttl, urgency, send_at, status, created, digest_key, digest_count, fallback, fallback_state,"
+            " parent_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (
                 app_id,
                 fields["title"],
@@ -359,15 +394,89 @@ class Store:
                 float(fields.get("send_at") or now),
                 "queued",
                 now,
+                digest.get("key", ""),
+                1 if digest else 0,
+                json.dumps(fallback) if fallback else "",
+                "pending" if fallback else "",
+                fields.get("parent_id"),
             ),
         )
         return self.get_message(cursor.lastrowid)
+
+    # ------------------------------------------------------- digest (batching)
+    def send_or_digest(self, app_id: int, fields: dict) -> tuple[dict, bool]:
+        """Create a message, or fold it into a queued digest with the same key.
+
+        The first message of a digest key waits `window` seconds; every message
+        with that key arriving meanwhile is added to it instead of sending its own
+        notification. Returns (message, merged).
+        """
+        digest = fields.get("digest")
+        if not digest:
+            return self.create_message(app_id, fields), False
+        item = {"title": fields["title"][:120], "url": fields.get("url", "")}
+        with self.lock:
+            rows = self.q("SELECT * FROM messages WHERE app_id = ? AND digest_key = ? AND status = 'queued'"
+                          " ORDER BY id LIMIT 1", (app_id, digest["key"]))
+            if not rows:
+                first = dict(fields)
+                first["send_at"] = max(float(fields.get("send_at") or 0), time.time() + digest["window"])
+                first["data"] = {**(fields.get("data") or {}), "digest": [item]}
+                return self.create_message(app_id, first), False
+            message = self._message_row(rows[0])
+            items = (message["data"].get("digest") or [])
+            items = (items + [item])[-DIGEST_MAX_ITEMS:]
+            count = message["digest_count"] + 1
+            title, body = render_digest(digest.get("title"), items, count)
+            data = {**message["data"], "digest": items}
+            self.x("UPDATE messages SET digest_count = ?, title = ?, body = ?, url = ?, data = ? WHERE id = ?",
+                   (count, title, body, item["url"] or message["url"], json.dumps(data), message["id"]))
+            return self.get_message(message["id"]), True
+
+    # ------------------------------------------------- fallback (escalation)
+    def process_fallbacks(self, now: float | None = None) -> list[dict]:
+        """Send each due follow-up whose condition was not met; returns the follow-ups created."""
+        now = now or time.time()
+        created = []
+        with self.lock:
+            rows = self.q("SELECT * FROM messages WHERE fallback_state = 'pending' AND status IN ('sent', 'failed')"
+                          " AND finished IS NOT NULL")
+            for row in rows:
+                message = self._message_row(row)
+                spec = message["fallback"]
+                if message["finished"] + spec["after"] > now:
+                    continue
+                if message[FALLBACK_COUNTERS[spec.get("unless", "clicked")]] > 0:
+                    self.x("UPDATE messages SET fallback_state = 'skipped' WHERE id = ?", (message["id"],))
+                    continue
+                follow_up = self.create_message(message["app_id"], {
+                    "title": spec.get("title") or message["title"],
+                    "body": spec.get("body") or message["body"],
+                    "url": message["url"],
+                    "icon": message["icon"],
+                    "tag": message["tag"],
+                    "data": {**message["data"], "fallback_of": message["id"]},
+                    "target": message["target"],
+                    "channels": spec["channels"],
+                    "ttl": message["ttl"],
+                    "urgency": message["urgency"],
+                    "parent_id": message["id"],
+                })
+                self.x("UPDATE messages SET fallback_state = 'sent', fallback_id = ? WHERE id = ?",
+                       (follow_up["id"], message["id"]))
+                created.append(follow_up)
+        return created
+
+    def cancel_fallback(self, message_id: int) -> bool:
+        return bool(self.x("UPDATE messages SET fallback_state = 'cancelled' WHERE id = ? AND fallback_state = 'pending'",
+                           (message_id,)).rowcount)
 
     @staticmethod
     def _message_row(row) -> dict:
         message = dict(row)
         for key in ("data", "target", "channels"):
             message[key] = json.loads(message[key])
+        message["fallback"] = json.loads(message["fallback"]) if message.get("fallback") else None
         return message
 
     def get_message(self, message_id: int) -> dict | None:

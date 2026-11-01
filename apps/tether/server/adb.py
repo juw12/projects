@@ -32,6 +32,7 @@ KEYCODES = {
     "down": 20,
     "left": 21,
     "right": 22,
+    "dpad_center": 23,
     "volume_up": 24,
     "volume_down": 25,
     "power": 26,
@@ -213,20 +214,31 @@ def find_element(elements: list[dict], text: str | None = None,
                  resource_id: str | None = None, desc: str | None = None) -> dict | None:
     """Find the best element matching text / resource id / content description.
 
-    Exact matches win over case-insensitive substring matches; among equal
-    matches a clickable element wins.
+    Exact matches win over case-insensitive substring matches; `text` also
+    matches the content description (accessibility label) when no visible text
+    does, as Maestro's tapOn does; among equal matches a clickable element wins.
     """
     if not (text or resource_id or desc):
         raise AdbError("give at least one of text, resource_id or desc")
 
     def score(element: dict) -> int:
         total = 0
-        for wanted, have in ((text, element["text"]), (desc, element["desc"])):
-            if wanted is None:
-                continue
-            if have == wanted:
+        if text is not None:
+            # like Maestro/UiAutomator text selectors: visible text first, then the accessibility label
+            if element["text"] == text:
                 total += 4
-            elif wanted.lower() in have.lower():
+            elif text.lower() in element["text"].lower():
+                total += 2
+            elif element["desc"] == text:
+                total += 3
+            elif text.lower() in element["desc"].lower():
+                total += 1
+            else:
+                return -1
+        if desc is not None:
+            if element["desc"] == desc:
+                total += 4
+            elif desc.lower() in element["desc"].lower():
                 total += 2
             else:
                 return -1
@@ -550,6 +562,74 @@ class Adb:
         return self.run(args, serial=serial).decode("utf-8", "replace")
 
 
+    # ------------------------------------------- device state (mobile-mcp parity)
+    def uninstall(self, serial: str, package: str) -> str:
+        _check_package(package)
+        text = self.run(["uninstall", package], serial=serial, timeout=120, check=False)
+        text = text.decode("utf-8", "replace").strip()
+        if "Success" not in text:
+            raise AdbError(text or f"could not uninstall {package}")
+        return text
+
+    def set_app_locale(self, serial: str, package: str, locales: str) -> None:
+        """Per-app language (Android 13+), e.g. locales='fr-FR,en-GB'."""
+        _check_package(package)
+        if not re.fullmatch(r"[A-Za-z0-9\-]+(,[A-Za-z0-9\-]+)*", locales or ""):
+            raise AdbError("locale must be comma-separated BCP 47 tags, e.g. fr-FR,en-GB")
+        out = self.shell(serial, "cmd", "locale", "set-app-locales", package, "--locales", locales)
+        if "Exception" in out or "Unknown command" in out:
+            raise AdbError("per-app locales need Android 13+: " + out.strip()[:200])
+
+    def android_version(self, serial: str) -> str:
+        try:
+            return self.shell(serial, "getprop", "ro.build.version.release").strip()
+        except AdbError:
+            return ""
+
+    def orientation(self, serial: str) -> str:
+        width, height = self.display_size(serial, max_age=0)
+        return "landscape" if width > height else "portrait"
+
+    def set_orientation(self, serial: str, orientation: str) -> None:
+        if orientation not in ("portrait", "landscape"):
+            raise AdbError("orientation must be portrait or landscape")
+        self.shell(serial, "settings", "put", "system", "accelerometer_rotation", "0")
+        self.shell(serial, "settings", "put", "system", "user_rotation",
+                   "1" if orientation == "landscape" else "0")
+        with self._lock:
+            self._size_cache.pop(serial, None)
+
+    def set_location(self, serial: str, latitude: float, longitude: float) -> str:
+        """GPS fix on an emulator (`adb emu geo fix` takes longitude first)."""
+        if not serial.startswith("emulator-"):
+            raise AdbError("set_location works on emulators (adb emu geo fix); on a real phone use a "
+                           "mock-location app selected in Developer options")
+        latitude = float(latitude)
+        longitude = float(longitude)
+        if not (-90 <= latitude <= 90 and -180 <= longitude <= 180):
+            raise AdbError("latitude must be -90..90 and longitude -180..180")
+        out = self.run(["emu", "geo", "fix", f"{longitude:.6f}", f"{latitude:.6f}"], serial=serial)
+        return out.decode("utf-8", "replace").strip() or "OK"
+
+    def log_entries(self, serial: str, lines: int = 2000) -> list[dict]:
+        out = self.run(["logcat", "-d", "-v", "threadtime", "-t", str(max(1, min(int(lines), 20000)))],
+                       serial=serial, timeout=30)
+        return parse_threadtime(out.decode("utf-8", "replace"))
+
+    def pids_of(self, serial: str, process: str) -> set[int]:
+        if not re.fullmatch(r"[\w.:]+", process or ""):
+            raise AdbError(f"invalid process name {process!r}")
+        out = self.run(["shell", "pidof", process], serial=serial, check=False)
+        return {int(p) for p in out.decode("utf-8", "replace").split() if p.isdigit()}
+
+    def crash_log(self, serial: str) -> str:
+        out = self.run(["logcat", "-b", "crash", "-d", "-v", "threadtime"], serial=serial, timeout=30)
+        return out.decode("utf-8", "replace")
+
+    def crashes(self, serial: str) -> list[dict]:
+        return parse_crashes(self.crash_log(serial))
+
+
 def _check_host_port(host_port: str) -> None:
     if not re.fullmatch(r"[A-Za-z0-9.\-]+:\d{2,5}", host_port or ""):
         raise AdbError("use the IP:port shown on the phone, e.g. 192.168.1.23:37155")
@@ -558,3 +638,184 @@ def _check_host_port(host_port: str) -> None:
 def _check_package(package: str) -> None:
     if not re.fullmatch(r"[A-Za-z0-9_]+(\.[A-Za-z0-9_]+)+", package or ""):
         raise AdbError(f"invalid package name {package!r}")
+
+
+
+# ------------------------------------------------------------------ logs
+_THREADTIME_RE = re.compile(
+    r"^(\d\d-\d\d)\s+(\d\d:\d\d:\d\d\.\d+)\s+(\d+)\s+(\d+)\s+([VDIWEFA])\s+(.*?)\s*: ?(.*)$"
+)
+LEVELS = {"V": "Verbose", "D": "Debug", "I": "Info", "W": "Warning", "E": "Error", "F": "Fatal", "A": "Assert"}
+LOG_FILTER_KEYS = ("pid", "process", "tag", "level", "message")
+
+
+def parse_threadtime(text: str) -> list[dict]:
+    entries = []
+    for line in text.splitlines():
+        match = _THREADTIME_RE.match(line)
+        if not match:
+            continue
+        date, clock, pid, tid, level, tag, message = match.groups()
+        entries.append({
+            "time": f"{date} {clock}",
+            "pid": int(pid),
+            "tid": int(tid),
+            "level": LEVELS.get(level, level),
+            "tag": tag,
+            "message": message,
+        })
+    return entries
+
+
+def parse_log_filters(filters: list[str] | None) -> list[tuple[str, bool, str]]:
+    """'tag=ActivityManager', 'level!=Debug' -> (key, include, value)."""
+    parsed = []
+    for raw in filters or []:
+        match = re.fullmatch(r"\s*(\w+)\s*(!?=)\s*(.*?)\s*", str(raw))
+        if not match or match.group(1) not in LOG_FILTER_KEYS:
+            raise AdbError(f"bad filter {raw!r}: use key=value or key!=value with key in {', '.join(LOG_FILTER_KEYS)}")
+        parsed.append((match.group(1), match.group(2) == "=", match.group(3)))
+    return parsed
+
+
+def log_entry_matches(entry: dict, filters: list[tuple[str, bool, str]],
+                      process_pids: dict[str, set[int]] | None = None) -> bool:
+    """process=NAME filters need process_pids {NAME: {pid, ...}} (see Adb.pids_of)."""
+    for key, include, value in filters:
+        if key == "message":
+            hit = value.lower() in entry["message"].lower()
+        elif key == "level":
+            wanted = LEVELS.get(value.upper(), value) if len(value) == 1 else value
+            hit = entry["level"].lower() == wanted.lower()
+        elif key == "pid":
+            hit = str(entry["pid"]) == value
+        elif key == "process":
+            hit = entry["pid"] in (process_pids or {}).get(value, set())
+        else:
+            hit = entry["tag"].lower() == value.lower()
+        if hit != include:
+            return False
+    return True
+
+
+def parse_crashes(text: str) -> list[dict]:
+    """Group `logcat -b crash` lines into crash reports (Java FATAL EXCEPTION or native tombstone)."""
+    crashes: list[dict] = []
+    current = None
+    for line in text.splitlines():
+        match = _THREADTIME_RE.match(line)
+        if not match:
+            if current is not None and line.strip():
+                current["lines"].append(line)
+            continue
+        date, clock, pid, _tid, _level, tag, message = match.groups()
+        starts = "FATAL EXCEPTION" in message or message.strip().startswith("*** *** ***")
+        if starts or current is None or current["pid"] != int(pid):
+            stamp = (date + clock).replace("-", "").replace(":", "").replace(".", "")
+            current = {
+                "id": f"{stamp}-{pid}",
+                "time": f"{date} {clock}",
+                "pid": int(pid),
+                "type": "native" if tag in ("DEBUG", "libc", "crash_dump64", "crash_dump32") else "java",
+                "process": "",
+                "summary": "",
+                "lines": [],
+            }
+            crashes.append(current)
+        current["lines"].append(f"{tag}: {message}")
+        process = re.search(r"Process: ([\w.:]+)", message) or re.search(r">>> ([\w.:]+) <<<", message)
+        if process and not current["process"]:
+            current["process"] = process.group(1)
+        exception = re.match(r"\s*((?:[\w$]+\.)+[\w$]*(?:Exception|Error)[\w$]*)(:.*)?$", message)
+        if exception and not current["summary"]:
+            current["summary"] = message.strip()[:300]
+        signal = re.search(r"signal \d+ \(\w+\)", message)
+        if signal and not current["summary"]:
+            current["summary"] = signal.group(0)
+    for crash in crashes:
+        crash["text"] = "\n".join(crash.pop("lines"))
+    return crashes
+
+
+# -------------------------------------------------------- screen recording
+class ScreenRecorder:
+    """`adb shell screenrecord` in the background; stop() pulls the MP4 to this computer.
+
+    Android caps one screenrecord run at 180 s. Works on every device with adb
+    (no scrcpy needed); the file has no audio.
+    """
+
+    REMOTE_DIR = "/sdcard"
+    MAX_SECONDS = 180
+
+    def __init__(self, adb: Adb):
+        self.adb = adb
+        self.active: dict[str, dict] = {}
+        self.lock = threading.Lock()
+
+    def status(self, serial: str) -> dict:
+        with self.lock:
+            rec = self.active.get(serial)
+        if rec is None:
+            return {"recording": False}
+        return {
+            "recording": rec["process"].poll() is None,
+            "elapsed": round(time.time() - rec["started"], 1),
+            "time_limit": rec["time_limit"],
+            "output": rec["output"],
+        }
+
+    def start(self, serial: str, output: str, time_limit: int | None = None, bit_rate: int = 8_000_000) -> dict:
+        if not self.adb.argv:
+            raise AdbError("adb not found")
+        if not str(output).lower().endswith(".mp4"):
+            raise AdbError("recording filename must end with .mp4")
+        limit = max(1, min(int(time_limit or self.MAX_SECONDS), self.MAX_SECONDS))
+        with self.lock:
+            current = self.active.get(serial)
+            if current and current["process"].poll() is None:
+                raise AdbError(f"{serial} is already being recorded; stop that recording first")
+            remote = f"{self.REMOTE_DIR}/tether-rec-{int(time.time() * 1000)}.mp4"
+            command = list(self.adb.argv) + ["-s", serial, "shell", "screenrecord",
+                                             "--time-limit", str(limit),
+                                             "--bit-rate", str(int(bit_rate)), remote]
+            flags = getattr(subprocess, "CREATE_NO_WINDOW", 0) if os.name == "nt" else 0
+            process = subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                                       stderr=subprocess.STDOUT, creationflags=flags)
+            self.active[serial] = {
+                "process": process,
+                "remote": remote,
+                "output": str(output),
+                "started": time.time(),
+                "time_limit": limit,
+            }
+        time.sleep(0.3)
+        if process.poll() is not None and process.returncode != 0:
+            message = (process.stdout.read() or b"").decode("utf-8", "replace").strip()
+            with self.lock:
+                self.active.pop(serial, None)
+            raise AdbError(message or "screenrecord failed to start")
+        return {"recording": True, "output": str(output), "time_limit": limit}
+
+    def stop(self, serial: str) -> dict:
+        with self.lock:
+            rec = self.active.pop(serial, None)
+        if rec is None:
+            raise AdbError(f"no active recording on {serial}; start one first")
+        process = rec["process"]
+        if process.poll() is None:
+            # SIGINT lets screenrecord finish the MP4 (moov atom) cleanly
+            self.adb.run(["shell", "pkill", "-2", "screenrecord"], serial=serial, check=False)
+            try:
+                process.wait(timeout=15)
+            except subprocess.TimeoutExpired:
+                process.kill()
+        duration = round(min(time.time() - rec["started"], rec["time_limit"]), 1)
+        time.sleep(0.4)  # let the device flush the file
+        output = Path(rec["output"]).expanduser()
+        output.parent.mkdir(parents=True, exist_ok=True)
+        self.adb.run(["pull", rec["remote"], str(output)], serial=serial, timeout=120)
+        self.adb.run(["shell", "rm", "-f", rec["remote"]], serial=serial, check=False)
+        if not output.is_file():
+            raise AdbError("the recording could not be copied from the device")
+        return {"path": str(output), "size": output.stat().st_size, "duration": duration}

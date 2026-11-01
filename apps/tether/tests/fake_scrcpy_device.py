@@ -47,13 +47,44 @@ def load_fixture():
     return width, height, packets
 
 
+def clipboard_file() -> Path:
+    return state_dir() / "fake-clipboard.txt"
+
+
+def read_clipboard() -> str:
+    path = clipboard_file()
+    return path.read_text(encoding="utf-8") if path.exists() else "fake clipboard"
+
+
 def serve_control(conn: socket.socket) -> None:
+    """Logs control bytes; answers GET_CLIPBOARD (8) and SET_CLIPBOARD (9) like scrcpy does."""
+    buffer = b""
     try:
         while True:
             chunk = conn.recv(4096)
             if not chunk:
                 break
             log("scrcpy-control " + chunk.hex())
+            buffer += chunk
+            while buffer:
+                kind = buffer[0]
+                if kind == 8 and len(buffer) >= 2:
+                    buffer = buffer[2:]
+                    data = read_clipboard().encode("utf-8")
+                    conn.sendall(struct.pack(">BI", 0, len(data)) + data)
+                elif kind == 9 and len(buffer) >= 14:
+                    sequence, _paste, size = struct.unpack(">QBI", buffer[1:14])
+                    if len(buffer) < 14 + size:
+                        break
+                    text = buffer[14:14 + size].decode("utf-8")
+                    clipboard_file().write_text(text, encoding="utf-8")
+                    log("scrcpy-clipboard-set " + text)
+                    buffer = buffer[14 + size:]
+                    conn.sendall(struct.pack(">BQ", 1, sequence))
+                elif kind in (8, 9):
+                    break  # wait for the rest of the message
+                else:
+                    buffer = b""  # other messages are only logged
     except OSError:
         pass
 

@@ -72,7 +72,8 @@ Tether reads and writes [Maestro](https://github.com/mobile-dev-inc/maestro) (Ap
 Supported: `launchApp` (clearState/stopApp), `stopApp`, `clearState`, `tapOn` / `longPressOn` / `doubleTapOn`
 (text, id, `point` in %), `inputText`, `eraseText`, `pressKey`, `back`, `hideKeyboard`, `assertVisible`,
 `assertNotVisible`, `extendedWaitUntil`, `swipe` (direction or start/end %), `scroll`, `scrollUntilVisible`,
-`takeScreenshot`, `openLink`, `waitForAnimationToEnd`, `optional: true`. Anything else (`runFlow`, `repeat`,
+`takeScreenshot`, `openLink`, `waitForAnimationToEnd`, `assertWithAI` / `assertNoDefectsWithAI` (→ `ai_assert`),
+`optional: true`. Text selectors match the visible text first, then the accessibility label, like Maestro. Anything else (`runFlow`, `repeat`,
 `evalScript`, absolute pixel points, relative selectors…) is reported as a warning, never silently dropped.
 Tether-only steps (Beacon push, notifications) export as `# tether:` comments.
 
@@ -84,6 +85,38 @@ checked, 734 KB). The browser decodes it with WebCodecs (Chrome/Edge, Firefox 13
 text go through scrcpy's control socket instead of `adb shell input` — milliseconds instead of a few hundred.
 Turning HD off (or any error) falls back to screenshots and adb input. API: `/api/hd/start`, `/api/hd/stop`,
 `/api/hd/status`, `/api/hd/stream`.
+
+## Screen recording
+
+The **⏺** button next to HD records the screen:
+
+- **HD on** — the browser records the decoded video itself (MediaRecorder on the canvas, WebM, exactly what you see).
+- **HD off** — the phone records with `adb screenrecord` (MP4, max 180 s, no audio) and Tether downloads it when you
+  click **⏹**. API: `POST /api/record/start` `{serial, time_limit}`, `POST /api/record/stop`, `GET /api/record/file`.
+
+`GET/POST /api/clipboard` reads or sets the phone's clipboard through scrcpy's control channel (works even when
+HD is off; plain adb can't reach the clipboard on Android 10+).
+
+## AI steps (optional)
+
+Two flow steps hand a goal or a check to a model — any OpenAI-compatible endpoint, local by default:
+
+```json
+{"action": "ai", "goal": "Sign in as qa@example.com with password hunter2", "max_steps": 10}
+{"action": "ai_assert", "condition": "The dashboard shows a balance in euros"}
+```
+
+| Variable | Default | |
+| --- | --- | --- |
+| `TETHER_AI_URL` | `http://127.0.0.1:11434/v1` | Ollama; LM Studio is `http://127.0.0.1:1234/v1`, OpenAI `https://api.openai.com/v1` |
+| `TETHER_AI_MODEL` | `qwen2.5vl:7b` | a vision model works best |
+| `TETHER_AI_KEY` | — | sent as `Authorization: Bearer` |
+| `TETHER_AI_VISION` | `1` | `0` sends only the element list (text-only models) |
+
+The model sees a numbered list of on-screen elements (and a 768 px screenshot) and answers with one JSON action
+at a time (`tap`, `type`, `swipe`, `key`, `done`, `fail`); invented element numbers are rejected, `max_steps`
+caps the loop, and the report lists every action taken. Nothing is sent anywhere unless a flow contains one of
+these steps. Prefer normal steps for anything deterministic — AI steps are for fuzzy goals and visual checks.
 
 ## CI on an emulator
 
@@ -109,6 +142,23 @@ Add to your MCP client config (Claude Desktop, Cursor, VS Code, OpenCode…):
 Then ask: *"Install app-debug.apk, open it, sign in as qa@example.com and tell me if anything crashes in logcat."*
 Screenshots are downscaled on the host (~1024 px) to keep agent context small; `tap`
 coordinates default to the screenshot's pixel space.
+
+**mobile-mcp compatible.** The same server also speaks the tool names and arguments of
+[mobile-next/mobile-mcp](https://github.com/mobile-next/mobile-mcp) (Apache-2.0), so prompts and skills written
+for it work unchanged — with plain adb, no Node or WebDriverAgent: `mobile_list_available_devices`,
+`mobile_list_elements_on_screen` (with `@eN` refs), `mobile_click_on_screen_at_coordinates` (x/y or `ref`),
+`mobile_double_tap_on_screen`, `mobile_long_press_on_screen_at_coordinates`, `mobile_swipe_on_screen`,
+`mobile_type_keys`, `mobile_press_button`, `mobile_open_url`, `mobile_launch_app` (with `locale`),
+`mobile_terminate_app`, `mobile_clear_app_data`, `mobile_install_app`, `mobile_uninstall_app`, `mobile_list_apps`,
+`mobile_get_foreground_app`, `mobile_get_screen_size`, `mobile_take_screenshot`, `mobile_save_screenshot`,
+`mobile_get_orientation` / `mobile_set_orientation`, `mobile_set_location` (emulators), `mobile_clipboard`
+(via scrcpy), `mobile_get_device_logs` (filters like `level=Error`, `process=com.app`), `mobile_list_crashes` /
+`mobile_get_crash` (logcat crash buffer), `mobile_start_screen_recording` / `mobile_stop_screen_recording` and
+`mobile_batch_commands`. Android only; device logs return the newest buffered entries rather than waiting for new
+ones. Clients with a tool limit can pick a set: `mcp_server.py --tools mobile` (or `tether`, default `all`).
+
+**Agent skills.** [`apps/pushlab/plugin`](../pushlab/plugin) packages Tether + Beacon as Agent Skills (SKILL.md)
+with a zero-dependency CLI — install in Claude Code with `/plugin marketplace add juw12/projects`.
 
 ## Push QA with Beacon
 
@@ -144,7 +194,7 @@ python apps/tether/server/server.py --beacon-url https://push.example.com --beac
 
 ## Limits
 
-- Frames are PNG screencaps (~3–8 fps on USB, slower over Wi-Fi adb). Great for QA and agents, not for games or video.
+- Without HD, frames are PNG screencaps (~3–8 fps on USB, slower over Wi-Fi adb). Turn on HD for 30 fps.
 - `input text` is ASCII only (Android limitation); for other scripts, paste via the device keyboard.
 - No audio, no multi-touch gestures (pinch).
 - Android only — iOS simulators need a Mac (that's TapFlow's niche).
@@ -157,6 +207,10 @@ apps/tether/
   server/server.py      HTTP API + frame hub + static web UI
   server/flows.py       flow runner + CLI
   server/mcp_server.py  MCP stdio server for AI agents
+  server/mobile_compat.py  mobile-mcp compatible tools
+  server/maestro.py     Maestro YAML import/export
+  server/scrcpy.py      HD mode: scrcpy video + control (+ clipboard)
+  server/ai.py          optional AI steps (OpenAI-compatible endpoint)
   web/                  static UI (no build step)
   tests/                hermetic tests with a fake adb
   examples/             sample flows
@@ -165,6 +219,10 @@ apps/tether/
 ## Tests
 
 ```bash
-python apps/tether/tests/verify_api.py            # 56 checks, no device needed
-python apps/tether/tests/verify_beacon_link.py    # 22 checks: real Beacon → encrypted push → fake phone → tap
+python apps/tether/tests/verify_api.py            # 65 checks, no device needed
+python apps/tether/tests/verify_beacon_link.py    # 30 checks: real Beacon → encrypted push → fake phone → tap
+python apps/tether/tests/verify_maestro.py        # Maestro YAML import/export (62)
+python apps/tether/tests/verify_hd.py --browser   # scrcpy protocol + WebCodecs + recording in headless Edge
+python apps/tether/tests/verify_mobile_mcp.py     # mobile-mcp tools, recording, clipboard (52)
+python apps/tether/tests/verify_ai.py             # AI steps against a fake OpenAI-compatible server (26)
 ```

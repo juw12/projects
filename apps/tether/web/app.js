@@ -459,6 +459,9 @@
 
   function stopHd(notifyServer = true) {
     const serial = hd.serial;
+    if (typeof rec !== "undefined" && rec.mode === "browser" && rec.recorder) {
+      rec.recorder.stop();
+    }
     hd.active = false;
     hd.gen += 1;
     if (hd.decoder && hd.decoder.state !== "closed") {
@@ -628,6 +631,104 @@
     link.click();
     setTimeout(() => URL.revokeObjectURL(link.href), 2000);
   }
+
+  // ---------------------------------------------------------- screen video
+  // HD on: record the decoded canvas in the browser (WebM, what you see).
+  // HD off: the phone records itself with adb screenrecord (MP4, max 180 s).
+  const rec = { mode: "", recorder: null, chunks: [], serial: "", started: 0, timer: 0 };
+  window.__tetherRec = rec;  // read by the automated browser test
+  const videoBtn = $("#videoBtn");
+
+  function recTick() {
+    const seconds = Math.floor((Date.now() - rec.started) / 1000);
+    videoBtn.textContent = `⏹ ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+    if (rec.mode === "adb" && seconds >= 180) {
+      stopVideo();
+    }
+  }
+
+  function recStarted(mode) {
+    rec.mode = mode;
+    rec.started = Date.now();
+    videoBtn.classList.add("active");
+    rec.timer = setInterval(recTick, 500);
+    recTick();
+  }
+
+  function recReset() {
+    clearInterval(rec.timer);
+    rec.mode = "";
+    rec.recorder = null;
+    videoBtn.classList.remove("active");
+    videoBtn.textContent = "⏺";
+    videoBtn.disabled = false;
+  }
+
+  async function startVideo() {
+    if (!state.serial) {
+      toast("Pick a device first", true);
+      return;
+    }
+    rec.serial = state.serial;
+    if (hd.active && el.hdScreen.captureStream && window.MediaRecorder) {
+      const type = ["video/webm;codecs=vp9", "video/webm;codecs=vp8", "video/webm"]
+        .find((t) => MediaRecorder.isTypeSupported(t));
+      rec.chunks = [];
+      rec.recorder = new MediaRecorder(el.hdScreen.captureStream(30), type ? { mimeType: type } : {});
+      rec.recorder.ondataavailable = (event) => event.data.size && rec.chunks.push(event.data);
+      rec.recorder.onstop = () => {
+        const blob = new Blob(rec.chunks, { type: "video/webm" });
+        rec.lastSize = blob.size;
+        download(blob, `tether-${rec.serial}-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-")}.webm`);
+        toast(`Saved ${(blob.size / 1048576).toFixed(1)} MB WebM`);
+        recReset();
+      };
+      rec.recorder.start(1000);
+      recStarted("browser");
+      return;
+    }
+    videoBtn.disabled = true;
+    try {
+      await api("/api/record/start", { method: "POST", body: { serial: rec.serial, time_limit: 180 } });
+      recStarted("adb");
+      toast("Recording on the phone (max 3 min) — click ⏹ to stop");
+    } catch (error) {
+      toast(error.message, true);
+      recReset();
+    } finally {
+      videoBtn.disabled = false;
+    }
+  }
+
+  async function stopVideo() {
+    if (rec.mode === "browser") {
+      rec.recorder.stop();
+      return;
+    }
+    if (rec.mode !== "adb") {
+      return;
+    }
+    clearInterval(rec.timer);
+    videoBtn.disabled = true;
+    videoBtn.textContent = "…";
+    try {
+      const result = await api("/api/record/stop", { method: "POST", body: { serial: rec.serial } });
+      const response = await fetch(result.url, { headers: { "X-Tether-Token": state.token } });
+      if (!response.ok) {
+        throw new Error("could not download the recording");
+      }
+      const blob = await response.blob();
+      rec.lastSize = blob.size;
+      download(blob, result.name);
+      toast(`Saved ${result.name} (${(result.size / 1048576).toFixed(1)} MB, ${result.duration} s)`);
+    } catch (error) {
+      toast(error.message, true);
+    } finally {
+      recReset();
+    }
+  }
+
+  videoBtn.addEventListener("click", () => (rec.mode ? stopVideo() : startVideo()));
 
   // ------------------------------------------------------------------- tabs
   $$(".tabs button").forEach((tab) => {

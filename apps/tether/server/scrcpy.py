@@ -136,6 +136,16 @@ def back_or_screen_on_message(action: int) -> bytes:
     return struct.pack(">BB", 4, action)
 
 
+def get_clipboard_message() -> bytes:
+    return bytes([8, 0])  # TYPE_GET_CLIPBOARD, COPY_KEY_NONE
+
+
+def set_clipboard_message(sequence: int, text: str, paste: bool = False) -> bytes:
+    data = text.encode("utf-8")[:CLIPBOARD_MAX_BYTES]
+    return struct.pack(">BQBI", 9, sequence, 1 if paste else 0, len(data)) + data
+
+
+CLIPBOARD_MAX_BYTES = (1 << 18) - 14  # ControlMessageReader.CLIPBOARD_TEXT_MAX_LENGTH
 EXPAND_NOTIFICATIONS = bytes([5])
 EXPAND_SETTINGS = bytes([6])
 COLLAPSE_PANELS = bytes([7])
@@ -221,6 +231,11 @@ class ScrcpySession:
         self.gop_bytes = 0
         self.frames = 0
         self.started_at = 0.0
+        self.clipboard_cond = threading.Condition()
+        self.clipboard_text: str | None = None
+        self.clipboard_version = 0
+        self.clipboard_acks: set[int] = set()
+        self.clipboard_sequence = 0
 
     # ------------------------------------------------------------ status
     def status(self) -> dict:
@@ -343,12 +358,48 @@ class ScrcpySession:
             self._broadcast(None, 0)
 
     def _drain_control(self) -> None:
-        """The device may send clipboard/ack messages back; we don't use them."""
+        """Device messages: CLIPBOARD (0: u32 len + utf-8) and ACK_CLIPBOARD (1: u64 sequence)."""
         try:
-            while self.running and self.control.recv(4096):
-                pass
-        except OSError:
+            while self.running:
+                kind = recv_exact(self.control, 1)[0]
+                if kind == 0:
+                    size = struct.unpack(">I", recv_exact(self.control, 4))[0]
+                    text = recv_exact(self.control, size).decode("utf-8", "replace")
+                    with self.clipboard_cond:
+                        self.clipboard_text = text
+                        self.clipboard_version += 1
+                        self.clipboard_cond.notify_all()
+                elif kind == 1:
+                    sequence = struct.unpack(">Q", recv_exact(self.control, 8))[0]
+                    with self.clipboard_cond:
+                        self.clipboard_acks.add(sequence)
+                        self.clipboard_cond.notify_all()
+                elif kind == 2:  # UHID_OUTPUT: u16 id, u16 size, data
+                    _uhid, size = struct.unpack(">HH", recv_exact(self.control, 4))
+                    recv_exact(self.control, size)
+                else:
+                    break  # unknown message: stop parsing, keep the session alive
+        except (EOFError, OSError):
             pass
+
+    def get_clipboard(self, timeout: float = 5.0) -> str:
+        with self.clipboard_cond:
+            version = self.clipboard_version
+        self._send(get_clipboard_message())
+        with self.clipboard_cond:
+            if not self.clipboard_cond.wait_for(lambda: self.clipboard_version > version, timeout):
+                raise ScrcpyError("the device did not return its clipboard")
+            return self.clipboard_text or ""
+
+    def set_clipboard(self, text: str, paste: bool = False, timeout: float = 5.0) -> None:
+        with self.clipboard_cond:
+            self.clipboard_sequence += 1
+            sequence = self.clipboard_sequence
+        self._send(set_clipboard_message(sequence, text, paste))
+        with self.clipboard_cond:
+            if not self.clipboard_cond.wait_for(lambda: sequence in self.clipboard_acks, timeout):
+                raise ScrcpyError("the device did not confirm the clipboard change")
+            self.clipboard_acks.discard(sequence)
 
     def _broadcast(self, message: bytes | None, kind: int) -> None:
         with self.viewers_lock:
@@ -489,3 +540,25 @@ class SessionManager:
         if session is None:
             return {**base, "running": False}
         return {**base, **session.status(), "log": list(session.log)[-6:]}
+
+
+def clipboard(adb, serial: str, text: str | None = None, manager: SessionManager | None = None) -> str | None:
+    """Read (text=None) or set the device clipboard through scrcpy's control channel.
+
+    Plain adb cannot touch the clipboard on Android 10+, scrcpy can. Reuses a
+    running HD session, otherwise starts a tiny one (256 px, 1 fps) for the call.
+    """
+    session = manager.get(serial) if manager else None
+    temporary = None
+    if session is None:
+        temporary = ScrcpySession(adb, serial, max_size=256, max_fps=1, bit_rate=500_000)
+        temporary.start()
+        session = temporary
+    try:
+        if text is None:
+            return session.get_clipboard()
+        session.set_clipboard(text)
+        return None
+    finally:
+        if temporary is not None:
+            temporary.stop()

@@ -246,6 +246,66 @@ def fake_scrcpy_server(cmd):
         time.sleep(1)
 
 
+# ------------------------------------------------ device state (mobile-mcp parity)
+def state_file(name):
+    return os.path.join(scrcpy_state_dir(), name)
+
+
+def rotation():
+    path = state_file("fake-rotation")
+    if os.path.exists(path):
+        with open(path, encoding="utf-8") as handle:
+            return handle.read().strip() or "0"
+    return "0"
+
+
+def screen_size():
+    return (HEIGHT, WIDTH) if rotation() in ("1", "3") else (WIDTH, HEIGHT)
+
+
+THREADTIME_LOG = (
+    "11-01 08:00:00.000   500   512 I ActivityManager: Start proc 4242:com.demo.app/u0a150\n"
+    "11-01 08:00:00.100  4242  4242 D DemoApp : onCreate\n"
+    "11-01 08:00:00.200  4242  4242 I DemoApp : login screen shown\n"
+    "11-01 08:00:00.300   500   530 W WindowManager: slow frame\n"
+    "11-01 08:00:01.000  4242  4242 E AndroidRuntime: FATAL EXCEPTION: main\n"
+)
+
+CRASH_LOG = (
+    "--------- beginning of crash\n"
+    "11-01 08:00:01.000  4242  4242 E AndroidRuntime: FATAL EXCEPTION: main\n"
+    "11-01 08:00:01.000  4242  4242 E AndroidRuntime: Process: com.demo.app, PID: 4242\n"
+    "11-01 08:00:01.000  4242  4242 E AndroidRuntime: java.lang.IllegalStateException: login button tapped twice\n"
+    "11-01 08:00:01.000  4242  4242 E AndroidRuntime: \tat com.demo.app.LoginActivity.onClick(LoginActivity.kt:42)\n"
+    "11-01 09:15:30.500  5151  5151 F libc    : Fatal signal 11 (SIGSEGV), code 1 (SEGV_MAPERR), fault addr 0x0\n"
+    "11-01 09:15:30.600  5160  5160 F DEBUG   : *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***\n"
+    "11-01 09:15:30.600  5160  5160 F DEBUG   : pid: 5151, tid: 5151, name: demo.native  >>> com.demo.native <<<\n"
+    "11-01 09:15:30.600  5160  5160 F DEBUG   : signal 11 (SIGSEGV), code 1 (SEGV_MAPERR), fault addr 0x0\n"
+)
+
+FAKE_MP4 = b"\x00\x00\x00\x18ftypmp42\x00\x00\x00\x00mp42isom" + b"\x00" * 4096
+
+
+def fake_screenrecord(cmd):
+    """`shell screenrecord --time-limit N --bit-rate B /sdcard/x.mp4` until `pkill -2 screenrecord`."""
+    import time
+
+    remote = cmd[-1]
+    limit = int(cmd[cmd.index("--time-limit") + 1]) if "--time-limit" in cmd else 180
+    stop = state_file("fake-screenrecord-stop")
+    if os.path.exists(stop):
+        os.remove(stop)
+    log("screenrecord " + " ".join(cmd[1:]))
+    started = time.time()
+    while time.time() - started < limit and not os.path.exists(stop):
+        time.sleep(0.1)
+    if os.path.exists(stop):
+        os.remove(stop)
+    with open(state_file("fake-sdcard-" + os.path.basename(remote)), "wb") as handle:
+        handle.write(FAKE_MP4)
+    return 0
+
+
 def main(argv):
     out = sys.stdout.buffer
     if argv[:1] == ["version"]:
@@ -315,6 +375,33 @@ def main(argv):
         log("install " + os.path.basename(path))
         out.write(b"Performing Streamed Install\nSuccess\n")
         return 0
+    if argv[:1] == ["uninstall"]:
+        if argv[1] in ("com.demo.app", "com.juw12.vitals"):
+            log("uninstall " + argv[1])
+            out.write(b"Success\n")
+            return 0
+        out.write(b"Failure [DELETE_FAILED_INTERNAL_ERROR]\n")
+        return 1
+    if argv[:3] == ["emu", "geo", "fix"]:
+        log("geo fix " + " ".join(argv[3:]))
+        out.write(b"OK\n")
+        return 0
+    if argv[:1] == ["pull"]:
+        source = state_file("fake-sdcard-" + os.path.basename(argv[1]))
+        if not os.path.exists(source):
+            sys.stderr.write(f"adb: error: failed to stat remote object '{argv[1]}': No such file or directory\n")
+            return 1
+        with open(source, "rb") as src, open(argv[2], "wb") as dst:
+            dst.write(src.read())
+        log("pull " + argv[1])
+        out.write(b"1 file pulled, 0 skipped.\n")
+        return 0
+    if argv[:1] == ["logcat"] and "crash" in argv:
+        out.write(CRASH_LOG.encode())
+        return 0
+    if argv[:1] == ["logcat"] and "threadtime" in argv:
+        out.write(THREADTIME_LOG.encode())
+        return 0
     if argv[:1] == ["logcat"]:
         if any(a.startswith("--pid=") for a in argv):
             out.write(b"11-01 08:00:00.000 I/DemoApp( 4242): only demo lines\n")
@@ -331,6 +418,40 @@ def main(argv):
     cmd = argv[1:]
     if cmd[:1] and cmd[0].startswith("CLASSPATH=") and "app_process" in cmd:
         return fake_scrcpy_server(cmd)
+    if "&&" in cmd:
+        segment = []
+        for token in cmd + ["&&"]:
+            if token == "&&":
+                if segment[:1] == ["input"]:
+                    log(" ".join(segment))
+                segment = []
+            else:
+                segment.append(token)
+        return 0
+    if cmd[:1] == ["screenrecord"]:
+        return fake_screenrecord(cmd)
+    if cmd[:3] == ["pkill", "-2", "screenrecord"]:
+        open(state_file("fake-screenrecord-stop"), "w").close()
+        log("screenrecord stop")
+        return 0
+    if cmd[:2] == ["rm", "-f"]:
+        target = state_file("fake-sdcard-" + os.path.basename(cmd[2]))
+        if os.path.exists(target):
+            os.remove(target)
+        log("rm " + cmd[2])
+        return 0
+    if cmd == ["getprop", "ro.build.version.release"]:
+        out.write(b"15\n")
+        return 0
+    if cmd[:3] == ["settings", "put", "system"]:
+        log("settings " + cmd[3] + "=" + cmd[4])
+        if cmd[3] == "user_rotation":
+            with open(state_file("fake-rotation"), "w", encoding="utf-8") as handle:
+                handle.write(cmd[4])
+        return 0
+    if cmd[:3] == ["cmd", "locale", "set-app-locales"]:
+        log("locale " + cmd[3] + " " + cmd[-1])
+        return 0
     if cmd[:1] == ["input"]:
         log(" ".join(cmd))
         if cmd[1:2] == ["tap"]:
@@ -354,7 +475,8 @@ def main(argv):
         log("shade closed")
         return 0
     if cmd[:3] == ["dumpsys", "window", "displays"]:
-        out.write(f"  init={WIDTH}x{HEIGHT} 420dpi base={WIDTH}x{HEIGHT} 420dpi cur={WIDTH}x{HEIGHT} app={WIDTH}x2337\n".encode())
+        cur_w, cur_h = screen_size()
+        out.write(f"  init={WIDTH}x{HEIGHT} 420dpi base={WIDTH}x{HEIGHT} 420dpi cur={cur_w}x{cur_h} app={cur_w}x2337\n".encode())
         return 0
     if cmd[:2] == ["dumpsys", "window"]:
         out.write(b"  mCurrentFocus=Window{abc123 u0 com.demo.app/com.demo.app.MainActivity}\n")
@@ -377,6 +499,8 @@ def main(argv):
         out.write(b"Success\n")
         return 0
     if cmd[:1] == ["pidof"]:
+        if cmd[1:2] == ["com.not.running"]:
+            return 1
         out.write(b"4242\n")
         return 0
     sys.stderr.write("fake adb: unsupported shell " + " ".join(cmd) + "\n")

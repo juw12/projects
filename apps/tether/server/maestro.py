@@ -253,10 +253,11 @@ SWIPE_DIRECTIONS = {
     "UP": (0.5, 0.8, 0.5, 0.2),
     "DOWN": (0.5, 0.2, 0.5, 0.8),
 }
+NO_DEFECTS_CONDITION = ("The screen has no visual defects: no cut-off or overlapping text, no broken or "
+                        "misaligned layout, no placeholder or garbled text, no error messages.")
 UNSUPPORTED = {
     "runFlow", "runScript", "evalScript", "repeat", "retry", "assertTrue", "copyTextFrom", "pasteText",
-    "setLocation", "travel", "addMedia", "startRecording", "stopRecording", "assertWithAI",
-    "assertNoDefectsWithAI", "extractTextWithAI", "inputRandomText", "inputRandomNumber",
+    "setLocation", "travel", "addMedia", "startRecording", "stopRecording", "extractTextWithAI", "inputRandomText", "inputRandomNumber",
     "inputRandomEmail", "inputRandomPersonName", "setAirplaneMode", "toggleAirplaneMode", "setOrientation",
 }
 IGNORED_KEYS = {"label", "optional", "waitToSettleTimeoutMs", "retryTapIfNoChange", "repeat", "delay",
@@ -450,6 +451,14 @@ def maestro_to_flow(text: str) -> tuple[dict, list[str]]:
         elif name == "waitForAnimationToEnd":
             timeout = _timeout(value.get("timeout") if isinstance(value, dict) else None, 1000)
             steps.append({"action": "wait", "ms": min(timeout, 5000)})
+        elif name == "assertWithAI":
+            assertion = value.get("assertion") if isinstance(value, dict) else value
+            if not assertion:
+                warnings.append(f"{where}: assertWithAI without an assertion — skipped")
+                continue
+            steps.append({"action": "ai_assert", "condition": str(assertion)})
+        elif name == "assertNoDefectsWithAI":
+            steps.append({"action": "ai_assert", "condition": NO_DEFECTS_CONDITION})
         elif name == "openLink":
             link = value.get("link") if isinstance(value, dict) else value
             steps.append({"action": "open_url", "url": str(link)})
@@ -601,6 +610,11 @@ def flow_to_maestro(flow: dict) -> tuple[str, list[str]]:
             warnings.append(f"{where}: Maestro has no fixed sleep; exported as waitForAnimationToEnd")
         elif action == "screenshot":
             out = [f"- takeScreenshot: {_q(step.get('name') or 'screenshot')}"]
+        elif action == "ai_assert":
+            if step.get("condition") == NO_DEFECTS_CONDITION:
+                out = ["- assertNoDefectsWithAI"]
+            else:
+                out = ["- assertWithAI:", f"    assertion: {_q(step['condition'])}"]
         elif action == "open_url":
             out = [f"- openLink: {_q(step['url'])}"]
         elif action == "scroll_until_visible":
