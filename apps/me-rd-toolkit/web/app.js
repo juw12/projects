@@ -310,7 +310,8 @@
     vault: '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="12" cy="12" r="3.5"/><path d="M12 8.5V7M15.5 12H17M7 20v1M17 20v1"/>',
     sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
     vertex: '<path d="M4 8l8-4 8 4v8l-8 4-8-4z"/><path d="M4 8l8 4 8-4M12 12v8"/>',
-    ptb: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2.5"/>'
+    ptb: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2.5"/>',
+    apps: '<rect x="3" y="3" width="7.5" height="7.5" rx="1.6"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.6"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.6"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.6"/>'
   };
 
   function icon(name) {
@@ -447,8 +448,7 @@
     { id: "projects", label: "Project Folders", icon: "folder", count: () => P.projects.length, need: () => P.projects.length },
     { id: "library", label: "Library", icon: "library", count: () => P.library.length, need: () => P.library.length },
     { group: "Engineering Apps" },
-    { id: "vertex", label: "Vertex", icon: "vertex" },
-    { id: "ptb", label: "PTB RDME", icon: "ptb" },
+    { id: "apps", label: "R&D Apps", icon: "apps" },
     { group: "Settings" },
     { id: "data", label: "Data & Backup", icon: "data" }
   ];

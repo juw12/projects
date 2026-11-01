@@ -496,26 +496,26 @@
     return loadedScripts[src];
   }
 
-  V.vertex = async function () {
+  function subAppCard(message) {
+    return '<div class="card banner" style="margin-top:12px">' + message + "</div>";
+  }
+
+  let vertexCleanup = null;
+  async function mountVertex(container) {
+    if (vertexCleanup) { try { vertexCleanup(); } catch (e) {} vertexCleanup = null; }
     const port = (window.MERD_SUBAPPS && window.MERD_SUBAPPS.vertex) || 8792;
-    $("#view").innerHTML =
-      "<h1>" + APP.icon("vertex") + " Vertex</h1>" +
-      '<div class="muted">Offline CAD copilot — diagnose and repair broken models, plan assemblies.</div>' +
-      '<div id="vertex-host" class="subapp-host"></div>';
-    const host = $("#vertex-host");
+    container.innerHTML = '<div id="apps-host" class="subapp-host"></div>';
+    const host = container.querySelector("#apps-host");
     if (!host) return;
     try {
       await loadScriptOnce("vertex/vertex-mount.js");
     } catch (e) {
-      host.innerHTML = '<div class="card" style="margin-top:12px">Could not load Vertex: ' + esc(e.message) + "</div>";
+      host.innerHTML = subAppCard("Could not load Vertex: " + esc(e.message));
       return;
     }
     if (!window.VertexMount) {
-      host.innerHTML = '<div class="card" style="margin-top:12px">Vertex mount is unavailable.</div>';
+      host.innerHTML = subAppCard("Vertex mount is unavailable.");
       return;
-    }
-    if (window.VertexMount.isMounted()) {
-      try { window.VertexMount.unmount(); } catch (e) {}
     }
     try {
       await window.VertexMount.mount(host, {
@@ -524,7 +524,7 @@
         theme: document.documentElement.dataset.theme || "light"
       });
     } catch (e) {
-      host.innerHTML = '<div class="card" style="margin-top:12px">Vertex could not start: ' + esc(e.message) + "</div>";
+      host.innerHTML = subAppCard("Vertex could not start: " + esc(e.message));
       return;
     }
     const syncTheme = () => {
@@ -533,25 +533,25 @@
     };
     const themeObserver = new MutationObserver(syncTheme);
     themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+    vertexCleanup = () => {
+      themeObserver.disconnect();
+      try { window.VertexMount.unmount(); } catch (e) {}
+    };
     const onHash = () => {
-      if (!location.hash.startsWith("#vertex")) {
+      if (!location.hash.startsWith("#apps")) {
         window.removeEventListener("hashchange", onHash);
-        themeObserver.disconnect();
-        try { window.VertexMount.unmount(); } catch (e) {}
+        if (vertexCleanup) { vertexCleanup(); vertexCleanup = null; }
       }
     };
     window.addEventListener("hashchange", onHash);
-  };
+  }
 
-  V.ptb = async function (r) {
-    const sub = r.sub === "drafts" ? "drafts" : (r.sub === "team" ? "team" : "ot");
+  async function renderPtb(container, tab, linkBase) {
     const port = (window.MERD_SUBAPPS && window.MERD_SUBAPPS.ptb) || 8050;
     const api = "http://127.0.0.1:" + port + "/api";
     const rowStyle = "display:flex;gap:12px;align-items:flex-start;padding:9px 0;border-bottom:1px solid var(--line)";
     const loading = '<div class="card" style="margin-top:12px"><span class="muted">Loading…</span></div>';
 
-    // toast is local to app.js in the static build; the Windows desktop build may expose it
-    // globally. Prefer the global when present, otherwise drive the shared #toast node.
     function toast(message) {
       if (typeof window.toast === "function") { window.toast(message); return; }
       const el = $("#toast");
@@ -575,17 +575,17 @@
       try { return new Date(iso).toLocaleString(); } catch (e) { return String(iso); }
     }
 
-    function frame(title, subtext, inner) {
-      const chips =
-        '<div class="chips" style="margin:12px 0">' +
-        '<a class="chip' + (sub === "ot" ? " active" : "") + '" href="#ptb/ot">Overtime</a>' +
-        '<a class="chip' + (sub === "drafts" ? " active" : "") + '" href="#ptb/drafts">Drafts</a>' +
-        '<a class="chip' + (sub === "team" ? " active" : "") + '" href="#ptb/team">Team</a></div>';
-      return '<h1>' + APP.icon("ptb") + " " + title + '</h1><div class="muted">' + subtext + "</div>" + chips + inner;
+    function chips() {
+      return '<div class="chips" style="margin:12px 0">' +
+        '<a class="chip' + (tab === "ot" ? " active" : "") + '" href="' + linkBase + 'ot">Overtime</a>' +
+        '<a class="chip' + (tab === "drafts" ? " active" : "") + '" href="' + linkBase + 'drafts">Drafts</a>' +
+        '<a class="chip' + (tab === "team" ? " active" : "") + '" href="' + linkBase + 'team">Team</a></div>';
     }
 
+    function setContent(inner) { container.innerHTML = chips() + inner; }
+
     async function renderOt() {
-      $("#view").innerHTML = frame("PTB RDME", "Overtime", loading);
+      setContent(loading);
       let today, colleagues;
       try {
         [today, colleagues] = await Promise.all([
@@ -593,8 +593,7 @@
           fetch(api + "/colleagues").then((x) => x.json())
         ]);
       } catch (e) {
-        $("#view").innerHTML = frame("PTB RDME", "Overtime",
-          '<div class="card banner" style="margin-top:12px"><b>Error loading overtime.</b> ' + esc(e.message) + "</div>");
+        setContent(subAppCard("<b>Error loading overtime.</b> " + esc(e.message)));
         return;
       }
       const submitted = new Set(today.submitted_ids || []);
@@ -643,7 +642,7 @@
           : '<div class="muted">Everyone submitted.</div>') +
         "</div>";
 
-      $("#view").innerHTML = frame("Today: " + esc(today.date), submitted.size + " / " + colleagues.length + " submitted", submitCard + subList + pendList);
+      setContent('<div class="muted small" style="margin-bottom:4px">Today: ' + esc(today.date) + " · " + submitted.size + " / " + colleagues.length + " submitted</div>" + submitCard + subList + pendList);
 
       $("#ptb-submit").addEventListener("click", () => {
         const payload = {
@@ -670,7 +669,7 @@
     }
 
     async function renderDrafts() {
-      $("#view").innerHTML = frame("Email drafts", "Your local Outlook Drafts folder (only on this PC)", loading);
+      setContent(loading);
       let drafts = null, unread = null, draftsErr = null;
       try {
         drafts = await fetch(api + "/email/drafts").then((x) => x.json());
@@ -685,7 +684,7 @@
 
       let cards = "";
       if (draftsErr) {
-        cards += '<div class="card banner" style="margin-top:12px"><b>Error loading drafts.</b> ' + esc(draftsErr.message) + "</div>";
+        cards += subAppCard("<b>Error loading drafts.</b> " + esc(draftsErr.message));
       } else if (!drafts || drafts.length === 0) {
         cards += '<div class="card" style="margin-top:12px"><h3>Email drafts</h3><div class="muted">No drafts in Outlook. Or Outlook desktop isn\'t installed on this PC.</div></div>';
       } else if (drafts[0] && drafts[0].error) {
@@ -705,17 +704,16 @@
         const n = unread.unread;
         cards += '<div class="card" style="margin-top:12px"><h3>Inbox</h3><div class="kv"><div class="k">Unread</div><div>' + (n < 0 ? "n/a" : esc(n)) + "</div></div></div>";
       }
-      $("#view").innerHTML = frame("Email drafts", "Your local Outlook Drafts folder (only on this PC)", cards);
+      setContent(cards);
     }
 
     async function renderTeam() {
-      $("#view").innerHTML = frame("Team", "PTB RD ME — colleagues", loading);
+      setContent(loading);
       let rows;
       try {
         rows = await fetch(api + "/colleagues").then((x) => x.json());
       } catch (e) {
-        $("#view").innerHTML = frame("Team", "PTB RD ME — colleagues",
-          '<div class="card banner" style="margin-top:12px"><b>Error loading colleagues.</b> ' + esc(e.message) + "</div>");
+        setContent(subAppCard("<b>Error loading colleagues.</b> " + esc(e.message)));
         return;
       }
       const list = (rows && rows.length)
@@ -726,12 +724,10 @@
             '<div class="small muted" style="white-space:nowrap;text-align:right">Dept: ' + esc(c.department || "PTB RD ME") + "<br>Supervisor: " + esc(c.supervisor || "—") + "</div></div>"
           ).join("") + "</div></div>"
         : '<div class="card" style="margin-top:12px"><div class="muted">No colleagues yet.</div></div>';
-      $("#view").innerHTML = frame("Team", "PTB RD ME — colleagues", list);
+      setContent(list);
     }
 
-    $("#view").innerHTML = frame("PTB RDME", "PTB RD ME overtime & Outlook drafts", loading);
-
-    // Opaque probe: resolves when the local server answers, rejects on no-server / timeout.
+    setContent(loading);
     let up = false;
     try {
       await fetch(api + "/status", { mode: "no-cors", signal: AbortSignal.timeout(900) });
@@ -740,13 +736,29 @@
       up = false;
     }
     if (!up) {
-      $("#view").innerHTML = frame("PTB RDME", "PTB RD ME overtime & Outlook drafts",
-        '<div class="card banner" style="margin-top:12px"><b>Local server not reachable.</b> The PTB RDME widget needs the <b>ME R&amp;D Toolkit for Windows</b> running on this PC — it reads your local Outlook drafts and a shared overtime database (port ' + port + "). Start it, then reload.</div>");
+      setContent(subAppCard("<b>Local server not reachable.</b> The PTB RDME widget needs the <b>ME R&amp;D Toolkit for Windows</b> running on this PC — it reads your local Outlook drafts and a shared overtime database (port " + port + "). Start it, then reload."));
       return;
     }
-
-    if (sub === "drafts") { renderDrafts(); }
-    else if (sub === "team") { renderTeam(); }
+    if (tab === "drafts") { renderDrafts(); }
+    else if (tab === "team") { renderTeam(); }
     else { renderOt(); }
+  }
+
+  V.apps = async function (r) {
+    const app = r.params.a === "ptb" ? "ptb" : "vertex";
+    const tab = r.params.t === "drafts" ? "drafts" : (r.params.t === "team" ? "team" : "ot");
+    if (app !== "vertex" && vertexCleanup) { try { vertexCleanup(); } catch (e) {} vertexCleanup = null; }
+    $("#view").innerHTML =
+      "<h1>" + APP.icon("apps") + " R&amp;D Apps</h1>" +
+      '<div class="muted">Vertex CAD copilot and the PTB RD ME overtime widget, in one place.</div>' +
+      '<div class="chips" style="margin:12px 0">' +
+      '<a class="chip' + (app === "vertex" ? " active" : "") + '" href="#apps?a=vertex">Vertex</a>' +
+      '<a class="chip' + (app === "ptb" ? " active" : "") + '" href="#apps?a=ptb">PTB RDME</a>' +
+      "</div>" +
+      '<div id="apps-body"></div>';
+    const body = $("#apps-body");
+    if (!body) return;
+    if (app === "vertex") { await mountVertex(body); }
+    else { await renderPtb(body, tab, "#apps?a=ptb&t="); }
   };
 })();
