@@ -1,0 +1,40 @@
+services:
+  - type: web
+    name: respark
+    runtime: docker
+    rootDir: .
+    dockerfilePath: ./Dockerfile
+    plan: free
+    healthCheckPath: /
+    autoDeploy: true
+    envVars:
+      - key: PORT
+        value: "8000"
+      - key: RESPARK_BASE_URL
+        generateValue: true
+      - key: RESPARK_SECRET
+        generateValue: true
+      - key: RESPARK_ALLOW_SIGNUP
+        value: "1"
+      - key: RESPARK_SMTP_HOST
+        sync: false
+      - key: RESPARK_SMTP_PORT
+        sync: false
+      - key: RESPARK_SMTP_USER
+        sync: false
+      - key: RESPARK_SMTP_PASS
+        sync: false
+      - key: RESPARK_SMTP_FROM
+        sync: false
+      - key: RESPARK_STRIPE_SECRET_KEY
+        sync: false
+      - key: RESPARK_STRIPE_PUBLISHABLE_KEY
+        sync: false
+      - key: RESPARK_STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: RESPARK_OPENAI_API_KEY
+        sync: false
+    disk:
+      name: respark-data
+      mountPath: /app/data
+      sizeGB: 1
