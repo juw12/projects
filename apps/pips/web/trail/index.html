@@ -76,6 +76,15 @@
     .auto-ios { color: var(--muted); font-size: 13px; margin: 10px 0 0; }
     body.is-android .auto-ios, body.is-ios .auto-android { display: none; }
     body.is-ios .auto-ios { color: var(--ink); margin: 0; }
+    .import { background: #2b2e36; border-radius: 14px; padding: 12px; margin: 4px 0 12px; }
+    .import[hidden] { display: none; }
+    .import-how, .import-note { margin: 0 0 10px; font-size: 13px; color: var(--muted); }
+    .import-note { margin: 10px 0 0; }
+    .import-status { margin: 8px 0; font-size: 13px; min-height: 1em; }
+    .import textarea { width: 100%; font: 13px/1.35 ui-monospace, Menlo, Consolas, monospace; color: var(--ink);
+      background: #1f2128; border: 1px solid var(--line); border-radius: 10px; padding: 8px; resize: vertical; }
+    .file-btn { display: inline-block; position: relative; overflow: hidden; }
+    .file-btn input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
   </style>
 </head>
 <body>
@@ -105,7 +114,7 @@
           <li data-i18n="autoStep3">Done: your trail fills in by itself. Tap an app to change its type.</li>
         </ol>
       </div>
-      <p class="auto-text auto-ios" data-i18n="autoIos">iPhone: Apple only gives Screen Time data to apps from the App Store or TestFlight, so here you copy your times from Settings &gt; Screen Time &gt; See All App &amp; Website Activity.</p>
+      <p class="auto-text auto-ios" data-i18n="autoIos">iPhone: Apple keeps Screen Time data for App Store apps only. Free way: take a screenshot of Settings &gt; Screen Time &gt; See All App &amp; Website Activity and tap From screenshot below.</p>
     </section>
 
     <section class="card">
@@ -128,8 +137,21 @@
         <span style="flex:1" data-i18n="colApp">App</span><span style="width:76px" data-i18n="colHour">Hour</span>
         <span style="width:70px" data-i18n="colMin">Minutes</span><span style="width:70px" data-i18n="colType">Type</span>
       </div>
+      <div class="import" id="importPanel" hidden>
+        <p class="import-how" data-i18n="importHow">Take a screenshot of Settings &gt; Screen Time &gt; See All App &amp; Website Activity (Android: Digital Wellbeing), then choose it here.</p>
+        <label class="btn file-btn"><span data-i18n="importChoose">Choose screenshot</span>
+          <input type="file" id="importFile" accept="image/*"></label>
+        <p class="import-status" id="importStatus"></p>
+        <textarea id="importText" rows="5" data-i18n-placeholder="importPaste"></textarea>
+        <div class="row" style="margin-top:8px">
+          <select id="importWhen" style="flex:1 1 160px"></select>
+          <button class="btn primary" id="importApply" data-i18n="importApply">Add to my day</button>
+        </div>
+        <p class="import-note" data-i18n="importNote">Screen Time only shows a total per app, so the hours are a guess you can change. Tip: tap one hour bar in Screen Time, screenshot it and pick that hour above.</p>
+      </div>
       <div class="entries" id="entries"></div>
       <div class="row" style="margin-top:10px">
+        <button class="btn primary" id="importToggle" data-i18n="importBtn">From screenshot</button>
         <button class="btn" id="add" data-i18n="add">+ Add app</button>
         <button class="btn" id="sample" data-i18n="sample">Try a sample day</button>
         <button class="btn" id="clear" data-i18n="clear">Clear</button>
@@ -168,6 +190,7 @@
 
   <script src="categories.js"></script>
   <script src="trail.js"></script>
+  <script src="import.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
