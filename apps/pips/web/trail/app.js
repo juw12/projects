@@ -19,6 +19,12 @@
       keyStraight: "straight = one app", keyKinks: "kinks = switching", keyLoops: "loops = distracting",
       top: "top: {app}", savedToast: "Saved", copied: "Image copied", clearConfirm: "Clear this day?",
       appPlaceholder: "App name",
+      autoTitle: "Automatic", autoHint: "no typing", autoGet: "Download Android app",
+      autoAndroid: "Android: get the app. It reads your screen time by itself and keeps a trail for every day.",
+      autoStep1: "Open the download and tap Install (allow installs from your browser once).",
+      autoStep2: "In Phone Trail tap Open settings and switch on Usage access.",
+      autoStep3: "Done: your trail fills in by itself. Tap an app to change its type.",
+      autoIos: "iPhone: Apple only gives Screen Time data to apps from the App Store or TestFlight, so here you copy your times from Settings > Screen Time > See All App & Website Activity.",
     },
     id: {
       title: "Jejak HP", subtitle: "Screen time HP kamu jadi rute", day: "Hari",
@@ -36,6 +42,12 @@
       keyStraight: "lurus = satu aplikasi", keyKinks: "tikungan = ganti", keyLoops: "putaran = mengganggu",
       top: "top: {app}", savedToast: "Tersimpan", copied: "Gambar disalin", clearConfirm: "Hapus hari ini?",
       appPlaceholder: "Nama aplikasi",
+      autoTitle: "Otomatis", autoHint: "tanpa mengetik", autoGet: "Unduh aplikasi Android",
+      autoAndroid: "Android: pakai aplikasinya. Screen time kamu dibaca otomatis dan jejaknya tersimpan setiap hari.",
+      autoStep1: "Buka file unduhan lalu ketuk Instal (izinkan instalasi dari browser sekali saja).",
+      autoStep2: "Di Phone Trail ketuk Buka pengaturan lalu aktifkan Akses penggunaan.",
+      autoStep3: "Selesai: jejak kamu terisi sendiri. Ketuk aplikasi untuk mengganti jenisnya.",
+      autoIos: "iPhone: Apple hanya memberi data Screen Time ke aplikasi dari App Store atau TestFlight, jadi di sini salin waktumu dari Pengaturan > Durasi Layar > Lihat Semua Aktivitas App & Situs Web.",
     },
     zh_TW: {
       title: "手機軌跡", subtitle: "把手機螢幕使用時間畫成路線", day: "日期",
@@ -53,6 +65,12 @@
       keyStraight: "直線 = 同一個 App", keyKinks: "轉折 = 切換", keyLoops: "繞圈 = 分心",
       top: "最多：{app}", savedToast: "已儲存", copied: "已複製圖片", clearConfirm: "清除這一天？",
       appPlaceholder: "App 名稱",
+      autoTitle: "自動", autoHint: "免輸入", autoGet: "下載 Android App",
+      autoAndroid: "Android：安裝 App，自動讀取螢幕使用時間，每天都會留下軌跡。",
+      autoStep1: "開啟下載的檔案並點「安裝」（第一次需允許從瀏覽器安裝）。",
+      autoStep2: "在 Phone Trail 點「開啟設定」，開啟「使用情形存取權」。",
+      autoStep3: "完成：軌跡會自動產生。點 App 可以切換類型。",
+      autoIos: "iPhone：Apple 只把螢幕使用時間資料提供給 App Store 或 TestFlight 的 App，所以請從「設定 > 螢幕使用時間 > 查看所有 App 與網站活動」抄下時間。",
     },
     zh_CN: {
       title: "手机轨迹", subtitle: "把手机屏幕使用时间画成路线", day: "日期",
@@ -70,6 +88,12 @@
       keyStraight: "直线 = 同一个 App", keyKinks: "转折 = 切换", keyLoops: "绕圈 = 分心",
       top: "最多：{app}", savedToast: "已保存", copied: "已复制图片", clearConfirm: "清除这一天？",
       appPlaceholder: "App 名称",
+      autoTitle: "自动", autoHint: "免输入", autoGet: "下载 Android App",
+      autoAndroid: "Android：安装 App，自动读取屏幕使用时间，每天都会留下轨迹。",
+      autoStep1: "打开下载的文件并点“安装”（第一次需允许从浏览器安装）。",
+      autoStep2: "在 Phone Trail 点“打开设置”，开启“使用情况访问权限”。",
+      autoStep3: "完成：轨迹会自动生成。点 App 可以切换类型。",
+      autoIos: "iPhone：Apple 只把屏幕使用时间数据提供给 App Store 或 TestFlight 的 App，所以请从“设置 > 屏幕使用时间 > 查看所有 App 与网站活动”抄下时间。",
     },
   };
 
@@ -336,7 +360,22 @@
     toast(t("savedToast"));
   }
 
+  function detectPlatform() {
+    const ua = navigator.userAgent || "";
+    if (/Android/i.test(ua)) {
+      return "android";
+    }
+    if (/iPhone|iPad|iPod/i.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1)) {
+      return "ios";
+    }
+    return "other";
+  }
+
   function init() {
+    const platform = detectPlatform();
+    if (platform !== "other") {
+      document.body.classList.add("is-" + platform);
+    }
     applyLanguage();
     document.documentElement.style.setProperty("--accent", prefs.accent);
     document.documentElement.style.setProperty("--prod", prefs.accent);

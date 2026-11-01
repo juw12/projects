@@ -4,7 +4,7 @@
  * deletes every other "pips-*" cache. Only our own "phonetrail-*" caches are cleaned here.
  */
 const PREFIX = "phonetrail-";
-const VERSION = PREFIX + "v2";
+const VERSION = PREFIX + "v3";
 const FILES = [
   "./",
   "index.html",
@@ -39,6 +39,10 @@ self.addEventListener("fetch", (event) => {
   const scope = new URL(self.registration.scope);
   const url = new URL(event.request.url);
   if (url.origin !== scope.origin || !url.pathname.startsWith(scope.pathname)) {
+    return;
+  }
+  // The Android app download always comes straight from the server (never cached).
+  if (url.pathname.startsWith(scope.pathname + "download/")) {
     return;
   }
   event.respondWith(

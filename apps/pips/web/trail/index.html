@@ -70,6 +70,12 @@
     .toast { position: fixed; left: 50%; bottom: 96px; transform: translateX(-50%); background: #000c; color: #fff;
       padding: 8px 14px; border-radius: 999px; font-size: 14px; opacity: 0; transition: opacity .2s; pointer-events: none; }
     .toast.show { opacity: 1; }
+    .auto-text { margin: 0 0 10px; font-size: 14px; color: var(--ink); }
+    .auto .btn.auto-get { display: inline-block; text-decoration: none; text-align: center; width: 100%; }
+    .auto-steps { margin: 10px 0 0; }
+    .auto-ios { color: var(--muted); font-size: 13px; margin: 10px 0 0; }
+    body.is-android .auto-ios, body.is-ios .auto-android { display: none; }
+    body.is-ios .auto-ios { color: var(--ink); margin: 0; }
   </style>
 </head>
 <body>
@@ -88,6 +94,20 @@
   </header>
 
   <main>
+    <section class="card auto" id="auto">
+      <h2><span data-i18n="autoTitle">Automatic</span><span class="hint" data-i18n="autoHint">no typing</span></h2>
+      <div class="auto-android">
+        <p class="auto-text" data-i18n="autoAndroid">Android: get the app. It reads your screen time by itself and keeps a trail for every day.</p>
+        <a class="btn primary auto-get" href="download/PipsPhoneTrail.apk" download data-i18n="autoGet">Download Android app</a>
+        <ol class="how auto-steps">
+          <li data-i18n="autoStep1">Open the download and tap Install (allow installs from your browser once).</li>
+          <li data-i18n="autoStep2">In Phone Trail tap Open settings and switch on Usage access.</li>
+          <li data-i18n="autoStep3">Done: your trail fills in by itself. Tap an app to change its type.</li>
+        </ol>
+      </div>
+      <p class="auto-text auto-ios" data-i18n="autoIos">iPhone: Apple only gives Screen Time data to apps from the App Store or TestFlight, so here you copy your times from Settings &gt; Screen Time &gt; See All App &amp; Website Activity.</p>
+    </section>
+
     <section class="card">
       <h2><span data-i18n="day">Day</span><span class="hint" data-i18n="saved">saved on this phone</span></h2>
       <div class="row">
