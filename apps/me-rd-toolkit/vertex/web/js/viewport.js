@@ -15,6 +15,8 @@
  *   play() / pause()
  *   render()
  *   exportPNG() -> dataURL
+ *   setThemeRoot(el)  // read data-theme off el (a shadow host) instead of <html>
+ *   destroy()         // remove this instance's window + canvas listeners
  */
 (function() {
   'use strict';
@@ -28,11 +30,12 @@
     crop: true
   };
   
-  /* Theme-aware colors - read from CSS or compute */
-  function getThemeColors() {
+  /* Theme-aware colors. `rootEl` lets an embedded viewport read data-theme off
+     the shadow host instead of <html>. */
+  function getThemeColors(rootEl) {
     var isDark = true;
     if (typeof document !== 'undefined') {
-      var html = document.documentElement;
+      var html = rootEl || document.documentElement;
       var dataTheme = html.getAttribute('data-theme');
       if (dataTheme === 'light') {
         isDark = false;
@@ -160,7 +163,10 @@
     
     /* Device pixel ratio */
     this.dpr = window.devicePixelRatio || 1;
-    
+
+    this.themeRoot = null;
+    this._colors = null;
+
     this._setupCanvas();
     this._setupInteraction();
     this.render();
@@ -178,36 +184,49 @@
 
   VertexView.prototype._setupInteraction = function() {
     var self = this;
-    
-    this.canvas.addEventListener('mousedown', function(e) {
+
+    this._onMouseDown = function(e) {
       self.isDragging = true;
       self.lastMouseX = e.clientX;
       self.lastMouseY = e.clientY;
-    });
-    
-    window.addEventListener('mousemove', function(e) {
+    };
+    this._onMouseMove = function(e) {
       if (!self.isDragging) return;
       var dx = e.clientX - self.lastMouseX;
       var dy = e.clientY - self.lastMouseY;
       self.orbit(dx, dy);
       self.lastMouseX = e.clientX;
       self.lastMouseY = e.clientY;
-    });
-    
-    window.addEventListener('mouseup', function() {
+    };
+    this._onMouseUp = function() {
       self.isDragging = false;
-    });
-    
-    this.canvas.addEventListener('wheel', function(e) {
+    };
+    this._onWheel = function(e) {
       e.preventDefault();
       var delta = e.deltaY > 0 ? 0.9 : 1.1;
       self.zoom(delta);
-    }, { passive: false });
-    
-    window.addEventListener('resize', function() {
+    };
+    this._onResize = function() {
       self._setupCanvas();
       self.render();
-    });
+    };
+
+    this.canvas.addEventListener('mousedown', this._onMouseDown);
+    window.addEventListener('mousemove', this._onMouseMove);
+    window.addEventListener('mouseup', this._onMouseUp);
+    this.canvas.addEventListener('wheel', this._onWheel, { passive: false });
+    window.addEventListener('resize', this._onResize);
+  };
+
+  VertexView.prototype.destroy = function() {
+    this.pause();
+    if (this._onMouseDown) this.canvas.removeEventListener('mousedown', this._onMouseDown);
+    if (this._onMouseMove) window.removeEventListener('mousemove', this._onMouseMove);
+    if (this._onMouseUp) window.removeEventListener('mouseup', this._onMouseUp);
+    if (this._onWheel) this.canvas.removeEventListener('wheel', this._onWheel);
+    if (this._onResize) window.removeEventListener('resize', this._onResize);
+    this._onMouseDown = this._onMouseMove = this._onMouseUp = this._onWheel = this._onResize = null;
+    this.isDragging = false;
   };
 
   /* === Public API === */
@@ -275,6 +294,11 @@
 
   VertexView.prototype.setOptions = function(opts) {
     this.options = Object.assign({}, this.options, opts);
+    this.render();
+  };
+
+  VertexView.prototype.setThemeRoot = function(rootEl) {
+    this.themeRoot = rootEl;
     this.render();
   };
 
@@ -353,8 +377,9 @@
     var h = this.height;
     
     /* Get theme colors */
-    var colors = getThemeColors();
-    
+    var colors = getThemeColors(this.themeRoot);
+    this._colors = colors;
+
     /* Clear with theme-aware background */
     ctx.fillStyle = colors.bg;
     ctx.fillRect(0, 0, w, h);
@@ -385,7 +410,7 @@
 
   /* === Drawing Helpers === */
   VertexView.prototype._drawGrid = function(ctx, w, h, viewMatrix) {
-    var colors = getThemeColors();
+    var colors = this._colors;
     ctx.strokeStyle = colors.grid;
     ctx.lineWidth = 1;
     ctx.beginPath();
@@ -421,7 +446,7 @@
   VertexView.prototype._drawMesh = function(ctx, w, h, viewMatrix) {
     var self = this;
     var parts = this.mesh.parts || [];
-    var colors = getThemeColors();
+    var colors = this._colors;
     
     /* Get motion transform if sim is active */
     var motionTransforms = {};
@@ -496,7 +521,7 @@
 
     /* Draw holes (subtractive features) in a distinct muted-blue stroke */
     if (self.options.showHoles && self.mesh && self.mesh.holes) {
-      var colors = getThemeColors();
+      var colors = this._colors;
       self.mesh.holes.forEach(function(hole) {
         var hv = hole.vertices || [];
         var ht = hole.triangles || [];
@@ -545,7 +570,7 @@
     
     if (!p1 || !p2) return;
     
-    var colors = getThemeColors();
+    var colors = this._colors;
     ctx.strokeStyle = colors.accent;
     ctx.fillStyle = colors.accent;
     ctx.lineWidth = 1;
@@ -582,7 +607,7 @@
   VertexView.prototype._drawCropMarks = function(ctx, w, h) {
     var margin = 20;
     var length = 15;
-    var colors = getThemeColors();
+    var colors = this._colors;
     
     ctx.strokeStyle = colors.accent;
     ctx.lineWidth = 2;

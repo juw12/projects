@@ -3,8 +3,28 @@
  * Wires engine + viewport + controls
  * No inline handlers - addEventListener only
  */
-(function() {
+function createVertexApp(doc, win, opts) {
   'use strict';
+
+  opts = opts || {};
+  var EMBEDDED = !!opts.embedded;
+  var API_BASE = opts.apiBase == null ? '' : opts.apiBase;
+
+  /* Page-level listeners are tracked so stop() can remove them; element-level
+     listeners die with the shadow root. */
+  var pageListeners = [];
+  function on(target, type, handler, options) {
+    target.addEventListener(type, handler, options);
+    pageListeners.push({ target: target, type: type, handler: handler, options: options });
+  }
+  function offAll() {
+    for (var i = 0; i < pageListeners.length; i++) {
+      try { pageListeners[i].target.removeEventListener(pageListeners[i].type, pageListeners[i].handler, pageListeners[i].options); } catch (e) { /* noop */ }
+    }
+    pageListeners.length = 0;
+  }
+  /* Configurable API base; empty string keeps same-origin relative resolution. */
+  function api(path) { return API_BASE + path; }
 
   /* === State === */
   var currentReport = null;
@@ -24,153 +44,153 @@
   var simulateView = null;
 
   /* === DOM Elements - Tabs (8 tabs) === */
-  var tabRepair = document.getElementById('tab-repair');
-  var tabAssembly = document.getElementById('tab-assembly');
-  var tabBuild = document.getElementById('tab-build');
-  var tabSimulate = document.getElementById('tab-simulate');
-  var tabAnswers = document.getElementById('tab-answers');
-  var tabReverse = document.getElementById('tab-reverse');
-  var tabDrawing = document.getElementById('tab-drawing');
-  var tabAutomation = document.getElementById('tab-automation');
-  var repairPanel = document.getElementById('repair-panel');
-  var assemblyPanel = document.getElementById('assembly-panel');
-  var buildPanel = document.getElementById('build-panel');
-  var simulatePanel = document.getElementById('simulate-panel');
-  var answersPanel = document.getElementById('answers-panel');
-  var reversePanel = document.getElementById('reverse-panel');
-  var drawingPanel = document.getElementById('drawing-panel');
-  var automationPanel = document.getElementById('automation-panel');
+  var tabRepair = doc.getElementById('tab-repair');
+  var tabAssembly = doc.getElementById('tab-assembly');
+  var tabBuild = doc.getElementById('tab-build');
+  var tabSimulate = doc.getElementById('tab-simulate');
+  var tabAnswers = doc.getElementById('tab-answers');
+  var tabReverse = doc.getElementById('tab-reverse');
+  var tabDrawing = doc.getElementById('tab-drawing');
+  var tabAutomation = doc.getElementById('tab-automation');
+  var repairPanel = doc.getElementById('repair-panel');
+  var assemblyPanel = doc.getElementById('assembly-panel');
+  var buildPanel = doc.getElementById('build-panel');
+  var simulatePanel = doc.getElementById('simulate-panel');
+  var answersPanel = doc.getElementById('answers-panel');
+  var reversePanel = doc.getElementById('reverse-panel');
+  var drawingPanel = doc.getElementById('drawing-panel');
+  var automationPanel = doc.getElementById('automation-panel');
 
   /* === DOM Elements - Repair === */
-  var btnLoadSample = document.getElementById('btn-load-sample');
-  var btnPasteJson = document.getElementById('btn-paste-json');
-  var fileInputReport = document.getElementById('file-input-report');
-  var modalPasteReport = document.getElementById('modal-paste-report');
-  var pasteReportJson = document.getElementById('paste-report-json');
-  var btnCancelPasteReport = document.getElementById('btn-cancel-paste-report');
-  var btnSubmitPasteReport = document.getElementById('btn-submit-paste-report');
-  var diagnosisContent = document.getElementById('diagnosis-content');
-  var repairPlanContent = document.getElementById('repair-plan-content');
-  var btnDryRun = document.getElementById('btn-dry-run');
-  var dryRunResults = document.getElementById('dry-run-results');
-  var chkConfirmRepair = document.getElementById('chk-confirm-repair');
-  var btnApplyRepair = document.getElementById('btn-apply-repair');
+  var btnLoadSample = doc.getElementById('btn-load-sample');
+  var btnPasteJson = doc.getElementById('btn-paste-json');
+  var fileInputReport = doc.getElementById('file-input-report');
+  var modalPasteReport = doc.getElementById('modal-paste-report');
+  var pasteReportJson = doc.getElementById('paste-report-json');
+  var btnCancelPasteReport = doc.getElementById('btn-cancel-paste-report');
+  var btnSubmitPasteReport = doc.getElementById('btn-submit-paste-report');
+  var diagnosisContent = doc.getElementById('diagnosis-content');
+  var repairPlanContent = doc.getElementById('repair-plan-content');
+  var btnDryRun = doc.getElementById('btn-dry-run');
+  var dryRunResults = doc.getElementById('dry-run-results');
+  var chkConfirmRepair = doc.getElementById('chk-confirm-repair');
+  var btnApplyRepair = doc.getElementById('btn-apply-repair');
 
   /* === DOM Elements - Assembly === */
-  var btnLoadAssemblySample = document.getElementById('btn-load-assembly-sample');
-  var btnPasteAssemblyJson = document.getElementById('btn-paste-assembly-json');
-  var fileInputAssembly = document.getElementById('file-input-assembly');
-  var modalPasteAssembly = document.getElementById('modal-paste-assembly');
-  var pasteAssemblyJson = document.getElementById('paste-assembly-json');
-  var btnCancelPasteAssembly = document.getElementById('btn-cancel-paste-assembly');
-  var btnSubmitPasteAssembly = document.getElementById('btn-submit-paste-assembly');
-  var assemblyPlanContent = document.getElementById('assembly-plan-content');
-  var assemblyChecksContent = document.getElementById('assembly-checks-content');
-  var btnDryRunAssembly = document.getElementById('btn-dry-run-assembly');
-  var dryRunResultsAssembly = document.getElementById('dry-run-results-assembly');
-  var chkConfirmAssembly = document.getElementById('chk-confirm-assembly');
-  var btnApplyAssembly = document.getElementById('btn-apply-assembly');
+  var btnLoadAssemblySample = doc.getElementById('btn-load-assembly-sample');
+  var btnPasteAssemblyJson = doc.getElementById('btn-paste-assembly-json');
+  var fileInputAssembly = doc.getElementById('file-input-assembly');
+  var modalPasteAssembly = doc.getElementById('modal-paste-assembly');
+  var pasteAssemblyJson = doc.getElementById('paste-assembly-json');
+  var btnCancelPasteAssembly = doc.getElementById('btn-cancel-paste-assembly');
+  var btnSubmitPasteAssembly = doc.getElementById('btn-submit-paste-assembly');
+  var assemblyPlanContent = doc.getElementById('assembly-plan-content');
+  var assemblyChecksContent = doc.getElementById('assembly-checks-content');
+  var btnDryRunAssembly = doc.getElementById('btn-dry-run-assembly');
+  var dryRunResultsAssembly = doc.getElementById('dry-run-results-assembly');
+  var chkConfirmAssembly = doc.getElementById('chk-confirm-assembly');
+  var btnApplyAssembly = doc.getElementById('btn-apply-assembly');
 
   /* === DOM Elements - Build === */
-  var btnLoadBuildPreset = document.getElementById('btn-load-build-preset');
-  var buildParamsContent = document.getElementById('build-params-content');
-  var buildNameInput = document.getElementById('build-name');
-  var buildLengthInput = document.getElementById('build-length');
-  var buildWidthInput = document.getElementById('build-width');
-  var buildThicknessInput = document.getElementById('build-thickness');
-  var buildBoreInput = document.getElementById('build-bore');
-  var buildMaterialSelect = document.getElementById('build-material');
-  var btnExportStl = document.getElementById('btn-export-stl');
-  var btnExportObj = document.getElementById('btn-export-obj');
-  var btnExportGltf = document.getElementById('btn-export-gltf');
-  var btnExport3mf = document.getElementById('btn-export-3mf');
-  var btnExportDxf = document.getElementById('btn-export-dxf');
-  var btnBuildPreview = document.getElementById('btn-build-preview');
-  var buildResults = document.getElementById('build-results');
-  var chkConfirmBuild = document.getElementById('chk-confirm-build');
-  var btnExportBuild = document.getElementById('btn-export-build');
+  var btnLoadBuildPreset = doc.getElementById('btn-load-build-preset');
+  var buildParamsContent = doc.getElementById('build-params-content');
+  var buildNameInput = doc.getElementById('build-name');
+  var buildLengthInput = doc.getElementById('build-length');
+  var buildWidthInput = doc.getElementById('build-width');
+  var buildThicknessInput = doc.getElementById('build-thickness');
+  var buildBoreInput = doc.getElementById('build-bore');
+  var buildMaterialSelect = doc.getElementById('build-material');
+  var btnExportStl = doc.getElementById('btn-export-stl');
+  var btnExportObj = doc.getElementById('btn-export-obj');
+  var btnExportGltf = doc.getElementById('btn-export-gltf');
+  var btnExport3mf = doc.getElementById('btn-export-3mf');
+  var btnExportDxf = doc.getElementById('btn-export-dxf');
+  var btnBuildPreview = doc.getElementById('btn-build-preview');
+  var buildResults = doc.getElementById('build-results');
+  var chkConfirmBuild = doc.getElementById('chk-confirm-build');
+  var btnExportBuild = doc.getElementById('btn-export-build');
 
   /* === DOM Elements - Simulate === */
-  var btnLoadSimSample = document.getElementById('btn-load-sim-sample');
-  var simulateResultsContent = document.getElementById('simulate-results-content');
-  var massCard = document.getElementById('mass-card');
-  var massVolume = document.getElementById('mass-volume');
-  var massMass = document.getElementById('mass-mass');
-  var massDensity = document.getElementById('mass-density');
-  var massParts = document.getElementById('mass-parts');
-  var clearanceTableContainer = document.getElementById('clearance-table-container');
-  var clearanceTableBody = document.getElementById('clearance-table-body');
-  var motionScrubber = document.getElementById('motion-scrubber');
-  var simPlayPauseBtn = document.getElementById('sim-play-pause');
-  var simScrubberTrack = document.getElementById('sim-scrubber-track');
-  var simScrubberFill = document.getElementById('sim-scrubber-fill');
-  var simScrubberThumb = document.getElementById('sim-scrubber-thumb');
-  var simTimeDisplay = document.getElementById('sim-time-display');
-  var btnRunSimulation = document.getElementById('btn-run-simulation');
-  var simulateResults = document.getElementById('simulate-results');
+  var btnLoadSimSample = doc.getElementById('btn-load-sim-sample');
+  var simulateResultsContent = doc.getElementById('simulate-results-content');
+  var massCard = doc.getElementById('mass-card');
+  var massVolume = doc.getElementById('mass-volume');
+  var massMass = doc.getElementById('mass-mass');
+  var massDensity = doc.getElementById('mass-density');
+  var massParts = doc.getElementById('mass-parts');
+  var clearanceTableContainer = doc.getElementById('clearance-table-container');
+  var clearanceTableBody = doc.getElementById('clearance-table-body');
+  var motionScrubber = doc.getElementById('motion-scrubber');
+  var simPlayPauseBtn = doc.getElementById('sim-play-pause');
+  var simScrubberTrack = doc.getElementById('sim-scrubber-track');
+  var simScrubberFill = doc.getElementById('sim-scrubber-fill');
+  var simScrubberThumb = doc.getElementById('sim-scrubber-thumb');
+  var simTimeDisplay = doc.getElementById('sim-time-display');
+  var btnRunSimulation = doc.getElementById('btn-run-simulation');
+  var simulateResults = doc.getElementById('simulate-results');
 
   /* === DOM Elements - Answers === */
-  var answersQuestion = document.getElementById('answers-question');
-  var btnAnswersAsk = document.getElementById('btn-answers-ask');
-  var answersAnswerCard = document.getElementById('answers-answer-card');
-  var answerKindBadge = document.getElementById('answer-kind-badge');
-  var answerText = document.getElementById('answer-text');
-  var answerEvidence = document.getElementById('answer-evidence');
-  var answersPlaceholder = document.getElementById('answers-placeholder');
+  var answersQuestion = doc.getElementById('answers-question');
+  var btnAnswersAsk = doc.getElementById('btn-answers-ask');
+  var answersAnswerCard = doc.getElementById('answers-answer-card');
+  var answerKindBadge = doc.getElementById('answer-kind-badge');
+  var answerText = doc.getElementById('answer-text');
+  var answerEvidence = doc.getElementById('answer-evidence');
+  var answersPlaceholder = doc.getElementById('answers-placeholder');
 
   /* === DOM Elements - Reverse === */
-  var btnLoadScanSample = document.getElementById('btn-load-scan-sample');
-  var reversePointsJson = document.getElementById('reverse-points-json');
-  var btnReverseFit = document.getElementById('btn-reverse-fit');
-  var reverseResults = document.getElementById('reverse-results');
-  var btnReverseOpenBuild = document.getElementById('btn-reverse-open-build');
+  var btnLoadScanSample = doc.getElementById('btn-load-scan-sample');
+  var reversePointsJson = doc.getElementById('reverse-points-json');
+  var btnReverseFit = doc.getElementById('btn-reverse-fit');
+  var reverseResults = doc.getElementById('reverse-results');
+  var btnReverseOpenBuild = doc.getElementById('btn-reverse-open-build');
   var reverseView = null;
 
   /* === DOM Elements - Drawing === */
-  var drawingTitle = document.getElementById('drawing-title');
-  var drawingExtentsL = document.getElementById('drawing-extents-l');
-  var drawingExtentsW = document.getElementById('drawing-extents-w');
-  var drawingExtentsT = document.getElementById('drawing-extents-t');
-  var drawingHolesJson = document.getElementById('drawing-holes-json');
-  var btnDrawingGenerate = document.getElementById('btn-drawing-generate');
-  var drawingResults = document.getElementById('drawing-results');
-  var btnDrawingOpenBuild = document.getElementById('btn-drawing-open-build');
+  var drawingTitle = doc.getElementById('drawing-title');
+  var drawingExtentsL = doc.getElementById('drawing-extents-l');
+  var drawingExtentsW = doc.getElementById('drawing-extents-w');
+  var drawingExtentsT = doc.getElementById('drawing-extents-t');
+  var drawingHolesJson = doc.getElementById('drawing-holes-json');
+  var btnDrawingGenerate = doc.getElementById('btn-drawing-generate');
+  var drawingResults = doc.getElementById('drawing-results');
+  var btnDrawingOpenBuild = doc.getElementById('btn-drawing-open-build');
   var drawingView = null;
 
   /* === DOM Elements - Automation === */
-  var btnAddAutomationOp = document.getElementById('btn-add-automation-op');
-  var automationOpsEditor = document.getElementById('automation-ops-editor');
-  var automationPlanResults = document.getElementById('automation-plan-results');
-  var btnAutomationGenerate = document.getElementById('btn-automation-generate');
-  var automationSummary = document.getElementById('automation-summary');
-  var chkConfirmAutomation = document.getElementById('chk-confirm-automation');
-  var btnAutomationRun = document.getElementById('btn-automation-run');
+  var btnAddAutomationOp = doc.getElementById('btn-add-automation-op');
+  var automationOpsEditor = doc.getElementById('automation-ops-editor');
+  var automationPlanResults = doc.getElementById('automation-plan-results');
+  var btnAutomationGenerate = doc.getElementById('btn-automation-generate');
+  var automationSummary = doc.getElementById('automation-summary');
+  var chkConfirmAutomation = doc.getElementById('chk-confirm-automation');
+  var btnAutomationRun = doc.getElementById('btn-automation-run');
 
   /* === DOM Elements - Connector/Adapter Strip === */
-  var connectorStrip = document.getElementById('connector-strip');
-  var adaptersStrip = document.getElementById('adapters-strip');
-  var modeBadge = document.getElementById('mode-badge');
+  var connectorStrip = doc.getElementById('connector-strip');
+  var adaptersStrip = doc.getElementById('adapters-strip');
+  var modeBadge = doc.getElementById('mode-badge');
 
   /* === DOM Elements - Guide Overlay === */
-  var guideOverlay = document.getElementById('guide-overlay');
-  var guideBackdrop = document.getElementById('guide-backdrop');
-  var guideCloseBtn = document.getElementById('guide-close-btn');
-  var guideGotItBtn = document.getElementById('guide-got-it-btn');
-  var guideDontShowBtn = document.getElementById('guide-dont-show-btn');
-  var btnGuide = document.getElementById('btn-guide');
-  var btnHeroLearnMore = document.getElementById('btn-hero-learn-more');
+  var guideOverlay = doc.getElementById('guide-overlay');
+  var guideBackdrop = doc.getElementById('guide-backdrop');
+  var guideCloseBtn = doc.getElementById('guide-close-btn');
+  var guideGotItBtn = doc.getElementById('guide-got-it-btn');
+  var guideDontShowBtn = doc.getElementById('guide-dont-show-btn');
+  var btnGuide = doc.getElementById('btn-guide');
+  var btnHeroLearnMore = doc.getElementById('btn-hero-learn-more');
   var lastFocusedElement = null;
   var GUIDE_STORAGE_KEY = 'vertex.guide.v1';
 
   /* === Initialize Viewports === */
   function initViewports() {
-    var repairCanvas = document.getElementById('repair-viewport-canvas');
-    var assemblyCanvas = document.getElementById('assembly-viewport-canvas');
-    var buildCanvas = document.getElementById('build-viewport-canvas');
-    var simulateCanvas = document.getElementById('simulate-viewport-canvas');
-    var reverseCanvas = document.getElementById('reverse-viewport-canvas');
-    var drawingCanvas = document.getElementById('drawing-viewport-canvas');
-    var heroCanvas = document.getElementById('hero-viewport-canvas');
+    var repairCanvas = doc.getElementById('repair-viewport-canvas');
+    var assemblyCanvas = doc.getElementById('assembly-viewport-canvas');
+    var buildCanvas = doc.getElementById('build-viewport-canvas');
+    var simulateCanvas = doc.getElementById('simulate-viewport-canvas');
+    var reverseCanvas = doc.getElementById('reverse-viewport-canvas');
+    var drawingCanvas = doc.getElementById('drawing-viewport-canvas');
+    var heroCanvas = doc.getElementById('hero-viewport-canvas');
 
     if (repairCanvas && window.VertexView) {
       repairView = new window.VertexView(repairCanvas);
@@ -204,8 +224,10 @@
 
   function setupViewportControls(prefix, view) {
     if (!view) return;
-    var fitBtn = document.getElementById(prefix + '-view-fit');
-    var resetBtn = document.getElementById(prefix + '-view-reset');
+    /* (proxy) documentElement = shadow host when embedded, <html> when standalone */
+    if (view.setThemeRoot) view.setThemeRoot(doc.documentElement);
+    var fitBtn = doc.getElementById(prefix + '-view-fit');
+    var resetBtn = doc.getElementById(prefix + '-view-reset');
     if (fitBtn) {
       fitBtn.addEventListener('click', function() { view.fit(); });
     }
@@ -278,7 +300,7 @@
   /* === Connector/Adapter Status === */
   function fetchConnectorStatus() {
     /* Try to fetch adapters from server, fall back to Vertex.adapters() */
-    fetch('./api/adapters')
+    fetch(api('api/adapters'))
       .then(function(res) {
         if (!res.ok) throw new Error('Server unavailable');
         return res.json();
@@ -309,7 +331,7 @@
     if (!adaptersStrip) return;
     adaptersStrip.innerHTML = '';
     adapters.forEach(function(adapter) {
-      var chip = document.createElement('span');
+      var chip = doc.createElement('span');
       chip.className = 'adapter-chip ' + (adapter.available ? 'available' : 'unavailable');
       var formatsHtml = (adapter.formats || []).map(function(f) {
         return '<span class="format-chip">' + escapeHtml(f) + '</span>';
@@ -326,7 +348,7 @@
   if (btnLoadSample) {
     btnLoadSample.addEventListener('click', function() {
       if (isServerAvailable) {
-        fetch('./api/report/sample')
+        fetch(api('api/report/sample'))
           .then(function(res) {
             if (res.ok) return res.json();
             throw new Error('Server unavailable');
@@ -559,7 +581,7 @@
   if (btnLoadAssemblySample) {
     btnLoadAssemblySample.addEventListener('click', function() {
       if (isServerAvailable) {
-        fetch('./api/assembly/sample')
+        fetch(api('api/assembly/sample'))
           .then(function(res) {
             if (res.ok) return res.json();
             throw new Error('Server unavailable');
@@ -806,12 +828,12 @@
   function downloadFile(content, filename, mimeType) {
     var blob = new Blob([content], { type: mimeType });
     var url = URL.createObjectURL(blob);
-    var a = document.createElement('a');
+    var a = doc.createElement('a');
     a.href = url;
     a.download = filename;
-    document.body.appendChild(a);
+    doc.body.appendChild(a);
     a.click();
-    document.body.removeChild(a);
+    doc.body.removeChild(a);
     URL.revokeObjectURL(url);
   }
 
@@ -843,12 +865,12 @@
       /* For binary, create blob */
       var blob = new Blob([data], { type: 'application/vnd.ms-package.3dmanufacturing-3dmodel+xml' });
       var url = URL.createObjectURL(blob);
-      var a = document.createElement('a');
+      var a = doc.createElement('a');
       a.href = url;
       a.download = 'part.3mf';
-      document.body.appendChild(a);
+      doc.body.appendChild(a);
       a.click();
-      document.body.removeChild(a);
+      doc.body.removeChild(a);
       URL.revokeObjectURL(url);
     });
   }
@@ -935,7 +957,7 @@
       clearanceTableBody.innerHTML = '';
       if (sim.clearance && sim.clearance.length > 0) {
         sim.clearance.forEach(function(c) {
-          var row = document.createElement('tr');
+          var row = doc.createElement('tr');
           row.className = 'clearance-row ' + (c.verdict === 'clear' ? 'clear' : 'interfere');
           row.innerHTML = '<td>' + escapeHtml(c.a) + '</td>' +
             '<td>' + escapeHtml(c.b) + '</td>' +
@@ -1013,11 +1035,11 @@
         isDragging = true;
         updateFromMouse(e);
       });
-      window.addEventListener('mousemove', function(e) {
+      on(doc, 'mousemove', function(e) {
         if (!isDragging) return;
         updateFromMouse(e);
       });
-      window.addEventListener('mouseup', function() {
+      on(doc, 'mouseup', function() {
         isDragging = false;
       });
 
@@ -1081,7 +1103,7 @@
   }
   
   /* Answer chips */
-  document.addEventListener('click', function(e) {
+  on(doc, 'click', function(e) {
     if (e.target && e.target.classList.contains('answer-chip')) {
       var question = e.target.getAttribute('data-question');
       if (question && answersQuestion) {
@@ -1216,7 +1238,7 @@
     btnAddAutomationOp.addEventListener('click', function() {
       if (!automationOpsEditor) return;
       var idx = automationOpCount++;
-      var opRow = document.createElement('div');
+      var opRow = doc.createElement('div');
       opRow.className = 'automation-op-row';
       opRow.innerHTML = 
         '<select class="automation-op-type" data-op-index="' + idx + '">' +
@@ -1232,7 +1254,7 @@
   }
   
   /* Remove op row */
-  document.addEventListener('click', function(e) {
+  on(doc, 'click', function(e) {
     if (e.target && e.target.classList.contains('automation-op-remove')) {
       var row = e.target.closest('.automation-op-row');
       if (row && automationOpsEditor) automationOpsEditor.removeChild(row);
@@ -1330,13 +1352,13 @@
   }
   
   /* Hero CTA buttons */
-  var btnHeroGetStarted = document.getElementById('btn-hero-get-started');
-  var btnHeroLearnMore = document.getElementById('btn-hero-learn-more');
+  var btnHeroGetStarted = doc.getElementById('btn-hero-get-started');
+  var btnHeroLearnMore = doc.getElementById('btn-hero-learn-more');
   
   if (btnHeroGetStarted) {
     btnHeroGetStarted.addEventListener('click', function() {
       /* Scroll to workspace */
-      var mainContent = document.querySelector('.main-content');
+      var mainContent = doc.querySelector('.main-content');
       if (mainContent) mainContent.scrollIntoView({ behavior: 'smooth' });
     });
   }
@@ -1351,8 +1373,8 @@
   /* === Theme Toggle === */
   var THEME_STORAGE_KEY = 'vertex.theme';
   var THEME_STATES = ['system', 'light', 'dark'];
-  var btnThemeToggle = document.getElementById('btn-theme-toggle');
-  var themeToggleLabel = document.getElementById('theme-toggle-label');
+  var btnThemeToggle = doc.getElementById('btn-theme-toggle');
+  var themeToggleLabel = doc.getElementById('theme-toggle-label');
   
   function getThemeState() {
     return localStorage.getItem(THEME_STORAGE_KEY) || 'light';
@@ -1361,15 +1383,15 @@
   function setThemeState(state) {
     if (state === 'system') {
       localStorage.setItem(THEME_STORAGE_KEY, 'system');
-      document.documentElement.removeAttribute('data-theme');
+      doc.documentElement.removeAttribute('data-theme');
       /* Check system preference */
       var isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
       if (isDark) {
-        document.documentElement.setAttribute('data-theme', 'dark');
+        doc.documentElement.setAttribute('data-theme', 'dark');
       }
     } else {
       localStorage.setItem(THEME_STORAGE_KEY, state);
-      document.documentElement.setAttribute('data-theme', state);
+      doc.documentElement.setAttribute('data-theme', state);
     }
     updateThemeColorMeta();
     updateThemeToggleButton();
@@ -1377,7 +1399,7 @@
   }
   
   function updateThemeColorMeta() {
-    var meta = document.getElementById('theme-color-meta');
+    var meta = doc.getElementById('theme-color-meta');
     if (!meta) return;
     var state = getThemeState();
     var isDark;
@@ -1392,7 +1414,7 @@
   function updateThemeToggleButton() {
     if (!btnThemeToggle) return;
     var state = getThemeState();
-    var labelEl = document.getElementById('theme-toggle-label');
+    var labelEl = doc.getElementById('theme-toggle-label');
     var displayState = state.charAt(0).toUpperCase() + state.slice(1);
     btnThemeToggle.setAttribute('title', 'Theme: ' + displayState);
     btnThemeToggle.setAttribute('aria-label', 'Toggle theme (System/Light/Dark), current: ' + displayState);
@@ -1444,11 +1466,11 @@
     if (!guideOverlay) return;
     
     /* Store currently focused element for restoration */
-    lastFocusedElement = document.activeElement;
+    lastFocusedElement = doc.activeElement;
     
     /* Show the guide */
     guideOverlay.removeAttribute('hidden');
-    document.body.style.overflow = 'hidden';
+    doc.body.style.overflow = 'hidden';
     
     /* Focus the close button for accessibility */
     if (guideCloseBtn) {
@@ -1460,7 +1482,7 @@
     if (!guideOverlay) return;
     
     guideOverlay.setAttribute('hidden', '');
-    document.body.style.overflow = '';
+    doc.body.style.overflow = '';
     
     /* Restore focus to previously focused element */
     if (lastFocusedElement && typeof lastFocusedElement.focus === 'function') {
@@ -1524,7 +1546,7 @@
   }
 
   /* ESC key closes guide */
-  document.addEventListener('keydown', function(e) {
+  on(doc, 'keydown', function(e) {
     if (e.key === 'Escape' && guideOverlay && !guideOverlay.hasAttribute('hidden')) {
       closeGuide();
     }
@@ -1541,16 +1563,17 @@
       .replace(/'/g, '&#39;');
   }
 
-  /* === Initialize === */
-  document.addEventListener('DOMContentLoaded', function() {
+  /* === Lifecycle === */
+  function init() {
     /* Initialize viewports */
     initViewports();
 
     /* Fetch connector/adapter status */
     fetchConnectorStatus();
 
-    /* Register service worker (skip when embedded in ME R&D Toolkit to avoid nested SW conflict) */
-    if ('serviceWorker' in navigator && !document.documentElement.classList.contains('merd-embed')) {
+    /* Service worker is a standalone-page concern; skip it in the embedded mount
+       to avoid a nested-SW conflict with the host page. */
+    if (!EMBEDDED && 'serviceWorker' in navigator && !doc.documentElement.classList.contains('merd-embed')) {
       navigator.serviceWorker.register('./sw.js')
         .then(function(reg) {
           console.log('SW registered:', reg.scope);
@@ -1562,6 +1585,35 @@
 
     /* Show guide on first visit */
     showGuideIfNeeded();
-  });
+  }
 
-})();
+  function stop() {
+    offAll();
+    var views = [repairView, assemblyView, buildView, simulateView, reverseView, drawingView];
+    views.forEach(function(v) {
+      if (v && typeof v.destroy === 'function') v.destroy();
+    });
+    repairView = assemblyView = buildView = simulateView = reverseView = drawingView = null;
+  }
+
+  function start() {
+    /* The embedded mount injects the markup before calling start(), so init can
+       run immediately. The standalone page still boots off DOMContentLoaded. */
+    if (EMBEDDED) {
+      init();
+    } else if (doc.readyState === 'loading') {
+      doc.addEventListener('DOMContentLoaded', init);
+    } else {
+      init();
+    }
+  }
+
+  return { start: start, stop: stop, isEmbedded: EMBEDDED };
+}
+
+if (typeof window !== 'undefined') {
+  window.VertexApp = createVertexApp;
+}
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = createVertexApp;
+}

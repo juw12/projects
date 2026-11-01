@@ -251,6 +251,7 @@ mark { background: #fde68a; color: #111; padding: 0 1px; border-radius: 2px; }
 /* ---------- sub-app iframe ---------- */
 .app-frame { width: 100%; height: calc(100vh - 158px); min-height: 420px; border: 0; border-radius: var(--radius); background: var(--panel); display: block; }
 .subapp-note { margin: 6px 0 10px; font-size: 12px; color: var(--muted); }
+.subapp-host { height: calc(100vh - 158px); min-height: 560px; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: var(--panel); }
 
 /* ---------- mobile ---------- */
 @media (max-width: 900px) {
