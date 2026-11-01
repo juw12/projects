@@ -9,7 +9,7 @@ is required to use the installed app or its hardware-free demo.
 ## Downloads
 
 Windows x64 releases are published under the app-specific tag
-`airiz-desktop-v1.11.22` in this repository's Releases section.
+`airiz-desktop-v1.11.23` in this repository's Releases section.
 
 - **Installer**: assisted, per-user installation with Start-menu/desktop shortcuts
   and an uninstaller. The wizard lets the user choose the installation directory.
@@ -164,6 +164,11 @@ No pairing is accepted without confirmation and no motor command is sent.
 Another program on the PC still cannot open COM4 while this app holds it: that is
 a Windows serial-port rule, which is why the check runs inside the app.
 
+## 1.11.23: Camera tab layout and history put right
+
+* **Restored the 1.11.20 Camera tab.** The 1.11.21 merge had put back the pre-1.11.20 `index.html` blocks: Motor speed is again in the Position group (`#ptz-speed-row`), `#ptz-height-reference` and `#ptz-calibration` are hidden again, and the wobble test note and guide text match the 1.11.20 behaviour. The 1.11.21 camera night-vision rows are kept. `wobble.js`, `ptz.js` and `main.cjs` were never affected.
+* **History of the app.** One newest-first list: the missing 1.11.20 entry is back, 1.11.22 is added, 1.11.21 is rewritten in plain words, and the early milestones sit at the end. zh-TW / zh-CN strings added for these entries, the 1.11.18 / 1.11.19 entries and the 1.11.21 night-vision labels.
+
 ## 1.11.22: Safe auto-update (opt-in)
 
 * **Opt-in auto-update.** Updates dialog → *Auto-update* (off by default, stored in `preferences.json` in the app's user-data folder). New releases download by themselves; the install waits until the console has been untouched for 5 minutes (no command, click, key or held button; no macro, recording, camera session, device audio transfer or voice message). `AirizConsole.getStatus().idleMs` reports the idle time; an unknown idle time counts as busy.
@@ -177,9 +182,8 @@ a Windows serial-port rule, which is why the check runs inside the app.
 * **Auto night vision now uses the camera too.** The existing `diag als value` path stays (15 s tick, hysteresis with `darkBelow` / `brightAbove` in lux). Added in `web/ptz-core.js`: `meanLuminance(gray)`, `cameraDarknessDecision(mean, currentMode, thresholds)` (thresholds in 0..255 luminance units), and `combinedNightDecision({number}, {mean}, currentMode, thresholds)` which says **night** when either source says dark and only switches back to **day** when both say bright — so a covered ALS or a covered lens no longer freezes the wrong mode. `web/ptz.js`: new `cameraNightSample()` runs on the **main thread** every ~700 ms (the camera path cannot live inside the worker that owns `analyse()`, which has no DOM / `api.sendCommand`); a 6-sample rolling buffer smooths the camera mean; new `store.night.camera` flag (default on) plus `cameraDarkBelow: 22` / `cameraBrightAbove: 60` thresholds persisted in `airiz.ptz.v1` and tunable in the UI (Night vision &amp; siren → "Also use the camera picture" + Camera night below / Camera day above). Status line now shows both readings: `ALS 12 · cam 18 · Night (IR)`.
 * **Tests.** `desktop/tests/ptz-core.test.cjs` +12 assertions covering `meanLuminance`, `cameraDarknessDecision`, and `combinedNightDecision` (ALS wins, camera wins, both-day, ALS-only-day, camera-only-day, both-in-band → null). New `desktop/tests/ptz-go-home.test.cjs` locks the click + Home-key wiring so it cannot silently regress. All existing tests still pass (`ptz-alerts`, `ptz-hold`, `test_console_ui`).
 
-## 1.11.20: Wobble test fixes
-
-The wobble test starts with the rise when the head is already down (after a test or with the bottom switch pressed); the camera frame check counts from the first frame and keeps the window at full speed during the test; height reference and calibration are hidden (motor speed moved to Position); the console window always shows on start.
+## 1.11.20: Wobble test fixes, simpler Position group
+A second wobble test right after the first starts with the rise instead of driving the head down into the bottom end stop again (also when the bottom switch reports the head is down); a manual rising jog in between makes the test lower first again. The camera frame check counts one second from the first frame and the console stays at full speed while the test runs, even when the window is covered; a camera that really is slow (dim light) gets a clear message, and Start again does not lower a second time. Height reference and Calibration are hidden; Motor speed moved to the Position group. The console window always shows on start, even when Windows misses the first paint.
 
 ## 1.11.19: Wobble test for the rising head
 Camera tab → Wobble test: the AIRIZ lowers, rises and goes down while the console tracks the camera picture and grades the sideways wobble 1–4 (PASS up to grade 1). Too few camera frames → NOT RELIABLE, never PASS. Grade borders can be fitted to units graded by eye; history and CSV export.
