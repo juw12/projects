@@ -1,0 +1,1090 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VALE — preview</title>
+<style>
+  /* ============================================================
+     VALE — interactive UI preview.
+     A self-contained HTML mockup of the in-game panels, sample
+     dialogue, and an ASCII scene map. No install required.
+     ============================================================ */
+
+  :root {
+    --bg-deep:     #050d0a;
+    --bg-mid:      #0a1a14;
+    --bg-light:    #122a20;
+    --ink:         #e8efe5;
+    --ink-mute:    #9aaaa0;
+    --ink-fade:    #5d6e64;
+    --shard-cyan:  #5fe0ff;
+    --shard-glow:  #b8f3ff;
+    --elder-gold:  #f5d76e;
+    --leaf:        #4a8a5f;
+    --moss:        #6fb38a;
+    --panel:       rgba(8, 18, 14, 0.78);
+    --panel-edge:  rgba(95, 224, 255, 0.32);
+    --panel-edge-strong: rgba(95, 224, 255, 0.55);
+    --danger:      #d97373;
+    --serif:       "Cormorant Garamond", "Iowan Old Style", "Georgia", "Times New Roman", serif;
+    --sans:        "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; overflow: hidden; }
+  body {
+    background: var(--bg-deep);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 14px;
+    line-height: 1.5;
+    cursor: default;
+    user-select: none;
+  }
+
+  /* ---------- Scene viewport ---------- */
+
+  #viewport {
+    position: fixed; inset: 0;
+    overflow: hidden;
+    background:
+      radial-gradient(ellipse 80% 50% at 50% 90%, rgba(95, 224, 255, 0.06), transparent 60%),
+      radial-gradient(ellipse 60% 35% at 30% 35%, rgba(245, 215, 110, 0.05), transparent 70%),
+      radial-gradient(ellipse 70% 40% at 70% 45%, rgba(74, 138, 95, 0.08), transparent 70%),
+      linear-gradient(180deg, #06120e 0%, #0c211a 50%, #050b08 100%);
+  }
+
+  /* Light shafts through the canopy */
+  .shaft {
+    position: absolute;
+    top: -20%;
+    width: 8%;
+    height: 120%;
+    background: linear-gradient(180deg,
+      rgba(184, 243, 255, 0.18) 0%,
+      rgba(184, 243, 255, 0.06) 60%,
+      transparent 100%);
+    filter: blur(20px);
+    transform-origin: top center;
+    pointer-events: none;
+  }
+  .shaft.s1 { left: 18%; transform: rotate(-12deg); opacity: 0.7; }
+  .shaft.s2 { left: 42%; transform: rotate(8deg);  opacity: 0.5; width: 12%; }
+  .shaft.s3 { left: 67%; transform: rotate(-4deg); opacity: 0.6; }
+
+  /* Forest silhouette (purely decorative) */
+  .canopy {
+    position: absolute; left: 0; right: 0; bottom: 0;
+    height: 60%;
+    background:
+      radial-gradient(ellipse 30% 22% at 12% 80%, rgba(20, 60, 40, 0.95), transparent 60%),
+      radial-gradient(ellipse 25% 28% at 28% 70%, rgba(15, 50, 32, 0.95), transparent 60%),
+      radial-gradient(ellipse 32% 24% at 48% 85%, rgba(20, 55, 35, 0.95), transparent 60%),
+      radial-gradient(ellipse 28% 26% at 70% 75%, rgba(15, 50, 32, 0.95), transparent 60%),
+      radial-gradient(ellipse 24% 22% at 88% 80%, rgba(20, 55, 35, 0.95), transparent 60%);
+    pointer-events: none;
+  }
+  .mist {
+    position: absolute; left: 0; right: 0; bottom: 0;
+    height: 35%;
+    background:
+      radial-gradient(ellipse 100% 80% at 50% 100%, rgba(140, 200, 180, 0.10), transparent 70%);
+    pointer-events: none;
+  }
+
+  /* Floating fairy dust */
+  .dust { position: absolute; pointer-events: none; }
+  .dust span {
+    position: absolute;
+    width: 4px; height: 4px;
+    background: var(--shard-glow);
+    border-radius: 50%;
+    box-shadow: 0 0 6px var(--shard-cyan), 0 0 12px rgba(95, 224, 255, 0.4);
+    opacity: 0;
+    animation: drift 8s linear infinite;
+  }
+  @keyframes drift {
+    0%   { transform: translateY(0)    translateX(0);   opacity: 0; }
+    10%  { opacity: 0.9; }
+    90%  { opacity: 0.5; }
+    100% { transform: translateY(-110vh) translateX(40px); opacity: 0; }
+  }
+
+  /* ---------- Scene map overlay ---------- */
+
+  #scene-map {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: min(900px, 90vw);
+    aspect-ratio: 1 / 1;
+    pointer-events: none;
+    opacity: 0.92;
+  }
+  #scene-map svg { width: 100%; height: 100%; display: block; }
+  #scene-map .label {
+    fill: var(--ink);
+    font-family: var(--sans);
+    font-size: 11px;
+    text-anchor: middle;
+    dominant-baseline: middle;
+  }
+  #scene-map .label-mute { fill: var(--ink-mute); font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase; }
+  #scene-map .ring { fill: none; stroke: var(--shard-cyan); stroke-width: 0.5; opacity: 0.35; }
+  #scene-map .path { fill: none; stroke: rgba(95, 224, 255, 0.2); stroke-width: 0.8; stroke-dasharray: 1.5 2.5; }
+  #scene-map .node { fill: var(--bg-mid); stroke: var(--panel-edge-strong); stroke-width: 0.8; }
+  #scene-map .node.shard { fill: rgba(95, 224, 255, 0.18); stroke: var(--shard-cyan); }
+  #scene-map .node.elder { fill: rgba(245, 215, 110, 0.15); stroke: var(--elder-gold); }
+  #scene-map .node.glade { fill: rgba(184, 243, 255, 0.10); stroke: var(--shard-glow); stroke-dasharray: 2 2; }
+  #scene-map .pulse { animation: mapPulse 3s ease-in-out infinite; transform-origin: center; transform-box: fill-box; }
+  @keyframes mapPulse {
+    0%, 100% { opacity: 0.5; transform: scale(1); }
+    50%      { opacity: 1;   transform: scale(1.4); }
+  }
+
+  /* ---------- HUD ---------- */
+
+  .hud {
+    position: absolute;
+    padding: 14px 18px;
+    color: var(--ink);
+    pointer-events: none;
+    z-index: 5;
+  }
+  .hud .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 14px;
+    background: var(--panel);
+    border: 1px solid var(--panel-edge);
+    border-radius: 22px;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    font-size: 13px;
+    line-height: 1;
+  }
+  .hud .pill + .pill { margin-top: 10px; }
+  .hud .label-mute {
+    display: block;
+    font-size: 10px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    margin-bottom: 6px;
+    padding-left: 14px;
+  }
+  .hud .glyph {
+    width: 18px; height: 18px;
+    display: inline-block;
+    flex-shrink: 0;
+  }
+  .hud .progress {
+    display: inline-block;
+    width: 80px; height: 4px;
+    background: rgba(95, 224, 255, 0.18);
+    border-radius: 2px;
+    margin-left: 10px;
+    overflow: hidden;
+    vertical-align: middle;
+  }
+  .hud .progress > span {
+    display: block; height: 100%;
+    background: linear-gradient(90deg, var(--shard-cyan), var(--shard-glow));
+    box-shadow: 0 0 8px var(--shard-cyan);
+    transition: width 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  #hud-shards { top: 24px; left: 24px; }
+  #hud-quest  { top: 24px; right: 24px; text-align: right; }
+  #hud-quest .pill { background: linear-gradient(135deg, rgba(8,18,14,0.85), rgba(8,18,14,0.7)); }
+
+  /* ---------- Crosshair ---------- */
+
+  #crosshair {
+    position: absolute;
+    top: 50%; left: 50%;
+    width: 6px; height: 6px;
+    margin: -3px 0 0 -3px;
+    border-radius: 50%;
+    background: var(--shard-glow);
+    box-shadow: 0 0 8px var(--shard-cyan);
+    pointer-events: none;
+    z-index: 3;
+    opacity: 0.7;
+  }
+
+  /* ---------- Interaction prompt ---------- */
+
+  #prompt {
+    position: absolute;
+    bottom: 60px; left: 50%;
+    transform: translateX(-50%);
+    padding: 10px 18px;
+    background: var(--panel);
+    border: 1px solid var(--panel-edge);
+    border-radius: 22px;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    color: var(--ink);
+    font-size: 14px;
+    z-index: 6;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    pointer-events: none;
+  }
+  #prompt .key {
+    display: inline-block;
+    padding: 2px 8px;
+    margin: 0 4px;
+    border: 1px solid var(--panel-edge-strong);
+    border-radius: 4px;
+    font-family: var(--sans);
+    font-weight: 600;
+    color: var(--shard-glow);
+    box-shadow: inset 0 -2px 0 rgba(95, 224, 255, 0.2);
+  }
+
+  /* ---------- Dialogue panel ---------- */
+
+  #dialogue {
+    position: absolute;
+    bottom: 40px; left: 50%;
+    transform: translateX(-50%);
+    width: min(760px, 88vw);
+    background: var(--panel);
+    border: 1px solid var(--panel-edge-strong);
+    border-radius: 14px;
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    padding: 22px 28px 26px;
+    z-index: 7;
+    box-shadow: 0 12px 60px rgba(0,0,0,0.5), 0 0 30px rgba(95, 224, 255, 0.1);
+    display: none;
+  }
+  #dialogue.open { display: block; animation: rise 0.35s cubic-bezier(0.2, 0.8, 0.2, 1); }
+  @keyframes rise { from { transform: translate(-50%, 20px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
+
+  #dialogue .speaker {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 12px;
+  }
+  #dialogue .portrait {
+    width: 56px; height: 56px;
+    border-radius: 50%;
+    background: radial-gradient(circle, var(--elder-gold), rgba(245, 215, 110, 0.2) 70%, transparent);
+    border: 1px solid var(--elder-gold);
+    box-shadow: 0 0 18px rgba(245, 215, 110, 0.3);
+    flex-shrink: 0;
+    overflow: hidden;
+    position: relative;
+  }
+  #dialogue .portrait::after {
+    content: "";
+    position: absolute; inset: 6px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, rgba(255,255,255,0.6), transparent 50%);
+  }
+  #dialogue .portrait.keeper { background: radial-gradient(circle, var(--shard-cyan), rgba(95, 224, 255, 0.2) 70%, transparent); border-color: var(--shard-cyan); box-shadow: 0 0 18px rgba(95, 224, 255, 0.4); }
+  #dialogue .name { font-family: var(--serif); font-size: 22px; letter-spacing: 0.02em; color: var(--ink); }
+  #dialogue .role { display: block; font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink-mute); margin-top: 2px; }
+  #dialogue .body { font-family: var(--serif); font-size: 18px; line-height: 1.55; color: var(--ink); margin-bottom: 16px; min-height: 60px; }
+  #dialogue .choices { display: flex; flex-direction: column; gap: 8px; }
+  #dialogue .choices button {
+    text-align: left;
+    padding: 10px 16px;
+    background: rgba(95, 224, 255, 0.06);
+    border: 1px solid var(--panel-edge);
+    border-radius: 8px;
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.18s ease;
+  }
+  #dialogue .choices button:hover {
+    background: rgba(95, 224, 255, 0.15);
+    border-color: var(--panel-edge-strong);
+    transform: translateX(4px);
+    color: var(--shard-glow);
+  }
+  #dialogue .continue {
+    margin-top: 14px;
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    text-align: right;
+  }
+  #dialogue .continue .key {
+    display: inline-block;
+    padding: 1px 6px;
+    margin-left: 6px;
+    border: 1px solid var(--panel-edge-strong);
+    border-radius: 3px;
+    color: var(--shard-glow);
+  }
+
+  /* ---------- Modals ---------- */
+
+  .modal-veil {
+    position: fixed; inset: 0;
+    background: rgba(5, 13, 10, 0.78);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    z-index: 20;
+    display: none;
+    align-items: center;
+    justify-content: center;
+  }
+  .modal-veil.open { display: flex; animation: fadeIn 0.2s ease; }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+  .modal {
+    background: var(--panel);
+    border: 1px solid var(--panel-edge-strong);
+    border-radius: 16px;
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    box-shadow: 0 20px 80px rgba(0,0,0,0.6), 0 0 40px rgba(95, 224, 255, 0.12);
+    padding: 32px 36px;
+    width: min(680px, 90vw);
+    max-height: 86vh;
+    overflow-y: auto;
+  }
+  .modal h1 {
+    font-family: var(--serif);
+    font-size: 32px;
+    letter-spacing: 0.02em;
+    color: var(--ink);
+    margin-bottom: 4px;
+  }
+  .modal h1 .accent { color: var(--shard-cyan); }
+  .modal .sub {
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    margin-bottom: 24px;
+  }
+  .modal p { font-size: 14px; line-height: 1.6; color: var(--ink); margin-bottom: 12px; }
+  .modal p.mute { color: var(--ink-mute); font-style: italic; }
+
+  /* Quest log */
+  #quest-log .section { margin-bottom: 28px; }
+  #quest-log .section h2 {
+    font-family: var(--serif);
+    font-size: 20px;
+    color: var(--ink);
+    margin-bottom: 8px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--panel-edge);
+  }
+  #quest-log .section h2 .badge {
+    display: inline-block;
+    margin-left: 10px;
+    padding: 2px 10px;
+    font-family: var(--sans);
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    border-radius: 12px;
+    vertical-align: middle;
+  }
+  .badge.active   { background: rgba(95, 224, 255, 0.18); color: var(--shard-cyan); border: 1px solid var(--shard-cyan); }
+  .badge.complete { background: rgba(111, 179, 138, 0.18); color: var(--moss); border: 1px solid var(--moss); }
+  .badge.locked   { background: rgba(93, 110, 100, 0.15); color: var(--ink-fade); border: 1px solid var(--ink-fade); }
+  #quest-log ol { list-style: none; }
+  #quest-log li {
+    position: relative;
+    padding: 8px 0 8px 32px;
+    color: var(--ink);
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  #quest-log li.done { color: var(--ink-mute); text-decoration: line-through; }
+  #quest-log li::before {
+    content: "";
+    position: absolute;
+    left: 8px; top: 14px;
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    border: 1px solid var(--ink-fade);
+  }
+  #quest-log li.done::before { background: var(--moss); border-color: var(--moss); box-shadow: 0 0 6px var(--moss); }
+  #quest-log li.active::before { border-color: var(--shard-cyan); box-shadow: 0 0 8px var(--shard-cyan); }
+  #quest-log .reward {
+    margin-top: 12px;
+    padding: 10px 14px;
+    background: rgba(245, 215, 110, 0.08);
+    border-left: 2px solid var(--elder-gold);
+    border-radius: 0 6px 6px 0;
+    color: var(--ink);
+    font-size: 13px;
+  }
+  #quest-log .reward b { color: var(--elder-gold); font-weight: 500; }
+
+  /* Pause menu */
+  #pause h1 { text-align: center; margin-bottom: 8px; }
+  #pause .sub { text-align: center; margin-bottom: 28px; }
+  #pause .stack { display: flex; flex-direction: column; gap: 12px; align-items: center; }
+  #pause button {
+    width: min(320px, 80%);
+    padding: 14px 24px;
+    background: var(--panel);
+    border: 1px solid var(--panel-edge);
+    border-radius: 10px;
+    color: var(--ink);
+    font-family: var(--serif);
+    font-size: 18px;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    transition: all 0.18s ease;
+  }
+  #pause button:hover {
+    background: rgba(95, 224, 255, 0.15);
+    border-color: var(--panel-edge-strong);
+    color: var(--shard-glow);
+    transform: scale(1.02);
+  }
+  #pause .stack .key { display: inline-block; margin-left: 8px; font-family: var(--sans); font-size: 11px; color: var(--ink-mute); }
+
+  /* ---------- Top-right control hints ---------- */
+
+  #hints {
+    position: absolute;
+    bottom: 16px; right: 18px;
+    display: flex; gap: 14px;
+    z-index: 4;
+    pointer-events: none;
+  }
+  #hints .key {
+    display: inline-block;
+    padding: 2px 8px;
+    border: 1px solid var(--panel-edge);
+    border-radius: 4px;
+    font-size: 11px;
+    color: var(--shard-glow);
+    background: var(--panel);
+  }
+  #hints .hint { font-size: 11px; color: var(--ink-mute); }
+
+  /* ---------- Title screen ---------- */
+
+  #title {
+    position: fixed; inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 30;
+    background: radial-gradient(ellipse at center, rgba(8, 22, 16, 0.85), rgba(2, 6, 4, 0.95));
+    transition: opacity 0.8s ease;
+  }
+  #title.fading { opacity: 0; pointer-events: none; }
+  #title .logo {
+    font-family: var(--serif);
+    font-size: clamp(64px, 12vw, 140px);
+    letter-spacing: 0.18em;
+    color: var(--ink);
+    text-shadow: 0 0 40px rgba(95, 224, 255, 0.4), 0 0 80px rgba(95, 224, 255, 0.15);
+    margin-bottom: 6px;
+  }
+  #title .tag {
+    font-size: 13px;
+    letter-spacing: 0.32em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    margin-bottom: 48px;
+  }
+  #title button {
+    padding: 16px 48px;
+    background: transparent;
+    border: 1px solid var(--shard-cyan);
+    border-radius: 8px;
+    color: var(--shard-glow);
+    font-family: var(--serif);
+    font-size: 22px;
+    letter-spacing: 0.16em;
+    cursor: pointer;
+    transition: all 0.25s ease;
+  }
+  #title button:hover {
+    background: rgba(95, 224, 255, 0.12);
+    box-shadow: 0 0 30px rgba(95, 224, 255, 0.3);
+    transform: translateY(-2px);
+  }
+  #title .credit {
+    position: absolute;
+    bottom: 20px;
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink-fade);
+  }
+</style>
+</head>
+<body>
+
+<!-- ============================================================
+     Scene viewport
+     ============================================================ -->
+
+<div id="viewport">
+  <div class="shaft s1"></div>
+  <div class="shaft s2"></div>
+  <div class="shaft s3"></div>
+  <div class="canopy"></div>
+  <div class="mist"></div>
+
+  <!-- Animated fairy dust -->
+  <div class="dust" id="dust"></div>
+
+  <!-- Scene map (visual overview of where everything is) -->
+  <div id="scene-map">
+    <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+      <!-- Outer ring (Vale boundary) -->
+      <circle class="ring" cx="50" cy="50" r="46"/>
+      <circle class="ring" cx="50" cy="50" r="36" opacity="0.22"/>
+      <circle class="ring" cx="50" cy="50" r="14" opacity="0.18"/>
+
+      <!-- Forest path connecting shards -->
+      <path class="path" d="M50 50 L24 30 L72 26 L78 60 L40 80 Z"/>
+      <path class="path" d="M50 50 L24 30"/>
+
+      <!-- Sacred Glade (center) -->
+      <g class="pulse">
+        <circle class="node glade" cx="50" cy="50" r="6"/>
+        <text class="label" x="50" y="50" fill="rgba(184,243,255,0.9)">Sacred</text>
+        <text class="label" x="50" y="55" fill="rgba(184,243,255,0.9)">Glade</text>
+      </g>
+
+      <!-- Fairy Elder (entrance) -->
+      <g>
+        <circle class="node elder" cx="68" cy="86" r="2.5"/>
+        <text class="label" x="68" y="91">Fairy Elder</text>
+        <text class="label-mute" x="68" y="94">Vale entrance</text>
+      </g>
+
+      <!-- Lumenshards (5) -->
+      <g>
+        <circle class="node shard pulse" cx="24" cy="30" r="1.8"/>
+        <text class="label" x="24" y="25">Shard 1</text>
+        <text class="label-mute" x="24" y="22">North clearing</text>
+      </g>
+      <g>
+        <circle class="node shard pulse" cx="72" cy="26" r="1.8"/>
+        <text class="label" x="72" y="21">Shard 2</text>
+        <text class="label-mute" x="72" y="18">East stream</text>
+      </g>
+      <g>
+        <circle class="node shard pulse" cx="78" cy="60" r="1.8"/>
+        <text class="label" x="80" y="60">Shard 3</text>
+        <text class="label-mute" x="80" y="63">South mushroom grove</text>
+      </g>
+      <g>
+        <circle class="node shard pulse" cx="40" cy="80" r="1.8"/>
+        <text class="label" x="40" y="86">Shard 4</text>
+        <text class="label-mute" x="40" y="89">West ruins</text>
+      </g>
+      <g>
+        <circle class="node shard pulse" cx="14" cy="62" r="1.8"/>
+        <text class="label" x="14" y="58">Shard 5</text>
+        <text class="label-mute" x="14" y="55">Heart pool</text>
+      </g>
+
+      <!-- Compass -->
+      <g transform="translate(94, 6)">
+        <text class="label-mute" text-anchor="middle" y="0">N</text>
+      </g>
+    </svg>
+  </div>
+
+  <!-- HUD: shards (top-left) -->
+  <div id="hud-shards" class="hud">
+    <span class="label-mute">Lumenshards</span>
+    <div class="pill">
+      <svg class="glyph" viewBox="0 0 24 24" fill="none">
+        <path d="M12 2 L20 12 L12 22 L4 12 Z" fill="url(#shardGrad)" stroke="var(--shard-cyan)" stroke-width="1.5"/>
+        <path d="M12 6 L16 12 L12 18 L8 12 Z" fill="var(--shard-glow)" opacity="0.6"/>
+        <defs>
+          <linearGradient id="shardGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="var(--shard-glow)"/>
+            <stop offset="1" stop-color="var(--shard-cyan)"/>
+          </linearGradient>
+        </defs>
+      </svg>
+      <span id="shard-count">0 / 5</span>
+      <span class="progress"><span id="shard-bar" style="width: 0%"></span></span>
+    </div>
+  </div>
+
+  <!-- HUD: current quest (top-right) -->
+  <div id="hud-quest" class="hud">
+    <span class="label-mute">Active quest</span>
+    <div class="pill">
+      <div>
+        <div id="quest-title" style="font-family: var(--serif); font-size: 15px;">The Fading Light</div>
+        <div id="quest-objective" style="font-size: 12px; color: var(--ink-mute); margin-top: 2px;">Talk to the Fairy Elder</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Crosshair -->
+  <div id="crosshair"></div>
+
+  <!-- Interaction prompt (E to interact) -->
+  <div id="prompt">Press <span class="key">E</span> to talk to <span id="prompt-target">Fairy Elder</span></div>
+
+  <!-- Dialogue panel -->
+  <div id="dialogue">
+    <div class="speaker">
+      <div id="dlg-portrait" class="portrait"></div>
+      <div>
+        <div id="dlg-name" class="name">Fairy Elder</div>
+        <span id="dlg-role" class="role">Quest giver</span>
+      </div>
+    </div>
+    <div id="dlg-body" class="body">Welcome, traveler.</div>
+    <div id="dlg-choices" class="choices"></div>
+    <div class="continue">Continue<span class="key">Space</span></div>
+  </div>
+
+  <!-- Bottom-right key hints -->
+  <div id="hints">
+    <span class="hint">Quest log</span><span class="key">Tab</span>
+    <span class="hint">Pause</span><span class="key">Esc</span>
+  </div>
+</div>
+
+<!-- ============================================================
+     Quest log modal (Tab)
+     ============================================================ -->
+
+<div id="quest-log-veil" class="modal-veil">
+  <div id="quest-log" class="modal">
+    <h1>Quest <span class="accent">Log</span></h1>
+    <div class="sub">Press Tab to close</div>
+
+    <div class="section">
+      <h2>The Fading Light <span class="badge active">Active</span></h2>
+      <p>The Fairy Elder asked you to recover the five lost Lumenshards scattered across the Vale and bring them to the Sacred Glade.</p>
+      <ol>
+        <li class="done">Talk to the Fairy Elder at the Vale's entrance</li>
+        <li class="active" id="obj-2">Collect Lumenshard 1 — North clearing</li>
+        <li>Collect Lumenshard 2 — East stream</li>
+        <li>Collect Lumenshard 3 — South mushroom grove</li>
+        <li>Collect Lumenshard 4 — West ruins</li>
+        <li>Collect Lumenshard 5 — Heart pool</li>
+      </ol>
+      <div class="reward"><b>Reward:</b> Opens the Sacred Glade and reveals the path to the altar.</div>
+    </div>
+
+    <div class="section">
+      <h2>Restore the Sacred Glade <span class="badge locked">Locked</span></h2>
+      <p>Complete <i>The Fading Light</i> to unlock this quest. Place all five Lumenshards on the altar at the Vale's heart.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     Pause modal (Esc)
+     ============================================================ -->
+
+<div id="pause-veil" class="modal-veil">
+  <div id="pause" class="modal">
+    <h1>Vale</h1>
+    <div class="sub">A moment of stillness</div>
+    <div class="stack">
+      <button onclick="resume()">Resume<span class="key">Esc</span></button>
+      <button onclick="saveGame()">Save Game<span class="key">S</span></button>
+      <button onclick="quit()">Return to Title<span class="key">Q</span></button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     Title screen
+     ============================================================ -->
+
+<div id="title">
+  <div class="logo">VALE</div>
+  <div class="tag">A first-person fairy explorer</div>
+  <button onclick="beginGame()">Begin</button>
+  <div class="credit">A Unity 6 + HDRP prototype</div>
+</div>
+
+<!-- ============================================================
+     JavaScript: dialogue tree + state machine
+     ============================================================ -->
+
+<script>
+/* ----------------------------------------------------------
+   Dialogue data (mirrors DialogueData assets).
+   ---------------------------------------------------------- */
+
+const dialogue = {
+  elder_offer: {
+    speaker: "Fairy Elder",
+    role: "Quest giver",
+    portrait: "elder",
+    nodes: [
+      {
+        text: "Welcome, traveler. You arrive at a time of fading.",
+        next: "elder_offer_2"
+      },
+      {
+        id: "elder_offer_2",
+        text: "The Lumenshards, five fragments of the Vale's light, were scattered when the old pact was broken. Each shard remembers a keeper, and each keeper remembers the Vale.",
+        next: "elder_offer_3"
+      },
+      {
+        id: "elder_offer_3",
+        text: "Will you seek them?",
+        choices: [
+          { label: "I will find them.", next: "elder_accept" },
+          { label: "Tell me more first.",  next: "elder_lore" },
+          { label: "I cannot help.",       next: "elder_decline" }
+        ]
+      },
+      {
+        id: "elder_accept",
+        text: "Then go with the light. Begin in the north — Keeper Maris watches over the first shard.",
+        next: null
+      },
+      {
+        id: "elder_lore",
+        text: "Long ago, the Vale's light answered to no keeper. It simply was. When we tried to bind it to ourselves, it shattered. We have paid in shadow ever since.",
+        next: "elder_offer_3"
+      },
+      {
+        id: "elder_decline",
+        text: "Then may the soft moss hide your steps, traveler. The Vale asks nothing of those who pass through.",
+        next: null
+      }
+    ]
+  },
+
+  keeper_maris: {
+    speaker: "Keeper Maris",
+    role: "Fairy keeper of the north",
+    portrait: "keeper",
+    nodes: [
+      {
+        text: "I remember when the moonlight pooled here, every night, without fail.",
+        next: "keeper_maris_2"
+      },
+      {
+        id: "keeper_maris_2",
+        text: "The first shard rests in that clearing still, where the silver birch stands alone. Bring it back when you can.",
+        next: "keeper_maris_3"
+      },
+      {
+        id: "keeper_maris_3",
+        text: "And if you meet the others — say that Maris remembers them.",
+        choices: [
+          { label: "I will.", next: null }
+        ]
+      }
+    ]
+  },
+
+  keeper_solren: {
+    speaker: "Keeper Solren",
+    role: "Fairy keeper of the east",
+    portrait: "keeper",
+    nodes: [
+      {
+        text: "The stream that runs past my glade once sang, traveler. I have not heard it sing in nine winters.",
+        choices: [
+          { label: "Take heart. The shards will return.", next: null },
+          { label: "Tell me of the singing.", next: "keeper_solren_2" }
+        ]
+      },
+      {
+        id: "keeper_solren_2",
+        text: "It sang because the Vale remembered itself in the water. When you place the shards on the altar, the streams will sing again.",
+        choices: [
+          { label: "Then I will be quick.", next: null }
+        ]
+      }
+    ]
+  }
+};
+
+/* ----------------------------------------------------------
+   State machine
+   ---------------------------------------------------------- */
+
+let state = "TITLE";          // TITLE | EXPLORING | DIALOGUE | QUEST_LOG | PAUSED
+let activeDialogue = null;
+let currentNode = null;
+let shardsCollected = 0;
+
+/* ----------------------------------------------------------
+   Title / begin
+   ---------------------------------------------------------- */
+
+function beginGame() {
+  document.getElementById("title").classList.add("fading");
+  setTimeout(() => {
+    document.getElementById("title").style.display = "none";
+  }, 800);
+  state = "EXPLORING";
+  showPrompt("Fairy Elder");
+}
+
+/* ----------------------------------------------------------
+   Dialogue engine
+   ---------------------------------------------------------- */
+
+function startDialogue(dialogueId) {
+  if (state !== "EXPLORING") return;
+  const d = dialogue[dialogueId];
+  if (!d) return;
+  activeDialogue = d;
+  currentNode = d.nodes[0];
+  document.getElementById("prompt").style.display = "none";
+  state = "DIALOGUE";
+  renderNode();
+  document.getElementById("dialogue").classList.add("open");
+}
+
+function renderNode() {
+  const dlg = document.getElementById("dialogue");
+  document.getElementById("dlg-name").textContent = currentDialogueSpeaker();
+  document.getElementById("dlg-role").textContent = currentRole();
+  const portrait = document.getElementById("dlg-portrait");
+  portrait.className = "portrait" + (currentPortraitClass() === "keeper" ? " keeper" : "");
+  document.getElementById("dlg-body").textContent = currentNode.text;
+
+  const choices = document.getElementById("dlg-choices");
+  choices.innerHTML = "";
+  if (currentNode.choices && currentNode.choices.length) {
+    currentNode.choices.forEach((c, i) => {
+      const btn = document.createElement("button");
+      btn.textContent = c.label;
+      btn.onclick = () => choose(i);
+      choices.appendChild(btn);
+    });
+    dlg.querySelector(".continue").style.display = "none";
+  } else {
+    dlg.querySelector(".continue").style.display = "block";
+  }
+}
+
+function currentDialogueSpeaker() {
+  if (!activeDialogue) return "";
+  // Speaker name can vary per node; fall back to dialogue-level speaker.
+  return activeDialogue.speaker;
+}
+
+function currentRole() {
+  return activeDialogue ? activeDialogue.role : "";
+}
+
+function currentPortraitClass() {
+  return activeDialogue ? activeDialogue.portrait : "elder";
+}
+
+function findNodeById(id) {
+  return activeDialogue.nodes.find(n => n.id === id);
+}
+
+function choose(i) {
+  const c = currentNode.choices[i];
+  if (!c) return;
+  if (c.next) {
+    const next = findNodeById(c.next);
+    if (next) {
+      currentNode = next;
+      renderNode();
+      return;
+    }
+  }
+  endDialogue();
+}
+
+function advance() {
+  if (!currentNode) return;
+  if (currentNode.next) {
+    const next = findNodeById(currentNode.next);
+    if (next) {
+      currentNode = next;
+      renderNode();
+      return;
+    }
+  }
+  endDialogue();
+}
+
+function endDialogue() {
+  document.getElementById("dialogue").classList.remove("open");
+  activeDialogue = null;
+  currentNode = null;
+  state = "EXPLORING";
+  if (shardsCollected === 0) {
+    showPrompt("Fairy Elder");
+  } else {
+    hidePrompt();
+  }
+}
+
+/* ----------------------------------------------------------
+   Prompt
+   ---------------------------------------------------------- */
+
+function showPrompt(target) {
+  const p = document.getElementById("prompt");
+  document.getElementById("prompt-target").textContent = target;
+  p.style.display = "block";
+}
+
+function hidePrompt() {
+  document.getElementById("prompt").style.display = "none";
+}
+
+/* ----------------------------------------------------------
+   Modals
+   ---------------------------------------------------------- */
+
+function openQuestLog() {
+  if (state !== "EXPLORING" && state !== "DIALOGUE") return;
+  document.getElementById("quest-log-veil").classList.add("open");
+  state = "QUEST_LOG";
+}
+
+function closeQuestLog() {
+  document.getElementById("quest-log-veil").classList.remove("open");
+  state = "EXPLORING";
+}
+
+function openPause() {
+  document.getElementById("pause-veil").classList.add("open");
+  state = "PAUSED";
+}
+
+function resume() {
+  document.getElementById("pause-veil").classList.remove("open");
+  state = "EXPLORING";
+}
+
+function saveGame() {
+  // Visual feedback only — preview doesn't persist.
+  const btn = event.target;
+  const original = btn.innerHTML;
+  btn.innerHTML = "Saved";
+  btn.style.color = "var(--moss)";
+  setTimeout(() => { btn.innerHTML = original; btn.style.color = ""; }, 900);
+}
+
+function quit() {
+  location.reload();
+}
+
+/* ----------------------------------------------------------
+   Shard collection (for the click-to-collect demo)
+   ---------------------------------------------------------- */
+
+function collectShard(n) {
+  if (shardsCollected >= 5) return;
+  if (n <= shardsCollected) return;
+  shardsCollected = n;
+  document.getElementById("shard-count").textContent = n + " / 5";
+  document.getElementById("shard-bar").style.width = (n * 20) + "%";
+
+  // Update quest log objective.
+  const obj = document.getElementById("obj-" + (n + 1));
+  if (obj) {
+    obj.classList.remove("active");
+    obj.classList.add("done");
+  }
+
+  // Update HUD objective text.
+  const next = n + 1;
+  if (next <= 5) {
+    document.getElementById("quest-objective").textContent = "Collect Lumenshard " + next;
+  } else {
+    document.getElementById("quest-objective").textContent = "Return to the Sacred Glade";
+  }
+
+  // Simulate shard-place on completion.
+  if (n === 5) {
+    document.querySelectorAll("#quest-log .section")[0].querySelector(".badge").className = "badge complete";
+    document.querySelectorAll("#quest-log .section")[1].querySelector(".badge").className = "badge active";
+    document.getElementById("quest-objective").textContent = "Place shards on the altar";
+  }
+}
+
+/* ----------------------------------------------------------
+   Keyboard input
+   ---------------------------------------------------------- */
+
+document.addEventListener("keydown", (e) => {
+  if (state === "TITLE") {
+    if (e.key === "Enter" || e.key === " ") beginGame();
+    return;
+  }
+
+  if (state === "PAUSED") {
+    if (e.key === "Escape") resume();
+    if (e.key === "s" || e.key === "S") saveGame();
+    if (e.key === "q" || e.key === "Q") quit();
+    return;
+  }
+
+  if (state === "QUEST_LOG") {
+    if (e.key === "Tab" || e.key === "Escape") { e.preventDefault(); closeQuestLog(); }
+    return;
+  }
+
+  if (state === "DIALOGUE") {
+    if (e.key === " " || e.key === "Enter") { e.preventDefault(); advance(); }
+    if (e.key === "Escape") { e.preventDefault(); endDialogue(); }
+    return;
+  }
+
+  if (state === "EXPLORING") {
+    if (e.key === "e" || e.key === "E") startDialogue("elder_offer");
+    if (e.key === "Tab") { e.preventDefault(); openQuestLog(); }
+    if (e.key === "Escape") { e.preventDefault(); openPause(); }
+    if (e.key === "1") collectShard(1);
+    if (e.key === "2") collectShard(2);
+    if (e.key === "3") collectShard(3);
+    if (e.key === "4") collectShard(4);
+    if (e.key === "5") collectShard(5);
+  }
+});
+
+/* ----------------------------------------------------------
+   Click on the scene map to "collect" a shard
+   ---------------------------------------------------------- */
+
+document.querySelectorAll("#scene-map .node.shard").forEach((node, i) => {
+  node.style.pointerEvents = "auto";
+  node.style.cursor = "pointer";
+  node.addEventListener("click", () => collectShard(i + 1));
+});
+
+/* ----------------------------------------------------------
+   Fairy dust (background particles)
+   ---------------------------------------------------------- */
+
+(function makeDust() {
+  const host = document.getElementById("dust");
+  for (let i = 0; i < 40; i++) {
+    const s = document.createElement("span");
+    s.style.left = Math.random() * 100 + "vw";
+    s.style.top  = (100 + Math.random() * 10) + "vh";
+    s.style.animationDelay = (Math.random() * 8) + "s";
+    s.style.animationDuration = (6 + Math.random() * 6) + "s";
+    s.style.transform = "scale(" + (0.6 + Math.random() * 1.2) + ")";
+    host.appendChild(s);
+  }
+})();
+</script>
+
+</body>
+</html>

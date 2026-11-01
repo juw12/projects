@@ -1,0 +1,33 @@
+{
+  "dependencies": {
+    "com.unity.render-pipelines.high-definition": "17.2.0",
+    "com.unity.render-pipelines.core": "17.2.0",
+    "com.unity.cinemachine": "3.1.0",
+    "com.unity.inputsystem": "1.11.2",
+    "com.unity.ugui": "2.0.0",
+    "com.unity.visualeffectgraph": "17.2.0",
+    "com.unity.probuilder": "6.0.0",
+    "com.unity.terrain-tools": "5.0.0",
+    "com.unity.modules.audio": "1.0.0",
+    "com.unity.modules.imageconversion": "1.0.0",
+    "com.unity.modules.imgui": "1.0.0",
+    "com.unity.modules.jsonserialize": "1.0.0",
+    "com.unity.modules.particlesystem": "1.0.0",
+    "com.unity.modules.physics": "1.0.0",
+    "com.unity.modules.terrain": "1.0.0",
+    "com.unity.modules.terrainphysics": "1.0.0",
+    "com.unity.modules.ui": "1.0.0",
+    "com.unity.modules.uielements": "1.0.0",
+    "com.unity.modules.unitywebrequest": "1.0.0"
+  },
+  "scopedRegistries": [
+    {
+      "name": "package-manager.openupm.com",
+      "url": "https://package.openupm.com",
+      "scopes": [
+        "com.openupm",
+        "com.needle"
+      ]
+    }
+  ]
+}
