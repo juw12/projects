@@ -84,7 +84,8 @@ TOOLS = [
         "name": "send_notification",
         "description": (
             "Send (or schedule) a push notification. Channels: webpush (browsers/PWAs), fcm (native "
-            "Android), ntfy (ntfy app topics), apprise (Telegram/Slack/Discord/email… contacts), inapp "
+            "Android), ntfy (ntfy app topics), bark (iPhone Bark app), gotify (self-hosted Gotify), "
+            "apprise (Telegram/Slack/Discord/email… contacts), inapp "
             "(banner inside the app). Default: all push channels. Give send_at (ISO 8601 with offset) to schedule, "
             "digest to batch bursts, fallback to escalate unread messages to another channel."
         ),
@@ -97,7 +98,7 @@ TOOLS = [
                 "url": {"type": "string", "description": "Page to open on tap"},
                 "image": {"type": "string"},
                 "target": TARGET_SCHEMA,
-                "channels": {"type": "array", "items": {"type": "string", "enum": ["webpush", "fcm", "ntfy", "apprise", "inapp"]}},
+                "channels": {"type": "array", "items": {"type": "string", "enum": ["webpush", "fcm", "ntfy", "bark", "gotify", "apprise", "inapp"]}},
                 "urgency": {"type": "string", "enum": ["very-low", "low", "normal", "high"]},
                 "ttl": {"type": "integer", "description": "Seconds the push service keeps trying (default 86400)"},
                 "send_at": {"type": "string", "description": "ISO 8601 with timezone, e.g. 2026-11-03T09:00:00+07:00"},
@@ -118,7 +119,7 @@ TOOLS = [
                     "properties": {
                         "after": {"type": "number"},
                         "unless": {"type": "string", "enum": ["clicked", "shown", "delivered"]},
-                        "channels": {"type": "array", "items": {"type": "string", "enum": ["webpush", "fcm", "ntfy", "apprise", "inapp"]}},
+                        "channels": {"type": "array", "items": {"type": "string", "enum": ["webpush", "fcm", "ntfy", "bark", "gotify", "apprise", "inapp"]}},
                         "title": {"type": "string"},
                         "body": {"type": "string"},
                     },
@@ -132,7 +133,9 @@ TOOLS = [
     {
         "name": "add_contact",
         "description": (
-            "Add an ntfy topic (e.g. https://ntfy.sh/team-alerts — anyone with the ntfy app subscribed gets it) "
+            "Add an ntfy topic (e.g. https://ntfy.sh/team-alerts — anyone with the ntfy app subscribed gets it), "
+            "a Bark device URL (https://api.day.app/<device_key> from the iPhone Bark app), a Gotify server "
+            "(https://push.example.com + the app token as secret; host must be in BEACON_GOTIFY_HOSTS) "
             "or an Apprise URL (tgram://bot/chat, slack://…, discord://…, mailto://… — needs pip install apprise "
             "on the Beacon server) as a subscriber of an app. Tags/user_id work like any subscriber."
         ),
@@ -140,11 +143,11 @@ TOOLS = [
             "type": "object",
             "properties": {
                 "app_id": {"type": "integer"},
-                "channel": {"type": "string", "enum": ["ntfy", "apprise"]},
+                "channel": {"type": "string", "enum": ["ntfy", "bark", "gotify", "apprise"]},
                 "address": {"type": "string"},
                 "tags": {"type": "array", "items": {"type": "string"}},
                 "user_id": {"type": "string"},
-                "secret": {"type": "string", "description": "ntfy access token for protected topics (optional)"},
+                "secret": {"type": "string", "description": "ntfy access token (optional) or Gotify app token (required)"},
                 "label": {"type": "string"},
             },
             "required": ["app_id", "channel", "address"],

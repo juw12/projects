@@ -40,8 +40,8 @@ CREATE TABLE IF NOT EXISTS apps (
 CREATE TABLE IF NOT EXISTS subscribers (
     id         INTEGER PRIMARY KEY,
     app_id     INTEGER NOT NULL REFERENCES apps(id) ON DELETE CASCADE,
-    channel    TEXT NOT NULL,               -- webpush | fcm | ntfy | apprise
-    address    TEXT NOT NULL,               -- push endpoint, FCM token, ntfy topic URL, apprise URL
+    channel    TEXT NOT NULL,               -- webpush | fcm | ntfy | bark | gotify | apprise
+    address    TEXT NOT NULL,               -- push endpoint, FCM token, ntfy topic, Bark device, Gotify server, apprise URL
     p256dh     TEXT NOT NULL DEFAULT '',
     auth       TEXT NOT NULL DEFAULT '',
     token_hash TEXT NOT NULL,               -- lets the client manage itself
@@ -68,7 +68,7 @@ CREATE TABLE IF NOT EXISTS messages (
     tag       TEXT NOT NULL DEFAULT '',
     data      TEXT NOT NULL DEFAULT '{}',
     target    TEXT NOT NULL DEFAULT '{"all": true}',
-    channels  TEXT NOT NULL DEFAULT '["webpush","fcm"]',  -- + ntfy, apprise, inapp
+    channels  TEXT NOT NULL DEFAULT '["webpush","fcm"]',  -- + ntfy, bark, gotify, apprise, inapp
     ttl       INTEGER NOT NULL DEFAULT 86400,
     urgency   TEXT NOT NULL DEFAULT 'normal',
     send_at   REAL NOT NULL,
@@ -87,7 +87,7 @@ CREATE INDEX IF NOT EXISTS messages_due ON messages(status, send_at);
 CREATE INDEX IF NOT EXISTS messages_app ON messages(app_id, created);
 """
 
-PUSH_CHANNELS = ("webpush", "fcm", "ntfy", "apprise")  # channels with per-subscriber delivery
+PUSH_CHANNELS = ("webpush", "fcm", "ntfy", "bark", "gotify", "apprise")  # channels with per-subscriber delivery
 DEFAULT_CHANNELS = list(PUSH_CHANNELS)
 MESSAGE_COUNTERS = ("targeted", "delivered", "failed", "pruned", "shown", "clicked")
 PRUNE_AFTER_FAILURES = 10

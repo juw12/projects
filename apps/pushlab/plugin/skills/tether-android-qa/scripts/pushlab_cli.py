@@ -405,11 +405,11 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--body")
     p.add_argument("--url")
     p.add_argument("--tag", action="append", help="target subscribers with this tag (repeatable)")
-    p.add_argument("--channel", action="append", choices=["webpush", "fcm", "ntfy", "apprise", "inapp"])
+    p.add_argument("--channel", action="append", choices=["webpush", "fcm", "ntfy", "bark", "gotify", "apprise", "inapp"])
     p.add_argument("--timeout", type=float, default=30)
     p.add_argument("--digest-key", help="batch sends with this key into one notification")
     p.add_argument("--digest-window", type=float, default=300, help="seconds to collect (default 300)")
-    p.add_argument("--fallback-channel", action="append", choices=["webpush", "fcm", "ntfy", "apprise", "inapp"],
+    p.add_argument("--fallback-channel", action="append", choices=["webpush", "fcm", "ntfy", "bark", "gotify", "apprise", "inapp"],
                    help="escalate on this channel if the push is not clicked in time (repeatable)")
     p.add_argument("--fallback-after", type=float, default=3600, help="seconds before escalating (default 3600)")
     p.add_argument("--fallback-unless", choices=["clicked", "shown", "delivered"], default="clicked")

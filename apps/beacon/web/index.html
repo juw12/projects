@@ -83,6 +83,8 @@
                 <label class="inline"><input type="checkbox" name="ch_webpush" checked> Web Push</label>
                 <label class="inline"><input type="checkbox" name="ch_fcm" checked> Android (FCM)</label>
                 <label class="inline"><input type="checkbox" name="ch_ntfy" checked> ntfy</label>
+                <label class="inline"><input type="checkbox" name="ch_bark" checked> Bark (iPhone)</label>
+                <label class="inline"><input type="checkbox" name="ch_gotify" checked> Gotify</label>
                 <label class="inline"><input type="checkbox" name="ch_apprise" checked> Apprise</label>
                 <label class="inline"><input type="checkbox" name="ch_inapp"> In-app banner</label>
                 <div class="row small">
@@ -140,13 +142,15 @@
         <div class="panel" data-panel="subscribers" hidden>
           <form id="contactForm" class="contact-form">
             <b>+ Add contact</b>
-            <select name="channel" title="ntfy: any phone with the free ntfy app. Apprise: Telegram, Slack, Discord, email… (needs pip install apprise on the server)">
+            <select name="channel" title="ntfy: any phone with the free ntfy app. Bark: iPhone with the Bark app. Gotify: your Gotify server. Apprise: Telegram, Slack, Discord, email… (needs pip install apprise on the server)">
               <option value="ntfy">ntfy topic</option>
+              <option value="bark">Bark device (iPhone)</option>
+              <option value="gotify">Gotify server</option>
               <option value="apprise">Apprise URL</option>
             </select>
             <input name="address" required maxlength="2000" placeholder="https://ntfy.sh/my-team-alerts">
             <input name="tags" placeholder="tags, comma separated">
-            <input name="secret" type="password" placeholder="ntfy access token (optional)">
+            <input name="secret" type="password" maxlength="200" placeholder="ntfy access token (optional)">
             <button class="primary">Add</button>
             <span id="contactNote" class="muted small"></span>
           </form>

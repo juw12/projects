@@ -1,8 +1,18 @@
-"""Extra delivery channels: ntfy topics and Apprise URLs.
+"""Extra delivery channels: ntfy topics, Bark devices, Gotify apps and Apprise URLs.
 
 ntfy (https://ntfy.sh, Apache-2.0) — zero-dependency: Beacon publishes the
 notification as JSON to the topic's server. Anyone with the ntfy app
 (Android/iOS/web) subscribed to that topic gets it, no SDK needed.
+
+Bark (https://github.com/Finb/Bark, MIT) — native iPhone pushes through APNs
+without an Apple developer account: the Bark app shows a device URL like
+https://api.day.app/<device_key>; Beacon POSTs JSON to <server>/push
+(bark-server API v2). Self-hosted bark-server works via BEACON_BARK_HOSTS.
+
+Gotify (https://github.com/gotify/server, MIT) — self-hosted push server with
+an Android app. Beacon POSTs to <server>/message with the application token in
+X-Gotify-Key. Gotify is always self-hosted, so hosts must be allow-listed
+(BEACON_GOTIFY_HOSTS); the token is stored like the ntfy secret, never shown.
 
 Apprise (https://github.com/caronc/apprise, BSD-2) — optional
 `pip install apprise` unlocks 100+ services (Telegram, Slack, Discord, Teams,
@@ -15,6 +25,7 @@ to arbitrary URLs.
 
 from __future__ import annotations
 
+import hashlib
 import http.client
 import importlib
 import json
@@ -25,6 +36,11 @@ from urllib.parse import urlparse
 
 NTFY_TOPIC_RE = re.compile(r"^[-_A-Za-z0-9]{1,64}$")
 NTFY_PRIORITY = {"very-low": 1, "low": 2, "normal": 3, "high": 4}
+BARK_KEY_RE = re.compile(r"^[A-Za-z0-9_-]{8,128}$")
+BARK_LEVEL = {"very-low": "passive", "low": "passive", "normal": "active", "high": "timeSensitive"}
+GOTIFY_TOKEN_RE = re.compile(r"^[A-Za-z0-9._-]{8,128}$")
+GOTIFY_PRIORITY = {"very-low": 1, "low": 3, "normal": 5, "high": 8}
+CONTACT_CHANNELS = ("ntfy", "bark", "gotify", "apprise")
 APPRISE_URL_RE = re.compile(r"^[a-z][a-z0-9+.\-]{1,31}://\S+$", re.IGNORECASE)
 LOOPBACK = ("127.0.0.1", "localhost", "::1")
 
@@ -138,6 +154,120 @@ def send_ntfy(address: str, secret: str, payload: dict, urgency: str, timeout: i
     return status
 
 
+# --------------------------------------------------------------------- bark
+def bark_hosts() -> set[str]:
+    configured = os.environ.get("BEACON_BARK_HOSTS", "")
+    hosts = {h.strip().lower() for h in configured.split(",") if h.strip()}
+    return hosts or {"api.day.app"}
+
+
+def _plain_https(parsed, kind: str, test_hosts: tuple[str, ...], allowed: set[str], env: str) -> None:
+    """Shared URL rules: https, no credentials/query/fragment, allow-listed host."""
+    host = (parsed.hostname or "").lower()
+    if parsed.username or parsed.password or parsed.query or parsed.fragment:
+        raise ChannelError(f"{kind} URL must be a plain https://host/… URL")
+    loopback_test = host in test_hosts and host in LOOPBACK
+    if parsed.scheme != "https" and not (loopback_test and parsed.scheme == "http"):
+        raise ChannelError(f"{kind} URL must use https")
+    if host not in allowed and not loopback_test:
+        listed = ",".join(sorted(allowed)) or "(empty)"
+        raise ChannelError(f"{kind} host {host!r} is not allowed ({env}={listed})")
+
+
+def validate_bark(address: str, test_hosts: tuple[str, ...] = ()) -> str:
+    """Normalise the Bark device URL (https://api.day.app/<device_key>) or a bare device key."""
+    address = (address or "").strip()
+    if BARK_KEY_RE.match(address):
+        address = "https://api.day.app/" + address
+    parsed = urlparse(address)
+    _plain_https(parsed, "Bark", test_hosts, bark_hosts(), "BEACON_BARK_HOSTS")
+    path = parsed.path.rstrip("/")
+    key = path.rsplit("/", 1)[-1]
+    if not BARK_KEY_RE.match(key):
+        raise ChannelError("Bark address must end with the device key, e.g. https://api.day.app/<device_key>")
+    return f"{parsed.scheme}://{parsed.netloc}{path}"
+
+
+def bark_message(device_key: str, payload: dict, urgency: str) -> dict:
+    message = {
+        "device_key": device_key,
+        "title": payload.get("title", ""),
+        "body": payload.get("body") or payload.get("title", ""),
+        "level": BARK_LEVEL.get(urgency, "active"),
+        "isArchive": "1",
+    }
+    if absolute(payload.get("url", "")):
+        message["url"] = payload["url"]
+    if absolute(payload.get("icon", "")):
+        message["icon"] = payload["icon"]
+    if payload.get("tag"):
+        message["group"] = payload["tag"]
+    return message
+
+
+def send_bark(address: str, payload: dict, urgency: str, timeout: int = 15) -> int:
+    """POST <server>/push (bark-server API v2). Bark also reports errors in a JSON `code`."""
+    base, device_key = address.rsplit("/", 1)
+    body = json.dumps(bark_message(device_key, payload, urgency)).encode()
+    status, raw = http_post(base + "/push", body, {"Content-Type": "application/json; charset=utf-8"}, timeout)
+    if status == 200:
+        try:
+            code = int(json.loads(raw or b"{}").get("code", 200))
+        except (ValueError, TypeError, AttributeError):
+            code = 200
+        return code if code >= 300 else status
+    return status
+
+
+# ------------------------------------------------------------------- gotify
+def gotify_hosts() -> set[str]:
+    configured = os.environ.get("BEACON_GOTIFY_HOSTS", "")
+    return {h.strip().lower() for h in configured.split(",") if h.strip()}
+
+
+def validate_gotify(address: str, token: str, test_hosts: tuple[str, ...] = ()) -> str:
+    """Server root like https://push.example.com; the application token comes separately.
+
+    The stored address gets a short token fingerprint (#k…) so two Gotify apps on
+    one server stay two contacts; send_gotify strips it.
+    """
+    token = (token or "").strip()
+    if not GOTIFY_TOKEN_RE.match(token):
+        raise ChannelError("Gotify needs the application token as 'secret' (Gotify → Apps → token)")
+    parsed = urlparse((address or "").strip())
+    _plain_https(parsed, "Gotify", test_hosts, gotify_hosts(), "BEACON_GOTIFY_HOSTS")
+    path = parsed.path.rstrip("/")
+    if path.endswith("/message"):
+        path = path[: -len("/message")]
+    fingerprint = hashlib.sha256(token.encode()).hexdigest()[:10]
+    return f"{parsed.scheme}://{parsed.netloc}{path}#k{fingerprint}"
+
+
+def gotify_message(payload: dict, urgency: str) -> dict:
+    notification: dict = {}
+    if absolute(payload.get("url", "")):
+        notification["click"] = {"url": payload["url"]}
+    if absolute(payload.get("image", "")):
+        notification["bigImageUrl"] = payload["image"]
+    extras: dict = {"client::display": {"contentType": "text/plain"}}
+    if notification:
+        extras["client::notification"] = notification
+    return {
+        "title": payload.get("title", ""),
+        "message": payload.get("body") or payload.get("title", ""),
+        "priority": GOTIFY_PRIORITY.get(urgency, 5),
+        "extras": extras,
+    }
+
+
+def send_gotify(address: str, token: str, payload: dict, urgency: str, timeout: int = 15) -> int:
+    base = address.split("#", 1)[0]
+    headers = {"Content-Type": "application/json", "X-Gotify-Key": token}
+    body = json.dumps(gotify_message(payload, urgency)).encode()
+    status, _ = http_post(base + "/message", body, headers, timeout)
+    return status
+
+
 # ------------------------------------------------------------------ apprise
 def apprise_module():
     """The apprise package if installed (pip install apprise), else None."""
@@ -185,11 +315,18 @@ def mask_address(channel: str, address: str) -> str:
         return f"{scheme}://…{address[-4:]}" if len(address) > 12 else f"{scheme}://…"
     if channel == "ntfy":
         return address
+    if channel == "bark":  # the device key alone lets anyone push to that iPhone
+        base, key = address.rsplit("/", 1)
+        return f"{base}/…{key[-4:]}"
+    if channel == "gotify":
+        return address.split("#", 1)[0]
     return address[:60]
 
 
 def capabilities(test_hosts: tuple[str, ...] = ()) -> dict:
     return {
         "ntfy": {"available": True, "hosts": sorted(ntfy_hosts())},
+        "bark": {"available": True, "hosts": sorted(bark_hosts())},
+        "gotify": {"available": bool(gotify_hosts()), "hosts": sorted(gotify_hosts())},
         "apprise": {"available": apprise_module() is not None, "version": apprise_version()},
     }

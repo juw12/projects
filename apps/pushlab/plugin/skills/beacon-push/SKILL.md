@@ -1,6 +1,6 @@
 ---
 name: beacon-push
-description: Send and inspect push notifications with a self-hosted Beacon server - Web Push, Firebase (FCM), ntfy, Apprise (Slack, Telegram, email, ...) and in-app inbox - and check delivery status and stats. Use when asked to send a notification, test a push campaign, or debug why a push was not delivered.
+description: Send and inspect push notifications with a self-hosted Beacon server - Web Push, Firebase (FCM), ntfy, Bark (iPhone), Gotify, Apprise (Slack, Telegram, email, ...) and in-app inbox - and check delivery status and stats. Use when asked to send a notification, test a push campaign, or debug why a push was not delivered.
 ---
 
 # Beacon push
@@ -24,7 +24,7 @@ python scripts/pushlab_cli.py push --title "Order shipped" --body "Arrives Tuesd
 
 - Targets: `--tag` (repeatable) reaches subscribers with any of those tags.
   Without a tag the message goes to every subscriber of the app.
-- Channels: `--channel webpush|fcm|ntfy|apprise|inapp` (repeatable) limits the
+- Channels: `--channel webpush|fcm|ntfy|bark|gotify|apprise|inapp` (repeatable) limits the
   transports; default is all.
 - The command waits until Beacon finishes and exits 1 unless the message is
   `sent` with `delivered > 0`. Read `failed` and `pruned` (dead subscriptions
