@@ -245,8 +245,8 @@
      "portfolio_order": -6,
      "card_links": [
       {
-        "label": "Windows app",
-        "path": "https://github.com/juw12/projects/releases/download/airiz-desktop-v1.11.22/AIRIZ-Console-Setup-1.11.22-x64.exe"
+       "label": "Windows app",
+       "path": "https://github.com/juw12/projects/releases/download/airiz-desktop-v1.11.22/AIRIZ-Console-Setup-1.11.22-x64.exe"
       },
       {
        "label": "Web",
