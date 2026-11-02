@@ -1137,6 +1137,49 @@
       "status": "working-prototype",
       "order": 28,
       "portfolio": true
+    },
+    {
+      "id": "sortie",
+      "name": "Sortie",
+      "category": "Apps",
+      "desc": "Playful file organizer: files fly into folders, a vacuum sucks up deletes, and an AI assistant plans moves, renames and cleanups",
+      "summary": "File organizer with fly-into-folder animations, a vacuum for deletes and an AI assistant that plans before it acts.",
+      "description": "Sortie is a file organizer styled as a <strong>Google Drive &times; macOS Finder</strong> hybrid. Sorted files <strong>fly into their folders</strong>, and deleted files get sucked up by a <strong>vacuum cleaner</strong> into a recoverable Vacuum bag. Finder-style sidebar with Favorites, Folders and Tags, Drive-style filter chips and selection bar, icon and striped list views, back/forward history and a path bar. An <strong>AI assistant</strong> (offline rule-based helper, or OpenAI, Anthropic, Gemini, OpenRouter, Groq, Ollama and LM Studio) turns plain requests such as &ldquo;vacuum duplicates&rdquo; into a plan you Run or Cancel; everything is undoable. Works on real folders in Chrome and Edge via the File System Access API, with demo and preview modes that never touch the disk. Installable PWA, light and dark themes, no build step.",
+      "tags": [
+        "File manager",
+        "AI assistant",
+        "PWA",
+        "File System Access",
+        "Vanilla JS"
+      ],
+      "note_tags": [
+        "sortie",
+        "file-manager",
+        "ai-assistant",
+        "pwa",
+        "file-system-access",
+        "vanilla-js",
+        "animation"
+      ],
+      "image": "sortie-card.jpg",
+      "image_alt": "Sortie file organizer: Finder-style sidebar with folders and tags, Drive-style search and filter chips, and a grid of files",
+      "project_id": "sortie",
+      "links": {
+        "app": "sortie/",
+        "web": "sortie/",
+        "mobile": "sortie/"
+      },
+      "card": {
+        "capture": "sortie/index.html",
+        "label": "sortie \u00b7 inbox",
+        "theme": "light",
+        "accent": "#007aff",
+        "accent2": "#34a853",
+        "wait_ms": 1800
+      },
+      "status": "working-prototype",
+      "order": 29,
+      "portfolio": true
     }
   ]
 }
