@@ -1,0 +1,84 @@
+# XcodeGen spec — on a Mac run:  brew install xcodegen && xcodegen generate
+name: Ashiato
+options:
+  bundleIdPrefix: app.ashiato
+  deploymentTarget:
+    iOS: "17.0"
+  developmentLanguage: en
+settings:
+  base:
+    SWIFT_VERSION: "5.10"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    DEVELOPMENT_TEAM: ""   # set your Apple team ID
+targets:
+  Ashiato:
+    type: application
+    platform: iOS
+    sources:
+      - path: Ashiato
+      - path: Shared
+    resources:
+      - path: Resources
+    info:
+      path: Ashiato/Info.plist
+      properties:
+        CFBundleDisplayName: Ashiato
+        UILaunchScreen: {}
+        UIAppFonts:        # Resources/Fonts — SIL Open Font License, see OFL-*.txt
+          - ZenMaruGothic-Regular.ttf
+          - ZenMaruGothic-Bold.ttf
+          - KleeOne-Regular.ttf
+          - GowunDodum-Regular.ttf
+          - NanumPenScript-Regular.ttf
+        NSCameraUsageDescription: "Take a photo of your day to turn it into a doodle."
+        NSPhotoLibraryUsageDescription: "Choose a photo of your day to turn it into a doodle, and tidy your screenshots into drawers. Screenshots are read on this iPhone only and are only deleted when you confirm."
+        NSLocationWhenInUseUsageDescription: "Draw the streets you walk on your personal map and show today's weather."
+        NSLocationAlwaysAndWhenInUseUsageDescription: "Keep drawing your walk while the app is in the background."
+        NSMotionUsageDescription: "Detect when you start walking so recording can begin automatically."
+        UIBackgroundModes: [location]
+    entitlements:
+      path: Ashiato/Ashiato.entitlements
+      properties:
+        com.apple.developer.weatherkit: true
+        com.apple.developer.icloud-container-identifiers: [iCloud.app.ashiato]
+        com.apple.developer.icloud-services: [CloudKit]
+        com.apple.security.application-groups: [group.app.ashiato]
+    dependencies:
+      - target: AshiatoWidgets
+  AshiatoWidgets:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: Widgets
+      - path: Shared
+    resources:
+      - path: Resources/Scenes
+    info:
+      path: Widgets/Info.plist
+      properties:
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    entitlements:
+      path: Widgets/AshiatoWidgets.entitlements
+      properties:
+        com.apple.security.application-groups: [group.app.ashiato]
+  AshiatoTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: AshiatoTests
+    resources:
+      - path: Resources/clip_lexicon.json
+      - path: ../prototypes/tidy/expected.json   # golden file from tidy.py --export-expected
+    dependencies:
+      - target: Ashiato
+schemes:
+  Ashiato:
+    build:
+      targets:
+        Ashiato: all
+        AshiatoTests: [test]
+    test:
+      targets:
+        - AshiatoTests

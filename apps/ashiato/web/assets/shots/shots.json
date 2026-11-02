@@ -1,0 +1,66 @@
+[
+ {
+  "file": "shot_shopping.png",
+  "text": "UNIQLO\nスフレヤーンクルーネックセーター\n¥3,990 税込\nサイズ M L XL\nカートに入れる",
+  "drawer": "shopping",
+  "score": 7.0,
+  "expiry": null,
+  "duplicateOf": null
+ },
+ {
+  "file": "shot_place.png",
+  "text": "어니언 성수\n카페 · 리뷰 3,412\n영업 중 · 22:00에 영업 종료\n서울 성동구 아차산로9길 8\n성수역 2번 출구 도보 5분\n길찾기",
+  "drawer": "places",
+  "score": 11.5,
+  "expiry": null,
+  "duplicateOf": null
+ },
+ {
+  "file": "shot_recipe.png",
+  "text": "鶏むね肉の甘酢炒め\n材料(2人分)\n鶏むね肉 300g\n醤油 大さじ2\n砂糖 大さじ1\n酢 大さじ2\n作り方",
+  "drawer": "food",
+  "score": 13.0,
+  "expiry": null,
+  "duplicateOf": null
+ },
+ {
+  "file": "shot_ticket.png",
+  "text": "新幹線 のぞみ 215号\n東京 → 京都\n11月14日 10:03 → 12:17\n8号車 12番 A席\n予約番号 2F8K1Q",
+  "drawer": "tickets",
+  "score": 9.0,
+  "expiry": "2026-11-14",
+  "duplicateOf": null
+ },
+ {
+  "file": "shot_chat.png",
+  "text": "엄마\n밥 먹었어?\n오후 7:02\n응 먹었어 ㅎㅎ\n읽음 오후 7:05\n주말에 올 거지?\n김치 담가놨어",
+  "drawer": "chats",
+  "score": 7.5,
+  "expiry": null,
+  "duplicateOf": null
+ },
+ {
+  "file": "shot_chat_again.png",
+  "text": "엄마\n밥 먹었어?\n오후 7:02\n응 먹었어 ㅎㅎ\n읽음 오후 7:05\n주말에 올 거지?\n김치 담가놨어",
+  "drawer": "chats",
+  "score": 7.5,
+  "expiry": null,
+  "duplicateOf": "shot_chat.png"
+ },
+ {
+  "file": "shot_quote.png",
+  "text": "「急がなくていい。\nちゃんと歩いていれば、\nそれでいい。」",
+  "drawer": "words",
+  "score": 4.0,
+  "expiry": null,
+  "duplicateOf": null
+ },
+ {
+  "file": "shot_settings.png",
+  "text": "設定\nWi-Fi\nBluetooth\nモバイル通信\n通知\nサウンドと触覚\n集中モード\nスクリーンタイム",
+  "drawer": "other",
+  "score": 0.5,
+  "expiry": null,
+  "duplicateOf": null
+ }
+]
