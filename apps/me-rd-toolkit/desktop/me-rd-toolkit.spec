@@ -20,6 +20,7 @@ SKIP_DIRS = {"data", "__pycache__", ".pytest_cache", "node_modules"}
 SKIP_SUFFIXES = {".pyc", ".pyo", ".db", ".db-journal", ".db-wal", ".db-shm"}
 VERTEX_DIRS = ("web", "server", "connectors", "docs")
 PTB_DIRS = ("web", "server", "scripts")
+PHOTO2CAD_DIRS = ("web",)
 
 
 def _walk(root, bundle_subpath, pairs):
@@ -42,6 +43,8 @@ def toolkit_files():
         _walk(os.path.join(TOOLKIT, "vertex", name), "me-rd-toolkit/vertex/" + name, pairs)
     for name in PTB_DIRS:
         _walk(os.path.join(TOOLKIT, "ptb-rdme", name), "me-rd-toolkit/ptb-rdme/" + name, pairs)
+    for name in PHOTO2CAD_DIRS:
+        _walk(os.path.join(TOOLKIT, "photo2cad", name), "me-rd-toolkit/photo2cad/" + name, pairs)
     return pairs
 
 
