@@ -744,21 +744,32 @@
     else { renderOt(); }
   }
 
+  function mountPhoto2cad(container) {
+    const port = (window.MERD_SUBAPPS && window.MERD_SUBAPPS.photo2cad) || 8000;
+    const url = "http://127.0.0.1:" + port + "/";
+    container.innerHTML =
+      '<div class="subapp-note muted">PRD + six reference photos &rarr; a validated STEP (.stp) CAD model, written by the MAAS LLM. Photos are reference only; the PRD drives the geometry.</div>' +
+      '<div class="subapp-host"><iframe title="Photo2CAD" src="' + url + '" loading="lazy" style="width:100%;height:100%;border:0"></iframe></div>' +
+      '<div class="subapp-note muted">Runs on <code>' + esc(url) + '</code>. If it does not load, open it from the toolkit desktop app, or run <code>apps\\me-rd-toolkit\\photo2cad\\start.ps1</code>.</div>';
+  }
+
   V.apps = async function (r) {
-    const app = r.params.a === "ptb" ? "ptb" : "vertex";
+    const app = r.params.a === "ptb" ? "ptb" : (r.params.a === "photo2cad" ? "photo2cad" : "vertex");
     const tab = r.params.t === "drafts" ? "drafts" : (r.params.t === "team" ? "team" : "ot");
     if (app !== "vertex" && vertexCleanup) { try { vertexCleanup(); } catch (e) {} vertexCleanup = null; }
     $("#view").innerHTML =
       "<h1>" + APP.icon("apps") + " R&amp;D Apps</h1>" +
-      '<div class="muted">Vertex CAD copilot and the PTB RD ME overtime widget, in one place.</div>' +
+      '<div class="muted">Vertex CAD copilot, Photo2CAD (PRD + photos &rarr; STEP) and the PTB RD ME overtime widget, in one place.</div>' +
       '<div class="chips" style="margin:12px 0">' +
       '<a class="chip' + (app === "vertex" ? " active" : "") + '" href="#apps?a=vertex">Vertex</a>' +
+      '<a class="chip' + (app === "photo2cad" ? " active" : "") + '" href="#apps?a=photo2cad">Photo2CAD</a>' +
       '<a class="chip' + (app === "ptb" ? " active" : "") + '" href="#apps?a=ptb">PTB RDME</a>' +
       "</div>" +
       '<div id="apps-body"></div>';
     const body = $("#apps-body");
     if (!body) return;
     if (app === "vertex") { await mountVertex(body); }
+    else if (app === "photo2cad") { mountPhoto2cad(body); }
     else { await renderPtb(body, tab, "#apps?a=ptb&t="); }
   };
 })();

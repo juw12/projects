@@ -7,8 +7,9 @@ Upload six photos of an object (front / back / left / right / top / bottom) and 
 spec into a **CadQuery** program; the server executes it in a sandbox and returns a validated
 **STEP** file and a live 3D preview.
 
-> Part of the [`apps/`](../) monorepo. Unlike the other apps, this one is **not** stdlib-only —
-> producing genuine STEP requires a BREP kernel (`cadquery`/`OCP`).
+> Embedded in the **ME R&D Toolkit** (`apps/me-rd-toolkit/`) as the **Photo2CAD** sub-app of its
+> **R&D Apps** section. Unlike the toolkit's other parts, this one is **not** stdlib-only — producing
+> genuine STEP requires a BREP kernel (`cadquery`/`OCP`).
 
 ## What it does
 
@@ -37,11 +38,12 @@ PRD text + 6 photos
 ## Layout
 
 ```
-apps/photo2cad/
+apps/me-rd-toolkit/photo2cad/
   web/        static front-end (6 slots + PRD + three.js preview + downloads)
   server/     stdlib HTTP server; MAAS client; cadgen; sandbox; validate; pipeline
   tests/      hermetic stdlib tests (run with the cadquery venv)
   docs/       interface contract (photo2cad-spec.md)
+  start.ps1   local launcher (reads the MAAS key from the OpenCode config)
   Dockerfile  Python 3.12 + cadquery (deploy target)
 ```
 
@@ -51,7 +53,7 @@ The repo has a venv with cadquery at the monorepo root: `.venv3d`.
 
 ```powershell
 # from the repo root
-& ".\.venv3d\Scripts\python.exe" apps\photo2cad\server\server.py --port 8000
+& ".\.venv3d\Scripts\python.exe" apps\me-rd-toolkit\photo2cad\server\server.py --port 8000
 # then open http://127.0.0.1:8000
 ```
 
@@ -68,8 +70,9 @@ $env:PHOTO2CAD_FAKE_LLM = "1"
 ## Tests
 
 ```powershell
-& ".\.venv3d\Scripts\python.exe" apps\photo2cad\tests\test_sandbox.py
-& ".\.venv3d\Scripts\python.exe" apps\photo2cad\tests\verify_api.py
+& ".\.venv3d\Scripts\python.exe" apps\me-rd-toolkit\photo2cad\tests\test_sandbox.py
+& ".\.venv3d\Scripts\python.exe" apps\me-rd-toolkit\photo2cad\tests\verify_api.py
+& ".\.venv3d\Scripts\python.exe" apps\me-rd-toolkit\photo2cad\tests\test_repair.py
 ```
 
 Both are hermetic (free port, `PHOTO2CAD_FAKE_LLM=1`, temporary/ignored artifact dir) and exit
@@ -94,7 +97,7 @@ Images are data URLs (`FileReader.readAsDataURL`). Full contract: [`docs/photo2c
 | `MAAS_LLM_MODEL` | `gpt-4o` | Model id |
 | `PHOTO2CAD_FAKE_LLM` | `0` | `1` → canned program, no network |
 | `PHOTO2CAD_SANDBOX_TIMEOUT` | `120` | child process timeout (s) |
-| `PHOTO2CAD_ARTIFACTS` | `apps/photo2cad/.artifacts` | artifact root |
+| `PHOTO2CAD_ARTIFACTS` | `apps/me-rd-toolkit/photo2cad/.artifacts` | artifact root |
 
 ## Deploy (Kubernetes via aicc-deploy-agent)
 

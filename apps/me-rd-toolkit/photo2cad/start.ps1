@@ -8,7 +8,7 @@
 
 $ErrorActionPreference = "Stop"
 $App  = $PSScriptRoot
-$Root = (Resolve-Path (Join-Path $App "..\..")).Path
+$Root = (Resolve-Path (Join-Path $App "..\..\..")).Path
 $py   = Join-Path $Root ".venv3d\Scripts\python.exe"
 if (-not (Test-Path $py)) { $py = "python" }
 
