@@ -260,7 +260,10 @@ def run():
         s, data = c.request("GET", "/api/outreach/leads", expect_status=200)
         leads = data.get("leads") or []
         check("outreach list returns 2 leads", len(leads) == 2)
-        check("lead status starts as 'new'", all(l["status"] == "new" for l in leads))
+        # The live scheduler may send step 1 to one lead (one per tick) right after import.
+        statuses = [l["status"] for l in leads]
+        check("lead status starts as 'new' (at most one already sent by the scheduler)",
+              all(st in ("new", "sent") for st in statuses) and statuses.count("sent") <= 1, statuses)
 
         s, data = c.request("GET", "/api/outreach/settings", expect_status=200)
         check("settings has operator_name", "operator_name" in data)

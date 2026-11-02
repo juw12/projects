@@ -263,7 +263,7 @@ KW_TOOLING_LT = _kw(r"tooling\s*lead\s*time", r"mou?ld\s*lead\s*time", r"tooling
                     r"模具周期", r"开模时间", r"waktu\s*(?:pembuatan\s*)?(?:cetakan|mou?ld|tooling)")
 KW_LEAD_TIME = _kw(r"lead[\s-]*time", r"production\s*time", r"delivery\s*time", r"交期", r"交货期", r"生产周期",
                    r"waktu\s*produksi", r"waktu\s*pengiriman")
-KW_TOOLING = _kw(r"tooling", r"mou?ld\s*(?:cost|fee|charge)", r"(?<![A-Za-z])NRE(?![A-Za-z])", r"模具费", r"开模费",
+KW_TOOLING = _kw(r"tooling", r"mou?ld\s*(?:cost|fee|charge)", r"^\s*mou?lds?\s*[:：(]", r"(?<![A-Za-z])NRE(?![A-Za-z])", r"模具费", r"开模费",
                  r"biaya\s*(?:cetakan|mou?ld|tooling)")
 KW_MOQ = _kw(r"(?<![A-Za-z])MOQ(?![A-Za-z])", r"minimum\s*order", r"最小起订量", r"起订量", r"最低订量", r"minimal\s*order")
 KW_PAYMENT = _kw(r"payment", r"付款", r"结算", r"pembayaran")
@@ -275,7 +275,7 @@ SUPPLIER_LABEL = re.compile(
     r"^\s*(?:supplier|vendor|company|供应商|公司名称|pemasok|perusahaan)\s*(?:name|名称)?\s*[:：]?\s*(.*)$", re.I)
 COMPANY_HINT = re.compile(r"有限公司|Co\.,?\s*Ltd|(?<![A-Za-z])PT\s+[A-Z]|Inc\.|LLC|Sdn\.?\s*Bhd", re.I)
 INCOTERM_RE = re.compile(r"(?<![A-Za-z])(EXW|FCA|FAS|FOB|CFR|CIF|CPT|CIP|DAP|DPU|DDP)(?![A-Za-z])"
-                         r"(?:\s*([A-Z][a-z]+(?:\s[A-Z][a-z]+)?|[\u4e00-\u9fff]{2,4}))?")
+                         r"(?:[ \t]*([A-Z][a-z]+(?:[ \t][A-Z][a-z]+)?|[\u4e00-\u9fff]{2,4}))?")
 INLINE_BREAK_RE = re.compile(
     r"(?P<qty>\d[\d.,]*\s?(?:[kK](?![A-Za-z]{2})|万)?)\s*(?:pcs|pc|units?|sets?|件|个|只|套|buah)"
     r"(?P<between>[^\d\n]{0,20}?)(?P<price>\d[\d.,]*\d|\d)")
@@ -415,37 +415,45 @@ def _usd(amount, currency, fx):
 
 
 def _issues(q, volumes, target, fx):
+    """Problems with a quote. `key` + `params` drive the supplier follow-up questions."""
     out = []
-    add = lambda sev, msg: out.append({"severity": sev, "message": msg})
+
+    def add(severity, message, key, **params):
+        out.append({"severity": severity, "message": message, "key": key, "params": params})
+
+    all_volumes = " / ".join(f"{v:,}" for v in volumes)
     breaks = q.get("price_breaks") or []
     if not breaks:
-        add("high", "No unit prices found")
+        add("high", "No unit prices found", "price_breaks", volumes=all_volumes)
     elif len(breaks) == 1:
-        add("low", "Only one price break quoted")
+        add("low", "Only one price break quoted", "price_breaks", volumes=all_volumes)
     if not q.get("currency"):
-        add("high", "Currency not stated")
+        add("high", "Currency not stated", "currency")
     elif q["currency"] not in fx:
-        add("high", f"No FX rate for {q['currency']} (set RESPARK_FX)")
+        add("high", f"No FX rate for {q['currency']} (set RESPARK_FX)", "fx")
     if q.get("tooling_cost") is None:
-        add("high", "Tooling cost not stated (excluded from total)")
+        add("high", "Tooling cost not stated (excluded from total)", "tooling_cost")
     if q.get("moq") is None:
-        add("medium", "MOQ not stated")
+        add("medium", "MOQ not stated", "moq")
     elif q["moq"] > target:
-        add("high", f"MOQ {q['moq']:,} is above the target volume {target:,}")
+        add("high", f"MOQ {q['moq']:,} is above the target volume {target:,}",
+            "moq_above_volume", volume=f"{target:,}", moq=f"{q['moq']:,}")
     elif q["moq"] > min(volumes):
-        add("medium", f"MOQ {q['moq']:,} is above the {min(volumes):,} pcs scenario")
+        add("medium", f"MOQ {q['moq']:,} is above the {min(volumes):,} pcs scenario",
+            "moq_above_volume", volume=f"{min(volumes):,}", moq=f"{q['moq']:,}")
     if breaks and breaks[0]["qty"] > target:
-        add("medium", f"Lowest quoted qty {breaks[0]['qty']:,} is above target {target:,}")
+        add("medium", f"Lowest quoted qty {breaks[0]['qty']:,} is above target {target:,}",
+            "price_breaks", volumes=all_volumes)
     if q.get("lead_time_days") is None:
-        add("medium", "Production lead time not stated")
+        add("medium", "Production lead time not stated", "lead_time")
     if q.get("tooling_lead_time_days") is None:
-        add("medium", "Tooling / T1 lead time not stated")
+        add("medium", "Tooling / T1 lead time not stated", "tooling_lead_time")
     if not q.get("incoterm"):
-        add("medium", "Incoterm not stated (unknown freight allowance used)")
+        add("medium", "Incoterm not stated (unknown freight allowance used)", "incoterm")
     if not q.get("payment_terms"):
-        add("low", "Payment terms not stated")
+        add("low", "Payment terms not stated", "payment_terms")
     if q.get("validity_days") is None:
-        add("low", "Quote validity not stated")
+        add("low", "Quote validity not stated", "validity")
     order = {"high": 0, "medium": 1, "low": 2}
     return sorted(out, key=lambda i: order[i["severity"]])
 

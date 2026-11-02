@@ -357,11 +357,58 @@
       '<input id="qSupplier-' + q.id + '" placeholder="Supplier name (optional)">' +
       '<input id="qFile-' + q.id + '" type="file" accept=".xlsx,.xlsm,.csv,.txt,.eml,.pdf">' +
       '<textarea id="qText-' + q.id + '" placeholder="…or paste the quote here"></textarea>' +
-      '<button class="btn btn-primary btn-sm" data-add-quote="' + q.id + '">Add quote</button></div>' +
+      '<div class="quote-add-row"><button class="btn btn-primary btn-sm" data-add-quote="' + q.id + '">Add quote</button>' +
+      '<label class="ai-toggle" id="qAiWrap-' + q.id + '" hidden><input type="checkbox" id="qAi-' + q.id + '"> Read with AI ' +
+      '<small>(sends this quote text to your AI provider; check supplier NDAs)</small></label></div></div>' +
       '<div class="quote-volumes">Target volume <input id="qTarget-' + q.id + '" type="number" min="1" placeholder="auto">' +
       ' Scenarios <input id="qVolumes-' + q.id + '" placeholder="e.g. 1000,5000,20000">' +
-      ' <button class="btn btn-light btn-sm" data-recalc="' + q.id + '">Recalculate</button></div>' +
-      '<div id="quotes-' + q.id + '"><p class="muted">Loading quotes…</p></div></div>';
+      ' <button class="btn btn-light btn-sm" data-recalc="' + q.id + '">Recalculate</button>' +
+      ' <a class="btn btn-light btn-sm" id="qXlsx-' + q.id + '" hidden>Download Excel</a></div>' +
+      '<div id="quotes-' + q.id + '"><p class="muted">Loading quotes…</p></div>' +
+      rfqPanel(q) + "</div>";
+  }
+
+  function rfqPanel(q) {
+    return '<details class="rfq-box"><summary>Write RFQ e-mail to suppliers (English / 中文 / Bahasa)</summary>' +
+      '<div class="quote-form">' +
+      '<input id="rfqPart-' + q.id + '" placeholder="Part, e.g. PC/ABS camera housing, 2 parts">' +
+      '<input id="rfqDest-' + q.id + '" placeholder="Delivery destination, e.g. Singapore">' +
+      '<input id="rfqDue-' + q.id + '" placeholder="Reply by, e.g. 15 Nov">' +
+      '<span class="muted" style="align-self:center">Volumes come from the target and scenarios above.</span>' +
+      '<textarea id="rfqSpecs-' + q.id + '" placeholder="Specs, one per line: material, finish, tolerances, certifications…"></textarea>' +
+      '<button class="btn btn-primary btn-sm" data-rfq="' + q.id + '">Write RFQ e-mails</button></div>' +
+      '<div id="rfqOut-' + q.id + '"></div></details>';
+  }
+
+  function emailBlock(id, label, subject, body) {
+    return '<div class="email-draft"><div class="email-head"><b>' + esc(label) + "</b>" +
+      '<button class="btn btn-light btn-sm" data-copy="' + id + '">Copy</button></div>' +
+      '<input readonly id="' + id + '-subject" value="' + esc(subject) + '">' +
+      '<textarea readonly id="' + id + '-body" rows="' + Math.min(18, body.split("\n").length + 1) + '">' + esc(body) + "</textarea></div>";
+  }
+
+  function bindCopyButtons(container) {
+    container.querySelectorAll("[data-copy]").forEach(function (button) {
+      button.addEventListener("click", function () {
+        const id = button.dataset.copy;
+        const text = "Subject: " + document.getElementById(id + "-subject").value + "\n\n" +
+          document.getElementById(id + "-body").value;
+        const done = function () {
+          toast("Copied. Paste it into your e-mail.");
+        };
+        if (navigator.clipboard && window.isSecureContext) {
+          navigator.clipboard.writeText(text).then(done).catch(function () {
+            document.getElementById(id + "-body").select();
+            toast("Press Ctrl+C to copy");
+          });
+        } else {
+          const area = document.getElementById(id + "-body");
+          area.select();
+          document.execCommand("copy");
+          done();
+        }
+      });
+    });
   }
 
   function usd(value, digits) {
@@ -378,7 +425,11 @@
       return;
     }
     document.getElementById("qTarget-" + q.id).placeholder = data.target;
+    document.getElementById("qAiWrap-" + q.id).hidden = !data.ai_available;
     const c = data.comparison;
+    const xlsx = document.getElementById("qXlsx-" + q.id);
+    xlsx.hidden = !(c && c.rows.length);
+    xlsx.href = "/api/ic/inquiries/" + q.id + "/quotes.xlsx" + quoteQuery(q);
     if (!c || !c.rows.length) {
       box.innerHTML = '<p class="muted">No supplier quotes yet.</p>';
       return;
@@ -413,7 +464,9 @@
         return k !== "USD";
       }).map(function (k) {
         return k + " " + c.fx[k];
-      }).join(", ") + " per USD (set RESPARK_FX). Green = cheapest at that volume, ⚠ = below MOQ or lowest quoted qty. Verify against the source quote before advising the buyer.</p>";
+      }).join(", ") + " per USD (set RESPARK_FX). Green = cheapest at that volume, ⚠ = below MOQ or lowest quoted qty. Verify against the source quote before advising the buyer.</p>" +
+      followupsHtml(c);
+    bindCopyButtons(box);
     box.querySelectorAll("[data-del-quote]").forEach(function (button) {
       button.addEventListener("click", function () {
         api("POST", "/api/ic/quotes/" + button.dataset.delQuote + "/delete").then(function () {
@@ -425,14 +478,35 @@
     });
   }
 
+  function quoteQuery(q) {
+    const target = document.getElementById("qTarget-" + q.id).value;
+    const volumes = document.getElementById("qVolumes-" + q.id).value;
+    return "?target=" + encodeURIComponent(target) + "&volumes=" + encodeURIComponent(volumes);
+  }
+
+  const LANGUAGE_LABELS = { en: "English", zh: "中文", id: "Bahasa" };
+
+  function followupsHtml(c) {
+    const drafts = c.rows.filter(function (row) {
+      return row.followup;
+    });
+    if (!drafts.length) {
+      return '<p class="muted">All quotes are complete. No follow-up questions needed.</p>';
+    }
+    return '<div class="followups"><h4>Ask suppliers for missing information</h4>' +
+      drafts.map(function (row) {
+        const f = row.followup;
+        return "<details><summary><b>" + esc(row.supplier) + "</b> · " + f.questions.length + " question" +
+          (f.questions.length === 1 ? "" : "s") + " · " + esc(LANGUAGE_LABELS[f.language] || f.language) + "</summary>" +
+          emailBlock("fu-" + row.id, "Follow-up e-mail", f.subject, f.body) + "</details>";
+      }).join("") + "</div>";
+  }
+
   function loadQuotes(q) {
     if (!document.getElementById("quotes-" + q.id)) {
       return;
     }
-    const target = document.getElementById("qTarget-" + q.id).value;
-    const volumes = document.getElementById("qVolumes-" + q.id).value;
-    const query = "?target=" + encodeURIComponent(target) + "&volumes=" + encodeURIComponent(volumes);
-    api("GET", "/api/ic/inquiries/" + q.id + "/quotes" + query).then(function (data) {
+    api("GET", "/api/ic/inquiries/" + q.id + "/quotes" + quoteQuery(q)).then(function (data) {
       drawQuotes(q, data);
     }).catch(function (error) {
       toast(error.message);
@@ -448,13 +522,38 @@
     document.querySelector('[data-recalc="' + q.id + '"]').addEventListener("click", function () {
       loadQuotes(q);
     });
+    document.querySelector('[data-rfq="' + q.id + '"]').addEventListener("click", function () {
+      const value = function (name) {
+        return document.getElementById(name + "-" + q.id).value;
+      };
+      api("POST", "/api/ic/inquiries/" + q.id + "/rfq", {
+        part: value("rfqPart"),
+        destination: value("rfqDest"),
+        due: value("rfqDue"),
+        specs: value("rfqSpecs"),
+        target: value("qTarget"),
+        volumes: value("qVolumes")
+      }).then(function (result) {
+        const out = document.getElementById("rfqOut-" + q.id);
+        out.innerHTML = ["en", "zh", "id"].filter(function (lang) {
+          return result.rfqs[lang];
+        }).map(function (lang) {
+          const r = result.rfqs[lang];
+          return emailBlock("rfq-" + q.id + "-" + lang, "RFQ · " + LANGUAGE_LABELS[lang], r.subject, r.body);
+        }).join("");
+        bindCopyButtons(out);
+      }).catch(function (error) {
+        toast(error.message);
+      });
+    });
     addButton.addEventListener("click", function () {
       const fileInput = document.getElementById("qFile-" + q.id);
       const textInput = document.getElementById("qText-" + q.id);
-      const payload = { supplier: document.getElementById("qSupplier-" + q.id).value };
+      const aiBox = document.getElementById("qAi-" + q.id);
+      const payload = { supplier: document.getElementById("qSupplier-" + q.id).value, use_ai: !!(aiBox && aiBox.checked) };
       const send = function () {
         api("POST", "/api/ic/inquiries/" + q.id + "/quotes", payload).then(function (result) {
-          toast("Quote added: " + result.extracted.supplier);
+          toast(result.ai_error ? result.ai_error + ". Used the built-in reader instead." : "Quote added: " + result.extracted.supplier);
           fileInput.value = "";
           textInput.value = "";
           document.getElementById("qSupplier-" + q.id).value = "";

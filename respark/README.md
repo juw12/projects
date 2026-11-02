@@ -203,5 +203,10 @@ Each is a small addition. Add when needed.
 - **`daily_send_limit` and send delay are enforced** by the scheduler.
 - **Buyer-side outreach:** industry `hardware_startup` uses a sourcing / NPI pitch. *Close* on such a lead creates a customer RFQ inquiry in `/bridge`, ready for supplier quotes.
 
-Settings: `RESPARK_IMAP_HOST`, `RESPARK_IMAP_USER`, `RESPARK_IMAP_PASS`, `RESPARK_IMAP_EVERY`, `RESPARK_FX` (see `.env.example`).
-Tests: `RESPARK_SECRET=test python tests/verify_quotes_outreach.py` (30 checks).
+Settings: `RESPARK_IMAP_HOST`, `RESPARK_IMAP_USER`, `RESPARK_IMAP_PASS`, `RESPARK_IMAP_EVERY`, `RESPARK_FX`, `RESPARK_OPENAI_BASE_URL`, `RESPARK_QUOTE_MODEL` (see `.env.example`).
+- **RFQ e-mail writer:** under each RFQ, *Write RFQ e-mail to suppliers* drafts the request in English, 中文 and Bahasa with a fixed reply template (price per volume, tooling, MOQ, lead times, Incoterm, payment, validity), so quotes come back easy to compare. `POST /api/ic/inquiries/<id>/rfq`.
+- **Supplier follow-ups:** for every quote with missing information, Titian drafts a follow-up e-mail in the supplier's own language (Chinese quote → Chinese questions). Copy and send it yourself.
+- **Excel download:** `GET /api/ic/inquiries/<id>/quotes.xlsx` (Comparison / Quotes / Issues / Follow-ups sheets, cheapest per volume in green). Stdlib writer, no openpyxl needed.
+- **Optional AI reading** (`server/quote_docs.py`): set `RESPARK_OPENAI_API_KEY` (any OpenAI-compatible API via `RESPARK_OPENAI_BASE_URL`, model `RESPARK_QUOTE_MODEL`, default gpt-4o-mini). It is used **only when you tick "Read with AI"** on a quote, because it sends the quote text to the AI provider (check supplier NDAs). The built-in reader fills whatever the AI leaves empty and takes over if the AI call fails.
+
+Tests: `RESPARK_SECRET=test python tests/verify_quotes_outreach.py` (51 checks, AI tested against a fake local server).

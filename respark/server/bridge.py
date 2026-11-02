@@ -42,6 +42,7 @@ import zipfile
 from datetime import datetime, timedelta, timezone
 
 import quotes  # supplier-quote comparison for RFQs (server/quotes.py)
+import quote_docs  # RFQ e-mails, supplier follow-ups, Excel export, AI reading (server/quote_docs.py)
 
 core = None  # the server module, injected by attach()
 
@@ -900,6 +901,9 @@ def handle(handler, method, path, url):
         m = re.match(r"^/api/ic/inquiries/([a-f0-9]{32})/quotes$", path)
         if m:
             return api_quotes(handler, m.group(1), url)
+        m = re.match(r"^/api/ic/inquiries/([a-f0-9]{32})/quotes\.xlsx$", path)
+        if m:
+            return api_quotes_xlsx(handler, m.group(1), url)
         return False
 
     if method == "POST":
@@ -935,6 +939,9 @@ def handle(handler, method, path, url):
         m = re.match(r"^/api/ic/quotes/([a-f0-9]{32})/delete$", path)
         if m:
             return api_delete_quote(handler, m.group(1))
+        m = re.match(r"^/api/ic/inquiries/([a-f0-9]{32})/rfq$", path)
+        if m:
+            return api_rfq(handler, m.group(1))
         m = re.match(r"^/r/([A-Za-z0-9_\-]{16,64})$", path)
         if m:
             return review_submit(handler, m.group(1))
@@ -1795,10 +1802,21 @@ def require_operator_inquiry(handler, qid):
     return row
 
 
-def api_quotes(handler, qid, url):
-    inquiry = require_operator_inquiry(handler, qid)
-    if inquiry is None:
-        return True
+def quote_context(inquiry):
+    """Project name and sender used in RFQ and follow-up e-mails."""
+    fields = json.loads(inquiry["fields_json"] or "{}")
+    who = inquiry["organisation"] or inquiry["name"] or "RFQ"
+    product = str(fields.get("product") or fields.get("part") or "").strip()
+    project = f"{who} - {product}" if product else f"{who} ({inquiry['ref']})"
+    settings = core.get_outreach_settings()
+    sender = settings.get("operator_name") or hub_name()
+    if sender == "Respark":
+        sender = hub_name()
+    return {"project": project[:160], "sender": sender, "sender_contact": settings.get("operator_email") or "",
+            "fields": fields}
+
+
+def load_comparison(inquiry, url):
     from urllib.parse import parse_qs
     params = parse_qs(url.query)
     fields = json.loads(inquiry["fields_json"] or "{}")
@@ -1807,12 +1825,79 @@ def api_quotes(handler, qid, url):
     volumes = parse_volumes((params.get("volumes") or [""])[0], target)
     with core._db_lock, core.db() as conn:
         rows = conn.execute(
-            "SELECT * FROM ic_quotes WHERE inquiry_id=? ORDER BY created_at", (qid,)).fetchall()
+            "SELECT * FROM ic_quotes WHERE inquiry_id=? ORDER BY created_at", (inquiry["id"],)).fetchall()
     items = [{"id": r["id"], "supplier": r["supplier"], "source_name": r["source_name"],
               "created_at": r["created_at"], "extracted": json.loads(r["extracted_json"])} for r in rows]
     comparison = quotes.compare(items, target, volumes) if items else None
-    core.json_response(handler, 200, {"quotes": items, "comparison": comparison,
-                                      "target": target, "volumes": sorted(set(volumes) | {target})})
+    followups = {}
+    if comparison:
+        context = quote_context(inquiry)
+        for row in comparison["rows"]:
+            draft = quote_docs.draft_followup(row, context["project"], context["sender"])
+            row["followup"] = draft
+            followups[row["id"]] = draft
+    return items, comparison, target, sorted(set(volumes) | {target}), followups
+
+
+def api_quotes(handler, qid, url):
+    inquiry = require_operator_inquiry(handler, qid)
+    if inquiry is None:
+        return True
+    items, comparison, target, volumes, _ = load_comparison(inquiry, url)
+    core.json_response(handler, 200, {"quotes": items, "comparison": comparison, "target": target,
+                                      "volumes": volumes, "ai_available": quote_docs.llm_available()})
+    return True
+
+
+def api_quotes_xlsx(handler, qid, url):
+    inquiry = require_operator_inquiry(handler, qid)
+    if inquiry is None:
+        return True
+    _, comparison, _, _, followups = load_comparison(inquiry, url)
+    if not comparison:
+        core.json_response(handler, 404, {"error": "no supplier quotes yet"})
+        return True
+    title = f"Supplier comparison - {quote_context(inquiry)['project']}"
+    body = quote_docs.comparison_xlsx(comparison, title, followups)
+    filename = re.sub(r"[^A-Za-z0-9_-]+", "_", f"quotes_{inquiry['ref']}").strip("_") + ".xlsx"
+    handler.send_response(200)
+    handler.send_header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    handler.send_header("Content-Disposition", f'attachment; filename="{filename}"')
+    handler.send_header("Content-Length", str(len(body)))
+    handler.send_header("Cache-Control", "no-store")
+    handler.end_headers()
+    handler.wfile.write(body)
+    return True
+
+
+def api_rfq(handler, qid):
+    """RFQ e-mail drafts (EN / ZH / ID) to send to suppliers for this inquiry."""
+    inquiry = require_operator_inquiry(handler, qid)
+    if inquiry is None:
+        return True
+    data, err = body_json(handler)
+    if err or not isinstance(data, dict):
+        core.json_response(handler, 413 if err else 400, {"error": err or "invalid JSON"})
+        return True
+    context = quote_context(inquiry)
+    fields = context["fields"]
+    target = quotes.first_number(str(data.get("target") or ""))
+    target = int(target) if target and target >= 1 else default_target_volume(fields)
+    volumes = parse_volumes(str(data.get("volumes") or ""), target)
+    project = {
+        "project": str(data.get("project") or context["project"]).strip()[:160],
+        "part": str(data.get("part") or fields.get("product") or "").strip()[:200],
+        "target": target,
+        "volumes": volumes,
+        "destination": str(data.get("destination") or "").strip()[:120],
+        "specs": str(data.get("specs") or "")[:4000],
+        "due": str(data.get("due") or "").strip()[:40],
+        "sender": context["sender"],
+        "sender_contact": context["sender_contact"],
+    }
+    languages = [lang for lang in (data.get("languages") or quote_docs.LANGUAGES) if lang in quote_docs.LANGUAGES]
+    rfqs = {lang: quote_docs.build_rfq(project, lang) for lang in languages or quote_docs.LANGUAGES}
+    core.json_response(handler, 200, {"rfqs": rfqs, "project": project})
     return True
 
 
@@ -1840,6 +1925,12 @@ def api_add_quote(handler, qid):
         core.json_response(handler, 400, {"error": f"could not read quote: {e}"})
         return True
     extracted = quotes.extract(rows, supplier or filename or "Supplier")
+    extracted["method"] = "rules"
+    ai_error = None
+    if data.get("use_ai") and quote_docs.llm_available():
+        ai_result, ai_error = quote_docs.llm_extract(quotes.rows_text(rows))
+        if ai_result:
+            extracted = quote_docs.merge_extracted(ai_result, extracted)
     if supplier:
         extracted["supplier"] = supplier
     quote_id = core.new_id()
@@ -1848,7 +1939,7 @@ def api_add_quote(handler, qid):
                           extracted_json, created_at) VALUES (?,?,?,?,?,?,?)""",
                      (quote_id, qid, extracted["supplier"], filename or "pasted text",
                       quotes.rows_text(rows)[:200_000], json.dumps(extracted, ensure_ascii=False), now()))
-    core.json_response(handler, 200, {"id": quote_id, "extracted": extracted})
+    core.json_response(handler, 200, {"id": quote_id, "extracted": extracted, "ai_error": ai_error})
     return True
 
 

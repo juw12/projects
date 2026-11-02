@@ -5,6 +5,8 @@ Boots the server on a temp DB and a free port, then checks:
   * supplier quotes on an RFQ: .xlsx (stdlib reader), Indonesian and Chinese
     e-mail text, USD conversion, cost per piece by volume, MOQ / missing-info flags,
     operator-only access, delete, bad uploads;
+  * supplier follow-ups in the supplier's language, Excel download, RFQ e-mails
+    (EN / ZH / ID) and optional AI reading against a fake OpenAI-compatible server;
   * outreach: hardware-startup templates, daily limit + send delay, follow-ups
     stop when a lead leaves the active states, IMAP reply/bounce detection
     (fake mailbox), won buyer lead becomes a customer RFQ.
@@ -14,6 +16,7 @@ Usage:
 """
 
 import base64
+import http.server
 import io
 import json
 import os
@@ -33,12 +36,14 @@ os.environ.setdefault("RESPARK_ALLOW_SIGNUP", "1")
 os.environ["RESPARK_SMTP_HOST"] = ""
 os.environ.pop("RESPARK_OPERATOR_EMAILS", None)
 os.environ.pop("RESPARK_FX", None)
+os.environ.pop("RESPARK_OPENAI_API_KEY", None)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.normpath(os.path.join(HERE, "..", "server")))
 
 import server  # noqa: E402
 import inbox  # noqa: E402
+import quotes  # noqa: E402
 
 OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 
@@ -135,6 +140,40 @@ class Client:
         return status, payload
 
 
+class FakeLLM(http.server.BaseHTTPRequestHandler):
+    """OpenAI-compatible /chat/completions that returns a fixed extraction."""
+    seen = []
+    reply = {
+        "supplier": "Ningbo Kaida Mould", "currency": "USD",
+        "price_breaks": [{"qty": 2000, "unit_price": 1.4}, {"qty": 8000, "unit_price": 1.1}],
+        "tooling_cost": None, "moq": 2000, "incoterm": "FOB Ningbo", "validity_days": 45,
+        "lead_time_days": None, "tooling_lead_time_days": 28, "payment_terms": None,
+        "notes": ["packaging extra"],
+    }
+
+    def do_POST(self):
+        body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+        FakeLLM.seen.append({"auth": self.headers.get("Authorization"), "body": body})
+        out = json.dumps({"choices": [{"message": {"content": json.dumps(FakeLLM.reply)}}]}).encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(out)))
+        self.end_headers()
+        self.wfile.write(out)
+
+    def log_message(self, *args):
+        pass
+
+
+AI_QUOTE = """Hello, quotation for Kite Robotics arm cover.
+Qty 2000 pcs: USD 1.40 / pc
+Qty 8000 pcs: USD 1.10 / pc
+Mould: USD 6,200 (1 cavity)
+Production lead time: 3 weeks after PO
+Payment: 30% deposit, 70% before shipment
+Best regards, Ningbo Kaida Mould"""
+
+
 class FakeIMAP:
     """Inbox with one reply from replied.test and one bounce for bounce@gone.test."""
     def __init__(self, host):
@@ -215,6 +254,10 @@ def run():
         check("Chinese quote: 1K pcs / USD / range upper bound", ec["price_breaks"][0]["qty"] == 1000
               and ec["moq"] == 3000 and ec["lead_time_days"] == 25 and ec["supplier"] == "Dongguan Yicheng", ec)
 
+        split_line = quotes.extract(quotes.rows_from_text("FOB Shenzhen\nPayment: T/T\nMould: USD 6,200"), "x")
+        check("Incoterm stops at the line end; bare 'Mould:' label read as tooling",
+              split_line["incoterm"] == "FOB Shenzhen" and split_line["tooling_cost"] == 6200, split_line)
+
         s, cmp_data = op.request("GET", f"/api/ic/inquiries/{qid}/quotes", expect_status=200)
         check("target volume defaults from the RFQ form (5000 pcs)", cmp_data["target"] == 5000, cmp_data["target"])
         s, cmp_data = op.request("GET", f"/api/ic/inquiries/{qid}/quotes?target=5000&volumes=1000,5000,20000",
@@ -234,6 +277,54 @@ def run():
               "Incoterm" in messages and "Tooling / T1" in messages and "validity" in messages, messages)
         check("best supplier per volume reported", set(comp["best_by_volume"]) == {"1000", "5000", "20000"})
 
+        # --- supplier follow-ups (in the supplier's language)
+        check("AI reading off without a key", cmp_data["ai_available"] is False)
+        zh_followup = by_name["Dongguan Yicheng"]["followup"]
+        check("follow-up drafted in Chinese for the Chinese quote",
+              zh_followup and zh_followup["language"] == "zh" and "贸易条款" in zh_followup["body"]
+              and "低于贵司 MOQ 3,000 pcs" in zh_followup["body"], zh_followup)
+        id_followup = by_name["PT Batam Mitra Plastik"]["followup"]
+        check("follow-up drafted in Bahasa for the Indonesian quote",
+              id_followup and id_followup["language"] == "id" and "MOQ" in id_followup["body"]
+              and id_followup["subject"].startswith("RE: Penawaran"), id_followup)
+        check("complete quote gets no follow-up", by_name["深圳宏达精密塑胶有限公司"]["followup"] is None,
+              by_name["深圳宏达精密塑胶有限公司"]["followup"])
+        check("follow-up names the project and leaves no placeholders",
+              "ENV Labs" in zh_followup["body"] and "{" not in zh_followup["body"] + id_followup["body"])
+
+        # --- Excel download
+        s, xbytes = op.request("GET", f"/api/ic/inquiries/{qid}/quotes.xlsx?target=5000&volumes=1000,5000,20000")
+        names = zipfile.ZipFile(io.BytesIO(xbytes)).namelist() if s == 200 else []
+        check("Excel download with 4 sheets", s == 200 and sum(n.startswith("xl/worksheets/") for n in names) == 4,
+              (s, names))
+        sheet_rows = quotes._xlsx_rows(xbytes) if s == 200 else []
+        flat = " ".join(" ".join(str(c) for c in row) for row in sheet_rows)
+        check("Excel comparison lists every supplier and the formula",
+              all(name in flat for name in ("Dongguan Yicheng", "PT Batam Mitra Plastik", "深圳宏达精密塑胶有限公司"))
+              and "freight/duty allowance" in flat, flat[:300])
+        sheet1 = zipfile.ZipFile(io.BytesIO(xbytes)).read("xl/worksheets/sheet1.xml").decode() if s == 200 else ""
+        check("Excel marks the cheapest supplier per volume", sheet1.count(' s="2"') == 3, sheet1.count(' s="2"'))
+        s, _ = other.request("GET", f"/api/ic/inquiries/{qid}/quotes.xlsx")
+        check("Excel download is operator-only", s == 403, s)
+
+        # --- RFQ e-mails (EN / ZH / ID)
+        s, rfq = op.request("POST", f"/api/ic/inquiries/{qid}/rfq", {
+            "part": "Sensor enclosure, 2 parts", "destination": "Singapore", "due": "15 Nov",
+            "specs": "PC/ABS, UL94 V-0\nTexture MT-11010", "target": 5000, "volumes": "1000,5000,20000"})
+        rfqs = (rfq or {}).get("rfqs", {}) if s == 200 else {}
+        check("RFQ drafted in English, Chinese and Bahasa", s == 200 and set(rfqs) == {"en", "zh", "id"}, (s, rfq))
+        en, zh, idn = rfqs.get("en", {}), rfqs.get("zh", {}), rfqs.get("id", {})
+        check("RFQ asks a price for every volume",
+              all(f"@ {v} pcs" in en.get("body", "") for v in ("1,000", "5,000", "20,000"))
+              and "单价 @ 20,000 pcs" in zh.get("body", "") and "Harga satuan @ 1,000 pcs" in idn.get("body", ""), en)
+        check("RFQ carries part, specs and reply-by date",
+              "Sensor enclosure" in en.get("body", "") and "- UL94 V-0" not in en.get("body", "")
+              and "- PC/ABS, UL94 V-0" in en.get("body", "") and "15 Nov" in zh.get("body", "")
+              and zh.get("subject", "").startswith("询价"), en.get("body", "")[:400])
+        check("RFQ has no leftover placeholders", all("{" not in r["body"] for r in rfqs.values()))
+        s, _ = other.request("POST", f"/api/ic/inquiries/{qid}/rfq", {"part": "x"})
+        check("RFQ writer is operator-only", s == 403, s)
+
         s, _ = other.request("GET", f"/api/ic/inquiries/{qid}/quotes")
         check("quotes are operator-only", s == 403, s)
         s, _ = op.request("POST", f"/api/ic/inquiries/{qid}/quotes",
@@ -244,6 +335,40 @@ def run():
         op.request("POST", f"/api/ic/quotes/{c['id']}/delete", expect_status=200)
         s, cmp_data = op.request("GET", f"/api/ic/inquiries/{qid}/quotes", expect_status=200)
         check("quote deleted", len(cmp_data["quotes"]) == 2)
+
+        # --- optional AI reading (fake OpenAI-compatible server, no network)
+        llm_port = free_port()
+        llm_httpd = http.server.HTTPServer(("127.0.0.1", llm_port), FakeLLM)
+        threading.Thread(target=llm_httpd.serve_forever, daemon=True).start()
+        os.environ["RESPARK_OPENAI_API_KEY"] = "sk-test"
+        os.environ["RESPARK_OPENAI_BASE_URL"] = f"http://127.0.0.1:{llm_port}/v1"
+        try:
+            s, cmp_data = op.request("GET", f"/api/ic/inquiries/{qid}/quotes", expect_status=200)
+            check("AI reading offered when a key is set", cmp_data["ai_available"] is True)
+            s, plain = op.request("POST", f"/api/ic/inquiries/{qid}/quotes", {"text": AI_QUOTE}, expect_status=200)
+            check("AI is not used unless the operator ticks it",
+                  not FakeLLM.seen and plain["extracted"]["method"] == "rules", plain["extracted"].get("method"))
+            s, smart = op.request("POST", f"/api/ic/inquiries/{qid}/quotes", {"text": AI_QUOTE, "use_ai": True},
+                                  expect_status=200)
+            ai = smart["extracted"]
+            check("AI reading called with the quote text and the key",
+                  len(FakeLLM.seen) == 1 and FakeLLM.seen[0]["auth"] == "Bearer sk-test"
+                  and "Kite Robotics" in FakeLLM.seen[0]["body"]["messages"][1]["content"], FakeLLM.seen[:1])
+            check("AI values used (Incoterm, validity, MOQ, tooling LT)",
+                  ai["incoterm"] == "FOB Ningbo" and ai["validity_days"] == 45 and ai["moq"] == 2000
+                  and ai["tooling_lead_time_days"] == 28 and ai["method"].startswith("ai:"), ai)
+            check("rule-based reader fills what AI left empty (tooling, lead time, payment)",
+                  ai["tooling_cost"] == 6200 and ai["lead_time_days"] == 21 and ai["payment_terms"], ai)
+            os.environ["RESPARK_OPENAI_BASE_URL"] = f"http://127.0.0.1:{free_port()}/v1"
+            s, broken = op.request("POST", f"/api/ic/inquiries/{qid}/quotes", {"text": AI_QUOTE, "use_ai": True},
+                                   expect_status=200)
+            check("AI failure falls back to the built-in reader",
+                  bool(broken.get("ai_error")) and broken["extracted"]["method"] == "rules"
+                  and broken["extracted"]["tooling_cost"] == 6200, broken)
+        finally:
+            llm_httpd.shutdown()
+            os.environ.pop("RESPARK_OPENAI_API_KEY", None)
+            os.environ.pop("RESPARK_OPENAI_BASE_URL", None)
 
         # --- outreach: hardware startups (demand side)
         csv_text = ("business_name,contact_name,email,industry,city\n"
