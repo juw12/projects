@@ -1,0 +1,570 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>あしあと · 발자국 — Ashiato</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@500;700&family=Klee+One:wght@600&family=Gowun+Dodum&family=Nanum+Pen+Script&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --paper: #f6efe2;
+      --paper-deep: #efe4d0;
+      --card: #fffaf1;
+      --ink: #3a3240;
+      --muted: #9a8f93;
+      --sakura: #f4b9c6;
+      --matcha: #9dbf8e;
+      --hojicha: #b07a5a;
+      --persimmon: #e8875a;
+      --hanko: #d2493f;
+      --ease-slow: cubic-bezier(0.22, 1, 0.36, 1);
+      --card-w: min(84vw, 360px);
+      --card-h: calc(var(--card-w) * 1.62);
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body { height: 100%; margin: 0; }
+    body {
+      font-family: "Zen Maru Gothic", "Gowun Dodum", ui-rounded, system-ui, sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(120% 70% at 50% 0%, #fbf5ea 0%, var(--paper) 55%, var(--paper-deep) 100%);
+      overflow: hidden;
+      user-select: none;
+    }
+    /* Washi paper grain over everything. */
+    body::after {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      opacity: 0.35;
+      mix-blend-mode: multiply;
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.55  0 0 0 0 0.48  0 0 0 0 0.40  0 0 0 0.22 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      padding: 22px 26px 0;
+    }
+    .brand { font-weight: 700; letter-spacing: 0.08em; font-size: 15px; }
+    .brand small { color: var(--muted); font-weight: 500; margin-left: 6px; }
+    .today { color: var(--muted); font-size: 13px; }
+    header .right { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+
+    .deck {
+      position: relative;
+      width: var(--card-w);
+      height: var(--card-h);
+      margin: 26px auto 0;
+      perspective: 1400px;
+      perspective-origin: 50% 30%;
+    }
+
+    .card {
+      position: absolute;
+      inset: 0;
+      transform-style: preserve-3d;
+      transition: transform 0.9s var(--ease-slow), opacity 0.9s var(--ease-slow), filter 0.9s;
+      will-change: transform;
+      touch-action: none;
+      cursor: grab;
+    }
+    .card.dragging { transition: none; cursor: grabbing; }
+    .card .face {
+      position: absolute;
+      inset: 0;
+      border-radius: 30px;
+      background: var(--card);
+      box-shadow:
+        0 1px 0 rgba(255, 255, 255, 0.8) inset,
+        0 30px 60px -20px rgba(80, 55, 40, 0.35),
+        0 12px 24px -12px rgba(80, 55, 40, 0.25);
+      transform-style: preserve-3d;
+      overflow: visible;
+    }
+    /* Card thickness: a stack of paper edges for a physical feel. */
+    .card .face::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: 30px;
+      background: #eadfcb;
+      transform: translateZ(-6px);
+    }
+
+    .scene {
+      position: absolute;
+      left: 14px;
+      right: 14px;
+      top: 14px;
+      aspect-ratio: 1 / 1;
+      border-radius: 22px;
+      overflow: hidden;
+      transform: translateZ(18px);
+      box-shadow: 0 10px 22px -12px rgba(60, 40, 30, 0.45);
+      background: #e8e0d2;
+    }
+    .scene img, .scene canvas { width: 100%; height: 100%; display: block; object-fit: cover; }
+    .scene .weather-chip {
+      position: absolute;
+      left: 12px;
+      top: 12px;
+      padding: 5px 11px;
+      border-radius: 999px;
+      background: rgba(255, 250, 241, 0.82);
+      backdrop-filter: blur(6px);
+      font-size: 12px;
+    }
+
+    .polaroid {
+      position: absolute;
+      right: 6px;
+      top: calc(var(--card-w) - 118px);
+      width: 112px;
+      padding: 7px 7px 22px;
+      background: #fff;
+      border-radius: 4px;
+      transform: translateZ(70px) rotate(5deg);
+      box-shadow: 0 14px 22px -10px rgba(60, 40, 30, 0.45);
+    }
+    .polaroid img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; border-radius: 2px; }
+    .polaroid .tape {
+      position: absolute;
+      top: -10px;
+      left: 30px;
+      width: 54px;
+      height: 18px;
+      background: repeating-linear-gradient(45deg, rgba(244, 185, 198, 0.85) 0 6px, rgba(255, 220, 228, 0.85) 6px 12px);
+      transform: rotate(-8deg);
+      opacity: 0.9;
+    }
+
+    .info {
+      position: absolute;
+      left: 24px;
+      right: 24px;
+      top: calc(var(--card-w) + 2px);
+      transform: translateZ(30px);
+    }
+    .date { display: flex; align-items: baseline; gap: 10px; }
+    .date .num { font-size: 40px; font-weight: 700; letter-spacing: -0.02em; }
+    .date .dow { font-size: 14px; color: var(--muted); }
+    .weather-line { font-size: 13px; color: var(--muted); margin-top: 2px; }
+    .note {
+      margin-top: 12px;
+      font-family: "Klee One", "Nanum Pen Script", "Gowun Dodum", cursive;
+      font-size: 19px;
+      line-height: 1.5;
+      max-width: 78%;
+    }
+    .note.ko { font-family: "Nanum Pen Script", "Gowun Dodum", cursive; font-size: 25px; line-height: 1.25; }
+    .note.en { font-family: "Klee One", cursive; font-size: 17px; }
+
+    .stamp {
+      position: absolute;
+      right: 26px;
+      bottom: 64px;
+      width: 62px;
+      height: 62px;
+      border-radius: 50%;
+      border: 3px solid var(--hanko);
+      color: var(--hanko);
+      display: grid;
+      place-items: center;
+      font-weight: 700;
+      font-size: 24px;
+      transform: translateZ(44px) rotate(-14deg);
+      opacity: 0.85;
+      mix-blend-mode: multiply;
+      text-align: center;
+      line-height: 1;
+    }
+    .stamp small { display: block; font-size: 9px; font-weight: 500; margin-top: 2px; letter-spacing: 0.05em; }
+
+    .footer {
+      position: absolute;
+      left: 24px;
+      right: 24px;
+      bottom: 20px;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      transform: translateZ(24px);
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .pill {
+      padding: 6px 11px;
+      border-radius: 999px;
+      background: #f3eadb;
+      white-space: nowrap;
+    }
+    .pill.new { background: #fde3d6; color: #b8603d; }
+    .memory {
+      position: absolute;
+      left: 22px;
+      top: calc(var(--card-w) - 30px);
+      padding: 6px 12px;
+      border-radius: 999px;
+      background: var(--ink);
+      color: #fff8ea;
+      font-size: 12px;
+      transform: translateZ(60px) rotate(-3deg);
+      box-shadow: 0 8px 16px -8px rgba(0, 0, 0, 0.5);
+    }
+
+    /* Soft sheen that follows the tilt, like light on paper. */
+    .sheen {
+      position: absolute;
+      inset: 0;
+      border-radius: 30px;
+      pointer-events: none;
+      background: radial-gradient(60% 50% at var(--sx, 30%) var(--sy, 20%), rgba(255, 255, 255, 0.35), transparent 70%);
+      transform: translateZ(80px);
+      mix-blend-mode: soft-light;
+    }
+
+    .controls {
+      display: flex;
+      justify-content: center;
+      gap: 18px;
+      margin-top: 26px;
+    }
+    .controls button {
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      border: 0;
+      background: var(--card);
+      color: var(--ink);
+      font-size: 20px;
+      box-shadow: 0 8px 18px -10px rgba(80, 55, 40, 0.5);
+      cursor: pointer;
+    }
+    .controls button.capture { background: var(--persimmon); color: #fff; width: 60px; height: 60px; font-size: 26px; }
+    .hint { text-align: center; color: var(--muted); font-size: 12px; margin-top: 12px; letter-spacing: 0.04em; }
+
+    .week {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      margin-top: 22px;
+    }
+    .week button {
+      border: 0;
+      padding: 0;
+      background: none;
+      cursor: pointer;
+      display: grid;
+      gap: 5px;
+      justify-items: center;
+      color: var(--muted);
+      font: 500 11px "Zen Maru Gothic", system-ui;
+      transition: transform 0.6s var(--ease-slow);
+    }
+    .week img {
+      width: 40px;
+      height: 40px;
+      border-radius: 13px;
+      object-fit: cover;
+      box-shadow: 0 6px 12px -8px rgba(80, 55, 40, 0.6);
+      border: 2px solid transparent;
+    }
+    .week button.active { transform: translateY(-4px); color: var(--ink); }
+    .week button.active img { border-color: var(--persimmon); }
+
+    @media (prefers-reduced-motion: reduce) {
+      .card { transition-duration: 0.01s; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">あしあと<small>발자국 · ashiato</small></div>
+    <div class="right"><div class="today" id="today"></div><div id="lang"></div></div>
+  </header>
+
+  <div class="deck" id="deck" aria-live="polite"></div>
+
+  <div class="controls">
+    <button id="prev" aria-label="Previous day">←</button>
+    <button class="capture" aria-label="Capture a moment">＋</button>
+    <button id="next" aria-label="Next day">→</button>
+  </div>
+  <div class="hint">swipe slowly · ゆっくりめくる · 천천히 넘기기</div>
+  <nav class="week" id="week" aria-label="Recent days"></nav>
+
+  <script type="module">
+    import { buildDiorama, createRenderer } from "./diorama.js";
+    import { currentMode, mountLanguageSwitch, t, LANG_SWITCH_CSS } from "./i18n.js";
+
+    const P = (ja, ko, en) => ({ ja, ko, en });
+    const UI = {
+      hint: P("ゆっくりめくる", "천천히 넘기기", "swipe slowly"),
+      walked: P("あるいた", "걸었어요", "walked"),
+      newRoads: P("新しい道", "새로운 길", "new roads"),
+      today: P("2026.11.02 (日)", "2026.11.02 (일)", "Sun, Nov 2 2026"),
+    };
+    // Sample diary. Notes are the user's own words; each mode shows a sample diary written in that language.
+    const DAYS = [
+      {
+        date: "11.02", dow: P("日曜日", "일요일", "Sunday"), weather: "clear", time: "morning", season: "autumn",
+        sky: P("晴れ", "맑음", "clear"), temp: "14°",
+        notes: { duo: ["近所の猫が、やっと撫でさせてくれた。", "ja"], en: "the neighbourhood cat finally let me pet her.",
+                 ja: "近所の猫が、やっと撫でさせてくれた。", ko: "동네 고양이가 드디어 쓰다듬게 해줬다." },
+        photo: "assets/cat_crayon.png", stamp: ["晴", P("よい", "좋음", "good")], km: "4.2 km", newKm: "+0.8 km",
+      },
+      {
+        date: "11.01", dow: P("土曜日", "토요일", "Saturday"), weather: "rain", time: "dusk", season: "autumn",
+        sky: P("小雨", "이슬비", "light rain"), temp: "11°",
+        notes: { duo: ["비 오는 산책, 따뜻한 커피 한 잔.", "ko"], en: "a rainy walk and one warm coffee.",
+                 ja: "雨の散歩と、あたたかいコーヒー一杯。", ko: "비 오는 산책, 따뜻한 커피 한 잔." },
+        photo: "assets/coffee_crayon.png", stamp: ["雨", P("おだやか", "차분", "calm")], km: "2.1 km", newKm: "+0.3 km",
+      },
+      {
+        date: "10.31", dow: P("金曜日", "금요일", "Friday"), weather: "partly_cloudy", time: "noon", season: "autumn",
+        sky: P("くもり時々晴れ", "구름 조금", "partly cloudy"), temp: "16°",
+        notes: { duo: ["found a tiny bakery on a street I'd never walked.", "en"], en: "found a tiny bakery on a street I'd never walked.",
+                 ja: "歩いたことのない道で、小さなパン屋を見つけた。", ko: "처음 걷는 골목에서 작은 빵집을 찾았다." },
+        photo: "assets/flowers_crayon.png", stamp: ["新", P("はじめて", "처음", "new")], km: "5.6 km", newKm: "+1.9 km",
+      },
+      {
+        date: "10.30", dow: P("木曜日", "목요일", "Thursday"), weather: "fog", time: "dawn", season: "autumn",
+        sky: P("霧", "안개", "fog"), temp: "9°",
+        notes: { duo: ["朝霧の中、駅まで遠回りした。", "ja"], en: "took the long way to the station through the morning fog.",
+                 ja: "朝霧の中、駅まで遠回りした。", ko: "아침 안개 속에서 역까지 돌아서 걸었다." },
+        photo: "assets/cat_watercolor.png", stamp: ["静", P("しずか", "고요", "quiet")], km: "3.0 km", newKm: "+0.4 km",
+      },
+      {
+        date: "10.29", dow: P("水曜日", "수요일", "Wednesday"), weather: "clear", time: "night", season: "autumn",
+        sky: P("晴れた夜", "맑은 밤", "clear night"), temp: "10°",
+        notes: { duo: ["편의점 앞 자판기에서 따뜻한 유자차.", "ko"], en: "hot yuzu tea from the vending machine by the corner shop.",
+                 ja: "コンビニ前の自販機で、あったかいゆず茶。", ko: "편의점 앞 자판기에서 따뜻한 유자차." },
+        photo: "assets/coffee_pencil.png", stamp: ["温", P("ぬくもり", "따뜻", "warm")], km: "1.4 km", newKm: "+0.0 km",
+      },
+      {
+        date: "2025.12.14", dow: P("1年前", "1년 전", "1 year ago"), weather: "snow", time: "night", season: "winter",
+        sky: P("初雪", "첫눈", "first snow"), temp: "-1°",
+        notes: { duo: ["初雪。帰り道がぜんぶ白かった。", "ja"], en: "first snow. the whole way home was white.",
+                 ja: "初雪。帰り道がぜんぶ白かった。", ko: "첫눈. 집에 오는 길이 온통 하얬다." },
+        photo: "assets/cat_crayon.png", stamp: ["雪", P("ゆき", "눈", "snow")], km: "2.8 km", newKm: "+0.2 km",
+        memory: P("1年前の今日", "1년 전 오늘", "1 year ago today"),
+      },
+    ];
+
+    const MODE = currentMode();
+    mountLanguageSwitch(document.getElementById("lang"));
+    const style = document.createElement("style");
+    style.textContent = LANG_SWITCH_CSS;
+    document.head.appendChild(style);
+    document.querySelector(".hint").textContent = MODE === "duo" ? "swipe slowly · ゆっくりめくる · 천천히 넘기기" : t(UI.hint);
+
+    function noteFor(day) {
+      if (MODE === "duo") {
+        return { text: day.notes.duo[0], lang: day.notes.duo[1] };
+      }
+      return { text: day.notes[MODE], lang: MODE };
+    }
+    function weatherLineFor(day) {
+      const sky = MODE === "duo" ? `${day.sky.ja} · ${day.sky.ko} · ${day.sky.en}` : t(day.sky);
+      return `${sky}  ${day.temp}`;
+    }
+
+    const params = new URLSearchParams(location.search);
+    const deck = document.getElementById("deck");
+    document.getElementById("today").textContent = MODE === "duo" ? "2026.11.02 (日) · 일요일" : t(UI.today);
+
+    // ---------- 3D: one live renderer + static snapshots for cards underneath ----------
+    const liveCanvas = document.createElement("canvas");
+    const renderer = createRenderer(liveCanvas, { preserve: true });
+    const sceneSize = Math.round(deck.clientWidth - 28);
+    renderer.setSize(sceneSize, sceneSize, false);
+    const dioramas = DAYS.map((day, index) => buildDiorama({ ...day, seed: 11 + index }));
+    const snapshots = dioramas.map((diorama) => {
+      diorama.camera.aspect = 1;
+      diorama.camera.updateProjectionMatrix();
+      for (let step = 0; step < 30; step++) {
+        diorama.update(1 / 30, step / 30);
+      }
+      renderer.render(diorama.scene, diorama.camera);
+      return liveCanvas.toDataURL("image/png");
+    });
+
+    // ---------- Cards ----------
+    const cards = DAYS.map((day, index) => {
+      const card = document.createElement("article");
+      card.className = "card";
+      card.innerHTML = `
+        <div class="face">
+          <div class="scene">
+            <img alt="${day.sky.en}, ${day.time}, ${day.season}" src="${snapshots[index]}">
+            <span class="weather-chip">${MODE === "duo" ? day.sky.ja : t(day.sky)}</span>
+          </div>
+          ${day.memory ? `<div class="memory">${t(day.memory)}</div>` : ""}
+          <div class="polaroid"><span class="tape"></span><img alt="doodle" src="${day.photo}"></div>
+          <div class="info">
+            <div class="date"><span class="num">${day.date}</span><span class="dow">${t(day.dow)}</span></div>
+            <div class="weather-line">${weatherLineFor(day)}</div>
+            <div class="note ${noteFor(day).lang}">${noteFor(day).text}</div>
+          </div>
+          <div class="stamp">${day.stamp[0]}<small>${MODE === "duo" ? day.stamp[1].en : t(day.stamp[1])}</small></div>
+          <div class="footer"><span class="pill">${MODE === "duo" ? UI.walked.ja : t(UI.walked)} ${day.km}</span><span class="pill new">${MODE === "duo" ? UI.newRoads.ja : t(UI.newRoads)} ${day.newKm}</span></div>
+          <div class="sheen"></div>
+        </div>`;
+      deck.appendChild(card);
+      return card;
+    });
+
+    const week = document.getElementById("week");
+    const weekButtons = DAYS.map((day, index) => {
+      const button = document.createElement("button");
+      button.innerHTML = `<img alt="" src="${snapshots[index]}"><span>${day.date.slice(-5)}</span>`;
+      button.addEventListener("click", () => {
+        order = [...order.slice(order.indexOf(index)), ...order.slice(0, order.indexOf(index))];
+        layout();
+      });
+      week.appendChild(button);
+      return button;
+    });
+
+    let order = DAYS.map((_, index) => index); // order[0] is the top card
+    const tilt = { x: 0, y: 0 };
+
+    function layout() {
+      order.forEach((cardIndex, depth) => {
+        const card = cards[cardIndex];
+        card.style.zIndex = String(100 - depth);
+        if (depth === 0) {
+          card.style.transform = `translate3d(0,0,0) rotateX(${tilt.x}deg) rotateY(${tilt.y}deg)`;
+          card.style.opacity = "1";
+          card.style.filter = "none";
+        } else {
+          const visible = depth < 4;
+          const side = depth % 2 ? -1 : 1;
+          card.style.transform =
+            `translate3d(${side * depth * 6}px, ${depth * 16}px, ${-depth * 70}px) rotateZ(${side * depth * 1.6}deg)`;
+          card.style.opacity = visible ? String(1 - depth * 0.12) : "0";
+          card.style.filter = `saturate(${1 - depth * 0.15}) brightness(${1 - depth * 0.04})`;
+        }
+      });
+      weekButtons.forEach((button, index) => button.classList.toggle("active", index === order[0]));
+      // Move the live 3D canvas into the top card.
+      const topScene = cards[order[0]].querySelector(".scene");
+      const image = topScene.querySelector("img");
+      if (liveCanvas.parentElement !== topScene) {
+        liveCanvas.parentElement?.querySelector("img")?.style.removeProperty("display");
+        topScene.insertBefore(liveCanvas, topScene.firstChild);
+      }
+      image.style.display = "none";
+    }
+
+    function advance(direction = 1) {
+      const top = cards[order[0]];
+      top.classList.remove("dragging");
+      top.style.transform =
+        `translate3d(${direction * 520}px, -40px, 120px) rotateY(${direction * 38}deg) rotateZ(${direction * 14}deg)`;
+      top.style.opacity = "0";
+      setTimeout(() => {
+        order = direction > 0 ? [...order.slice(1), order[0]] : [order[order.length - 1], ...order.slice(0, -1)];
+        layout();
+      }, 380);
+    }
+
+    // ---------- Drag to swipe (slow, springy) ----------
+    let drag = null;
+    deck.addEventListener("pointerdown", (event) => {
+      const top = cards[order[0]];
+      if (!top.contains(event.target)) return;
+      drag = { startX: event.clientX, startY: event.clientY, dx: 0, dy: 0, time: performance.now() };
+      top.classList.add("dragging");
+      top.setPointerCapture(event.pointerId);
+    });
+    deck.addEventListener("pointermove", (event) => {
+      const top = cards[order[0]];
+      const rect = top.getBoundingClientRect();
+      const px = (event.clientX - rect.left) / rect.width;
+      const py = (event.clientY - rect.top) / rect.height;
+      top.style.setProperty("--sx", `${px * 100}%`);
+      top.style.setProperty("--sy", `${py * 100}%`);
+      if (drag) {
+        drag.dx = event.clientX - drag.startX;
+        drag.dy = event.clientY - drag.startY;
+        const rotateY = drag.dx * 0.08;
+        const rotateZ = drag.dx * 0.03;
+        top.style.transform =
+          `translate3d(${drag.dx}px, ${drag.dy * 0.25}px, 40px) rotateY(${rotateY}deg) rotateZ(${rotateZ}deg)`;
+      } else {
+        tilt.y = (px - 0.5) * 12;
+        tilt.x = -(py - 0.5) * 10;
+        top.style.transform = `rotateX(${tilt.x}deg) rotateY(${tilt.y}deg)`;
+      }
+    });
+    deck.addEventListener("pointerleave", () => {
+      if (drag) return;
+      tilt.x = 0;
+      tilt.y = 0;
+      layout();
+    });
+    function endDrag() {
+      if (!drag) return;
+      const velocity = drag.dx / Math.max(1, performance.now() - drag.time);
+      const passed = Math.abs(drag.dx) > 110 || Math.abs(velocity) > 0.6;
+      const direction = Math.sign(drag.dx) || 1;
+      drag = null;
+      if (passed) {
+        advance(direction);
+      } else {
+        cards[order[0]].classList.remove("dragging");
+        layout();
+      }
+    }
+    deck.addEventListener("pointerup", endDrag);
+    deck.addEventListener("pointercancel", endDrag);
+    document.getElementById("next").addEventListener("click", () => advance(1));
+    document.getElementById("prev").addEventListener("click", () => advance(-1));
+    window.addEventListener("keydown", (event) => {
+      if (event.key === "ArrowRight") advance(1);
+      if (event.key === "ArrowLeft") advance(-1);
+    });
+
+    // Phone tilt (gyro) gently moves the card and the diorama camera.
+    window.addEventListener("deviceorientation", (event) => {
+      if (drag || event.gamma == null) return;
+      tilt.y = Math.max(-10, Math.min(10, event.gamma / 3));
+      tilt.x = Math.max(-8, Math.min(8, (event.beta - 45) / 4));
+      layout();
+    });
+
+    // ---------- Live render loop for the top card ----------
+    let last = performance.now();
+    function frame(now) {
+      const dt = Math.min(0.05, (now - last) / 1000);
+      last = now;
+      const diorama = dioramas[order[0]];
+      diorama.update(dt, now / 1000);
+      // Very slow sway, plus a little parallax from the card tilt.
+      diorama.placeCamera(Math.sin(now / 9000) * 0.12 + tilt.y * 0.012);
+      renderer.render(diorama.scene, diorama.camera);
+      requestAnimationFrame(frame);
+    }
+
+    // Demo states for screenshots: ?demo=tilt | swipe
+    layout();
+    if (params.get("demo") === "tilt") {
+      tilt.x = 6;
+      tilt.y = -10;
+      layout();
+    }
+    if (params.get("demo") === "swipe") {
+      const top = cards[order[0]];
+      top.classList.add("dragging");
+      top.style.transform = "translate3d(130px, 10px, 40px) rotateY(16deg) rotateZ(5deg)";
+    }
+    requestAnimationFrame(frame);
+    document.body.dataset.ready = "true";
+  </script>
+</body>
+</html>

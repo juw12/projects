@@ -1,0 +1,11 @@
+﻿__pycache__/
+*.pyc
+.DS_Store
+ios/*.xcodeproj/
+ios/build/
+
+# regenerable 512px PNG renders (JPEG copies live in ios/Resources/Scenes)
+prototypes/cozy3d/export/library/
+
+# full-size fonts used as the subsetting source
+tools/.font_cache/
