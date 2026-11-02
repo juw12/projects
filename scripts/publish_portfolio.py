@@ -127,7 +127,7 @@ def render_card(app):
     if app.get("external"):
         lines.append(
             f'{ind}      <a class="project-link" href="{app["url"]}" '
-            f'target="_blank" rel="noopener noreferrer">Open site</a>'
+            f'target="_blank" rel="noopener noreferrer">{app.get("url_label", "Open site")}</a>'
         )
     elif app.get("work"):
         if app.get("files"):
@@ -240,7 +240,7 @@ def render_note(app, today):
             f"links: [\"{app['url']}\"]\n"
             "---\n\n"
             f"{unescape(app['description'])}\n\n"
-            f"- **Site** \u2014 {app['url']}\n"
+            f"- **{app.get('url_label', 'Site')}** \u2014 {app['url']}\n"
         )
     if app.get("work"):
         files = app.get("files")
