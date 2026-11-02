@@ -1268,6 +1268,56 @@
       "portfolio": true
     },
     {
+      "id": "scopeguard",
+      "name": "ScopeGuard",
+      "category": "AI",
+      "desc": "Keeps a business AI assistant on its mission: allows on-topic requests, steers related ones, redirects off-topic use and blocks jailbreaks",
+      "summary": "Stop users turning your business AI into a free ChatGPT: allow, steer, redirect or block every message, and see what they really want.",
+      "description": "ScopeGuard sits between your users and your AI assistant and keeps it on its <strong>mission</strong>. Every message gets one of five decisions: <strong>allow</strong> on-mission requests, answer <strong>related</strong> ones briefly and steer back, <strong>redirect</strong> off-topic use without ever calling the LLM, <strong>throttle</strong> repeat offenders after a daily allowance, and <strong>block</strong> jailbreaks and prompt injection. The app runs the guard <strong>entirely in the browser</strong>: chat as different users, simulate traffic, and watch a dashboard of off-mission share, estimated LLM cost avoided, <strong>unmet-demand themes</strong> and flagged users. A review queue teaches the classifier instantly. Edit, import and export policies, with templates for a CAD copilot, a bank and an online store. An Accuracy page measures it on held-out test sets (85% served-vs-stopped on a never-tuned set) or your own cases. For production, the same engine ships as a <strong>self-hosted, standard-library Python server</strong> with a check API and an OpenAI-compatible proxy.",
+      "tags": [
+        "AI guardrails",
+        "LLM cost control",
+        "Jailbreak blocking",
+        "Analytics",
+        "PWA",
+        "Vanilla JS",
+        "Python stdlib"
+      ],
+      "note_tags": [
+        "scopeguard",
+        "ai",
+        "guardrails",
+        "llm",
+        "abuse-prevention",
+        "analytics",
+        "pwa",
+        "vanilla-js",
+        "python"
+      ],
+      "image": "scopeguard-card.jpg",
+      "image_alt": "ScopeGuard dashboard in dark mode: decisions, unmet-demand themes, flagged users and a review queue",
+      "project_id": "scopeguard",
+      "links": {
+        "app": "scopeguard/",
+        "web": "scopeguard/",
+        "mobile": "scopeguard/"
+      },
+      "card": {
+        "capture": "scopeguard/index.html#/try",
+        "click": [
+          "text=Simulate demo traffic"
+        ],
+        "label": "scopeguard · dashboard",
+        "theme": "dark",
+        "accent": "#4aa3ff",
+        "accent2": "#2fbf71",
+        "wait_ms": 1500
+      },
+      "status": "working-prototype",
+      "order": 32,
+      "portfolio": true
+    },
+    {
       "id": "crewcup",
       "name": "CrewCup",
       "category": "Apps",
