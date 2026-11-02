@@ -237,6 +237,47 @@
       save(current);
     },
 
+    /**
+     * Notification preferences for this device (its user's, when identified):
+     * { all: {enabled, channels}, categories: [{ category, name, enabled, channels, critical }] }
+     */
+    async preferences() {
+      requireInit();
+      const current = saved();
+      if (!current) {
+        throw new Error("Not subscribed yet");
+      }
+      const params = new URLSearchParams({ app_key: config.appKey, token: current.token });
+      return call(`/v1/me/preferences?${params}`);
+    },
+
+    /**
+     * Switch a category on or off ("*" = every non-critical category) and/or limit it to some
+     * channels, e.g. Beacon.setPreference("marketing", true, { channels: ["inapp"] }).
+     * Pass enabled = null with { reset: true } to fall back to the default.
+     */
+    async setPreference(category, enabled, { channels, reset, scope } = {}) {
+      requireInit();
+      const current = saved();
+      if (!current) {
+        throw new Error("Not subscribed yet");
+      }
+      const body = { app_key: config.appKey, token: current.token, category: category || "*" };
+      if (reset) {
+        body.reset = true;
+      }
+      if (enabled !== undefined && enabled !== null) {
+        body.enabled = Boolean(enabled);
+      }
+      if (channels !== undefined) {
+        body.channels = channels;
+      }
+      if (scope) {
+        body.scope = scope;  // "subscriber" = only this device
+      }
+      return call("/v1/me/preferences", body);
+    },
+
     async unsubscribe() {
       requireInit();
       const current = saved();

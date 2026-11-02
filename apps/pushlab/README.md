@@ -7,8 +7,8 @@ Push Lab has two built-in parts that start together and are already linked:
 
 | Part | Folder | What it does |
 | --- | --- | --- |
-| **Beacon** — the push server | [`beacon/`](beacon) | Your own push service (like OneSignal). Web Push for every PWA, FCM for Android, in-app banners, ntfy / Bark (iPhone) / Gotify / Apprise channels, targeting, scheduling, digests, escalation, Gatus uptime alerts, a console and MCP. |
-| **Tether** — the device lab | [`tether/`](tether) | Your Android phone in the browser. Live HD screen, record and replay QA flows (Maestro YAML), notification checks, AI steps (incl. Google ARTEMIS), performance budgets (startup, jank, memory, CPU), CI and MCP. |
+| **Beacon** — the push server | [`beacon/`](beacon) | Your own push service (like OneSignal). Web Push for every PWA, FCM for Android, in-app banners, ntfy / Bark (iPhone) / Gotify / Apprise channels, targeting, scheduling, digests, multi-step escalation, templates, per-user categories & preferences, Gatus uptime alerts, a console and MCP. |
+| **Tether** — the device lab | [`tether/`](tether) | Your Android phone in the browser. Live HD screen, record and replay QA flows (Maestro / Midscene YAML), one flow on every connected phone at once, notification checks, AI steps (incl. Google ARTEMIS), performance budgets (startup, jank, memory, CPU), Perfetto traces, LeakCanary leak checks, CI and MCP. |
 | Agent skills | [`plugin/`](plugin) | Claude Code / Codex skills + CLI that drive both parts. |
 
 ```text
@@ -74,6 +74,11 @@ prompts work against it too.
 | [Gotify](https://github.com/gotify/server) (MIT) | Beacon channel: self-hosted push server + Android app |
 | [Gatus](https://github.com/TwiN/gatus) (Apache-2.0) | uptime checks → Beacon alerts via `/v1/hooks/gatus` |
 | [SoloPi](https://github.com/alipay/SoloPi) (Apache-2.0) | metric set for Tether's perf tools (startup, memory, jank, CPU) |
+| [Perfetto](https://perfetto.dev) (Apache-2.0) | Tether system traces (`perf_trace_start/stop`), opened in ui.perfetto.dev |
+| [LeakCanary](https://square.github.io/leakcanary) (Apache-2.0) | memory-leak results Tether reads from logcat (`assert_no_leaks`) — your debug build includes it |
+| [Midscene.js](https://github.com/web-infra-dev/midscene) (MIT) | Tether imports its YAML scripts (`aiAct`, `aiTap`, `aiAssert`, `aiWaitFor` …) |
+| [STF](https://github.com/DeviceFarmer/stf) (Apache-2.0) / [lamda](https://github.com/firerpa/lamda) | the device-farm idea behind `--all` / `/api/flow/run-all` (one flow, every phone, in parallel) |
+| [Novu](https://github.com/novuhq/novu) (MIT) | the ideas behind Beacon's categories + preferences, templates and multi-step workflows (re-implemented, no Novu code) |
 | [android-emulator-runner](https://github.com/ReactiveCircus/android-emulator-runner) (Apache-2.0) | CI template |
 | [mobile-mcp](https://github.com/mobile-next/mobile-mcp) (Apache-2.0) | tool names/arguments Tether's MCP server is compatible with |
 | [Agent Skills](https://github.com/anthropics/skills) format | the `plugin/` skills pack |
@@ -84,14 +89,16 @@ All are optional downloads or optional pip installs — Beacon and Tether stay z
 
 ## What's verified
 
-- **Automated (all hermetic, no phone needed):** 607 checks — Beacon 72 API + 40 channels + 36 Bark/Gotify + 28 Gatus hook + 22 tunnel
-  + 25 crypto + 23 workflows; Tether 65 API + 30 Beacon link + 62 Maestro + 36 HD (+7 in headless Edge: WebCodecs
-  decode, clicks, WebM and MP4 recording) + 52 mobile-mcp/recording/clipboard + 26 AI steps + 18 ARTEMIS engine
-  + 39 perf; Push Lab plugin 26
-  (manifests, SKILL.md and the CLI end to end against real Beacon + Tether).
+- **Automated (all hermetic, no phone needed):** 801 checks — Beacon 72 API + 40 channels + 36 Bark/Gotify + 28 Gatus hook + 22 tunnel
+  + 25 crypto + 23 workflows + 63 categories/preferences/templates/multi-step; Tether 65 API + 30 Beacon link
+  + 62 Maestro + 36 HD (+7 in headless Edge: WebCodecs decode, clicks, WebM and MP4 recording)
+  + 52 mobile-mcp/recording/clipboard + 26 AI steps + 18 ARTEMIS engine + 39 perf + 124 Perfetto/LeakCanary/
+  multi-device/Midscene; Push Lab plugin 33 (manifests, SKILL.md and the CLI end to end against real Beacon + Tether).
 - **Live on this PC:**
   - **Push:** real pushes went through Microsoft's push service to Edge and appeared on screen, sent from Tether and delivered by Beacon. ntfy.sh publish and Apprise 2.1.0 worked through the corporate proxy.
   - **adb:** the one-click adb install worked through a corporate proxy.
-- **Not yet verified:** a physical Android phone (none was attached) — so HD, screen recording, clipboard and
-  AI steps (built-in and ARTEMIS) ran only against the fake adb/scrcpy device, a fake model server and a fake ARTEMIS daemon; FCM against a real Firebase
-  project; the plugin installed into a real Claude Code / Codex session.
+- **Not yet verified:** a physical Android phone (none was attached) — so HD, screen recording, clipboard,
+  AI steps (built-in and ARTEMIS), Perfetto traces, LeakCanary output and multi-device runs ran only against the fake
+  adb/scrcpy device (with canned perfetto/LeakCanary output), a fake model server and a fake ARTEMIS daemon; Midscene
+  scripts were converted and run without a real model; FCM against a real Firebase project; the plugin installed
+  into a real Claude Code / Codex session.

@@ -1,6 +1,6 @@
 ---
 name: tether-android-qa
-description: Drive and test a real Android phone or emulator through Tether (adb in the browser) - read the screen, tap by text or id, type, swipe, launch apps, read logcat, run Tether JSON or Maestro YAML flows and record the screen. Use when asked to test, reproduce a bug, or automate something on an Android device.
+description: Drive and test a real Android phone or emulator through Tether (adb in the browser) - read the screen, tap by text or id, type, swipe, launch apps, read logcat, run Tether JSON, Maestro or Midscene YAML flows (on one or every connected device), check performance, Perfetto traces and LeakCanary leaks, and record the screen. Use when asked to test, reproduce a bug, or automate something on an Android device.
 ---
 
 # Tether Android QA
@@ -48,6 +48,12 @@ it; every command prints JSON and exits 0 on success, 1 when a check fails and
   then `perf <package> --max-jank 10 --max-p90-ms 24` — exit 1 means over budget.
 - In flows use `perf_startup` / `perf_reset` / `perf_assert` steps (see Tether README).
   Report numbers with the device model; emulator numbers only show trends.
+- When a budget fails, find out why: `trace start --package <package>`, reproduce,
+  `trace stop --out slow.pftrace`, and tell the user to open it in https://ui.perfetto.dev.
+  In flows, `{"action": "perf_trace_start", "keep": "on_fail"}` keeps a trace only when the flow fails.
+- Memory leaks: if the app's debug build includes LeakCanary, `leaks --max 0` exits 1 and
+  names the leaking classes. In flows: `leak_mark`, exercise the screen, go back, then
+  `{"action": "assert_no_leaks", "wait_ms": 20000}`.
 
 ## Repeatable tests (flows)
 
@@ -71,7 +77,15 @@ Supported Maestro commands include launchApp (with clearState), tapOn,
 doubleTapOn, longPressOn, inputText, eraseText, assertVisible, assertNotVisible,
 scroll, scrollUntilVisible, swipe, back, pressKey, hideKeyboard, openLink,
 extendedWaitUntil, waitForAnimationToEnd and takeScreenshot; anything else is
-skipped and reported in `maestro_warnings`.
+skipped and reported in `yaml_warnings`.
+
+Midscene YAML scripts (`tasks:` with `aiAct`, `aiTap`, `aiInput`, `aiAssert`,
+`aiWaitFor`, `sleep` ...) run the same way with `flow script.yaml`; their AI steps
+need Tether's AI engine configured.
+
+To check several phones or OS versions at once, add `--all-devices`: the flow runs
+on every connected device in parallel and the JSON has one report per device
+(`passed_devices`, `failed_devices`).
 
 ## Fuzzy goals: AI steps, then deterministic flows
 

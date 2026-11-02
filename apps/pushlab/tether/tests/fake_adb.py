@@ -405,6 +405,42 @@ def fake_cpu_window(script):
     return block(0, 0) + "===TETHER===\n" + block(s["cpu_total_delta"], s["cpu_app_delta"])
 
 
+# ----------------------------------------------------- Perfetto / LeakCanary
+FAKE_PERFETTO_PID = "31337"
+FAKE_TRACE = b"\x0a\x0cfake-perfetto" + b"\x00" * 2048
+
+
+def fake_perfetto(cmd):
+    """`perfetto --background -o FILE -t Ns ...` prints the daemon pid; the file appears at once."""
+    if perf_settings().get("no_perfetto"):
+        sys.stdout.write("/system/bin/sh: perfetto: inaccessible or not found\n")
+        return 127
+    remote = cmd[cmd.index("-o") + 1]
+    with open(state_file("fake-sdcard-" + os.path.basename(remote)), "wb") as handle:
+        handle.write(FAKE_TRACE)
+    stopped = state_file("fake-perfetto-stopped")
+    if os.path.exists(stopped):
+        os.remove(stopped)
+    log("perfetto " + " ".join(cmd[1:]))
+    sys.stdout.write(FAKE_PERFETTO_PID + "\n")
+    return 0
+
+
+def fake_leakcanary(argv):
+    since = argv[argv.index("-T") + 1] if "-T" in argv else "-"
+    log("logcat leakcanary since " + since)
+    path = state_file("fake-leaks.txt")
+    if os.path.exists(path):
+        with open(path, "rb") as handle:
+            sys.stdout.buffer.write(handle.read())
+    return 0
+
+
+def extra_devices():
+    value = os.environ.get("TETHER_FAKE_EXTRA_DEVICES", "")
+    return [s.strip() for s in value.split(",") if s.strip()]
+
+
 def main(argv):
     out = sys.stdout.buffer
     if argv[:1] == ["version"]:
@@ -414,8 +450,12 @@ def main(argv):
         out.write(
             b"List of devices attached\n"
             b"emulator-5554          device product:sdk_gphone64 model:Pixel_7 device:emu64 transport_id:1\n"
-            b"R58N12ABCDE            unauthorized usb:1-1 transport_id:2\n\n"
+            b"R58N12ABCDE            unauthorized usb:1-1 transport_id:2\n"
         )
+        for index, extra in enumerate(extra_devices()):
+            out.write(f"{extra:<22} device product:sdk_gphone64 model:Pixel_{8 + index} device:emu64 "
+                      f"transport_id:{3 + index}\n".encode())
+        out.write(b"\n")
         return 0
 
     if argv[:1] == ["pair"]:
@@ -431,9 +471,11 @@ def main(argv):
     serial = None
     if argv[:1] == ["-s"]:
         serial, argv = argv[1], argv[2:]
-    if serial != READY:
+    if serial != READY and serial not in extra_devices():
         sys.stderr.write(f"error: device '{serial}' not found\n")
         return 1
+    if serial != READY:
+        log(f"[{serial}] " + " ".join(argv))
 
     logged_in = state() == "logged_in"
     colour = (20, 160, 90) if logged_in else (30, 60, 200)
@@ -495,6 +537,8 @@ def main(argv):
         log("pull " + argv[1])
         out.write(b"1 file pulled, 0 skipped.\n")
         return 0
+    if argv[:1] == ["logcat"] and "LeakCanary:*" in argv:
+        return fake_leakcanary(argv)
     if argv[:1] == ["logcat"] and "crash" in argv:
         out.write(CRASH_LOG.encode())
         return 0
@@ -529,6 +573,18 @@ def main(argv):
         return 0
     if cmd[:1] == ["screenrecord"]:
         return fake_screenrecord(cmd)
+    if cmd[:1] == ["perfetto"]:
+        return fake_perfetto(cmd)
+    if cmd[:2] == ["kill", "-TERM"]:
+        open(state_file("fake-perfetto-stopped"), "w").close()
+        log("perfetto stop " + cmd[2])
+        return 0
+    if len(cmd) == 1 and cmd[0].startswith("kill -0 "):
+        out.write(b"gone\n" if os.path.exists(state_file("fake-perfetto-stopped")) else b"alive\n")
+        return 0
+    if cmd == ["date", "+%s"]:
+        out.write(b"1730419200\n")
+        return 0
     if cmd[:3] == ["pkill", "-2", "screenrecord"]:
         open(state_file("fake-screenrecord-stop"), "w").close()
         log("screenrecord stop")

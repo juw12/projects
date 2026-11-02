@@ -87,12 +87,17 @@ TOOLS = [
             "Android), ntfy (ntfy app topics), bark (iPhone Bark app), gotify (self-hosted Gotify), "
             "apprise (Telegram/Slack/Discord/email… contacts), inapp "
             "(banner inside the app). Default: all push channels. Give send_at (ISO 8601 with offset) to schedule, "
-            "digest to batch bursts, fallback to escalate unread messages to another channel."
+            "digest to batch bursts, fallback to escalate unread messages to another channel (fallbacks can nest "
+            "into a multi-step workflow), category so subscribers' preferences apply, or template + vars to send "
+            "a saved template."
         ),
         "inputSchema": {
             "type": "object",
             "properties": {
                 "app_id": {"type": "integer"},
+                "template": {"type": "string", "description": "Name of a saved template (see save_template)"},
+                "vars": {"type": "object", "description": "Values for the template's {{variables}}"},
+                "category": {"type": "string", "description": "Preference category, e.g. marketing, security"},
                 "title": {"type": "string", "maxLength": 120},
                 "body": {"type": "string", "maxLength": 600},
                 "url": {"type": "string", "description": "Page to open on tap"},
@@ -122,11 +127,100 @@ TOOLS = [
                         "channels": {"type": "array", "items": {"type": "string", "enum": ["webpush", "fcm", "ntfy", "bark", "gotify", "apprise", "inapp"]}},
                         "title": {"type": "string"},
                         "body": {"type": "string"},
+                        "urgency": {"type": "string", "enum": ["very-low", "low", "normal", "high"]},
+                        "fallback": {"type": "object", "description": "Next step, same shape (max 4 steps)"},
                     },
                     "required": ["channels"],
                 },
             },
-            "required": ["app_id", "title"],
+            "required": ["app_id"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "save_template",
+        "description": (
+            "Create or replace a message template. Text fields may contain {{variables}} (dots reach nested "
+            "values, e.g. {{order.id}}); values placed in url are percent-encoded. Send it with "
+            "send_notification(template=..., vars={...})."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "app_id": {"type": "integer"},
+                "name": {"type": "string"},
+                "title": {"type": "string"},
+                "body": {"type": "string"},
+                "url": {"type": "string"},
+                "channels": {"type": "array", "items": {"type": "string", "enum": ["webpush", "fcm", "ntfy", "bark", "gotify", "apprise", "inapp"]}},
+                "category": {"type": "string"},
+                "urgency": {"type": "string", "enum": ["very-low", "low", "normal", "high"]},
+                "tag": {"type": "string"},
+                "fallback": {"type": "object"},
+            },
+            "required": ["app_id", "name", "title"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "list_templates",
+        "description": "Saved templates of an app with the variables each one needs.",
+        "inputSchema": {"type": "object", "properties": {"app_id": {"type": "integer"}}, "required": ["app_id"],
+                        "additionalProperties": False},
+    },
+    {
+        "name": "upsert_category",
+        "description": (
+            "Register a notification category (e.g. marketing, orders, security). critical=true means "
+            "subscribers cannot opt out; default_enabled=false makes it opt-in."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "app_id": {"type": "integer"},
+                "key": {"type": "string"},
+                "name": {"type": "string"},
+                "description": {"type": "string"},
+                "critical": {"type": "boolean"},
+                "default_enabled": {"type": "boolean"},
+            },
+            "required": ["app_id", "key"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "set_preference",
+        "description": (
+            "Set a user's (user_id) or one device's (subscriber_id) preference for a category ('*' = all "
+            "non-critical categories): enabled on/off and/or limit to channels. reset=true removes it. "
+            "Returns the effective preferences."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "app_id": {"type": "integer"},
+                "user_id": {"type": "string"},
+                "subscriber_id": {"type": "integer"},
+                "category": {"type": "string", "default": "*"},
+                "enabled": {"type": "boolean"},
+                "channels": {"type": "array", "items": {"type": "string", "enum": ["webpush", "fcm", "ntfy", "bark", "gotify", "apprise", "inapp"]}},
+                "reset": {"type": "boolean"},
+            },
+            "required": ["app_id"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "get_preferences",
+        "description": "Effective notification preferences of a user (user_id) or device (subscriber_id), per category.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "app_id": {"type": "integer"},
+                "user_id": {"type": "string"},
+                "subscriber_id": {"type": "integer"},
+            },
+            "required": ["app_id"],
             "additionalProperties": False,
         },
     },
@@ -242,13 +336,30 @@ def run_tool(client: BeaconClient, name: str, args: dict):
             "target": message["target"],
             "channels": message["channels"],
         }
+    if name == "save_template":
+        return client.call("POST", "/v1/templates", args)["template"]
+    if name == "list_templates":
+        return client.call("GET", f"/v1/templates?app_id={int(args['app_id'])}")["templates"]
+    if name == "upsert_category":
+        return client.call("POST", "/v1/categories", args)["category"]
+    if name == "set_preference":
+        result = client.call("POST", "/v1/preferences", args)
+        return {k: result[k] for k in ("all", "categories")}
+    if name == "get_preferences":
+        query = {"app_id": int(args["app_id"])}
+        if args.get("subscriber_id"):
+            query["subscriber_id"] = int(args["subscriber_id"])
+        if args.get("user_id"):
+            query["user_id"] = args["user_id"]
+        result = client.call("GET", "/v1/preferences?" + urllib.parse.urlencode(query))
+        return {k: result[k] for k in ("all", "categories")}
     if name == "add_contact":
         return client.call("POST", "/v1/contacts", args)
     if name == "list_messages":
         limit = int(args.get("limit", 20))
         messages = client.call("GET", f"/v1/messages?app_id={int(args['app_id'])}&limit={limit}")["messages"]
         keys = ("id", "title", "status", "send_at_iso", "targeted", "delivered", "failed",
-                "pruned", "shown", "clicked", "error")
+                "pruned", "shown", "clicked", "suppressed", "category", "error")
         return [{k: m[k] for k in keys} for m in messages]
     if name == "cancel_message":
         client.call("POST", f"/v1/messages/{int(args['message_id'])}/cancel", {})

@@ -85,11 +85,47 @@ CREATE TABLE IF NOT EXISTS messages (
 );
 CREATE INDEX IF NOT EXISTS messages_due ON messages(status, send_at);
 CREATE INDEX IF NOT EXISTS messages_app ON messages(app_id, created);
+
+-- Notification categories and subscriber preferences (the idea Novu calls workflow
+-- preferences, implemented natively): a message may carry a category; subscribers or
+-- users can switch categories off or limit them to some channels; critical categories
+-- (security alerts, password resets, ...) always go out.
+CREATE TABLE IF NOT EXISTS categories (
+    app_id          INTEGER NOT NULL REFERENCES apps(id) ON DELETE CASCADE,
+    key             TEXT NOT NULL,
+    name            TEXT NOT NULL DEFAULT '',
+    description     TEXT NOT NULL DEFAULT '',
+    critical        INTEGER NOT NULL DEFAULT 0,
+    default_enabled INTEGER NOT NULL DEFAULT 1,
+    created         REAL NOT NULL,
+    PRIMARY KEY (app_id, key)
+);
+
+CREATE TABLE IF NOT EXISTS preferences (
+    app_id   INTEGER NOT NULL REFERENCES apps(id) ON DELETE CASCADE,
+    owner    TEXT NOT NULL,                 -- 'user:<user_id>' or 'sub:<subscriber id>'
+    category TEXT NOT NULL,                 -- a category key, or '*' for every category
+    enabled  INTEGER NOT NULL DEFAULT 1,
+    channels TEXT NOT NULL DEFAULT '',      -- JSON list of allowed channels; '' = all
+    updated  REAL NOT NULL,
+    PRIMARY KEY (app_id, owner, category)
+);
+
+-- Reusable message templates with {{variables}} (title, body, url, routing, escalation).
+CREATE TABLE IF NOT EXISTS templates (
+    app_id  INTEGER NOT NULL REFERENCES apps(id) ON DELETE CASCADE,
+    name    TEXT NOT NULL,
+    spec    TEXT NOT NULL,                  -- JSON: title, body, url, channels, category, ...
+    created REAL NOT NULL,
+    updated REAL NOT NULL,
+    PRIMARY KEY (app_id, name)
+);
 """
 
 PUSH_CHANNELS = ("webpush", "fcm", "ntfy", "bark", "gotify", "apprise")  # channels with per-subscriber delivery
 DEFAULT_CHANNELS = list(PUSH_CHANNELS)
-MESSAGE_COUNTERS = ("targeted", "delivered", "failed", "pruned", "shown", "clicked")
+MESSAGE_COUNTERS = ("targeted", "delivered", "failed", "pruned", "shown", "clicked", "suppressed")
+ALL_CATEGORIES = "*"
 PRUNE_AFTER_FAILURES = 10
 DIGEST_MAX_ITEMS = 8  # kept small: the list travels in the push payload (~4 KB limit)
 FALLBACK_COUNTERS = {"clicked": "clicked", "shown": "shown", "delivered": "delivered"}
@@ -159,6 +195,8 @@ class Store:
         ("fallback_state", "TEXT NOT NULL DEFAULT ''"),    # '' | pending | skipped | sent
         ("fallback_id", "INTEGER"),                        # the follow-up message
         ("parent_id", "INTEGER"),                          # set on a follow-up
+        ("category", "TEXT NOT NULL DEFAULT ''"),          # preference category ('' = none)
+        ("suppressed", "INTEGER NOT NULL DEFAULT 0"),      # recipients skipped by their preferences
     )
 
     def _migrate(self) -> None:
@@ -377,7 +415,7 @@ class Store:
         cursor = self.x(
             "INSERT INTO messages(app_id, title, body, url, icon, image, tag, data, target, channels,"
             " ttl, urgency, send_at, status, created, digest_key, digest_count, fallback, fallback_state,"
-            " parent_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            " parent_id, category) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (
                 app_id,
                 fields["title"],
@@ -399,6 +437,7 @@ class Store:
                 json.dumps(fallback) if fallback else "",
                 "pending" if fallback else "",
                 fields.get("parent_id"),
+                fields.get("category", ""),
             ),
         )
         return self.get_message(cursor.lastrowid)
@@ -446,7 +485,7 @@ class Store:
                 spec = message["fallback"]
                 if message["finished"] + spec["after"] > now:
                     continue
-                if message[FALLBACK_COUNTERS[spec.get("unless", "clicked")]] > 0:
+                if self._chain_counter(message, FALLBACK_COUNTERS[spec.get("unless", "clicked")]) > 0:
                     self.x("UPDATE messages SET fallback_state = 'skipped' WHERE id = ?", (message["id"],))
                     continue
                 follow_up = self.create_message(message["app_id"], {
@@ -459,13 +498,37 @@ class Store:
                     "target": message["target"],
                     "channels": spec["channels"],
                     "ttl": message["ttl"],
-                    "urgency": message["urgency"],
+                    "urgency": spec.get("urgency") or message["urgency"],
                     "parent_id": message["id"],
+                    "category": message.get("category", ""),
+                    "fallback": spec.get("fallback"),  # next step of a multi-step workflow
                 })
                 self.x("UPDATE messages SET fallback_state = 'sent', fallback_id = ? WHERE id = ?",
                        (follow_up["id"], message["id"]))
                 created.append(follow_up)
         return created
+
+    def _chain_counter(self, message: dict, counter: str) -> int:
+        """Counter summed over the message and the earlier steps it escalated from."""
+        total, current, seen = 0, message, set()
+        while current and current["id"] not in seen:
+            seen.add(current["id"])
+            total += current.get(counter) or 0
+            current = self.get_message(current["parent_id"]) if current.get("parent_id") else None
+        return total
+
+    def workflow(self, message_id: int) -> list[dict]:
+        """Every step of the escalation chain this message belongs to, first step first."""
+        message = self.get_message(message_id)
+        seen = set()
+        while message and message.get("parent_id") and message["id"] not in seen:
+            seen.add(message["id"])
+            message = self.get_message(message["parent_id"])
+        steps = []
+        while message and message["id"] not in {s["id"] for s in steps}:
+            steps.append(message)
+            message = self.get_message(message["fallback_id"]) if message.get("fallback_id") else None
+        return steps
 
     def cancel_fallbacks_for_tag(self, app_id: int, tag: str) -> int:
         """Stop pending escalations of earlier messages with this tag (e.g. an alert that resolved)."""
@@ -539,7 +602,9 @@ class Store:
                 if not target or target.get("all"):
                     out.append(message)
             elif matches_target(subscriber, target):
-                out.append(message)
+                kept, _ = self.apply_preferences(app_id, [subscriber], message.get("category", ""), channel="inapp")
+                if kept:
+                    out.append(message)
             if len(out) >= limit:
                 break
         return out
@@ -561,6 +626,169 @@ class Store:
         result["click_rate"] = round(result["clicked"] / result["delivered"], 4) if result["delivered"] else 0
         result["days"] = days
         return result
+
+    # ------------------------------------------------- categories + preferences
+    def upsert_category(self, app_id: int, key: str, name: str = "", description: str = "",
+                        critical: bool = False, default_enabled: bool = True) -> dict:
+        self.x("INSERT INTO categories(app_id, key, name, description, critical, default_enabled, created)"
+               " VALUES(?,?,?,?,?,?,?) ON CONFLICT(app_id, key) DO UPDATE SET name = excluded.name,"
+               " description = excluded.description, critical = excluded.critical,"
+               " default_enabled = excluded.default_enabled",
+               (app_id, key, name, description, int(bool(critical)), int(bool(default_enabled)), time.time()))
+        return self.get_category(app_id, key)
+
+    @staticmethod
+    def _category_row(row) -> dict:
+        category = dict(row)
+        category["critical"] = bool(category["critical"])
+        category["default_enabled"] = bool(category["default_enabled"])
+        category.pop("app_id", None)
+        return category
+
+    def get_category(self, app_id: int, key: str) -> dict | None:
+        rows = self.q("SELECT * FROM categories WHERE app_id = ? AND key = ?", (app_id, key))
+        return self._category_row(rows[0]) if rows else None
+
+    def list_categories(self, app_id: int) -> list[dict]:
+        return [self._category_row(r) for r in self.q("SELECT * FROM categories WHERE app_id = ? ORDER BY key",
+                                                       (app_id,))]
+
+    def delete_category(self, app_id: int, key: str) -> bool:
+        return bool(self.x("DELETE FROM categories WHERE app_id = ? AND key = ?", (app_id, key)).rowcount)
+
+    @staticmethod
+    def owner_of(subscriber: dict, scope: str = "auto") -> str:
+        """Preferences set from a device apply to its user (all their devices) when it has one."""
+        if scope == "subscriber" or not subscriber.get("user_id"):
+            return f"sub:{subscriber['id']}"
+        return f"user:{subscriber['user_id']}"
+
+    def set_preference(self, app_id: int, owner: str, category: str, enabled: bool | None = None,
+                       channels: list[str] | None = None) -> None:
+        """Upsert one preference; enabled=None and channels=None removes it (back to the default)."""
+        if enabled is None and channels is None:
+            self.x("DELETE FROM preferences WHERE app_id = ? AND owner = ? AND category = ?",
+                   (app_id, owner, category))
+            return
+        rows = self.q("SELECT enabled, channels FROM preferences WHERE app_id = ? AND owner = ? AND category = ?",
+                      (app_id, owner, category))
+        current_enabled = bool(rows[0]["enabled"]) if rows else True
+        current_channels = rows[0]["channels"] if rows else ""
+        self.x("INSERT INTO preferences(app_id, owner, category, enabled, channels, updated) VALUES(?,?,?,?,?,?)"
+               " ON CONFLICT(app_id, owner, category) DO UPDATE SET enabled = excluded.enabled,"
+               " channels = excluded.channels, updated = excluded.updated",
+               (app_id, owner, category, int(current_enabled if enabled is None else bool(enabled)),
+                current_channels if channels is None else (json.dumps(sorted(set(channels))) if channels else ""),
+                time.time()))
+
+    def _preference_map(self, app_id: int, owners: set[str]) -> dict:
+        if not owners:
+            return {}
+        owners = sorted(owners)
+        prefs = {}
+        for start in range(0, len(owners), 500):
+            chunk = owners[start:start + 500]
+            marks = ",".join("?" for _ in chunk)
+            for row in self.q(f"SELECT owner, category, enabled, channels FROM preferences WHERE app_id = ?"
+                              f" AND owner IN ({marks})", (app_id, *chunk)):
+                prefs[(row["owner"], row["category"])] = {
+                    "enabled": bool(row["enabled"]),
+                    "channels": json.loads(row["channels"]) if row["channels"] else None,
+                }
+        return prefs
+
+    @staticmethod
+    def _resolve(prefs: dict, owners: list[str], category: str, default_enabled: bool) -> tuple[dict, str]:
+        """Most specific wins: subscriber+category, user+category, subscriber '*', user '*', default."""
+        keys = [(owner, category) for owner in owners if category] + [(owner, ALL_CATEGORIES) for owner in owners]
+        for key in keys:
+            if key in prefs:
+                return prefs[key], f"{key[0]}/{key[1]}"
+        return {"enabled": default_enabled, "channels": None}, "default"
+
+    @staticmethod
+    def _owners(subscriber: dict) -> list[str]:
+        owners = [f"sub:{subscriber['id']}"]
+        if subscriber.get("user_id"):
+            owners.append(f"user:{subscriber['user_id']}")
+        return owners
+
+    def apply_preferences(self, app_id: int, subscribers: list[dict], category: str = "",
+                          channel: str | None = None) -> tuple[list[dict], int]:
+        """Drop subscribers who opted out of this category (or of their channel for it).
+
+        Returns (kept, suppressed_count). Critical categories are never filtered.
+        `channel` overrides the subscriber's own channel (used for the in-app inbox).
+        """
+        if not subscribers:
+            return subscribers, 0
+        registered = self.get_category(app_id, category) if category else None
+        if registered and registered["critical"]:
+            return subscribers, 0
+        default_enabled = registered["default_enabled"] if registered else True
+        owners = {owner for sub in subscribers for owner in self._owners(sub)}
+        prefs = self._preference_map(app_id, owners)
+        if not prefs and default_enabled:
+            return subscribers, 0
+        kept = []
+        for subscriber in subscribers:
+            pref, _source = self._resolve(prefs, self._owners(subscriber), category, default_enabled)
+            used_channel = channel or subscriber["channel"]
+            if pref["enabled"] and (not pref["channels"] or used_channel in pref["channels"]):
+                kept.append(subscriber)
+        return kept, len(subscribers) - len(kept)
+
+    def preferences_for(self, app_id: int, subscriber: dict | None = None, user_id: str = "") -> dict:
+        """Effective settings per category for a subscriber (device) or a user, plus the raw rows."""
+        if subscriber is not None:
+            owners = self._owners(subscriber)
+        else:
+            owners = [f"user:{user_id}"]
+        prefs = self._preference_map(app_id, set(owners))
+        categories = self.list_categories(app_id)
+        known = {c["key"] for c in categories}
+        extra = sorted({category for (_owner, category) in prefs if category not in known and category != "*"})
+        effective = []
+        for category in categories + [{"key": key, "name": "", "description": "", "critical": False,
+                                        "default_enabled": True} for key in extra]:
+            pref, source = self._resolve(prefs, owners, category["key"], category["default_enabled"])
+            effective.append({
+                "category": category["key"],
+                "name": category.get("name", ""),
+                "description": category.get("description", ""),
+                "critical": category["critical"],
+                "enabled": True if category["critical"] else pref["enabled"],
+                "channels": None if category["critical"] else pref["channels"],
+                "source": "critical" if category["critical"] else source,
+            })
+        overall, source = self._resolve(prefs, owners, "", True)
+        return {
+            "all": {"enabled": overall["enabled"], "channels": overall["channels"], "source": source},
+            "categories": effective,
+            "raw": [{"owner": owner, "category": category, **value} for (owner, category), value in sorted(prefs.items())],
+        }
+
+    # ----------------------------------------------------------------- templates
+    def save_template(self, app_id: int, name: str, spec: dict) -> dict:
+        now = time.time()
+        self.x("INSERT INTO templates(app_id, name, spec, created, updated) VALUES(?,?,?,?,?)"
+               " ON CONFLICT(app_id, name) DO UPDATE SET spec = excluded.spec, updated = excluded.updated",
+               (app_id, name, json.dumps(spec), now, now))
+        return self.get_template(app_id, name)
+
+    def get_template(self, app_id: int, name: str) -> dict | None:
+        rows = self.q("SELECT * FROM templates WHERE app_id = ? AND name = ?", (app_id, name))
+        if not rows:
+            return None
+        row = dict(rows[0])
+        return {"name": row["name"], **json.loads(row["spec"]), "created": row["created"], "updated": row["updated"]}
+
+    def list_templates(self, app_id: int) -> list[dict]:
+        names = [r["name"] for r in self.q("SELECT name FROM templates WHERE app_id = ? ORDER BY name", (app_id,))]
+        return [self.get_template(app_id, name) for name in names]
+
+    def delete_template(self, app_id: int, name: str) -> bool:
+        return bool(self.x("DELETE FROM templates WHERE app_id = ? AND name = ?", (app_id, name)).rowcount)
 
     # --------------------------------------------------------------- tracking
     def track_signature(self, message_id: int) -> str:

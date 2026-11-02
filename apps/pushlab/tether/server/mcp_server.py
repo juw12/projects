@@ -35,7 +35,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from adb import KEYCODES, Adb, AdbError, find_element, find_notification  # noqa: E402
 from beacon_link import BeaconError, BeaconLink  # noqa: E402
-from flows import FlowError, run_flow, subscribe_device  # noqa: E402
+from flows import FlowError, ready_serials, run_flow, run_flow_matrix, subscribe_device, yaml_to_flow  # noqa: E402
 import maestro  # noqa: E402
 import perf  # noqa: E402
 from mobile_compat import MOBILE_TOOLS, MobileMcpTools  # noqa: E402
@@ -184,6 +184,29 @@ TOOLS = [
         }, ["package"]),
     },
     {
+        "name": "perf_trace",
+        "description": (
+            "Record a Perfetto system trace (scheduling, frames, binder, app atrace) for N seconds while "
+            "you or the user exercise the app, then pull it to Tether's reports folder. Returns the .pftrace "
+            "path — open it in https://ui.perfetto.dev. Android 9+."
+        ),
+        "inputSchema": _schema({
+            "seconds": {"type": "number", "default": 10, "minimum": 1, "maximum": 120},
+            "package": {"type": "string", "description": "Also enable this app's atrace markers"},
+        }),
+    },
+    {
+        "name": "leak_report",
+        "description": (
+            "Memory leaks found by LeakCanary in the app's debug build (read from logcat): application and "
+            "library leak counts, retained bytes and the leaking classes. Pass since (device epoch seconds) "
+            "to ignore older results."
+        ),
+        "inputSchema": _schema({
+            "since": {"type": "string", "description": "e.g. 1730419200.000"},
+        }),
+    },
+    {
         "name": "list_notifications",
         "description": "Notifications currently on the device (package, title, text). Use after send_push to verify delivery.",
         "inputSchema": _schema({}),
@@ -231,11 +254,14 @@ TOOLS = [
         "description": (
             "Run a Tether flow (JSON QA script: launch, tap_element, wait_for, assert_text, swipe, "
             "text, key, open_url, scroll_until_visible, ...; tap/swipe coordinates normalised 0..1) "
-            "or a Maestro YAML flow (maestro_yaml). Returns a pass/fail report."
+            "or a Maestro / Midscene YAML script (yaml). Set all_devices=true to run it on every "
+            "connected device in parallel. Returns a pass/fail report (one per device)."
         ),
         "inputSchema": _schema({
             "flow": {"type": "object"},
-            "maestro_yaml": {"type": "string", "description": "A Maestro flow (appId header, ---, commands)"},
+            "yaml": {"type": "string", "description": "Maestro flow (appId, ---, commands) or Midscene script (tasks:)"},
+            "maestro_yaml": {"type": "string", "description": "Alias of yaml"},
+            "all_devices": {"type": "boolean", "default": False},
         }, []),
     },
 ]
@@ -423,18 +449,33 @@ class TetherTools(MobileMcpTools):
         serial = self._serial(args)
         return self._text(subscribe_device(self.adb, serial, args.get("tags"), args.get("user")))
 
+    def tool_perf_trace(self, args):
+        return self._text(perf.trace(self.adb, self._serial(args), float(args.get("seconds", 10)),
+                                     args.get("package") or None))
+
+    def tool_leak_report(self, args):
+        return self._text(perf.leaks(self.adb, self._serial(args), args.get("since") or None))
+
     def tool_run_flow(self, args):
-        serial = self._serial(args)
         warnings = []
-        if args.get("maestro_yaml"):
-            flow, warnings = maestro.maestro_to_flow(args["maestro_yaml"])
+        text = args.get("yaml") or args.get("maestro_yaml")
+        if text:
+            flow, warnings, _ = yaml_to_flow(text)
         elif args.get("flow"):
             flow = args["flow"]
         else:
-            raise FlowError("give flow (Tether JSON) or maestro_yaml")
+            raise FlowError("give flow (Tether JSON) or yaml (Maestro / Midscene)")
+        if args.get("all_devices"):
+            matrix = run_flow_matrix(self.adb, ready_serials(self.adb), flow)
+            summary = {k: v for k, v in matrix.items() if k != "reports"}
+            summary["reports"] = [{k: v for k, v in r.items() if k != "screenshots"} for r in matrix["reports"]]
+            if warnings:
+                summary["yaml_warnings"] = warnings
+            return self._text(summary)
+        serial = self._serial(args)
         report = run_flow(self.adb, serial, flow)
         if warnings:
-            report["maestro_warnings"] = warnings
+            report["yaml_warnings"] = warnings
         content = [{"type": "text", "text": json.dumps(
             {k: v for k, v in report.items() if k != "screenshots"}, indent=1
         )}]

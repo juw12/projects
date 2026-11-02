@@ -77,6 +77,37 @@ Supported: `launchApp` (clearState/stopApp), `stopApp`, `clearState`, `tapOn` / 
 `evalScript`, absolute pixel points, relative selectors…) is reported as a warning, never silently dropped.
 Tether-only steps (Beacon push, notifications) export as `# tether:` comments.
 
+## Midscene scripts
+
+[Midscene.js](https://github.com/web-infra-dev/midscene) (MIT) YAML scripts — `android:` / `web:` target plus
+`tasks:` with natural-language steps — import the same way (Flow tab → **Import**, `flows.py run script.yaml`,
+`POST /api/flow/midscene/import`, MCP `run_flow` with `yaml`). Tether's own AI steps do the vision work, so any
+OpenAI-compatible model or ARTEMIS runs them:
+
+| Midscene | Tether |
+| --- | --- |
+| `aiAct` / `aiAction` / `ai`, `aiTap`, `aiDoubleClick`, `aiLongPress`, `aiInput` | `ai` with a goal |
+| `aiAssert` (+ `errorMessage`) | `ai_assert` |
+| `aiWaitFor` (+ `timeout`) | `ai_assert` retried until `timeout_ms` |
+| `aiKeyboardPress`, `aiScroll` | `key`, `swipe` |
+| `sleep`, `launch`, `terminate`, `recordToReport` | `wait`, `launch` / `open_url`, `stop`, `screenshot` |
+| `continueOnError: true` | the task's steps become `optional` |
+
+`aiQuery`/`aiBoolean`/… (data extraction), `aiHover`, `runAdbShell` and `javascript` are reported as warnings and
+not run — scripts never get a shell on the phone through Tether.
+
+## One flow on every phone
+
+The device-farm idea of [STF](https://github.com/DeviceFarmer/stf) / [lamda](https://github.com/firerpa/lamda),
+without the farm: run a flow on every connected device at once, one report per device.
+
+```bash
+python server/flows.py run smoke.json --all --out reports/   # reports/<serial>/report.json + matrix.json
+```
+
+Also `POST /api/flow/run-all {flow | yaml, serials?}`, MCP `run_flow` with `all_devices: true`, and
+`pushlab_cli.py flow smoke.json --all-devices`. A device that disconnects fails alone; the others keep going.
+
 ## HD mode (scrcpy)
 
 The **HD** button under the screen switches from PNG screenshots (~2-8 fps) to a 30 fps H.264 stream from
@@ -160,6 +191,39 @@ scenario's own, not the app's lifetime average:
 Also available as `GET /api/perf`, `POST /api/perf/startup`, `POST /api/perf/reset`, the MCP tools
 `perf_snapshot` / `perf_startup`, and `pushlab_cli.py perf <package> [--startup] [--reset] [--max-jank 10 ...]`
 (exit 1 when over budget). Numbers from emulators are only good for trends; judge budgets on real devices.
+
+### Perfetto traces
+
+When a budget fails you want to know *why*. Tether records [Perfetto](https://perfetto.dev) (Apache-2.0) system
+traces with the `perfetto` binary that ships with Android 9+ (scheduling, CPU frequency, frames, binder, the
+app's atrace markers) and pulls the `.pftrace` to `tether/reports/` (or `TETHER_REPORTS_DIR`). Open it in
+[ui.perfetto.dev](https://ui.perfetto.dev) — it loads locally in the browser.
+
+```json
+{"action": "perf_trace_start", "package": "com.example.app", "keep": "on_fail"}
+{"action": "scroll_until_visible", "text": "Load more"}
+{"action": "perf_assert", "package": "com.example.app", "max_jank_percent": 10}
+```
+
+`keep: "on_fail"` keeps the trace only when the flow fails (evidence, not clutter); a trace still running at the
+end of a flow is always stopped. `perf_trace_stop` stops and pulls explicitly; `perf_startup` takes `"trace": true`.
+Also `POST /api/perf/trace/start|stop`, `GET /api/perf/trace/file`, MCP `perf_trace`, `pushlab_cli.py trace start|stop`.
+
+### Memory leaks (LeakCanary)
+
+If the app's debug build includes [LeakCanary](https://square.github.io/leakcanary) (Apache-2.0), Tether reads its
+heap-analysis results from logcat and turns them into assertions — nothing extra on the phone:
+
+```json
+{"action": "leak_mark"}
+{"action": "tap_element", "text": "Settings"}
+{"action": "key", "key": "back"}
+{"action": "assert_no_leaks", "wait_ms": 20000}
+```
+
+`assert_no_leaks` fails with the leaking classes (e.g. `com.example.LoginActivity`) and retained bytes;
+`include_library: true` also counts known library leaks, `require_analysis: true` fails when LeakCanary logged
+nothing. Also `GET /api/leaks`, MCP `leak_report`, `pushlab_cli.py leaks --max 0`.
 
 ## CI on an emulator
 
@@ -255,7 +319,8 @@ apps/pushlab/tether/
   server/scrcpy.py      HD mode: scrcpy video + control (+ clipboard)
   server/ai.py          optional AI steps (OpenAI-compatible endpoint)
   server/artemis.py     optional ARTEMIS engine for AI steps (HTTP client, stdlib)
-  server/perf.py        startup / memory / frames / CPU measurement and budgets (SoloPi-style)
+  server/perf.py        startup / memory / frames / CPU budgets, Perfetto traces, LeakCanary results
+  server/midscene.py    Midscene YAML import
   web/                  static UI (no build step)
   tests/                hermetic tests with a fake adb
   examples/             sample flows
@@ -272,4 +337,5 @@ python apps/pushlab/tether/tests/verify_mobile_mcp.py     # mobile-mcp tools, re
 python apps/pushlab/tether/tests/verify_ai.py             # AI steps against a fake OpenAI-compatible server (26)
 python apps/pushlab/tether/tests/verify_artemis.py        # ARTEMIS engine against a fake ARTEMIS daemon (18)
 python apps/pushlab/tether/tests/verify_perf.py           # startup / memory / jank / CPU parsers, flows, API, MCP (39)
+python apps/pushlab/tether/tests/verify_deep.py           # Perfetto, LeakCanary, multi-device runs, Midscene (124)
 ```

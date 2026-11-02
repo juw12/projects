@@ -1,6 +1,6 @@
 ---
 name: beacon-push
-description: Send and inspect push notifications with a self-hosted Beacon server - Web Push, Firebase (FCM), ntfy, Bark (iPhone), Gotify, Apprise (Slack, Telegram, email, ...) and in-app inbox - and check delivery status and stats. Use when asked to send a notification, test a push campaign, or debug why a push was not delivered.
+description: Send and inspect push notifications with a self-hosted Beacon server - Web Push, Firebase (FCM), ntfy, Bark (iPhone), Gotify, Apprise (Slack, Telegram, email, ...) and in-app inbox - with templates, categories and per-user preferences, multi-step escalation, and check delivery status and stats. Use when asked to send a notification, test a push campaign, or debug why a push was not delivered.
 ---
 
 # Beacon push
@@ -40,12 +40,29 @@ python scripts/pushlab_cli.py push --title "Order shipped" --body "Arrives Tuesd
   (`--fallback-unless shown|delivered` changes the condition). The check is per
   message, not per recipient.
 
+## Templates and preferences
+
+- Save a message once: `template save order_shipped --title "Order {{order.id}} shipped"
+  --body "Hi {{name}}" --category orders`, preview with `template render order_shipped
+  --var order.id=A17 --var name=Ana`, send with `push --template order_shipped --var ...`.
+  Missing variables are rejected with their names.
+- Give messages a `--category` (marketing, orders, security ...). Users can opt out per
+  category or keep it to some channels: `prefs --user u1 --category marketing --off`,
+  `prefs --user u1 --category marketing --channel inapp`, `prefs --user u1` to show them.
+  Register `security`-type categories as critical (`POST /v1/categories {"key", "critical": true}`)
+  so nobody can switch them off.
+- `suppressed` in a message counts recipients skipped by their preferences — check it
+  before assuming a delivery bug.
+- Multi-step escalation: a `fallback` may contain another `fallback` (up to 4 steps,
+  e.g. in-app → ntfy → Bark with urgency high); `GET /v1/messages/<id>/workflow` shows the chain.
+
 ## Diagnose
 
 - `beacon-messages --limit 20` shows recent messages with status and counts.
 - `beacon-stats --days 7` gives sent, delivered, failed, opened and clicked totals.
-- `delivered == 0` with `targeted == 0`: nobody matches the tags. Subscribe a
-  device first (see the push-qa-e2e skill) or drop `--tag`.
+- `delivered == 0` with `targeted == 0`: nobody matches the tags, or everybody
+  opted out (`suppressed > 0`). Subscribe a device first (see the push-qa-e2e skill),
+  drop `--tag`, or check `prefs --user <id>`.
 - `failed > 0` on webpush: the browser subscription expired or the VAPID keys
   changed; the subscriber resubscribes on its next visit.
 - Payload errors (400 "notification too large"): shorten title, body or data

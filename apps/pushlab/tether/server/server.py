@@ -33,8 +33,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from adb import Adb, AdbError, ScreenRecorder, find_element, find_notification, png_size  # noqa: E402
 from beacon_link import BeaconError, BeaconLink  # noqa: E402
-from flows import FlowError, report_to_json, run_flow, subscribe_device, validate_flow  # noqa: E402
+from flows import (FlowError, ready_serials, report_to_json, run_flow, run_flow_matrix,  # noqa: E402
+                   subscribe_device, validate_flow, yaml_to_flow)
 import maestro  # noqa: E402
+import midscene  # noqa: E402
 import perf  # noqa: E402
 import scrcpy  # noqa: E402
 import adb_setup  # noqa: E402
@@ -612,6 +614,72 @@ class Handler(BaseHTTPRequestHandler):
         perf.reset_frames(self.server.adb, serial, body["package"])
         self._json({"ok": True})
 
+    def api_trace_start(self, query):
+        """POST /api/perf/trace/start {serial, package?, max_seconds?} — Perfetto in the background."""
+        body = self._body_json()
+        serial = self._serial(query, body)
+        started = perf.trace_start(self.server.adb, serial, body.get("package") or None,
+                                   float(body.get("max_seconds", 30)))
+        self._json({"ok": True, "trace": started})
+
+    def api_trace_stop(self, query):
+        """POST /api/perf/trace/stop {serial} — stop, pull to reports/, return the file name."""
+        body = self._body_json()
+        serial = self._serial(query, body)
+        result = perf.trace_stop(self.server.adb, serial, keep=body.get("keep", True) is not False,
+                                 name=body.get("name"))
+        if result.get("path"):
+            result["file"] = Path(result["path"]).name
+        self._json({"ok": True, "trace": result})
+
+    def api_trace_file(self, query):
+        name = (query.get("name") or [""])[0]
+        if not name or Path(name).name != name or not name.endswith(".pftrace"):
+            raise ValueError("bad trace name")
+        target = perf.reports_dir() / name
+        if not target.is_file():
+            self._error(404, "trace not found")
+            return
+        self._send(200, target.read_bytes(), "application/octet-stream",
+                   {"Content-Disposition": f'attachment; filename="{name}"'})
+
+    def api_leaks(self, query):
+        """GET /api/leaks?serial=[&since=epoch] — LeakCanary results from logcat."""
+        serial = self._serial(query)
+        since = (query.get("since") or [""])[0] or None
+        self._json({"ok": True, "leaks": perf.leaks(self.server.adb, serial, since)})
+
+    def api_flow_run_all(self, query):
+        """POST /api/flow/run-all {flow | yaml, serials?} — same flow on many devices in parallel."""
+        body = self._body_json()
+        warnings: list[str] = []
+        flow = body.get("flow")
+        if flow is None and isinstance(body.get("yaml"), str):
+            flow, warnings, _ = yaml_to_flow(body["yaml"])
+        validate_flow(flow)
+        serials = body.get("serials") or ready_serials(self.server.adb)
+        if not isinstance(serials, list) or not all(isinstance(s, str) for s in serials):
+            raise ValueError("serials must be a list of device serials")
+        if not self.server.flow_lock.acquire(blocking=False):
+            self._error(409, "another flow is already running")
+            return
+        try:
+            matrix = run_flow_matrix(self.server.adb, serials, flow)
+        finally:
+            self.server.flow_lock.release()
+        for serial in serials:
+            self.server.hub.kick(serial)
+        matrix["reports"] = [report_to_json(r) for r in matrix["reports"]]
+        self._json({"ok": True, "matrix": matrix, "warnings": warnings})
+
+    def api_midscene_import(self, query):
+        text = self._body_json().get("yaml")
+        if not isinstance(text, str) or not text.strip():
+            raise ValueError("send the Midscene YAML as `yaml`")
+        flow, warnings = midscene.midscene_to_flow(text)
+        validate_flow(flow)
+        self._json({"ok": True, "flow": flow, "warnings": warnings, "format": "midscene"})
+
     def api_flow_run(self, query):
         body = self._body_json()
         serial = self._serial(query, body)
@@ -632,9 +700,9 @@ class Handler(BaseHTTPRequestHandler):
         text = body.get("yaml")
         if not isinstance(text, str) or not text.strip():
             raise ValueError("send the Maestro YAML as `yaml`")
-        flow, warnings = maestro.maestro_to_flow(text)
+        flow, warnings, kind = yaml_to_flow(text)  # Midscene scripts are recognised too
         validate_flow(flow)
-        self._json({"ok": True, "flow": flow, "warnings": warnings})
+        self._json({"ok": True, "flow": flow, "warnings": warnings, "format": kind})
 
     def api_maestro_export(self, query):
         flow = self._body_json().get("flow")
@@ -734,6 +802,12 @@ ROUTES = {
     ("POST", "/api/perf/reset"): Handler.api_perf_reset,
     ("POST", "/api/flow/run"): Handler.api_flow_run,
     ("POST", "/api/flow/maestro/import"): Handler.api_maestro_import,
+    ("POST", "/api/flow/midscene/import"): Handler.api_midscene_import,
+    ("POST", "/api/flow/run-all"): Handler.api_flow_run_all,
+    ("POST", "/api/perf/trace/start"): Handler.api_trace_start,
+    ("POST", "/api/perf/trace/stop"): Handler.api_trace_stop,
+    ("GET", "/api/perf/trace/file"): Handler.api_trace_file,
+    ("GET", "/api/leaks"): Handler.api_leaks,
     ("GET", "/api/hd/status"): Handler.api_hd_status,
     ("POST", "/api/setup/scrcpy"): Handler.api_hd_setup,
     ("POST", "/api/hd/start"): Handler.api_hd_start,
