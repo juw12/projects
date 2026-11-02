@@ -728,9 +728,9 @@
     },
     {
       "id": "me-rd-toolkit",
-      "name": "ME R&D Toolkit",
+      "name": "Datum Bench",
       "category": "Engineering",
-      "desc": "Mechanical R&D workspace — NPI flow, review checklists, issue log, 11 engineering calculators and an optional LAN file vault; offline PWA",
+      "desc": "Datum Bench — the free mechanical-R&D workbench: NPI flow, review checklists, issue log, 11 engineering calculators and an optional LAN file vault; flagship Datum CAD (PRD + photos &rarr; validated STEP); offline PWA",
       "description": "Offline-first workspace for hardware/mechanical R&amp;D: NPI task flow, OK/NG/NA review checklists, issue log and one-page project report, 11 calculators (Cpk, x&#772; &minus; 3&sigma;, torque window, stack-up, snap-fit, thermal pad, IEC openings, &Delta;E) and an optional stdlib-only file vault server. Ships with generic demo data; real content loads from a private data pack.",
       "summary": "Offline workspace for mechanical R&amp;D &mdash; NPI task flow, review checklists, issue log and 11 engineering calculators.",
       "tags": [
@@ -769,6 +769,10 @@
         {
           "label": "Vertex",
           "path": "me-rd-toolkit/vertex/index.html"
+        },
+        {
+          "label": "Datum CAD",
+          "path": "me-rd-toolkit/photo2cad/gallery.html"
         }
       ],
       "subapps": ["vertex", "photo2cad"],

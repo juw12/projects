@@ -1,4 +1,8 @@
-# ME R&D Toolkit
+# Datum Bench
+
+**Datum Bench** is the free workbench for mechanical and hardware engineers — the companion to
+**[Datum CAD](photo2cad/)** (PRD + photos → a validated STEP solid). Formerly the *ME R&D Toolkit*.
+Part of **Datum**.
 
 Offline-first workspace for mechanical R&D: NPI task flow, review checklists, issue log,
 project report, engineering calculators and an optional LAN file vault. It runs from a

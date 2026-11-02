@@ -1,0 +1,126 @@
+{
+  "updated": "2026-11-02",
+  "note": "Illustrative sample parts — real generated parts appear here once their step / stl / render files are added.",
+  "parts": [
+    {
+      "name": "Aluminium control box",
+      "category": "Enclosure",
+      "shape": "box",
+      "units": "mm",
+      "prd": "Aluminium control box, 120 × 80 × 40 mm, 2 mm wall, four M3 corner bosses, one 30 mm front cut-out, 3 mm external fillets.",
+      "faces": [
+        { "key": "front", "label": "Front" },
+        { "key": "back", "label": "Back" },
+        { "key": "left", "label": "Left" },
+        { "key": "right", "label": "Right" },
+        { "key": "top", "label": "Top" },
+        { "key": "bottom", "label": "Bottom" }
+      ],
+      "render": null,
+      "step": null,
+      "stl": null,
+      "created": "2026-11-02",
+      "sample": true
+    },
+    {
+      "name": "Steel L-bracket with gusset",
+      "category": "Bracket",
+      "shape": "bracket",
+      "units": "mm",
+      "prd": "Steel L-bracket with gusset, 60 × 60 × 40 mm, 5 mm thick, four Ø4.5 mm mounting holes, triangular gusset.",
+      "faces": [
+        { "key": "front", "label": "Front" },
+        { "key": "back", "label": "Back" },
+        { "key": "left", "label": "Left" },
+        { "key": "right", "label": "Right" },
+        { "key": "top", "label": "Top" },
+        { "key": "bottom", "label": "Bottom" }
+      ],
+      "render": null,
+      "step": null,
+      "stl": null,
+      "created": "2026-11-02",
+      "sample": true
+    },
+    {
+      "name": "Snap-fit enclosure lid",
+      "category": "Enclosure",
+      "shape": "lid",
+      "units": "mm",
+      "prd": "Snap-fit enclosure lid, 90 × 60 × 8 mm, two cantilever snap arms, 1.5 mm live hinge, 2 mm rim.",
+      "faces": [
+        { "key": "front", "label": "Front" },
+        { "key": "back", "label": "Back" },
+        { "key": "left", "label": "Left" },
+        { "key": "right", "label": "Right" },
+        { "key": "top", "label": "Top" },
+        { "key": "bottom", "label": "Bottom" }
+      ],
+      "render": null,
+      "step": null,
+      "stl": null,
+      "created": "2026-11-02",
+      "sample": true
+    },
+    {
+      "name": "Spur gear blank",
+      "category": "Transmission",
+      "shape": "gear",
+      "units": "mm",
+      "prd": "Spur gear blank, Ø50 mm, module 2, 20 teeth, 10 mm bore, 15 mm face width.",
+      "faces": [
+        { "key": "front", "label": "Front" },
+        { "key": "back", "label": "Back" },
+        { "key": "left", "label": "Left" },
+        { "key": "right", "label": "Right" },
+        { "key": "top", "label": "Top" },
+        { "key": "bottom", "label": "Bottom" }
+      ],
+      "render": null,
+      "step": null,
+      "stl": null,
+      "created": "2026-11-02",
+      "sample": true
+    },
+    {
+      "name": "Aluminium heat-sink block",
+      "category": "Thermal",
+      "shape": "heatsink",
+      "units": "mm",
+      "prd": "Aluminium heat-sink block, 50 × 50 × 20 mm, eight 2 mm fins, four M3 mount bosses.",
+      "faces": [
+        { "key": "front", "label": "Front" },
+        { "key": "back", "label": "Back" },
+        { "key": "left", "label": "Left" },
+        { "key": "right", "label": "Right" },
+        { "key": "top", "label": "Top" },
+        { "key": "bottom", "label": "Bottom" }
+      ],
+      "render": null,
+      "step": null,
+      "stl": null,
+      "created": "2026-11-02",
+      "sample": true
+    },
+    {
+      "name": "Round flange",
+      "category": "Fastening",
+      "shape": "flange",
+      "units": "mm",
+      "prd": "Round flange, Ø80 mm, 6 mm thick, bore Ø10 mm, six Ø6 mm holes on a Ø60 mm bolt circle.",
+      "faces": [
+        { "key": "front", "label": "Front" },
+        { "key": "back", "label": "Back" },
+        { "key": "left", "label": "Left" },
+        { "key": "right", "label": "Right" },
+        { "key": "top", "label": "Top" },
+        { "key": "bottom", "label": "Bottom" }
+      ],
+      "render": null,
+      "step": null,
+      "stl": null,
+      "created": "2026-11-02",
+      "sample": true
+    }
+  ]
+}
