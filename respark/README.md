@@ -192,6 +192,17 @@ Each is a small addition. Add when needed.
 
 **Tests:** `RESPARK_SECRET=test python tests/verify_bridge.py` (80 checks), alongside `tests/verify.py` (43 checks).
 
+### Go online (Render, about $7.25/month)
+
+1. Merge the pull request into `main`.
+2. Open https://render.com/deploy?repo=https://github.com/juw12/projects and sign in with GitHub.
+3. Fill in the form: `RESPARK_OPERATOR_EMAILS` = your login e-mail (only this address can create an account), `RESPARK_SMTP_USER` / `RESPARK_SMTP_PASS` / `RESPARK_SMTP_FROM` = your Gmail + 16-letter App Password. Leave the rest empty.
+4. Click **Apply**. Render builds the Docker image from `respark/` (Singapore region, 1 GB disk at `/app/data`).
+5. Open `https://<your-app>.onrender.com/bridge`, sign up with the operator e-mail, done. Public signup stays off; client logins are created by you.
+
+Config lives in the repo-root `render.yaml`. Fly.io alternative: `respark/fly.toml` (about $2.35/month, needs the `flyctl` CLI).
+Smoke test of the production setup (no Docker needed): run the server with `RESPARK_DB_PATH`, `RESPARK_ALLOW_SIGNUP=0` and `RESPARK_OPERATOR_EMAILS` set, then check that only the operator can sign up.
+
 ### Supplier quotes + safer outreach (added)
 
 - **Supplier quote comparison** on every customer/general inquiry in `/bridge`: paste a quote (EN / 中文 / Bahasa) or attach xlsx / csv / pdf / eml / txt. Titian reads price breaks, MOQ, tooling, lead time, Incoterm and currency, then ranks suppliers by landed cost per piece at the target volume and at extra scenario volumes.

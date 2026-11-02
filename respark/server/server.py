@@ -50,14 +50,17 @@ import inbox  # outreach reply & bounce detection over IMAP (server/inbox.py)
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 WEB_DIR = os.path.join(ROOT, "web")
 LOG_DIR = os.path.join(ROOT, "logs")
-DB_PATH = os.path.join(ROOT, "data.db")
+# On a host with a persistent disk, point this at the disk (Dockerfile: /app/data/data.db).
+DB_PATH = os.environ.get("RESPARK_DB_PATH") or os.path.join(ROOT, "data.db")
 LOG_FILE = os.path.join(LOG_DIR, "outbox.log")
 APP_LOG = os.path.join(LOG_DIR, "app.log")
 
 os.makedirs(LOG_DIR, exist_ok=True)
 
 SECRET = os.environ.get("RESPARK_SECRET") or ("dev-only-" + secrets.token_hex(16))
-BASE_URL = os.environ.get("RESPARK_BASE_URL", "http://localhost:8000")
+# Render sets RENDER_EXTERNAL_URL automatically, so links work without extra setup there.
+BASE_URL = (os.environ.get("RESPARK_BASE_URL") or os.environ.get("RENDER_EXTERNAL_URL")
+            or "http://localhost:8000").rstrip("/")
 SMTP_HOST = os.environ.get("RESPARK_SMTP_HOST", "")
 SMTP_PORT = int(os.environ.get("RESPARK_SMTP_PORT", "587"))
 SMTP_USER = os.environ.get("RESPARK_SMTP_USER", "")
@@ -1081,10 +1084,12 @@ class Handler(BaseHTTPRequestHandler):
         self.send_error(404)
 
     def _api_signup(self):
-        if not ALLOW_SIGNUP:
-            return json_response(self, 403, {"error": "signup disabled"})
         data = read_json(self) or {}
         email = (data.get("email") or "").strip().lower()
+        # With public signup off, only the operator e-mails (RESPARK_OPERATOR_EMAILS) may register.
+        # Client company logins are created by the operator when a lead is closed.
+        if not ALLOW_SIGNUP and email not in bridge.operator_emails():
+            return json_response(self, 403, {"error": "signup disabled"})
         password = data.get("password") or ""
         business = (data.get("business_name") or "").strip()
         industry = (data.get("industry") or "").strip()
@@ -1722,6 +1727,8 @@ def main():
     print(f"SMTP configured: {bool(SMTP_HOST)}")
     print(f"OpenAI configured: {bool(OPENAI_KEY)}")
     print(f"Public signup: {ALLOW_SIGNUP}")
+    if not bridge.operator_emails():
+        print("WARNING: RESPARK_OPERATOR_EMAILS is not set - the first account to register becomes the operator.")
     print(f"Bridge hub: http://{args.host}:{args.port}/hub  |  dashboard: /bridge")
     try:
         server.serve_forever()

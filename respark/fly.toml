@@ -1,12 +1,15 @@
-app = "respark-reactivation"
-primary_region = "iad"
+app = "titian-juw12"
+primary_region = "sin"
 
 [build]
 
 [env]
   PORT = "8000"
-  RESPARK_BASE_URL = "https://respark-reactivation.fly.dev"
-  RESPARK_ALLOW_SIGNUP = "1"
+  RESPARK_BASE_URL = "https://titian-juw12.fly.dev"
+  RESPARK_ALLOW_SIGNUP = "0"
+  RESPARK_HUB_NAME = "Titian"
+  RESPARK_DB_PATH = "/app/data/data.db"
+  # Set secrets with: fly secrets set RESPARK_OPERATOR_EMAILS=you@example.com RESPARK_SECRET=... RESPARK_SMTP_PASS=...
 
 [http_service]
   internal_port = 8000
@@ -18,7 +21,7 @@ primary_region = "iad"
 
 [[vm]]
   size = "shared-cpu-1x"
-  memory = "512mb"
+  memory = "256mb"
 
 [mounts]
   source = "respark_data"
