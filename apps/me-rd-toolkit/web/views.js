@@ -744,32 +744,77 @@
     else { renderOt(); }
   }
 
-  function mountPhoto2cad(container) {
-    const port = (window.MERD_SUBAPPS && window.MERD_SUBAPPS.photo2cad) || 8000;
-    const url = "http://127.0.0.1:" + port + "/";
-    container.innerHTML =
-      '<div class="subapp-note muted">PRD + six reference photos &rarr; a validated STEP (.stp) CAD model, written by the MAAS LLM. Photos are reference only; the PRD drives the geometry.</div>' +
-      '<div class="subapp-host"><iframe title="Photo2CAD" src="' + url + '" loading="lazy" style="width:100%;height:100%;border:0"></iframe></div>' +
-      '<div class="subapp-note muted">Runs on <code>' + esc(url) + '</code>. If it does not load, open it from the toolkit desktop app, or run <code>apps\\me-rd-toolkit\\photo2cad\\start.ps1</code>.</div>';
+  let photo2cadCleanup = null;
+
+  async function mountPhoto2cad(container) {
+    const base = "photo2cad/";
+    const shadow = container.attachShadow ? container.attachShadow({ mode: "open" }) : null;
+    if (!shadow) {
+      container.innerHTML = subAppCard("<b>This browser cannot embed Datum CAD.</b> Open the desktop app instead.");
+      return;
+    }
+    container.style.minHeight = "70vh";
+    shadow.innerHTML = '<link rel="stylesheet" href="' + base + 'styles.css"><div id="dc-root"></div>';
+    const mount = shadow.querySelector("#dc-root");
+
+    let html = "";
+    try {
+      html = await (await fetch(base + "index.html", { cache: "no-store" })).text();
+    } catch (e) {
+      mount.innerHTML = '<div class="hint">Could not load Datum CAD. It must be served at <code>' + esc(base) +
+        '</code> on this origin (the desktop app does this).</div>';
+      return;
+    }
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    ["header.masthead", "section.hero", "footer.foot"].forEach(function (sel) {
+      const n = doc.querySelector(sel);
+      if (n) n.remove();
+    });
+    Array.from(doc.body.children).forEach(function (n) {
+      if (n.tagName === "SCRIPT") return;
+      mount.appendChild(document.importNode(n, true));
+    });
+
+    window.__DATUM_CAD_ROOT__ = shadow;
+    window.__DATUM_CAD_EMBED__ = true;
+    if (!window.__datumCadInit) {
+      try { await import("./" + base + "js/app.js"); } catch (e) { console.warn("Datum CAD module failed to load:", e); }
+    }
+    if (window.__datumCadInit) window.__datumCadInit();
+
+    const syncTheme = function () {
+      container.setAttribute("data-theme", document.documentElement.dataset.theme === "dark" ? "dark" : "light");
+    };
+    syncTheme();
+    const themeObserver = new MutationObserver(syncTheme);
+    themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+
+    photo2cadCleanup = function () {
+      themeObserver.disconnect();
+      if (window.__datumCadTeardown) { try { window.__datumCadTeardown(); } catch (e) {} }
+      window.__DATUM_CAD_ROOT__ = null;
+      window.__DATUM_CAD_EMBED__ = false;
+    };
   }
 
   V.apps = async function (r) {
     const app = r.params.a === "ptb" ? "ptb" : (r.params.a === "photo2cad" ? "photo2cad" : "vertex");
     const tab = r.params.t === "drafts" ? "drafts" : (r.params.t === "team" ? "team" : "ot");
     if (app !== "vertex" && vertexCleanup) { try { vertexCleanup(); } catch (e) {} vertexCleanup = null; }
+    if (app !== "photo2cad" && photo2cadCleanup) { try { photo2cadCleanup(); } catch (e) {} photo2cadCleanup = null; }
     $("#view").innerHTML =
       "<h1>" + APP.icon("apps") + " R&amp;D Apps</h1>" +
-      '<div class="muted">Vertex CAD copilot, Photo2CAD (PRD + photos &rarr; STEP) and the PTB RD ME overtime widget, in one place.</div>' +
+      '<div class="muted">Vertex CAD copilot, Datum CAD (PRD + photos &rarr; a validated STEP) and the PTB RD ME overtime widget, in one place.</div>' +
       '<div class="chips" style="margin:12px 0">' +
       '<a class="chip' + (app === "vertex" ? " active" : "") + '" href="#apps?a=vertex">Vertex</a>' +
-      '<a class="chip' + (app === "photo2cad" ? " active" : "") + '" href="#apps?a=photo2cad">Photo2CAD</a>' +
+      '<a class="chip' + (app === "photo2cad" ? " active" : "") + '" href="#apps?a=photo2cad">Datum CAD</a>' +
       '<a class="chip' + (app === "ptb" ? " active" : "") + '" href="#apps?a=ptb">PTB RDME</a>' +
       "</div>" +
       '<div id="apps-body"></div>';
     const body = $("#apps-body");
     if (!body) return;
     if (app === "vertex") { await mountVertex(body); }
-    else if (app === "photo2cad") { mountPhoto2cad(body); }
+    else if (app === "photo2cad") { await mountPhoto2cad(body); }
     else { await renderPtb(body, tab, "#apps?a=ptb&t="); }
   };
 })();

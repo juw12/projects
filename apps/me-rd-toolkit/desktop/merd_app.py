@@ -847,15 +847,23 @@ class DesktopHandler(BaseHTTPRequestHandler):
             if not app.vault.enabled:
                 return self.send_json(404, {"error": "no vault configured"})
             return app.vault.answer(self, route, query)
+        if app.photo2cad.started and self.is_photo2cad_api(route):
+            return self.proxy_photo2cad(route, url.query, b"", "GET")
         return self.serve_web(url.path)
 
     do_HEAD = do_GET
 
     def do_POST(self):  # noqa: N802
-        if not self.host_ok() or not self.token_ok():
-            return self.send_json(403, {"error": "forbidden"})
         app = self.server.app
         route = urllib.parse.urlparse(self.path).path
+        if app.photo2cad.started and route == "/api/generate":
+            if not self.host_ok():
+                return self.send_json(403, {"error": "forbidden"})
+            length = int(self.headers.get("Content-Length") or 0)
+            payload = self.rfile.read(length) if length else b""
+            return self.proxy_photo2cad(route, "", payload, "POST")
+        if not self.host_ok() or not self.token_ok():
+            return self.send_json(403, {"error": "forbidden"})
         try:
             body = self.read_body()
         except ValueError as error:
@@ -870,6 +878,24 @@ class DesktopHandler(BaseHTTPRequestHandler):
             ok, reason = app.open_item(body)
             return self.send_json(200, {"ok": ok, "reason": reason})
         return self.send_json(404, {"error": "not found"})
+
+    def is_photo2cad_api(self, route):
+        return route in ("/api/health", "/api/generate", "/api/stats") or route.startswith("/api/artifacts/")
+
+    def proxy_photo2cad(self, route, query, body, method):
+        port = self.server.app.photo2cad.port
+        target = "http://127.0.0.1:%d%s" % (port, route) + (("?" + query) if query else "")
+        headers = {"Content-Type": self.headers.get("Content-Type") or "application/json"}
+        request = urllib.request.Request(target, data=(body or None), headers=headers, method=method)
+        try:
+            with urllib.request.urlopen(request, timeout=600) as resp:
+                return self.send_bytes(int(resp.status), resp.read(),
+                                       resp.headers.get("Content-Type") or "application/octet-stream")
+        except urllib.error.HTTPError as error:
+            ctype = (error.headers.get("Content-Type") if error.headers else None) or "application/json"
+            return self.send_bytes(error.code, error.read(), ctype)
+        except Exception as error:
+            return self.send_json(502, {"error": "Datum CAD backend unreachable: %s" % error})
 
     def serve_private(self, name):
         """private/pack.js, calcs.js and aliases.js from the data folder (index.html loads them if present)."""

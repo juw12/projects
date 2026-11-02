@@ -157,16 +157,6 @@
 
   <script type="module" src="js/app.js"></script>
   <script>
-    document.querySelectorAll(".example-chip").forEach(function (chip) {
-      chip.addEventListener("click", function () {
-        var prd = document.getElementById("prd");
-        if (!prd) return;
-        prd.value = chip.getAttribute("data-prd") || "";
-        prd.dispatchEvent(new Event("input", { bubbles: true }));
-        prd.focus();
-        prd.scrollIntoView({ block: "center", behavior: "smooth" });
-      });
-    });
     fetch("api/health", { cache: "no-store" }).then(function (r) { return r.json(); }).then(function (d) {
       if (d && d.demo) {
         var note = document.getElementById("demo-note");
