@@ -47,17 +47,30 @@ Performance (SoloPi-style, see perf.py — stock adb, nothing installed on the p
   perf_assert        {"package", "max_pss_mb"?, "max_jank_percent"?, "max_p90_ms"?,
                      "max_p99_ms"?, "max_cpu_percent"?, "cpu_window_s"?}
                      measure memory / frames since perf_reset / CPU and fail over budget
+  perf_trace_start   {"package"?, "max_seconds"?: 30, "keep"?: "always"|"on_fail"}
+                     Perfetto system trace in the background (Android 9+); a trace still running
+                     when the flow ends is stopped — pulled if keep=always or the flow failed
+  perf_trace_stop    {}                       stop the trace and pull the .pftrace to reports/
+                     (open it in https://ui.perfetto.dev). perf_startup also takes "trace": true
+  leak_mark          {}                       only LeakCanary results logged after this count
+  assert_no_leaks    {"max_leaks"?: 0, "include_library"?: false, "wait_ms"?: 0,
+                     "require_analysis"?: false}  fail if LeakCanary (in the app's debug build)
+                     reported retained objects — wait_ms gives its heap analysis time to finish
 
 Any step may set "optional": true — a failure is reported but does not fail the flow.
 
 Maestro: `python flows.py run login.yaml` runs a Maestro flow directly; see maestro.py
 for the supported commands, and `python flows.py convert a.yaml b.json` (either way).
+Midscene: YAML scripts with `tasks:` (aiAct, aiTap, aiInput, aiAssert, aiWaitFor …) are
+detected and converted the same way; see midscene.py.
+
+Device farm: `--all` runs the flow on every connected device in parallel (one report each).
 
 Any string may contain {run}: it is replaced by a fresh id per run, so a
 wait_notification never matches a notification left over from an earlier run.
 
 CLI
-  python flows.py run my_flow.json|my_flow.yaml [--serial SERIAL] [--out reports/]
+  python flows.py run my_flow.json|my_flow.yaml [--serial SERIAL | --all] [--out reports/]
   python flows.py convert in.yaml out.json   (or in.json out.yaml)
 Exit code 0 when every step passes, 1 otherwise — usable in CI.
 """
@@ -67,10 +80,12 @@ from __future__ import annotations
 import argparse
 import base64
 import json
+import os
 import re
 import secrets
 import sys
 import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from urllib.parse import urlencode, urlparse
 
@@ -82,6 +97,7 @@ from beacon_link import BeaconError, BeaconLink  # noqa: E402
 import ai  # noqa: E402
 import artemis  # noqa: E402
 import maestro  # noqa: E402
+import midscene  # noqa: E402
 import perf  # noqa: E402
 
 ELEMENT_KEYS = ("text", "resource_id", "desc")
@@ -167,6 +183,18 @@ def validate_flow(flow: dict) -> list[dict]:
                 raise FlowError(f"step {index + 1}: budgets must be non-negative numbers")
             if not 0.2 <= float(step.get("cpu_window_s", 1)) <= 10:
                 raise FlowError(f"step {index + 1}: `cpu_window_s` must be 0.2-10")
+        if action == "perf_trace_start":
+            if not 1 <= float(step.get("max_seconds", 30)) <= 600:
+                raise FlowError(f"step {index + 1}: `max_seconds` must be 1-600")
+            if step.get("keep", "always") not in ("always", "on_fail"):
+                raise FlowError(f"step {index + 1}: `keep` must be always or on_fail")
+        if action == "assert_no_leaks":
+            if not (isinstance(step.get("max_leaks", 0), int) and step.get("max_leaks", 0) >= 0):
+                raise FlowError(f"step {index + 1}: `max_leaks` must be a whole number >= 0")
+            if not 0 <= int(step.get("wait_ms", 0)) <= 600000:
+                raise FlowError(f"step {index + 1}: `wait_ms` must be 0-600000")
+        if action == "ai_assert" and not 0 <= int(step.get("timeout_ms", 0)) <= 600000:
+            raise FlowError(f"step {index + 1}: `timeout_ms` must be 0-600000")
     return steps
 
 
@@ -427,18 +455,39 @@ def _ai(adb, serial, step):
 
 
 def _ai_assert(adb, serial, step):
-    if _engine(step) == "artemis":
-        return {"ai": artemis.check(serial, step["condition"], step.get("profile", "flash"),
-                                    float(step.get("timeout_s", 300)))}
-    return {"ai": ai.ai_assert(adb, serial, step["condition"])}
+    """Judge the screen once — or, with timeout_ms, keep asking until it holds (aiWaitFor)."""
+    deadline = time.monotonic() + int(step.get("timeout_ms", 0)) / 1000
+    while True:
+        try:
+            if _engine(step) == "artemis":
+                return {"ai": artemis.check(serial, step["condition"], step.get("profile", "flash"),
+                                            float(step.get("timeout_s", 300)))}
+            return {"ai": ai.ai_assert(adb, serial, step["condition"])}
+        except AdbError as exc:
+            if time.monotonic() >= deadline:
+                if step.get("message"):
+                    raise AdbError(f"{step['message']} ({exc})") from exc
+                raise
+        time.sleep(2)
 
 
 def _perf_startup(adb, serial, step):
-    result = perf.startup(adb, serial, step["package"], cold=step.get("cold", True) is not False,
-                          runs=int(step.get("runs", 1)), activity=step.get("activity"))
+    traced = bool(step.get("trace"))
+    if traced:
+        perf.trace_start(adb, serial, step["package"], max_seconds=60)
+    try:
+        result = perf.startup(adb, serial, step["package"], cold=step.get("cold", True) is not False,
+                              runs=int(step.get("runs", 1)), activity=step.get("activity"))
+    finally:
+        trace = perf.trace_stop(adb, serial, keep=True, name=f"startup-{step['package']}") if traced else None
+    if trace:
+        result["trace"] = trace
     if "max_ms" in step and result["total_ms"] > float(step["max_ms"]):
-        raise perf.PerfBudgetError(f"startup {result['total_ms']} ms > budget {step['max_ms']} ms "
-                                   f"({result['mode']}, samples {result['samples']})")
+        message = (f"startup {result['total_ms']} ms > budget {step['max_ms']} ms "
+                   f"({result['mode']}, samples {result['samples']})")
+        if trace:
+            message += f"; trace {trace['path']}"
+        raise perf.PerfBudgetError(message)
     return {"perf": result}
 
 
@@ -455,6 +504,27 @@ def _perf_assert(adb, serial, step):
     if problems:
         raise perf.PerfBudgetError("over budget: " + "; ".join(problems))
     return {"perf": measured}
+
+
+def _perf_trace_start(adb, serial, step):
+    started = perf.trace_start(adb, serial, step.get("package"), float(step.get("max_seconds", 30)),
+                               keep=step.get("keep", "always"))
+    return {"trace": started}
+
+
+def _perf_trace_stop(adb, serial, step):
+    return {"trace": perf.trace_stop(adb, serial, keep=True, name=step.get("name"))}
+
+
+def _leak_mark(adb, serial, step):
+    return {"leaks": {"since": perf.leak_mark(adb, serial)}}
+
+
+def _assert_no_leaks(adb, serial, step):
+    return {"leaks": perf.assert_no_leaks(
+        adb, serial, max_leaks=int(step.get("max_leaks", 0)), include_library=bool(step.get("include_library")),
+        wait_ms=int(step.get("wait_ms", 0)), require_analysis=bool(step.get("require_analysis")),
+        since=step.get("since"))}
 
 
 STEP_HANDLERS = {
@@ -484,6 +554,10 @@ STEP_HANDLERS = {
     "perf_startup": _perf_startup,
     "perf_reset": _perf_reset,
     "perf_assert": _perf_assert,
+    "perf_trace_start": _perf_trace_start,
+    "perf_trace_stop": _perf_trace_stop,
+    "leak_mark": _leak_mark,
+    "assert_no_leaks": _assert_no_leaks,
 }
 
 
@@ -502,6 +576,7 @@ def run_flow(adb: Adb, serial: str, flow: dict, settle_ms: int = 250,
     """Run a flow and return a report. Never raises for step failures."""
     run_id = secrets.token_hex(3)
     steps = _fill_run_id(validate_flow(flow), run_id)
+    trace_before = (perf.active_trace(serial) or {}).get("pid")
     started = time.monotonic()
     results = []
     screenshots = []
@@ -513,7 +588,7 @@ def run_flow(adb: Adb, serial: str, flow: dict, settle_ms: int = 250,
             extra = STEP_HANDLERS[step["action"]](adb, serial, step) or {}
             if "png" in extra:
                 screenshots.append({"step": index, "name": extra["name"], "png": extra["png"]})
-            for key in ("beacon", "notification", "ai", "perf"):
+            for key in ("beacon", "notification", "ai", "perf", "trace", "leaks"):
                 if key in extra:
                     result[key] = extra[key]
             if "element" in extra:
@@ -546,7 +621,7 @@ def run_flow(adb: Adb, serial: str, flow: dict, settle_ms: int = 250,
                     "skipped": True,
                 })
             break
-    return {
+    report = {
         "name": flow.get("name") or "flow",
         "serial": serial,
         "run_id": run_id,
@@ -555,6 +630,50 @@ def run_flow(adb: Adb, serial: str, flow: dict, settle_ms: int = 250,
         "steps": results,
         "screenshots": screenshots,
     }
+    running = perf.active_trace(serial)
+    if running and running.get("pid") and running.get("pid") != trace_before:
+        trace = perf.finish_flow_trace(adb, serial, failed=not passed, name=report["name"])
+        if trace:
+            report["trace"] = trace  # kept as evidence when the flow failed
+    return report
+
+
+def run_flow_matrix(adb: Adb, serials: list[str], flow: dict, on_step=None, **options) -> dict:
+    """Run one flow on several devices at once (device-farm style); one report per device."""
+    validate_flow(flow)
+    serials = list(dict.fromkeys(serials))
+    if not serials:
+        raise AdbError("no devices to run on")
+    started = time.monotonic()
+
+    def run_one(serial: str) -> dict:
+        def tagged(result: dict) -> None:
+            if on_step:
+                on_step(serial, result)
+
+        try:
+            return run_flow(adb, serial, flow, on_step=tagged, **options)
+        except Exception as exc:  # one broken device must not hide the others' results
+            return {"name": flow.get("name") or "flow", "serial": serial, "passed": False, "ms": 0,
+                    "steps": [], "screenshots": [], "error": str(exc)}
+
+    workers = max(1, min(len(serials), int(os.environ.get("TETHER_MATRIX_WORKERS", "8"))))
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        reports = list(pool.map(run_one, serials))
+    passed_count = sum(1 for r in reports if r["passed"])
+    return {
+        "name": flow.get("name") or "flow",
+        "passed": passed_count == len(reports),
+        "devices": len(reports),
+        "passed_devices": passed_count,
+        "failed_devices": [r["serial"] for r in reports if not r["passed"]],
+        "ms": round((time.monotonic() - started) * 1000),
+        "reports": reports,
+    }
+
+
+def ready_serials(adb: Adb) -> list[str]:
+    return [d["serial"] for d in adb.devices() if d["state"] == "device"]
 
 
 def report_to_json(report: dict) -> dict:
@@ -575,18 +694,29 @@ def load_flow_file(path: Path) -> dict:
     """Tether JSON, or a Maestro YAML flow (converted on the fly; warnings to stderr)."""
     text = path.read_text(encoding="utf-8")
     if path.suffix.lower() in (".yaml", ".yml"):
-        flow, warnings = maestro.maestro_to_flow(text)
+        flow, warnings, kind = yaml_to_flow(text)
         for warning in warnings:
-            print(f"maestro: {warning}", file=sys.stderr)
+            print(f"{kind}: {warning}", file=sys.stderr)
+        if kind == "midscene" and flow.get("name") == "midscene":
+            flow["name"] = path.stem
         flow.setdefault("name", path.stem)
         return flow
     return json.loads(text)
 
 
+def yaml_to_flow(text: str) -> tuple[dict, list[str], str]:
+    """Maestro or Midscene YAML → (flow, warnings, 'maestro'|'midscene')."""
+    if midscene.looks_like_midscene(text):
+        flow, warnings = midscene.midscene_to_flow(text)
+        return flow, warnings, "midscene"
+    flow, warnings = maestro.maestro_to_flow(text)
+    return flow, warnings, "maestro"
+
+
 def convert_file(source: Path, target: Path) -> int:
     try:
         if source.suffix.lower() in (".yaml", ".yml"):
-            flow, warnings = maestro.maestro_to_flow(source.read_text(encoding="utf-8"))
+            flow, warnings, _ = yaml_to_flow(source.read_text(encoding="utf-8"))
             validate_flow(flow)
             target.write_text(json.dumps(flow, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
         else:
@@ -594,7 +724,7 @@ def convert_file(source: Path, target: Path) -> int:
             validate_flow(flow)
             text, warnings = maestro.flow_to_maestro(flow)
             target.write_text(text, encoding="utf-8")
-    except (OSError, json.JSONDecodeError, FlowError, maestro.MaestroError) as exc:
+    except (OSError, json.JSONDecodeError, FlowError, maestro.MaestroError, midscene.MidsceneError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
     for warning in warnings:
@@ -622,6 +752,7 @@ def main(argv: list[str] | None = None) -> int:
     run = sub.add_parser("run", help="run a flow JSON file")
     run.add_argument("flow", type=Path)
     run.add_argument("--serial")
+    run.add_argument("--all", action="store_true", help="run on every connected device in parallel")
     run.add_argument("--out", type=Path, help="folder for report.json and screenshots")
     run.add_argument("--keep-going", action="store_true", help="continue after a failed step")
     convert = sub.add_parser("convert", help="convert between Maestro YAML and Tether JSON")
@@ -635,9 +766,15 @@ def main(argv: list[str] | None = None) -> int:
     adb = Adb()
     try:
         flow = load_flow_file(args.flow)
-        serial = _pick_serial(adb, args.serial)
         validate_flow(flow)
-    except (AdbError, FlowError, OSError, json.JSONDecodeError, maestro.MaestroError) as exc:
+        if args.all:
+            serials = ready_serials(adb)
+            if not serials:
+                raise AdbError("no authorised Android device connected (check `adb devices`)")
+            return _main_all(adb, flow, serials, args)
+        serial = _pick_serial(adb, args.serial)
+    except (AdbError, FlowError, OSError, json.JSONDecodeError, maestro.MaestroError,
+            midscene.MidsceneError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
 
@@ -655,18 +792,50 @@ def main(argv: list[str] | None = None) -> int:
         print(f"  ({skipped} step(s) skipped after failure)")
     print(f"{'PASSED' if report['passed'] else 'FAILED'} in {report['ms']} ms")
 
+    if report.get("trace", {}).get("path"):
+        print(f"Perfetto trace: {report['trace']['path']} (open in {perf.PERFETTO_UI})")
     if args.out:
-        args.out.mkdir(parents=True, exist_ok=True)
-        for shot in report["screenshots"]:
-            safe = "".join(c if c.isalnum() or c in "-_" else "_" for c in shot["name"])
-            (args.out / f"{shot['step'] + 1:03d}_{safe}.png").write_bytes(shot["png"])
-        summary = report_to_json(report)
-        summary["screenshots"] = [
-            {"step": s["step"], "name": s["name"]} for s in summary["screenshots"]
-        ]
-        (args.out / "report.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
+        _write_report(report, args.out)
         print(f"report written to {args.out / 'report.json'}")
     return 0 if report["passed"] else 1
+
+
+def _write_report(report: dict, out: Path) -> None:
+    out.mkdir(parents=True, exist_ok=True)
+    for shot in report["screenshots"]:
+        safe = "".join(c if c.isalnum() or c in "-_" else "_" for c in shot["name"])
+        (out / f"{shot['step'] + 1:03d}_{safe}.png").write_bytes(shot["png"])
+    summary = report_to_json(report)
+    summary["screenshots"] = [{"step": s["step"], "name": s["name"]} for s in summary["screenshots"]]
+    (out / "report.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
+
+
+def _main_all(adb: Adb, flow: dict, serials: list[str], args) -> int:
+    print(f"Tether flow '{flow.get('name', args.flow.stem)}' on {len(serials)} device(s): {', '.join(serials)}")
+
+    def show(serial: str, result: dict) -> None:
+        mark = ("WARN" if result.get("optional_failed") else "PASS") if result["ok"] else "FAIL"
+        line = f"  [{serial}] [{mark}] {result['index'] + 1:>3} {result['action']:<12} {result['ms']:>5} ms"
+        if result.get("error"):
+            line += f"  {result['error']}"
+        print(line, flush=True)
+
+    matrix = run_flow_matrix(adb, serials, flow, on_step=show, stop_on_failure=not args.keep_going)
+    for report in matrix["reports"]:
+        state = "PASSED" if report["passed"] else "FAILED"
+        extra = f"  ({report['error']})" if report.get("error") else ""
+        print(f"  {report['serial']}: {state} in {report['ms']} ms{extra}")
+        if args.out:
+            safe = "".join(c if c.isalnum() or c in "-_." else "_" for c in report["serial"])
+            _write_report(report, args.out / safe)
+    print(f"{matrix['passed_devices']}/{matrix['devices']} device(s) passed in {matrix['ms']} ms")
+    if args.out:
+        summary = {k: v for k, v in matrix.items() if k != "reports"}
+        summary["reports"] = [{k: r.get(k) for k in ("serial", "passed", "ms", "error", "run_id")}
+                              for r in matrix["reports"]]
+        (args.out / "matrix.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
+        print(f"reports written to {args.out}")
+    return 0 if matrix["passed"] else 1
 
 
 if __name__ == "__main__":

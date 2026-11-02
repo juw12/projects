@@ -116,6 +116,7 @@ def e2e(cli: Path) -> None:
             "TETHER_FAKE_SHADE": str(tmp / "shade.flag"),
             "TETHER_FAKE_STATE": str(tmp / "state.txt"),
             "TETHER_RECORDINGS_DIR": str(tmp / "recordings"),
+            "TETHER_REPORTS_DIR": str(tmp / "reports"),
             "TETHER_QUIET": "1",
         })
         for key in ("BEACON_URL", "BEACON_KEY", "BEACON_APP_ID", "TETHER_URL", "TETHER_TOKEN", "PUSHLAB_CONFIG"):
@@ -205,6 +206,34 @@ def e2e(cli: Path) -> None:
 
             code, messages = run_cli(cli, work, env, "beacon-messages")
             check(code == 0 and len(messages) >= 2, "beacon-messages lists the sends")
+
+            midscene_file = tmp / "smoke.yaml"
+            midscene_file.write_text("android:\n  launch: com.demo.app\ntasks:\n  - name: smoke\n    flow:\n"
+                                     "      - sleep: 100\n      - recordToReport: home\n", encoding="utf-8")
+            code, report = run_cli(cli, work, env, "flow", str(midscene_file))
+            check(code == 0 and report.get("passed") is True and report["steps"][0]["action"] == "launch",
+                  "flow: Midscene YAML converted and passed")
+            code, matrix = run_cli(cli, work, env, "flow", str(midscene_file), "--all-devices")
+            check(code == 0 and matrix.get("devices") == 1 and matrix.get("passed") is True
+                  and "png_base64" not in json.dumps(matrix), "flow --all-devices: one report per device, no image blobs")
+
+            code, started = run_cli(cli, work, env, "trace", "start", "--package", "com.demo.app")
+            code2, trace = run_cli(cli, work, env, "trace", "stop", "--out", str(tmp / "t.pftrace"))
+            check(code == 0 and code2 == 0 and (tmp / "t.pftrace").stat().st_size == trace.get("bytes", -1),
+                  "trace start/stop downloads the Perfetto trace")
+            code, leaks = run_cli(cli, work, env, "leaks", "--max", "0")
+            check(code == 0 and leaks.get("application_leaks") == 0, "leaks --max 0 passes with no LeakCanary report")
+
+            code, saved = run_cli(cli, work, env, "template", "save", "hello", "--title", "Hello {{name}}",
+                                  "--channel", "webpush")
+            check(code == 0 and saved.get("variables") == ["name"], "template save lists its variables")
+            code, message = run_cli(cli, work, env, "push", "--template", "hello", "--var", "name=Ana",
+                                    "--tag", "qa:device")
+            check(code == 0 and message.get("title") == "Hello Ana" and message.get("delivered") == 1,
+                  "push --template --var renders and delivers")
+            code, prefs = run_cli(cli, work, env, "prefs", "--user", "ana", "--category", "marketing", "--off")
+            marketing = {c["category"]: c for c in prefs.get("categories", [])}.get("marketing", {}) if code == 0 else {}
+            check(marketing.get("enabled") is False, "prefs --off stores an opt-out")
 
             bad_env = dict(env, TETHER_URL="http://127.0.0.1:9")
             code, error = run_cli(cli, work, bad_env, "devices")

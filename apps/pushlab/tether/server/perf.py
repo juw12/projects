@@ -12,12 +12,27 @@ installed on the phone:
   cpu      /proc/stat + /proc/<pid>/stat      app share over a short window
 
 Flow steps (see flows.py): perf_startup, perf_reset, perf_assert.
+
+Deeper evidence, also from stock tooling:
+
+  trace    Perfetto (https://perfetto.dev, Apache-2.0) system traces via the
+           on-device `perfetto` binary (Android 9+), pulled to reports/ as a
+           .pftrace you open in https://ui.perfetto.dev
+  leaks    LeakCanary (https://square.github.io/leakcanary, Apache-2.0) heap
+           analysis results read back from logcat — the app's debug build has
+           to include leakcanary-android; Tether only reads what it logs.
+
+Flow steps: perf_trace_start, perf_trace_stop, leak_mark, assert_no_leaks.
 """
 
 from __future__ import annotations
 
+import os
 import re
 import statistics
+import threading
+import time
+from pathlib import Path
 
 from adb import Adb, AdbError, _check_package
 
@@ -228,3 +243,219 @@ def check_budgets(measured: dict, budgets: dict) -> list[str]:
 
 def budget_groups(budgets: dict) -> tuple[str, ...]:
     return tuple(sorted({BUDGET_KEYS[k][0] for k in budgets if k in BUDGET_KEYS}))
+
+
+# ------------------------------------------------------------ Perfetto trace
+TRACE_REMOTE_DIR = "/data/misc/perfetto-traces"
+TRACE_CATEGORIES = ("sched", "freq", "idle", "am", "wm", "gfx", "view", "binder_driver", "hal",
+                    "dalvik", "input", "res")
+PERFETTO_UI = "https://ui.perfetto.dev"
+_traces: dict[str, dict] = {}  # serial -> running trace
+_traces_lock = threading.Lock()
+
+
+def reports_dir() -> Path:
+    """Where pulled traces go: TETHER_REPORTS_DIR or tether/reports/ (git-ignored)."""
+    configured = os.environ.get("TETHER_REPORTS_DIR")
+    path = Path(configured) if configured else Path(__file__).resolve().parent.parent / "reports"
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def active_trace(serial: str) -> dict | None:
+    with _traces_lock:
+        trace = _traces.get(serial)
+        return dict(trace) if trace else None
+
+
+def trace_start(adb: Adb, serial: str, package: str | None = None, max_seconds: float = 30,
+                buffer_mb: int = 32, keep: str = "always") -> dict:
+    """Start a background Perfetto trace (atrace categories + sched/freq); stop with trace_stop."""
+    if package:
+        _check_package(package)
+    if keep not in ("always", "on_fail"):
+        raise AdbError("keep must be 'always' or 'on_fail'")
+    seconds = max(1, min(int(max_seconds), 600))
+    buffer_mb = max(4, min(int(buffer_mb), 256))
+    with _traces_lock:
+        if serial in _traces:
+            raise AdbError("a Perfetto trace is already recording on this device")
+        _traces[serial] = {"starting": True}
+    try:
+        remote = f"{TRACE_REMOTE_DIR}/tether-{int(time.time() * 1000)}.pftrace"
+        args = ["perfetto", "--background", "-o", remote, "-t", f"{seconds}s", "-b", f"{buffer_mb}mb"]
+        if package:
+            args += ["-a", package]
+        try:
+            out = adb.shell(serial, *args, *TRACE_CATEGORIES, timeout=30)
+        except AdbError as exc:
+            raise AdbError(f"perfetto could not start (Android 9+ needed): {exc}") from exc
+        pids = re.findall(r"^\s*(\d+)\s*$", out, re.M)
+        if not pids:
+            raise AdbError("perfetto did not start (Android 9+ needed): " + (out.strip()[:200] or "no output"))
+        trace = {"pid": int(pids[-1]), "remote": remote, "package": package, "max_seconds": seconds,
+                 "keep": keep, "started": time.time()}
+    except Exception:
+        with _traces_lock:
+            _traces.pop(serial, None)
+        raise
+    with _traces_lock:
+        _traces[serial] = trace
+    return {k: trace[k] for k in ("pid", "remote", "package", "max_seconds", "keep")}
+
+
+def trace_stop(adb: Adb, serial: str, keep: bool = True, name: str | None = None) -> dict:
+    """Stop the running trace; pull it to reports/ (keep=True) or just discard it."""
+    with _traces_lock:
+        trace = _traces.pop(serial, None)
+    if not trace or "pid" not in trace:
+        raise AdbError("no Perfetto trace is recording on this device")
+    pid = trace["pid"]
+    adb.run(["shell", "kill", "-TERM", str(pid)], serial=serial, check=False)
+    deadline = time.monotonic() + 15
+    while time.monotonic() < deadline:  # perfetto flushes and writes the file before exiting
+        state = adb.shell(serial, f"kill -0 {pid} 2>/dev/null && echo alive || echo gone").strip()
+        if state.endswith("gone"):
+            break
+        time.sleep(0.3)
+    result = {"seconds": round(time.time() - trace["started"], 1), "package": trace["package"]}
+    try:
+        if keep:
+            safe_serial = re.sub(r"[^\w.-]", "_", serial)
+            safe_name = re.sub(r"[^\w.-]", "_", name or "trace")[:60]
+            local = reports_dir() / f"{safe_name}-{safe_serial}-{time.strftime('%Y%m%d-%H%M%S')}.pftrace"
+            adb.run(["pull", trace["remote"], str(local)], serial=serial, timeout=120)
+            result.update({"path": str(local), "bytes": local.stat().st_size, "open": PERFETTO_UI})
+        else:
+            result["discarded"] = True
+    finally:
+        try:
+            adb.shell(serial, "rm", "-f", trace["remote"])
+        except AdbError:
+            pass
+    return result
+
+
+def trace(adb: Adb, serial: str, seconds: float = 10, package: str | None = None) -> dict:
+    """Record a trace for a fixed time (foreground) and pull it."""
+    seconds = max(1.0, min(float(seconds), 120.0))
+    trace_start(adb, serial, package, max_seconds=seconds + 30)
+    time.sleep(seconds)
+    return trace_stop(adb, serial, keep=True, name=f"trace-{package}" if package else "trace")
+
+
+def finish_flow_trace(adb: Adb, serial: str, failed: bool, name: str) -> dict | None:
+    """Called at the end of a flow: stop a trace the flow left running (kept if asked or on failure)."""
+    current = active_trace(serial)
+    if not current or "pid" not in current:
+        return None
+    keep = current.get("keep") == "always" or failed
+    try:
+        return trace_stop(adb, serial, keep=keep, name=name)
+    except AdbError as exc:
+        return {"error": str(exc)}
+
+
+# ------------------------------------------------------------- LeakCanary
+LEAKCANARY_TAG = "LeakCanary"
+_leak_marks: dict[str, str] = {}
+
+
+def device_epoch(adb: Adb, serial: str) -> str:
+    """Device clock as 'seconds.millis' — the form `logcat -T` accepts."""
+    out = adb.shell(serial, "date", "+%s").strip()
+    if not out.isdigit():
+        raise AdbError(f"could not read the device clock ({out[:80]!r})")
+    return f"{out}.000"
+
+
+def leak_mark(adb: Adb, serial: str) -> str:
+    """Only LeakCanary results logged after this point count for assert_no_leaks."""
+    mark = device_epoch(adb, serial)
+    _leak_marks[serial] = mark
+    return mark
+
+
+def parse_leakcanary(messages: list[str]) -> dict:
+    """Summarise LeakCanary's 'HEAP ANALYSIS RESULT' blocks (one log message per line)."""
+    analyses: list[dict] = []
+    current: dict | None = None
+    section = None
+    for message in messages:
+        text = message.strip().lstrip("\u200b").strip()
+        if "HEAP ANALYSIS RESULT" in text or "HEAP ANALYSIS FAILED" in text:
+            current = {"application_leaks": 0, "library_leaks": 0, "retained_bytes": 0, "leaks": [],
+                       "failed": "FAILED" in text}
+            analyses.append(current)
+            section = None
+            continue
+        if current is None:
+            continue
+        found = re.match(r"^(\d+)\s+(APPLICATION|LIBRARY)\s+LEAKS?\b", text)
+        if found:
+            section = found.group(2).lower()
+            current[f"{section}_leaks"] = int(found.group(1))
+            continue
+        if re.match(r"^\d+\s+UNREACHABLE OBJECTS?\b", text) or text.startswith("METADATA"):
+            section = None
+            continue
+        found = re.match(r"^(\d+)\s+bytes retained", text)
+        if found:
+            current["retained_bytes"] += int(found.group(1))
+            continue
+        found = re.match(r"^\u2570\u2192\s*(\S+)\s+(instance|class|array)", text)
+        if found and section:
+            current["leaks"].append({"class": found.group(1), "kind": section})
+    application = sum(a["application_leaks"] for a in analyses)
+    library = sum(a["library_leaks"] for a in analyses)
+    classes = []
+    for analysis in analyses:
+        for leak in analysis["leaks"]:
+            if leak not in classes:
+                classes.append(leak)
+    return {
+        "analyses": len(analyses),
+        "failed_analyses": sum(1 for a in analyses if a["failed"]),
+        "application_leaks": application,
+        "library_leaks": library,
+        "retained_bytes": sum(a["retained_bytes"] for a in analyses),
+        "leaks": classes,
+    }
+
+
+def leaks(adb: Adb, serial: str, since: str | None = None) -> dict:
+    """LeakCanary results from logcat (all buffered, or since a leak_mark / epoch 'sss.mmm')."""
+    args = ["logcat", "-d", "-v", "threadtime"]
+    if since:
+        if not re.fullmatch(r"\d{1,12}(\.\d{1,9})?", str(since)):
+            raise AdbError("since must be device epoch seconds like 1730419200.000")
+        args += ["-T", str(since)]
+    args += ["-s", f"{LEAKCANARY_TAG}:*"]
+    text = adb.run(args, serial=serial, timeout=30).decode("utf-8", "replace")
+    messages = [m.group(1) for m in re.finditer(r"^\d\d-\d\d\s+\S+\s+\d+\s+\d+\s+\w\s+LeakCanary\s*: ?(.*)$",
+                                                text, re.M)]
+    result = parse_leakcanary(messages)
+    result["since"] = since
+    return result
+
+
+def assert_no_leaks(adb: Adb, serial: str, max_leaks: int = 0, include_library: bool = False,
+                    wait_ms: int = 0, require_analysis: bool = False, since: str | None = None) -> dict:
+    since = since or _leak_marks.get(serial)
+    deadline = time.monotonic() + max(0, min(int(wait_ms), 600000)) / 1000
+    while True:
+        result = leaks(adb, serial, since)
+        count = result["application_leaks"] + (result["library_leaks"] if include_library else 0)
+        if count > max_leaks:
+            names = ", ".join(leak["class"] for leak in result["leaks"]
+                              if include_library or leak["kind"] == "application") or "see LeakCanary in logcat"
+            raise PerfBudgetError(f"{count} leak(s) > {max_leaks}: {names} "
+                                  f"({result['retained_bytes']} bytes retained)")
+        if result["analyses"] or time.monotonic() >= deadline:
+            break
+        time.sleep(1)
+    if require_analysis and not result["analyses"]:
+        raise PerfBudgetError("LeakCanary logged no heap analysis (is leakcanary-android in this debug build, "
+                              "and did the flow destroy the screen it watches?)")
+    result["counted"] = count
+    return result

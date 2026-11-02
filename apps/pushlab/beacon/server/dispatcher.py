@@ -150,6 +150,9 @@ class Dispatcher:
             return
         payload = build_payload(self.store, app, message, self.public_url)
         recipients = self.store.targets(app["id"], message["target"], message["channels"])
+        recipients, suppressed = self.store.apply_preferences(app["id"], recipients, message.get("category", ""))
+        if suppressed:
+            self.store.bump(message["id"], "suppressed", suppressed)  # opted out via preferences
         self.store.bump(message["id"], "targeted", len(recipients))
 
         fcm_sender = None

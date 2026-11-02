@@ -15,8 +15,13 @@ Examples:
   python pushlab_cli.py screenshot --out screen.png
   python pushlab_cli.py ui
   python pushlab_cli.py tap-text "Sign in"
-  python pushlab_cli.py flow login.yaml            # Tether JSON flow or Maestro YAML
+  python pushlab_cli.py flow login.yaml            # Tether JSON flow, Maestro or Midscene YAML
+  python pushlab_cli.py flow smoke.json --all-devices   # every connected device in parallel
+  python pushlab_cli.py trace start --package com.example && ... && python pushlab_cli.py trace stop
+  python pushlab_cli.py leaks --max 0               # LeakCanary results (debug builds)
   python pushlab_cli.py push-check --title "Order shipped" --tap
+  python pushlab_cli.py push --template order_shipped --var order.id=A17 --var name=Ana
+  python pushlab_cli.py prefs --user alice --category marketing --off
 """
 
 from __future__ import annotations
@@ -247,13 +252,47 @@ def cmd_flow(args, config):
     text = path.read_text(encoding="utf-8")
     warnings = []
     if path.suffix.lower() in (".yaml", ".yml"):
-        converted = tether.call("POST", "/api/flow/maestro/import", {"yaml": text})
+        converted = tether.call("POST", "/api/flow/maestro/import", {"yaml": text})  # Maestro or Midscene
         flow, warnings = converted["flow"], converted.get("warnings", [])
     else:
         flow = json.loads(text)
+    if args.all_devices:
+        matrix = tether.call("POST", "/api/flow/run-all", {"flow": flow}, timeout=1800)["matrix"]
+        for report in matrix["reports"]:
+            report["screenshots"] = [{"step": s["step"], "name": s["name"]} for s in report.get("screenshots", [])]
+        matrix["yaml_warnings"] = warnings
+        return matrix, (0 if matrix.get("passed") else 1)
     report = tether.call("POST", "/api/flow/run", {"serial": tether.serial, "flow": flow}, timeout=600)["report"]
-    report["maestro_warnings"] = warnings
+    report["yaml_warnings"] = warnings
     return report, (0 if report.get("passed") else 1)
+
+
+def cmd_trace(args, config):
+    """Perfetto system trace: start (background) / stop (pull the .pftrace, open in ui.perfetto.dev)."""
+    tether = Tether(config, args.serial)
+    if args.action == "start":
+        body = {"serial": tether.serial, "max_seconds": args.max_seconds}
+        if args.package:
+            body["package"] = args.package
+        return tether.call("POST", "/api/perf/trace/start", body)["trace"]
+    trace = tether.call("POST", "/api/perf/trace/stop", {"serial": tether.serial}, timeout=180)["trace"]
+    if trace.get("file"):
+        payload, _ = tether.call("GET", "/api/perf/trace/file?" + urllib.parse.urlencode({"name": trace["file"]}),
+                                 raw=True, timeout=180)
+        out = Path(args.out or trace["file"])
+        out.write_bytes(payload)
+        trace["saved"] = str(out.resolve())
+    return trace
+
+
+def cmd_leaks(args, config):
+    """LeakCanary heap-analysis results from logcat; --max N fails (exit 1) above N application leaks."""
+    tether = Tether(config, args.serial)
+    params = {"since": args.since} if args.since else {}
+    leaks = tether.call("GET", "/api/leaks?" + tether.q(**params))["leaks"]
+    if args.max is None:
+        return leaks
+    return leaks, (0 if leaks["application_leaks"] <= args.max else 1)
 
 
 def cmd_ai(args, config):
@@ -315,10 +354,32 @@ def cmd_notifications(args, config):
     return tether.call("GET", "/api/notifications?" + tether.q())["notifications"]
 
 
+def _vars(pairs: list[str] | None) -> dict:
+    """--var order.id=A17 --var name=Ana -> {"order": {"id": "A17"}, "name": "Ana"}"""
+    result: dict = {}
+    for pair in pairs or []:
+        key, sep, value = pair.partition("=")
+        if not sep or not key:
+            raise ApiError(f"--var needs key=value, got {pair!r}")
+        node = result
+        parts = key.split(".")
+        for part in parts[:-1]:
+            node = node.setdefault(part, {})
+        node[parts[-1]] = value
+    return result
+
+
 def cmd_push(args, config):
     """Send through Beacon directly and wait until it is delivered (no device involved)."""
     beacon = Beacon(config)
-    body = {"title": args.title}
+    if not args.title and not args.template:
+        raise ApiError("give --title or --template")
+    body = {"title": args.title} if args.title else {}
+    if args.template:
+        body["template"] = args.template
+        body["vars"] = _vars(args.var)
+    if args.category:
+        body["category"] = args.category
     if args.body:
         body["body"] = args.body
     if args.url:
@@ -376,6 +437,42 @@ def cmd_beacon_stats(args, config):
     return Beacon(config).call("GET", f"/v1/stats?days={args.days}")["stats"]
 
 
+def cmd_prefs(args, config):
+    """Show or change a user's notification preferences (categories, channels)."""
+    beacon = Beacon(config)
+    if not (args.on or args.off or args.channel or args.reset):
+        return {k: v for k, v in beacon.call("GET", "/v1/preferences?" + urllib.parse.urlencode(
+            {"user_id": args.user})).items() if k in ("all", "categories")}
+    body = {"user_id": args.user, "category": args.category or "*"}
+    if args.reset:
+        body["reset"] = True
+    if args.on or args.off:
+        body["enabled"] = bool(args.on)
+    if args.channel:
+        body["channels"] = args.channel
+    result = beacon.call("POST", "/v1/preferences", body)
+    return {k: result[k] for k in ("all", "categories")}
+
+
+def cmd_template(args, config):
+    """Beacon message templates with {{variables}}: list, save, render (preview)."""
+    beacon = Beacon(config)
+    if args.action == "list":
+        return beacon.call("GET", "/v1/templates")["templates"]
+    if not args.name:
+        raise ApiError("give the template name")
+    if args.action == "render":
+        return beacon.call("POST", f"/v1/templates/{urllib.parse.quote(args.name)}/render",
+                           {"vars": _vars(args.var)})["message"]
+    body = {"name": args.name, "title": args.title}
+    for key in ("body", "url", "category"):
+        if getattr(args, key):
+            body[key] = getattr(args, key)
+    if args.channel:
+        body["channels"] = args.channel
+    return beacon.call("POST", "/v1/templates", body)["template"]
+
+
 # -------------------------------------------------------------------- cli
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="pushlab_cli", description=__doc__,
@@ -417,7 +514,17 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--profile", choices=["flash", "pro"], default="flash", help="ARTEMIS profile")
     p.add_argument("--app", help="ARTEMIS: keep the agent inside this package")
     p.add_argument("--max-steps", type=int, default=10, help="builtin engine: action limit")
-    add("flow", cmd_flow, "run a Tether JSON flow or Maestro YAML; exit 1 if it fails").add_argument("file")
+    p = add("flow", cmd_flow, "run a Tether JSON flow or Maestro / Midscene YAML; exit 1 if it fails")
+    p.add_argument("file")
+    p.add_argument("--all-devices", action="store_true", help="run on every connected device in parallel")
+    p = add("trace", cmd_trace, "Perfetto system trace: start, exercise the app, stop (pulls a .pftrace)")
+    p.add_argument("action", choices=["start", "stop"])
+    p.add_argument("--package", help="with start: include this app's atrace markers")
+    p.add_argument("--max-seconds", type=float, default=60, help="with start: safety limit (default 60)")
+    p.add_argument("--out", help="with stop: where to save the .pftrace")
+    p = add("leaks", cmd_leaks, "LeakCanary results from logcat (app debug build must include LeakCanary)")
+    p.add_argument("--since", help="device epoch seconds, e.g. 1730419200.000")
+    p.add_argument("--max", type=int, help="fail (exit 1) above this many application leaks")
     p = add("perf", cmd_perf, "app performance: memory, frames/jank, CPU; --startup time; --max-* budgets")
     p.add_argument("package")
     p.add_argument("--startup", action="store_true", help="measure launch time (am start -W)")
@@ -435,7 +542,10 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--time-limit", type=int, default=180)
     add("notifications", cmd_notifications, "notifications currently on the device")
     p = add("push", cmd_push, "send a push via Beacon and wait for delivery")
-    p.add_argument("--title", required=True)
+    p.add_argument("--title")
+    p.add_argument("--template", help="send a saved Beacon template instead of --title")
+    p.add_argument("--var", action="append", help="template variable key=value (dots nest: order.id=A17)")
+    p.add_argument("--category", help="preference category, e.g. marketing")
     p.add_argument("--body")
     p.add_argument("--url")
     p.add_argument("--tag", action="append", help="target subscribers with this tag (repeatable)")
@@ -455,6 +565,23 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--tap", action="store_true", help="tap the notification once it arrives")
     add("beacon-messages", cmd_beacon_messages, "recent Beacon messages").add_argument("--limit", type=int, default=20)
     add("beacon-stats", cmd_beacon_stats, "Beacon delivery stats").add_argument("--days", type=int, default=7)
+    p = add("prefs", cmd_prefs, "show / change a user's Beacon notification preferences")
+    p.add_argument("--user", required=True, help="user id")
+    p.add_argument("--category", help="category key ('*' or omitted = every non-critical category)")
+    p.add_argument("--on", action="store_true")
+    p.add_argument("--off", action="store_true")
+    p.add_argument("--channel", action="append", choices=["webpush", "fcm", "ntfy", "bark", "gotify", "apprise", "inapp"],
+                   help="only deliver this category on these channels (repeatable)")
+    p.add_argument("--reset", action="store_true", help="back to the default")
+    p = add("template", cmd_template, "Beacon message templates: list, save, render")
+    p.add_argument("action", choices=["list", "save", "render"])
+    p.add_argument("name", nargs="?")
+    p.add_argument("--title")
+    p.add_argument("--body")
+    p.add_argument("--url")
+    p.add_argument("--category")
+    p.add_argument("--channel", action="append", choices=["webpush", "fcm", "ntfy", "bark", "gotify", "apprise", "inapp"])
+    p.add_argument("--var", action="append", help="with render: key=value")
     return parser
 
 

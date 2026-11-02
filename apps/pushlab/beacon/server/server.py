@@ -27,7 +27,7 @@ from collections import defaultdict, deque
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, quote, urlparse
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
@@ -45,6 +45,10 @@ MAX_BODY = 256 * 1024
 CHANNELS = {"webpush", "fcm", "ntfy", "bark", "gotify", "apprise", "inapp"}
 URGENCIES = {"very-low", "low", "normal", "high"}
 TAG_RE = re.compile(r"^[\w:.\-]{1,64}$")
+CATEGORY_RE = re.compile(r"^[a-z0-9][a-z0-9_.:\-]{0,47}$")
+TEMPLATE_NAME_RE = re.compile(r"^[a-zA-Z0-9][\w.\-]{0,63}$")
+TEMPLATE_VAR_RE = re.compile(r"\{\{\s*([A-Za-z_][\w.]{0,63})\s*\}\}")
+MAX_FALLBACK_STEPS = 4  # escalation chain: first message + up to 4 follow-ups
 
 
 class ApiError(Exception):
@@ -167,7 +171,21 @@ def validate_message(body: dict) -> dict:
         fields["digest"] = validate_digest(body["digest"])
     if body.get("fallback") is not None:
         fields["fallback"] = validate_fallback(body["fallback"])
+    if body.get("category"):
+        fields["category"] = validate_category_key(body["category"])
     return fields
+
+
+def validate_category_key(value, name: str = "category") -> str:
+    if not isinstance(value, str) or not CATEGORY_RE.match(value):
+        raise ApiError(400, f"{name} must be lowercase letters, digits, _ . : - (max 48), e.g. marketing")
+    return value
+
+
+def validate_channels(value, name: str) -> list[str]:
+    if not isinstance(value, list) or not value or not set(value) <= CHANNELS:
+        raise ApiError(400, f"{name} must be a non-empty subset of {sorted(CHANNELS)}")
+    return sorted(set(value))
 
 
 def validate_digest(spec) -> dict:
@@ -187,10 +205,16 @@ def validate_digest(spec) -> dict:
     return clean
 
 
-def validate_fallback(spec) -> dict:
-    """{"after": 600, "unless": "clicked", "channels": ["ntfy"], "title"?, "body"?}"""
+def validate_fallback(spec, depth: int = 1) -> dict:
+    """{"after": 600, "unless": "clicked", "channels": ["ntfy"], "title"?, "body"?, "urgency"?, "fallback"?}
+
+    A fallback may hold its own `fallback`: a multi-step workflow such as
+    web push -> (10 min, not clicked) ntfy -> (30 min, still nothing) Bark, high urgency.
+    """
     if not isinstance(spec, dict):
         raise ApiError(400, "fallback must be an object")
+    if depth > MAX_FALLBACK_STEPS:
+        raise ApiError(400, f"a workflow may escalate at most {MAX_FALLBACK_STEPS} times")
     try:
         after = float(spec.get("after", 600))
     except (TypeError, ValueError):
@@ -208,7 +232,95 @@ def validate_fallback(spec) -> dict:
         clean["title"] = _text(spec["title"], "fallback.title", 120)
     if spec.get("body"):
         clean["body"] = _text(spec["body"], "fallback.body", 600)
+    if spec.get("urgency"):
+        if spec["urgency"] not in URGENCIES:
+            raise ApiError(400, f"fallback.urgency must be one of {sorted(URGENCIES)}")
+        clean["urgency"] = spec["urgency"]
+    if spec.get("fallback") is not None:
+        clean["fallback"] = validate_fallback(spec["fallback"], depth + 1)
     return clean
+
+
+# ---------------------------------------------------------------- templates
+TEMPLATE_FIELDS = ("title", "body", "url", "icon", "image", "tag", "channels", "category", "urgency", "ttl",
+                   "target", "data", "fallback", "digest")
+
+
+def validate_template(name: str, body: dict) -> dict:
+    """A template is a message skeleton; {{vars}} are filled in at send time."""
+    if not TEMPLATE_NAME_RE.match(name or ""):
+        raise ApiError(400, "template name: letters, digits, _ . - (max 64)")
+    spec = {k: body[k] for k in TEMPLATE_FIELDS if body.get(k) not in (None, "")}
+    if not spec.get("title"):
+        raise ApiError(400, "a template needs a title")
+    sample: dict = {}
+    for var in template_variables(spec):
+        node = sample
+        parts = var.split(".")
+        for part in parts[:-1]:
+            child = node.get(part)
+            if not isinstance(child, dict):
+                child = {}
+                node[part] = child
+            node = child
+        node.setdefault(parts[-1], "x")
+    validate_message(render_template(spec, sample))  # same rules as a real message
+    return spec
+
+
+def template_variables(spec) -> list[str]:
+    found: list[str] = []
+
+    def walk(value):
+        if isinstance(value, str):
+            for var in TEMPLATE_VAR_RE.findall(value):
+                if var not in found:
+                    found.append(var)
+        elif isinstance(value, dict):
+            for item in value.values():
+                walk(item)
+        elif isinstance(value, list):
+            for item in value:
+                walk(item)
+
+    walk(spec)
+    return found
+
+
+def render_template(spec: dict, variables: dict) -> dict:
+    """Fill {{var}} (dots reach into nested vars: {{order.id}}); values in URLs are percent-encoded."""
+    if not isinstance(variables, dict):
+        raise ApiError(400, "vars must be an object")
+    if len(json.dumps(variables, default=str)) > 8000:
+        raise ApiError(400, "vars are limited to 8000 bytes of JSON")
+    missing: list[str] = []
+
+    def lookup(path: str):
+        value = variables
+        for part in path.split("."):
+            if not isinstance(value, dict) or part not in value:
+                missing.append(path)
+                return ""
+            value = value[part]
+        if isinstance(value, (dict, list)):
+            raise ApiError(400, f"template variable {path} must be text or a number")
+        return "" if value is None else str(value)
+
+    def fill(value, key: str = ""):
+        if isinstance(value, str):
+            is_url = key in ("url", "icon", "image")
+            return TEMPLATE_VAR_RE.sub(
+                lambda m: quote(lookup(m.group(1)), safe="") if is_url else lookup(m.group(1)), value)
+        if isinstance(value, dict):
+            return {k: fill(v, k) for k, v in value.items()}
+        if isinstance(value, list):
+            return [fill(v, key) for v in value]
+        return value
+
+    rendered = fill(spec)
+    if missing:
+        raise ApiError(400, "template variable(s) missing: " + ", ".join(sorted(set(missing))))
+    return rendered
 
 
 # ------------------------------------------------------------------- server
@@ -561,6 +673,8 @@ class Handler(BaseHTTPRequestHandler):
     def send(self):
         body = self.read_json()
         app = self.resolve_app(body)
+        if body.get("template"):
+            body = self._from_template(app, body)
         fields = validate_message(body)
         probe = build_payload(self.server.store, app, {"id": 10 ** 9, **fields}, self.server.public_url)
         if payload_size(probe) > MAX_PAYLOAD_BYTES:
@@ -569,6 +683,18 @@ class Handler(BaseHTTPRequestHandler):
         message, merged = self.server.store.send_or_digest(app["id"], fields)
         self.server.dispatcher.nudge()
         self.send_json({"ok": True, "message": self.message_view(message), "digested": merged}, 202)
+
+    def _from_template(self, app: dict, body: dict) -> dict:
+        """Template fields rendered with body.vars; anything else in the body overrides them."""
+        template = self.server.store.get_template(app["id"], str(body["template"]))
+        if not template:
+            raise ApiError(404, f"no template named {body['template']!r}")
+        spec = {k: v for k, v in template.items() if k in TEMPLATE_FIELDS}
+        merged = render_template(spec, body.get("vars") or {})
+        for key, value in body.items():
+            if key not in ("template", "vars", "app_id"):
+                merged[key] = value
+        return merged
 
     @route("POST", r"/v1/hooks/gatus", "sender")
     def gatus_hook(self):
@@ -676,6 +802,153 @@ class Handler(BaseHTTPRequestHandler):
         app = self.resolve_app()
         days = max(1, min(int(self.query.get("days", 30)), 365))
         self.send_json({"ok": True, "app_id": app["id"], "stats": self.server.store.stats(app["id"], days)})
+
+    @route("GET", r"/v1/messages/(\d+)/workflow", "sender")
+    def message_workflow(self, message_id):
+        """Every step of an escalation chain (first message, then each fallback that fired)."""
+        message = self._own_message(message_id)
+        steps = self.server.store.workflow(message["id"])
+        self.send_json({"ok": True, "steps": [self.message_view(s) for s in steps]})
+
+    # ------------------------------------------------- categories + preferences
+    @route("GET", r"/v1/categories", "sender")
+    def list_categories(self):
+        app = self.resolve_app()
+        self.send_json({"ok": True, "categories": self.server.store.list_categories(app["id"])})
+
+    @route("POST", r"/v1/categories", "sender")
+    def upsert_category(self):
+        """{key, name?, description?, critical?, default_enabled?} — critical ones ignore opt-outs."""
+        body = self.read_json()
+        app = self.resolve_app(body)
+        key = validate_category_key(body.get("key"), "key")
+        category = self.server.store.upsert_category(
+            app["id"], key,
+            name=_text(body.get("name"), "name", 80),
+            description=_text(body.get("description"), "description", 300),
+            critical=bool(body.get("critical")),
+            default_enabled=body.get("default_enabled", True) is not False,
+        )
+        self.send_json({"ok": True, "category": category}, 201)
+
+    @route("POST", r"/v1/categories/([a-z0-9][a-z0-9_.:\-]{0,47})/delete", "sender")
+    def delete_category(self, key):
+        app = self.resolve_app()
+        if not self.server.store.delete_category(app["id"], key):
+            raise ApiError(404, "category not found")
+        self.send_json({"ok": True})
+
+    def _preference_body(self, body: dict) -> tuple[str, bool | None, list | None]:
+        category = body.get("category") or "*"
+        if category != "*":
+            category = validate_category_key(category)
+        if body.get("reset"):
+            return category, None, None
+        enabled = body.get("enabled")
+        if enabled is not None and not isinstance(enabled, bool):
+            raise ApiError(400, "enabled must be true or false")
+        channels_value = body.get("channels")
+        if channels_value is not None and channels_value != []:
+            channels_value = validate_channels(channels_value, "channels")
+        if enabled is None and channels_value is None:
+            raise ApiError(400, "give enabled and/or channels (or reset: true)")
+        return category, enabled, channels_value
+
+    def _preference_owner(self, app: dict, source: dict) -> tuple[str, dict | None, str]:
+        if source.get("subscriber_id"):
+            subscriber = self.server.store.get_subscriber(int(source["subscriber_id"]))
+            if not subscriber or subscriber["app_id"] != app["id"]:
+                raise ApiError(404, "subscriber not found")
+            return f"sub:{subscriber['id']}", subscriber, ""
+        user_id = _text(source.get("user_id"), "user_id", 128)
+        if not user_id:
+            raise ApiError(400, "give user_id or subscriber_id")
+        return f"user:{user_id}", None, user_id
+
+    @route("GET", r"/v1/preferences", "sender")
+    def get_preferences(self):
+        """?user_id= or ?subscriber_id= — effective setting per category, and where it comes from."""
+        app = self.resolve_app()
+        _owner, subscriber, user_id = self._preference_owner(app, self.query)
+        prefs = self.server.store.preferences_for(app["id"], subscriber, user_id)
+        self.send_json({"ok": True, **prefs})
+
+    @route("POST", r"/v1/preferences", "sender")
+    def set_preferences(self):
+        """{user_id | subscriber_id, category ('*' = all), enabled?, channels?, reset?}"""
+        body = self.read_json()
+        app = self.resolve_app(body)
+        owner, subscriber, user_id = self._preference_owner(app, body)
+        category, enabled, channels_value = self._preference_body(body)
+        self.server.store.set_preference(app["id"], owner, category, enabled, channels_value)
+        self.send_json({"ok": True, **self.server.store.preferences_for(app["id"], subscriber, user_id)})
+
+    @route("GET", r"/v1/me/preferences", "public")
+    def my_preferences(self):
+        """For the subscriber's own device/app (beacon.js): ?app_key=&token="""
+        app = self.public_app(self.query.get("app_key", ""))
+        subscriber = self.server.store.subscriber_by_token(app["id"], self.query.get("token", ""))
+        if not subscriber:
+            raise ApiError(404, "unknown subscriber token")
+        prefs = self.server.store.preferences_for(app["id"], subscriber)
+        self.send_json({"ok": True, **prefs}, extra=self.cors_headers(app))
+
+    @route("POST", r"/v1/me/preferences", "public")
+    def set_my_preference(self):
+        """{app_key, token, category?, enabled?, channels?, reset?, scope?: user|subscriber}"""
+        body = self.read_json()
+        app, subscriber = self._subscriber_from_body(body)
+        category, enabled, channels_value = self._preference_body(body)
+        scope = "subscriber" if body.get("scope") == "subscriber" else "auto"
+        self.server.store.set_preference(app["id"], self.server.store.owner_of(subscriber, scope), category,
+                                         enabled, channels_value)
+        prefs = self.server.store.preferences_for(app["id"], subscriber)
+        self.send_json({"ok": True, **prefs}, extra=self.cors_headers(app))
+
+    # ---------------------------------------------------------------- templates
+    @route("GET", r"/v1/templates", "sender")
+    def list_templates(self):
+        app = self.resolve_app()
+        templates = self.server.store.list_templates(app["id"])
+        for template in templates:
+            template["variables"] = template_variables({k: template[k] for k in TEMPLATE_FIELDS if k in template})
+        self.send_json({"ok": True, "templates": templates})
+
+    @route("POST", r"/v1/templates", "sender")
+    def save_template(self):
+        """{name, title, body?, url?, channels?, category?, urgency?, tag?, target?, data?, fallback?, digest?}"""
+        body = self.read_json()
+        app = self.resolve_app(body)
+        name = str(body.get("name") or "")
+        spec = validate_template(name, body)
+        template = self.server.store.save_template(app["id"], name, spec)
+        template["variables"] = template_variables(spec)
+        self.send_json({"ok": True, "template": template}, 201)
+
+    @route("GET", r"/v1/templates/([A-Za-z0-9][\w.\-]{0,63})", "sender")
+    def get_template(self, name):
+        app = self.resolve_app()
+        template = self.server.store.get_template(app["id"], name)
+        if not template:
+            raise ApiError(404, "template not found")
+        template["variables"] = template_variables({k: template[k] for k in TEMPLATE_FIELDS if k in template})
+        self.send_json({"ok": True, "template": template})
+
+    @route("POST", r"/v1/templates/([A-Za-z0-9][\w.\-]{0,63})/render", "sender")
+    def render_template_preview(self, name):
+        """Preview: {vars} -> the message that /v1/send would create (nothing is sent)."""
+        body = self.read_json()
+        app = self.resolve_app(body)
+        fields = validate_message(self._from_template(app, {"template": name, "vars": body.get("vars") or {}}))
+        fields.pop("send_at", None)
+        self.send_json({"ok": True, "message": fields})
+
+    @route("POST", r"/v1/templates/([A-Za-z0-9][\w.\-]{0,63})/delete", "sender")
+    def delete_template(self, name):
+        app = self.resolve_app()
+        if not self.server.store.delete_template(app["id"], name):
+            raise ApiError(404, "template not found")
+        self.send_json({"ok": True})
 
     # ------------------------------------------------------------ admin API
     @route("GET", r"/v1/apps", "admin")

@@ -137,6 +137,60 @@ curl -X POST $BEACON/v1/send -H "Authorization: Bearer sk_…" -H "Content-Type:
   `channels` to the same target (`parent_id` / `fallback_id` link both; `fallback_state` is
   `pending → sent | skipped | cancelled`). Cancel with `POST /v1/messages/{id}/cancel-fallback`.
   The condition is per message, not per recipient: one click anywhere counts.
+- **Multi-step** — a fallback can hold its own `fallback` (up to 4 escalations), each with its own `after`,
+  `channels`, `title`/`body` and `urgency`. A click on *any* earlier step stops the chain.
+  `GET /v1/messages/{id}/workflow` lists every step that fired, from any step's id.
+
+```json
+{"title": "Approve the invoice", "channels": ["inapp"], "target": {"user_ids": ["u1"]},
+ "fallback": {"after": 600, "channels": ["ntfy"], "title": "Reminder: approve the invoice",
+   "fallback": {"after": 3600, "channels": ["bark"], "title": "Last call", "urgency": "high"}}}
+```
+
+## Categories and preferences
+
+Let people choose what they get, the way Novu's preference center does — implemented natively, no Novu code.
+Give a message a `category`; subscribers (or their user) switch categories off or limit them to some channels.
+
+```bash
+# register categories (optional: unregistered keys work and default to "on")
+curl -X POST $BEACON/v1/categories -H "Authorization: Bearer sk_…" -H "Content-Type: application/json" \
+  -d '{"key":"security","name":"Security alerts","critical":true}'          # cannot be switched off
+curl -X POST $BEACON/v1/categories -H "Authorization: Bearer sk_…" -H "Content-Type: application/json" \
+  -d '{"key":"tips","name":"Tips","default_enabled":false}'                 # opt-in only
+
+# a user opts out of marketing everywhere, or keeps it in-app only
+curl -X POST $BEACON/v1/preferences -H "Authorization: Bearer sk_…" -H "Content-Type: application/json" \
+  -d '{"user_id":"u1","category":"marketing","enabled":false}'
+curl -X POST $BEACON/v1/preferences -H "Authorization: Bearer sk_…" -H "Content-Type: application/json" \
+  -d '{"user_id":"u2","category":"marketing","channels":["inapp"]}'
+```
+
+- Resolution, most specific first: device + category → user + category → device `*` → user `*` → the
+  category default. `*` covers uncategorised messages too; **critical** categories ignore every opt-out.
+- Recipients skipped by preferences are counted in the message's `suppressed`; the in-app inbox honours them.
+- `GET /v1/preferences?user_id=` (or `subscriber_id=`) returns the effective value per category and where it came from.
+- In the page: `await Beacon.preferences()` and `Beacon.setPreference("marketing", false)` (or
+  `{ channels: ["inapp"] }`, `{ scope: "subscriber" }` for this device only) — authenticated by the device's own
+  subscriber token, applied to its user when it has one.
+
+## Templates
+
+Save a message once, send it with variables:
+
+```bash
+curl -X POST $BEACON/v1/templates -H "Authorization: Bearer sk_…" -H "Content-Type: application/json" \
+  -d '{"name":"order_shipped","title":"Order {{order.id}} shipped","body":"Hi {{name}}, it arrives {{eta}}.",
+       "url":"https://shop.example/track/{{order.id}}","category":"orders","channels":["webpush","fcm"]}'
+curl -X POST $BEACON/v1/send -H "Authorization: Bearer sk_…" -H "Content-Type: application/json" \
+  -d '{"template":"order_shipped","vars":{"order":{"id":"A-17"},"name":"Ana","eta":"tomorrow"},
+       "target":{"user_ids":["u1"]}}'
+```
+
+Any field (title, body, url, target, data, fallback, digest …) can hold `{{var}}`; dots reach nested values and
+values placed in URLs are percent-encoded. Missing variables are a 400 that names them. Fields sent next to
+`template` override it. `POST /v1/templates/{name}/render {vars}` previews without sending; `GET /v1/templates`
+lists templates with the variables each needs.
 
 ## Uptime alerts from Gatus
 
@@ -179,6 +233,10 @@ connections to Cloudflare the console says so; quick tunnels can't use an HTTP p
 
 Example prompt: *"Remind every Vitals user tagged lang:id tomorrow at 9:00 WIB to check their battery report."*
 
+Tools: `list_apps`, `create_app`, `app_stats`, `send_notification` (also `template` + `vars`, `category`,
+nested `fallback`), `add_contact`, `list_messages`, `cancel_message`, `integration_snippet`, `save_template`,
+`list_templates`, `upsert_category`, `set_preference`, `get_preferences`.
+
 ## Test it on a real phone
 
 Pair Beacon with [Tether](../tether#push-qa-with-beacon) to check that pushes actually arrive and open the right page. This works from a flow, from CI, or from an AI agent.
@@ -207,6 +265,7 @@ python apps/pushlab/beacon/tests/verify_bark_gotify.py  # Bark + Gotify (36)
 python apps/pushlab/beacon/tests/verify_gatus.py     # Gatus alert hook (28)
 python apps/pushlab/beacon/tests/verify_tunnel.py     # Go live / cloudflared (22)
 python apps/pushlab/beacon/tests/verify_workflows.py  # digest + fallback (23)
+python apps/pushlab/beacon/tests/verify_preferences.py  # categories, preferences, templates, multi-step (63)
 ```
 
 The end-to-end test runs a fake push service that verifies each VAPID JWT and **decrypts every payload with the browser's private key**, plus fake Google OAuth/FCM endpoints that verify the RS256 signature.
