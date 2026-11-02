@@ -688,52 +688,84 @@ class PtbHost:
 
 
 class Photo2cadHost:
-    r"""photo2cad/server, imported in-process; PRD + photos -> STEP on its own loopback port.
+    r"""photo2cad: PRD + photos -> STEP on its own loopback port.
 
-    Source only: the frozen bundle has no cadquery, and the generator runs the program in a child
-    process via sys.executable (the app exe when frozen), so it is skipped there and the #apps
-    view falls back to a separately started server. A failure to start is recorded, not raised.
+    Preferred path is in-process, but only when this interpreter itself has cadquery (the generator
+    needs it, and the frozen bundle does not ship it). Otherwise it launches the standalone
+    ``photo2cad/start.ps1`` (the repo's cadquery venv, which also reads the MAAS key), so a frozen
+    app on a dev machine still gets a live backend. A failure to start is recorded, not raised.
     """
 
     def __init__(self):
         self.httpd = None
+        self.proc = None
         self.port = None
         self.error = None
 
     @property
     def started(self):
-        return self.httpd is not None
+        return self.httpd is not None or self.proc is not None
 
-    def start(self, preferred=PHOTO2CAD_PORT):
-        if frozen():
-            self.error = "photo2cad is source-only (needs Python + cadquery); skipped when frozen"
-            log(self.error)
-            return False
+    def _in_process(self, port):
         server_dir = os.path.join(toolkit_folder(), "photo2cad", "server")
         entry = os.path.join(server_dir, "server.py")
         if not os.path.isfile(entry):
             self.error = "photo2cad server not found: %s" % entry
-            log(self.error)
             return False
-        port = preferred if port_free(preferred) else free_port()
-        try:
-            if server_dir not in sys.path:
-                sys.path.insert(0, server_dir)
-            spec = importlib.util.spec_from_file_location("merd_photo2cad_server", entry)
-            module = importlib.util.module_from_spec(spec)
-            sys.modules["merd_photo2cad_server"] = module
-            spec.loader.exec_module(module)
-            self.httpd = module.start("127.0.0.1", port)
-            self.httpd.daemon_threads = True
-            self.port = self.httpd.server_address[1]
-            threading.Thread(target=self.httpd.serve_forever, name="merd-photo2cad", daemon=True).start()
-        except Exception as error:
-            self.error = "photo2cad could not start: %s" % error
-            log(self.error)
-            self.httpd = None
-            return False
-        log("photo2cad on http://127.0.0.1:%d/" % self.port)
+        if server_dir not in sys.path:
+            sys.path.insert(0, server_dir)
+        spec = importlib.util.spec_from_file_location("merd_photo2cad_server", entry)
+        module = importlib.util.module_from_spec(spec)
+        sys.modules["merd_photo2cad_server"] = module
+        spec.loader.exec_module(module)
+        self.httpd = module.start("127.0.0.1", port)
+        self.httpd.daemon_threads = True
+        self.port = self.httpd.server_address[1]
+        threading.Thread(target=self.httpd.serve_forever, name="merd-photo2cad", daemon=True).start()
         return True
+
+    def _launcher(self, port):
+        launcher = os.path.join(toolkit_folder(), "photo2cad", "start.ps1")
+        if sys.platform != "win32" or not os.path.isfile(launcher):
+            self.error = "photo2cad needs the repo Python + cadquery, and no launcher is available here"
+            return False
+        self.proc = subprocess.Popen(
+            ["powershell", "-ExecutionPolicy", "Bypass", "-File", launcher],
+            env=dict(os.environ, PHOTO2CAD_PORT=str(port)),
+            creationflags=0x08000000,  # CREATE_NO_WINDOW
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        for _ in range(40):
+            try:
+                with urllib.request.urlopen("http://127.0.0.1:%d/api/health" % port, timeout=1) as resp:
+                    if resp.status == 200:
+                        self.port = port
+                        return True
+            except Exception:
+                time.sleep(0.5)
+        self.error = "the standalone photo2cad launcher did not become healthy"
+        self.stop()
+        return False
+
+    def start(self, preferred=PHOTO2CAD_PORT):
+        has_cadquery = False
+        try:
+            has_cadquery = importlib.util.find_spec("cadquery") is not None
+        except Exception:
+            pass
+        port = preferred if port_free(preferred) else free_port()
+        if not frozen() and has_cadquery:
+            try:
+                if self._in_process(port):
+                    log("photo2cad on http://127.0.0.1:%d/" % self.port)
+                    return True
+            except Exception as error:
+                log("in-process photo2cad failed (%s); trying the standalone launcher" % error)
+                self.httpd = None
+        if self._launcher(port):
+            log("photo2cad (standalone) on http://127.0.0.1:%d/" % self.port)
+            return True
+        log(self.error or "photo2cad could not start")
+        return False
 
     def stop(self):
         if self.httpd:
@@ -743,6 +775,16 @@ class Photo2cadHost:
             except Exception:
                 pass
             self.httpd = None
+        if self.proc:
+            try:
+                if sys.platform == "win32":
+                    subprocess.run(["taskkill", "/F", "/T", "/PID", str(self.proc.pid)],
+                                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                else:
+                    self.proc.terminate()
+            except Exception:
+                pass
+            self.proc = None
 
 
 # ----------------------------------------------------- the loopback server
