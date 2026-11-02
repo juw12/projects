@@ -4,7 +4,7 @@ Stdlib-only. Two responsibilities:
 
 1. Build the OpenAI-compatible chat messages (system prompt + user prompt +
    optional vision content) given a PRD and an ``images`` dict.
-2. Call :func:`maas.chat`, then extract the **first** fenced ``python`` code
+2. Call :func:`llm.chat`, then extract the **first** fenced ``python`` code
    block from the model output (falling back to the raw text if none is
    found). The extracted string is the CadQuery program executed downstream.
 
@@ -17,7 +17,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-import maas
+import llm
 from config import Config
 
 
@@ -172,11 +172,11 @@ def build_program(
 ) -> str:
     """Synthesize a CadQuery program from a PRD (+ optional images).
 
-    Returns the program source string. Raises whatever :func:`maas.chat`
+    Returns the program source string. Raises whatever :func:`llm.chat`
     raises when the upstream call fails.
     """
     messages = build_messages(cfg, prd, images, use_vision)
-    raw = maas.chat(
+    raw = llm.chat(
         cfg,
         messages,
         model=model,
@@ -230,7 +230,7 @@ def repair_program(
 ) -> str:
     """Ask the LLM to repair ``program`` given the execution ``error``."""
     messages = build_repair_messages(prd, program, error)
-    raw = maas.chat(
+    raw = llm.chat(
         cfg,
         messages,
         model=model,

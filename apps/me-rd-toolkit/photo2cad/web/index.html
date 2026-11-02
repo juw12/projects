@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#eef1f5">
-  <meta name="description" content="photo2cad — turn a product PRD and six reference photos into a validated, manufacturable STEP CAD model (with an STL preview), drafted by an LLM as CadQuery and built + validated in a sandbox.">
-  <title>photo2cad — PRD + photos to STEP</title>
+  <meta name="description" content="Datum CAD — turn a product PRD and six reference photos into a validated, manufacturable STEP CAD model (with an STL preview), drafted by an LLM as CadQuery and built + validated in a sandbox.">
+  <title>Datum CAD — PRD + photos to validated STEP</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='rgb(14,42,71)'/><path d='M16 6l8 4.5v9L16 24l-8-4.5v-9z' fill='none' stroke='rgb(95,208,255)' stroke-width='1.7' stroke-linejoin='round'/><path d='M8 10.5l8 4.5 8-4.5M16 15v9' fill='none' stroke='rgb(95,208,255)' stroke-width='1.7' stroke-linejoin='round'/></svg>">
 
   <!-- Set theme before first paint (reads a single non-sensitive pref, then system). -->
@@ -44,12 +44,13 @@
         <path class="bm-cube" d="M11 14l9 5 9-5M20 19v10"></path>
       </svg>
       <div class="brand-txt">
-        <span class="brand-name">photo2cad</span>
+        <span class="brand-name">datum cad</span>
         <span class="brand-tag">PHOTO &rarr; STEP</span>
       </div>
     </div>
     <div class="masthead-right">
       <span id="status-pill" class="pill status" role="status" aria-live="polite"><span class="dot"></span><span class="status-txt">checking…</span></span>
+      <a class="masthead-link" href="gallery.html">Gallery</a>
       <button id="theme-btn" class="icon-btn" type="button" aria-label="Toggle dark mode">
         <svg class="ic ic-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.2"></circle><path d="M12 2v2.4M12 19.6V22M4.2 4.2l1.7 1.7M18.1 18.1l1.7 1.7M2 12h2.4M19.6 12H22M4.2 19.8l1.7-1.7M18.1 5.9l1.7-1.7"></path></svg>
         <svg class="ic ic-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 019.5 4a7 7 0 1010.5 10.5z"></path></svg>
@@ -71,6 +72,8 @@
     </div>
   </section>
 
+  <p class="demo-note" id="demo-note" hidden>Free public demo — a few generations per person per day. For unlimited use, run it locally with your own model.</p>
+
   <!-- ======================= app grid ======================= -->
   <main class="app">
     <!-- ---------- input ---------- -->
@@ -84,6 +87,13 @@
       <div class="field">
         <label class="lbl" for="prd">Product requirements <span class="req">required</span></label>
         <p class="hint">What is the part? Give geometry, key dimensions in&nbsp;mm, materials and features (holes, bosses, fillets, ribs, cutouts) and any tolerances. The PRD drives the parametric model.</p>
+        <div class="examples" role="group" aria-label="Example parts (click to fill the PRD)">
+          <span class="examples-lbl mono">TRY</span>
+          <button type="button" class="example-chip" data-prd="Aluminium control box, 120 × 80 × 40 mm, 2 mm wall, four M3 corner bosses, one 30 mm circular cut-out on the front face, 3 mm fillets on external edges.">Control box</button>
+          <button type="button" class="example-chip" data-prd="Steel L-bracket with gusset, 60 × 60 × 40 mm, 5 mm thick, four Ø4.5 mm mounting holes, triangular gusset on the inside corner.">L-bracket</button>
+          <button type="button" class="example-chip" data-prd="Round flange, Ø80 mm, 6 mm thick, central bore Ø10 mm, six Ø6 mm holes evenly spaced on a Ø60 mm bolt circle.">Round flange</button>
+          <button type="button" class="example-chip" data-prd="Snap-fit enclosure lid, 90 × 60 × 8 mm, two cantilever snap arms on the long sides, a 1.5 mm live hinge and a 2 mm rim.">Snap-fit lid</button>
+        </div>
         <textarea id="prd" class="prd" rows="7" spellcheck="true"
           placeholder="e.g. Aluminium control box, 120 &times; 80 &times; 40 mm, 2 mm wall, four M3 mounting bosses at the corners, one 30 mm circular cut-out on the front face, 3 mm fillets on external edges…"></textarea>
         <span class="field-err" id="prd-err" role="alert" hidden>Please enter a short product requirement (PRD) first.</span>
@@ -138,7 +148,7 @@
   </main>
 
   <footer class="foot">
-    <span class="mono">photo2cad</span>
+    <span class="mono">datum cad</span>
     <span class="foot-sep" aria-hidden="true">&middot;</span>
     <span>STEP (ISO-10303-21) + STL preview &middot; LLM-drafted CadQuery, sandbox-built, validated</span>
     <span class="foot-sep" aria-hidden="true">&middot;</span>
@@ -146,5 +156,23 @@
   </footer>
 
   <script type="module" src="js/app.js"></script>
+  <script>
+    document.querySelectorAll(".example-chip").forEach(function (chip) {
+      chip.addEventListener("click", function () {
+        var prd = document.getElementById("prd");
+        if (!prd) return;
+        prd.value = chip.getAttribute("data-prd") || "";
+        prd.dispatchEvent(new Event("input", { bubbles: true }));
+        prd.focus();
+        prd.scrollIntoView({ block: "center", behavior: "smooth" });
+      });
+    });
+    fetch("api/health", { cache: "no-store" }).then(function (r) { return r.json(); }).then(function (d) {
+      if (d && d.demo) {
+        var note = document.getElementById("demo-note");
+        if (note) note.hidden = false;
+      }
+    }).catch(function () {});
+  </script>
 </body>
 </html>

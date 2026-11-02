@@ -124,6 +124,13 @@ a { color: var(--accent); }
 .brand-name { font-family: var(--mono); font-weight: 700; font-size: 19px; letter-spacing: -0.01em; color: var(--ink); }
 .brand-tag { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.18em; color: var(--muted); }
 .masthead-right { display: flex; align-items: center; gap: 10px; }
+.masthead-link {
+  font-family: var(--mono); font-size: 12.5px; font-weight: 700; letter-spacing: 0.02em;
+  color: var(--accent); text-decoration: none; padding: 6px 11px;
+  border: 1px solid var(--line); border-radius: 999px; background: var(--panel);
+  transition: border-color .15s, color .15s;
+}
+.masthead-link:hover { border-color: var(--accent); color: var(--accent-2); }
 
 /* status pill */
 .pill { display: inline-flex; align-items: center; gap: 7px; padding: 5px 11px; border: 1px solid var(--line); border-radius: 999px; background: var(--panel); font-size: 12px; font-weight: 600; color: var(--muted); }
@@ -444,3 +451,124 @@ a:focus-visible, button:focus-visible, .slot-drop:focus-within, .switch-row inpu
   html { scroll-behavior: auto; }
   .status.online .dot { animation: none; }
 }
+
+/* ============================================================================
+   photo2cad — GALLERY (added section)
+   Reuses the workbench tokens and components above. Only the gallery grid and
+   card primitives below are new; no existing selector is restyled.
+   ========================================================================== */
+
+/* masthead brand acts as the back-to-app link */
+a.brand { text-decoration: none; }
+a.brand:hover .brand-name { color: var(--accent); }
+
+/* page container (same metrics as .app) */
+.g-main { max-width: 1240px; margin: 0 auto; padding: 0 22px; }
+
+/* shorter hero for the gallery */
+.g-hero h1 { font-size: clamp(26px, 4vw, 40px); }
+
+/* honest "how to add a real part" note */
+.g-note { margin: 8px 0 20px; border-left: 3px solid var(--accent); }
+.g-note .panel-head { margin-bottom: 8px; }
+.g-note code { font-family: var(--mono); font-size: 11.5px; color: var(--accent-ink); background: var(--panel-3); border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; }
+
+/* responsive grid: 1 -> 2 -> 3 columns */
+.g-grid { display: grid; grid-template-columns: 1fr; gap: 18px; padding-bottom: 4px; }
+@media (min-width: 720px)  { .g-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (min-width: 1080px) { .g-grid { grid-template-columns: repeat(3, 1fr); } }
+
+/* card (built on .panel) */
+.g-card { display: flex; flex-direction: column; transition: box-shadow .16s, border-color .16s; }
+.g-card:hover { border-color: var(--line-2); box-shadow: var(--shadow-lift); }
+.g-grid .g-card:nth-child(1) { animation-delay: .04s; }
+.g-grid .g-card:nth-child(2) { animation-delay: .09s; }
+.g-grid .g-card:nth-child(3) { animation-delay: .14s; }
+.g-grid .g-card:nth-child(4) { animation-delay: .19s; }
+.g-grid .g-card:nth-child(5) { animation-delay: .24s; }
+.g-grid .g-card:nth-child(6) { animation-delay: .29s; }
+
+/* head: category chip + name + sample tag */
+.g-head { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 10px; }
+.g-head-main { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.g-cat { align-self: flex-start; font-family: var(--mono); font-size: 10.5px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent); background: var(--accent-soft); padding: 3px 8px; border-radius: 999px; }
+.g-name { margin: 0; font-size: 16px; font-weight: 700; line-height: 1.2; color: var(--ink); overflow-wrap: anywhere; }
+.g-samp { margin-left: auto; align-self: flex-start; font-family: var(--mono); font-size: 9.5px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--warn); background: var(--warn-soft); padding: 2px 7px; border-radius: 999px; white-space: nowrap; }
+
+/* PRD snippet (clamped so cards stay even) */
+.g-prd { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+
+/* reference-face thumbnails (the six photo slots; empty for samples) */
+.g-faces { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; margin: 2px 0 14px; }
+.g-face { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; aspect-ratio: 1 / 1; border: 1px dashed var(--line); border-radius: var(--radius-xs); background: var(--panel-2); color: var(--muted); }
+.g-face .ic { width: 14px; height: 14px; opacity: .8; }
+.g-face-lbl { font-family: var(--mono); font-size: 8.5px; letter-spacing: 0.04em; text-transform: uppercase; }
+
+/* blueprint / render preview */
+.g-preview {
+  position: relative; margin: 0 0 14px; border: 1px solid var(--line);
+  border-radius: var(--radius-sm); background-color: var(--panel-2);
+  background-image:
+    linear-gradient(var(--bg-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--bg-grid) 1px, transparent 1px);
+  background-size: 14px 14px;
+  aspect-ratio: 16 / 10; display: grid; place-items: center;
+  overflow: hidden; color: var(--accent);
+}
+.g-preview::before {
+  content: ""; position: absolute; top: 6px; left: 6px; width: 11px; height: 11px; z-index: 1;
+  border-top: 2px solid color-mix(in srgb, var(--accent) 70%, transparent);
+  border-left: 2px solid color-mix(in srgb, var(--accent) 70%, transparent);
+  border-top-left-radius: var(--radius-sm); pointer-events: none;
+}
+.g-preview svg { width: 74%; height: auto; max-height: 82%; display: block; }
+.g-preview img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.g-preview .gt { fill: color-mix(in srgb, currentColor 10%, transparent); }
+.g-preview .gf { fill: color-mix(in srgb, currentColor 4%, transparent); }
+.g-preview .gh { stroke-dasharray: 3 3; opacity: .5; }
+.g-preview .gc { opacity: .55; stroke-width: 1.2; }
+.g-preview-cap {
+  position: absolute; top: 8px; left: 8px; z-index: 1;
+  font-family: var(--mono); font-size: 9.5px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--muted); background: color-mix(in srgb, var(--panel) 74%, transparent);
+  padding: 2px 7px; border-radius: 999px;
+}
+
+/* meta row: badges + units/date */
+.g-meta { margin-top: auto; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.g-badges { display: flex; align-items: center; gap: 6px; }
+.g-badges a.badge { display: inline-flex; align-items: center; gap: 5px; text-decoration: none; cursor: pointer; transition: box-shadow .15s; }
+.g-badges a.badge:hover { box-shadow: var(--shadow); }
+.badge.samp { color: var(--muted); background: var(--na-soft); border: 1px dashed var(--line-2); }
+.g-units { font-family: var(--mono); font-size: 11px; color: var(--muted); margin-left: auto; white-space: nowrap; }
+
+/* graceful fetch-failure / empty notice */
+.g-empty { margin: 8px 0 20px; }
+
+/* small screens */
+@media (max-width: 560px) {
+  .g-main { padding-left: 15px; padding-right: 15px; }
+}
+@media (max-width: 480px) {
+  .g-faces { grid-template-columns: repeat(3, 1fr); }
+}
+
+/* ============================================================================
+   photo2cad — DEMO (added section): one-click example chips + demo notice
+   ========================================================================== */
+.examples { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 12px; }
+.examples-lbl { font-size: 10.5px; font-weight: 700; letter-spacing: 0.18em; color: var(--muted); }
+.example-chip {
+  font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer;
+  color: var(--accent-ink); background: var(--accent-soft);
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--line));
+  border-radius: 999px; padding: 5px 11px; transition: border-color .15s, transform .15s;
+}
+.example-chip:hover { border-color: var(--accent); transform: translateY(-1px); }
+.example-chip:active { transform: translateY(0); }
+.example-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.demo-note {
+  max-width: 1240px; margin: 0 auto; padding: 10px 22px 0;
+  font-size: 12.5px; font-weight: 600; color: var(--warn);
+}
+@media (max-width: 560px) { .demo-note { padding-left: 15px; padding-right: 15px; } }

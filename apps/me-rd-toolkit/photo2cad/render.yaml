@@ -1,0 +1,33 @@
+# Datum CAD (photo2cad) — one-click public demo on Render.
+#
+# Docker build (the BREP kernel needs >= 1 GiB, so do NOT use the 512 MB free plan).
+# The shared LLM key is set in the Render dashboard (sync: false), never committed.
+# Free-tier Gemini Flash (vision) keeps the demo cheap; the limiter + kill switch
+# keep it from being abused.
+services:
+  - type: web
+    name: datum-cad
+    runtime: docker
+    rootDir: apps/me-rd-toolkit/photo2cad
+    dockerfilePath: ./Dockerfile
+    plan: starter                 # >= 1 GiB; the free 512 MB tier is too small for OCCT
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: LLM_PROVIDER
+        value: gemini
+      - key: LLM_MODEL
+        value: gemini-2.0-flash
+      - key: LLM_API_KEY
+        sync: false               # set the shared key in the Render dashboard
+      - key: PHOTO2CAD_DEMO
+        value: "1"
+      - key: PHOTO2CAD_RATE_LIMIT_PER_IP
+        value: "3"
+      - key: PHOTO2CAD_RATE_LIMIT_GLOBAL
+        value: "200"
+      - key: PHOTO2CAD_MAX_CONCURRENT
+        value: "2"
+      # Kill switch (set to "1" and redeploy to stop all generation instantly):
+      # - key: PHOTO2CAD_DISABLE_GENERATE
+      #   value: "1"

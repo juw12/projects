@@ -35,6 +35,7 @@ from urllib.parse import unquote, urlparse
 # stdlib-only at the module level (cadquery is loaded lazily inside them).
 import config as _config
 import pipeline
+import ratelimit
 
 
 # ---------------------------------------------------------------------------
@@ -148,7 +149,8 @@ def _read_json_body(handler: BaseHTTPRequestHandler,
         return None, "invalid JSON: %s" % exc
 
 
-def _json_response(handler: BaseHTTPRequestHandler, status: int, payload: dict) -> None:
+def _json_response(handler: BaseHTTPRequestHandler, status: int, payload: dict,
+                   extra_headers: dict | None = None) -> None:
     body = json.dumps(payload).encode("utf-8")
     handler.send_response(status)
     handler.send_header("Content-Type", "application/json; charset=utf-8")
@@ -157,6 +159,8 @@ def _json_response(handler: BaseHTTPRequestHandler, status: int, payload: dict) 
     handler.send_header("Access-Control-Allow-Origin", "*")
     handler.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
     handler.send_header("Access-Control-Allow-Headers", "Content-Type")
+    for key, value in (extra_headers or {}).items():
+        handler.send_header(key, str(value))
     handler.end_headers()
     handler.wfile.write(body)
 
@@ -166,12 +170,20 @@ def _json_response(handler: BaseHTTPRequestHandler, status: int, payload: dict) 
 # ---------------------------------------------------------------------------
 
 
+def _client_ip(handler: BaseHTTPRequestHandler) -> str:
+    forwarded = handler.headers.get("X-Forwarded-For") or ""
+    if forwarded:
+        return forwarded.split(",")[0].strip() or "unknown"
+    return handler.client_address[0] if handler.client_address else "unknown"
+
+
 class _Handler(BaseHTTPRequestHandler):
     server_version = "photo2cad/0.1"
 
     # Loaded once per process via :class:`_Handler` setup.
     cfg: _config.Config = None  # type: ignore[assignment]
     log_lock: threading.Lock = None  # type: ignore[assignment]
+    limiter: ratelimit.RateLimiter = None  # type: ignore[assignment]
 
     def log_message(self, format, *args):  # noqa: A002 - stdlib signature
         try:
@@ -218,6 +230,8 @@ class _Handler(BaseHTTPRequestHandler):
         path = unquote(parsed.path or "/")
         if path == "/api/health":
             return self._api_health()
+        if path == "/api/stats":
+            return self._api_stats()
         if path.startswith("/api/artifacts/"):
             return self._api_artifacts(path[len("/api/artifacts/"):])
         if path == "/api/" or path == "/api":
@@ -227,13 +241,29 @@ class _Handler(BaseHTTPRequestHandler):
 
     def _api_health(self) -> None:
         cfg = _Handler.cfg
-        from maas import available
+        from llm import available
         _json_response(self, HTTPStatus.OK, {
             "ok": True,
             "llm_configured": bool(available(cfg)),
+            "provider": cfg.provider,
             "fake_llm": bool(getattr(cfg, "fake_llm", False)),
             "model": cfg.model,
+            "demo": bool(cfg.demo),
+            "generate_enabled": not cfg.disable_generate,
+            "rate_limit_per_ip": cfg.rate_limit_per_ip,
             "artifacts_root": str(cfg.artifacts_root),
+            "ts": datetime.now(timezone.utc).isoformat(),
+        })
+
+    def _api_stats(self) -> None:
+        limiter = _Handler.limiter
+        cfg = _Handler.cfg
+        stats = limiter.snapshot() if limiter else {}
+        _json_response(self, HTTPStatus.OK, {
+            "ok": True,
+            "demo": bool(cfg.demo),
+            "generate_enabled": not cfg.disable_generate,
+            "stats": stats,
             "ts": datetime.now(timezone.utc).isoformat(),
         })
 
@@ -298,6 +328,12 @@ class _Handler(BaseHTTPRequestHandler):
 
     def _api_generate(self) -> None:
         cfg = _Handler.cfg
+        if cfg.disable_generate:
+            return _json_response(self, HTTPStatus.SERVICE_UNAVAILABLE, {
+                "ok": False,
+                "error": "Generation is temporarily paused. Please try again later.",
+            }, extra_headers={"Retry-After": "3600"})
+
         # 1. Reject huge bodies early (cheap).
         cl = self.headers.get("Content-Length", "0")
         try:
@@ -359,34 +395,52 @@ class _Handler(BaseHTTPRequestHandler):
 
         # 3. Drive the pipeline (runs cadquery inside a child process).
         started = time.time()
+        limiter = _Handler.limiter
+        decision = limiter.begin(_client_ip(self)) if limiter else ratelimit.Decision(True)
+        if not decision.allowed:
+            message = {
+                "per_ip": "Demo limit reached for today. Try again tomorrow, or run it locally with your own key.",
+                "global": "The demo has hit its daily limit. Please try again tomorrow.",
+                "busy": "The demo is busy right now. Please retry in a few seconds.",
+            }.get(decision.reason, "Rate limited. Please try again later.")
+            return _json_response(self, HTTPStatus.TOO_MANY_REQUESTS, {
+                "ok": False, "error": message, "retry_after": decision.retry_after,
+            }, extra_headers={"Retry-After": str(decision.retry_after)})
+
+        success = False
         try:
-            result = pipeline.generate(
-                cfg=cfg,
-                prd=prd,
-                images=clean_images,
-                workdir_root=cfg.artifacts_root,
-                use_vision=use_vision,
-                model=model_override,
-            )
-        except Exception as exc:
-            self.log_message("pipeline crashed: %s", exc)
-            return _json_response(self, HTTPStatus.INTERNAL_SERVER_ERROR, {
-                "ok": False,
-                "stage": "exec",
-                "error": "pipeline crashed: %s" % exc,
-            })
+            try:
+                result = pipeline.generate(
+                    cfg=cfg,
+                    prd=prd,
+                    images=clean_images,
+                    workdir_root=cfg.artifacts_root,
+                    use_vision=use_vision,
+                    model=model_override,
+                )
+            except Exception as exc:
+                self.log_message("pipeline crashed: %s", exc)
+                return _json_response(self, HTTPStatus.INTERNAL_SERVER_ERROR, {
+                    "ok": False,
+                    "stage": "exec",
+                    "error": "pipeline crashed: %s" % exc,
+                })
 
-        result.setdefault("seconds", round(time.time() - started, 3))
+            result.setdefault("seconds", round(time.time() - started, 3))
+            success = bool(result.get("ok"))
 
-        # 4. Translate to HTTP. Bad-request failures are 4xx; everything else
-        # is 200 with ``ok=False`` so the browser can render the message
-        # inline (matches the API contract's success/failure shape).
-        status = HTTPStatus.OK
-        if result.get("ok") is False:
-            stage = result.get("stage")
-            if stage == "cadgen" and "required" in (result.get("error") or ""):
-                status = HTTPStatus.BAD_REQUEST
-        _json_response(self, status, result)
+            # 4. Translate to HTTP. Bad-request failures are 4xx; everything else
+            # is 200 with ``ok=False`` so the browser can render the message
+            # inline (matches the API contract's success/failure shape).
+            status = HTTPStatus.OK
+            if result.get("ok") is False:
+                stage = result.get("stage")
+                if stage == "cadgen" and "required" in (result.get("error") or ""):
+                    status = HTTPStatus.BAD_REQUEST
+            _json_response(self, status, result)
+        finally:
+            if limiter:
+                limiter.end(generated=success)
 
 
 # ---------------------------------------------------------------------------
@@ -422,6 +476,11 @@ def start(host: str, port: int) -> ThreadingHTTPServer:
     """
     _Handler.cfg = _config.load_config()
     _Handler.log_lock = threading.Lock()
+    _Handler.limiter = ratelimit.RateLimiter(
+        per_ip_per_day=_Handler.cfg.rate_limit_per_ip,
+        global_per_day=_Handler.cfg.rate_limit_global,
+        max_concurrent=_Handler.cfg.max_concurrent,
+    )
     return ThreadingHTTPServer((host, port), _Handler)
 
 
@@ -438,8 +497,11 @@ def main(argv: list[str] | None = None) -> int:
     print("[photo2cad] serving %s on http://%s:%d/" % (
         WEB_DIR, sa[0], sa[1]), flush=True)
     print("[photo2cad] artifacts root: %s" % cfg.artifacts_root, flush=True)
-    print("[photo2cad] llm_configured=%s fake_llm=%s model=%s" % (
-        cfg.llm_configured, cfg.fake_llm, cfg.model), flush=True)
+    print("[photo2cad] provider=%s llm_configured=%s fake_llm=%s model=%s" % (
+        cfg.provider, cfg.llm_configured, cfg.fake_llm, cfg.model), flush=True)
+    print("[photo2cad] demo=%s generate_enabled=%s limits(ip=%s global=%s concurrent=%s)" % (
+        cfg.demo, not cfg.disable_generate, cfg.rate_limit_per_ip,
+        cfg.rate_limit_global, cfg.max_concurrent), flush=True)
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:
