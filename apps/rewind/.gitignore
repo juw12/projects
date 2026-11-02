@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+*.log
+ui-tests/last-results.txt
+web/_test.html
+web/_shot.html
+web/_phone.html

@@ -1221,6 +1221,51 @@
       "status": "working-prototype",
       "order": 30,
       "portfolio": true
+    },
+    {
+      "id": "rewind",
+      "name": "Rewind",
+      "category": "Apps",
+      "desc": "Community archive for old TV series missing from today's streaming platforms: memories, quotes, availability status, shelves and a live feed",
+      "summary": "Remember the shows streaming forgot: share memories and quotes, track where a series can still be watched.",
+      "description": "Rewind is a community archive for <strong>old TV series that are hard to find on today&rsquo;s streaming platforms</strong>. Browse the archive as poster tiles with search, decade and availability filters; each series opens a panel with <strong>memories</strong>, quotes, &ldquo;I remember this&rdquo; counts and a community <strong>availability status</strong> (not streaming, partial, physical media only, streaming). Keep favourites on <strong>My Shelf</strong> and follow new posts in <strong>Memory Lane</strong>. A full <strong>Settings</strong> page covers <strong>day/night mode</strong> (System, Light, Dark), accent colour, text size, card density, reduce motion, start page, default sort, hiding shows that are already streaming, and export/import of the archive. Every page and series has a <strong>shareable link</strong> and the back button closes panels. Runs <strong>local-first</strong> in the browser, or online with <strong>Supabase</strong> (magic-link sign-in, row-level security, realtime feed). Installable <strong>PWA</strong>, no build step.",
+      "tags": [
+        "Community",
+        "TV archive",
+        "PWA",
+        "Supabase",
+        "Day/night mode",
+        "Vanilla JS"
+      ],
+      "note_tags": [
+        "rewind",
+        "community",
+        "tv-series",
+        "nostalgia",
+        "pwa",
+        "supabase",
+        "dark-mode",
+        "vanilla-js"
+      ],
+      "image": "rewind-card.jpg",
+      "image_alt": "Rewind archive in dark mode: a grid of series poster tiles with search, decade and availability filters",
+      "project_id": "rewind",
+      "links": {
+        "app": "rewind/",
+        "web": "rewind/",
+        "mobile": "rewind/"
+      },
+      "card": {
+        "capture": "rewind/index.html",
+        "label": "rewind · browse",
+        "theme": "dark",
+        "accent": "#c9a227",
+        "accent2": "#7a5cff",
+        "wait_ms": 1500
+      },
+      "status": "working-prototype",
+      "order": 31,
+      "portfolio": true
     }
   ]
 }
