@@ -6,10 +6,14 @@ D (LangGraph).
 
 > Goal: a *coding agent I use every day* — not a Cursor competitor.
 
-The full design lives in [`docs/PLAN.md`](docs/PLAN.md). This folder is at
-**M3**: a working agent that can explore a repo, make minimal edits, and run
-commands — gated behind **guardrails** (a command deny-list + confirmation), and
-it builds a **gitignore-aware context** so it reads only what the task needs.
+Docs: [`docs/USAGE.md`](docs/USAGE.md) (how to run/configure) ·
+[`docs/DESIGN.md`](docs/DESIGN.md) (architecture + safety) ·
+[`docs/PLAN.md`](docs/PLAN.md) (original design + build order).
+
+This folder is at **M4**: a working agent that can explore a repo, make minimal
+edits, and run commands — gated behind **guardrails** (a command deny-list +
+confirmation), building a **gitignore-aware context** so it reads only what the
+task needs. All milestones **M0–M4** are done.
 
 ## Why stdlib-only
 
@@ -19,6 +23,21 @@ follow that. It reuses D's *ideas* (ReAct loop, guardrails, JSONL traces) with
 **zero deps**: HTTP goes through `urllib.request`, JSON through `json`. It is
 local-first and free (Ollama `qwen3:8b` by default, no API keys), and any
 OpenAI-compatible endpoint works through the same adapter.
+
+## The six tools
+
+All tools are confined to the repo root by a path sandbox (a path that escapes
+via `../`, an absolute path, or a symlink is rejected). The two mutating tools
+are gated by the [guardrails](docs/USAGE.md#guardrails-safe-by-default).
+
+| Tool | What it does | Risk |
+| --- | --- | --- |
+| `list_files` | List a directory (dirs get a trailing `/`); skips noise dirs. | read-only |
+| `read_file` | Read one file's text (size-capped, truncation note). | read-only |
+| `search` | Regex-search file contents → `relpath:lineno: line`. | read-only |
+| `repo_tree` | A gitignore-aware tree of the repo (ignored entries omitted). | read-only |
+| `write_file` | Create/overwrite a file; shows a unified diff first. | **mutating** — confirm (unless `--yolo`) |
+| `run_command` | Run a shell command inside the repo root. | **mutating** — deny-list **+** confirm (unless `--yolo`) |
 
 ## M0 — the model adapter (`llm.py`)
 
@@ -222,22 +241,41 @@ python agents-lab\E-coder\tests\test_repo.py   # matcher + walk + tree + context
 
 Hermetic (temp repo, no network, no model), exit `0`/`1`.
 
+## M4 — final polish (tests + docs)
+
+One command runs the whole suite, and two docs round it out:
+
+```powershell
+python agents-lab\E-coder\tests\run_all.py   # discovers + runs every test, exits 0/1
+```
+
+`coder.py` also gained `--context-only`: build + print the repository context and
+exit **0** with **no model call** — a model-free way to verify the setup.
+
+| Doc | What it covers |
+| --- | --- |
+| [`docs/USAGE.md`](docs/USAGE.md) | quickstart (Ollama / OpenAI), CLI reference, six tools, guardrails, examples, troubleshooting |
+| [`docs/DESIGN.md`](docs/DESIGN.md) | the five layers, module map, data flow, safety model, stdlib-only rationale, limitations |
+
 ## Files
 
 ```
 llm.py             # M0: provider adapter (urllib) + echo REPL
 prompt.py          # M1: SYSTEM_PROMPT (M2: write/run care)
-tools.py           # M1+M2+M3: list/read/search/repo_tree + write_file/run_command + sandbox + schemas
+tools.py           # M1+M2+M3: six tools + ToolContext + path sandbox + dispatch + schemas
 guardrails.py      # M2: command deny-list + confirmation gate
 repo.py            # M3: .gitignore matcher + walk + tree + build_context
 loop.py            # M1: the ReAct agent loop (M2: ToolContext; M3: injects context)
-coder.py           # M1+M2+M3: CLI entrypoint (--yolo / --no-interactive / --context)
+coder.py           # M1+M2+M3+M4: CLI entrypoint (--yolo / --no-interactive / --context / --context-only)
 tests/test_llm.py        # hermetic stdlib-only tests (M0)
 tests/test_tools.py      # hermetic stdlib-only tests (M1+M2: tools + sandbox + write/run)
 tests/test_loop.py       # hermetic stdlib-only tests (M1, llm.chat mocked)
 tests/test_guardrails.py # hermetic stdlib-only tests (M2: deny-list + confirm)
 tests/test_repo.py       # hermetic stdlib-only tests (M3: gitignore + tree + context budget)
-docs/PLAN.md         # full design + build order
+tests/run_all.py         # M4: run every test in one command (exit 0/1)
+docs/PLAN.md         # original design + build order
+docs/USAGE.md        # M4: how to run / configure / use
+docs/DESIGN.md       # M4: architecture + safety model
 README.md
 ```
 
@@ -249,4 +287,4 @@ README.md
 | **M1** | read-only tools (`list/read/search`) + loop | ✅ done |
 | **M2** | `write_file` + `run_command` + guardrails + confirm | ✅ done |
 | **M3** | gitignore-aware context builder (the hard part) | ✅ done |
-| **M4** | tests + docs + README | — |
+| **M4** | tests (`run_all.py`) + docs (`USAGE.md` / `DESIGN.md`) + README | ✅ done |

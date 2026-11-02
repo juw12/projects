@@ -1,12 +1,12 @@
 """
-E — E-coder CLI entrypoint (M3).
+E — E-coder CLI entrypoint (M4).
 
 Run a coding agent against a repo:
 
     python coder.py "<task>" [--repo PATH] [--max-steps N]
                           [--provider P] [--model M] [--verbose]
                           [--yolo] [--no-interactive]
-                          [--no-context] [--context-budget N]
+                          [--no-context] [--context-budget N] [--context-only]
 
 The default repo is the current directory. Provider/model fall back to the
 ECODER_PROVIDER / ECODER_MODEL environment variables (see llm.py).
@@ -17,6 +17,8 @@ turns confirmation OFF entirely, so nothing mutating is ever approved.
 
 A compact gitignore-aware repository context is built and injected by default
 (`--no-context` to disable, `--context-budget N` to cap it in chars).
+`--context-only` prints that context and exits without calling the model — a
+model-free way to verify the setup.
 """
 from __future__ import annotations
 
@@ -41,7 +43,7 @@ def _on_step_verbose(step: dict) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="E-coder: a stdlib-only coding agent with read/write/run tools + repo context (M3)."
+        description="E-coder: a stdlib-only coding agent with read/write/run tools + repo context (M4)."
     )
     parser.add_argument("task", help="The task to perform, in plain language.")
     parser.add_argument("--repo", default=".", help="Repo root to operate within (default: current dir).")
@@ -57,7 +59,14 @@ def main() -> None:
                         help="Disable the prebuilt repository context (default: on).")
     parser.add_argument("--context-budget", type=int, default=20000,
                         help="Max chars for the prebuilt repository context (default 20000).")
+    parser.add_argument("--context-only", action="store_true",
+                        help="Build and print the repository context, then exit (no model call).")
     args = parser.parse_args()
+
+    # --context-only: show the context and stop, without touching the model.
+    if args.context_only:
+        print(repo.build_context(args.repo, args.task, budget_chars=args.context_budget))
+        sys.exit(0)
 
     context = None
     if not args.no_context:
