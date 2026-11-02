@@ -24,8 +24,10 @@ const state = { images: {}, generating: false };
 let currentViewer = null;   // handle returned by viewer.mountViewer (has .dispose)
 let stepperTimer = null;    // interval id while loading
 
+const rootEl = () => (typeof window !== "undefined" && window.__DATUM_CAD_ROOT__) || document;
+
 /* ---------- tiny helpers ---------- */
-const $ = (sel, root = document) => root.querySelector(sel);
+const $ = (sel, root) => (root || rootEl()).querySelector(sel);
 
 function esc(s) {
   return String(s == null ? '' : s)
@@ -79,6 +81,7 @@ const IC = {
 
 /* ---------- theme (only a non-sensitive pref is persisted) ---------- */
 function initTheme() {
+  if (typeof window !== "undefined" && window.__DATUM_CAD_EMBED__) return;
   const btn = $('#theme-btn');
   const apply = (t) => {
     document.documentElement.setAttribute('data-theme', t);
@@ -254,8 +257,8 @@ function updateHint() {
 
 /* ---------- stepper (indicative feedback during the long request) ---------- */
 function startStepper() {
-  const stages = Array.from(document.querySelectorAll('#results .step'));
-  const elapsedEl = document.querySelector('#results .elapsed');
+  const stages = Array.from(rootEl().querySelectorAll('#results .step'));
+  const elapsedEl = rootEl().querySelector('#results .elapsed');
   const marks = [0, 7000, 20000];
   const t0 = Date.now();
   let idx = 0;
@@ -548,7 +551,7 @@ function resetAll() {
   $('#prd').value = '';
   clearPrdInvalid();
   Object.keys(state.images).forEach((k) => {
-    const fig = document.querySelector('.slot[data-view="' + k + '"]');
+    const fig = rootEl().querySelector('.slot[data-view="' + k + '"]');
     if (fig) removeImage(fig, k);
   });
   $('#use-vision').checked = true;
@@ -560,9 +563,23 @@ function resetAll() {
 }
 
 /* ---------- init ---------- */
+function wireExamples() {
+  rootEl().querySelectorAll(".example-chip").forEach(function (chip) {
+    chip.addEventListener("click", function () {
+      const prd = $("#prd");
+      if (!prd) return;
+      prd.value = chip.getAttribute("data-prd") || "";
+      prd.dispatchEvent(new Event("input", { bubbles: true }));
+      prd.focus();
+      if (prd.scrollIntoView) prd.scrollIntoView({ block: "center", behavior: "smooth" });
+    });
+  });
+}
+
 function init() {
   initTheme();
   buildSlots();
+  wireExamples();
   renderIdle();
   updatePhotoUI();
 
@@ -585,7 +602,7 @@ function init() {
       if (!e.dataTransfer || !e.dataTransfer.files || !e.dataTransfer.files.length) return;
       e.preventDefault(); pd = 0; panel.classList.remove('drag-any');
       const file = e.dataTransfer.files[0];
-      const target = document.querySelector('.slot:not(.filled)') || document.querySelector('.slot');
+      const target = rootEl().querySelector('.slot:not(.filled)') || rootEl().querySelector('.slot');
       if (target) {
         try {
           const input = target.querySelector('.slot-input');
@@ -601,4 +618,8 @@ function init() {
   pingHealth();
 }
 
-init();
+if (typeof window !== "undefined") {
+  window.__datumCadInit = init;
+  window.__datumCadTeardown = disposeViewer;
+}
+if (!(typeof window !== "undefined" && window.__DATUM_CAD_EMBED__)) init();
