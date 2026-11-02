@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Bridge console</title>
+  <link rel="stylesheet" href="/ic/styles.css">
+  <style>
+    body { background: var(--bg); }
+    .console { display: grid; grid-template-columns: 248px 1fr; min-height: 100vh; }
+    .side { background: var(--surface); border-right: 1px solid var(--line); display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh; }
+    .side-brand { display: flex; align-items: center; gap: 10px; padding: 18px 20px; border-bottom: 1px solid var(--line); font-weight: 650; letter-spacing: -.01em; }
+    .side-brand small { display: block; font-weight: 500; color: var(--muted); font-size: .72rem; letter-spacing: 0; }
+    .side-nav { padding: 14px 12px; display: flex; flex-direction: column; gap: 2px; }
+    .side-label { font-size: .68rem; text-transform: uppercase; letter-spacing: .1em; color: var(--subtle); font-weight: 600; padding: 14px 10px 6px; }
+    .side-nav button, .side-nav a { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; border: 0; background: transparent; color: var(--ink-3); padding: 8px 10px; border-radius: 7px; font: inherit; font-size: .88rem; font-weight: 500; cursor: pointer; }
+    .side-nav button:hover, .side-nav a:hover { background: var(--surface-2); color: var(--ink); text-decoration: none; }
+    .side-nav button.active { background: var(--primary-50); color: var(--primary); }
+    .side-nav .count { margin-left: auto; font-size: .72rem; font-weight: 600; background: var(--ink); color: #fff; border-radius: 999px; padding: 0 7px; }
+    .side-user { margin-top: auto; border-top: 1px solid var(--line); padding: 14px 16px; display: flex; align-items: center; gap: 10px; }
+    .side-user .avatar { width: 34px; height: 34px; border-radius: 50%; background: var(--surface-2); border: 1px solid var(--line); display: grid; place-items: center; font-weight: 600; font-size: .78rem; color: var(--ink-3); flex: none; }
+    .side-user .who { min-width: 0; flex: 1; font-size: .8rem; }
+    .side-user .who b { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 550; }
+    .side-user .who span { color: var(--muted); }
+    .side-user button { border: 1px solid var(--line-2); background: var(--surface); border-radius: 7px; width: 32px; height: 32px; display: grid; place-items: center; cursor: pointer; color: var(--muted); }
+    .side-user button:hover { color: var(--ink); background: var(--surface-2); }
+
+    .main { min-width: 0; }
+    .page-head { background: var(--surface); border-bottom: 1px solid var(--line); padding: 22px 36px; display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
+    .page-head h1 { font-size: 1.35rem; margin: 0 0 2px; }
+    .page-head p { margin: 0; color: var(--muted); font-size: .88rem; }
+    .content { padding: 28px 36px 48px; max-width: 1320px; }
+
+    .row-click { cursor: pointer; }
+    .row-click:hover td { background: #fafcff; }
+    .row-open td { background: var(--primary-50) !important; }
+    .detail-panel > td { background: var(--bg); padding: 0 !important; }
+    .detail-grid2 { display: grid; grid-template-columns: 1.1fr .9fr; gap: 0; }
+    .detail-grid2 > div { padding: 22px 24px; }
+    .detail-grid2 > div + div { border-left: 1px solid var(--line); background: var(--surface); }
+    .detail-grid2 h4 { font-size: .72rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 0 0 10px; }
+    .kv { font-size: .88rem; margin: 0; display: grid; grid-template-columns: 140px 1fr; gap: 6px 14px; }
+    .kv dt { color: var(--muted); font-size: .8rem; text-transform: capitalize; }
+    .kv dd { margin: 0; white-space: pre-wrap; }
+    .match { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--line); font-size: .88rem; }
+    .match small { color: var(--muted); display: block; font-size: .76rem; margin-top: 2px; }
+    .match-score { font-family: var(--mono); font-size: .75rem; color: var(--primary); background: var(--primary-50); border-radius: 5px; padding: 1px 6px; margin-right: 6px; }
+    .mini-form { display: grid; gap: 8px; }
+    .mini-form textarea { min-height: 70px; }
+    .pill-status { font-size: .72rem; font-weight: 600; padding: 2px 8px; border-radius: 6px; background: var(--surface-2); color: var(--ink-3); border: 1px solid var(--line); text-transform: capitalize; white-space: nowrap; }
+    .pill-status.won { background: var(--green-50); color: var(--green); border-color: #bbf7d0; }
+    .pill-status.new { background: var(--primary-50); color: var(--primary); border-color: var(--primary-100); }
+    .pill-status.in_talks, .pill-status.introduced { background: var(--violet-50); color: var(--violet); border-color: #ddd6fe; }
+    .pill-status.lost, .pill-status.spam { color: var(--muted); }
+    .panel-title { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 14px; }
+    .panel-title h3 { margin: 0; }
+    .modal-back { position: fixed; inset: 0; background: rgba(11, 19, 36, .5); display: grid; place-items: center; z-index: 80; padding: 20px; }
+    .modal { background: #fff; border-radius: 12px; width: min(960px, 100%); max-height: 92vh; overflow: auto; padding: 24px; box-shadow: 0 24px 64px rgba(11,19,36,.3); }
+    .filters { display: flex; gap: 16px; flex-wrap: wrap; align-items: center; margin-bottom: 16px; }
+    .filters .label { font-size: .72rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 600; margin-right: 4px; }
+    @media (max-width: 900px) {
+      .console { grid-template-columns: 1fr; }
+      .side { position: static; height: auto; }
+      .side-nav { flex-direction: row; flex-wrap: wrap; }
+      .side-nav button, .side-nav a { width: auto; }
+      .side-label { display: none; }
+      .page-head, .content { padding-left: 18px; padding-right: 18px; }
+      .detail-grid2 { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="console">
+    <aside class="side">
+      <div class="side-brand">
+        <svg viewBox="0 0 32 32" width="30" height="30" aria-hidden="true"><rect width="32" height="32" rx="7" fill="#0b1324"/><path d="M7 21h18M10 21v-6M22 21v-6M7 15h18l-9-6z" fill="none" stroke="#fff" stroke-width="2" stroke-linejoin="round"/><circle cx="16" cy="12.5" r="1.4" fill="#60a5fa"/></svg>
+        <div><span id="hubName">Industrial Bridge</span><small id="roleLabel">Console</small></div>
+      </div>
+      <nav class="side-nav" id="tabs"></nav>
+      <div class="side-user">
+        <div class="avatar" id="userAvatar">··</div>
+        <div class="who"><b id="userEmail">…</b><span id="userRole"></span></div>
+        <button id="logoutBtn" title="Log out" aria-label="Log out"><svg class="icon" viewBox="0 0 24 24"><path d="M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10"/></svg></button>
+      </div>
+    </aside>
+    <div class="main">
+      <header class="page-head">
+        <div><h1 id="pageTitle">Overview</h1><p id="pageSub">Loading…</p></div>
+        <div class="btn-row" id="pageActions"></div>
+      </header>
+      <main class="content" id="view"></main>
+    </div>
+  </div>
+  <div id="toast" class="toast" role="status"></div>
+  <script src="/static/bridge.js"></script>
+</body>
+</html>

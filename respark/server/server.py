@@ -33,6 +33,7 @@ import secrets
 import smtplib
 import sqlite3
 import ssl
+import sys
 import threading
 import time
 import uuid
@@ -42,6 +43,8 @@ from email.utils import formataddr, parseaddr
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from socketserver import ThreadingMixIn
 from urllib.parse import parse_qs, urlparse
+
+import bridge  # Industrial Connect bridge module (server/bridge.py)
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 WEB_DIR = os.path.join(ROOT, "web")
@@ -227,10 +230,11 @@ def db():
 
 def init_db():
     with _db_lock, db() as conn:
-        for stmt in SCHEMA.strip().split(";"):
+        for stmt in (SCHEMA + ";" + bridge.SCHEMA).strip().split(";"):
             s = stmt.strip()
             if s:
                 conn.execute(s)
+        bridge.migrate(conn)
 
 
 def hash_password(password, salt=None):
@@ -286,9 +290,11 @@ def new_id():
     return uuid.uuid4().hex
 
 
-def json_response(handler, status, payload):
+def json_response(handler, status, payload, headers=None):
     body = json.dumps(payload).encode("utf-8")
     handler.send_response(status)
+    for name, value in (headers or {}).items():
+        handler.send_header(name, value)
     handler.send_header("Content-Type", "application/json")
     handler.send_header("Content-Length", str(len(body)))
     handler.send_header("Cache-Control", "no-store")
@@ -509,7 +515,8 @@ def render_outreach_email(lead, step_key):
         "city": lead.get("city") or "your area",
         "operator_name": lead.get("operator_name") or "Respark",
         "operator_email": lead.get("operator_email") or "",
-        "demo_link": BASE_URL + "/",
+        "demo_link": BASE_URL + bridge.demo_path(industry),
+        "hub_name": bridge.hub_name(),
     }
     subject = tpl["subject"]
     body = tpl["body"]
@@ -793,6 +800,7 @@ def scheduler_loop():
     while True:
         try:
             now_iso = utcnow()
+            outreach_rows = []
             with _db_lock, db() as conn:
                 rows = conn.execute("""
                     SELECT m.*, c.email AS cust_email, c.phone AS cust_phone,
@@ -828,11 +836,12 @@ def scheduler_loop():
                     WHERE oe.status = 'scheduled' AND oe.scheduled_at <= ?
                     LIMIT 50
                 """, (now_iso,)).fetchall()
-                for r in outreach_rows:
-                    try:
-                        send_outreach_email_now(r["id"])
-                    except Exception as e:
-                        log.error("outreach send failed for %s: %s", r["id"], e)
+            # send_outreach_email_now() takes _db_lock itself, so call it outside the lock
+            for r in outreach_rows:
+                try:
+                    send_outreach_email_now(r["id"])
+                except Exception as e:
+                    log.error("outreach send failed for %s: %s", r["id"], e)
         except Exception as e:
             log.error("scheduler error: %s", e)
         time.sleep(30)
@@ -921,6 +930,9 @@ class Handler(BaseHTTPRequestHandler):
         url = urlparse(self.path)
         path = url.path
 
+        if bridge.handle(self, "GET", path, url):
+            return
+
         if path.startswith("/track/open/"):
             return self._track_open(path[len("/track/open/"):])
         if path.startswith("/track/outreach/"):
@@ -972,6 +984,9 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         url = urlparse(self.path)
         path = url.path
+
+        if bridge.handle(self, "POST", path, url):
+            return
 
         if path == "/api/auth/signup":
             return self._api_signup()
@@ -1034,9 +1049,8 @@ class Handler(BaseHTTPRequestHandler):
         except sqlite3.IntegrityError:
             return json_response(self, 409, {"error": "email already registered"})
         cookie = create_session(uid)
-        self.send_response(200)
-        self.send_header("Set-Cookie", f"session={cookie}; HttpOnly; Path=/; SameSite=Lax; Max-Age=2592000")
-        json_response(self, 200, {"ok": True, "user_id": uid})
+        json_response(self, 200, {"ok": True, "user_id": uid},
+                      headers={"Set-Cookie": f"session={cookie}; HttpOnly; Path=/; SameSite=Lax; Max-Age=2592000"})
 
     def _api_login(self):
         data = read_json(self) or {}
@@ -1048,9 +1062,8 @@ class Handler(BaseHTTPRequestHandler):
         if not row or not verify_password(password, row["password_hash"], row["password_salt"]):
             return json_response(self, 401, {"error": "invalid credentials"})
         cookie = create_session(row["id"])
-        self.send_response(200)
-        self.send_header("Set-Cookie", f"session={cookie}; HttpOnly; Path=/; SameSite=Lax; Max-Age=2592000")
-        json_response(self, 200, {"ok": True, "user_id": row["id"]})
+        json_response(self, 200, {"ok": True, "user_id": row["id"]},
+                      headers={"Set-Cookie": f"session={cookie}; HttpOnly; Path=/; SameSite=Lax; Max-Age=2592000"})
 
     def _api_logout(self):
         cookie = None
@@ -1059,9 +1072,8 @@ class Handler(BaseHTTPRequestHandler):
                 if part.strip().startswith("session="):
                     cookie = part.strip()[len("session="):]
         destroy_session(cookie)
-        self.send_response(200)
-        self.send_header("Set-Cookie", "session=; HttpOnly; Path=/; Max-Age=0")
-        json_response(self, 200, {"ok": True})
+        json_response(self, 200, {"ok": True},
+                      headers={"Set-Cookie": "session=; HttpOnly; Path=/; Max-Age=0"})
 
     def _api_stripe_config(self):
         return json_response(self, 200, {
@@ -1306,16 +1318,22 @@ class Handler(BaseHTTPRequestHandler):
                 conn.execute("""INSERT INTO users(id, email, password_hash, password_salt,
                               business_name, industry, created_at) VALUES (?,?,?,?,?,?,?)""",
                              (user_id, client_email, h, salt, lead["business_name"], industry, utcnow()))
-            cid = new_id()
-            conn.execute("""INSERT INTO campaigns(id, user_id, name, industry, status, created_at)
-                            VALUES (?,?,?,?, 'draft', ?)""",
-                         (cid, user_id, f"{lead['business_name']} - reactivation", industry, utcnow()))
+            cid = None
+            portal = None
+            if data.get("product") == "bridge" or industry in bridge.BRIDGE_INDUSTRIES:
+                portal = bridge.create_company_for_lead(conn, lead, user_id, client_email)
+            else:
+                cid = new_id()
+                conn.execute("""INSERT INTO campaigns(id, user_id, name, industry, status, created_at)
+                                VALUES (?,?,?,?, 'draft', ?)""",
+                             (cid, user_id, f"{lead['business_name']} - reactivation", industry, utcnow()))
             conn.execute("UPDATE leads SET status='closed_won', last_action_at=? WHERE id=?",
                          (utcnow(), lid))
         return json_response(self, 200, {
             "ok": True,
             "user_id": user_id,
             "campaign_id": cid,
+            "portal": portal,
             "client_email": client_email,
             "client_password": client_password if not user else None,
         })
@@ -1613,6 +1631,9 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
 
+bridge.attach(sys.modules[__name__])
+
+
 class ThreadedServer(ThreadingMixIn, HTTPServer):
     daemon_threads = True
     allow_reuse_address = True
@@ -1637,6 +1658,7 @@ def main():
     print(f"SMTP configured: {bool(SMTP_HOST)}")
     print(f"OpenAI configured: {bool(OPENAI_KEY)}")
     print(f"Public signup: {ALLOW_SIGNUP}")
+    print(f"Bridge hub: http://{args.host}:{args.port}/hub  |  dashboard: /bridge")
     try:
         server.serve_forever()
     except KeyboardInterrupt:

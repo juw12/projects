@@ -1,0 +1,534 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Industrial Bridge · Introductions to verified manufacturers</title>
+  <meta name="description" content="We introduce investors, buyers and suppliers to verified industrial manufacturers. Every request is screened before an introduction is made.">
+  <link rel="stylesheet" href="/ic/styles.css">
+  <style>
+    .hero { padding-bottom: 0; }
+    .hero-grid { grid-template-columns: 1.1fr .9fr; }
+    .intent { display: inline-flex; background: rgba(255,255,255,.06); border: 1px solid rgba(148,163,184,.25); border-radius: 9px; padding: 3px; margin: 4px 0 28px; }
+    .intent button { border: 0; background: transparent; color: #a9b6c9; padding: 8px 16px; border-radius: 7px; font: inherit; font-size: .88rem; font-weight: 550; cursor: pointer; }
+    .intent button:hover { color: #fff; }
+    .intent button.active { background: #fff; color: var(--ink); }
+
+    .process { background: rgba(15, 23, 42, .65); border: 1px solid rgba(148, 163, 184, .22); border-radius: 12px; padding: 22px; color: #cbd5e1; font-size: .86rem; box-shadow: 0 24px 60px -24px rgba(0,0,0,.6); }
+    .process-head { display: flex; justify-content: space-between; align-items: center; padding-bottom: 14px; margin-bottom: 6px; border-bottom: 1px solid rgba(148,163,184,.18); }
+    .process-head b { color: #fff; font-weight: 600; }
+    .process-head code { background: rgba(148,163,184,.12); border-color: rgba(148,163,184,.2); color: #cbd5e1; }
+    .process-row { display: grid; grid-template-columns: 22px 1fr auto; gap: 12px; align-items: center; padding: 11px 0; border-bottom: 1px dashed rgba(148,163,184,.15); }
+    .process-row:last-child { border-bottom: 0; }
+    .process-dot { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; background: rgba(96,165,250,.15); color: #93c5fd; }
+    .process-dot svg.icon { width: 13px; height: 13px; stroke-width: 2.5; }
+    .process-row small { display: block; color: #8796ab; font-size: .78rem; }
+    .process-row .state { font-size: .72rem; font-weight: 600; color: #86efac; }
+    .process-row .state.pending { color: #fcd34d; }
+
+    .company-card { display: flex; flex-direction: column; gap: 10px; padding: 22px; }
+    .company-top { display: flex; gap: 14px; align-items: center; }
+    .monogram { width: 44px; height: 44px; flex: none; border-radius: 9px; background: var(--ink); color: #fff; display: grid; place-items: center; font-weight: 650; font-size: .95rem; letter-spacing: .02em; }
+    .company-card h3 { margin: 0; font-size: 1rem; }
+    .company-card .meta { color: var(--muted); font-size: .8rem; display: flex; align-items: center; gap: 5px; }
+    .company-card .meta svg.icon { width: 13px; height: 13px; }
+    .company-card .tagline { color: var(--ink-3); font-size: .88rem; margin: 2px 0 0; min-height: 2.6em; }
+    .seek { display: flex; gap: 12px; flex-wrap: wrap; font-size: .76rem; color: var(--ink-3); }
+    .seek span { display: inline-flex; align-items: center; gap: 6px; }
+    .seek span::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--subtle); }
+    .seek .investment::before { background: var(--violet); }
+    .seek .customers::before { background: var(--primary); }
+    .seek .suppliers::before { background: var(--amber); }
+    .seek .partners::before { background: var(--green); }
+    .company-card .foot { margin-top: auto; padding-top: 14px; border-top: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center; font-size: .8rem; color: var(--muted); }
+
+    .v-badge { display: inline-flex; align-items: center; gap: 4px; margin-left: 6px; padding: 1px 7px 1px 5px; border-radius: 999px; background: #ecfdf5; border: 1px solid #a7f3d0; color: #047857; font-size: .68rem; font-weight: 600; vertical-align: 2px; white-space: nowrap; }
+    .v-badge svg.icon { width: 12px; height: 12px; }
+    .wa-fab { position: fixed; right: 20px; bottom: 20px; z-index: 60; display: inline-flex; align-items: center; gap: 8px; padding: 11px 16px 11px 13px; border-radius: 999px; background: #128c4b; color: #fff; font-weight: 600; font-size: .88rem; text-decoration: none; box-shadow: 0 6px 20px rgba(15,23,42,.18); }
+    .wa-fab:hover { background: #0f7a41; color: #fff; }
+    .wa-fab svg.icon { width: 18px; height: 18px; }
+    @media (max-width: 640px) { .wa-fab span { display: none; } .wa-fab { padding: 13px; } }
+    .track-line { font-size: .78rem; color: var(--ink-3); }
+    .track-line .star { color: #f59e0b; }
+    .type-fields { display: contents; }
+    .trust { margin-top: 24px; }
+    .listing-form { display: flex; gap: 8px; flex-wrap: wrap; }
+    .listing-form input { padding: 10px 14px; border-radius: 8px; border: 1px solid rgba(148,163,184,.35); background: rgba(255,255,255,.06); color: #fff; font: inherit; font-size: .9rem; min-width: 210px; }
+    .listing-form input::placeholder { color: #8796ab; }
+    .listing-form input:focus { outline: none; border-color: #93c5fd; }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="wrap nav">
+      <a href="/hub" class="brand">
+        <span class="logo" aria-hidden="true">
+          <svg viewBox="0 0 32 32" width="30" height="30"><rect width="32" height="32" rx="7" fill="#0b1324"/><path d="M7 21h18M10 21v-6M22 21v-6M7 15h18l-9-6z" fill="none" stroke="#fff" stroke-width="2" stroke-linejoin="round"/><circle cx="16" cy="12.5" r="1.4" fill="#60a5fa"/></svg>
+        </span>
+        <span class="hub-name">Industrial Bridge</span>
+      </a>
+      <nav class="main-nav" id="mainNav">
+        <a href="#companies">Companies</a>
+        <a href="#how">How it works</a>
+        <a href="#request">Submit a request</a>
+        <a href="#listed">For manufacturers</a>
+      </nav>
+      <div class="nav-right">
+        <a class="btn btn-light btn-sm" href="/bridge">Partner login</a>
+        <a class="btn btn-primary btn-sm" href="#request">Submit a request</a>
+        <button id="menuBtn" class="menu-btn" aria-label="Menu">&#9776;</button>
+      </div>
+    </div>
+  </header>
+
+  <section class="hero">
+    <div class="wrap">
+      <div class="hero-grid">
+        <div>
+          <div class="kicker">Industrial introductions</div>
+          <h1>We introduce investors, buyers and suppliers to verified manufacturers.</h1>
+          <p class="lead">Tell us what you need. Our team screens every request, shortlists the companies that fit and makes a direct introduction to the decision maker.</p>
+          <div class="intent" id="intentTabs" role="tablist">
+            <button data-intent="customer" class="active">Source products</button>
+            <button data-intent="investor">Invest</button>
+            <button data-intent="supplier">Supply</button>
+          </div>
+          <div class="btn-row">
+            <a class="btn btn-primary" href="#request" id="heroCta">Submit a sourcing request</a>
+            <a class="btn btn-ghost" href="#companies">Browse the network</a>
+          </div>
+        </div>
+        <div class="process" aria-hidden="true">
+          <div class="process-head"><b>Sourcing request</b><code>IC-2611-04A</code></div>
+          <div class="process-row"><span class="process-dot" data-icon="check"></span><span>Request received<small>Helical gears, module 4, 400 pcs/yr</small></span><span class="state">Done</span></div>
+          <div class="process-row"><span class="process-dot" data-icon="check"></span><span>Screened and qualified<small>Volume, timeline and specification confirmed</small></span><span class="state">Done</span></div>
+          <div class="process-row"><span class="process-dot" data-icon="check"></span><span>Matched<small>3 manufacturers shortlisted from the network</small></span><span class="state">Done</span></div>
+          <div class="process-row"><span class="process-dot" data-icon="arrow"></span><span>Introduction<small>Direct contact with the sales engineer</small></span><span class="state pending">In progress</span></div>
+        </div>
+      </div>
+      <div class="stats" style="grid-template-columns:repeat(3,1fr)">
+        <div class="stat"><b id="statCompanies">–</b><span>Verified companies in the network</span></div>
+        <div class="stat"><b id="statCategories">–</b><span>Product categories covered</span></div>
+        <div class="stat"><b>100%</b><span>Requests screened before introduction</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="companies">
+    <div class="wrap">
+      <div class="section-head">
+        <div><div class="kicker">Network</div><h2>Companies in the network</h2></div>
+        <p>Each company is onboarded and verified by our team. Open a showcase for products in 3D, capabilities and investor information.</p>
+      </div>
+      <div class="toolbar">
+        <input class="search" id="search" type="search" placeholder="Search by product, material, process or industry">
+        <div class="chips" id="seekChips">
+          <button class="chip active" data-seek="">All</button>
+          <button class="chip" data-seek="investment">Raising investment</button>
+          <button class="chip" data-seek="customers">Taking new customers</button>
+          <button class="chip" data-seek="suppliers">Seeking suppliers</button>
+          <button class="chip" data-seek="verified">Verified only</button>
+        </div>
+      </div>
+      <div class="grid grid-3" id="directory"><div class="card empty" style="grid-column:1/-1">Loading companies…</div></div>
+    </div>
+  </section>
+
+  <section class="section alt" id="how">
+    <div class="wrap">
+      <div class="section-head">
+        <div><div class="kicker">How it works</div><h2>One request, the right introductions</h2></div>
+        <p>No marketplace listings to sift through and no cold outreach. We qualify both sides before anyone is introduced.</p>
+      </div>
+      <div class="steps">
+        <div class="step"><b>Submit your request</b><div class="muted">Products to source, an investment mandate, or the materials and services you supply.</div></div>
+        <div class="step"><b>Screening</b><div class="muted">We confirm scope, volumes and fit. Incomplete or unsuitable requests are not forwarded.</div></div>
+        <div class="step"><b>Shortlist and introduce</b><div class="muted">We shortlist matching companies and introduce you directly, with context on both sides.</div></div>
+        <div class="step"><b>Follow-through</b><div class="muted">We stay involved through site visits, samples and negotiation until the deal closes.</div></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="request">
+    <div class="wrap">
+      <div class="grid grid-2" style="gap:56px;align-items:start">
+        <div>
+          <div class="kicker">Submit a request</div>
+          <h2 id="requestTitle">What are you sourcing?</h2>
+          <p class="muted" id="requestText">Describe the parts or products you need. We will match you with manufacturers that can deliver.</p>
+          <ul class="check-list trust">
+            <li>Confidential: visible only to our team until we make an introduction</li>
+            <li>Screened: every request is reviewed by a person, not an algorithm alone</li>
+            <li>Direct: you are introduced to the decision maker, not a general inbox</li>
+          </ul>
+        </div>
+        <div class="card" id="requestWrap" style="padding:28px">
+          <form class="form" id="requestForm" novalidate>
+            <label><span>I am a <span class="req">*</span></span>
+              <select name="__type" id="typeSelect">
+                <option value="customer">Buyer / OEM</option>
+                <option value="investor">Investor</option>
+                <option value="supplier">Supplier</option>
+              </select>
+            </label>
+            <label><span>Country</span><input name="country"></label>
+            <label><span>Full name <span class="req">*</span></span><input name="name" required></label>
+            <label><span>Company / fund <span class="req">*</span></span><input name="company" required></label>
+            <label class="full"><span>Work email <span class="req">*</span></span><input name="email" type="email" required></label>
+            <div class="type-fields" data-for="customer">
+              <label><span>Expected annual volume</span>
+                <select name="volume"><option value="">Select</option><option>Prototype / one-off</option><option>&lt; 500 pcs/yr</option><option>500 – 5,000 pcs/yr</option><option>&gt; 5,000 pcs/yr</option></select>
+              </label>
+              <label><span>Required by</span>
+                <select name="timeline"><option value="">Select</option><option>Within 1 month</option><option>1 – 3 months</option><option>3 – 6 months</option><option>Just budgeting</option></select>
+              </label>
+            </div>
+            <div class="type-fields hidden" data-for="investor">
+              <label><span>Typical ticket size</span>
+                <select name="ticket"><option value="">Select</option><option>&lt; USD 1M</option><option>USD 1–5M</option><option>USD 5–15M</option><option>&gt; USD 15M</option></select>
+              </label>
+              <label><span>Investor type</span>
+                <select name="investorType"><option value="">Select</option><option>Venture / growth fund</option><option>Private equity</option><option>Family office</option><option>Strategic / corporate</option><option>Bank / debt</option><option>Angel</option></select>
+              </label>
+              <label class="full inline-check"><input type="checkbox" name="nda" value="yes"> Willing to sign an NDA for data-room access</label>
+            </div>
+            <div class="type-fields hidden" data-for="supplier">
+              <label><span>What you supply (comma separated)</span><input name="categories" placeholder="Steel bar, castings, anodizing"></label>
+              <label><span>Website</span><input name="website" type="url"></label>
+              <fieldset class="full"><legend>Certifications</legend><div class="checks">
+                <label><input type="checkbox" name="certifications" value="ISO 9001"> ISO 9001</label>
+                <label><input type="checkbox" name="certifications" value="ISO 14001"> ISO 14001</label>
+                <label><input type="checkbox" name="certifications" value="IATF 16949"> IATF 16949</label>
+                <label><input type="checkbox" name="certifications" value="AS9100"> AS9100</label>
+              </div></fieldset>
+            </div>
+            <label class="full"><span>Details <span class="req">*</span></span><textarea name="message" required id="messageBox" placeholder="Part types, materials, quantities, tolerances, certifications"></textarea></label>
+            <input name="_hp" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0">
+            <div class="full" style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+              <span class="form-note">Typical response within 2 business days.</span>
+              <button class="btn btn-primary" type="submit">Submit request</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="listed" style="padding-top:0">
+    <div class="wrap">
+      <div class="cta-band">
+        <div style="max-width:560px">
+          <div class="kicker" style="color:#93c5fd">For manufacturers</div>
+          <h2>Join the network</h2>
+          <p>A professional showcase with 3D product views and an investor brief, plus screened introductions to buyers, investors and suppliers.</p>
+        </div>
+        <form id="listingForm" class="listing-form" novalidate>
+          <input name="company" placeholder="Company name" required>
+          <input name="email" type="email" placeholder="Work email" required>
+          <input name="_hp" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0;min-width:0">
+          <button class="btn btn-dark" type="submit">Request a listing</button>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <div class="wrap">
+      <div class="legal" style="border:0;margin:0;padding:0">
+        <span>© <span id="year"></span> <span class="hub-name">Industrial Bridge</span>. Introductions between verified industrial partners.</span>
+        <a href="/bridge" style="display:inline">Partner login</a>
+      </div>
+    </div>
+  </footer>
+  <div id="toast" class="toast" role="status"></div>
+
+  <script>
+  (function () {
+    "use strict";
+
+    const ICONS = {
+      check: '<path d="M20 6 9 17l-5-5"/>',
+      arrow: '<path d="M5 12h14M13 6l6 6-6 6"/>',
+      pin: '<path d="M12 21s-7-6.1-7-11a7 7 0 0 1 14 0c0 4.9-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/>',
+      shield: '<path d="M12 3 4 6v6c0 4.5 3.4 8.3 8 9 4.6-.7 8-4.5 8-9V6z"/><path d="m8.5 12 2.5 2.5 4.5-5"/>',
+      chat: '<path d="M20.5 11.6a8.4 8.4 0 0 1-12.4 7.4L3.5 20.5l1.5-4.4a8.4 8.4 0 1 1 15.5-4.5z"/><path d="M9 9.5c.3 2 2.1 4 4.4 4.6l1.2-1.2 1.9.8"/>'
+    };
+
+    function icon(name) {
+      return '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true">' + ICONS[name] + "</svg>";
+    }
+
+    const COPY = {
+      customer: {
+        cta: "Submit a sourcing request",
+        title: "What are you sourcing?",
+        text: "Describe the parts or products you need. We will match you with manufacturers that can deliver.",
+        placeholder: "Part types, materials, quantities, tolerances, certifications"
+      },
+      investor: {
+        cta: "Share your investment mandate",
+        title: "What is your investment mandate?",
+        text: "Tell us the sectors, stage and ticket size you are looking for. We introduce you to manufacturers raising capital that fit.",
+        placeholder: "Sectors, geography, revenue range, majority or minority, timing"
+      },
+      supplier: {
+        cta: "Offer your capabilities",
+        title: "What do you supply?",
+        text: "Tell us your materials, processes and capacity. We introduce you to manufacturers in the network that are sourcing.",
+        placeholder: "Materials, processes, capacity, lead times, key customers"
+      }
+    };
+
+    let companies = [];
+    let seekFilter = "";
+    let operatorWhatsapp = "";
+
+    function trackLine(c) {
+      const t = c.track || {};
+      const parts = [];
+      if (t.rating != null) {
+        parts.push('<span class="star">★</span> ' + t.rating + " (" + t.reviews + ")");
+      }
+      if (t.deals_won) {
+        parts.push(t.deals_won + " deal" + (t.deals_won === 1 ? "" : "s") + " closed");
+      }
+      if (t.response_rate != null) {
+        parts.push(t.response_rate + "% answered");
+      }
+      return parts.length ? '<div class="track-line">' + parts.join(" · ") + "</div>" : "";
+    }
+
+    function isVerified(c) {
+      return Boolean(c.verification && c.verification.verified);
+    }
+
+    function whatsappUrl(text) {
+      return operatorWhatsapp ? "https://wa.me/" + operatorWhatsapp + "?text=" + encodeURIComponent(text) : "";
+    }
+
+    function esc(value) {
+      return String(value == null ? "" : value)
+        .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+    }
+
+    function initials(name) {
+      return String(name || "?").split(/\s+/).filter(Boolean).map(function (w) {
+        return w[0];
+      }).join("").slice(0, 2).toUpperCase();
+    }
+
+    function toast(message) {
+      const el = document.getElementById("toast");
+      el.textContent = message;
+      el.classList.add("show");
+      clearTimeout(toast.timer);
+      toast.timer = setTimeout(function () {
+        el.classList.remove("show");
+      }, 3000);
+    }
+
+    function setIntent(intent) {
+      document.querySelectorAll("#intentTabs button").forEach(function (b) {
+        b.classList.toggle("active", b.dataset.intent === intent);
+      });
+      const copy = COPY[intent];
+      document.getElementById("heroCta").textContent = copy.cta;
+      document.getElementById("requestTitle").textContent = copy.title;
+      document.getElementById("requestText").textContent = copy.text;
+      document.getElementById("messageBox").placeholder = copy.placeholder;
+      document.getElementById("typeSelect").value = intent;
+      document.querySelectorAll(".type-fields").forEach(function (group) {
+        group.classList.toggle("hidden", group.dataset.for !== intent);
+      });
+    }
+
+    function renderDirectory() {
+      const q = document.getElementById("search").value.trim().toLowerCase();
+      const list = companies.filter(function (c) {
+        const text = [c.name, c.industry, c.country, c.tagline, c.about].concat(c.categories, c.products).join(" ").toLowerCase();
+        const seekOk = !seekFilter || (seekFilter === "verified" ? isVerified(c) : c.seeking.indexOf(seekFilter) !== -1);
+        return (!q || text.indexOf(q) !== -1) && seekOk;
+      });
+      const grid = document.getElementById("directory");
+      if (!list.length) {
+        grid.innerHTML = '<div class="card empty" style="grid-column:1/-1">' +
+          (companies.length ? 'No companies match. <a href="#request">Submit a request</a> and we will search our wider network.' :
+            'Our network is being onboarded. <a href="#request">Submit a request</a> and we will introduce you personally.') + "</div>";
+        return;
+      }
+      const seekLabels = { investment: "Raising investment", customers: "Taking customers", suppliers: "Seeking suppliers", partners: "Open to partners" };
+      grid.innerHTML = list.map(function (c) {
+        return '<article class="card company-card">' +
+          '<div class="company-top"><div class="monogram">' + esc(initials(c.name)) + "</div>" +
+          "<div><h3>" + esc(c.name) +
+          (isVerified(c) ? '<span class="v-badge" title="Checked by our team">' + icon("shield") + "Verified</span>" : "") +
+          '</h3><div class="meta">' + icon("pin") + esc(c.country || "—") + "</div></div></div>" +
+          '<p class="tagline">' + esc(c.tagline) + "</p>" +
+          '<div class="pill-row" style="margin:0">' + c.categories.slice(0, 3).map(function (cat) {
+            return '<span class="pill">' + esc(cat) + "</span>";
+          }).join("") + "</div>" +
+          '<div class="seek">' + c.seeking.map(function (s) {
+            return '<span class="' + esc(s) + '">' + esc(seekLabels[s] || s) + "</span>";
+          }).join("") + "</div>" +
+          trackLine(c) +
+          '<div class="foot"><span>' + c.product_count + " products" + (c.certifications.length ? " · " + c.certifications.length + " certifications" : "") + "</span>" +
+          '<a class="link-arrow" href="' + esc(c.portal_url) + '">View showcase ' + icon("arrow") + "</a></div>" +
+          "</article>";
+      }).join("");
+    }
+
+    function collect(form) {
+      const fields = {};
+      new FormData(form).forEach(function (value, key) {
+        if (fields[key] !== undefined) {
+          fields[key] = [].concat(fields[key], value);
+        } else {
+          fields[key] = value;
+        }
+      });
+      return fields;
+    }
+
+    function submit(type, fields, honeypot) {
+      return fetch("/api/ic/inquiries", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ company: null, type: type, fields: fields, hp: honeypot || "" })
+      }).then(function (response) {
+        return response.json().then(function (body) {
+          if (!response.ok) {
+            throw new Error(body.error || "Could not send");
+          }
+          return body;
+        });
+      });
+    }
+
+    document.getElementById("requestForm").addEventListener("submit", function (event) {
+      event.preventDefault();
+      const form = event.target;
+      let firstInvalid = null;
+      form.querySelectorAll("[required]").forEach(function (input) {
+        const ok = input.value.trim() !== "" && (input.type !== "email" || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.value));
+        input.style.borderColor = ok ? "" : "#b91c1c";
+        if (!ok && !firstInvalid) {
+          firstInvalid = input;
+        }
+      });
+      if (firstInvalid) {
+        firstInvalid.focus();
+        toast("Please complete the highlighted fields");
+        return;
+      }
+      const raw = collect(form);
+      const type = raw.__type;
+      const honeypot = raw._hp;
+      delete raw.__type;
+      delete raw._hp;
+      form.querySelectorAll(".type-fields.hidden [name]").forEach(function (input) {
+        delete raw[input.name];
+      });
+      if (type === "supplier" && raw.categories) {
+        raw.categories = String(raw.categories).split(",").map(function (s) {
+          return s.trim();
+        }).filter(Boolean);
+      }
+      if (type === "investor") {
+        raw.firm = raw.company;
+      }
+      const button = form.querySelector('button[type="submit"]');
+      button.disabled = true;
+      submit(type, raw, honeypot).then(function (body) {
+        document.getElementById("requestWrap").innerHTML =
+          '<div class="success"><div class="big">' + icon("check") + "</div><h3>Request received</h3>" +
+          '<p class="muted">Reference <code>' + esc(body.ref) + "</code>. Our team will review it and come back with introductions, typically within 2 business days.</p>" +
+          (operatorWhatsapp ? '<a class="btn btn-primary" target="_blank" rel="noopener" href="' + esc(whatsappUrl("Hi, I just submitted request " + body.ref + " on the hub.")) + '">' + icon("chat") + "Continue on WhatsApp</a>" : "") +
+          "</div>";
+      }).catch(function (error) {
+        toast(error.message);
+        button.disabled = false;
+      });
+    });
+
+    document.getElementById("listingForm").addEventListener("submit", function (event) {
+      event.preventDefault();
+      const form = event.target;
+      const raw = collect(form);
+      if (!raw.company || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(raw.email || "")) {
+        toast("Please enter your company name and a valid work email");
+        return;
+      }
+      const honeypot = raw._hp;
+      delete raw._hp;
+      submit("listing", raw, honeypot).then(function () {
+        form.innerHTML = '<span style="color:#e2e8f0">Thank you. We will contact you within one business day.</span>';
+      }).catch(function (error) {
+        toast(error.message);
+      });
+    });
+
+    document.getElementById("intentTabs").addEventListener("click", function (event) {
+      const button = event.target.closest("[data-intent]");
+      if (button) {
+        setIntent(button.dataset.intent);
+      }
+    });
+    document.getElementById("typeSelect").addEventListener("change", function (event) {
+      setIntent(event.target.value);
+    });
+    document.getElementById("seekChips").addEventListener("click", function (event) {
+      const chip = event.target.closest("[data-seek]");
+      if (!chip) {
+        return;
+      }
+      seekFilter = chip.dataset.seek;
+      document.querySelectorAll("#seekChips .chip").forEach(function (c) {
+        c.classList.toggle("active", c === chip);
+      });
+      renderDirectory();
+    });
+    document.getElementById("search").addEventListener("input", renderDirectory);
+    document.getElementById("menuBtn").addEventListener("click", function () {
+      document.getElementById("mainNav").classList.toggle("open");
+    });
+    document.querySelectorAll("[data-icon]").forEach(function (el) {
+      el.innerHTML = icon(el.dataset.icon);
+    });
+    document.getElementById("year").textContent = new Date().getFullYear();
+
+    fetch("/api/ic/directory").then(function (r) {
+      return r.json();
+    }).then(function (body) {
+      companies = body.companies || [];
+      operatorWhatsapp = body.whatsapp || "";
+      if (operatorWhatsapp && !document.getElementById("waFab")) {
+        const fab = document.createElement("a");
+        fab.id = "waFab";
+        fab.className = "wa-fab";
+        fab.target = "_blank";
+        fab.rel = "noopener";
+        fab.href = whatsappUrl("Hi, I found " + body.hub + " and I'm looking for...");
+        fab.innerHTML = icon("chat") + "<span>Chat with us</span>";
+        document.body.appendChild(fab);
+      }
+      document.querySelectorAll(".hub-name").forEach(function (el) {
+        el.textContent = body.hub;
+      });
+      document.title = body.hub + " · Introductions to verified manufacturers";
+      const categories = new Set();
+      companies.forEach(function (c) {
+        c.categories.forEach(function (cat) {
+          categories.add(cat);
+        });
+      });
+      document.getElementById("statCompanies").textContent = companies.length;
+      document.getElementById("statCategories").textContent = categories.size;
+      renderDirectory();
+    }).catch(function () {
+      document.getElementById("directory").innerHTML = '<div class="card empty" style="grid-column:1/-1">Could not load the directory.</div>';
+    });
+  })();
+  </script>
+</body>
+</html>

@@ -150,3 +150,44 @@ See `docs/deploy-no-domain.md` for step-by-step without a domain.
 - Email reply parsing (inbound webhook — SendGrid Inbound Parse, etc.)
 
 Each is a small addition. Add when needed.
+
+## Titian: bridge mode (you become the bridge)
+
+**Titian** (Indonesian/Malay for a narrow footbridge) is Respark's **B2B introduction business** for industrial companies: manufacturers get a showcase with 3D products, and you broker every buyer, supplier and investor introduction. Same server, same DB, same outreach engine.
+
+| URL | Who | What |
+|---|---|---|
+| `/hub` | public | Directory of your published client companies + "I'm looking to buy / invest / supply" requests and "Get listed" signups |
+| `/c/<slug>/` | public | A client's showcase portal: catalog, interactive 3D products, investor brief, supplier portal, RFQ basket |
+| `/bridge` | operator | Screen every inquiry, get **suggested matches**, introduce to one or more companies, track deal value and **success fees**, onboard/publish companies |
+| `/bridge` | client company | Only the introductions you made to them, intro status, portal traffic, edit their own content |
+
+**How the money works:** setup fee + monthly retainer per company (Stripe, as before) **plus a success fee** on deals you introduce (tracked per inquiry).
+
+**Flow**
+1. Import manufacturer prospects in `/outreach` with `industry=manufacturer`. They get the bridge pitch email linking to `/hub`.
+2. *Close + onboard* a manufacturer lead: creates their login **and a draft portal** (no reactivation campaign).
+3. Edit their content in `/bridge` → Companies → *Edit content*, then set status to `published`. They appear on `/hub`.
+4. Inquiries from portals and the hub land in **your** inbox first (`routing=via_bridge`). Use *Suggested matches* → *Introduce*. You can withhold the requester's contact so the company has to go through you.
+5. Mark `won` with deal value + fee. The overview shows pipeline, intros, deals and fees.
+6. "Get listed" requests on the hub drop straight into the outreach pipeline as `interested` manufacturer leads.
+
+**Trust and track record (the parts a copycat can't clone)**
+- **Verified badge**: only the operator can issue it (registration + factory visit required), it expires after 12 months, and companies cannot fake it through their own content.
+- **Intro terms gate**: on via-bridge introductions the company sees the request but not the contact until it clicks *Accept introduction*; the accepted terms and timestamp are stored as an audit trail for your success fee.
+- **Track record**: introductions, deals closed, answer rate and typical reply time are measured from real introductions (response stats appear after 3 intros).
+- **Verified reviews**: when a deal is won the requester gets a one-time link (`/r/<token>`); only brokered deals can be reviewed, once.
+- **Outcome-ranked matching**: relevance first, then verified, deals won, rating and responsiveness.
+- **WhatsApp handoff** routed to the operator on via-bridge portals, plus server-rendered SEO (title, JSON-LD, `sitemap.xml`, `robots.txt`).
+
+**Settings** (`.env`)
+- `RESPARK_OPERATOR_EMAILS`: comma-separated operator logins. If unset, the **first registered account** is the operator. Set this in production.
+- `RESPARK_HUB_NAME`: public brand of your bridge (default "Titian").
+- `RESPARK_OPERATOR_WHATSAPP`: your WhatsApp number (digits incl. country code) for chat handoff.
+- `RESPARK_INTRO_TERMS`: the text a company accepts before it sees a requester's contact (have a lawyer review it).
+
+**Roles:** client companies can now log in, so `/outreach` and `/api/outreach/*` are **operator-only** (clients get 403 / redirect to `/bridge`).
+
+**Code:** `server/bridge.py` (all bridge logic, ~stdlib only), `web/hub.html`, `web/bridge.html`, `web/bridge.js`, `web/ic/` (portal app, 3D viewer, `template.json` for new companies). Hooks in `server/server.py` are minimal: import, schema, routing, outreach close, email link.
+
+**Tests:** `RESPARK_SECRET=test python tests/verify_bridge.py` (80 checks), alongside `tests/verify.py` (43 checks).
