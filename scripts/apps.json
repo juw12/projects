@@ -1097,6 +1097,46 @@
       "status": "preliminary",
       "order": 27,
       "portfolio": true
+    },
+    {
+      "id": "shiphub",
+      "name": "shiphub",
+      "category": "Software",
+      "external": true,
+      "url": "https://github.com/juw12/shiphub",
+      "desc": "Pinterest for app ideas with forum threads: save ideas to boards, discuss them, fork them, claim one and mark it shipped with repo and demo links",
+      "summary": "Pinterest for app ideas with forum threads: save, discuss, fork, claim and ship ideas, with GitHub sign-in.",
+      "description": "shiphub is a pinboard of app ideas worth vibe-coding, with a forum built in. Ideas show up as a <strong>masonry feed</strong> (Hot, New, Top, Discussed; filter by Up for grabs, Building or Shipped; tags and live search). Each idea has a <strong>threaded discussion</strong> with votes, a <strong>fork</strong> button to remix it, and <strong>builders</strong>: hit &ldquo;I'm building this&rdquo;, then mark it shipped with a repo and demo link. Save ideas to <strong>boards</strong>, get notifications for replies, builds and forks, and copy any idea as a ready-to-paste AI prompt. Accounts with passwords or <strong>GitHub sign-in</strong>, cover and profile-photo <strong>uploads</strong>, moderators, rate limits and a strict content security policy. The server is plain Python (no dependencies) on SQLite, or Postgres for hosting, with Docker, Render and Fly.io configs.",
+      "tags": [
+        "App ideas",
+        "Forum",
+        "GitHub sign-in",
+        "Python",
+        "SQLite / Postgres",
+        "Docker"
+      ],
+      "note_tags": [
+        "shiphub",
+        "app-ideas",
+        "forum",
+        "vibe-coding",
+        "python",
+        "sqlite",
+        "postgres",
+        "github-oauth",
+        "docker"
+      ],
+      "image": "shiphub-card.jpg",
+      "image_alt": "shiphub feed: a dark masonry board of app-idea cards with Hot, New, Top and Discussed tabs and tag chips",
+      "card": {
+        "label": "shiphub \u00b7 feed",
+        "theme": "dark",
+        "accent": "#e5484d",
+        "accent2": "#f5a623"
+      },
+      "status": "working-prototype",
+      "order": 28,
+      "portfolio": true
     }
   ]
 }
