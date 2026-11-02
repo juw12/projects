@@ -414,20 +414,26 @@ def _host(args: argparse.Namespace) -> str:
     return "0.0.0.0" if args.lan else "127.0.0.1"
 
 
+def start(host: str, port: int) -> ThreadingHTTPServer:
+    """Build (but do not serve) the HTTP server bound to ``host:port``.
+
+    Used by ``main()`` and by the ME R&D Toolkit desktop host, which runs this
+    sub-app in-process on its own loopback port.
+    """
+    _Handler.cfg = _config.load_config()
+    _Handler.log_lock = threading.Lock()
+    return ThreadingHTTPServer((host, port), _Handler)
+
+
 def main(argv: list[str] | None = None) -> int:
     args = _parse_args(argv if argv is not None else sys.argv[1:])
-
-    cfg = _config.load_config()
 
     if not WEB_DIR.is_dir():
         print("[photo2cad] warning: web/ directory not found at %s" % WEB_DIR, file=sys.stderr)
 
-    # Bind a class-level config so the handler can reach it without globals.
-    _Handler.cfg = cfg
-    _Handler.log_lock = threading.Lock()
-
     host = _host(args)
-    httpd = ThreadingHTTPServer((host, args.port), _Handler)
+    httpd = start(host, args.port)
+    cfg = _Handler.cfg
     sa = httpd.socket.getsockname()
     print("[photo2cad] serving %s on http://%s:%d/" % (
         WEB_DIR, sa[0], sa[1]), flush=True)

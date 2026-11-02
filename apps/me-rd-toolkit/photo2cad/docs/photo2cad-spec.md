@@ -16,7 +16,7 @@ program; the server executes it in a **sandboxed subprocess** and validates the 
 
 ## Layout
 ```
-apps/photo2cad/
+apps/me-rd-toolkit/photo2cad/
   web/                static front-end (served by server.py)
     index.html
     styles.css
@@ -156,7 +156,7 @@ def generate(cfg, prd: str, images: dict, workdir_root: str,
 ### `server/server.py`
 - `ThreadingHTTPServer`, stdlib only. Serves `web/` for `GET /` and static assets.
 - Implements the API above. Artifacts under `config.load_config()`-derived root
-  (default `apps/photo2cad/.artifacts/`, git-ignored).
+  (default `apps/me-rd-toolkit/photo2cad/.artifacts/`, git-ignored).
 - `--port` (default 8000), `--lan` (bind 0.0.0.0). Path-traversal-safe artifact serving.
 - Bounded request size (e.g. 25 MB) for JSON bodies.
 

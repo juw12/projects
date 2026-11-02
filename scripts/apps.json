@@ -771,7 +771,7 @@
           "path": "me-rd-toolkit/vertex/index.html"
         }
       ],
-      "subapps": ["vertex"],
+      "subapps": ["vertex", "photo2cad"],
       "status": "shipped",
       "order": 22,
       "portfolio_order": -9
@@ -1085,7 +1085,7 @@
         "python",
         "engineering"
       ],
-      "files": "https://github.com/juw12/projects/tree/main/apps/photo2cad",
+      "files": "https://github.com/juw12/projects/tree/main/apps/me-rd-toolkit/photo2cad",
       "image": "photo2cad-card.jpg",
       "image_alt": "photo2cad workbench: a PRD editor and six reference-photo slots beside a CAD viewport",
       "card": {

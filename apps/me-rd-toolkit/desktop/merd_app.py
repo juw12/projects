@@ -48,6 +48,7 @@ DATA_FOLDER = "ME-RD-Toolkit"
 PREFERRED_PORT = 8781  # the vault's default is 8780
 VERTEX_PORT = 8792  # the vertex CAD bridge's default
 PTB_PORT = 8050  # the PTB RDME widget's default
+PHOTO2CAD_PORT = 8060  # photo2cad (PRD + photos -> STEP) default
 START_PAGE = "index.html"
 DEFAULT_SIZE = (1360, 880)
 MIN_SIZE = (420, 560)
@@ -686,6 +687,64 @@ class PtbHost:
             self.server = None
 
 
+class Photo2cadHost:
+    r"""photo2cad/server, imported in-process; PRD + photos -> STEP on its own loopback port.
+
+    Source only: the frozen bundle has no cadquery, and the generator runs the program in a child
+    process via sys.executable (the app exe when frozen), so it is skipped there and the #apps
+    view falls back to a separately started server. A failure to start is recorded, not raised.
+    """
+
+    def __init__(self):
+        self.httpd = None
+        self.port = None
+        self.error = None
+
+    @property
+    def started(self):
+        return self.httpd is not None
+
+    def start(self, preferred=PHOTO2CAD_PORT):
+        if frozen():
+            self.error = "photo2cad is source-only (needs Python + cadquery); skipped when frozen"
+            log(self.error)
+            return False
+        server_dir = os.path.join(toolkit_folder(), "photo2cad", "server")
+        entry = os.path.join(server_dir, "server.py")
+        if not os.path.isfile(entry):
+            self.error = "photo2cad server not found: %s" % entry
+            log(self.error)
+            return False
+        port = preferred if port_free(preferred) else free_port()
+        try:
+            if server_dir not in sys.path:
+                sys.path.insert(0, server_dir)
+            spec = importlib.util.spec_from_file_location("merd_photo2cad_server", entry)
+            module = importlib.util.module_from_spec(spec)
+            sys.modules["merd_photo2cad_server"] = module
+            spec.loader.exec_module(module)
+            self.httpd = module.start("127.0.0.1", port)
+            self.httpd.daemon_threads = True
+            self.port = self.httpd.server_address[1]
+            threading.Thread(target=self.httpd.serve_forever, name="merd-photo2cad", daemon=True).start()
+        except Exception as error:
+            self.error = "photo2cad could not start: %s" % error
+            log(self.error)
+            self.httpd = None
+            return False
+        log("photo2cad on http://127.0.0.1:%d/" % self.port)
+        return True
+
+    def stop(self):
+        if self.httpd:
+            try:
+                self.httpd.shutdown()
+                self.httpd.server_close()
+            except Exception:
+                pass
+            self.httpd = None
+
+
 # ----------------------------------------------------- the loopback server
 class DesktopHandler(BaseHTTPRequestHandler):
     server_version = "MERDToolkitDesktop/" + VERSION
@@ -816,7 +875,7 @@ class DesktopHandler(BaseHTTPRequestHandler):
         r"""/vertex/... and /ptb-rdme/... serve the sub-apps' own web folders as a static fallback
         (their live APIs stay on their own ports, exposed to the page via MERD_SUBAPPS)."""
         parts = urllib.parse.unquote(path).split("/")
-        if len(parts) < 2 or parts[1] not in ("vertex", "ptb-rdme"):
+        if len(parts) < 2 or parts[1] not in ("vertex", "ptb-rdme", "photo2cad"):
             return None
         base = os.path.abspath(os.path.join(toolkit_folder(), parts[1], "web"))
         relative = posixpath.normpath("/".join(parts[2:]))
@@ -852,6 +911,7 @@ class DesktopServer:
         self.vault = VaultHost(self.private_dir)
         self.vertex = VertexHost()
         self.ptb = PtbHost(root)
+        self.photo2cad = Photo2cadHost()
         self.test_mode = test_mode
         self.opened = []
         self.httpd = None
@@ -863,6 +923,8 @@ class DesktopServer:
             subapps["vertex"] = self.vertex.port
         if self.ptb.started:
             subapps["ptb"] = self.ptb.port
+        if self.photo2cad.started:
+            subapps["photo2cad"] = self.photo2cad.port
         head = "<script>window.MERD_SUBAPPS=%s;</script>" % json.dumps(subapps)
         head += ('<script>window.__MERD_DESKTOP={token:%s,version:%s,platform:%s};</script>'
                  '<script src="/__desktop/shim.js?v=%s"></script>'
@@ -893,6 +955,7 @@ class DesktopServer:
         self.vault.stop()
         self.vertex.stop()
         self.ptb.stop()
+        self.photo2cad.stop()
 
     def save_pack(self, pack):
         target = os.path.join(self.private_dir, "pack.json")
@@ -1239,6 +1302,7 @@ def run_window(root, report_path):
     server.vault.start(share=True)
     server.vertex.start()
     server.ptb.start()
+    server.photo2cad.start()
     server.start(choose_port(settings_path, free_port() if report_path else None))
     start_url = server.url()
 
@@ -1320,6 +1384,8 @@ def run_window(root, report_path):
                      vault_error=server.vault.error,
                      vertex=server.vertex.started, vertex_port=server.vertex.port, vertex_error=server.vertex.error,
                      ptb=server.ptb.started, ptb_port=server.ptb.port, ptb_error=server.ptb.error,
+        photo2cad=server.photo2cad.started, photo2cad_port=server.photo2cad.port,
+        photo2cad_error=server.photo2cad.error,
                      page=info, checks=checks)
         window.destroy()
 

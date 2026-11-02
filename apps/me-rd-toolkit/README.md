@@ -17,10 +17,12 @@ file indexes live in a private *data pack* that is loaded at runtime and never c
   enclosure openings (IEC), colour ΔE, test margin and unit conversion. Limits are editable and
   can be preset from the data pack.
 - **File Vault** (optional): browse shared folders by category, search, open or download files
-- **Engineering apps**: two sub-apps embedded as sections — **Vertex** (offline CAD copilot: diagnose/repair
-  broken models, plan assemblies) and **PTB RDME** (the PTB RD ME team's overtime submission + Outlook drafts).
-  The Windows app starts their local servers and embeds them live; on the static build Vertex falls back to its
-  deployed offline copy
+- **Engineering apps**: three sub-apps embedded as sections under **R&D Apps** — **Vertex** (offline CAD
+  copilot: diagnose/repair broken models, plan assemblies), **Photo2CAD** (PRD + six reference photos → a
+  validated STEP CAD model, written by the MAAS LLM) and **PTB RDME** (the PTB RD ME team's overtime
+  submission + Outlook drafts). The Windows app starts their local servers and embeds them live; on the
+  static build Vertex falls back to its deployed offline copy and Photo2CAD needs its own server
+  (`photo2cad/start.ps1`)
 - Bookmarks, recent items, dark mode, built-in "How to use" guide; installable PWA that works offline
 
 ## Layout
@@ -31,6 +33,7 @@ apps/me-rd-toolkit/
   server/    optional stdlib-only vault server + example config
   vertex/    Vertex sub-app (CAD copilot PWA + stdlib bridge), embedded as a section
   ptb-rdme/  PTB RDME sub-app (overtime/Outlook widget + stdlib server), embedded as a section
+  photo2cad/ Photo2CAD sub-app (PRD + photos -> STEP; MAAS LLM + CadQuery), embedded under R&D Apps
   tests/     hermetic stdlib-only tests
 ```
 
