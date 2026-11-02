@@ -1,0 +1,26 @@
+{
+  "id": "/",
+  "name": "CrewCup — Office Coffee",
+  "short_name": "CrewCup",
+  "description": "Order office coffee solo or as a team, paid by your company allowance. Indonesia & Southeast Asia.",
+  "lang": "id",
+  "dir": "ltr",
+  "start_url": "/?source=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone"],
+  "orientation": "any",
+  "background_color": "#1f2937",
+  "theme_color": "#1f2937",
+  "categories": ["food", "business", "productivity"],
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Order coffee", "short_name": "Order", "url": "/?tab=order&source=shortcut", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "My runs & orders", "short_name": "Runs", "url": "/?tab=runs&source=shortcut", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Café order board", "short_name": "Café", "url": "/?persona=cafe:c_senja&tab=board&source=shortcut", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] }
+  ]
+}

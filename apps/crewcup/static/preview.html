@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>CrewCup — phone preview</title>
+  <link rel="icon" href="/favicon.ico">
+  <style>
+    body { margin: 0; background: #111827; color: #f3f4f6; font-family: "Segoe UI", system-ui, sans-serif; }
+    header { padding: 14px 24px; display: flex; gap: 16px; align-items: baseline; }
+    header h1 { margin: 0; font-size: 20px; }
+    header span { opacity: .7; font-size: 13px; }
+    .phones { display: flex; gap: 28px; padding: 0 24px 24px; overflow-x: auto; }
+    figure { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+    .device { width: 390px; height: 844px; border-radius: 44px; border: 12px solid #000; overflow: hidden; background: #000; box-shadow: 0 20px 60px rgba(0, 0, 0, .5); }
+    iframe { width: 390px; height: 844px; border: 0; display: block; background: #fff; }
+    figcaption { font-size: 13px; opacity: .85; }
+  </style>
+</head>
+<body>
+  <header><h1>CrewCup on phones</h1><span>Each frame is a separate user — act in one, watch the others update live.</span></header>
+  <div class="phones" id="phones"></div>
+  <script>
+    var params = new URLSearchParams(location.search);
+    var live = params.get("live") === "0" ? "&live=0" : "";
+    var lang = params.get("lang") || "id";
+    var frames = (params.get("frames") || "emp:e_andi|home|Andi (employee, Jakarta),emp:e_putri|runs|Putri (runner),cafe:c_senja|board|Kopi Senja (barista)").split(",");
+    var box = document.getElementById("phones");
+    frames.forEach(function (spec) {
+      var parts = spec.split("|");
+      var figure = document.createElement("figure");
+      figure.innerHTML = '<div class="device"><iframe src="/?persona=' + encodeURIComponent(parts[0]) + "&tab=" + parts[1] + "&lang=" + lang + live + '"></iframe></div><figcaption>' + parts[2] + "</figcaption>";
+      box.appendChild(figure);
+    });
+  </script>
+</body>
+</html>

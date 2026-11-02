@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>CrewCup — office coffee for Indonesia & SEA</title>
+  <meta name="description" content="Order office coffee solo or as a team, paid by your company allowance.">
+  <meta name="theme-color" content="#ffffff">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="CrewCup">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/favicon.ico" sizes="any">
+  <link rel="icon" href="/icons/icon-192.png" type="image/png">
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div id="app"><div class="splash"><img src="/icons/icon-192.png" alt="" width="96" height="96"><div>CrewCup</div></div></div>
+  <div id="toasts"></div>
+  <div id="fatal" hidden></div>
+  <script>
+    window.addEventListener("error", function (event) {
+      var box = document.getElementById("fatal");
+      box.hidden = false;
+      box.textContent = "JS error: " + event.message + " @ " + event.filename + ":" + event.lineno;
+    });
+    window.addEventListener("unhandledrejection", function (event) {
+      var box = document.getElementById("fatal");
+      box.hidden = false;
+      box.textContent = "JS error: " + (event.reason && event.reason.stack ? event.reason.stack : event.reason);
+    });
+  </script>
+  <script src="/i18n.js"></script>
+  <script src="/app.js"></script>
+  <script src="/network.js"></script>
+  <script src="/rewards.js"></script>
+  <script src="/loyalty.js"></script>
+</body>
+</html>
