@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="ScopeGuard keeps a business AI assistant on its mission: it allows on-topic requests, steers related ones back, redirects off-topic use and blocks jailbreaks.">
+<meta name="theme-color" content="#0f1420">
+<meta name="color-scheme" content="dark light">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="ScopeGuard">
+<title>ScopeGuard — keep your business AI on-mission</title>
+<script>
+  // Apply the saved theme before first paint so the page never flashes the wrong colours.
+  (function () {
+    var saved = {};
+    try {
+      saved = JSON.parse(localStorage.getItem("scopeguard-settings-v1") || "{}");
+    } catch (error) {
+      saved = {};
+    }
+    var theme = saved.theme || "system";
+    if (theme === "system") {
+      theme = window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+    }
+    document.documentElement.dataset.theme = theme;
+  })();
+</script>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="#/try" aria-label="ScopeGuard home">
+    <span class="brand-mark" aria-hidden="true">◆</span>
+    <span class="brand-name">ScopeGuard</span>
+  </a>
+  <nav class="tabs" aria-label="Sections">
+    <a href="#/try" data-route="try">Try it</a>
+    <a href="#/dashboard" data-route="dashboard">Dashboard</a>
+    <a href="#/policy" data-route="policy">Policy</a>
+    <a href="#/accuracy" data-route="accuracy">Accuracy</a>
+    <a href="#/integrate" data-route="integrate">Integrate</a>
+  </nav>
+  <div class="topbar-tools">
+    <label class="select-label">
+      <span class="visually-hidden">Assistant policy</span>
+      <select id="policy-select" title="Which business assistant to guard"></select>
+    </label>
+    <label class="select-label">
+      <span class="visually-hidden">Theme</span>
+      <select id="theme-select" title="Theme">
+        <option value="system">System</option>
+        <option value="light">Light</option>
+        <option value="dark">Dark</option>
+      </select>
+    </label>
+  </div>
+</header>
+<p class="mission-bar" id="mission-bar"></p>
+<main id="view" tabindex="-1"></main>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+<footer class="footer">
+  Runs entirely in your browser — messages and settings stay on this device.
+  <a href="https://github.com/juw12/projects/tree/main/apps/scopeguard" rel="noopener">Source &amp; self-hosted server</a>
+</footer>
+<script src="engine.js"></script>
+<script src="store.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
