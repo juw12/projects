@@ -1180,6 +1180,47 @@
       "status": "working-prototype",
       "order": 29,
       "portfolio": true
+    },
+    {
+      "id": "kinibuka",
+      "name": "KiniBuka",
+      "category": "Apps",
+      "external": true,
+      "url": "https://github.com/juw12/projects/tree/main/apps/kinibuka",
+      "url_label": "Source",
+      "desc": "Stall discovery for Indonesian UMKM: live open/closed status, branches, bazaars, map, follow alerts and order-ahead with a WhatsApp handoff",
+      "summary": "Find UMKM stalls open right now: live status, branches, bazaars, map, follow alerts and order-ahead via WhatsApp.",
+      "description": "KiniBuka (&ldquo;now open&rdquo;) helps people find small Indonesian food and retail stalls <strong>that are open right now</strong>. A <strong>live feed</strong> shows openings, closings, new branches, promos and bazaars; <strong>Explore</strong> combines search, category filters and an OpenStreetMap <strong>map</strong>. Buyers <strong>follow</strong> stalls to get alerts and <strong>order ahead</strong> with a pickup time, tracking it from accepted to ready to done, with one-tap <strong>WhatsApp</strong> buttons to chat with the seller. Sellers get a dashboard to toggle open/closed, manage branches, menu and promos, run bazaars and handle incoming orders, with optional WhatsApp auto-notifications through Fonnte or the Meta Cloud API. Interface in <strong>Bahasa Indonesia, English and 中文</strong>. Plain Python server (no dependencies) on SQLite.",
+      "tags": [
+        "UMKM",
+        "Marketplace",
+        "Map",
+        "WhatsApp",
+        "Python",
+        "SQLite",
+        "ID / EN / 中文"
+      ],
+      "note_tags": [
+        "kinibuka",
+        "umkm",
+        "marketplace",
+        "local-discovery",
+        "whatsapp",
+        "i18n",
+        "python",
+        "sqlite"
+      ],
+      "image": "kinibuka-card.jpg",
+      "image_alt": "KiniBuka on three phone screens: a live feed of stalls opening and closing, an Explore map with search, and a stall page with menu and order-ahead",
+      "card": {
+        "label": "kinibuka · latest",
+        "theme": "light",
+        "accent": "#0f766e",
+        "accent2": "#2f549e"
+      },
+      "status": "working-prototype",
+      "order": 30,
+      "portfolio": true
     }
   ]
 }
