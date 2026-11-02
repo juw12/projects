@@ -45,6 +45,7 @@ from socketserver import ThreadingMixIn
 from urllib.parse import parse_qs, urlparse
 
 import bridge  # Industrial Connect bridge module (server/bridge.py)
+import inbox  # outreach reply & bounce detection over IMAP (server/inbox.py)
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 WEB_DIR = os.path.join(ROOT, "web")
@@ -526,6 +527,56 @@ def render_outreach_email(lead, step_key):
     return subject, body
 
 
+# A sequence only continues while the lead is in one of these states. Anything else
+# (replied, interested, booked, closed_won, dead, unsubscribed, bounced) stops it.
+OUTREACH_ACTIVE_STATUSES = ("new", "sent", "opened")
+
+
+def cancel_scheduled_outreach(conn, lead_id):
+    """Cancel a lead's not-yet-sent emails. Caller holds _db_lock."""
+    return conn.execute("UPDATE outreach_emails SET status='cancelled' WHERE lead_id=? AND status='scheduled'",
+                        (lead_id,)).rowcount
+
+
+def outreach_send_budget(conn, settings):
+    """How many outreach emails may go out right now: honours daily_send_limit and
+    delay_between_seconds (0 or 1 per scheduler tick). Caller holds _db_lock."""
+    today = datetime.now(timezone.utc).date().isoformat()
+    sent_today = conn.execute("SELECT COUNT(*) AS n FROM outreach_emails WHERE status='sent' AND sent_at >= ?",
+                              (today,)).fetchone()["n"]
+    if sent_today >= int(settings.get("daily_send_limit") or 0):
+        return 0
+    last = conn.execute("SELECT MAX(sent_at) AS t FROM outreach_emails WHERE status='sent'").fetchone()["t"]
+    if last:
+        try:
+            last_dt = datetime.fromisoformat(last)
+            if last_dt.tzinfo is None:
+                last_dt = last_dt.replace(tzinfo=timezone.utc)
+            waited = (datetime.now(timezone.utc) - last_dt).total_seconds()
+            if waited < int(settings.get("delay_between_seconds") or 0):
+                return 0
+        except ValueError:
+            pass
+    return 1
+
+
+def due_outreach_rows(conn, settings, now_iso):
+    """Scheduled outreach emails that may be sent now: due, lead still active, within
+    the daily limit and send delay. Caller holds _db_lock."""
+    budget = outreach_send_budget(conn, settings)
+    if budget <= 0:
+        return []
+    placeholders = ",".join("?" for _ in OUTREACH_ACTIVE_STATUSES)
+    return conn.execute(f"""
+        SELECT oe.id, oe.lead_id
+        FROM outreach_emails oe JOIN leads l ON l.id = oe.lead_id
+        WHERE oe.status = 'scheduled' AND oe.scheduled_at <= ?
+          AND l.status IN ({placeholders})
+        ORDER BY oe.scheduled_at
+        LIMIT ?
+    """, (now_iso, *OUTREACH_ACTIVE_STATUSES, budget)).fetchall()
+
+
 def schedule_outreach_for_lead(lead_id):
     settings = get_outreach_settings()
     with _db_lock, db() as conn:
@@ -797,10 +848,12 @@ _scheduler_lock = threading.Lock()
 
 def scheduler_loop():
     log.info("scheduler started")
+    last_inbox_check = 0.0
     while True:
         try:
             now_iso = utcnow()
             outreach_rows = []
+            outreach_settings = get_outreach_settings()  # takes _db_lock itself
             with _db_lock, db() as conn:
                 rows = conn.execute("""
                     SELECT m.*, c.email AS cust_email, c.phone AS cust_phone,
@@ -830,18 +883,20 @@ def scheduler_loop():
                     )
                 """, (utcnow(),))
 
-                outreach_rows = conn.execute("""
-                    SELECT oe.id, oe.lead_id
-                    FROM outreach_emails oe
-                    WHERE oe.status = 'scheduled' AND oe.scheduled_at <= ?
-                    LIMIT 50
-                """, (now_iso,)).fetchall()
+                outreach_rows = due_outreach_rows(conn, outreach_settings, now_iso)
             # send_outreach_email_now() takes _db_lock itself, so call it outside the lock
             for r in outreach_rows:
                 try:
                     send_outreach_email_now(r["id"])
                 except Exception as e:
                     log.error("outreach send failed for %s: %s", r["id"], e)
+            if inbox.configured(sys.modules[__name__]) and \
+                    time.time() - last_inbox_check >= inbox.settings(sys.modules[__name__])["every"]:
+                last_inbox_check = time.time()
+                try:
+                    inbox.check(sys.modules[__name__])
+                except Exception as e:
+                    log.error("inbox check failed: %s", e)
         except Exception as e:
             log.error("scheduler error: %s", e)
         time.sleep(30)
@@ -1274,9 +1329,12 @@ class Handler(BaseHTTPRequestHandler):
         fields.append("last_action_at = ?")
         params.append(utcnow())
         params.append(lid)
+        cancelled = 0
         with _db_lock, db() as conn:
             conn.execute(f"UPDATE leads SET {', '.join(fields)} WHERE id = ?", params)
-        return json_response(self, 200, {"ok": True})
+            if "status" in data and data["status"] not in OUTREACH_ACTIVE_STATUSES:
+                cancelled = cancel_scheduled_outreach(conn, lid)
+        return json_response(self, 200, {"ok": True, "cancelled_followups": cancelled})
 
     def _api_outreach_send_now(self, path):
         uid = require_auth(self)
@@ -1320,7 +1378,11 @@ class Handler(BaseHTTPRequestHandler):
                              (user_id, client_email, h, salt, lead["business_name"], industry, utcnow()))
             cid = None
             portal = None
-            if data.get("product") == "bridge" or industry in bridge.BRIDGE_INDUSTRIES:
+            rfq = None
+            if (lead["industry"] in bridge.BUYER_INDUSTRIES or industry in bridge.BUYER_INDUSTRIES) \
+                    and data.get("product") != "bridge":
+                rfq = bridge.create_inquiry_for_lead(conn, lead)
+            elif data.get("product") == "bridge" or industry in bridge.BRIDGE_INDUSTRIES:
                 portal = bridge.create_company_for_lead(conn, lead, user_id, client_email)
             else:
                 cid = new_id()
@@ -1329,11 +1391,13 @@ class Handler(BaseHTTPRequestHandler):
                              (cid, user_id, f"{lead['business_name']} - reactivation", industry, utcnow()))
             conn.execute("UPDATE leads SET status='closed_won', last_action_at=? WHERE id=?",
                          (utcnow(), lid))
+            cancel_scheduled_outreach(conn, lid)
         return json_response(self, 200, {
             "ok": True,
             "user_id": user_id,
             "campaign_id": cid,
             "portal": portal,
+            "rfq": rfq,
             "client_email": client_email,
             "client_password": client_password if not user else None,
         })

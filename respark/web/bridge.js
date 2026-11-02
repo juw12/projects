@@ -341,7 +341,148 @@
       '<input id="deal-' + q.id + '" type="number" min="0" placeholder="Deal value" value="' + esc(q.deal_value == null ? "" : q.deal_value) + '">' +
       '<input id="fee-' + q.id + '" type="number" min="0" placeholder="Your success fee" value="' + esc(q.fee == null ? "" : q.fee) + '">' +
       '<textarea id="notes-' + q.id + '" placeholder="Private notes">' + esc(q.notes || "") + "</textarea>" +
-      '<button class="btn btn-dark btn-sm" data-save="' + q.id + '">Save</button></div></div></div>';
+      '<button class="btn btn-dark btn-sm" data-save="' + q.id + '">Save</button></div></div></div>' +
+      (QUOTE_TYPES.indexOf(q.type) >= 0 ? quotesPanel(q) : "");
+  }
+
+  // ------------------------------------------------------------ supplier quotes (RFQ comparison)
+
+  const QUOTE_TYPES = ["customer", "general"];
+
+  function quotesPanel(q) {
+    return '<div class="quotes-box"><h4>Supplier quotes for this RFQ</h4>' +
+      '<p class="muted" style="margin:0 0 10px">Paste a supplier quote (e-mail text, any of EN / 中文 / Bahasa) or attach .xlsx / .csv / .txt / .eml. ' +
+      'Titian extracts prices, tooling, MOQ and lead times, converts to USD and ranks cost per piece at the buyer\'s volumes.</p>' +
+      '<div class="quote-form">' +
+      '<input id="qSupplier-' + q.id + '" placeholder="Supplier name (optional)">' +
+      '<input id="qFile-' + q.id + '" type="file" accept=".xlsx,.xlsm,.csv,.txt,.eml,.pdf">' +
+      '<textarea id="qText-' + q.id + '" placeholder="…or paste the quote here"></textarea>' +
+      '<button class="btn btn-primary btn-sm" data-add-quote="' + q.id + '">Add quote</button></div>' +
+      '<div class="quote-volumes">Target volume <input id="qTarget-' + q.id + '" type="number" min="1" placeholder="auto">' +
+      ' Scenarios <input id="qVolumes-' + q.id + '" placeholder="e.g. 1000,5000,20000">' +
+      ' <button class="btn btn-light btn-sm" data-recalc="' + q.id + '">Recalculate</button></div>' +
+      '<div id="quotes-' + q.id + '"><p class="muted">Loading quotes…</p></div></div>';
+  }
+
+  function usd(value, digits) {
+    return value == null ? "–" : "$" + Number(value).toLocaleString(undefined, { minimumFractionDigits: digits, maximumFractionDigits: digits });
+  }
+
+  function days(value) {
+    return value == null ? "?" : Math.round(value) + " d";
+  }
+
+  function drawQuotes(q, data) {
+    const box = document.getElementById("quotes-" + q.id);
+    if (!box) {
+      return;
+    }
+    document.getElementById("qTarget-" + q.id).placeholder = data.target;
+    const c = data.comparison;
+    if (!c || !c.rows.length) {
+      box.innerHTML = '<p class="muted">No supplier quotes yet.</p>';
+      return;
+    }
+    const vols = c.volumes;
+    const head = "<tr><th>#</th><th>Supplier</th><th>Unit @ " + c.target.toLocaleString() + "</th><th>Tooling</th>" +
+      vols.map(function (v) {
+        return "<th>Cost/pc @ " + v.toLocaleString() + "</th>";
+      }).join("") + "<th>Tooling LT</th><th>Prod LT</th><th>MOQ</th><th>Incoterm</th><th>Open issues</th><th></th></tr>";
+    const body = c.rows.map(function (row, index) {
+      const e = row.evaluation;
+      const t = e.scenarios[String(c.target)];
+      const issues = e.issues.map(function (i) {
+        return '<span class="issue ' + esc(i.severity) + '">' + esc(i.message) + "</span>";
+      }).join("");
+      return "<tr><td>" + (index + 1) + "</td><td><b>" + esc(row.supplier) + "</b><small>" + esc(row.quote.currency || "?") + "</small></td>" +
+        "<td>" + usd(t.unit_usd, 3) + "</td><td>" + usd(e.tooling_usd, 0) + "</td>" +
+        vols.map(function (v) {
+          const s = e.scenarios[String(v)];
+          const best = c.best_by_volume[String(v)] === row.supplier;
+          return '<td class="' + (best ? "best" : "") + (s.notes.length ? " flagged" : "") + '" title="' + esc(s.notes.join("; ")) + '">' +
+            usd(s.cost_per_pc, 2) + (s.notes.length ? " ⚠" : "") + "</td>";
+        }).join("") +
+        "<td>" + days(row.quote.tooling_lead_time_days) + "</td><td>" + days(row.quote.lead_time_days) + "</td>" +
+        "<td>" + esc(row.quote.moq == null ? "?" : row.quote.moq.toLocaleString()) + "</td><td>" + esc(row.quote.incoterm || "?") + "</td>" +
+        '<td class="issues">' + (issues || '<span class="muted">none</span>') + "</td>" +
+        '<td><button class="btn btn-light btn-sm" data-del-quote="' + row.id + '">Remove</button></td></tr>';
+    }).join("");
+    box.innerHTML = '<div class="qtable-wrap"><table class="qtable">' + head + body + "</table></div>" +
+      '<p class="muted" style="margin-top:8px">' + esc(c.formula) + ". Freight/duty is an allowance by Incoterm; FX: " +
+      Object.keys(c.fx).filter(function (k) {
+        return k !== "USD";
+      }).map(function (k) {
+        return k + " " + c.fx[k];
+      }).join(", ") + " per USD (set RESPARK_FX). Green = cheapest at that volume, ⚠ = below MOQ or lowest quoted qty. Verify against the source quote before advising the buyer.</p>";
+    box.querySelectorAll("[data-del-quote]").forEach(function (button) {
+      button.addEventListener("click", function () {
+        api("POST", "/api/ic/quotes/" + button.dataset.delQuote + "/delete").then(function () {
+          loadQuotes(q);
+        }).catch(function (error) {
+          toast(error.message);
+        });
+      });
+    });
+  }
+
+  function loadQuotes(q) {
+    if (!document.getElementById("quotes-" + q.id)) {
+      return;
+    }
+    const target = document.getElementById("qTarget-" + q.id).value;
+    const volumes = document.getElementById("qVolumes-" + q.id).value;
+    const query = "?target=" + encodeURIComponent(target) + "&volumes=" + encodeURIComponent(volumes);
+    api("GET", "/api/ic/inquiries/" + q.id + "/quotes" + query).then(function (data) {
+      drawQuotes(q, data);
+    }).catch(function (error) {
+      toast(error.message);
+    });
+  }
+
+  function bindQuotes(q) {
+    const addButton = document.querySelector('[data-add-quote="' + q.id + '"]');
+    if (!addButton) {
+      return;
+    }
+    loadQuotes(q);
+    document.querySelector('[data-recalc="' + q.id + '"]').addEventListener("click", function () {
+      loadQuotes(q);
+    });
+    addButton.addEventListener("click", function () {
+      const fileInput = document.getElementById("qFile-" + q.id);
+      const textInput = document.getElementById("qText-" + q.id);
+      const payload = { supplier: document.getElementById("qSupplier-" + q.id).value };
+      const send = function () {
+        api("POST", "/api/ic/inquiries/" + q.id + "/quotes", payload).then(function (result) {
+          toast("Quote added: " + result.extracted.supplier);
+          fileInput.value = "";
+          textInput.value = "";
+          document.getElementById("qSupplier-" + q.id).value = "";
+          loadQuotes(q);
+        }).catch(function (error) {
+          toast(error.message);
+        });
+      };
+      const file = fileInput.files[0];
+      if (file) {
+        if (file.size > 400000) {
+          toast("File too large (max 400 KB). Paste the text instead.");
+          return;
+        }
+        const reader = new FileReader();
+        reader.onload = function () {
+          payload.filename = file.name;
+          payload.content_b64 = String(reader.result).split(",")[1] || "";
+          send();
+        };
+        reader.readAsDataURL(file);
+      } else if (textInput.value.trim()) {
+        payload.text = textInput.value;
+        send();
+      } else {
+        toast("Paste a quote or choose a file first");
+      }
+    });
   }
 
   function bindInquiryDetail(q) {
@@ -366,6 +507,7 @@
     panel.addEventListener("click", function (event) {
       event.stopPropagation();
     });
+    bindQuotes(q);
     panel.querySelector("[data-introduce]").addEventListener("click", function () {
       const companyId = document.getElementById("introCompany-" + q.id).value;
       if (!companyId) {

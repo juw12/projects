@@ -28,6 +28,7 @@ Environment variables (all optional):
                               portals and the hub hand chats to this number.
 """
 
+import base64
 import html
 import json
 import os
@@ -37,7 +38,10 @@ import secrets
 import threading
 import time
 import urllib.parse
+import zipfile
 from datetime import datetime, timedelta, timezone
+
+import quotes  # supplier-quote comparison for RFQs (server/quotes.py)
 
 core = None  # the server module, injected by attach()
 
@@ -49,6 +53,7 @@ COMPANY_STATUSES = ("draft", "published", "archived")
 ROUTING_MODES = ("via_bridge", "direct")
 SEEKING_OPTIONS = ("customers", "investment", "suppliers", "partners")
 BRIDGE_INDUSTRIES = ("manufacturer",)
+BUYER_INDUSTRIES = ("hardware_startup",)  # closing these leads opens a customer RFQ
 
 MAX_BODY_BYTES = 600_000
 
@@ -139,6 +144,17 @@ CREATE TABLE IF NOT EXISTS ic_views (
   PRIMARY KEY (company_id, day, page)
 );
 
+CREATE TABLE IF NOT EXISTS ic_quotes (
+  id              TEXT PRIMARY KEY,
+  inquiry_id      TEXT NOT NULL,
+  supplier        TEXT,
+  source_name     TEXT,
+  source_text     TEXT NOT NULL,
+  extracted_json  TEXT NOT NULL,
+  created_at      TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_ic_quotes_inquiry ON ic_quotes(inquiry_id);
 CREATE INDEX IF NOT EXISTS idx_ic_companies_status ON ic_companies(status);
 CREATE INDEX IF NOT EXISTS idx_ic_companies_owner ON ic_companies(owner_user_id);
 CREATE INDEX IF NOT EXISTS idx_ic_inquiries_company ON ic_inquiries(company_id);
@@ -163,9 +179,24 @@ OUTREACH_TEMPLATES = {
             "subject": "Closing the loop",
             "body": "Hi {{contact_name}},\n\nLast note from me. Should I keep {{business_name}} in mind when matching buyers and investors, or take you off my list?\n\nEither way is fine.\n\n- {{operator_name}}",
         },
-    }
+    },
+    # Demand side: hardware startups heading into production. Won leads become customer RFQs.
+    "hardware_startup": {
+        "step1": {
+            "subject": "Production help for {{business_name}}?",
+            "body": "Hi {{contact_name}},\n\nI'm {{operator_name}}. I take consumer electronics from EVT to mass production and work with factories in China and Southeast Asia every day, in Mandarin and Bahasa.\n\nPrototype to production is where most hardware launches slip. If you're getting factory quotes for {{business_name}}, I'm happy to compare them for free and tell you what's missing or risky (MOQ, tooling, lead time, material). No pitch.\n\nThe manufacturers we work with: {{demo_link}}\n\n{{operator_name}}\n{{operator_email}}",
+        },
+        "step2": {
+            "subject": "Re: Production help for {{business_name}}?",
+            "body": "Hi {{contact_name}},\n\nJust bumping this in case it got buried. Offer still stands: if tooling or factory quotes get messy, send them over and I'll take a look.\n\n{{operator_name}}",
+        },
+        "step3": {
+            "subject": "Closing the loop",
+            "body": "Hi {{contact_name}},\n\nNo worries if the timing is off. If you hit a factory issue later (MOQ, lead time, first samples not matching the drawing), feel free to reply here.\n\n{{operator_name}}",
+        },
+    },
 }
-INDUSTRY_LABELS = {"manufacturer": "manufacturing / industrial"}
+INDUSTRY_LABELS = {"manufacturer": "manufacturing / industrial", "hardware_startup": "hardware"}
 
 _rate_lock = threading.Lock()
 _rate_hits = {}
@@ -752,6 +783,28 @@ PAGES = {
 }
 
 
+def create_inquiry_for_lead(conn, lead):
+    """A won buyer lead (e.g. a hardware startup) becomes a customer RFQ in the console,
+    so the operator can attach supplier quotes and introduce manufacturers."""
+    fields = {
+        "name": lead["contact_name"] or "",
+        "email": lead["email"] or "",
+        "company": lead["business_name"] or "",
+        "website": lead["website"] or "",
+        "city": lead["city"] or "",
+        "message": (lead["notes"] or "Converted from outreach lead.")[:MAX_FIELD_CHARS],
+        "source": "outreach",
+    }
+    qid = core.new_id()
+    ref = "IC-" + datetime.now(timezone.utc).strftime("%y%m%d") + "-" + secrets.token_hex(3).upper()
+    conn.execute("""INSERT INTO ic_inquiries(id, ref, company_id, type, name, email, organisation,
+                    fields_json, score, status, created_at, updated_at)
+                    VALUES (?,?,?,?,?,?,?,?,?, 'new', ?,?)""",
+                 (qid, ref, None, "customer", fields["name"][:200], fields["email"],
+                  fields["company"][:200], json.dumps(fields), score_inquiry("customer", fields), now(), now()))
+    return {"id": qid, "ref": ref}
+
+
 def send_file(handler, path, content_type):
     if not os.path.isfile(path):
         handler.send_error(404)
@@ -844,6 +897,9 @@ def handle(handler, method, path, url):
             return api_matches(handler, m.group(1))
         if path == "/api/ic/stats":
             return api_stats(handler)
+        m = re.match(r"^/api/ic/inquiries/([a-f0-9]{32})/quotes$", path)
+        if m:
+            return api_quotes(handler, m.group(1), url)
         return False
 
     if method == "POST":
@@ -873,6 +929,12 @@ def handle(handler, method, path, url):
         m = re.match(r"^/api/ic/intros/([a-f0-9]{32})/accept$", path)
         if m:
             return api_accept_intro(handler, m.group(1))
+        m = re.match(r"^/api/ic/inquiries/([a-f0-9]{32})/quotes$", path)
+        if m:
+            return api_add_quote(handler, m.group(1))
+        m = re.match(r"^/api/ic/quotes/([a-f0-9]{32})/delete$", path)
+        if m:
+            return api_delete_quote(handler, m.group(1))
         m = re.match(r"^/r/([A-Za-z0-9_\-]{16,64})$", path)
         if m:
             return review_submit(handler, m.group(1))
@@ -1688,6 +1750,118 @@ def review_submit(handler, token):
                          (rating, comment, reviewer, now(), row["id"]))
     send_bytes(handler, review_html("Thank you", "<h2>Thank you</h2><p class=\"muted\">Your review has been recorded.</p>"),
                "text/html; charset=utf-8")
+    return True
+
+
+
+# ----- operator: supplier quotes for an RFQ (inquiry)
+
+QUOTE_VOLUME_KEYS = ("quantity", "qty", "volume", "annual", "units", "order")
+
+
+def default_target_volume(fields):
+    """Best guess of the buyer's volume from the inquiry form, else 1000 pcs."""
+    for key, value in (fields or {}).items():
+        if any(k in str(key).lower() for k in QUOTE_VOLUME_KEYS):
+            number = quotes.first_number(str(value))
+            if number and number >= 1:
+                return int(number)
+    return 1000
+
+
+def parse_volumes(raw, target):
+    volumes = []
+    for part in (raw or "").split(","):
+        number = quotes.first_number(part)
+        if number and 1 <= number <= 100_000_000:
+            volumes.append(int(number))
+    if not volumes:
+        volumes = [max(1, target // 5), target, target * 4]
+    return volumes
+
+
+def require_operator_inquiry(handler, qid):
+    uid, operator = require_user(handler)
+    if not uid:
+        return None
+    if not operator:
+        core.json_response(handler, 403, {"error": "operator only"})
+        return None
+    with core._db_lock, core.db() as conn:
+        row = conn.execute("SELECT * FROM ic_inquiries WHERE id=?", (qid,)).fetchone()
+    if not row:
+        core.json_response(handler, 404, {"error": "not found"})
+        return None
+    return row
+
+
+def api_quotes(handler, qid, url):
+    inquiry = require_operator_inquiry(handler, qid)
+    if inquiry is None:
+        return True
+    from urllib.parse import parse_qs
+    params = parse_qs(url.query)
+    fields = json.loads(inquiry["fields_json"] or "{}")
+    target = quotes.first_number((params.get("target") or [""])[0])
+    target = int(target) if target and target >= 1 else default_target_volume(fields)
+    volumes = parse_volumes((params.get("volumes") or [""])[0], target)
+    with core._db_lock, core.db() as conn:
+        rows = conn.execute(
+            "SELECT * FROM ic_quotes WHERE inquiry_id=? ORDER BY created_at", (qid,)).fetchall()
+    items = [{"id": r["id"], "supplier": r["supplier"], "source_name": r["source_name"],
+              "created_at": r["created_at"], "extracted": json.loads(r["extracted_json"])} for r in rows]
+    comparison = quotes.compare(items, target, volumes) if items else None
+    core.json_response(handler, 200, {"quotes": items, "comparison": comparison,
+                                      "target": target, "volumes": sorted(set(volumes) | {target})})
+    return True
+
+
+def api_add_quote(handler, qid):
+    inquiry = require_operator_inquiry(handler, qid)
+    if inquiry is None:
+        return True
+    data, err = body_json(handler)
+    if err or not isinstance(data, dict):
+        core.json_response(handler, 413 if err else 400, {"error": err or "invalid JSON"})
+        return True
+    supplier = str(data.get("supplier") or "").strip()[:120]
+    filename = str(data.get("filename") or "").strip()[:200]
+    try:
+        if data.get("content_b64"):
+            raw = base64.b64decode(str(data["content_b64"]), validate=True)
+            rows = quotes.rows_from_upload(filename or "quote.txt", raw)
+        else:
+            text = str(data.get("text") or "")
+            if not text.strip():
+                core.json_response(handler, 400, {"error": "paste the quote text or attach a file"})
+                return True
+            rows = quotes.rows_from_text(text[:200_000])
+    except (ValueError, KeyError, zipfile.BadZipFile, quotes.ElementTree.ParseError) as e:
+        core.json_response(handler, 400, {"error": f"could not read quote: {e}"})
+        return True
+    extracted = quotes.extract(rows, supplier or filename or "Supplier")
+    if supplier:
+        extracted["supplier"] = supplier
+    quote_id = core.new_id()
+    with core._db_lock, core.db() as conn:
+        conn.execute("""INSERT INTO ic_quotes(id, inquiry_id, supplier, source_name, source_text,
+                          extracted_json, created_at) VALUES (?,?,?,?,?,?,?)""",
+                     (quote_id, qid, extracted["supplier"], filename or "pasted text",
+                      quotes.rows_text(rows)[:200_000], json.dumps(extracted, ensure_ascii=False), now()))
+    core.json_response(handler, 200, {"id": quote_id, "extracted": extracted})
+    return True
+
+
+def api_delete_quote(handler, quote_id):
+    uid, operator = require_user(handler)
+    if not uid:
+        return True
+    if not operator:
+        core.json_response(handler, 403, {"error": "operator only"})
+        return True
+    with core._db_lock, core.db() as conn:
+        cur = conn.execute("DELETE FROM ic_quotes WHERE id=?", (quote_id,))
+    core.json_response(handler, 200 if cur.rowcount else 404, {"ok": bool(cur.rowcount)})
     return True
 
 

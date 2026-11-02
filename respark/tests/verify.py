@@ -272,7 +272,10 @@ def run():
               data.get("daily_send_limit") == 25 and data.get("operator_name") == "Respark")
 
         s, data = c.request("GET", "/api/outreach/stats", expect_status=200)
-        check("outreach stats has by_status", "by_status" in data and data["by_status"].get("new") == 2)
+        # The live scheduler may already have sent step 1 to a lead (one per tick), so count new + sent.
+        by_status = data.get("by_status") or {}
+        check("outreach stats has by_status", "by_status" in data
+              and by_status.get("new", 0) + by_status.get("sent", 0) == 2)
 
         first_lead = leads[0]
         s, data = c.request("POST", f"/api/outreach/leads/{first_lead['id']}/send", {}, expect_status=200)

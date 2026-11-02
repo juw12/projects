@@ -191,3 +191,17 @@ Each is a small addition. Add when needed.
 **Code:** `server/bridge.py` (all bridge logic, ~stdlib only), `web/hub.html`, `web/bridge.html`, `web/bridge.js`, `web/ic/` (portal app, 3D viewer, `template.json` for new companies). Hooks in `server/server.py` are minimal: import, schema, routing, outreach close, email link.
 
 **Tests:** `RESPARK_SECRET=test python tests/verify_bridge.py` (80 checks), alongside `tests/verify.py` (43 checks).
+
+### Supplier quotes + safer outreach (added)
+
+- **Supplier quote comparison** on every customer/general inquiry in `/bridge`: paste a quote (EN / 中文 / Bahasa) or attach xlsx / csv / pdf / eml / txt. Titian reads price breaks, MOQ, tooling, lead time, Incoterm and currency, then ranks suppliers by landed cost per piece at the target volume and at extra scenario volumes.
+  `cost/pc = (unit price x volume + tooling + freight/duty allowance) / volume`. The freight/duty allowance is an **estimate** by Incoterm. Always check the numbers against the source quote.
+  Flags: MOQ above volume, missing tooling / lead time / Incoterm, unknown currency.
+  API (operator only): `GET|POST /api/ic/inquiries/<id>/quotes`, `POST /api/ic/quotes/<id>/delete`. Code: `server/quotes.py` (stdlib; `pypdf` optional for PDF).
+- **Reply and bounce detection** (`server/inbox.py`): the scheduler checks the IMAP inbox. On a reply, the lead becomes `replied`, its follow-ups are cancelled and you get an email. On a bounce, the lead becomes `bounced`.
+- **Follow-ups stop** when a lead leaves `new / sent / opened` (replied, bounced, closed, dead...).
+- **`daily_send_limit` and send delay are enforced** by the scheduler.
+- **Buyer-side outreach:** industry `hardware_startup` uses a sourcing / NPI pitch. *Close* on such a lead creates a customer RFQ inquiry in `/bridge`, ready for supplier quotes.
+
+Settings: `RESPARK_IMAP_HOST`, `RESPARK_IMAP_USER`, `RESPARK_IMAP_PASS`, `RESPARK_IMAP_EVERY`, `RESPARK_FX` (see `.env.example`).
+Tests: `RESPARK_SECRET=test python tests/verify_quotes_outreach.py` (30 checks).

@@ -47,6 +47,23 @@
     .match-score { font-family: var(--mono); font-size: .75rem; color: var(--primary); background: var(--primary-50); border-radius: 5px; padding: 1px 6px; margin-right: 6px; }
     .mini-form { display: grid; gap: 8px; }
     .mini-form textarea { min-height: 70px; }
+.quotes-box { grid-column: 1 / -1; padding: 18px 24px 22px; border-top: 1px solid var(--line); }
+.quotes-box h4 { font-size: .72rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 0 0 8px; }
+.quote-form { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+.quote-form textarea { grid-column: 1 / -1; min-height: 90px; }
+.quote-form button { justify-self: start; }
+.quote-volumes { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: .85rem; margin-bottom: 10px; }
+.quote-volumes input { width: 150px; }
+.qtable-wrap { overflow-x: auto; }
+.qtable { width: 100%; border-collapse: collapse; font-size: .82rem; }
+.qtable th, .qtable td { padding: 7px 8px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; white-space: nowrap; }
+.qtable td small { display: block; color: var(--muted); }
+.qtable td.best { background: #dcfce7; font-weight: 600; }
+.qtable td.flagged { color: #92400e; }
+.qtable td.issues { white-space: normal; min-width: 220px; }
+.issue { display: inline-block; margin: 0 4px 4px 0; padding: 1px 7px; border-radius: 999px; font-size: .74rem; background: #f1f5f9; }
+.issue.high { background: #fee2e2; color: #991b1b; }
+.issue.medium { background: #fef3c7; color: #92400e; }
     .pill-status { font-size: .72rem; font-weight: 600; padding: 2px 8px; border-radius: 6px; background: var(--surface-2); color: var(--ink-3); border: 1px solid var(--line); text-transform: capitalize; white-space: nowrap; }
     .pill-status.won { background: var(--green-50); color: var(--green); border-color: #bbf7d0; }
     .pill-status.new { background: var(--primary-50); color: var(--primary); border-color: var(--primary-100); }
