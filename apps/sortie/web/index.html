@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#f8fafd">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="css/app.css">
+<title>Sortie — file organizer</title>
+</head>
+<body>
+<div class="app">
+
+  <!-- ===================== sidebar (Finder sections, Drive styling) ===================== -->
+  <aside id="sidebar" aria-label="Sidebar">
+    <div class="brand">
+      <button id="wsBtn" class="ws-btn" title="Sortie menu">
+        <span class="mark" data-i="logo"></span>
+        <span class="ws-name">Sortie</span>
+        <span class="ws-chev" data-i="chevron-down"></span>
+      </button>
+      <span id="wsSub" hidden></span>
+    </div>
+    <div class="sb-new">
+      <button id="btnNew" class="new-btn"><span data-i="plus"></span>New</button>
+    </div>
+    <nav class="nav" aria-label="Library">
+      <div class="nav-sec">
+        <div class="nav-title">Favorites</div>
+        <button class="nav-item" data-smart="all"><span class="ni" data-i="inbox"></span><span class="nl">Inbox</span><span class="nc" id="cnt-all"></span></button>
+        <button class="nav-item" data-smart="dupes"><span class="ni" data-i="copy"></span><span class="nl">Duplicates</span><span class="nc" id="cnt-dupes"></span></button>
+        <button class="nav-item" data-smart="big"><span class="ni" data-i="database"></span><span class="nl">Large files</span><span class="nc" id="cnt-big"></span></button>
+        <button class="nav-item" data-smart="old"><span class="ni" data-i="clock"></span><span class="nl">Older than a year</span><span class="nc" id="cnt-old"></span></button>
+      </div>
+      <div class="nav-sec">
+        <div class="nav-title"><span>Folders</span><button id="btnNewFolder" class="nav-add" title="New folder (N)"><span data-i="plus"></span></button></div>
+        <div id="folderList"></div>
+      </div>
+      <div class="nav-sec">
+        <div class="nav-title">Tags</div>
+        <div id="tagList"></div>
+      </div>
+    </nav>
+    <div class="sb-foot">
+      <div class="nav-item folder bag" id="bagRow" data-folder="__bag" tabindex="0" title="Vacuum bag — deleted files, restorable until emptied">
+        <span class="ficon"><span class="fi-closed" data-i="trash"></span><span class="fi-open" data-i="trash"></span></span>
+        <span class="nl">Vacuum bag</span>
+        <span class="count zero"></span>
+      </div>
+      <div class="storage">
+        <div class="storage-bar" id="storageBar"></div>
+        <div class="storage-text"><span id="storageTotal"></span> waiting in Inbox</div>
+        <button id="btnStorageSort" class="pill-btn">Sort everything</button>
+      </div>
+    </div>
+  </aside>
+  <div id="scrim"></div>
+
+  <!-- ===================== header (Drive) ===================== -->
+  <header id="topbar">
+    <button id="btnHamburger" class="icon-btn" title="Menu"><span data-i="menu"></span></button>
+    <div class="search">
+      <span class="search-ic" data-i="search"></span>
+      <input id="search" type="search" placeholder="Search in Sortie" autocomplete="off">
+      <kbd>/</kbd>
+      <button id="btnFilterMenu" class="icon-btn small" title="Search options"><span data-i="sliders"></span></button>
+    </div>
+    <div class="tb-actions">
+      <button id="btnUndo" class="icon-btn" title="Undo (Ctrl+Z)"><span data-i="undo"></span></button>
+      <button id="btnPalette" class="icon-btn" title="Command palette (Ctrl+K)"><span data-i="command"></span></button>
+      <button id="btnSettings" class="icon-btn" title="Settings (Ctrl+,)"><span data-i="sliders"></span></button>
+      <button id="btnChat" class="ai-btn" title="Assistant (Ctrl+J)"><span data-i="assistant"></span><span class="lbl">Ask AI</span></button>
+    </div>
+  </header>
+
+  <!-- ===================== content card ===================== -->
+  <main class="main-col">
+    <div class="card-head">
+      <div class="ch-left">
+        <button id="btnBack" class="icon-btn small" title="Back"><span data-i="chevron-left"></span></button>
+        <button id="btnFwd" class="icon-btn small" title="Forward"><span data-i="chevron-right"></span></button>
+        <button id="titleBtn" class="title-btn" title="Actions">
+          <span id="pageIcon" class="page-icon" hidden></span>
+          <h1 id="pageTitle">Inbox</h1>
+          <span data-i="chevron-down"></span>
+        </button>
+      </div>
+      <div class="ch-right">
+        <div class="ch-tools" id="inboxTools">
+          <select id="mode" title="How Sort groups files">
+            <option value="smart">Smart rules + type</option>
+            <option value="type">File type</option>
+            <option value="date">Month</option>
+            <option value="size">Size</option>
+          </select>
+          <button id="btnSort" class="tonal-btn" title="Sort (S)"><span data-i="wand"></span><span id="sortLbl">Sort all</span></button>
+          <div class="seg" role="group" aria-label="View">
+            <button id="btnList" class="seg-btn" title="List view"><span class="seg-check" data-i="check"></span><span data-i="list"></span></button>
+            <button id="btnGrid" class="seg-btn" title="Grid view"><span class="seg-check" data-i="check"></span><span data-i="grid"></span></button>
+          </div>
+        </div>
+        <button id="btnDetails" class="icon-btn" title="View details (I)"><span data-i="info"></span></button>
+      </div>
+    </div>
+    <div id="pageSub" hidden></div>
+
+    <div class="filter-row" id="filterRow">
+      <div id="chips" class="chips"></div>
+      <div id="selBar" class="selbar" hidden>
+        <button id="btnSelClear" class="icon-btn small" title="Clear selection"><span data-i="x"></span></button>
+        <span id="selCount">0 selected</span>
+        <span class="sel-div"></span>
+        <button id="btnSelSort" class="icon-btn small" title="Sort selected"><span data-i="wand"></span></button>
+        <button id="btnSelMove" class="icon-btn small" title="Move to"><span data-i="folder-move"></span></button>
+        <button id="btnSelRename" class="icon-btn small" title="Rename"><span data-i="edit"></span></button>
+        <button id="btnVac" class="icon-btn small" title="Vacuum (Delete)"><span data-i="trash"></span><span id="vacLbl" class="sr-only">Vacuum</span></button>
+        <button id="btnSelMore" class="icon-btn small" title="More actions"><span data-i="more-vert"></span></button>
+      </div>
+    </div>
+
+    <div id="content">
+      <section id="inboxView">
+        <div id="folderStripWrap">
+          <div class="sec-label">Folders</div>
+          <div id="folderStrip"></div>
+        </div>
+        <div class="sec-label" id="filesLabel">Files</div>
+        <div id="filesWrap">
+          <div class="list-head" id="listHead">
+            <span></span><span></span>
+            <button data-order="name">Name</button>
+            <button data-order="date">Date Modified</button>
+            <button data-order="size">Size</button>
+            <button data-order="type">Kind</button>
+            <span></span>
+          </div>
+          <div id="files"></div>
+        </div>
+        <div id="empty" class="empty-state">
+          <div>
+            <div class="empty-icon" data-i="check-circle"></div>
+            <h2>Inbox is clear</h2>
+            <p>Every file has been sorted. Open a folder or add files to continue.</p>
+          </div>
+        </div>
+        <div id="noMatch" class="empty-state">
+          <div>
+            <div class="empty-icon" data-i="search"></div>
+            <h2>No matching files</h2>
+            <p>Try a different search or filter.</p>
+            <button id="clearFilter" class="btn">Clear filters</button>
+          </div>
+        </div>
+      </section>
+      <section id="folderView" hidden></section>
+    </div>
+
+    <footer id="statusbar">
+      <div class="pathbar">
+        <span class="pb-ic" data-i="layers"></span>
+        <span id="crumbRoot">Demo files</span>
+        <span class="sep" data-i="chevron-right"></span>
+        <span class="pb-ic" data-i="folder"></span>
+        <span id="crumbHere">Inbox</span>
+      </div>
+      <span class="spacer"></span>
+      <span id="statusCounts"></span>
+      <span id="statusSource" class="src-badge"></span>
+    </footer>
+  </main>
+
+  <!-- ===================== details / assistant card ===================== -->
+  <aside id="panel" aria-label="Details and assistant">
+    <div class="panel-inner">
+      <div class="panel-tabs">
+        <div class="ptabs">
+          <button class="ptab" data-tab="details">Details</button>
+          <button class="ptab" data-tab="assistant"><span data-i="assistant"></span>Assistant</button>
+        </div>
+        <span class="spacer"></span>
+        <button id="panelClose" class="icon-btn small" title="Close"><span data-i="x"></span></button>
+      </div>
+      <div id="details" class="pane"></div>
+      <section id="chat" class="pane" hidden>
+        <div class="chat-head">
+          <div id="chatProvider" class="sub">Built-in helper · offline</div>
+          <button id="chatMenu" class="icon-btn small" title="Assistant options"><span data-i="more"></span></button>
+        </div>
+        <div id="chatLog"></div>
+        <div id="chatSuggest"></div>
+        <form id="chatForm">
+          <textarea id="chatInput" rows="1" placeholder="Describe what you want, e.g. “move all PDFs into Documents”"></textarea>
+          <button id="chatSend" class="icon-btn send" type="submit" title="Send (Enter)"><span data-i="send"></span></button>
+        </form>
+      </section>
+    </div>
+  </aside>
+</div>
+
+<input id="filePick" type="file" multiple hidden>
+<div id="fx"></div>
+<div id="menus"></div>
+<div id="modalRoot"></div>
+<div id="toast"></div>
+
+<svg id="vac" viewBox="0 0 240 150" aria-hidden="true">
+  <defs>
+    <linearGradient id="vg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#6b7384"/>
+      <stop offset="1" stop-color="#454c5a"/>
+    </linearGradient>
+    <clipPath id="win"><rect x="150" y="72" width="40" height="30" rx="8"/></clipPath>
+  </defs>
+  <g id="rig">
+    <path d="M96 46 C 110 18, 138 28, 142 84" stroke="#2a2f3a" stroke-width="10" fill="none" stroke-linecap="round"/>
+    <path d="M96 46 C 110 18, 138 28, 142 84" stroke="#4a5262" stroke-width="10" fill="none" stroke-dasharray="2 4"/>
+    <line x1="30" y1="124" x2="96" y2="46" stroke="#b9bfcc" stroke-width="6" stroke-linecap="round"/>
+    <path id="suckPath" d="M30 124 L96 46 C 110 18, 138 28, 142 84" fill="none" stroke="none"/>
+    <circle id="lump" r="7.5" fill="#4a5262" opacity="0"/>
+    <rect x="4" y="121" width="50" height="15" rx="5" fill="#2a2f3a"/>
+    <rect x="9" y="134" width="40" height="3.5" rx="1.75" fill="var(--accent)"/>
+    <g id="vbody">
+      <path d="M170 60 Q 190 40 212 60" stroke="#7b8394" stroke-width="7" fill="none" stroke-linecap="round"/>
+      <rect x="132" y="58" width="104" height="72" rx="30" fill="url(#vg)"/>
+      <rect x="132" y="104" width="104" height="5" fill="var(--accent)" opacity=".9"/>
+      <rect x="150" y="72" width="40" height="30" rx="8" fill="#1d2129"/>
+      <rect id="bagFill" x="150" y="102" width="40" height="0" fill="#9aa3b5" clip-path="url(#win)"/>
+      <rect x="150" y="72" width="40" height="30" rx="8" fill="none" stroke="#ffffff33" stroke-width="1.5"/>
+      <circle cx="214" cy="82" r="5" fill="#1d2129"/>
+      <circle id="vacLed" cx="214" cy="82" r="2.5" fill="#30a46c"/>
+    </g>
+    <g class="wheel"><circle cx="156" cy="132" r="13" fill="#1d2129" stroke="#5b6272" stroke-width="3"/><line x1="156" y1="121" x2="156" y2="143" stroke="#5b6272" stroke-width="2.5"/></g>
+    <g class="wheel"><circle cx="214" cy="132" r="13" fill="#1d2129" stroke="#5b6272" stroke-width="3"/><line x1="214" y1="121" x2="214" y2="143" stroke="#5b6272" stroke-width="2.5"/></g>
+  </g>
+</svg>
+
+<script src="js/icons.js"></script>
+<script src="js/core.js"></script>
+<script src="js/effects.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/layout.js"></script>
+<script src="js/ops.js"></script>
+<script src="js/assistant.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
