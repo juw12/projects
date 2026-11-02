@@ -1272,7 +1272,7 @@
       "name": "ScopeGuard",
       "category": "AI",
       "desc": "Keeps a business AI assistant on its mission: allows on-topic requests, steers related ones, redirects off-topic use and blocks jailbreaks",
-      "summary": "Stop users turning your business AI into a free ChatGPT: allow, steer, redirect or block every message, and see what they really want.",
+      "summary": "Stop users turning your business AI into a free ChatGPT: allow, steer, redirect or block every message.",
       "description": "ScopeGuard sits between your users and your AI assistant and keeps it on its <strong>mission</strong>. Every message gets one of five decisions: <strong>allow</strong> on-mission requests, answer <strong>related</strong> ones briefly and steer back, <strong>redirect</strong> off-topic use without ever calling the LLM, <strong>throttle</strong> repeat offenders after a daily allowance, and <strong>block</strong> jailbreaks and prompt injection. The app runs the guard <strong>entirely in the browser</strong>: chat as different users, simulate traffic, and watch a dashboard of off-mission share, estimated LLM cost avoided, <strong>unmet-demand themes</strong> and flagged users. A review queue teaches the classifier instantly. Edit, import and export policies, with templates for a CAD copilot, a bank and an online store. An Accuracy page measures it on held-out test sets (85% served-vs-stopped on a never-tuned set) or your own cases. For production, the same engine ships as a <strong>self-hosted, standard-library Python server</strong> with a check API and an OpenAI-compatible proxy.",
       "tags": [
         "AI guardrails",
