@@ -28,6 +28,20 @@ Git Credential Manager (`credential.helper=manager`) stores the token in the
 Windows Credential Manager (encrypted) or in `gh`'s OS keyring. The URL itself
 never contains a secret.
 
+## Non-interactive scripts that only have GITHUB_TOKEN
+
+Do not put the token in the remote URL. Pass it as a one-off header for the
+single push, so nothing is written to `.git/config`:
+
+```powershell
+$basic = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes("x-access-token:$($env:GITHUB_TOKEN)"))
+git -c "http.extraheader=Authorization: Basic $basic" push -u origin main
+```
+
+`agency-starter/scripts/launch.ps1` uses this pattern (and rewrites any old
+token-bearing remote back to a clean URL). The pre-push guard only flags a
+*stored* `http.extraheader` (local/global config), so this one-off form passes.
+
 ## Check a repo for a leaked token
 
 ```powershell

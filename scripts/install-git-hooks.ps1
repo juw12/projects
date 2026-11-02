@@ -25,10 +25,11 @@ if printf '%s' "$url" | grep -Eq 'gh[pousr]_[A-Za-z0-9]{20,}'; then
   echo "Fix: git remote set-url origin https://github.com/<owner>/<repo>.git" >&2
   exit 1
 fi
-extra=$(git config --get http.extraheader 2>/dev/null)
-if printf '%s' "$extra" | grep -Eiq 'authorization'; then
-  echo "ERROR: http.extraheader contains credentials." >&2
-  echo "Fix: git config --unset http.extraheader" >&2
+local_extra=$(git config --local --get http.extraheader 2>/dev/null)
+global_extra=$(git config --global --get http.extraheader 2>/dev/null)
+if printf '%s %s' "$local_extra" "$global_extra" | grep -Eiq 'authorization'; then
+  echo "ERROR: a stored http.extraheader contains credentials." >&2
+  echo "Fix: git config --local --unset-all http.extraheader (or --global)" >&2
   exit 1
 fi
 exit 0
