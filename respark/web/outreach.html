@@ -15,6 +15,7 @@
       <span>Respark <span style="color:var(--ink-3);font-weight:500;font-size:14px;">/ outreach</span></span>
     </a>
     <div class="nav-links">
+      <a href="/bridge">Bridge</a>
       <a href="/app">← App</a>
       <span id="who" class="who"></span>
       <button id="logoutBtn" class="btn btn-ghost">Log out</button>
@@ -106,6 +107,7 @@ Bright Smile Dental,Sarah Chen,sarah@brightsmile.com,dentist,Austin"></textarea>
           <option value="mechanic">Mechanic</option>
           <option value="realtor">Realtor</option>
           <option value="restaurant">Restaurant</option>
+          <option value="manufacturer">Manufacturer (bridge)</option>
         </select>
         <button id="refreshLeads" class="btn btn-ghost">Refresh</button>
       </div>
@@ -136,6 +138,7 @@ Bright Smile Dental,Sarah Chen,sarah@brightsmile.com,dentist,Austin"></textarea>
           <option value="mechanic">Mechanic</option>
           <option value="realtor">Realtor</option>
           <option value="restaurant">Restaurant</option>
+          <option value="manufacturer">Manufacturer (bridge client: account + draft portal)</option>
         </select>
       </div>
       <div class="row">
@@ -295,7 +298,9 @@ $("#closeForm").onsubmit = async (e) => {
   });
   if (ok) {
     msg.classList.add("ok");
-    let txt = `Onboarded. Campaign ${data.campaign_id.slice(0,8)} created.`;
+    let txt = data.portal
+      ? `Bridge client onboarded. Draft portal: ${data.portal.portal_url} (edit and publish it in /bridge).`
+      : `Onboarded. Campaign ${data.campaign_id.slice(0,8)} created.`;
     if (data.client_password) txt += ` Temp password: ${data.client_password}`;
     msg.textContent = txt;
     loadStats(); loadLeads();
