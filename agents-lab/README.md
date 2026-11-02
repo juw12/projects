@@ -1,16 +1,17 @@
 # agents-lab — build, run, and wire AI agents
 
-One lab: **four ways to build an agent**, a cooperating workflow, and integration
+One lab: **five ways to build an agent**, a cooperating workflow, and integration
 into **Virtual Bots Office**. Everything runs **locally and free** (Ollama
 `qwen3:8b`) — no API keys required.
 
-## The four agents
+## The five agents
 | Track | Agent | What it is | Run it |
 | --- | --- | --- | --- |
 | **A** | Dev Helper | VS Code / Copilot custom agent (`.agent.md`) | open `A-vscode-agent` in VS Code → Copilot Chat → **Dev Helper** |
 | **B** | Scout (research) | research assistant → structured brief (Summary / Key points / Sources); Markdown brain + runnable `scout.py` | `..\D-langgraph-agent\.venv\Scripts\python.exe B-km-agent\scout.py "https://…"` |
 | **C** | Hermes | standalone terminal/messaging agent (Nous Research, MIT) | restart terminal → `hermes setup` → `hermes` |
 | **D** | LangGraph agent | Python ReAct agent (tools + memory + guardrails + tracing + MCP) | `cd D-langgraph-agent` → `.\.venv\Scripts\python.exe agent.py "What is 23*47?"` |
+| **E** | E-coder | stdlib-only coding agent (read/write/run + guardrails + gitignore-aware context; zero deps) | `cd E-coder` → `python coder.py "<task>" --repo ..\..` |
 
 ## What D includes
 - **Tools** — `calculator`, `current_time`, `read_text_file` (+ any MCP tools)
