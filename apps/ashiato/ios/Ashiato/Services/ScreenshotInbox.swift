@@ -126,7 +126,7 @@ final class ScreenshotInbox {
     /// Local identifiers differ per device; store the cloud identifier so synced clips resolve elsewhere.
     private func resolveCloudIdentifiers(context: ModelContext) {
         let descriptor = FetchDescriptor<Clip>(predicate: #Predicate { $0.cloudIdentifier == nil })
-        guard let clips = try? context.fetch(descriptor), !clips.isEmpty else { return }
+        guard Self.canReadLibrary, let clips = try? context.fetch(descriptor), !clips.isEmpty else { return }
         let mappings = PHPhotoLibrary.shared().cloudIdentifierMappings(forLocalIdentifiers: clips.map(\.assetIdentifier))
         for clip in clips {
             if case .success(let cloudIdentifier) = mappings[clip.assetIdentifier] {
@@ -163,11 +163,19 @@ final class ScreenshotInbox {
         let descriptor = FetchDescriptor<Clip>(predicate: #Predicate { $0.statusRaw == "letGo" })
         let queued = try context.fetch(descriptor)
         guard !queued.isEmpty else { return 0 }
-        let assets = PHAsset.fetchAssets(withLocalIdentifiers: queued.map(\.assetIdentifier), options: nil)
+        // Sample clips have no Photos asset behind them; just forget them.
+        let samples = queued.filter { $0.assetIdentifier.hasPrefix(DemoData.clipPrefix) }
+        samples.forEach(context.delete)
+        let real = queued.filter { !$0.assetIdentifier.hasPrefix(DemoData.clipPrefix) }
+        guard !real.isEmpty, Self.canReadLibrary else {
+            try context.save()
+            return samples.count
+        }
+        let assets = PHAsset.fetchAssets(withLocalIdentifiers: real.map(\.assetIdentifier), options: nil)
         try await PHPhotoLibrary.shared().performChanges {
             PHAssetChangeRequest.deleteAssets(assets)
         }
-        queued.forEach(context.delete)
+        real.forEach(context.delete)
         try context.save()
         return queued.count
     }
@@ -182,11 +190,46 @@ final class ScreenshotInbox {
 
     // MARK: Images
 
+    /// True only when Photos access was already granted. PhotoKit fetches made before that
+    /// trigger the system permission alert, so every read path checks this first.
+    static var canReadLibrary: Bool {
+        switch PHPhotoLibrary.authorizationStatus(for: .readWrite) {
+        case .authorized, .limited: true
+        default: false
+        }
+    }
+
     func image(for clip: Clip, longestSide: CGFloat = 900) async -> UIImage? {
-        guard let asset = PHAsset.fetchAssets(withLocalIdentifiers: [clip.assetIdentifier], options: nil).firstObject else {
+        if clip.assetIdentifier.hasPrefix(DemoData.clipPrefix) {
+            return Self.demoScreenshot(text: clip.ocrText)
+        }
+        guard Self.canReadLibrary,
+              let asset = PHAsset.fetchAssets(withLocalIdentifiers: [clip.assetIdentifier], options: nil).firstObject else {
             return nil
         }
         return await image(for: asset, longestSide: longestSide)
+    }
+
+    /// Stand-in "screenshot" for demo clips: a phone-shaped page showing the clip's text.
+    static func demoScreenshot(text: String) -> UIImage {
+        let size = CGSize(width: 390, height: 780)
+        return UIGraphicsImageRenderer(size: size).image { _ in
+            UIColor(red: 0.98, green: 0.97, blue: 0.94, alpha: 1).setFill()
+            UIRectFill(CGRect(origin: .zero, size: size))
+            UIColor(red: 0.85, green: 0.72, blue: 0.56, alpha: 1).setFill()
+            UIRectFill(CGRect(x: 0, y: 0, width: size.width, height: 96))
+            let paragraph = NSMutableParagraphStyle()
+            paragraph.lineSpacing = 8
+            let attributes: [NSAttributedString.Key: Any] = [
+                .font: UIFont.systemFont(ofSize: 30, weight: .semibold),
+                .foregroundColor: UIColor(red: 0.24, green: 0.2, blue: 0.17, alpha: 1),
+                .paragraphStyle: paragraph,
+            ]
+            (text as NSString).draw(
+                in: CGRect(x: 32, y: 140, width: size.width - 64, height: size.height - 180),
+                withAttributes: attributes
+            )
+        }
     }
 
     func image(for asset: PHAsset, longestSide: CGFloat) async -> UIImage? {
@@ -206,7 +249,8 @@ final class ScreenshotInbox {
     /// Rough on-disk size for the "about x MB freed" line. PhotoKit has no public file-size API,
     /// so estimate from pixels (iPhone PNG/HEIC screenshots average ~0.5 byte per pixel).
     static func estimatedBytes(of identifier: String) -> Int64 {
-        guard let asset = PHAsset.fetchAssets(withLocalIdentifiers: [identifier], options: nil).firstObject else { return 0 }
+        guard canReadLibrary,
+              let asset = PHAsset.fetchAssets(withLocalIdentifiers: [identifier], options: nil).firstObject else { return 0 }
         return Int64(Double(asset.pixelWidth * asset.pixelHeight) * 0.5)
     }
 

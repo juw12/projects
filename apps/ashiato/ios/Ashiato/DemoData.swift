@@ -6,6 +6,9 @@ import UIKit
 /// Lives only in an in-memory store, so it never mixes with a real diary.
 @MainActor
 enum DemoData {
+    /// Asset identifiers of sample clips start with this, so PhotoKit is never asked about them.
+    nonisolated static let clipPrefix = "demo-clip-"
+
     private struct SampleDay {
         let daysAgo: Int
         let weather: SceneKey.Weather
@@ -120,7 +123,7 @@ enum DemoData {
 
         for (index, sample) in sampleClips.enumerated() {
             let captured = calendar.date(byAdding: .day, value: -sample.daysAgo, to: now) ?? now
-            let clip = Clip(assetIdentifier: "demo-clip-\(index)", capturedAt: captured)
+            let clip = Clip(assetIdentifier: "\(clipPrefix)\(index)", capturedAt: captured)
             clip.ocrText = sample.text
             clip.suggestedDrawerRaw = sample.drawer.rawValue
             clip.drawerRaw = sample.drawer.rawValue

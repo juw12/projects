@@ -22,8 +22,9 @@ targets:
     sources:
       - path: Ashiato
       - path: Shared
-    resources:
+      # XcodeGen has no target-level `resources:` key; resources are sources with a resources build phase.
       - path: Resources
+        buildPhase: resources
     info:
       path: Ashiato/Info.plist
       properties:
@@ -60,8 +61,8 @@ targets:
     sources:
       - path: Widgets
       - path: Shared
-    resources:
       - path: Resources/Scenes
+        buildPhase: resources
     info:
       path: Widgets/Info.plist
       properties:
@@ -80,9 +81,10 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: app.ashiato.tests
     sources:
       - path: AshiatoTests
-    resources:
       - path: Resources/clip_lexicon.json
+        buildPhase: resources
       - path: ../prototypes/tidy/expected.json   # golden file from tidy.py --export-expected
+        buildPhase: resources
     dependencies:
       - target: Ashiato
 schemes:
