@@ -1,4 +1,45 @@
-# Respark - Customer Reactivation SaaS
+<!-- HERO:START -->
+<p align="center">
+  <a href="https://github.com/juw12/projects/tree/main/respark"><img src="docs/media/banner.jpg" alt="Respark: Win back customers, and bridge industrial suppliers." width="100%"></a>
+</p>
+
+<p align="center">
+  <b>Win back customers, and bridge industrial suppliers.</b><br>
+  Customer reactivation for local service businesses, plus Titian: a broker-run B2B bridge for manufacturers in Southeast Asia.
+</p>
+
+<p align="center">
+  <a href="#highlights">Highlights</a> ·
+  <a href="https://github.com/juw12">More by juw12</a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/juw12/projects/tree/main/respark"><img src="https://img.shields.io/github/last-commit/juw12/projects?path=respark&label=updated&color=0f766e" alt="Last updated"></a>
+  <img src="https://img.shields.io/badge/Self--hosted-24292f" alt="Self-hosted">
+  <img src="https://img.shields.io/badge/Python_%2B_SQLite-24292f" alt="Python + SQLite">
+  <img src="https://img.shields.io/badge/license-MIT-0f766e" alt="MIT license">
+</p>
+
+<a id="highlights"></a>
+<table>
+  <tr>
+    <td width="33%" valign="top">
+      <b>Win back dormant customers</b><br>
+      Finds customers who stopped coming and re-engages them.
+    </td>
+    <td width="33%" valign="top">
+      <b>Titian bridge mode</b><br>
+      B2B showcase portals with an interactive 3D catalog, RFQ basket and supplier portal.
+    </td>
+    <td width="33%" valign="top">
+      <b>Zero dependencies</b><br>
+      Python standard library and SQLite, with a test suite.
+    </td>
+  </tr>
+</table>
+<!-- HERO:END -->
+
+## About
 
 Zero-dependency Python stdlib + SQLite. Re-engages dormant customers for local service businesses.
 

@@ -1,4 +1,59 @@
-# Airiz Motor Test Console
+<!-- HERO:START -->
+<p align="center">
+  <a href="https://juw12.github.io/projects/airiz-motor/"><img src="docs/media/banner.jpg" alt="Airiz Motor: A motor test console for desktop, phone and web." width="100%"></a>
+</p>
+
+<p align="center">
+  <b>A motor test console for desktop, phone and web.</b><br>
+  USB jog, remote control and camera by code, live device checks and a camera-based wobble test.
+</p>
+
+<p align="center">
+  <a href="https://juw12.github.io/projects/airiz-motor/"><b>Try it live</b></a> ·
+  <a href="https://github.com/juw12/projects/releases/tag/airiz-desktop-v1.11.25"><b>Download</b></a> ·
+  <a href="#see-it-in-action">See it in action</a> ·
+  <a href="#highlights">Highlights</a> ·
+  <a href="https://github.com/juw12">More by juw12</a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/juw12/projects/tree/main/apps/airiz-motor"><img src="https://img.shields.io/github/last-commit/juw12/projects?path=apps%2Fairiz-motor&label=updated&color=a3e635" alt="Last updated"></a>
+  <a href="https://github.com/juw12/projects/releases/tag/airiz-desktop-v1.11.25"><img src="https://img.shields.io/badge/download-airiz--desktop--v1.11.25-a3e635" alt="Download"></a>
+  <a href="https://juw12.github.io/projects/airiz-motor/"><img src="https://img.shields.io/badge/demo-live-2ea44f" alt="Live demo"></a>
+  <img src="https://img.shields.io/badge/Windows-24292f" alt="Windows">
+  <img src="https://img.shields.io/badge/Android-24292f" alt="Android">
+  <img src="https://img.shields.io/badge/iPhone-24292f" alt="iPhone">
+  <img src="https://img.shields.io/badge/Web-24292f" alt="Web">
+  <img src="https://img.shields.io/badge/license-MIT-a3e635" alt="MIT license">
+</p>
+
+<a id="highlights"></a>
+<table>
+  <tr>
+    <td width="33%" valign="top">
+      <b>USB jog and remote</b><br>
+      Drive the rig over USB or remotely by code.
+    </td>
+    <td width="33%" valign="top">
+      <b>Live device checks</b><br>
+      See device health while you test.
+    </td>
+    <td width="33%" valign="top">
+      <b>Wobble grading</b><br>
+      A camera-based wobble test grades the rising head 1 to 4.
+    </td>
+  </tr>
+</table>
+
+## See it in action
+
+<p align="center">
+  <a href="https://juw12.github.io/projects/airiz-motor/"><img src="docs/media/demo.png" alt="Airiz Motor screenshot" width="820"></a><br>
+  <sub>Open the interactive demo at <a href="https://juw12.github.io/projects/airiz-motor/">juw12.github.io/projects/airiz-motor/</a></sub>
+</p>
+<!-- HERO:END -->
+
+## About
 
 Owner: **Juwen Lie** · Team: **Ziris PTB** (co-admins and testers)
 

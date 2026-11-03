@@ -1,4 +1,53 @@
-# CrewCup
+<!-- HERO:START -->
+<p align="center">
+  <a href="https://github.com/juw12/projects/tree/main/apps/crewcup"><img src="docs/media/banner.jpg" alt="CrewCup: Office coffee for teams." width="100%"></a>
+</p>
+
+<p align="center">
+  <b>Office coffee for teams.</b><br>
+  Order your usual in one tap or join a group coffee run, paid from the company allowance.
+</p>
+
+<p align="center">
+  <a href="#see-it-in-action">See it in action</a> ·
+  <a href="#highlights">Highlights</a> ·
+  <a href="https://github.com/juw12">More by juw12</a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/juw12/projects/tree/main/apps/crewcup"><img src="https://img.shields.io/github/last-commit/juw12/projects?path=apps%2Fcrewcup&label=updated&color=92400e" alt="Last updated"></a>
+  <img src="https://img.shields.io/badge/Web-24292f" alt="Web">
+  <img src="https://img.shields.io/badge/Python_%2B_SQLite-24292f" alt="Python + SQLite">
+  <img src="https://img.shields.io/badge/license-MIT-92400e" alt="MIT license">
+</p>
+
+<a id="highlights"></a>
+<table>
+  <tr>
+    <td width="33%" valign="top">
+      <b>Group coffee runs</b><br>
+      One tap for your usual, or join the run a colleague started.
+    </td>
+    <td width="33%" valign="top">
+      <b>Company allowance</b><br>
+      HR budgets, an audit log, rewards, points, tiers and coupons.
+    </td>
+    <td width="33%" valign="top">
+      <b>Café order board</b><br>
+      Partner cafés see every order and check company badges at pickup.
+    </td>
+  </tr>
+</table>
+
+## See it in action
+
+<p align="center">
+  <a href="https://github.com/juw12/projects/tree/main/apps/crewcup"><img src="screenshots/v9_home.png" alt="CrewCup screenshot" width="820"></a><br>
+  <sub>CrewCup in use</sub>
+</p>
+<!-- HERO:END -->
+
+## About
 
 Office coffee for teams in Indonesia and Southeast Asia: order solo or as a group "coffee run", pay with the company allowance, pick up at partner cafés with your company badge, and earn rewards.
 

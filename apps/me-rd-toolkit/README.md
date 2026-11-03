@@ -1,4 +1,57 @@
-# Datum Bench
+<!-- HERO:START -->
+<p align="center">
+  <a href="https://juw12.github.io/projects/me-rd-toolkit/index.html"><img src="docs/media/banner.jpg" alt="Datum Bench: The free workbench for mechanical and hardware engineers." width="100%"></a>
+</p>
+
+<p align="center">
+  <b>The free workbench for mechanical and hardware engineers.</b><br>
+  NPI task flow, review checklists, an issue log and 11 engineering calculators in one place.
+</p>
+
+<p align="center">
+  <a href="https://juw12.github.io/projects/me-rd-toolkit/index.html"><b>Try it live</b></a> ·
+  <a href="https://github.com/juw12/projects/releases/tag/me-rd-toolkit"><b>Download</b></a> ·
+  <a href="#see-it-in-action">See it in action</a> ·
+  <a href="#highlights">Highlights</a> ·
+  <a href="https://github.com/juw12">More by juw12</a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/juw12/projects/tree/main/apps/me-rd-toolkit"><img src="https://img.shields.io/github/last-commit/juw12/projects?path=apps%2Fme-rd-toolkit&label=updated&color=4f46e5" alt="Last updated"></a>
+  <a href="https://github.com/juw12/projects/releases/tag/me-rd-toolkit"><img src="https://img.shields.io/badge/download-me--rd--toolkit-4f46e5" alt="Download"></a>
+  <a href="https://juw12.github.io/projects/me-rd-toolkit/index.html"><img src="https://img.shields.io/badge/demo-live-2ea44f" alt="Live demo"></a>
+  <img src="https://img.shields.io/badge/Web-24292f" alt="Web">
+  <img src="https://img.shields.io/badge/Windows-24292f" alt="Windows">
+  <img src="https://img.shields.io/badge/license-MIT-4f46e5" alt="MIT license">
+</p>
+
+<a id="highlights"></a>
+<table>
+  <tr>
+    <td width="33%" valign="top">
+      <b>Built around NPI</b><br>
+      A task flow and design-review checklists that follow a real product launch.
+    </td>
+    <td width="33%" valign="top">
+      <b>11 calculators</b><br>
+      Including tolerance stack-ups, ready for the design review.
+    </td>
+    <td width="33%" valign="top">
+      <b>Datum CAD inside</b><br>
+      The flagship: turn a PRD and six photos into a validated STEP model.
+    </td>
+  </tr>
+</table>
+
+## See it in action
+
+<p align="center">
+  <a href="https://juw12.github.io/projects/me-rd-toolkit/index.html"><img src="docs/media/demo.png" alt="Datum Bench screenshot" width="820"></a><br>
+  <sub>Open the interactive demo at <a href="https://juw12.github.io/projects/me-rd-toolkit/index.html">juw12.github.io/projects/me-rd-toolkit/index.html</a></sub>
+</p>
+<!-- HERO:END -->
+
+## About
 
 **Datum Bench** is the free workbench for mechanical and hardware engineers — the companion to
 **[Datum CAD](photo2cad/)** (PRD + photos → a validated STEP solid). Formerly the *ME R&D Toolkit*.

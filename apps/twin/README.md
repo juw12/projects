@@ -1,4 +1,58 @@
-# Twin
+<!-- HERO:START -->
+<p align="center">
+  <a href="https://juw12.github.io/projects/twin/"><img src="docs/media/banner.jpg" alt="Twin: Invest smarter. Practice first." width="100%"></a>
+</p>
+
+<p align="center">
+  <b>Invest smarter. Practice first.</b><br>
+  Invest and day-trade with a twin that replays 10,000 futures before you risk real money.
+</p>
+
+<p align="center">
+  <a href="https://juw12.github.io/projects/twin/"><b>Try it live</b></a> ·
+  <a href="https://github.com/juw12/projects/releases/tag/twin"><b>Download</b></a> ·
+  <a href="#see-it-in-action">See it in action</a> ·
+  <a href="#highlights">Highlights</a> ·
+  <a href="https://github.com/juw12">More by juw12</a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/juw12/projects/tree/main/apps/twin"><img src="https://img.shields.io/github/last-commit/juw12/projects?path=apps%2Ftwin&label=updated&color=7c5cff" alt="Last updated"></a>
+  <a href="https://github.com/juw12/projects/releases/tag/twin"><img src="https://img.shields.io/badge/download-twin-7c5cff" alt="Download"></a>
+  <a href="https://juw12.github.io/projects/twin/"><img src="https://img.shields.io/badge/demo-live-2ea44f" alt="Live demo"></a>
+  <img src="https://img.shields.io/badge/Windows-24292f" alt="Windows">
+  <img src="https://img.shields.io/badge/macOS-24292f" alt="macOS">
+  <img src="https://img.shields.io/badge/iPhone_PWA-24292f" alt="iPhone PWA">
+  <img src="https://img.shields.io/badge/license-MIT-7c5cff" alt="MIT license">
+</p>
+
+<a id="highlights"></a>
+<table>
+  <tr>
+    <td width="33%" valign="top">
+      <b>10,000 futures, replayed</b><br>
+      Every plan is stress-tested against thousands of simulated paths before you commit.
+    </td>
+    <td width="33%" valign="top">
+      <b>A research team in the app</b><br>
+      TwinAgent researches, a personality test tunes the advice and paper trading lets you practise risk-free.
+    </td>
+    <td width="33%" valign="top">
+      <b>Copy what the pros hold</b><br>
+      Mirror a 13F filing, follow the news and track progress in a goal planner.
+    </td>
+  </tr>
+</table>
+
+## See it in action
+
+<p align="center">
+  <a href="https://juw12.github.io/projects/twin/"><img src="docs/media/demo.png" alt="Twin screenshot" width="820"></a><br>
+  <sub>Open the interactive demo at <a href="https://juw12.github.io/projects/twin/">juw12.github.io/projects/twin/</a></sub>
+</p>
+<!-- HERO:END -->
+
+## About
 
 _Formerly **Trade Twin**. Old `/projects/trade-twin/` links redirect here; saved profiles, guest sessions and the theme choice carry over._
 

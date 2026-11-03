@@ -1,4 +1,53 @@
-# Push Lab
+<!-- HERO:START -->
+<p align="center">
+  <a href="https://github.com/juw12/projects/tree/main/apps/pushlab"><img src="docs/media/banner.jpg" alt="Push Lab: Send push from your own server. Prove it works on a real phone." width="100%"></a>
+</p>
+
+<p align="center">
+  <b>Send push from your own server. Prove it works on a real phone.</b><br>
+  Beacon is a self-hosted push server, and Tether puts your Android phone in the browser with QA flows.
+</p>
+
+<p align="center">
+  <a href="#see-it-in-action">See it in action</a> ·
+  <a href="#highlights">Highlights</a> ·
+  <a href="https://github.com/juw12">More by juw12</a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/juw12/projects/tree/main/apps/pushlab"><img src="https://img.shields.io/github/last-commit/juw12/projects?path=apps%2Fpushlab&label=updated&color=0ea5e9" alt="Last updated"></a>
+  <img src="https://img.shields.io/badge/Self--hosted-24292f" alt="Self-hosted">
+  <img src="https://img.shields.io/badge/Android-24292f" alt="Android">
+  <img src="https://img.shields.io/badge/license-MIT-0ea5e9" alt="MIT license">
+</p>
+
+<a id="highlights"></a>
+<table>
+  <tr>
+    <td width="33%" valign="top">
+      <b>Every push channel</b><br>
+      Web Push, FCM, ntfy and Gotify from one self-hosted server.
+    </td>
+    <td width="33%" valign="top">
+      <b>Real-device proof</b><br>
+      Tether mirrors your Android phone in the browser and runs QA flows on it.
+    </td>
+    <td width="33%" valign="top">
+      <b>Zero dependencies</b><br>
+      Plain Python, backed by a hermetic test suite.
+    </td>
+  </tr>
+</table>
+
+## See it in action
+
+<p align="center">
+  <a href="https://github.com/juw12/projects/tree/main/apps/pushlab"><img src="beacon/docs/screenshot-compose.png" alt="Push Lab screenshot" width="820"></a><br>
+  <sub>Push Lab in use</sub>
+</p>
+<!-- HERO:END -->
+
+## About
 
 **Send push notifications from your own server, and prove they work on a real phone.** One self-hosted,
 zero-dependency toolkit (Python standard library only), free. Status: work in progress.

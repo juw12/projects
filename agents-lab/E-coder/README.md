@@ -1,4 +1,45 @@
-# E — E-coder (stdlib-only coding agent)
+<!-- HERO:START -->
+<p align="center">
+  <a href="https://github.com/juw12/projects/tree/main/agents-lab/E-coder"><img src="docs/media/banner.jpg" alt="E-coder: A stdlib-only coding agent that runs on your own machine." width="100%"></a>
+</p>
+
+<p align="center">
+  <b>A stdlib-only coding agent that runs on your own machine.</b><br>
+  Reads a repo with gitignore-aware tools, plans, edits files and runs commands behind a deny-list.
+</p>
+
+<p align="center">
+  <a href="#highlights">Highlights</a> ·
+  <a href="https://github.com/juw12">More by juw12</a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/juw12/projects/tree/main/agents-lab/E-coder"><img src="https://img.shields.io/github/last-commit/juw12/projects?path=agents-lab%2FE-coder&label=updated&color=334155" alt="Last updated"></a>
+  <img src="https://img.shields.io/badge/CLI-24292f" alt="CLI">
+  <img src="https://img.shields.io/badge/Ollama-24292f" alt="Ollama">
+  <img src="https://img.shields.io/badge/license-MIT-334155" alt="MIT license">
+</p>
+
+<a id="highlights"></a>
+<table>
+  <tr>
+    <td width="33%" valign="top">
+      <b>Local by default</b><br>
+      Uses a local Ollama model, so there are no API keys.
+    </td>
+    <td width="33%" valign="top">
+      <b>Safe by design</b><br>
+      A deny-list and fail-closed confirmation before any command runs.
+    </td>
+    <td width="33%" valign="top">
+      <b>Zero dependencies</b><br>
+      Python standard library only, with hermetic tests.
+    </td>
+  </tr>
+</table>
+<!-- HERO:END -->
+
+## About
 
 A small coding agent that can read a repo, plan, edit files, and run tests.
 Track **E** in `agents-lab/`, alongside A (VS Code), B (Scout), C (Hermes) and

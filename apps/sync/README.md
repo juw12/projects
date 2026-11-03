@@ -1,4 +1,58 @@
-# apps/sync — Sync
+<!-- HERO:START -->
+<p align="center">
+  <a href="https://juw12.github.io/projects/sync/"><img src="docs/media/banner.jpg" alt="Sync: Same song. Same second. Anywhere." width="100%"></a>
+</p>
+
+<p align="center">
+  <b>Same song. Same second. Anywhere.</b><br>
+  Listen to music together in real time, with Spotify, Apple Music, YouTube or shared files.
+</p>
+
+<p align="center">
+  <a href="https://juw12.github.io/projects/sync/"><b>Try it live</b></a> ·
+  <a href="https://github.com/juw12/projects/releases/tag/sync-mobile"><b>Download</b></a> ·
+  <a href="#see-it-in-action">See it in action</a> ·
+  <a href="#highlights">Highlights</a> ·
+  <a href="https://github.com/juw12">More by juw12</a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/juw12/projects/tree/main/apps/sync"><img src="https://img.shields.io/github/last-commit/juw12/projects?path=apps%2Fsync&label=updated&color=ec4899" alt="Last updated"></a>
+  <a href="https://github.com/juw12/projects/releases/tag/sync-mobile"><img src="https://img.shields.io/badge/download-sync--mobile-ec4899" alt="Download"></a>
+  <a href="https://juw12.github.io/projects/sync/"><img src="https://img.shields.io/badge/demo-live-2ea44f" alt="Live demo"></a>
+  <img src="https://img.shields.io/badge/Web-24292f" alt="Web">
+  <img src="https://img.shields.io/badge/Android-24292f" alt="Android">
+  <img src="https://img.shields.io/badge/iPhone-24292f" alt="iPhone">
+  <img src="https://img.shields.io/badge/license-MIT-ec4899" alt="MIT license">
+</p>
+
+<a id="highlights"></a>
+<table>
+  <tr>
+    <td width="33%" valign="top">
+      <b>Every source</b><br>
+      Spotify, Apple Music, YouTube and shared files in one room.
+    </td>
+    <td width="33%" valign="top">
+      <b>Perfectly in sync</b><br>
+      Everyone hears the same second of the same song.
+    </td>
+    <td width="33%" valign="top">
+      <b>Voice chat</b><br>
+      Talk while you listen; the music lowers when you speak.
+    </td>
+  </tr>
+</table>
+
+## See it in action
+
+<p align="center">
+  <a href="https://juw12.github.io/projects/sync/"><img src="docs/media/demo.png" alt="Sync screenshot" width="820"></a><br>
+  <sub>Open the interactive demo at <a href="https://juw12.github.io/projects/sync/">juw12.github.io/projects/sync/</a></sub>
+</p>
+<!-- HERO:END -->
+
+## About
 
 **Listen to music together in real time, from anywhere.** Same song, same
 second, different cities. No shared Wi-Fi or Bluetooth, no account, no server.

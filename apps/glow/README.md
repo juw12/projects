@@ -1,4 +1,60 @@
-# Glow — From a spark to something real
+<!-- HERO:START -->
+<p align="center">
+  <a href="https://juw12.github.io/projects/glow/"><img src="docs/media/banner.jpg" alt="Glow: Get things done with free AI." width="100%"></a>
+</p>
+
+<p align="center">
+  <b>Get things done with free AI.</b><br>
+  Four AI apps on one free account, in 4 languages. No API keys, and it keeps working offline.
+</p>
+
+<p align="center">
+  <a href="https://juw12.github.io/projects/glow/"><b>Try it live</b></a> ·
+  <a href="https://github.com/juw12/projects/releases/tag/glow-windows"><b>Download</b></a> ·
+  <a href="#see-it-in-action">See it in action</a> ·
+  <a href="#highlights">Highlights</a> ·
+  <a href="https://github.com/juw12">More by juw12</a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/juw12/projects/tree/main/apps/glow"><img src="https://img.shields.io/github/last-commit/juw12/projects?path=apps%2Fglow&label=updated&color=f0643c" alt="Last updated"></a>
+  <a href="https://github.com/juw12/projects/releases/tag/glow-windows"><img src="https://img.shields.io/badge/download-glow--windows-f0643c" alt="Download"></a>
+  <a href="https://juw12.github.io/projects/glow/"><img src="https://img.shields.io/badge/demo-live-2ea44f" alt="Live demo"></a>
+  <img src="https://img.shields.io/badge/Web-24292f" alt="Web">
+  <img src="https://img.shields.io/badge/Windows-24292f" alt="Windows">
+  <img src="https://img.shields.io/badge/Android-24292f" alt="Android">
+  <img src="https://img.shields.io/badge/iPhone-24292f" alt="iPhone">
+  <img src="https://img.shields.io/badge/macOS-24292f" alt="macOS">
+  <img src="https://img.shields.io/badge/license-MIT-f0643c" alt="MIT license">
+</p>
+
+<a id="highlights"></a>
+<table>
+  <tr>
+    <td width="33%" valign="top">
+      <b>Four apps, one account</b><br>
+      GlowLead plans goals, GlowChat compares models, GlowRoom researches and codes, GlowNews brings AI news twice a day.
+    </td>
+    <td width="33%" valign="top">
+      <b>Free built-in AI</b><br>
+      Nothing to paste, no card required: the AI is included.
+    </td>
+    <td width="33%" valign="top">
+      <b>Installs everywhere</b><br>
+      Windows, Android, iPhone and Mac, with offline support.
+    </td>
+  </tr>
+</table>
+
+## See it in action
+
+<p align="center">
+  <a href="https://juw12.github.io/projects/glow/"><img src="docs/media/demo.png" alt="Glow screenshot" width="820"></a><br>
+  <sub>Open the interactive demo at <a href="https://juw12.github.io/projects/glow/">juw12.github.io/projects/glow/</a></sub>
+</p>
+<!-- HERO:END -->
+
+## About
 
 **Glow** is a small ecosystem of free browser AI apps that share one account:
 

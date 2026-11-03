@@ -1,4 +1,56 @@
-# Orbis
+<!-- HERO:START -->
+<p align="center">
+  <a href="https://juw12.github.io/projects/orbis/"><img src="docs/media/banner.jpg" alt="Orbis: Communication, identity and protection in one app." width="100%"></a>
+</p>
+
+<p align="center">
+  <b>Communication, identity and protection in one app.</b><br>
+  Plus Orbis Chat: real-time messaging with accounts, teams, email invites and push notifications.
+</p>
+
+<p align="center">
+  <a href="https://juw12.github.io/projects/orbis/"><b>Try it live</b></a> ·
+  <a href="#see-it-in-action">See it in action</a> ·
+  <a href="#highlights">Highlights</a> ·
+  <a href="https://github.com/juw12">More by juw12</a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/juw12/projects/tree/main/apps/orbis"><img src="https://img.shields.io/github/last-commit/juw12/projects?path=apps%2Forbis&label=updated&color=4f46e5" alt="Last updated"></a>
+  <a href="https://juw12.github.io/projects/orbis/"><img src="https://img.shields.io/badge/demo-live-2ea44f" alt="Live demo"></a>
+  <img src="https://img.shields.io/badge/Web-24292f" alt="Web">
+  <img src="https://img.shields.io/badge/iPhone-24292f" alt="iPhone">
+  <img src="https://img.shields.io/badge/Android-24292f" alt="Android">
+  <img src="https://img.shields.io/badge/license-MIT-4f46e5" alt="MIT license">
+</p>
+
+<a id="highlights"></a>
+<table>
+  <tr>
+    <td width="33%" valign="top">
+      <b>Orbis Chat</b><br>
+      Real-time messaging with teams and email invites.
+    </td>
+    <td width="33%" valign="top">
+      <b>Push that arrives</b><br>
+      Notifications land even when the app is fully closed.
+    </td>
+    <td width="33%" valign="top">
+      <b>Every platform</b><br>
+      Web, iPhone and Android.
+    </td>
+  </tr>
+</table>
+
+## See it in action
+
+<p align="center">
+  <a href="https://juw12.github.io/projects/orbis/"><img src="docs/media/demo.png" alt="Orbis screenshot" width="820"></a><br>
+  <sub>Open the interactive demo at <a href="https://juw12.github.io/projects/orbis/">juw12.github.io/projects/orbis/</a></sub>
+</p>
+<!-- HERO:END -->
+
+## About
 
 Communication, identity, and protection in one app.
 

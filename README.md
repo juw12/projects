@@ -1,4 +1,58 @@
-# Projects
+<!-- HERO:START -->
+<p align="center">
+  <a href="https://juw12.github.io/projects/"><img src="docs/media/banner.jpg" alt="Projects: Desktop, phone and web apps, built local-first." width="100%"></a>
+</p>
+
+<p align="center">
+  <b>Desktop, phone and web apps, built local-first.</b><br>
+  The monorepo behind Twin, Glow, Datum Bench, Mint, Vitals and 20+ more apps by Juwen Lie.
+</p>
+
+<p align="center">
+  <a href="https://juw12.github.io/projects/"><b>Try it live</b></a> ·
+  <a href="#see-it-in-action">See it in action</a> ·
+  <a href="#highlights">Highlights</a> ·
+  <a href="https://github.com/juw12">More by juw12</a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/juw12/projects"><img src="https://img.shields.io/github/last-commit/juw12/projects?label=updated&color=7c5cff" alt="Last updated"></a>
+  <a href="https://juw12.github.io/projects/"><img src="https://img.shields.io/badge/demo-live-2ea44f" alt="Live demo"></a>
+  <img src="https://img.shields.io/badge/Windows-24292f" alt="Windows">
+  <img src="https://img.shields.io/badge/macOS-24292f" alt="macOS">
+  <img src="https://img.shields.io/badge/Android-24292f" alt="Android">
+  <img src="https://img.shields.io/badge/iPhone-24292f" alt="iPhone">
+  <img src="https://img.shields.io/badge/Web-24292f" alt="Web">
+  <img src="https://img.shields.io/badge/license-MIT-7c5cff" alt="MIT license">
+</p>
+
+<a id="highlights"></a>
+<table>
+  <tr>
+    <td width="33%" valign="top">
+      <b>Real apps, every platform</b><br>
+      Desktop installers, Android and iPhone builds and web versions for most apps.
+    </td>
+    <td width="33%" valign="top">
+      <b>Local-first</b><br>
+      No account and no server required for most apps, and they keep working offline.
+    </td>
+    <td width="33%" valign="top">
+      <b>Tested and shipped</b><br>
+      Hermetic test suites, CI and versioned releases.
+    </td>
+  </tr>
+</table>
+
+## See it in action
+
+<p align="center">
+  <a href="https://juw12.github.io/projects/"><img src="docs/media/demo.png" alt="Projects screenshot" width="820"></a><br>
+  <sub>Open the interactive demo at <a href="https://juw12.github.io/projects/">juw12.github.io/projects/</a></sub>
+</p>
+<!-- HERO:END -->
+
+## About
 
 A monorepo for product projects, each promoted from prototype to a real,
 runnable, deployable project.

@@ -1,4 +1,52 @@
-# KiniBuka
+<!-- HERO:START -->
+<p align="center">
+  <a href="https://github.com/juw12/projects/tree/main/apps/kinibuka"><img src="docs/media/banner.jpg" alt="KiniBuka: Find small stalls that are open right now." width="100%"></a>
+</p>
+
+<p align="center">
+  <b>Find small stalls that are open right now.</b><br>
+  A live feed of Indonesian UMKM openings, closings, promos and bazaars.
+</p>
+
+<p align="center">
+  <a href="#see-it-in-action">See it in action</a> ·
+  <a href="#highlights">Highlights</a> ·
+  <a href="https://github.com/juw12">More by juw12</a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/juw12/projects/tree/main/apps/kinibuka"><img src="https://img.shields.io/github/last-commit/juw12/projects?path=apps%2Fkinibuka&label=updated&color=ea580c" alt="Last updated"></a>
+  <img src="https://img.shields.io/badge/Web-24292f" alt="Web">
+  <img src="https://img.shields.io/badge/license-MIT-ea580c" alt="MIT license">
+</p>
+
+<a id="highlights"></a>
+<table>
+  <tr>
+    <td width="33%" valign="top">
+      <b>Live open status</b><br>
+      See which stalls are open now on a feed and a searchable map.
+    </td>
+    <td width="33%" valign="top">
+      <b>Follow alerts</b><br>
+      Follow your favourites and hear when they open or post a promo.
+    </td>
+    <td width="33%" valign="top">
+      <b>Order ahead</b><br>
+      A one-tap WhatsApp handoff to the seller.
+    </td>
+  </tr>
+</table>
+
+## See it in action
+
+<p align="center">
+  <a href="https://github.com/juw12/projects/tree/main/apps/kinibuka"><img src="docs/screenshot.png" alt="KiniBuka screenshot" width="820"></a><br>
+  <sub>KiniBuka in use</sub>
+</p>
+<!-- HERO:END -->
+
+## About
 
 **Kini buka** means "open now". KiniBuka helps people find small Indonesian food and retail stalls (UMKM) that are open right now, follow the ones they like, and order ahead.
 

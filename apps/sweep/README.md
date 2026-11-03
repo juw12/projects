@@ -1,4 +1,50 @@
-# apps/sweep
+<!-- HERO:START -->
+<p align="center">
+  <a href="https://github.com/juw12/projects/tree/main/apps/sweep"><img src="docs/media/banner.jpg" alt="Sweep: Validate an idea, ship the repo, file the note. One command." width="100%"></a>
+</p>
+
+<p align="center">
+  <b>Validate an idea, ship the repo, file the note. One command.</b><br>
+  The /sweep pipeline syncs your repo to GitHub and mirrors a note to Obsidian.
+</p>
+
+<p align="center">
+  <a href="https://github.com/juw12/projects/releases/tag/sweep"><b>Download</b></a> ·
+  <a href="#highlights">Highlights</a> ·
+  <a href="https://github.com/juw12">More by juw12</a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/juw12/projects/tree/main/apps/sweep"><img src="https://img.shields.io/github/last-commit/juw12/projects?path=apps%2Fsweep&label=updated&color=7c3aed" alt="Last updated"></a>
+  <a href="https://github.com/juw12/projects/releases/tag/sweep"><img src="https://img.shields.io/badge/download-sweep-7c3aed" alt="Download"></a>
+  <img src="https://img.shields.io/badge/Windows-24292f" alt="Windows">
+  <img src="https://img.shields.io/badge/macOS-24292f" alt="macOS">
+  <img src="https://img.shields.io/badge/Android-24292f" alt="Android">
+  <img src="https://img.shields.io/badge/iPhone-24292f" alt="iPhone">
+  <img src="https://img.shields.io/badge/CLI-24292f" alt="CLI">
+  <img src="https://img.shields.io/badge/license-MIT-7c3aed" alt="MIT license">
+</p>
+
+<a id="highlights"></a>
+<table>
+  <tr>
+    <td width="33%" valign="top">
+      <b>One command</b><br>
+      /sweep validates an idea, then syncs the repo and the note.
+    </td>
+    <td width="33%" valign="top">
+      <b>Obsidian mirror</b><br>
+      Every run leaves a note in your vault.
+    </td>
+    <td width="33%" valign="top">
+      <b>Self-updating apps</b><br>
+      Windows, Mac, Android and iPhone apps that update themselves.
+    </td>
+  </tr>
+</table>
+<!-- HERO:END -->
+
+## About
 
 The **`/sweep`** pipeline — one command, two modes. (Renamed from the old `/update`.)
 

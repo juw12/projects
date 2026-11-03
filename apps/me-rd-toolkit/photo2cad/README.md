@@ -1,4 +1,46 @@
-# Datum CAD — an idea becomes a real CAD file
+<!-- HERO:START -->
+<p align="center">
+  <a href="https://github.com/juw12/projects/tree/main/apps/me-rd-toolkit/photo2cad"><img src="docs/media/banner.jpg" alt="Datum CAD: An idea becomes a real CAD file." width="100%"></a>
+</p>
+
+<p align="center">
+  <b>An idea becomes a real CAD file.</b><br>
+  A PRD plus six reference photos becomes a validated STEP solid, with an STL preview.
+</p>
+
+<p align="center">
+  <a href="#highlights">Highlights</a> ·
+  <a href="https://github.com/juw12">More by juw12</a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/juw12/projects/tree/main/apps/me-rd-toolkit/photo2cad"><img src="https://img.shields.io/github/last-commit/juw12/projects?path=apps%2Fme-rd-toolkit%2Fphoto2cad&label=updated&color=4f46e5" alt="Last updated"></a>
+  <img src="https://img.shields.io/badge/Web-24292f" alt="Web">
+  <img src="https://img.shields.io/badge/Self--hosted-24292f" alt="Self-hosted">
+  <img src="https://img.shields.io/badge/CadQuery-24292f" alt="CadQuery">
+  <img src="https://img.shields.io/badge/license-MIT-4f46e5" alt="MIT license">
+</p>
+
+<a id="highlights"></a>
+<table>
+  <tr>
+    <td width="33%" valign="top">
+      <b>Any LLM</b><br>
+      OpenAI, Anthropic, Gemini, Pegatron MAAS or a free local model writes the CadQuery program.
+    </td>
+    <td width="33%" valign="top">
+      <b>Sandboxed build</b><br>
+      The program runs in a sandbox to produce the STEP.
+    </td>
+    <td width="33%" valign="top">
+      <b>Validated solid</b><br>
+      The server re-imports the STEP to check the solid.
+    </td>
+  </tr>
+</table>
+<!-- HERO:END -->
+
+## About
 
 **PRD + 6 reference photos → a validated STEP solid, plus an STL preview.**
 

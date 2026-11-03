@@ -1,4 +1,55 @@
-﻿# Pips
+<!-- HERO:START -->
+<p align="center">
+  <a href="https://juw12.github.io/projects/pips/web.html"><img src="docs/media/banner.jpg" alt="Pips: A desktop pet and Pomodoro timer for Windows." width="100%"></a>
+</p>
+
+<p align="center">
+  <b>A desktop pet and Pomodoro timer for Windows.</b><br>
+  51 animals that walk, swim and fly across your screen while you focus.
+</p>
+
+<p align="center">
+  <a href="https://juw12.github.io/projects/pips/web.html"><b>Try it live</b></a> ·
+  <a href="#see-it-in-action">See it in action</a> ·
+  <a href="#highlights">Highlights</a> ·
+  <a href="https://github.com/juw12">More by juw12</a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/juw12/projects/tree/main/apps/pips"><img src="https://img.shields.io/github/last-commit/juw12/projects?path=apps%2Fpips&label=updated&color=b91c1c" alt="Last updated"></a>
+  <a href="https://juw12.github.io/projects/pips/web.html"><img src="https://img.shields.io/badge/demo-live-2ea44f" alt="Live demo"></a>
+  <img src="https://img.shields.io/badge/Windows-24292f" alt="Windows">
+  <img src="https://img.shields.io/badge/Web-24292f" alt="Web">
+  <img src="https://img.shields.io/badge/license-MIT-b91c1c" alt="MIT license">
+</p>
+
+<a id="highlights"></a>
+<table>
+  <tr>
+    <td width="33%" valign="top">
+      <b>51 animals</b><br>
+      Pets that walk, swim and fly, make friends and chat.
+    </td>
+    <td width="33%" valign="top">
+      <b>Focus that sticks</b><br>
+      A Pomodoro timer with Focus Trail and Phone Trail.
+    </td>
+    <td width="33%" valign="top">
+      <b>Play too</b><br>
+      Turn-based skill battles, minigames, live weather and 4 languages.
+    </td>
+  </tr>
+</table>
+
+## See it in action
+
+<p align="center">
+  <a href="https://juw12.github.io/projects/pips/web.html"><img src="docs/media/demo.png" alt="Pips screenshot" width="820"></a><br>
+  <sub>Open the interactive demo at <a href="https://juw12.github.io/projects/pips/web.html">juw12.github.io/projects/pips/web.html</a></sub>
+</p>
+<!-- HERO:END -->
+
+## About
 
 **Owner:** Juwen Lie · https://juw12.github.io/projects/pips/
 

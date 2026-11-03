@@ -1,4 +1,58 @@
-# Guang Yao Together · 光耀同行
+<!-- HERO:START -->
+<p align="center">
+  <a href="https://juw12.github.io/projects/guangyao/"><img src="docs/media/banner.jpg" alt="Guang Yao Together: Learn Traditional Chinese, together." width="100%"></a>
+</p>
+
+<p align="center">
+  <b>Learn Traditional Chinese, together.</b><br>
+  An unofficial learning app with admin-published lessons, an AI study companion, spaced review and streaks.
+</p>
+
+<p align="center">
+  <a href="https://juw12.github.io/projects/guangyao/"><b>Try it live</b></a> ·
+  <a href="https://github.com/juw12/projects/releases/tag/guangyao-android"><b>Download</b></a> ·
+  <a href="#see-it-in-action">See it in action</a> ·
+  <a href="#highlights">Highlights</a> ·
+  <a href="https://github.com/juw12">More by juw12</a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/juw12/projects/tree/main/apps/guangyao"><img src="https://img.shields.io/github/last-commit/juw12/projects?path=apps%2Fguangyao&label=updated&color=166534" alt="Last updated"></a>
+  <a href="https://github.com/juw12/projects/releases/tag/guangyao-android"><img src="https://img.shields.io/badge/download-guangyao--android-166534" alt="Download"></a>
+  <a href="https://juw12.github.io/projects/guangyao/"><img src="https://img.shields.io/badge/demo-live-2ea44f" alt="Live demo"></a>
+  <img src="https://img.shields.io/badge/Web-24292f" alt="Web">
+  <img src="https://img.shields.io/badge/Android-24292f" alt="Android">
+  <img src="https://img.shields.io/badge/iPhone-24292f" alt="iPhone">
+  <img src="https://img.shields.io/badge/license-MIT-166534" alt="MIT license">
+</p>
+
+<a id="highlights"></a>
+<table>
+  <tr>
+    <td width="33%" valign="top">
+      <b>Published lessons</b><br>
+      Lessons from admins, with an AI study companion.
+    </td>
+    <td width="33%" valign="top">
+      <b>Spaced review</b><br>
+      Reviews scheduled so words stick, with streaks.
+    </td>
+    <td width="33%" valign="top">
+      <b>Install anywhere</b><br>
+      A PWA, an Android app and a free iPhone home-screen app.
+    </td>
+  </tr>
+</table>
+
+## See it in action
+
+<p align="center">
+  <a href="https://juw12.github.io/projects/guangyao/"><img src="docs/media/demo.png" alt="Guang Yao Together screenshot" width="820"></a><br>
+  <sub>Open the interactive demo at <a href="https://juw12.github.io/projects/guangyao/">juw12.github.io/projects/guangyao/</a></sub>
+</p>
+<!-- HERO:END -->
+
+## About
 
 **Unofficial 發一光耀 learning/community app · installable PWA · v4.0.1 public beta.**
 

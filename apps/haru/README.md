@@ -1,4 +1,59 @@
-# Haru
+<!-- HERO:START -->
+<p align="center">
+  <a href="https://juw12.github.io/projects/haru/app/"><img src="docs/media/banner.jpg" alt="Haru: Your life, drawn as a map you walk through." width="100%"></a>
+</p>
+
+<p align="center">
+  <b>Your life, drawn as a map you walk through.</b><br>
+  A cozy photo diary, walking map and weather town in a Japanese and Korean indie style.
+</p>
+
+<p align="center">
+  <a href="https://juw12.github.io/projects/haru/app/"><b>Try it live</b></a> ·
+  <a href="https://github.com/juw12/projects/releases/tag/haru-latest"><b>Download</b></a> ·
+  <a href="#see-it-in-action">See it in action</a> ·
+  <a href="#highlights">Highlights</a> ·
+  <a href="https://github.com/juw12">More by juw12</a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/juw12/projects/tree/main/apps/haru"><img src="https://img.shields.io/github/last-commit/juw12/projects?path=apps%2Fharu&label=updated&color=f08a5d" alt="Last updated"></a>
+  <a href="https://github.com/juw12/projects/releases/tag/haru-latest"><img src="https://img.shields.io/badge/download-haru--latest-f08a5d" alt="Download"></a>
+  <a href="https://juw12.github.io/projects/haru/app/"><img src="https://img.shields.io/badge/demo-live-2ea44f" alt="Live demo"></a>
+  <img src="https://img.shields.io/badge/Web-24292f" alt="Web">
+  <img src="https://img.shields.io/badge/Android-24292f" alt="Android">
+  <img src="https://img.shields.io/badge/Windows-24292f" alt="Windows">
+  <img src="https://img.shields.io/badge/macOS-24292f" alt="macOS">
+  <img src="https://img.shields.io/badge/license-MIT-f08a5d" alt="MIT license">
+</p>
+
+<a id="highlights"></a>
+<table>
+  <tr>
+    <td width="33%" valign="top">
+      <b>A diorama for every day</b><br>
+      Each day is a card lit by that day's weather, with a photo, a note and the streets you walked.
+    </td>
+    <td width="33%" valign="top">
+      <b>Screenshot tidy-up</b><br>
+      On-device OCR sorts your screenshots; nothing is uploaded.
+    </td>
+    <td width="33%" valign="top">
+      <b>Bilingual by design</b><br>
+      English, Japanese or Korean, or two of them side by side.
+    </td>
+  </tr>
+</table>
+
+## See it in action
+
+<p align="center">
+  <a href="https://juw12.github.io/projects/haru/app/"><img src="docs/media/demo.png" alt="Haru screenshot" width="820"></a><br>
+  <sub>Open the interactive demo at <a href="https://juw12.github.io/projects/haru/app/">juw12.github.io/projects/haru/app/</a></sub>
+</p>
+<!-- HERO:END -->
+
+## About
 
 "Your life, drawn as a map you walk through."
 A calm photo diary + walking map + weather town, combining ideas from

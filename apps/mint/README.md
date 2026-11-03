@@ -1,4 +1,60 @@
-# Mint — shared budgets and spreadsheet templates, one app
+<!-- HERO:START -->
+<p align="center">
+  <a href="https://juw12.github.io/projects/mint/web.html"><img src="docs/media/banner.jpg" alt="Mint: Shared budgets, in any currency." width="100%"></a>
+</p>
+
+<p align="center">
+  <b>Shared budgets, in any currency.</b><br>
+  Synced on every device, with expenses you log by texting Mint on WhatsApp.
+</p>
+
+<p align="center">
+  <a href="https://juw12.github.io/projects/mint/web.html"><b>Try it live</b></a> ·
+  <a href="https://github.com/juw12/projects/releases/tag/mint"><b>Download</b></a> ·
+  <a href="#see-it-in-action">See it in action</a> ·
+  <a href="#highlights">Highlights</a> ·
+  <a href="https://github.com/juw12">More by juw12</a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/juw12/projects/tree/main/apps/mint"><img src="https://img.shields.io/github/last-commit/juw12/projects?path=apps%2Fmint&label=updated&color=10b981" alt="Last updated"></a>
+  <a href="https://github.com/juw12/projects/releases/tag/mint"><img src="https://img.shields.io/badge/download-mint-10b981" alt="Download"></a>
+  <a href="https://juw12.github.io/projects/mint/web.html"><img src="https://img.shields.io/badge/demo-live-2ea44f" alt="Live demo"></a>
+  <img src="https://img.shields.io/badge/Web-24292f" alt="Web">
+  <img src="https://img.shields.io/badge/Windows-24292f" alt="Windows">
+  <img src="https://img.shields.io/badge/macOS-24292f" alt="macOS">
+  <img src="https://img.shields.io/badge/Android-24292f" alt="Android">
+  <img src="https://img.shields.io/badge/iPhone-24292f" alt="iPhone">
+  <img src="https://img.shields.io/badge/license-MIT-10b981" alt="MIT license">
+</p>
+
+<a id="highlights"></a>
+<table>
+  <tr>
+    <td width="33%" valign="top">
+      <b>Budget together</b><br>
+      Shared budgets in any currency, synced across every device.
+    </td>
+    <td width="33%" valign="top">
+      <b>Log it on WhatsApp</b><br>
+      Text an expense to Mint and it lands in the right budget.
+    </td>
+    <td width="33%" valign="top">
+      <b>A Marketplace</b><br>
+      Budget plans, investment mixes and spreadsheet templates, in 4 languages.
+    </td>
+  </tr>
+</table>
+
+## See it in action
+
+<p align="center">
+  <a href="https://juw12.github.io/projects/mint/web.html"><img src="docs/media/demo.png" alt="Mint screenshot" width="820"></a><br>
+  <sub>Open the interactive demo at <a href="https://juw12.github.io/projects/mint/web.html">juw12.github.io/projects/mint/web.html</a></sub>
+</p>
+<!-- HERO:END -->
+
+## About
 
 Mint is one app with two halves:
 

@@ -1,4 +1,54 @@
-# House of Articles
+<!-- HERO:START -->
+<p align="center">
+  <a href="https://juw12.github.io/projects/house-of-articles/"><img src="docs/media/banner.jpg" alt="House of Articles: See what athletes wear, and what it's worth, right now." width="100%"></a>
+</p>
+
+<p align="center">
+  <b>See what athletes wear, and what it's worth, right now.</b><br>
+  Athlete-moment sneaker news plus a live resale market feed.
+</p>
+
+<p align="center">
+  <a href="https://juw12.github.io/projects/house-of-articles/"><b>Try it live</b></a> ·
+  <a href="#see-it-in-action">See it in action</a> ·
+  <a href="#highlights">Highlights</a> ·
+  <a href="https://github.com/juw12">More by juw12</a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/juw12/projects/tree/main/apps/house-of-articles"><img src="https://img.shields.io/github/last-commit/juw12/projects?path=apps%2Fhouse-of-articles&label=updated&color=ea580c" alt="Last updated"></a>
+  <a href="https://juw12.github.io/projects/house-of-articles/"><img src="https://img.shields.io/badge/demo-live-2ea44f" alt="Live demo"></a>
+  <img src="https://img.shields.io/badge/Web-24292f" alt="Web">
+  <img src="https://img.shields.io/badge/license-MIT-ea580c" alt="MIT license">
+</p>
+
+<a id="highlights"></a>
+<table>
+  <tr>
+    <td width="33%" valign="top">
+      <b>Athlete moments</b><br>
+      Sneaker news tied to on-court moments.
+    </td>
+    <td width="33%" valign="top">
+      <b>Live market</b><br>
+      Resale prices as they move.
+    </td>
+    <td width="33%" valign="top">
+      <b>Cause and effect</b><br>
+      Link a moment to the price move that followed.
+    </td>
+  </tr>
+</table>
+
+## See it in action
+
+<p align="center">
+  <a href="https://juw12.github.io/projects/house-of-articles/"><img src="docs/media/demo.png" alt="House of Articles screenshot" width="820"></a><br>
+  <sub>Open the interactive demo at <a href="https://juw12.github.io/projects/house-of-articles/">juw12.github.io/projects/house-of-articles/</a></sub>
+</p>
+<!-- HERO:END -->
+
+## About
 
 > "See what athletes wear, and what it's worth — right now."
 

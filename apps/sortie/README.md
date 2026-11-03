@@ -1,4 +1,54 @@
-# Sortie — file organizer
+<!-- HERO:START -->
+<p align="center">
+  <a href="https://juw12.github.io/projects/sortie/"><img src="docs/media/banner.jpg" alt="Sortie: A file organizer that's fun to use." width="100%"></a>
+</p>
+
+<p align="center">
+  <b>A file organizer that's fun to use.</b><br>
+  Sorted files fly into their folders and a vacuum sucks deletes into a recoverable bag.
+</p>
+
+<p align="center">
+  <a href="https://juw12.github.io/projects/sortie/"><b>Try it live</b></a> ·
+  <a href="#see-it-in-action">See it in action</a> ·
+  <a href="#highlights">Highlights</a> ·
+  <a href="https://github.com/juw12">More by juw12</a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/juw12/projects/tree/main/apps/sortie"><img src="https://img.shields.io/github/last-commit/juw12/projects?path=apps%2Fsortie&label=updated&color=2563eb" alt="Last updated"></a>
+  <a href="https://juw12.github.io/projects/sortie/"><img src="https://img.shields.io/badge/demo-live-2ea44f" alt="Live demo"></a>
+  <img src="https://img.shields.io/badge/Web-24292f" alt="Web">
+  <img src="https://img.shields.io/badge/license-MIT-2563eb" alt="MIT license">
+</p>
+
+<a id="highlights"></a>
+<table>
+  <tr>
+    <td width="33%" valign="top">
+      <b>Animated sorting</b><br>
+      Watch files fly into the right folders.
+    </td>
+    <td width="33%" valign="top">
+      <b>Recoverable deletes</b><br>
+      The Vacuum bag keeps everything until you empty it, and every action is undoable.
+    </td>
+    <td width="33%" valign="top">
+      <b>Plain-words assistant</b><br>
+      Ask in plain words; the AI shows a plan you Run or Cancel.
+    </td>
+  </tr>
+</table>
+
+## See it in action
+
+<p align="center">
+  <a href="https://juw12.github.io/projects/sortie/"><img src="docs/media/demo.png" alt="Sortie screenshot" width="820"></a><br>
+  <sub>Open the interactive demo at <a href="https://juw12.github.io/projects/sortie/">juw12.github.io/projects/sortie/</a></sub>
+</p>
+<!-- HERO:END -->
+
+## About
 
 A file organizer with animated sorting, a recoverable delete ("Vacuum bag") and a built-in assistant.
 

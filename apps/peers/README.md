@@ -1,4 +1,57 @@
-# Peers App
+<!-- HERO:START -->
+<p align="center">
+  <a href="https://juw12.github.io/projects/peers/"><img src="docs/media/banner.jpg" alt="Peers: Verified reviews with a clear verdict." width="100%"></a>
+</p>
+
+<p align="center">
+  <b>Verified reviews with a clear verdict.</b><br>
+  Food, travel, market, AI tools, health and finance reviews in one interface, each with a Use it / Wait / Skip scorecard.
+</p>
+
+<p align="center">
+  <a href="https://juw12.github.io/projects/peers/"><b>Try it live</b></a> ·
+  <a href="https://github.com/juw12/projects/releases/tag/peers"><b>Download</b></a> ·
+  <a href="#see-it-in-action">See it in action</a> ·
+  <a href="#highlights">Highlights</a> ·
+  <a href="https://github.com/juw12">More by juw12</a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/juw12/projects/tree/main/apps/peers"><img src="https://img.shields.io/github/last-commit/juw12/projects?path=apps%2Fpeers&label=updated&color=e8615a" alt="Last updated"></a>
+  <a href="https://github.com/juw12/projects/releases/tag/peers"><img src="https://img.shields.io/badge/download-peers-e8615a" alt="Download"></a>
+  <a href="https://juw12.github.io/projects/peers/"><img src="https://img.shields.io/badge/demo-live-2ea44f" alt="Live demo"></a>
+  <img src="https://img.shields.io/badge/Web-24292f" alt="Web">
+  <img src="https://img.shields.io/badge/Windows-24292f" alt="Windows">
+  <img src="https://img.shields.io/badge/license-MIT-e8615a" alt="MIT license">
+</p>
+
+<a id="highlights"></a>
+<table>
+  <tr>
+    <td width="33%" valign="top">
+      <b>Verified reviews</b><br>
+      Reviews from verified users, across every category.
+    </td>
+    <td width="33%" valign="top">
+      <b>One interface</b><br>
+      Every category mode works the same way.
+    </td>
+    <td width="33%" valign="top">
+      <b>A clear verdict</b><br>
+      A built-in Use it / Wait / Skip scorecard.
+    </td>
+  </tr>
+</table>
+
+## See it in action
+
+<p align="center">
+  <a href="https://juw12.github.io/projects/peers/"><img src="docs/media/demo.png" alt="Peers screenshot" width="820"></a><br>
+  <sub>Open the interactive demo at <a href="https://juw12.github.io/projects/peers/">juw12.github.io/projects/peers/</a></sub>
+</p>
+<!-- HERO:END -->
+
+## About
 
 Peers is a client-side photo demo application that showcases a responsive photo gallery interface. The app is built as a **single-file HTML** with all CSS and JavaScript embedded inline, requiring no build process or backend server to run.
 

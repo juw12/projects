@@ -1,4 +1,55 @@
-# ScopeGuard — keep your business AI on-mission
+<!-- HERO:START -->
+<p align="center">
+  <a href="https://juw12.github.io/projects/scopeguard/"><img src="docs/media/banner.jpg" alt="ScopeGuard: Keep your business AI on-mission." width="100%"></a>
+</p>
+
+<p align="center">
+  <b>Keep your business AI on-mission.</b><br>
+  Allows on-topic requests, steers related ones back, redirects off-topic use without calling the LLM and blocks jailbreaks.
+</p>
+
+<p align="center">
+  <a href="https://juw12.github.io/projects/scopeguard/"><b>Try it live</b></a> ·
+  <a href="#see-it-in-action">See it in action</a> ·
+  <a href="#highlights">Highlights</a> ·
+  <a href="https://github.com/juw12">More by juw12</a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/juw12/projects/tree/main/apps/scopeguard"><img src="https://img.shields.io/github/last-commit/juw12/projects?path=apps%2Fscopeguard&label=updated&color=1d4ed8" alt="Last updated"></a>
+  <a href="https://juw12.github.io/projects/scopeguard/"><img src="https://img.shields.io/badge/demo-live-2ea44f" alt="Live demo"></a>
+  <img src="https://img.shields.io/badge/Web-24292f" alt="Web">
+  <img src="https://img.shields.io/badge/Self--hosted-24292f" alt="Self-hosted">
+  <img src="https://img.shields.io/badge/license-MIT-1d4ed8" alt="MIT license">
+</p>
+
+<a id="highlights"></a>
+<table>
+  <tr>
+    <td width="33%" valign="top">
+      <b>Four verdicts</b><br>
+      Allow, steer, redirect or block, decided before the LLM is called.
+    </td>
+    <td width="33%" valign="top">
+      <b>Cost dashboard</b><br>
+      See the LLM cost avoided and what users really ask for.
+    </td>
+    <td width="33%" valign="top">
+      <b>Browser or server</b><br>
+      Try it in the browser; self-host the Python server for production.
+    </td>
+  </tr>
+</table>
+
+## See it in action
+
+<p align="center">
+  <a href="https://juw12.github.io/projects/scopeguard/"><img src="docs/media/demo.png" alt="ScopeGuard screenshot" width="820"></a><br>
+  <sub>Open the interactive demo at <a href="https://juw12.github.io/projects/scopeguard/">juw12.github.io/projects/scopeguard/</a></sub>
+</p>
+<!-- HERO:END -->
+
+## About
 
 **Live app:** https://juw12.github.io/projects/scopeguard/
 

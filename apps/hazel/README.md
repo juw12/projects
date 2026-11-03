@@ -1,4 +1,55 @@
-# Hazel
+<!-- HERO:START -->
+<p align="center">
+  <a href="https://juw12.github.io/projects/hazel/"><img src="docs/media/banner.jpg" alt="Hazel: One studio. Three ways to make video." width="100%"></a>
+</p>
+
+<p align="center">
+  <b>One studio. Three ways to make video.</b><br>
+  Hazel Shorts, Hazel Sped and Hazel Long, in one creator studio.
+</p>
+
+<p align="center">
+  <a href="https://juw12.github.io/projects/hazel/"><b>Try it live</b></a> ·
+  <a href="#see-it-in-action">See it in action</a> ·
+  <a href="#highlights">Highlights</a> ·
+  <a href="https://github.com/juw12">More by juw12</a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/juw12/projects/tree/main/apps/hazel"><img src="https://img.shields.io/github/last-commit/juw12/projects?path=apps%2Fhazel&label=updated&color=facc15" alt="Last updated"></a>
+  <a href="https://juw12.github.io/projects/hazel/"><img src="https://img.shields.io/badge/demo-live-2ea44f" alt="Live demo"></a>
+  <img src="https://img.shields.io/badge/Web-24292f" alt="Web">
+  <img src="https://img.shields.io/badge/Desktop-24292f" alt="Desktop">
+  <img src="https://img.shields.io/badge/license-MIT-facc15" alt="MIT license">
+</p>
+
+<a id="highlights"></a>
+<table>
+  <tr>
+    <td width="33%" valign="top">
+      <b>Hazel Shorts</b><br>
+      Faceless explainer shorts from a script.
+    </td>
+    <td width="33%" valign="top">
+      <b>Hazel Sped</b><br>
+      Sped-up and mashup edits of your songs.
+    </td>
+    <td width="33%" valign="top">
+      <b>Hazel Long</b><br>
+      Create, cut and publish long-form video.
+    </td>
+  </tr>
+</table>
+
+## See it in action
+
+<p align="center">
+  <a href="https://juw12.github.io/projects/hazel/"><img src="docs/media/demo.png" alt="Hazel screenshot" width="820"></a><br>
+  <sub>Open the interactive demo at <a href="https://juw12.github.io/projects/hazel/">juw12.github.io/projects/hazel/</a></sub>
+</p>
+<!-- HERO:END -->
+
+## About
 
 **One creator studio, three apps.** Hazel brings Shortcraft, Sped and the original Hazel together under one name,
 one home page and one switcher (the leaf chip at the top of every Hazel page).

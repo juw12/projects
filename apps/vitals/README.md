@@ -1,4 +1,60 @@
-# apps/vitals
+<!-- HERO:START -->
+<p align="center">
+  <a href="https://juw12.github.io/projects/vitals/index.html"><img src="docs/media/banner.jpg" alt="Vitals: A device-health copilot for laptops and phones." width="100%"></a>
+</p>
+
+<p align="center">
+  <b>A device-health copilot for laptops and phones.</b><br>
+  Cleans storage you can undo, forecasts battery wear and finds what drains your device.
+</p>
+
+<p align="center">
+  <a href="https://juw12.github.io/projects/vitals/index.html"><b>Try it live</b></a> ·
+  <a href="https://github.com/juw12/projects/releases/tag/vitals"><b>Download</b></a> ·
+  <a href="#see-it-in-action">See it in action</a> ·
+  <a href="#highlights">Highlights</a> ·
+  <a href="https://github.com/juw12">More by juw12</a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/juw12/projects/tree/main/apps/vitals"><img src="https://img.shields.io/github/last-commit/juw12/projects?path=apps%2Fvitals&label=updated&color=22c55e" alt="Last updated"></a>
+  <a href="https://github.com/juw12/projects/releases/tag/vitals"><img src="https://img.shields.io/badge/download-vitals-22c55e" alt="Download"></a>
+  <a href="https://juw12.github.io/projects/vitals/index.html"><img src="https://img.shields.io/badge/demo-live-2ea44f" alt="Live demo"></a>
+  <img src="https://img.shields.io/badge/Windows-24292f" alt="Windows">
+  <img src="https://img.shields.io/badge/macOS-24292f" alt="macOS">
+  <img src="https://img.shields.io/badge/Linux-24292f" alt="Linux">
+  <img src="https://img.shields.io/badge/Android-24292f" alt="Android">
+  <img src="https://img.shields.io/badge/iPhone-24292f" alt="iPhone">
+  <img src="https://img.shields.io/badge/license-MIT-22c55e" alt="MIT license">
+</p>
+
+<a id="highlights"></a>
+<table>
+  <tr>
+    <td width="33%" valign="top">
+      <b>Undoable cleaning</b><br>
+      Free up space knowing every action can be reversed.
+    </td>
+    <td width="33%" valign="top">
+      <b>Battery and drain detective</b><br>
+      A battery wear forecast and a drain detective that names the culprit.
+    </td>
+    <td width="33%" valign="top">
+      <b>Desktop and phone</b><br>
+      Real apps for Windows, Mac and Linux, plus phone checks paired by QR code.
+    </td>
+  </tr>
+</table>
+
+## See it in action
+
+<p align="center">
+  <a href="https://juw12.github.io/projects/vitals/index.html"><img src="docs/media/demo.png" alt="Vitals screenshot" width="820"></a><br>
+  <sub>Open the interactive demo at <a href="https://juw12.github.io/projects/vitals/index.html">juw12.github.io/projects/vitals/index.html</a></sub>
+</p>
+<!-- HERO:END -->
+
+## About
 
 **Vitals: a device-health copilot for laptops and phones.** It cleans storage you
 can take back, explains every number it shows, predicts battery wear, catches apps

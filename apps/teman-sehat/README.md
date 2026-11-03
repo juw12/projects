@@ -1,4 +1,55 @@
-# Teman Sehat · GERD • Diet & Fit • Kulit
+<!-- HERO:START -->
+<p align="center">
+  <a href="https://juw12.github.io/projects/teman-sehat/"><img src="docs/media/banner.jpg" alt="Teman Sehat: A GERD, diet and skin-care companion." width="100%"></a>
+</p>
+
+<p align="center">
+  <b>A GERD, diet and skin-care companion.</b><br>
+  Daily reminders, an after-meal timer and a symptom log, in Bahasa Indonesia and English.
+</p>
+
+<p align="center">
+  <a href="https://juw12.github.io/projects/teman-sehat/"><b>Try it live</b></a> ·
+  <a href="#see-it-in-action">See it in action</a> ·
+  <a href="#highlights">Highlights</a> ·
+  <a href="https://github.com/juw12">More by juw12</a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/juw12/projects/tree/main/apps/teman-sehat"><img src="https://img.shields.io/github/last-commit/juw12/projects?path=apps%2Fteman-sehat&label=updated&color=15803d" alt="Last updated"></a>
+  <a href="https://juw12.github.io/projects/teman-sehat/"><img src="https://img.shields.io/badge/demo-live-2ea44f" alt="Live demo"></a>
+  <img src="https://img.shields.io/badge/Web-24292f" alt="Web">
+  <img src="https://img.shields.io/badge/Android-24292f" alt="Android">
+  <img src="https://img.shields.io/badge/license-MIT-15803d" alt="MIT license">
+</p>
+
+<a id="highlights"></a>
+<table>
+  <tr>
+    <td width="33%" valign="top">
+      <b>GERD habits</b><br>
+      Daily reminders, an after-meal timer and a symptom and trigger log.
+    </td>
+    <td width="33%" valign="top">
+      <b>Diet and fitness without fasting</b><br>
+      Plans that are gentle on the stomach.
+    </td>
+    <td width="33%" valign="top">
+      <b>Acne care</b><br>
+      A skin routine and acne tracking in the same app.
+    </td>
+  </tr>
+</table>
+
+## See it in action
+
+<p align="center">
+  <a href="https://juw12.github.io/projects/teman-sehat/"><img src="docs/media/demo.png" alt="Teman Sehat screenshot" width="820"></a><br>
+  <sub>Open the interactive demo at <a href="https://juw12.github.io/projects/teman-sehat/">juw12.github.io/projects/teman-sehat/</a></sub>
+</p>
+<!-- HERO:END -->
+
+## About
 
 A lifestyle companion for people with GERD, in Bahasa Indonesia. It combines GERD habit reminders,
 dieting and fitness without fasting, and acne care in one offline app. Data stays on the device.
