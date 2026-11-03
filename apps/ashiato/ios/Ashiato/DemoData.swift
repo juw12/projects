@@ -4,6 +4,7 @@ import UIKit
 
 /// Sample content for `-demo` launches (simulator screenshots, App Store captures, first-look demos).
 /// Lives only in an in-memory store, so it never mixes with a real diary.
+@MainActor
 enum DemoData {
     private struct SampleDay {
         let daysAgo: Int

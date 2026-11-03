@@ -123,7 +123,7 @@ final class WalkRecorder: NSObject, CLLocationManagerDelegate {
 
     // MARK: Encoding (lat, lon as Float32 pairs ~ 8 bytes per fix)
 
-    static func encode(_ locations: [CLLocation]) -> Data {
+    nonisolated static func encode(_ locations: [CLLocation]) -> Data {
         var values: [Float32] = []
         values.reserveCapacity(locations.count * 2)
         for location in locations {
@@ -133,7 +133,7 @@ final class WalkRecorder: NSObject, CLLocationManagerDelegate {
         return values.withUnsafeBufferPointer { Data(buffer: $0) }
     }
 
-    static func decode(_ data: Data) -> [CLLocationCoordinate2D] {
+    nonisolated static func decode(_ data: Data) -> [CLLocationCoordinate2D] {
         let values = data.withUnsafeBytes { Array($0.bindMemory(to: Float32.self)) }
         return stride(from: 0, to: values.count - 1, by: 2).map {
             CLLocationCoordinate2D(latitude: CLLocationDegrees(values[$0]), longitude: CLLocationDegrees(values[$0 + 1]))
