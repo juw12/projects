@@ -13,7 +13,7 @@ Full product plan: `docs/plan.md`.
 - Source: https://github.com/juw12/projects/tree/main/apps/ashiato
 
 `web/` is the published copy of `prototypes/cozy3d`; refresh it with `python tools/sync_web.py`.
-The iOS app in `ios/` is written but **not compiled yet** (needs a Mac + Xcode).
+The iOS app in `ios/` builds, passes its unit tests and is screenshotted on every push by the GitHub Actions macOS runner (`.github/workflows/ashiato-ios.yml` in the monorepo) — no local Mac needed.
 
 ## Status
 
@@ -29,7 +29,7 @@ The iOS app in `ios/` is written but **not compiled yet** (needs a Mac + Xcode).
 | 0 | Fonts subset (`tools/subset_fonts.py`) | ✅ 26.8 MB → 9.3 MB; all UI strings covered |
 | 0 | Art style with a real illustrator | ⏳ diorama is procedural; an illustrator should repaint/texture it in the same palette |
 | 0 | Battery test on a real iPhone | ⏳ needs a device |
-| 1 | iOS app code (`ios/`) | 🟡 26 Swift files incl. language modes (duo JA·KO / EN / JA / KO, `SettingsView`), 3D swipe deck, screenshot tidy (`TidyView`, `ScreenshotInbox`, `ClipClassifier` + parity tests), (`SwipeDeckView.swift`), cozy theme + bundled OFL fonts; **not compiled yet** (needs a Mac + Xcode) |
+| 1 | iOS app code (`ios/`) | 🟡 26 Swift files incl. language modes (duo JA·KO / EN / JA / KO, `SettingsView`), 3D swipe deck, screenshot tidy (`TidyView`, `ScreenshotInbox`, `ClipClassifier` + parity tests), (`SwipeDeckView.swift`), cozy theme + bundled OFL fonts, onboarding with permission priming, `-demo` sample data; ✅ builds with 0 warnings + simulator screenshots on CI; ⏳ not yet run on a real iPhone |
 | 1 | Landing page (`landing/`) | ✅ static page; plug in a waitlist form endpoint |
 
 ## Run the prototypes (Windows/macOS/Linux)
@@ -59,7 +59,14 @@ python prototypes/tidy/tidy.py --export-expected # regenerate the Swift parity g
 python prototypes/tidy/make_shots.py             # mock screenshots for tidy.html
 ```
 
-## Build the iOS app (needs a Mac)
+## Build the iOS app
+
+**Without a Mac (CI):** push to the monorepo; the `Ashiato iOS` workflow runs `xcodegen generate`, builds app + widget + tests for the simulator, runs the tests, and uploads `ashiato-ios-results` (build log, warnings, test log, 10 screenshots) and `Ashiato-simulator-app`.
+
+Launch arguments (simulator / screenshots): `-demo` (in-memory sample diary, no permission prompts), `-lang duo|english|japanese|korean`, `-tab today|days|map|memories`, `-sheet settings|tidy|capture|onboarding`.
+
+**On a Mac:**
+
 
 1. Install Xcode 15.3+ and `brew install xcodegen`.
 2. `cd ios && xcodegen generate && open Ashiato.xcodeproj`
@@ -80,11 +87,18 @@ python prototypes/tidy/make_shots.py             # mock screenshots for tidy.htm
 - `Shared/Language.swift` + `Ashiato/Views/SettingsView.swift`: language mode (duo/English/日本語/한국어, stored in the App Group so widgets follow), all UI copy in one `Copy` table.
 - `Widgets/TodayWidget.swift`: home-screen widget whose light changes every hour.
 
+### Fixed when the code was first compiled (CI)
+- Resources were never bundled (XcodeGen has no target-level `resources:`), so scenes, fonts, the clip lexicon and test goldens were missing → listed as sources with `buildPhase: resources`.
+- Widget bundle ID was not prefixed by the app's → install failed; explicit bundle IDs per target.
+- `fatalError` when the iCloud/App Group store can't open → fallback chain down to an in-memory store.
+- Location and Photos permission alerts on first launch / any PhotoKit fetch → onboarding primes location; PhotoKit is only touched after access is granted.
+- Swift 6 concurrency warnings (main-actor isolation of statics and encoders).
+
 ### Known gaps / next steps
-- Compile and fix on a Mac (code was written on Windows without a Swift compiler).
+- Run on a real iPhone: needs an Apple Developer team ID for signing, WeatherKit / iCloud / App Group capabilities, and a battery test.
 - Port the walk-map matcher to Swift using OpenStreetMap road tiles (Phase 2).
 - Tune the Core Image doodle so it matches the Python look; compare side by side.
-- Paywall (RevenueCat), onboarding, permission priming, more localizations (ZH-Hant/ID; EN/JA/KO done).
+- Paywall (RevenueCat), more localizations (ZH-Hant/ID; EN/JA/KO done).
 - Replace procedural diorama with illustrator-finished assets; regenerate the scene library in that style.
 - Tune the screenshot classifier and the Vision duplicate threshold (0.35) on real, opt-in OCR samples.
 - Share extension: "save this screenshot to a drawer" straight after capture.
