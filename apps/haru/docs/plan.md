@@ -1,9 +1,20 @@
-# Daymap — Full Product Plan (complete version)
+# Haru — Full Product Plan (complete version)
 
-> Working name: **Daymap** (placeholder — check App Store, domain and trademark before committing).
 > Name: **Haru** (chosen 2026-11-03; formerly the working name *Ashiato* (足跡), dropped because the App Store already has many "Ashiato" diary and walking apps).
 
 Inspired by: One Good Thing, DOOD, DayCity, Kiroku, PlainWalk, Footnotes, echor.
+
+
+## Name and store-launch check (2026-11-03)
+
+**Decision:** keep **Haru** for the web app, the GitHub downloads and the portfolio. Before an App Store / Play launch, pick a distinctive store name.
+
+Why (quick web check, not a legal clearance search):
+- Ashiato (old working name): ~8 App Store apps already called Ashiato / あしあと, several of them place diaries and walking photo maps.
+- Haru: the "Haru" diary space is crowded: **Harukong 하루콩** (BlueSignum, 10M+ downloads, Korea), Mongle Haru, Haru — Daily Journal, Haru Diary, Haru - Gratitude Diary, Happy Haru.
+- Trademarks: Japan, **HARU class 9 held by Furyu Corporation** (photo-sticker / photo apps; closest risk). UK, HARU class 42 (Spring Technology Services). US, old HARU marks (sushi restaurant group) are dead. Korea not checked directly (KIPRIS).
+
+Store-name candidates (no matches found in a quick search): **Dayrama** (day + diorama; デイラマ / 데이라마) first choice, then *Hibitown*, *Townote*. Before launch: search J-PlatPat, KIPRIS and USPTO (class 9 / 42), reserve the store name and a domain.
 
 ---
 
