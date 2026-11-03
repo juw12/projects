@@ -32,6 +32,7 @@ export interface OidcTokenRequest {
   audience: string
   lifetimeSec?: number
   cacheMode?: CacheMode
+  permissions?: 'none' | 'reviewer' | 'full'
 }
 
 export interface OidcTokenResponse {
@@ -42,6 +43,7 @@ export interface OidcTokenResponse {
   notBefore: string
   issuer: string
   cacheMode?: CacheMode
+  permissions?: 'none' | 'reviewer' | 'full'
 }
 
 export interface OidcIssuerConfig {
@@ -95,6 +97,14 @@ export function issueOidcToken(
       `cacheMode must be one of: read, write, write-only, none; got ${request.cacheMode}`,
     )
   }
+  if (request.permissions !== undefined &&
+      request.permissions !== 'none' &&
+      request.permissions !== 'reviewer' &&
+      request.permissions !== 'full') {
+    throw new Error(
+      `permissions must be one of: none, reviewer, full; got ${request.permissions}`,
+    )
+  }
 
   const lifetimeSec = clampLifetime(request.lifetimeSec ?? config.defaultLifetimeSec)
   const expiresAt = new Date(now.getTime() + lifetimeSec * 1000)
@@ -116,6 +126,9 @@ export function issueOidcToken(
   if (request.cacheMode !== undefined) {
     payload['cache_mode'] = request.cacheMode
   }
+  if (request.permissions !== undefined) {
+    payload['permissions'] = request.permissions
+  }
 
   const value = signHs256(header, payload, config.signingSecret)
 
@@ -127,6 +140,7 @@ export function issueOidcToken(
     notBefore: now.toISOString(),
     issuer: config.issuer,
     ...(request.cacheMode !== undefined && { cacheMode: request.cacheMode }),
+    ...(request.permissions !== undefined && { permissions: request.permissions }),
   }
 }
 

@@ -134,6 +134,72 @@ describe('issueOidcToken', () => {
       expect(resp.cacheMode).toBe(mode)
     }
   })
+
+  it('includes permissions in JWT payload and response when provided', () => {
+    const resp = issueOidcToken(
+      baseConfig,
+      { jobId: 7, audience: 'sts.amazonaws.com', permissions: 'reviewer' },
+      fixedNow,
+    )
+    expect(resp.permissions).toBe('reviewer')
+
+    const payloadB64 = resp.value.split('.')[1]
+    const payload = JSON.parse(Buffer.from(payloadB64, 'base64').toString('utf8'))
+    expect(payload['permissions']).toBe('reviewer')
+  })
+
+  it('omits permissions from JWT payload when not provided', () => {
+    const resp = issueOidcToken(
+      baseConfig,
+      { jobId: 7, audience: 'sts.amazonaws.com' },
+      fixedNow,
+    )
+    expect(resp.permissions).toBeUndefined()
+
+    const payloadB64 = resp.value.split('.')[1]
+    const payload = JSON.parse(Buffer.from(payloadB64, 'base64').toString('utf8'))
+    expect('permissions' in payload).toBe(false)
+  })
+
+  it('rejects invalid permissions values', () => {
+    expect(() =>
+      issueOidcToken(
+        baseConfig,
+        { jobId: 1, audience: 'sts.amazonaws.com', permissions: 'admin' as any },
+        fixedNow,
+      ),
+    ).toThrow(/permissions must be one of/)
+  })
+
+  it('accepts each valid permissions value', () => {
+    for (const level of ['none', 'reviewer', 'full'] as const) {
+      const resp = issueOidcToken(
+        baseConfig,
+        { jobId: 1, audience: 'sts.amazonaws.com', permissions: level },
+        fixedNow,
+      )
+      expect(resp.permissions).toBe(level)
+    }
+  })
+
+  it('combines cacheMode and permissions in the same token', () => {
+    const resp = issueOidcToken(
+      baseConfig,
+      {
+        jobId: 1,
+        audience: 'openforge-cache',
+        cacheMode: 'read',
+        permissions: 'reviewer',
+      },
+      fixedNow,
+    )
+    expect(resp.cacheMode).toBe('read')
+    expect(resp.permissions).toBe('reviewer')
+    const payloadB64 = resp.value.split('.')[1]
+    const payload = JSON.parse(Buffer.from(payloadB64, 'base64').toString('utf8'))
+    expect(payload['cache_mode']).toBe('read')
+    expect(payload['permissions']).toBe('reviewer')
+  })
 })
 
 describe('verifyOidcToken round-trip', () => {
