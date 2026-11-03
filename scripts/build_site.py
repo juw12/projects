@@ -113,6 +113,8 @@ REDIRECTS = {
     # Hazel Shorts, Hazel Sped and Hazel Long (the original Hazel web studio moved to hazel/long).
     "shortcraft": "hazel/shorts",
     "sped": "hazel/sped",
+    # Ashiato (working name) became Haru on 2026-11-03.
+    "ashiato": "haru",
 }
 
 # Pages besides index/app/web/mobile that lived at an old path and still get a stub there
@@ -120,6 +122,7 @@ REDIRECTS = {
 REDIRECT_EXTRA_PAGES = {
     "kitty": ["get.html", "demo.html", "tests.html"],
     "shortcraft": ["channel.html"],
+    "ashiato": ["tidy.html", "app/index.html"],
 }
 
 # Renamed installable apps whose old service worker must be retired at the old path.
@@ -164,13 +167,17 @@ def write_redirects(out_dir, catalog):
         for page, target, target_path in targets:
             if not target_path.exists():
                 continue
+            # Pages in a sub-folder (e.g. "app/index.html") need their links lifted one level per folder.
+            up = "../" * page.count("/")
+            target = up + target
+            script_src = (up or "./") + "redirect.js"
             dst = out_dir / old_id / page
             dst.parent.mkdir(parents=True, exist_ok=True)
             dst.write_text(
                 '<!DOCTYPE html>\n<html lang="en">\n<head>\n'
                 '<meta charset="UTF-8">\n'
                 f'<noscript><meta http-equiv="refresh" content="0; url={target}"></noscript>\n'
-                f'<script src="./redirect.js" data-target="{target}"></script>\n'
+                f'<script src="{script_src}" data-target="{target}"></script>\n'
                 f'<link rel="canonical" href="{target}">\n'
                 '<title>Moved</title>\n</head>\n<body>\n'
                 f'<p>This page moved to <a href="{target}">{new_id}</a>.</p>\n'

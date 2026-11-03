@@ -1,0 +1,67 @@
+{
+  "name": "haru-desktop",
+  "version": "0.2.0",
+  "description": "Haru: a cozy photo diary, walking map and weather town",
+  "productName": "Haru",
+  "author": "juw12",
+  "private": true,
+  "license": "UNLICENSED",
+  "main": "main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "dist:win": "electron-builder --win nsis portable --x64 --publish never",
+    "dist:mac": "electron-builder --mac dmg --universal --publish never",
+    "smoke": "node scripts/smoke.cjs"
+  },
+  "devDependencies": {
+    "electron": "45.0.0",
+    "electron-builder": "26.18.0",
+    "playwright-core": "1.60.0"
+  },
+  "build": {
+    "appId": "io.github.juw12.haru",
+    "productName": "Haru",
+    "asar": true,
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "main.cjs",
+      {
+        "from": "../web/app",
+        "to": "app",
+        "filter": ["**/*", "!**/*.md"]
+      }
+    ],
+    "win": {
+      "icon": "../web/app/icons/icon-1024.png",
+      "executableName": "Haru",
+      "target": ["nsis", "portable"]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowElevation": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Haru",
+      "deleteAppDataOnUninstall": false,
+      "artifactName": "Haru-Setup-x64.exe"
+    },
+    "portable": {
+      "artifactName": "Haru-Portable-x64.exe"
+    },
+    "mac": {
+      "icon": "../web/app/icons/icon-1024.png",
+      "category": "public.app-category.lifestyle",
+      "target": ["dmg"],
+      "identity": null,
+      "artifactName": "Haru-mac.${ext}"
+    },
+    "dmg": {
+      "title": "Haru"
+    }
+  }
+}

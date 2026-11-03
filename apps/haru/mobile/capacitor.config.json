@@ -1,0 +1,15 @@
+{
+  "appId": "io.github.juw12.haru",
+  "appName": "Haru",
+  "webDir": "www",
+  "backgroundColor": "#F6EFE2",
+  "android": {
+    "allowMixedContent": false
+  },
+  "plugins": {
+    "SystemBars": {
+      "insetsHandling": "css",
+      "style": "LIGHT"
+    }
+  }
+}
