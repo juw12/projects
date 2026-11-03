@@ -22,7 +22,7 @@ final class ScreenshotInbox {
     static let firstScanWindow: TimeInterval = 60 * 60 * 24 * 30
     /// Vision feature-print distance under which two screenshots count as "そっくり".
     /// Starting value — tune on real libraries (see docs/plan.md §4.11).
-    static let duplicateDistance: Float = 0.35
+    nonisolated static let duplicateDistance: Float = 0.35
     private static let lastScanKey = "screenshotInbox.lastScan"
     private static let batchSize = 24
 

@@ -9,19 +9,21 @@ struct AshiatoApp: App {
     @AppStorage(LanguageMode.storageKey, store: LanguageMode.sharedDefaults)
     private var languageRaw = LanguageMode.systemDefault.rawValue
 
-    let container: ModelContainer = {
-        let schema = Schema(AshiatoSchema.models)
-        let configuration = ModelConfiguration(
-            schema: schema,
-            groupContainer: .identifier("group.app.ashiato"),   // shared with widgets
-            cloudKitDatabase: .private("iCloud.app.ashiato")     // no account needed beyond iCloud
-        )
-        do {
-            return try ModelContainer(for: schema, configurations: configuration)
-        } catch {
-            fatalError("Could not create model container: \(error)")
+    private let container: ModelContainer
+
+    init() {
+        let launch = AppLaunch.current
+        if let language = launch.language {
+            LanguageMode.sharedDefaults.set(language.rawValue, forKey: LanguageMode.storageKey)
         }
-    }()
+        container = ModelStore.makeContainer(demo: launch.demo)
+        if launch.demo {
+            DemoData.seed(
+                into: container.mainContext,
+                language: launch.language ?? LanguageMode.current
+            )
+        }
+    }
 
     var body: some Scene {
         WindowGroup {

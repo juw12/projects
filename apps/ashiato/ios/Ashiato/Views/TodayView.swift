@@ -8,8 +8,8 @@ struct TodayView: View {
     @Environment(ScreenshotInbox.self) private var screenshots
     @Query(filter: #Predicate<Clip> { $0.statusRaw == "inbox" }) private var waitingClips: [Clip]
     @AppStorage("tidy.inviteDismissed") private var tidyInviteDismissed = false
-    @State private var showTidy = false
-    @State private var showSettings = false
+    @State private var showTidy = AppLaunch.current.sheet == .tidy
+    @State private var showSettings = AppLaunch.current.sheet == .settings
     @Environment(\.language) private var language
     @Query(sort: \Day.date, order: .reverse) private var days: [Day]
     @State private var prompt = PromptLibrary.prompt(for: .now)
@@ -104,6 +104,7 @@ struct TodayView: View {
                 }
             }
             .task {
+                guard !AppLaunch.current.demo else { return }
                 screenshots.refreshAccess()
                 await screenshots.scan(into: context)   // no-op unless already permitted
             }

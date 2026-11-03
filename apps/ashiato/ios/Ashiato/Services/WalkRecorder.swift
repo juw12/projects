@@ -36,8 +36,17 @@ final class WalkRecorder: NSObject, CLLocationManagerDelegate {
         manager.requestWhenInUseAuthorization()
     }
 
-    /// Low-power location for weather/day context (no GPS).
+    var isAuthorized: Bool {
+        switch manager.authorizationStatus {
+        case .authorizedWhenInUse, .authorizedAlways: true
+        default: false
+        }
+    }
+
+    /// Low-power location for weather/day context (no GPS). Never prompts: does nothing until
+    /// the user has allowed location (asked once, with context, in onboarding).
     func startContextUpdates() {
+        guard isAuthorized else { return }
         manager.startMonitoringSignificantLocationChanges()
         manager.requestLocation()
     }
@@ -104,6 +113,13 @@ final class WalkRecorder: NSObject, CLLocationManagerDelegate {
     }
 
     nonisolated func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {}
+
+    /// Permission granted (e.g. from onboarding): start the low-power context updates right away.
+    nonisolated func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+        Task { @MainActor in
+            self.startContextUpdates()
+        }
+    }
 
     // MARK: Encoding (lat, lon as Float32 pairs ~ 8 bytes per fix)
 

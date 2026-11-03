@@ -104,16 +104,18 @@ jobs:
             xcrun simctl terminate "$UDID" "$BUNDLE" 2>/dev/null || true
             xcrun simctl launch "$UDID" "$BUNDLE" "$@" > /dev/null
             sleep 9
-            xcrun simctl io "$UDID" screenshot "screenshots/$name.png"
+            xcrun simctl io "$UDID" screenshot "screenshots/$name.png" || echo "screenshot $name failed"
           }
           shoot 01-today-en   -demo -lang english  -tab today
           shoot 02-days-en    -demo -lang english  -tab days
           shoot 03-map-en     -demo -lang english  -tab map
           shoot 04-memories-en -demo -lang english -tab memories
-          shoot 05-tidy-en    -demo -lang english  -tab tidy
+          shoot 05-tidy-en    -demo -lang english  -sheet tidy
           shoot 06-today-duo  -demo -lang duo      -tab today
           shoot 07-today-ja   -demo -lang japanese -tab today
           shoot 08-settings-en -demo -lang english -tab today -sheet settings
+          shoot 09-onboarding-en -demo -lang english -sheet onboarding
+          shoot 10-capture-en -demo -lang english -sheet capture
           xcrun simctl spawn "$UDID" log show --last 3m --predicate 'process == "Ashiato"' --style compact > app.log 2>&1 || true
           grep -iE "fatal|crash|error" app.log | tail -40 || true
           ls -la screenshots
