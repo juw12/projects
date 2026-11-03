@@ -24,6 +24,7 @@ const requestSchema = z.object({
   audience: z.string().trim().min(1).max(512),
   lifetimeSec: z.number().int().positive().max(15 * 60).optional(),
   cacheMode: z.enum(['read', 'write', 'write-only', 'none']).optional(),
+  permissions: z.enum(['none', 'reviewer', 'full']).optional(),
 })
 
 let cachedConfig: OidcIssuerConfig | null = null
@@ -85,9 +86,16 @@ router.post('/oidc-token', zValidator('json', requestSchema), async c => {
       audience: body.audience,
       lifetimeSec: body.lifetimeSec,
       cacheMode: body.cacheMode,
+      permissions: body.permissions,
     })
     appLogger.info(
-      { runnerId: runner.id, jobId: body.jobId, audience: body.audience, cacheMode: body.cacheMode },
+      {
+        runnerId: runner.id,
+        jobId: body.jobId,
+        audience: body.audience,
+        cacheMode: body.cacheMode,
+        permissions: body.permissions,
+      },
       'issued oidc token',
     )
     return c.json(token, 200)
