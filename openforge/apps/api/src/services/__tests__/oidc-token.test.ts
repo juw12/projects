@@ -87,6 +87,53 @@ describe('issueOidcToken', () => {
     const b = issueOidcToken(baseConfig, { jobId: 1, audience: 'x' }, fixedNow)
     expect(a.value).not.toBe(b.value)
   })
+
+  it('includes cache_mode in JWT payload and response when provided', () => {
+    const resp = issueOidcToken(
+      baseConfig,
+      { jobId: 7, audience: 'openforge-cache', cacheMode: 'read' },
+      fixedNow,
+    )
+    expect(resp.cacheMode).toBe('read')
+
+    const payloadB64 = resp.value.split('.')[1]
+    const payload = JSON.parse(Buffer.from(payloadB64, 'base64').toString('utf8'))
+    expect(payload['cache_mode']).toBe('read')
+  })
+
+  it('omits cache_mode from JWT payload when not provided', () => {
+    const resp = issueOidcToken(
+      baseConfig,
+      { jobId: 7, audience: 'sts.amazonaws.com' },
+      fixedNow,
+    )
+    expect(resp.cacheMode).toBeUndefined()
+
+    const payloadB64 = resp.value.split('.')[1]
+    const payload = JSON.parse(Buffer.from(payloadB64, 'base64').toString('utf8'))
+    expect('cache_mode' in payload).toBe(false)
+  })
+
+  it('rejects invalid cacheMode values', () => {
+    expect(() =>
+      issueOidcToken(
+        baseConfig,
+        { jobId: 1, audience: 'openforge-cache', cacheMode: 'admin' as any },
+        fixedNow,
+      ),
+    ).toThrow(/cacheMode must be one of/)
+  })
+
+  it('accepts each valid cacheMode value', () => {
+    for (const mode of ['read', 'write', 'write-only', 'none'] as const) {
+      const resp = issueOidcToken(
+        baseConfig,
+        { jobId: 1, audience: 'openforge-cache', cacheMode: mode },
+        fixedNow,
+      )
+      expect(resp.cacheMode).toBe(mode)
+    }
+  })
 })
 
 describe('verifyOidcToken round-trip', () => {
