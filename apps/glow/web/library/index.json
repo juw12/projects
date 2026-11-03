@@ -1,0 +1,39 @@
+{
+ "format": 1,
+ "license": "Text from Wikipedia, CC BY-SA 4.0 (https://creativecommons.org/licenses/by-sa/4.0/)",
+ "packs": [
+  {
+   "id": "first-aid",
+   "name": "First aid & emergency medicine",
+   "about": "CPR, bleeding, burns, choking, fractures, bites, heat and cold injuries, poisoning.",
+   "note": "Reference text, not medical advice. In an emergency, contact local emergency services if you can.",
+   "version": "2026-11-03",
+   "articles": 63,
+   "passages": 2052,
+   "bytes": 1300574,
+   "file": "first-aid.json"
+  },
+  {
+   "id": "survival",
+   "name": "Survival & outdoors",
+   "about": "Safe water, fire, shelter, navigation, signalling, food, clothing and hygiene.",
+   "note": "Reference text. Check local conditions and rules; some techniques carry real risk.",
+   "version": "2026-11-03",
+   "articles": 46,
+   "passages": 1062,
+   "bytes": 672921,
+   "file": "survival.json"
+  },
+  {
+   "id": "disaster",
+   "name": "Disasters & preparedness",
+   "about": "Earthquakes, floods, storms, wildfires, heat waves, outages, evacuation and supplies.",
+   "note": "Reference text. Always follow instructions from local authorities.",
+   "version": "2026-11-03",
+   "articles": 37,
+   "passages": 1137,
+   "bytes": 749938,
+   "file": "disaster.json"
+  }
+ ]
+}

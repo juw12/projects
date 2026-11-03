@@ -226,6 +226,10 @@
     <p class="note">Download a small AI model once and GlowChat keeps answering with no internet. It runs on this device's graphics chip and nothing you type leaves the device. Offline models are smaller than cloud AI: good for writing, rewriting, translating and quick questions.</p>
     <div id="offline-ai-panel" class="offline-ai"><p class="note">Checking this device…</p></div>
 
+    <h4 id="offline-library-title">Offline library</h4>
+    <p class="note">Save reference packs (first aid, survival, disasters; from Wikipedia) on this device. With no internet, the AI on this device reads the matching passages before it answers and lists them as sources. With no AI model downloaded, GlowChat shows the passages themselves, so it works on any phone or computer.</p>
+    <div id="offline-library-panel" class="offline-ai"><p class="note">Loading the library…</p></div>
+
     <!-- Your own AI keys and services: hidden for now (OWN_FREE_KEYS_SHOWN / OWN_AI_SERVICES_SHOWN in app.js). -->
     <div id="own-ai-setup" hidden>
     <h4>Your own AI keys (optional)</h4>
@@ -330,6 +334,7 @@
 <script src="../shared/glow-locale.js"></script>
 <script src="../shared/glow-apps.js"></script>
 <script src="../shared/glow-offline-ai.js"></script>
+  <script src="../shared/glow-offline-library.js"></script>
 <script src="./app.js"></script>
 </body>
 </html>

@@ -1,8 +1,9 @@
 // GlowChat service worker: the whole app opens with no internet. Pages and scripts are network-first so
 // updates ship at once, but a slow connection falls back to the saved copy after a few seconds.
 // AI requests always go to the network (they are cross-origin, so this worker never sees them).
+// Offline library packs live in IndexedDB ("glow-library"), never in these caches.
 // Glow Offline models are stored by WebLLM itself in its own caches ("webllm/…"), never deleted here.
-const CACHE_NAME = 'glowchat-v23';
+const CACHE_NAME = 'glowchat-v24';
 const SHARED = new URL('../shared/', self.registration.scope).href;
 const NETWORK_TIMEOUT_MS = 4000;
 const ASSETS_TO_CACHE = [
@@ -21,7 +22,8 @@ const ASSETS_TO_CACHE = [
   '../shared/i18n/ui.zh-CN.js',
   '../shared/i18n/ui.zh-TW.js',
   '../shared/glow-apps.js',
-  '../shared/glow-offline-ai.js'
+  '../shared/glow-offline-ai.js',
+  '../shared/glow-offline-library.js'
 ];
 
 self.addEventListener('install', (event) => {

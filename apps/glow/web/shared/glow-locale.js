@@ -457,7 +457,7 @@ const OWN_KEY_TIP_SHOWN = false;
     const { provider, id } = bareModelId(value);
     const family = modelFamily(value);
     // Your own computer, your own endpoint, Glow Offline on this device and the offline demo are never filtered.
-    if (["ollama", "custom", "demo", "local"].includes(provider)) return { allowed: true, family, caution: "" };
+    if (["ollama", "custom", "demo", "local", "library"].includes(provider)) return { allowed: true, family, caution: "" };
     let allowed = true;
     if (region.allow) allowed = provider === "free" || region.allow.some((pattern) => pattern.test(id));
     else if (region.block) allowed = !region.block.includes(family);

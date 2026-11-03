@@ -45,7 +45,7 @@ class PowerAndServiceTests(unittest.TestCase):
     def test_service_choices_match_the_app(self):
         block = self.chat[self.chat.index("const AI_SERVICES = {"):self.chat.index("const ALWAYS_AVAILABLE_PROVIDERS")]
         self.assertEqual(tuple(re.findall(r"^  ([a-z]+): \{", block, re.M)), SERVICES)
-        self.assertIn('const ALWAYS_AVAILABLE_PROVIDERS = ["demo", "local", "chrome"];', self.chat)
+        self.assertIn('const ALWAYS_AVAILABLE_PROVIDERS = ["demo", "local", "chrome", "library"];', self.chat)
         self.assertIn('aiService: "auto"', self.chat)
         self.assertIn("lowPower: false", self.chat)
 
@@ -94,13 +94,13 @@ class PowerAndServiceTests(unittest.TestCase):
 
     def test_version_and_cache_were_bumped_together(self):
         published = json.loads((WEB / "version.json").read_text(encoding="utf-8"))["version"]
-        self.assertEqual(published, "1.28.1")
+        self.assertEqual(published, "1.29.0")
         apps = (WEB / "shared" / "glow-apps.js").read_text(encoding="utf-8")
         self.assertIn(f'const GLOW_VERSION = "{published}";', apps)
         mobile = json.loads((APP / "mobile" / "package.json").read_text(encoding="utf-8"))
         self.assertEqual(mobile["version"], published)
         worker = (WEB / "chat" / "sw.js").read_text(encoding="utf-8")
-        self.assertIn("const CACHE_NAME = 'glowchat-v23';", worker)
+        self.assertIn("const CACHE_NAME = 'glowchat-v24';", worker)
 
 
 if __name__ == "__main__":

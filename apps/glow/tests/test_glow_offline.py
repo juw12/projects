@@ -81,7 +81,7 @@ class OfflineAiStatic(unittest.TestCase):
         self.assertIn("NETWORK_PROVIDERS.has(provider)", app)
         self.assertIn("offlineFallbackModel()", app)
         locale = read("shared/glow-locale.js")
-        self.assertIn('["ollama", "custom", "demo", "local"]', locale, "on-device models must never be region-filtered")
+        self.assertIn('["ollama", "custom", "demo", "local", "library"]', locale, "on-device models must never be region-filtered")
 
     def test_offline_caches(self):
         chat_sw = read("chat/sw.js")

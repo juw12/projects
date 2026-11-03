@@ -1,15 +1,12 @@
 {
-  "version": "1.28.1",
-  "released": "2026-10-30",
+  "version": "1.29.0",
+  "released": "2026-11-03",
   "notes": [
-    "📰 GlowNews (was AI News) now sits on Glow home next to GlowChat, GlowRoom and GlowLead, and in the Glow apps menu",
-    "Type a topic on Glow home and tap 📰 AI news to open GlowNews already searching for it",
-    "📰 New: GlowNews in the Glow apps menu. The day's AI stories in one place, refreshed twice a day (07:00 and 19:00 WIB)",
-    "The same story from different outlets is shown once with all its sources, ranked by how widely it's covered, community votes and freshness",
-    "A 5-point briefing, a 'why it matters' line on top stories, topics (Models, Research, Tools, Business, Policy & safety, Open source) and search",
-    "✨ 'New for you' shows only what came in since your last visit; 🔖 save stories to read later, even after they leave the edition",
-    "💬 Ask Glow on any story (or the whole briefing) opens GlowChat with the story and its sources ready to discuss",
-    "Glow home shows today's top 3 AI stories, and the last edition you saw still opens offline"
+    "📚 New: Offline library. Save reference packs on this device (First aid & emergency medicine, Survival & outdoors, Disasters & preparedness; about 150 Wikipedia articles)",
+    "With no internet, Glow Offline and Chrome's built-in AI read the matching passages before answering and list them as sources",
+    "No AI model on your device? GlowChat still answers offline with the closest passages from the library, on any phone or computer",
+    "Packs download from Glow itself (1–2 MB each), so they work on networks that block Hugging Face and ModelScope",
+    "Settings → Offline library: download or delete packs, or switch the library off"
   ],
   "android": "https://github.com/juw12/projects/releases/download/glow-android/Glow-android.apk",
   "windows": "https://github.com/juw12/projects/releases/download/glow-windows/Glow-Setup.exe"

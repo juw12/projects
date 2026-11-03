@@ -96,7 +96,7 @@ const AI_SERVICES = {
   keys: { providers: ["gemini", "groq", "mistral", "openrouter", "custom", "ollama"], note: `Only your own keys (${OWN_FREE_KEYS_SHOWN ? "Gemini, Groq, Mistral, OpenRouter, " : ""}Ollama or another API), with Glow Free and the AI on this device as backup.` },
   device: { providers: [], note: "Free, unlimited and private: only the AI on this device answers (Glow Offline or Chrome's built-in AI) and nothing you type leaves the device. These models are smaller than cloud AI." },
 };
-const ALWAYS_AVAILABLE_PROVIDERS = ["demo", "local", "chrome"];
+const ALWAYS_AVAILABLE_PROVIDERS = ["demo", "local", "chrome", "library"];
 // Chrome's first availability check can take seconds, so the model list waits at most this long for it.
 const CHROME_AI_WAIT_MS = 1500;
 const CHROME_AI_TEXT = {
@@ -309,6 +309,7 @@ function loadState() {
       accountTemp: false,
       retentionDays: 0,
       offlineModel: "",
+      libraryOff: false,
       lowPower: false,
       aiService: "auto",
       pollinationsKey: "",
@@ -527,9 +528,10 @@ function offlineFallbackModel() {
   return (last || ready[ready.length - 1]).value;
 }
 // The model that really answers: with no internet a downloaded Glow Offline model stands in for cloud ones.
+// With no model on the device, the offline library (if downloaded) shows the matching passages instead.
 function effectiveModel(value) {
   const { provider } = splitModel(value || "");
-  if (!navigator.onLine && NETWORK_PROVIDERS.has(provider)) return offlineFallbackModel() || value;
+  if (!navigator.onLine && NETWORK_PROVIDERS.has(provider)) return offlineFallbackModel() || (libraryReady() ? LIBRARY_MODEL.value : value);
   // Puter allowance used up: answer quietly with the backup; the chosen model stays selected.
   if (provider === "puter" && puterAllowanceResting()) return allowanceBackupModel().value;
   return value;
@@ -737,13 +739,14 @@ async function chromeAIStatus() {
 async function streamChromeAI(system, messages, onText, signal, usage) {
   const api = window.LanguageModel;
   if (!api) throw new Error("Chrome's built-in AI isn't available in this browser.");
+  const library = await libraryContext(messages, 2400);
   // Gemini Nano has a small working memory: keep the latest messages that fit.
-  const history = mergeRoles(trimHistory(messages, lowPowerOn() ? LOW_POWER_CONTEXT_CHARS : 9000));
+  const history = mergeRoles(trimHistory(messages, (lowPowerOn() ? LOW_POWER_CONTEXT_CHARS : 9000) - (library ? library.prompt.length : 0)));
   let lastUser = history.length - 1;
   while (lastUser >= 0 && history[lastUser].role !== "user") lastUser -= 1;
   if (lastUser < 0) throw new Error("There's no question to answer yet.");
   const initialPrompts = [
-    { role: "system", content: system.slice(0, 2400) },
+    { role: "system", content: withLibrary(system, library) },
     ...history.slice(0, lastUser).map((m) => ({ role: m.role === "assistant" ? "assistant" : "user", content: m.content })),
   ];
   const session = await api.create({ initialPrompts, signal });
@@ -764,14 +767,21 @@ async function streamChromeAI(system, messages, onText, signal, usage) {
   } finally {
     if (typeof session.destroy === "function") session.destroy();
   }
+  if (library && full) {
+    full += library.footer;
+    onText(full);
+  }
   if (usage) usage.out = estimateTokens(full);
   return full;
 }
 async function streamLocal(key, system, messages, onText, signal, usage) {
   if (!window.GlowOfflineAI) throw new Error("Glow Offline isn't available in this app.");
+  const phone = window.GlowOfflineAI.isPhone;
+  // Matching passages from the offline library, sized for the model's small working memory.
+  const library = await libraryContext(messages, phone ? 1600 : 3200);
   // On-device models have a small working memory: keep the latest messages that fit.
-  const history = trimHistory(messages, window.GlowOfflineAI.isPhone ? 5000 : 11000);
-  const prompt = system.length > 2400 ? system.slice(0, 2400) : system;
+  const history = trimHistory(messages, (phone ? 5000 : 11000) - (library ? library.prompt.length + 400 : 0));
+  const prompt = withLibrary(system, library);
   const before = $("status").textContent;
   const showStatus = (text) => {
     $("status").textContent = text || before;
@@ -794,19 +804,148 @@ async function streamLocal(key, system, messages, onText, signal, usage) {
     state.settings.offlineModel = `local::${key}`;
     saveState();
   }
+  if (library && result.text) {
+    const withSources = result.text + library.footer;
+    onText(withSources);
+    return withSources;
+  }
   return result.text;
 }
 function offlineStatusText() {
   if (navigator.onLine) return "";
-  return offlineFallbackModel()
-    ? "You're offline: Glow Offline answers on this device."
+  if (offlineFallbackModel()) {
+    return libraryReady()
+      ? "You're offline: Glow Offline answers on this device, using your offline library."
+      : "You're offline: Glow Offline answers on this device.";
+  }
+  return libraryReady()
+    ? "You're offline: your offline library answers with matching passages (download Glow Offline for written answers)."
     : "You're offline. Your chats are saved here; download Glow Offline in Settings to chat without internet.";
 }
 // Starting an on-device model takes a while, so begin as soon as someone starts writing to it.
 function warmOfflineModel() {
-  if (!window.GlowOfflineAI || !$("chat-model")) return;
+  if (!$("chat-model")) return;
   const { provider, model } = splitModel(effectiveModel($("chat-model").value) || "");
-  if (provider === "local") window.GlowOfflineAI.prepare(model);
+  if (["local", "chrome", "library"].includes(provider) && libraryReady()) window.GlowLibrary.warm();
+  if (provider === "local" && window.GlowOfflineAI) window.GlowOfflineAI.prepare(model);
+}
+
+/* ================= Glow Library: reference packs on this device (../shared/glow-offline-library.js) ================= */
+// Used by the AI on this device (Glow Offline, Chrome's built-in AI): it reads the matching passages before
+// answering and the answer lists them as sources. With no model at all, the passages are shown directly.
+const LIBRARY_MODEL = { value: "library::search", label: "Offline library (passages, no AI)", short: "Offline library", group: "On this device: works offline" };
+function libraryReady() {
+  return !!(window.GlowLibrary && !state.settings.libraryOff && window.GlowLibrary.hasPacks());
+}
+// What to look up: the latest question, plus the one before it when the latest is a short follow-up.
+function libraryQuery(messages) {
+  const asked = messages.filter((m) => m.role === "user").map((m) => stripImages(String(m.content || "")));
+  const last = asked[asked.length - 1] || "";
+  if (asked.length > 1 && window.GlowLibrary.tokenize(last).length < 3) return `${asked[asked.length - 2]} ${last}`;
+  return last;
+}
+async function libraryContext(messages, maxChars) {
+  if (!libraryReady()) return null;
+  try {
+    return await window.GlowLibrary.contextFor(libraryQuery(messages), { maxChars });
+  } catch {
+    return null; // a library that can't be read never stops the answer
+  }
+}
+// The system prompt for a small on-device model: shortened to make room for the library passages.
+function withLibrary(system, library) {
+  if (!library) return system.length > 2400 ? system.slice(0, 2400) : system;
+  return `${system.slice(0, 1200)}\n\n${library.prompt}`;
+}
+async function streamLibrary(messages, onText, usage) {
+  if (!window.GlowLibrary) throw new Error("The offline library isn't available in this app.");
+  const text = await window.GlowLibrary.answerFromLibrary(libraryQuery(messages));
+  onText(text);
+  if (usage) usage.out = estimateTokens(text);
+  return text;
+}
+let libraryBusy = false;
+async function renderLibraryPanel() {
+  const panel = $("offline-library-panel");
+  if (!panel) return;
+  if (!window.GlowLibrary) {
+    panel.innerHTML = `<p class="note">The offline library isn't available in this app.</p>`;
+    return;
+  }
+  const lib = window.GlowLibrary;
+  const packs = await lib.catalog();
+  const toggle = `<label class="row library-toggle"><input type="checkbox" id="library-on"${state.settings.libraryOff ? "" : " checked"}> Use the library in offline answers</label>`;
+  if (!packs.length) {
+    panel.innerHTML = `${toggle}<p class="note">${navigator.onLine ? "The library list couldn't be loaded. Try again later." : "Connect to the internet once to download library packs."}</p>`;
+    return;
+  }
+  panel.innerHTML = toggle + packs.map((p) => {
+    const size = lib.sizeLabel(p.bytes || 0);
+    const actions = p.installed
+      ? `<span class="offline-ready">✓ On this device</span><button class="secondary small" type="button" data-library-remove="${escapeHtml(p.id)}">Delete</button>`
+      : `<button class="secondary small" type="button" data-library-get="${escapeHtml(p.id)}">⬇ Download · ${escapeHtml(size)}</button>`;
+    return `<div class="offline-model" data-library-id="${escapeHtml(p.id)}">
+      <div class="offline-head"><b>${escapeHtml(p.name)}</b> <span class="offline-tag">${Number(p.articles || 0)} articles</span></div>
+      <p class="note">${escapeHtml(p.about || "")}</p>
+      <div class="row offline-actions">${actions}</div>
+      <div class="offline-progress hidden"><div class="offline-bar"><span></span></div><small class="note"></small></div>
+    </div>`;
+  }).join("") + `<p class="note">Text from Wikipedia (CC BY-SA 4.0), in English. Reference only, not professional advice.</p>`;
+}
+async function libraryDownload(id, row) {
+  if (libraryBusy) return;
+  libraryBusy = true;
+  const box = row.querySelector(".offline-progress");
+  const bar = row.querySelector(".offline-bar span");
+  const label = box.querySelector("small");
+  row.querySelectorAll("button").forEach((b) => (b.disabled = true));
+  box.classList.remove("hidden");
+  label.textContent = "Downloading…";
+  try {
+    const pack = await window.GlowLibrary.install(id, (progress) => {
+      const percent = Math.round(progress * 100);
+      bar.style.width = `${percent}%`;
+      label.textContent = `Downloading… ${percent}%`;
+    });
+    toast(`${pack.name} is saved on this device. It works with no internet.`);
+  } catch (error) {
+    label.textContent = error.message;
+    label.classList.add("offline-warn");
+    row.querySelectorAll("button").forEach((b) => (b.disabled = false));
+    libraryBusy = false;
+    return;
+  }
+  libraryBusy = false;
+  await loadModels();
+  renderLibraryPanel();
+}
+function wireLibraryPanel() {
+  const panel = $("offline-library-panel");
+  if (!panel) return;
+  panel.addEventListener("change", (event) => {
+    if (event.target.id !== "library-on") return;
+    state.settings.libraryOff = !event.target.checked;
+    saveState();
+    loadModels();
+  });
+  panel.addEventListener("click", async (event) => {
+    const button = event.target.closest("button");
+    if (!button) return;
+    const row = button.closest(".offline-model");
+    if (button.dataset.libraryGet) {
+      libraryDownload(button.dataset.libraryGet, row);
+    } else if (button.dataset.libraryRemove) {
+      if (!confirm("Delete this library pack from this device? You can download it again later.")) return;
+      button.disabled = true;
+      try {
+        await window.GlowLibrary.remove(button.dataset.libraryRemove);
+      } catch (error) {
+        toast(error.message);
+      }
+      await loadModels();
+      renderLibraryPanel();
+    }
+  });
 }
 function showConnectivity() {
   const note = offlineStatusText();
@@ -932,6 +1071,7 @@ async function loadModels() {
   const s = state.settings;
   const list = [{ value: "demo::demo", label: "Demo agent (offline, canned replies)", short: "Demo", group: "Demo: no setup" }];
   list.push(...offlineModelOptions());
+  if (libraryReady()) list.push(LIBRARY_MODEL);
   const onDeviceEnd = list.length; // Chrome's built-in AI joins the on-device group here
   const chromeCheck = chromeAIStatus();
   const chromeSoon = Promise.race([chromeCheck, new Promise((resolve) => setTimeout(resolve, CHROME_AI_WAIT_MS, "pending"))]);
@@ -1219,7 +1359,9 @@ async function streamProvider(modelValue, system, messages, onText, usage) {
       throw new Error("You're offline. Your chats are saved on this device. To keep chatting with no internet, download Glow Offline (Settings → Offline AI on this device) the next time you're online.");
     }
     ({ provider, model } = splitModel(fallback));
-    $("status").textContent = "You're offline: Glow Offline answers on this device.";
+    $("status").textContent = provider === "library"
+      ? "You're offline: your offline library answers on this device."
+      : "You're offline: Glow Offline answers on this device.";
   }
   if (lowPowerOn() && !isMediaModel(modelValue)) system += LOW_POWER_INSTRUCTION;
   const clean = historyForRequest(messages.map((m) => ({ role: m.role, content: stripImages(stripThinking(m.content)) })));
@@ -1230,6 +1372,7 @@ async function streamProvider(modelValue, system, messages, onText, usage) {
     if (provider === "demo") return await streamDemo(system, clean, onText, controller.signal);
     if (provider === "local") return await streamLocal(model, system, clean, onText, controller.signal, usage);
     if (provider === "chrome") return await streamChromeAI(system, clean, onText, controller.signal, usage);
+    if (provider === "library") return await streamLibrary(clean, onText, usage);
     if (provider === "puter") return await streamPuter(model, system, clean, onText, controller.signal, usage);
     if (provider === "puterimg") return await generateImage(model, clean, onText, controller.signal, usage);
     if (provider === "putervid") return await generateVideo(model, clean, onText, controller.signal, usage);
@@ -2687,6 +2830,7 @@ function openSettings() {
   $("data-summary").textContent = dataSummary();
   renderAccount();
   renderOfflinePanel();
+  renderLibraryPanel();
   if (window.GlowOfflineAI && window.GlowOfflineAI.downloaded().length) {
     window.GlowOfflineAI.verify().then(() => renderOfflinePanel()).catch(() => {});
   }
@@ -6326,6 +6470,7 @@ async function boot() {
   fillPersonaSelect();
   wire();
   wireOfflinePanel();
+  wireLibraryPanel();
   if (!TEST_MODE) applyRetention();
   renderAccount();
   renderUsage();
