@@ -6,7 +6,7 @@ name: Haru iOS
 
 on:
   push:
-    branches: [main, haru-ios]
+    branches: [main, haru-ios, haru-apps]
     paths:
       - "apps/haru/ios/**"
       - "apps/haru/prototypes/tidy/expected.json"
