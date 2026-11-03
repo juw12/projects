@@ -2,6 +2,9 @@
 import { Hono, type Context } from 'hono'
 import { zValidator } from '@hono/zod-validator'
 import { z } from 'zod'
+import { and, eq, isNotNull, sql } from 'drizzle-orm'
+import { db } from '@openforge/db'
+import { runnerJobs } from '@openforge/db'
 import type { AppEnv } from '../index.js'
 import { appLogger } from '../lib/logger.js'
 import {
@@ -46,11 +49,18 @@ async function authenticateRunner(c: Context): Promise<{ id: string; name: strin
 }
 
 async function runnerOwnsJob(runnerId: string, jobId: number): Promise<boolean> {
-  // Stub. Phase 1: SELECT 1 FROM runner_jobs WHERE runner_id = $1 AND job_id = $2
-  // AND (picked_up_at IS NOT NULL). Replace with real query before production.
-  void runnerId
-  void jobId
-  return false
+  const rows = await db
+    .select({ exists: sql<number>`1` })
+    .from(runnerJobs)
+    .where(
+      and(
+        eq(runnerJobs.runnerId, runnerId),
+        eq(runnerJobs.jobId, jobId),
+        isNotNull(runnerJobs.pickedUpAt),
+      ),
+    )
+    .limit(1)
+  return rows.length > 0
 }
 
 const router = new Hono<AppEnv>()
