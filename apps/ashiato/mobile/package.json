@@ -1,0 +1,17 @@
+{
+  "name": "ashiato-mobile",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "description": "Ashiato for Android: the web app in web/app/ wrapped with Capacitor",
+  "scripts": {
+    "android:prepare": "node scripts/prepare-native.mjs"
+  },
+  "dependencies": {
+    "@capacitor/core": "8.5.3",
+    "@capacitor/android": "8.5.3"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "8.5.3"
+  }
+}

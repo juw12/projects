@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Copy the runnable web prototype (prototypes/cozy3d) into web/ for GitHub Pages.
 
+web/app/ (the installable cross-platform app) is left untouched.
+
 The juw12/projects monorepo publishes apps/<id>/web/ to https://juw12.github.io/projects/<id>/.
 Only the files the browser needs are copied (no render/shoot helpers, checks or exports).
 
@@ -18,10 +20,18 @@ FILES = ["index.html", "tidy.html", "diorama.js", "i18n.js"]
 DIRS = ["assets", "vendor"]
 
 
+KEEP = {"app"}  # web/app/ is the cross-platform app itself (source of truth), never regenerated here
+
+
 def main():
-    if DST.exists():
-        shutil.rmtree(DST)
-    DST.mkdir(parents=True)
+    DST.mkdir(parents=True, exist_ok=True)
+    for entry in DST.iterdir():
+        if entry.name in KEEP:
+            continue
+        if entry.is_dir():
+            shutil.rmtree(entry)
+        else:
+            entry.unlink()
     for name in FILES:
         shutil.copy2(SRC / name, DST / name)
     for name in DIRS:

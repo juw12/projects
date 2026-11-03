@@ -1,0 +1,233 @@
+name: Ashiato apps
+
+# One app, every platform: apps/ashiato/web/app/ is the app itself (published on GitHub Pages at
+# /projects/ashiato/app/). This workflow checks it in Chromium, wraps it as an Android APK
+# (Capacitor) and Windows/macOS desktop apps (Electron), launches each build for screenshots and
+# publishes the installers to the "ashiato-latest" release from main.
+
+on:
+  push:
+    branches: [main, ashiato-apps]
+    paths:
+      - "apps/ashiato/web/app/**"
+      - "apps/ashiato/mobile/**"
+      - "apps/ashiato/desktop/**"
+      - "apps/ashiato/tools/test_web_app.py"
+      - "apps/ashiato/prototypes/tidy/expected.json"
+      - ".github/workflows/ashiato-apps.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ashiato-apps-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: apps/ashiato
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install Playwright Chromium
+        run: |
+          python -m pip install playwright
+          python -m playwright install --with-deps chromium
+      - name: Classifier parity and smoke test over every screen
+        run: python tools/test_web_app.py --shots web-shots
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Ashiato-web-screens
+          path: apps/ashiato/web-shots
+          retention-days: 14
+
+  android:
+    needs: web
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: apps/ashiato/mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: Bundle the app and prepare the Android project
+        run: |
+          npm install --no-fund --no-audit
+          npm run android:prepare
+      - name: Build the APK
+        run: |
+          chmod +x android/gradlew
+          cd android
+          ./gradlew assembleDebug --no-daemon
+      - name: Name the package
+        run: |
+          mkdir -p dist
+          cp android/app/build/outputs/apk/debug/app-debug.apk dist/Ashiato-android.apk
+          ls -la dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Ashiato-android
+          path: apps/ashiato/mobile/dist
+          retention-days: 14
+
+  android-emulator:
+    needs: android
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: Ashiato-android
+          path: apk
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Launch on an emulator and take screenshots
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none
+          script: bash apps/ashiato/mobile/scripts/android-smoke.sh apk/Ashiato-android.apk android-shots
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Ashiato-android-screens
+          path: android-shots
+          retention-days: 14
+
+  windows:
+    needs: web
+    runs-on: windows-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: apps/ashiato/desktop
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Build installer and portable exe
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+        run: |
+          npm install --no-fund --no-audit
+          npm run dist:win
+      - name: Launch the packaged app and take screenshots
+        run: node scripts/smoke.cjs dist/win-unpacked/Ashiato.exe dist/smoke
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Ashiato-windows
+          path: |
+            apps/ashiato/desktop/dist/Ashiato-Setup-x64.exe
+            apps/ashiato/desktop/dist/Ashiato-Portable-x64.exe
+          retention-days: 14
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Ashiato-windows-screens
+          path: apps/ashiato/desktop/dist/smoke
+          retention-days: 14
+
+  mac:
+    needs: web
+    runs-on: macos-latest
+    timeout-minutes: 40
+    defaults:
+      run:
+        working-directory: apps/ashiato/desktop
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Build the dmg (universal, unsigned)
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+        run: |
+          npm install --no-fund --no-audit
+          npm run dist:mac
+          ls -la dist
+      - name: Launch the packaged app and take screenshots
+        run: |
+          APP=$(find dist -maxdepth 3 -name "Ashiato.app" -type d | head -n 1)
+          echo "Launching $APP"
+          node scripts/smoke.cjs "$APP/Contents/MacOS/Ashiato" dist/smoke
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Ashiato-mac
+          path: apps/ashiato/desktop/dist/Ashiato-mac.dmg
+          retention-days: 14
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Ashiato-mac-screens
+          path: apps/ashiato/desktop/dist/smoke
+          retention-days: 14
+
+  publish:
+    needs: [android, android-emulator, windows, mac]
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: Ashiato-android
+          path: dist
+      - uses: actions/download-artifact@v4
+        with:
+          name: Ashiato-windows
+          path: dist
+      - uses: actions/download-artifact@v4
+        with:
+          name: Ashiato-mac
+          path: dist
+      - name: Publish to the ashiato-latest release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          ls -la dist
+          NOTES=$(cat <<EOF
+          Ashiato 足跡 — cozy photo diary, walking map and weather town. Built from ${GITHUB_SHA::7}.
+
+          Try it in the browser first: https://juw12.github.io/projects/ashiato/app/ (on iPhone: Share → Add to Home Screen).
+
+          - Android: Ashiato-android.apk — open it on the phone and allow installing from your browser/files app.
+          - Windows: Ashiato-Setup-x64.exe (installer) or Ashiato-Portable-x64.exe (no install). Unsigned: SmartScreen → More info → Run anyway.
+          - macOS (Apple silicon and Intel): Ashiato-mac.dmg. Unsigned: drag to Applications, then right-click → Open the first time.
+
+          Each device keeps its own diary; move it with Settings → Backup.
+          EOF
+          )
+          FILES="dist/Ashiato-android.apk dist/Ashiato-Setup-x64.exe dist/Ashiato-Portable-x64.exe dist/Ashiato-mac.dmg"
+          if gh release view ashiato-latest --repo "$REPO" > /dev/null 2>&1; then
+            gh release upload ashiato-latest $FILES --clobber --repo "$REPO"
+            gh release edit ashiato-latest --notes "$NOTES" --repo "$REPO"
+          else
+            gh release create ashiato-latest $FILES --title "Ashiato (Android, Windows, Mac)" --notes "$NOTES" --target "$GITHUB_SHA" --repo "$REPO"
+          fi

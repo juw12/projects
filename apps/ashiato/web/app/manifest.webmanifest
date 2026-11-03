@@ -1,0 +1,30 @@
+{
+  "name": "足跡 Ashiato",
+  "short_name": "Ashiato",
+  "description": "A cozy photo diary, walking map and weather town.",
+  "start_url": "./index.html#/today",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F6EFE2",
+  "theme_color": "#F6EFE2",
+  "lang": "ja",
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
