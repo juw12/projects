@@ -16,7 +16,7 @@ tap() { adb shell input tap $((WIDTH * $1 / 100)) $((HEIGHT * $2 / 100)); sleep 
 tap 50 94
 tap 50 94
 adb exec-out screencap -p > "$OUT/android-02-onboarding.png"
-tap 50 94 6
+tap 50 85 8  # "Look around with sample days"
 adb exec-out screencap -p > "$OUT/android-03-after-onboarding.png"
 adb logcat -d -s Capacitor:* Capacitor/Console:* chromium:* > "$OUT/android-logcat.txt" || true
 if grep -qiE "Uncaught|SyntaxError|TypeError|ReferenceError" "$OUT/android-logcat.txt"; then

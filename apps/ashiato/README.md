@@ -1,4 +1,4 @@
-﻿# Ashiato (足跡) — working name
+# Ashiato (足跡) — working name
 
 "Your life, drawn as a map you walk through."
 A calm photo diary + walking map + weather town, combining ideas from
@@ -6,13 +6,32 @@ One Good Thing, DOOD, DayCity, Kiroku, PlainWalk, Footnotes and echor.
 
 Full product plan: `docs/plan.md`.
 
-## Try it (web prototype)
+## Use it now (no developer account needed)
+
+- **Any phone or computer, in the browser:** https://juw12.github.io/projects/ashiato/app/
+  — starts with sample days; switch to your own diary in Settings. On iPhone: Safari → Share →
+  *Add to Home Screen* and it opens full-screen like an app (works offline after the first visit).
+- **Android, Windows, Mac downloads:** https://github.com/juw12/projects/releases/tag/ashiato-latest
+  (`Ashiato-android.apk`, `Ashiato-Setup-x64.exe` / `Ashiato-Portable-x64.exe`, `Ashiato-mac.dmg`).
+  The builds are unsigned: Android asks to allow installs from your browser/files app; Windows
+  SmartScreen → *More info* → *Run anyway*; macOS → right-click the app → *Open* the first time.
+- Each device keeps its own diary (stored on the device). Move it with Settings → *Backup*.
+- Walks are recorded while the app is open (web/Android); desktop has no GPS, so no walk recording.
+
+One app, every platform: `web/app/` is the app itself (plain ES modules, no build step).
+`mobile/` wraps it for Android with Capacitor, `desktop/` wraps it for Windows/macOS with Electron;
+the monorepo workflow `.github/workflows/ashiato-apps.yml` checks it in Chromium
+(`tools/test_web_app.py`), builds the APK/exe/dmg, launches each one for screenshots and publishes
+them to the `ashiato-latest` release. The native SwiftUI app in `ios/` is the long-term iPhone
+version (needs an Apple Developer account to install on a device / TestFlight).
+
+## Earlier web prototypes
 
 - 3D swipe diary deck: https://juw12.github.io/projects/ashiato/ (`?lang=en`, `?lang=ja`, `?lang=ko`, `?lang=duo`)
 - Screenshot tidy-up deck: https://juw12.github.io/projects/ashiato/tidy.html
 - Source: https://github.com/juw12/projects/tree/main/apps/ashiato
 
-`web/` is the published copy of `prototypes/cozy3d`; refresh it with `python tools/sync_web.py`.
+`web/` (apart from `web/app/`) is the published copy of `prototypes/cozy3d`; refresh it with `python tools/sync_web.py`.
 The iOS app in `ios/` builds, passes its unit tests and is screenshotted on every push by the GitHub Actions macOS runner (`.github/workflows/ashiato-ios.yml` in the monorepo) — no local Mac needed.
 
 ## Status
