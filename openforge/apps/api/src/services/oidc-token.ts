@@ -23,10 +23,15 @@ import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto'
 
 export const OIDC_TOKEN_LIFETIME_SECONDS = 5 * 60 // 5 minutes
 
+export type CacheMode = 'read' | 'write' | 'write-only' | 'none'
+
+const VALID_CACHE_MODES = new Set<CacheMode>(['read', 'write', 'write-only', 'none'])
+
 export interface OidcTokenRequest {
   jobId: number
   audience: string
   lifetimeSec?: number
+  cacheMode?: CacheMode
 }
 
 export interface OidcTokenResponse {
@@ -36,6 +41,7 @@ export interface OidcTokenResponse {
   jobId: number
   notBefore: string
   issuer: string
+  cacheMode?: CacheMode
 }
 
 export interface OidcIssuerConfig {
@@ -84,6 +90,11 @@ export function issueOidcToken(
   if (!request.audience || request.audience.trim().length === 0) {
     throw new Error('audience must be a non-empty string')
   }
+  if (request.cacheMode !== undefined && !VALID_CACHE_MODES.has(request.cacheMode)) {
+    throw new Error(
+      `cacheMode must be one of: read, write, write-only, none; got ${request.cacheMode}`,
+    )
+  }
 
   const lifetimeSec = clampLifetime(request.lifetimeSec ?? config.defaultLifetimeSec)
   const expiresAt = new Date(now.getTime() + lifetimeSec * 1000)
@@ -93,7 +104,7 @@ export function issueOidcToken(
     alg: 'HS256',
     typ: 'JWT',
   }
-  const payload = {
+  const payload: Record<string, unknown> = {
     iss: config.issuer,
     aud: request.audience,
     sub: `job:${request.jobId}`,
@@ -101,6 +112,9 @@ export function issueOidcToken(
     nbf: Math.floor(now.getTime() / 1000),
     exp: Math.floor(expiresAt.getTime() / 1000),
     jti,
+  }
+  if (request.cacheMode !== undefined) {
+    payload['cache_mode'] = request.cacheMode
   }
 
   const value = signHs256(header, payload, config.signingSecret)
@@ -112,6 +126,7 @@ export function issueOidcToken(
     jobId: request.jobId,
     notBefore: now.toISOString(),
     issuer: config.issuer,
+    ...(request.cacheMode !== undefined && { cacheMode: request.cacheMode }),
   }
 }
 
