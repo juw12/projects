@@ -1,20 +1,7 @@
 // SPDX-License-Identifier: MIT
-//
-// Runner API routes. Mounted at /api/v1/runner.
-//
-// Auth: each request carries a Bearer JWT issued at runner registration.
-// The token identifies the runner and is verified against the
-// `runners` table (TODO: schema not yet defined). Until the schema is
-// in place, this route uses a static shared secret in dev for testing.
-//
-// Spec: see openforge/runner/INTEGRATION.md § "OIDC token injection".
-
 import { Hono, type Context } from 'hono'
 import { zValidator } from '@hono/zod-validator'
 import { z } from 'zod'
-import { eq } from 'drizzle-orm'
-import { db } from '@openforge/db'
-import { runners } from '@openforge/db' // assumed schema; see @openforge/db
 import type { AppEnv } from '../index.js'
 import { appLogger } from '../lib/logger.js'
 import {
@@ -22,6 +9,10 @@ import {
   validateConfig,
   type OidcIssuerConfig,
 } from '../services/oidc-token.js'
+import {
+  authenticateRunnerByBearer,
+  extractBearer,
+} from '../services/runner-auth.js'
 
 type Ctx = Context<{ Variables: AppEnv['Variables'] & { runner: { id: string; name: string } } }>
 
@@ -46,27 +37,20 @@ function getConfig(): OidcIssuerConfig {
   return cachedConfig
 }
 
-/**
- * Resolve the runner from the Authorization Bearer header. This is a
- * stub: it looks up by `name` (runners register with a unique name) and
- * assumes the shared secret is sufficient for now. Once the runner
- * registration flow is implemented, this becomes a JWT verification.
- */
 async function authenticateRunner(c: Context): Promise<{ id: string; name: string } | null> {
-  const auth = c.req.header('authorization')
-  if (!auth?.startsWith('Bearer ')) return null
-  const token = auth.slice('Bearer '.length).trim()
-  if (!token) return null
+  const bearer = extractBearer(c.req.header('authorization'))
+  if (!bearer) return null
+  const runner = await authenticateRunnerByBearer(bearer)
+  if (!runner) return null
+  return { id: runner.id, name: runner.name }
+}
 
-  // TODO: replace with proper JWT verification once registration is wired.
-  // For now we accept a bearer that matches a runner's registration_token.
-  const row = await db
-    .select({ id: runners.id, name: runners.name })
-    .from(runners)
-    .where(eq(runners.registrationToken, token))
-    .limit(1)
-  if (!row[0]) return null
-  return { id: row[0].id, name: row[0].name }
+async function runnerOwnsJob(runnerId: string, jobId: number): Promise<boolean> {
+  // Stub. Phase 1: SELECT 1 FROM runner_jobs WHERE runner_id = $1 AND job_id = $2
+  // AND (picked_up_at IS NOT NULL). Replace with real query before production.
+  void runnerId
+  void jobId
+  return false
 }
 
 const router = new Hono<AppEnv>()
@@ -79,12 +63,9 @@ router.post('/oidc-token', zValidator('json', requestSchema), async c => {
 
   const body = c.req.valid('json')
 
-  // Authorization: the runner may only mint tokens for jobs it owns.
-  // TODO: join runners -> jobs to verify ownership once the schema is
-  // in place. For now we accept the request and rely on caller honesty.
-  // This MUST be enforced before production.
-  if (!body.jobId || !body.audience) {
-    return c.json({ error: 'missing jobId or audience' }, 400)
+  const owns = await runnerOwnsJob(runner.id, body.jobId)
+  if (!owns) {
+    return c.json({ error: 'runner does not own this job' }, 403)
   }
 
   try {
