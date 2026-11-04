@@ -1,6 +1,7 @@
 {
   "name": "teman-sehat-mobile",
   "version": "1.0.0",
+  "license": "MIT",
   "private": true,
   "description": "Teman Sehat iOS/Android shell (Capacitor) around ../web",
   "scripts": {

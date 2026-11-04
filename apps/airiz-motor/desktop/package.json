@@ -5,7 +5,7 @@
   "productName": "AIRIZ Console",
   "author": "AIRIZ",
   "private": true,
-  "license": "UNLICENSED",
+  "license": "MIT",
   "main": "main.cjs",
   "scripts": {
     "start": "electron .",

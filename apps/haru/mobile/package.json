@@ -1,6 +1,7 @@
 {
   "name": "haru-mobile",
   "version": "0.2.0",
+  "license": "MIT",
   "private": true,
   "type": "module",
   "description": "Haru for Android: the web app in web/app/ wrapped with Capacitor",

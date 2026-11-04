@@ -5,7 +5,7 @@
   "productName": "Haru",
   "author": "juw12",
   "private": true,
-  "license": "UNLICENSED",
+  "license": "MIT",
   "main": "main.cjs",
   "scripts": {
     "start": "electron .",

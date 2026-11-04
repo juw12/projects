@@ -1,6 +1,7 @@
 {
   "name": "glow-mobile",
   "version": "1.29.0",
+  "license": "MIT",
   "private": true,
   "type": "module",
   "scripts": {

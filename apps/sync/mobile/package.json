@@ -1,6 +1,7 @@
 {
   "name": "sync-mobile",
   "version": "1.5.2",
+  "license": "MIT",
   "private": true,
   "type": "module",
   "scripts": {
