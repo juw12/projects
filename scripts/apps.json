@@ -3,7 +3,7 @@
   "apps": [
     {
       "id": "orbis",
-      "portfolio": false,
+      "portfolio": true,
       "name": "Orbis",
       "category": "Apps",
       "desc": "Communication, identity and protection in one app, with live multi-user Orbis Chat",
@@ -23,11 +23,12 @@
         "mobile": "orbis/app-mobile.html"
       },
       "featured": true,
-      "order": 12
+      "order": 12,
+      "portfolio_order": 20
     },
     {
       "id": "peers",
-      "portfolio": false,
+      "portfolio": true,
       "name": "Peers",
       "category": "Apps",
       "desc": "Verified reviews across 32 categories — food, travel, market, AI tools, health and more",
@@ -79,7 +80,8 @@
           "label": "Install",
           "path": "peers/app.html"
         }
-      ]
+      ],
+      "portfolio_order": 13
     },
     {
       "id": "house-of-articles",
@@ -158,11 +160,13 @@
       ],
       "featured": true,
       "order": 9,
-      "version": "2.0.0"
+      "version": "2.0.0",
+      "portfolio_order": 18,
+      "portfolio": true
     },
     {
       "id": "sweep",
-      "portfolio": false,
+      "portfolio": true,
       "name": "Sweep",
       "category": "AI",
       "desc": "Turn a plain-words idea into a scored spec (Kiro-style requirements, design, tasks), a drag-and-drop task board and a Build → Grow → Earn plan — hand it to Lovable, v0, Cursor or Claude Code in one click, share remix links, and let Otto, an offline approval-first AI operator, draft brand, site, posts and outreach",
@@ -204,7 +208,8 @@
         }
       ],
       "featured": true,
-      "order": 7
+      "order": 7,
+      "portfolio_order": 17
     },
     {
      "id": "airiz-motor",
@@ -230,7 +235,7 @@
      },
      "featured": true,
      "order": 1,
-     "portfolio_order": -6,
+     "portfolio_order": 1,
      "card_links": [
       {
        "label": "Windows app",
@@ -252,7 +257,8 @@
        "label": "iPhone (Bluefy)",
        "path": "airiz-motor/iphone.html"
       }
-     ]
+     ],
+     "portfolio": true
     },
     {
       "id": "soma",
@@ -344,7 +350,7 @@
     },
     {
       "id": "twin",
-      "portfolio": false,
+      "portfolio": true,
       "name": "Twin",
       "category": "Apps",
       "desc": "Desktop app for Windows and Mac with real trading and Add money, TwinAgent research team, stocks from any country with real exchange calendars, real-time prices from your own broker or data key, multi-currency practice, optional real trading via Alpaca or Interactive Brokers, and Twin Indonesia: IDX lots, crypto and gold in rupiah",
@@ -374,7 +380,7 @@
       },
       "featured": true,
       "order": 14,
-      "portfolio_order": -4,
+      "portfolio_order": 2,
       "card_links": [
         {
           "label": "Windows app",
@@ -448,8 +454,9 @@
       ],
       "featured": true,
       "order": 5,
-      "portfolio_order": -5,
-      "version": "1.29.0"
+      "portfolio_order": 3,
+      "version": "1.29.0",
+      "portfolio": true
     },
     {
       "id": "guangyao",
@@ -514,11 +521,13 @@
           "label": "Published content",
           "path": "https://github.com/juw12/projects/tree/main/content/guangyao"
         }
-      ]
+      ],
+      "portfolio_order": 12,
+      "portfolio": true
     },
     {
       "id": "sync",
-      "portfolio": false,
+      "portfolio": true,
       "name": "Sync",
       "category": "Apps",
       "desc": "Listen to music together in real time from anywhere: Spotify, Apple Music and YouTube listeners in one room, shared files, and voice chat that lowers the music when friends talk. On the web, Android and iPhone",
@@ -560,11 +569,12 @@
           "label": "Source",
           "path": "https://github.com/juw12/projects/tree/main/apps/sync"
         }
-      ]
+      ],
+      "portfolio_order": 11
     },
     {
       "id": "fade",
-      "portfolio": false,
+      "portfolio": true,
       "name": "Fade",
       "category": "Apps",
       "desc": "Book barbers, watch haircut shorts and pay them directly: free, online, 0% fees",
@@ -605,7 +615,8 @@
           "label": "Mobile",
           "path": "fade/mobile.html"
         }
-      ]
+      ],
+      "portfolio_order": 16
     },
     {
       "id": "mint",
@@ -705,7 +716,8 @@
       "version": "3.2.0",
       "featured": true,
       "order": 21,
-      "portfolio_order": -10
+      "portfolio_order": 6,
+      "portfolio": true
     },
     {
       "id": "gamelib",
@@ -778,11 +790,12 @@
       "subapps": ["vertex", "photo2cad"],
       "status": "shipped",
       "order": 22,
-      "portfolio_order": -9
+      "portfolio_order": 5,
+      "portfolio": true
     },
     {
       "id": "lingua",
-      "portfolio": false,
+      "portfolio": true,
       "name": "Lingua",
       "category": "AI",
       "desc": "Universal language helper: translate text with tone and glossary, read the words in any picture, and live-translate Teams captions on laptop, iPhone and Android",
@@ -828,7 +841,8 @@
           "url": "https://github.com/juw12/projects/releases/tag/lingua-v2.3.1"
         }
       ],
-      "version": "2.3.1"
+      "version": "2.3.1",
+      "portfolio_order": 15
     },
     {
       "id": "pips",
@@ -900,7 +914,8 @@
       "version": "2.27.2",
       "featured": true,
       "order": 5,
-      "portfolio_order": -8
+      "portfolio_order": 19,
+      "portfolio": true
     },
     {
       "id": "plm-aml-approval",
@@ -929,7 +944,8 @@
       "files": "https://github.com/juw12/projects/tree/main/apps/plm-aml-approval",
       "status": "preliminary",
       "order": 23,
-      "portfolio_order": -7
+      "portfolio_order": 9,
+      "portfolio": true
     },
     {
       "id": "vitals",
@@ -974,7 +990,7 @@
       },
       "status": "shipped",
       "order": 25,
-      "portfolio_order": -10,
+      "portfolio_order": 7,
       "card_links": [
         {
           "label": "Windows",
@@ -1004,7 +1020,8 @@
           "label": "Mobile",
           "path": "vitals/mobile.html"
         }
-      ]
+      ],
+      "portfolio": true
     },
     {
       "id": "teman-sehat",
@@ -1061,7 +1078,8 @@
       ],
       "status": "public-beta",
       "order": 26,
-      "portfolio_order": -10
+      "portfolio_order": 23,
+      "portfolio": true
     },
     {
       "id": "photo2cad",
@@ -1100,7 +1118,8 @@
       },
       "status": "preliminary",
       "order": 27,
-      "portfolio": true
+      "portfolio": true,
+      "portfolio_order": 10
     },
     {
       "id": "shiphub",
@@ -1140,7 +1159,8 @@
       },
       "status": "working-prototype",
       "order": 28,
-      "portfolio": true
+      "portfolio": true,
+      "portfolio_order": 26
     },
     {
       "id": "sortie",
@@ -1183,7 +1203,8 @@
       },
       "status": "working-prototype",
       "order": 29,
-      "portfolio": true
+      "portfolio": true,
+      "portfolio_order": 24
     },
     {
       "id": "kinibuka",
@@ -1224,7 +1245,8 @@
       },
       "status": "working-prototype",
       "order": 30,
-      "portfolio": true
+      "portfolio": true,
+      "portfolio_order": 27
     },
     {
       "id": "rewind",
@@ -1269,7 +1291,8 @@
       },
       "status": "working-prototype",
       "order": 31,
-      "portfolio": true
+      "portfolio": true,
+      "portfolio_order": 21
     },
     {
       "id": "scopeguard",
@@ -1319,7 +1342,8 @@
       },
       "status": "working-prototype",
       "order": 32,
-      "portfolio": true
+      "portfolio": true,
+      "portfolio_order": 22
     },
     {
       "id": "crewcup",
@@ -1359,7 +1383,8 @@
       },
       "status": "working-prototype",
       "order": 1000,
-      "portfolio": true
+      "portfolio": true,
+      "portfolio_order": 25
     },
     {
       "id": "haru",
@@ -1426,6 +1451,103 @@
       },
       "status": "preliminary",
       "order": 33,
+      "portfolio": true,
+      "portfolio_order": 14
+    },
+    {
+      "id": "buddy",
+      "name": "Buddy",
+      "category": "AI",
+      "external": true,
+      "url": "https://juw12.github.io/buddy/",
+      "url_label": "Website &amp; demo",
+      "desc": "An AI pointer that lives next to your mouse: ask about your screen and it points at the answer, explains it aloud or does it for you",
+      "summary": "AI buddy next to your mouse: hold Ctrl+Alt+Space, ask about your screen, and it points at the answer or does it for you.",
+      "description": "A small orange pointer rests next to your mouse. Hold <strong>Ctrl+Alt+Space</strong> and ask out loud (or tap it to type): Buddy looks once at the screen under your mouse, flies to the exact button, explains it in a speech bubble and reads it aloud in a <strong>natural, on-device voice</strong> (7 languages). If your words ask for it, it <strong>clicks, types, opens, closes and presses shortcuts</strong> for you, asks Yes/No before anything risky, and writes every action to a log. Pick the brain: a fast vision model on any OpenAI-compatible endpoint, or <strong>Local GPU / CPU</strong> so nothing leaves the PC. The pointer runs on its own thread and window, so it keeps up even on a busy laptop. Pick its colour and icon. Bundles the Pips focus pet and KeyIt keyboard and mouse sounds. <strong>Buddy Lite for Mac</strong> (Control+Option+Space, one universal app for Apple Silicon and Intel) points and answers with Apple speech recognition and system voices; it is built and self-tested on real macOS by GitHub Actions. Free, MIT, no installer and no account.",
+      "tags": [
+        "Windows + Mac",
+        "AI assistant",
+        "vision model",
+        "on-device voice",
+        "UI automation",
+        "Python"
+      ],
+      "note_tags": [
+        "buddy",
+        "ai-assistant",
+        "vision",
+        "tts",
+        "ui-automation",
+        "python",
+        "windows",
+        "macos"
+      ],
+      "image": "buddy-card.jpg",
+      "image_alt": "Buddy pointing at File, Save As in Notepad with a speech bubble that says Right here",
+      "extra_links": [
+        {
+          "label": "Download (Windows &amp; Mac)",
+          "url": "https://github.com/juw12/buddy/releases/latest"
+        },
+        {
+          "label": "Source",
+          "url": "https://github.com/juw12/buddy"
+        }
+      ],
+      "card": {
+        "label": "buddy · pointer",
+        "theme": "dark",
+        "accent": "#ff8a3d"
+      },
+      "status": "released",
+      "order": 34,
+      "portfolio_order": 4,
+      "portfolio": true
+    },
+    {
+      "id": "earlystar",
+      "name": "EarlyStar",
+      "category": "Software",
+      "external": true,
+      "url": "https://juw12.github.io/earlystar/",
+      "url_label": "Open site",
+      "desc": "Find GitHub repos before they trend: ranked by stars actually gained, with real activity next to the hype",
+      "summary": "Find GitHub repos before they trend: ranked by stars actually gained, with real activity, Trending history and a free API.",
+      "description": "EarlyStar finds GitHub repositories <strong>before they trend</strong>. Instead of total stars it ranks repos by the <strong>stars they actually gained</strong>, and puts <strong>real activity</strong> next to the hype so a breakout is easy to tell from a spike. It keeps a <strong>GitHub Trending history</strong> and offers embeddable <strong>badges</strong>, a free <strong>JSON API</strong> and a desktop app.",
+      "tags": [
+        "GitHub data",
+        "Trending",
+        "JSON API",
+        "GitHub Actions",
+        "static site",
+        "Tauri desktop"
+      ],
+      "note_tags": [
+        "earlystar",
+        "github",
+        "trending",
+        "api",
+        "github-actions",
+        "static-site",
+        "tauri"
+      ],
+      "image": "earlystar-card.jpg",
+      "image_alt": "EarlyStar leaderboard of GitHub repositories ranked by stars gained, with activity columns",
+      "extra_links": [
+        {
+          "label": "Source",
+          "url": "https://github.com/juw12/earlystar"
+        }
+      ],
+      "card": {
+        "label": "earlystar · rising",
+        "theme": "dark",
+        "accent": "#f5c542",
+        "accent2": "#699e2f"
+      },
+      "status": "released",
+      "order": 35,
+      "portfolio_order": 8,
       "portfolio": true
     }
   ]
