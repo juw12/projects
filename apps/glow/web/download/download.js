@@ -5,6 +5,7 @@
   const LIVE_PAGE = "https://juw12.github.io/projects/glow/download/";
   const APK_URL = "https://github.com/juw12/projects/releases/download/glow-android/Glow-android.apk";
   const EXE_URL = "https://github.com/juw12/projects/releases/download/glow-windows/Glow-Setup.exe";
+  const DMG_URL = "https://github.com/juw12/projects/releases/download/glow-mac/Glow-mac.dmg";
   const $ = (id) => document.getElementById(id);
   const ua = navigator.userAgent;
   const isIPhone = /iPhone|iPod/.test(ua);
@@ -96,11 +97,13 @@
     if (isMac) {
       $("for-you-badge").textContent = "Mac";
       $("for-you-title").textContent = "Get Glow for Mac";
-      $("for-you-text").textContent = isSafari
-        ? "In Safari, open Glow and choose File → Add to Dock."
-        : "Open Glow and click Install in the address bar, or use the button below.";
-      steps([]);
-      actions.appendChild(button("Open Glow", "../", true));
+      $("for-you-text").textContent = "Glow, GlowChat, GlowRoom and GlowLead as Mac apps (Apple chip and Intel).";
+      actions.appendChild(button("⬇ Download Glow for Mac", DMG_URL, true, { download: true }));
+      steps([
+        "Open Glow-mac.dmg and drag the Glow folder onto Applications.",
+        "Open Glow. The first time, choose System Settings → Privacy & Security → Open Anyway.",
+      ]);
+      if (isSafari) actions.appendChild(button("Open Glow in Safari", "../", false));
       return;
     }
     $("for-you-badge").textContent = isChromeOS ? "Chromebook" : isLinux ? "Linux" : "This device";

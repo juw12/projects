@@ -10,7 +10,7 @@
 
 <p align="center">
   <a href="https://juw12.github.io/projects/glow/"><b>Try it live</b></a> ·
-  <a href="https://github.com/juw12/projects/releases/tag/glow-windows"><b>Download</b></a> ·
+  <a href="https://juw12.github.io/projects/glow/download/"><b>Download</b></a> ·
   <a href="#see-it-in-action">See it in action</a> ·
   <a href="#highlights">Highlights</a> ·
   <a href="https://github.com/juw12">More by juw12</a>
@@ -18,7 +18,9 @@
 
 <p align="center">
   <a href="https://github.com/juw12/projects/tree/main/apps/glow"><img src="https://img.shields.io/github/last-commit/juw12/projects?path=apps%2Fglow&label=updated&color=f0643c" alt="Last updated"></a>
-  <a href="https://github.com/juw12/projects/releases/tag/glow-windows"><img src="https://img.shields.io/badge/download-glow--windows-f0643c" alt="Download"></a>
+  <a href="https://github.com/juw12/projects/releases/tag/glow-windows"><img src="https://img.shields.io/badge/download-Windows-f0643c" alt="Download for Windows"></a>
+  <a href="https://github.com/juw12/projects/releases/tag/glow-mac"><img src="https://img.shields.io/badge/download-Mac-f0643c" alt="Download for Mac"></a>
+  <a href="https://github.com/juw12/projects/releases/tag/glow-android"><img src="https://img.shields.io/badge/download-Android-f0643c" alt="Download for Android"></a>
   <a href="https://juw12.github.io/projects/glow/"><img src="https://img.shields.io/badge/demo-live-2ea44f" alt="Live demo"></a>
   <img src="https://img.shields.io/badge/Web-24292f" alt="Web">
   <img src="https://img.shields.io/badge/Windows-24292f" alt="Windows">
@@ -53,6 +55,18 @@
   <sub>Open the interactive demo at <a href="https://juw12.github.io/projects/glow/">juw12.github.io/projects/glow/</a></sub>
 </p>
 <!-- HERO:END -->
+
+## Download
+
+| Device | Get Glow |
+|---|---|
+| **Windows 10/11** | [Glow-Setup.exe](https://github.com/juw12/projects/releases/download/glow-windows/Glow-Setup.exe): open it and press Install (no admin rights). If Windows warns, choose *More info → Run anyway*. |
+| **Mac** (macOS 11+, Apple chip and Intel) | [Glow-mac.dmg](https://github.com/juw12/projects/releases/download/glow-mac/Glow-mac.dmg): drag the Glow folder onto Applications. First time: *System Settings → Privacy & Security → Open Anyway* (not notarized by Apple yet). |
+| **Android** | [Glow-android.apk](https://github.com/juw12/projects/releases/download/glow-android/Glow-android.apk): open it on the phone and allow installing from your browser. |
+| **iPhone / iPad** | Open https://juw12.github.io/projects/glow/ in Safari → Share → *Add to Home Screen* (full screen, offline, no App Store needed). |
+| **Linux / Chromebook / any browser** | Open https://juw12.github.io/projects/glow/ and click *Install* in Chrome or Edge's address bar. |
+
+The [download page](https://juw12.github.io/projects/glow/download/) picks the right one for your device. The Windows and Mac apps open Glow in its own window of Edge, Chrome or Brave with your usual browser profile, so every Glow app shares one account. Mac build: `apps/glow/mac/build-mac.sh` (CI: `.github/workflows/glow-mac.yml`).
 
 ## About
 

@@ -145,6 +145,7 @@ class IphoneAndSearchStatic(unittest.TestCase):
         self.assertIn(f'<link rel="canonical" href="{LIVE}download/">', html)
         self.assertIn("releases/download/glow-windows/Glow-Setup.exe", html)
         self.assertIn("releases/download/glow-android/Glow-android.apk", html)
+        self.assertIn("releases/download/glow-mac/Glow-mac.dmg", html)
         types = [block["@type"] for block in json_ld_blocks(html)]
         self.assertEqual(sorted(types), ["FAQPage", "SoftwareApplication"])
         self.assertNotRegex(html, r"<script(?![^>]*\b(src=|type=\"application/ld\+json\"))[^>]*>\s*\S", "no inline scripts (CSP)")

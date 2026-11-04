@@ -1,0 +1,84 @@
+name: Glow Mac app
+
+# Builds Glow-mac.dmg (Glow, GlowLead, GlowChat and GlowRoom for Mac, Apple chip and Intel in one),
+# checks it on a Mac runner (signatures, both chip types, the page each app opens, a real launch in
+# Google Chrome) and publishes it to the "glow-mac" release from main.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/glow/mac/**'
+      - 'apps/glow/web/version.json'
+      - 'apps/glow/web/icons/icon-512.png'
+      - 'apps/glow/web/chat/icons/icon-512.png'
+      - 'apps/glow/web/room/assets/icon-512.png'
+      - '.github/workflows/glow-mac.yml'
+  pull_request:
+    paths:
+      - 'apps/glow/mac/**'
+      - '.github/workflows/glow-mac.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: glow-mac-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Stop XProtect scans (they make hdiutil fail with "Resource busy")
+        run: |
+          sudo pkill -9 XProtect > /dev/null 2>&1 || true
+          for attempt in $(seq 1 20); do pgrep -x XProtect > /dev/null || break; sleep 3; done
+      - name: Build Glow-mac.dmg
+        run: bash apps/glow/mac/build-mac.sh dist
+      - name: Check the disk image and open GlowChat in Chrome
+        run: bash apps/glow/mac/test-mac.sh dist/Glow-mac.dmg --launch
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Glow-Mac
+          path: dist/Glow-mac.dmg
+          retention-days: 14
+
+  publish:
+    needs: build
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: Glow-Mac
+          path: dist
+      - name: Publish Glow-mac.dmg to the glow-mac release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          test -f dist/Glow-mac.dmg || { echo "::error::Glow-mac.dmg was not built."; exit 1; }
+          (cd dist && shasum -a 256 Glow-mac.dmg > SHA256SUMS.txt)
+          cat > notes.md <<EOF
+          **Glow for Mac** (macOS 11 or newer, Apple chip and Intel): Glow, GlowLead, GlowChat and GlowRoom as Mac apps.
+
+          1. Download **Glow-mac.dmg**, open it and drag the **Glow** folder onto **Applications**.
+          2. Open Applications → Glow → **Glow**. The first time, macOS blocks it because Glow isn't notarized by Apple: **System Settings → Privacy & Security → Open Anyway** (once per app), or for all four at once in Terminal: \`xattr -dr com.apple.quarantine /Applications/Glow\`
+
+          Each app opens in its own window of Google Chrome, Microsoft Edge, Brave or Chromium with your normal browser profile, so all four share your Glow account, chats and missions. With only Safari, Glow opens in Safari (File → Add to Dock gives it an app window).
+
+          Other devices: [Windows](https://github.com/juw12/projects/releases/tag/glow-windows) · [Android](https://github.com/juw12/projects/releases/tag/glow-android) · iPhone/iPad: open https://juw12.github.io/projects/glow/ in Safari → Share → Add to Home Screen.
+
+          Built from ${GITHUB_SHA::7}.
+          EOF
+          if gh release view glow-mac --repo "$REPO" > /dev/null 2>&1; then
+            gh release upload glow-mac dist/Glow-mac.dmg dist/SHA256SUMS.txt --clobber --repo "$REPO"
+            gh release edit glow-mac --notes-file notes.md --repo "$REPO"
+          else
+            gh release create glow-mac dist/Glow-mac.dmg dist/SHA256SUMS.txt --title "Glow for Mac" --notes-file notes.md --target "$GITHUB_SHA" --repo "$REPO"
+          fi

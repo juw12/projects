@@ -9,5 +9,6 @@
     "Settings → Offline library: download or delete packs, or switch the library off"
   ],
   "android": "https://github.com/juw12/projects/releases/download/glow-android/Glow-android.apk",
-  "windows": "https://github.com/juw12/projects/releases/download/glow-windows/Glow-Setup.exe"
+  "windows": "https://github.com/juw12/projects/releases/download/glow-windows/Glow-Setup.exe",
+  "mac": "https://github.com/juw12/projects/releases/download/glow-mac/Glow-mac.dmg"
 }
