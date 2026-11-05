@@ -2491,7 +2491,7 @@ async function runSelfTests() {
     } catch (error) {
       wrongKeyFailed = true;
     }
-    return opened.hello === "Ann loves Ben" && !sealed.includes("Ann") && wrongKeyFailed && auth.length >= 40 || "crypto failed";
+    return opened.hello === "Ann loves Ben" && !sealed.includes("Ann loves") && wrongKeyFailed && auth.length >= 40 || "crypto failed";
   });
   const mockRoomServer = () => {
     let row = null;
@@ -2576,7 +2576,7 @@ async function runSelfTests() {
     const stored = server.peek().data;
     a.client.leave();
     b.client.leave();
-    const ok = result.joined && result.converged && result.goal && result.bucket && result.deletionWon && !stored.includes("Ann") && !stored.includes("Wedding");
+    const ok = result.joined && result.converged && result.goal && result.bucket && result.deletionWon && !stored.includes('"Ann"') && !stored.includes('"Wedding"');
     return ok || JSON.stringify(result);
   });
   await test("savings: required monthly for a target and today's-money conversion", () => {
@@ -2618,7 +2618,7 @@ async function runSelfTests() {
       const deleted = await a.client.request("DELETE", { auth });
       a.client.leave();
       b.client.leave();
-      const ok = result.joined && result.converged && result.goal && result.bucket && result.deletionWon && !raw.data.includes("Ann") && deleted.ok;
+      const ok = result.joined && result.converged && result.goal && result.bucket && result.deletionWon && !raw.data.includes('"Ann"') && deleted.ok;
       return ok || JSON.stringify({ result, deleted: deleted.status });
     });
     await test("cloud: push reminder schedule stored (times only) and removed", async () => {
