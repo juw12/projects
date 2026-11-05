@@ -5,6 +5,19 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
 <title>Together — Our Life Plan</title>
+<meta name="description" content="Plan your whole life together — dating, marriage, a home, kids and growing old side by side. Free, private, works offline.">
+<meta name="theme-color" content="#c2416b">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Together">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Together — plan your whole life as a couple">
+<meta property="og:description" content="A free, private life plan for couples: roadmap from dating to golden years, shared goals, savings, check-ins. Syncs between both phones, end-to-end encrypted.">
+<meta property="og:url" content="https://juw12.github.io/projects/together/">
+<meta property="og:image" content="https://juw12.github.io/projects/together/og.png">
+<meta name="twitter:card" content="summary_large_image">
 <style>
   :root {
     --bg: #fff8f5; --card: #ffffff; --ink: #2d2226; --muted: #7a6870; --line: #f0dfe2;
@@ -48,6 +61,7 @@
   button, .btn { font: inherit; border-radius: 10px; border: 1px solid var(--line); background: var(--card); color: var(--ink);
     padding: 7px 14px; cursor: pointer; }
   button:hover { border-color: var(--rose); }
+  a.btn { text-decoration: none; display: inline-block; }
   button.primary { background: var(--rose); color: #fff; border-color: var(--rose); }
   button.ghost { border-color: transparent; background: transparent; color: var(--muted); padding: 4px 8px; }
   button.ghost:hover { color: var(--rose); }
@@ -177,7 +191,11 @@
    ====================================================================== */
 
 const APP_KEY = "together.data";
-const SCHEMA_VERSION = 2;
+const SCHEMA_VERSION = 3;
+const CLOUD_URL = "https://together-cloud.juw12.workers.dev";
+const PUBLIC_APP_URL = "https://juw12.github.io/projects/together/";
+const VAPID_PUBLIC_KEY = "BI5Mbc3iZHSwc7OdDDsEUiiznVwY-Hsq-no9Pc4QAjYLiUvlpBaI1LzwaXMtwrJ8cp5epqk-7rARB5MErhl3r9M";
+const SOURCE_URL = "https://github.com/juw12/projects/tree/main/apps/together";
 const params = new URLSearchParams(location.search);
 const capturedErrors = [];
 window.addEventListener("error", event => capturedErrors.push(String(event.message)));
@@ -237,6 +255,9 @@ const TALKS = [
   { id: "parenting", stage: "kids", title: "Becoming parents", questions: [
     "How will we share night feeds, leave and childcare?", "Who is guardian for our kids if something happens to us?",
     "How do we keep our relationship first while parenting?"] },
+  { id: "baby-research", stage: "kids", title: "Protecting us after the baby", questions: [
+    "Research note: in Gottman's Bringing Baby Home studies, about two-thirds of new mothers reported a drop in relationship satisfaction in the years after the first baby. Couples who protected friendship and fondness did better.",
+    "What will we do each week to stay a couple, not only parents?", "How will we share night duty and ask for help before we're exhausted?"] },
   { id: "protect", stage: "kids", title: "Protecting our family", questions: [
     "Do we have wills, life insurance and an emergency fund (3–6 months)?", "Where are important documents and passwords kept?",
     "What would we do if one of us could not work?"] },
@@ -255,6 +276,42 @@ const TALKS = [
   { id: "legacy", stage: "golden", title: "Legacy & end-of-life wishes", questions: [
     "What do we want our grandkids to remember about us?", "What are our wishes for medical care and funerals?",
     "Who inherits what — and have we written it down?"] },
+];
+
+/** 8-week Foundations program. Educational summaries of published research — not therapy. */
+const PROGRAM = [
+  { title: "Love Maps: know each other's inner world", sourceName: "The Gottman Institute — Sound Relationship House", sourceUrl: "https://www.gottman.com/about/the-gottman-method/",
+    idea: "In John Gottman's model of lasting relationships, the foundation is a detailed \u201clove map\u201d: knowing your partner's worries, hopes, friends and history. Gottman describes couples with rich love maps as better prepared for big changes like a move or a new baby.",
+    exercise: ["Take turns asking the questions below. Listen, don't fix.", "Write one new thing you learned about each other in the notes."],
+    prompts: ["What is stressing you most right now?", "Who do you feel closest to at the moment, apart from me?", "What's a dream you haven't said out loud yet?", "What would your perfect ordinary Saturday look like?"] },
+  { title: "Turn toward each other's bids", sourceName: "APA — Lessons from the \u2018Love Lab\u2019 (Gottman)", sourceUrl: "https://www.apa.org/news/podcasts/speaking-of-psychology/loving-relationships",
+    idea: "A \u201cbid\u201d is any small attempt to connect: a comment, a sigh, a question. In Gottman's six-year follow-up of newlyweds, couples still married had turned toward bids 86% of the time; couples who divorced, 33%.",
+    exercise: ["For seven days, each notice three bids a day from your partner and respond, even briefly.", "At the end of the week, share which response felt best to receive."],
+    prompts: ["What small things do I do that tell you I'm paying attention?", "When do you feel ignored, even if I don't mean it?"] },
+  { title: "Five positives for every negative", sourceName: "The Gottman Institute — The Natural Principles of Love (PDF)", sourceUrl: "https://www.johngottman.net/wp-content/uploads/2011/05/The-Natural-Principles-of-Love.pdf",
+    idea: "Gottman's research found that stable couples show about five positive interactions for every negative one during conflict, while couples heading for divorce average about 0.8 to 1. Positivity is a buffer, not a denial of problems.",
+    exercise: ["Each day this week, tell your partner one specific appreciation (\u201cI noticed\u2026 and it meant\u2026\u201d).", "Use the monthly check-in to record your favourite one."],
+    prompts: ["What's something I did recently that you appreciated but didn't mention?", "How do you most like to receive appreciation?"] },
+  { title: "Know the Four Horsemen \u2014 and their antidotes", sourceName: "The Gottman Institute — research on couples", sourceUrl: "https://www.gottman.com/about/research/couples/",
+    idea: "Gottman identified four patterns that predict relationship breakdown: criticism, contempt, defensiveness and stonewalling. Their antidotes: a gentle start-up (complain about the situation, not the person), building a culture of appreciation, taking responsibility for your part, and calming yourself with a real break before continuing.",
+    exercise: ["Each name the horseman you fall into most often (be honest about yourself, not your partner).", "Agree on a signal that means \u201cI need a break, I'll come back in 20 minutes\u201d."],
+    prompts: ["How can I raise a complaint so it feels gentle to you?", "What helps you calm down when you feel flooded?"] },
+  { title: "Speaker\u2013Listener: be heard before solving", sourceName: "PREP (Markman & Stanley) — Speaker-Listener Technique", sourceUrl: "https://twointoone.co.uk/university/library/preddiv/index3.html",
+    idea: "From the PREP program by Howard Markman and Scott Stanley: one person holds \u201cthe floor\u201d (any object) and speaks for themselves in short chunks; the other only paraphrases what they heard, without rebutting. Then you swap. Problem-solving comes later, once both feel understood.",
+    exercise: ["Pick a small, low-stakes topic and practise for 10 minutes each way.", "Only move to solutions when both say \u201cyes, you got it\u201d."],
+    prompts: ["What did it feel like to be paraphrased accurately?", "Which topic should we use this with next?"] },
+  { title: "Live with perpetual problems", sourceName: "The Gottman Institute — The Natural Principles of Love (PDF)", sourceUrl: "https://www.johngottman.net/wp-content/uploads/2011/05/The-Natural-Principles-of-Love.pdf",
+    idea: "Gottman's research suggests about 69% of relationship conflicts are perpetual: rooted in lasting differences in personality or needs. Happy couples don't solve them; they keep a friendly, curious dialogue about them instead of gridlock.",
+    exercise: ["Choose one recurring disagreement (tidiness, money style, time with family).", "Each explain the story, value or dream behind your position. No persuading."],
+    prompts: ["What does this issue mean to you, deep down?", "What small compromise could we both live with for now?"] },
+  { title: "Money as a team", sourceName: "Practical guide (not a research claim)", sourceUrl: "",
+    idea: "Money is one of the topics couples most need to talk about calmly. A short, regular \u201cmoney date\u201d makes it routine instead of a crisis. This week is a practical guide using your Money tab, not a research finding.",
+    exercise: ["Open the Money tab together: review each savings pot and the retirement estimate.", "Agree on one shared goal for the next 3 months and a no-questions-asked personal spending amount for each of you."],
+    prompts: ["What did money feel like in your family growing up?", "What would feel like \u201cenough\u201d to you?"] },
+  { title: "Make it last: the weekly State of the Union", sourceName: "The Gottman Institute — How to have a State of the Union meeting", sourceUrl: "https://www.gottman.com/blog/how-to-have-a-state-of-the-union-meeting/",
+    idea: "The Gottman Institute recommends a weekly \u201cState of the Union\u201d meeting: start with appreciations, talk about what went well, then discuss one issue calmly with the goal of understanding before problem-solving, and finish with \u201cWhat can I do to make you feel loved this week?\u201d",
+    exercise: ["Hold your first meeting this week (about an hour), and put it in your calendar weekly.", "Use the monthly check-in in Together as your bigger review."],
+    prompts: ["Five things I appreciated about you this week\u2026", "What can I do to make you feel loved this week?"] },
 ];
 
 const DEFAULT_FUNDS = [
@@ -367,6 +424,56 @@ function futureValue(present, monthly, annualRatePercent, years) {
   const growth = Math.pow(1 + rate, months);
   return present * growth + monthly * (growth - 1) / rate;
 }
+/** Monthly deposit needed to grow `present` into `target` over `years` at an annual rate (compounded monthly). */
+function requiredMonthlyForTarget(present, target, annualRatePercent, years) {
+  const months = Math.max(1, Math.round(years * 12));
+  const rate = (Number(annualRatePercent) || 0) / 100 / 12;
+  const grown = rate === 0 ? present : present * Math.pow(1 + rate, months);
+  const gap = target - grown;
+  if (gap <= 0) return 0;
+  if (rate === 0) return gap / months;
+  return gap * rate / (Math.pow(1 + rate, months) - 1);
+}
+/** Convert a future amount into today's purchasing power. */
+function toTodaysMoney(amount, inflationPercent, years) {
+  return amount / Math.pow(1 + (Number(inflationPercent) || 0) / 100, years);
+}
+function retirementPlan(state, now) {
+  const r = state.retirement;
+  const retireOn = retirementDate(state.couple);
+  const years = retireOn ? Math.max(0, monthsBetween(now, retireOn) / 12) : 30;
+  const netRate = (Number(r.rate) || 0) - (Number(r.fees) || 0);
+  const projectedNominal = futureValue(Number(r.saved) || 0, Number(r.monthly) || 0, netRate, years);
+  const projectedReal = toTodaysMoney(projectedNominal, r.inflation, years);
+  const withdrawal = (Number(r.withdrawal) || 4) / 100;
+  const targetReal = (Number(r.spend) || 0) > 0 ? Number(r.spend) / withdrawal : 0;
+  const targetNominal = targetReal * Math.pow(1 + (Number(r.inflation) || 0) / 100, years);
+  const neededMonthly = targetReal ? requiredMonthlyForTarget(Number(r.saved) || 0, targetNominal, netRate, years) : 0;
+  return {
+    retireOn, years, netRate, projectedNominal, projectedReal, targetReal, targetNominal, neededMonthly,
+    incomeReal: projectedReal * withdrawal,
+    onTrack: targetReal ? projectedReal / targetReal : null,
+  };
+}
+function educationPlans(state, now) {
+  const r = state.retirement;
+  const netRate = (Number(r.rate) || 0) - (Number(r.fees) || 0);
+  if (!(Number(r.eduCost) > 0)) return [];
+  return state.kids.map(kid => {
+    const birth = parseDate(kid.birth);
+    if (!birth) return null;
+    const start = new Date(birth.getFullYear() + 18, birth.getMonth(), birth.getDate());
+    const years = Math.max(0, monthsBetween(now, start) / 12);
+    const cost = Number(r.eduCost) * Math.pow(1 + (Number(r.eduInflation) || 0) / 100, years);
+    return { kid, start, years, cost, monthly: years > 0 ? requiredMonthlyForTarget(0, cost, netRate, years) : cost };
+  }).filter(Boolean);
+}
+function programProgress(program) {
+  const doneCount = PROGRAM.filter((_, index) => program.done[index + 1]).length;
+  const current = PROGRAM.findIndex((_, index) => !program.done[index + 1]);
+  return { doneCount, currentWeek: current === -1 ? null : current + 1, finished: current === -1 };
+}
+
 function goalProgress(goal) {
   if (goal.done) return 1;
   const steps = goal.steps || [];
@@ -542,10 +649,443 @@ function focusItems(state, now) {
   if (backupDue(state, now)) {
     items.push({ icon: "💾", text: state.lastBackupAt ? "It's been a month — export a fresh backup of your plan" : "Export your first backup (and share it with your partner)", tab: "settings" });
   }
+  const program = state.program || { started: "", done: {} };
+  if (program.started && !programProgress(program).finished) {
+    const week = programProgress(program).currentWeek;
+    items.push({ icon: "🌱", text: `Foundations week ${week}: ${PROGRAM[week - 1].title}`, tab: "us" });
+  }
   const stageIdx = currentStageIndex(state);
   const talk = TALKS.find(t => STAGE_INDEX[t.stage] <= stageIdx + 1 && (state.talks[t.id]?.status || "todo") === "todo");
   if (talk) items.push({ icon: "🗣️", text: `Talk about: ${talk.title}`, tab: "us" });
   return items.slice(0, 5);
+}
+
+/* ------------------------------------------------- reminders & web push */
+/** Upcoming reminder moments (next 120 days). Text stays on the device; only times go to the server. */
+function reminderSchedule(plan, now = new Date()) {
+  const list = [];
+  const nowMs = now.getTime();
+  const at = (date, hour) => new Date(date.getFullYear(), date.getMonth(), date.getDate(), hour, 0).getTime();
+  const add = (time, title, body, tag) => {
+    if (time > nowMs + 60e3 && time < nowMs + 120 * 864e5) list.push({ at: time, title, body, tag });
+  };
+  const nameA = plan.couple.a.name || "Partner A";
+  const nameB = plan.couple.b.name || "Partner B";
+  const lastCheckin = plan.checkins.slice().sort(byDate).pop();
+  let due = lastCheckin ? new Date(parseDate(lastCheckin.date).getTime() + 30 * 864e5) : new Date(nowMs + 864e5);
+  if (at(due, 19) <= nowMs) due = new Date(nowMs + 864e5);
+  for (let i = 0; i < 4; i++) {
+    add(at(due, 19), "💬 Monthly check-in", `${nameA} & ${nameB}: 10 minutes, phones away.`, `checkin-${i}`);
+    due = addMonths(due, 1);
+  }
+  for (const m of plan.milestones) {
+    const date = parseDate(m.date);
+    if (m.done || !date) continue;
+    add(at(new Date(date.getTime() - 7 * 864e5), 9), `📍 One week to go: ${m.title}`, "Open Together to get ready.", `ms-${m.id}-7`);
+    add(at(date, 9), `📍 Today: ${m.title}`, "Tick it off in Together when it happens 🎉", `ms-${m.id}`);
+  }
+  for (const party of upcomingCelebrations(plan, now, 120)) {
+    const date = parseDate(party.date);
+    add(at(new Date(date.getTime() - 7 * 864e5), 9), `🎉 In a week: ${party.text}`, "Time to plan something special.", `party-${party.date}-7`);
+    add(at(date, 8), `🎉 Today: ${party.text}`, "Celebrate each other today 💞", `party-${party.date}`);
+  }
+  const hasData = plan.milestones.length + plan.goals.length + plan.checkins.length > 0;
+  if (hasData) {
+    const base = plan.lastBackupAt ? new Date(new Date(plan.lastBackupAt).getTime() + 30 * 864e5) : new Date(nowMs + 3 * 864e5);
+    add(at(base, 10), "💾 Back up your plan", "Settings → Export backup keeps your plan safe.", "backup");
+  }
+  const program = plan.program || { started: "", done: {} };
+  if (program.started && !programProgress(program).finished) {
+    const week = programProgress(program).currentWeek;
+    let next = parseDate(program.started) || now;
+    while (at(next, 19) <= nowMs) next = new Date(next.getTime() + 7 * 864e5);
+    add(at(next, 19), `🌱 Foundations week ${week}`, PROGRAM[week - 1].title, "program");
+  }
+  return list.sort((x, y) => x.at - y.at).slice(0, 60);
+}
+
+/** Tiny IndexedDB key-value store shared with the service worker (sw.js reads "reminders"). */
+const swStore = {
+  open() {
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.open("together-sw", 1);
+      request.onupgradeneeded = () => request.result.createObjectStore("kv");
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+  },
+  async set(key, value) {
+    const db = await this.open();
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction("kv", "readwrite");
+      tx.objectStore("kv").put(value, key);
+      tx.oncomplete = resolve;
+      tx.onerror = () => reject(tx.error);
+    });
+    db.close();
+  },
+};
+
+const reminders = {
+  timer: null,
+  prefKey() {
+    return store.key + ".push";
+  },
+  pref() {
+    try {
+      return JSON.parse(localStorage.getItem(this.prefKey())) || null;
+    } catch (error) {
+      return null;
+    }
+  },
+  savePref(pref) {
+    if (pref) localStorage.setItem(this.prefKey(), JSON.stringify(pref));
+    else localStorage.removeItem(this.prefKey());
+  },
+  get enabled() {
+    return Boolean(this.pref()?.enabled);
+  },
+  isIOS() {
+    return /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  },
+  isStandalone() {
+    return window.matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+  },
+  supported() {
+    return location.protocol !== "file:" && window.isSecureContext && "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+  },
+  async enable() {
+    if (!this.supported()) {
+      throw new Error(this.isIOS() && !this.isStandalone()
+        ? "On iPhone/iPad: tap Share → Add to Home Screen, open Together from your Home Screen, then turn reminders on there."
+        : "This browser can't receive push notifications. Use the calendar reminders below instead.");
+    }
+    const permission = await Notification.requestPermission();
+    if (permission !== "granted") throw new Error("Notifications are blocked — allow them for this site in your browser settings.");
+    const registration = await navigator.serviceWorker.ready;
+    const subscription = (await registration.pushManager.getSubscription())
+      || (await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64u.decode(VAPID_PUBLIC_KEY) }));
+    const pref = this.pref() || { id: b64u.encode(crypto.getRandomValues(new Uint8Array(16))) };
+    pref.enabled = true;
+    this.savePref(pref);
+    await this.sync(subscription);
+    await registration.showNotification("Reminders are on 💞", { body: "We'll nudge you about check-ins, milestones and anniversaries.", icon: "icons/icon-192.png", tag: "together-welcome" });
+  },
+  async disable() {
+    const pref = this.pref();
+    this.savePref(null);
+    if (pref) await fetch(`${CLOUD_URL}/v1/push/${pref.id}`, { method: "DELETE" }).catch(() => {});
+    if (this.supported()) {
+      const registration = await navigator.serviceWorker.ready;
+      const subscription = await registration.pushManager.getSubscription();
+      if (subscription) await subscription.unsubscribe();
+    }
+  },
+  /** Hand the reminder texts to the service worker and the times to the server. */
+  async sync(subscription) {
+    const pref = this.pref();
+    if (!pref?.enabled || !this.supported()) return;
+    if (!subscription) {
+      const registration = await navigator.serviceWorker.ready;
+      subscription = await registration.pushManager.getSubscription();
+      if (!subscription) return;
+    }
+    const upcoming = reminderSchedule(state);
+    await swStore.set("reminders", upcoming);
+    const response = await fetch(`${CLOUD_URL}/v1/push/${pref.id}`, {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ subscription: subscription.toJSON(), times: upcoming.map(r => r.at) }),
+    });
+    if (!response.ok) throw new Error(`Reminder server error (${response.status})`);
+    const summary = await response.json();
+    this.savePref({ ...this.pref(), nextAt: summary.nextAt, count: summary.count, syncedAt: Date.now() });
+  },
+  schedule() {
+    if (!this.enabled) return;
+    clearTimeout(this.timer);
+    this.timer = setTimeout(() => this.sync().catch(() => {}), 2500);
+  },
+};
+
+/* ------------------------------------------------------- sync: merge model */
+// Every record carries `_ts` (last-modified ms). Deletions leave tombstones in `_deleted`.
+// Two plans merge record-by-record: newest edit wins, deletions win over older edits.
+const SYNCED_COLLECTIONS = ["milestones", "goals", "funds", "checkins", "bucket", "kids", "networth"];
+const SYNCED_SINGLETONS = ["couple", "retirement", "program"];
+
+function recordBody(record) {
+  if (!record || typeof record !== "object") return JSON.stringify(record ?? null);
+  const { _ts, ...rest } = record;
+  return JSON.stringify(rest);
+}
+
+/** Stamp `_ts` on records that changed since `previous`, and tombstone deleted ids. Mutates and returns `next`. */
+function stampChanges(previous, next, now = Date.now()) {
+  next._deleted = { ...(next._deleted || {}) };
+  for (const key of SYNCED_COLLECTIONS) {
+    const before = new Map((previous[key] || []).map(record => [record.id, record]));
+    const present = new Set();
+    for (const record of next[key] || []) {
+      present.add(record.id);
+      const old = before.get(record.id);
+      if (!old || recordBody(old) !== recordBody(record)) {
+        record._ts = now;
+        delete next._deleted[record.id];
+      } else if (record._ts === undefined) {
+        record._ts = old._ts || 0;
+      }
+    }
+    for (const id of before.keys()) {
+      if (!present.has(id)) next._deleted[id] = now;
+    }
+  }
+  for (const key of SYNCED_SINGLETONS) {
+    if (next[key] && recordBody((previous || {})[key]) !== recordBody(next[key])) next[key]._ts = now;
+  }
+  const previousTalks = (previous || {}).talks || {};
+  for (const [topicId, entry] of Object.entries(next.talks || {})) {
+    if (recordBody(previousTalks[topicId]) !== recordBody(entry)) next.talks[topicId] = { ...entry, _ts: now };
+  }
+  return next;
+}
+
+/** Merge two plans record-by-record (last writer wins per record, tombstones win over older edits). */
+function mergeStates(local, remote, now = Date.now()) {
+  const a = migrate(JSON.parse(JSON.stringify(local)));
+  const b = migrate(JSON.parse(JSON.stringify(remote)));
+  const deleted = { ...a._deleted };
+  for (const [id, ts] of Object.entries(b._deleted || {})) deleted[id] = Math.max(deleted[id] || 0, ts);
+  for (const key of SYNCED_COLLECTIONS) {
+    const byId = new Map();
+    const order = [];
+    for (const record of [...a[key], ...b[key]]) {
+      const existing = byId.get(record.id);
+      if (!existing) order.push(record.id);
+      if (!existing || (record._ts || 0) > (existing._ts || 0)) byId.set(record.id, record);
+    }
+    a[key] = order.map(id => byId.get(id)).filter(record => !(deleted[record.id] !== undefined && deleted[record.id] >= (record._ts || 0)));
+  }
+  for (const key of SYNCED_SINGLETONS) {
+    if ((b[key]?._ts || 0) > (a[key]?._ts || 0)) a[key] = b[key];
+  }
+  for (const [topicId, entry] of Object.entries(b.talks || {})) {
+    if (!a.talks[topicId] || (entry._ts || 0) > (a.talks[topicId]._ts || 0)) a.talks[topicId] = entry;
+  }
+  a.lastBackupAt = [local.lastBackupAt, remote.lastBackupAt].filter(Boolean).sort().pop() || null;
+  const cutoff = now - 180 * 864e5;
+  a._deleted = Object.fromEntries(Object.entries(deleted).filter(([, ts]) => ts > cutoff));
+  return a;
+}
+
+/** Order-insensitive fingerprint used to decide whether two plans differ. */
+function canonical(value) {
+  if (Array.isArray(value)) {
+    const items = value.map(canonical);
+    if (items.every(item => item && typeof item === "object" && "id" in item)) {
+      items.sort((x, y) => String(x.id).localeCompare(String(y.id)));
+    }
+    return items;
+  }
+  if (value && typeof value === "object") {
+    return Object.fromEntries(Object.keys(value).sort().map(key => [key, canonical(value[key])]));
+  }
+  return value;
+}
+function planFingerprint(plan) {
+  const { updatedAt, ...rest } = plan || {};
+  return JSON.stringify(canonical(rest));
+}
+
+/* ----------------------------------------------- sync: end-to-end encryption */
+const b64u = {
+  encode(bytes) {
+    let binary = "";
+    for (const byte of bytes) binary += String.fromCharCode(byte);
+    return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  },
+  decode(text) {
+    const normal = String(text).replace(/-/g, "+").replace(/_/g, "/");
+    const padded = normal + "===".slice((normal.length + 3) % 4);
+    return Uint8Array.from(atob(padded), ch => ch.charCodeAt(0));
+  },
+};
+const textBytes = text => new TextEncoder().encode(text);
+
+/** From the shared link secret derive an AES-GCM key (never leaves the device) and a separate write-auth token. */
+async function deriveSyncKeys(secretText) {
+  const material = await crypto.subtle.importKey("raw", b64u.decode(secretText), "HKDF", false, ["deriveKey", "deriveBits"]);
+  const salt = textBytes("together-sync-v1");
+  const encKey = await crypto.subtle.deriveKey(
+    { name: "HKDF", hash: "SHA-256", salt, info: textBytes("encrypt") },
+    material, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
+  const authBits = await crypto.subtle.deriveBits({ name: "HKDF", hash: "SHA-256", salt, info: textBytes("auth") }, material, 256);
+  return { encKey, auth: b64u.encode(new Uint8Array(authBits)) };
+}
+async function pipeBytes(bytes, transform) {
+  return new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(transform)).arrayBuffer());
+}
+async function sealPlan(plan, encKey) {
+  let bytes = textBytes(JSON.stringify(plan));
+  let format = "j";
+  if (typeof CompressionStream === "function") {
+    bytes = await pipeBytes(bytes, new CompressionStream("gzip"));
+    format = "g";
+  }
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const cipher = await crypto.subtle.encrypt({ name: "AES-GCM", iv, additionalData: textBytes("together:" + format) }, encKey, bytes);
+  return `t1.${format}.${b64u.encode(iv)}.${b64u.encode(new Uint8Array(cipher))}`;
+}
+async function openPlan(text, encKey) {
+  const [tag, format, ivText, cipherText] = String(text).split(".");
+  if (tag !== "t1" || !ivText || !cipherText) throw new Error("Unknown sync format");
+  const plain = new Uint8Array(await crypto.subtle.decrypt(
+    { name: "AES-GCM", iv: b64u.decode(ivText), additionalData: textBytes("together:" + format) }, encKey, b64u.decode(cipherText)));
+  const bytes = format === "g" ? await pipeBytes(plain, new DecompressionStream("gzip")) : plain;
+  return JSON.parse(new TextDecoder().decode(bytes));
+}
+
+/* ------------------------------------------------------ sync: room client */
+class SyncClient {
+  constructor({ configKey, getState, applyRemote, endpoint = CLOUD_URL, fetchImpl = (...args) => fetch(...args), onStatus = () => {} }) {
+    Object.assign(this, { configKey, getState, applyRemote, endpoint, fetchImpl, onStatus });
+    this.config = this.loadConfig();
+    this.keys = null;
+    this.status = this.active ? "idle" : "off";
+    this.error = "";
+    this.queue = Promise.resolve();
+    this.pushTimer = null;
+  }
+  loadConfig() {
+    try {
+      return JSON.parse(localStorage.getItem(this.configKey)) || null;
+    } catch (error) {
+      return null;
+    }
+  }
+  saveConfig() {
+    if (this.config) localStorage.setItem(this.configKey, JSON.stringify(this.config));
+    else localStorage.removeItem(this.configKey);
+  }
+  get active() {
+    return Boolean(this.config && this.config.room && this.config.secret);
+  }
+  inviteLink() {
+    return this.active ? `${PUBLIC_APP_URL}#join=${this.config.room}.${this.config.secret}` : "";
+  }
+  setStatus(status, error = "") {
+    this.status = status;
+    this.error = error;
+    this.onStatus(status, error);
+  }
+  /** Serialize all network work so pushes and pulls never interleave. */
+  run(task) {
+    const next = this.queue.then(task);
+    this.queue = next.catch(error => this.setStatus("error", error.message || String(error)));
+    return next;
+  }
+  async keysReady() {
+    if (!this.keys) this.keys = await deriveSyncKeys(this.config.secret);
+    return this.keys;
+  }
+  async request(method, body, query = "") {
+    return this.fetchImpl(`${this.endpoint}/v1/rooms/${this.config.room}${query}`, {
+      method,
+      headers: body ? { "content-type": "application/json" } : {},
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  }
+  async create() {
+    this.config = {
+      room: b64u.encode(crypto.getRandomValues(new Uint8Array(16))),
+      secret: b64u.encode(crypto.getRandomValues(new Uint8Array(32))),
+      version: 0,
+      lastSyncAt: null,
+    };
+    this.keys = null;
+    this.saveConfig();
+    await this.run(() => this.pushNow());
+    return this.inviteLink();
+  }
+  async join(room, secret) {
+    if (!/^[A-Za-z0-9_-]{16,64}$/.test(room || "") || !/^[A-Za-z0-9_-]{40,}$/.test(secret || "")) throw new Error("That link is incomplete.");
+    this.config = { room, secret, version: 0, lastSyncAt: null };
+    this.keys = null;
+    this.saveConfig();
+    const result = await this.run(() => this.pullNow(true));
+    if (result === "missing") {
+      this.leave();
+      throw new Error("That sync link has expired or was removed.");
+    }
+    return result;
+  }
+  leave() {
+    clearTimeout(this.pushTimer);
+    this.config = null;
+    this.keys = null;
+    this.saveConfig();
+    this.setStatus("off");
+  }
+  schedulePush(delay = 1500) {
+    if (!this.active) return;
+    clearTimeout(this.pushTimer);
+    this.pushTimer = setTimeout(() => this.run(() => this.pushNow()), delay);
+  }
+  pull() {
+    return this.active ? this.run(() => this.pullNow(false)) : Promise.resolve("off");
+  }
+  async pushNow(attempt = 0) {
+    if (!this.active) return;
+    this.setStatus("syncing");
+    const { encKey, auth } = await this.keysReady();
+    const data = await sealPlan(this.getState(), encKey);
+    const response = await this.request("PUT", { auth, baseVersion: this.config.version, data });
+    if (response.status === 409 && attempt < 3) {
+      await this.absorb(await response.json());
+      return this.pushNow(attempt + 1);
+    }
+    if (response.status === 403) throw new Error("This device's sync link is no longer valid.");
+    if (!response.ok) throw new Error(`Sync failed (${response.status})`);
+    const result = await response.json();
+    this.config.version = result.version;
+    this.config.lastSyncAt = Date.now();
+    this.saveConfig();
+    this.setStatus("synced");
+  }
+  async pullNow(force) {
+    if (!this.active) return "off";
+    const response = await this.request("GET", null, force ? "" : `?since=${this.config.version}`);
+    if (response.status === 204) {
+      this.config.lastSyncAt = Date.now();
+      this.saveConfig();
+      this.setStatus("synced");
+      return "same";
+    }
+    if (response.status === 404) return "missing";
+    if (!response.ok) throw new Error(`Sync failed (${response.status})`);
+    const remotePlan = await this.absorb(await response.json());
+    if (planFingerprint(this.getState()) !== planFingerprint(remotePlan)) {
+      await this.pushNow();
+    } else {
+      this.config.lastSyncAt = Date.now();
+      this.saveConfig();
+      this.setStatus("synced");
+    }
+    return "updated";
+  }
+  async absorb(remote) {
+    const { encKey } = await this.keysReady();
+    let plan;
+    try {
+      plan = await openPlan(remote.data, encKey);
+    } catch (error) {
+      throw new Error("Could not unlock the shared plan — the link may be wrong.");
+    }
+    this.config.version = remote.version;
+    this.saveConfig();
+    this.applyRemote(plan);
+    return plan;
+  }
 }
 
 /* -------------------------------------------------------------------- store */
@@ -554,8 +1094,10 @@ function blankState() {
     schema: SCHEMA_VERSION,
     couple: { a: { name: "", birth: "" }, b: { name: "", birth: "" }, since: "", wedding: "", stage: "dating", currency: "$", retireAge: 65 },
     milestones: [], goals: [], funds: [],
-    retirement: { saved: 0, monthly: 0, rate: 5 },
-    checkins: [], talks: {}, bucket: [], kids: [],
+    retirement: { saved: 0, monthly: 0, rate: 5, fees: 0.5, inflation: 2.5, spend: 0, withdrawal: 4, eduCost: 0, eduInflation: 5 },
+    checkins: [], talks: {}, bucket: [], kids: [], networth: [],
+    program: { started: "", done: {}, notes: {} },
+    _deleted: {},
     updatedAt: null, lastBackupAt: null,
   };
 }
@@ -576,13 +1118,17 @@ function migrate(raw) {
   const merged = { ...base, ...raw, couple: { ...base.couple, ...(raw.couple || {}) }, retirement: { ...base.retirement, ...(raw.retirement || {}) } };
   merged.couple.a = { ...base.couple.a, ...(raw.couple?.a || {}) };
   merged.couple.b = { ...base.couple.b, ...(raw.couple?.b || {}) };
-  for (const key of ["milestones", "goals", "funds", "checkins", "bucket", "kids"]) {
+  for (const key of ["milestones", "goals", "funds", "checkins", "bucket", "kids", "networth"]) {
     merged[key] = Array.isArray(raw[key]) ? raw[key].filter(x => x && typeof x === "object") : [];
   }
   merged.goals.forEach(goal => {
     goal.steps = Array.isArray(goal.steps) ? goal.steps : [];
   });
   merged.talks = raw.talks && typeof raw.talks === "object" ? raw.talks : {};
+  merged.program = { ...base.program, ...(raw.program || {}) };
+  merged.program.done = { ...(merged.program.done || {}) };
+  merged.program.notes = { ...(merged.program.notes || {}) };
+  merged._deleted = raw._deleted && typeof raw._deleted === "object" ? { ...raw._deleted } : {};
   merged.schema = SCHEMA_VERSION;
   return merged;
 }
@@ -634,7 +1180,7 @@ const store = {
 
 /* --------------------------------------------------------------- app state */
 let state = blankState();
-let ui = { tab: "home", goalFilter: "all", now: new Date() };
+let ui = { tab: "home", goalFilter: "all", now: new Date(), installPrompt: null };
 let undoSnapshot = null;
 const TABS = [
   { id: "home", icon: "🏠", label: "Home" },
@@ -645,17 +1191,52 @@ const TABS = [
   { id: "settings", icon: "⚙️", label: "Settings" },
 ];
 
-function commit(message) {
+let lastCommitted = JSON.stringify(blankState());
+let sync = null;
+let pendingRender = false;
+
+/** Stamp changes for sync, save locally, then push to partner / refresh reminders. */
+function persist() {
+  stampChanges(JSON.parse(lastCommitted), state);
+  lastCommitted = JSON.stringify(state);
   store.save(state);
+  if (sync && sync.active) sync.schedulePush();
+  reminders.schedule();
+}
+function commit(message) {
+  persist();
   render();
   if (message) toast(message);
 }
 function commitWithUndo(message, mutate) {
   undoSnapshot = JSON.stringify(state);
   mutate();
-  store.save(state);
+  persist();
   render();
   toast(message, true);
+}
+/** Merge a plan received from the partner's device into this one. */
+function applyRemotePlan(plan) {
+  const merged = mergeStates(state, plan);
+  const changed = planFingerprint(merged) !== planFingerprint(state);
+  state = merged;
+  lastCommitted = JSON.stringify(state);
+  store.save(state);
+  if (changed) {
+    safeRender();
+    reminders.schedule();
+  }
+}
+/** Re-render unless the user is typing; then wait until they leave the field or close the dialog. */
+function safeRender() {
+  const active = document.activeElement;
+  const typing = active && active.closest && active.closest("#view, dialog") && /^(INPUT|TEXTAREA|SELECT)$/.test(active.tagName) && active.type !== "checkbox";
+  if (typing || document.getElementById("dialog").open) {
+    pendingRender = true;
+    return;
+  }
+  pendingRender = false;
+  render();
 }
 function names() {
   return { a: state.couple.a.name || "Partner A", b: state.couple.b.name || "Partner B" };
@@ -688,6 +1269,9 @@ function render() {
   tabs.innerHTML = TABS.map(tab => `<button type="button" data-act="tab" data-id="${tab.id}" ${ui.tab === tab.id ? 'aria-current="page"' : ""}>
       <span class="ico" aria-hidden="true">${tab.icon}</span><span>${tab.label}</span></button>`).join("");
   const n = names();
+  const pill = document.getElementById("saved-pill");
+  pill.textContent = sync && sync.active ? (sync.status === "error" ? "⚠️ Sync paused" : "🔄 Shared with partner") : "🔒 Saved on this device";
+  pill.title = sync && sync.active ? "End-to-end encrypted sync with your partner" : "Everything is stored only in this browser on this device";
   document.getElementById("brand-sub").textContent = onboarding ? "Our life plan, from first date to golden years" : `${n.a} & ${n.b}`;
   const view = document.getElementById("view");
   const views = { home: viewHome, roadmap: viewRoadmap, goals: viewGoals, money: viewMoney, us: viewUs, settings: viewSettings };
@@ -881,9 +1465,8 @@ function viewMoney() {
   const total = state.funds.reduce((sum, f) => sum + (Number(f.saved) || 0), 0);
   const monthly = state.funds.reduce((sum, f) => sum + (Number(f.monthly) || 0), 0);
   const r = state.retirement;
-  const retireOn = retirementDate(state.couple);
-  const yearsLeft = retireOn ? Math.max(0, monthsBetween(now, retireOn) / 12) : 30;
-  const projected = futureValue(Number(r.saved) || 0, Number(r.monthly) || 0, Number(r.rate) || 0, yearsLeft);
+  const plan = retirementPlan(state, now);
+  const education = educationPlans(state, now);
   const fundCards = state.funds.map(fund => {
     const s = fundStatus(fund, state, now);
     let line;
@@ -920,12 +1503,71 @@ function viewMoney() {
       <label class="field">Retirement savings today (${esc(cur)})<input name="saved" type="number" step="any" value="${esc(r.saved)}"></label>
       <label class="field">We add per month (${esc(cur)})<input name="monthly" type="number" step="any" value="${esc(r.monthly)}"></label>
       <label class="field">Expected yearly return (%)<input name="rate" type="number" step="0.1" value="${esc(r.rate)}"></label>
+      <label class="field">Fees &amp; tax drag per year (%)<input name="fees" type="number" step="0.1" value="${esc(r.fees)}"></label>
+      <label class="field">Inflation per year (%)<input name="inflation" type="number" step="0.1" value="${esc(r.inflation)}"></label>
       <label class="field">Retire when both are age<input name="retireAge" type="number" min="40" max="85" value="${esc(state.couple.retireAge)}"></label>
+      <label class="field">Yearly spending we want in retirement (today's ${esc(cur)})<input name="spend" type="number" step="any" value="${esc(r.spend)}"></label>
+      <label class="field">Safe withdrawal rate (%)<input name="withdrawal" type="number" step="0.1" value="${esc(r.withdrawal)}"></label>
     </form>
-    <p>In about <b>${Math.round(yearsLeft)} years</b>${retireOn ? ` (${esc(retireOn.toLocaleDateString(undefined, { month: "short", year: "numeric" }))})` : ""} you could have
-      <span class="money-big">${esc(money(projected, cur))}</span></p>
-    <p class="small muted">Rule of thumb: withdrawing ~4% a year gives roughly ${esc(money(projected * 0.04, cur))}/year. Rough estimate in today's money terms not adjusted for inflation or tax — not financial advice; check with a licensed adviser.</p>
+    <div class="stats" style="margin-top:6px">
+      <div class="stat"><b>${esc(money(plan.projectedReal, cur))}</b><span class="small muted">projected, in today's money</span></div>
+      <div class="stat"><b>${esc(money(plan.incomeReal, cur))}</b><span class="small muted">≈ yearly income it supports</span></div>
+      ${plan.targetReal ? `<div class="stat"><b>${Math.round((plan.onTrack || 0) * 100)}%</b><span class="small muted">of the ${esc(money(plan.targetReal, cur))} you need</span></div>` : ""}
+    </div>
+    <p class="small" style="margin-top:10px">In about <b>${Math.round(plan.years)} years</b>${plan.retireOn ? ` (${esc(plan.retireOn.toLocaleDateString(undefined, { month: "short", year: "numeric" }))})` : ""} that's ${esc(money(plan.projectedNominal, cur))} in future money (return ${esc(plan.netRate.toFixed(1))}% after fees).
+      ${plan.targetReal ? (plan.onTrack >= 1
+        ? '<span class="chip ok">✓ On track</span>'
+        : `<span class="chip warn" style="white-space:normal">Save about ${esc(money(plan.neededMonthly, cur))}/month to get there (you save ${esc(money(r.monthly, cur))})</span>`)
+        : '<span class="muted">Add your desired yearly spending to see how much you need.</span>'}</p>
+    <p class="small muted">Estimates only, using steady average returns. Real markets go up and down; tax rules differ by country. Not financial advice — check big decisions with a licensed adviser.</p>
+  </div>
+  <div class="grid" style="margin-top:14px">
+    <section class="card">
+      <h2>Education funds 🎓</h2>
+      <form class="fields-2" data-form="retirement">
+        <label class="field">Education cost per child (today's ${esc(cur)})<input name="eduCost" type="number" step="any" value="${esc(r.eduCost)}"></label>
+        <label class="field">Education inflation per year (%)<input name="eduInflation" type="number" step="0.1" value="${esc(r.eduInflation)}"></label>
+      </form>
+      ${!state.kids.length ? '<p class="small muted">Add your children (or a due date) in Settings to plan their education funds.</p>'
+        : !education.length ? '<p class="small muted">Enter an expected cost to see how much to save per child.</p>'
+        : `<ul class="clean">${education.map(e => `<li class="spread small"><div><b>${esc(e.kid.name)}</b> — starts ${esc(e.start.toLocaleDateString(undefined, { month: "short", year: "numeric" }))}<br><span class="muted">≈ ${esc(money(e.cost, cur))} by then</span></div>
+          <span class="chip">${esc(money(e.monthly, cur))}/mo</span></li>`).join("")}</ul>`}
+    </section>
+    <section class="card">
+      <h2>Net worth 📈</h2>
+      ${netWorthSummary(cur)}
+      <form class="row" data-form="networth" style="margin-top:10px">
+        <input name="date" type="date" value="${esc(toISO(now))}" aria-label="Date" style="flex:1 1 130px;min-width:0">
+        <input name="assets" type="number" step="any" placeholder="Assets (${esc(cur)})" aria-label="Total assets" style="flex:1 1 110px;min-width:0" required>
+        <input name="debts" type="number" step="any" placeholder="Debts (${esc(cur)})" aria-label="Total debts" style="flex:1 1 110px;min-width:0">
+        <button type="submit">Add</button>
+      </form>
+      <p class="small muted">A monthly snapshot of everything you own minus everything you owe — no bank login needed.</p>
+    </section>
   </div>`;
+}
+
+function netWorthSummary(cur) {
+  const entries = state.networth.slice().sort(byDate);
+  if (!entries.length) return '<div class="empty"><span class="em">📈</span>Add your first snapshot to start the trend.</div>';
+  const values = entries.map(e => (Number(e.assets) || 0) - (Number(e.debts) || 0));
+  const latest = values[values.length - 1];
+  const change = values.length > 1 ? latest - values[values.length - 2] : null;
+  let chart = "";
+  if (values.length > 1) {
+    const recent = values.slice(-12);
+    const min = Math.min(...recent);
+    const max = Math.max(...recent);
+    const span = max - min || 1;
+    const x = i => 6 + i * 288 / (recent.length - 1);
+    const y = v => 40 - (v - min) / span * 34;
+    chart = `<svg class="trend" viewBox="0 0 300 46" preserveAspectRatio="none" role="img" aria-label="Net worth trend"><path d="${recent.map((v, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ")}" fill="none" stroke="#2f8f6b" stroke-width="2.5" vector-effect="non-scaling-stroke"/></svg>`;
+  }
+  return `<div class="money-big">${esc(money(latest, cur))}</div>
+    ${change !== null ? `<span class="chip ${change >= 0 ? "ok" : "warn"}">${change >= 0 ? "▲" : "▼"} ${esc(money(Math.abs(change), cur))} since last snapshot</span>` : ""}
+    ${chart}
+    <ul class="clean small">${entries.slice(-3).reverse().map(e => `<li class="spread"><span>${esc(formatDate(e.date))}: ${esc(money((Number(e.assets) || 0) - (Number(e.debts) || 0), cur))}</span>
+      <button type="button" class="ghost" data-act="delete-networth" data-id="${esc(e.id)}" aria-label="Delete snapshot">🗑️</button></li>`).join("")}</ul>`;
 }
 
 function viewUs() {
@@ -938,8 +1580,10 @@ function viewUs() {
   const stageIdx = currentStageIndex(state);
   const talkStatus = id => state.talks[id]?.status || "todo";
   const agreed = TALKS.filter(t => talkStatus(t.id) === "agreed").length;
+  const programCard = viewProgram();
   return `<div class="section-head"><div><h1>Us</h1><p class="muted">The relationship is the plan. Check in monthly, talk about the big stuff before it's urgent, and keep dreaming.</p></div></div>
-  <div class="grid">
+  ${programCard}
+  <div class="grid" style="margin-top:14px">
     <section class="card">
       <div class="spread"><h2>Monthly check-in</h2>${daysSince === null || daysSince >= 30 ? '<span class="chip warn">Due</span>' : `<span class="chip ok">Next in ${30 - daysSince} days</span>`}</div>
       <p class="small muted">10 minutes, phones away. Rate how you feel, share one appreciation, one need, one plan.</p>
@@ -1025,12 +1669,87 @@ function printSummaryHTML() {
     <p>${state.bucket.map(b => `${b.done ? "✓" : "○"} ${esc(b.text)}`).join(" &nbsp; ") || "—"}</p>`;
 }
 
+function viewProgram() {
+  const program = state.program;
+  const progress = programProgress(program);
+  const disclaimer = '<p class="small muted">Short summaries of published research (The Gottman Institute, PREP). Educational, not therapy — if things feel hard, a licensed couples counsellor can help.</p>';
+  if (!program.started) {
+    return `<section class="card hero"><div class="spread"><div><h2>🌱 Foundations: 8 weeks to a stronger team</h2>
+      <p class="small">One short, research-based session a week: love maps, turning toward each other, fighting fair, money as a team and more. About 20 minutes together.</p></div></div>
+      <button type="button" class="primary" data-act="program-start">Start week 1</button>${disclaimer}</section>`;
+  }
+  const weeks = PROGRAM.map((week, index) => {
+    const number = index + 1;
+    const done = program.done[number];
+    const open = number === progress.currentWeek;
+    return `<details class="talk" ${open ? "open" : ""}><summary><span><b>Week ${number}: ${esc(week.title)}</b></span>
+        ${done ? '<span class="chip ok">✓ Done</span>' : open ? '<span class="chip">This week</span>' : ""}</summary>
+      <p class="small">${esc(week.idea)}</p>
+      <p class="small"><b>Try this:</b></p><ol class="small">${week.exercise.map(step => `<li>${esc(step)}</li>`).join("")}</ol>
+      <p class="small"><b>Talk about:</b></p><ul class="small">${week.prompts.map(p => `<li>${esc(p)}</li>`).join("")}</ul>
+      <p class="small muted">Source: ${week.sourceUrl ? `<a href="${esc(week.sourceUrl)}" target="_blank" rel="noopener">${esc(week.sourceName)}</a>` : esc(week.sourceName)}</p>
+      <label class="field">Our notes<textarea data-program-note="${number}" placeholder="What did we learn or agree?">${esc(program.notes[number] || "")}</textarea></label>
+      ${done ? `<p class="small muted">Completed ${esc(formatDate(done))}</p>` : `<button type="button" class="primary" data-act="program-done" data-id="${number}">Mark week ${number} done</button>`}
+    </details>`;
+  }).join("");
+  return `<section class="card"><div class="spread"><h2>🌱 Foundations</h2><span class="chip ${progress.finished ? "ok" : ""}">${progress.doneCount}/${PROGRAM.length} weeks</span></div>
+    <div class="bar" style="margin:8px 0"><span style="width:${progress.doneCount / PROGRAM.length * 100}%"></span></div>
+    ${progress.finished ? '<p class="small">🎉 You finished all 8 weeks. Keep the weekly State of the Union going!</p>' : ""}
+    ${weeks}${disclaimer}</section>`;
+}
+
+function syncStatusText() {
+  if (!sync || !sync.active) return "";
+  if (sync.status === "error") return `⚠️ ${sync.error || "Sync paused"} Will retry.`;
+  if (sync.status === "syncing") return "Syncing…";
+  const last = sync.config.lastSyncAt;
+  return last ? `✓ Synced ${new Date(last).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : "Waiting for first sync…";
+}
+
+function viewConnect() {
+  const syncCard = sync && sync.active
+    ? `<p class="small"><span class="chip ok">🔄 Sharing one plan</span> <span class="muted" id="sync-status">${esc(syncStatusText())}</span></p>
+       <label class="field">Pairing link — send only to your partner<input readonly value="${esc(sync.inviteLink())}" id="invite-link" onfocus="this.select()"></label>
+       <div class="row"><button type="button" data-act="sync-copy">Copy link</button><button type="button" data-act="sync-share">Share…</button>
+         <button type="button" data-act="sync-now">Sync now</button><button type="button" class="ghost" data-act="sync-leave">Stop syncing on this device</button></div>
+       <p class="small muted">Anyone with this link can open your plan. If it leaks, stop syncing and create a new link.</p>`
+    : `<p class="small">Use one plan on both your phones. Changes sync within seconds and merge item by item, so you can both edit.</p>
+       <button type="button" class="primary" data-act="sync-create">Create a pairing link</button>
+       <p class="small muted">🔐 End-to-end encrypted: your plan is locked on this device before upload, and the key only lives inside the link (after the #), which is never sent to the server.</p>`;
+  const pref = reminders.pref();
+  const reminderCard = pref?.enabled
+    ? `<p class="small"><span class="chip ok">🔔 On</span> ${pref.nextAt ? `Next: ${esc(new Date(pref.nextAt).toLocaleString([], { dateStyle: "medium", timeStyle: "short" }))}` : ""}</p>
+       <div class="row"><button type="button" data-act="push-test">Send a test</button><button type="button" class="ghost" data-act="push-off">Turn off</button></div>`
+    : `<p class="small">Get a nudge for monthly check-ins, upcoming milestones, anniversaries, birthdays and backups.</p>
+       <button type="button" class="primary" data-act="push-on">Turn on reminders</button>
+       ${reminders.isIOS() && !reminders.isStandalone() ? '<p class="small muted">On iPhone/iPad: first tap Share → <b>Add to Home Screen</b>, then open Together from your Home Screen.</p>' : ""}`;
+  const installCard = reminders.isStandalone()
+    ? '<p class="small"><span class="chip ok">✓ Installed</span> Together works offline.</p>'
+    : ui.installPrompt
+      ? '<p class="small">Add Together to your home screen — it opens like an app and works offline.</p><button type="button" class="primary" data-act="install">Install app</button>'
+      : `<p class="small">${reminders.isIOS() ? "Tap Share → <b>Add to Home Screen</b>." : "Use your browser's menu → <b>Install app</b> / <b>Add to Home screen</b>."} It opens like an app and works offline.</p>`;
+  return `<div class="grid" style="margin-bottom:14px">
+    <section class="card"><h2>Partner sync 🔄</h2>${syncCard}</section>
+    <section class="card"><h2>Reminders 🔔</h2>${reminderCard}
+      <p class="small muted" style="margin-top:10px">Prefer your calendar?</p>
+      <div class="row"><button type="button" data-act="ics-checkin">Monthly check-in (.ics)</button><button type="button" data-act="ics-milestones">Milestones (.ics)</button></div>
+      <p class="small muted">Reminder text stays on your device; the server only knows when to ping.</p></section>
+    <section class="card"><h2>Install 📲</h2>${installCard}</section>
+    <section class="card"><h2>Share Together 💌</h2>
+      <p class="small">Free, private and open source. Know a couple who'd like it?</p>
+      <div class="row"><button type="button" data-act="share-app">Share the app</button>
+        <a class="btn" href="${SOURCE_URL}" target="_blank" rel="noopener">⭐ Source on GitHub</a>
+        <a class="btn" href="https://github.com/juw12/projects/issues/new?title=Together%20feedback%3A%20" target="_blank" rel="noopener">💬 Feedback</a></div></section>
+  </div>`;
+}
+
 function viewSettings() {
   const c = state.couple;
   const backupLine = state.lastBackupAt
     ? `Last backup: ${esc(new Date(state.lastBackupAt).toLocaleDateString())}${backupDue(state, ui.now) ? ' <span class="chip warn">due</span>' : ' <span class="chip ok">✓</span>'}`
     : 'No backup yet <span class="chip warn">recommended</span>';
   return `<div class="section-head"><h1>Settings & backup</h1></div>
+  ${viewConnect()}
   <div class="grid">
     <form class="card" data-form="profile">
       <h2>About us</h2>
@@ -1054,12 +1773,6 @@ function viewSettings() {
         <button type="button" class="primary" data-act="export">⬇️ Export backup</button>
         <label class="btn" tabindex="0" role="button" data-file-trigger>⬆️ Import backup<input type="file" accept="application/json,.json" data-import hidden></label>
         <button type="button" data-act="print">🖨️ Print our plan</button>
-      </div>
-      <h3 style="margin-top:16px">Reminders 📅</h3>
-      <p class="small muted">Calendar files for Google, Outlook or Apple Calendar.</p>
-      <div class="row">
-        <button type="button" data-act="ics-checkin">Monthly check-in reminder</button>
-        <button type="button" data-act="ics-milestones">All upcoming milestones</button>
       </div>
     </section>
     <section class="card">
@@ -1191,7 +1904,7 @@ function downloadFile(filename, type, text) {
 function downloadBackup() {
   const n = names();
   state.lastBackupAt = new Date().toISOString();
-  store.save(state);
+  persist();
   downloadFile(`together-${n.a}-${n.b}-${toISO(new Date())}.json`, "application/json", store.exportText(state));
 }
 
@@ -1253,6 +1966,92 @@ const actions = {
     }
     downloadFile("together-milestones.ics", "text/calendar", buildICS(upcoming.map(m => ({ uid: "ms-" + m.id, title: m.title, date: m.date, allDay: true, description: m.notes }))));
   },
+  "program-start": () => {
+    state.program = { ...state.program, started: toISO(new Date()) };
+    commit("Week 1 unlocked 🌱 — about 20 minutes together");
+  },
+  "program-done": id => {
+    state.program = { ...state.program, done: { ...state.program.done, [id]: toISO(new Date()) } };
+    commit(Number(id) === PROGRAM.length ? "All 8 weeks done — amazing teamwork 🏆" : `Week ${id} done 🌱`);
+  },
+  "delete-networth": id => removeFrom("networth", id, "Snapshot"),
+  "sync-create": async () => {
+    if (!navigator.onLine) {
+      toast("You're offline — connect to create a pairing link.");
+      return;
+    }
+    try {
+      toast("Creating your encrypted pairing link…");
+      await sync.create();
+      render();
+      toast("Link ready — send it to your partner 💌");
+    } catch (error) {
+      sync.leave();
+      render();
+      toast(`⚠️ ${error.message}`);
+    }
+  },
+  "sync-copy": async () => {
+    try {
+      await navigator.clipboard.writeText(sync.inviteLink());
+      toast("Link copied ✓");
+    } catch (error) {
+      document.getElementById("invite-link")?.select();
+      toast("Press Ctrl+C / long-press to copy");
+    }
+  },
+  "sync-share": async () => {
+    const link = sync.inviteLink();
+    if (navigator.share) {
+      navigator.share({ title: "Join our plan on Together", text: "Open this to share our life plan 💞", url: link }).catch(() => {});
+    } else {
+      actions["sync-copy"]();
+    }
+  },
+  "sync-now": async () => {
+    await sync.pull().catch(() => {});
+    render();
+    toast(sync.status === "error" ? `⚠️ ${sync.error}` : "Up to date ✓");
+  },
+  "sync-leave": () => {
+    if (!confirm("Stop syncing on this device? Your plan stays here; your partner keeps their copy.")) return;
+    sync.leave();
+    render();
+    toast("Sync stopped on this device");
+  },
+  "push-on": async () => {
+    try {
+      await reminders.enable();
+      render();
+      toast("Reminders on 🔔");
+    } catch (error) {
+      toast(`⚠️ ${error.message}`);
+    }
+  },
+  "push-off": async () => {
+    await reminders.disable();
+    render();
+    toast("Reminders off");
+  },
+  "push-test": async () => {
+    const registration = await navigator.serviceWorker.ready;
+    await registration.showNotification("Together 💞", { body: "This is how your reminders will look.", icon: "icons/icon-192.png", tag: "together-test" });
+  },
+  "install": async () => {
+    if (!ui.installPrompt) return;
+    ui.installPrompt.prompt();
+    await ui.installPrompt.userChoice.catch(() => {});
+    ui.installPrompt = null;
+    render();
+  },
+  "share-app": () => {
+    const data = { title: "Together — plan your whole life as a couple", text: "A free, private app to plan our future together 💞", url: PUBLIC_APP_URL };
+    if (navigator.share) {
+      navigator.share(data).catch(() => {});
+    } else {
+      navigator.clipboard.writeText(PUBLIC_APP_URL).then(() => toast("Link copied ✓"), () => toast(PUBLIC_APP_URL));
+    }
+  },
   "reset": () => {
     if (!confirm("Erase your whole plan from this device? Export a backup first if you want to keep it.")) return;
     commitWithUndo("Plan erased", () => {
@@ -1291,6 +2090,12 @@ const forms = {
     if (!fund || !amount) return;
     fund.saved = Math.max(0, (Number(fund.saved) || 0) + amount);
     commit(amount > 0 ? `${money(amount, state.couple.currency)} added to ${fund.name} 🐷` : "Updated");
+  },
+  networth: values => {
+    const assets = Number(values.assets);
+    if (!parseDate(values.date) || !Number.isFinite(assets)) return;
+    state.networth.push({ id: uid(), date: values.date, assets, debts: Number(values.debts) || 0 });
+    commit("Snapshot saved 📈");
   },
   kid: values => {
     const name = (values.name || "").trim();
@@ -1348,19 +2153,25 @@ function bindEvents() {
       commit(el.checked ? "Goal complete 🏆" : "");
     } else if (el.dataset.talkStatus) {
       state.talks[el.dataset.talkStatus] = { ...(state.talks[el.dataset.talkStatus] || {}), status: el.value };
-      store.save(state);
+      persist();
       const summaryChip = el.closest("details").querySelector("summary .chip");
       summaryChip.className = `chip ${el.value === "agreed" ? "ok" : el.value === "todo" ? "warn" : ""}`;
       summaryChip.textContent = el.value === "agreed" ? "✓ Agreed" : el.value === "talked" ? "Talked" : "Not yet";
+    } else if (el.dataset.programNote) {
+      state.program = { ...state.program, notes: { ...state.program.notes, [el.dataset.programNote]: el.value } };
+      persist();
+      toast("Saved ✓");
     } else if (el.dataset.talkNote) {
       state.talks[el.dataset.talkNote] = { ...(state.talks[el.dataset.talkNote] || {}), note: el.value };
-      store.save(state);
+      persist();
       toast("Saved ✓");
     } else if (el.closest('[data-form="retirement"]')) {
       const form = el.closest("form");
       const values = Object.fromEntries(new FormData(form).entries());
-      state.retirement = { saved: Number(values.saved) || 0, monthly: Number(values.monthly) || 0, rate: Number(values.rate) || 0 };
-      state.couple.retireAge = clamp(Number(values.retireAge) || 65, 40, 85);
+      const numeric = Object.fromEntries(Object.entries(values).map(([key, value]) => [key, Number(value) || 0]));
+      const { retireAge, ...retirementValues } = numeric;
+      state.retirement = { ...state.retirement, ...retirementValues };
+      if ("retireAge" in values) state.couple.retireAge = clamp(retireAge || 65, 40, 85);
       commit();
     } else if (el.matches("[data-import]") && el.files[0]) {
       const reader = new FileReader();
@@ -1390,7 +2201,7 @@ function bindEvents() {
     if (!undoSnapshot) return;
     state = migrate(JSON.parse(undoSnapshot));
     undoSnapshot = null;
-    store.save(state);
+    persist();
     render();
     toast("Restored ↩️");
   });
@@ -1420,8 +2231,12 @@ function demoState() {
     { id: uid(), name: "Wedding", target: 18000, saved: 6000, monthly: 350, milestoneId: wedding.id },
     { id: uid(), name: "Home deposit", target: 60000, saved: 9000, monthly: 900, milestoneId: home.id },
   ];
-  s.retirement = { saved: 22000, monthly: 600, rate: 5 };
+  s.retirement = { ...s.retirement, saved: 22000, monthly: 600, rate: 5 };
   s.lastBackupAt = new Date(now.getTime() - 10 * 864e5).toISOString();
+  s.retirement = { ...s.retirement, spend: 45000, eduCost: 60000 };
+  s.kids = [{ id: uid(), name: "Baby (due)", birth: toISO(addMonths(now, 30)) }];
+  s.program = { started: toISO(new Date(now.getTime() - 15 * 864e5)), done: { 1: toISO(new Date(now.getTime() - 14 * 864e5)), 2: toISO(new Date(now.getTime() - 6 * 864e5)) }, notes: { 1: "Leo is more stressed about his dad's health than I knew." } };
+  s.networth = [-6, -4, -2, 0].map((offset, i) => ({ id: uid(), date: toISO(addMonths(now, offset)), assets: 41000 + i * 3200, debts: 14000 - i * 1500 }));
   s.couple.since = toISO(new Date(2022, now.getMonth(), now.getDate() + 12));
   s.checkins = [3, 4, 3, 5, 4].map((score, i) => ({ id: uid(), date: toISO(addMonths(now, -6 + i)), ratingA: score, ratingB: Math.min(5, score + (i % 2)),
     appreciate: "", need: "", plan: "" }));
@@ -1432,14 +2247,14 @@ function demoState() {
 }
 
 /* -------------------------------------------------------------- self-tests */
-function runSelfTests() {
+async function runSelfTests() {
   const realBefore = localStorage.getItem(APP_KEY);
   store.key = "together.selftest";
   store.persist = true;
   const tests = [];
-  const test = (name, fn) => {
+  const test = async (name, fn) => {
     try {
-      const ok = fn();
+      const ok = await fn();
       tests.push({ name, ok: ok === true, msg: ok === true ? "" : String(ok) });
     } catch (error) {
       tests.push({ name, ok: false, msg: String(error && error.stack || error) });
@@ -1448,26 +2263,26 @@ function runSelfTests() {
   const fixedNow = new Date(2026, 0, 15);
   state = blankState();
 
-  test("create couple via onboarding form handler", () => {
+  await test("create couple via onboarding form handler", () => {
     forms.onboard({ aName: "Ann", bName: "Ben", aBirth: "1996-03-10", bBirth: "1994-11-02", since: "2023-06-01", wedding: "", stage: "dating", template: "on" });
     return state.couple.a.name === "Ann" && state.milestones.length > 10 || "couple not created";
   });
-  test("milestone ages: ageOn handles birthdays", () =>
+  await test("milestone ages: ageOn handles birthdays", () =>
     ageOn("1996-03-10", new Date(2026, 2, 9)) === 29 && ageOn("1996-03-10", new Date(2026, 2, 10)) === 30 || "wrong age");
-  test("milestone template spans dating to golden years", () => {
+  await test("milestone template spans dating to golden years", () => {
     const list = buildTemplate({ ...state.couple, retireAge: 65 }, fixedNow);
     const stages = new Set(list.map(m => m.stage));
     return stages.has("dating") && stages.has("married") && stages.has("kids") && stages.has("retire") && stages.has("golden") || [...stages].join();
   });
-  test("milestone template: retire date = both partners reach retire age", () => {
+  await test("milestone template: retire date = both partners reach retire age", () => {
     const list = buildTemplate({ ...state.couple, retireAge: 65 }, fixedNow);
     return list.find(m => m.stage === "retire").date === "2061-03-10" || list.find(m => m.stage === "retire").date;
   });
-  test("milestone template skips past stages for married couples", () => {
+  await test("milestone template skips past stages for married couples", () => {
     const list = buildTemplate({ ...state.couple, stage: "married", wedding: "2025-06-01", retireAge: 65 }, fixedNow);
     return !list.some(m => m.stage === "dating" || m.stage === "engaged") || "past stages included";
   });
-  test("goal add and complete via steps", () => {
+  await test("goal add and complete via steps", () => {
     const goal = { id: "g1", title: "Trip", category: "travel", owner: "both", due: "", notes: "", done: false,
       steps: [{ id: "s1", text: "Book", done: true }, { id: "s2", text: "Pack", done: false }] };
     state.goals.push(goal);
@@ -1475,37 +2290,37 @@ function runSelfTests() {
     goal.steps[1].done = true;
     return half && goalProgress(goal) === 1 || "progress wrong";
   });
-  test("savings: months to reach target", () => monthsToReach(1000, 400, 100) === 6 && monthsToReach(500, 600, 0) === 0 && monthsToReach(500, 0, 0) === Infinity || "months wrong");
-  test("savings: required monthly for a deadline", () => Math.abs(requiredMonthly(1200, 0, new Date(2027, 0, 15), fixedNow) - 100) < 1e-9 || "required wrong");
-  test("savings: retirement future value", () => {
+  await test("savings: months to reach target", () => monthsToReach(1000, 400, 100) === 6 && monthsToReach(500, 600, 0) === 0 && monthsToReach(500, 0, 0) === Infinity || "months wrong");
+  await test("savings: required monthly for a deadline", () => Math.abs(requiredMonthly(1200, 0, new Date(2027, 0, 15), fixedNow) - 100) < 1e-9 || "required wrong");
+  await test("savings: retirement future value", () => {
     const fv = futureValue(1000, 100, 12, 1);
     const expected = 1000 * Math.pow(1.01, 12) + 100 * (Math.pow(1.01, 12) - 1) / 0.01;
     return Math.abs(fv - expected) < 1e-6 && futureValue(100, 10, 0, 1) === 220 || fv;
   });
-  test("savings: on-track status vs linked milestone", () => {
+  await test("savings: on-track status vs linked milestone", () => {
     const test_state = blankState();
     test_state.milestones = [{ id: "m1", title: "Wedding", date: "2027-01-15", stage: "married", done: false }];
     const behind = fundStatus({ target: 2400, saved: 0, monthly: 100, milestoneId: "m1" }, test_state, fixedNow);
     const ahead = fundStatus({ target: 1200, saved: 0, monthly: 100, milestoneId: "m1" }, test_state, fixedNow);
     return behind.onTrack === false && Math.round(behind.needed) === 200 && ahead.onTrack === true || JSON.stringify([behind.onTrack, behind.needed, ahead.onTrack]);
   });
-  test("persist round trip", () => {
+  await test("persist round trip", () => {
     store.save(state);
     const loaded = store.load();
     return loaded.couple.b.name === "Ben" && loaded.goals.length === 1 && loaded.schema === SCHEMA_VERSION || "load mismatch";
   });
-  test("export/import round trip", () => {
+  await test("export/import round trip", () => {
     const text = store.exportText(state);
     const result = store.importText(text);
     return !result.error && JSON.stringify(result.state.milestones) === JSON.stringify(state.milestones) || result.error;
   });
-  test("import rejects foreign or broken files", () =>
+  await test("import rejects foreign or broken files", () =>
     !!store.importText("{not json").error && !!store.importText('{"hello":1}').error && !!store.importText('{"app":"together","state":{"schema":99}}').error || "accepted bad file");
-  test("migration from prototype schema", () => {
+  await test("migration from prototype schema", () => {
     const migrated = migrate({ a: "X", b: "Y", since: "2020-01-01", goals: [{ title: "G", done: true }], funds: [{ name: "F", target: 10, saved: 5, monthly: 1 }] });
     return migrated.couple.a.name === "X" && migrated.goals[0].done === true && migrated.funds[0].target === 10 && Array.isArray(migrated.checkins) || "migration failed";
   });
-  test("milestone overdue surfaces in focus, list capped at 5", () => {
+  await test("milestone overdue surfaces in focus, list capped at 5", () => {
     const probe = blankState();
     probe.milestones = [{ id: "o", title: "Engagement", stage: "engaged", date: "2025-12-01", done: false }];
     probe.goals = [{ id: "g", title: "G", category: "love", owner: "both", steps: [{ id: "s", text: "x", done: false }] }];
@@ -1513,17 +2328,20 @@ function runSelfTests() {
     const items = focusItems(probe, fixedNow);
     return items.some(i => i.icon === "⏰" && i.text.includes("Engagement")) && items.length <= 5 && items[0].icon === "🎉" || JSON.stringify(items);
   });
-  test("focus items suggest a check-in and a talk", () => {
+  await test("focus items suggest a check-in and a talk", () => {
     const items = focusItems(state, fixedNow);
     return items.some(i => i.act === "checkin") && items.some(i => i.text.startsWith("Talk about")) || JSON.stringify(items);
   });
-  test("xss: names, goals, milestones, bucket render as text", () => {
+  await test("xss: names, goals, milestones, bucket render as text", () => {
     const evil = '<img src=x onerror="window.__xss=1">';
     state.couple.a.name = evil;
     state.goals.push({ id: "x", title: evil, category: "love", owner: "a", due: "", notes: evil, done: false, steps: [{ id: "y", text: evil, done: false }] });
     state.milestones.push({ id: "z", title: evil, stage: "dating", date: "2030-01-01", done: false, notes: evil });
     state.bucket.push({ id: "b", text: evil, done: false });
     state.checkins.push({ id: "c", date: "2026-01-01", ratingA: 3, ratingB: 3, appreciate: evil, need: "", plan: "" });
+    state.program = { started: "2026-01-01", done: {}, notes: { 1: evil } };
+    state.kids.push({ id: "k-evil", name: evil, birth: "2020-01-01" });
+    state.retirement.eduCost = 1000;
     let injected = 0;
     for (const tab of TABS) {
       ui.tab = tab.id;
@@ -1532,47 +2350,47 @@ function runSelfTests() {
     }
     return injected === 0 && !window.__xss || `injected ${injected}`;
   });
-  test("xss: all tabs render without throwing", () => {
+  await test("xss: all tabs render without throwing", () => {
     for (const tab of TABS) {
       ui.tab = tab.id;
       render();
     }
     return true;
   });
-  test("delete with undo restores item", () => {
+  await test("delete with undo restores item", () => {
     const before = state.bucket.length;
     removeFrom("bucket", "b", "Bucket item");
     const removed = state.bucket.length === before - 1;
     document.getElementById("toast-undo").click();
     return removed && state.bucket.length === before || "undo failed";
   });
-  test("milestone ages include children once born", () => {
+  await test("milestone ages include children once born", () => {
     state.couple.a.name = "Ann";
     state.kids = [{ id: "k1", name: "Kai", birth: "2028-05-01" }];
     const before = agesLine("2028-04-30");
     const after = agesLine("2033-06-01");
     return !before.includes("Kai") && after.includes("Kai 5") || `${before} | ${after}`;
   });
-  test("milestone celebrations: anniversary within 30 days", () => {
+  await test("milestone celebrations: anniversary within 30 days", () => {
     const party = upcomingCelebrations({ couple: { ...state.couple, since: "2023-02-01", wedding: "", a: { name: "A", birth: "" }, b: { name: "B", birth: "" } }, kids: [] }, fixedNow);
     return party.length === 1 && party[0].days === 17 && party[0].years === 3 || JSON.stringify(party);
   });
-  test("calendar export: valid iCalendar with escaping", () => {
+  await test("calendar export: valid iCalendar with escaping", () => {
     const ics = buildICS([{ uid: "a", title: "Wedding, finally; yay", date: "2027-10-09", allDay: true }, { uid: "b", title: "Check-in", date: "2026-02-01", time: "19:00", rrule: "FREQ=MONTHLY" }]);
     return ics.startsWith("BEGIN:VCALENDAR") && ics.includes("SUMMARY:Wedding\\, finally\\; yay") && ics.includes("DTEND;VALUE=DATE:20271010") &&
       ics.includes("DTSTART:20260201T190000") && ics.includes("RRULE:FREQ=MONTHLY") && ics.split("BEGIN:VEVENT").length === 3 || ics;
   });
-  test("goal check-in trend averages both partners", () => {
+  await test("goal check-in trend averages both partners", () => {
     const trend = checkinTrend([{ date: "2026-02-01", ratingA: 5, ratingB: 3 }, { date: "2026-01-01", ratingA: 2, ratingB: 2 }]);
     return trend.length === 2 && trend[0].score === 2 && trend[1].score === 4 || JSON.stringify(trend);
   });
-  test("print summary includes every section and escapes text", () => {
+  await test("print summary includes every section and escapes text", () => {
     const html = printSummaryHTML();
     const box = document.createElement("div");
     box.innerHTML = html;
     return ["Roadmap", "Goals", "Savings", "What we agreed", "Bucket list"].every(h => html.includes(h)) && !box.querySelector("img") || "summary incomplete";
   });
-  test("persist: backup nudge after 30 days, not before", () => {
+  await test("persist: backup nudge after 30 days, not before", () => {
     const probe = { milestones: [{}], goals: [], checkins: [], lastBackupAt: null };
     const never = backupDue(probe, fixedNow);
     probe.lastBackupAt = new Date(2026, 0, 1).toISOString();
@@ -1582,7 +2400,7 @@ function runSelfTests() {
     const empty = backupDue({ milestones: [], goals: [], checkins: [], lastBackupAt: null }, fixedNow);
     return never && !recent && stale && !empty || JSON.stringify([never, recent, stale, empty]);
   });
-  test("e2e couple onboarding through the real form", () => {
+  await test("e2e couple onboarding through the real form", () => {
     state = blankState();
     ui.tab = "home";
     render();
@@ -1599,7 +2417,7 @@ function runSelfTests() {
     return state.couple.a.name === "Zoe" && !document.getElementById("tabs").hidden && !!document.querySelector(".hero") &&
       weddingMilestone && weddingMilestone.date === "2027-09-18" && !state.milestones.some(m => m.stage === "dating") || "onboarding flow failed";
   });
-  test("e2e goal dialog add, then tick a step", () => {
+  await test("e2e goal dialog add, then tick a step", () => {
     actions.tab("goals");
     document.querySelector('[data-act="add-goal"]').click();
     const dialog = document.getElementById("dialog");
@@ -1616,7 +2434,7 @@ function runSelfTests() {
     box.dispatchEvent(new Event("change", { bubbles: true }));
     return goalProgress(goal) === 0.5 || "step toggle failed";
   });
-  test("e2e savings deposit and children form", () => {
+  await test("e2e savings deposit and children form", () => {
     state.funds.push({ id: "f1", name: "Honeymoon", target: 3000, saved: 100, monthly: 100, milestoneId: "" });
     actions.tab("money");
     const deposit = document.querySelector('[data-form="deposit"][data-id="f1"]');
@@ -1629,8 +2447,193 @@ function runSelfTests() {
     kidForm.requestSubmit();
     return state.funds[0].saved === 350 && state.kids.length === 1 && store.load().kids.length === 1 || "deposit/kid failed";
   });
+  await test("sync: stamps changed records and tombstones deletions", () => {
+    const before = migrate({ ...blankState(), goals: [{ id: "g1", title: "A", steps: [] }, { id: "g2", title: "B", steps: [] }] });
+    const after = JSON.parse(JSON.stringify(before));
+    after.goals[0].title = "A2";
+    after.goals.splice(1, 1);
+    stampChanges(before, after, 5000);
+    return after.goals[0]._ts === 5000 && after._deleted.g2 === 5000 || JSON.stringify(after);
+  });
+  await test("sync: merge keeps both partners' concurrent edits; newest edit of the same item wins", () => {
+    const base = migrate({ ...blankState(), milestones: [{ id: "m", title: "Wedding", date: "2027-10-10", stage: "married", _ts: 1 }] });
+    const mine = JSON.parse(JSON.stringify(base));
+    const theirs = JSON.parse(JSON.stringify(base));
+    mine.goals.push({ id: "gm", title: "Mine", steps: [], _ts: 10 });
+    mine.milestones[0].title = "Wedding (old idea)";
+    mine.milestones[0]._ts = 10;
+    theirs.bucket.push({ id: "bt", text: "Theirs", _ts: 11 });
+    theirs.milestones[0].title = "Wedding in Bali";
+    theirs.milestones[0]._ts = 20;
+    const merged = mergeStates(mine, theirs, 30);
+    return merged.goals.length === 1 && merged.bucket.length === 1 && merged.milestones[0].title === "Wedding in Bali" || JSON.stringify(merged);
+  });
+  await test("sync: deletion beats an older edit, a newer edit (undo) beats the deletion", () => {
+    const edited = migrate({ ...blankState(), funds: [{ id: "f", name: "Car", _ts: 100 }] });
+    const deleted = migrate({ ...blankState(), _deleted: { f: 200 } });
+    const restored = migrate({ ...blankState(), funds: [{ id: "f", name: "Car", _ts: 300 }] });
+    return mergeStates(edited, deleted, 400).funds.length === 0 && mergeStates(deleted, restored, 400).funds.length === 1 || "tombstone rules wrong";
+  });
+  await test("sync: fingerprint ignores ordering and save time", () => {
+    const a = migrate({ ...blankState(), bucket: [{ id: "1", text: "x" }, { id: "2", text: "y" }], updatedAt: "a" });
+    const b = migrate({ ...blankState(), bucket: [{ id: "2", text: "y" }, { id: "1", text: "x" }], updatedAt: "b" });
+    return planFingerprint(a) === planFingerprint(b) || "fingerprints differ";
+  });
+  await test("sync: end-to-end encryption round trip; wrong key cannot read", async () => {
+    const secret = b64u.encode(crypto.getRandomValues(new Uint8Array(32)));
+    const other = b64u.encode(crypto.getRandomValues(new Uint8Array(32)));
+    const { encKey, auth } = await deriveSyncKeys(secret);
+    const sealed = await sealPlan({ hello: "Ann loves Ben" }, encKey);
+    const opened = await openPlan(sealed, encKey);
+    let wrongKeyFailed = false;
+    try {
+      await openPlan(sealed, (await deriveSyncKeys(other)).encKey);
+    } catch (error) {
+      wrongKeyFailed = true;
+    }
+    return opened.hello === "Ann loves Ben" && !sealed.includes("Ann") && wrongKeyFailed && auth.length >= 40 || "crypto failed";
+  });
+  const mockRoomServer = () => {
+    let row = null;
+    const respond = (status, body) => new Response(body === undefined ? null : JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
+    const handler = async (url, options = {}) => {
+      const method = options.method || "GET";
+      const query = new URL(url).searchParams;
+      if (method === "GET") {
+        if (!row) return respond(404, { error: "no such room" });
+        if (query.has("since") && Number(query.get("since")) >= row.version) return new Response(null, { status: 204 });
+        return respond(200, { version: row.version, data: row.data });
+      }
+      const body = JSON.parse(options.body);
+      if (!row) {
+        row = { version: 1, auth: body.auth, data: body.data };
+        return respond(200, { version: 1 });
+      }
+      if (row.auth !== body.auth) return respond(403, {});
+      if (body.baseVersion !== row.version) return respond(409, { version: row.version, data: row.data });
+      row = { ...row, version: row.version + 1, data: body.data };
+      return respond(200, { version: row.version });
+    };
+    handler.peek = () => row;
+    return handler;
+  };
+  const twoDeviceScenario = async (endpoint, fetchImpl) => {
+    const makeDevice = (key, plan) => {
+      const device = { plan };
+      device.client = new SyncClient({
+        configKey: key, endpoint, fetchImpl,
+        getState: () => device.plan,
+        applyRemote: remote => {
+          device.plan = mergeStates(device.plan, remote);
+        },
+      });
+      return device;
+    };
+    const edit = (device, mutate, now) => {
+      const before = JSON.parse(JSON.stringify(device.plan));
+      mutate(device.plan);
+      stampChanges(before, device.plan, now);
+    };
+    const t0 = Date.now();
+    const a = makeDevice("together.selftest.syncA", blankState());
+    edit(a, plan => {
+      plan.couple.a.name = "Ann";
+      plan.couple.b.name = "Ben";
+      plan.milestones.push({ id: "m1", title: "Wedding", date: "2027-10-10", stage: "married", done: false });
+    }, t0 + 1);
+    const link = await a.client.create();
+    const [room, secret] = link.split("#join=")[1].split(".");
+    const b = makeDevice("together.selftest.syncB", blankState());
+    await b.client.join(room, secret);
+    const joined = b.plan.couple.a.name === "Ann" && b.plan.milestones.length === 1;
+    edit(a, plan => plan.goals.push({ id: "gA", title: "Save", steps: [], category: "money", owner: "both" }), t0 + 2);
+    await a.client.run(() => a.client.pushNow());
+    edit(b, plan => plan.bucket.push({ id: "bB", text: "Northern lights", done: false }), t0 + 3);
+    await b.client.run(() => b.client.pushNow());
+    edit(a, plan => {
+      plan.milestones[0].title = "Wedding (draft)";
+    }, t0 + 4);
+    edit(b, plan => {
+      plan.milestones = [];
+    }, t0 + 5);
+    await b.client.run(() => b.client.pushNow());
+    await a.client.pull();
+    await a.client.run(() => a.client.pushNow());
+    await b.client.pull();
+    const converged = planFingerprint(a.plan) === planFingerprint(b.plan);
+    const result = {
+      joined, converged,
+      goal: b.plan.goals.some(g => g.id === "gA"),
+      bucket: a.plan.bucket.some(x => x.id === "bB"),
+      deletionWon: !a.plan.milestones.length && !b.plan.milestones.length,
+      versions: [a.client.config.version, b.client.config.version],
+    };
+    return { a, b, result };
+  };
+  await test("sync: two phones converge through an encrypted room (409 conflict + merge + delete)", async () => {
+    const server = mockRoomServer();
+    const { a, b, result } = await twoDeviceScenario("https://mock.invalid", server);
+    const stored = server.peek().data;
+    a.client.leave();
+    b.client.leave();
+    const ok = result.joined && result.converged && result.goal && result.bucket && result.deletionWon && !stored.includes("Ann") && !stored.includes("Wedding");
+    return ok || JSON.stringify(result);
+  });
+  await test("savings: required monthly for a target and today's-money conversion", () => {
+    const monthly = requiredMonthlyForTarget(0, 1200, 0, 1);
+    const withGrowth = requiredMonthlyForTarget(0, futureValue(0, 100, 6, 10), 6, 10);
+    const real = toTodaysMoney(121, 10, 2);
+    return Math.abs(monthly - 100) < 1e-9 && Math.abs(withGrowth - 100) < 1e-6 && Math.abs(real - 100) < 1e-9 && requiredMonthlyForTarget(5000, 1000, 5, 3) === 0 || [monthly, withGrowth, real].join();
+  });
+  await test("savings: retirement target, on-track ratio and education funds", () => {
+    const plan = migrate({ ...blankState(), couple: { ...blankState().couple, a: { name: "A", birth: "1996-01-15" }, b: { name: "B", birth: "1996-01-15" }, retireAge: 66 },
+      retirement: { saved: 0, monthly: 0, rate: 0, fees: 0, inflation: 0, spend: 40000, withdrawal: 4, eduCost: 10000, eduInflation: 0 },
+      kids: [{ id: "k", name: "Kid", birth: "2026-01-15" }] });
+    const r = retirementPlan(plan, fixedNow);
+    const edu = educationPlans(plan, fixedNow);
+    return r.targetReal === 1000000 && Math.abs(r.neededMonthly - 1000000 / 432) < 1e-6 && r.onTrack === 0
+      && edu.length === 1 && Math.abs(edu[0].cost - 10000) < 1e-9 && Math.abs(edu[0].monthly - 10000 / 216) < 1e-6 || JSON.stringify({ r, edu });
+  });
+  await test("reminders: schedule check-in, milestone and anniversary pings in time order", () => {
+    const plan = migrate({ ...blankState(), couple: { ...blankState().couple, a: { name: "A", birth: "" }, b: { name: "B", birth: "" }, since: "2020-02-01" },
+      milestones: [{ id: "m", title: "Move", date: "2026-03-01", stage: "home", done: false }] });
+    const list = reminderSchedule(plan, fixedNow);
+    const tags = list.map(r => r.tag);
+    const sorted = list.every((r, i) => !i || list[i - 1].at <= r.at);
+    const inWindow = list.every(r => r.at > fixedNow.getTime() && r.at < fixedNow.getTime() + 120 * 864e5);
+    return tags.includes("checkin-0") && tags.includes("ms-m") && tags.includes("ms-m-7") && tags.some(t => t.startsWith("party-")) && sorted && inWindow || JSON.stringify(tags);
+  });
+  await test("goal program: Foundations progress and weekly reminder", () => {
+    const program = { started: "2026-01-01", done: { 1: "2026-01-02", 2: "2026-01-09" }, notes: {} };
+    const progress = programProgress(program);
+    const plan = migrate({ ...blankState(), program });
+    const ping = reminderSchedule(plan, fixedNow).find(r => r.tag === "program");
+    return progress.doneCount === 2 && progress.currentWeek === 3 && !progress.finished && PROGRAM.length === 8 && ping && ping.title.includes("week 3") || JSON.stringify({ progress, ping });
+  });
+  if (params.has("cloud")) {
+    await test("cloud: live encrypted sync between two phones via the deployed worker", async () => {
+      const { a, b, result } = await twoDeviceScenario(CLOUD_URL, (...args) => fetch(...args));
+      const { auth } = await a.client.keysReady();
+      const raw = await (await fetch(`${CLOUD_URL}/v1/rooms/${a.client.config.room}`)).json();
+      const deleted = await a.client.request("DELETE", { auth });
+      a.client.leave();
+      b.client.leave();
+      const ok = result.joined && result.converged && result.goal && result.bucket && result.deletionWon && !raw.data.includes("Ann") && deleted.ok;
+      return ok || JSON.stringify({ result, deleted: deleted.status });
+    });
+    await test("cloud: push reminder schedule stored (times only) and removed", async () => {
+      const id = b64u.encode(crypto.getRandomValues(new Uint8Array(16)));
+      const at = Date.now() + 2 * 864e5;
+      const put = await fetch(`${CLOUD_URL}/v1/push/${id}`, { method: "PUT", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ subscription: { endpoint: "https://push.example.invalid/selftest" }, times: [at, at + 864e5] }) });
+      const summary = await put.json();
+      const del = await fetch(`${CLOUD_URL}/v1/push/${id}`, { method: "DELETE" });
+      const after = await (await fetch(`${CLOUD_URL}/v1/push/${id}`)).json();
+      return put.ok && summary.count === 2 && summary.nextAt === at && del.ok && after.count === 0 || JSON.stringify({ summary, after });
+    });
+  }
   localStorage.removeItem("together.selftest");
-  test("isolation: real user data untouched", () => localStorage.getItem(APP_KEY) === realBefore || "real key changed");
+  await test("isolation: real user data untouched", () => localStorage.getItem(APP_KEY) === realBefore || "real key changed");
 
   const report = document.createElement("pre");
   report.id = "selftest-report";
@@ -1656,12 +2659,67 @@ function boot() {
     state = store.load();
     if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
   }
+  lastCommitted = JSON.stringify(state);
+  const realDevice = store.persist && !params.has("fresh");
+  sync = new SyncClient({
+    configKey: store.key + ".sync",
+    getState: () => state,
+    applyRemote: plan => applyRemotePlan(plan),
+    onStatus: () => {
+      const pill = document.getElementById("saved-pill");
+      if (pill) pill.textContent = sync.active ? (sync.status === "error" ? "⚠️ Sync paused" : "🔄 Shared with partner") : "🔒 Saved on this device";
+      const line = document.getElementById("sync-status");
+      if (line) line.textContent = syncStatusText();
+    },
+  });
+  if (!realDevice) sync.config = null;
   ui.tab = TABS.some(t => t.id === params.get("tab")) ? params.get("tab") : "home";
   render();
+  if (realDevice) startConnectivity();
   if (params.has("probe")) {
     setTimeout(writeProbe, 300);
   }
 }
+/** Service worker, partner sync polling, pairing links and install prompt (real devices only). */
+function startConnectivity() {
+  if ("serviceWorker" in navigator && location.protocol !== "file:" && window.isSecureContext) {
+    navigator.serviceWorker.register("sw.js").catch(() => {});
+  }
+  window.addEventListener("beforeinstallprompt", event => {
+    event.preventDefault();
+    ui.installPrompt = event;
+    if (ui.tab === "settings") safeRender();
+  });
+  document.addEventListener("focusout", () => setTimeout(() => {
+    if (pendingRender) safeRender();
+  }, 0));
+  document.getElementById("dialog").addEventListener("close", () => {
+    if (pendingRender) setTimeout(safeRender, 0);
+  });
+  const join = location.hash.match(/^#join=([A-Za-z0-9_-]+)\.([A-Za-z0-9_-]+)$/);
+  if (join) {
+    history.replaceState(null, "", location.pathname + location.search);
+    const alreadyHere = sync.active && sync.config.room === join[1];
+    if (!alreadyHere && confirm("Join your partner's shared plan on this device?\n\nAnything already on this device will be merged into it.")) {
+      sync.join(join[1], join[2])
+        .then(() => {
+          ui.tab = "home";
+          render();
+          toast("Connected — you now share one plan 💞");
+        })
+        .catch(error => toast(`⚠️ ${error.message}`));
+    }
+  }
+  const pullIfVisible = () => {
+    if (sync.active && document.visibilityState === "visible" && navigator.onLine) sync.pull().catch(() => {});
+  };
+  setInterval(pullIfVisible, 15000);
+  document.addEventListener("visibilitychange", pullIfVisible);
+  window.addEventListener("online", pullIfVisible);
+  pullIfVisible();
+  reminders.schedule();
+}
+
 /** Layout probe for the checker: page overflow plus any element poking past the viewport outside a scroll box. */
 function writeProbe() {
   const insideScroller = el => {

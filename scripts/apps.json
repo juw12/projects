@@ -1556,14 +1556,15 @@
       "id": "together",
       "name": "Together",
       "category": "Apps",
-      "desc": "Life plan for couples &mdash; roadmap from dating to golden years with both ages on every milestone, shared goals, savings, check-ins. Private, offline",
-      "description": "A private, offline life-planning app for couples. <strong>Roadmap</strong>: 10 life stages from dating, engagement and marriage through a first home, kids, midlife, empty nest, retirement and golden years, with a suggested editable plan; every milestone shows both partners' ages (and the children's) and a lifeline to about 90. <strong>Goals</strong>: shared or personal goals broken into steps. <strong>Money</strong>: savings pots linked to milestones that say whether you are on track, plus a rough retirement projection. <strong>Us</strong>: a monthly check-in with a connection trend, 15 &ldquo;talk before you decide&rdquo; topics and a bucket list. Everything stays in the browser; export/import a backup to share between partners, print the whole plan or add calendar reminders.",
-      "summary": "Couples' life plan from dating to golden years: roadmap with both ages, goals, savings, check-ins. Offline, private.",
+      "desc": "Life plan for couples &mdash; roadmap from dating to golden years, goals, money, check-ins. Encrypted partner sync, reminders, offline",
+      "description": "A private life-planning app for couples. <strong>Roadmap</strong>: 10 life stages from dating to golden years with both partners' ages on every milestone. <strong>Goals</strong> with steps. <strong>Money</strong>: savings pots linked to milestones, a retirement planner with inflation and fees, education funds and a net-worth tracker. <strong>Us</strong>: monthly check-ins, &ldquo;talk before you decide&rdquo; topics and an 8-week Foundations program summarising Gottman and PREP research. One plan on both phones via end-to-end-encrypted sync (key only in the pairing link), push reminders, installable and offline.",
+      "summary": "Couples' life plan: roadmap with both ages, goals, money, check-ins. Encrypted partner sync, reminders, offline.",
       "tags": [
         "couples",
         "life planning",
-        "local-only",
-        "single file"
+        "PWA",
+        "end-to-end encrypted",
+        "Cloudflare Workers"
       ],
       "links": {
         "app": "together/index.html",
