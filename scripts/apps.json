@@ -1588,6 +1588,264 @@
       "status": "public-beta",
       "order": 36,
       "portfolio": false
+    },
+    {
+      "id": "cairn",
+      "name": "Cairn",
+      "category": "Software",
+      "external": true,
+      "url": "https://juw12.github.io/cairn/",
+      "url_label": "Open site",
+      "desc": "A second brain that lives inside your repo, as plain Markdown next to your code",
+      "summary": "A second brain inside your repo: ideas wall, task board, decision log and AI context pack, all as plain Markdown.",
+      "description": "Capture, brainstorm, decide and ship as plain Markdown next to your code: an <strong>ideas wall</strong>, a <strong>task board</strong>, a <strong>decision log</strong>, a code TODO inbox and an <strong>AI context pack</strong>. Local-first, zero dependencies.",
+      "tags": [
+        "Markdown",
+        "local-first",
+        "kanban",
+        "decision log",
+        "Python"
+      ],
+      "note_tags": [
+        "cairn",
+        "markdown",
+        "local-first",
+        "kanban",
+        "adr",
+        "python"
+      ],
+      "image": "cairn-card.jpg",
+      "image_alt": "Cairn home page: A second brain that lives inside your repo, with Try the demo, Open a repo folder and Run it locally",
+      "extra_links": [
+        {
+          "label": "Source",
+          "url": "https://github.com/juw12/cairn"
+        }
+      ],
+      "card": {
+        "capture": "https://juw12.github.io/cairn/",
+        "label": "cairn · home",
+        "theme": "dark",
+        "accent": "#b2573a",
+        "accent2": "#9e9d2f"
+      },
+      "status": "released",
+      "order": 37,
+      "portfolio": true
+    },
+    {
+      "id": "jeda",
+      "name": "Jeda",
+      "category": "Apps",
+      "external": true,
+      "url": "https://juw12.github.io/jeda/",
+      "url_label": "Open site",
+      "desc": "A quiet space for every faith: an offline-first interfaith PWA",
+      "summary": "Jeda, ruang hening setiap iman: a quiet space for every faith, offline-first and installable as a PWA.",
+      "description": "<strong>Jeda: ruang hening setiap iman</strong> (a quiet space for every faith). An interfaith pause app for Indonesia that works offline and installs to the home screen as a PWA.",
+      "tags": [
+        "PWA",
+        "offline-first",
+        "interfaith",
+        "Indonesia"
+      ],
+      "note_tags": [
+        "jeda",
+        "pwa",
+        "offline-first",
+        "interfaith",
+        "indonesia"
+      ],
+      "image": "jeda-card.jpg",
+      "image_alt": "Jeda start screen: Ruang hening untuk setiap iman, with a Mulai button and a Ruang Live join link",
+      "extra_links": [
+        {
+          "label": "Source",
+          "url": "https://github.com/juw12/jeda"
+        }
+      ],
+      "card": {
+        "capture": "https://juw12.github.io/jeda/",
+        "label": "jeda · home",
+        "theme": "light",
+        "accent": "#d5b756",
+        "accent2": "#659e2f"
+      },
+      "status": "released",
+      "order": 38,
+      "portfolio": true
+    },
+    {
+      "id": "morning-paper-web",
+      "name": "The Morning Paper",
+      "category": "Apps",
+      "external": true,
+      "url": "https://juw12.github.io/morning-paper-web/",
+      "url_label": "Open site",
+      "desc": "Curated news, a stock desk and a portfolio with alerts, on the web",
+      "summary": "The Morning Paper, web edition: curated news, a stock desk, and a portfolio with alerts that sync once you sign in.",
+      "description": "The web edition of <strong>The Morning Paper</strong>: curated news, a <strong>stock desk</strong>, and a <strong>portfolio with alerts</strong> that sync across devices once you sign in.",
+      "tags": [
+        "news",
+        "stocks",
+        "portfolio alerts",
+        "web"
+      ],
+      "note_tags": [
+        "morning-paper",
+        "news",
+        "stocks",
+        "alerts",
+        "web"
+      ],
+      "image": "morning-paper-web-card.jpg",
+      "image_alt": "The Morning Paper Brief tab: a lead markets story beside a numbered list of today's top headlines",
+      "extra_links": [
+        {
+          "label": "Source",
+          "url": "https://github.com/juw12/morning-paper-web"
+        }
+      ],
+      "card": {
+        "capture": "https://juw12.github.io/morning-paper-web/",
+        "label": "morning paper · today",
+        "theme": "dark",
+        "accent": "#0264f5",
+        "accent2": "#562f9e"
+      },
+      "status": "released",
+      "order": 39,
+      "portfolio": true
+    },
+    {
+      "id": "nudge",
+      "name": "Nudge",
+      "category": "Apps",
+      "external": true,
+      "url": "https://juw12.github.io/nudge/",
+      "url_label": "Open site",
+      "desc": "See which friends you've been leaving on read while you doomscroll",
+      "summary": "See which friends you've been leaving on read: local-only analysis of your chat exports, plus a weekly nudge.",
+      "description": "Local-only analysis of your <strong>Instagram, WhatsApp, Telegram and iMessage</strong> exports shows which friends you've been leaving on read, then sends a <strong>weekly nudge</strong> and an iOS widget. Nothing leaves your device.",
+      "tags": [
+        "digital wellbeing",
+        "local-only",
+        "CLI",
+        "Python"
+      ],
+      "note_tags": [
+        "nudge",
+        "digital-wellbeing",
+        "local-only",
+        "cli",
+        "python"
+      ],
+      "image": "nudge-card.jpg",
+      "image_alt": "Nudge home page: See who's waiting on a reply, with a drop zone for chat exports and per-app export guides",
+      "extra_links": [
+        {
+          "label": "Source",
+          "url": "https://github.com/juw12/nudge"
+        }
+      ],
+      "card": {
+        "capture": "https://juw12.github.io/nudge/",
+        "label": "nudge · home",
+        "theme": "dark",
+        "accent": "#3a3c87",
+        "accent2": "#802f9e"
+      },
+      "status": "released",
+      "order": 40,
+      "portfolio": true
+    },
+    {
+      "id": "undanu",
+      "name": "Undanu",
+      "category": "Apps",
+      "external": true,
+      "url": "https://juw12.github.io/undanu/",
+      "url_label": "Open site",
+      "desc": "Digital wedding invitations for Indonesia with RSVP and QR check-in",
+      "summary": "Digital wedding invitations for Indonesia with RSVP, guest tracking, donations and QR check-in.",
+      "description": "Digital wedding invitations for Indonesia: <strong>RSVP</strong>, guest tracking, donations and <strong>QR check-in</strong> at the door. Zero-dependency Python + SQLite.",
+      "tags": [
+        "invitations",
+        "RSVP",
+        "QR check-in",
+        "Python",
+        "SQLite"
+      ],
+      "note_tags": [
+        "undanu",
+        "wedding",
+        "rsvp",
+        "qr",
+        "python",
+        "sqlite",
+        "indonesia"
+      ],
+      "image": "undanu-card.jpg",
+      "image_alt": "Undanu home page: a wedding invitation builder beside a phone preview of an invitation for Leo and Maya",
+      "extra_links": [
+        {
+          "label": "Source",
+          "url": "https://github.com/juw12/undanu"
+        }
+      ],
+      "card": {
+        "capture": "https://juw12.github.io/undanu/",
+        "label": "undanu · home",
+        "theme": "light",
+        "accent": "#9c3645",
+        "accent2": "#9e722f"
+      },
+      "status": "released",
+      "order": 41,
+      "portfolio": true
+    },
+    {
+      "id": "vale",
+      "name": "VALE",
+      "category": "Apps",
+      "external": true,
+      "url": "https://juw12.github.io/vale/",
+      "url_label": "Open site",
+      "desc": "A 3D interactive fairy world: first-person explorer built in Unity 6 + HDRP",
+      "summary": "A 3D fairy world: a first-person explorer collecting five Lumenshards to restore a fading realm (Unity 6 + HDRP).",
+      "description": "<strong>VALE</strong> is a 3D interactive fairy world. In first person you explore an ancient fairy realm and collect five <strong>Lumenshards</strong> to bring the light back. Built with <strong>Unity 6 + HDRP</strong>, with an interactive HTML preview and five concept renders.",
+      "tags": [
+        "game",
+        "Unity 6",
+        "HDRP",
+        "first-person",
+        "3D"
+      ],
+      "note_tags": [
+        "vale",
+        "game",
+        "unity",
+        "hdrp",
+        "3d"
+      ],
+      "image": "vale-card.jpg",
+      "image_alt": "VALE concept render: the glowing entrance to a misty, overgrown fairy forest",
+      "extra_links": [
+        {
+          "label": "Source",
+          "url": "https://github.com/juw12/vale"
+        }
+      ],
+      "card": {
+        "frame_image": "vale-entrance.jpg",
+        "label": "vale · entrance",
+        "theme": "dark",
+        "accent": "#716b28",
+        "accent2": "#549e2f"
+      },
+      "status": "released",
+      "order": 42,
+      "portfolio": true
     }
   ]
 }
