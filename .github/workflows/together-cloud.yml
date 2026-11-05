@@ -50,8 +50,12 @@ jobs:
         if: env.CLOUD_URL != ''
         run: |
           for attempt in 1 2 3 4 5 6; do
-            if curl -fsS "$CLOUD_URL/v1/status"; then
-              echo
+            if status="$(curl -fsS "$CLOUD_URL/v1/status")"; then
+              echo "$status"
+              if [ -n "$VAPID_PRIVATE_JWK" ] && ! echo "$status" | grep -q '"push":"ok"'; then
+                echo "::error::Push signing key is missing or not valid JSON (re-set TOGETHER_VAPID_PRIVATE_JWK via stdin)"
+                exit 1
+              fi
               exit 0
             fi
             sleep 10

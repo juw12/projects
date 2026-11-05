@@ -71,7 +71,7 @@ export default {
       if (parts[0] !== "v1") {
         response = json({ error: "not found" }, 404);
       } else if (parts[1] === "status") {
-        response = json({ ok: true, service: "together-cloud", push: Boolean(env.VAPID_PRIVATE_JWK), vapidPublic: env.VAPID_PUBLIC || null });
+        response = json({ ok: true, service: "together-cloud", push: pushKeyStatus(env), vapidPublic: env.VAPID_PUBLIC || null });
       } else if ((parts[1] === "rooms" || parts[1] === "push") && parts[2] && ID_PATTERN.test(parts[2]) && parts.length === 3) {
         const namespace = parts[1] === "rooms" ? env.ROOMS : env.REMINDERS;
         const stub = namespace.get(namespace.idFromName(parts[2]));
@@ -236,6 +236,17 @@ export class Reminder {
     await this.state.storage.put("times", times);
     if (times.length) await this.state.storage.setAlarm(times[0]);
     if (due.length && subscription) await this.deliver(subscription);
+  }
+}
+
+/** "ok" only when the signing key is present AND parses as an EC P-256 private JWK. */
+function pushKeyStatus(env) {
+  if (!env.VAPID_PRIVATE_JWK || !env.VAPID_PUBLIC) return "missing";
+  try {
+    const jwk = JSON.parse(env.VAPID_PRIVATE_JWK);
+    return jwk.kty === "EC" && jwk.crv === "P-256" && typeof jwk.d === "string" ? "ok" : "invalid";
+  } catch (error) {
+    return "invalid";
   }
 }
 
