@@ -1551,6 +1551,42 @@
       "order": 35,
       "portfolio_order": 8,
       "portfolio": true
+    },
+    {
+      "id": "together",
+      "name": "Together",
+      "category": "Apps",
+      "desc": "Life plan for couples &mdash; roadmap from dating to golden years with both ages on every milestone, shared goals, savings, check-ins. Private, offline",
+      "description": "A private, offline life-planning app for couples. <strong>Roadmap</strong>: 10 life stages from dating, engagement and marriage through a first home, kids, midlife, empty nest, retirement and golden years, with a suggested editable plan; every milestone shows both partners' ages (and the children's) and a lifeline to about 90. <strong>Goals</strong>: shared or personal goals broken into steps. <strong>Money</strong>: savings pots linked to milestones that say whether you are on track, plus a rough retirement projection. <strong>Us</strong>: a monthly check-in with a connection trend, 15 &ldquo;talk before you decide&rdquo; topics and a bucket list. Everything stays in the browser; export/import a backup to share between partners, print the whole plan or add calendar reminders.",
+      "summary": "Couples' life plan from dating to golden years: roadmap with both ages, goals, savings, check-ins. Offline, private.",
+      "tags": [
+        "couples",
+        "life planning",
+        "local-only",
+        "single file"
+      ],
+      "links": {
+        "app": "together/index.html",
+        "web": "together/index.html",
+        "mobile": "together/index.html"
+      },
+      "card_links": [
+        {
+          "label": "Open app",
+          "path": "together/index.html"
+        },
+        {
+          "label": "Demo",
+          "path": "together/index.html?demo=1"
+        },
+        {
+          "label": "Source",
+          "path": "https://github.com/juw12/projects/tree/main/apps/together"
+        }
+      ],
+      "status": "public-beta",
+      "order": 36,
+      "portfolio": false
     }
   ]
 }
