@@ -89,18 +89,143 @@ function goalProgress(goal) {
   if (!steps.length) return 0;
   return steps.filter(step => step.done).length / steps.length;
 }
+
+/* ----------------------------------------------- shared piggy bank (pots) */
+function fundContributions(fund, state) {
+  return (state.contributions || []).filter(c => c.fundId === fund.id);
+}
+/** Sum of every deposit logged with the + Add form (withdrawals are negative). */
+function fundLogged(fund, state) {
+  return fundContributions(fund, state).reduce((sum, c) => sum + (Number(c.amount) || 0), 0);
+}
+/** A pot's balance: its starting/adjusted amount plus every logged deposit (never below zero). */
+function fundSaved(fund, state) {
+  return Math.max(0, (Number(fund.saved) || 0) + fundLogged(fund, state));
+}
+function totalSaved(state) {
+  return state.funds.reduce((sum, fund) => sum + fundSaved(fund, state), 0);
+}
+/** Logged deposits per partner ("both" = put in together). Only covers deposits made with the + Add form. */
+function contributionSplit(contributions) {
+  const split = { a: 0, b: 0, both: 0 };
+  for (const c of contributions) {
+    const who = c.by === "a" || c.by === "b" ? c.by : "both";
+    split[who] += Number(c.amount) || 0;
+  }
+  return split;
+}
 function fundStatus(fund, state, now) {
-  const months = monthsToReach(fund.target, fund.saved, fund.monthly);
+  const saved = fundSaved(fund, state);
+  const months = monthsToReach(fund.target, saved, fund.monthly);
   const reachDate = Number.isFinite(months) ? addMonths(now, months) : null;
   const milestone = state.milestones.find(item => item.id === fund.milestoneId);
   const deadline = milestone ? parseDate(milestone.date) : null;
   let needed = null;
   let onTrack = null;
   if (deadline) {
-    needed = requiredMonthly(fund.target, fund.saved, deadline, now);
+    needed = requiredMonthly(fund.target, saved, deadline, now);
     onTrack = months === 0 || (reachDate !== null && reachDate <= deadline);
   }
-  return { months, reachDate, milestone, deadline, needed, onTrack, progress: fund.target > 0 ? clamp(fund.saved / fund.target, 0, 1) : 0 };
+  return { saved, months, reachDate, milestone, deadline, needed, onTrack, progress: fund.target > 0 ? clamp(saved / fund.target, 0, 1) : 0 };
+}
+
+/* ---------------------------------------------------------- weekly plan */
+const WEEKS_PER_MONTH = 52 / 12;
+/** Monday 00:00 of the week containing `date`. */
+function startOfWeek(date) {
+  const day = startOfDay(date);
+  return new Date(day.getFullYear(), day.getMonth(), day.getDate() - ((day.getDay() + 6) % 7));
+}
+/** ISO week number, used to rotate the weekly fun pick. */
+function isoWeekNumber(date) {
+  const thursday = startOfWeek(date);
+  thursday.setDate(thursday.getDate() + 3);
+  const firstThursday = startOfWeek(new Date(thursday.getFullYear(), 0, 4));
+  firstThursday.setDate(firstThursday.getDate() + 3);
+  return 1 + Math.round((thursday - firstThursday) / (7 * 864e5));
+}
+/**
+ * This week's plan (Mon–Sun): how much goes into each pot, what is already in, the next goal step
+ * and one fun thing from the bucket list. Weekly amount = monthly plan × 12 / 52; a pot that is behind
+ * its milestone uses the amount it actually needs. Fully funded pots and pots without a plan are left out.
+ */
+function weeklyPlan(state, now) {
+  const weekStart = startOfWeek(now);
+  const weekEnd = new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate() + 6);
+  const fromISO = toISO(weekStart);
+  const toISODate = toISO(weekEnd);
+  const pots = [];
+  for (const fund of state.funds) {
+    const status = fundStatus(fund, state, now);
+    if (status.months === 0) continue;
+    const monthly = Math.max(Number(fund.monthly) || 0, status.onTrack === false ? status.needed || 0 : 0);
+    if (!(monthly > 0)) continue;
+    const remaining = Math.max(0, (Number(fund.target) || 0) - status.saved);
+    const weekly = Math.min(monthly / WEEKS_PER_MONTH, remaining);
+    const thisWeek = fundContributions(fund, state).filter(c => c.date >= fromISO && c.date <= toISODate);
+    const added = thisWeek.reduce((sum, c) => sum + (Number(c.amount) || 0), 0);
+    pots.push({ fund, weekly, daily: weekly / 7, added, split: contributionSplit(thisWeek), done: added >= weekly - 0.5, behind: status.onTrack === false, status });
+  }
+  let step = null;
+  for (const goal of state.goals.slice().sort((x, y) => (x.due || "9999").localeCompare(y.due || "9999"))) {
+    const next = !goal.done && (goal.steps || []).find(s => !s.done);
+    if (next) {
+      step = { goal, step: next };
+      break;
+    }
+  }
+  const dreams = state.bucket.filter(item => !item.done);
+  const withPot = dreams.filter(item => state.funds.some(f => f.bucketId === item.id));
+  const pool = withPot.length ? withPot : dreams;
+  const fun = pool.length ? pool[isoWeekNumber(now) % pool.length] : null;
+  return {
+    weekStart, weekEnd, pots, step, fun,
+    funPot: fun ? state.funds.find(f => f.bucketId === fun.id) || null : null,
+    daysLeft: daysBetween(now, weekEnd) + 1,
+    totalWeekly: pots.reduce((sum, p) => sum + p.weekly, 0),
+    totalAdded: pots.reduce((sum, p) => sum + Math.max(0, p.added), 0),
+  };
+}
+
+/* ---------------------------------------------------- financial freedom */
+/** Months until `balance` (growing at a real annual rate, plus `monthly` each month) reaches `target`; null if not within 100 years. */
+function monthsToFreedom(balance, monthly, realRatePercent, target) {
+  if (balance >= target) return 0;
+  const rate = realRatePercent / 100 / 12;
+  let value = balance;
+  for (let month = 1; month <= 1200; month++) {
+    value = value * (1 + rate) + monthly;
+    if (value >= target) return month;
+  }
+  return null;
+}
+/**
+ * Financial freedom = long-term investments big enough that the safe withdrawal rate covers the yearly
+ * spending you want: target = spend / withdrawal (in today's money). Uses the same assumptions as the
+ * retirement planner; growth is the real return (after fees and inflation).
+ */
+function freedomPlan(state, now) {
+  const r = state.retirement;
+  const spend = Number(r.spend) || 0;
+  const withdrawal = (Number(r.withdrawal) || 4) / 100;
+  if (!(spend > 0)) return null;
+  const target = spend / withdrawal;
+  const nominal = (Number(r.rate) || 0) - (Number(r.fees) || 0);
+  const realRate = ((1 + nominal / 100) / (1 + (Number(r.inflation) || 0) / 100) - 1) * 100;
+  const invested = Number(r.saved) || 0;
+  const monthly = Number(r.monthly) || 0;
+  const months = monthsToFreedom(invested, monthly, realRate, target);
+  const date = months === null ? null : addMonths(now, months);
+  const extraMonthly = monthly > 0 ? Math.ceil(monthly * 0.1) : 0;
+  const monthsWithExtra = extraMonthly ? monthsToFreedom(invested, monthly + extraMonthly, realRate, target) : null;
+  return {
+    target, invested, monthly, realRate, months, date,
+    progress: clamp(invested / target, 0, 1),
+    ageA: date ? ageOn(state.couple.a.birth, date) : null,
+    ageB: date ? ageOn(state.couple.b.birth, date) : null,
+    extraMonthly,
+    soonerBy: months !== null && monthsWithExtra !== null ? months - monthsWithExtra : null,
+  };
 }
 function currentStageIndex(state) {
   let index = STAGE_INDEX[state.couple.stage] ?? 0;

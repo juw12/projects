@@ -197,7 +197,8 @@ async function runSelfTests() {
     kidForm.name.value = "Mo";
     kidForm.birth.value = "2029-03-03";
     kidForm.requestSubmit();
-    return state.funds[0].saved === 350 && state.kids.length === 1 && store.load().kids.length === 1 || "deposit/kid failed";
+    const logged = state.contributions.find(c => c.fundId === "f1");
+    return fundSaved(state.funds[0], state) === 350 && logged && logged.amount === 250 && state.kids.length === 1 && store.load().kids.length === 1 || "deposit/kid failed";
   });
   await test("sync: stamps changed records and tombstones deletions", () => {
     const before = migrate({ ...blankState(), goals: [{ id: "g1", title: "A", steps: [] }, { id: "g2", title: "B", steps: [] }] });
@@ -610,6 +611,176 @@ async function runSelfTests() {
     const ping = reminderSchedule(plan, fixedNow).find(r => r.tag === "program");
     return progress.doneCount === 2 && progress.currentWeek === 3 && !progress.finished && PROGRAM.length === 8 && ping && ping.title.includes("week 3") || JSON.stringify({ progress, ping });
   });
+
+  /* ---- shared piggy bank, weekly plan, financial freedom, bucket-list pots ---- */
+  await test("piggy bank: older plans without a deposit log load with an empty one", () => {
+    const { contributions, ...older } = blankState();
+    const loaded = migrate({ ...older, funds: [{ id: "o", name: "Old pot", target: 100, saved: 40, monthly: 0 }] });
+    return Array.isArray(loaded.contributions) && loaded.contributions.length === 0 && fundSaved(loaded.funds[0], loaded) === 40 || JSON.stringify(loaded.contributions);
+  });
+  await test("piggy bank: balance = starting amount + logged deposits, split by partner", () => {
+    const plan = migrate({ ...blankState(),
+      funds: [{ id: "p", name: "Trip", target: 1000, saved: 100, monthly: 50, milestoneId: "" }],
+      contributions: [
+        { id: "c1", fundId: "p", amount: 200, by: "a", date: "2026-01-10" },
+        { id: "c2", fundId: "p", amount: 150, by: "b", date: "2026-01-12" },
+        { id: "c3", fundId: "p", amount: -50, by: "both", date: "2026-01-13" },
+        { id: "c4", fundId: "other", amount: 999, by: "a", date: "2026-01-13" },
+      ] });
+    const fund = plan.funds[0];
+    const split = contributionSplit(fundContributions(fund, plan));
+    const status = fundStatus(fund, plan, fixedNow);
+    return fundSaved(fund, plan) === 400 && split.a === 200 && split.b === 150 && split.both === -50 &&
+      status.progress === 0.4 && status.months === 12 || JSON.stringify({ split, status });
+  });
+  await test("piggy bank: both partners depositing at the same time keep both deposits after sync", () => {
+    const base = migrate({ ...blankState(), funds: [{ id: "p", name: "Home", target: 5000, saved: 1000, monthly: 0, milestoneId: "" }] });
+    stampChanges(blankState(), base, 1);
+    const mine = JSON.parse(JSON.stringify(base));
+    const theirs = JSON.parse(JSON.stringify(base));
+    const mineBefore = JSON.parse(JSON.stringify(mine));
+    const theirsBefore = JSON.parse(JSON.stringify(theirs));
+    mine.contributions.push({ id: "cm", fundId: "p", amount: 100, by: "a", date: "2026-01-15" });
+    theirs.contributions.push({ id: "ct", fundId: "p", amount: 250, by: "b", date: "2026-01-15" });
+    stampChanges(mineBefore, mine, 10);
+    stampChanges(theirsBefore, theirs, 10);
+    const merged = mergeStates(mine, theirs, 20);
+    const undone = JSON.parse(JSON.stringify(merged));
+    undone.contributions = undone.contributions.filter(c => c.id !== "cm");
+    stampChanges(merged, undone, 30);
+    const afterUndo = mergeStates(merged, undone, 40);
+    return fundSaved(merged.funds[0], merged) === 1350 && merged.contributions.length === 2 &&
+      fundSaved(afterUndo.funds[0], afterUndo) === 1250 || JSON.stringify({ merged: merged.contributions, afterUndo: afterUndo.contributions });
+  });
+  await test("piggy bank: editing a pot's balance keeps the deposit history", () => {
+    state.funds = [{ id: "pe", name: "Car", target: 8000, saved: 500, monthly: 100, milestoneId: "" }];
+    state.contributions = [{ id: "ce", fundId: "pe", amount: 300, by: "a", date: "2026-01-02" }];
+    actions["edit-fund"]("pe");
+    const form = document.getElementById("dialog-form");
+    const shown = Number(form.saved.value);
+    form.saved.value = "1000";
+    form.requestSubmit();
+    const fund = state.funds[0];
+    const afterBalanceEdit = fund.saved;
+    actions["edit-fund"]("pe");
+    document.getElementById("dialog-form").name.value = "Our car";
+    document.getElementById("dialog-form").requestSubmit();
+    return shown === 800 && afterBalanceEdit === 700 && fundSaved(fund, state) === 1000 && fund.saved === 700 &&
+      fund.name === "Our car" && state.contributions.length === 1 || JSON.stringify({ shown, fund });
+  });
+  await test("weekly plan: weekly target = monthly × 12 / 52 and counts only this week's deposits", () => {
+    const plan = migrate({ ...blankState(),
+      funds: [
+        { id: "w1", name: "Trip", target: 10000, saved: 0, monthly: 520, milestoneId: "" },
+        { id: "w2", name: "Full", target: 100, saved: 100, monthly: 50, milestoneId: "" },
+        { id: "w3", name: "No plan", target: 100, saved: 0, monthly: 0, milestoneId: "" },
+      ],
+      contributions: [
+        { id: "x1", fundId: "w1", amount: 60, by: "a", date: "2026-01-12" },
+        { id: "x2", fundId: "w1", amount: 40, by: "b", date: "2026-01-18" },
+        { id: "x3", fundId: "w1", amount: 500, by: "a", date: "2026-01-11" },
+      ],
+      bucket: [{ id: "d1", text: "Paris", done: false }, { id: "d2", text: "Already did it", done: true }] });
+    const week = weeklyPlan(plan, fixedNow);
+    const pot = week.pots[0];
+    return week.pots.length === 1 && Math.abs(pot.weekly - 120) < 1e-9 && Math.abs(pot.daily - 120 / 7) < 1e-9 &&
+      pot.added === 100 && pot.split.a === 60 && pot.split.b === 40 && !pot.done &&
+      toISO(week.weekStart) === "2026-01-12" && toISO(week.weekEnd) === "2026-01-18" && week.daysLeft === 4 &&
+      week.fun && week.fun.id === "d1" || JSON.stringify(week);
+  });
+  await test("weekly plan: a pot behind its milestone uses the amount it really needs", () => {
+    const plan = migrate({ ...blankState(),
+      milestones: [{ id: "m1", title: "Wedding", stage: "married", date: "2027-01-15", done: false }],
+      funds: [{ id: "b1", name: "Wedding", target: 12000, saved: 0, monthly: 100, milestoneId: "m1" }] });
+    const pot = weeklyPlan(plan, fixedNow).pots[0];
+    return pot && pot.behind && Math.abs(pot.weekly - 1000 / WEEKS_PER_MONTH) < 1e-9 || JSON.stringify(pot);
+  });
+  await test("weekly plan: Sunday money-mission reminders while a pot has a monthly plan", () => {
+    const withPlan = migrate({ ...blankState(), funds: [{ id: "r1", name: "Trip", target: 1000, saved: 0, monthly: 100 }] });
+    const tags = reminderSchedule(withPlan, fixedNow).filter(r => r.tag.startsWith("money-week-"));
+    const firstDay = tags.length ? new Date(tags[0].at) : null;
+    const none = reminderSchedule(migrate(blankState()), fixedNow).some(r => r.tag.startsWith("money-week-"));
+    return tags.length === 4 && firstDay.getDay() === 0 && toISO(firstDay) === "2026-01-18" && firstDay.getHours() === 18 && !none || JSON.stringify(tags);
+  });
+  await test("financial freedom: target = yearly spending ÷ withdrawal rate; date matches a direct simulation", () => {
+    const base = blankState();
+    const plan = migrate({ ...base,
+      couple: { ...base.couple, a: { name: "A", birth: "1996-03-10" }, b: { name: "B", birth: "1994-11-02" } },
+      retirement: { ...base.retirement, saved: 100000, monthly: 2000, rate: 6, fees: 0, inflation: 2, spend: 40000, withdrawal: 4 } });
+    const fi = freedomPlan(plan, fixedNow);
+    const monthlyRate = (1.06 / 1.02 - 1) / 12;
+    let value = 100000;
+    let months = 0;
+    while (value < 1e6) {
+      value = value * (1 + monthlyRate) + 2000;
+      months += 1;
+    }
+    const free = freedomPlan(migrate({ ...plan, retirement: { ...plan.retirement, saved: 2e6 } }), fixedNow);
+    const stuck = freedomPlan(migrate({ ...plan, retirement: { ...plan.retirement, saved: 0, monthly: 0 } }), fixedNow);
+    const unset = freedomPlan(migrate({ ...plan, retirement: { ...plan.retirement, spend: 0 } }), fixedNow);
+    return Math.abs(fi.target - 1e6) < 1e-6 && fi.months === months && fi.ageA === ageOn("1996-03-10", fi.date) &&
+      fi.soonerBy > 0 && free.months === 0 && stuck.months === null && unset === null || JSON.stringify({ fi, months, free, stuck });
+  });
+  await test("financial freedom: roadmap milestone is added once, then its date is updated", () => {
+    state.retirement = { ...state.retirement, saved: 50000, monthly: 1500, rate: 5, fees: 0.5, inflation: 2.5, spend: 30000, withdrawal: 4 };
+    actions["freedom-milestone"]();
+    const firstDate = (state.milestones.find(m => m.auto === "freedom") || {}).date;
+    state.retirement = { ...state.retirement, monthly: 3000 };
+    actions["freedom-milestone"]();
+    const all = state.milestones.filter(m => m.auto === "freedom");
+    return firstDate && all.length === 1 && all[0].date < firstDate && all[0].title === "Financially free" || JSON.stringify({ firstDate, all });
+  });
+  await test("e2e bucket dream → linked savings pot shows its progress on the bucket list", () => {
+    state.bucket = [{ id: "bk", text: "Safari in Kenya", done: false }];
+    state.funds = [];
+    state.contributions = [];
+    actions.tab("us");
+    const start = document.querySelector('[data-act="bucket-save"][data-id="bk"]');
+    if (!start) return "no Save for it button";
+    start.click();
+    const form = document.getElementById("dialog-form");
+    if (form.name.value !== "Safari in Kenya" || form.bucketId.value !== "bk") return "dialog not prefilled";
+    form.target.value = "4000";
+    form.saved.value = "1000";
+    form.requestSubmit();
+    actions.tab("us");
+    const tag = document.querySelector(".bucket .item").textContent;
+    const pot = state.funds[0];
+    actions.tab("money");
+    const chip = document.getElementById("view").textContent.includes("For: Safari in Kenya");
+    return pot && pot.bucketId === "bk" && tag.includes("25% saved") && chip && !document.querySelector('[data-act="bucket-save"]') || tag;
+  });
+  await test("e2e home weekly card: add money with who added it, progress updates", () => {
+    state.funds = [{ id: "hw", name: "Holiday", target: 5000, saved: 0, monthly: 520, milestoneId: "" }];
+    state.contributions = [];
+    actions.tab("home");
+    const form = document.querySelector('.week-card [data-form="deposit"][data-id="hw"]');
+    if (!form) return "no weekly deposit form";
+    form.amount.value = "70";
+    form.by.value = "b";
+    form.requestSubmit();
+    const entry = state.contributions[0];
+    const card = document.querySelector(".week-card").textContent;
+    const remembered = localStorage.getItem(store.key + ME_KEY_SUFFIX);
+    return entry && entry.by === "b" && entry.amount === 70 && entry.date === toISO(new Date()) && card.includes("In this week:") && remembered === "b" || card;
+  });
+  await test("xss: pot names, bucket dreams and the weekly card render as text", () => {
+    const evil = '<img src=x onerror="window.__xss=1">';
+    state.bucket = [{ id: "ev", text: evil, done: false }];
+    state.funds = [{ id: "fe", name: evil, target: 900, saved: 0, monthly: 300, milestoneId: "", bucketId: "ev" }];
+    state.contributions = [{ id: "ce", fundId: "fe", amount: 10, by: "a", date: toISO(new Date()) }];
+    state.goals = [{ id: "ge", title: evil, category: "love", owner: "both", due: "", notes: "", done: false, steps: [{ id: "se", text: evil, done: false }] }];
+    let injected = 0;
+    for (const tab of ["home", "money", "us"]) {
+      actions.tab(tab);
+      injected += document.querySelectorAll("#view img").length;
+    }
+    actions["bucket-save"]("ev");
+    injected += document.querySelectorAll("#dialog img").length;
+    document.getElementById("dialog").close();
+    return injected === 0 && !window.__xss || `injected ${injected}`;
+  });
+  localStorage.removeItem(store.key + ME_KEY_SUFFIX);
   if (params.has("cloud")) {
     await test("cloud: live encrypted sync between two phones via the deployed worker", async () => {
       const { a, b, result } = await twoDeviceScenario(CLOUD_URL, (...args) => fetch(...args));

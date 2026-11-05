@@ -8,9 +8,20 @@ A private life-planning app for couples: from dating to marriage, a home, kids, 
   (and children's) plus a lifeline to ~90 — including the later-life conversations people put off
   (caring for parents, a retirement check, where to live as you age, wills and powers of attorney).
 - **Goals** shared or personal, broken into steps.
+- **This week together** (Home): each savings pot's weekly target (monthly plan × 12 / 52, or what a pot
+  behind its milestone really needs), with a per-day figure, what each of you put in this week and a quick
+  **+ Add**; plus the next goal step and a fun pick from the bucket list. A Sunday-evening reminder nudges
+  you before the week ends.
 - **Money**: savings pots linked to milestones, a retirement planner with inflation, fees and a
   "how much do we need" target, education funds per child, and a net-worth tracker. Import a bank-statement
   CSV to see your real monthly surplus (parsed on the device only — no bank login, nothing uploaded).
+- **Shared piggy bank**: every deposit is logged with who added it (you, your partner, or together) and a
+  date, so each pot shows "added so far" per partner and a short history. Each deposit is its own synced
+  record, so two phones adding money at the same moment both count. Pots can be linked to a bucket-list
+  dream ("Save" on the Us tab), which then shows how much of it is saved.
+- **Financial freedom**: your freedom number (yearly spending you want ÷ safe withdrawal rate), how far
+  along you are, the projected date with both your ages, how much sooner 10% more saving gets you there,
+  and one tap to put "Financially free" on the roadmap. Uses the retirement planner's assumptions.
 - **Us**: monthly check-in with a connection trend, "talk before you decide" topics, a bucket list, and
   **Foundations** — an 8-week program summarising published relationship research (Gottman Institute,
   PREP) with sources. Educational, not therapy.

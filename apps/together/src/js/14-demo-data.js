@@ -34,6 +34,17 @@ function demoState() {
   s.checkins.push({ id: uid(), date: toISO(addMonths(now, -1)), ratingA: 4, ratingB: 5, appreciate: "You cooked every night during my deadline week.", need: "More walks without phones.", plan: "Sunday picnic at the lake" });
   s.talks = { values: { status: "agreed", note: "Honesty, family, adventure." }, money: { status: "talked", note: "" } };
   s.bucket = [{ id: uid(), text: "See the northern lights", done: false }, { id: uid(), text: "Road trip along the coast", done: true }, { id: uid(), text: "Dance at our 50th anniversary", done: false }];
+  s.funds.push({ id: uid(), name: "Northern lights trip", target: 5000, saved: 0, monthly: 150, milestoneId: "", bucketId: s.bucket[0].id });
+  const [emergency, weddingPot, , trip] = s.funds;
+  const daysAgo = days => toISO(new Date(now.getTime() - days * 864e5));
+  s.contributions = [
+    { id: uid(), fundId: weddingPot.id, amount: 200, by: "a", date: daysAgo(40) },
+    { id: uid(), fundId: weddingPot.id, amount: 150, by: "b", date: daysAgo(38) },
+    { id: uid(), fundId: trip.id, amount: 600, by: "both", date: daysAgo(30) },
+    { id: uid(), fundId: trip.id, amount: 400, by: "b", date: daysAgo(12) },
+    { id: uid(), fundId: emergency.id, amount: 50, by: "a", date: daysAgo(0) },
+    { id: uid(), fundId: weddingPot.id, amount: 80, by: "b", date: daysAgo(0) },
+  ];
   return s;
 }
 

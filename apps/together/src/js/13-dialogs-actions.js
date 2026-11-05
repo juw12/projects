@@ -47,20 +47,29 @@ function goalDialog(existing) {
     commit(existing ? "Goal updated" : "Goal added");
   });
 }
-function fundDialog(existing) {
-  const f = existing || { name: "", target: "", saved: 0, monthly: "", milestoneId: "" };
+/** New/edit savings pot. "Saved so far" is the pot's full balance; logged deposits are kept and the
+ *  stored starting amount absorbs the difference, so the history of who added what stays intact. */
+function fundDialog(existing, preset = {}) {
+  const f = existing || { name: "", target: "", saved: 0, monthly: "", milestoneId: "", bucketId: "", ...preset };
+  const logged = existing ? fundLogged(existing, state) : 0;
+  const balance = existing ? fundSaved(existing, state) : Number(f.saved) || 0;
   const upcoming = state.milestones.filter(m => !m.done && m.date).sort(byDate);
+  const dreams = state.bucket.filter(item => !item.done || item.id === f.bucketId);
   openDialog(existing ? "Edit savings pot" : "New savings pot", `
     <label class="field">Name<input name="name" required value="${esc(f.name)}" placeholder="e.g. Wedding"></label>
     <div class="fields-2">
       <label class="field">Target (${esc(state.couple.currency)})<input name="target" type="number" step="any" min="0" required value="${esc(f.target)}"></label>
-      <label class="field">Saved so far<input name="saved" type="number" step="any" min="0" value="${esc(f.saved)}"></label>
+      <label class="field">Saved so far<input name="saved" type="number" step="any" min="0" value="${esc(Math.round(balance * 100) / 100)}"></label>
       <label class="field">We save per month<input name="monthly" type="number" step="any" min="0" value="${esc(f.monthly)}"></label>
       <label class="field">Needed by milestone<select name="milestoneId"><option value="">— none —</option>${upcoming.map(m => `<option value="${esc(m.id)}" ${f.milestoneId === m.id ? "selected" : ""}>${esc(m.title)} (${esc(formatDate(m.date, "month"))})</option>`).join("")}</select></label>
+      ${dreams.length ? `<label class="field" style="grid-column:1/-1">For a bucket-list dream<select name="bucketId"><option value="">— none —</option>${dreams.map(item => `<option value="${esc(item.id)}" ${f.bucketId === item.id ? "selected" : ""}>${esc(item.text)}</option>`).join("")}</select></label>` : ""}
     </div>`, values => {
-    const clean = { name: values.name, milestoneId: values.milestoneId, target: Number(values.target) || 0, saved: Number(values.saved) || 0, monthly: Number(values.monthly) || 0 };
+    const clean = { name: values.name, milestoneId: values.milestoneId, bucketId: values.bucketId || "", target: Number(values.target) || 0, monthly: Number(values.monthly) || 0 };
+    const enteredBalance = Number(values.saved) || 0;
+    // Only rewrite the starting amount when the balance was actually edited (keeps partner edits mergeable).
+    if (!existing || Math.abs(enteredBalance - balance) > 0.005) clean.saved = enteredBalance - logged;
     if (existing) Object.assign(existing, clean);
-    else state.funds.push({ id: uid(), ...clean });
+    else state.funds.push({ id: uid(), saved: 0, ...clean });
     commit(existing ? "Savings pot updated" : "Savings pot added");
   });
 }
@@ -166,7 +175,27 @@ const actions = {
   },
   "add-fund": () => fundDialog(null),
   "edit-fund": id => fundDialog(findIn(state.funds, id)),
-  "delete-fund": id => removeFrom("funds", id, "Savings pot"),
+  "delete-fund": id => commitWithUndo("Savings pot deleted", () => {
+    state.funds = state.funds.filter(fund => fund.id !== id);
+    state.contributions = state.contributions.filter(c => c.fundId !== id);
+  }),
+  "delete-contribution": id => removeFrom("contributions", id, "Entry"),
+  "bucket-save": id => {
+    const item = findIn(state.bucket, id);
+    if (item) fundDialog(null, { name: item.text.slice(0, 60), bucketId: item.id });
+  },
+  "freedom-milestone": () => {
+    const plan = freedomPlan(state, new Date());
+    if (!plan || !plan.date || !(plan.months > 0)) return;
+    const date = toISO(plan.date);
+    const retireOn = retirementDate(state.couple);
+    const stage = retireOn && plan.date >= retireOn ? "retire" : "growth";
+    const notes = `Freedom number ${money(plan.target, state.couple.currency)} (estimate from Money → Financial freedom).`;
+    const existing = state.milestones.find(m => m.auto === "freedom");
+    if (existing) Object.assign(existing, { date, stage, notes });
+    else state.milestones.push({ id: uid(), auto: "freedom", stage, title: "Financially free", date, done: false, notes });
+    commit(existing ? "Roadmap date updated" : "Added “Financially free” to your roadmap");
+  },
   "default-funds": () => {
     for (const preset of DEFAULT_FUNDS) {
       const milestone = state.milestones.find(m => m.title === preset.milestoneTitle && !m.done);
@@ -377,9 +406,18 @@ const forms = {
   deposit: (values, form) => {
     const fund = findIn(state.funds, form.dataset.id);
     const amount = Number(values.amount);
-    if (!fund || !amount) return;
-    fund.saved = Math.max(0, (Number(fund.saved) || 0) + amount);
-    commit(amount > 0 ? `${money(amount, state.couple.currency)} added to ${fund.name}` : "Updated");
+    if (!fund || !amount || !Number.isFinite(amount)) return;
+    const by = ["a", "b", "both"].includes(values.by) ? values.by : "both";
+    try {
+      localStorage.setItem(store.key + ME_KEY_SUFFIX, by);
+    } catch (error) {
+      /* storage blocked: the choice just isn't remembered */
+    }
+    state.contributions.push({ id: uid(), fundId: fund.id, amount, by, date: toISO(new Date()) });
+    const reached = fundSaved(fund, state) >= (Number(fund.target) || 0) && fund.target > 0;
+    commit(amount > 0
+      ? `${money(amount, state.couple.currency)} added to ${fund.name}${reached ? " — target reached!" : ""}`
+      : `${money(-amount, state.couple.currency)} taken out of ${fund.name}`);
   },
   networth: values => {
     const assets = Number(values.assets);

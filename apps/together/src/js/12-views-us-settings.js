@@ -28,10 +28,17 @@ function viewUs() {
     <section class="card">
       <h2>Bucket list for two</h2>
       <form class="row" data-form="bucket" style="flex-wrap:nowrap;margin-bottom:10px"><input name="text" placeholder="See the northern lights…" aria-label="New bucket list item" style="flex:1;min-width:0"><button type="submit">Add</button></form>
-      ${state.bucket.length ? `<div class="bucket">${state.bucket.map(item => `<span class="item ${item.done ? "done" : ""}">
-        <span>${esc(item.text)}</span>
+      ${state.bucket.length ? `<div class="bucket">${state.bucket.map(item => {
+        const pot = state.funds.find(f => f.bucketId === item.id);
+        const potProgress = pot ? fundStatus(pot, state, ui.now).progress : 0;
+        const potTag = pot
+          ? `<span class="small muted">${potProgress >= 1 ? "· funded" : `· ${Math.round(potProgress * 100)}% saved`}</span>`
+          : item.done ? "" : `<button type="button" class="ghost small" data-act="bucket-save" data-id="${esc(item.id)}" aria-label="Start a savings pot for ${esc(item.text)}" title="Start a savings pot for this" style="white-space:nowrap">${icon("wallet")} Save</button>`;
+        return `<span class="item ${item.done ? "done" : ""}">
+        <span>${esc(item.text)}</span>${potTag}
         <button type="button" class="ghost" data-act="toggle-bucket" data-id="${esc(item.id)}" aria-label="${item.done ? "Mark not done" : "Mark done"}"><span class="tick ${item.done ? "on" : ""}">${item.done ? icon("check") : ""}</span></button>
-        <button type="button" class="ghost" data-act="delete-bucket" data-id="${esc(item.id)}" aria-label="Delete ${esc(item.text)}">${icon("close")}</button></span>`).join("")}</div>`
+        <button type="button" class="ghost" data-act="delete-bucket" data-id="${esc(item.id)}" aria-label="Delete ${esc(item.text)}">${icon("close")}</button></span>`;
+      }).join("")}</div>`
         : `<div class="empty">Dream a little: places, experiences, things to learn together.</div>`}
     </section>
   </div>
@@ -90,7 +97,7 @@ function printSummaryHTML() {
     </tbody></table>
     <h2>Savings</h2>
     <table><thead><tr><th>Pot</th><th>Saved</th><th>Target</th><th>Per month</th></tr></thead><tbody>
-    ${state.funds.map(f => `<tr><td>${esc(f.name)}</td><td>${esc(money(f.saved, cur))}</td><td>${esc(money(f.target, cur))}</td><td>${esc(money(f.monthly, cur))}</td></tr>`).join("")}
+    ${state.funds.map(f => `<tr><td>${esc(f.name)}</td><td>${esc(money(fundSaved(f, state), cur))}</td><td>${esc(money(f.target, cur))}</td><td>${esc(money(f.monthly, cur))}</td></tr>`).join("")}
     </tbody></table>
     <h2>What we agreed</h2>
     ${agreedTalks.length ? agreedTalks.map(t => `<p><b>${esc(t.title)}:</b> ${esc(state.talks[t.id].note || "Agreed")}</p>`).join("") : "<p>—</p>"}

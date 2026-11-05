@@ -87,7 +87,7 @@ function viewHome() {
   const next = nextMilestone(state, now);
   const doneMilestones = state.milestones.filter(m => m.done).length;
   const goalsDone = state.goals.filter(g => goalProgress(g) === 1).length;
-  const saved = state.funds.reduce((sum, f) => sum + (Number(f.saved) || 0), 0);
+  const saved = totalSaved(state);
   const focus = focusItems(state, now);
   const todayISO = toISO(now);
   const comingUp = state.milestones.filter(m => !m.done && m.date && m.date >= todayISO).sort(byDate).slice(1, 4);
@@ -112,6 +112,7 @@ function viewHome() {
     <div class="journey" role="list">${STAGES.map((s, i) => `<div role="listitem" class="step ${i < stageIdx ? "done" : i === stageIdx ? "now" : ""}"><div class="dot" aria-hidden="true">${i < stageIdx ? icon("check") : i + 1}</div>${s.name}</div>`).join("")}</div>
     <p class="muted small">${STAGES[stageIdx].blurb}</p>
   </section>
+  ${weekCardHTML(now)}
   <div class="grid" style="margin-top:14px">
     <section class="card">
       <h2>This month's focus</h2>
@@ -134,6 +135,71 @@ function viewHome() {
       <p class="small muted" style="margin-top:12px">“The best thing to hold onto in life is each other.” — Audrey Hepburn</p>
     </section>
   </div>`;
+}
+
+/** Who is adding money on this device: remembered per device, never synced. */
+const ME_KEY_SUFFIX = ".me";
+function lastContributor() {
+  try {
+    const saved = localStorage.getItem(store.key + ME_KEY_SUFFIX);
+    return ["a", "b", "both"].includes(saved) ? saved : "both";
+  } catch (error) {
+    return "both";
+  }
+}
+function contributorSelect(label) {
+  const n = names();
+  const chosen = lastContributor();
+  return `<select name="by" aria-label="${esc(label)}" style="flex:0 1 auto;width:auto;min-width:0">
+    ${[["a", n.a], ["b", n.b], ["both", "Both"]].map(([value, text]) => `<option value="${value}" ${chosen === value ? "selected" : ""}>${esc(text)}</option>`).join("")}</select>`;
+}
+function splitLine(split, cur) {
+  const n = names();
+  const parts = [];
+  if (split.a) parts.push(`${esc(n.a)} ${esc(money(split.a, cur))}`);
+  if (split.b) parts.push(`${esc(n.b)} ${esc(money(split.b, cur))}`);
+  if (split.both) parts.push(`together ${esc(money(split.both, cur))}`);
+  return parts.join(" · ");
+}
+
+/** Home card: this week's money missions (with a per-day figure), the next goal step and a fun pick. */
+function weekCardHTML(now) {
+  const cur = state.couple.currency;
+  const plan = weeklyPlan(state, now);
+  const range = `${plan.weekStart.toLocaleDateString(undefined, { day: "numeric", month: "short" })} – ${plan.weekEnd.toLocaleDateString(undefined, { day: "numeric", month: "short" })}`;
+  const potRows = plan.pots.map(p => {
+    const share = p.weekly > 0 ? clamp(p.added / p.weekly, 0, 1) : 1;
+    const who = splitLine(p.split, cur);
+    return `<li class="week-pot">
+      <div class="spread"><div style="min-width:0"><b>${esc(p.fund.name)}</b>
+        <div class="small muted">${esc(money(p.weekly, cur))} this week · about ${esc(money(p.daily, cur))} a day${p.behind ? " · catching up" : ""}</div></div>
+        ${p.done ? '<span class="chip ok">✓ Done</span>' : `<span class="chip">${esc(money(Math.max(0, p.weekly - p.added), cur))} to go</span>`}</div>
+      <div class="bar" style="margin:6px 0" role="progressbar" aria-label="${esc(p.fund.name)} this week" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(share * 100)}"><span style="width:${share * 100}%"></span></div>
+      ${who ? `<div class="small muted">In this week: ${who}</div>` : ""}
+      ${p.done ? "" : `<form class="row" data-form="deposit" data-id="${esc(p.fund.id)}" style="margin-top:6px;flex-wrap:nowrap">
+        <input name="amount" type="number" step="any" placeholder="${esc(cur)}${esc(String(Math.round(Math.max(0, p.weekly - p.added))))}" aria-label="Add to ${esc(p.fund.name)}" style="flex:1;min-width:0">
+        ${contributorSelect(`Who is adding to ${p.fund.name}`)}<button type="submit">+ Add</button></form>`}
+    </li>`;
+  }).join("");
+  const moneyBlock = plan.pots.length
+    ? `<div class="small" style="margin-bottom:6px"><b>${esc(money(plan.totalAdded, cur))}</b> of ${esc(money(plan.totalWeekly, cur))} into your pots this week</div><ul class="clean">${potRows}</ul>`
+    : `<p class="small muted">Give a savings pot a monthly amount on the Money tab and you'll get a weekly target for it here.</p>`;
+  const stepRow = plan.step ? `<label class="step-row"><input type="checkbox" data-toggle="step" data-goal="${esc(plan.step.goal.id)}" data-id="${esc(plan.step.step.id)}">
+      <span><span class="muted">Goal step:</span> ${esc(plan.step.step.text)} <span class="muted">(${esc(plan.step.goal.title)})</span></span></label>` : "";
+  let funRow = "";
+  if (plan.fun) {
+    const pot = plan.funPot;
+    const potLine = pot ? ` · ${Math.round(fundStatus(pot, state, now).progress * 100)}% saved` : "";
+    funRow = `<div class="focus-item" style="margin-top:8px"><span class="ico">${icon("heart")}</span>
+      <div style="flex:1;min-width:0"><span class="muted small">Fun pick:</span> ${esc(plan.fun.text)}<span class="small muted">${potLine}</span>
+        <div class="small muted">Plan one small step toward it together this week.</div></div>
+      <button class="ghost small" type="button" data-act="tab" data-id="us">Go →</button></div>`;
+  }
+  return `<section class="card week-card" style="margin-top:14px">
+    <div class="spread"><h2>This week together</h2><span class="chip">${esc(range)} · ${plan.daysLeft} day${plan.daysLeft === 1 ? "" : "s"} left</span></div>
+    ${moneyBlock}
+    ${stepRow || funRow ? `<div style="margin-top:10px">${stepRow}${funRow}</div>` : ""}
+  </section>`;
 }
 
 function lifelineSVG() {
@@ -238,13 +304,16 @@ function goalCard(goal) {
 function viewMoney() {
   const now = ui.now;
   const cur = state.couple.currency;
-  const total = state.funds.reduce((sum, f) => sum + (Number(f.saved) || 0), 0);
+  const total = totalSaved(state);
   const monthly = state.funds.reduce((sum, f) => sum + (Number(f.monthly) || 0), 0);
   const r = state.retirement;
   const plan = retirementPlan(state, now);
   const education = educationPlans(state, now);
   const fundCards = state.funds.map(fund => {
     const s = fundStatus(fund, state, now);
+    const logged = fundContributions(fund, state).slice().sort(byDate);
+    const who = splitLine(contributionSplit(logged), cur);
+    const dream = fund.bucketId ? state.bucket.find(item => item.id === fund.bucketId) : null;
     let line;
     if (s.months === 0) line = '<span class="chip ok">Fully funded</span>';
     else if (!Number.isFinite(s.months)) line = '<span class="small muted">Add a monthly amount to see when you\'ll get there.</span>';
@@ -256,13 +325,19 @@ function viewMoney() {
         : `<div class="chip warn" style="margin-top:6px;white-space:normal">Needs ${esc(money(s.needed, cur))}/mo for ${esc(s.milestone.title)} (${esc(formatDate(s.milestone.date, "month"))})</div>`;
     }
     return `<article class="card">
-      <div class="spread"><div><h3>${esc(fund.name)}</h3><div class="small muted">${esc(money(fund.saved, cur))} of ${esc(money(fund.target, cur))} · ${esc(money(fund.monthly, cur))}/month</div></div>
+      <div class="spread"><div style="min-width:0"><h3>${esc(fund.name)}</h3><div class="small muted">${esc(money(s.saved, cur))} of ${esc(money(fund.target, cur))} · ${esc(money(fund.monthly, cur))}/month</div>
+        ${dream ? `<span class="chip" style="margin-top:4px;white-space:normal">${icon("heart")} For: ${esc(dream.text)}</span>` : ""}</div>
         <button type="button" class="ghost" data-act="edit-fund" data-id="${esc(fund.id)}" aria-label="Edit ${esc(fund.name)}">${icon("pencil")}</button>
         <button type="button" class="ghost" data-act="delete-fund" data-id="${esc(fund.id)}" aria-label="Delete ${esc(fund.name)}">${icon("trash")}</button></div>
       <div class="bar" style="margin:10px 0"><span style="width:${s.progress * 100}%"></span></div>
       ${line}${deadlineLine}
+      ${who ? `<div class="small muted" style="margin-top:6px">Added so far: ${who}</div>` : ""}
+      ${logged.length ? `<details class="small" style="margin-top:4px"><summary>History (${logged.length})</summary><ul class="clean">${logged.slice(-6).reverse().map(c => `<li class="spread">
+          <span>${esc(formatDate(c.date))} · ${esc(c.by === "a" || c.by === "b" ? ownerLabel(c.by) : "Together")}</span><span>${Number(c.amount) < 0 ? "−" : "+"}${esc(money(Math.abs(Number(c.amount) || 0), cur))}
+          <button type="button" class="ghost" data-act="delete-contribution" data-id="${esc(c.id)}" aria-label="Undo this ${esc(money(Math.abs(Number(c.amount) || 0), cur))} entry">${icon("close")}</button></span></li>`).join("")}</ul></details>` : ""}
       <form class="row" data-form="deposit" data-id="${esc(fund.id)}" style="margin-top:10px;flex-wrap:nowrap">
-        <input name="amount" type="number" step="any" placeholder="Add savings (${esc(cur)})" aria-label="Add savings to ${esc(fund.name)}" style="flex:1;min-width:0"><button type="submit">+ Add</button></form>
+        <input name="amount" type="number" step="any" placeholder="Add savings (${esc(cur)})" aria-label="Add savings to ${esc(fund.name)}" style="flex:1;min-width:0">
+        ${contributorSelect(`Who is adding to ${fund.name}`)}<button type="submit">+ Add</button></form>
     </article>`;
   }).join("");
   return `<div class="section-head"><div><h1>Money for our life</h1><p class="muted">Savings pots for each big moment, linked to your roadmap so you know if you're on track.</p></div>
@@ -302,6 +377,7 @@ function viewMoney() {
         : '<span class="muted">Add your desired yearly spending to see how much you need.</span>'}</p>
     <p class="small muted">Estimates only, using steady average returns. Real markets go up and down; tax rules differ by country. Not financial advice — check big decisions with a licensed adviser.</p>
   </div>
+  ${freedomCardHTML(now)}
   <div class="grid" style="margin-top:14px">
     <section class="card">
       <h2>Education funds</h2>
@@ -333,6 +409,46 @@ function viewMoney() {
       </form>
       <p class="small muted">A monthly snapshot of everything you own minus everything you owe — no bank login needed.</p>
     </section>
+  </div>`;
+}
+
+/** Money tab: the "financial freedom" number and when you'll reach it, from the retirement assumptions. */
+function freedomCardHTML(now) {
+  const cur = state.couple.currency;
+  const r = state.retirement;
+  const plan = freedomPlan(state, now);
+  const n = names();
+  const head = `<div class="section-head"><div><h2>Financial freedom</h2>
+    <p class="muted small">The point where your investments could pay for the life you want, so work becomes a choice.</p></div></div>`;
+  if (!plan) {
+    return `${head}<div class="card"><p class="small">Enter the <b>yearly spending we want</b> in Retiring together above to see your freedom number and the date you could reach it.</p></div>`;
+  }
+  const milestone = state.milestones.find(m => m.auto === "freedom");
+  const ages = [plan.ageA !== null ? `${esc(n.a)} ${plan.ageA}` : "", plan.ageB !== null ? `${esc(n.b)} ${plan.ageB}` : ""].filter(Boolean).join(" · ");
+  let when;
+  if (plan.months === 0) {
+    when = '<span class="chip ok">✓ Already there on these assumptions</span>';
+  } else if (plan.months === null) {
+    when = `<span class="chip warn" style="white-space:normal">Not reachable within 100 years at ${esc(money(plan.monthly, cur))}/month. Raise the monthly amount in Retiring together.</span>`;
+  } else {
+    when = `At ${esc(money(plan.monthly, cur))}/month you get there around <b>${esc(plan.date.toLocaleDateString(undefined, { month: "short", year: "numeric" }))}</b>
+      (${Math.round(plan.months / 12)} years${ages ? `; ${ages}` : ""}).`;
+  }
+  const lever = plan.soonerBy > 0
+    ? `<p class="small">Saving ${esc(money(plan.extraMonthly, cur))} more a month gets you there about <b>${plan.soonerBy >= 24 ? `${Math.round(plan.soonerBy / 12)} years` : `${plan.soonerBy} months`} sooner</b>.</p>` : "";
+  const button = plan.date && plan.months > 0
+    ? `<button type="button" data-act="freedom-milestone">${milestone ? "Update the date on our roadmap" : "Put it on our roadmap"}</button>` : "";
+  return `${head}<div class="card">
+    <div class="stats">
+      <div class="stat"><b>${esc(money(plan.target, cur))}</b><span class="small muted">freedom number (${esc(money(r.spend, cur))}/year ÷ ${esc(r.withdrawal)}%)</span></div>
+      <div class="stat"><b>${esc(money(plan.invested, cur))}</b><span class="small muted">invested today</span></div>
+      <div class="stat"><b>${Math.round(plan.progress * 100)}%</b><span class="small muted">of the way</span></div>
+    </div>
+    <div class="bar" style="margin:10px 0" role="progressbar" aria-label="Progress to financial freedom" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(plan.progress * 100)}"><span style="width:${plan.progress * 100}%"></span></div>
+    <p class="small">${when}</p>
+    ${lever}
+    ${button}
+    <p class="small muted">Uses your retirement savings, monthly amount and assumptions above, growing at ${esc(plan.realRate.toFixed(1))}% a year after fees and inflation. In today's money. An estimate, not financial advice.</p>
   </div>`;
 }
 

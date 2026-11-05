@@ -4,6 +4,9 @@ function blankState() {
     schema: SCHEMA_VERSION,
     couple: { a: { name: "", birth: "" }, b: { name: "", birth: "" }, since: "", wedding: "", stage: "dating", currency: "$", retireAge: 65 },
     milestones: [], goals: [], funds: [],
+    // One record per deposit into a pot ({ id, fundId, amount, by: "a"|"b"|"both", date }). Separate records
+    // merge safely when both partners add money at the same time; a pot's balance is its `saved` plus these.
+    contributions: [],
     retirement: { saved: 0, monthly: 0, rate: 5, fees: 0.5, inflation: 2.5, spend: 0, withdrawal: 4, eduCost: 0, eduInflation: 5 },
     checkins: [], talks: {}, bucket: [], kids: [], networth: [],
     program: { started: "", done: {}, notes: {} },
@@ -43,7 +46,7 @@ function migrate(raw) {
   const merged = { ...base, ...raw, couple: { ...base.couple, ...(raw.couple || {}) }, retirement: { ...base.retirement, ...(raw.retirement || {}) } };
   merged.couple.a = { ...base.couple.a, ...(raw.couple?.a || {}) };
   merged.couple.b = { ...base.couple.b, ...(raw.couple?.b || {}) };
-  for (const key of ["milestones", "goals", "funds", "checkins", "bucket", "kids", "networth"]) {
+  for (const key of SYNCED_COLLECTIONS) {
     merged[key] = Array.isArray(raw[key]) ? raw[key].filter(x => x && typeof x === "object") : [];
   }
   merged.goals.forEach(goal => {

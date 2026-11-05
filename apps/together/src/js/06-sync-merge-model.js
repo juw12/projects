@@ -5,7 +5,7 @@
 // but no value means "removed then". So two partners editing different fields - or different steps
 // of the same goal - both keep their edit; only edits to the very same field compete.
 // Whole-record deletions leave tombstones in `_deleted` and win over older edits.
-const SYNCED_COLLECTIONS = ["milestones", "goals", "funds", "checkins", "bucket", "kids", "networth"];
+const SYNCED_COLLECTIONS = ["milestones", "goals", "funds", "contributions", "checkins", "bucket", "kids", "networth"];
 const SYNCED_SINGLETONS = ["couple", "retirement", "program"];
 const ID_LIST_FIELDS = new Set(["steps"]);
 const META_FIELDS = new Set(["_ts", "_f", "id"]);

@@ -39,6 +39,14 @@ function reminderSchedule(plan, now = new Date()) {
     while (at(next, 19) <= nowMs) next = new Date(next.getTime() + 7 * 864e5);
     add(at(next, 19), `Foundations week ${week}`, PROGRAM[week - 1].title, "program");
   }
+  // Weekly money mission: Sunday evening, while any pot still has a monthly plan.
+  if ((plan.funds || []).some(fund => (Number(fund.monthly) || 0) > 0)) {
+    const sunday = new Date(startOfWeek(now).getTime() + 6 * 864e5);
+    for (let i = 0; i < 4; i++) {
+      const day = new Date(sunday.getFullYear(), sunday.getMonth(), sunday.getDate() + 7 * i);
+      add(at(day, 18), "This week's money mission", `${nameA} & ${nameB}: check this week's pots on Home before the week ends.`, `money-week-${i}`);
+    }
+  }
   return list.sort((x, y) => x.at - y.at).slice(0, 60);
 }
 

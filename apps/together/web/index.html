@@ -147,6 +147,8 @@
   .bucket .item { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); border-radius: 99px; padding: 4px 6px 4px 12px; background: var(--card); max-width: 100%; }
   .bucket .item.done { background: var(--bg); color: var(--muted); }
   .bucket .item.done span { text-decoration: line-through; }
+.week-pot { padding: 10px 0; border-top: 1px solid var(--line); }
+.week-pot:first-child { border-top: 0; padding-top: 2px; }
   .empty { text-align: center; padding: 24px 16px; color: var(--muted); border: 1px dashed var(--line-strong); border-radius: var(--radius); }
   dialog { border: 1px solid var(--line); border-radius: 14px; padding: 0; width: min(560px, calc(100vw - 24px)); background: var(--card); color: var(--ink); box-shadow: 0 24px 64px rgba(0,0,0,.24); }
   dialog::backdrop { background: rgba(12, 9, 10, .5); }
@@ -561,18 +563,143 @@ function goalProgress(goal) {
   if (!steps.length) return 0;
   return steps.filter(step => step.done).length / steps.length;
 }
+
+/* ----------------------------------------------- shared piggy bank (pots) */
+function fundContributions(fund, state) {
+  return (state.contributions || []).filter(c => c.fundId === fund.id);
+}
+/** Sum of every deposit logged with the + Add form (withdrawals are negative). */
+function fundLogged(fund, state) {
+  return fundContributions(fund, state).reduce((sum, c) => sum + (Number(c.amount) || 0), 0);
+}
+/** A pot's balance: its starting/adjusted amount plus every logged deposit (never below zero). */
+function fundSaved(fund, state) {
+  return Math.max(0, (Number(fund.saved) || 0) + fundLogged(fund, state));
+}
+function totalSaved(state) {
+  return state.funds.reduce((sum, fund) => sum + fundSaved(fund, state), 0);
+}
+/** Logged deposits per partner ("both" = put in together). Only covers deposits made with the + Add form. */
+function contributionSplit(contributions) {
+  const split = { a: 0, b: 0, both: 0 };
+  for (const c of contributions) {
+    const who = c.by === "a" || c.by === "b" ? c.by : "both";
+    split[who] += Number(c.amount) || 0;
+  }
+  return split;
+}
 function fundStatus(fund, state, now) {
-  const months = monthsToReach(fund.target, fund.saved, fund.monthly);
+  const saved = fundSaved(fund, state);
+  const months = monthsToReach(fund.target, saved, fund.monthly);
   const reachDate = Number.isFinite(months) ? addMonths(now, months) : null;
   const milestone = state.milestones.find(item => item.id === fund.milestoneId);
   const deadline = milestone ? parseDate(milestone.date) : null;
   let needed = null;
   let onTrack = null;
   if (deadline) {
-    needed = requiredMonthly(fund.target, fund.saved, deadline, now);
+    needed = requiredMonthly(fund.target, saved, deadline, now);
     onTrack = months === 0 || (reachDate !== null && reachDate <= deadline);
   }
-  return { months, reachDate, milestone, deadline, needed, onTrack, progress: fund.target > 0 ? clamp(fund.saved / fund.target, 0, 1) : 0 };
+  return { saved, months, reachDate, milestone, deadline, needed, onTrack, progress: fund.target > 0 ? clamp(saved / fund.target, 0, 1) : 0 };
+}
+
+/* ---------------------------------------------------------- weekly plan */
+const WEEKS_PER_MONTH = 52 / 12;
+/** Monday 00:00 of the week containing `date`. */
+function startOfWeek(date) {
+  const day = startOfDay(date);
+  return new Date(day.getFullYear(), day.getMonth(), day.getDate() - ((day.getDay() + 6) % 7));
+}
+/** ISO week number, used to rotate the weekly fun pick. */
+function isoWeekNumber(date) {
+  const thursday = startOfWeek(date);
+  thursday.setDate(thursday.getDate() + 3);
+  const firstThursday = startOfWeek(new Date(thursday.getFullYear(), 0, 4));
+  firstThursday.setDate(firstThursday.getDate() + 3);
+  return 1 + Math.round((thursday - firstThursday) / (7 * 864e5));
+}
+/**
+ * This week's plan (Mon–Sun): how much goes into each pot, what is already in, the next goal step
+ * and one fun thing from the bucket list. Weekly amount = monthly plan × 12 / 52; a pot that is behind
+ * its milestone uses the amount it actually needs. Fully funded pots and pots without a plan are left out.
+ */
+function weeklyPlan(state, now) {
+  const weekStart = startOfWeek(now);
+  const weekEnd = new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate() + 6);
+  const fromISO = toISO(weekStart);
+  const toISODate = toISO(weekEnd);
+  const pots = [];
+  for (const fund of state.funds) {
+    const status = fundStatus(fund, state, now);
+    if (status.months === 0) continue;
+    const monthly = Math.max(Number(fund.monthly) || 0, status.onTrack === false ? status.needed || 0 : 0);
+    if (!(monthly > 0)) continue;
+    const remaining = Math.max(0, (Number(fund.target) || 0) - status.saved);
+    const weekly = Math.min(monthly / WEEKS_PER_MONTH, remaining);
+    const thisWeek = fundContributions(fund, state).filter(c => c.date >= fromISO && c.date <= toISODate);
+    const added = thisWeek.reduce((sum, c) => sum + (Number(c.amount) || 0), 0);
+    pots.push({ fund, weekly, daily: weekly / 7, added, split: contributionSplit(thisWeek), done: added >= weekly - 0.5, behind: status.onTrack === false, status });
+  }
+  let step = null;
+  for (const goal of state.goals.slice().sort((x, y) => (x.due || "9999").localeCompare(y.due || "9999"))) {
+    const next = !goal.done && (goal.steps || []).find(s => !s.done);
+    if (next) {
+      step = { goal, step: next };
+      break;
+    }
+  }
+  const dreams = state.bucket.filter(item => !item.done);
+  const withPot = dreams.filter(item => state.funds.some(f => f.bucketId === item.id));
+  const pool = withPot.length ? withPot : dreams;
+  const fun = pool.length ? pool[isoWeekNumber(now) % pool.length] : null;
+  return {
+    weekStart, weekEnd, pots, step, fun,
+    funPot: fun ? state.funds.find(f => f.bucketId === fun.id) || null : null,
+    daysLeft: daysBetween(now, weekEnd) + 1,
+    totalWeekly: pots.reduce((sum, p) => sum + p.weekly, 0),
+    totalAdded: pots.reduce((sum, p) => sum + Math.max(0, p.added), 0),
+  };
+}
+
+/* ---------------------------------------------------- financial freedom */
+/** Months until `balance` (growing at a real annual rate, plus `monthly` each month) reaches `target`; null if not within 100 years. */
+function monthsToFreedom(balance, monthly, realRatePercent, target) {
+  if (balance >= target) return 0;
+  const rate = realRatePercent / 100 / 12;
+  let value = balance;
+  for (let month = 1; month <= 1200; month++) {
+    value = value * (1 + rate) + monthly;
+    if (value >= target) return month;
+  }
+  return null;
+}
+/**
+ * Financial freedom = long-term investments big enough that the safe withdrawal rate covers the yearly
+ * spending you want: target = spend / withdrawal (in today's money). Uses the same assumptions as the
+ * retirement planner; growth is the real return (after fees and inflation).
+ */
+function freedomPlan(state, now) {
+  const r = state.retirement;
+  const spend = Number(r.spend) || 0;
+  const withdrawal = (Number(r.withdrawal) || 4) / 100;
+  if (!(spend > 0)) return null;
+  const target = spend / withdrawal;
+  const nominal = (Number(r.rate) || 0) - (Number(r.fees) || 0);
+  const realRate = ((1 + nominal / 100) / (1 + (Number(r.inflation) || 0) / 100) - 1) * 100;
+  const invested = Number(r.saved) || 0;
+  const monthly = Number(r.monthly) || 0;
+  const months = monthsToFreedom(invested, monthly, realRate, target);
+  const date = months === null ? null : addMonths(now, months);
+  const extraMonthly = monthly > 0 ? Math.ceil(monthly * 0.1) : 0;
+  const monthsWithExtra = extraMonthly ? monthsToFreedom(invested, monthly + extraMonthly, realRate, target) : null;
+  return {
+    target, invested, monthly, realRate, months, date,
+    progress: clamp(invested / target, 0, 1),
+    ageA: date ? ageOn(state.couple.a.birth, date) : null,
+    ageB: date ? ageOn(state.couple.b.birth, date) : null,
+    extraMonthly,
+    soonerBy: months !== null && monthsWithExtra !== null ? months - monthsWithExtra : null,
+  };
 }
 function currentStageIndex(state) {
   let index = STAGE_INDEX[state.couple.stage] ?? 0;
@@ -974,6 +1101,14 @@ function reminderSchedule(plan, now = new Date()) {
     while (at(next, 19) <= nowMs) next = new Date(next.getTime() + 7 * 864e5);
     add(at(next, 19), `Foundations week ${week}`, PROGRAM[week - 1].title, "program");
   }
+  // Weekly money mission: Sunday evening, while any pot still has a monthly plan.
+  if ((plan.funds || []).some(fund => (Number(fund.monthly) || 0) > 0)) {
+    const sunday = new Date(startOfWeek(now).getTime() + 6 * 864e5);
+    for (let i = 0; i < 4; i++) {
+      const day = new Date(sunday.getFullYear(), sunday.getMonth(), sunday.getDate() + 7 * i);
+      add(at(day, 18), "This week's money mission", `${nameA} & ${nameB}: check this week's pots on Home before the week ends.`, `money-week-${i}`);
+    }
+  }
   return list.sort((x, y) => x.at - y.at).slice(0, 60);
 }
 
@@ -1090,7 +1225,7 @@ const reminders = {
 // but no value means "removed then". So two partners editing different fields - or different steps
 // of the same goal - both keep their edit; only edits to the very same field compete.
 // Whole-record deletions leave tombstones in `_deleted` and win over older edits.
-const SYNCED_COLLECTIONS = ["milestones", "goals", "funds", "checkins", "bucket", "kids", "networth"];
+const SYNCED_COLLECTIONS = ["milestones", "goals", "funds", "contributions", "checkins", "bucket", "kids", "networth"];
 const SYNCED_SINGLETONS = ["couple", "retirement", "program"];
 const ID_LIST_FIELDS = new Set(["steps"]);
 const META_FIELDS = new Set(["_ts", "_f", "id"]);
@@ -1545,6 +1680,9 @@ function blankState() {
     schema: SCHEMA_VERSION,
     couple: { a: { name: "", birth: "" }, b: { name: "", birth: "" }, since: "", wedding: "", stage: "dating", currency: "$", retireAge: 65 },
     milestones: [], goals: [], funds: [],
+    // One record per deposit into a pot ({ id, fundId, amount, by: "a"|"b"|"both", date }). Separate records
+    // merge safely when both partners add money at the same time; a pot's balance is its `saved` plus these.
+    contributions: [],
     retirement: { saved: 0, monthly: 0, rate: 5, fees: 0.5, inflation: 2.5, spend: 0, withdrawal: 4, eduCost: 0, eduInflation: 5 },
     checkins: [], talks: {}, bucket: [], kids: [], networth: [],
     program: { started: "", done: {}, notes: {} },
@@ -1584,7 +1722,7 @@ function migrate(raw) {
   const merged = { ...base, ...raw, couple: { ...base.couple, ...(raw.couple || {}) }, retirement: { ...base.retirement, ...(raw.retirement || {}) } };
   merged.couple.a = { ...base.couple.a, ...(raw.couple?.a || {}) };
   merged.couple.b = { ...base.couple.b, ...(raw.couple?.b || {}) };
-  for (const key of ["milestones", "goals", "funds", "checkins", "bucket", "kids", "networth"]) {
+  for (const key of SYNCED_COLLECTIONS) {
     merged[key] = Array.isArray(raw[key]) ? raw[key].filter(x => x && typeof x === "object") : [];
   }
   merged.goals.forEach(goal => {
@@ -1875,7 +2013,7 @@ function viewHome() {
   const next = nextMilestone(state, now);
   const doneMilestones = state.milestones.filter(m => m.done).length;
   const goalsDone = state.goals.filter(g => goalProgress(g) === 1).length;
-  const saved = state.funds.reduce((sum, f) => sum + (Number(f.saved) || 0), 0);
+  const saved = totalSaved(state);
   const focus = focusItems(state, now);
   const todayISO = toISO(now);
   const comingUp = state.milestones.filter(m => !m.done && m.date && m.date >= todayISO).sort(byDate).slice(1, 4);
@@ -1900,6 +2038,7 @@ function viewHome() {
     <div class="journey" role="list">${STAGES.map((s, i) => `<div role="listitem" class="step ${i < stageIdx ? "done" : i === stageIdx ? "now" : ""}"><div class="dot" aria-hidden="true">${i < stageIdx ? icon("check") : i + 1}</div>${s.name}</div>`).join("")}</div>
     <p class="muted small">${STAGES[stageIdx].blurb}</p>
   </section>
+  ${weekCardHTML(now)}
   <div class="grid" style="margin-top:14px">
     <section class="card">
       <h2>This month's focus</h2>
@@ -1922,6 +2061,71 @@ function viewHome() {
       <p class="small muted" style="margin-top:12px">“The best thing to hold onto in life is each other.” — Audrey Hepburn</p>
     </section>
   </div>`;
+}
+
+/** Who is adding money on this device: remembered per device, never synced. */
+const ME_KEY_SUFFIX = ".me";
+function lastContributor() {
+  try {
+    const saved = localStorage.getItem(store.key + ME_KEY_SUFFIX);
+    return ["a", "b", "both"].includes(saved) ? saved : "both";
+  } catch (error) {
+    return "both";
+  }
+}
+function contributorSelect(label) {
+  const n = names();
+  const chosen = lastContributor();
+  return `<select name="by" aria-label="${esc(label)}" style="flex:0 1 auto;width:auto;min-width:0">
+    ${[["a", n.a], ["b", n.b], ["both", "Both"]].map(([value, text]) => `<option value="${value}" ${chosen === value ? "selected" : ""}>${esc(text)}</option>`).join("")}</select>`;
+}
+function splitLine(split, cur) {
+  const n = names();
+  const parts = [];
+  if (split.a) parts.push(`${esc(n.a)} ${esc(money(split.a, cur))}`);
+  if (split.b) parts.push(`${esc(n.b)} ${esc(money(split.b, cur))}`);
+  if (split.both) parts.push(`together ${esc(money(split.both, cur))}`);
+  return parts.join(" · ");
+}
+
+/** Home card: this week's money missions (with a per-day figure), the next goal step and a fun pick. */
+function weekCardHTML(now) {
+  const cur = state.couple.currency;
+  const plan = weeklyPlan(state, now);
+  const range = `${plan.weekStart.toLocaleDateString(undefined, { day: "numeric", month: "short" })} – ${plan.weekEnd.toLocaleDateString(undefined, { day: "numeric", month: "short" })}`;
+  const potRows = plan.pots.map(p => {
+    const share = p.weekly > 0 ? clamp(p.added / p.weekly, 0, 1) : 1;
+    const who = splitLine(p.split, cur);
+    return `<li class="week-pot">
+      <div class="spread"><div style="min-width:0"><b>${esc(p.fund.name)}</b>
+        <div class="small muted">${esc(money(p.weekly, cur))} this week · about ${esc(money(p.daily, cur))} a day${p.behind ? " · catching up" : ""}</div></div>
+        ${p.done ? '<span class="chip ok">✓ Done</span>' : `<span class="chip">${esc(money(Math.max(0, p.weekly - p.added), cur))} to go</span>`}</div>
+      <div class="bar" style="margin:6px 0" role="progressbar" aria-label="${esc(p.fund.name)} this week" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(share * 100)}"><span style="width:${share * 100}%"></span></div>
+      ${who ? `<div class="small muted">In this week: ${who}</div>` : ""}
+      ${p.done ? "" : `<form class="row" data-form="deposit" data-id="${esc(p.fund.id)}" style="margin-top:6px;flex-wrap:nowrap">
+        <input name="amount" type="number" step="any" placeholder="${esc(cur)}${esc(String(Math.round(Math.max(0, p.weekly - p.added))))}" aria-label="Add to ${esc(p.fund.name)}" style="flex:1;min-width:0">
+        ${contributorSelect(`Who is adding to ${p.fund.name}`)}<button type="submit">+ Add</button></form>`}
+    </li>`;
+  }).join("");
+  const moneyBlock = plan.pots.length
+    ? `<div class="small" style="margin-bottom:6px"><b>${esc(money(plan.totalAdded, cur))}</b> of ${esc(money(plan.totalWeekly, cur))} into your pots this week</div><ul class="clean">${potRows}</ul>`
+    : `<p class="small muted">Give a savings pot a monthly amount on the Money tab and you'll get a weekly target for it here.</p>`;
+  const stepRow = plan.step ? `<label class="step-row"><input type="checkbox" data-toggle="step" data-goal="${esc(plan.step.goal.id)}" data-id="${esc(plan.step.step.id)}">
+      <span><span class="muted">Goal step:</span> ${esc(plan.step.step.text)} <span class="muted">(${esc(plan.step.goal.title)})</span></span></label>` : "";
+  let funRow = "";
+  if (plan.fun) {
+    const pot = plan.funPot;
+    const potLine = pot ? ` · ${Math.round(fundStatus(pot, state, now).progress * 100)}% saved` : "";
+    funRow = `<div class="focus-item" style="margin-top:8px"><span class="ico">${icon("heart")}</span>
+      <div style="flex:1;min-width:0"><span class="muted small">Fun pick:</span> ${esc(plan.fun.text)}<span class="small muted">${potLine}</span>
+        <div class="small muted">Plan one small step toward it together this week.</div></div>
+      <button class="ghost small" type="button" data-act="tab" data-id="us">Go →</button></div>`;
+  }
+  return `<section class="card week-card" style="margin-top:14px">
+    <div class="spread"><h2>This week together</h2><span class="chip">${esc(range)} · ${plan.daysLeft} day${plan.daysLeft === 1 ? "" : "s"} left</span></div>
+    ${moneyBlock}
+    ${stepRow || funRow ? `<div style="margin-top:10px">${stepRow}${funRow}</div>` : ""}
+  </section>`;
 }
 
 function lifelineSVG() {
@@ -2026,13 +2230,16 @@ function goalCard(goal) {
 function viewMoney() {
   const now = ui.now;
   const cur = state.couple.currency;
-  const total = state.funds.reduce((sum, f) => sum + (Number(f.saved) || 0), 0);
+  const total = totalSaved(state);
   const monthly = state.funds.reduce((sum, f) => sum + (Number(f.monthly) || 0), 0);
   const r = state.retirement;
   const plan = retirementPlan(state, now);
   const education = educationPlans(state, now);
   const fundCards = state.funds.map(fund => {
     const s = fundStatus(fund, state, now);
+    const logged = fundContributions(fund, state).slice().sort(byDate);
+    const who = splitLine(contributionSplit(logged), cur);
+    const dream = fund.bucketId ? state.bucket.find(item => item.id === fund.bucketId) : null;
     let line;
     if (s.months === 0) line = '<span class="chip ok">Fully funded</span>';
     else if (!Number.isFinite(s.months)) line = '<span class="small muted">Add a monthly amount to see when you\'ll get there.</span>';
@@ -2044,13 +2251,19 @@ function viewMoney() {
         : `<div class="chip warn" style="margin-top:6px;white-space:normal">Needs ${esc(money(s.needed, cur))}/mo for ${esc(s.milestone.title)} (${esc(formatDate(s.milestone.date, "month"))})</div>`;
     }
     return `<article class="card">
-      <div class="spread"><div><h3>${esc(fund.name)}</h3><div class="small muted">${esc(money(fund.saved, cur))} of ${esc(money(fund.target, cur))} · ${esc(money(fund.monthly, cur))}/month</div></div>
+      <div class="spread"><div style="min-width:0"><h3>${esc(fund.name)}</h3><div class="small muted">${esc(money(s.saved, cur))} of ${esc(money(fund.target, cur))} · ${esc(money(fund.monthly, cur))}/month</div>
+        ${dream ? `<span class="chip" style="margin-top:4px;white-space:normal">${icon("heart")} For: ${esc(dream.text)}</span>` : ""}</div>
         <button type="button" class="ghost" data-act="edit-fund" data-id="${esc(fund.id)}" aria-label="Edit ${esc(fund.name)}">${icon("pencil")}</button>
         <button type="button" class="ghost" data-act="delete-fund" data-id="${esc(fund.id)}" aria-label="Delete ${esc(fund.name)}">${icon("trash")}</button></div>
       <div class="bar" style="margin:10px 0"><span style="width:${s.progress * 100}%"></span></div>
       ${line}${deadlineLine}
+      ${who ? `<div class="small muted" style="margin-top:6px">Added so far: ${who}</div>` : ""}
+      ${logged.length ? `<details class="small" style="margin-top:4px"><summary>History (${logged.length})</summary><ul class="clean">${logged.slice(-6).reverse().map(c => `<li class="spread">
+          <span>${esc(formatDate(c.date))} · ${esc(c.by === "a" || c.by === "b" ? ownerLabel(c.by) : "Together")}</span><span>${Number(c.amount) < 0 ? "−" : "+"}${esc(money(Math.abs(Number(c.amount) || 0), cur))}
+          <button type="button" class="ghost" data-act="delete-contribution" data-id="${esc(c.id)}" aria-label="Undo this ${esc(money(Math.abs(Number(c.amount) || 0), cur))} entry">${icon("close")}</button></span></li>`).join("")}</ul></details>` : ""}
       <form class="row" data-form="deposit" data-id="${esc(fund.id)}" style="margin-top:10px;flex-wrap:nowrap">
-        <input name="amount" type="number" step="any" placeholder="Add savings (${esc(cur)})" aria-label="Add savings to ${esc(fund.name)}" style="flex:1;min-width:0"><button type="submit">+ Add</button></form>
+        <input name="amount" type="number" step="any" placeholder="Add savings (${esc(cur)})" aria-label="Add savings to ${esc(fund.name)}" style="flex:1;min-width:0">
+        ${contributorSelect(`Who is adding to ${fund.name}`)}<button type="submit">+ Add</button></form>
     </article>`;
   }).join("");
   return `<div class="section-head"><div><h1>Money for our life</h1><p class="muted">Savings pots for each big moment, linked to your roadmap so you know if you're on track.</p></div>
@@ -2090,6 +2303,7 @@ function viewMoney() {
         : '<span class="muted">Add your desired yearly spending to see how much you need.</span>'}</p>
     <p class="small muted">Estimates only, using steady average returns. Real markets go up and down; tax rules differ by country. Not financial advice — check big decisions with a licensed adviser.</p>
   </div>
+  ${freedomCardHTML(now)}
   <div class="grid" style="margin-top:14px">
     <section class="card">
       <h2>Education funds</h2>
@@ -2121,6 +2335,46 @@ function viewMoney() {
       </form>
       <p class="small muted">A monthly snapshot of everything you own minus everything you owe — no bank login needed.</p>
     </section>
+  </div>`;
+}
+
+/** Money tab: the "financial freedom" number and when you'll reach it, from the retirement assumptions. */
+function freedomCardHTML(now) {
+  const cur = state.couple.currency;
+  const r = state.retirement;
+  const plan = freedomPlan(state, now);
+  const n = names();
+  const head = `<div class="section-head"><div><h2>Financial freedom</h2>
+    <p class="muted small">The point where your investments could pay for the life you want, so work becomes a choice.</p></div></div>`;
+  if (!plan) {
+    return `${head}<div class="card"><p class="small">Enter the <b>yearly spending we want</b> in Retiring together above to see your freedom number and the date you could reach it.</p></div>`;
+  }
+  const milestone = state.milestones.find(m => m.auto === "freedom");
+  const ages = [plan.ageA !== null ? `${esc(n.a)} ${plan.ageA}` : "", plan.ageB !== null ? `${esc(n.b)} ${plan.ageB}` : ""].filter(Boolean).join(" · ");
+  let when;
+  if (plan.months === 0) {
+    when = '<span class="chip ok">✓ Already there on these assumptions</span>';
+  } else if (plan.months === null) {
+    when = `<span class="chip warn" style="white-space:normal">Not reachable within 100 years at ${esc(money(plan.monthly, cur))}/month. Raise the monthly amount in Retiring together.</span>`;
+  } else {
+    when = `At ${esc(money(plan.monthly, cur))}/month you get there around <b>${esc(plan.date.toLocaleDateString(undefined, { month: "short", year: "numeric" }))}</b>
+      (${Math.round(plan.months / 12)} years${ages ? `; ${ages}` : ""}).`;
+  }
+  const lever = plan.soonerBy > 0
+    ? `<p class="small">Saving ${esc(money(plan.extraMonthly, cur))} more a month gets you there about <b>${plan.soonerBy >= 24 ? `${Math.round(plan.soonerBy / 12)} years` : `${plan.soonerBy} months`} sooner</b>.</p>` : "";
+  const button = plan.date && plan.months > 0
+    ? `<button type="button" data-act="freedom-milestone">${milestone ? "Update the date on our roadmap" : "Put it on our roadmap"}</button>` : "";
+  return `${head}<div class="card">
+    <div class="stats">
+      <div class="stat"><b>${esc(money(plan.target, cur))}</b><span class="small muted">freedom number (${esc(money(r.spend, cur))}/year ÷ ${esc(r.withdrawal)}%)</span></div>
+      <div class="stat"><b>${esc(money(plan.invested, cur))}</b><span class="small muted">invested today</span></div>
+      <div class="stat"><b>${Math.round(plan.progress * 100)}%</b><span class="small muted">of the way</span></div>
+    </div>
+    <div class="bar" style="margin:10px 0" role="progressbar" aria-label="Progress to financial freedom" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(plan.progress * 100)}"><span style="width:${plan.progress * 100}%"></span></div>
+    <p class="small">${when}</p>
+    ${lever}
+    ${button}
+    <p class="small muted">Uses your retirement savings, monthly amount and assumptions above, growing at ${esc(plan.realRate.toFixed(1))}% a year after fees and inflation. In today's money. An estimate, not financial advice.</p>
   </div>`;
 }
 
@@ -2190,10 +2444,17 @@ function viewUs() {
     <section class="card">
       <h2>Bucket list for two</h2>
       <form class="row" data-form="bucket" style="flex-wrap:nowrap;margin-bottom:10px"><input name="text" placeholder="See the northern lights…" aria-label="New bucket list item" style="flex:1;min-width:0"><button type="submit">Add</button></form>
-      ${state.bucket.length ? `<div class="bucket">${state.bucket.map(item => `<span class="item ${item.done ? "done" : ""}">
-        <span>${esc(item.text)}</span>
+      ${state.bucket.length ? `<div class="bucket">${state.bucket.map(item => {
+        const pot = state.funds.find(f => f.bucketId === item.id);
+        const potProgress = pot ? fundStatus(pot, state, ui.now).progress : 0;
+        const potTag = pot
+          ? `<span class="small muted">${potProgress >= 1 ? "· funded" : `· ${Math.round(potProgress * 100)}% saved`}</span>`
+          : item.done ? "" : `<button type="button" class="ghost small" data-act="bucket-save" data-id="${esc(item.id)}" aria-label="Start a savings pot for ${esc(item.text)}" title="Start a savings pot for this" style="white-space:nowrap">${icon("wallet")} Save</button>`;
+        return `<span class="item ${item.done ? "done" : ""}">
+        <span>${esc(item.text)}</span>${potTag}
         <button type="button" class="ghost" data-act="toggle-bucket" data-id="${esc(item.id)}" aria-label="${item.done ? "Mark not done" : "Mark done"}"><span class="tick ${item.done ? "on" : ""}">${item.done ? icon("check") : ""}</span></button>
-        <button type="button" class="ghost" data-act="delete-bucket" data-id="${esc(item.id)}" aria-label="Delete ${esc(item.text)}">${icon("close")}</button></span>`).join("")}</div>`
+        <button type="button" class="ghost" data-act="delete-bucket" data-id="${esc(item.id)}" aria-label="Delete ${esc(item.text)}">${icon("close")}</button></span>`;
+      }).join("")}</div>`
         : `<div class="empty">Dream a little: places, experiences, things to learn together.</div>`}
     </section>
   </div>
@@ -2252,7 +2513,7 @@ function printSummaryHTML() {
     </tbody></table>
     <h2>Savings</h2>
     <table><thead><tr><th>Pot</th><th>Saved</th><th>Target</th><th>Per month</th></tr></thead><tbody>
-    ${state.funds.map(f => `<tr><td>${esc(f.name)}</td><td>${esc(money(f.saved, cur))}</td><td>${esc(money(f.target, cur))}</td><td>${esc(money(f.monthly, cur))}</td></tr>`).join("")}
+    ${state.funds.map(f => `<tr><td>${esc(f.name)}</td><td>${esc(money(fundSaved(f, state), cur))}</td><td>${esc(money(f.target, cur))}</td><td>${esc(money(f.monthly, cur))}</td></tr>`).join("")}
     </tbody></table>
     <h2>What we agreed</h2>
     ${agreedTalks.length ? agreedTalks.map(t => `<p><b>${esc(t.title)}:</b> ${esc(state.talks[t.id].note || "Agreed")}</p>`).join("") : "<p>—</p>"}
@@ -2464,20 +2725,29 @@ function goalDialog(existing) {
     commit(existing ? "Goal updated" : "Goal added");
   });
 }
-function fundDialog(existing) {
-  const f = existing || { name: "", target: "", saved: 0, monthly: "", milestoneId: "" };
+/** New/edit savings pot. "Saved so far" is the pot's full balance; logged deposits are kept and the
+ *  stored starting amount absorbs the difference, so the history of who added what stays intact. */
+function fundDialog(existing, preset = {}) {
+  const f = existing || { name: "", target: "", saved: 0, monthly: "", milestoneId: "", bucketId: "", ...preset };
+  const logged = existing ? fundLogged(existing, state) : 0;
+  const balance = existing ? fundSaved(existing, state) : Number(f.saved) || 0;
   const upcoming = state.milestones.filter(m => !m.done && m.date).sort(byDate);
+  const dreams = state.bucket.filter(item => !item.done || item.id === f.bucketId);
   openDialog(existing ? "Edit savings pot" : "New savings pot", `
     <label class="field">Name<input name="name" required value="${esc(f.name)}" placeholder="e.g. Wedding"></label>
     <div class="fields-2">
       <label class="field">Target (${esc(state.couple.currency)})<input name="target" type="number" step="any" min="0" required value="${esc(f.target)}"></label>
-      <label class="field">Saved so far<input name="saved" type="number" step="any" min="0" value="${esc(f.saved)}"></label>
+      <label class="field">Saved so far<input name="saved" type="number" step="any" min="0" value="${esc(Math.round(balance * 100) / 100)}"></label>
       <label class="field">We save per month<input name="monthly" type="number" step="any" min="0" value="${esc(f.monthly)}"></label>
       <label class="field">Needed by milestone<select name="milestoneId"><option value="">— none —</option>${upcoming.map(m => `<option value="${esc(m.id)}" ${f.milestoneId === m.id ? "selected" : ""}>${esc(m.title)} (${esc(formatDate(m.date, "month"))})</option>`).join("")}</select></label>
+      ${dreams.length ? `<label class="field" style="grid-column:1/-1">For a bucket-list dream<select name="bucketId"><option value="">— none —</option>${dreams.map(item => `<option value="${esc(item.id)}" ${f.bucketId === item.id ? "selected" : ""}>${esc(item.text)}</option>`).join("")}</select></label>` : ""}
     </div>`, values => {
-    const clean = { name: values.name, milestoneId: values.milestoneId, target: Number(values.target) || 0, saved: Number(values.saved) || 0, monthly: Number(values.monthly) || 0 };
+    const clean = { name: values.name, milestoneId: values.milestoneId, bucketId: values.bucketId || "", target: Number(values.target) || 0, monthly: Number(values.monthly) || 0 };
+    const enteredBalance = Number(values.saved) || 0;
+    // Only rewrite the starting amount when the balance was actually edited (keeps partner edits mergeable).
+    if (!existing || Math.abs(enteredBalance - balance) > 0.005) clean.saved = enteredBalance - logged;
     if (existing) Object.assign(existing, clean);
-    else state.funds.push({ id: uid(), ...clean });
+    else state.funds.push({ id: uid(), saved: 0, ...clean });
     commit(existing ? "Savings pot updated" : "Savings pot added");
   });
 }
@@ -2583,7 +2853,27 @@ const actions = {
   },
   "add-fund": () => fundDialog(null),
   "edit-fund": id => fundDialog(findIn(state.funds, id)),
-  "delete-fund": id => removeFrom("funds", id, "Savings pot"),
+  "delete-fund": id => commitWithUndo("Savings pot deleted", () => {
+    state.funds = state.funds.filter(fund => fund.id !== id);
+    state.contributions = state.contributions.filter(c => c.fundId !== id);
+  }),
+  "delete-contribution": id => removeFrom("contributions", id, "Entry"),
+  "bucket-save": id => {
+    const item = findIn(state.bucket, id);
+    if (item) fundDialog(null, { name: item.text.slice(0, 60), bucketId: item.id });
+  },
+  "freedom-milestone": () => {
+    const plan = freedomPlan(state, new Date());
+    if (!plan || !plan.date || !(plan.months > 0)) return;
+    const date = toISO(plan.date);
+    const retireOn = retirementDate(state.couple);
+    const stage = retireOn && plan.date >= retireOn ? "retire" : "growth";
+    const notes = `Freedom number ${money(plan.target, state.couple.currency)} (estimate from Money → Financial freedom).`;
+    const existing = state.milestones.find(m => m.auto === "freedom");
+    if (existing) Object.assign(existing, { date, stage, notes });
+    else state.milestones.push({ id: uid(), auto: "freedom", stage, title: "Financially free", date, done: false, notes });
+    commit(existing ? "Roadmap date updated" : "Added “Financially free” to your roadmap");
+  },
   "default-funds": () => {
     for (const preset of DEFAULT_FUNDS) {
       const milestone = state.milestones.find(m => m.title === preset.milestoneTitle && !m.done);
@@ -2794,9 +3084,18 @@ const forms = {
   deposit: (values, form) => {
     const fund = findIn(state.funds, form.dataset.id);
     const amount = Number(values.amount);
-    if (!fund || !amount) return;
-    fund.saved = Math.max(0, (Number(fund.saved) || 0) + amount);
-    commit(amount > 0 ? `${money(amount, state.couple.currency)} added to ${fund.name}` : "Updated");
+    if (!fund || !amount || !Number.isFinite(amount)) return;
+    const by = ["a", "b", "both"].includes(values.by) ? values.by : "both";
+    try {
+      localStorage.setItem(store.key + ME_KEY_SUFFIX, by);
+    } catch (error) {
+      /* storage blocked: the choice just isn't remembered */
+    }
+    state.contributions.push({ id: uid(), fundId: fund.id, amount, by, date: toISO(new Date()) });
+    const reached = fundSaved(fund, state) >= (Number(fund.target) || 0) && fund.target > 0;
+    commit(amount > 0
+      ? `${money(amount, state.couple.currency)} added to ${fund.name}${reached ? " — target reached!" : ""}`
+      : `${money(-amount, state.couple.currency)} taken out of ${fund.name}`);
   },
   networth: values => {
     const assets = Number(values.assets);
@@ -2976,6 +3275,17 @@ function demoState() {
   s.checkins.push({ id: uid(), date: toISO(addMonths(now, -1)), ratingA: 4, ratingB: 5, appreciate: "You cooked every night during my deadline week.", need: "More walks without phones.", plan: "Sunday picnic at the lake" });
   s.talks = { values: { status: "agreed", note: "Honesty, family, adventure." }, money: { status: "talked", note: "" } };
   s.bucket = [{ id: uid(), text: "See the northern lights", done: false }, { id: uid(), text: "Road trip along the coast", done: true }, { id: uid(), text: "Dance at our 50th anniversary", done: false }];
+  s.funds.push({ id: uid(), name: "Northern lights trip", target: 5000, saved: 0, monthly: 150, milestoneId: "", bucketId: s.bucket[0].id });
+  const [emergency, weddingPot, , trip] = s.funds;
+  const daysAgo = days => toISO(new Date(now.getTime() - days * 864e5));
+  s.contributions = [
+    { id: uid(), fundId: weddingPot.id, amount: 200, by: "a", date: daysAgo(40) },
+    { id: uid(), fundId: weddingPot.id, amount: 150, by: "b", date: daysAgo(38) },
+    { id: uid(), fundId: trip.id, amount: 600, by: "both", date: daysAgo(30) },
+    { id: uid(), fundId: trip.id, amount: 400, by: "b", date: daysAgo(12) },
+    { id: uid(), fundId: emergency.id, amount: 50, by: "a", date: daysAgo(0) },
+    { id: uid(), fundId: weddingPot.id, amount: 80, by: "b", date: daysAgo(0) },
+  ];
   return s;
 }
 
@@ -3178,7 +3488,8 @@ async function runSelfTests() {
     kidForm.name.value = "Mo";
     kidForm.birth.value = "2029-03-03";
     kidForm.requestSubmit();
-    return state.funds[0].saved === 350 && state.kids.length === 1 && store.load().kids.length === 1 || "deposit/kid failed";
+    const logged = state.contributions.find(c => c.fundId === "f1");
+    return fundSaved(state.funds[0], state) === 350 && logged && logged.amount === 250 && state.kids.length === 1 && store.load().kids.length === 1 || "deposit/kid failed";
   });
   await test("sync: stamps changed records and tombstones deletions", () => {
     const before = migrate({ ...blankState(), goals: [{ id: "g1", title: "A", steps: [] }, { id: "g2", title: "B", steps: [] }] });
@@ -3591,6 +3902,176 @@ async function runSelfTests() {
     const ping = reminderSchedule(plan, fixedNow).find(r => r.tag === "program");
     return progress.doneCount === 2 && progress.currentWeek === 3 && !progress.finished && PROGRAM.length === 8 && ping && ping.title.includes("week 3") || JSON.stringify({ progress, ping });
   });
+
+  /* ---- shared piggy bank, weekly plan, financial freedom, bucket-list pots ---- */
+  await test("piggy bank: older plans without a deposit log load with an empty one", () => {
+    const { contributions, ...older } = blankState();
+    const loaded = migrate({ ...older, funds: [{ id: "o", name: "Old pot", target: 100, saved: 40, monthly: 0 }] });
+    return Array.isArray(loaded.contributions) && loaded.contributions.length === 0 && fundSaved(loaded.funds[0], loaded) === 40 || JSON.stringify(loaded.contributions);
+  });
+  await test("piggy bank: balance = starting amount + logged deposits, split by partner", () => {
+    const plan = migrate({ ...blankState(),
+      funds: [{ id: "p", name: "Trip", target: 1000, saved: 100, monthly: 50, milestoneId: "" }],
+      contributions: [
+        { id: "c1", fundId: "p", amount: 200, by: "a", date: "2026-01-10" },
+        { id: "c2", fundId: "p", amount: 150, by: "b", date: "2026-01-12" },
+        { id: "c3", fundId: "p", amount: -50, by: "both", date: "2026-01-13" },
+        { id: "c4", fundId: "other", amount: 999, by: "a", date: "2026-01-13" },
+      ] });
+    const fund = plan.funds[0];
+    const split = contributionSplit(fundContributions(fund, plan));
+    const status = fundStatus(fund, plan, fixedNow);
+    return fundSaved(fund, plan) === 400 && split.a === 200 && split.b === 150 && split.both === -50 &&
+      status.progress === 0.4 && status.months === 12 || JSON.stringify({ split, status });
+  });
+  await test("piggy bank: both partners depositing at the same time keep both deposits after sync", () => {
+    const base = migrate({ ...blankState(), funds: [{ id: "p", name: "Home", target: 5000, saved: 1000, monthly: 0, milestoneId: "" }] });
+    stampChanges(blankState(), base, 1);
+    const mine = JSON.parse(JSON.stringify(base));
+    const theirs = JSON.parse(JSON.stringify(base));
+    const mineBefore = JSON.parse(JSON.stringify(mine));
+    const theirsBefore = JSON.parse(JSON.stringify(theirs));
+    mine.contributions.push({ id: "cm", fundId: "p", amount: 100, by: "a", date: "2026-01-15" });
+    theirs.contributions.push({ id: "ct", fundId: "p", amount: 250, by: "b", date: "2026-01-15" });
+    stampChanges(mineBefore, mine, 10);
+    stampChanges(theirsBefore, theirs, 10);
+    const merged = mergeStates(mine, theirs, 20);
+    const undone = JSON.parse(JSON.stringify(merged));
+    undone.contributions = undone.contributions.filter(c => c.id !== "cm");
+    stampChanges(merged, undone, 30);
+    const afterUndo = mergeStates(merged, undone, 40);
+    return fundSaved(merged.funds[0], merged) === 1350 && merged.contributions.length === 2 &&
+      fundSaved(afterUndo.funds[0], afterUndo) === 1250 || JSON.stringify({ merged: merged.contributions, afterUndo: afterUndo.contributions });
+  });
+  await test("piggy bank: editing a pot's balance keeps the deposit history", () => {
+    state.funds = [{ id: "pe", name: "Car", target: 8000, saved: 500, monthly: 100, milestoneId: "" }];
+    state.contributions = [{ id: "ce", fundId: "pe", amount: 300, by: "a", date: "2026-01-02" }];
+    actions["edit-fund"]("pe");
+    const form = document.getElementById("dialog-form");
+    const shown = Number(form.saved.value);
+    form.saved.value = "1000";
+    form.requestSubmit();
+    const fund = state.funds[0];
+    const afterBalanceEdit = fund.saved;
+    actions["edit-fund"]("pe");
+    document.getElementById("dialog-form").name.value = "Our car";
+    document.getElementById("dialog-form").requestSubmit();
+    return shown === 800 && afterBalanceEdit === 700 && fundSaved(fund, state) === 1000 && fund.saved === 700 &&
+      fund.name === "Our car" && state.contributions.length === 1 || JSON.stringify({ shown, fund });
+  });
+  await test("weekly plan: weekly target = monthly × 12 / 52 and counts only this week's deposits", () => {
+    const plan = migrate({ ...blankState(),
+      funds: [
+        { id: "w1", name: "Trip", target: 10000, saved: 0, monthly: 520, milestoneId: "" },
+        { id: "w2", name: "Full", target: 100, saved: 100, monthly: 50, milestoneId: "" },
+        { id: "w3", name: "No plan", target: 100, saved: 0, monthly: 0, milestoneId: "" },
+      ],
+      contributions: [
+        { id: "x1", fundId: "w1", amount: 60, by: "a", date: "2026-01-12" },
+        { id: "x2", fundId: "w1", amount: 40, by: "b", date: "2026-01-18" },
+        { id: "x3", fundId: "w1", amount: 500, by: "a", date: "2026-01-11" },
+      ],
+      bucket: [{ id: "d1", text: "Paris", done: false }, { id: "d2", text: "Already did it", done: true }] });
+    const week = weeklyPlan(plan, fixedNow);
+    const pot = week.pots[0];
+    return week.pots.length === 1 && Math.abs(pot.weekly - 120) < 1e-9 && Math.abs(pot.daily - 120 / 7) < 1e-9 &&
+      pot.added === 100 && pot.split.a === 60 && pot.split.b === 40 && !pot.done &&
+      toISO(week.weekStart) === "2026-01-12" && toISO(week.weekEnd) === "2026-01-18" && week.daysLeft === 4 &&
+      week.fun && week.fun.id === "d1" || JSON.stringify(week);
+  });
+  await test("weekly plan: a pot behind its milestone uses the amount it really needs", () => {
+    const plan = migrate({ ...blankState(),
+      milestones: [{ id: "m1", title: "Wedding", stage: "married", date: "2027-01-15", done: false }],
+      funds: [{ id: "b1", name: "Wedding", target: 12000, saved: 0, monthly: 100, milestoneId: "m1" }] });
+    const pot = weeklyPlan(plan, fixedNow).pots[0];
+    return pot && pot.behind && Math.abs(pot.weekly - 1000 / WEEKS_PER_MONTH) < 1e-9 || JSON.stringify(pot);
+  });
+  await test("weekly plan: Sunday money-mission reminders while a pot has a monthly plan", () => {
+    const withPlan = migrate({ ...blankState(), funds: [{ id: "r1", name: "Trip", target: 1000, saved: 0, monthly: 100 }] });
+    const tags = reminderSchedule(withPlan, fixedNow).filter(r => r.tag.startsWith("money-week-"));
+    const firstDay = tags.length ? new Date(tags[0].at) : null;
+    const none = reminderSchedule(migrate(blankState()), fixedNow).some(r => r.tag.startsWith("money-week-"));
+    return tags.length === 4 && firstDay.getDay() === 0 && toISO(firstDay) === "2026-01-18" && firstDay.getHours() === 18 && !none || JSON.stringify(tags);
+  });
+  await test("financial freedom: target = yearly spending ÷ withdrawal rate; date matches a direct simulation", () => {
+    const base = blankState();
+    const plan = migrate({ ...base,
+      couple: { ...base.couple, a: { name: "A", birth: "1996-03-10" }, b: { name: "B", birth: "1994-11-02" } },
+      retirement: { ...base.retirement, saved: 100000, monthly: 2000, rate: 6, fees: 0, inflation: 2, spend: 40000, withdrawal: 4 } });
+    const fi = freedomPlan(plan, fixedNow);
+    const monthlyRate = (1.06 / 1.02 - 1) / 12;
+    let value = 100000;
+    let months = 0;
+    while (value < 1e6) {
+      value = value * (1 + monthlyRate) + 2000;
+      months += 1;
+    }
+    const free = freedomPlan(migrate({ ...plan, retirement: { ...plan.retirement, saved: 2e6 } }), fixedNow);
+    const stuck = freedomPlan(migrate({ ...plan, retirement: { ...plan.retirement, saved: 0, monthly: 0 } }), fixedNow);
+    const unset = freedomPlan(migrate({ ...plan, retirement: { ...plan.retirement, spend: 0 } }), fixedNow);
+    return Math.abs(fi.target - 1e6) < 1e-6 && fi.months === months && fi.ageA === ageOn("1996-03-10", fi.date) &&
+      fi.soonerBy > 0 && free.months === 0 && stuck.months === null && unset === null || JSON.stringify({ fi, months, free, stuck });
+  });
+  await test("financial freedom: roadmap milestone is added once, then its date is updated", () => {
+    state.retirement = { ...state.retirement, saved: 50000, monthly: 1500, rate: 5, fees: 0.5, inflation: 2.5, spend: 30000, withdrawal: 4 };
+    actions["freedom-milestone"]();
+    const firstDate = (state.milestones.find(m => m.auto === "freedom") || {}).date;
+    state.retirement = { ...state.retirement, monthly: 3000 };
+    actions["freedom-milestone"]();
+    const all = state.milestones.filter(m => m.auto === "freedom");
+    return firstDate && all.length === 1 && all[0].date < firstDate && all[0].title === "Financially free" || JSON.stringify({ firstDate, all });
+  });
+  await test("e2e bucket dream → linked savings pot shows its progress on the bucket list", () => {
+    state.bucket = [{ id: "bk", text: "Safari in Kenya", done: false }];
+    state.funds = [];
+    state.contributions = [];
+    actions.tab("us");
+    const start = document.querySelector('[data-act="bucket-save"][data-id="bk"]');
+    if (!start) return "no Save for it button";
+    start.click();
+    const form = document.getElementById("dialog-form");
+    if (form.name.value !== "Safari in Kenya" || form.bucketId.value !== "bk") return "dialog not prefilled";
+    form.target.value = "4000";
+    form.saved.value = "1000";
+    form.requestSubmit();
+    actions.tab("us");
+    const tag = document.querySelector(".bucket .item").textContent;
+    const pot = state.funds[0];
+    actions.tab("money");
+    const chip = document.getElementById("view").textContent.includes("For: Safari in Kenya");
+    return pot && pot.bucketId === "bk" && tag.includes("25% saved") && chip && !document.querySelector('[data-act="bucket-save"]') || tag;
+  });
+  await test("e2e home weekly card: add money with who added it, progress updates", () => {
+    state.funds = [{ id: "hw", name: "Holiday", target: 5000, saved: 0, monthly: 520, milestoneId: "" }];
+    state.contributions = [];
+    actions.tab("home");
+    const form = document.querySelector('.week-card [data-form="deposit"][data-id="hw"]');
+    if (!form) return "no weekly deposit form";
+    form.amount.value = "70";
+    form.by.value = "b";
+    form.requestSubmit();
+    const entry = state.contributions[0];
+    const card = document.querySelector(".week-card").textContent;
+    const remembered = localStorage.getItem(store.key + ME_KEY_SUFFIX);
+    return entry && entry.by === "b" && entry.amount === 70 && entry.date === toISO(new Date()) && card.includes("In this week:") && remembered === "b" || card;
+  });
+  await test("xss: pot names, bucket dreams and the weekly card render as text", () => {
+    const evil = '<img src=x onerror="window.__xss=1">';
+    state.bucket = [{ id: "ev", text: evil, done: false }];
+    state.funds = [{ id: "fe", name: evil, target: 900, saved: 0, monthly: 300, milestoneId: "", bucketId: "ev" }];
+    state.contributions = [{ id: "ce", fundId: "fe", amount: 10, by: "a", date: toISO(new Date()) }];
+    state.goals = [{ id: "ge", title: evil, category: "love", owner: "both", due: "", notes: "", done: false, steps: [{ id: "se", text: evil, done: false }] }];
+    let injected = 0;
+    for (const tab of ["home", "money", "us"]) {
+      actions.tab(tab);
+      injected += document.querySelectorAll("#view img").length;
+    }
+    actions["bucket-save"]("ev");
+    injected += document.querySelectorAll("#dialog img").length;
+    document.getElementById("dialog").close();
+    return injected === 0 && !window.__xss || `injected ${injected}`;
+  });
+  localStorage.removeItem(store.key + ME_KEY_SUFFIX);
   if (params.has("cloud")) {
     await test("cloud: live encrypted sync between two phones via the deployed worker", async () => {
       const { a, b, result } = await twoDeviceScenario(CLOUD_URL, (...args) => fetch(...args));
