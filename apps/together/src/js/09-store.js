@@ -7,7 +7,11 @@ function blankState() {
     // One record per deposit into a pot ({ id, fundId, amount, by: "a"|"b"|"both", date }). Separate records
     // merge safely when both partners add money at the same time; a pot's balance is its `saved` plus these.
     contributions: [],
-    retirement: { saved: 0, monthly: 0, rate: 5, fees: 0.5, inflation: 2.5, spend: 0, withdrawal: 4, eduCost: 0, eduInflation: 5 },
+    debts: [], challenges: [], dates: [],
+    // Shared money settings. incomeA/B = monthly take-home pay; splitMode "equal" | "income";
+    // debtMethod "avalanche" | "snowball"; debtExtra and funMonthly per month.
+    retirement: { saved: 0, monthly: 0, rate: 5, fees: 0.5, inflation: 2.5, spend: 0, withdrawal: 4, eduCost: 0, eduInflation: 5,
+      incomeA: 0, incomeB: 0, splitMode: "equal", debtExtra: 0, debtMethod: "avalanche", funMonthly: 0 },
     checkins: [], talks: {}, bucket: [], kids: [], networth: [],
     program: { started: "", done: {}, notes: {} },
     _deleted: {},

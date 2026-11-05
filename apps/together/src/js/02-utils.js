@@ -58,6 +58,8 @@ function relativeTime(text, now) {
 }
 function money(amount, currency) {
   const rounded = Math.round(Number(amount) || 0);
+  // Rupiah reads as "Rp 1.500.000" whatever the phone's language is.
+  if (/^\s*(rp\.?|idr)\s*$/i.test(String(currency ?? ""))) return `Rp ${rounded.toLocaleString("id-ID")}`;
   return `${currency}${rounded.toLocaleString()}`;
 }
 function clamp(value, min, max) {

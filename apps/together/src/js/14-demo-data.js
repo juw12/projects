@@ -24,7 +24,7 @@ function demoState() {
   ];
   s.retirement = { ...s.retirement, saved: 22000, monthly: 600, rate: 5 };
   s.lastBackupAt = new Date(now.getTime() - 10 * 864e5).toISOString();
-  s.retirement = { ...s.retirement, spend: 45000, eduCost: 60000 };
+  s.retirement = { ...s.retirement, spend: 45000, eduCost: 60000, incomeA: 4200, incomeB: 3300, splitMode: "income", debtExtra: 150, debtMethod: "avalanche", funMonthly: 250 };
   s.kids = [{ id: uid(), name: "Baby (due)", birth: toISO(addMonths(now, 30)) }];
   s.program = { started: toISO(new Date(now.getTime() - 15 * 864e5)), done: { 1: toISO(new Date(now.getTime() - 14 * 864e5)), 2: toISO(new Date(now.getTime() - 6 * 864e5)) }, notes: { 1: "Leo is more stressed about his dad's health than I knew." } };
   s.networth = [-6, -4, -2, 0].map((offset, i) => ({ id: uid(), date: toISO(addMonths(now, offset)), assets: 41000 + i * 3200, debts: 14000 - i * 1500 }));
@@ -33,7 +33,8 @@ function demoState() {
     appreciate: "", need: "", plan: "" }));
   s.checkins.push({ id: uid(), date: toISO(addMonths(now, -1)), ratingA: 4, ratingB: 5, appreciate: "You cooked every night during my deadline week.", need: "More walks without phones.", plan: "Sunday picnic at the lake" });
   s.talks = { values: { status: "agreed", note: "Honesty, family, adventure." }, money: { status: "talked", note: "" } };
-  s.bucket = [{ id: uid(), text: "See the northern lights", done: false }, { id: uid(), text: "Road trip along the coast", done: true }, { id: uid(), text: "Dance at our 50th anniversary", done: false }];
+  s.bucket = [{ id: uid(), text: "See the northern lights", done: false }, { id: uid(), text: "Road trip along the coast", done: true }, { id: uid(), text: "Dance at our 50th anniversary", done: false },
+    { id: uid(), text: "Cooking class for two", done: false, cost: 90 }];
   s.funds.push({ id: uid(), name: "Northern lights trip", target: 5000, saved: 0, monthly: 150, milestoneId: "", bucketId: s.bucket[0].id });
   const [emergency, weddingPot, , trip] = s.funds;
   const daysAgo = days => toISO(new Date(now.getTime() - days * 864e5));
@@ -44,6 +45,18 @@ function demoState() {
     { id: uid(), fundId: trip.id, amount: 400, by: "b", date: daysAgo(12) },
     { id: uid(), fundId: emergency.id, amount: 50, by: "a", date: daysAgo(0) },
     { id: uid(), fundId: weddingPot.id, amount: 80, by: "b", date: daysAgo(0) },
+    { id: uid(), fundId: emergency.id, amount: 120, by: "both", date: daysAgo(7) },
+    { id: uid(), fundId: weddingPot.id, amount: 260, by: "a", date: daysAgo(8) },
+    { id: uid(), fundId: trip.id, amount: 100, by: "b", date: daysAgo(9) },
+  ];
+  s.debts = [
+    { id: uid(), name: "Leo's car loan", balance: 6400, rate: 7.5, minimum: 210 },
+    { id: uid(), name: "Credit card", balance: 1800, rate: 22, minimum: 55 },
+  ];
+  s.challenges = [{ id: uid(), kind: "52week", fundId: trip.id, unit: 2, started: daysAgo(15), ticks: { 1: daysAgo(14), 2: daysAgo(7) } }];
+  s.dates = [
+    { id: uid(), date: daysAgo(3), text: "Picnic in the park", cost: 18 },
+    { id: uid(), date: daysAgo(20), text: "Karaoke night", cost: 45 },
   ];
   return s;
 }

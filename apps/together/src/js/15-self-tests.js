@@ -780,6 +780,190 @@ async function runSelfTests() {
     document.getElementById("dialog").close();
     return injected === 0 && !window.__xss || `injected ${injected}`;
   });
+
+  /* ---- debts, savings rate, fair split, streaks, challenges, dates, Mint, Rupiah ---- */
+  await test("amounts: Rupiah shorthand and separators parse correctly", () => {
+    const cases = { "25k": 25000, "250rb": 250000, "1,5jt": 1.5e6, "2 juta": 2e6, "Rp 25.000": 25000, "Rp1.500.000": 1.5e6,
+      "12.50": 12.5, "12,5": 12.5, "1,250.50": 1250.5, "1.250,50": 1250.5, "-30": -30, "300": 300 };
+    const wrong = Object.entries(cases).filter(([input, expected]) => Math.abs(parseTypedAmount(input) - expected) > 1e-9);
+    return !wrong.length && Number.isNaN(parseTypedAmount("abc")) && Number.isNaN(parseTypedAmount("")) || JSON.stringify(wrong.map(([i]) => [i, parseTypedAmount(i)]));
+  });
+  await test("amounts: Rupiah is shown as Rp 1.500.000", () =>
+    money(1500000, "Rp") === "Rp 1.500.000" && money(2500, "IDR") === "Rp 2.500" || `${money(1500000, "Rp")} | ${money(2500, "IDR")}`);
+  await test("debts: snowball pays the smallest first and rolls its payment into the next debt", () => {
+    const debts = [{ id: "A", balance: 300, rate: 0, minimum: 50 }, { id: "B", balance: 1000, rate: 0, minimum: 50 }];
+    const plan = simulateDebts(debts, 100, "snowball");
+    return plan.feasible && plan.payoff.A === 2 && plan.payoff.B === 7 && plan.months === 7 && plan.totalInterest === 0 && plan.budget === 200 || JSON.stringify(plan);
+  });
+  await test("debts: avalanche pays less interest than snowball; minimums below interest never clear", () => {
+    const debts = [{ id: "A", balance: 300, rate: 5, minimum: 50 }, { id: "B", balance: 1000, rate: 20, minimum: 50 }];
+    const avalanche = simulateDebts(debts, 100, "avalanche");
+    const snowball = simulateDebts(debts, 100, "snowball");
+    const stuck = simulateDebts([{ id: "C", balance: 10000, rate: 24, minimum: 100 }], 0, "avalanche");
+    return avalanche.totalInterest < snowball.totalInterest && snowball.payoff.A < avalanche.payoff.A && !stuck.feasible && stuck.months === null ||
+      JSON.stringify({ avalanche, snowball, stuck: stuck.months });
+  });
+  await test("debts: freedom comes sooner once debt payments move into investing", () => {
+    const base = blankState();
+    const plan = migrate({ ...base,
+      retirement: { ...base.retirement, saved: 20000, monthly: 800, rate: 6, fees: 0, inflation: 2, spend: 30000, withdrawal: 4, debtExtra: 200 },
+      debts: [{ id: "d", name: "Car", balance: 8000, rate: 6, minimum: 300 }] });
+    const fi = freedomPlan(plan, fixedNow);
+    const debts = debtPlan(plan, fixedNow);
+    return fi.afterDebts && fi.afterDebts.amount === 500 && fi.afterDebts.months < fi.months && debts.months > 0 && toISO(fi.afterDebts.debtFreeDate) === toISO(debts.date) ||
+      JSON.stringify({ fi: fi.months, after: fi.afterDebts, debts: debts.months });
+  });
+  await test("savings rate: years to freedom match a direct simulation and fall as the rate rises", () => {
+    const base = blankState();
+    const plan = migrate({ ...base,
+      retirement: { ...base.retirement, saved: 0, monthly: 500, rate: 5, fees: 0, inflation: 0, withdrawal: 4, incomeA: 3000, incomeB: 2000 },
+      funds: [{ id: "p", name: "Trip", target: 9000, saved: 0, monthly: 500 }] });
+    const result = savingsRatePlan(plan);
+    let value = 0;
+    let months = 0;
+    while (value < 5000 * 0.5 * 12 / 0.04) {
+      value = value * (1 + 0.05 / 12) + 2500;
+      months += 1;
+    }
+    const half = result.rows.find(row => row.rate === 0.5);
+    const falling = result.rows.every((row, i) => i === 0 || row.years < result.rows[i - 1].years);
+    return Math.abs(result.currentRate - 0.2) < 1e-9 && Math.abs(half.years - months / 12) < 1e-9 && falling && savingsRatePlan(migrate(blankState())) === null ||
+      JSON.stringify({ result, months });
+  });
+  await test("fair split: weekly targets follow income, and 'together' deposits count half each", () => {
+    const base = blankState();
+    const plan = migrate({ ...base,
+      retirement: { ...base.retirement, incomeA: 6000, incomeB: 4000, splitMode: "income" },
+      funds: [{ id: "s1", name: "Trip", target: 10000, saved: 0, monthly: 520 }],
+      contributions: [{ id: "k1", fundId: "s1", amount: 40, by: "both", date: "2026-01-13" }, { id: "k2", fundId: "s1", amount: 30, by: "a", date: "2026-01-14" }] });
+    const pot = weeklyPlan(plan, fixedNow).pots[0];
+    const equal = weeklyPlan(migrate({ ...plan, retirement: { ...plan.retirement, splitMode: "equal" } }), fixedNow).pots[0];
+    return Math.abs(pot.targets.a - 72) < 1e-9 && Math.abs(pot.targets.b - 48) < 1e-9 && pot.byPartner.a === 50 && pot.byPartner.b === 20 &&
+      Math.abs(equal.targets.a - 60) < 1e-9 || JSON.stringify({ targets: pot.targets, byPartner: pot.byPartner });
+  });
+  await test("streak: counts consecutive weeks that hit the combined target, including this week once done", () => {
+    const plan = migrate({ ...blankState(),
+      funds: [{ id: "t1", name: "Trip", target: 100000, saved: 0, monthly: 520 }],
+      contributions: [
+        { id: "e1", fundId: "t1", amount: 130, by: "a", date: "2026-01-07" },
+        { id: "e2", fundId: "t1", amount: 125, by: "b", date: "2026-01-02" },
+        { id: "e3", fundId: "t1", amount: 50, by: "a", date: "2025-12-24" },
+      ] });
+    const before = savingStreak(plan, fixedNow);
+    plan.contributions.push({ id: "e4", fundId: "t1", amount: 120, by: "both", date: "2026-01-15" });
+    const after = savingStreak(plan, fixedNow);
+    return before.weeks === 2 && !before.thisWeekDone && after.weeks === 3 && after.thisWeekDone || JSON.stringify({ before, after });
+  });
+  await test("challenges: 52-week steps grow weekly; a tick adds that week's amount to the pot once", () => {
+    const status = challengeStatus({ kind: "52week", unit: 10, started: "2026-01-01", ticks: {} }, fixedNow);
+    state.funds = [{ id: "cf", name: "Trip", target: 50000, saved: 0, monthly: 0, milestoneId: "" }];
+    state.contributions = [];
+    state.challenges = [{ id: "ch1", kind: "52week", fundId: "cf", unit: 10, started: toISO(new Date()), ticks: {} }];
+    actions["challenge-tick"]("ch1");
+    actions["challenge-tick"]("ch1");
+    const logged = state.contributions.filter(c => c.fundId === "cf");
+    return status.step === 3 && status.amount === 30 && status.goal === 13780 && logged.length === 1 && logged[0].amount === 10 &&
+      state.challenges[0].ticks[1] && fundSaved(state.funds[0], state) === 10 || JSON.stringify({ status, logged });
+  });
+  await test("date nights: fun money left this month and an affordable bucket-list idea", () => {
+    const base = blankState();
+    const plan = migrate({ ...base,
+      retirement: { ...base.retirement, funMonthly: 200 },
+      dates: [{ id: "dn1", date: "2026-01-03", text: "Movie", cost: 50 }, { id: "dn2", date: "2025-12-20", text: "Old", cost: 500 }],
+      bucket: [{ id: "bb1", text: "Hot-air balloon", done: false, cost: 900 }, { id: "bb2", text: "Cooking class", done: false, cost: 100 }] });
+    const fun = funPlan(plan, fixedNow);
+    const noBudget = funPlan(migrate(blankState()), fixedNow);
+    return fun.spent === 50 && fun.left === 150 && fun.idea.text === "Cooking class" && fun.idea.bucketId === "bb2" && DATE_IDEAS.includes(noBudget.idea.text) ||
+      JSON.stringify({ fun, noBudget });
+  });
+  await test("e2e date night: 'We did it' logs the date and can tick off the bucket list", () => {
+    state.retirement = { ...state.retirement, funMonthly: 300 };
+    state.dates = [];
+    state.bucket = [{ id: "bd", text: "Salsa lesson", done: false, cost: 60 }];
+    actions["date-done"]();
+    const form = document.getElementById("dialog-form");
+    const prefilled = form.text.value === "Salsa lesson" && form.tickBucket && form.tickBucket.checked;
+    form.cost.value = "55";
+    form.requestSubmit();
+    return prefilled && state.dates.length === 1 && state.dates[0].cost === 55 && state.bucket[0].done && funPlan(state, new Date()).left === 245 || JSON.stringify(state.dates);
+  });
+  await test("e2e debts: add a debt in the dialog, switch to snowball through the real form", () => {
+    state.debts = [];
+    actions.tab("money");
+    document.querySelector('[data-act="add-debt"]').click();
+    const form = document.getElementById("dialog-form");
+    form.name.value = "Card";
+    form.balance.value = "2.500";
+    form.rate.value = "18";
+    form.minimum.value = "100";
+    form.requestSubmit();
+    const select = document.querySelector('[data-form="retirement"] [name="debtMethod"]');
+    select.value = "snowball";
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+    const split = document.querySelector('[data-form="retirement"] [name="splitMode"]');
+    split.value = "income";
+    split.dispatchEvent(new Event("change", { bubbles: true }));
+    const debt = state.debts[0];
+    return debt && debt.balance === 2500 && debt.rate === 18 && debt.minimum === 100 && state.retirement.debtMethod === "snowball" &&
+      state.retirement.splitMode === "income" && document.getElementById("view").textContent.includes("Debt-free around") || JSON.stringify({ debt, r: state.retirement });
+  });
+  const mintFixture = () => {
+    const book = {
+      meta: { name: "Rumah", currency: "IDR" },
+      incomes: { i1: { id: "i1", amount: 10000000, freq: "monthly" } },
+      categories: { c1: { id: "c1", group: "needs" }, c2: { id: "c2", group: "savings" } },
+      txns: {
+        t1: { id: "t1", date: "2025-11-05", amount: 4000000, cat: "c1" },
+        t2: { id: "t2", date: "2025-11-20", amount: 1000000, cat: "c2" },
+        t3: { id: "t3", date: "2025-12-05", amount: 6000000, cat: "c1" },
+        t4: { id: "t4", date: "2025-12-10", amount: 2000000, cat: "c2" },
+        t5: { id: "t5", date: "2025-12-11", amount: 9e9, cat: "c1", _del: true },
+        t6: { id: "t6", date: "2026-01-02", amount: 1000000, cat: "c1" },
+      },
+    };
+    const items = { "mint.budget.books": JSON.stringify([{ id: "bk1", name: "Rumah" }]), "mint.budget.book.bk1": JSON.stringify(book) };
+    return { getItem: key => (key in items ? items[key] : null) };
+  };
+  await test("mint: reads budgets from this browser and averages the last complete months", () => {
+    const books = readMintBooks(mintFixture());
+    const summary = summarizeMintBook(books[0].book, fixedNow);
+    const broken = readMintBooks({ getItem: () => "{not json" });
+    return books.length === 1 && summary.months === 2 && summary.spent === 5e6 && summary.saved === 1.5e6 && summary.income === 1e7 &&
+      summary.currency === "IDR" && broken.length === 0 || JSON.stringify(summary);
+  });
+  await test("e2e mint: 'Use spending' sets the freedom number's yearly spending", () => {
+    ui.mintStorage = mintFixture();
+    ui.now = fixedNow;
+    actions.tab("money");
+    const button = document.querySelector('[data-act="mint-spend"]');
+    if (!button) return "no Mint card button";
+    button.click();
+    const spend = state.retirement.spend;
+    ui.mintStorage = null;
+    ui.now = new Date();
+    return spend === 6e7 || `spend ${spend}`;
+  });
+  await test("xss: debts, dates, challenges and Mint names render as text", () => {
+    const evil = '<img src=x onerror="window.__xss=1">';
+    state.funds = [{ id: "fx", name: evil, target: 900, saved: 0, monthly: 300, milestoneId: "" }];
+    state.debts = [{ id: "dx", name: evil, balance: 500, rate: 10, minimum: 50 }];
+    state.dates = [{ id: "tx", date: toISO(new Date()), text: evil, cost: 5 }];
+    state.challenges = [{ id: "cx", kind: "nospend", fundId: "fx", unit: 20, started: toISO(new Date()), ticks: {} }];
+    state.bucket = [{ id: "bx", text: evil, done: false, cost: 1 }];
+    ui.mintStorage = { getItem: key => key === "mint.budget.books" ? JSON.stringify([{ id: "m" }]) : key === "mint.budget.book.m" ? JSON.stringify({ meta: { name: evil, currency: evil }, txns: {} }) : null };
+    let injected = 0;
+    for (const tab of ["home", "money", "us"]) {
+      actions.tab(tab);
+      injected += document.querySelectorAll("#view img").length;
+    }
+    for (const open of [() => actions["edit-debt"]("dx"), () => actions["date-done"](), () => actions["add-challenge"]()]) {
+      open();
+      injected += document.querySelectorAll("#dialog img").length;
+      document.getElementById("dialog").close();
+    }
+    ui.mintStorage = null;
+    return injected === 0 && !window.__xss || `injected ${injected}`;
+  });
   localStorage.removeItem(store.key + ME_KEY_SUFFIX);
   if (params.has("cloud")) {
     await test("cloud: live encrypted sync between two phones via the deployed worker", async () => {

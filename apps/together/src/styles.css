@@ -115,8 +115,16 @@
   .bucket .item { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); border-radius: 99px; padding: 4px 6px 4px 12px; background: var(--card); max-width: 100%; }
   .bucket .item.done { background: var(--bg); color: var(--muted); }
   .bucket .item.done span { text-decoration: line-through; }
+.week-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 10px; margin-bottom: 4px; }
+.week-head h2 { margin: 0; white-space: nowrap; }
+.week-chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .week-pot { padding: 10px 0; border-top: 1px solid var(--line); }
 .week-pot:first-child { border-top: 0; padding-top: 2px; }
+.rate-table { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 6px; margin: 10px 0; }
+.rate-row { display: flex; justify-content: space-between; gap: 8px; padding: 6px 10px; border: 1px solid var(--line); border-radius: 8px; font-size: .86rem; }
+.rate-row.now { border-color: var(--rose); background: var(--rose-soft); }
+.debt-row { padding: 8px 0; border-top: 1px solid var(--line); }
+.debt-row:first-child { border-top: 0; }
   .empty { text-align: center; padding: 24px 16px; color: var(--muted); border: 1px dashed var(--line-strong); border-radius: var(--radius); }
   dialog { border: 1px solid var(--line); border-radius: 14px; padding: 0; width: min(560px, calc(100vw - 24px)); background: var(--card); color: var(--ink); box-shadow: 0 24px 64px rgba(0,0,0,.24); }
   dialog::backdrop { background: rgba(12, 9, 10, .5); }

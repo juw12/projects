@@ -27,7 +27,8 @@ function viewUs() {
     </section>
     <section class="card">
       <h2>Bucket list for two</h2>
-      <form class="row" data-form="bucket" style="flex-wrap:nowrap;margin-bottom:10px"><input name="text" placeholder="See the northern lights…" aria-label="New bucket list item" style="flex:1;min-width:0"><button type="submit">Add</button></form>
+      <form class="row" data-form="bucket" style="flex-wrap:nowrap;margin-bottom:10px"><input name="text" placeholder="See the northern lights…" aria-label="New bucket list item" style="flex:1;min-width:0">
+        ${amountInput("cost", "Rough cost (optional)", { style: "flex:0 1 110px;min-width:0", placeholder: "Cost" })}<button type="submit">Add</button></form>
       ${state.bucket.length ? `<div class="bucket">${state.bucket.map(item => {
         const pot = state.funds.find(f => f.bucketId === item.id);
         const potProgress = pot ? fundStatus(pot, state, ui.now).progress : 0;
@@ -35,12 +36,13 @@ function viewUs() {
           ? `<span class="small muted">${potProgress >= 1 ? "· funded" : `· ${Math.round(potProgress * 100)}% saved`}</span>`
           : item.done ? "" : `<button type="button" class="ghost small" data-act="bucket-save" data-id="${esc(item.id)}" aria-label="Start a savings pot for ${esc(item.text)}" title="Start a savings pot for this" style="white-space:nowrap">${icon("wallet")} Save</button>`;
         return `<span class="item ${item.done ? "done" : ""}">
-        <span>${esc(item.text)}</span>${potTag}
+        <span>${esc(item.text)}</span>${Number(item.cost) > 0 ? `<span class="small muted">~${esc(money(item.cost, state.couple.currency))}</span>` : ""}${potTag}
         <button type="button" class="ghost" data-act="toggle-bucket" data-id="${esc(item.id)}" aria-label="${item.done ? "Mark not done" : "Mark done"}"><span class="tick ${item.done ? "on" : ""}">${item.done ? icon("check") : ""}</span></button>
         <button type="button" class="ghost" data-act="delete-bucket" data-id="${esc(item.id)}" aria-label="Delete ${esc(item.text)}">${icon("close")}</button></span>`;
       }).join("")}</div>`
         : `<div class="empty">Dream a little: places, experiences, things to learn together.</div>`}
     </section>
+    ${dateNightsHTML()}
   </div>
   <div class="section-head"><div><h2>Talk before you decide</h2><p class="muted small">Conversations that strong couples have before life forces them. ${agreed}/${TALKS.length} agreed.</p></div></div>
   ${STAGES.map((stage, index) => {

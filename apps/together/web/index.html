@@ -147,8 +147,16 @@
   .bucket .item { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); border-radius: 99px; padding: 4px 6px 4px 12px; background: var(--card); max-width: 100%; }
   .bucket .item.done { background: var(--bg); color: var(--muted); }
   .bucket .item.done span { text-decoration: line-through; }
+.week-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 10px; margin-bottom: 4px; }
+.week-head h2 { margin: 0; white-space: nowrap; }
+.week-chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .week-pot { padding: 10px 0; border-top: 1px solid var(--line); }
 .week-pot:first-child { border-top: 0; padding-top: 2px; }
+.rate-table { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 6px; margin: 10px 0; }
+.rate-row { display: flex; justify-content: space-between; gap: 8px; padding: 6px 10px; border: 1px solid var(--line); border-radius: 8px; font-size: .86rem; }
+.rate-row.now { border-color: var(--rose); background: var(--rose-soft); }
+.debt-row { padding: 8px 0; border-top: 1px solid var(--line); }
+.debt-row:first-child { border-top: 0; }
   .empty { text-align: center; padding: 24px 16px; color: var(--muted); border: 1px dashed var(--line-strong); border-radius: var(--radius); }
   dialog { border: 1px solid var(--line); border-radius: 14px; padding: 0; width: min(560px, calc(100vw - 24px)); background: var(--card); color: var(--ink); box-shadow: 0 24px 64px rgba(0,0,0,.24); }
   dialog::backdrop { background: rgba(12, 9, 10, .5); }
@@ -432,6 +440,8 @@ function relativeTime(text, now) {
 }
 function money(amount, currency) {
   const rounded = Math.round(Number(amount) || 0);
+  // Rupiah reads as "Rp 1.500.000" whatever the phone's language is.
+  if (/^\s*(rp\.?|idr)\s*$/i.test(String(currency ?? ""))) return `Rp ${rounded.toLocaleString("id-ID")}`;
   return `${currency}${rounded.toLocaleString()}`;
 }
 function clamp(value, min, max) {
@@ -628,6 +638,7 @@ function weeklyPlan(state, now) {
   const weekEnd = new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate() + 6);
   const fromISO = toISO(weekStart);
   const toISODate = toISO(weekEnd);
+  const shares = partnerShares(state);
   const pots = [];
   for (const fund of state.funds) {
     const status = fundStatus(fund, state, now);
@@ -638,7 +649,12 @@ function weeklyPlan(state, now) {
     const weekly = Math.min(monthly / WEEKS_PER_MONTH, remaining);
     const thisWeek = fundContributions(fund, state).filter(c => c.date >= fromISO && c.date <= toISODate);
     const added = thisWeek.reduce((sum, c) => sum + (Number(c.amount) || 0), 0);
-    pots.push({ fund, weekly, daily: weekly / 7, added, split: contributionSplit(thisWeek), done: added >= weekly - 0.5, behind: status.onTrack === false, status });
+    const split = contributionSplit(thisWeek);
+    pots.push({
+      fund, weekly, daily: weekly / 7, added, split, done: added >= weekly - 0.5, behind: status.onTrack === false, status,
+      targets: { a: weekly * shares.a, b: weekly * shares.b },
+      byPartner: perPartner(split),
+    });
   }
   let step = null;
   for (const goal of state.goals.slice().sort((x, y) => (x.due || "9999").localeCompare(y.due || "9999"))) {
@@ -653,7 +669,7 @@ function weeklyPlan(state, now) {
   const pool = withPot.length ? withPot : dreams;
   const fun = pool.length ? pool[isoWeekNumber(now) % pool.length] : null;
   return {
-    weekStart, weekEnd, pots, step, fun,
+    weekStart, weekEnd, pots, step, fun, shares,
     funPot: fun ? state.funds.find(f => f.bucketId === fun.id) || null : null,
     daysLeft: daysBetween(now, weekEnd) + 1,
     totalWeekly: pots.reduce((sum, p) => sum + p.weekly, 0),
@@ -662,13 +678,15 @@ function weeklyPlan(state, now) {
 }
 
 /* ---------------------------------------------------- financial freedom */
-/** Months until `balance` (growing at a real annual rate, plus `monthly` each month) reaches `target`; null if not within 100 years. */
-function monthsToFreedom(balance, monthly, realRatePercent, target) {
+/** Months until `balance` (growing at a real annual rate, plus `monthly` each month) reaches `target`;
+ *  null if not within 100 years. `boost` adds `amount` per month from `fromMonth` on (e.g. after debts are paid). */
+function monthsToFreedom(balance, monthly, realRatePercent, target, boost = null) {
   if (balance >= target) return 0;
   const rate = realRatePercent / 100 / 12;
   let value = balance;
   for (let month = 1; month <= 1200; month++) {
-    value = value * (1 + rate) + monthly;
+    const extra = boost && month > boost.fromMonth ? boost.amount : 0;
+    value = value * (1 + rate) + monthly + extra;
     if (value >= target) return month;
   }
   return null;
@@ -684,16 +702,22 @@ function freedomPlan(state, now) {
   const withdrawal = (Number(r.withdrawal) || 4) / 100;
   if (!(spend > 0)) return null;
   const target = spend / withdrawal;
-  const nominal = (Number(r.rate) || 0) - (Number(r.fees) || 0);
-  const realRate = ((1 + nominal / 100) / (1 + (Number(r.inflation) || 0) / 100) - 1) * 100;
+  const realRate = realReturnPercent(r);
   const invested = Number(r.saved) || 0;
   const monthly = Number(r.monthly) || 0;
   const months = monthsToFreedom(invested, monthly, realRate, target);
   const date = months === null ? null : addMonths(now, months);
   const extraMonthly = monthly > 0 ? Math.ceil(monthly * 0.1) : 0;
   const monthsWithExtra = extraMonthly ? monthsToFreedom(invested, monthly + extraMonthly, realRate, target) : null;
+  // Once debt-free, what you paid on debts each month can go to investing instead.
+  const debts = debtPlan(state, now);
+  let afterDebts = null;
+  if (debts.count && debts.feasible && debts.months > 0 && months !== 0) {
+    const monthsBoosted = monthsToFreedom(invested, monthly, realRate, target, { fromMonth: debts.months, amount: debts.budget });
+    afterDebts = { debtFreeDate: debts.date, amount: debts.budget, months: monthsBoosted, date: monthsBoosted === null ? null : addMonths(now, monthsBoosted) };
+  }
   return {
-    target, invested, monthly, realRate, months, date,
+    target, invested, monthly, realRate, months, date, afterDebts,
     progress: clamp(invested / target, 0, 1),
     ageA: date ? ageOn(state.couple.a.birth, date) : null,
     ageB: date ? ageOn(state.couple.b.birth, date) : null,
@@ -872,6 +896,279 @@ function focusItems(state, now) {
   return items.slice(0, 5);
 }
 
+/* ------------------------------------ money plans: debts, rates, habits */
+
+/* ---- amounts: Rupiah-friendly parsing ("250rb", "1,5jt", "Rp 25.000", "25k") ---- */
+/** Parse a typed amount into a number (NaN if it isn't one). Thousands separators and
+ *  k / rb / ribu (×1,000) and jt / juta / m (×1,000,000) suffixes are understood. */
+function parseTypedAmount(input) {
+  let text = String(input ?? "").trim().toLowerCase().replace(/\s+/g, "");
+  text = text.replace(/^(rp\.?|idr|usd|\$)/, "");
+  let sign = 1;
+  if (text.startsWith("-") || text.startsWith("−")) {
+    sign = -1;
+    text = text.slice(1);
+  } else if (text.startsWith("+")) {
+    text = text.slice(1);
+  }
+  let multiplier = 1;
+  const suffix = text.match(/(ribu|rb|k|juta|jt|m)$/);
+  if (suffix) {
+    multiplier = /^(ribu|rb|k)$/.test(suffix[1]) ? 1e3 : 1e6;
+    text = text.slice(0, -suffix[1].length);
+  }
+  if (!/^[\d.,]+$/.test(text)) return NaN;
+  const hasDot = text.includes(".");
+  const hasComma = text.includes(",");
+  if (hasDot && hasComma) {
+    const decimal = text.lastIndexOf(".") > text.lastIndexOf(",") ? "." : ",";
+    const thousands = decimal === "." ? "," : ".";
+    text = text.split(thousands).join("").replace(decimal, ".");
+  } else if (hasDot || hasComma) {
+    const separator = hasDot ? "." : ",";
+    const groups = text.split(separator);
+    const looksLikeThousands = !suffix && groups.length > 1 && groups.slice(1).every(g => g.length === 3);
+    text = looksLikeThousands ? groups.join("") : groups.length === 2 ? groups.join(".") : NaN;
+  }
+  const value = Number(text);
+  return Number.isFinite(value) ? sign * value * multiplier : NaN;
+}
+
+/* ---- partner split by income ---- */
+/** Each partner's share of a shared target: 50/50, or by take-home income when the couple chose that. */
+function partnerShares(state) {
+  const r = state.retirement;
+  const a = Math.max(0, Number(r.incomeA) || 0);
+  const b = Math.max(0, Number(r.incomeB) || 0);
+  if (r.splitMode === "income" && a + b > 0) return { a: a / (a + b), b: b / (a + b), byIncome: true };
+  return { a: 0.5, b: 0.5, byIncome: false };
+}
+/** What each partner put in, counting "together" deposits half each. */
+function perPartner(split) {
+  return { a: split.a + split.both / 2, b: split.b + split.both / 2 };
+}
+
+/* ---- savings streak ---- */
+const STREAK_MILESTONES = [4, 8, 12, 26, 52, 104];
+/** Weeks in a row (Mon–Sun) in which you put at least this week's combined target into your pots.
+ *  Past weeks are judged against today's target, so the count is a motivator, not an audit. */
+function savingStreak(state, now) {
+  const target = weeklyPlan(state, now).totalWeekly;
+  if (!(target > 0)) return { weeks: 0, thisWeekDone: false, target: 0 };
+  const savedBetween = (from, to) => (state.contributions || [])
+    .filter(c => c.date >= toISO(from) && c.date <= toISO(to) && Number(c.amount) > 0)
+    .reduce((sum, c) => sum + Number(c.amount), 0);
+  const weekEnd = start => new Date(start.getFullYear(), start.getMonth(), start.getDate() + 6);
+  const thisWeek = startOfWeek(now);
+  const thisWeekDone = savedBetween(thisWeek, weekEnd(thisWeek)) >= target - 0.5;
+  let weeks = 0;
+  let cursor = new Date(thisWeek.getFullYear(), thisWeek.getMonth(), thisWeek.getDate() - 7);
+  while (weeks < 520 && savedBetween(cursor, weekEnd(cursor)) >= target - 0.5) {
+    weeks += 1;
+    cursor = new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate() - 7);
+  }
+  return { weeks: weeks + (thisWeekDone ? 1 : 0), thisWeekDone, target };
+}
+
+/* ---- saving challenges ---- */
+const CHALLENGES = {
+  "52week": {
+    name: "52-week challenge",
+    weeks: 52,
+    blurb: "Week 1 put in one amount, week 2 twice that, up to 52 times in week 52: 1,378 times the amount in a year.",
+    amount: (unit, step) => unit * step,
+  },
+  nospend: {
+    name: "No-spend weekends",
+    weeks: 8,
+    blurb: "Eight weekends without spending on extras. Each one, move what you would have spent into the pot.",
+    amount: unit => unit,
+  },
+};
+/** Where a challenge is now: step = weeks since it started + 1 (capped at its length). */
+function challengeStatus(challenge, now) {
+  const def = CHALLENGES[challenge.kind] || CHALLENGES.nospend;
+  const started = parseDate(challenge.started) || now;
+  const step = clamp(Math.floor(daysBetween(startOfWeek(started), now) / 7) + 1, 1, def.weeks);
+  const ticks = challenge.ticks || {};
+  const doneCount = Object.keys(ticks).filter(key => ticks[key]).length;
+  const unit = Number(challenge.unit) || 0;
+  let saved = 0;
+  for (const key of Object.keys(ticks)) {
+    if (ticks[key]) saved += def.amount(unit, Number(key));
+  }
+  return {
+    def, step, doneCount, saved,
+    amount: def.amount(unit, step),
+    doneThisStep: Boolean(ticks[step]),
+    finished: doneCount >= def.weeks,
+    goal: Array.from({ length: def.weeks }, (_, i) => def.amount(unit, i + 1)).reduce((sum, v) => sum + v, 0),
+  };
+}
+
+/* ---- debt-free plan ---- */
+/**
+ * Month-by-month payoff: interest accrues (APR / 12), every debt gets its minimum, and the rest of the
+ * budget (all minimums + extra) goes to one target at a time. Paid-off minimums roll into the next target.
+ * Avalanche = highest interest first (least interest paid); snowball = smallest balance first (quick wins).
+ */
+function simulateDebts(debts, extraMonthly, method) {
+  const list = (debts || [])
+    .filter(d => Number(d.balance) > 0)
+    .map(d => ({ id: d.id, balance: Number(d.balance), rate: (Number(d.rate) || 0) / 100 / 12, minimum: Math.max(0, Number(d.minimum) || 0) }));
+  const budget = list.reduce((sum, d) => sum + d.minimum, 0) + Math.max(0, Number(extraMonthly) || 0);
+  if (!list.length) return { months: 0, totalInterest: 0, payoff: {}, feasible: true, budget, order: [] };
+  const order = list.slice()
+    .sort(method === "snowball" ? (x, y) => x.balance - y.balance : (x, y) => y.rate - x.rate || x.balance - y.balance)
+    .map(d => d.id);
+  const byId = new Map(list.map(d => [d.id, d]));
+  const payoff = {};
+  let totalInterest = 0;
+  for (let month = 1; month <= 600; month++) {
+    for (const d of list) {
+      if (d.balance > 0) {
+        const interest = d.balance * d.rate;
+        d.balance += interest;
+        totalInterest += interest;
+      }
+    }
+    let available = budget;
+    for (const d of list) {
+      if (d.balance > 0) {
+        const pay = Math.min(d.minimum, d.balance, available);
+        d.balance -= pay;
+        available -= pay;
+      }
+    }
+    for (const id of order) {
+      const d = byId.get(id);
+      if (d.balance > 0 && available > 0) {
+        const pay = Math.min(available, d.balance);
+        d.balance -= pay;
+        available -= pay;
+      }
+    }
+    for (const d of list) {
+      if (d.balance <= 0.005 && !payoff[d.id]) {
+        d.balance = 0;
+        payoff[d.id] = month;
+      }
+    }
+    if (list.every(d => d.balance <= 0)) return { months: month, totalInterest, payoff, feasible: true, budget, order };
+  }
+  return { months: null, totalInterest, payoff, feasible: false, budget, order };
+}
+function debtPlan(state, now) {
+  const r = state.retirement;
+  const method = r.debtMethod === "snowball" ? "snowball" : "avalanche";
+  const chosen = simulateDebts(state.debts, r.debtExtra, method);
+  const other = simulateDebts(state.debts, r.debtExtra, method === "snowball" ? "avalanche" : "snowball");
+  const open = (state.debts || []).filter(d => Number(d.balance) > 0);
+  return {
+    ...chosen, method, other,
+    count: open.length,
+    total: open.reduce((sum, d) => sum + Number(d.balance), 0),
+    date: chosen.months ? addMonths(now, chosen.months) : null,
+  };
+}
+
+/* ---- savings rate → years to freedom ---- */
+function realReturnPercent(r) {
+  const nominal = (Number(r.rate) || 0) - (Number(r.fees) || 0);
+  return ((1 + nominal / 100) / (1 + (Number(r.inflation) || 0) / 100) - 1) * 100;
+}
+/**
+ * If you save `rate` of take-home pay and live on the rest, how long until investments cover that
+ * spending? target = (income × (1 − rate) × 12) / withdrawal; saving = income × rate per month.
+ */
+function savingsRatePlan(state) {
+  const r = state.retirement;
+  const income = (Number(r.incomeA) || 0) + (Number(r.incomeB) || 0);
+  if (!(income > 0)) return null;
+  const withdrawal = (Number(r.withdrawal) || 4) / 100;
+  const realRate = realReturnPercent(r);
+  const invested = Number(r.saved) || 0;
+  const potsMonthly = state.funds.reduce((sum, f) => sum + (Number(f.monthly) || 0), 0);
+  const currentRate = clamp(((Number(r.monthly) || 0) + potsMonthly) / income, 0, 1);
+  const yearsAt = rate => {
+    const target = income * (1 - rate) * 12 / withdrawal;
+    const months = monthsToFreedom(invested, income * rate, realRate, target);
+    return months === null ? null : months / 12;
+  };
+  const rows = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6].map(rate => ({ rate, years: yearsAt(rate) }));
+  return { income, currentRate, currentYears: yearsAt(currentRate), rows, realRate };
+}
+
+/* ---- fun money & date nights ---- */
+const DATE_IDEAS = [
+  "Sunset walk and street food", "Cook a new recipe together", "Picnic in the park", "Board-game night at home",
+  "Movie night with homemade snacks", "Visit a free museum or exhibition", "Morning run, then breakfast out",
+  "Plan your next trip over coffee", "Karaoke night", "Try a café neither of you knows", "Stargazing with a blanket",
+  "Bike ride somewhere new",
+];
+/** This month's fun budget, what dates cost so far, and this week's date idea. */
+function funPlan(state, now) {
+  const r = state.retirement;
+  const budget = Math.max(0, Number(r.funMonthly) || 0);
+  const month = toISO(now).slice(0, 7);
+  const spent = (state.dates || []).filter(d => String(d.date).slice(0, 7) === month).reduce((sum, d) => sum + (Number(d.cost) || 0), 0);
+  const left = budget - spent;
+  const affordable = state.bucket.filter(item => !item.done && Number(item.cost) > 0 && (!budget || Number(item.cost) <= left));
+  const week = isoWeekNumber(now);
+  const idea = affordable.length
+    ? { text: affordable[week % affordable.length].text, cost: Number(affordable[week % affordable.length].cost), bucketId: affordable[week % affordable.length].id }
+    : { text: DATE_IDEAS[week % DATE_IDEAS.length], cost: 0, bucketId: "" };
+  return { budget, spent, left, weekly: budget / WEEKS_PER_MONTH, idea };
+}
+
+/* ---- Mint (same site, same device): read its budget books, never write ---- */
+const MINT_FREQ = { weekly: 52 / 12, biweekly: 26 / 12, monthly: 1, quarterly: 1 / 3, yearly: 1 / 12 };
+/** Average monthly income / spending / saving from one Mint book, using Mint's own rules
+ *  (income txns; savings & investing categories count as saved; everything else is spending). */
+function summarizeMintBook(book, today) {
+  const live = name => Object.values((book && book[name]) || {}).filter(record => record && !record._del);
+  const currency = (book && book.meta && book.meta.currency) || "";
+  const planned = live("incomes")
+    .filter(inc => !inc.cur || inc.cur === currency)
+    .reduce((sum, inc) => sum + (Number(inc.amount) || 0) * (MINT_FREQ[inc.freq] || 1), 0);
+  const groupOf = {};
+  for (const cat of live("categories")) groupOf[cat.id] = cat.group;
+  const months = {};
+  for (const t of live("txns")) {
+    if (typeof t.date !== "string") continue;
+    const key = t.date.slice(0, 7);
+    const m = months[key] ||= { income: 0, spent: 0, saved: 0 };
+    const amount = Math.abs(Number(t.amount) || 0);
+    if (t.type === "income") m.income += amount;
+    else if (groupOf[t.cat] === "savings" || groupOf[t.cat] === "invest") m.saved += amount;
+    else m.spent += amount;
+  }
+  const current = toISO(today).slice(0, 7);
+  let used = Object.keys(months).filter(key => key < current).sort().slice(-3);
+  const partial = !used.length && months[current];
+  if (partial) used = [current];
+  if (!used.length) return { name: (book && book.meta && book.meta.name) || "Mint budget", currency, months: 0, income: planned, spent: 0, saved: 0, partial: false };
+  const avg = field => used.reduce((sum, key) => sum + months[key][field], 0) / used.length;
+  return {
+    name: (book.meta && book.meta.name) || "Mint budget",
+    currency, months: used.length, partial: Boolean(partial),
+    income: Math.max(planned, avg("income")), spent: avg("spent"), saved: avg("saved"),
+  };
+}
+/** Mint budgets saved in this browser (same site as Together). `storage` is injectable for tests. */
+function readMintBooks(storage) {
+  try {
+    const list = JSON.parse(storage.getItem("mint.budget.books") || "[]");
+    return (Array.isArray(list) ? list : [])
+      .map(entry => {
+        const book = JSON.parse(storage.getItem(`mint.budget.book.${entry && entry.id}`) || "null");
+        return book ? { id: entry.id, book } : null;
+      })
+      .filter(Boolean);
+  } catch (error) {
+    return [];
+  }
+}
 /* --------------------------------------------- bank statement CSV (on-device) */
 /** Minimal RFC 4180 CSV parser with delimiter sniffing (, ; tab) and BOM handling. */
 function parseCsv(text) {
@@ -1225,7 +1522,7 @@ const reminders = {
 // but no value means "removed then". So two partners editing different fields - or different steps
 // of the same goal - both keep their edit; only edits to the very same field compete.
 // Whole-record deletions leave tombstones in `_deleted` and win over older edits.
-const SYNCED_COLLECTIONS = ["milestones", "goals", "funds", "contributions", "checkins", "bucket", "kids", "networth"];
+const SYNCED_COLLECTIONS = ["milestones", "goals", "funds", "contributions", "debts", "challenges", "dates", "checkins", "bucket", "kids", "networth"];
 const SYNCED_SINGLETONS = ["couple", "retirement", "program"];
 const ID_LIST_FIELDS = new Set(["steps"]);
 const META_FIELDS = new Set(["_ts", "_f", "id"]);
@@ -1683,7 +1980,11 @@ function blankState() {
     // One record per deposit into a pot ({ id, fundId, amount, by: "a"|"b"|"both", date }). Separate records
     // merge safely when both partners add money at the same time; a pot's balance is its `saved` plus these.
     contributions: [],
-    retirement: { saved: 0, monthly: 0, rate: 5, fees: 0.5, inflation: 2.5, spend: 0, withdrawal: 4, eduCost: 0, eduInflation: 5 },
+    debts: [], challenges: [], dates: [],
+    // Shared money settings. incomeA/B = monthly take-home pay; splitMode "equal" | "income";
+    // debtMethod "avalanche" | "snowball"; debtExtra and funMonthly per month.
+    retirement: { saved: 0, monthly: 0, rate: 5, fees: 0.5, inflation: 2.5, spend: 0, withdrawal: 4, eduCost: 0, eduInflation: 5,
+      incomeA: 0, incomeB: 0, splitMode: "equal", debtExtra: 0, debtMethod: "avalanche", funMonthly: 0 },
     checkins: [], talks: {}, bucket: [], kids: [], networth: [],
     program: { started: "", done: {}, notes: {} },
     _deleted: {},
@@ -2092,18 +2393,25 @@ function splitLine(split, cur) {
 function weekCardHTML(now) {
   const cur = state.couple.currency;
   const plan = weeklyPlan(state, now);
+  const streak = savingStreak(state, now);
+  const n = names();
+  const fun = funPlan(state, now);
   const range = `${plan.weekStart.toLocaleDateString(undefined, { day: "numeric", month: "short" })} – ${plan.weekEnd.toLocaleDateString(undefined, { day: "numeric", month: "short" })}`;
   const potRows = plan.pots.map(p => {
     const share = p.weekly > 0 ? clamp(p.added / p.weekly, 0, 1) : 1;
-    const who = splitLine(p.split, cur);
+    const partnerPart = (who, label) => {
+      const target = p.targets[who];
+      const putIn = p.byPartner[who];
+      return `${esc(label)} ${esc(money(putIn, cur))} / ${esc(money(target, cur))}${putIn >= target - 0.5 ? " ✓" : ""}`;
+    };
     return `<li class="week-pot">
       <div class="spread"><div style="min-width:0"><b>${esc(p.fund.name)}</b>
         <div class="small muted">${esc(money(p.weekly, cur))} this week · about ${esc(money(p.daily, cur))} a day${p.behind ? " · catching up" : ""}</div></div>
         ${p.done ? '<span class="chip ok">✓ Done</span>' : `<span class="chip">${esc(money(Math.max(0, p.weekly - p.added), cur))} to go</span>`}</div>
       <div class="bar" style="margin:6px 0" role="progressbar" aria-label="${esc(p.fund.name)} this week" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(share * 100)}"><span style="width:${share * 100}%"></span></div>
-      ${who ? `<div class="small muted">In this week: ${who}</div>` : ""}
+      <div class="small muted">In this week: ${partnerPart("a", n.a)} · ${partnerPart("b", n.b)}${plan.shares.byIncome ? " (split by income)" : ""}</div>
       ${p.done ? "" : `<form class="row" data-form="deposit" data-id="${esc(p.fund.id)}" style="margin-top:6px;flex-wrap:nowrap">
-        <input name="amount" type="number" step="any" placeholder="${esc(cur)}${esc(String(Math.round(Math.max(0, p.weekly - p.added))))}" aria-label="Add to ${esc(p.fund.name)}" style="flex:1;min-width:0">
+        ${amountInput("amount", `Add to ${p.fund.name}`, { style: "flex:1;min-width:0", placeholder: money(Math.max(0, p.weekly - p.added), cur) })}
         ${contributorSelect(`Who is adding to ${p.fund.name}`)}<button type="submit">+ Add</button></form>`}
     </li>`;
   }).join("");
@@ -2121,10 +2429,25 @@ function weekCardHTML(now) {
         <div class="small muted">Plan one small step toward it together this week.</div></div>
       <button class="ghost small" type="button" data-act="tab" data-id="us">Go →</button></div>`;
   }
+  const challengeRows = state.challenges.map(ch => {
+    const s = challengeStatus(ch, now);
+    const fund = state.funds.find(f => f.id === ch.fundId);
+    if (s.finished || !fund) return "";
+    return `<div class="focus-item" style="margin-top:8px"><span class="ico">${icon("target")}</span>
+      <div style="flex:1;min-width:0"><span class="muted small">${esc(s.def.name)}, week ${s.step}:</span> ${esc(money(s.amount, cur))} into ${esc(fund.name)}</div>
+      ${s.doneThisStep ? '<span class="chip ok">✓ Done</span>' : `<button class="small" type="button" data-act="challenge-tick" data-id="${esc(ch.id)}">Done</button>`}</div>`;
+  }).join("");
+  const dateRow = `<div class="focus-item" style="margin-top:8px"><span class="ico">${icon("calendar")}</span>
+      <div style="flex:1;min-width:0"><span class="muted small">Date idea:</span> ${esc(fun.idea.text)}${fun.idea.cost ? ` <span class="small muted">(~${esc(money(fun.idea.cost, cur))})</span>` : ""}
+        ${fun.budget ? `<div class="small muted">${esc(money(Math.max(0, fun.left), cur))} fun money left this month</div>` : ""}</div>
+      <button class="ghost small" type="button" data-act="date-done">We did it</button></div>`;
+  const streakChip = streak.weeks > 0
+    ? `<span class="chip ok" title="Weeks in a row you hit this week's combined target">${streak.weeks}-week streak</span>`
+    : plan.pots.length ? '<span class="chip">Start a streak this week</span>' : "";
   return `<section class="card week-card" style="margin-top:14px">
-    <div class="spread"><h2>This week together</h2><span class="chip">${esc(range)} · ${plan.daysLeft} day${plan.daysLeft === 1 ? "" : "s"} left</span></div>
+    <div class="week-head"><h2>This week together</h2><span class="week-chips">${streakChip}<span class="chip">${esc(range)} · ${plan.daysLeft} day${plan.daysLeft === 1 ? "" : "s"} left</span></span></div>
     ${moneyBlock}
-    ${stepRow || funRow ? `<div style="margin-top:10px">${stepRow}${funRow}</div>` : ""}
+    <div style="margin-top:10px">${challengeRows}${stepRow}${dateRow}${funRow}</div>
   </section>`;
 }
 
@@ -2262,7 +2585,7 @@ function viewMoney() {
           <span>${esc(formatDate(c.date))} · ${esc(c.by === "a" || c.by === "b" ? ownerLabel(c.by) : "Together")}</span><span>${Number(c.amount) < 0 ? "−" : "+"}${esc(money(Math.abs(Number(c.amount) || 0), cur))}
           <button type="button" class="ghost" data-act="delete-contribution" data-id="${esc(c.id)}" aria-label="Undo this ${esc(money(Math.abs(Number(c.amount) || 0), cur))} entry">${icon("close")}</button></span></li>`).join("")}</ul></details>` : ""}
       <form class="row" data-form="deposit" data-id="${esc(fund.id)}" style="margin-top:10px;flex-wrap:nowrap">
-        <input name="amount" type="number" step="any" placeholder="Add savings (${esc(cur)})" aria-label="Add savings to ${esc(fund.name)}" style="flex:1;min-width:0">
+        ${amountInput("amount", `Add savings to ${fund.name}`, { style: "flex:1;min-width:0" })}
         ${contributorSelect(`Who is adding to ${fund.name}`)}<button type="submit">+ Add</button></form>
     </article>`;
   }).join("");
@@ -2274,6 +2597,9 @@ function viewMoney() {
     <div class="stat"><b>${state.funds.filter(f => fundStatus(f, state, now).onTrack === false).length}</b><span class="small muted">pots behind</span></div></div></div>
   ${state.funds.length ? `<div class="grid" style="margin-top:14px">${fundCards}</div>` :
     `<div class="empty" style="margin-top:14px">No savings pots yet.<br><button type="button" class="primary" data-act="default-funds" style="margin-top:10px">Add starter pots (emergency, wedding, home)</button></div>`}
+  ${challengesCardHTML(now)}
+  ${incomeCardHTML()}
+  ${debtCardHTML(now)}
   <div class="section-head"><h2>Retiring together</h2></div>
   <div class="card">
     <form class="fields-2" data-form="retirement">
@@ -2335,6 +2661,7 @@ function viewMoney() {
       </form>
       <p class="small muted">A monthly snapshot of everything you own minus everything you owe — no bank login needed.</p>
     </section>
+    ${mintCardHTML()}
   </div>`;
 }
 
@@ -2373,6 +2700,7 @@ function freedomCardHTML(now) {
     <div class="bar" style="margin:10px 0" role="progressbar" aria-label="Progress to financial freedom" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(plan.progress * 100)}"><span style="width:${plan.progress * 100}%"></span></div>
     <p class="small">${when}</p>
     ${lever}
+    ${plan.afterDebts && plan.afterDebts.date ? `<p class="small">Once you're debt-free (${esc(plan.afterDebts.debtFreeDate.toLocaleDateString(undefined, { month: "short", year: "numeric" }))}), moving the ${esc(money(plan.afterDebts.amount, cur))}/month you paid on debts into investing gets you free around <b>${esc(plan.afterDebts.date.toLocaleDateString(undefined, { month: "short", year: "numeric" }))}</b>.</p>` : ""}
     ${button}
     <p class="small muted">Uses your retirement savings, monthly amount and assumptions above, growing at ${esc(plan.realRate.toFixed(1))}% a year after fees and inflation. In today's money. An estimate, not financial advice.</p>
   </div>`;
@@ -2414,6 +2742,147 @@ function netWorthSummary(cur) {
       <button type="button" class="ghost" data-act="delete-networth" data-id="${esc(e.id)}" aria-label="Delete snapshot">${icon("trash")}</button></li>`).join("")}</ul>`;
 }
 
+/* ------------------------- views: income, debts, challenges, Mint, dates */
+const AMOUNT_HINT = () => (/^\s*(rp\.?|idr)\s*$/i.test(state.couple.currency) ? "e.g. 250rb or 1,5jt" : "e.g. 250 or 1.5k");
+/** A text amount field: accepts "250rb", "1,5jt", "Rp 25.000" as well as plain numbers. */
+function amountInput(name, label, { value = "", placeholder = AMOUNT_HINT(), style = "", required = false } = {}) {
+  return `<input name="${name}" type="text" autocomplete="off" aria-label="${esc(label)}" placeholder="${esc(placeholder)}" value="${esc(value)}"${style ? ` style="${style}"` : ""}${required ? " required" : ""}>`;
+}
+function mintStorage() {
+  return ui.mintStorage || localStorage;
+}
+
+/** Income, fair split, fun money and the savings-rate dial. */
+function incomeCardHTML() {
+  const cur = state.couple.currency;
+  const r = state.retirement;
+  const n = names();
+  const shares = partnerShares(state);
+  const rate = savingsRatePlan(state);
+  const yearsText = years => years === null ? "100+ years" : years < 1 ? "under a year" : `${Math.round(years)} years`;
+  const table = rate ? `<div class="rate-table" role="table" aria-label="Savings rate and years to financial freedom">
+      ${rate.rows.map(row => `<div role="row" class="rate-row ${Math.abs(row.rate - rate.currentRate) < 0.05 ? "now" : ""}">
+        <span role="cell">Save ${Math.round(row.rate * 100)}%</span><span role="cell"><b>${esc(yearsText(row.years))}</b></span></div>`).join("")}
+    </div>
+    <p class="small">You save about <b>${Math.round(rate.currentRate * 100)}%</b> of your take-home pay now (pots + investing), so freedom is about <b>${esc(yearsText(rate.currentYears))}</b> away if you lived on the rest.</p>
+    <p class="small muted">Each row assumes you live on what you don't save, so a higher rate both grows your money and lowers the number you need. ${esc(rate.realRate.toFixed(1))}% real return, from your assumptions.</p>`
+    : `<p class="small muted">Add your take-home pay to see how your savings rate sets the years to financial freedom.</p>`;
+  return `<div class="section-head"><div><h2>Our income &amp; savings rate</h2>
+      <p class="muted small">Take-home pay per month. Used for a fair split of weekly targets and the savings-rate dial.</p></div></div>
+    <div class="card">
+      <form class="fields-2" data-form="retirement">
+        <label class="field">${esc(n.a)}'s take-home / month (${esc(cur)})<input name="incomeA" type="number" step="any" min="0" value="${esc(r.incomeA)}"></label>
+        <label class="field">${esc(n.b)}'s take-home / month (${esc(cur)})<input name="incomeB" type="number" step="any" min="0" value="${esc(r.incomeB)}"></label>
+        <label class="field">Split weekly targets<select name="splitMode">
+          <option value="equal" ${r.splitMode !== "income" ? "selected" : ""}>50 / 50</option>
+          <option value="income" ${r.splitMode === "income" ? "selected" : ""}>By income</option></select></label>
+        <label class="field">Fun money / month for dates (${esc(cur)})<input name="funMonthly" type="number" step="any" min="0" value="${esc(r.funMonthly)}"></label>
+      </form>
+      <p class="small">Split now: <b>${esc(n.a)} ${Math.round(shares.a * 100)}%</b> · <b>${esc(n.b)} ${Math.round(shares.b * 100)}%</b>${r.splitMode === "income" && !shares.byIncome ? ' <span class="muted">(add both incomes to split by income)</span>' : ""}</p>
+      ${table}
+    </div>`;
+}
+
+/** Debt-free plan: list, method, extra per month, debt-free date and interest saved. */
+function debtCardHTML(now) {
+  const cur = state.couple.currency;
+  const r = state.retirement;
+  const plan = debtPlan(state, now);
+  const debts = state.debts.slice().sort((x, y) => (plan.payoff[x.id] || 9999) - (plan.payoff[y.id] || 9999));
+  const methodName = plan.method === "snowball" ? "smallest balance first" : "highest interest first";
+  let summary = "";
+  if (plan.count) {
+    if (!plan.feasible) {
+      summary = `<p class="small"><span class="chip warn" style="white-space:normal">At these payments the debts never clear: interest grows faster. Add an extra amount per month.</span></p>`;
+    } else {
+      const saved = plan.other.feasible ? plan.other.totalInterest - plan.totalInterest : null;
+      summary = `<p class="small">Debt-free around <b>${esc(plan.date.toLocaleDateString(undefined, { month: "short", year: "numeric" }))}</b> (${plan.months} months), paying ${esc(money(plan.budget, cur))}/month in total and ${esc(money(plan.totalInterest, cur))} interest.</p>
+        ${saved !== null && Math.abs(saved) >= 1 ? `<p class="small muted">${saved > 0 ? `That's ${esc(money(saved, cur))} less interest than the other order.` : `The other order would save ${esc(money(-saved, cur))} interest, but ${plan.method === "snowball" ? "quick wins keep many couples going" : "this one clears the biggest cost first"}.`}</p>` : ""}`;
+    }
+  }
+  return `<div class="section-head"><div><h2>Debt-free plan</h2><p class="muted small">Clearing debt is usually the first big step to freedom.</p></div>
+      <button type="button" class="primary" data-act="add-debt">+ Debt</button></div>
+    <div class="card">
+      ${debts.length ? `<ul class="clean">${debts.map(d => {
+        const month = plan.payoff[d.id];
+        return `<li class="spread debt-row"><div style="min-width:0"><b>${esc(d.name)}</b>
+            <div class="small muted">${esc(money(d.balance, cur))} · ${esc(String(Number(d.rate) || 0))}% a year · min ${esc(money(d.minimum, cur))}/month</div>
+            ${Number(d.balance) > 0 ? `<div class="small">${month ? `Paid off ${esc(addMonths(now, month).toLocaleDateString(undefined, { month: "short", year: "numeric" }))}` : "Not cleared at these payments"}</div>` : '<span class="chip ok">✓ Paid off</span>'}</div>
+          <span style="white-space:nowrap"><button type="button" class="ghost" data-act="edit-debt" data-id="${esc(d.id)}" aria-label="Edit ${esc(d.name)}">${icon("pencil")}</button><button type="button" class="ghost" data-act="delete-debt" data-id="${esc(d.id)}" aria-label="Delete ${esc(d.name)}">${icon("trash")}</button></span></li>`;
+      }).join("")}</ul>` : '<div class="empty">No debts? Lovely. If you have any (cards, loans, buy-now-pay-later), add them to get a debt-free date.</div>'}
+      ${debts.length ? `<form class="fields-2" data-form="retirement" style="margin-top:10px">
+        <label class="field">Order<select name="debtMethod">
+          <option value="avalanche" ${plan.method === "avalanche" ? "selected" : ""}>Highest interest first (pay less)</option>
+          <option value="snowball" ${plan.method === "snowball" ? "selected" : ""}>Smallest balance first (quick wins)</option></select></label>
+        <label class="field">Extra on top of minimums / month (${esc(cur)})<input name="debtExtra" type="number" step="any" min="0" value="${esc(r.debtExtra)}"></label>
+      </form>
+      ${summary}
+      <p class="small muted">Paying ${esc(methodName)}; when a debt is gone, its payment rolls into the next one. Update balances now and then with the pencil.</p>` : ""}
+    </div>`;
+}
+
+/** Saving challenges: 52-week and no-spend weekends, each feeding a pot. */
+function challengesCardHTML(now) {
+  const cur = state.couple.currency;
+  const rows = state.challenges.map(ch => {
+    const s = challengeStatus(ch, now);
+    const fund = state.funds.find(f => f.id === ch.fundId);
+    return `<article class="card">
+      <div class="spread"><div style="min-width:0"><h3>${esc(s.def.name)}</h3>
+        <div class="small muted">Into ${esc(fund ? fund.name : "a deleted pot")} · ${s.doneCount}/${s.def.weeks} done · ${esc(money(s.saved, cur))} of ${esc(money(s.goal, cur))}</div></div>
+        <button type="button" class="ghost" data-act="delete-challenge" data-id="${esc(ch.id)}" aria-label="Stop ${esc(s.def.name)}">${icon("trash")}</button></div>
+      <div class="bar" style="margin:8px 0"><span style="width:${(s.doneCount / s.def.weeks) * 100}%"></span></div>
+      ${s.finished ? '<span class="chip ok">✓ Challenge complete, well done you two</span>'
+        : s.doneThisStep ? `<span class="chip ok">✓ Week ${s.step} done</span>`
+        : `<button type="button" data-act="challenge-tick" data-id="${esc(ch.id)}" ${fund ? "" : "disabled"}>Week ${s.step}: put ${esc(money(s.amount, cur))} in</button>`}
+    </article>`;
+  }).join("");
+  return `<div class="section-head"><div><h2>Saving challenges</h2><p class="muted small">A small game for two. Each tick adds the amount to a pot.</p></div>
+      <button type="button" data-act="add-challenge" ${state.funds.length ? "" : "disabled title=\"Add a savings pot first\""}>+ Challenge</button></div>
+    ${rows ? `<div class="grid">${rows}</div>` : `<div class="empty">${state.funds.length ? "Start a 52-week challenge or a run of no-spend weekends." : "Add a savings pot first, then start a challenge for it."}</div>`}`;
+}
+
+/** Real numbers from Mint on this device (read only). */
+function mintCardHTML() {
+  const cur = state.couple.currency;
+  const books = readMintBooks(mintStorage());
+  if (!books.length) {
+    return `<section class="card"><h2>From Mint</h2>
+      <p class="small">Use Mint on this phone for day-to-day spending and Together can pick up your real monthly numbers here. Nothing leaves the device.</p>
+      <a class="btn" href="../mint/web.html" target="_blank" rel="noopener">Open Mint</a></section>`;
+  }
+  const chosenId = books.some(b => b.id === ui.mintBook) ? ui.mintBook : books[0].id;
+  const summary = summarizeMintBook(books.find(b => b.id === chosenId).book, ui.now);
+  const label = summary.months ? `average of the last ${summary.months} month${summary.months === 1 ? "" : "s"}${summary.partial ? " (this month so far)" : ""}` : "no transactions yet";
+  return `<section class="card"><h2>From Mint</h2>
+    ${books.length > 1 ? `<label class="field">Budget<select data-mint-book>${books.map(b => `<option value="${esc(b.id)}" ${b.id === chosenId ? "selected" : ""}>${esc((b.book.meta && b.book.meta.name) || "Budget")}</option>`).join("")}</select></label>` : ""}
+    <p class="small muted">${esc(summary.name)}${summary.currency ? ` · ${esc(summary.currency)}` : ""} · ${esc(label)}</p>
+    <div class="stats">
+      <div class="stat"><b>${esc(money(summary.income, cur))}</b><span class="small muted">income / month</span></div>
+      <div class="stat"><b>${esc(money(summary.spent, cur))}</b><span class="small muted">spending / month</span></div>
+      <div class="stat"><b>${esc(money(summary.saved, cur))}</b><span class="small muted">saved / month</span></div>
+    </div>
+    ${summary.months ? `<div class="row" style="margin-top:10px">
+      <button type="button" data-act="mint-spend" data-id="${esc(chosenId)}">Use spending for our freedom number</button>
+      ${summary.saved > 0 ? `<button type="button" data-act="mint-saving" data-id="${esc(chosenId)}">Use saving as monthly investing</button>` : ""}</div>` : ""}
+    <p class="small muted">Read from Mint in this browser only; Together never changes Mint. Amounts are in Mint's currency.</p></section>`;
+}
+
+/** Us tab: date nights against the monthly fun money. */
+function dateNightsHTML() {
+  const cur = state.couple.currency;
+  const fun = funPlan(state, ui.now);
+  const recent = state.dates.slice().sort(byDate).reverse().slice(0, 5);
+  return `<section class="card">
+    <div class="spread"><h2>Date nights</h2><button type="button" data-act="date-done">+ We went out</button></div>
+    ${fun.budget ? `<p class="small">${esc(money(fun.spent, cur))} of ${esc(money(fun.budget, cur))} fun money used this month · <b>${esc(money(Math.max(0, fun.left), cur))}</b> left</p>
+      <div class="bar" style="margin:6px 0"><span style="width:${clamp(fun.spent / fun.budget, 0, 1) * 100}%"></span></div>`
+      : '<p class="small muted">Set a monthly fun-money amount on the Money tab to budget your dates.</p>'}
+    <p class="small"><span class="muted">This week's idea:</span> ${esc(fun.idea.text)}${fun.idea.cost ? ` (~${esc(money(fun.idea.cost, cur))})` : ""}</p>
+    ${recent.length ? `<ul class="clean small">${recent.map(d => `<li class="spread"><span>${esc(formatDate(d.date))} · ${esc(d.text)}${Number(d.cost) ? ` · ${esc(money(d.cost, cur))}` : ""}</span>
+      <button type="button" class="ghost" data-act="delete-date" data-id="${esc(d.id)}" aria-label="Delete ${esc(d.text)}">${icon("close")}</button></li>`).join("")}</ul>` : ""}
+  </section>`;
+}
 /* ------------------------------------------- views: us, program & settings */
 function viewUs() {
   const now = ui.now;
@@ -2443,7 +2912,8 @@ function viewUs() {
     </section>
     <section class="card">
       <h2>Bucket list for two</h2>
-      <form class="row" data-form="bucket" style="flex-wrap:nowrap;margin-bottom:10px"><input name="text" placeholder="See the northern lights…" aria-label="New bucket list item" style="flex:1;min-width:0"><button type="submit">Add</button></form>
+      <form class="row" data-form="bucket" style="flex-wrap:nowrap;margin-bottom:10px"><input name="text" placeholder="See the northern lights…" aria-label="New bucket list item" style="flex:1;min-width:0">
+        ${amountInput("cost", "Rough cost (optional)", { style: "flex:0 1 110px;min-width:0", placeholder: "Cost" })}<button type="submit">Add</button></form>
       ${state.bucket.length ? `<div class="bucket">${state.bucket.map(item => {
         const pot = state.funds.find(f => f.bucketId === item.id);
         const potProgress = pot ? fundStatus(pot, state, ui.now).progress : 0;
@@ -2451,12 +2921,13 @@ function viewUs() {
           ? `<span class="small muted">${potProgress >= 1 ? "· funded" : `· ${Math.round(potProgress * 100)}% saved`}</span>`
           : item.done ? "" : `<button type="button" class="ghost small" data-act="bucket-save" data-id="${esc(item.id)}" aria-label="Start a savings pot for ${esc(item.text)}" title="Start a savings pot for this" style="white-space:nowrap">${icon("wallet")} Save</button>`;
         return `<span class="item ${item.done ? "done" : ""}">
-        <span>${esc(item.text)}</span>${potTag}
+        <span>${esc(item.text)}</span>${Number(item.cost) > 0 ? `<span class="small muted">~${esc(money(item.cost, state.couple.currency))}</span>` : ""}${potTag}
         <button type="button" class="ghost" data-act="toggle-bucket" data-id="${esc(item.id)}" aria-label="${item.done ? "Mark not done" : "Mark done"}"><span class="tick ${item.done ? "on" : ""}">${item.done ? icon("check") : ""}</span></button>
         <button type="button" class="ghost" data-act="delete-bucket" data-id="${esc(item.id)}" aria-label="Delete ${esc(item.text)}">${icon("close")}</button></span>`;
       }).join("")}</div>`
         : `<div class="empty">Dream a little: places, experiences, things to learn together.</div>`}
     </section>
+    ${dateNightsHTML()}
   </div>
   <div class="section-head"><div><h2>Talk before you decide</h2><p class="muted small">Conversations that strong couples have before life forces them. ${agreed}/${TALKS.length} agreed.</p></div></div>
   ${STAGES.map((stage, index) => {
@@ -2767,6 +3238,71 @@ function checkinDialog() {
   });
 }
 
+function debtDialog(existing) {
+  const d = existing || { name: "", balance: "", rate: "", minimum: "" };
+  const cur = state.couple.currency;
+  openDialog(existing ? "Edit debt" : "New debt", `
+    <label class="field">What is it?<input name="name" required value="${esc(d.name)}" placeholder="e.g. Credit card, car loan"></label>
+    <div class="fields-2">
+      <label class="field">Still owed (${esc(cur)})${amountInput("balance", "Still owed", { value: d.balance, required: true })}</label>
+      <label class="field">Interest per year (%)<input name="rate" type="number" step="0.01" min="0" value="${esc(d.rate)}" placeholder="e.g. 24"></label>
+      <label class="field">Minimum payment / month (${esc(cur)})${amountInput("minimum", "Minimum payment per month", { value: d.minimum })}</label>
+    </div>`, values => {
+    const clean = { name: values.name.trim(), balance: Math.max(0, parseTypedAmount(values.balance) || 0), rate: Math.max(0, Number(values.rate) || 0), minimum: Math.max(0, parseTypedAmount(values.minimum) || 0) };
+    if (existing) Object.assign(existing, clean);
+    else state.debts.push({ id: uid(), ...clean });
+    commit(existing ? "Debt updated" : "Debt added");
+  });
+}
+function challengeDialog() {
+  const cur = state.couple.currency;
+  openDialog("Start a saving challenge", `
+    <label class="field">Challenge<select name="kind">${Object.entries(CHALLENGES).map(([id, c]) => `<option value="${id}">${esc(c.name)}</option>`).join("")}</select></label>
+    <p class="small muted">${Object.values(CHALLENGES).map(c => `<b>${esc(c.name)}:</b> ${esc(c.blurb)}`).join("<br>")}</p>
+    <div class="fields-2">
+      <label class="field">Into which pot?<select name="fundId">${state.funds.map(f => `<option value="${esc(f.id)}">${esc(f.name)}</option>`).join("")}</select></label>
+      <label class="field">Amount (${esc(cur)}): week 1 of 52, or per weekend${amountInput("unit", "Amount", { required: true })}</label>
+    </div>`, values => {
+    const unit = parseTypedAmount(values.unit);
+    if (!(unit > 0) || !findIn(state.funds, values.fundId)) {
+      toast("Enter an amount above zero.");
+      return;
+    }
+    state.challenges.push({ id: uid(), kind: CHALLENGES[values.kind] ? values.kind : "52week", fundId: values.fundId, unit, started: toISO(new Date()), ticks: {} });
+    commit("Challenge started. Week 1 is on Home.");
+  }, "Start");
+}
+function dateDialog() {
+  const fun = funPlan(state, new Date());
+  const cur = state.couple.currency;
+  openDialog("We went out", `
+    <label class="field">What did you do?<input name="text" required value="${esc(fun.idea.text)}"></label>
+    <div class="fields-2">
+      <label class="field">When<input name="date" type="date" value="${esc(toISO(new Date()))}"></label>
+      <label class="field">It cost (${esc(cur)})${amountInput("cost", "Cost", { value: fun.idea.cost || "" })}</label>
+    </div>
+    ${fun.idea.bucketId ? `<label class="row small"><input type="checkbox" name="tickBucket" value="${esc(fun.idea.bucketId)}" checked style="width:auto"> Tick it off our bucket list</label>` : ""}`, values => {
+    const text = (values.text || "").trim();
+    if (!text) return;
+    state.dates.push({ id: uid(), date: parseDate(values.date) ? values.date : toISO(new Date()), text, cost: Math.max(0, parseTypedAmount(values.cost) || 0) });
+    const item = values.tickBucket ? findIn(state.bucket, values.tickBucket) : null;
+    if (item) item.done = true;
+    commit(item ? "Date saved and ticked off the bucket list." : "Date saved. Have fun!");
+  });
+}
+/** After a deposit: cheer when the couple's weekly streak reaches a milestone. */
+function streakCelebration(before) {
+  const after = savingStreak(state, new Date());
+  if (after.weeks > before.weeks && STREAK_MILESTONES.includes(after.weeks)) {
+    return ` ${after.weeks} weeks in a row, keep it going!`;
+  }
+  return after.thisWeekDone && !before.thisWeekDone ? " This week's target is done." : "";
+}
+function mintSummary(id) {
+  const found = readMintBooks(mintStorage()).find(b => b.id === id);
+  return found ? summarizeMintBook(found.book, ui.now) : null;  // same numbers the card shows
+}
+
 function findIn(list, id) {
   return list.find(item => item.id === id);
 }
@@ -2882,6 +3418,46 @@ const actions = {
     commit("Starter pots added — use Edit to set targets");
   },
   "checkin": () => checkinDialog(),
+  "add-debt": () => debtDialog(null),
+  "edit-debt": id => debtDialog(findIn(state.debts, id)),
+  "delete-debt": id => removeFrom("debts", id, "Debt"),
+  "add-challenge": () => {
+    if (state.funds.length) challengeDialog();
+  },
+  "delete-challenge": id => removeFrom("challenges", id, "Challenge"),
+  "challenge-tick": id => {
+    const challenge = findIn(state.challenges, id);
+    const fund = challenge && findIn(state.funds, challenge.fundId);
+    if (!challenge || !fund) return;
+    const status = challengeStatus(challenge, new Date());
+    if (status.doneThisStep || status.finished) return;
+    const before = savingStreak(state, new Date());
+    if (status.amount > 0) {
+      state.contributions.push({ id: uid(), fundId: fund.id, amount: status.amount, by: lastContributor(), date: toISO(new Date()) });
+    }
+    challenge.ticks = { ...(challenge.ticks || {}), [status.step]: toISO(new Date()) };
+    const finished = challengeStatus(challenge, new Date()).finished;
+    commit(finished ? `${status.def.name} complete! ${money(status.goal, state.couple.currency)} saved together.`
+      : `Week ${status.step} done: ${money(status.amount, state.couple.currency)} into ${fund.name}.${streakCelebration(before)}`);
+  },
+  "date-done": () => dateDialog(),
+  "delete-date": id => removeFrom("dates", id, "Date"),
+  "mint-spend": id => {
+    const summary = mintSummary(id);
+    if (!summary || !(summary.spent > 0)) return;
+    const spend = Math.round(summary.spent * 12);
+    commitWithUndo(`Yearly spending set to ${money(spend, state.couple.currency)} from Mint`, () => {
+      state.retirement = { ...state.retirement, spend };
+    });
+  },
+  "mint-saving": id => {
+    const summary = mintSummary(id);
+    if (!summary || !(summary.saved > 0)) return;
+    const monthly = Math.round(summary.saved);
+    commitWithUndo(`Monthly investing set to ${money(monthly, state.couple.currency)} from Mint`, () => {
+      state.retirement = { ...state.retirement, monthly };
+    });
+  },
   "delete-checkin": id => removeFrom("checkins", id, "Check-in"),
   "toggle-bucket": id => {
     const item = findIn(state.bucket, id);
@@ -3083,8 +3659,9 @@ const forms = {
   },
   deposit: (values, form) => {
     const fund = findIn(state.funds, form.dataset.id);
-    const amount = Number(values.amount);
+    const amount = parseTypedAmount(values.amount);
     if (!fund || !amount || !Number.isFinite(amount)) return;
+    const before = savingStreak(state, new Date());
     const by = ["a", "b", "both"].includes(values.by) ? values.by : "both";
     try {
       localStorage.setItem(store.key + ME_KEY_SUFFIX, by);
@@ -3094,7 +3671,7 @@ const forms = {
     state.contributions.push({ id: uid(), fundId: fund.id, amount, by, date: toISO(new Date()) });
     const reached = fundSaved(fund, state) >= (Number(fund.target) || 0) && fund.target > 0;
     commit(amount > 0
-      ? `${money(amount, state.couple.currency)} added to ${fund.name}${reached ? " — target reached!" : ""}`
+      ? `${money(amount, state.couple.currency)} added to ${fund.name}${reached ? " — target reached!" : ""}${streakCelebration(before)}`
       : `${money(-amount, state.couple.currency)} taken out of ${fund.name}`);
   },
   networth: values => {
@@ -3112,7 +3689,8 @@ const forms = {
   bucket: values => {
     const text = (values.text || "").trim();
     if (!text) return;
-    state.bucket.push({ id: uid(), text, done: false });
+    const cost = parseTypedAmount(values.cost);
+    state.bucket.push({ id: uid(), text, done: false, ...(cost > 0 ? { cost } : {}) });
     commit();
   },
 };
@@ -3174,11 +3752,15 @@ function bindEvents() {
     } else if (el.closest('[data-form="retirement"]')) {
       const form = el.closest("form");
       const values = Object.fromEntries(new FormData(form).entries());
-      const numeric = Object.fromEntries(Object.entries(values).map(([key, value]) => [key, Number(value) || 0]));
+      const TEXT_SETTINGS = new Set(["splitMode", "debtMethod"]);
+      const numeric = Object.fromEntries(Object.entries(values).map(([key, value]) => [key, TEXT_SETTINGS.has(key) ? String(value) : Number(value) || 0]));
       const { retireAge, ...retirementValues } = numeric;
       state.retirement = { ...state.retirement, ...retirementValues };
       if ("retireAge" in values) state.couple.retireAge = clamp(retireAge || 65, 40, 85);
       commit();
+    } else if (el.matches("[data-mint-book]")) {
+      ui.mintBook = el.value;
+      render();
     } else if (el.matches("[data-statement]") && el.files[0]) {
       el.files[0].text().then(text => {
         ui.statement = analyzeStatement(text);
@@ -3265,7 +3847,7 @@ function demoState() {
   ];
   s.retirement = { ...s.retirement, saved: 22000, monthly: 600, rate: 5 };
   s.lastBackupAt = new Date(now.getTime() - 10 * 864e5).toISOString();
-  s.retirement = { ...s.retirement, spend: 45000, eduCost: 60000 };
+  s.retirement = { ...s.retirement, spend: 45000, eduCost: 60000, incomeA: 4200, incomeB: 3300, splitMode: "income", debtExtra: 150, debtMethod: "avalanche", funMonthly: 250 };
   s.kids = [{ id: uid(), name: "Baby (due)", birth: toISO(addMonths(now, 30)) }];
   s.program = { started: toISO(new Date(now.getTime() - 15 * 864e5)), done: { 1: toISO(new Date(now.getTime() - 14 * 864e5)), 2: toISO(new Date(now.getTime() - 6 * 864e5)) }, notes: { 1: "Leo is more stressed about his dad's health than I knew." } };
   s.networth = [-6, -4, -2, 0].map((offset, i) => ({ id: uid(), date: toISO(addMonths(now, offset)), assets: 41000 + i * 3200, debts: 14000 - i * 1500 }));
@@ -3274,7 +3856,8 @@ function demoState() {
     appreciate: "", need: "", plan: "" }));
   s.checkins.push({ id: uid(), date: toISO(addMonths(now, -1)), ratingA: 4, ratingB: 5, appreciate: "You cooked every night during my deadline week.", need: "More walks without phones.", plan: "Sunday picnic at the lake" });
   s.talks = { values: { status: "agreed", note: "Honesty, family, adventure." }, money: { status: "talked", note: "" } };
-  s.bucket = [{ id: uid(), text: "See the northern lights", done: false }, { id: uid(), text: "Road trip along the coast", done: true }, { id: uid(), text: "Dance at our 50th anniversary", done: false }];
+  s.bucket = [{ id: uid(), text: "See the northern lights", done: false }, { id: uid(), text: "Road trip along the coast", done: true }, { id: uid(), text: "Dance at our 50th anniversary", done: false },
+    { id: uid(), text: "Cooking class for two", done: false, cost: 90 }];
   s.funds.push({ id: uid(), name: "Northern lights trip", target: 5000, saved: 0, monthly: 150, milestoneId: "", bucketId: s.bucket[0].id });
   const [emergency, weddingPot, , trip] = s.funds;
   const daysAgo = days => toISO(new Date(now.getTime() - days * 864e5));
@@ -3285,6 +3868,18 @@ function demoState() {
     { id: uid(), fundId: trip.id, amount: 400, by: "b", date: daysAgo(12) },
     { id: uid(), fundId: emergency.id, amount: 50, by: "a", date: daysAgo(0) },
     { id: uid(), fundId: weddingPot.id, amount: 80, by: "b", date: daysAgo(0) },
+    { id: uid(), fundId: emergency.id, amount: 120, by: "both", date: daysAgo(7) },
+    { id: uid(), fundId: weddingPot.id, amount: 260, by: "a", date: daysAgo(8) },
+    { id: uid(), fundId: trip.id, amount: 100, by: "b", date: daysAgo(9) },
+  ];
+  s.debts = [
+    { id: uid(), name: "Leo's car loan", balance: 6400, rate: 7.5, minimum: 210 },
+    { id: uid(), name: "Credit card", balance: 1800, rate: 22, minimum: 55 },
+  ];
+  s.challenges = [{ id: uid(), kind: "52week", fundId: trip.id, unit: 2, started: daysAgo(15), ticks: { 1: daysAgo(14), 2: daysAgo(7) } }];
+  s.dates = [
+    { id: uid(), date: daysAgo(3), text: "Picnic in the park", cost: 18 },
+    { id: uid(), date: daysAgo(20), text: "Karaoke night", cost: 45 },
   ];
   return s;
 }
@@ -4069,6 +4664,190 @@ async function runSelfTests() {
     actions["bucket-save"]("ev");
     injected += document.querySelectorAll("#dialog img").length;
     document.getElementById("dialog").close();
+    return injected === 0 && !window.__xss || `injected ${injected}`;
+  });
+
+  /* ---- debts, savings rate, fair split, streaks, challenges, dates, Mint, Rupiah ---- */
+  await test("amounts: Rupiah shorthand and separators parse correctly", () => {
+    const cases = { "25k": 25000, "250rb": 250000, "1,5jt": 1.5e6, "2 juta": 2e6, "Rp 25.000": 25000, "Rp1.500.000": 1.5e6,
+      "12.50": 12.5, "12,5": 12.5, "1,250.50": 1250.5, "1.250,50": 1250.5, "-30": -30, "300": 300 };
+    const wrong = Object.entries(cases).filter(([input, expected]) => Math.abs(parseTypedAmount(input) - expected) > 1e-9);
+    return !wrong.length && Number.isNaN(parseTypedAmount("abc")) && Number.isNaN(parseTypedAmount("")) || JSON.stringify(wrong.map(([i]) => [i, parseTypedAmount(i)]));
+  });
+  await test("amounts: Rupiah is shown as Rp 1.500.000", () =>
+    money(1500000, "Rp") === "Rp 1.500.000" && money(2500, "IDR") === "Rp 2.500" || `${money(1500000, "Rp")} | ${money(2500, "IDR")}`);
+  await test("debts: snowball pays the smallest first and rolls its payment into the next debt", () => {
+    const debts = [{ id: "A", balance: 300, rate: 0, minimum: 50 }, { id: "B", balance: 1000, rate: 0, minimum: 50 }];
+    const plan = simulateDebts(debts, 100, "snowball");
+    return plan.feasible && plan.payoff.A === 2 && plan.payoff.B === 7 && plan.months === 7 && plan.totalInterest === 0 && plan.budget === 200 || JSON.stringify(plan);
+  });
+  await test("debts: avalanche pays less interest than snowball; minimums below interest never clear", () => {
+    const debts = [{ id: "A", balance: 300, rate: 5, minimum: 50 }, { id: "B", balance: 1000, rate: 20, minimum: 50 }];
+    const avalanche = simulateDebts(debts, 100, "avalanche");
+    const snowball = simulateDebts(debts, 100, "snowball");
+    const stuck = simulateDebts([{ id: "C", balance: 10000, rate: 24, minimum: 100 }], 0, "avalanche");
+    return avalanche.totalInterest < snowball.totalInterest && snowball.payoff.A < avalanche.payoff.A && !stuck.feasible && stuck.months === null ||
+      JSON.stringify({ avalanche, snowball, stuck: stuck.months });
+  });
+  await test("debts: freedom comes sooner once debt payments move into investing", () => {
+    const base = blankState();
+    const plan = migrate({ ...base,
+      retirement: { ...base.retirement, saved: 20000, monthly: 800, rate: 6, fees: 0, inflation: 2, spend: 30000, withdrawal: 4, debtExtra: 200 },
+      debts: [{ id: "d", name: "Car", balance: 8000, rate: 6, minimum: 300 }] });
+    const fi = freedomPlan(plan, fixedNow);
+    const debts = debtPlan(plan, fixedNow);
+    return fi.afterDebts && fi.afterDebts.amount === 500 && fi.afterDebts.months < fi.months && debts.months > 0 && toISO(fi.afterDebts.debtFreeDate) === toISO(debts.date) ||
+      JSON.stringify({ fi: fi.months, after: fi.afterDebts, debts: debts.months });
+  });
+  await test("savings rate: years to freedom match a direct simulation and fall as the rate rises", () => {
+    const base = blankState();
+    const plan = migrate({ ...base,
+      retirement: { ...base.retirement, saved: 0, monthly: 500, rate: 5, fees: 0, inflation: 0, withdrawal: 4, incomeA: 3000, incomeB: 2000 },
+      funds: [{ id: "p", name: "Trip", target: 9000, saved: 0, monthly: 500 }] });
+    const result = savingsRatePlan(plan);
+    let value = 0;
+    let months = 0;
+    while (value < 5000 * 0.5 * 12 / 0.04) {
+      value = value * (1 + 0.05 / 12) + 2500;
+      months += 1;
+    }
+    const half = result.rows.find(row => row.rate === 0.5);
+    const falling = result.rows.every((row, i) => i === 0 || row.years < result.rows[i - 1].years);
+    return Math.abs(result.currentRate - 0.2) < 1e-9 && Math.abs(half.years - months / 12) < 1e-9 && falling && savingsRatePlan(migrate(blankState())) === null ||
+      JSON.stringify({ result, months });
+  });
+  await test("fair split: weekly targets follow income, and 'together' deposits count half each", () => {
+    const base = blankState();
+    const plan = migrate({ ...base,
+      retirement: { ...base.retirement, incomeA: 6000, incomeB: 4000, splitMode: "income" },
+      funds: [{ id: "s1", name: "Trip", target: 10000, saved: 0, monthly: 520 }],
+      contributions: [{ id: "k1", fundId: "s1", amount: 40, by: "both", date: "2026-01-13" }, { id: "k2", fundId: "s1", amount: 30, by: "a", date: "2026-01-14" }] });
+    const pot = weeklyPlan(plan, fixedNow).pots[0];
+    const equal = weeklyPlan(migrate({ ...plan, retirement: { ...plan.retirement, splitMode: "equal" } }), fixedNow).pots[0];
+    return Math.abs(pot.targets.a - 72) < 1e-9 && Math.abs(pot.targets.b - 48) < 1e-9 && pot.byPartner.a === 50 && pot.byPartner.b === 20 &&
+      Math.abs(equal.targets.a - 60) < 1e-9 || JSON.stringify({ targets: pot.targets, byPartner: pot.byPartner });
+  });
+  await test("streak: counts consecutive weeks that hit the combined target, including this week once done", () => {
+    const plan = migrate({ ...blankState(),
+      funds: [{ id: "t1", name: "Trip", target: 100000, saved: 0, monthly: 520 }],
+      contributions: [
+        { id: "e1", fundId: "t1", amount: 130, by: "a", date: "2026-01-07" },
+        { id: "e2", fundId: "t1", amount: 125, by: "b", date: "2026-01-02" },
+        { id: "e3", fundId: "t1", amount: 50, by: "a", date: "2025-12-24" },
+      ] });
+    const before = savingStreak(plan, fixedNow);
+    plan.contributions.push({ id: "e4", fundId: "t1", amount: 120, by: "both", date: "2026-01-15" });
+    const after = savingStreak(plan, fixedNow);
+    return before.weeks === 2 && !before.thisWeekDone && after.weeks === 3 && after.thisWeekDone || JSON.stringify({ before, after });
+  });
+  await test("challenges: 52-week steps grow weekly; a tick adds that week's amount to the pot once", () => {
+    const status = challengeStatus({ kind: "52week", unit: 10, started: "2026-01-01", ticks: {} }, fixedNow);
+    state.funds = [{ id: "cf", name: "Trip", target: 50000, saved: 0, monthly: 0, milestoneId: "" }];
+    state.contributions = [];
+    state.challenges = [{ id: "ch1", kind: "52week", fundId: "cf", unit: 10, started: toISO(new Date()), ticks: {} }];
+    actions["challenge-tick"]("ch1");
+    actions["challenge-tick"]("ch1");
+    const logged = state.contributions.filter(c => c.fundId === "cf");
+    return status.step === 3 && status.amount === 30 && status.goal === 13780 && logged.length === 1 && logged[0].amount === 10 &&
+      state.challenges[0].ticks[1] && fundSaved(state.funds[0], state) === 10 || JSON.stringify({ status, logged });
+  });
+  await test("date nights: fun money left this month and an affordable bucket-list idea", () => {
+    const base = blankState();
+    const plan = migrate({ ...base,
+      retirement: { ...base.retirement, funMonthly: 200 },
+      dates: [{ id: "dn1", date: "2026-01-03", text: "Movie", cost: 50 }, { id: "dn2", date: "2025-12-20", text: "Old", cost: 500 }],
+      bucket: [{ id: "bb1", text: "Hot-air balloon", done: false, cost: 900 }, { id: "bb2", text: "Cooking class", done: false, cost: 100 }] });
+    const fun = funPlan(plan, fixedNow);
+    const noBudget = funPlan(migrate(blankState()), fixedNow);
+    return fun.spent === 50 && fun.left === 150 && fun.idea.text === "Cooking class" && fun.idea.bucketId === "bb2" && DATE_IDEAS.includes(noBudget.idea.text) ||
+      JSON.stringify({ fun, noBudget });
+  });
+  await test("e2e date night: 'We did it' logs the date and can tick off the bucket list", () => {
+    state.retirement = { ...state.retirement, funMonthly: 300 };
+    state.dates = [];
+    state.bucket = [{ id: "bd", text: "Salsa lesson", done: false, cost: 60 }];
+    actions["date-done"]();
+    const form = document.getElementById("dialog-form");
+    const prefilled = form.text.value === "Salsa lesson" && form.tickBucket && form.tickBucket.checked;
+    form.cost.value = "55";
+    form.requestSubmit();
+    return prefilled && state.dates.length === 1 && state.dates[0].cost === 55 && state.bucket[0].done && funPlan(state, new Date()).left === 245 || JSON.stringify(state.dates);
+  });
+  await test("e2e debts: add a debt in the dialog, switch to snowball through the real form", () => {
+    state.debts = [];
+    actions.tab("money");
+    document.querySelector('[data-act="add-debt"]').click();
+    const form = document.getElementById("dialog-form");
+    form.name.value = "Card";
+    form.balance.value = "2.500";
+    form.rate.value = "18";
+    form.minimum.value = "100";
+    form.requestSubmit();
+    const select = document.querySelector('[data-form="retirement"] [name="debtMethod"]');
+    select.value = "snowball";
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+    const split = document.querySelector('[data-form="retirement"] [name="splitMode"]');
+    split.value = "income";
+    split.dispatchEvent(new Event("change", { bubbles: true }));
+    const debt = state.debts[0];
+    return debt && debt.balance === 2500 && debt.rate === 18 && debt.minimum === 100 && state.retirement.debtMethod === "snowball" &&
+      state.retirement.splitMode === "income" && document.getElementById("view").textContent.includes("Debt-free around") || JSON.stringify({ debt, r: state.retirement });
+  });
+  const mintFixture = () => {
+    const book = {
+      meta: { name: "Rumah", currency: "IDR" },
+      incomes: { i1: { id: "i1", amount: 10000000, freq: "monthly" } },
+      categories: { c1: { id: "c1", group: "needs" }, c2: { id: "c2", group: "savings" } },
+      txns: {
+        t1: { id: "t1", date: "2025-11-05", amount: 4000000, cat: "c1" },
+        t2: { id: "t2", date: "2025-11-20", amount: 1000000, cat: "c2" },
+        t3: { id: "t3", date: "2025-12-05", amount: 6000000, cat: "c1" },
+        t4: { id: "t4", date: "2025-12-10", amount: 2000000, cat: "c2" },
+        t5: { id: "t5", date: "2025-12-11", amount: 9e9, cat: "c1", _del: true },
+        t6: { id: "t6", date: "2026-01-02", amount: 1000000, cat: "c1" },
+      },
+    };
+    const items = { "mint.budget.books": JSON.stringify([{ id: "bk1", name: "Rumah" }]), "mint.budget.book.bk1": JSON.stringify(book) };
+    return { getItem: key => (key in items ? items[key] : null) };
+  };
+  await test("mint: reads budgets from this browser and averages the last complete months", () => {
+    const books = readMintBooks(mintFixture());
+    const summary = summarizeMintBook(books[0].book, fixedNow);
+    const broken = readMintBooks({ getItem: () => "{not json" });
+    return books.length === 1 && summary.months === 2 && summary.spent === 5e6 && summary.saved === 1.5e6 && summary.income === 1e7 &&
+      summary.currency === "IDR" && broken.length === 0 || JSON.stringify(summary);
+  });
+  await test("e2e mint: 'Use spending' sets the freedom number's yearly spending", () => {
+    ui.mintStorage = mintFixture();
+    ui.now = fixedNow;
+    actions.tab("money");
+    const button = document.querySelector('[data-act="mint-spend"]');
+    if (!button) return "no Mint card button";
+    button.click();
+    const spend = state.retirement.spend;
+    ui.mintStorage = null;
+    ui.now = new Date();
+    return spend === 6e7 || `spend ${spend}`;
+  });
+  await test("xss: debts, dates, challenges and Mint names render as text", () => {
+    const evil = '<img src=x onerror="window.__xss=1">';
+    state.funds = [{ id: "fx", name: evil, target: 900, saved: 0, monthly: 300, milestoneId: "" }];
+    state.debts = [{ id: "dx", name: evil, balance: 500, rate: 10, minimum: 50 }];
+    state.dates = [{ id: "tx", date: toISO(new Date()), text: evil, cost: 5 }];
+    state.challenges = [{ id: "cx", kind: "nospend", fundId: "fx", unit: 20, started: toISO(new Date()), ticks: {} }];
+    state.bucket = [{ id: "bx", text: evil, done: false, cost: 1 }];
+    ui.mintStorage = { getItem: key => key === "mint.budget.books" ? JSON.stringify([{ id: "m" }]) : key === "mint.budget.book.m" ? JSON.stringify({ meta: { name: evil, currency: evil }, txns: {} }) : null };
+    let injected = 0;
+    for (const tab of ["home", "money", "us"]) {
+      actions.tab(tab);
+      injected += document.querySelectorAll("#view img").length;
+    }
+    for (const open of [() => actions["edit-debt"]("dx"), () => actions["date-done"](), () => actions["add-challenge"]()]) {
+      open();
+      injected += document.querySelectorAll("#dialog img").length;
+      document.getElementById("dialog").close();
+    }
+    ui.mintStorage = null;
     return injected === 0 && !window.__xss || `injected ${injected}`;
   });
   localStorage.removeItem(store.key + ME_KEY_SUFFIX);

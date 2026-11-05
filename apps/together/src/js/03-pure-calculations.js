@@ -154,6 +154,7 @@ function weeklyPlan(state, now) {
   const weekEnd = new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate() + 6);
   const fromISO = toISO(weekStart);
   const toISODate = toISO(weekEnd);
+  const shares = partnerShares(state);
   const pots = [];
   for (const fund of state.funds) {
     const status = fundStatus(fund, state, now);
@@ -164,7 +165,12 @@ function weeklyPlan(state, now) {
     const weekly = Math.min(monthly / WEEKS_PER_MONTH, remaining);
     const thisWeek = fundContributions(fund, state).filter(c => c.date >= fromISO && c.date <= toISODate);
     const added = thisWeek.reduce((sum, c) => sum + (Number(c.amount) || 0), 0);
-    pots.push({ fund, weekly, daily: weekly / 7, added, split: contributionSplit(thisWeek), done: added >= weekly - 0.5, behind: status.onTrack === false, status });
+    const split = contributionSplit(thisWeek);
+    pots.push({
+      fund, weekly, daily: weekly / 7, added, split, done: added >= weekly - 0.5, behind: status.onTrack === false, status,
+      targets: { a: weekly * shares.a, b: weekly * shares.b },
+      byPartner: perPartner(split),
+    });
   }
   let step = null;
   for (const goal of state.goals.slice().sort((x, y) => (x.due || "9999").localeCompare(y.due || "9999"))) {
@@ -179,7 +185,7 @@ function weeklyPlan(state, now) {
   const pool = withPot.length ? withPot : dreams;
   const fun = pool.length ? pool[isoWeekNumber(now) % pool.length] : null;
   return {
-    weekStart, weekEnd, pots, step, fun,
+    weekStart, weekEnd, pots, step, fun, shares,
     funPot: fun ? state.funds.find(f => f.bucketId === fun.id) || null : null,
     daysLeft: daysBetween(now, weekEnd) + 1,
     totalWeekly: pots.reduce((sum, p) => sum + p.weekly, 0),
@@ -188,13 +194,15 @@ function weeklyPlan(state, now) {
 }
 
 /* ---------------------------------------------------- financial freedom */
-/** Months until `balance` (growing at a real annual rate, plus `monthly` each month) reaches `target`; null if not within 100 years. */
-function monthsToFreedom(balance, monthly, realRatePercent, target) {
+/** Months until `balance` (growing at a real annual rate, plus `monthly` each month) reaches `target`;
+ *  null if not within 100 years. `boost` adds `amount` per month from `fromMonth` on (e.g. after debts are paid). */
+function monthsToFreedom(balance, monthly, realRatePercent, target, boost = null) {
   if (balance >= target) return 0;
   const rate = realRatePercent / 100 / 12;
   let value = balance;
   for (let month = 1; month <= 1200; month++) {
-    value = value * (1 + rate) + monthly;
+    const extra = boost && month > boost.fromMonth ? boost.amount : 0;
+    value = value * (1 + rate) + monthly + extra;
     if (value >= target) return month;
   }
   return null;
@@ -210,16 +218,22 @@ function freedomPlan(state, now) {
   const withdrawal = (Number(r.withdrawal) || 4) / 100;
   if (!(spend > 0)) return null;
   const target = spend / withdrawal;
-  const nominal = (Number(r.rate) || 0) - (Number(r.fees) || 0);
-  const realRate = ((1 + nominal / 100) / (1 + (Number(r.inflation) || 0) / 100) - 1) * 100;
+  const realRate = realReturnPercent(r);
   const invested = Number(r.saved) || 0;
   const monthly = Number(r.monthly) || 0;
   const months = monthsToFreedom(invested, monthly, realRate, target);
   const date = months === null ? null : addMonths(now, months);
   const extraMonthly = monthly > 0 ? Math.ceil(monthly * 0.1) : 0;
   const monthsWithExtra = extraMonthly ? monthsToFreedom(invested, monthly + extraMonthly, realRate, target) : null;
+  // Once debt-free, what you paid on debts each month can go to investing instead.
+  const debts = debtPlan(state, now);
+  let afterDebts = null;
+  if (debts.count && debts.feasible && debts.months > 0 && months !== 0) {
+    const monthsBoosted = monthsToFreedom(invested, monthly, realRate, target, { fromMonth: debts.months, amount: debts.budget });
+    afterDebts = { debtFreeDate: debts.date, amount: debts.budget, months: monthsBoosted, date: monthsBoosted === null ? null : addMonths(now, monthsBoosted) };
+  }
   return {
-    target, invested, monthly, realRate, months, date,
+    target, invested, monthly, realRate, months, date, afterDebts,
     progress: clamp(invested / target, 0, 1),
     ageA: date ? ageOn(state.couple.a.birth, date) : null,
     ageB: date ? ageOn(state.couple.b.birth, date) : null,

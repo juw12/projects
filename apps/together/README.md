@@ -10,8 +10,8 @@ A private life-planning app for couples: from dating to marriage, a home, kids, 
 - **Goals** shared or personal, broken into steps.
 - **This week together** (Home): each savings pot's weekly target (monthly plan × 12 / 52, or what a pot
   behind its milestone really needs), with a per-day figure, what each of you put in this week and a quick
-  **+ Add**; plus the next goal step and a fun pick from the bucket list. A Sunday-evening reminder nudges
-  you before the week ends.
+  **+ Add**; each partner's share (equal or by income), your weekly saving streak, active challenges, the
+  next goal step and a date-night idea to tick off. A Sunday-evening reminder nudges you before the week ends.
 - **Money**: savings pots linked to milestones, a retirement planner with inflation, fees and a
   "how much do we need" target, education funds per child, and a net-worth tracker. Import a bank-statement
   CSV to see your real monthly surplus (parsed on the device only — no bank login, nothing uploaded).
@@ -22,6 +22,18 @@ A private life-planning app for couples: from dating to marriage, a home, kids, 
 - **Financial freedom**: your freedom number (yearly spending you want ÷ safe withdrawal rate), how far
   along you are, the projected date with both your ages, how much sooner 10% more saving gets you there,
   and one tap to put "Financially free" on the roadmap. Uses the retirement planner's assumptions.
+- **Income & savings rate**: both incomes, how the monthly saving splits between you (50/50 or in proportion
+  to income), and a savings-rate table showing how many years to financial freedom at 10–50% saved.
+- **Debt-free plan**: list loans and cards, pick avalanche (highest rate first) or snowball (smallest first)
+  plus an extra monthly payment; see each debt's payoff date, total interest, and how much sooner you're
+  free once the freed-up payments go into investing.
+- **Saving challenges & streaks**: 52-week challenge and no-spend weekends (ticking one logs a deposit), and
+  a streak counter for consecutive weeks you hit the weekly target, with milestone toasts.
+- **Date nights & fun money**: a monthly fun budget, an idea list, and a log of dates you actually did.
+- **Mint numbers**: if you also use the Mint budget app on the same phone/browser, this month's spending
+  and saving from your Mint books show on the Money tab (read-only, never changed).
+- **Rupiah-friendly**: with currency Rp/IDR, amounts show as "Rp 1.500.000" and money fields accept
+  shorthand like `250rb`, `1,5jt` or `Rp 25.000`.
 - **Us**: monthly check-in with a connection trend, "talk before you decide" topics, a bucket list, and
   **Foundations** — an 8-week program summarising published relationship research (Gottman Institute,
   PREP) with sources. Educational, not therapy.

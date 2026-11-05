@@ -89,6 +89,71 @@ function checkinDialog() {
   });
 }
 
+function debtDialog(existing) {
+  const d = existing || { name: "", balance: "", rate: "", minimum: "" };
+  const cur = state.couple.currency;
+  openDialog(existing ? "Edit debt" : "New debt", `
+    <label class="field">What is it?<input name="name" required value="${esc(d.name)}" placeholder="e.g. Credit card, car loan"></label>
+    <div class="fields-2">
+      <label class="field">Still owed (${esc(cur)})${amountInput("balance", "Still owed", { value: d.balance, required: true })}</label>
+      <label class="field">Interest per year (%)<input name="rate" type="number" step="0.01" min="0" value="${esc(d.rate)}" placeholder="e.g. 24"></label>
+      <label class="field">Minimum payment / month (${esc(cur)})${amountInput("minimum", "Minimum payment per month", { value: d.minimum })}</label>
+    </div>`, values => {
+    const clean = { name: values.name.trim(), balance: Math.max(0, parseTypedAmount(values.balance) || 0), rate: Math.max(0, Number(values.rate) || 0), minimum: Math.max(0, parseTypedAmount(values.minimum) || 0) };
+    if (existing) Object.assign(existing, clean);
+    else state.debts.push({ id: uid(), ...clean });
+    commit(existing ? "Debt updated" : "Debt added");
+  });
+}
+function challengeDialog() {
+  const cur = state.couple.currency;
+  openDialog("Start a saving challenge", `
+    <label class="field">Challenge<select name="kind">${Object.entries(CHALLENGES).map(([id, c]) => `<option value="${id}">${esc(c.name)}</option>`).join("")}</select></label>
+    <p class="small muted">${Object.values(CHALLENGES).map(c => `<b>${esc(c.name)}:</b> ${esc(c.blurb)}`).join("<br>")}</p>
+    <div class="fields-2">
+      <label class="field">Into which pot?<select name="fundId">${state.funds.map(f => `<option value="${esc(f.id)}">${esc(f.name)}</option>`).join("")}</select></label>
+      <label class="field">Amount (${esc(cur)}): week 1 of 52, or per weekend${amountInput("unit", "Amount", { required: true })}</label>
+    </div>`, values => {
+    const unit = parseTypedAmount(values.unit);
+    if (!(unit > 0) || !findIn(state.funds, values.fundId)) {
+      toast("Enter an amount above zero.");
+      return;
+    }
+    state.challenges.push({ id: uid(), kind: CHALLENGES[values.kind] ? values.kind : "52week", fundId: values.fundId, unit, started: toISO(new Date()), ticks: {} });
+    commit("Challenge started. Week 1 is on Home.");
+  }, "Start");
+}
+function dateDialog() {
+  const fun = funPlan(state, new Date());
+  const cur = state.couple.currency;
+  openDialog("We went out", `
+    <label class="field">What did you do?<input name="text" required value="${esc(fun.idea.text)}"></label>
+    <div class="fields-2">
+      <label class="field">When<input name="date" type="date" value="${esc(toISO(new Date()))}"></label>
+      <label class="field">It cost (${esc(cur)})${amountInput("cost", "Cost", { value: fun.idea.cost || "" })}</label>
+    </div>
+    ${fun.idea.bucketId ? `<label class="row small"><input type="checkbox" name="tickBucket" value="${esc(fun.idea.bucketId)}" checked style="width:auto"> Tick it off our bucket list</label>` : ""}`, values => {
+    const text = (values.text || "").trim();
+    if (!text) return;
+    state.dates.push({ id: uid(), date: parseDate(values.date) ? values.date : toISO(new Date()), text, cost: Math.max(0, parseTypedAmount(values.cost) || 0) });
+    const item = values.tickBucket ? findIn(state.bucket, values.tickBucket) : null;
+    if (item) item.done = true;
+    commit(item ? "Date saved and ticked off the bucket list." : "Date saved. Have fun!");
+  });
+}
+/** After a deposit: cheer when the couple's weekly streak reaches a milestone. */
+function streakCelebration(before) {
+  const after = savingStreak(state, new Date());
+  if (after.weeks > before.weeks && STREAK_MILESTONES.includes(after.weeks)) {
+    return ` ${after.weeks} weeks in a row, keep it going!`;
+  }
+  return after.thisWeekDone && !before.thisWeekDone ? " This week's target is done." : "";
+}
+function mintSummary(id) {
+  const found = readMintBooks(mintStorage()).find(b => b.id === id);
+  return found ? summarizeMintBook(found.book, ui.now) : null;  // same numbers the card shows
+}
+
 function findIn(list, id) {
   return list.find(item => item.id === id);
 }
@@ -204,6 +269,46 @@ const actions = {
     commit("Starter pots added — use Edit to set targets");
   },
   "checkin": () => checkinDialog(),
+  "add-debt": () => debtDialog(null),
+  "edit-debt": id => debtDialog(findIn(state.debts, id)),
+  "delete-debt": id => removeFrom("debts", id, "Debt"),
+  "add-challenge": () => {
+    if (state.funds.length) challengeDialog();
+  },
+  "delete-challenge": id => removeFrom("challenges", id, "Challenge"),
+  "challenge-tick": id => {
+    const challenge = findIn(state.challenges, id);
+    const fund = challenge && findIn(state.funds, challenge.fundId);
+    if (!challenge || !fund) return;
+    const status = challengeStatus(challenge, new Date());
+    if (status.doneThisStep || status.finished) return;
+    const before = savingStreak(state, new Date());
+    if (status.amount > 0) {
+      state.contributions.push({ id: uid(), fundId: fund.id, amount: status.amount, by: lastContributor(), date: toISO(new Date()) });
+    }
+    challenge.ticks = { ...(challenge.ticks || {}), [status.step]: toISO(new Date()) };
+    const finished = challengeStatus(challenge, new Date()).finished;
+    commit(finished ? `${status.def.name} complete! ${money(status.goal, state.couple.currency)} saved together.`
+      : `Week ${status.step} done: ${money(status.amount, state.couple.currency)} into ${fund.name}.${streakCelebration(before)}`);
+  },
+  "date-done": () => dateDialog(),
+  "delete-date": id => removeFrom("dates", id, "Date"),
+  "mint-spend": id => {
+    const summary = mintSummary(id);
+    if (!summary || !(summary.spent > 0)) return;
+    const spend = Math.round(summary.spent * 12);
+    commitWithUndo(`Yearly spending set to ${money(spend, state.couple.currency)} from Mint`, () => {
+      state.retirement = { ...state.retirement, spend };
+    });
+  },
+  "mint-saving": id => {
+    const summary = mintSummary(id);
+    if (!summary || !(summary.saved > 0)) return;
+    const monthly = Math.round(summary.saved);
+    commitWithUndo(`Monthly investing set to ${money(monthly, state.couple.currency)} from Mint`, () => {
+      state.retirement = { ...state.retirement, monthly };
+    });
+  },
   "delete-checkin": id => removeFrom("checkins", id, "Check-in"),
   "toggle-bucket": id => {
     const item = findIn(state.bucket, id);
@@ -405,8 +510,9 @@ const forms = {
   },
   deposit: (values, form) => {
     const fund = findIn(state.funds, form.dataset.id);
-    const amount = Number(values.amount);
+    const amount = parseTypedAmount(values.amount);
     if (!fund || !amount || !Number.isFinite(amount)) return;
+    const before = savingStreak(state, new Date());
     const by = ["a", "b", "both"].includes(values.by) ? values.by : "both";
     try {
       localStorage.setItem(store.key + ME_KEY_SUFFIX, by);
@@ -416,7 +522,7 @@ const forms = {
     state.contributions.push({ id: uid(), fundId: fund.id, amount, by, date: toISO(new Date()) });
     const reached = fundSaved(fund, state) >= (Number(fund.target) || 0) && fund.target > 0;
     commit(amount > 0
-      ? `${money(amount, state.couple.currency)} added to ${fund.name}${reached ? " — target reached!" : ""}`
+      ? `${money(amount, state.couple.currency)} added to ${fund.name}${reached ? " — target reached!" : ""}${streakCelebration(before)}`
       : `${money(-amount, state.couple.currency)} taken out of ${fund.name}`);
   },
   networth: values => {
@@ -434,7 +540,8 @@ const forms = {
   bucket: values => {
     const text = (values.text || "").trim();
     if (!text) return;
-    state.bucket.push({ id: uid(), text, done: false });
+    const cost = parseTypedAmount(values.cost);
+    state.bucket.push({ id: uid(), text, done: false, ...(cost > 0 ? { cost } : {}) });
     commit();
   },
 };
@@ -496,11 +603,15 @@ function bindEvents() {
     } else if (el.closest('[data-form="retirement"]')) {
       const form = el.closest("form");
       const values = Object.fromEntries(new FormData(form).entries());
-      const numeric = Object.fromEntries(Object.entries(values).map(([key, value]) => [key, Number(value) || 0]));
+      const TEXT_SETTINGS = new Set(["splitMode", "debtMethod"]);
+      const numeric = Object.fromEntries(Object.entries(values).map(([key, value]) => [key, TEXT_SETTINGS.has(key) ? String(value) : Number(value) || 0]));
       const { retireAge, ...retirementValues } = numeric;
       state.retirement = { ...state.retirement, ...retirementValues };
       if ("retireAge" in values) state.couple.retireAge = clamp(retireAge || 65, 40, 85);
       commit();
+    } else if (el.matches("[data-mint-book]")) {
+      ui.mintBook = el.value;
+      render();
     } else if (el.matches("[data-statement]") && el.files[0]) {
       el.files[0].text().then(text => {
         ui.statement = analyzeStatement(text);
