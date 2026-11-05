@@ -5,7 +5,7 @@ Runs the stdlib server with PHOTO2CAD_FAKE_LLM=1 (no network), POSTs a tiny PRD,
 and asserts a valid STEP file is produced and served.
 
 IMPORTANT: run with a Python that has cadquery installed:
-    & "~\\Documents\\Default Project\\.venv3d\\Scripts\\python.exe" tests/verify_api.py
+    & "%USERPROFILE%\\Documents\\Default Project\\.venv3d\\Scripts\\python.exe" tests/verify_api.py
 
 Exits 0 on success, 1 on failure.
 """

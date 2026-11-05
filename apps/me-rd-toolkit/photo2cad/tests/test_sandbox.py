@@ -2,7 +2,7 @@
 """Unit test for the photo2cad sandbox + validator (no server, no network).
 
 IMPORTANT: run with a Python that has cadquery installed:
-    & "~\\Documents\\Default Project\\.venv3d\\Scripts\\python.exe" tests/test_sandbox.py
+    & "%USERPROFILE%\\Documents\\Default Project\\.venv3d\\Scripts\\python.exe" tests/test_sandbox.py
 
 Exits 0 on success, 1 on failure.
 """

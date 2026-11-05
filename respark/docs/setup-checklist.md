@@ -108,7 +108,7 @@ When you switch to Live mode, repeat steps 3, 6, 7 with `sk_live_*` keys.
 After steps 2-3, launch:
 
 ```powershell
-cd "~\Documents\Default Project\respark"
+cd "%USERPROFILE%\Documents\Default Project\respark"
 .\start-with-tunnel.ps1
 ```
 
@@ -124,7 +124,7 @@ Once you've sent your first 10 cold emails and want a URL that doesn't depend on
 
 ```
 1. Push code to GitHub:
-   cd "~\Documents\Default Project"
+   cd "%USERPROFILE%\Documents\Default Project"
    git add respark/
    git commit -m "respark: initial build"
    gh repo create respark --public --source=respark --push

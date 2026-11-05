@@ -57,8 +57,8 @@ PREFERRED_UPSTREAM_PORTS = (9181, 4096)
 
 # Known install location of the PEGAAi OpenCode binary.
 KNOWN_OPENCODE_PATHS = [
-    r"~\AppData\Local\PEGAAi Opencode\opencode.exe",
-    r"~\AppData\Local\Programs\opencode\opencode.exe",
+    os.path.join(os.environ.get("LOCALAPPDATA", os.path.expanduser(r"~\AppData\Local")), "PEGAAi Opencode", "opencode.exe"),
+    os.path.join(os.environ.get("LOCALAPPDATA", os.path.expanduser(r"~\AppData\Local")), "Programs", "opencode", "opencode.exe"),
 ]
 
 EXTERNAL_BOTS = [

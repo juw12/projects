@@ -35,7 +35,7 @@ from langgraph.prebuilt import ToolNode, tools_condition  # noqa: E402
 
 OBSIDIAN_EXE = os.environ.get(
     "OBSIDIAN_MCP_EXE",
-    r"~\mcps\obsidian\Scripts\mcp-obsidian.exe",
+    os.path.expanduser(r"~\mcps\obsidian\Scripts\mcp-obsidian.exe"),
 )
 MODEL = os.environ.get("OLLAMA_MODEL", "qwen3:8b")
 

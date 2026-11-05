@@ -23,7 +23,7 @@ Binance executor.
 ## Quick start
 
 ```powershell
-cd "~\Documents\Default Project\apps\crypto-signal-bot"
+cd "%USERPROFILE%\Documents\Default Project\apps\crypto-signal-bot"
 py -m venv .venv
 .venv\Scripts\python.exe -m pip install -r requirements.txt
 copy .env.example .env
@@ -48,7 +48,7 @@ starts automatically at every Windows logon and keeps running until shutdown.
 ### Option B — Manual start (foreground, blocking)
 
 ```powershell
-cd "~\Documents\Default Project\apps\crypto-signal-bot"
+cd "%USERPROFILE%\Documents\Default Project\apps\crypto-signal-bot"
 python bot.py
 ```
 

@@ -14,7 +14,7 @@ Set shell = CreateObject("WScript.Shell")
 scriptDir = fso.GetParentFolderName(WScript.ScriptFullName)
 
 ' Prefer the known pythonw.exe; fall back to PATH if it is missing.
-pyw = "~\AppData\Local\Programs\Python\Python313\pythonw.exe"
+pyw = shell.ExpandEnvironmentStrings("%LOCALAPPDATA%\Programs\Python\Python313\pythonw.exe")
 If Not fso.FileExists(pyw) Then
     pyw = "pythonw.exe"
 End If

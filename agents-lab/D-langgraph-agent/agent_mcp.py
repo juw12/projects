@@ -29,7 +29,7 @@ AGENT_DIR = Path(__file__).resolve().parent
 SERVER = AGENT_DIR / "mcp_servers" / "demo_server.py"
 OBSIDIAN_EXE = os.environ.get(
     "OBSIDIAN_MCP_EXE",
-    r"~\mcps\obsidian\Scripts\mcp-obsidian.exe",
+    os.path.expanduser(r"~\mcps\obsidian\Scripts\mcp-obsidian.exe"),
 )
 MODEL = os.environ.get("OLLAMA_MODEL", "qwen3:8b")
 

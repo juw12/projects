@@ -48,7 +48,7 @@ https://xxxx-xxxx-xxxx.trycloudflare.com
 
 1. **Push to GitHub**
    ```bash
-   cd "~\Documents\Default Project"
+   cd "%USERPROFILE%\Documents\Default Project"
    git init
    git add respark/
    git commit -m "Initial Respark deployment"
@@ -86,7 +86,7 @@ iwr https://fly.io/install.ps1 -useb | iex
 fly auth signup
 
 # 3. In respark/:
-cd "~\Documents\Default Project\respark"
+cd "%USERPROFILE%\Documents\Default Project\respark"
 fly launch              # uses fly.toml, creates the app
 fly secrets set RESPARK_SECRET=$(python -c "import secrets;print(secrets.token_urlsafe(48))")
 fly secrets set RESPARK_SMTP_HOST=... RESPARK_SMTP_USER=... RESPARK_SMTP_PASS=...
