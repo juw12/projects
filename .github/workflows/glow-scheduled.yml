@@ -21,7 +21,8 @@ concurrency:
 
 jobs:
   missions:
-    runs-on: ubuntu-latest
+    # Playwright 1.55 has no Chromium build for ubuntu-latest (26.04) yet.
+    runs-on: ubuntu-24.04
     timeout-minutes: 120
     env:
       GLOW_MISSIONS: ${{ secrets.GLOW_MISSIONS }}
