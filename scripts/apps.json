@@ -1296,6 +1296,8 @@
     },
     {
       "id": "scopeguard",
+      "listed": false,
+      "moved_to": "https://github.com/juw12/steward",
       "name": "ScopeGuard",
       "category": "AI",
       "desc": "Keeps a business AI assistant on its mission: allows on-topic requests, steers related ones, redirects off-topic use and blocks jailbreaks",
@@ -1342,7 +1344,7 @@
       },
       "status": "working-prototype",
       "order": 32,
-      "portfolio": true,
+      "portfolio": false,
       "portfolio_order": 22
     },
     {
