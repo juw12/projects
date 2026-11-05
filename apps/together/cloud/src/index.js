@@ -10,23 +10,26 @@
 // Routes
 //   GET    /v1/status
 //   GET    /v1/rooms/:id[?since=<version>]   -> 200 {version, data, updated} | 204 | 404
+//          (reads count as activity: a room is kept while either partner opens the app)
 //   PUT    /v1/rooms/:id  {auth, baseVersion, data} -> 200 {version, updated} | 409 {version, data, updated}
 //   DELETE /v1/rooms/:id  {auth}
 //   PUT    /v1/push/:id   {subscription, times[]}   -> 200 {count, nextAt}
-//   GET    /v1/push/:id                             -> 200 {count, nextAt}
+//   GET    /v1/push/:id                             -> 200 {count, nextAt, lastPush}
+//   POST   /v1/push/:id                             -> 200 {status} (send one test push now)
 //   DELETE /v1/push/:id
 
 const MAX_BLOB_CHARS = 512 * 1024;
 const MAX_REMINDERS = 64;
 const ID_PATTERN = /^[A-Za-z0-9_-]{16,64}$/;
 const DAY_MS = 864e5;
+const ROOM_TTL_MS = 400 * DAY_MS;
 
 function corsHeaders(request, env) {
   const origin = request.headers.get("Origin") || "";
   const allowed = (env.ALLOWED_ORIGINS || "").split(",").map(s => s.trim()).filter(Boolean);
   return {
     "Access-Control-Allow-Origin": allowed.includes(origin) ? origin : allowed[0] || "*",
-    "Access-Control-Allow-Methods": "GET,PUT,DELETE,OPTIONS",
+    "Access-Control-Allow-Methods": "GET,PUT,POST,DELETE,OPTIONS",
     "Access-Control-Allow-Headers": "content-type",
     "Access-Control-Max-Age": "86400",
     "Vary": "Origin",
@@ -91,6 +94,18 @@ export class Room {
     this.state = state;
     this.sql = state.storage.sql;
     this.sql.exec("CREATE TABLE IF NOT EXISTS blob (k INTEGER PRIMARY KEY, version INTEGER, auth TEXT, data TEXT, updated INTEGER)");
+    this.sql.exec("CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v INTEGER)");
+  }
+
+  lastSeen() {
+    return this.sql.exec("SELECT v FROM meta WHERE k = 'seen'").toArray()[0]?.v || 0;
+  }
+
+  /** Reads keep a room alive too; written at most once a day to stay cheap. */
+  async touch(row, now) {
+    if (now - Math.max(row.updated, this.lastSeen()) < DAY_MS) return;
+    this.sql.exec("INSERT OR REPLACE INTO meta (k, v) VALUES ('seen', ?)", now);
+    await this.state.storage.setAlarm(now + ROOM_TTL_MS);
   }
 
   current() {
@@ -102,6 +117,7 @@ export class Room {
     const row = this.current();
     if (request.method === "GET") {
       if (!row) return json({ error: "no such room" }, 404);
+      await this.touch(row, Date.now());
       const since = Number(url.searchParams.get("since"));
       if (Number.isFinite(since) && since >= row.version) return new Response(null, { status: 204 });
       return json({ version: row.version, data: row.data, updated: row.updated });
@@ -113,6 +129,7 @@ export class Room {
       if (!row) return json({ ok: true });
       if (row.auth !== authHash) return json({ error: "forbidden" }, 403);
       this.sql.exec("DELETE FROM blob WHERE k = 1");
+      this.sql.exec("DELETE FROM meta");
       await this.state.storage.deleteAlarm();
       return json({ ok: true });
     }
@@ -121,7 +138,7 @@ export class Room {
     const now = Date.now();
     if (!row) {
       this.sql.exec("INSERT INTO blob (k, version, auth, data, updated) VALUES (1, 1, ?, ?, ?)", authHash, body.data, now);
-      await this.state.storage.setAlarm(now + 400 * DAY_MS);
+      await this.state.storage.setAlarm(now + ROOM_TTL_MS);
       return json({ version: 1, updated: now });
     }
     if (row.auth !== authHash) return json({ error: "forbidden" }, 403);
@@ -130,18 +147,21 @@ export class Room {
     }
     const version = row.version + 1;
     this.sql.exec("UPDATE blob SET version = ?, data = ?, updated = ? WHERE k = 1", version, body.data, now);
-    await this.state.storage.setAlarm(now + 400 * DAY_MS);
+    await this.state.storage.setAlarm(now + ROOM_TTL_MS);
     return json({ version, updated: now });
   }
 
-  /** Rooms untouched for 400 days are deleted. */
+  /** Rooms nobody has opened or written for 400 days are deleted. */
   async alarm() {
     const row = this.current();
-    if (row && Date.now() - row.updated < 399 * DAY_MS) {
-      await this.state.storage.setAlarm(row.updated + 400 * DAY_MS);
+    if (!row) return;
+    const lastActive = Math.max(row.updated, this.lastSeen());
+    if (Date.now() - lastActive < ROOM_TTL_MS - DAY_MS) {
+      await this.state.storage.setAlarm(lastActive + ROOM_TTL_MS);
       return;
     }
     this.sql.exec("DELETE FROM blob WHERE k = 1");
+    this.sql.exec("DELETE FROM meta");
   }
 }
 
@@ -154,7 +174,24 @@ export class Reminder {
 
   async summary() {
     const times = (await this.state.storage.get("times")) || [];
-    return { count: times.length, nextAt: times[0] || null };
+    const lastPush = (await this.state.storage.get("lastPush")) || null;
+    return { count: times.length, nextAt: times[0] || null, lastPush };
+  }
+
+  /** Send one push and remember the outcome (status 201 = accepted by the push service). */
+  async deliver(subscription) {
+    let result;
+    try {
+      result = { at: Date.now(), status: await sendPush(subscription.endpoint, this.env) };
+    } catch (error) {
+      result = { at: Date.now(), status: 0, error: String(error && error.message || error).slice(0, 200) };
+    }
+    await this.state.storage.put("lastPush", result);
+    if (result.status === 404 || result.status === 410) {
+      await this.state.storage.delete(["subscription", "times"]);
+      await this.state.storage.deleteAlarm();
+    }
+    return result;
   }
 
   async fetch(request) {
@@ -163,6 +200,14 @@ export class Reminder {
       await this.state.storage.deleteAll();
       await this.state.storage.deleteAlarm();
       return json({ ok: true });
+    }
+    if (request.method === "POST") {
+      const subscription = await this.state.storage.get("subscription");
+      if (!subscription) return json({ error: "not subscribed" }, 404);
+      const last = (await this.state.storage.get("lastTestAt")) || 0;
+      if (Date.now() - last < 20e3) return json({ error: "slow down" }, 429);
+      await this.state.storage.put("lastTestAt", Date.now());
+      return json(await this.deliver(subscription));
     }
     if (request.method !== "PUT") return json({ error: "method not allowed" }, 405);
     const body = await readJson(request);
@@ -188,15 +233,9 @@ export class Reminder {
     const now = Date.now();
     const due = times.filter(t => t <= now + 60e3);
     times = times.filter(t => t > now + 60e3);
-    if (due.length && subscription) {
-      const status = await sendPush(subscription.endpoint, this.env);
-      if (status === 404 || status === 410) {
-        await this.state.storage.deleteAll();
-        return;
-      }
-    }
     await this.state.storage.put("times", times);
     if (times.length) await this.state.storage.setAlarm(times[0]);
+    if (due.length && subscription) await this.deliver(subscription);
   }
 }
 
@@ -224,8 +263,8 @@ async function sendPush(endpoint, env) {
       Authorization: `vapid t=${unsigned}.${base64UrlEncode(new Uint8Array(signature))}, k=${env.VAPID_PUBLIC}`,
       TTL: "86400",
       Urgency: "normal",
-      "Content-Length": "0",
     },
+    body: "",
   });
   return response.status;
 }
