@@ -8,16 +8,21 @@ A private life-planning app for couples: from dating to marriage, a home, kids, 
   (and children's) plus a lifeline to ~90.
 - **Goals** shared or personal, broken into steps.
 - **Money**: savings pots linked to milestones, a retirement planner with inflation, fees and a
-  "how much do we need" target, education funds per child, and a net-worth tracker.
+  "how much do we need" target, education funds per child, and a net-worth tracker. Import a bank-statement
+  CSV to see your real monthly surplus (parsed on the device only — no bank login, nothing uploaded).
 - **Us**: monthly check-in with a connection trend, "talk before you decide" topics, a bucket list, and
   **Foundations** — an 8-week program summarising published relationship research (Gottman Institute,
   PREP) with sources. Educational, not therapy.
 - **Partner sync**: one plan on both phones. End-to-end encrypted — the plan is sealed with AES-GCM on the
   device; the key travels only in the pairing link's `#fragment`, which never reaches the server.
-  Edits merge item by item (newest edit wins, deletions tracked).
+  Optional shared passphrase (PBKDF2, 600k rounds) so a leaked link alone can't read or change the plan, and
+  **Replace link** to rotate the key and delete the old room. Edits merge field by field (two partners
+  editing different fields or steps of the same goal both keep their change; only the very same field is
+  newest-wins). Rooms are kept while either partner opens the app; deleted after 400 days of no use.
 - **Reminders**: installable PWA with push notifications for check-ins, milestones, anniversaries,
   birthdays and backups. The server stores only *when* to ping; reminder text stays on the device.
-  (iPhone/iPad: Add to Home Screen first, iOS 16.4+.)
+  "Send a test" pushes through the real server → push service → phone path. (iPhone/iPad: Apple requires
+  Add to Home Screen first and iOS 16.4+; the app shows step-by-step guidance and detects in-app browsers.)
 - Works offline; export/import backups; print the whole plan; calendar (.ics) reminders.
 
 ## Layout

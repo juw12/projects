@@ -746,7 +746,7 @@ const reminders = {
     return Boolean(this.pref()?.enabled);
   },
   isIOS() {
-    return /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    return iosInfo().ios;
   },
   isStandalone() {
     return window.matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
@@ -756,7 +756,9 @@ const reminders = {
   },
   async enable() {
     if (!this.supported()) {
-      throw new Error(this.isIOS() && !this.isStandalone()
+      throw new Error(this.isIOS() && !iosInfo().pushCapable
+        ? "Push reminders need iOS 16.4 or newer. Use the calendar (.ics) reminders below instead."
+        : this.isIOS() && !this.isStandalone()
         ? "On iPhone/iPad: tap Share → Add to Home Screen, open Together from your Home Screen, then turn reminders on there."
         : "This browser can't receive push notifications. Use the calendar reminders below instead.");
     }
@@ -809,48 +811,142 @@ const reminders = {
 };
 
 /* ------------------------------------------------------- sync: merge model */
-// Every record carries `_ts` (last-modified ms). Deletions leave tombstones in `_deleted`.
-// Two plans merge record-by-record: newest edit wins, deletions win over older edits.
+// Field-level last-writer-wins. Every record carries `_ts` (last modified, ms) and `_f`, a map of
+// path -> ms for each field that changed. Paths are "field", "field.key" for plain objects
+// (couple.a.name, program.done.3) and "field#id" for id-lists (goal steps). A path with a timestamp
+// but no value means "removed then". So two partners editing different fields - or different steps
+// of the same goal - both keep their edit; only edits to the very same field compete.
+// Whole-record deletions leave tombstones in `_deleted` and win over older edits.
 const SYNCED_COLLECTIONS = ["milestones", "goals", "funds", "checkins", "bucket", "kids", "networth"];
 const SYNCED_SINGLETONS = ["couple", "retirement", "program"];
+const ID_LIST_FIELDS = new Set(["steps"]);
+const META_FIELDS = new Set(["_ts", "_f", "id"]);
 
 function recordBody(record) {
   if (!record || typeof record !== "object") return JSON.stringify(record ?? null);
-  const { _ts, ...rest } = record;
+  const { _ts, _f, ...rest } = record;
   return JSON.stringify(rest);
 }
+const isPlainObject = value => Boolean(value) && typeof value === "object" && !Array.isArray(value);
 
-/** Stamp `_ts` on records that changed since `previous`, and tombstone deleted ids. Mutates and returns `next`. */
+/** Flatten a record into {path: JSON value} leaves. */
+function recordLeaves(record) {
+  const leaves = {};
+  for (const [field, value] of Object.entries(record || {})) {
+    if (META_FIELDS.has(field)) continue;
+    if (ID_LIST_FIELDS.has(field) && Array.isArray(value)) {
+      for (const item of value) {
+        if (item && typeof item === "object" && item.id !== undefined) leaves[`${field}#${item.id}`] = JSON.stringify(item);
+      }
+    } else if (isPlainObject(value)) {
+      for (const [key, inner] of Object.entries(value)) leaves[`${field}.${key}`] = JSON.stringify(inner);
+    } else {
+      leaves[field] = JSON.stringify(value ?? null);
+    }
+  }
+  return leaves;
+}
+
+/** Give `next` per-field timestamps relative to `previous`. Returns true if anything changed. */
+function stampRecord(previous, next, now) {
+  if (!next || typeof next !== "object") return false;
+  if (!previous) {
+    next._ts = now;
+    next._f = {};
+    return true;
+  }
+  const fields = { ...(previous._f || {}) };
+  const before = recordLeaves(previous);
+  const after = recordLeaves(next);
+  let changed = false;
+  for (const path of new Set([...Object.keys(before), ...Object.keys(after)])) {
+    if (before[path] !== after[path]) {
+      fields[path] = now;
+      changed = true;
+    }
+  }
+  next._f = fields;
+  next._ts = changed ? now : (next._ts ?? previous._ts ?? 0);
+  return changed;
+}
+
+/** Merge two versions of one record path-by-path; newest timestamp wins, ties resolve deterministically. */
+function mergeRecord(x, y) {
+  if (!x) return y;
+  if (!y) return x;
+  const leavesX = recordLeaves(x);
+  const leavesY = recordLeaves(y);
+  // Stamped records: unlisted paths are unchanged since creation (0). Legacy records: whole-record `_ts`.
+  const stamp = (record, path, leaves) => record._f
+    ? record._f[path] ?? (path in leaves ? 0 : -1)
+    : (path in leaves ? record._ts || 0 : -1);
+  const newer = (y._ts || 0) > (x._ts || 0) ? y : x;
+  const older = newer === x ? y : x;
+  const result = {};
+  for (const [field, value] of Object.entries({ ...older, ...newer })) {
+    if (META_FIELDS.has(field) && field !== "id") continue;
+    result[field] = ID_LIST_FIELDS.has(field) && Array.isArray(value) ? [] : isPlainObject(value) ? {} : value;
+  }
+  const fields = {};
+  const paths = new Set([...Object.keys(leavesX), ...Object.keys(leavesY), ...Object.keys(x._f || {}), ...Object.keys(y._f || {})]);
+  const listItems = {};
+  for (const path of paths) {
+    const tx = stamp(x, path, leavesX);
+    const ty = stamp(y, path, leavesY);
+    let value;
+    if (tx !== ty) value = tx > ty ? leavesX[path] : leavesY[path];
+    else value = [leavesX[path] ?? "", leavesY[path] ?? ""].sort().pop() || undefined;
+    if (Math.max(tx, ty) > 0) fields[path] = Math.max(tx, ty);
+    if (value === undefined) continue;
+    const listMatch = path.match(/^([^.#]+)#(.+)$/);
+    const objectMatch = path.match(/^([^.#]+)\.(.+)$/);
+    if (listMatch && ID_LIST_FIELDS.has(listMatch[1])) {
+      (listItems[listMatch[1]] ||= {})[listMatch[2]] = JSON.parse(value);
+    } else if (objectMatch && isPlainObject(result[objectMatch[1]])) {
+      result[objectMatch[1]][objectMatch[2]] = JSON.parse(value);
+    } else if (!objectMatch && !listMatch) {
+      result[path] = JSON.parse(value);
+    }
+  }
+  for (const [field, items] of Object.entries(listItems)) {
+    // Keep the newer side's order, then the other side's, then anything else.
+    const order = [...(newer[field] || []), ...(older[field] || [])].map(item => String(item?.id));
+    const ids = [...new Set([...order, ...Object.keys(items)])].filter(id => id in items);
+    result[field] = ids.map(id => items[id]);
+  }
+  result._f = fields;
+  result._ts = Math.max(x._ts || 0, y._ts || 0);
+  return result;
+}
+
+/** Stamp per-field changes since `previous` and tombstone deleted ids. Mutates and returns `next`. */
 function stampChanges(previous, next, now = Date.now()) {
+  previous = previous || {};
   next._deleted = { ...(next._deleted || {}) };
   for (const key of SYNCED_COLLECTIONS) {
     const before = new Map((previous[key] || []).map(record => [record.id, record]));
     const present = new Set();
     for (const record of next[key] || []) {
       present.add(record.id);
-      const old = before.get(record.id);
-      if (!old || recordBody(old) !== recordBody(record)) {
-        record._ts = now;
-        delete next._deleted[record.id];
-      } else if (record._ts === undefined) {
-        record._ts = old._ts || 0;
-      }
+      if (stampRecord(before.get(record.id), record, now)) delete next._deleted[record.id];
     }
     for (const id of before.keys()) {
       if (!present.has(id)) next._deleted[id] = now;
     }
   }
   for (const key of SYNCED_SINGLETONS) {
-    if (next[key] && recordBody((previous || {})[key]) !== recordBody(next[key])) next[key]._ts = now;
+    if (next[key]) stampRecord(previous[key] || null, next[key], now);
   }
-  const previousTalks = (previous || {}).talks || {};
+  const previousTalks = previous.talks || {};
   for (const [topicId, entry] of Object.entries(next.talks || {})) {
-    if (recordBody(previousTalks[topicId]) !== recordBody(entry)) next.talks[topicId] = { ...entry, _ts: now };
+    const copy = { ...entry };
+    stampRecord(previousTalks[topicId] || null, copy, now);
+    next.talks[topicId] = copy;
   }
   return next;
 }
 
-/** Merge two plans record-by-record (last writer wins per record, tombstones win over older edits). */
+/** Merge two plans field-by-field (see the model above). Pure: inputs are not modified. */
 function mergeStates(local, remote, now = Date.now()) {
   const a = migrate(JSON.parse(JSON.stringify(local)));
   const b = migrate(JSON.parse(JSON.stringify(remote)));
@@ -862,15 +958,15 @@ function mergeStates(local, remote, now = Date.now()) {
     for (const record of [...a[key], ...b[key]]) {
       const existing = byId.get(record.id);
       if (!existing) order.push(record.id);
-      if (!existing || (record._ts || 0) > (existing._ts || 0)) byId.set(record.id, record);
+      byId.set(record.id, existing ? mergeRecord(existing, record) : record);
     }
     a[key] = order.map(id => byId.get(id)).filter(record => !(deleted[record.id] !== undefined && deleted[record.id] >= (record._ts || 0)));
   }
   for (const key of SYNCED_SINGLETONS) {
-    if ((b[key]?._ts || 0) > (a[key]?._ts || 0)) a[key] = b[key];
+    a[key] = mergeRecord(a[key], b[key]);
   }
   for (const [topicId, entry] of Object.entries(b.talks || {})) {
-    if (!a.talks[topicId] || (entry._ts || 0) > (a.talks[topicId]._ts || 0)) a.talks[topicId] = entry;
+    a.talks[topicId] = mergeRecord(a.talks[topicId], entry);
   }
   a.lastBackupAt = [local.lastBackupAt, remote.lastBackupAt].filter(Boolean).sort().pop() || null;
   const cutoff = now - 180 * 864e5;
@@ -912,10 +1008,26 @@ const b64u = {
 };
 const textBytes = text => new TextEncoder().encode(text);
 
-/** From the shared link secret derive an AES-GCM key (never leaves the device) and a separate write-auth token. */
-async function deriveSyncKeys(secretText) {
-  const material = await crypto.subtle.importKey("raw", b64u.decode(secretText), "HKDF", false, ["deriveKey", "deriveBits"]);
-  const salt = textBytes("together-sync-v1");
+const PASSPHRASE_ITERATIONS = 600000; // OWASP 2023 guidance for PBKDF2-HMAC-SHA256
+/** Stretch an optional shared passphrase (PBKDF2, salted with the link secret). Returns "" when none. */
+async function stretchPassphrase(passphrase, secretText) {
+  const normalized = String(passphrase || "").normalize("NFKC").trim();
+  if (!normalized) return "";
+  const material = await crypto.subtle.importKey("raw", textBytes(normalized), "PBKDF2", false, ["deriveBits"]);
+  const salt = new Uint8Array([...textBytes("together-pass-v1:"), ...b64u.decode(secretText)]);
+  const bits = await crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt, iterations: PASSPHRASE_ITERATIONS }, material, 256);
+  return b64u.encode(new Uint8Array(bits));
+}
+/**
+ * From the link secret (+ the stretched passphrase, if the couple set one) derive an AES-GCM key that
+ * never leaves the device and a separate write-auth token. With a passphrase, the link alone can
+ * neither read nor overwrite the plan.
+ */
+async function deriveSyncKeys(secretText, stretched = "") {
+  const secret = b64u.decode(secretText);
+  const keyMaterial = stretched ? new Uint8Array([...secret, ...b64u.decode(stretched)]) : secret;
+  const material = await crypto.subtle.importKey("raw", keyMaterial, "HKDF", false, ["deriveKey", "deriveBits"]);
+  const salt = textBytes(stretched ? "together-sync-v2" : "together-sync-v1");
   const encKey = await crypto.subtle.deriveKey(
     { name: "HKDF", hash: "SHA-256", salt, info: textBytes("encrypt") },
     material, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
@@ -970,8 +1082,12 @@ class SyncClient {
   get active() {
     return Boolean(this.config && this.config.room && this.config.secret);
   }
+  get protected() {
+    return Boolean(this.config?.pk);
+  }
+  /** The ".p" suffix only tells the partner's app to ask for the passphrase; it reveals nothing about it. */
   inviteLink() {
-    return this.active ? `${PUBLIC_APP_URL}#join=${this.config.room}.${this.config.secret}` : "";
+    return this.active ? `${PUBLIC_APP_URL}#join=${this.config.room}.${this.config.secret}${this.protected ? ".p" : ""}` : "";
   }
   setStatus(status, error = "") {
     this.status = status;
@@ -985,7 +1101,7 @@ class SyncClient {
     return next;
   }
   async keysReady() {
-    if (!this.keys) this.keys = await deriveSyncKeys(this.config.secret);
+    if (!this.keys) this.keys = await deriveSyncKeys(this.config.secret, this.config.pk || "");
     return this.keys;
   }
   async request(method, body, query = "") {
@@ -995,29 +1111,63 @@ class SyncClient {
       body: body ? JSON.stringify(body) : undefined,
     });
   }
-  async create() {
-    this.config = {
+  /** Make a fresh room + key. Only the stretched passphrase is stored, never the passphrase itself. */
+  async freshConfig(passphrase) {
+    const secret = b64u.encode(crypto.getRandomValues(new Uint8Array(32)));
+    return {
       room: b64u.encode(crypto.getRandomValues(new Uint8Array(16))),
-      secret: b64u.encode(crypto.getRandomValues(new Uint8Array(32))),
+      secret,
+      pk: await stretchPassphrase(passphrase, secret),
       version: 0,
       lastSyncAt: null,
     };
+  }
+  async create(passphrase = "") {
+    this.config = await this.freshConfig(passphrase);
     this.keys = null;
     this.saveConfig();
     await this.run(() => this.pushNow());
     return this.inviteLink();
   }
-  async join(room, secret) {
+  async join(room, secret, passphrase = "", needsPassphrase = false) {
     if (!/^[A-Za-z0-9_-]{16,64}$/.test(room || "") || !/^[A-Za-z0-9_-]{40,}$/.test(secret || "")) throw new Error("That link is incomplete.");
-    this.config = { room, secret, version: 0, lastSyncAt: null };
+    if (needsPassphrase && !String(passphrase || "").trim()) throw new Error("This plan needs the passphrase your partner chose.");
+    this.config = { room, secret, pk: await stretchPassphrase(passphrase, secret), version: 0, lastSyncAt: null };
     this.keys = null;
     this.saveConfig();
-    const result = await this.run(() => this.pullNow(true));
+    let result;
+    try {
+      result = await this.run(() => this.pullNow(true));
+    } catch (error) {
+      const wasProtected = this.protected;
+      this.leave();
+      throw new Error(wasProtected ? "Wrong passphrase — check it with your partner and try again." : error.message);
+    }
     if (result === "missing") {
       this.leave();
-      throw new Error("That sync link has expired or was removed.");
+      throw new Error("That sync link has expired or was replaced — ask your partner for the current one.");
     }
     return result;
+  }
+  /**
+   * Replace the link (e.g. if it leaked): pull the latest plan, move it to a brand-new room under a new
+   * key (optionally with a new passphrase), then delete the old room so the old link opens nothing.
+   */
+  async rotate(passphrase = "") {
+    if (!this.active) throw new Error("Not syncing.");
+    await this.run(() => this.pullNow(false));
+    const old = { room: this.config.room, auth: (await this.keysReady()).auth };
+    this.config = await this.freshConfig(passphrase);
+    this.keys = null;
+    this.saveConfig();
+    await this.run(() => this.pushNow());
+    const removed = await this.fetchImpl(`${this.endpoint}/v1/rooms/${old.room}`, {
+      method: "DELETE",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ auth: old.auth }),
+    });
+    if (!removed.ok) throw new Error(`New link is ready, but the old one could not be removed (${removed.status}).`);
+    return this.inviteLink();
   }
   leave() {
     clearTimeout(this.pushTimer);
@@ -1045,6 +1195,7 @@ class SyncClient {
       return this.pushNow(attempt + 1);
     }
     if (response.status === 403) throw new Error("This device's sync link is no longer valid.");
+    if (response.status === 404 || response.status === 410) throw new Error("This sync link was replaced or has expired — ask your partner for the new one.");
     if (!response.ok) throw new Error(`Sync failed (${response.status})`);
     const result = await response.json();
     this.config.version = result.version;
@@ -1061,7 +1212,10 @@ class SyncClient {
       this.setStatus("synced");
       return "same";
     }
-    if (response.status === 404) return "missing";
+    if (response.status === 404) {
+      if (!force) this.setStatus("error", "This sync link was replaced or has expired — ask your partner for the new one.");
+      return "missing";
+    }
     if (!response.ok) throw new Error(`Sync failed (${response.status})`);
     const remotePlan = await this.absorb(await response.json());
     if (planFingerprint(this.getState()) !== planFingerprint(remotePlan)) {
@@ -1079,7 +1233,7 @@ class SyncClient {
     try {
       plan = await openPlan(remote.data, encKey);
     } catch (error) {
-      throw new Error("Could not unlock the shared plan — the link may be wrong.");
+      throw new Error(this.protected ? "Could not unlock the shared plan — wrong passphrase?" : "Could not unlock the shared plan — the link may be wrong.");
     }
     this.config.version = remote.version;
     this.saveConfig();
@@ -1301,6 +1455,37 @@ function viewOnboarding() {
   </div>`;
 }
 
+/** What an iPhone/iPad visitor needs to do to install Together and get push reminders. */
+function iosInfo(userAgent = navigator.userAgent, touchMac = navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1) {
+  const ios = /iphone|ipad|ipod/i.test(userAgent) || touchMac;
+  const match = userAgent.match(/OS (\d+)[_.](\d+)/);
+  const version = ios && match ? Number(match[1]) + Number(match[2]) / 100 : null;
+  return {
+    ios,
+    version,
+    inApp: ios && /FBAN|FBAV|Instagram|Line\/|WhatsApp|Snapchat|GSA\/|Twitter|MicroMessenger|TikTok/i.test(userAgent),
+    pushCapable: ios && (version === null || version >= 16.04),
+  };
+}
+function iosInstallBanner() {
+  const info = iosInfo();
+  if (!info.ios || reminders.isStandalone() || localStorage.getItem(`${store.key}.iosHintDismissed`)) return "";
+  const body = info.inApp
+    ? `<p class="small">You're in an in-app browser, which can't install apps. Tap <b>•••</b> → <b>Open in Safari</b>, then come back to this banner.</p>`
+    : `<ol class="small" style="margin:6px 0 6px 18px;padding:0">
+        <li>Tap <b>Share</b> <span aria-hidden="true">⬆️</span> (bottom bar in Safari, or the address bar menu in Chrome/Edge).</li>
+        <li>Choose <b>Add to Home Screen</b>, then <b>Add</b>.</li>
+        <li>Open <b>Together</b> from your Home Screen and turn on reminders in Settings.</li>
+      </ol>
+      ${info.pushCapable ? "" : `<p class="small muted">Your iOS ${esc(String(Math.floor(info.version)))} can install Together, but push reminders need iOS 16.4 or newer — use the calendar (.ics) reminders in Settings instead.</p>`}`;
+  return `<section class="card" style="margin-bottom:14px;border:1px solid var(--line, #f2c6cc)">
+    <div class="spread"><h2 style="margin:0">📲 Put Together on your Home Screen</h2>
+      <button type="button" class="ghost" data-act="ios-hint-dismiss" aria-label="Dismiss">✕</button></div>
+    <p class="small">On iPhone and iPad, Apple only allows reminders for web apps that are added to the Home Screen.</p>
+    ${body}
+  </section>`;
+}
+
 function viewHome() {
   const now = ui.now;
   const n = names();
@@ -1316,7 +1501,7 @@ function viewHome() {
   const todayISO = toISO(now);
   const comingUp = state.milestones.filter(m => !m.done && m.date && m.date >= todayISO).sort(byDate).slice(1, 4);
   const marriedLine = wedding && wedding <= now ? `<p class="muted">Married ${relativeTime(state.couple.wedding, now).replace(" ago", "")} 💍</p>` : "";
-  return `
+  return `${iosInstallBanner()}
   <section class="card hero">
     <div class="spread">
       <div>
@@ -1534,6 +1719,14 @@ function viewMoney() {
           <span class="chip">${esc(money(e.monthly, cur))}/mo</span></li>`).join("")}</ul>`}
     </section>
     <section class="card">
+      <h2>Bank statement → real surplus 🏦</h2>
+      <p class="small">Export a CSV from your bank app (most banks offer it under statements or transactions) and see what you really save each month.</p>
+      <div class="row"><label class="btn" tabindex="0" role="button" data-file-trigger>📄 Choose statement CSV<input type="file" accept=".csv,text/csv,text/plain" data-statement hidden></label>
+        <label class="btn" tabindex="0" role="button" data-file-trigger>📈 Import net-worth CSV<input type="file" accept=".csv,text/csv,text/plain" data-networth-csv hidden></label></div>
+      ${statementResultHTML(cur)}
+      <p class="small muted">🔒 Read on this device only — nothing is uploaded and individual transactions are never saved. No bank login, no aggregator.</p>
+    </section>
+    <section class="card">
       <h2>Net worth 📈</h2>
       ${netWorthSummary(cur)}
       <form class="row" data-form="networth" style="margin-top:10px">
@@ -1545,6 +1738,207 @@ function viewMoney() {
       <p class="small muted">A monthly snapshot of everything you own minus everything you owe — no bank login needed.</p>
     </section>
   </div>`;
+}
+
+/* --------------------------------------------- bank statement CSV (on-device) */
+/** Minimal RFC 4180 CSV parser with delimiter sniffing (, ; tab) and BOM handling. */
+function parseCsv(text) {
+  const source = String(text || "").replace(/^\uFEFF/, "");
+  const firstLine = source.split(/\r?\n/, 1)[0] || "";
+  const delimiter = [",", ";", "\t"].map(d => [d, firstLine.split(d).length]).sort((x, y) => y[1] - x[1])[0][0];
+  const rows = [];
+  let row = [];
+  let field = "";
+  let quoted = false;
+  for (let i = 0; i < source.length; i++) {
+    const ch = source[i];
+    if (quoted) {
+      if (ch === '"' && source[i + 1] === '"') {
+        field += '"';
+        i++;
+      } else if (ch === '"') {
+        quoted = false;
+      } else {
+        field += ch;
+      }
+    } else if (ch === '"') {
+      quoted = true;
+    } else if (ch === delimiter) {
+      row.push(field);
+      field = "";
+    } else if (ch === "\n" || ch === "\r") {
+      if (ch === "\r" && source[i + 1] === "\n") i++;
+      row.push(field);
+      if (row.some(cell => cell.trim() !== "")) rows.push(row);
+      row = [];
+      field = "";
+    } else {
+      field += ch;
+    }
+  }
+  row.push(field);
+  if (row.some(cell => cell.trim() !== "")) rows.push(row);
+  return rows.map(r => r.map(cell => cell.trim()));
+}
+
+/** "1,234.56", "1.234,56", "(12.00)", "-€12", "12.00-", "45 CR" -> number (NaN if not a number). */
+function parseAmount(raw) {
+  let text = String(raw ?? "").trim();
+  if (!text) return NaN;
+  let sign = 1;
+  if (/^\(.*\)$/.test(text)) {
+    sign = -1;
+    text = text.slice(1, -1);
+  }
+  if (/\b(DR|D)$/i.test(text)) sign = -1;
+  text = text.replace(/\b(CR|DR|C|D)$/i, "").trim();
+  if (/-$/.test(text)) {
+    sign = -sign;
+    text = text.slice(0, -1);
+  }
+  if (/^-/.test(text.replace(/[^\d.,-]/g, ""))) sign = -sign;
+  text = text.replace(/[^\d.,]/g, "");
+  if (!/\d/.test(text)) return NaN;
+  const lastComma = text.lastIndexOf(",");
+  const lastDot = text.lastIndexOf(".");
+  if (lastComma > lastDot) {
+    // comma is the decimal mark if exactly 1-2 digits follow it; otherwise it's a thousands separator
+    text = /,\d{1,2}$/.test(text) ? text.replace(/\./g, "").replace(",", ".") : text.replace(/,/g, "");
+  } else {
+    text = text.replace(/,/g, "");
+  }
+  const value = Number(text);
+  return Number.isFinite(value) ? sign * value : NaN;
+}
+
+const MONTH_NAMES = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+/** Parse one date cell; `dayFirst` resolves 03/04/2026. Returns "YYYY-MM-DD" or "". */
+function parseStatementDate(raw, dayFirst = true) {
+  const text = String(raw || "").trim();
+  let m = text.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);
+  if (m) return isoParts(+m[1], +m[2], +m[3]);
+  m = text.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{2,4})/);
+  if (m) {
+    const year = m[3].length === 2 ? 2000 + Number(m[3]) : Number(m[3]);
+    return dayFirst ? isoParts(year, +m[2], +m[1]) : isoParts(year, +m[1], +m[2]);
+  }
+  m = text.match(/^(\d{1,2})[\s-]([A-Za-z]{3})[A-Za-z]*[\s-,]+(\d{2,4})/);
+  if (m && MONTH_NAMES.includes(m[2].toLowerCase())) {
+    const year = m[3].length === 2 ? 2000 + Number(m[3]) : Number(m[3]);
+    return isoParts(year, MONTH_NAMES.indexOf(m[2].toLowerCase()) + 1, +m[1]);
+  }
+  m = text.match(/^([A-Za-z]{3})[A-Za-z]*\s+(\d{1,2}),?\s+(\d{4})/);
+  if (m && MONTH_NAMES.includes(m[1].toLowerCase())) return isoParts(+m[3], MONTH_NAMES.indexOf(m[1].toLowerCase()) + 1, +m[2]);
+  return "";
+}
+function isoParts(year, month, day) {
+  if (month < 1 || month > 12 || day < 1 || day > 31 || year < 1990 || year > 2100) return "";
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+const DATE_HEADER = /date|datum|fecha|data|tanggal|日期|booked|posted|transaction/i;
+const AMOUNT_HEADER = /amount|betrag|importe|montant|jumlah|value|sum|金额/i;
+const DEBIT_HEADER = /debit|withdraw|paid out|money out|spent|outflow|ausgang|charge/i;
+const CREDIT_HEADER = /credit|deposit|paid in|money in|received|inflow|eingang/i;
+
+/**
+ * Turn a bank-statement CSV into monthly income / spending / net. Runs only on this device;
+ * transactions are never stored or uploaded — only the monthly totals are shown.
+ */
+function analyzeStatement(text) {
+  const rows = parseCsv(text);
+  if (rows.length < 2) return { error: "That file doesn't look like a statement (fewer than 2 rows)." };
+  const headerIndex = Math.max(0, rows.slice(0, 10).findIndex(r => r.some(c => DATE_HEADER.test(c)) && r.some(c => AMOUNT_HEADER.test(c) || DEBIT_HEADER.test(c) || CREDIT_HEADER.test(c))));
+  const header = rows[headerIndex].map(c => c.toLowerCase());
+  const body = rows.slice(headerIndex + 1);
+  const columnCount = Math.max(...body.map(r => r.length));
+  const share = (col, ok) => body.filter(r => ok(r[col] ?? "")).length / body.length;
+  const looksLikeDate = cell => Boolean(parseStatementDate(cell, true) || parseStatementDate(cell, false));
+  let dateCol = header.findIndex((h, i) => DATE_HEADER.test(h) && share(i, looksLikeDate) > 0.6);
+  if (dateCol < 0) dateCol = [...Array(columnCount).keys()].find(col => share(col, looksLikeDate) > 0.6) ?? -1;
+  if (dateCol < 0) return { error: "Couldn't find a date column." };
+  const numeric = col => col >= 0 && col !== dateCol && share(col, c => c === "" || Number.isFinite(parseAmount(c))) > 0.8;
+  let debitCol = header.findIndex((h, i) => DEBIT_HEADER.test(h) && numeric(i));
+  let creditCol = header.findIndex((h, i) => CREDIT_HEADER.test(h) && numeric(i) && i !== debitCol);
+  let amountCol = header.findIndex((h, i) => AMOUNT_HEADER.test(h) && numeric(i) && !/balance|saldo/i.test(h));
+  if (amountCol < 0 && (debitCol < 0 || creditCol < 0)) {
+    amountCol = [...Array(columnCount).keys()].reverse().find(col => numeric(col) && !/balance|saldo/i.test(header[col] || "")) ?? -1;
+    if (debitCol >= 0 && creditCol < 0) amountCol = -1;
+  }
+  if (amountCol < 0 && (debitCol < 0 || creditCol < 0)) return { error: "Couldn't find an amount column (or debit/credit columns)." };
+  // Day-first unless some date only makes sense month-first (e.g. 04/23/2026).
+  const dayFirst = !body.some(r => {
+    const m = String(r[dateCol] || "").match(/^(\d{1,2})[-/.](\d{1,2})[-/.]\d{2,4}/);
+    return m && Number(m[2]) > 12;
+  });
+  const months = new Map();
+  let used = 0;
+  let skipped = 0;
+  for (const r of body) {
+    const date = parseStatementDate(r[dateCol], dayFirst);
+    let value;
+    if (amountCol >= 0 && (debitCol < 0 || creditCol < 0)) {
+      value = parseAmount(r[amountCol]);
+    } else {
+      const credit = parseAmount(r[creditCol]);
+      const debit = parseAmount(r[debitCol]);
+      value = (Number.isFinite(credit) ? Math.abs(credit) : 0) - (Number.isFinite(debit) ? Math.abs(debit) : 0);
+      if (!Number.isFinite(credit) && !Number.isFinite(debit)) value = NaN;
+    }
+    if (!date || !Number.isFinite(value)) {
+      skipped++;
+      continue;
+    }
+    used++;
+    const key = date.slice(0, 7);
+    const month = months.get(key) || { month: key, income: 0, spending: 0, net: 0, count: 0 };
+    if (value >= 0) month.income += value;
+    else month.spending += -value;
+    month.net = month.income - month.spending;
+    month.count++;
+    months.set(key, month);
+  }
+  if (!used) return { error: "No rows with both a date and an amount." };
+  const list = [...months.values()].sort((x, y) => x.month.localeCompare(y.month));
+  const average = field => list.reduce((sum, m) => sum + m[field], 0) / list.length;
+  return {
+    months: list,
+    avgIncome: average("income"),
+    avgSpending: average("spending"),
+    avgNet: average("net"),
+    used,
+    skipped,
+    columns: { date: rows[headerIndex][dateCol], amount: amountCol >= 0 && (debitCol < 0 || creditCol < 0) ? rows[headerIndex][amountCol] : `${rows[headerIndex][creditCol]} − ${rows[headerIndex][debitCol]}` },
+  };
+}
+
+/** Net-worth history CSV with columns like Date, Assets, Debts. Returns [{date, assets, debts}]. */
+function parseNetWorthCsv(text) {
+  const rows = parseCsv(text);
+  if (rows.length < 2) return [];
+  const header = rows[0].map(c => c.toLowerCase());
+  const dateCol = header.findIndex(h => DATE_HEADER.test(h));
+  const assetsCol = header.findIndex(h => /asset|own|savings|vermögen|total/i.test(h));
+  const debtsCol = header.findIndex(h => /debt|liabilit|owe|loan|schulden/i.test(h));
+  if (dateCol < 0 || assetsCol < 0) return [];
+  return rows.slice(1).map(r => ({
+    date: parseStatementDate(r[dateCol]),
+    assets: parseAmount(r[assetsCol]),
+    debts: debtsCol >= 0 ? Math.abs(parseAmount(r[debtsCol]) || 0) : 0,
+  })).filter(e => e.date && Number.isFinite(e.assets));
+}
+
+function statementResultHTML(cur) {
+  const result = ui.statement;
+  if (!result) return "";
+  if (result.error) return `<p class="small"><span class="chip warn">⚠️ ${esc(result.error)}</span></p>`;
+  const rows = result.months.slice(-12).map(m => `<tr><td>${esc(m.month)}</td><td>${esc(money(m.income, cur))}</td><td>${esc(money(m.spending, cur))}</td>
+    <td><b class="${m.net >= 0 ? "" : "neg"}">${esc(money(m.net, cur))}</b></td></tr>`).join("");
+  return `<div style="overflow-x:auto;margin-top:8px"><table class="small" style="width:100%;border-collapse:collapse">
+      <thead><tr><th align="left">Month</th><th align="left">In</th><th align="left">Out</th><th align="left">Net</th></tr></thead><tbody>${rows}</tbody></table></div>
+    <p class="small">Average over ${result.months.length} month${result.months.length === 1 ? "" : "s"}: <b>${esc(money(result.avgNet, cur))}/month</b> left over
+      <span class="muted">(${result.used} transactions · columns “${esc(result.columns.date)}” / “${esc(result.columns.amount)}”${result.skipped ? ` · ${result.skipped} rows skipped` : ""}; first and last months may be partial)</span></p>
+    ${result.avgNet > 0 ? `<button type="button" data-act="statement-use">Use ${esc(money(Math.round(result.avgNet), cur))}/month as our retirement saving</button>` : '<p class="small"><span class="chip warn">Spending is above income on average — worth a money talk 💬</span></p>'}`;
 }
 
 function netWorthSummary(cur) {
@@ -1711,9 +2105,14 @@ function viewConnect() {
     ? `<p class="small"><span class="chip ok">🔄 Sharing one plan</span> <span class="muted" id="sync-status">${esc(syncStatusText())}</span></p>
        <label class="field">Pairing link — send only to your partner<input readonly value="${esc(sync.inviteLink())}" id="invite-link" onfocus="this.select()"></label>
        <div class="row"><button type="button" data-act="sync-copy">Copy link</button><button type="button" data-act="sync-share">Share…</button>
-         <button type="button" data-act="sync-now">Sync now</button><button type="button" class="ghost" data-act="sync-leave">Stop syncing on this device</button></div>
-       <p class="small muted">Anyone with this link can open your plan. If it leaks, stop syncing and create a new link.</p>`
+         <button type="button" data-act="sync-now">Sync now</button><button type="button" data-act="sync-rotate">Replace link…</button>
+         <button type="button" class="ghost" data-act="sync-leave">Stop syncing on this device</button></div>
+       <p class="small muted">${sync.protected
+         ? "🔒 Passphrase-protected: the link alone can't open or change your plan. Your partner enters the passphrase once on their phone."
+         : "Anyone with this link can open your plan. Add a passphrase or, if the link leaked, use <b>Replace link</b> — the old link stops working immediately."}</p>`
     : `<p class="small">Use one plan on both your phones. Changes sync within seconds and merge item by item, so you can both edit.</p>
+       <label class="field">Passphrase (optional, recommended)<input id="sync-pass" type="password" autocomplete="new-password" minlength="6" placeholder="Something only you two know"></label>
+       <p class="small muted">Tell it to your partner in person or by phone — not in the same message as the link. Then a leaked link alone can't open your plan.</p>
        <button type="button" class="primary" data-act="sync-create">Create a pairing link</button>
        <p class="small muted">🔐 End-to-end encrypted: your plan is locked on this device before upload, and the key only lives inside the link (after the #), which is never sent to the server.</p>`;
   const pref = reminders.pref();
@@ -1795,11 +2194,11 @@ function viewSettings() {
 }
 
 /* ------------------------------------------------------- dialogs & actions */
-function openDialog(title, fieldsHTML, onSubmit) {
+function openDialog(title, fieldsHTML, onSubmit, submitLabel = "Save") {
   const dialog = document.getElementById("dialog");
   const form = document.getElementById("dialog-form");
   form.innerHTML = `<h2 id="dialog-title">${esc(title)}</h2>${fieldsHTML}
-    <div class="actions"><button type="button" data-close>Cancel</button><button class="primary" type="submit">Save</button></div>`;
+    <div class="actions"><button type="button" data-close>Cancel</button><button class="primary" type="submit">${esc(submitLabel)}</button></div>`;
   form.onsubmit = event => {
     event.preventDefault();
     const values = Object.fromEntries(new FormData(form).entries());
@@ -1981,8 +2380,13 @@ const actions = {
       return;
     }
     try {
+      const passphrase = document.getElementById("sync-pass")?.value || "";
+      if (passphrase && passphrase.trim().length < 6) {
+        toast("Use at least 6 characters for the passphrase (or leave it empty).");
+        return;
+      }
       toast("Creating your encrypted pairing link…");
-      await sync.create();
+      await sync.create(passphrase);
       render();
       toast("Link ready — send it to your partner 💌");
     } catch (error) {
@@ -2013,6 +2417,39 @@ const actions = {
     render();
     toast(sync.status === "error" ? `⚠️ ${sync.error}` : "Up to date ✓");
   },
+  "ios-hint-dismiss": () => {
+    localStorage.setItem(`${store.key}.iosHintDismissed`, "1");
+    render();
+  },
+  "statement-use": () => {
+    if (!ui.statement || !(ui.statement.avgNet > 0)) return;
+    const monthly = Math.round(ui.statement.avgNet);
+    commitWithUndo(`Retirement saving set to ${money(monthly, state.couple.currency)}/month`, () => {
+      state.retirement = { ...state.retirement, monthly };
+    });
+  },
+  "sync-rotate": () => {
+    openDialog("Replace the pairing link", `
+      <p class="small">Moves your plan to a new encrypted room with a new key and deletes the old one, so the old link opens nothing.
+        Your partner will need the new link (and passphrase, if you set one).</p>
+      <label class="field">New passphrase (optional)<input name="passphrase" type="password" autocomplete="new-password" placeholder="Leave empty for link-only"></label>`,
+    async values => {
+      const passphrase = values.passphrase || "";
+      if (passphrase && passphrase.trim().length < 6) {
+        toast("Use at least 6 characters for the passphrase (or leave it empty).");
+        return;
+      }
+      try {
+        toast("Replacing the link…");
+        await sync.rotate(passphrase);
+        render();
+        toast("New link ready — send it to your partner 💌");
+      } catch (error) {
+        render();
+        toast(`⚠️ ${error.message}`);
+      }
+    }, "Replace link");
+  },
   "sync-leave": () => {
     if (!confirm("Stop syncing on this device? Your plan stays here; your partner keeps their copy.")) return;
     sync.leave();
@@ -2034,8 +2471,21 @@ const actions = {
     toast("Reminders off");
   },
   "push-test": async () => {
-    const registration = await navigator.serviceWorker.ready;
-    await registration.showNotification("Together 💞", { body: "This is how your reminders will look.", icon: "icons/icon-192.png", tag: "together-test" });
+    // Real end-to-end test: server -> push service -> this phone's service worker.
+    const pref = reminders.pref();
+    try {
+      await swStore.set("reminders", [
+        { at: Date.now(), title: "Together 💞", body: "Push works — your reminders will arrive like this.", tag: "together-test" },
+        ...reminderSchedule(state),
+      ]);
+      const response = await fetch(`${CLOUD_URL}/v1/push/${pref.id}`, { method: "POST" });
+      const result = await response.json().catch(() => ({}));
+      if (response.status === 429) toast("Just sent one — wait a few seconds.");
+      else if (result.status === 201) toast("Sent through the push service — it should pop up in a few seconds.");
+      else toast(`⚠️ The push service refused it (${result.status || response.status}). Try turning reminders off and on.`);
+    } catch (error) {
+      toast("⚠️ Couldn't reach the reminder server — are you offline?");
+    }
   },
   "install": async () => {
     if (!ui.installPrompt) return;
@@ -2173,6 +2623,27 @@ function bindEvents() {
       state.retirement = { ...state.retirement, ...retirementValues };
       if ("retireAge" in values) state.couple.retireAge = clamp(retireAge || 65, 40, 85);
       commit();
+    } else if (el.matches("[data-statement]") && el.files[0]) {
+      el.files[0].text().then(text => {
+        ui.statement = analyzeStatement(text);
+        render();
+        if (!ui.statement.error) toast(`Read ${ui.statement.used} transactions ✓ (nothing uploaded)`);
+      });
+      el.value = "";
+    } else if (el.matches("[data-networth-csv]") && el.files[0]) {
+      el.files[0].text().then(text => {
+        const entries = parseNetWorthCsv(text);
+        if (!entries.length) {
+          toast("⚠️ Need columns like Date, Assets, Debts");
+          return;
+        }
+        const known = new Set(state.networth.map(e => e.date));
+        const fresh = entries.filter(e => !known.has(e.date));
+        commitWithUndo(`Added ${fresh.length} net-worth snapshot${fresh.length === 1 ? "" : "s"}`, () => {
+          state.networth.push(...fresh.map(e => ({ id: uid(), ...e })));
+        });
+      });
+      el.value = "";
     } else if (el.matches("[data-import]") && el.files[0]) {
       const reader = new FileReader();
       reader.onload = () => {
@@ -2468,6 +2939,70 @@ async function runSelfTests() {
     const merged = mergeStates(mine, theirs, 30);
     return merged.goals.length === 1 && merged.bucket.length === 1 && merged.milestones[0].title === "Wedding in Bali" || JSON.stringify(merged);
   });
+  await test("sync: field-level merge keeps both partners' edits to different fields of the same goal", () => {
+    const base = migrate({ ...blankState(), goals: [{ id: "g", title: "Buy a home", notes: "", due: "", owner: "both", category: "home", done: false,
+      steps: [{ id: "s1", text: "Save deposit", done: false }, { id: "s2", text: "Get mortgage pre-approval", done: false }] }] });
+    stampChanges(blankState(), base, 1);
+    const mine = JSON.parse(JSON.stringify(base));
+    const theirs = JSON.parse(JSON.stringify(base));
+    const mineBefore = JSON.parse(JSON.stringify(mine));
+    const theirsBefore = JSON.parse(JSON.stringify(theirs));
+    mine.goals[0].title = "Buy a flat";
+    mine.goals[0].steps[0].done = true;
+    stampChanges(mineBefore, mine, 10);
+    theirs.goals[0].notes = "Near the park";
+    theirs.goals[0].steps[1].done = true;
+    theirs.goals[0].steps.push({ id: "s3", text: "View 5 places", done: false });
+    stampChanges(theirsBefore, theirs, 20);
+    const ab = mergeStates(mine, theirs, 30).goals[0];
+    const ba = mergeStates(theirs, mine, 30).goals[0];
+    const ok = goal => goal.title === "Buy a flat" && goal.notes === "Near the park" && goal.steps.length === 3
+      && goal.steps.find(s => s.id === "s1").done && goal.steps.find(s => s.id === "s2").done;
+    return ok(ab) && ok(ba) && recordBody(ab) === recordBody(ba) || JSON.stringify({ ab, ba });
+  });
+  await test("sync: field-level merge — same field still newest-wins; a removed step stays removed", () => {
+    const base = migrate({ ...blankState(), goals: [{ id: "g", title: "Trip", notes: "", steps: [{ id: "s1", text: "Book", done: false }, { id: "s2", text: "Pack", done: false }] }] });
+    stampChanges(blankState(), base, 1);
+    const mine = JSON.parse(JSON.stringify(base));
+    const theirs = JSON.parse(JSON.stringify(base));
+    const mineBefore = JSON.parse(JSON.stringify(mine));
+    const theirsBefore = JSON.parse(JSON.stringify(theirs));
+    mine.goals[0].title = "Trip to Rome";
+    mine.goals[0].steps = mine.goals[0].steps.filter(s => s.id !== "s2");
+    stampChanges(mineBefore, mine, 10);
+    theirs.goals[0].title = "Trip to Lisbon";
+    stampChanges(theirsBefore, theirs, 20);
+    const goal = mergeStates(mine, theirs, 30).goals[0];
+    return goal.title === "Trip to Lisbon" && goal.steps.length === 1 && goal.steps[0].id === "s1" || JSON.stringify(goal);
+  });
+  await test("sync: field-level merge for couple names and Foundations weeks done on different phones", () => {
+    const base = blankState();
+    stampChanges(blankState(), base, 1);
+    const mine = JSON.parse(JSON.stringify(base));
+    const theirs = JSON.parse(JSON.stringify(base));
+    const mineBefore = JSON.parse(JSON.stringify(mine));
+    const theirsBefore = JSON.parse(JSON.stringify(theirs));
+    mine.couple.a.name = "Ann";
+    mine.program.done["1"] = true;
+    mine.retirement.saved = 5000;
+    stampChanges(mineBefore, mine, 10);
+    theirs.couple.b.name = "Ben";
+    theirs.program.done["2"] = true;
+    theirs.program.notes["2"] = "We'll try the stress-reducing chat on Sundays";
+    theirs.retirement.monthly = 300;
+    theirs.talks.money = { status: "talked", note: "" };
+    stampChanges(theirsBefore, theirs, 20);
+    const merged = mergeStates(mine, theirs, 30);
+    return merged.couple.a.name === "Ann" && merged.couple.b.name === "Ben" && merged.program.done["1"] && merged.program.done["2"]
+      && merged.program.notes["2"].startsWith("We'll") && merged.retirement.saved === 5000 && merged.retirement.monthly === 300
+      && merged.talks.money.status === "talked" || JSON.stringify({ couple: merged.couple, program: merged.program, retirement: merged.retirement });
+  });
+  await test("sync: plans from the previous version (no per-field stamps) still merge newest-record-wins", () => {
+    const old = migrate({ ...blankState(), goals: [{ id: "g", title: "Old title", notes: "old", steps: [], _ts: 5 }] });
+    const newer = migrate({ ...blankState(), goals: [{ id: "g", title: "New title", notes: "new", steps: [], _ts: 9 }] });
+    const goal = mergeStates(old, newer, 10).goals[0];
+    return goal.title === "New title" && goal.notes === "new" || JSON.stringify(goal);
+  });
   await test("sync: deletion beats an older edit, a newer edit (undo) beats the deletion", () => {
     const edited = migrate({ ...blankState(), funds: [{ id: "f", name: "Car", _ts: 100 }] });
     const deleted = migrate({ ...blankState(), _deleted: { f: 200 } });
@@ -2494,27 +3029,39 @@ async function runSelfTests() {
     return opened.hello === "Ann loves Ben" && !sealed.includes("Ann loves") && wrongKeyFailed && auth.length >= 40 || "crypto failed";
   });
   const mockRoomServer = () => {
-    let row = null;
+    // Mirrors the worker: many rooms; a room is only created by a version-0 PUT; DELETE needs auth.
+    const rows = new Map();
+    let firstRoom = null;
     const respond = (status, body) => new Response(body === undefined ? null : JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
     const handler = async (url, options = {}) => {
       const method = options.method || "GET";
-      const query = new URL(url).searchParams;
+      const parsed = new URL(url);
+      const room = parsed.pathname.split("/").pop();
+      const row = rows.get(room);
       if (method === "GET") {
         if (!row) return respond(404, { error: "no such room" });
-        if (query.has("since") && Number(query.get("since")) >= row.version) return new Response(null, { status: 204 });
+        if (parsed.searchParams.has("since") && Number(parsed.searchParams.get("since")) >= row.version) return new Response(null, { status: 204 });
         return respond(200, { version: row.version, data: row.data });
       }
       const body = JSON.parse(options.body);
+      if (method === "DELETE") {
+        if (row && row.auth !== body.auth) return respond(403, {});
+        rows.delete(room);
+        return respond(200, { ok: true });
+      }
       if (!row) {
-        row = { version: 1, auth: body.auth, data: body.data };
+        if (Number(body.baseVersion) !== 0) return respond(404, { error: "room is gone" });
+        rows.set(room, { version: 1, auth: body.auth, data: body.data });
+        firstRoom = firstRoom || room;
         return respond(200, { version: 1 });
       }
       if (row.auth !== body.auth) return respond(403, {});
       if (body.baseVersion !== row.version) return respond(409, { version: row.version, data: row.data });
-      row = { ...row, version: row.version + 1, data: body.data };
-      return respond(200, { version: row.version });
+      rows.set(room, { ...row, version: row.version + 1, data: body.data });
+      return respond(200, { version: row.version + 1 });
     };
-    handler.peek = () => row;
+    handler.peek = (room = firstRoom) => rows.get(room) || null;
+    handler.has = room => rows.has(room);
     return handler;
   };
   const twoDeviceScenario = async (endpoint, fetchImpl) => {
@@ -2570,6 +3117,64 @@ async function runSelfTests() {
     };
     return { a, b, result };
   };
+  await test("sync: passphrase-protected link — the link alone can't read or write; replacing the link retires the old room", async () => {
+    const server = mockRoomServer();
+    const makeClient = (key, holder) => new SyncClient({
+      configKey: key, endpoint: "https://mock.invalid", fetchImpl: server,
+      getState: () => holder.plan,
+      applyRemote: remote => {
+        holder.plan = mergeStates(holder.plan, remote);
+      },
+    });
+    const a = { plan: blankState() };
+    a.plan.couple.a.name = "Ann";
+    stampChanges(blankState(), a.plan, Date.now());
+    const clientA = makeClient("together.selftest.passA", a);
+    const link = await clientA.create("blue whale 42");
+    const [room, secret, flag] = link.split("#join=")[1].split(".");
+    const b = { plan: blankState() };
+    const clientB = makeClient("together.selftest.passB", b);
+    const failures = [];
+    for (const attempt of ["", "wrong horse"]) {
+      try {
+        await clientB.join(room, secret, attempt, true);
+        failures.push(`joined with "${attempt}"`);
+      } catch (error) {
+        if (clientB.active) failures.push("stayed active after a failed join");
+      }
+    }
+    await clientB.join(room, secret, "blue whale 42", true);
+    const joined = b.plan.couple.a.name === "Ann";
+    // An attacker holding only the link (no passphrase):
+    const linkOnly = await deriveSyncKeys(secret);
+    let attackerRead = true;
+    try {
+      await openPlan(server.peek(room).data, linkOnly.encKey);
+    } catch (error) {
+      attackerRead = false;
+    }
+    const attackerWrite = await server(`https://mock.invalid/v1/rooms/${room}`, { method: "PUT", body: JSON.stringify({ auth: linkOnly.auth, baseVersion: server.peek(room).version, data: "x" }) });
+    // Replace the link: old room disappears, partner's old link can't resurrect it
+    const newLink = await clientA.rotate("");
+    const newRoom = newLink.split("#join=")[1].split(".")[0];
+    await clientB.pull();
+    let resurrected = false;
+    try {
+      await clientB.run(() => clientB.pushNow());
+    } catch (error) {
+      resurrected = server.has(room);
+    }
+    const result = {
+      flag, failures, joined, attackerRead, attackerWriteStatus: attackerWrite.status,
+      oldRoomGone: !server.has(room), newRoomLive: server.has(newRoom), newLinkUnprotected: !newLink.endsWith(".p"),
+      partnerTold: clientB.status === "error" && /replaced/i.test(clientB.error), resurrected,
+    };
+    clientA.leave();
+    clientB.leave();
+    const ok = flag === "p" && !failures.length && joined && !attackerRead && result.attackerWriteStatus === 403
+      && result.oldRoomGone && result.newRoomLive && result.newLinkUnprotected && result.partnerTold && !resurrected;
+    return ok || JSON.stringify(result);
+  });
   await test("sync: two phones converge through an encrypted room (409 conflict + merge + delete)", async () => {
     const server = mockRoomServer();
     const { a, b, result } = await twoDeviceScenario("https://mock.invalid", server);
@@ -2578,6 +3183,34 @@ async function runSelfTests() {
     b.client.leave();
     const ok = result.joined && result.converged && result.goal && result.bucket && result.deletionWon && !stored.includes('"Ann"') && !stored.includes('"Wedding"');
     return ok || JSON.stringify(result);
+  });
+  await test("savings: bank CSV — amount column, mixed number formats, monthly surplus", () => {
+    const csv = "\uFEFFDate,Description,Amount,Balance\n2026-01-03,Salary,\"3,200.00\",5000\n2026-01-10,Rent,-1200.00,3800\n2026-01-15,\"Groceries, weekly\",(150.50),3649.5\n2026-02-03,Salary,3200,6849.5\n2026-02-11,Rent,-1200,5649.5\n";
+    const r = analyzeStatement(csv);
+    return r.months?.length === 2 && Math.abs(r.months[0].net - 1849.5) < 1e-9 && Math.abs(r.months[1].net - 2000) < 1e-9
+      && Math.abs(r.avgNet - 1924.75) < 1e-9 && r.columns.amount === "Amount" || JSON.stringify(r);
+  });
+  await test("savings: bank CSV — semicolons, European decimals, debit/credit columns, day-first dates", () => {
+    const csv = "Buchungstag;Text;Debit;Credit\n03.02.2026;Gehalt;;2.500,00\n14.02.2026;Miete;900,00;\n28.02.2026;Markt;45,50;\n";
+    const r = analyzeStatement(csv);
+    const us = analyzeStatement("Posted Date,Payee,Amount\n04/23/2026,Paycheck,2000\n04/24/2026,Store,-25.10\n");
+    return r.months?.length === 1 && r.months[0].month === "2026-02" && Math.abs(r.months[0].income - 2500) < 1e-9
+      && Math.abs(r.months[0].spending - 945.5) < 1e-9 && us.months?.[0]?.month === "2026-04" && Math.abs(us.avgNet - 1974.9) < 1e-9
+      && parseAmount("1.234,56") === 1234.56 && parseAmount("12.00-") === -12 && parseAmount("45 DR") === -45 && Number.isNaN(parseAmount("n/a"))
+      || JSON.stringify({ r, us });
+  });
+  await test("savings: net-worth CSV import parses date/assets/debts", () => {
+    const list = parseNetWorthCsv("Date,Assets,Debts\n2026-01-31,\"12,000\",3000\n2026-02-28,12500,2900\nbad,row,\n");
+    return list.length === 2 && list[0].assets === 12000 && list[1].debts === 2900 || JSON.stringify(list);
+  });
+  await test("reminders: iOS install guidance — version, in-app browsers, push support", () => {
+    const safari17 = iosInfo("Mozilla/5.0 (iPhone; CPU iPhone OS 17_2 like Mac OS X) AppleWebKit/605.1.15 Version/17.2 Mobile/15E148 Safari/604.1", false);
+    const old = iosInfo("Mozilla/5.0 (iPhone; CPU iPhone OS 16_3 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148", false);
+    const insta = iosInfo("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Instagram 300.0", false);
+    const android = iosInfo("Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 Chrome/126.0 Mobile Safari/537.36", false);
+    const ipadDesktop = iosInfo("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 Version/17.0 Safari/605.1.15", true);
+    return safari17.ios && safari17.pushCapable && !safari17.inApp && old.ios && !old.pushCapable && insta.inApp && !android.ios
+      && ipadDesktop.ios && ipadDesktop.pushCapable || JSON.stringify({ safari17, old, insta, android, ipadDesktop });
   });
   await test("savings: required monthly for a target and today's-money conversion", () => {
     const monthly = requiredMonthlyForTarget(0, 1200, 0, 1);
@@ -2696,18 +3329,28 @@ function startConnectivity() {
   document.getElementById("dialog").addEventListener("close", () => {
     if (pendingRender) setTimeout(safeRender, 0);
   });
-  const join = location.hash.match(/^#join=([A-Za-z0-9_-]+)\.([A-Za-z0-9_-]+)$/);
+  const join = location.hash.match(/^#join=([A-Za-z0-9_-]+)\.([A-Za-z0-9_-]+)(\.p)?$/);
   if (join) {
     history.replaceState(null, "", location.pathname + location.search);
-    const alreadyHere = sync.active && sync.config.room === join[1];
-    if (!alreadyHere && confirm("Join your partner's shared plan on this device?\n\nAnything already on this device will be merged into it.")) {
-      sync.join(join[1], join[2])
+    const [, room, secret, protectedFlag] = join;
+    const alreadyHere = sync.active && sync.config.room === room;
+    const connect = passphrase => {
+      toast(protectedFlag ? "Unlocking your shared plan…" : "Connecting…");
+      sync.join(room, secret, passphrase, Boolean(protectedFlag))
         .then(() => {
           ui.tab = "home";
           render();
           toast("Connected — you now share one plan 💞");
         })
         .catch(error => toast(`⚠️ ${error.message}`));
+    };
+    if (!alreadyHere && protectedFlag) {
+      openDialog("Join your partner's plan 🔒", `
+        <p class="small">Your partner protected your shared plan with a passphrase. Anything already on this device will be merged into it.</p>
+        <label class="field">Passphrase<input name="passphrase" type="password" autocomplete="current-password" required></label>`,
+      values => connect(values.passphrase), "Join");
+    } else if (!alreadyHere && confirm("Join your partner's shared plan on this device?\n\nAnything already on this device will be merged into it.")) {
+      connect("");
     }
   }
   const pullIfVisible = () => {

@@ -137,6 +137,8 @@ export class Room {
     if (typeof body.data !== "string" || !body.data || body.data.length > MAX_BLOB_CHARS) return json({ error: "invalid data" }, 413);
     const now = Date.now();
     if (!row) {
+      // Only a brand-new link (baseVersion 0) may create a room; an old device must not resurrect a replaced one.
+      if (Number(body.baseVersion) !== 0) return json({ error: "room is gone" }, 404);
       this.sql.exec("INSERT INTO blob (k, version, auth, data, updated) VALUES (1, 1, ?, ?, ?)", authHash, body.data, now);
       await this.state.storage.setAlarm(now + ROOM_TTL_MS);
       return json({ version: 1, updated: now });
