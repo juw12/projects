@@ -45,7 +45,9 @@ def find_test_files(apps_dir):
             if sub_tests_dir.is_dir():
                 test_files.extend(sorted(sub_tests_dir.glob("*.py")))
 
-    return test_files
+    # fake_*.py files are stand-in executables (fake adb, fake cloudflared, ...)
+    # that the real suites launch; they are fixtures, not tests.
+    return [path for path in test_files if not path.name.startswith("fake_")]
 
 
 def run_test_file(test_file, repo_root):

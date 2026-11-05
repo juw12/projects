@@ -17,6 +17,7 @@ import hmac
 import json
 import mimetypes
 import os
+import re
 import secrets
 import socket
 import sys
@@ -46,6 +47,7 @@ WEB_ROOT = (Path(__file__).resolve().parent.parent / "web").resolve()
 MAX_APK_BYTES = 1024 * 1024 * 1024
 MAX_JSON_BYTES = 2 * 1024 * 1024
 LOCAL_HOSTS = {"127.0.0.1", "localhost", "[::1]", "::1"}
+RECORDING_NAME = re.compile(r"[\w.-]+\.mp4")  # a bare file name, no separators
 
 
 class FrameHub:
@@ -474,7 +476,9 @@ class Handler(BaseHTTPRequestHandler):
 
     def api_record_file(self, query):
         name = (query.get("name") or [""])[0]
-        if not name or Path(name).name != name or not name.endswith(".mp4"):
+        # Recording names are generated as tether-<serial>-<timestamp>.mp4; validate
+        # the same way on every OS (Path(name).name ignores "\\" on Linux).
+        if not RECORDING_NAME.fullmatch(name) or ".." in name:
             raise ValueError("bad recording name")
         target = self.server.recordings_dir / name
         if not target.is_file():

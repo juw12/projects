@@ -294,13 +294,17 @@ class ScrcpySession:
             if self.process.poll() is not None:
                 detail = " | ".join(list(self.log)[-4:]) or f"exit code {self.process.returncode}"
                 raise ScrcpyError(f"scrcpy server stopped: {detail}")
-            sock = socket.create_connection(("127.0.0.1", self.port), timeout=2)
+            sock = None
             try:
+                # The adb forward may not be listening yet: Linux refuses at once,
+                # Windows retries the SYN for ~2 s, so treat refusal as "not ready".
+                sock = socket.create_connection(("127.0.0.1", self.port), timeout=2)
                 if sock.recv(1):  # dummy byte: the device server really accepted us
                     break
             except OSError:
                 pass
-            sock.close()
+            if sock is not None:
+                sock.close()
             if time.monotonic() > deadline:
                 raise ScrcpyError("scrcpy server did not start in time")
             time.sleep(0.15)
