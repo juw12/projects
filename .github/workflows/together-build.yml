@@ -1,0 +1,25 @@
+name: Together build check
+
+# The published app (apps/together/web/index.html) is generated from the modular source in
+# apps/together/src by apps/together/build.py. This fails if someone edits one without the other.
+on:
+  push:
+    branches: [main]
+    paths: ['apps/together/**', '.github/workflows/together-build.yml']
+  pull_request:
+    paths: ['apps/together/**', '.github/workflows/together-build.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  build-check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: web/index.html matches src/
+        run: python apps/together/build.py --check

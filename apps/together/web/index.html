@@ -53,6 +53,7 @@
   .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
   .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow); min-width: 0; }
   .card + .card { margin-top: 14px; } .grid > .card + .card { margin-top: 0; }
+.settings-group { font-size: .78rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 4px 0 8px; font-family: inherit; }
   .section-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin: 22px 0 10px; }
   .section-head:first-child { margin-top: 0; }
   .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
@@ -174,7 +175,7 @@
 <body>
 <header class="topbar">
   <div class="brand">💞 Together<small id="brand-sub">Our life plan, from first date to golden years</small></div>
-  <span class="saved-pill" id="saved-pill" title="Everything is stored only in this browser on this device">🔒 Saved on this device</span>
+  <span class="saved-pill" id="saved-pill" title="Your plan lives only in this browser — nothing is uploaded.">🔒 Saved on this device</span>
 </header>
 <nav class="tabs" id="tabs" aria-label="Sections"></nav>
 <main id="view" tabindex="-1"></main>
@@ -658,6 +659,194 @@ function focusItems(state, now) {
   const talk = TALKS.find(t => STAGE_INDEX[t.stage] <= stageIdx + 1 && (state.talks[t.id]?.status || "todo") === "todo");
   if (talk) items.push({ icon: "🗣️", text: `Talk about: ${talk.title}`, tab: "us" });
   return items.slice(0, 5);
+}
+
+/* --------------------------------------------- bank statement CSV (on-device) */
+/** Minimal RFC 4180 CSV parser with delimiter sniffing (, ; tab) and BOM handling. */
+function parseCsv(text) {
+  const source = String(text || "").replace(/^\uFEFF/, "");
+  const firstLine = source.split(/\r?\n/, 1)[0] || "";
+  const delimiter = [",", ";", "\t"].map(d => [d, firstLine.split(d).length]).sort((x, y) => y[1] - x[1])[0][0];
+  const rows = [];
+  let row = [];
+  let field = "";
+  let quoted = false;
+  for (let i = 0; i < source.length; i++) {
+    const ch = source[i];
+    if (quoted) {
+      if (ch === '"' && source[i + 1] === '"') {
+        field += '"';
+        i++;
+      } else if (ch === '"') {
+        quoted = false;
+      } else {
+        field += ch;
+      }
+    } else if (ch === '"') {
+      quoted = true;
+    } else if (ch === delimiter) {
+      row.push(field);
+      field = "";
+    } else if (ch === "\n" || ch === "\r") {
+      if (ch === "\r" && source[i + 1] === "\n") i++;
+      row.push(field);
+      if (row.some(cell => cell.trim() !== "")) rows.push(row);
+      row = [];
+      field = "";
+    } else {
+      field += ch;
+    }
+  }
+  row.push(field);
+  if (row.some(cell => cell.trim() !== "")) rows.push(row);
+  return rows.map(r => r.map(cell => cell.trim()));
+}
+
+/** "1,234.56", "1.234,56", "(12.00)", "-€12", "12.00-", "45 CR" -> number (NaN if not a number). */
+function parseAmount(raw) {
+  let text = String(raw ?? "").trim();
+  if (!text) return NaN;
+  let sign = 1;
+  if (/^\(.*\)$/.test(text)) {
+    sign = -1;
+    text = text.slice(1, -1);
+  }
+  if (/\b(DR|D)$/i.test(text)) sign = -1;
+  text = text.replace(/\b(CR|DR|C|D)$/i, "").trim();
+  if (/-$/.test(text)) {
+    sign = -sign;
+    text = text.slice(0, -1);
+  }
+  if (/^-/.test(text.replace(/[^\d.,-]/g, ""))) sign = -sign;
+  text = text.replace(/[^\d.,]/g, "");
+  if (!/\d/.test(text)) return NaN;
+  const lastComma = text.lastIndexOf(",");
+  const lastDot = text.lastIndexOf(".");
+  if (lastComma > lastDot) {
+    // comma is the decimal mark if exactly 1-2 digits follow it; otherwise it's a thousands separator
+    text = /,\d{1,2}$/.test(text) ? text.replace(/\./g, "").replace(",", ".") : text.replace(/,/g, "");
+  } else {
+    text = text.replace(/,/g, "");
+  }
+  const value = Number(text);
+  return Number.isFinite(value) ? sign * value : NaN;
+}
+
+const MONTH_NAMES = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+/** Parse one date cell; `dayFirst` resolves 03/04/2026. Returns "YYYY-MM-DD" or "". */
+function parseStatementDate(raw, dayFirst = true) {
+  const text = String(raw || "").trim();
+  let m = text.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);
+  if (m) return isoParts(+m[1], +m[2], +m[3]);
+  m = text.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{2,4})/);
+  if (m) {
+    const year = m[3].length === 2 ? 2000 + Number(m[3]) : Number(m[3]);
+    return dayFirst ? isoParts(year, +m[2], +m[1]) : isoParts(year, +m[1], +m[2]);
+  }
+  m = text.match(/^(\d{1,2})[\s-]([A-Za-z]{3})[A-Za-z]*[\s-,]+(\d{2,4})/);
+  if (m && MONTH_NAMES.includes(m[2].toLowerCase())) {
+    const year = m[3].length === 2 ? 2000 + Number(m[3]) : Number(m[3]);
+    return isoParts(year, MONTH_NAMES.indexOf(m[2].toLowerCase()) + 1, +m[1]);
+  }
+  m = text.match(/^([A-Za-z]{3})[A-Za-z]*\s+(\d{1,2}),?\s+(\d{4})/);
+  if (m && MONTH_NAMES.includes(m[1].toLowerCase())) return isoParts(+m[3], MONTH_NAMES.indexOf(m[1].toLowerCase()) + 1, +m[2]);
+  return "";
+}
+function isoParts(year, month, day) {
+  if (month < 1 || month > 12 || day < 1 || day > 31 || year < 1990 || year > 2100) return "";
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+const DATE_HEADER = /date|datum|fecha|data|tanggal|日期|booked|posted|transaction/i;
+const AMOUNT_HEADER = /amount|betrag|importe|montant|jumlah|value|sum|金额/i;
+const DEBIT_HEADER = /debit|withdraw|paid out|money out|spent|outflow|ausgang|charge/i;
+const CREDIT_HEADER = /credit|deposit|paid in|money in|received|inflow|eingang/i;
+
+/**
+ * Turn a bank-statement CSV into monthly income / spending / net. Runs only on this device;
+ * transactions are never stored or uploaded — only the monthly totals are shown.
+ */
+function analyzeStatement(text) {
+  const rows = parseCsv(text);
+  if (rows.length < 2) return { error: "That file doesn't look like a statement (fewer than 2 rows)." };
+  const headerIndex = Math.max(0, rows.slice(0, 10).findIndex(r => r.some(c => DATE_HEADER.test(c)) && r.some(c => AMOUNT_HEADER.test(c) || DEBIT_HEADER.test(c) || CREDIT_HEADER.test(c))));
+  const header = rows[headerIndex].map(c => c.toLowerCase());
+  const body = rows.slice(headerIndex + 1);
+  const columnCount = Math.max(...body.map(r => r.length));
+  const share = (col, ok) => body.filter(r => ok(r[col] ?? "")).length / body.length;
+  const looksLikeDate = cell => Boolean(parseStatementDate(cell, true) || parseStatementDate(cell, false));
+  let dateCol = header.findIndex((h, i) => DATE_HEADER.test(h) && share(i, looksLikeDate) > 0.6);
+  if (dateCol < 0) dateCol = [...Array(columnCount).keys()].find(col => share(col, looksLikeDate) > 0.6) ?? -1;
+  if (dateCol < 0) return { error: "Couldn't find a date column." };
+  const numeric = col => col >= 0 && col !== dateCol && share(col, c => c === "" || Number.isFinite(parseAmount(c))) > 0.8;
+  let debitCol = header.findIndex((h, i) => DEBIT_HEADER.test(h) && numeric(i));
+  let creditCol = header.findIndex((h, i) => CREDIT_HEADER.test(h) && numeric(i) && i !== debitCol);
+  let amountCol = header.findIndex((h, i) => AMOUNT_HEADER.test(h) && numeric(i) && !/balance|saldo/i.test(h));
+  if (amountCol < 0 && (debitCol < 0 || creditCol < 0)) {
+    amountCol = [...Array(columnCount).keys()].reverse().find(col => numeric(col) && !/balance|saldo/i.test(header[col] || "")) ?? -1;
+    if (debitCol >= 0 && creditCol < 0) amountCol = -1;
+  }
+  if (amountCol < 0 && (debitCol < 0 || creditCol < 0)) return { error: "Couldn't find an amount column (or debit/credit columns)." };
+  // Day-first unless some date only makes sense month-first (e.g. 04/23/2026).
+  const dayFirst = !body.some(r => {
+    const m = String(r[dateCol] || "").match(/^(\d{1,2})[-/.](\d{1,2})[-/.]\d{2,4}/);
+    return m && Number(m[2]) > 12;
+  });
+  const months = new Map();
+  let used = 0;
+  let skipped = 0;
+  for (const r of body) {
+    const date = parseStatementDate(r[dateCol], dayFirst);
+    let value;
+    if (amountCol >= 0 && (debitCol < 0 || creditCol < 0)) {
+      value = parseAmount(r[amountCol]);
+    } else {
+      const credit = parseAmount(r[creditCol]);
+      const debit = parseAmount(r[debitCol]);
+      value = (Number.isFinite(credit) ? Math.abs(credit) : 0) - (Number.isFinite(debit) ? Math.abs(debit) : 0);
+      if (!Number.isFinite(credit) && !Number.isFinite(debit)) value = NaN;
+    }
+    if (!date || !Number.isFinite(value)) {
+      skipped++;
+      continue;
+    }
+    used++;
+    const key = date.slice(0, 7);
+    const month = months.get(key) || { month: key, income: 0, spending: 0, net: 0, count: 0 };
+    if (value >= 0) month.income += value;
+    else month.spending += -value;
+    month.net = month.income - month.spending;
+    month.count++;
+    months.set(key, month);
+  }
+  if (!used) return { error: "No rows with both a date and an amount." };
+  const list = [...months.values()].sort((x, y) => x.month.localeCompare(y.month));
+  const average = field => list.reduce((sum, m) => sum + m[field], 0) / list.length;
+  return {
+    months: list,
+    avgIncome: average("income"),
+    avgSpending: average("spending"),
+    avgNet: average("net"),
+    used,
+    skipped,
+    columns: { date: rows[headerIndex][dateCol], amount: amountCol >= 0 && (debitCol < 0 || creditCol < 0) ? rows[headerIndex][amountCol] : `${rows[headerIndex][creditCol]} − ${rows[headerIndex][debitCol]}` },
+  };
+}
+
+/** Net-worth history CSV with columns like Date, Assets, Debts. Returns [{date, assets, debts}]. */
+function parseNetWorthCsv(text) {
+  const rows = parseCsv(text);
+  if (rows.length < 2) return [];
+  const header = rows[0].map(c => c.toLowerCase());
+  const dateCol = header.findIndex(h => DATE_HEADER.test(h));
+  const assetsCol = header.findIndex(h => /asset|own|savings|vermögen|total/i.test(h));
+  const debtsCol = header.findIndex(h => /debt|liabilit|owe|loan|schulden/i.test(h));
+  if (dateCol < 0 || assetsCol < 0) return [];
+  return rows.slice(1).map(r => ({
+    date: parseStatementDate(r[dateCol]),
+    assets: parseAmount(r[assetsCol]),
+    debts: debtsCol >= 0 ? Math.abs(parseAmount(r[debtsCol]) || 0) : 0,
+  })).filter(e => e.date && Number.isFinite(e.assets));
 }
 
 /* ------------------------------------------------- reminders & web push */
@@ -1425,7 +1614,7 @@ function render() {
   const n = names();
   const pill = document.getElementById("saved-pill");
   pill.textContent = sync && sync.active ? (sync.status === "error" ? "⚠️ Sync paused" : "🔄 Shared with partner") : "🔒 Saved on this device";
-  pill.title = sync && sync.active ? "End-to-end encrypted sync with your partner" : "Everything is stored only in this browser on this device";
+  pill.title = privacyStatus();
   document.getElementById("brand-sub").textContent = onboarding ? "Our life plan, from first date to golden years" : `${n.a} & ${n.b}`;
   const view = document.getElementById("view");
   const views = { home: viewHome, roadmap: viewRoadmap, goals: viewGoals, money: viewMoney, us: viewUs, settings: viewSettings };
@@ -1451,7 +1640,7 @@ function viewOnboarding() {
       <label class="row small"><input type="checkbox" name="template" checked style="width:auto"> Start us with a suggested life roadmap (fully editable)</label>
       <div class="actions row" style="justify-content:flex-end;margin-top:12px"><button class="primary" type="submit">Start our plan 💕</button></div>
     </form>
-    <p class="privacy">🔒 Private by design: no account, no cloud. Your plan stays in this browser — use Settings → Export to back it up or share it with your partner.</p>
+    <p class="privacy">🔒 Private by design: no account, no sign-up. Your plan stays in this browser unless you turn on partner sync — then it's end-to-end encrypted before it leaves your phone.</p>
   </div>`;
 }
 
@@ -1740,194 +1929,6 @@ function viewMoney() {
   </div>`;
 }
 
-/* --------------------------------------------- bank statement CSV (on-device) */
-/** Minimal RFC 4180 CSV parser with delimiter sniffing (, ; tab) and BOM handling. */
-function parseCsv(text) {
-  const source = String(text || "").replace(/^\uFEFF/, "");
-  const firstLine = source.split(/\r?\n/, 1)[0] || "";
-  const delimiter = [",", ";", "\t"].map(d => [d, firstLine.split(d).length]).sort((x, y) => y[1] - x[1])[0][0];
-  const rows = [];
-  let row = [];
-  let field = "";
-  let quoted = false;
-  for (let i = 0; i < source.length; i++) {
-    const ch = source[i];
-    if (quoted) {
-      if (ch === '"' && source[i + 1] === '"') {
-        field += '"';
-        i++;
-      } else if (ch === '"') {
-        quoted = false;
-      } else {
-        field += ch;
-      }
-    } else if (ch === '"') {
-      quoted = true;
-    } else if (ch === delimiter) {
-      row.push(field);
-      field = "";
-    } else if (ch === "\n" || ch === "\r") {
-      if (ch === "\r" && source[i + 1] === "\n") i++;
-      row.push(field);
-      if (row.some(cell => cell.trim() !== "")) rows.push(row);
-      row = [];
-      field = "";
-    } else {
-      field += ch;
-    }
-  }
-  row.push(field);
-  if (row.some(cell => cell.trim() !== "")) rows.push(row);
-  return rows.map(r => r.map(cell => cell.trim()));
-}
-
-/** "1,234.56", "1.234,56", "(12.00)", "-€12", "12.00-", "45 CR" -> number (NaN if not a number). */
-function parseAmount(raw) {
-  let text = String(raw ?? "").trim();
-  if (!text) return NaN;
-  let sign = 1;
-  if (/^\(.*\)$/.test(text)) {
-    sign = -1;
-    text = text.slice(1, -1);
-  }
-  if (/\b(DR|D)$/i.test(text)) sign = -1;
-  text = text.replace(/\b(CR|DR|C|D)$/i, "").trim();
-  if (/-$/.test(text)) {
-    sign = -sign;
-    text = text.slice(0, -1);
-  }
-  if (/^-/.test(text.replace(/[^\d.,-]/g, ""))) sign = -sign;
-  text = text.replace(/[^\d.,]/g, "");
-  if (!/\d/.test(text)) return NaN;
-  const lastComma = text.lastIndexOf(",");
-  const lastDot = text.lastIndexOf(".");
-  if (lastComma > lastDot) {
-    // comma is the decimal mark if exactly 1-2 digits follow it; otherwise it's a thousands separator
-    text = /,\d{1,2}$/.test(text) ? text.replace(/\./g, "").replace(",", ".") : text.replace(/,/g, "");
-  } else {
-    text = text.replace(/,/g, "");
-  }
-  const value = Number(text);
-  return Number.isFinite(value) ? sign * value : NaN;
-}
-
-const MONTH_NAMES = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
-/** Parse one date cell; `dayFirst` resolves 03/04/2026. Returns "YYYY-MM-DD" or "". */
-function parseStatementDate(raw, dayFirst = true) {
-  const text = String(raw || "").trim();
-  let m = text.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);
-  if (m) return isoParts(+m[1], +m[2], +m[3]);
-  m = text.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{2,4})/);
-  if (m) {
-    const year = m[3].length === 2 ? 2000 + Number(m[3]) : Number(m[3]);
-    return dayFirst ? isoParts(year, +m[2], +m[1]) : isoParts(year, +m[1], +m[2]);
-  }
-  m = text.match(/^(\d{1,2})[\s-]([A-Za-z]{3})[A-Za-z]*[\s-,]+(\d{2,4})/);
-  if (m && MONTH_NAMES.includes(m[2].toLowerCase())) {
-    const year = m[3].length === 2 ? 2000 + Number(m[3]) : Number(m[3]);
-    return isoParts(year, MONTH_NAMES.indexOf(m[2].toLowerCase()) + 1, +m[1]);
-  }
-  m = text.match(/^([A-Za-z]{3})[A-Za-z]*\s+(\d{1,2}),?\s+(\d{4})/);
-  if (m && MONTH_NAMES.includes(m[1].toLowerCase())) return isoParts(+m[3], MONTH_NAMES.indexOf(m[1].toLowerCase()) + 1, +m[2]);
-  return "";
-}
-function isoParts(year, month, day) {
-  if (month < 1 || month > 12 || day < 1 || day > 31 || year < 1990 || year > 2100) return "";
-  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-}
-
-const DATE_HEADER = /date|datum|fecha|data|tanggal|日期|booked|posted|transaction/i;
-const AMOUNT_HEADER = /amount|betrag|importe|montant|jumlah|value|sum|金额/i;
-const DEBIT_HEADER = /debit|withdraw|paid out|money out|spent|outflow|ausgang|charge/i;
-const CREDIT_HEADER = /credit|deposit|paid in|money in|received|inflow|eingang/i;
-
-/**
- * Turn a bank-statement CSV into monthly income / spending / net. Runs only on this device;
- * transactions are never stored or uploaded — only the monthly totals are shown.
- */
-function analyzeStatement(text) {
-  const rows = parseCsv(text);
-  if (rows.length < 2) return { error: "That file doesn't look like a statement (fewer than 2 rows)." };
-  const headerIndex = Math.max(0, rows.slice(0, 10).findIndex(r => r.some(c => DATE_HEADER.test(c)) && r.some(c => AMOUNT_HEADER.test(c) || DEBIT_HEADER.test(c) || CREDIT_HEADER.test(c))));
-  const header = rows[headerIndex].map(c => c.toLowerCase());
-  const body = rows.slice(headerIndex + 1);
-  const columnCount = Math.max(...body.map(r => r.length));
-  const share = (col, ok) => body.filter(r => ok(r[col] ?? "")).length / body.length;
-  const looksLikeDate = cell => Boolean(parseStatementDate(cell, true) || parseStatementDate(cell, false));
-  let dateCol = header.findIndex((h, i) => DATE_HEADER.test(h) && share(i, looksLikeDate) > 0.6);
-  if (dateCol < 0) dateCol = [...Array(columnCount).keys()].find(col => share(col, looksLikeDate) > 0.6) ?? -1;
-  if (dateCol < 0) return { error: "Couldn't find a date column." };
-  const numeric = col => col >= 0 && col !== dateCol && share(col, c => c === "" || Number.isFinite(parseAmount(c))) > 0.8;
-  let debitCol = header.findIndex((h, i) => DEBIT_HEADER.test(h) && numeric(i));
-  let creditCol = header.findIndex((h, i) => CREDIT_HEADER.test(h) && numeric(i) && i !== debitCol);
-  let amountCol = header.findIndex((h, i) => AMOUNT_HEADER.test(h) && numeric(i) && !/balance|saldo/i.test(h));
-  if (amountCol < 0 && (debitCol < 0 || creditCol < 0)) {
-    amountCol = [...Array(columnCount).keys()].reverse().find(col => numeric(col) && !/balance|saldo/i.test(header[col] || "")) ?? -1;
-    if (debitCol >= 0 && creditCol < 0) amountCol = -1;
-  }
-  if (amountCol < 0 && (debitCol < 0 || creditCol < 0)) return { error: "Couldn't find an amount column (or debit/credit columns)." };
-  // Day-first unless some date only makes sense month-first (e.g. 04/23/2026).
-  const dayFirst = !body.some(r => {
-    const m = String(r[dateCol] || "").match(/^(\d{1,2})[-/.](\d{1,2})[-/.]\d{2,4}/);
-    return m && Number(m[2]) > 12;
-  });
-  const months = new Map();
-  let used = 0;
-  let skipped = 0;
-  for (const r of body) {
-    const date = parseStatementDate(r[dateCol], dayFirst);
-    let value;
-    if (amountCol >= 0 && (debitCol < 0 || creditCol < 0)) {
-      value = parseAmount(r[amountCol]);
-    } else {
-      const credit = parseAmount(r[creditCol]);
-      const debit = parseAmount(r[debitCol]);
-      value = (Number.isFinite(credit) ? Math.abs(credit) : 0) - (Number.isFinite(debit) ? Math.abs(debit) : 0);
-      if (!Number.isFinite(credit) && !Number.isFinite(debit)) value = NaN;
-    }
-    if (!date || !Number.isFinite(value)) {
-      skipped++;
-      continue;
-    }
-    used++;
-    const key = date.slice(0, 7);
-    const month = months.get(key) || { month: key, income: 0, spending: 0, net: 0, count: 0 };
-    if (value >= 0) month.income += value;
-    else month.spending += -value;
-    month.net = month.income - month.spending;
-    month.count++;
-    months.set(key, month);
-  }
-  if (!used) return { error: "No rows with both a date and an amount." };
-  const list = [...months.values()].sort((x, y) => x.month.localeCompare(y.month));
-  const average = field => list.reduce((sum, m) => sum + m[field], 0) / list.length;
-  return {
-    months: list,
-    avgIncome: average("income"),
-    avgSpending: average("spending"),
-    avgNet: average("net"),
-    used,
-    skipped,
-    columns: { date: rows[headerIndex][dateCol], amount: amountCol >= 0 && (debitCol < 0 || creditCol < 0) ? rows[headerIndex][amountCol] : `${rows[headerIndex][creditCol]} − ${rows[headerIndex][debitCol]}` },
-  };
-}
-
-/** Net-worth history CSV with columns like Date, Assets, Debts. Returns [{date, assets, debts}]. */
-function parseNetWorthCsv(text) {
-  const rows = parseCsv(text);
-  if (rows.length < 2) return [];
-  const header = rows[0].map(c => c.toLowerCase());
-  const dateCol = header.findIndex(h => DATE_HEADER.test(h));
-  const assetsCol = header.findIndex(h => /asset|own|savings|vermögen|total/i.test(h));
-  const debtsCol = header.findIndex(h => /debt|liabilit|owe|loan|schulden/i.test(h));
-  if (dateCol < 0 || assetsCol < 0) return [];
-  return rows.slice(1).map(r => ({
-    date: parseStatementDate(r[dateCol]),
-    assets: parseAmount(r[assetsCol]),
-    debts: debtsCol >= 0 ? Math.abs(parseAmount(r[debtsCol]) || 0) : 0,
-  })).filter(e => e.date && Number.isFinite(e.assets));
-}
-
 function statementResultHTML(cur) {
   const result = ui.statement;
   if (!result) return "";
@@ -1964,6 +1965,7 @@ function netWorthSummary(cur) {
       <button type="button" class="ghost" data-act="delete-networth" data-id="${esc(e.id)}" aria-label="Delete snapshot">🗑️</button></li>`).join("")}</ul>`;
 }
 
+/* ------------------------------------------- views: us, program & settings */
 function viewUs() {
   const now = ui.now;
   const n = names();
@@ -2092,6 +2094,22 @@ function viewProgram() {
     ${weeks}${disclaimer}</section>`;
 }
 
+/**
+ * Plain-language privacy status. Single source of truth so every screen says the same thing:
+ * by default nothing leaves the device; partner sync uploads only ciphertext; reminders upload only times.
+ */
+function privacyStatus(syncOn = Boolean(sync && sync.active), remindersOn = reminders.enabled) {
+  const parts = [];
+  if (!syncOn && !remindersOn) {
+    parts.push("Your plan lives only in this browser — nothing is uploaded.");
+  } else {
+    parts.push("Your plan is stored in this browser.");
+    if (syncOn) parts.push("Partner sync uploads it end-to-end encrypted; the server can't read it.");
+    if (remindersOn) parts.push("Reminders send the server only the times to ping, never the text.");
+  }
+  return parts.join(" ");
+}
+
 function syncStatusText() {
   if (!sync || !sync.active) return "";
   if (sync.status === "error") return `⚠️ ${sync.error || "Sync paused"} Will retry.`;
@@ -2127,17 +2145,18 @@ function viewConnect() {
     : ui.installPrompt
       ? '<p class="small">Add Together to your home screen — it opens like an app and works offline.</p><button type="button" class="primary" data-act="install">Install app</button>'
       : `<p class="small">${reminders.isIOS() ? "Tap Share → <b>Add to Home Screen</b>." : "Use your browser's menu → <b>Install app</b> / <b>Add to Home screen</b>."} It opens like an app and works offline.</p>`;
-  return `<div class="grid" style="margin-bottom:14px">
+  return `<h2 class="settings-group">Connect</h2>
+  <div class="grid" style="margin-bottom:14px">
     <section class="card"><h2>Partner sync 🔄</h2>${syncCard}</section>
     <section class="card"><h2>Reminders 🔔</h2>${reminderCard}
       <p class="small muted" style="margin-top:10px">Prefer your calendar?</p>
       <div class="row"><button type="button" data-act="ics-checkin">Monthly check-in (.ics)</button><button type="button" data-act="ics-milestones">Milestones (.ics)</button></div>
       <p class="small muted">Reminder text stays on your device; the server only knows when to ping.</p></section>
-    <section class="card"><h2>Install 📲</h2>${installCard}</section>
-    <section class="card"><h2>Share Together 💌</h2>
+    <section class="card"><h2>Install & share 📲</h2>${installCard}
+      <h3 style="margin-top:14px">Share Together 💌</h3>
       <p class="small">Free, private and open source. Know a couple who'd like it?</p>
       <div class="row"><button type="button" data-act="share-app">Share the app</button>
-        <a class="btn" href="${SOURCE_URL}" target="_blank" rel="noopener">⭐ Source on GitHub</a>
+        <a class="btn" href="${SOURCE_URL}" target="_blank" rel="noopener">⭐ Source</a>
         <a class="btn" href="https://github.com/juw12/projects/issues/new?title=Together%20feedback%3A%20" target="_blank" rel="noopener">💬 Feedback</a></div></section>
   </div>`;
 }
@@ -2149,6 +2168,7 @@ function viewSettings() {
     : 'No backup yet <span class="chip warn">recommended</span>';
   return `<div class="section-head"><h1>Settings & backup</h1></div>
   ${viewConnect()}
+  <h2 class="settings-group">Our details & data</h2>
   <div class="grid">
     <form class="card" data-form="profile">
       <h2>About us</h2>
@@ -2165,8 +2185,9 @@ function viewSettings() {
       <button class="primary" type="submit">Save</button>
     </form>
     <section class="card">
-      <h2>Backup & share 💾</h2>
-      <p class="small muted">🔒 Your plan lives only in this browser on this device — nothing is uploaded. Clearing browser data erases it, so export a backup monthly and send the file to your partner to import on their device.</p>
+      <h2>Backup & privacy 💾</h2>
+      <p class="small muted" data-privacy>🔒 ${esc(privacyStatus())}</p>
+      <p class="small muted">Clearing browser data erases this device's copy${sync && sync.active ? " (your partner's phone still has one)" : ""}, so export a backup now and then.</p>
       <p class="small">${backupLine}</p>
       <div class="row">
         <button type="button" class="primary" data-act="export">⬇️ Export backup</button>
@@ -3211,6 +3232,16 @@ async function runSelfTests() {
     const ipadDesktop = iosInfo("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 Version/17.0 Safari/605.1.15", true);
     return safari17.ios && safari17.pushCapable && !safari17.inApp && old.ios && !old.pushCapable && insta.inApp && !android.ios
       && ipadDesktop.ios && ipadDesktop.pushCapable || JSON.stringify({ safari17, old, insta, android, ipadDesktop });
+  });
+  await test("privacy: wording matches what is switched on (never claims 'nothing is uploaded' while syncing)", () => {
+    const off = privacyStatus(false, false);
+    const syncing = privacyStatus(true, false);
+    const both = privacyStatus(true, true);
+    const remindersOnly = privacyStatus(false, true);
+    const ok = /nothing is uploaded/.test(off) && !/nothing is uploaded/.test(syncing) && /encrypted/.test(syncing)
+      && /times/.test(both) && /encrypted/.test(both) && !/nothing is uploaded/.test(remindersOnly) && /never the text/.test(remindersOnly)
+      && !/no cloud/i.test(viewOnboarding()) && /encrypted/.test(viewOnboarding());
+    return ok || JSON.stringify({ off, syncing, both, remindersOnly });
   });
   await test("savings: required monthly for a target and today's-money conversion", () => {
     const monthly = requiredMonthlyForTarget(0, 1200, 0, 1);

@@ -27,7 +27,12 @@ A private life-planning app for couples: from dating to marriage, a home, kids, 
 
 ## Layout
 
-- `web/` — the app (`index.html`, service worker `sw.js`, manifest, icons). Published by GitHub Pages.
+- `src/` — the app's source, split by concern: `index.html` (page shell), `styles.css`, and `js/NN-*.js`
+  (constants, utils, calculations, bank CSV, reminders, sync merge / crypto / room client, store, views,
+  actions, demo data, self-tests, boot). Plain classic scripts sharing one scope — no bundler.
+- `build.py` — inlines `src/` into the single self-contained `web/index.html` (so the published app stays
+  one offline file). Edit `src/`, then run `python apps/together/build.py`; CI runs `--check`.
+- `web/` — the published app (`index.html` built from `src/`, service worker `sw.js`, manifest, icons).
 - `cloud/` — Cloudflare Worker + Durable Objects (`together-cloud`): encrypted sync rooms and the push
   scheduler. Deployed by `.github/workflows/together-cloud.yml`; the VAPID signing key is the
   `TOGETHER_VAPID_PRIVATE_JWK` repository secret.
