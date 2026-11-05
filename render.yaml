@@ -1,0 +1,49 @@
+# Render Blueprint for Titian (respark/ folder of this repo).
+# One-click: https://render.com/deploy?repo=https://github.com/juw12/projects
+#
+# Cost (Render pricing, Nov 2026): Starter web service $7/month + 1 GB disk $0.25/month.
+# The free plan cannot keep a disk, and Titian stores everything in SQLite on the disk.
+services:
+  - type: web
+    name: titian
+    runtime: docker
+    rootDir: respark
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    plan: starter
+    region: singapore
+    branch: main
+    autoDeploy: true
+    healthCheckPath: /
+    disk:
+      name: titian-data
+      mountPath: /app/data
+      sizeGB: 1
+    envVars:
+      # Required: your own login e-mail. Only this address can create an account (operator).
+      - key: RESPARK_OPERATOR_EMAILS
+        sync: false
+      - key: RESPARK_SECRET
+        generateValue: true
+      - key: RESPARK_ALLOW_SIGNUP
+        value: "0"
+      - key: RESPARK_HUB_NAME
+        value: Titian
+      - key: RESPARK_DB_PATH
+        value: /app/data/data.db
+      # E-mail sending (Gmail: use a 16-letter App Password, not your normal password).
+      - key: RESPARK_SMTP_HOST
+        value: smtp.gmail.com
+      - key: RESPARK_SMTP_PORT
+        value: "587"
+      - key: RESPARK_SMTP_USER
+        sync: false
+      - key: RESPARK_SMTP_PASS
+        sync: false
+      - key: RESPARK_SMTP_FROM
+        sync: false
+      # Optional
+      - key: RESPARK_OPERATOR_WHATSAPP
+        sync: false
+      - key: RESPARK_OPENAI_API_KEY
+        sync: false
