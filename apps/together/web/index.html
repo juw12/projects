@@ -6,7 +6,7 @@
 <meta name="color-scheme" content="light dark">
 <title>Together — Our Life Plan</title>
 <meta name="description" content="Plan your whole life together — dating, marriage, a home, kids and growing old side by side. Free, private, works offline.">
-<meta name="theme-color" content="#c2416b">
+<meta name="theme-color" content="#ffffff">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -18,37 +18,55 @@
 <meta property="og:url" content="https://juw12.github.io/projects/together/">
 <meta property="og:image" content="https://juw12.github.io/projects/together/og.png">
 <meta name="twitter:card" content="summary_large_image">
+<script>
+  /* Apply the saved appearance before first paint (no light flash in dark mode). */
+  (function () {
+    var preference = null;
+    try {
+      preference = localStorage.getItem("together.theme");
+    } catch (error) {}
+    var systemDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+    var dark = preference === "dark" || (preference !== "light" && systemDark);
+    document.documentElement.dataset.theme = dark ? "dark" : "light";
+  })();
+</script>
 <style>
   :root {
-    --bg: #fff8f5; --card: #ffffff; --ink: #2d2226; --muted: #6a5660; --line: #f0dfe2;
-    --rose: #c2416b; --on-rose: #ffffff; --danger: #b3261e; --rose-soft: #fde7ee; --peach: #ffb38a; --gold: #d99a2b; --green: #1f6e50; --warn: #8f4a07;
-    --shadow: 0 2px 10px rgba(120, 40, 70, .08); --radius: 16px;
+    color-scheme: light;
+    --bg: #f7f5f4; --card: #ffffff; --ink: #1f1a1c; --muted: #625a5e; --line: #e8e3e1; --line-strong: #cfc7c9;
+    --rose: #a8325a; --on-rose: #ffffff; --rose-soft: #f6eaee; --focus: #a8325a;
+    --danger: #b3261e; --green: #1f6e50; --warn: #8f4a07; --peach: #d98a5f; --gold: #b07a1c;
+    --shadow: 0 1px 2px rgba(20, 14, 16, .05); --radius: 12px;
     --serif: Georgia, "Times New Roman", serif;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   }
-  @media (prefers-color-scheme: dark) {
-    :root { --bg: #1d1719; --card: #282023; --ink: #f6eef0; --muted: #b9a7ae; --line: #3d3136;
-      --rose: #ef7aa0; --on-rose: #2a0f19; --danger: #ff8a80; --rose-soft: #3f2530; --shadow: 0 2px 10px rgba(0,0,0,.35); --green: #5fc79f; --warn: #f0a050; }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #121011; --card: #1b1819; --ink: #f2eeef; --muted: #aaa0a4; --line: #2c2729; --line-strong: #463e41;
+    --rose: #ee8fae; --on-rose: #2a0f19; --rose-soft: #33222a; --focus: #ee8fae;
+    --danger: #ff8a80; --green: #62c9a0; --warn: #f0a050;
+    --shadow: none;
   }
   * { box-sizing: border-box; }
   [hidden] { display: none !important; }
   html, body { margin: 0; }
-  body { font: 15px/1.5 "Segoe UI", system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--ink); overflow-wrap: anywhere; }
-  h1, h2, h3 { font-family: var(--serif); font-weight: 600; margin: 0 0 .4em; line-height: 1.25; }
-  h1 { font-size: 1.5rem; } h2 { font-size: 1.25rem; } h3 { font-size: 1.05rem; }
+  body { font: 15px/1.55 var(--sans); -webkit-font-smoothing: antialiased; font-variant-numeric: tabular-nums; background: var(--bg); color: var(--ink); overflow-wrap: anywhere; }
+  h1, h2, h3 { font-family: var(--sans); font-weight: 650; letter-spacing: -.01em; margin: 0 0 .4em; line-height: 1.25; }
+  h1 { font-size: 1.45rem; } h2 { font-size: 1.08rem; } h3 { font-size: .98rem; }
   p { margin: .3em 0 .7em; }
   a { color: var(--rose); }
   .muted { color: var(--muted); } .small { font-size: .85rem; }
-  .topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 20px;
-    background: linear-gradient(120deg, #c2416b, #e86f7e 55%, #ffb38a); color: #fff; }
-  .brand { font-family: var(--serif); font-size: 1.3rem; font-weight: 600; letter-spacing: .3px; }
-  .brand small { display: block; font-family: "Segoe UI", sans-serif; font-size: .78rem; opacity: .9; font-weight: 400; }
-  .saved-pill { font-size: .75rem; background: rgba(60,10,30,.45); padding: 3px 10px; border-radius: 99px; white-space: nowrap; }
+  .topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 20px;
+    background: var(--card); color: var(--ink); border-bottom: 1px solid var(--line); }
+  .brand { display: flex; align-items: center; gap: 10px; font-family: var(--serif); font-size: 1.25rem; font-weight: 600; letter-spacing: .2px; }
+  .brand small { display: block; font-family: var(--sans); font-size: .76rem; color: var(--muted); font-weight: 400; letter-spacing: 0; }
+  .saved-pill { display: inline-flex; align-items: center; gap: 6px; font-size: .75rem; color: var(--muted); border: 1px solid var(--line); padding: 4px 10px; border-radius: 99px; white-space: nowrap; }
   nav.tabs { display: flex; gap: 4px; padding: 8px 16px; background: var(--card); border-bottom: 1px solid var(--line);
     position: sticky; top: 0; z-index: 5; justify-content: center; }
   nav.tabs button { border: 0; background: transparent; color: var(--muted); padding: 8px 14px; border-radius: 99px;
     font: inherit; cursor: pointer; display: flex; align-items: center; gap: 6px; }
-  nav.tabs button:hover { background: var(--rose-soft); color: var(--ink); }
-  nav.tabs button[aria-current="page"] { background: var(--rose); color: var(--on-rose); }
+  nav.tabs button:hover { background: var(--bg); color: var(--ink); }
+  nav.tabs button[aria-current="page"] { background: var(--rose-soft); color: var(--rose); font-weight: 600; }
   main { max-width: 1040px; margin: 0 auto; padding: 20px 16px 96px; }
   .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
   .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow); min-width: 0; }
@@ -59,49 +77,50 @@
   .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
   .spread { display: flex; gap: 8px; align-items: flex-start; justify-content: space-between; }
   .spread > :first-child { min-width: 0; flex: 1; }
-  button, .btn { font: inherit; border-radius: 10px; border: 1px solid var(--line); background: var(--card); color: var(--ink);
+  button, .btn { font: inherit; border-radius: 8px; border: 1px solid var(--line); background: var(--card); color: var(--ink);
     padding: 7px 14px; cursor: pointer; }
-  button:hover { border-color: var(--rose); }
+  button:hover { border-color: var(--line-strong); }
   a.btn { text-decoration: none; display: inline-block; }
   button.primary { background: var(--rose); color: var(--on-rose); border-color: var(--rose); }
   button.ghost { border-color: transparent; background: transparent; color: var(--muted); padding: 4px 8px; }
-  button.ghost:hover { color: var(--rose); }
-  :focus-visible { outline: 3px solid var(--peach); outline-offset: 2px; }
-  input, select, textarea { font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 10px;
+  button.ghost:hover { color: var(--ink); background: var(--bg); }
+  :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+  input, select, textarea { font: inherit; color: var(--ink); background: var(--card); border: 1px solid var(--line-strong); border-radius: 8px;
     padding: 8px 10px; width: 100%; max-width: 100%; }
   textarea { min-height: 70px; resize: vertical; }
   label.field { display: block; margin-bottom: 10px; font-size: .88rem; color: var(--muted); }
   label.field > input, label.field > select, label.field > textarea { margin-top: 3px; color: var(--ink); }
   .fields-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
-  .bar { height: 10px; background: var(--rose-soft); border-radius: 99px; overflow: hidden; }
-  .bar > span { display: block; height: 100%; background: linear-gradient(90deg, var(--rose), var(--peach)); border-radius: 99px; }
-  .chip { display: inline-flex; align-items: center; gap: 4px; font-size: .78rem; padding: 2px 9px; border-radius: 99px;
-    background: var(--rose-soft); color: var(--ink); white-space: nowrap; }
+  .bar { height: 6px; background: var(--line); border-radius: 99px; overflow: hidden; }
+  .bar > span { display: block; height: 100%; background: var(--rose); border-radius: 99px; }
+  .chip { display: inline-flex; align-items: center; gap: 4px; font-size: .76rem; font-weight: 500; padding: 2px 8px; border-radius: 6px;
+    background: var(--bg); border: 1px solid var(--line); color: var(--ink); white-space: nowrap; }
   .chip.ok { background: rgba(47,143,107,.15); color: var(--green); }
   .chip.warn { background: rgba(194,106,18,.15); color: var(--warn); }
-  .hero { background: linear-gradient(135deg, var(--rose-soft), var(--card)); }
+  .hero { background: var(--card); }
   .next-card { min-width: 200px; max-width: 280px; }
-  .hero .big { font-family: var(--serif); font-size: 2.2rem; line-height: 1.1; color: var(--rose); }
-  .stat { text-align: center; } .stat b { display: block; font-size: 1.5rem; font-family: var(--serif); color: var(--rose); }
+  .hero .big { font-size: 2.1rem; font-weight: 650; letter-spacing: -.02em; line-height: 1.1; color: var(--ink); }
+  .stat { text-align: center; } .stat b { display: block; font-size: 1.45rem; font-weight: 650; letter-spacing: -.02em; color: var(--ink); }
   .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 10px; }
   .journey { display: flex; gap: 6px; overflow-x: auto; padding: 6px 2px 10px; scrollbar-width: thin; }
   .journey .step { flex: 0 0 auto; text-align: center; width: 78px; font-size: .72rem; color: var(--muted); }
   .journey .dot { width: 40px; height: 40px; margin: 0 auto 4px; border-radius: 50%; display: grid; place-items: center;
-    background: var(--rose-soft); font-size: 1.15rem; border: 2px solid transparent; }
-  .journey .done .dot { background: var(--rose); }
-  .journey .now .dot { border-color: var(--rose); background: var(--card); box-shadow: 0 0 0 4px var(--rose-soft); }
+    background: var(--bg); border: 1px solid var(--line-strong); font-size: .85rem; font-weight: 600; color: var(--muted); }
+  .journey .done .dot { background: var(--rose); border-color: var(--rose); color: var(--on-rose); }
+  .journey .dot .i { width: 18px; height: 18px; }
+  .journey .now .dot { border: 2px solid var(--rose); background: var(--card); color: var(--rose); box-shadow: 0 0 0 4px var(--rose-soft); }
   .journey .now { color: var(--ink); font-weight: 600; }
   ul.clean { list-style: none; margin: 0; padding: 0; }
   ul.clean > li { padding: 9px 0; border-top: 1px solid var(--line); }
   ul.clean > li:first-child { border-top: 0; }
   .focus-item { display: flex; gap: 10px; align-items: flex-start; }
-  .focus-item .ico { font-size: 1.2rem; width: 28px; text-align: center; flex: 0 0 auto; }
+  .focus-item .ico { width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; background: var(--rose-soft); color: var(--rose); flex: 0 0 auto; }
   .stage-block { position: relative; padding-left: 26px; margin-bottom: 18px; }
   .stage-block::before { content: ""; position: absolute; left: 9px; top: 34px; bottom: -18px; width: 2px; background: var(--line); }
   .stage-block:last-child::before { display: none; }
   .stage-title { display: flex; align-items: center; gap: 8px; margin-left: -26px; }
-  .stage-title .badge { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: .8rem; background: var(--rose-soft); }
-  .stage-title.current .badge { background: var(--rose); }
+  .stage-title .badge { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: .72rem; font-weight: 650; background: var(--card); border: 1px solid var(--line-strong); color: var(--muted); }
+  .stage-title.current .badge { background: var(--rose); border-color: var(--rose); color: var(--on-rose); }
   .ms { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); margin-top: 8px; }
   .ms.done { opacity: .65; } .ms.done .ms-title { text-decoration: line-through; }
   .ms input[type=checkbox], .step-row input[type=checkbox] { width: 20px; height: 20px; margin-top: 2px; accent-color: var(--rose); flex: 0 0 auto; }
@@ -110,41 +129,39 @@
   .lifeline-wrap { overflow-x: auto; }
   .lifeline { width: 100%; min-width: 680px; height: auto; display: block; }
   .goal-head { display: flex; gap: 10px; align-items: flex-start; }
-  .goal-icon { font-size: 1.5rem; flex: 0 0 auto; }
   .step-row { display: flex; gap: 8px; align-items: flex-start; padding: 3px 0; }
   .step-row.done span { text-decoration: line-through; color: var(--muted); }
   .filters { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
   .filters button[aria-pressed="true"] { background: var(--rose); border-color: var(--rose); color: var(--on-rose); }
-  .hearts { letter-spacing: 2px; color: var(--rose); }
   .rating { display: flex; gap: 4px; flex-wrap: wrap; }
   .rating label { cursor: pointer; }
   .rating input { position: absolute; opacity: 0; width: 1px; height: 1px; }
-  .rating span { display: inline-grid; place-items: center; width: 38px; height: 38px; border-radius: 10px; border: 1px solid var(--line); font-size: 1.1rem; }
+  .rating span { display: inline-grid; place-items: center; width: 40px; height: 40px; border-radius: 8px; border: 1px solid var(--line-strong); font-weight: 600; }
   .rating input:checked + span { background: var(--rose); color: var(--on-rose); border-color: var(--rose); }
-  .rating input:focus-visible + span { outline: 3px solid var(--peach); }
+  .rating input:focus-visible + span { outline: 2px solid var(--focus); outline-offset: 2px; }
   details.talk { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; margin-top: 8px; background: var(--card); }
   details.talk summary { cursor: pointer; display: flex; justify-content: space-between; gap: 8px; align-items: center; list-style: none; }
   details.talk summary::-webkit-details-marker { display: none; }
   details.talk ol { margin: 8px 0; padding-left: 20px; }
   .bucket { display: flex; flex-wrap: wrap; gap: 8px; }
   .bucket .item { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); border-radius: 99px; padding: 4px 6px 4px 12px; background: var(--card); max-width: 100%; }
-  .bucket .item.done { background: var(--rose-soft); }
+  .bucket .item.done { background: var(--bg); color: var(--muted); }
   .bucket .item.done span { text-decoration: line-through; }
-  .empty { text-align: center; padding: 26px 16px; color: var(--muted); border: 2px dashed var(--line); border-radius: var(--radius); }
-  .empty .em { font-size: 2rem; display: block; margin-bottom: 4px; }
-  dialog { border: 0; border-radius: 18px; padding: 0; width: min(560px, calc(100vw - 24px)); background: var(--card); color: var(--ink); box-shadow: 0 20px 60px rgba(0,0,0,.3); }
-  dialog::backdrop { background: rgba(40, 10, 25, .45); }
+  .empty { text-align: center; padding: 24px 16px; color: var(--muted); border: 1px dashed var(--line-strong); border-radius: var(--radius); }
+  dialog { border: 1px solid var(--line); border-radius: 14px; padding: 0; width: min(560px, calc(100vw - 24px)); background: var(--card); color: var(--ink); box-shadow: 0 24px 64px rgba(0,0,0,.24); }
+  dialog::backdrop { background: rgba(12, 9, 10, .5); }
   dialog form { padding: 20px; max-height: 85vh; overflow-y: auto; }
   dialog .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
-  #toast { position: fixed; left: 50%; bottom: 84px; transform: translateX(-50%); background: #2d2226; color: #fff; padding: 10px 16px;
-    border-radius: 12px; display: none; gap: 12px; align-items: center; z-index: 50; max-width: calc(100vw - 24px); }
+  #toast { position: fixed; left: 50%; bottom: 84px; transform: translateX(-50%); background: var(--ink); color: var(--card); padding: 10px 16px;
+    border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.18); display: none; gap: 12px; align-items: center; z-index: 50; max-width: calc(100vw - 24px); }
   #toast.show { display: flex; }
-  #toast button { background: transparent; color: var(--peach); border: 0; font-weight: 600; }
+  #toast button { background: transparent; color: inherit; border: 0; font-weight: 650; text-decoration: underline; text-underline-offset: 3px; }
   .onboard { max-width: 620px; margin: 30px auto; }
   .onboard .hello { text-align: center; margin-bottom: 18px; }
-  .onboard .hello .em { font-size: 2.6rem; }
+  .onboard .hello .mark { color: var(--rose); margin-bottom: 6px; }
+  .logo-lg { width: 48px; height: 48px; }
   .privacy { font-size: .82rem; color: var(--muted); text-align: center; margin-top: 10px; }
-  .money-big { font-family: var(--serif); font-size: 1.6rem; color: var(--rose); }
+  .money-big { font-size: 1.6rem; font-weight: 650; letter-spacing: -.02em; color: var(--ink); }
   .print-only { display: none; }
   .trend { width: 100%; height: 46px; display: block; margin: 6px 0 4px; }
   @media (max-width: 720px) {
@@ -152,7 +169,8 @@
     nav.tabs { position: fixed; bottom: 0; top: auto; left: 0; right: 0; justify-content: space-around; padding: 4px 2px calc(4px + env(safe-area-inset-bottom));
       border-top: 1px solid var(--line); border-bottom: 0; }
     nav.tabs button { flex-direction: column; gap: 0; padding: 5px 4px; font-size: .68rem; border-radius: 10px; min-width: 0; flex: 1; }
-    nav.tabs button .ico { font-size: 1.2rem; }
+    nav.tabs button .ico { width: 22px; height: 22px; }
+    .brand small { max-width: 52vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     #toast { bottom: 76px; }
     .fields-2 { grid-template-columns: 1fr; }
     .hero .big { font-size: 1.8rem; }
@@ -172,12 +190,41 @@
   }
 
   .danger { color: var(--danger); }
+
+  /* ---- icons & new components ---- */
+  .i { width: 18px; height: 18px; flex: 0 0 auto; vertical-align: -4px; }
+  .brand .logo { width: 26px; height: 26px; color: var(--rose); }
+  .topbar-actions { display: flex; align-items: center; gap: 8px; }
+  .saved-pill .i { width: 14px; height: 14px; }
+  .icon-btn { display: inline-grid; place-items: center; width: 36px; height: 36px; padding: 0; border-radius: 8px; color: var(--muted); background: transparent; border: 1px solid var(--line); }
+  .icon-btn:hover { color: var(--ink); background: var(--bg); }
+  button.ghost { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+  .privacy .i { width: 14px; height: 14px; vertical-align: -2px; }
+  .pips { display: inline-flex; gap: 3px; vertical-align: middle; margin-left: 2px; }
+  .pips i { width: 8px; height: 8px; border-radius: 50%; background: var(--line-strong); }
+  .pips i.on { background: var(--rose); }
+  .rating-scale { display: flex; justify-content: space-between; width: 216px; margin-top: 4px; }
+  .tick { display: inline-grid; place-items: center; width: 18px; height: 18px; border: 1.5px solid var(--line-strong); border-radius: 5px; }
+  .tick.on { background: var(--rose); border-color: var(--rose); color: var(--on-rose); }
+  .tick .i { width: 13px; height: 13px; vertical-align: 0; }
+  .segmented { display: inline-flex; flex-wrap: wrap; gap: 2px; padding: 3px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); }
+  .segmented button { display: inline-flex; align-items: center; gap: 6px; border: 0; background: transparent; color: var(--muted); padding: 6px 12px; border-radius: 7px; }
+  .segmented button[aria-pressed="true"] { background: var(--card); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.12); font-weight: 600; }
+  .segmented .i { width: 16px; height: 16px; }
+  button.primary:hover { filter: brightness(.94); }
+  .filters button { border-radius: 99px; }
 </style>
 </head>
 <body>
 <header class="topbar">
-  <div class="brand">💞 Together<small id="brand-sub">Our life plan, from first date to golden years</small></div>
-  <span class="saved-pill" id="saved-pill" title="Your plan lives only in this browser — nothing is uploaded.">🔒 Saved on this device</span>
+  <div class="brand">
+    <svg class="i logo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true" focusable="false"><circle cx="9" cy="12" r="6"/><circle cx="15" cy="12" r="6"/></svg>
+    <div>Together<small id="brand-sub">Our life plan, from first date to golden years</small></div>
+  </div>
+  <div class="topbar-actions">
+    <span class="saved-pill" id="saved-pill" title="Your plan lives only in this browser — nothing is uploaded."><span>Saved on this device</span></span>
+    <button type="button" class="icon-btn" id="theme-toggle" data-act="theme-cycle" aria-label="Appearance"></button>
+  </div>
 </header>
 <nav class="tabs" id="tabs" aria-label="Sections"></nav>
 <main id="view" tabindex="-1"></main>
@@ -206,28 +253,28 @@ window.addEventListener("unhandledrejection", event => capturedErrors.push(Strin
 
 /* ---------------------------------------------------------------- constants */
 const STAGES = [
-  { id: "dating",  icon: "💕", name: "Dating",           blurb: "Know each other deeply: values, dreams, families, money." },
-  { id: "engaged", icon: "💍", name: "Engaged",          blurb: "Say yes, plan the wedding, align on the big life questions." },
-  { id: "married", icon: "💒", name: "Newlyweds",        blurb: "Build shared habits, finances and a safety net." },
-  { id: "home",    icon: "🏡", name: "Our home",         blurb: "Save a deposit, choose where to live, make it ours." },
-  { id: "kids",    icon: "👶", name: "Starting a family", blurb: "Pregnancy, parental leave, wills and insurance." },
-  { id: "family",  icon: "🧸", name: "Raising kids",     blurb: "School years, education funds, keeping couple time alive." },
-  { id: "growth",  icon: "🌱", name: "Midlife & growth", blurb: "Careers, health, big adventures, caring for parents." },
-  { id: "nest",    icon: "🕊️", name: "Empty nest",       blurb: "Kids fly out; rediscover each other." },
-  { id: "retire",  icon: "🌅", name: "Retirement",       blurb: "Retire together with enough to live the life you want." },
-  { id: "golden",  icon: "🧓", name: "Golden years",    blurb: "Health, grandkids, legacy, and growing old side by side." },
+  { id: "dating",  name: "Dating",           blurb: "Know each other deeply: values, dreams, families, money." },
+  { id: "engaged", name: "Engaged",          blurb: "Say yes, plan the wedding, align on the big life questions." },
+  { id: "married", name: "Newlyweds",        blurb: "Build shared habits, finances and a safety net." },
+  { id: "home",    name: "Our home",         blurb: "Save a deposit, choose where to live, make it ours." },
+  { id: "kids",    name: "Starting a family", blurb: "Pregnancy, parental leave, wills and insurance." },
+  { id: "family",  name: "Raising kids",     blurb: "School years, education funds, keeping couple time alive." },
+  { id: "growth",  name: "Midlife & growth", blurb: "Careers, health, big adventures, caring for parents." },
+  { id: "nest",    name: "Empty nest",       blurb: "Kids fly out; rediscover each other." },
+  { id: "retire",  name: "Retirement",       blurb: "Retire together with enough to live the life you want." },
+  { id: "golden",  name: "Golden years",    blurb: "Health, grandkids, legacy, and growing old side by side." },
 ];
 const STAGE_INDEX = Object.fromEntries(STAGES.map((stage, index) => [stage.id, index]));
 
 const CATEGORIES = {
-  love:   { icon: "❤️", name: "Love" },
-  money:  { icon: "💰", name: "Money" },
-  home:   { icon: "🏡", name: "Home" },
-  family: { icon: "👶", name: "Family" },
-  health: { icon: "🏃", name: "Health" },
-  career: { icon: "💼", name: "Career" },
-  travel: { icon: "✈️", name: "Travel" },
-  growth: { icon: "🌱", name: "Growth" },
+  love:   { name: "Love" },
+  money:  { name: "Money" },
+  home:   { name: "Home" },
+  family: { name: "Family" },
+  health: { name: "Health" },
+  career: { name: "Career" },
+  travel: { name: "Travel" },
+  growth: { name: "Growth" },
 };
 
 const TALKS = [
@@ -319,8 +366,8 @@ const PROGRAM = [
 
 const DEFAULT_FUNDS = [
   { name: "Emergency fund", kind: "safety", milestoneTitle: "" },
-  { name: "Wedding", kind: "wedding", milestoneTitle: "Wedding day 💒" },
-  { name: "Home deposit", kind: "home", milestoneTitle: "Buy our first home 🔑" },
+  { name: "Wedding", kind: "wedding", milestoneTitle: "Wedding day" },
+  { name: "Home deposit", kind: "home", milestoneTitle: "Buy our first home" },
 ];
 
 /* -------------------------------------------------------------------- utils */
@@ -392,6 +439,37 @@ function byDate(a, b) {
   return (a.date || "9999").localeCompare(b.date || "9999");
 }
 
+/* ------------------------------------------------------------------ icons */
+/** Line icons (24px grid, stroke = currentColor). Decorative: always aria-hidden. */
+const ICONS = {
+  home: '<path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/><path d="M10 21v-6h4v6"/>',
+  map: '<path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2z"/><path d="M9 4v14M15 6v14"/>',
+  target: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>',
+  wallet: '<rect x="3" y="6" width="18" height="14" rx="2"/><path d="M3 10h18M16 15h2"/>',
+  heart: '<path d="M12 20s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.2a4.3 4.3 0 0 1 7.5 2.6C19.5 15.4 12 20 12 20z"/>',
+  sliders: '<path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/>',
+  pencil: '<path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="m13.5 6.5 4 4"/>',
+  trash: '<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>',
+  lock: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
+  sync: '<path d="M20 11A8 8 0 0 0 5.6 6.4L4 8M4 4v4h4M4 13a8 8 0 0 0 14.4 4.6L20 16M20 20v-4h-4"/>',
+  alert: '<path d="M12 3.5 2.5 20h19L12 3.5z"/><path d="M12 10v4M12 17h.01"/>',
+  clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  calendar: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>',
+  message: '<path d="M4 5h16v11H9l-5 4V5z"/>',
+  flag: '<path d="M5 21V4h12l-2 4 2 4H5"/>',
+  download: '<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>',
+  book: '<path d="M4 5a2 2 0 0 1 2-2h14v16H6a2 2 0 0 0-2 2V5z"/><path d="M4 19a2 2 0 0 1 2-2h14"/>',
+  check: '<path d="m5 12.5 4.5 4.5L19 7.5"/>',
+  close: '<path d="M6 6l12 12M18 6 6 18"/>',
+  share: '<path d="M12 3v12M7.5 7.5 12 3l4.5 4.5M5 12v8h14v-8"/>',
+  sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
+  moon: '<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/>',
+  monitor: '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>',
+  logo: '<circle cx="9" cy="12" r="6"/><circle cx="15" cy="12" r="6"/>',
+};
+function icon(name, className = "i") {
+  return `<svg class="${className}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${ICONS[name] || ""}</svg>`;
+}
 /* ----------------------------------------------------- pure calculations */
 function ageOn(birthText, onDate) {
   const birth = parseDate(birthText);
@@ -525,28 +603,28 @@ function buildTemplate(couple, now) {
     ["dating", "Meet each other's families", inMonths(3), "Visit, share a meal, listen to their stories."],
     ["dating", "Have the big money talk", inMonths(5), "Debts, income, savings, spending style. Use the Talk deck."],
     ["dating", "First trip together", inMonths(8), ""],
-    ["engaged", "Get engaged 💍", addMonths(wedding, -12), ""],
+    ["engaged", "Get engaged", addMonths(wedding, -12), ""],
     ["engaged", "Pre-marriage course or counselling", addMonths(wedding, -6), "Many couples find this valuable before the wedding."],
-    ["married", "Wedding day 💒", wedding, ""],
-    ["married", "Honeymoon 🌴", fromWedding(1), ""],
+    ["married", "Wedding day", wedding, ""],
+    ["married", "Honeymoon", fromWedding(1), ""],
     ["married", "Emergency fund: 3–6 months of expenses", fromWedding(12), ""],
-    ["home", "Buy our first home 🔑", fromWedding(30), ""],
+    ["home", "Buy our first home", fromWedding(30), ""],
     ["kids", "Wills, guardians & life insurance", fromWedding(34), "Do this before the first baby arrives."],
-    ["kids", "Welcome our first child 👶", fromWedding(36), ""],
+    ["kids", "Welcome our first child", fromWedding(36), ""],
     ["kids", "Welcome our second child", fromWedding(60), "Edit or delete — your family, your plan."],
-    ["family", "First child starts school 🎒", fromWedding(36 + 72), ""],
-    ["family", "10th wedding anniversary 🥂", fromWedding(120), "Plan something special, just the two of us."],
-    ["growth", "Big adventure for two ✈️", fromWedding(180), ""],
+    ["family", "First child starts school", fromWedding(36 + 72), ""],
+    ["family", "10th wedding anniversary", fromWedding(120), "Plan something special, just the two of us."],
+    ["growth", "Big adventure for two", fromWedding(180), ""],
     ["growth", "Health check-ups & fitness reset", fromWedding(210), ""],
-    ["growth", "Talk about caring for our parents 🤝", fromWedding(228), "Who helps, how, and what it means for money and time. Ask them what they want."],
-    ["nest", "Kids leave home 🎓", fromWedding(36 + 216), ""],
-    ["nest", "Silver anniversary — 25 years 💐", fromWedding(300), ""],
+    ["growth", "Talk about caring for our parents", fromWedding(228), "Who helps, how, and what it means for money and time. Ask them what they want."],
+    ["nest", "Kids leave home", fromWedding(36 + 216), ""],
+    ["nest", "Silver anniversary — 25 years", fromWedding(300), ""],
     ["nest", "Retirement check: pensions, when to claim, health cover", addMonths(retire, -24), "Two years out: confirm the numbers in Money → Retiring together."],
-    ["retire", "Retire together 🌅", retire, `Both of you at least ${couple.retireAge}.`],
-    ["retire", "Decide where we'll live as we age 🏡", addMonths(retire, 24), "Stay, downsize, or move closer to family? Think about stairs, transport and care nearby."],
-    ["golden", "Wills, powers of attorney & wishes written down 🕊️", addMonths(retire, 60), "Update wills and beneficiaries, choose who decides if you can't, and tell family where documents are. See the Legacy talk."],
-    ["golden", "Golden anniversary — 50 years 💛", fromWedding(600), ""],
-    ["golden", "Write our family story for the grandkids 📖", fromWedding(612), ""],
+    ["retire", "Retire together", retire, `Both of you at least ${couple.retireAge}.`],
+    ["retire", "Decide where we'll live as we age", addMonths(retire, 24), "Stay, downsize, or move closer to family? Think about stairs, transport and care nearby."],
+    ["golden", "Wills, powers of attorney & wishes written down", addMonths(retire, 60), "Update wills and beneficiaries, choose who decides if you can't, and tell family where documents are. See the Legacy talk."],
+    ["golden", "Golden anniversary — 50 years", fromWedding(600), ""],
+    ["golden", "Write our family story for the grandkids", fromWedding(612), ""],
   ];
   const today = toISO(now);
   return items
@@ -619,28 +697,28 @@ function focusItems(state, now) {
   const items = [];
   const today = toISO(now);
   for (const party of upcomingCelebrations(state, now).slice(0, 1)) {
-    items.push({ icon: "🎉", text: `${party.text} ${party.days === 0 ? "is today!" : `in ${party.days} day${party.days === 1 ? "" : "s"}`} — plan something special`, tab: "us" });
+    items.push({ icon: "calendar", text: `${party.text} ${party.days === 0 ? "is today!" : `in ${party.days} day${party.days === 1 ? "" : "s"}`} — plan something special`, tab: "us" });
   }
   const overdue = state.milestones.filter(m => !m.done && m.date && m.date < today).sort(byDate);
   if (overdue.length) {
     const more = overdue.length > 1 ? ` (+${overdue.length - 1} more)` : "";
-    items.push({ icon: "⏰", text: `“${overdue[0].title}” was planned for ${formatDate(overdue[0].date, "month")} — tick it off or pick a new date${more}`, tab: "roadmap" });
+    items.push({ icon: "clock", text: `“${overdue[0].title}” was planned for ${formatDate(overdue[0].date, "month")} — tick it off or pick a new date${more}`, tab: "roadmap" });
   }
   const lastCheckin = state.checkins.slice().sort(byDate).pop();
   const sinceCheckin = lastCheckin ? daysBetween(parseDate(lastCheckin.date), now) : null;
   if (sinceCheckin === null || sinceCheckin >= 30) {
-    items.push({ icon: "💬", text: sinceCheckin === null ? "Do your first couple check-in (10 minutes)" : `Monthly check-in is due (last one ${sinceCheckin} days ago)`, act: "checkin" });
+    items.push({ icon: "message", text: sinceCheckin === null ? "Do your first couple check-in (10 minutes)" : `Monthly check-in is due (last one ${sinceCheckin} days ago)`, act: "checkin" });
   }
   const behind = state.funds.map(fund => ({ fund, status: fundStatus(fund, state, now) })).filter(x => x.status.onTrack === false);
   if (behind.length === 1) {
     const { fund, status } = behind[0];
-    items.push({ icon: "⚠️", text: `${fund.name} needs ${money(status.needed, state.couple.currency)}/month to be ready for ${status.milestone.title}`, tab: "money" });
+    items.push({ icon: "alert", text: `${fund.name} needs ${money(status.needed, state.couple.currency)}/month to be ready for ${status.milestone.title}`, tab: "money" });
   } else if (behind.length > 1) {
-    items.push({ icon: "⚠️", text: `${behind.length} savings pots are behind schedule (${behind.map(x => x.fund.name).join(", ")})`, tab: "money" });
+    items.push({ icon: "alert", text: `${behind.length} savings pots are behind schedule (${behind.map(x => x.fund.name).join(", ")})`, tab: "money" });
   }
   const upcoming = nextMilestone(state, now);
   if (upcoming && daysBetween(now, parseDate(upcoming.date)) <= 365) {
-    items.push({ icon: "📍", text: `${upcoming.title} — ${relativeTime(upcoming.date, now)}`, tab: "roadmap" });
+    items.push({ icon: "flag", text: `${upcoming.title} — ${relativeTime(upcoming.date, now)}`, tab: "roadmap" });
   }
   const openSteps = [];
   for (const goal of state.goals) {
@@ -651,19 +729,19 @@ function focusItems(state, now) {
   openSteps.sort((x, y) => (x.goal.due || "9999").localeCompare(y.goal.due || "9999"));
   if (openSteps.length) {
     const { goal, step } = openSteps[0];
-    items.push({ icon: CATEGORIES[goal.category]?.icon || "🎯", text: `Next step for “${goal.title}”: ${step.text}`, tab: "goals" });
+    items.push({ icon: "target", text: `Next step for “${goal.title}”: ${step.text}`, tab: "goals" });
   }
   if (backupDue(state, now)) {
-    items.push({ icon: "💾", text: state.lastBackupAt ? "It's been a month — export a fresh backup of your plan" : "Export your first backup (and share it with your partner)", tab: "settings" });
+    items.push({ icon: "download", text: state.lastBackupAt ? "It's been a month — export a fresh backup of your plan" : "Export your first backup (and share it with your partner)", tab: "settings" });
   }
   const program = state.program || { started: "", done: {} };
   if (program.started && !programProgress(program).finished) {
     const week = programProgress(program).currentWeek;
-    items.push({ icon: "🌱", text: `Foundations week ${week}: ${PROGRAM[week - 1].title}`, tab: "us" });
+    items.push({ icon: "book", text: `Foundations week ${week}: ${PROGRAM[week - 1].title}`, tab: "us" });
   }
   const stageIdx = currentStageIndex(state);
   const talk = TALKS.find(t => STAGE_INDEX[t.stage] <= stageIdx + 1 && (state.talks[t.id]?.status || "todo") === "todo");
-  if (talk) items.push({ icon: "🗣️", text: `Talk about: ${talk.title}`, tab: "us" });
+  if (talk) items.push({ icon: "message", text: `Talk about: ${talk.title}`, tab: "us" });
   return items.slice(0, 5);
 }
 
@@ -870,31 +948,31 @@ function reminderSchedule(plan, now = new Date()) {
   let due = lastCheckin ? new Date(parseDate(lastCheckin.date).getTime() + 30 * 864e5) : new Date(nowMs + 864e5);
   if (at(due, 19) <= nowMs) due = new Date(nowMs + 864e5);
   for (let i = 0; i < 4; i++) {
-    add(at(due, 19), "💬 Monthly check-in", `${nameA} & ${nameB}: 10 minutes, phones away.`, `checkin-${i}`);
+    add(at(due, 19), "Monthly check-in", `${nameA} & ${nameB}: 10 minutes, phones away.`, `checkin-${i}`);
     due = addMonths(due, 1);
   }
   for (const m of plan.milestones) {
     const date = parseDate(m.date);
     if (m.done || !date) continue;
-    add(at(new Date(date.getTime() - 7 * 864e5), 9), `📍 One week to go: ${m.title}`, "Open Together to get ready.", `ms-${m.id}-7`);
-    add(at(date, 9), `📍 Today: ${m.title}`, "Tick it off in Together when it happens 🎉", `ms-${m.id}`);
+    add(at(new Date(date.getTime() - 7 * 864e5), 9), `One week to go: ${m.title}`, "Open Together to get ready.", `ms-${m.id}-7`);
+    add(at(date, 9), `Today: ${m.title}`, "Tick it off in Together when it happens.", `ms-${m.id}`);
   }
   for (const party of upcomingCelebrations(plan, now, 120)) {
     const date = parseDate(party.date);
-    add(at(new Date(date.getTime() - 7 * 864e5), 9), `🎉 In a week: ${party.text}`, "Time to plan something special.", `party-${party.date}-7`);
-    add(at(date, 8), `🎉 Today: ${party.text}`, "Celebrate each other today 💞", `party-${party.date}`);
+    add(at(new Date(date.getTime() - 7 * 864e5), 9), `In a week: ${party.text}`, "Time to plan something special.", `party-${party.date}-7`);
+    add(at(date, 8), `Today: ${party.text}`, "Celebrate each other today.", `party-${party.date}`);
   }
   const hasData = plan.milestones.length + plan.goals.length + plan.checkins.length > 0;
   if (hasData) {
     const base = plan.lastBackupAt ? new Date(new Date(plan.lastBackupAt).getTime() + 30 * 864e5) : new Date(nowMs + 3 * 864e5);
-    add(at(base, 10), "💾 Back up your plan", "Settings → Export backup keeps your plan safe.", "backup");
+    add(at(base, 10), "Back up your plan", "Settings → Export backup keeps your plan safe.", "backup");
   }
   const program = plan.program || { started: "", done: {} };
   if (program.started && !programProgress(program).finished) {
     const week = programProgress(program).currentWeek;
     let next = parseDate(program.started) || now;
     while (at(next, 19) <= nowMs) next = new Date(next.getTime() + 7 * 864e5);
-    add(at(next, 19), `🌱 Foundations week ${week}`, PROGRAM[week - 1].title, "program");
+    add(at(next, 19), `Foundations week ${week}`, PROGRAM[week - 1].title, "program");
   }
   return list.sort((x, y) => x.at - y.at).slice(0, 60);
 }
@@ -966,7 +1044,7 @@ const reminders = {
     pref.enabled = true;
     this.savePref(pref);
     await this.sync(subscription);
-    await registration.showNotification("Reminders are on 💞", { body: "We'll nudge you about check-ins, milestones and anniversaries.", icon: "icons/icon-192.png", tag: "together-welcome" });
+    await registration.showNotification("Reminders are on", { body: "We'll nudge you about check-ins, milestones and anniversaries.", icon: "icons/icon-192.png", tag: "together-welcome" });
   },
   async disable() {
     const pref = this.pref();
@@ -1474,6 +1552,21 @@ function blankState() {
     updatedAt: null, lastBackupAt: null,
   };
 }
+/** Milestone titles that older versions generated with a trailing emoji. Only these exact
+ *  app-written titles are cleaned on load; anything the couple typed themselves is left alone. */
+const LEGACY_GENERATED_TITLES = new Set([
+  "Get engaged", "Wedding day", "Honeymoon", "Buy our first home", "Welcome our first child",
+  "First child starts school", "10th wedding anniversary", "Big adventure for two",
+  "Talk about caring for our parents", "Kids leave home", "Silver anniversary — 25 years", "Retire together",
+  "Decide where we'll live as we age", "Wills, powers of attorney & wishes written down",
+  "Golden anniversary — 50 years", "Write our family story for the grandkids", "Moved in together",
+]);
+const TRAILING_PICTOGRAPHS = /^(.*\S)\s+(?:\p{Extended_Pictographic}|\uFE0F|\u200D)+$/u;
+function cleanGeneratedTitle(title) {
+  const match = TRAILING_PICTOGRAPHS.exec(String(title || ""));
+  return match && LEGACY_GENERATED_TITLES.has(match[1]) ? match[1] : title;
+}
+
 /** Accepts any older or partial shape and returns a complete current-schema state. */
 function migrate(raw) {
   const base = blankState();
@@ -1496,6 +1589,9 @@ function migrate(raw) {
   }
   merged.goals.forEach(goal => {
     goal.steps = Array.isArray(goal.steps) ? goal.steps : [];
+  });
+  merged.milestones.forEach(milestone => {
+    if (typeof milestone.title === "string") milestone.title = cleanGeneratedTitle(milestone.title);
   });
   merged.talks = raw.talks && typeof raw.talks === "object" ? raw.talks : {};
   merged.program = { ...base.program, ...(raw.program || {}) };
@@ -1531,7 +1627,7 @@ const store = {
       localStorage.setItem(this.key, JSON.stringify(nextState));
       return true;
     } catch (error) {
-      toast("⚠️ Could not save — storage is full or blocked. Export a backup now.");
+      toast("Could not save — storage is full or blocked. Export a backup now.");
       return false;
     }
   },
@@ -1557,12 +1653,12 @@ let state = blankState();
 let ui = { tab: "home", goalFilter: "all", now: new Date(), installPrompt: null };
 let undoSnapshot = null;
 const TABS = [
-  { id: "home", icon: "🏠", label: "Home" },
-  { id: "roadmap", icon: "🗺️", label: "Roadmap" },
-  { id: "goals", icon: "🎯", label: "Goals" },
-  { id: "money", icon: "💰", label: "Money" },
-  { id: "us", icon: "💞", label: "Us" },
-  { id: "settings", icon: "⚙️", label: "Settings" },
+  { id: "home", icon: "home", label: "Home" },
+  { id: "roadmap", icon: "map", label: "Roadmap" },
+  { id: "goals", icon: "target", label: "Goals" },
+  { id: "money", icon: "wallet", label: "Money" },
+  { id: "us", icon: "heart", label: "Us" },
+  { id: "settings", icon: "sliders", label: "Settings" },
 ];
 
 let lastCommitted = JSON.stringify(blankState());
@@ -1632,19 +1728,74 @@ function agesLine(dateText) {
     const kidAge = ageOn(kid.birth, date);
     if (kidAge !== null && kidAge >= 0) parts.push(`${esc(kid.name)} ${kidAge}`);
   }
-  return parts.length ? `🎂 ${parts.join(" · ")}` : "";
+  return parts.length ? `Ages ${parts.join(" · ")}` : "";
 }
 
+/* ------------------------------------------------------------------ theme */
+/** Appearance is a per-device preference (not part of the shared plan): "system" | "light" | "dark".
+ *  The <head> applies it before first paint; this keeps it in sync afterwards. */
+const THEME_KEY = "together.theme";
+const THEME_OPTIONS = [
+  { id: "system", label: "System", icon: "monitor" },
+  { id: "light", label: "Light", icon: "sun" },
+  { id: "dark", label: "Dark", icon: "moon" },
+];
+function resolveTheme(preference, systemPrefersDark) {
+  if (preference === "light" || preference === "dark") return preference;
+  return systemPrefersDark ? "dark" : "light";
+}
+const theme = {
+  media: window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null,
+  get preference() {
+    try {
+      const saved = localStorage.getItem(THEME_KEY);
+      return THEME_OPTIONS.some(option => option.id === saved) ? saved : "system";
+    } catch (error) {
+      return "system";
+    }
+  },
+  apply() {
+    const resolved = resolveTheme(this.preference, !!(this.media && this.media.matches));
+    document.documentElement.dataset.theme = resolved;
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.content = resolved === "dark" ? "#1b1819" : "#ffffff";
+    const toggle = document.getElementById("theme-toggle");
+    if (toggle) {
+      const current = THEME_OPTIONS.find(option => option.id === this.preference);
+      const next = THEME_OPTIONS[(THEME_OPTIONS.indexOf(current) + 1) % THEME_OPTIONS.length];
+      toggle.innerHTML = icon(current.icon);
+      toggle.setAttribute("aria-label", `Appearance: ${current.label}. Switch to ${next.label}`);
+      toggle.title = `Appearance: ${current.label}`;
+    }
+  },
+  set(preference) {
+    try {
+      if (preference === "system") localStorage.removeItem(THEME_KEY);
+      else localStorage.setItem(THEME_KEY, preference);
+    } catch (error) {
+      /* storage blocked: still apply for this session */
+    }
+    this.apply();
+  },
+  cycle() {
+    const index = THEME_OPTIONS.findIndex(option => option.id === this.preference);
+    this.set(THEME_OPTIONS[(index + 1) % THEME_OPTIONS.length].id);
+  },
+  init() {
+    if (this.media) this.media.addEventListener("change", () => this.apply());
+    this.apply();
+  },
+};
 /* -------------------------------------------------------------------- views */
 function render() {
   const onboarding = !state.couple.a.name && !state.couple.b.name;
   const tabs = document.getElementById("tabs");
   tabs.hidden = onboarding;
   tabs.innerHTML = TABS.map(tab => `<button type="button" data-act="tab" data-id="${tab.id}" ${ui.tab === tab.id ? 'aria-current="page"' : ""}>
-      <span class="ico" aria-hidden="true">${tab.icon}</span><span>${tab.label}</span></button>`).join("");
+      ${icon(tab.icon, "i ico")}<span>${tab.label}</span></button>`).join("");
   const n = names();
   const pill = document.getElementById("saved-pill");
-  pill.textContent = sync && sync.active ? (sync.status === "error" ? "⚠️ Sync paused" : "🔄 Shared with partner") : "🔒 Saved on this device";
+  pill.innerHTML = savedPillHTML();
   pill.title = privacyStatus();
   document.getElementById("brand-sub").textContent = onboarding ? "Our life plan, from first date to golden years" : `${n.a} & ${n.b}`;
   const view = document.getElementById("view");
@@ -1652,9 +1803,17 @@ function render() {
   view.innerHTML = onboarding ? viewOnboarding() : (views[ui.tab] || viewHome)();
 }
 
+/** Status pill in the header: where the plan lives right now. */
+function savedPillHTML() {
+  if (sync && sync.active) {
+    return sync.status === "error" ? `${icon("alert")}<span>Sync paused</span>` : `${icon("sync")}<span>Shared with partner</span>`;
+  }
+  return `${icon("lock")}<span>Saved on this device</span>`;
+}
+
 function viewOnboarding() {
   return `<div class="onboard">
-    <div class="hello"><div class="em" aria-hidden="true">💞</div>
+    <div class="hello"><div class="mark" aria-hidden="true">${icon("logo", "i logo-lg")}</div>
       <h1>Plan your whole life together</h1>
       <p class="muted">From dating to marriage, a home, kids and growing old side by side. Takes about a minute.</p></div>
     <form class="card" data-form="onboard">
@@ -1665,13 +1824,13 @@ function viewOnboarding() {
         <label class="field">Partner's birthday<input name="bBirth" type="date"></label>
         <label class="field">Together since<input name="since" type="date"></label>
         <label class="field">Where are you now?
-          <select name="stage">${STAGES.slice(0, 6).map(s => `<option value="${s.id}">${s.icon} ${s.name}</option>`).join("")}</select></label>
+          <select name="stage">${STAGES.slice(0, 6).map(s => `<option value="${s.id}">${s.name}</option>`).join("")}</select></label>
       </div>
       <label class="field">Wedding date (if set or already married)<input name="wedding" type="date"></label>
       <label class="row small"><input type="checkbox" name="template" checked style="width:auto"> Start us with a suggested life roadmap (fully editable)</label>
-      <div class="actions row" style="justify-content:flex-end;margin-top:12px"><button class="primary" type="submit">Start our plan 💕</button></div>
+      <div class="actions row" style="justify-content:flex-end;margin-top:12px"><button class="primary" type="submit">Start our plan</button></div>
     </form>
-    <p class="privacy">🔒 Private by design: no account, no sign-up. Your plan stays in this browser unless you turn on partner sync — then it's end-to-end encrypted before it leaves your phone.</p>
+    <p class="privacy">${icon("lock")} Private by design: no account, no sign-up. Your plan stays in this browser unless you turn on partner sync — then it's end-to-end encrypted before it leaves your phone.</p>
   </div>`;
 }
 
@@ -1693,14 +1852,14 @@ function iosInstallBanner() {
   const body = info.inApp
     ? `<p class="small">You're in an in-app browser, which can't install apps. Tap <b>•••</b> → <b>Open in Safari</b>, then come back to this banner.</p>`
     : `<ol class="small" style="margin:6px 0 6px 18px;padding:0">
-        <li>Tap <b>Share</b> <span aria-hidden="true">⬆️</span> (bottom bar in Safari, or the address bar menu in Chrome/Edge).</li>
+        <li>Tap <b>Share</b> ${icon("share")} (bottom bar in Safari, or the address bar menu in Chrome/Edge).</li>
         <li>Choose <b>Add to Home Screen</b>, then <b>Add</b>.</li>
         <li>Open <b>Together</b> from your Home Screen and turn on reminders in Settings.</li>
       </ol>
       ${info.pushCapable ? "" : `<p class="small muted">Your iOS ${esc(String(Math.floor(info.version)))} can install Together, but push reminders need iOS 16.4 or newer — use the calendar (.ics) reminders in Settings instead.</p>`}`;
-  return `<section class="card" style="margin-bottom:14px;border:1px solid var(--line, #f2c6cc)">
-    <div class="spread"><h2 style="margin:0">📲 Put Together on your Home Screen</h2>
-      <button type="button" class="ghost" data-act="ios-hint-dismiss" aria-label="Dismiss">✕</button></div>
+  return `<section class="card" style="margin-bottom:14px">
+    <div class="spread"><h2 style="margin:0">Put Together on your Home Screen</h2>
+      <button type="button" class="ghost" data-act="ios-hint-dismiss" aria-label="Dismiss">${icon("close")}</button></div>
     <p class="small">On iPhone and iPad, Apple only allows reminders for web apps that are added to the Home Screen.</p>
     ${body}
   </section>`;
@@ -1720,7 +1879,7 @@ function viewHome() {
   const focus = focusItems(state, now);
   const todayISO = toISO(now);
   const comingUp = state.milestones.filter(m => !m.done && m.date && m.date >= todayISO).sort(byDate).slice(1, 4);
-  const marriedLine = wedding && wedding <= now ? `<p class="muted">Married ${relativeTime(state.couple.wedding, now).replace(" ago", "")} 💍</p>` : "";
+  const marriedLine = wedding && wedding <= now ? `<p class="muted">Married ${relativeTime(state.couple.wedding, now).replace(" ago", "")}</p>` : "";
   return `${iosInstallBanner()}
   <section class="card hero">
     <div class="spread">
@@ -1737,17 +1896,17 @@ function viewHome() {
     </div>
   </section>
   <section class="card">
-    <div class="spread"><h2>Our journey</h2><span class="chip">${STAGES[stageIdx].icon} Now: ${STAGES[stageIdx].name}</span></div>
-    <div class="journey" role="list">${STAGES.map((s, i) => `<div role="listitem" class="step ${i < stageIdx ? "done" : i === stageIdx ? "now" : ""}"><div class="dot" aria-hidden="true">${s.icon}</div>${s.name}</div>`).join("")}</div>
+    <div class="spread"><h2>Our journey</h2><span class="chip">Now: ${STAGES[stageIdx].name}</span></div>
+    <div class="journey" role="list">${STAGES.map((s, i) => `<div role="listitem" class="step ${i < stageIdx ? "done" : i === stageIdx ? "now" : ""}"><div class="dot" aria-hidden="true">${i < stageIdx ? icon("check") : i + 1}</div>${s.name}</div>`).join("")}</div>
     <p class="muted small">${STAGES[stageIdx].blurb}</p>
   </section>
   <div class="grid" style="margin-top:14px">
     <section class="card">
       <h2>This month's focus</h2>
-      ${focus.length ? `<ul class="clean">${focus.map(item => `<li class="focus-item"><span class="ico" aria-hidden="true">${item.icon}</span>
+      ${focus.length ? `<ul class="clean">${focus.map(item => `<li class="focus-item"><span class="ico">${icon(item.icon)}</span>
         <div style="flex:1;min-width:0">${esc(item.text)}</div>
         <button class="ghost small" type="button" data-act="${item.act ? "checkin" : "tab"}" data-id="${item.tab || ""}">Go →</button></li>`).join("")}</ul>`
-        : `<div class="empty"><span class="em">🌤️</span>All caught up. Enjoy each other this month!</div>`}
+        : `<div class="empty">All caught up. Enjoy each other this month.</div>`}
     </section>
     <section class="card">
       <h2>At a glance</h2>
@@ -1788,11 +1947,11 @@ function lifelineSVG() {
     const date = parseDate(m.date);
     const year = date.getFullYear() + date.getMonth() / 12;
     if (year < startYear || year > endYear) return "";
-    const color = m.done ? "#2f8f6b" : `hsl(${340 + STAGE_INDEX[m.stage] * 9}, 70%, 55%)`;
-    return `<circle cx="${x(year)}" cy="60" r="7" fill="${color}" stroke="#fff" stroke-width="2"><title>${esc(m.title)} — ${esc(formatDate(m.date))}</title></circle>`;
+    const color = m.done ? "var(--green)" : "var(--rose)";
+    return `<circle cx="${x(year)}" cy="60" r="7" style="fill:${color};stroke:var(--card)" stroke-width="2"><title>${esc(m.title)} — ${esc(formatDate(m.date))}</title></circle>`;
   }).join("");
   return `<svg class="lifeline" viewBox="0 0 ${width} ${height}" role="img" aria-label="Lifeline from ${startYear} to ${endYear} with milestones">
-    <line x1="${pad}" x2="${width - pad}" y1="60" y2="60" stroke="#e86f7e" stroke-width="4" stroke-linecap="round"/>
+    <line x1="${pad}" x2="${width - pad}" y1="60" y2="60" style="stroke:var(--line-strong)" stroke-width="3" stroke-linecap="round"/>
     ${ticks}${dots}
     <text x="${pad}" y="30" font-size="13" fill="currentColor" opacity=".7">Now</text>
     <text x="${width - pad}" y="30" font-size="13" text-anchor="end" fill="currentColor" opacity=".7">${esc(n.a)} & ${esc(n.b)} at ~90</text>
@@ -1806,13 +1965,13 @@ function viewRoadmap() {
   const header = `<div class="section-head"><div><h1>Our life roadmap</h1><p class="muted">Every milestone shows how old you'll both be. Tick them off as life happens.</p></div>
     <div class="row"><button type="button" data-act="add-milestone" class="primary">+ Milestone</button></div></div>`;
   if (!state.milestones.length) {
-    return `${header}<div class="empty"><span class="em">🗺️</span>No milestones yet.<br>
+    return `${header}<div class="empty">No milestones yet.<br>
       <button type="button" class="primary" data-act="template" style="margin-top:10px">Suggest a lifelong roadmap</button></div>`;
   }
   const blocks = STAGES.map((stage, index) => {
     const items = state.milestones.filter(m => m.stage === stage.id).sort(byDate);
     return `<section class="stage-block">
-      <div class="stage-title ${index === stageIdx ? "current" : ""}"><span class="badge" aria-hidden="true">${stage.icon}</span>
+      <div class="stage-title ${index === stageIdx ? "current" : ""}"><span class="badge" aria-hidden="true">${index + 1}</span>
         <h2 style="margin:0">${stage.name}</h2>${index === stageIdx ? '<span class="chip">You are here</span>' : ""}</div>
       <p class="small muted" style="margin:2px 0 0">${stage.blurb}</p>
       ${items.map(m => `<div class="ms ${m.done ? "done" : ""}">
@@ -1821,8 +1980,8 @@ function viewRoadmap() {
           <div class="small muted">${esc(formatDate(m.date))}${m.date && !m.done ? ` · ${esc(relativeTime(m.date, now))}` : ""}</div>
           ${m.date ? `<div class="small muted">${agesLine(m.date)}</div>` : ""}
           ${m.notes ? `<div class="small">${esc(m.notes)}</div>` : ""}</div>
-        <button type="button" class="ghost" data-act="edit-milestone" data-id="${esc(m.id)}" aria-label="Edit ${esc(m.title)}">✏️</button>
-        <button type="button" class="ghost" data-act="delete-milestone" data-id="${esc(m.id)}" aria-label="Delete ${esc(m.title)}">🗑️</button>
+        <button type="button" class="ghost" data-act="edit-milestone" data-id="${esc(m.id)}" aria-label="Edit ${esc(m.title)}">${icon("pencil")}</button>
+        <button type="button" class="ghost" data-act="delete-milestone" data-id="${esc(m.id)}" aria-label="Delete ${esc(m.title)}">${icon("trash")}</button>
       </div>`).join("")}
     </section>`;
   }).join("");
@@ -1835,26 +1994,26 @@ function viewGoals() {
     .filter(g => filter === "all" || g.category === filter || g.owner === filter)
     .sort((x, y) => goalProgress(x) - goalProgress(y) || (x.due || "9999").localeCompare(y.due || "9999"));
   const n = names();
-  const filterButtons = [["all", "All"], ["both", "👫 Shared"], ["a", `🙋 ${n.a}`], ["b", `🙋 ${n.b}`],
-    ...Object.entries(CATEGORIES).map(([id, c]) => [id, `${c.icon} ${c.name}`])];
+  const filterButtons = [["all", "All"], ["both", "Shared"], ["a", n.a], ["b", n.b],
+    ...Object.entries(CATEGORIES).map(([id, c]) => [id, c.name])];
   return `<div class="section-head"><div><h1>Our goals</h1><p class="muted">Big dreams broken into small next steps. Shared goals, plus each other's personal goals to cheer on.</p></div>
     <button type="button" class="primary" data-act="add-goal">+ Goal</button></div>
   <div class="filters" role="group" aria-label="Filter goals">${filterButtons.map(([id, label]) =>
     `<button type="button" data-act="goal-filter" data-id="${esc(id)}" aria-pressed="${filter === id}">${esc(label)}</button>`).join("")}</div>
   ${goals.length ? `<div class="grid">${goals.map(goalCard).join("")}</div>` :
-    `<div class="empty"><span class="em">🎯</span>${state.goals.length ? "No goals match this filter." : "Add your first goal — e.g. “Save for our wedding”, “Run a 10k together”, “Learn to cook 5 family recipes”."}</div>`}`;
+    `<div class="empty">${state.goals.length ? "No goals match this filter." : "Add your first goal — e.g. “Save for our wedding”, “Run a 10k together”, “Learn to cook 5 family recipes”."}</div>`}`;
 }
 function goalCard(goal) {
   const category = CATEGORIES[goal.category] || CATEGORIES.love;
   const progress = goalProgress(goal);
   const steps = goal.steps || [];
   return `<article class="card">
-    <div class="goal-head"><span class="goal-icon" aria-hidden="true">${category.icon}</span>
+    <div class="goal-head">
       <div style="flex:1;min-width:0"><h3>${esc(goal.title)}</h3>
-        <div class="row small"><span class="chip">${esc(ownerLabel(goal.owner))}</span>${goal.due ? `<span class="chip">📅 ${esc(formatDate(goal.due, "month"))}</span>` : ""}
+        <div class="row small"><span class="chip">${esc(category.name)}</span><span class="chip">${esc(ownerLabel(goal.owner))}</span>${goal.due ? `<span class="chip">${esc(formatDate(goal.due, "month"))}</span>` : ""}
           ${progress === 1 ? '<span class="chip ok">✓ Done</span>' : ""}
           <span style="margin-left:auto;white-space:nowrap">
-            <button type="button" class="ghost" data-act="edit-goal" data-id="${esc(goal.id)}" aria-label="Edit ${esc(goal.title)}">✏️</button><button type="button" class="ghost" data-act="delete-goal" data-id="${esc(goal.id)}" aria-label="Delete ${esc(goal.title)}">🗑️</button></span></div></div></div>
+            <button type="button" class="ghost" data-act="edit-goal" data-id="${esc(goal.id)}" aria-label="Edit ${esc(goal.title)}">${icon("pencil")}</button><button type="button" class="ghost" data-act="delete-goal" data-id="${esc(goal.id)}" aria-label="Delete ${esc(goal.title)}">${icon("trash")}</button></span></div></div></div>
     ${goal.notes ? `<p class="small muted">${esc(goal.notes)}</p>` : ""}
     <div class="bar" style="margin:8px 0" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(progress * 100)}"><span style="width:${progress * 100}%"></span></div>
     ${steps.map(step => `<label class="step-row ${step.done ? "done" : ""}"><input type="checkbox" data-toggle="step" data-goal="${esc(goal.id)}" data-id="${esc(step.id)}" ${step.done ? "checked" : ""}><span>${esc(step.text)}</span></label>`).join("")}
@@ -1875,19 +2034,19 @@ function viewMoney() {
   const fundCards = state.funds.map(fund => {
     const s = fundStatus(fund, state, now);
     let line;
-    if (s.months === 0) line = '<span class="chip ok">🎉 Fully funded</span>';
+    if (s.months === 0) line = '<span class="chip ok">Fully funded</span>';
     else if (!Number.isFinite(s.months)) line = '<span class="small muted">Add a monthly amount to see when you\'ll get there.</span>';
     else line = `<span class="small">Reached <b>${esc(s.reachDate.toLocaleDateString(undefined, { month: "short", year: "numeric" }))}</b> (${s.months} months)</span>`;
     let deadlineLine = "";
     if (s.milestone) {
       deadlineLine = s.onTrack
         ? `<div class="chip ok" style="margin-top:6px">✓ On track for ${esc(s.milestone.title)}</div>`
-        : `<div class="chip warn" style="margin-top:6px;white-space:normal">⚠️ Needs ${esc(money(s.needed, cur))}/mo for ${esc(s.milestone.title)} (${esc(formatDate(s.milestone.date, "month"))})</div>`;
+        : `<div class="chip warn" style="margin-top:6px;white-space:normal">Needs ${esc(money(s.needed, cur))}/mo for ${esc(s.milestone.title)} (${esc(formatDate(s.milestone.date, "month"))})</div>`;
     }
     return `<article class="card">
       <div class="spread"><div><h3>${esc(fund.name)}</h3><div class="small muted">${esc(money(fund.saved, cur))} of ${esc(money(fund.target, cur))} · ${esc(money(fund.monthly, cur))}/month</div></div>
-        <button type="button" class="ghost" data-act="edit-fund" data-id="${esc(fund.id)}" aria-label="Edit ${esc(fund.name)}">✏️</button>
-        <button type="button" class="ghost" data-act="delete-fund" data-id="${esc(fund.id)}" aria-label="Delete ${esc(fund.name)}">🗑️</button></div>
+        <button type="button" class="ghost" data-act="edit-fund" data-id="${esc(fund.id)}" aria-label="Edit ${esc(fund.name)}">${icon("pencil")}</button>
+        <button type="button" class="ghost" data-act="delete-fund" data-id="${esc(fund.id)}" aria-label="Delete ${esc(fund.name)}">${icon("trash")}</button></div>
       <div class="bar" style="margin:10px 0"><span style="width:${s.progress * 100}%"></span></div>
       ${line}${deadlineLine}
       <form class="row" data-form="deposit" data-id="${esc(fund.id)}" style="margin-top:10px;flex-wrap:nowrap">
@@ -1901,8 +2060,8 @@ function viewMoney() {
     <div class="stat"><b>${esc(money(monthly, cur))}</b><span class="small muted">saved per month</span></div>
     <div class="stat"><b>${state.funds.filter(f => fundStatus(f, state, now).onTrack === false).length}</b><span class="small muted">pots behind</span></div></div></div>
   ${state.funds.length ? `<div class="grid" style="margin-top:14px">${fundCards}</div>` :
-    `<div class="empty" style="margin-top:14px"><span class="em">🐷</span>No savings pots yet.<br><button type="button" class="primary" data-act="default-funds" style="margin-top:10px">Add starter pots (emergency, wedding, home)</button></div>`}
-  <div class="section-head"><h2>Retiring together 🌅</h2></div>
+    `<div class="empty" style="margin-top:14px">No savings pots yet.<br><button type="button" class="primary" data-act="default-funds" style="margin-top:10px">Add starter pots (emergency, wedding, home)</button></div>`}
+  <div class="section-head"><h2>Retiring together</h2></div>
   <div class="card">
     <form class="fields-2" data-form="retirement">
       <label class="field">Retirement savings today (${esc(cur)})<input name="saved" type="number" step="any" value="${esc(r.saved)}"></label>
@@ -1933,7 +2092,7 @@ function viewMoney() {
   </div>
   <div class="grid" style="margin-top:14px">
     <section class="card">
-      <h2>Education funds 🎓</h2>
+      <h2>Education funds</h2>
       <form class="fields-2" data-form="retirement">
         <label class="field">Education cost per child (today's ${esc(cur)})<input name="eduCost" type="number" step="any" value="${esc(r.eduCost)}"></label>
         <label class="field">Education inflation per year (%)<input name="eduInflation" type="number" step="0.1" value="${esc(r.eduInflation)}"></label>
@@ -1944,15 +2103,15 @@ function viewMoney() {
           <span class="chip">${esc(money(e.monthly, cur))}/mo</span></li>`).join("")}</ul>`}
     </section>
     <section class="card">
-      <h2>Bank statement → real surplus 🏦</h2>
+      <h2>Bank statement → real surplus</h2>
       <p class="small">Export a CSV from your bank app (most banks offer it under statements or transactions) and see what you really save each month.</p>
-      <div class="row"><label class="btn" tabindex="0" role="button" data-file-trigger>📄 Choose statement CSV<input type="file" accept=".csv,text/csv,text/plain" data-statement hidden></label>
-        <label class="btn" tabindex="0" role="button" data-file-trigger>📈 Import net-worth CSV<input type="file" accept=".csv,text/csv,text/plain" data-networth-csv hidden></label></div>
+      <div class="row"><label class="btn" tabindex="0" role="button" data-file-trigger>Choose statement CSV<input type="file" accept=".csv,text/csv,text/plain" data-statement hidden></label>
+        <label class="btn" tabindex="0" role="button" data-file-trigger>Import net-worth CSV<input type="file" accept=".csv,text/csv,text/plain" data-networth-csv hidden></label></div>
       ${statementResultHTML(cur)}
-      <p class="small muted">🔒 Read on this device only — nothing is uploaded and individual transactions are never saved. No bank login, no aggregator.</p>
+      <p class="small muted">Read on this device only — nothing is uploaded and individual transactions are never saved. No bank login, no aggregator.</p>
     </section>
     <section class="card">
-      <h2>Net worth 📈</h2>
+      <h2>Net worth</h2>
       ${netWorthSummary(cur)}
       <form class="row" data-form="networth" style="margin-top:10px">
         <input name="date" type="date" value="${esc(toISO(now))}" aria-label="Date" style="flex:1 1 130px;min-width:0">
@@ -1968,19 +2127,19 @@ function viewMoney() {
 function statementResultHTML(cur) {
   const result = ui.statement;
   if (!result) return "";
-  if (result.error) return `<p class="small"><span class="chip warn">⚠️ ${esc(result.error)}</span></p>`;
+  if (result.error) return `<p class="small"><span class="chip warn">${esc(result.error)}</span></p>`;
   const rows = result.months.slice(-12).map(m => `<tr><td>${esc(m.month)}</td><td>${esc(money(m.income, cur))}</td><td>${esc(money(m.spending, cur))}</td>
     <td><b class="${m.net >= 0 ? "" : "neg"}">${esc(money(m.net, cur))}</b></td></tr>`).join("");
   return `<div style="overflow-x:auto;margin-top:8px"><table class="small" style="width:100%;border-collapse:collapse">
       <thead><tr><th align="left">Month</th><th align="left">In</th><th align="left">Out</th><th align="left">Net</th></tr></thead><tbody>${rows}</tbody></table></div>
     <p class="small">Average over ${result.months.length} month${result.months.length === 1 ? "" : "s"}: <b>${esc(money(result.avgNet, cur))}/month</b> left over
       <span class="muted">(${result.used} transactions · columns “${esc(result.columns.date)}” / “${esc(result.columns.amount)}”${result.skipped ? ` · ${result.skipped} rows skipped` : ""}; first and last months may be partial)</span></p>
-    ${result.avgNet > 0 ? `<button type="button" data-act="statement-use">Use ${esc(money(Math.round(result.avgNet), cur))}/month as our retirement saving</button>` : '<p class="small"><span class="chip warn">Spending is above income on average — worth a money talk 💬</span></p>'}`;
+    ${result.avgNet > 0 ? `<button type="button" data-act="statement-use">Use ${esc(money(Math.round(result.avgNet), cur))}/month as our retirement saving</button>` : '<p class="small"><span class="chip warn">Spending is above income on average — worth a money talk</span></p>'}`;
 }
 
 function netWorthSummary(cur) {
   const entries = state.networth.slice().sort(byDate);
-  if (!entries.length) return '<div class="empty"><span class="em">📈</span>Add your first snapshot to start the trend.</div>';
+  if (!entries.length) return '<div class="empty">Add your first snapshot to start the trend.</div>';
   const values = entries.map(e => (Number(e.assets) || 0) - (Number(e.debts) || 0));
   const latest = values[values.length - 1];
   const change = values.length > 1 ? latest - values[values.length - 2] : null;
@@ -1992,13 +2151,13 @@ function netWorthSummary(cur) {
     const span = max - min || 1;
     const x = i => 6 + i * 288 / (recent.length - 1);
     const y = v => 40 - (v - min) / span * 34;
-    chart = `<svg class="trend" viewBox="0 0 300 46" preserveAspectRatio="none" role="img" aria-label="Net worth trend"><path d="${recent.map((v, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ")}" fill="none" stroke="#2f8f6b" stroke-width="2.5" vector-effect="non-scaling-stroke"/></svg>`;
+    chart = `<svg class="trend" viewBox="0 0 300 46" preserveAspectRatio="none" role="img" aria-label="Net worth trend"><path d="${recent.map((v, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ")}" fill="none" style="stroke:var(--green)" stroke-width="2" vector-effect="non-scaling-stroke"/></svg>`;
   }
   return `<div class="money-big">${esc(money(latest, cur))}</div>
     ${change !== null ? `<span class="chip ${change >= 0 ? "ok" : "warn"}">${change >= 0 ? "▲" : "▼"} ${esc(money(Math.abs(change), cur))} since last snapshot</span>` : ""}
     ${chart}
     <ul class="clean small">${entries.slice(-3).reverse().map(e => `<li class="spread"><span>${esc(formatDate(e.date))}: ${esc(money((Number(e.assets) || 0) - (Number(e.debts) || 0), cur))}</span>
-      <button type="button" class="ghost" data-act="delete-networth" data-id="${esc(e.id)}" aria-label="Delete snapshot">🗑️</button></li>`).join("")}</ul>`;
+      <button type="button" class="ghost" data-act="delete-networth" data-id="${esc(e.id)}" aria-label="Delete snapshot">${icon("trash")}</button></li>`).join("")}</ul>`;
 }
 
 /* ------------------------------------------- views: us, program & settings */
@@ -2008,7 +2167,7 @@ function viewUs() {
   const checkins = state.checkins.slice().sort(byDate).reverse();
   const last = checkins[0];
   const daysSince = last ? daysBetween(parseDate(last.date), now) : null;
-  const hearts = value => `<span class="hearts" aria-label="${value} of 5">${"♥".repeat(value)}<span style="opacity:.25">${"♥".repeat(5 - value)}</span></span>`;
+  const hearts = value => `<span class="pips" role="img" aria-label="${value} of 5">${[1, 2, 3, 4, 5].map(i => `<i class="${i <= value ? "on" : ""}"></i>`).join("")}</span>`;
   const stageIdx = currentStageIndex(state);
   const talkStatus = id => state.talks[id]?.status || "todo";
   const agreed = TALKS.filter(t => talkStatus(t.id) === "agreed").length;
@@ -2022,27 +2181,27 @@ function viewUs() {
       <button type="button" class="primary" data-act="checkin">Start check-in</button>
       ${trendSVG()}
       ${checkins.length ? `<ul class="clean" style="margin-top:12px">${checkins.slice(0, 4).map(c => `<li>
-        <div class="spread"><b>${esc(formatDate(c.date))}</b><button type="button" class="ghost" data-act="delete-checkin" data-id="${esc(c.id)}" aria-label="Delete check-in">🗑️</button></div>
+        <div class="spread"><b>${esc(formatDate(c.date))}</b><button type="button" class="ghost" data-act="delete-checkin" data-id="${esc(c.id)}" aria-label="Delete check-in">${icon("trash")}</button></div>
         <div class="small">${esc(n.a)} ${hearts(c.ratingA)} · ${esc(n.b)} ${hearts(c.ratingB)}</div>
-        ${c.appreciate ? `<div class="small">💗 ${esc(c.appreciate)}</div>` : ""}
-        ${c.need ? `<div class="small">🙏 ${esc(c.need)}</div>` : ""}
-        ${c.plan ? `<div class="small">📌 ${esc(c.plan)}</div>` : ""}</li>`).join("")}</ul>` : ""}
+        ${c.appreciate ? `<div class="small"><span class="muted">Appreciated:</span> ${esc(c.appreciate)}</div>` : ""}
+        ${c.need ? `<div class="small"><span class="muted">Need:</span> ${esc(c.need)}</div>` : ""}
+        ${c.plan ? `<div class="small"><span class="muted">Next month:</span> ${esc(c.plan)}</div>` : ""}</li>`).join("")}</ul>` : ""}
     </section>
     <section class="card">
       <h2>Bucket list for two</h2>
       <form class="row" data-form="bucket" style="flex-wrap:nowrap;margin-bottom:10px"><input name="text" placeholder="See the northern lights…" aria-label="New bucket list item" style="flex:1;min-width:0"><button type="submit">Add</button></form>
       ${state.bucket.length ? `<div class="bucket">${state.bucket.map(item => `<span class="item ${item.done ? "done" : ""}">
         <span>${esc(item.text)}</span>
-        <button type="button" class="ghost" data-act="toggle-bucket" data-id="${esc(item.id)}" aria-label="${item.done ? "Mark not done" : "Mark done"}">${item.done ? "✅" : "⬜"}</button>
-        <button type="button" class="ghost" data-act="delete-bucket" data-id="${esc(item.id)}" aria-label="Delete ${esc(item.text)}">✕</button></span>`).join("")}</div>`
-        : `<div class="empty"><span class="em">🌍</span>Dream a little: places, experiences, things to learn together.</div>`}
+        <button type="button" class="ghost" data-act="toggle-bucket" data-id="${esc(item.id)}" aria-label="${item.done ? "Mark not done" : "Mark done"}"><span class="tick ${item.done ? "on" : ""}">${item.done ? icon("check") : ""}</span></button>
+        <button type="button" class="ghost" data-act="delete-bucket" data-id="${esc(item.id)}" aria-label="Delete ${esc(item.text)}">${icon("close")}</button></span>`).join("")}</div>`
+        : `<div class="empty">Dream a little: places, experiences, things to learn together.</div>`}
     </section>
   </div>
-  <div class="section-head"><div><h2>Talk before you decide 🗣️</h2><p class="muted small">Conversations that strong couples have before life forces them. ${agreed}/${TALKS.length} agreed.</p></div></div>
+  <div class="section-head"><div><h2>Talk before you decide</h2><p class="muted small">Conversations that strong couples have before life forces them. ${agreed}/${TALKS.length} agreed.</p></div></div>
   ${STAGES.map((stage, index) => {
     const topics = TALKS.filter(t => t.stage === stage.id);
     if (!topics.length) return "";
-    return `<h3 style="margin-top:14px">${stage.icon} ${stage.name}${index === stageIdx ? ' <span class="chip">now</span>' : ""}</h3>
+    return `<h3 style="margin-top:14px">${stage.name}${index === stageIdx ? ' <span class="chip">now</span>' : ""}</h3>
       ${topics.map(topic => {
         const entry = state.talks[topic.id] || {};
         const status = entry.status || "todo";
@@ -2067,10 +2226,10 @@ function trendSVG() {
   const path = points.map((p, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(p.score).toFixed(1)}`).join(" ");
   const last = points[points.length - 1].score;
   const previous = points[points.length - 2].score;
-  const direction = last > previous ? "↗ warmer" : last < previous ? "↘ a little lower — talk about it" : "→ steady";
+  const direction = last > previous ? "Trending warmer" : last < previous ? "A little lower — worth talking about" : "Steady";
   return `<svg class="trend" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" role="img" aria-label="Connection trend over ${points.length} check-ins">
-    <path d="${path}" fill="none" stroke="#e86f7e" stroke-width="2.5" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
-    ${points.map((p, i) => `<circle cx="${x(i).toFixed(1)}" cy="${y(p.score).toFixed(1)}" r="3" fill="#c2416b"/>`).join("")}</svg>
+    <path d="${path}" fill="none" style="stroke:var(--rose)" stroke-width="2" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
+    ${points.map((p, i) => `<circle cx="${x(i).toFixed(1)}" cy="${y(p.score).toFixed(1)}" r="3" style="fill:var(--rose)"/>`).join("")}</svg>
     <div class="small muted">Connection trend: ${direction}</div>`;
 }
 
@@ -2085,7 +2244,7 @@ function printSummaryHTML() {
     <p>Together since ${esc(formatDate(state.couple.since))}${state.couple.wedding ? ` · Wedding ${esc(formatDate(state.couple.wedding))}` : ""} · Printed ${esc(now.toLocaleDateString())}</p>
     <h2>Roadmap</h2>
     <table><thead><tr><th>Stage</th><th>Milestone</th><th>Date</th><th>Ages</th><th>Done</th></tr></thead><tbody>
-    ${milestones.map(m => `<tr><td>${esc(STAGES[STAGE_INDEX[m.stage] ?? 0].name)}</td><td>${esc(m.title)}</td><td>${esc(formatDate(m.date))}</td><td>${agesLine(m.date).replace("🎂 ", "")}</td><td>${m.done ? "✓" : ""}</td></tr>`).join("")}
+    ${milestones.map(m => `<tr><td>${esc(STAGES[STAGE_INDEX[m.stage] ?? 0].name)}</td><td>${esc(m.title)}</td><td>${esc(formatDate(m.date))}</td><td>${agesLine(m.date).replace("Ages ", "")}</td><td>${m.done ? "✓" : ""}</td></tr>`).join("")}
     </tbody></table>
     <h2>Goals</h2>
     <table><thead><tr><th>Goal</th><th>Whose</th><th>Target</th><th>Progress</th></tr></thead><tbody>
@@ -2106,7 +2265,7 @@ function viewProgram() {
   const progress = programProgress(program);
   const disclaimer = '<p class="small muted">Short summaries of published research (The Gottman Institute, PREP). Educational, not therapy — if things feel hard, a licensed couples counsellor can help.</p>';
   if (!program.started) {
-    return `<section class="card hero"><div class="spread"><div><h2>🌱 Foundations: 8 weeks to a stronger team</h2>
+    return `<section class="card hero"><div class="spread"><div><h2>Foundations: 8 weeks to a stronger team</h2>
       <p class="small">One short, research-based session a week: love maps, turning toward each other, fighting fair, money as a team and more. About 20 minutes together.</p></div></div>
       <button type="button" class="primary" data-act="program-start">Start week 1</button>${disclaimer}</section>`;
   }
@@ -2124,9 +2283,9 @@ function viewProgram() {
       ${done ? `<p class="small muted">Completed ${esc(formatDate(done))}</p>` : `<button type="button" class="primary" data-act="program-done" data-id="${number}">Mark week ${number} done</button>`}
     </details>`;
   }).join("");
-  return `<section class="card"><div class="spread"><h2>🌱 Foundations</h2><span class="chip ${progress.finished ? "ok" : ""}">${progress.doneCount}/${PROGRAM.length} weeks</span></div>
+  return `<section class="card"><div class="spread"><h2>Foundations</h2><span class="chip ${progress.finished ? "ok" : ""}">${progress.doneCount}/${PROGRAM.length} weeks</span></div>
     <div class="bar" style="margin:8px 0"><span style="width:${progress.doneCount / PROGRAM.length * 100}%"></span></div>
-    ${progress.finished ? '<p class="small">🎉 You finished all 8 weeks. Keep the weekly State of the Union going!</p>' : ""}
+    ${progress.finished ? '<p class="small">You finished all 8 weeks. Keep the weekly State of the Union going.</p>' : ""}
     ${weeks}${disclaimer}</section>`;
 }
 
@@ -2148,7 +2307,7 @@ function privacyStatus(syncOn = Boolean(sync && sync.active), remindersOn = remi
 
 function syncStatusText() {
   if (!sync || !sync.active) return "";
-  if (sync.status === "error") return `⚠️ ${sync.error || "Sync paused"} Will retry.`;
+  if (sync.status === "error") return `${sync.error || "Sync paused."} Will retry.`;
   if (sync.status === "syncing") return "Syncing…";
   const last = sync.config.lastSyncAt;
   return last ? `✓ Synced ${new Date(last).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : "Waiting for first sync…";
@@ -2156,22 +2315,22 @@ function syncStatusText() {
 
 function viewConnect() {
   const syncCard = sync && sync.active
-    ? `<p class="small"><span class="chip ok">🔄 Sharing one plan</span> <span class="muted" id="sync-status">${esc(syncStatusText())}</span></p>
+    ? `<p class="small"><span class="chip ok">Sharing one plan</span> <span class="muted" id="sync-status">${esc(syncStatusText())}</span></p>
        <label class="field">Pairing link — send only to your partner<input readonly value="${esc(sync.inviteLink())}" id="invite-link" onfocus="this.select()"></label>
        <div class="row"><button type="button" data-act="sync-copy">Copy link</button><button type="button" data-act="sync-share">Share…</button>
          <button type="button" data-act="sync-now">Sync now</button><button type="button" data-act="sync-rotate">Replace link…</button>
          <button type="button" class="ghost" data-act="sync-leave">Stop syncing on this device</button></div>
        <p class="small muted">${sync.protected
-         ? "🔒 Passphrase-protected: the link alone can't open or change your plan. Your partner enters the passphrase once on their phone."
+         ? "Passphrase-protected: the link alone can't open or change your plan. Your partner enters the passphrase once on their phone."
          : "Anyone with this link can open your plan. Add a passphrase or, if the link leaked, use <b>Replace link</b> — the old link stops working immediately."}</p>`
     : `<p class="small">Use one plan on both your phones. Changes sync within seconds and merge item by item, so you can both edit.</p>
        <label class="field">Passphrase (optional, recommended)<input id="sync-pass" type="password" autocomplete="new-password" minlength="6" placeholder="Something only you two know"></label>
        <p class="small muted">Tell it to your partner in person or by phone — not in the same message as the link. Then a leaked link alone can't open your plan.</p>
        <button type="button" class="primary" data-act="sync-create">Create a pairing link</button>
-       <p class="small muted">🔐 End-to-end encrypted: your plan is locked on this device before upload, and the key only lives inside the link (after the #), which is never sent to the server.</p>`;
+       <p class="small muted">End-to-end encrypted: your plan is locked on this device before upload, and the key only lives inside the link (after the #), which is never sent to the server.</p>`;
   const pref = reminders.pref();
   const reminderCard = pref?.enabled
-    ? `<p class="small"><span class="chip ok">🔔 On</span> ${pref.nextAt ? `Next: ${esc(new Date(pref.nextAt).toLocaleString([], { dateStyle: "medium", timeStyle: "short" }))}` : ""}</p>
+    ? `<p class="small"><span class="chip ok">On</span> ${pref.nextAt ? `Next: ${esc(new Date(pref.nextAt).toLocaleString([], { dateStyle: "medium", timeStyle: "short" }))}` : ""}</p>
        <div class="row"><button type="button" data-act="push-test">Send a test</button><button type="button" class="ghost" data-act="push-off">Turn off</button></div>`
     : `<p class="small">Get a nudge for monthly check-ins, upcoming milestones, anniversaries, birthdays and backups.</p>
        <button type="button" class="primary" data-act="push-on">Turn on reminders</button>
@@ -2183,24 +2342,24 @@ function viewConnect() {
       : `<p class="small">${reminders.isIOS() ? "Tap Share → <b>Add to Home Screen</b>." : "Use your browser's menu → <b>Install app</b> / <b>Add to Home screen</b>."} It opens like an app and works offline.</p>`;
   return `<h2 class="settings-group">Connect</h2>
   <div class="grid" style="margin-bottom:14px">
-    <section class="card"><h2>Partner sync 🔄</h2>${syncCard}</section>
-    <section class="card"><h2>Reminders 🔔</h2>${reminderCard}
+    <section class="card"><h2>Partner sync</h2>${syncCard}</section>
+    <section class="card"><h2>Reminders</h2>${reminderCard}
       <p class="small muted" style="margin-top:10px">Prefer your calendar?</p>
       <div class="row"><button type="button" data-act="ics-checkin">Monthly check-in (.ics)</button><button type="button" data-act="ics-milestones">Milestones (.ics)</button></div>
       <p class="small muted">Reminder text stays on your device; the server only knows when to ping.</p></section>
-    <section class="card"><h2>Install & share 📲</h2>${installCard}
-      <h3 style="margin-top:14px">Share Together 💌</h3>
+    <section class="card"><h2>Install & share</h2>${installCard}
+      <h3 style="margin-top:14px">Share Together</h3>
       <p class="small">Free, private and open source. Know a couple who'd like it?</p>
       <div class="row"><button type="button" data-act="share-app">Share the app</button>
-        <a class="btn" href="${SOURCE_URL}" target="_blank" rel="noopener">⭐ Source</a>
-        <a class="btn" href="https://github.com/juw12/projects/issues/new?title=Together%20feedback%3A%20" target="_blank" rel="noopener">💬 Feedback</a></div></section>
+        <a class="btn" href="${SOURCE_URL}" target="_blank" rel="noopener">Source code</a>
+        <a class="btn" href="https://github.com/juw12/projects/issues/new?title=Together%20feedback%3A%20" target="_blank" rel="noopener">Feedback</a></div></section>
   </div>`;
 }
 
 function viewSettings() {
   const c = state.couple;
   const backupLine = state.lastBackupAt
-    ? `Last backup: ${esc(new Date(state.lastBackupAt).toLocaleDateString())}${backupDue(state, ui.now) ? ' <span class="chip warn">due</span>' : ' <span class="chip ok">✓</span>'}`
+    ? `Last backup: ${esc(new Date(state.lastBackupAt).toLocaleDateString())}${backupDue(state, ui.now) ? ' <span class="chip warn">due</span>' : ' <span class="chip ok">Up to date</span>'}`
     : 'No backup yet <span class="chip warn">recommended</span>';
   return `<div class="section-head"><h1>Settings & backup</h1></div>
   ${viewConnect()}
@@ -2215,27 +2374,33 @@ function viewSettings() {
         <label class="field">Partner 2 birthday<input name="bBirth" type="date" value="${esc(c.b.birth)}"></label>
         <label class="field">Together since<input name="since" type="date" value="${esc(c.since)}"></label>
         <label class="field">Wedding date<input name="wedding" type="date" value="${esc(c.wedding)}"></label>
-        <label class="field">Life stage<select name="stage">${STAGES.map(s => `<option value="${s.id}" ${c.stage === s.id ? "selected" : ""}>${s.icon} ${s.name}</option>`).join("")}</select></label>
+        <label class="field">Life stage<select name="stage">${STAGES.map(s => `<option value="${s.id}" ${c.stage === s.id ? "selected" : ""}>${s.name}</option>`).join("")}</select></label>
         <label class="field">Currency symbol<input name="currency" value="${esc(c.currency)}" maxlength="4"></label>
       </div>
       <button class="primary" type="submit">Save</button>
     </form>
     <section class="card">
-      <h2>Backup & privacy 💾</h2>
-      <p class="small muted" data-privacy>🔒 ${esc(privacyStatus())}</p>
+      <h2>Backup & privacy</h2>
+      <p class="small muted" data-privacy>${esc(privacyStatus())}</p>
       <p class="small muted">Clearing browser data erases this device's copy${sync && sync.active ? " (your partner's phone still has one)" : ""}, so export a backup now and then.</p>
       <p class="small">${backupLine}</p>
       <div class="row">
-        <button type="button" class="primary" data-act="export">⬇️ Export backup</button>
-        <label class="btn" tabindex="0" role="button" data-file-trigger>⬆️ Import backup<input type="file" accept="application/json,.json" data-import hidden></label>
-        <button type="button" data-act="print">🖨️ Print our plan</button>
+        <button type="button" class="primary" data-act="export">Export backup</button>
+        <label class="btn" tabindex="0" role="button" data-file-trigger>Import backup<input type="file" accept="application/json,.json" data-import hidden></label>
+        <button type="button" data-act="print">Print our plan</button>
       </div>
     </section>
     <section class="card">
-      <h2>Our children 👶</h2>
+      <h2>Appearance</h2>
+      <p class="small muted">Applies to this device only.</p>
+      <div class="segmented" role="group" aria-label="Appearance">${THEME_OPTIONS.map(option =>
+        `<button type="button" data-act="theme" data-id="${option.id}" aria-pressed="${theme.preference === option.id}">${icon(option.icon)}<span>${option.label}</span></button>`).join("")}</div>
+    </section>
+    <section class="card">
+      <h2>Our children</h2>
       <p class="small muted">Add children (or a due date) and their ages appear on every milestone.</p>
       ${state.kids.length ? `<ul class="clean">${state.kids.map(kid => `<li class="spread"><div>${esc(kid.name)} <span class="small muted">· ${esc(formatDate(kid.birth))}${parseDate(kid.birth) > ui.now ? " (expected)" : ""}</span></div>
-        <button type="button" class="ghost" data-act="delete-kid" data-id="${esc(kid.id)}" aria-label="Remove ${esc(kid.name)}">🗑️</button></li>`).join("")}</ul>` : ""}
+        <button type="button" class="ghost" data-act="delete-kid" data-id="${esc(kid.id)}" aria-label="Remove ${esc(kid.name)}">${icon("trash")}</button></li>`).join("")}</ul>` : ""}
       <form data-form="kid" style="margin-top:8px">
         <div class="fields-2">
           <label class="field">Name<input name="name" required></label>
@@ -2243,7 +2408,7 @@ function viewSettings() {
         </div>
         <button type="submit">Add child</button></form>
       <h3 style="margin-top:16px">Roadmap</h3>
-      <button type="button" data-act="template">✨ Add suggested milestones</button>
+      <button type="button" data-act="template">Add suggested milestones</button>
       <h3 style="margin-top:16px">Danger zone</h3>
       <button type="button" data-act="reset" class="danger">Erase everything on this device</button>
     </section>
@@ -2278,7 +2443,7 @@ function milestoneDialog(existing) {
     <label class="field">Notes<textarea name="notes">${esc(m.notes)}</textarea></label>`, values => {
     if (existing) Object.assign(existing, values);
     else state.milestones.push({ id: uid(), done: false, ...values });
-    commit(existing ? "Milestone updated" : "Milestone added 📍");
+    commit(existing ? "Milestone updated" : "Milestone added");
   });
 }
 function goalDialog(existing) {
@@ -2296,7 +2461,7 @@ function goalDialog(existing) {
     delete values.steps;
     if (existing) Object.assign(existing, values);
     else state.goals.push({ id: uid(), done: false, steps, ...values });
-    commit(existing ? "Goal updated" : "Goal added 🎯");
+    commit(existing ? "Goal updated" : "Goal added");
   });
 }
 function fundDialog(existing) {
@@ -2313,22 +2478,22 @@ function fundDialog(existing) {
     const clean = { name: values.name, milestoneId: values.milestoneId, target: Number(values.target) || 0, saved: Number(values.saved) || 0, monthly: Number(values.monthly) || 0 };
     if (existing) Object.assign(existing, clean);
     else state.funds.push({ id: uid(), ...clean });
-    commit(existing ? "Savings pot updated" : "Savings pot added 🐷");
+    commit(existing ? "Savings pot updated" : "Savings pot added");
   });
 }
 function checkinDialog() {
   const n = names();
   const rating = (name, label) => `<fieldset style="border:0;padding:0;margin:0 0 10px"><legend class="small muted">${esc(label)}</legend><div class="rating">
-    ${[1, 2, 3, 4, 5].map(v => `<label><input type="radio" name="${name}" value="${v}" aria-label="${v} of 5" ${v === 4 ? "checked" : ""}><span aria-hidden="true">${["😞", "😕", "🙂", "😊", "🥰"][v - 1]}</span></label>`).join("")}</div></fieldset>`;
-  openDialog("Our monthly check-in 💬", `
+    ${[1, 2, 3, 4, 5].map(v => `<label><input type="radio" name="${name}" value="${v}" aria-label="${v} of 5" ${v === 4 ? "checked" : ""}><span aria-hidden="true">${v}</span></label>`).join("")}</div><div class="rating-scale small muted" aria-hidden="true"><span>Distant</span><span>Very close</span></div></fieldset>`;
+  openDialog("Our monthly check-in", `
     <p class="small muted">Take turns. Listen to understand, not to reply.</p>
     ${rating("ratingA", `${n.a}: how connected do you feel?`)}${rating("ratingB", `${n.b}: how connected do you feel?`)}
-    <label class="field">💗 Something I appreciated about you this month<textarea name="appreciate"></textarea></label>
-    <label class="field">🙏 Something I need a bit more of<textarea name="need"></textarea></label>
-    <label class="field">📌 One thing we'll do together next month<input name="plan"></label>`, values => {
+    <label class="field">Something I appreciated about you this month<textarea name="appreciate"></textarea></label>
+    <label class="field">Something I need a bit more of<textarea name="need"></textarea></label>
+    <label class="field">One thing we'll do together next month<input name="plan"></label>`, values => {
     state.checkins.push({ id: uid(), date: toISO(new Date()), ratingA: Number(values.ratingA) || 3, ratingB: Number(values.ratingB) || 3,
       appreciate: values.appreciate || "", need: values.need || "", plan: values.plan || "" });
-    commit("Check-in saved. Proud of you two 💞");
+    commit("Check-in saved.");
   });
 }
 
@@ -2345,7 +2510,7 @@ function addTemplate() {
   const existingTitles = new Set(state.milestones.map(m => m.title));
   const added = fresh.filter(m => !existingTitles.has(m.title));
   state.milestones.push(...added);
-  commit(`${added.length} suggested milestones added ✨`);
+  commit(`${added.length} suggested milestones added`);
 }
 function downloadFile(filename, type, text) {
   const link = document.createElement("a");
@@ -2355,7 +2520,7 @@ function downloadFile(filename, type, text) {
   link.click();
   link.remove();
   setTimeout(() => URL.revokeObjectURL(link.href), 1000);
-  toast(`Downloaded ${link.download} ⬇️`);
+  toast(`Downloaded ${link.download}`);
 }
 function downloadBackup() {
   openDialog("Export a backup", `
@@ -2374,19 +2539,19 @@ function downloadBackup() {
     const plain = store.exportText(state);
     const body = password ? await encryptBackup(plain, password) : plain;
     downloadFile(`together-${n.a}-${n.b}-${toISO(new Date())}${password ? "-locked" : ""}.json`, "application/json", body);
-    toast(password ? "Password-protected backup downloaded 🔒" : "Backup downloaded");
+    toast(password ? "Password-protected backup downloaded" : "Backup downloaded");
   }, "Download");
 }
 /** Ask for the password of an encrypted backup, then hand the decrypted text back to the normal import path. */
 function importEncryptedBackup(envelope, onPlainText) {
-  openDialog("Unlock backup 🔒", `
+  openDialog("Unlock backup", `
     <p class="small">This backup is password-protected.</p>
     <label class="field">Password<input name="password" type="password" autocomplete="current-password" required></label>`,
   async values => {
     try {
       onPlainText(await decryptBackup(envelope, values.password || ""));
     } catch (error) {
-      toast(`⚠️ ${error.message}`);
+      toast(`${error.message}`);
     }
   }, "Unlock");
 }
@@ -2408,6 +2573,14 @@ const actions = {
     ui.goalFilter = id;
     render();
   },
+  "theme": id => {
+    theme.set(id);
+    render();
+  },
+  "theme-cycle": () => {
+    theme.cycle();
+    if (ui.tab === "settings") render();
+  },
   "add-fund": () => fundDialog(null),
   "edit-fund": id => fundDialog(findIn(state.funds, id)),
   "delete-fund": id => removeFrom("funds", id, "Savings pot"),
@@ -2416,14 +2589,14 @@ const actions = {
       const milestone = state.milestones.find(m => m.title === preset.milestoneTitle && !m.done);
       state.funds.push({ id: uid(), name: preset.name, target: 0, saved: 0, monthly: 0, milestoneId: milestone ? milestone.id : "" });
     }
-    commit("Starter pots added — tap ✏️ to set targets");
+    commit("Starter pots added — use Edit to set targets");
   },
   "checkin": () => checkinDialog(),
   "delete-checkin": id => removeFrom("checkins", id, "Check-in"),
   "toggle-bucket": id => {
     const item = findIn(state.bucket, id);
     if (item) item.done = !item.done;
-    commit(item && item.done ? "Ticked off the bucket list! 🎉" : "");
+    commit(item && item.done ? "Ticked off the bucket list." : "");
   },
   "delete-bucket": id => removeFrom("bucket", id, "Bucket list item"),
   "template": () => addTemplate(),
@@ -2437,7 +2610,7 @@ const actions = {
     const start = new Date();
     start.setDate(start.getDate() + ((7 - start.getDay()) % 7 || 7));
     const n = names();
-    downloadFile("together-monthly-checkin.ics", "text/calendar", buildICS([{ uid: "checkin-" + uid(), title: `💞 ${n.a} & ${n.b} — monthly check-in`,
+    downloadFile("together-monthly-checkin.ics", "text/calendar", buildICS([{ uid: "checkin-" + uid(), title: `${n.a} & ${n.b} — monthly check-in`,
       date: toISO(start), time: "19:00", rrule: "FREQ=MONTHLY", description: "10 minutes, phones away. Open Together → Us → Start check-in." }]));
   },
   "ics-milestones": () => {
@@ -2451,11 +2624,11 @@ const actions = {
   },
   "program-start": () => {
     state.program = { ...state.program, started: toISO(new Date()) };
-    commit("Week 1 unlocked 🌱 — about 20 minutes together");
+    commit("Week 1 unlocked — about 20 minutes together");
   },
   "program-done": id => {
     state.program = { ...state.program, done: { ...state.program.done, [id]: toISO(new Date()) } };
-    commit(Number(id) === PROGRAM.length ? "All 8 weeks done — amazing teamwork 🏆" : `Week ${id} done 🌱`);
+    commit(Number(id) === PROGRAM.length ? "All 8 weeks done. Great teamwork." : `Week ${id} done`);
   },
   "delete-networth": id => removeFrom("networth", id, "Snapshot"),
   "sync-create": async () => {
@@ -2472,17 +2645,17 @@ const actions = {
       toast("Creating your encrypted pairing link…");
       await sync.create(passphrase);
       render();
-      toast("Link ready — send it to your partner 💌");
+      toast("Link ready — send it to your partner");
     } catch (error) {
       sync.leave();
       render();
-      toast(`⚠️ ${error.message}`);
+      toast(`${error.message}`);
     }
   },
   "sync-copy": async () => {
     try {
       await navigator.clipboard.writeText(sync.inviteLink());
-      toast("Link copied ✓");
+      toast("Link copied");
     } catch (error) {
       document.getElementById("invite-link")?.select();
       toast("Press Ctrl+C / long-press to copy");
@@ -2491,7 +2664,7 @@ const actions = {
   "sync-share": async () => {
     const link = sync.inviteLink();
     if (navigator.share) {
-      navigator.share({ title: "Join our plan on Together", text: "Open this to share our life plan 💞", url: link }).catch(() => {});
+      navigator.share({ title: "Join our plan on Together", text: "Open this to share our life plan", url: link }).catch(() => {});
     } else {
       actions["sync-copy"]();
     }
@@ -2499,7 +2672,7 @@ const actions = {
   "sync-now": async () => {
     await sync.pull().catch(() => {});
     render();
-    toast(sync.status === "error" ? `⚠️ ${sync.error}` : "Up to date ✓");
+    toast(sync.status === "error" ? `${sync.error}` : "Up to date");
   },
   "ios-hint-dismiss": () => {
     localStorage.setItem(`${store.key}.iosHintDismissed`, "1");
@@ -2527,10 +2700,10 @@ const actions = {
         toast("Replacing the link…");
         await sync.rotate(passphrase);
         render();
-        toast("New link ready — send it to your partner 💌");
+        toast("New link ready — send it to your partner");
       } catch (error) {
         render();
-        toast(`⚠️ ${error.message}`);
+        toast(`${error.message}`);
       }
     }, "Replace link");
   },
@@ -2544,9 +2717,9 @@ const actions = {
     try {
       await reminders.enable();
       render();
-      toast("Reminders on 🔔");
+      toast("Reminders on");
     } catch (error) {
-      toast(`⚠️ ${error.message}`);
+      toast(`${error.message}`);
     }
   },
   "push-off": async () => {
@@ -2559,16 +2732,16 @@ const actions = {
     const pref = reminders.pref();
     try {
       await swStore.set("reminders", [
-        { at: Date.now(), title: "Together 💞", body: "Push works — your reminders will arrive like this.", tag: "together-test" },
+        { at: Date.now(), title: "Together", body: "Push works — your reminders will arrive like this.", tag: "together-test" },
         ...reminderSchedule(state),
       ]);
       const response = await fetch(`${CLOUD_URL}/v1/push/${pref.id}`, { method: "POST" });
       const result = await response.json().catch(() => ({}));
       if (response.status === 429) toast("Just sent one — wait a few seconds.");
       else if (result.status === 201) toast("Sent through the push service — it should pop up in a few seconds.");
-      else toast(`⚠️ The push service refused it (${result.status || response.status}). Try turning reminders off and on.`);
+      else toast(`The push service refused it (${result.status || response.status}). Try turning reminders off and on.`);
     } catch (error) {
-      toast("⚠️ Couldn't reach the reminder server — are you offline?");
+      toast("Couldn't reach the reminder server — are you offline?");
     }
   },
   "install": async () => {
@@ -2579,11 +2752,11 @@ const actions = {
     render();
   },
   "share-app": () => {
-    const data = { title: "Together — plan your whole life as a couple", text: "A free, private app to plan our future together 💞", url: PUBLIC_APP_URL };
+    const data = { title: "Together — plan your whole life as a couple", text: "A free, private app to plan our future together", url: PUBLIC_APP_URL };
     if (navigator.share) {
       navigator.share(data).catch(() => {});
     } else {
-      navigator.clipboard.writeText(PUBLIC_APP_URL).then(() => toast("Link copied ✓"), () => toast(PUBLIC_APP_URL));
+      navigator.clipboard.writeText(PUBLIC_APP_URL).then(() => toast("Link copied"), () => toast(PUBLIC_APP_URL));
     }
   },
   "reset": () => {
@@ -2603,13 +2776,13 @@ const forms = {
     state.couple.stage = values.stage;
     if (values.template) state.milestones.push(...buildTemplate(state.couple, new Date()));
     ui.tab = "home";
-    commit(`Welcome, ${state.couple.a.name} & ${state.couple.b.name} 💞`);
+    commit(`Welcome, ${state.couple.a.name} & ${state.couple.b.name}`);
   },
   profile: values => {
     Object.assign(state.couple, { since: values.since, wedding: values.wedding, stage: values.stage, currency: values.currency || "$" });
     state.couple.a = { name: values.aName.trim(), birth: values.aBirth };
     state.couple.b = { name: values.bName.trim(), birth: values.bBirth };
-    commit("Saved ✓");
+    commit("Saved");
   },
   "add-step": (values, form) => {
     const goal = findIn(state.goals, form.dataset.goal);
@@ -2623,19 +2796,19 @@ const forms = {
     const amount = Number(values.amount);
     if (!fund || !amount) return;
     fund.saved = Math.max(0, (Number(fund.saved) || 0) + amount);
-    commit(amount > 0 ? `${money(amount, state.couple.currency)} added to ${fund.name} 🐷` : "Updated");
+    commit(amount > 0 ? `${money(amount, state.couple.currency)} added to ${fund.name}` : "Updated");
   },
   networth: values => {
     const assets = Number(values.assets);
     if (!parseDate(values.date) || !Number.isFinite(assets)) return;
     state.networth.push({ id: uid(), date: values.date, assets, debts: Number(values.debts) || 0 });
-    commit("Snapshot saved 📈");
+    commit("Snapshot saved");
   },
   kid: values => {
     const name = (values.name || "").trim();
     if (!name || !parseDate(values.birth)) return;
     state.kids.push({ id: uid(), name, birth: values.birth });
-    commit(`${name} added to the family 👶`);
+    commit(`${name} added to the family`);
   },
   bucket: values => {
     const text = (values.text || "").trim();
@@ -2675,16 +2848,16 @@ function bindEvents() {
     if (el.dataset.toggle === "milestone") {
       const m = findIn(state.milestones, el.dataset.id);
       if (m) m.done = el.checked;
-      commit(el.checked ? `🎉 ${m.title}!` : "");
+      commit(el.checked ? `Done: ${m.title}` : "");
     } else if (el.dataset.toggle === "step") {
       const goal = findIn(state.goals, el.dataset.goal);
       const step = goal && findIn(goal.steps, el.dataset.id);
       if (step) step.done = el.checked;
-      commit(goal && goalProgress(goal) === 1 ? `Goal complete: ${goal.title} 🏆` : "");
+      commit(goal && goalProgress(goal) === 1 ? `Goal complete: ${goal.title}` : "");
     } else if (el.dataset.toggle === "goal") {
       const goal = findIn(state.goals, el.dataset.id);
       if (goal) goal.done = el.checked;
-      commit(el.checked ? "Goal complete 🏆" : "");
+      commit(el.checked ? "Goal complete" : "");
     } else if (el.dataset.talkStatus) {
       state.talks[el.dataset.talkStatus] = { ...(state.talks[el.dataset.talkStatus] || {}), status: el.value };
       persist();
@@ -2694,11 +2867,11 @@ function bindEvents() {
     } else if (el.dataset.programNote) {
       state.program = { ...state.program, notes: { ...state.program.notes, [el.dataset.programNote]: el.value } };
       persist();
-      toast("Saved ✓");
+      toast("Saved");
     } else if (el.dataset.talkNote) {
       state.talks[el.dataset.talkNote] = { ...(state.talks[el.dataset.talkNote] || {}), note: el.value };
       persist();
-      toast("Saved ✓");
+      toast("Saved");
     } else if (el.closest('[data-form="retirement"]')) {
       const form = el.closest("form");
       const values = Object.fromEntries(new FormData(form).entries());
@@ -2711,14 +2884,14 @@ function bindEvents() {
       el.files[0].text().then(text => {
         ui.statement = analyzeStatement(text);
         render();
-        if (!ui.statement.error) toast(`Read ${ui.statement.used} transactions ✓ (nothing uploaded)`);
+        if (!ui.statement.error) toast(`Read ${ui.statement.used} transactions (nothing uploaded)`);
       });
       el.value = "";
     } else if (el.matches("[data-networth-csv]") && el.files[0]) {
       el.files[0].text().then(text => {
         const entries = parseNetWorthCsv(text);
         if (!entries.length) {
-          toast("⚠️ Need columns like Date, Assets, Debts");
+          toast("Need columns like Date, Assets, Debts");
           return;
         }
         const known = new Set(state.networth.map(e => e.date));
@@ -2737,7 +2910,7 @@ function bindEvents() {
           return;
         }
         if (result.error) {
-          toast(`⚠️ ${result.error}`);
+          toast(`${result.error}`);
           return;
         }
         if (!confirm("Replace the plan on this device with this backup?")) return;
@@ -2763,7 +2936,7 @@ function bindEvents() {
     undoSnapshot = null;
     persist();
     render();
-    toast("Restored ↩️");
+    toast("Restored");
   });
 }
 
@@ -2773,7 +2946,7 @@ function demoState() {
   const s = blankState();
   s.couple = { a: { name: "Mia", birth: "1997-05-03" }, b: { name: "Leo", birth: "1995-09-21" }, since: "2022-02-14", wedding: "", stage: "dating", currency: "$", retireAge: 65 };
   s.milestones = buildTemplate(s.couple, now);
-  s.milestones.unshift({ id: uid(), stage: "dating", title: "Moved in together 🏠", date: toISO(addMonths(now, -8)), done: true, notes: "" });
+  s.milestones.unshift({ id: uid(), stage: "dating", title: "Moved in together", date: toISO(addMonths(now, -8)), done: true, notes: "" });
   Object.assign(s.milestones[1], { done: true, date: toISO(addMonths(now, -3)) });
   const wedding = s.milestones.find(m => m.title.startsWith("Wedding"));
   const home = s.milestones.find(m => m.title.startsWith("Buy our first home"));
@@ -2782,7 +2955,7 @@ function demoState() {
       steps: [{ id: uid(), text: "List all debts together", done: true }, { id: uid(), text: "Agree a monthly budget", done: true }, { id: uid(), text: "Pay off Leo's car loan", done: false }] },
     { id: uid(), title: "Run a half marathon together", category: "health", owner: "both", due: toISO(addMonths(now, 9)), notes: "", done: false,
       steps: [{ id: uid(), text: "Sign up for a 10k", done: true }, { id: uid(), text: "Train 3×/week", done: false }] },
-    { id: uid(), title: "Finish my master's degree", category: "career", owner: "a", due: toISO(addMonths(now, 14)), notes: "Leo covers dinners during exam weeks 💪", done: false,
+    { id: uid(), title: "Finish my master's degree", category: "career", owner: "a", due: toISO(addMonths(now, 14)), notes: "Leo covers dinners during exam weeks", done: false,
       steps: [{ id: uid(), text: "Submit thesis proposal", done: false }] },
     { id: uid(), title: "Learn 5 of Grandma's recipes", category: "family", owner: "b", due: "", notes: "", done: false, steps: [] },
   ];
@@ -2886,7 +3059,7 @@ async function runSelfTests() {
     probe.goals = [{ id: "g", title: "G", category: "love", owner: "both", steps: [{ id: "s", text: "x", done: false }] }];
     probe.couple.since = "2020-01-20";
     const items = focusItems(probe, fixedNow);
-    return items.some(i => i.icon === "⏰" && i.text.includes("Engagement")) && items.length <= 5 && items[0].icon === "🎉" || JSON.stringify(items);
+    return items.some(i => i.icon === "clock" && i.text.includes("Engagement")) && items.length <= 5 && items[0].icon === "calendar" || JSON.stringify(items);
   });
   await test("focus items suggest a check-in and a talk", () => {
     const items = focusItems(state, fixedNow);
@@ -3333,6 +3506,60 @@ async function runSelfTests() {
       && list.every((m, i) => !i || STAGE_INDEX[list[i - 1].stage] <= STAGE_INDEX[m.stage] || list[i - 1].date <= m.date);
     return ok || titles;
   });
+  await test("design: no emoji anywhere — every tab, check-in dialog, focus list and reminder texts", () => {
+    const pictograph = /\p{Extended_Pictographic}/u;
+    const savedState = state;
+    const savedTab = ui.tab;
+    const found = [];
+    try {
+      state = demoState();
+      for (const tab of TABS) {
+        ui.tab = tab.id;
+        render();
+        const shown = document.querySelector(".topbar").innerText + document.getElementById("tabs").innerText + document.getElementById("view").innerText;
+        if (pictograph.test(shown)) found.push(`${tab.id}: ${(shown.match(/\p{Extended_Pictographic}/gu) || []).join("")}`);
+      }
+      checkinDialog();
+      const dialogText = document.getElementById("dialog").innerText;
+      document.getElementById("dialog").close();
+      if (pictograph.test(dialogText)) found.push("check-in dialog");
+      for (const item of focusItems(state, new Date())) {
+        if (pictograph.test(item.text) || !ICONS[item.icon]) found.push(`focus: ${item.icon} ${item.text}`);
+      }
+      for (const reminder of reminderSchedule(state, new Date())) {
+        const words = `${reminder.title || ""} ${reminder.body || ""}`;
+        if (pictograph.test(words)) found.push(`reminder: ${words}`);
+      }
+    } finally {
+      state = savedState;
+      ui.tab = savedTab;
+      render();
+    }
+    return !found.length || found.join(" | ");
+  });
+  await test("migration: emoji the app generated is removed from saved titles; emoji the couple typed is kept", () => {
+    const plan = migrate({ ...blankState(), schema: SCHEMA_VERSION, milestones: [
+      { id: "m1", stage: "married", title: "Wedding day 💒", date: "2027-06-01", done: false, notes: "" },
+      { id: "m2", stage: "golden", title: "Wills, powers of attorney & wishes written down 🕊️", date: "2060-01-01", done: false, notes: "" },
+      { id: "m3", stage: "dating", title: "Our trip to Bali 🌴", date: "2026-08-01", done: false, notes: "" },
+    ] });
+    const titles = plan.milestones.map(m => m.title);
+    return (titles[0] === "Wedding day" && titles[1] === "Wills, powers of attorney & wishes written down" && titles[2] === "Our trip to Bali 🌴") || titles.join(" | ");
+  });
+  await test("appearance: system / light / dark resolve, persist per device and drive the page theme", () => {
+    const before = theme.preference;
+    const resolves = resolveTheme("system", true) === "dark" && resolveTheme("system", false) === "light"
+      && resolveTheme("light", true) === "light" && resolveTheme("dark", false) === "dark" && resolveTheme("bogus", false) === "light";
+    theme.set("dark");
+    const darkApplied = document.documentElement.dataset.theme === "dark" && theme.preference === "dark";
+    theme.set("light");
+    const lightApplied = document.documentElement.dataset.theme === "light" && theme.preference === "light";
+    const background = getComputedStyle(document.body).backgroundColor;
+    theme.set("dark");
+    const darkBackground = getComputedStyle(document.body).backgroundColor;
+    theme.set(before);
+    return (resolves && darkApplied && lightApplied && background !== darkBackground) || JSON.stringify({ resolves, darkApplied, lightApplied, background, darkBackground });
+  });
   await test("savings: required monthly for a target and today's-money conversion", () => {
     const monthly = requiredMonthlyForTarget(0, 1200, 0, 1);
     const withGrowth = requiredMonthlyForTarget(0, futureValue(0, 100, 6, 10), 6, 10);
@@ -3398,6 +3625,7 @@ async function runSelfTests() {
 /* --------------------------------------------------------------------- boot */
 function boot() {
   bindEvents();
+  theme.init();
   if (params.has("selftest")) {
     runSelfTests();
     return;
@@ -3421,7 +3649,7 @@ function boot() {
     applyRemote: plan => applyRemotePlan(plan),
     onStatus: () => {
       const pill = document.getElementById("saved-pill");
-      if (pill) pill.textContent = sync.active ? (sync.status === "error" ? "⚠️ Sync paused" : "🔄 Shared with partner") : "🔒 Saved on this device";
+      if (pill) pill.innerHTML = savedPillHTML();
       const line = document.getElementById("sync-status");
       if (line) line.textContent = syncStatusText();
     },
@@ -3461,12 +3689,12 @@ function startConnectivity() {
         .then(() => {
           ui.tab = "home";
           render();
-          toast("Connected — you now share one plan 💞");
+          toast("Connected — you now share one plan");
         })
-        .catch(error => toast(`⚠️ ${error.message}`));
+        .catch(error => toast(error.message));
     };
     if (!alreadyHere && protectedFlag) {
-      openDialog("Join your partner's plan 🔒", `
+      openDialog("Join your partner's plan", `
         <p class="small">Your partner protected your shared plan with a passphrase. Anything already on this device will be merged into it.</p>
         <label class="field">Passphrase<input name="passphrase" type="password" autocomplete="current-password" required></label>`,
       values => connect(values.passphrase), "Join");

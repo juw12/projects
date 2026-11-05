@@ -1,27 +1,27 @@
 /* ---------------------------------------------------------------- constants */
 const STAGES = [
-  { id: "dating",  icon: "💕", name: "Dating",           blurb: "Know each other deeply: values, dreams, families, money." },
-  { id: "engaged", icon: "💍", name: "Engaged",          blurb: "Say yes, plan the wedding, align on the big life questions." },
-  { id: "married", icon: "💒", name: "Newlyweds",        blurb: "Build shared habits, finances and a safety net." },
-  { id: "home",    icon: "🏡", name: "Our home",         blurb: "Save a deposit, choose where to live, make it ours." },
-  { id: "kids",    icon: "👶", name: "Starting a family", blurb: "Pregnancy, parental leave, wills and insurance." },
-  { id: "family",  icon: "🧸", name: "Raising kids",     blurb: "School years, education funds, keeping couple time alive." },
-  { id: "growth",  icon: "🌱", name: "Midlife & growth", blurb: "Careers, health, big adventures, caring for parents." },
-  { id: "nest",    icon: "🕊️", name: "Empty nest",       blurb: "Kids fly out; rediscover each other." },
-  { id: "retire",  icon: "🌅", name: "Retirement",       blurb: "Retire together with enough to live the life you want." },
-  { id: "golden",  icon: "🧓", name: "Golden years",    blurb: "Health, grandkids, legacy, and growing old side by side." },
+  { id: "dating",  name: "Dating",           blurb: "Know each other deeply: values, dreams, families, money." },
+  { id: "engaged", name: "Engaged",          blurb: "Say yes, plan the wedding, align on the big life questions." },
+  { id: "married", name: "Newlyweds",        blurb: "Build shared habits, finances and a safety net." },
+  { id: "home",    name: "Our home",         blurb: "Save a deposit, choose where to live, make it ours." },
+  { id: "kids",    name: "Starting a family", blurb: "Pregnancy, parental leave, wills and insurance." },
+  { id: "family",  name: "Raising kids",     blurb: "School years, education funds, keeping couple time alive." },
+  { id: "growth",  name: "Midlife & growth", blurb: "Careers, health, big adventures, caring for parents." },
+  { id: "nest",    name: "Empty nest",       blurb: "Kids fly out; rediscover each other." },
+  { id: "retire",  name: "Retirement",       blurb: "Retire together with enough to live the life you want." },
+  { id: "golden",  name: "Golden years",    blurb: "Health, grandkids, legacy, and growing old side by side." },
 ];
 const STAGE_INDEX = Object.fromEntries(STAGES.map((stage, index) => [stage.id, index]));
 
 const CATEGORIES = {
-  love:   { icon: "❤️", name: "Love" },
-  money:  { icon: "💰", name: "Money" },
-  home:   { icon: "🏡", name: "Home" },
-  family: { icon: "👶", name: "Family" },
-  health: { icon: "🏃", name: "Health" },
-  career: { icon: "💼", name: "Career" },
-  travel: { icon: "✈️", name: "Travel" },
-  growth: { icon: "🌱", name: "Growth" },
+  love:   { name: "Love" },
+  money:  { name: "Money" },
+  home:   { name: "Home" },
+  family: { name: "Family" },
+  health: { name: "Health" },
+  career: { name: "Career" },
+  travel: { name: "Travel" },
+  growth: { name: "Growth" },
 };
 
 const TALKS = [
@@ -113,7 +113,7 @@ const PROGRAM = [
 
 const DEFAULT_FUNDS = [
   { name: "Emergency fund", kind: "safety", milestoneTitle: "" },
-  { name: "Wedding", kind: "wedding", milestoneTitle: "Wedding day 💒" },
-  { name: "Home deposit", kind: "home", milestoneTitle: "Buy our first home 🔑" },
+  { name: "Wedding", kind: "wedding", milestoneTitle: "Wedding day" },
+  { name: "Home deposit", kind: "home", milestoneTitle: "Buy our first home" },
 ];
 

@@ -4,7 +4,7 @@ function demoState() {
   const s = blankState();
   s.couple = { a: { name: "Mia", birth: "1997-05-03" }, b: { name: "Leo", birth: "1995-09-21" }, since: "2022-02-14", wedding: "", stage: "dating", currency: "$", retireAge: 65 };
   s.milestones = buildTemplate(s.couple, now);
-  s.milestones.unshift({ id: uid(), stage: "dating", title: "Moved in together 🏠", date: toISO(addMonths(now, -8)), done: true, notes: "" });
+  s.milestones.unshift({ id: uid(), stage: "dating", title: "Moved in together", date: toISO(addMonths(now, -8)), done: true, notes: "" });
   Object.assign(s.milestones[1], { done: true, date: toISO(addMonths(now, -3)) });
   const wedding = s.milestones.find(m => m.title.startsWith("Wedding"));
   const home = s.milestones.find(m => m.title.startsWith("Buy our first home"));
@@ -13,7 +13,7 @@ function demoState() {
       steps: [{ id: uid(), text: "List all debts together", done: true }, { id: uid(), text: "Agree a monthly budget", done: true }, { id: uid(), text: "Pay off Leo's car loan", done: false }] },
     { id: uid(), title: "Run a half marathon together", category: "health", owner: "both", due: toISO(addMonths(now, 9)), notes: "", done: false,
       steps: [{ id: uid(), text: "Sign up for a 10k", done: true }, { id: uid(), text: "Train 3×/week", done: false }] },
-    { id: uid(), title: "Finish my master's degree", category: "career", owner: "a", due: toISO(addMonths(now, 14)), notes: "Leo covers dinners during exam weeks 💪", done: false,
+    { id: uid(), title: "Finish my master's degree", category: "career", owner: "a", due: toISO(addMonths(now, 14)), notes: "Leo covers dinners during exam weeks", done: false,
       steps: [{ id: uid(), text: "Submit thesis proposal", done: false }] },
     { id: uid(), title: "Learn 5 of Grandma's recipes", category: "family", owner: "b", due: "", notes: "", done: false, steps: [] },
   ];

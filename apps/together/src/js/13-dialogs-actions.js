@@ -26,7 +26,7 @@ function milestoneDialog(existing) {
     <label class="field">Notes<textarea name="notes">${esc(m.notes)}</textarea></label>`, values => {
     if (existing) Object.assign(existing, values);
     else state.milestones.push({ id: uid(), done: false, ...values });
-    commit(existing ? "Milestone updated" : "Milestone added 📍");
+    commit(existing ? "Milestone updated" : "Milestone added");
   });
 }
 function goalDialog(existing) {
@@ -44,7 +44,7 @@ function goalDialog(existing) {
     delete values.steps;
     if (existing) Object.assign(existing, values);
     else state.goals.push({ id: uid(), done: false, steps, ...values });
-    commit(existing ? "Goal updated" : "Goal added 🎯");
+    commit(existing ? "Goal updated" : "Goal added");
   });
 }
 function fundDialog(existing) {
@@ -61,22 +61,22 @@ function fundDialog(existing) {
     const clean = { name: values.name, milestoneId: values.milestoneId, target: Number(values.target) || 0, saved: Number(values.saved) || 0, monthly: Number(values.monthly) || 0 };
     if (existing) Object.assign(existing, clean);
     else state.funds.push({ id: uid(), ...clean });
-    commit(existing ? "Savings pot updated" : "Savings pot added 🐷");
+    commit(existing ? "Savings pot updated" : "Savings pot added");
   });
 }
 function checkinDialog() {
   const n = names();
   const rating = (name, label) => `<fieldset style="border:0;padding:0;margin:0 0 10px"><legend class="small muted">${esc(label)}</legend><div class="rating">
-    ${[1, 2, 3, 4, 5].map(v => `<label><input type="radio" name="${name}" value="${v}" aria-label="${v} of 5" ${v === 4 ? "checked" : ""}><span aria-hidden="true">${["😞", "😕", "🙂", "😊", "🥰"][v - 1]}</span></label>`).join("")}</div></fieldset>`;
-  openDialog("Our monthly check-in 💬", `
+    ${[1, 2, 3, 4, 5].map(v => `<label><input type="radio" name="${name}" value="${v}" aria-label="${v} of 5" ${v === 4 ? "checked" : ""}><span aria-hidden="true">${v}</span></label>`).join("")}</div><div class="rating-scale small muted" aria-hidden="true"><span>Distant</span><span>Very close</span></div></fieldset>`;
+  openDialog("Our monthly check-in", `
     <p class="small muted">Take turns. Listen to understand, not to reply.</p>
     ${rating("ratingA", `${n.a}: how connected do you feel?`)}${rating("ratingB", `${n.b}: how connected do you feel?`)}
-    <label class="field">💗 Something I appreciated about you this month<textarea name="appreciate"></textarea></label>
-    <label class="field">🙏 Something I need a bit more of<textarea name="need"></textarea></label>
-    <label class="field">📌 One thing we'll do together next month<input name="plan"></label>`, values => {
+    <label class="field">Something I appreciated about you this month<textarea name="appreciate"></textarea></label>
+    <label class="field">Something I need a bit more of<textarea name="need"></textarea></label>
+    <label class="field">One thing we'll do together next month<input name="plan"></label>`, values => {
     state.checkins.push({ id: uid(), date: toISO(new Date()), ratingA: Number(values.ratingA) || 3, ratingB: Number(values.ratingB) || 3,
       appreciate: values.appreciate || "", need: values.need || "", plan: values.plan || "" });
-    commit("Check-in saved. Proud of you two 💞");
+    commit("Check-in saved.");
   });
 }
 
@@ -93,7 +93,7 @@ function addTemplate() {
   const existingTitles = new Set(state.milestones.map(m => m.title));
   const added = fresh.filter(m => !existingTitles.has(m.title));
   state.milestones.push(...added);
-  commit(`${added.length} suggested milestones added ✨`);
+  commit(`${added.length} suggested milestones added`);
 }
 function downloadFile(filename, type, text) {
   const link = document.createElement("a");
@@ -103,7 +103,7 @@ function downloadFile(filename, type, text) {
   link.click();
   link.remove();
   setTimeout(() => URL.revokeObjectURL(link.href), 1000);
-  toast(`Downloaded ${link.download} ⬇️`);
+  toast(`Downloaded ${link.download}`);
 }
 function downloadBackup() {
   openDialog("Export a backup", `
@@ -122,19 +122,19 @@ function downloadBackup() {
     const plain = store.exportText(state);
     const body = password ? await encryptBackup(plain, password) : plain;
     downloadFile(`together-${n.a}-${n.b}-${toISO(new Date())}${password ? "-locked" : ""}.json`, "application/json", body);
-    toast(password ? "Password-protected backup downloaded 🔒" : "Backup downloaded");
+    toast(password ? "Password-protected backup downloaded" : "Backup downloaded");
   }, "Download");
 }
 /** Ask for the password of an encrypted backup, then hand the decrypted text back to the normal import path. */
 function importEncryptedBackup(envelope, onPlainText) {
-  openDialog("Unlock backup 🔒", `
+  openDialog("Unlock backup", `
     <p class="small">This backup is password-protected.</p>
     <label class="field">Password<input name="password" type="password" autocomplete="current-password" required></label>`,
   async values => {
     try {
       onPlainText(await decryptBackup(envelope, values.password || ""));
     } catch (error) {
-      toast(`⚠️ ${error.message}`);
+      toast(`${error.message}`);
     }
   }, "Unlock");
 }
@@ -156,6 +156,14 @@ const actions = {
     ui.goalFilter = id;
     render();
   },
+  "theme": id => {
+    theme.set(id);
+    render();
+  },
+  "theme-cycle": () => {
+    theme.cycle();
+    if (ui.tab === "settings") render();
+  },
   "add-fund": () => fundDialog(null),
   "edit-fund": id => fundDialog(findIn(state.funds, id)),
   "delete-fund": id => removeFrom("funds", id, "Savings pot"),
@@ -164,14 +172,14 @@ const actions = {
       const milestone = state.milestones.find(m => m.title === preset.milestoneTitle && !m.done);
       state.funds.push({ id: uid(), name: preset.name, target: 0, saved: 0, monthly: 0, milestoneId: milestone ? milestone.id : "" });
     }
-    commit("Starter pots added — tap ✏️ to set targets");
+    commit("Starter pots added — use Edit to set targets");
   },
   "checkin": () => checkinDialog(),
   "delete-checkin": id => removeFrom("checkins", id, "Check-in"),
   "toggle-bucket": id => {
     const item = findIn(state.bucket, id);
     if (item) item.done = !item.done;
-    commit(item && item.done ? "Ticked off the bucket list! 🎉" : "");
+    commit(item && item.done ? "Ticked off the bucket list." : "");
   },
   "delete-bucket": id => removeFrom("bucket", id, "Bucket list item"),
   "template": () => addTemplate(),
@@ -185,7 +193,7 @@ const actions = {
     const start = new Date();
     start.setDate(start.getDate() + ((7 - start.getDay()) % 7 || 7));
     const n = names();
-    downloadFile("together-monthly-checkin.ics", "text/calendar", buildICS([{ uid: "checkin-" + uid(), title: `💞 ${n.a} & ${n.b} — monthly check-in`,
+    downloadFile("together-monthly-checkin.ics", "text/calendar", buildICS([{ uid: "checkin-" + uid(), title: `${n.a} & ${n.b} — monthly check-in`,
       date: toISO(start), time: "19:00", rrule: "FREQ=MONTHLY", description: "10 minutes, phones away. Open Together → Us → Start check-in." }]));
   },
   "ics-milestones": () => {
@@ -199,11 +207,11 @@ const actions = {
   },
   "program-start": () => {
     state.program = { ...state.program, started: toISO(new Date()) };
-    commit("Week 1 unlocked 🌱 — about 20 minutes together");
+    commit("Week 1 unlocked — about 20 minutes together");
   },
   "program-done": id => {
     state.program = { ...state.program, done: { ...state.program.done, [id]: toISO(new Date()) } };
-    commit(Number(id) === PROGRAM.length ? "All 8 weeks done — amazing teamwork 🏆" : `Week ${id} done 🌱`);
+    commit(Number(id) === PROGRAM.length ? "All 8 weeks done. Great teamwork." : `Week ${id} done`);
   },
   "delete-networth": id => removeFrom("networth", id, "Snapshot"),
   "sync-create": async () => {
@@ -220,17 +228,17 @@ const actions = {
       toast("Creating your encrypted pairing link…");
       await sync.create(passphrase);
       render();
-      toast("Link ready — send it to your partner 💌");
+      toast("Link ready — send it to your partner");
     } catch (error) {
       sync.leave();
       render();
-      toast(`⚠️ ${error.message}`);
+      toast(`${error.message}`);
     }
   },
   "sync-copy": async () => {
     try {
       await navigator.clipboard.writeText(sync.inviteLink());
-      toast("Link copied ✓");
+      toast("Link copied");
     } catch (error) {
       document.getElementById("invite-link")?.select();
       toast("Press Ctrl+C / long-press to copy");
@@ -239,7 +247,7 @@ const actions = {
   "sync-share": async () => {
     const link = sync.inviteLink();
     if (navigator.share) {
-      navigator.share({ title: "Join our plan on Together", text: "Open this to share our life plan 💞", url: link }).catch(() => {});
+      navigator.share({ title: "Join our plan on Together", text: "Open this to share our life plan", url: link }).catch(() => {});
     } else {
       actions["sync-copy"]();
     }
@@ -247,7 +255,7 @@ const actions = {
   "sync-now": async () => {
     await sync.pull().catch(() => {});
     render();
-    toast(sync.status === "error" ? `⚠️ ${sync.error}` : "Up to date ✓");
+    toast(sync.status === "error" ? `${sync.error}` : "Up to date");
   },
   "ios-hint-dismiss": () => {
     localStorage.setItem(`${store.key}.iosHintDismissed`, "1");
@@ -275,10 +283,10 @@ const actions = {
         toast("Replacing the link…");
         await sync.rotate(passphrase);
         render();
-        toast("New link ready — send it to your partner 💌");
+        toast("New link ready — send it to your partner");
       } catch (error) {
         render();
-        toast(`⚠️ ${error.message}`);
+        toast(`${error.message}`);
       }
     }, "Replace link");
   },
@@ -292,9 +300,9 @@ const actions = {
     try {
       await reminders.enable();
       render();
-      toast("Reminders on 🔔");
+      toast("Reminders on");
     } catch (error) {
-      toast(`⚠️ ${error.message}`);
+      toast(`${error.message}`);
     }
   },
   "push-off": async () => {
@@ -307,16 +315,16 @@ const actions = {
     const pref = reminders.pref();
     try {
       await swStore.set("reminders", [
-        { at: Date.now(), title: "Together 💞", body: "Push works — your reminders will arrive like this.", tag: "together-test" },
+        { at: Date.now(), title: "Together", body: "Push works — your reminders will arrive like this.", tag: "together-test" },
         ...reminderSchedule(state),
       ]);
       const response = await fetch(`${CLOUD_URL}/v1/push/${pref.id}`, { method: "POST" });
       const result = await response.json().catch(() => ({}));
       if (response.status === 429) toast("Just sent one — wait a few seconds.");
       else if (result.status === 201) toast("Sent through the push service — it should pop up in a few seconds.");
-      else toast(`⚠️ The push service refused it (${result.status || response.status}). Try turning reminders off and on.`);
+      else toast(`The push service refused it (${result.status || response.status}). Try turning reminders off and on.`);
     } catch (error) {
-      toast("⚠️ Couldn't reach the reminder server — are you offline?");
+      toast("Couldn't reach the reminder server — are you offline?");
     }
   },
   "install": async () => {
@@ -327,11 +335,11 @@ const actions = {
     render();
   },
   "share-app": () => {
-    const data = { title: "Together — plan your whole life as a couple", text: "A free, private app to plan our future together 💞", url: PUBLIC_APP_URL };
+    const data = { title: "Together — plan your whole life as a couple", text: "A free, private app to plan our future together", url: PUBLIC_APP_URL };
     if (navigator.share) {
       navigator.share(data).catch(() => {});
     } else {
-      navigator.clipboard.writeText(PUBLIC_APP_URL).then(() => toast("Link copied ✓"), () => toast(PUBLIC_APP_URL));
+      navigator.clipboard.writeText(PUBLIC_APP_URL).then(() => toast("Link copied"), () => toast(PUBLIC_APP_URL));
     }
   },
   "reset": () => {
@@ -351,13 +359,13 @@ const forms = {
     state.couple.stage = values.stage;
     if (values.template) state.milestones.push(...buildTemplate(state.couple, new Date()));
     ui.tab = "home";
-    commit(`Welcome, ${state.couple.a.name} & ${state.couple.b.name} 💞`);
+    commit(`Welcome, ${state.couple.a.name} & ${state.couple.b.name}`);
   },
   profile: values => {
     Object.assign(state.couple, { since: values.since, wedding: values.wedding, stage: values.stage, currency: values.currency || "$" });
     state.couple.a = { name: values.aName.trim(), birth: values.aBirth };
     state.couple.b = { name: values.bName.trim(), birth: values.bBirth };
-    commit("Saved ✓");
+    commit("Saved");
   },
   "add-step": (values, form) => {
     const goal = findIn(state.goals, form.dataset.goal);
@@ -371,19 +379,19 @@ const forms = {
     const amount = Number(values.amount);
     if (!fund || !amount) return;
     fund.saved = Math.max(0, (Number(fund.saved) || 0) + amount);
-    commit(amount > 0 ? `${money(amount, state.couple.currency)} added to ${fund.name} 🐷` : "Updated");
+    commit(amount > 0 ? `${money(amount, state.couple.currency)} added to ${fund.name}` : "Updated");
   },
   networth: values => {
     const assets = Number(values.assets);
     if (!parseDate(values.date) || !Number.isFinite(assets)) return;
     state.networth.push({ id: uid(), date: values.date, assets, debts: Number(values.debts) || 0 });
-    commit("Snapshot saved 📈");
+    commit("Snapshot saved");
   },
   kid: values => {
     const name = (values.name || "").trim();
     if (!name || !parseDate(values.birth)) return;
     state.kids.push({ id: uid(), name, birth: values.birth });
-    commit(`${name} added to the family 👶`);
+    commit(`${name} added to the family`);
   },
   bucket: values => {
     const text = (values.text || "").trim();
@@ -423,16 +431,16 @@ function bindEvents() {
     if (el.dataset.toggle === "milestone") {
       const m = findIn(state.milestones, el.dataset.id);
       if (m) m.done = el.checked;
-      commit(el.checked ? `🎉 ${m.title}!` : "");
+      commit(el.checked ? `Done: ${m.title}` : "");
     } else if (el.dataset.toggle === "step") {
       const goal = findIn(state.goals, el.dataset.goal);
       const step = goal && findIn(goal.steps, el.dataset.id);
       if (step) step.done = el.checked;
-      commit(goal && goalProgress(goal) === 1 ? `Goal complete: ${goal.title} 🏆` : "");
+      commit(goal && goalProgress(goal) === 1 ? `Goal complete: ${goal.title}` : "");
     } else if (el.dataset.toggle === "goal") {
       const goal = findIn(state.goals, el.dataset.id);
       if (goal) goal.done = el.checked;
-      commit(el.checked ? "Goal complete 🏆" : "");
+      commit(el.checked ? "Goal complete" : "");
     } else if (el.dataset.talkStatus) {
       state.talks[el.dataset.talkStatus] = { ...(state.talks[el.dataset.talkStatus] || {}), status: el.value };
       persist();
@@ -442,11 +450,11 @@ function bindEvents() {
     } else if (el.dataset.programNote) {
       state.program = { ...state.program, notes: { ...state.program.notes, [el.dataset.programNote]: el.value } };
       persist();
-      toast("Saved ✓");
+      toast("Saved");
     } else if (el.dataset.talkNote) {
       state.talks[el.dataset.talkNote] = { ...(state.talks[el.dataset.talkNote] || {}), note: el.value };
       persist();
-      toast("Saved ✓");
+      toast("Saved");
     } else if (el.closest('[data-form="retirement"]')) {
       const form = el.closest("form");
       const values = Object.fromEntries(new FormData(form).entries());
@@ -459,14 +467,14 @@ function bindEvents() {
       el.files[0].text().then(text => {
         ui.statement = analyzeStatement(text);
         render();
-        if (!ui.statement.error) toast(`Read ${ui.statement.used} transactions ✓ (nothing uploaded)`);
+        if (!ui.statement.error) toast(`Read ${ui.statement.used} transactions (nothing uploaded)`);
       });
       el.value = "";
     } else if (el.matches("[data-networth-csv]") && el.files[0]) {
       el.files[0].text().then(text => {
         const entries = parseNetWorthCsv(text);
         if (!entries.length) {
-          toast("⚠️ Need columns like Date, Assets, Debts");
+          toast("Need columns like Date, Assets, Debts");
           return;
         }
         const known = new Set(state.networth.map(e => e.date));
@@ -485,7 +493,7 @@ function bindEvents() {
           return;
         }
         if (result.error) {
-          toast(`⚠️ ${result.error}`);
+          toast(`${result.error}`);
           return;
         }
         if (!confirm("Replace the plan on this device with this backup?")) return;
@@ -511,7 +519,7 @@ function bindEvents() {
     undoSnapshot = null;
     persist();
     render();
-    toast("Restored ↩️");
+    toast("Restored");
   });
 }
 

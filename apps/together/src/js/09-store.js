@@ -11,6 +11,21 @@ function blankState() {
     updatedAt: null, lastBackupAt: null,
   };
 }
+/** Milestone titles that older versions generated with a trailing emoji. Only these exact
+ *  app-written titles are cleaned on load; anything the couple typed themselves is left alone. */
+const LEGACY_GENERATED_TITLES = new Set([
+  "Get engaged", "Wedding day", "Honeymoon", "Buy our first home", "Welcome our first child",
+  "First child starts school", "10th wedding anniversary", "Big adventure for two",
+  "Talk about caring for our parents", "Kids leave home", "Silver anniversary — 25 years", "Retire together",
+  "Decide where we'll live as we age", "Wills, powers of attorney & wishes written down",
+  "Golden anniversary — 50 years", "Write our family story for the grandkids", "Moved in together",
+]);
+const TRAILING_PICTOGRAPHS = /^(.*\S)\s+(?:\p{Extended_Pictographic}|\uFE0F|\u200D)+$/u;
+function cleanGeneratedTitle(title) {
+  const match = TRAILING_PICTOGRAPHS.exec(String(title || ""));
+  return match && LEGACY_GENERATED_TITLES.has(match[1]) ? match[1] : title;
+}
+
 /** Accepts any older or partial shape and returns a complete current-schema state. */
 function migrate(raw) {
   const base = blankState();
@@ -33,6 +48,9 @@ function migrate(raw) {
   }
   merged.goals.forEach(goal => {
     goal.steps = Array.isArray(goal.steps) ? goal.steps : [];
+  });
+  merged.milestones.forEach(milestone => {
+    if (typeof milestone.title === "string") milestone.title = cleanGeneratedTitle(milestone.title);
   });
   merged.talks = raw.talks && typeof raw.talks === "object" ? raw.talks : {};
   merged.program = { ...base.program, ...(raw.program || {}) };
@@ -68,7 +86,7 @@ const store = {
       localStorage.setItem(this.key, JSON.stringify(nextState));
       return true;
     } catch (error) {
-      toast("⚠️ Could not save — storage is full or blocked. Export a backup now.");
+      toast("Could not save — storage is full or blocked. Export a backup now.");
       return false;
     }
   },

@@ -4,10 +4,10 @@ function render() {
   const tabs = document.getElementById("tabs");
   tabs.hidden = onboarding;
   tabs.innerHTML = TABS.map(tab => `<button type="button" data-act="tab" data-id="${tab.id}" ${ui.tab === tab.id ? 'aria-current="page"' : ""}>
-      <span class="ico" aria-hidden="true">${tab.icon}</span><span>${tab.label}</span></button>`).join("");
+      ${icon(tab.icon, "i ico")}<span>${tab.label}</span></button>`).join("");
   const n = names();
   const pill = document.getElementById("saved-pill");
-  pill.textContent = sync && sync.active ? (sync.status === "error" ? "⚠️ Sync paused" : "🔄 Shared with partner") : "🔒 Saved on this device";
+  pill.innerHTML = savedPillHTML();
   pill.title = privacyStatus();
   document.getElementById("brand-sub").textContent = onboarding ? "Our life plan, from first date to golden years" : `${n.a} & ${n.b}`;
   const view = document.getElementById("view");
@@ -15,9 +15,17 @@ function render() {
   view.innerHTML = onboarding ? viewOnboarding() : (views[ui.tab] || viewHome)();
 }
 
+/** Status pill in the header: where the plan lives right now. */
+function savedPillHTML() {
+  if (sync && sync.active) {
+    return sync.status === "error" ? `${icon("alert")}<span>Sync paused</span>` : `${icon("sync")}<span>Shared with partner</span>`;
+  }
+  return `${icon("lock")}<span>Saved on this device</span>`;
+}
+
 function viewOnboarding() {
   return `<div class="onboard">
-    <div class="hello"><div class="em" aria-hidden="true">💞</div>
+    <div class="hello"><div class="mark" aria-hidden="true">${icon("logo", "i logo-lg")}</div>
       <h1>Plan your whole life together</h1>
       <p class="muted">From dating to marriage, a home, kids and growing old side by side. Takes about a minute.</p></div>
     <form class="card" data-form="onboard">
@@ -28,13 +36,13 @@ function viewOnboarding() {
         <label class="field">Partner's birthday<input name="bBirth" type="date"></label>
         <label class="field">Together since<input name="since" type="date"></label>
         <label class="field">Where are you now?
-          <select name="stage">${STAGES.slice(0, 6).map(s => `<option value="${s.id}">${s.icon} ${s.name}</option>`).join("")}</select></label>
+          <select name="stage">${STAGES.slice(0, 6).map(s => `<option value="${s.id}">${s.name}</option>`).join("")}</select></label>
       </div>
       <label class="field">Wedding date (if set or already married)<input name="wedding" type="date"></label>
       <label class="row small"><input type="checkbox" name="template" checked style="width:auto"> Start us with a suggested life roadmap (fully editable)</label>
-      <div class="actions row" style="justify-content:flex-end;margin-top:12px"><button class="primary" type="submit">Start our plan 💕</button></div>
+      <div class="actions row" style="justify-content:flex-end;margin-top:12px"><button class="primary" type="submit">Start our plan</button></div>
     </form>
-    <p class="privacy">🔒 Private by design: no account, no sign-up. Your plan stays in this browser unless you turn on partner sync — then it's end-to-end encrypted before it leaves your phone.</p>
+    <p class="privacy">${icon("lock")} Private by design: no account, no sign-up. Your plan stays in this browser unless you turn on partner sync — then it's end-to-end encrypted before it leaves your phone.</p>
   </div>`;
 }
 
@@ -56,14 +64,14 @@ function iosInstallBanner() {
   const body = info.inApp
     ? `<p class="small">You're in an in-app browser, which can't install apps. Tap <b>•••</b> → <b>Open in Safari</b>, then come back to this banner.</p>`
     : `<ol class="small" style="margin:6px 0 6px 18px;padding:0">
-        <li>Tap <b>Share</b> <span aria-hidden="true">⬆️</span> (bottom bar in Safari, or the address bar menu in Chrome/Edge).</li>
+        <li>Tap <b>Share</b> ${icon("share")} (bottom bar in Safari, or the address bar menu in Chrome/Edge).</li>
         <li>Choose <b>Add to Home Screen</b>, then <b>Add</b>.</li>
         <li>Open <b>Together</b> from your Home Screen and turn on reminders in Settings.</li>
       </ol>
       ${info.pushCapable ? "" : `<p class="small muted">Your iOS ${esc(String(Math.floor(info.version)))} can install Together, but push reminders need iOS 16.4 or newer — use the calendar (.ics) reminders in Settings instead.</p>`}`;
-  return `<section class="card" style="margin-bottom:14px;border:1px solid var(--line, #f2c6cc)">
-    <div class="spread"><h2 style="margin:0">📲 Put Together on your Home Screen</h2>
-      <button type="button" class="ghost" data-act="ios-hint-dismiss" aria-label="Dismiss">✕</button></div>
+  return `<section class="card" style="margin-bottom:14px">
+    <div class="spread"><h2 style="margin:0">Put Together on your Home Screen</h2>
+      <button type="button" class="ghost" data-act="ios-hint-dismiss" aria-label="Dismiss">${icon("close")}</button></div>
     <p class="small">On iPhone and iPad, Apple only allows reminders for web apps that are added to the Home Screen.</p>
     ${body}
   </section>`;
@@ -83,7 +91,7 @@ function viewHome() {
   const focus = focusItems(state, now);
   const todayISO = toISO(now);
   const comingUp = state.milestones.filter(m => !m.done && m.date && m.date >= todayISO).sort(byDate).slice(1, 4);
-  const marriedLine = wedding && wedding <= now ? `<p class="muted">Married ${relativeTime(state.couple.wedding, now).replace(" ago", "")} 💍</p>` : "";
+  const marriedLine = wedding && wedding <= now ? `<p class="muted">Married ${relativeTime(state.couple.wedding, now).replace(" ago", "")}</p>` : "";
   return `${iosInstallBanner()}
   <section class="card hero">
     <div class="spread">
@@ -100,17 +108,17 @@ function viewHome() {
     </div>
   </section>
   <section class="card">
-    <div class="spread"><h2>Our journey</h2><span class="chip">${STAGES[stageIdx].icon} Now: ${STAGES[stageIdx].name}</span></div>
-    <div class="journey" role="list">${STAGES.map((s, i) => `<div role="listitem" class="step ${i < stageIdx ? "done" : i === stageIdx ? "now" : ""}"><div class="dot" aria-hidden="true">${s.icon}</div>${s.name}</div>`).join("")}</div>
+    <div class="spread"><h2>Our journey</h2><span class="chip">Now: ${STAGES[stageIdx].name}</span></div>
+    <div class="journey" role="list">${STAGES.map((s, i) => `<div role="listitem" class="step ${i < stageIdx ? "done" : i === stageIdx ? "now" : ""}"><div class="dot" aria-hidden="true">${i < stageIdx ? icon("check") : i + 1}</div>${s.name}</div>`).join("")}</div>
     <p class="muted small">${STAGES[stageIdx].blurb}</p>
   </section>
   <div class="grid" style="margin-top:14px">
     <section class="card">
       <h2>This month's focus</h2>
-      ${focus.length ? `<ul class="clean">${focus.map(item => `<li class="focus-item"><span class="ico" aria-hidden="true">${item.icon}</span>
+      ${focus.length ? `<ul class="clean">${focus.map(item => `<li class="focus-item"><span class="ico">${icon(item.icon)}</span>
         <div style="flex:1;min-width:0">${esc(item.text)}</div>
         <button class="ghost small" type="button" data-act="${item.act ? "checkin" : "tab"}" data-id="${item.tab || ""}">Go →</button></li>`).join("")}</ul>`
-        : `<div class="empty"><span class="em">🌤️</span>All caught up. Enjoy each other this month!</div>`}
+        : `<div class="empty">All caught up. Enjoy each other this month.</div>`}
     </section>
     <section class="card">
       <h2>At a glance</h2>
@@ -151,11 +159,11 @@ function lifelineSVG() {
     const date = parseDate(m.date);
     const year = date.getFullYear() + date.getMonth() / 12;
     if (year < startYear || year > endYear) return "";
-    const color = m.done ? "#2f8f6b" : `hsl(${340 + STAGE_INDEX[m.stage] * 9}, 70%, 55%)`;
-    return `<circle cx="${x(year)}" cy="60" r="7" fill="${color}" stroke="#fff" stroke-width="2"><title>${esc(m.title)} — ${esc(formatDate(m.date))}</title></circle>`;
+    const color = m.done ? "var(--green)" : "var(--rose)";
+    return `<circle cx="${x(year)}" cy="60" r="7" style="fill:${color};stroke:var(--card)" stroke-width="2"><title>${esc(m.title)} — ${esc(formatDate(m.date))}</title></circle>`;
   }).join("");
   return `<svg class="lifeline" viewBox="0 0 ${width} ${height}" role="img" aria-label="Lifeline from ${startYear} to ${endYear} with milestones">
-    <line x1="${pad}" x2="${width - pad}" y1="60" y2="60" stroke="#e86f7e" stroke-width="4" stroke-linecap="round"/>
+    <line x1="${pad}" x2="${width - pad}" y1="60" y2="60" style="stroke:var(--line-strong)" stroke-width="3" stroke-linecap="round"/>
     ${ticks}${dots}
     <text x="${pad}" y="30" font-size="13" fill="currentColor" opacity=".7">Now</text>
     <text x="${width - pad}" y="30" font-size="13" text-anchor="end" fill="currentColor" opacity=".7">${esc(n.a)} & ${esc(n.b)} at ~90</text>
@@ -169,13 +177,13 @@ function viewRoadmap() {
   const header = `<div class="section-head"><div><h1>Our life roadmap</h1><p class="muted">Every milestone shows how old you'll both be. Tick them off as life happens.</p></div>
     <div class="row"><button type="button" data-act="add-milestone" class="primary">+ Milestone</button></div></div>`;
   if (!state.milestones.length) {
-    return `${header}<div class="empty"><span class="em">🗺️</span>No milestones yet.<br>
+    return `${header}<div class="empty">No milestones yet.<br>
       <button type="button" class="primary" data-act="template" style="margin-top:10px">Suggest a lifelong roadmap</button></div>`;
   }
   const blocks = STAGES.map((stage, index) => {
     const items = state.milestones.filter(m => m.stage === stage.id).sort(byDate);
     return `<section class="stage-block">
-      <div class="stage-title ${index === stageIdx ? "current" : ""}"><span class="badge" aria-hidden="true">${stage.icon}</span>
+      <div class="stage-title ${index === stageIdx ? "current" : ""}"><span class="badge" aria-hidden="true">${index + 1}</span>
         <h2 style="margin:0">${stage.name}</h2>${index === stageIdx ? '<span class="chip">You are here</span>' : ""}</div>
       <p class="small muted" style="margin:2px 0 0">${stage.blurb}</p>
       ${items.map(m => `<div class="ms ${m.done ? "done" : ""}">
@@ -184,8 +192,8 @@ function viewRoadmap() {
           <div class="small muted">${esc(formatDate(m.date))}${m.date && !m.done ? ` · ${esc(relativeTime(m.date, now))}` : ""}</div>
           ${m.date ? `<div class="small muted">${agesLine(m.date)}</div>` : ""}
           ${m.notes ? `<div class="small">${esc(m.notes)}</div>` : ""}</div>
-        <button type="button" class="ghost" data-act="edit-milestone" data-id="${esc(m.id)}" aria-label="Edit ${esc(m.title)}">✏️</button>
-        <button type="button" class="ghost" data-act="delete-milestone" data-id="${esc(m.id)}" aria-label="Delete ${esc(m.title)}">🗑️</button>
+        <button type="button" class="ghost" data-act="edit-milestone" data-id="${esc(m.id)}" aria-label="Edit ${esc(m.title)}">${icon("pencil")}</button>
+        <button type="button" class="ghost" data-act="delete-milestone" data-id="${esc(m.id)}" aria-label="Delete ${esc(m.title)}">${icon("trash")}</button>
       </div>`).join("")}
     </section>`;
   }).join("");
@@ -198,26 +206,26 @@ function viewGoals() {
     .filter(g => filter === "all" || g.category === filter || g.owner === filter)
     .sort((x, y) => goalProgress(x) - goalProgress(y) || (x.due || "9999").localeCompare(y.due || "9999"));
   const n = names();
-  const filterButtons = [["all", "All"], ["both", "👫 Shared"], ["a", `🙋 ${n.a}`], ["b", `🙋 ${n.b}`],
-    ...Object.entries(CATEGORIES).map(([id, c]) => [id, `${c.icon} ${c.name}`])];
+  const filterButtons = [["all", "All"], ["both", "Shared"], ["a", n.a], ["b", n.b],
+    ...Object.entries(CATEGORIES).map(([id, c]) => [id, c.name])];
   return `<div class="section-head"><div><h1>Our goals</h1><p class="muted">Big dreams broken into small next steps. Shared goals, plus each other's personal goals to cheer on.</p></div>
     <button type="button" class="primary" data-act="add-goal">+ Goal</button></div>
   <div class="filters" role="group" aria-label="Filter goals">${filterButtons.map(([id, label]) =>
     `<button type="button" data-act="goal-filter" data-id="${esc(id)}" aria-pressed="${filter === id}">${esc(label)}</button>`).join("")}</div>
   ${goals.length ? `<div class="grid">${goals.map(goalCard).join("")}</div>` :
-    `<div class="empty"><span class="em">🎯</span>${state.goals.length ? "No goals match this filter." : "Add your first goal — e.g. “Save for our wedding”, “Run a 10k together”, “Learn to cook 5 family recipes”."}</div>`}`;
+    `<div class="empty">${state.goals.length ? "No goals match this filter." : "Add your first goal — e.g. “Save for our wedding”, “Run a 10k together”, “Learn to cook 5 family recipes”."}</div>`}`;
 }
 function goalCard(goal) {
   const category = CATEGORIES[goal.category] || CATEGORIES.love;
   const progress = goalProgress(goal);
   const steps = goal.steps || [];
   return `<article class="card">
-    <div class="goal-head"><span class="goal-icon" aria-hidden="true">${category.icon}</span>
+    <div class="goal-head">
       <div style="flex:1;min-width:0"><h3>${esc(goal.title)}</h3>
-        <div class="row small"><span class="chip">${esc(ownerLabel(goal.owner))}</span>${goal.due ? `<span class="chip">📅 ${esc(formatDate(goal.due, "month"))}</span>` : ""}
+        <div class="row small"><span class="chip">${esc(category.name)}</span><span class="chip">${esc(ownerLabel(goal.owner))}</span>${goal.due ? `<span class="chip">${esc(formatDate(goal.due, "month"))}</span>` : ""}
           ${progress === 1 ? '<span class="chip ok">✓ Done</span>' : ""}
           <span style="margin-left:auto;white-space:nowrap">
-            <button type="button" class="ghost" data-act="edit-goal" data-id="${esc(goal.id)}" aria-label="Edit ${esc(goal.title)}">✏️</button><button type="button" class="ghost" data-act="delete-goal" data-id="${esc(goal.id)}" aria-label="Delete ${esc(goal.title)}">🗑️</button></span></div></div></div>
+            <button type="button" class="ghost" data-act="edit-goal" data-id="${esc(goal.id)}" aria-label="Edit ${esc(goal.title)}">${icon("pencil")}</button><button type="button" class="ghost" data-act="delete-goal" data-id="${esc(goal.id)}" aria-label="Delete ${esc(goal.title)}">${icon("trash")}</button></span></div></div></div>
     ${goal.notes ? `<p class="small muted">${esc(goal.notes)}</p>` : ""}
     <div class="bar" style="margin:8px 0" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(progress * 100)}"><span style="width:${progress * 100}%"></span></div>
     ${steps.map(step => `<label class="step-row ${step.done ? "done" : ""}"><input type="checkbox" data-toggle="step" data-goal="${esc(goal.id)}" data-id="${esc(step.id)}" ${step.done ? "checked" : ""}><span>${esc(step.text)}</span></label>`).join("")}
@@ -238,19 +246,19 @@ function viewMoney() {
   const fundCards = state.funds.map(fund => {
     const s = fundStatus(fund, state, now);
     let line;
-    if (s.months === 0) line = '<span class="chip ok">🎉 Fully funded</span>';
+    if (s.months === 0) line = '<span class="chip ok">Fully funded</span>';
     else if (!Number.isFinite(s.months)) line = '<span class="small muted">Add a monthly amount to see when you\'ll get there.</span>';
     else line = `<span class="small">Reached <b>${esc(s.reachDate.toLocaleDateString(undefined, { month: "short", year: "numeric" }))}</b> (${s.months} months)</span>`;
     let deadlineLine = "";
     if (s.milestone) {
       deadlineLine = s.onTrack
         ? `<div class="chip ok" style="margin-top:6px">✓ On track for ${esc(s.milestone.title)}</div>`
-        : `<div class="chip warn" style="margin-top:6px;white-space:normal">⚠️ Needs ${esc(money(s.needed, cur))}/mo for ${esc(s.milestone.title)} (${esc(formatDate(s.milestone.date, "month"))})</div>`;
+        : `<div class="chip warn" style="margin-top:6px;white-space:normal">Needs ${esc(money(s.needed, cur))}/mo for ${esc(s.milestone.title)} (${esc(formatDate(s.milestone.date, "month"))})</div>`;
     }
     return `<article class="card">
       <div class="spread"><div><h3>${esc(fund.name)}</h3><div class="small muted">${esc(money(fund.saved, cur))} of ${esc(money(fund.target, cur))} · ${esc(money(fund.monthly, cur))}/month</div></div>
-        <button type="button" class="ghost" data-act="edit-fund" data-id="${esc(fund.id)}" aria-label="Edit ${esc(fund.name)}">✏️</button>
-        <button type="button" class="ghost" data-act="delete-fund" data-id="${esc(fund.id)}" aria-label="Delete ${esc(fund.name)}">🗑️</button></div>
+        <button type="button" class="ghost" data-act="edit-fund" data-id="${esc(fund.id)}" aria-label="Edit ${esc(fund.name)}">${icon("pencil")}</button>
+        <button type="button" class="ghost" data-act="delete-fund" data-id="${esc(fund.id)}" aria-label="Delete ${esc(fund.name)}">${icon("trash")}</button></div>
       <div class="bar" style="margin:10px 0"><span style="width:${s.progress * 100}%"></span></div>
       ${line}${deadlineLine}
       <form class="row" data-form="deposit" data-id="${esc(fund.id)}" style="margin-top:10px;flex-wrap:nowrap">
@@ -264,8 +272,8 @@ function viewMoney() {
     <div class="stat"><b>${esc(money(monthly, cur))}</b><span class="small muted">saved per month</span></div>
     <div class="stat"><b>${state.funds.filter(f => fundStatus(f, state, now).onTrack === false).length}</b><span class="small muted">pots behind</span></div></div></div>
   ${state.funds.length ? `<div class="grid" style="margin-top:14px">${fundCards}</div>` :
-    `<div class="empty" style="margin-top:14px"><span class="em">🐷</span>No savings pots yet.<br><button type="button" class="primary" data-act="default-funds" style="margin-top:10px">Add starter pots (emergency, wedding, home)</button></div>`}
-  <div class="section-head"><h2>Retiring together 🌅</h2></div>
+    `<div class="empty" style="margin-top:14px">No savings pots yet.<br><button type="button" class="primary" data-act="default-funds" style="margin-top:10px">Add starter pots (emergency, wedding, home)</button></div>`}
+  <div class="section-head"><h2>Retiring together</h2></div>
   <div class="card">
     <form class="fields-2" data-form="retirement">
       <label class="field">Retirement savings today (${esc(cur)})<input name="saved" type="number" step="any" value="${esc(r.saved)}"></label>
@@ -296,7 +304,7 @@ function viewMoney() {
   </div>
   <div class="grid" style="margin-top:14px">
     <section class="card">
-      <h2>Education funds 🎓</h2>
+      <h2>Education funds</h2>
       <form class="fields-2" data-form="retirement">
         <label class="field">Education cost per child (today's ${esc(cur)})<input name="eduCost" type="number" step="any" value="${esc(r.eduCost)}"></label>
         <label class="field">Education inflation per year (%)<input name="eduInflation" type="number" step="0.1" value="${esc(r.eduInflation)}"></label>
@@ -307,15 +315,15 @@ function viewMoney() {
           <span class="chip">${esc(money(e.monthly, cur))}/mo</span></li>`).join("")}</ul>`}
     </section>
     <section class="card">
-      <h2>Bank statement → real surplus 🏦</h2>
+      <h2>Bank statement → real surplus</h2>
       <p class="small">Export a CSV from your bank app (most banks offer it under statements or transactions) and see what you really save each month.</p>
-      <div class="row"><label class="btn" tabindex="0" role="button" data-file-trigger>📄 Choose statement CSV<input type="file" accept=".csv,text/csv,text/plain" data-statement hidden></label>
-        <label class="btn" tabindex="0" role="button" data-file-trigger>📈 Import net-worth CSV<input type="file" accept=".csv,text/csv,text/plain" data-networth-csv hidden></label></div>
+      <div class="row"><label class="btn" tabindex="0" role="button" data-file-trigger>Choose statement CSV<input type="file" accept=".csv,text/csv,text/plain" data-statement hidden></label>
+        <label class="btn" tabindex="0" role="button" data-file-trigger>Import net-worth CSV<input type="file" accept=".csv,text/csv,text/plain" data-networth-csv hidden></label></div>
       ${statementResultHTML(cur)}
-      <p class="small muted">🔒 Read on this device only — nothing is uploaded and individual transactions are never saved. No bank login, no aggregator.</p>
+      <p class="small muted">Read on this device only — nothing is uploaded and individual transactions are never saved. No bank login, no aggregator.</p>
     </section>
     <section class="card">
-      <h2>Net worth 📈</h2>
+      <h2>Net worth</h2>
       ${netWorthSummary(cur)}
       <form class="row" data-form="networth" style="margin-top:10px">
         <input name="date" type="date" value="${esc(toISO(now))}" aria-label="Date" style="flex:1 1 130px;min-width:0">
@@ -331,19 +339,19 @@ function viewMoney() {
 function statementResultHTML(cur) {
   const result = ui.statement;
   if (!result) return "";
-  if (result.error) return `<p class="small"><span class="chip warn">⚠️ ${esc(result.error)}</span></p>`;
+  if (result.error) return `<p class="small"><span class="chip warn">${esc(result.error)}</span></p>`;
   const rows = result.months.slice(-12).map(m => `<tr><td>${esc(m.month)}</td><td>${esc(money(m.income, cur))}</td><td>${esc(money(m.spending, cur))}</td>
     <td><b class="${m.net >= 0 ? "" : "neg"}">${esc(money(m.net, cur))}</b></td></tr>`).join("");
   return `<div style="overflow-x:auto;margin-top:8px"><table class="small" style="width:100%;border-collapse:collapse">
       <thead><tr><th align="left">Month</th><th align="left">In</th><th align="left">Out</th><th align="left">Net</th></tr></thead><tbody>${rows}</tbody></table></div>
     <p class="small">Average over ${result.months.length} month${result.months.length === 1 ? "" : "s"}: <b>${esc(money(result.avgNet, cur))}/month</b> left over
       <span class="muted">(${result.used} transactions · columns “${esc(result.columns.date)}” / “${esc(result.columns.amount)}”${result.skipped ? ` · ${result.skipped} rows skipped` : ""}; first and last months may be partial)</span></p>
-    ${result.avgNet > 0 ? `<button type="button" data-act="statement-use">Use ${esc(money(Math.round(result.avgNet), cur))}/month as our retirement saving</button>` : '<p class="small"><span class="chip warn">Spending is above income on average — worth a money talk 💬</span></p>'}`;
+    ${result.avgNet > 0 ? `<button type="button" data-act="statement-use">Use ${esc(money(Math.round(result.avgNet), cur))}/month as our retirement saving</button>` : '<p class="small"><span class="chip warn">Spending is above income on average — worth a money talk</span></p>'}`;
 }
 
 function netWorthSummary(cur) {
   const entries = state.networth.slice().sort(byDate);
-  if (!entries.length) return '<div class="empty"><span class="em">📈</span>Add your first snapshot to start the trend.</div>';
+  if (!entries.length) return '<div class="empty">Add your first snapshot to start the trend.</div>';
   const values = entries.map(e => (Number(e.assets) || 0) - (Number(e.debts) || 0));
   const latest = values[values.length - 1];
   const change = values.length > 1 ? latest - values[values.length - 2] : null;
@@ -355,12 +363,12 @@ function netWorthSummary(cur) {
     const span = max - min || 1;
     const x = i => 6 + i * 288 / (recent.length - 1);
     const y = v => 40 - (v - min) / span * 34;
-    chart = `<svg class="trend" viewBox="0 0 300 46" preserveAspectRatio="none" role="img" aria-label="Net worth trend"><path d="${recent.map((v, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ")}" fill="none" stroke="#2f8f6b" stroke-width="2.5" vector-effect="non-scaling-stroke"/></svg>`;
+    chart = `<svg class="trend" viewBox="0 0 300 46" preserveAspectRatio="none" role="img" aria-label="Net worth trend"><path d="${recent.map((v, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ")}" fill="none" style="stroke:var(--green)" stroke-width="2" vector-effect="non-scaling-stroke"/></svg>`;
   }
   return `<div class="money-big">${esc(money(latest, cur))}</div>
     ${change !== null ? `<span class="chip ${change >= 0 ? "ok" : "warn"}">${change >= 0 ? "▲" : "▼"} ${esc(money(Math.abs(change), cur))} since last snapshot</span>` : ""}
     ${chart}
     <ul class="clean small">${entries.slice(-3).reverse().map(e => `<li class="spread"><span>${esc(formatDate(e.date))}: ${esc(money((Number(e.assets) || 0) - (Number(e.debts) || 0), cur))}</span>
-      <button type="button" class="ghost" data-act="delete-networth" data-id="${esc(e.id)}" aria-label="Delete snapshot">🗑️</button></li>`).join("")}</ul>`;
+      <button type="button" class="ghost" data-act="delete-networth" data-id="${esc(e.id)}" aria-label="Delete snapshot">${icon("trash")}</button></li>`).join("")}</ul>`;
 }
 

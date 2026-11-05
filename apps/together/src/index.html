@@ -6,7 +6,7 @@
 <meta name="color-scheme" content="light dark">
 <title>Together — Our Life Plan</title>
 <meta name="description" content="Plan your whole life together — dating, marriage, a home, kids and growing old side by side. Free, private, works offline.">
-<meta name="theme-color" content="#c2416b">
+<meta name="theme-color" content="#ffffff">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -18,14 +18,32 @@
 <meta property="og:url" content="https://juw12.github.io/projects/together/">
 <meta property="og:image" content="https://juw12.github.io/projects/together/og.png">
 <meta name="twitter:card" content="summary_large_image">
+<script>
+  /* Apply the saved appearance before first paint (no light flash in dark mode). */
+  (function () {
+    var preference = null;
+    try {
+      preference = localStorage.getItem("together.theme");
+    } catch (error) {}
+    var systemDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+    var dark = preference === "dark" || (preference !== "light" && systemDark);
+    document.documentElement.dataset.theme = dark ? "dark" : "light";
+  })();
+</script>
 <style>
 /*@build:css*/
 </style>
 </head>
 <body>
 <header class="topbar">
-  <div class="brand">💞 Together<small id="brand-sub">Our life plan, from first date to golden years</small></div>
-  <span class="saved-pill" id="saved-pill" title="Your plan lives only in this browser — nothing is uploaded.">🔒 Saved on this device</span>
+  <div class="brand">
+    <svg class="i logo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true" focusable="false"><circle cx="9" cy="12" r="6"/><circle cx="15" cy="12" r="6"/></svg>
+    <div>Together<small id="brand-sub">Our life plan, from first date to golden years</small></div>
+  </div>
+  <div class="topbar-actions">
+    <span class="saved-pill" id="saved-pill" title="Your plan lives only in this browser — nothing is uploaded."><span>Saved on this device</span></span>
+    <button type="button" class="icon-btn" id="theme-toggle" data-act="theme-cycle" aria-label="Appearance"></button>
+  </div>
 </header>
 <nav class="tabs" id="tabs" aria-label="Sections"></nav>
 <main id="view" tabindex="-1"></main>

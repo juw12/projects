@@ -78,7 +78,7 @@ async function runSelfTests() {
     probe.goals = [{ id: "g", title: "G", category: "love", owner: "both", steps: [{ id: "s", text: "x", done: false }] }];
     probe.couple.since = "2020-01-20";
     const items = focusItems(probe, fixedNow);
-    return items.some(i => i.icon === "⏰" && i.text.includes("Engagement")) && items.length <= 5 && items[0].icon === "🎉" || JSON.stringify(items);
+    return items.some(i => i.icon === "clock" && i.text.includes("Engagement")) && items.length <= 5 && items[0].icon === "calendar" || JSON.stringify(items);
   });
   await test("focus items suggest a check-in and a talk", () => {
     const items = focusItems(state, fixedNow);
@@ -524,6 +524,60 @@ async function runSelfTests() {
     const ok = ["caring for our parents", "Retirement check", "where we'll live", "Wills, powers of attorney"].every(t => titles.includes(t))
       && list.every((m, i) => !i || STAGE_INDEX[list[i - 1].stage] <= STAGE_INDEX[m.stage] || list[i - 1].date <= m.date);
     return ok || titles;
+  });
+  await test("design: no emoji anywhere — every tab, check-in dialog, focus list and reminder texts", () => {
+    const pictograph = /\p{Extended_Pictographic}/u;
+    const savedState = state;
+    const savedTab = ui.tab;
+    const found = [];
+    try {
+      state = demoState();
+      for (const tab of TABS) {
+        ui.tab = tab.id;
+        render();
+        const shown = document.querySelector(".topbar").innerText + document.getElementById("tabs").innerText + document.getElementById("view").innerText;
+        if (pictograph.test(shown)) found.push(`${tab.id}: ${(shown.match(/\p{Extended_Pictographic}/gu) || []).join("")}`);
+      }
+      checkinDialog();
+      const dialogText = document.getElementById("dialog").innerText;
+      document.getElementById("dialog").close();
+      if (pictograph.test(dialogText)) found.push("check-in dialog");
+      for (const item of focusItems(state, new Date())) {
+        if (pictograph.test(item.text) || !ICONS[item.icon]) found.push(`focus: ${item.icon} ${item.text}`);
+      }
+      for (const reminder of reminderSchedule(state, new Date())) {
+        const words = `${reminder.title || ""} ${reminder.body || ""}`;
+        if (pictograph.test(words)) found.push(`reminder: ${words}`);
+      }
+    } finally {
+      state = savedState;
+      ui.tab = savedTab;
+      render();
+    }
+    return !found.length || found.join(" | ");
+  });
+  await test("migration: emoji the app generated is removed from saved titles; emoji the couple typed is kept", () => {
+    const plan = migrate({ ...blankState(), schema: SCHEMA_VERSION, milestones: [
+      { id: "m1", stage: "married", title: "Wedding day 💒", date: "2027-06-01", done: false, notes: "" },
+      { id: "m2", stage: "golden", title: "Wills, powers of attorney & wishes written down 🕊️", date: "2060-01-01", done: false, notes: "" },
+      { id: "m3", stage: "dating", title: "Our trip to Bali 🌴", date: "2026-08-01", done: false, notes: "" },
+    ] });
+    const titles = plan.milestones.map(m => m.title);
+    return (titles[0] === "Wedding day" && titles[1] === "Wills, powers of attorney & wishes written down" && titles[2] === "Our trip to Bali 🌴") || titles.join(" | ");
+  });
+  await test("appearance: system / light / dark resolve, persist per device and drive the page theme", () => {
+    const before = theme.preference;
+    const resolves = resolveTheme("system", true) === "dark" && resolveTheme("system", false) === "light"
+      && resolveTheme("light", true) === "light" && resolveTheme("dark", false) === "dark" && resolveTheme("bogus", false) === "light";
+    theme.set("dark");
+    const darkApplied = document.documentElement.dataset.theme === "dark" && theme.preference === "dark";
+    theme.set("light");
+    const lightApplied = document.documentElement.dataset.theme === "light" && theme.preference === "light";
+    const background = getComputedStyle(document.body).backgroundColor;
+    theme.set("dark");
+    const darkBackground = getComputedStyle(document.body).backgroundColor;
+    theme.set(before);
+    return (resolves && darkApplied && lightApplied && background !== darkBackground) || JSON.stringify({ resolves, darkApplied, lightApplied, background, darkBackground });
   });
   await test("savings: required monthly for a target and today's-money conversion", () => {
     const monthly = requiredMonthlyForTarget(0, 1200, 0, 1);

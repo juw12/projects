@@ -131,28 +131,28 @@ function buildTemplate(couple, now) {
     ["dating", "Meet each other's families", inMonths(3), "Visit, share a meal, listen to their stories."],
     ["dating", "Have the big money talk", inMonths(5), "Debts, income, savings, spending style. Use the Talk deck."],
     ["dating", "First trip together", inMonths(8), ""],
-    ["engaged", "Get engaged 💍", addMonths(wedding, -12), ""],
+    ["engaged", "Get engaged", addMonths(wedding, -12), ""],
     ["engaged", "Pre-marriage course or counselling", addMonths(wedding, -6), "Many couples find this valuable before the wedding."],
-    ["married", "Wedding day 💒", wedding, ""],
-    ["married", "Honeymoon 🌴", fromWedding(1), ""],
+    ["married", "Wedding day", wedding, ""],
+    ["married", "Honeymoon", fromWedding(1), ""],
     ["married", "Emergency fund: 3–6 months of expenses", fromWedding(12), ""],
-    ["home", "Buy our first home 🔑", fromWedding(30), ""],
+    ["home", "Buy our first home", fromWedding(30), ""],
     ["kids", "Wills, guardians & life insurance", fromWedding(34), "Do this before the first baby arrives."],
-    ["kids", "Welcome our first child 👶", fromWedding(36), ""],
+    ["kids", "Welcome our first child", fromWedding(36), ""],
     ["kids", "Welcome our second child", fromWedding(60), "Edit or delete — your family, your plan."],
-    ["family", "First child starts school 🎒", fromWedding(36 + 72), ""],
-    ["family", "10th wedding anniversary 🥂", fromWedding(120), "Plan something special, just the two of us."],
-    ["growth", "Big adventure for two ✈️", fromWedding(180), ""],
+    ["family", "First child starts school", fromWedding(36 + 72), ""],
+    ["family", "10th wedding anniversary", fromWedding(120), "Plan something special, just the two of us."],
+    ["growth", "Big adventure for two", fromWedding(180), ""],
     ["growth", "Health check-ups & fitness reset", fromWedding(210), ""],
-    ["growth", "Talk about caring for our parents 🤝", fromWedding(228), "Who helps, how, and what it means for money and time. Ask them what they want."],
-    ["nest", "Kids leave home 🎓", fromWedding(36 + 216), ""],
-    ["nest", "Silver anniversary — 25 years 💐", fromWedding(300), ""],
+    ["growth", "Talk about caring for our parents", fromWedding(228), "Who helps, how, and what it means for money and time. Ask them what they want."],
+    ["nest", "Kids leave home", fromWedding(36 + 216), ""],
+    ["nest", "Silver anniversary — 25 years", fromWedding(300), ""],
     ["nest", "Retirement check: pensions, when to claim, health cover", addMonths(retire, -24), "Two years out: confirm the numbers in Money → Retiring together."],
-    ["retire", "Retire together 🌅", retire, `Both of you at least ${couple.retireAge}.`],
-    ["retire", "Decide where we'll live as we age 🏡", addMonths(retire, 24), "Stay, downsize, or move closer to family? Think about stairs, transport and care nearby."],
-    ["golden", "Wills, powers of attorney & wishes written down 🕊️", addMonths(retire, 60), "Update wills and beneficiaries, choose who decides if you can't, and tell family where documents are. See the Legacy talk."],
-    ["golden", "Golden anniversary — 50 years 💛", fromWedding(600), ""],
-    ["golden", "Write our family story for the grandkids 📖", fromWedding(612), ""],
+    ["retire", "Retire together", retire, `Both of you at least ${couple.retireAge}.`],
+    ["retire", "Decide where we'll live as we age", addMonths(retire, 24), "Stay, downsize, or move closer to family? Think about stairs, transport and care nearby."],
+    ["golden", "Wills, powers of attorney & wishes written down", addMonths(retire, 60), "Update wills and beneficiaries, choose who decides if you can't, and tell family where documents are. See the Legacy talk."],
+    ["golden", "Golden anniversary — 50 years", fromWedding(600), ""],
+    ["golden", "Write our family story for the grandkids", fromWedding(612), ""],
   ];
   const today = toISO(now);
   return items
@@ -225,28 +225,28 @@ function focusItems(state, now) {
   const items = [];
   const today = toISO(now);
   for (const party of upcomingCelebrations(state, now).slice(0, 1)) {
-    items.push({ icon: "🎉", text: `${party.text} ${party.days === 0 ? "is today!" : `in ${party.days} day${party.days === 1 ? "" : "s"}`} — plan something special`, tab: "us" });
+    items.push({ icon: "calendar", text: `${party.text} ${party.days === 0 ? "is today!" : `in ${party.days} day${party.days === 1 ? "" : "s"}`} — plan something special`, tab: "us" });
   }
   const overdue = state.milestones.filter(m => !m.done && m.date && m.date < today).sort(byDate);
   if (overdue.length) {
     const more = overdue.length > 1 ? ` (+${overdue.length - 1} more)` : "";
-    items.push({ icon: "⏰", text: `“${overdue[0].title}” was planned for ${formatDate(overdue[0].date, "month")} — tick it off or pick a new date${more}`, tab: "roadmap" });
+    items.push({ icon: "clock", text: `“${overdue[0].title}” was planned for ${formatDate(overdue[0].date, "month")} — tick it off or pick a new date${more}`, tab: "roadmap" });
   }
   const lastCheckin = state.checkins.slice().sort(byDate).pop();
   const sinceCheckin = lastCheckin ? daysBetween(parseDate(lastCheckin.date), now) : null;
   if (sinceCheckin === null || sinceCheckin >= 30) {
-    items.push({ icon: "💬", text: sinceCheckin === null ? "Do your first couple check-in (10 minutes)" : `Monthly check-in is due (last one ${sinceCheckin} days ago)`, act: "checkin" });
+    items.push({ icon: "message", text: sinceCheckin === null ? "Do your first couple check-in (10 minutes)" : `Monthly check-in is due (last one ${sinceCheckin} days ago)`, act: "checkin" });
   }
   const behind = state.funds.map(fund => ({ fund, status: fundStatus(fund, state, now) })).filter(x => x.status.onTrack === false);
   if (behind.length === 1) {
     const { fund, status } = behind[0];
-    items.push({ icon: "⚠️", text: `${fund.name} needs ${money(status.needed, state.couple.currency)}/month to be ready for ${status.milestone.title}`, tab: "money" });
+    items.push({ icon: "alert", text: `${fund.name} needs ${money(status.needed, state.couple.currency)}/month to be ready for ${status.milestone.title}`, tab: "money" });
   } else if (behind.length > 1) {
-    items.push({ icon: "⚠️", text: `${behind.length} savings pots are behind schedule (${behind.map(x => x.fund.name).join(", ")})`, tab: "money" });
+    items.push({ icon: "alert", text: `${behind.length} savings pots are behind schedule (${behind.map(x => x.fund.name).join(", ")})`, tab: "money" });
   }
   const upcoming = nextMilestone(state, now);
   if (upcoming && daysBetween(now, parseDate(upcoming.date)) <= 365) {
-    items.push({ icon: "📍", text: `${upcoming.title} — ${relativeTime(upcoming.date, now)}`, tab: "roadmap" });
+    items.push({ icon: "flag", text: `${upcoming.title} — ${relativeTime(upcoming.date, now)}`, tab: "roadmap" });
   }
   const openSteps = [];
   for (const goal of state.goals) {
@@ -257,19 +257,19 @@ function focusItems(state, now) {
   openSteps.sort((x, y) => (x.goal.due || "9999").localeCompare(y.goal.due || "9999"));
   if (openSteps.length) {
     const { goal, step } = openSteps[0];
-    items.push({ icon: CATEGORIES[goal.category]?.icon || "🎯", text: `Next step for “${goal.title}”: ${step.text}`, tab: "goals" });
+    items.push({ icon: "target", text: `Next step for “${goal.title}”: ${step.text}`, tab: "goals" });
   }
   if (backupDue(state, now)) {
-    items.push({ icon: "💾", text: state.lastBackupAt ? "It's been a month — export a fresh backup of your plan" : "Export your first backup (and share it with your partner)", tab: "settings" });
+    items.push({ icon: "download", text: state.lastBackupAt ? "It's been a month — export a fresh backup of your plan" : "Export your first backup (and share it with your partner)", tab: "settings" });
   }
   const program = state.program || { started: "", done: {} };
   if (program.started && !programProgress(program).finished) {
     const week = programProgress(program).currentWeek;
-    items.push({ icon: "🌱", text: `Foundations week ${week}: ${PROGRAM[week - 1].title}`, tab: "us" });
+    items.push({ icon: "book", text: `Foundations week ${week}: ${PROGRAM[week - 1].title}`, tab: "us" });
   }
   const stageIdx = currentStageIndex(state);
   const talk = TALKS.find(t => STAGE_INDEX[t.stage] <= stageIdx + 1 && (state.talks[t.id]?.status || "todo") === "todo");
-  if (talk) items.push({ icon: "🗣️", text: `Talk about: ${talk.title}`, tab: "us" });
+  if (talk) items.push({ icon: "message", text: `Talk about: ${talk.title}`, tab: "us" });
   return items.slice(0, 5);
 }
 

@@ -1,6 +1,7 @@
 /* --------------------------------------------------------------------- boot */
 function boot() {
   bindEvents();
+  theme.init();
   if (params.has("selftest")) {
     runSelfTests();
     return;
@@ -24,7 +25,7 @@ function boot() {
     applyRemote: plan => applyRemotePlan(plan),
     onStatus: () => {
       const pill = document.getElementById("saved-pill");
-      if (pill) pill.textContent = sync.active ? (sync.status === "error" ? "⚠️ Sync paused" : "🔄 Shared with partner") : "🔒 Saved on this device";
+      if (pill) pill.innerHTML = savedPillHTML();
       const line = document.getElementById("sync-status");
       if (line) line.textContent = syncStatusText();
     },
@@ -64,12 +65,12 @@ function startConnectivity() {
         .then(() => {
           ui.tab = "home";
           render();
-          toast("Connected — you now share one plan 💞");
+          toast("Connected — you now share one plan");
         })
-        .catch(error => toast(`⚠️ ${error.message}`));
+        .catch(error => toast(error.message));
     };
     if (!alreadyHere && protectedFlag) {
-      openDialog("Join your partner's plan 🔒", `
+      openDialog("Join your partner's plan", `
         <p class="small">Your partner protected your shared plan with a passphrase. Anything already on this device will be merged into it.</p>
         <label class="field">Passphrase<input name="passphrase" type="password" autocomplete="current-password" required></label>`,
       values => connect(values.passphrase), "Join");

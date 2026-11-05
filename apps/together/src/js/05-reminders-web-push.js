@@ -13,31 +13,31 @@ function reminderSchedule(plan, now = new Date()) {
   let due = lastCheckin ? new Date(parseDate(lastCheckin.date).getTime() + 30 * 864e5) : new Date(nowMs + 864e5);
   if (at(due, 19) <= nowMs) due = new Date(nowMs + 864e5);
   for (let i = 0; i < 4; i++) {
-    add(at(due, 19), "💬 Monthly check-in", `${nameA} & ${nameB}: 10 minutes, phones away.`, `checkin-${i}`);
+    add(at(due, 19), "Monthly check-in", `${nameA} & ${nameB}: 10 minutes, phones away.`, `checkin-${i}`);
     due = addMonths(due, 1);
   }
   for (const m of plan.milestones) {
     const date = parseDate(m.date);
     if (m.done || !date) continue;
-    add(at(new Date(date.getTime() - 7 * 864e5), 9), `📍 One week to go: ${m.title}`, "Open Together to get ready.", `ms-${m.id}-7`);
-    add(at(date, 9), `📍 Today: ${m.title}`, "Tick it off in Together when it happens 🎉", `ms-${m.id}`);
+    add(at(new Date(date.getTime() - 7 * 864e5), 9), `One week to go: ${m.title}`, "Open Together to get ready.", `ms-${m.id}-7`);
+    add(at(date, 9), `Today: ${m.title}`, "Tick it off in Together when it happens.", `ms-${m.id}`);
   }
   for (const party of upcomingCelebrations(plan, now, 120)) {
     const date = parseDate(party.date);
-    add(at(new Date(date.getTime() - 7 * 864e5), 9), `🎉 In a week: ${party.text}`, "Time to plan something special.", `party-${party.date}-7`);
-    add(at(date, 8), `🎉 Today: ${party.text}`, "Celebrate each other today 💞", `party-${party.date}`);
+    add(at(new Date(date.getTime() - 7 * 864e5), 9), `In a week: ${party.text}`, "Time to plan something special.", `party-${party.date}-7`);
+    add(at(date, 8), `Today: ${party.text}`, "Celebrate each other today.", `party-${party.date}`);
   }
   const hasData = plan.milestones.length + plan.goals.length + plan.checkins.length > 0;
   if (hasData) {
     const base = plan.lastBackupAt ? new Date(new Date(plan.lastBackupAt).getTime() + 30 * 864e5) : new Date(nowMs + 3 * 864e5);
-    add(at(base, 10), "💾 Back up your plan", "Settings → Export backup keeps your plan safe.", "backup");
+    add(at(base, 10), "Back up your plan", "Settings → Export backup keeps your plan safe.", "backup");
   }
   const program = plan.program || { started: "", done: {} };
   if (program.started && !programProgress(program).finished) {
     const week = programProgress(program).currentWeek;
     let next = parseDate(program.started) || now;
     while (at(next, 19) <= nowMs) next = new Date(next.getTime() + 7 * 864e5);
-    add(at(next, 19), `🌱 Foundations week ${week}`, PROGRAM[week - 1].title, "program");
+    add(at(next, 19), `Foundations week ${week}`, PROGRAM[week - 1].title, "program");
   }
   return list.sort((x, y) => x.at - y.at).slice(0, 60);
 }
@@ -109,7 +109,7 @@ const reminders = {
     pref.enabled = true;
     this.savePref(pref);
     await this.sync(subscription);
-    await registration.showNotification("Reminders are on 💞", { body: "We'll nudge you about check-ins, milestones and anniversaries.", icon: "icons/icon-192.png", tag: "together-welcome" });
+    await registration.showNotification("Reminders are on", { body: "We'll nudge you about check-ins, milestones and anniversaries.", icon: "icons/icon-192.png", tag: "together-welcome" });
   },
   async disable() {
     const pref = this.pref();

@@ -26,6 +26,8 @@ A private life-planning app for couples: from dating to marriage, a home, kids, 
   Add to Home Screen first and iOS 16.4+; the app shows step-by-step guidance and detects in-app browsers.)
 - Works offline; export/import backups — optionally **password-locked** (AES-GCM, PBKDF2 600k rounds, so a
   backup left in Downloads or e-mail doesn't expose your plan); print the whole plan; calendar (.ics) reminders.
+- **Light / dark / system appearance** (per device, applied before first paint) and a calm, emoji-free
+  interface with one consistent line-icon set.
 - **Accessible**: every control has an accessible name, text meets WCAG AA contrast in light and dark mode,
   visible keyboard focus, labelled dialogs (checked by an automated audit on every tab).
 

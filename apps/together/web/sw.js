@@ -1,6 +1,6 @@
 // Together service worker: offline app shell + payload-less push reminders.
 // Reminder texts are written into IndexedDB by the page; pushes only say "something is due".
-const CACHE = "together-v6";
+const CACHE = "together-v7";
 const SHELL = ["./", "./index.html", "./manifest.webmanifest", "./icons/icon-192.png", "./icons/icon-512.png", "./icons/apple-touch-icon.png"];
 
 self.addEventListener("install", event => {
@@ -69,7 +69,7 @@ async function showDueReminders() {
   const now = Date.now();
   const due = reminders.filter(r => r.at <= now + 5 * 60e3 && r.at >= now - 12 * 3600e3 && !shown[`${r.tag}@${r.at}`]);
   if (!due.length) {
-    await self.registration.showNotification("Together 💞", { body: "Open your plan to see what's next.", icon: "icons/icon-192.png", tag: "together" });
+    await self.registration.showNotification("Together", { body: "Open your plan to see what's next.", icon: "icons/icon-192.png", tag: "together" });
     return;
   }
   for (const reminder of due.slice(0, 3)) {
