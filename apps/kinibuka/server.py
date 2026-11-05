@@ -990,7 +990,9 @@ class Handler(BaseHTTPRequestHandler):
         if path in ("", "/"):
             path = "/index.html"
         full = os.path.realpath(os.path.join(STATIC_DIR, path.lstrip("/")))
-        if not full.startswith(os.path.realpath(STATIC_DIR)) or not os.path.isfile(full):
+        static_root = os.path.realpath(STATIC_DIR)
+        # commonpath (not startswith) so a sibling like "static_old/" can never be served
+        if os.path.commonpath([full, static_root]) != static_root or not os.path.isfile(full):
             full = os.path.join(STATIC_DIR, "index.html")
         with open(full, "rb") as f:
             data = f.read()

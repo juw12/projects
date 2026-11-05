@@ -119,8 +119,11 @@ def install(manifest: dict, app_dir, current_version: str, progress=None) -> str
     report("download")
     payload = _get(manifest["url"], timeout=60)
     expected = (manifest.get("sha256") or "").lower()
+    if not expected:
+        # every published manifest carries a checksum; one without it is treated as tampered
+        raise ValueError("update manifest has no checksum - update cancelled")
     actual = hashlib.sha256(payload).hexdigest()
-    if expected and actual != expected:
+    if actual != expected:
         raise ValueError("downloaded file failed its checksum - update cancelled")
 
     report("install")
