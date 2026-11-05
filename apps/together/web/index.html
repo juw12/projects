@@ -500,16 +500,29 @@ function backupDue(state, now) {
   return daysBetween(new Date(state.lastBackupAt), now) >= 30;
 }
 
-/** Short, practical "what should we do now" list for the home screen. */
+/** Short, prioritized "what should we do now" list for the home screen (max 5). */
 function focusItems(state, now) {
   const items = [];
-  for (const party of upcomingCelebrations(state, now).slice(0, 2)) {
+  const today = toISO(now);
+  for (const party of upcomingCelebrations(state, now).slice(0, 1)) {
     items.push({ icon: "🎉", text: `${party.text} ${party.days === 0 ? "is today!" : `in ${party.days} day${party.days === 1 ? "" : "s"}`} — plan something special`, tab: "us" });
+  }
+  const overdue = state.milestones.filter(m => !m.done && m.date && m.date < today).sort(byDate);
+  if (overdue.length) {
+    const more = overdue.length > 1 ? ` (+${overdue.length - 1} more)` : "";
+    items.push({ icon: "⏰", text: `“${overdue[0].title}” was planned for ${formatDate(overdue[0].date, "month")} — tick it off or pick a new date${more}`, tab: "roadmap" });
   }
   const lastCheckin = state.checkins.slice().sort(byDate).pop();
   const sinceCheckin = lastCheckin ? daysBetween(parseDate(lastCheckin.date), now) : null;
   if (sinceCheckin === null || sinceCheckin >= 30) {
     items.push({ icon: "💬", text: sinceCheckin === null ? "Do your first couple check-in (10 minutes)" : `Monthly check-in is due (last one ${sinceCheckin} days ago)`, act: "checkin" });
+  }
+  const behind = state.funds.map(fund => ({ fund, status: fundStatus(fund, state, now) })).filter(x => x.status.onTrack === false);
+  if (behind.length === 1) {
+    const { fund, status } = behind[0];
+    items.push({ icon: "⚠️", text: `${fund.name} needs ${money(status.needed, state.couple.currency)}/month to be ready for ${status.milestone.title}`, tab: "money" });
+  } else if (behind.length > 1) {
+    items.push({ icon: "⚠️", text: `${behind.length} savings pots are behind schedule (${behind.map(x => x.fund.name).join(", ")})`, tab: "money" });
   }
   const upcoming = nextMilestone(state, now);
   if (upcoming && daysBetween(now, parseDate(upcoming.date)) <= 365) {
@@ -522,14 +535,9 @@ function focusItems(state, now) {
     if (step) openSteps.push({ goal, step });
   }
   openSteps.sort((x, y) => (x.goal.due || "9999").localeCompare(y.goal.due || "9999"));
-  for (const { goal, step } of openSteps.slice(0, 2)) {
+  if (openSteps.length) {
+    const { goal, step } = openSteps[0];
     items.push({ icon: CATEGORIES[goal.category]?.icon || "🎯", text: `Next step for “${goal.title}”: ${step.text}`, tab: "goals" });
-  }
-  for (const fund of state.funds) {
-    const status = fundStatus(fund, state, now);
-    if (status.onTrack === false) {
-      items.push({ icon: "⚠️", text: `${fund.name} needs ${money(status.needed, state.couple.currency)}/month to be ready for ${status.milestone.title}`, tab: "money" });
-    }
   }
   if (backupDue(state, now)) {
     items.push({ icon: "💾", text: state.lastBackupAt ? "It's been a month — export a fresh backup of your plan" : "Export your first backup (and share it with your partner)", tab: "settings" });
@@ -537,7 +545,7 @@ function focusItems(state, now) {
   const stageIdx = currentStageIndex(state);
   const talk = TALKS.find(t => STAGE_INDEX[t.stage] <= stageIdx + 1 && (state.talks[t.id]?.status || "todo") === "todo");
   if (talk) items.push({ icon: "🗣️", text: `Talk about: ${talk.title}`, tab: "us" });
-  return items.slice(0, 7);
+  return items.slice(0, 5);
 }
 
 /* -------------------------------------------------------------------- store */
@@ -721,6 +729,8 @@ function viewHome() {
   const goalsDone = state.goals.filter(g => goalProgress(g) === 1).length;
   const saved = state.funds.reduce((sum, f) => sum + (Number(f.saved) || 0), 0);
   const focus = focusItems(state, now);
+  const todayISO = toISO(now);
+  const comingUp = state.milestones.filter(m => !m.done && m.date && m.date >= todayISO).sort(byDate).slice(1, 4);
   const marriedLine = wedding && wedding <= now ? `<p class="muted">Married ${relativeTime(state.couple.wedding, now).replace(" ago", "")} 💍</p>` : "";
   return `
   <section class="card hero">
@@ -758,6 +768,9 @@ function viewHome() {
         <div class="stat"><b>${esc(money(saved, state.couple.currency))}</b><span class="small muted">saved</span></div>
         <div class="stat"><b>${state.checkins.length}</b><span class="small muted">check-ins</span></div>
       </div>
+      <h3 style="margin-top:16px">Coming up</h3>
+      ${comingUp.length ? `<ul class="clean">${comingUp.map(m => `<li class="spread small"><div><b>${esc(m.title)}</b><br><span class="muted">${agesLine(m.date)}</span></div>
+        <span class="chip">${esc(formatDate(m.date, "month"))}</span></li>`).join("")}</ul>` : '<p class="small muted">Add milestones on the Roadmap.</p>'}
       <p class="small muted" style="margin-top:12px">“The best thing to hold onto in life is each other.” — Audrey Hepburn</p>
     </section>
   </div>`;
@@ -1491,6 +1504,14 @@ function runSelfTests() {
   test("migration from prototype schema", () => {
     const migrated = migrate({ a: "X", b: "Y", since: "2020-01-01", goals: [{ title: "G", done: true }], funds: [{ name: "F", target: 10, saved: 5, monthly: 1 }] });
     return migrated.couple.a.name === "X" && migrated.goals[0].done === true && migrated.funds[0].target === 10 && Array.isArray(migrated.checkins) || "migration failed";
+  });
+  test("milestone overdue surfaces in focus, list capped at 5", () => {
+    const probe = blankState();
+    probe.milestones = [{ id: "o", title: "Engagement", stage: "engaged", date: "2025-12-01", done: false }];
+    probe.goals = [{ id: "g", title: "G", category: "love", owner: "both", steps: [{ id: "s", text: "x", done: false }] }];
+    probe.couple.since = "2020-01-20";
+    const items = focusItems(probe, fixedNow);
+    return items.some(i => i.icon === "⏰" && i.text.includes("Engagement")) && items.length <= 5 && items[0].icon === "🎉" || JSON.stringify(items);
   });
   test("focus items suggest a check-in and a talk", () => {
     const items = focusItems(state, fixedNow);
