@@ -503,6 +503,28 @@ async function runSelfTests() {
       && !/no cloud/i.test(viewOnboarding()) && /encrypted/.test(viewOnboarding());
     return ok || JSON.stringify({ off, syncing, both, remindersOnly });
   });
+  await test("trust: password-protected backup round-trips; wrong password fails; file holds no plaintext", async () => {
+    const plan = migrate({ ...blankState(), couple: { ...blankState().couple, a: { name: "Zoe", birth: "" }, b: { name: "Sam", birth: "" } } });
+    const plain = store.exportText(plan);
+    const locked = await encryptBackup(plain, "correct horse");
+    const parsed = store.importText(locked);
+    let wrongRejected = false;
+    try {
+      await decryptBackup(parsed.encrypted, "wrong horse");
+    } catch (error) {
+      wrongRejected = true;
+    }
+    const reopened = store.importText(await decryptBackup(parsed.encrypted, "correct horse"));
+    return Boolean(parsed.encrypted) && wrongRejected && reopened.state?.couple.a.name === "Zoe" && !locked.includes('"Zoe"') && !locked.includes("Sam")
+      || JSON.stringify({ parsed: Boolean(parsed.encrypted), wrongRejected, reopened: reopened.error });
+  });
+  await test("milestone template covers later life: parents' care, retirement check, where to live, wills & wishes", () => {
+    const list = buildTemplate({ ...blankState().couple, a: { name: "A", birth: "1996-01-01" }, b: { name: "B", birth: "1996-01-01" }, stage: "dating", retireAge: 65 }, new Date(2026, 0, 15));
+    const titles = list.map(m => m.title).join(" | ");
+    const ok = ["caring for our parents", "Retirement check", "where we'll live", "Wills, powers of attorney"].every(t => titles.includes(t))
+      && list.every((m, i) => !i || STAGE_INDEX[list[i - 1].stage] <= STAGE_INDEX[m.stage] || list[i - 1].date <= m.date);
+    return ok || titles;
+  });
   await test("savings: required monthly for a target and today's-money conversion", () => {
     const monthly = requiredMonthlyForTarget(0, 1200, 0, 1);
     const withGrowth = requiredMonthlyForTarget(0, futureValue(0, 100, 6, 10), 6, 10);

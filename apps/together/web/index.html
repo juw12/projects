@@ -20,14 +20,14 @@
 <meta name="twitter:card" content="summary_large_image">
 <style>
   :root {
-    --bg: #fff8f5; --card: #ffffff; --ink: #2d2226; --muted: #7a6870; --line: #f0dfe2;
-    --rose: #c2416b; --rose-soft: #fde7ee; --peach: #ffb38a; --gold: #d99a2b; --green: #2f8f6b; --warn: #c26a12;
+    --bg: #fff8f5; --card: #ffffff; --ink: #2d2226; --muted: #6a5660; --line: #f0dfe2;
+    --rose: #c2416b; --on-rose: #ffffff; --danger: #b3261e; --rose-soft: #fde7ee; --peach: #ffb38a; --gold: #d99a2b; --green: #1f6e50; --warn: #8f4a07;
     --shadow: 0 2px 10px rgba(120, 40, 70, .08); --radius: 16px;
     --serif: Georgia, "Times New Roman", serif;
   }
   @media (prefers-color-scheme: dark) {
     :root { --bg: #1d1719; --card: #282023; --ink: #f6eef0; --muted: #b9a7ae; --line: #3d3136;
-      --rose: #ef7aa0; --rose-soft: #3f2530; --shadow: 0 2px 10px rgba(0,0,0,.35); --green: #5fc79f; --warn: #f0a050; }
+      --rose: #ef7aa0; --on-rose: #2a0f19; --danger: #ff8a80; --rose-soft: #3f2530; --shadow: 0 2px 10px rgba(0,0,0,.35); --green: #5fc79f; --warn: #f0a050; }
   }
   * { box-sizing: border-box; }
   [hidden] { display: none !important; }
@@ -42,13 +42,13 @@
     background: linear-gradient(120deg, #c2416b, #e86f7e 55%, #ffb38a); color: #fff; }
   .brand { font-family: var(--serif); font-size: 1.3rem; font-weight: 600; letter-spacing: .3px; }
   .brand small { display: block; font-family: "Segoe UI", sans-serif; font-size: .78rem; opacity: .9; font-weight: 400; }
-  .saved-pill { font-size: .75rem; background: rgba(255,255,255,.22); padding: 3px 10px; border-radius: 99px; white-space: nowrap; }
+  .saved-pill { font-size: .75rem; background: rgba(60,10,30,.45); padding: 3px 10px; border-radius: 99px; white-space: nowrap; }
   nav.tabs { display: flex; gap: 4px; padding: 8px 16px; background: var(--card); border-bottom: 1px solid var(--line);
     position: sticky; top: 0; z-index: 5; justify-content: center; }
   nav.tabs button { border: 0; background: transparent; color: var(--muted); padding: 8px 14px; border-radius: 99px;
     font: inherit; cursor: pointer; display: flex; align-items: center; gap: 6px; }
   nav.tabs button:hover { background: var(--rose-soft); color: var(--ink); }
-  nav.tabs button[aria-current="page"] { background: var(--rose); color: #fff; }
+  nav.tabs button[aria-current="page"] { background: var(--rose); color: var(--on-rose); }
   main { max-width: 1040px; margin: 0 auto; padding: 20px 16px 96px; }
   .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
   .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow); min-width: 0; }
@@ -63,7 +63,7 @@
     padding: 7px 14px; cursor: pointer; }
   button:hover { border-color: var(--rose); }
   a.btn { text-decoration: none; display: inline-block; }
-  button.primary { background: var(--rose); color: #fff; border-color: var(--rose); }
+  button.primary { background: var(--rose); color: var(--on-rose); border-color: var(--rose); }
   button.ghost { border-color: transparent; background: transparent; color: var(--muted); padding: 4px 8px; }
   button.ghost:hover { color: var(--rose); }
   :focus-visible { outline: 3px solid var(--peach); outline-offset: 2px; }
@@ -114,13 +114,13 @@
   .step-row { display: flex; gap: 8px; align-items: flex-start; padding: 3px 0; }
   .step-row.done span { text-decoration: line-through; color: var(--muted); }
   .filters { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
-  .filters button[aria-pressed="true"] { background: var(--rose); border-color: var(--rose); color: #fff; }
+  .filters button[aria-pressed="true"] { background: var(--rose); border-color: var(--rose); color: var(--on-rose); }
   .hearts { letter-spacing: 2px; color: var(--rose); }
   .rating { display: flex; gap: 4px; flex-wrap: wrap; }
   .rating label { cursor: pointer; }
   .rating input { position: absolute; opacity: 0; width: 1px; height: 1px; }
   .rating span { display: inline-grid; place-items: center; width: 38px; height: 38px; border-radius: 10px; border: 1px solid var(--line); font-size: 1.1rem; }
-  .rating input:checked + span { background: var(--rose); color: #fff; border-color: var(--rose); }
+  .rating input:checked + span { background: var(--rose); color: var(--on-rose); border-color: var(--rose); }
   .rating input:focus-visible + span { outline: 3px solid var(--peach); }
   details.talk { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; margin-top: 8px; background: var(--card); }
   details.talk summary { cursor: pointer; display: flex; justify-content: space-between; gap: 8px; align-items: center; list-style: none; }
@@ -170,6 +170,8 @@
     .card { box-shadow: none; break-inside: avoid; }
     main { padding: 0; }
   }
+
+  .danger { color: var(--danger); }
 </style>
 </head>
 <body>
@@ -536,9 +538,13 @@ function buildTemplate(couple, now) {
     ["family", "10th wedding anniversary 🥂", fromWedding(120), "Plan something special, just the two of us."],
     ["growth", "Big adventure for two ✈️", fromWedding(180), ""],
     ["growth", "Health check-ups & fitness reset", fromWedding(210), ""],
+    ["growth", "Talk about caring for our parents 🤝", fromWedding(228), "Who helps, how, and what it means for money and time. Ask them what they want."],
     ["nest", "Kids leave home 🎓", fromWedding(36 + 216), ""],
     ["nest", "Silver anniversary — 25 years 💐", fromWedding(300), ""],
+    ["nest", "Retirement check: pensions, when to claim, health cover", addMonths(retire, -24), "Two years out: confirm the numbers in Money → Retiring together."],
     ["retire", "Retire together 🌅", retire, `Both of you at least ${couple.retireAge}.`],
+    ["retire", "Decide where we'll live as we age 🏡", addMonths(retire, 24), "Stay, downsize, or move closer to family? Think about stairs, transport and care nearby."],
+    ["golden", "Wills, powers of attorney & wishes written down 🕊️", addMonths(retire, 60), "Update wills and beneficiaries, choose who decides if you can't, and tell family where documents are. See the Legacy talk."],
     ["golden", "Golden anniversary — 50 years 💛", fromWedding(600), ""],
     ["golden", "Write our family story for the grandkids 📖", fromWedding(612), ""],
   ];
@@ -1246,6 +1252,30 @@ async function openPlan(text, encKey) {
   return JSON.parse(new TextDecoder().decode(bytes));
 }
 
+/** Password-protected backup file. The password is stretched with PBKDF2 (random salt) into an AES-GCM key. */
+async function backupKey(password, salt) {
+  const material = await crypto.subtle.importKey("raw", textBytes(String(password).normalize("NFKC")), "PBKDF2", false, ["deriveKey"]);
+  return crypto.subtle.deriveKey({ name: "PBKDF2", hash: "SHA-256", salt, iterations: PASSPHRASE_ITERATIONS },
+    material, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
+}
+async function encryptBackup(text, password) {
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const key = await backupKey(password, salt);
+  const data = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, textBytes(text)));
+  return JSON.stringify({ app: "together", format: "encrypted-v1", kdf: "PBKDF2-SHA256", iterations: PASSPHRASE_ITERATIONS,
+    salt: b64u.encode(salt), iv: b64u.encode(iv), data: b64u.encode(data) });
+}
+async function decryptBackup(envelope, password) {
+  const key = await backupKey(password, b64u.decode(envelope.salt));
+  try {
+    const plain = await crypto.subtle.decrypt({ name: "AES-GCM", iv: b64u.decode(envelope.iv) }, key, b64u.decode(envelope.data));
+    return new TextDecoder().decode(plain);
+  } catch (error) {
+    throw new Error("Wrong password — or the file was damaged.");
+  }
+}
+
 /* ------------------------------------------------------ sync: room client */
 class SyncClient {
   constructor({ configKey, getState, applyRemote, endpoint = CLOUD_URL, fetchImpl = (...args) => fetch(...args), onStatus = () => {} }) {
@@ -1515,6 +1545,7 @@ const store = {
     } catch (error) {
       return { error: "That file is not valid JSON." };
     }
+    if (data && data.app === "together" && data.format === "encrypted-v1") return { encrypted: data };
     const problem = validateImport(data);
     if (problem) return { error: problem };
     return { state: migrate(data.state) };
@@ -1876,12 +1907,17 @@ function viewMoney() {
     <form class="fields-2" data-form="retirement">
       <label class="field">Retirement savings today (${esc(cur)})<input name="saved" type="number" step="any" value="${esc(r.saved)}"></label>
       <label class="field">We add per month (${esc(cur)})<input name="monthly" type="number" step="any" value="${esc(r.monthly)}"></label>
-      <label class="field">Expected yearly return (%)<input name="rate" type="number" step="0.1" value="${esc(r.rate)}"></label>
-      <label class="field">Fees &amp; tax drag per year (%)<input name="fees" type="number" step="0.1" value="${esc(r.fees)}"></label>
-      <label class="field">Inflation per year (%)<input name="inflation" type="number" step="0.1" value="${esc(r.inflation)}"></label>
       <label class="field">Retire when both are age<input name="retireAge" type="number" min="40" max="85" value="${esc(state.couple.retireAge)}"></label>
       <label class="field">Yearly spending we want in retirement (today's ${esc(cur)})<input name="spend" type="number" step="any" value="${esc(r.spend)}"></label>
-      <label class="field">Safe withdrawal rate (%)<input name="withdrawal" type="number" step="0.1" value="${esc(r.withdrawal)}"></label>
+      <details class="assumptions" style="grid-column:1/-1">
+        <summary class="small">Assumptions: ${esc(r.rate)}% return · ${esc(r.fees)}% fees · ${esc(r.inflation)}% inflation · ${esc(r.withdrawal)}% withdrawal — change</summary>
+        <div class="fields-2" style="margin-top:8px">
+          <label class="field">Expected yearly return (%)<input name="rate" type="number" step="0.1" value="${esc(r.rate)}"></label>
+          <label class="field">Fees &amp; tax drag per year (%)<input name="fees" type="number" step="0.1" value="${esc(r.fees)}"></label>
+          <label class="field">Inflation per year (%)<input name="inflation" type="number" step="0.1" value="${esc(r.inflation)}"></label>
+          <label class="field">Safe withdrawal rate (%)<input name="withdrawal" type="number" step="0.1" value="${esc(r.withdrawal)}"></label>
+        </div>
+      </details>
     </form>
     <div class="stats" style="margin-top:6px">
       <div class="stat"><b>${esc(money(plan.projectedReal, cur))}</b><span class="small muted">projected, in today's money</span></div>
@@ -2209,7 +2245,7 @@ function viewSettings() {
       <h3 style="margin-top:16px">Roadmap</h3>
       <button type="button" data-act="template">✨ Add suggested milestones</button>
       <h3 style="margin-top:16px">Danger zone</h3>
-      <button type="button" data-act="reset" style="color:#c0392b">Erase everything on this device</button>
+      <button type="button" data-act="reset" class="danger">Erase everything on this device</button>
     </section>
   </div>`;
 }
@@ -2322,10 +2358,37 @@ function downloadFile(filename, type, text) {
   toast(`Downloaded ${link.download} ⬇️`);
 }
 function downloadBackup() {
-  const n = names();
-  state.lastBackupAt = new Date().toISOString();
-  persist();
-  downloadFile(`together-${n.a}-${n.b}-${toISO(new Date())}.json`, "application/json", store.exportText(state));
+  openDialog("Export a backup", `
+    <p class="small">A backup file holds your whole plan. Add a password so it's safe to email or keep in cloud storage —
+      without the password nobody can open it (including you, so don't lose it).</p>
+    <label class="field">Password (optional, recommended)<input name="password" type="password" autocomplete="new-password" minlength="6"></label>`,
+  async values => {
+    const password = values.password || "";
+    if (password && password.length < 6) {
+      toast("Use at least 6 characters (or leave it empty for a plain file).");
+      return;
+    }
+    const n = names();
+    state.lastBackupAt = new Date().toISOString();
+    persist();
+    const plain = store.exportText(state);
+    const body = password ? await encryptBackup(plain, password) : plain;
+    downloadFile(`together-${n.a}-${n.b}-${toISO(new Date())}${password ? "-locked" : ""}.json`, "application/json", body);
+    toast(password ? "Password-protected backup downloaded 🔒" : "Backup downloaded");
+  }, "Download");
+}
+/** Ask for the password of an encrypted backup, then hand the decrypted text back to the normal import path. */
+function importEncryptedBackup(envelope, onPlainText) {
+  openDialog("Unlock backup 🔒", `
+    <p class="small">This backup is password-protected.</p>
+    <label class="field">Password<input name="password" type="password" autocomplete="current-password" required></label>`,
+  async values => {
+    try {
+      onPlainText(await decryptBackup(envelope, values.password || ""));
+    } catch (error) {
+      toast(`⚠️ ${error.message}`);
+    }
+  }, "Unlock");
 }
 
 const actions = {
@@ -2667,8 +2730,12 @@ function bindEvents() {
       el.value = "";
     } else if (el.matches("[data-import]") && el.files[0]) {
       const reader = new FileReader();
-      reader.onload = () => {
-        const result = store.importText(String(reader.result));
+      const applyImport = text => {
+        const result = store.importText(text);
+        if (result.encrypted) {
+          importEncryptedBackup(result.encrypted, applyImport);
+          return;
+        }
         if (result.error) {
           toast(`⚠️ ${result.error}`);
           return;
@@ -2678,6 +2745,7 @@ function bindEvents() {
           state = result.state;
         });
       };
+      reader.onload = () => applyImport(String(reader.result));
       reader.readAsText(el.files[0]);
       el.value = "";
     }
@@ -3242,6 +3310,28 @@ async function runSelfTests() {
       && /times/.test(both) && /encrypted/.test(both) && !/nothing is uploaded/.test(remindersOnly) && /never the text/.test(remindersOnly)
       && !/no cloud/i.test(viewOnboarding()) && /encrypted/.test(viewOnboarding());
     return ok || JSON.stringify({ off, syncing, both, remindersOnly });
+  });
+  await test("trust: password-protected backup round-trips; wrong password fails; file holds no plaintext", async () => {
+    const plan = migrate({ ...blankState(), couple: { ...blankState().couple, a: { name: "Zoe", birth: "" }, b: { name: "Sam", birth: "" } } });
+    const plain = store.exportText(plan);
+    const locked = await encryptBackup(plain, "correct horse");
+    const parsed = store.importText(locked);
+    let wrongRejected = false;
+    try {
+      await decryptBackup(parsed.encrypted, "wrong horse");
+    } catch (error) {
+      wrongRejected = true;
+    }
+    const reopened = store.importText(await decryptBackup(parsed.encrypted, "correct horse"));
+    return Boolean(parsed.encrypted) && wrongRejected && reopened.state?.couple.a.name === "Zoe" && !locked.includes('"Zoe"') && !locked.includes("Sam")
+      || JSON.stringify({ parsed: Boolean(parsed.encrypted), wrongRejected, reopened: reopened.error });
+  });
+  await test("milestone template covers later life: parents' care, retirement check, where to live, wills & wishes", () => {
+    const list = buildTemplate({ ...blankState().couple, a: { name: "A", birth: "1996-01-01" }, b: { name: "B", birth: "1996-01-01" }, stage: "dating", retireAge: 65 }, new Date(2026, 0, 15));
+    const titles = list.map(m => m.title).join(" | ");
+    const ok = ["caring for our parents", "Retirement check", "where we'll live", "Wills, powers of attorney"].every(t => titles.includes(t))
+      && list.every((m, i) => !i || STAGE_INDEX[list[i - 1].stage] <= STAGE_INDEX[m.stage] || list[i - 1].date <= m.date);
+    return ok || titles;
   });
   await test("savings: required monthly for a target and today's-money conversion", () => {
     const monthly = requiredMonthlyForTarget(0, 1200, 0, 1);

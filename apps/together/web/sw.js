@@ -1,6 +1,6 @@
 // Together service worker: offline app shell + payload-less push reminders.
 // Reminder texts are written into IndexedDB by the page; pushes only say "something is due".
-const CACHE = "together-v5";
+const CACHE = "together-v6";
 const SHELL = ["./", "./index.html", "./manifest.webmanifest", "./icons/icon-192.png", "./icons/icon-512.png", "./icons/apple-touch-icon.png"];
 
 self.addEventListener("install", event => {

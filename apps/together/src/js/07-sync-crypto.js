@@ -62,3 +62,27 @@ async function openPlan(text, encKey) {
   return JSON.parse(new TextDecoder().decode(bytes));
 }
 
+/** Password-protected backup file. The password is stretched with PBKDF2 (random salt) into an AES-GCM key. */
+async function backupKey(password, salt) {
+  const material = await crypto.subtle.importKey("raw", textBytes(String(password).normalize("NFKC")), "PBKDF2", false, ["deriveKey"]);
+  return crypto.subtle.deriveKey({ name: "PBKDF2", hash: "SHA-256", salt, iterations: PASSPHRASE_ITERATIONS },
+    material, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
+}
+async function encryptBackup(text, password) {
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const key = await backupKey(password, salt);
+  const data = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, textBytes(text)));
+  return JSON.stringify({ app: "together", format: "encrypted-v1", kdf: "PBKDF2-SHA256", iterations: PASSPHRASE_ITERATIONS,
+    salt: b64u.encode(salt), iv: b64u.encode(iv), data: b64u.encode(data) });
+}
+async function decryptBackup(envelope, password) {
+  const key = await backupKey(password, b64u.decode(envelope.salt));
+  try {
+    const plain = await crypto.subtle.decrypt({ name: "AES-GCM", iv: b64u.decode(envelope.iv) }, key, b64u.decode(envelope.data));
+    return new TextDecoder().decode(plain);
+  } catch (error) {
+    throw new Error("Wrong password — or the file was damaged.");
+  }
+}
+

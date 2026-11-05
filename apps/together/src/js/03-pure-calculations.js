@@ -144,9 +144,13 @@ function buildTemplate(couple, now) {
     ["family", "10th wedding anniversary 🥂", fromWedding(120), "Plan something special, just the two of us."],
     ["growth", "Big adventure for two ✈️", fromWedding(180), ""],
     ["growth", "Health check-ups & fitness reset", fromWedding(210), ""],
+    ["growth", "Talk about caring for our parents 🤝", fromWedding(228), "Who helps, how, and what it means for money and time. Ask them what they want."],
     ["nest", "Kids leave home 🎓", fromWedding(36 + 216), ""],
     ["nest", "Silver anniversary — 25 years 💐", fromWedding(300), ""],
+    ["nest", "Retirement check: pensions, when to claim, health cover", addMonths(retire, -24), "Two years out: confirm the numbers in Money → Retiring together."],
     ["retire", "Retire together 🌅", retire, `Both of you at least ${couple.retireAge}.`],
+    ["retire", "Decide where we'll live as we age 🏡", addMonths(retire, 24), "Stay, downsize, or move closer to family? Think about stairs, transport and care nearby."],
+    ["golden", "Wills, powers of attorney & wishes written down 🕊️", addMonths(retire, 60), "Update wills and beneficiaries, choose who decides if you can't, and tell family where documents are. See the Legacy talk."],
     ["golden", "Golden anniversary — 50 years 💛", fromWedding(600), ""],
     ["golden", "Write our family story for the grandkids 📖", fromWedding(612), ""],
   ];

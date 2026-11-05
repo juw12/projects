@@ -270,12 +270,17 @@ function viewMoney() {
     <form class="fields-2" data-form="retirement">
       <label class="field">Retirement savings today (${esc(cur)})<input name="saved" type="number" step="any" value="${esc(r.saved)}"></label>
       <label class="field">We add per month (${esc(cur)})<input name="monthly" type="number" step="any" value="${esc(r.monthly)}"></label>
-      <label class="field">Expected yearly return (%)<input name="rate" type="number" step="0.1" value="${esc(r.rate)}"></label>
-      <label class="field">Fees &amp; tax drag per year (%)<input name="fees" type="number" step="0.1" value="${esc(r.fees)}"></label>
-      <label class="field">Inflation per year (%)<input name="inflation" type="number" step="0.1" value="${esc(r.inflation)}"></label>
       <label class="field">Retire when both are age<input name="retireAge" type="number" min="40" max="85" value="${esc(state.couple.retireAge)}"></label>
       <label class="field">Yearly spending we want in retirement (today's ${esc(cur)})<input name="spend" type="number" step="any" value="${esc(r.spend)}"></label>
-      <label class="field">Safe withdrawal rate (%)<input name="withdrawal" type="number" step="0.1" value="${esc(r.withdrawal)}"></label>
+      <details class="assumptions" style="grid-column:1/-1">
+        <summary class="small">Assumptions: ${esc(r.rate)}% return · ${esc(r.fees)}% fees · ${esc(r.inflation)}% inflation · ${esc(r.withdrawal)}% withdrawal — change</summary>
+        <div class="fields-2" style="margin-top:8px">
+          <label class="field">Expected yearly return (%)<input name="rate" type="number" step="0.1" value="${esc(r.rate)}"></label>
+          <label class="field">Fees &amp; tax drag per year (%)<input name="fees" type="number" step="0.1" value="${esc(r.fees)}"></label>
+          <label class="field">Inflation per year (%)<input name="inflation" type="number" step="0.1" value="${esc(r.inflation)}"></label>
+          <label class="field">Safe withdrawal rate (%)<input name="withdrawal" type="number" step="0.1" value="${esc(r.withdrawal)}"></label>
+        </div>
+      </details>
     </form>
     <div class="stats" style="margin-top:6px">
       <div class="stat"><b>${esc(money(plan.projectedReal, cur))}</b><span class="small muted">projected, in today's money</span></div>

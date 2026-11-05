@@ -5,7 +5,8 @@ A private life-planning app for couples: from dating to marriage, a home, kids, 
 **Open it:** https://juw12.github.io/projects/together/ · **Demo with sample data:** https://juw12.github.io/projects/together/?demo=1
 
 - **Roadmap** across 10 life stages (dating → golden years); every milestone shows both partners' ages
-  (and children's) plus a lifeline to ~90.
+  (and children's) plus a lifeline to ~90 — including the later-life conversations people put off
+  (caring for parents, a retirement check, where to live as you age, wills and powers of attorney).
 - **Goals** shared or personal, broken into steps.
 - **Money**: savings pots linked to milestones, a retirement planner with inflation, fees and a
   "how much do we need" target, education funds per child, and a net-worth tracker. Import a bank-statement
@@ -23,7 +24,10 @@ A private life-planning app for couples: from dating to marriage, a home, kids, 
   birthdays and backups. The server stores only *when* to ping; reminder text stays on the device.
   "Send a test" pushes through the real server → push service → phone path. (iPhone/iPad: Apple requires
   Add to Home Screen first and iOS 16.4+; the app shows step-by-step guidance and detects in-app browsers.)
-- Works offline; export/import backups; print the whole plan; calendar (.ics) reminders.
+- Works offline; export/import backups — optionally **password-locked** (AES-GCM, PBKDF2 600k rounds, so a
+  backup left in Downloads or e-mail doesn't expose your plan); print the whole plan; calendar (.ics) reminders.
+- **Accessible**: every control has an accessible name, text meets WCAG AA contrast in light and dark mode,
+  visible keyboard focus, labelled dialogs (checked by an automated audit on every tab).
 
 ## Layout
 

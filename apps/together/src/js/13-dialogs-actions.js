@@ -106,10 +106,37 @@ function downloadFile(filename, type, text) {
   toast(`Downloaded ${link.download} ⬇️`);
 }
 function downloadBackup() {
-  const n = names();
-  state.lastBackupAt = new Date().toISOString();
-  persist();
-  downloadFile(`together-${n.a}-${n.b}-${toISO(new Date())}.json`, "application/json", store.exportText(state));
+  openDialog("Export a backup", `
+    <p class="small">A backup file holds your whole plan. Add a password so it's safe to email or keep in cloud storage —
+      without the password nobody can open it (including you, so don't lose it).</p>
+    <label class="field">Password (optional, recommended)<input name="password" type="password" autocomplete="new-password" minlength="6"></label>`,
+  async values => {
+    const password = values.password || "";
+    if (password && password.length < 6) {
+      toast("Use at least 6 characters (or leave it empty for a plain file).");
+      return;
+    }
+    const n = names();
+    state.lastBackupAt = new Date().toISOString();
+    persist();
+    const plain = store.exportText(state);
+    const body = password ? await encryptBackup(plain, password) : plain;
+    downloadFile(`together-${n.a}-${n.b}-${toISO(new Date())}${password ? "-locked" : ""}.json`, "application/json", body);
+    toast(password ? "Password-protected backup downloaded 🔒" : "Backup downloaded");
+  }, "Download");
+}
+/** Ask for the password of an encrypted backup, then hand the decrypted text back to the normal import path. */
+function importEncryptedBackup(envelope, onPlainText) {
+  openDialog("Unlock backup 🔒", `
+    <p class="small">This backup is password-protected.</p>
+    <label class="field">Password<input name="password" type="password" autocomplete="current-password" required></label>`,
+  async values => {
+    try {
+      onPlainText(await decryptBackup(envelope, values.password || ""));
+    } catch (error) {
+      toast(`⚠️ ${error.message}`);
+    }
+  }, "Unlock");
 }
 
 const actions = {
@@ -451,8 +478,12 @@ function bindEvents() {
       el.value = "";
     } else if (el.matches("[data-import]") && el.files[0]) {
       const reader = new FileReader();
-      reader.onload = () => {
-        const result = store.importText(String(reader.result));
+      const applyImport = text => {
+        const result = store.importText(text);
+        if (result.encrypted) {
+          importEncryptedBackup(result.encrypted, applyImport);
+          return;
+        }
         if (result.error) {
           toast(`⚠️ ${result.error}`);
           return;
@@ -462,6 +493,7 @@ function bindEvents() {
           state = result.state;
         });
       };
+      reader.onload = () => applyImport(String(reader.result));
       reader.readAsText(el.files[0]);
       el.value = "";
     }

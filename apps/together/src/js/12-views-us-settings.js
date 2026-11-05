@@ -242,7 +242,7 @@ function viewSettings() {
       <h3 style="margin-top:16px">Roadmap</h3>
       <button type="button" data-act="template">✨ Add suggested milestones</button>
       <h3 style="margin-top:16px">Danger zone</h3>
-      <button type="button" data-act="reset" style="color:#c0392b">Erase everything on this device</button>
+      <button type="button" data-act="reset" class="danger">Erase everything on this device</button>
     </section>
   </div>`;
 }

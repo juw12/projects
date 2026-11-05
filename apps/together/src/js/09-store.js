@@ -82,6 +82,7 @@ const store = {
     } catch (error) {
       return { error: "That file is not valid JSON." };
     }
+    if (data && data.app === "together" && data.format === "encrypted-v1") return { encrypted: data };
     const problem = validateImport(data);
     if (problem) return { error: problem };
     return { state: migrate(data.state) };
