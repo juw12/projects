@@ -36,8 +36,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Install PyInstaller, Pillow and pywebview
-        run: python -m pip install --disable-pip-version-check pyinstaller pillow pywebview
+      - name: Install PyInstaller, Pillow, pywebview and pywin32
+        run: python -m pip install --disable-pip-version-check pyinstaller pillow pywebview pywin32
       - name: Install Inno Setup
         shell: pwsh
         run: |

@@ -48,17 +48,56 @@ def toolkit_files():
     return pairs
 
 
+def _bundled_sources():
+    """Plain-source .py files shipped as data (vault + sub-app servers); PyInstaller does not analyse them."""
+    sources = [VAULT]
+    roots = [os.path.join(TOOLKIT, "vertex", d) for d in VERTEX_DIRS]
+    roots += [os.path.join(TOOLKIT, "ptb-rdme", d) for d in PTB_DIRS]
+    for root in roots:
+        for current, dirs, files in os.walk(root):
+            dirs[:] = [d for d in dirs if d not in SKIP_DIRS]
+            sources += [os.path.join(current, f) for f in files if f.endswith(".py")]
+    return sources
+
+
 def vault_imports():
-    """Top-level modules vault_server.py imports (it is plain source PyInstaller does not analyse)."""
+    """Modules the bundled plain-source files import, so the frozen app carries them (e.g. sqlite3, win32com).
+
+    Local modules (files/folders shipped next to them) are skipped, and optional third-party imports that are not
+    installed at build time are left out rather than failing the build.
+    """
+    import importlib.util
+
+    sources = _bundled_sources()
+    local = set()
+    for path in sources:
+        folder = os.path.dirname(path)
+        for entry in os.listdir(folder):
+            local.add(os.path.splitext(entry)[0])
     found = set()
-    with open(VAULT, encoding="utf-8") as handle:
-        tree = ast.parse(handle.read())
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Import):
-            found.update(alias.name for alias in node.names)
-        elif isinstance(node, ast.ImportFrom) and node.module and not node.level:
-            found.add(node.module)
-    return sorted(name for name in found if name != "__future__")
+    for path in sources:
+        with open(path, encoding="utf-8") as handle:
+            try:
+                tree = ast.parse(handle.read())
+            except SyntaxError:
+                continue
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                found.update(alias.name for alias in node.names)
+            elif isinstance(node, ast.ImportFrom) and node.module and not node.level:
+                found.add(node.module)
+    keep = []
+    for name in sorted(found):
+        top = name.split(".")[0]
+        if name == "__future__" or top in local:
+            continue
+        try:
+            if importlib.util.find_spec(top) is None:
+                continue
+        except (ImportError, ValueError):
+            continue
+        keep.append(name)
+    return keep
 
 
 EXCLUDES = ["tkinter", "unittest", "test", "idlelib", "lib2to3"]
