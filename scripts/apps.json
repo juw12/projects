@@ -1849,14 +1849,14 @@
     },
     {
       "id": "watt-reserve",
-      "name": "Battery Check (Watt Reserve)",
+      "name": "Peakwise",
       "category": "Engineering",
       "external": true,
       "url": "https://juw12.github.io/watt-reserve/",
       "url_label": "Open site",
       "desc": "Does a battery pay back for a Taiwan factory? A neutral 60-second check with a quote checker",
       "summary": "Neutral 60-second check: does a battery pay back for a Taiwan factory? Real tariff, subsidy and a quote checker.",
-      "description": "Battery Check (儲能健檢) tells a Taiwan factory in about a minute whether <strong>on-site battery storage pays back</strong>. It runs the <strong>October 2025 Taipower tariff</strong> and the <strong>MOEA subsidy</strong>, gives a plain verdict with the downside (cost +20%, savings −20%, no subsidy), and a <strong>quote check</strong> that shows the maximum fair price per kWh. No login, no data upload, Chinese or English, shareable to LINE, backed by a tested Python model.",
+      "description": "Peakwise (峰值) tells a Taiwan factory in about a minute whether <strong>on-site battery storage pays back</strong>. It runs the <strong>October 2025 Taipower tariff</strong> and the <strong>MOEA subsidy</strong>, gives a plain verdict with the downside (cost +20%, savings −20%, no subsidy), and a <strong>quote check</strong> that shows the maximum fair price per kWh. No login, no data upload, Chinese or English, shareable to LINE, backed by a tested Python model.",
       "tags": [
         "Energy storage",
         "Taiwan",
@@ -1866,6 +1866,7 @@
         "bilingual"
       ],
       "note_tags": [
+        "peakwise",
         "watt-reserve",
         "energy-storage",
         "bess",
@@ -1874,7 +1875,7 @@
         "static-site"
       ],
       "image": "watt-reserve-card.jpg",
-      "image_alt": "Battery Check showing a 4 MWh recommendation: 6-year payback, 14.8% IRR and NT$16.4M NPV, with a worth-a-look verdict",
+      "image_alt": "Peakwise showing a 4 MWh recommendation: 6-year payback, 14.8% IRR and NT$16.4M NPV, with a worth-a-look verdict",
       "extra_links": [
         {
           "label": "Source",
@@ -1882,7 +1883,7 @@
         }
       ],
       "card": {
-        "label": "watt-reserve · battery check",
+        "label": "peakwise · 峰值",
         "theme": "dark",
         "accent": "#f59e0b",
         "accent2": "#22c55e"
