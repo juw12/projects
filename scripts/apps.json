@@ -1849,14 +1849,14 @@
     },
     {
       "id": "watt-reserve",
-      "name": "Watt Reserve",
+      "name": "Battery Check (Watt Reserve)",
       "category": "Engineering",
       "external": true,
       "url": "https://juw12.github.io/watt-reserve/",
       "url_label": "Open site",
-      "desc": "Does a battery pay back for a Taiwan factory? A free 60-second calculator on the real Taipower tariff",
-      "summary": "Free bilingual calculator: does on-site battery storage pay back for a Taiwan factory? Real tariff, subsidy, PDF report.",
-      "description": "Watt Reserve tells a Taiwan factory in about a minute whether <strong>on-site battery storage pays back</strong>. It sizes the system from contract capacity and peak load, then runs the <strong>October 2025 Taipower three-stage tariff</strong> and the <strong>MOEA storage subsidy</strong> to give payback, IRR and 15-year NPV. It runs entirely <strong>in the browser</strong> in Chinese or English, prints a <strong>report you can forward</strong>, and is backed by a tested Python model.",
+      "desc": "Does a battery pay back for a Taiwan factory? A neutral 60-second check with a quote checker",
+      "summary": "Neutral 60-second check: does a battery pay back for a Taiwan factory? Real tariff, subsidy and a quote checker.",
+      "description": "Battery Check (儲能健檢) tells a Taiwan factory in about a minute whether <strong>on-site battery storage pays back</strong>. It runs the <strong>October 2025 Taipower tariff</strong> and the <strong>MOEA subsidy</strong>, gives a plain verdict with the downside (cost +20%, savings −20%, no subsidy), and a <strong>quote check</strong> that shows the maximum fair price per kWh. No login, no data upload, Chinese or English, shareable to LINE, backed by a tested Python model.",
       "tags": [
         "Energy storage",
         "Taiwan",
@@ -1874,7 +1874,7 @@
         "static-site"
       ],
       "image": "watt-reserve-card.jpg",
-      "image_alt": "Watt Reserve calculator showing a 4 MWh recommendation with 6-year payback, 15.9% IRR and NT$18.72M NPV",
+      "image_alt": "Battery Check showing a 4 MWh recommendation: 6-year payback, 14.8% IRR and NT$16.4M NPV, with a worth-a-look verdict",
       "extra_links": [
         {
           "label": "Source",
@@ -1882,7 +1882,7 @@
         }
       ],
       "card": {
-        "label": "watt-reserve · calculator",
+        "label": "watt-reserve · battery check",
         "theme": "dark",
         "accent": "#f59e0b",
         "accent2": "#22c55e"
