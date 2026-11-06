@@ -1934,6 +1934,48 @@
       "status": "released",
       "order": 44,
       "portfolio": true
+    },
+    {
+      "id": "millennium-digest",
+      "name": "Millennium Digest",
+      "category": "Automation",
+      "external": true,
+      "url": "https://juw12.github.io/millennium-digest/",
+      "url_label": "Open site",
+      "desc": "Weekly arXiv digest on the Millennium Prize problems, plus a rule-checked, drafts-only outreach helper",
+      "summary": "Weekly arXiv digest on the seven Millennium Prize problems.",
+      "description": "Every Monday it collects the new arXiv papers on each Millennium Prize problem, flags changes on the Clay page and two data sources, and writes one digest page. A drafts-only helper checks emails to researchers against written rules before you send them yourself.",
+      "tags": [
+        "Python",
+        "arXiv",
+        "Automation"
+      ],
+      "note_tags": [
+        "millennium-digest",
+        "arxiv",
+        "automation",
+        "millennium-prize",
+        "python",
+        "research-tools"
+      ],
+      "image": "millennium-digest-card.jpg",
+      "image_alt": "Millennium Digest project page: dark header with the title, a purple View the code on GitHub button, and cards for the weekly digest, outreach guard and honest scope",
+      "extra_links": [
+        {
+          "label": "Source",
+          "url": "https://github.com/juw12/millennium-digest"
+        }
+      ],
+      "card": {
+        "label": "millennium-digest · home",
+        "capture": "https://juw12.github.io/millennium-digest/",
+        "theme": "dark",
+        "accent": "#7354c4",
+        "accent2": "#9e2f9b"
+      },
+      "status": "released",
+      "order": 45,
+      "portfolio": true
     }
   ]
 }
