@@ -1848,11 +1848,11 @@
       "portfolio": true
     },
     {
-      "id": "watt-reserve",
+      "id": "peakwise",
       "name": "Peakwise",
       "category": "Engineering",
       "external": true,
-      "url": "https://juw12.github.io/watt-reserve/",
+      "url": "https://juw12.github.io/peakwise/",
       "url_label": "Open site",
       "desc": "Does a battery pay back for a Taiwan factory? A neutral 60-second check with a quote checker",
       "summary": "Neutral 60-second check: does a battery pay back for a Taiwan factory? Real tariff, subsidy and a quote checker.",
@@ -1867,19 +1867,18 @@
       ],
       "note_tags": [
         "peakwise",
-        "watt-reserve",
         "energy-storage",
         "bess",
         "taiwan",
         "calculator",
         "static-site"
       ],
-      "image": "watt-reserve-card.jpg",
+      "image": "peakwise-card.jpg",
       "image_alt": "Peakwise showing a 4 MWh recommendation: 6-year payback, 14.8% IRR and NT$16.4M NPV, with a worth-a-look verdict",
       "extra_links": [
         {
           "label": "Source",
-          "url": "https://github.com/juw12/watt-reserve"
+          "url": "https://github.com/juw12/peakwise"
         }
       ],
       "card": {
