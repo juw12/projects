@@ -58,6 +58,32 @@ function demoState() {
     { id: uid(), date: daysAgo(3), text: "Picnic in the park", cost: 18 },
     { id: uid(), date: daysAgo(20), text: "Karaoke night", cost: 45 },
   ];
+  // Kids' plan: University for the baby, in an index fund, with a balance checked 10 days ago.
+  const baby = s.kids[0];
+  const uni = { id: uid(), kidId: baby.id, name: "University", targetAge: 18, product: "index", rate: 9, tax: 0, cost: 60000, inflation: "",
+    start: 1500, since: toISO(addMonths(now, -8)), monthly: 150 };
+  s.kidPlans = [uni];
+  s.kidLogs = [-7, -6, -5, -4, -3, -2, -1].map((offset, i) => ({ id: uid(), planId: uni.id, kind: "deposit", amount: 150, by: ["a", "b", "both"][i % 3], date: toISO(addMonths(now, offset)) }));
+  s.kidLogs.push({ id: uid(), planId: uni.id, kind: "balance", amount: 2685, by: "", date: daysAgo(10) });
+  // Honeymoon (saving in a pot tied to the roadmap) and a past weekend away with its spending.
+  const honeymoonMilestone = s.milestones.find(m => m.title === "Honeymoon");
+  const honeymoonDate = honeymoonMilestone && honeymoonMilestone.date ? honeymoonMilestone.date : toISO(addMonths(now, 14));
+  const honeymoon = { id: uid(), name: "Honeymoon in Bali", kind: "honeymoon", destination: "Ubud and the Gili Islands", date: honeymoonDate, nights: 7,
+    budget: { flights: 1400, stay: 160, food: 90, activities: 600, transport: 200, other: 300 }, buffer: 10, fundId: "", milestoneId: "" };
+  const honeymoonPot = { id: uid(), name: "Honeymoon in Bali", target: Math.round(tripBudget(honeymoon).total), saved: 0, monthly: 250,
+    milestoneId: honeymoonMilestone ? honeymoonMilestone.id : "" };
+  honeymoon.fundId = honeymoonPot.id;
+  honeymoon.milestoneId = honeymoonPot.milestoneId;
+  s.funds.push(honeymoonPot);
+  s.contributions.push(
+    { id: uid(), fundId: honeymoonPot.id, amount: 500, by: "both", date: daysAgo(45) },
+    { id: uid(), fundId: honeymoonPot.id, amount: 250, by: "a", date: daysAgo(15) },
+  );
+  const weekend = { id: uid(), name: "Weekend in the mountains", kind: "holiday", destination: "Lake cabin", date: toISO(addMonths(now, -2)), nights: 2,
+    budget: { flights: 0, stay: 120, food: 60, activities: 80, transport: 70, other: 40 }, buffer: 10, fundId: "", milestoneId: "" };
+  s.trips = [honeymoon, weekend];
+  s.tripSpends = [["stay", 240], ["food", 205], ["activities", 65], ["transport", 82], ["other", 25]]
+    .map(([cat, amount]) => ({ id: uid(), tripId: weekend.id, cat, amount, by: "both", date: weekend.date }));
   return s;
 }
 

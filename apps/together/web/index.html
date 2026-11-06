@@ -155,6 +155,27 @@
 .rate-table { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 6px; margin: 10px 0; }
 .rate-row { display: flex; justify-content: space-between; gap: 8px; padding: 6px 10px; border: 1px solid var(--line); border-radius: 8px; font-size: .86rem; }
 .rate-row.now { border-color: var(--rose); background: var(--rose-soft); }
+/* kids' plans and trips */
+.rate-table.lines { grid-template-columns: 1fr; gap: 0; }
+.rate-table.lines .rate-row { display: grid; border: 0; border-top: 1px solid var(--line); border-radius: 0; padding: 6px 2px; gap: 8px; }
+.rate-table.lines .rate-row.head { border-top: 0; color: var(--muted); font-size: .78rem; }
+.rate-table.lines .rate-row.total { border-top: 1px solid var(--line-strong); }
+.rate-table.lines .rate-row span:not(:first-child) { text-align: right; }
+.kid-row { grid-template-columns: minmax(0, .9fr) repeat(3, minmax(0, 1fr)); }
+.trip-row { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
+.with-spent .trip-row { grid-template-columns: minmax(0, 2fr) repeat(2, minmax(0, 1fr)); }
+.trip-row .over { color: var(--danger); font-weight: 600; }
+.growth-chart { display: block; width: 100%; height: auto; margin-top: 8px; }
+.chart-put { fill: var(--line-strong); }
+.chart-growth { fill: var(--green); }
+.chart-goal { stroke: var(--rose); stroke-width: 1.5; stroke-dasharray: 4 3; }
+.chart-legend { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 2px; }
+.swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+.swatch.put { background: var(--line-strong); }
+.swatch.growth { background: var(--green); }
+.swatch.goal { background: var(--rose); height: 3px; vertical-align: 2px; }
+.trip-budget { border: 0; padding: 0; margin: 8px 0 0; min-width: 0; }
+.trip-spend { flex-wrap: wrap; }
 .debt-row { padding: 8px 0; border-top: 1px solid var(--line); }
 .debt-row:first-child { border-top: 0; }
   .empty { text-align: center; padding: 24px 16px; color: var(--muted); border: 1px dashed var(--line-strong); border-radius: var(--radius); }
@@ -1169,6 +1190,214 @@ function readMintBooks(storage) {
     return [];
   }
 }
+/* ------------------------------------------ kids' plans and trip budgets */
+
+/* ---- kids' plans: an investment or deposit plan per child and goal ---- */
+// Starting rates are editable illustrations, not quotes. Tax is on growth, using Indonesia's rules
+// (pajak.go.id): 20% final tax on deposit interest, 10% on retail government bond (SBN) coupons,
+// none on mutual-fund gains for individuals.
+const KID_PRODUCTS = {
+  deposit: { name: "Time deposit (deposito)", rate: 4, tax: 20 },
+  mmf: { name: "Money-market fund (reksa dana pasar uang)", rate: 4.5, tax: 0 },
+  sbn: { name: "Retail government bonds (SBN: ORI, SBR, ST)", rate: 6, tax: 10 },
+  index: { name: "Equity index fund (reksa dana indeks saham)", rate: 9, tax: 0 },
+  gold: { name: "Gold (emas)", rate: 5, tax: 0 },
+  custom: { name: "Something else", rate: 5, tax: 0 },
+};
+const KID_GOALS = [
+  { id: "primary", name: "Primary school (SD)", age: 6 },
+  { id: "junior", name: "Junior high (SMP)", age: 12 },
+  { id: "senior", name: "Senior high (SMA)", age: 15 },
+  { id: "university", name: "University", age: 18 },
+  { id: "start", name: "A head start in life", age: 21 },
+];
+
+/** Yearly growth after tax on that growth, in %. */
+function kidPlanNetRate(plan) {
+  const gross = Number(plan.rate) || 0;
+  const tax = clamp(Number(plan.tax) || 0, 0, 100);
+  return gross * (1 - tax / 100);
+}
+/** A plan's deposits and balance updates, oldest first. */
+function kidPlanLogs(plan, state) {
+  return (state.kidLogs || []).filter(log => log.planId === plan.id).slice().sort(byDate);
+}
+/** What's in the plan now. With a logged balance, that balance plus deposits made after it;
+ *  without one, simply what was put in (growth isn't known until you check the account). */
+function kidPlanBalance(plan, state) {
+  const logs = kidPlanLogs(plan, state);
+  const deposits = logs.filter(log => log.kind !== "balance");
+  const putIn = (Number(plan.start) || 0) + deposits.reduce((sum, log) => sum + (Number(log.amount) || 0), 0);
+  const snapshots = logs.filter(log => log.kind === "balance");
+  const last = snapshots[snapshots.length - 1];
+  if (!last) return { balance: putIn, putIn, growth: 0, measured: false, asOf: null };
+  const after = deposits.filter(log => log.date > last.date).reduce((sum, log) => sum + (Number(log.amount) || 0), 0);
+  const balance = (Number(last.amount) || 0) + after;
+  return { balance, putIn, growth: balance - putIn, measured: true, asOf: last.date };
+}
+/** The date the money is needed: the child's birthday at the plan's target age. */
+function kidPlanTargetDate(plan, state) {
+  const kid = state.kids.find(k => k.id === plan.kidId);
+  const birth = kid ? parseDate(kid.birth) : null;
+  if (!birth) return null;
+  const age = Math.max(0, Number(plan.targetAge) || 0);
+  return { kid, date: new Date(birth.getFullYear() + age, birth.getMonth(), birth.getDate()) };
+}
+/** Net yearly rate (%) at which `present` plus `monthly` grows into `target` over `years`;
+ *  0 if no growth is needed, null if even 40% a year wouldn't get there. */
+function rateNeeded(present, monthly, target, years) {
+  if (futureValue(present, monthly, 0, years) >= target) return 0;
+  if (futureValue(present, monthly, 40, years) < target) return null;
+  let low = 0;
+  let high = 40;
+  for (let i = 0; i < 60; i += 1) {
+    const mid = (low + high) / 2;
+    if (futureValue(present, monthly, mid, years) >= target) high = mid;
+    else low = mid;
+  }
+  return high;
+}
+/** Projection to the target date: yearly points (what you put in vs growth), the cost then,
+ *  and what closes any gap (more per month, or a higher rate). */
+function projectKidPlan(plan, state, now) {
+  const target = kidPlanTargetDate(plan, state);
+  if (!target) return null;
+  const months = Math.max(0, monthsBetween(now, target.date));
+  const years = months / 12;
+  const netRate = kidPlanNetRate(plan);
+  const monthly = Math.max(0, Number(plan.monthly) || 0);
+  const current = kidPlanBalance(plan, state);
+  const series = [];
+  for (let year = 0; year * 12 < months + 12; year += 1) {
+    const m = Math.min(year * 12, months);
+    const value = futureValue(current.balance, monthly, netRate, m / 12);
+    const putIn = current.putIn + monthly * m;
+    series.push({ month: m, date: addMonths(now, m), age: ageOn(target.kid.birth, addMonths(now, m)), value, putIn, growth: value - putIn });
+    if (m === months) break;
+  }
+  const final = series[series.length - 1].value;
+  const inflation = plan.inflation === "" || plan.inflation === undefined ? Number(state.retirement.eduInflation) || 0 : Number(plan.inflation) || 0;
+  const costToday = Math.max(0, Number(plan.cost) || 0);
+  const costThen = costToday > 0 ? costToday * Math.pow(1 + inflation / 100, years) : null;
+  const gap = costThen !== null ? costThen - final : null;
+  return {
+    kid: target.kid, date: target.date, months, years, netRate, monthly, weekly: monthly * 12 / 52,
+    now: current, series, final, finalPutIn: series[series.length - 1].putIn, inflation, costToday, costThen, gap,
+    neededMonthly: costThen !== null && months > 0 ? requiredMonthlyForTarget(current.balance, costThen, netRate, years) : null,
+    neededRate: costThen !== null && months > 0 ? rateNeeded(current.balance, monthly, costThen, years) : null,
+  };
+}
+/** Money-weighted yearly return (%) of dated cash flows (negative = money in, positive = value now). */
+function annualizedReturn(flows) {
+  const dated = flows.filter(flow => flow.date instanceof Date && Number.isFinite(flow.amount) && flow.amount !== 0)
+    .sort((x, y) => x.date - y.date);
+  if (dated.length < 2 || !dated.some(f => f.amount < 0) || !dated.some(f => f.amount > 0)) return null;
+  const t0 = dated[0].date;
+  const yearsFrom = date => (date - t0) / (365.25 * 864e5);
+  const npv = rate => dated.reduce((sum, flow) => sum + flow.amount / Math.pow(1 + rate, yearsFrom(flow.date)), 0);
+  let low = -0.99;
+  let high = 10;
+  let npvLow = npv(low);
+  if (npvLow * npv(high) > 0) return null;
+  for (let i = 0; i < 200; i += 1) {
+    const mid = (low + high) / 2;
+    const value = npv(mid);
+    if (value * npvLow > 0) {
+      low = mid;
+      npvLow = value;
+    } else {
+      high = mid;
+    }
+  }
+  return ((low + high) / 2) * 100;
+}
+/** Real yearly growth from what you put in and the balances you logged; needs ~2 months of history. */
+function kidRealGrowth(plan, state) {
+  const logs = kidPlanLogs(plan, state);
+  const snapshots = logs.filter(log => log.kind === "balance");
+  const last = snapshots[snapshots.length - 1];
+  if (!last) return null;
+  const flows = [];
+  const since = parseDate(plan.since);
+  if (since && Number(plan.start) > 0) flows.push({ date: since, amount: -Number(plan.start) });
+  for (const log of logs) {
+    if (log.kind !== "balance" && log.date <= last.date && parseDate(log.date)) flows.push({ date: parseDate(log.date), amount: -(Number(log.amount) || 0) });
+  }
+  const end = parseDate(last.date);
+  const first = flows.reduce((min, flow) => (!min || flow.date < min ? flow.date : min), null);
+  if (!end || !first) return null;
+  const days = daysBetween(first, end);
+  if (days < 60) return { tooSoon: true, days, since: first };
+  flows.push({ date: end, amount: Number(last.amount) || 0 });
+  const rate = annualizedReturn(flows);
+  return rate === null ? null : { rate, since: first, asOf: last.date, days };
+}
+/** Home card line: this week's combined kids' target and what went in. */
+function kidsWeek(state, now) {
+  const start = toISO(startOfWeek(now));
+  const end = toISO(new Date(startOfWeek(now).getFullYear(), startOfWeek(now).getMonth(), startOfWeek(now).getDate() + 6));
+  const plans = state.kidPlans.filter(plan => Number(plan.monthly) > 0);
+  const target = plans.reduce((sum, plan) => sum + Number(plan.monthly) * 12 / 52, 0);
+  const added = (state.kidLogs || []).filter(log => log.kind !== "balance" && log.date >= start && log.date <= end && Number(log.amount) > 0)
+    .reduce((sum, log) => sum + Number(log.amount), 0);
+  return { plans: plans.length, target, added };
+}
+
+/* ---- trips: honeymoon and holiday budgets, saving for them, spending on them ---- */
+const TRIP_KINDS = {
+  honeymoon: { name: "Honeymoon", nights: 7 },
+  holiday: { name: "Holiday", nights: 4 },
+  anniversary: { name: "Anniversary trip", nights: 3 },
+  family: { name: "Family trip", nights: 5 },
+};
+const TRIP_LINES = [
+  { id: "flights", label: "Flights & transfers", per: "trip" },
+  { id: "stay", label: "Stay", per: "night" },
+  { id: "food", label: "Food & drinks", per: "day" },
+  { id: "activities", label: "Activities & tours", per: "trip" },
+  { id: "transport", label: "Getting around", per: "trip" },
+  { id: "other", label: "Shopping & gifts", per: "trip" },
+];
+/** Budget lines (per trip, per night or per day for both of you) plus a safety buffer. */
+function tripBudget(trip) {
+  const nights = Math.max(0, Math.round(Number(trip.nights) || 0));
+  const days = nights + 1;
+  const lines = TRIP_LINES.map(line => {
+    const unit = Math.max(0, Number(trip.budget && trip.budget[line.id]) || 0);
+    const qty = line.per === "night" ? nights : line.per === "day" ? days : 1;
+    return { ...line, unit, qty, amount: unit * qty };
+  });
+  const subtotal = lines.reduce((sum, line) => sum + line.amount, 0);
+  const bufferPct = clamp(Number(trip.buffer) || 0, 0, 100);
+  const buffer = subtotal * bufferPct / 100;
+  return { nights, days, lines, subtotal, bufferPct, buffer, total: subtotal + buffer };
+}
+/** Where a trip stands: saving before it, a daily allowance during it, the verdict after it. */
+function tripStatus(trip, state, now) {
+  const budget = tripBudget(trip);
+  const start = parseDate(trip.date);
+  const lastDay = start ? new Date(start.getFullYear(), start.getMonth(), start.getDate() + budget.nights) : null;
+  const today = startOfDay(now);
+  const phase = !start ? "someday" : today < start ? "before" : today <= lastDay ? "during" : "after";
+  const fund = trip.fundId ? state.funds.find(f => f.id === trip.fundId) : null;
+  const saved = fund ? fundSaved(fund, state) : 0;
+  const spends = (state.tripSpends || []).filter(s => s.tripId === trip.id);
+  const spentBy = Object.fromEntries(TRIP_LINES.map(line => [line.id, 0]));
+  for (const s of spends) spentBy[TRIP_LINES.some(line => line.id === s.cat) ? s.cat : "other"] += Number(s.amount) || 0;
+  const spent = spends.reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
+  const toSave = Math.max(0, budget.total - saved);
+  const monthsLeft = phase === "before" ? Math.max(0, monthsBetween(today, start)) : 0;
+  const daysUntil = phase === "before" ? daysBetween(today, start) : 0;
+  const neededMonthly = phase === "before" && toSave > 0 ? toSave / Math.max(1, monthsLeft) : 0;
+  const dayNumber = phase === "during" ? daysBetween(start, today) + 1 : 0;
+  const daysLeft = phase === "during" ? Math.max(1, budget.days - dayNumber + 1) : 0;
+  const left = budget.total - spent;
+  return {
+    budget, start, lastDay, phase, fund, saved, ready: budget.total > 0 && saved >= budget.total - 0.5, toSave,
+    monthsLeft, daysUntil, neededMonthly, neededWeekly: neededMonthly * 12 / 52,
+    spends, spent, spentBy, left, dayNumber, daysLeft, perDayLeft: phase === "during" ? left / daysLeft : 0,
+  };
+}
 /* --------------------------------------------- bank statement CSV (on-device) */
 /** Minimal RFC 4180 CSV parser with delimiter sniffing (, ; tab) and BOM handling. */
 function parseCsv(text) {
@@ -1522,7 +1751,8 @@ const reminders = {
 // but no value means "removed then". So two partners editing different fields - or different steps
 // of the same goal - both keep their edit; only edits to the very same field compete.
 // Whole-record deletions leave tombstones in `_deleted` and win over older edits.
-const SYNCED_COLLECTIONS = ["milestones", "goals", "funds", "contributions", "debts", "challenges", "dates", "checkins", "bucket", "kids", "networth"];
+const SYNCED_COLLECTIONS = ["milestones", "goals", "funds", "contributions", "debts", "challenges", "dates", "checkins", "bucket", "kids", "networth",
+  "kidPlans", "kidLogs", "trips", "tripSpends"];
 const SYNCED_SINGLETONS = ["couple", "retirement", "program"];
 const ID_LIST_FIELDS = new Set(["steps"]);
 const META_FIELDS = new Set(["_ts", "_f", "id"]);
@@ -1981,6 +2211,9 @@ function blankState() {
     // merge safely when both partners add money at the same time; a pot's balance is its `saved` plus these.
     contributions: [],
     debts: [], challenges: [], dates: [],
+    // Kids' plans ({ id, kidId, name, targetAge, product, rate, tax, cost, inflation, start, since, monthly }) and their
+    // logs ({ id, planId, kind: "deposit"|"balance", amount, by, date }); trips with a per-line budget and their spending.
+    kidPlans: [], kidLogs: [], trips: [], tripSpends: [],
     // Shared money settings. incomeA/B = monthly take-home pay; splitMode "equal" | "income";
     // debtMethod "avalanche" | "snowball"; debtExtra and funMonthly per month.
     retirement: { saved: 0, monthly: 0, rate: 5, fees: 0.5, inflation: 2.5, spend: 0, withdrawal: 4, eduCost: 0, eduInflation: 5,
@@ -2447,7 +2680,7 @@ function weekCardHTML(now) {
   return `<section class="card week-card" style="margin-top:14px">
     <div class="week-head"><h2>This week together</h2><span class="week-chips">${streakChip}<span class="chip">${esc(range)} · ${plan.daysLeft} day${plan.daysLeft === 1 ? "" : "s"} left</span></span></div>
     ${moneyBlock}
-    <div style="margin-top:10px">${challengeRows}${stepRow}${dateRow}${funRow}</div>
+    <div style="margin-top:10px">${challengeRows}${kidsWeekRowHTML(now)}${stepRow}${dateRow}${funRow}</div>
   </section>`;
 }
 
@@ -2598,6 +2831,7 @@ function viewMoney() {
   ${state.funds.length ? `<div class="grid" style="margin-top:14px">${fundCards}</div>` :
     `<div class="empty" style="margin-top:14px">No savings pots yet.<br><button type="button" class="primary" data-act="default-funds" style="margin-top:10px">Add starter pots (emergency, wedding, home)</button></div>`}
   ${challengesCardHTML(now)}
+  ${tripsHTML(now)}
   ${incomeCardHTML()}
   ${debtCardHTML(now)}
   <div class="section-head"><h2>Retiring together</h2></div>
@@ -2630,6 +2864,7 @@ function viewMoney() {
     <p class="small muted">Estimates only, using steady average returns. Real markets go up and down; tax rules differ by country. Not financial advice — check big decisions with a licensed adviser.</p>
   </div>
   ${freedomCardHTML(now)}
+  ${kidsPlansHTML(now)}
   <div class="grid" style="margin-top:14px">
     <section class="card">
       <h2>Education funds</h2>
@@ -2640,7 +2875,7 @@ function viewMoney() {
       ${!state.kids.length ? '<p class="small muted">Add your children (or a due date) in Settings to plan their education funds.</p>'
         : !education.length ? '<p class="small muted">Enter an expected cost to see how much to save per child.</p>'
         : `<ul class="clean">${education.map(e => `<li class="spread small"><div><b>${esc(e.kid.name)}</b> — starts ${esc(e.start.toLocaleDateString(undefined, { month: "short", year: "numeric" }))}<br><span class="muted">≈ ${esc(money(e.cost, cur))} by then</span></div>
-          <span class="chip">${esc(money(e.monthly, cur))}/mo</span></li>`).join("")}</ul>`}
+          <span class="row" style="gap:6px;flex-wrap:nowrap"><span class="chip">${esc(money(e.monthly, cur))}/mo</span><button type="button" class="small" data-act="plan-kid" data-id="${esc(e.kid.id)}" aria-label="Make a plan for ${esc(e.kid.name)}">Plan it</button></span></li>`).join("")}</ul><p class="small muted">"Plan it" turns this into a kids' plan below with a real product, growth chart and deposits.</p>`}
     </section>
     <section class="card">
       <h2>Bank statement → real surplus</h2>
@@ -2882,6 +3117,192 @@ function dateNightsHTML() {
     ${recent.length ? `<ul class="clean small">${recent.map(d => `<li class="spread"><span>${esc(formatDate(d.date))} · ${esc(d.text)}${Number(d.cost) ? ` · ${esc(money(d.cost, cur))}` : ""}</span>
       <button type="button" class="ghost" data-act="delete-date" data-id="${esc(d.id)}" aria-label="Delete ${esc(d.text)}">${icon("close")}</button></li>`).join("")}</ul>` : ""}
   </section>`;
+}
+/* --------------------------------------- views: kids' plans and trips */
+const monthYear = date => date.toLocaleDateString(undefined, { month: "short", year: "numeric" });
+const pct = value => `${(Math.round(value * 10) / 10).toLocaleString(undefined, { maximumFractionDigits: 1 })}%`;
+
+/** Stacked yearly bars: what you put in (bottom) and what it earned (top). */
+function growthChartSVG(projection, cur) {
+  const points = projection.series;
+  const width = 320;
+  const height = 150;
+  const top = 18;
+  const bottom = 22;
+  const left = 4;
+  const plotHeight = height - top - bottom;
+  const max = Math.max(1, ...points.map(p => p.value), projection.costThen || 0);
+  const slot = (width - left * 2) / points.length;
+  const barWidth = Math.max(2, Math.min(22, slot * 0.7));
+  const y = value => top + plotHeight - (Math.max(0, value) / max) * plotHeight;
+  const label = p => (p.age !== null && p.age >= 0 ? `age ${p.age}` : String(p.date.getFullYear()));
+  const labelAt = new Set([0, Math.floor((points.length - 1) / 2), points.length - 1]);
+  const bars = points.map((p, index) => {
+    const x = left + index * slot + (slot - barWidth) / 2;
+    const putIn = Math.min(p.putIn, p.value);
+    const growth = Math.max(0, p.value - putIn);
+    return `<rect class="chart-put" x="${x.toFixed(1)}" y="${y(putIn).toFixed(1)}" width="${barWidth.toFixed(1)}" height="${(y(0) - y(putIn)).toFixed(1)}"/>
+      ${growth > 0 ? `<rect class="chart-growth" x="${x.toFixed(1)}" y="${y(p.value).toFixed(1)}" width="${barWidth.toFixed(1)}" height="${(y(putIn) - y(p.value)).toFixed(1)}"/>` : ""}
+      ${labelAt.has(index) ? `<text x="${(x + barWidth / 2).toFixed(1)}" y="${height - 6}" font-size="10" text-anchor="${index === 0 ? "start" : index === points.length - 1 ? "end" : "middle"}" fill="currentColor" opacity=".7">${esc(label(p))}</text>` : ""}`;
+  }).join("");
+  const goalLine = projection.costThen ? `<line x1="${left}" x2="${width - left}" y1="${y(projection.costThen).toFixed(1)}" y2="${y(projection.costThen).toFixed(1)}" class="chart-goal"/>
+    <text x="${left}" y="${(y(projection.costThen) - 4).toFixed(1)}" font-size="10" fill="currentColor" opacity=".75">Goal ${esc(money(projection.costThen, cur))}</text>` : "";
+  const summary = `Grows to ${money(projection.final, cur)} by ${monthYear(projection.date)}: ${money(projection.finalPutIn, cur)} put in and ${money(projection.final - projection.finalPutIn, cur)} growth.`;
+  return `<svg class="growth-chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="${esc(summary)}">${bars}${goalLine}</svg>
+    <div class="chart-legend small muted"><span><i class="swatch put"></i>What you put in</span><span><i class="swatch growth"></i>Growth</span>${projection.costThen ? '<span><i class="swatch goal"></i>Goal</span>' : ""}</div>`;
+}
+
+function kidPlanCard(plan, now) {
+  const cur = state.couple.currency;
+  const product = KID_PRODUCTS[plan.product] || KID_PRODUCTS.custom;
+  const p = projectKidPlan(plan, state, now);
+  const title = `${p ? p.kid.name : "A child"}: ${plan.name || "Plan"}`;
+  const tools = `<span style="white-space:nowrap"><button type="button" class="ghost" data-act="edit-kidplan" data-id="${esc(plan.id)}" aria-label="Edit ${esc(title)}">${icon("pencil")}</button><button type="button" class="ghost" data-act="delete-kidplan" data-id="${esc(plan.id)}" aria-label="Delete ${esc(title)}">${icon("trash")}</button></span>`;
+  if (!p) {
+    return `<article class="card"><div class="spread"><h3>${esc(title)}</h3>${tools}</div>
+      <p class="small muted">This child was removed or has no birth date, so there's no target date. Edit the plan to pick a child.</p></article>`;
+  }
+  const tax = Number(plan.tax) || 0;
+  const rateLine = `${esc(product.name)} · ${esc(pct(Number(plan.rate) || 0))} a year${tax ? `, ${esc(pct(p.netRate))} after ${esc(pct(tax))} tax` : ""}`;
+  let verdict = "";
+  if (p.months === 0) {
+    verdict = '<span class="chip ok">The day is here. Time to use it.</span>';
+  } else if (p.gap !== null) {
+    if (p.gap <= 0) {
+      verdict = `<span class="chip ok" style="white-space:normal">✓ On track: about ${esc(money(-p.gap, cur))} more than the goal</span>`;
+    } else {
+      const rateText = p.neededRate === null ? "" : ` or growth of about ${esc(pct(p.neededRate))} a year after tax`;
+      verdict = `<span class="chip warn" style="white-space:normal">Short by about ${esc(money(p.gap, cur))}. Put in ${esc(money(p.neededMonthly, cur))}/month${rateText}.</span>`;
+    }
+  } else {
+    verdict = '<span class="small muted">Add what it will cost (in today\'s money) to see if you\'re on track.</span>';
+  }
+  const real = kidRealGrowth(plan, state);
+  let realLine;
+  if (!real) realLine = '<p class="small muted">Check the account now and then and tap <b>Update balance</b>: the app then works out your real growth rate.</p>';
+  else if (real.tooSoon) realLine = `<p class="small muted">Real growth shows once there's about two months of history (${real.days} days so far).</p>`;
+  else {
+    const diff = real.rate - p.netRate;
+    realLine = `<p class="small">Real growth: <b>${esc(pct(real.rate))} a year</b> since ${esc(monthYear(real.since))}
+      <span class="chip ${diff >= -0.25 ? "ok" : "warn"}">${diff >= -0.25 ? "at or above" : "below"} the plan's ${esc(pct(p.netRate))}</span></p>`;
+  }
+  const logs = kidPlanLogs(plan, state);
+  const history = logs.length ? `<details class="small" style="margin-top:4px"><summary>History (${logs.length})</summary><ul class="clean">${logs.slice(-8).reverse().map(log => `<li class="spread">
+      <span>${esc(formatDate(log.date))} · ${log.kind === "balance" ? "Balance checked" : esc(log.by === "a" || log.by === "b" ? ownerLabel(log.by) : "Together")}</span>
+      <span>${log.kind === "balance" ? "" : Number(log.amount) < 0 ? "−" : "+"}${esc(money(Math.abs(Number(log.amount) || 0), cur))}
+      <button type="button" class="ghost" data-act="delete-kidlog" data-id="${esc(log.id)}" aria-label="Remove this ${log.kind === "balance" ? "balance" : "deposit"}">${icon("close")}</button></span></li>`).join("")}</ul></details>` : "";
+  const table = `<details class="small"><summary>Year by year</summary><div class="rate-table lines" role="table" aria-label="${esc(title)} year by year">
+      <div role="row" class="rate-row kid-row head"><span role="columnheader">When</span><span role="columnheader">Put in</span><span role="columnheader">Growth</span><span role="columnheader">Value</span></div>
+      ${p.series.map(point => `<div role="row" class="rate-row kid-row"><span role="cell">${esc(point.age !== null && point.age >= 0 ? `Age ${point.age}` : String(point.date.getFullYear()))}</span>
+        <span role="cell">${esc(money(point.putIn, cur))}</span><span role="cell">${esc(money(point.growth, cur))}</span><span role="cell"><b>${esc(money(point.value, cur))}</b></span></div>`).join("")}
+    </div></details>`;
+  return `<article class="card kid-plan">
+    <div class="spread"><div style="min-width:0"><h3>${esc(title)}</h3>
+      <div class="small muted">${rateLine}</div>
+      <div class="small muted">${esc(money(p.monthly, cur))}/month (about ${esc(money(p.weekly, cur))} a week) · needed ${esc(monthYear(p.date))}${p.months ? `, ${esc(relativeTime(toISO(p.date), now))}` : ""}</div></div>${tools}</div>
+    <div class="stats" style="margin-top:8px">
+      <div class="stat"><b>${esc(money(p.now.balance, cur))}</b><span class="small muted">${p.now.measured ? `now (checked ${esc(formatDate(p.now.asOf))})` : "put in so far"}</span></div>
+      <div class="stat"><b>${esc(money(p.final, cur))}</b><span class="small muted">projected by then</span></div>
+      ${p.costThen !== null ? `<div class="stat"><b>${esc(money(p.costThen, cur))}</b><span class="small muted">goal then (${esc(money(p.costToday, cur))} today + ${esc(pct(p.inflation))}/yr)</span></div>` : ""}
+    </div>
+    ${p.series.length > 1 ? growthChartSVG(p, cur) : ""}
+    <div style="margin:6px 0">${verdict}</div>
+    ${realLine}
+    ${p.series.length > 1 ? table : ""}
+    ${history}
+    <form class="row" data-form="kid-deposit" data-id="${esc(plan.id)}" style="margin-top:10px;flex-wrap:nowrap">
+      ${amountInput("amount", `Deposit into ${title}`, { style: "flex:1;min-width:0", placeholder: money(p.monthly, cur) })}
+      ${contributorSelect(`Who is depositing into ${title}`)}<button type="submit">+ Deposit</button></form>
+    <button type="button" class="ghost small" data-act="kid-balance" data-id="${esc(plan.id)}" style="margin-top:6px">Update balance</button>
+  </article>`;
+}
+
+/** Money tab: investment / deposit plans per child, with growth and real growth. */
+function kidsPlansHTML(now) {
+  const kids = state.kids.filter(kid => parseDate(kid.birth));
+  const cards = state.kidPlans.map(plan => kidPlanCard(plan, now)).join("");
+  return `<div class="section-head"><div><h2>Kids' plans</h2><p class="muted small">Invest or save for each child's next step and watch it grow: what you put in, what it earns, and whether it's enough.</p></div>
+      <button type="button" class="primary" data-act="add-kidplan" ${kids.length ? "" : 'disabled title="Add a child in Settings first"'}>+ Plan</button></div>
+    ${cards ? `<div class="grid">${cards}</div>` : `<div class="empty">${kids.length ? "Start a plan for school or university: pick a deposit, bonds or a fund, set a monthly amount and see how it grows." : "Add your children (or a due date) in Settings, then start a plan for each of them."}</div>`}
+    <p class="small muted">Rates are steady averages you can edit, not quotes; funds and gold go up and down. Tax presets follow Indonesia's rules (20% on deposit interest, 10% on SBN coupons, none on fund gains). Not financial advice.</p>`;
+}
+
+function tripCard(trip, now) {
+  const cur = state.couple.currency;
+  const s = tripStatus(trip, state, now);
+  const kind = TRIP_KINDS[trip.kind] || TRIP_KINDS.holiday;
+  const dates = s.start ? `${formatDate(trip.date)} – ${formatDate(toISO(s.lastDay))}` : "Date not set";
+  const tools = `<span style="white-space:nowrap"><button type="button" class="ghost" data-act="edit-trip" data-id="${esc(trip.id)}" aria-label="Edit ${esc(trip.name)}">${icon("pencil")}</button><button type="button" class="ghost" data-act="delete-trip" data-id="${esc(trip.id)}" aria-label="Delete ${esc(trip.name)}">${icon("trash")}</button></span>`;
+  const showSpent = s.spent > 0 || s.phase === "during" || s.phase === "after";
+  const lines = s.budget.lines.filter(line => line.amount > 0 || s.spentBy[line.id] > 0).map(line => {
+    const unit = line.per === "trip" ? "" : ` <span class="muted">(${esc(money(line.unit, cur))} × ${line.qty} ${line.per === "night" ? "nights" : "days"})</span>`;
+    const spent = s.spentBy[line.id];
+    return `<div role="row" class="rate-row trip-row"><span role="cell">${esc(line.label)}${unit}</span><span role="cell">${esc(money(line.amount, cur))}</span>
+      ${showSpent ? `<span role="cell" class="${spent > line.amount + 0.5 ? "over" : ""}">${esc(money(spent, cur))}</span>` : ""}</div>`;
+  }).join("");
+  const breakdown = `<div class="rate-table lines${showSpent ? " with-spent" : ""}" role="table" aria-label="${esc(trip.name)} budget">
+      <div role="row" class="rate-row trip-row head"><span role="columnheader">Budget</span><span role="columnheader">Planned</span>${showSpent ? '<span role="columnheader">Spent</span>' : ""}</div>
+      ${lines}
+      ${s.budget.buffer > 0 ? `<div role="row" class="rate-row trip-row"><span role="cell">Buffer (${esc(pct(s.budget.bufferPct))})</span><span role="cell">${esc(money(s.budget.buffer, cur))}</span>${showSpent ? '<span role="cell"></span>' : ""}</div>` : ""}
+      <div role="row" class="rate-row trip-row total"><span role="cell"><b>Total</b></span><span role="cell"><b>${esc(money(s.budget.total, cur))}</b></span>${showSpent ? `<span role="cell"><b>${esc(money(s.spent, cur))}</b></span>` : ""}</div>
+    </div>`;
+  let phaseBlock = "";
+  if (s.phase === "before" || s.phase === "someday") {
+    const progress = s.budget.total > 0 ? clamp(s.saved / s.budget.total, 0, 1) : 0;
+    phaseBlock = s.fund
+      ? `<p class="small" style="margin-bottom:4px">Saved <b>${esc(money(s.saved, cur))}</b> of ${esc(money(s.budget.total, cur))} in the <b>${esc(s.fund.name)}</b> pot</p>
+        <div class="bar" role="progressbar" aria-label="${esc(trip.name)} saved" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(progress * 100)}"><span style="width:${progress * 100}%"></span></div>
+        ${s.ready ? '<p class="small"><span class="chip ok">✓ Fully saved. Enjoy it!</span></p>'
+          : s.phase === "before" ? `<p class="small">Put away <b>${esc(money(s.neededMonthly, cur))}/month</b> (about ${esc(money(s.neededWeekly, cur))} a week) to be ready ${esc(relativeTime(trip.date, now))}. Add to the pot on Home or above.</p>`
+          : '<p class="small muted">Set a date to get a monthly amount.</p>'}`
+      : `<p class="small">${s.phase === "before" ? `About <b>${esc(money(s.neededMonthly, cur))}/month</b> until you go (${esc(relativeTime(trip.date, now))}).` : "Set a date to get a monthly amount."}</p>
+        <button type="button" data-act="trip-pot" data-id="${esc(trip.id)}">Save for it in a pot</button>`;
+  } else if (s.phase === "during") {
+    phaseBlock = `<p class="small"><span class="chip">Day ${s.dayNumber} of ${s.budget.days}</span> <b>${esc(money(Math.max(0, s.left), cur))}</b> left:
+      ${s.left > 0 ? `about <b>${esc(money(s.perDayLeft, cur))} a day</b> for the rest of the trip.` : '<span class="chip warn">over budget, so go easy for the rest of the trip</span>'}</p>`;
+  } else {
+    const diff = s.budget.total - s.spent;
+    phaseBlock = s.spent > 0
+      ? `<p class="small">${diff >= 0 ? `<span class="chip ok">Came in ${esc(money(diff, cur))} under budget</span>` : `<span class="chip warn">Went ${esc(money(-diff, cur))} over budget</span>`} Worth remembering for the next one.</p>`
+      : '<p class="small muted">Log what you spent to see how it compared with the plan.</p>';
+  }
+  const recent = s.spends.slice().sort(byDate).reverse().slice(0, 6);
+  const spendList = recent.length ? `<details class="small"><summary>Spending (${s.spends.length})</summary><ul class="clean">${recent.map(sp => `<li class="spread">
+      <span>${esc(formatDate(sp.date))} · ${esc((TRIP_LINES.find(line => line.id === sp.cat) || TRIP_LINES[5]).label)}${sp.note ? ` · ${esc(sp.note)}` : ""}</span>
+      <span>${esc(money(sp.amount, cur))}<button type="button" class="ghost" data-act="delete-tripspend" data-id="${esc(sp.id)}" aria-label="Remove this ${esc(money(sp.amount, cur))} expense">${icon("close")}</button></span></li>`).join("")}</ul></details>` : "";
+  return `<article class="card trip">
+    <div class="spread"><div style="min-width:0"><h3>${esc(trip.name)}</h3>
+      <div class="small muted">${esc(kind.name)}${trip.destination ? ` · ${esc(trip.destination)}` : ""} · ${esc(dates)} · ${s.budget.nights} night${s.budget.nights === 1 ? "" : "s"}</div></div>${tools}</div>
+    <div style="margin:8px 0">${phaseBlock}</div>
+    ${breakdown}
+    ${spendList}
+    <form class="row trip-spend" data-form="trip-spend" data-id="${esc(trip.id)}" style="margin-top:10px">
+      ${amountInput("amount", `Spent on ${trip.name}`, { style: "flex:1 1 7rem;min-width:0" })}
+      <select name="cat" aria-label="What it was for" style="flex:1 1 8rem;width:auto;min-width:0">${TRIP_LINES.map(line => `<option value="${line.id}" ${line.id === "food" ? "selected" : ""}>${esc(line.label)}</option>`).join("")}</select>
+      <button type="submit">+ Spent</button></form>
+  </article>`;
+}
+
+/** Money tab: honeymoon and holiday plans. */
+function tripsHTML(now) {
+  const trips = state.trips.slice().sort((x, y) => {
+    const done = t => (tripStatus(t, state, now).phase === "after" ? 1 : 0);
+    return done(x) - done(y) || (x.date || "9999").localeCompare(y.date || "9999");
+  });
+  return `<div class="section-head"><div><h2>Trips &amp; honeymoon</h2><p class="muted small">Plan what it costs, save for it in a pot, then track spending while you're away.</p></div>
+      <button type="button" class="primary" data-act="add-trip">+ Trip</button></div>
+    ${trips.length ? `<div class="grid">${trips.map(trip => tripCard(trip, now)).join("")}</div>` : '<div class="empty">Plan your honeymoon or next holiday: flights, stay, food and fun, plus a buffer. Together works out what to save each month.</div>'}`;
+}
+
+/** Home card line for the kids' plans this week. */
+function kidsWeekRowHTML(now) {
+  const cur = state.couple.currency;
+  const week = kidsWeek(state, now);
+  if (!week.plans) return "";
+  const done = week.added >= week.target - 0.5;
+  return `<div class="focus-item" style="margin-top:8px"><span class="ico">${icon("target")}</span>
+      <div style="flex:1;min-width:0"><span class="muted small">Kids' plans:</span> ${esc(money(week.added, cur))} of ${esc(money(week.target, cur))} this week</div>
+      ${done ? '<span class="chip ok">✓ Done</span>' : '<button class="ghost small" type="button" data-act="tab" data-id="money">Add →</button>'}</div>`;
 }
 /* ------------------------------------------- views: us, program & settings */
 function viewUs() {
@@ -3821,6 +4242,241 @@ function bindEvents() {
   });
 }
 
+/* --------------------------------------- dialogs: kids' plans and trips */
+const numberOr = (text, fallback) => (text === "" || text === undefined || text === null || !Number.isFinite(Number(text)) ? fallback : Number(text));
+function rememberContributor(by) {
+  try {
+    localStorage.setItem(store.key + ME_KEY_SUFFIX, by);
+  } catch (error) {
+    /* storage blocked: the choice just isn't remembered */
+  }
+}
+
+/** New/edit kids' plan. Leaving rate or tax empty uses the product's starting value. */
+function kidPlanDialog(existing, preset = {}) {
+  const kids = state.kids.filter(kid => parseDate(kid.birth));
+  if (!kids.length) {
+    toast("Add a child (or a due date) in Settings first.");
+    return;
+  }
+  const cur = state.couple.currency;
+  const p = existing || { kidId: kids[0].id, name: "University", targetAge: 18, product: "deposit", rate: "", tax: "", cost: "", inflation: "", start: "", since: toISO(new Date()), monthly: "", ...preset };
+  const goal = KID_GOALS.find(g => g.name === p.name && g.age === Number(p.targetAge));
+  const product = KID_PRODUCTS[p.product] ? p.product : "custom";
+  openDialog(existing ? "Edit kids' plan" : "New kids' plan", `
+    <div class="fields-2">
+      <label class="field">For<select name="kidId">${kids.map(kid => `<option value="${esc(kid.id)}" ${kid.id === p.kidId ? "selected" : ""}>${esc(kid.name)}</option>`).join("")}</select></label>
+      <label class="field">Saving for<select name="goal">${KID_GOALS.map(g => `<option value="${g.id}" ${goal && goal.id === g.id ? "selected" : ""}>${esc(g.name)} (age ${g.age})</option>`).join("")}
+        <option value="custom" ${goal ? "" : "selected"}>Something else…</option></select></label>
+      <label class="field">If something else: what?<input name="customName" value="${esc(goal ? "" : p.name)}" placeholder="e.g. Music school"></label>
+      <label class="field">Needed at age<input name="customAge" type="number" min="0" max="40" value="${esc(goal ? "" : p.targetAge)}" placeholder="18"></label>
+      <label class="field">What it costs, in today's money (${esc(cur)})${amountInput("cost", "Cost in today's money", { value: p.cost })}</label>
+      <label class="field">Cost rises per year (%)<input name="inflation" type="number" step="0.1" value="${esc(p.inflation)}" placeholder="${esc(state.retirement.eduInflation)} (education inflation)"></label>
+    </div>
+    <label class="field">Where the money goes<select name="product">${Object.entries(KID_PRODUCTS).map(([id, item]) => `<option value="${id}" ${product === id ? "selected" : ""}>${esc(item.name)}: ~${item.rate}%${item.tax ? `, ${item.tax}% tax` : ""}</option>`).join("")}</select></label>
+    <div class="fields-2">
+      <label class="field">Growth per year, before tax (%)<input name="rate" type="number" step="0.01" min="0" max="40" value="${esc(p.rate)}" placeholder="Leave empty for the usual rate"></label>
+      <label class="field">Tax on that growth (%)<input name="tax" type="number" step="1" min="0" max="100" value="${esc(p.tax)}" placeholder="Leave empty for the usual tax"></label>
+      <label class="field">Already in it (${esc(cur)})${amountInput("start", "Amount already in the plan", { value: p.start })}</label>
+      <label class="field">Since<input name="since" type="date" value="${esc(p.since)}"></label>
+      <label class="field" style="grid-column:1/-1">We'll put in per month (${esc(cur)})${amountInput("monthly", "Monthly deposit", { value: p.monthly })}</label>
+    </div>
+    <p class="small muted">Check your bank's or fund's actual rate. Funds and gold move up and down; the plan uses a steady average.</p>`, values => {
+    const chosenGoal = KID_GOALS.find(g => g.id === values.goal);
+    const productId = KID_PRODUCTS[values.product] ? values.product : "custom";
+    const fresh = KID_PRODUCTS[productId];
+    const old = existing ? KID_PRODUCTS[existing.product] || KID_PRODUCTS.custom : null;
+    // Switching product carries over a rate or tax only if the couple had changed it themselves.
+    const keepOrPreset = (field, presetValue) => {
+      const typed = numberOr(values[field], null);
+      if (typed === null) return presetValue;
+      if (old && existing.product !== productId && typed === old[field]) return presetValue;
+      return typed;
+    };
+    const clean = {
+      kidId: kids.some(kid => kid.id === values.kidId) ? values.kidId : kids[0].id,
+      name: chosenGoal ? chosenGoal.name : (values.customName || "").trim() || "Plan",
+      targetAge: chosenGoal ? chosenGoal.age : clamp(Math.round(numberOr(values.customAge, 18)), 0, 40),
+      product: productId,
+      rate: clamp(keepOrPreset("rate", fresh.rate), 0, 40),
+      tax: clamp(keepOrPreset("tax", fresh.tax), 0, 100),
+      cost: Math.max(0, parseTypedAmount(values.cost) || 0),
+      inflation: values.inflation === "" ? "" : clamp(Number(values.inflation) || 0, 0, 30),
+      start: Math.max(0, parseTypedAmount(values.start) || 0),
+      since: parseDate(values.since) ? values.since : toISO(new Date()),
+      monthly: Math.max(0, parseTypedAmount(values.monthly) || 0),
+    };
+    if (existing) Object.assign(existing, clean);
+    else state.kidPlans.push({ id: uid(), ...clean });
+    commit(existing ? "Plan updated" : "Plan added. The chart shows how it grows.");
+  });
+}
+function kidBalanceDialog(plan) {
+  const cur = state.couple.currency;
+  const now = kidPlanBalance(plan, state);
+  openDialog("Update balance", `
+    <p class="small">Look up what's in the account or fund today (interest and growth included). Together compares it with what you put in to show your real growth rate.</p>
+    <div class="fields-2">
+      <label class="field">Balance now (${esc(cur)})${amountInput("amount", "Balance now", { value: Math.round(now.balance), required: true })}</label>
+      <label class="field">Checked on<input name="date" type="date" value="${esc(toISO(new Date()))}"></label>
+    </div>`, values => {
+    const amount = parseTypedAmount(values.amount);
+    if (!(amount >= 0)) {
+      toast("Enter the balance as a number.");
+      return;
+    }
+    state.kidLogs.push({ id: uid(), planId: plan.id, kind: "balance", amount, by: "", date: parseDate(values.date) ? values.date : toISO(new Date()) });
+    const real = kidRealGrowth(plan, state);
+    commit(real && !real.tooSoon ? `Balance saved. Real growth: ${pct(real.rate)} a year.` : "Balance saved.");
+  });
+}
+
+/** Make a savings pot (and a roadmap milestone when dated) for a trip. */
+function createTripPot(trip) {
+  const status = tripStatus(trip, state, new Date());
+  let milestone = null;
+  if (trip.date) {
+    milestone = trip.kind === "honeymoon" ? state.milestones.find(m => !m.done && m.title === "Honeymoon") : null;
+    if (milestone) {
+      milestone.date = trip.date;
+    } else {
+      milestone = { id: uid(), stage: trip.kind === "honeymoon" ? "married" : STAGES[currentStageIndex(state)].id, title: trip.name, date: trip.date, done: false, notes: "" };
+      state.milestones.push(milestone);
+    }
+  }
+  const fund = { id: uid(), name: trip.name, target: Math.round(status.budget.total), saved: 0, monthly: Math.ceil(status.neededMonthly), milestoneId: milestone ? milestone.id : "" };
+  state.funds.push(fund);
+  trip.fundId = fund.id;
+  trip.milestoneId = milestone ? milestone.id : "";
+  return fund;
+}
+/** Keep a trip's pot target and milestone date in step with its budget and date. */
+function syncTripPot(trip) {
+  const fund = trip.fundId ? findIn(state.funds, trip.fundId) : null;
+  if (!fund) {
+    trip.fundId = "";
+    return;
+  }
+  fund.target = Math.round(tripBudget(trip).total);
+  const milestone = fund.milestoneId ? findIn(state.milestones, fund.milestoneId) : null;
+  if (milestone && trip.date && milestone.date !== trip.date) milestone.date = trip.date;
+}
+function tripDialog(existing) {
+  const cur = state.couple.currency;
+  const honeymoonFirst = !state.trips.some(t => t.kind === "honeymoon") && ["dating", "engaged", "married"].includes(state.couple.stage);
+  const honeymoonMilestone = state.milestones.find(m => !m.done && m.title === "Honeymoon" && m.date);
+  const kind = existing ? existing.kind : honeymoonFirst ? "honeymoon" : "holiday";
+  const t = existing || { name: "", kind, destination: "", date: kind === "honeymoon" && honeymoonMilestone ? honeymoonMilestone.date : "",
+    nights: TRIP_KINDS[kind].nights, budget: {}, buffer: 10 };
+  const hint = { flights: "total for both", stay: "per night", food: "per day, both of you", activities: "total", transport: "total", other: "total" };
+  openDialog(existing ? "Edit trip" : "Plan a trip", `
+    <div class="fields-2">
+      <label class="field">Trip<input name="name" required value="${esc(t.name)}" placeholder="e.g. Honeymoon in Bali"></label>
+      <label class="field">Kind<select name="kind">${Object.entries(TRIP_KINDS).map(([id, k]) => `<option value="${id}" ${t.kind === id ? "selected" : ""}>${esc(k.name)}</option>`).join("")}</select></label>
+      <label class="field">Where<input name="destination" value="${esc(t.destination)}" placeholder="e.g. Ubud and Gili"></label>
+      <label class="field">Leaving on<input name="date" type="date" value="${esc(t.date)}"></label>
+      <label class="field">Nights<input name="nights" type="number" min="0" max="365" value="${esc(t.nights)}"></label>
+      <label class="field">Buffer for surprises (%)<input name="buffer" type="number" min="0" max="100" step="1" value="${esc(t.buffer)}"></label>
+    </div>
+    <fieldset class="trip-budget"><legend class="small muted">Budget (${esc(cur)})</legend><div class="fields-2">
+      ${TRIP_LINES.map(line => `<label class="field">${esc(line.label)} <span class="muted">(${hint[line.id]})</span>${amountInput(`b_${line.id}`, `${line.label}, ${hint[line.id]}`, { value: (t.budget && t.budget[line.id]) || "" })}</label>`).join("")}
+    </div></fieldset>
+    ${existing && existing.fundId && findIn(state.funds, existing.fundId) ? '<p class="small muted">Its savings pot target follows this budget.</p>'
+      : '<label class="row small"><input type="checkbox" name="savePot" value="1" checked style="width:auto"> Save for it in a pot (adds it to the roadmap and your weekly targets)</label>'}`, values => {
+    const kindId = TRIP_KINDS[values.kind] ? values.kind : "holiday";
+    const clean = {
+      name: (values.name || "").trim() || TRIP_KINDS[kindId].name,
+      kind: kindId,
+      destination: (values.destination || "").trim(),
+      date: parseDate(values.date) ? values.date : "",
+      nights: clamp(Math.round(Number(values.nights) || 0), 0, 365),
+      budget: Object.fromEntries(TRIP_LINES.map(line => [line.id, Math.max(0, parseTypedAmount(values[`b_${line.id}`]) || 0)])),
+      buffer: clamp(Number(values.buffer) || 0, 0, 100),
+    };
+    let trip = existing;
+    if (trip) {
+      Object.assign(trip, clean);
+      syncTripPot(trip);
+    } else {
+      trip = { id: uid(), fundId: "", milestoneId: "", ...clean };
+      state.trips.push(trip);
+    }
+    if (values.savePot && !(trip.fundId && findIn(state.funds, trip.fundId))) createTripPot(trip);
+    const total = tripBudget(trip).total;
+    commit(`${trip.name}: ${money(total, state.couple.currency)} planned${trip.fundId ? ", with a savings pot" : ""}.`);
+  }, existing ? "Save" : "Plan it");
+}
+
+Object.assign(actions, {
+  "add-kidplan": () => kidPlanDialog(null),
+  "plan-kid": id => {
+    const plan = educationPlans(state, new Date()).find(e => e.kid.id === id);
+    kidPlanDialog(null, { kidId: id, cost: Number(state.retirement.eduCost) || "", monthly: plan ? Math.ceil(plan.monthly) : "" });
+  },
+  "edit-kidplan": id => {
+    const plan = findIn(state.kidPlans, id);
+    if (plan) kidPlanDialog(plan);
+  },
+  "delete-kidplan": id => {
+    const plan = findIn(state.kidPlans, id);
+    if (!plan) return;
+    commitWithUndo(`${plan.name} plan deleted`, () => {
+      state.kidPlans = state.kidPlans.filter(p => p.id !== id);
+      state.kidLogs = state.kidLogs.filter(log => log.planId !== id);
+    });
+  },
+  "kid-balance": id => {
+    const plan = findIn(state.kidPlans, id);
+    if (plan) kidBalanceDialog(plan);
+  },
+  "delete-kidlog": id => removeFrom("kidLogs", id, "Entry"),
+  "add-trip": () => tripDialog(null),
+  "edit-trip": id => {
+    const trip = findIn(state.trips, id);
+    if (trip) tripDialog(trip);
+  },
+  "delete-trip": id => {
+    const trip = findIn(state.trips, id);
+    if (!trip) return;
+    const keepsPot = trip.fundId && findIn(state.funds, trip.fundId);
+    commitWithUndo(`${trip.name} deleted${keepsPot ? " (its savings pot stays)" : ""}`, () => {
+      state.trips = state.trips.filter(t => t.id !== id);
+      state.tripSpends = state.tripSpends.filter(s => s.tripId !== id);
+    });
+  },
+  "trip-pot": id => {
+    const trip = findIn(state.trips, id);
+    if (!trip) return;
+    const fund = createTripPot(trip);
+    commit(`Savings pot "${fund.name}" added: ${money(fund.monthly, state.couple.currency)}/month.`);
+  },
+  "delete-tripspend": id => removeFrom("tripSpends", id, "Expense"),
+});
+
+Object.assign(forms, {
+  "kid-deposit": (values, form) => {
+    const plan = findIn(state.kidPlans, form.dataset.id);
+    const amount = parseTypedAmount(values.amount);
+    if (!plan || !amount || !Number.isFinite(amount)) return;
+    const by = ["a", "b", "both"].includes(values.by) ? values.by : "both";
+    rememberContributor(by);
+    state.kidLogs.push({ id: uid(), planId: plan.id, kind: "deposit", amount, by, date: toISO(new Date()) });
+    const kid = state.kids.find(k => k.id === plan.kidId);
+    commit(`${money(Math.abs(amount), state.couple.currency)} ${amount > 0 ? "into" : "out of"} ${kid ? `${kid.name}'s ` : ""}${plan.name}`);
+  },
+  "trip-spend": (values, form) => {
+    const trip = findIn(state.trips, form.dataset.id);
+    const amount = parseTypedAmount(values.amount);
+    if (!trip || !(amount > 0)) return;
+    const cat = TRIP_LINES.some(line => line.id === values.cat) ? values.cat : "other";
+    state.tripSpends.push({ id: uid(), tripId: trip.id, cat, amount, by: lastContributor(), date: toISO(new Date()) });
+    const s = tripStatus(trip, state, new Date());
+    const cur = state.couple.currency;
+    commit(s.phase === "during" && s.left > 0
+      ? `Logged. ${money(s.left, cur)} left: about ${money(s.perDayLeft, cur)} a day.`
+      : s.left < 0 ? `Logged. That's ${money(-s.left, cur)} over the trip budget.` : `Logged. ${money(s.left, cur)} of the budget left.`);
+  },
+});
 /* ---------------------------------------------------------------- demo data */
 function demoState() {
   const now = new Date();
@@ -3881,6 +4537,32 @@ function demoState() {
     { id: uid(), date: daysAgo(3), text: "Picnic in the park", cost: 18 },
     { id: uid(), date: daysAgo(20), text: "Karaoke night", cost: 45 },
   ];
+  // Kids' plan: University for the baby, in an index fund, with a balance checked 10 days ago.
+  const baby = s.kids[0];
+  const uni = { id: uid(), kidId: baby.id, name: "University", targetAge: 18, product: "index", rate: 9, tax: 0, cost: 60000, inflation: "",
+    start: 1500, since: toISO(addMonths(now, -8)), monthly: 150 };
+  s.kidPlans = [uni];
+  s.kidLogs = [-7, -6, -5, -4, -3, -2, -1].map((offset, i) => ({ id: uid(), planId: uni.id, kind: "deposit", amount: 150, by: ["a", "b", "both"][i % 3], date: toISO(addMonths(now, offset)) }));
+  s.kidLogs.push({ id: uid(), planId: uni.id, kind: "balance", amount: 2685, by: "", date: daysAgo(10) });
+  // Honeymoon (saving in a pot tied to the roadmap) and a past weekend away with its spending.
+  const honeymoonMilestone = s.milestones.find(m => m.title === "Honeymoon");
+  const honeymoonDate = honeymoonMilestone && honeymoonMilestone.date ? honeymoonMilestone.date : toISO(addMonths(now, 14));
+  const honeymoon = { id: uid(), name: "Honeymoon in Bali", kind: "honeymoon", destination: "Ubud and the Gili Islands", date: honeymoonDate, nights: 7,
+    budget: { flights: 1400, stay: 160, food: 90, activities: 600, transport: 200, other: 300 }, buffer: 10, fundId: "", milestoneId: "" };
+  const honeymoonPot = { id: uid(), name: "Honeymoon in Bali", target: Math.round(tripBudget(honeymoon).total), saved: 0, monthly: 250,
+    milestoneId: honeymoonMilestone ? honeymoonMilestone.id : "" };
+  honeymoon.fundId = honeymoonPot.id;
+  honeymoon.milestoneId = honeymoonPot.milestoneId;
+  s.funds.push(honeymoonPot);
+  s.contributions.push(
+    { id: uid(), fundId: honeymoonPot.id, amount: 500, by: "both", date: daysAgo(45) },
+    { id: uid(), fundId: honeymoonPot.id, amount: 250, by: "a", date: daysAgo(15) },
+  );
+  const weekend = { id: uid(), name: "Weekend in the mountains", kind: "holiday", destination: "Lake cabin", date: toISO(addMonths(now, -2)), nights: 2,
+    budget: { flights: 0, stay: 120, food: 60, activities: 80, transport: 70, other: 40 }, buffer: 10, fundId: "", milestoneId: "" };
+  s.trips = [honeymoon, weekend];
+  s.tripSpends = [["stay", 240], ["food", 205], ["activities", 65], ["transport", 82], ["other", 25]]
+    .map(([cat, amount]) => ({ id: uid(), tripId: weekend.id, cat, amount, by: "both", date: weekend.date }));
   return s;
 }
 
@@ -4848,6 +5530,171 @@ async function runSelfTests() {
       document.getElementById("dialog").close();
     }
     ui.mintStorage = null;
+    return injected === 0 && !window.__xss || `injected ${injected}`;
+  });
+  await test("kids' plan: balance = last checked balance + later deposits; growth = balance − what went in", () => {
+    const plan = { id: "kp", kidId: "k1", name: "University", targetAge: 18, product: "deposit", rate: 5, tax: 20, start: 1000, since: "2025-01-01", monthly: 100, cost: 0 };
+    const logs = [
+      { id: "l1", planId: "kp", kind: "deposit", amount: 100, by: "a", date: "2025-02-01" },
+      { id: "l2", planId: "kp", kind: "deposit", amount: 100, by: "b", date: "2025-03-01" },
+      { id: "l3", planId: "kp", kind: "balance", amount: 1250, by: "", date: "2025-03-15" },
+      { id: "l4", planId: "kp", kind: "deposit", amount: 100, by: "both", date: "2025-04-01" },
+      { id: "x", planId: "other", kind: "deposit", amount: 999, by: "a", date: "2025-04-01" },
+    ];
+    const withSnapshot = kidPlanBalance(plan, { kidLogs: logs });
+    const without = kidPlanBalance(plan, { kidLogs: logs.filter(l => l.kind !== "balance") });
+    return withSnapshot.balance === 1350 && withSnapshot.putIn === 1300 && withSnapshot.growth === 50 && withSnapshot.measured &&
+      without.balance === 1300 && !without.measured && kidPlanNetRate(plan) === 4 || JSON.stringify({ withSnapshot, without });
+  });
+  await test("kids' plan: projection to age 18, goal grows with inflation, needed monthly and rate close the gap", () => {
+    const plan = { id: "kp", kidId: "k1", name: "University", targetAge: 18, product: "index", rate: 6, tax: 0, start: 10000, since: "2025-01-15", monthly: 200, cost: 50000, inflation: 5 };
+    const plan$ = migrate({ ...blankState(), kids: [{ id: "k1", name: "Ayu", birth: "2016-01-15" }], kidPlans: [plan] });
+    const p = projectKidPlan(plan, plan$, fixedNow);
+    const noBirth = projectKidPlan({ ...plan, kidId: "missing" }, plan$, fixedNow);
+    const close = (x, y, tolerance = 1) => Math.abs(x - y) <= tolerance;
+    const ok = p && p.months === 96 && p.series.length === 9 && p.series[0].value === 10000 && p.series[0].age === 10 && p.series[8].age === 18 &&
+      close(p.final, futureValue(10000, 200, 6, 8), 0.01) && close(p.costThen, 50000 * Math.pow(1.05, 8), 0.01) && p.gap > 0 &&
+      close(futureValue(10000, p.neededMonthly, 6, 8), p.costThen) && close(futureValue(10000, 200, p.neededRate, 8), p.costThen) &&
+      close(p.series[8].putIn, 10000 + 200 * 96, 0.01) && noBirth === null;
+    return ok || JSON.stringify({ months: p && p.months, final: p && p.final, costThen: p && p.costThen, neededRate: p && p.neededRate });
+  });
+  await test("kids' plan: real growth is the money-weighted yearly return of deposits and a checked balance", () => {
+    const simple = annualizedReturn([{ date: new Date(2025, 0, 1), amount: -100 }, { date: new Date(2026, 0, 1), amount: 110 }]);
+    const end = new Date(2026, 0, 1);
+    const yearsBetween = (from, to) => (to - from) / (365.25 * 864e5);
+    const monthly = Array.from({ length: 12 }, (_, m) => ({ date: new Date(2025, m, 1), amount: -100 }));
+    const value = monthly.reduce((sum, flow) => sum + 100 * Math.pow(1.06, yearsBetween(flow.date, end)), 0);
+    const steady = annualizedReturn([...monthly, { date: end, amount: value }]);
+    const plan = { id: "rg", kidId: "k", start: 1000, since: "2025-01-01", rate: 5, tax: 0 };
+    const early = kidRealGrowth(plan, { kidLogs: [{ id: "b1", planId: "rg", kind: "balance", amount: 1050, date: "2025-02-01" }] });
+    const year = kidRealGrowth(plan, { kidLogs: [{ id: "b2", planId: "rg", kind: "balance", amount: 1100, date: "2026-01-01" }] });
+    return Math.abs(simple - 10) < 0.05 && Math.abs(steady - 6) < 0.01 && early.tooSoon && Math.abs(year.rate - 10) < 0.05 &&
+      annualizedReturn([{ date: end, amount: -5 }]) === null || JSON.stringify({ simple, steady, early, year });
+  });
+  await test("trips: per-night and per-day lines plus buffer; saving before, a daily allowance during, the verdict after", () => {
+    const trip = { id: "t1", kind: "honeymoon", date: "2026-03-01", nights: 7, buffer: 10,
+      budget: { flights: 1000, stay: 100, food: 50, activities: 300, transport: 0, other: 0 } };
+    const budget = tripBudget(trip);
+    const plan = migrate({ ...blankState(), trips: [trip],
+      funds: [{ id: "tf", name: "Bali", target: 2640, saved: 640, monthly: 0, milestoneId: "" }],
+      tripSpends: [{ id: "s1", tripId: "t1", cat: "food", amount: 400, date: "2026-03-01" }, { id: "s2", tripId: "t1", cat: "mystery", amount: 200, date: "2026-03-02" }] });
+    const unlinked = tripStatus(trip, plan, fixedNow);
+    const before = tripStatus({ ...trip, fundId: "tf" }, plan, fixedNow);
+    const during = tripStatus(trip, plan, new Date(2026, 2, 3, 15));
+    const after = tripStatus(trip, plan, new Date(2026, 2, 20));
+    const someday = tripStatus({ ...trip, date: "" }, plan, fixedNow);
+    return budget.days === 8 && budget.subtotal === 2400 && budget.buffer === 240 && budget.total === 2640 &&
+      unlinked.phase === "before" && unlinked.monthsLeft === 1 && unlinked.neededMonthly === 2640 &&
+      before.saved === 640 && before.toSave === 2000 && before.neededMonthly === 2000 &&
+      during.phase === "during" && during.dayNumber === 3 && during.daysLeft === 6 && during.spent === 600 && during.perDayLeft === 340 &&
+      during.spentBy.other === 200 && after.phase === "after" && someday.phase === "someday" ||
+      JSON.stringify({ budget: budget.total, unlinked: unlinked.neededMonthly, during: [during.dayNumber, during.perDayLeft], phases: [after.phase, someday.phase] });
+  });
+  await test("e2e trip: plan a honeymoon → pot tied to the Honeymoon milestone; spending logs; budget edits move the pot target", () => {
+    const leaveOn = toISO(addMonths(new Date(), 6));
+    state.couple.stage = "engaged";
+    state.milestones = [{ id: "mh", stage: "married", title: "Honeymoon", date: leaveOn, done: false, notes: "" }];
+    state.funds = [];
+    state.contributions = [];
+    state.trips = [];
+    state.tripSpends = [];
+    ui.now = new Date();
+    actions.tab("money");
+    document.querySelector('[data-act="add-trip"]').click();
+    const form = document.getElementById("dialog-form");
+    const prefilled = form.kind.value === "honeymoon" && form.date.value === leaveOn && form.nights.value === "7" && form.savePot.checked;
+    form.name.value = "Bali";
+    form.b_flights.value = "1.400";
+    form.b_stay.value = "150";
+    form.b_food.value = "80";
+    form.requestSubmit();
+    const trip = state.trips[0];
+    const fund = trip && findIn(state.funds, trip.fundId);
+    const potOk = fund && fund.target === 3399 && fund.milestoneId === "mh" && state.milestones.length === 1 && fund.monthly > 0;
+    const spendForm = document.querySelector('[data-form="trip-spend"]');
+    spendForm.amount.value = "200";
+    spendForm.cat.value = "food";
+    spendForm.requestSubmit();
+    actions["edit-trip"](trip.id);
+    const editForm = document.getElementById("dialog-form");
+    editForm.b_stay.value = "200";
+    editForm.requestSubmit();
+    const spend = state.tripSpends[0];
+    return prefilled && potOk && spend && spend.amount === 200 && spend.cat === "food" && findIn(state.funds, trip.fundId).target === 3784 &&
+      document.getElementById("view").textContent.includes("Trips & honeymoon") || JSON.stringify({ prefilled, trip, fund, spends: state.tripSpends });
+  });
+  await test("e2e kids' plan: 'Plan it' pre-fills, deposits and a balance check log, switching product resets untouched presets", () => {
+    state.kids = [{ id: "kk", name: "Ayu", birth: "2020-06-01" }];
+    state.retirement = { ...state.retirement, eduCost: 100000, eduInflation: 5 };
+    state.kidPlans = [];
+    state.kidLogs = [];
+    ui.now = new Date();
+    actions.tab("money");
+    document.querySelector('[data-act="plan-kid"][data-id="kk"]').click();
+    const form = document.getElementById("dialog-form");
+    const prefilled = form.goal.value === "university" && parseTypedAmount(form.cost.value) === 100000 && Number(form.monthly.value) > 0;
+    form.start.value = "5000";
+    form.requestSubmit();
+    const plan = state.kidPlans[0];
+    const created = plan && plan.rate === 4 && plan.tax === 20 && plan.start === 5000 && plan.targetAge === 18 && plan.name === "University";
+    const depositForm = document.querySelector('[data-form="kid-deposit"]');
+    depositForm.amount.value = "250";
+    depositForm.requestSubmit();
+    actions["kid-balance"](plan.id);
+    const balanceForm = document.getElementById("dialog-form");
+    balanceForm.amount.value = "5400";
+    balanceForm.requestSubmit();
+    const balance = kidPlanBalance(plan, state);
+    const rendered = document.querySelector("#view .growth-chart") && document.getElementById("view").textContent.includes("projected by then");
+    actions["edit-kidplan"](plan.id);
+    const editForm = document.getElementById("dialog-form");
+    editForm.product.value = "index";
+    editForm.requestSubmit();
+    return prefilled && created && state.kidLogs.length === 2 && balance.balance === 5400 && balance.measured && rendered &&
+      plan.product === "index" && plan.rate === 9 && plan.tax === 0 || JSON.stringify({ prefilled, plan, logs: state.kidLogs, balance });
+  });
+  await test("sync: kids' deposits and trip spending from two phones both survive; budget lines merge field by field", () => {
+    const base = migrate({ ...blankState(),
+      kids: [{ id: "k1", name: "Ayu", birth: "2020-01-01" }],
+      kidPlans: [{ id: "p1", kidId: "k1", name: "University", targetAge: 18, product: "deposit", rate: 4, tax: 20, start: 0, since: "2025-01-01", monthly: 100 }],
+      trips: [{ id: "t1", name: "Bali", kind: "honeymoon", date: "2026-09-01", nights: 7, buffer: 10, budget: { flights: 1000, stay: 100, food: 50, activities: 0, transport: 0, other: 0 }, fundId: "", milestoneId: "" }] });
+    stampChanges(null, base, 1000);
+    const phoneA = JSON.parse(JSON.stringify(base));
+    phoneA.kidLogs.push({ id: "la", planId: "p1", kind: "deposit", amount: 100, by: "a", date: "2026-01-10" });
+    phoneA.trips[0].budget.stay = 180;
+    stampChanges(base, phoneA, 2000);
+    const phoneB = JSON.parse(JSON.stringify(base));
+    phoneB.kidLogs.push({ id: "lb", planId: "p1", kind: "deposit", amount: 150, by: "b", date: "2026-01-10" });
+    phoneB.tripSpends.push({ id: "sb", tripId: "t1", cat: "food", amount: 30, by: "b", date: "2026-01-10" });
+    phoneB.trips[0].budget.food = 70;
+    stampChanges(base, phoneB, 3000);
+    const merged = mergeStates(phoneA, phoneB, 4000);
+    const budget = merged.trips[0].budget;
+    return merged.kidLogs.length === 2 && merged.tripSpends.length === 1 && budget.stay === 180 && budget.food === 70 &&
+      kidPlanBalance(merged.kidPlans[0], merged).balance === 250 || JSON.stringify({ logs: merged.kidLogs, budget });
+  });
+  await test("xss: trip, destination, plan and child names render as text", () => {
+    const evil = '<img src=x onerror="window.__xss=1">';
+    state.kids = [{ id: "kx", name: evil, birth: "2021-01-01" }];
+    state.kidPlans = [{ id: "px", kidId: "kx", name: evil, targetAge: 18, product: "custom", rate: 5, tax: 0, start: 0, since: "2025-01-01", monthly: 50, cost: 1000 }];
+    state.kidLogs = [{ id: "lx", planId: "px", kind: "deposit", amount: 10, by: "a", date: toISO(new Date()) }];
+    state.trips = [{ id: "tx", name: evil, kind: "holiday", destination: evil, date: toISO(addMonths(new Date(), 2)), nights: 2, buffer: 0, budget: { stay: 50 }, fundId: "", milestoneId: "" }];
+    state.tripSpends = [{ id: "sx", tripId: "tx", cat: "other", amount: 5, date: toISO(new Date()), note: evil }];
+    let injected = 0;
+    for (const tab of ["home", "money"]) {
+      actions.tab(tab);
+      injected += document.querySelectorAll("#view img").length;
+    }
+    for (const open of [() => actions["edit-trip"]("tx"), () => actions["edit-kidplan"]("px"), () => actions["kid-balance"]("px")]) {
+      open();
+      injected += document.querySelectorAll("#dialog img").length;
+      document.getElementById("dialog").close();
+    }
+    state.kids = [];
+    state.kidPlans = [];
+    state.kidLogs = [];
+    state.trips = [];
+    state.tripSpends = [];
     return injected === 0 && !window.__xss || `injected ${injected}`;
   });
   localStorage.removeItem(store.key + ME_KEY_SUFFIX);

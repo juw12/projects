@@ -32,6 +32,16 @@ A private life-planning app for couples: from dating to marriage, a home, kids, 
 - **Date nights & fun money**: a monthly fun budget, an idea list, and a log of dates you actually did.
 - **Mint numbers**: if you also use the Mint budget app on the same phone/browser, this month's spending
   and saving from your Mint books show on the Money tab (read-only, never changed).
+- **Kids' plans**: an investment or deposit plan per child and goal (primary school, junior/senior high, university,
+  or your own), in a time deposit, money-market fund, retail government bonds (SBN), an index fund, gold or anything
+  else, with an editable rate and tax on growth (presets follow Indonesia's rules: 20% on deposit interest, 10% on SBN
+  coupons, none on fund gains). A chart shows what you put in versus what it earns up to the target age, the goal
+  with education inflation, and what closes any gap (more per month, or the growth rate you'd need). Log deposits
+  (who added them) and the real balance now and then, and the app works out your **real yearly growth rate**
+  (money-weighted) next to the plan's. "Plan it" on Education funds pre-fills one; the weekly target shows on Home.
+- **Trips & honeymoon**: plan flights, stay per night, food per day, activities, transport and shopping plus a buffer;
+  one tap makes a savings pot tied to a roadmap milestone (the Honeymoon one if you have it), so it gets a weekly
+  target on Home. While away, log spending to see what's left per day; afterwards, how you did against the plan.
 - **Rupiah-friendly**: with currency Rp/IDR, amounts show as "Rp 1.500.000" and money fields accept
   shorthand like `250rb`, `1,5jt` or `Rp 25.000`.
 - **Us**: monthly check-in with a connection trend, "talk before you decide" topics, a bucket list, and

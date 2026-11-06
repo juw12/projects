@@ -964,6 +964,171 @@ async function runSelfTests() {
     ui.mintStorage = null;
     return injected === 0 && !window.__xss || `injected ${injected}`;
   });
+  await test("kids' plan: balance = last checked balance + later deposits; growth = balance − what went in", () => {
+    const plan = { id: "kp", kidId: "k1", name: "University", targetAge: 18, product: "deposit", rate: 5, tax: 20, start: 1000, since: "2025-01-01", monthly: 100, cost: 0 };
+    const logs = [
+      { id: "l1", planId: "kp", kind: "deposit", amount: 100, by: "a", date: "2025-02-01" },
+      { id: "l2", planId: "kp", kind: "deposit", amount: 100, by: "b", date: "2025-03-01" },
+      { id: "l3", planId: "kp", kind: "balance", amount: 1250, by: "", date: "2025-03-15" },
+      { id: "l4", planId: "kp", kind: "deposit", amount: 100, by: "both", date: "2025-04-01" },
+      { id: "x", planId: "other", kind: "deposit", amount: 999, by: "a", date: "2025-04-01" },
+    ];
+    const withSnapshot = kidPlanBalance(plan, { kidLogs: logs });
+    const without = kidPlanBalance(plan, { kidLogs: logs.filter(l => l.kind !== "balance") });
+    return withSnapshot.balance === 1350 && withSnapshot.putIn === 1300 && withSnapshot.growth === 50 && withSnapshot.measured &&
+      without.balance === 1300 && !without.measured && kidPlanNetRate(plan) === 4 || JSON.stringify({ withSnapshot, without });
+  });
+  await test("kids' plan: projection to age 18, goal grows with inflation, needed monthly and rate close the gap", () => {
+    const plan = { id: "kp", kidId: "k1", name: "University", targetAge: 18, product: "index", rate: 6, tax: 0, start: 10000, since: "2025-01-15", monthly: 200, cost: 50000, inflation: 5 };
+    const plan$ = migrate({ ...blankState(), kids: [{ id: "k1", name: "Ayu", birth: "2016-01-15" }], kidPlans: [plan] });
+    const p = projectKidPlan(plan, plan$, fixedNow);
+    const noBirth = projectKidPlan({ ...plan, kidId: "missing" }, plan$, fixedNow);
+    const close = (x, y, tolerance = 1) => Math.abs(x - y) <= tolerance;
+    const ok = p && p.months === 96 && p.series.length === 9 && p.series[0].value === 10000 && p.series[0].age === 10 && p.series[8].age === 18 &&
+      close(p.final, futureValue(10000, 200, 6, 8), 0.01) && close(p.costThen, 50000 * Math.pow(1.05, 8), 0.01) && p.gap > 0 &&
+      close(futureValue(10000, p.neededMonthly, 6, 8), p.costThen) && close(futureValue(10000, 200, p.neededRate, 8), p.costThen) &&
+      close(p.series[8].putIn, 10000 + 200 * 96, 0.01) && noBirth === null;
+    return ok || JSON.stringify({ months: p && p.months, final: p && p.final, costThen: p && p.costThen, neededRate: p && p.neededRate });
+  });
+  await test("kids' plan: real growth is the money-weighted yearly return of deposits and a checked balance", () => {
+    const simple = annualizedReturn([{ date: new Date(2025, 0, 1), amount: -100 }, { date: new Date(2026, 0, 1), amount: 110 }]);
+    const end = new Date(2026, 0, 1);
+    const yearsBetween = (from, to) => (to - from) / (365.25 * 864e5);
+    const monthly = Array.from({ length: 12 }, (_, m) => ({ date: new Date(2025, m, 1), amount: -100 }));
+    const value = monthly.reduce((sum, flow) => sum + 100 * Math.pow(1.06, yearsBetween(flow.date, end)), 0);
+    const steady = annualizedReturn([...monthly, { date: end, amount: value }]);
+    const plan = { id: "rg", kidId: "k", start: 1000, since: "2025-01-01", rate: 5, tax: 0 };
+    const early = kidRealGrowth(plan, { kidLogs: [{ id: "b1", planId: "rg", kind: "balance", amount: 1050, date: "2025-02-01" }] });
+    const year = kidRealGrowth(plan, { kidLogs: [{ id: "b2", planId: "rg", kind: "balance", amount: 1100, date: "2026-01-01" }] });
+    return Math.abs(simple - 10) < 0.05 && Math.abs(steady - 6) < 0.01 && early.tooSoon && Math.abs(year.rate - 10) < 0.05 &&
+      annualizedReturn([{ date: end, amount: -5 }]) === null || JSON.stringify({ simple, steady, early, year });
+  });
+  await test("trips: per-night and per-day lines plus buffer; saving before, a daily allowance during, the verdict after", () => {
+    const trip = { id: "t1", kind: "honeymoon", date: "2026-03-01", nights: 7, buffer: 10,
+      budget: { flights: 1000, stay: 100, food: 50, activities: 300, transport: 0, other: 0 } };
+    const budget = tripBudget(trip);
+    const plan = migrate({ ...blankState(), trips: [trip],
+      funds: [{ id: "tf", name: "Bali", target: 2640, saved: 640, monthly: 0, milestoneId: "" }],
+      tripSpends: [{ id: "s1", tripId: "t1", cat: "food", amount: 400, date: "2026-03-01" }, { id: "s2", tripId: "t1", cat: "mystery", amount: 200, date: "2026-03-02" }] });
+    const unlinked = tripStatus(trip, plan, fixedNow);
+    const before = tripStatus({ ...trip, fundId: "tf" }, plan, fixedNow);
+    const during = tripStatus(trip, plan, new Date(2026, 2, 3, 15));
+    const after = tripStatus(trip, plan, new Date(2026, 2, 20));
+    const someday = tripStatus({ ...trip, date: "" }, plan, fixedNow);
+    return budget.days === 8 && budget.subtotal === 2400 && budget.buffer === 240 && budget.total === 2640 &&
+      unlinked.phase === "before" && unlinked.monthsLeft === 1 && unlinked.neededMonthly === 2640 &&
+      before.saved === 640 && before.toSave === 2000 && before.neededMonthly === 2000 &&
+      during.phase === "during" && during.dayNumber === 3 && during.daysLeft === 6 && during.spent === 600 && during.perDayLeft === 340 &&
+      during.spentBy.other === 200 && after.phase === "after" && someday.phase === "someday" ||
+      JSON.stringify({ budget: budget.total, unlinked: unlinked.neededMonthly, during: [during.dayNumber, during.perDayLeft], phases: [after.phase, someday.phase] });
+  });
+  await test("e2e trip: plan a honeymoon → pot tied to the Honeymoon milestone; spending logs; budget edits move the pot target", () => {
+    const leaveOn = toISO(addMonths(new Date(), 6));
+    state.couple.stage = "engaged";
+    state.milestones = [{ id: "mh", stage: "married", title: "Honeymoon", date: leaveOn, done: false, notes: "" }];
+    state.funds = [];
+    state.contributions = [];
+    state.trips = [];
+    state.tripSpends = [];
+    ui.now = new Date();
+    actions.tab("money");
+    document.querySelector('[data-act="add-trip"]').click();
+    const form = document.getElementById("dialog-form");
+    const prefilled = form.kind.value === "honeymoon" && form.date.value === leaveOn && form.nights.value === "7" && form.savePot.checked;
+    form.name.value = "Bali";
+    form.b_flights.value = "1.400";
+    form.b_stay.value = "150";
+    form.b_food.value = "80";
+    form.requestSubmit();
+    const trip = state.trips[0];
+    const fund = trip && findIn(state.funds, trip.fundId);
+    const potOk = fund && fund.target === 3399 && fund.milestoneId === "mh" && state.milestones.length === 1 && fund.monthly > 0;
+    const spendForm = document.querySelector('[data-form="trip-spend"]');
+    spendForm.amount.value = "200";
+    spendForm.cat.value = "food";
+    spendForm.requestSubmit();
+    actions["edit-trip"](trip.id);
+    const editForm = document.getElementById("dialog-form");
+    editForm.b_stay.value = "200";
+    editForm.requestSubmit();
+    const spend = state.tripSpends[0];
+    return prefilled && potOk && spend && spend.amount === 200 && spend.cat === "food" && findIn(state.funds, trip.fundId).target === 3784 &&
+      document.getElementById("view").textContent.includes("Trips & honeymoon") || JSON.stringify({ prefilled, trip, fund, spends: state.tripSpends });
+  });
+  await test("e2e kids' plan: 'Plan it' pre-fills, deposits and a balance check log, switching product resets untouched presets", () => {
+    state.kids = [{ id: "kk", name: "Ayu", birth: "2020-06-01" }];
+    state.retirement = { ...state.retirement, eduCost: 100000, eduInflation: 5 };
+    state.kidPlans = [];
+    state.kidLogs = [];
+    ui.now = new Date();
+    actions.tab("money");
+    document.querySelector('[data-act="plan-kid"][data-id="kk"]').click();
+    const form = document.getElementById("dialog-form");
+    const prefilled = form.goal.value === "university" && parseTypedAmount(form.cost.value) === 100000 && Number(form.monthly.value) > 0;
+    form.start.value = "5000";
+    form.requestSubmit();
+    const plan = state.kidPlans[0];
+    const created = plan && plan.rate === 4 && plan.tax === 20 && plan.start === 5000 && plan.targetAge === 18 && plan.name === "University";
+    const depositForm = document.querySelector('[data-form="kid-deposit"]');
+    depositForm.amount.value = "250";
+    depositForm.requestSubmit();
+    actions["kid-balance"](plan.id);
+    const balanceForm = document.getElementById("dialog-form");
+    balanceForm.amount.value = "5400";
+    balanceForm.requestSubmit();
+    const balance = kidPlanBalance(plan, state);
+    const rendered = document.querySelector("#view .growth-chart") && document.getElementById("view").textContent.includes("projected by then");
+    actions["edit-kidplan"](plan.id);
+    const editForm = document.getElementById("dialog-form");
+    editForm.product.value = "index";
+    editForm.requestSubmit();
+    return prefilled && created && state.kidLogs.length === 2 && balance.balance === 5400 && balance.measured && rendered &&
+      plan.product === "index" && plan.rate === 9 && plan.tax === 0 || JSON.stringify({ prefilled, plan, logs: state.kidLogs, balance });
+  });
+  await test("sync: kids' deposits and trip spending from two phones both survive; budget lines merge field by field", () => {
+    const base = migrate({ ...blankState(),
+      kids: [{ id: "k1", name: "Ayu", birth: "2020-01-01" }],
+      kidPlans: [{ id: "p1", kidId: "k1", name: "University", targetAge: 18, product: "deposit", rate: 4, tax: 20, start: 0, since: "2025-01-01", monthly: 100 }],
+      trips: [{ id: "t1", name: "Bali", kind: "honeymoon", date: "2026-09-01", nights: 7, buffer: 10, budget: { flights: 1000, stay: 100, food: 50, activities: 0, transport: 0, other: 0 }, fundId: "", milestoneId: "" }] });
+    stampChanges(null, base, 1000);
+    const phoneA = JSON.parse(JSON.stringify(base));
+    phoneA.kidLogs.push({ id: "la", planId: "p1", kind: "deposit", amount: 100, by: "a", date: "2026-01-10" });
+    phoneA.trips[0].budget.stay = 180;
+    stampChanges(base, phoneA, 2000);
+    const phoneB = JSON.parse(JSON.stringify(base));
+    phoneB.kidLogs.push({ id: "lb", planId: "p1", kind: "deposit", amount: 150, by: "b", date: "2026-01-10" });
+    phoneB.tripSpends.push({ id: "sb", tripId: "t1", cat: "food", amount: 30, by: "b", date: "2026-01-10" });
+    phoneB.trips[0].budget.food = 70;
+    stampChanges(base, phoneB, 3000);
+    const merged = mergeStates(phoneA, phoneB, 4000);
+    const budget = merged.trips[0].budget;
+    return merged.kidLogs.length === 2 && merged.tripSpends.length === 1 && budget.stay === 180 && budget.food === 70 &&
+      kidPlanBalance(merged.kidPlans[0], merged).balance === 250 || JSON.stringify({ logs: merged.kidLogs, budget });
+  });
+  await test("xss: trip, destination, plan and child names render as text", () => {
+    const evil = '<img src=x onerror="window.__xss=1">';
+    state.kids = [{ id: "kx", name: evil, birth: "2021-01-01" }];
+    state.kidPlans = [{ id: "px", kidId: "kx", name: evil, targetAge: 18, product: "custom", rate: 5, tax: 0, start: 0, since: "2025-01-01", monthly: 50, cost: 1000 }];
+    state.kidLogs = [{ id: "lx", planId: "px", kind: "deposit", amount: 10, by: "a", date: toISO(new Date()) }];
+    state.trips = [{ id: "tx", name: evil, kind: "holiday", destination: evil, date: toISO(addMonths(new Date(), 2)), nights: 2, buffer: 0, budget: { stay: 50 }, fundId: "", milestoneId: "" }];
+    state.tripSpends = [{ id: "sx", tripId: "tx", cat: "other", amount: 5, date: toISO(new Date()), note: evil }];
+    let injected = 0;
+    for (const tab of ["home", "money"]) {
+      actions.tab(tab);
+      injected += document.querySelectorAll("#view img").length;
+    }
+    for (const open of [() => actions["edit-trip"]("tx"), () => actions["edit-kidplan"]("px"), () => actions["kid-balance"]("px")]) {
+      open();
+      injected += document.querySelectorAll("#dialog img").length;
+      document.getElementById("dialog").close();
+    }
+    state.kids = [];
+    state.kidPlans = [];
+    state.kidLogs = [];
+    state.trips = [];
+    state.tripSpends = [];
+    return injected === 0 && !window.__xss || `injected ${injected}`;
+  });
   localStorage.removeItem(store.key + ME_KEY_SUFFIX);
   if (params.has("cloud")) {
     await test("cloud: live encrypted sync between two phones via the deployed worker", async () => {

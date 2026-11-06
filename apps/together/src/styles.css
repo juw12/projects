@@ -123,6 +123,27 @@
 .rate-table { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 6px; margin: 10px 0; }
 .rate-row { display: flex; justify-content: space-between; gap: 8px; padding: 6px 10px; border: 1px solid var(--line); border-radius: 8px; font-size: .86rem; }
 .rate-row.now { border-color: var(--rose); background: var(--rose-soft); }
+/* kids' plans and trips */
+.rate-table.lines { grid-template-columns: 1fr; gap: 0; }
+.rate-table.lines .rate-row { display: grid; border: 0; border-top: 1px solid var(--line); border-radius: 0; padding: 6px 2px; gap: 8px; }
+.rate-table.lines .rate-row.head { border-top: 0; color: var(--muted); font-size: .78rem; }
+.rate-table.lines .rate-row.total { border-top: 1px solid var(--line-strong); }
+.rate-table.lines .rate-row span:not(:first-child) { text-align: right; }
+.kid-row { grid-template-columns: minmax(0, .9fr) repeat(3, minmax(0, 1fr)); }
+.trip-row { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
+.with-spent .trip-row { grid-template-columns: minmax(0, 2fr) repeat(2, minmax(0, 1fr)); }
+.trip-row .over { color: var(--danger); font-weight: 600; }
+.growth-chart { display: block; width: 100%; height: auto; margin-top: 8px; }
+.chart-put { fill: var(--line-strong); }
+.chart-growth { fill: var(--green); }
+.chart-goal { stroke: var(--rose); stroke-width: 1.5; stroke-dasharray: 4 3; }
+.chart-legend { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 2px; }
+.swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+.swatch.put { background: var(--line-strong); }
+.swatch.growth { background: var(--green); }
+.swatch.goal { background: var(--rose); height: 3px; vertical-align: 2px; }
+.trip-budget { border: 0; padding: 0; margin: 8px 0 0; min-width: 0; }
+.trip-spend { flex-wrap: wrap; }
 .debt-row { padding: 8px 0; border-top: 1px solid var(--line); }
 .debt-row:first-child { border-top: 0; }
   .empty { text-align: center; padding: 24px 16px; color: var(--muted); border: 1px dashed var(--line-strong); border-radius: var(--radius); }

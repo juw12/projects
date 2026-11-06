@@ -220,7 +220,7 @@ function weekCardHTML(now) {
   return `<section class="card week-card" style="margin-top:14px">
     <div class="week-head"><h2>This week together</h2><span class="week-chips">${streakChip}<span class="chip">${esc(range)} · ${plan.daysLeft} day${plan.daysLeft === 1 ? "" : "s"} left</span></span></div>
     ${moneyBlock}
-    <div style="margin-top:10px">${challengeRows}${stepRow}${dateRow}${funRow}</div>
+    <div style="margin-top:10px">${challengeRows}${kidsWeekRowHTML(now)}${stepRow}${dateRow}${funRow}</div>
   </section>`;
 }
 
@@ -371,6 +371,7 @@ function viewMoney() {
   ${state.funds.length ? `<div class="grid" style="margin-top:14px">${fundCards}</div>` :
     `<div class="empty" style="margin-top:14px">No savings pots yet.<br><button type="button" class="primary" data-act="default-funds" style="margin-top:10px">Add starter pots (emergency, wedding, home)</button></div>`}
   ${challengesCardHTML(now)}
+  ${tripsHTML(now)}
   ${incomeCardHTML()}
   ${debtCardHTML(now)}
   <div class="section-head"><h2>Retiring together</h2></div>
@@ -403,6 +404,7 @@ function viewMoney() {
     <p class="small muted">Estimates only, using steady average returns. Real markets go up and down; tax rules differ by country. Not financial advice — check big decisions with a licensed adviser.</p>
   </div>
   ${freedomCardHTML(now)}
+  ${kidsPlansHTML(now)}
   <div class="grid" style="margin-top:14px">
     <section class="card">
       <h2>Education funds</h2>
@@ -413,7 +415,7 @@ function viewMoney() {
       ${!state.kids.length ? '<p class="small muted">Add your children (or a due date) in Settings to plan their education funds.</p>'
         : !education.length ? '<p class="small muted">Enter an expected cost to see how much to save per child.</p>'
         : `<ul class="clean">${education.map(e => `<li class="spread small"><div><b>${esc(e.kid.name)}</b> — starts ${esc(e.start.toLocaleDateString(undefined, { month: "short", year: "numeric" }))}<br><span class="muted">≈ ${esc(money(e.cost, cur))} by then</span></div>
-          <span class="chip">${esc(money(e.monthly, cur))}/mo</span></li>`).join("")}</ul>`}
+          <span class="row" style="gap:6px;flex-wrap:nowrap"><span class="chip">${esc(money(e.monthly, cur))}/mo</span><button type="button" class="small" data-act="plan-kid" data-id="${esc(e.kid.id)}" aria-label="Make a plan for ${esc(e.kid.name)}">Plan it</button></span></li>`).join("")}</ul><p class="small muted">"Plan it" turns this into a kids' plan below with a real product, growth chart and deposits.</p>`}
     </section>
     <section class="card">
       <h2>Bank statement → real surplus</h2>

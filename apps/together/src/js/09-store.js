@@ -8,6 +8,9 @@ function blankState() {
     // merge safely when both partners add money at the same time; a pot's balance is its `saved` plus these.
     contributions: [],
     debts: [], challenges: [], dates: [],
+    // Kids' plans ({ id, kidId, name, targetAge, product, rate, tax, cost, inflation, start, since, monthly }) and their
+    // logs ({ id, planId, kind: "deposit"|"balance", amount, by, date }); trips with a per-line budget and their spending.
+    kidPlans: [], kidLogs: [], trips: [], tripSpends: [],
     // Shared money settings. incomeA/B = monthly take-home pay; splitMode "equal" | "income";
     // debtMethod "avalanche" | "snowball"; debtExtra and funMonthly per month.
     retirement: { saved: 0, monthly: 0, rate: 5, fees: 0.5, inflation: 2.5, spend: 0, withdrawal: 4, eduCost: 0, eduInflation: 5,
