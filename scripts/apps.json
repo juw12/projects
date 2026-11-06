@@ -1891,6 +1891,49 @@
       "order": 43,
       "portfolio_order": 28,
       "portfolio": true
+    },
+    {
+      "id": "hearthwood",
+      "name": "Hearthwood",
+      "category": "Apps",
+      "external": true,
+      "url": "https://juw12.github.io/hearthwood/preview.html",
+      "url_label": "Play preview",
+      "desc": "A medieval low-poly village prototype in Unity 6 + URP, with a browser preview",
+      "summary": "Medieval low-poly village prototype (Unity 6 + URP): quests, dialogue, NPC AI and a playable browser preview.",
+      "description": "<strong>Hearthwood</strong> is a medieval low-poly village prototype built in <strong>Unity 6 + URP</strong>: a third-person action-adventure with dialogue, quests, an inventory, NPC AI and a favor-token economy. A self-contained <strong>HTML preview</strong> runs in the browser without the engine.",
+      "tags": [
+        "game",
+        "Unity 6",
+        "URP",
+        "C#",
+        "HTML preview"
+      ],
+      "note_tags": [
+        "hearthwood",
+        "game",
+        "unity",
+        "urp",
+        "csharp"
+      ],
+      "image": "hearthwood-card.jpg",
+      "image_alt": "Hearthwood title screen: a hearth-fire emblem, a name field set to Wanderer and a Begin Adventure button",
+      "extra_links": [
+        {
+          "label": "Source",
+          "url": "https://github.com/juw12/hearthwood"
+        }
+      ],
+      "card": {
+        "capture": "https://juw12.github.io/hearthwood/preview.html",
+        "label": "hearthwood · preview",
+        "theme": "light",
+        "accent": "#9a3a22",
+        "accent2": "#9e992f"
+      },
+      "status": "released",
+      "order": 44,
+      "portfolio": true
     }
   ]
 }
