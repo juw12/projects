@@ -1218,11 +1218,12 @@
         
         const header = document.createElement('div');
         header.className = 'command-item-header';
+        // nosemgrep -- reviewed: static UI/i18n strings or escapeHtml()-escaped values; CSP script-src 'self' blocks injected script
         header.innerHTML = `
           <svg class="command-item-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="12" cy="12" r="10"/>
           </svg>
-          ${group.item || group.id}
+          ${escapeHtml(group.item || group.id)}
         `;
         itemDiv.appendChild(header);
         
@@ -1265,7 +1266,8 @@
     
     const header = document.createElement('div');
     header.className = 'command-card-header';
-    header.innerHTML = `<div class="command-card-label">${cmd.label}</div>`;
+    // nosemgrep -- reviewed: static UI/i18n strings or escapeHtml()-escaped values; CSP script-src 'self' blocks injected script
+    header.innerHTML = `<div class="command-card-label">${escapeHtml(cmd.label)}</div>`;
     card.appendChild(header);
     
     // Render params if present
@@ -1372,10 +1374,11 @@
     return new Promise((resolve) => {
       const overlay = document.createElement('div');
       overlay.className = 'confirm-overlay';
+      // nosemgrep -- reviewed: static UI/i18n strings or escapeHtml()-escaped values; CSP script-src 'self' blocks injected script
       overlay.innerHTML = `
         <div class="confirm-dialog">
-          <h3>${title}</h3>
-          <p>${message}</p>
+          <h3>${escapeHtml(title)}</h3>
+          <p>${escapeHtml(message)}</p>
           <div class="confirm-dialog-actions">
             <button class="btn btn-danger" id="confirm-yes">Yes</button>
             <button class="btn btn-secondary" id="confirm-no">No</button>
@@ -1966,10 +1969,18 @@
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 
+  function escapeHtml(value) {
+    return String(value == null ? '' : value).replace(/[&<>"']/g, (ch) => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    })[ch]);
+  }
+
   function updateProgress(text, current, total) {
-    elements.macroProgress.innerHTML = `<span class="progress-text">${text}</span>`;
+    // nosemgrep -- reviewed: static UI/i18n strings or escapeHtml()-escaped values; CSP script-src 'self' blocks injected script
+    elements.macroProgress.innerHTML = `<span class="progress-text">${escapeHtml(text)}</span>`;
     if (current && total) {
-      elements.macroProgress.innerHTML += `<span class="progress-text">${current} / ${total}</span>`;
+      // nosemgrep -- reviewed: static UI/i18n strings or escapeHtml()-escaped values; CSP script-src 'self' blocks injected script
+      elements.macroProgress.innerHTML += `<span class="progress-text">${escapeHtml(current)} / ${escapeHtml(total)}</span>`;
     }
   }
 

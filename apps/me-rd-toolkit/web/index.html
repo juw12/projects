@@ -18,15 +18,7 @@
     }
   </script>
   <link rel="stylesheet" href="styles.css">
-  <script>
-    (function () {
-      try {
-        var saved = JSON.parse(localStorage.getItem("meRd.v2") || "{}").theme;
-        var dark = saved ? saved === "dark" : window.matchMedia("(prefers-color-scheme: dark)").matches;
-        document.documentElement.dataset.theme = dark ? "dark" : "light";
-      } catch (e) {}
-    })();
-  </script>
+  <script src="theme-init.js"></script>
 </head>
 <body>
   <div id="drawer-backdrop"></div>
@@ -62,18 +54,13 @@
   <div id="toast" class="toast hidden"></div>
 
   <script src="demo-pack.js"></script>
-  <!-- Optional private data pack for desktop use (never committed). Missing file is fine. -->
-  <script>
-    // Optional private files (path aliases, data pack, extra calculators). Missing files are simply skipped.
-    function loadPrivate(name) {
-      document.write('<script src="private/' + name + '.js" onerror="void 0"><\/script>');
-    }
-    loadPrivate("aliases");
-    loadPrivate("pack");
-  </script>
+  <!-- Optional private files for desktop use (never committed): path aliases, data pack, extra calculators.
+       Plain script tags keep load order without document.write; a missing file is skipped. -->
+  <script src="private/aliases.js"></script>
+  <script src="private/pack.js"></script>
   <script src="app.js"></script>
   <script src="views.js"></script>
-  <script>loadPrivate("calcs");</script>
+  <script src="private/calcs.js"></script>
   <script src="vault.js"></script>
 </body>
 </html>

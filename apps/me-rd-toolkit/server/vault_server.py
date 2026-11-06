@@ -35,7 +35,7 @@ PRIVATE_DIR = Path(os.environ.get("ME_PRIVATE_DIR") or APP_ROOT / "private")
 CONFIG_PATH = Path(sys.argv[1]) if len(sys.argv) > 1 else PRIVATE_DIR / "vault_config.json"
 LOG_PATH = PRIVATE_DIR / "vault_access.log"
 APP_FILES = {
-    "index.html", "app.js", "views.js", "vault.js", "styles.css", "demo-pack.js", "manifest.webmanifest",
+    "index.html", "theme-init.js", "app.js", "views.js", "vault.js", "styles.css", "demo-pack.js", "manifest.webmanifest",
     "sw.js", "icons/icon.svg", "icons/icon-192.png", "icons/icon-512.png", "private/pack.js", "private/calcs.js",
 }
 INLINE_TYPES = ("application/pdf", "image/", "video/", "audio/", "text/plain")
