@@ -15,18 +15,7 @@
 <meta content="black-translucent" name="apple-mobile-web-app-status-bar-style"/>
 <meta content="Airiz Console" name="apple-mobile-web-app-title"/>
 <link href="styles.css" rel="stylesheet"/>
-<script>
-(function() {
-  try {
-    var theme = localStorage.getItem('airiz.theme');
-    if (theme === 'light' || theme === 'dark' || theme === 'system') {
-      document.documentElement.setAttribute('data-theme', theme);
-    }
-  } catch (error) {
-    // Keep the default theme if storage is unavailable.
-  }
-})();
-</script>
+<script src="theme-init.js"></script>
 <link href="console-ui.css" rel="stylesheet"/>
 <link href="ziris-team.css" rel="stylesheet"/><link href="ptz.css" rel="stylesheet"/><link href="i18n.css" rel="stylesheet"/></head>
 <body class="console-redesign">

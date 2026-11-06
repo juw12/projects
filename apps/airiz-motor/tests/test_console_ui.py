@@ -96,7 +96,9 @@ class ControllerShellTests(unittest.TestCase):
         self.assertIn("['dark', 'light', 'system']", application)
         self.assertIn('data-theme="system"', stylesheet)
         self.assertIn('prefers-color-scheme: light', stylesheet)
-        self.assertIn("theme === 'system'", self.html)
+        theme_init = (WEB / 'theme-init.js').read_text(encoding='utf-8')
+        self.assertIn('<script src="theme-init.js"></script>', self.html)
+        self.assertIn("theme === 'system'", theme_init)
 
     def test_new_jog_controls_use_finite_native_ranges(self):
         for axis, speed_max in [('pan', '17'), ('rising', '30')]:

@@ -26,7 +26,7 @@ WEB = os.path.join(BASE, "web")
 SERVER = os.path.join(BASE, "server", "vault_server.py")
 
 REQUIRED = [
-    "index.html", "app.js", "views.js", "vault.js", "styles.css", "demo-pack.js",
+    "index.html", "theme-init.js", "app.js", "views.js", "vault.js", "styles.css", "demo-pack.js",
     "manifest.webmanifest", "sw.js", "icons/icon.svg", "icons/icon-192.png", "icons/icon-512.png",
 ]
 FAILURES = []
