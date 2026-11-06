@@ -5,7 +5,7 @@ function reminderSchedule(plan, now = new Date()) {
   const nowMs = now.getTime();
   const at = (date, hour) => new Date(date.getFullYear(), date.getMonth(), date.getDate(), hour, 0).getTime();
   const add = (time, title, body, tag) => {
-    if (time > nowMs + 60e3 && time < nowMs + 120 * 864e5) list.push({ at: time, title, body, tag });
+    if (time > nowMs + 60e3 && time < nowMs + 120 * 864e5) list.push({ at: time, title: i18n.text(title), body: i18n.text(body), tag });
   };
   const nameA = plan.couple.a.name || "Partner A";
   const nameB = plan.couple.b.name || "Partner B";
@@ -117,7 +117,7 @@ const reminders = {
     pref.enabled = true;
     this.savePref(pref);
     await this.sync(subscription);
-    await registration.showNotification("Reminders are on", { body: "We'll nudge you about check-ins, milestones and anniversaries.", icon: "icons/icon-192.png", tag: "together-welcome" });
+    await registration.showNotification(i18n.text("Reminders are on"), { body: i18n.text("We'll nudge you about check-ins, milestones and anniversaries."), icon: "icons/icon-192.png", tag: "together-welcome" });
   },
   async disable() {
     const pref = this.pref();

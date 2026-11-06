@@ -11,11 +11,12 @@ function openDialog(title, fieldsHTML, onSubmit, submitLabel = "Save") {
     onSubmit(values);
   };
   form.querySelector("[data-close]").onclick = () => dialog.close();
+  i18n.translate(form);
   dialog.showModal();
   const first = form.querySelector("input, select, textarea");
   if (first) first.focus();
 }
-const stageOptions = selected => STAGES.map(s => `<option value="${s.id}" ${selected === s.id ? "selected" : ""}>${s.icon} ${s.name}</option>`).join("");
+const stageOptions = selected => STAGES.map(s => `<option value="${s.id}" ${selected === s.id ? "selected" : ""}>${s.name}</option>`).join("");
 
 function milestoneDialog(existing) {
   const m = existing || { stage: STAGES[currentStageIndex(state)].id, title: "", date: "", notes: "" };
@@ -35,7 +36,7 @@ function goalDialog(existing) {
   openDialog(existing ? "Edit goal" : "New goal", `
     <label class="field">Goal<input name="title" required value="${esc(g.title)}" placeholder="e.g. Pay off student loans"></label>
     <div class="fields-2">
-      <label class="field">Category<select name="category">${Object.entries(CATEGORIES).map(([id, c]) => `<option value="${id}" ${g.category === id ? "selected" : ""}>${c.icon} ${c.name}</option>`).join("")}</select></label>
+      <label class="field">Category<select name="category">${Object.entries(CATEGORIES).map(([id, c]) => `<option value="${id}" ${g.category === id ? "selected" : ""}>${c.name}</option>`).join("")}</select></label>
       <label class="field">Whose goal?<select name="owner">${[["both", "Both of us"], ["a", n.a], ["b", n.b]].map(([v, l]) => `<option value="${v}" ${g.owner === v ? "selected" : ""}>${esc(l)}</option>`).join("")}</select></label>
       <label class="field">Target date<input name="due" type="date" value="${esc(g.due)}"></label></div>
     ${existing ? "" : '<label class="field">First steps (one per line)<textarea name="steps" placeholder="Agree a budget\nOpen a joint savings account"></textarea></label>'}
@@ -145,9 +146,9 @@ function dateDialog() {
 function streakCelebration(before) {
   const after = savingStreak(state, new Date());
   if (after.weeks > before.weeks && STREAK_MILESTONES.includes(after.weeks)) {
-    return ` ${after.weeks} weeks in a row, keep it going!`;
+    return i18n.text(` ${after.weeks} weeks in a row, keep it going!`);
   }
-  return after.thisWeekDone && !before.thisWeekDone ? " This week's target is done." : "";
+  return after.thisWeekDone && !before.thisWeekDone ? i18n.text(" This week's target is done.") : "";
 }
 function mintSummary(id) {
   const found = readMintBooks(mintStorage()).find(b => b.id === id);
@@ -234,6 +235,14 @@ const actions = {
     theme.set(id);
     render();
   },
+  "lang": id => {
+    if (!LANG_OPTIONS.some(option => option.id === id)) return;
+    i18n.set(id);
+    document.getElementById("toast-undo").textContent = "Undo";
+    theme.apply();
+    render();
+    toast(i18n.lang === "id" ? "Bahasa Indonesia aktif" : "English it is");
+  },
   "theme-cycle": () => {
     theme.cycle();
     if (ui.tab === "settings") render();
@@ -289,7 +298,7 @@ const actions = {
     challenge.ticks = { ...(challenge.ticks || {}), [status.step]: toISO(new Date()) };
     const finished = challengeStatus(challenge, new Date()).finished;
     commit(finished ? `${status.def.name} complete! ${money(status.goal, state.couple.currency)} saved together.`
-      : `Week ${status.step} done: ${money(status.amount, state.couple.currency)} into ${fund.name}.${streakCelebration(before)}`);
+      : `${i18n.text(`Week ${status.step} done: ${money(status.amount, state.couple.currency)} into ${fund.name}.`)}${streakCelebration(before)}`);
   },
   "date-done": () => dateDialog(),
   "delete-date": id => removeFrom("dates", id, "Date"),
@@ -425,7 +434,7 @@ const actions = {
     }, "Replace link");
   },
   "sync-leave": () => {
-    if (!confirm("Stop syncing on this device? Your plan stays here; your partner keeps their copy.")) return;
+    if (!confirm(i18n.text("Stop syncing on this device? Your plan stays here; your partner keeps their copy."))) return;
     sync.leave();
     render();
     toast("Sync stopped on this device");
@@ -477,7 +486,7 @@ const actions = {
     }
   },
   "reset": () => {
-    if (!confirm("Erase your whole plan from this device? Export a backup first if you want to keep it.")) return;
+    if (!confirm(i18n.text("Erase your whole plan from this device? Export a backup first if you want to keep it."))) return;
     commitWithUndo("Plan erased", () => {
       state = blankState();
     });
@@ -522,7 +531,7 @@ const forms = {
     state.contributions.push({ id: uid(), fundId: fund.id, amount, by, date: toISO(new Date()) });
     const reached = fundSaved(fund, state) >= (Number(fund.target) || 0) && fund.target > 0;
     commit(amount > 0
-      ? `${money(amount, state.couple.currency)} added to ${fund.name}${reached ? " — target reached!" : ""}${streakCelebration(before)}`
+      ? `${i18n.text(`${money(amount, state.couple.currency)} added to ${fund.name}`)}${reached ? i18n.text(" — target reached!") : ""}${streakCelebration(before)}`
       : `${money(-amount, state.couple.currency)} taken out of ${fund.name}`);
   },
   networth: values => {
@@ -548,6 +557,7 @@ const forms = {
 
 function toast(message, withUndo = false) {
   if (!message) return;
+  message = i18n.text(message);
   const box = document.getElementById("toast");
   document.getElementById("toast-text").textContent = message;
   document.getElementById("toast-undo").hidden = !withUndo;
@@ -645,7 +655,7 @@ function bindEvents() {
           toast(`${result.error}`);
           return;
         }
-        if (!confirm("Replace the plan on this device with this backup?")) return;
+        if (!confirm(i18n.text("Replace the plan on this device with this backup?"))) return;
         commitWithUndo("Backup imported ✓", () => {
           state = result.state;
         });

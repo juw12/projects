@@ -78,7 +78,7 @@ function agesLine(dateText) {
     const kidAge = ageOn(kid.birth, date);
     if (kidAge !== null && kidAge >= 0) parts.push(`${esc(kid.name)} ${kidAge}`);
   }
-  return parts.length ? `Ages ${parts.join(" · ")}` : "";
+  return parts.length ? `<span translate="no">${i18n.lang === "id" ? "Usia" : "Ages"} ${parts.join(" · ")}</span>` : "";
 }
 
 /* ------------------------------------------------------------------ theme */
@@ -116,6 +116,7 @@ const theme = {
       toggle.innerHTML = icon(current.icon);
       toggle.setAttribute("aria-label", `Appearance: ${current.label}. Switch to ${next.label}`);
       toggle.title = `Appearance: ${current.label}`;
+      i18n.translate(toggle);
     }
   },
   set(preference) {

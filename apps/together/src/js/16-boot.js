@@ -28,6 +28,8 @@ function boot() {
       if (pill) pill.innerHTML = savedPillHTML();
       const line = document.getElementById("sync-status");
       if (line) line.textContent = syncStatusText();
+      i18n.translate(pill);
+      i18n.translate(line);
     },
   });
   if (!realDevice) sync.config = null;
@@ -74,7 +76,7 @@ function startConnectivity() {
         <p class="small">Your partner protected your shared plan with a passphrase. Anything already on this device will be merged into it.</p>
         <label class="field">Passphrase<input name="passphrase" type="password" autocomplete="current-password" required></label>`,
       values => connect(values.passphrase), "Join");
-    } else if (!alreadyHere && confirm("Join your partner's shared plan on this device?\n\nAnything already on this device will be merged into it.")) {
+    } else if (!alreadyHere && confirm(i18n.text("Join your partner's shared plan on this device?\n\nAnything already on this device will be merged into it."))) {
       connect("");
     }
   }

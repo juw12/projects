@@ -157,7 +157,7 @@ function syncStatusText() {
   if (sync.status === "error") return `${sync.error || "Sync paused."} Will retry.`;
   if (sync.status === "syncing") return "Syncing…";
   const last = sync.config.lastSyncAt;
-  return last ? `✓ Synced ${new Date(last).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : "Waiting for first sync…";
+  return last ? `✓ Synced ${new Date(last).toLocaleTimeString(i18n.locale || [], { hour: "2-digit", minute: "2-digit" })}` : "Waiting for first sync…";
 }
 
 function viewConnect() {
@@ -242,6 +242,12 @@ function viewSettings() {
       <p class="small muted">Applies to this device only.</p>
       <div class="segmented" role="group" aria-label="Appearance">${THEME_OPTIONS.map(option =>
         `<button type="button" data-act="theme" data-id="${option.id}" aria-pressed="${theme.preference === option.id}">${icon(option.icon)}<span>${option.label}</span></button>`).join("")}</div>
+    </section>
+    <section class="card">
+      <h2>Language</h2>
+      <p class="small muted">Bahasa Indonesia or English, for this device only. Automatic follows the phone's language.</p>
+      <div class="segmented" role="group" aria-label="Language">${LANG_OPTIONS.map(option =>
+        `<button type="button" data-act="lang" data-id="${option.id}" aria-pressed="${i18n.preference === option.id}"><span${option.id === "auto" ? "" : ' translate="no"'}>${option.id === "auto" ? "Automatic" : option.label}</span></button>`).join("")}</div>
     </section>
     <section class="card">
       <h2>Our children</h2>

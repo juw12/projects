@@ -52,7 +52,7 @@ function debtCardHTML(now) {
       summary = `<p class="small"><span class="chip warn" style="white-space:normal">At these payments the debts never clear: interest grows faster. Add an extra amount per month.</span></p>`;
     } else {
       const saved = plan.other.feasible ? plan.other.totalInterest - plan.totalInterest : null;
-      summary = `<p class="small">Debt-free around <b>${esc(plan.date.toLocaleDateString(undefined, { month: "short", year: "numeric" }))}</b> (${plan.months} months), paying ${esc(money(plan.budget, cur))}/month in total and ${esc(money(plan.totalInterest, cur))} interest.</p>
+      summary = `<p class="small">Debt-free around <b>${esc(plan.date.toLocaleDateString(i18n.locale, { month: "short", year: "numeric" }))}</b> (${plan.months} months), paying ${esc(money(plan.budget, cur))}/month in total and ${esc(money(plan.totalInterest, cur))} interest.</p>
         ${saved !== null && Math.abs(saved) >= 1 ? `<p class="small muted">${saved > 0 ? `That's ${esc(money(saved, cur))} less interest than the other order.` : `The other order would save ${esc(money(-saved, cur))} interest, but ${plan.method === "snowball" ? "quick wins keep many couples going" : "this one clears the biggest cost first"}.`}</p>` : ""}`;
     }
   }
@@ -63,7 +63,7 @@ function debtCardHTML(now) {
         const month = plan.payoff[d.id];
         return `<li class="spread debt-row"><div style="min-width:0"><b>${esc(d.name)}</b>
             <div class="small muted">${esc(money(d.balance, cur))} · ${esc(String(Number(d.rate) || 0))}% a year · min ${esc(money(d.minimum, cur))}/month</div>
-            ${Number(d.balance) > 0 ? `<div class="small">${month ? `Paid off ${esc(addMonths(now, month).toLocaleDateString(undefined, { month: "short", year: "numeric" }))}` : "Not cleared at these payments"}</div>` : '<span class="chip ok">✓ Paid off</span>'}</div>
+            ${Number(d.balance) > 0 ? `<div class="small">${month ? `Paid off ${esc(addMonths(now, month).toLocaleDateString(i18n.locale, { month: "short", year: "numeric" }))}` : "Not cleared at these payments"}</div>` : '<span class="chip ok">✓ Paid off</span>'}</div>
           <span style="white-space:nowrap"><button type="button" class="ghost" data-act="edit-debt" data-id="${esc(d.id)}" aria-label="Edit ${esc(d.name)}">${icon("pencil")}</button><button type="button" class="ghost" data-act="delete-debt" data-id="${esc(d.id)}" aria-label="Delete ${esc(d.name)}">${icon("trash")}</button></span></li>`;
       }).join("")}</ul>` : '<div class="empty">No debts? Lovely. If you have any (cards, loans, buy-now-pay-later), add them to get a debt-free date.</div>'}
       ${debts.length ? `<form class="fields-2" data-form="retirement" style="margin-top:10px">

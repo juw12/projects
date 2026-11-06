@@ -37,23 +37,27 @@ function formatDate(text, style = "medium") {
   const date = parseDate(text);
   if (!date) return "No date";
   const options = style === "month" ? { month: "short", year: "numeric" } : { day: "numeric", month: "short", year: "numeric" };
-  return date.toLocaleDateString(undefined, options);
+  return date.toLocaleDateString(i18n.locale, options);
 }
 function relativeTime(text, now) {
   const date = parseDate(text);
   if (!date) return "";
   const days = daysBetween(now, date);
-  if (days === 0) return "today";
+  const id = i18n.lang === "id";
+  if (days === 0) return id ? "hari ini" : "today";
   const abs = Math.abs(days);
   let span;
   if (abs < 45) {
-    span = `${abs} day${abs === 1 ? "" : "s"}`;
+    span = id ? `${abs} hari` : `${abs} day${abs === 1 ? "" : "s"}`;
   } else {
     const months = Math.abs(days > 0 ? monthsBetween(now, date) : monthsBetween(date, now));
     const years = Math.floor(months / 12);
     const rest = months % 12;
-    span = years ? `${years} yr${years === 1 ? "" : "s"}${rest ? ` ${rest} mo` : ""}` : `${rest} mo`;
+    span = id
+      ? (years ? `${years} thn${rest ? ` ${rest} bln` : ""}` : `${rest} bln`)
+      : (years ? `${years} yr${years === 1 ? "" : "s"}${rest ? ` ${rest} mo` : ""}` : `${rest} mo`);
   }
+  if (id) return days > 0 ? `dalam ${span}` : `${span} lalu`;
   return days > 0 ? `in ${span}` : `${span} ago`;
 }
 function money(amount, currency) {

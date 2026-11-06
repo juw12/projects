@@ -1,6 +1,6 @@
 /* --------------------------------------- views: kids' plans and trips */
-const monthYear = date => date.toLocaleDateString(undefined, { month: "short", year: "numeric" });
-const pct = value => `${(Math.round(value * 10) / 10).toLocaleString(undefined, { maximumFractionDigits: 1 })}%`;
+const monthYear = date => date.toLocaleDateString(i18n.locale, { month: "short", year: "numeric" });
+const pct = value => `${(Math.round(value * 10) / 10).toLocaleString(i18n.locale, { maximumFractionDigits: 1 })}%`;
 
 /** Stacked yearly bars: what you put in (bottom) and what it earned (top). */
 function growthChartSVG(projection, cur) {
@@ -43,7 +43,7 @@ function kidPlanCard(plan, now) {
       <p class="small muted">This child was removed or has no birth date, so there's no target date. Edit the plan to pick a child.</p></article>`;
   }
   const tax = Number(plan.tax) || 0;
-  const rateLine = `${esc(product.name)} · ${esc(pct(Number(plan.rate) || 0))} a year${tax ? `, ${esc(pct(p.netRate))} after ${esc(pct(tax))} tax` : ""}`;
+  const rateLine = `<span>${esc(product.name)}</span> · ${esc(pct(Number(plan.rate) || 0))} a year${tax ? `, ${esc(pct(p.netRate))} after ${esc(pct(tax))} tax` : ""}`;
   let verdict = "";
   if (p.months === 0) {
     verdict = '<span class="chip ok">The day is here. Time to use it.</span>';

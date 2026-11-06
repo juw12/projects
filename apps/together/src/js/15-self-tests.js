@@ -1129,6 +1129,82 @@ async function runSelfTests() {
     state.tripSpends = [];
     return injected === 0 && !window.__xss || `injected ${injected}`;
   });
+  const withIndonesian = run => {
+    const savedState = state;
+    const savedNow = ui.now;
+    i18n.override = "id";
+    i18n.missing.clear();
+    try {
+      return run();
+    } finally {
+      i18n.override = null;
+      state = savedState;
+      ui.now = savedNow;
+      document.getElementById("dialog").close();
+      render();
+    }
+  };
+  await test("i18n: numbers, money, dates and the couple's words become placeholders; inline parts keep their markup", () => withIndonesian(() => {
+    state = demoState();
+    i18n.prepare();
+    const box = document.createElement("div");
+    box.innerHTML = '<p>Saved <b>$750</b> of $4,774 in the <b>Honeymoon in Bali</b> pot</p><button>' + icon("plus") + ' Add</button>'
+      + '<p>Week 3: put $6 in</p><input placeholder="Add a step to Run a half marathon together">';
+    i18n.translate(box);
+    const [first, button, week, input] = box.children;
+    const ok = first.textContent === "Terkumpul $750 dari $4,774 di celengan Honeymoon in Bali" && first.querySelectorAll("b").length === 2 &&
+      button.querySelector("svg") && button.textContent.trim() === "Tambah" && week.textContent === "Minggu 3: masukkan $6" &&
+      input.placeholder === "Tambah langkah ke Run a half marathon together" &&
+      i18n.text("Honeymoon") === "Bulan madu" && i18n.text("Mia & Leo: 10 minutes, phones away.") === "Mia & Leo: 10 menit, HP disingkirkan.";
+    return ok || JSON.stringify([first.innerHTML, button.textContent, week.textContent, input.placeholder]);
+  }));
+  await test("i18n: every tab and dialog of the demo plan (and a Rupiah plan) is fully Indonesian", () => withIndonesian(() => {
+    const walk = () => {
+      for (const tab of TABS) actions.tab(tab.id);
+      for (const [name, key] of [["add-milestone"], ["add-goal"], ["add-fund"], ["add-debt"], ["add-challenge"], ["date-done"], ["add-kidplan"],
+        ["add-trip"], ["edit-fund", "funds"], ["edit-kidplan", "kidPlans"], ["edit-trip", "trips"], ["kid-balance", "kidPlans"]]) {
+        actions[name](key ? state[key][0].id : undefined);
+        document.getElementById("dialog").close();
+      }
+    };
+    state = demoState();
+    ui.now = new Date();
+    walk();
+    state = demoState();
+    state.couple.currency = "Rp";
+    walk();
+    const missing = [...i18n.missing];
+    const homeText = (actions.tab("home"), document.getElementById("view").textContent);
+    return missing.length === 0 && homeText.includes("Minggu ini bersama") && document.documentElement.lang === "id" || JSON.stringify(missing.slice(0, 8));
+  }));
+  await test("i18n: Indonesian relative times, dates and toasts; English stays untouched", () => {
+    const english = relativeTime("2028-12-20", new Date(2026, 10, 6));
+    const result = withIndonesian(() => {
+      const later = relativeTime("2028-12-20", new Date(2026, 10, 6));
+      const earlier = relativeTime("2026-11-01", new Date(2026, 10, 6));
+      toast("Link copied");
+      const toastText = document.getElementById("toast-text").textContent;
+      const month = formatDate("2026-08-17", "month");
+      return { later, earlier, toastText, month };
+    });
+    toast("Link copied");
+    const englishToast = document.getElementById("toast-text").textContent;
+    const ok = english === "in 2 yrs 1 mo" && result.later === "dalam 2 thn 1 bln" && result.earlier === "5 hari lalu" &&
+      result.toastText === "Tautan disalin" && /agu/i.test(result.month) && englishToast === "Link copied" &&
+      document.getElementById("tabs").textContent.includes("Home");
+    return ok || JSON.stringify({ english, result, englishToast });
+  });
+  await test("i18n: the language picker saves the choice for this device only", () => {
+    actions.tab("settings");
+    const picker = document.querySelector('[data-act="lang"][data-id="id"]');
+    picker.click();
+    const saved = localStorage.getItem(LANG_KEY);
+    document.querySelector('[data-act="lang"][data-id="auto"]').click();
+    const cleared = localStorage.getItem(LANG_KEY);
+    const plan = JSON.parse(store.exportText(state)).state;
+    return saved === "id" && cleared === null && !("lang" in plan) && !JSON.stringify(plan).includes("together.lang") ||
+      JSON.stringify({ saved, cleared });
+  });
   localStorage.removeItem(store.key + ME_KEY_SUFFIX);
   if (params.has("cloud")) {
     await test("cloud: live encrypted sync between two phones via the deployed worker", async () => {

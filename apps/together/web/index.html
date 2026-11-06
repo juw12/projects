@@ -261,7 +261,7 @@
 <main id="view" tabindex="-1"></main>
 <dialog id="dialog" aria-labelledby="dialog-title"><form id="dialog-form" method="dialog"></form></dialog>
 <section id="print-area" class="print-only" aria-hidden="true"></section>
-<div id="toast" role="status" aria-live="polite"><span id="toast-text"></span><button type="button" id="toast-undo">Undo</button></div>
+<div id="toast" role="status" aria-live="polite"><span id="toast-text" translate="no"></span><button type="button" id="toast-undo">Undo</button></div>
 
 <script>
 "use strict";
@@ -440,23 +440,27 @@ function formatDate(text, style = "medium") {
   const date = parseDate(text);
   if (!date) return "No date";
   const options = style === "month" ? { month: "short", year: "numeric" } : { day: "numeric", month: "short", year: "numeric" };
-  return date.toLocaleDateString(undefined, options);
+  return date.toLocaleDateString(i18n.locale, options);
 }
 function relativeTime(text, now) {
   const date = parseDate(text);
   if (!date) return "";
   const days = daysBetween(now, date);
-  if (days === 0) return "today";
+  const id = i18n.lang === "id";
+  if (days === 0) return id ? "hari ini" : "today";
   const abs = Math.abs(days);
   let span;
   if (abs < 45) {
-    span = `${abs} day${abs === 1 ? "" : "s"}`;
+    span = id ? `${abs} hari` : `${abs} day${abs === 1 ? "" : "s"}`;
   } else {
     const months = Math.abs(days > 0 ? monthsBetween(now, date) : monthsBetween(date, now));
     const years = Math.floor(months / 12);
     const rest = months % 12;
-    span = years ? `${years} yr${years === 1 ? "" : "s"}${rest ? ` ${rest} mo` : ""}` : `${rest} mo`;
+    span = id
+      ? (years ? `${years} thn${rest ? ` ${rest} bln` : ""}` : `${rest} bln`)
+      : (years ? `${years} yr${years === 1 ? "" : "s"}${rest ? ` ${rest} mo` : ""}` : `${rest} mo`);
   }
+  if (id) return days > 0 ? `dalam ${span}` : `${span} lalu`;
   return days > 0 ? `in ${span}` : `${span} ago`;
 }
 function money(amount, currency) {
@@ -503,6 +507,1165 @@ const ICONS = {
 function icon(name, className = "i") {
   return `<svg class="${className}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${ICONS[name] || ""}</svg>`;
 }
+/* ------------------------------------------------------------- language */
+// The interface language is a per-device choice: "auto" (follow the phone), "en" or "id".
+// Translation runs on the rendered DOM, so views stay plain English templates:
+//  - each text block (an element's own text, with inline children such as <b> written as {0}, {1}…)
+//    is looked up in a dictionary of English → Indonesian;
+//  - numbers, money and dates become {#} and the couple's own words (names, pots, goals…) become {@},
+//    so one entry covers "$92 this week" and "Rp 250.000 this week";
+//  - attributes people hear or see (placeholder, aria-label, title) are translated the same way.
+// In Indonesian mode anything without a translation is collected in i18n.missing (the self-test
+// fails on it), so new English text can't slip through unnoticed.
+const LANG_KEY = "together.lang";
+const LANG_OPTIONS = [
+  { id: "auto", label: "Automatic (phone language)" },
+  { id: "en", label: "English" },
+  { id: "id", label: "Bahasa Indonesia" },
+];
+/** English → Indonesian. Filled by the dictionary files that follow. */
+const I18N = { id: {} };
+const I18N_INLINE = new Set(["B", "STRONG", "I", "EM", "SPAN", "A", "SMALL", "BR", "CODE", "ABBR", "TIME", "KBD", "MARK", "SUP", "SUB", "U"]);
+const I18N_SKIP = new Set(["SCRIPT", "STYLE", "TEXTAREA", "PRE", "INPUT"]);
+const I18N_ATTRS = ["placeholder", "aria-label", "title", "alt"];
+const I18N_MONTHS = "Jan|Feb|Mar|Apr|Mei|May|Jun|Jul|Agu|Agt|Aug|Sep|Okt|Oct|Nov|Des|Dec";
+const escapeRegExp = text => String(text).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const i18n = {
+  missing: new Set(),
+  produced: new Set(),
+  override: null,
+  get preference() {
+    try {
+      const saved = localStorage.getItem(LANG_KEY);
+      return LANG_OPTIONS.some(option => option.id === saved) ? saved : "auto";
+    } catch (error) {
+      return "auto";
+    }
+  },
+  get lang() {
+    if (this.override) return this.override;
+    const fromUrl = params.get("lang");
+    if (fromUrl === "en" || fromUrl === "id") return fromUrl;
+    if (params.has("selftest")) return "en";
+    const preference = this.preference;
+    if (preference === "en" || preference === "id") return preference;
+    const phone = (navigator.languages && navigator.languages[0]) || navigator.language || "";
+    return /^(id|in)\b/i.test(phone) ? "id" : "en";
+  },
+  /** Locale for dates and decimals (undefined = the phone's own). */
+  get locale() {
+    return this.lang === "id" ? "id-ID" : undefined;
+  },
+  set(preference) {
+    try {
+      if (preference === "auto") localStorage.removeItem(LANG_KEY);
+      else localStorage.setItem(LANG_KEY, preference);
+    } catch (error) {
+      /* storage blocked: applies for this session only */
+    }
+    document.documentElement.lang = this.lang;
+  },
+
+  /** Prepare the per-render lookup context: the couple's own words and the number pattern. */
+  prepare() {
+    const s = typeof state === "object" && state ? state : blankState();
+    const words = [s.couple.a.name, s.couple.b.name,
+      ...s.kids.map(k => k.name), ...s.funds.map(f => f.name), ...s.debts.map(d => d.name),
+      ...s.goals.flatMap(g => [g.title, g.notes, ...(g.steps || []).map(step => step.text)]),
+      ...s.milestones.flatMap(m => [m.title, m.notes]), ...s.bucket.map(b => b.text), ...s.dates.map(d => d.text),
+      ...s.trips.flatMap(t => [t.name, t.destination]), ...s.kidPlans.map(p => p.name), ...s.tripSpends.map(x => x.note),
+      ...s.checkins.flatMap(c => [c.appreciate, c.need, c.plan]),
+      ...Object.values(s.talks || {}).map(t => t && t.note), ...Object.values((s.program && s.program.notes) || {})];
+    const unique = [...new Set(words.filter(w => typeof w === "string" && w.trim().length >= 2).map(w => w.trim()))]
+      .sort((x, y) => y.length - x.length);
+    this.wordPattern = unique.length
+      ? new RegExp(`(?<![\\p{L}\\p{N}])(?:${unique.map(escapeRegExp).join("|")})(?![\\p{L}\\p{N}])`, "gu")
+      : null;
+    const currency = String(s.couple.currency || "").trim();
+    const prefix = `(?:${currency && !/^\d/.test(currency) ? `${escapeRegExp(currency)}\\s?|` : ""}Rp\\s?)?`;
+    this.numberPattern = new RegExp("(?<!\\{)(?:" + [
+      `\\d{1,2} (?:${I18N_MONTHS})\\.?(?: \\d{4})?(?![\\p{L}])`,
+      `(?:${I18N_MONTHS})\\.? \\d{1,2}, \\d{4}`,
+      `(?:${I18N_MONTHS})\\.? \\d{4}`,
+      `(?:${I18N_MONTHS}) \\d{1,2}(?![\\d,])`,
+      "(?:dalam )?\\d+ (?:thn|bln|hari)(?: \\d+ bln)?(?: lalu)?",
+      "hari ini",
+      `${prefix}[−-]?\\d(?:[\\d.,]*\\d)?%?(?!\\})`,
+      `(?<=[(\\s])(?:${currency && !/^\\d/.test(currency) ? `${escapeRegExp(currency)}|` : ""}Rp)(?=\\))`,
+    ].join("|") + ")", "gu");
+    this.prepared = true;
+  },
+
+  /** Turn text into {@}/{#} templates. Returns [template, words, numbers]. */
+  templateOf(text, withWords) {
+    const words = [];
+    const numbers = [];
+    let out = text;
+    if (withWords && this.wordPattern) {
+      out = out.replace(this.wordPattern, match => {
+        words.push(match);
+        return "\u0001";
+      });
+    }
+    const runs = [...out.matchAll(/\u0001(?:, \u0001)+/g)];
+    for (const run of runs.reverse()) {
+      const start = (out.slice(0, run.index).match(/\u0001/g) || []).length;
+      const count = (run[0].match(/\u0001/g) || []).length;
+      words.splice(start, count, words.slice(start, start + count).join(", "));
+      out = out.slice(0, run.index) + "\u0001" + out.slice(run.index + run[0].length);
+    }
+    out = out.replace(this.numberPattern, match => {
+      numbers.push(match);
+      return "{#}";
+    });
+    return [out.replace(/\u0001/g, "{@}"), words, numbers];
+  },
+  /** Put values back into a translation, translating any of the couple's words that are app phrases. */
+  fill(translation, words, numbers) {
+    let w = 0;
+    let n = 0;
+    return translation
+      .replace(/\{@(\d*)\}/g, (_, index) => {
+        const word = index ? words[Number(index) - 1] : words[w++];
+        return word === undefined ? "" : (I18N.id[word] || word);
+      })
+      .replace(/\{#(\d*)\}/g, (_, index) => {
+        const number = index ? numbers[Number(index) - 1] : numbers[n++];
+        return number === undefined ? "" : number;
+      });
+  },
+  /** Look a (whitespace-normalised) text up: exact, then with numbers, then with the couple's words. */
+  lookup(text) {
+    const dict = I18N.id;
+    if (dict[text] !== undefined) return dict[text];
+    const [numbersOnly, , numbers] = this.templateOf(text, false);
+    if (dict[numbersOnly] !== undefined) return this.fill(dict[numbersOnly], [], numbers);
+    const [full, words, values] = this.templateOf(text, true);
+    if (dict[full] !== undefined) return this.fill(dict[full], words, values);
+    if (/[A-Za-z]{2}/.test(full.replace(/\{[@#\d]*\}/g, ""))) this.missing.add(full);
+    return null;
+  },
+  /** Translate one string (toasts, confirms). Unknown strings are returned unchanged. */
+  text(value) {
+    if (this.lang !== "id" || typeof value !== "string" || !value.trim() || this.produced.has(value)) return value;
+    this.prepare();
+    const lead = value.match(/^\s*/)[0];
+    const trail = value.match(/\s*$/)[0];
+    const result = this.lookup(value.trim().replace(/\s+/g, " "));
+    if (result === null) return value;
+    const out = lead + result + trail;
+    if (this.produced.size > 500) this.produced.clear();
+    this.produced.add(out);
+    return out;
+  },
+
+  translateBlock(el) {
+    if (el.__i18nOut !== undefined && el.__i18nOut === el.textContent) return;
+    const children = [];
+    const iconsBefore = [];
+    const iconsAfter = [];
+    let key = "";
+    let seenText = false;
+    for (const node of el.childNodes) {
+      if (node.nodeType === 3) {
+        key += node.nodeValue;
+        if (node.nodeValue.trim()) seenText = true;
+      } else if (node.nodeType === 1) {
+        if (node.tagName.toLowerCase() === "svg" && !node.textContent.trim()) {
+          (seenText ? iconsAfter : iconsBefore).push(node);
+        } else {
+          key += `{${children.length}}`;
+          children.push(node);
+        }
+      }
+    }
+    const lead = /^\s/.test(key) ? " " : "";
+    const trail = /\s$/.test(key) ? " " : "";
+    const translated = this.lookup(key.trim().replace(/\s+/g, " "));
+    if (translated === null) return;
+    const parts = translated.split(/\{(\d)\}/);
+    const fragment = document.createDocumentFragment();
+    iconsBefore.forEach(node => fragment.appendChild(node));
+    parts.forEach((part, index) => {
+      if (index % 2) {
+        const child = children[Number(part)];
+        if (child) fragment.appendChild(child);
+      } else {
+        const text = (index === 0 ? lead : "") + part + (index === parts.length - 1 ? trail : "");
+        if (text) fragment.appendChild(document.createTextNode(text));
+      }
+    });
+    iconsAfter.forEach(node => fragment.appendChild(node));
+    el.textContent = "";
+    el.appendChild(fragment);
+    el.__i18nOut = el.textContent;
+  },
+  translateTextNode(node) {
+    if (node.__i18nOut !== undefined && node.__i18nOut === node.nodeValue) return;
+    const value = node.nodeValue;
+    if (!value.trim()) return;
+    const translated = this.lookup(value.trim().replace(/\s+/g, " "));
+    if (translated === null) return;
+    node.nodeValue = value.match(/^\s*/)[0] + translated + value.match(/\s*$/)[0];
+    node.__i18nOut = node.nodeValue;
+  },
+  translateAttributes(el) {
+    for (const attr of I18N_ATTRS) {
+      const value = el.getAttribute(attr);
+      if (!value || !value.trim()) continue;
+      const done = el.__i18nAttrs || (el.__i18nAttrs = {});
+      if (done[attr] === value) continue;
+      const translated = this.lookup(value.trim().replace(/\s+/g, " "));
+      if (translated !== null) {
+        el.setAttribute(attr, translated);
+        done[attr] = translated;
+      }
+    }
+  },
+  /** Translate everything under `root` (no-op in English). */
+  translate(root) {
+    if (!root) return;
+    document.documentElement.lang = this.lang;
+    if (this.lang !== "id") return;
+    this.prepare();
+    const elements = [root, ...root.querySelectorAll("*")];
+    for (const el of elements) {
+      if (I18N_SKIP.has(el.tagName) || el.closest('[translate="no"]')) {
+        if (el.tagName === "INPUT") this.translateAttributes(el);
+        continue;
+      }
+      this.translateAttributes(el);
+      let hasText = false;
+      let allInline = true;
+      for (const node of el.childNodes) {
+        if (node.nodeType === 3 && node.nodeValue.trim()) hasText = true;
+        else if (node.nodeType === 1 && !I18N_INLINE.has(node.tagName) && node.tagName.toLowerCase() !== "svg") allInline = false;
+      }
+      if (!hasText) continue;
+      if (allInline) {
+        this.translateBlock(el);
+      } else {
+        for (const node of [...el.childNodes]) {
+          if (node.nodeType === 3) this.translateTextNode(node);
+        }
+      }
+    }
+  },
+};
+/* ------------------------------------------------ Bahasa Indonesia strings */
+// English → Indonesian, keyed by the rendered English text. {#} = number/money/date, {@} = the couple's
+// own words (names, pots, goals…), {0} {1} = inline parts such as <b>. Tone: "kita" for the couple's own
+// labels, "kalian" when the app talks to them. Regenerate with gen_i18n.py from i18n_id.json.
+Object.assign(I18N.id, {
+  "\"Plan it\" turns this into a kids' plan below with a real product, growth chart and deposits.": "“Rencanakan” mengubahnya menjadi rencana anak di bawah, lengkap dengan produk nyata, grafik pertumbuhan dan setoran.",
+  "(per day, both of you)": "(per hari, berdua)",
+  "(per night)": "(per malam)",
+  "(total for both)": "(total berdua)",
+  "(total)": "(total)",
+  "({#} × {#} days)": "({#} × {#} hari)",
+  "({#} × {#} nights)": "({#} × {#} malam)",
+  "+ Add": "+ Tambah",
+  "+ Challenge": "+ Tantangan",
+  "+ Debt": "+ Utang",
+  "+ Deposit": "+ Setor",
+  "+ Goal": "+ Tujuan",
+  "+ Milestone": "+ Momen",
+  "+ Plan": "+ Rencana",
+  "+ Savings pot": "+ Celengan",
+  "+ Spent": "+ Pengeluaran",
+  "+ Trip": "+ Liburan",
+  "+ We went out": "+ Kami keluar",
+  "A head start in life": "Bekal hidup mandiri",
+  "A head start in life (age {#})": "Bekal hidup mandiri (usia {#})",
+  "A little lower — worth talking about": "Sedikit menurun — layak dibicarakan",
+  "A monthly snapshot of everything you own minus everything you owe — no bank login needed.": "Catatan bulanan semua yang kalian miliki dikurangi semua utang — tanpa login bank.",
+  "A small game for two. Each tick adds the amount to a pot.": "Permainan kecil untuk berdua. Setiap centang menambah jumlahnya ke celengan.",
+  "A “bid” is any small attempt to connect: a comment, a sigh, a question. In Gottman's six-year follow-up of newlyweds, couples still married had turned toward bids {#} of the time; couples who divorced, {#}.": "“Ajakan” adalah setiap usaha kecil untuk terhubung: komentar, helaan napas, pertanyaan. Dalam studi lanjutan enam tahun Gottman pada pengantin baru, pasangan yang tetap menikah menyambut ajakan {#} dari waktu; pasangan yang bercerai, {#}.",
+  "About us": "Tentang kita",
+  "About {0} until you go ({#}).": "Sekitar {0} sampai kalian berangkat ({#}).",
+  "Activities & tours": "Aktivitas & tur",
+  "Activities & tours, total": "Aktivitas & tur, total",
+  "Add": "Tambah",
+  "Add a child (or a due date) in Settings first.": "Tambahkan anak (atau perkiraan lahir) di Pengaturan dulu.",
+  "Add a child in Settings first": "Tambahkan anak di Pengaturan dulu",
+  "Add a monthly amount to see when you'll get there.": "Isi jumlah bulanan untuk melihat kapan tercapai.",
+  "Add a next step…": "Tambah langkah berikutnya…",
+  "Add a savings pot first": "Tambahkan celengan dulu",
+  "Add a savings pot first, then start a challenge for it.": "Tambahkan celengan dulu, lalu mulai tantangan untuknya.",
+  "Add a step to {@}": "Tambah langkah ke {@}",
+  "Add child": "Tambah anak",
+  "Add children (or a due date) and their ages appear on every milestone.": "Tambahkan anak (atau perkiraan lahir) dan usia mereka muncul di setiap momen.",
+  "Add milestones on the Roadmap.": "Tambahkan momen di Peta jalan.",
+  "Add savings to {@}": "Tambah tabungan ke {@}",
+  "Add starter pots (emergency, wedding, home)": "Tambahkan celengan awal (darurat, pernikahan, rumah)",
+  "Add suggested milestones": "Tambahkan momen yang disarankan",
+  "Add to Home screen": "Tambahkan ke layar utama",
+  "Add to {@}": "Tambah ke {@}",
+  "Add what it will cost (in today's money) to see if you're on track.": "Isi biayanya (dalam nilai uang hari ini) untuk melihat apakah sesuai jadwal.",
+  "Add your children (or a due date) in Settings to plan their education funds.": "Tambahkan anak (atau perkiraan lahir) di Pengaturan untuk merencanakan dana pendidikan mereka.",
+  "Add your children (or a due date) in Settings, then start a plan for each of them.": "Tambahkan anak (atau perkiraan lahir) di Pengaturan, lalu mulai rencana untuk masing-masing.",
+  "Add your desired yearly spending to see how much you need.": "Isi pengeluaran tahunan yang diinginkan untuk melihat berapa yang dibutuhkan.",
+  "Add your first goal — e.g. “Save for our wedding”, “Run a {#}k together”, “Learn to cook {#} family recipes”.": "Tambahkan tujuan pertama — mis. “Menabung untuk pernikahan”, “Lari {#}k bersama”, “Belajar memasak {#} resep keluarga”.",
+  "Add your first snapshot to start the trend.": "Tambahkan catatan pertama untuk memulai tren.",
+  "Add your take-home pay to see how your savings rate sets the years to financial freedom.": "Isi gaji bersih kalian untuk melihat bagaimana tingkat tabungan menentukan berapa tahun menuju kebebasan finansial.",
+  "Add your “together since” date in Settings to start the counter.": "Isi tanggal “bersama sejak” di Pengaturan untuk memulai hitungan.",
+  "Add →": "Tambah →",
+  "Added so far: {0}": "Terkumpul sejauh ini: {0}",
+  "Added {#} net-worth snapshot": "{#} catatan kekayaan bersih ditambahkan",
+  "Added {#} net-worth snapshots": "{#} catatan kekayaan bersih ditambahkan",
+  "Added “Financially free” to your roadmap": "“Bebas finansial” ditambahkan ke peta jalan",
+  "age {#}": "usia {#}",
+  "Age {#}": "Usia {#}",
+  "Ages {@}/{@}": "Usia {@}/{@}",
+  "Agree on a signal that means “I need a break, I'll come back in {#} minutes”.": "Sepakati satu tanda yang berarti “Aku butuh jeda, aku kembali dalam {#} menit”.",
+  "Agree on one shared goal for the next {#} months and a no-questions-asked personal spending amount for each of you.": "Sepakati satu tujuan bersama untuk {#} bulan ke depan dan jumlah uang pribadi bebas pakai (tanpa ditanya-tanya) untuk masing-masing.",
+  "All": "Semua",
+  "All 8 weeks done. Great teamwork.": "Kedelapan minggu selesai. Kerja tim yang hebat.",
+  "All {#} weeks done. Great teamwork.": "Semua {#} minggu selesai. Kerja tim yang hebat.",
+  "Already in it ({#})": "Sudah ada di dalamnya ({#})",
+  "Amount": "Jumlah",
+  "Amount ({#}): week {#} of {#}, or per weekend": "Jumlah ({#}): minggu {#} dari {#}, atau per akhir pekan",
+  "Amount already in the plan": "Jumlah yang sudah ada di rencana",
+  "Anniversary trip": "Liburan hari jadi",
+  "Anyone with this link can open your plan. Add a passphrase or, if the link leaked, use {0} — the old link stops working immediately.": "Siapa pun yang punya tautan ini bisa membuka rencana kalian. Tambahkan kata sandi bersama atau, jika tautannya bocor, pakai {0} — tautan lama langsung tidak berlaku.",
+  "APA — Lessons from the ‘Love Lab’ (Gottman)": "APA — Lessons from the ‘Love Lab’ (Gottman)",
+  "Appearance": "Tampilan",
+  "Appearance: Dark": "Tampilan: Gelap",
+  "Appearance: Dark. Switch to System": "Tampilan: Gelap. Ganti ke Sistem",
+  "Appearance: Light": "Tampilan: Terang",
+  "Appearance: Light. Switch to Dark": "Tampilan: Terang. Ganti ke Gelap",
+  "Appearance: System": "Tampilan: Sistem",
+  "Appearance: System. Switch to Light": "Tampilan: Sistem. Ganti ke Terang",
+  "Applies to this device only.": "Hanya berlaku di perangkat ini.",
+  "Appreciated:": "Dihargai:",
+  "Are we savers or spenders? What does money mean to each of us?": "Kita tipe penabung atau pembelanja? Apa arti uang bagi kita masing-masing?",
+  "Assets ({#})": "Aset ({#})",
+  "Assumptions: {#} return · {#} fees · {#} inflation · {#} withdrawal — change": "Asumsi: imbal hasil {#} · biaya {#} · inflasi {#} · penarikan {#} — ubah",
+  "At a glance": "Sekilas",
+  "at or above the plan's {#}": "setara atau di atas rencana {#}",
+  "At the end of the week, share which response felt best to receive.": "Di akhir minggu, ceritakan tanggapan mana yang paling menyenangkan untuk diterima.",
+  "At what age would we each like to stop working?": "Di usia berapa kita masing-masing ingin berhenti bekerja?",
+  "At {#}/month you get there around {0} ({#} years; {@} {#} · {@} {#}).": "Dengan {#}/bulan kalian sampai sekitar {0} ({#} tahun; {@} {#} · {@} {#}).",
+  "Automatic": "Otomatis",
+  "Baby (due)": "Bayi (perkiraan lahir)",
+  "Back up your plan": "Cadangkan rencana kalian",
+  "Backup & privacy": "Cadangan & privasi",
+  "Backup downloaded": "Cadangan terunduh",
+  "Backup imported ✓": "Cadangan diimpor ✓",
+  "Bahasa Indonesia aktif": "Bahasa Indonesia aktif",
+  "Bahasa Indonesia or English, for this device only. Automatic follows the phone's language.": "Bahasa Indonesia atau Inggris, hanya untuk perangkat ini. Otomatis mengikuti bahasa HP.",
+  "Balance now": "Saldo sekarang",
+  "Balance now ({#})": "Saldo sekarang ({#})",
+  "Balance saved.": "Saldo tersimpan.",
+  "Balance saved. Real growth: {#} a year.": "Saldo tersimpan. Pertumbuhan riil: {#} setahun.",
+  "Bank statement → real surplus": "Mutasi rekening → surplus nyata",
+  "Becoming parents": "Menjadi orang tua",
+  "below the plan's {#}": "di bawah rencana {#}",
+  "Big dreams broken into small next steps. Shared goals, plus each other's personal goals to cheer on.": "Mimpi besar dipecah jadi langkah kecil berikutnya. Tujuan bersama, plus tujuan pribadi masing-masing untuk saling mendukung.",
+  "Big party or small and meaningful?": "Pesta besar atau kecil dan bermakna?",
+  "Birthday or due date": "Tanggal lahir atau perkiraan lahir",
+  "Both": "Berdua",
+  "Both of us": "Kita berdua",
+  "Bucket list for two": "Daftar impian berdua",
+  "Budget": "Anggaran",
+  "Budget ({#})": "Anggaran ({#})",
+  "Buffer ({#})": "Dana cadangan ({#})",
+  "Buffer for surprises (%)": "Dana cadangan untuk kejutan (%)",
+  "Build shared habits, finances and a safety net.": "Bangun kebiasaan, keuangan bersama, dan dana darurat.",
+  "By income": "Sesuai penghasilan",
+  "Came in {#} under budget": "Hemat {#} dari anggaran",
+  "Cancel": "Batal",
+  "Career": "Karier",
+  "Careers & dreams in midlife": "Karier & mimpi di usia paruh baya",
+  "Careers, health, big adventures, caring for parents.": "Karier, kesehatan, petualangan besar, merawat orang tua.",
+  "Caring for ageing parents": "Merawat orang tua yang menua",
+  "Category": "Kategori",
+  "Celebrate each other today.": "Rayakan satu sama lain hari ini.",
+  "Challenge": "Tantangan",
+  "Challenge started. Week 1 is on Home.": "Tantangan dimulai. Minggu 1 ada di Beranda.",
+  "Challenge started. Week {#} is on Home.": "Tantangan dimulai. Minggu {#} ada di Beranda.",
+  "Check the account now and then and tap {0}: the app then works out your real growth rate.": "Cek rekening sesekali lalu ketuk {0}: aplikasi akan menghitung tingkat pertumbuhan riil kalian.",
+  "Check your bank's or fund's actual rate. Funds and gold move up and down; the plan uses a steady average.": "Cek tingkat bunga atau imbal hasil sebenarnya di bank atau reksa dana kalian. Reksa dana dan emas naik turun; rencana ini memakai rata-rata yang stabil.",
+  "Check-in saved.": "Check-in tersimpan.",
+  "check-ins": "check-in",
+  "Checked on": "Dicek pada",
+  "Choose one recurring disagreement (tidiness, money style, time with family).": "Pilih satu perbedaan pendapat yang terus berulang (kerapian, gaya mengatur uang, waktu dengan keluarga).",
+  "Choose statement CSV": "Pilih CSV mutasi",
+  "City, suburb or countryside? Near which family?": "Kota, pinggiran kota atau desa? Dekat keluarga yang mana?",
+  "Clearing browser data erases this device's copy (your partner's phone still has one), so export a backup now and then.": "Menghapus data browser akan menghapus salinan di perangkat ini (HP pasangan masih punya salinannya), jadi ekspor cadangan sesekali.",
+  "Clearing browser data erases this device's copy, so export a backup now and then.": "Menghapus data browser akan menghapus salinan di perangkat ini, jadi ekspor cadangan sesekali.",
+  "Clearing debt is usually the first big step to freedom.": "Melunasi utang biasanya langkah besar pertama menuju kebebasan.",
+  "Coming up": "Akan datang",
+  "Completed {#}": "Selesai {#}",
+  "Connect": "Hubungkan",
+  "Connected — you now share one plan": "Terhubung — sekarang kalian berbagi satu rencana",
+  "Connecting…": "Menghubungkan…",
+  "Connection trend over {#} check-ins": "Tren kedekatan selama {#} check-in",
+  "Connection trend: A little lower — worth talking about": "Tren kedekatan: Sedikit menurun — layak dibicarakan",
+  "Connection trend: Steady": "Tren kedekatan: Stabil",
+  "Connection trend: Trending warmer": "Tren kedekatan: Makin hangat",
+  "Conversations that strong couples have before life forces them. {#}/{#} agreed.": "Obrolan yang dilakukan pasangan kuat sebelum hidup memaksanya. {#}/{#} sudah disepakati.",
+  "Copy link": "Salin tautan",
+  "Cost": "Biaya",
+  "Cost in today's money": "Biaya dalam nilai uang hari ini",
+  "Cost rises per year (%)": "Kenaikan biaya per tahun (%)",
+  "Could not save — storage is full or blocked. Export a backup now.": "Tidak bisa menyimpan — penyimpanan penuh atau diblokir. Ekspor cadangan sekarang.",
+  "Couldn't reach the reminder server — are you offline?": "Tidak bisa menghubungi server pengingat — apakah sedang offline?",
+  "Create a pairing link": "Buat tautan pasangan",
+  "Creating your encrypted pairing link…": "Membuat tautan pasangan terenkripsi…",
+  "Currency symbol": "Simbol mata uang",
+  "Danger zone": "Zona berbahaya",
+  "Dark": "Gelap",
+  "Date": "Tanggal",
+  "Date idea:": "Ide kencan:",
+  "Date nights": "Kencan berdua",
+  "Date not set": "Tanggal belum diisi",
+  "Date saved and ticked off the bucket list.": "Kencan tersimpan dan dicentang dari daftar impian.",
+  "Date saved. Have fun!": "Kencan tersimpan. Selamat bersenang-senang!",
+  "Dating": "Pacaran",
+  "Dating {0}": "Pacaran {0}",
+  "Day {#} of {#}": "Hari {#} dari {#}",
+  "Debt added": "Utang ditambahkan",
+  "Debt updated": "Utang diperbarui",
+  "Debt-free around {0} ({#} months), paying {#}/month in total and {#} interest.": "Bebas utang sekitar {0} ({#} bulan), membayar total {#}/bulan dan bunga {#}.",
+  "Debt-free plan": "Rencana bebas utang",
+  "Debts ({#})": "Utang ({#})",
+  "Delete check-in": "Hapus check-in",
+  "Delete snapshot": "Hapus catatan",
+  "Delete {@}": "Hapus {@}",
+  "Delete {@}: {@}": "Hapus {@}: {@}",
+  "Deposit into {@}: {@}": "Setor ke {@}: {@}",
+  "Distant": "Jauh",
+  "Do we both want children? How many, and roughly when?": "Apakah kita berdua ingin punya anak? Berapa, dan kira-kira kapan?",
+  "Do we have debts? How much, and the plan to clear them?": "Apakah kita punya utang? Berapa, dan bagaimana rencana melunasinya?",
+  "Do we have wills, life insurance and an emergency fund ({#}–{#} months)?": "Apakah kita punya surat wasiat, asuransi jiwa dan dana darurat ({#}–{#} bulan)?",
+  "Do your first couple check-in ({#} minutes)": "Lakukan check-in pertama kalian ({#} menit)",
+  "Done": "Selesai",
+  "Done: {@}": "Selesai: {@}",
+  "Download": "Unduh",
+  "Downloaded {@}": "Terunduh {@}",
+  "Downsize, move, or stay?": "Pindah ke rumah lebih kecil, pindah, atau tetap?",
+  "Dream a little: places, experiences, things to learn together.": "Bermimpilah: tempat, pengalaman, hal yang ingin dipelajari bersama.",
+  "Due": "Waktunya",
+  "e.g. Credit card, car loan": "mis. Kartu kredit, cicilan mobil",
+  "e.g. Honeymoon in Bali": "mis. Bulan madu di Bali",
+  "e.g. Leo": "mis. Leo",
+  "e.g. Mia": "mis. Mia",
+  "e.g. Move in together": "mis. Tinggal bersama",
+  "e.g. Music school": "mis. Sekolah musik",
+  "e.g. Pay off student loans": "mis. Lunasi pinjaman kuliah",
+  "e.g. Ubud and Gili": "mis. Ubud dan Gili",
+  "e.g. Wedding": "mis. Pernikahan",
+  "e.g. {#} or {#}k": "mis. {#} atau {#}k",
+  "e.g. {#}rb or {#}jt": "mis. {#}rb atau {#}jt",
+  "e.g. {@}, car loan": "mis. {@}, cicilan mobil",
+  "Each day this week, tell your partner one specific appreciation (“I noticed… and it meant…”).": "Setiap hari minggu ini, sampaikan satu apresiasi spesifik ke pasangan (“Aku perhatikan… dan itu berarti…”).",
+  "Each explain the story, value or dream behind your position. No persuading.": "Masing-masing jelaskan cerita, nilai atau mimpi di balik posisimu. Tanpa membujuk.",
+  "Each name the horseman you fall into most often (be honest about yourself, not your partner).": "Masing-masing sebutkan ‘penunggang kuda’ yang paling sering kalian lakukan (jujur tentang diri sendiri, bukan pasangan).",
+  "Each row assumes you live on what you don't save, so a higher rate both grows your money and lowers the number you need. {#} real return, from your assumptions.": "Setiap baris menganggap kalian hidup dari yang tidak ditabung, jadi tingkat yang lebih tinggi menumbuhkan uang sekaligus menurunkan jumlah yang dibutuhkan. Imbal hasil riil {#}, dari asumsi kalian.",
+  "Edit debt": "Ubah utang",
+  "Edit goal": "Ubah tujuan",
+  "Edit kids' plan": "Ubah rencana anak",
+  "Edit milestone": "Ubah momen",
+  "Edit savings pot": "Ubah celengan",
+  "Edit trip": "Ubah liburan",
+  "Edit {@}": "Ubah {@}",
+  "Edit {@}: {@}": "Ubah {@}: {@}",
+  "Education cost per child (today's {#})": "Biaya pendidikan per anak (nilai {#} hari ini)",
+  "Education funds": "Dana pendidikan",
+  "Education inflation per year (%)": "Inflasi pendidikan per tahun (%)",
+  "Emergency fund": "Dana darurat",
+  "Empty nest": "Anak-anak mandiri",
+  "End-to-end encrypted: your plan is locked on this device before upload, and the key only lives inside the link (after the #), which is never sent to the server.": "Terenkripsi end-to-end: rencana dikunci di perangkat ini sebelum diunggah, dan kuncinya hanya ada di dalam tautan (setelah tanda #), yang tidak pernah dikirim ke server.",
+  "Engaged": "Tunangan",
+  "English it is": "Bahasa Inggris aktif",
+  "Enter an amount above zero.": "Masukkan jumlah di atas nol.",
+  "Enter the balance as a number.": "Masukkan saldo dalam angka.",
+  "Enter the {0} in Retiring together above to see your freedom number and the date you could reach it.": "Isi {0} di Pensiun bersama di atas untuk melihat angka kebebasan kalian dan kapan bisa mencapainya.",
+  "Equity index fund (reksa dana indeks saham)": "Reksa dana indeks saham",
+  "Equity index fund (reksa dana indeks saham): ~{#}": "Reksa dana indeks saham: ~{#}",
+  "Erase everything on this device": "Hapus semuanya di perangkat ini",
+  "Erase your whole plan from this device? Export a backup first if you want to keep it.": "Hapus seluruh rencana dari perangkat ini? Ekspor cadangan dulu kalau ingin menyimpannya.",
+  "Estimates only, using steady average returns. Real markets go up and down; tax rules differ by country. Not financial advice — check big decisions with a licensed adviser.": "Hanya perkiraan, memakai imbal hasil rata-rata yang stabil. Pasar sebenarnya naik turun; aturan pajak berbeda di tiap negara. Bukan nasihat keuangan — konsultasikan keputusan besar dengan penasihat berlisensi.",
+  "Every milestone shows how old you'll both be. Tick them off as life happens.": "Setiap momen menunjukkan usia kalian berdua saat itu. Centang saat hidup berjalan.",
+  "Expected yearly return (%)": "Perkiraan imbal hasil per tahun (%)",
+  "Export a CSV from your bank app (most banks offer it under statements or transactions) and see what you really save each month.": "Ekspor CSV dari aplikasi bank (kebanyakan bank menyediakannya di menu mutasi atau riwayat transaksi) dan lihat berapa yang benar-benar kalian tabung tiap bulan.",
+  "Export backup": "Ekspor cadangan",
+  "Extra on top of minimums / month ({#})": "Tambahan di atas cicilan minimum / bulan ({#})",
+  "Family": "Keluarga",
+  "Family trip": "Liburan keluarga",
+  "Feedback": "Masukan",
+  "Fees & tax drag per year (%)": "Biaya & pajak per tahun (%)",
+  "Filter goals": "Saring tujuan",
+  "Financial freedom": "Kebebasan finansial",
+  "Financially free": "Bebas finansial",
+  "First steps (one per line)": "Langkah pertama (satu per baris)",
+  "Five positives for every negative": "Lima hal positif untuk setiap hal negatif",
+  "Five things I appreciated about you this week…": "Lima hal yang aku hargai darimu minggu ini…",
+  "Flights & transfers": "Tiket pesawat & transfer",
+  "Flights & transfers, total for both": "Tiket pesawat & transfer, total berdua",
+  "Food & drinks": "Makan & minum",
+  "Food & drinks {0}": "Makan & minum {0}",
+  "Food & drinks, per day, both of you": "Makan & minum, per hari, berdua",
+  "For": "Untuk",
+  "For a bucket-list dream": "Untuk impian di daftar",
+  "For seven days, each notice three bids a day from your partner and respond, even briefly.": "Selama tujuh hari, masing-masing perhatikan tiga ajakan sehari dari pasangan dan tanggapi, meski singkat.",
+  "For: {@}": "Untuk: {@}",
+  "Foundations": "Fondasi",
+  "Foundations week {#}": "Fondasi minggu {#}",
+  "Foundations: {#} weeks to a stronger team": "Fondasi: {#} minggu menuju tim yang lebih kuat",
+  "Free, private and open source. Know a couple who'd like it?": "Gratis, privat dan open source. Kenal pasangan yang mungkin suka?",
+  "freedom number ({#}/year ÷ {#})": "angka kebebasan ({#}/tahun ÷ {#})",
+  "From dating to marriage, a home, kids and growing old side by side. Takes about a minute.": "Dari pacaran sampai menikah, punya rumah, anak, dan menua bersama. Hanya sekitar satu menit.",
+  "From Mint": "Dari Mint",
+  "From the PREP program by Howard Markman and Scott Stanley: one person holds “the floor” (any object) and speaks for themselves in short chunks; the other only paraphrases what they heard, without rebutting. Then you swap. Problem-solving comes later, once both feel understood.": "Dari program PREP oleh Howard Markman dan Scott Stanley: satu orang memegang “lantai” (benda apa saja) dan berbicara tentang dirinya dalam potongan singkat; yang lain hanya mengulang dengan kata-katanya sendiri apa yang didengar, tanpa membantah. Lalu bergantian. Mencari solusi belakangan, setelah keduanya merasa dipahami.",
+  "Fully funded": "Dana penuh",
+  "Fun money / month for dates ({#})": "Dana hiburan / bulan untuk kencan ({#})",
+  "Fun pick:": "Pilihan seru:",
+  "Get a nudge for monthly check-ins, upcoming milestones, anniversaries, birthdays and backups.": "Dapatkan pengingat untuk check-in bulanan, momen mendatang, hari jadi, ulang tahun dan cadangan.",
+  "Getting around": "Transportasi lokal",
+  "Getting around, total": "Transportasi lokal, total",
+  "Give a savings pot a monthly amount on the Money tab and you'll get a weekly target for it here.": "Isi jumlah bulanan untuk sebuah celengan di tab Keuangan dan kalian akan dapat target mingguannya di sini.",
+  "Go →": "Buka →",
+  "Goal": "Tujuan",
+  "Goal added": "Tujuan ditambahkan",
+  "Goal complete": "Tujuan tercapai",
+  "Goal complete: {@}": "Tujuan tercapai: {@}",
+  "Goal step:": "Langkah tujuan:",
+  "goal then ({#} today + {#}/yr)": "target saat itu ({#} hari ini + {#}/thn)",
+  "Goal updated": "Tujuan diperbarui",
+  "Goal {#}": "Target {#}",
+  "Goals": "Tujuan",
+  "goals done": "tujuan tercapai",
+  "Gold (emas)": "Emas",
+  "Gold (emas): ~{#}": "Emas: ~{#}",
+  "Golden years": "Masa emas",
+  "Gottman identified four patterns that predict relationship breakdown: criticism, contempt, defensiveness and stonewalling. Their antidotes: a gentle start-up (complain about the situation, not the person), building a culture of appreciation, taking responsibility for your part, and calming yourself with a real break before continuing.": "Gottman mengidentifikasi empat pola yang memprediksi keretakan hubungan: kritik, penghinaan, sikap defensif, dan membisu (stonewalling). Penawarnya: memulai dengan lembut (keluhkan situasinya, bukan orangnya), membangun budaya apresiasi, bertanggung jawab atas bagianmu, dan menenangkan diri dengan jeda sungguhan sebelum melanjutkan.",
+  "Gottman's research found that stable couples show about five positive interactions for every negative one during conflict, while couples heading for divorce average about {#} to {#}. Positivity is a buffer, not a denial of problems.": "Riset Gottman menemukan pasangan yang stabil menunjukkan sekitar lima interaksi positif untuk setiap satu interaksi negatif saat berkonflik, sementara pasangan yang menuju perceraian rata-rata sekitar {#} banding {#}. Sikap positif adalah penyangga, bukan menyangkal masalah.",
+  "Gottman's research suggests about {#} of relationship conflicts are perpetual: rooted in lasting differences in personality or needs. Happy couples don't solve them; they keep a friendly, curious dialogue about them instead of gridlock.": "Riset Gottman menunjukkan sekitar {#} konflik dalam hubungan bersifat abadi: berakar pada perbedaan kepribadian atau kebutuhan yang menetap. Pasangan bahagia tidak menyelesaikannya; mereka menjaga dialog yang ramah dan penuh rasa ingin tahu, bukan saling buntu.",
+  "Grows to {#} by {#}: {#} put in and {#} growth.": "Tumbuh menjadi {#} pada {#}: {#} disetor dan {#} hasil pertumbuhan.",
+  "Growth": "Bertumbuh",
+  "Growth per year, before tax (%)": "Pertumbuhan per tahun, sebelum pajak (%)",
+  "Health": "Kesehatan",
+  "Health, grandkids, legacy, and growing old side by side.": "Kesehatan, cucu, warisan, dan menua bersama.",
+  "Highest interest first (pay less)": "Bunga tertinggi dulu (bayar lebih sedikit)",
+  "History ({#})": "Riwayat ({#})",
+  "Hold your first meeting this week (about an hour), and put it in your calendar weekly.": "Adakan rapat pertama minggu ini (sekitar satu jam), dan jadwalkan setiap minggu di kalender.",
+  "Holiday": "Liburan",
+  "Holiday · {@} · {#} – {#} · {#} nights": "Liburan · {@} · {#} – {#} · {#} malam",
+  "Home": "Beranda",
+  "Home deposit": "Uang muka rumah",
+  "Home life & fair share": "Kehidupan rumah & pembagian yang adil",
+  "Honeymoon": "Bulan madu",
+  "How can I raise a complaint so it feels gentle to you?": "Bagaimana aku bisa menyampaikan keluhan supaya terasa lembut bagimu?",
+  "How do we avoid burnout while caring?": "Bagaimana kita menghindari kelelahan saat merawat?",
+  "How do we each react under stress?": "Bagaimana reaksi kita masing-masing saat tertekan?",
+  "How do we each want to handle faith, culture and traditions?": "Bagaimana kita masing-masing ingin menyikapi agama, budaya dan tradisi?",
+  "How do we keep our relationship first while parenting?": "Bagaimana kita tetap mengutamakan hubungan sambil mengasuh anak?",
+  "How do we protect our couple decisions from outside pressure?": "Bagaimana kita melindungi keputusan berdua dari tekanan luar?",
+  "How do we split chores so both feel it is fair?": "Bagaimana membagi pekerjaan rumah supaya keduanya merasa adil?",
+  "How do we support each other's ambitions fairly?": "Bagaimana kita mendukung ambisi masing-masing secara adil?",
+  "How do you most like to receive appreciation?": "Bagaimana kamu paling suka menerima apresiasi?",
+  "How much alone time and friend time does each of us need?": "Berapa banyak waktu sendiri dan waktu dengan teman yang dibutuhkan masing-masing?",
+  "How much do we need per year to live that life?": "Berapa yang kita butuhkan per tahun untuk menjalani hidup itu?",
+  "How much will we keep supporting adult kids?": "Seberapa jauh kita tetap membantu anak yang sudah dewasa?",
+  "How often will we see each family? Holidays — whose turn?": "Seberapa sering kita mengunjungi tiap keluarga? Hari raya — giliran siapa?",
+  "How we fight fair": "Cara kita bertengkar secara adil",
+  "How will we share costs and time between siblings?": "Bagaimana kita berbagi biaya dan waktu dengan saudara kandung?",
+  "How will we share night duty and ask for help before we're exhausted?": "Bagaimana kita berbagi jaga malam dan minta bantuan sebelum kelelahan?",
+  "How will we share night feeds, leave and childcare?": "Bagaimana kita berbagi menyusui malam, cuti dan pengasuhan anak?",
+  "If something else: what?": "Jika lainnya: untuk apa?",
+  "Import backup": "Impor cadangan",
+  "Import net-worth CSV": "Impor CSV kekayaan bersih",
+  "In a week: {@}": "Seminggu lagi: {@}",
+  "In about {0} ({#}) that's {#} in future money (return {#} after fees). {1}": "Dalam sekitar {0} ({#}) itu setara {#} dalam nilai uang nanti (imbal hasil {#} setelah biaya). {1}",
+  "In about {0} that's {#} in future money (return {#} after fees). {1}": "Dalam sekitar {0} itu setara {#} dalam nilai uang nanti (imbal hasil {#} setelah biaya). {1}",
+  "In John Gottman's model of lasting relationships, the foundation is a detailed “love map”: knowing your partner's worries, hopes, friends and history. Gottman describes couples with rich love maps as better prepared for big changes like a move or a new baby.": "Dalam model hubungan langgeng John Gottman, fondasinya adalah “peta cinta” yang detail: mengetahui kekhawatiran, harapan, teman dan riwayat pasangan. Gottman menggambarkan pasangan dengan peta cinta yang kaya lebih siap menghadapi perubahan besar seperti pindah rumah atau kelahiran bayi.",
+  "In this week: {0} · {1}": "Minggu ini: {0} · {1}",
+  "In this week: {0} · {1} (split by income)": "Minggu ini: {0} · {1} (dibagi sesuai penghasilan)",
+  "Inflation per year (%)": "Inflasi per tahun (%)",
+  "Install & share": "Pasang & bagikan",
+  "Install app": "Pasang aplikasi",
+  "Interest per year (%)": "Bunga per tahun (%)",
+  "Into which pot?": "Ke celengan mana?",
+  "Into {@} · {#}/{#} done · {#} of {#}": "Ke {@} · {#}/{#} selesai · {#} dari {#}",
+  "Invest or save for each child's next step and watch it grow: what you put in, what it earns, and whether it's enough.": "Investasi atau tabungan untuk langkah berikutnya tiap anak, dan lihat pertumbuhannya: yang kalian setor, hasilnya, dan apakah cukup.",
+  "invested today": "diinvestasikan saat ini",
+  "Is either of us craving a change, a study or a sabbatical?": "Apakah salah satu dari kita ingin berubah haluan, kuliah lagi atau cuti panjang?",
+  "It cost ({#})": "Biayanya ({#})",
+  "Its savings pot target follows this budget.": "Target celengannya mengikuti anggaran ini.",
+  "Join": "Gabung",
+  "Join your partner's plan": "Gabung ke rencana pasangan",
+  "Join your partner's shared plan on this device?\n\nAnything already on this device will be merged into it.": "Gabung ke rencana bersama pasanganmu di perangkat ini?\n\nApa pun yang sudah ada di perangkat ini akan digabungkan ke dalamnya.",
+  "Join your partner's shared plan on this device? Anything already on this device will be merged into it.": "Gabung ke rencana bersama pasanganmu di perangkat ini? Apa pun yang sudah ada di perangkat ini akan digabungkan ke dalamnya.",
+  "Joint account, separate, or both?": "Rekening bersama, terpisah, atau keduanya?",
+  "Junior high (SMP)": "SMP",
+  "Junior high (SMP) (age {#})": "SMP (usia {#})",
+  "Just sent one — wait a few seconds.": "Baru saja terkirim — tunggu beberapa detik.",
+  "Kids fly out; rediscover each other.": "Anak-anak merantau; temukan lagi satu sama lain.",
+  "Kids' plans": "Rencana anak",
+  "Kids' plans:": "Rencana anak:",
+  "Kids: if, when, how many": "Anak: apakah, kapan, berapa",
+  "Kind": "Jenis",
+  "Know each other deeply: values, dreams, families, money.": "Saling mengenal lebih dalam: nilai, mimpi, keluarga, uang.",
+  "Know the Four Horsemen — and their antidotes": "Kenali Empat Penunggang Kuda — dan penawarnya",
+  "Language": "Bahasa",
+  "Last backup: {#}/{#}/{#} {0}": "Cadangan terakhir: {#}/{#}/{#} {0}",
+  "Leave empty for link-only": "Kosongkan untuk hanya tautan",
+  "Leave empty for the usual rate": "Kosongkan untuk tingkat biasanya",
+  "Leave empty for the usual tax": "Kosongkan untuk pajak biasanya",
+  "Leaving on": "Berangkat",
+  "Legacy & end-of-life wishes": "Warisan & keinginan di akhir hayat",
+  "Life stage": "Tahap hidup",
+  "Lifeline from {#} to {#} with milestones": "Garis hidup dari {#} sampai {#} beserta momen",
+  "Lifeline, scroll sideways": "Garis hidup, geser ke samping",
+  "Light": "Terang",
+  "Link copied": "Tautan disalin",
+  "Link ready — send it to your partner": "Tautan siap — kirim ke pasanganmu",
+  "Live with perpetual problems": "Hidup dengan masalah abadi",
+  "Log what you spent to see how it compared with the plan.": "Catat pengeluaran untuk melihat perbandingannya dengan rencana.",
+  "Logged. That's {#} over the trip budget.": "Tercatat. Itu {#} melebihi anggaran liburan.",
+  "Logged. {#} left: about {#} a day.": "Tercatat. Sisa {#}: sekitar {#} sehari.",
+  "Logged. {#} of the budget left.": "Tercatat. Sisa anggaran {#}.",
+  "Look up what's in the account or fund today (interest and growth included). Together compares it with what you put in to show your real growth rate.": "Cek isi rekening atau reksa dana hari ini (sudah termasuk bunga dan pertumbuhan). Together membandingkannya dengan yang kalian setor untuk menunjukkan tingkat pertumbuhan riil.",
+  "Love": "Cinta",
+  "Love Maps: know each other's inner world": "Peta Cinta: kenali dunia batin satu sama lain",
+  "Make a plan for {@}": "Buat rencana untuk {@}",
+  "Make it last: the weekly State of the Union": "Bikin langgeng: rapat mingguan “State of the Union”",
+  "Mark done": "Tandai selesai",
+  "Mark goal complete": "Tandai tujuan tercapai",
+  "Mark not done": "Tandai belum selesai",
+  "Mark week {#} done": "Tandai minggu {#} selesai",
+  "Mark {@} done": "Tandai {@} selesai",
+  "Midlife & growth": "Paruh baya & bertumbuh",
+  "Milestone added": "Momen ditambahkan",
+  "Milestone updated": "Momen diperbarui",
+  "milestones": "momen",
+  "Milestones (.ics)": "Momen (.ics)",
+  "Minimum payment / month ({#})": "Cicilan minimum / bulan ({#})",
+  "Minimum payment per month": "Cicilan minimum per bulan",
+  "Money": "Keuangan",
+  "Money as a team": "Uang sebagai tim",
+  "Money for our life": "Uang untuk hidup kita",
+  "Money history & habits": "Riwayat & kebiasaan keuangan",
+  "Money is one of the topics couples most need to talk about calmly. A short, regular “money date” makes it routine instead of a crisis. This week is a practical guide using your Money tab, not a research finding.": "Uang adalah salah satu topik yang paling perlu dibicarakan pasangan dengan tenang. “Kencan keuangan” yang singkat dan rutin membuatnya jadi kebiasaan, bukan krisis. Minggu ini adalah panduan praktis memakai tab Keuangan, bukan temuan riset.",
+  "Money-market fund (reksa dana pasar uang)": "Reksa dana pasar uang",
+  "Money-market fund (reksa dana pasar uang): ~{#}": "Reksa dana pasar uang: ~{#}",
+  "Monthly check-in": "Check-in bulanan",
+  "Monthly check-in (.ics)": "Check-in bulanan (.ics)",
+  "Monthly check-in is due (last one {#} days ago)": "Waktunya check-in bulanan (terakhir {#} hari lalu)",
+  "Monthly deposit": "Setoran bulanan",
+  "Monthly investing set to {#} from Mint": "Investasi bulanan diatur ke {#} dari Mint",
+  "Moves your plan to a new encrypted room with a new key and deletes the old one, so the old link opens nothing. Your partner will need the new link (and passphrase, if you set one).": "Memindahkan rencana ke ruang terenkripsi baru dengan kunci baru dan menghapus yang lama, sehingga tautan lama tidak membuka apa pun. Pasanganmu butuh tautan baru (dan kata sandi bersama, jika diatur).",
+  "Name": "Nama",
+  "Need columns like Date, Assets, Debts": "Butuh kolom seperti Date, Assets, Debts",
+  "Need:": "Kebutuhan:",
+  "Needed at age": "Dibutuhkan pada usia",
+  "Needed by milestone": "Dibutuhkan untuk momen",
+  "Needs {#}/mo for {@} ({#})": "Perlu {#}/bln untuk {@} ({#})",
+  "Net worth": "Kekayaan bersih",
+  "Net worth trend": "Tren kekayaan bersih",
+  "New bucket list item": "Impian baru",
+  "New debt": "Utang baru",
+  "New goal": "Tujuan baru",
+  "New kids' plan": "Rencana anak baru",
+  "New link is ready, but the old one could not be removed ({#}).": "Tautan baru siap, tapi tautan lama tidak bisa dihapus ({#}).",
+  "New link ready — send it to your partner": "Tautan baru siap — kirim ke pasanganmu",
+  "New milestone": "Momen baru",
+  "New passphrase (optional)": "Kata sandi bersama baru (opsional)",
+  "New savings pot": "Celengan baru",
+  "Newlyweds": "Pengantin baru",
+  "Next milestone": "Momen berikutnya",
+  "Next month:": "Bulan depan:",
+  "Next step for “{@}”: {@}": "Langkah berikutnya untuk “{@}”: {@}",
+  "Nights": "Malam",
+  "No backup yet {0}": "Belum ada cadangan {0}",
+  "No debts? Lovely. If you have any (cards, loans, buy-now-pay-later), add them to get a debt-free date.": "Tidak punya utang? Mantap. Kalau ada (kartu kredit, pinjaman, paylater), tambahkan untuk mendapat tanggal bebas utang.",
+  "No milestones yet.": "Belum ada momen.",
+  "No savings pots yet.": "Belum ada celengan.",
+  "No upcoming milestones with dates yet": "Belum ada momen mendatang yang bertanggal",
+  "No-spend weekends": "Akhir pekan tanpa belanja",
+  "No-spend weekends:": "Akhir pekan tanpa belanja:",
+  "Not cleared at these payments": "Tidak lunas dengan cicilan ini",
+  "Not syncing.": "Tidak sedang sinkron.",
+  "Not yet": "Belum",
+  "Notes": "Catatan",
+  "Notifications are blocked — allow them for this site in your browser settings.": "Notifikasi diblokir — izinkan untuk situs ini di pengaturan browser.",
+  "Now": "Sekarang",
+  "now": "sekarang",
+  "now (checked {#})": "sekarang (dicek {#})",
+  "Now: Dating": "Sekarang: Pacaran",
+  "of the way": "dari perjalanan",
+  "of the {#} you need": "dari {#} yang dibutuhkan",
+  "On iPhone/iPad: tap Share → Add to Home Screen, open Together from your Home Screen, then turn reminders on there.": "Di iPhone/iPad: ketuk Bagikan → Tambahkan ke Layar Utama, buka Together dari Layar Utama, lalu nyalakan pengingat di sana.",
+  "Once you're debt-free ({#}), moving the {#}/month you paid on debts into investing gets you free around {0}.": "Setelah bebas utang ({#}), mengalihkan {#}/bulan cicilan utang ke investasi membuat kalian bebas sekitar {0}.",
+  "One short, research-based session a week: love maps, turning toward each other, fighting fair, money as a team and more. About {#} minutes together.": "Satu sesi singkat berbasis riset tiap minggu: peta cinta, saling menyambut, bertengkar secara adil, uang sebagai tim dan lainnya. Sekitar {#} menit bersama.",
+  "One thing we'll do together next month": "Satu hal yang akan kita lakukan bersama bulan depan",
+  "One week to go: {@}": "Seminggu lagi: {@}",
+  "Only move to solutions when both say “yes, you got it”.": "Baru beralih ke solusi saat keduanya bilang “ya, kamu paham”.",
+  "Open Mint": "Buka Mint",
+  "Open the Money tab together: review each savings pot and the retirement estimate.": "Buka tab Keuangan bersama: tinjau setiap celengan dan perkiraan pensiun.",
+  "Open Together to get ready.": "Buka Together untuk bersiap.",
+  "Order": "Urutan",
+  "Our children": "Anak-anak kita",
+  "Our details & data": "Data & detail kita",
+  "Our families & in-laws": "Keluarga & mertua kita",
+  "Our goals": "Tujuan kita",
+  "Our home": "Rumah kita",
+  "Our income & savings rate": "Penghasilan & tingkat tabungan kita",
+  "Our journey": "Perjalanan kita",
+  "Our life plan, from first date to golden years": "Rencana hidup kita, dari kencan pertama sampai masa emas",
+  "Our life roadmap": "Peta jalan hidup kita",
+  "Our monthly check-in": "Check-in bulanan kita",
+  "Our notes": "Catatan kita",
+  "Our retirement picture": "Gambaran pensiun kita",
+  "Our together-anniversary — {#} years in {#} days — plan something special": "Hari jadi kita — {#} tahun dalam {#} hari — rencanakan sesuatu yang spesial",
+  "Our values & dealbreakers": "Nilai & batasan mutlak kita",
+  "over budget, so go easy for the rest of the trip": "melebihi anggaran, jadi berhemat untuk sisa liburan",
+  "Paid off {#}": "Lunas {#}",
+  "Pairing link — send only to your partner": "Tautan pasangan — kirim hanya ke pasanganmu",
+  "Partner sync": "Sinkron dengan pasangan",
+  "Partner {#} birthday": "Ulang tahun pasangan {#}",
+  "Partner {#} name": "Nama pasangan {#}",
+  "Partner's birthday": "Ulang tahun pasangan",
+  "Passphrase": "Kata sandi bersama",
+  "Passphrase (optional, recommended)": "Kata sandi bersama (opsional, disarankan)",
+  "Password-lock the backup (optional)": "Kunci cadangan dengan kata sandi (opsional)",
+  "Password-protected backup downloaded": "Cadangan berkata sandi terunduh",
+  "Paying highest interest first; when a debt is gone, its payment rolls into the next one. Update balances now and then with the pencil.": "Membayar bunga tertinggi dulu; saat satu utang lunas, cicilannya dialihkan ke utang berikutnya. Perbarui saldo sesekali dengan ikon pensil.",
+  "Paying smallest balance first; when a debt is gone, its payment rolls into the next one. Update balances now and then with the pencil.": "Membayar saldo terkecil dulu; saat satu utang lunas, cicilannya dialihkan ke utang berikutnya. Perbarui saldo sesekali dengan ikon pensil.",
+  "Pick a small, low-stakes topic and practise for {#} minutes each way.": "Pilih topik kecil yang ringan dan berlatih {#} menit untuk masing-masing.",
+  "Plan": "Rencana",
+  "Plan a trip": "Rencanakan liburan",
+  "Plan added. The chart shows how it grows.": "Rencana ditambahkan. Grafiknya menunjukkan pertumbuhannya.",
+  "Plan erased": "Rencana dihapus",
+  "Plan it": "Rencanakan",
+  "Plan one small step toward it together this week.": "Rencanakan satu langkah kecil ke sana bersama minggu ini.",
+  "Plan updated": "Rencana diperbarui",
+  "Plan what it costs, save for it in a pot, then track spending while you're away.": "Rencanakan biayanya, tabung di celengan, lalu catat pengeluaran selama pergi.",
+  "Plan your honeymoon or next holiday: flights, stay, food and fun, plus a buffer. Together works out what to save each month.": "Rencanakan bulan madu atau liburan berikutnya: tiket, penginapan, makan dan hiburan, plus dana cadangan. Together menghitung berapa yang perlu ditabung tiap bulan.",
+  "Plan your whole life together": "Rencanakan seluruh hidup kalian bersama",
+  "Planned": "Rencana",
+  "pots behind": "celengan tertinggal",
+  "Prefer your calendar?": "Lebih suka kalender?",
+  "Pregnancy, parental leave, wills and insurance.": "Kehamilan, cuti melahirkan, surat wasiat dan asuransi.",
+  "PREP (Markman & Stanley) — Speaker-Listener Technique": "PREP (Markman & Stanley) — Speaker-Listener Technique",
+  "Press Ctrl+C / long-press to copy": "Tekan Ctrl+C / tekan lama untuk menyalin",
+  "Primary school (SD)": "SD",
+  "Primary school (SD) (age {#})": "SD (usia {#})",
+  "Print our plan": "Cetak rencana kita",
+  "Private by design: no account, no sign-up. Your plan stays in this browser unless you turn on partner sync — then it's end-to-end encrypted before it leaves your phone.": "Privat sejak awal: tanpa akun, tanpa daftar. Rencana kalian tetap di browser ini kecuali kalian menyalakan sinkron pasangan — dan saat itu dienkripsi end-to-end sebelum meninggalkan HP.",
+  "Progress to financial freedom": "Kemajuan menuju kebebasan finansial",
+  "projected by then": "proyeksi saat itu",
+  "projected, in today's money": "proyeksi, dalam nilai uang hari ini",
+  "Protected with a passphrase": "Dilindungi kata sandi bersama",
+  "Protecting our family": "Melindungi keluarga kita",
+  "Protecting us after the baby": "Menjaga hubungan kita setelah bayi lahir",
+  "Push reminders need iOS 16.4 or newer. Use the calendar (.ics) reminders below instead.": "Pengingat notifikasi butuh iOS 16.4 atau lebih baru. Pakai pengingat kalender (.ics) di bawah sebagai gantinya.",
+  "Put away {0} (about {#} a week) to be ready {#}. Add to the pot on Home or above.": "Sisihkan {0} (sekitar {#} seminggu) supaya siap {#}. Tambahkan ke celengan di Beranda atau di atas.",
+  "Put in": "Disetor",
+  "put in so far": "disetor sejauh ini",
+  "Put it on our roadmap": "Masukkan ke peta jalan kita",
+  "Raising kids": "Membesarkan anak",
+  "Rates are steady averages you can edit, not quotes; funds and gold go up and down. Tax presets follow Indonesia's rules ({#} on deposit interest, {#} on SBN coupons, none on fund gains). Not financial advice.": "Tingkat imbal hasil adalah rata-rata stabil yang bisa kalian ubah, bukan penawaran; reksa dana dan emas naik turun. Preset pajak mengikuti aturan Indonesia ({#} untuk bunga deposito, {#} untuk kupon SBN, tidak ada untuk keuntungan reksa dana). Bukan nasihat keuangan.",
+  "Reached {0} ({#} months)": "Tercapai {0} ({#} bulan)",
+  "Read on this device only — nothing is uploaded and individual transactions are never saved. No bank login, no aggregator.": "Dibaca di perangkat ini saja — tidak ada yang diunggah dan transaksi tidak pernah disimpan. Tanpa login bank, tanpa pihak ketiga.",
+  "Read {#} transactions (nothing uploaded)": "Membaca {#} transaksi (tidak ada yang diunggah)",
+  "Real growth shows once there's about two months of history ({#} days so far).": "Pertumbuhan riil muncul setelah ada riwayat sekitar dua bulan (baru {#} hari).",
+  "Real growth: {0} since {#} {1}": "Pertumbuhan riil: {0} sejak {#} {1}",
+  "recommended": "disarankan",
+  "Reminder server error ({#})": "Server pengingat bermasalah ({#})",
+  "Reminder text stays on your device; the server only knows when to ping.": "Teks pengingat tetap di perangkat kalian; server hanya tahu kapan harus mengirim notifikasi.",
+  "Reminders": "Pengingat",
+  "Reminders are on": "Pengingat menyala",
+  "Reminders are on for this device.": "Pengingat menyala di perangkat ini.",
+  "Reminders off": "Pengingat mati",
+  "Reminders on": "Pengingat menyala",
+  "Remove this balance": "Hapus saldo ini",
+  "Remove this deposit": "Hapus setoran ini",
+  "Remove this {#} expense": "Hapus pengeluaran {#} ini",
+  "Remove {@}": "Hapus {@}",
+  "Rent longer or buy? What price range is safe?": "Sewa lebih lama atau beli? Rentang harga berapa yang aman?",
+  "Replace link": "Ganti tautan",
+  "Replace link…": "Ganti tautan…",
+  "Replace the pairing link": "Ganti tautan pasangan",
+  "Replace the plan on this device with this backup?": "Ganti rencana di perangkat ini dengan cadangan ini?",
+  "Replacing the link…": "Mengganti tautan…",
+  "Research note: in Gottman's Bringing Baby Home studies, about two-thirds of new mothers reported a drop in relationship satisfaction in the years after the first baby. Couples who protected friendship and fondness did better.": "Catatan riset: dalam studi Bringing Baby Home dari Gottman, sekitar dua pertiga ibu baru melaporkan kepuasan hubungan menurun pada tahun-tahun setelah anak pertama. Pasangan yang menjaga persahabatan dan kasih sayang menjalaninya lebih baik.",
+  "Restored": "Dipulihkan",
+  "Retail government bonds (SBN: ORI, SBR, ST)": "SBN ritel (ORI, SBR, ST)",
+  "Retail government bonds (SBN: ORI, SBR, ST): ~{#}, {#} tax": "SBN ritel (ORI, SBR, ST): ~{#}, pajak {#}",
+  "Retire together": "Pensiun bersama",
+  "Retire together with enough to live the life you want.": "Pensiun bersama dengan dana yang cukup untuk hidup yang kalian inginkan.",
+  "Retire when both are age": "Pensiun saat keduanya berusia",
+  "Retirement": "Pensiun",
+  "Retirement saving set to {#}/month": "Tabungan pensiun diatur ke {#}/bulan",
+  "Retirement savings today ({#})": "Tabungan pensiun saat ini ({#})",
+  "Retiring together": "Pensiun bersama",
+  "Roadmap": "Peta jalan",
+  "Roadmap date updated": "Tanggal di peta jalan diperbarui",
+  "Rough cost (optional)": "Perkiraan biaya (opsional)",
+  "Safe withdrawal rate (%)": "Tingkat penarikan aman (%)",
+  "Save": "Simpan",
+  "Save a deposit, choose where to live, make it ours.": "Kumpulkan uang muka, pilih tempat tinggal, jadikan milik kita.",
+  "Save about {#}/month to get there (you save {#})": "Tabung sekitar {#}/bulan untuk mencapainya (kalian menabung {#})",
+  "Save for it in a pot": "Tabung di celengan",
+  "Save for it in a pot (adds it to the roadmap and your weekly targets)": "Tabung di celengan (ditambahkan ke peta jalan dan target mingguan kalian)",
+  "Save {#}": "Menabung {#}",
+  "saved": "ditabung",
+  "Saved": "Tersimpan",
+  "saved in pots": "terkumpul di celengan",
+  "Saved on this device": "Tersimpan di perangkat ini",
+  "saved per month": "ditabung per bulan",
+  "Saved so far": "Terkumpul sejauh ini",
+  "Saved {0} of {#} in the {1} pot": "Terkumpul {0} dari {#} di celengan {1}",
+  "Saving challenges": "Tantangan menabung",
+  "Saving for": "Menabung untuk",
+  "Saving {#} more a month gets you there about {0}.": "Menabung {#} lebih banyak sebulan membuat kalian sampai sekitar {0}.",
+  "Savings pot \"{@}\" added: {#}/month.": "Celengan \"{@}\" ditambahkan: {#}/bulan.",
+  "Savings pot added": "Celengan ditambahkan",
+  "Savings pot deleted": "Celengan dihapus",
+  "Savings pot updated": "Celengan diperbarui",
+  "Savings pots for each big moment, linked to your roadmap so you know if you're on track.": "Celengan untuk setiap momen besar, terhubung ke peta jalan supaya kalian tahu apakah sesuai jadwal.",
+  "Savings rate and years to financial freedom": "Tingkat tabungan dan tahun menuju kebebasan finansial",
+  "Say yes, plan the wedding, align on the big life questions.": "Lamaran, rencanakan pernikahan, samakan pandangan soal pertanyaan besar dalam hidup.",
+  "School years, education funds, keeping couple time alive.": "Masa sekolah, dana pendidikan, tetap jaga waktu berdua.",
+  "Sections": "Bagian",
+  "See the northern lights…": "Melihat aurora…",
+  "Send a test": "Kirim tes",
+  "Senior high (SMA)": "SMA",
+  "Senior high (SMA) (age {#})": "SMA (usia {#})",
+  "Sent through the push service — it should pop up in a few seconds.": "Terkirim lewat layanan notifikasi — seharusnya muncul dalam beberapa detik.",
+  "Set a date to get a monthly amount.": "Isi tanggal untuk mendapatkan jumlah bulanan.",
+  "Set a monthly fun-money amount on the Money tab to budget your dates.": "Isi jumlah dana hiburan bulanan di tab Keuangan untuk menganggarkan kencan kalian.",
+  "Settings": "Pengaturan",
+  "Settings & backup": "Pengaturan & cadangan",
+  "Settings → Export backup keeps your plan safe.": "Pengaturan → Ekspor cadangan menjaga rencana kalian tetap aman.",
+  "Share the app": "Bagikan aplikasi",
+  "Share Together": "Bagikan Together",
+  "Shared": "Bersama",
+  "Shared with partner": "Dibagi dengan pasangan",
+  "Share…": "Bagikan…",
+  "Sharing one plan": "Berbagi satu rencana",
+  "Shopping & gifts": "Belanja & oleh-oleh",
+  "Shopping & gifts, total": "Belanja & oleh-oleh, total",
+  "Short by about {#}. Put in {#}/month or growth of about {#} a year after tax.": "Kurang sekitar {#}. Setor {#}/bulan atau cari pertumbuhan sekitar {#} setahun setelah pajak.",
+  "Short by about {#}. Put in {#}/month.": "Kurang sekitar {#}. Setor {#}/bulan.",
+  "Short summaries of published research (The Gottman Institute, PREP). Educational, not therapy — if things feel hard, a licensed couples counsellor can help.": "Ringkasan singkat dari riset yang telah dipublikasikan (The Gottman Institute, PREP). Bersifat edukatif, bukan terapi — jika keadaan terasa berat, konselor pasangan berlisensi bisa membantu.",
+  "Since": "Sejak",
+  "Smallest balance first (quick wins)": "Saldo terkecil dulu (cepat terasa)",
+  "Snapshot saved": "Catatan tersimpan",
+  "Something else": "Lainnya",
+  "Something else: ~{#}": "Lainnya: ~{#}",
+  "Something else…": "Lainnya…",
+  "Something I appreciated about you this month": "Sesuatu yang aku hargai darimu bulan ini",
+  "Something I need a bit more of": "Sesuatu yang aku butuhkan sedikit lebih banyak",
+  "Something only you two know": "Sesuatu yang hanya kalian berdua tahu",
+  "Source code": "Kode sumber",
+  "Source: Practical guide (not a research claim)": "Sumber: Panduan praktis (bukan klaim riset)",
+  "Source: {0}": "Sumber: {0}",
+  "Speaker–Listener: be heard before solving": "Pembicara–Pendengar: didengar dulu sebelum mencari solusi",
+  "Spending ({#})": "Pengeluaran ({#})",
+  "Spent": "Terpakai",
+  "Spent on {@}": "Pengeluaran untuk {@}",
+  "Split now: {0} · {1}": "Pembagian sekarang: {0} · {1}",
+  "Split weekly targets": "Bagi target mingguan",
+  "Start": "Mulai",
+  "Start a plan for school or university: pick a deposit, bonds or a fund, set a monthly amount and see how it grows.": "Mulai rencana untuk sekolah atau kuliah: pilih deposito, obligasi atau reksa dana, isi jumlah bulanan dan lihat pertumbuhannya.",
+  "Start a saving challenge": "Mulai tantangan menabung",
+  "Start a savings pot for this": "Mulai celengan untuk ini",
+  "Start a savings pot for {@}": "Mulai celengan untuk {@}",
+  "Start a streak this week": "Mulai rekor beruntun minggu ini",
+  "Start check-in": "Mulai check-in",
+  "Start our plan": "Mulai rencana kita",
+  "Start us with a suggested life roadmap (fully editable)": "Mulai dengan saran peta jalan hidup (bisa diubah sepenuhnya)",
+  "Start week {#}": "Mulai minggu {#}",
+  "Starter pots added — use Edit to set targets": "Celengan awal ditambahkan — pakai Ubah untuk mengatur target",
+  "Starting a family": "Memulai keluarga",
+  "Status": "Status",
+  "Stay": "Penginapan",
+  "Stay {0}": "Penginapan {0}",
+  "Stay, per night": "Penginapan, per malam",
+  "Steady": "Stabil",
+  "Still owed": "Sisa utang",
+  "Still owed ({#})": "Sisa utang ({#})",
+  "Stop syncing on this device": "Hentikan sinkron di perangkat ini",
+  "Stop syncing on this device? Your plan stays here; your partner keeps their copy.": "Hentikan sinkron di perangkat ini? Rencana tetap ada di sini; pasanganmu tetap punya salinannya.",
+  "Stop {#}-week challenge": "Hentikan tantangan {#} minggu",
+  "Suggest a lifelong roadmap": "Sarankan peta jalan seumur hidup",
+  "Sync failed ({#})": "Sinkron gagal ({#})",
+  "Sync failed ({#}) Will retry.": "Sinkron gagal ({#}) Akan dicoba lagi.",
+  "Sync now": "Sinkronkan sekarang",
+  "Sync paused": "Sinkron dijeda",
+  "Sync paused. Will retry.": "Sinkron dijeda. Akan dicoba lagi.",
+  "Sync stopped on this device": "Sinkron dihentikan di perangkat ini",
+  "Syncing…": "Menyinkronkan…",
+  "System": "Sistem",
+  "Take turns asking the questions below. Listen, don't fix.": "Bergantian ajukan pertanyaan di bawah. Dengarkan, jangan langsung memberi solusi.",
+  "Take turns. Listen to understand, not to reply.": "Bergantian. Dengarkan untuk memahami, bukan untuk membalas.",
+  "Take-home pay per month. Used for a fair split of weekly targets and the savings-rate dial.": "Gaji bersih per bulan. Dipakai untuk membagi target mingguan secara adil dan menghitung tingkat tabungan.",
+  "Talk about:": "Bicarakan:",
+  "Talk about: Our values & dealbreakers": "Bicarakan: Nilai & batasan mutlak kita",
+  "Talk before you decide": "Bicarakan sebelum memutuskan",
+  "Talked": "Sudah dibicarakan",
+  "Target ({#})": "Target ({#})",
+  "Target date": "Tanggal target",
+  "Tax on that growth (%)": "Pajak atas pertumbuhan itu (%)",
+  "Tell it to your partner in person or by phone — not in the same message as the link. Then a leaked link alone can't open your plan.": "Sampaikan ke pasangan secara langsung atau lewat telepon — jangan dalam pesan yang sama dengan tautannya. Dengan begitu tautan yang bocor saja tidak bisa membuka rencana kalian.",
+  "That link is incomplete.": "Tautan itu tidak lengkap.",
+  "That sync link has expired or was replaced — ask your partner for the current one.": "Tautan sinkron itu sudah kedaluwarsa atau diganti — minta tautan terbaru ke pasanganmu.",
+  "The day is here. Time to use it.": "Harinya sudah tiba. Saatnya dipakai.",
+  "The Gottman Institute recommends a weekly “State of the Union” meeting: start with appreciations, talk about what went well, then discuss one issue calmly with the goal of understanding before problem-solving, and finish with “What can I do to make you feel loved this week?”": "The Gottman Institute menyarankan rapat mingguan “State of the Union”: mulai dengan apresiasi, bicarakan yang berjalan baik, lalu bahas satu masalah dengan tenang dengan tujuan memahami sebelum mencari solusi, dan tutup dengan “Apa yang bisa aku lakukan supaya kamu merasa dicintai minggu ini?”",
+  "The Gottman Institute — How to have a State of the Union meeting": "The Gottman Institute — How to have a State of the Union meeting",
+  "The Gottman Institute — research on couples": "The Gottman Institute — research on couples",
+  "The Gottman Institute — Sound Relationship House": "The Gottman Institute — Sound Relationship House",
+  "The Gottman Institute — The Natural Principles of Love (PDF)": "The Gottman Institute — The Natural Principles of Love (PDF)",
+  "The point where your investments could pay for the life you want, so work becomes a choice.": "Titik saat investasi kalian bisa membiayai hidup yang diinginkan, sehingga bekerja menjadi pilihan.",
+  "The push service refused it ({#}). Try turning reminders off and on.": "Layanan notifikasi menolaknya ({#}). Coba matikan lalu nyalakan lagi pengingatnya.",
+  "The relationship is the plan. Check in monthly, talk about the big stuff before it's urgent, and keep dreaming.": "Hubungan adalah rencananya. Check-in tiap bulan, bicarakan hal besar sebelum mendesak, dan terus bermimpi.",
+  "The wedding we really want": "Pernikahan yang benar-benar kita inginkan",
+  "This child was removed or has no birth date, so there's no target date. Edit the plan to pick a child.": "Anak ini sudah dihapus atau belum punya tanggal lahir, jadi belum ada tanggal target. Ubah rencana untuk memilih anak.",
+  "This device's sync link is no longer valid.": "Tautan sinkron di perangkat ini sudah tidak berlaku.",
+  "This month's focus": "Fokus bulan ini",
+  "This plan needs the passphrase your partner chose.": "Rencana ini butuh kata sandi bersama yang dipilih pasanganmu.",
+  "This sync link was replaced or has expired — ask your partner for the new one.": "Tautan sinkron ini sudah diganti atau kedaluwarsa — minta tautan baru ke pasanganmu.",
+  "This week": "Minggu ini",
+  "This week together": "Minggu ini bersama",
+  "This week's idea:": "Ide minggu ini:",
+  "This week's money mission": "Misi keuangan minggu ini",
+  "This week's target is done.": "Target minggu ini tercapai.",
+  "Tick it off in Together when it happens.": "Centang di Together saat terjadi.",
+  "Tick it off our bucket list": "Centang dari daftar impian kita",
+  "Ticked off the bucket list.": "Dicentang dari daftar impian.",
+  "Time deposit (deposito)": "Deposito",
+  "Time deposit (deposito): ~{#}, {#} tax": "Deposito: ~{#}, pajak {#}",
+  "Time to plan something special.": "Waktunya merencanakan sesuatu yang spesial.",
+  "Today: {@}": "Hari ini: {@}",
+  "Together since": "Bersama sejak",
+  "together since {#}": "bersama sejak {#}",
+  "Together — Our Life Plan": "Together — Rencana Hidup Kita",
+  "Together{0}": "Together{0}",
+  "Total": "Total",
+  "Total assets": "Total aset",
+  "Total debts": "Total utang",
+  "Travel": "Jalan-jalan",
+  "Trending warmer": "Makin hangat",
+  "Trip": "Liburan",
+  "Trips & honeymoon": "Liburan & bulan madu",
+  "Try this:": "Coba ini:",
+  "Turn off reminders": "Matikan pengingat",
+  "Turn on reminders": "Nyalakan pengingat",
+  "Turn toward each other's bids": "Sambut ajakan kecil pasangan",
+  "under a year": "kurang dari setahun",
+  "Undo": "Urungkan",
+  "Undo this {#} entry": "Batalkan catatan {#} ini",
+  "University": "Universitas",
+  "University (age {#})": "Universitas (usia {#})",
+  "Unknown sync format": "Format sinkron tidak dikenal",
+  "Unlocking your shared plan…": "Membuka rencana bersama kalian…",
+  "Up to date": "Terbaru",
+  "Update balance": "Perbarui saldo",
+  "Us": "Kita",
+  "Us again, after the kids": "Kembali berdua, setelah anak-anak",
+  "Use at least {#} characters (or leave it empty for a plain file).": "Pakai minimal {#} karakter (atau kosongkan untuk file biasa).",
+  "Use at least {#} characters for the passphrase (or leave it empty).": "Pakai minimal {#} karakter untuk kata sandi bersama (atau kosongkan).",
+  "Use Mint on this phone for day-to-day spending and Together can pick up your real monthly numbers here. Nothing leaves the device.": "Pakai Mint di HP ini untuk pengeluaran harian, dan Together bisa mengambil angka bulanan kalian yang sebenarnya di sini. Tidak ada yang keluar dari perangkat.",
+  "Use one plan on both your phones. Changes sync within seconds and merge item by item, so you can both edit.": "Pakai satu rencana di kedua HP kalian. Perubahan tersinkron dalam hitungan detik dan digabung per item, jadi kalian berdua bisa mengubahnya.",
+  "Use the monthly check-in in Together as your bigger review.": "Pakai check-in bulanan di Together sebagai tinjauan yang lebih besar.",
+  "Use the monthly check-in to record your favourite one.": "Pakai check-in bulanan untuk mencatat yang paling kalian sukai.",
+  "Use your browser's menu → {0} / {1}. It opens like an app and works offline.": "Pakai menu browser → {0} / {1}. Aplikasi terbuka seperti biasa dan bisa dipakai offline.",
+  "Uses your retirement savings, monthly amount and assumptions above, growing at {#} a year after fees and inflation. In today's money. An estimate, not financial advice.": "Memakai tabungan pensiun, jumlah bulanan dan asumsi di atas, tumbuh {#} setahun setelah biaya dan inflasi. Dalam nilai uang hari ini. Perkiraan, bukan nasihat keuangan.",
+  "Value": "Nilai",
+  "Very close": "Sangat dekat",
+  "Waiting for first sync…": "Menunggu sinkron pertama…",
+  "We add per month ({#})": "Kita tambah per bulan ({#})",
+  "We agreed": "Sudah sepakat",
+  "We did it": "Sudah kita lakukan",
+  "We save per month": "Kita menabung per bulan",
+  "We talked": "Sudah dibicarakan",
+  "We went out": "Kami keluar",
+  "We'll nudge you about check-ins, milestones and anniversaries.": "Kami akan mengingatkan soal check-in, momen dan hari jadi.",
+  "We'll put in per month ({#})": "Kita setor per bulan ({#})",
+  "Wedding": "Pernikahan",
+  "Wedding date": "Tanggal pernikahan",
+  "Wedding date (if set or already married)": "Tanggal pernikahan (jika sudah ditentukan atau sudah menikah)",
+  "Week 1 unlocked — about 20 minutes together": "Minggu 1 terbuka — sekitar 20 menit bersama",
+  "Week {#} done": "Minggu {#} selesai",
+  "Week {#} done: {#} into {@}.": "Minggu {#} selesai: {#} masuk ke {@}.",
+  "Week {#} unlocked — about {#} minutes together": "Minggu {#} terbuka — sekitar {#} menit bersama",
+  "Week {#}: Five positives for every negative": "Minggu {#}: Lima hal positif untuk setiap hal negatif",
+  "Week {#}: Know the Four Horsemen — and their antidotes": "Minggu {#}: Kenali Empat Penunggang Kuda — dan penawarnya",
+  "Week {#}: Live with perpetual problems": "Minggu {#}: Hidup dengan masalah abadi",
+  "Week {#}: Love Maps: know each other's inner world": "Minggu {#}: Peta Cinta: kenali dunia batin satu sama lain",
+  "Week {#}: Make it last: the weekly State of the Union": "Minggu {#}: Bikin langgeng: rapat mingguan “State of the Union”",
+  "Week {#}: Money as a team": "Minggu {#}: Uang sebagai tim",
+  "Week {#}: put {#} in": "Minggu {#}: masukkan {#}",
+  "Week {#}: Speaker–Listener: be heard before solving": "Minggu {#}: Pembicara–Pendengar: didengar dulu sebelum mencari solusi",
+  "Week {#}: Turn toward each other's bids": "Minggu {#}: Sambut ajakan kecil pasangan",
+  "Welcome, {@} & {@}": "Selamat datang, {@} & {@}",
+  "Went {#} over budget": "Lebih {#} dari anggaran",
+  "What adventure do we want before {#}?": "Petualangan apa yang ingin kita lakukan sebelum usia {#}?",
+  "What are our wishes for medical care and funerals?": "Apa keinginan kita soal perawatan medis dan pemakaman?",
+  "What budget feels right without starting married life in debt?": "Anggaran berapa yang terasa pas tanpa memulai pernikahan dengan utang?",
+  "What can I do to make you feel loved this week?": "Apa yang bisa aku lakukan supaya kamu merasa dicintai minggu ini?",
+  "What care might our parents need, and who helps?": "Perawatan apa yang mungkin dibutuhkan orang tua kita, dan siapa yang membantu?",
+  "What did it feel like to be paraphrased accurately?": "Bagaimana rasanya ketika ucapanmu diulang dengan tepat?",
+  "What did money feel like in your family growing up?": "Seperti apa rasanya uang di keluargamu waktu kecil?",
+  "What did we love doing before kids that we want back?": "Apa yang dulu kita suka lakukan sebelum punya anak dan ingin kita lakukan lagi?",
+  "What did you do?": "Kalian ngapain?",
+  "What do we want our grandkids to remember about us?": "Apa yang ingin diingat cucu-cucu tentang kita?",
+  "What does a normal week look like in retirement?": "Seperti apa minggu biasa saat pensiun?",
+  "What does this issue mean to you, deep down?": "Apa arti masalah ini bagimu, jauh di dalam hati?",
+  "What helps us calm down and repair after an argument?": "Apa yang membantu kita tenang dan berbaikan setelah bertengkar?",
+  "What helps you calm down when you feel flooded?": "Apa yang membantumu tenang saat emosimu meluap?",
+  "What if we face fertility problems — adoption, IVF?": "Bagaimana jika kita mengalami masalah kesuburan — adopsi, bayi tabung?",
+  "What is it?": "Utang apa?",
+  "What is our weekly date-night ritual?": "Apa ritual kencan mingguan kita?",
+  "What is stressing you most right now?": "Apa yang paling membuatmu stres saat ini?",
+  "What it costs, in today's money ({#})": "Biayanya, dalam nilai uang hari ini ({#})",
+  "What it was for": "Untuk apa",
+  "What small compromise could we both live with for now?": "Kompromi kecil apa yang bisa kita jalani berdua untuk sekarang?",
+  "What small things do I do that tell you I'm paying attention?": "Hal kecil apa yang aku lakukan yang menunjukkan aku memperhatikanmu?",
+  "What three values matter most to each of us?": "Tiga nilai apa yang paling penting bagi kita masing-masing?",
+  "What we decided": "Yang kita putuskan",
+  "What will we do each week to stay a couple, not only parents?": "Apa yang akan kita lakukan setiap minggu supaya tetap jadi pasangan, bukan hanya orang tua?",
+  "What words or behaviours are off-limits?": "Kata-kata atau perilaku apa yang terlarang?",
+  "What would be a dealbreaker in a marriage?": "Apa yang menjadi batasan mutlak dalam pernikahan?",
+  "What would feel like “enough” to you?": "Apa yang akan terasa “cukup” bagimu?",
+  "What would we do if one of us could not work?": "Apa yang akan kita lakukan jika salah satu dari kita tidak bisa bekerja?",
+  "What would your perfect ordinary Saturday look like?": "Seperti apa hari Sabtu biasa yang sempurna menurutmu?",
+  "What's a dream you haven't said out loud yet?": "Apa mimpi yang belum pernah kamu ucapkan?",
+  "What's something I did recently that you appreciated but didn't mention?": "Apa yang baru-baru ini aku lakukan yang kamu hargai tapi belum kamu sebut?",
+  "What's the milestone?": "Momennya apa?",
+  "When": "Kapan",
+  "When do you feel ignored, even if I don't mean it?": "Kapan kamu merasa diabaikan, walau aku tidak bermaksud?",
+  "Where": "Ke mana",
+  "Where are important documents and passwords kept?": "Di mana dokumen penting dan kata sandi disimpan?",
+  "Where are you now?": "Sekarang di tahap mana?",
+  "Where the money goes": "Uangnya ditaruh di mana",
+  "Where we put down roots": "Di mana kita menetap",
+  "Which parenting values matter most (discipline, education, faith)?": "Nilai pengasuhan apa yang paling penting (disiplin, pendidikan, agama)?",
+  "Which topic should we use this with next?": "Topik apa yang sebaiknya kita coba berikutnya?",
+  "Who do you feel closest to at the moment, apart from me?": "Siapa yang paling dekat denganmu saat ini, selain aku?",
+  "Who inherits what — and have we written it down?": "Siapa mewarisi apa — dan sudahkah kita menuliskannya?",
+  "Who is adding to {@}": "Siapa yang menambah ke {@}",
+  "Who is depositing into {@}: {@}": "Siapa yang menyetor ke {@}: {@}",
+  "Who is guardian for our kids if something happens to us?": "Siapa wali anak-anak kita jika terjadi sesuatu pada kita?",
+  "Who pays for what?": "Siapa membayar apa?",
+  "Whose goal?": "Tujuan siapa?",
+  "Why it matters to us": "Kenapa ini penting bagi kita",
+  "Would we ever live with or financially support parents?": "Apakah kita akan tinggal bersama atau menanggung orang tua secara finansial?",
+  "Would we move for one partner's career?": "Apakah kita mau pindah demi karier salah satu dari kita?",
+  "Write one new thing you learned about each other in the notes.": "Tulis satu hal baru yang kalian pelajari tentang satu sama lain di catatan.",
+  "Wrong password — or the file was damaged.": "Kata sandi salah — atau filenya rusak.",
+  "Year by year": "Per tahun",
+  "Yearly spending set to {#} from Mint": "Pengeluaran tahunan diatur ke {#} dari Mint",
+  "yearly spending we want": "pengeluaran tahunan yang kita inginkan",
+  "Yearly spending we want in retirement (today's {#})": "Pengeluaran tahunan yang kita inginkan saat pensiun (nilai {#} hari ini)",
+  "You are here": "Kalian di sini",
+  "You save about {0} of your take-home pay now (pots + investing), so freedom is about {1} away if you lived on the rest.": "Saat ini kalian menabung sekitar {0} dari gaji bersih (celengan + investasi), jadi kebebasan finansial sekitar {1} lagi jika hidup dari sisanya.",
+  "You're offline — connect to create a pairing link.": "Kalian sedang offline — sambungkan internet untuk membuat tautan pasangan.",
+  "Your birthday": "Ulang tahunmu",
+  "Your name": "Namamu",
+  "Your partner protected your shared plan with a passphrase. Anything already on this device will be merged into it.": "Pasanganmu melindungi rencana bersama dengan kata sandi. Apa pun yang sudah ada di perangkat ini akan digabungkan ke dalamnya.",
+  "Your partner's name": "Nama pasanganmu",
+  "Your plan is stored in this browser. Partner sync uploads it end-to-end encrypted; the server can't read it.": "Rencana kalian tersimpan di browser ini. Sinkron pasangan mengunggahnya dengan enkripsi end-to-end; server tidak bisa membacanya.",
+  "Your plan lives only in this browser — nothing is uploaded.": "Rencana kalian hanya tersimpan di browser ini — tidak ada yang diunggah.",
+  "{#} (education inflation)": "{#} (inflasi pendidikan)",
+  "{#} a day": "{#} sehari",
+  "{#} a year": "{#} setahun",
+  "{#} added to {@}": "{#} ditambahkan ke {@}",
+  "{#} days": "{#} hari",
+  "{#} fun money left this month": "sisa dana hiburan {#} bulan ini",
+  "{#} into {@}": "{#} masuk ke {@}",
+  "{#} into {@}'s {@}": "{#} masuk ke {@2} {@1}",
+  "{#} minutes, phones away. Rate how you feel, share one appreciation, one need, one plan.": "{#} menit, HP disingkirkan. Nilai perasaan kalian, bagikan satu apresiasi, satu kebutuhan, satu rencana.",
+  "{#} of {#}": "{#} dari {#}",
+  "{#} of {#} fun money used this month · {0} left": "{#} dari {#} dana hiburan terpakai bulan ini · sisa {0}",
+  "{#} of {#} · {#}/month": "{#} dari {#} · {#}/bulan",
+  "{#} out of {@}": "{#} keluar dari {@}",
+  "{#} out of {@}'s {@}": "{#} keluar dari {@2} {@1}",
+  "{#} savings pots are behind schedule ({@})": "{#} celengan tertinggal dari jadwal ({@})",
+  "{#} suggested milestones added": "{#} momen yang disarankan ditambahkan",
+  "{#} taken out of {@}": "{#} diambil dari {@}",
+  "{#} this week · about {#} a day": "{#} minggu ini · sekitar {#} sehari",
+  "{#} this week · about {#} a day · catching up": "{#} minggu ini · sekitar {#} sehari · mengejar ketinggalan",
+  "{#} to go": "kurang {#}",
+  "{#} weeks in a row, keep it going!": "{#} minggu berturut-turut, terus pertahankan!",
+  "{#} year": "{#} tahun",
+  "{#} years": "{#} tahun",
+  "{#} years sooner": "{#} tahun lebih cepat",
+  "{#} · Activities & tours": "{#} · Aktivitas & tur",
+  "{#} · Balance checked": "{#} · Saldo dicek",
+  "{#} · Food & drinks": "{#} · Makan & minum",
+  "{#} · Getting around": "{#} · Transportasi lokal",
+  "{#} · Shopping & gifts": "{#} · Belanja & oleh-oleh",
+  "{#} · Stay": "{#} · Penginapan",
+  "{#} · Together": "{#} · Bersama",
+  "{#} · {#} a year · min {#}/month": "{#} · {#} setahun · min {#}/bulan",
+  "{#} – {#} · {#} days left": "{#} – {#} · sisa {#} hari",
+  "{#}+ years": "{#}+ tahun",
+  "{#}-week challenge": "Tantangan {#} minggu",
+  "{#}-week challenge, week {#}:": "Tantangan {#} minggu, minggu ke-{#}:",
+  "{#}-week challenge:": "Tantangan {#} minggu:",
+  "{#}/mo": "{#}/bln",
+  "{#}/month": "{#}/bulan",
+  "{#}/month (about {#} a week) · needed {#}, {#}": "{#}/bulan (sekitar {#} seminggu) · dibutuhkan {#}, {#}",
+  "{#}/{#} weeks": "{#}/{#} minggu",
+  "{0} of {#} into your pots this week": "{0} dari {#} masuk ke celengan kalian minggu ini",
+  "{0} The day is here. Time to use it.": "{0} Harinya sudah tiba. Saatnya dipakai.",
+  "{0} Try a café neither of you knows": "{0} Coba kafe yang belum pernah kalian datangi",
+  "{0} Week {#} put in one amount, week {#} twice that, up to {#} times in week {#}: {#} times the amount in a year.{1}{2} Eight weekends without spending on extras. Each one, move what you would have spent into the pot.": "{0} Minggu {#} masukkan satu jumlah, minggu {#} dua kalinya, sampai {#} kali lipat di minggu {#}: {#} kali jumlah awal dalam setahun.{1}{2} Delapan akhir pekan tanpa belanja hal tambahan. Setiap kali, pindahkan yang tadinya akan dibelanjakan ke celengan.",
+  "{0} Worth remembering for the next one.": "{0} Patut diingat untuk liburan berikutnya.",
+  "{0} {#} into {@}": "{0} {#} ke {@}",
+  "{0} {#} of {#} this week": "{0} {#} dari {#} minggu ini",
+  "{0} {1} left: about {2} for the rest of the trip.": "{0} {1} tersisa: sekitar {2} untuk sisa liburan.",
+  "{0} · {#} a year": "{0} · {#} setahun",
+  "{0} · {#} a year, {#} after {#} tax": "{0} · {#} setahun, {#} setelah pajak {#}",
+  "{0} — starts {#}{1}{2}": "{0} — mulai {#}{1}{2}",
+  "{0}Goal": "{0}Target",
+  "{0}Growth": "{0}Pertumbuhan",
+  "{0}What you put in": "{0}Yang kalian setor",
+  "{@} & {@} at ~{#}": "{@} & {@} di usia ~{#}",
+  "{@} & {@}: check this week's pots on Home before the week ends.": "{@} & {@}: cek celengan minggu ini di Beranda sebelum minggu berakhir.",
+  "{@} & {@}: {#} minutes, phones away.": "{@} & {@}: {#} menit, HP disingkirkan.",
+  "{@} (age {#})": "{@} (usia {#})",
+  "{@} added to the family": "{@} masuk ke keluarga",
+  "{@} budget": "Anggaran {@}",
+  "{@} date": "Tanggal {@}",
+  "{@} deleted": "{@} dihapus",
+  "{@} deleted (its savings pot stays)": "{@} dihapus (celengannya tetap ada)",
+  "{@} plan deleted": "Rencana {@} dihapus",
+  "{@} saved": "{@} terkumpul",
+  "{@} this week": "{@} minggu ini",
+  "{@} Will retry.": "{@} Akan dicoba lagi.",
+  "{@} with enough to live the life you want.": "{@} dengan dana yang cukup untuk hidup yang kalian inginkan.",
+  "{@} · {@} · {#} – {#} · {#} nights": "{@} · {@} · {#} – {#} · {#} malam",
+  "{@}'s take-home / month ({#})": "Gaji bersih {@} / bulan ({#})",
+  "{@}: how connected do you feel?": "{@}: seberapa dekat perasaanmu?",
+  "{@}: {#} planned, with a savings pot.": "{@}: {#} direncanakan, dengan celengan.",
+  "{@}: {#} planned.": "{@}: {#} direncanakan.",
+  "{@}: {@} year by year": "{@}: {@} per tahun",
+  "· {#} (expected)": "· {#} (perkiraan)",
+  "· {#} saved": "· {#} terkumpul",
+  "— none —": "— tidak ada —",
+  "— target reached!": "— target tercapai!",
+  "“The best thing to hold onto in life is each other.” — Audrey Hepburn": "“Hal terbaik untuk dipegang dalam hidup adalah satu sama lain.” — Audrey Hepburn",
+  "≈ yearly income it supports": "≈ penghasilan tahunan yang bisa didukung",
+  "≈ {#} by then": "≈ {#} saat itu",
+  "▲ {#} since last snapshot": "▲ {#} sejak catatan terakhir",
+  "▼ {#} since last snapshot": "▼ {#} sejak catatan terakhir",
+  "✓ Agreed": "✓ Sepakat",
+  "✓ Done": "✓ Selesai",
+  "✓ Fully saved. Enjoy it!": "✓ Sudah terkumpul penuh. Selamat menikmati!",
+  "✓ On track for {@}": "✓ Sesuai jadwal untuk {@}",
+  "✓ On track: about {#} more than the goal": "✓ Sesuai jadwal: sekitar {#} lebih dari target",
+  "✓ Paid off": "✓ Lunas",
+  "✓ Synced {#}": "✓ Tersinkron {#}",
+  "✓ Synced {#}:{#} AM": "✓ Tersinkron {#}:{#} AM",
+  "✓ Synced {#}:{#} PM": "✓ Tersinkron {#}:{#} PM",
+});
 /* ----------------------------------------------------- pure calculations */
 function ageOn(birthText, onDate) {
   const birth = parseDate(birthText);
@@ -1593,7 +2756,7 @@ function reminderSchedule(plan, now = new Date()) {
   const nowMs = now.getTime();
   const at = (date, hour) => new Date(date.getFullYear(), date.getMonth(), date.getDate(), hour, 0).getTime();
   const add = (time, title, body, tag) => {
-    if (time > nowMs + 60e3 && time < nowMs + 120 * 864e5) list.push({ at: time, title, body, tag });
+    if (time > nowMs + 60e3 && time < nowMs + 120 * 864e5) list.push({ at: time, title: i18n.text(title), body: i18n.text(body), tag });
   };
   const nameA = plan.couple.a.name || "Partner A";
   const nameB = plan.couple.b.name || "Partner B";
@@ -1705,7 +2868,7 @@ const reminders = {
     pref.enabled = true;
     this.savePref(pref);
     await this.sync(subscription);
-    await registration.showNotification("Reminders are on", { body: "We'll nudge you about check-ins, milestones and anniversaries.", icon: "icons/icon-192.png", tag: "together-welcome" });
+    await registration.showNotification(i18n.text("Reminders are on"), { body: i18n.text("We'll nudge you about check-ins, milestones and anniversaries."), icon: "icons/icon-192.png", tag: "together-welcome" });
   },
   async disable() {
     const pref = this.pref();
@@ -2400,7 +3563,7 @@ function agesLine(dateText) {
     const kidAge = ageOn(kid.birth, date);
     if (kidAge !== null && kidAge >= 0) parts.push(`${esc(kid.name)} ${kidAge}`);
   }
-  return parts.length ? `Ages ${parts.join(" · ")}` : "";
+  return parts.length ? `<span translate="no">${i18n.lang === "id" ? "Usia" : "Ages"} ${parts.join(" · ")}</span>` : "";
 }
 
 /* ------------------------------------------------------------------ theme */
@@ -2438,6 +3601,7 @@ const theme = {
       toggle.innerHTML = icon(current.icon);
       toggle.setAttribute("aria-label", `Appearance: ${current.label}. Switch to ${next.label}`);
       toggle.title = `Appearance: ${current.label}`;
+      i18n.translate(toggle);
     }
   },
   set(preference) {
@@ -2473,6 +3637,8 @@ function render() {
   const view = document.getElementById("view");
   const views = { home: viewHome, roadmap: viewRoadmap, goals: viewGoals, money: viewMoney, us: viewUs, settings: viewSettings };
   view.innerHTML = onboarding ? viewOnboarding() : (views[ui.tab] || viewHome)();
+  document.title = i18n.text("Together — Our Life Plan");
+  i18n.translate(document.body);
 }
 
 /** Status pill in the header: where the plan lives right now. */
@@ -2618,8 +3784,8 @@ function splitLine(split, cur) {
   const parts = [];
   if (split.a) parts.push(`${esc(n.a)} ${esc(money(split.a, cur))}`);
   if (split.b) parts.push(`${esc(n.b)} ${esc(money(split.b, cur))}`);
-  if (split.both) parts.push(`together ${esc(money(split.both, cur))}`);
-  return parts.join(" · ");
+  if (split.both) parts.push(`${i18n.lang === "id" ? "bersama" : "together"} ${esc(money(split.both, cur))}`);
+  return parts.length ? `<span translate="no">${parts.join(" · ")}</span>` : "";
 }
 
 /** Home card: this week's money missions (with a per-day figure), the next goal step and a fun pick. */
@@ -2629,13 +3795,13 @@ function weekCardHTML(now) {
   const streak = savingStreak(state, now);
   const n = names();
   const fun = funPlan(state, now);
-  const range = `${plan.weekStart.toLocaleDateString(undefined, { day: "numeric", month: "short" })} – ${plan.weekEnd.toLocaleDateString(undefined, { day: "numeric", month: "short" })}`;
+  const range = `${plan.weekStart.toLocaleDateString(i18n.locale, { day: "numeric", month: "short" })} – ${plan.weekEnd.toLocaleDateString(i18n.locale, { day: "numeric", month: "short" })}`;
   const potRows = plan.pots.map(p => {
     const share = p.weekly > 0 ? clamp(p.added / p.weekly, 0, 1) : 1;
     const partnerPart = (who, label) => {
       const target = p.targets[who];
       const putIn = p.byPartner[who];
-      return `${esc(label)} ${esc(money(putIn, cur))} / ${esc(money(target, cur))}${putIn >= target - 0.5 ? " ✓" : ""}`;
+      return `<span translate="no">${esc(label)} ${esc(money(putIn, cur))} / ${esc(money(target, cur))}${putIn >= target - 0.5 ? " ✓" : ""}</span>`;
     };
     return `<li class="week-pot">
       <div class="spread"><div style="min-width:0"><b>${esc(p.fund.name)}</b>
@@ -2799,7 +3965,7 @@ function viewMoney() {
     let line;
     if (s.months === 0) line = '<span class="chip ok">Fully funded</span>';
     else if (!Number.isFinite(s.months)) line = '<span class="small muted">Add a monthly amount to see when you\'ll get there.</span>';
-    else line = `<span class="small">Reached <b>${esc(s.reachDate.toLocaleDateString(undefined, { month: "short", year: "numeric" }))}</b> (${s.months} months)</span>`;
+    else line = `<span class="small">Reached <b>${esc(s.reachDate.toLocaleDateString(i18n.locale, { month: "short", year: "numeric" }))}</b> (${s.months} months)</span>`;
     let deadlineLine = "";
     if (s.milestone) {
       deadlineLine = s.onTrack
@@ -2856,7 +4022,7 @@ function viewMoney() {
       <div class="stat"><b>${esc(money(plan.incomeReal, cur))}</b><span class="small muted">≈ yearly income it supports</span></div>
       ${plan.targetReal ? `<div class="stat"><b>${Math.round((plan.onTrack || 0) * 100)}%</b><span class="small muted">of the ${esc(money(plan.targetReal, cur))} you need</span></div>` : ""}
     </div>
-    <p class="small" style="margin-top:10px">In about <b>${Math.round(plan.years)} years</b>${plan.retireOn ? ` (${esc(plan.retireOn.toLocaleDateString(undefined, { month: "short", year: "numeric" }))})` : ""} that's ${esc(money(plan.projectedNominal, cur))} in future money (return ${esc(plan.netRate.toFixed(1))}% after fees).
+    <p class="small" style="margin-top:10px">In about <b>${Math.round(plan.years)} years</b>${plan.retireOn ? ` (${esc(plan.retireOn.toLocaleDateString(i18n.locale, { month: "short", year: "numeric" }))})` : ""} that's ${esc(money(plan.projectedNominal, cur))} in future money (return ${esc(plan.netRate.toFixed(1))}% after fees).
       ${plan.targetReal ? (plan.onTrack >= 1
         ? '<span class="chip ok">✓ On track</span>'
         : `<span class="chip warn" style="white-space:normal">Save about ${esc(money(plan.neededMonthly, cur))}/month to get there (you save ${esc(money(r.monthly, cur))})</span>`)
@@ -2874,7 +4040,7 @@ function viewMoney() {
       </form>
       ${!state.kids.length ? '<p class="small muted">Add your children (or a due date) in Settings to plan their education funds.</p>'
         : !education.length ? '<p class="small muted">Enter an expected cost to see how much to save per child.</p>'
-        : `<ul class="clean">${education.map(e => `<li class="spread small"><div><b>${esc(e.kid.name)}</b> — starts ${esc(e.start.toLocaleDateString(undefined, { month: "short", year: "numeric" }))}<br><span class="muted">≈ ${esc(money(e.cost, cur))} by then</span></div>
+        : `<ul class="clean">${education.map(e => `<li class="spread small"><div><b>${esc(e.kid.name)}</b> — starts ${esc(e.start.toLocaleDateString(i18n.locale, { month: "short", year: "numeric" }))}<br><span class="muted">≈ ${esc(money(e.cost, cur))} by then</span></div>
           <span class="row" style="gap:6px;flex-wrap:nowrap"><span class="chip">${esc(money(e.monthly, cur))}/mo</span><button type="button" class="small" data-act="plan-kid" data-id="${esc(e.kid.id)}" aria-label="Make a plan for ${esc(e.kid.name)}">Plan it</button></span></li>`).join("")}</ul><p class="small muted">"Plan it" turns this into a kids' plan below with a real product, growth chart and deposits.</p>`}
     </section>
     <section class="card">
@@ -2919,7 +4085,7 @@ function freedomCardHTML(now) {
   } else if (plan.months === null) {
     when = `<span class="chip warn" style="white-space:normal">Not reachable within 100 years at ${esc(money(plan.monthly, cur))}/month. Raise the monthly amount in Retiring together.</span>`;
   } else {
-    when = `At ${esc(money(plan.monthly, cur))}/month you get there around <b>${esc(plan.date.toLocaleDateString(undefined, { month: "short", year: "numeric" }))}</b>
+    when = `At ${esc(money(plan.monthly, cur))}/month you get there around <b>${esc(plan.date.toLocaleDateString(i18n.locale, { month: "short", year: "numeric" }))}</b>
       (${Math.round(plan.months / 12)} years${ages ? `; ${ages}` : ""}).`;
   }
   const lever = plan.soonerBy > 0
@@ -2935,7 +4101,7 @@ function freedomCardHTML(now) {
     <div class="bar" style="margin:10px 0" role="progressbar" aria-label="Progress to financial freedom" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(plan.progress * 100)}"><span style="width:${plan.progress * 100}%"></span></div>
     <p class="small">${when}</p>
     ${lever}
-    ${plan.afterDebts && plan.afterDebts.date ? `<p class="small">Once you're debt-free (${esc(plan.afterDebts.debtFreeDate.toLocaleDateString(undefined, { month: "short", year: "numeric" }))}), moving the ${esc(money(plan.afterDebts.amount, cur))}/month you paid on debts into investing gets you free around <b>${esc(plan.afterDebts.date.toLocaleDateString(undefined, { month: "short", year: "numeric" }))}</b>.</p>` : ""}
+    ${plan.afterDebts && plan.afterDebts.date ? `<p class="small">Once you're debt-free (${esc(plan.afterDebts.debtFreeDate.toLocaleDateString(i18n.locale, { month: "short", year: "numeric" }))}), moving the ${esc(money(plan.afterDebts.amount, cur))}/month you paid on debts into investing gets you free around <b>${esc(plan.afterDebts.date.toLocaleDateString(i18n.locale, { month: "short", year: "numeric" }))}</b>.</p>` : ""}
     ${button}
     <p class="small muted">Uses your retirement savings, monthly amount and assumptions above, growing at ${esc(plan.realRate.toFixed(1))}% a year after fees and inflation. In today's money. An estimate, not financial advice.</p>
   </div>`;
@@ -3031,7 +4197,7 @@ function debtCardHTML(now) {
       summary = `<p class="small"><span class="chip warn" style="white-space:normal">At these payments the debts never clear: interest grows faster. Add an extra amount per month.</span></p>`;
     } else {
       const saved = plan.other.feasible ? plan.other.totalInterest - plan.totalInterest : null;
-      summary = `<p class="small">Debt-free around <b>${esc(plan.date.toLocaleDateString(undefined, { month: "short", year: "numeric" }))}</b> (${plan.months} months), paying ${esc(money(plan.budget, cur))}/month in total and ${esc(money(plan.totalInterest, cur))} interest.</p>
+      summary = `<p class="small">Debt-free around <b>${esc(plan.date.toLocaleDateString(i18n.locale, { month: "short", year: "numeric" }))}</b> (${plan.months} months), paying ${esc(money(plan.budget, cur))}/month in total and ${esc(money(plan.totalInterest, cur))} interest.</p>
         ${saved !== null && Math.abs(saved) >= 1 ? `<p class="small muted">${saved > 0 ? `That's ${esc(money(saved, cur))} less interest than the other order.` : `The other order would save ${esc(money(-saved, cur))} interest, but ${plan.method === "snowball" ? "quick wins keep many couples going" : "this one clears the biggest cost first"}.`}</p>` : ""}`;
     }
   }
@@ -3042,7 +4208,7 @@ function debtCardHTML(now) {
         const month = plan.payoff[d.id];
         return `<li class="spread debt-row"><div style="min-width:0"><b>${esc(d.name)}</b>
             <div class="small muted">${esc(money(d.balance, cur))} · ${esc(String(Number(d.rate) || 0))}% a year · min ${esc(money(d.minimum, cur))}/month</div>
-            ${Number(d.balance) > 0 ? `<div class="small">${month ? `Paid off ${esc(addMonths(now, month).toLocaleDateString(undefined, { month: "short", year: "numeric" }))}` : "Not cleared at these payments"}</div>` : '<span class="chip ok">✓ Paid off</span>'}</div>
+            ${Number(d.balance) > 0 ? `<div class="small">${month ? `Paid off ${esc(addMonths(now, month).toLocaleDateString(i18n.locale, { month: "short", year: "numeric" }))}` : "Not cleared at these payments"}</div>` : '<span class="chip ok">✓ Paid off</span>'}</div>
           <span style="white-space:nowrap"><button type="button" class="ghost" data-act="edit-debt" data-id="${esc(d.id)}" aria-label="Edit ${esc(d.name)}">${icon("pencil")}</button><button type="button" class="ghost" data-act="delete-debt" data-id="${esc(d.id)}" aria-label="Delete ${esc(d.name)}">${icon("trash")}</button></span></li>`;
       }).join("")}</ul>` : '<div class="empty">No debts? Lovely. If you have any (cards, loans, buy-now-pay-later), add them to get a debt-free date.</div>'}
       ${debts.length ? `<form class="fields-2" data-form="retirement" style="margin-top:10px">
@@ -3119,8 +4285,8 @@ function dateNightsHTML() {
   </section>`;
 }
 /* --------------------------------------- views: kids' plans and trips */
-const monthYear = date => date.toLocaleDateString(undefined, { month: "short", year: "numeric" });
-const pct = value => `${(Math.round(value * 10) / 10).toLocaleString(undefined, { maximumFractionDigits: 1 })}%`;
+const monthYear = date => date.toLocaleDateString(i18n.locale, { month: "short", year: "numeric" });
+const pct = value => `${(Math.round(value * 10) / 10).toLocaleString(i18n.locale, { maximumFractionDigits: 1 })}%`;
 
 /** Stacked yearly bars: what you put in (bottom) and what it earned (top). */
 function growthChartSVG(projection, cur) {
@@ -3163,7 +4329,7 @@ function kidPlanCard(plan, now) {
       <p class="small muted">This child was removed or has no birth date, so there's no target date. Edit the plan to pick a child.</p></article>`;
   }
   const tax = Number(plan.tax) || 0;
-  const rateLine = `${esc(product.name)} · ${esc(pct(Number(plan.rate) || 0))} a year${tax ? `, ${esc(pct(p.netRate))} after ${esc(pct(tax))} tax` : ""}`;
+  const rateLine = `<span>${esc(product.name)}</span> · ${esc(pct(Number(plan.rate) || 0))} a year${tax ? `, ${esc(pct(p.netRate))} after ${esc(pct(tax))} tax` : ""}`;
   let verdict = "";
   if (p.months === 0) {
     verdict = '<span class="chip ok">The day is here. Time to use it.</span>';
@@ -3463,7 +4629,7 @@ function syncStatusText() {
   if (sync.status === "error") return `${sync.error || "Sync paused."} Will retry.`;
   if (sync.status === "syncing") return "Syncing…";
   const last = sync.config.lastSyncAt;
-  return last ? `✓ Synced ${new Date(last).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : "Waiting for first sync…";
+  return last ? `✓ Synced ${new Date(last).toLocaleTimeString(i18n.locale || [], { hour: "2-digit", minute: "2-digit" })}` : "Waiting for first sync…";
 }
 
 function viewConnect() {
@@ -3550,6 +4716,12 @@ function viewSettings() {
         `<button type="button" data-act="theme" data-id="${option.id}" aria-pressed="${theme.preference === option.id}">${icon(option.icon)}<span>${option.label}</span></button>`).join("")}</div>
     </section>
     <section class="card">
+      <h2>Language</h2>
+      <p class="small muted">Bahasa Indonesia or English, for this device only. Automatic follows the phone's language.</p>
+      <div class="segmented" role="group" aria-label="Language">${LANG_OPTIONS.map(option =>
+        `<button type="button" data-act="lang" data-id="${option.id}" aria-pressed="${i18n.preference === option.id}"><span${option.id === "auto" ? "" : ' translate="no"'}>${option.id === "auto" ? "Automatic" : option.label}</span></button>`).join("")}</div>
+    </section>
+    <section class="card">
       <h2>Our children</h2>
       <p class="small muted">Add children (or a due date) and their ages appear on every milestone.</p>
       ${state.kids.length ? `<ul class="clean">${state.kids.map(kid => `<li class="spread"><div>${esc(kid.name)} <span class="small muted">· ${esc(formatDate(kid.birth))}${parseDate(kid.birth) > ui.now ? " (expected)" : ""}</span></div>
@@ -3581,11 +4753,12 @@ function openDialog(title, fieldsHTML, onSubmit, submitLabel = "Save") {
     onSubmit(values);
   };
   form.querySelector("[data-close]").onclick = () => dialog.close();
+  i18n.translate(form);
   dialog.showModal();
   const first = form.querySelector("input, select, textarea");
   if (first) first.focus();
 }
-const stageOptions = selected => STAGES.map(s => `<option value="${s.id}" ${selected === s.id ? "selected" : ""}>${s.icon} ${s.name}</option>`).join("");
+const stageOptions = selected => STAGES.map(s => `<option value="${s.id}" ${selected === s.id ? "selected" : ""}>${s.name}</option>`).join("");
 
 function milestoneDialog(existing) {
   const m = existing || { stage: STAGES[currentStageIndex(state)].id, title: "", date: "", notes: "" };
@@ -3605,7 +4778,7 @@ function goalDialog(existing) {
   openDialog(existing ? "Edit goal" : "New goal", `
     <label class="field">Goal<input name="title" required value="${esc(g.title)}" placeholder="e.g. Pay off student loans"></label>
     <div class="fields-2">
-      <label class="field">Category<select name="category">${Object.entries(CATEGORIES).map(([id, c]) => `<option value="${id}" ${g.category === id ? "selected" : ""}>${c.icon} ${c.name}</option>`).join("")}</select></label>
+      <label class="field">Category<select name="category">${Object.entries(CATEGORIES).map(([id, c]) => `<option value="${id}" ${g.category === id ? "selected" : ""}>${c.name}</option>`).join("")}</select></label>
       <label class="field">Whose goal?<select name="owner">${[["both", "Both of us"], ["a", n.a], ["b", n.b]].map(([v, l]) => `<option value="${v}" ${g.owner === v ? "selected" : ""}>${esc(l)}</option>`).join("")}</select></label>
       <label class="field">Target date<input name="due" type="date" value="${esc(g.due)}"></label></div>
     ${existing ? "" : '<label class="field">First steps (one per line)<textarea name="steps" placeholder="Agree a budget\nOpen a joint savings account"></textarea></label>'}
@@ -3715,9 +4888,9 @@ function dateDialog() {
 function streakCelebration(before) {
   const after = savingStreak(state, new Date());
   if (after.weeks > before.weeks && STREAK_MILESTONES.includes(after.weeks)) {
-    return ` ${after.weeks} weeks in a row, keep it going!`;
+    return i18n.text(` ${after.weeks} weeks in a row, keep it going!`);
   }
-  return after.thisWeekDone && !before.thisWeekDone ? " This week's target is done." : "";
+  return after.thisWeekDone && !before.thisWeekDone ? i18n.text(" This week's target is done.") : "";
 }
 function mintSummary(id) {
   const found = readMintBooks(mintStorage()).find(b => b.id === id);
@@ -3804,6 +4977,14 @@ const actions = {
     theme.set(id);
     render();
   },
+  "lang": id => {
+    if (!LANG_OPTIONS.some(option => option.id === id)) return;
+    i18n.set(id);
+    document.getElementById("toast-undo").textContent = "Undo";
+    theme.apply();
+    render();
+    toast(i18n.lang === "id" ? "Bahasa Indonesia aktif" : "English it is");
+  },
   "theme-cycle": () => {
     theme.cycle();
     if (ui.tab === "settings") render();
@@ -3859,7 +5040,7 @@ const actions = {
     challenge.ticks = { ...(challenge.ticks || {}), [status.step]: toISO(new Date()) };
     const finished = challengeStatus(challenge, new Date()).finished;
     commit(finished ? `${status.def.name} complete! ${money(status.goal, state.couple.currency)} saved together.`
-      : `Week ${status.step} done: ${money(status.amount, state.couple.currency)} into ${fund.name}.${streakCelebration(before)}`);
+      : `${i18n.text(`Week ${status.step} done: ${money(status.amount, state.couple.currency)} into ${fund.name}.`)}${streakCelebration(before)}`);
   },
   "date-done": () => dateDialog(),
   "delete-date": id => removeFrom("dates", id, "Date"),
@@ -3995,7 +5176,7 @@ const actions = {
     }, "Replace link");
   },
   "sync-leave": () => {
-    if (!confirm("Stop syncing on this device? Your plan stays here; your partner keeps their copy.")) return;
+    if (!confirm(i18n.text("Stop syncing on this device? Your plan stays here; your partner keeps their copy."))) return;
     sync.leave();
     render();
     toast("Sync stopped on this device");
@@ -4047,7 +5228,7 @@ const actions = {
     }
   },
   "reset": () => {
-    if (!confirm("Erase your whole plan from this device? Export a backup first if you want to keep it.")) return;
+    if (!confirm(i18n.text("Erase your whole plan from this device? Export a backup first if you want to keep it."))) return;
     commitWithUndo("Plan erased", () => {
       state = blankState();
     });
@@ -4092,7 +5273,7 @@ const forms = {
     state.contributions.push({ id: uid(), fundId: fund.id, amount, by, date: toISO(new Date()) });
     const reached = fundSaved(fund, state) >= (Number(fund.target) || 0) && fund.target > 0;
     commit(amount > 0
-      ? `${money(amount, state.couple.currency)} added to ${fund.name}${reached ? " — target reached!" : ""}${streakCelebration(before)}`
+      ? `${i18n.text(`${money(amount, state.couple.currency)} added to ${fund.name}`)}${reached ? i18n.text(" — target reached!") : ""}${streakCelebration(before)}`
       : `${money(-amount, state.couple.currency)} taken out of ${fund.name}`);
   },
   networth: values => {
@@ -4118,6 +5299,7 @@ const forms = {
 
 function toast(message, withUndo = false) {
   if (!message) return;
+  message = i18n.text(message);
   const box = document.getElementById("toast");
   document.getElementById("toast-text").textContent = message;
   document.getElementById("toast-undo").hidden = !withUndo;
@@ -4215,7 +5397,7 @@ function bindEvents() {
           toast(`${result.error}`);
           return;
         }
-        if (!confirm("Replace the plan on this device with this backup?")) return;
+        if (!confirm(i18n.text("Replace the plan on this device with this backup?"))) return;
         commitWithUndo("Backup imported ✓", () => {
           state = result.state;
         });
@@ -5697,6 +6879,82 @@ async function runSelfTests() {
     state.tripSpends = [];
     return injected === 0 && !window.__xss || `injected ${injected}`;
   });
+  const withIndonesian = run => {
+    const savedState = state;
+    const savedNow = ui.now;
+    i18n.override = "id";
+    i18n.missing.clear();
+    try {
+      return run();
+    } finally {
+      i18n.override = null;
+      state = savedState;
+      ui.now = savedNow;
+      document.getElementById("dialog").close();
+      render();
+    }
+  };
+  await test("i18n: numbers, money, dates and the couple's words become placeholders; inline parts keep their markup", () => withIndonesian(() => {
+    state = demoState();
+    i18n.prepare();
+    const box = document.createElement("div");
+    box.innerHTML = '<p>Saved <b>$750</b> of $4,774 in the <b>Honeymoon in Bali</b> pot</p><button>' + icon("plus") + ' Add</button>'
+      + '<p>Week 3: put $6 in</p><input placeholder="Add a step to Run a half marathon together">';
+    i18n.translate(box);
+    const [first, button, week, input] = box.children;
+    const ok = first.textContent === "Terkumpul $750 dari $4,774 di celengan Honeymoon in Bali" && first.querySelectorAll("b").length === 2 &&
+      button.querySelector("svg") && button.textContent.trim() === "Tambah" && week.textContent === "Minggu 3: masukkan $6" &&
+      input.placeholder === "Tambah langkah ke Run a half marathon together" &&
+      i18n.text("Honeymoon") === "Bulan madu" && i18n.text("Mia & Leo: 10 minutes, phones away.") === "Mia & Leo: 10 menit, HP disingkirkan.";
+    return ok || JSON.stringify([first.innerHTML, button.textContent, week.textContent, input.placeholder]);
+  }));
+  await test("i18n: every tab and dialog of the demo plan (and a Rupiah plan) is fully Indonesian", () => withIndonesian(() => {
+    const walk = () => {
+      for (const tab of TABS) actions.tab(tab.id);
+      for (const [name, key] of [["add-milestone"], ["add-goal"], ["add-fund"], ["add-debt"], ["add-challenge"], ["date-done"], ["add-kidplan"],
+        ["add-trip"], ["edit-fund", "funds"], ["edit-kidplan", "kidPlans"], ["edit-trip", "trips"], ["kid-balance", "kidPlans"]]) {
+        actions[name](key ? state[key][0].id : undefined);
+        document.getElementById("dialog").close();
+      }
+    };
+    state = demoState();
+    ui.now = new Date();
+    walk();
+    state = demoState();
+    state.couple.currency = "Rp";
+    walk();
+    const missing = [...i18n.missing];
+    const homeText = (actions.tab("home"), document.getElementById("view").textContent);
+    return missing.length === 0 && homeText.includes("Minggu ini bersama") && document.documentElement.lang === "id" || JSON.stringify(missing.slice(0, 8));
+  }));
+  await test("i18n: Indonesian relative times, dates and toasts; English stays untouched", () => {
+    const english = relativeTime("2028-12-20", new Date(2026, 10, 6));
+    const result = withIndonesian(() => {
+      const later = relativeTime("2028-12-20", new Date(2026, 10, 6));
+      const earlier = relativeTime("2026-11-01", new Date(2026, 10, 6));
+      toast("Link copied");
+      const toastText = document.getElementById("toast-text").textContent;
+      const month = formatDate("2026-08-17", "month");
+      return { later, earlier, toastText, month };
+    });
+    toast("Link copied");
+    const englishToast = document.getElementById("toast-text").textContent;
+    const ok = english === "in 2 yrs 1 mo" && result.later === "dalam 2 thn 1 bln" && result.earlier === "5 hari lalu" &&
+      result.toastText === "Tautan disalin" && /agu/i.test(result.month) && englishToast === "Link copied" &&
+      document.getElementById("tabs").textContent.includes("Home");
+    return ok || JSON.stringify({ english, result, englishToast });
+  });
+  await test("i18n: the language picker saves the choice for this device only", () => {
+    actions.tab("settings");
+    const picker = document.querySelector('[data-act="lang"][data-id="id"]');
+    picker.click();
+    const saved = localStorage.getItem(LANG_KEY);
+    document.querySelector('[data-act="lang"][data-id="auto"]').click();
+    const cleared = localStorage.getItem(LANG_KEY);
+    const plan = JSON.parse(store.exportText(state)).state;
+    return saved === "id" && cleared === null && !("lang" in plan) && !JSON.stringify(plan).includes("together.lang") ||
+      JSON.stringify({ saved, cleared });
+  });
   localStorage.removeItem(store.key + ME_KEY_SUFFIX);
   if (params.has("cloud")) {
     await test("cloud: live encrypted sync between two phones via the deployed worker", async () => {
@@ -5759,6 +7017,8 @@ function boot() {
       if (pill) pill.innerHTML = savedPillHTML();
       const line = document.getElementById("sync-status");
       if (line) line.textContent = syncStatusText();
+      i18n.translate(pill);
+      i18n.translate(line);
     },
   });
   if (!realDevice) sync.config = null;
@@ -5805,7 +7065,7 @@ function startConnectivity() {
         <p class="small">Your partner protected your shared plan with a passphrase. Anything already on this device will be merged into it.</p>
         <label class="field">Passphrase<input name="passphrase" type="password" autocomplete="current-password" required></label>`,
       values => connect(values.passphrase), "Join");
-    } else if (!alreadyHere && confirm("Join your partner's shared plan on this device?\n\nAnything already on this device will be merged into it.")) {
+    } else if (!alreadyHere && confirm(i18n.text("Join your partner's shared plan on this device?\n\nAnything already on this device will be merged into it."))) {
       connect("");
     }
   }

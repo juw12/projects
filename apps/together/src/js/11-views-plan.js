@@ -13,6 +13,8 @@ function render() {
   const view = document.getElementById("view");
   const views = { home: viewHome, roadmap: viewRoadmap, goals: viewGoals, money: viewMoney, us: viewUs, settings: viewSettings };
   view.innerHTML = onboarding ? viewOnboarding() : (views[ui.tab] || viewHome)();
+  document.title = i18n.text("Together — Our Life Plan");
+  i18n.translate(document.body);
 }
 
 /** Status pill in the header: where the plan lives right now. */
@@ -158,8 +160,8 @@ function splitLine(split, cur) {
   const parts = [];
   if (split.a) parts.push(`${esc(n.a)} ${esc(money(split.a, cur))}`);
   if (split.b) parts.push(`${esc(n.b)} ${esc(money(split.b, cur))}`);
-  if (split.both) parts.push(`together ${esc(money(split.both, cur))}`);
-  return parts.join(" · ");
+  if (split.both) parts.push(`${i18n.lang === "id" ? "bersama" : "together"} ${esc(money(split.both, cur))}`);
+  return parts.length ? `<span translate="no">${parts.join(" · ")}</span>` : "";
 }
 
 /** Home card: this week's money missions (with a per-day figure), the next goal step and a fun pick. */
@@ -169,13 +171,13 @@ function weekCardHTML(now) {
   const streak = savingStreak(state, now);
   const n = names();
   const fun = funPlan(state, now);
-  const range = `${plan.weekStart.toLocaleDateString(undefined, { day: "numeric", month: "short" })} – ${plan.weekEnd.toLocaleDateString(undefined, { day: "numeric", month: "short" })}`;
+  const range = `${plan.weekStart.toLocaleDateString(i18n.locale, { day: "numeric", month: "short" })} – ${plan.weekEnd.toLocaleDateString(i18n.locale, { day: "numeric", month: "short" })}`;
   const potRows = plan.pots.map(p => {
     const share = p.weekly > 0 ? clamp(p.added / p.weekly, 0, 1) : 1;
     const partnerPart = (who, label) => {
       const target = p.targets[who];
       const putIn = p.byPartner[who];
-      return `${esc(label)} ${esc(money(putIn, cur))} / ${esc(money(target, cur))}${putIn >= target - 0.5 ? " ✓" : ""}`;
+      return `<span translate="no">${esc(label)} ${esc(money(putIn, cur))} / ${esc(money(target, cur))}${putIn >= target - 0.5 ? " ✓" : ""}</span>`;
     };
     return `<li class="week-pot">
       <div class="spread"><div style="min-width:0"><b>${esc(p.fund.name)}</b>
@@ -339,7 +341,7 @@ function viewMoney() {
     let line;
     if (s.months === 0) line = '<span class="chip ok">Fully funded</span>';
     else if (!Number.isFinite(s.months)) line = '<span class="small muted">Add a monthly amount to see when you\'ll get there.</span>';
-    else line = `<span class="small">Reached <b>${esc(s.reachDate.toLocaleDateString(undefined, { month: "short", year: "numeric" }))}</b> (${s.months} months)</span>`;
+    else line = `<span class="small">Reached <b>${esc(s.reachDate.toLocaleDateString(i18n.locale, { month: "short", year: "numeric" }))}</b> (${s.months} months)</span>`;
     let deadlineLine = "";
     if (s.milestone) {
       deadlineLine = s.onTrack
@@ -396,7 +398,7 @@ function viewMoney() {
       <div class="stat"><b>${esc(money(plan.incomeReal, cur))}</b><span class="small muted">≈ yearly income it supports</span></div>
       ${plan.targetReal ? `<div class="stat"><b>${Math.round((plan.onTrack || 0) * 100)}%</b><span class="small muted">of the ${esc(money(plan.targetReal, cur))} you need</span></div>` : ""}
     </div>
-    <p class="small" style="margin-top:10px">In about <b>${Math.round(plan.years)} years</b>${plan.retireOn ? ` (${esc(plan.retireOn.toLocaleDateString(undefined, { month: "short", year: "numeric" }))})` : ""} that's ${esc(money(plan.projectedNominal, cur))} in future money (return ${esc(plan.netRate.toFixed(1))}% after fees).
+    <p class="small" style="margin-top:10px">In about <b>${Math.round(plan.years)} years</b>${plan.retireOn ? ` (${esc(plan.retireOn.toLocaleDateString(i18n.locale, { month: "short", year: "numeric" }))})` : ""} that's ${esc(money(plan.projectedNominal, cur))} in future money (return ${esc(plan.netRate.toFixed(1))}% after fees).
       ${plan.targetReal ? (plan.onTrack >= 1
         ? '<span class="chip ok">✓ On track</span>'
         : `<span class="chip warn" style="white-space:normal">Save about ${esc(money(plan.neededMonthly, cur))}/month to get there (you save ${esc(money(r.monthly, cur))})</span>`)
@@ -414,7 +416,7 @@ function viewMoney() {
       </form>
       ${!state.kids.length ? '<p class="small muted">Add your children (or a due date) in Settings to plan their education funds.</p>'
         : !education.length ? '<p class="small muted">Enter an expected cost to see how much to save per child.</p>'
-        : `<ul class="clean">${education.map(e => `<li class="spread small"><div><b>${esc(e.kid.name)}</b> — starts ${esc(e.start.toLocaleDateString(undefined, { month: "short", year: "numeric" }))}<br><span class="muted">≈ ${esc(money(e.cost, cur))} by then</span></div>
+        : `<ul class="clean">${education.map(e => `<li class="spread small"><div><b>${esc(e.kid.name)}</b> — starts ${esc(e.start.toLocaleDateString(i18n.locale, { month: "short", year: "numeric" }))}<br><span class="muted">≈ ${esc(money(e.cost, cur))} by then</span></div>
           <span class="row" style="gap:6px;flex-wrap:nowrap"><span class="chip">${esc(money(e.monthly, cur))}/mo</span><button type="button" class="small" data-act="plan-kid" data-id="${esc(e.kid.id)}" aria-label="Make a plan for ${esc(e.kid.name)}">Plan it</button></span></li>`).join("")}</ul><p class="small muted">"Plan it" turns this into a kids' plan below with a real product, growth chart and deposits.</p>`}
     </section>
     <section class="card">
@@ -459,7 +461,7 @@ function freedomCardHTML(now) {
   } else if (plan.months === null) {
     when = `<span class="chip warn" style="white-space:normal">Not reachable within 100 years at ${esc(money(plan.monthly, cur))}/month. Raise the monthly amount in Retiring together.</span>`;
   } else {
-    when = `At ${esc(money(plan.monthly, cur))}/month you get there around <b>${esc(plan.date.toLocaleDateString(undefined, { month: "short", year: "numeric" }))}</b>
+    when = `At ${esc(money(plan.monthly, cur))}/month you get there around <b>${esc(plan.date.toLocaleDateString(i18n.locale, { month: "short", year: "numeric" }))}</b>
       (${Math.round(plan.months / 12)} years${ages ? `; ${ages}` : ""}).`;
   }
   const lever = plan.soonerBy > 0
@@ -475,7 +477,7 @@ function freedomCardHTML(now) {
     <div class="bar" style="margin:10px 0" role="progressbar" aria-label="Progress to financial freedom" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(plan.progress * 100)}"><span style="width:${plan.progress * 100}%"></span></div>
     <p class="small">${when}</p>
     ${lever}
-    ${plan.afterDebts && plan.afterDebts.date ? `<p class="small">Once you're debt-free (${esc(plan.afterDebts.debtFreeDate.toLocaleDateString(undefined, { month: "short", year: "numeric" }))}), moving the ${esc(money(plan.afterDebts.amount, cur))}/month you paid on debts into investing gets you free around <b>${esc(plan.afterDebts.date.toLocaleDateString(undefined, { month: "short", year: "numeric" }))}</b>.</p>` : ""}
+    ${plan.afterDebts && plan.afterDebts.date ? `<p class="small">Once you're debt-free (${esc(plan.afterDebts.debtFreeDate.toLocaleDateString(i18n.locale, { month: "short", year: "numeric" }))}), moving the ${esc(money(plan.afterDebts.amount, cur))}/month you paid on debts into investing gets you free around <b>${esc(plan.afterDebts.date.toLocaleDateString(i18n.locale, { month: "short", year: "numeric" }))}</b>.</p>` : ""}
     ${button}
     <p class="small muted">Uses your retirement savings, monthly amount and assumptions above, growing at ${esc(plan.realRate.toFixed(1))}% a year after fees and inflation. In today's money. An estimate, not financial advice.</p>
   </div>`;

@@ -44,6 +44,12 @@ A private life-planning app for couples: from dating to marriage, a home, kids, 
   target on Home. While away, log spending to see what's left per day; afterwards, how you did against the plan.
 - **Rupiah-friendly**: with currency Rp/IDR, amounts show as "Rp 1.500.000" and money fields accept
   shorthand like `250rb`, `1,5jt` or `Rp 25.000`.
+- **Bahasa Indonesia**: the whole interface — every tab, dialog, toast, reminder notification, sync message
+  and the Foundations research content — is available in Indonesian, with dates in Indonesian format.
+  It switches on automatically when the phone or browser is set to Indonesian, or pick Automatic / English /
+  Bahasa Indonesia under Settings → Language (saved per device, so each partner can use their own; add
+  `?lang=id` or `?lang=en` to a link to force one). What you type yourselves — names, goals, notes,
+  milestone titles — stays exactly as you wrote it.
 - **Us**: monthly check-in with a connection trend, "talk before you decide" topics, a bucket list, and
   **Foundations** — an 8-week program summarising published relationship research (Gottman Institute,
   PREP) with sources. Educational, not therapy.
@@ -69,6 +75,9 @@ A private life-planning app for couples: from dating to marriage, a home, kids, 
 - `src/` — the app's source, split by concern: `index.html` (page shell), `styles.css`, and `js/NN-*.js`
   (constants, utils, calculations, bank CSV, reminders, sync merge / crypto / room client, store, views,
   actions, demo data, self-tests, boot). Plain classic scripts sharing one scope — no bundler.
+  Translation: `02a-i18n.js` translates the rendered page after each render (English text is the key;
+  numbers, money and the couple's own words are placeholders), and `02b-i18n-id.js` holds the
+  English → Indonesian dictionary. Text marked `translate="no"` is left alone.
 - `build.py` — inlines `src/` into the single self-contained `web/index.html` (so the published app stays
   one offline file). Edit `src/`, then run `python apps/together/build.py`; CI runs `--check`.
 - `web/` — the published app (`index.html` built from `src/`, service worker `sw.js`, manifest, icons).
