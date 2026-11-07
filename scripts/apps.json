@@ -2138,6 +2138,50 @@
       "status": "released",
       "order": 49,
       "portfolio": true
+    },
+    {
+      "id": "gate",
+      "name": "gate",
+      "category": "Software",
+      "external": true,
+      "url": "https://juw12.github.io/gate/",
+      "url_label": "Open site",
+      "desc": "gate: a merge gate for AI-agent-generated code. Lanes, batched + bisected tests, post-merge verify/auto-revert, risk tiers, secret blocking, provenance.",
+      "summary": "A merge gate for AI-agent code: parallel sessions in, tested and provenance-tagged commits out.",
+      "description": "Lanes, batched merges with git merge-tree, targeted test suites, risk tiers with human approval, secret blocking and crash-safe publishing. The page shows a recorded run where 26 agent sessions submit and broken code never reaches main.",
+      "tags": [
+        "python",
+        "git",
+        "ci",
+        "ai-agents",
+        "cli"
+      ],
+      "note_tags": [
+        "gate",
+        "ai-agents",
+        "code-review",
+        "developer-tools",
+        "git",
+        "merge-queue"
+      ],
+      "image": "gate-card.jpg",
+      "image_alt": "gate demo page: headline 'A merge gate for AI-agent code', outcome tiles (26 sessions, 19 merged, 3 rejected by tests) and a terminal listing merged and rejected agent sessions",
+      "extra_links": [
+        {
+          "label": "Source",
+          "url": "https://github.com/juw12/gate"
+        }
+      ],
+      "card": {
+        "label": "gate · recorded demo run",
+        "capture": "https://juw12.github.io/gate/",
+        "theme": "light",
+        "accent": "#23854e",
+        "accent2": "#2f899e"
+      },
+      "status": "released",
+      "order": 50,
+      "portfolio": true
     }
   ]
 }
