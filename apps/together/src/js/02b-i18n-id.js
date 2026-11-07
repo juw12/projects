@@ -838,6 +838,8 @@ Object.assign(I18N.id, {
   "{#} this week · about {#} a day · catching up": "{#} minggu ini · sekitar {#} sehari · mengejar ketinggalan",
   "{#} to go": "kurang {#}",
   "{#} weeks in a row, keep it going!": "{#} minggu berturut-turut, terus pertahankan!",
+  "{#}-week streak": "{#} minggu beruntun",
+  "Weeks in a row you hit this week's combined target": "Minggu berturut-turut kalian mencapai target gabungan minggu ini",
   "{#} year": "{#} tahun",
   "{#} years": "{#} tahun",
   "{#} years sooner": "{#} tahun lebih cepat",

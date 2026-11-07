@@ -103,7 +103,7 @@
   .stat { text-align: center; } .stat b { display: block; font-size: 1.45rem; font-weight: 650; letter-spacing: -.02em; color: var(--ink); }
   .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 10px; }
   .journey { display: flex; gap: 6px; overflow-x: auto; padding: 6px 2px 10px; scrollbar-width: thin; }
-  .journey .step { flex: 0 0 auto; text-align: center; width: 78px; font-size: .72rem; color: var(--muted); }
+  .journey .step { flex: 0 0 auto; text-align: center; width: 78px; font-size: .75rem; color: var(--muted); }
   .journey .dot { width: 40px; height: 40px; margin: 0 auto 4px; border-radius: 50%; display: grid; place-items: center;
     background: var(--bg); border: 1px solid var(--line-strong); font-size: .85rem; font-weight: 600; color: var(--muted); }
   .journey .done .dot { background: var(--rose); border-color: var(--rose); color: var(--on-rose); }
@@ -119,7 +119,7 @@
   .stage-block::before { content: ""; position: absolute; left: 9px; top: 34px; bottom: -18px; width: 2px; background: var(--line); }
   .stage-block:last-child::before { display: none; }
   .stage-title { display: flex; align-items: center; gap: 8px; margin-left: -26px; }
-  .stage-title .badge { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: .72rem; font-weight: 650; background: var(--card); border: 1px solid var(--line-strong); color: var(--muted); }
+  .stage-title .badge { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: .75rem; font-weight: 650; background: var(--card); border: 1px solid var(--line-strong); color: var(--muted); }
   .stage-title.current .badge { background: var(--rose); border-color: var(--rose); color: var(--on-rose); }
   .ms { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); margin-top: 8px; }
   .ms.done { opacity: .65; } .ms.done .ms-title { text-decoration: line-through; }
@@ -199,7 +199,7 @@
     .topbar { padding: 12px 14px; }
     nav.tabs { position: fixed; bottom: 0; top: auto; left: 0; right: 0; justify-content: space-around; padding: 4px 2px calc(4px + env(safe-area-inset-bottom));
       border-top: 1px solid var(--line); border-bottom: 0; }
-    nav.tabs button { flex-direction: column; gap: 0; padding: 5px 4px; font-size: .68rem; border-radius: 10px; min-width: 0; flex: 1; }
+    nav.tabs button { flex-direction: column; gap: 0; padding: 5px 2px; font-size: .75rem; border-radius: 10px; min-width: 0; flex: 1; }
     nav.tabs button .ico { width: 22px; height: 22px; }
     .brand small { max-width: 52vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     #toast { bottom: 76px; }
@@ -244,6 +244,19 @@
   .segmented .i { width: 16px; height: 16px; }
   button.primary:hover { filter: brightness(.94); }
   .filters button { border-radius: 99px; }
+
+  /* Phone hit areas: small buttons and tick boxes get a 40px / 32px touch target without changing the layout. */
+  @media (max-width: 720px) {
+    button.small, .btn.small, button.ghost { min-height: 40px; }
+    .ms input[type=checkbox], .step-row input[type=checkbox] {
+      appearance: none; -webkit-appearance: none; position: relative; width: 32px; height: 32px;
+      margin: -4px -6px -6px; padding: 0; border: 0; background: transparent; cursor: pointer; }
+    .ms input[type=checkbox]::before, .step-row input[type=checkbox]::before {
+      content: ""; position: absolute; inset: 6px; border: 1.5px solid var(--line-strong); border-radius: 5px; background: var(--card); }
+    .ms input[type=checkbox]:checked::before, .step-row input[type=checkbox]:checked::before {
+      border-color: var(--rose);
+      background: var(--rose) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M5 10.5l3.2 3.2L15 7' fill='none' stroke='white' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 16px no-repeat; }
+  }
 </style>
 </head>
 <body>
@@ -1593,6 +1606,8 @@ Object.assign(I18N.id, {
   "{#} this week · about {#} a day · catching up": "{#} minggu ini · sekitar {#} sehari · mengejar ketinggalan",
   "{#} to go": "kurang {#}",
   "{#} weeks in a row, keep it going!": "{#} minggu berturut-turut, terus pertahankan!",
+  "{#}-week streak": "{#} minggu beruntun",
+  "Weeks in a row you hit this week's combined target": "Minggu berturut-turut kalian mencapai target gabungan minggu ini",
   "{#} year": "{#} tahun",
   "{#} years": "{#} tahun",
   "{#} years sooner": "{#} tahun lebih cepat",
