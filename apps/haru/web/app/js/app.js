@@ -765,7 +765,7 @@ function renderOnboarding() {
   const dots = [0, 1, 2].map((i) => `<span class="${i === page ? "on" : ""}"></span>`).join("");
   let body;
   if (page === 0) {
-    body = `<img class="ob-scene" src="scenes/clear__dusk__spring.jpg" alt=""><h1 class="ob-title">Haru</h1><p class="muted center">${esc(t(C.tagline))}</p>
+    body = `<img class="ob-scene" src="scenes/clear__dusk__spring.jpg" alt=""><h2 class="ob-title">Haru</h2><p class="muted center">${esc(t(C.tagline))}</p>
       <div class="ob-foot"><div class="dots">${dots}</div><button class="btn wide" data-action="ob-next">${esc(t(C.next))}</button></div>`;
   } else if (page === 1) {
     body = `<h2 class="center">${esc(t(C.language))}</h2><div class="card list">${LANGS.map((l) => `<button class="list-row" data-action="lang" data-lang="${l}"><span>${LANG_TITLES[l]}</span>${l === lang() ? '<span class="check">✓</span>' : ""}</button>`).join("")}</div>

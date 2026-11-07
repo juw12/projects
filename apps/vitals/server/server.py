@@ -478,6 +478,10 @@ def make_handler(agent):
                 return self._send(404, {"error": "Not found"})
             with open(full, "rb") as handle:
                 data = handle.read()
+            if full.endswith(".html"):
+                # Tell the page it is served by the agent (static hosts keep content="").
+                data = data.replace(b'<meta name="vitals-host" content="">',
+                                    b'<meta name="vitals-host" content="agent">')
             self.send_response(200)
             self.send_header("Content-Type", MIME.get(os.path.splitext(full)[1].lower(), "application/octet-stream"))
             self.send_header("Content-Length", str(len(data)))

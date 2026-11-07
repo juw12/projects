@@ -1186,7 +1186,7 @@
         <div class="collage">${art.map((item) => tile(item, { tag: false, likes: false })).join('')}</div>
         <div class="fadeover"></div>
         <div class="content">
-          <div class="logo">fade<i>.</i></div>
+          <h1 class="logo">fade<i>.</i></h1>
           <p class="muted mt8" style="font-size:16px;line-height:1.45">Book barbers anywhere, watch real cuts in Shorts, and earn when people book from your videos.</p>
           ${API.on ? authForm() : localRoles()}
         </div>
@@ -2226,7 +2226,10 @@
       const candidates = [];
       const saved = localStorage.getItem('fade.api');
       if (saved) candidates.push(saved);
-      if (/^https?:$/.test(location.protocol) && !/github\.io$/.test(location.hostname)) candidates.push(location.origin);
+      // Only probe this origin when server/server.py served the page (it stamps the fade-host meta);
+      // plain static hosts have no /api and would just log a 404.
+      const servedByApi = document.querySelector('meta[name="fade-host"]')?.content === 'server';
+      if (/^https?:$/.test(location.protocol) && servedByApi) candidates.push(location.origin);
       for (const raw of candidates) {
         const base = raw.replace(/\/+$/, '');
         try {

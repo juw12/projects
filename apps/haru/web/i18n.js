@@ -75,7 +75,7 @@ export function mountLanguageSwitch(container) {
 export const LANG_SWITCH_CSS = `
   .lang-switch { display: inline-flex; gap: 2px; padding: 3px; border-radius: 999px;
     background: rgba(255, 250, 241, 0.85); border: 1px solid rgba(176, 122, 90, 0.2); }
-  .lang-switch button { font: inherit; font-size: 11px; color: #9a8f93; background: none; border: 0;
+  .lang-switch button { font: inherit; font-size: 12px; color: #9a8f93; background: none; border: 0;
     padding: 4px 9px; border-radius: 999px; cursor: pointer; }
   .lang-switch button[aria-pressed="true"] { background: #e8875a; color: #fff; }
 `;

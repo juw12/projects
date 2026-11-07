@@ -196,12 +196,17 @@
   async function connect() {
     const params = new URLSearchParams(location.hash.slice(1));
     if (params.has("demo")) return startDemo(true);
-    const servedByAgent = location.protocol.startsWith("http") && !/github\.io$/.test(location.hostname);
+    // The agent stamps this meta when it serves the page; static hosts leave it empty.
+    const hostMeta = document.querySelector('meta[name="vitals-host"]');
+    const servedByAgent = location.protocol.startsWith("http") && !!hostMeta && hostMeta.content === "agent";
     const candidates = [];
     if (servedByAgent) candidates.push("");
     const saved = LS.get("agentBase", null);
     if (saved != null && !candidates.includes(saved)) candidates.push(saved);
-    if (!candidates.includes("http://127.0.0.1:8765")) candidates.push("http://127.0.0.1:8765");
+    // Only probe the default local agent once this browser has a reason to expect one
+    // (it connected before, or the visitor started an install), so first visits stay quiet.
+    const expectAgent = LS.get("agentHint", false) || saved != null;
+    if (expectAgent && !candidates.includes("http://127.0.0.1:8765")) candidates.push("http://127.0.0.1:8765");
     for (const base of candidates) {
       const health = await tryAgent(base);
       if (!health) continue;
@@ -248,6 +253,7 @@
 
   function enterAgent() {
     S.mode = "agent";
+    LS.set("agentHint", true);
     if (!LS.get("welcomed", false)) {
       // First run after installing: give the computer a checkup right away.
       LS.set("welcomed", true);
@@ -1469,7 +1475,7 @@
   }
 
   function startInstallWatch() {
-    if (S.installWatch) return;
+    if (S.installWatch || !LS.get("agentHint", false)) return;
     S.installWatch = setInterval(async () => {
       if (S.mode !== "browser" || !["devices", "home"].includes(S.view)) {
         clearInterval(S.installWatch);
@@ -1828,7 +1834,10 @@
       return renderMain();
     }
     if (el.hasAttribute("data-plan")) return planFromForm();
-    if (el.dataset.action === "retry") return connect();
+    if (el.dataset.action === "retry") {
+      LS.set("agentHint", true);
+      return connect();
+    }
     if (el.dataset.action) return runAction(dataset(el));
   });
 
@@ -1890,6 +1899,13 @@
     }
   });
 
+  document.addEventListener("click", (event) => {
+    const link = event.target.closest && event.target.closest(".download-buttons a[download]");
+    if (!link) return;
+    LS.set("agentHint", true);
+    startInstallWatch();
+  });
+
   async function copyInstall(button) {
     const text = INSTALL[installOs()].cmd;
     let ok = false;
@@ -1907,6 +1923,8 @@
         ok = document.execCommand && document.execCommand("copy");
       }
     }
+    LS.set("agentHint", true);
+    startInstallWatch();
     if (ok) {
       S.installStep = Math.max(S.installStep, 1);
       renderMain();

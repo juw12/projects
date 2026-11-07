@@ -52,7 +52,7 @@
   --border-strong: rgba(24, 22, 18, 0.17);
   --text: #1a1916;
   --text-2: #4d4a44;
-  --muted: #858178;
+  --muted: #69655d;
   --primary: #1a1916;
   --primary-text: #f6f4ef;
   --primary-hover: #000000;
@@ -89,7 +89,7 @@
 }
 
 [data-theme="light"][data-accent="gold"] {
-  --accent: #9c6b1e;
+  --accent: #84591a;
 }
 
 [data-theme="light"][data-accent="rose"] {
@@ -251,7 +251,7 @@ svg {
 .avatar.sm {
   width: 26px;
   height: 26px;
-  font-size: 11px;
+  font-size: 12px;
   cursor: default;
 }
 
@@ -618,6 +618,7 @@ textarea {
   background:
     radial-gradient(120% 80% at 20% 0%, hsla(var(--hue), 35%, 40%, 0.55), transparent 60%),
     linear-gradient(170deg, hsl(var(--hue), 18%, 19%), hsl(var(--hue), 22%, 9%));
+  background-color: hsl(var(--hue), 20%, 14%);
   box-shadow:
     inset 0 0 0 1px rgba(255, 255, 255, 0.06),
     var(--poster-shadow);
@@ -635,7 +636,7 @@ textarea {
 }
 
 .poster-network {
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.18em;
   text-transform: uppercase;
@@ -651,7 +652,7 @@ textarea {
 }
 
 .poster-years {
-  font-size: 11px;
+  font-size: 12px;
   letter-spacing: 0.12em;
   color: rgba(255, 255, 255, 0.5);
   border-top: 1px solid rgba(255, 255, 255, 0.14);
@@ -774,7 +775,7 @@ textarea {
 }
 
 .feed-item .poster-title {
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .feed-item .poster-network,
@@ -1034,7 +1035,7 @@ textarea {
 
 .section-label {
   margin: 0 0 12px;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -1282,7 +1283,7 @@ textarea {
     flex-direction: column;
     gap: 3px;
     padding: 6px 4px;
-    font-size: 11px;
+    font-size: 12px;
   }
 
   .tab svg {

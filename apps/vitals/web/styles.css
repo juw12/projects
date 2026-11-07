@@ -36,10 +36,11 @@
   --line-strong: rgba(10, 20, 30, 0.18);
   --text: #0f1720;
   --muted: #566272;
-  --faint: #8b96a3;
-  --accent: #0db083;
-  --accent-2: #1a8fd6;
+  --faint: #5f6b78;
+  --accent: #087a5b;
+  --accent-2: #1769aa;
   --accent-ink: #ffffff;
+  --good: #0a7552;
   --shadow: 0 10px 30px rgba(15, 23, 32, 0.08);
   color-scheme: light;
 }
@@ -80,7 +81,7 @@ a { color: var(--accent-2); }
 }
 .brand { display: flex; align-items: center; gap: 10px; padding: 4px 10px 18px; font-weight: 700; font-size: 18px; letter-spacing: -0.01em; }
 .brand-mark { width: 30px; height: 30px; }
-.brand small { display: block; font-weight: 500; font-size: 11px; color: var(--muted); letter-spacing: 0.02em; }
+.brand small { display: block; font-weight: 500; font-size: 12px; color: var(--muted); letter-spacing: 0.02em; }
 .nav-btn {
   display: flex; align-items: center; gap: 12px; width: 100%;
   padding: 10px 12px; border: 0; border-radius: 10px; background: transparent;
@@ -152,7 +153,7 @@ a.btn { color: inherit; text-decoration: none; }
 
 .badge {
   display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px; border-radius: 999px;
-  font-size: 11.5px; font-weight: 650; background: var(--panel-hover); color: var(--muted); white-space: nowrap;
+  font-size: 12px; font-weight: 650; background: var(--panel-hover); color: var(--muted); white-space: nowrap;
 }
 .badge.safe { background: color-mix(in srgb, var(--good) 16%, transparent); color: var(--good); }
 .badge.review { background: color-mix(in srgb, var(--warn) 18%, transparent); color: var(--warn); }
@@ -252,7 +253,7 @@ input[type=checkbox] { accent-color: var(--accent); width: 16px; height: 16px; }
 .seg button[aria-pressed="true"] { background: var(--panel-hover); color: var(--text); }
 
 .table { width: 100%; border-collapse: collapse; font-size: 13px; }
-.table th { text-align: left; color: var(--muted); font-weight: 600; font-size: 11.5px; text-transform: uppercase; letter-spacing: .06em; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+.table th { text-align: left; color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; padding: 6px 8px; border-bottom: 1px solid var(--line); }
 .table td { padding: 7px 8px; border-bottom: 1px solid var(--line); vertical-align: middle; }
 .table tr:last-child td { border-bottom: 0; }
 .table td.num { font-family: var(--mono); text-align: right; white-space: nowrap; }
@@ -263,7 +264,7 @@ input[type=checkbox] { accent-color: var(--accent); width: 16px; height: 16px; }
 
 .chart { width: 100%; height: 160px; display: block; }
 .chart .grid-line { stroke: var(--line); }
-.chart .axis { fill: var(--faint); font-size: 10px; }
+.chart .axis { fill: var(--faint); font-size: 12px; }
 
 .gauge-big { display: flex; gap: 22px; align-items: center; flex-wrap: wrap; }
 .cells { display: grid; grid-template-columns: repeat(10, 1fr); gap: 3px; width: 220px; }
@@ -314,7 +315,7 @@ input[type=checkbox] { accent-color: var(--accent); width: 16px; height: 16px; }
 .msg code { font-family: var(--mono); font-size: 12px; background: var(--panel-hover); padding: 1px 5px; border-radius: 5px; }
 .msg.user { align-self: flex-end; background: var(--accent); color: var(--accent-ink); border-bottom-right-radius: 4px; }
 .msg.bot { align-self: flex-start; background: var(--panel-solid); border: 1px solid var(--line); border-bottom-left-radius: 4px; }
-.msg .src { margin-top: 6px; font-size: 11px; color: var(--faint); }
+.msg .src { margin-top: 6px; font-size: 12px; color: var(--faint); }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .chip { border: 1px solid var(--line-strong); background: transparent; padding: 5px 10px; border-radius: 999px; font-size: 12.5px; font-weight: 600; cursor: pointer; }
 .chip:hover { border-color: var(--accent); color: var(--accent); }
@@ -392,7 +393,7 @@ body.m .tabbar {
   padding: 6px 6px calc(6px + env(safe-area-inset-bottom)); border-top: 1px solid var(--line);
   background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(16px);
 }
-body.m .tabbar button { border: 0; background: none; display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 10.5px; font-weight: 650; color: var(--muted); padding: 6px 0; cursor: pointer; }
+body.m .tabbar button { border: 0; background: none; display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 12px; font-weight: 650; color: var(--muted); padding: 6px 0; cursor: pointer; }
 body.m .tabbar button svg { width: 22px; height: 22px; }
 body.m .tabbar button[aria-current="page"] { color: var(--accent); }
 body.m .chat { position: fixed; right: 0; top: 0; bottom: 0; width: 100vw; z-index: 40; transform: translateX(100%); transition: transform .25s ease;
@@ -484,7 +485,7 @@ body.m .cmd { flex-direction: column; align-items: stretch; }
 .cmd-line { margin-top: 10px; word-break: break-all; }
 .install-pic { text-align: center; }
 .mock { border-radius: 12px; overflow: hidden; border: 1px solid var(--line-strong); text-align: left; box-shadow: var(--shadow); font-family: var(--mono); font-size: 13px; }
-.mock-title { background: #2a2f37; color: #c9d1d9; padding: 7px 10px; font-size: 11.5px; display: flex; align-items: center; gap: 5px; font-family: var(--font); }
+.mock-title { background: #2a2f37; color: #c9d1d9; padding: 7px 10px; font-size: 12px; display: flex; align-items: center; gap: 5px; font-family: var(--font); }
 .mock-title i { width: 10px; height: 10px; border-radius: 50%; background: #ff5f57; display: inline-block; }
 .mock-title i:nth-child(2) { background: #febc2e; }
 .mock-title i:nth-child(3) { background: #28c840; }
@@ -506,3 +507,10 @@ body.m .findings li .btn { grid-column: 2; justify-self: start; }
 .home-col { gap: 16px; }
 .home-col > .card { margin: 0; }
 body.m.simple .chat-fab { display: none; }
+
+/* hone: phone tap targets */
+@media (max-width: 499px) {
+  .btn.sm { min-height: 32px; }
+  .linklike { display: inline-flex; align-items: center; min-height: 32px; min-width: 32px; justify-content: center; }
+  .chip { min-height: 32px; }
+}

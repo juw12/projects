@@ -3171,6 +3171,9 @@ class Handler(BaseHTTPRequestHandler):
             content_type = "application/manifest+json"
         if target.suffix == ".js":
             content_type = "application/javascript; charset=utf-8"
+        if target.suffix == ".html":
+            # Tell app.js this origin has the Fade API (static hosts keep the empty marker and skip the probe).
+            data = data.replace(b'<meta name="fade-host" content="">', b'<meta name="fade-host" content="server">', 1)
         self.send_response(200)
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(data)))

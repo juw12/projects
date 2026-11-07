@@ -398,7 +398,8 @@ def build_injection_shim(ls_key: str, server_state: dict) -> str:
 
 def inject_html(content: str, ls_key: str, server_state: dict) -> str:
     """Inject the shim script before the first <script tag."""
-    shim = build_injection_shim(ls_key, server_state)
+    # PEERS_SERVER tells the front-end it may call /api/* (plain static copies skip the health probe).
+    shim = "<script>window.PEERS_SERVER = true;</script>\n" + build_injection_shim(ls_key, server_state)
     match = re.search(r'<script', content, re.IGNORECASE)
     if match:
         return content[:match.start()] + shim + content[match.start():]
