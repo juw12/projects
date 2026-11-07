@@ -31,7 +31,7 @@ const UNIVERSE = ["SPY", "QQQ", "VTI", "AGG", "GLD", "AAPL", "MSFT", "NVDA", "TS
   .tick-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; }
   .tick { background:var(--card2); border:1px solid var(--line); border-radius:12px; padding:8px 6px; text-align:center; cursor:pointer; }
   .tick b { display:block; font-size:13px; }
-  .tick span { font-size:11.5px; font-weight:700; }
+  .tick span { font-size:12px; font-weight:700; }
   .legend { display:flex; gap:14px; font-size:12px; color:var(--muted); margin-top:4px; }
   .legend i { display:inline-block; width:10px; height:3px; border-radius:2px; margin-right:5px; vertical-align:middle; }
   .mover { flex:none; background:var(--card2); border:1px solid var(--line); border-radius:12px; padding:8px 12px; cursor:pointer; text-align:left; color:var(--text); }

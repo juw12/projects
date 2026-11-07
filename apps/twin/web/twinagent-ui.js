@@ -18,14 +18,14 @@ const TA_RATING_CLASS = { Buy: "green", Overweight: "green", Hold: "gray", Under
   .ta-rating.up { color:var(--positive-text); }
   .ta-rating.down { color:var(--negative-text); }
   .ta-score { text-align:right; font-size:22px; font-weight:680; letter-spacing:-.02em; line-height:1; font-variant-numeric:tabular-nums; }
-  .ta-score small { display:block; font-size:11px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); margin-top:4px; }
+  .ta-score small { display:block; font-size:12px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); margin-top:4px; }
   .ta-meter { position:relative; height:6px; border-radius:3px; margin:14px 0 6px;
     background:linear-gradient(90deg, var(--red) 0%, var(--card2) 50%, var(--green) 100%); }
   .ta-meter i { position:absolute; top:-5px; width:3px; height:16px; border-radius:2px; background:var(--text); transform:translateX(-50%); box-shadow:0 0 0 2px var(--card); }
-  .ta-scale { display:flex; justify-content:space-between; font-size:10.5px; color:var(--muted); letter-spacing:.04em; text-transform:uppercase; }
+  .ta-scale { display:flex; justify-content:space-between; font-size:12px; color:var(--muted); letter-spacing:.04em; text-transform:uppercase; }
   .ta-metrics { display:grid; grid-template-columns:repeat(2, 1fr); gap:1px; margin:14px 0 4px; background:var(--line); border:1px solid var(--line); border-radius:10px; overflow:hidden; }
   .ta-metrics div { background:var(--card); padding:9px 11px; }
-  .ta-metrics span { display:block; font-size:10.5px; font-weight:650; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); }
+  .ta-metrics span { display:block; font-size:12px; font-weight:650; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); }
   .ta-metrics b { font-size:15px; font-weight:650; font-variant-numeric:tabular-nums; }
   .ta-pipe { display:flex; flex-wrap:wrap; gap:4px 12px; margin:12px 0 4px; font-size:12px; color:var(--muted); }
   .ta-pipe span { display:inline-flex; align-items:center; gap:5px; }
@@ -51,13 +51,13 @@ const TA_RATING_CLASS = { Buy: "green", Overweight: "green", Hold: "gray", Under
   details.ta-agent > summary { list-style:none; cursor:pointer; padding:11px 0; }
   details.ta-agent > summary::-webkit-details-marker { display:none; }
   .ta-agent-name { font-weight:620; font-size:14px; }
-  .ta-agent-name small { display:block; font-weight:500; font-size:11.5px; color:var(--muted); }
+  .ta-agent-name small { display:block; font-weight:500; font-size:12px; color:var(--muted); }
   .ta-agent-body { padding:2px 0 12px; }
   .ta-table { width:100%; border-collapse:collapse; font-size:12.5px; table-layout:fixed; }
   .ta-table th, .ta-table td { padding:6px 3px; text-align:right; border-bottom:1px solid var(--line); overflow-wrap:anywhere; }
   .ta-table th:first-child, .ta-table td:first-child { text-align:left; width:46%; }
   .ta-table tr:last-child td { border-bottom:0; }
-  .ta-side-label { display:flex; align-items:center; gap:6px; font-size:11px; font-weight:700; letter-spacing:.07em; text-transform:uppercase; margin:12px 0 4px; }
+  .ta-side-label { display:flex; align-items:center; gap:6px; font-size:12px; font-weight:700; letter-spacing:.07em; text-transform:uppercase; margin:12px 0 4px; }
   .ta-side-label.bull { color:var(--positive-text); }
   .ta-side-label.bear { color:var(--negative-text); }
   .ta-side-label .ico { margin:0; width:14px; height:14px; }
@@ -67,7 +67,7 @@ const TA_RATING_CLASS = { Buy: "green", Overweight: "green", Hold: "gray", Under
   .ta-point .tiny { display:block; margin-top:2px; }
   .ta-check { display:flex; gap:10px; font-size:13px; padding:7px 0; border-top:1px solid var(--line); }
   .ta-check:first-of-type { border-top:0; }
-  .ta-check b { flex:none; width:18px; height:18px; border-radius:50%; display:grid; place-items:center; font-size:11px; }
+  .ta-check b { flex:none; width:18px; height:18px; border-radius:50%; display:grid; place-items:center; font-size:12px; }
   .ta-check b.up { background:var(--green-soft); }
   .ta-check b.down { background:var(--red-soft); }
   .ta-summary { font-size:14px; font-weight:620; margin:0 0 10px; }
@@ -80,7 +80,7 @@ const TA_RATING_CLASS = { Buy: "green", Overweight: "green", Hold: "gray", Under
   :root[data-theme] .ta-search input { width:100%; padding-left:36px; text-transform:uppercase; font-weight:650; letter-spacing:.02em; }
   .ta-search .btn { flex:none; width:auto; padding:10px 18px; }
   .ta-intro { display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; margin:12px 0 4px; }
-  .ta-intro div { border:1px solid var(--line); border-radius:10px; padding:9px 10px; font-size:11.5px; color:var(--muted); line-height:1.35; }
+  .ta-intro div { border:1px solid var(--line); border-radius:10px; padding:9px 10px; font-size:12px; color:var(--muted); line-height:1.35; }
   .ta-intro b { display:block; color:var(--text); font-size:12.5px; margin-bottom:2px; }
   details.ta { border-top:1px solid var(--line); padding:4px 0; }
   details.ta summary { cursor:pointer; font-weight:620; padding:8px 0; display:flex; justify-content:space-between; gap:8px; list-style:none; }
