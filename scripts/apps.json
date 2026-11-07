@@ -2303,6 +2303,50 @@
       "status": "released",
       "order": 53,
       "portfolio": true
+    },
+    {
+      "id": "precedent",
+      "name": "precedent",
+      "category": "AI",
+      "external": true,
+      "url": "https://juw12.github.io/p/precedent/",
+      "url_label": "Open site",
+      "desc": "Stops AI coding agents from saying 'I can't' without evidence or claiming 'done' without proof. Hooks, MCP server and rules for Claude Code, Codex, OpenCode, Gemini, Copilot, Cursor.",
+      "summary": "Stops false \"I can't\"s and unchecked \"done\"s in AI coding agents.",
+      "description": "Before an agent gives up, precedent finds a past success in your own agents' history and sends the give-up back with it; before it claims done, it asks for a real check. Enforced by hooks in Claude Code, Codex CLI, Gemini CLI, OpenCode and GitHub Copilot CLI, and available as MCP tools in Cursor, Windsurf, VS Code and Claude Desktop. 106 tests.",
+      "tags": [
+        "ai-agents",
+        "claude-code",
+        "codex",
+        "llm-guardrails",
+        "mcp"
+      ],
+      "note_tags": [
+        "precedent",
+        "ai-agents",
+        "claude-code",
+        "codex",
+        "llm-guardrails",
+        "mcp"
+      ],
+      "image": "precedent-card.jpg",
+      "image_alt": "precedent landing page: serif headline 'Stop false I can'ts and unchecked dones in your AI coding agents' beside a case-book icon with a check mark",
+      "extra_links": [
+        {
+          "label": "Source",
+          "url": "https://github.com/juw12/precedent"
+        }
+      ],
+      "card": {
+        "label": "precedent · landing",
+        "capture": "https://juw12.github.io/p/precedent/",
+        "theme": "light",
+        "accent": "#8f3521",
+        "accent2": "#9e972f"
+      },
+      "status": "released",
+      "order": 54,
+      "portfolio": true
     }
   ]
 }
