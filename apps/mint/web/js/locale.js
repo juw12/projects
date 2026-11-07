@@ -266,7 +266,7 @@
     '.mint-locale .ml-card{width:min(520px,100%);background:var(--ml-card);border:1px solid var(--ml-line);border-radius:24px;padding:28px;box-shadow:0 24px 60px rgba(0,0,0,.12)}',
     '.mint-locale .ml-brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:18px}',
     '.mint-locale .ml-brand img{width:36px;height:36px;border-radius:10px}',
-    '.mint-locale h1{font-size:28px;line-height:1.15;letter-spacing:-.5px;margin:22px 0 6px}',
+    '.mint-locale h2{font-size:28px;line-height:1.15;letter-spacing:-.5px;margin:22px 0 6px}',
     '.mint-locale .ml-lead{color:var(--ml-muted);margin:0 0 22px}',
     '.mint-locale .ml-label{display:block;font-size:13px;font-weight:700;color:var(--ml-muted);margin:0 0 8px}',
     '.mint-locale .ml-langs{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:20px}',
@@ -277,7 +277,7 @@
     '.mint-locale .ml-note{color:var(--ml-muted);font-size:13px;margin:18px 0 22px}',
     '.mint-locale .ml-go{width:100%;border:0;border-radius:14px;padding:14px;font:inherit;font-weight:800;background:var(--ml-accent);color:var(--ml-accent-ink);cursor:pointer}',
     '.mint-locale .ml-go:focus-visible,.mint-locale .ml-lang:focus-visible,.mint-locale select:focus-visible{outline:3px solid var(--ml-accent);outline-offset:2px}',
-    '@media (max-width:420px){.mint-locale .ml-card{padding:22px}.mint-locale h1{font-size:24px}.mint-locale .ml-langs{grid-template-columns:1fr}}',
+    '@media (max-width:420px){.mint-locale .ml-card{padding:22px}.mint-locale h2{font-size:24px}.mint-locale .ml-langs{grid-template-columns:1fr}}',
   ].join('');
 
   function prefersDark() {
@@ -330,7 +330,7 @@
       wrap.innerHTML =
         '<div class="ml-card">' +
         '<div class="ml-brand"><img src="' + BASE + 'icons/app-icon.svg" alt="">Mint</div>' +
-        '<h1 id="mint-locale-title">' + escapeHtml(t.title) + '</h1>' +
+        '<h2 id="mint-locale-title">' + escapeHtml(t.title) + '</h2>' +
         '<p class="ml-lead">' + escapeHtml(t.lead) + '</p>' +
         '<span class="ml-label" id="mint-locale-lang">' + escapeHtml(t.language) + '</span>' +
         '<div class="ml-langs" role="group" aria-labelledby="mint-locale-lang">' +

@@ -2512,7 +2512,7 @@
       '<div class="mock-hero"><div><small>Left to spend</small><b>Rp 4.820.000</b></div>' + ui.ring(0.68, { size: 84, thickness: 9, label: '68%' }) + '</div>' +
       rows.map((r) => '<div class="mock-row"><span>' + r[0] + ' ' + r[1] + '</span>' + ui.bar(r[2], r[2] >= 1 ? 'over' : r[2] >= 0.8 ? 'warn' : 'ok', r[3]) + '</div>').join('') +
       '<div class="mock-toast"><span>⚠️</span><div><b>Dining out is at 93%</b><small>Ayu just added Rp 180.000 · 6 days to go</small></div></div>' +
-      '<div class="mock-cursor" style="--c:#e84393"><i></i><span>Ayu</span></div></div>'
+      '<div class="mock-cursor" style="--c:#be185d"><i></i><span>Ayu</span></div></div>'
     );
   }
 

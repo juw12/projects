@@ -1167,3 +1167,14 @@ body.in-market .view { display: none; }
 .fx-alt { margin: 2px 0 4px; }
 .fx-convert { margin-top: 12px; padding: 12px; border-radius: var(--radius-sm); background: var(--surface-2); display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; }
 .fx-source { margin-top: 10px; }
+
+/* hone a11y pass: AA contrast in light theme, 12px floor, phone tap targets, no header overflow */
+:root:not([data-theme="dark"]) .link-btn { color: #047857; }
+:root:not([data-theme="dark"]) .pill-live { color: #15803d; }
+.mock-cursor span { font-size: 12px; }
+@media (max-width: 560px) {
+  .w-top { flex-wrap: wrap; gap: 10px; }
+  .w-top-right { flex-wrap: wrap; justify-content: flex-end; min-width: 0; }
+  .w-top-right .btn, .w-top-right .icon-btn { min-height: 44px; min-width: 44px; }
+  .w-signin .link-btn { min-height: 44px; }
+}
