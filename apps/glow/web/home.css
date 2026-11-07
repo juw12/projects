@@ -17,7 +17,7 @@
   --border: #dcd8cc;
   --text: #1f1e1d;
   --muted: #6b675d;
-  --accent: #c15f3c;
+  --accent: #a64f30;
   --gold: #a87a12;
   --room: #0f8a62;
 }
@@ -130,3 +130,8 @@ h1 { margin: 0; font-size: clamp(36px, 7vw, 62px); line-height: 1.04; letter-spa
   .start-hint { font-size: 12.5px; }
 }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+
+/* hone a11y: 44px phone tap targets for start pills, section links, footer links */
+@media (max-width: 600px) {
+  .pill, .link, #today-ai-all { display: inline-flex; align-items: center; min-height: 44px; }
+}
