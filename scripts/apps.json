@@ -2269,6 +2269,40 @@
       "status": "released",
       "order": 52,
       "portfolio": true
+    },
+    {
+      "id": "founder-studio",
+      "name": "Founder Studio",
+      "category": "Apps",
+      "external": true,
+      "url": "https://juw12.github.io/founder-studio/",
+      "url_label": "Open demo",
+      "desc": "Local 3D buyer-panel simulator for pre-launch ideas. Every number checked by open scripts.",
+      "summary": "Pre-launch simulator: 3D buyer bots walk up to your stall and decide BUY or PASS.",
+      "description": "Set a product, price, buyer segments and pitch, then watch simulated buyers decide. Every number is checked by the ambitious-founder skill's own scripts (panel, Van Westendorp pricing, unit economics, verdict). The online demo runs the real Python in the browser via Pyodide; AI buyers need the local app.",
+      "tags": [],
+      "note_tags": [
+        "founder-studio"
+      ],
+      "image": "founder-studio-card.jpg",
+      "image_alt": "Founder Studio online demo after a quick sim: 3D buyer bots split into PASS and BUY piles, a buy-rate gauge, the live decisions list and the Results tab",
+      "extra_links": [
+        {
+          "label": "Source",
+          "url": "https://github.com/juw12/founder-studio"
+        }
+      ],
+      "card": {
+        "label": "founder-studio · demo",
+        "capture": "https://juw12.github.io/founder-studio/?project=demo-matcha&mode=quick&autorun=1&speed=4&skip=1",
+        "wait_ms": 30000,
+        "theme": "dark",
+        "accent": "#475c97",
+        "accent2": "#652f9e"
+      },
+      "status": "released",
+      "order": 53,
+      "portfolio": true
     }
   ]
 }
