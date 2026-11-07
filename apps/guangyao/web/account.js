@@ -392,8 +392,8 @@ function libraryPage() {
     ${live.settings.announcement ? `<div class="callout announcement">${icon('bell')} <strong>公告</strong>　${esc(live.settings.announcement)}</div>` : ''}
     ${empty ? `<div class="card empty">${icon('library')}<h3>目前還沒有發布的教材</h3><p>管理員從後台上傳後，課程單元與講義會出現在這裡。在那之前，可以先上「探索課程」的入門單元。</p>${navButton('去探索課程', 'courses')}</div>` : ''}
     ${live.lessons.length ? `<div class="section-head"><h2>課程單元</h2><small class="muted">${live.lessons.length} 個單元</small></div><div class="three-col">${lessonCards}</div>` : ''}
-    ${live.materials.length ? `<section class="card card-pad space-top"><div class="section-head"><h2>講義與資源</h2><small class="muted">${live.materials.length} 份</small></div>${materialRows}<p class="muted" style="font-size:11px;margin-top:10px">檔案由內容庫公開提供；每次發布都有版本紀錄。AI 學伴會參考管理員為教材提供的重點說明。</p></section>` : ''}
-    <p class="muted" style="font-size:11px;margin-top:12px">${esc(status)}</p>`;
+    ${live.materials.length ? `<section class="card card-pad space-top"><div class="section-head"><h2>講義與資源</h2><small class="muted">${live.materials.length} 份</small></div>${materialRows}<p class="muted" style="font-size: 12px;margin-top:10px">檔案由內容庫公開提供；每次發布都有版本紀錄。AI 學伴會參考管理員為教材提供的重點說明。</p></section>` : ''}
+    <p class="muted" style="font-size: 12px;margin-top:12px">${esc(status)}</p>`;
 }
 async function refreshCatalog(fresh) {
   if (!window.GY_CATALOG || catalogLoading) return;

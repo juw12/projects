@@ -733,7 +733,7 @@ function reviewPage() {
     const card = study().cards[id];
     const {front, back, source: cardSource} = cardContent(id);
     const ratings = [['again', '重來', 'danger'], ['hard', '困難', 'secondary'], ['good', '良好', ''], ['easy', '簡單', 'secondary']];
-    content = `<div class="flashcard ${reviewRevealed ? 'revealed' : ''}"><div class="flash-meta"><span class="tag">${esc(cardSource)}</span><span class="muted">剩下 ${reviewQueue.length} 張</span></div><p class="flash-front">${esc(front)}</p>${reviewRevealed ? `<hr><p class="flash-back">${esc(back)}</p>` : ''}<div class="flash-actions">${reviewRevealed ? ratings.map(([rating, label, style]) => button(`${label}<small>${previewInterval(card, rating)}</small>`, 'review-rate', `data-rating="${rating}" data-card="${esc(id)}"`, `rate ${style}`)).join('') : button('顯示答案', 'review-reveal', '', 'gold wide') + `<button type="button" class="btn ghost small" data-action="review-speak" aria-label="朗讀題目">${icon('speaker')}</button>`}</div></div><p class="muted" style="font-size:11px;margin-top:12px">鍵盤：空白鍵翻面，1–4 評分。依你的評分安排下次複習時間（簡化 SM-2 演算法）。</p>`;
+    content = `<div class="flashcard ${reviewRevealed ? 'revealed' : ''}"><div class="flash-meta"><span class="tag">${esc(cardSource)}</span><span class="muted">剩下 ${reviewQueue.length} 張</span></div><p class="flash-front">${esc(front)}</p>${reviewRevealed ? `<hr><p class="flash-back">${esc(back)}</p>` : ''}<div class="flash-actions">${reviewRevealed ? ratings.map(([rating, label, style]) => button(`${label}<small>${previewInterval(card, rating)}</small>`, 'review-rate', `data-rating="${rating}" data-card="${esc(id)}"`, `rate ${style}`)).join('') : button('顯示答案', 'review-reveal', '', 'gold wide') + `<button type="button" class="btn ghost small" data-action="review-speak" aria-label="朗讀題目">${icon('speaker')}</button>`}</div></div><p class="muted" style="font-size: 12px;margin-top:12px">鍵盤：空白鍵翻面，1–4 評分。依你的評分安排下次複習時間（簡化 SM-2 演算法）。</p>`;
   }
   return `${pageHead('每日複習', '在快要忘記的時候複習，記得最久。')}<div class="two-col"><section>${content}</section><aside class="card card-pad"><h2>未來 7 天</h2>${forecastBars}<div class="list-row"><span>閃卡總數</span><strong>${total}</strong></div><div class="list-row"><span>今天到期</span><strong>${due.length}</strong></div><div class="list-row"><span>已熟記（間隔 ≥ 21 天）</span><strong>${reviewableCards().filter(([, card]) => card.interval >= 21).length}</strong></div></aside></div>`;
 }
@@ -1106,7 +1106,7 @@ function tutorPage() {
     <div class="messages tutor-messages" id="tutor-messages">${messages}${tutorBusy ? '<div class="message"><span class="avatar">光</span><div class="bubble"><small>光光 · AI 學伴</small><span id="tutor-live" class="typing">思考中…</span></div></div>' : ''}</div>
     <div class="chips">${chips}</div>
     <form class="chat-compose" data-form="tutor"><input name="question" aria-label="問光光" placeholder="${ai ? '問任何學習上的問題…' : '問一個關於課程的問題…'}" maxlength="500" required autocomplete="off" ${tutorBusy ? 'disabled' : ''}><button class="btn" type="submit" ${tutorBusy ? 'disabled' : ''}>送出 ${icon('arrow')}</button></form></div>
-    <p class="muted" style="font-size:11px;margin-top:10px">光光不會直接說出測驗答案，會先給提示。AI 可能出錯，請以課程、教材與老師說明為準。</p>`;
+    <p class="muted" style="font-size: 12px;margin-top:10px">光光不會直接說出測驗答案，會先給提示。AI 可能出錯，請以課程、教材與老師說明為準。</p>`;
 }
 
 async function askTutor(question, intent) {
@@ -1259,7 +1259,7 @@ function statsPage() {
   const journal = data.journal.slice(-5).reverse().map(entry => `<div class="list-row"><div><h3>${esc(lessonTitle(entry.lesson))}</h3><p>${esc(entry.text)}</p></div><small>${entry.date.slice(5).replace('-', '/')}</small></div>`).join('') || '<div class="empty">完成課程的反思題後，筆記會出現在這裡（僅存在此裝置）。</div>';
   return `${pageHead('學習數據', '看見自己的節奏，而不是和別人比較。', button(`${icon('share')}分享學習卡`, 'share-card', '', 'secondary'))}
     <section class="stats">${stat('連續學習', currentStreak(), 'flame', '天')}${stat('最長連續', longestStreak(), 'award', '天')}${stat('累積 XP', format(totalXp), 'spark')}${stat('專注時間', focusTotal, 'timer', '分鐘')}</section>
-    <div class="two-col"><section class="card card-pad"><div class="section-head"><h2>最近 12 週</h2><span class="tag">${icon('snow')} 連續保護 ${data.freezes}/2</span></div>${heatmap()}<p class="muted" style="font-size:11px;margin-top:10px">每連續 7 天可獲得 1 個連續保護（最多 2 個），漏掉一天時自動使用。</p><h2 class="space-top">課程熟練度</h2>${courseMastery}<p class="muted" style="font-size:12px">練習題正確率：${accuracy === null ? '尚無資料' : `${accuracy}%`}</p></section>
+    <div class="two-col"><section class="card card-pad"><div class="section-head"><h2>最近 12 週</h2><span class="tag">${icon('snow')} 連續保護 ${data.freezes}/2</span></div>${heatmap()}<p class="muted" style="font-size: 12px;margin-top:10px">每連續 7 天可獲得 1 個連續保護（最多 2 個），漏掉一天時自動使用。</p><h2 class="space-top">課程熟練度</h2>${courseMastery}<p class="muted" style="font-size:12px">練習題正確率：${accuracy === null ? '尚無資料' : `${accuracy}%`}</p></section>
     <aside><div class="card card-pad" style="text-align:center"><h2>今日目標</h2>${goalRing(132)}<p class="muted" style="font-size:12px">${xpToday() >= data.dailyGoal ? '今天的目標已達成，做得好！' : `還差 ${data.dailyGoal - xpToday()} XP`}</p>${button(`${icon('settings')}調整目標與外觀`, 'study-settings', '', 'secondary small')}</div><div class="card card-pad space-top"><h2>我的反思筆記</h2>${journal}</div></aside></div>`;
 }
 
@@ -1349,7 +1349,7 @@ function todayPanel() {
     ${nextIndex === undefined ? `<button type="button" class="today-card action" data-action="navigate" data-page="course/${nextCourse.id}"><span class="stat-symbol">${icon('book')}</span><div><span class="eyebrow">全部單元已完成</span><strong>回顧課程</strong></div></button>` : `<button type="button" class="today-card action primary" data-action="open-lesson-direct" data-id="${nextCourse.id}" data-index="${nextIndex}"><span class="stat-symbol">${icon('play')}</span><div><span class="eyebrow">下一課 · 約 3 分鐘</span><strong>${esc(nextCourse.lessons[nextIndex])}</strong></div></button>`}
     <button type="button" class="today-card action" data-action="focus-open"><span class="stat-symbol">${icon('timer')}</span><div><span class="eyebrow">專注學習</span><strong>開始計時</strong></div></button>
   </section>
-  <section class="group-quest card card-pad"><div class="section-head"><h3>${icon('people')} 初學同行小組 · 本週共同目標</h3><span class="tag gold">${Math.min(groupTotal, GROUP_GOAL)} / ${GROUP_GOAL} XP</span></div><div class="progress"><i style="width:${Math.min(groupTotal / GROUP_GOAL, 1) * 100}%"></i></div><p class="muted" style="font-size:11px;margin:6px 0 0">互相成全，不互相比較：每個人的 XP 都會累加到小組目標（其他成員為示範數據，你本週貢獻 ${xpThisWeek()} XP）。</p></section>`;
+  <section class="group-quest card card-pad"><div class="section-head"><h3>${icon('people')} 初學同行小組 · 本週共同目標</h3><span class="tag gold">${Math.min(groupTotal, GROUP_GOAL)} / ${GROUP_GOAL} XP</span></div><div class="progress"><i style="width:${Math.min(groupTotal / GROUP_GOAL, 1) * 100}%"></i></div><p class="muted" style="font-size: 12px;margin:6px 0 0">互相成全，不互相比較：每個人的 XP 都會累加到小組目標（其他成員為示範數據，你本週貢獻 ${xpThisWeek()} XP）。</p></section>`;
 }
 const originalHomePage = homePage;
 homePage = function homePageWithToday() {
