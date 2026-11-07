@@ -2347,6 +2347,50 @@
       "status": "released",
       "order": 54,
       "portfolio": true
+    },
+    {
+      "id": "meetline",
+      "name": "Meetline",
+      "category": "Apps",
+      "external": true,
+      "url": "https://juw12.github.io/meetline/",
+      "url_label": "Open site",
+      "desc": "Find the fairest place for 2-8 people to meet, with a road route for each person. OpenStreetMap + OSRM, no server.",
+      "summary": "Find the fairest place for 2-8 people to meet.",
+      "description": "Add friends by address, current location or a tap on the map. Meetline ranks nearby cafes, restaurants, malls or parks by the longest trip anyone makes, using real road times from OSRM, and draws a coloured route for each person. Plans are shared by link; no server or sign-up.",
+      "tags": [
+        "geolocation",
+        "javascript",
+        "leaflet",
+        "meeting-point",
+        "openstreetmap"
+      ],
+      "note_tags": [
+        "meetline",
+        "geolocation",
+        "javascript",
+        "leaflet",
+        "meeting-point",
+        "openstreetmap"
+      ],
+      "image": "meetline-card.jpg",
+      "image_alt": "Meetline dark map console: three people in Batam with coloured road routes converging on a cafe, the result card showing 27 min longest trip and a ranked list of nearby cafes.",
+      "extra_links": [
+        {
+          "label": "Source",
+          "url": "https://github.com/juw12/meetline"
+        }
+      ],
+      "card": {
+        "label": "meetline · fair meeting point",
+        "capture": "https://juw12.github.io/meetline/?demo",
+        "theme": "dark",
+        "accent": "#e3a731",
+        "accent2": "#709e2f"
+      },
+      "status": "released",
+      "order": 55,
+      "portfolio": true
     }
   ]
 }
