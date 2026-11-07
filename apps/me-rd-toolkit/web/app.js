@@ -1417,7 +1417,7 @@
 
   // ------------------------------------------------------------------ boot
   async function detectServer() {
-    if (!/^https?:$/.test(location.protocol)) {
+    if (!/^https?:$/.test(location.protocol) || window.ME_RUNTIME === "static") {
       return false;
     }
     try {

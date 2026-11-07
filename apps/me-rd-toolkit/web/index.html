@@ -62,10 +62,14 @@
   <div id="toast" class="toast hidden"></div>
 
   <script src="demo-pack.js"></script>
+  <script src="runtime.js"></script>
   <!-- Optional private data pack for desktop use (never committed). Missing file is fine. -->
   <script>
     // Optional private files (path aliases, data pack, extra calculators). Missing files are simply skipped.
     function loadPrivate(name) {
+      if (location.protocol !== "file:" && window.ME_RUNTIME === "static") {
+        return;
+      }
       document.write('<script src="private/' + name + '.js" onerror="void 0"><\/script>');
     }
     loadPrivate("aliases");

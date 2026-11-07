@@ -1,9 +1,10 @@
 /* Offline cache for the app shell. Data packs are stored in IndexedDB, never cached here. */
-const CACHE = "me-rd-toolkit-v6";
+const CACHE = "me-rd-toolkit-v7";
 const SHELL = [
   "./",
   "./index.html",
   "./styles.css",
+  "./runtime.js",
   "./app.js",
   "./views.js",
   "./vault.js",

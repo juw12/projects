@@ -841,6 +841,8 @@ class DesktopHandler(BaseHTTPRequestHandler):
             return self.send_json(200, {"items": app.storage.snapshot()})
         if route == "/__desktop/info":
             return self.send_json(200, {"shell": "desktop", "app": "me-rd-toolkit", "version": VERSION})
+        if route == "/runtime.js":
+            return self.send_bytes(200, b'window.ME_RUNTIME = "desktop";\n', "text/javascript; charset=utf-8")
         if route.startswith("/private/"):
             return self.serve_private(route[len("/private/"):])
         if route == "/api/status" or route.startswith("/api/vault/") or route == "/file":

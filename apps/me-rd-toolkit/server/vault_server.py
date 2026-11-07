@@ -361,6 +361,16 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_file(full, download=query.get("dl") == "1")
             else:
                 rel = urllib.parse.unquote(route.lstrip("/")) or "index.html"
+                if rel == "runtime.js":
+                    body = b'window.ME_RUNTIME = "vault";\n'
+                    self.send_response(200)
+                    self.send_header("Content-Type", "text/javascript; charset=utf-8")
+                    self.send_header("Content-Length", str(len(body)))
+                    self.send_header("Cache-Control", "no-store")
+                    self.end_headers()
+                    self.wfile.write(body)
+                    self.audit(200)
+                    return
                 asset = PRIVATE_DIR / rel[len("private/"):] if rel.startswith("private/") else WEB_DIR / rel
                 if rel not in APP_FILES or not asset.is_file():
                     self.send_json({"error": "not found"}, 404)
