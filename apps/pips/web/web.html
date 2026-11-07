@@ -34,7 +34,7 @@
     
     /* Header */
     .header{background:var(--paper);border:1px solid var(--border);border-radius:4px;box-shadow:var(--shadow);padding:24px;margin-bottom:20px}
-    .eyebrow{font-family:var(--sans);text-transform:uppercase;letter-spacing:.14em;font-size:.72rem;color:var(--accent)}
+    .eyebrow{font-family:var(--sans);text-transform:uppercase;letter-spacing:.14em;font-size:.75rem;color:var(--accent)}
     h1{font-size:2rem;margin:.2em 0 .1em}
     .tag{color:var(--ink-light);font-size:1rem}
     .rule{height:3px;background:var(--accent);border:0;margin:16px 0}
@@ -120,6 +120,14 @@
     #install-callout .callout-close:hover{color:var(--ink)}
     #install-callout .btn-install{font-family:var(--sans);font-weight:600;font-size:.8rem;padding:8px 14px;border:1px solid var(--accent);border-radius:3px;background:var(--accent);color:#fff;cursor:pointer}
     #install-callout .btn-install:hover{background:#6b1212}
+  
+    /* Phone tap targets (hone A5): 44px nav, 32px toggles/inputs/inline links */
+    @media(max-width:600px){
+      nav a{display:inline-flex;align-items:center;min-height:44px}
+      .toggle{box-sizing:content-box;border:4px solid transparent;background-clip:padding-box;margin:-4px 0}
+      #dailyGoal{min-height:36px}
+      .note a{display:inline-block;padding:8px 0}
+    }
   </style>
 </head>
 <body>

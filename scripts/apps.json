@@ -2226,6 +2226,49 @@
       "status": "released",
       "order": 51,
       "portfolio": true
+    },
+    {
+      "id": "vow",
+      "name": "Vow",
+      "category": "Apps",
+      "external": true,
+      "url": "https://juw12.github.io/vow/",
+      "url_label": "Open site",
+      "desc": "Keep the promises you make to yourself. Free, private commitment contracts with a stake and a witness. No account, no subscription.",
+      "summary": "Free, private commitment app: stake a promise, name a witness who signs your check-ins, pay your cause if you miss.",
+      "description": "A free alternative to Forfeit. Put a stake on a promise and name a witness: their phone holds a private signing key, so your photos, notes and timers only count once they sign. Miss the deadline and the vow breaks on its own, the stake lands in an owed ledger and a confession is drafted. Lowering or deleting waits 24 hours; raising is instant. One life-happens pass a month. Offline PWA, no account, no server, data stays on your device.",
+      "tags": [
+        "PWA",
+        "offline-first",
+        "Web Crypto",
+        "commitment"
+      ],
+      "note_tags": [
+        "vow",
+        "accountability",
+        "commitment",
+        "habit-tracker",
+        "offline-first",
+        "pwa"
+      ],
+      "image": "vow-card.jpg",
+      "image_alt": "Vow home on desktop: two active vows with stake, proof type, witness and a send-invite pill, countdowns and Check in buttons",
+      "extra_links": [
+        {
+          "label": "Source",
+          "url": "https://github.com/juw12/vow"
+        }
+      ],
+      "card": {
+        "label": "vow · home",
+        "frame_image": "vow-desktop.png",
+        "theme": "light",
+        "accent": "#b82e23",
+        "accent2": "#9e8b2f"
+      },
+      "status": "released",
+      "order": 52,
+      "portfolio": true
     }
   ]
 }
