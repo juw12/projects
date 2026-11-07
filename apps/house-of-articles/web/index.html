@@ -6,7 +6,7 @@
   <title>House of Articles — Mobile Prototype</title>
   <style>
 /* DESIGN SYSTEM v2 */
-:root{--bg:#111110;--surface:#1A1917;--surface-2:#222019;--surface-3:#2A2825;--ink:#F2EEE6;--ink-2:#A39C8F;--ink-3:#6B655C;--hair:#33302B;--rule:#F2EEE6;--accent:#E4572E;--accent-hover:#F56A3E;--accent-dim:rgba(228,87,46,.15);--up:#6FA96B;--up-bg:rgba(111,169,107,.12);--down:#C0574B;--down-bg:rgba(192,87,75,.12);--gold:#D9A441;--gold-bg:rgba(217,164,65,.12);--space-1:4px;--space-2:8px;--space-3:12px;--space-4:16px;--space-5:20px;--space-6:24px;--space-8:32px;--font-display:"Didot","Bodoni MT","Baskerville",Georgia,serif;--font-serif:Georgia,serif;--font-grotesk:"Franklin Gothic Medium","Helvetica Neue",Helvetica,Arial,sans-serif;--font-mono:ui-monospace,"SF Mono",Consolas,monospace;--text-xs:11px;--text-sm:13px;--text-base:15px;--text-lg:17px;--text-xl:20px;--text-2xl:24px;--radius-sm:0;--radius-md:2px;--radius-lg:3px;--radius-full:9999px;--t-fast:150ms cubic-bezier(.4,0,.2,1);--t-norm:250ms cubic-bezier(.4,0,.2,1);--t-slow:400ms cubic-bezier(.4,0,.2,1);--phone-width:390px;--phone-height:844px;--status-bar-h:47px;--safe-bottom:34px;--tab-bar-h:78px}
+:root{--bg:#111110;--surface:#1A1917;--surface-2:#222019;--surface-3:#2A2825;--ink:#F2EEE6;--ink-2:#A39C8F;--ink-3:#979084;--hair:#33302B;--rule:#F2EEE6;--accent:#E4572E;--accent-hover:#F56A3E;--accent-dim:rgba(228,87,46,.15);--up:#6FA96B;--up-bg:rgba(111,169,107,.12);--down:#C0574B;--down-bg:rgba(192,87,75,.12);--gold:#D9A441;--gold-bg:rgba(217,164,65,.12);--space-1:4px;--space-2:8px;--space-3:12px;--space-4:16px;--space-5:20px;--space-6:24px;--space-8:32px;--font-display:"Didot","Bodoni MT","Baskerville",Georgia,serif;--font-serif:Georgia,serif;--font-grotesk:"Franklin Gothic Medium","Helvetica Neue",Helvetica,Arial,sans-serif;--font-mono:ui-monospace,"SF Mono",Consolas,monospace;--text-xs:12px;--text-sm:13px;--text-base:15px;--text-lg:17px;--text-xl:20px;--text-2xl:24px;--radius-sm:0;--radius-md:2px;--radius-lg:3px;--radius-full:9999px;--t-fast:150ms cubic-bezier(.4,0,.2,1);--t-norm:250ms cubic-bezier(.4,0,.2,1);--t-slow:400ms cubic-bezier(.4,0,.2,1);--phone-width:390px;--phone-height:844px;--status-bar-h:47px;--safe-bottom:34px;--tab-bar-h:78px}
 *{box-sizing:border-box;margin:0;padding:0}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 :focus:not(:focus-visible){outline:none}
@@ -53,12 +53,12 @@ button{font:inherit;cursor:pointer}
 /* Filter Chips */
 .chip-row{display:flex;gap:var(--space-2);padding:var(--space-3) var(--space-5);overflow-x:auto;border-bottom:1px solid var(--hair)}
 .chip-row::-webkit-scrollbar{display:none}
-.chip{flex-shrink:0;padding:5px 12px;border:1px solid var(--hair);border-radius:var(--radius-full);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-2);background:transparent;transition:all var(--t-fast)}
+.chip{flex-shrink:0;padding:5px 12px;border:1px solid var(--hair);border-radius:var(--radius-full);font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-2);background:transparent;transition:all var(--t-fast)}
 .chip:hover{border-color:var(--ink-2);color:var(--ink)}
 .chip.active{background:var(--accent);border-color:var(--accent);color:var(--ink)}
 
 /* Section label */
-.section-label{font-family:var(--font-grotesk);font-size:11px;font-weight:600;color:var(--ink-2);text-transform:uppercase;letter-spacing:.12em;padding:var(--space-5) var(--space-5) var(--space-2);border-bottom:1px solid var(--hair)}
+.section-label{font-family:var(--font-grotesk);font-size:12px;font-weight:600;color:var(--ink-2);text-transform:uppercase;letter-spacing:.12em;padding:var(--space-5) var(--space-5) var(--space-2);border-bottom:1px solid var(--hair)}
 
 /* Horizontal scroll */
 .h-scroll{display:flex;gap:var(--space-3);overflow-x:auto;padding:var(--space-4) var(--space-5);scroll-snap-type:x mandatory}
@@ -72,20 +72,20 @@ button{font:inherit;cursor:pointer}
 .trend-card-img{height:76px;background:var(--surface-2);overflow:hidden}
 .trend-card-img img{width:100%;height:100%;object-fit:cover}
 .trend-card-info{padding:var(--space-2)}
-.trend-card-name{font-size:11px;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:2px}
-.trend-card-price{font-family:var(--font-mono);font-size:11px;font-weight:700;color:var(--accent);font-variant-numeric:tabular-nums}
+.trend-card-name{font-size:12px;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:2px}
+.trend-card-price{font-family:var(--font-mono);font-size:12px;font-weight:700;color:var(--accent);font-variant-numeric:tabular-nums}
 
 /* Ticker */
 .ticker-wrap{overflow:hidden;border-top:1px solid var(--hair);border-bottom:1px solid var(--hair);background:var(--surface);padding:6px 0}
 .ticker-track{display:flex;gap:40px;animation:ticker 22s linear infinite;width:max-content}
 @keyframes ticker{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
-.ticker-item{display:flex;align-items:center;gap:6px;font-family:var(--font-mono);font-size:11px;font-variant-numeric:tabular-nums;color:var(--ink-2);white-space:nowrap}
+.ticker-item{display:flex;align-items:center;gap:6px;font-family:var(--font-mono);font-size:12px;font-variant-numeric:tabular-nums;color:var(--ink-2);white-space:nowrap}
 .ticker-item .up{color:var(--up)}.ticker-item .dn{color:var(--down)}.ticker-item .sep{color:var(--hair)}
 
 /* Story card */
 .story-card{border-bottom:1px solid var(--hair);padding:var(--space-5);cursor:pointer;transition:background var(--t-fast);display:block}
 .story-card:hover{background:var(--surface)}
-.story-kicker{font-size:11px;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:.12em;margin-bottom:6px}
+.story-kicker{font-size:12px;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:.12em;margin-bottom:6px}
 .story-headline{font-family:var(--font-display);font-size:19px;font-weight:700;color:var(--ink);line-height:1.15;letter-spacing:-.02em;margin-bottom:6px}
 .story-deck{font-family:var(--font-serif);font-size:14px;color:var(--ink-2);line-height:1.4;margin-bottom:var(--space-3)}
 .story-byline{display:flex;align-items:center;justify-content:space-between;font-size:var(--text-xs);color:var(--ink-3);font-variant-numeric:tabular-nums}
@@ -101,7 +101,7 @@ button{font:inherit;cursor:pointer}
 
 /* On this day */
 .onthisday{padding:var(--space-5);border-bottom:1px solid var(--hair);background:var(--surface)}
-.onthisday-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.12em;color:var(--gold);margin-bottom:var(--space-2)}
+.onthisday-label{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.12em;color:var(--gold);margin-bottom:var(--space-2)}
 .onthisday-text{font-family:var(--font-serif);font-size:14px;color:var(--ink);line-height:1.45}
 
 /* Skeleton */
@@ -121,7 +121,7 @@ button{font:inherit;cursor:pointer}
 .detail-hero{position:relative;height:280px;overflow:hidden;background:var(--surface-2)}
 .detail-hero img{width:100%;height:100%;object-fit:cover}
 .detail-hero-overlay{position:absolute;bottom:0;left:0;right:0;padding:var(--space-5);background:linear-gradient(transparent,rgba(17,17,16,.9))}
-.detail-hero-overlay .kicker{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.12em;color:var(--accent);margin-bottom:4px}
+.detail-hero-overlay .kicker{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.12em;color:var(--accent);margin-bottom:4px}
 .detail-hero-overlay h1{font-family:var(--font-display);font-size:var(--text-2xl);color:var(--ink);line-height:1.1}
 .detail-subheader{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-content:space-between;padding:var(--space-3) var(--space-5);background:var(--bg);border-bottom:1px solid var(--hair)}
 .detail-subheader .back-btn{background:none;border:none;color:var(--ink-2);display:flex;align-items:center;gap:6px;font-size:var(--text-sm);font-weight:500}
@@ -135,13 +135,13 @@ button{font:inherit;cursor:pointer}
 /* Bid/Ask */
 .bidask-row{display:flex;gap:var(--space-3);padding:var(--space-4) var(--space-5);border-bottom:1px solid var(--hair)}
 .bidask-box{flex:1;background:var(--surface);border:1px solid var(--hair);border-radius:var(--radius-md);padding:var(--space-3);text-align:center}
-.bidask-box .lbl{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-3);margin-bottom:4px}
+.bidask-box .lbl{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-3);margin-bottom:4px}
 .bidask-box .val{font-family:var(--font-mono);font-size:var(--text-xl);font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums}
 .bidask-box.ask .val{color:var(--accent)}
 
 /* Chart segmented */
 .seg-ctrl{display:flex;border:1px solid var(--hair);border-radius:var(--radius-md);overflow:hidden;margin-bottom:var(--space-3)}
-.seg-btn{flex:1;padding:6px 0;text-align:center;font-size:11px;font-weight:600;color:var(--ink-2);background:transparent;border:none;border-right:1px solid var(--hair)}
+.seg-btn{flex:1;padding:6px 0;text-align:center;font-size:12px;font-weight:600;color:var(--ink-2);background:transparent;border:none;border-right:1px solid var(--hair)}
 .seg-btn:last-child{border-right:none}
 .seg-btn:hover{background:var(--surface-2)}
 .seg-btn.active{background:var(--accent);color:var(--ink)}
@@ -151,7 +151,7 @@ button{font:inherit;cursor:pointer}
 .size-cell{border:1px solid var(--hair);border-radius:var(--radius-md);padding:var(--space-2);text-align:center;cursor:pointer;min-width:0}
 .size-cell:hover{border-color:var(--accent)}
 .size-cell .sz{font-family:var(--font-mono);font-size:var(--text-xs);color:var(--ink-2);font-variant-numeric:tabular-nums}
-.size-cell .pr{font-family:var(--font-mono);font-size:11px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums;margin-top:2px}
+.size-cell .pr{font-family:var(--font-mono);font-size:12px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums;margin-top:2px}
 .size-cell.selected{border-color:var(--accent);background:var(--accent-dim)}
 
 /* Cost bar */
@@ -165,7 +165,7 @@ button{font:inherit;cursor:pointer}
 /* Sticky Buy Bar */
 .buy-bar{position:sticky;bottom:0;display:flex;align-items:center;gap:var(--space-3);padding:var(--space-3) var(--space-5);padding-bottom:calc(var(--space-3) + var(--safe-bottom));background:var(--bg);border-top:1px solid var(--ink);z-index:80}
 .buy-bar .price{font-family:var(--font-mono);font-size:var(--text-lg);font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums;flex:1}
-.buy-bar .price small{font-size:10px;color:var(--ink-3);font-weight:400;display:block;text-transform:uppercase}
+.buy-bar .price small{font-size:12px;color:var(--ink-3);font-weight:400;display:block;text-transform:uppercase}
 .buy-bar button{background:var(--accent);color:var(--ink);border:none;padding:12px 24px;border-radius:var(--radius-md);font-weight:700;font-size:var(--text-sm);text-transform:uppercase;letter-spacing:.08em}
 .buy-bar button:hover{background:var(--accent-hover)}
 
@@ -175,8 +175,8 @@ button{font:inherit;cursor:pointer}
 .mfg-row:last-child,.specs-row:last-child{border-bottom:none}
 .mfg-label,.specs-label{font-family:var(--font-grotesk);font-size:12px;font-weight:600;color:var(--ink-2)}
 .mfg-value,.specs-value{font-family:var(--font-mono);font-size:12px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums;text-align:right}
-.mfg-site{font-family:var(--font-mono);font-size:11px;color:var(--ink-3);font-weight:400}
-.mfg-summary{font-size:10px;color:var(--ink-3);font-style:italic;margin-top:var(--space-2)}
+.mfg-site{font-family:var(--font-mono);font-size:12px;color:var(--ink-3);font-weight:400}
+.mfg-summary{font-size:12px;color:var(--ink-3);font-style:italic;margin-top:var(--space-2)}
 
 /* Athletes profile */
 .athlete-profile{padding:var(--space-5);display:flex;align-items:flex-start;gap:var(--space-4);border-bottom:1px solid var(--hair)}
@@ -186,8 +186,8 @@ button{font:inherit;cursor:pointer}
 .athlete-profile .info{flex:1}
 .athlete-profile .name{font-family:var(--font-display);font-size:var(--text-xl);color:var(--ink);font-weight:700;margin-bottom:2px}
 .athlete-profile .team{font-family:var(--font-serif);font-style:italic;font-size:var(--text-sm);color:var(--ink-2);margin-bottom:4px}
-.athlete-profile .tag{font-size:11px;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:.08em}
-.follow-btn{padding:6px 16px;border:1px solid var(--accent);border-radius:var(--radius-full);font-size:11px;font-weight:700;text-transform:uppercase;color:var(--accent);background:transparent}
+.athlete-profile .tag{font-size:12px;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:.08em}
+.follow-btn{padding:6px 16px;border:1px solid var(--accent);border-radius:var(--radius-full);font-size:12px;font-weight:700;text-transform:uppercase;color:var(--accent);background:transparent}
 .follow-btn:hover,.follow-btn.following{background:var(--accent);color:var(--ink)}
 .follow-btn.following{border-color:var(--hair);background:var(--surface-2);color:var(--ink-2)}
 
@@ -195,7 +195,7 @@ button{font:inherit;cursor:pointer}
 .stat-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;background:var(--hair);border-top:1px solid var(--hair);border-bottom:1px solid var(--hair)}
 .stat-cell{background:var(--bg);padding:var(--space-4) var(--space-2);text-align:center;min-width:0}
 .stat-cell .sv{font-family:var(--font-mono);font-size:var(--text-lg);font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums}
-.stat-cell .sl{font-size:10px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.08em;margin-top:4px}
+.stat-cell .sl{font-size:12px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.08em;margin-top:4px}
 
 /* Movers table */
 .movers-table{width:100%;border-collapse:collapse;table-layout:fixed}
@@ -206,18 +206,18 @@ button{font:inherit;cursor:pointer}
 .movers-table .thumb{width:36px;height:36px;border-radius:var(--radius-md);overflow:hidden;border:1px solid var(--hair)}
 .movers-table .thumb img{width:100%;height:100%;object-fit:cover}
 .movers-table .m-name{font-size:12px;font-weight:600;color:var(--ink);max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.movers-table .m-sub{font-size:9px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.06em}
+.movers-table .m-sub{font-size:12px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.06em}
 .movers-table .spark{width:44px;height:24px}
 .movers-table .spark polyline{fill:none;stroke-width:1.5;stroke-linecap:round}
 .movers-table .m-price{font-family:var(--font-mono);font-size:12px;font-weight:700;color:var(--ink);text-align:right;font-variant-numeric:tabular-nums;width:56px}
-.movers-table .m-pct{font-family:var(--font-mono);font-size:10px;font-weight:600;text-align:right;font-variant-numeric:tabular-nums;padding-left:4px;width:44px}
+.movers-table .m-pct{font-family:var(--font-mono);font-size:12px;font-weight:600;text-align:right;font-variant-numeric:tabular-nums;padding-left:4px;width:44px}
 .m-pct.up{color:var(--up)}.m-pct.down{color:var(--down)}
 
 /* Market index */
 .mkt-index{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;background:var(--hair);margin-bottom:var(--space-5);border:1px solid var(--hair);border-radius:var(--radius-lg)}
 .mkt-index-cell{background:var(--surface);padding:var(--space-4);text-align:center;min-width:0}
 .mkt-index-cell .iv{font-family:var(--font-mono);font-size:var(--text-lg);font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums}
-.mkt-index-cell .il{font-size:10px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.08em;margin-top:2px}
+.mkt-index-cell .il{font-size:12px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.08em;margin-top:2px}
 
 /* Watchlist */
 .portfolio-card{padding:var(--space-5);border-bottom:1px solid var(--hair)}
@@ -225,7 +225,7 @@ button{font:inherit;cursor:pointer}
 .portfolio-metric{text-align:center}
 .portfolio-metric .pv{font-family:var(--font-mono);font-size:var(--text-xl);font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums}
 .portfolio-metric .pv.up{color:var(--up)}
-.portfolio-metric .pl{font-size:10px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.08em;margin-top:2px}
+.portfolio-metric .pl{font-size:12px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.08em;margin-top:2px}
 .portfolio-chart{height:80px;border:1px solid var(--hair);border-radius:var(--radius-md);overflow:hidden}
 
 .wl-item{display:flex;align-items:center;gap:var(--space-3);padding:var(--space-4) var(--space-5);border-bottom:1px solid var(--hair);cursor:pointer}
@@ -234,17 +234,17 @@ button{font:inherit;cursor:pointer}
 .wl-thumb img{width:100%;height:100%;object-fit:cover}
 .wl-info{flex:1;min-width:0}
 .wl-name{font-size:13px;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.wl-sub{font-size:10px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.06em;margin-top:2px}
+.wl-sub{font-size:12px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.06em;margin-top:2px}
 .wl-right{text-align:right}
 .wl-price{font-family:var(--font-mono);font-size:14px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums}
-.wl-chg{font-family:var(--font-mono);font-size:11px;font-weight:600;font-variant-numeric:tabular-nums;margin-top:2px}
+.wl-chg{font-family:var(--font-mono);font-size:12px;font-weight:600;font-variant-numeric:tabular-nums;margin-top:2px}
 .wl-chg.up{color:var(--up)}.wl-chg.down{color:var(--down)}
 
 /* Toggle */
 .toggle-row{display:flex;align-items:center;justify-content:space-between;padding:var(--space-3) var(--space-5);border-bottom:1px solid var(--hair)}
 .toggle-row .tog-info{flex:1}
 .toggle-row .tog-name{font-size:13px;font-weight:600;color:var(--ink)}
-.toggle-row .tog-sub{font-size:11px;color:var(--ink-3);margin-top:2px;font-family:var(--font-mono)}
+.toggle-row .tog-sub{font-size:12px;color:var(--ink-3);margin-top:2px;font-family:var(--font-mono)}
 .toggle{width:44px;height:24px;border-radius:12px;background:var(--hair);position:relative;cursor:pointer}
 .toggle.on{background:var(--accent)}
 .toggle::after{content:'';position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:var(--ink);transition:transform var(--t-fast)}
@@ -260,10 +260,10 @@ button{font:inherit;cursor:pointer}
 .retailer-row{display:flex;align-items:center;justify-content:space-between;padding:var(--space-4) var(--space-5);border-bottom:1px solid var(--hair)}
 .retailer-row:hover{background:var(--surface)}
 .retailer-name{font-weight:600;font-size:13px;color:var(--ink)}
-.retailer-sub{font-size:11px;color:var(--ink-3);margin-top:2px}
+.retailer-sub{font-size:12px;color:var(--ink-3);margin-top:2px}
 .retailer-right{text-align:right}
 .retailer-price{font-family:var(--font-mono);font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums}
-.retailer-badge{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--gold);margin-top:2px}
+.retailer-badge{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--gold);margin-top:2px}
 
 /* Toast */
 .toast{position:absolute;bottom:calc(var(--tab-bar-h) + 12px);left:50%;transform:translateX(-50%) translateY(20px);background:var(--surface-3);border:1px solid var(--hair);color:var(--ink);padding:10px 20px;border-radius:var(--radius-md);font-size:13px;font-weight:500;z-index:800;opacity:0;visibility:hidden;transition:all var(--t-norm);white-space:nowrap}
@@ -277,7 +277,7 @@ button{font:inherit;cursor:pointer}
 .search-field input::placeholder{color:var(--ink-3)}
 .trending-chips{display:flex;flex-wrap:wrap;gap:var(--space-2);padding:var(--space-4) var(--space-5)}
 .trending-chips .chip{cursor:pointer}
-.recent-title{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.12em;color:var(--ink-3);padding:var(--space-4) var(--space-5) var(--space-2)}
+.recent-title{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.12em;color:var(--ink-3);padding:var(--space-4) var(--space-5) var(--space-2)}
 .recent-item{display:flex;align-items:center;gap:var(--space-3);padding:var(--space-3) var(--space-5);cursor:pointer}
 .recent-item:hover{background:var(--surface)}
 .recent-item svg{width:14px;height:14px;stroke:var(--ink-3);fill:none;stroke-width:1.5}
@@ -293,7 +293,7 @@ button{font:inherit;cursor:pointer}
 .notif-item .n-icon.athlete svg{stroke:var(--accent)}.notif-item .n-icon.athlete{background:var(--accent-dim)}
 .notif-body{flex:1;min-width:0}
 .notif-text{font-size:13px;color:var(--ink);line-height:1.3}
-.notif-time{font-family:var(--font-mono);font-size:10px;color:var(--ink-3);margin-top:3px;font-variant-numeric:tabular-nums}
+.notif-time{font-family:var(--font-mono);font-size:12px;color:var(--ink-3);margin-top:3px;font-variant-numeric:tabular-nums}
 .notif-dot{width:8px;height:8px;background:var(--accent);border-radius:50%;flex-shrink:0;margin-top:6px}
 
 /* Tab Bar */
@@ -304,7 +304,7 @@ button{font:inherit;cursor:pointer}
 .tab-item svg{width:20px;height:20px;stroke:var(--ink-3);fill:none;stroke-width:1.5;transition:color var(--t-fast)}
 .tab-item.active svg{stroke:var(--accent)}
 .tab-item.active::before{content:'';position:absolute;top:-1px;left:50%;transform:translateX(-50%);width:20px;height:2px;background:var(--accent);border-radius:1px}
-.tab-label{font-size:10px;font-weight:600;color:var(--ink-3);text-transform:uppercase;letter-spacing:.06em;transition:color var(--t-fast)}
+.tab-label{font-size:12px;font-weight:600;color:var(--ink-3);text-transform:uppercase;letter-spacing:.06em;transition:color var(--t-fast)}
 .tab-item.active .tab-label{color:var(--accent)}
 
 /* Related news */
@@ -314,7 +314,7 @@ button{font:inherit;cursor:pointer}
 .related-item .ri-img img{width:100%;height:100%;object-fit:cover}
 .related-item .ri-body{flex:1;min-width:0}
 .related-item .ri-head{font-family:var(--font-display);font-size:13px;font-weight:700;color:var(--ink);line-height:1.2;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.related-item .ri-meta{font-size:10px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.06em}
+.related-item .ri-meta{font-size:12px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.06em}
 
 /* Worn avatars */
 .worn-row{display:flex;gap:var(--space-3);overflow-x:auto;padding:var(--space-3) var(--space-5)}
@@ -323,19 +323,19 @@ button{font:inherit;cursor:pointer}
 .worn-av .av{width:48px;height:48px;border-radius:50%;overflow:hidden;margin:0 auto 4px;border:1px solid var(--hair)}
 .worn-av .av img{width:100%;height:100%;object-fit:cover}
 .worn-av .av .ini{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:var(--ink);background:var(--surface-2)}
-.worn-av .wn{font-size:10px;color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.worn-av .wn{font-size:12px;color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
 /* PB grid */
 .pb-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;background:var(--hair);border-top:1px solid var(--hair);border-bottom:1px solid var(--hair)}
 .pb-cell{background:var(--bg);padding:var(--space-4);text-align:center;min-width:0}
 .pb-cell .pv{font-family:var(--font-mono);font-size:var(--text-base);font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums}
-.pb-cell .pl{font-size:10px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.08em;margin-top:2px}
+.pb-cell .pl{font-size:12px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.08em;margin-top:2px}
 
 /* Game card */
 .game-card{display:flex;align-items:center;justify-content:space-between;padding:var(--space-4) var(--space-5);border-bottom:1px solid var(--hair)}
-.game-card .gc-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--ink-3)}
+.game-card .gc-label{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--ink-3)}
 .game-card .gc-match{font-family:var(--font-mono);font-size:14px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums}
-.game-card .gc-time{font-family:var(--font-mono);font-size:11px;color:var(--accent);font-variant-numeric:tabular-nums}
+.game-card .gc-time{font-family:var(--font-mono);font-size:12px;color:var(--accent);font-variant-numeric:tabular-nums}
 
 /* Chart SVG */
 .chart-svg{width:100%;height:100%}
@@ -345,12 +345,12 @@ button{font:inherit;cursor:pointer}
 
 /* === AUTH SCREENS === */
 .auth-screen{position:absolute;top:var(--status-bar-h);left:0;width:100%;height:calc(100% - var(--status-bar-h));overflow-y:auto;background:var(--bg);padding:var(--space-6) var(--space-5);display:flex;flex-direction:column;z-index:30;scrollbar-gutter:stable}
-.auth-logo{font-family:var(--font-display);font-size:28px;font-weight:700;color:var(--ink);text-align:center;margin-bottom:var(--space-2);letter-spacing:-.02em}
+.auth-logo{margin-top:0;font-family:var(--font-display);font-size:28px;font-weight:700;color:var(--ink);text-align:center;margin-bottom:var(--space-2);letter-spacing:-.02em}
 .auth-logo em{color:var(--accent);font-style:normal}
 .auth-tagline{font-family:var(--font-serif);font-size:14px;color:var(--ink-2);text-align:center;margin-bottom:var(--space-8);line-height:1.4}
 .auth-form{display:flex;flex-direction:column;gap:var(--space-4)}
 .form-group{display:flex;flex-direction:column;gap:6px}
-.form-group label{font-family:var(--font-grotesk);font-size:11px;font-weight:600;color:var(--ink-2);text-transform:uppercase;letter-spacing:.08em}
+.form-group label{font-family:var(--font-grotesk);font-size:12px;font-weight:600;color:var(--ink-2);text-transform:uppercase;letter-spacing:.08em}
 .form-group input[type="email"],.form-group input[type="password"],.form-group input[type="text"]{background:var(--surface);border:1px solid var(--hair);border-radius:var(--radius-md);padding:12px var(--space-3);color:var(--ink);font-size:15px;font-family:var(--font-grotesk);outline:none;transition:border-color var(--t-fast)}
 .form-group input:focus{border-color:var(--accent)}
 .form-group input::placeholder{color:var(--ink-3)}
@@ -361,7 +361,7 @@ button{font:inherit;cursor:pointer}
 .checkbox.checked svg{display:block}
 .checkbox-label{font-size:13px;color:var(--ink-2);line-height:1.3}
 .checkbox-label a{color:var(--accent);text-decoration:none}
-.btn-primary{width:100%;padding:14px;background:var(--accent);color:var(--ink);border:none;border-radius:var(--radius-md);font-weight:700;font-size:15px;text-transform:uppercase;letter-spacing:.08em;cursor:pointer;transition:background var(--t-fast)}
+.btn-primary{width:100%;padding:14px;background:var(--accent);color:var(--bg);border:none;border-radius:var(--radius-md);font-weight:700;font-size:15px;text-transform:uppercase;letter-spacing:.08em;cursor:pointer;transition:background var(--t-fast)}
 .btn-primary:hover{background:var(--accent-hover)}
 .btn-primary:active{transform:scale(.98)}
 .btn-secondary{width:100%;padding:14px;background:var(--surface-2);color:var(--ink);border:1px solid var(--hair);border-radius:var(--radius-md);font-weight:600;font-size:14px;cursor:pointer;transition:all var(--t-fast);display:flex;align-items:center;justify-content:center;gap:10px}
@@ -369,10 +369,10 @@ button{font:inherit;cursor:pointer}
 .btn-secondary svg{width:18px;height:18px;stroke:var(--ink);fill:none;stroke-width:1.5}
 .auth-divider{display:flex;align-items:center;gap:var(--space-3);margin:var(--space-5) 0}
 .auth-divider::before,.auth-divider::after{content:'';flex:1;height:1px;background:var(--hair)}
-.auth-divider span{font-size:11px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.08em}
+.auth-divider span{font-size:12px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.08em}
 .auth-link{font-size:13px;color:var(--ink-3);text-align:center;margin-top:var(--space-5)}
 .auth-link a{color:var(--accent);text-decoration:none;font-weight:600}
-.guest-link{display:block;text-align:center;font-size:12px;color:var(--ink-3);margin-top:var(--space-4);text-decoration:none;transition:color var(--t-fast)}
+.guest-link{display:block;padding:14px 0;text-align:center;font-size:12px;color:var(--ink-3);margin-top:var(--space-4);text-decoration:none;transition:color var(--t-fast)}
 .guest-link:hover{color:var(--ink)}
 
 /* === ONBOARDING === */
@@ -413,7 +413,7 @@ button{font:inherit;cursor:pointer}
 .profile-stats{display:flex;gap:var(--space-4);font-size:12px}
 .profile-stats span{color:var(--ink-2)}
 .profile-stats strong{color:var(--ink);font-weight:700}
-.profile-edit-btn{padding:6px 14px;border:1px solid var(--hair);border-radius:var(--radius-full);font-size:11px;font-weight:600;color:var(--ink);background:var(--surface);cursor:pointer;text-transform:uppercase;letter-spacing:.06em}
+.profile-edit-btn{padding:6px 14px;border:1px solid var(--hair);border-radius:var(--radius-full);font-size:12px;font-weight:600;color:var(--ink);background:var(--surface);cursor:pointer;text-transform:uppercase;letter-spacing:.06em}
 .profile-edit-btn:hover{background:var(--surface-2)}
 .profile-menu{padding:var(--space-2) 0}
 .profile-menu-item{display:flex;align-items:center;gap:var(--space-3);padding:var(--space-4) var(--space-5);cursor:pointer;transition:background var(--t-fast)}
@@ -433,13 +433,13 @@ button{font:inherit;cursor:pointer}
 .cart-thumb img{width:100%;height:100%;object-fit:cover}
 .cart-info{flex:1;min-width:0}
 .cart-name{font-size:13px;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:2px}
-.cart-meta{font-size:11px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.06em}
+.cart-meta{font-size:12px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.06em}
 .cart-price{font-family:var(--font-mono);font-size:14px;font-weight:700;color:var(--ink);margin-bottom:var(--space-2)}
 .cart-qty{display:flex;align-items:center;gap:var(--space-2)}
 .qty-btn{width:28px;height:28px;border:1px solid var(--hair);border-radius:var(--radius-md);background:var(--surface);color:var(--ink);font-family:var(--font-mono);font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center}
 .qty-btn:hover{background:var(--surface-2)}
 .qty-val{font-family:var(--font-mono);font-size:14px;font-weight:700;color:var(--ink);width:24px;text-align:center}
-.cart-remove{color:var(--ink-3);font-size:11px;text-transform:uppercase;letter-spacing:.06em;background:none;border:none;cursor:pointer;padding:4px 0}
+.cart-remove{color:var(--ink-3);font-size:12px;text-transform:uppercase;letter-spacing:.06em;background:none;border:none;cursor:pointer;padding:4px 0}
 .cart-remove:hover{color:var(--down)}
 .cart-summary{padding:var(--space-5);background:var(--surface);margin:var(--space-4) var(--space-5);border:1px solid var(--hair);border-radius:var(--radius-lg)}
 .summary-row{display:flex;justify-content:space-between;margin-bottom:var(--space-2);font-size:13px}
@@ -455,7 +455,7 @@ button{font:inherit;cursor:pointer}
 
 /* === CHECKOUT SCREEN === */
 .checkout-section{padding:var(--space-5);border-bottom:1px solid var(--hair)}
-.section-title{font-size:11px;font-weight:700;color:var(--ink-2);text-transform:uppercase;letter-spacing:.08em;margin-bottom:var(--space-3)}
+.section-title{font-size:12px;font-weight:700;color:var(--ink-2);text-transform:uppercase;letter-spacing:.08em;margin-bottom:var(--space-3)}
 .checkout-field{margin-bottom:var(--space-3)}
 .checkout-field label{display:block;font-size:12px;color:var(--ink-3);margin-bottom:6px}
 .checkout-field input{width:100%;background:var(--surface);border:1px solid var(--hair);border-radius:var(--radius-md);padding:10px 12px;color:var(--ink);font-size:14px;font-family:var(--font-grotesk);outline:none}
@@ -469,7 +469,7 @@ button{font:inherit;cursor:pointer}
 .delivery-option.selected .delivery-radio{border-color:var(--accent)}
 .delivery-option.selected .delivery-radio::after{content:'';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:8px;height:8px;background:var(--accent);border-radius:50%}
 .delivery-name{font-size:13px;font-weight:600;color:var(--ink)}
-.delivery-time{font-size:11px;color:var(--ink-3);margin-top:2px}
+.delivery-time{font-size:12px;color:var(--ink-3);margin-top:2px}
 .delivery-price{font-family:var(--font-mono);font-size:13px;font-weight:700;color:var(--ink)}
 .payment-option{display:flex;align-items:center;justify-content:space-between;padding:var(--space-3);border:1px solid var(--hair);border-radius:var(--radius-md);cursor:pointer;margin-bottom:var(--space-2);transition:all var(--t-fast)}
 .payment-option:hover{border-color:var(--ink-2)}
@@ -479,14 +479,14 @@ button{font:inherit;cursor:pointer}
 .payment-option.selected .payment-radio{border-color:var(--accent)}
 .payment-option.selected .payment-radio::after{content:'';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:8px;height:8px;background:var(--accent);border-radius:50%}
 .payment-name{font-size:13px;font-weight:600;color:var(--ink)}
-.payment-sub{font-size:11px;color:var(--ink-3);margin-top:2px;font-family:var(--font-mono)}
+.payment-sub{font-size:12px;color:var(--ink-3);margin-top:2px;font-family:var(--font-mono)}
 .order-summary-item{display:flex;gap:var(--space-3);padding:var(--space-3) 0;border-bottom:1px solid var(--hair)}
 .order-summary-item:last-child{border-bottom:none}
 .order-thumb{width:48px;height:36px;border-radius:var(--radius-md);overflow:hidden;border:1px solid var(--hair)}
 .order-thumb img{width:100%;height:100%;object-fit:cover}
 .order-item-info{flex:1}
 .order-item-name{font-size:12px;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.order-item-meta{font-size:10px;color:var(--ink-3);text-transform:uppercase}
+.order-item-meta{font-size:12px;color:var(--ink-3);text-transform:uppercase}
 .order-item-price{font-family:var(--font-mono);font-size:12px;font-weight:700;color:var(--ink)}
 .checkout-sticky{position:sticky;bottom:0;background:var(--bg);border-top:1px solid var(--ink);padding:var(--space-4) var(--space-5);padding-bottom:calc(var(--space-4) + var(--safe-bottom))}
 .order-total-row{display:flex;justify-content:space-between;margin-bottom:var(--space-3)}
@@ -509,14 +509,14 @@ button{font:inherit;cursor:pointer}
 .confirm-item-thumb img{width:100%;height:100%;object-fit:cover}
 .confirm-item-details{flex:1;text-align:left}
 .confirm-item-name{font-size:13px;font-weight:600;color:var(--ink);margin-bottom:2px}
-.confirm-item-meta{font-size:10px;color:var(--ink-3);text-transform:uppercase}
+.confirm-item-meta{font-size:12px;color:var(--ink-3);text-transform:uppercase}
 .confirm-actions{display:flex;gap:var(--space-3);width:100%}
 .btn-secondary-full{flex:1;padding:14px;background:var(--surface-2);color:var(--ink);border:1px solid var(--hair);border-radius:var(--radius-md);font-weight:600;font-size:14px;cursor:pointer;transition:all var(--t-fast)}
 .btn-secondary-full:hover{background:var(--surface-3)}
 
 /* === MASTHEAD UPDATES === */
 .masthead-right .cart-btn{position:relative}
-.masthead-right .cart-count-badge{position:absolute;top:0;right:0;background:var(--accent);color:var(--ink);font-family:var(--font-mono);font-size:9px;font-weight:700;padding:2px 5px;border-radius:10px;min-width:16px;text-align:center;line-height:1}
+.masthead-right .cart-count-badge{position:absolute;top:0;right:0;background:var(--accent);color:var(--ink);font-family:var(--font-mono);font-size:12px;font-weight:700;padding:2px 5px;border-radius:10px;min-width:16px;text-align:center;line-height:1}
 
 /* === FLOW MODE (hide tab bar) === */
 .app.flow-mode .tab-bar{display:none}
@@ -532,10 +532,10 @@ button{font:inherit;cursor:pointer}
 
 /* === UTILITY CLASSES === */
 .section-pad{padding:var(--space-4) var(--space-5)}
-.section-label-sm{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.12em;color:var(--ink-3);margin-bottom:var(--space-3)}
+.section-label-sm{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.12em;color:var(--ink-3);margin-bottom:var(--space-3)}
 .stat-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--space-3)}
 .stat-center{text-align:center}
-.stat-label{font-size:10px;color:var(--ink-3);text-transform:uppercase;margin-bottom:4px}
+.stat-label{font-size:12px;color:var(--ink-3);text-transform:uppercase;margin-bottom:4px}
 .stat-value{font-family:var(--font-mono);font-size:var(--text-base);font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums}
 .label-value-row{display:flex;justify-content:space-between;align-items:center;padding:var(--space-2) 0}
 .label-text{font-family:var(--font-grotesk);font-size:12px;font-weight:600;color:var(--ink-2)}
@@ -568,7 +568,7 @@ button{font:inherit;cursor:pointer}
 .calendar-header button{background:none;border:1px solid var(--hair);border-radius:var(--radius-md);padding:4px 10px;color:var(--ink-2);font-size:18px;font-weight:700}
 .calendar-header button:hover{background:var(--surface-2)}
 .calendar-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:2px}
-.calendar-weekday{font-size:9px;font-weight:600;color:var(--ink-3);text-transform:uppercase;text-align:center;padding:6px 0}
+.calendar-weekday{font-size:12px;font-weight:600;color:var(--ink-3);text-transform:uppercase;text-align:center;padding:6px 0}
 .calendar-day{aspect-ratio:1;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:12px;font-family:var(--font-mono);color:var(--ink-2);border-radius:var(--radius-sm);cursor:pointer;position:relative;min-width:0}
 .calendar-day:hover{background:var(--surface-2)}
 .calendar-day.today{background:var(--ink);color:var(--bg);font-weight:700}
@@ -581,15 +581,15 @@ button{font:inherit;cursor:pointer}
 .drop-thumb{width:56px;height:42px;border-radius:var(--radius-md);overflow:hidden;border:1px solid var(--hair);flex-shrink:0}
 .drop-thumb img{width:100%;height:100%;object-fit:cover}
 .drop-info{flex:1;min-width:0}
-.drop-brand{font-size:10px;font-weight:600;color:var(--ink-3);text-transform:uppercase;letter-spacing:.06em}
+.drop-brand{font-size:12px;font-weight:600;color:var(--ink-3);text-transform:uppercase;letter-spacing:.06em}
 .drop-model{font-size:13px;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .drop-meta{display:flex;align-items:center;gap:var(--space-2);margin-top:2px}
 .drop-price{font-family:var(--font-mono);font-size:12px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums}
-.drop-tag{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;padding:2px 6px;border-radius:3px}
+.drop-tag{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;padding:2px 6px;border-radius:3px}
 .drop-tag.drop{background:var(--accent-dim);color:var(--accent)}
 .drop-tag.raffle{background:var(--gold-bg);color:var(--gold)}
 .drop-tag.soldout{background:var(--down-bg);color:var(--down)}
-.drop-countdown{font-family:var(--font-mono);font-size:10px;color:var(--ink-3);font-variant-numeric:tabular-nums}
+.drop-countdown{font-family:var(--font-mono);font-size:12px;color:var(--ink-3);font-variant-numeric:tabular-nums}
 
 /* === ATHLETE DETAIL SCREEN === */
 .athlete-detail-hero{height:200px;overflow:hidden;position:relative}
@@ -602,20 +602,20 @@ button{font:inherit;cursor:pointer}
 .athlete-detail-actions .follow-btn{padding:8px 20px;border:1px solid var(--accent);border-radius:var(--radius-full);font-size:12px;font-weight:700;text-transform:uppercase;color:var(--accent);background:transparent}
 .athlete-detail-actions .follow-btn.following{background:var(--accent);color:var(--ink);border-color:var(--accent)}
 .events-section{padding:var(--space-4) var(--space-5);border-bottom:1px solid var(--hair)}
-.section-head{font-size:11px;font-weight:700;color:var(--ink-2);text-transform:uppercase;letter-spacing:.08em;margin-bottom:var(--space-3)}
+.section-head{font-size:12px;font-weight:700;color:var(--ink-2);text-transform:uppercase;letter-spacing:.08em;margin-bottom:var(--space-3)}
 .event-row{display:flex;justify-content:space-between;align-items:center;padding:var(--space-3) 0;border-bottom:1px solid var(--hair)}
 .event-row:last-child{border-bottom:none}
-.event-date{font-family:var(--font-mono);font-size:11px;font-weight:700;color:var(--accent);font-variant-numeric:tabular-nums}
+.event-date{font-family:var(--font-mono);font-size:12px;font-weight:700;color:var(--accent);font-variant-numeric:tabular-nums}
 .event-info{flex:1;padding:0 var(--space-3)}
 .event-name{font-size:13px;font-weight:600;color:var(--ink)}
-.event-venue{font-size:11px;color:var(--ink-3);margin-top:2px}
-.event-action{font-size:11px;font-weight:600;color:var(--ink-2);text-transform:uppercase;letter-spacing:.06em}
+.event-venue{font-size:12px;color:var(--ink-3);margin-top:2px}
+.event-action{font-size:12px;font-weight:600;color:var(--ink-2);text-transform:uppercase;letter-spacing:.06em}
 .shoe-rotation-scroll{display:flex;gap:var(--space-3);overflow-x:auto;padding:var(--space-3) var(--space-5)}
 .shoe-rotation-scroll::-webkit-scrollbar{display:none}
 .rotation-item{width:72px;text-align:center;flex-shrink:0}
 .rotation-thumb{width:56px;height:42px;border-radius:var(--radius-md);overflow:hidden;border:1px solid var(--hair);margin:0 auto 6px}
 .rotation-thumb img{width:100%;height:100%;object-fit:cover}
-.rotation-name{font-size:10px;color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rotation-name{font-size:12px;color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .latest-list{padding:var(--space-2) 0}
 .latest-item{display:flex;gap:var(--space-3);padding:var(--space-3) var(--space-5);border-bottom:1px solid var(--hair);cursor:pointer}
 .latest-item:hover{background:var(--surface)}
@@ -623,7 +623,7 @@ button{font:inherit;cursor:pointer}
 .latest-thumb img{width:100%;height:100%;object-fit:cover}
 .latest-info{flex:1}
 .latest-head{font-family:var(--font-display);font-size:13px;font-weight:700;color:var(--ink);line-height:1.2;margin-bottom:2px}
-.latest-meta{font-size:10px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.06em}
+.latest-meta{font-size:12px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.06em}
 
 /* === ORDERS SCREEN === */
 .orders-list{padding:var(--space-2) 0}
@@ -631,13 +631,13 @@ button{font:inherit;cursor:pointer}
 .order-card:hover{background:var(--surface)}
 .order-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--space-2)}
 .order-num{font-family:var(--font-mono);font-size:13px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums}
-.order-date{font-family:var(--font-mono);font-size:10px;color:var(--ink-3);font-variant-numeric:tabular-nums}
+.order-date{font-family:var(--font-mono);font-size:12px;color:var(--ink-3);font-variant-numeric:tabular-nums}
 .order-items{display:flex;gap:var(--space-2);margin-bottom:var(--space-3)}
 .order-item-thumb{width:40px;height:30px;border-radius:var(--radius-sm);overflow:hidden;border:1px solid var(--hair)}
 .order-item-thumb img{width:100%;height:100%;object-fit:cover}
 .order-foot{display:flex;justify-content:space-between;align-items:center}
 .order-total{font-family:var(--font-mono);font-size:13px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums}
-.order-status{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;padding:3px 8px;border-radius:3px}
+.order-status{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;padding:3px 8px;border-radius:3px}
 .order-status.delivered{background:var(--up-bg);color:var(--up)}
 .order-status.transit{background:var(--gold-bg);color:var(--gold)}
 .order-status.processing{background:var(--ink-3);color:var(--ink-2)}
@@ -657,7 +657,7 @@ button{font:inherit;cursor:pointer}
 .tracking-item.future::before{background:var(--hair);border-color:var(--hair)}
 .tracking-item-content{flex:1}
 .tracking-title{font-size:13px;font-weight:600;color:var(--ink);margin-bottom:2px}
-.tracking-meta{font-size:11px;color:var(--ink-3)}
+.tracking-meta{font-size:12px;color:var(--ink-3)}
 .help-section{padding:var(--space-5);background:var(--surface-2);margin:var(--space-4) var(--space-5);border-radius:var(--radius-lg)}
 .help-title{font-size:13px;font-weight:700;color:var(--ink);margin-bottom:var(--space-2)}
 .help-text{font-size:12px;color:var(--ink-3);margin-bottom:var(--space-3)}
@@ -676,7 +676,7 @@ button{font:inherit;cursor:pointer}
 .brand-tile{background:var(--surface);padding:var(--space-4);text-align:center;cursor:pointer;transition:all var(--t-fast);min-width:0}
 .brand-tile:hover{background:var(--surface-2)}
 .brand-name{font-family:var(--font-display);font-size:16px;font-weight:700;color:var(--ink);margin-bottom:4px}
-.brand-count{font-size:11px;color:var(--ink-3)}
+.brand-count{font-size:12px;color:var(--ink-3)}
 .brand-results{padding:var(--space-2) 0;display:none}
 .brand-results.active{display:block}
 .brand-result-item{display:flex;align-items:center;gap:var(--space-3);padding:var(--space-3) var(--space-5);border-bottom:1px solid var(--hair);cursor:pointer}
@@ -685,12 +685,13 @@ button{font:inherit;cursor:pointer}
 .result-thumb img{width:100%;height:100%;object-fit:cover}
 .result-info{flex:1}
 .result-name{font-size:13px;font-weight:600;color:var(--ink)}
-.result-sub{font-size:10px;color:var(--ink-3);text-transform:uppercase;margin-top:2px}
+.result-sub{font-size:12px;color:var(--ink-3);text-transform:uppercase;margin-top:2px}
 .result-price{font-family:var(--font-mono);font-size:13px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums}
-.result-trend{font-size:10px;font-weight:600;margin-top:2px}
+.result-trend{font-size:12px;font-weight:600;margin-top:2px}
 .result-trend.up{color:var(--up)}
 .result-trend.down{color:var(--down)}
 </style>
+<link rel="icon" href="data:,">
 </head>
 <body>
 <div class="phone-frame">
@@ -699,7 +700,7 @@ button{font:inherit;cursor:pointer}
 <!-- LOGIN SCREEN -->
 <div id="screen-login" class="auth-screen">
   <div style="flex:1;display:flex;flex-direction:column;justify-content:center">
-    <div class="auth-logo">HOUSE OF <em>ARTICLES</em></div>
+    <h1 class="auth-logo">HOUSE OF <em>ARTICLES</em></h1>
     <p class="auth-tagline">Where culture meets commerce.<br>Track, collect, and cop the latest.</p>
     
     <div class="auth-form">
@@ -712,7 +713,7 @@ button{font:inherit;cursor:pointer}
         <input type="password" id="login-password" placeholder="••••••••••••">
       </div>
       <div style="text-align:right;margin-top:-4px">
-        <a href="#" style="font-size:12px;color:var(--ink-3);text-decoration:none" onclick="showToast('Password reset link sent')">Forgot password?</a>
+        <a href="#" style="display:inline-block;padding:14px 0;font-size:12px;color:var(--ink-3);text-decoration:none" onclick="showToast('Password reset link sent')">Forgot password?</a>
       </div>
       <button class="btn-primary" onclick="handleLogin()">Sign in</button>
     </div>
@@ -736,7 +737,7 @@ button{font:inherit;cursor:pointer}
 <!-- SIGNUP SCREEN -->
 <div id="screen-signup" class="auth-screen" style="display:none">
   <div style="flex:1;display:flex;flex-direction:column;justify-content:center">
-    <div class="auth-logo">HOUSE OF <em>ARTICLES</em></div>
+    <h1 class="auth-logo">HOUSE OF <em>ARTICLES</em></h1>
     <p class="auth-tagline">Create your account to start collecting.</p>
     
     <div class="auth-form">
@@ -1240,42 +1241,42 @@ button{font:inherit;cursor:pointer}
     </div>
     <div style="display:flex;gap:var(--space-3);margin-top:var(--space-3)">
       <div style="flex:1;background:var(--surface);border:1px solid var(--hair);border-radius:var(--radius-md);padding:var(--space-3);text-align:center">
-        <div style="font-size:10px;color:var(--ink-3);text-transform:uppercase;margin-bottom:4px">Retail</div>
+        <div style="font-size:12px;color:var(--ink-3);text-transform:uppercase;margin-bottom:4px">Retail</div>
         <div style="font-family:var(--font-mono);font-size:var(--text-xl);font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums">$180</div>
       </div>
       <div style="flex:1;background:var(--surface);border:1px solid var(--hair);border-radius:var(--radius-md);padding:var(--space-3);text-align:center">
-        <div style="font-size:10px;color:var(--ink-3);text-transform:uppercase;margin-bottom:4px">Market</div>
+        <div style="font-size:12px;color:var(--ink-3);text-transform:uppercase;margin-bottom:4px">Market</div>
         <div style="font-family:var(--font-mono);font-size:var(--text-xl);font-weight:700;color:var(--accent);font-variant-numeric:tabular-nums">$248</div>
       </div>
     </div>
   </div>
   
   <div style="padding:var(--space-4) var(--space-5);border-bottom:1px solid var(--hair)">
-    <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.12em;color:var(--ink-3);margin-bottom:var(--space-3)">Everything You Need to Know</div>
+    <div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.12em;color:var(--ink-3);margin-bottom:var(--space-3)">Everything You Need to Know</div>
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:var(--space-3)">
-      <div style="text-align:center"><div style="font-size:10px;color:var(--ink-3);text-transform:uppercase;margin-bottom:4px">Release</div><div style="font-family:var(--font-mono);font-size:var(--text-base);font-weight:700;color:var(--ink)">Oct 12</div></div>
-      <div style="text-align:center"><div style="font-size:10px;color:var(--ink-3);text-transform:uppercase;margin-bottom:4px">SKU</div><div style="font-family:var(--font-mono);font-size:var(--text-base);font-weight:700;color:var(--ink)">APX-RN3</div></div>
-      <div style="text-align:center"><div style="font-size:10px;color:var(--ink-3);text-transform:uppercase;margin-bottom:4px">Colorway</div><div style="font-family:var(--font-mono);font-size:var(--text-base);font-weight:700;color:var(--ink)">Midnight</div></div>
+      <div style="text-align:center"><div style="font-size:12px;color:var(--ink-3);text-transform:uppercase;margin-bottom:4px">Release</div><div style="font-family:var(--font-mono);font-size:var(--text-base);font-weight:700;color:var(--ink)">Oct 12</div></div>
+      <div style="text-align:center"><div style="font-size:12px;color:var(--ink-3);text-transform:uppercase;margin-bottom:4px">SKU</div><div style="font-family:var(--font-mono);font-size:var(--text-base);font-weight:700;color:var(--ink)">APX-RN3</div></div>
+      <div style="text-align:center"><div style="font-size:12px;color:var(--ink-3);text-transform:uppercase;margin-bottom:4px">Colorway</div><div style="font-family:var(--font-mono);font-size:var(--text-base);font-weight:700;color:var(--ink)">Midnight</div></div>
     </div>
   </div>
   
   <!-- THE BREAKDOWN -->
   <div style="padding:var(--space-4) var(--space-5);border-bottom:1px solid var(--hair)">
-    <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.12em;color:var(--ink-3);margin-bottom:var(--space-3)">The Breakdown</div>
+    <div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.12em;color:var(--ink-3);margin-bottom:var(--space-3)">The Breakdown</div>
     <div style="display:flex;flex-direction:column;gap:var(--space-2)">
       <div style="display:flex;justify-content:space-between;align-items:center"><span style="font-family:var(--font-grotesk);font-size:12px;font-weight:600;color:var(--ink-2)">Manufacturer</span><span style="font-family:var(--font-mono);font-size:12px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums" id="detail-manufacturer">Apex Athletic Manufacturing</span></div>
       <div style="display:flex;justify-content:space-between;align-items:center"><span style="font-family:var(--font-grotesk);font-size:12px;font-weight:600;color:var(--ink-2)">Sourced / Made in</span><span style="font-family:var(--font-mono);font-size:12px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums" id="detail-origin">Vietnam · Factory 07</span></div>
       <div style="display:flex;justify-content:space-between;align-items:center"><span style="font-family:var(--font-grotesk);font-size:12px;font-weight:600;color:var(--ink-2)">Materials</span><span style="font-family:var(--font-mono);font-size:12px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums" id="detail-materials">Recycled knit · EVA · Rubber</span></div>
       <div style="height:1px;background:var(--hair);margin:var(--space-2) 0"></div>
       <div style="display:flex;justify-content:space-between;align-items:center"><span style="font-family:var(--font-grotesk);font-size:12px;font-weight:600;color:var(--ink-2)">Retail (MSRP)</span><span style="font-family:var(--font-mono);font-size:14px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums" id="detail-retail">$180</span></div>
-      <div style="display:flex;justify-content:space-between;align-items:center"><span style="font-family:var(--font-grotesk);font-size:12px;font-weight:600;color:var(--ink-2)">Est. cost to make</span><span style="font-family:var(--font-mono);font-size:14px;font-weight:700;color:var(--ink-2);font-variant-numeric:tabular-nums" id="detail-estcost">~$74 <span style="font-size:11px;color:var(--ink-3);font-weight:400">(41%)</span></span></div>
+      <div style="display:flex;justify-content:space-between;align-items:center"><span style="font-family:var(--font-grotesk);font-size:12px;font-weight:600;color:var(--ink-2)">Est. cost to make</span><span style="font-family:var(--font-mono);font-size:14px;font-weight:700;color:var(--ink-2);font-variant-numeric:tabular-nums" id="detail-estcost">~$74 <span style="font-size:12px;color:var(--ink-3);font-weight:400">(41%)</span></span></div>
       <div style="display:flex;justify-content:space-between;align-items:center"><span style="font-family:var(--font-grotesk);font-size:12px;font-weight:600;color:var(--ink-2)">Market / Resale</span><span style="font-family:var(--font-mono);font-size:14px;font-weight:700;color:var(--accent);font-variant-numeric:tabular-nums" id="detail-market">$248</span></div>
       <div style="display:flex;justify-content:space-between;align-items:center"><span style="font-family:var(--font-grotesk);font-size:12px;font-weight:600;color:var(--ink-2)">Markup over retail</span><span style="font-family:var(--font-mono);font-size:14px;font-weight:700;color:var(--up);font-variant-numeric:tabular-nums" id="detail-markup">+38%</span></div>
       <div style="display:flex;justify-content:space-between;align-items:center"><span style="font-family:var(--font-grotesk);font-size:12px;font-weight:600;color:var(--ink-2)">Margin (retail − est. cost)</span><span style="font-family:var(--font-mono);font-size:14px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums" id="detail-margin">59%</span></div>
     </div>
     <!-- Stacked bar: cost | margin within retail, plus market spread marker -->
     <div style="margin-top:var(--space-3);display:flex;flex-direction:column;gap:6px">
-      <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.06em"><span>Cost</span><span>Margin</span><span>Market ↑</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.06em"><span>Cost</span><span>Margin</span><span>Market ↑</span></div>
       <div style="height:8px;background:var(--surface-2);border-radius:2px;overflow:hidden;position:relative">
         <!-- Cost segment: 41% of retail -->
         <div style="position:absolute;left:0;top:0;height:100%;width:41%;background:var(--ink-2);border-radius:2px 0 0 2px"></div>
@@ -1284,13 +1285,13 @@ button{font:inherit;cursor:pointer}
         <!-- Market spread marker at retail→market boundary (100% → 138%) -->
         <div style="position:absolute;left:100%;top:0;height:100%;width:2px;background:var(--up);transform:translateX(2px)"></div>
       </div>
-      <div style="font-size:10px;color:var(--ink-3);font-style:italic">Retail price breakdown vs. market premium</div>
+      <div style="font-size:12px;color:var(--ink-3);font-style:italic">Retail price breakdown vs. market premium</div>
     </div>
   </div>
   
   <!-- SPECS SECTION -->
   <div class="specs-section" id="detail-specs-section">
-    <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.12em;color:var(--ink-3);margin-bottom:var(--space-3)">SPECS</div>
+    <div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.12em;color:var(--ink-3);margin-bottom:var(--space-3)">SPECS</div>
     <div class="specs-row"><span class="specs-label">Category</span><span class="specs-value" id="detail-specs-category">Basketball</span></div>
     <div class="specs-row"><span class="specs-label">Weight</span><span class="specs-value" id="detail-specs-weight">340g</span></div>
     <div class="specs-row"><span class="specs-label">Drop</span><span class="specs-value" id="detail-specs-drop">10mm</span></div>
@@ -1298,7 +1299,7 @@ button{font:inherit;cursor:pointer}
   
   <!-- MANUFACTURING SECTION -->
   <div class="mfg-section" id="detail-mfg-section">
-    <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.12em;color:var(--ink-3);margin-bottom:var(--space-3)">WHERE IT'S MADE</div>
+    <div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.12em;color:var(--ink-3);margin-bottom:var(--space-3)">WHERE IT'S MADE</div>
     <div id="detail-mfg-rows">
       <div class="mfg-row"><span class="mfg-label">Upper · Recycled knit</span><span class="mfg-value mfg-site">Vietnam · Factory 07</span></div>
       <div class="mfg-row"><span class="mfg-label">Midsole · EVA foam</span><span class="mfg-value mfg-site">China · Factory 12</span></div>
@@ -1312,8 +1313,8 @@ button{font:inherit;cursor:pointer}
   
   <div style="border-bottom:1px solid var(--hair)">
     <div style="padding:var(--space-4) var(--space-5);display:flex;justify-content:space-between;align-items:center">
-      <span style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.12em;color:var(--ink-3)">Select Size</span>
-      <span style="font-size:11px;color:var(--ink-3)">Last Sale</span>
+      <span style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.12em;color:var(--ink-3)">Select Size</span>
+      <span style="font-size:12px;color:var(--ink-3)">Last Sale</span>
     </div>
     <div class="size-grid">
       <div class="size-cell" onclick="selectSize(this)"><div class="sz">US 8</div><div class="pr">$248</div></div>
@@ -1329,7 +1330,7 @@ button{font:inherit;cursor:pointer}
   </div>
   
   <div style="border-bottom:1px solid var(--hair)">
-    <div style="padding:var(--space-4) var(--space-5);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.12em;color:var(--ink-3)">Worn by</div>
+    <div style="padding:var(--space-4) var(--space-5);font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.12em;color:var(--ink-3)">Worn by</div>
     <div class="worn-row">
       <div class="worn-av"><div class="av"><img src="./assets/athlete-portrait.jpg" alt="MV"></div><div class="wn">M. Vale</div></div>
       <div class="worn-av"><div class="av"><span class="ini">JC</span></div><div class="wn">J. Cruz</div></div>
@@ -1339,7 +1340,7 @@ button{font:inherit;cursor:pointer}
   </div>
   
   <div style="border-bottom:1px solid var(--hair)">
-    <div style="padding:var(--space-4) var(--space-5);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.12em;color:var(--ink-3)">Related News</div>
+    <div style="padding:var(--space-4) var(--space-5);font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.12em;color:var(--ink-3)">Related News</div>
     <div class="related-item"><div class="ri-img"><img src="./assets/runner-supershoe.jpg" alt=""></div><div class="ri-body"><div class="ri-head">The science behind super-shoe foam</div><div class="ri-meta">Tech · 3d ago</div></div></div>
     <div class="related-item"><div class="ri-img"><img src="./assets/court-lowtop.jpg" alt=""></div><div class="ri-body"><div class="ri-head">Why low-tops dominate the court</div><div class="ri-meta">Culture · 5d ago</div></div></div>
     <div class="related-item"><div class="ri-img"><img src="./assets/retro-street.jpg" alt=""></div><div class="ri-body"><div class="ri-head">Retro revivals: what to cop next</div><div class="ri-meta">Buy Guide · 1w ago</div></div></div>
@@ -1377,7 +1378,7 @@ button{font:inherit;cursor:pointer}
   
   <!-- Market Index -->
   <div style="padding:var(--space-5)">
-    <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.12em;color:var(--ink-3);margin-bottom:var(--space-3)">Market Overview</div>
+    <div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.12em;color:var(--ink-3);margin-bottom:var(--space-3)">Market Overview</div>
     <div class="mkt-index">
       <div class="mkt-index-cell"><div class="iv" style="color:var(--up)">+2.4%</div><div class="il">24h Change</div></div>
       <div class="mkt-index-cell"><div class="iv">$214</div><div class="il">Avg Price</div></div>
@@ -1388,7 +1389,7 @@ button{font:inherit;cursor:pointer}
     </div>
   </div>
   
-  <div style="padding:var(--space-4) var(--space-5);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.12em;color:var(--ink-3);border-bottom:1px solid var(--hair)">Top Movers</div>
+  <div style="padding:var(--space-4) var(--space-5);font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.12em;color:var(--ink-3);border-bottom:1px solid var(--hair)">Top Movers</div>
   <table class="movers-table">
     <tr onclick="navDetail('court-legend-1')"><td class="rank">1</td><td><div class="thumb"><img src="./assets/runner-supershoe.jpg" alt=""></div></td><td><div class="m-name">Court Legend 1</div><div class="m-sub">Sunset</div></td><td><svg class="spark" viewBox="0 0 56 24"><polyline points="0,20 10,18 20,16 30,12 40,8 50,4 56,2" stroke="var(--up)"/></svg></td><td class="m-price">$320</td><td class="m-pct up">+41%</td></tr>
     <tr onclick="navDetail('apex-runner-3')"><td class="rank">2</td><td><div class="thumb"><img src="./assets/hero-basketball.jpg" alt=""></div></td><td><div class="m-name">Apex Runner 3</div><div class="m-sub">Midnight</div></td><td><svg class="spark" viewBox="0 0 56 24"><polyline points="0,18 10,16 20,14 30,10 40,6 50,3 56,1" stroke="var(--up)"/></svg></td><td class="m-price">$285</td><td class="m-pct up">+23%</td></tr>
@@ -1440,10 +1441,10 @@ button{font:inherit;cursor:pointer}
     <div class="gc-time">TONIGHT 7:30</div>
   </div>
   
-  <div style="padding:var(--space-4) var(--space-5);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.12em;color:var(--ink-3);border-bottom:1px solid var(--hair)">On-Court Shoe</div>
+  <div style="padding:var(--space-4) var(--space-5);font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.12em;color:var(--ink-3);border-bottom:1px solid var(--hair)">On-Court Shoe</div>
   <div style="display:flex;align-items:center;gap:var(--space-3);padding:var(--space-4) var(--space-5);border-bottom:1px solid var(--hair);cursor:pointer" onclick="navDetail('apex-runner-3')">
     <div style="width:56px;height:44px;border-radius:var(--radius-md);overflow:hidden;border:1px solid var(--hair)"><img src="./assets/hero-basketball.jpg" alt="" style="width:100%;height:100%;object-fit:cover"></div>
-    <div style="flex:1"><div style="font-size:13px;font-weight:600;color:var(--ink)">Apex Runner 3 "Midnight"</div><div style="font-size:10px;color:var(--ink-3);text-transform:uppercase;margin-top:2px">Signature colorway</div></div>
+    <div style="flex:1"><div style="font-size:13px;font-weight:600;color:var(--ink)">Apex Runner 3 "Midnight"</div><div style="font-size:12px;color:var(--ink-3);text-transform:uppercase;margin-top:2px">Signature colorway</div></div>
     <div style="font-family:var(--font-mono);font-size:13px;font-weight:700;color:var(--accent)">$285</div>
   </div>
   
@@ -1464,16 +1465,16 @@ button{font:inherit;cursor:pointer}
     <div class="pb-cell"><div class="pv">15:08</div><div class="pl">5K</div></div>
   </div>
   
-  <div style="padding:var(--space-4) var(--space-5);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.12em;color:var(--ink-3);border-bottom:1px solid var(--hair)">Recent Results</div>
+  <div style="padding:var(--space-4) var(--space-5);font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.12em;color:var(--ink-3);border-bottom:1px solid var(--hair)">Recent Results</div>
   <div style="padding:var(--space-3) var(--space-5);font-size:13px;color:var(--ink);border-bottom:1px solid var(--hair);display:flex;justify-content:space-between"><span>City Marathon 2025</span><span style="font-family:var(--font-mono);font-weight:700;color:var(--gold)">?? 1st</span></div>
   <div style="padding:var(--space-3) var(--space-5);font-size:13px;color:var(--ink);border-bottom:1px solid var(--hair);display:flex;justify-content:space-between"><span>Highland 10K</span><span style="font-family:var(--font-mono);font-weight:700;color:var(--ink-2)">?? 2nd</span></div>
   
-  <div style="padding:var(--space-4) var(--space-5);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.12em;color:var(--ink-3);border-bottom:1px solid var(--hair)">Shoe Rotation</div>
+  <div style="padding:var(--space-4) var(--space-5);font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.12em;color:var(--ink-3);border-bottom:1px solid var(--hair)">Shoe Rotation</div>
   <div class="h-scroll">
-    <div style="width:80px;text-align:center"><div style="width:60px;height:44px;border-radius:var(--radius-md);overflow:hidden;border:1px solid var(--hair);margin:0 auto 6px"><img src="./assets/runner-supershoe.jpg" alt="" style="width:100%;height:100%;object-fit:cover"></div><div style="font-size:10px;color:var(--ink-3)">Court Legend 1</div></div>
-    <div style="width:80px;text-align:center"><div style="width:60px;height:44px;border-radius:var(--radius-md);overflow:hidden;border:1px solid var(--hair);margin:0 auto 6px"><img src="./assets/court-lowtop.jpg" alt="" style="width:100%;height:100%;object-fit:cover"></div><div style="font-size:10px;color:var(--ink-3)">Velocity X</div></div>
-    <div style="width:80px;text-align:center"><div style="width:60px;height:44px;border-radius:var(--radius-md);overflow:hidden;border:1px solid var(--hair);margin:0 auto 6px"><img src="./assets/retro-street.jpg" alt="" style="width:100%;height:100%;object-fit:cover"></div><div style="font-size:10px;color:var(--ink-3)">Trail Blazer 2</div></div>
-    <div style="width:80px;text-align:center"><div style="width:60px;height:44px;border-radius:var(--radius-md);overflow:hidden;border:1px solid var(--hair);margin:0 auto 6px"><img src="./assets/hero-basketball.jpg" alt="" style="width:100%;height:100%;object-fit:cover"></div><div style="font-size:10px;color:var(--ink-3)">Apex Runner 3</div></div>
+    <div style="width:80px;text-align:center"><div style="width:60px;height:44px;border-radius:var(--radius-md);overflow:hidden;border:1px solid var(--hair);margin:0 auto 6px"><img src="./assets/runner-supershoe.jpg" alt="" style="width:100%;height:100%;object-fit:cover"></div><div style="font-size:12px;color:var(--ink-3)">Court Legend 1</div></div>
+    <div style="width:80px;text-align:center"><div style="width:60px;height:44px;border-radius:var(--radius-md);overflow:hidden;border:1px solid var(--hair);margin:0 auto 6px"><img src="./assets/court-lowtop.jpg" alt="" style="width:100%;height:100%;object-fit:cover"></div><div style="font-size:12px;color:var(--ink-3)">Velocity X</div></div>
+    <div style="width:80px;text-align:center"><div style="width:60px;height:44px;border-radius:var(--radius-md);overflow:hidden;border:1px solid var(--hair);margin:0 auto 6px"><img src="./assets/retro-street.jpg" alt="" style="width:100%;height:100%;object-fit:cover"></div><div style="font-size:12px;color:var(--ink-3)">Trail Blazer 2</div></div>
+    <div style="width:80px;text-align:center"><div style="width:60px;height:44px;border-radius:var(--radius-md);overflow:hidden;border:1px solid var(--hair);margin:0 auto 6px"><img src="./assets/hero-basketball.jpg" alt="" style="width:100%;height:100%;object-fit:cover"></div><div style="font-size:12px;color:var(--ink-3)">Apex Runner 3</div></div>
   </div>
   
   <!-- HYROX Athlete -->
@@ -1493,7 +1494,7 @@ button{font:inherit;cursor:pointer}
     <div class="pb-cell"><div class="sv">8:45</div><div class="pl">Ski Erg</div></div>
   </div>
   
-  <div style="padding:var(--space-4) var(--space-5);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.12em;color:var(--ink-3);border-bottom:1px solid var(--hair)">Recent Results</div>
+  <div style="padding:var(--space-4) var(--space-5);font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.12em;color:var(--ink-3);border-bottom:1px solid var(--hair)">Recent Results</div>
   <div style="padding:var(--space-3) var(--space-5);font-size:13px;color:var(--ink);border-bottom:1px solid var(--hair);display:flex;justify-content:space-between"><span>HYROX World Championship</span><span style="font-family:var(--font-mono);font-weight:700;color:var(--gold)">🥇 1st</span></div>
   <div style="padding:var(--space-3) var(--space-5);font-size:13px;color:var(--ink);border-bottom:1px solid var(--hair);display:flex;justify-content:space-between"><span>European Open</span><span style="font-family:var(--font-mono);font-weight:700;color:var(--ink-2)">🥈 2nd</span></div>
   
@@ -1513,7 +1514,7 @@ button{font:inherit;cursor:pointer}
   </div>
   
   <div class="portfolio-card">
-    <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.12em;color:var(--ink-3);margin-bottom:var(--space-4)">Portfolio Summary</div>
+    <div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.12em;color:var(--ink-3);margin-bottom:var(--space-4)">Portfolio Summary</div>
     <div class="portfolio-grid">
       <div class="portfolio-metric"><div class="pv">,847</div><div class="pl">Cost Basis</div></div>
       <div class="portfolio-metric"><div class="pv">,412</div><div class="pl">Market Value</div></div>
@@ -1528,7 +1529,7 @@ button{font:inherit;cursor:pointer}
     </div>
   </div>
   
-  <div style="padding:var(--space-4) var(--space-5);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.12em;color:var(--ink-3);border-bottom:1px solid var(--hair)">My Tracked Shoes</div>
+  <div style="padding:var(--space-4) var(--space-5);font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.12em;color:var(--ink-3);border-bottom:1px solid var(--hair)">My Tracked Shoes</div>
   
   <div class="wl-item" onclick="navDetail('apex-runner-3')">
     <div class="wl-thumb"><img src="./assets/hero-basketball.jpg" alt=""></div>
@@ -1590,7 +1591,7 @@ button{font:inherit;cursor:pointer}
     <div class="wl-right"><div class="wl-price">$145</div><div class="wl-chg up">+7%</div></div>
   </div>
   
-  <div style="padding:var(--space-4) var(--space-5);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.12em;color:var(--ink-3);border-bottom:1px solid var(--hair)">Price Alerts</div>
+  <div style="padding:var(--space-4) var(--space-5);font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.12em;color:var(--ink-3);border-bottom:1px solid var(--hair)">Price Alerts</div>
   
   <div class="toggle-row">
     <div class="tog-info"><div class="tog-name">Apex Runner 3</div><div class="tog-sub">Alert at </div></div>
@@ -1627,25 +1628,25 @@ button{font:inherit;cursor:pointer}
   
   <div style="padding:var(--space-4) var(--space-5)">
     <div style="background:var(--surface);border:1px solid var(--hair);border-radius:var(--radius-lg);padding:var(--space-4);margin-bottom:var(--space-4)">
-      <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.12em;color:var(--ink-3);margin-bottom:var(--space-3)">Catalog Stats</div>
+      <div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.12em;color:var(--ink-3);margin-bottom:var(--space-3)">Catalog Stats</div>
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:var(--space-3);text-align:center" role="region" aria-label="Ledger statistics">
         <div style="background:var(--surface-2);border-radius:var(--radius-md);padding:var(--space-3)">
           <div style="font-family:var(--font-mono);font-size:var(--text-lg);font-weight:700;color:var(--ink)" id="mob-ledger-total" aria-live="polite">13</div>
-          <div style="font-size:9px;color:var(--ink-3);text-transform:uppercase;margin-top:2px">Total</div>
+          <div style="font-size:12px;color:var(--ink-3);text-transform:uppercase;margin-top:2px">Total</div>
         </div>
         <div style="background:rgba(111,169,107,.12);border:1px solid var(--up);border-radius:var(--radius-md);padding:var(--space-3)">
           <div style="font-family:var(--font-mono);font-size:var(--text-lg);font-weight:700;color:var(--up)" id="mob-ledger-verified" aria-live="polite">0</div>
-          <div style="font-size:9px;color:var(--ink-3);text-transform:uppercase;margin-top:2px">Verified</div>
+          <div style="font-size:12px;color:var(--ink-3);text-transform:uppercase;margin-top:2px">Verified</div>
         </div>
         <div style="background:rgba(255,183,0,.12);border:1px solid var(--gold);border-radius:var(--radius-md);padding:var(--space-3)">
           <div style="font-family:var(--font-mono);font-size:var(--text-lg);font-weight:700;color:var(--gold)" id="mob-ledger-estimated" aria-live="polite">0</div>
-          <div style="font-size:9px;color:var(--ink-3);text-transform:uppercase;margin-top:2px">Estimated</div>
+          <div style="font-size:12px;color:var(--ink-3);text-transform:uppercase;margin-top:2px">Estimated</div>
         </div>
       </div>
     </div>
     
     <div style="background:var(--surface);border:1px solid var(--hair);border-radius:var(--radius-lg);overflow:hidden">
-      <div style="padding:var(--space-3) var(--space-4);border-bottom:1px solid var(--hair);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.12em;color:var(--ink-3)">Colorway Provenance</div>
+      <div style="padding:var(--space-3) var(--space-4);border-bottom:1px solid var(--hair);font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.12em;color:var(--ink-3)">Colorway Provenance</div>
       <div id="mob-ledger-list" style="max-height:400px;overflow-y:auto" role="list" aria-label="Colorway provenance list"></div>
     </div>
   </div>
@@ -1672,44 +1673,44 @@ button{font:inherit;cursor:pointer}
   
   <!-- How It Works -->
   <div style="padding:var(--space-4) var(--space-5);border-bottom:1px solid var(--hair)">
-    <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.12em;color:var(--ink-3);margin-bottom:var(--space-3)">How It Works</div>
+    <div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.12em;color:var(--ink-3);margin-bottom:var(--space-3)">How It Works</div>
     
     <div style="display:flex;gap:var(--space-3);margin-bottom:var(--space-4);padding:var(--space-3);background:var(--surface-2);border-radius:var(--radius-md)">
-      <div style="width:28px;height:28px;background:var(--accent-dim);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-family:var(--font-mono);font-size:11px;font-weight:700;color:var(--accent)">1</span></div>
+      <div style="width:28px;height:28px;background:var(--accent-dim);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-family:var(--font-mono);font-size:12px;font-weight:700;color:var(--accent)">1</span></div>
       <div><div style="font-weight:600;color:var(--ink);font-size:13px;margin-bottom:4px">Feed</div><p style="font-size:12px;color:var(--ink-2);line-height:1.4">Athlete stories with price impact.</p></div>
     </div>
     
     <div style="display:flex;gap:var(--space-3);margin-bottom:var(--space-4);padding:var(--space-3);background:var(--surface-2);border-radius:var(--radius-md)">
-      <div style="width:28px;height:28px;background:var(--accent-dim);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-family:var(--font-mono);font-size:11px;font-weight:700;color:var(--accent)">2</span></div>
+      <div style="width:28px;height:28px;background:var(--accent-dim);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-family:var(--font-mono);font-size:12px;font-weight:700;color:var(--accent)">2</span></div>
       <div><div style="font-weight:600;color:var(--ink);font-size:13px;margin-bottom:4px">Drops</div><p style="font-size:12px;color:var(--ink-2);line-height:1.4">Release calendar with raffles.</p></div>
     </div>
     
     <div style="display:flex;gap:var(--space-3);margin-bottom:var(--space-4);padding:var(--space-3);background:var(--surface-2);border-radius:var(--radius-md)">
-      <div style="width:28px;height:28px;background:var(--accent-dim);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-family:var(--font-mono);font-size:11px;font-weight:700;color:var(--accent)">3</span></div>
+      <div style="width:28px;height:28px;background:var(--accent-dim);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-family:var(--font-mono);font-size:12px;font-weight:700;color:var(--accent)">3</span></div>
       <div><div style="font-weight:600;color:var(--ink);font-size:13px;margin-bottom:4px">Market</div><p style="font-size:12px;color:var(--ink-2);line-height:1.4">Live movers and charts.</p></div>
     </div>
     
     <div style="display:flex;gap:var(--space-3);margin-bottom:var(--space-4);padding:var(--space-3);background:var(--surface-2);border-radius:var(--radius-md)">
-      <div style="width:28px;height:28px;background:var(--accent-dim);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-family:var(--font-mono);font-size:11px;font-weight:700;color:var(--accent)">4</span></div>
+      <div style="width:28px;height:28px;background:var(--accent-dim);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-family:var(--font-mono);font-size:12px;font-weight:700;color:var(--accent)">4</span></div>
       <div><div style="font-weight:600;color:var(--ink);font-size:13px;margin-bottom:4px">Athletes</div><p style="font-size:12px;color:var(--ink-2);line-height:1.4">Stats, events, shoe rotations.</p></div>
     </div>
     
     <div style="display:flex;gap:var(--space-3);margin-bottom:var(--space-4);padding:var(--space-3);background:var(--surface-2);border-radius:var(--radius-md)">
-      <div style="width:28px;height:28px;background:var(--accent-dim);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-family:var(--font-mono);font-size:11px;font-weight:700;color:var(--accent)">5</span></div>
+      <div style="width:28px;height:28px;background:var(--accent-dim);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-family:var(--font-mono);font-size:12px;font-weight:700;color:var(--accent)">5</span></div>
       <div><div style="font-weight:600;color:var(--ink);font-size:13px;margin-bottom:4px">Watchlist</div><p style="font-size:12px;color:var(--ink-2);line-height:1.4">Portfolio tracking and alerts.</p></div>
     </div>
     
     <div style="display:flex;gap:var(--space-3);padding:var(--space-3);background:var(--surface-2);border-radius:var(--radius-md)">
-      <div style="width:28px;height:28px;background:var(--accent-dim);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-family:var(--font-mono);font-size:11px;font-weight:700;color:var(--accent)">6</span></div>
+      <div style="width:28px;height:28px;background:var(--accent-dim);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-family:var(--font-mono);font-size:12px;font-weight:700;color:var(--accent)">6</span></div>
       <div><div style="font-weight:600;color:var(--ink);font-size:13px;margin-bottom:4px">Ledger</div><p style="font-size:12px;color:var(--ink-2);line-height:1.4">Data provenance and integrity.</p></div>
     </div>
   </div>
   
   <!-- Recommendations -->
   <div style="padding:var(--space-4) var(--space-5)">
-    <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.12em;color:var(--ink-3);margin-bottom:var(--space-2)">Recommended</div>
+    <div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.12em;color:var(--ink-3);margin-bottom:var(--space-2)">Recommended</div>
     <div id="guide-recommendations-mob" style="display:grid;gap:var(--space-2)"></div>
-    <p style="font-size:10px;color:var(--ink-3);margin-top:var(--space-3);font-style:italic">Disclosure: Some links are affiliate links.</p>
+    <p style="font-size:12px;color:var(--ink-3);margin-top:var(--space-3);font-style:italic">Disclosure: Some links are affiliate links.</p>
   </div>
   
   <div style="height:80px"></div>
@@ -2203,7 +2204,7 @@ button{font:inherit;cursor:pointer}
       </div>
     </div>
   </div>
-  <div style="padding:var(--space-4) var(--space-5);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.12em;color:var(--ink-3);border-bottom:1px solid var(--hair)">Today</div>
+  <div style="padding:var(--space-4) var(--space-5);font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.12em;color:var(--ink-3);border-bottom:1px solid var(--hair)">Today</div>
   <div class="notif-item" onclick="navDetail('apex-runner-3')">
     <div class="n-icon price"><svg viewBox="0 0 24 24"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg></div>
     <div class="notif-body"><div class="notif-text">Apex Runner 3 dropped 8% — now $228</div><div class="notif-time">2h ago</div></div>
@@ -2219,7 +2220,7 @@ button{font:inherit;cursor:pointer}
     <div class="notif-body"><div class="notif-text">Marcus Vale drops 38 points in overtime win</div><div class="notif-time">8h ago</div></div>
     <div class="notif-dot"></div>
   </div>
-  <div style="padding:var(--space-4) var(--space-5);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.12em;color:var(--ink-3);border-bottom:1px solid var(--hair);border-top:1px solid var(--hair)">This Week</div>
+  <div style="padding:var(--space-4) var(--space-5);font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.12em;color:var(--ink-3);border-bottom:1px solid var(--hair);border-top:1px solid var(--hair)">This Week</div>
   <div class="notif-item">
     <div class="n-icon price"><svg viewBox="0 0 24 24"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg></div>
     <div class="notif-body"><div class="notif-text">Street Phoenix up 15% after buzzer-beater</div><div class="notif-time">1d ago</div></div>
@@ -2391,7 +2392,7 @@ function navDetail(shoeKey,title,colorway){
   document.getElementById('detail-materials').textContent=materials;
   document.getElementById('detail-retail').textContent='$'+shoe.retail;
   const costPct=Math.round((shoe.estCost/shoe.retail)*100);
-  document.getElementById('detail-estcost').innerHTML='~$'+shoe.estCost+' <span style="font-size:11px;color:var(--ink-3);font-weight:400">('+costPct+'%)</span>';
+  document.getElementById('detail-estcost').innerHTML='~$'+shoe.estCost+' <span style="font-size:12px;color:var(--ink-3);font-weight:400">('+costPct+'%)</span>';
   document.getElementById('detail-market').textContent='$'+shoe.market;
   document.getElementById('detail-markup').textContent='+'+shoe.markupPct+'%';
   document.getElementById('detail-margin').textContent=shoe.marginPct+'%';
@@ -2916,8 +2917,8 @@ function renderLedger(){
     const bg=conf==='verified'?'rgba(111,169,107,.12)':(conf==='estimated'?'rgba(255,183,0,.12)':'rgba(192,87,75,.12)');
     return '<div style="display:flex;align-items:center;justify-content:space-between;padding:var(--space-3) var(--space-4);border-bottom:1px solid var(--hair)">'+
       '<div style="flex:1"><div style="font-size:13px;font-weight:600;color:var(--ink)">'+shoe.brand+' '+shoe.model+'</div>'+
-      '<div style="font-size:11px;color:var(--ink-3)">'+shoe.sku+' · Retail $'+shoe.retail+' · Market $'+shoe.market+'</div></div>'+
-      '<div style="text-align:right"><span style="display:inline-block;padding:2px 8px;border-radius:99px;font-size:10px;font-weight:600;text-transform:uppercase;background:'+bg+';color:'+color+'">'+conf+'</span></div></div>';
+      '<div style="font-size:12px;color:var(--ink-3)">'+shoe.sku+' · Retail $'+shoe.retail+' · Market $'+shoe.market+'</div></div>'+
+      '<div style="text-align:right"><span style="display:inline-block;padding:2px 8px;border-radius:99px;font-size:12px;font-weight:600;text-transform:uppercase;background:'+bg+';color:'+color+'">'+conf+'</span></div></div>';
   }).join('');
 }
 
@@ -2936,7 +2937,7 @@ function renderRecommendations(){
   container.innerHTML=GUIDE_RECOMMENDATIONS.map(function(r){
     return '<a href="'+GUIDE_SCHEME+r.url+'" target="_blank" rel="sponsored noopener" style="display:block;padding:var(--space-3);background:var(--surface-2);border:1px solid var(--hair);border-radius:var(--radius-md);text-decoration:none">'+
       '<div style="font-weight:600;color:var(--ink);font-size:13px;margin-bottom:2px">'+r.title+'</div>'+
-      '<div style="font-size:11px;color:var(--ink-2);line-height:1.3">'+r.blurb+'</div>'+
+      '<div style="font-size:12px;color:var(--ink-2);line-height:1.3">'+r.blurb+'</div>'+
       '</a>';
   }).join('');
 }
