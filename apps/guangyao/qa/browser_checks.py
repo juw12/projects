@@ -79,6 +79,8 @@ def make_context(browser, catalog=None, skip_tour=True, **options):
     context.route('https://raw.githubusercontent.com/**', lambda route: route.fulfill(status=200, content_type='application/json', body=body))
     context.route('https://api.github.com/**', lambda route: route.fulfill(status=200, content_type='application/json', body=body))
     context.route('https://js.puter.com/**', lambda route: route.abort())
+    context.route('https://www.youtube-nocookie.com/**', lambda route: route.fulfill(
+        status=200, content_type='text/html', body='<!doctype html><title>video stub</title>'))
     if skip_tour:
         context.add_init_script("localStorage.setItem('guangyao-tour-v1', 'test');")
     return context
