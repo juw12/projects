@@ -869,10 +869,23 @@
     @media (max-width: 720px) {
       table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
     }
+    /* The hidden attribute must win over .btn display rules (Install shows only when installable) */
+    [hidden] { display: none !important; }
+    .logo { flex-shrink: 0; margin-right: 16px; }
+    nav .btn { white-space: nowrap; }
     @media (max-width: 480px) {
       .header-inner { padding: 12px 16px; }
-      nav { gap: 4px; }
+      nav { gap: 6px; }
       nav .btn { margin-left: 0 !important; }
+      /* Icon-only Install on phones; aria-label keeps its name */
+      #btn-install-app { font-size: 0; width: 44px; min-height: 44px; padding: 0; justify-content: center; }
+      #btn-install-app svg { margin-right: 0 !important; }
+    }
+    @media (max-width: 400px) {
+      .header-inner { padding: 12px; }
+      .logo { gap: 8px; margin-right: 8px; }
+      nav { gap: 4px; }
+      nav .btn-sm:not(#btn-install-app) { padding-left: 12px; padding-right: 12px; }
     }
   </style>
   <link rel="manifest" href="manifest.webmanifest">
