@@ -1699,7 +1699,7 @@
         "web"
       ],
       "image": "morning-paper-web-card.jpg",
-      "image_alt": "The Morning Paper Brief tab: a lead markets story beside a numbered list of today's top headlines",
+      "image_alt": "The Morning Paper front page: a lead story beside the numbered Brief, with three ruled news columns below",
       "extra_links": [
         {
           "label": "Source",
@@ -1709,9 +1709,9 @@
       "card": {
         "capture": "https://juw12.github.io/morning-paper-web/",
         "label": "morning paper · today",
-        "theme": "dark",
-        "accent": "#0264f5",
-        "accent2": "#562f9e"
+        "theme": "light",
+        "accent": "#b4232c",
+        "accent2": "#7f1d1d"
       },
       "status": "released",
       "order": 39,
