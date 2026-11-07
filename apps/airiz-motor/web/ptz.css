@@ -245,7 +245,7 @@
 
 .ptz-note {
   margin: 4px 0;
-  font-size: 0.85em;
+  font-size: max(0.85em, 12px);
   color: var(--color-text-muted, #9aa0aa);
 }
 
@@ -283,7 +283,7 @@
 
 .ptz-preset-where {
   font-family: var(--font-mono, monospace);
-  font-size: 0.85em;
+  font-size: max(0.85em, 12px);
   color: var(--color-text-muted, #9aa0aa);
 }
 
@@ -465,7 +465,7 @@
 
 .ptz-pose-steps {
   font-family: var(--font-mono, monospace);
-  font-size: 0.85em;
+  font-size: max(0.85em, 12px);
   color: var(--color-text-muted, #9aa0aa);
 }
 
@@ -518,7 +518,7 @@
   border-radius: 999px;
   background: rgba(200, 30, 30, 0.85);
   color: #fff;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   pointer-events: none;
 }
