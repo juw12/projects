@@ -2099,6 +2099,45 @@
       "status": "released",
       "order": 48,
       "portfolio": true
+    },
+    {
+      "id": "batam-uncle-says",
+      "name": "Batam Uncle Says",
+      "category": "Apps",
+      "external": true,
+      "url": "https://juw12.github.io/batam-uncle-says/",
+      "url_label": "Open site",
+      "desc": "Batam day trips for Singaporeans: ferry-timed plan, fair-price check, phrase cards. Works offline.",
+      "summary": "Batam day trips for Singaporeans, planned around your ferry and usable offline.",
+      "description": "A mobile web app that builds a day plan from your ferry times, checks whether a quoted price is fair, converts SGD and rupiah, compares ferries and lists entry rules. Includes show-the-driver Indonesian phrase cards, a leave-for-terminal countdown and plain-text sharing to WhatsApp. English and Chinese, every item sourced and dated, works offline after the first visit.",
+      "tags": [
+        "pwa",
+        "travel",
+        "batam",
+        "offline",
+        "javascript"
+      ],
+      "note_tags": [
+        "batam-uncle-says"
+      ],
+      "image": "batam-uncle-says-card.jpg",
+      "image_alt": "Batam Uncle Says home page: Barelang Bridge hero with the headline Batam, without the guesswork, a live Batam clock with a leave-for-terminal countdown, and key facts on ferry fare, exchange rate, time difference and visa-free stay",
+      "extra_links": [
+        {
+          "label": "Source",
+          "url": "https://github.com/juw12/batam-uncle-says"
+        }
+      ],
+      "card": {
+        "label": "batam-uncle-says · home",
+        "capture": "https://juw12.github.io/batam-uncle-says/",
+        "theme": "light",
+        "accent": "#986727",
+        "accent2": "#7b9e2f"
+      },
+      "status": "released",
+      "order": 49,
+      "portfolio": true
     }
   ]
 }
