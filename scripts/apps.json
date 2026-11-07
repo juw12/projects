@@ -2017,6 +2017,45 @@
       "status": "released",
       "order": 46,
       "portfolio": true
+    },
+    {
+      "id": "tally",
+      "name": "Tally",
+      "category": "Apps",
+      "external": true,
+      "url": "https://juw12.github.io/tally/",
+      "url_label": "Open site",
+      "desc": "Voice expense tracker PWA: speak an expense, it's saved. EN/ID/ZH, regions, budgets, Strava-style share cards.",
+      "summary": "Say an expense, it's saved: a voice expense tracker for iPhone and Android.",
+      "description": "Speak or dictate a sentence like 'lunch 120 and taxi 250 yesterday' and Tally saves each expense with an amount, category and date. Understands English, Bahasa Indonesia and Chinese; 21 regions set currency, formats and app language. Overview with budget pace, daily chart and categories, plus a Strava-style share card for your day, week or month. Installable PWA, works offline, data stays on the device.",
+      "tags": [
+        "pwa",
+        "voice",
+        "expenses",
+        "finance",
+        "i18n"
+      ],
+      "note_tags": [
+        "tally"
+      ],
+      "image": "tally-card.jpg",
+      "image_alt": "Tally overview in dark mode with sample data: $306.50 spent this month, budget bar at 26%, daily spending bar chart and categories",
+      "extra_links": [
+        {
+          "label": "Source",
+          "url": "https://github.com/juw12/tally"
+        }
+      ],
+      "card": {
+        "label": "tally · demo",
+        "capture": "https://juw12.github.io/tally/?demo=1",
+        "theme": "dark",
+        "accent": "#a55b4a",
+        "accent2": "#9e972f"
+      },
+      "status": "released",
+      "order": 47,
+      "portfolio": true
     }
   ]
 }
