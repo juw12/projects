@@ -371,3 +371,9 @@ body.mobile .notes {
     padding: 9px 12px;
   }
 }
+
+/* hone a11y: 44px phone tap targets for brand + footer links */
+@media (max-width: 560px) {
+  .brand { min-height: 44px; }
+  footer a { display: inline-flex; align-items: center; min-height: 44px; }
+}
