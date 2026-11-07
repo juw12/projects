@@ -2165,7 +2165,7 @@
         "merge-queue"
       ],
       "image": "gate-card.jpg",
-      "image_alt": "gate demo page: headline 'A merge gate for AI-agent code', outcome tiles (26 sessions, 19 merged, 3 rejected by tests) and a terminal listing merged and rejected agent sessions",
+      "image_alt": "gate site: serif headline 'A merge gate for AI-agent code' beside a ledger card of the recorded run (26 sessions, 19 merged, 3 rejected by tests) with one coloured block per session",
       "extra_links": [
         {
           "label": "Source",
@@ -2176,8 +2176,8 @@
         "label": "gate · recorded demo run",
         "capture": "https://juw12.github.io/gate/",
         "theme": "light",
-        "accent": "#23854e",
-        "accent2": "#2f899e"
+        "accent": "#0f6b3a",
+        "accent2": "#a3321f"
       },
       "status": "released",
       "order": 50,
