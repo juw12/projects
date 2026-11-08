@@ -2443,9 +2443,9 @@
       "external": true,
       "url": "https://juw12.github.io/nongkrong/",
       "url_label": "Open site",
-      "desc": "Sit at a table in a virtual warung, kopitiam, pub or cafe for your city. Only your table can read or hear you. No account, no server.",
-      "summary": "Virtual warung and cafe tables for your city. Only your table can read or hear you.",
-      "description": "Pick a country and city, walk into a warung kopi, kopitiam, pub or cafe, and sit at a table. Text and voice go browser to browser and reach only the people at that table. 23 countries, 107 regions, no account, no server.",
+      "desc": "Walk into a 3D warung, kopitiam, angkringan or pub for your city and sit at a table. Only your table can read or hear you. No account, no server.",
+      "summary": "A 3D warung and cafe for your city. Sit at a table; only your table can read or hear you.",
+      "description": "Pick a country and city, walk into a 3D warung kopi, kopitiam, angkringan, pub or cafe as an avatar, and sit at a table. Text and voice go browser to browser and reach only the people at that table. 23 countries, 107 regions, no account, no server.",
       "tags": [
         "webrtc",
         "p2p",
@@ -2457,7 +2457,7 @@
         "nongkrong"
       ],
       "image": "nongkrong-card.jpg",
-      "image_alt": "Nongkrong floor plan of a Batam warung kopi: six marble tables with stools, a counter strip, and the Meja 1 chat panel with three people talking",
+      "image_alt": "Nongkrong in 3D: an evening warung kopi in Batam, three people seated at Meja 2 with chat bubbles over their heads",
       "extra_links": [
         {
           "label": "Source",
