@@ -1,23 +1,27 @@
 {
-  "version": "3.4.0",
+  "version": "3.4.1",
   "released": "2026-11-08",
   "notes": {
     "en": [
+      "Phones: the Invest page and its sheets now fit the screen (the rebalance table scrolls on its own).",
       "Seller mode: the Marketplace is for browsing and buying; turn on Seller mode in Settings (like opening a shop) to generate, sell and earn referral commission.",
       "Say a trade in Invest: “beli 10 lot BBCA di 9000” or “bought 0.5 bitcoin at 900 juta”. Buys update your average cost, sells reduce the holding, with Undo.",
       "Coming from Tally? Mint finds your Tally expenses on this device and brings them in with one tap."
     ],
     "id": [
+      "Ponsel: halaman Investasi dan lembarnya kini pas di layar (tabel rebalancing bisa digeser sendiri).",
       "Mode Penjual: Marketplace untuk melihat dan membeli; nyalakan Mode Penjual di Pengaturan (seperti buka toko) untuk membuat, menjual, dan dapat komisi referral.",
       "Ucapkan transaksi di Investasi: “beli 10 lot BBCA di 9000” atau “beli 0.5 bitcoin harga 900 juta”. Beli memperbarui harga rata-rata, jual mengurangi aset, bisa Batal.",
       "Dari Tally? Mint menemukan pengeluaran Tally di perangkat ini dan memindahkannya dengan satu ketukan."
     ],
     "zh": [
+      "手机：投资页面及其弹出面板现在适配屏幕（再平衡表格可单独横向滚动）。",
       "卖家模式：市场默认只用于浏览和购买；在设置中开启卖家模式（就像开店），即可生成、出售模板并赚取推荐佣金。",
       "在投资里说出交易：“买 10 手 BBCA 9000”或“bought 0.5 bitcoin at 900 juta”。买入更新平均成本，卖出减少持仓，可撤销。",
       "从 Tally 来？Mint 会找到本设备上的 Tally 支出，一键导入。"
     ],
     "es": [
+      "Móviles: la página Invertir y sus paneles ya caben en la pantalla (la tabla de reequilibrio se desplaza sola).",
       "Modo vendedor: el Marketplace es para mirar y comprar; activa el Modo vendedor en Ajustes (como abrir una tienda) para generar, vender y ganar comisión por referidos.",
       "Di una operación en Invertir: “bought 5 AAPL at 190”. Las compras actualizan tu coste medio y las ventas reducen la posición, con Deshacer.",
       "¿Vienes de Tally? Mint encuentra tus gastos de Tally en este dispositivo y los trae con un toque."
