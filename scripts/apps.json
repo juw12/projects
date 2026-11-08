@@ -2521,6 +2521,49 @@
       "status": "released",
       "order": 57,
       "portfolio": true
+    },
+    {
+      "id": "trunnion-topopt",
+      "name": "Trunnion TopOpt",
+      "category": "Engineering",
+      "external": true,
+      "url": "https://juw12.github.io/trunnion-topopt/",
+      "url_label": "Open site",
+      "desc": "Topology-optimised A-axis trunnion upright for a 5-axis FDM printer: worst-case tilt + belt loads, 45 deg self-supporting, fine-mesh FE verified, STL + STEP",
+      "summary": "Topology-optimised A-axis trunnion upright for a 5-axis 3D printer, checked by fine-mesh FE.",
+      "description": "A 3D results page comparing six upright designs, from a conventional webbed part to the recommended v4 Tilt gate. v4 stays stiff for loads in any tilt direction and for belt pull, cuts worst-case compliance from 6.8 to 2.0 N mm and axle tilt from 28 to 4.6 arcmin, and prints with no supports. Download the STL or STEP and inspect every design in the browser.",
+      "tags": [
+        "Python",
+        "FEA",
+        "CadQuery",
+        "Topology optimisation"
+      ],
+      "note_tags": [
+        "trunnion-topopt",
+        "3d-printing",
+        "5-axis",
+        "additive-manufacturing",
+        "cadquery",
+        "finite-element-analysis"
+      ],
+      "image": "trunnion-topopt-card.jpg",
+      "image_alt": "Trunnion TopOpt results page: orange topology-optimised upright in a 3D viewer next to its metrics table",
+      "extra_links": [
+        {
+          "label": "Source",
+          "url": "https://github.com/juw12/trunnion-topopt"
+        }
+      ],
+      "card": {
+        "label": "trunnion-topopt · results",
+        "capture": "https://juw12.github.io/trunnion-topopt/",
+        "theme": "light",
+        "accent": "#8a370d",
+        "accent2": "#959e2f"
+      },
+      "status": "released",
+      "order": 58,
+      "portfolio": true
     }
   ]
 }
