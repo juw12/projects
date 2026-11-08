@@ -2694,6 +2694,50 @@
       "status": "released",
       "order": 60,
       "portfolio": true
+    },
+    {
+      "id": "pocketdex",
+      "name": "PocketDex",
+      "category": "Apps",
+      "external": true,
+      "url": "https://juw12.github.io/pocketdex/",
+      "url_label": "Open app",
+      "desc": "Calm pixel-sprite Pokedex PWA: all 1025 Pokemon, daily encounter, habits that level up your partner, a focus timer you catch Pokemon with, and a quiet 3D meadow.",
+      "summary": "A calm pixel Pokedex you use every day: habits, focus timer and a quiet 3D meadow.",
+      "description": "All 1025 Pokemon with stats, type matchups, abilities and evolution chains, offline. Each day brings a new wild encounter; finish a focus session to catch it. Daily habits give your partner XP until it levels up and evolves. A Field Dex camera turns real things into 64 px Game Boy-style sprites with your own entry card, and a low-poly 3D meadow follows your local time with your partner and recent catches wandering in it. Quiz, team builder and trainer card included. No account, progress stays in the browser. Unofficial fan project.",
+      "tags": [
+        "PWA",
+        "offline-first",
+        "pixel art",
+        "habit tracker",
+        "three.js"
+      ],
+      "note_tags": [
+        "pocketdex",
+        "pokedex",
+        "habit-tracker",
+        "pomodoro",
+        "pixel-art",
+        "threejs"
+      ],
+      "image": "pocketdex-card.jpg",
+      "image_alt": "PocketDex Today page on warm paper: a greeting with caught, streak, focus and habit counters, a low-poly 3D meadow with trees, a pond and a pixel Pokemon on a dirt path, today's encounter card with a pixel sprite, and a training checklist with type-tagged habits",
+      "extra_links": [
+        {
+          "label": "Source",
+          "url": "https://github.com/juw12/pocketdex"
+        }
+      ],
+      "card": {
+        "label": "pocketdex · home",
+        "capture": "https://juw12.github.io/pocketdex/",
+        "theme": "light",
+        "accent": "#4e6b38",
+        "accent2": "#2f9e53"
+      },
+      "status": "released",
+      "order": 1000,
+      "portfolio": true
     }
   ]
 }
