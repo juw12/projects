@@ -2651,6 +2651,49 @@
       "status": "released",
       "order": 59,
       "portfolio": true
+    },
+    {
+      "id": "hoki",
+      "name": "Hoki",
+      "category": "Apps",
+      "external": true,
+      "url": "https://juw12.github.io/hoki/",
+      "url_label": "Open site",
+      "desc": "Hoki: a calm, waving Chinese lucky cat (招财猫) for your home screen and Windows desktop. Tap it for a luck boost.",
+      "summary": "A calm, waving Chinese lucky cat for your phone home screen and Windows desktop. Tap it for a luck boost.",
+      "description": "Hoki is a maneki-neko (招财猫) that waves all day. Tap it and the wave speeds up, today's luck count goes up and lucky numbers like 8 and 28 bring a small celebration. It installs as a home-screen app (PWA) or runs as a transparent always-on-top widget on the Windows desktop. Soft flat-vector art, a moon-gate scene whose sky follows the time of day, and everything stays on your device.",
+      "tags": [
+        "pwa",
+        "lucky-cat",
+        "desktop-widget",
+        "svg"
+      ],
+      "note_tags": [
+        "hoki",
+        "desktop-widget",
+        "lucky-cat",
+        "maneki-neko",
+        "pwa",
+        "svg"
+      ],
+      "image": "hoki-card.jpg",
+      "image_alt": "Hoki in dark mode: a calico lucky cat holding a gold 福 coin waves its paw inside a round moon-gate scene with red lanterns, next to a luck card showing today's count, a boost bar and buttons for Add to home screen and Desktop widget",
+      "extra_links": [
+        {
+          "label": "Source",
+          "url": "https://github.com/juw12/hoki"
+        }
+      ],
+      "card": {
+        "label": "hoki · home",
+        "capture": "https://juw12.github.io/hoki/",
+        "theme": "dark",
+        "accent": "#b6453a",
+        "accent2": "#9e8c2f"
+      },
+      "status": "released",
+      "order": 60,
+      "portfolio": true
     }
   ]
 }
