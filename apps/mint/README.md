@@ -5,7 +5,7 @@
 
 <p align="center">
   <b>Shared budgets, in any currency.</b><br>
-  Synced on every device, with expenses you log by texting Mint on WhatsApp.
+  Synced on every device. Say an expense or a trade, or text it on WhatsApp, and Mint files it.
 </p>
 
 <p align="center">
@@ -36,12 +36,12 @@
       Shared budgets in any currency, synced across every device.
     </td>
     <td width="33%" valign="top">
-      <b>Log it on WhatsApp</b><br>
-      Text an expense to Mint and it lands in the right budget.
+      <b>Just say it</b><br>
+      Say "coffee 25k, taxi 50k" or "beli 10 lot BBCA di 9000" and Mint logs it. WhatsApp works too.
     </td>
     <td width="33%" valign="top">
-      <b>A Marketplace</b><br>
-      Budget plans, investment mixes and spreadsheet templates, in 4 languages.
+      <b>Sell when you're ready</b><br>
+      Turn on Seller mode to sell budget plans, investment mixes and templates, in 4 languages.
     </td>
   </tr>
 </table>
@@ -103,6 +103,23 @@ API `https://mint-api.juw12.workers.dev/api/health`
 - **Two service workers.** `web/budget/sw.js` (scope `budget/`, caches `mint-budget-v…`) and
   `web/sw.js` (scope `mint/`, caches `mint-v…`). Each deletes only its own old caches.
 
+## Mint 3.4: one app for budgets, voice, investing and selling
+
+- **Voice everywhere (3.3).** Add transaction and Invest both have a mic. Mint uses Tally's parser
+  (`budget/js/voice.js`, `budget/js/voice-parse.js`): one spoken item fills the form, several are added at once
+  with Undo. Amounts understand `25k`, `25 ribu`, `1,5 juta`, `Rp 50.000` and similar.
+- **Say a trade.** In Invest, "beli 10 lot BBCA di 9000" buys 1,000 shares (1 lot = 100), "0.5 bitcoin harga
+  900 juta" and gold in grams (`emas`) work too, "for X total" sets the total instead of the unit price. Buys merge at
+  the weighted average cost; sells reduce or close the holding.
+- **Seller mode.** Selling is off until you open your shop (**Settings → Seller mode**), like a Shopee or
+  Tokopedia seller account. Buyers only see Browse; Create, Sell, Publish, Affiliate and the content kit show an
+  "Open your shop" step. Anyone who already had a template draft starts with Seller mode on.
+- **Tally is now part of Mint.** Mint Home offers to import expenses from [Tally](https://juw12.github.io/tally/)
+  on the same site (each expense once, with Undo), and Tally shows a card pointing to Mint. Tally keeps working
+  for people who stay.
+- **One typeface.** Mint uses the system font stack (as Tally does) instead of a web font, so it loads faster
+  and looks native on every device.
+
 ## Mint 3.2: currencies, Invest learning, one account
 
 - **Many currencies.** Quick-add, income and holdings take any supported currency. Amounts convert to the
@@ -137,13 +154,13 @@ API `https://mint-api.juw12.workers.dev/api/health`
 | **Onboarding quiz** | 14 quick questions on needs, wants and behaviour → 5 traits (spender↔saver, spontaneous↔planner, cautious↔bold, independent↔generous, calm↔avoidant) → one of 6 personas: 🐿️ Squirrel, 🦉 Owl, 🦋 Butterfly, 🦁 Lion, 🐬 Dolphin, 🐢 Turtle. |
 | **Plan from income** | Converts take-home pay into needs / wants / savings / investing envelopes tuned to the persona, then adjusts for emergency fund, debt and actual rent (it never budgets housing below what you pay). One click turns the plan into envelopes and goals. |
 | **Overview** | "Left to spend" ring, safe daily spend, spending pace vs. budget, category donut, budget bars, warnings, who-spent-what, live activity and goals. Tap Income, Spent, Saved or Safe to open the page behind the number. |
-| **Fast entry** | Type the amount and what it was; Mint picks the category from your own history first, then common words in English, Indonesian, Chinese and Spanish ("coffee", "Grab", "listrik", "午饭", "almuerzo"). Recent descriptions autocomplete. |
+| **Fast entry** | Tap the mic and say it ("coffee 25k, taxi 50k" adds both, with Undo), or type the amount and what it was; Mint picks the category from your own history first, then common words in English, Indonesian, Chinese and Spanish ("coffee", "Grab", "listrik", "午饭", "almuerzo"). Recent descriptions autocomplete. |
 | **Sheet** | Spreadsheet-style grid: edit any cell inline, Enter moves down, sort, filter, search as you type, add rows, CSV import and export. Remote edits flash in place. |
 | **Budget** | Income sources (monthly/weekly/yearly), left-to-assign, "Mint's plan vs actual" with *Apply plan*, and editable envelopes by group. |
 | **Warnings** | Alert at a configurable threshold (default 80%), when a limit is over, and when the current pace will overspend before month end. Shown as toasts, in the bell and (optionally) as browser notifications, including for edits made by other people. Quick-add shows "this brings Groceries to 86%" before you save. |
 | **Tips** | Persona-aware tips: one per day, sometimes after adding a transaction, and on demand. |
 | **Goals** | Savings goals with progress rings and the monthly amount needed to reach the target date. |
-| **Invest** | Holdings (units × price), allocation vs. a target (presets or custom), drift and the trades needed to rebalance, and a compound-growth projection with sliders. Prices are entered manually. |
+| **Invest** | Holdings (units × price), allocation vs. a target (presets or custom), drift and the trades needed to rebalance, and a compound-growth projection with sliders. Prices are entered manually. **Say a trade** (mic or typing) adds or sells a holding: "beli 10 lot BBCA di 9000", "0.5 bitcoin harga 900 juta", "jual 2 lot TLKM"; buys average the cost, Undo is one tap. |
 | **Look & feel** | Light, Dark or System theme in one tap from the top bar (the new theme grows out of the button), with live previews in **Settings → Appearance**. Motion is calm: rings, bars and figures animate when a page or month opens, never on every edit, and *reduce motion* turns it off. |
 | **Phone layout** | One tidy header row and a tab bar with a big **+** in the middle. **More** holds theme, language, Goals, Invest, You, Share, Settings and Templates. Dialogs open as bottom sheets you can drag down to close; toasts can be swiped away and never cover an open sheet. |
 | **Keyboard** | `N` add · `T` theme · `1`–`8` pages · `/` search the sheet · `?` lists every shortcut. |
