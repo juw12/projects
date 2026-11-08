@@ -2,6 +2,49 @@
   "_comment": "Single source of truth for the software apps shipped by this monorepo. Consumed by scripts/build_site.py (GitHub Pages landing page + deploy copy list) and scripts/publish_portfolio.py (portfolio cards + Obsidian notes). `summary` is the one-line portfolio-card copy (HTML-ready, keep it under ~120 visible characters so cards stay even); `description` is the full copy shown in the card's Details view and the Obsidian note (HTML-ready); `desc` is the short landing-page blurb. Optional `portfolio_order` overrides `order` for the portfolio card sequence only (the lowest values are the featured cards shown first); `portfolio: false` keeps an app off the portfolio without changing the landing page or notes. `links` are relative to the deployed site root (https://juw12.github.io/projects/<rel>). Extra fields `image_alt`, `project_id`, `label` (thumbnail aria-label) and `desc` reproduce the live markup verbatim. Card art (`image`, in the portfolio's assets/projects) must be house style: a 1600x1000 live-UI screenshot framed in the standard browser window on the dark accent gradient. Make it with `python scripts/portfolio_card.py <id>` (optional per-app `card` object: capture, frame_image, click, wait_ms, label, theme, accent, accent2) and never hand-draw, halftone or paste raw screenshots; publish_portfolio.py refuses cards that are missing, undersized or greyscale.",
   "apps": [
     {
+      "id": "riak",
+      "name": "Riak",
+      "category": "Apps",
+      "external": true,
+      "url": "https://juw12.github.io/riak/",
+      "url_label": "Open app",
+      "desc": "Riak: a free cozy aquarium in your browser. Care for a living tank, fish nine places, grow plants, breed corals. No account, no shop, works offline.",
+      "summary": "Cozy aquarium PWA: care for a living tank, fish nine places, grow plants, breed corals.",
+      "description": "A calm web aquarium you look after a few minutes a day. Real nitrogen-cycle water care, fishing with a reel minigame across nine spots, 47 species, breeding, aquascaping, a greenhouse and a coral reef lab. Free, offline, English and Bahasa Indonesia.",
+      "tags": [
+        "PWA",
+        "JavaScript",
+        "Canvas",
+        "Game"
+      ],
+      "note_tags": [
+        "riak",
+        "aquarium",
+        "browser-game",
+        "cozy-game",
+        "pwa",
+        "indonesia"
+      ],
+      "image": "riak-card.jpg",
+      "image_alt": "Riak tank view: a planted vector aquarium with neon tetras, guppies and cherry barbs, the tank tools below and the care notes on the right",
+      "extra_links": [
+        {
+          "label": "Source",
+          "url": "https://github.com/juw12/riak"
+        }
+      ],
+      "card": {
+        "label": "riak - tank",
+        "capture": "https://juw12.github.io/riak/#visit=zdVJLj5swEP4vs9cRMn4A5thLq1btoWpVVREHY5uEbgKpWbJKq_73yuOEhEh7YGR95nvMeP7CCeocYYAavvYnH1o_OEAYoQZAeIUauuCnHSBMUIP5PZtp7PeAsIV6wzKeI8v45ct1LNVSyliK9alYYw-lWlRiSeJURCx8OckGYQf1ZgOT78N5BmSZwDzLkTW4AqNigTmhx975ENGiwvhng3AkkZPZR5glGBcg55hnrExYGF_M3kS4Km5WN1TfwN15G0ZIDS2gDefjSwRVFFWXP00ftsFMU7yQ_E5idVG-caHU7eKXOZnOh4EajAmZSBdmmNve0P_ifkivY3ARLK8hGwQL9aZB6Ggsgx8HQPju-gFwA0-OOecMIDyJ0rROx5PT0vEWGhSZQIZw3JtzN-8hOlz4X8bQE98qJx0jfmGZK4lfCS4Y8dUb_J_zc-I77i6uvDLOeuKXUsnE55Fv59CP83TPf2fiLkR_7cTFX7Zsyc-FJ34e-Xvz53xPft8P27g0V_uK7HVrnU32SksNDfKsjPRptL1ZpV-mZ52zqWdetTblcJVoeXHr_j79tAv94QgIn8f42FHBSsFp_h2vtKL-rRWCWwpQPCps5-PxDAif-ueRBDqumfQpgjZaxZPPS0cDkEngroMr_4MZDPF9Z7yksQlumBbUQqeUKKFBamDapenZnQ_h3JrQAsLHeUj-TiuW-KXmmqcFyGUpCvLnD_4rkW_j4SKiVC6IWna84_QgTshKViQiVq-4kvgx781wDVIJSRqK6_yySYWTHb2FfpykezWh245zMId-NRCuvKQsQmnfFjTQQhU8rkSRVmLZ6Obffw",
+        "theme": "dark",
+        "accent": "#4a8139",
+        "accent2": "#2f9e68"
+      },
+      "status": "released",
+      "order": 58,
+      "portfolio": true
+    },
+    {
       "id": "teduh",
       "name": "Teduh",
       "category": "Apps",
