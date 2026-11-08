@@ -1686,7 +1686,7 @@
       "url_label": "Open site",
       "desc": "A second brain that lives inside your repo, as plain Markdown next to your code",
       "summary": "A second brain inside your repo: ideas wall, task board, decision log and AI context pack, all as plain Markdown.",
-      "description": "Capture, brainstorm, decide and ship as plain Markdown next to your code: an <strong>ideas wall</strong>, a <strong>task board</strong>, a <strong>decision log</strong>, a code TODO inbox and an <strong>AI context pack</strong>, plus a <strong>voice daily log</strong> that also works offline, on the device. Local-first, zero dependencies.",
+      "description": "Capture, brainstorm, decide and ship as plain Markdown next to your code: an <strong>ideas wall</strong>, a <strong>task board</strong>, a <strong>decision log</strong>, a code TODO inbox and an <strong>AI context pack</strong>, plus a <strong>voice daily log</strong> that works offline, on the device, and offers weekly and monthly reviews when they are due. Local-first, zero dependencies.",
       "tags": [
         "Markdown",
         "local-first",
