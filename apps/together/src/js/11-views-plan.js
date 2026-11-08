@@ -172,7 +172,9 @@ function weekCardHTML(now) {
   const n = names();
   const fun = funPlan(state, now);
   const range = `${plan.weekStart.toLocaleDateString(i18n.locale, { day: "numeric", month: "short" })} – ${plan.weekEnd.toLocaleDateString(i18n.locale, { day: "numeric", month: "short" })}`;
-  const potRows = plan.pots.map(p => {
+  // Only the first unfinished pot shows its add-money form; the rest fold behind "+ Add" (keeps Home short on phones).
+  const firstOpen = plan.pots.findIndex(p => !p.done);
+  const potRows = plan.pots.map((p, potIndex) => {
     const share = p.weekly > 0 ? clamp(p.added / p.weekly, 0, 1) : 1;
     const partnerPart = (who, label) => {
       const target = p.targets[who];
@@ -184,14 +186,15 @@ function weekCardHTML(now) {
         <div class="small muted">${esc(money(p.weekly, cur))} this week · about ${esc(money(p.daily, cur))} a day${p.behind ? " · catching up" : ""}</div></div>
         ${p.done ? '<span class="chip ok">✓ Done</span>' : `<span class="chip">${esc(money(Math.max(0, p.weekly - p.added), cur))} to go</span>`}</div>
       <div class="bar" style="margin:6px 0" role="progressbar" aria-label="${esc(p.fund.name)} this week" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(share * 100)}"><span style="width:${share * 100}%"></span></div>
-      <div class="small muted">In this week: ${partnerPart("a", n.a)} · ${partnerPart("b", n.b)}${plan.shares.byIncome ? " (split by income)" : ""}</div>
-      ${p.done ? "" : `<form class="row" data-form="deposit" data-id="${esc(p.fund.id)}" style="margin-top:6px;flex-wrap:nowrap">
+      <div class="pot-foot"><div class="small muted">In this week: ${partnerPart("a", n.a)} · ${partnerPart("b", n.b)}</div>
+      ${p.done ? "" : `<details class="pot-add"${potIndex === firstOpen ? " open" : ""}><summary aria-label="${esc(`Add to ${p.fund.name}`)}">+ Add</summary>
+        <form class="row" data-form="deposit" data-id="${esc(p.fund.id)}" style="margin-top:6px;flex-wrap:nowrap">
         ${amountInput("amount", `Add to ${p.fund.name}`, { style: "flex:1;min-width:0", placeholder: money(Math.max(0, p.weekly - p.added), cur) })}
-        ${contributorSelect(`Who is adding to ${p.fund.name}`)}<button type="submit">+ Add</button></form>`}
+        ${contributorSelect(`Who is adding to ${p.fund.name}`)}<button type="submit">+ Add</button></form></details>`}</div>
     </li>`;
   }).join("");
   const moneyBlock = plan.pots.length
-    ? `<div class="small" style="margin-bottom:6px"><b>${esc(money(plan.totalAdded, cur))}</b> of ${esc(money(plan.totalWeekly, cur))} into your pots this week</div><ul class="clean">${potRows}</ul>`
+    ? `<div class="spread" style="margin-bottom:6px"><div class="small"><b>${esc(money(plan.totalAdded, cur))}</b> of ${esc(money(plan.totalWeekly, cur))} into your pots this week</div>${plan.shares.byIncome ? '<div class="chip">Split by income</div>' : ""}</div><ul class="clean">${potRows}</ul>`
     : `<p class="small muted">Give a savings pot a monthly amount on the Money tab and you'll get a weekly target for it here.</p>`;
   const stepRow = plan.step ? `<label class="step-row"><input type="checkbox" data-toggle="step" data-goal="${esc(plan.step.goal.id)}" data-id="${esc(plan.step.step.id)}">
       <span><span class="muted">Goal step:</span> ${esc(plan.step.step.text)} <span class="muted">(${esc(plan.step.goal.title)})</span></span></label>` : "";
