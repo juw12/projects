@@ -2525,14 +2525,15 @@
       "external": true,
       "url": "https://juw12.github.io/bilas/",
       "url_label": "Open site",
-      "desc": "A quiet first-person 3D coin laundry with synthesized ASMR. Wash, dry, hang, fold. Web, installable PWA (desktop/iPhone) and Android APK.",
+      "desc": "A quiet first-person 3D coin laundry with synthesized ASMR. Drag shirts into the drum, hold the bottle to pour, dry, hang, fold. Web, PWA, Android APK and iOS app.",
       "summary": "A quiet first-person 3D coin laundry with synthesized ASMR.",
-      "description": "Feed the changer, wash, tumble dry, hang by the window and fold, with every sound synthesized live. No score, no timer pressure. Runs in the browser, installs on desktop and iPhone, and has an Android APK.",
+      "description": "Feed the changer, wash, tumble dry, hang by the window and fold, with every sound synthesized live. No score, no timer pressure. Shirts are dragged into the drum and detergent is poured by holding the bottle. Runs in the browser, installs on desktop and iPhone, and has an Android APK and a native iOS build.",
       "tags": [
         "three.js",
         "Web Audio",
         "PWA",
-        "Android"
+        "Android",
+        "iOS"
       ],
       "note_tags": [
         "bilas",
@@ -2552,6 +2553,10 @@
         {
           "label": "Android APK",
           "url": "https://github.com/juw12/bilas/releases/tag/android"
+        },
+        {
+          "label": "iOS app",
+          "url": "https://github.com/juw12/bilas/releases/tag/ios"
         }
       ],
       "card": {
