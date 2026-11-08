@@ -8,9 +8,9 @@
       "external": true,
       "url": "https://juw12.github.io/riak/",
       "url_label": "Open app",
-      "desc": "Riak: a free cozy aquarium in your browser. Care for a living tank, fish nine places, grow plants, breed corals. No account, no shop, works offline.",
-      "summary": "Cozy aquarium PWA: care for a living tank, fish nine places, grow plants, breed corals.",
-      "description": "A calm web aquarium you look after a few minutes a day. Real nitrogen-cycle water care, fishing with a reel minigame across nine spots, 47 species, breeding, aquascaping, a greenhouse and a coral reef lab. Free, offline, English and Bahasa Indonesia.",
+      "desc": "Riak: a free cozy aquarium in your browser. Care for a living tank, flick-cast at nine fishing spots, grow a greenhouse, keep a field journal. No account, no shop, works offline.",
+      "summary": "Cozy aquarium PWA: care for a living tank, flick-cast at nine spots, grow a greenhouse, breed corals.",
+      "description": "A calm web aquarium you look after a few minutes a day. Real nitrogen-cycle water care, flick-to-cast fishing with a reel minigame across nine spots, 47 species logged in a field journal, breeding, aquascaping, a greenhouse bench with garden orders and a coral reef lab. Free, offline, English and Bahasa Indonesia.",
       "tags": [
         "PWA",
         "JavaScript",
