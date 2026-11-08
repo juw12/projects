@@ -2607,6 +2607,50 @@
       "status": "released",
       "order": 58,
       "portfolio": true
+    },
+    {
+      "id": "lahap",
+      "name": "Lahap",
+      "category": "Apps",
+      "external": true,
+      "url": "https://juw12.github.io/lahap/",
+      "url_label": "Open app",
+      "desc": "Offline food diary PWA: log meals fast, search what you ate before (price, plate score, variety), Strava-style share cards, taste-matched buds.",
+      "summary": "Food diary you can search: have I eaten this, where, for how much. Strava-style share cards.",
+      "description": "Log a meal in seconds (photo optional, dishes you had before prefill) whether you ate out, cooked at home or ordered in. Search answers 'have I eaten this?' with count, last place, average price and a plate score. Insights show variety, spend and taste; share cards come in card, receipt and stats templates with a transparent background option. Taste buds match by taste profile and earn points for meals and hangouts together (sample profiles for now, no server). Offline PWA, data stays on the device.",
+      "tags": [
+        "PWA",
+        "offline-first",
+        "food diary",
+        "share cards",
+        "Indonesia"
+      ],
+      "note_tags": [
+        "lahap",
+        "food-diary",
+        "indexeddb",
+        "indonesia",
+        "meal-tracker",
+        "offline-first"
+      ],
+      "image": "lahap-card.jpg",
+      "image_alt": "Lahap diary with sample data: What did I eat? search, taste filters, a 76% taste-bud match, meal tickets with price and plate score, and a week panel with meals, variety, health and spend",
+      "extra_links": [
+        {
+          "label": "Source",
+          "url": "https://github.com/juw12/lahap"
+        }
+      ],
+      "card": {
+        "label": "lahap · demo",
+        "capture": "https://juw12.github.io/lahap/?demo=1",
+        "theme": "light",
+        "accent": "#b7441f",
+        "accent2": "#9e9d2f"
+      },
+      "status": "released",
+      "order": 59,
+      "portfolio": true
     }
   ]
 }
