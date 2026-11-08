@@ -2709,6 +2709,7 @@
     const close = () => {
       if (closed) return;
       closed = true;
+      wrap.dispatchEvent(new Event('mint:modal-close'));
       wrap.classList.add('out');
       const at = openModals.indexOf(handle);
       if (at >= 0) openModals.splice(at, 1);
@@ -2807,6 +2808,8 @@
     const m = modal(
       '<form class="qa" autocomplete="off">' +
       '<h2>Add transaction</h2>' +
+      '<div class="qa-voice"><button type="button" class="qa-mic" data-voice aria-label="Say it">' + icon('mic', 22) + '</button>' +
+      '<p class="qa-voice-hint muted small" aria-live="polite">Tap and say it: “coffee 25k and taxi 50k yesterday”</p></div>' +
       '<div class="seg qa-type" role="group"><button type="button" class="is-on" data-type="expense">Expense</button><button type="button" data-type="income">Income</button></div>' +
       '<label class="qa-amount"><select name="cur" class="qa-cur" aria-label="Currency" translate="no">' + currencyOptions(S.profile.lastCur && K.CURRENCIES[S.profile.lastCur] ? S.profile.lastCur : cur()) + '</select><input name="amount" inputmode="decimal" placeholder="0" autofocus aria-label="Amount"></label>' +
       '<p class="qa-preview muted small" aria-live="polite">&nbsp;</p>' +
@@ -2886,6 +2889,96 @@
         updatePreview();
       }
     });
+    // Voice entry (shared with Tally): record, let the speech server write it down, then fill the form.
+    // One item fills the fields so it can be checked; several items are added at once with Undo.
+    const voiceBtn = form.querySelector('[data-voice]');
+    const voiceHint = form.querySelector('.qa-voice-hint');
+    let voiceSession = null;
+    function setVoice(state, text) {
+      voiceBtn.classList.toggle('is-live', state === 'listening');
+      voiceBtn.classList.toggle('is-busy', state === 'transcribing');
+      if (text) voiceHint.textContent = text;
+    }
+    function fire(el) {
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    function applySpoken(text) {
+      const items = window.TallyParse ? TallyParse.parseExpenses(text) : [];
+      const nice = (d) => (d ? d.charAt(0).toUpperCase() + d.slice(1) : '');
+      if (!items.length) {
+        form.desc.value = text.slice(0, 80);
+        fire(form.desc);
+        setVoice('idle', K.t('Heard \u201c{text}\u201d. Add the amount.', { text: text.slice(0, 60) }));
+        amountEl.focus();
+        return;
+      }
+      if (items.length === 1 || type === 'income') {
+        const it = items[0];
+        amountEl.value = String(it.amount);
+        form.desc.value = nice(it.desc).slice(0, 80);
+        if (it.date) form.date.value = it.date;
+        fire(form.desc);
+        fire(amountEl);
+        setVoice('idle', K.t('Heard \u201c{text}\u201d. Check and tap Add.', { text: text.slice(0, 60) }));
+        return;
+      }
+      const who = form.who.value || me();
+      const ops = items.map((it, i) => {
+        const desc = nice(it.desc).slice(0, 80) || 'Expense';
+        return put('txns', { date: it.date || K.today(), desc: desc, amount: K.roundMoney(it.amount, cur()), type: 'expense', cat: K.guessCategory(S.book, desc) || '', who: who, createdAt: Date.now() + i });
+      });
+      commit(ops);
+      m.close();
+      haptic('tap');
+      toast({
+        tone: 'good',
+        title: K.t('Added {n} expenses', { n: items.length }),
+        body: items.map((it) => nice(it.desc) + ' ' + fmt(it.amount)).join(' \u00b7 '),
+        action: { label: 'Undo', fn: () => commit(ops.map((op) => K.remove(S.book, 'txns', op.id, me()))) },
+      });
+    }
+    const VOICE_ERRORS = {
+      blocked: 'Microphone is blocked. Allow it in your browser settings, or type below.',
+      nomic: 'No microphone found. Type your expense below.',
+      nospeech: 'Didn\u2019t catch that. Tap the mic and try again.',
+      needtap: 'Tap the mic again to start talking.',
+      busy: 'Voice is busy right now. Try again in a minute, or type below.',
+      offline: 'You\u2019re offline. Type your expense below.',
+    };
+    voiceBtn.addEventListener('click', async () => {
+      if (voiceSession) {
+        voiceSession.stop();
+        return;
+      }
+      if (typeof TallyVoice === 'undefined' || !TallyVoice.recorderSupported()) {
+        setVoice('idle', K.t('Voice isn\u2019t available in this browser. Use your keyboard\u2019s mic instead.'));
+        return;
+      }
+      const lang = (document.documentElement.lang || navigator.language || 'en').slice(0, 2);
+      let session = null;
+      try {
+        session = TallyVoice.create({
+          lang: lang,
+          onLevel: (v) => voiceBtn.style.setProperty('--lvl', v.toFixed(2)),
+          onState: (s) => setVoice(s, s === 'listening' ? K.t('Listening\u2026 tap again when done.') : K.t('Writing it down\u2026')),
+        });
+        voiceSession = session;
+        setVoice('listening', K.t('Listening\u2026 tap again when done.'));
+        const text = await session.start();
+        voiceSession = null;
+        setVoice('idle');
+        applySpoken(text);
+      } catch (err) {
+        voiceSession = null;
+        const code = err && err.code;
+        setVoice('idle', code === 'cancelled' ? ' ' : K.t(VOICE_ERRORS[code] || 'Voice didn\u2019t work this time. Type your expense below.'));
+      }
+    });
+    m.el.addEventListener('mint:modal-close', () => voiceSession && voiceSession.cancel());
+    if (params.get('voice') === '1' || S.voiceOnOpen) {
+      S.voiceOnOpen = false;
+      setTimeout(() => voiceBtn.click(), 50);
+    }
     form.addEventListener('submit', (e) => {
       e.preventDefault();
       const original = K.parseAmount(amountEl.value, curEl.value);
