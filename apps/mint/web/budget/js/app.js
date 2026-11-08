@@ -1085,6 +1085,88 @@
     return setupSteps().some((s) => !s.done);
   }
 
+
+  // ---- Tally → Mint: Tally (juw12.github.io/tally) saves on this same site, so its expenses can move in with one tap.
+  const TALLY_KEY = 'tally.expenses.v1';
+  const TALLY_SETTINGS = 'tally.settings.v1';
+  const TALLY_DONE = 'mint.tallyImported';
+  function readJson(key, fallback) {
+    try {
+      const v = JSON.parse(localStorage.getItem(key));
+      return v == null ? fallback : v;
+    } catch (e) {
+      return fallback;
+    }
+  }
+  function tallyPending() {
+    if (!S.book || !S.profile || S.profile.demo || String(S.book.id).indexOf('demo-') === 0) return [];
+    const list = readJson(TALLY_KEY, []);
+    if (!Array.isArray(list) || !list.length) return [];
+    const done = new Set(readJson(TALLY_DONE, []));
+    return list.filter((e) => e && e.id && !done.has(String(e.id)) && Number(e.amount) > 0);
+  }
+  function tallyCard() {
+    if ((S.profile.hideTally || {})[S.book.id]) return '';
+    const pending = tallyPending();
+    if (!pending.length) return '';
+    const tcur = (readJson(TALLY_SETTINGS, {}) || {}).currency || cur();
+    const total = pending.reduce((s, e) => s + Number(e.amount || 0), 0);
+    return (
+      '<div class="card tally-card"><div class="card-head"><div><p class="eyebrow">🎙️ From Tally</p>' +
+      '<h3>' + esc(K.t('Bring your {n} Tally expenses into Mint', { n: pending.length })) + '</h3></div>' +
+      '<button class="link" data-act="tally-hide">Not now</button></div>' +
+      '<p class="muted small">' + esc(K.t('{total} in total. Categories are matched to your envelopes; nothing is removed from Tally.', { total: K.fmt(total, K.CURRENCIES[tcur] ? tcur : cur()) })) + '</p>' +
+      '<div class="row-gap"><button class="btn btn-primary" data-act="tally-import">' + icon('download', 16) + ' Import ' + pending.length + ' expenses</button></div></div>'
+    );
+  }
+  function tallyImport() {
+    const pending = tallyPending();
+    if (!pending.length) return;
+    const tcur = (readJson(TALLY_SETTINGS, {}) || {}).currency || cur();
+    const sameCur = tcur === cur() || !K.CURRENCIES[tcur];
+    const cats = catList();
+    const byName = (name) => {
+      const n = String(name || '').toLowerCase();
+      const hit = n && n !== 'other' ? cats.find((c) => String(c.name).toLowerCase().indexOf(n) >= 0 || n.indexOf(String(c.name).toLowerCase()) >= 0) : null;
+      return hit ? hit.id : '';
+    };
+    const who = me();
+    const ops = pending.map((e, i) => {
+      const desc = String(e.desc || e.cat || 'Expense').slice(0, 80);
+      const original = Number(e.amount);
+      const amount = sameCur ? original : K.roundMoney(K.toBase(original, tcur, cur()), cur());
+      const txn = { date: e.date || K.today(), desc: desc, amount: amount, type: 'expense', cat: K.guessCategory(S.book, desc) || byName(e.cat), who: who, createdAt: Number(e.created) || Date.now() + i };
+      if (!sameCur) txn.fx = { cur: tcur, amt: original, rate: K.rate(tcur, cur()) };
+      if (e.note) txn.note = String(e.note).slice(0, 200);
+      return put('txns', txn);
+    });
+    commit(ops);
+    const done = new Set(readJson(TALLY_DONE, []));
+    pending.forEach((e) => done.add(String(e.id)));
+    try {
+      localStorage.setItem(TALLY_DONE, JSON.stringify([...done]));
+    } catch (err) {
+      /* the card would just offer the rest again */
+    }
+    render();
+    toast({
+      tone: 'good',
+      icon: '🎙️',
+      title: K.t('Imported {n} expenses from Tally', { n: ops.length }),
+      body: 'They are in your sheet now. Keep adding by voice with the mic in Add transaction.',
+      action: {
+        label: 'Undo',
+        fn: () => {
+          commit(ops.map((op) => K.remove(S.book, 'txns', op.id, me())));
+          const again = new Set(readJson(TALLY_DONE, []));
+          pending.forEach((e) => again.delete(String(e.id)));
+          localStorage.setItem(TALLY_DONE, JSON.stringify([...again]));
+          render();
+        },
+      },
+    });
+  }
+
   function checklistCard() {
     if (!checklistVisible()) return '';
     const steps = setupSteps();
@@ -1285,6 +1367,7 @@
         '</div>'
       : '';
     return (
+      tallyCard() +
       checklistCard() +
       '<div class="grid-hero">' + hero + tipCard + '</div>' +
       kpis +
@@ -1564,7 +1647,8 @@
       '</div>';
     const classOpts = (sel) => Object.keys(K.ASSET_CLASSES).map((k) => '<option value="' + k + '"' + (sel === k ? ' selected' : '') + '>' + esc(K.ASSET_CLASSES[k].label) + '</option>').join('');
     const holdings =
-      '<div class="card"><div class="card-head"><h3>Holdings</h3><span class="muted small">' + esc(K.t('Prices are in each holding’s currency; values are converted to {cur}.', { cur: cur() })) + '</span></div>' +
+      '<div class="card"><div class="card-head"><h3>Holdings</h3><button class="btn btn-soft btn-sm" data-act="voice-trade">' + icon('mic', 16) + ' Say a trade</button></div>' +
+      '<p class="muted small">' + esc(K.t('Prices are in each holding’s currency; values are converted to {cur}.', { cur: cur() })) + '</p>' +
       '<div class="sheet-scroll"><table class="grid-table holdings">' +
       '<thead><tr><th>Symbol</th><th>Name</th><th>Class</th><th>Currency</th><th class="num">Qty</th><th class="num">Avg cost</th><th class="num">Price</th><th class="num">Value</th><th class="num">Gain</th><th></th></tr></thead><tbody>' +
       pf.rows
@@ -1761,8 +1845,55 @@
     showMarket(true);
   }
 
+  // Seller mode: everyone can browse and buy; selling tools unlock like opening a shop.
+  // People who already drafted a template before 3.4 keep their tools.
+  function isSeller() {
+    if (!S.profile) return false;
+    if (S.profile.seller === undefined) {
+      let drafted = false;
+      try {
+        drafted = !!localStorage.getItem('mint.studio');
+      } catch (e) {
+        drafted = false;
+      }
+      return drafted;
+    }
+    return !!S.profile.seller;
+  }
+  function setSeller(on) {
+    if (!S.profile) return;
+    S.profile.seller = !!on;
+    saveProfile();
+    const frame = marketFrame();
+    if (frame && frame.contentWindow) {
+      try {
+        frame.contentWindow.dispatchEvent(new Event('hashchange'));
+      } catch (e) {
+        /* the frame re-reads Seller mode on its next render */
+      }
+    }
+    if (S.view !== 'market') render();
+    toast({
+      tone: 'good',
+      icon: on ? '🏪' : '🛍️',
+      title: on ? 'Seller mode is on' : 'Seller mode is off',
+      body: on ? 'Generate, Sell and Earn are now in the Marketplace.' : 'The Marketplace shows browsing and buying only.',
+    });
+  }
+  async function askSeller() {
+    if (isSeller()) return true;
+    const yes = await confirmModal({
+      title: 'Turn on Seller mode?',
+      body: 'Selling is part of Seller mode: publish templates, set a price and earn referral commission. You can turn it off any time in Settings.',
+      ok: 'Turn on Seller mode',
+    });
+    if (yes) setSeller(true);
+    return yes;
+  }
+
   // Sell: turn this budget's plan or investing mix into a Marketplace draft (structure only, never real amounts).
-  function sellToMarket(kind) {
+  async function sellToMarket(kind) {
+    if (!(await askSeller())) return;
     const spec = kind === 'mix' ? K.mixToSpec(S.book, {}) : K.planToSpec(S.book, {});
     if (!spec.sheet.rows.length) {
       return toast({ tone: 'warn', title: kind === 'mix' ? 'Set a target mix first' : 'Add a few envelopes first' });
@@ -2423,6 +2554,8 @@
       '<div class="pref-row"><span>Language</span>' + langSelect('lang-field') + '</div>' +
       (window.MintLocale ? '<div class="pref-row"><span>Region</span>' + regionSelect() + '</div>' +
         '<p class="muted small">Your region sets the currency for new budgets and for converted totals.</p>' : '') +
+      '<label class="toggle"><input type="checkbox" data-act-change="toggle-seller"' + (isSeller() ? ' checked' : '') + '><span></span>Seller mode: sell templates and earn referral commission in the Marketplace</label>' +
+      '<p class="muted small">Off: browse and buy only. On: Generate, Sell and Earn appear in the Marketplace, plus “Sell this plan” in Budget and Invest.</p>' +
       '<label class="toggle"><input type="checkbox" data-act-change="toggle-tips"' + (S.profile.tips !== false ? ' checked' : '') + '><span></span>Occasional tips from Mint</label>' +
       '<label class="toggle"><input type="checkbox" data-act-change="toggle-notify"' + (S.profile.notify && notifState === 'granted' ? ' checked' : '') + (notifState === 'unsupported' ? ' disabled' : '') + '><span></span>Browser notifications for warnings & collaborator edits</label>' +
       (notifState === 'denied' ? '<p class="muted small">Notifications are blocked in your browser settings.</p>' : '') +
@@ -3497,6 +3630,10 @@
       }
       return;
     }
+    if (act === 'toggle-seller') {
+      setSeller(t.checked);
+      return;
+    }
     if (act === 'toggle-tips') {
       S.profile.tips = t.checked;
       saveProfile();
@@ -3579,6 +3716,117 @@
       openShortcuts();
     }
   });
+
+
+  // ---- Voice trades (Invest): "beli 10 lot BBCA di 9000", "bought 5 AAPL at 190", "jual 2 lot TLKM".
+  function openTradeVoice() {
+    const m = modal(
+      '<form class="qa trade-voice" autocomplete="off"><h2>Say a trade</h2>' +
+        '<div class="qa-voice"><button type="button" class="qa-mic" data-voice aria-label="Say it">' + icon('mic', 22) + '</button>' +
+        '<p class="qa-voice-hint muted small" aria-live="polite">Tap and say it: “beli 10 lot BBCA di 9000” or “bought 0.5 bitcoin at 900 juta”.</p></div>' +
+        '<input name="said" placeholder="Or type it here" maxlength="120" aria-label="Trade">' +
+        '<p class="trade-preview muted small" aria-live="polite">&nbsp;</p>' +
+        '<button class="btn btn-primary btn-block btn-lg" type="submit">Add to portfolio</button></form>',
+      { cls: 'modal-qa' }
+    );
+    const form = m.el.querySelector('form');
+    const hint = form.querySelector('.qa-voice-hint');
+    const preview = form.querySelector('.trade-preview');
+    const voiceBtn = form.querySelector('[data-voice]');
+    const describe = (tr) =>
+      (tr.side === 'sell' ? 'Sell ' : 'Buy ') + tr.qty + ' ' + tr.symbol + (tr.price ? ' at ' + K.fmt(tr.price, cur()) : '');
+    const showPreview = () => {
+      const tr = window.TallyParse && TallyParse.parseTrade(form.said.value);
+      preview.textContent = tr ? describe(tr) : form.said.value.trim() ? 'Say the amount and the symbol, e.g. “10 lot BBCA di 9000”.' : '\u00a0';
+      return tr;
+    };
+    form.said.addEventListener('input', showPreview);
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const tr = showPreview();
+      if (!tr) {
+        form.said.focus();
+        return;
+      }
+      if (applyTrade(tr)) m.close();
+    });
+    let session = null;
+    voiceBtn.addEventListener('click', async () => {
+      if (session) {
+        session.stop();
+        return;
+      }
+      if (typeof TallyVoice === 'undefined' || !TallyVoice.recorderSupported()) {
+        hint.textContent = 'Voice isn’t available in this browser. Type the trade below.';
+        return;
+      }
+      try {
+        session = TallyVoice.create({
+          lang: (document.documentElement.lang || navigator.language || 'en').slice(0, 2),
+          onLevel: (v) => voiceBtn.style.setProperty('--lvl', v.toFixed(2)),
+          onState: (s) => {
+            voiceBtn.classList.toggle('is-live', s === 'listening');
+            voiceBtn.classList.toggle('is-busy', s === 'transcribing');
+            hint.textContent = s === 'listening' ? 'Listening… tap again when done.' : 'Writing it down…';
+          },
+        });
+        const text = await session.start();
+        session = null;
+        voiceBtn.classList.remove('is-live', 'is-busy');
+        form.said.value = text.slice(0, 120);
+        const tr = showPreview();
+        hint.textContent = tr ? 'Heard “' + text.slice(0, 60) + '”. Check and tap Add.' : 'Heard “' + text.slice(0, 60) + '”. Fix it below.';
+      } catch (err) {
+        session = null;
+        voiceBtn.classList.remove('is-live', 'is-busy');
+        const code = err && err.code;
+        hint.textContent = code === 'nospeech' ? 'Didn’t catch that. Tap the mic and try again.' : code === 'blocked' ? 'Microphone is blocked. Type the trade below.' : 'Voice didn’t work this time. Type the trade below.';
+      }
+    });
+    m.el.addEventListener('mint:modal-close', () => session && session.cancel());
+  }
+
+  // Buys merge into an existing holding at a weighted average cost; sells reduce it (or remove it when all is sold).
+  function applyTrade(tr) {
+    const held = K.list(S.book, 'holdings').find((h) => String(h.symbol || '').toUpperCase() === tr.symbol);
+    const label = tr.symbol + (tr.price ? ' at ' + K.fmt(tr.price, (held && held.cur) || cur()) : '');
+    if (tr.side === 'sell') {
+      if (!held) {
+        toast({ tone: 'warn', title: 'You don’t hold ' + tr.symbol + ' yet' });
+        return false;
+      }
+      const before = { qty: held.qty, cost: held.cost, price: held.price };
+      const left = (Number(held.qty) || 0) - tr.qty;
+      const op = left > 0 ? put('holdings', { id: held.id, qty: left, price: tr.price || held.price }) : K.remove(S.book, 'holdings', held.id, me());
+      commit(op);
+      toast({
+        tone: 'good',
+        icon: '📉',
+        title: 'Sold ' + tr.qty + ' ' + label,
+        body: left > 0 ? left + ' left' : 'Holding closed',
+        action: { label: 'Undo', fn: () => commit(left > 0 ? put('holdings', Object.assign({ id: held.id }, before)) : put('holdings', { symbol: held.symbol, name: held.name, cls: held.cls, cur: held.cur, qty: before.qty, cost: before.cost, price: before.price })) },
+      });
+      return true;
+    }
+    if (held) {
+      const q0 = Number(held.qty) || 0;
+      const price = tr.price || Number(held.price) || Number(held.cost) || 0;
+      const qty = q0 + tr.qty;
+      const cost = qty > 0 ? K.roundMoney((q0 * (Number(held.cost) || 0) + tr.qty * price) / qty, held.cur || cur()) : price;
+      const before = { qty: held.qty, cost: held.cost, price: held.price };
+      commit(put('holdings', { id: held.id, qty: qty, cost: cost, price: tr.price || held.price }));
+      toast({ tone: 'good', icon: '📈', title: 'Bought ' + tr.qty + ' ' + label, body: 'Now ' + qty + ' ' + tr.symbol + ' at an average of ' + K.fmt(cost, held.cur || cur()), action: { label: 'Undo', fn: () => commit(put('holdings', Object.assign({ id: held.id }, before))) } });
+      return true;
+    }
+    if (!tr.price) {
+      toast({ tone: 'warn', title: 'Say the price too', body: 'For example “10 lot ' + tr.symbol + ' di 9000”.' });
+      return false;
+    }
+    const op = put('holdings', { symbol: tr.symbol, name: tr.name || '', cls: tr.cls || 'stocks', cur: cur(), qty: tr.qty, cost: tr.price, price: tr.price });
+    commit(op);
+    toast({ tone: 'good', icon: '📈', title: 'Added ' + tr.qty + ' ' + label, action: { label: 'Undo', fn: () => commit(K.remove(S.book, 'holdings', op.id, me())) } });
+    return true;
+  }
 
   function addHolding() {
     const get = (k) => $('[data-nh="' + k + '"]');
@@ -3683,6 +3931,12 @@
         return startQuiz();
       case 'setup':
         return startSetup();
+      case 'tally-import':
+        return tallyImport();
+      case 'tally-hide':
+        S.profile.hideTally = Object.assign({}, S.profile.hideTally, { [S.book.id]: true });
+        saveProfile();
+        return render();
       case 'hide-setup':
         S.profile.hideSetup = Object.assign({}, S.profile.hideSetup, { [S.book.id]: true });
         saveProfile();
@@ -3797,6 +4051,8 @@
       }
       case 'goal-add':
         return goalAdd(el.dataset.id);
+      case 'voice-trade':
+        return openTradeVoice();
       case 'add-holding':
         return addHolding();
       case 'preset': {
@@ -4305,6 +4561,8 @@
     openMarket: openMarket,
     goView: (v) => go(v),
     openAccount: openAccount,
+    isSeller: () => isSeller(),
+    setSeller: (on) => setSeller(on),
   };
   boot();
 })();

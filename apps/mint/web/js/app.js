@@ -35,6 +35,20 @@
       return null;
     }
   }
+  // Seller mode (set in Mint Budget): browsing and buying are open to all; making and selling unlock with it.
+  // Outside the Budget app (the public site) everything stays open.
+  var SELLER_PAGES = { create: 1, sell: 1, publish: 1, affiliate: 1, kit: 1 };
+  function sellerOn() {
+    var host = budgetHost();
+    if (!host || typeof host.isSeller !== "function") {
+      return true;
+    }
+    try {
+      return !!host.isSeller();
+    } catch (err) {
+      return true;
+    }
+  }
   var installPrompt = null;
   var countsAt = 0;
 
@@ -2119,11 +2133,16 @@
   }
 
   // ------------------------------------------------------------------ shell
-  var CHIP_FOR = { "": "market", market: "market", item: "market", create: "create", sell: "sell", publish: "sell", library: "sell", affiliate: "affiliate", kit: "affiliate", guides: "guides", account: "account" };
+  var CHIP_FOR = { "": "market", market: "market", item: "market", create: "create", sell: "sell", publish: "sell", library: "sell", affiliate: "affiliate", kit: "affiliate", guides: "guides", account: "account", seller: "seller" };
   function renderChips() {
     var nav = document.getElementById("embedChips");
     if (!nav) {
       return;
+    }
+    var seller = sellerOn() ? "1" : "0";
+    if (nav.dataset.seller !== seller) {
+      nav.dataset.seller = seller;
+      nav.innerHTML = chipsHtml(seller === "1");
     }
     var on = CHIP_FOR[route().parts[0] || ""] || "";
     nav.querySelectorAll("[data-chip]").forEach(function (a) {
@@ -2145,15 +2164,48 @@
     nav.id = "embedChips";
     nav.className = "embed-chips";
     nav.setAttribute("aria-label", "Marketplace");
-    nav.innerHTML =
+    nav.dataset.seller = sellerOn() ? "1" : "0";
+    nav.innerHTML = chipsHtml(nav.dataset.seller === "1");
+    document.body.insertBefore(nav, document.getElementById("view"));
+  }
+
+  function chipsHtml(seller) {
+    return (
       "<a href=\"#/market\" data-chip=\"market\">\ud83d\udecd\ufe0f Browse</a>" +
-      "<a href=\"#/create\" data-chip=\"create\">\u2728 Generate</a>" +
-      "<a href=\"#/sell\" data-chip=\"sell\">\ud83c\udff7\ufe0f Sell</a>" +
-      "<a href=\"#/affiliate\" data-chip=\"affiliate\">\ud83e\udd1d Earn</a>" +
+      (seller
+        ? "<a href=\"#/create\" data-chip=\"create\">\u2728 Generate</a>" +
+          "<a href=\"#/sell\" data-chip=\"sell\">\ud83c\udff7\ufe0f Sell</a>" +
+          "<a href=\"#/affiliate\" data-chip=\"affiliate\">\ud83e\udd1d Earn</a>"
+        : "<a href=\"#/seller\" data-chip=\"seller\">\ud83c\udfea Become a seller</a>") +
       "<span class=\"grow\"></span>" +
       "<a href=\"#/guides\" data-chip=\"guides\" class=\"quiet\">Help</a>" +
-      "<a href=\"#/account\" data-chip=\"account\" class=\"quiet\" id=\"embedAccount\">Log in</a>";
-    document.body.insertBefore(nav, document.getElementById("view"));
+      "<a href=\"#/account\" data-chip=\"account\" class=\"quiet\" id=\"embedAccount\">Log in</a>"
+    );
+  }
+
+  // Shown inside Mint Budget when a selling page is opened with Seller mode off.
+  function viewSellerGate() {
+    view.innerHTML =
+      "<section class=\"empty seller-gate\"><div class=\"gate-icon\" aria-hidden=\"true\">\ud83c\udfea</div>" +
+      "<h1>Open your shop</h1>" +
+      "<p>Seller mode lets you generate templates, sell your budget plan or investing mix, and earn referral commission. Buying stays open to everyone.</p>" +
+      "<div class=\"row\"><button class=\"btn primary\" data-seller-on>Turn on Seller mode</button>" +
+      "<a class=\"btn\" href=\"#/market\">Keep browsing</a></div>" +
+      "<p class=\"muted small\">You can turn it off any time in Settings.</p></section>";
+    view.onclick = function (e) {
+      if (!e.target.closest("[data-seller-on]")) {
+        return;
+      }
+      var host = budgetHost();
+      if (host && host.setSeller) {
+        host.setSeller(true);
+      }
+      if (route().parts[0] === "seller") {
+        location.hash = "#/sell";
+      } else {
+        render();
+      }
+    };
   }
 
   function renderHeader() {
@@ -2182,6 +2234,14 @@
     var page = r.parts[0] || "";
     if (EMBED && !page) {
       location.replace("#/market");
+      return;
+    }
+    if (EMBED && (page === "seller" || (SELLER_PAGES[page] && !sellerOn()))) {
+      if (page === "seller" && sellerOn()) {
+        location.replace("#/sell");
+        return;
+      }
+      viewSellerGate();
       return;
     }
     if (page === "create" && r.query.from === "budget") {

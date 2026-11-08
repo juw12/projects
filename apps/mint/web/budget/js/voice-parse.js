@@ -197,5 +197,60 @@ function parseExpenses(spoken) {
 
 
 
-  window.TallyParse = { parseExpenses: parseExpenses };
+
+
+// ---- Trades for Mint's Invest tab: "beli 10 lot BBCA di 9000", "bought 5 AAPL at 190", "jual 2 lot TLKM".
+// One lot on the Indonesia Stock Exchange is 100 shares.
+const ASSET_ALIASES = [
+  [/\b(?:bitcoin|btc)\b/, { symbol: "BTC", cls: "crypto", name: "Bitcoin" }],
+  [/\b(?:ethereum|eth|ether)\b/, { symbol: "ETH", cls: "crypto", name: "Ethereum" }],
+  [/\b(?:emas|gold|antam|logam mulia)\b/, { symbol: "GOLD", cls: "gold", name: "Gold (grams)" }],
+];
+const TRADE_STOP = new Set(("bought buy buying beli membeli purchased purchase add added sold sell selling jual menjual dijual " +
+  "lot lots lembar share shares saham unit units gram grams gr coin coins koin at di harga per each seharga for of and the a an " +
+  "rp rupiah ribu rb jt juta k usd idr dollars dollar bucks total saya aku i my me today yesterday kemarin hari ini tadi " +
+  "with dengan sebanyak some more again lagi").split(" "));
+
+function parseTrade(spoken) {
+  let t = normalize(spoken);
+  const side = /\b(?:sold|sell|selling|jual|menjual|dijual)\b/.test(t) ? "sell" : "buy";
+  let price = null;
+  const priceMatch = t.match(new RegExp("(?:\\bat\\b|@|\\bdi\\b|\\bharga\\b|\\bper\\b|\\beach\\b|\\bseharga\\b|\\bfor\\b)\\s*" + AMOUNT.source, "i"));
+  if (priceMatch) {
+    price = amountOf(priceMatch);
+    t = t.replace(priceMatch[0], " ");
+  }
+  const isTotal = /\btotal\b/.test(t);
+  let alias = null;
+  for (const [pattern, info] of ASSET_ALIASES) {
+    if (pattern.test(t)) {
+      alias = info;
+      t = t.replace(pattern, " ");
+      break;
+    }
+  }
+  const qtyMatch = t.match(/(\d+(?:\.\d+)?)\s*(lots?|lembar|shares?|saham|units?|grams?|gr|coins?|koin)?(?![a-z\d])/);
+  if (!qtyMatch) {
+    return null;
+  }
+  let qty = parseFloat(qtyMatch[1]);
+  if (qtyMatch[2] && /^lot/.test(qtyMatch[2])) {
+    qty *= 100;
+  }
+  t = t.replace(qtyMatch[0], " ");
+  let symbol = alias ? alias.symbol : null;
+  if (!symbol) {
+    const words = t.split(/\s+/).filter((w) => /^[a-z]{2,6}$/.test(w) && !TRADE_STOP.has(w));
+    symbol = words.length ? words[0].toUpperCase() : null;
+  }
+  if (!symbol || !(qty > 0)) {
+    return null;
+  }
+  if (price && isTotal) {
+    price = Math.round((price / qty) * 100) / 100;
+  }
+  return { side, symbol, qty, price, cls: alias ? alias.cls : "stocks", name: alias ? alias.name : "" };
+}
+
+  window.TallyParse = { parseExpenses: parseExpenses, parseTrade: parseTrade };
 })();

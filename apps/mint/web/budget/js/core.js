@@ -8,7 +8,7 @@
 (function (root) {
   'use strict';
   const K = (root.MintBudget = root.MintBudget || {});
-  K.VERSION = '3.3.0';
+  K.VERSION = '3.4.0';
 
   /** Compare dotted versions numerically: 1, 0 or -1 ("1.10.0" is newer than "1.9.9"). */
   K.compareVersions = function (a, b) {
