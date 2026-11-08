@@ -373,7 +373,7 @@ input.num { text-align: right; font-variant-numeric: tabular-nums; }
 .add-env { margin-top: 10px; }
 
 /* ------------------------------------------------------------ goals */
-.goal-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 18px; }
+.goal-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(320px, 100%), 1fr)); gap: 18px; }
 .goal-card { display: flex; flex-direction: column; gap: 14px; }
 .goal-card.is-done { background: linear-gradient(150deg, rgba(22, 167, 101, .12), var(--surface)); }
 .goal-top { display: flex; gap: 14px; align-items: center; }
@@ -394,7 +394,8 @@ input.num { text-align: right; font-variant-numeric: tabular-nums; }
 /* ------------------------------------------------------------ invest */
 .presets { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
 .alloc-wrap { display: flex; gap: 20px; align-items: center; flex-wrap: wrap; }
-.drift { flex: 1; min-width: 280px; border-collapse: collapse; font-size: 13.5px; }
+.drift-scroll { flex: 1 1 280px; min-width: 0; max-width: 100%; overflow-x: auto; }
+.drift { width: 100%; min-width: 280px; border-collapse: collapse; font-size: 13.5px; }
 .drift th { text-align: left; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .05em; padding: 6px; }
 .drift td { padding: 7px 6px; border-top: 1px solid var(--line); white-space: nowrap; }
 .drift .num { text-align: right; }
@@ -449,7 +450,7 @@ input.num { text-align: right; font-variant-numeric: tabular-nums; }
 .share-art .b1 { left: 8px; top: 30px; }
 .share-art .b2 { left: 84px; top: 6px; animation-delay: -1s; }
 .share-art .b3 { left: 150px; top: 54px; animation-delay: -2s; }
-.share-art .lock { position: absolute; left: 230px; top: 26px; width: 60px; height: 60px; display: grid; place-items: center; border-radius: 20px; background: var(--surface); box-shadow: var(--shadow); color: var(--good); }
+.share-art .lock { position: absolute; left: min(230px, calc(100% - 64px)); top: 26px; width: 60px; height: 60px; display: grid; place-items: center; border-radius: 20px; background: var(--surface); box-shadow: var(--shadow); color: var(--good); }
 .checks { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
 .checks li { display: flex; gap: 10px; align-items: flex-start; }
 .checks .ic { color: var(--good); margin-top: 1px; }

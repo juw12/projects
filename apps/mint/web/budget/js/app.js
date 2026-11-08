@@ -1677,7 +1677,7 @@
       '<div class="card"><div class="card-head"><h3>Allocation vs target</h3></div>' +
       '<div class="presets">' + ['Conservative', 'Balanced', 'Growth', 'Aggressive'].map((l, i) => '<button class="chip-btn' + (target.label === l ? ' is-on' : '') + '" data-act="preset" data-risk="' + [10, 40, 60, 90][i] + '">' + l + '</button>').join('') + '</div>' +
       '<div class="alloc-wrap">' + ui.donut(segs, { size: 170, thickness: 22, center: fmt(pf.total, true), sub: 'total', label: 'Asset allocation' }) +
-      '<table class="drift"><thead><tr><th>Class</th><th class="num">Target</th><th class="num">Now</th><th>Drift</th><th class="num">To rebalance</th></tr></thead><tbody>' +
+      '<div class="drift-scroll"><table class="drift"><thead><tr><th>Class</th><th class="num">Target</th><th class="num">Now</th><th>Drift</th><th class="num">To rebalance</th></tr></thead><tbody>' +
       pf.drift
         .map((d) => {
           const meta = K.ASSET_CLASSES[d.cls] || K.ASSET_CLASSES.other;
@@ -1691,7 +1691,7 @@
           );
         })
         .join('') +
-      '</tbody></table></div>' +
+      '</tbody></table></div></div>' +
       '<p class="muted small">Targets are educational starting points from your quiz risk score, not financial advice.</p>' +
       '<div class="row-gap"><button class="btn btn-ghost btn-sm" data-act="sell-mix">' + icon('store', 16) + ' Sell this mix</button></div></div>';
     const proj =
