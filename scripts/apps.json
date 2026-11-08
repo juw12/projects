@@ -2321,9 +2321,9 @@
       "external": true,
       "url": "https://juw12.github.io/founder-studio/",
       "url_label": "Open demo",
-      "desc": "Local 3D buyer-panel simulator for pre-launch ideas. Every number checked by open scripts.",
+      "desc": "Local 3D buyer-panel simulator for pre-launch ideas, with reviewer bots that critique and auto-fix the pitch. Every number checked by open scripts.",
       "summary": "Pre-launch simulator: 3D buyer bots walk up to your stall and decide BUY or PASS.",
-      "description": "Set a product, price, buyer segments and pitch, then watch simulated buyers decide. Every number is checked by the ambitious-founder skill's own scripts (panel, Van Westendorp pricing, unit economics, verdict). The online demo runs the real Python in the browser via Pyodide; AI buyers need the local app.",
+      "description": "Set a product, price, buyer segments and pitch, then watch simulated buyers decide. Every number is checked by the ambitious-founder skill's own scripts (panel, Van Westendorp pricing, unit economics, verdict). A review loop puts the board lenses in the arena as reviewer bots: they critique the pitch, an editor applies the fixes, and the same buyers judge each version. The online demo runs the real Python in the browser via Pyodide; AI buyers need the local app.",
       "tags": [],
       "note_tags": [
         "founder-studio"
