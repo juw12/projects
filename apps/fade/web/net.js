@@ -501,6 +501,59 @@
   let synced = false;
   const status = { connected: 0, relays: CFG.relays.length, lastSync: 0, outbox: 0 };
 
+  // Relay health: a relay that would not connect is skipped for 30 minutes so one outage
+  // (for example a 503 from a busy public relay) does not keep failing on every sync.
+  const RELAY_DOWN_STORE = `${CFG.ns}.relayDown`;
+  const RELAY_DOWN_MS = 30 * 60 * 1000;
+  const sameRelay = (a, b) => String(a).replace(/\/+$/, '') === String(b).replace(/\/+$/, '');
+
+  function relayDownMap() {
+    try {
+      return JSON.parse(localStorage.getItem(RELAY_DOWN_STORE) || '{}');
+    } catch (err) {
+      return {};
+    }
+  }
+
+  function activeRelays() {
+    const down = relayDownMap();
+    const now = Date.now();
+    const healthy = CFG.relays.filter((url) => !(down[url] > now));
+    return healthy.length >= 2 ? healthy : CFG.relays.slice();
+  }
+
+  function markRelayDown(url) {
+    const down = relayDownMap();
+    down[url] = Date.now() + RELAY_DOWN_MS;
+    try {
+      localStorage.setItem(RELAY_DOWN_STORE, JSON.stringify(down));
+    } catch (err) {
+      // storage full or blocked: the relay is simply retried next time
+    }
+  }
+
+  function pruneDeadRelays() {
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
+    let map;
+    try {
+      map = pool.listConnectionStatus();
+    } catch (err) {
+      return;
+    }
+    const active = activeRelays();
+    const dead = active.filter((url) => {
+      const entry = [...map.entries()].find(([key]) => sameRelay(key, url));
+      return !entry || !entry[1];
+    });
+    if (!dead.length || dead.length === active.length) return;
+    dead.forEach(markRelayDown);
+    try {
+      pool.close(dead);
+    } catch (err) {
+      // already closed
+    }
+  }
+
   function emitChange() {
     clearTimeout(changeTimer);
     changeTimer = setTimeout(() => {
@@ -548,7 +601,7 @@
       }
     }
     const requests = [];
-    CFG.relays.forEach((url) => filters().forEach((filter) => requests.push({ url, filter })));
+    activeRelays().forEach((url) => filters().forEach((filter) => requests.push({ url, filter })));
     subscription = pool.subscribeMap(requests, {
       onevent: onEvent,
       oneose: () => {
@@ -557,6 +610,7 @@
         emitChange();
       },
     });
+    setTimeout(pruneDeadRelays, 12000);
   }
 
   function refreshStatus() {
@@ -582,7 +636,7 @@
   }
 
   async function sendToRelays(event, timeoutMs = 9000) {
-    const attempts = pool.publish(CFG.relays, event).map((promise) => Promise.race([
+    const attempts = pool.publish(activeRelays(), event).map((promise) => Promise.race([
       promise,
       new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), timeoutMs)),
     ]));
@@ -664,7 +718,7 @@
   // Query helper with a deadline (used for sign-in lookups).
   async function queryOnce(filter, maxWait = 5000) {
     try {
-      const events = await pool.querySync(CFG.relays, filter, { maxWait });
+      const events = await pool.querySync(activeRelays(), filter, { maxWait });
       events.forEach(ingest);
       return events;
     } catch (err) {
@@ -1978,7 +2032,7 @@
   }
 
   async function connectedRelays(timeoutMs = 6000) {
-    const results = await Promise.allSettled(CFG.relays.map((url) => Promise.race([
+    const results = await Promise.allSettled(activeRelays().map((url) => Promise.race([
       pool.ensureRelay(url),
       new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), timeoutMs)),
     ])));
@@ -3146,7 +3200,7 @@
     if (!CFG.admins.length || !CFG.relays.length) return null;
     let events = [];
     try {
-      events = await pool.querySync(CFG.relays, { kinds: [30078], authors: CFG.admins, '#d': [`${NS}:mod:list`] }, { maxWait: 6000 });
+      events = await pool.querySync(activeRelays(), { kinds: [30078], authors: CFG.admins, '#d': [`${NS}:mod:list`] }, { maxWait: 6000 });
     } catch (err) {
       return null;
     }

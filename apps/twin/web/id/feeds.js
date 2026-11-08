@@ -311,6 +311,8 @@
   async function detectServer() {
     if (typeof location === 'undefined' || !/^https?:$/.test(location.protocol)) return false;
     if (/\.github\.io$/.test(location.hostname)) return false;
+    const meta = typeof document !== 'undefined' && document.querySelector('meta[name="twin-host"]');
+    if (!meta || meta.content !== 'server') return false;
     try {
       const health = await fetchJson(serverUrl('api/health'), 5000);
       return !!health && (health.app === 'twin' || health.app === 'trade-twin');

@@ -1790,6 +1790,9 @@ class Handler(BaseHTTPRequestHandler):
             self.send_json({"error": "not found"}, 404)
             return
         body = path.read_bytes()
+        if path.suffix == ".html":
+            # Tell the page it is served by Twin's own server; static hosts keep content="".
+            body = body.replace(b'<meta name="twin-host" content="">', b'<meta name="twin-host" content="server">')
         self.send_response(200)
         self.send_header("Content-Type", MIME.get(path.suffix, "application/octet-stream"))
         self.send_header("Content-Length", str(len(body)))

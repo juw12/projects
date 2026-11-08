@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
+  <meta name="twin-host" content="">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -337,8 +338,15 @@ function writePreference(key, value) {
   try { localStorage.setItem(key, value); } catch (error) { /* Current page still works. */ }
 }
 
+// Twin's server stamps this meta (server.py); every static host keeps it empty and never
+// probes an API that is not there.
+function servedByTwinServer() {
+  const meta = document.querySelector('meta[name="twin-host"]');
+  return !!meta && meta.content === "server";
+}
+
 async function detectServer() {
-  if (location.hostname.endsWith(".github.io")) {
+  if (location.hostname.endsWith(".github.io") || !servedByTwinServer()) {
     return "demo";
   }
   const controller = new AbortController();
