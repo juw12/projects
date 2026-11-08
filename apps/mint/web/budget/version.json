@@ -1,30 +1,22 @@
 {
-  "version": "3.2.0",
-  "released": "2026-10-29",
+  "version": "3.3.0",
+  "released": "2026-11-08",
   "notes": {
     "en": [
-      "Many currencies: add an expense or a holding in any currency and Mint converts it to your budget's currency with daily exchange rates, keeping the original amount too.",
-      "Invest now has Learn (a 12-question quiz), personal Tips and money News for your region.",
-      "Marketplace is now a tab inside Mint: browse templates, generate one from a sentence, and sell your own budget plan or investing mix (shares only, never your real amounts). Prices show in your own currency.",
-      "Sign in with one Mint account to keep your budgets in sync across phone, computer and browser. Your data is encrypted on your device before it is uploaded; keep your recovery code safe."
+      "Say it instead of typing: tap the mic in Add transaction and say “coffee 25k and taxi 50k yesterday”. One item fills the form; several are added at once (with Undo). Works on iPhone too.",
+      "Cleaner type: Mint now uses your phone's own font (SF Pro on iPhone) with lighter headings."
     ],
     "id": [
-      "Banyak mata uang: catat pengeluaran atau aset dalam mata uang apa pun dan Mint mengonversinya ke mata uang anggaranmu dengan kurs harian, sambil tetap menyimpan jumlah aslinya.",
-      "Investasi kini punya Belajar (kuis 12 pertanyaan), Tips pribadi, dan Berita keuangan untuk wilayahmu.",
-      "Marketplace kini menjadi tab di dalam Mint: jelajahi template, buat dari satu kalimat, dan jual rencana anggaran atau komposisi investasimu (hanya persentase, tidak pernah jumlah aslimu). Harga tampil dalam mata uangmu sendiri.",
-      "Masuk dengan satu akun Mint agar anggaranmu tersinkron di ponsel, komputer, dan browser. Datamu dienkripsi di perangkatmu sebelum diunggah; simpan kode pemulihanmu baik-baik."
+      "Ucapkan saja: ketuk mikrofon di Tambah transaksi dan bilang “kopi 25 ribu dan taksi 50 ribu kemarin”. Satu item mengisi formulir; beberapa item langsung ditambahkan (bisa Batal). Bisa di iPhone juga.",
+      "Huruf lebih bersih: Mint kini memakai font bawaan ponselmu (SF Pro di iPhone) dengan judul yang lebih ringan."
     ],
     "zh": [
-      "多币种：可用任意货币记录支出或持仓，Mint 按每日汇率换算成预算货币，并保留原始金额。",
-      "投资页新增“学习”（12 题测验）、个人建议和你所在地区的财经新闻。",
-      "市场现在是 Mint 内的一个标签页：浏览模板、用一句话生成模板，并出售你的预算方案或投资组合（只含比例，不含你的真实金额）。价格以你自己的货币显示。",
-      "使用同一个 Mint 账户登录，即可在手机、电脑和浏览器之间同步预算。数据在上传前已在你的设备上加密；请妥善保管恢复码。"
+      "用说的代替打字：在“添加交易”中点麦克风，说“咖啡 25 和出租车 50 昨天”。一笔会填入表单，多笔会一次添加（可撤销）。iPhone 也可用。",
+      "更清爽的字体：Mint 现在使用手机自带字体（iPhone 上为 SF Pro），标题更轻。"
     ],
     "es": [
-      "Varias monedas: registra un gasto o una inversión en cualquier moneda y Mint lo convierte a la moneda de tu presupuesto con tipos de cambio diarios, guardando también el importe original.",
-      "Invertir ahora incluye Aprender (un cuestionario de 12 preguntas), Consejos personales y Noticias de dinero de tu región.",
-      "El Mercado ahora es una pestaña dentro de Mint: explora plantillas, genera una con una frase y vende tu plan de presupuesto o tu mezcla de inversión (solo porcentajes, nunca tus importes reales). Los precios se muestran en tu moneda.",
-      "Inicia sesión con una cuenta de Mint para sincronizar tus presupuestos entre teléfono, ordenador y navegador. Tus datos se cifran en tu dispositivo antes de subirse; guarda bien tu código de recuperación."
+      "Dílo en vez de escribir: toca el micrófono en Añadir movimiento y di “café 25 y taxi 50 ayer”. Un gasto rellena el formulario; varios se añaden a la vez (con Deshacer). También en iPhone.",
+      "Letra más limpia: Mint usa ahora la fuente de tu teléfono (SF Pro en iPhone) con títulos más ligeros."
     ]
   }
 }
