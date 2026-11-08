@@ -1578,3 +1578,8 @@ html.embed textarea { border-radius: 10px; }
 .embed-chips a.quiet { background: transparent; color: var(--muted); font-weight: 500; }
 .embed-chips a.quiet.on { color: var(--brand); background: var(--brand-soft); }
 .embed-chips .grow { flex: 1; min-width: 8px; }
+
+/* Seller mode gate (inside Mint Budget) */
+.seller-gate { max-width: 460px; margin: 32px auto; text-align: center; }
+.seller-gate .gate-icon { font-size: 44px; line-height: 1; margin-bottom: 8px; }
+.seller-gate .row { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin: 16px 0 8px; }

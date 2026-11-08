@@ -1,22 +1,26 @@
 {
-  "version": "3.3.0",
+  "version": "3.4.0",
   "released": "2026-11-08",
   "notes": {
     "en": [
-      "Say it instead of typing: tap the mic in Add transaction and say “coffee 25k and taxi 50k yesterday”. One item fills the form; several are added at once (with Undo). Works on iPhone too.",
-      "Cleaner type: Mint now uses your phone's own font (SF Pro on iPhone) with lighter headings."
+      "Seller mode: the Marketplace is for browsing and buying; turn on Seller mode in Settings (like opening a shop) to generate, sell and earn referral commission.",
+      "Say a trade in Invest: “beli 10 lot BBCA di 9000” or “bought 0.5 bitcoin at 900 juta”. Buys update your average cost, sells reduce the holding, with Undo.",
+      "Coming from Tally? Mint finds your Tally expenses on this device and brings them in with one tap."
     ],
     "id": [
-      "Ucapkan saja: ketuk mikrofon di Tambah transaksi dan bilang “kopi 25 ribu dan taksi 50 ribu kemarin”. Satu item mengisi formulir; beberapa item langsung ditambahkan (bisa Batal). Bisa di iPhone juga.",
-      "Huruf lebih bersih: Mint kini memakai font bawaan ponselmu (SF Pro di iPhone) dengan judul yang lebih ringan."
+      "Mode Penjual: Marketplace untuk melihat dan membeli; nyalakan Mode Penjual di Pengaturan (seperti buka toko) untuk membuat, menjual, dan dapat komisi referral.",
+      "Ucapkan transaksi di Investasi: “beli 10 lot BBCA di 9000” atau “beli 0.5 bitcoin harga 900 juta”. Beli memperbarui harga rata-rata, jual mengurangi aset, bisa Batal.",
+      "Dari Tally? Mint menemukan pengeluaran Tally di perangkat ini dan memindahkannya dengan satu ketukan."
     ],
     "zh": [
-      "用说的代替打字：在“添加交易”中点麦克风，说“咖啡 25 和出租车 50 昨天”。一笔会填入表单，多笔会一次添加（可撤销）。iPhone 也可用。",
-      "更清爽的字体：Mint 现在使用手机自带字体（iPhone 上为 SF Pro），标题更轻。"
+      "卖家模式：市场默认只用于浏览和购买；在设置中开启卖家模式（就像开店），即可生成、出售模板并赚取推荐佣金。",
+      "在投资里说出交易：“买 10 手 BBCA 9000”或“bought 0.5 bitcoin at 900 juta”。买入更新平均成本，卖出减少持仓，可撤销。",
+      "从 Tally 来？Mint 会找到本设备上的 Tally 支出，一键导入。"
     ],
     "es": [
-      "Dílo en vez de escribir: toca el micrófono en Añadir movimiento y di “café 25 y taxi 50 ayer”. Un gasto rellena el formulario; varios se añaden a la vez (con Deshacer). También en iPhone.",
-      "Letra más limpia: Mint usa ahora la fuente de tu teléfono (SF Pro en iPhone) con títulos más ligeros."
+      "Modo vendedor: el Marketplace es para mirar y comprar; activa el Modo vendedor en Ajustes (como abrir una tienda) para generar, vender y ganar comisión por referidos.",
+      "Di una operación en Invertir: “bought 5 AAPL at 190”. Las compras actualizan tu coste medio y las ventas reducen la posición, con Deshacer.",
+      "¿Vienes de Tally? Mint encuentra tus gastos de Tally en este dispositivo y los trae con un toque."
     ]
   }
 }
