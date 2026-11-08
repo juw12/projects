@@ -78,6 +78,21 @@
   .journey .dot .i { width: 18px; height: 18px; }
   .journey .now .dot { border: 2px solid var(--rose); background: var(--card); color: var(--rose); box-shadow: 0 0 0 4px var(--rose-soft); }
   .journey .now { color: var(--ink); font-weight: 600; }
+/* journey track: a line joins the stages and fills up to the current one */
+.journey .step { position: relative; }
+.journey .step:not(:last-child)::after { content: ""; position: absolute; top: 20px; left: calc(50% + 24px);
+  width: calc(100% - 42px); height: 2px; border-radius: 2px; background: var(--line-strong); }
+.journey .step.done::after { background: var(--rose); }
+/* week pots: split line and a folded "+ Add" share one row */
+.pot-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
+.pot-foot > .small { flex: 1 1 180px; min-width: 0; }
+.pot-add { flex: 0 0 auto; }
+.pot-add[open] { flex-basis: 100%; }
+.pot-add > summary { list-style: none; cursor: pointer; display: inline-flex; align-items: center; min-height: 40px; padding: 0 14px;
+  border: 1px solid var(--line-strong); border-radius: 8px; background: var(--card); color: var(--rose); font-size: .875rem; font-weight: 600; }
+.pot-add > summary::-webkit-details-marker { display: none; }
+.pot-add > summary:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.pot-add[open] > summary { display: none; }
   ul.clean { list-style: none; margin: 0; padding: 0; }
   ul.clean > li { padding: 9px 0; border-top: 1px solid var(--line); }
   ul.clean > li:first-child { border-top: 0; }
