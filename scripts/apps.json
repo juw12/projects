@@ -2474,6 +2474,53 @@
       "status": "released",
       "order": 56,
       "portfolio": true
+    },
+    {
+      "id": "bilas",
+      "name": "Bilas",
+      "category": "Apps",
+      "external": true,
+      "url": "https://juw12.github.io/bilas/",
+      "url_label": "Open site",
+      "desc": "A quiet first-person 3D coin laundry with synthesized ASMR. Wash, dry, hang, fold. Web, installable PWA (desktop/iPhone) and Android APK.",
+      "summary": "A quiet first-person 3D coin laundry with synthesized ASMR.",
+      "description": "Feed the changer, wash, tumble dry, hang by the window and fold, with every sound synthesized live. No score, no timer pressure. Runs in the browser, installs on desktop and iPhone, and has an Android APK.",
+      "tags": [
+        "three.js",
+        "Web Audio",
+        "PWA",
+        "Android"
+      ],
+      "note_tags": [
+        "bilas",
+        "asmr",
+        "capacitor",
+        "cozy-game",
+        "laundry",
+        "pwa"
+      ],
+      "image": "bilas-card.jpg",
+      "image_alt": "Bilas start card over a softly lit 3D coin laundromat with washers and a folding table",
+      "extra_links": [
+        {
+          "label": "Source",
+          "url": "https://github.com/juw12/bilas"
+        },
+        {
+          "label": "Android APK",
+          "url": "https://github.com/juw12/bilas/releases/tag/android"
+        }
+      ],
+      "card": {
+        "label": "bilas · laundromat",
+        "capture": "https://juw12.github.io/bilas/",
+        "theme": "dark",
+        "accent": "#a63f2d",
+        "accent2": "#9e932f"
+      },
+      "status": "released",
+      "order": 57,
+      "portfolio": true
     }
   ]
 }
