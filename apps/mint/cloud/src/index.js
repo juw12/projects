@@ -24,7 +24,7 @@ const Core = globalThis.MintCore;
 const Budget = globalThis.MintBudget;
 
 const APP = "mint";
-const VERSION = "3.2.0";
+const VERSION = "3.5.0";
 const APP_URL_DEFAULT = "https://juw12.github.io/projects/mint/app.html";
 const ORDER_EXPIRY_DAYS = 14;
 const REPORT_HIDE_THRESHOLD = 5;

@@ -99,9 +99,26 @@ API `https://mint-api.juw12.workers.dev/api/health`
   `?demo=1`, `demo.html`, `tests.html` and `get.html` never stop at the question.
 - **Shared settings.** Light / Dark / System lives in `mint.theme` and both halves follow it, even
   in a tab that is already open. Both halves read the one `mint.lang`; Templates is translated into
-  Indonesian, so Chinese and Spanish show Templates in English.
+  Indonesian, Chinese and Spanish too.
 - **Two service workers.** `web/budget/sw.js` (scope `budget/`, caches `mint-budget-v…`) and
   `web/sw.js` (scope `mint/`, caches `mint-v…`). Each deletes only its own old caches.
+
+## Mint 3.5: live prices, four languages everywhere, offline desktop
+
+- **Live prices.** Invest has a **Refresh prices** button and refreshes by itself (at most every 4 hours) when you
+  open it. IDX tickers (BBCA, TLKM), US stocks, crypto and gold per gram come from the Worker's `/api/quote`
+  (Yahoo Finance with CoinGecko for crypto and gold, cached 15 minutes). A price you type yourself stays put until
+  you press Refresh.
+- **Your data stays put.** Budget asks the browser to keep its storage (`navigator.storage.persist`), Settings shows
+  whether it did and when you last backed up, and a quiet reminder suggests a backup when a big book has none in 30
+  days (only if you are not signed in to sync).
+- **Templates in Chinese and Spanish.** The language button cycles English, Indonesian, 中文 and Español, and every
+  phrase, rule and category is translated.
+- **Privacy and Terms in four languages,** with a switcher; English prevails if they ever differ.
+- **Localized spreadsheets.** Downloaded .xlsx files name their tabs, headers and tips in your language, and the
+  formulas follow the renamed tabs.
+- **Desktop works offline from the first launch.** The Windows and macOS apps carry a copy of Mint and open it from
+  the computer when there is no internet; budgets made offline move into the online app the next time it connects.
 
 ## Mint 3.4: one app for budgets, voice, investing and selling
 
@@ -160,7 +177,7 @@ API `https://mint-api.juw12.workers.dev/api/health`
 | **Warnings** | Alert at a configurable threshold (default 80%), when a limit is over, and when the current pace will overspend before month end. Shown as toasts, in the bell and (optionally) as browser notifications, including for edits made by other people. Quick-add shows "this brings Groceries to 86%" before you save. |
 | **Tips** | Persona-aware tips: one per day, sometimes after adding a transaction, and on demand. |
 | **Goals** | Savings goals with progress rings and the monthly amount needed to reach the target date. |
-| **Invest** | Holdings (units × price), allocation vs. a target (presets or custom), drift and the trades needed to rebalance, and a compound-growth projection with sliders. Prices are entered manually. **Say a trade** (mic or typing) adds or sells a holding: "beli 10 lot BBCA di 9000", "0.5 bitcoin harga 900 juta", "jual 2 lot TLKM"; buys average the cost, Undo is one tap. |
+| **Invest** | Holdings (units × price), allocation vs. a target (presets or custom), drift and the trades needed to rebalance, and a compound-growth projection with sliders. Prices refresh from live market data (IDX and US stocks, crypto, gold per gram), or type your own. **Say a trade** (mic or typing) adds or sells a holding: "beli 10 lot BBCA di 9000", "0.5 bitcoin harga 900 juta", "jual 2 lot TLKM"; buys average the cost, Undo is one tap. |
 | **Look & feel** | Light, Dark or System theme in one tap from the top bar (the new theme grows out of the button), with live previews in **Settings → Appearance**. Motion is calm: rings, bars and figures animate when a page or month opens, never on every edit, and *reduce motion* turns it off. |
 | **Phone layout** | One tidy header row and a tab bar with a big **+** in the middle. **More** holds theme, language, Goals, Invest, You, Share, Settings and Templates. Dialogs open as bottom sheets you can drag down to close; toasts can be swiped away and never cover an open sheet. |
 | **Keyboard** | `N` add · `T` theme · `1`–`8` pages · `/` search the sheet · `?` lists every shortcut. |
@@ -383,25 +400,24 @@ Deploy the API: `cd apps/mint/cloud && npx wrangler deploy` (after `npx wrangler
 
 ## Limits
 
-- Budget is not a bank: it never connects to your accounts. Tips and plans are general guidance, not financial
-  advice; investment prices are manual. Data is only as durable as your browser storage plus whoever you share with,
-  so use **Settings → Backup** for a JSON export. Budget translations were written with AI assistance and have not
-  had a native-speaker review.
-- Templates speaks English and Indonesian only. Strings missing from its dictionary (and server error messages not
-  listed there) fall back to English; the legal pages and the downloaded .xlsx / sheet contents stay in English.
-- The desktop apps are not code-signed or notarized (SmartScreen / Gatekeeper ask once). They need an internet
-  connection the first time they open; after that Budget also works offline.
-- Automatic payments use each seller's own provider account (no platform money flow, so no
-  payment licence needed); they were tested against local provider mocks and the real APIs'
-  key validation, not with a real paid transaction. Mint collecting a fee automatically would
-  need a marketplace product (Xendit xenPlatform / Midtrans split / Stripe Connect).
-- Email needs a Resend API key + verified sender domain; until then notifications are Web Push
-  + in-app badges. Push doesn't work inside the Android WebView app (use Chrome / installed PWA).
-- iPhone: no App Store build (needs the Apple Developer Program and Xcode); the Add to Home
-  Screen PWA is the iPhone app. The Android APK is sideloaded, not on Google Play; neither is the
-  Microsoft Store or Mac App Store.
-- Privacy and Terms pages are plain-language summaries, not lawyer-reviewed.
-- Everything in Templates lives in one Durable Object. That is fine for thousands of users and
-  listings, but would need sharding at real scale.
-- The .xlsx files are verified with openpyxl plus an independent recalculation, by a
-  real-browser download, and in desktop Excel (all 14 seed templates, 104/104 values match).
+What is left needs an account, a payment or a person rather than code:
+
+- **Not a bank.** Mint never connects to your accounts, and tips and plans are general guidance, not financial
+  advice. Live prices are delayed market data (Yahoo Finance, CoinGecko); gold uses the world spot price, not a
+  dealer's buy-back price such as Antam's, so you can still type your own.
+- **Translations** in Indonesian, Chinese and Spanish (app, Templates, legal pages, spreadsheets) were written with
+  AI assistance and still want a native-speaker review.
+- **Privacy and Terms** are plain-language summaries, not lawyer-reviewed.
+- **Code signing.** The desktop apps are not code-signed or notarized, so SmartScreen and Gatekeeper ask once.
+  Signing needs a paid certificate and an Apple Developer account.
+- **Stores.** There is no App Store, Google Play, Microsoft Store or Mac App Store listing yet (each needs a
+  developer account). On iPhone, Add to Home Screen installs the PWA; the Android APK is sideloaded.
+- **Android push.** The Android app shows alerts inside the app (badge, banner and vibration); system push while it
+  is closed needs a Firebase Cloud Messaging project. Chrome and the installed PWA get Web Push today.
+- **Email** needs a Resend API key and a verified sender domain; until then notifications are Web Push and in-app.
+- **Payments.** Automatic payments use each seller's own provider account (no platform money flow, so no payment
+  licence). They were tested against provider mocks and the real APIs' key validation, not with a real paid
+  transaction. Mint taking a fee automatically would need a marketplace product (Xendit xenPlatform, Midtrans
+  split or Stripe Connect).
+- **Scale.** Templates keeps everything in one SQLite-backed Durable Object, which is fine for thousands of users
+  and listings; it would be sharded by user before it got near its limits.
