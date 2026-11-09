@@ -11,11 +11,21 @@
     .legal { max-width: 760px; margin: 0 auto; padding: 28px 20px 60px; line-height: 1.65; }
     .legal h2 { margin-top: 28px; }
     .legal li { margin: 4px 0; }
+    .legal-langs { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 8px; }
+    .legal-langs button { font: inherit; font-size: 13px; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line, #d6dbe1); background: transparent; color: inherit; cursor: pointer; }
+    .legal-langs button[aria-pressed="true"] { background: var(--accent, #0f9d76); border-color: var(--accent, #0f9d76); color: #fff; }
   </style>
 </head>
 <body>
   <main class="legal">
-    <p><a href="app.html">← Back to Mint</a></p>
+    <p><a href="app.html" data-back>← Back to Mint</a></p>
+    <nav class="legal-langs" aria-label="Language">
+      <button type="button" data-lang-btn="en">English</button>
+      <button type="button" data-lang-btn="id">Bahasa Indonesia</button>
+      <button type="button" data-lang-btn="zh">简体中文</button>
+      <button type="button" data-lang-btn="es">Español</button>
+    </nav>
+    <article data-lang="en" lang="en">
     <h1>Privacy</h1>
     <p class="muted small">Last updated 27 October 2026. Plain-language policy written for Mint with Indonesia’s Personal Data Protection Law (UU No. 27 Tahun 2022) in mind; not yet reviewed by a lawyer.</p>
 
@@ -77,6 +87,239 @@
 
     <h2>Changes</h2>
     <p>Material changes are announced in the app before they take effect. The date at the top shows the latest version.</p>
+    </article>
+    <article data-lang="id" lang="id" hidden>
+    <h1>Privasi</h1>
+    <p class="muted small">Terakhir diperbarui 27 Oktober 2026. Kebijakan berbahasa sederhana untuk Mint, disusun dengan mengacu pada Undang-Undang Pelindungan Data Pribadi (UU No. 27 Tahun 2022); belum ditinjau pengacara. Terjemahan ini untuk kemudahan — jika ada perbedaan, versi bahasa Inggris yang berlaku.</p>
+
+    <h2>Siapa yang bertanggung jawab</h2>
+    <p>Mint adalah proyek pribadi yang dijalankan Juwen Lie, Batam, Indonesia (pengendali data). Kontak: <a href="mailto:juwen12006@gmail.com?subject=Mint%20privacy">juwen12006@gmail.com</a>.</p>
+
+    <h2>Apa yang disimpan Mint</h2>
+    <ul>
+      <li><strong>Akun:</strong> nama, email, hash PBKDF2 (dengan salt) dari kata sandimu, dan hash SHA-256 dari kode pemulihanmu. Mint tidak pernah melihat atau menyimpan kata sandi atau kode itu sendiri.</li>
+      <li><strong>Data marketplace:</strong> draf, listing (termasuk link pembayaranmu), pesanan, ulasan, laporan, link afiliasi, dan jumlah klik.</li>
+      <li><strong>Data pencairan</strong> yang kamu isi, hanya ditampilkan ke penjual yang berutang komisi afiliasi kepadamu.</li>
+      <li><strong>Pembayaran otomatis (penjual yang mengaktifkannya):</strong> secret key Midtrans, Xendit, atau Stripe milikmu, dienkripsi (AES-GCM) dan hanya dipakai untuk membuat checkout dan membaca status pembayaran. Memutus koneksi akan menghapusnya.</li>
+      <li><strong>Notifikasi:</strong> alamat push yang diberikan browsermu saat kamu menyalakan notifikasi, serta preferensi email. Email (jika aktif) dikirim lewat Resend.</li>
+      <li><strong>Sesi masuk:</strong> token acak yang disimpan di penyimpanan lokal browsermu; server hanya menyimpan hash-nya.</li>
+      <li><strong>Perlindungan dari penyalahgunaan:</strong> alamat jaringanmu dipakai sebentar untuk batas permintaan (daftar, masuk, klik) dan tidak disimpan bersama akunmu.</li>
+    </ul>
+    <p>Mint tidak mengumpulkan lokasi, kontak, foto, pengenal perangkat untuk iklan, atau nomor kartu maupun rekening bank.</p>
+
+    <h2>Untuk apa, dan atas dasar apa</h2>
+    <ul>
+      <li><strong>Menjalankan akun dan marketplace</strong> (masuk, listing, pesanan, membuka file, pelacakan afiliasi): diperlukan untuk memberikan layanan yang kamu minta.</li>
+      <li><strong>Notifikasi dan pembayaran otomatis:</strong> hanya dengan persetujuanmu — kamu yang menyalakannya dan bisa mematikannya kapan saja.</li>
+      <li><strong>Keamanan dan pencegahan penyalahgunaan</strong> (batas permintaan, laporan): kepentingan yang sah untuk menjaga Mint tetap aman.</li>
+    </ul>
+    <p>Tanpa iklan, tanpa pelacak analitik, tanpa profiling, tanpa menjual atau menyewakan data.</p>
+
+    <h2>Siapa melihat apa</h2>
+    <ul>
+      <li>Saat kamu memesan template berbayar, penjual melihat nama, email, dan kode referensi pesananmu agar bisa mencocokkan pembayaranmu.</li>
+      <li>Nama publikmu muncul di listing yang kamu jual dan ulasan yang kamu tulis.</li>
+      <li>Pembayaran terjadi di checkout milik penjual: link pembayaran (misalnya Lynk.id, Saweria, PayPal) atau akun Midtrans, Xendit, atau Stripe milik penjual. Mint tidak pernah menerima data kartu atau rekening; Mint hanya membaca apakah pesanan sudah dibayar. Kebijakan privasi penyedia tersebut berlaku untuk pembayarannya.</li>
+      <li>Prompt Mint AI dikirim ke Cloudflare Workers AI untuk membuat template dan tidak dipakai untuk mengidentifikasimu.</li>
+    </ul>
+
+    <h2>Di mana data disimpan (transfer ke luar Indonesia)</h2>
+    <p>Situs di-hosting di GitHub Pages (Amerika Serikat), sedangkan API dan basis data Mint berjalan di Cloudflare Workers / Durable Objects, yang dapat memproses data di pusat data di luar Indonesia. Penyedia ini menerapkan pengamanan dan ketentuan pemrosesan data mereka sendiri. Semua lalu lintas dienkripsi saat dikirim (HTTPS).</p>
+
+    <h2>Berapa lama disimpan</h2>
+    <ul>
+      <li>Data akun: selama akunmu ada. Menghapus akun langsung menghapusnya; cadangan bergulir Cloudflare kedaluwarsa dalam 30 hari.</li>
+      <li>Sesi masuk: sampai kamu keluar atau sesi berakhir. Catatan batas permintaan: beberapa menit hingga jam.</li>
+      <li>Pesanan tertunda kedaluwarsa setelah 14 hari. Catatan pesanan yang selesai disimpan agar kedua pihak tetap punya riwayat pembelian atau penjualan; setelah akun dihapus, tertulis “Pengguna dihapus”.</li>
+    </ul>
+
+    <h2>Hak-hakmu</h2>
+    <p>Kamu dapat meminta akses, perbaikan, pembaruan, atau salinan data pribadimu; menarik persetujuan; menolak atau membatasi pemrosesan; dan meminta datamu dihapus.</p>
+    <ul>
+      <li>Ubah nama dan data pencairan di <em>Akun</em>. Matikan notifikasi dan pembayaran otomatis di <em>Akun</em> dan <em>Jual</em>.</li>
+      <li><strong>Hapus akunmu</strong> di <em>Akun → Hapus akun</em>, atau di web lewat <a href="delete-account.html">Hapus akunmu</a>, bahkan tanpa aplikasi.</li>
+      <li>Mode offline hanya menyimpan data di browsermu; hapus di <em>Akun</em>.</li>
+      <li>Untuk hal lain, email <a href="mailto:juwen12006@gmail.com?subject=Mint%20privacy%20request">juwen12006@gmail.com</a>. Permintaan dijawab dalam 14 hari (3 × 24 jam untuk masalah keamanan yang mendesak).</li>
+    </ul>
+
+    <h2>Keamanan dan kebocoran data</h2>
+    <p>Kata sandi di-hash, kunci pembayaran dienkripsi, sesi disimpan sebagai hash, dan akses dibatasi. Jika terjadi kebocoran yang memengaruhi data pribadimu, Mint akan memberi tahu pengguna terdampak dan otoritas secara tertulis dalam 3 × 24 jam sejak mengetahuinya, sesuai UU PDP.</p>
+
+    <h2>Anak-anak</h2>
+    <p>Mint tidak ditujukan untuk anak di bawah 13 tahun. Pengguna di bawah 18 tahun sebaiknya memakai Mint, terutama untuk membeli atau menjual, hanya dengan izin orang tua atau wali.</p>
+
+    <h2>Perubahan</h2>
+    <p>Perubahan penting diumumkan di aplikasi sebelum berlaku. Tanggal di atas menunjukkan versi terbaru.</p>
+    </article>
+    <article data-lang="zh" lang="zh-Hans" hidden>
+    <h1>隐私</h1>
+    <p class="muted small">最后更新：2026 年 10 月 27 日。为 Mint 撰写的通俗隐私政策，参照印度尼西亚《个人数据保护法》（2022 年第 27 号法律）；尚未经律师审核。本译文仅为方便阅读，如有出入，以英文版为准。</p>
+
+    <h2>谁负责</h2>
+    <p>Mint 是由 Juwen Lie（印度尼西亚巴淡岛）运营的个人项目（数据控制者）。联系方式：<a href="mailto:juwen12006@gmail.com?subject=Mint%20privacy">juwen12006@gmail.com</a>。</p>
+
+    <h2>Mint 存储哪些数据</h2>
+    <ul>
+      <li><strong>账户：</strong>你的姓名、邮箱、密码的加盐 PBKDF2 哈希，以及恢复码的 SHA-256 哈希。Mint 从不查看或存储密码或恢复码本身。</li>
+      <li><strong>市场数据：</strong>草稿、商品（包括你的付款链接）、订单、评价、举报、推广链接和点击次数。</li>
+      <li><strong>收款信息：</strong>由你自愿填写，只会显示给欠你推广佣金的卖家。</li>
+      <li><strong>自动收款（开启该功能的卖家）：</strong>你的 Midtrans、Xendit 或 Stripe 密钥，经加密（AES-GCM）存储，只用于创建结账和读取付款状态。断开连接即删除。</li>
+      <li><strong>通知：</strong>你开启通知时浏览器提供给 Mint 的推送地址，以及你的邮件偏好。邮件（启用时）通过 Resend 发送。</li>
+      <li><strong>登录会话：</strong>保存在浏览器本地存储中的随机令牌；服务器只保存其哈希。</li>
+      <li><strong>防滥用：</strong>你的网络地址会被短暂用于请求限制（注册、登录、点击），不会与你的账户一起存储。</li>
+    </ul>
+    <p>Mint 不收集位置、通讯录、照片、广告设备标识符，也不收集银行卡或银行账号。</p>
+
+    <h2>用途及依据</h2>
+    <ul>
+      <li><strong>运行你的账户和市场</strong>（登录、商品、订单、解锁文件、推广追踪）：为提供你所请求的服务所必需。</li>
+      <li><strong>通知和自动收款：</strong>仅在你同意时使用——由你开启，并可随时关闭。</li>
+      <li><strong>安全与防滥用</strong>（请求限制、举报）：为保障 Mint 安全的正当利益。</li>
+    </ul>
+    <p>没有广告、没有分析追踪器、没有用户画像，不出售或出租数据。</p>
+
+    <h2>谁能看到什么</h2>
+    <ul>
+      <li>当你订购付费模板时，卖家会看到你的姓名、邮箱和订单编号，以便核对你的付款。</li>
+      <li>你的公开名称会显示在你出售的商品和你撰写的评价上。</li>
+      <li>付款发生在卖家自己的结账页面：付款链接（例如 Lynk.id、Saweria、PayPal）或卖家自己的 Midtrans、Xendit 或 Stripe 账户。Mint 从不接收银行卡或银行数据，只读取订单是否已付款。付款适用该服务商的隐私政策。</li>
+      <li>Mint AI 的提示词会发送给 Cloudflare Workers AI 用于生成模板，不会用于识别你的身份。</li>
+    </ul>
+
+    <h2>数据存放位置（向印度尼西亚境外传输）</h2>
+    <p>网站托管在 GitHub Pages（美国），Mint 的 API 和数据库运行在 Cloudflare Workers / Durable Objects 上，可能在印度尼西亚境外的数据中心处理数据。这些服务商采用其自身的安全保障和数据处理条款。所有传输均经过加密（HTTPS）。</p>
+
+    <h2>保存期限</h2>
+    <ul>
+      <li>账户数据：在你的账户存续期间保存。删除账户会立即删除这些数据；Cloudflare 的滚动备份在 30 天内过期。</li>
+      <li>登录会话：直到你退出登录或会话过期。请求限制记录：几分钟到几小时。</li>
+      <li>待处理订单 14 天后过期。已完成的订单记录会保留，以便双方保有购买或销售记录；账户删除后显示为“已删除用户”。</li>
+    </ul>
+
+    <h2>你的权利</h2>
+    <p>你可以要求访问、更正、更新或获取你的个人数据副本；撤回同意；反对或限制处理；以及删除你的数据。</p>
+    <ul>
+      <li>在<em>账户</em>中编辑你的名称和收款信息。在<em>账户</em>和<em>出售</em>中关闭通知和自动收款。</li>
+      <li>在<em>账户 → 删除账户</em>中<strong>删除你的账户</strong>，或在网页上通过<a href="delete-account.html">删除你的账户</a>操作，无需应用。</li>
+      <li>离线模式只把数据保存在你的浏览器中；可在<em>账户</em>中清除。</li>
+      <li>其他事项请发邮件至 <a href="mailto:juwen12006@gmail.com?subject=Mint%20privacy%20request">juwen12006@gmail.com</a>。请求会在 14 天内答复（紧急安全问题为 3 × 24 小时）。</li>
+    </ul>
+
+    <h2>安全与数据泄露</h2>
+    <p>密码经过哈希处理，付款密钥经过加密，会话以哈希形式保存，访问受到频率限制。如果发生影响你个人数据的泄露，Mint 会按照《个人数据保护法》的要求，在发现后 3 × 24 小时内以书面形式通知受影响的用户和主管机关。</p>
+
+    <h2>儿童</h2>
+    <p>Mint 不面向 13 岁以下儿童。未满 18 岁的用户应在父母或监护人的许可下使用 Mint，尤其是购买或出售时。</p>
+
+    <h2>变更</h2>
+    <p>重大变更会在生效前于应用内公布。顶部日期显示最新版本。</p>
+    </article>
+    <article data-lang="es" lang="es" hidden>
+    <h1>Privacidad</h1>
+    <p class="muted small">Última actualización: 27 de octubre de 2026. Política en lenguaje sencillo escrita para Mint teniendo en cuenta la Ley de Protección de Datos Personales de Indonesia (UU n.º 27 de 2022); aún no revisada por un abogado. Esta traducción es por comodidad: si hay diferencias, prevalece la versión en inglés.</p>
+
+    <h2>Quién es responsable</h2>
+    <p>Mint es un proyecto personal gestionado por Juwen Lie, Batam, Indonesia (el responsable del tratamiento). Contacto: <a href="mailto:juwen12006@gmail.com?subject=Mint%20privacy">juwen12006@gmail.com</a>.</p>
+
+    <h2>Qué guarda Mint</h2>
+    <ul>
+      <li><strong>Cuenta:</strong> tu nombre, correo, un hash PBKDF2 con sal de tu contraseña y un hash SHA-256 de tu código de recuperación. Mint nunca ve ni guarda la contraseña ni el código.</li>
+      <li><strong>Datos del mercado:</strong> borradores, anuncios (incluido tu enlace de pago), pedidos, reseñas, denuncias, enlaces de afiliado y número de clics.</li>
+      <li><strong>Datos de cobro</strong> que decidas introducir, mostrados solo a los vendedores que te deben una comisión de afiliado.</li>
+      <li><strong>Pagos automáticos (vendedores que los activan):</strong> tu clave secreta de Midtrans, Xendit o Stripe, cifrada (AES-GCM) y usada solo para crear pagos y leer su estado. Al desconectar se elimina.</li>
+      <li><strong>Notificaciones:</strong> la dirección push que tu navegador da a Mint al activarlas y tu preferencia de correo. Los correos (si están activos) se envían mediante Resend.</li>
+      <li><strong>Sesiones:</strong> un token aleatorio guardado en el almacenamiento local de tu navegador; el servidor solo guarda su hash.</li>
+      <li><strong>Protección contra abusos:</strong> tu dirección de red se usa brevemente para límites de uso (registro, inicio de sesión, clics) y no se guarda con tu cuenta.</li>
+    </ul>
+    <p>Mint no recoge ubicación, contactos, fotos, identificadores de dispositivo para publicidad ni números de tarjeta o de cuenta bancaria.</p>
+
+    <h2>Para qué y con qué base</h2>
+    <ul>
+      <li><strong>Para gestionar tu cuenta y el mercado</strong> (inicio de sesión, anuncios, pedidos, desbloqueo de archivos, seguimiento de afiliados): necesario para prestar el servicio que pediste.</li>
+      <li><strong>Notificaciones y pagos automáticos:</strong> solo con tu consentimiento; tú los activas y puedes desactivarlos cuando quieras.</li>
+      <li><strong>Seguridad y prevención de abusos</strong> (límites de uso, denuncias): interés legítimo en mantener Mint seguro.</li>
+    </ul>
+    <p>Sin anuncios, sin rastreadores de analítica, sin perfiles, sin venta ni alquiler de datos.</p>
+
+    <h2>Quién ve qué</h2>
+    <ul>
+      <li>Cuando pides una plantilla de pago, el vendedor ve tu nombre, correo y referencia del pedido para poder cuadrar tu pago.</li>
+      <li>Tu nombre público aparece en los anuncios que vendes y en las reseñas que escribes.</li>
+      <li>Los pagos se hacen en la página de pago del propio vendedor: un enlace de pago (por ejemplo Lynk.id, Saweria, PayPal) o su propia cuenta de Midtrans, Xendit o Stripe. Mint nunca recibe datos de tarjeta ni bancarios; solo consulta si un pedido está pagado. Al pago se le aplica la política de privacidad de ese proveedor.</li>
+      <li>Las instrucciones para Mint AI se envían a Cloudflare Workers AI para generar una plantilla y no se usan para identificarte.</li>
+    </ul>
+
+    <h2>Dónde se guardan (transferencias fuera de Indonesia)</h2>
+    <p>El sitio web está alojado en GitHub Pages (Estados Unidos) y la API y la base de datos de Mint funcionan en Cloudflare Workers / Durable Objects, que pueden procesar datos en centros de datos fuera de Indonesia. Estos proveedores aplican sus propias medidas de seguridad y condiciones de tratamiento de datos. Todo el tráfico va cifrado (HTTPS).</p>
+
+    <h2>Cuánto tiempo se guardan</h2>
+    <ul>
+      <li>Datos de la cuenta: mientras exista tu cuenta. Al eliminarla se borran de inmediato; las copias de seguridad rotativas de Cloudflare caducan en 30 días.</li>
+      <li>Sesiones: hasta que cierres sesión o caduquen. Registros de límites de uso: de minutos a horas.</li>
+      <li>Los pedidos pendientes caducan a los 14 días. Los pedidos completados se conservan para que ambas partes mantengan su historial de compras o ventas; tras eliminar la cuenta aparecen como “Usuario eliminado”.</li>
+    </ul>
+
+    <h2>Tus derechos</h2>
+    <p>Puedes pedir acceder, corregir, actualizar u obtener una copia de tus datos personales; retirar tu consentimiento; oponerte o limitar el tratamiento; y que se eliminen tus datos.</p>
+    <ul>
+      <li>Edita tu nombre y datos de cobro en <em>Cuenta</em>. Desactiva las notificaciones y los pagos automáticos en <em>Cuenta</em> y <em>Vender</em>.</li>
+      <li><strong>Elimina tu cuenta</strong> en <em>Cuenta → Eliminar cuenta</em>, o en la web en <a href="delete-account.html">Eliminar tu cuenta</a>, incluso sin la app.</li>
+      <li>El modo sin conexión guarda datos solo en tu navegador; bórralos en <em>Cuenta</em>.</li>
+      <li>Para cualquier otra cosa, escribe a <a href="mailto:juwen12006@gmail.com?subject=Mint%20privacy%20request">juwen12006@gmail.com</a>. Las solicitudes se responden en 14 días (3 × 24 horas para problemas de seguridad urgentes).</li>
+    </ul>
+
+    <h2>Seguridad y brechas</h2>
+    <p>Las contraseñas se guardan con hash, las claves de pago cifradas, las sesiones como hashes y el acceso tiene límites de uso. Si una brecha afecta a tus datos personales, Mint lo comunicará por escrito a los usuarios afectados y a las autoridades en un plazo de 3 × 24 horas desde que lo descubra, como exige la UU PDP.</p>
+
+    <h2>Menores</h2>
+    <p>Mint no está pensado para menores de 13 años. Los menores de 18 deberían usar Mint, y sobre todo comprar o vender, solo con permiso de su madre, padre o tutor.</p>
+
+    <h2>Cambios</h2>
+    <p>Los cambios importantes se anuncian en la app antes de que entren en vigor. La fecha de arriba indica la versión más reciente.</p>
+    </article>
   </main>
+  <script>
+    // Mint 3.5: the policy in all four Mint languages. Picks ?lang=, then Mint's saved language, then the browser's.
+    (function () {
+      var LANGS = ["en", "id", "zh", "es"];
+      var BACK = { en: "← Back to Mint", id: "← Kembali ke Mint", zh: "← 返回 Mint", es: "← Volver a Mint" };
+      function pick() {
+        var q = new URLSearchParams(location.search).get("lang");
+        if (LANGS.indexOf(q) >= 0) return q;
+        try {
+          var saved = localStorage.getItem("mint.lang");
+          if (LANGS.indexOf(saved) >= 0) return saved;
+        } catch (e) {}
+        var nav = (navigator.language || "").toLowerCase();
+        if (/^(id|ms|in)\b/.test(nav)) return "id";
+        if (/^zh\b/.test(nav)) return "zh";
+        if (/^es\b/.test(nav)) return "es";
+        return "en";
+      }
+      function show(lang) {
+        document.querySelectorAll("article[data-lang]").forEach(function (a) {
+          a.hidden = a.getAttribute("data-lang") !== lang;
+        });
+        document.querySelectorAll("[data-lang-btn]").forEach(function (b) {
+          b.setAttribute("aria-pressed", String(b.getAttribute("data-lang-btn") === lang));
+        });
+        var back = document.querySelector("[data-back]");
+        if (back) back.textContent = BACK[lang];
+        document.documentElement.lang = lang;
+        var h1 = document.querySelector("article[data-lang='" + lang + "'] h1");
+        if (h1) document.title = h1.textContent + " — Mint";
+      }
+      document.querySelectorAll("[data-lang-btn]").forEach(function (b) {
+        b.addEventListener("click", function () {
+          var lang = b.getAttribute("data-lang-btn");
+          try {
+            localStorage.setItem("mint.lang", lang);
+          } catch (e) {}
+          show(lang);
+        });
+      });
+      show(pick());
+    })();
+  </script>
 </body>
 </html>
