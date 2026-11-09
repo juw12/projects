@@ -1170,6 +1170,30 @@
     "it means an order still waiting for your payment.": "significa que un pedido aún espera tu pago."
   };
 
+  // Studio replies name themes, column types and card functions in English; say those natively too
+  var STUDIO_WORDS = {
+    zh: {
+      "Mint": "薄荷", "Ocean": "海洋", "Sunset": "日落", "Lavender": "薰衣草",
+      "Blush (pastel)": "粉彩", "Forest": "森林", "Minimal mono": "极简黑白", "Midnight (dark)": "午夜（深色）",
+      text: "文本", number: "数字", currency: "金额", percent: "百分比", date: "日期",
+      select: "下拉选项", check: "勾选",
+      SUM: "求和", AVERAGE: "平均值", MAX: "最大值", MIN: "最小值", COUNTA: "计数"
+    },
+    es: {
+      "Mint": "Menta", "Ocean": "Océano", "Sunset": "Atardecer", "Lavender": "Lavanda",
+      "Blush (pastel)": "Rosa pastel", "Forest": "Bosque", "Minimal mono": "Mono minimalista",
+      "Midnight (dark)": "Medianoche (oscuro)",
+      text: "texto", number: "número", currency: "moneda", percent: "porcentaje", date: "fecha",
+      select: "lista", check: "casilla",
+      SUM: "SUMA", AVERAGE: "PROMEDIO", MAX: "MÁX", MIN: "MÍN", COUNTA: "CONTAR"
+    }
+  };
+
+  function studioWord(lang, word) {
+    var map = STUDIO_WORDS[lang];
+    return Object.prototype.hasOwnProperty.call(map, word) ? map[word] : word;
+  }
+
   // Whole-text patterns (same order and captures as the Indonesian RULES in i18n.js).
   var RULES_ZH = [
     [/^Buy — (.+)$/, "购买 — $1"],
@@ -1199,19 +1223,19 @@
     [/^Opened draft “(.+)”\.?$/, "已打开草稿“$1”。"],
     [/^Started from the “(.+)” blueprint\.$/, "已从“$1”蓝本开始。"],
     [/^Added formula column “(.+)” — edit its formula below\.$/, "已添加公式列“$1”——在下方编辑公式。"],
-    [/^Added column “(.+)” \((\w+)\)\.$/, "已添加列“$1”（$2）。"],
+    [/^Added column “(.+)” \((\w+)\)\.$/, function (m, name, type) { return "已添加列“" + name + "”（" + studioWord("zh", type) + "）。"; }],
     [/^Added a “(.+)” column\.$/, "已添加“$1”列。"],
     [/^Added (\d+) rows\.$/, "已添加 $1 行。"],
     [/^Removed “(.+)”\.$/, "已删除“$1”。"],
     [/^Renamed the template to “(.+)”\.$/, "模板已重命名为“$1”。"],
     [/^Renamed “(.+)” to “(.+)”\.$/, "已将“$1”重命名为“$2”。"],
     [/^Currency changed to (.+)\.$/, "货币已改为 $1。"],
-    [/^Theme set to (.+)\.$/, "主题已设为 $1。"],
-    [/^Theme: (.+)\.$/, "主题：$1。"],
+    [/^Theme set to (.+)\.$/, function (m, theme) { return "主题已设为" + studioWord("zh", theme) + "。"; }],
+    [/^Theme: (.+)\.$/, function (m, theme) { return "主题：" + studioWord("zh", theme) + "。"; }],
     [/^Currency: (\w+)\.$/, "货币：$1。"],
     [/^AI unavailable \((.+)\) — used the quick generator\.$/, "AI 暂不可用（$1）——已改用快速生成器。"],
     [/^Generated with your AI model \((.+)\)\.$/, "由你的 AI 模型（$1）生成。"],
-    [/^Added a (\w+) card for “(.+)”\.$/, "已为“$2”添加 $1 卡片。"],
+    [/^Added a (\w+) card for “(.+)”\.$/, function (m, fn, name) { return "已为“" + name + "”添加" + studioWord("zh", fn) + "卡片。"; }],
     [/^Highlight rule added on “(.+)”\.$/, "已在“$1”上添加高亮规则。"],
     [/^Didn’t understand “(.+)”\. Try: (.+)$/, "没听懂“$1”。试试：添加列 优先级 · 删除列 备注 · 把 成本 重命名为 价格 · 添加 5 行 · 主题 ocean · 货币 CNY · 合计 金额 · 高亮 利润 小于 0 红色。"],
     [/^(.+) connected — orders now unlock automatically$/, "$1 已连接——订单现在会自动解锁"]
@@ -1244,19 +1268,19 @@
     [/^Opened draft “(.+)”\.?$/, "Borrador “$1” abierto."],
     [/^Started from the “(.+)” blueprint\.$/, "Empezaste desde el modelo “$1”."],
     [/^Added formula column “(.+)” — edit its formula below\.$/, "Columna de fórmula “$1” añadida: edita su fórmula abajo."],
-    [/^Added column “(.+)” \((\w+)\)\.$/, "Columna “$1” ($2) añadida."],
+    [/^Added column “(.+)” \((\w+)\)\.$/, function (m, name, type) { return "Columna “" + name + "” (" + studioWord("es", type) + ") añadida."; }],
     [/^Added a “(.+)” column\.$/, "Columna “$1” añadida."],
     [/^Added (\d+) rows\.$/, "$1 filas añadidas."],
     [/^Removed “(.+)”\.$/, "“$1” eliminada."],
     [/^Renamed the template to “(.+)”\.$/, "Plantilla renombrada a “$1”."],
     [/^Renamed “(.+)” to “(.+)”\.$/, "“$1” renombrada a “$2”."],
     [/^Currency changed to (.+)\.$/, "Moneda cambiada a $1."],
-    [/^Theme set to (.+)\.$/, "Tema cambiado a $1."],
-    [/^Theme: (.+)\.$/, "Tema: $1."],
+    [/^Theme set to (.+)\.$/, function (m, theme) { return "Tema cambiado a " + studioWord("es", theme) + "."; }],
+    [/^Theme: (.+)\.$/, function (m, theme) { return "Tema: " + studioWord("es", theme) + "."; }],
     [/^Currency: (\w+)\.$/, "Moneda: $1."],
     [/^AI unavailable \((.+)\) — used the quick generator\.$/, "IA no disponible ($1): usé el generador rápido."],
     [/^Generated with your AI model \((.+)\)\.$/, "Generado con tu modelo de IA ($1)."],
-    [/^Added a (\w+) card for “(.+)”\.$/, "Tarjeta $1 añadida para “$2”."],
+    [/^Added a (\w+) card for “(.+)”\.$/, function (m, fn, name) { return "Tarjeta " + studioWord("es", fn) + " añadida para “" + name + "”."; }],
     [/^Highlight rule added on “(.+)”\.$/, "Regla de resaltado añadida en “$1”."],
     [/^Didn’t understand “(.+)”\. Try: (.+)$/, "No entendí “$1”. Prueba: añade columna Prioridad · elimina la columna Notas · renombra Costo a Precio · añade 5 filas · tema ocean · moneda EUR · suma de Importe · resalta Beneficio menor que 0 en rojo."],
     [/^(.+) connected — orders now unlock automatically$/, "$1 conectado: los pedidos ahora se desbloquean solos"]
