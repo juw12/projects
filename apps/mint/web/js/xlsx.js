@@ -224,16 +224,55 @@
     return "<c r=\"" + ref + "\" s=\"" + style + "\"/>";
   }
 
+  // ------------------------------------------------------------------ workbook labels
+  // Mint 3.5: the fixed words in the workbook (tab names, the Dashboard header and tips) follow the user's
+  // language. Formulas reach the data tab through sheetRef(dataName), so a translated tab name stays valid.
+  var LABELS = {
+    en: {
+      data: "Data", dashboard: "Dashboard", metric: "Metric", value: "Value",
+      how: "How to use: add rows on the \u201c{data}\u201d tab \u2014 calculated columns, colours and this dashboard update automatically.",
+      dropdown: "Dropdown columns only accept listed values. Dates use yyyy-mm-dd.",
+      works: "Works in Microsoft Excel and Google Sheets (File \u203a Import). ", made: "Made with Mint."
+    },
+    id: {
+      data: "Data", dashboard: "Dasbor", metric: "Metrik", value: "Nilai",
+      how: "Cara pakai: tambahkan baris di tab \u201c{data}\u201d \u2014 kolom hitungan, warna, dan dasbor ini ikut diperbarui otomatis.",
+      dropdown: "Kolom dropdown hanya menerima nilai yang tersedia. Tanggal memakai format yyyy-mm-dd.",
+      works: "Bisa dibuka di Microsoft Excel dan Google Sheets (File \u203a Impor). ", made: "Dibuat dengan Mint."
+    },
+    zh: {
+      data: "数据", dashboard: "仪表盘", metric: "指标", value: "数值",
+      how: "使用方法：在\u201c{data}\u201d工作表中添加行——计算列、颜色和此仪表盘会自动更新。",
+      dropdown: "下拉列只接受列表中的值。日期格式为 yyyy-mm-dd。",
+      works: "适用于 Microsoft Excel 和 Google 表格（文件 \u203a 导入）。", made: "由 Mint 制作。"
+    },
+    es: {
+      data: "Datos", dashboard: "Panel", metric: "Métrica", value: "Valor",
+      how: "Cómo usarla: añade filas en la pestaña \u201c{data}\u201d; las columnas calculadas, los colores y este panel se actualizan solos.",
+      dropdown: "Las columnas desplegables solo aceptan los valores de la lista. Las fechas usan yyyy-mm-dd.",
+      works: "Funciona en Microsoft Excel y Google Sheets (Archivo \u203a Importar). ", made: "Hecho con Mint."
+    }
+  };
+
+  function labelsFor(options) {
+    var lang = options.lang;
+    if (!lang && root.MintI18n && typeof root.MintI18n.lang === "function") {
+      lang = root.MintI18n.lang();
+    }
+    return LABELS[lang] || LABELS.en;
+  }
+
   // ------------------------------------------------------------------ build
   function build(rawSpec, options) {
     options = options || {};
+    var L = labelsFor(options);
     var spec = Core.normalize(rawSpec);
     var theme = Core.themeById(spec.theme);
     var styles = new StyleBook(theme, spec.currency);
     var cols = spec.sheet.columns;
     var dataRows = spec.sheet.rows;
     var lastRow = 1 + Math.max(PREPARED_ROWS, dataRows.length + 50);
-    var dataName = "Data";
+    var dataName = L.data;
     var letters = {};
     cols.forEach(function (c, i) {
       letters[c.name.toLowerCase()] = colLetter(i);
@@ -363,9 +402,9 @@
     var labelStyle = styles.xf(0, 3, 1, 0, false);
     var dashRows = [];
     dashRows.push("<row r=\"1\" ht=\"30\" customHeight=\"1\">" + strCell("B1", spec.title, titleStyle) + "</row>");
-    dashRows.push("<row r=\"2\">" + strCell("B2", spec.description || "Dashboard", noteStyle) + "</row>");
+    dashRows.push("<row r=\"2\">" + strCell("B2", spec.description || L.dashboard, noteStyle) + "</row>");
     var rowIndex = 4;
-    dashRows.push("<row r=\"" + rowIndex + "\">" + strCell("B4", "Metric", headerStyle) + strCell("C4", "Value", headerStyle) + "</row>");
+    dashRows.push("<row r=\"" + rowIndex + "\">" + strCell("B4", L.metric, headerStyle) + strCell("C4", L.value, headerStyle) + "</row>");
     spec.summary.forEach(function (s) {
       var letter = letters[String(s.column).toLowerCase()];
       if (!letter) {
@@ -395,9 +434,9 @@
     });
     rowIndex += 2;
     var tips = [
-      "How to use: add rows on the \u201c" + dataName + "\u201d tab \u2014 calculated columns, colours and this dashboard update automatically.",
-      "Dropdown columns only accept listed values. Dates use yyyy-mm-dd.",
-      "Works in Microsoft Excel and Google Sheets (File \u203a Import). " + (options.footer || "Made with Mint.")
+      L.how.replace("{data}", dataName),
+      L.dropdown,
+      L.works + (options.footer || L.made)
     ];
     tips.forEach(function (tip) {
       dashRows.push("<row r=\"" + rowIndex + "\">" + strCell("B" + rowIndex, tip, noteStyle) + "</row>");
@@ -417,7 +456,7 @@
     var workbook = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n" +
       "<workbook xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\">" +
       "<bookViews><workbookView activeTab=\"" + (options.activeData ? 1 : 0) + "\"/></bookViews>" +
-      "<sheets><sheet name=\"Dashboard\" sheetId=\"1\" r:id=\"rId1\"/><sheet name=\"" + dataName + "\" sheetId=\"2\" r:id=\"rId2\"/></sheets>" +
+      "<sheets><sheet name=\"" + esc(L.dashboard) + "\" sheetId=\"1\" r:id=\"rId1\"/><sheet name=\"" + dataName + "\" sheetId=\"2\" r:id=\"rId2\"/></sheets>" +
       "<definedNames><definedName name=\"_xlnm._FilterDatabase\" localSheetId=\"1\" hidden=\"1\">" + esc(sheetRef(dataName) + "!$A$1:$" + lastCol + "$" + lastRow) + "</definedName></definedNames>" +
       "<calcPr calcId=\"191029\" fullCalcOnLoad=\"1\"/>" +
       "</workbook>";
@@ -497,6 +536,7 @@
 
   root.MintXlsx = {
     build: build,
+    labels: LABELS,
     toCsv: toCsv,
     base64: base64,
     crc32: crc32,
