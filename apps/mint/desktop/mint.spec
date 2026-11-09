@@ -26,7 +26,9 @@ else:
 a = Analysis(  # noqa: F821
     [os.path.join(DESKTOP, "mint_app.py")],
     pathex=[DESKTOP],
-    datas=[(os.path.join(DESKTOP, "offline.html"), ".")],
+    # offline.html for the rare case without a bundled copy, and the Mint web app itself (web/) so the
+    # window also works offline the very first time it opens.
+    datas=[(os.path.join(DESKTOP, "offline.html"), "."), (os.path.join(os.path.dirname(DESKTOP), "web"), "web")],
     hiddenimports=HIDDEN,
     excludes=EXCLUDES,
 )

@@ -79,6 +79,8 @@ jobs:
         run: python apps/mint/desktop/build.py --require-installer
       - name: Open the built app and check its window shows this commit's Mint
         run: python apps/mint/desktop/smoke_test.py --built --local-site
+      - name: With no connection, the built app opens the Mint bundled inside it
+        run: python apps/mint/desktop/smoke_test.py --built --offline
       - name: Install with Mint-Windows-Setup.exe, run it, uninstall it
         if: runner.os == 'Windows'
         shell: pwsh
