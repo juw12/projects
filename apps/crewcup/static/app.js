@@ -1028,12 +1028,23 @@ function empHome() {
       <div class="stack">
         ${mine.length ? `<div class="card"><h3>${t("On the way")}</h3>${mine.map((run) => miniRun(run, emp)).join("")}</div>` : ""}
         ${forYou(emp, info)}
+        ${loungeCard()}
       </div>
       <div class="card">
         <div class="row between"><h3 style="margin:0">${t("Updates")}</h3><button class="btn small flat-btn" data-act="notes">${t("See all")}</button></div>
         ${notesList(emp.id, office.tz_min, 5)}
       </div>
     </div>
+  </div>`;
+}
+
+/* CrewCup Lounge: the 3D coffee lounge (Nongkrong) styled as CrewCup. Sit with your crew, be the barista, or run the cafe. */
+const LOUNGE_URL = "https://juw12.github.io/nongkrong/?host=crewcup&role=home";
+
+function loungeCard() {
+  return `<div class="card">
+    <div class="row between"><h3 style="margin:0">{{i:coffee}} ${esc(t("Lounge"))}</h3><a class="btn small" href="${LOUNGE_URL}" target="_blank" rel="noopener">${esc(t("Open the Lounge"))}</a></div>
+    <div class="small muted">${esc(t("A 3D coffee lounge for your crew: sit at a table and talk, make the drinks behind the bar, or run the cafe for a day."))}</div>
   </div>`;
 }
 
