@@ -639,6 +639,10 @@
 
   function studioChange(e) {
     var t = e.target;
+    if (!draft) {
+      // The prompt box (before any draft exists) also fires change events.
+      return;
+    }
     var spec = draft.spec;
     if (t.dataset.r !== undefined && t.dataset.c) {
       var col = spec.sheet.columns.filter(function (c) { return c.id === t.dataset.c; })[0];
@@ -823,6 +827,8 @@
       if (!text) {
         return;
       }
+      var themeBefore = draft.spec.theme;
+      var currencyBefore = draft.spec.currency;
       var res = Core.applyTweak(draft.spec, text);
       draft.spec = res.spec;
       tweakLog.push({ who: "you", text: text });
@@ -830,7 +836,9 @@
         tweakLog.push({ who: /^Didn/.test(m) ? "err" : "mint", text: m });
       });
       input.value = "";
-      if (/theme|tema|dark|gelap/i.test(text)) {
+      // A new theme or currency repaints the whole Studio (colours, the Details currency picker);
+      // any language can change them (主题 深色, tema oscuro, 货币 人民币).
+      if (draft.spec.theme !== themeBefore || draft.spec.currency !== currencyBefore) {
         viewStudio();
       } else {
         refreshStudio();
