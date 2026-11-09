@@ -1,0 +1,107 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720">
+  
+  <rect width="1280" height="720" fill="#FFFFFF" />
+  
+  <rect x="0" y="0" width="1280" height="4" fill="#1565C0" />
+  <text x="60" y="55" font-family="Arial, Microsoft YaHei, sans-serif" font-size="32" font-weight="700" fill="#212121">Detailed Specification</text>
+  <text x="60" y="80" font-family="Arial, Microsoft YaHei, sans-serif" font-size="14" fill="#616161">Green = Same  |  Red = Different</text>
+
+  
+  
+  <path fill="#F5F7FA" d="M66,105 H274 A6,6 0 0 1 280,111 V149 A6,6 0 0 1 274,155 H66 A6,6 0 0 1 60,149 V111 A6,6 0 0 1 66,105 Z" />
+  <text x="170" y="135" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="14" font-weight="700" fill="#616161">SPECIFICATION</text>
+  
+  <path fill="#1565C0" d="M296,105 H744 A6,6 0 0 1 750,111 V149 A6,6 0 0 1 744,155 H296 A6,6 0 0 1 290,149 V111 A6,6 0 0 1 296,105 Z" />
+  <text x="520" y="130" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="14" font-weight="700" fill="#FFFFFF">MAIN SOURCE — 131C-01QU000</text>
+  <text x="520" y="147" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="11" fill="#FFFFFF" fill-opacity="0.8">HARMONY / A01844</text>
+  
+  <path fill="#E65100" d="M766,105 H1214 A6,6 0 0 1 1220,111 V149 A6,6 0 0 1 1214,155 H766 A6,6 0 0 1 760,149 V111 A6,6 0 0 1 766,105 Z" />
+  <text x="990" y="130" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="14" font-weight="700" fill="#FFFFFF">SECOND SOURCE — S-131C-01QN000</text>
+  <text x="990" y="147" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="11" fill="#FFFFFF" fill-opacity="0.8">SCREWTECH</text>
+  
+  <path fill="#F5F7FA" d="M1236,105 H1274 A6,6 0 0 1 1280,111 V149 A6,6 0 0 1 1274,155 H1236 A6,6 0 0 1 1230,149 V111 A6,6 0 0 1 1236,105 Z" />
+  <text x="1255" y="135" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="11" font-weight="700" fill="#616161">STATUS</text>
+
+  
+  <path fill="#FAFAFA" d="M64,165 H276 A4,4 0 0 1 280,169 V216 A4,4 0 0 1 276,220 H64 A4,4 0 0 1 60,216 V169 A4,4 0 0 1 64,165 Z" />
+  <text x="170" y="198" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="15" font-weight="600" fill="#212121">Thread</text>
+  <path fill="#FFFFFF" stroke="#E0E0E0" stroke-width="1" d="M294,165 H746 A4,4 0 0 1 750,169 V216 A4,4 0 0 1 746,220 H294 A4,4 0 0 1 290,216 V169 A4,4 0 0 1 294,165 Z" />
+  <text x="520" y="198" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="18" font-weight="600" fill="#212121">M1.7</text>
+  <path fill="#FFFFFF" stroke="#E0E0E0" stroke-width="1" d="M764,165 H1216 A4,4 0 0 1 1220,169 V216 A4,4 0 0 1 1216,220 H764 A4,4 0 0 1 760,216 V169 A4,4 0 0 1 764,165 Z" />
+  <text x="990" y="198" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="18" font-weight="600" fill="#212121">M1.7</text>
+  <path fill="#E8F5E9" d="M1234,165 H1276 A4,4 0 0 1 1280,169 V216 A4,4 0 0 1 1276,220 H1234 A4,4 0 0 1 1230,216 V169 A4,4 0 0 1 1234,165 Z" />
+  <text x="1255" y="198" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="11" font-weight="700" fill="#2E7D32">SAME</text>
+
+  
+  <path fill="#FAFAFA" d="M64,230 H276 A4,4 0 0 1 280,234 V281 A4,4 0 0 1 276,285 H64 A4,4 0 0 1 60,281 V234 A4,4 0 0 1 64,230 Z" />
+  <text x="170" y="263" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="15" font-weight="600" fill="#212121">Length</text>
+  <path fill="#FFFFFF" stroke="#E0E0E0" stroke-width="1" d="M294,230 H746 A4,4 0 0 1 750,234 V281 A4,4 0 0 1 746,285 H294 A4,4 0 0 1 290,281 V234 A4,4 0 0 1 294,230 Z" />
+  <text x="520" y="263" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="18" font-weight="600" fill="#212121">4.5mm</text>
+  <path fill="#FFFFFF" stroke="#E0E0E0" stroke-width="1" d="M764,230 H1216 A4,4 0 0 1 1220,234 V281 A4,4 0 0 1 1216,285 H764 A4,4 0 0 1 760,281 V234 A4,4 0 0 1 764,230 Z" />
+  <text x="990" y="263" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="18" font-weight="600" fill="#212121">4.5mm</text>
+  <path fill="#E8F5E9" d="M1234,230 H1276 A4,4 0 0 1 1280,234 V281 A4,4 0 0 1 1276,285 H1234 A4,4 0 0 1 1230,281 V234 A4,4 0 0 1 1234,230 Z" />
+  <text x="1255" y="263" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="11" font-weight="700" fill="#2E7D32">SAME</text>
+
+  
+  <path fill="#FAFAFA" d="M64,295 H276 A4,4 0 0 1 280,299 V346 A4,4 0 0 1 276,350 H64 A4,4 0 0 1 60,346 V299 A4,4 0 0 1 64,295 Z" />
+  <text x="170" y="328" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="15" font-weight="600" fill="#212121">Head Type</text>
+  <path fill="#FFFFFF" stroke="#E0E0E0" stroke-width="1" d="M294,295 H746 A4,4 0 0 1 750,299 V346 A4,4 0 0 1 746,350 H294 A4,4 0 0 1 290,346 V299 A4,4 0 0 1 294,295 Z" />
+  <text x="520" y="328" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="18" font-weight="600" fill="#212121">K</text>
+  <path fill="#FFFFFF" stroke="#E0E0E0" stroke-width="1" d="M764,295 H1216 A4,4 0 0 1 1220,299 V346 A4,4 0 0 1 1216,350 H764 A4,4 0 0 1 760,346 V299 A4,4 0 0 1 764,295 Z" />
+  <text x="990" y="328" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="18" font-weight="600" fill="#212121">K</text>
+  <path fill="#E8F5E9" d="M1234,295 H1276 A4,4 0 0 1 1280,299 V346 A4,4 0 0 1 1276,350 H1234 A4,4 0 0 1 1230,346 V299 A4,4 0 0 1 1234,295 Z" />
+  <text x="1255" y="328" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="11" font-weight="700" fill="#2E7D32">SAME</text>
+
+  
+  <path fill="#FAFAFA" d="M64,360 H276 A4,4 0 0 1 280,364 V411 A4,4 0 0 1 276,415 H64 A4,4 0 0 1 60,411 V364 A4,4 0 0 1 64,360 Z" />
+  <text x="170" y="393" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="15" font-weight="600" fill="#212121">Drive</text>
+  <path fill="#FFFFFF" stroke="#E0E0E0" stroke-width="1" d="M294,360 H746 A4,4 0 0 1 750,364 V411 A4,4 0 0 1 746,415 H294 A4,4 0 0 1 290,411 V364 A4,4 0 0 1 294,360 Z" />
+  <text x="520" y="393" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="18" font-weight="600" fill="#212121">Torx T6</text>
+  <path fill="#FFFFFF" stroke="#E0E0E0" stroke-width="1" d="M764,360 H1216 A4,4 0 0 1 1220,364 V411 A4,4 0 0 1 1216,415 H764 A4,4 0 0 1 760,411 V364 A4,4 0 0 1 764,360 Z" />
+  <text x="990" y="393" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="18" font-weight="600" fill="#212121">Torx T6</text>
+  <path fill="#E8F5E9" d="M1234,360 H1276 A4,4 0 0 1 1280,364 V411 A4,4 0 0 1 1276,415 H1234 A4,4 0 0 1 1230,411 V364 A4,4 0 0 1 1234,360 Z" />
+  <text x="1255" y="393" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="11" font-weight="700" fill="#2E7D32">SAME</text>
+
+  
+  <path fill="#FAFAFA" d="M64,425 H276 A4,4 0 0 1 280,429 V476 A4,4 0 0 1 276,480 H64 A4,4 0 0 1 60,476 V429 A4,4 0 0 1 64,425 Z" />
+  <text x="170" y="458" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="15" font-weight="600" fill="#212121">Thread Type</text>
+  <path fill="#FFFFFF" stroke="#E0E0E0" stroke-width="1" d="M294,425 H746 A4,4 0 0 1 750,429 V476 A4,4 0 0 1 746,480 H294 A4,4 0 0 1 290,476 V429 A4,4 0 0 1 294,425 Z" />
+  <text x="520" y="458" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="18" font-weight="600" fill="#212121">TAPPING</text>
+  <path fill="#FFFFFF" stroke="#E0E0E0" stroke-width="1" d="M764,425 H1216 A4,4 0 0 1 1220,429 V476 A4,4 0 0 1 1216,480 H764 A4,4 0 0 1 760,476 V429 A4,4 0 0 1 764,425 Z" />
+  <text x="990" y="458" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="18" font-weight="600" fill="#212121">TAPPING</text>
+  <path fill="#E8F5E9" d="M1234,425 H1276 A4,4 0 0 1 1280,429 V476 A4,4 0 0 1 1276,480 H1234 A4,4 0 0 1 1230,476 V429 A4,4 0 0 1 1234,425 Z" />
+  <text x="1255" y="458" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="11" font-weight="700" fill="#2E7D32">SAME</text>
+
+  
+  <path fill="#FAFAFA" d="M64,490 H276 A4,4 0 0 1 280,494 V541 A4,4 0 0 1 276,545 H64 A4,4 0 0 1 60,541 V494 A4,4 0 0 1 64,490 Z" />
+  <text x="170" y="523" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="15" font-weight="600" fill="#212121">Spec</text>
+  <path fill="#FFFFFF" stroke="#E0E0E0" stroke-width="1" d="M294,490 H746 A4,4 0 0 1 750,494 V541 A4,4 0 0 1 746,545 H294 A4,4 0 0 1 290,541 V494 A4,4 0 0 1 294,490 Z" />
+  <text x="520" y="523" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="18" font-weight="600" fill="#212121">2.0/1</text>
+  <path fill="#FFFFFF" stroke="#E0E0E0" stroke-width="1" d="M764,490 H1216 A4,4 0 0 1 1220,494 V541 A4,4 0 0 1 1216,545 H764 A4,4 0 0 1 760,541 V494 A4,4 0 0 1 764,490 Z" />
+  <text x="990" y="523" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="18" font-weight="600" fill="#212121">2.0/1</text>
+  <path fill="#E8F5E9" d="M1234,490 H1276 A4,4 0 0 1 1280,494 V541 A4,4 0 0 1 1276,545 H1234 A4,4 0 0 1 1230,541 V494 A4,4 0 0 1 1234,490 Z" />
+  <text x="1255" y="523" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="11" font-weight="700" fill="#2E7D32">SAME</text>
+
+  
+  <path fill="#FAFAFA" d="M64,555 H276 A4,4 0 0 1 280,559 V606 A4,4 0 0 1 276,610 H64 A4,4 0 0 1 60,606 V559 A4,4 0 0 1 64,555 Z" />
+  <text x="170" y="588" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="15" font-weight="700" fill="#C62828">Coating</text>
+  <path fill="#FFFFFF" stroke="#E0E0E0" stroke-width="1" d="M294,555 H746 A4,4 0 0 1 750,559 V606 A4,4 0 0 1 746,610 H294 A4,4 0 0 1 290,606 V559 A4,4 0 0 1 294,555 Z" />
+  <text x="520" y="588" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="18" font-weight="700" fill="#C62828">W-ZN (White Zinc)</text>
+  <path fill="#FFFFFF" stroke="#E0E0E0" stroke-width="1" d="M764,555 H1216 A4,4 0 0 1 1220,559 V606 A4,4 0 0 1 1216,610 H764 A4,4 0 0 1 760,606 V559 A4,4 0 0 1 764,555 Z" />
+  <text x="990" y="588" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="18" font-weight="700" fill="#C62828">BLUE-ZN (Blue Zinc)</text>
+  <path fill="#FFEBEE" d="M1234,555 H1276 A4,4 0 0 1 1280,559 V606 A4,4 0 0 1 1276,610 H1234 A4,4 0 0 1 1230,606 V559 A4,4 0 0 1 1234,555 Z" />
+  <text x="1255" y="588" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="11" font-weight="700" fill="#C62828">DIFF</text>
+
+  
+  <path fill="#FAFAFA" d="M64,620 H276 A4,4 0 0 1 280,624 V671 A4,4 0 0 1 276,675 H64 A4,4 0 0 1 60,671 V624 A4,4 0 0 1 64,620 Z" />
+  <text x="170" y="653" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="15" font-weight="700" fill="#C62828">Supplier</text>
+  <path fill="#FFFFFF" stroke="#E0E0E0" stroke-width="1" d="M294,620 H746 A4,4 0 0 1 750,624 V671 A4,4 0 0 1 746,675 H294 A4,4 0 0 1 290,671 V624 A4,4 0 0 1 294,620 Z" />
+  <text x="520" y="653" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="18" font-weight="700" fill="#C62828">HARMONY (A01844)</text>
+  <path fill="#FFFFFF" stroke="#E0E0E0" stroke-width="1" d="M764,620 H1216 A4,4 0 0 1 1220,624 V671 A4,4 0 0 1 1216,675 H764 A4,4 0 0 1 760,671 V624 A4,4 0 0 1 764,620 Z" />
+  <text x="990" y="653" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="18" font-weight="700" fill="#C62828">SCREWTECH</text>
+  <path fill="#FFEBEE" d="M1234,620 H1276 A4,4 0 0 1 1280,624 V671 A4,4 0 0 1 1276,675 H1234 A4,4 0 0 1 1230,671 V624 A4,4 0 0 1 1234,620 Z" />
+  <text x="1255" y="653" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="11" font-weight="700" fill="#C62828">DIFF</text>
+
+  
+  <text x="1220" y="708" text-anchor="end" font-family="Arial, Microsoft YaHei, sans-serif" font-size="12" fill="#9E9E9E">3</text>
+</svg>

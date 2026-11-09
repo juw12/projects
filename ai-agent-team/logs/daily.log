@@ -1,0 +1,7 @@
+[2026-11-01T09:00:01] === Daily run starting for 2026-11-01 ===
+[2026-11-01T09:00:01] Idea generated: RoastMyLanding
+[2026-11-01T09:00:08] Spec generated (2156 chars).
+[2026-11-01T09:00:08] Saved 2026-11-01.json and 2026-11-01.md.
+[2026-11-01T09:00:09] Email skipped (SMTP_USER / SMTP_APP_PASSWORD / NOTIFY_EMAIL not set).
+[2026-11-01T09:00:09] Git commit skipped (nothing to commit or not a git repo).
+[2026-11-01T09:00:09] === Done ===

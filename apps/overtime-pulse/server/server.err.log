@@ -1,0 +1,67 @@
+----------------------------------------
+Exception occurred during processing of request from ('127.0.0.1', 7784)
+Traceback (most recent call last):
+  File "C:\Users\juwen_lie\AppData\Local\Programs\Python\Python313\Lib\socketserver.py", line 697, in process_request_thread
+    self.finish_request(request, client_address)
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\juwen_lie\AppData\Local\Programs\Python\Python313\Lib\socketserver.py", line 362, in finish_request
+    self.RequestHandlerClass(request, client_address, self)
+    ~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\juwen_lie\AppData\Local\Programs\Python\Python313\Lib\socketserver.py", line 766, in __init__
+    self.handle()
+    ~~~~~~~~~~~^^
+  File "C:\Users\juwen_lie\AppData\Local\Programs\Python\Python313\Lib\http\server.py", line 438, in handle
+    self.handle_one_request()
+    ~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\juwen_lie\AppData\Local\Programs\Python\Python313\Lib\http\server.py", line 404, in handle_one_request
+    self.raw_requestline = self.rfile.readline(65537)
+                           ~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "C:\Users\juwen_lie\AppData\Local\Programs\Python\Python313\Lib\socket.py", line 719, in readinto
+    return self._sock.recv_into(b)
+           ~~~~~~~~~~~~~~~~~~~~^^^
+ConnectionResetError: [WinError 10054] An existing connection was forcibly closed by the remote host
+----------------------------------------
+----------------------------------------
+Exception occurred during processing of request from ('127.0.0.1', 7816)
+Traceback (most recent call last):
+  File "C:\Users\juwen_lie\AppData\Local\Programs\Python\Python313\Lib\socketserver.py", line 697, in process_request_thread
+    self.finish_request(request, client_address)
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\juwen_lie\AppData\Local\Programs\Python\Python313\Lib\socketserver.py", line 362, in finish_request
+    self.RequestHandlerClass(request, client_address, self)
+    ~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\juwen_lie\AppData\Local\Programs\Python\Python313\Lib\socketserver.py", line 766, in __init__
+    self.handle()
+    ~~~~~~~~~~~^^
+  File "C:\Users\juwen_lie\AppData\Local\Programs\Python\Python313\Lib\http\server.py", line 438, in handle
+    self.handle_one_request()
+    ~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\juwen_lie\AppData\Local\Programs\Python\Python313\Lib\http\server.py", line 404, in handle_one_request
+    self.raw_requestline = self.rfile.readline(65537)
+                           ~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "C:\Users\juwen_lie\AppData\Local\Programs\Python\Python313\Lib\socket.py", line 719, in readinto
+    return self._sock.recv_into(b)
+           ~~~~~~~~~~~~~~~~~~~~^^^
+ConnectionResetError: [WinError 10054] An existing connection was forcibly closed by the remote host
+----------------------------------------
+[overtime-pulse] ERROR: request failed for /healthz: [WinError 10053] An established connection was aborted by the software in your host machine
+[overtime-pulse] WARN: reminder skipped for Norinsa Hanty on 2026-11-02: no webhook configured (set teams_webhook_url in seed_state.json or wire a Power Automate HTTP URL to enable)
+[overtime-pulse] WARN: reminder skipped for Maxwell Lim on 2026-11-02: no webhook configured (set teams_webhook_url in seed_state.json or wire a Power Automate HTTP URL to enable)
+[overtime-pulse] WARN: reminder skipped for Juwen Lie on 2026-11-02: no webhook configured (set teams_webhook_url in seed_state.json or wire a Power Automate HTTP URL to enable)
+[overtime-pulse] WARN: reminder skipped for Bambam Julianto on 2026-11-02: no webhook configured (set teams_webhook_url in seed_state.json or wire a Power Automate HTTP URL to enable)
+[overtime-pulse] WARN: reminder skipped for Sudhana Luo on 2026-11-02: no webhook configured (set teams_webhook_url in seed_state.json or wire a Power Automate HTTP URL to enable)
+[overtime-pulse] WARN: reminder skipped for Wendy Tan on 2026-11-02: no webhook configured (set teams_webhook_url in seed_state.json or wire a Power Automate HTTP URL to enable)
+[overtime-pulse] WARN: reminder skipped for Tian Cheng Wei on 2026-11-02: no webhook configured (set teams_webhook_url in seed_state.json or wire a Power Automate HTTP URL to enable)
+[overtime-pulse] WARN: reminder skipped for Vinna Tamaela on 2026-11-02: no webhook configured (set teams_webhook_url in seed_state.json or wire a Power Automate HTTP URL to enable)
+[overtime-pulse] WARN: reminder skipped for Vincent Fang on 2026-11-02: no webhook configured (set teams_webhook_url in seed_state.json or wire a Power Automate HTTP URL to enable)
+[overtime-pulse] WARN: reminder skipped for Luar Handoyo on 2026-11-02: no webhook configured (set teams_webhook_url in seed_state.json or wire a Power Automate HTTP URL to enable)
+[overtime-pulse] WARN: reminder skipped for Norinsa Hanty on 2026-11-02: no webhook configured (set teams_webhook_url in seed_state.json or wire a Power Automate HTTP URL to enable)
+[overtime-pulse] WARN: reminder skipped for Maxwell Lim on 2026-11-02: no webhook configured (set teams_webhook_url in seed_state.json or wire a Power Automate HTTP URL to enable)
+[overtime-pulse] WARN: reminder skipped for Juwen Lie on 2026-11-02: no webhook configured (set teams_webhook_url in seed_state.json or wire a Power Automate HTTP URL to enable)
+[overtime-pulse] WARN: reminder skipped for Bambam Julianto on 2026-11-02: no webhook configured (set teams_webhook_url in seed_state.json or wire a Power Automate HTTP URL to enable)
+[overtime-pulse] WARN: reminder skipped for Sudhana Luo on 2026-11-02: no webhook configured (set teams_webhook_url in seed_state.json or wire a Power Automate HTTP URL to enable)
+[overtime-pulse] WARN: reminder skipped for Wendy Tan on 2026-11-02: no webhook configured (set teams_webhook_url in seed_state.json or wire a Power Automate HTTP URL to enable)
+[overtime-pulse] WARN: reminder skipped for Tian Cheng Wei on 2026-11-02: no webhook configured (set teams_webhook_url in seed_state.json or wire a Power Automate HTTP URL to enable)
+[overtime-pulse] WARN: reminder skipped for Vinna Tamaela on 2026-11-02: no webhook configured (set teams_webhook_url in seed_state.json or wire a Power Automate HTTP URL to enable)
+[overtime-pulse] WARN: reminder skipped for Vincent Fang on 2026-11-02: no webhook configured (set teams_webhook_url in seed_state.json or wire a Power Automate HTTP URL to enable)
+[overtime-pulse] WARN: reminder skipped for Luar Handoyo on 2026-11-02: no webhook configured (set teams_webhook_url in seed_state.json or wire a Power Automate HTTP URL to enable)

@@ -1,0 +1,55 @@
+Overtime Pulse server
+  host: 0.0.0.0
+  port: 8820
+  db: C:\Users\juwen_lie\Documents\Default Project\apps\overtime-pulse\server\db\overtime.sqlite3
+  scheduler: enabled
+  departments: 1
+  colleagues: 10 (seeded 10 this run)
+  url: http://0.0.0.0:8820/
+  on your network: http://10.176.29.74:8820/
+  press Ctrl+C to stop
+[overtime-pulse] 127.0.0.1 - "GET /api/ot/periods?date=2026-10-31 HTTP/1.1" 200 -
+[overtime-pulse] 127.0.0.1 - "GET /api/ot/periods?date=2024-01-15 HTTP/1.1" 200 -
+[overtime-pulse] 127.0.0.1 - "GET /api/ot/month?year=2026&month=10 HTTP/1.1" 200 -
+[overtime-pulse] 127.0.0.1 - "GET /api/ot/year?year=2026 HTTP/1.1" 200 -
+[overtime-pulse] 127.0.0.1 - "POST /api/ot/submit HTTP/1.1" 403 -
+[overtime-pulse] 127.0.0.1 - "POST /api/ot/submit HTTP/1.1" 200 -
+[overtime-pulse] 127.0.0.1 - "GET /api/ot/periods?date=2026-10-31 HTTP/1.1" 200 -
+[overtime-pulse] 127.0.0.1 - "GET / HTTP/1.1" 200 -
+[overtime-pulse] 127.0.0.1 - "GET /app.css HTTP/1.1" 200 -
+[overtime-pulse] 127.0.0.1 - "GET /app.js HTTP/1.1" 200 -
+[overtime-pulse] 127.0.0.1 - "GET /api/colleagues HTTP/1.1" 200 -
+[overtime-pulse] 127.0.0.1 - "GET /manifest.webmanifest HTTP/1.1" 200 -
+[overtime-pulse] 127.0.0.1 - "GET /web/icons/icon.svg HTTP/1.1" 200 -
+[overtime-pulse] 127.0.0.1 - "GET /web/sw.js HTTP/1.1" 200 -
+[overtime-pulse] 127.0.0.1 - "GET /web/icons/icon.svg HTTP/1.1" 200 -
+[overtime-pulse] 127.0.0.1 - "GET /api/ot/periods?date=2026-11-01 HTTP/1.1" 200 -
+[overtime-pulse] 127.0.0.1 - "GET /api/ot/today?colleague_id=mw2202132&date=2026-11-01 HTTP/1.1" 200 -
+[overtime-pulse] 127.0.0.1 - "GET /api/ot/month?year=2026&month=11&colleague_id=mw2202132 HTTP/1.1" 200 -
+[overtime-pulse] 127.0.0.1 - "GET /api/ot/month?year=2026&month=10&colleague_id=mw2202132 HTTP/1.1" 200 -
+[overtime-pulse] 127.0.0.1 - "GET /api/ot/month?year=2026&month=9&colleague_id=mw2202132 HTTP/1.1" 200 -
+[overtime-pulse] 127.0.0.1 - "GET /api/ot/month?year=2026&month=8&colleague_id=mw2202132 HTTP/1.1" 200 -
+[overtime-pulse] 127.0.0.1 - "GET /api/ot/year?year=2026&colleague_id=mw2202132 HTTP/1.1" 200 -
+[overtime-pulse] 127.0.0.1 - "GET / HTTP/1.1" 200 -
+[overtime-pulse] 127.0.0.1 - "GET / HTTP/1.1" 200 -
+[overtime-pulse] 127.0.0.1 - "GET / HTTP/1.1" 200 -
+[overtime-pulse] 127.0.0.1 - "GET /app.css HTTP/1.1" 200 -
+[overtime-pulse] 127.0.0.1 - "GET /app.js HTTP/1.1" 200 -
+[overtime-pulse] 127.0.0.1 - "GET /manifest.webmanifest HTTP/1.1" 200 -
+[overtime-pulse] 127.0.0.1 - "GET /web/icons/icon.svg HTTP/1.1" 200 -
+[overtime-pulse] 127.0.0.1 - "GET /api/colleagues HTTP/1.1" 200 -
+[overtime-pulse] 127.0.0.1 - "GET /web/sw.js HTTP/1.1" 200 -
+[overtime-pulse] 127.0.0.1 - "GET /api/ot/periods?date=2026-11-01 HTTP/1.1" 200 -
+[overtime-pulse] 127.0.0.1 - "GET /api/ot/today?colleague_id=mw2202132&date=2026-11-01 HTTP/1.1" 200 -
+[overtime-pulse] 127.0.0.1 - "GET /api/ot/month?year=2026&month=11&colleague_id=mw2202132 HTTP/1.1" 200 -
+[overtime-pulse] 127.0.0.1 - "GET /api/ot/month?year=2026&month=10&colleague_id=mw2202132 HTTP/1.1" 200 -
+[overtime-pulse] 127.0.0.1 - "GET /api/ot/month?year=2026&month=9&colleague_id=mw2202132 HTTP/1.1" 200 -
+[overtime-pulse] 127.0.0.1 - "GET /api/ot/month?year=2026&month=8&colleague_id=mw2202132 HTTP/1.1" 200 -
+[overtime-pulse] 127.0.0.1 - "GET /api/ot/year?year=2026&colleague_id=mw2202132 HTTP/1.1" 200 -
+[overtime-pulse] 127.0.0.1 - "GET /api/users/juw12 HTTP/1.1" 404 -
+[overtime-pulse] 127.0.0.1 - "GET /healthz HTTP/1.1" 404 -
+[overtime-pulse] 127.0.0.1 - "GET /healthz HTTP/1.1" 500 -
+[overtime-pulse] 127.0.0.1 - "GET /api/users/juw12 HTTP/1.1" 404 -
+[overtime-pulse] 127.0.0.1 - "GET /api/me HTTP/1.1" 404 -
+[overtime-pulse] reminder pass 2026-11-02 @14:00: sent=0 skipped=10
+[overtime-pulse] reminder pass 2026-11-02 @15:00: sent=0 skipped=10

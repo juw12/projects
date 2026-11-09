@@ -1,0 +1,37 @@
+# apps/airiz-motor/desktop/app-update.yml
+#
+# AIRIZ Motor Console — electron-updater runtime config
+#
+# Loaded by electron-updater v27+ at startup. Provides the URL of the signed
+# manifest feed and the Ed25519 public key used to verify manifest signatures.
+# The dev public key below matches the keypair in ../../secrets/airiz-signing-public.pem
+# (see ../tools/keygen.ts). For production, CI substitutes the production public
+# key here before electron-builder runs (see .github/workflows/airiz-unified-release.yml).
+#
+# The release feed is served by the Cloudflare Worker (apps/airiz-motor/release-relay/):
+#   - `url` is the base URL of the Worker route (https://releases.airiz.example/).
+#   - electron-updater's GenericProvider fetches `<url>/<channel>.yml`.
+#   - The Worker's route `3b` in src/index.ts synthesizes the channel file on the fly
+#     from the unified signed manifest, and re-verifies the Ed25519 signature on every read.
+#   - Setting `channel: production` makes the fetch URL
+#     `https://releases.airiz.example/production.yml`.
+#
+# This file is picked up by electron-builder automatically because it lives at
+# the project root (apps/airiz-motor/desktop/) and electron-builder's
+# default convention looks there.
+#
+# Defense-in-depth: even if electron-updater overrides this at runtime via
+# `updater.setFeedURL(...)` in desktop/update-controller.cjs, the public key
+# baked into this file is what the embedded manifest verifier checks against.
+#
+# Rotation: when AIRIZ_SIGNING_PUBLIC_KEY rotates (see docs/RELEASE-PROTOCOL.md),
+# CI emits a new `signatures[]` array in latest.yml with both old and new keys,
+# the running client accepts either via electron-updater's `normalizePublicKeyList`
+# (see .research/eu-AppUpdater.ts), and the next release drops the old key from
+# this file. The public key here is updated atomically with each release.
+
+provider: generic
+url: https://releases.airiz.example
+channel: production
+updaterCacheDirName: airiz-console-desktop-updater
+updateManifestPublicKey: "MCowBQYDK2VwAyEAWq4SVP+UEdh8pLMSzLNRGanSnyzEzerO0xryCkdm5bI="

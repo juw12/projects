@@ -20,3 +20,10 @@ and a training deck (the deck stays internal – it contains system screenshots)
 - `--check-only` tested against the live system.
 - Final-approval steps after 送件 mirror a manually verified run but were not yet run end-to-end as a script.
 - Conditional mode tested on a mock form only – first live run still to be watched.
+
+## 2026-11-03 – first live final-approval run (13B7-06N0U01, customer assigned)
+- Full flow ran live up to "stop before Submit": 送件, Reassign Team, 2 new documents, form, reviewer.
+- Fix: 加入參考 search page's #createDate is now read-only -> cleared via JS instead of fill().
+- Fix: reviewer list now stores "OR:wt.org.WTUser:<n>|<name>" -> verify also matches the display name picked in add_reviewer().
+- Site values confirmed: Part/BOM tab a[onclick*='asus_modulepartbom.jsp'], green rule checkbox IsMatchGreenASUSRule (符合PEGATRON規則).
+- Note: 符合客戶規則 (IsMatchGreenCustomerRule) is not ticked by the script – check per customer.

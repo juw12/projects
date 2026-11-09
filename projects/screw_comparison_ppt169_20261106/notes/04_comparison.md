@@ -1,0 +1,1 @@
+Walk through the spec table row by row. Six attributes are identical (thread, length, head, drive, thread type, spec). Two differ: coating (White Zinc vs Blue Zinc) and supplier. Emphasize that the mechanical fit is unaffected — the differences are surface treatment and sourcing.

@@ -1,6 +1,21 @@
 'use strict';
 
-const FEED = 'https://juw12.github.io/projects/airiz-motor/updates/windows/';
+// Per the unified-release architecture (apps/airiz-motor/docs/unified-release-architecture-decision-2026-11-04.md):
+// the runtime update feed is served by the Cloudflare Worker (`airiz-release-relay`,
+// apps/airiz-motor/release-relay/) from the signed `airiz-release.json` manifest on R2.
+// electron-updater's GenericProvider builds the URL as `<url>/<channel>.yml`, and the
+// Worker's route `3b` synthesizes the file on the fly from the manifest, re-verifying
+// the Ed25519 signature on every read. Cutover from the legacy GitHub Pages feed
+// (https://juw12.github.io/...) happens at 1.11.27 — installed builds < 1.11.27 will
+// fall back to the GitHub Pages feed because the legacy `desktop/scripts/sync_release_feed.py`
+// is still wired into `airiz-update-feed.yml` for one release cycle as a safety net.
+const FEED = 'https://releases.airiz.example';
+const CHANNEL = 'production';
+// Ed25519 SPKI DER (base64). Matches the public key baked into apps/airiz-motor/desktop/app-update.yml
+// (`updateManifestPublicKey`). CI regenerates the production keypair on every release and
+// substitutes the public key here + into app-update.yml before electron-builder runs.
+// Public-key SHA-256 fingerprint (for rotation audits): 34a72ed3162a7fdfd7a740f349ce9b17a6e1e58379f3592a5613992765be2461
+const UPDATE_MANIFEST_PUBLIC_KEY = 'MCowBQYDK2VwAyEAWq4SVP+UEdh8pLMSzLNRGanSnyzEzerO0xryCkdm5bI=';
 const RELEASE_BASE = 'https://github.com/juw12/projects/releases/download/';
 
 function installerUrl(version, portable = false) {
@@ -123,8 +138,21 @@ function createUpdateController(options) {
   updater.autoInstallOnAppQuit = false;
   if ('autoInstallEvent' in updater) updater.autoInstallEvent = 'manual';
   updater.allowDowngrade = false;
-  updater.disableDifferentialDownload = true;
-  updater.setFeedURL({ provider: 'generic', url: FEED, channel: 'latest' });
+  // Differential download enabled: electron-builder v26+ emits v3 blockmaps by default
+  // for NSIS targets (asar.contentAlignment: 512 implicit; the .exe.blockmap file
+  // appears next to the installer in dist/). electron-updater's v3 blockmap fetcher
+  // (BlockMapV3Fetcher) downloads only changed 512 B-2 KiB blocks via HTTP Range, saving
+  // ~70% bandwidth on typical patches. Worst-case failure mode: malformed blockmap →
+  // electron-updater silently falls back to the full binary (safe). The unified-release
+  // workflow uploads *.exe.blockmap alongside *.exe to R2.
+  updater.disableDifferentialDownload = false;
+  updater.setFeedURL({ provider: 'generic', url: FEED, channel: CHANNEL });
+  // Defense-in-depth: even though apps/airiz-motor/desktop/app-update.yml ships
+  // the same public key, electron-updater's setFeedURL() resets updateConfig.
+  // Re-apply here so the runtime manifest verifier actually checks the signature.
+  // When CI rotates the keypair (see docs/RELEASE-PROTOCOL.md), both this constant
+  // and the file are updated atomically per release.
+  updater.updateManifestPublicKey = UPDATE_MANIFEST_PUBLIC_KEY;
   updater.on('checking-for-update', () => change('checking', 'Checking the AIRIZ desktop release channel…'));
   updater.on('update-available', info => {
     try {
@@ -335,4 +363,4 @@ function createUpdateController(options) {
   return { snapshot, check, download, install, cancelScheduled, cancelAutoInstall, setAutoUpdate };
 }
 
-module.exports = { FEED, AUTO_IDLE_MS, installerUrl, validateUpdate, busyReason, autoBusyReason, waitPhrase, createUpdateController };
+module.exports = { FEED, CHANNEL, UPDATE_MANIFEST_PUBLIC_KEY, AUTO_IDLE_MS, installerUrl, validateUpdate, busyReason, autoBusyReason, waitPhrase, createUpdateController };

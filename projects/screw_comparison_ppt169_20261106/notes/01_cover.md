@@ -1,0 +1,1 @@
+Title slide. Introduce the topic: comparing main and second source screws from BOM.

@@ -1,0 +1,1 @@
+Both screws are mechanically identical — same thread (M1.7), length (4.5mm), head (K), and drive (Torx T6). The key distinction is the "-S-" prefix in the part number, which marks the second source in PEGATRON's PLM naming convention. HARMONY is the primary supplier; SCREWTECH is the approved alternate.

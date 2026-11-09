@@ -1,0 +1,40 @@
+{
+  "_comment": "Sample input for tools/sign-manifest.ts. Replace the hashes with real values from your build. Real hashes should be 128 hex chars (sha512) or 64 hex chars (sha256).",
+
+  "schema_version": 1,
+  "app_id": "airiz-motor-console",
+
+  "target_versions": {
+    "electron":         "1.7.3",
+    "capacitor_ios":    "1.7.3",
+    "capacitor_android": "1.7.3",
+    "pwa":              "1.7.3",
+    "worker":           "1.7.3"
+  },
+
+  "artifacts": {
+    "electron": {
+      "url":          "https://releases.airiz.example/electron/1.7.3/airiz-motor-1.7.3.exe",
+      "sha512":       "0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "size":         72345678,
+      "blockmap_url": "https://releases.airiz.example/electron/1.7.3/airiz-motor-1.7.3.exe.blockmap"
+    },
+
+    "capacitor_ios": {
+      "url": "https://releases.airiz.example/capacitor-ios/1.7.3/airiz-motor-1.7.3.ipa"
+    },
+
+    "capacitor_android": {
+      "url":    "https://releases.airiz.example/capacitor-android/1.7.3/airiz-motor-1.7.3.zip",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    },
+
+    "pwa": {
+      "url": "https://releases.airiz.example/web/1.7.3/"
+    },
+
+    "worker": {
+      "url": "https://releases.airiz.example/worker/1.7.3.js"
+    }
+  }
+}

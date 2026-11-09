@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720">
+  
+  <rect width="1280" height="720" fill="#FFFFFF" />
+  
+  <rect x="0" y="0" width="1280" height="6" fill="#1565C0" />
+
+  
+  <text x="640" y="80" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="36" font-weight="700" fill="#212121">Interchangeability Assessment</text>
+
+  
+  <path fill="#E8F5E9" stroke="#A5D6A7" stroke-width="2" d="M256,130 H1024 A16,16 0 0 1 1040,146 V234 A16,16 0 0 1 1024,250 H256 A16,16 0 0 1 240,234 V146 A16,16 0 0 1 256,130 Z" />
+  
+  <g transform="translate(280.0, 170.0) scale(1.5)" fill="none" stroke="none" stroke-width="2">
+    <path d="M3 12a9 9 0 1 0 18 0a9 9 0 1 0 -18 0" />
+    <path d="M9 12l2 2l4 -4" />
+  </g>
+  <text x="340" y="185" font-family="Arial, Microsoft YaHei, sans-serif" font-size="24" font-weight="700" fill="#2E7D32">Mechanically Identical</text>
+  <text x="340" y="218" font-family="Arial, Microsoft YaHei, sans-serif" font-size="16" fill="#616161">Same thread, length, head, drive, and thread type. Drop-in fit from a dimensional standpoint.</text>
+
+  
+  <path fill="#FFF8E1" stroke="#FFE082" stroke-width="2" d="M256,290 H1024 A16,16 0 0 1 1040,306 V434 A16,16 0 0 1 1024,450 H256 A16,16 0 0 1 240,434 V306 A16,16 0 0 1 256,290 Z" />
+  
+  <g transform="translate(280.0, 320.0) scale(1.5)" fill="none" stroke="none" stroke-width="2">
+    <path d="M12 9v4" />
+    <path d="M10.363 3.591l-8.106 13.534a1.914 1.914 0 0 0 1.636 2.871h16.214a1.914 1.914 0 0 0 1.636 -2.87l-8.106 -13.536a1.914 1.914 0 0 0 -3.274 0" />
+    <path d="M12 16h.01" />
+  </g>
+  <text x="340" y="345" font-family="Arial, Microsoft YaHei, sans-serif" font-size="20" font-weight="700" fill="#F57C00">Substitution Requires Verification</text>
+  
+  <circle cx="350" cy="380" r="4" fill="#F57C00" />
+  <text x="370" y="385" font-family="Arial, Microsoft YaHei, sans-serif" font-size="15" fill="#212121">Confirm product spec does NOT mandate a specific coating (W-ZN vs BLUE-ZN)</text>
+  <circle cx="350" cy="412" r="4" fill="#F57C00" />
+  <text x="370" y="417" font-family="Arial, Microsoft YaHei, sans-serif" font-size="15" fill="#212121">Check if customer approval / drawing specifies plating type or color</text>
+  <circle cx="350" cy="444" r="4" fill="#F57C00" />
+  <text x="370" y="449" font-family="Arial, Microsoft YaHei, sans-serif" font-size="15" fill="#212121">If spec is silent on plating, second source is interchangeable</text>
+
+  
+  <path fill="#F5F7FA" stroke="#E0E0E0" stroke-width="1" d="M256,490 H1024 A16,16 0 0 1 1040,506 V594 A16,16 0 0 1 1024,610 H256 A16,16 0 0 1 240,594 V506 A16,16 0 0 1 256,490 Z" />
+  <text x="280" y="525" font-family="Arial, Microsoft YaHei, sans-serif" font-size="16" font-weight="700" fill="#1565C0">Next Steps</text>
+  
+  <circle cx="295" cy="558" r="10" fill="#1565C0" />
+  <text x="295" y="563" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="10" font-weight="700" fill="#FFFFFF">1</text>
+  <text x="320" y="563" font-family="Arial, Microsoft YaHei, sans-serif" font-size="14" fill="#212121">Review product drawing / spec for plating requirement</text>
+  
+  <circle cx="295" cy="590" r="10" fill="#1565C0" />
+  <text x="295" y="595" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="10" font-weight="700" fill="#FFFFFF">2</text>
+  <text x="320" y="595" font-family="Arial, Microsoft YaHei, sans-serif" font-size="14" fill="#212121">If clear: update BOM to confirm both sources as approved</text>
+
+  
+  <rect x="0" y="714" width="1280" height="6" fill="#1565C0" />
+  <text x="640" y="700" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="12" fill="#9E9E9E">Screw Source Comparison  |  Nov 2026  |  5</text>
+</svg>

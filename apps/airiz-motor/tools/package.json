@@ -1,0 +1,21 @@
+{
+  "name": "@airiz-motor/release-tools",
+  "version": "1.0.0",
+  "description": "Ed25519 sign/verify + electron-updater sidecar emitter for AIRIZ Motor Console unified release pipeline.",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "keygen": "node --experimental-strip-types keygen.ts --private-out secrets/airiz-signing-private.pem --public-out secrets/airiz-signing-public.pem",
+    "sign": "node --experimental-strip-types sign-manifest.ts",
+    "emit-electron-yml": "node --experimental-strip-types manifest-to-electron-yml.ts",
+    "test": "node --experimental-strip-types --test tools/sign-manifest.test.ts",
+    "test:watch": "node --experimental-strip-types --test --watch tools/sign-manifest.test.ts"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@types/node": ">=20.10.0"
+  }
+}

@@ -1,0 +1,51 @@
+ts,prompt_id,latency_ms,prompt_tokens,completion_tokens,total_tokens,estimated,hard_ok,soft_pass,note
+2026-11-09T09:00:10,json_person,4610,74,66,140,n,y,y,json fields match
+2026-11-09T09:00:10,code_review,10602,86,234,320,n,y,y,non-trivial answer
+2026-11-09T09:00:10,sentiment,6327,75,78,153,n,y,y,expected negative
+2026-11-09T09:00:10,ini_code,8367,131,282,413,n,y,y,function present
+2026-11-09T09:00:10,translate,7768,60,162,222,n,y,y,non-trivial output
+2026-11-09T09:00:10,creative,36043,56,360,416,n,y,y,5 sentences
+2026-11-09T09:00:10,math,1740,56,66,122,n,y,y,exact product
+2026-11-09T09:00:10,summary,32114,183,470,653,n,y,y,36 words
+2026-11-09T09:00:10,json_person,2252,74,66,140,n,y,y,json fields match
+2026-11-09T09:00:10,code_review,6878,88,272,360,n,y,y,non-trivial answer
+2026-11-09T09:00:10,sentiment,3318,74,33,107,n,y,y,expected negative
+2026-11-09T09:00:10,ini_code,3135,124,271,395,n,y,y,function present
+2026-11-09T09:00:10,translate,8539,59,140,199,n,y,y,non-trivial output
+2026-11-09T09:00:10,creative,23597,56,358,414,n,y,y,5 sentences
+2026-11-09T09:00:10,math,3943,56,67,123,n,y,y,exact product
+2026-11-09T09:00:10,summary,28792,183,392,575,n,y,y,30 words
+2026-11-09T09:00:10,json_person,2159,75,74,149,n,y,y,json fields match
+2026-11-09T09:00:10,code_review,2469,88,210,298,n,y,y,non-trivial answer
+2026-11-09T09:00:10,sentiment,8734,75,38,113,n,y,y,expected positive
+2026-11-09T09:00:10,ini_code,3680,130,232,362,n,y,y,function present
+2026-11-09T09:00:10,translate,3877,60,154,214,n,y,y,non-trivial output
+2026-11-09T09:00:10,creative,9186,55,358,413,n,y,y,5 sentences
+2026-11-09T09:00:10,math,2347,56,56,112,n,y,y,exact product
+2026-11-09T09:00:10,summary,11345,183,382,565,n,y,y,32 words
+2026-11-09T09:00:10,json_person,2366,74,66,140,n,y,y,json fields match
+2026-11-09T09:00:10,code_review,7652,88,277,365,n,y,y,non-trivial answer
+2026-11-09T09:00:10,sentiment,8994,75,38,113,n,y,y,expected positive
+2026-11-09T09:00:10,ini_code,7773,174,254,428,n,y,y,function present
+2026-11-09T09:00:10,translate,5117,59,191,250,n,y,y,non-trivial output
+2026-11-09T09:00:10,creative,23709,56,320,376,n,y,y,5 sentences
+2026-11-09T09:00:10,math,2106,56,70,126,n,y,y,exact product
+2026-11-09T09:00:10,summary,8806,183,449,632,n,y,y,35 words
+2026-11-09T09:00:10,json_person,900,75,74,149,n,y,y,json fields match
+2026-11-09T09:00:10,code_review,7885,86,206,292,n,y,y,non-trivial answer
+2026-11-09T09:00:10,sentiment,17195,75,81,156,n,y,y,expected negative
+2026-11-09T09:00:10,ini_code,2441,169,425,594,n,y,y,function present
+2026-11-09T09:00:10,translate,9610,64,248,312,n,y,y,non-trivial output
+2026-11-09T09:00:10,creative,15005,56,400,456,n,y,y,5 sentences
+2026-11-09T09:00:10,math,4310,56,70,126,n,y,y,exact product
+2026-11-09T09:00:10,summary,3550,183,448,631,n,y,y,37 words
+2026-11-09T09:00:10,json_person,7517,75,68,143,n,y,y,json fields match
+2026-11-09T09:00:10,code_review,4663,88,247,335,n,y,y,non-trivial answer
+2026-11-09T09:00:10,sentiment,6172,79,43,122,n,y,y,expected neutral
+2026-11-09T09:00:10,ini_code,2203,168,236,404,n,y,y,function present
+2026-11-09T09:00:10,translate,6324,59,204,263,n,y,y,non-trivial output
+2026-11-09T09:00:10,creative,8461,55,354,409,n,y,y,5 sentences
+2026-11-09T09:00:10,math,9499,56,70,126,n,y,y,exact product
+2026-11-09T09:00:10,summary,16319,183,421,604,n,y,y,34 words
+2026-11-09T09:00:10,json_person,5890,74,66,140,n,y,y,json fields match
+2026-11-09T09:00:10,code_review,3039,88,219,307,n,y,y,non-trivial answer

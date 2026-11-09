@@ -1,0 +1,107 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720">
+  <!-- Background -->
+  <rect width="1280" height="720" fill="#FFFFFF"/>
+  <!-- Header -->
+  <rect x="0" y="0" width="1280" height="4" fill="#1565C0"/>
+  <text x="60" y="55" font-family="Arial, Microsoft YaHei, sans-serif" font-size="32" font-weight="700" fill="#212121">Detailed Specification</text>
+  <text x="60" y="80" font-family="Arial, Microsoft YaHei, sans-serif" font-size="14" fill="#616161">Green = Same  |  Red = Different</text>
+
+  <!-- Table: Column headers -->
+  <!-- Row header column -->
+  <rect x="60" y="105" width="220" height="50" rx="6" fill="#F5F7FA"/>
+  <text x="170" y="135" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="14" font-weight="700" fill="#616161">SPECIFICATION</text>
+  <!-- Main source column header -->
+  <rect x="290" y="105" width="460" height="50" rx="6" fill="#1565C0"/>
+  <text x="520" y="130" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="14" font-weight="700" fill="#FFFFFF">MAIN SOURCE — 131C-01QU000</text>
+  <text x="520" y="147" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="11" fill="#FFFFFF" fill-opacity="0.8">HARMONY / A01844</text>
+  <!-- Second source column header -->
+  <rect x="760" y="105" width="460" height="50" rx="6" fill="#E65100"/>
+  <text x="990" y="130" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="14" font-weight="700" fill="#FFFFFF">SECOND SOURCE — S-131C-01QN000</text>
+  <text x="990" y="147" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="11" fill="#FFFFFF" fill-opacity="0.8">SCREWTECH</text>
+  <!-- Status column -->
+  <rect x="1230" y="105" width="50" height="50" rx="6" fill="#F5F7FA"/>
+  <text x="1255" y="135" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="11" font-weight="700" fill="#616161">STATUS</text>
+
+  <!-- Row 1: Thread -->
+  <rect x="60" y="165" width="220" height="55" rx="4" fill="#FAFAFA"/>
+  <text x="170" y="198" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="15" font-weight="600" fill="#212121">Thread</text>
+  <rect x="290" y="165" width="460" height="55" rx="4" fill="#FFFFFF" stroke="#E0E0E0" stroke-width="1"/>
+  <text x="520" y="198" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="18" font-weight="600" fill="#212121">M1.7</text>
+  <rect x="760" y="165" width="460" height="55" rx="4" fill="#FFFFFF" stroke="#E0E0E0" stroke-width="1"/>
+  <text x="990" y="198" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="18" font-weight="600" fill="#212121">M1.7</text>
+  <rect x="1230" y="165" width="50" height="55" rx="4" fill="#E8F5E9"/>
+  <text x="1255" y="198" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="11" font-weight="700" fill="#2E7D32">SAME</text>
+
+  <!-- Row 2: Length -->
+  <rect x="60" y="230" width="220" height="55" rx="4" fill="#FAFAFA"/>
+  <text x="170" y="263" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="15" font-weight="600" fill="#212121">Length</text>
+  <rect x="290" y="230" width="460" height="55" rx="4" fill="#FFFFFF" stroke="#E0E0E0" stroke-width="1"/>
+  <text x="520" y="263" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="18" font-weight="600" fill="#212121">4.5mm</text>
+  <rect x="760" y="230" width="460" height="55" rx="4" fill="#FFFFFF" stroke="#E0E0E0" stroke-width="1"/>
+  <text x="990" y="263" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="18" font-weight="600" fill="#212121">4.5mm</text>
+  <rect x="1230" y="230" width="50" height="55" rx="4" fill="#E8F5E9"/>
+  <text x="1255" y="263" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="11" font-weight="700" fill="#2E7D32">SAME</text>
+
+  <!-- Row 3: Head Type -->
+  <rect x="60" y="295" width="220" height="55" rx="4" fill="#FAFAFA"/>
+  <text x="170" y="328" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="15" font-weight="600" fill="#212121">Head Type</text>
+  <rect x="290" y="295" width="460" height="55" rx="4" fill="#FFFFFF" stroke="#E0E0E0" stroke-width="1"/>
+  <text x="520" y="328" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="18" font-weight="600" fill="#212121">K</text>
+  <rect x="760" y="295" width="460" height="55" rx="4" fill="#FFFFFF" stroke="#E0E0E0" stroke-width="1"/>
+  <text x="990" y="328" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="18" font-weight="600" fill="#212121">K</text>
+  <rect x="1230" y="295" width="50" height="55" rx="4" fill="#E8F5E9"/>
+  <text x="1255" y="328" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="11" font-weight="700" fill="#2E7D32">SAME</text>
+
+  <!-- Row 4: Drive -->
+  <rect x="60" y="360" width="220" height="55" rx="4" fill="#FAFAFA"/>
+  <text x="170" y="393" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="15" font-weight="600" fill="#212121">Drive</text>
+  <rect x="290" y="360" width="460" height="55" rx="4" fill="#FFFFFF" stroke="#E0E0E0" stroke-width="1"/>
+  <text x="520" y="393" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="18" font-weight="600" fill="#212121">Torx T6</text>
+  <rect x="760" y="360" width="460" height="55" rx="4" fill="#FFFFFF" stroke="#E0E0E0" stroke-width="1"/>
+  <text x="990" y="393" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="18" font-weight="600" fill="#212121">Torx T6</text>
+  <rect x="1230" y="360" width="50" height="55" rx="4" fill="#E8F5E9"/>
+  <text x="1255" y="393" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="11" font-weight="700" fill="#2E7D32">SAME</text>
+
+  <!-- Row 5: Thread Type -->
+  <rect x="60" y="425" width="220" height="55" rx="4" fill="#FAFAFA"/>
+  <text x="170" y="458" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="15" font-weight="600" fill="#212121">Thread Type</text>
+  <rect x="290" y="425" width="460" height="55" rx="4" fill="#FFFFFF" stroke="#E0E0E0" stroke-width="1"/>
+  <text x="520" y="458" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="18" font-weight="600" fill="#212121">TAPPING</text>
+  <rect x="760" y="425" width="460" height="55" rx="4" fill="#FFFFFF" stroke="#E0E0E0" stroke-width="1"/>
+  <text x="990" y="458" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="18" font-weight="600" fill="#212121">TAPPING</text>
+  <rect x="1230" y="425" width="50" height="55" rx="4" fill="#E8F5E9"/>
+  <text x="1255" y="458" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="11" font-weight="700" fill="#2E7D32">SAME</text>
+
+  <!-- Row 6: Spec -->
+  <rect x="60" y="490" width="220" height="55" rx="4" fill="#FAFAFA"/>
+  <text x="170" y="523" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="15" font-weight="600" fill="#212121">Spec</text>
+  <rect x="290" y="490" width="460" height="55" rx="4" fill="#FFFFFF" stroke="#E0E0E0" stroke-width="1"/>
+  <text x="520" y="523" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="18" font-weight="600" fill="#212121">2.0/1</text>
+  <rect x="760" y="490" width="460" height="55" rx="4" fill="#FFFFFF" stroke="#E0E0E0" stroke-width="1"/>
+  <text x="990" y="523" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="18" font-weight="600" fill="#212121">2.0/1</text>
+  <rect x="1230" y="490" width="50" height="55" rx="4" fill="#E8F5E9"/>
+  <text x="1255" y="523" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="11" font-weight="700" fill="#2E7D32">SAME</text>
+
+  <!-- Row 7: Coating (DIFFERENT) -->
+  <rect x="60" y="555" width="220" height="55" rx="4" fill="#FAFAFA"/>
+  <text x="170" y="588" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="15" font-weight="700" fill="#C62828">Coating</text>
+  <rect x="290" y="555" width="460" height="55" rx="4" fill="#FFFFFF" stroke="#E0E0E0" stroke-width="1"/>
+  <text x="520" y="588" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="18" font-weight="700" fill="#C62828">W-ZN (White Zinc)</text>
+  <rect x="760" y="555" width="460" height="55" rx="4" fill="#FFFFFF" stroke="#E0E0E0" stroke-width="1"/>
+  <text x="990" y="588" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="18" font-weight="700" fill="#C62828">BLUE-ZN (Blue Zinc)</text>
+  <rect x="1230" y="555" width="50" height="55" rx="4" fill="#FFEBEE"/>
+  <text x="1255" y="588" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="11" font-weight="700" fill="#C62828">DIFF</text>
+
+  <!-- Row 8: Supplier (DIFFERENT) -->
+  <rect x="60" y="620" width="220" height="55" rx="4" fill="#FAFAFA"/>
+  <text x="170" y="653" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="15" font-weight="700" fill="#C62828">Supplier</text>
+  <rect x="290" y="620" width="460" height="55" rx="4" fill="#FFFFFF" stroke="#E0E0E0" stroke-width="1"/>
+  <text x="520" y="653" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="18" font-weight="700" fill="#C62828">HARMONY (A01844)</text>
+  <rect x="760" y="620" width="460" height="55" rx="4" fill="#FFFFFF" stroke="#E0E0E0" stroke-width="1"/>
+  <text x="990" y="653" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="18" font-weight="700" fill="#C62828">SCREWTECH</text>
+  <rect x="1230" y="620" width="50" height="55" rx="4" fill="#FFEBEE"/>
+  <text x="1255" y="653" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="11" font-weight="700" fill="#C62828">DIFF</text>
+
+  <!-- Footer -->
+  <text x="1220" y="708" text-anchor="end" font-family="Arial, Microsoft YaHei, sans-serif" font-size="12" fill="#9E9E9E">3</text>
+</svg>

@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "app_id": "airiz-motor-console",
+  "channel": "production",
+  "released_at": "2026-11-05T09:08:52.702Z",
+  "staged_rollout": 10,
+  "target_versions": {
+    "electron": "1.7.3",
+    "capacitor_ios": "1.7.3",
+    "capacitor_android": "1.7.3",
+    "pwa": "1.7.3",
+    "worker": "1.7.3"
+  },
+  "artifacts": {
+    "electron": {
+      "url": "https://releases.airiz.example/electron/1.7.3/airiz-motor-1.7.3.exe",
+      "sha512": "0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "size": 72345678,
+      "blockmap_url": "https://releases.airiz.example/electron/1.7.3/airiz-motor-1.7.3.exe.blockmap"
+    },
+    "capacitor_ios": {
+      "url": "https://releases.airiz.example/capacitor-ios/1.7.3/airiz-motor-1.7.3.ipa"
+    },
+    "capacitor_android": {
+      "url": "https://releases.airiz.example/capacitor-android/1.7.3/airiz-motor-1.7.3.zip",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    "pwa": {
+      "url": "https://releases.airiz.example/web/1.7.3/"
+    },
+    "worker": {
+      "url": "https://releases.airiz.example/worker/1.7.3.js"
+    }
+  },
+  "signatures": [
+    {
+      "key_id": "airiz-prod-2026",
+      "alg": "ed25519",
+      "value": "75u9roq5Ak3lYoiKZ000sTvGc38dvXnDoYQ9RGFOdkNRT56q+/Au+C13Xc3l3LN/SB44jCYWfCdltvMuQG52BA=="
+    }
+  ]
+}

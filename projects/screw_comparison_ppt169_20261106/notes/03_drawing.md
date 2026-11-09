@@ -1,0 +1,1 @@
+2D technical drawing of the screw. Left: side profile showing head (K-type), threaded shaft (M1.7 tapping), and tip with 4.5mm overall length dimension. Right: head top view showing the Torx T6 6-lobe internal drive pattern. Bottom: coating swatches comparing White Zinc (main) vs Blue Zinc (second source).

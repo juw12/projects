@@ -1,0 +1,356 @@
+import { hashFile, UpdateFileInfo, UpdateInfo } from "builder-util-runtime"
+import { NonThrowableLogger, ResolvedUpdateFileInfo } from "./types.js"
+import { Logger } from "./types.js"
+import fsExtra from "fs-extra"
+import * as path from "path"
+import { isDeepStrictEqual } from "util"
+import { eq as isVersionsEqual, parse as parseVersion } from "semver"
+
+/**
+ * What identifies the update in `file`: the checksum it was verified with. A re-check that finds the same update (cached
+ * by this or an earlier launch) has the same one, and a newer update a different one, even when its installer has the
+ * same file name. Update info with only a legacy `sha2` checksum has no `sha512`, so `sha2` is used then; with neither,
+ * the installer path and the version.
+ */
+function updateFileId(info: UpdateFileInfo, file: string, version: string | null): string {
+  // typed as required, but missing from update info that only has the legacy sha2 checksum
+  const sha512: string | undefined = info.sha512
+  if (typeof sha512 === "string" && sha512.length !== 0) {
+    return `sha512:${sha512}`
+  }
+  const sha2 = "sha2" in info ? info.sha2 : undefined
+  if (typeof sha2 === "string" && sha2.length !== 0) {
+    return `sha2:${sha2}`
+  }
+  return `file:${JSON.stringify([file, version])}`
+}
+
+/** @private **/
+export class DownloadedUpdateHelper {
+  private _file: string | null = null
+  private _packageFile: string | null = null
+
+  private versionInfo: UpdateInfo | null = null
+  private fileInfo: ResolvedUpdateFileInfo | null = null
+  private _downloadedUpdateId: string | null = null
+
+  constructor(
+    readonly cacheDir: string,
+    private readonly logger: NonThrowableLogger
+  ) {}
+
+  private _downloadedFileInfo: CachedUpdateInfo | null = null
+  get downloadedFileInfo(): CachedUpdateInfo | null {
+    return this._downloadedFileInfo
+  }
+
+  get file(): string | null {
+    return this._file
+  }
+
+  /**
+   * Identifies the downloaded update (see {@link updateFileId}), `null` when there is none. Unlike
+   * `downloadedFileInfo.sha512`, it is set for every downloaded update, also one with only a legacy `sha2` checksum.
+   */
+  get downloadedUpdateId(): string | null {
+    return this._file == null ? null : this._downloadedUpdateId
+  }
+
+  get packageFile(): string | null {
+    return this._packageFile
+  }
+
+  get cacheDirForPendingUpdate(): string {
+    return path.join(this.cacheDir, "pending")
+  }
+
+  async validateDownloadedPath(updateFile: string, updateInfo: UpdateInfo, fileInfo: ResolvedUpdateFileInfo): Promise<string | null> {
+    if (this.versionInfo != null && this.file === updateFile && this.fileInfo != null) {
+      // update has already been downloaded from this running instance
+      // check here only existence, not checksum
+      // update info is plain data parsed from the channel file (YAML), so a structural comparison is enough: key order does not matter,
+      // a key set to `undefined` differs from a missing one
+      if (isDeepStrictEqual(this.versionInfo, updateInfo) && isDeepStrictEqual(this.fileInfo.info, fileInfo.info) && (await fsExtra.pathExists(updateFile))) {
+        return updateFile
+      } else {
+        return null
+      }
+    }
+
+    // update has already been downloaded from some previous app launch
+    const cachedUpdateFile = await this.getValidCachedUpdateFile(fileInfo)
+    if (cachedUpdateFile === null) {
+      return null
+    }
+    this.logger.info(`Update has already been downloaded to ${updateFile}).`)
+    this._file = cachedUpdateFile
+    return cachedUpdateFile
+  }
+
+  async setDownloadedFile(
+    downloadedFile: string,
+    packageFile: string | null,
+    versionInfo: UpdateInfo,
+    fileInfo: ResolvedUpdateFileInfo,
+    updateFileName: string,
+    isSaveCache: boolean
+  ): Promise<void> {
+    this._file = downloadedFile
+    this._packageFile = packageFile
+    this.versionInfo = versionInfo
+    this.fileInfo = fileInfo
+    this._downloadedUpdateId = updateFileId(fileInfo.info, downloadedFile, versionInfo.version)
+    this._downloadedFileInfo = {
+      fileName: updateFileName,
+      sha512: fileInfo.info.sha512,
+      // unsigned launch hint by design (the installer is pinned by the signed sha512) — see canonicalizeForSigning
+      isAdminRightsRequired: fileInfo.info.isAdminRightsRequired === true,
+      ...(packageFile == null ? {} : { packageFileName: path.basename(packageFile), version: versionInfo.version }),
+    }
+
+    if (isSaveCache) {
+      await fsExtra.outputJson(this.getUpdateInfoFile(), this._downloadedFileInfo)
+    }
+  }
+
+  /**
+   * Marks the already-downloaded update as "install on next launch" by adding a flag to the persisted
+   * `update-info.json`. Synchronous because it must be usable from the app `quit` event handler.
+   * @returns `true` if the marker was persisted.
+   */
+  markInstallOnNextLaunchSync(logger: Logger): boolean {
+    const downloadedFileInfo = this._downloadedFileInfo
+    if (downloadedFileInfo == null) {
+      logger.warn("Cannot mark update for install on next launch: no downloaded update info available")
+      return false
+    }
+    try {
+      this._downloadedFileInfo = { ...downloadedFileInfo, installOnNextLaunch: true }
+      fsExtra.outputJsonSync(this.getUpdateInfoFile(), this._downloadedFileInfo)
+      return true
+    } catch (e: any) {
+      logger.warn(`Cannot persist install-on-next-launch marker: ${e.message || e}`)
+      return false
+    }
+  }
+
+  /**
+   * Reads the persisted update info and returns it only when a previous launch marked it for install on next launch.
+   */
+  async getPendingInstallInfo(): Promise<CachedUpdateInfo | null> {
+    try {
+      const cachedInfo: CachedUpdateInfo = await fsExtra.readJson(this.getUpdateInfoFile())
+      return cachedInfo?.installOnNextLaunch === true && cachedInfo.fileName != null ? cachedInfo : null
+    } catch (_ignored) {
+      return null
+    }
+  }
+
+  /**
+   * Removes the install-on-next-launch marker while keeping the downloaded update cached,
+   * so it can still be installed on quit or re-marked later.
+   */
+  async clearPendingInstallMarker(logger: Logger): Promise<void> {
+    try {
+      const updateInfoFile = this.getUpdateInfoFile()
+      const cachedInfo: CachedUpdateInfo = await fsExtra.readJson(updateInfoFile)
+      if (cachedInfo?.installOnNextLaunch === true) {
+        const { installOnNextLaunch: _cleared, ...rest } = cachedInfo
+        await fsExtra.outputJson(updateInfoFile, rest)
+      }
+      if (this._downloadedFileInfo?.installOnNextLaunch === true) {
+        const { installOnNextLaunch: _clearedInMemory, ...restInMemory } = this._downloadedFileInfo
+        this._downloadedFileInfo = restInMemory
+      }
+    } catch (e: any) {
+      if (e.code !== "ENOENT") {
+        logger.warn(`Cannot clear install-on-next-launch marker: ${e.message || e}`)
+      }
+    }
+  }
+
+  /**
+   * Validates the cached pending update against freshly fetched update info (checksum of the metadata and of the
+   * file on disk) and makes it the current downloaded file, so `installerPath` resolves to it. For an NSIS web installer
+   * the app package is re-validated as well and exposed as `packageFile`.
+   * @returns Path to the validated installer or `null` if the cache is unusable.
+   */
+  async validateCachedPendingInstall(fileInfo: ResolvedUpdateFileInfo): Promise<string | null> {
+    const cachedUpdateFile = await this.getValidCachedUpdateFile(fileInfo)
+    if (cachedUpdateFile != null) {
+      this._file = cachedUpdateFile
+    }
+    return cachedUpdateFile
+  }
+
+  /**
+   * NSIS web installer: removes the app package of a pending update that is already installed, i.e. whose version is the version of
+   * the running app. The web installer installs its own copy of the package passed via `--package-file`, so after the update the
+   * package in the pending directory is not used anymore. Nothing else is removed: `update-info.json` and the installer stay, as for
+   * a full installer, and a pending update of another version (not installed yet, a failed install that a retry reuses, or a
+   * downgrade) keeps its package.
+   * @param currentVersion The version of the running app.
+   * @returns Whether a package was removed.
+   */
+  async removeInstalledWebPackage(currentVersion: string): Promise<boolean> {
+    let cachedInfo: CachedUpdateInfo | null
+    try {
+      cachedInfo = await fsExtra.readJson(this.getUpdateInfoFile())
+    } catch (_ignored) {
+      // no pending update
+      return false
+    }
+    const version = cachedInfo?.packageFileName == null || cachedInfo.version == null ? null : parseVersion(cachedInfo.version)
+    if (version == null || !isVersionsEqual(version, currentVersion)) {
+      return false
+    }
+    const packageFile = path.join(this.cacheDirForPendingUpdate, path.basename(cachedInfo!.packageFileName!))
+    try {
+      await fsExtra.unlink(packageFile)
+    } catch (e: any) {
+      if (e.code !== "ENOENT") {
+        this.logger.warn(`Cannot remove the web installer package of the installed update ${version.format()}: ${e.message || e}`)
+      }
+      return false
+    }
+    this.logger.info(`Removed the web installer package of the installed update ${version.format()}: ${packageFile}`)
+    return true
+  }
+
+  async clear(): Promise<void> {
+    this._file = null
+    this._packageFile = null
+    this.versionInfo = null
+    this.fileInfo = null
+    this._downloadedUpdateId = null
+    await this.cleanCacheDirForPendingUpdate()
+  }
+
+  private async cleanCacheDirForPendingUpdate(): Promise<void> {
+    try {
+      // remove stale data
+      await fsExtra.emptyDir(this.cacheDirForPendingUpdate)
+    } catch (_ignore) {
+      // ignore
+    }
+  }
+
+  /**
+   * Returns "update-info.json" which is created in the update cache directory's "pending" subfolder after the first update is downloaded.  If the update file does not exist then the cache is cleared and recreated.  If the update file exists then its properties are validated.
+   * @param fileInfo
+   * @param logger
+   */
+  private async getValidCachedUpdateFile(fileInfo: ResolvedUpdateFileInfo): Promise<string | null> {
+    const updateInfoFilePath: string = this.getUpdateInfoFile()
+
+    const doesUpdateInfoFileExist = await fsExtra.pathExists(updateInfoFilePath)
+    if (!doesUpdateInfoFileExist) {
+      return null
+    }
+
+    let cachedInfo: CachedUpdateInfo
+    try {
+      cachedInfo = await fsExtra.readJson(updateInfoFilePath)
+    } catch (error: any) {
+      let message = `No cached update info available`
+      if (error.code !== "ENOENT") {
+        await this.cleanCacheDirForPendingUpdate()
+        message += ` (error on read: ${error.message})`
+      }
+      this.logger.info(message)
+      return null
+    }
+
+    const cachedFileName = cachedInfo?.fileName
+    const isCachedInfoFileNameValid = typeof cachedFileName === "string" && cachedFileName.length > 0 && path.basename(cachedFileName) === cachedFileName
+    if (!isCachedInfoFileNameValid) {
+      this.logger.warn(`Cached update info is corrupted: invalid fileName, directory for cached update will be cleaned`)
+      await this.cleanCacheDirForPendingUpdate()
+      return null
+    }
+
+    if (fileInfo.info.sha512 !== cachedInfo.sha512) {
+      this.logger.info(
+        `Cached update sha512 checksum doesn't match the latest available update. New update must be downloaded. Cached: ${cachedInfo.sha512}, expected: ${fileInfo.info.sha512}. Directory for cached update will be cleaned`
+      )
+      await this.cleanCacheDirForPendingUpdate()
+      return null
+    }
+
+    const updateFile = path.join(this.cacheDirForPendingUpdate, cachedFileName)
+    if (!(await fsExtra.pathExists(updateFile))) {
+      this.logger.info("Cached update file doesn't exist")
+      return null
+    }
+
+    const sha512 = await hashFile(updateFile)
+    if (fileInfo.info.sha512 !== sha512) {
+      this.logger.warn(`Sha512 checksum doesn't match the latest available update. New update must be downloaded. Cached: ${sha512}, expected: ${fileInfo.info.sha512}`)
+      await this.cleanCacheDirForPendingUpdate()
+      return null
+    }
+
+    // NSIS web installer: the package is passed to the installer via --package-file, so it must match the latest update info as well
+    let packageFile: string | null = null
+    const packageInfo = fileInfo.packageInfo
+    if (packageInfo != null) {
+      packageFile = cachedInfo.packageFileName == null ? null : path.join(this.cacheDirForPendingUpdate, path.basename(cachedInfo.packageFileName))
+      if (packageFile == null || !(await fsExtra.pathExists(packageFile)) || (await hashFile(packageFile)) !== packageInfo.sha512) {
+        this.logger.warn(
+          `Cached web installer package doesn't match the latest available update. New update must be downloaded. Expected: ${packageInfo.sha512}. Directory for cached update will be cleaned`
+        )
+        await this.cleanCacheDirForPendingUpdate()
+        return null
+      }
+    }
+    this._downloadedFileInfo = cachedInfo
+    this._downloadedUpdateId = updateFileId(fileInfo.info, updateFile, cachedInfo.version ?? null)
+    this._packageFile = packageFile
+    return updateFile
+  }
+
+  private getUpdateInfoFile(): string {
+    return path.join(this.cacheDirForPendingUpdate, "update-info.json")
+  }
+}
+
+export interface CachedUpdateInfo {
+  fileName: string
+  sha512: string
+  readonly isAdminRightsRequired: boolean
+  /**
+   * Set when the app quit with `autoInstallEvent: "onNextLaunch"` (or via `quitAndInstall({ waitUntilNextLaunch: true })`),
+   * meaning the cached update should be installed on the next application launch after successful re-validation.
+   */
+  readonly installOnNextLaunch?: boolean
+  /**
+   * NSIS web installer only: file name (in the pending cache dir) of the downloaded app package, re-validated together with
+   * the installer before a cached update is reused or installed on next launch and passed to the installer via `--package-file`.
+   */
+  readonly packageFileName?: string
+  /**
+   * NSIS web installer only, set together with `packageFileName`: the version of the pending update. Once the running app has this
+   * version, the update is installed and its package is removed (see {@link DownloadedUpdateHelper.removeInstalledWebPackage}).
+   */
+  readonly version?: string
+}
+
+export async function createTempUpdateFile(name: string, cacheDir: string, log: Logger): Promise<string> {
+  // https://github.com/electron-userland/electron-builder/pull/2474#issuecomment-366481912
+  let nameCounter = 0
+  let result = path.join(cacheDir, name)
+  for (let i = 0; i < 3; i++) {
+    try {
+      await fsExtra.unlink(result)
+      return result
+    } catch (e: any) {
+      if (e.code === "ENOENT") {
+        return result
+      }
+
+      log.warn(`Error on remove temp update file: ${e}`)
+      result = path.join(cacheDir, `${nameCounter++}-${name}`)
+    }
+  }
+  return result
+}

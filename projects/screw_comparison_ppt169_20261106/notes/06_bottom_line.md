@@ -1,0 +1,1 @@
+The two screws are mechanically interchangeable. However, substitution from main to second source requires verifying that the product spec does not mandate a specific coating type or color. If the spec is silent on plating, the second source is a direct substitute. Next steps: review the product drawing, then confirm both sources in the BOM if clear.

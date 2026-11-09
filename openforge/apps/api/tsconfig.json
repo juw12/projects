@@ -1,0 +1,15 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": "src",
+    "baseUrl": ".",
+    "paths": {
+      "@openforge/auth": ["../../packages/auth/src/index.ts"],
+      "@openforge/db": ["../../packages/db/src/index.ts"],
+      "@openforge/git-transport": ["../../packages/git-transport/src/index.ts"],
+      "@openforge/s3": ["../../packages/s3/src/index.ts"]
+    }
+  },
+  "include": ["src/**/*"]
+}

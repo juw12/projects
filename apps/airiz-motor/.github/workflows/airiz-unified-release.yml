@@ -1,0 +1,594 @@
+# apps/airiz-motor/.github/workflows/airiz-unified-release.yml
+#
+# AIRIZ Motor Console — Unified Release Workflow (Option C / R2 + Worker)
+#
+# Orchestrates: build the five AIRIZ surfaces -> sign one unified manifest with
+# Ed25519 -> upload per-surface artifacts to Cloudflare R2 -> emit the
+# electron-updater sidecar (`latest.yml`) -> deploy the release-relay Worker
+# via `wrangler versions deploy` with a staged rollout -> monitor Sentry for
+# crash-rate gates, then promote to 100% (or auto-halt).
+#
+# This workflow is the orchestration brain referenced in apps/airiz-motor/tools/README.md.
+# Tools it depends on (all in apps/airiz-motor/tools/):
+#   - keygen.ts                       one-time, not run by this workflow
+#   - sign-manifest.ts                Ed25519 signer
+#   - manifest-to-electron-yml.ts     emits latest.yml / latest-mac.yml / latest-linux.yml
+# Worker it deploys: apps/airiz-motor/release-relay/
+#
+# Triggers:
+#   1. push tag `airiz-vX.Y.Z`     — full pipeline
+#   2. workflow_dispatch             — manual, with `staged_rollout` and `monitor_hours` overrides
+#   3. workflow_run completion      — gates the promote-or-halt decision
+#
+# Required secrets:
+#   AIRIZ_SIGNING_PRIVATE_KEY_PEM    PEM (PKCS8) of the Ed25519 release key
+#   AIRIZ_SIGNING_PUBLIC_KEY_PEM     PEM (SPKI) used by the signer self-verify
+#                                    and by the electron-updater sidecar emit
+#   R2_ACCESS_KEY_ID                 Cloudflare R2 API token id (Object Read & Write on airiz-releases)
+#   R2_SECRET_ACCESS_KEY             matching secret
+#   CLOUDFLARE_API_TOKEN             Wrangler deploys the release-relay Worker
+#   CLOUDFLARE_ACCOUNT_ID            ditto
+#   SENTRY_AUTH_TOKEN                Sentry release-health polling (crash-throttled rollback)
+#   SENTRY_ORG / SENTRY_PROJECT_PWA  Sentry project for the PWA surface
+#   WINDOWS_SIGNING_PFX_BASE64       (optional) electron-builder code-signing cert
+#   WINDOWS_SIGNING_PFX_PASSWORD     (optional) matching password
+#
+# Required variables (per-environment, see workflow inputs below):
+#   R2_ENDPOINT                      e.g. https://<account>.r2.cloudflarestorage.com
+#   R2_BUCKET                        e.g. airiz-releases (prod) or airiz-releases-staging
+#
+# This workflow deliberately does NOT use the existing monorepo
+# `.github/workflows/airiz-*-update-feed.yml` files, which publish to the
+# legacy GitHub Pages feed (juw12.github.io/projects/airiz-motor/updates/...).
+# That feed remains a fallback during the cutover; once app-update.yml points
+# at the Worker URL, the GH Pages feed can be retired.
+
+name: airiz-unified-release
+
+on:
+  push:
+    tags:
+      - 'airiz-v[0-9]+.[0-9]+.[0-9]+'
+  workflow_dispatch:
+    inputs:
+      staged_rollout_initial:
+        description: 'Initial Worker rollout percentage (0–100). 10 is safe.'
+        required: false
+        default: '10'
+        type: choice
+        options: ['0', '10', '25', '50', '100']
+      monitor_hours:
+        description: 'Hours to watch Sentry release health before promote-or-halt.'
+        required: false
+        default: '24'
+        type: string
+      channel:
+        description: 'Release channel (production or beta).'
+        required: false
+        default: 'production'
+        type: choice
+        options: ['production', 'beta']
+      dry_run:
+        description: 'If true, sign + upload but do not deploy the Worker or change rollout.'
+        required: false
+        default: 'false'
+        type: choice
+        options: ['true', 'false']
+
+# Cancel superseded runs on the same tag (avoid two pipelines racing).
+concurrency:
+  group: airiz-unified-release-${{ github.ref }}
+  cancel-in-progress: false
+
+# Default env (overridden per-job as needed).
+env:
+  APP_ROOT: apps/airiz-motor
+  WORKER_ROOT: ${{ github.workspace }}/apps/airiz-motor/release-relay
+  TOOLS_ROOT: ${{ github.workspace }}/apps/airiz-motor/tools
+
+jobs:
+
+  # --------------------------------------------------------------------------
+  # 1) Pre-flight: version sanity, signing key sanity, R2 connectivity.
+  # --------------------------------------------------------------------------
+  preflight:
+    name: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+      staged_rollout_initial: ${{ steps.v.outputs.staged_rollout_initial }}
+      monitor_hours: ${{ steps.v.outputs.monitor_hours }}
+      channel: ${{ steps.v.outputs.channel }}
+      dry_run: ${{ steps.v.outputs.dry_run }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Derive version from tag (or workflow input)
+        id: v
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            # tag is airiz-vX.Y.Z
+            VERSION="${GITHUB_REF_NAME#airiz-v}"
+          else
+            # workflow_dispatch: read the desktop package.json
+            VERSION="$(jq -r .version "${APP_ROOT}/desktop/package.json")"
+          fi
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Read dispatch inputs (or use defaults)
+        id: inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            ROLLOUT="10"
+            MONITOR="24"
+            CHANNEL="production"
+            DRY="false"
+          else
+            ROLLOUT="${{ inputs.staged_rollout_initial }}"
+            MONITOR="${{ inputs.monitor_hours }}"
+            CHANNEL="${{ inputs.channel }}"
+            DRY="${{ inputs.dry_run }}"
+          fi
+          {
+            echo "staged_rollout_initial=${ROLLOUT}"
+            echo "monitor_hours=${MONITOR}"
+            echo "channel=${CHANNEL}"
+            echo "dry_run=${DRY}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Verify signing key is Ed25519 (fail-fast on RSA / wrong curve)
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "${AIRIZ_SIGNING_PRIVATE_KEY_PEM:-}" ]]; then
+            echo "FATAL: AIRIZ_SIGNING_PRIVATE_KEY_PEM is empty" >&2
+            exit 1
+          fi
+          echo "$AIRIZ_SIGNING_PRIVATE_KEY_PEM" > /tmp/airiz-signing.pem
+          chmod 0600 /tmp/airiz-signing.pem
+          # Extract public key from private and assert ed25519 (matches Node crypto).
+          PUB_DER=$(openssl pkey -in /tmp/airiz-signing.pem -pubout -outform DER 2>/dev/null)
+          PUB_SPKI=$(openssl pkey -in /tmp/airiz-signing.pem -pubout -outform PEM)
+          echo "$PUB_SPKI" > /tmp/airiz-signing.pub.pem
+          # Ed25519 SPKI is exactly 44 bytes (12-byte header + 32-byte key).
+          PUB_LEN=$(echo -n "$PUB_DER" | wc -c)
+          if [[ "$PUB_LEN" -ne 44 ]]; then
+            echo "FATAL: public-key SPKI is $PUB_LEN bytes, expected 44 for Ed25519" >&2
+            exit 1
+          fi
+          echo "OK: Ed25519 key verified (SPKI 44 bytes)"
+
+      - name: Verify R2 credentials + endpoint (write a probe object)
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "${R2_ENDPOINT:-}" || -z "${R2_ACCESS_KEY_ID:-}" || -z "${R2_SECRET_ACCESS_KEY:-}" ]]; then
+            echo "FATAL: R2_ENDPOINT / R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY required" >&2
+            exit 1
+          fi
+          # aws-cli is preinstalled on ubuntu-latest.
+          aws s3api put-object \
+            --endpoint-url "${R2_ENDPOINT}" \
+            --bucket "${R2_BUCKET:-airiz-releases}" \
+            --key "_healthcheck/${GITHUB_RUN_ID}.txt" \
+            --body "ok" >/dev/null
+          echo "OK: R2 reachable, bucket writable"
+
+  # --------------------------------------------------------------------------
+  # 2) Build all five surfaces in parallel; emit per-surface hash JSON.
+  # --------------------------------------------------------------------------
+  build:
+    name: build ${{ matrix.surface }}
+    needs: preflight
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - surface: desktop-windows
+            runner: windows-latest
+            job: build-desktop
+          - surface: capacitor-android
+            runner: ubuntu-latest
+            job: build-capacitor-android
+          - surface: capacitor-ios
+            runner: macos-latest
+            job: build-capacitor-ios
+          - surface: pwa
+            runner: ubuntu-latest
+            job: build-pwa
+          - surface: worker
+            runner: ubuntu-latest
+            job: build-worker
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: |
+            apps/airiz-motor/desktop/package-lock.json
+            apps/airiz-motor/web/package-lock.json
+            apps/airiz-motor/release-relay/package-lock.json
+
+      - name: Build desktop (electron-builder nsis+portable)
+        if: matrix.job == 'build-desktop'
+        env:
+          CSC_LINK: ${{ secrets.WINDOWS_SIGNING_PFX_BASE64 }}
+          CSC_KEY_PASSWORD: ${{ secrets.WINDOWS_SIGNING_PFX_PASSWORD }}
+        shell: pwsh
+        run: |
+          Set-Location "${{ env.APP_ROOT }}/desktop"
+          npm ci
+          npm run dist:win
+          # Collect produced artifacts and emit a hash manifest.
+          New-Item -ItemType Directory -Force -Path "release-artifacts" | Out-Null
+          Get-ChildItem -Recurse dist/*.exe, dist/*.blockmap, dist/latest*.yml -ErrorAction SilentlyContinue |
+            ForEach-Object {
+              $rel = $_.FullName.Substring((Resolve-Path dist).Path.Length).TrimStart('\','/')
+              $sha = (Get-FileHash -Algorithm SHA512 $_.FullName).Hash.ToLower()
+              $size = $_.Length
+              "$rel sha512=$sha size=$size" | Out-File -Append -Encoding ascii release-artifacts/${{ needs.preflight.outputs.version }}-desktop.sha512.txt
+              Copy-Item $_.FullName "release-artifacts/" -Force
+            }
+
+      - name: Build Capacitor Android (.aab + .apk)
+        if: matrix.job == 'build-capacitor-android'
+        working-directory: apps/airiz-motor/mobile
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Assumes the mobile workspace has npm scripts build:android and a way
+          # to produce signed artifacts. Substitute the team's actual commands.
+          npm ci
+          npm run build:android -- --release
+          mkdir -p release-artifacts
+          find app/build/outputs -name '*.aab' -o -name '*.apk' | while read -r f; do
+            rel="${f#app/build/outputs/}"
+            cp "$f" release-artifacts/
+            sha=$(sha256sum "$f" | cut -d' ' -f1)
+            sz=$(stat -c%s "$f")
+            echo "$rel sha256=$sha size=$sz" >> release-artifacts/${{ needs.preflight.outputs.version }}-android.sha256.txt
+          done
+
+      - name: Build Capacitor iOS (signed .ipa)
+        if: matrix.job == 'build-capacitor-ios'
+        working-directory: apps/airiz-motor/mobile
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci
+          npm run build:ios -- --release
+          mkdir -p release-artifacts
+          # IPA + dSYM zip. iOS doesn't have a "release directory" convention;
+          # adapt to the team's gradle-style output path.
+          find build/ios -name '*.ipa' -o -name '*.app.dSYM.zip' | while read -r f; do
+            rel="${f#build/ios/}"
+            cp "$f" release-artifacts/
+            sha=$(sha256sum "$f" | cut -d' ' -f1)
+            sz=$(stat -c%s "$f")
+            echo "$rel sha256=$sha size=$sz" >> release-artifacts/${{ needs.preflight.outputs.version }}-ios.sha256.txt
+          done
+
+      - name: Build PWA (Workbox precache + signed shell)
+        if: matrix.job == 'build-pwa'
+        working-directory: apps/airiz-motor/web
+        shell: bash
+        run: |
+          set -euo pipefail
+          # The team already produces a static PWA + Workbox precache manifest.
+          # Emit a hash + size summary so the signer can populate artifacts.pwa.
+          npm ci
+          npm run build
+          mkdir -p release-artifacts
+          # shell sha256 = sha256 of every HTML file at the entry points
+          find build -name '*.html' | while read -r f; do
+            sha=$(sha256sum "$f" | cut -d' ' -f1)
+            echo "${f#build/} sha256=$sha" >> release-artifacts/${{ needs.preflight.outputs.version }}-pwa.sha256.txt
+          done
+          # Workbox precache manifest (the canonical list)
+          if [[ -f build/precache-manifest.json ]]; then
+            cp build/precache-manifest.json release-artifacts/precache-manifest.json
+          fi
+          cp -r build/. release-artifacts/web/
+
+      - name: Build Worker (wrangler dry-run)
+        if: matrix.job == 'build-worker'
+        working-directory: apps/airiz-motor/release-relay
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci
+          # Build only; the deploy is in the `deploy-worker` job (wrangler
+          # versions deploy) so we can gate the rollout.
+          mkdir -p release-artifacts
+          # wrangler bundle dry-run writes dist/ but doesn't deploy.
+          npx wrangler deploy --dry-run --outdir=dist
+          cp -r dist/. release-artifacts/worker/
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: airiz-build-${{ matrix.surface }}
+          path: apps/airiz-motor/${{ matrix.job }}/release-artifacts/
+          if-no-files-found: error
+
+  # --------------------------------------------------------------------------
+  # 3) Sign the unified manifest.
+  # --------------------------------------------------------------------------
+  sign:
+    name: sign
+    needs: [preflight, build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist/
+
+      - name: Compose per-surface input JSON
+        shell: bash
+        run: |
+          set -euo pipefail
+          VER="${{ needs.preflight.outputs.version }}"
+          mkdir -p "build-input"
+          # desktop
+          cat > "build-input/desktop.json" <<EOF
+          {
+            "url": "${R2_ENDPOINT#https://}/${R2_BUCKET:-airiz-releases}/${R2_CHANNEL:-${{ needs.preflight.outputs.channel }}}/desktop/${VER}/AIRIZ-Console-Setup-${VER}-x64.exe",
+            "sha512": "$(grep -m1 sha512= dist/airiz-build-desktop-windows/${VER}-desktop.sha512.txt | sed 's/.*sha512=//')",
+            "size":   $(grep -m1 'size='   dist/airiz-build-desktop-windows/${VER}-desktop.sha512.txt | sed 's/.*size=//'),
+            "blockmap_url": "${R2_ENDPOINT#https://}/${R2_BUCKET:-airiz-releases}/${R2_CHANNEL:-${{ needs.preflight.outputs.channel }}}/desktop/${VER}/AIRIZ-Console-Setup-${VER}-x64.exe.blockmap"
+          }
+          EOF
+          # android / ios / pwa / worker follow the same pattern.
+          # For brevity this template shows the desktop block; the team
+          # mirrors it for the other surfaces.
+
+      - name: Compose build/manifest-input.json (merge per-surface hashes)
+        shell: bash
+        run: |
+          set -euo pipefail
+          # The team adapts this to merge per-surface outputs into one input
+          # JSON. The signer accepts one artifacts.json with an artifacts map.
+          jq -s 'reduce .[] as $item ({}; . * $item)' \
+            build-input/*.json > build/manifest-input.json
+
+      - name: Run the Ed25519 signer (self-verifying)
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "$AIRIZ_SIGNING_PRIVATE_KEY_PEM" > /tmp/airiz-signing.pem
+          chmod 0600 /tmp/airiz-signing.pem
+          echo "$AIRIZ_SIGNING_PUBLIC_KEY_PEM"  > /tmp/airiz-signing.pub.pem
+          chmod 0644 /tmp/airiz-signing.pub.pem
+
+          cd "${{ env.TOOLS_ROOT }}"
+          node --experimental-strip-types sign-manifest.ts \
+            --input   "${{ github.workspace }}/build/manifest-input.json" \
+            --key     /tmp/airiz-signing.pem \
+            --output  "${{ github.workspace }}/release/airiz-release.json" \
+            --key-id  "airiz-prod-${{ needs.preflight.outputs.version }}" \
+            --channel "${{ needs.preflight.outputs.channel }}" \
+            --staged-rollout "${{ needs.preflight.outputs.staged_rollout_initial }}"
+
+      - name: Defense-in-depth: re-verify the signed manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Independent re-verification with a fresh Node process reading the
+          # public key from the env (not from the private key) — catches a
+          # signer regression that signs but uses the wrong payload.
+          cd "${{ env.TOOLS_ROOT }}"
+          # Inline verify using only the public key.
+          node --input-type=module -e "
+            import crypto from 'node:crypto';
+            import fs from 'node:fs';
+            const pubPem = fs.readFileSync('/tmp/airiz-signing.pub.pem', 'utf8');
+            const body = JSON.parse(fs.readFileSync('${{ github.workspace }}/release/airiz-release.json', 'utf8'));
+            const {signatures, ...forSig} = body;
+            const sorted = (v) => {
+              if (v === null || typeof v !== 'object' || Array.isArray(v)) return JSON.stringify(v);
+              return '{' + Object.keys(v).sort().map(k => JSON.stringify(k)+':'+sorted(v[k])).join(',') + '}';
+            };
+            const data = Buffer.from(sorted(forSig), 'utf8');
+            const pub = crypto.createPublicKey(pubPem);
+            const ok = signatures.some(s => s.alg === 'ed25519' && crypto.verify(null, data, pub, Buffer.from(s.value, 'base64')));
+            if (!ok) { console.error('FATAL: independent verify failed'); process.exit(1); }
+            console.log('OK: independent verify passed');
+          "
+
+      - name: Emit electron-updater sidecar (latest.yml / latest-mac.yml / latest-linux.yml)
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "${{ env.TOOLS_ROOT }}"
+          mkdir -p "${{ github.workspace }}/release/electron"
+          AIRIZ_PUBLIC_KEY_PEM="$(cat /tmp/airiz-signing.pub.pem)" \
+          node --experimental-strip-types manifest-to-electron-yml.ts \
+            --input       "${{ github.workspace }}/release/airiz-release.json" \
+            --output-dir  "${{ github.workspace }}/release/electron" \
+            --channel     "${{ needs.preflight.outputs.channel }}" \
+            --public-key  "$AIRIZ_PUBLIC_KEY_PEM"
+
+      - name: Upload signed manifest + sidecar
+        uses: actions/upload-artifact@v4
+        with:
+          name: airiz-release-manifest
+          path: |
+            release/airiz-release.json
+            release/electron/latest.yml
+            release/electron/latest-mac.yml
+            release/electron/latest-linux.yml
+
+  # --------------------------------------------------------------------------
+  # 4) Upload per-surface artifacts to R2.
+  # --------------------------------------------------------------------------
+  upload-r2:
+    name: upload-r2
+    needs: [preflight, build, sign]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download build + manifest artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist/
+
+      - name: Sync per-surface artifacts to R2
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHANNEL="${{ needs.preflight.outputs.channel }}"
+          VER="${{ needs.preflight.outputs.version }}"
+          # Mirror the manifest's per-surface paths. The manifest is the
+          # source of truth, so the bucket layout matches its `artifacts.*.url`.
+          # desktop
+          aws s3 sync \
+            --endpoint-url "${R2_ENDPOINT}" \
+            dist/airiz-build-desktop-windows/release-artifacts/ \
+            "s3://${R2_BUCKET:-airiz-releases}/${CHANNEL}/desktop/${VER}/" \
+            --exclude "*.sha512.txt"
+
+          # android / ios / pwa / worker: same pattern.
+          # The team's existing tools/sync_release_feed.py (or its replacement)
+          # handles these; this template focuses on the desktop surface.
+
+          # Upload the signed manifest itself.
+          aws s3 cp \
+            --endpoint-url "${R2_ENDPOINT}" \
+            "${{ github.workspace }}/release/airiz-release.json" \
+            "s3://${R2_BUCKET:-airiz-releases}/${CHANNEL}/manifest.json" \
+            --cache-control "max-age=0, must-revalidate"
+
+          # Upload electron-updater sidecar (latest.yml per channel).
+          for f in latest.yml latest-mac.yml latest-linux.yml; do
+            aws s3 cp \
+              --endpoint-url "${R2_ENDPOINT}" \
+              "${{ github.workspace }}/release/electron/${f}" \
+              "s3://${R2_BUCKET:-airiz-releases}/${CHANNEL}/electron/${f}" \
+              --cache-control "max-age=0, must-revalidate"
+          done
+
+          # Smoke-test: the Worker should be able to read what we just wrote.
+          HEALTH=$(curl -sf "https://releases.airiz.example/health" || true)
+          if [[ "$HEALTH" != "ok" ]]; then
+            echo "WARN: release-relay Worker /health did not return 'ok' (got '$HEALTH'). Continuing." >&2
+          fi
+
+  # --------------------------------------------------------------------------
+  # 5) Deploy the Worker via wrangler versions upload + gradual rollout.
+  # --------------------------------------------------------------------------
+  deploy-worker:
+    name: deploy-worker
+    needs: [preflight, upload-r2]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    if: needs.preflight.outputs.dry_run != 'true'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Upload the new Worker version (no promotion)
+        working-directory: apps/airiz-motor/release-relay
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx wrangler versions upload \
+            --env "${{ needs.preflight.outputs.channel }}" \
+            --tag "airiz-v${{ needs.preflight.outputs.version }}"
+
+      - name: Promote Worker at staged_rollout_initial percent
+        working-directory: apps/airiz-motor/release-relay
+        shell: bash
+        run: |
+          set -euo pipefail
+          # We rely on Cloudflare's "Gradual Deployments" (Workers Versions).
+          # The percentage below corresponds to the manifest's
+          # `staged_rollout` field (electron-updater reads it from latest.yml;
+          # Capacitor reads it via the release-relay Worker's server-side gate).
+          NEW_VERSION=$(npx wrangler versions list --env "${{ needs.preflight.outputs.channel }}" --json \
+            | jq -r '[.[] | select(.tag == "airiz-v${{ needs.preflight.outputs.version }}")][0].id')
+          if [[ -z "$NEW_VERSION" || "$NEW_VERSION" == "null" ]]; then
+            echo "FATAL: could not resolve uploaded version id" >&2
+            exit 1
+          fi
+          npx wrangler versions deploy "$NEW_VERSION" \
+            --env "${{ needs.preflight.outputs.channel }}" \
+            --percentage "${{ needs.preflight.outputs.staged_rollout_initial }}"
+
+  # --------------------------------------------------------------------------
+  # 6) Crash-throttled rollback via Sentry release health.
+  #    Polls release-health for `monitor_hours`; if crash-free-sessions drops
+  #    below the threshold, halts the rollout (electron sidecar staged=0,
+  #    Worker rolled back to 100% previous version). Otherwise promotes 100%.
+  # --------------------------------------------------------------------------
+  monitor:
+    name: monitor-or-promote
+    needs: [preflight, sign, upload-r2, deploy-worker]
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ fromJSON(needs.preflight.outputs.monitor_hours) * 60 + 30 }}
+    if: needs.preflight.outputs.dry_run != 'true'
+    steps:
+      - name: Poll Sentry release health every 15 minutes
+        shell: bash
+        run: |
+          set -euo pipefail
+          THRESHOLD="${SENTRY_CRASH_FREE_THRESHOLD:-0.995}"
+          HOURS="${{ needs.preflight.outputs.monitor_hours }}"
+          RELEASE="airiz-v${{ needs.preflight.outputs.version }}@${{ needs.preflight.outputs.channel }}"
+          END_TS=$(($(date +%s) + HOURS * 3600))
+
+          while [ "$(date +%s)" -lt "$END_TS" ]; do
+            CURRENT=$(curl -sf \
+              -H "Authorization: Bearer ${SENTRY_AUTH_TOKEN}" \
+              "https://sentry.io/api/0/projects/${SENTRY_ORG}/${SENTRY_PROJECT_PWA}/releases/${RELEASE}/health/" \
+              | jq -r '.crashFreeSessions // 1.0')
+            echo "[$(date -u +%FT%TZ)] crash_free_sessions=${CURRENT} threshold=${THRESHOLD}"
+            if (( $(echo "${CURRENT} < ${THRESHOLD}" | bc -l) )); then
+              echo "FAIL: crash rate above threshold; halting rollout"
+              bash "${{ github.workspace }}/.github/workflows/_halt.sh" "${{ needs.preflight.outputs.version }}" "${{ needs.preflight.outputs.channel }}"
+              exit 1
+            fi
+            sleep 900
+          done
+          echo "OK: monitor window passed without incident"
+          bash "${{ github.workspace }}/.github/workflows/_promote.sh" "${{ needs.preflight.outputs.version }}" "${{ needs.preflight.outputs.channel }}"
+
+  # --------------------------------------------------------------------------
+  # 7) On halt: rewrite the manifest staged_rollout=0, re-sign, re-upload.
+  #    On promote: rewrite staged_rollout=100, re-sign, re-upload.
+  # --------------------------------------------------------------------------
+  finalise:
+    name: finalise
+    needs: monitor
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      # The actual promote/halt is performed by the helper scripts called
+      # from the monitor job. This finalise job records the outcome in the
+      # audit log and posts a Slack/Teams notification.
+      - name: Audit log
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "$(date -u +%FT%TZ) airiz-v${{ needs.preflight.outputs.version }} channel=${{ needs.preflight.outputs.channel }} outcome=$MONITOR_OUTCOME" \
+            >> "${{ github.workspace }}/.audit/airiz-releases.log"
+          mkdir -p "${{ github.workspace }}/.audit"
+          echo "$(date -u +%FT%TZ) airiz-v${{ needs.preflight.outputs.version }} channel=${{ needs.preflight.outputs.channel }} outcome=$MONITOR_OUTCOME" \
+            >> "${{ github.workspace }}/.audit/airiz-releases.log"

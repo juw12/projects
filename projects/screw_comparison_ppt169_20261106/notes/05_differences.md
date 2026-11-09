@@ -1,0 +1,1 @@
+Three differences: (1) Coating — Blue Zinc has better corrosion resistance and is often used for cosmetic or specific environmental requirements; (2) Supplier — HARMONY vs SCREWTECH, dual-sourcing for supply continuity; (3) Part number encoding — QU vs QN reflects the plating variant, and the -S- prefix marks it as second source. None of these affect mechanical fit.

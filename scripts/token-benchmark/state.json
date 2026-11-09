@@ -1,0 +1,12 @@
+{
+  "date": "2026-11-09",
+  "requests": 50,
+  "prompt_tokens": 4611,
+  "completion_tokens": 10366,
+  "total_tokens": 14977,
+  "soft_pass": 50,
+  "soft_fail": 0,
+  "hard_errors": 0,
+  "started_at": "2026-11-09T09:00:10",
+  "updated_at": "2026-11-09T09:08:33"
+}

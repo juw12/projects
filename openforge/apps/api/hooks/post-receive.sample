@@ -1,0 +1,36 @@
+#!/bin/bash
+# Post-receive hook for OpenForge bare repos
+#
+# Reads old-value new-value ref-name triples from stdin (the format git
+# feeds every post-receive hook), and POSTs each update to the OpenForge
+# API so the server-side refs table can advance its version counter.
+#
+# This is a *defense-in-depth* sample — it is NOT auto-installed. Drop it
+# into the bare repo's `hooks/post-receive` (chmod +x) only if you want a
+# second writer for the refs row in addition to the in-process CAS path
+# the API takes. Without this hook, the in-process CAS is the single
+# source of truth and is sufficient for correctness.
+#
+# Required environment variables (set in /etc/openforge/hook.env or your
+# preferred mechanism — systemd EnvironmentFile, container env, etc.):
+#
+#   OPENFORGE_API_URL    e.g. https://forge.example.com
+#   OPENFORGE_API_TOKEN  shared secret, validated by the API at
+#                        POST /api/internal/refs/updated
+#   OPENFORGE_REPO_ID    uuid of this repo in the openforge DB
+#
+# Install:
+#   sudo install -m 0755 post-receive.sample \
+#     /var/lib/openforge/repos/<owner>/<repo>.git/hooks/post-receive
+set -euo pipefail
+
+: "${OPENFORGE_API_URL:?OPENFORGE_API_URL must be set}"
+: "${OPENFORGE_API_TOKEN:?OPENFORGE_API_TOKEN must be set}"
+: "${OPENFORGE_REPO_ID:?OPENFORGE_REPO_ID must be set}"
+
+while read oldrev newrev refname; do
+  curl -fsS -X POST "${OPENFORGE_API_URL}/api/internal/refs/updated" \
+    -H "Authorization: Bearer ${OPENFORGE_API_TOKEN}" \
+    -H "Content-Type: application/json" \
+    -d "{\"repo_id\":\"${OPENFORGE_REPO_ID}\",\"ref\":\"${refname}\",\"old\":\"${oldrev}\",\"new\":\"${newrev}\"}"
+done

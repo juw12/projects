@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720">
+  
+  <rect width="1280" height="720" fill="#FFFFFF" />
+  
+  <rect x="0" y="0" width="1280" height="4" fill="#1565C0" />
+  <text x="60" y="55" font-family="Arial, Microsoft YaHei, sans-serif" font-size="32" font-weight="700" fill="#212121">At a Glance</text>
+  <text x="60" y="80" font-family="Arial, Microsoft YaHei, sans-serif" font-size="14" fill="#616161">Both are M1.7 x 4.5mm tapping screws, Torx T6, K-head — same mechanical spec, different sourcing</text>
+
+  
+  <path fill="#F5F7FA" stroke="#E0E0E0" stroke-width="1" d="M72,120 H608 A12,12 0 0 1 620,132 V368 A12,12 0 0 1 608,380 H72 A12,12 0 0 1 60,368 V132 A12,12 0 0 1 72,120 Z" />
+  
+  <path fill="#1565C0" d="M72,120 H608 A12,12 0 0 1 620,132 V158 A12,12 0 0 1 608,170 H72 A12,12 0 0 1 60,158 V132 A12,12 0 0 1 72,120 Z" />
+  <rect x="60" y="155" width="560" height="15" fill="#1565C0" />
+  <text x="90" y="152" font-family="Arial, Microsoft YaHei, sans-serif" font-size="16" font-weight="700" fill="#FFFFFF">MAIN SOURCE</text>
+  <path fill="#FFFFFF" fill-opacity="0.2" d="M493,132 H587 A13,13 0 0 1 600,145 V145 A13,13 0 0 1 587,158 H493 A13,13 0 0 1 480,145 V145 A13,13 0 0 1 493,132 Z" />
+  <text x="540" y="150" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="12" font-weight="700" fill="#FFFFFF">PRIMARY</text>
+  
+  <text x="90" y="205" font-family="Consolas, Courier New, monospace" font-size="20" font-weight="700" fill="#1565C0">131C-01QU000</text>
+  <text x="90" y="245" font-family="Arial, Microsoft YaHei, sans-serif" font-size="18" fill="#212121">SCREW M1.7*4.5L K  W-ZN  T6</text>
+  <text x="90" y="280" font-family="Arial, Microsoft YaHei, sans-serif" font-size="16" fill="#616161">Supplier: HARMONY (A01844)</text>
+  <text x="90" y="310" font-family="Arial, Microsoft YaHei, sans-serif" font-size="16" fill="#616161">Coating: White Zinc (W-ZN)</text>
+  <text x="90" y="345" font-family="Arial, Microsoft YaHei, sans-serif" font-size="14" fill="#9E9E9E">Thread type: TAPPING  |  Spec: 2.0/1</text>
+
+  
+  <path fill="#F5F7FA" stroke="#E0E0E0" stroke-width="1" d="M672,120 H1208 A12,12 0 0 1 1220,132 V368 A12,12 0 0 1 1208,380 H672 A12,12 0 0 1 660,368 V132 A12,12 0 0 1 672,120 Z" />
+  
+  <path fill="#E65100" d="M672,120 H1208 A12,12 0 0 1 1220,132 V158 A12,12 0 0 1 1208,170 H672 A12,12 0 0 1 660,158 V132 A12,12 0 0 1 672,120 Z" />
+  <rect x="660" y="155" width="560" height="15" fill="#E65100" />
+  <text x="690" y="152" font-family="Arial, Microsoft YaHei, sans-serif" font-size="16" font-weight="700" fill="#FFFFFF">SECOND SOURCE</text>
+  <path fill="#FFFFFF" fill-opacity="0.2" d="M1093,132 H1187 A13,13 0 0 1 1200,145 V145 A13,13 0 0 1 1187,158 H1093 A13,13 0 0 1 1080,145 V145 A13,13 0 0 1 1093,132 Z" />
+  <text x="1140" y="150" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="12" font-weight="700" fill="#FFFFFF">ALTERNATE</text>
+  
+  <text x="690" y="205" font-family="Consolas, Courier New, monospace" font-size="20" font-weight="700" fill="#E65100">S-131C-01QN000</text>
+  <text x="690" y="245" font-family="Arial, Microsoft YaHei, sans-serif" font-size="18" fill="#212121">SCREW M1.7*4.5L K  BLUE-ZN  T6</text>
+  <text x="690" y="280" font-family="Arial, Microsoft YaHei, sans-serif" font-size="16" fill="#616161">Supplier: SCREWTECH</text>
+  <text x="690" y="310" font-family="Arial, Microsoft YaHei, sans-serif" font-size="16" fill="#616161">Coating: Blue Zinc (BLUE-ZN)</text>
+  <text x="690" y="345" font-family="Arial, Microsoft YaHei, sans-serif" font-size="14" fill="#9E9E9E">Thread type: TAPPING  |  Spec: 2.0/1</text>
+
+  
+  <path fill="#FFF8E1" stroke="#FFE082" stroke-width="1" d="M68,420 H1212 A8,8 0 0 1 1220,428 V502 A8,8 0 0 1 1212,510 H68 A8,8 0 0 1 60,502 V428 A8,8 0 0 1 68,420 Z" />
+  
+  <g transform="translate(80.0, 445.0) scale(1.1666666666666667)" fill="none" stroke="none" stroke-width="2">
+    <path d="M12 9v4" />
+    <path d="M10.363 3.591l-8.106 13.534a1.914 1.914 0 0 0 1.636 2.871h16.214a1.914 1.914 0 0 0 1.636 -2.87l-8.106 -13.536a1.914 1.914 0 0 0 -3.274 0" />
+    <path d="M12 16h.01" />
+  </g>
+  <text x="120" y="460" font-family="Arial, Microsoft YaHei, sans-serif" font-size="16" font-weight="700" fill="#212121">Key Identifier: "-S-" prefix in part number</text>
+  <text x="120" y="488" font-family="Arial, Microsoft YaHei, sans-serif" font-size="15" fill="#616161">In PEGATRON PLM naming convention, the "-S-" marker designates Second Source. No "S" = Main/Primary source for procurement.</text>
+
+  
+  <path fill="#E8F5E9" stroke="#A5D6A7" stroke-width="1" d="M68,540 H1212 A8,8 0 0 1 1220,548 V602 A8,8 0 0 1 1212,610 H68 A8,8 0 0 1 60,602 V548 A8,8 0 0 1 68,540 Z" />
+  
+  <g transform="translate(80.0, 558.0) scale(1.1666666666666667)" fill="none" stroke="none" stroke-width="2">
+    <path d="M3 12a9 9 0 1 0 18 0a9 9 0 1 0 -18 0" />
+    <path d="M9 12l2 2l4 -4" />
+  </g>
+  <text x="120" y="575" font-family="Arial, Microsoft YaHei, sans-serif" font-size="16" font-weight="700" fill="#2E7D32">Identical Specs:</text>
+  <text x="260" y="575" font-family="Arial, Microsoft YaHei, sans-serif" font-size="16" fill="#212121">M1.7 thread  |  4.5mm length  |  K-head  |  Torx T6  |  Tapping  |  2.0/1</text>
+  <text x="120" y="600" font-family="Arial, Microsoft YaHei, sans-serif" font-size="13" fill="#616161">Mechanically interchangeable — only surface treatment and supplier differ</text>
+
+  
+  <text x="1220" y="700" text-anchor="end" font-family="Arial, Microsoft YaHei, sans-serif" font-size="12" fill="#9E9E9E">2</text>
+</svg>

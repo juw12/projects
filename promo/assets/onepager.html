@@ -1,0 +1,120 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  @page { size: A4; margin: 0; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: "Segoe UI", -apple-system, Helvetica, Arial, sans-serif;
+    color: #1c2230;
+    background: #ffffff;
+    width: 210mm;
+    min-height: 297mm;
+  }
+  .page {
+    width: 210mm; height: 297mm;
+    padding: 16mm 15mm;
+    display: flex; flex-direction: column;
+    background:
+      radial-gradient(1200px 400px at 100% -10%, #eef4ff 0%, rgba(238,244,255,0) 60%),
+      #ffffff;
+  }
+  header { display: flex; align-items: flex-end; justify-content: space-between; }
+  h1 { font-size: 40px; margin: 0; letter-spacing: -0.5px; }
+  h1 .heart { font-size: 30px; }
+  .tagline { font-size: 15px; color: #43506b; margin: 6px 0 0; }
+  .kicker { font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: #6b7794; }
+  .rule { height: 3px; background: #2f6bd6; width: 64px; border-radius: 2px; margin: 14px 0 16px; }
+
+  .hero { display: flex; gap: 14px; align-items: stretch; }
+  .shot {
+    border: 1px solid #dfe5f0; border-radius: 12px; overflow: hidden;
+    box-shadow: 0 10px 24px rgba(24,39,75,.12); background: #fff;
+  }
+  .shot img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: top; }
+  .shot.desktop { flex: 1; height: 250px; }
+  .shot.mobile { width: 118px; height: 250px; }
+
+  .cols { display: flex; gap: 22px; margin-top: 18px; }
+  .col { flex: 1; }
+  .col h2 { font-size: 12px; letter-spacing: 1.5px; text-transform: uppercase; color: #2f6bd6; margin: 0 0 8px; }
+  .col p { font-size: 12.5px; line-height: 1.5; margin: 0 0 8px; color: #2b3346; }
+  ul { margin: 0; padding: 0; list-style: none; }
+  li { font-size: 12.5px; line-height: 1.42; margin: 0 0 6px; padding-left: 16px; position: relative; color: #2b3346; }
+  li:before { content: "›"; position: absolute; left: 0; color: #2f6bd6; font-weight: 700; }
+
+  .banner {
+    margin-top: 18px; padding: 12px 16px; border-radius: 10px;
+    background: #f2f7ff; border: 1px solid #d8e6ff; font-size: 12.5px; color: #24324f;
+  }
+  .banner b { color: #1c2230; }
+
+  footer { margin-top: auto; padding-top: 16px; border-top: 1px solid #e6ebf5; }
+  .links { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+  .pill {
+    font-size: 11.5px; padding: 6px 10px; border-radius: 999px;
+    background: #1c2230; color: #fff; text-decoration: none;
+  }
+  .pill.ghost { background: #eef2f9; color: #24324f; }
+  .meta { font-size: 11px; color: #6b7794; }
+</style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <div>
+        <div class="kicker">Launch one-pager</div>
+        <h1>nudge <span class="heart">💌</span></h1>
+        <p class="tagline">See which friends you've been leaving on read while you doomscroll.</p>
+      </div>
+    </header>
+    <div class="rule"></div>
+
+    <div class="hero">
+      <div class="shot desktop"><img src="nudge-desktop.png" alt="nudge demo report"></div>
+      <div class="shot mobile"><img src="nudge-mobile.png" alt="nudge on a phone"></div>
+    </div>
+
+    <div class="cols">
+      <div class="col">
+        <h2>The problem</h2>
+        <p>Friends send you reels and links. You scroll past them. The apps track your
+        attention to the second, but none of them tell you who's waiting on a reply.
+        A shared reel is a small "I thought of you," and it disappears under the same
+        feed it came from.</p>
+        <h2>How it decides</h2>
+        <p>A reply within 48h counts as answering a share. Each friend gets a priority
+        score from recency, unanswered streaks, who reaches out after silence, and the
+        ratio of what they've shared to what you've returned.</p>
+      </div>
+      <div class="col">
+        <h2>What it does</h2>
+        <ul>
+          <li>Reads the chat export you already downloaded (Instagram, WhatsApp, Telegram, iMessage).</li>
+          <li>Shows who you've left on read and which specific shares you never answered.</li>
+          <li>Gives you a ready-to-send opener to reconnect.</li>
+          <li>Weekly digest + desktop notification, and an iOS widget that nudges you before you open Instagram.</li>
+          <li>Ships as a Python CLI and an installable browser app (PWA).</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="banner">
+      <b>Private by design.</b> 100% local. No network calls, no accounts, no telemetry,
+      pure Python standard library. It reads only exports you download from your own
+      accounts, with no scraping and no unofficial APIs. Nothing leaves your device.
+    </div>
+
+    <footer>
+      <div class="links">
+        <a class="pill" href="https://github.com/juw12/nudge">Repo: github.com/juw12/nudge</a>
+        <a class="pill ghost" href="https://juw12.github.io/nudge/">App: juw12.github.io/nudge</a>
+        <a class="pill ghost" href="https://juw12.github.io/nudge/?demo=1">Demo (fake data)</a>
+      </div>
+      <div class="meta">Work in progress, tested on sample data; real-export testing next. MIT licensed. Built solo by Juwen Lie (@juw12).</div>
+    </footer>
+  </div>
+</body>
+</html>

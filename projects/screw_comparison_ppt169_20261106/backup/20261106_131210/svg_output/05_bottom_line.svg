@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720">
+  <!-- Background -->
+  <rect width="1280" height="720" fill="#FFFFFF"/>
+  <!-- Top accent bar -->
+  <rect x="0" y="0" width="1280" height="6" fill="#1565C0"/>
+
+  <!-- Title -->
+  <text x="640" y="80" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="36" font-weight="700" fill="#212121">Interchangeability Assessment</text>
+
+  <!-- Main verdict box -->
+  <rect x="240" y="130" width="800" height="120" rx="16" fill="#E8F5E9" stroke="#A5D6A7" stroke-width="2"/>
+  <use data-icon="tabler-outline/circle-check" x="280" y="170" width="36" height="36" stroke="#2E7D32" stroke-width="2" fill="none"/>
+  <text x="340" y="185" font-family="Arial, Microsoft YaHei, sans-serif" font-size="24" font-weight="700" fill="#2E7D32">Mechanically Identical</text>
+  <text x="340" y="218" font-family="Arial, Microsoft YaHei, sans-serif" font-size="16" fill="#616161">Same thread, length, head, drive, and thread type. Drop-in fit from a dimensional standpoint.</text>
+
+  <!-- Condition box -->
+  <rect x="240" y="290" width="800" height="160" rx="16" fill="#FFF8E1" stroke="#FFE082" stroke-width="2"/>
+  <use data-icon="tabler-outline/alert-triangle" x="280" y="320" width="36" height="36" stroke="#F57C00" stroke-width="2" fill="none"/>
+  <text x="340" y="345" font-family="Arial, Microsoft YaHei, sans-serif" font-size="20" font-weight="700" fill="#F57C00">Substitution Requires Verification</text>
+  <!-- Bullet points -->
+  <circle cx="350" cy="380" r="4" fill="#F57C00"/>
+  <text x="370" y="385" font-family="Arial, Microsoft YaHei, sans-serif" font-size="15" fill="#212121">Confirm product spec does NOT mandate a specific coating (W-ZN vs BLUE-ZN)</text>
+  <circle cx="350" cy="412" r="4" fill="#F57C00"/>
+  <text x="370" y="417" font-family="Arial, Microsoft YaHei, sans-serif" font-size="15" fill="#212121">Check if customer approval / drawing specifies plating type or color</text>
+  <circle cx="350" cy="444" r="4" fill="#F57C00"/>
+  <text x="370" y="449" font-family="Arial, Microsoft YaHei, sans-serif" font-size="15" fill="#212121">If spec is silent on plating, second source is interchangeable</text>
+
+  <!-- Action items -->
+  <rect x="240" y="490" width="800" height="120" rx="16" fill="#F5F7FA" stroke="#E0E0E0" stroke-width="1"/>
+  <text x="280" y="525" font-family="Arial, Microsoft YaHei, sans-serif" font-size="16" font-weight="700" fill="#1565C0">Next Steps</text>
+  <!-- Step 1 -->
+  <circle cx="295" cy="558" r="10" fill="#1565C0"/>
+  <text x="295" y="563" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="10" font-weight="700" fill="#FFFFFF">1</text>
+  <text x="320" y="563" font-family="Arial, Microsoft YaHei, sans-serif" font-size="14" fill="#212121">Review product drawing / spec for plating requirement</text>
+  <!-- Step 2 -->
+  <circle cx="295" cy="590" r="10" fill="#1565C0"/>
+  <text x="295" y="595" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="10" font-weight="700" fill="#FFFFFF">2</text>
+  <text x="320" y="595" font-family="Arial, Microsoft YaHei, sans-serif" font-size="14" fill="#212121">If clear: update BOM to confirm both sources as approved</text>
+
+  <!-- Footer -->
+  <rect x="0" y="714" width="1280" height="6" fill="#1565C0"/>
+  <text x="640" y="700" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="12" fill="#9E9E9E">Screw Source Comparison  |  Nov 2026  |  5</text>
+</svg>

@@ -1,0 +1,18 @@
+[2026-11-01 20:25:51] 9 item(s) to render in C:\Users\juwen_lie\Documents\Default Project\apps\hazel\shorts\pipeline\autopost\queue\mending
+[2026-11-01 20:25:51] 002-kartu-kredit-vs-paylater: attempt 1/3
+[2026-11-01 20:28:40] 002-kartu-kredit-vs-paylater: FAILED -   File "C:\Users\juwen_lie\Documents\Default Project\apps\hazel\shorts\pipeline\.venv\Lib\site-packages\gtts\tts.py", line 287, in stream |     raise gTTSError(tts=self) | gtts.tts.gTTSError: Failed to connect. Probable cause: Unknown
+[2026-11-01 20:28:45] 002-kartu-kredit-vs-paylater: attempt 2/3
+[2026-11-01 20:29:09] 002-kartu-kredit-vs-paylater: FAILED -   File "C:\Users\juwen_lie\Documents\Default Project\apps\hazel\shorts\pipeline\.venv\Lib\site-packages\gtts\tts.py", line 287, in stream |     raise gTTSError(tts=self) | gtts.tts.gTTSError: Failed to connect. Probable cause: Unknown
+[2026-11-01 20:29:14] 002-kartu-kredit-vs-paylater: attempt 3/3
+[2026-11-01 20:36:30] 002-kartu-kredit-vs-paylater: OK (47.1 s video, 436 s render)
+[2026-11-01 20:36:30] 003-pinjol-vs-gadai: attempt 1/3
+[2026-11-01 20:38:44] 003-pinjol-vs-gadai: FAILED -   File "C:\Users\juwen_lie\Documents\Default Project\apps\hazel\shorts\pipeline\.venv\Lib\site-packages\gtts\tts.py", line 287, in stream |     raise gTTSError(tts=self) | gtts.tts.gTTSError: Failed to connect. Probable cause: Unknown
+[2026-11-01 20:38:49] 003-pinjol-vs-gadai: attempt 2/3
+[2026-11-01 20:40:14] 003-pinjol-vs-gadai: FAILED -   File "C:\Users\juwen_lie\Documents\Default Project\apps\hazel\shorts\pipeline\.venv\Lib\site-packages\gtts\tts.py", line 287, in stream |     raise gTTSError(tts=self) | gtts.tts.gTTSError: Failed to connect. Probable cause: Unknown
+[2026-11-01 20:40:19] 003-pinjol-vs-gadai: attempt 3/3
+[2026-11-01 20:48:36] 003-pinjol-vs-gadai: OK (49.3 s video, 497 s render)
+[2026-11-01 20:48:36] 004-kopi-tiap-hari-vs-2x-seminggu: attempt 1/3
+[2026-11-01 20:54:19] 004-kopi-tiap-hari-vs-2x-seminggu: FAILED -     return sock.send(data) |            ~~~~~~~~~^^^^^^ | ConnectionAbortedError: [WinError 10053] An established connection was aborted by the software in your host machine
+[2026-11-01 20:54:24] 004-kopi-tiap-hari-vs-2x-seminggu: attempt 2/3
+[2026-11-01 21:03:16] 004-kopi-tiap-hari-vs-2x-seminggu: OK (39.2 s video, 532 s render)
+[2026-11-01 21:03:16] 005-token-vs-pascabayar: attempt 1/3

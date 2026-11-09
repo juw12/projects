@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720">
+  <!-- Background -->
+  <rect width="1280" height="720" fill="#FFFFFF"/>
+  <!-- Top accent bar -->
+  <rect x="0" y="0" width="1280" height="6" fill="#1565C0"/>
+  <!-- Icon circle -->
+  <circle cx="640" cy="260" r="60" fill="#F5F7FA" stroke="#E0E0E0" stroke-width="2"/>
+  <use data-icon="tabler-outline/settings" x="616" y="236" width="48" height="48" stroke="#1565C0" stroke-width="2" fill="none"/>
+  <!-- Title -->
+  <text x="640" y="390" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="48" font-weight="700" fill="#212121">Screw Source Comparison</text>
+  <!-- Subtitle -->
+  <text x="640" y="440" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="24" fill="#616161">131C-01QU000 (Main) vs 131C-01QN000 (Second Source)</text>
+  <!-- Divider -->
+  <rect x="560" y="480" width="160" height="3" rx="1.5" fill="#1565C0"/>
+  <!-- Info line -->
+  <text x="640" y="530" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="14" fill="#9E9E9E">BOM Reference  |  Nov 2026</text>
+  <!-- Bottom bar -->
+  <rect x="0" y="714" width="1280" height="6" fill="#1565C0"/>
+</svg>

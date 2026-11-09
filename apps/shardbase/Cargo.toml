@@ -1,0 +1,30 @@
+[package]
+name = "shardbase"
+version = "0.1.0"
+edition = "2021"
+description = "Minimal PostgreSQL wire protocol v3 frontend with RocksDB-backed row store"
+
+[dependencies]
+tokio = { version = "1.54", features = ["rt-multi-thread", "macros", "net", "io-util", "time", "sync"] }
+tokio-rustls = { version = "0.26", optional = true }
+rustls = { version = "0.23", optional = true }
+rocksdb = { version = "0.25", optional = true }
+sqlparser = "0.63"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+bytes = "1"
+anyhow = "1"
+thiserror = "1"
+futures = "0.3"
+tokio-util = { version = "0.7", features = ["codec"] }
+
+sha2 = "0.10"
+hmac = "0.12"
+pbkdf2 = "0.12"
+base64 = "0.22"
+rand = "0.8"
+
+[features]
+default = []
+tls = ["dep:tokio-rustls", "dep:rustls"]
+rocksdb = ["dep:rocksdb"]

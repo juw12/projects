@@ -1,0 +1,489 @@
+# AIRIZ Motor Console — Unified Release Pipeline
+#
+# Trigger: tag push matching `v*` (e.g. v1.7.3)
+#
+# Stages:
+#   1. build  — matrix across the 5 surfaces (electron, capacitor-android,
+#               capacitor-ios, pwa, worker). Produces artifacts + sha hashes.
+#   2. sign   — assembles the unified manifest, signs with ed25519, emits
+#               electron-updater latest.yml, uploads to R2.
+#   3. stage  — bumps staged_rollout to 10 in the manifest, re-signs, re-uploads.
+#   4. monitor — polls Sentry release health for 24h; on regression,
+#                rolls back (bump staged_rollout to 0, re-sign, re-upload;
+#                call wrangler rollback for the Worker surface).
+
+name: AIRIZ Unified Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g. 1.7.3). Leave blank to use the tag.'
+        required: false
+
+# Cancel any in-flight run of this workflow when a new tag is pushed.
+concurrency:
+  group: airiz-unified-release-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  id-token: write      # For OIDC to R2 / Cloudflare
+  actions: read
+
+env:
+  R2_BUCKET: airiz-releases
+  R2_ENDPOINT: ${{ vars.R2_ENDPOINT }}
+  R2_ACCESS_KEY_ID: ${{ vars.R2_ACCESS_KEY_ID }}
+  R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+  CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+  CF_ACCOUNT_ID: ${{ vars.CF_ACCOUNT_ID }}
+  AIRIZ_SIGNING_PUBLIC_KEY_PEM: ${{ secrets.AIRIZ_SIGNING_PUBLIC_KEY_PEM }}
+  SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+  SENTRY_ORG_SLUG: ${{ vars.SENTRY_ORG_SLUG }}
+  SENTRY_PROJECT_SLUG: airiz-motor-console
+
+jobs:
+
+  # ============================================================================
+  # 1. build — one job per surface
+  # ============================================================================
+  build:
+    name: build ${{ matrix.surface }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - surface: electron
+            os: windows-latest
+            build_cmd: pnpm --filter airiz-console-desktop run dist:win
+            artifact_dir: dist/electron
+          - surface: capacitor-android
+            os: ubuntu-latest
+            build_cmd: pnpm --filter airiz-motor run cap:sync && pnpm --filter airiz-motor run android:build
+            artifact_dir: dist/android
+          - surface: capacitor-ios
+            os: macos-latest
+            build_cmd: pnpm --filter airiz-motor run cap:sync && pnpm --filter airiz-motor run ios:build
+            artifact_dir: dist/ios
+          - surface: pwa
+            os: ubuntu-latest
+            build_cmd: pnpm --filter airiz-motor-pwa run build
+            artifact_dir: dist/pwa
+          # The two Workers (airiz-relay for runtime device-control WebRTC,
+          # and airiz-release-relay for the unified release manifest) are
+          # NOT built as artifacts here. They're deployed directly via
+          # wrangler in the `sign` job below. The WebRTC relay deploys
+          # independently of AIRIZ app version bumps; the release-relay
+          # deploys on every tagged release.
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build ${{ matrix.surface }}
+        run: ${{ matrix.build_cmd }}
+
+      - name: Compute sha hashes
+        shell: bash
+        run: |
+          set -euo pipefail
+          ART_DIR="${{ matrix.artifact_dir }}"
+          HASHES_JSON="build/${{ matrix.surface }}-hashes.json"
+          case "${{ matrix.surface }}" in
+            electron)
+              EXE=$(find "$ART_DIR" -maxdepth 2 -name '*.exe' | head -n 1)
+              SHA512=$(sha512sum "$EXE" | awk '{print $1}')
+              SIZE=$(stat -c %s "$EXE")
+              jq -n --arg url "https://releases.airiz.example/${{ github.ref_name }}/$(basename "$EXE")" \
+                    --arg sha "$SHA512" --argjson size "$SIZE" \
+                    '{ url: $url, sha512: $sha, size: $size }' > "$HASHES_JSON"
+              ;;
+            capacitor-android)
+              ZIP=$(find "$ART_DIR" -maxdepth 2 -name '*.zip' -o -name '*.aab' | head -n 1)
+              SHA256=$(sha256sum "$ZIP" | awk '{print $1}')
+              jq -n --arg url "https://releases.airiz.example/${{ github.ref_name }}/$(basename "$ZIP")" \
+                    --arg sha "$SHA256" \
+                    '{ url: $url, sha256: $sha }' > "$HASHES_JSON"
+              ;;
+            capacitor-ios)
+              IPA=$(find "$ART_DIR" -maxdepth 2 -name '*.ipa' | head -n 1)
+              jq -n --arg url "https://releases.airiz.example/${{ github.ref_name }}/$(basename "$IPA")" \
+                    '{ url: $url }' > "$HASHES_JSON"
+              ;;
+            pwa)
+              jq -n --arg url "https://releases.airiz.example/web/${{ github.ref_name }}/" \
+                    '{ url: $url }' > "$HASHES_JSON"
+              ;;
+            worker)
+              WORKER_JS=$(find "$ART_DIR" -maxdepth 2 -name '*.js' | head -n 1)
+              jq -n --arg url "https://releases.airiz.example/worker/${{ github.ref_name }}.js" \
+                    '{ url: $url }' > "$HASHES_JSON"
+              ;;
+          esac
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.surface }}-${{ github.ref_name }}
+          path: |
+            ${{ matrix.artifact_dir }}
+            build/${{ matrix.surface }}-hashes.json
+
+  # ============================================================================
+  # 2. sign — assemble unified manifest, sign with ed25519, upload to R2
+  # ============================================================================
+  sign:
+    name: sign + upload
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with: { version: 9 }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # Pull all surface hashes into one file.
+      - uses: actions/download-artifact@v4
+        with: { path: build/hashes }
+      - name: Merge per-surface hashes
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/hashes
+          for s in electron capacitor-android capacitor-ios pwa worker; do
+            cp "build/$s-${{ github.ref_name }}/$s-hashes.json" "build/hashes/$s.json" || true
+          done
+          jq -s 'reduce .[] as $i ({}; . * $i)' build/hashes/*.json > build/hashes/all.json
+          cat build/hashes/all.json
+
+      - name: Derive version
+        id: ver
+        shell: bash
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Build unsigned manifest input
+        shell: bash
+        run: |
+          cat > build/manifest-input.json <<EOF
+          {
+            "schema_version": 1,
+            "app_id": "airiz-motor-console",
+            "target_versions": {
+              "electron": "${{ steps.ver.outputs.version }}",
+              "capacitor_ios": "${{ steps.ver.outputs.version }}",
+              "capacitor_android": "${{ steps.ver.outputs.version }}",
+              "pwa": "${{ steps.ver.outputs.version }}",
+              "worker": "${{ steps.ver.outputs.version }}"
+            },
+            "artifacts": $(cat build/hashes/all.json)
+          }
+          EOF
+
+      # Upload the unsigned manifest input so the monitor job can re-sign
+      # with a different staged_rollout during rollback or promote. Jobs
+      # in GitHub Actions have isolated filesystems.
+      - name: Upload manifest-input for monitor job
+        uses: actions/upload-artifact@v4
+        with:
+          name: manifest-input-${{ github.ref_name }}
+          path: build/manifest-input.json
+          retention-days: 7
+
+      - name: Sign manifest
+        env:
+          AIRIZ_SIGNING_PRIVATE_KEY_PEM: ${{ secrets.AIRIZ_SIGNING_PRIVATE_KEY_PEM }}
+        run: |
+          node --experimental-strip-types \
+            apps/airiz-motor/tools/sign-manifest.ts \
+              --input build/manifest-input.json \
+              --key <(printf '%s' "$AIRIZ_SIGNING_PRIVATE_KEY_PEM") \
+              --output release/airiz-release.json \
+              --key-id airiz-prod-2026 \
+              --channel production \
+              --staged-rollout 0
+
+      - name: Emit electron-updater latest.yml
+        env:
+          AIRIZ_PUBLIC_KEY_PEM: ${{ secrets.AIRIZ_SIGNING_PUBLIC_KEY_PEM }}
+        run: |
+          mkdir -p release/electron
+          node --experimental-strip-types \
+            apps/airiz-motor/tools/manifest-to-electron-yml.ts \
+              --input release/airiz-release.json \
+              --output-dir release/electron \
+              --channel production \
+              --public-key "$AIRIZ_PUBLIC_KEY_PEM"
+
+      # Substitute the production public key + release version into:
+      #   - apps/airiz-motor/desktop/app-update.yml     (electron-updater runtime config)
+      #   - apps/airiz-motor/web/sw.js                  (PWA SW Ed25519 verification)
+      #   - apps/airiz-motor/mobile/src/live-update.mjs (Capacitor Ed25519 verification)
+      # All three files contain placeholders that must be replaced before the
+      # artifacts are uploaded to R2 / bundled into the installers. The
+      # placeholder values baked into the committed files are the dev keypair
+      # from secrets/airiz-signing-public.pem so a local `npm run dist:win` /
+      # `npm run android:build` works without a CI secret; CI rewrites them
+      # per release.
+      - name: Substitute production public key into desktop, PWA, and mobile artifacts
+        env:
+          AIRIZ_PUBLIC_KEY_PEM: ${{ secrets.AIRIZ_SIGNING_PUBLIC_KEY_PEM }}
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.ver.outputs.version }}"
+          # Derive the base64 SPKI DER from the PEM (matches tools/keygen.ts output format).
+          PUBLIC_KEY_B64=$(printf '%s' "$AIRIZ_PUBLIC_KEY_PEM" \
+            | openssl x509 -pubkey -noout 2>/dev/null \
+            | sed -n '/BEGIN PUBLIC KEY/,/END PUBLIC KEY/p' \
+            | sed 's/-----.*-----//g' | tr -d '\n' \
+            | base64 -d 2>/dev/null \
+            | base64 -w 0)
+          if [ -z "$PUBLIC_KEY_B64" ]; then
+            echo "FATAL: failed to derive base64 SPKI DER from AIRIZ_PUBLIC_KEY_PEM"
+            exit 1
+          fi
+          echo "Public-key fingerprint: $(printf '%s' "$PUBLIC_KEY_B64" | base64 -d | sha256sum | awk '{print $1}')"
+
+          # Substitute into desktop/app-update.yml. The committed file contains
+          # the dev public key as a placeholder; CI overwrites it per release.
+          if [ -f apps/airiz-motor/desktop/app-update.yml ]; then
+            # Use python for safe string substitution (sed escaping is fragile).
+            python - <<PY
+import pathlib, sys
+p = pathlib.Path("apps/airiz-motor/desktop/app-update.yml")
+text = p.read_text(encoding="utf-8")
+new_b64 = "$PUBLIC_KEY_B64"
+text = text.replace(
+    'updateManifestPublicKey: "MCowBQYDK2VwAyEAWq4SVP+UEdh8pLMSzLNRGanSnyzEzerO0xryCkdm5bI="',
+    f'updateManifestPublicKey: "{new_b64}"',
+)
+# Bump channel + url if the manifest uses a beta/staging channel.
+p.write_text(text, encoding="utf-8")
+print(f"substituted desktop/app-update.yml updateManifestPublicKey")
+PY
+          else
+            echo "WARN: apps/airiz-motor/desktop/app-update.yml not found — skipping substitution"
+          fi
+
+          # Substitute into web/sw.js. The committed file contains a dev key
+          # placeholder; CI overwrites both the key and the expected version.
+          if [ -f apps/airiz-motor/web/sw.js ]; then
+            python - <<PY
+import pathlib
+p = pathlib.Path("apps/airiz-motor/web/sw.js")
+text = p.read_text(encoding="utf-8")
+new_b64 = "$PUBLIC_KEY_B64"
+new_version = "$VERSION"
+text = text.replace(
+    "const PUBLIC_KEY_BASE64 = 'MCowBQYDK2VwAyEAWq4SVP+UEdh8pLMSzLNRGanSnyzEzerO0xryCkdm5bI=';",
+    f"const PUBLIC_KEY_BASE64 = '{new_b64}';",
+)
+text = text.replace(
+    "const EXPECTED_MANIFEST_VERSION = '1.11.27';",
+    f"const EXPECTED_MANIFEST_VERSION = '{new_version}';",
+)
+p.write_text(text, encoding="utf-8")
+print(f"substituted web/sw.js public key + expected version ({new_version})")
+PY
+          else
+            echo "WARN: apps/airiz-motor/web/sw.js not found — skipping substitution"
+          fi
+
+          # Substitute into mobile/src/live-update.mjs. Mirrors the desktop +
+          # PWA substitutions: the committed file contains a dev key placeholder
+          # (so `npm test` in mobile/ works locally without a CI secret); CI
+          # rewrites it per release. Capawesome Live Update v8.x cannot do this
+          # for us — its publicKey field requires PEM-encoded RSA — so we keep
+          # the Capawesome plugin only for state-management primitives and
+          # verify signatures ourselves in live-update.mjs (which uses the same
+          # Ed25519 algorithm as the desktop + PWA + Worker surfaces).
+          if [ -f apps/airiz-motor/mobile/src/live-update.mjs ]; then
+            python - <<PY
+import pathlib
+p = pathlib.Path("apps/airiz-motor/mobile/src/live-update.mjs")
+text = p.read_text(encoding="utf-8")
+new_b64 = "$PUBLIC_KEY_B64"
+text = text.replace(
+    "export const PUBLIC_KEY_BASE64 =\n  'MCowBQYDK2VwAyEAWq4SVP+UEdh8pLMSzLNRGanSnyzEzerO0xryCkdm5bI=';",
+    f"export const PUBLIC_KEY_BASE64 =\n  '{new_b64}';",
+)
+p.write_text(text, encoding="utf-8")
+print("substituted mobile/src/live-update.mjs PUBLIC_KEY_BASE64")
+PY
+          else
+            echo "WARN: apps/airiz-motor/mobile/src/live-update.mjs not found — skipping substitution"
+          fi
+
+      # Upload all artifacts + signed manifest to Cloudflare R2.
+      # The R2 bucket layout mirrors `airiz-releases/<surface>/<version>/...`.
+      # The signed manifest is at `airiz-releases/<channel>/manifest.json`.
+      - name: Upload to Cloudflare R2 (via Wrangler / S3 API)
+        env:
+          AWS_ACCESS_KEY_ID: ${{ env.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ env.R2_SECRET_ACCESS_KEY }}
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.ver.outputs.version }}"
+
+          # Per-surface artifacts.
+          for s in electron capacitor-android capacitor-ios pwa worker; do
+            aws s3 sync \
+              --endpoint-url "$R2_ENDPOINT" \
+              --no-progress \
+              "build/$s-${{ github.ref_name }}/" \
+              "s3://$R2_BUCKET/$s/$VERSION/" || true
+          done
+
+          # Electron-updater sidecar + differential-download blockmap.
+          # electron-builder v26+ emits <artifact>.exe.blockmap alongside the installer
+          # when NSIS targets are used; without it the sidecar manifest would advertise
+          # differential but clients would silently fall back to full downloads.
+          aws s3 cp \
+            --endpoint-url "$R2_ENDPOINT" \
+            release/electron/latest.yml \
+            "s3://$R2_BUCKET/electron/$VERSION/latest.yml"
+          if compgen -G "build/electron-${{ github.ref_name }}/*.exe.blockmap" > /dev/null; then
+            aws s3 cp \
+              --endpoint-url "$R2_ENDPOINT" \
+              "build/electron-${{ github.ref_name }}/" \
+              "s3://$R2_BUCKET/electron/$VERSION/" \
+              --recursive --exclude="*" --include="*.exe.blockmap"
+            echo "blockmap uploaded: differential download will activate on the next install"
+          else
+            echo "no blockmap found in electron artifacts — differential download will fall back to full binary (safe)"
+          fi
+
+          # Signed unified manifest.
+          aws s3 cp \
+            --endpoint-url "$R2_ENDPOINT" \
+            release/airiz-release.json \
+            "s3://$R2_BUCKET/production/manifest.json"
+
+      - name: Promote release-relay Worker version (Gradual Deployments 10%)
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CF_API_TOKEN }}
+          accountId: ${{ env.CF_ACCOUNT_ID }}
+          workingDirectory: apps/airiz-motor/release-relay
+          command: versions upload && versions deploy --percentage 10
+
+  # ============================================================================
+  # 3. monitor — crash-throttled rollout
+  # ============================================================================
+  monitor:
+    name: monitor rollout
+    needs: sign
+    runs-on: ubuntu-latest
+    steps:
+      # Restore the manifest-input.json from the sign job so we can re-sign
+      # with staged_rollout=0 (rollback) or 100 (promote). This artifact is
+      # uploaded by the sign job and only exists for 7 days.
+      - name: Download manifest-input from sign job
+        uses: actions/download-artifact@v4
+        with:
+          name: manifest-input-${{ github.ref_name }}
+          path: build/
+
+      - name: Poll Sentry release health
+        id: sentry
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+        run: |
+          set -euo pipefail
+          VERSION="${{ github.ref_name }}"
+          CRASH_FREE=$(curl -fsS \
+            -H "Authorization: Bearer $SENTRY_AUTH_TOKEN" \
+            "https://sentry.io/api/0/projects/$SENTRY_ORG_SLUG/$SENTRY_PROJECT_SLUG/releases/$VERSION/stats/" \
+            | jq -r '.crash_free_sessions // 0')
+          echo "crash_free_sessions=$CRASH_FREE" >> "$GITHUB_OUTPUT"
+
+      - name: Decide
+        id: decide
+        shell: bash
+        env:
+          CRASH_FREE: ${{ steps.sentry.outputs.crash_free_sessions }}
+        run: |
+          set -euo pipefail
+          THRESHOLD=0.995
+          if (( $(echo "$CRASH_FREE < $THRESHOLD" | bc -l) )); then
+            echo "decision=rollback" >> "$GITHUB_OUTPUT"
+            echo "::warning::Crash-free sessions $CRASH_FREE below threshold $THRESHOLD — rolling back"
+          else
+            echo "decision=promote" >> "$GITHUB_OUTPUT"
+            echo "Crash-free sessions $CRASH_FREE above threshold $THRESHOLD — promoting"
+          fi
+
+      - name: Rollback (manifest halt + Worker to previous version)
+        if: steps.decide.outputs.decision == 'rollback'
+        env:
+          AWS_ACCESS_KEY_ID: ${{ env.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ env.R2_SECRET_ACCESS_KEY }}
+          AIRIZ_SIGNING_PRIVATE_KEY_PEM: ${{ secrets.AIRIZ_SIGNING_PRIVATE_KEY_PEM }}
+        run: |
+          set -euo pipefail
+          # Re-sign with staged_rollout = 0 to halt rollout across surfaces.
+          node --experimental-strip-types \
+            apps/airiz-motor/tools/sign-manifest.ts \
+              --input build/manifest-input.json \
+              --key <(printf '%s' "$AIRIZ_SIGNING_PRIVATE_KEY_PEM") \
+              --output release/airiz-release-rollback.json \
+              --key-id airiz-prod-2026 \
+              --channel production \
+              --staged-rollout 0
+          aws s3 cp --endpoint-url "$R2_ENDPOINT" \
+            release/airiz-release-rollback.json \
+            "s3://$R2_BUCKET/production/manifest.json"
+
+          # Cloudflare Worker rollback. `wrangler rollback` requires >=2 deployments;
+          # on first release it would fail under `set -euo pipefail` and abort the step
+          # before the manifest re-sign above is uploaded.
+          PREV_WORKER_VERSION_ID=$(npx wrangler versions list --json --name airiz-release-relay \
+            | jq -r '.[1].id // empty')
+          if [ -z "$PREV_WORKER_VERSION_ID" ]; then
+            echo "::warning::No previous Worker version to roll back to (first release). Manifest halted (staged_rollout=0); Worker remains on the current version."
+          else
+            echo "Rolling Worker back to version $PREV_WORKER_VERSION_ID"
+            npx wrangler versions deploy "$PREV_WORKER_VERSION_ID" --name airiz-release-relay
+          fi
+
+      - name: Promote (bump staged_rollout to 100)
+        if: steps.decide.outputs.decision == 'promote'
+        env:
+          AWS_ACCESS_KEY_ID: ${{ env.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ env.R2_SECRET_ACCESS_KEY }}
+          AIRIZ_SIGNING_PRIVATE_KEY_PEM: ${{ secrets.AIRIZ_SIGNING_PRIVATE_KEY_PEM }}
+        run: |
+          set -euo pipefail
+          node --experimental-strip-types \
+            apps/airiz-motor/tools/sign-manifest.ts \
+              --input build/manifest-input.json \
+              --key <(printf '%s' "$AIRIZ_SIGNING_PRIVATE_KEY_PEM") \
+              --output release/airiz-release-final.json \
+              --key-id airiz-prod-2026 \
+              --channel production \
+              --staged-rollout 100
+          aws s3 cp --endpoint-url "$R2_ENDPOINT" \
+            release/airiz-release-final.json \
+            "s3://$R2_BUCKET/production/manifest.json"
+          npx wrangler versions deploy --percentage 100 --name airiz-release-relay

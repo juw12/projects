@@ -17,6 +17,16 @@
         "availableDevices": "Bluetooth devices",
         "noDeviceFound": "No BLE device found. Enable device Bluetooth from the USB console first."
       }
+    },
+    "LiveUpdate": {
+      "appId": "airiz-motor-mobile",
+      "defaultChannel": "production",
+      "autoUpdateStrategy": "background",
+      "readyTimeout": 10000,
+      "autoBlockRolledBackBundles": true,
+      "autoDeleteBundles": true,
+      "httpTimeout": 60000,
+      "serverDomain": "https://releases.airiz.example"
     }
   }
 }

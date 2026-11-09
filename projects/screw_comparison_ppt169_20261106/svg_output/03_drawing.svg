@@ -1,0 +1,143 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720">
+  <!-- Background -->
+  <rect width="1280" height="720" fill="#FFFFFF"/>
+  <!-- Header -->
+  <rect x="0" y="0" width="1280" height="4" fill="#1565C0"/>
+  <text x="60" y="55" font-family="Arial, Microsoft YaHei, sans-serif" font-size="32" font-weight="700" fill="#212121">Screw Technical Drawing</text>
+  <text x="60" y="80" font-family="Arial, Microsoft YaHei, sans-serif" font-size="14" fill="#616161">SCREW M1.7 x 4.5L K  W-ZN  T6  (TAPPING)</text>
+
+  <!-- ===== LEFT: SIDE PROFILE VIEW ===== -->
+  <text x="340" y="120" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="13" font-weight="600" fill="#616161" letter-spacing="1">SIDE PROFILE</text>
+
+  <!-- Center line (dash-dot) -->
+  <line x1="100" y1="340" x2="580" y2="340" stroke="#9E9E9E" stroke-width="0.8" stroke-dasharray="12,3,3,3"/>
+
+  <!-- === SCREW SHAPE (2D outline) === -->
+  <!-- Head: K-type (low chamfered flat head) -->
+  <!-- Head top face -->
+  <line x1="150" y1="270" x2="250" y2="270" stroke="#212121" stroke-width="2.5"/>
+  <!-- Head left side -->
+  <line x1="150" y1="270" x2="150" y2="310" stroke="#212121" stroke-width="2"/>
+  <!-- Head right side -->
+  <line x1="250" y1="270" x2="250" y2="310" stroke="#212121" stroke-width="2"/>
+  <!-- Head bottom (underside) -->
+  <line x1="150" y1="310" x2="250" y2="310" stroke="#212121" stroke-width="2"/>
+  <!-- Head chamfer top-left -->
+  <line x1="150" y1="270" x2="158" y2="262" stroke="#212121" stroke-width="1.5"/>
+  <!-- Head chamfer top-right -->
+  <line x1="250" y1="270" x2="242" y2="262" stroke="#212121" stroke-width="1.5"/>
+  <!-- Head chamfer bottom-left -->
+  <line x1="150" y1="310" x2="155" y2="318" stroke="#212121" stroke-width="1.5"/>
+  <!-- Head chamfer bottom-right -->
+  <line x1="250" y1="310" x2="245" y2="318" stroke="#212121" stroke-width="1.5"/>
+
+  <!-- Torx recess (top view hint in side profile = small rectangular indent) -->
+  <rect x="190" y="270" width="20" height="8" fill="none" stroke="#212121" stroke-width="1"/>
+
+  <!-- === TRANSITION: Head to shaft === -->
+  <!-- Left transition (shoulder) -->
+  <line x1="250" y1="318" x2="270" y2="328" stroke="#212121" stroke-width="2"/>
+  <!-- Right transition -->
+  <line x1="250" y1="310" x2="270" y2="322" stroke="#212121" stroke-width="1.5"/>
+
+  <!-- === THREADED SHAFT === -->
+  <!-- Shaft top line -->
+  <line x1="270" y1="322" x2="500" y2="322" stroke="#212121" stroke-width="2"/>
+  <!-- Shaft bottom line -->
+  <line x1="270" y1="358" x2="500" y2="358" stroke="#212121" stroke-width="2"/>
+
+  <!-- Thread representation (V-profile lines) -->
+  <line x1="280" y1="322" x2="290" y2="358" stroke="#212121" stroke-width="1"/>
+  <line x1="298" y1="322" x2="308" y2="358" stroke="#212121" stroke-width="1"/>
+  <line x1="316" y1="322" x2="326" y2="358" stroke="#212121" stroke-width="1"/>
+  <line x1="334" y1="322" x2="344" y2="358" stroke="#212121" stroke-width="1"/>
+  <line x1="352" y1="322" x2="362" y2="358" stroke="#212121" stroke-width="1"/>
+  <line x1="370" y1="322" x2="380" y2="358" stroke="#212121" stroke-width="1"/>
+  <line x1="388" y1="322" x2="398" y2="358" stroke="#212121" stroke-width="1"/>
+  <line x1="406" y1="322" x2="416" y2="358" stroke="#212121" stroke-width="1"/>
+  <line x1="424" y1="322" x2="434" y2="358" stroke="#212121" stroke-width="1"/>
+  <line x1="442" y1="322" x2="452" y2="358" stroke="#212121" stroke-width="1"/>
+  <line x1="460" y1="322" x2="470" y2="358" stroke="#212121" stroke-width="1"/>
+  <line x1="478" y1="322" x2="488" y2="358" stroke="#212121" stroke-width="1"/>
+
+  <!-- Thread runout -->
+  <line x1="492" y1="322" x2="498" y2="345" stroke="#212121" stroke-width="1"/>
+
+  <!-- === TIP (chamfered point) === -->
+  <path d="M 500 322 L 520 340 L 500 358" fill="none" stroke="#212121" stroke-width="2"/>
+
+  <!-- === DIMENSIONS === -->
+  <!-- Overall length dimension (head face to tip) -->
+  <line x1="250" y1="400" x2="520" y2="400" stroke="#C62828" stroke-width="1.2"/>
+  <line x1="250" y1="395" x2="250" y2="405" stroke="#C62828" stroke-width="1.2"/>
+  <line x1="520" y1="395" x2="520" y2="405" stroke="#C62828" stroke-width="1.2"/>
+  <!-- Arrow heads -->
+  <polygon points="250,400 258,397 258,403" fill="#C62828"/>
+  <polygon points="520,400 512,397 512,403" fill="#C62828"/>
+  <text x="385" y="420" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="15" font-weight="700" fill="#C62828">4.5</text>
+
+  <!-- Head width dimension -->
+  <line x1="150" y1="250" x2="250" y2="250" stroke="#212121" stroke-width="1"/>
+  <line x1="150" y1="245" x2="150" y2="255" stroke="#212121" stroke-width="1"/>
+  <line x1="250" y1="245" x2="250" y2="255" stroke="#212121" stroke-width="1"/>
+  <text x="200" y="242" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="12" fill="#212121">2.0</text>
+
+  <!-- Thread callout -->
+  <line x1="380" y1="358" x2="380" y2="445" stroke="#1565C0" stroke-width="0.8" stroke-dasharray="4,2"/>
+  <text x="380" y="460" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="13" font-weight="600" fill="#1565C0">M1.7 TAPPING</text>
+
+  <!-- ===== RIGHT: HEAD TOP VIEW ===== -->
+  <text x="900" y="120" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="13" font-weight="600" fill="#616161" letter-spacing="1">HEAD TOP VIEW</text>
+
+  <!-- Outer circle (head OD) -->
+  <circle cx="900" cy="320" r="95" fill="none" stroke="#212121" stroke-width="2.5"/>
+  <!-- Inner circle (recess) -->
+  <circle cx="900" cy="320" r="42" fill="none" stroke="#212121" stroke-width="1.5"/>
+
+  <!-- Torx T6 pattern (6-lobe star) -->
+  <path d="M 900 285 C 910 295, 918 305, 920 320 C 918 335, 910 345, 900 355 C 890 345, 882 335, 880 320 C 882 305, 890 295, 900 285 Z" fill="none" stroke="#212121" stroke-width="2"/>
+  <path d="M 900 285 C 910 295, 918 305, 920 320 C 918 335, 910 345, 900 355 C 890 345, 882 335, 880 320 C 882 305, 890 295, 900 285 Z" fill="none" stroke="#212121" stroke-width="2" transform="rotate(60, 900, 320)"/>
+  <path d="M 900 285 C 910 295, 918 305, 920 320 C 918 335, 910 345, 900 355 C 890 345, 882 335, 880 320 C 882 305, 890 295, 900 285 Z" fill="none" stroke="#212121" stroke-width="2" transform="rotate(120, 900, 320)"/>
+
+  <!-- Center point -->
+  <circle cx="900" cy="320" r="3" fill="#212121"/>
+
+  <!-- Center lines for top view -->
+  <line x1="790" y1="320" x2="1010" y2="320" stroke="#9E9E9E" stroke-width="0.6" stroke-dasharray="10,3,3,3"/>
+  <line x1="900" y1="210" x2="900" y2="430" stroke="#9E9E9E" stroke-width="0.6" stroke-dasharray="10,3,3,3"/>
+
+  <!-- Torx label -->
+  <text x="900" y="440" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="15" font-weight="700" fill="#212121">TORX T6</text>
+  <text x="900" y="460" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="12" fill="#616161">Internal 6-lobe drive</text>
+
+  <!-- Head OD label -->
+  <line x1="805" y1="195" x2="995" y2="195" stroke="#212121" stroke-width="1"/>
+  <line x1="805" y1="190" x2="805" y2="200" stroke="#212121" stroke-width="1"/>
+  <line x1="995" y1="190" x2="995" y2="200" stroke="#212121" stroke-width="1"/>
+  <text x="900" y="188" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="12" fill="#212121">K HEAD</text>
+
+  <!-- ===== BOTTOM: COATING SWATCHES ===== -->
+  <line x1="60" y1="510" x2="1220" y2="510" stroke="#E0E0E0" stroke-width="1"/>
+  <text x="640" y="545" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="16" font-weight="700" fill="#212121">FINISH / COATING</text>
+
+  <!-- W-ZN swatch -->
+  <rect x="320" y="570" width="160" height="40" rx="4" fill="#CFD8DC" stroke="#90A4AE" stroke-width="1.5"/>
+  <text x="400" y="635" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="13" font-weight="600" fill="#212121">W-ZN</text>
+  <text x="400" y="655" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="11" fill="#616161">White Zinc  (HARMONY)</text>
+
+  <!-- Arrow / vs -->
+  <text x="640" y="595" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="16" font-weight="700" fill="#9E9E9E">VS</text>
+
+  <!-- BLUE-ZN swatch -->
+  <rect x="800" y="570" width="160" height="40" rx="4" fill="#7986CB" fill-opacity="0.6" stroke="#3F51B5" stroke-width="1.5"/>
+  <text x="880" y="635" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="13" font-weight="600" fill="#212121">BLUE-ZN</text>
+  <text x="880" y="655" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="11" fill="#616161">Blue Zinc  (SCREWTECH)</text>
+
+  <!-- Title block (bottom-right, engineering drawing style) -->
+  <rect x="950" y="665" width="280" height="40" rx="2" fill="#F5F7FA" stroke="#E0E0E0" stroke-width="1"/>
+  <text x="960" y="680" font-family="Consolas, Courier New, monospace" font-size="10" fill="#616161">DWG NO: 131C-01QU000 / S-01QN000</text>
+  <text x="960" y="695" font-family="Consolas, Courier New, monospace" font-size="10" fill="#616161">SCALE: NTS  |  UNITS: mm  |  REV: A</text>
+
+  <!-- Footer -->
+  <text x="1220" y="708" text-anchor="end" font-family="Arial, Microsoft YaHei, sans-serif" font-size="12" fill="#9E9E9E">3</text>
+</svg>

@@ -1,0 +1,70 @@
+# apps/airiz-motor/release-relay/wrangler.toml
+#
+# AIRIZ Motor Console — Unified Release Manifest Relay
+#
+# This is the release-infrastructure Worker. It is a SEPARATE Worker from
+# apps/airiz-motor/relay/ (the runtime WebRTC/WebSocket relay for device
+# control). Different concerns, different deploy cadence, different Worker
+# name on Cloudflare (`airiz-release-relay`).
+#
+# Deploy:  cd apps/airiz-motor/release-relay && wrangler deploy --env production
+#
+# Required Cloudflare secrets (set via `wrangler secret put`):
+#   AIRIZ_SIGNING_PUBLIC_KEYS_PEM  multi-key during rotation, separated by ";;"
+#
+# Required R2 binding:  `airiz_releases` (bucket: airiz-releases)
+
+name = "airiz-release-relay"
+main = "src/index.ts"
+compatibility_date = "2026-11-04"
+compatibility_flags = ["nodejs_compat"]
+
+# Production
+[env.production]
+route = { pattern = "releases.airiz.example/*", zone_name = "airiz.example" }
+workers_dev = false
+
+[env.production.r2_buckets]
+airiz_releases = { binding = "airiz_releases", bucket_name = "airiz-releases" }
+
+# Beta (separate Worker route; same code, different config so we can
+# scope secrets / rate limits independently if we want).
+[env.beta]
+route = { pattern = "beta-releases.airiz.example/*", zone_name = "airiz.example" }
+workers_dev = false
+
+[env.beta.r2_buckets]
+airiz_releases = { binding = "airiz_releases", bucket_name = "airiz-releases" }
+
+# Staging / preview. Workers dev enables the `*.workers.dev` URL for
+# local-tunnel / preview testing without a custom domain.
+[env.staging]
+workers_dev = true
+
+[env.staging.r2_buckets]
+airiz_releases = { binding = "airiz_releases", bucket_name = "airiz-releases-staging" }
+
+# Rollout gating for the Capacitor client. The Worker hashes the value of
+# this header against `manifest.staged_rollout` to decide whether to serve
+# the new bundle or 404 (client falls back to its embedded bundle).
+# Must match the header the @capawesome/capacitor-live-update plugin sends
+# (verified: LiveUpdateHttpClient.java line 77 → `X-Capawesome-Device-Id`).
+[vars]
+ROLLOUT_HEADER = "X-Capawesome-Device-Id"
+
+# Observability: tail worker (separate Worker) consumes request/exception
+# logs. The tail worker name is "airiz-relay-tail"; it aggregates
+# `analytics-engine` datasets and forwards to Sentry.
+# PREREQUISITE: the `airiz-relay-tail` Worker must be deployed first;
+# otherwise wrangler deploy will fail with "service not found".
+# The Tail Workers feature is in open beta; enable the account-level
+# "Workers Tail Workers Beta" before relying on this in production.
+[[env.production.tail_consumers]]
+service = "airiz-relay-tail"
+
+# Build config.
+[build]
+command = "echo 'no build step (TypeScript only)'"
+[build.upload]
+format = "modules"
+main = "./src/index.ts"

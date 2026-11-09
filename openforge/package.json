@@ -1,0 +1,28 @@
+{
+  "name": "openforge",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Self-hosted GitHub competitor — TS monorepo",
+  "engines": {
+    "node": ">=22.10.0",
+    "pnpm": ">=9.0.0"
+  },
+  "packageManager": "pnpm@9.12.0",
+  "scripts": {
+    "build": "pnpm -r build",
+    "dev": "pnpm -r --parallel dev",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "db:generate": "pnpm --filter @openforge/db generate",
+    "db:migrate": "pnpm --filter @openforge/db migrate",
+    "db:studio": "pnpm --filter @openforge/db studio",
+    "format": "prettier --write \"**/*.{ts,tsx,md,json,yaml,yml}\"",
+    "clean": "pnpm -r exec rm -rf dist .next node_modules/.cache"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "prettier": "^3.4.0",
+    "typescript": "^5.7.0"
+  }
+}

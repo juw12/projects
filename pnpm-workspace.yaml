@@ -1,0 +1,3 @@
+packages:
+  - "apps/airiz-motor/desktop"
+  - "apps/airiz-motor/relay"

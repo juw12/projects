@@ -1,0 +1,86 @@
+# =============================================================================
+# OpenForge CI Runner — Resource limits & OOM policy
+#
+# Applied to every job container via:
+#   --memory           <memoryLimitMb>m
+#   --cpus             <cpuLimit>
+#   --pids-limit       <pidsLimit>
+#   wall-clock timeout (enforced by the runner daemon, NOT the kernel)
+#
+# Defaults below are the platform defaults; per-job overrides arrive in
+# JobSpec from the API. Hard ceilings here are the last line of defense.
+# =============================================================================
+
+defaults:
+  # Wall-clock timeout — the runner daemon kills the container at this point.
+  # Hard cap is enforced server-side too; clients cannot exceed this.
+  timeoutSeconds: 1800        # 30 min
+  maxTimeoutSeconds: 21600    # 6 h
+
+  # Memory cap. Includes page cache; jobs that exceed this are OOM-killed.
+  memoryLimitMb: 2048         # 2 GB
+  maxMemoryLimitMb: 8192      # 8 GB hard cap
+
+  # CPU share (relative). 1.0 == one full core on the inner dockerd's view.
+  cpuLimit: 1.0
+  maxCpuLimit: 4.0
+
+  # PID cap — prevents fork-bombs.
+  pidsLimit: 256
+  maxPidsLimit: 1024
+
+  # Disk: jobs run on tmpfs only (--read-only + --tmpfs). tmpfs cap is
+  # bounded by memoryLimitMb (the kernel accounts tmpfs to the cgroup).
+  tmpfsWorkspaceMb: 1024      # /workspace tmpfs
+  tmpfsTmpMb: 512             # /tmp tmpfs
+
+# Per-job overrides — the API may attach one of these under job.resourceOverride.
+# Anything not specified here falls back to defaults above.
+overrides:
+  small:    # labels: small, fast
+    timeoutSeconds: 600       # 10 min
+    memoryLimitMb: 1024       # 1 GB
+    cpuLimit: 0.5
+    pidsLimit: 128
+
+  medium:   # labels: medium
+    timeoutSeconds: 1800      # 30 min
+    memoryLimitMb: 2048       # 2 GB
+    cpuLimit: 1.0
+    pidsLimit: 256
+
+  large:    # labels: large, gpu-required
+    timeoutSeconds: 3600      # 1 h
+    memoryLimitMb: 8192       # 8 GB
+    cpuLimit: 4.0
+    pidsLimit: 512
+
+# OOM behavior — when the kernel OOM-kills the container, the runner
+# daemon captures the exit code (137) and reports it to the API as a
+# "failure (oom)" rather than a generic failure. Phase 2 adds Sentry hookup.
+oom:
+  onKill:
+    markAs: failure
+    reason: out_of_memory
+    # No automatic retry — OOM usually indicates the job is misconfigured.
+    retry: false
+
+  # Soft monitoring — if a job is at >=90% of memoryLimitMb sustained for
+  # 60s, the runner pre-emptively logs a warning. Useful for tuning.
+  warnThreshold:
+    memoryPercent: 90
+    cpuPercent: 95
+    sustainedSeconds: 60
+
+# Audit — every limit application is logged. Phase 2 mirrors this to S3.
+audit:
+  logEveryJob: true
+  fields:
+    - jobId
+    - timeoutSeconds
+    - memoryLimitMb
+    - cpuLimit
+    - pidsLimit
+    - exitCode
+    - oomKilled
+    - wallClockMs

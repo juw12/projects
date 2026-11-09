@@ -427,7 +427,9 @@ def find_existing_document(context, docs_page, document_name):
     search_page.wait_for_load_state("load")
     search_page.wait_for_timeout(1500)
     search_page.fill("#PartNametxt", document_name)
-    search_page.fill("#createDate", "")
+    # #createDate is read-only on the current PLM page: clear it via JS so the
+    # search is not limited to documents created today.
+    search_page.eval_on_selector("#createDate", "el => { el.value = ''; }")
     search_page.click("#searchbt")
     search_page.wait_for_load_state("load")
     search_page.wait_for_timeout(2500)
@@ -603,10 +605,12 @@ def add_reviewer(context, task_page, reviewer):
     picker.wait_for_timeout(800)
     picker.click("#bt_submit")
     task_page.wait_for_timeout(2500)
-    log(f"Reviewer added: {options[matches[0]][1]}")
+    reviewer_display = options[matches[0]][1]
+    log(f"Reviewer added: {reviewer_display}")
+    return reviewer_display
 
 
-def verify_task_form(task_page, part_number, mode_settings, reviewer):
+def verify_task_form(task_page, part_number, mode_settings, reviewer, reviewer_display=None):
     comment_text = "\n".join(mode_settings["comment_lines"])
     if task_page.eval_on_selector("#comments", "el => el.value") != comment_text:
         task_page.fill("#comments", comment_text)
@@ -651,7 +655,13 @@ def verify_task_form(task_page, part_number, mode_settings, reviewer):
         "comments": comment_text,
     }
     problems = [f"{key}: got {state[key]!r}, expected {value!r}" for key, value in expected.items() if state[key] != value]
-    if not any(entry.lower().startswith(reviewer.lower() + "_oid") for entry in state["reviewers"]):
+    # PLM may store the reviewer as "<id>_oid..." or as "OR:wt.org.WTUser:<n>|<display name>".
+    reviewer_found = any(
+        entry.lower().startswith(reviewer.lower() + "_oid")
+        or (reviewer_display and entry.split("|", 1)[-1].strip() == reviewer_display.strip())
+        for entry in state["reviewers"]
+    )
+    if not reviewer_found:
         problems.append(f"reviewer {reviewer} missing (got {state['reviewers']})")
     print("\n----- Task form check -----")
     for key, value in state.items():
@@ -777,8 +787,8 @@ def main():
     upload_related_documents(context, task_page, required_documents, project_name)
 
     fill_task_form(task_page, settings)
-    add_reviewer(context, task_page, reviewer)
-    verify_task_form(task_page, part_number, settings, reviewer)
+    reviewer_display = add_reviewer(context, task_page, reviewer)
+    verify_task_form(task_page, part_number, settings, reviewer, reviewer_display)
     save_screenshot(task_page, f"{part_number}_before_submit")
 
     if args.submit:

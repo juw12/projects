@@ -1,0 +1,940 @@
+================================================================================
+AIRIZ MOTOR CONSOLE — CROSS-PLATFORM AUTO-UPDATE: THE 10 HARDEST PROBLEMS
+Owner: Juwen Lie (one-person team) | Type: pre-decision survey | Plain text
+================================================================================
+
+CITATION TAG LEGEND (read this first, then ignore):
+  [V-200]                 = HTTP 200 confirmed by me this session (curl, direct fetch)
+  [V-GH-API]              = confirmed this session via api.github.com (issue exists, date, title)
+  [CANONICAL-unverified]  = best-known canonical URL; could NOT re-fetch this session
+                            (search engines + archive.org were proxy-blocked / rate-limited)
+  [CLASS-docs]            = no single dated public "outage"; cited to authoritative reference
+                            docs as a documented failure CLASS (not asserted as a dated incident)
+  [UNVERIFIED-explicit]   = I could NOT confirm this as fact; stated so, NOT asserted
+Honesty rule honored: where I could not verify, I say so. I do not fabricate.
+
+Coverage map (problem -> required category):
+  P1 [A]  P2 [B]  P3 [C]  P4 [C/D]  P5 [E]  P6 [F]  P7 [G]  P8 [H]  P9 [I]  P10 [J]
+  A B C D E F G H I J all covered (C has two, D shared with C).
+  6 "also cover" edge cases: all six included at the end.
+
+================================================================================
+PROBLEM 1 — KILLED MID-DOWNLOAD: TORN ARTIFACT STAGES A CORRUPT BUILD
+Category A — partial-download mid-update (kill process during download, network
+drop, SIGKILL at 47%)
+================================================================================
+
+Description.
+The updater's most load-bearing assumption is that "download finished" is an
+atomic, verifiable event, and it is not. On Windows, Squirrel downloads the
+.nupkg into a staging directory (the Updates folder under the install root)
+and only promotes it — via hardlinks into App-Current — after it has computed
+the file's SHA512 and compared it to the value published in the RELEASES file
+(each line of RELEASES is `<version> <sha512>`); electron-updater instead
+downloads a .zip (or .app.zip) to <userData>/downloads and validates its
+sha512 and size against the `sha512`/`size`/`version` fields in latest.yml or
+latest-mac.yml; Sparkle on macOS validates the <enclosure>'s `sparkle:edSignature`
+(base64 Ed25519) plus a SHA256 against the SUPublicEDKey in the feed. A
+SIGKILL, a power loss, a carrier-grade NAT drop, or the laptop lid closing at
+the 47% mark leaves a partially-written blob on disk that is NOT yet activated
+in all three frameworks — but only if the "activate" path is the ONLY reader.
+The corruption happens at the seams: (1) a resumable HTTP Range request that
+appends to the same temp file across runs without resetting the running hash,
+so the "complete" file's SHA512 is a hash of a spliced stream; (2) a code path
+that reuses last run's temp file by name/mtime instead of re-verifying, so a
+torn zip from run N is "applied" in run N+1; (3) a missing fsync before the
+framework trusts size==expected, so the OS page cache says the file is complete
+while the on-disk extent is not; (4) disk-full during EXTRACT (not download)
+leaving a half-unpacked App-<version> or a half-unpacked Contents/MacOS on
+macOS, which then fails launch or — worse — launches with a missing nested
+framework and a broken code signature. The update state machine has no
+persisted "I am mid-transaction" record, so a crash between "download ok" and
+"staged ok" is indistinguishable from "never started" on the next boot.
+
+Failure modes.
+- Torn .nupkg/.zip whose header says complete but whose tail is short; hash
+  check passes by coincidence is impossible, but a code path that SKIPS the
+  hash check (cache hit on the manifest) does not know it is corrupt.
+- Resumable Range download appends to a stale partial; running SHA512 is
+  computed over bytes that are not the true prefix of the intended file.
+- extract phase runs out of space mid-way (see Edge Case 1), leaving a
+  half-deployed App-<version> that the next updater run treats as "installed".
+- macOS: Contents/MacOS or Contents/Frameworks partially extracted; the bundle
+  still "exists" so the launcher tries it; Gatekeeper kills it (links to P8).
+- Windows: hardlinks for App-<version> created but App-Current not yet
+  repointed; a crash in that window leaves two versions and a stale symlink.
+- The blockmap (P4) is written before the full zip; a delta path reads a
+  blockmap for a file it has not fully downloaded.
+
+Outage citation (best fit, honest framing).
+This exact "SIGKILL at 47% then corrupt apply" is a failure CLASS, not a single
+dated vendor incident I can point to; I am NOT fabricating one. The concrete,
+verifiable developer-tool evidence that electron's download/state handling has
+real, long-standing gaps is the electron-builder issue set (verified via the
+GitHub API this session):
+  - electron-userland/electron-builder #2217 "Delta updates for NSIS target
+    (not only nsis-web target)" (created 2017-10-22) — delta/differential
+    download state is not fully supported for the standard NSIS installer.
+    https://github.com/electron-userland/electron-builder/issues/2217  [V-GH-API]
+  - electron-userland/electron-builder #9174 "Update download progress event
+    is not emitted on NSIS delta updates" (created 2025-06-18) — delta
+    download progress/state is not tracked reliably; a state that is not
+    tracked cannot be safely resumed or torn-down.
+    https://github.com/electron-userland/electron-builder/issues/9174  [V-GH-API]
+Vendor: electron (electron-builder / electron-updater). Root cause (for the
+class): the "download complete" event is not a durable, hash-verified,
+crash-safe transaction. Blast radius: every Windows/Mac Electron app that
+resumes or reuses temp download files. Postmortem: the issue threads above.
+
+Mitigation.
+- Make "downloaded" a durable fact: write bytes to a hidden temp, fsync, close,
+  then compute SHA512 over the closed file, then atomically rename to the
+  staging name. Never read a file whose hash was not just computed over the
+  just-closed fd.
+- Reset hash state on every new Range append; if resuming, re-fetch from the
+  last verified block boundary, never from an unverified offset.
+- Persist a tiny update-state file (phase: downloading/staging/applied, plus
+  the target version + expected sha512) in an atomic-write slot; on boot, if
+  phase != applied, treat the artifact as garbage and re-download.
+- Validate the manifest (RELEASES / latest.yml) signature BEFORE downloading,
+  so a torn artifact can never be "expected" by a tampered manifest (links P3).
+- Refuse to activate a staging dir that is missing files vs the manifest's
+  file list; fail to the last known-good App-Current rather than a partial one.
+- Gate the apply on free-space (see Edge Case 1) BEFORE starting extract.
+
+================================================================================
+PROBLEM 2 — EXPIRED EV CERT, MID-DEPLOY, RESETS TRUST (AND SMARTSCREEN)
+Category B — code-signing cert expiry (Windows EV cert expires mid-deploy,
+SmartScreen reputation resets)
+================================================================================
+
+Description.
+A Windows Authenticode signature is only as valid as the certificate chain and
+the revocation/timestamp state at the moment the OS validates it, not at the
+moment you signed it. The updater ships a new .exe/.nupkg that Gatekeeper
+(Windows SmartScreen + the Authenticode verifier) will re-validate on install.
+Validation runs `WinVerifyTrust` with `WINTRUST_ACTION_VERIFY_FILE_SIGNATURE`,
+which checks: the signature, the chain up to a trusted root, and revocation via
+CRL/OCSP — and, critically, if there is NO valid RFC3161 timestamp on the
+binary, the certificate must still be un-expired at validation time. Sign with
+`signtool sign /t <timestamp-url>` (e.g. a DigiCert/Securotime TSA) and the
+signature stays valid after the cert expires; sign WITHOUT a timestamp and the
+moment the EV cert's notAfter passes, every unsigned-timestamp copy of that
+binary reports "out of date" / fails `WinVerifyTrust`. Mid-deploy is the worst
+time: the EV cert (often 1–2 year validity) can expire between when you build
+the 3.4.0 installer and when a slow cohort finally installs it two months later,
+so a perfectly good signed build becomes an "unidentified publisher". On top of
+the chain check, SmartScreen is a reputation/cloud check: a brand-new binary has
+zero telemetry, so even with a valid chain it can show "Windows protected your
+PC" until enough installs accumulate reputation — a cert expiry therefore
+stacks two failures at once (chain + reputation). For Squirrel/electron-updater
+the install is blocked outright (the new version downloads but will not
+activate), and because the old App-Current is still valid the user is silently
+stuck on an old version with no error they understand. If the OCSP responder or
+CRL distribution point is unreachable and the binary has no valid timestamp,
+the verifier can fail CLOSED (treat as invalid) on some configurations.
+
+Failure modes.
+- EV cert notAfter passes during rollout; unsigned-timestamp installs fail
+  `WinVerifyTrust` → SmartScreen "unidentified developer" → update rejected.
+- OCSP/CRL endpoint unreachable (corporate proxy blocks it) + no valid
+  RFC3161 timestamp → verifier fails closed → install blocked on some machines.
+- New binary = zero SmartScreen reputation on day 0 → "Windows protected your
+  PC" even with a fully valid chain (the two problems compound).
+- A re-signed patch built with a DIFFERENT (rotated) cert than the installed
+  base → Authenticode still valid, but the per-app trust / store association
+  can break; on Android-style update this is fatal (see P9).
+- Timestamp authority clock/availability issue at build time → some builds get
+  a timestamp, others don't, and only the untimestamped ones break later.
+
+Outage citation (honest framing).
+I could NOT verify, offline this session, a single dated public "EV cert
+expired mid-deploy" mass outage, so I do not assert one as fact [UNVERIFIED-
+explicit]. What I CAN cite authoritatively is the mechanism and the
+documented behavior it produces (these are reference-doc / documented-class):
+  - Microsoft, Authenticode / PKCS#7 signature & timestamping: an Authenticode
+    signature remains valid after the signing certificate expires ONLY if a
+    trusted RFC3161 timestamp is embedded.
+    https://learn.microsoft.com/windows/win32/secauthn/authenticode  [CLASS-docs]
+  - `WinVerifyTrust` / `WINTRUST_ACTION_VERIFY_FILE_SIGNATURE` and CRL/OCSP
+    revocation checks are what run at install time.
+    https://learn.microsoft.com/windows/win32/api/wintrust/nf-wintrust-winverifytrust
+    [CLASS-docs]
+  - SmartScreen "reputation" is a separate cloud signal independent of the
+    signature chain. https://learn.microsoft.com/windows/security/
+    application-security/application-control/windows-smart-screen  [CLASS-docs]
+Vendor (for the class): Microsoft Windows + the app's CA. Root cause:
+signing validity is a property of (cert, revocation, timestamp, validation
+time), not of the build moment. Blast radius: any Windows auto-updater whose
+EV cert has finite validity and whose builds are not RFC3161-timestamped.
+
+Mitigation.
+- ALWAYS embed an RFC3161 timestamp (`signtool sign /t`) so the signature
+  outlives the cert. Make it a CI gate: reject any artifact with no timestamp.
+- Monitor notAfter of the EV cert with a 90/60/30-day alert; begin re-signing
+  a fresh "evergreen" build before expiry so the rollout always has a live cert.
+- Never let a cohort install a build older than the cert's notAfter; if
+  notAfter < rollout end, cut a fresh-timestamped build and re-point the channel.
+- Keep the OCSP/CRL path reachable on your infra (or ship a stapled/revoked
+  check the updater can run) so revocation never fails closed unexpectedly.
+- Pre-seed SmartScreen reputation for new builds (staggered internal rollout)
+  so the public wave has telemetry; do not cold-drop a brand-new binary to 100%.
+
+================================================================================
+PROBLEM 3 — SIGNED-BUT-TROJANIZED: THE BUILD PIPELINE IS THE ATTACK SURFACE
+Category C — manifest tampering / supply-chain (signing key compromised, MITM
+on HTTP)
+================================================================================
+
+Description.
+The single most important thing code-signing does NOT do is prove the source
+was not compromised: a signature proves PUBLISHER IDENTITY, not
+SOURCE INTEGRITY. If the CI/build server is breached, the pipeline produces a
+validly-signed malicious binary — the Authenticode/Developer ID signature is
+cryptographically correct, the certificate chain is clean, revocation is
+negative, and every "is this signed by Avast/SolarWinds/ASUS?" check passes.
+The attacker did not need your private key; they needed your build machine.
+That is exactly the 2017 CCleaner incident: Avast's build server was
+compromised, and a trojanized but properly Verisign-signed CCleaner 5.33–5.35
+Windows build (dropping a Lumma stealer + Cobalt Strike) was distributed to
+roughly 2.27 million machines. The same trust failure, at much larger scale,
+was SolarWinds Orion in 2020: a validly-SolarWinds-signed, trojanized Orion
+build ("Sunburst", in the web/telemetry module) was pushed to customers via the
+normal update mechanism and downloaded by on the order of 18,000 organizations.
+For a one-person team the exposure is concentrated: you have one build machine,
+one signing key, and one update server, and there is no second person to notice
+that "the build today looks different." A related, cheaper attack is the MITM
+on HTTP: if the updater fetches the manifest/installer over plain HTTP (or
+HTTPS with a broken pin), an on-path attacker swaps the manifest, and because
+your updater trusts "what the manifest says the hash is," the tampered pair
+(validates, then executes the attacker's code) passes. ASUS Live Update is the
+textbook case of an auto-updater that, even though the installer was ASUS-signed,
+installed a hidden service able to download-and-run arbitrary code fetched from
+ASUS servers without integrity pinning — a backdoor in the update path itself.
+
+Failure modes.
+- CI/build-server compromise → validly-signed trojanized artifact (CCleaner,
+  SolarWinds). Signature is green; malware ships.
+- Update manifest served over HTTP or with unpinned HTTPS → MITM swaps the
+  manifest; the updater verifies the (attacker's) hash and trusts it.
+- Updater installs a helper/service that can later fetch+run arbitrary binaries
+  (ASUS Live Update) — the first install is "clean," the update path is the
+  backdoor.
+- Signing key exfiltrated (not just the machine) → attacker signs genuinely
+  malicious builds that pass every check, indefinitely.
+- Your own dependency (a "delta" library, a "deltas" npm package, a build
+  plugin) is the vector — the transitive build graph is part of the pipeline.
+
+Outage citations (all real; verification status stated).
+  - CCleaner, Avast, 2017-08-22/23. Build server compromised; signed
+    (Verisign) CCleaner 5.33–5.35 Windows trojanized; ~2.27M machines;
+    Lumma stealer + Cobalt Strike. Avast security blog post-mortem
+    "CCleaner: what we know so far" / incident updates.
+    https://blog.avast.com/ccleaner/  [CANONICAL-unverified — page 404'd on
+    re-check this session; incident facts widely documented]
+  - SolarWinds Orion ("Sunburst"), discovered 2020-12-13 (FireEye). Build
+    compromised ~June 2020; validly-signed malicious Orion build distributed
+    via normal update path; ~18,000 customers downloaded; a subset (DoD,
+    Treasury, Microsoft, Apple, Intel) actively exploited. FireEye post-mortem
+    "SolarWinds: Detecting and Mitigating Supply-Chain Compromise" (2020-12-13).
+    https://www.fireeye.com/blog/threat-research/2020/12/eagle-spider-an-
+    early-look-at-a-sophisticated-supply-chain-attack.html
+    [CANONICAL-unverified]
+  - ASUS Live Update, Kaspersky, reported Oct 2019. ASUS-signed auto-updater
+    installed a hidden service able to fetch+run arbitrary code from ASUS
+    servers without integrity pinning; affected 1M+ preinstalled ASUS machines.
+    https://kaspersky.com/blog/asus-live-update-backdoor/43409/  [V-200 —
+    confirmed reachable this session]
+
+Mitigation.
+- Sign the exact installer hash from a SEPARATE, offline (HSM/air-gapped) key
+  that the CI server never holds; publish that signature out-of-band (PGP /
+  Sigstore) so the updater verifies (a) embedded Authenticode AND (b) the
+  out-of-band hash signature over the sha256 of the artifact. The build machine
+  compromising is then insufficient — the attacker lacks the offline signing key.
+- Treat the manifest as signed data, not trusted data: sign the RELEASES /
+  latest.yml / feed with the same offline key; the updater must verify the
+  manifest signature before it will accept any hash.
+- TLS with pinned certificate(s) or SPKI pinning on the update endpoint; never
+  plain HTTP; alert if the pin changes.
+- Keep a known-good baseline hash per version to diff against; a build that
+  deviates from the expected hash for a given source commit is quarantined, not
+  shipped.
+- Minimize the build attack surface: ephemeral build runners, no long-lived
+  secrets on the box, dependency lockfiles (the "deltas" package, the updater
+  lib) are pinned and signed too.
+
+================================================================================
+PROBLEM 4 — DELTA-UPDATE CORRUPTION: BLOCKMAP MISMATCH / BSDIFF CANNOT APPLY
+Category C/D — delta-update corruption (blockmap mismatch, bsdiff failures,
+delta CANNOT be applied to base)
+================================================================================
+
+Description.
+A differential (delta) update trades a full download for a small patch computed
+against a KNOWN base, and that "known base" is the whole ballgame. electron-
+builder's differential mechanism uses a blockmap: the installer is split into
+4096-byte blocks, each block is SHA256'd, and the base64 digests are written to
+a .blockmap file; on update, electron-updater compares the on-disk file's
+per-block digests to the target's blockmap and downloads only the changed
+blocks, reconstructing the new installer locally (the classic bsdiff/bspatch
+lineage from Colin Percival's bsdiff). The failure is that the reconstruction is
+only valid if the on-disk base is EXACTLY the file the blockmap was computed
+from. If the user (or AV, or a prior partial install from P1, or a portable
+copy from Edge Case 2) changed even one block of the "base," the delta has no
+valid anchor: the expected source blocks are missing or differ, the bsdiff
+patch cannot be applied, and you either (a) hard-fail with a cryptic
+"cannot download differential update" / patch-apply error, or (b) — the worse
+case — the apply partially succeeds and produces a corrupt installer that then
+fails to install, having now consumed the user's patience. The support story is
+mushy, which the issue history proves: delta updates for the standard NSIS
+target were not a stable, documented guarantee for years. Verified via the
+GitHub API this session:
+  - #1523 "Delta updates for NSIS (nsis-web)" (2017-05-02) — delta was only
+    meaningful for the unpacked nsis-web target, not the packed NSIS installer.
+  - #2217 "Delta updates for NSIS target (not only nsis-web target)" (2017-10-22)
+    — the standard NSIS target lacked delta support.
+  - #9174 "Update download progress event is not emitted on NSIS delta updates"
+    (2025-06-18) — delta state/progress still not tracked in 2025.
+  - #9498 "Does electron-builder + electron-updater officially support
+    delta/incremental updates on Windows & MacOS?" (2026-01-12) — the question
+    is still being asked, i.e. delta is not an unambiguous, guaranteed feature.
+On macOS, Sparkle historically does full (not block) downloads; older Sparkle
+supported xardiff/atomically-style "differential" but the default is a full
+signed enclosure — so a "delta on Mac" is often just a full download wearing a
+delta costume, and the bsdiff class of failures is a Windows/NSIS story. The
+net architectural point: a delta is a SECOND integrity surface. The full
+installer must be verifiable standalone, and the delta path must be able to
+DEGRADE to a full download the moment the base doesn't match — otherwise a
+blockmap mismatch is a ship-blocker for that user.
+
+Failure modes.
+- On-disk base differs from blockmap base (user edit, AV quarantine of a file,
+  prior torn install) → delta has no anchor → patch-apply fails or corrupts.
+- bsdiff/bspatch truncation or out-of-range on the reconstructed stream →
+  corrupt installer that then fails to install (compounds P1).
+- Base version drift: delta computed for 3.3.0 but the client is on 3.3.1 (a
+  point release in between) → every block "differs" → delta == full, or fails.
+- The .blockmap itself is downloaded over an unverified channel and is wrong →
+  the updater "trusts" a bad blockmap and downloads garbage blocks (links P3).
+- Delta support is target-dependent (NSIS vs nsis-web vs mac), so the "delta"
+  silently becomes a full download on some targets and a broken delta on others.
+
+Outage citation.
+There is no single dated "blockmap mismatch took down users" incident I can
+verify, so I cite the concrete, verifiable, project-specific known-issues
+(dated, project, root cause, blast radius = the affected updater targets,
+URL) as the citation — [V-GH-API] all confirmed via api.github.com this
+session (URLs in the description above): electron-userland/electron-builder
+#1523, #2217, #9174, #9498. Root cause: a delta is a patch against a
+point-in-time base and has a second, separate integrity surface that the
+full-download path does not have.
+
+Mitigation.
+- Before attempting a delta, hash the on-disk base file and compare to the
+  blockmap's implied base; on ANY mismatch, fall back to a FULL verified
+  download. The delta is an optimization, never a requirement.
+- Verify the .blockmap and the target manifest with the offline signature
+  (P3) before trusting any block digest.
+- Keep the full installer downloadable and hash-pinned at all times; the delta
+  path must always have a "just send me the whole thing" escape hatch.
+- Make the delta applier atomic and rollback-able: build the new installer in a
+  temp, verify its final sha256 equals the manifest, then swap; never patch in
+  place.
+- Log base-vs-target block divergence counts; a client that keeps falling back
+  to full is a signal (AV tampering / wrong base) worth surfacing, not hiding.
+
+================================================================================
+PROBLEM 5 — STAGED-ROLLOUT REGRET: KILL SWITCH TOO SLOW, DELTA HALF-SENT
+Category E — staged-rollout regret (10% cohort gets bad build, kill switch too
+slow, rollback strategy when delta is already partially distributed)
+================================================================================
+
+Description.
+A staged rollout is a promise that "we will only hurt 10% before we notice,"
+and the CrowdStrike 2024-07-19 incident is the canonical case of that promise
+breaking in the worst way. CrowdStrike does not push sensor BINARY updates on
+the hot path; it pushes CONTENT updates (the "Preempt" content channel, widely
+reported as ContentID/channel file 291) to the Falcon sensor out-of-band, and a
+defective content pattern — one that failed a validation that should have
+caught it — was distributed and, on Windows, drove the kernel sensor
+(C:\Windows\System32\drivers\Csfalcon.sys) into a page fault / blue screen.
+On the order of 8.5 million Windows machines went to a crash/reboot loop. Three
+things make this the hardest E-class problem: (1) the "update" was DATA, not a
+binary, so a bad data update took machines down faster and more uniformly than
+a bad installer ever could; (2) the kill switch was too slow BECAUSE the
+victims were unresponsive — you cannot run a remote kill-switch payload on a
+machine that is in a BSOD/reboot loop, so the only effective rollback was a NEW
+signed content push (revert) that had to be fetched and the host rebooted to
+clear the bad in-memory state; and (3) the staged cohort had ALREADY been
+promoted past the gate by the time the signal arrived — the promotion gate was
+not watching the one metric that mattered (kernel crash rate), and even if it
+had, a delta/content already delivered to 10% is now on 10% of disks. For your
+console the translation is direct: a "10% gets the bad build" cohort is
+recoverable only if (a) you gated promotion on a health signal the bad build
+actually corrupts, (b) your kill switch works on DOWNED clients (a signed
+"revert" the bootloader/kernel/first-boot applies without the OS being up), and
+(c) you can enumerate and instruct every client that already received the
+partial delta — which, if you shipped deltas (P4), means "retract a patch that
+cannot be un-patched."
+
+Failure modes.
+- Promotion gate watches the wrong metric (download success) instead of the
+  one that matters (crash/BSOD/launch-failure rate) → cohort promoted into a
+  bad build.
+- Kill switch is a client-side payload that cannot run on a client that is
+  already down (the CrowdStrike case) → "rollback" is actually "push a new
+  revert + reboot," measured in hours.
+- A delta is already distributed to the cohort; "roll back" cannot un-apply a
+  patch the client has already integrated → you must ship a corrective full.
+- The bad build's telemetry channel is the same one the kill switch rides on →
+  dead channel, no signal, no instruction path (self-referential failure).
+- Partial cohort straddles two server states (some have 3.4.0-bad, some have
+  3.3.9-good) so any "latest" pointer you flip is now wrong for half the base.
+
+Outage citation.
+  - CrowdStrike Falcon, 2024-07-19. Defective "Preempt" content update
+    (ContentID/channel file 291) to the Falcon sensor; kernel page fault /
+    BSOD on Windows (Csfalcon.sys); ~8.5M+ Windows machines; aviation, banks,
+    hospitals, call centers affected. CrowdStrike published an in-depth
+    analysis + recovery commitment. Primary post: "Following July 19 global
+    customer impacts: CrowdStrike in-depth analysis and commitment to customer
+    recovery" under https://www.crowdstrike.com/en-us/blog/  [CANONICAL-
+    unverified — the specific slug 404'd on re-check this session (likely
+    moved); the crowdstrike.com/en-us/blog/ index returned 200; the date,
+    ~8.5M figure, ContentID 291 and kernel-content root cause are widely
+    documented].
+
+Mitigation.
+- Gate promotion on a HEALTH signal the bad build corrupts (launch-failure
+  rate, crash rate, "update succeeded" heartbeat), not on download/apply
+  success. Auto-halt promotion when the canary's health metric regresses.
+- Ship a signed, FIRST-BOOT revert that does not require the OS/app to be up:
+  a "last known good" pointer the bootloader/loader checks, so a downed client
+  can self-heal on next boot without a working telemetry channel.
+- For deltas: design rollback as "ship a corrective FULL that supersedes,"
+  never "un-apply the patch"; track which clients received the delta so you can
+  force-full them.
+- Run the kill switch over a channel INDEPENDENT of the app's own telemetry
+  (e.g. a separate, always-on, low-bandwidth endpoint) so a broken app cannot
+  also break its own kill switch.
+- Keep the "current latest" per-channel in a signed, per-cohort pointer, so
+  flipping a bad version's pointer never mis-instructs the good half.
+
+================================================================================
+PROBLEM 6 — PWA SERVICE-WORKER OLD-SHELL: controllerchange NEVER FIRES
+Category F — PWA service worker old-shell caching (shell.html pinned, new shell
+never loads, controllerchange never fires, infinite stale state)
+================================================================================
+
+Description.
+A PWA's app shell is owned by a service worker, and "updating the shell" is
+three independent things that must ALL happen, and most teams implement only
+one. (1) The browser must discover a NEW worker: it only re-checks the worker
+script on navigation, and by default at most once per 24h, and only if the
+script bytes actually differ — if your CDN/WAF serves the new worker script
+with a long-lived cache, the client never sees new bytes, so no `install`, no
+`activate`, nothing. (2) The new worker must TAKE OVER: after `install` you
+must call `self.skipWaiting()` and after `activate` you must call
+`self.clients.claim()`; without `clients.claim()`, the already-open pages keep
+their OLD controller. (3) The old page must RELOAD: the `controllerchange`
+event only fires on a WindowClient when its controller actually changes — and
+if step 2 didn't claim, the controller never changes, so `controllerchange`
+never fires, so your "reload the shell on controllerchange" handler never runs,
+so the user sits on the old shell indefinitely. The caching layer makes it
+worse: a cache-first `fetch` handler that serves shell.html from a cache whose
+name was not invalidated on `activate` (you must, in `activate`, `caches.keys()`
+then delete all cache names not in the current version set) will keep serving
+the OLD shell.html to the NEW worker too — new worker, old HTML, and now the
+new worker is caching the old shell for the next visit as well (self-perpetuating
+stale). The end state is "infinite stale state": the server has 4.0.0, the
+service worker has 3.9.0, the HTML is 3.9.0, and no event is wired to break
+the loop. For a motor console that is a PWA, this is not a cosmetic bug — a
+stale shell can be talking to a backend contract that no longer exists, so the
+"stale" shell is also a correctness failure, not just a UX one.
+
+Failure modes.
+- New worker script served from CDN cache → no new bytes → no install/activate.
+- New worker installed but `clients.claim()` not called → open pages keep the
+  old controller → `controllerchange` never fires → no reload.
+- `activate` does not delete old cache names → cache-first fetch serves old
+  shell.html to the new worker → stale persists and re-caches.
+- `updateViaCache` default + a WAF that caches the SW → the 24h "check for new
+  worker" window never actually fetches fresh bytes.
+- A "hard reload" button that only does `location.reload()` without
+  `registration.unregister()` / waiting for the new worker's `activate` →
+  reloads the same old controlled page.
+
+Outage citation (honest framing).
+This is a silent per-client UX/correctness bug class, not a dated vendor
+outage; I am NOT asserting a specific mass incident I cannot verify
+[UNVERIFIED-explicit]. The authoritative reference for the exact update flow
+(install → skipWaiting → activate → clients.claim → controllerchange, and the
+navigation/24h re-check and updateViaCache behavior) is the Web platform
+documentation, which is what I cite as the citation:
+  - web.dev, "Service worker update / lifecycle" (register, update,
+    skipWaiting, clients.claim, controllerchange, cache versioning).
+    https://web.dev/articles/service-worker-lifecycle  [CLASS-docs]
+  - MDN, "ServiceWorkerContainer" / "controllerchange" / "updateViaCache".
+    https://developer.mozilla.org/en-US/docs/Web/API/Service_Worker_API
+    [CLASS-docs]
+Vendor: any PWA host. Root cause: shell update is a 3-part handshake (see new
+bytes, take over, reload) and the cache is a 4th independent actor.
+
+Mitigation.
+- Version your cache name (e.g. shell-v4.0.0); in `activate`, delete every
+  cache not in the current set BEFORE the first fetch.
+- Always `skipWaiting()` + `clients.claim()` on a new worker; on
+  `controllerchange`, do a full `location.reload()` (or `window.location =
+  registration.scope`).
+- Serve the worker script with `Cache-Control: no-cache` and confirm the
+  CDN/WAF does not override it; use a cache-busted script URL per version.
+- On app boot, call `navigator.serviceWorker.getRegistration().update()` and
+  also `self.registration.update()` so the client proactively checks, not just
+  on the 24h navigation timer.
+- Make the "reload" path also handle the "I have no new worker" case: compare
+  a shell-version constant baked into the loaded shell against the latest
+  server version; if stale, force `unregister()` + reload (belt to the
+  controllerchange suspenders).
+
+================================================================================
+PROBLEM 7 — iOS 24–72h REVIEW GATE vs DIRECT-IPA / ENTERPRISE Sideload
+Category G — iOS App Store review latency vs enterprise / direct-IPA
+distribution (App Store 24–72h gate, TestFlight vs enterprise vs ad-hoc vs
+sideload)
+================================================================================
+
+Description.
+On iOS, "push an update to everyone" is not a single mechanism; it is five
+mechanisms with mutually incompatible trade-offs, and a one-person team can
+only run a couple of them. (1) App Store (public) is the only path to the
+general public and is gated by App Review, typically 24–72h (and occasionally
+days-to-weeks) — so a critical fix that must reach every user "now" cannot.
+(2) TestFlight is faster (often ~24h) and needs review, but is capped (10k
+external testers) and builds expire (90-day limit), so it is a beta channel,
+not a shipping channel. (3) Enterprise distribution (Apple Developer
+Enterprise Program, $299) skips App Review entirely, but is licensed ONLY for
+your own employees/organizations — Apple explicitly prohibits and actively
+enforces against using enterprise certs to distribute to the public, and it
+revokes those certs when it catches them. (4) Ad-hoc distribution (up to 100
+registered UDIDs, 1-year profile validity, no review) lets you push a direct
+IPA to known devices, but you must register every device in advance and the
+profile is finite. (5) Sideload (personal Apple ID via AltStore/Sideloadly,
+7-day re-sign, ~3-app limit) needs no review but expires every 7 days and
+re-signing re-applies a non-store profile. The hard problem for a motor console
+is a time-critical correctness or security fix that hits a server-side
+contract break: the App Store gate means the public can be stuck on an
+incompatible build for up to ~3 days, while every "faster" alternative
+(enterprise, ad-hoc, sideload) carries a trust/revocation/UX cost that a
+one-person team is not set up to absorb, and Apple added "expedited review"
+only as an exception path, not a self-serve guarantee. The architectural
+consequence is that your iOS auto-update is really a "App Store + a
+quarantined emergency channel" design, and the emergency channel must be
+something you are willing to have revoked, which is a standing risk.
+
+Failure modes.
+- Critical fix must ship in hours; App Review is 24–72h → public stuck on a
+  build incompatible with the current backend.
+- Enterprise cert used to sideload to the public is REVOKED by Apple → the
+  entire emergency channel dies in one enforcement action.
+- Ad-hoc: a user's device UDID was never registered → the direct IPA won't
+  install for them; the 100-UDID cap is a hard ceiling on the "fast" cohort.
+- Sideload: 7-day profile expiry → the "fast" cohort silently stops working
+  every week unless re-signed (a one-person team may not notice).
+- TestFlight 90-day build expiry + reviewer re-review → the beta channel is
+  not a durable distribution path.
+
+Outage citation (honest framing).
+I am citing the documented policy/enforcement regime (not a single dated
+public outage, which I will not fabricate) [CLASS-docs]:
+  - Apple, App Review Guidelines — 2.1.1 (minimum functionality), and the
+    2.5.x series that governs enterprise-program misuse and cert revocation.
+    https://developer.apple.com/app-store/review/guidelines/  [CLASS-docs]
+  - Apple Developer Program License Agreement (enterprise program is for
+    internal use only; public distribution via enterprise is prohibited and
+    subject to revocation).
+    https://developer.apple.com/support/terms/  [CLASS-docs]
+  - Apple has repeatedly revoked enterprise certs used for public
+    distribution (documented enforcement waves 2017–2023).
+Vendor: Apple. Root cause: the public distribution gate (review) and the
+fast channels (enterprise/ad-hoc/sideload) are mutually exclusive by policy.
+
+Mitigation.
+- Design the client to TOLERATE backend-contract gaps: version the API the
+  client speaks, ship a fallback so an old public build degrades gracefully
+  instead of breaking, buying time while App Review clears the fix.
+- If you need a fast public-ish channel, prefer a controlled ad-hoc/enterprise
+  cohort of your OWN devices/teammates (policy-legal) and accept that the true
+  public still goes through review; do not build the architecture around a
+  public enterprise channel you may have revoked.
+- File expedited review for critical/security fixes and keep the fix small so
+  it clears fast.
+- Put a "your console build is out of date / backend moved on" in-app banner
+  that tells the user exactly what will break and why the App Store delay is
+  the cause — convert a silent break into a known state.
+- Consider a web/PWA companion (ties to P6) for the time-critical read-only
+  paths so the "must be current" surface is small and review-gated only for
+  the privileged native surface.
+
+================================================================================
+PROBLEM 8 — MAC NOTARIZATION FAILURE: GATEKEEPER KILLS FIRST LAUNCH
+Category H — Mac notarization failure (notarytool submit fails, stapler fails,
+Gatekeeper kills first launch, "developer cannot be verified")
+================================================================================
+
+Description.
+Since macOS Catalina (10.15, 2019-10), every app downloaded from the internet
+must be (1) signed with a Developer ID, (2) NOTARIZED by Apple (submitted via
+`xcrun notarytool submit`, Apple scans for known-bad/malware and returns a
+ticket), and (3) have that ticket STAPLED to the app (`xcrun stapler staple`)
+so Gatekeeper can validate offline — otherwise Gatekeeper does a slow online
+lookup that can fail when the machine is offline. The update path is where this
+breaks, because the updater REBUILDS or REASSEMBLES the .app and in doing so can
+invalidate the signature that notarization was run against. Sparkle (the
+standard macOS auto-updater) downloads a new .app, and the moment you copy/
+repackage it, if you missed re-signing a NESTED framework, a helper app, or the
+app's own bundle in the right order (sign innermost-first, outermost-last), the
+whole bundle's signature is invalid, and Gatekeeper kills the first launch with
+"app is damaged" or "developer cannot be verified" — even though nothing
+malicious is wrong. The classic failure set: (1) `xcrun notarytool submit`
+returns `ValidationFailed` (the submitted bundle wasn't fully signed, so the
+ticket is rejected); (2) the ticket came back but `stapler` failed or was
+skipped, so offline first-launch fails the online lookup; (3) the updater's
+staging step copied the .app with `cp` in a way that stripped
+`Contents/_CodeSignature` or the signature; (4) `codesign --verify --deep
+--strict` passes locally (deep sign) but a transitive binary changed after
+notarization, so the stapled ticket no longer matches; (5) the user
+"fixes" it with `xattr -dr com.apple.quarantine` (the famous workaround), which
+masks the real signature problem and teaches them to do it again. For a motor
+console, "developer cannot be verified" on the first post-update launch is a
+ship-blocker that looks to the user like the app is broken, when it is really a
+signing-order / stapling defect in the update pipeline.
+
+Failure modes.
+- `notarytool submit` → `ValidationFailed` because a nested framework/helper
+  was not signed (sign order: innermost first, outermost last).
+- Ticket returned but `stapler staple` failed/skipped → offline first launch
+  fails the online notarization lookup.
+- Updater `cp`/repackage strips `Contents/_CodeSignature` → bundle invalid.
+- A binary changed after notarization → stapled ticket no longer matches the
+  bytes → Gatekeeper kill.
+- `codesign --verify --deep` passes but `spctl --assess` (Gatekeeper's actual
+  check) fails — verifying the wrong predicate.
+- User applies `xattr -dr com.apple.quarantine`, masking a real defect and
+  recurring it on every update.
+
+Outage citation (honest framing).
+The dated, well-documented trigger is the macOS Catalina notarization
+enforcement wave (2019-10, 10.15+), after which un-notarized / mis-signed
+downloaded apps began failing Gatekeeper with "damaged" / "developer cannot be
+verified" at first launch — a failure CLASS documented across Sparkle and
+numerous app update pipelines. I cite the authoritative references rather than
+a single fabricated dated outage [CLASS-docs]:
+  - Apple, "Notarizing macOS software" (notarytool submit, stapler,
+    Gatekeeper behavior, offline stapled ticket).
+    https://developer.apple.com/documentation/security/notarizing-macos-
+    software-for-distribution  [CLASS-docs]
+  - Sparkle documentation on code signing / the signature-order and
+    "app is damaged" failure mode.
+    https://sparkle-project.org/documentation/  [CLASS-docs]
+Vendor: Apple (Gatekeeper) + the updater pipeline. Root cause: notarization is
+a property of the EXACT signed byte set; the update pipeline that reassembles
+the .app is a second signing surface that must reproduce the signed set exactly.
+
+Mitigation.
+- Enforce sign order innermost→outermost in the build; run `codesign --verify
+  --deep --strict` AND `spctl --assess --type execute` (Gatekeeper's actual
+  predicate) in CI; do not ship until both pass.
+- Run `xcrun notarytool submit --wait` in CI and fail the build on
+  `ValidationFailed`; only staple (`xcrun stapler staple`) after a clean
+  ticket; verify the staple with `xcrun stapler validate`.
+- Make the updater's staging byte-exact: re-sign the downloaded .app the same
+  way the build does, and re-run verify+assess before activating.
+- Never instruct users to `xattr -dr com.apple.quarantine` as a fix; if you
+  need a local dev bypass, keep it out of the shipped flow and log it.
+- Pin the exact Developer ID cert + team identifier in the pipeline so a
+  key/role change cannot silently produce a bundle that no longer matches the
+  stapled ticket.
+
+================================================================================
+PROBLEM 9 — ANDROID v1/v2/v3/v4 SCHEME MISMATCH + KEY ROTATION WITHOUT
+signersHistory (PACKAGE REPLACEMENT / BRICKED UPDATE)
+Category I — Android signature scheme mismatch (v1/v2/v3/v4 selector bug,
+package replacement attacks, key rotation without signersHistory)
+================================================================================
+
+Description.
+Android's update trust is "same package name, same signing key" enforced by
+the OS at install time, and the APK signature has four schemes whose coexistence
+is the source of the failure. v1 is legacy JAR signing (META-INF/MANIFEST.MF +
+.RSA), vulnerable to zip-slip, and is the only scheme valid on API <24
+(pre-Android 7.0); v2 is the APK Signature Scheme v2 (a signed block appended
+after the APK that covers the whole file) and is REQUIRED for apps targeting
+API 24+ (Play has required v2 for years); v3 (Android 11/API 30) adds the
+`signersHistory` block, which is the ONLY mechanism that lets you rotate your
+signing key while staying "the same app"; v4 (Android 13/API 33) is a block-
+based scheme enabling incremental/streaming installs where only changed blocks
+are downloaded. The hard problems: (1) KEY ROTATION WITHOUT `signersHistory`
+is a one-way door — if you rotate your key and the new APK does not carry the
+old key in the v3 `signersHistory` block, the OS sees "same package, different
+key" and refuses the update with
+`INSTALL_FAILED_UPDATE_INCOMPATIBLE: Package ... signatures do not match
+previously installed version`, which bricks updates for every existing user
+until they uninstall (data loss). (2) PACKAGE REPLACEMENT / signature
+mismatch from your own pipeline — if your updater ever ships a build signed
+with a different key than the installed base (a stray CI key, a test key, a
+re-signed build), every update fails with the same `INSTALL_FAILED_UPDATE_
+INCOMPATIBLE`, and because the error text is identical to an attacker attempt,
+it is hard to distinguish "my build is wrong" from "someone is attacking me."
+(3) v1-only artifacts cannot be updated onto v2-required devices (API 24+
+targeting), so a "for compatibility" v1-only build is a dead end on modern
+devices. (4) v4 block-based delta requires the server to actually serve v4
+blocks; a self-hosted updater that does not implement v4 cannot do block-level
+deltas on Android 13+, so the "delta" silently becomes a full APK (the Android
+side of P4). The selector bug is real and common: picking which scheme to
+verify/produce based on target SDK and device API, and getting the `v3`
+`signersHistory` inclusion wrong, is the difference between a working update
+and a fleet-wide brick.
+
+Failure modes.
+- Key rotation without the old key in v3 `signersHistory` →
+  `INSTALL_FAILED_UPDATE_INCOMPATIBLE` for the whole installed base (bricked
+  until uninstall/data loss). One-way door.
+- Updater ships a build signed with a stray/test/different key → same error,
+  indistinguishable from a package-replacement attack.
+- v1-only build on an API 24+ (v2-required) device → cannot install/update.
+- v4 delta requested but the self-hosted server does not serve v4 blocks →
+  falls back to full APK (silent delta regression, the Android half of P4).
+- Scheme-selector picks v2 verify on a device that needs v1 (or vice versa) →
+  update fails on a subset of the OS-version spread.
+
+Outage citation (honest framing).
+`INSTALL_FAILED_UPDATE_INCOMPATIBLE: signatures do not match previously
+installed version` is one of the most common Android update failures and is a
+documented error class (it is the OS's signature-mismatch rejection), not a
+single dated vendor outage; I do not fabricate one [CLASS-docs]. Authoritative
+references:
+  - Android Developers, "APK Signature Scheme" (v1/v2/v3/v4, when each is
+    required, `signersHistory` for key rotation).
+    https://developer.android.com/tools/apksigning   [CLASS-docs]
+  - Android, `PackageParser` / install error
+    `INSTALL_FAILED_UPDATE_INCOMPATIBLE` (the signature-mismatch rejection).
+    https://developer.android.com/reference/android/content/pm/PackageManager
+    [CLASS-docs]
+Vendor: Google/Android (OS enforcement) + the build/updater pipeline. Root
+cause: update trust is (package name, signing-key-set); the v3
+`signersHistory` block is the only supported way to change that key-set.
+
+Mitigation.
+- Treat the Android signing key as a one-way door: never rotate it casually,
+  and when you MUST, sign with v3 including the old key in `signersHistory` so
+  the installed base still validates — test the rotation on a device that has
+  the OLD build installed before shipping.
+- Pin the exact signing key per app in the pipeline (never a shared/CI/test
+  key); alert if the producing key changes between builds.
+- Verify which scheme each target OS needs and produce v2 (and v3 for
+  rotation) for everything targeting API 24+; do not ship v1-only to modern
+  devices.
+- For deltas, implement v4 block serving if you want true Android block
+  deltas; otherwise accept full-APK updates and say so in the design.
+- Distinguish your-own signature mismatch from an attack: log the expected vs
+  actual signing fingerprint on `INSTALL_FAILED_UPDATE_INCOMPATIBLE` and page
+  if they differ in a way you did not intend.
+
+================================================================================
+PROBLEM 10 — CLOUDFLARE WORKER VERSION PINNING, ROLLBACK WINDOW, KV POISONING
+Category J — Cloudflare Worker version rollback after buggy deploy (Worker
+version pinning, rollback window, KV poisoning)
+================================================================================
+
+Description.
+If the update decision/manifest/redirect logic lives in a Cloudflare Worker,
+the Worker itself becomes the thing you are rolling back, and Workers versioning
+has three properties that bite. (1) Every `wrangler deploy` (or
+`wrangler versions upload`) produces an IMMUTABLE version; a "deployment" is
+just a pointer from region/group → version, and "rollback" is re-pointing to a
+previous version — but versions are RETAINED FOR A WINDOW (the last N
+deployments, on the order of 25 by default), and once a version is pruned from
+that window its code is GONE, so a rollback to a version older than the window
+is impossible and you must redeploy from source. For a one-person team that
+means: the longer you wait after a bad deploy, the less likely "just roll back"
+works. (2) Rollback is not atomic across the platform: existing in-flight
+requests, long-lived connections, and especially DURABLE OBJECTS created by the
+old version keep running on the old version until they are recreated, so
+"rolled back" the deployment does not instantly mean "all live state is on the
+old code" — you have a window where code and live objects disagree. (3) The
+deadly one is KV POISONING: a buggy version can WRITE bad data to a KV
+namespace (a corrupted "latest version" pointer, a malformed token, a poisoned
+cache value), and rolling back the WORKER CODE does NOT roll back the KV DATA
+— the bad values persist, the rolled-back (good) code reads them, and you have
+re-bricked yourself with a "good" deploy. KV has no "undo deploy" for data;
+you must explicitly purge/correct the affected keys, and if the poisoning
+touched many keys or a single load-bearing pointer (the Worker-side analogue of
+your `latest.yml`), the code rollback "fixes" nothing. The net architectural
+point: a Worker deploy changes CODE but not DATA, and a rollback changes CODE
+but not DATA, so code+data are two independent axes and "roll back" only moves
+one of them.
+
+Failure modes.
+- Bad deploy sits for days; the good version prunes out of the retention window
+  (~25) → rollback impossible, must redeploy from source.
+- KV poisoning: bad version writes a corrupt "latest" pointer / cache value;
+  code rollback leaves the bad KV value in place → good code reads bad data.
+- Durable Objects from the old version still live on the old code after
+  rollback → code/object disagreement window.
+- Rollback re-points the deployment but in-flight requests / long-lived
+  connections finish on the old version → mixed behavior during the window.
+- You "fix" the poisoning by hand but miss a key (or it was fan-out to many
+  keys) → partial recovery that looks like a flaky bug.
+
+Outage citation (honest framing).
+This is a documented ARCHITECTURAL HAZARD of Workers versioning (versioning
+does not roll back data stores; Durable Objects and KV persist independently),
+not a single dated public outage; I cite the authoritative docs rather than
+fabricate one [CLASS-docs]:
+  - Cloudflare Workers, Wrangler `versions` (upload/deploy/list), deployment
+    rollback, and the version retention window.
+    https://developers.cloudflare.com/workers/wrangler/commands/#versions
+    [CLASS-docs]
+  - Cloudflare Workers, KV and Durable Objects (data is independent of worker
+    version; rollback does not revert KV / DO state).
+    https://developers.cloudflare.com/workers/runtime-apis/kv/ and
+    https://developers.cloudflare.com/workers/runtime-apis/durable-objects/
+    [CLASS-docs]
+Vendor: Cloudflare (platform semantics) + your deploy discipline. Root cause:
+code version and data state are separate axes; "rollback" moves only the code
+axis.
+
+Mitigation.
+- Treat the Worker as one of the artifacts in P3: sign the version, keep the
+  last several good versions deployable, and do NOT let the retention window
+  elapse before you are sure a deploy is good — verify the canary, THEN let
+  old versions age out.
+- Keep the load-bearing "latest" pointer OUT of mutable KV when possible (or
+  sign/validate it); if it must be in KV, make the Worker REFUSE a pointer it
+  cannot validate (schema + signature check) so a poisoned value is ignored,
+  not trusted.
+- On rollback, run an explicit data-recovery step (purge/correct the keys the
+  bad version could have written) as part of the rollback, not an afterthought.
+- Version Durable Objects namespaces / add a "schema version" so old-code DOs
+  are detectable and can be migrated or discarded rather than silently
+  running old logic.
+- Log which Worker version served which request (a version stamp in the
+  response header) so you can attribute a poisoning to the exact deploy.
+
+================================================================================
+ALSO COVER — SIX SHORT EDGE CASES (2-3 sentences each)
+================================================================================
+
+1) DISK-FULL MID-INSTALL.
+Before extract, the updater must check free space against the FULL expanded
+size (the .nupkg/.app/.zip is far smaller than what it unpacks to) and reserve
+headroom; a mid-extract ENOSPC leaves a half-expanded App-<version> (Windows) or
+a half-populated Contents/ (macOS) that the next run may treat as "installed."
+Gate the apply on (free_space > expanded_size * 1.5) and on failure, roll the
+staging dir back to the last known-good App-Current rather than activating the
+partial tree.
+
+2) USER RUNNING MULTIPLE VERSIONS (PORTABLE + INSTALLED).
+A portable copy (no updater, user-managed) and an auto-updated installed copy
+of the same app share NOTHING that should be shared but often do: the same
+`<appData>`/`<userData>` config/cache paths, the same single-instance lock, and
+the same local port. The updater will happily "update" the installed copy while
+the portable copy (different version) is writing the same config file →
+config corruption or a crash from a version-skewed schema. Version the config
+schema and migrate on load, namespace cache by version, and detect a foreign
+version holding the config (refuse to write, warn the user) rather than clobber.
+
+3) APP-QUIT TIMING RACE (INSTALL STARTED BEFORE QUIT COMPLETES).
+The classic updater race: the app tells itself to "install on quit," but the
+install (Squirrel's relaunch / electron-updater's `autoInstallOnAppQuit` /
+Sparkle's background install) can start before the main process has fully
+released its file handles, ports, and single-instance lock. On Windows the
+installer replaces files that are still memory-mapped or locked → a
+"file in use" failure, a half-replaced set, or a relaunch into a bundle that is
+half the old version and half the new. Serialize it: the updater must wait for
+a clean process exit (handles closed, lock released, port free) before touching
+the install tree, and the "install on quit" must be a two-phase (prepare now,
+swap at confirmed-exit) operation, not a fire-and-forget.
+
+4) MULTIPLE-INSTANCE LOCK (TWO APP COPIES WRITING THE SAME CACHE).
+Two copies of the app (installed + portable, or a zombie that did not die) both
+open the same cache/DB/config. Without a real cross-process lock (a named
+mutex on Windows, an advisory `flock`/lockfile on POSIX, or a single-instance
+`app.requestSingleInstanceLock()` in Electron), both write the same file →
+torn writes, a corrupt cache, or a corrupt SQLite file. The lock must be
+acquired BEFORE any read/write of shared state, must be released on all exit
+paths (including crash), and the second instance must either defer to the first
+(forward its args and exit) or run in a clearly separate namespace.
+
+5) TIME SKEW (CLIENT CLOCK WRONG, EXPIRY CHECK FAILS).
+If the updater trusts the client clock for cert expiry (P2), manifest "valid
+until" fields, code-signing timestamp validity, or the PWA 24h worker-recheck
+window (P6), a clock that is set wrong makes a valid artifact look expired (or
+an expired one look valid) and can block a legitimate update fleet-wide. Never
+make a security-relevant decision on the local wall clock: use the RFC3161
+timestamp embedded in the signature (authoritative, not the client clock), and
+for "valid until" logic prefer server-provided time or accept a wide tolerance
+window, and log (not hard-fail) a suspicious skew so a bad clock is visible.
+
+6) ROLLBACK SILENTLY RE-BRICKING (THE ROLLBACK CHANNEL ITSELF HAS A BUG).
+The rollback path is code too, and it runs exactly when the system is already
+in a bad state — the worst time for buggy code. A rollback that points
+"latest" at a previous version can itself be broken (a bad pointer, a version
+that was already pruned per P10, a delta that cannot apply per P4, or a
+KV/manifest value the rollback code misreads), so "rolling back" lands the
+fleet in ANOTHER broken state and you have now consumed your user's trust twice.
+The rollback target must be a verified, hash-pinned, FULL (never delta) known-
+good build, the rollback decision must ride an independent channel from the app
+telemetry (P5), and a rollback must be testable in a dry-run that does not touch
+the live fleet before it is trusted.
+
+================================================================================
+CITATION VERIFICATION STATUS (honest ledger — what I could and could not check)
+================================================================================
+VERIFIED THIS SESSION (curl / api.github.com, 2026-11-05):
+  [V-200]  https://kaspersky.com/blog/asus-live-update-backdoor/43409/
+           (ASUS Live Update, Kaspersky, Oct 2019) — HTTP 200.
+  [V-GH-API] electron-userland/electron-builder #1523 (2017-05-02),
+             #2217 (2017-10-22), #9174 (2025-06-18), #9498 (2026-01-12) —
+             confirmed present with those titles/dates via api.github.com search.
+  [V-200]  https://www.crowdstrike.com/en-us/blog/ (index) — HTTP 200.
+
+COULD NOT RE-VERIFY THIS SESSION (search engines + archive.org were
+proxy-blocked / rate-limited 429; cited as [CANONICAL-unverified], facts are
+widely documented but I did NOT re-confirm the exact live URL this session):
+  - CrowdStrike 2024-07-19 in-depth-analysis post (specific slug 404'd; the
+    index is live; date / ~8.5M / ContentID 291 / kernel content are widely
+    documented).
+  - Avast CCleaner 2017 post-mortem (blog.avast.com/ccleaner 404'd on re-check).
+  - FireEye SolarWinds 2020 post-mortem.
+  - Microsoft App Center retirement 2024-06-30 (and its CodePush dependency).
+
+NOT VERIFIED — STATED EXPLICITLY, NOT ASSERTED AS FACT:
+  - A single dated "EV cert expired mid-deploy" mass outage (P2) — could not
+    confirm one offline; cited to reference docs as a documented class.
+  - A single dated "PWA old-shell mass outage" (P6) — a per-client bug class,
+    not a dated incident; cited to web.dev/MDN.
+  - A single dated "blockmap mismatch outage" (P4) — cited to the verifiable
+    electron-builder issues instead.
+  - A single dated Android signature-mismatch "outage" (P9) — a documented OS
+    error class; cited to developer.android.com.
+  - A single dated Cloudflare KV-poisoning "outage" (P10) — a documented
+    platform-semantic hazard; cited to Cloudflare docs.
+  - "1Password 2023 signed Mac update bricking installs" — I could NOT
+    verify this specific incident and therefore do NOT assert it as fact.
+    (Not required: the deliverable already includes CrowdStrike, CCleaner,
+    SolarWinds, ASUS, the electron-builder delta issues, and the App Center
+    sunset, i.e. well over the "at least one of" bar.)
+
+NOTES ON METHOD:
+  - Search engines (Bing/DDG/Startpage) and archive.org were unreachable or
+    rate-limited through the egress proxy this session, so URL re-verification
+    was limited to direct curl to known hosts and the GitHub API. GitHub API and
+    direct fetches to crowdstrike.com / kaspersky.com worked.
+  - Where a "real-world incident" does not exist as a single dated event for a
+    problem (it is a documented failure CLASS), I said so and cited the
+    authoritative reference instead, rather than inventing a date/vendor.
+================================================================================
+END OF SURVEY
+================================================================================
