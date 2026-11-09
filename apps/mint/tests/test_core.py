@@ -221,6 +221,27 @@ out.es = {
   typedCol: etT.spec.sheet.columns.slice(-1)[0]
 };
 
+var trad = C.generate("monthly budget in USD").spec;
+var t0 = trad.sheet.rows.length, tSum0 = trad.summary.length, tRule0 = trad.rules.length;
+var tt1 = C.applyTweak(trad, "刪除 Item");
+var tt2 = C.applyTweak(trad, "合計 Planned");
+var tt3 = C.applyTweak(trad, "貨幣 EUR");
+var tt4 = C.applyTweak(trad, "主題 深色");
+var tt5 = C.applyTweak(trad, "高亮 Planned 低於 0 紅色");
+var tt6 = C.applyTweak(trad, "把 Planned 改為 Budget");
+var tt7 = C.applyTweak(trad, "新增 供應商 欄");
+out.trad = {
+  removedItem: !tt1.spec.sheet.columns.some(function (c) { return c.name === "Item"; }),
+  sumAdded: tt2.spec.summary.length - tSum0,
+  lastSum: tt2.spec.summary[tt2.spec.summary.length - 1],
+  currency: tt3.spec.currency,
+  theme: tt4.spec.theme,
+  ruleAdded: tt5.spec.rules.length - tRule0,
+  lastRule: tt5.spec.rules[tt5.spec.rules.length - 1],
+  renamed: tt6.spec.sheet.columns.map(function (c) { return c.name; }),
+  hasSup: tt7.spec.sheet.columns.some(function (c) { return c.name === "供應商"; })
+};
+
 function ev(src, vars) {
   return C.evaluate(C.parse(src), function (n) { return vars[n]; });
 }
@@ -356,6 +377,15 @@ def js_checks():
     check(es["sumAdded"] == 1 and es["lastSum"]["column"] == "Planned" and es["lastSum"]["fn"] == "SUM", "es 'suma de Planned' adds SUM card")
     check(es["ruleAdded"] == 1 and es["lastRule"]["op"] == "<" and es["lastRule"]["style"] == "bad", "es 'resalta … menos que 0 rojo' adds red rule")
     check(es["typedCol"]["type"] == "number" and es["typedCol"]["name"] == "Margen", "es 'agregar columna Margen como número' adds number column")
+
+    trad = out["trad"]
+    check(trad["removedItem"] is True, "trad '刪除 Item' removes column")
+    check(trad["sumAdded"] == 1 and trad["lastSum"]["column"] == "Planned" and trad["lastSum"]["fn"] == "SUM", "trad '合計 Planned' adds SUM card")
+    check(trad["currency"] == "EUR", "trad '貨幣 EUR' sets currency")
+    check(trad["theme"] == "midnight", "trad '主題 深色' sets theme")
+    check(trad["ruleAdded"] == 1 and trad["lastRule"]["op"] == "<" and trad["lastRule"]["style"] == "bad", "trad '高亮 … 低於 0 紅色' adds red rule")
+    check("Budget" in trad["renamed"] and "Planned" not in trad["renamed"], "trad '把 Planned 改為 Budget' renames")
+    check(trad["hasSup"] is True, "trad '新增 供應商 欄' adds column")
 
     f = out["formulas"]
     check(f["arith"] == 5, "arithmetic precedence")
