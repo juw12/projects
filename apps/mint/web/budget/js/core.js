@@ -8,7 +8,7 @@
 (function (root) {
   'use strict';
   const K = (root.MintBudget = root.MintBudget || {});
-  K.VERSION = '3.4.1';
+  K.VERSION = '3.5.0';
 
   /** Compare dotted versions numerically: 1, 0 or -1 ("1.10.0" is newer than "1.9.9"). */
   K.compareVersions = function (a, b) {
@@ -1286,6 +1286,89 @@
       maxDrift: maxDrift,
       target: target,
     };
+  };
+
+  // ---------------------------------------------------------------- live prices
+  // The Mint API's /api/quote returns last prices for stocks/ETFs (Yahoo Finance), crypto (CoinGecko) and gold
+  // (one troy ounce plus per gram). These helpers decide what to ask for and turn answers into holding updates;
+  // the network call lives in the app. A price typed by hand (priceManual) is kept until the user refreshes.
+  K.QUOTE_SYMBOL_RE = /^[A-Z0-9][A-Z0-9.=^-]{0,19}$/;
+  K.TROY_OUNCE_GRAMS = 31.1034768;
+
+  /** The live-price key for a holding ('stock:BBCA', 'crypto:BTC', 'gold:XAU'), or '' when it has no market price. */
+  K.quoteKey = function (h) {
+    if (!h) return '';
+    if (h.cls === 'gold') return 'gold:XAU';
+    const sym = String(h.symbol || '').trim().toUpperCase().replace(/\s+/g, '');
+    if (!K.QUOTE_SYMBOL_RE.test(sym)) return '';
+    if (h.cls === 'stocks') return 'stock:' + sym;
+    if (h.cls === 'crypto') return 'crypto:' + sym.replace(/-USDT?$/, '');
+    return '';
+  };
+
+  /** Gold held in grams (the default, e.g. Antam bars) or troy ounces (name or symbol says oz / ounce / XAU). */
+  K.goldUnit = function (h) {
+    const text = String((h && h.name) || '') + ' ' + String((h && h.symbol) || '');
+    if (/gram|\bgr?\b/i.test(text)) return 'g';
+    return /\boz\b|ounce|troy|\bxau\b/i.test(text) ? 'oz' : 'g';
+  };
+
+  function quoteRegion(h, base) {
+    return (h.cur || base) === 'IDR' ? 'ID' : '';
+  }
+
+  /** Requests to make: [{ region: 'ID' | '', keys: [...] }]. Holdings priced in IDR ask with region ID (BBCA → BBCA.JK). */
+  K.quoteRequests = function (book, opts) {
+    const base = (book.meta && book.meta.currency) || 'IDR';
+    const force = !!(opts && opts.force);
+    const groups = {};
+    K.list(book, 'holdings').forEach((h) => {
+      if (h.priceManual && !force) return;
+      const key = K.quoteKey(h);
+      if (!key) return;
+      const region = quoteRegion(h, base);
+      const list = groups[region] || (groups[region] = []);
+      if (list.indexOf(key) < 0 && list.length < 30) list.push(key);
+    });
+    return Object.keys(groups).map((region) => ({ region: region, keys: groups[region] }));
+  };
+
+  /** Round a live price: currency decimals for normal prices, 6 significant digits for tiny ones (e.g. PEPE). */
+  K.roundPrice = function (value, cur) {
+    const v = Number(value) || 0;
+    const money = K.roundMoney(v, cur);
+    if (v > 0 && Math.abs(money - v) / v > 0.001) return Number(v.toPrecision(6));
+    return money;
+  };
+
+  /**
+   * Turn API answers ({ 'ID': quotes, '': quotes }) into holding patches { id, price, priceAt, priceSrc }.
+   * Prices are converted into each holding's own currency; holdings with no answer or no exchange rate are skipped.
+   */
+  K.priceUpdates = function (book, answers, opts) {
+    const base = (book.meta && book.meta.currency) || 'IDR';
+    const force = !!(opts && opts.force);
+    const out = [];
+    K.list(book, 'holdings').forEach((h) => {
+      if (h.priceManual && !force) return;
+      const key = K.quoteKey(h);
+      if (!key) return;
+      const q = ((answers || {})[quoteRegion(h, base)] || {})[key];
+      if (!q || !/^[A-Z]{3}$/.test(String(q.currency || ''))) return;
+      let px = Number(q.price);
+      if (key === 'gold:XAU' && K.goldUnit(h) === 'g') px = Number(q.perGram) || px / K.TROY_OUNCE_GRAMS;
+      const to = h.cur || base;
+      const rate = K.rate(q.currency, to);
+      if (!(px > 0) || !isFinite(rate)) return;
+      const price = K.roundPrice(px * rate, to);
+      const priceAt = Math.round(Number(q.at) || 0);
+      const priceSrc = String(q.source || '').slice(0, 40);
+      if (price === Number(h.price) && priceAt === Number(h.priceAt) && !h.priceManual) return;
+      const patch = { id: h.id, price: price, priceAt: priceAt, priceSrc: priceSrc };
+      if (h.priceManual) patch.priceManual = false;
+      out.push(patch);
+    });
+    return out;
   };
 
   /** Future value per year with monthly contributions (monthly compounding). */

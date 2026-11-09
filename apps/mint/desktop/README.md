@@ -9,8 +9,9 @@ The desktop app is Mint (Budget and Templates) in its own window instead of a br
 - Exports (.xlsx, CSV, JSON backups, result cards) save to the Downloads folder; links to other sites
   open in the default browser.
 - Opening Mint again brings the open window to the front; `Mint --stop` closes it.
-- The first time it opens without internet it shows an offline page with **Try again**; after that the
-  site's own offline cache keeps budgets available offline.
+- Without internet, even the very first time, the window opens the copy of Mint bundled inside the app
+  (served on `127.0.0.1:47821`). Budgets started there move into the online Mint automatically the next
+  time the app opens with a connection; budgets that already exist online are never overwritten.
 - Updates to Mint itself arrive through the website, so the desktop app rarely needs reinstalling.
 
 ## Build

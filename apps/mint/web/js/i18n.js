@@ -10,9 +10,17 @@
   "use strict";
 
   // One language for all of Mint (en / id / zh / es), chosen on the first visit (js/locale.js).
-  // Templates is translated into Indonesian; Chinese and Spanish show it in English.
+  // Indonesian lives below; Chinese and Spanish come from js/i18n-more.js (loaded first).
   var KEY = "mint.lang";
   var LANGS = { en: "English", id: "Bahasa Indonesia" };
+  var MORE = root.MintTemplatesPacks || {};
+  Object.keys(MORE).forEach(function (code) {
+    LANGS[code] = MORE[code].name;
+  });
+  var SHORT = { en: "EN", id: "ID", zh: "中文", es: "ES" };
+  var ORDER = ["en", "id", "zh", "es"].filter(function (code) {
+    return !!LANGS[code];
+  });
 
   // ---------------------------------------------------------------- exact phrases
   var ID = {
@@ -744,10 +752,21 @@
     }]
   ];
 
-  var FRAGMENTS = Object.keys(ID).filter(function (k) {
-    return k.indexOf(" ") !== -1 && k.length >= 12;
-  }).sort(function (a, b) {
-    return b.length - a.length;
+  function fragmentsOf(dict) {
+    return Object.keys(dict).filter(function (k) {
+      return k.indexOf(" ") !== -1 && k.length >= 12;
+    }).sort(function (a, b) {
+      return b.length - a.length;
+    });
+  }
+
+  // One pack per language: exact phrases, whole-text rules, in-text substitutions, long fragments.
+  var PACKS = { id: { phrases: ID, rules: RULES, inline: INLINE } };
+  Object.keys(MORE).forEach(function (code) {
+    PACKS[code] = MORE[code];
+  });
+  Object.keys(PACKS).forEach(function (code) {
+    PACKS[code].fragments = fragmentsOf(PACKS[code].phrases);
   });
 
   // ---------------------------------------------------------------- state
@@ -755,19 +774,29 @@
     try {
       var saved = localStorage.getItem(KEY);
       if (saved) {
-        return saved === "id" ? "id" : "en";
+        return LANGS[saved] ? saved : "en";
       }
     } catch (err) {
       /* storage blocked */
     }
     var nav = (root.navigator && (root.navigator.language || "")) || "";
-    return /^(id|ms)\b/i.test(nav) ? "id" : "en";
+    if (/^(id|ms|in)\b/i.test(nav)) {
+      return "id";
+    }
+    if (/^zh\b/i.test(nav) && LANGS.zh) {
+      return "zh";
+    }
+    if (/^es\b/i.test(nav) && LANGS.es) {
+      return "es";
+    }
+    return "en";
   }
 
   var current = detect();
 
   function translate(text) {
-    if (current === "en" || !text) {
+    var pack = PACKS[current];
+    if (current === "en" || !pack || !text) {
       return text;
     }
     var lead = text.match(/^\s*/)[0];
@@ -776,22 +805,22 @@
     if (!core || !/[A-Za-z]/.test(core)) {
       return text;
     }
-    if (ID[core]) {
-      return lead + ID[core] + trail;
+    if (pack.phrases[core]) {
+      return lead + pack.phrases[core] + trail;
     }
-    for (var i = 0; i < RULES.length; i += 1) {
-      if (RULES[i][0].test(core)) {
-        return lead + core.replace(RULES[i][0], RULES[i][1]) + trail;
+    for (var i = 0; i < pack.rules.length; i += 1) {
+      if (pack.rules[i][0].test(core)) {
+        return lead + core.replace(pack.rules[i][0], pack.rules[i][1]) + trail;
       }
     }
     var out = core;
-    for (var f = 0; f < FRAGMENTS.length; f += 1) {
-      if (out.indexOf(FRAGMENTS[f]) !== -1) {
-        out = out.split(FRAGMENTS[f]).join(ID[FRAGMENTS[f]]);
+    for (var f = 0; f < pack.fragments.length; f += 1) {
+      if (out.indexOf(pack.fragments[f]) !== -1) {
+        out = out.split(pack.fragments[f]).join(pack.phrases[pack.fragments[f]]);
       }
     }
-    for (var j = 0; j < INLINE.length; j += 1) {
-      out = out.replace(INLINE[j][0], INLINE[j][1]);
+    for (var j = 0; j < pack.inline.length; j += 1) {
+      out = out.replace(pack.inline[j][0], pack.inline[j][1]);
     }
     return lead + out + trail;
   }
@@ -942,7 +971,7 @@
     b.setAttribute("translate", "no");
     host.insertBefore(b, host.firstChild.nextSibling);
     b.addEventListener("click", function () {
-      setLang(current === "id" ? "en" : "id");
+      setLang(ORDER[(ORDER.indexOf(current) + 1) % ORDER.length]);
     });
     label();
   }
@@ -950,8 +979,9 @@
   function label() {
     var b = document.getElementById("langBtn");
     if (b) {
-      b.textContent = current === "id" ? "ID" : "EN";
-      var hint = current === "id" ? "Ganti bahasa ke English" : "Switch language to Bahasa Indonesia";
+      b.textContent = SHORT[current] || "EN";
+      var next = ORDER[(ORDER.indexOf(current) + 1) % ORDER.length];
+      var hint = "Language: " + LANGS[current] + " → " + LANGS[next];
       b.title = hint;
       b.setAttribute("aria-label", hint);
     }

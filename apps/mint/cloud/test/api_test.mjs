@@ -780,6 +780,27 @@ assert.equal(r.data.region, "US");
 assert.equal(r.data.lang, "en");
 ok("exchange rates and regional money news");
 
+// ---- live investment prices (edge-cached per symbol, mocked upstreams)
+r = await api("GET", "quote?q=stock:BBCA,stock:AAPL,crypto:BTC,crypto:WIF,gold:XAU,stock:NOPE,bonds:ORI,stock:<x>&region=ID");
+assert.equal(r.status, 200, JSON.stringify(r.data));
+assert.equal(r.headers.get("access-control-allow-origin"), "*", "prices are public read-only data");
+assert.equal(r.data.quotes["stock:BBCA"].price, 9875);
+assert.equal(r.data.quotes["stock:BBCA"].currency, "IDR");
+assert.equal(r.data.quotes["stock:BBCA"].ticker, "BBCA.JK", "Indonesian tickers get .JK for region ID");
+assert.equal(r.data.quotes["stock:AAPL"].price, 230.5, "falls back to the plain ticker when .JK is unknown");
+assert.equal(r.data.quotes["stock:AAPL"].currency, "USD");
+assert.equal(r.data.quotes["crypto:BTC"].price, 108000);
+assert.equal(r.data.quotes["crypto:BTC"].source, "CoinGecko");
+assert.equal(r.data.quotes["crypto:WIF"].price, 1.25, "unknown coins fall back to Yahoo SYM-USD");
+assert.equal(r.data.quotes["gold:XAU"].price, 3110.4);
+assert.equal(r.data.quotes["gold:XAU"].perGram, 100.0017, "gold also comes per gram (1 troy oz = 31.1034768 g)");
+assert.deepEqual(r.data.missing, ["stock:NOPE"], "unknown symbols are listed; bad kinds and symbols are ignored");
+r = await api("GET", "quote?q=");
+assert.equal(r.status, 400);
+r = await api("GET", "quote?q=" + Array.from({ length: 40 }, (_, i) => "stock:T" + i).join(","));
+assert.equal(Object.keys(r.data.quotes).length + r.data.missing.length, 30, "at most 30 symbols per request");
+ok("live stock, crypto and gold prices");
+
 // ---- AI endpoint (no binding locally → 503; live → spec)
 r = await api("POST", "ai/template", { token: buyer.token, body: { prompt: "habit tracker" } });
 assert.ok([200, 503, 429].includes(r.status), "ai status " + r.status);

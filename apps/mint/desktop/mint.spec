@@ -6,7 +6,7 @@ import os
 import sys
 
 DESKTOP = os.path.dirname(os.path.abspath(SPEC))  # noqa: F821 (provided by PyInstaller)
-VERSION = os.environ.get("MINT_VERSION", "3.2.0")
+VERSION = os.environ.get("MINT_VERSION", "3.5.0")
 VERSION_FILE = os.environ.get("MINT_VERSION_FILE") or None
 ICON = os.environ.get("MINT_ICON") or None
 IS_WIN = sys.platform == "win32"
@@ -26,7 +26,9 @@ else:
 a = Analysis(  # noqa: F821
     [os.path.join(DESKTOP, "mint_app.py")],
     pathex=[DESKTOP],
-    datas=[(os.path.join(DESKTOP, "offline.html"), ".")],
+    # offline.html for the rare case without a bundled copy, and the Mint web app itself (web/) so the
+    # window also works offline the very first time it opens.
+    datas=[(os.path.join(DESKTOP, "offline.html"), "."), (os.path.join(os.path.dirname(DESKTOP), "web"), "web")],
     hiddenimports=HIDDEN,
     excludes=EXCLUDES,
 )

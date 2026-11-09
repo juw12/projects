@@ -80,6 +80,9 @@ jobs:
           echo "Exchange rates:"
           curl -fsS -H "Origin: https://juw12.github.io" "$MINT_API_URL/api/fx" | head -c 300
           echo
+          echo "Live prices:"
+          curl -sS -H "Origin: https://juw12.github.io" "$MINT_API_URL/api/quote?q=stock:BBCA,stock:AAPL,crypto:BTC,gold:XAU&region=ID" | head -c 900
+          echo
           echo "News (Indonesia):"
           curl -sS -H "Origin: https://juw12.github.io" "$MINT_API_URL/api/news?region=ID&lang=id" | head -c 600
           echo

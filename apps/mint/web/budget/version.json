@@ -1,30 +1,34 @@
 {
-  "version": "3.4.1",
-  "released": "2026-11-08",
+  "version": "3.5.0",
+  "released": "2026-11-09",
   "notes": {
     "en": [
-      "Phones: the Invest page and its sheets now fit the screen (the rebalance table scrolls on its own).",
-      "Seller mode: the Marketplace is for browsing and buying; turn on Seller mode in Settings (like opening a shop) to generate, sell and earn referral commission.",
-      "Say a trade in Invest: “beli 10 lot BBCA di 9000” or “bought 0.5 bitcoin at 900 juta”. Buys update your average cost, sells reduce the holding, with Undo.",
-      "Coming from Tally? Mint finds your Tally expenses on this device and brings them in with one tap."
+      "Live prices in Invest: stocks and ETFs (IDX and US), crypto and gold update from the market. Tap Refresh prices any time; prices you type yourself stay until you refresh.",
+      "Mint asks your browser to keep its data, shows when you last backed up, and reminds you to sync or back up once a budget has real history.",
+      "Templates and the Marketplace now speak Chinese and Spanish too, and downloaded .xlsx files use your language for tabs and tips.",
+      "Privacy and Terms are available in Indonesian, Chinese and Spanish.",
+      "Desktop app: opens even without internet the very first time; budgets made offline move online on their own."
     ],
     "id": [
-      "Ponsel: halaman Investasi dan lembarnya kini pas di layar (tabel rebalancing bisa digeser sendiri).",
-      "Mode Penjual: Marketplace untuk melihat dan membeli; nyalakan Mode Penjual di Pengaturan (seperti buka toko) untuk membuat, menjual, dan dapat komisi referral.",
-      "Ucapkan transaksi di Investasi: “beli 10 lot BBCA di 9000” atau “beli 0.5 bitcoin harga 900 juta”. Beli memperbarui harga rata-rata, jual mengurangi aset, bisa Batal.",
-      "Dari Tally? Mint menemukan pengeluaran Tally di perangkat ini dan memindahkannya dengan satu ketukan."
+      "Harga live di Investasi: saham dan ETF (BEI dan AS), kripto, dan emas mengikuti pasar. Ketuk Perbarui harga kapan saja; harga yang kamu isi sendiri tetap sampai kamu memperbarui.",
+      "Mint meminta browser menyimpan datanya, menampilkan kapan terakhir kamu mencadangkan, dan mengingatkan untuk sinkron atau mencadangkan saat anggaran sudah berisi banyak riwayat.",
+      "Template dan Marketplace kini juga berbahasa Mandarin dan Spanyol, dan file .xlsx yang diunduh memakai bahasamu untuk tab dan petunjuk.",
+      "Privasi dan Ketentuan tersedia dalam bahasa Indonesia, Mandarin, dan Spanyol.",
+      "Aplikasi desktop: tetap terbuka tanpa internet sejak pertama kali; anggaran yang dibuat offline pindah ke online dengan sendirinya."
     ],
     "zh": [
-      "手机：投资页面及其弹出面板现在适配屏幕（再平衡表格可单独横向滚动）。",
-      "卖家模式：市场默认只用于浏览和购买；在设置中开启卖家模式（就像开店），即可生成、出售模板并赚取推荐佣金。",
-      "在投资里说出交易：“买 10 手 BBCA 9000”或“bought 0.5 bitcoin at 900 juta”。买入更新平均成本，卖出减少持仓，可撤销。",
-      "从 Tally 来？Mint 会找到本设备上的 Tally 支出，一键导入。"
+      "投资页实时价格：股票和 ETF（印尼与美股）、加密货币和黄金按市场价更新。随时点“刷新价格”；你手动填写的价格会保留到你刷新为止。",
+      "Mint 会请求浏览器保留数据，显示上次备份时间，并在预算有了足够记录后提醒你同步或备份。",
+      "模板和市场现在也支持中文和西班牙语，下载的 .xlsx 文件的工作表名称和提示也使用你的语言。",
+      "隐私政策和条款现提供印尼语、中文和西班牙语版本。",
+      "桌面应用：即使第一次打开时没有网络也能使用；离线创建的预算会在联网后自动同步。"
     ],
     "es": [
-      "Móviles: la página Invertir y sus paneles ya caben en la pantalla (la tabla de reequilibrio se desplaza sola).",
-      "Modo vendedor: el Marketplace es para mirar y comprar; activa el Modo vendedor en Ajustes (como abrir una tienda) para generar, vender y ganar comisión por referidos.",
-      "Di una operación en Invertir: “bought 5 AAPL at 190”. Las compras actualizan tu coste medio y las ventas reducen la posición, con Deshacer.",
-      "¿Vienes de Tally? Mint encuentra tus gastos de Tally en este dispositivo y los trae con un toque."
+      "Precios en vivo en Invertir: acciones y ETF (IDX y EE. UU.), cripto y oro se actualizan con el mercado. Toca Actualizar precios cuando quieras; los precios que escribes tú se quedan hasta que actualices.",
+      "Mint pide al navegador que conserve sus datos, muestra cuándo hiciste la última copia y te recuerda sincronizar o hacer copia cuando un presupuesto ya tiene historial.",
+      "Plantillas y el Marketplace ahora también hablan chino y español, y los .xlsx descargados usan tu idioma en pestañas y consejos.",
+      "Privacidad y Términos disponibles en indonesio, chino y español.",
+      "App de escritorio: se abre sin internet incluso la primera vez; los presupuestos creados sin conexión pasan solos a la versión en línea."
     ]
   }
 }

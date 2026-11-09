@@ -48,6 +48,32 @@ export function startMockServices(port = 8799) {
       if (req.method === "GET" && path === "/fx") {
         return send(res, 200, { result: "success", time_last_update_unix: 1761696000, rates: { USD: 1, IDR: 16300, EUR: 0.92, SGD: 1.3, JPY: 151.5, bogus: "x" } });
       }
+      // ---- live prices (Yahoo chart v8 and CoinGecko simple/price shapes)
+      if (req.method === "GET" && path.startsWith("/yahoo/")) {
+        const ticker = decodeURIComponent(path.slice("/yahoo/".length));
+        const book = {
+          "BBCA.JK": { currency: "IDR", price: 9875, longName: "PT Bank Central Asia Tbk" },
+          AAPL: { currency: "USD", price: 230.5, longName: "Apple Inc." },
+          "GC=F": { currency: "USD", price: 3110.4, shortName: "Gold" },
+          "WIF-USD": { currency: "USD", price: 1.25, shortName: "dogwifhat USD" },
+        };
+        const row = book[ticker];
+        if (!row) {
+          return send(res, 404, { chart: { result: null, error: { code: "Not Found" } } });
+        }
+        return send(res, 200, { chart: { result: [{ meta: { symbol: ticker, regularMarketPrice: row.price, currency: row.currency, regularMarketTime: 1761696000, longName: row.longName, shortName: row.shortName } }], error: null } });
+      }
+      if (req.method === "GET" && path === "/coingecko") {
+        state.coingeckoHits = (state.coingeckoHits || 0) + 1;
+        const prices = { bitcoin: 108000, "pax-gold": 3110.4 };
+        const out = {};
+        for (const id of String(url.searchParams.get("ids") || "").split(",")) {
+          if (prices[id]) {
+            out[id] = { usd: prices[id], last_updated_at: 1761696000 };
+          }
+        }
+        return send(res, 200, out);
+      }
       if (req.method === "GET" && path === "/news") {
         state.newsHits = (state.newsHits || 0) + 1;
         const gl = url.searchParams.get("gl");

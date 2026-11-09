@@ -4,7 +4,9 @@
     macOS    the system WebKit (WKWebView), through pywebview
 
 The window opens https://juw12.github.io/projects/mint/ and keeps its browser data (budgets, language,
-region, sign-in) in a per-user folder, so everything is still there the next time Mint opens. Downloads
+region, sign-in) in a per-user folder, so everything is still there the next time Mint opens. With no
+connection the window opens the copy of Mint bundled with the app (served on a loopback port), so even the
+very first open works offline; budgets started there move into the online Mint the next time it connects. Downloads
 (.xlsx, CSV, backups, result cards) are allowed and land in the usual Downloads folder; links to other
 sites open in the default browser. Without WebView2 Mint opens in the default browser instead.
 
@@ -14,7 +16,9 @@ Automated checks: MINT_WINDOW_TEST=<report.json> makes the window write a report
 loaded and then close itself; MINT_DESKTOP_URL overrides the address.
 """
 
+import functools
 import hmac
+import http.server
 import json
 import os
 import secrets
@@ -26,7 +30,7 @@ import time
 import urllib.request
 import webbrowser
 
-VERSION = "3.2.0"
+VERSION = "3.5.0"
 TITLE = "Mint"
 APP_URL = os.environ.get("MINT_DESKTOP_URL") or "https://juw12.github.io/projects/mint/"
 DEFAULT_SIZE = (1280, 860)
@@ -34,6 +38,8 @@ MIN_SIZE = (400, 560)
 LIGHT_BACKGROUND = "#f6f7f5"
 DARK_BACKGROUND = "#0b0d0c"
 CONTROL_FILE = "window.json"
+OFFLINE_FILE = "offline-origin.json"
+LOCAL_PORT = 47821  # fixed, so offline budgets keep one browser origin between opens
 SIZE_FILE = "window-size.json"
 TEST_TIMEOUT = 60
 PAGE_SCRIPT = (
@@ -142,6 +148,100 @@ def online(url, timeout=6):
             return response.status < 500
     except Exception:
         return False
+
+
+# ------------------------------------------------------- the bundled offline copy
+def bundled_site():
+    """Folder of the Mint web app shipped inside the app (or this checkout's web/), or None."""
+    for folder in (os.path.join(here(), "web"), os.path.join(os.path.dirname(here()), "web")):
+        if os.path.isfile(os.path.join(folder, "budget", "index.html")):
+            return folder
+    return None
+
+
+class _QuietHandler(http.server.SimpleHTTPRequestHandler):
+    extensions_map = dict(http.server.SimpleHTTPRequestHandler.extensions_map,
+                          **{".js": "text/javascript", ".webmanifest": "application/manifest+json", ".json": "application/json"})
+
+    def log_message(self, *args):
+        pass
+
+
+class LocalSite:
+    """Serves the bundled Mint on 127.0.0.1 so the window works without a connection."""
+
+    def __init__(self, folder, port=LOCAL_PORT):
+        handler = functools.partial(_QuietHandler, directory=folder)
+        try:
+            self.server = http.server.ThreadingHTTPServer(("127.0.0.1", port), handler)
+        except OSError:
+            self.server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
+        threading.Thread(target=self.server.serve_forever, name="mint-local-site", daemon=True).start()
+        self.origin = "http://127.0.0.1:%d" % self.server.server_address[1]
+
+    def url(self):
+        return self.origin + "/budget/?desktop=offline"
+
+    def close(self):
+        try:
+            self.server.shutdown()
+            self.server.server_close()
+        except OSError:
+            pass
+
+
+# Budgets made while offline live under the loopback origin. Next time Mint is online the window opens that
+# origin once, reads its mint.* storage, then loads the live site and adds anything it doesn't have yet.
+DUMP_SCRIPT = (
+    "JSON.stringify(Object.keys(localStorage).filter(function (k) { return k.indexOf('mint.') === 0; })"
+    ".reduce(function (o, k) { o[k] = localStorage.getItem(k); return o; }, {}))"
+)
+MERGE_SCRIPT = """(function (dump) {
+  var added = 0;
+  Object.keys(dump).forEach(function (key) {
+    if (key === 'mint.budget.books') {
+      var mine = [];
+      var theirs = [];
+      try { mine = JSON.parse(localStorage.getItem(key) || '[]') || []; } catch (e) {}
+      try { theirs = JSON.parse(dump[key] || '[]') || []; } catch (e) {}
+      theirs.forEach(function (book) {
+        if (book && book.id && !mine.some(function (m) { return m && m.id === book.id; })) {
+          mine.push(book);
+          added += 1;
+        }
+      });
+      localStorage.setItem(key, JSON.stringify(mine));
+    } else if (localStorage.getItem(key) === null) {
+      localStorage.setItem(key, dump[key]);
+      added += 1;
+    }
+  });
+  return added;
+})(%s)"""
+
+
+def read_offline_marker(folder):
+    try:
+        with open(os.path.join(folder, OFFLINE_FILE), encoding="utf-8") as handle:
+            return json.load(handle)
+    except (OSError, ValueError):
+        return None
+
+
+def write_offline_marker(folder, origin):
+    try:
+        os.makedirs(folder, exist_ok=True)
+        with open(os.path.join(folder, OFFLINE_FILE), "w", encoding="utf-8") as handle:
+            json.dump({"origin": origin, "since": int(time.time())}, handle)
+    except OSError:
+        pass
+
+
+def clear_offline_marker(folder):
+    try:
+        os.remove(os.path.join(folder, OFFLINE_FILE))
+    except OSError:
+        pass
 
 
 def offline_page():
@@ -333,7 +433,29 @@ def run_window(url, folder, report_path):
     webview.settings["ALLOW_DOWNLOADS"] = True
     webview.settings["OPEN_EXTERNAL_LINKS_IN_BROWSER"] = True
 
-    start_url = url if (report_path or online(url)) else (offline_page() or url)
+    force_offline = os.environ.get("MINT_FORCE_OFFLINE") == "1"
+    is_online = not force_offline and (bool(report_path) or online(url))
+    site_folder = bundled_site()
+    local = None
+    marker = read_offline_marker(folder)
+    plan = {"move": None}
+    if not is_online and site_folder:
+        local = LocalSite(site_folder)
+        if not report_path:
+            write_offline_marker(folder, local.origin)
+        start_url = local.url()
+    elif is_online and marker and site_folder and not report_path:
+        # Bring budgets made offline into the online Mint: open the loopback origin first, then the live site.
+        local = LocalSite(site_folder)
+        if local.origin == marker.get("origin"):
+            plan["move"] = "read"
+            start_url = local.origin + "/budget/?desktop=moving"
+        else:
+            local.close()
+            local = None
+            start_url = url
+    else:
+        start_url = url if is_online else (offline_page() or url)
     width, height = fit_size(saved_size(folder), screen_work_area())
     window = webview.create_window(
         TITLE,
@@ -375,7 +497,27 @@ def run_window(url, folder, report_path):
         write_report(report_path, method="window", toolkit=renderer, runtime=runtime, **page)
         window.destroy()
 
+    def move_offline_budgets():
+        try:
+            if plan["move"] == "read":
+                plan["dump"] = window.evaluate_js(DUMP_SCRIPT) or "{}"
+                plan["move"] = "write"
+                window.load_url(url)
+            elif plan["move"] == "write":
+                plan["move"] = None
+                added = window.evaluate_js(MERGE_SCRIPT % plan.get("dump", "{}"))
+                clear_offline_marker(folder)
+                log("moved %s offline item(s) into the online Mint" % added)
+                if added:
+                    window.evaluate_js("location.reload()")
+        except Exception as error:
+            plan["move"] = None
+            log("moving offline budgets failed: %s" % error)
+
     def on_loaded():
+        if plan["move"]:
+            threading.Thread(target=move_offline_budgets, name="mint-move-offline", daemon=True).start()
+            return
         if report_path and not state["tested"]:
             state["tested"] = True
             threading.Thread(target=self_test, name="mint-window-test", daemon=True).start()
@@ -394,6 +536,8 @@ def run_window(url, folder, report_path):
         return False
     finally:
         control.close()
+        if local:
+            local.close()
     return True
 
 

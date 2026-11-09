@@ -1086,3 +1086,30 @@ Your numbers are unlinked and anything still waiting is deleted. Entries already
 WhatsApp disconnected || WhatsApp diputuskan || WhatsApp 已断开 || WhatsApp desconectado
 Could not remove it || Tidak bisa menghapusnya || 无法移除 || No se pudo quitar
 Remove || Hapus || 移除 || Quitar
+
+# 3.5 live prices
+Refresh prices || Perbarui harga || 刷新价格 || Actualizar precios
+Updating… || Memperbarui… || 正在更新… || Actualizando…
+Price you entered || Harga yang kamu isi || 你填写的价格 || Precio que introdujiste
+Live price: {source}, {time} || Harga live: {source}, {time} || 实时价格：{source}，{time} || Precio en vivo: {source}, {time}
+Fetching live prices… || Mengambil harga live… || 正在获取实时价格… || Obteniendo precios en vivo…
+Stocks, ETFs, crypto and gold update from the market automatically; bonds and funds keep the price you enter. || Saham, ETF, kripto, dan emas diperbarui otomatis dari pasar; obligasi dan reksa dana memakai harga yang kamu isi. || 股票、ETF、加密货币和黄金会自动按市场价更新；债券和基金使用你填写的价格。 || Acciones, ETF, cripto y oro se actualizan solos con el mercado; bonos y fondos usan el precio que introduces.
+Live prices for stocks, ETFs, crypto and gold — tap Refresh prices. || Harga live untuk saham, ETF, kripto, dan emas — ketuk Perbarui harga. || 股票、ETF、加密货币和黄金支持实时价格——点“刷新价格”。 || Precios en vivo para acciones, ETF, cripto y oro: toca Actualizar precios.
+Live prices updated {time} || Harga live diperbarui {time} || 实时价格更新于 {time} || Precios en vivo actualizados {time}
+Couldn’t reach live prices ({time}); showing the last ones. || Harga live tidak bisa dihubungi ({time}); menampilkan harga terakhir. || 无法获取实时价格（{time}）；显示上次的价格。 || No se pudo obtener precios en vivo ({time}); se muestran los últimos.
+Nothing to price yet || Belum ada yang bisa diberi harga || 暂无可更新价格的资产 || Aún no hay nada que valorar
+Live prices cover stocks, ETFs, crypto and gold. Add a holding with its ticker, e.g. BBCA, AAPL or BTC. || Harga live mencakup saham, ETF, kripto, dan emas. Tambahkan aset dengan kodenya, mis. BBCA, AAPL, atau BTC. || 实时价格支持股票、ETF、加密货币和黄金。用代码添加持仓，例如 BBCA、AAPL 或 BTC。 || Los precios en vivo cubren acciones, ETF, cripto y oro. Añade una posición con su símbolo, p. ej. BBCA, AAPL o BTC.
+Live prices are unreachable || Harga live tidak bisa dihubungi || 无法获取实时价格 || No se pueden obtener precios en vivo
+Check your connection; your prices stay as they are. || Periksa koneksimu; hargamu tetap seperti sebelumnya. || 请检查网络；你的价格保持不变。 || Revisa tu conexión; tus precios se quedan como están.
+Updated {n} prices || {n} harga diperbarui || 已更新 {n} 个价格 || {n} precios actualizados
+No market price for {names}; keep typing those. || Tidak ada harga pasar untuk {names}; isi sendiri yang itu. || {names} 没有市场价格，请继续手动填写。 || Sin precio de mercado para {names}; sigue escribiéndolos tú.
+Values and drift now use today’s prices. || Nilai dan selisih alokasi kini memakai harga hari ini. || 市值和偏离度现已使用今日价格。 || Los valores y la desviación ya usan los precios de hoy.
+
+# 3.5 data safety
+This browser keeps Mint’s data even when space runs low. || Browser ini menyimpan data Mint meski ruang penyimpanan menipis. || 即使存储空间不足，此浏览器也会保留 Mint 的数据。 || Este navegador conserva los datos de Mint aunque falte espacio.
+This browser may clear site data when space runs low — sync or back up. || Browser ini bisa menghapus data situs saat ruang menipis — aktifkan sinkronisasi atau buat cadangan. || 存储空间不足时，此浏览器可能会清除网站数据——请开启同步或备份。 || Este navegador puede borrar datos del sitio si falta espacio: sincroniza o haz una copia.
+Last backup: {date} || Cadangan terakhir: {date} || 上次备份：{date} || Última copia: {date}
+No backup yet. || Belum ada cadangan. || 尚未备份。 || Aún no hay copia de seguridad.
+Keep your budget safe || Jaga anggaranmu tetap aman || 保护好你的预算 || Mantén tu presupuesto a salvo
+{n} transactions live only in this browser. Turn on sync in Settings or save a backup. || {n} transaksi hanya tersimpan di browser ini. Aktifkan sinkronisasi di Pengaturan atau simpan cadangan. || 有 {n} 笔交易只保存在此浏览器中。请在设置中开启同步或保存备份。 || {n} movimientos solo están en este navegador. Activa la sincronización en Ajustes o guarda una copia.
+Back up now || Cadangkan sekarang || 立即备份 || Hacer copia ahora

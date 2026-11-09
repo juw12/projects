@@ -4,6 +4,7 @@
     python apps/mint/desktop/smoke_test.py --built            the app in dist/ (after build.py)
     python apps/mint/desktop/smoke_test.py PATH/TO/Mint.exe   an installed copy
     add --local-site to serve this checkout's site (scripts/build_site.py) instead of the live one
+    add --offline to pretend there is no connection: the window must open the Mint bundled with the app
 
 The app runs with MINT_WINDOW_TEST set, so it writes a report once the page has loaded and closes
 itself. Passes when the page is Mint, the language & region screen script is loaded (a fresh profile
@@ -47,15 +48,19 @@ def main():
     parser.add_argument("app", nargs="?", help="the Mint program to open")
     parser.add_argument("--built", action="store_true", help="open the app in dist/")
     parser.add_argument("--local-site", action="store_true", help="serve this checkout's site instead of the live one")
+    parser.add_argument("--offline", action="store_true", help="no connection: expect the bundled copy of Mint")
     args = parser.parse_args()
     app = built_app() if args.built or not args.app else args.app
     if not os.path.isfile(app):
         raise SystemExit("Not found: %s" % app)
 
-    url = serve_site() if args.local_site else LIVE_URL
+    url = serve_site() if args.local_site and not args.offline else LIVE_URL
     folder = tempfile.mkdtemp(prefix="mint-smoke-")
     report = os.path.join(folder, "report.json")
     env = dict(os.environ, MINT_WINDOW_TEST=report, MINT_DESKTOP_URL=url)
+    if args.offline:
+        env["MINT_FORCE_OFFLINE"] = "1"
+        url = "http://127.0.0.1:"
     print("Opening %s on %s" % (app, url), flush=True)
     started = time.time()
     process = subprocess.Popen([app], env=env)
@@ -81,7 +86,7 @@ def main():
         problems.append("the language & region script did not load")
     if not result.get("storage"):
         problems.append("the page cannot store data")
-    if args.local_site and not result.get("gate"):
+    if (args.local_site or args.offline) and not result.get("gate"):
         problems.append("a fresh profile did not get the language & region question")
     if problems:
         raise SystemExit("FAILED: " + "; ".join(problems))

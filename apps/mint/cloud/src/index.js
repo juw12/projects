@@ -7,7 +7,8 @@
  * AI: POST /api/ai/template turns a prompt into a template with Workers AI.
  * Sync: /api/sync keeps each account's Mint budgets in step across devices. Items are encrypted in the
  * browser before upload (the key is wrapped with the user's password), so the server stores ciphertext only.
- * Market data: /api/fx (daily exchange rates) and /api/news (money headlines per region), cached at the edge.
+ * Market data: /api/fx (daily exchange rates), /api/quote (live stock, crypto and gold prices) and /api/news
+ * (money headlines per region), all cached at the edge.
  * WhatsApp: /api/whatsapp lets people log expenses by chatting with Mint's number. Messages are sealed to a key
  * only the user's devices hold, the moment they arrive (see whatsapp.js).
  */
@@ -23,7 +24,7 @@ const Core = globalThis.MintCore;
 const Budget = globalThis.MintBudget;
 
 const APP = "mint";
-const VERSION = "3.2.0";
+const VERSION = "3.5.0";
 const APP_URL_DEFAULT = "https://juw12.github.io/projects/mint/app.html";
 const ORDER_EXPIRY_DAYS = 14;
 const REPORT_HIDE_THRESHOLD = 5;
@@ -79,6 +80,9 @@ export default {
     const publicCors = { ...cors, "Access-Control-Allow-Origin": "*" };
     if (request.method === "GET" && url.pathname === "/api/fx") {
       return withCors(await fxRates(env), publicCors);
+    }
+    if (request.method === "GET" && url.pathname === "/api/quote") {
+      return withCors(await liveQuotes(env, url), publicCors);
     }
     if (request.method === "GET" && url.pathname === "/api/news") {
       return withCors(await moneyNews(env, url), publicCors);
@@ -178,6 +182,153 @@ async function fxRates(env) {
     }
     return null;
   });
+}
+
+// ------------------------------------------------------------------ live investment prices
+// GET /api/quote?q=stock:BBCA,crypto:BTC,gold:XAU&region=ID → last prices for the Invest holdings.
+// Stocks and ETFs come from Yahoo Finance's chart endpoint (Indonesian tickers get ".JK" when the region is ID),
+// crypto from CoinGecko (Yahoo "BTC-USD" as a fallback), and gold from CoinGecko's PAX Gold (1 troy ounce of
+// LBMA gold) with COMEX futures as a fallback. Each symbol is cached at the edge for 15 minutes.
+const QUOTE_TTL = 15 * 60;
+const QUOTE_MAX = 30;
+const TROY_OUNCE_GRAMS = 31.1034768;
+const QUOTE_SYMBOL_RE = /^[A-Z0-9][A-Z0-9.=^-]{0,19}$/;
+const COINGECKO_IDS = {
+  BTC: "bitcoin", ETH: "ethereum", USDT: "tether", USDC: "usd-coin", BNB: "binancecoin", SOL: "solana",
+  XRP: "ripple", ADA: "cardano", DOGE: "dogecoin", TRX: "tron", TON: "the-open-network", DOT: "polkadot",
+  AVAX: "avalanche-2", LINK: "chainlink", LTC: "litecoin", SHIB: "shiba-inu", MATIC: "matic-network",
+  POL: "polygon-ecosystem-token", NEAR: "near", ATOM: "cosmos", XLM: "stellar", BCH: "bitcoin-cash",
+  UNI: "uniswap", APT: "aptos", SUI: "sui", PEPE: "pepe", PAXG: "pax-gold", XAUT: "tether-gold",
+};
+
+function parseQuoteQuery(url) {
+  const region = /^[A-Z]{2}$/.test(String(url.searchParams.get("region") || "").toUpperCase())
+    ? String(url.searchParams.get("region")).toUpperCase()
+    : "";
+  const items = [];
+  const seen = new Set();
+  for (const raw of String(url.searchParams.get("q") || "").split(",")) {
+    const [kindRaw, symRaw] = raw.split(":");
+    const kind = String(kindRaw || "").trim().toLowerCase();
+    const symbol = String(symRaw || "").trim().toUpperCase();
+    if (!["stock", "crypto", "gold"].includes(kind) || !QUOTE_SYMBOL_RE.test(symbol)) {
+      continue;
+    }
+    const key = kind + ":" + symbol;
+    if (!seen.has(key)) {
+      seen.add(key);
+      items.push({ key, kind, symbol });
+    }
+    if (items.length >= QUOTE_MAX) {
+      break;
+    }
+  }
+  return { region, items };
+}
+
+async function yahooQuote(env, ticker) {
+  const bases = env.QUOTE_YAHOO_URL
+    ? [env.QUOTE_YAHOO_URL]
+    : ["https://query1.finance.yahoo.com/v8/finance/chart/", "https://query2.finance.yahoo.com/v8/finance/chart/"];
+  for (const base of bases) {
+    const data = await fetchJson(base + encodeURIComponent(ticker) + "?range=1d&interval=1d", 6000);
+    const meta = data && data.chart && data.chart.result && data.chart.result[0] && data.chart.result[0].meta;
+    const price = meta && Number(meta.regularMarketPrice);
+    if (meta && Number.isFinite(price) && price > 0 && /^[A-Z]{3}$/.test(String(meta.currency || ""))) {
+      return {
+        price,
+        currency: String(meta.currency),
+        ticker: String(meta.symbol || ticker).slice(0, 24),
+        name: String(meta.longName || meta.shortName || "").slice(0, 80),
+        at: Number(meta.regularMarketTime) || now(),
+        source: "Yahoo Finance",
+      };
+    }
+  }
+  return null;
+}
+
+async function coingeckoUsd(env, id) {
+  const base = env.QUOTE_COINGECKO_URL || "https://api.coingecko.com/api/v3/simple/price";
+  const data = await fetchJson(base + "?ids=" + encodeURIComponent(id) + "&vs_currencies=usd&include_last_updated_at=true", 6000);
+  const row = data && data[id];
+  const price = row && Number(row.usd);
+  if (Number.isFinite(price) && price > 0) {
+    return { price, currency: "USD", at: Number(row.last_updated_at) || now(), source: "CoinGecko" };
+  }
+  return null;
+}
+
+async function produceQuote(env, item, region) {
+  if (item.kind === "stock") {
+    const tickers = [];
+    // Indonesian shares are listed on Yahoo as e.g. BBCA.JK; try that first for Indonesian users.
+    if (region === "ID" && /^[A-Z]{4}$/.test(item.symbol)) {
+      tickers.push(item.symbol + ".JK");
+    }
+    tickers.push(item.symbol);
+    for (const ticker of tickers) {
+      const quote = await yahooQuote(env, ticker);
+      if (quote) {
+        return quote;
+      }
+    }
+    return null;
+  }
+  if (item.kind === "crypto") {
+    const id = COINGECKO_IDS[item.symbol];
+    const quote = (id && (await coingeckoUsd(env, id))) || (await yahooQuote(env, item.symbol + "-USD"));
+    return quote ? Object.assign(quote, { ticker: item.symbol }) : null;
+  }
+  // Gold: one troy ounce in USD, plus the per-gram price most Indonesian holders use.
+  const ounce = (await coingeckoUsd(env, "pax-gold")) || (await yahooQuote(env, "GC=F"));
+  if (!ounce || ounce.currency !== "USD") {
+    return null;
+  }
+  return {
+    price: ounce.price,
+    perGram: Math.round((ounce.price / TROY_OUNCE_GRAMS) * 10000) / 10000,
+    currency: "USD",
+    unit: "troy ounce",
+    ticker: "XAU",
+    at: ounce.at,
+    source: ounce.source === "CoinGecko" ? "CoinGecko (PAX Gold)" : "Yahoo Finance (COMEX gold)",
+  };
+}
+
+async function cachedQuote(env, item, region) {
+  const cache = typeof caches !== "undefined" ? caches.default : null;
+  const scope = item.kind === "stock" && region === "ID" ? "ID" : "XX";
+  const key = new Request("https://mint-cache.internal/quote/v1/" + scope + "/" + encodeURIComponent(item.key));
+  if (cache) {
+    const hit = await cache.match(key);
+    if (hit) {
+      return hit.json();
+    }
+  }
+  const quote = await produceQuote(env, item, region);
+  if (quote && cache) {
+    await cache.put(key, json(quote, 200, { "Cache-Control": "public, max-age=" + QUOTE_TTL }));
+  }
+  return quote;
+}
+
+async function liveQuotes(env, url) {
+  const { region, items } = parseQuoteQuery(url);
+  if (!items.length) {
+    return json({ error: "Ask for one or more symbols, e.g. ?q=stock:AAPL,crypto:BTC,gold:XAU" }, 400);
+  }
+  const quotes = {};
+  const missing = [];
+  const results = await Promise.all(items.map((item) => cachedQuote(env, item, region).catch(() => null)));
+  items.forEach((item, i) => {
+    if (results[i]) {
+      quotes[item.key] = results[i];
+    } else {
+      missing.push(item.key);
+    }
+  });
+  return json({ updated: now(), region, quotes, missing }, 200, { "Cache-Control": "public, max-age=60" });
 }
 
 // ------------------------------------------------------------------ money news

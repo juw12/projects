@@ -11,11 +11,21 @@
     .legal { max-width: 760px; margin: 0 auto; padding: 28px 20px 60px; line-height: 1.65; }
     .legal h2 { margin-top: 28px; }
     .legal li { margin: 4px 0; }
+    .legal-langs { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 8px; }
+    .legal-langs button { font: inherit; font-size: 13px; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line, #d6dbe1); background: transparent; color: inherit; cursor: pointer; }
+    .legal-langs button[aria-pressed="true"] { background: var(--accent, #0f9d76); border-color: var(--accent, #0f9d76); color: #fff; }
   </style>
 </head>
 <body>
   <main class="legal">
-    <p><a href="app.html">← Back to Mint</a></p>
+    <p><a href="app.html" data-back>← Back to Mint</a></p>
+    <nav class="legal-langs" aria-label="Language">
+      <button type="button" data-lang-btn="en">English</button>
+      <button type="button" data-lang-btn="id">Bahasa Indonesia</button>
+      <button type="button" data-lang-btn="zh">简体中文</button>
+      <button type="button" data-lang-btn="es">Español</button>
+    </nav>
+    <article data-lang="en" lang="en">
     <h1>Terms</h1>
     <p class="muted small">Last updated 27 October 2026. Plain-language summary written for Mint; not reviewed by a lawyer.</p>
     <h2>What Mint is</h2>
@@ -48,6 +58,152 @@
     <h2>Governing law</h2>
     <p>These terms are governed by the laws of the Republic of Indonesia.</p>
     <p class="muted small">Questions or requests: <a href="mailto:juwen12006@gmail.com?subject=Mint">juwen12006@gmail.com</a>.</p>
+    </article>
+    <article data-lang="id" lang="id" hidden>
+    <h1>Ketentuan</h1>
+    <p class="muted small">Terakhir diperbarui 27 Oktober 2026. Ringkasan berbahasa sederhana untuk Mint; belum ditinjau pengacara. Terjemahan ini untuk kemudahan — jika ada perbedaan, versi bahasa Inggris yang berlaku.</p>
+    <h2>Apa itu Mint</h2>
+    <p>Mint adalah studio dan marketplace template spreadsheet yang dijalankan Juwen Lie (Batam, Indonesia) sebagai proyek pribadi. Penjual memasang template dan dibayar langsung oleh pembeli, lewat link pembayaran milik penjual atau akun Midtrans, Xendit, atau Stripe milik penjual. Mint tidak memproses pembayaran, tidak menyimpan uang, dan bukan pihak dalam jual beli.</p>
+    <h2>Membeli</h2>
+    <ul>
+      <li>Memesan template berbayar membuat kode referensi (misalnya M-7K3QXA). Jika penjual mengaktifkan pembayaran otomatis, kamu membayar di checkout mereka dan file terbuka begitu penyedia pembayaran mengonfirmasi. Jika tidak, bayar lewat link penjual dengan kode referensi di catatan pembayaran; penjual mengonfirmasi dan file terbuka di Koleksi-mu.</li>
+      <li>Pesanan yang tidak dikonfirmasi dalam 14 hari akan kedaluwarsa. Refund, sengketa, dan masalah pembayaran adalah urusan kamu dan penjual; gunakan layanan bantuan checkout penjual.</li>
+      <li>Pratinjau template berbayar hanya menampilkan contoh hasil; rumus dan logikanya ada di file yang dibeli.</li>
+    </ul>
+    <h2>Menjual</h2>
+    <ul>
+      <li>Jual hanya template yang kamu buat atau yang berhak kamu jual. Kamu bertanggung jawab atas listing, link pembayaran, kesesuaian isi dengan deskripsi, dan pajak.</li>
+      <li>Konfirmasi pesanan hanya setelah pembayaran benar-benar masuk, dan segera bayar komisi afiliasi yang kamu tanggung ke rekening yang mereka berikan.</li>
+      <li>Jika kamu menghubungkan akun Midtrans, Xendit, atau Stripe, kamulah merchant-nya: ketentuan, biaya, refund, dan aturan pajak penyedia itu berlaku untukmu. Gunakan kunci yang hanya bisa membuat checkout dan membaca status pembayaran jika penyedia mengizinkan.</li>
+      <li>Listing yang dilaporkan oleh beberapa pengguna berbeda otomatis disembunyikan sampai ditinjau.</li>
+    </ul>
+    <h2>Afiliasi</h2>
+    <p>Afiliasi mendapat komisi yang ditetapkan penjual atas penjualan lewat link mereka dalam 30 hari. Penjual membayar komisi secara langsung; Mint mencatatnya tetapi tidak menjamin pembayarannya. Cantumkan bahwa itu link afiliasi jika hukum atau platform mewajibkan.</p>
+    <h2>Yang dilarang</h2>
+    <ul>
+      <li>Template jiplakan atau curian, listing yang menyesatkan, malware atau rumus berbahaya, spam, konten kebencian atau ilegal.</li>
+      <li>Pesanan palsu, ulasan palsu, referral diri sendiri, atau penyalahgunaan batas permintaan dan laporan.</li>
+    </ul>
+    <p>Akun atau listing yang melanggar aturan ini dapat dihapus. Kamu bisa menghapus akunmu kapan saja (<a href="delete-account.html">caranya</a>).</p>
+    <h2>Usia</h2>
+    <p>Kamu harus berusia minimal 13 tahun untuk memakai Mint. Jika di bawah 18 tahun, beli atau jual hanya dengan izin orang tua atau wali.</p>
+    <h2>Tanpa jaminan</h2>
+    <p>Mint adalah proyek pribadi yang disediakan “apa adanya”, tanpa jaminan ketersediaan atau kesesuaian untuk tujuan tertentu. Periksa template sebelum mengandalkannya untuk keputusan uang, pajak, atau bisnis.</p>
+    <h2>Hukum yang berlaku</h2>
+    <p>Ketentuan ini tunduk pada hukum Republik Indonesia.</p>
+    <p class="muted small">Pertanyaan atau permintaan: <a href="mailto:juwen12006@gmail.com?subject=Mint">juwen12006@gmail.com</a>.</p>
+    </article>
+    <article data-lang="zh" lang="zh-Hans" hidden>
+    <h1>条款</h1>
+    <p class="muted small">最后更新：2026 年 10 月 27 日。为 Mint 撰写的通俗摘要，尚未经律师审核。本译文仅为方便阅读，如有出入，以英文版为准。</p>
+    <h2>Mint 是什么</h2>
+    <p>Mint 是一个表格模板工作室和市场，由 Juwen Lie（印度尼西亚巴淡岛）作为个人项目运营。卖家上架模板，并由买家直接付款——通过卖家自己的付款链接，或卖家自己的 Midtrans、Xendit 或 Stripe 账户。Mint 不处理付款、不代管资金，也不是交易的一方。</p>
+    <h2>购买</h2>
+    <ul>
+      <li>订购付费模板会生成一个订单编号（例如 M-7K3QXA）。如果卖家开启了自动收款，你在其结账页面付款，支付服务商确认后文件立即解锁。否则，请通过卖家的链接付款并在付款备注中填写订单编号；卖家确认后，文件会在你的模板库中解锁。</li>
+      <li>14 天内未确认的订单会过期。退款、争议和付款问题由你与卖家自行处理；请使用卖家结账页面的客服支持。</li>
+      <li>付费模板的预览只显示示例结果；公式和逻辑随购买的文件提供。</li>
+    </ul>
+    <h2>出售</h2>
+    <ul>
+      <li>只出售你自己制作或有权出售的模板。你须对你的商品、付款链接、按描述交付以及相关税费负责。</li>
+      <li>只在款项确实到账后确认订单，并及时按推广者提供的信息支付你应付的佣金。</li>
+      <li>如果你连接了 Midtrans、Xendit 或 Stripe 账户，你就是商户：该服务商的条款、费用、退款和税务规定适用于你。在服务商允许的情况下，请使用只能创建结账和读取付款状态的密钥。</li>
+      <li>被多名不同用户举报的商品会自动隐藏，直到审核完成。</li>
+    </ul>
+    <h2>推广者</h2>
+    <p>推广者可就 30 天内通过其链接完成的销售获得卖家设定的佣金。佣金由卖家直接支付；Mint 负责记录，但不保证支付。在法律或平台要求时，须披露推广链接。</p>
+    <h2>禁止事项</h2>
+    <ul>
+      <li>抄袭或盗用的模板、误导性商品、恶意软件或有害公式、垃圾信息、仇恨或违法内容。</li>
+      <li>虚假订单、虚假评价、自我推广，或滥用请求限制和举报功能。</li>
+    </ul>
+    <p>违反这些规则的账户或商品可能会被删除。你可以随时删除你的账户（<a href="delete-account.html">方法</a>）。</p>
+    <h2>年龄</h2>
+    <p>使用 Mint 须年满 13 岁。未满 18 岁者，只能在父母或监护人同意下购买或出售。</p>
+    <h2>不提供担保</h2>
+    <p>Mint 是按“现状”提供的个人项目，不保证可用性或适用于特定用途。在用于资金、税务或商业决策前，请先检查模板。</p>
+    <h2>适用法律</h2>
+    <p>本条款受印度尼西亚共和国法律管辖。</p>
+    <p class="muted small">问题或请求：<a href="mailto:juwen12006@gmail.com?subject=Mint">juwen12006@gmail.com</a>。</p>
+    </article>
+    <article data-lang="es" lang="es" hidden>
+    <h1>Términos</h1>
+    <p class="muted small">Última actualización: 27 de octubre de 2026. Resumen en lenguaje sencillo escrito para Mint; no revisado por un abogado. Esta traducción es por comodidad: si hay diferencias, prevalece la versión en inglés.</p>
+    <h2>Qué es Mint</h2>
+    <p>Mint es un estudio y mercado de plantillas de hoja de cálculo, gestionado por Juwen Lie (Batam, Indonesia) como proyecto personal. Los vendedores publican plantillas y los compradores les pagan directamente, en el enlace de pago del propio vendedor o a través de su propia cuenta de Midtrans, Xendit o Stripe. Mint no procesa pagos, no retiene dinero ni es parte de la venta.</p>
+    <h2>Comprar</h2>
+    <ul>
+      <li>Pedir una plantilla de pago crea una referencia (como M-7K3QXA). Si el vendedor tiene los pagos automáticos activados, pagas en su página de pago y el archivo se desbloquea en cuanto el proveedor confirma el pago. Si no, paga en el enlace del vendedor con la referencia en la nota del pago; el vendedor confirma y el archivo se desbloquea en tu Biblioteca.</li>
+      <li>Los pedidos no confirmados en 14 días caducan. Reembolsos, disputas y problemas de pago son entre tú y el vendedor; usa el soporte de la página de pago del vendedor.</li>
+      <li>Las vistas previas de plantillas de pago solo muestran resultados de ejemplo; las fórmulas y la lógica vienen con el archivo comprado.</li>
+    </ul>
+    <h2>Vender</h2>
+    <ul>
+      <li>Vende solo plantillas que hayas creado o que tengas derecho a vender. Eres responsable de tu anuncio, tu enlace de pago, entregar lo que describes y de los impuestos.</li>
+      <li>Confirma los pedidos solo cuando el pago haya llegado de verdad, y paga pronto las comisiones de afiliado que debas a los datos que te den.</li>
+      <li>Si conectas una cuenta de Midtrans, Xendit o Stripe, tú eres el comercio: se te aplican los términos, comisiones, reembolsos y normas fiscales de ese proveedor. Usa una clave que solo pueda crear pagos y leer su estado cuando el proveedor lo permita.</li>
+      <li>Los anuncios denunciados por varios usuarios distintos se ocultan automáticamente hasta su revisión.</li>
+    </ul>
+    <h2>Afiliados</h2>
+    <p>Los afiliados ganan la comisión que fija el vendedor por las ventas hechas con su enlace dentro de 30 días. Los vendedores pagan las comisiones directamente; Mint las registra pero no garantiza el pago. Indica que son enlaces de afiliado cuando la ley o la plataforma lo exijan.</p>
+    <h2>No está permitido</h2>
+    <ul>
+      <li>Plantillas copiadas o robadas, anuncios engañosos, malware o fórmulas dañinas, spam, contenido de odio o ilegal.</li>
+      <li>Pedidos falsos, reseñas falsas, autorreferencias o abusar de los límites y las denuncias.</li>
+    </ul>
+    <p>Las cuentas o anuncios que incumplan estas reglas pueden eliminarse. Puedes eliminar tu cuenta en cualquier momento (<a href="delete-account.html">cómo</a>).</p>
+    <h2>Edad</h2>
+    <p>Debes tener al menos 13 años para usar Mint. Si tienes menos de 18, compra o vende solo con permiso de tu madre, padre o tutor.</p>
+    <h2>Sin garantía</h2>
+    <p>Mint es un proyecto personal ofrecido “tal cual”, sin garantías de disponibilidad ni de idoneidad para un fin concreto. Revisa las plantillas antes de usarlas para decisiones de dinero, impuestos o negocio.</p>
+    <h2>Ley aplicable</h2>
+    <p>Estos términos se rigen por las leyes de la República de Indonesia.</p>
+    <p class="muted small">Preguntas o solicitudes: <a href="mailto:juwen12006@gmail.com?subject=Mint">juwen12006@gmail.com</a>.</p>
+    </article>
   </main>
+  <script>
+    // Mint 3.5: the policy in all four Mint languages. Picks ?lang=, then Mint's saved language, then the browser's.
+    (function () {
+      var LANGS = ["en", "id", "zh", "es"];
+      var BACK = { en: "← Back to Mint", id: "← Kembali ke Mint", zh: "← 返回 Mint", es: "← Volver a Mint" };
+      function pick() {
+        var q = new URLSearchParams(location.search).get("lang");
+        if (LANGS.indexOf(q) >= 0) return q;
+        try {
+          var saved = localStorage.getItem("mint.lang");
+          if (LANGS.indexOf(saved) >= 0) return saved;
+        } catch (e) {}
+        var nav = (navigator.language || "").toLowerCase();
+        if (/^(id|ms|in)\b/.test(nav)) return "id";
+        if (/^zh\b/.test(nav)) return "zh";
+        if (/^es\b/.test(nav)) return "es";
+        return "en";
+      }
+      function show(lang) {
+        document.querySelectorAll("article[data-lang]").forEach(function (a) {
+          a.hidden = a.getAttribute("data-lang") !== lang;
+        });
+        document.querySelectorAll("[data-lang-btn]").forEach(function (b) {
+          b.setAttribute("aria-pressed", String(b.getAttribute("data-lang-btn") === lang));
+        });
+        var back = document.querySelector("[data-back]");
+        if (back) back.textContent = BACK[lang];
+        document.documentElement.lang = lang;
+        var h1 = document.querySelector("article[data-lang='" + lang + "'] h1");
+        if (h1) document.title = h1.textContent + " — Mint";
+      }
+      document.querySelectorAll("[data-lang-btn]").forEach(function (b) {
+        b.addEventListener("click", function () {
+          var lang = b.getAttribute("data-lang-btn");
+          try {
+            localStorage.setItem("mint.lang", lang);
+          } catch (e) {}
+          show(lang);
+        });
+      });
+      show(pick());
+    })();
+  </script>
 </body>
 </html>
