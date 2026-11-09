@@ -166,6 +166,36 @@ var tEsCur = C.applyTweak(budget, "cambia la moneda a pesos mexicanos");
 function lastCol(r) {
   return r.spec.sheet.columns.slice(-1)[0];
 }
+var zhInv = C.generate("网店库存表，绿色").spec;
+var esInv = C.generate("Inventario para mi tienda online, verde").spec;
+var idBudget = C.generate("anggaran bulanan keluarga").spec;
+var enInv = C.generate("inventory tracker for my toko in rupiah, ocean theme").spec;
+var uiZh = C.generate("budget", {lang: "zh"}).spec;
+var l10nBroken = [];
+C.BLUEPRINTS.forEach(function (bp) {
+  var english = C.compute(C.specFromBlueprint(bp)).summary.map(function (s) { return s.value; });
+  ["id", "zh", "es"].forEach(function (lang) {
+    var spec = C.normalize(C.localizeSpec(C.specFromBlueprint(bp), lang));
+    var comp = C.compute(spec);
+    var names = spec.sheet.columns.map(function (c) { return c.name; });
+    var orphan = spec.summary.concat(spec.rules).some(function (x) { return names.indexOf(x.column) === -1; });
+    var values = comp.summary.map(function (s) { return s.value; });
+    if (Object.keys(comp.errors).length || orphan || JSON.stringify(values) !== JSON.stringify(english)) {
+      l10nBroken.push(bp.id + "/" + lang);
+    }
+  });
+});
+out.templateL10n = {
+  zhInv: [zhInv.blueprint, zhInv.title, zhInv.sheet.columns.map(function (c) { return c.name; })],
+  esInv: [esInv.blueprint, esInv.sheet.columns[2].name],
+  idBudget: [idBudget.sheet.columns[0].name, idBudget.sheet.columns[0].options[0]],
+  enInv: enInv.sheet.columns.map(function (c) { return c.name; }),
+  uiZh: uiZh.title,
+  langs: [C.detectPromptLang("网店库存表"), C.detectPromptLang("Inventario para mi tienda"),
+          C.detectPromptLang("anggaran bulanan keluarga"), C.detectPromptLang("inventory tracker for my shop"),
+          C.detectPromptLang("budget")],
+  broken: l10nBroken
+};
 out.tweaksIntl = {
   zhAdd: lastCol(tZhAdd).name,
   zhOpts: [lastCol(tZhOpts).type, lastCol(tZhOpts).options],
@@ -307,6 +337,16 @@ def js_checks():
     check("Item" not in tweaks["removed"], "'remove column Item'")
     check(tweaks["currency"] == "EUR", "'currency EUR'")
     check(tweaks["unknownChanged"] is False, "unknown command changes nothing")
+
+    tl = out["templateL10n"]
+    check(tl["zhInv"][0] == "inventory" and tl["zhInv"][1] == "库存与补货表" and "数量" in tl["zhInv"][2],
+          "zh prompt finds the inventory blueprint, in Chinese")
+    check(tl["esInv"] == ["inventory", "Cant."], "es prompt gives a Spanish inventory template")
+    check(tl["idBudget"] == ["Kategori", "Tempat Tinggal"], "id prompt gives Indonesian columns and options")
+    check(tl["enInv"][:3] == ["SKU", "Item", "Qty"], "English prompt with one Indonesian word stays English")
+    check(tl["uiZh"] == "每月预算表", "unclear prompt follows the app language")
+    check(tl["langs"] == ["zh", "es", "id", "en", None], "prompt language detection")
+    check(tl["broken"] == [], "every blueprint computes the same in id/zh/es " + str(tl["broken"]))
 
     intl = out["tweaksIntl"]
     check(intl["zhAdd"] == "供应商", "zh '添加供应商列' adds a column")
