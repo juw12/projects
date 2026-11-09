@@ -255,7 +255,7 @@ class BudgetWebTests(unittest.TestCase):
         self.assertIn("data-act-change=\"set-region\"", budget_app, "Settings can change the region later")
         self.assertIn("window.MintLocale.current()", budget_app, "new budgets use the chosen currency")
         templates_app = read(MINT_WEB / "js" / "app.js")
-        self.assertIn("Core.generate(prompt, { currency: regionCurrency() })", templates_app)
+        self.assertIn("Core.generate(prompt, { currency: regionCurrency(), lang: uiLang() })", templates_app)
         for worker, entry in ((WEB / "sw.js", "'../js/locale.js'"), (MINT_WEB / "sw.js", '"js/locale.js"')):
             self.assertIn(entry, read(worker), "%s caches locale.js for offline use" % worker.name)
 
