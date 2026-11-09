@@ -1799,6 +1799,8 @@
     });
     keep.set('embed', '1');
     keep.set('nolocale', '1');
+    // The marketplace speaks Budget's language, even when a ?lang= link chose it without saving.
+    keep.set('lang', K.i18n.lang);
     let r = String(route || 'market').replace(/^#/, '');
     if (r.charAt(0) !== '/') r = '/' + r;
     return MARKET_PAGE + '?' + keep.toString() + '#' + r;

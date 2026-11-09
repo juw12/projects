@@ -153,6 +153,32 @@ var t4 = C.applyTweak(budget, "add column Diff = [Planned] - [Actual]");
 var t5 = C.applyTweak(budget, "remove column Item");
 var t6 = C.applyTweak(budget, "currency EUR");
 var t7 = C.applyTweak(budget, "flibber the wobble");
+var tZhAdd = C.applyTweak(budget, "添加供应商列");
+var tZhOpts = C.applyTweak(budget, "添加列 状态 选项 待办、完成");
+var tZhRename = C.applyTweak(budget, "把 Planned 重命名为 计划");
+var tZhTheme = C.applyTweak(budget, "主题 深色；货币 人民币");
+var tZhRule = C.applyTweak(budget, "高亮 Actual 大于 500 红色");
+var tEsAdd = C.applyTweak(budget, "añade la columna Proveedor");
+var tEsOpts = C.applyTweak(budget, "añade columna Estado como lista con opciones Pendiente o Hecho");
+var tEsRemove = C.applyTweak(budget, "elimina la columna Item");
+var tEsSum = C.applyTweak(budget, "suma de Actual");
+var tEsCur = C.applyTweak(budget, "cambia la moneda a pesos mexicanos");
+function lastCol(r) {
+  return r.spec.sheet.columns.slice(-1)[0];
+}
+out.tweaksIntl = {
+  zhAdd: lastCol(tZhAdd).name,
+  zhOpts: [lastCol(tZhOpts).type, lastCol(tZhOpts).options],
+  zhRename: tZhRename.spec.sheet.columns.map(function (c) { return c.name; }),
+  zhTheme: [tZhTheme.spec.theme, tZhTheme.spec.currency],
+  zhRule: tZhRule.spec.rules.map(function (k) { return k.column + k.op + k.value + ":" + k.style; }),
+  esAdd: lastCol(tEsAdd).name,
+  esOpts: [lastCol(tEsOpts).type, lastCol(tEsOpts).options],
+  esRemove: tEsRemove.spec.sheet.columns.map(function (c) { return c.name; }),
+  esSum: tEsSum.spec.summary.map(function (s) { return s.fn + ":" + s.column; }),
+  esCur: tEsCur.spec.currency,
+  zhGenTheme: C.generate("网店库存表，绿色").spec.theme
+};
 out.tweaks = {
   rows: t1.spec.sheet.rows.length,
   addedId: t2.spec.sheet.columns.map(function (c) { return c.name; }),
@@ -281,6 +307,19 @@ def js_checks():
     check("Item" not in tweaks["removed"], "'remove column Item'")
     check(tweaks["currency"] == "EUR", "'currency EUR'")
     check(tweaks["unknownChanged"] is False, "unknown command changes nothing")
+
+    intl = out["tweaksIntl"]
+    check(intl["zhAdd"] == "供应商", "zh '添加供应商列' adds a column")
+    check(intl["zhOpts"] == ["select", ["待办", "完成"]], "zh options split on 、")
+    check("计划" in intl["zhRename"] and "Planned" not in intl["zhRename"], "zh rename 把…重命名为")
+    check(intl["zhTheme"] == ["midnight", "CNY"], "zh theme + currency split on ；")
+    check("Actual>500:bad" in intl["zhRule"], "zh highlight rule")
+    check(intl["esAdd"] == "Proveedor", "es 'añade la columna Proveedor'")
+    check(intl["esOpts"] == ["select", ["Pendiente", "Hecho"]], "es dropdown options with 'o'")
+    check("Item" not in intl["esRemove"], "es remove column")
+    check("SUM:Actual" in intl["esSum"], "es 'suma de'")
+    check(intl["esCur"] == "MXN", "es currency words")
+    check(intl["zhGenTheme"] == "forest", "zh colour word picks the theme in prompts")
     check(out["diffRows"] == [p[0] - p[1] for p in pairs], "Diff column evaluates per row")
 
     f = out["formulas"]

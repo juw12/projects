@@ -117,6 +117,11 @@ API `https://mint-api.juw12.workers.dev/api/health`
 - **Privacy and Terms in four languages,** with a switcher; English prevails if they ever differ.
 - **Localized spreadsheets.** Downloaded .xlsx files name their tabs, headers and tips in your language, and the
   formulas follow the renamed tabs.
+- **Links pick the language (3.5.1).** Add `?lang=en|id|zh|es` to any Mint link (Budget, the marketplace, the
+  legal pages) and it opens in that language without changing the reader's saved choice.
+- **Studio understands Chinese and Spanish (3.5.1).** Tweak commands such as `添加供应商列`, `货币 人民币`,
+  `añade la columna Proveedor` or `resalta Qty menor que 5 en rojo` now work, as the zh/es screens already
+  suggested; colour and currency words in those languages also steer new templates (`网店库存表，绿色` → green).
 - **Desktop works offline from the first launch.** The Windows and macOS apps carry a copy of Mint and open it from
   the computer when there is no internet; budgets made offline move into the online app the next time it connects.
 
@@ -320,8 +325,9 @@ apps/mint/web                                          apps/mint/cloud/src/index
   template. Each user gets 20 generations a day, anonymous visitors 5, with a global cap
   (`AI_DAILY_LIMIT`). If AI is busy, the instant rule-based generator takes over. An optional
   bring-your-own OpenAI-compatible model is available under Account.
-- **Studio.** Tweak commands work in English and Indonesian: `add column Supplier`,
-  `tambah kolom Catatan`, `theme midnight`, `currency EUR`, `highlight Qty below 5 red`,
+- **Studio.** Tweak commands work in English, Indonesian, Chinese and Spanish: `add column Supplier`,
+  `tambah kolom Catatan`, `添加供应商列`, `añade la columna Proveedor`, `theme midnight`,
+  `货币 人民币`, `highlight Qty below 5 red`, `resalta Qty menor que 5 en rojo`,
   `add column Margin = [Price] - [Cost]`. It also includes a safe formula engine (no `eval`),
   a real .xlsx writer (Dashboard + Data sheets, 200 ready rows, validation, conditional
   formats), CSV export, a content kit (X, LinkedIn, TikTok, blog/SEO, Pinterest, WhatsApp

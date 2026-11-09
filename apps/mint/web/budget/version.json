@@ -1,8 +1,10 @@
 {
-  "version": "3.5.0",
+  "version": "3.5.1",
   "released": "2026-11-09",
   "notes": {
     "en": [
+      "Links can choose the language: add ?lang=es (or id, zh, en) and Budget, the marketplace and the legal pages open in it, without changing your saved choice.",
+      "Templates Studio understands Chinese and Spanish commands, like 添加供应商列 or añade la columna Proveedor.",
       "Live prices in Invest: stocks and ETFs (IDX and US), crypto and gold update from the market. Tap Refresh prices any time; prices you type yourself stay until you refresh.",
       "Mint asks your browser to keep its data, shows when you last backed up, and reminds you to sync or back up once a budget has real history.",
       "Templates and the Marketplace now speak Chinese and Spanish too, and downloaded .xlsx files use your language for tabs and tips.",
@@ -10,6 +12,8 @@
       "Desktop app: opens even without internet the very first time; budgets made offline move online on their own."
     ],
     "id": [
+      "Tautan bisa memilih bahasa: tambahkan ?lang=id (atau en, zh, es) dan Budget, marketplace, serta halaman legal terbuka dalam bahasa itu tanpa mengubah pilihan tersimpanmu.",
+      "Studio Template kini memahami perintah berbahasa Mandarin dan Spanyol, seperti 添加供应商列 atau añade la columna Proveedor.",
       "Harga live di Investasi: saham dan ETF (BEI dan AS), kripto, dan emas mengikuti pasar. Ketuk Perbarui harga kapan saja; harga yang kamu isi sendiri tetap sampai kamu memperbarui.",
       "Mint meminta browser menyimpan datanya, menampilkan kapan terakhir kamu mencadangkan, dan mengingatkan untuk sinkron atau mencadangkan saat anggaran sudah berisi banyak riwayat.",
       "Template dan Marketplace kini juga berbahasa Mandarin dan Spanyol, dan file .xlsx yang diunduh memakai bahasamu untuk tab dan petunjuk.",
@@ -17,6 +21,8 @@
       "Aplikasi desktop: tetap terbuka tanpa internet sejak pertama kali; anggaran yang dibuat offline pindah ke online dengan sendirinya."
     ],
     "zh": [
+      "链接可以指定语言：加上 ?lang=zh（或 en、id、es），预算、市场和法律页面就会以该语言打开，不会改变你保存的设置。",
+      "模板工作室现在能听懂中文和西班牙语指令，例如“添加供应商列”或“añade la columna Proveedor”。",
       "投资页实时价格：股票和 ETF（印尼与美股）、加密货币和黄金按市场价更新。随时点“刷新价格”；你手动填写的价格会保留到你刷新为止。",
       "Mint 会请求浏览器保留数据，显示上次备份时间，并在预算有了足够记录后提醒你同步或备份。",
       "模板和市场现在也支持中文和西班牙语，下载的 .xlsx 文件的工作表名称和提示也使用你的语言。",
@@ -24,6 +30,8 @@
       "桌面应用：即使第一次打开时没有网络也能使用；离线创建的预算会在联网后自动同步。"
     ],
     "es": [
+      "Los enlaces pueden elegir el idioma: añade ?lang=es (o en, id, zh) y Budget, el mercado y las páginas legales se abren en ese idioma sin cambiar tu elección guardada.",
+      "El estudio de Plantillas entiende órdenes en chino y en español, como «añade la columna Proveedor» o 添加供应商列.",
       "Precios en vivo en Invertir: acciones y ETF (IDX y EE. UU.), cripto y oro se actualizan con el mercado. Toca Actualizar precios cuando quieras; los precios que escribes tú se quedan hasta que actualices.",
       "Mint pide al navegador que conserve sus datos, muestra cuándo hiciste la última copia y te recuerda sincronizar o hacer copia cuando un presupuesto ya tiene historial.",
       "Plantillas y el Marketplace ahora también hablan chino y español, y los .xlsx descargados usan tu idioma en pestañas y consejos.",

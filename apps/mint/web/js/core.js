@@ -19,14 +19,14 @@
   ];
 
   var THEME_WORDS = {
-    mint: ["mint", "teal", "fresh"],
-    ocean: ["ocean", "blue", "biru", "navy"],
-    sunset: ["sunset", "orange", "oranye", "warm"],
-    lavender: ["lavender", "purple", "ungu", "violet"],
-    blush: ["blush", "pink", "pastel", "cute", "aesthetic", "girly"],
-    forest: ["forest", "green", "hijau", "nature"],
-    mono: ["mono", "minimal", "minimalist", "black and white", "clean", "simple"],
-    midnight: ["midnight", "dark", "gelap", "night"]
+    mint: ["mint", "teal", "fresh", "薄荷", "menta"],
+    ocean: ["ocean", "blue", "biru", "navy", "蓝", "海洋", "azul", "océano", "oceano"],
+    sunset: ["sunset", "orange", "oranye", "warm", "橙", "日落", "naranja", "atardecer"],
+    lavender: ["lavender", "purple", "ungu", "violet", "紫", "薰衣草", "morado", "lavanda"],
+    blush: ["blush", "pink", "pastel", "cute", "aesthetic", "girly", "粉", "rosa", "rosado"],
+    forest: ["forest", "green", "hijau", "nature", "绿", "森林", "verde", "bosque"],
+    mono: ["mono", "minimal", "minimalist", "black and white", "clean", "simple", "简约", "极简", "黑白", "minimalista"],
+    midnight: ["midnight", "dark", "gelap", "night", "深色", "暗色", "午夜", "oscuro"]
   };
 
   // scale = rough units per 1 USD, used only to size sample numbers in generated templates.
@@ -77,6 +77,27 @@
     [/\b(brl|reais)\b/, "BRL"],
     [/\b(aed|dirham|dirhams)\b/, "AED"],
     [/\b(php|philippine peso)\b/, "PHP"],
+    [/人民币/, "CNY"],
+    [/欧元/, "EUR"],
+    [/英镑|\blibras?( esterlinas?)?\b/, "GBP"],
+    [/新加坡元|新元/, "SGD"],
+    [/林吉特|马币/, "MYR"],
+    [/日元|\byenes\b/, "JPY"],
+    [/新台币|台币/, "TWD"],
+    [/港元|港币/, "HKD"],
+    [/印尼盾/, "IDR"],
+    [/泰铢/, "THB"],
+    [/越南盾/, "VND"],
+    [/卢比/, "INR"],
+    [/韩元/, "KRW"],
+    [/澳元/, "AUD"],
+    [/新西兰元|纽元/, "NZD"],
+    [/加元/, "CAD"],
+    [/\bpesos mexicanos\b/, "MXN"],
+    [/\bpesos colombianos\b/, "COP"],
+    [/雷亚尔|\breales\b/, "BRL"],
+    [/迪拉姆/, "AED"],
+    [/美元|美金|d[óo]lar(es)?\b/, "USD"],
     [/\b(usd|dollar|dollars)\b|\$/, "USD"]
   ];
 
@@ -624,11 +645,145 @@
   var TYPE_WORDS = {
     text: "text", teks: "text", number: "number", angka: "number", money: "currency", currency: "currency", uang: "currency",
     percent: "percent", persen: "percent", date: "date", tanggal: "date", dropdown: "select", select: "select", pilihan: "select",
-    checkbox: "check", check: "check", "yes/no": "check", formula: "formula", rumus: "formula"
+    checkbox: "check", check: "check", "yes/no": "check", formula: "formula", rumus: "formula",
+    texto: "text", "número": "number", numero: "number", moneda: "currency", dinero: "currency", porcentaje: "percent",
+    fecha: "date", lista: "select", desplegable: "select", casilla: "check", "fórmula": "formula",
+    "文本": "text", "文字": "text", "数字": "number", "数值": "number", "金额": "currency", "货币": "currency",
+    "百分比": "percent", "日期": "date", "下拉": "select", "下拉框": "select", "复选框": "check", "勾选": "check", "公式": "formula"
   };
 
+  // Chinese and Spanish tweak commands are rewritten into the English grammar of applyOneTweak,
+  // so one parser (and one set of replies) serves every language. Unknown phrasings pass through.
+  var ZH_TOTALS = {
+    "合计": "total", "总计": "total", "求和": "sum", "总和": "sum", "平均": "average", "平均值": "average",
+    "最大": "max", "最大值": "max", "最小": "min", "最小值": "min", "计数": "count"
+  };
+  var ES_TOTALS = {
+    total: "total", suma: "sum", promedio: "average", media: "average", "máximo": "max", maximo: "max",
+    "mínimo": "min", minimo: "min", cuenta: "count", conteo: "count"
+  };
+  var COLOUR_WORDS = {
+    "红": "red", "红色": "red", "绿": "green", "绿色": "green", "黄": "yellow", "黄色": "yellow",
+    rojo: "red", verde: "green", amarillo: "yellow"
+  };
+
+  function isTypeWord(word) {
+    return !!TYPE_WORDS[String(word).toLowerCase()];
+  }
+
+  // "供应商 类型 数字 选项 A、B" / "Estado como lista con opciones A o B" → "… as … options A, B"
+  function tailToEnglish(tail) {
+    var out = String(tail)
+      .replace(/\s*(?:类型为|类型是|类型|作为|设为)\s*:?\s*(\S+?)(?=\s*(?:选项|公式|=|$))/g, function (m, word) {
+        return isTypeWord(word) ? " as " + word : m;
+      })
+      .replace(/\s+(?:como|de tipo|tipo)\s+(\S+)(?=\s+(?:con\s+opciones|opciones)\b|\s*=|\s*$)/gi, function (m, word) {
+        return isTypeWord(word) ? " as " + word : m;
+      })
+      .replace(/\s*(?:选项为|选项是|选项)\s*:?\s*/g, " options ")
+      .replace(/\s+(?:con\s+opciones|opciones)\s*:?\s*/gi, " options ")
+      .replace(/\s*(?:公式为|公式是|公式)\s*:?\s*=?\s*/g, " = ")
+      .replace(/\s+f[óo]rmula\s*:?\s*=?\s*/gi, " = ");
+    out = out.replace(/ options (.+)$/, function (m, list) {
+      return " options " + list.replace(/\s*或\s*/g, ", ").replace(/\s+o\s+/gi, ", ");
+    });
+    return out.replace(/\s+/g, " ").trim();
+  }
+
+  // Drop a trailing / leading 列 ("备注列", "列 备注") unless that is the column's real name.
+  function bareColumnName(spec, name) {
+    var n = String(name).trim();
+    var exact = findColumn(spec, n);
+    if (exact && exact.name.toLowerCase() === n.toLowerCase()) {
+      return n;
+    }
+    return n.replace(/\s*(?:列|栏|字段)$/, "").replace(/^(?:列|栏|字段)\s*/, "").trim() || n;
+  }
+
+  function zhTweak(spec, text) {
+    var s = text.replace(/：/g, ":").replace(/[，、]/g, ",").replace(/＝/g, "=").trim();
+    var m;
+    if ((m = /^(?:添加|新增|增加|加上?)\s*(\d{1,3})\s*(?:行|条)/.exec(s))) {
+      return "add " + m[1] + " rows";
+    }
+    if ((m = /^(?:添加|新增|增加|加上?)\s*(?:一个?)?\s*(?:列|栏|字段)\s*:?\s*(.+)$/.exec(s))) {
+      return "add column " + tailToEnglish(m[1]);
+    }
+    if ((m = /^(?:添加)?\s*(合计|总计|求和|总和|平均值|平均|最大值|最大|最小值|最小|计数)\s*:?\s*(.+)$/.exec(s))) {
+      return ZH_TOTALS[m[1]] + " of " + bareColumnName(spec, m[2]);
+    }
+    if ((m = /^(?:添加|新增|增加|加上?)\s*(?:一个?)?\s*(.+?)\s*(?:列|栏|字段)\s*((?:类型|作为|选项|公式|=).*)?$/.exec(s))) {
+      return "add column " + tailToEnglish(m[1] + " " + (m[2] || ""));
+    }
+    if ((m = /^(?:删除|删掉|移除|去掉|去除)\s*:?\s*(.+)$/.exec(s))) {
+      return "remove column " + bareColumnName(spec, m[1]);
+    }
+    if ((m = /^(?:把|将)?\s*(?:货币|币种)\s*(?:改为|改成|换成|设为|为|用)?\s*:?\s*(.+)$/.exec(s))) {
+      return "currency " + m[1];
+    }
+    if ((m = /^(?:使用|改用|换成)\s*(.+)$/.exec(s)) && detectCurrency(m[1])) {
+      return "currency " + m[1];
+    }
+    if ((m = /^(?:把|将)?\s*(?:主题|配色|颜色|风格)\s*(?:改为|改成|换成|设为|为|用)?\s*:?\s*(.+)$/.exec(s))) {
+      return "theme " + m[1];
+    }
+    if ((m = /^(?:把|将)?\s*(?:标题|模板名称|模板名|表名)\s*(?:改为|改成|设为|为|是)?\s*:?\s*(.+)$/.exec(s)) ||
+        (m = /^(?:命名为|重命名模板为)\s*:?\s*(.+)$/.exec(s))) {
+      return "title " + m[1];
+    }
+    if ((m = /^(?:把|将)\s*(.+?)\s*(?:重命名为|重命名成|改名为|改名成|改为|改成)\s*(.+)$/.exec(s)) ||
+        (m = /^(?:重命名|改名)\s*(.+?)\s*(?:为|成|到|->|→)\s*(.+)$/.exec(s))) {
+      return "rename column " + bareColumnName(spec, m[1]) + " to " + m[2].trim();
+    }
+    if ((m = /^(?:高亮|标记|突出显示|突出|标出)\s*(.+?)\s*(小于|低于|少于|<|大于|高于|多于|超过|>|等于|=)\s*(.+?)\s*(?:时|的)?\s*(?:标为|显示为|标|为|用)?\s*(红色|红|绿色|绿|黄色|黄)?$/.exec(s))) {
+      var zhOp = /小于|低于|少于|</.test(m[2]) ? "below" : /大于|高于|多于|超过|>/.test(m[2]) ? "above" : "equal to";
+      return "highlight " + bareColumnName(spec, m[1]) + " " + zhOp + " " + m[3] + (m[4] ? " " + COLOUR_WORDS[m[4]] : "");
+    }
+    return text;
+  }
+
+  function esTweak(spec, text) {
+    var s = text.trim();
+    var m;
+    var art = "(?:(?:el|la|los|las|un|una)\\s+)?";
+    if ((m = /^(?:añad[ea]|añadir|agreg[ae]|agregar|inserta|insertar)\s+(\d{1,3})\s+filas?\b/i.exec(s))) {
+      return "add " + m[1] + " rows";
+    }
+    if ((m = new RegExp("^(?:añad[ea]|añadir|agreg[ae]|agregar|inserta|insertar|crea|crear)\\s+" + art + "(?:nueva\\s+)?(?:columna|campo)\\s+(.+)$", "i").exec(s))) {
+      return "add column " + tailToEnglish(m[1]);
+    }
+    if ((m = new RegExp("^(?:elimina|eliminar|quita|quitar|borra|borrar|suprime|suprimir)\\s+" + art + "(?:columna\\s+|campo\\s+)?(.+)$", "i").exec(s))) {
+      return "remove column " + m[1];
+    }
+    if ((m = /^(?:t[íi]tulo|ll[áa]mal[ao]|ponle\s+de\s+nombre|renombra(?:r)?\s+la\s+(?:plantilla|hoja)\s+(?:a|como))\s*:?\s+(.+)$/i.exec(s))) {
+      return "title " + m[1];
+    }
+    if ((m = /^(?:renombra(?:r)?|cambia(?:r)?\s+el\s+nombre\s+de)\s+(?:la\s+columna\s+|el\s+campo\s+|columna\s+)?(.+?)\s+(?:a|por|como)\s+(.+)$/i.exec(s))) {
+      return "rename column " + m[1] + " to " + m[2];
+    }
+    if ((m = /^(?:(?:cambia(?:r)?|pon(?:er)?|usa(?:r)?)\s+(?:la\s+)?)?(?:moneda|divisa)\s*(?:a\s+|en\s+|:)?\s*(.+)$/i.exec(s))) {
+      return "currency " + m[1];
+    }
+    if ((m = /^(?:(?:cambia(?:r)?|pon(?:er)?|usa(?:r)?)\s+(?:el\s+)?)?(?:tema|estilo|color)\b\s*(?:a\s+|en\s+|:)?\s*(.+)$/i.exec(s))) {
+      return "theme " + m[1];
+    }
+    if ((m = new RegExp("^(?:(?:añad[ea]|agreg[ae])\\s+" + art + ")?(suma|promedio|media|m[áa]ximo|m[íi]nimo|cuenta|conteo)\\s+(?:de\\s+" + art + ")?(.+)$", "i").exec(s)) ||
+        (m = new RegExp("^(?:(?:añad[ea]|agreg[ae])\\s+" + art + ")?(total)\\s+de\\s+" + art + "(.+)$", "i").exec(s))) {
+      return ES_TOTALS[m[1].toLowerCase()] + " of " + m[2];
+    }
+    if ((m = /^(?:resalta(?:r)?|marca(?:r)?|destaca(?:r)?|colorea(?:r)?)\s+(?:la\s+columna\s+|el\s+campo\s+)?(.+?)\s+(?:cuando\s+(?:sea|est[ée])\s+)?(menor\s+que|menos\s+de|por\s+debajo\s+de|debajo\s+de|mayor\s+que|m[áa]s\s+de|por\s+encima\s+de|encima\s+de|igual\s+a)\s+(.+?)(?:\s+(?:en\s+)?(rojo|verde|amarillo))?$/i.exec(s))) {
+      var esOp = /menor|menos|debajo/i.test(m[2]) ? "below" : /mayor|m[áa]s|encima/i.test(m[2]) ? "above" : "equal to";
+      return "highlight " + m[1] + " " + esOp + " " + m[3] + (m[4] ? " " + COLOUR_WORDS[m[4].toLowerCase()] : "");
+    }
+    return text;
+  }
+
+  function localizeTweak(spec, text) {
+    return /[\u3400-\u9fff]/.test(text) ? zhTweak(spec, text) : esTweak(spec, text);
+  }
+
   function applyOneTweak(spec, raw) {
-    var t = raw.trim();
+    var t = localizeTweak(spec, raw.trim());
     var lower = t.toLowerCase();
     var m;
 
@@ -658,7 +813,7 @@
         }).filter(Boolean);
         rest = rest.slice(0, om.index);
       }
-      var tm = /\s+(?:as|sebagai|type)\s+(?:a\s+|an\s+)?([a-z/]+)\s*$/i.exec(rest);
+      var tm = /\s+(?:as|sebagai|type)\s+(?:a\s+|an\s+)?(\S+)\s*$/i.exec(rest);
       if (tm && TYPE_WORDS[tm[1].toLowerCase()]) {
         type = TYPE_WORDS[tm[1].toLowerCase()];
         rest = rest.slice(0, tm.index);
@@ -811,7 +966,7 @@
 
   function applyTweak(spec, text) {
     var next = clone(spec);
-    var parts = String(text || "").split(/\n|;|\.\s+(?=[A-Za-z])/).map(function (s) {
+    var parts = String(text || "").split(/\n|;|；|。|\.\s+(?=[A-Za-z\u00c0-\u00ff])/).map(function (s) {
       return s.trim().replace(/\.$/, "");
     }).filter(Boolean);
     var messages = [];

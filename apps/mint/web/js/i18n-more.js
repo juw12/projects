@@ -73,6 +73,8 @@
     "Describe the template you want first": "请先描述你想要的模板",
     "Designed by Mint AI. Tweak anything below — or ask in words.": "由 Mint AI 设计。下面任何内容都可以修改——或直接用文字说明。",
     "AI returned too few columns": "AI 返回的列太少",
+    "add column Supplier theme ocean highlight Qty below 5 red": "添加供应商列 · 主题 ocean · 高亮 数量 小于 5 红色",
+    "No matching blueprint, so I built a custom tracker from your words.": "没有匹配的蓝本，所以根据你的描述做了一个自定义表格。",
     "Tweak with words": "用文字修改",
     "Type a change and press Apply.": "输入修改内容，然后点“应用”。",
     "Apply": "应用",
@@ -654,6 +656,8 @@
     "Describe the template you want first": "Primero describe la plantilla que quieres",
     "Designed by Mint AI. Tweak anything below — or ask in words.": "Diseñada por Mint AI. Ajusta lo que quieras abajo, o pídelo con palabras.",
     "AI returned too few columns": "La IA devolvió muy pocas columnas",
+    "add column Supplier theme ocean highlight Qty below 5 red": "añade la columna Proveedor · tema ocean · resalta Cantidad menor que 5 en rojo",
+    "No matching blueprint, so I built a custom tracker from your words.": "No encontré una plantilla base, así que creé un registro a medida con tus palabras.",
     "Tweak with words": "Ajusta con palabras",
     "Type a change and press Apply.": "Escribe un cambio y pulsa Aplicar.",
     "Apply": "Aplicar",
@@ -1203,9 +1207,13 @@
     [/^Renamed “(.+)” to “(.+)”\.$/, "已将“$1”重命名为“$2”。"],
     [/^Currency changed to (.+)\.$/, "货币已改为 $1。"],
     [/^Theme set to (.+)\.$/, "主题已设为 $1。"],
+    [/^Theme: (.+)\.$/, "主题：$1。"],
+    [/^Currency: (\w+)\.$/, "货币：$1。"],
+    [/^AI unavailable \((.+)\) — used the quick generator\.$/, "AI 暂不可用（$1）——已改用快速生成器。"],
+    [/^Generated with your AI model \((.+)\)\.$/, "由你的 AI 模型（$1）生成。"],
     [/^Added a (\w+) card for “(.+)”\.$/, "已为“$2”添加 $1 卡片。"],
     [/^Highlight rule added on “(.+)”\.$/, "已在“$1”上添加高亮规则。"],
-    [/^Didn’t understand “(.+)”\. Try: (.+)$/, "没听懂“$1”。试试：$2"],
+    [/^Didn’t understand “(.+)”\. Try: (.+)$/, "没听懂“$1”。试试：添加列 优先级 · 删除列 备注 · 把 成本 重命名为 价格 · 添加 5 行 · 主题 ocean · 货币 CNY · 合计 金额 · 高亮 利润 小于 0 红色。"],
     [/^(.+) connected — orders now unlock automatically$/, "$1 已连接——订单现在会自动解锁"]
   ];
   var RULES_ES = [
@@ -1244,9 +1252,13 @@
     [/^Renamed “(.+)” to “(.+)”\.$/, "“$1” renombrada a “$2”."],
     [/^Currency changed to (.+)\.$/, "Moneda cambiada a $1."],
     [/^Theme set to (.+)\.$/, "Tema cambiado a $1."],
+    [/^Theme: (.+)\.$/, "Tema: $1."],
+    [/^Currency: (\w+)\.$/, "Moneda: $1."],
+    [/^AI unavailable \((.+)\) — used the quick generator\.$/, "IA no disponible ($1): usé el generador rápido."],
+    [/^Generated with your AI model \((.+)\)\.$/, "Generado con tu modelo de IA ($1)."],
     [/^Added a (\w+) card for “(.+)”\.$/, "Tarjeta $1 añadida para “$2”."],
     [/^Highlight rule added on “(.+)”\.$/, "Regla de resaltado añadida en “$1”."],
-    [/^Didn’t understand “(.+)”\. Try: (.+)$/, "No entendí “$1”. Prueba: $2"],
+    [/^Didn’t understand “(.+)”\. Try: (.+)$/, "No entendí “$1”. Prueba: añade columna Prioridad · elimina la columna Notas · renombra Costo a Precio · añade 5 filas · tema ocean · moneda EUR · suma de Importe · resalta Beneficio menor que 0 en rojo."],
     [/^(.+) connected — orders now unlock automatically$/, "$1 conectado: los pedidos ahora se desbloquean solos"]
   ];
 

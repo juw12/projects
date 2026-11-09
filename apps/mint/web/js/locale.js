@@ -161,6 +161,13 @@
   }
 
   function guessLang() {
+    try {
+      // A shared link (?lang=es) pre-selects that language on the first-visit screen too.
+      var fromUrl = new URLSearchParams(root.location.search).get('lang');
+      if (fromUrl && supportedLang(fromUrl)) return fromUrl;
+    } catch (e) {
+      /* no location (tests) */
+    }
     var langs = browserLanguages();
     for (var i = 0; i < langs.length; i++) {
       var base = langs[i].toLowerCase().split('-')[0];
