@@ -233,6 +233,16 @@ out.tweaksIntl = {
   zhColumnFirst: C.applyTweak(budget, "Actual 小于 0 标红").spec.rules.slice(-1)
     .map(function (k) { return k.column + k.op + k.value + ":" + k.style; })[0],
   esThemeWord: C.applyTweak(budget, "cambia el tema a medianoche").spec.theme,
+  // 3.5.5: more natural phrasings
+  phrasings: [
+    C.applyTweak(budget, "usa pesos mexicanos").spec.currency,
+    C.applyTweak(budget, "用人民币").spec.currency,
+    C.applyTweak(budget, "改成蓝色主题").spec.theme,
+    C.applyTweak(budget, "换成深色主题").spec.theme,
+    C.applyTweak(budget, "cambia el título a Mi presupuesto").spec.title,
+    C.applyTweak(budget, "ubah judul jadi Anggaranku").spec.title,
+    C.applyTweak(budget, "buang kolom Planned").spec.sheet.columns.some(function (c) { return c.name === "Planned"; })
+  ],
   enStill: C.applyTweak(budget, "warnai Actual below 0 red").spec.rules.slice(-1)
     .map(function (k) { return k.column + k.op + k.value + ":" + k.style; })[0]
 };
@@ -402,6 +412,8 @@ def js_checks():
     check(intl["oneRow"] == [1, 1, 1, 1], "add a row without a number works in en/zh/es/id " + str(intl["oneRow"]))
     check(intl["zhColumnFirst"] == "Actual<0:bad", "zh column-first highlight 标红 " + str(intl["zhColumnFirst"]))
     check(intl["esThemeWord"] == "midnight", "es theme word medianoche " + str(intl["esThemeWord"]))
+    check(intl["phrasings"] == ["MXN", "CNY", "ocean", "midnight", "Mi presupuesto", "Anggaranku", False],
+          "3.5.5 phrasings (usa pesos, 用人民币, 改成蓝色主题, 换成深色主题, cambia el título, ubah judul, buang kolom) " + str(intl["phrasings"]))
     check(out["diffRows"] == [p[0] - p[1] for p in pairs], "Diff column evaluates per row")
 
     f = out["formulas"]

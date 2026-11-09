@@ -1,6 +1,6 @@
 /* Mint Budget service worker: network-first app shell so updates land immediately, cache as offline fallback.
  * Scope is budget/ only; Mint Templates (../app.html) has its own worker at ../sw.js. */
-const CACHE = 'mint-budget-v19';
+const CACHE = 'mint-budget-v20';
 // Caches this worker owns: its own generations, plus the ones versions before Mint 3.0 left behind.
 // Never touch other caches: every app on this origin shares one CacheStorage.
 const OWN_CACHE = /^(mint-budget-v|kitty-v)/;

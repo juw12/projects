@@ -1,6 +1,6 @@
 /* Mint Templates service worker — app shell cache. API calls (api/...) always go to the network.
  * Mint Budget (budget/) has its own worker with the narrower scope budget/, so it is not cached here. */
-var CACHE = "mint-v3.5.4";
+var CACHE = "mint-v3.5.5";
 var SHELL = [
   "./", "index.html", "app.html", "web.html", "mobile.html", "privacy.html", "terms.html", "delete-account.html", "app.css",
   "js/locale.js", "js/mint-cloud.js", "js/core.js", "js/xlsx.js", "js/guides.js", "js/store.js", "js/i18n-more.js", "js/i18n.js", "js/app.js",
