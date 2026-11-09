@@ -124,7 +124,9 @@ API `https://mint-api.juw12.workers.dev/api/health`
   card words (`sorot Laba kurang dari 0 merah`, `rata-rata Jumlah`), and the “didn’t understand” hint suggests
   commands in your language that really work. Describing your own tracker works in Chinese and Spanish too
   (`建一个装修记录表，列：项目、费用、日期`, `columnas: Producto, Precio y Fecha`), and the example chips send the
-  words you see on them.
+  words you see on them. `add a row` works without a number in every language (`加一行`, `añade una fila`,
+  `tambah baris`), Chinese highlights can name the column first (`利润 小于 0 标红`), and Spanish theme names work
+  (`cambia el tema a medianoche`).
 - **Studio speaks your language all the way (3.5.3).** Replies no longer leave English bits behind: theme names
   (`主题已设为午夜（深色）`, `Tema cambiado a Bosque`), column types (`teks`, `数字`, `fecha`) and card functions are
   translated, and a dashboard card added by a command (`合计 数量`, `promedio de cantidad`) is labelled in the
