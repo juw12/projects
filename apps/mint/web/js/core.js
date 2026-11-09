@@ -466,9 +466,11 @@
     return best;
   }
 
+  var BUDGET_MODIFIERS = ["budget", "anggaran", "预算", "presupuesto"];
+
   function scoreBlueprints(text) {
     var lower = " " + text.toLowerCase() + " ";
-    return BLUEPRINTS.map(function (bp) {
+    var ranked = BLUEPRINTS.map(function (bp) {
       var score = 0;
       bp.keywords.concat(BLUEPRINT_KEYWORDS_INTL[bp.id] || []).forEach(function (k) {
         if (lower.indexOf(k) !== -1) {
@@ -476,7 +478,23 @@
         }
       });
       return { bp: bp, score: score };
-    }).sort(function (a, b) {
+    });
+    // "budget" on its own is a modifier: "trip budget", "婚礼预算", "presupuesto de viaje" want the trip or
+    // wedding template, so a budget score made only of that word gives way to any specific match
+    var budget = ranked.filter(function (r) { return r.bp.id === "budget"; })[0];
+    if (budget && budget.score > 0) {
+      var modifierScore = 0;
+      BUDGET_MODIFIERS.forEach(function (word) {
+        if (lower.indexOf(word) !== -1) {
+          modifierScore += word.length > 5 || /[\u3400-\u9fff]/.test(word) ? 3 : 2;
+        }
+      });
+      var otherMatch = ranked.some(function (r) { return r.bp.id !== "budget" && r.score > 0; });
+      if (otherMatch && budget.score <= modifierScore) {
+        budget.score = 0.5;
+      }
+    }
+    return ranked.sort(function (a, b) {
       return b.score - a.score;
     });
   }
@@ -1634,10 +1652,14 @@
     if ((m = /^(?:把|将)?\s*(?:货币|币种)\s*(?:改为|改成|换成|设为|为|用)?\s*:?\s*(.+)$/.exec(s))) {
       return "currency " + m[1];
     }
-    if ((m = /^(?:使用|改用|换成)\s*(.+)$/.exec(s)) && detectCurrency(m[1])) {
+    if ((m = /^(?:使用|改用|换成|换用|用)\s*(.+)$/.exec(s)) && detectCurrency(m[1])) {
       return "currency " + m[1];
     }
     if ((m = /^(?:把|将)?\s*(?:主题|配色|颜色|风格)\s*(?:改为|改成|换成|设为|为|用)?\s*:?\s*(.+)$/.exec(s))) {
+      return "theme " + m[1];
+    }
+    // colour first: "改成蓝色主题", "换成深色主题", "用绿色的配色"
+    if ((m = /^(?:改成|换成|改为|换个|换一个|用|设为|来个)\s*(.+?)\s*(?:的)?\s*(?:主题|配色|风格)$/.exec(s)) && detectTheme(m[1])) {
       return "theme " + m[1];
     }
     if ((m = /^(?:把|将)?\s*(?:标题|模板名称|模板名|表名)\s*(?:改为|改成|设为|为|是)?\s*:?\s*(.+)$/.exec(s)) ||
@@ -1673,13 +1695,16 @@
     if ((m = new RegExp("^(?:elimina|eliminar|quita|quitar|borra|borrar|suprime|suprimir)\\s+" + art + "(?:columna\\s+|campo\\s+)?(.+)$", "i").exec(s))) {
       return "remove column " + m[1];
     }
-    if ((m = /^(?:t[íi]tulo|ll[áa]mal[ao]|ponle\s+de\s+nombre|renombra(?:r)?\s+la\s+(?:plantilla|hoja)\s+(?:a|como))\s*:?\s+(.+)$/i.exec(s))) {
+    if ((m = /^(?:t[íi]tulo|ll[áa]mal[ao]|ponle\s+de\s+nombre|renombra(?:r)?\s+la\s+(?:plantilla|hoja)\s+(?:a|como)|cambia(?:r)?\s+el\s+t[íi]tulo\s+(?:a|por))\s*:?\s+(.+)$/i.exec(s))) {
       return "title " + m[1];
     }
     if ((m = /^(?:renombra(?:r)?|cambia(?:r)?\s+el\s+nombre\s+de)\s+(?:la\s+columna\s+|el\s+campo\s+|columna\s+)?(.+?)\s+(?:a|por|como)\s+(.+)$/i.exec(s))) {
       return "rename column " + m[1] + " to " + m[2];
     }
     if ((m = /^(?:(?:cambia(?:r)?|pon(?:er)?|usa(?:r)?)\s+(?:la\s+)?)?(?:moneda|divisa)\s*(?:a\s+|en\s+|:)?\s*(.+)$/i.exec(s))) {
+      return "currency " + m[1];
+    }
+    if ((m = /^(?:usa(?:r)?|paga(?:r)?\s+en|cambia(?:r)?\s+a|p[áa]sa(?:lo)?\s+a)\s+(.+)$/i.exec(s)) && detectCurrency(m[1])) {
       return "currency " + m[1];
     }
     if ((m = /^(?:(?:cambia(?:r)?|pon(?:er)?|usa(?:r)?)\s+(?:el\s+)?)?(?:tema|estilo|color)\b\s*(?:a\s+|en\s+|:)?\s*(.+)$/i.exec(s))) {
@@ -1793,7 +1818,7 @@
       return "Added column \u201c" + col.name + "\u201d (" + col.type + ").";
     }
     // remove column
-    if ((m = /^(?:remove|delete|drop|hapus)\s+(?:the\s+)?(?:column|kolom)?\s*(.+)$/i.exec(t))) {
+    if ((m = /^(?:remove|delete|drop|hapus(?:kan)?|buang|hilangkan)\s+(?:the\s+)?(?:column|kolom)?\s*(.+)$/i.exec(t))) {
       var target = findColumn(spec, m[1]);
       if (!target) {
         return "No column named \u201c" + m[1].trim() + "\u201d.";
@@ -1813,7 +1838,7 @@
       return "Removed \u201c" + target.name + "\u201d.";
     }
     // rename template
-    if ((m = /^(?:call it|title|name it|rename (?:the )?(?:template|sheet) to|judul)\s*:?\s+(.+)$/i.exec(t))) {
+    if ((m = /^(?:call it|title|name it|rename (?:the )?(?:template|sheet) to|change (?:the )?title to|(?:ubah|ganti) judul(?:nya)?(?: jadi| menjadi| ke)?|judul)\s*:?\s+(.+)$/i.exec(t))) {
       spec.title = clampText(m[1].replace(/^["'\u201c]|["'\u201d]$/g, ""), 70);
       return "Renamed the template to \u201c" + spec.title + "\u201d.";
     }

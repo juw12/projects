@@ -119,6 +119,10 @@ API `https://mint-api.juw12.workers.dev/api/health`
   formulas follow the renamed tabs.
 - **Links pick the language (3.5.1).** Add `?lang=en|id|zh|es` to any Mint link (Budget, the marketplace, the
   legal pages) and it opens in that language without changing the reader's saved choice.
+- **Studio understands more ways of saying it (3.5.5).** A 55-command probe across English, Indonesian, Chinese and
+  Spanish now passes in full: `usa pesos mexicanos`, `用人民币`, `改成蓝色主题`, `换成深色主题`, `cambia el título a …`,
+  `ubah judul jadi …` and `buang kolom …` all work. “Budget” alone no longer outranks the real subject:
+  `旅行预算`, `presupuesto de viaje` and `wedding budget` give the trip or wedding template.
 - **Every Studio reply, every language (3.5.4).** The rarer replies are translated too (`列“供应商”已存在。`,
   `Rumus salah: kolom [Foo] tidak ada.`, `Ya hay otra columna llamada “Precio”.`), Indonesian gets highlights and
   card words (`sorot Laba kurang dari 0 merah`, `rata-rata Jumlah`), and the “didn’t understand” hint suggests
