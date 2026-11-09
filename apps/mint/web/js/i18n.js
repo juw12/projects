@@ -668,6 +668,20 @@
     return ID[text] || text;
   }
 
+  // Studio replies name themes, column types and card functions in English; say those natively too
+  var STUDIO_WORDS_ID = {
+    "Mint": "Mint", "Ocean": "Samudra", "Sunset": "Senja", "Lavender": "Lavender",
+    "Blush (pastel)": "Merah muda (pastel)", "Forest": "Hutan", "Minimal mono": "Mono minimalis",
+    "Midnight (dark)": "Tengah malam (gelap)",
+    text: "teks", number: "angka", currency: "mata uang", percent: "persen", date: "tanggal",
+    select: "pilihan", check: "centang",
+    SUM: "JUMLAH", AVERAGE: "RATA-RATA", MAX: "MAKS", MIN: "MIN", COUNTA: "HITUNG"
+  };
+
+  function studioWord(word) {
+    return Object.prototype.hasOwnProperty.call(STUDIO_WORDS_ID, word) ? STUDIO_WORDS_ID[word] : word;
+  }
+
   var RULES = [
     [/^Buy — (.+)$/, "Beli — $1"],
     [/^Order (M-[A-Z0-9]{6})$/, "Pesanan $1"],
@@ -697,19 +711,19 @@
     [/^Started from the “(.+)” blueprint\.$/, "Dimulai dari cetak biru “$1”."],
     [/^Added formula column “(.+)” — edit its formula below\.$/, "Kolom rumus “$1” ditambahkan — edit rumusnya di bawah."],
     // Studio replies (core.js)
-    [/^Added column “(.+)” \((\w+)\)\.$/, "Kolom “$1” ($2) ditambahkan."],
+    [/^Added column “(.+)” \((\w+)\)\.$/, function (m, name, type) { return "Kolom “" + name + "” (" + studioWord(type) + ") ditambahkan."; }],
     [/^Added a “(.+)” column\.$/, "Kolom “$1” ditambahkan."],
     [/^Added (\d+) rows\.$/, "$1 baris ditambahkan."],
     [/^Removed “(.+)”\.$/, "“$1” dihapus."],
     [/^Renamed the template to “(.+)”\.$/, "Template diganti nama menjadi “$1”."],
     [/^Renamed “(.+)” to “(.+)”\.$/, "“$1” diganti nama menjadi “$2”."],
     [/^Currency changed to (.+)\.$/, "Mata uang diganti ke $1."],
-    [/^Theme set to (.+)\.$/, "Tema diatur ke $1."],
-    [/^Theme: (.+)\.$/, "Tema: $1."],
+    [/^Theme set to (.+)\.$/, function (m, theme) { return "Tema diatur ke " + studioWord(theme) + "."; }],
+    [/^Theme: (.+)\.$/, function (m, theme) { return "Tema: " + studioWord(theme) + "."; }],
     [/^Currency: (\w+)\.$/, "Mata uang: $1."],
     [/^AI unavailable \((.+)\) — used the quick generator\.$/, "AI tidak tersedia ($1) — memakai generator cepat."],
     [/^Generated with your AI model \((.+)\)\.$/, "Dibuat dengan model AI-mu ($1)."],
-    [/^Added a (\w+) card for “(.+)”\.$/, "Kartu $1 untuk “$2” ditambahkan."],
+    [/^Added a (\w+) card for “(.+)”\.$/, function (m, fn, name) { return "Kartu " + studioWord(fn) + " untuk “" + name + "” ditambahkan."; }],
     [/^Highlight rule added on “(.+)”\.$/, "Aturan sorotan ditambahkan pada “$1”."],
     [/^Didn’t understand “(.+)”\. Try: (.+)$/, "Tidak paham “$1”. Coba: $2"],
     [/^(.+) connected — orders now unlock automatically$/, "$1 terhubung — pesanan kini terbuka otomatis"]

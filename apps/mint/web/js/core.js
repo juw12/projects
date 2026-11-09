@@ -1252,6 +1252,13 @@
 
   var CUSTOM_DESCRIPTION = {"id": "Tracker kustom dibuat dari: “{prompt}”.", "zh": "根据“{prompt}”生成的自定义表格。", "es": "Registro personalizado creado a partir de: “{prompt}”."};
   var TOTAL_LABEL = {"id": "Total {name}", "zh": "{name}合计", "es": "Total {name}"};
+  // Dashboard cards a Studio tweak adds ("total of Qty", "合计 数量") follow the template's language
+  var AGG_LABEL = {
+    id: { total: "Total {name}", average: "Rata-rata {name}", max: "{name} tertinggi", min: "{name} terendah", count: "Jumlah data {name}" },
+    zh: { total: "{name}合计", average: "平均{name}", max: "最高{name}", min: "最低{name}", count: "{name}计数" },
+    es: { total: "Total {name}", average: "Promedio de {name}", max: "Máximo de {name}", min: "Mínimo de {name}", count: "Recuento de {name}" }
+  };
+  var AGG_ALIAS = { sum: "total", avg: "average" };
 
   var LANG_WORDS = {
     en: ["the", "for", "my", "with", "and", "in", "of", "to", "a", "an", "our", "your", "tracker", "track", "list", "planner", "plan", "log", "monthly", "weekly", "daily"],
@@ -1794,7 +1801,13 @@
       }
       var fnMap = { total: "SUM", sum: "SUM", average: "AVERAGE", avg: "AVERAGE", max: "MAX", min: "MIN", count: "COUNTA" };
       var fn = fnMap[m[1].toLowerCase()];
-      spec.summary.push({ id: uid("s"), label: titleCase(m[1]) + " " + col3.name.toLowerCase(), fn: fn, column: col3.name, match: "" });
+      var aggWord = m[1].toLowerCase();
+      var aggLabels = AGG_LABEL[spec.lang];
+      var cardLabel = aggLabels
+        ? aggLabels[AGG_ALIAS[aggWord] || aggWord].replace("{name}", spec.lang === "zh" ? col3.name : col3.name.toLowerCase())
+        : titleCase(m[1]) + " " + col3.name.toLowerCase();
+      cardLabel = cardLabel.charAt(0).toUpperCase() + cardLabel.slice(1);
+      spec.summary.push({ id: uid("s"), label: clampText(cardLabel, 40), fn: fn, column: col3.name, match: "" });
       return "Added a " + fn + " card for \u201c" + col3.name + "\u201d.";
     }
     // highlight rules: highlight Profit below 0 red
@@ -2471,6 +2484,10 @@
       summary: [],
       rules: []
     };
+    // the language a template was written in, so later Studio tweaks label new cards the same way
+    if (BLUEPRINT_L10N[raw.lang]) {
+      spec.lang = raw.lang;
+    }
     var seen = {};
     var srcCols = (raw.sheet && raw.sheet.columns) || [];
     srcCols.slice(0, 30).forEach(function (c) {

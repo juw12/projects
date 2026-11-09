@@ -191,6 +191,17 @@ out.templateL10n = {
   idBudget: [idBudget.sheet.columns[0].name, idBudget.sheet.columns[0].options[0]],
   enInv: enInv.sheet.columns.map(function (c) { return c.name; }),
   uiZh: uiZh.title,
+  // 3.5.3: the template remembers its language, so a card added by a tweak is labelled in it
+  specLang: [zhInv.lang, esInv.lang, enInv.lang || "en"],
+  zhCard: (function () {
+    var num = zhInv.sheet.columns.filter(function (c) { return c.type === "number" && !c.formula; })[0];
+    return [num.name, C.applyTweak(zhInv, "合计 " + num.name).spec.summary.slice(-1)[0].label,
+            C.applyTweak(zhInv, "average " + num.name).spec.summary.slice(-1)[0].label];
+  })(),
+  enCard: (function () {
+    var num = enInv.sheet.columns.filter(function (c) { return c.type === "number" && !c.formula; })[0];
+    return C.applyTweak(enInv, "total " + num.name).spec.summary.slice(-1)[0].label;
+  })(),
   langs: [C.detectPromptLang("网店库存表"), C.detectPromptLang("Inventario para mi tienda"),
           C.detectPromptLang("anggaran bulanan keluarga"), C.detectPromptLang("inventory tracker for my shop"),
           C.detectPromptLang("budget")],
@@ -347,6 +358,11 @@ def js_checks():
     check(tl["uiZh"] == "每月预算表", "unclear prompt follows the app language")
     check(tl["langs"] == ["zh", "es", "id", "en", None], "prompt language detection")
     check(tl["broken"] == [], "every blueprint computes the same in id/zh/es " + str(tl["broken"]))
+    check(tl["specLang"] == ["zh", "es", "en"], "templates remember their language " + str(tl["specLang"]))
+    zh_col, zh_total, zh_avg = tl["zhCard"]
+    check(zh_total == zh_col + "合计" and zh_avg == "平均" + zh_col,
+          "zh tweak cards are labelled in Chinese " + str(tl["zhCard"]))
+    check(tl["enCard"].startswith("Total "), "English tweak cards stay English " + tl["enCard"])
 
     intl = out["tweaksIntl"]
     check(intl["zhAdd"] == "供应商", "zh '添加供应商列' adds a column")
