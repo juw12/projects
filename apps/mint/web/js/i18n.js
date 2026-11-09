@@ -76,7 +76,7 @@
     "← All guides": "← Semua panduan",
     "Earn without making templates": "Dapat penghasilan tanpa membuat template",
     "Join the affiliate program: share any listing with an “Earn %” badge and get paid commission on every sale you refer.":
-      "Ikut program afiliasi: bagikan listing dengan lencana “Earn %” dan dapatkan komisi dari setiap penjualan yang kamu bawa.",
+      "Ikut program afiliasi: bagikan listing dengan lencana “Komisi %” dan dapatkan komisi dari setiap penjualan yang kamu bawa.",
     "How it works": "Cara kerjanya",
     "How it works →": "Cara kerjanya →",
     "No listings yet.": "Belum ada listing.",
@@ -172,7 +172,7 @@
     "Free": "Gratis",
     "New": "Baru",
     "Earn": "Dapat",
-    "Earn %": "Earn %",
+    "Earn %": "Komisi %",
     "No ratings yet": "Belum ada rating",
 
     // item page
@@ -348,7 +348,7 @@
 
     // affiliate
     "Affiliate program": "Program afiliasi",
-    "Log in, open any listing with an “Earn %” badge and get your link.": "Masuk, buka listing dengan lencana “Earn %”, lalu dapatkan link-mu.",
+    "Log in, open any listing with an “Earn %” badge and get your link.": "Masuk, buka listing dengan lencana “Komisi %”, lalu dapatkan link-mu.",
     "Affiliate dashboard": "Dashboard afiliasi",
     "Where should sellers pay you?": "Penjual harus membayarmu ke mana?",
     "Shown only to sellers who owe you commission. E.g. “BCA 1234567 a.n. Your Name”, “GoPay 0812…” or a PayPal email.":
@@ -727,6 +727,7 @@
     [/^Renamed “(.+)” to “(.+)”\.$/, "“$1” diganti nama menjadi “$2”."],
     [/^Currency changed to (.+)\.$/, "Mata uang diganti ke $1."],
     [/^Theme set to (.+)\.$/, function (m, theme) { return "Tema diatur ke " + studioWord(theme) + "."; }],
+    [/^Earn (\d+)%$/, "Komisi $1%"],
     [/^Theme: (.+)\.$/, function (m, theme) { return "Tema: " + studioWord(theme) + "."; }],
     [/^Column “(.+)” already exists\.$/, "Kolom “$1” sudah ada."],
     [/^No column named “(.+)”\.$/, "Tidak ada kolom bernama “$1”."],

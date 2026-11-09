@@ -183,19 +183,19 @@
 
   function inferType(name) {
     var n = name.toLowerCase();
-    if (/(date|deadline|due|tanggal|start|end|day|tgl)/.test(n)) {
+    if (/(date|deadline|due|tanggal|start|end|day|tgl|日期|时间|截止|到期|fecha|vencimiento|día|plazo)/.test(n)) {
       return { type: "date" };
     }
-    if (/(price|cost|amount|total|budget|revenue|fee|salary|harga|biaya|jumlah uang|value|income|expense|paid amount|setoran|iuran|gaji|bayar|nominal|modal|omzet|tagihan)/.test(n)) {
+    if (/(price|cost|amount|total|budget|revenue|fee|salary|harga|biaya|jumlah uang|value|income|expense|paid amount|setoran|iuran|gaji|bayar|nominal|modal|omzet|tagihan|金额|价格|费用|成本|收入|支出|预算|工资|存款|总价|precio|costo|coste|importe|monto|presupuesto|ingreso|gasto|salario|aporte|cuota|pago)/.test(n)) {
       return { type: "currency" };
     }
-    if (/(%|percent|rate|margin|probability|persen)/.test(n)) {
+    if (/(%|percent|rate|margin|probability|persen|百分比|比例|利率|porcentaje|tasa)/.test(n)) {
       return { type: "percent" };
     }
-    if (/(qty|quantity|count|hours|jam|stok|stock|units|score|minutes|reps|sets|kg|weight|number|nomor)/.test(n)) {
+    if (/(qty|quantity|count|hours|jam|stok|stock|units|score|minutes|reps|sets|kg|weight|number|nomor|rating|数量|次数|小时|分钟|库存|分数|评分|重量|cantidad|horas|minutos|unidades|puntuación|puntos|peso|número)/.test(n)) {
       return { type: "number" };
     }
-    if (/(done|paid|complete|selesai|lunas|yes\/no|checked)/.test(n)) {
+    if (/(done|paid|complete|selesai|lunas|yes\/no|checked|已完成|已付|完成|是否|hecho|pagado|completado|listo)/.test(n)) {
       return { type: "check" };
     }
     for (var key in DEFAULT_OPTIONS) {
@@ -482,14 +482,15 @@
   }
 
   function parseListedColumns(text) {
-    var m = /(?:columns?|kolom|fields?)\s*[:\-]\s*([^.\n]+)/i.exec(text);
+    var m = /(?:columns?|kolom|fields?|columnas?|campos?)\s*[:：\-]\s*([^.。\n]+)/i.exec(text) ||
+      /(?:列|字段)\s*[:：]\s*([^。\n]+)/.exec(text);
     if (!m) {
       m = /\bwith\s+([a-z0-9 ,&/'%()-]+?(?:,| and )[a-z0-9 ,&/'%()-]+)$/i.exec(text.trim());
     }
     if (!m) {
       return [];
     }
-    return m[1].split(/,|\band\b|\bdan\b|&/i).map(function (s) {
+    return m[1].split(/,|，|、|;|；|\band\b|\bdan\b|\by\b|&/i).map(function (s) {
       return s.trim().replace(/^(a|an|the)\s+/i, "");
     }).filter(function (s) {
       return s.length > 1 && s.length < 40;
@@ -1388,6 +1389,10 @@
     return spec;
   }
 
+  function stripColumnList(text) {
+    return String(text || "").replace(/\s*(?:(?:with|dengan|con|和)\s*)?(?:columns?|kolom|fields?|columnas?|campos?|列|字段)\s*[:：\-].*$/i, "");
+  }
+
   function generate(prompt, options) {
     options = options || {};
     var text = String(prompt || "").trim();
@@ -1395,7 +1400,9 @@
     var words = BLUEPRINT_L10N[lang] || {};
     var currency = detectCurrency(text) || options.currency || "USD";
     var theme = detectTheme(text);
-    var ranked = scoreBlueprints(text);
+    // "列：项目、费用" lists the user's own columns; a column called 项目 (project) must not pick a blueprint
+    var listedFirst = parseListedColumns(text);
+    var ranked = scoreBlueprints(listedFirst.length ? stripColumnList(text) || text : text);
     var spec;
     var notes = [];
     var quoted = /["\u201c]([^"\u201d]{3,60})["\u201d]/.exec(text);
@@ -1463,7 +1470,13 @@
       localizeSpec(spec, lang);
       if (spec.blueprint === "custom") {
         // "Registro de mis plantas" reads better than an English "… Tracker" title
-        var head = text.split(/[\uff0c,\u3002.;\uff1b]/)[0].replace(/\s+/g, " ").trim();
+        var head = stripColumnList(text)
+          .split(/[\uff0c,\u3002.;\uff1b]/)[0]
+          .replace(/^(?:buat|bikin)\s+(?:template\s+)?/i, "")
+          .replace(/^(?:crea|haz|genera)\s+(?:una?\s+)?(?:plantilla\s+)?(?:de\s+)?/i, "")
+          .replace(/^(?:建|做|创建|生成)(?:一个|一张|个)?/, "")
+          .replace(/\s+/g, " ")
+          .trim();
         if (head) {
           spec.title = clampText(head.charAt(0).toUpperCase() + head.slice(1), 70);
         }
