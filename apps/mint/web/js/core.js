@@ -25,8 +25,8 @@
     lavender: ["lavender", "purple", "ungu", "violet", "紫", "薰衣草", "morado", "lavanda"],
     blush: ["blush", "pink", "pastel", "cute", "aesthetic", "girly", "粉", "rosa", "rosado"],
     forest: ["forest", "green", "hijau", "nature", "绿", "森林", "verde", "bosque"],
-    mono: ["mono", "minimal", "minimalist", "black and white", "clean", "simple", "简约", "极简", "黑白", "minimalista"],
-    midnight: ["midnight", "dark", "gelap", "night", "深色", "暗色", "午夜", "oscuro"]
+    mono: ["mono", "minimal", "minimalist", "black and white", "clean", "simple", "简约", "极简", "黑白", "minimalista", "monocromo", "blanco y negro", "hitam putih"],
+    midnight: ["midnight", "dark", "gelap", "tengah malam", "night", "深色", "暗色", "午夜", "oscuro", "medianoche"]
   };
 
   // scale = rough units per 1 USD, used only to size sample numbers in generated templates.
@@ -183,19 +183,19 @@
 
   function inferType(name) {
     var n = name.toLowerCase();
-    if (/(date|deadline|due|tanggal|start|end|day|tgl)/.test(n)) {
+    if (/(date|deadline|due|tanggal|start|end|day|tgl|日期|时间|截止|到期|fecha|vencimiento|día|plazo)/.test(n)) {
       return { type: "date" };
     }
-    if (/(price|cost|amount|total|budget|revenue|fee|salary|harga|biaya|jumlah uang|value|income|expense|paid amount|setoran|iuran|gaji|bayar|nominal|modal|omzet|tagihan)/.test(n)) {
+    if (/(price|cost|amount|total|budget|revenue|fee|salary|harga|biaya|jumlah uang|value|income|expense|paid amount|setoran|iuran|gaji|bayar|nominal|modal|omzet|tagihan|金额|价格|费用|成本|收入|支出|预算|工资|存款|总价|precio|costo|coste|importe|monto|presupuesto|ingreso|gasto|salario|aporte|cuota|pago)/.test(n)) {
       return { type: "currency" };
     }
-    if (/(%|percent|rate|margin|probability|persen)/.test(n)) {
+    if (/(%|percent|rate|margin|probability|persen|百分比|比例|利率|porcentaje|tasa)/.test(n)) {
       return { type: "percent" };
     }
-    if (/(qty|quantity|count|hours|jam|stok|stock|units|score|minutes|reps|sets|kg|weight|number|nomor)/.test(n)) {
+    if (/(qty|quantity|count|hours|jam|stok|stock|units|score|minutes|reps|sets|kg|weight|number|nomor|rating|数量|次数|小时|分钟|库存|分数|评分|重量|cantidad|horas|minutos|unidades|puntuación|puntos|peso|número)/.test(n)) {
       return { type: "number" };
     }
-    if (/(done|paid|complete|selesai|lunas|yes\/no|checked)/.test(n)) {
+    if (/(done|paid|complete|selesai|lunas|yes\/no|checked|已完成|已付|完成|是否|hecho|pagado|completado|listo)/.test(n)) {
       return { type: "check" };
     }
     for (var key in DEFAULT_OPTIONS) {
@@ -482,14 +482,15 @@
   }
 
   function parseListedColumns(text) {
-    var m = /(?:columns?|kolom|fields?)\s*[:\-]\s*([^.\n]+)/i.exec(text);
+    var m = /(?:columns?|kolom|fields?|columnas?|campos?)\s*[:：\-]\s*([^.。\n]+)/i.exec(text) ||
+      /(?:列|字段)\s*[:：]\s*([^。\n]+)/.exec(text);
     if (!m) {
       m = /\bwith\s+([a-z0-9 ,&/'%()-]+?(?:,| and )[a-z0-9 ,&/'%()-]+)$/i.exec(text.trim());
     }
     if (!m) {
       return [];
     }
-    return m[1].split(/,|\band\b|\bdan\b|&/i).map(function (s) {
+    return m[1].split(/,|，|、|;|；|\band\b|\bdan\b|\by\b|&/i).map(function (s) {
       return s.trim().replace(/^(a|an|the)\s+/i, "");
     }).filter(function (s) {
       return s.length > 1 && s.length < 40;
@@ -1388,6 +1389,10 @@
     return spec;
   }
 
+  function stripColumnList(text) {
+    return String(text || "").replace(/\s*(?:(?:with|dengan|con|和)\s*)?(?:columns?|kolom|fields?|columnas?|campos?|列|字段)\s*[:：\-].*$/i, "");
+  }
+
   function generate(prompt, options) {
     options = options || {};
     var text = String(prompt || "").trim();
@@ -1395,7 +1400,9 @@
     var words = BLUEPRINT_L10N[lang] || {};
     var currency = detectCurrency(text) || options.currency || "USD";
     var theme = detectTheme(text);
-    var ranked = scoreBlueprints(text);
+    // "列：项目、费用" lists the user's own columns; a column called 项目 (project) must not pick a blueprint
+    var listedFirst = parseListedColumns(text);
+    var ranked = scoreBlueprints(listedFirst.length ? stripColumnList(text) || text : text);
     var spec;
     var notes = [];
     var quoted = /["\u201c]([^"\u201d]{3,60})["\u201d]/.exec(text);
@@ -1463,7 +1470,13 @@
       localizeSpec(spec, lang);
       if (spec.blueprint === "custom") {
         // "Registro de mis plantas" reads better than an English "… Tracker" title
-        var head = text.split(/[\uff0c,\u3002.;\uff1b]/)[0].replace(/\s+/g, " ").trim();
+        var head = stripColumnList(text)
+          .split(/[\uff0c,\u3002.;\uff1b]/)[0]
+          .replace(/^(?:buat|bikin)\s+(?:template\s+)?/i, "")
+          .replace(/^(?:crea|haz|genera)\s+(?:una?\s+)?(?:plantilla\s+)?(?:de\s+)?/i, "")
+          .replace(/^(?:建|做|创建|生成)(?:一个|一张|个)?/, "")
+          .replace(/\s+/g, " ")
+          .trim();
         if (head) {
           spec.title = clampText(head.charAt(0).toUpperCase() + head.slice(1), 70);
         }
@@ -1596,11 +1609,15 @@
     return n.replace(/\s*(?:列|栏|字段)$/, "").replace(/^(?:列|栏|字段)\s*/, "").trim() || n;
   }
 
+  var ZH_NUMBERS = { "一": 1, "两": 2, "二": 2, "三": 3, "四": 4, "五": 5, "六": 6, "七": 7, "八": 8, "九": 9, "十": 10 };
+  var ES_NUMBERS = { un: 1, una: 1, otra: 1, dos: 2, tres: 3, cuatro: 4, cinco: 5, seis: 6, siete: 7, ocho: 8, nueve: 9, diez: 10 };
+  var ID_NUMBERS = { satu: 1, se: 1, dua: 2, tiga: 3, empat: 4, lima: 5, enam: 6, tujuh: 7, delapan: 8, sembilan: 9, sepuluh: 10 };
+
   function zhTweak(spec, text) {
     var s = text.replace(/：/g, ":").replace(/[，、]/g, ",").replace(/＝/g, "=").trim();
     var m;
-    if ((m = /^(?:添加|新增|增加|加上?)\s*(\d{1,3})\s*(?:行|条)/.exec(s))) {
-      return "add " + m[1] + " rows";
+    if ((m = /^(?:添加|新增|增加|加上?|再加)\s*(\d{1,3}|[一两二三四五六七八九十])?\s*(?:个)?\s*(?:新的?)?\s*(?:行|条)(?:数据|记录)?$/.exec(s))) {
+      return "add " + (ZH_NUMBERS[m[1]] || m[1] || 1) + " rows";
     }
     if ((m = /^(?:添加|新增|增加|加上?)\s*(?:一个?)?\s*(?:列|栏|字段)\s*:?\s*(.+)$/.exec(s))) {
       return "add column " + tailToEnglish(m[1]);
@@ -1635,6 +1652,11 @@
       var zhOp = /小于|低于|少于|</.test(m[2]) ? "below" : /大于|高于|多于|超过|>/.test(m[2]) ? "above" : "equal to";
       return "highlight " + bareColumnName(spec, m[1]) + " " + zhOp + " " + m[3] + (m[4] ? " " + COLOUR_WORDS[m[4]] : "");
     }
+    // column first: "Actual 小于 0 标红", "把 利润 低于 0 的标成红色"
+    if ((m = /^(?:把|将|当)?\s*(.+?)\s*(小于|低于|少于|<|大于|高于|多于|超过|>|等于|=)\s*(.+?)\s*(?:时|的)?\s*(?:行)?\s*(?:标为|标成|标记为|显示为|设为|变|标|高亮|突出显示)\s*(?:成|为)?\s*(红色|红|绿色|绿|黄色|黄)$/.exec(s))) {
+      var zhOp2 = /小于|低于|少于|</.test(m[2]) ? "below" : /大于|高于|多于|超过|>/.test(m[2]) ? "above" : "equal to";
+      return "highlight " + bareColumnName(spec, m[1]) + " " + zhOp2 + " " + m[3] + " " + COLOUR_WORDS[m[5] || m[4]];
+    }
     return text;
   }
 
@@ -1642,8 +1664,8 @@
     var s = text.trim();
     var m;
     var art = "(?:(?:el|la|los|las|un|una)\\s+)?";
-    if ((m = /^(?:añad[ea]|añadir|agreg[ae]|agregar|inserta|insertar)\s+(\d{1,3})\s+filas?\b/i.exec(s))) {
-      return "add " + m[1] + " rows";
+    if ((m = /^(?:añad[ea]|añadir|agreg[ae]|agregar|inserta|insertar|pon)\s+(\d{1,3}|una?|otra|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez)?\s*(?:nuevas?\s+)?filas?(?:\s+nuevas?)?$/i.exec(s))) {
+      return "add " + (ES_NUMBERS[(m[1] || "").toLowerCase()] || m[1] || 1) + " rows";
     }
     if ((m = new RegExp("^(?:añad[ea]|añadir|agreg[ae]|agregar|inserta|insertar|crea|crear)\\s+" + art + "(?:nueva\\s+)?(?:columna|campo)\\s+(.+)$", "i").exec(s))) {
       return "add column " + tailToEnglish(m[1]);
@@ -1674,8 +1696,35 @@
     return text;
   }
 
+  // Indonesian: the base parser knows tambah/hapus/ganti nama/tema/mata uang; this adds highlight and card words
+  var ID_TOTALS = {
+    jumlah: "sum", jumlahkan: "sum", "rata-rata": "average", ratarata: "average",
+    maks: "max", maksimum: "max", tertinggi: "max", minimum: "min", terendah: "min", hitung: "count"
+  };
+  var ID_COLOURS = { merah: "red", hijau: "green", kuning: "yellow" };
+
+  function idTweak(text) {
+    var s = String(text).trim();
+    var m;
+    if ((m = /^tambah(?:kan)?\s+(satu|se|dua|tiga|empat|lima|enam|tujuh|delapan|sembilan|sepuluh)?\s*baris(?:\s+baru)?$/i.exec(s))) {
+      return "add " + (ID_NUMBERS[(m[1] || "").toLowerCase()] || 1) + " rows";
+    }
+    if ((m = /^(?:sorot|tandai|warnai)\s+(?:kolom\s+)?(.+?)\s+(?:jika\s+|kalau\s+|bila\s+)?(kurang\s+dari|di\s*bawah|lebih\s+kecil\s+dari|lebih\s+besar\s+dari|lebih\s+dari|di\s*atas|sama\s+dengan)\s+(.+?)(?:\s+(?:dengan\s+|warna\s+)?(merah|hijau|kuning))?$/i.exec(s))) {
+      var op = /kurang|bawah|kecil/i.test(m[2]) ? "below" : /lebih|atas/i.test(m[2]) ? "above" : "equal to";
+      return "highlight " + m[1] + " " + op + " " + m[3] + (m[4] ? " " + ID_COLOURS[m[4].toLowerCase()] : "");
+    }
+    if ((m = /^(jumlah(?:kan)?|rata-?rata|maks(?:imum)?|tertinggi|minimum|terendah|hitung)\s+(?:dari\s+|kolom\s+|of\s+)?(.+)$/i.exec(s))) {
+      var word = m[1].toLowerCase();
+      return (ID_TOTALS[word] || ID_TOTALS[word.replace("-", "")] || "sum") + " of " + m[2];
+    }
+    return null;
+  }
+
   function localizeTweak(spec, text) {
-    return /[\u3400-\u9fff]/.test(text) ? zhTweak(spec, text) : esTweak(spec, text);
+    if (/[\u3400-\u9fff]/.test(text)) {
+      return zhTweak(spec, text);
+    }
+    return idTweak(text) || esTweak(spec, text);
   }
 
   function applyOneTweak(spec, raw) {
@@ -1684,12 +1733,12 @@
     var m;
 
     // add N rows
-    if ((m = /^(?:add|tambah(?:kan)?)\s+(\d{1,3})\s+(?:rows?|baris)/i.exec(t))) {
-      var n = Math.min(200, parseInt(m[1], 10));
+    if ((m = /^(?:add|tambah(?:kan)?)\s+(\d{1,3}|an?|one|another)?\s*(?:new\s+|more\s+)?(?:rows?|baris)\b/i.exec(t))) {
+      var n = Math.min(200, /^\d+$/.test(m[1] || "") ? parseInt(m[1], 10) : 1);
       for (var i = 0; i < n; i++) {
         spec.sheet.rows.push(sampleRow(spec, spec.sheet.rows.length));
       }
-      return "Added " + n + " rows.";
+      return n === 1 ? "Added a row." : "Added " + n + " rows.";
     }
     // add column NAME [as TYPE] [with options a, b] [= formula]
     if ((m = /^(?:add|tambah(?:kan)?)\s+(?:a\s+|an\s+)?(?:column|kolom|field)\s+(.+)$/i.exec(t))) {

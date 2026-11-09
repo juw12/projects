@@ -2445,7 +2445,8 @@
       var chip = e.target.closest("[data-example]");
       if (chip) {
         var form = chip.closest("form");
-        form.querySelector("textarea").value = chip.dataset.example;
+        // the chip shows the example in the app language; use that text so the template comes out in it too
+      form.querySelector("textarea").value = (chip.textContent || "").trim() || chip.dataset.example;
         form.querySelector("textarea").focus();
       }
     });

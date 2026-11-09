@@ -76,7 +76,7 @@
     "← All guides": "← Semua panduan",
     "Earn without making templates": "Dapat penghasilan tanpa membuat template",
     "Join the affiliate program: share any listing with an “Earn %” badge and get paid commission on every sale you refer.":
-      "Ikut program afiliasi: bagikan listing dengan lencana “Earn %” dan dapatkan komisi dari setiap penjualan yang kamu bawa.",
+      "Ikut program afiliasi: bagikan listing dengan lencana “Komisi %” dan dapatkan komisi dari setiap penjualan yang kamu bawa.",
     "How it works": "Cara kerjanya",
     "How it works →": "Cara kerjanya →",
     "No listings yet.": "Belum ada listing.",
@@ -172,7 +172,7 @@
     "Free": "Gratis",
     "New": "Baru",
     "Earn": "Dapat",
-    "Earn %": "Earn %",
+    "Earn %": "Komisi %",
     "No ratings yet": "Belum ada rating",
 
     // item page
@@ -348,7 +348,7 @@
 
     // affiliate
     "Affiliate program": "Program afiliasi",
-    "Log in, open any listing with an “Earn %” badge and get your link.": "Masuk, buka listing dengan lencana “Earn %”, lalu dapatkan link-mu.",
+    "Log in, open any listing with an “Earn %” badge and get your link.": "Masuk, buka listing dengan lencana “Komisi %”, lalu dapatkan link-mu.",
     "Affiliate dashboard": "Dashboard afiliasi",
     "Where should sellers pay you?": "Penjual harus membayarmu ke mana?",
     "Shown only to sellers who owe you commission. E.g. “BCA 1234567 a.n. Your Name”, “GoPay 0812…” or a PayPal email.":
@@ -678,6 +678,14 @@
     SUM: "JUMLAH", AVERAGE: "RATA-RATA", MAX: "MAKS", MIN: "MIN", COUNTA: "HITUNG"
   };
 
+  function formulaWhyId(why) {
+    var unknown = /^unknown column \[(.+)\]$/.exec(why);
+    if (unknown) {
+      return "kolom [" + unknown[1] + "] tidak ada";
+    }
+    return why === "a column cannot reference itself" ? "kolom tidak boleh merujuk dirinya sendiri" : why;
+  }
+
   function studioWord(word) {
     return Object.prototype.hasOwnProperty.call(STUDIO_WORDS_ID, word) ? STUDIO_WORDS_ID[word] : word;
   }
@@ -714,18 +722,25 @@
     [/^Added column “(.+)” \((\w+)\)\.$/, function (m, name, type) { return "Kolom “" + name + "” (" + studioWord(type) + ") ditambahkan."; }],
     [/^Added a “(.+)” column\.$/, "Kolom “$1” ditambahkan."],
     [/^Added (\d+) rows\.$/, "$1 baris ditambahkan."],
+    [/^Added a row\.$/, "1 baris ditambahkan."],
     [/^Removed “(.+)”\.$/, "“$1” dihapus."],
     [/^Renamed the template to “(.+)”\.$/, "Template diganti nama menjadi “$1”."],
     [/^Renamed “(.+)” to “(.+)”\.$/, "“$1” diganti nama menjadi “$2”."],
     [/^Currency changed to (.+)\.$/, "Mata uang diganti ke $1."],
     [/^Theme set to (.+)\.$/, function (m, theme) { return "Tema diatur ke " + studioWord(theme) + "."; }],
+    [/^Earn (\d+)%$/, "Komisi $1%"],
     [/^Theme: (.+)\.$/, function (m, theme) { return "Tema: " + studioWord(theme) + "."; }],
+    [/^Column “(.+)” already exists\.$/, "Kolom “$1” sudah ada."],
+    [/^No column named “(.+)”\.$/, "Tidak ada kolom bernama “$1”."],
+    [/^Column names can’t be empty\.$/, "Nama kolom tidak boleh kosong."],
+    [/^Another column is already called “(.+)”\.$/, "Sudah ada kolom lain bernama “$1”."],
+    [/^Formula error: (.+)$/, function (m, why) { return "Rumus salah: " + formulaWhyId(why) + "."; }],
     [/^Currency: (\w+)\.$/, "Mata uang: $1."],
     [/^AI unavailable \((.+)\) — used the quick generator\.$/, "AI tidak tersedia ($1) — memakai generator cepat."],
     [/^Generated with your AI model \((.+)\)\.$/, "Dibuat dengan model AI-mu ($1)."],
     [/^Added a (\w+) card for “(.+)”\.$/, function (m, fn, name) { return "Kartu " + studioWord(fn) + " untuk “" + name + "” ditambahkan."; }],
     [/^Highlight rule added on “(.+)”\.$/, "Aturan sorotan ditambahkan pada “$1”."],
-    [/^Didn’t understand “(.+)”\. Try: (.+)$/, "Tidak paham “$1”. Coba: $2"],
+    [/^Didn’t understand “(.+)”\. Try: (.+)$/, "Tidak paham “$1”. Coba: tambah kolom Prioritas · hapus kolom Catatan · ganti nama Biaya jadi Harga · tambah 5 baris · tema ocean · mata uang IDR · total Jumlah · sorot Laba kurang dari 0 merah."],
     [/^(.+) connected — orders now unlock automatically$/, "$1 terhubung — pesanan kini terbuka otomatis"]
   ];
 

@@ -70,6 +70,7 @@
     "Inventory for my online shop, green": "网店库存表，绿色",
     "Content calendar for TikTok and Instagram": "TikTok 和 Instagram 内容日历",
     "Airbnb host profit tracker": "Airbnb 房东利润追踪表",
+    "Buat template catatan arisan kolom: Nama, Tanggal, Setoran": "建一个互助会记录表，列：姓名、日期、存款",
     "Describe the template you want first": "请先描述你想要的模板",
     "Designed by Mint AI. Tweak anything below — or ask in words.": "由 Mint AI 设计。下面任何内容都可以修改——或直接用文字说明。",
     "AI returned too few columns": "AI 返回的列太少",
@@ -653,6 +654,7 @@
     "Inventory for my online shop, green": "Inventario para mi tienda online, verde",
     "Content calendar for TikTok and Instagram": "Calendario de contenido para TikTok e Instagram",
     "Airbnb host profit tracker": "Control de ganancias para anfitriones de Airbnb",
+    "Buat template catatan arisan kolom: Nama, Tanggal, Setoran": "Crea una plantilla de tanda con columnas: Nombre, Fecha y Aporte",
     "Describe the template you want first": "Primero describe la plantilla que quieres",
     "Designed by Mint AI. Tweak anything below — or ask in words.": "Diseñada por Mint AI. Ajusta lo que quieras abajo, o pídelo con palabras.",
     "AI returned too few columns": "La IA devolvió muy pocas columnas",
@@ -1189,6 +1191,19 @@
     }
   };
 
+  var FORMULA_WHY = {
+    zh: { unknown: "未知列 [{name}]", self: "列不能引用自身" },
+    es: { unknown: "columna desconocida [{name}]", self: "una columna no puede hacer referencia a sí misma" }
+  };
+
+  function formulaWhy(lang, why) {
+    var unknown = /^unknown column \[(.+)\]$/.exec(why);
+    if (unknown) {
+      return FORMULA_WHY[lang].unknown.replace("{name}", unknown[1]);
+    }
+    return why === "a column cannot reference itself" ? FORMULA_WHY[lang].self : why;
+  }
+
   function studioWord(lang, word) {
     var map = STUDIO_WORDS[lang];
     return Object.prototype.hasOwnProperty.call(map, word) ? map[word] : word;
@@ -1226,12 +1241,19 @@
     [/^Added column “(.+)” \((\w+)\)\.$/, function (m, name, type) { return "已添加列“" + name + "”（" + studioWord("zh", type) + "）。"; }],
     [/^Added a “(.+)” column\.$/, "已添加“$1”列。"],
     [/^Added (\d+) rows\.$/, "已添加 $1 行。"],
+    [/^Added a row\.$/, "已添加 1 行。"],
     [/^Removed “(.+)”\.$/, "已删除“$1”。"],
     [/^Renamed the template to “(.+)”\.$/, "模板已重命名为“$1”。"],
     [/^Renamed “(.+)” to “(.+)”\.$/, "已将“$1”重命名为“$2”。"],
     [/^Currency changed to (.+)\.$/, "货币已改为 $1。"],
     [/^Theme set to (.+)\.$/, function (m, theme) { return "主题已设为" + studioWord("zh", theme) + "。"; }],
+    [/^Earn (\d+)%$/, "赚 $1%"],
     [/^Theme: (.+)\.$/, function (m, theme) { return "主题：" + studioWord("zh", theme) + "。"; }],
+    [/^Column “(.+)” already exists\.$/, "列“$1”已存在。"],
+    [/^No column named “(.+)”\.$/, "没有名为“$1”的列。"],
+    [/^Column names can’t be empty\.$/, "列名不能为空。"],
+    [/^Another column is already called “(.+)”\.$/, "已有其他列叫“$1”。"],
+    [/^Formula error: (.+)$/, function (m, why) { return "公式错误：" + formulaWhy("zh", why) + "。"; }],
     [/^Currency: (\w+)\.$/, "货币：$1。"],
     [/^AI unavailable \((.+)\) — used the quick generator\.$/, "AI 暂不可用（$1）——已改用快速生成器。"],
     [/^Generated with your AI model \((.+)\)\.$/, "由你的 AI 模型（$1）生成。"],
@@ -1271,12 +1293,19 @@
     [/^Added column “(.+)” \((\w+)\)\.$/, function (m, name, type) { return "Columna “" + name + "” (" + studioWord("es", type) + ") añadida."; }],
     [/^Added a “(.+)” column\.$/, "Columna “$1” añadida."],
     [/^Added (\d+) rows\.$/, "$1 filas añadidas."],
+    [/^Added a row\.$/, "Fila añadida."],
     [/^Removed “(.+)”\.$/, "“$1” eliminada."],
     [/^Renamed the template to “(.+)”\.$/, "Plantilla renombrada a “$1”."],
     [/^Renamed “(.+)” to “(.+)”\.$/, "“$1” renombrada a “$2”."],
     [/^Currency changed to (.+)\.$/, "Moneda cambiada a $1."],
     [/^Theme set to (.+)\.$/, function (m, theme) { return "Tema cambiado a " + studioWord("es", theme) + "."; }],
+    [/^Earn (\d+)%$/, "Gana $1%"],
     [/^Theme: (.+)\.$/, function (m, theme) { return "Tema: " + studioWord("es", theme) + "."; }],
+    [/^Column “(.+)” already exists\.$/, "La columna “$1” ya existe."],
+    [/^No column named “(.+)”\.$/, "No hay ninguna columna llamada “$1”."],
+    [/^Column names can’t be empty\.$/, "El nombre de la columna no puede estar vacío."],
+    [/^Another column is already called “(.+)”\.$/, "Ya hay otra columna llamada “$1”."],
+    [/^Formula error: (.+)$/, function (m, why) { return "Error en la fórmula: " + formulaWhy("es", why) + "."; }],
     [/^Currency: (\w+)\.$/, "Moneda: $1."],
     [/^AI unavailable \((.+)\) — used the quick generator\.$/, "IA no disponible ($1): usé el generador rápido."],
     [/^Generated with your AI model \((.+)\)\.$/, "Generado con tu modelo de IA ($1)."],
