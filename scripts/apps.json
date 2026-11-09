@@ -2709,15 +2709,17 @@
       "external": true,
       "url": "https://juw12.github.io/pocketdex/",
       "url_label": "Open app",
-      "desc": "Calm pixel-sprite Pokedex PWA: all 1025 Pokemon, daily encounter, habits that level up your partner, a focus timer you catch Pokemon with, and a quiet 3D meadow.",
-      "summary": "A calm pixel Pokedex you use every day: habits, focus timer and a quiet 3D meadow.",
-      "description": "All 1025 Pokemon with stats, type matchups, abilities and evolution chains, offline. Each day brings a new wild encounter; finish a focus session to catch it. Daily habits give your partner XP until it levels up and evolves. A Field Dex camera turns real things into 64 px Game Boy-style sprites with your own entry card, and a low-poly 3D meadow follows your local time with your partner and recent catches wandering in it. Quiz, team builder and trainer card included. No account, progress stays in the browser. Unofficial fan project.",
+      "desc": "Calm pixel-sprite Pokedex: all 1025 Pokemon, daily encounter, habits that level up a partner with feelings, a focus timer you catch Pokemon with, and a Windows app with a desktop buddy.",
+      "summary": "A calm pixel Pokedex you use every day: habits, focus, a partner with feelings, web or Windows app.",
+      "description": "All 1025 Pokemon with stats, type matchups, abilities and evolution chains, offline. Each day brings a new wild encounter; finish a focus session to catch it. Daily habits give your partner XP until it levels up and evolves, and the partner shows how it feels with pixel emotes: happy, sleepy, proud, or missing you after days away. Pet it for friendship hearts; catches and level-ups get their own little scene. A Field Dex camera, a low-poly 3D meadow, quiz, team builder and trainer card are included. Use it in the browser, install it as a PWA, or download PocketDex for Windows: its own window, Start Menu and Desktop shortcuts, update notices, and a desktop buddy that walks along the taskbar. No account, progress stays on your device. Unofficial fan project.",
       "tags": [
         "PWA",
         "offline-first",
         "pixel art",
         "habit tracker",
-        "three.js"
+        "three.js",
+        "Windows app",
+        "desktop buddy"
       ],
       "note_tags": [
         "pocketdex",
@@ -2730,6 +2732,10 @@
       "image": "pocketdex-card.jpg",
       "image_alt": "PocketDex Today page on warm paper: a greeting with caught, streak, focus and habit counters, a low-poly 3D meadow with trees, a pond and a pixel Pokemon on a dirt path, today's encounter card with a pixel sprite, and a training checklist with type-tagged habits",
       "extra_links": [
+        {
+          "label": "Windows app",
+          "url": "https://juw12.github.io/pocketdex/downloads/PocketDex-Windows.zip"
+        },
         {
           "label": "Source",
           "url": "https://github.com/juw12/pocketdex"
