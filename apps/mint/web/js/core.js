@@ -470,9 +470,9 @@
     var lower = " " + text.toLowerCase() + " ";
     return BLUEPRINTS.map(function (bp) {
       var score = 0;
-      bp.keywords.forEach(function (k) {
+      bp.keywords.concat(BLUEPRINT_KEYWORDS_INTL[bp.id] || []).forEach(function (k) {
         if (lower.indexOf(k) !== -1) {
-          score += k.length > 5 ? 3 : 2;
+          score += k.length > 5 || /[\u3400-\u9fff]/.test(k) ? 3 : 2;
         }
       });
       return { bp: bp, score: score };
@@ -504,9 +504,888 @@
     [/\bstatus\b/, "Status"]
   ];
 
+
+  // ------------------------------------------------------------------ template languages (3.5.2)
+  // Blueprints are written in English. A prompt in Indonesian, Chinese or Spanish (or, when the prompt
+  // gives no clue, the app language) gets the same template with its words in that language. Column
+  // renames go through renameInFormulas, so formulas, cards and highlight rules keep working.
+  // Check-box values stay "Yes"/"No" (the app reads them).
+  var BLUEPRINT_KEYWORDS_INTL = {"budget": ["预算", "开支", "记账", "支出", "presupuesto", "gastos", "finanzas", "dinero"], "invoice": ["发票", "账单", "收款", "factura", "facturas", "cobros"], "inventory": ["库存", "存货", "仓库", "进货", "inventario", "existencias", "almacén", "almacen"], "project": ["项目", "任务", "待办", "proyecto", "tareas", "pendientes"], "crm": ["客户", "销售", "商机", "clientes", "ventas", "embudo"], "habit": ["习惯", "打卡", "hábitos", "habitos", "rutina"], "content": ["内容", "发布", "小红书", "抖音", "contenido", "publicaciones", "redes sociales"], "meal": ["餐", "菜单", "食谱", "饮食", "comidas", "menú", "menu semanal", "recetas"], "workout": ["健身", "训练", "锻炼", "entrenamiento", "gimnasio", "ejercicio"], "rental": ["民宿", "出租", "房东", "alquiler", "arriendo", "inquilinos"], "pricing": ["定价", "利润", "网店", "淘宝", "precios", "margen", "tienda online"], "travel": ["旅行", "旅游", "行程", "viaje", "itinerario", "vacaciones"], "study": ["学习", "考试", "作业", "成绩", "estudio", "examen", "tareas escolares", "notas"], "event": ["婚礼", "宾客", "活动", "派对", "boda", "invitados", "evento", "fiesta"]};
+
+  var BLUEPRINT_L10N = {
+    "id": {
+      "Monthly Budget Planner": "Perencana Anggaran Bulanan",
+      "Freelance Invoice Tracker": "Pelacak Tagihan Freelance",
+      "Inventory & Reorder Tracker": "Pelacak Stok & Pemesanan Ulang",
+      "Project Task Tracker": "Pelacak Tugas Proyek",
+      "Sales Pipeline CRM": "CRM Pipeline Penjualan",
+      "Habit Tracker": "Pelacak Kebiasaan",
+      "Content Calendar": "Kalender Konten",
+      "Weekly Meal Planner": "Perencana Menu Mingguan",
+      "Workout Log": "Catatan Latihan",
+      "Rental Property P&L": "Laba Rugi Properti Sewa",
+      "Product Pricing & Profit Calculator": "Kalkulator Harga & Laba Produk",
+      "Trip Itinerary & Budget": "Rencana Perjalanan & Anggaran",
+      "Study Planner & Grade Tracker": "Perencana Belajar & Nilai",
+      "Wedding & Event Guest List": "Daftar Tamu Pernikahan & Acara",
+      "Custom Tracker": "Tracker Kustom",
+      "Plan vs actual spending by category with variance, over-budget flags and a dashboard.": "Rencana vs pengeluaran nyata per kategori, dengan selisih, tanda lewat anggaran, dan dashboard.",
+      "Track invoices, due dates and payments — days overdue are calculated automatically.": "Pantau tagihan, jatuh tempo, dan pembayaran — hari keterlambatan dihitung otomatis.",
+      "Stock levels, stock value and automatic reorder alerts per SKU.": "Jumlah stok, nilai stok, dan peringatan pesan ulang otomatis per SKU.",
+      "Tasks with owner, priority, status and due dates — overdue work turns red.": "Tugas dengan penanggung jawab, prioritas, status, dan tenggat — yang terlambat jadi merah.",
+      "Deals by stage with probability-weighted forecast and next-step dates.": "Kesepakatan per tahap dengan perkiraan berbobot peluang dan tanggal langkah berikutnya.",
+      "Track daily habits for the week and see your completion rate at a glance.": "Pantau kebiasaan harian selama seminggu dan lihat tingkat keberhasilanmu sekilas.",
+      "Plan posts across platforms with status, publish dates and performance.": "Rencanakan posting di berbagai platform dengan status, tanggal terbit, dan performa.",
+      "Plan meals, calories and grocery cost for the week.": "Rencanakan menu, kalori, dan biaya belanja untuk seminggu.",
+      "Log sets, reps and weight; training volume is calculated per exercise.": "Catat set, repetisi, dan beban; volume latihan dihitung per gerakan.",
+      "Bookings, nightly rate, platform fees and net profit per stay.": "Pemesanan, tarif per malam, biaya platform, dan laba bersih per menginap.",
+      "Set prices with marketplace fees and see profit and margin per product.": "Tentukan harga dengan biaya marketplace dan lihat laba serta margin per produk.",
+      "Day-by-day itinerary with bookings and a running trip budget.": "Rencana harian dengan pemesanan dan anggaran perjalanan berjalan.",
+      "Assignments, deadlines, study hours and grades in one sheet.": "Tugas, tenggat, jam belajar, dan nilai dalam satu sheet.",
+      "Guests, RSVP status, party size and per-guest cost.": "Tamu, status konfirmasi, jumlah orang, dan biaya per tamu.",
+      "Category": "Kategori",
+      "Item": "Item",
+      "Planned": "Rencana",
+      "Actual": "Aktual",
+      "Difference": "Selisih",
+      "Status": "Status",
+      "Invoice #": "No. Tagihan",
+      "Client": "Klien",
+      "Issued": "Terbit",
+      "Due": "Jatuh Tempo",
+      "Amount": "Jumlah",
+      "Paid": "Lunas",
+      "Days Overdue": "Hari Terlambat",
+      "SKU": "SKU",
+      "Qty": "Jml",
+      "Reorder Level": "Batas Pesan Ulang",
+      "Unit Cost": "Biaya Satuan",
+      "Stock Value": "Nilai Stok",
+      "Reorder?": "Pesan Ulang?",
+      "Task": "Tugas",
+      "Owner": "Penanggung Jawab",
+      "Priority": "Prioritas",
+      "Days Left": "Sisa Hari",
+      "Company": "Perusahaan",
+      "Contact": "Kontak",
+      "Stage": "Tahap",
+      "Deal Value": "Nilai Kesepakatan",
+      "Probability": "Peluang",
+      "Weighted": "Berbobot",
+      "Next Step": "Langkah Berikutnya",
+      "Habit": "Kebiasaan",
+      "Mon": "Sen",
+      "Tue": "Sel",
+      "Wed": "Rab",
+      "Thu": "Kam",
+      "Fri": "Jum",
+      "Sat": "Sab",
+      "Sun": "Min",
+      "Score": "Skor",
+      "Title": "Judul",
+      "Platform": "Platform",
+      "Publish Date": "Tanggal Terbit",
+      "Views": "Tayangan",
+      "Likes": "Suka",
+      "Engagement": "Interaksi",
+      "Day": "Hari",
+      "Meal": "Waktu Makan",
+      "Dish": "Hidangan",
+      "Calories": "Kalori",
+      "Cost": "Biaya",
+      "Prepped": "Disiapkan",
+      "Date": "Tanggal",
+      "Exercise": "Gerakan",
+      "Sets": "Set",
+      "Reps": "Repetisi",
+      "Weight (kg)": "Beban (kg)",
+      "Volume": "Volume",
+      "Guest": "Tamu",
+      "Check-in": "Check-in",
+      "Nights": "Malam",
+      "Nightly Rate": "Tarif per Malam",
+      "Platform Fee %": "Biaya Platform %",
+      "Cleaning": "Kebersihan",
+      "Net Profit": "Laba Bersih",
+      "Product": "Produk",
+      "Price": "Harga",
+      "Fee %": "Biaya %",
+      "Shipping": "Ongkir",
+      "Profit": "Laba",
+      "Margin": "Margin",
+      "City": "Kota",
+      "Activity": "Kegiatan",
+      "Booked": "Sudah Dipesan",
+      "Notes": "Catatan",
+      "Subject": "Mata Pelajaran",
+      "Assignment": "Tugas",
+      "Hours Planned": "Rencana Jam",
+      "Grade %": "Nilai %",
+      "Side": "Pihak",
+      "RSVP": "Konfirmasi",
+      "Party Size": "Jumlah Orang",
+      "Cost per Head": "Biaya per Orang",
+      "Housing": "Tempat Tinggal",
+      "Food": "Makanan",
+      "Transport": "Transportasi",
+      "Utilities": "Tagihan Rumah",
+      "Fun": "Hiburan",
+      "Savings": "Tabungan",
+      "Other": "Lainnya",
+      "Over": "Lewat",
+      "OK": "OK",
+      "Reorder": "Pesan Ulang",
+      "High": "Tinggi",
+      "Medium": "Sedang",
+      "Low": "Rendah",
+      "To do": "Belum",
+      "In progress": "Berjalan",
+      "Blocked": "Terhambat",
+      "Done": "Selesai",
+      "Lead": "Prospek",
+      "Contacted": "Dihubungi",
+      "Proposal": "Penawaran",
+      "Won": "Menang",
+      "Lost": "Kalah",
+      "Idea": "Ide",
+      "Drafting": "Draf",
+      "Scheduled": "Terjadwal",
+      "Published": "Terbit",
+      "Breakfast": "Sarapan",
+      "Lunch": "Makan Siang",
+      "Dinner": "Makan Malam",
+      "Snack": "Camilan",
+      "Not started": "Belum Mulai",
+      "Studying": "Sedang Belajar",
+      "Submitted": "Dikumpulkan",
+      "Bride": "Pengantin Wanita",
+      "Groom": "Pengantin Pria",
+      "Both": "Keduanya",
+      "Pending": "Menunggu",
+      "Yes": "Yes",
+      "No": "No",
+      "Total planned": "Total rencana",
+      "Total spent": "Total terpakai",
+      "Left to spend": "Sisa anggaran",
+      "Categories over": "Kategori lewat",
+      "Invoiced": "Ditagihkan",
+      "Invoices": "Tagihan",
+      "Unpaid": "Belum lunas",
+      "Worst overdue (days)": "Terlambat terlama (hari)",
+      "Units in stock": "Unit di stok",
+      "Stock value": "Nilai stok",
+      "SKUs to reorder": "SKU perlu dipesan",
+      "Tasks": "Tugas",
+      "Pipeline value": "Nilai pipeline",
+      "Weighted forecast": "Perkiraan berbobot",
+      "Deals won": "Kesepakatan menang",
+      "Habits": "Kebiasaan",
+      "Average score": "Skor rata-rata",
+      "Best habit score": "Skor kebiasaan terbaik",
+      "Posts": "Posting",
+      "Total views": "Total tayangan",
+      "Meals planned": "Menu direncanakan",
+      "Total calories": "Total kalori",
+      "Grocery cost": "Biaya belanja",
+      "Sessions logged": "Sesi tercatat",
+      "Total volume": "Total volume",
+      "Heaviest lift (kg)": "Beban terberat (kg)",
+      "Nights booked": "Malam terpesan",
+      "Net profit": "Laba bersih",
+      "Average rate": "Tarif rata-rata",
+      "Products": "Produk",
+      "Average margin": "Margin rata-rata",
+      "Lowest profit": "Laba terendah",
+      "Trip budget": "Anggaran perjalanan",
+      "Activities": "Kegiatan",
+      "Still to book": "Belum dipesan",
+      "Assignments": "Tugas",
+      "Study hours": "Jam belajar",
+      "Invited parties": "Undangan",
+      "Confirmed": "Terkonfirmasi",
+      "Catering cost": "Biaya katering",
+      "Rows": "Baris",
+      "Rent": "Sewa",
+      "Groceries": "Belanja dapur",
+      "Fuel": "Bensin",
+      "Electricity": "Listrik",
+      "Streaming": "Streaming",
+      "Emergency fund": "Dana darurat",
+      "T-shirt black M": "Kaos hitam M",
+      "T-shirt white L": "Kaos putih L",
+      "Logo mug": "Mug logo",
+      "Snapback cap": "Topi snapback",
+      "Write brief": "Tulis brief",
+      "Design mockups": "Desain mockup",
+      "Client review": "Review klien",
+      "Fix feedback": "Perbaiki masukan",
+      "Drink 2L water": "Minum 2L air",
+      "Read 20 pages": "Baca 20 halaman",
+      "Workout": "Olahraga",
+      "No phone after 10pm": "Tanpa HP setelah jam 10 malam",
+      "5 budgeting myths": "5 mitos soal anggaran",
+      "Template walkthrough": "Panduan template",
+      "Behind the scenes": "Di balik layar",
+      "Pricing tips thread": "Thread tips harga",
+      "Overnight oats": "Overnight oats",
+      "Chicken rice bowl": "Nasi ayam",
+      "Veggie stir-fry": "Tumis sayur",
+      "Greek yogurt + fruit": "Yogurt + buah",
+      "Squat": "Squat",
+      "Bench press": "Bench press",
+      "Deadlift": "Deadlift",
+      "Pull-up": "Pull-up",
+      "Digital planner": "Planner digital",
+      "Sticker pack": "Paket stiker",
+      "Tote bag": "Tas tote",
+      "Mug": "Mug",
+      "Arrive + check in villa": "Tiba + check-in villa",
+      "Ubud rice terraces": "Sawah terasering Ubud",
+      "Snorkel trip": "Snorkeling",
+      "Fast boat": "Fast boat",
+      "Airport pickup 3pm": "Jemput bandara jam 3 sore",
+      "Bring reef-safe sunscreen": "Bawa sunscreen ramah terumbu",
+      "Math": "Matematika",
+      "Physics": "Fisika",
+      "English": "Bahasa Inggris",
+      "History": "Sejarah",
+      "Problem set 4": "Latihan soal 4",
+      "Lab report": "Laporan praktikum",
+      "Essay draft": "Draf esai",
+      "Quiz prep": "Persiapan kuis",
+      "The Wijaya family": "Keluarga Wijaya",
+      "Aunt Sari": "Tante Sari",
+      "Office team": "Tim kantor"
+    },
+    "zh": {
+      "Monthly Budget Planner": "每月预算表",
+      "Freelance Invoice Tracker": "自由职业发票追踪表",
+      "Inventory & Reorder Tracker": "库存与补货表",
+      "Project Task Tracker": "项目任务表",
+      "Sales Pipeline CRM": "销售漏斗 CRM",
+      "Habit Tracker": "习惯打卡表",
+      "Content Calendar": "内容日历",
+      "Weekly Meal Planner": "每周餐单",
+      "Workout Log": "训练日志",
+      "Rental Property P&L": "出租房收支表",
+      "Product Pricing & Profit Calculator": "商品定价与利润计算器",
+      "Trip Itinerary & Budget": "旅行行程与预算",
+      "Study Planner & Grade Tracker": "学习计划与成绩表",
+      "Wedding & Event Guest List": "婚礼与活动宾客名单",
+      "Custom Tracker": "自定义表格",
+      "Plan vs actual spending by category with variance, over-budget flags and a dashboard.": "按类别对比计划与实际支出，显示差额、超支提醒和仪表盘。",
+      "Track invoices, due dates and payments — days overdue are calculated automatically.": "追踪发票、到期日和付款——逾期天数自动计算。",
+      "Stock levels, stock value and automatic reorder alerts per SKU.": "每个 SKU 的库存数量、库存价值和自动补货提醒。",
+      "Tasks with owner, priority, status and due dates — overdue work turns red.": "任务附负责人、优先级、状态和截止日期——逾期任务标红。",
+      "Deals by stage with probability-weighted forecast and next-step dates.": "按阶段管理商机，含按概率加权的预测和下一步日期。",
+      "Track daily habits for the week and see your completion rate at a glance.": "记录一周的每日习惯，一眼看到完成率。",
+      "Plan posts across platforms with status, publish dates and performance.": "跨平台规划内容，含状态、发布日期和数据表现。",
+      "Plan meals, calories and grocery cost for the week.": "规划一周的餐食、热量和买菜花费。",
+      "Log sets, reps and weight; training volume is calculated per exercise.": "记录组数、次数和重量；每个动作的训练量自动计算。",
+      "Bookings, nightly rate, platform fees and net profit per stay.": "每次入住的预订、每晚房价、平台费用和净利润。",
+      "Set prices with marketplace fees and see profit and margin per product.": "结合平台费用定价，查看每件商品的利润和利润率。",
+      "Day-by-day itinerary with bookings and a running trip budget.": "逐日行程，含预订情况和实时旅行预算。",
+      "Assignments, deadlines, study hours and grades in one sheet.": "作业、截止日期、学习时长和成绩集中在一张表里。",
+      "Guests, RSVP status, party size and per-guest cost.": "宾客、回复状态、同行人数和人均费用。",
+      "Category": "类别",
+      "Item": "项目",
+      "Planned": "计划",
+      "Actual": "实际",
+      "Difference": "差额",
+      "Status": "状态",
+      "Invoice #": "发票号",
+      "Client": "客户",
+      "Issued": "开票日",
+      "Due": "到期日",
+      "Amount": "金额",
+      "Paid": "已付",
+      "Days Overdue": "逾期天数",
+      "SKU": "SKU",
+      "Qty": "数量",
+      "Reorder Level": "补货线",
+      "Unit Cost": "单位成本",
+      "Stock Value": "库存价值",
+      "Reorder?": "需补货?",
+      "Task": "任务",
+      "Owner": "负责人",
+      "Priority": "优先级",
+      "Days Left": "剩余天数",
+      "Company": "公司",
+      "Contact": "联系人",
+      "Stage": "阶段",
+      "Deal Value": "商机金额",
+      "Probability": "成交概率",
+      "Weighted": "加权金额",
+      "Next Step": "下一步",
+      "Habit": "习惯",
+      "Mon": "周一",
+      "Tue": "周二",
+      "Wed": "周三",
+      "Thu": "周四",
+      "Fri": "周五",
+      "Sat": "周六",
+      "Sun": "周日",
+      "Score": "完成率",
+      "Title": "标题",
+      "Platform": "平台",
+      "Publish Date": "发布日期",
+      "Views": "浏览量",
+      "Likes": "点赞",
+      "Engagement": "互动率",
+      "Day": "星期",
+      "Meal": "餐次",
+      "Dish": "菜品",
+      "Calories": "热量",
+      "Cost": "费用",
+      "Prepped": "已备好",
+      "Date": "日期",
+      "Exercise": "动作",
+      "Sets": "组数",
+      "Reps": "次数",
+      "Weight (kg)": "重量 (kg)",
+      "Volume": "训练量",
+      "Guest": "宾客",
+      "Check-in": "入住日",
+      "Nights": "晚数",
+      "Nightly Rate": "每晚房价",
+      "Platform Fee %": "平台费率",
+      "Cleaning": "清洁费",
+      "Net Profit": "净利润",
+      "Product": "商品",
+      "Price": "售价",
+      "Fee %": "费率",
+      "Shipping": "运费",
+      "Profit": "利润",
+      "Margin": "利润率",
+      "City": "城市",
+      "Activity": "活动",
+      "Booked": "已预订",
+      "Notes": "备注",
+      "Subject": "科目",
+      "Assignment": "作业",
+      "Hours Planned": "计划时长",
+      "Grade %": "成绩 %",
+      "Side": "所属方",
+      "RSVP": "回复",
+      "Party Size": "人数",
+      "Cost per Head": "人均费用",
+      "Housing": "住房",
+      "Food": "餐饮",
+      "Transport": "交通",
+      "Utilities": "水电",
+      "Fun": "娱乐",
+      "Savings": "储蓄",
+      "Other": "其他",
+      "Over": "超支",
+      "OK": "正常",
+      "Reorder": "补货",
+      "High": "高",
+      "Medium": "中",
+      "Low": "低",
+      "To do": "待办",
+      "In progress": "进行中",
+      "Blocked": "受阻",
+      "Done": "完成",
+      "Lead": "线索",
+      "Contacted": "已联系",
+      "Proposal": "已报价",
+      "Won": "赢单",
+      "Lost": "丢单",
+      "Idea": "想法",
+      "Drafting": "草稿中",
+      "Scheduled": "已排期",
+      "Published": "已发布",
+      "Breakfast": "早餐",
+      "Lunch": "午餐",
+      "Dinner": "晚餐",
+      "Snack": "加餐",
+      "Not started": "未开始",
+      "Studying": "学习中",
+      "Submitted": "已提交",
+      "Bride": "新娘方",
+      "Groom": "新郎方",
+      "Both": "双方",
+      "Pending": "待回复",
+      "Yes": "Yes",
+      "No": "No",
+      "Total planned": "计划总额",
+      "Total spent": "已花总额",
+      "Left to spend": "剩余可花",
+      "Categories over": "超支类别",
+      "Invoiced": "已开票",
+      "Invoices": "发票数",
+      "Unpaid": "未付款",
+      "Worst overdue (days)": "最长逾期 (天)",
+      "Units in stock": "库存件数",
+      "Stock value": "库存价值",
+      "SKUs to reorder": "待补货 SKU",
+      "Tasks": "任务数",
+      "Pipeline value": "漏斗总额",
+      "Weighted forecast": "加权预测",
+      "Deals won": "赢单数",
+      "Habits": "习惯数",
+      "Average score": "平均完成率",
+      "Best habit score": "最佳习惯完成率",
+      "Posts": "内容数",
+      "Total views": "总浏览量",
+      "Meals planned": "已规划餐数",
+      "Total calories": "总热量",
+      "Grocery cost": "买菜花费",
+      "Sessions logged": "已记录次数",
+      "Total volume": "总训练量",
+      "Heaviest lift (kg)": "最大重量 (kg)",
+      "Nights booked": "已订晚数",
+      "Net profit": "净利润",
+      "Average rate": "平均房价",
+      "Products": "商品数",
+      "Average margin": "平均利润率",
+      "Lowest profit": "最低利润",
+      "Trip budget": "旅行预算",
+      "Activities": "活动数",
+      "Still to book": "待预订",
+      "Assignments": "作业数",
+      "Study hours": "学习时长",
+      "Invited parties": "受邀方",
+      "Confirmed": "已确认",
+      "Catering cost": "餐饮费用",
+      "Rows": "行数",
+      "Rent": "房租",
+      "Groceries": "买菜",
+      "Fuel": "油费",
+      "Electricity": "电费",
+      "Streaming": "视频会员",
+      "Emergency fund": "应急金",
+      "T-shirt black M": "黑色 T 恤 M",
+      "T-shirt white L": "白色 T 恤 L",
+      "Logo mug": "logo 马克杯",
+      "Snapback cap": "棒球帽",
+      "Write brief": "写需求文档",
+      "Design mockups": "设计样稿",
+      "Client review": "客户审核",
+      "Fix feedback": "按反馈修改",
+      "Drink 2L water": "喝 2 升水",
+      "Read 20 pages": "读 20 页书",
+      "Workout": "健身",
+      "No phone after 10pm": "晚上 10 点后不看手机",
+      "5 budgeting myths": "5 个预算误区",
+      "Template walkthrough": "模板讲解",
+      "Behind the scenes": "幕后花絮",
+      "Pricing tips thread": "定价技巧长帖",
+      "Overnight oats": "隔夜燕麦",
+      "Chicken rice bowl": "鸡肉饭",
+      "Veggie stir-fry": "清炒时蔬",
+      "Greek yogurt + fruit": "希腊酸奶配水果",
+      "Squat": "深蹲",
+      "Bench press": "卧推",
+      "Deadlift": "硬拉",
+      "Pull-up": "引体向上",
+      "Digital planner": "电子手账",
+      "Sticker pack": "贴纸包",
+      "Tote bag": "帆布袋",
+      "Mug": "马克杯",
+      "Arrive + check in villa": "抵达并入住别墅",
+      "Ubud rice terraces": "乌布梯田",
+      "Snorkel trip": "浮潜之旅",
+      "Fast boat": "快艇",
+      "Airport pickup 3pm": "下午 3 点机场接机",
+      "Bring reef-safe sunscreen": "带上珊瑚友好防晒霜",
+      "Math": "数学",
+      "Physics": "物理",
+      "English": "英语",
+      "History": "历史",
+      "Problem set 4": "习题集 4",
+      "Lab report": "实验报告",
+      "Essay draft": "论文草稿",
+      "Quiz prep": "小测准备",
+      "The Wijaya family": "Wijaya 一家",
+      "Aunt Sari": "Sari 阿姨",
+      "Office team": "公司同事"
+    },
+    "es": {
+      "Monthly Budget Planner": "Planificador de presupuesto mensual",
+      "Freelance Invoice Tracker": "Control de facturas freelance",
+      "Inventory & Reorder Tracker": "Control de inventario y reposición",
+      "Project Task Tracker": "Control de tareas del proyecto",
+      "Sales Pipeline CRM": "CRM de ventas",
+      "Habit Tracker": "Registro de hábitos",
+      "Content Calendar": "Calendario de contenido",
+      "Weekly Meal Planner": "Planificador de comidas semanal",
+      "Workout Log": "Registro de entrenamiento",
+      "Rental Property P&L": "Pérdidas y ganancias del alquiler",
+      "Product Pricing & Profit Calculator": "Calculadora de precios y beneficio",
+      "Trip Itinerary & Budget": "Itinerario y presupuesto del viaje",
+      "Study Planner & Grade Tracker": "Planificador de estudio y notas",
+      "Wedding & Event Guest List": "Lista de invitados de boda y evento",
+      "Custom Tracker": "Registro personalizado",
+      "Plan vs actual spending by category with variance, over-budget flags and a dashboard.": "Gasto previsto frente a real por categoría, con diferencia, avisos de exceso y un panel.",
+      "Track invoices, due dates and payments — days overdue are calculated automatically.": "Controla facturas, vencimientos y pagos: los días de retraso se calculan solos.",
+      "Stock levels, stock value and automatic reorder alerts per SKU.": "Existencias, valor del stock y avisos automáticos de reposición por SKU.",
+      "Tasks with owner, priority, status and due dates — overdue work turns red.": "Tareas con responsable, prioridad, estado y fecha límite: lo atrasado se pone en rojo.",
+      "Deals by stage with probability-weighted forecast and next-step dates.": "Oportunidades por etapa con previsión ponderada por probabilidad y fecha del siguiente paso.",
+      "Track daily habits for the week and see your completion rate at a glance.": "Registra tus hábitos diarios de la semana y ve tu porcentaje de cumplimiento de un vistazo.",
+      "Plan posts across platforms with status, publish dates and performance.": "Planifica publicaciones en varias plataformas con estado, fecha y rendimiento.",
+      "Plan meals, calories and grocery cost for the week.": "Planifica comidas, calorías y el coste de la compra de la semana.",
+      "Log sets, reps and weight; training volume is calculated per exercise.": "Anota series, repeticiones y peso; el volumen se calcula por ejercicio.",
+      "Bookings, nightly rate, platform fees and net profit per stay.": "Reservas, precio por noche, comisiones y beneficio neto por estancia.",
+      "Set prices with marketplace fees and see profit and margin per product.": "Fija precios con las comisiones del marketplace y ve beneficio y margen por producto.",
+      "Day-by-day itinerary with bookings and a running trip budget.": "Itinerario día a día con reservas y el presupuesto del viaje al momento.",
+      "Assignments, deadlines, study hours and grades in one sheet.": "Trabajos, fechas de entrega, horas de estudio y notas en una sola hoja.",
+      "Guests, RSVP status, party size and per-guest cost.": "Invitados, confirmación, número de personas y coste por invitado.",
+      "Category": "Categoría",
+      "Item": "Concepto",
+      "Planned": "Previsto",
+      "Actual": "Real",
+      "Difference": "Diferencia",
+      "Status": "Estado",
+      "Invoice #": "N.º factura",
+      "Client": "Cliente",
+      "Issued": "Emitida",
+      "Due": "Vence",
+      "Amount": "Importe",
+      "Paid": "Pagada",
+      "Days Overdue": "Días de retraso",
+      "SKU": "SKU",
+      "Qty": "Cant.",
+      "Reorder Level": "Nivel de reposición",
+      "Unit Cost": "Coste unitario",
+      "Stock Value": "Valor del stock",
+      "Reorder?": "¿Reponer?",
+      "Task": "Tarea",
+      "Owner": "Responsable",
+      "Priority": "Prioridad",
+      "Days Left": "Días restantes",
+      "Company": "Empresa",
+      "Contact": "Contacto",
+      "Stage": "Etapa",
+      "Deal Value": "Valor del trato",
+      "Probability": "Probabilidad",
+      "Weighted": "Ponderado",
+      "Next Step": "Siguiente paso",
+      "Habit": "Hábito",
+      "Mon": "Lun",
+      "Tue": "Mar",
+      "Wed": "Mié",
+      "Thu": "Jue",
+      "Fri": "Vie",
+      "Sat": "Sáb",
+      "Sun": "Dom",
+      "Score": "Puntuación",
+      "Title": "Título",
+      "Platform": "Plataforma",
+      "Publish Date": "Fecha de publicación",
+      "Views": "Visualizaciones",
+      "Likes": "Me gusta",
+      "Engagement": "Interacción",
+      "Day": "Día",
+      "Meal": "Comida",
+      "Dish": "Plato",
+      "Calories": "Calorías",
+      "Cost": "Coste",
+      "Prepped": "Preparado",
+      "Date": "Fecha",
+      "Exercise": "Ejercicio",
+      "Sets": "Series",
+      "Reps": "Repeticiones",
+      "Weight (kg)": "Peso (kg)",
+      "Volume": "Volumen",
+      "Guest": "Invitado",
+      "Check-in": "Entrada",
+      "Nights": "Noches",
+      "Nightly Rate": "Precio por noche",
+      "Platform Fee %": "Comisión %",
+      "Cleaning": "Limpieza",
+      "Net Profit": "Beneficio neto",
+      "Product": "Producto",
+      "Price": "Precio",
+      "Fee %": "Comisión %",
+      "Shipping": "Envío",
+      "Profit": "Beneficio",
+      "Margin": "Margen",
+      "City": "Ciudad",
+      "Activity": "Actividad",
+      "Booked": "Reservado",
+      "Notes": "Notas",
+      "Subject": "Asignatura",
+      "Assignment": "Trabajo",
+      "Hours Planned": "Horas previstas",
+      "Grade %": "Nota %",
+      "Side": "Lado",
+      "RSVP": "Confirmación",
+      "Party Size": "Personas",
+      "Cost per Head": "Coste por persona",
+      "Housing": "Vivienda",
+      "Food": "Comida",
+      "Transport": "Transporte",
+      "Utilities": "Suministros",
+      "Fun": "Ocio",
+      "Savings": "Ahorro",
+      "Other": "Otros",
+      "Over": "Excedido",
+      "OK": "OK",
+      "Reorder": "Reponer",
+      "High": "Alta",
+      "Medium": "Media",
+      "Low": "Baja",
+      "To do": "Pendiente",
+      "In progress": "En curso",
+      "Blocked": "Bloqueada",
+      "Done": "Hecha",
+      "Lead": "Prospecto",
+      "Contacted": "Contactado",
+      "Proposal": "Propuesta",
+      "Won": "Ganado",
+      "Lost": "Perdido",
+      "Idea": "Idea",
+      "Drafting": "Borrador",
+      "Scheduled": "Programado",
+      "Published": "Publicado",
+      "Breakfast": "Desayuno",
+      "Lunch": "Almuerzo",
+      "Dinner": "Cena",
+      "Snack": "Merienda",
+      "Not started": "Sin empezar",
+      "Studying": "Estudiando",
+      "Submitted": "Entregado",
+      "Bride": "Novia",
+      "Groom": "Novio",
+      "Both": "Ambos",
+      "Pending": "Pendiente",
+      "Yes": "Yes",
+      "No": "No",
+      "Total planned": "Total previsto",
+      "Total spent": "Total gastado",
+      "Left to spend": "Queda por gastar",
+      "Categories over": "Categorías excedidas",
+      "Invoiced": "Facturado",
+      "Invoices": "Facturas",
+      "Unpaid": "Sin pagar",
+      "Worst overdue (days)": "Mayor retraso (días)",
+      "Units in stock": "Unidades en stock",
+      "Stock value": "Valor del stock",
+      "SKUs to reorder": "SKU por reponer",
+      "Tasks": "Tareas",
+      "Pipeline value": "Valor del embudo",
+      "Weighted forecast": "Previsión ponderada",
+      "Deals won": "Tratos ganados",
+      "Habits": "Hábitos",
+      "Average score": "Puntuación media",
+      "Best habit score": "Mejor hábito",
+      "Posts": "Publicaciones",
+      "Total views": "Visualizaciones totales",
+      "Meals planned": "Comidas planificadas",
+      "Total calories": "Calorías totales",
+      "Grocery cost": "Coste de la compra",
+      "Sessions logged": "Sesiones registradas",
+      "Total volume": "Volumen total",
+      "Heaviest lift (kg)": "Mayor peso (kg)",
+      "Nights booked": "Noches reservadas",
+      "Net profit": "Beneficio neto",
+      "Average rate": "Precio medio",
+      "Products": "Productos",
+      "Average margin": "Margen medio",
+      "Lowest profit": "Beneficio más bajo",
+      "Trip budget": "Presupuesto del viaje",
+      "Activities": "Actividades",
+      "Still to book": "Por reservar",
+      "Assignments": "Trabajos",
+      "Study hours": "Horas de estudio",
+      "Invited parties": "Grupos invitados",
+      "Confirmed": "Confirmados",
+      "Catering cost": "Coste del catering",
+      "Rows": "Filas",
+      "Rent": "Alquiler",
+      "Groceries": "Compra",
+      "Fuel": "Gasolina",
+      "Electricity": "Luz",
+      "Streaming": "Streaming",
+      "Emergency fund": "Fondo de emergencia",
+      "T-shirt black M": "Camiseta negra M",
+      "T-shirt white L": "Camiseta blanca L",
+      "Logo mug": "Taza con logo",
+      "Snapback cap": "Gorra snapback",
+      "Write brief": "Redactar el brief",
+      "Design mockups": "Diseñar maquetas",
+      "Client review": "Revisión del cliente",
+      "Fix feedback": "Aplicar comentarios",
+      "Drink 2L water": "Beber 2 L de agua",
+      "Read 20 pages": "Leer 20 páginas",
+      "Workout": "Entrenar",
+      "No phone after 10pm": "Sin móvil después de las 22:00",
+      "5 budgeting myths": "5 mitos del presupuesto",
+      "Template walkthrough": "Recorrido por la plantilla",
+      "Behind the scenes": "Detrás de cámaras",
+      "Pricing tips thread": "Hilo de consejos de precios",
+      "Overnight oats": "Avena remojada",
+      "Chicken rice bowl": "Bol de arroz con pollo",
+      "Veggie stir-fry": "Salteado de verduras",
+      "Greek yogurt + fruit": "Yogur griego con fruta",
+      "Squat": "Sentadilla",
+      "Bench press": "Press de banca",
+      "Deadlift": "Peso muerto",
+      "Pull-up": "Dominadas",
+      "Digital planner": "Agenda digital",
+      "Sticker pack": "Pack de pegatinas",
+      "Tote bag": "Bolsa de tela",
+      "Mug": "Taza",
+      "Arrive + check in villa": "Llegada y check-in en la villa",
+      "Ubud rice terraces": "Arrozales de Ubud",
+      "Snorkel trip": "Excursión de snorkel",
+      "Fast boat": "Barco rápido",
+      "Airport pickup 3pm": "Recogida en el aeropuerto a las 15:00",
+      "Bring reef-safe sunscreen": "Lleva protector solar seguro para el arrecife",
+      "Math": "Matemáticas",
+      "Physics": "Física",
+      "English": "Inglés",
+      "History": "Historia",
+      "Problem set 4": "Ejercicios 4",
+      "Lab report": "Informe de laboratorio",
+      "Essay draft": "Borrador del ensayo",
+      "Quiz prep": "Preparar el examen",
+      "The Wijaya family": "La familia Wijaya",
+      "Aunt Sari": "Tía Sari",
+      "Office team": "Equipo de la oficina"
+    }
+  };
+
+  // words that read differently per blueprint (a rental guest is not a wedding guest)
+  var BLUEPRINT_L10N_OVERRIDES = {"rental": {"es": {"Guest": "Huésped"}, "zh": {"Guest": "房客"}}};
+
+  var CUSTOM_DESCRIPTION = {"id": "Tracker kustom dibuat dari: “{prompt}”.", "zh": "根据“{prompt}”生成的自定义表格。", "es": "Registro personalizado creado a partir de: “{prompt}”."};
+  var TOTAL_LABEL = {"id": "Total {name}", "zh": "{name}合计", "es": "Total {name}"};
+
+  var LANG_WORDS = {
+    en: ["the", "for", "my", "with", "and", "in", "of", "to", "a", "an", "our", "your", "tracker", "track", "list", "planner", "plan", "log", "monthly", "weekly", "daily"],
+    id: ["untuk", "dan", "yang", "dengan", "saya", "aku", "kami", "bulanan", "mingguan", "harian", "keluarga", "anggaran", "toko", "catatan", "daftar", "pengeluaran", "keuangan", "penjualan", "barang", "tugas", "jadwal", "buat", "bikin", "di", "ke", "dari", "ini", "itu", "kebiasaan", "kos"],
+    es: ["para", "mi", "mis", "de", "del", "la", "el", "los", "las", "con", "y", "un", "una", "mensual", "semanal", "diario", "gastos", "presupuesto", "inventario", "tienda", "lista", "registro", "tareas", "clientes", "ventas", "boda", "viaje", "comidas", "plantilla", "quiero", "necesito", "mis"]
+  };
+
+  // "zh" | "id" | "es" | "en", or null when the prompt gives no clue.
+  function detectPromptLang(text) {
+    var t = String(text || "");
+    if (/[\u3400-\u9fff]/.test(t)) {
+      return "zh";
+    }
+    var words = t.toLowerCase().split(/[^a-z\u00e0-\u00ff]+/).filter(Boolean);
+    var score = { en: 0, id: 0, es: 0 };
+    words.forEach(function (w) {
+      Object.keys(LANG_WORDS).forEach(function (lang) {
+        if (LANG_WORDS[lang].indexOf(w) !== -1) {
+          score[lang] += 1;
+        }
+      });
+    });
+    if (/[\u00e1\u00e9\u00ed\u00f3\u00fa\u00f1\u00bf\u00a1]/.test(t)) {
+      score.es += 2;
+    }
+    var best = null;
+    var top = 0;
+    Object.keys(score).forEach(function (lang) {
+      if (score[lang] > top) {
+        best = lang;
+        top = score[lang];
+      } else if (score[lang] === top) {
+        best = top > 0 ? null : best;
+      }
+    });
+    return best;
+  }
+
+  // One blueprint word or sentence in another language ("Habit Tracker" -> "习惯打卡表"); unknown text stays.
+  function templateText(text, lang) {
+    var map = BLUEPRINT_L10N[lang];
+    return map && Object.prototype.hasOwnProperty.call(map, text) ? map[text] : text;
+  }
+
+  function localizeSpec(spec, lang) {
+    var base = BLUEPRINT_L10N[lang];
+    if (!base || !spec || !spec.sheet) {
+      return spec;
+    }
+    var extra = (BLUEPRINT_L10N_OVERRIDES[spec.blueprint] || {})[lang] || {};
+    var map = {};
+    var lowerMap = {};
+    Object.keys(base).concat(Object.keys(extra)).forEach(function (k) {
+      map[k] = Object.prototype.hasOwnProperty.call(extra, k) ? extra[k] : base[k];
+      lowerMap[k.toLowerCase()] = map[k];
+    });
+    // makeColumn title-cases names ("Cost Per Head", "Weight (Kg)"), so match case-insensitively
+    function tr(s) {
+      if (typeof s !== "string") {
+        return s;
+      }
+      if (Object.prototype.hasOwnProperty.call(map, s)) {
+        return map[s];
+      }
+      return Object.prototype.hasOwnProperty.call(lowerMap, s.toLowerCase()) ? lowerMap[s.toLowerCase()] : s;
+    }
+    var columns = spec.sheet.columns;
+    var byLowerName = {};
+    columns.forEach(function (c) {
+      byLowerName[c.name.toLowerCase()] = c.name;
+    });
+    if (spec.blueprint === "custom" && spec.prompt && /^Custom tracker generated from: /.test(spec.description || "")) {
+      spec.description = CUSTOM_DESCRIPTION[lang].replace("{prompt}", clampText(spec.prompt, 120));
+    }
+    spec.title = tr(spec.title);
+    spec.description = tr(spec.description);
+    // values first (they still match the English column names)
+    columns.forEach(function (c) {
+      if (c.options) {
+        c.options = c.options.map(tr);
+      }
+      if (c.type === "formula" && c.formula) {
+        c.formula = c.formula.replace(/"([^"]*)"/g, function (m, lit) {
+          return "\"" + tr(lit) + "\"";
+        });
+      }
+    });
+    spec.sheet.rows.forEach(function (row) {
+      columns.forEach(function (c) {
+        var v = row[c.id];
+        if (typeof v !== "string" || !v) {
+          return;
+        }
+        var numbered = /^(.+) (\d+)$/.exec(v);
+        if (numbered && numbered[1] === c.name && tr(c.name) !== c.name) {
+          row[c.id] = tr(c.name) + " " + numbered[2];
+        } else {
+          row[c.id] = tr(v);
+        }
+      });
+    });
+    spec.rules.forEach(function (r) {
+      if (typeof r.value === "string") {
+        r.value = tr(r.value);
+      }
+    });
+    spec.summary.forEach(function (s) {
+      var total = /^Total (.+)$/.exec(s.label);
+      if (tr(s.label) !== s.label || Object.prototype.hasOwnProperty.call(lowerMap, s.label.toLowerCase())) {
+        s.label = tr(s.label);
+      } else if (total && byLowerName[total[1]]) {
+        s.label = TOTAL_LABEL[lang].replace("{name}", tr(byLowerName[total[1]]));
+      }
+      if (s.match) {
+        s.match = tr(s.match);
+      }
+    });
+    // then the column names, keeping every reference in step
+    columns.forEach(function (c) {
+      var name = tr(c.name);
+      if (name !== c.name) {
+        renameInFormulas(spec, c.name, name);
+        c.name = clampText(name, 40);
+      }
+    });
+    spec.lang = lang;
+    return spec;
+  }
+
   function generate(prompt, options) {
     options = options || {};
     var text = String(prompt || "").trim();
+    var lang = detectPromptLang(text) || options.lang || "en";
+    var words = BLUEPRINT_L10N[lang] || {};
     var currency = detectCurrency(text) || options.currency || "USD";
     var theme = detectTheme(text);
     var ranked = scoreBlueprints(text);
@@ -516,7 +1395,7 @@
 
     if (ranked[0].score > 0) {
       spec = specFromBlueprint(ranked[0].bp, { currency: currency, prompt: text });
-      notes.push("Started from the \u201c" + ranked[0].bp.title + "\u201d blueprint.");
+      notes.push("Started from the \u201c" + (words[ranked[0].bp.title] || ranked[0].bp.title) + "\u201d blueprint.");
     } else {
       var listed = parseListedColumns(text);
       var names = listed.length ? listed : ["Item", "Status", "Date", "Amount", "Notes"];
@@ -563,7 +1442,7 @@
         var t = inferType(pair[1]);
         spec.sheet.columns.push(makeColumn(pair[1], t.type, t));
         existing[pair[1].toLowerCase()] = true;
-        notes.push("Added a \u201c" + pair[1] + "\u201d column.");
+        notes.push("Added a \u201c" + (words[pair[1]] || pair[1]) + "\u201d column.");
       }
     });
     if (theme) {
@@ -572,6 +1451,16 @@
     }
     if (currency !== "USD") {
       notes.push("Currency: " + currency + ".");
+    }
+    if (BLUEPRINT_L10N[lang]) {
+      localizeSpec(spec, lang);
+      if (spec.blueprint === "custom") {
+        // "Registro de mis plantas" reads better than an English "… Tracker" title
+        var head = text.split(/[\uff0c,\u3002.;\uff1b]/)[0].replace(/\s+/g, " ").trim();
+        if (head) {
+          spec.title = clampText(head.charAt(0).toUpperCase() + head.slice(1), 70);
+        }
+      }
     }
     if (quoted) {
       spec.title = clampText(quoted[1], 70);
@@ -1687,6 +2576,9 @@
     blueprintById: blueprintById,
     specFromBlueprint: specFromBlueprint,
     generate: generate,
+    detectPromptLang: detectPromptLang,
+    localizeSpec: localizeSpec,
+    templateText: templateText,
     applyTweak: applyTweak,
     renameColumn: renameColumn,
     makeColumn: makeColumn,

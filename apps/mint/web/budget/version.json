@@ -1,8 +1,9 @@
 {
-  "version": "3.5.1",
+  "version": "3.5.2",
   "released": "2026-11-09",
   "notes": {
     "en": [
+      "Templates come out in your language: a prompt in Indonesian, Chinese or Spanish gives column names, dropdowns, cards and sample rows in that language, with every formula still working.",
       "Links can choose the language: add ?lang=es (or id, zh, en) and Budget, the marketplace and the legal pages open in it, without changing your saved choice.",
       "Templates Studio understands Chinese and Spanish commands, like 添加供应商列 or añade la columna Proveedor.",
       "Live prices in Invest: stocks and ETFs (IDX and US), crypto and gold update from the market. Tap Refresh prices any time; prices you type yourself stay until you refresh.",
@@ -12,6 +13,7 @@
       "Desktop app: opens even without internet the very first time; budgets made offline move online on their own."
     ],
     "id": [
+      "Template kini keluar dalam bahasamu: perintah dalam Bahasa Indonesia, Mandarin, atau Spanyol menghasilkan nama kolom, pilihan, kartu, dan contoh baris dalam bahasa itu, dengan semua rumus tetap berjalan.",
       "Tautan bisa memilih bahasa: tambahkan ?lang=id (atau en, zh, es) dan Budget, marketplace, serta halaman legal terbuka dalam bahasa itu tanpa mengubah pilihan tersimpanmu.",
       "Studio Template kini memahami perintah berbahasa Mandarin dan Spanyol, seperti 添加供应商列 atau añade la columna Proveedor.",
       "Harga live di Investasi: saham dan ETF (BEI dan AS), kripto, dan emas mengikuti pasar. Ketuk Perbarui harga kapan saja; harga yang kamu isi sendiri tetap sampai kamu memperbarui.",
@@ -21,6 +23,7 @@
       "Aplikasi desktop: tetap terbuka tanpa internet sejak pertama kali; anggaran yang dibuat offline pindah ke online dengan sendirinya."
     ],
     "zh": [
+      "模板现在用你的语言生成：用中文、印尼语或西班牙语描述，列名、下拉选项、汇总卡片和示例行都会是该语言，所有公式照常运行。",
       "链接可以指定语言：加上 ?lang=zh（或 en、id、es），预算、市场和法律页面就会以该语言打开，不会改变你保存的设置。",
       "模板工作室现在能听懂中文和西班牙语指令，例如“添加供应商列”或“añade la columna Proveedor”。",
       "投资页实时价格：股票和 ETF（印尼与美股）、加密货币和黄金按市场价更新。随时点“刷新价格”；你手动填写的价格会保留到你刷新为止。",
@@ -30,6 +33,7 @@
       "桌面应用：即使第一次打开时没有网络也能使用；离线创建的预算会在联网后自动同步。"
     ],
     "es": [
+      "Las plantillas salen en tu idioma: una petición en español, chino o indonesio da nombres de columna, listas, tarjetas y filas de ejemplo en ese idioma, y todas las fórmulas siguen funcionando.",
       "Los enlaces pueden elegir el idioma: añade ?lang=es (o en, id, zh) y Budget, el mercado y las páginas legales se abren en ese idioma sin cambiar tu elección guardada.",
       "El estudio de Plantillas entiende órdenes en chino y en español, como «añade la columna Proveedor» o 添加供应商列.",
       "Precios en vivo en Invertir: acciones y ETF (IDX y EE. UU.), cripto y oro se actualizan con el mercado. Toca Actualizar precios cuando quieras; los precios que escribes tú se quedan hasta que actualices.",

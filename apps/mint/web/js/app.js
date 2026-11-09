@@ -424,6 +424,11 @@
     return Core.generate(prompt, { currency: "IDR" }).spec.currency === Core.generate(prompt, { currency: "USD" }).spec.currency;
   }
 
+  // The app language: templates from an unclear prompt ("budget") come out in it (core.js detects the rest).
+  function uiLang() {
+    return window.MintI18n && window.MintI18n.lang ? window.MintI18n.lang() : "en";
+  }
+
   function withRegionCurrency(spec, prompt) {
     var currency = regionCurrency();
     if (currency === "USD" || spec.currency !== "USD" || promptNamesCurrency(prompt)) {
@@ -440,7 +445,7 @@
     }
     var cfg = aiConfig();
     function fallback(err) {
-      var g = Core.generate(prompt, { currency: regionCurrency() });
+      var g = Core.generate(prompt, { currency: regionCurrency(), lang: uiLang() });
       g.notes.unshift("AI unavailable (" + errorMessage(err) + ") \u2014 used the quick generator.");
       return g;
     }
@@ -460,7 +465,7 @@
         return { spec: withRegionCurrency(spec, prompt), notes: notes };
       }).catch(fallback);
     } else {
-      path = Promise.resolve(Core.generate(prompt, { currency: regionCurrency() }));
+      path = Promise.resolve(Core.generate(prompt, { currency: regionCurrency(), lang: uiLang() }));
     }
     return path.then(function (g) {
       draft = { spec: g.spec, templateId: null };
@@ -536,8 +541,10 @@
     if (!draft) {
       view.innerHTML = "<section class=\"narrow\"><h1>Create a template</h1>" + promptBox("studioPrompt", true) +
         "<h2 class=\"mt\">\u2026or start from a blueprint</h2><div class=\"grid\">" + Core.BLUEPRINTS.map(function (bp) {
-          var l = { id: bp.id, title: bp.title, columns: bp.columns.map(function (c) { return c[0]; }), theme: bp.theme };
-          return "<button class=\"lcard asbutton\" data-blueprint=\"" + bp.id + "\">" + thumb(l) + "<div class=\"lbody\"><div class=\"ltitle\">" + esc(bp.title) + "</div><div class=\"lmeta\">" + esc(bp.category) + "</div></div></button>";
+          var lang = uiLang();
+          var title = Core.templateText(bp.title, lang);
+          var l = { id: bp.id, title: title, columns: bp.columns.map(function (c) { return Core.templateText(c[0], lang); }), theme: bp.theme };
+          return "<button class=\"lcard asbutton\" data-blueprint=\"" + bp.id + "\">" + thumb(l) + "<div class=\"lbody\"><div class=\"ltitle\">" + esc(title) + "</div><div class=\"lmeta\">" + esc(bp.category) + "</div></div></button>";
         }).join("") + "</div></section>";
       return;
     }
@@ -723,8 +730,8 @@
     var spec = draft && draft.spec;
     if (b.dataset.blueprint) {
       var bp = Core.blueprintById(b.dataset.blueprint);
-      draft = { spec: Core.specFromBlueprint(bp), templateId: null };
-      tweakLog = [{ who: "mint", text: "Started from the \u201c" + bp.title + "\u201d blueprint." }];
+      draft = { spec: Core.localizeSpec(Core.specFromBlueprint(bp), uiLang()), templateId: null };
+      tweakLog = [{ who: "mint", text: "Started from the \u201c" + draft.spec.title + "\u201d blueprint." }];
       saveDraftLocal();
       viewStudio();
       return;

@@ -119,6 +119,11 @@ API `https://mint-api.juw12.workers.dev/api/health`
   formulas follow the renamed tabs.
 - **Links pick the language (3.5.1).** Add `?lang=en|id|zh|es` to any Mint link (Budget, the marketplace, the
   legal pages) and it opens in that language without changing the reader's saved choice.
+- **Templates in your language (3.5.2).** A prompt in Indonesian, Chinese or Spanish (`anggaran bulanan keluarga`,
+  `网店库存表，绿色`, `Inventario para mi tienda online`) now finds the right blueprint and fills it in that language:
+  title, column names, dropdowns, summary cards, highlight rules and sample rows. Columns are renamed through the
+  formula engine, so every formula, card and rule keeps working (checked for all 14 blueprints × 3 languages). When
+  the prompt gives no clue (`budget`), the app language decides.
 - **Studio understands Chinese and Spanish (3.5.1).** Tweak commands such as `添加供应商列`, `货币 人民币`,
   `añade la columna Proveedor` or `resalta Qty menor que 5 en rojo` now work, as the zh/es screens already
   suggested; colour and currency words in those languages also steer new templates (`网店库存表，绿色` → green).
