@@ -170,6 +170,57 @@ out.plannedActual = budget.sheet.rows.map(function (r) {
   return [r[budget.sheet.columns[2].id], r[budget.sheet.columns[3].id]];
 });
 
+var zh = C.generate("monthly budget in USD").spec;
+var zh0 = zh.sheet.rows.length, zhSum0 = zh.summary.length, zhRule0 = zh.rules.length;
+var zt1 = C.applyTweak(zh, "新增 5 行");
+var zt2 = C.applyTweak(zh, "新增 供应商 列");
+var zt3 = C.applyTweak(zh, "新增一列 备注");
+var zt4 = C.applyTweak(zt2.spec, "删除 供应商 列");
+var zt5 = C.applyTweak(zh, "把 Planned 改成 Budget");
+var zt6 = C.applyTweak(zh, "货币 EUR");
+var zt7 = C.applyTweak(zh, "主题 深色");
+var zt8 = C.applyTweak(zh, "合计 Planned");
+var zt9 = C.applyTweak(zh, "高亮 Planned 低于 0 红色");
+var ztF = C.applyTweak(zh, "新增 差额 列 公式 [Planned]-[Actual]");
+out.zh = {
+  rowsAdded: zt1.spec.sheet.rows.length - zh0,
+  hasGys: zt2.spec.sheet.columns.some(function (c) { return c.name === "供应商"; }),
+  hasNote: zt3.spec.sheet.columns.some(function (c) { return c.name === "备注"; }),
+  gysRemoved: !zt4.spec.sheet.columns.some(function (c) { return c.name === "供应商"; }),
+  renamed: zt5.spec.sheet.columns.map(function (c) { return c.name; }),
+  currency: zt6.spec.currency,
+  theme: zt7.spec.theme,
+  sumAdded: zt8.spec.summary.length - zhSum0,
+  lastSum: zt8.spec.summary[zt8.spec.summary.length - 1],
+  ruleAdded: zt9.spec.rules.length - zhRule0,
+  lastRule: zt9.spec.rules[zt9.spec.rules.length - 1],
+  formula: ztF.spec.sheet.columns.slice(-1)[0]
+};
+var es = C.generate("monthly budget in USD").spec;
+var es0 = es.sheet.rows.length, esSum0 = es.summary.length, esRule0 = es.rules.length;
+var et1 = C.applyTweak(es, "agregar 5 filas");
+var et2 = C.applyTweak(es, "agregar columna Prioridad");
+var et3 = C.applyTweak(es, "renombrar Planned a Presupuesto");
+var et4 = C.applyTweak(es, "eliminar Item");
+var et5 = C.applyTweak(es, "moneda EUR");
+var et6 = C.applyTweak(es, "tema oscuro");
+var et7 = C.applyTweak(es, "suma de Planned");
+var et8 = C.applyTweak(es, "resalta Planned menos que 0 rojo");
+var etT = C.applyTweak(es, "agregar columna Margen como número");
+out.es = {
+  rowsAdded: et1.spec.sheet.rows.length - es0,
+  hasPrio: et2.spec.sheet.columns.some(function (c) { return c.name === "Prioridad"; }),
+  renamed: et3.spec.sheet.columns.map(function (c) { return c.name; }),
+  itemRemoved: !et4.spec.sheet.columns.some(function (c) { return c.name === "Item"; }),
+  currency: et5.spec.currency,
+  theme: et6.spec.theme,
+  sumAdded: et7.spec.summary.length - esSum0,
+  lastSum: et7.spec.summary[et7.spec.summary.length - 1],
+  ruleAdded: et8.spec.rules.length - esRule0,
+  lastRule: et8.spec.rules[et8.spec.rules.length - 1],
+  typedCol: etT.spec.sheet.columns.slice(-1)[0]
+};
+
 function ev(src, vars) {
   return C.evaluate(C.parse(src), function (n) { return vars[n]; });
 }
@@ -232,7 +283,7 @@ def run_js(script):
         handle.write(source)
         script_path = handle.name
     try:
-        result = subprocess.run(command + [script_path], capture_output=True, text=True, timeout=90)
+        result = subprocess.run(command + [script_path], capture_output=True, text=True, encoding="utf-8", timeout=90)
     finally:
         os.unlink(script_path)
     if result.returncode != 0:
@@ -282,6 +333,29 @@ def js_checks():
     check(tweaks["currency"] == "EUR", "'currency EUR'")
     check(tweaks["unknownChanged"] is False, "unknown command changes nothing")
     check(out["diffRows"] == [p[0] - p[1] for p in pairs], "Diff column evaluates per row")
+
+    zh = out["zh"]
+    check(zh["rowsAdded"] == 5, "zh '新增 5 行' adds rows")
+    check(zh["hasGys"] is True, "zh '新增 供应商 列' adds column")
+    check(zh["hasNote"] is True, "zh '新增一列 备注' adds column (一列 form)")
+    check(zh["gysRemoved"] is True, "zh '删除 供应商 列' removes column")
+    check("Budget" in zh["renamed"] and "Planned" not in zh["renamed"], "zh '把 Planned 改成 Budget' renames")
+    check(zh["currency"] == "EUR", "zh '货币 EUR' sets currency")
+    check(zh["theme"] == "midnight", "zh '主题 深色' sets theme")
+    check(zh["sumAdded"] == 1 and zh["lastSum"]["column"] == "Planned" and zh["lastSum"]["fn"] == "SUM", "zh '合计 Planned' adds SUM card")
+    check(zh["ruleAdded"] == 1 and zh["lastRule"]["op"] == "<" and zh["lastRule"]["style"] == "bad", "zh '高亮 … 低于 0 红色' adds red rule")
+    check(zh["formula"]["type"] == "formula" and zh["formula"]["formula"].replace(" ", "") == "[Planned]-[Actual]", "zh formula column added")
+
+    es = out["es"]
+    check(es["rowsAdded"] == 5, "es 'agregar 5 filas' adds rows")
+    check(es["hasPrio"] is True, "es 'agregar columna Prioridad' adds column")
+    check("Presupuesto" in es["renamed"] and "Planned" not in es["renamed"], "es 'renombrar Planned a Presupuesto' renames")
+    check(es["itemRemoved"] is True, "es 'eliminar Item' removes column")
+    check(es["currency"] == "EUR", "es 'moneda EUR' sets currency")
+    check(es["theme"] == "midnight", "es 'tema oscuro' sets theme")
+    check(es["sumAdded"] == 1 and es["lastSum"]["column"] == "Planned" and es["lastSum"]["fn"] == "SUM", "es 'suma de Planned' adds SUM card")
+    check(es["ruleAdded"] == 1 and es["lastRule"]["op"] == "<" and es["lastRule"]["style"] == "bad", "es 'resalta … menos que 0 rojo' adds red rule")
+    check(es["typedCol"]["type"] == "number" and es["typedCol"]["name"] == "Margen", "es 'agregar columna Margen como número' adds number column")
 
     f = out["formulas"]
     check(f["arith"] == 5, "arithmetic precedence")
@@ -403,7 +477,7 @@ def i18n_checks():
         probe_path = handle.name
     try:
         result = subprocess.run(["node", probe_path, os.path.join(WEB, "js", "i18n.js")],
-                                capture_output=True, text=True, timeout=30)
+                                capture_output=True, text=True, encoding="utf-8", timeout=30)
     finally:
         os.unlink(probe_path)
     check(result.returncode == 0, "i18n.js loads outside the browser " + result.stderr[-300:])
@@ -419,6 +493,9 @@ def i18n_checks():
 
 
 def main():
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8")
     static_checks()
     cloud_checks()
     seed_checks()

@@ -230,9 +230,9 @@ apps/mint/web                                          apps/mint/cloud/src/index
   template. Each user gets 20 generations a day, anonymous visitors 5, with a global cap
   (`AI_DAILY_LIMIT`). If AI is busy, the instant rule-based generator takes over. An optional
   bring-your-own OpenAI-compatible model is available under Account.
-- **Studio.** Tweak commands work in English and Indonesian: `add column Supplier`,
-  `tambah kolom Catatan`, `theme midnight`, `currency EUR`, `highlight Qty below 5 red`,
-  `add column Margin = [Price] - [Cost]`. It also includes a safe formula engine (no `eval`),
+- **Studio.** Tweak commands work in English, Indonesian, 中文 and Español: `add column Supplier`,
+  `tambah kolom Catatan`, `新增 供应商 列`, `agregar columna Prioridad`, `theme midnight`,
+  `currency EUR`, `highlight Qty below 5 red`, `add column Margin = [Price] - [Cost]`. It also includes a safe formula engine (no `eval`),
   a real .xlsx writer (Dashboard + Data sheets, 200 ready rows, validation, conditional
   formats), CSV export, a content kit (X, LinkedIn, TikTok, blog/SEO, Pinterest, WhatsApp
   copy plus a share card) and 7 creator guides.

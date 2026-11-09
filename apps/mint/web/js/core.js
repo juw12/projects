@@ -19,14 +19,14 @@
   ];
 
   var THEME_WORDS = {
-    mint: ["mint", "teal", "fresh"],
-    ocean: ["ocean", "blue", "biru", "navy"],
-    sunset: ["sunset", "orange", "oranye", "warm"],
-    lavender: ["lavender", "purple", "ungu", "violet"],
-    blush: ["blush", "pink", "pastel", "cute", "aesthetic", "girly"],
-    forest: ["forest", "green", "hijau", "nature"],
-    mono: ["mono", "minimal", "minimalist", "black and white", "clean", "simple"],
-    midnight: ["midnight", "dark", "gelap", "night"]
+    mint: ["mint", "teal", "fresh", "薄荷", "清新", "menta", "fresco"],
+    ocean: ["ocean", "blue", "biru", "navy", "海洋", "蓝色", "océano", "mar", "azul"],
+    sunset: ["sunset", "orange", "oranye", "warm", "日落", "橙色", "atardecer", "naranja", "cálido"],
+    lavender: ["lavender", "purple", "ungu", "violet", "薰衣草", "紫色", "lavanda", "morado", "violeta"],
+    blush: ["blush", "pink", "pastel", "cute", "aesthetic", "girly", "粉色", "粉嫩", "腮红", "rosa", "tierno"],
+    forest: ["forest", "green", "hijau", "nature", "森林", "绿色", "bosque", "verde"],
+    mono: ["mono", "minimal", "minimalist", "black and white", "clean", "simple", "极简", "黑白", "简约", "minimalista", "monocromo", "limpio"],
+    midnight: ["midnight", "dark", "gelap", "night", "深色", "午夜", "暗色", "medianoche", "oscuro", "noche"]
   };
 
   // scale = rough units per 1 USD, used only to size sample numbers in generated templates.
@@ -56,6 +56,16 @@
   };
 
   var CURRENCY_WORDS = [
+    // Chinese + Spanish currency names (CJK has no \b word boundary; accented latin handled explicitly)
+    [/(美元|美金)/, "USD"],
+    [/人民币/, "CNY"],
+    [/欧元/, "EUR"],
+    [/日元/, "JPY"],
+    [/(韩元|韩币)/, "KRW"],
+    [/英镑/, "GBP"],
+    [/澳元/, "AUD"],
+    [/加元/, "CAD"],
+    [/d[óo]lar(es)?\b/i, "USD"],
     [/\b(idr|rupiah|rp)\b/, "IDR"],
     [/\b(eur|euro|euros)\b|\u20ac/, "EUR"],
     [/\b(gbp|pound|pounds|sterling)\b|\u00a3/, "GBP"],
@@ -162,19 +172,19 @@
 
   function inferType(name) {
     var n = name.toLowerCase();
-    if (/(date|deadline|due|tanggal|start|end|day|tgl)/.test(n)) {
+    if (/(date|deadline|due|tanggal|start|end|day|tgl|日期|时间|截止|到期|开始|结束|fecha|vencimiento|inicio|fin)/.test(n)) {
       return { type: "date" };
     }
-    if (/(price|cost|amount|total|budget|revenue|fee|salary|harga|biaya|jumlah uang|value|income|expense|paid amount|setoran|iuran|gaji|bayar|nominal|modal|omzet|tagihan)/.test(n)) {
+    if (/(price|cost|amount|total|budget|revenue|fee|salary|harga|biaya|jumlah uang|value|income|expense|paid amount|setoran|iuran|gaji|bayar|nominal|modal|omzet|tagihan|金额|价格|成本|费用|预算|收入|工资|总计|precio|costo|total|presupuesto|ingresos|sueldo|gasto)/.test(n)) {
       return { type: "currency" };
     }
-    if (/(%|percent|rate|margin|probability|persen)/.test(n)) {
+    if (/(%|percent|rate|margin|probability|persen|百分比|比率|利率|porcentaje|tasa)/.test(n)) {
       return { type: "percent" };
     }
-    if (/(qty|quantity|count|hours|jam|stok|stock|units|score|minutes|reps|sets|kg|weight|number|nomor)/.test(n)) {
+    if (/(qty|quantity|count|hours|jam|stok|stock|units|score|minutes|reps|sets|kg|weight|number|nomor|数量|计数|次数|小时|库存|conteo|horas|unidades|peso)/.test(n)) {
       return { type: "number" };
     }
-    if (/(done|paid|complete|selesai|lunas|yes\/no|checked)/.test(n)) {
+    if (/(done|paid|complete|selesai|lunas|yes\/no|checked|完成|已完成|是否|勾选|hecho|pagado|completado|revisado)/.test(n)) {
       return { type: "check" };
     }
     for (var key in DEFAULT_OPTIONS) {
@@ -622,9 +632,14 @@
   }
 
   var TYPE_WORDS = {
-    text: "text", teks: "text", number: "number", angka: "number", money: "currency", currency: "currency", uang: "currency",
-    percent: "percent", persen: "percent", date: "date", tanggal: "date", dropdown: "select", select: "select", pilihan: "select",
-    checkbox: "check", check: "check", "yes/no": "check", formula: "formula", rumus: "formula"
+    text: "text", teks: "text", 文本: "text", 文字: "text", 文本框: "text", texto: "text",
+    number: "number", angka: "number", 数字: "number", 数值: "number", número: "number",
+    money: "currency", currency: "currency", uang: "currency", 金额: "currency", 货币: "currency", 货币单位: "currency", moneda: "currency", dinero: "currency",
+    percent: "percent", persen: "percent", 百分比: "percent", 比率: "percent", porcentaje: "percent",
+    date: "date", tanggal: "date", 日期: "date", 时间: "date", fecha: "date",
+    dropdown: "select", select: "select", pilihan: "select", 下拉: "select", 选择: "select", 下拉框: "select", desplegable: "select",
+    checkbox: "check", check: "check", "yes/no": "check", 勾选: "check", 复选: "check", 复选框: "check", casilla: "check",
+    formula: "formula", rumus: "formula", 公式: "formula", fórmula: "formula"
   };
 
   function applyOneTweak(spec, raw) {
@@ -633,7 +648,7 @@
     var m;
 
     // add N rows
-    if ((m = /^(?:add|tambah(?:kan)?)\s+(\d{1,3})\s+(?:rows?|baris)/i.exec(t))) {
+    if ((m = /^(?:add|tambah(?:kan)?|agregar|añadir|新增|增加|添加|加上|加)\s*(\d{1,3})\s*(?:rows?|baris|行|filas?)/i.exec(t))) {
       var n = Math.min(200, parseInt(m[1], 10));
       for (var i = 0; i < n; i++) {
         spec.sheet.rows.push(sampleRow(spec, spec.sheet.rows.length));
@@ -641,24 +656,31 @@
       return "Added " + n + " rows.";
     }
     // add column NAME [as TYPE] [with options a, b] [= formula]
-    if ((m = /^(?:add|tambah(?:kan)?)\s+(?:a\s+|an\s+)?(?:column|kolom|field)\s+(.+)$/i.exec(t))) {
-      var rest = m[1];
+    var rest = null;
+    if ((m = /^(?:add|tambah(?:kan)?|agregar|añadir)\s+(?:a\s+|an\s+|una\s+|un\s+)?(?:column|kolom|field|campos?|columnas?)\s+(.+)$/i.exec(t))) {
+      rest = m[1];
+    } else if ((m = /^(?:添加|新增|增加|加上|加)\s*(?:一\s*)?(?:列|欄|栏|欄位|字段)\s*(.+)$/i.exec(t))) {
+      rest = m[1];
+    } else if ((m = /^(?:添加|新增|增加|加上|加)\s*(?:一个\s*|一列\s*|一栏\s*)?(.+?)\s*(?:列|欄|栏|欄位|字段)\s*(.*)$/i.exec(t))) {
+      rest = m[1] + (m[2] ? " " + m[2] : "");
+    }
+    if (rest !== null) {
       var formula = null;
       var opts = null;
       var type = null;
-      var fm = /\s*(?:=|formula|rumus)\s*(=?.+)$/i.exec(rest);
+      var fm = /\s*(?:=|formula|rumus|公式|fórmula)\s*(=?.+)$/i.exec(rest);
       if (fm && /\[/.test(fm[1])) {
         formula = fm[1].replace(/^=/, "").trim();
         rest = rest.slice(0, fm.index);
       }
-      var om = /\s+(?:with options|options|pilihan)\s*:?\s*(.+)$/i.exec(rest);
+      var om = /\s+(?:with options|options|pilihan|选项|選項|opciones)\s*:?\s*(.+)$/i.exec(rest);
       if (om) {
-        opts = om[1].split(/,|\bor\b|\batau\b|\//).map(function (s) {
+        opts = om[1].split(/,|\bor\b|\batau\b|\bo\b|\by\b|和|与|，|、|\//).map(function (s) {
           return titleCase(s.trim());
         }).filter(Boolean);
         rest = rest.slice(0, om.index);
       }
-      var tm = /\s+(?:as|sebagai|type)\s+(?:a\s+|an\s+)?([a-z/]+)\s*$/i.exec(rest);
+      var tm = /\s+(?:as|sebagai|type|作为|類型|tipo|como)\s+(?:a\s+|an\s+|una\s+|un\s+)?([a-z\u00c0-\u00ff\u4e00-\u9fff/]+)\s*$/i.exec(rest);
       if (tm && TYPE_WORDS[tm[1].toLowerCase()]) {
         type = TYPE_WORDS[tm[1].toLowerCase()];
         rest = rest.slice(0, tm.index);
@@ -693,10 +715,12 @@
       return "Added column \u201c" + col.name + "\u201d (" + col.type + ").";
     }
     // remove column
-    if ((m = /^(?:remove|delete|drop|hapus)\s+(?:the\s+)?(?:column|kolom)?\s*(.+)$/i.exec(t))) {
-      var target = findColumn(spec, m[1]);
+    if ((m = /^(?:remove|delete|drop|hapus)\s+(?:the\s+)?(?:column|kolom)?\s*(.+)$/i.exec(t))
+        || (m = /^(?:删除|移除|去掉|eliminar|quitar|borrar)\s*(?:列\s*|欄\s*|栏\s*|columna\s+|campo\s+)?(.+)$/i.exec(t))) {
+      var targetName = m[1].trim().replace(/^(?:列|欄|栏|欄位|字段)\s*/, "").replace(/\s*(?:列|欄|栏|欄位|字段)$/, "");
+      var target = findColumn(spec, targetName);
       if (!target) {
-        return "No column named \u201c" + m[1].trim() + "\u201d.";
+        return "No column named \u201c" + targetName + "\u201d.";
       }
       spec.sheet.columns = spec.sheet.columns.filter(function (c) {
         return c !== target;
@@ -713,12 +737,12 @@
       return "Removed \u201c" + target.name + "\u201d.";
     }
     // rename template
-    if ((m = /^(?:call it|title|name it|rename (?:the )?(?:template|sheet) to|judul)\s*:?\s+(.+)$/i.exec(t))) {
+    if ((m = /^(?:call it|title|name it|rename (?:the )?(?:template|sheet) to|judul|命名为|标题为|改名为|重命名为|llámalo|título)\s*:?\s+(.+)$/i.exec(t))) {
       spec.title = clampText(m[1].replace(/^["'\u201c]|["'\u201d]$/g, ""), 70);
       return "Renamed the template to \u201c" + spec.title + "\u201d.";
     }
     // rename column
-    if ((m = /^(?:rename|ubah nama|ganti nama)\s+(?:column\s+|kolom\s+)?(.+?)\s+(?:to|jadi|menjadi)\s+(.+)$/i.exec(t))) {
+    if ((m = /^(?:rename|ubah nama|ganti nama|重命名|改名|把|renombrar)\s*(?:column\s+|kolom\s+|columna\s+|campo\s+|列\s*)?(.+?)\s*(?:to|jadi|menjadi|改成|改为|为|\ba\b)\s*(.+)$/i.exec(t))) {
       var col2 = findColumn(spec, m[1]);
       if (!col2) {
         return "No column named \u201c" + m[1] + "\u201d.";
@@ -731,40 +755,40 @@
     }
     // currency
     var cur = detectCurrency(t);
-    if (cur && /(currency|mata uang|in |pakai|use |switch)/.test(lower)) {
+    if (cur && /(currency|mata uang|in |pakai|use |switch|货币|币种|汇率|货币单位|moneda|cambiar a|cambio a)/.test(lower)) {
       var prev = spec.currency;
       convertCurrency(spec, prev, cur);
       return "Currency changed to " + cur + ".";
     }
     // theme
     var th = detectTheme(t);
-    if (th && /(theme|tema|make it|color|colour|warna|style|look|mode)/.test(lower)) {
+    if (th && /(theme|tema|make it|color|colour|warna|style|look|mode|主题|样式|外观|风格|estilo|aspecto)/.test(lower)) {
       spec.theme = th;
       return "Theme set to " + themeById(th).name + ".";
     }
     // total / summary
-    if ((m = /^(?:add\s+)?(total|sum|average|avg|max|min|count)\s+(?:of\s+|for\s+)?(.+)$/i.exec(t))) {
+    if ((m = /^(?:add\s+)?(total|sum|average|avg|max|min|count|合计|总计|求和|平均|最大值|最小值|计数|suma|promedio|máximo|mínimo|contar)\s+(?:of\s+|for\s+|de\s+)?(.+)$/i.exec(t))) {
       var col3 = findColumn(spec, m[2]);
       if (!col3) {
         return "No column named \u201c" + m[2] + "\u201d.";
       }
-      var fnMap = { total: "SUM", sum: "SUM", average: "AVERAGE", avg: "AVERAGE", max: "MAX", min: "MIN", count: "COUNTA" };
+      var fnMap = { total: "SUM", sum: "SUM", average: "AVERAGE", avg: "AVERAGE", max: "MAX", min: "MIN", count: "COUNTA", 合计: "SUM", 总计: "SUM", 求和: "SUM", 平均: "AVERAGE", 最大值: "MAX", 最小值: "MIN", 计数: "COUNTA", suma: "SUM", promedio: "AVERAGE", máximo: "MAX", mínimo: "MIN", contar: "COUNTA" };
       var fn = fnMap[m[1].toLowerCase()];
       spec.summary.push({ id: uid("s"), label: titleCase(m[1]) + " " + col3.name.toLowerCase(), fn: fn, column: col3.name, match: "" });
       return "Added a " + fn + " card for \u201c" + col3.name + "\u201d.";
     }
     // highlight rules: highlight Profit below 0 red
-    if ((m = /^(?:highlight|warnai|flag)\s+(.+?)\s+(below|under|less than|<|above|over|more than|>|equal to|=|is)\s+(.+?)(?:\s+(red|green|yellow|amber|bad|good|warn))?$/i.exec(t))) {
+    if ((m = /^(?:highlight|warnai|flag|高亮|标记|resalta|señala|marca)\s+(.+?)\s+(below|under|less than|<|above|over|more than|>|equal to|=|is|低于|高于|超过|等于|menos que|menor que|m[áa]s que|mayor que|igual a)\s+(.+?)(?:\s+(red|green|yellow|amber|bad|good|warn|红色|绿色|黄色|rojo|verde|amarillo))?$/i.exec(t))) {
       var col4 = findColumn(spec, m[1]);
       if (!col4) {
         return "No column named \u201c" + m[1] + "\u201d.";
       }
       var opWord = m[2].toLowerCase();
-      var op = /below|under|less|</.test(opWord) ? "<" : /above|over|more|>/.test(opWord) ? ">" : "=";
+      var op = /below|under|less|<|低于|小于|menor|menos/.test(opWord) ? "<" : /above|over|more|>|高于|超过|m[áa]s|mayor/.test(opWord) ? ">" : "=";
       var rawValue = m[3].replace(/^["'\u201c]|["'\u201d]$/g, "");
       var value = isNaN(parseFloat(rawValue)) ? rawValue : parseFloat(rawValue);
       var colour = (m[4] || (op === "<" ? "red" : "green")).toLowerCase();
-      var style = /red|bad/.test(colour) ? "bad" : /yellow|amber|warn/.test(colour) ? "warn" : "good";
+      var style = /red|bad|红色|rojo/.test(colour) ? "bad" : /yellow|amber|warn|黄色|amarillo/.test(colour) ? "warn" : "good";
       spec.rules.push({ id: uid("k"), column: col4.name, op: op, value: value, style: style });
       return "Highlight rule added on \u201c" + col4.name + "\u201d.";
     }
@@ -822,7 +846,7 @@
         understood += 1;
         messages.push(msg);
       } else {
-        messages.push("Didn\u2019t understand \u201c" + part + "\u201d. Try: add column Priority \u00b7 remove column Notes \u00b7 rename Cost to Price \u00b7 add 5 rows \u00b7 theme ocean \u00b7 currency IDR \u00b7 total of Amount \u00b7 highlight Profit below 0 red.");
+        messages.push("Didn\u2019t understand \u201c" + part + "\u201d. Try: add column Priority \u00b7 remove column Notes \u00b7 rename Cost to Price \u00b7 add 5 rows \u00b7 theme ocean \u00b7 currency IDR \u00b7 total of Amount \u00b7 highlight Profit below 0 red \u00b7 新增 供应商 列 \u00b7 agregar columna Prioridad. Works in English, Indonesian, 中文 and Español.");
       }
     });
     return { spec: normalize(next), messages: messages, changed: understood > 0 };

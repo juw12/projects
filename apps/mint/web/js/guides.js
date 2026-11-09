@@ -10,8 +10,8 @@
       summary: "Describe it, tweak it with words, check the preview, export.",
       body:
         "<p><strong>1. Describe the job, not the spreadsheet.</strong> \u201cInvoice tracker for freelancers in rupiah, with notes\u201d works better than \u201ca table with 6 columns\u201d. Mint picks the closest blueprint, then applies your currency, theme words (pastel, dark, minimal, green\u2026) and extra columns (priority, owner, notes, deadline, status).</p>" +
-        "<p><strong>2. Tweak with plain commands</strong> \u2014 one per line, English or Bahasa Indonesia:</p>" +
-        "<ul><li><code>add column Priority</code> \u00b7 <code>tambah kolom Catatan</code></li>" +
+        "<p><strong>2. Tweak with plain commands</strong> \u2014 one per line, English, Bahasa Indonesia, 中文 or Español:</p>" +
+        "<ul><li><code>add column Priority</code> \u00b7 <code>tambah kolom Catatan</code> \u00b7 <code>新增 供应商 列</code> \u00b7 <code>agregar columna Prioridad</code></li>" +
         "<li><code>add column Margin = [Profit]/[Price]</code> (formulas use [Column Name])</li>" +
         "<li><code>rename Cost to Price</code> \u00b7 <code>remove column Notes</code> \u00b7 <code>add 10 rows</code></li>" +
         "<li><code>theme ocean</code> \u00b7 <code>make it dark</code> \u00b7 <code>currency IDR</code></li>" +
