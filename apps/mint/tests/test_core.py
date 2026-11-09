@@ -207,6 +207,9 @@ var et6 = C.applyTweak(es, "tema oscuro");
 var et7 = C.applyTweak(es, "suma de Planned");
 var et8 = C.applyTweak(es, "resalta Planned menos que 0 rojo");
 var etT = C.applyTweak(es, "agregar columna Margen como número");
+var et9 = C.applyTweak(es, "quitar la columna Item");
+var et10 = C.applyTweak(es, "modo oscuro");
+var et11 = C.applyTweak(es, "sumar Planned");
 out.es = {
   rowsAdded: et1.spec.sheet.rows.length - es0,
   hasPrio: et2.spec.sheet.columns.some(function (c) { return c.name === "Prioridad"; }),
@@ -218,7 +221,11 @@ out.es = {
   lastSum: et7.spec.summary[et7.spec.summary.length - 1],
   ruleAdded: et8.spec.rules.length - esRule0,
   lastRule: et8.spec.rules[et8.spec.rules.length - 1],
-  typedCol: etT.spec.sheet.columns.slice(-1)[0]
+  typedCol: etT.spec.sheet.columns.slice(-1)[0],
+  itemRemoved2: !et9.spec.sheet.columns.some(function (c) { return c.name === "Item"; }),
+  themeModo: et10.spec.theme,
+  sumAdd2: et11.spec.summary.length - esSum0,
+  lastSum2: et11.spec.summary[et11.spec.summary.length - 1]
 };
 
 var trad = C.generate("monthly budget in USD").spec;
@@ -377,6 +384,9 @@ def js_checks():
     check(es["sumAdded"] == 1 and es["lastSum"]["column"] == "Planned" and es["lastSum"]["fn"] == "SUM", "es 'suma de Planned' adds SUM card")
     check(es["ruleAdded"] == 1 and es["lastRule"]["op"] == "<" and es["lastRule"]["style"] == "bad", "es 'resalta … menos que 0 rojo' adds red rule")
     check(es["typedCol"]["type"] == "number" and es["typedCol"]["name"] == "Margen", "es 'agregar columna Margen como número' adds number column")
+    check(es["itemRemoved2"] is True, "es 'quitar la columna Item' (article) removes column")
+    check(es["themeModo"] == "midnight", "es 'modo oscuro' sets theme (modo trigger)")
+    check(es["sumAdd2"] == 1 and es["lastSum2"]["column"] == "Planned" and es["lastSum2"]["fn"] == "SUM", "es 'sumar Planned' adds SUM card")
 
     trad = out["trad"]
     check(trad["removedItem"] is True, "trad '刪除 Item' removes column")

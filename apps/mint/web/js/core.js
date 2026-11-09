@@ -716,7 +716,7 @@
     }
     // remove column
     if ((m = /^(?:remove|delete|drop|hapus)\s+(?:the\s+)?(?:column|kolom)?\s*(.+)$/i.exec(t))
-        || (m = /^(?:删除|刪除|移除|去掉|eliminar|quitar|borrar)\s*(?:列\s*|欄\s*|栏\s*|columna\s+|campo\s+)?(.+)$/i.exec(t))) {
+        || (m = /^(?:删除|刪除|移除|去掉|eliminar|quitar|borrar)\s*(?:la\s+|el\s+|una\s+|un\s+)?(?:列\s*|欄\s*|栏\s*|columna\s+|campo\s+)?(.+)$/i.exec(t))) {
       var targetName = m[1].trim().replace(/^(?:列|欄|栏|欄位|字段)\s*/, "").replace(/\s*(?:列|欄|栏|欄位|字段)$/, "");
       var target = findColumn(spec, targetName);
       if (!target) {
@@ -762,17 +762,17 @@
     }
     // theme
     var th = detectTheme(t);
-    if (th && /(theme|tema|make it|color|colour|warna|style|look|mode|主题|样式|外观|风格|主題|樣式|外觀|風格|estilo|aspecto)/.test(lower)) {
+    if (th && /(theme|tema|make it|color|colour|warna|style|look|mode|modo|主题|样式|外观|风格|主題|樣式|外觀|風格|estilo|aspecto)/.test(lower)) {
       spec.theme = th;
       return "Theme set to " + themeById(th).name + ".";
     }
     // total / summary
-    if ((m = /^(?:add\s+)?(total|sum|average|avg|max|min|count|合计|总计|求和|平均|最大值|最小值|计数|合計|總計|計數|suma|promedio|máximo|mínimo|contar)\s+(?:of\s+|for\s+|de\s+)?(.+)$/i.exec(t))) {
+    if ((m = /^(?:add\s+)?(total|sum|sumar|average|avg|max|min|count|合计|总计|求和|平均|最大值|最小值|计数|合計|總計|計數|suma|promedio|máximo|mínimo|contar)\s+(?:of\s+|for\s+|de\s+)?(.+)$/i.exec(t))) {
       var col3 = findColumn(spec, m[2]);
       if (!col3) {
         return "No column named \u201c" + m[2] + "\u201d.";
       }
-      var fnMap = { total: "SUM", sum: "SUM", average: "AVERAGE", avg: "AVERAGE", max: "MAX", min: "MIN", count: "COUNTA", 合计: "SUM", 总计: "SUM", 求和: "SUM", 平均: "AVERAGE", 最大值: "MAX", 最小值: "MIN", 计数: "COUNTA", 合計: "SUM", 總計: "SUM", 計數: "COUNTA", suma: "SUM", promedio: "AVERAGE", máximo: "MAX", mínimo: "MIN", contar: "COUNTA" };
+      var fnMap = { total: "SUM", sum: "SUM", average: "AVERAGE", avg: "AVERAGE", max: "MAX", min: "MIN", count: "COUNTA", 合计: "SUM", 总计: "SUM", 求和: "SUM", 平均: "AVERAGE", 最大值: "MAX", 最小值: "MIN", 计数: "COUNTA", 合計: "SUM", 總計: "SUM", 計數: "COUNTA", suma: "SUM", sumar: "SUM", promedio: "AVERAGE", máximo: "MAX", mínimo: "MIN", contar: "COUNTA" };
       var fn = fnMap[m[1].toLowerCase()];
       spec.summary.push({ id: uid("s"), label: titleCase(m[1]) + " " + col3.name.toLowerCase(), fn: fn, column: col3.name, match: "" });
       return "Added a " + fn + " card for \u201c" + col3.name + "\u201d.";
