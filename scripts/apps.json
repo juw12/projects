@@ -2745,6 +2745,49 @@
       "status": "released",
       "order": 1000,
       "portfolio": true
+    },
+    {
+      "id": "mise",
+      "name": "Mise",
+      "category": "Apps",
+      "external": true,
+      "url": "https://juw12.github.io/mise/",
+      "url_label": "Open site",
+      "desc": "A quiet kitchen game: cook at home or run a small restaurant as chef, server or owner, first or third person, with live-synthesised ASMR sound. Plain HTML/JS.",
+      "summary": "A quiet kitchen game with live-synthesised ASMR sound.",
+      "description": "Cook any of 8 recipes at home with no timer, or run a small restaurant as the chef, the server or the owner, in first or third person. Every sound is synthesised live with Web Audio: a different knife sound for each ingredient, tool-specific stirring and a sizzle that follows the heat. Back button, Esc and phone Back go one step up on every screen. Plain HTML, CSS and JavaScript; runs offline from index.html.",
+      "tags": [
+        "Web Audio",
+        "HTML5 game",
+        "ASMR",
+        "JavaScript"
+      ],
+      "note_tags": [
+        "mise",
+        "asmr",
+        "cooking-game",
+        "cozy-game",
+        "game",
+        "html5-game"
+      ],
+      "image": "mise-card.jpg",
+      "image_alt": "Mise title screen: Home kitchen and Restaurant choices beside an illustrated cutting board with cucumber, tomato, egg and chopsticks",
+      "extra_links": [
+        {
+          "label": "Source",
+          "url": "https://github.com/juw12/mise"
+        }
+      ],
+      "card": {
+        "label": "mise · kitchen",
+        "capture": "https://juw12.github.io/mise/",
+        "theme": "light",
+        "accent": "#d5a86f",
+        "accent2": "#7c9e2f"
+      },
+      "status": "released",
+      "order": 61,
+      "portfolio": true
     }
   ]
 }
