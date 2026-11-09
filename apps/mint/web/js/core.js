@@ -87,6 +87,7 @@
     [/\b(brl|reais)\b/, "BRL"],
     [/\b(aed|dirham|dirhams)\b/, "AED"],
     [/\b(php|philippine peso)\b/, "PHP"],
+    [/\b(pesos? mexican\w*|peso mexicano|mexican pesos?)\b/i, "MXN"],
     [/\b(usd|dollar|dollars)\b|\$/, "USD"]
   ];
 
@@ -715,7 +716,7 @@
       return "Added column \u201c" + col.name + "\u201d (" + col.type + ").";
     }
     // remove column
-    if ((m = /^(?:remove|delete|drop|hapus)\s+(?:the\s+)?(?:column|kolom)?\s*(.+)$/i.exec(t))
+    if ((m = /^(?:remove|delete|drop|hapus|buang)\s+(?:the\s+)?(?:column|kolom)?\s*(.+)$/i.exec(t))
         || (m = /^(?:删除|刪除|移除|去掉|eliminar|quitar|borrar)\s*(?:la\s+|el\s+|una\s+|un\s+)?(?:列\s*|欄\s*|栏\s*|columna\s+|campo\s+)?(.+)$/i.exec(t))) {
       var targetName = m[1].trim().replace(/^(?:列|欄|栏|欄位|字段)\s*/, "").replace(/\s*(?:列|欄|栏|欄位|字段)$/, "");
       var target = findColumn(spec, targetName);
@@ -737,7 +738,7 @@
       return "Removed \u201c" + target.name + "\u201d.";
     }
     // rename template
-    if ((m = /^(?:call it|title|name it|rename (?:the )?(?:template|sheet) to|judul|命名为|标题为|改名为|重命名为|llámalo|título)\s*:?\s+(.+)$/i.exec(t))) {
+    if ((m = /^(?:call it|title|name it|rename (?:the )?(?:template|sheet) to|ubah judul (?:jadi|menjadi)|cambia (?:el |la )?t[íi]tulo (?:a|por)|judul|命名为|标题为|改名为|重命名为|llámalo|título)\s*:?\s+(.+)$/i.exec(t))) {
       spec.title = clampText(m[1].replace(/^["'\u201c]|["'\u201d]$/g, ""), 70);
       return "Renamed the template to \u201c" + spec.title + "\u201d.";
     }
@@ -755,14 +756,14 @@
     }
     // currency
     var cur = detectCurrency(t);
-    if (cur && /(currency|mata uang|in |pakai|use |switch|货币|币种|汇率|货币单位|貨幣|幣種|匯率|貨幣單位|moneda|cambiar a|cambio a)/.test(lower)) {
+    if (cur && /(currency|mata uang|in |pakai|use |switch|货币|币种|汇率|货币单位|貨幣|幣種|匯率|貨幣單位|moneda|cambiar a|cambio a|用|usa)/.test(lower)) {
       var prev = spec.currency;
       convertCurrency(spec, prev, cur);
       return "Currency changed to " + cur + ".";
     }
     // theme
     var th = detectTheme(t);
-    if (th && /(theme|tema|make it|color|colour|warna|style|look|mode|modo|主题|样式|外观|风格|主題|樣式|外觀|風格|estilo|aspecto)/.test(lower)) {
+    if (th && /(theme|tema|make it|color|colour|warna|style|look|mode|modo|主题|样式|外观|风格|主題|樣式|外觀|風格|estilo|aspecto|改成|换成|改為|換成)/.test(lower)) {
       spec.theme = th;
       return "Theme set to " + themeById(th).name + ".";
     }

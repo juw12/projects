@@ -248,6 +248,23 @@ out.trad = {
   renamed: tt6.spec.sheet.columns.map(function (c) { return c.name; }),
   hasSup: tt7.spec.sheet.columns.some(function (c) { return c.name === "供應商"; })
 };
+var gap = C.generate("monthly budget in USD").spec;
+var g1 = C.applyTweak(gap, "buang kolom Planned");
+var g2 = C.applyTweak(gap, "ubah judul jadi Anggaranku");
+var g3 = C.applyTweak(gap, "改成蓝色主题");
+var g4 = C.applyTweak(gap, "换成深色主题");
+var g5 = C.applyTweak(gap, "用人民币");
+var g6 = C.applyTweak(gap, "cambia el título a Mi Presupuesto");
+var g7 = C.applyTweak(gap, "usa pesos mexicanos");
+out.gaps = {
+  plannedRemoved: !g1.spec.sheet.columns.some(function (c) { return c.name === "Planned"; }),
+  titleChanged: g2.spec.title,
+  themeBlue: g3.spec.theme,
+  themeDark: g4.spec.theme,
+  currencyCNY: g5.spec.currency,
+  titleEs: g6.spec.title,
+  currencyMXN: g7.spec.currency
+};
 
 function ev(src, vars) {
   return C.evaluate(C.parse(src), function (n) { return vars[n]; });
@@ -396,6 +413,15 @@ def js_checks():
     check(trad["ruleAdded"] == 1 and trad["lastRule"]["op"] == "<" and trad["lastRule"]["style"] == "bad", "trad '高亮 … 低於 0 紅色' adds red rule")
     check("Budget" in trad["renamed"] and "Planned" not in trad["renamed"], "trad '把 Planned 改為 Budget' renames")
     check(trad["hasSup"] is True, "trad '新增 供應商 欄' adds column")
+
+    gaps = out["gaps"]
+    check(gaps["plannedRemoved"] is True, "id 'buang kolom Planned' removes column")
+    check(gaps["titleChanged"] == "Anggaranku", "id 'ubah judul jadi Anggaranku' renames template")
+    check(gaps["themeBlue"] == "ocean", "zh '改成蓝色主题' sets ocean theme")
+    check(gaps["themeDark"] == "midnight", "zh '换成深色主题' sets midnight theme")
+    check(gaps["currencyCNY"] == "CNY", "zh '用人民币' sets CNY")
+    check(gaps["titleEs"] == "Mi Presupuesto", "es 'cambia el título a Mi Presupuesto' renames template")
+    check(gaps["currencyMXN"] == "MXN", "es 'usa pesos mexicanos' sets MXN")
 
     f = out["formulas"]
     check(f["arith"] == 5, "arithmetic precedence")
