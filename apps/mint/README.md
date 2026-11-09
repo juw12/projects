@@ -117,6 +117,8 @@ API `https://mint-api.juw12.workers.dev/api/health`
 - **Privacy and Terms in four languages,** with a switcher; English prevails if they ever differ.
 - **Localized spreadsheets.** Downloaded .xlsx files name their tabs, headers and tips in your language, and the
   formulas follow the renamed tabs.
+- **Links pick the language (3.5.1).** Add `?lang=en|id|zh|es` to any Mint link (Budget, the marketplace, the
+  legal pages) and it opens in that language without changing the reader's saved choice.
 - **Desktop works offline from the first launch.** The Windows and macOS apps carry a copy of Mint and open it from
   the computer when there is no internet; budgets made offline move into the online app the next time it connects.
 

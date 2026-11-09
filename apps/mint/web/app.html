@@ -21,7 +21,7 @@
       if (/[?&](embed|standalone)=1(&|$)/.test(q)) return;
       var inParams = new URLSearchParams(q);
       var out = new URLSearchParams();
-      ['ref', 'coupon', 'api'].forEach(function (k) {
+      ['ref', 'coupon', 'api', 'lang'].forEach(function (k) {
         if (inParams.get(k)) out.set(k, inParams.get(k));
       });
       out.set('view', 'market');

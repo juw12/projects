@@ -30,7 +30,7 @@ import time
 import urllib.request
 import webbrowser
 
-VERSION = "3.5.0"
+VERSION = "3.5.1"
 TITLE = "Mint"
 APP_URL = os.environ.get("MINT_DESKTOP_URL") or "https://juw12.github.io/projects/mint/"
 DEFAULT_SIZE = (1280, 860)

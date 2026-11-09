@@ -772,6 +772,11 @@
   // ---------------------------------------------------------------- state
   function detect() {
     try {
+      // A shared link can pick the language (?lang=es), like Budget and the legal pages; it is not saved.
+      var fromUrl = new URLSearchParams(root.location.search).get("lang");
+      if (fromUrl && LANGS[fromUrl]) {
+        return fromUrl;
+      }
       var saved = localStorage.getItem(KEY);
       if (saved) {
         return LANGS[saved] ? saved : "en";
