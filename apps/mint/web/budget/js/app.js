@@ -1633,6 +1633,7 @@
     if (S.investTab === 'tips') return investTabs() + viewInvestTips(st);
     if (S.investTab === 'news') return investTabs() + viewNews();
     const pf = K.portfolio(S.book);
+    autoRefreshPrices();
     const target = S.book.meta.target || K.targetFor(S.profile.traits ? S.profile.traits.risk : 50);
     const suggested = K.targetFor(S.profile.traits ? S.profile.traits.risk : NaN);
     const investCat = st.rows.find((r) => r.cat.group === 'invest');
@@ -1647,8 +1648,11 @@
       '</div>';
     const classOpts = (sel) => Object.keys(K.ASSET_CLASSES).map((k) => '<option value="' + k + '"' + (sel === k ? ' selected' : '') + '>' + esc(K.ASSET_CLASSES[k].label) + '</option>').join('');
     const holdings =
-      '<div class="card"><div class="card-head"><h3>Holdings</h3><button class="btn btn-soft btn-sm" data-act="voice-trade">' + icon('mic', 16) + ' Say a trade</button></div>' +
+      '<div class="card"><div class="card-head"><h3>Holdings</h3><div class="row-gap holdings-actions">' +
+      '<button class="btn btn-ghost btn-sm" data-act="refresh-prices"' + (S.quoteBusy ? ' disabled aria-busy="true"' : '') + '>' + icon('refresh', 16) + ' <span>' + (S.quoteBusy ? 'Updating…' : 'Refresh prices') + '</span></button>' +
+      '<button class="btn btn-soft btn-sm" data-act="voice-trade">' + icon('mic', 16) + ' Say a trade</button></div></div>' +
       '<p class="muted small">' + esc(K.t('Prices are in each holding’s currency; values are converted to {cur}.', { cur: cur() })) + '</p>' +
+      quoteStatus() +
       '<div class="sheet-scroll"><table class="grid-table holdings">' +
       '<thead><tr><th>Symbol</th><th>Name</th><th>Class</th><th>Currency</th><th class="num">Qty</th><th class="num">Avg cost</th><th class="num">Price</th><th class="num">Value</th><th class="num">Gain</th><th></th></tr></thead><tbody>' +
       pf.rows
@@ -1661,7 +1665,7 @@
             '<td><select class="cur-sel" data-k="holdings:' + esc(h.id) + ':cur" aria-label="Currency" translate="no">' + currencyOptions(h.cur || cur()) + '</select></td>' +
             '<td class="num"><input data-k="holdings:' + esc(h.id) + ':qty" inputmode="decimal" value="' + esc(h.qty) + '" aria-label="Quantity"></td>' +
             '<td class="num"><input data-k="holdings:' + esc(h.id) + ':cost" inputmode="decimal" value="' + esc(K.fmtPlain(h.cost, h.cur || cur())) + '" aria-label="Average cost"></td>' +
-            '<td class="num"><input data-k="holdings:' + esc(h.id) + ':price" inputmode="decimal" value="' + esc(K.fmtPlain(h.price, h.cur || cur())) + '" aria-label="Price"></td>' +
+            '<td class="num' + (h.priceSrc && !h.priceManual ? ' is-live' : '') + '"><input data-k="holdings:' + esc(h.id) + ':price" inputmode="decimal" value="' + esc(K.fmtPlain(h.price, h.cur || cur())) + '" aria-label="Price"' + priceTitle(h) + '></td>' +
             '<td class="num"><b>' + esc(fmt(h.value)) + '</b></td>' +
             '<td class="num ' + (h.pl >= 0 ? 'pos' : 'neg') + '">' + (h.pl >= 0 ? '+' : '') + esc(fmt(h.pl, true)) + '<small> ' + (h.plPct * 100).toFixed(1) + '%</small></td>' +
             '<td><button class="icon-btn icon-sm" data-act="del" data-c="holdings" data-id="' + esc(h.id) + '" aria-label="Remove holding">' + icon('trash', 16) + '</button></td></tr>'
@@ -2002,6 +2006,92 @@
     const rc = regionCurrency();
     if (!rc || rc === cur()) return '';
     return '<p class="fx-alt muted small">≈ ' + esc(K.fmt(K.convert(amount, cur(), rc), rc)) + ' <span translate="no">' + rc + '</span></p>';
+  }
+
+  // ================================================================ live prices
+  // Stocks/ETFs, crypto and gold get market prices from the Mint API (/api/quote, edge-cached 15 min).
+  // Opening Invest refreshes them at most every 4 hours; "Refresh prices" fetches now and also overrides
+  // prices typed by hand. Bonds, funds and cash keep the price you enter.
+  const QUOTE_EVERY = 4 * 3600 * 1000;
+  function quoteStore() {
+    return store.get('mint.quotes.' + S.book.id, null) || {};
+  }
+  function quoteTime(at) {
+    if (!at) return '';
+    try {
+      return new Date(at).toLocaleString(document.documentElement.lang || undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+    } catch (e) {
+      return new Date(at).toISOString().slice(0, 16).replace('T', ' ');
+    }
+  }
+  function priceTitle(h) {
+    if (h.priceManual || !h.priceSrc) return ' title="' + esc(K.t('Price you entered')) + '"';
+    return ' title="' + esc(K.t('Live price: {source}, {time}', { source: h.priceSrc, time: quoteTime((h.priceAt || 0) * 1000) })) + '"';
+  }
+  function quoteStatus() {
+    if (S.quoteBusy) return '<p class="quote-status muted small" role="status">' + esc(K.t('Fetching live prices…')) + '</p>';
+    const last = quoteStore();
+    const has = K.list(S.book, 'holdings').some((h) => K.quoteKey(h));
+    if (!has) return '<p class="quote-status muted small">' + esc(K.t('Stocks, ETFs, crypto and gold update from the market automatically; bonds and funds keep the price you enter.')) + '</p>';
+    if (!last.at) return '<p class="quote-status muted small">' + esc(K.t('Live prices for stocks, ETFs, crypto and gold — tap Refresh prices.')) + '</p>';
+    return (
+      '<p class="quote-status muted small"><span class="live-dot" aria-hidden="true"></span>' +
+      esc(last.ok ? K.t('Live prices updated {time}', { time: quoteTime(last.at) }) : K.t('Couldn’t reach live prices ({time}); showing the last ones.', { time: quoteTime(last.at) })) +
+      '</p>'
+    );
+  }
+  function autoRefreshPrices() {
+    if (!S.book || S.quoteBusy || !navigator.onLine) return;
+    const last = quoteStore();
+    if (last.at && Date.now() - last.at < QUOTE_EVERY) return;
+    if (!K.quoteRequests(S.book).length) return;
+    setTimeout(() => refreshPrices(false), 0);
+  }
+  function refreshPrices(force) {
+    if (!S.book || S.quoteBusy) return Promise.resolve(0);
+    const book = S.book;
+    const reqs = K.quoteRequests(book, { force: force });
+    if (!reqs.length) {
+      if (force) toast({ tone: 'warn', title: 'Nothing to price yet', body: 'Live prices cover stocks, ETFs, crypto and gold. Add a holding with its ticker, e.g. BBCA, AAPL or BTC.' });
+      return Promise.resolve(0);
+    }
+    S.quoteBusy = true;
+    scheduleRender();
+    const ask = (r) =>
+      fetch(apiUrl('quote?q=' + encodeURIComponent(r.keys.join(',')) + (r.region ? '&region=' + r.region : '')))
+        .then((res) => (res.ok ? res.json() : null))
+        .catch(() => null);
+    return Promise.all(reqs.map(ask)).then((replies) => {
+      S.quoteBusy = false;
+      const answers = {};
+      let ok = false;
+      let missing = [];
+      reqs.forEach((r, i) => {
+        const reply = replies[i];
+        if (!reply) return;
+        ok = true;
+        answers[r.region] = reply.quotes || {};
+        missing = missing.concat(reply.missing || []);
+      });
+      if (S.book !== book) return 0;
+      store.set('mint.quotes.' + book.id, { at: Date.now(), ok: ok });
+      const updates = ok ? K.priceUpdates(book, answers, { force: force }) : [];
+      if (updates.length) commit(updates.map((u) => put('holdings', u)), true);
+      else scheduleRender();
+      if (force) {
+        if (!ok) toast({ tone: 'warn', title: 'Live prices are unreachable', body: 'Check your connection; your prices stay as they are.' });
+        else {
+          const names = missing.map((k) => k.split(':')[1]).slice(0, 4).join(', ');
+          toast({
+            tone: 'good',
+            icon: '📈',
+            title: K.t('Updated {n} prices', { n: updates.length }),
+            body: names ? K.t('No market price for {names}; keep typing those.', { names: names }) : K.t('Values and drift now use today’s prices.'),
+          });
+        }
+      }
+      return updates.length;
+    });
   }
 
   // ================================================================ invest: learn, tips, news
@@ -2563,7 +2653,9 @@
       '<button class="pref-link hide-sm" data-act="shortcuts">' + icon('keyboard', 18) + '<span>Keyboard shortcuts</span><kbd translate="no">?</kbd></button>' +
       '</div>' +
       updatesCard() +
-      '<div class="card"><div class="card-head"><h3>Your data</h3></div><p class="muted small">' + (window.MintCloud && window.MintCloud.signedIn() ? 'Saved on this device and synced, encrypted, to your account. Export a backup any time.' : 'Everything lives in this browser. Export a backup any time.') + '</p><div class="row-gap">' +
+      '<div class="card"><div class="card-head"><h3>Your data</h3></div><p class="muted small">' + (window.MintCloud && window.MintCloud.signedIn() ? 'Saved on this device and synced, encrypted, to your account. Export a backup any time.' : 'Everything lives in this browser. Export a backup any time.') + '</p>' +
+      dataSafetyNote() +
+      '<div class="row-gap">' +
       '<button class="btn btn-soft" data-act="export-json">' + icon('download', 16) + ' Backup (JSON)</button>' +
       '<button class="btn btn-soft" data-act="import-json">' + icon('upload', 16) + ' Restore backup</button>' +
       '<button class="btn btn-soft" data-act="export-csv-all">' + icon('download', 16) + ' All transactions (CSV)</button>' +
@@ -3407,6 +3499,53 @@
     const copy = JSON.parse(JSON.stringify(S.book));
     delete copy.room;
     download('mint-backup-' + S.book.meta.name.replace(/[^\w-]+/g, '-').toLowerCase() + '-' + K.today() + '.json', JSON.stringify({ mint: 1, exportedAt: new Date().toISOString(), book: copy }, null, 1), 'application/json');
+    store.set(BACKUP_KEY, Date.now());
+  }
+
+  // ================================================================ data safety
+  // Ask the browser to keep Mint's storage (exempt from "clear when space is low"), remember when the last
+  // backup was made, and nudge people who neither sync nor back up once their budget holds real history.
+  const BACKUP_KEY = 'mint.backup.at';
+  const BACKUP_NUDGE_KEY = 'mint.backup.nudged';
+  const DAY_MS = 86400000;
+  function requestPersistence() {
+    const sm = navigator.storage;
+    if (!sm || !sm.persisted || !sm.persist) {
+      S.persisted = null;
+      return;
+    }
+    sm.persisted()
+      .then((already) => already || sm.persist())
+      .then((granted) => {
+        S.persisted = !!granted;
+      })
+      .catch(() => {
+        S.persisted = null;
+      });
+  }
+  function dataSafetyNote() {
+    const last = Number(store.get(BACKUP_KEY, 0)) || 0;
+    const kept = S.persisted === true ? K.t('This browser keeps Mint’s data even when space runs low.') : S.persisted === false ? K.t('This browser may clear site data when space runs low — sync or back up.') : '';
+    const backup = last ? K.t('Last backup: {date}', { date: new Date(last).toLocaleDateString(document.documentElement.lang || undefined) }) : K.t('No backup yet.');
+    return '<p class="muted small data-safety">' + esc((kept ? kept + ' ' : '') + backup) + '</p>';
+  }
+  function maybeBackupNudge() {
+    if (!S.book || /^demo-/.test(S.book.id)) return;
+    if (window.MintCloud && window.MintCloud.signedIn()) return;
+    const txns = K.list(S.book, 'txns').length;
+    if (txns < 25) return;
+    const now = Date.now();
+    const last = Number(store.get(BACKUP_KEY, 0)) || 0;
+    const nudged = Number(store.get(BACKUP_NUDGE_KEY, 0)) || 0;
+    if (now - last < 30 * DAY_MS || now - nudged < 7 * DAY_MS) return;
+    store.set(BACKUP_NUDGE_KEY, now);
+    toast({
+      tone: 'warn',
+      icon: '🛟',
+      title: 'Keep your budget safe',
+      body: K.t('{n} transactions live only in this browser. Turn on sync in Settings or save a backup.', { n: txns }),
+      action: { label: 'Back up now', fn: exportJSON },
+    });
   }
   function importJSON(text) {
     let data;
@@ -3486,6 +3625,8 @@
     }
     const rec = { id: id };
     rec[field] = v;
+    // A price typed by hand wins over live prices until the user taps "Refresh prices".
+    if (coll === 'holdings' && field === 'price') rec.priceManual = true;
     commit(put(coll, rec));
   }
 
@@ -4053,6 +4194,8 @@
         return goalAdd(el.dataset.id);
       case 'voice-trade':
         return openTradeVoice();
+      case 'refresh-prices':
+        return refreshPrices(true);
       case 'add-holding':
         return addHolding();
       case 'preset': {
@@ -4488,6 +4631,7 @@
   // ================================================================ boot
   function boot() {
     loadRates();
+    requestPersistence();
     setupCloud();
     const returning = !!(S.profile && S.books.length);
     const join = K.parseJoin(location.hash);
@@ -4527,6 +4671,7 @@
     if (resume && resume.y) requestAnimationFrame(() => window.scrollTo(0, resume.y));
     const justUpdated = setupUpdates(returning);
     if (S.book && !justUpdated) setTimeout(() => maybeTipToast(K.monthStats(S.book, S.month)), 2500);
+    if (S.book && !justUpdated) setTimeout(maybeBackupNudge, 9000);
     if ('serviceWorker' in navigator && location.protocol === 'https:') {
       navigator.serviceWorker
         .register('sw.js')

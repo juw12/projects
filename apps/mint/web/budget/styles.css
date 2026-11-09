@@ -1196,3 +1196,9 @@ h1, h2, h3, h4 { font-weight: 650; letter-spacing: -0.015em; }
 .qa-mic.is-busy { opacity: .6; animation: qa-mic-pulse 1s ease-in-out infinite; }
 @keyframes qa-mic-pulse { 50% { transform: scale(.92); } }
 @media (prefers-reduced-motion: reduce) { .qa-mic, .qa-mic.is-busy { animation: none; transition: none; } }
+
+/* 3.5 live prices */
+.holdings-actions { gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.quote-status { display: flex; align-items: center; gap: 6px; margin-top: -4px; }
+.live-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--good, #1f9d55); flex: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--good, #1f9d55) 22%, transparent); }
+.grid-table.holdings td.is-live input { box-shadow: inset 2px 0 0 var(--good, #1f9d55); }

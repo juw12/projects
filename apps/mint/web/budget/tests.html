@@ -193,6 +193,51 @@
         check('tips include persona tips', tips.filter((t) => t.kind === 'persona').length === 6);
         check('tips include data tips', tips.filter((t) => t.kind === 'data').length >= 1);
 
+
+        // ---------------------------------------------------------- live prices (3.5)
+        const qb = K.newBook({ currency: 'IDR' });
+        const hBBCA = K.put(qb, 'holdings', { symbol: 'bbca', name: 'Bank Central Asia', cls: 'stocks', qty: 100, cost: 8000, price: 8000 }, 'me').id;
+        const hAAPL = K.put(qb, 'holdings', { symbol: 'AAPL', name: 'Apple', cls: 'stocks', cur: 'USD', qty: 2, cost: 200, price: 200 }, 'me').id;
+        const hBTC = K.put(qb, 'holdings', { symbol: 'BTC', name: 'Bitcoin', cls: 'crypto', qty: 0.01, cost: 1e9, price: 1e9 }, 'me').id;
+        const hGold = K.put(qb, 'holdings', { symbol: 'ANTAM', name: 'Gold (grams)', cls: 'gold', qty: 10, cost: 1.5e6, price: 1.5e6 }, 'me').id;
+        const hBond = K.put(qb, 'holdings', { symbol: 'ORI025', name: 'Retail bond', cls: 'bonds', qty: 1, cost: 1e6, price: 1e6 }, 'me').id;
+        const hMine = K.put(qb, 'holdings', { symbol: 'TLKM', name: 'Telkom', cls: 'stocks', qty: 1, cost: 3000, price: 3100, priceManual: true }, 'me').id;
+        eq('quote key: stock', K.quoteKey(qb.holdings[hBBCA]), 'stock:BBCA');
+        eq('quote key: gold', K.quoteKey(qb.holdings[hGold]), 'gold:XAU');
+        eq('quote key: bonds have no market price', K.quoteKey(qb.holdings[hBond]), '');
+        eq('gold held in grams', K.goldUnit(qb.holdings[hGold]), 'g');
+        eq('gold in ounces', K.goldUnit({ name: 'Gold 1 oz coin', symbol: 'XAU' }), 'oz');
+        const qreq = K.quoteRequests(qb);
+        const idReq = qreq.find((r) => r.region === 'ID');
+        const usReq = qreq.find((r) => r.region === '');
+        check('IDR holdings ask with region ID', idReq && idReq.keys.indexOf('stock:BBCA') >= 0 && idReq.keys.indexOf('crypto:BTC') >= 0, JSON.stringify(qreq));
+        check('USD holdings ask without region', usReq && usReq.keys.join() === 'stock:AAPL', JSON.stringify(qreq));
+        check('manual prices are skipped on auto refresh', idReq.keys.indexOf('stock:TLKM') < 0);
+        check('refresh button includes manual prices', K.quoteRequests(qb, { force: true }).find((r) => r.region === 'ID').keys.indexOf('stock:TLKM') >= 0);
+        const answers = {
+          ID: {
+            'stock:BBCA': { price: 9875, currency: 'IDR', at: 1761696000, source: 'Yahoo Finance' },
+            'crypto:BTC': { price: 100000, currency: 'USD', at: 1761696000, source: 'CoinGecko' },
+            'gold:XAU': { price: 3110.35, perGram: 100, currency: 'USD', at: 1761696000, source: 'CoinGecko (PAX Gold)' },
+            'stock:TLKM': { price: 3500, currency: 'IDR', at: 1761696000, source: 'Yahoo Finance' },
+          },
+          '': { 'stock:AAPL': { price: 230.5, currency: 'USD', at: 1761696000, source: 'Yahoo Finance' } },
+        };
+        const ups = K.priceUpdates(qb, answers);
+        const upOf = (id) => ups.find((u) => u.id === id);
+        eq('IDX price stays in rupiah', upOf(hBBCA).price, 9875);
+        eq('US stock stays in dollars', upOf(hAAPL).price, 230.5);
+        eq('crypto converted into the holding currency', upOf(hBTC).price, K.roundPrice(100000 * K.rate('USD', 'IDR'), 'IDR'));
+        eq('gold priced per gram', upOf(hGold).price, K.roundPrice(100 * K.rate('USD', 'IDR'), 'IDR'));
+        check('bonds and manual prices untouched', !upOf(hBond) && !upOf(hMine));
+        eq('source recorded', upOf(hBTC).priceSrc, 'CoinGecko');
+        const forced = K.priceUpdates(qb, answers, { force: true });
+        const tl = forced.find((u) => u.id === hMine);
+        check('refresh clears the manual flag', tl && tl.price === 3500 && tl.priceManual === false, JSON.stringify(tl));
+        eq('tiny prices keep 6 significant digits', K.roundPrice(0.0000123456789, 'USD'), 0.0000123457);
+        ups.forEach((u) => K.put(qb, 'holdings', u, 'me'));
+        eq('no churn when prices are unchanged', K.priceUpdates(qb, answers).length, 0);
+
         // ---------------------------------------------------------- crypto
         const keyStr = K.newRoomKey();
         const key = await K.importRoomKey(keyStr);
