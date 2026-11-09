@@ -3,7 +3,7 @@
 var CACHE = "mint-v3.4.1";
 var SHELL = [
   "./", "index.html", "app.html", "web.html", "mobile.html", "privacy.html", "terms.html", "delete-account.html", "app.css",
-  "js/locale.js", "js/mint-cloud.js", "js/core.js", "js/xlsx.js", "js/guides.js", "js/store.js", "js/i18n.js", "js/app.js",
+  "js/locale.js", "js/mint-cloud.js", "js/core.js", "js/xlsx.js", "js/guides.js", "js/store.js", "js/i18n-more.js", "js/i18n.js", "js/app.js",
   "data/seed.json", "manifest.webmanifest", "icons/app-icon.svg", "icons/icon-192.png",
   "icons/icon-512.png", "icons/apple-touch-icon.png"
 ];
