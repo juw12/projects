@@ -25,8 +25,8 @@
     lavender: ["lavender", "purple", "ungu", "violet", "紫", "薰衣草", "morado", "lavanda"],
     blush: ["blush", "pink", "pastel", "cute", "aesthetic", "girly", "粉", "rosa", "rosado"],
     forest: ["forest", "green", "hijau", "nature", "绿", "森林", "verde", "bosque"],
-    mono: ["mono", "minimal", "minimalist", "black and white", "clean", "simple", "简约", "极简", "黑白", "minimalista"],
-    midnight: ["midnight", "dark", "gelap", "night", "深色", "暗色", "午夜", "oscuro"]
+    mono: ["mono", "minimal", "minimalist", "black and white", "clean", "simple", "简约", "极简", "黑白", "minimalista", "monocromo", "blanco y negro", "hitam putih"],
+    midnight: ["midnight", "dark", "gelap", "tengah malam", "night", "深色", "暗色", "午夜", "oscuro", "medianoche"]
   };
 
   // scale = rough units per 1 USD, used only to size sample numbers in generated templates.
@@ -1609,11 +1609,15 @@
     return n.replace(/\s*(?:列|栏|字段)$/, "").replace(/^(?:列|栏|字段)\s*/, "").trim() || n;
   }
 
+  var ZH_NUMBERS = { "一": 1, "两": 2, "二": 2, "三": 3, "四": 4, "五": 5, "六": 6, "七": 7, "八": 8, "九": 9, "十": 10 };
+  var ES_NUMBERS = { un: 1, una: 1, otra: 1, dos: 2, tres: 3, cuatro: 4, cinco: 5, seis: 6, siete: 7, ocho: 8, nueve: 9, diez: 10 };
+  var ID_NUMBERS = { satu: 1, se: 1, dua: 2, tiga: 3, empat: 4, lima: 5, enam: 6, tujuh: 7, delapan: 8, sembilan: 9, sepuluh: 10 };
+
   function zhTweak(spec, text) {
     var s = text.replace(/：/g, ":").replace(/[，、]/g, ",").replace(/＝/g, "=").trim();
     var m;
-    if ((m = /^(?:添加|新增|增加|加上?)\s*(\d{1,3})\s*(?:行|条)/.exec(s))) {
-      return "add " + m[1] + " rows";
+    if ((m = /^(?:添加|新增|增加|加上?|再加)\s*(\d{1,3}|[一两二三四五六七八九十])?\s*(?:个)?\s*(?:新的?)?\s*(?:行|条)(?:数据|记录)?$/.exec(s))) {
+      return "add " + (ZH_NUMBERS[m[1]] || m[1] || 1) + " rows";
     }
     if ((m = /^(?:添加|新增|增加|加上?)\s*(?:一个?)?\s*(?:列|栏|字段)\s*:?\s*(.+)$/.exec(s))) {
       return "add column " + tailToEnglish(m[1]);
@@ -1648,6 +1652,11 @@
       var zhOp = /小于|低于|少于|</.test(m[2]) ? "below" : /大于|高于|多于|超过|>/.test(m[2]) ? "above" : "equal to";
       return "highlight " + bareColumnName(spec, m[1]) + " " + zhOp + " " + m[3] + (m[4] ? " " + COLOUR_WORDS[m[4]] : "");
     }
+    // column first: "Actual 小于 0 标红", "把 利润 低于 0 的标成红色"
+    if ((m = /^(?:把|将|当)?\s*(.+?)\s*(小于|低于|少于|<|大于|高于|多于|超过|>|等于|=)\s*(.+?)\s*(?:时|的)?\s*(?:行)?\s*(?:标为|标成|标记为|显示为|设为|变|标|高亮|突出显示)\s*(?:成|为)?\s*(红色|红|绿色|绿|黄色|黄)$/.exec(s))) {
+      var zhOp2 = /小于|低于|少于|</.test(m[2]) ? "below" : /大于|高于|多于|超过|>/.test(m[2]) ? "above" : "equal to";
+      return "highlight " + bareColumnName(spec, m[1]) + " " + zhOp2 + " " + m[3] + " " + COLOUR_WORDS[m[5] || m[4]];
+    }
     return text;
   }
 
@@ -1655,8 +1664,8 @@
     var s = text.trim();
     var m;
     var art = "(?:(?:el|la|los|las|un|una)\\s+)?";
-    if ((m = /^(?:añad[ea]|añadir|agreg[ae]|agregar|inserta|insertar)\s+(\d{1,3})\s+filas?\b/i.exec(s))) {
-      return "add " + m[1] + " rows";
+    if ((m = /^(?:añad[ea]|añadir|agreg[ae]|agregar|inserta|insertar|pon)\s+(\d{1,3}|una?|otra|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez)?\s*(?:nuevas?\s+)?filas?(?:\s+nuevas?)?$/i.exec(s))) {
+      return "add " + (ES_NUMBERS[(m[1] || "").toLowerCase()] || m[1] || 1) + " rows";
     }
     if ((m = new RegExp("^(?:añad[ea]|añadir|agreg[ae]|agregar|inserta|insertar|crea|crear)\\s+" + art + "(?:nueva\\s+)?(?:columna|campo)\\s+(.+)$", "i").exec(s))) {
       return "add column " + tailToEnglish(m[1]);
@@ -1697,6 +1706,9 @@
   function idTweak(text) {
     var s = String(text).trim();
     var m;
+    if ((m = /^tambah(?:kan)?\s+(satu|se|dua|tiga|empat|lima|enam|tujuh|delapan|sembilan|sepuluh)?\s*baris(?:\s+baru)?$/i.exec(s))) {
+      return "add " + (ID_NUMBERS[(m[1] || "").toLowerCase()] || 1) + " rows";
+    }
     if ((m = /^(?:sorot|tandai|warnai)\s+(?:kolom\s+)?(.+?)\s+(?:jika\s+|kalau\s+|bila\s+)?(kurang\s+dari|di\s*bawah|lebih\s+kecil\s+dari|lebih\s+besar\s+dari|lebih\s+dari|di\s*atas|sama\s+dengan)\s+(.+?)(?:\s+(?:dengan\s+|warna\s+)?(merah|hijau|kuning))?$/i.exec(s))) {
       var op = /kurang|bawah|kecil/i.test(m[2]) ? "below" : /lebih|atas/i.test(m[2]) ? "above" : "equal to";
       return "highlight " + m[1] + " " + op + " " + m[3] + (m[4] ? " " + ID_COLOURS[m[4].toLowerCase()] : "");
@@ -1721,12 +1733,12 @@
     var m;
 
     // add N rows
-    if ((m = /^(?:add|tambah(?:kan)?)\s+(\d{1,3})\s+(?:rows?|baris)/i.exec(t))) {
-      var n = Math.min(200, parseInt(m[1], 10));
+    if ((m = /^(?:add|tambah(?:kan)?)\s+(\d{1,3}|an?|one|another)?\s*(?:new\s+|more\s+)?(?:rows?|baris)\b/i.exec(t))) {
+      var n = Math.min(200, /^\d+$/.test(m[1] || "") ? parseInt(m[1], 10) : 1);
       for (var i = 0; i < n; i++) {
         spec.sheet.rows.push(sampleRow(spec, spec.sheet.rows.length));
       }
-      return "Added " + n + " rows.";
+      return n === 1 ? "Added a row." : "Added " + n + " rows.";
     }
     // add column NAME [as TYPE] [with options a, b] [= formula]
     if ((m = /^(?:add|tambah(?:kan)?)\s+(?:a\s+|an\s+)?(?:column|kolom|field)\s+(.+)$/i.exec(t))) {

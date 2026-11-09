@@ -227,6 +227,12 @@ out.tweaksIntl = {
   esListed: C.generate("Crea una plantilla de tanda con columnas: Nombre, Fecha y Aporte").spec.sheet.columns.map(function (c) { return c.name + ":" + c.type; }),
   zhListedTitle: C.generate("建一个互助会记录表，列：姓名、日期、存款").spec.title,
   zhListedOwn: C.generate("建一个装修记录表，列：项目、费用、日期").spec.blueprint,
+  oneRow: ["add a row", "加一行", "añade una fila", "tambah baris"].map(function (cmd) {
+    return C.applyTweak(budget, cmd).spec.sheet.rows.length - budget.sheet.rows.length;
+  }),
+  zhColumnFirst: C.applyTweak(budget, "Actual 小于 0 标红").spec.rules.slice(-1)
+    .map(function (k) { return k.column + k.op + k.value + ":" + k.style; })[0],
+  esThemeWord: C.applyTweak(budget, "cambia el tema a medianoche").spec.theme,
   enStill: C.applyTweak(budget, "warnai Actual below 0 red").spec.rules.slice(-1)
     .map(function (k) { return k.column + k.op + k.value + ":" + k.style; })[0]
 };
@@ -393,6 +399,9 @@ def js_checks():
     check(intl["esListed"] == ["Nombre:text", "Fecha:date", "Aporte:currency"], "es 'con columnas:' list with types " + str(intl["esListed"]))
     check(intl["zhListedTitle"] == "互助会记录表", "zh custom title stops before the column list " + intl["zhListedTitle"])
     check(intl["zhListedOwn"] == "custom", "a listed column called 项目 does not pick the project blueprint " + intl["zhListedOwn"])
+    check(intl["oneRow"] == [1, 1, 1, 1], "add a row without a number works in en/zh/es/id " + str(intl["oneRow"]))
+    check(intl["zhColumnFirst"] == "Actual<0:bad", "zh column-first highlight 标红 " + str(intl["zhColumnFirst"]))
+    check(intl["esThemeWord"] == "midnight", "es theme word medianoche " + str(intl["esThemeWord"]))
     check(out["diffRows"] == [p[0] - p[1] for p in pairs], "Diff column evaluates per row")
 
     f = out["formulas"]

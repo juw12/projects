@@ -722,6 +722,7 @@
     [/^Added column “(.+)” \((\w+)\)\.$/, function (m, name, type) { return "Kolom “" + name + "” (" + studioWord(type) + ") ditambahkan."; }],
     [/^Added a “(.+)” column\.$/, "Kolom “$1” ditambahkan."],
     [/^Added (\d+) rows\.$/, "$1 baris ditambahkan."],
+    [/^Added a row\.$/, "1 baris ditambahkan."],
     [/^Removed “(.+)”\.$/, "“$1” dihapus."],
     [/^Renamed the template to “(.+)”\.$/, "Template diganti nama menjadi “$1”."],
     [/^Renamed “(.+)” to “(.+)”\.$/, "“$1” diganti nama menjadi “$2”."],
