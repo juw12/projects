@@ -1674,8 +1674,32 @@
     return text;
   }
 
+  // Indonesian: the base parser knows tambah/hapus/ganti nama/tema/mata uang; this adds highlight and card words
+  var ID_TOTALS = {
+    jumlah: "sum", jumlahkan: "sum", "rata-rata": "average", ratarata: "average",
+    maks: "max", maksimum: "max", tertinggi: "max", minimum: "min", terendah: "min", hitung: "count"
+  };
+  var ID_COLOURS = { merah: "red", hijau: "green", kuning: "yellow" };
+
+  function idTweak(text) {
+    var s = String(text).trim();
+    var m;
+    if ((m = /^(?:sorot|tandai|warnai)\s+(?:kolom\s+)?(.+?)\s+(?:jika\s+|kalau\s+|bila\s+)?(kurang\s+dari|di\s*bawah|lebih\s+kecil\s+dari|lebih\s+besar\s+dari|lebih\s+dari|di\s*atas|sama\s+dengan)\s+(.+?)(?:\s+(?:dengan\s+|warna\s+)?(merah|hijau|kuning))?$/i.exec(s))) {
+      var op = /kurang|bawah|kecil/i.test(m[2]) ? "below" : /lebih|atas/i.test(m[2]) ? "above" : "equal to";
+      return "highlight " + m[1] + " " + op + " " + m[3] + (m[4] ? " " + ID_COLOURS[m[4].toLowerCase()] : "");
+    }
+    if ((m = /^(jumlah(?:kan)?|rata-?rata|maks(?:imum)?|tertinggi|minimum|terendah|hitung)\s+(?:dari\s+|kolom\s+|of\s+)?(.+)$/i.exec(s))) {
+      var word = m[1].toLowerCase();
+      return (ID_TOTALS[word] || ID_TOTALS[word.replace("-", "")] || "sum") + " of " + m[2];
+    }
+    return null;
+  }
+
   function localizeTweak(spec, text) {
-    return /[\u3400-\u9fff]/.test(text) ? zhTweak(spec, text) : esTweak(spec, text);
+    if (/[\u3400-\u9fff]/.test(text)) {
+      return zhTweak(spec, text);
+    }
+    return idTweak(text) || esTweak(spec, text);
   }
 
   function applyOneTweak(spec, raw) {

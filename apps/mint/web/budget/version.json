@@ -1,46 +1,46 @@
 {
-  "version": "3.5.3",
+  "version": "3.5.4",
   "released": "2026-11-09",
   "notes": {
     "en": [
+      "Templates Studio answers every message in your language, including “that column already exists” and formula errors, and understands Indonesian highlights like “sorot Laba kurang dari 0 merah”.",
       "Templates Studio answers fully in your language: theme names, column types and the dashboard cards a command adds (like 数量合计 or Promedio de cantidad) no longer slip into English.",
       "Templates come out in your language: a prompt in Indonesian, Chinese or Spanish gives column names, dropdowns, cards and sample rows in that language, with every formula still working.",
       "Links can choose the language: add ?lang=es (or id, zh, en) and Budget, the marketplace and the legal pages open in it, without changing your saved choice.",
       "Templates Studio understands Chinese and Spanish commands, like 添加供应商列 or añade la columna Proveedor.",
       "Live prices in Invest: stocks and ETFs (IDX and US), crypto and gold update from the market. Tap Refresh prices any time; prices you type yourself stay until you refresh.",
       "Mint asks your browser to keep its data, shows when you last backed up, and reminds you to sync or back up once a budget has real history.",
-      "Templates and the Marketplace now speak Chinese and Spanish too, and downloaded .xlsx files use your language for tabs and tips.",
-      "Privacy and Terms are available in Indonesian, Chinese and Spanish."
+      "Templates and the Marketplace now speak Chinese and Spanish too, and downloaded .xlsx files use your language for tabs and tips."
     ],
     "id": [
+      "Studio Template menjawab setiap pesan dalam bahasamu, termasuk “kolom sudah ada” dan kesalahan rumus, dan kini paham perintah sorot seperti “sorot Laba kurang dari 0 merah”.",
       "Studio Template menjawab sepenuhnya dalam bahasamu: nama tema, jenis kolom, dan kartu dashboard yang ditambahkan lewat perintah tidak lagi muncul dalam bahasa Inggris.",
       "Template kini keluar dalam bahasamu: perintah dalam Bahasa Indonesia, Mandarin, atau Spanyol menghasilkan nama kolom, pilihan, kartu, dan contoh baris dalam bahasa itu, dengan semua rumus tetap berjalan.",
       "Tautan bisa memilih bahasa: tambahkan ?lang=id (atau en, zh, es) dan Budget, marketplace, serta halaman legal terbuka dalam bahasa itu tanpa mengubah pilihan tersimpanmu.",
       "Studio Template kini memahami perintah berbahasa Mandarin dan Spanyol, seperti 添加供应商列 atau añade la columna Proveedor.",
       "Harga live di Investasi: saham dan ETF (BEI dan AS), kripto, dan emas mengikuti pasar. Ketuk Perbarui harga kapan saja; harga yang kamu isi sendiri tetap sampai kamu memperbarui.",
       "Mint meminta browser menyimpan datanya, menampilkan kapan terakhir kamu mencadangkan, dan mengingatkan untuk sinkron atau mencadangkan saat anggaran sudah berisi banyak riwayat.",
-      "Template dan Marketplace kini juga berbahasa Mandarin dan Spanyol, dan file .xlsx yang diunduh memakai bahasamu untuk tab dan petunjuk.",
-      "Privasi dan Ketentuan tersedia dalam bahasa Indonesia, Mandarin, dan Spanyol."
+      "Template dan Marketplace kini juga berbahasa Mandarin dan Spanyol, dan file .xlsx yang diunduh memakai bahasamu untuk tab dan petunjuk."
     ],
     "zh": [
+      "模板工作室的每条回复都使用你的语言，包括“列已存在”和公式错误提示；也能听懂印尼语的高亮指令。",
       "模板工作室完全用你的语言回复：主题名称、列类型以及通过指令添加的仪表盘卡片（例如“数量合计”）不再夹杂英文。",
       "模板现在用你的语言生成：用中文、印尼语或西班牙语描述，列名、下拉选项、汇总卡片和示例行都会是该语言，所有公式照常运行。",
       "链接可以指定语言：加上 ?lang=zh（或 en、id、es），预算、市场和法律页面就会以该语言打开，不会改变你保存的设置。",
       "模板工作室现在能听懂中文和西班牙语指令，例如“添加供应商列”或“añade la columna Proveedor”。",
       "投资页实时价格：股票和 ETF（印尼与美股）、加密货币和黄金按市场价更新。随时点“刷新价格”；你手动填写的价格会保留到你刷新为止。",
       "Mint 会请求浏览器保留数据，显示上次备份时间，并在预算有了足够记录后提醒你同步或备份。",
-      "模板和市场现在也支持中文和西班牙语，下载的 .xlsx 文件的工作表名称和提示也使用你的语言。",
-      "隐私政策和条款现提供印尼语、中文和西班牙语版本。"
+      "模板和市场现在也支持中文和西班牙语，下载的 .xlsx 文件的工作表名称和提示也使用你的语言。"
     ],
     "es": [
+      "El estudio de Plantillas responde cada mensaje en tu idioma, incluidos «la columna ya existe» y los errores de fórmula, y entiende resaltados en indonesio.",
       "El estudio de Plantillas responde del todo en tu idioma: los nombres de tema, los tipos de columna y las tarjetas del panel que añade una orden (como «Promedio de cantidad») ya no salen en inglés.",
       "Las plantillas salen en tu idioma: una petición en español, chino o indonesio da nombres de columna, listas, tarjetas y filas de ejemplo en ese idioma, y todas las fórmulas siguen funcionando.",
       "Los enlaces pueden elegir el idioma: añade ?lang=es (o en, id, zh) y Budget, el mercado y las páginas legales se abren en ese idioma sin cambiar tu elección guardada.",
       "El estudio de Plantillas entiende órdenes en chino y en español, como «añade la columna Proveedor» o 添加供应商列.",
       "Precios en vivo en Invertir: acciones y ETF (IDX y EE. UU.), cripto y oro se actualizan con el mercado. Toca Actualizar precios cuando quieras; los precios que escribes tú se quedan hasta que actualices.",
       "Mint pide al navegador que conserve sus datos, muestra cuándo hiciste la última copia y te recuerda sincronizar o hacer copia cuando un presupuesto ya tiene historial.",
-      "Plantillas y el Marketplace ahora también hablan chino y español, y los .xlsx descargados usan tu idioma en pestañas y consejos.",
-      "Privacidad y Términos disponibles en indonesio, chino y español."
+      "Plantillas y el Marketplace ahora también hablan chino y español, y los .xlsx descargados usan tu idioma en pestañas y consejos."
     ]
   }
 }

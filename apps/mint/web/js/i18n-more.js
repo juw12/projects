@@ -1189,6 +1189,19 @@
     }
   };
 
+  var FORMULA_WHY = {
+    zh: { unknown: "未知列 [{name}]", self: "列不能引用自身" },
+    es: { unknown: "columna desconocida [{name}]", self: "una columna no puede hacer referencia a sí misma" }
+  };
+
+  function formulaWhy(lang, why) {
+    var unknown = /^unknown column \[(.+)\]$/.exec(why);
+    if (unknown) {
+      return FORMULA_WHY[lang].unknown.replace("{name}", unknown[1]);
+    }
+    return why === "a column cannot reference itself" ? FORMULA_WHY[lang].self : why;
+  }
+
   function studioWord(lang, word) {
     var map = STUDIO_WORDS[lang];
     return Object.prototype.hasOwnProperty.call(map, word) ? map[word] : word;
@@ -1232,6 +1245,11 @@
     [/^Currency changed to (.+)\.$/, "货币已改为 $1。"],
     [/^Theme set to (.+)\.$/, function (m, theme) { return "主题已设为" + studioWord("zh", theme) + "。"; }],
     [/^Theme: (.+)\.$/, function (m, theme) { return "主题：" + studioWord("zh", theme) + "。"; }],
+    [/^Column “(.+)” already exists\.$/, "列“$1”已存在。"],
+    [/^No column named “(.+)”\.$/, "没有名为“$1”的列。"],
+    [/^Column names can’t be empty\.$/, "列名不能为空。"],
+    [/^Another column is already called “(.+)”\.$/, "已有其他列叫“$1”。"],
+    [/^Formula error: (.+)$/, function (m, why) { return "公式错误：" + formulaWhy("zh", why) + "。"; }],
     [/^Currency: (\w+)\.$/, "货币：$1。"],
     [/^AI unavailable \((.+)\) — used the quick generator\.$/, "AI 暂不可用（$1）——已改用快速生成器。"],
     [/^Generated with your AI model \((.+)\)\.$/, "由你的 AI 模型（$1）生成。"],
@@ -1277,6 +1295,11 @@
     [/^Currency changed to (.+)\.$/, "Moneda cambiada a $1."],
     [/^Theme set to (.+)\.$/, function (m, theme) { return "Tema cambiado a " + studioWord("es", theme) + "."; }],
     [/^Theme: (.+)\.$/, function (m, theme) { return "Tema: " + studioWord("es", theme) + "."; }],
+    [/^Column “(.+)” already exists\.$/, "La columna “$1” ya existe."],
+    [/^No column named “(.+)”\.$/, "No hay ninguna columna llamada “$1”."],
+    [/^Column names can’t be empty\.$/, "El nombre de la columna no puede estar vacío."],
+    [/^Another column is already called “(.+)”\.$/, "Ya hay otra columna llamada “$1”."],
+    [/^Formula error: (.+)$/, function (m, why) { return "Error en la fórmula: " + formulaWhy("es", why) + "."; }],
     [/^Currency: (\w+)\.$/, "Moneda: $1."],
     [/^AI unavailable \((.+)\) — used the quick generator\.$/, "IA no disponible ($1): usé el generador rápido."],
     [/^Generated with your AI model \((.+)\)\.$/, "Generado con tu modelo de IA ($1)."],

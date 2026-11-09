@@ -218,7 +218,13 @@ out.tweaksIntl = {
   esRemove: tEsRemove.spec.sheet.columns.map(function (c) { return c.name; }),
   esSum: tEsSum.spec.summary.map(function (s) { return s.fn + ":" + s.column; }),
   esCur: tEsCur.spec.currency,
-  zhGenTheme: C.generate("网店库存表，绿色").spec.theme
+  zhGenTheme: C.generate("网店库存表，绿色").spec.theme,
+  // 3.5.4: Indonesian highlight and card words
+  idRule: C.applyTweak(budget, "sorot Actual lebih dari 500 merah").spec.rules.slice(-1)
+    .map(function (k) { return k.column + k.op + k.value + ":" + k.style; })[0],
+  idAvg: C.applyTweak(budget, "rata-rata Actual").spec.summary.slice(-1).map(function (s) { return s.fn + ":" + s.column; })[0],
+  enStill: C.applyTweak(budget, "warnai Actual below 0 red").spec.rules.slice(-1)
+    .map(function (k) { return k.column + k.op + k.value + ":" + k.style; })[0]
 };
 out.tweaks = {
   rows: t1.spec.sheet.rows.length,
@@ -376,6 +382,9 @@ def js_checks():
     check("SUM:Actual" in intl["esSum"], "es 'suma de'")
     check(intl["esCur"] == "MXN", "es currency words")
     check(intl["zhGenTheme"] == "forest", "zh colour word picks the theme in prompts")
+    check(intl["idRule"] == "Actual>500:bad", "id 'sorot … lebih dari … merah' " + str(intl["idRule"]))
+    check(intl["idAvg"] == "AVERAGE:Actual", "id 'rata-rata' card " + str(intl["idAvg"]))
+    check(intl["enStill"] == "Actual<0:bad", "English 'warnai … below' still works " + str(intl["enStill"]))
     check(out["diffRows"] == [p[0] - p[1] for p in pairs], "Diff column evaluates per row")
 
     f = out["formulas"]

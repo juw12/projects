@@ -119,6 +119,10 @@ API `https://mint-api.juw12.workers.dev/api/health`
   formulas follow the renamed tabs.
 - **Links pick the language (3.5.1).** Add `?lang=en|id|zh|es` to any Mint link (Budget, the marketplace, the
   legal pages) and it opens in that language without changing the reader's saved choice.
+- **Every Studio reply, every language (3.5.4).** The rarer replies are translated too (`列“供应商”已存在。`,
+  `Rumus salah: kolom [Foo] tidak ada.`, `Ya hay otra columna llamada “Precio”.`), Indonesian gets highlights and
+  card words (`sorot Laba kurang dari 0 merah`, `rata-rata Jumlah`), and the “didn’t understand” hint suggests
+  commands in your language that really work.
 - **Studio speaks your language all the way (3.5.3).** Replies no longer leave English bits behind: theme names
   (`主题已设为午夜（深色）`, `Tema cambiado a Bosque`), column types (`teks`, `数字`, `fecha`) and card functions are
   translated, and a dashboard card added by a command (`合计 数量`, `promedio de cantidad`) is labelled in the

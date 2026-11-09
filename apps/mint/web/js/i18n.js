@@ -678,6 +678,14 @@
     SUM: "JUMLAH", AVERAGE: "RATA-RATA", MAX: "MAKS", MIN: "MIN", COUNTA: "HITUNG"
   };
 
+  function formulaWhyId(why) {
+    var unknown = /^unknown column \[(.+)\]$/.exec(why);
+    if (unknown) {
+      return "kolom [" + unknown[1] + "] tidak ada";
+    }
+    return why === "a column cannot reference itself" ? "kolom tidak boleh merujuk dirinya sendiri" : why;
+  }
+
   function studioWord(word) {
     return Object.prototype.hasOwnProperty.call(STUDIO_WORDS_ID, word) ? STUDIO_WORDS_ID[word] : word;
   }
@@ -720,12 +728,17 @@
     [/^Currency changed to (.+)\.$/, "Mata uang diganti ke $1."],
     [/^Theme set to (.+)\.$/, function (m, theme) { return "Tema diatur ke " + studioWord(theme) + "."; }],
     [/^Theme: (.+)\.$/, function (m, theme) { return "Tema: " + studioWord(theme) + "."; }],
+    [/^Column “(.+)” already exists\.$/, "Kolom “$1” sudah ada."],
+    [/^No column named “(.+)”\.$/, "Tidak ada kolom bernama “$1”."],
+    [/^Column names can’t be empty\.$/, "Nama kolom tidak boleh kosong."],
+    [/^Another column is already called “(.+)”\.$/, "Sudah ada kolom lain bernama “$1”."],
+    [/^Formula error: (.+)$/, function (m, why) { return "Rumus salah: " + formulaWhyId(why) + "."; }],
     [/^Currency: (\w+)\.$/, "Mata uang: $1."],
     [/^AI unavailable \((.+)\) — used the quick generator\.$/, "AI tidak tersedia ($1) — memakai generator cepat."],
     [/^Generated with your AI model \((.+)\)\.$/, "Dibuat dengan model AI-mu ($1)."],
     [/^Added a (\w+) card for “(.+)”\.$/, function (m, fn, name) { return "Kartu " + studioWord(fn) + " untuk “" + name + "” ditambahkan."; }],
     [/^Highlight rule added on “(.+)”\.$/, "Aturan sorotan ditambahkan pada “$1”."],
-    [/^Didn’t understand “(.+)”\. Try: (.+)$/, "Tidak paham “$1”. Coba: $2"],
+    [/^Didn’t understand “(.+)”\. Try: (.+)$/, "Tidak paham “$1”. Coba: tambah kolom Prioritas · hapus kolom Catatan · ganti nama Biaya jadi Harga · tambah 5 baris · tema ocean · mata uang IDR · total Jumlah · sorot Laba kurang dari 0 merah."],
     [/^(.+) connected — orders now unlock automatically$/, "$1 terhubung — pesanan kini terbuka otomatis"]
   ];
 
