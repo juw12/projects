@@ -466,9 +466,11 @@
     return best;
   }
 
+  var BUDGET_MODIFIERS = ["budget", "anggaran", "预算", "presupuesto"];
+
   function scoreBlueprints(text) {
     var lower = " " + text.toLowerCase() + " ";
-    return BLUEPRINTS.map(function (bp) {
+    var ranked = BLUEPRINTS.map(function (bp) {
       var score = 0;
       bp.keywords.concat(BLUEPRINT_KEYWORDS_INTL[bp.id] || []).forEach(function (k) {
         if (lower.indexOf(k) !== -1) {
@@ -476,7 +478,23 @@
         }
       });
       return { bp: bp, score: score };
-    }).sort(function (a, b) {
+    });
+    // "budget" on its own is a modifier: "trip budget", "婚礼预算", "presupuesto de viaje" want the trip or
+    // wedding template, so a budget score made only of that word gives way to any specific match
+    var budget = ranked.filter(function (r) { return r.bp.id === "budget"; })[0];
+    if (budget && budget.score > 0) {
+      var modifierScore = 0;
+      BUDGET_MODIFIERS.forEach(function (word) {
+        if (lower.indexOf(word) !== -1) {
+          modifierScore += word.length > 5 || /[\u3400-\u9fff]/.test(word) ? 3 : 2;
+        }
+      });
+      var otherMatch = ranked.some(function (r) { return r.bp.id !== "budget" && r.score > 0; });
+      if (otherMatch && budget.score <= modifierScore) {
+        budget.score = 0.5;
+      }
+    }
+    return ranked.sort(function (a, b) {
       return b.score - a.score;
     });
   }

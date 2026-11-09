@@ -233,6 +233,9 @@ out.tweaksIntl = {
   zhColumnFirst: C.applyTweak(budget, "Actual 小于 0 标红").spec.rules.slice(-1)
     .map(function (k) { return k.column + k.op + k.value + ":" + k.style; })[0],
   esThemeWord: C.applyTweak(budget, "cambia el tema a medianoche").spec.theme,
+  // 3.5.5: "budget" alone is a modifier; the specific template wins
+  budgetModifier: ["trip plan and budget", "旅行预算", "presupuesto de viaje", "wedding budget", "monthly budget", "我的月度预算"]
+    .map(function (p) { return C.generate(p).spec.blueprint; }),
   // 3.5.5: more natural phrasings
   phrasings: [
     C.applyTweak(budget, "usa pesos mexicanos").spec.currency,
@@ -412,6 +415,8 @@ def js_checks():
     check(intl["oneRow"] == [1, 1, 1, 1], "add a row without a number works in en/zh/es/id " + str(intl["oneRow"]))
     check(intl["zhColumnFirst"] == "Actual<0:bad", "zh column-first highlight 标红 " + str(intl["zhColumnFirst"]))
     check(intl["esThemeWord"] == "midnight", "es theme word medianoche " + str(intl["esThemeWord"]))
+    check(intl["budgetModifier"] == ["travel", "travel", "travel", "event", "budget", "budget"],
+          "budget as a modifier gives way to trip/wedding templates " + str(intl["budgetModifier"]))
     check(intl["phrasings"] == ["MXN", "CNY", "ocean", "midnight", "Mi presupuesto", "Anggaranku", False],
           "3.5.5 phrasings (usa pesos, 用人民币, 改成蓝色主题, 换成深色主题, cambia el título, ubah judul, buang kolom) " + str(intl["phrasings"]))
     check(out["diffRows"] == [p[0] - p[1] for p in pairs], "Diff column evaluates per row")

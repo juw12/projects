@@ -3,7 +3,7 @@
   "released": "2026-11-09",
   "notes": {
     "en": [
-      "Templates Studio understands more ways of saying things: “use Mexican pesos”, “change the title to …”, colour-first themes like 改成蓝色主题, “buang kolom …”, plus “add a row” and column-first highlights in every language.",
+      "Templates Studio understands more ways of saying things: “use Mexican pesos”, “change the title to …”, colour-first themes like 改成蓝色主题, “buang kolom …”, plus “add a row” and column-first highlights in every language. Asking for a “trip budget” or “wedding budget” now gives the trip or wedding template instead of a plain monthly budget.",
       "Templates Studio answers every message in your language, including “that column already exists” and formula errors, and understands Indonesian highlights like “sorot Laba kurang dari 0 merah”.",
       "Templates Studio answers fully in your language: theme names, column types and the dashboard cards a command adds (like 数量合计 or Promedio de cantidad) no longer slip into English.",
       "Templates come out in your language: a prompt in Indonesian, Chinese or Spanish gives column names, dropdowns, cards and sample rows in that language, with every formula still working.",
@@ -14,7 +14,7 @@
       "Templates and the Marketplace now speak Chinese and Spanish too, and downloaded .xlsx files use your language for tabs and tips."
     ],
     "id": [
-      "Studio Template paham lebih banyak cara bicara: “buang kolom …”, “ubah judul jadi …”, “tambah baris”, plus tema dan mata uang yang disebut langsung dalam bahasa Mandarin dan Spanyol.",
+      "Studio Template paham lebih banyak cara bicara: “buang kolom …”, “ubah judul jadi …”, “tambah baris”, plus tema dan mata uang yang disebut langsung dalam bahasa Mandarin dan Spanyol. Minta “anggaran liburan” atau “anggaran pernikahan” kini memberi template perjalanan atau pernikahan, bukan anggaran bulanan biasa.",
       "Studio Template menjawab setiap pesan dalam bahasamu, termasuk “kolom sudah ada” dan kesalahan rumus, dan kini paham perintah sorot seperti “sorot Laba kurang dari 0 merah”.",
       "Studio Template menjawab sepenuhnya dalam bahasamu: nama tema, jenis kolom, dan kartu dashboard yang ditambahkan lewat perintah tidak lagi muncul dalam bahasa Inggris.",
       "Template kini keluar dalam bahasamu: perintah dalam Bahasa Indonesia, Mandarin, atau Spanyol menghasilkan nama kolom, pilihan, kartu, dan contoh baris dalam bahasa itu, dengan semua rumus tetap berjalan.",
@@ -25,7 +25,7 @@
       "Template dan Marketplace kini juga berbahasa Mandarin dan Spanyol, dan file .xlsx yang diunduh memakai bahasamu untuk tab dan petunjuk."
     ],
     "zh": [
-      "模板工作室能听懂更多说法：“改成蓝色主题”“换成深色主题”“用人民币”“加一行”，以及“利润 小于 0 标红”这样先说列名的高亮。",
+      "模板工作室能听懂更多说法：“改成蓝色主题”“换成深色主题”“用人民币”“加一行”，以及“利润 小于 0 标红”这样先说列名的高亮。 说“旅行预算”或“婚礼预算”时，会给出旅行或婚礼模板，而不是普通的月度预算。",
       "模板工作室的每条回复都使用你的语言，包括“列已存在”和公式错误提示；也能听懂印尼语的高亮指令。",
       "模板工作室完全用你的语言回复：主题名称、列类型以及通过指令添加的仪表盘卡片（例如“数量合计”）不再夹杂英文。",
       "模板现在用你的语言生成：用中文、印尼语或西班牙语描述，列名、下拉选项、汇总卡片和示例行都会是该语言，所有公式照常运行。",
@@ -36,7 +36,7 @@
       "模板和市场现在也支持中文和西班牙语，下载的 .xlsx 文件的工作表名称和提示也使用你的语言。"
     ],
     "es": [
-      "El Estudio de plantillas entiende más formas de decirlo: “usa pesos mexicanos”, “cambia el título a …”, “añade una fila” y temas como “cambia el tema a medianoche”.",
+      "El Estudio de plantillas entiende más formas de decirlo: “usa pesos mexicanos”, “cambia el título a …”, “añade una fila” y temas como “cambia el tema a medianoche”. Pedir un “presupuesto de viaje” o “de boda” ahora da la plantilla de viaje o de boda, no un presupuesto mensual.",
       "El estudio de Plantillas responde cada mensaje en tu idioma, incluidos «la columna ya existe» y los errores de fórmula, y entiende resaltados en indonesio.",
       "El estudio de Plantillas responde del todo en tu idioma: los nombres de tema, los tipos de columna y las tarjetas del panel que añade una orden (como «Promedio de cantidad») ya no salen en inglés.",
       "Las plantillas salen en tu idioma: una petición en español, chino o indonesio da nombres de columna, listas, tarjetas y filas de ejemplo en ese idioma, y todas las fórmulas siguen funcionando.",
