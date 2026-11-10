@@ -2839,6 +2839,50 @@
       "status": "released",
       "order": 62,
       "portfolio": true
+    },
+    {
+      "id": "reda",
+      "name": "Reda",
+      "category": "Apps",
+      "external": true,
+      "url": "https://juw12.github.io/reda/?demo=1",
+      "url_label": "Open site",
+      "desc": "Reda: daily companion for chronic hives (biduran). UAS7 log, trigger patterns, self-tests with photo references, guideline treatment ladder. Offline PWA, ID/EN, no account.",
+      "summary": "Chronic hives companion: daily UAS7 check-in, trigger finder, photo-guided self-tests and a guideline medicine plan.",
+      "description": "Reda helps people with chronic hives (biduran) find what sets them off and stay on a plan that works. A 30-second daily check-in builds the UAS7 score doctors use; a trigger finder compares bad days with good days; six guided self-tests (scratch, ice cube, pressure, heat, exercise, sun) come with timers and real reference photos; and the Care tab follows the international treatment ladder, flags emergency signs and prints a report for the doctor. Bahasa Indonesia and English, stored only on the phone, works offline.",
+      "tags": [
+        "health",
+        "pwa",
+        "offline",
+        "indonesia",
+        "urticaria"
+      ],
+      "note_tags": [
+        "reda",
+        "health",
+        "indonesia",
+        "offline-first",
+        "pwa",
+        "urticaria"
+      ],
+      "image": "reda-card.jpg",
+      "image_alt": "Reda Today screen in dark mode: a 3 of 6 hives score for today, a seven-day welt chart and today's cetirizine dose ticked",
+      "extra_links": [
+        {
+          "label": "Source",
+          "url": "https://github.com/juw12/reda"
+        }
+      ],
+      "card": {
+        "label": "reda · today",
+        "capture": "https://juw12.github.io/reda/?demo=1",
+        "theme": "dark",
+        "accent": "#bd6953",
+        "accent2": "#9e992f"
+      },
+      "status": "released",
+      "order": 63,
+      "portfolio": true
     }
   ]
 }
