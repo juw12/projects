@@ -118,11 +118,11 @@ def run_tests():
         print("FAIL - no `sweep_` localStorage key found")
         all_passed = False
 
-    # Test 9: Morning Paper theme tokens present in CSS
+    # Test 9: Morrow theme tokens present in CSS
     if "--color-accent" in css and "#8b1a1a" in css:
-        print("ok - Morning Paper theme tokens present")
+        print("ok - Morrow theme tokens present")
     else:
-        print("FAIL - missing Morning Paper theme tokens")
+        print("FAIL - missing Morrow theme tokens")
         all_passed = False
 
     # Test 10: every page's local href/src references resolve

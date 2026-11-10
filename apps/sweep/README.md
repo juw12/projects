@@ -68,7 +68,7 @@ generator** → **catalog**, plus an in-app **How-to-use** guide — and an
 (logo, palette, type), a one-page site, per-network social posts (with generated
 art), email drafts, customer outreach, a market-research brief, a pitch deck and
 a live ledger — all routed through an **approval queue** with a visible **run
-log**, a **credits** meter and an **autopilot** toggle. Morning Paper theme,
+log**, a **credits** meter and an **autopilot** toggle. Morrow theme,
 light/dark. Every Operator artifact is produced **offline — no network, no LLM**
 (same "no AI, no network" rule as guided intake), and the workspace stays
 encrypted at rest.

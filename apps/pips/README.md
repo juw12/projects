@@ -249,7 +249,7 @@ The chime temporarily ducks any playing soundscape, then resumes it. Control it 
 A scheduled task emails you a **chart-based daily progress report** (newspaper-styled,
 self-contained HTML) at **22:00 Sunday–Thursday**, so it is waiting in your inbox on **weekday
 mornings**. It sends through your Outlook desktop via the `outlook-agent` skill, exactly like
-The Morning Paper.
+Morrow.
 
 The report is built from **chart visuals** — a score bar, KPI tiles, a **time-split** stacked
 bar, a **focus-timeline** (today by hour), a **7-day score** chart, a **Top apps** bar chart,
