@@ -2797,15 +2797,15 @@
       "portfolio": true
     },
     {
-      "id": "gardu",
-      "name": "Gardu",
+      "id": "hexbane",
+      "name": "Hexbane",
       "category": "AI",
       "external": true,
-      "url": "https://juw12.github.io/gardu/",
+      "url": "https://juw12.github.io/hexbane/",
       "url_label": "Open site",
-      "desc": "Check AI agent skills, MCP servers and tools for prompt injection, hidden text, secret theft and risky commands - then guard tool calls and chat at run time. Browser, CLI, GitHub Action.",
-      "summary": "Check AI agent skills and MCP servers before you trust them",
-      "description": "Scans skills, MCP configs and tool lists for prompt injection, hidden text, secret theft and risky commands in the browser, CLI or a GitHub Action, then gates tool calls and chat at run time. Held-out set: 11/11 attacks flagged, 0/5 false alarms.",
+      "desc": "Breaks the hex before your AI agent falls for it: scans skills, MCP servers and tools for prompt injection, hidden or disguised text, secret theft and risky commands, then guards tool calls and chat at run time. Browser, CLI, GitHub Action.",
+      "summary": "Break the hex: scan AI agent skills and MCP servers before you trust them",
+      "description": "Scans skills, MCP configs and tool lists for prompt injection, hidden or disguised text (base64, homoglyphs, zero-width, leetspeak), secret theft and risky commands in the browser, CLI or a GitHub Action, then gates tool calls and chat at run time. Held-out set: 11/11 attacks flagged, 0/5 false alarms; disguised attacks flagged 63/65.",
       "tags": [
         "agent-skills",
         "ai-security",
@@ -2814,24 +2814,24 @@
         "mcp"
       ],
       "note_tags": [
-        "gardu",
+        "hexbane",
         "agent-skills",
         "ai-security",
         "github-action",
         "llm-security",
         "mcp"
       ],
-      "image": "gardu-card.jpg",
-      "image_alt": "Gardu Scan page in dark mode: three gates (load, call, chat) above a paste box and a drop zone for skill folders and MCP configs",
+      "image": "hexbane-card.jpg",
+      "image_alt": "Hexbane Scan page in dark mode: three gates (load, call, chat) above a paste box and a drop zone for skill folders and MCP configs",
       "extra_links": [
         {
           "label": "Source",
-          "url": "https://github.com/juw12/gardu"
+          "url": "https://github.com/juw12/hexbane"
         }
       ],
       "card": {
-        "label": "gardu · scan",
-        "capture": "https://juw12.github.io/gardu/",
+        "label": "hexbane · scan",
+        "capture": "https://juw12.github.io/hexbane/",
         "theme": "dark",
         "accent": "#4691e0",
         "accent2": "#4d2f9e"
