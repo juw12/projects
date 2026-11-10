@@ -2794,6 +2794,50 @@
       "status": "released",
       "order": 61,
       "portfolio": true
+    },
+    {
+      "id": "gardu",
+      "name": "Gardu",
+      "category": "AI",
+      "external": true,
+      "url": "https://juw12.github.io/gardu/",
+      "url_label": "Open site",
+      "desc": "Check AI agent skills, MCP servers and tools for prompt injection, hidden text, secret theft and risky commands - then guard tool calls and chat at run time. Browser, CLI, GitHub Action.",
+      "summary": "Check AI agent skills and MCP servers before you trust them",
+      "description": "Scans skills, MCP configs and tool lists for prompt injection, hidden text, secret theft and risky commands in the browser, CLI or a GitHub Action, then gates tool calls and chat at run time. Held-out set: 11/11 attacks flagged, 0/5 false alarms.",
+      "tags": [
+        "agent-skills",
+        "ai-security",
+        "github-action",
+        "llm-security",
+        "mcp"
+      ],
+      "note_tags": [
+        "gardu",
+        "agent-skills",
+        "ai-security",
+        "github-action",
+        "llm-security",
+        "mcp"
+      ],
+      "image": "gardu-card.jpg",
+      "image_alt": "Gardu Scan page in dark mode: three gates (load, call, chat) above a paste box and a drop zone for skill folders and MCP configs",
+      "extra_links": [
+        {
+          "label": "Source",
+          "url": "https://github.com/juw12/gardu"
+        }
+      ],
+      "card": {
+        "label": "gardu · scan",
+        "capture": "https://juw12.github.io/gardu/",
+        "theme": "dark",
+        "accent": "#4691e0",
+        "accent2": "#4d2f9e"
+      },
+      "status": "released",
+      "order": 62,
+      "portfolio": true
     }
   ]
 }
