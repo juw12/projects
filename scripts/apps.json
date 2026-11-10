@@ -2883,6 +2883,50 @@
       "status": "released",
       "order": 63,
       "portfolio": true
+    },
+    {
+      "id": "ruang",
+      "name": "Ruang",
+      "category": "Apps",
+      "external": true,
+      "url": "https://juw12.github.io/ruang/",
+      "url_label": "Open site",
+      "desc": "Room photo to priced 3D plan: 7 render styles, drag-to-arrange, country renovation templates, local-currency estimate and an architect that fixes what it flags. Runs in the browser.",
+      "summary": "Room photo to priced 3D plan, with an architect that fixes what it flags",
+      "description": "Upload one photo per wall and Ruang rebuilds the room in 3D, then lets you re-style it in 7 looks, drag furniture, renovate from country templates, words or a reference photo, and price the plan in your local currency. Its architect checks walking space, door swing, sun hours and light, and every catch comes with a one-tap fix and its cost. Runs in the browser in 7 languages; photos never leave the device.",
+      "tags": [
+        "3d",
+        "architecture",
+        "cost-estimation",
+        "i18n",
+        "interior-design"
+      ],
+      "note_tags": [
+        "ruang",
+        "3d",
+        "architecture",
+        "cost-estimation",
+        "i18n",
+        "interior-design"
+      ],
+      "image": "ruang-card.jpg",
+      "image_alt": "Ruang Look step: 3D sample room with wardrobe, desk and chair, and thumbnails of the realistic, miniature, pixel, cartoon, clay and blueprint styles",
+      "extra_links": [
+        {
+          "label": "Source",
+          "url": "https://github.com/juw12/ruang"
+        }
+      ],
+      "card": {
+        "label": "ruang · sample room",
+        "theme": "dark",
+        "accent": "#b48955",
+        "accent2": "#7d9e2f",
+        "capture": "https://juw12.github.io/ruang/#r=zbZJBb9wgEIX_y8uVRWDMYji2uVSVeumxygEbvEbFsLLduunK_73C2U26bW5omPnezLy54CcMJ5j8KeQEg0-PIIg2nWDgEwimnEeYC1YYQY8EDqamUhIMMBVVBC7naYb5dsFqY4TBVxDkvp_9UjJqgjW4ZYBhVBMMPpyG_YPJ7an8JZfXu_ovd_UV00ozzSSvGRfilcZpRTCHUnEH5lRsTxtBH1KYh73zHXt5jeBsQ1pA0OWYJxg8eOUr16JUxVxCFyzPZw-DaMeQ7OL_zm57rRUv2Z0PMeyrenDO1V1Xdlfa-AwjGGMEZ7tLrzm7kmWl6qUCQW_bKXQl1OlOtA0IbNf5tOxZTd1WsrDy-sE7mN7G2W8bQVj8-LKrUHhhXK1l4-w1yK1j5-fvIMWufUOurOe4u8WokgS_ykNWBL9hDpxqVSxeYNhG_qH29o2a-z50_uNgw_QCZ9dbuMH5Tj4wyuQNLW7ogygXoyTXvNF1o1T1v1b7prXayU259e9PUV1HqJtdh1PdXGUE5TWXujpKIRuttCj3NS_PsUAnb2OYl1AsSnlahkd_gikORZtg0o8YCaJPMwxSTh7bHw"
+      },
+      "status": "released",
+      "order": 64,
+      "portfolio": true
     }
   ]
 }
