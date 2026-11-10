@@ -2970,6 +2970,54 @@
       "status": "released",
       "order": 65,
       "portfolio": true
+    },
+    {
+      "id": "inti",
+      "name": "Inti",
+      "category": "Software",
+      "external": true,
+      "url": "https://juw12.github.io/inti/",
+      "url_label": "Open demo",
+      "desc": "A small capability-based microkernel OS for 32-bit x86, written from scratch in Rust. Boots in a browser tab; a crashed or hung driver is restarted while the system keeps running. Emulator only, not verified.",
+      "summary": "A from-scratch Rust microkernel OS you can break on purpose: crash a driver in the browser and watch it restart.",
+      "description": "Inti (the Indonesian word for core) is a small operating system written from scratch: its own boot sector, a capability microkernel in 2,673 lines of Rust, and device drivers that run as ordinary programs. Crash or hang a driver in the browser demo and the supervisor restarts it without a reboot. In QEMU, a hostile test program's 47 attempts are all denied and 1,001,123 random system calls caused no invariant violation. A research toy: emulator only, one processor, no network, nothing saved between runs, not formally verified.",
+      "tags": [
+        "operating-system",
+        "microkernel",
+        "rust",
+        "capability-based-security",
+        "x86"
+      ],
+      "note_tags": [
+        "inti",
+        "capability-based-security",
+        "fault-tolerance",
+        "kernel",
+        "microkernel",
+        "no-std"
+      ],
+      "image": "inti-card.jpg",
+      "image_alt": "Inti demo page in dark mode: after the crash console command the emulated screen shows the screen driver restarted and answering again, beside the serial log with the supervisor's crash and restart lines highlighted",
+      "extra_links": [
+        {
+          "label": "Source",
+          "url": "https://github.com/juw12/inti"
+        }
+      ],
+      "card": {
+        "label": "inti · demo",
+        "capture": "https://juw12.github.io/inti/",
+        "click": [
+          "button[data-command='crash console']"
+        ],
+        "wait_ms": 4000,
+        "theme": "dark",
+        "accent": "#a2732c",
+        "accent2": "#779e2f"
+      },
+      "status": "working-prototype",
+      "order": 66,
+      "portfolio": true
     }
   ]
 }
