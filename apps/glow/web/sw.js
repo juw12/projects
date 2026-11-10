@@ -5,7 +5,9 @@
 // version.json is never cached, so "Check for updates" always sees the real latest version.
 // GlowNews (./news/) is network-first like every page: a new edition shows as soon as it is online,
 // and the last edition you saw still opens offline.
-const CACHE_NAME = 'glowhome-v17';
+// GlowSpark (./spark/): the page, its engine and its small files are cached at install; the model
+// weights (spark.bin) are cached the first time the page loads them, so it then writes offline.
+const CACHE_NAME = 'glowhome-v18';
 const NETWORK_TIMEOUT_MS = 4000;
 const ASSETS = [
   './',
@@ -20,6 +22,15 @@ const ASSETS = [
   './news/news.css',
   './news/news.js',
   './news/news.json',
+  './spark/',
+  './spark/spark.css',
+  './spark/spark.js',
+  './spark/engine.js',
+  './spark/worker.js',
+  './spark/spark.json',
+  './spark/bench.json',
+  './spark/books.json',
+  './spark/parity.json',
   './download/',
   './download/download.css',
   './download/download.js',

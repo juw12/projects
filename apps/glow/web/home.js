@@ -105,6 +105,12 @@
       location.href = newsUrl.toString();
       return;
     }
+    if (target === "spark") {
+      const sparkUrl = new URL("./spark/", location.href);
+      if (text) sparkUrl.searchParams.set("q", text.slice(0, 200));
+      location.href = sparkUrl.toString();
+      return;
+    }
     const page = target === "room" ? roomPage : target === "lead" ? leadPage : chatPage;
     const url = new URL(page, location.href);
     if (text) {
@@ -128,7 +134,7 @@
     }
     launch(suggestedTarget());
   });
-  for (const name of ["chat", "room", "lead", "news"]) {
+  for (const name of ["chat", "room", "lead", "news", "spark"]) {
     $("start-" + name).addEventListener("click", () => launch(name));
   }
   document.querySelectorAll("[data-example]").forEach((button) => {

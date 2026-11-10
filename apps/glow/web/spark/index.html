@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; worker-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'">
+<title>GlowSpark — a tiny AI, built from scratch, that writes on your device</title>
+<meta name="description" content="GlowSpark is a small language model built from scratch for Glow: its own tokenizer, its own transformer, its own browser engine. It writes fairy tales on your device, offline, with no account and no limits, and it publishes where it loses.">
+<meta name="theme-color" content="#262624">
+<link rel="canonical" href="https://juw12.github.io/projects/glow/spark/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Glow">
+<meta property="og:title" content="GlowSpark — a tiny AI, built from scratch, by Glow">
+<meta property="og:description" content="A from-scratch language model that writes fairy tales on your device: offline, private, no account. Tap any word to see what else it considered.">
+<meta property="og:url" content="https://juw12.github.io/projects/glow/spark/">
+<meta property="og:image" content="https://juw12.github.io/projects/glow/icons/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://juw12.github.io/projects/glow/icons/og-image.png">
+<link rel="stylesheet" href="../home.css">
+<link rel="stylesheet" href="./spark.css">
+<link rel="icon" type="image/svg+xml" href="../icons/app-icon.svg">
+<link rel="manifest" href="../manifest.webmanifest">
+<link rel="apple-touch-icon" href="../icons/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Glow">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+</head>
+<body class="spark-page">
+<header class="top">
+  <a class="logo" href="../" aria-label="Glow home"><img src="../icons/app-icon.svg" alt="" width="34" height="34"><span>Glow</span></a>
+  <div class="top-right">
+    <button class="icon-btn" id="theme-btn" type="button" title="Light or dark">☀</button>
+    <button class="icon-btn" id="glow-apps-btn" type="button" data-glow-apps aria-label="Glow apps" title="Glow apps"></button>
+    <button id="profile-btn" type="button" data-glow-profile></button>
+  </div>
+</header>
+
+<main class="spark-main">
+  <section class="spark-head">
+    <h1><span aria-hidden="true">✨</span> <span data-i18n="spark.title">GlowSpark</span></h1>
+    <p class="spark-lede" data-i18n="spark.lede">A tiny AI we built from scratch. It writes fairy tales right here on your device: no account, no server, no waiting.</p>
+    <p class="spark-meta" id="spark-meta" aria-live="polite">Waking the model…</p>
+    <div class="load-bar" id="load-bar" aria-hidden="true"><i id="load-fill"></i></div>
+  </section>
+
+  <section class="writer" aria-labelledby="writer-title">
+    <h2 class="sr-only" id="writer-title" data-i18n="spark.writerTitle">Start a tale</h2>
+    <div class="chips" id="starter-chips" role="group" aria-label="Story starters"></div>
+    <label class="sr-only" for="prompt-box" data-i18n="spark.promptLabel">How the tale begins</label>
+    <textarea id="prompt-box" rows="2" maxlength="400" spellcheck="true" placeholder="How does the tale begin? Write the first words in English, or pick a starter above." data-i18n-placeholder="spark.placeholder"></textarea>
+    <div class="dials">
+      <label class="dial" for="creativity">
+        <span data-i18n="spark.creativity">Creativity</span>
+        <input type="range" id="creativity" min="0" max="12" step="1" value="8">
+        <b id="creativity-value"></b>
+      </label>
+      <div class="dial">
+        <span id="length-label" data-i18n="spark.length">Length</span>
+        <div class="seg" id="length-seg" role="group" aria-labelledby="length-label">
+          <button type="button" data-length="80" aria-pressed="false" data-i18n="spark.short">Short</button>
+          <button type="button" data-length="160" aria-pressed="true" data-i18n="spark.medium">Medium</button>
+          <button type="button" data-length="320" aria-pressed="false" data-i18n="spark.long">Long</button>
+        </div>
+      </div>
+    </div>
+    <div class="writer-actions">
+      <button type="button" class="btn go primary" id="write-btn" disabled><span aria-hidden="true">✨</span> <span data-i18n="spark.write">Write</span></button>
+      <button type="button" class="btn go" id="stop-btn" hidden><span aria-hidden="true">■</span> <span data-i18n="spark.stop">Stop</span></button>
+      <button type="button" class="btn small" id="again-btn" disabled><span aria-hidden="true">🎲</span> <span data-i18n="spark.again">Another version</span></button>
+      <button type="button" class="btn small" id="more-btn" disabled><span aria-hidden="true">➜</span> <span data-i18n="spark.more">Keep writing</span></button>
+    </div>
+  </section>
+
+  <section class="tale" id="tale" hidden aria-labelledby="tale-title">
+    <div class="tale-top">
+      <h2 id="tale-title" data-i18n="spark.taleTitle">Your tale</h2>
+      <span class="tale-speed" id="tale-speed"></span>
+    </div>
+    <div class="tale-text" id="tale-text" lang="en"></div>
+    <p class="tale-hint" id="tale-hint" data-i18n="spark.hint">Tap any word to see what else the model considered, and send the tale down that path. Dotted words are the ones it was least sure about.</p>
+    <div class="tale-actions">
+      <button type="button" class="act" id="copy-btn"><span aria-hidden="true">⧉</span> <span data-i18n="spark.copy">Copy</span></button>
+      <button type="button" class="act" id="speak-btn" aria-pressed="false"><span aria-hidden="true">🔊</span> <span data-i18n="spark.speak">Read aloud</span></button>
+      <button type="button" class="act ask" id="chat-btn"><span aria-hidden="true">💬</span> <span data-i18n="spark.chat">Continue in GlowChat</span></button>
+    </div>
+  </section>
+  <div class="alt-pop" id="alt-pop" role="dialog" aria-labelledby="alt-title" hidden>
+    <p class="alt-title" id="alt-title" data-i18n="spark.altTitle">Instead, the model could have written</p>
+    <div class="alt-list" id="alt-list"></div>
+  </div>
+
+  <section class="card" id="numbers" aria-labelledby="numbers-title">
+    <h2 id="numbers-title" data-i18n="spark.numbersTitle">The numbers, measured</h2>
+    <p class="card-lede" data-i18n="spark.numbersLede">Nothing here is an estimate. Every figure is read from the benchmark file our scripts wrote, and the two marked with a green dot are timed on your device as you use it.</p>
+    <div class="stats" id="stats"></div>
+    <h3 id="bars-title" data-i18n="spark.barsTitle">How well does it predict stories it never read?</h3>
+    <p class="card-lede" id="bars-lede"></p>
+    <div class="bars" id="bars" role="list" aria-labelledby="bars-title"></div>
+    <p class="fine" id="bench-note"></p>
+  </section>
+
+  <section class="card" aria-labelledby="versus-title">
+    <h2 id="versus-title" data-i18n="spark.versusTitle">Where it wins, where it loses</h2>
+    <p class="card-lede" data-i18n="spark.versusLede">GlowSpark is not a rival to ChatGPT, Claude or Gemini at knowing things. It goes after what they cannot do: start instantly, run anywhere, work offline and keep every word on your device.</p>
+    <div class="table-wrap" tabindex="0" role="region" aria-labelledby="versus-title">
+      <table class="versus">
+        <thead>
+          <tr>
+            <th scope="col"></th>
+            <th scope="col" class="us">GlowSpark</th>
+            <th scope="col"><span data-i18n="spark.v.cloud">Cloud chatbots</span><small>ChatGPT, Claude, Gemini</small></th>
+            <th scope="col"><span data-i18n="spark.v.web">Big models in the browser</span><small>WebLLM</small></th>
+            <th scope="col"><span data-i18n="spark.v.chrome">Chrome's built-in AI</span><small>Gemini Nano</small></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th scope="row" data-i18n="spark.v.r1">Knowledge and reasoning</th>
+            <td class="us lose" data-i18n="spark.v.r1.us">None. It has only read old fairy tales.</td>
+            <td class="win" data-i18n="spark.v.r1.cloud">The best there is</td>
+            <td data-i18n="spark.v.r1.web">Good, for small models</td>
+            <td data-i18n="spark.v.r1.chrome">Good, for a small model</td>
+          </tr>
+          <tr>
+            <th scope="row" data-i18n="spark.v.r2">Before the first word</th>
+            <td class="us win" id="versus-download" data-i18n="spark.v.r2.us">One small download</td>
+            <td data-i18n="spark.v.r2.cloud">Sign-in for most, then a round trip to a data centre for every reply</td>
+            <td data-i18n="spark.v.r2.web">A model download that is many times larger</td>
+            <td data-i18n="spark.v.r2.chrome">A model download managed by Chrome</td>
+          </tr>
+          <tr>
+            <th scope="row" data-i18n="spark.v.r3">Runs on</th>
+            <td class="us win" data-i18n="spark.v.r3.us">Any modern browser, phones included. Plain JavaScript on the CPU.</td>
+            <td data-i18n="spark.v.r3.cloud">Anything with a connection</td>
+            <td data-i18n="spark.v.r3.web">Browsers and devices with WebGPU</td>
+            <td data-i18n="spark.v.r3.chrome">Desktop Chrome on supported hardware</td>
+          </tr>
+          <tr>
+            <th scope="row" data-i18n="spark.v.r4">Works offline</th>
+            <td class="us win" data-i18n="spark.v.r4.us">Yes, after the first visit</td>
+            <td class="lose" data-i18n="spark.v.r4.cloud">No</td>
+            <td data-i18n="spark.v.r4.web">Yes, after the download</td>
+            <td data-i18n="spark.v.r4.chrome">Yes, after the download</td>
+          </tr>
+          <tr>
+            <th scope="row" data-i18n="spark.v.r5">Where your words go</th>
+            <td class="us win" data-i18n="spark.v.r5.us">Nowhere. There is no server to send them to.</td>
+            <td class="lose" data-i18n="spark.v.r5.cloud">To the provider's servers</td>
+            <td data-i18n="spark.v.r5.web">They stay on the device</td>
+            <td data-i18n="spark.v.r5.chrome">They stay on the device</td>
+          </tr>
+          <tr>
+            <th scope="row" data-i18n="spark.v.r6">Account, key or usage limit</th>
+            <td class="us win" data-i18n="spark.v.r6.us">None</td>
+            <td class="lose" data-i18n="spark.v.r6.cloud">Usually an account, and limits on free plans</td>
+            <td data-i18n="spark.v.r6.web">None</td>
+            <td data-i18n="spark.v.r6.chrome">None</td>
+          </tr>
+          <tr>
+            <th scope="row" data-i18n="spark.v.r7">Can you see why it chose a word?</th>
+            <td class="us win" data-i18n="spark.v.r7.us">Yes. Tap any word for the alternatives and their odds.</td>
+            <td class="lose" data-i18n="spark.v.r7.cloud">Not in the chat apps</td>
+            <td data-i18n="spark.v.r7.web">Only if the app builds it</td>
+            <td data-i18n="spark.v.r7.chrome">No</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="fine"><span data-i18n="spark.v.sources">Sources for the other columns, checked on</span> <span id="refs-date">…</span>:
+      <a href="https://github.com/mlc-ai/web-llm" rel="noopener noreferrer" target="_blank">WebLLM README</a>
+      (<span data-i18n="spark.v.direct">read directly</span>),
+      <a href="https://developer.chrome.com/docs/ai/get-started" rel="noopener noreferrer" target="_blank">Chrome built-in AI requirements</a>
+      (<span data-i18n="spark.v.search">through a web search, because the page would not open from the network this was built on</span>).
+      <span data-i18n="spark.v.noBench">We did not benchmark those systems ourselves, so no speed, size or quality number is claimed for them.</span></p>
+  </section>
+
+  <section class="card" aria-labelledby="limits-title">
+    <h2 id="limits-title" data-i18n="spark.limitsTitle">What it can't do</h2>
+    <ul class="limits">
+      <li data-i18n="spark.limit1">It cannot answer questions. It knows no facts, only how old tales tend to go. For answers, use GlowChat.</li>
+      <li data-i18n="spark.limit2">It writes English only, in the voice of books from a century or more ago, and it carries their old-fashioned ideas too.</li>
+      <li data-i18n="spark.limit3">It loses the thread fast. The phrases sound like a fairy tale, but sentences often go wrong, and characters and plot change from line to line.</li>
+      <li data-i18n="spark.limit4">It remembers only the last few hundred words, so a long tale forgets how it began.</li>
+    </ul>
+  </section>
+
+  <section class="card" aria-labelledby="built-title">
+    <h2 id="built-title" data-i18n="spark.builtTitle">Built from scratch</h2>
+    <ol class="built">
+      <li data-i18n="spark.built1">The tokenizer: our own byte-pair encoder, trained on the books. No tokenizer library.</li>
+      <li data-i18n="spark.built2">The model: a small transformer that started from random numbers. No pretrained weights, nothing downloaded from another model.</li>
+      <li data-i18n="spark.built3">The training: one laptop processor, no graphics card, public-domain books only.</li>
+      <li data-i18n="spark.built4">The engine: plain JavaScript written for this page. No AI library, no WebGPU, no WebAssembly.</li>
+    </ol>
+    <div class="check-row">
+      <button type="button" class="btn small" id="selftest-btn" disabled><span aria-hidden="true">🔬</span> <span data-i18n="spark.selftest">Check this engine against the reference</span></button>
+      <p class="check-result" id="selftest-result" aria-live="polite"></p>
+    </div>
+    <details class="books" id="books">
+      <summary><span data-i18n="spark.booksTitle">The books it learned from</span> <b id="books-count"></b></summary>
+      <p class="fine" data-i18n="spark.booksLede">All are in the public domain in the USA and come from Project Gutenberg. Books marked “held out” were never shown to the model: they are the test.</p>
+      <ul class="book-list" id="book-list"></ul>
+    </details>
+  </section>
+
+  <footer class="spark-foot">
+    <p class="fine" data-i18n="spark.fine">GlowSpark makes things up: that is all it does. Its tales are generated on your device by a small model trained on old books, and can be odd, wrong or dated. Nothing you type or generate here leaves this page unless you choose to send it to GlowChat.</p>
+  </footer>
+</main>
+
+<div class="toast" id="spark-toast" role="status" hidden></div>
+
+<script src="../shared/glow-locale.js"></script>
+<script src="../shared/glow-apps.js"></script>
+<script src="./spark.js"></script>
+</body>
+</html>
