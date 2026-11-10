@@ -2805,7 +2805,7 @@
       "url_label": "Open site",
       "desc": "Breaks the hex before your AI agent falls for it: scans skills, MCP servers and tools for prompt injection, hidden or disguised text, secret theft and risky commands, then guards tool calls and chat at run time. Browser, CLI, GitHub Action.",
       "summary": "Break the hex: scan AI agent skills and MCP servers before you trust them",
-      "description": "Scans skills, MCP configs and tool lists for prompt injection, hidden or disguised text (base64, homoglyphs, zero-width, leetspeak), secret theft and risky commands in the browser, CLI or a GitHub Action, then gates tool calls and chat at run time. Held-out set: 11/11 attacks flagged, 0/5 false alarms; disguised attacks flagged 63/65.",
+      "description": "Scans skills, MCP configs and tool lists for prompt injection, hidden or disguised text (base64, homoglyphs, zero-width, leetspeak), secret theft and risky commands in the browser, CLI or a GitHub Action, then gates tool calls and chat at run time. Held-out set: 11/11 attacks flagged, 0/5 false alarms; disguised attacks flagged 65/65.",
       "tags": [
         "agent-skills",
         "ai-security",
