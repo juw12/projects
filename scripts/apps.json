@@ -2927,6 +2927,44 @@
       "status": "released",
       "order": 64,
       "portfolio": true
+    },
+    {
+      "id": "jepret",
+      "name": "Jepret",
+      "category": "Apps",
+      "external": true,
+      "url": "https://juw12.github.io/jepret/",
+      "url_label": "Open site",
+      "desc": "Free, offline web app: SD card in, Adobe Stock + Shutterstock upload files out. Culls blurry/duplicate shots, builds titles and keywords. Photos never leave your computer.",
+      "summary": "SD card in, stock upload files out",
+      "description": "Free browser app for idle cameras: removes blurry and duplicate shots, groups scenes, builds titles and keywords, and exports Adobe Stock and Shutterstock CSVs. Photos never leave your computer.",
+      "tags": [
+        "photography",
+        "stock",
+        "offline",
+        "javascript"
+      ],
+      "note_tags": [
+        "jepret"
+      ],
+      "image": "jepret-card.jpg",
+      "image_alt": "Jepret home page in dark mode: headline 'Camera sitting idle? SD card in, stock upload files out.', orange Choose SD card folder button, three numbered steps and an honest note",
+      "extra_links": [
+        {
+          "label": "Source",
+          "url": "https://github.com/juw12/jepret"
+        }
+      ],
+      "card": {
+        "label": "jepret · home",
+        "capture": "https://juw12.github.io/jepret/",
+        "theme": "dark",
+        "accent": "#db5c3a",
+        "accent2": "#9e9a2f"
+      },
+      "status": "released",
+      "order": 65,
+      "portfolio": true
     }
   ]
 }
