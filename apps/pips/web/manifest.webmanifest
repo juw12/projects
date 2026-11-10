@@ -1,7 +1,7 @@
 {
-  "name": "Pips — The Morning Paper",
+  "name": "Pips — Morrow",
   "short_name": "Pips",
-  "description": "The Morning Paper — an always-on-top desktop widget: Pomodoro timer, soundscapes, live app-usage tracking and a daily productivity score.",
+  "description": "Morrow — an always-on-top desktop widget: Pomodoro timer, soundscapes, live app-usage tracking and a daily productivity score.",
   "start_url": "./web.html",
   "scope": "./",
   "display": "standalone",

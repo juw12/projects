@@ -220,7 +220,7 @@ DEFAULT_CONFIG = {
 
 
 # =============================================================================
-# THEME — Newspaper "Morning Paper" Light Palette
+# THEME — Newspaper "Morrow" Light Palette
 # =============================================================================
 
 THEME = {
