@@ -1,0 +1,68 @@
+{
+ "held_out": {
+  "bytes": 4399989,
+  "tokens": 1273863,
+  "books": 16,
+  "perplexity_per_token": 66.42
+ },
+ "train": {
+  "bytes": 41035866,
+  "books": 179
+ },
+ "bits_per_byte": {
+  "spark_float32": 1.7524,
+  "spark_shipped_int8": 1.7526,
+  "spark_v0_baseline": 2.1999,
+  "gzip_9": 2.9075,
+  "bzip2_9": 2.2068,
+  "xz_9e": 2.3132,
+  "xz_9e_primed_with_training_corpus": 2.0799
+ },
+ "config": {
+  "vocab": 4096,
+  "dim": 128,
+  "layers": 4,
+  "heads": 4,
+  "context": 256
+ },
+ "parameters": 1311872,
+ "training": {
+  "minutes": 50.0,
+  "stages": [
+   {
+    "run": "r1a",
+    "minutes": 8.0
+   },
+   {
+    "run": "r2a",
+    "minutes": 12.0
+   },
+   {
+    "run": "r3",
+    "minutes": 30.0
+   }
+  ],
+  "best_val_loss_nats_per_token": 4.2239009141922,
+  "threads": 4,
+  "batch": 16,
+  "context": 256
+ },
+ "download": {
+  "files": {
+   "engine.js": 15313,
+   "worker.js": 8716,
+   "spark.json": 33307,
+   "spark.bin": 1350144
+  },
+  "total_bytes": 1407480
+ },
+ "baseline_training_minutes": 3.0,
+ "browser": {
+  "hardware": "Intel Core Ultra 7 258V laptop, headless Microsoft Edge 157",
+  "cold_start_ms": 2185,
+  "tokens_per_second": 78.9,
+  "words_per_second": 66.5,
+  "note": ""
+ },
+ "built": "2026-11-10"
+}

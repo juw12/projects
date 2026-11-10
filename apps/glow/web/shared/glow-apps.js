@@ -10,7 +10,7 @@
   const ROOT = new URL("../", scriptUrl); // .../glow/
   // The Glow family version. Bump it together with ../version.json for every release:
   // an older copy of this script then sees the newer version.json and offers "Update now".
-  const GLOW_VERSION = "1.29.0";
+  const GLOW_VERSION = "1.30.0";
   const LIVE_ROOT = "https://juw12.github.io/projects/glow/";
   const APK_URL = "https://github.com/juw12/projects/releases/download/glow-android/Glow-android.apk";
   const embedded = (function () {
@@ -33,6 +33,7 @@
     { id: "chat", name: "GlowChat", icon: "💬", desc: "Chat, Council and Arena with any AI model", page: onMobilePage ? "chat/mobile.html" : "chat/" },
     { id: "room", name: "GlowRoom", icon: "🏢", desc: "An AI crew that researches, codes and reports back", page: onMobilePage ? "room/mobile.html" : "room/" },
     { id: "news", name: "GlowNews", icon: "📰", desc: "Latest AI news, refreshed twice a day", page: "news/" },
+    { id: "spark", name: "GlowSpark", icon: "✨", desc: "A tiny AI we built from scratch: writes on your device", page: "spark/" },
   ];
 
   // Language & region come from glow-locale.js (loaded first); English when it is missing.
@@ -51,6 +52,7 @@
     if (/\/room\//.test(path)) return "room";
     if (/\/lead\//.test(path)) return "lead";
     if (/\/news\//.test(path)) return "news";
+    if (/\/spark\//.test(path)) return "spark";
     return "home";
   }
 
@@ -1073,6 +1075,7 @@ html.glow-room-open .glow-widget-bubble,html.glow-room-open .glow-widget-panel{d
     if (/^chat\//.test(rest)) return "chat";
     if (/^lead\//.test(rest)) return "lead";
     if (/^news\//.test(rest)) return "news";
+    if (/^spark\//.test(rest)) return "spark";
     if (/^setup\//.test(rest)) return "setup";
     if (/^account\//.test(rest)) return "account";
     if (rest === "" || rest === "index.html") return "home";
