@@ -1587,7 +1587,8 @@
   };
   var ES_TOTALS = {
     total: "total", suma: "sum", promedio: "average", media: "average", "máximo": "max", maximo: "max",
-    "mínimo": "min", minimo: "min", cuenta: "count", conteo: "count"
+    "mínimo": "min", minimo: "min", cuenta: "count", conteo: "count",
+    sumar: "sum", promediar: "average", contar: "count"
   };
   var COLOUR_WORDS = {
     "红": "red", "红色": "red", "绿": "green", "绿色": "green", "黄": "yellow", "黄色": "yellow",
@@ -1631,8 +1632,39 @@
   var ES_NUMBERS = { un: 1, una: 1, otra: 1, dos: 2, tres: 3, cuatro: 4, cinco: 5, seis: 6, siete: 7, ocho: 8, nueve: 9, diez: 10 };
   var ID_NUMBERS = { satu: 1, se: 1, dua: 2, tiga: 3, empat: 4, lima: 5, enam: 6, tujuh: 7, delapan: 8, sembilan: 9, sepuluh: 10 };
 
+  // Traditional Chinese: convert command words only (never column names) so the Simplified rules below match.
+  // Longest first; single-character words are only converted where they cannot be part of a name.
+  var ZH_TRAD_WORDS = [
+    ["重新命名為", "重命名为"], ["突出顯示", "突出显示"], ["重命名為", "重命名为"], ["重命名成", "重命名成"],
+    ["改名為", "改名为"], ["命名為", "命名为"], ["顯示為", "显示为"], ["標記為", "标记为"],
+    ["模板名稱", "模板名称"], ["改為", "改为"], ["設為", "设为"], ["標為", "标为"], ["標成", "标成"], ["標記", "标记"], ["標出", "标出"],
+    ["刪除", "删除"], ["刪掉", "删掉"], ["合計", "合计"], ["總計", "总计"], ["總和", "总和"], ["計數", "计数"],
+    ["貨幣", "货币"], ["幣種", "币种"], ["主題", "主题"], ["風格", "风格"], ["顏色", "颜色"], ["標題", "标题"],
+    ["低於", "低于"], ["高於", "高于"], ["小於", "小于"], ["大於", "大于"], ["少於", "少于"], ["多於", "多于"],
+    ["超過", "超过"], ["等於", "等于"], ["紅色", "红色"], ["綠色", "绿色"], ["黃色", "黄色"],
+    ["換成", "换成"], ["換用", "换用"], ["換個", "换个"], ["換一個", "换一个"], ["欄位", "字段"],
+    ["類型", "类型"], ["選項", "选项"], ["公式為", "公式为"], ["選項為", "选项为"], ["數據", "数据"], ["記錄", "记录"]
+  ];
+
+  function zhSimplifyCommand(text) {
+    var s = String(text);
+    ZH_TRAD_WORDS.forEach(function (pair) {
+      s = s.split(pair[0]).join(pair[1]);
+    });
+    return s
+      .replace(/^將/, "将")
+      .replace(/(^|\s)欄(?=\s|$)/g, "$1栏")
+      .replace(/欄$/, "栏")
+      .replace(/(\s|[低高小大少多于过])\s*紅$/, "$1红")
+      .replace(/(\s|[低高小大少多于过])\s*綠$/, "$1绿")
+      .replace(/(\s|[低高小大少多于过])\s*黃$/, "$1黄")
+      .replace(/(\d)\s*紅$/, "$1 红")
+      .replace(/(\d)\s*綠$/, "$1 绿")
+      .replace(/(\d)\s*黃$/, "$1 黄");
+  }
+
   function zhTweak(spec, text) {
-    var s = text.replace(/：/g, ":").replace(/[，、]/g, ",").replace(/＝/g, "=").trim();
+    var s = zhSimplifyCommand(text).replace(/：/g, ":").replace(/[，、]/g, ",").replace(/＝/g, "=").trim();
     var m;
     if ((m = /^(?:添加|新增|增加|加上?|再加)\s*(\d{1,3}|[一两二三四五六七八九十])?\s*(?:个)?\s*(?:新的?)?\s*(?:行|条)(?:数据|记录)?$/.exec(s))) {
       return "add " + (ZH_NUMBERS[m[1]] || m[1] || 1) + " rows";
@@ -1707,14 +1739,14 @@
     if ((m = /^(?:usa(?:r)?|paga(?:r)?\s+en|cambia(?:r)?\s+a|p[áa]sa(?:lo)?\s+a)\s+(.+)$/i.exec(s)) && detectCurrency(m[1])) {
       return "currency " + m[1];
     }
-    if ((m = /^(?:(?:cambia(?:r)?|pon(?:er)?|usa(?:r)?)\s+(?:el\s+)?)?(?:tema|estilo|color)\b\s*(?:a\s+|en\s+|:)?\s*(.+)$/i.exec(s))) {
+    if ((m = /^(?:(?:cambia(?:r)?|pon(?:er)?|usa(?:r)?)\s+(?:el\s+)?)?(?:tema|estilo|color|modo)\b\s*(?:a\s+|en\s+|:)?\s*(.+)$/i.exec(s))) {
       return "theme " + m[1];
     }
-    if ((m = new RegExp("^(?:(?:añad[ea]|agreg[ae])\\s+" + art + ")?(suma|promedio|media|m[áa]ximo|m[íi]nimo|cuenta|conteo)\\s+(?:de\\s+" + art + ")?(.+)$", "i").exec(s)) ||
+    if ((m = new RegExp("^(?:(?:añad[ea]|agreg[ae])\\s+" + art + ")?(sumar|suma|promediar|promedio|media|m[áa]ximo|m[íi]nimo|contar|cuenta|conteo)\\s+(?:de\\s+" + art + ")?(.+)$", "i").exec(s)) ||
         (m = new RegExp("^(?:(?:añad[ea]|agreg[ae])\\s+" + art + ")?(total)\\s+de\\s+" + art + "(.+)$", "i").exec(s))) {
       return ES_TOTALS[m[1].toLowerCase()] + " of " + m[2];
     }
-    if ((m = /^(?:resalta(?:r)?|marca(?:r)?|destaca(?:r)?|colorea(?:r)?)\s+(?:la\s+columna\s+|el\s+campo\s+)?(.+?)\s+(?:cuando\s+(?:sea|est[ée])\s+)?(menor\s+que|menos\s+de|por\s+debajo\s+de|debajo\s+de|mayor\s+que|m[áa]s\s+de|por\s+encima\s+de|encima\s+de|igual\s+a)\s+(.+?)(?:\s+(?:en\s+)?(rojo|verde|amarillo))?$/i.exec(s))) {
+    if ((m = /^(?:resalta(?:r)?|marca(?:r)?|destaca(?:r)?|colorea(?:r)?)\s+(?:la\s+columna\s+|el\s+campo\s+)?(.+?)\s+(?:cuando\s+(?:sea|est[ée])\s+)?(menor\s+que|menos\s+que|menos\s+de|por\s+debajo\s+de|debajo\s+de|mayor\s+que|m[áa]s\s+de|por\s+encima\s+de|encima\s+de|igual\s+a)\s+(.+?)(?:\s+(?:en\s+)?(rojo|verde|amarillo))?$/i.exec(s))) {
       var esOp = /menor|menos|debajo/i.test(m[2]) ? "below" : /mayor|m[áa]s|encima/i.test(m[2]) ? "above" : "equal to";
       return "highlight " + m[1] + " " + esOp + " " + m[3] + (m[4] ? " " + COLOUR_WORDS[m[4].toLowerCase()] : "");
     }

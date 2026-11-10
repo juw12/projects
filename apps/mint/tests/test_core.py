@@ -233,6 +233,38 @@ out.tweaksIntl = {
   zhColumnFirst: C.applyTweak(budget, "Actual 小于 0 标红").spec.rules.slice(-1)
     .map(function (k) { return k.column + k.op + k.value + ":" + k.style; })[0],
   esThemeWord: C.applyTweak(budget, "cambia el tema a medianoche").spec.theme,
+  // Traditional Chinese command words (names such as 供應商 stay as typed)
+  tradTweaks: (function () {
+    function fresh() {
+      return C.generate("monthly budget in USD").spec;
+    }
+    var names = function (spec) {
+      return spec.sheet.columns.map(function (c) { return c.name; });
+    };
+    var sum = C.applyTweak(fresh(), "合計 Planned").spec.summary.slice(-1)[0];
+    var rule = C.applyTweak(fresh(), "高亮 Planned 低於 0 紅色").spec.rules.slice(-1)[0];
+    return {
+      removed: names(C.applyTweak(fresh(), "刪除 Item").spec).indexOf("Item") < 0,
+      sum: sum.fn + ":" + sum.column,
+      currency: C.applyTweak(fresh(), "貨幣 EUR").spec.currency,
+      theme: C.applyTweak(fresh(), "主題 深色").spec.theme,
+      rule: rule.column + rule.op + rule.value + ":" + rule.style,
+      renamed: names(C.applyTweak(fresh(), "把 Planned 改為 Budget").spec),
+      added: names(C.applyTweak(fresh(), "新增 供應商 欄").spec)
+    };
+  })(),
+  esExtra: (function () {
+    function fresh() {
+      return C.generate("monthly budget in USD").spec;
+    }
+    var rule = C.applyTweak(fresh(), "resalta Planned menos que 0 rojo").spec.rules.slice(-1)[0];
+    var sum = C.applyTweak(fresh(), "sumar Planned").spec.summary.slice(-1)[0];
+    return {
+      rule: rule ? rule.column + rule.op + rule.value + ":" + rule.style : null,
+      modo: C.applyTweak(fresh(), "modo oscuro").spec.theme,
+      sum: sum.fn + ":" + sum.column
+    };
+  })(),
   // 3.5.5: "budget" alone is a modifier; the specific template wins
   budgetModifier: ["trip plan and budget", "旅行预算", "presupuesto de viaje", "wedding budget", "monthly budget", "我的月度预算"]
     .map(function (p) { return C.generate(p).spec.blueprint; }),
@@ -415,6 +447,18 @@ def js_checks():
     check(intl["oneRow"] == [1, 1, 1, 1], "add a row without a number works in en/zh/es/id " + str(intl["oneRow"]))
     check(intl["zhColumnFirst"] == "Actual<0:bad", "zh column-first highlight 标红 " + str(intl["zhColumnFirst"]))
     check(intl["esThemeWord"] == "midnight", "es theme word medianoche " + str(intl["esThemeWord"]))
+    trad = intl["tradTweaks"]
+    check(trad["removed"] is True, "zh-Hant 刪除 removes a column")
+    check(trad["sum"] == "SUM:Planned", "zh-Hant 合計 adds a SUM card " + str(trad["sum"]))
+    check(trad["currency"] == "EUR", "zh-Hant 貨幣 sets currency " + str(trad["currency"]))
+    check(trad["theme"] == "midnight", "zh-Hant 主題 深色 sets theme " + str(trad["theme"]))
+    check(trad["rule"] == "Planned<0:bad", "zh-Hant 高亮 … 低於 … 紅色 adds red rule " + str(trad["rule"]))
+    check("Budget" in trad["renamed"] and "Planned" not in trad["renamed"], "zh-Hant 改為 renames")
+    check("供應商" in trad["added"], "zh-Hant 新增 … 欄 keeps the Traditional column name " + str(trad["added"][-1:]))
+    esx = intl["esExtra"]
+    check(esx["rule"] == "Planned<0:bad", "es 'menos que' highlight " + str(esx["rule"]))
+    check(esx["modo"] == "midnight", "es 'modo oscuro' sets theme " + str(esx["modo"]))
+    check(esx["sum"] == "SUM:Planned", "es 'sumar' adds a SUM card " + str(esx["sum"]))
     check(intl["budgetModifier"] == ["travel", "travel", "travel", "event", "budget", "budget"],
           "budget as a modifier gives way to trip/wedding templates " + str(intl["budgetModifier"]))
     check(intl["phrasings"] == ["MXN", "CNY", "ocean", "midnight", "Mi presupuesto", "Anggaranku", False],
