@@ -1,3 +1,0 @@
-# Keep this folder under git even when empty.
-# QuestData ScriptableObjects are loaded at runtime by QuestManager
-# via Resources.LoadAll<QuestData>("Quests").
