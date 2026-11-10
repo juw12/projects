@@ -2935,8 +2935,8 @@
       "external": true,
       "url": "https://juw12.github.io/jepret/",
       "url_label": "Open site",
-      "desc": "Free, offline web app: SD card in, Adobe Stock + Shutterstock upload files out. Culls blurry/duplicate shots, builds titles and keywords. Photos never leave your computer.",
-      "summary": "SD card in, stock upload files out",
+      "desc": "Free, offline web app: photos in (SD card or straight from the camera to your phone), Adobe Stock + Shutterstock upload files out. Culls blurry/duplicate shots, builds titles and keywords. Photos never leave your device.",
+      "summary": "Photos in, stock upload files out",
       "description": "Free browser app for idle cameras: removes blurry and duplicate shots, groups scenes, builds titles and keywords, and exports Adobe Stock and Shutterstock CSVs. Photos never leave your computer.",
       "tags": [
         "photography",
