@@ -77,12 +77,9 @@ class SpedBrandingTests(unittest.TestCase):
                 self.assertIn("self.registration.unregister()", worker)
                 self.assertNotIn("clients.navigate", worker)
 
-    def test_legacy_source_paths_point_to_hazel(self):
-        for old in ("hookline", "sped"):
-            stub = (REPO / f"apps/{old}/README.md").read_text(encoding="utf-8")
-            self.assertIn("Hazel Sped", stub)
-            self.assertIn("apps/hazel", stub.replace("../hazel", "apps/hazel"))
-            self.assertFalse((REPO / f"apps/{old}/web").exists())
+    def test_legacy_source_folders_are_gone(self):
+        for old in ("hookline", "sped", "shortcraft"):
+            self.assertFalse((REPO / f"apps/{old}").exists(), f"apps/{old} should be removed")
 
 
 if __name__ == "__main__":
