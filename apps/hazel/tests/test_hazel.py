@@ -162,10 +162,8 @@ def catalog_checks():
         if target is not None and (target.is_dir() or path.endswith("/")):
             target = target / "index.html"
         check(target is not None and target.exists(), f"catalog link {path} resolves")
-    for old in ("shortcraft", "sped"):
-        stub = APP.parent / old / "README.md"
-        check(stub.is_file() and "apps/hazel" in read(stub).replace("../hazel", "apps/hazel"), f"apps/{old}/README.md points to apps/hazel")
-        check(not (APP.parent / old / "web").exists(), f"apps/{old} has no web folder left")
+    for old in ("shortcraft", "sped", "hookline"):
+        check(not (APP.parent / old).exists(), f"apps/{old} source folder is gone (lives in apps/hazel)")
 
 
 def redirect_checks():

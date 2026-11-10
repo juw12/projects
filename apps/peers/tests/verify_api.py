@@ -315,18 +315,17 @@ def run_tests():
         
         resp = get("/index.html")
         served_html = resp.read().decode("utf-8")
-        served_first_script = served_html.find("<script")
-        served_second_script = served_html.find("<script", served_first_script + 1)
-        
-        # The shim is injected before the first <script>, so served should have the shim content
-        # before where the original first script tag content begins
+        # The server injects its own <script> tags (PEERS_SERVER flag + shim) in front of the
+        # page's first <script>, so locate the ORIGINAL first script by its content, not by count.
+        original_script_snippet = original_html[original_first_script:original_first_script + 200]
+        served_original_script = served_html.find(original_script_snippet)
         shim_marker = 'var KEY="peers_demo_v3"'
         shim_pos = served_html.find(shim_marker)
         
-        if shim_pos != -1 and shim_pos < served_second_script:
+        if shim_pos != -1 and served_original_script != -1 and shim_pos < served_original_script:
             print("  ok - shim injected before original app script")
         else:
-            print(f"  FAIL - shim not found or in wrong position (shim_pos:{shim_pos}, second_script:{served_second_script})")
+            print(f"  FAIL - shim not found or in wrong position (shim_pos:{shim_pos}, original_script:{served_original_script})")
             all_passed = False
         
         print("\n" + "=" * 50)
