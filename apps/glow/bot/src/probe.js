@@ -5,14 +5,68 @@
 import { AI_MODELS, KEYLESS, askEntry } from "./models.js";
 import { createSpark } from "./spark.js";
 import { clip, errorText, inBatches, withTimeout } from "./util.js";
-import { createWeb } from "./web.js";
+import { USER_AGENT, createWeb } from "./web.js";
 
 const PING = [{ role: "user", content: "Reply with the single word: pong" }];
 const SEARCH_QUERY = "Cloudflare Workers free plan limits";
 const PAGE_TO_READ = "https://example.com/";
-const PAGE_MUST_SAY = "Example Domain";
+const PAGE_SAYS = /example domain|documentation/i;
 const TALE_OPENING = "Once upon a time";
 const AT_ONCE = 4; // a Worker may only have six connections waiting at once
+
+// TEMPORARY, removed once the search order is decided: which keyless search services answer from where
+// the bot really runs. Nothing here is used to answer anyone. Each row keeps the status, the content
+// type, a few marker counts and a short sample of the body, so parsers get written for what really
+// arrives at Cloudflare and not for what a desktop browser sees.
+const REACH = [
+  { id: "bing-rss", url: (q) => `https://www.bing.com/search?format=rss&q=${q}`, from: /<item\b/i },
+  { id: "bing-news-rss", url: (q) => `https://www.bing.com/news/search?format=rss&q=${q}`, from: /<item\b/i },
+  { id: "bing-html", url: (q) => `https://www.bing.com/search?q=${q}`, from: /<li class="b_algo/i },
+  { id: "brave", url: (q) => `https://search.brave.com/search?q=${q}&source=web`, from: /class="snippet\b/i },
+  { id: "duckduckgo-lite", url: (q) => `https://lite.duckduckgo.com/lite/?q=${q}`, from: /result-link/i },
+  {
+    id: "duckduckgo-post",
+    url: () => "https://html.duckduckgo.com/html/",
+    body: (q) => `q=${q}`,
+    from: /result__a/i,
+  },
+  {
+    id: "duckduckgo-instant",
+    url: (q) => `https://api.duckduckgo.com/?q=${q}&format=json&no_html=1&skip_disambig=1`,
+  },
+  { id: "mojeek", url: (q) => `https://www.mojeek.com/search?q=${q}`, from: /class="results-standard/i },
+  {
+    id: "qwant",
+    url: (q) =>
+      `https://api.qwant.com/v3/search/web?q=${q}&count=10&locale=en_US&offset=0&device=desktop&safesearch=1`,
+  },
+  {
+    id: "yep",
+    url: (q) =>
+      `https://api.yep.com/fs/2/search?client=web&gl=US&no_correct=false&q=${q}&safeSearch=moderate&type=web`,
+  },
+  { id: "marginalia", url: (q) => `https://api.marginalia.nu/public/search/${q}?count=8` },
+  { id: "hn-algolia", url: (q) => `https://hn.algolia.com/api/v1/search?query=${q}&hitsPerPage=8` },
+  {
+    id: "gdelt",
+    url: (q) => `https://api.gdeltproject.org/api/v2/doc/doc?query=${q}&mode=ArtList&maxrecords=10&format=json`,
+  },
+  {
+    id: "google-news-rss",
+    url: (q) => `https://news.google.com/rss/search?q=${q}&hl=en-US&gl=US&ceid=US:en`,
+    from: /<item\b/i,
+  },
+  { id: "openalex", url: (q) => `https://api.openalex.org/works?search=${q}&per-page=5` },
+];
+const REACH_MARKS = {
+  items: /<item\b/gi,
+  algo: /b_algo/g,
+  resultLinks: /result__a|result-link/g,
+  snippets: /snippet/gi,
+  jsonUrls: /"url"\s*:/g,
+  blocked: /captcha|challenge|unusual traffic|anomaly|are you a robot|access denied/gi,
+};
+const REACH_BODY_CHARS = 600000;
 
 function oneLine(text, max) {
   return clip(String(text == null ? "" : text).replace(/\s+/g, " ").trim(), max);
@@ -41,6 +95,7 @@ export async function runProbe(options) {
     web: new Array(web.searchers.length + web.readers.length).fill(null),
     spark: null,
     news: null,
+    reach: new Array(REACH.length).fill(null),
   };
   const tasks = [];
 
@@ -126,7 +181,7 @@ export async function runProbe(options) {
       const row = { id: "read:" + reader.id, ok: false, status: 0, ms: 0, detail: "" };
       try {
         const page = String(await reader.run(PAGE_TO_READ));
-        row.ok = page.includes(PAGE_MUST_SAY);
+        row.ok = PAGE_SAYS.test(page);
         row.status = 200;
         row.detail = `${page.length} characters` + (row.ok ? "" : `; starts: ${oneLine(page, 60)}`);
       } catch (error) {
@@ -162,6 +217,46 @@ export async function runProbe(options) {
     } catch (error) {
       report.spark = { ok: false, loadMs: 0, tokens: 0, sample: "", parameters: 0, error: oneLine(errorText(error), 160) };
     }
+  });
+
+  // TEMPORARY (see REACH above).
+  REACH.forEach((candidate, index) => {
+    tasks.push(async () => {
+      const began = now();
+      const row = { id: candidate.id, ok: false, status: 0, type: "", length: 0, ms: 0, marks: {}, sample: "", error: "" };
+      const query = encodeURIComponent(SEARCH_QUERY);
+      const address = candidate.url(query);
+      const headers = { "User-Agent": USER_AGENT, Accept: "*/*", "Accept-Language": "en" };
+      const init = { headers };
+      if (candidate.body) {
+        init.method = "POST";
+        init.body = candidate.body(query);
+        headers["Content-Type"] = "application/x-www-form-urlencoded";
+      }
+      try {
+        const answer = await withTimeout(
+          async (inner) => {
+            const response = await send(address, { ...init, signal: inner });
+            return { response, body: (await response.text()).slice(0, REACH_BODY_CHARS) };
+          },
+          Math.min(timeoutMs, 12000),
+          "reach " + candidate.id,
+        );
+        const body = answer.body;
+        row.ok = answer.response.ok;
+        row.status = answer.response.status;
+        row.type = clip(answer.response.headers.get("Content-Type") || "", 60);
+        row.length = body.length;
+        for (const name of Object.keys(REACH_MARKS)) row.marks[name] = (body.match(REACH_MARKS[name]) || []).length;
+        const at = candidate.from ? body.search(candidate.from) : 0;
+        const start = Math.max(at, 0);
+        row.sample = oneLine(body.slice(start, start + 3000), 500);
+      } catch (error) {
+        row.error = oneLine(errorText(error), 160);
+      }
+      row.ms = now() - began;
+      report.reach[index] = row;
+    });
   });
 
   // Which text models this account can really call, so the list above can be kept honest.

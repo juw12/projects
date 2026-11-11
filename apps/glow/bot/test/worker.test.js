@@ -300,6 +300,18 @@ function duckResult(title, link) {
   return `<div class="result"><a rel="nofollow" class="result__a" href="${href}">${title}</a></div>\n`;
 }
 
+const BING_FEED =
+  '<?xml version="1.0" encoding="utf-8" ?><rss version="2.0"><channel><title>Search</title>' +
+  "<item><title>Limits &#183; Cloudflare Workers docs</title><link>https://developers.cloudflare.com/workers/platform/limits/</link>" +
+  "<description>The free plan allows 100,000 requests per day.</description></item>" +
+  "<item><title>Workers pricing</title><link>https://example.org/pricing</link><description>Free, then paid.</description></item>" +
+  "</channel></rss>";
+
+// The page's name is only in its <title> these days, so the reader has to keep the title to show it.
+const EXAMPLE_PAGE =
+  "<!doctype html><html><head><title>Example Domain</title></head><body><div>" +
+  "<p>This domain is for use in documentation examples without needing permission.</p></div></body></html>";
+
 const PRETEND_INTERNET = [
   [
     provider.ovh.url, // every OVHcloud model shares one address; the body says which is wanted
@@ -319,7 +331,8 @@ const PRETEND_INTERNET = [
   [READER + "https://example.com/", () => reply("Example Domain\nThis domain is for use in documentation examples.")],
   ["https://html.duckduckgo.com/html/", () => reply(duckResult("Workers limits explained", "https://one.example/") + duckResult("Free plan in detail", "https://two.example/"), HTML)],
   ["https://en.wikipedia.org/w/api.php", () => reply({ query: { search: [{ title: "Cloudflare", snippet: "An <b>American</b> company" }] } })],
-  ["https://example.com/", () => reply("<html><body><h1>Example Domain</h1><p>For documentation.</p></body></html>", HTML)],
+  ["https://www.bing.com/search?format=rss", () => reply(BING_FEED, { headers: { "Content-Type": "text/xml; charset=utf-8" } })],
+  ["https://example.com/", () => reply(EXAMPLE_PAGE, HTML)],
   [PAGES + "/news/news.json", () => reply({ stories: [{ id: "a" }, { id: "b" }, { id: "c" }] })],
   [PAGES + "/spark/spark.json", () => reply(SPARK_META_TEXT)],
   [PAGES + "/spark/" + SPARK_META.weights.file, () => reply(SPARK_WEIGHTS)],
@@ -402,6 +415,7 @@ test("the health check runs in the alarm and reports every model and every route
     "search:jina:www.bing.com",
     "search:jina:html.duckduckgo.com",
     "search:duckduckgo-direct",
+    "search:bing-rss",
     "search:wikipedia",
     "read:jina",
     "read:direct",
@@ -416,9 +430,60 @@ test("the health check runs in the alarm and reports every model and every route
   assert.deepEqual([web["search:jina:www.bing.com"].ok, web["search:jina:www.bing.com"].status], [false, 403]);
   assert.deepEqual([web["search:jina:html.duckduckgo.com"].ok, web["search:jina:html.duckduckgo.com"].detail], [false, "0 results"]);
   assert.equal(web["search:duckduckgo-direct"].ok, true);
+  assert.deepEqual(
+    [web["search:bing-rss"].ok, web["search:bing-rss"].detail],
+    [true, "2 results; first: Limits · Cloudflare Workers docs"],
+  );
   assert.deepEqual([web["search:wikipedia"].ok, web["search:wikipedia"].detail], [true, "1 results; first: Cloudflare"]);
   assert.equal(web["read:jina"].ok, true);
-  assert.equal(web["read:direct"].ok, true);
+  assert.deepEqual(
+    [web["read:direct"].ok, web["read:direct"].detail],
+    [true, `${"Example Domain\n\nThis domain is for use in documentation examples without needing permission.".length} characters`],
+    "the page's name is only in its title, and the reader keeps the title",
+  );
+
+  // The temporary reach rows: one per candidate search service, whether or not it answered.
+  assert.deepEqual(
+    result.reach.map((row) => row.id),
+    [
+      "bing-rss",
+      "bing-news-rss",
+      "bing-html",
+      "brave",
+      "duckduckgo-lite",
+      "duckduckgo-post",
+      "duckduckgo-instant",
+      "mojeek",
+      "qwant",
+      "yep",
+      "marginalia",
+      "hn-algolia",
+      "gdelt",
+      "google-news-rss",
+      "openalex",
+    ],
+  );
+  const reach = byId(result.reach);
+  assert.deepEqual(reach["bing-rss"], {
+    id: "bing-rss",
+    ok: true,
+    status: 200,
+    type: "text/xml; charset=utf-8",
+    length: BING_FEED.length,
+    ms: 0,
+    marks: { items: 2, algo: 0, resultLinks: 0, snippets: 0, jsonUrls: 0, blocked: 0 },
+    sample:
+      "<item><title>Limits &#183; Cloudflare Workers docs</title><link>https://developers.cloudflare.com/workers/platform/limits/</link>" +
+      "<description>The free plan allows 100,000 requests per day.</description></item>" +
+      "<item><title>Workers pricing</title><link>https://example.org/pricing</link><description>Free, then paid.</description></item>" +
+      "</channel></rss>",
+    error: "",
+  });
+  assert.deepEqual([reach.brave.ok, reach.brave.status, reach.brave.error], [false, 599, ""], "a service that says no is reported, not hidden");
+  assert.deepEqual([reach["duckduckgo-post"].ok, reach["duckduckgo-post"].marks.resultLinks], [true, 2]);
+  const posted = send.calls.find((call) => call.method === "POST" && call.url === "https://html.duckduckgo.com/html/");
+  assert.equal(posted.body, "q=Cloudflare%20Workers%20free%20plan%20limits");
+  assert.match(posted.headers["User-Agent"], /GlowBot/, "the bot says who it is here too");
 
   assert.deepEqual(result.news, { ok: true, stories: 3, error: "" });
   assert.equal(result.spark.ok, true, result.spark.error);
@@ -426,7 +491,7 @@ test("the health check runs in the alarm and reports every model and every route
   assert.ok(result.spark.tokens >= 40 && result.spark.sample.length > 10);
 
   // Cloudflare's free plan allows 50 fetches per run; the check must stay far below that.
-  assert.equal(send.calls.length, 16);
+  assert.equal(send.calls.length, 32);
   assert.ok(ai.calls.length <= 2 * AI_MODELS.length);
 });
 

@@ -3,7 +3,7 @@ import { test } from "node:test";
 
 import { parseSearchMarkdown } from "../src/crew-port.js";
 import { StoppedError } from "../src/util.js";
-import { WebError, createWeb, decodeEntities, htmlToText, isPublicUrl, parseDuckHtml } from "../src/web.js";
+import { WebError, createWeb, decodeEntities, htmlToText, isPublicUrl, parseDuckHtml, parseRss } from "../src/web.js";
 import { fakeFetch, reply } from "./fakes.js";
 
 const READER = "https://r.jina.ai/";
@@ -11,8 +11,10 @@ const LITE = READER + "https://lite.duckduckgo.com/lite/?q=";
 const BING = READER + "https://www.bing.com/search?q=";
 const DUCK = READER + "https://html.duckduckgo.com/html/?q=";
 const DUCK_DIRECT = "https://html.duckduckgo.com/html/?q=";
+const BING_RSS = "https://www.bing.com/search?format=rss&q=";
 const WIKIPEDIA = "https://en.wikipedia.org/w/api.php";
 const HTML = { headers: { "Content-Type": "text/html; charset=utf-8" } };
+const RSS = { headers: { "Content-Type": "text/xml; charset=utf-8" } };
 
 // What the reader sends back for a results page with `count` results.
 function resultsPage(count) {
@@ -32,6 +34,15 @@ function duckResult(title, link, snippet) {
     (snippet ? `<a class="result__snippet" href="${href}">${snippet}</a>` : "") +
     `</div>\n`
   );
+}
+
+// A search engine's RSS answer: each item is { title, link, description }, written out as it is given.
+function rssFeed(items) {
+  const body = items
+    .map((item) => `<item><title>${item.title}</title><link>${item.link}</link><description>${item.description || ""}</description></item>`)
+    .join("\n");
+  return `<?xml version="1.0" encoding="utf-8" ?><rss version="2.0"><channel><title>Search</title>` +
+    `<link>https://www.bing.com/search?q=x</link><description>Search results</description>\n${body}\n</channel></rss>`;
 }
 
 function hangUntilAborted(url, init) {
@@ -114,6 +125,44 @@ test("results are read from DuckDuckGo's plain page", () => {
   assert.equal(parseDuckHtml(many).length, 6, "six results at most");
   assert.deepEqual(parseDuckHtml("<html><body>No results.</body></html>"), []);
   assert.deepEqual(parseDuckHtml(null), []);
+});
+
+test("results are read from a search engine's RSS answer", () => {
+  const feed = rssFeed([
+    {
+      title: "Limits &amp; pricing &#183; Cloudflare Workers docs",
+      link: "https://developers.cloudflare.com/workers/platform/limits/?a=1&amp;b=2",
+      description: "The free plan allows 100,000 requests per day &amp; 10 ms of CPU.",
+    },
+    {
+      title: "<![CDATA[Workers <b>pricing</b> & plans]]>",
+      link: "<![CDATA[https://example.org/pricing?plan=free&x=1]]>",
+      description: "<![CDATA[Free, then <b>five dollars</b> a month.]]>",
+    },
+    { title: "The first page once more", link: "https://example.org/pricing?plan=free&amp;x=1", description: "Seen already." },
+    { title: "A machine on somebody's own network", link: "http://192.168.1.1/admin", description: "Not public." },
+    { title: "The search engine itself", link: "https://www.bing.com/search?q=more", description: "More results." },
+    { title: "No", link: "https://example.org/short", description: "The title is too short to be a real result." },
+    { title: "A result with no description", link: "https://example.org/plain" },
+  ]);
+  assert.deepEqual(parseRss(feed), [
+    {
+      title: "Limits & pricing · Cloudflare Workers docs",
+      url: "https://developers.cloudflare.com/workers/platform/limits/?a=1&b=2",
+      snippet: "The free plan allows 100,000 requests per day & 10 ms of CPU.",
+    },
+    { title: "Workers pricing & plans", url: "https://example.org/pricing?plan=free&x=1", snippet: "Free, then five dollars a month." },
+    { title: "A result with no description", url: "https://example.org/plain", snippet: "" },
+  ]);
+
+  const many = [];
+  for (let number = 1; number <= 9; number++) {
+    many.push({ title: `Result number ${number}`, link: `https://site${number}.example/`, description: "Text." });
+  }
+  assert.equal(parseRss(rssFeed(many)).length, 6, "six results at most");
+  assert.deepEqual(parseRss(rssFeed([])), [], "the feed's own title and link are not a result");
+  assert.deepEqual(parseRss("<html><body>Not a feed.</body></html>"), []);
+  assert.deepEqual(parseRss(null), []);
 });
 
 test("only ordinary public web addresses are allowed", () => {
@@ -202,6 +251,28 @@ test("when the reader is blocked DuckDuckGo is asked directly", async () => {
   assert.match(direct.headers["User-Agent"], /GlowBot/, "the bot says who it is");
 });
 
+test("when DuckDuckGo refuses too, Bing's RSS answer is used before Wikipedia", async () => {
+  const feed = rssFeed([
+    { title: "First real result", link: "https://one.example/", description: "One." },
+    { title: "Second real result", link: "https://two.example/", description: "Two." },
+  ]);
+  const send = fakeFetch([
+    [READER, () => reply("forbidden", { status: 403 })],
+    [DUCK_DIRECT, () => reply("forbidden", { status: 403 })],
+    [BING_RSS, () => reply(feed, RSS)],
+  ]);
+  const found = await createWeb({ fetch: send }).search("anything at all");
+  assert.equal(found.via, "bing-rss");
+  assert.deepEqual(found.results, [
+    { title: "First real result", url: "https://one.example/", snippet: "One." },
+    { title: "Second real result", url: "https://two.example/", snippet: "Two." },
+  ]);
+  const asked = send.calls.find((call) => call.url.startsWith(BING_RSS));
+  assert.equal(asked.url, BING_RSS + "anything%20at%20all");
+  assert.match(asked.headers["User-Agent"], /GlowBot/, "the bot says who it is");
+  assert.equal(send.count(WIKIPEDIA), 0, "the last resort is not touched once a real search works");
+});
+
 test("Wikipedia is the last resort, and one article is enough", async () => {
   const article = { title: "Cloudflare Workers", snippet: 'A <span class="searchmatch">serverless</span> platform' };
   const send = fakeFetch([
@@ -216,7 +287,7 @@ test("Wikipedia is the last resort, and one article is enough", async () => {
   ]);
   assert.deepEqual(
     found.tried.map((attempt) => attempt.id),
-    ["jina:lite.duckduckgo.com", "jina:www.bing.com", "jina:html.duckduckgo.com", "duckduckgo-direct", "wikipedia"],
+    ["jina:lite.duckduckgo.com", "jina:www.bing.com", "jina:html.duckduckgo.com", "duckduckgo-direct", "bing-rss", "wikipedia"],
   );
   assert.deepEqual(found.tried[3], { id: "duckduckgo-direct", ok: false, error: "HTTP 403" });
 });
@@ -226,7 +297,7 @@ test("when nothing is found search says so instead of failing", async () => {
   const found = await createWeb({ fetch: send }).search("no route answers");
   assert.deepEqual(found.results, []);
   assert.equal(found.via, "");
-  assert.equal(found.tried.length, 5);
+  assert.equal(found.tried.length, 6);
   assert.ok(found.tried.every((attempt) => attempt.ok === false && attempt.error === "HTTP 599"));
 });
 
@@ -273,6 +344,32 @@ test("when the reader fails the page is fetched directly and turned into text", 
   const page = await createWeb({ fetch: send }).read("https://example.org/prices");
   assert.deepEqual(page, { text: "Prices\nFrom $5 a month.", via: "direct" });
   assert.match(send.calls[1].headers["User-Agent"], /GlowBot/);
+});
+
+test("a page read directly starts with its own title", async () => {
+  const page =
+    "<!doctype html><html><head><meta charset=\"utf-8\"><title>Example  Domain &amp; friends</title>" +
+    "<style>p { color: red }</style></head><body><p>This domain is for use in documentation examples.</p></body></html>";
+  const titledTwice =
+    "<html><head><title>Prices</title></head><body><h1>Prices</h1><p>From $5 a month.</p></body></html>";
+  const titleInBody = "<html><body><p>An article quoting <title>not the page title</title> in its text.</p></body></html>";
+  const send = fakeFetch([
+    [READER, () => reply("blocked", { status: 429 })],
+    ["https://example.org/titled", () => reply(page, HTML)],
+    ["https://example.org/twice", () => reply(titledTwice, HTML)],
+    ["https://example.org/body", () => reply(titleInBody, HTML)],
+  ]);
+  const web = createWeb({ fetch: send });
+  assert.deepEqual(await web.read("https://example.org/titled"), {
+    text: "Example Domain & friends\n\nThis domain is for use in documentation examples.",
+    via: "direct",
+  });
+  assert.equal((await web.read("https://example.org/twice")).text, "Prices\nFrom $5 a month.", "a title the page repeats is not added again");
+  assert.equal(
+    (await web.read("https://example.org/body")).text,
+    "An article quoting not the page title\nin its text.",
+    "only a title in the head counts",
+  );
 });
 
 test("an empty page from the reader is not an answer", async () => {

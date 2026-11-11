@@ -123,6 +123,42 @@ export function parseDuckHtml(html) {
   return results;
 }
 
+// A search engine's RSS answer (RSS 2.0 <item> blocks) -> [{ title, url, snippet }].
+export function parseRss(xml) {
+  const source = String(xml == null ? "" : xml);
+  const results = [];
+  const seen = new Set();
+  const item = /<item\b[^>]*>([\s\S]*?)<\/item\s*>/gi;
+  let match;
+  while (results.length < MAX_RESULTS && (match = item.exec(source))) {
+    const body = match[1];
+    // CDATA content is already plain; anything else is escaped once, so it is decoded once.
+    const field = (name) => {
+      const found = body.match(new RegExp("<" + name + "\\b[^>]*>([\\s\\S]*?)</" + name + "\\s*>", "i"));
+      if (!found) return "";
+      const cdata = found[1].match(/^\s*<!\[CDATA\[([\s\S]*?)\]\]>\s*$/);
+      return cdata ? cdata[1] : decodeEntities(found[1]);
+    };
+    const url = field("link").trim();
+    if (!isPublicUrl(url) || seen.has(url)) continue;
+    if (SEARCH_ENGINE_HOSTS.test(new URL(url).hostname)) continue;
+    const title = oneLine(field("title"));
+    if (title.length < 3) continue;
+    seen.add(url);
+    results.push({ title, url, snippet: oneLine(field("description")).slice(0, 300) });
+  }
+  return results;
+}
+
+// The page's own <title>, which htmlToText drops along with the rest of <head>.
+function titleOf(html) {
+  const source = String(html == null ? "" : html);
+  const bodyAt = source.search(/<body\b/i);
+  const head = bodyAt === -1 ? source.slice(0, 20000) : source.slice(0, bodyAt);
+  const found = head.match(/<title\b[^>]*>([\s\S]*?)<\/title\s*>/i);
+  return found ? oneLine(found[1]).slice(0, 200) : "";
+}
+
 // True only for an ordinary public http(s) address. The bot fetches addresses that models and users give
 // it, so anything that points at a private network, a bare machine name or a login is refused.
 export function isPublicUrl(value) {
@@ -221,6 +257,19 @@ export function createWeb(options) {
     },
   });
   searchers.push({
+    id: "bing-rss",
+    async run(query, signal) {
+      const address = "https://www.bing.com/search?format=rss&q=" + encodeURIComponent(query);
+      const headers = {
+        "User-Agent": userAgent,
+        Accept: "application/rss+xml, application/xml;q=0.9, text/xml;q=0.8",
+      };
+      const reply = await get(address, headers, signal, "web search");
+      if (!reply.ok) throw new WebError(`HTTP ${reply.status}`, reply.status);
+      return parseRss(reply.text);
+    },
+  });
+  searchers.push({
     id: "wikipedia",
     lastResort: true, // GlowRoom takes whatever Wikipedia finds, even a single article
     async run(query, signal) {
@@ -273,7 +322,10 @@ export function createWeb(options) {
           throw new WebError(`not a text page (${clip(reply.type, 40)})`, reply.status);
         }
         const looksLikeHtml = /html/i.test(reply.type) || /<(?:!doctype html|html|body)\b/i.test(reply.text.slice(0, 2000));
-        return looksLikeHtml ? htmlToText(reply.text) : reply.text;
+        if (!looksLikeHtml) return reply.text;
+        const text = htmlToText(reply.text);
+        const title = titleOf(reply.text);
+        return title && !text.startsWith(title) ? `${title}\n\n${text}` : text;
       },
     },
   ];
