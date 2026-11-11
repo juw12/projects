@@ -4,6 +4,7 @@ Text is split into chunks by PATTERN, each chunk starts as raw UTF-8 bytes, and 
 chunk types weighted by frequency. The JavaScript engine implements the same pattern and merge loop.
 """
 import json
+import os
 import re
 import sys
 from collections import Counter, defaultdict
@@ -14,7 +15,7 @@ import numpy as np
 PATTERN_SOURCE = r" ?[A-Za-z']+| ?[0-9]+|[ \t\n\r]+| ?[^ \t\n\rA-Za-z0-9']+"
 PATTERN = re.compile(PATTERN_SOURCE)
 EOT_TEXT = "<|endoftext|>"
-DATA = Path(__file__).parent / "data"
+DATA = Path(__file__).parent / os.environ.get("SPARK_DATA", "data")
 
 
 def train_bpe(chunk_counts, vocab_size):

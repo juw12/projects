@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; worker-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://text.pollinations.ai https://api.llm7.io https://oai.endpoints.kepler.ai.cloud.ovh.net">
+<title>GlowHarness — an agent harness built from scratch, running in your browser</title>
+<meta name="description" content="GlowHarness is an agent harness built from scratch for Glow: the loop that lets an AI use tools, a reader that repairs broken tool calls, a gate that asks before anything changes, and a trace you can replay. It runs in a browser tab, works with no AI model at all, and publishes where it loses.">
+<meta name="theme-color" content="#262624">
+<link rel="canonical" href="https://juw12.github.io/projects/glow/harness/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Glow">
+<meta property="og:title" content="GlowHarness — an agent harness built from scratch, by Glow">
+<meta property="og:description" content="The loop, the tool-call reader, the permission gate and the replayable trace, written from scratch in plain JavaScript. Watch every step, and see the measured difference it makes to a free model.">
+<meta property="og:url" content="https://juw12.github.io/projects/glow/harness/">
+<meta property="og:image" content="https://juw12.github.io/projects/glow/icons/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://juw12.github.io/projects/glow/icons/og-image.png">
+<link rel="stylesheet" href="../home.css">
+<link rel="stylesheet" href="../spark/spark.css">
+<link rel="stylesheet" href="./harness.css">
+<link rel="icon" type="image/svg+xml" href="../icons/app-icon.svg">
+<link rel="manifest" href="../manifest.webmanifest">
+<link rel="apple-touch-icon" href="../icons/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Glow">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+</head>
+<body class="spark-page harness-page">
+<header class="top">
+  <a class="logo" href="../" aria-label="Glow home"><img src="../icons/app-icon.svg" alt="" width="34" height="34"><span>Glow</span></a>
+  <div class="top-right">
+    <button class="icon-btn" id="theme-btn" type="button" title="Light or dark">☀</button>
+    <button class="icon-btn" id="glow-apps-btn" type="button" data-glow-apps aria-label="Glow apps" title="Glow apps"></button>
+    <button id="profile-btn" type="button" data-glow-profile></button>
+  </div>
+</header>
+
+<main class="spark-main">
+  <section class="spark-head">
+    <h1><span aria-hidden="true">🧰</span> <span data-i18n="harness.title">GlowHarness</span></h1>
+    <p class="spark-lede" data-i18n="harness.lede">An agent harness we built from scratch: the loop that lets an AI use tools, the reader that repairs its broken tool calls, the gate that asks before anything changes, and a trace of every step. It runs in this page, and it even works with no AI model at all.</p>
+    <p class="spark-meta" id="harness-meta" aria-live="polite"></p>
+  </section>
+
+  <section class="writer" aria-labelledby="desk-title">
+    <h2 class="sr-only" id="desk-title" data-i18n="harness.deskTitle">Give it a task</h2>
+    <div class="desk-row">
+      <span class="desk-label" id="brain-label" data-i18n="harness.brainLabel">Brain</span>
+      <div class="seg" id="brain-seg" role="group" aria-labelledby="brain-label">
+        <button type="button" data-brain="rules" aria-pressed="true" data-i18n="harness.brain.rules">No model</button>
+        <button type="button" data-brain="free" aria-pressed="false" data-i18n="harness.brain.free">Free model</button>
+      </div>
+    </div>
+    <p class="desk-note" id="privacy-line"></p>
+    <div class="chips" id="example-chips" role="group" aria-label="Example tasks"></div>
+    <label class="sr-only" for="task-box" data-i18n="harness.taskLabel">Your task</label>
+    <textarea id="task-box" rows="2" maxlength="1200" spellcheck="true" placeholder="Ask for a sum, a date, a conversion, or something to remember. Or tap an example above." data-i18n-placeholder="harness.placeholder"></textarea>
+    <div class="writer-actions">
+      <button type="button" class="btn go primary" id="run-btn"><span aria-hidden="true">▶</span> <span data-i18n="harness.run">Run</span></button>
+      <button type="button" class="btn go" id="stop-btn" hidden><span aria-hidden="true">■</span> <span data-i18n="harness.stop">Stop</span></button>
+    </div>
+  </section>
+
+  <section class="tale" id="run" hidden aria-labelledby="run-title">
+    <div class="tale-top">
+      <h2 id="run-title" data-i18n="harness.runTitle">What it did, step by step</h2>
+      <span class="tale-speed" id="run-stats"></span>
+    </div>
+    <ol class="timeline" id="timeline"></ol>
+    <div class="answer" id="answer" hidden aria-live="polite">
+      <p class="answer-label" id="answer-label"></p>
+      <div class="answer-text" id="answer-text"></div>
+      <p class="answer-note" id="answer-note" hidden></p>
+    </div>
+    <div class="tale-actions">
+      <button type="button" class="act" id="copy-btn" disabled><span aria-hidden="true">⧉</span> <span data-i18n="harness.copy">Copy answer</span></button>
+      <button type="button" class="act" id="replay-btn" disabled><span aria-hidden="true">↻</span> <span data-i18n="harness.replay">Replay</span></button>
+      <button type="button" class="act" id="export-btn" disabled><span aria-hidden="true">⤓</span> <span data-i18n="harness.export">Save trace</span></button>
+      <button type="button" class="act ask" id="free-btn" hidden><span aria-hidden="true">☁</span> <span data-i18n="harness.tryFree">Try the free model</span></button>
+      <a class="act ask" id="chat-btn" href="../chat/"><span aria-hidden="true">💬</span> <span data-i18n="harness.chat">Ask GlowChat instead</span></a>
+    </div>
+    <p class="check-result replay-result" id="replay-result" aria-live="polite"></p>
+  </section>
+
+  <section class="card" aria-labelledby="tools-title">
+    <h2 id="tools-title" data-i18n="harness.toolsTitle">Its tools, and what each may do</h2>
+    <p class="card-lede" data-i18n="harness.toolsLede">These are the only things it can do. Reading is allowed. Anything that saves, deletes or downloads asks you first, and you can switch any tool off.</p>
+    <ul class="tool-list" id="tool-list"></ul>
+    <h3 id="notes-title" data-i18n="harness.notesTitle">What it remembers</h3>
+    <p class="card-lede" data-i18n="harness.notesLede">The notebook is its only memory. It is saved in this browser, on this device, and nowhere else.</p>
+    <ul class="note-list" id="note-list" aria-labelledby="notes-title"></ul>
+    <p class="fine" id="notes-empty" data-i18n="harness.notesEmpty">Nothing saved yet. Try “Remember that my locker code is …”.</p>
+    <div class="check-row">
+      <button type="button" class="btn small" id="forget-all-btn" hidden><span aria-hidden="true">🗑</span> <span data-i18n="harness.forgetAll">Forget everything</span></button>
+    </div>
+  </section>
+
+  <section class="card" id="numbers" aria-labelledby="numbers-title">
+    <h2 id="numbers-title" data-i18n="harness.numbersTitle">The numbers, measured</h2>
+    <p class="card-lede" data-i18n="harness.numbersLede">Nothing here is an estimate. Every figure is read from the benchmark file our scripts wrote, and the button at the bottom of this page reruns the engine's checks in your own browser.</p>
+    <div class="stats" id="stats"></div>
+    <h3 id="suite-title" data-i18n="harness.suiteTitle">The same tasks, with and without the harness</h3>
+    <p class="card-lede" id="suite-lede"></p>
+    <div class="bars suite-bars" id="bars" role="list" aria-labelledby="suite-title"></div>
+    <p class="card-lede bars-note" id="paired-note" hidden></p>
+    <p class="card-lede bars-note" id="bars-note" hidden></p>
+    <div class="table-wrap" id="suite-wrap" tabindex="0" role="region" aria-labelledby="suite-title" hidden>
+      <table class="versus suite" id="suite-table"></table>
+    </div>
+    <details class="books" id="method">
+      <summary data-i18n="harness.methodTitle">How this was measured, and what it does not show</summary>
+      <ul class="limits method-list" id="method-list"></ul>
+    </details>
+    <p class="fine" id="bench-note"></p>
+  </section>
+
+  <section class="card" aria-labelledby="versus-title">
+    <h2 id="versus-title" data-i18n="harness.versusTitle">Where it wins, where it loses</h2>
+    <p class="card-lede" data-i18n="harness.versusLede">GlowHarness is not a rival to Claude Code, Codex or OpenCode at real work. Those drive your computer with the best models there are. This one goes after what they skip: nothing to install, no account, every step visible, and useful with no model at all.</p>
+    <div class="table-wrap" tabindex="0" role="region" aria-labelledby="versus-title">
+      <table class="versus compare">
+        <thead>
+          <tr>
+            <th scope="col"></th>
+            <th scope="col" class="us">GlowHarness</th>
+            <th scope="col">Claude Code<small>Anthropic</small></th>
+            <th scope="col">Codex CLI<small>OpenAI</small></th>
+            <th scope="col">OpenCode<small data-i18n="harness.v.community">open source</small></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th scope="row" data-i18n="harness.v.r1">Real work on your computer</th>
+            <td class="us lose" data-label="GlowHarness" data-i18n="harness.v.r1.us">None. It cannot touch files, run programs or browse the web.</td>
+            <td class="win" data-label="Claude Code" data-i18n="harness.v.r1.claude">Edits files and runs shell commands</td>
+            <td class="win" data-label="Codex CLI" data-i18n="harness.v.r1.codex">Edits files and runs shell commands</td>
+            <td class="win" data-label="OpenCode" data-i18n="harness.v.r1.opencode">Edits files and runs shell commands</td>
+          </tr>
+          <tr>
+            <th scope="row" data-i18n="harness.v.r2">The model behind it</th>
+            <td class="us lose" data-label="GlowHarness" data-i18n="harness.v.r2.us">Small free models: rationed, slow at times and often wrong</td>
+            <td class="win" data-label="Claude Code" data-i18n="harness.v.r2.claude">Anthropic's best models</td>
+            <td class="win" data-label="Codex CLI" data-i18n="harness.v.r2.codex">OpenAI's best models</td>
+            <td data-label="OpenCode" data-i18n="harness.v.r2.opencode">Whichever model you connect</td>
+          </tr>
+          <tr>
+            <th scope="row" data-i18n="harness.v.r3">Adding your own tools</th>
+            <td class="us lose" data-label="GlowHarness" data-i18n="harness.v.r3.us">Only by editing the code</td>
+            <td class="win" data-label="Claude Code" data-i18n="harness.v.r3.claude">Yes, through MCP servers</td>
+            <td class="win" data-label="Codex CLI" data-i18n="harness.v.r3.codex">Yes, through MCP servers</td>
+            <td class="win" data-label="OpenCode" data-i18n="harness.v.r3.opencode">Yes, through MCP servers</td>
+          </tr>
+          <tr>
+            <th scope="row" data-i18n="harness.v.r4">Before the first task</th>
+            <td class="us win" data-label="GlowHarness" data-i18n="harness.v.r4.us">Open this page</td>
+            <td data-label="Claude Code" data-i18n="harness.v.r4.claude">Install it, then sign in with a paid Claude plan or an API key</td>
+            <td data-label="Codex CLI" data-i18n="harness.v.r4.codex">Install it, then sign in with a ChatGPT account or an API key</td>
+            <td data-label="OpenCode" data-i18n="harness.v.r4.opencode">Install it. Free models are included, or bring your own keys</td>
+          </tr>
+          <tr>
+            <th scope="row" data-i18n="harness.v.r5">Works with no AI model</th>
+            <td class="us win" data-label="GlowHarness" data-i18n="harness.v.r5.us">Yes, for plain requests about sums, dates, units, text and notes</td>
+            <td class="lose" data-label="Claude Code" data-i18n="harness.v.r5.claude">No</td>
+            <td class="lose" data-label="Codex CLI" data-i18n="harness.v.r5.codex">No</td>
+            <td class="lose" data-label="OpenCode" data-i18n="harness.v.r5.opencode">No</td>
+          </tr>
+          <tr>
+            <th scope="row" data-i18n="harness.v.r6">Where it runs</th>
+            <td class="us" data-label="GlowHarness" data-i18n="harness.v.r6.us">A browser tab, phones included</td>
+            <td data-label="Claude Code" data-i18n="harness.v.r6.claude">Terminal, code editors, desktop app and web</td>
+            <td data-label="Codex CLI" data-i18n="harness.v.r6.codex">Terminal, code editors and desktop app</td>
+            <td data-label="OpenCode" data-i18n="harness.v.r6.opencode">Terminal, desktop app and web</td>
+          </tr>
+          <tr>
+            <th scope="row" data-i18n="harness.v.r7">Before a risky action</th>
+            <td class="us" data-label="GlowHarness" data-i18n="harness.v.r7.us">Asks. After reading untrusted text it asks again, even for tools you set to always allow</td>
+            <td data-label="Claude Code" data-i18n="harness.v.r7.claude">Permission modes, and an optional sandbox for shell commands</td>
+            <td data-label="Codex CLI" data-i18n="harness.v.r7.codex">A sandbox from the operating system, with approval policies</td>
+            <td data-label="OpenCode" data-i18n="harness.v.r7.opencode">Allow, ask or deny rules for each tool</td>
+          </tr>
+          <tr>
+            <th scope="row" data-i18n="harness.v.r8">Source code</th>
+            <td class="us" data-label="GlowHarness" data-i18n="harness.v.r8.us">Open. Plain JavaScript, no dependencies</td>
+            <td data-label="Claude Code" data-i18n="harness.v.r8.claude">Proprietary</td>
+            <td data-label="Codex CLI" data-i18n="harness.v.r8.codex">Open source</td>
+            <td data-label="OpenCode" data-i18n="harness.v.r8.opencode">Open source</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="fine"><span data-i18n="harness.v.sources">Sources for the other columns, found through a web search on</span> <span id="refs-date">…</span>:
+      <a href="https://code.claude.com/docs/en/overview" rel="noopener noreferrer" target="_blank">Claude Code overview</a>,
+      <a href="https://code.claude.com/docs/en/setup" rel="noopener noreferrer" target="_blank">Claude Code setup</a>,
+      <a href="https://learn.chatgpt.com/docs/codex/cli" rel="noopener noreferrer" target="_blank">Codex CLI docs</a>,
+      <a href="https://github.com/openai/codex" rel="noopener noreferrer" target="_blank">Codex repository</a>,
+      <a href="https://opencode.ai/docs/" rel="noopener noreferrer" target="_blank">OpenCode docs</a>.
+      <span data-i18n="harness.v.noBench">We did not benchmark those tools ourselves, so no number is claimed for them.</span></p>
+  </section>
+
+  <section class="card" aria-labelledby="limits-title">
+    <h2 id="limits-title" data-i18n="harness.limitsTitle">What it can't do</h2>
+    <ul class="limits">
+      <li data-i18n="harness.limit1">It cannot touch your files, run programs or browse the web. Its tools are the ones listed above and nothing more. For real work on a computer, use Claude Code, Codex or OpenCode.</li>
+      <li data-i18n="harness.limit2">With no model it only understands plain English requests about sums, dates, units, text and notes. For anything else it says it cannot answer, and it is right.</li>
+      <li data-i18n="harness.limit3">The free models are small, rationed and sometimes wrong. A long task can stall while a provider makes it wait.</li>
+      <li data-i18n="harness.limit4">With the free model, your task and every tool result are sent to a free AI provider. With no model, nothing leaves this page.</li>
+      <li data-i18n="harness.limit5">The gate stops actions you did not approve. It cannot make a wrong answer right, and it cannot tell that a model has been fooled. It only makes sure a fooled model cannot save or delete without your yes.</li>
+      <li data-i18n="harness.limit6">GlowSpark is a tool here, not the brain. It writes tales and cannot follow instructions.</li>
+    </ul>
+  </section>
+
+  <section class="card" aria-labelledby="built-title">
+    <h2 id="built-title" data-i18n="harness.builtTitle">Built from scratch</h2>
+    <ol class="built">
+      <li data-i18n="harness.built1">The loop: ask the brain for one step, read it, run a tool, show the result, repeat. It stops at a step limit, a time limit, a repeated call, or when you press Stop.</li>
+      <li data-i18n="harness.built2">The reader: small models write tool calls badly. The reader repairs the common ways they break. When it cannot, it tells the model exactly what was wrong and asks again.</li>
+      <li data-i18n="harness.built3">The gate: reading is allowed, while saving, deleting and downloading ask first. Once a run has read untrusted text, every such action asks again. With nobody there to ask, the answer is no.</li>
+      <li data-i18n="harness.built4">The trace: every step is recorded with its time. Replay runs the engine again on the recording and checks that it makes the same decisions.</li>
+    </ol>
+    <div class="check-row">
+      <button type="button" class="btn small" id="selftest-btn"><span aria-hidden="true">🔬</span> <span data-i18n="harness.selftest">Run the engine's checks in this browser</span></button>
+      <p class="check-result" id="selftest-result" aria-live="polite"></p>
+    </div>
+    <details class="books" id="api">
+      <summary data-i18n="harness.apiTitle">Use it in another Glow app</summary>
+      <p class="fine" data-i18n="harness.apiLede">The engine and the tool kit are two plain script files with no dependencies. Any Glow page can load them, give the harness a brain, some tools and a way to ask the user, and run a task.</p>
+      <pre class="code" lang="en"><code>&lt;script src="../shared/glow-harness.js"&gt;&lt;/script&gt;
+&lt;script src="../shared/glow-harness-kit.js"&gt;&lt;/script&gt;
+
+const harness = GlowHarness.createHarness({
+  brain: GlowHarnessKit.rulesBrain(),
+  tools: GlowHarnessKit.createTools({ storage: localStorage }),
+  confirm: async (request) =&gt; "deny",
+  onEvent: (event) =&gt; console.log(event.type, event),
+});
+const result = await harness.run("Convert 26.2 miles to km.");
+console.log(result.status, result.answer, result.trace);</code></pre>
+    </details>
+  </section>
+
+  <footer class="spark-foot">
+    <p class="fine" data-i18n="harness.fine">GlowHarness can be wrong, most of all with a free model behind it. With no model, nothing you type leaves this page. With the free model, your task and the tool results go to a free AI provider, so do not type anything private there. Notes are kept in this browser only.</p>
+  </footer>
+</main>
+
+<div class="toast" id="harness-toast" role="status" hidden></div>
+
+<script src="../shared/glow-locale.js"></script>
+<script src="../shared/glow-apps.js"></script>
+<script src="../shared/glow-offline-library.js"></script>
+<script src="../shared/glow-harness.js"></script>
+<script src="../shared/glow-harness-kit.js"></script>
+<script src="./suite.js"></script>
+<script src="./checks.js"></script>
+<script src="./harness.js"></script>
+</body>
+</html>

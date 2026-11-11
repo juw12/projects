@@ -111,6 +111,12 @@
       location.href = sparkUrl.toString();
       return;
     }
+    if (target === "harness") {
+      const harnessUrl = new URL("./harness/", location.href);
+      if (text) harnessUrl.searchParams.set("q", text.slice(0, 1200));
+      location.href = harnessUrl.toString();
+      return;
+    }
     const page = target === "room" ? roomPage : target === "lead" ? leadPage : chatPage;
     const url = new URL(page, location.href);
     if (text) {
@@ -134,7 +140,7 @@
     }
     launch(suggestedTarget());
   });
-  for (const name of ["chat", "room", "lead", "news", "spark"]) {
+  for (const name of ["chat", "room", "lead", "news", "spark", "harness"]) {
     $("start-" + name).addEventListener("click", () => launch(name));
   }
   document.querySelectorAll("[data-example]").forEach((button) => {

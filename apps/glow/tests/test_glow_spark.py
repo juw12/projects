@@ -97,7 +97,7 @@ class GlowSparkTests(unittest.TestCase):
         self.assertIn('id="start-spark"', home, "'Tiny AI' choice under the start box")
         home_js = text_of(WEB / "home.js")
         self.assertIn('target === "spark"', home_js)
-        self.assertIn('["chat", "room", "lead", "news", "spark"]', home_js)
+        self.assertIn('["chat", "room", "lead", "news", "spark", "harness"]', home_js)
         self.assertIn(".app-tile.spark", text_of(WEB / "home.css"))
         self.assertIn('query.get("q")', self.js, "home hands the opening line over as ?q=")
 

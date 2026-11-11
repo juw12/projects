@@ -4,6 +4,7 @@ import fast  # noqa: F401  (full-speed process settings; must come before torch)
 
 import argparse
 import json
+import os
 import math
 import time
 from pathlib import Path
@@ -14,7 +15,7 @@ import torch
 from model import Spark
 
 HERE = Path(__file__).parent
-DATA = HERE / "data"
+DATA = HERE / os.environ.get("SPARK_DATA", "data")
 
 
 def main():

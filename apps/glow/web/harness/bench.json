@@ -1,0 +1,1453 @@
+{
+  "v": 1,
+  "built": "2026-11-11",
+  "node": "v26.13.0",
+  "references_checked": "2026-11-11",
+  "engine": {
+    "version": "1.0.0",
+    "bytes": 49793,
+    "kit_bytes": 62996,
+    "dependencies": 0
+  },
+  "limits": {
+    "max_steps": 8,
+    "max_repairs": 2,
+    "tool_seconds": 20,
+    "total_seconds": 120
+  },
+  "tools": 7,
+  "checks": {
+    "passed": 237,
+    "total": 237
+  },
+  "suite": {
+    "tasks": 40,
+    "categories": [
+      {
+        "id": "A",
+        "key": "arithmetic",
+        "tasks": 8
+      },
+      {
+        "id": "B",
+        "key": "text",
+        "tasks": 6
+      },
+      {
+        "id": "C",
+        "key": "dates",
+        "tasks": 7
+      },
+      {
+        "id": "D",
+        "key": "units",
+        "tasks": 5
+      },
+      {
+        "id": "E",
+        "key": "memory",
+        "tasks": 3
+      },
+      {
+        "id": "F",
+        "key": "multistep",
+        "tasks": 4
+      },
+      {
+        "id": "G",
+        "key": "controls",
+        "tasks": 7
+      }
+    ],
+    "clock_or_memory_tasks": [
+      "C1",
+      "C2",
+      "C3",
+      "E1",
+      "E2",
+      "E3",
+      "F1",
+      "F4"
+    ],
+    "memory_tasks": [
+      "E1",
+      "E2",
+      "E3"
+    ]
+  },
+  "rules": {
+    "passed": 33,
+    "total": 40,
+    "by_category": {
+      "A": {
+        "passed": 8,
+        "total": 8
+      },
+      "B": {
+        "passed": 6,
+        "total": 6
+      },
+      "C": {
+        "passed": 7,
+        "total": 7
+      },
+      "D": {
+        "passed": 5,
+        "total": 5
+      },
+      "E": {
+        "passed": 3,
+        "total": 3
+      },
+      "F": {
+        "passed": 4,
+        "total": 4
+      },
+      "G": {
+        "passed": 0,
+        "total": 7
+      }
+    },
+    "steps": 85,
+    "tool_calls": 41,
+    "permission_prompts": 5,
+    "without_clock_or_memory": {
+      "total": 32,
+      "passed": 25
+    }
+  },
+  "parser": {
+    "cases": 51,
+    "families": 35,
+    "strict": 0,
+    "recovered": 49,
+    "missed": [
+      "M47",
+      "M49"
+    ],
+    "controls": 5,
+    "controls_held": 5
+  },
+  "injection": {
+    "attacks": 12,
+    "delivered": 12,
+    "ran_with_rule": 0,
+    "held_with_rule": 12,
+    "ran_without_rule": 12
+  },
+  "replay": {
+    "traces": 44,
+    "identical": 44
+  },
+  "models": [
+    {
+      "id": "pollinations",
+      "provider": "Pollinations",
+      "requested": "openai-fast",
+      "returned": [
+        "gpt-oss-20b"
+      ],
+      "temperature": 0,
+      "passes": 1,
+      "gap_seconds": 46,
+      "attempt_seconds": 300,
+      "attempts_per_call": 6,
+      "earlier_attempt_seconds": [
+        60
+      ],
+      "resumes": 3,
+      "time_limit_seconds": 3600,
+      "empty_tries": 3,
+      "date": "2026-11-10",
+      "node": "v26.13.0",
+      "engine": "1.0.0",
+      "bare": {
+        "passed": 29,
+        "total": 40,
+        "by_category": {
+          "A": {
+            "passed": 8,
+            "total": 8
+          },
+          "B": {
+            "passed": 4,
+            "total": 6
+          },
+          "C": {
+            "passed": 3,
+            "total": 7
+          },
+          "D": {
+            "passed": 4,
+            "total": 5
+          },
+          "E": {
+            "passed": 0,
+            "total": 3
+          },
+          "F": {
+            "passed": 3,
+            "total": 4
+          },
+          "G": {
+            "passed": 7,
+            "total": 7
+          }
+        },
+        "no_reply": 3,
+        "no_reply_reasons": {
+          "output_limit": 3
+        },
+        "empty_replies": 0,
+        "model_calls": 37,
+        "attempts": 42,
+        "prompt_tokens": 12378,
+        "completion_tokens": 9504
+      },
+      "harness": {
+        "passed": 32,
+        "total": 40,
+        "by_category": {
+          "A": {
+            "passed": 7,
+            "total": 8
+          },
+          "B": {
+            "passed": 3,
+            "total": 6
+          },
+          "C": {
+            "passed": 6,
+            "total": 7
+          },
+          "D": {
+            "passed": 4,
+            "total": 5
+          },
+          "E": {
+            "passed": 3,
+            "total": 3
+          },
+          "F": {
+            "passed": 2,
+            "total": 4
+          },
+          "G": {
+            "passed": 7,
+            "total": 7
+          }
+        },
+        "no_reply": 7,
+        "no_reply_reasons": {
+          "provider_parse": 7
+        },
+        "runs": 44,
+        "steps": 86,
+        "tool_calls": 31,
+        "repaired_calls": 7,
+        "repair_turns": 11,
+        "permission_prompts": 4,
+        "fallback_answers": 0,
+        "fallback_answers_right": 0,
+        "statuses": {
+          "done": 33,
+          "error": 7
+        },
+        "native_calls": 42,
+        "empty_replies": 0,
+        "call_formats": {
+          "tool-line": 31
+        },
+        "repair_codes": {
+          "name-form": 4,
+          "wrapped-call": 3
+        },
+        "unmarked_answers": 16,
+        "unusable_replies": 11,
+        "model_calls": 79,
+        "attempts": 87,
+        "prompt_tokens": 90654,
+        "completion_tokens": 5780
+      },
+      "clock_or_memory": {
+        "total": 8,
+        "bare_passed": 3,
+        "bare_passed_ids": [
+          "C1",
+          "C2",
+          "F4"
+        ],
+        "harness_passed": 7
+      },
+      "without_clock_or_memory": {
+        "total": 32,
+        "bare_passed": 26,
+        "harness_passed": 25
+      },
+      "paired": {
+        "gained": 9,
+        "lost": 6,
+        "both_right": 23,
+        "both_wrong": 2,
+        "gained_ids": [
+          "B3",
+          "C3",
+          "C4",
+          "C5",
+          "D4",
+          "E1",
+          "E2",
+          "E3",
+          "F1"
+        ],
+        "lost_ids": [
+          "A7",
+          "B4",
+          "B6",
+          "D5",
+          "F2",
+          "F4"
+        ],
+        "gained_after_no_reply": 2,
+        "lost_to_no_reply": 6,
+        "sign_test_p": 0.6072
+      },
+      "replay": {
+        "traces": 44,
+        "identical": 44
+      },
+      "rows": [
+        {
+          "id": "A1",
+          "category": "A",
+          "bare": true,
+          "harness": true,
+          "no_reply": "",
+          "status": "done",
+          "fallback": false,
+          "steps": 2,
+          "tool_calls": 1,
+          "repaired_calls": 0
+        },
+        {
+          "id": "A2",
+          "category": "A",
+          "bare": true,
+          "harness": true,
+          "no_reply": "",
+          "status": "done",
+          "fallback": false,
+          "steps": 2,
+          "tool_calls": 1,
+          "repaired_calls": 0
+        },
+        {
+          "id": "A3",
+          "category": "A",
+          "bare": true,
+          "harness": true,
+          "no_reply": "",
+          "status": "done",
+          "fallback": false,
+          "steps": 2,
+          "tool_calls": 1,
+          "repaired_calls": 0
+        },
+        {
+          "id": "A4",
+          "category": "A",
+          "bare": true,
+          "harness": true,
+          "no_reply": "",
+          "status": "done",
+          "fallback": false,
+          "steps": 3,
+          "tool_calls": 1,
+          "repaired_calls": 0
+        },
+        {
+          "id": "A5",
+          "category": "A",
+          "bare": true,
+          "harness": true,
+          "no_reply": "",
+          "status": "done",
+          "fallback": false,
+          "steps": 3,
+          "tool_calls": 1,
+          "repaired_calls": 0
+        },
+        {
+          "id": "A6",
+          "category": "A",
+          "bare": true,
+          "harness": true,
+          "no_reply": "",
+          "status": "done",
+          "fallback": false,
+          "steps": 2,
+          "tool_calls": 1,
+          "repaired_calls": 0
+        },
+        {
+          "id": "A7",
+          "category": "A",
+          "bare": true,
+          "harness": false,
+          "no_reply": "harness",
+          "status": "error",
+          "fallback": false,
+          "steps": 1,
+          "tool_calls": 0,
+          "repaired_calls": 0
+        },
+        {
+          "id": "A8",
+          "category": "A",
+          "bare": true,
+          "harness": true,
+          "no_reply": "",
+          "status": "done",
+          "fallback": false,
+          "steps": 2,
+          "tool_calls": 1,
+          "repaired_calls": 0
+        },
+        {
+          "id": "B1",
+          "category": "B",
+          "bare": true,
+          "harness": true,
+          "no_reply": "",
+          "status": "done",
+          "fallback": false,
+          "steps": 2,
+          "tool_calls": 1,
+          "repaired_calls": 1
+        },
+        {
+          "id": "B2",
+          "category": "B",
+          "bare": true,
+          "harness": true,
+          "no_reply": "",
+          "status": "done",
+          "fallback": false,
+          "steps": 2,
+          "tool_calls": 1,
+          "repaired_calls": 1
+        },
+        {
+          "id": "B3",
+          "category": "B",
+          "bare": false,
+          "harness": true,
+          "no_reply": "",
+          "status": "done",
+          "fallback": false,
+          "steps": 2,
+          "tool_calls": 1,
+          "repaired_calls": 1
+        },
+        {
+          "id": "B4",
+          "category": "B",
+          "bare": true,
+          "harness": false,
+          "no_reply": "harness",
+          "status": "error",
+          "fallback": false,
+          "steps": 1,
+          "tool_calls": 0,
+          "repaired_calls": 0
+        },
+        {
+          "id": "B5",
+          "category": "B",
+          "bare": false,
+          "harness": false,
+          "no_reply": "",
+          "status": "done",
+          "fallback": false,
+          "steps": 1,
+          "tool_calls": 0,
+          "repaired_calls": 0
+        },
+        {
+          "id": "B6",
+          "category": "B",
+          "bare": true,
+          "harness": false,
+          "no_reply": "harness",
+          "status": "error",
+          "fallback": false,
+          "steps": 1,
+          "tool_calls": 0,
+          "repaired_calls": 0
+        },
+        {
+          "id": "C1",
+          "category": "C",
+          "bare": true,
+          "harness": true,
+          "no_reply": "",
+          "status": "done",
+          "fallback": false,
+          "steps": 3,
+          "tool_calls": 1,
+          "repaired_calls": 1
+        },
+        {
+          "id": "C2",
+          "category": "C",
+          "bare": true,
+          "harness": true,
+          "no_reply": "",
+          "status": "done",
+          "fallback": false,
+          "steps": 2,
+          "tool_calls": 1,
+          "repaired_calls": 0
+        },
+        {
+          "id": "C3",
+          "category": "C",
+          "bare": false,
+          "harness": true,
+          "no_reply": "",
+          "status": "done",
+          "fallback": false,
+          "steps": 3,
+          "tool_calls": 2,
+          "repaired_calls": 0
+        },
+        {
+          "id": "C4",
+          "category": "C",
+          "bare": false,
+          "harness": true,
+          "no_reply": "bare",
+          "status": "done",
+          "fallback": false,
+          "steps": 2,
+          "tool_calls": 1,
+          "repaired_calls": 0
+        },
+        {
+          "id": "C5",
+          "category": "C",
+          "bare": false,
+          "harness": true,
+          "no_reply": "bare",
+          "status": "done",
+          "fallback": false,
+          "steps": 3,
+          "tool_calls": 1,
+          "repaired_calls": 0
+        },
+        {
+          "id": "C6",
+          "category": "C",
+          "bare": false,
+          "harness": false,
+          "no_reply": "bare+harness",
+          "status": "error",
+          "fallback": false,
+          "steps": 2,
+          "tool_calls": 0,
+          "repaired_calls": 0
+        },
+        {
+          "id": "C7",
+          "category": "C",
+          "bare": true,
+          "harness": true,
+          "no_reply": "",
+          "status": "done",
+          "fallback": false,
+          "steps": 3,
+          "tool_calls": 1,
+          "repaired_calls": 1
+        },
+        {
+          "id": "D1",
+          "category": "D",
+          "bare": true,
+          "harness": true,
+          "no_reply": "",
+          "status": "done",
+          "fallback": false,
+          "steps": 3,
+          "tool_calls": 1,
+          "repaired_calls": 1
+        },
+        {
+          "id": "D2",
+          "category": "D",
+          "bare": true,
+          "harness": true,
+          "no_reply": "",
+          "status": "done",
+          "fallback": false,
+          "steps": 3,
+          "tool_calls": 1,
+          "repaired_calls": 0
+        },
+        {
+          "id": "D3",
+          "category": "D",
+          "bare": true,
+          "harness": true,
+          "no_reply": "",
+          "status": "done",
+          "fallback": false,
+          "steps": 2,
+          "tool_calls": 1,
+          "repaired_calls": 0
+        },
+        {
+          "id": "D4",
+          "category": "D",
+          "bare": false,
+          "harness": true,
+          "no_reply": "",
+          "status": "done",
+          "fallback": false,
+          "steps": 4,
+          "tool_calls": 1,
+          "repaired_calls": 1
+        },
+        {
+          "id": "D5",
+          "category": "D",
+          "bare": true,
+          "harness": false,
+          "no_reply": "harness",
+          "status": "error",
+          "fallback": false,
+          "steps": 1,
+          "tool_calls": 0,
+          "repaired_calls": 0
+        },
+        {
+          "id": "E1",
+          "category": "E",
+          "bare": false,
+          "harness": true,
+          "no_reply": "",
+          "status": "done",
+          "fallback": false,
+          "steps": 4,
+          "tool_calls": 2,
+          "repaired_calls": 0
+        },
+        {
+          "id": "E2",
+          "category": "E",
+          "bare": false,
+          "harness": true,
+          "no_reply": "",
+          "status": "done",
+          "fallback": false,
+          "steps": 4,
+          "tool_calls": 2,
+          "repaired_calls": 0
+        },
+        {
+          "id": "E3",
+          "category": "E",
+          "bare": false,
+          "harness": true,
+          "no_reply": "",
+          "status": "done",
+          "fallback": false,
+          "steps": 6,
+          "tool_calls": 3,
+          "repaired_calls": 0
+        },
+        {
+          "id": "F1",
+          "category": "F",
+          "bare": false,
+          "harness": true,
+          "no_reply": "",
+          "status": "done",
+          "fallback": false,
+          "steps": 4,
+          "tool_calls": 3,
+          "repaired_calls": 0
+        },
+        {
+          "id": "F2",
+          "category": "F",
+          "bare": true,
+          "harness": false,
+          "no_reply": "harness",
+          "status": "error",
+          "fallback": false,
+          "steps": 2,
+          "tool_calls": 0,
+          "repaired_calls": 0
+        },
+        {
+          "id": "F3",
+          "category": "F",
+          "bare": true,
+          "harness": true,
+          "no_reply": "",
+          "status": "done",
+          "fallback": false,
+          "steps": 1,
+          "tool_calls": 0,
+          "repaired_calls": 0
+        },
+        {
+          "id": "F4",
+          "category": "F",
+          "bare": true,
+          "harness": false,
+          "no_reply": "harness",
+          "status": "error",
+          "fallback": false,
+          "steps": 1,
+          "tool_calls": 0,
+          "repaired_calls": 0
+        },
+        {
+          "id": "G1",
+          "category": "G",
+          "bare": true,
+          "harness": true,
+          "no_reply": "",
+          "status": "done",
+          "fallback": false,
+          "steps": 1,
+          "tool_calls": 0,
+          "repaired_calls": 0
+        },
+        {
+          "id": "G2",
+          "category": "G",
+          "bare": true,
+          "harness": true,
+          "no_reply": "",
+          "status": "done",
+          "fallback": false,
+          "steps": 1,
+          "tool_calls": 0,
+          "repaired_calls": 0
+        },
+        {
+          "id": "G3",
+          "category": "G",
+          "bare": true,
+          "harness": true,
+          "no_reply": "",
+          "status": "done",
+          "fallback": false,
+          "steps": 1,
+          "tool_calls": 0,
+          "repaired_calls": 0
+        },
+        {
+          "id": "G4",
+          "category": "G",
+          "bare": true,
+          "harness": true,
+          "no_reply": "",
+          "status": "done",
+          "fallback": false,
+          "steps": 1,
+          "tool_calls": 0,
+          "repaired_calls": 0
+        },
+        {
+          "id": "G5",
+          "category": "G",
+          "bare": true,
+          "harness": true,
+          "no_reply": "",
+          "status": "done",
+          "fallback": false,
+          "steps": 1,
+          "tool_calls": 0,
+          "repaired_calls": 0
+        },
+        {
+          "id": "G6",
+          "category": "G",
+          "bare": true,
+          "harness": true,
+          "no_reply": "",
+          "status": "done",
+          "fallback": false,
+          "steps": 1,
+          "tool_calls": 0,
+          "repaired_calls": 0
+        },
+        {
+          "id": "G7",
+          "category": "G",
+          "bare": true,
+          "harness": true,
+          "no_reply": "",
+          "status": "done",
+          "fallback": false,
+          "steps": 1,
+          "tool_calls": 0,
+          "repaired_calls": 0
+        }
+      ]
+    },
+    {
+      "id": "ovh",
+      "provider": "OVHcloud",
+      "requested": "Meta-Llama-3_3-70B-Instruct",
+      "returned": [
+        "Meta-Llama-3_3-70B-Instruct"
+      ],
+      "temperature": 0,
+      "passes": 1,
+      "gap_seconds": 31,
+      "attempt_seconds": 25,
+      "attempts_per_call": 12,
+      "earlier_attempt_seconds": [],
+      "resumes": 0,
+      "time_limit_seconds": 3600,
+      "empty_tries": 3,
+      "date": "2026-11-10",
+      "node": "v26.13.0",
+      "engine": "1.0.0",
+      "bare": {
+        "passed": 25,
+        "total": 40,
+        "by_category": {
+          "A": {
+            "passed": 3,
+            "total": 8
+          },
+          "B": {
+            "passed": 6,
+            "total": 6
+          },
+          "C": {
+            "passed": 3,
+            "total": 7
+          },
+          "D": {
+            "passed": 3,
+            "total": 5
+          },
+          "E": {
+            "passed": 0,
+            "total": 3
+          },
+          "F": {
+            "passed": 3,
+            "total": 4
+          },
+          "G": {
+            "passed": 7,
+            "total": 7
+          }
+        },
+        "no_reply": 0,
+        "no_reply_reasons": {},
+        "empty_replies": 0,
+        "model_calls": 40,
+        "attempts": 54,
+        "prompt_tokens": 2519,
+        "completion_tokens": 3640
+      },
+      "harness": {
+        "passed": 40,
+        "total": 40,
+        "by_category": {
+          "A": {
+            "passed": 8,
+            "total": 8
+          },
+          "B": {
+            "passed": 6,
+            "total": 6
+          },
+          "C": {
+            "passed": 7,
+            "total": 7
+          },
+          "D": {
+            "passed": 5,
+            "total": 5
+          },
+          "E": {
+            "passed": 3,
+            "total": 3
+          },
+          "F": {
+            "passed": 4,
+            "total": 4
+          },
+          "G": {
+            "passed": 7,
+            "total": 7
+          }
+        },
+        "no_reply": 0,
+        "no_reply_reasons": {},
+        "runs": 44,
+        "steps": 99,
+        "tool_calls": 55,
+        "repaired_calls": 2,
+        "repair_turns": 0,
+        "permission_prompts": 5,
+        "fallback_answers": 0,
+        "fallback_answers_right": 0,
+        "statuses": {
+          "done": 40
+        },
+        "native_calls": 0,
+        "empty_replies": 0,
+        "call_formats": {
+          "tool-line": 55
+        },
+        "repair_codes": {
+          "text-before": 2
+        },
+        "unmarked_answers": 0,
+        "unusable_replies": 0,
+        "model_calls": 99,
+        "attempts": 137,
+        "prompt_tokens": 108667,
+        "completion_tokens": 1669
+      },
+      "clock_or_memory": {
+        "total": 8,
+        "bare_passed": 3,
+        "bare_passed_ids": [
+          "C1",
+          "C3",
+          "F1"
+        ],
+        "harness_passed": 8
+      },
+      "without_clock_or_memory": {
+        "total": 32,
+        "bare_passed": 22,
+        "harness_passed": 32
+      },
+      "paired": {
+        "gained": 15,
+        "lost": 0,
+        "both_right": 25,
+        "both_wrong": 0,
+        "gained_ids": [
+          "A1",
+          "A4",
+          "A5",
+          "A6",
+          "A8",
+          "C2",
+          "C4",
+          "C5",
+          "C6",
+          "D3",
+          "D5",
+          "E1",
+          "E2",
+          "E3",
+          "F4"
+        ],
+        "lost_ids": [],
+        "gained_after_no_reply": 0,
+        "lost_to_no_reply": 0,
+        "sign_test_p": 0.00006104
+      },
+      "replay": {
+        "traces": 44,
+        "identical": 44
+      },
+      "rows": [
+        {
+          "id": "A1",
+          "category": "A",
+          "bare": false,
+          "harness": true,
+          "no_reply": "",
+          "status": "done",
+          "fallback": false,
+          "steps": 2,
+          "tool_calls": 1,
+          "repaired_calls": 0
+        },
+        {
+          "id": "A2",
+          "category": "A",
+          "bare": true,
+          "harness": true,
+          "no_reply": "",
+          "status": "done",
+          "fallback": false,
+          "steps": 2,
+          "tool_calls": 1,
+          "repaired_calls": 0
+        },
+        {
+          "id": "A3",
+          "category": "A",
+          "bare": true,
+          "harness": true,
+          "no_reply": "",
+          "status": "done",
+          "fallback": false,
+          "steps": 2,
+          "tool_calls": 1,
+          "repaired_calls": 0
+        },
+        {
+          "id": "A4",
+          "category": "A",
+          "bare": false,
+          "harness": true,
+          "no_reply": "",
+          "status": "done",
+          "fallback": false,
+          "steps": 2,
+          "tool_calls": 1,
+          "repaired_calls": 0
+        },
+        {
+          "id": "A5",
+          "category": "A",
+          "bare": false,
+          "harness": true,
+          "no_reply": "",
+          "status": "done",
+          "fallback": false,
+          "steps": 2,
+          "tool_calls": 1,
+          "repaired_calls": 0
+        },
+        {
+          "id": "A6",
+          "category": "A",
+          "bare": false,
+          "harness": true,
+          "no_reply": "",
+          "status": "done",
+          "fallback": false,
+          "steps": 2,
+          "tool_calls": 1,
+          "repaired_calls": 0
+        },
+        {
+          "id": "A7",
+          "category": "A",
+          "bare": true,
+          "harness": true,
+          "no_reply": "",
+          "status": "done",
+          "fallback": false,
+          "steps": 2,
+          "tool_calls": 1,
+          "repaired_calls": 0
+        },
+        {
+          "id": "A8",
+          "category": "A",
+          "bare": false,
+          "harness": true,
+          "no_reply": "",
+          "status": "done",
+          "fallback": false,
+          "steps": 2,
+          "tool_calls": 1,
+          "repaired_calls": 0
+        },
+        {
+          "id": "B1",
+          "category": "B",
+          "bare": true,
+          "harness": true,
+          "no_reply": "",
+          "status": "done",
+          "fallback": false,
+          "steps": 2,
+          "tool_calls": 1,
+          "repaired_calls": 0
+        },
+        {
+          "id": "B2",
+          "category": "B",
+          "bare": true,
+          "harness": true,
+          "no_reply": "",
+          "status": "done",
+          "fallback": false,
+          "steps": 2,
+          "tool_calls": 1,
+          "repaired_calls": 0
+        },
+        {
+          "id": "B3",
+          "category": "B",
+          "bare": true,
+          "harness": true,
+          "no_reply": "",
+          "status": "done",
+          "fallback": false,
+          "steps": 2,
+          "tool_calls": 1,
+          "repaired_calls": 0
+        },
+        {
+          "id": "B4",
+          "category": "B",
+          "bare": true,
+          "harness": true,
+          "no_reply": "",
+          "status": "done",
+          "fallback": false,
+          "steps": 2,
+          "tool_calls": 1,
+          "repaired_calls": 0
+        },
+        {
+          "id": "B5",
+          "category": "B",
+          "bare": true,
+          "harness": true,
+          "no_reply": "",
+          "status": "done",
+          "fallback": false,
+          "steps": 2,
+          "tool_calls": 1,
+          "repaired_calls": 0
+        },
+        {
+          "id": "B6",
+          "category": "B",
+          "bare": true,
+          "harness": true,
+          "no_reply": "",
+          "status": "done",
+          "fallback": false,
+          "steps": 2,
+          "tool_calls": 1,
+          "repaired_calls": 0
+        },
+        {
+          "id": "C1",
+          "category": "C",
+          "bare": true,
+          "harness": true,
+          "no_reply": "",
+          "status": "done",
+          "fallback": false,
+          "steps": 2,
+          "tool_calls": 1,
+          "repaired_calls": 0
+        },
+        {
+          "id": "C2",
+          "category": "C",
+          "bare": false,
+          "harness": true,
+          "no_reply": "",
+          "status": "done",
+          "fallback": false,
+          "steps": 2,
+          "tool_calls": 1,
+          "repaired_calls": 0
+        },
+        {
+          "id": "C3",
+          "category": "C",
+          "bare": true,
+          "harness": true,
+          "no_reply": "",
+          "status": "done",
+          "fallback": false,
+          "steps": 2,
+          "tool_calls": 1,
+          "repaired_calls": 0
+        },
+        {
+          "id": "C4",
+          "category": "C",
+          "bare": false,
+          "harness": true,
+          "no_reply": "",
+          "status": "done",
+          "fallback": false,
+          "steps": 2,
+          "tool_calls": 1,
+          "repaired_calls": 0
+        },
+        {
+          "id": "C5",
+          "category": "C",
+          "bare": false,
+          "harness": true,
+          "no_reply": "",
+          "status": "done",
+          "fallback": false,
+          "steps": 2,
+          "tool_calls": 1,
+          "repaired_calls": 0
+        },
+        {
+          "id": "C6",
+          "category": "C",
+          "bare": false,
+          "harness": true,
+          "no_reply": "",
+          "status": "done",
+          "fallback": false,
+          "steps": 2,
+          "tool_calls": 1,
+          "repaired_calls": 0
+        },
+        {
+          "id": "C7",
+          "category": "C",
+          "bare": true,
+          "harness": true,
+          "no_reply": "",
+          "status": "done",
+          "fallback": false,
+          "steps": 2,
+          "tool_calls": 1,
+          "repaired_calls": 0
+        },
+        {
+          "id": "D1",
+          "category": "D",
+          "bare": true,
+          "harness": true,
+          "no_reply": "",
+          "status": "done",
+          "fallback": false,
+          "steps": 2,
+          "tool_calls": 1,
+          "repaired_calls": 0
+        },
+        {
+          "id": "D2",
+          "category": "D",
+          "bare": true,
+          "harness": true,
+          "no_reply": "",
+          "status": "done",
+          "fallback": false,
+          "steps": 2,
+          "tool_calls": 1,
+          "repaired_calls": 0
+        },
+        {
+          "id": "D3",
+          "category": "D",
+          "bare": false,
+          "harness": true,
+          "no_reply": "",
+          "status": "done",
+          "fallback": false,
+          "steps": 2,
+          "tool_calls": 1,
+          "repaired_calls": 0
+        },
+        {
+          "id": "D4",
+          "category": "D",
+          "bare": true,
+          "harness": true,
+          "no_reply": "",
+          "status": "done",
+          "fallback": false,
+          "steps": 2,
+          "tool_calls": 1,
+          "repaired_calls": 0
+        },
+        {
+          "id": "D5",
+          "category": "D",
+          "bare": false,
+          "harness": true,
+          "no_reply": "",
+          "status": "done",
+          "fallback": false,
+          "steps": 3,
+          "tool_calls": 2,
+          "repaired_calls": 0
+        },
+        {
+          "id": "E1",
+          "category": "E",
+          "bare": false,
+          "harness": true,
+          "no_reply": "",
+          "status": "done",
+          "fallback": false,
+          "steps": 4,
+          "tool_calls": 2,
+          "repaired_calls": 0
+        },
+        {
+          "id": "E2",
+          "category": "E",
+          "bare": false,
+          "harness": true,
+          "no_reply": "",
+          "status": "done",
+          "fallback": false,
+          "steps": 5,
+          "tool_calls": 3,
+          "repaired_calls": 0
+        },
+        {
+          "id": "E3",
+          "category": "E",
+          "bare": false,
+          "harness": true,
+          "no_reply": "",
+          "status": "done",
+          "fallback": false,
+          "steps": 6,
+          "tool_calls": 3,
+          "repaired_calls": 0
+        },
+        {
+          "id": "F1",
+          "category": "F",
+          "bare": true,
+          "harness": true,
+          "no_reply": "",
+          "status": "done",
+          "fallback": false,
+          "steps": 3,
+          "tool_calls": 2,
+          "repaired_calls": 0
+        },
+        {
+          "id": "F2",
+          "category": "F",
+          "bare": true,
+          "harness": true,
+          "no_reply": "",
+          "status": "done",
+          "fallback": false,
+          "steps": 3,
+          "tool_calls": 2,
+          "repaired_calls": 0
+        },
+        {
+          "id": "F3",
+          "category": "F",
+          "bare": true,
+          "harness": true,
+          "no_reply": "",
+          "status": "done",
+          "fallback": false,
+          "steps": 3,
+          "tool_calls": 2,
+          "repaired_calls": 0
+        },
+        {
+          "id": "F4",
+          "category": "F",
+          "bare": false,
+          "harness": true,
+          "no_reply": "",
+          "status": "done",
+          "fallback": false,
+          "steps": 3,
+          "tool_calls": 2,
+          "repaired_calls": 0
+        },
+        {
+          "id": "G1",
+          "category": "G",
+          "bare": true,
+          "harness": true,
+          "no_reply": "",
+          "status": "done",
+          "fallback": false,
+          "steps": 3,
+          "tool_calls": 2,
+          "repaired_calls": 0
+        },
+        {
+          "id": "G2",
+          "category": "G",
+          "bare": true,
+          "harness": true,
+          "no_reply": "",
+          "status": "done",
+          "fallback": false,
+          "steps": 3,
+          "tool_calls": 2,
+          "repaired_calls": 0
+        },
+        {
+          "id": "G3",
+          "category": "G",
+          "bare": true,
+          "harness": true,
+          "no_reply": "",
+          "status": "done",
+          "fallback": false,
+          "steps": 3,
+          "tool_calls": 2,
+          "repaired_calls": 1
+        },
+        {
+          "id": "G4",
+          "category": "G",
+          "bare": true,
+          "harness": true,
+          "no_reply": "",
+          "status": "done",
+          "fallback": false,
+          "steps": 1,
+          "tool_calls": 0,
+          "repaired_calls": 0
+        },
+        {
+          "id": "G5",
+          "category": "G",
+          "bare": true,
+          "harness": true,
+          "no_reply": "",
+          "status": "done",
+          "fallback": false,
+          "steps": 3,
+          "tool_calls": 2,
+          "repaired_calls": 0
+        },
+        {
+          "id": "G6",
+          "category": "G",
+          "bare": true,
+          "harness": true,
+          "no_reply": "",
+          "status": "done",
+          "fallback": false,
+          "steps": 4,
+          "tool_calls": 3,
+          "repaired_calls": 1
+        },
+        {
+          "id": "G7",
+          "category": "G",
+          "bare": true,
+          "harness": true,
+          "no_reply": "",
+          "status": "done",
+          "fallback": false,
+          "steps": 2,
+          "tool_calls": 1,
+          "repaired_calls": 0
+        }
+      ]
+    }
+  ]
+}
