@@ -1,0 +1,116 @@
+name: GlowBot worker (Cloudflare)
+
+# Tests and bundles apps/glow/bot on every change and deploys it to Cloudflare Workers (free plan)
+# from main. Deploying needs repository secrets CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID;
+# without them the deploy is skipped. The bot reuses code from the Glow web apps, so those files
+# are watched too.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/glow/bot/**'
+      - 'apps/glow/web/shared/glow-harness-kit.js'
+      - 'apps/glow/web/shared/glow-harness.js'
+      - 'apps/glow/web/spark/**'
+      - 'apps/glow/web/room/crew-engine.js'
+      - 'apps/glow/web/lead/lead.js'
+      - '.github/workflows/glow-bot-worker.yml'
+  pull_request:
+    paths:
+      - 'apps/glow/bot/**'
+      - 'apps/glow/web/shared/glow-harness-kit.js'
+      - 'apps/glow/web/shared/glow-harness.js'
+      - 'apps/glow/web/spark/**'
+      - 'apps/glow/web/room/crew-engine.js'
+      - 'apps/glow/web/lead/lead.js'
+      - '.github/workflows/glow-bot-worker.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: glow-bot-worker-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  worker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    defaults:
+      run:
+        working-directory: apps/glow/bot
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Unit tests (no network)
+        run: node --test test/*.test.js
+      - name: Copies of Glow web logic are up to date
+        run: python3 tools/make_ports.py --check
+      - name: Bundle the worker (dry run)
+        run: |
+          npm install --no-fund --no-audit
+          npx wrangler deploy --dry-run --outdir dist
+          ls -la dist
+      - name: Decide whether to deploy
+        id: gate
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
+            echo "deploy=false" >> "$GITHUB_OUTPUT"
+          elif [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "Cloudflare secrets are not set; skipping the deploy."
+            echo "deploy=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "deploy=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Deploy the worker
+        if: steps.gate.outputs.deploy == 'true'
+        run: |
+          set -o pipefail
+          # Stamp the commit into the worker so /v1/status shows which build is live.
+          build="${GITHUB_SHA::12}"
+          sed -i "s/^\[vars\]$/[vars]\nBUILD = \"$build\"/" wrangler.toml
+          grep -n '^BUILD = ' wrangler.toml
+          if ! npx wrangler deploy 2>&1 | tee deploy.log; then
+            echo "Deploy with the Workers AI binding failed; retrying without it."
+            sed -i '/^# ai-start/,/^# ai-end/d' wrangler.toml
+            npx wrangler deploy 2>&1 | tee deploy.log
+          fi
+          url="$(grep -Eo 'https://[A-Za-z0-9.-]+\.workers\.dev' deploy.log | head -n 1)"
+          echo "Deployed to: $url"
+          echo "GLOW_BOT_URL=$url" >> "$GITHUB_ENV"
+          echo "GLOW_BOT_BUILD=$build" >> "$GITHUB_ENV"
+      - name: Smoke test (the new build answers)
+        if: steps.gate.outputs.deploy == 'true'
+        run: |
+          test -n "$GLOW_BOT_URL"
+          for attempt in 1 2 3 4 5 6 7 8 9; do
+            body="$(curl -fsS -H "Origin: https://juw12.github.io" "$GLOW_BOT_URL/v1/status" || true)"
+            echo "$body"
+            if echo "$body" | grep -q "\"build\":\"$GLOW_BOT_BUILD\""; then
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "The deployed worker never reported build $GLOW_BOT_BUILD."
+          exit 1
+      - name: Health check from Cloudflare (models, web search, GlowNews, GlowSpark)
+        if: steps.gate.outputs.deploy == 'true'
+        run: |
+          body=""
+          for attempt in $(seq 1 36); do
+            body="$(curl -fsS "$GLOW_BOT_URL/v1/probe" || true)"
+            if echo "$body" | grep -q '"running":false'; then
+              echo "$body" | python3 -m json.tool
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "The health check did not finish in six minutes. Last answer:"
+          echo "$body"
+          exit 1

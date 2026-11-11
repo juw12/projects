@@ -1,0 +1,16 @@
+{
+  "name": "glow-bot",
+  "version": "0.1.0",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "description": "GlowBot: Glow's agents inside Telegram, on a free Cloudflare Worker.",
+  "scripts": {
+    "deploy": "wrangler deploy",
+    "test": "node --test test/*.test.js",
+    "ports": "python3 tools/make_ports.py"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  }
+}
