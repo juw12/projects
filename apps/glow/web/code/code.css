@@ -1,0 +1,59 @@
+/* GlowCode: the Kilat page. Builds on home.css and spark/spark.css. */
+
+.code-page .desk-row { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+.code-page .desk-label { font-size: 13px; color: var(--muted); }
+.code-page .desk-note { margin: 10px 0 0; font-size: 13.5px; line-height: 1.5; color: var(--muted); }
+.code-page .desk-note b { color: var(--text); }
+.code-page #task-row { margin-top: 10px; }
+
+.code-page .code-label { display: block; margin-top: 12px; font-size: 13px; color: var(--muted); }
+.code-page .writer textarea.code-box {
+  margin-top: 6px;
+  min-height: 220px;
+  font-family: ui-monospace, "Cascadia Mono", Consolas, "SF Mono", Menlo, monospace;
+  font-size: 14px;
+  line-height: 1.55;
+  tab-size: 4;
+  white-space: pre;
+  overflow: auto;
+}
+
+.code-page code {
+  font-family: ui-monospace, "Cascadia Mono", Consolas, "SF Mono", Menlo, monospace;
+  font-size: 0.92em;
+  padding: 1px 5px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--panel);
+}
+
+.code-page .code-status { margin: 10px 0 0; font-size: 14.5px; line-height: 1.5; }
+.code-page .code-status[data-kind="ok"] { color: var(--text); }
+.code-page .code-status[data-kind="bad"] { color: var(--accent); }
+
+.code-page .code-out {
+  margin: 10px 0 0;
+  max-height: 360px;
+  overflow: auto;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--panel);
+  color: var(--text);
+  font-family: ui-monospace, "Cascadia Mono", Consolas, "SF Mono", Menlo, monospace;
+  font-size: 14px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.code-page .code-err { border-color: var(--accent); }
+
+.code-page .code-steps { margin: 6px 0 0; padding: 0 0 0 20px; font-size: 13.5px; line-height: 1.6; color: var(--muted); }
+.code-page .code-steps li { margin: 2px 0; }
+.code-page .code-steps li[data-verdict="pass"] { color: var(--text); }
+
+.code-page .btn[disabled] { opacity: 0.55; cursor: not-allowed; }
+
+@media (max-width: 720px) {
+  .code-page .writer textarea.code-box { min-height: 180px; font-size: 13.5px; }
+}

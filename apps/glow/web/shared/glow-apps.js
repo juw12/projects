@@ -35,6 +35,7 @@
     { id: "news", name: "GlowNews", icon: "📰", desc: "Latest AI news, refreshed twice a day", page: "news/" },
     { id: "spark", name: "GlowSpark", icon: "✨", desc: "A tiny AI we built from scratch: writes on your device", page: "spark/" },
     { id: "harness", name: "GlowHarness", icon: "🧰", desc: "An agent harness we built from scratch: tools, permissions, every step shown", page: "harness/" },
+    { id: "code", name: "GlowCode", icon: "⚡", desc: "Kilat, a small safe language: run code in a sandbox on your device", page: "code/" },
   ];
 
   // Language & region come from glow-locale.js (loaded first); English when it is missing.
@@ -55,6 +56,7 @@
     if (/\/news\//.test(path)) return "news";
     if (/\/spark\//.test(path)) return "spark";
     if (/\/harness\//.test(path)) return "harness";
+    if (/\/code\//.test(path)) return "code";
     return "home";
   }
 
@@ -1081,6 +1083,7 @@ html.glow-room-open .glow-widget-bubble,html.glow-room-open .glow-widget-panel{d
     if (/^news\//.test(rest)) return "news";
     if (/^spark\//.test(rest)) return "spark";
     if (/^harness\//.test(rest)) return "harness";
+    if (/^code\//.test(rest)) return "code";
     if (/^setup\//.test(rest)) return "setup";
     if (/^account\//.test(rest)) return "account";
     if (rest === "" || rest === "index.html") return "home";
