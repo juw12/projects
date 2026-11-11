@@ -3065,6 +3065,50 @@
       "status": "released",
       "order": 67,
       "portfolio": true
+    },
+    {
+      "id": "kilat",
+      "name": "Kilat",
+      "category": "Software",
+      "external": true,
+      "url": "https://juw12.github.io/kilat/",
+      "url_label": "Open site",
+      "desc": "Kilat: a small typed scripting language with units of measure and a fuel-and-memory sandbox. Runs as a CLI, in the browser (WebAssembly playground) and as a Cairn plugin. Rust, zero dependencies.",
+      "summary": "A small programming language for engineering calculations: units and types are checked before a program runs.",
+      "description": "Kilat is a small language written from scratch in Rust with no dependencies. Units and types are checked before a program runs, so 2 m + 3 kg is refused instead of printing a number, and scripts run in a sandbox with step and memory limits. The same engine runs as a 1.1 MB command-line program, in the browser, inside Python and as a Cairn plugin. Measured 2.8x CPython across 10 benchmarks, and slower on 2 of them.",
+      "tags": [
+        "interpreter",
+        "playground",
+        "programming-language",
+        "rust",
+        "sandbox"
+      ],
+      "note_tags": [
+        "kilat",
+        "interpreter",
+        "playground",
+        "programming-language",
+        "rust",
+        "sandbox"
+      ],
+      "image": "kilat-card.jpg",
+      "image_alt": "Kilat playground in dark mode: the Hello, units example divides 1200 N by 58 mm^2 and the result pane shows stress = 20.7 MPa, with Run, Check, Stop and Copy link buttons above the editor",
+      "extra_links": [
+        {
+          "label": "Source",
+          "url": "https://github.com/juw12/kilat"
+        }
+      ],
+      "card": {
+        "label": "kilat · home",
+        "capture": "https://juw12.github.io/kilat/",
+        "theme": "dark",
+        "accent": "#dca923",
+        "accent2": "#6a9e2f"
+      },
+      "status": "released",
+      "order": 68,
+      "portfolio": true
     }
   ]
 }
