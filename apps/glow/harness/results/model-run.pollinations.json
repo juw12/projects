@@ -1,0 +1,3166 @@
+{
+  "v": 1,
+  "started": "2026-11-10T18:18:59.002Z",
+  "finished": "2026-11-10T20:27:20.963Z",
+  "complete": true,
+  "node": "v26.13.0",
+  "engine": "1.0.0",
+  "provider": {
+    "id": "pollinations",
+    "label": "Pollinations",
+    "url": "https://text.pollinations.ai/openai/chat/completions",
+    "requested": "openai-fast"
+  },
+  "temperature": 0,
+  "passes": 1,
+  "gapMs": 46000,
+  "harnessConfig": {
+    "totalTimeMs": 3600000
+  },
+  "calls": [
+    {
+      "at": "2026-11-10T18:18:59.005Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 25260,
+      "model": "gpt-oss-20b",
+      "channel": "",
+      "promptTokens": 332,
+      "completionTokens": 527,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T18:19:45.033Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 6757,
+      "model": "gpt-oss-20b",
+      "channel": "native",
+      "promptTokens": 1087,
+      "completionTokens": 43,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T18:20:31.062Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 5548,
+      "model": "gpt-oss-20b",
+      "channel": "",
+      "promptTokens": 1151,
+      "completionTokens": 9,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T18:21:17.127Z",
+      "attempt": 1,
+      "status": 0,
+      "ms": 60048,
+      "model": "",
+      "channel": "",
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "error": "no reply in time"
+    },
+    {
+      "at": "2026-11-10T18:22:23.253Z",
+      "attempt": 2,
+      "status": 402,
+      "ms": 1966,
+      "model": "",
+      "channel": "",
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "error": "{\"status\":402,\"success\":false,\"error\":{\"code\":\"FREE_LIMIT\",\"message\":\"Free limit reached: 1 reply every 45 seconds per IP. Retry after 1s, or get unlimited replies with a pollen key at https://enter.p [...]"
+    },
+    {
+      "at": "2026-11-10T18:23:09.303Z",
+      "attempt": 3,
+      "status": 402,
+      "ms": 882,
+      "model": "",
+      "channel": "",
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "error": "{\"status\":402,\"success\":false,\"error\":{\"code\":\"FREE_LIMIT\",\"message\":\"Free limit reached: 1 reply every 45 seconds per IP. Retry after 1s, or get unlimited replies with a pollen key at https://enter.p [...]"
+    },
+    {
+      "at": "2026-11-10T18:23:55.331Z",
+      "attempt": 4,
+      "status": 402,
+      "ms": 1293,
+      "model": "",
+      "channel": "",
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "error": "{\"status\":402,\"success\":false,\"error\":{\"code\":\"FREE_LIMIT\",\"message\":\"Free limit reached: 1 reply every 45 seconds per IP. Retry after 1s, or get unlimited replies with a pollen key at https://enter.p [...]"
+    },
+    {
+      "at": "2026-11-10T18:24:41.367Z",
+      "attempt": 5,
+      "status": 402,
+      "ms": 552,
+      "model": "",
+      "channel": "",
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "error": "{\"status\":402,\"success\":false,\"error\":{\"code\":\"FREE_LIMIT\",\"message\":\"Free limit reached: 1 reply every 45 seconds per IP. Retry after 1s, or get unlimited replies with a pollen key at https://enter.p [...]"
+    },
+    {
+      "at": "2026-11-10T18:25:27.377Z",
+      "attempt": 6,
+      "status": 402,
+      "ms": 1102,
+      "model": "",
+      "channel": "",
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "error": "{\"status\":402,\"success\":false,\"error\":{\"code\":\"FREE_LIMIT\",\"message\":\"Free limit reached: 1 reply every 45 seconds per IP. Retry after 1s, or get unlimited replies with a pollen key at https://enter.p [...]"
+    },
+    {
+      "at": "2026-11-10T18:26:13.435Z",
+      "attempt": 1,
+      "status": 402,
+      "ms": 757,
+      "model": "",
+      "channel": "",
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "error": "{\"status\":402,\"success\":false,\"error\":{\"code\":\"FREE_LIMIT\",\"message\":\"Free limit reached: 1 reply every 45 seconds per IP. Retry after 4s, or get unlimited replies with a pollen key at https://enter.p [...]"
+    },
+    {
+      "at": "2026-11-10T18:26:59.477Z",
+      "attempt": 2,
+      "status": 200,
+      "ms": 5924,
+      "model": "gpt-oss-20b",
+      "channel": "native",
+      "promptTokens": 1088,
+      "completionTokens": 47,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T18:27:45.623Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 6694,
+      "model": "gpt-oss-20b",
+      "channel": "",
+      "promptTokens": 1159,
+      "completionTokens": 12,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T18:28:31.681Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 8228,
+      "model": "gpt-oss-20b",
+      "channel": "",
+      "promptTokens": 333,
+      "completionTokens": 116,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T18:29:17.705Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 6534,
+      "model": "gpt-oss-20b",
+      "channel": "native",
+      "promptTokens": 1088,
+      "completionTokens": 37,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T18:30:03.805Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 6676,
+      "model": "gpt-oss-20b",
+      "channel": "",
+      "promptTokens": 1150,
+      "completionTokens": 13,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T18:30:49.872Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 24150,
+      "model": "gpt-oss-20b",
+      "channel": "",
+      "promptTokens": 341,
+      "completionTokens": 657,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T18:35:06.439Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 2608,
+      "model": "gpt-oss-20b",
+      "channel": "",
+      "promptTokens": 333,
+      "completionTokens": 1499,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T18:35:52.472Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 718,
+      "model": "gpt-oss-20b",
+      "channel": "native",
+      "promptTokens": 1096,
+      "completionTokens": 62,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T18:36:38.533Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 833,
+      "model": "gpt-oss-20b",
+      "channel": "native",
+      "promptTokens": 1199,
+      "completionTokens": 40,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T18:37:24.609Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 7460,
+      "model": "gpt-oss-20b",
+      "channel": "",
+      "promptTokens": 1278,
+      "completionTokens": 64,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T18:38:10.625Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 17386,
+      "model": "gpt-oss-20b",
+      "channel": "",
+      "promptTokens": 335,
+      "completionTokens": 211,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T18:38:56.667Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 9262,
+      "model": "gpt-oss-20b",
+      "channel": "native",
+      "promptTokens": 1090,
+      "completionTokens": 144,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T18:39:42.701Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 5339,
+      "model": "gpt-oss-20b",
+      "channel": "native",
+      "promptTokens": 1187,
+      "completionTokens": 34,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T18:40:28.776Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 6164,
+      "model": "gpt-oss-20b",
+      "channel": "",
+      "promptTokens": 1251,
+      "completionTokens": 37,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T18:41:14.823Z",
+      "attempt": 1,
+      "status": 0,
+      "ms": 176,
+      "model": "",
+      "channel": "",
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "error": "fetch failed"
+    },
+    {
+      "at": "2026-11-10T18:42:00.866Z",
+      "attempt": 2,
+      "status": 200,
+      "ms": 9548,
+      "model": "gpt-oss-20b",
+      "channel": "",
+      "promptTokens": 339,
+      "completionTokens": 202,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T18:42:46.964Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 6622,
+      "model": "gpt-oss-20b",
+      "channel": "native",
+      "promptTokens": 1094,
+      "completionTokens": 60,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T18:43:33.027Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 6721,
+      "model": "gpt-oss-20b",
+      "channel": "",
+      "promptTokens": 1175,
+      "completionTokens": 8,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T18:44:19.044Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 8018,
+      "model": "gpt-oss-20b",
+      "channel": "",
+      "promptTokens": 337,
+      "completionTokens": 106,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T18:45:05.093Z",
+      "attempt": 1,
+      "status": 400,
+      "ms": 5720,
+      "model": "",
+      "channel": "",
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "error": "{\"success\":false,\"error\":{\"message\":\"400 Bad Request: unexpected tokens remaining in message header: Some(\\\"to=tool\\\")\",\"code\":\"BAD_REQUEST\",\"timestamp\":\"2026-11-10T18:45:10.073Z\",\"details\":{\"name\":\"U [...]"
+    },
+    {
+      "at": "2026-11-10T18:45:51.125Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 12646,
+      "model": "gpt-oss-20b",
+      "channel": "",
+      "promptTokens": 333,
+      "completionTokens": 249,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T18:46:37.143Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 5386,
+      "model": "gpt-oss-20b",
+      "channel": "native",
+      "promptTokens": 1088,
+      "completionTokens": 36,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T18:47:23.165Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 5990,
+      "model": "gpt-oss-20b",
+      "channel": "",
+      "promptTokens": 1147,
+      "completionTokens": 10,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T18:48:09.183Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 11042,
+      "model": "gpt-oss-20b",
+      "channel": "",
+      "promptTokens": 335,
+      "completionTokens": 142,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T18:48:55.256Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 9559,
+      "model": "gpt-oss-20b",
+      "channel": "native",
+      "promptTokens": 1090,
+      "completionTokens": 121,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T18:49:41.305Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 5253,
+      "model": "gpt-oss-20b",
+      "channel": "",
+      "promptTokens": 1167,
+      "completionTokens": 7,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T18:50:27.361Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 8756,
+      "model": "gpt-oss-20b",
+      "channel": "",
+      "promptTokens": 333,
+      "completionTokens": 237,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T18:51:13.527Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 8237,
+      "model": "gpt-oss-20b",
+      "channel": "native",
+      "promptTokens": 1088,
+      "completionTokens": 151,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T18:51:59.595Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 5198,
+      "model": "gpt-oss-20b",
+      "channel": "",
+      "promptTokens": 1163,
+      "completionTokens": 7,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T18:52:45.677Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 13328,
+      "model": "gpt-oss-20b",
+      "channel": "",
+      "promptTokens": 331,
+      "completionTokens": 233,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T18:53:31.754Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 10164,
+      "model": "gpt-oss-20b",
+      "channel": "native",
+      "promptTokens": 1086,
+      "completionTokens": 148,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T18:54:17.943Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 6338,
+      "model": "gpt-oss-20b",
+      "channel": "",
+      "promptTokens": 1161,
+      "completionTokens": 40,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T18:55:03.993Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 13131,
+      "model": "gpt-oss-20b",
+      "channel": "",
+      "promptTokens": 339,
+      "completionTokens": 229,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T18:55:50.021Z",
+      "attempt": 1,
+      "status": 400,
+      "ms": 14694,
+      "model": "",
+      "channel": "",
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "error": "{\"success\":false,\"error\":{\"message\":\"400 Bad Request: unexpected tokens remaining in message header: Some(\\\"to=tool\\\")\",\"code\":\"BAD_REQUEST\",\"timestamp\":\"2026-11-10T18:56:03.910Z\",\"details\":{\"name\":\"U [...]"
+    },
+    {
+      "at": "2026-11-10T18:56:36.077Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 10338,
+      "model": "gpt-oss-20b",
+      "channel": "",
+      "promptTokens": 333,
+      "completionTokens": 300,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T18:57:22.118Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 7748,
+      "model": "gpt-oss-20b",
+      "channel": "",
+      "promptTokens": 1087,
+      "completionTokens": 114,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T18:58:08.152Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 12861,
+      "model": "gpt-oss-20b",
+      "channel": "",
+      "promptTokens": 349,
+      "completionTokens": 128,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T18:58:54.173Z",
+      "attempt": 1,
+      "status": 400,
+      "ms": 6737,
+      "model": "",
+      "channel": "",
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "error": "{\"success\":false,\"error\":{\"message\":\"400 Bad Request: unexpected tokens remaining in message header: Some(\\\"to=tool\\\")\",\"code\":\"BAD_REQUEST\",\"timestamp\":\"2026-11-10T18:58:59.655Z\",\"details\":{\"name\":\"U [...]"
+    },
+    {
+      "at": "2026-11-10T18:59:40.187Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 8729,
+      "model": "gpt-oss-20b",
+      "channel": "",
+      "promptTokens": 327,
+      "completionTokens": 108,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:00:26.222Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 5523,
+      "model": "gpt-oss-20b",
+      "channel": "native",
+      "promptTokens": 1082,
+      "completionTokens": 39,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:01:12.284Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 7291,
+      "model": "gpt-oss-20b",
+      "channel": "native",
+      "promptTokens": 1175,
+      "completionTokens": 51,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:01:58.347Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 27295,
+      "model": "gpt-oss-20b",
+      "channel": "",
+      "promptTokens": 1245,
+      "completionTokens": 50,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:02:44.367Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 24584,
+      "model": "gpt-oss-20b",
+      "channel": "",
+      "promptTokens": 331,
+      "completionTokens": 643,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:03:30.401Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 6887,
+      "model": "gpt-oss-20b",
+      "channel": "native",
+      "promptTokens": 1086,
+      "completionTokens": 45,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:04:16.429Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 7890,
+      "model": "gpt-oss-20b",
+      "channel": "",
+      "promptTokens": 1150,
+      "completionTokens": 48,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:05:02.485Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 30765,
+      "model": "gpt-oss-20b",
+      "channel": "",
+      "promptTokens": 337,
+      "completionTokens": 549,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:05:48.492Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 7993,
+      "model": "gpt-oss-20b",
+      "channel": "native",
+      "promptTokens": 1092,
+      "completionTokens": 45,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:06:34.519Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 6985,
+      "model": "gpt-oss-20b",
+      "channel": "native",
+      "promptTokens": 1162,
+      "completionTokens": 65,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:07:20.552Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 5235,
+      "model": "gpt-oss-20b",
+      "channel": "",
+      "promptTokens": 1251,
+      "completionTokens": 8,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:08:06.683Z",
+      "attempt": 1,
+      "status": 400,
+      "ms": 45011,
+      "model": "",
+      "channel": "",
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "error": "{\"success\":false,\"error\":{\"message\":\"The model exhausted its output token limit before producing an answer. Increase the token limit or reduce reasoning effort.\",\"code\":\"output_token_limit_exceeded\",\" [...]"
+    },
+    {
+      "at": "2026-11-10T19:08:52.695Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 17728,
+      "model": "gpt-oss-20b",
+      "channel": "native",
+      "promptTokens": 1091,
+      "completionTokens": 49,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:09:38.771Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 6642,
+      "model": "gpt-oss-20b",
+      "channel": "",
+      "promptTokens": 1159,
+      "completionTokens": 26,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:10:24.830Z",
+      "attempt": 1,
+      "status": 400,
+      "ms": 46230,
+      "model": "",
+      "channel": "",
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "error": "{\"success\":false,\"error\":{\"message\":\"The model exhausted its output token limit before producing an answer. Increase the token limit or reduce reasoning effort.\",\"code\":\"output_token_limit_exceeded\",\" [...]"
+    },
+    {
+      "at": "2026-11-10T19:11:11.066Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 6975,
+      "model": "gpt-oss-20b",
+      "channel": "native",
+      "promptTokens": 1097,
+      "completionTokens": 76,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:11:57.136Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 14188,
+      "model": "gpt-oss-20b",
+      "channel": "native",
+      "promptTokens": 1212,
+      "completionTokens": 147,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:12:43.162Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 7532,
+      "model": "gpt-oss-20b",
+      "channel": "",
+      "promptTokens": 1302,
+      "completionTokens": 65,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:13:29.290Z",
+      "attempt": 1,
+      "status": 400,
+      "ms": 130473,
+      "model": "",
+      "channel": "",
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "error": "{\"success\":false,\"error\":{\"message\":\"The model exhausted its output token limit before producing an answer. Increase the token limit or reduce reasoning effort.\",\"code\":\"output_token_limit_exceeded\",\" [...]"
+    },
+    {
+      "at": "2026-11-10T19:15:39.766Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 6622,
+      "model": "gpt-oss-20b",
+      "channel": "native",
+      "promptTokens": 1092,
+      "completionTokens": 68,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:16:25.866Z",
+      "attempt": 1,
+      "status": 400,
+      "ms": 16458,
+      "model": "",
+      "channel": "",
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "error": "{\"success\":false,\"error\":{\"message\":\"400 Bad Request: unexpected tokens remaining in message header: Some(\\\"to=tool\\\")\",\"code\":\"BAD_REQUEST\",\"timestamp\":\"2026-11-10T19:16:40.953Z\",\"details\":{\"name\":\"U [...]"
+    },
+    {
+      "at": "2026-11-10T19:17:11.941Z",
+      "attempt": 1,
+      "status": 402,
+      "ms": 652,
+      "model": "",
+      "channel": "",
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "error": "{\"status\":402,\"success\":false,\"error\":{\"code\":\"FREE_LIMIT\",\"message\":\"Free limit reached: 1 reply every 45 seconds per IP. Retry after 3s, or get unlimited replies with a pollen key at https://enter.p [...]"
+    },
+    {
+      "at": "2026-11-10T19:17:58.459Z",
+      "attempt": 2,
+      "status": 200,
+      "ms": 33663,
+      "model": "gpt-oss-20b",
+      "channel": "",
+      "promptTokens": 336,
+      "completionTokens": 700,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:18:44.859Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 8840,
+      "model": "gpt-oss-20b",
+      "channel": "native",
+      "promptTokens": 1091,
+      "completionTokens": 66,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:19:31.055Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 7019,
+      "model": "gpt-oss-20b",
+      "channel": "native",
+      "promptTokens": 1207,
+      "completionTokens": 86,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:20:17.086Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 16198,
+      "model": "gpt-oss-20b",
+      "channel": "",
+      "promptTokens": 1294,
+      "completionTokens": 66,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:21:03.153Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 11630,
+      "model": "gpt-oss-20b",
+      "channel": "",
+      "promptTokens": 331,
+      "completionTokens": 108,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:21:49.232Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 15067,
+      "model": "gpt-oss-20b",
+      "channel": "native",
+      "promptTokens": 1086,
+      "completionTokens": 55,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:22:35.252Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 7427,
+      "model": "gpt-oss-20b",
+      "channel": "native",
+      "promptTokens": 1205,
+      "completionTokens": 106,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:23:21.330Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 6634,
+      "model": "gpt-oss-20b",
+      "channel": "",
+      "promptTokens": 1276,
+      "completionTokens": 12,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:24:07.398Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 20979,
+      "model": "gpt-oss-20b",
+      "channel": "",
+      "promptTokens": 333,
+      "completionTokens": 145,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:24:53.545Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 8095,
+      "model": "gpt-oss-20b",
+      "channel": "native",
+      "promptTokens": 1088,
+      "completionTokens": 133,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:25:39.587Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 8783,
+      "model": "gpt-oss-20b",
+      "channel": "native",
+      "promptTokens": 1191,
+      "completionTokens": 120,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:26:25.657Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 6569,
+      "model": "gpt-oss-20b",
+      "channel": "",
+      "promptTokens": 1267,
+      "completionTokens": 53,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:27:11.734Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 6327,
+      "model": "gpt-oss-20b",
+      "channel": "",
+      "promptTokens": 331,
+      "completionTokens": 74,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:27:57.784Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 6058,
+      "model": "gpt-oss-20b",
+      "channel": "native",
+      "promptTokens": 1086,
+      "completionTokens": 65,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:28:43.804Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 5929,
+      "model": "gpt-oss-20b",
+      "channel": "",
+      "promptTokens": 1150,
+      "completionTokens": 11,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:29:29.878Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 7721,
+      "model": "gpt-oss-20b",
+      "channel": "",
+      "promptTokens": 331,
+      "completionTokens": 83,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:30:15.921Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 6520,
+      "model": "gpt-oss-20b",
+      "channel": "native",
+      "promptTokens": 1086,
+      "completionTokens": 92,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:31:01.956Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 12134,
+      "model": "gpt-oss-20b",
+      "channel": "native",
+      "promptTokens": 1205,
+      "completionTokens": 122,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:31:47.996Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 12241,
+      "model": "gpt-oss-20b",
+      "channel": "native",
+      "promptTokens": 1325,
+      "completionTokens": 123,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:32:34.045Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 7371,
+      "model": "gpt-oss-20b",
+      "channel": "",
+      "promptTokens": 1396,
+      "completionTokens": 114,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:33:20.068Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 9262,
+      "model": "gpt-oss-20b",
+      "channel": "",
+      "promptTokens": 333,
+      "completionTokens": 119,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:34:06.100Z",
+      "attempt": 1,
+      "status": 400,
+      "ms": 4959,
+      "model": "",
+      "channel": "",
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "error": "{\"success\":false,\"error\":{\"message\":\"400 Bad Request: unexpected tokens remaining in message header: Some(\\\"to=tool\\\")\",\"code\":\"BAD_REQUEST\",\"timestamp\":\"2026-11-10T19:34:10.408Z\",\"details\":{\"name\":\"U [...]"
+    },
+    {
+      "at": "2026-11-10T19:34:52.135Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 6964,
+      "model": "gpt-oss-20b",
+      "channel": "",
+      "promptTokens": 328,
+      "completionTokens": 113,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:35:38.184Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 6033,
+      "model": "gpt-oss-20b",
+      "channel": "native",
+      "promptTokens": 1087,
+      "completionTokens": 57,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:36:24.281Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 9000,
+      "model": "gpt-oss-20b",
+      "channel": "",
+      "promptTokens": 1153,
+      "completionTokens": 131,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:37:10.310Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 7112,
+      "model": "gpt-oss-20b",
+      "channel": "native",
+      "promptTokens": 1083,
+      "completionTokens": 47,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:37:56.327Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 12367,
+      "model": "gpt-oss-20b",
+      "channel": "",
+      "promptTokens": 1153,
+      "completionTokens": 53,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:38:42.365Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 8808,
+      "model": "gpt-oss-20b",
+      "channel": "",
+      "promptTokens": 329,
+      "completionTokens": 125,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:39:28.413Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 6257,
+      "model": "gpt-oss-20b",
+      "channel": "native",
+      "promptTokens": 1089,
+      "completionTokens": 58,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:40:14.487Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 14804,
+      "model": "gpt-oss-20b",
+      "channel": "",
+      "promptTokens": 1156,
+      "completionTokens": 347,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:41:00.628Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 20416,
+      "model": "gpt-oss-20b",
+      "channel": "native",
+      "promptTokens": 1084,
+      "completionTokens": 392,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:41:47.107Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 7655,
+      "model": "gpt-oss-20b",
+      "channel": "",
+      "promptTokens": 1156,
+      "completionTokens": 74,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:42:33.396Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 9293,
+      "model": "gpt-oss-20b",
+      "channel": "",
+      "promptTokens": 329,
+      "completionTokens": 134,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:43:19.576Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 6339,
+      "model": "gpt-oss-20b",
+      "channel": "native",
+      "promptTokens": 1089,
+      "completionTokens": 63,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:44:05.669Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 8617,
+      "model": "gpt-oss-20b",
+      "channel": "",
+      "promptTokens": 1161,
+      "completionTokens": 200,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:44:52.254Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 6017,
+      "model": "gpt-oss-20b",
+      "channel": "native",
+      "promptTokens": 1088,
+      "completionTokens": 43,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:45:38.556Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 10261,
+      "model": "gpt-oss-20b",
+      "channel": "",
+      "promptTokens": 1156,
+      "completionTokens": 134,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:46:24.897Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 6181,
+      "model": "gpt-oss-20b",
+      "channel": "native",
+      "promptTokens": 1084,
+      "completionTokens": 57,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:47:11.273Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 7668,
+      "model": "gpt-oss-20b",
+      "channel": "",
+      "promptTokens": 1162,
+      "completionTokens": 82,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:47:57.531Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 29246,
+      "model": "gpt-oss-20b",
+      "channel": "",
+      "promptTokens": 342,
+      "completionTokens": 348,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:48:43.595Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 6555,
+      "model": "gpt-oss-20b",
+      "channel": "native",
+      "promptTokens": 1097,
+      "completionTokens": 60,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:49:29.639Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 6076,
+      "model": "gpt-oss-20b",
+      "channel": "native",
+      "promptTokens": 1167,
+      "completionTokens": 66,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:50:15.686Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 6476,
+      "model": "gpt-oss-20b",
+      "channel": "native",
+      "promptTokens": 1256,
+      "completionTokens": 36,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:51:01.743Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 5230,
+      "model": "gpt-oss-20b",
+      "channel": "",
+      "promptTokens": 1313,
+      "completionTokens": 8,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:51:47.785Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 13748,
+      "model": "gpt-oss-20b",
+      "channel": "",
+      "promptTokens": 339,
+      "completionTokens": 93,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:52:33.815Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 6594,
+      "model": "gpt-oss-20b",
+      "channel": "native",
+      "promptTokens": 1094,
+      "completionTokens": 100,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:53:19.861Z",
+      "attempt": 1,
+      "status": 400,
+      "ms": 5420,
+      "model": "",
+      "channel": "",
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "error": "{\"success\":false,\"error\":{\"message\":\"400 Bad Request: unexpected tokens remaining in message header: Some(\\\"to=tool\\\")\",\"code\":\"BAD_REQUEST\",\"timestamp\":\"2026-11-10T19:53:24.575Z\",\"details\":{\"name\":\"U [...]"
+    },
+    {
+      "at": "2026-11-10T19:54:05.926Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 10740,
+      "model": "gpt-oss-20b",
+      "channel": "",
+      "promptTokens": 346,
+      "completionTokens": 376,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:54:51.993Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 10434,
+      "model": "gpt-oss-20b",
+      "channel": "",
+      "promptTokens": 1101,
+      "completionTokens": 221,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:55:38.023Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 23055,
+      "model": "gpt-oss-20b",
+      "channel": "",
+      "promptTokens": 351,
+      "completionTokens": 343,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:56:24.070Z",
+      "attempt": 1,
+      "status": 400,
+      "ms": 9920,
+      "model": "",
+      "channel": "",
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "error": "{\"success\":false,\"error\":{\"message\":\"400 Bad Request: unexpected tokens remaining in message header: Some(\\\"to=tool\\\")\",\"code\":\"BAD_REQUEST\",\"timestamp\":\"2026-11-10T19:56:32.784Z\",\"details\":{\"name\":\"U [...]"
+    },
+    {
+      "at": "2026-11-10T19:57:10.129Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 10316,
+      "model": "gpt-oss-20b",
+      "channel": "",
+      "promptTokens": 329,
+      "completionTokens": 138,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:57:56.133Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 19098,
+      "model": "gpt-oss-20b",
+      "channel": "",
+      "promptTokens": 1084,
+      "completionTokens": 26,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:58:42.144Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 12184,
+      "model": "gpt-oss-20b",
+      "channel": "",
+      "promptTokens": 329,
+      "completionTokens": 77,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:59:28.169Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 6946,
+      "model": "gpt-oss-20b",
+      "channel": "",
+      "promptTokens": 1084,
+      "completionTokens": 35,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T20:00:14.185Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 12446,
+      "model": "gpt-oss-20b",
+      "channel": "",
+      "promptTokens": 336,
+      "completionTokens": 108,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T20:01:00.271Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 7648,
+      "model": "gpt-oss-20b",
+      "channel": "",
+      "promptTokens": 1091,
+      "completionTokens": 64,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T20:01:46.305Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 7577,
+      "model": "gpt-oss-20b",
+      "channel": "",
+      "promptTokens": 330,
+      "completionTokens": 72,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T20:02:32.360Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 6756,
+      "model": "gpt-oss-20b",
+      "channel": "",
+      "promptTokens": 1085,
+      "completionTokens": 38,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T20:03:18.393Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 6739,
+      "model": "gpt-oss-20b",
+      "channel": "",
+      "promptTokens": 333,
+      "completionTokens": 81,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T20:04:04.459Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 5617,
+      "model": "gpt-oss-20b",
+      "channel": "",
+      "promptTokens": 1088,
+      "completionTokens": 49,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T20:04:50.500Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 6409,
+      "model": "gpt-oss-20b",
+      "channel": "",
+      "promptTokens": 329,
+      "completionTokens": 74,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T20:05:36.570Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 6496,
+      "model": "gpt-oss-20b",
+      "channel": "",
+      "promptTokens": 1084,
+      "completionTokens": 36,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T20:06:22.618Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 7093,
+      "model": "gpt-oss-20b",
+      "channel": "",
+      "promptTokens": 335,
+      "completionTokens": 57,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T20:07:08.731Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 5577,
+      "model": "gpt-oss-20b",
+      "channel": "",
+      "promptTokens": 1090,
+      "completionTokens": 53,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T20:08:31.397Z",
+      "attempt": 1,
+      "status": 400,
+      "ms": 1387,
+      "model": "",
+      "channel": "",
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "error": "{\"success\":false,\"error\":{\"message\":\"400 Bad Request: unexpected tokens remaining in message header: Some(\\\"to=tool\\\")\",\"code\":\"BAD_REQUEST\",\"timestamp\":\"2026-11-10T18:45:10.073Z\",\"details\":{\"name\":\"U [...]"
+    },
+    {
+      "at": "2026-11-10T20:09:17.425Z",
+      "attempt": 1,
+      "status": 400,
+      "ms": 850,
+      "model": "",
+      "channel": "",
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "error": "{\"success\":false,\"error\":{\"message\":\"400 Bad Request: unexpected tokens remaining in message header: Some(\\\"to=tool\\\")\",\"code\":\"BAD_REQUEST\",\"timestamp\":\"2026-11-10T18:56:03.910Z\",\"details\":{\"name\":\"U [...]"
+    },
+    {
+      "at": "2026-11-10T20:10:03.460Z",
+      "attempt": 1,
+      "status": 400,
+      "ms": 942,
+      "model": "",
+      "channel": "",
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "error": "{\"success\":false,\"error\":{\"message\":\"400 Bad Request: unexpected tokens remaining in message header: Some(\\\"to=tool\\\")\",\"code\":\"BAD_REQUEST\",\"timestamp\":\"2026-11-10T18:58:59.655Z\",\"details\":{\"name\":\"U [...]"
+    },
+    {
+      "at": "2026-11-10T20:10:49.482Z",
+      "attempt": 1,
+      "status": 400,
+      "ms": 774,
+      "model": "",
+      "channel": "",
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "error": "{\"success\":false,\"error\":{\"message\":\"The model exhausted its output token limit before producing an answer. Increase the token limit or reduce reasoning effort.\",\"code\":\"output_token_limit_exceeded\",\" [...]"
+    },
+    {
+      "at": "2026-11-10T20:11:35.527Z",
+      "attempt": 1,
+      "status": 400,
+      "ms": 825,
+      "model": "",
+      "channel": "",
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "error": "{\"success\":false,\"error\":{\"message\":\"The model exhausted its output token limit before producing an answer. Increase the token limit or reduce reasoning effort.\",\"code\":\"output_token_limit_exceeded\",\" [...]"
+    },
+    {
+      "at": "2026-11-10T20:12:21.579Z",
+      "attempt": 1,
+      "status": 400,
+      "ms": 836,
+      "model": "",
+      "channel": "",
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "error": "{\"success\":false,\"error\":{\"message\":\"The model exhausted its output token limit before producing an answer. Increase the token limit or reduce reasoning effort.\",\"code\":\"output_token_limit_exceeded\",\" [...]"
+    },
+    {
+      "at": "2026-11-10T20:13:07.597Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 683,
+      "model": "gpt-oss-20b",
+      "channel": "native",
+      "promptTokens": 1092,
+      "completionTokens": 68,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T20:13:53.628Z",
+      "attempt": 1,
+      "status": 400,
+      "ms": 856,
+      "model": "",
+      "channel": "",
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "error": "{\"success\":false,\"error\":{\"message\":\"400 Bad Request: unexpected tokens remaining in message header: Some(\\\"to=tool\\\")\",\"code\":\"BAD_REQUEST\",\"timestamp\":\"2026-11-10T19:16:40.953Z\",\"details\":{\"name\":\"U [...]"
+    },
+    {
+      "at": "2026-11-10T20:14:39.650Z",
+      "attempt": 1,
+      "status": 400,
+      "ms": 781,
+      "model": "",
+      "channel": "",
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "error": "{\"success\":false,\"error\":{\"message\":\"400 Bad Request: unexpected tokens remaining in message header: Some(\\\"to=tool\\\")\",\"code\":\"BAD_REQUEST\",\"timestamp\":\"2026-11-10T19:34:10.408Z\",\"details\":{\"name\":\"U [...]"
+    },
+    {
+      "at": "2026-11-10T20:15:25.759Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 876,
+      "model": "gpt-oss-20b",
+      "channel": "native",
+      "promptTokens": 1094,
+      "completionTokens": 100,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T20:16:11.780Z",
+      "attempt": 1,
+      "status": 400,
+      "ms": 760,
+      "model": "",
+      "channel": "",
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "error": "{\"success\":false,\"error\":{\"message\":\"400 Bad Request: unexpected tokens remaining in message header: Some(\\\"to=tool\\\")\",\"code\":\"BAD_REQUEST\",\"timestamp\":\"2026-11-10T19:53:24.575Z\",\"details\":{\"name\":\"U [...]"
+    },
+    {
+      "at": "2026-11-10T20:16:57.796Z",
+      "attempt": 1,
+      "status": 400,
+      "ms": 661,
+      "model": "",
+      "channel": "",
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "error": "{\"success\":false,\"error\":{\"message\":\"400 Bad Request: unexpected tokens remaining in message header: Some(\\\"to=tool\\\")\",\"code\":\"BAD_REQUEST\",\"timestamp\":\"2026-11-10T19:56:32.784Z\",\"details\":{\"name\":\"U [...]"
+    },
+    {
+      "at": "2026-11-10T20:17:35.472Z",
+      "attempt": 1,
+      "status": 400,
+      "ms": 681,
+      "model": "",
+      "channel": "",
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "error": "{\"success\":false,\"error\":{\"message\":\"400 Bad Request: unexpected tokens remaining in message header: Some(\\\"to=tool\\\")\",\"code\":\"BAD_REQUEST\",\"timestamp\":\"2026-11-10T18:45:10.073Z\",\"details\":{\"name\":\"U [...]"
+    },
+    {
+      "at": "2026-11-10T20:18:21.491Z",
+      "attempt": 1,
+      "status": 400,
+      "ms": 446,
+      "model": "",
+      "channel": "",
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "error": "{\"success\":false,\"error\":{\"message\":\"400 Bad Request: unexpected tokens remaining in message header: Some(\\\"to=tool\\\")\",\"code\":\"BAD_REQUEST\",\"timestamp\":\"2026-11-10T18:56:03.910Z\",\"details\":{\"name\":\"U [...]"
+    },
+    {
+      "at": "2026-11-10T20:19:07.529Z",
+      "attempt": 1,
+      "status": 400,
+      "ms": 522,
+      "model": "",
+      "channel": "",
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "error": "{\"success\":false,\"error\":{\"message\":\"400 Bad Request: unexpected tokens remaining in message header: Some(\\\"to=tool\\\")\",\"code\":\"BAD_REQUEST\",\"timestamp\":\"2026-11-10T18:58:59.655Z\",\"details\":{\"name\":\"U [...]"
+    },
+    {
+      "at": "2026-11-10T20:19:53.547Z",
+      "attempt": 1,
+      "status": 400,
+      "ms": 593,
+      "model": "",
+      "channel": "",
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "error": "{\"success\":false,\"error\":{\"message\":\"The model exhausted its output token limit before producing an answer. Increase the token limit or reduce reasoning effort.\",\"code\":\"output_token_limit_exceeded\",\" [...]"
+    },
+    {
+      "at": "2026-11-10T20:20:39.619Z",
+      "attempt": 1,
+      "status": 400,
+      "ms": 537,
+      "model": "",
+      "channel": "",
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "error": "{\"success\":false,\"error\":{\"message\":\"The model exhausted its output token limit before producing an answer. Increase the token limit or reduce reasoning effort.\",\"code\":\"output_token_limit_exceeded\",\" [...]"
+    },
+    {
+      "at": "2026-11-10T20:21:25.689Z",
+      "attempt": 1,
+      "status": 400,
+      "ms": 624,
+      "model": "",
+      "channel": "",
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "error": "{\"success\":false,\"error\":{\"message\":\"The model exhausted its output token limit before producing an answer. Increase the token limit or reduce reasoning effort.\",\"code\":\"output_token_limit_exceeded\",\" [...]"
+    },
+    {
+      "at": "2026-11-10T20:22:11.730Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 559,
+      "model": "gpt-oss-20b",
+      "channel": "native",
+      "promptTokens": 1092,
+      "completionTokens": 68,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T20:22:57.748Z",
+      "attempt": 1,
+      "status": 400,
+      "ms": 612,
+      "model": "",
+      "channel": "",
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "error": "{\"success\":false,\"error\":{\"message\":\"400 Bad Request: unexpected tokens remaining in message header: Some(\\\"to=tool\\\")\",\"code\":\"BAD_REQUEST\",\"timestamp\":\"2026-11-10T19:16:40.953Z\",\"details\":{\"name\":\"U [...]"
+    },
+    {
+      "at": "2026-11-10T20:23:43.794Z",
+      "attempt": 1,
+      "status": 400,
+      "ms": 617,
+      "model": "",
+      "channel": "",
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "error": "{\"success\":false,\"error\":{\"message\":\"400 Bad Request: unexpected tokens remaining in message header: Some(\\\"to=tool\\\")\",\"code\":\"BAD_REQUEST\",\"timestamp\":\"2026-11-10T19:34:10.408Z\",\"details\":{\"name\":\"U [...]"
+    },
+    {
+      "at": "2026-11-10T20:24:29.918Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 645,
+      "model": "gpt-oss-20b",
+      "channel": "native",
+      "promptTokens": 1094,
+      "completionTokens": 100,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T20:25:15.945Z",
+      "attempt": 1,
+      "status": 400,
+      "ms": 508,
+      "model": "",
+      "channel": "",
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "error": "{\"success\":false,\"error\":{\"message\":\"400 Bad Request: unexpected tokens remaining in message header: Some(\\\"to=tool\\\")\",\"code\":\"BAD_REQUEST\",\"timestamp\":\"2026-11-10T19:53:24.575Z\",\"details\":{\"name\":\"U [...]"
+    },
+    {
+      "at": "2026-11-10T20:26:01.986Z",
+      "attempt": 1,
+      "status": 400,
+      "ms": 467,
+      "model": "",
+      "channel": "",
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "error": "{\"success\":false,\"error\":{\"message\":\"400 Bad Request: unexpected tokens remaining in message header: Some(\\\"to=tool\\\")\",\"code\":\"BAD_REQUEST\",\"timestamp\":\"2026-11-10T19:56:32.784Z\",\"details\":{\"name\":\"U [...]"
+    }
+  ],
+  "bare": {
+    "A1": {
+      "id": "A1",
+      "category": "A",
+      "pass": true,
+      "judged": "451503988",
+      "reply": "ANSWER: 451503988",
+      "unanswered": false,
+      "message": "",
+      "calls": [
+        0,
+        1
+      ]
+    },
+    "A2": {
+      "id": "A2",
+      "category": "A",
+      "pass": true,
+      "judged": "121932631112635269",
+      "reply": "ANSWER: 121932631112635269",
+      "unanswered": false,
+      "message": "",
+      "calls": [
+        16,
+        17
+      ]
+    },
+    "A3": {
+      "id": "A3",
+      "category": "A",
+      "pass": true,
+      "judged": "18446744073709551616",
+      "reply": "ANSWER: 18446744073709551616",
+      "unanswered": false,
+      "message": "",
+      "calls": [
+        12,
+        13
+      ]
+    },
+    "A4": {
+      "id": "A4",
+      "category": "A",
+      "pass": true,
+      "judged": "80,004.400",
+      "reply": "ANSWER: 80,004.400",
+      "unanswered": false,
+      "message": "",
+      "calls": [
+        15,
+        16
+      ]
+    },
+    "A5": {
+      "id": "A5",
+      "category": "A",
+      "pass": true,
+      "judged": "434",
+      "reply": "ANSWER: 434",
+      "unanswered": false,
+      "message": "",
+      "calls": [
+        20,
+        21
+      ]
+    },
+    "A6": {
+      "id": "A6",
+      "category": "A",
+      "pass": true,
+      "judged": "624671",
+      "reply": "ANSWER: 624671",
+      "unanswered": false,
+      "message": "",
+      "calls": [
+        24,
+        26
+      ]
+    },
+    "A7": {
+      "id": "A7",
+      "category": "A",
+      "pass": true,
+      "judged": "1157",
+      "reply": "ANSWER: 1157",
+      "unanswered": false,
+      "message": "",
+      "calls": [
+        28,
+        29
+      ]
+    },
+    "A8": {
+      "id": "A8",
+      "category": "A",
+      "pass": true,
+      "judged": "96889010407",
+      "reply": "ANSWER: 96889010407",
+      "unanswered": false,
+      "message": "",
+      "calls": [
+        30,
+        31
+      ]
+    },
+    "B1": {
+      "id": "B1",
+      "category": "B",
+      "pass": true,
+      "judged": "3",
+      "reply": "ANSWER: 3",
+      "unanswered": false,
+      "message": "",
+      "calls": [
+        33,
+        34
+      ]
+    },
+    "B2": {
+      "id": "B2",
+      "category": "B",
+      "pass": true,
+      "judged": "4",
+      "reply": "The word \"Mississippi\" contains the letter 's' four times: M i **s** **s** i **s** **s** i p p i.  \n\nANSWER: 4",
+      "unanswered": false,
+      "message": "",
+      "calls": [
+        36,
+        37
+      ]
+    },
+    "B3": {
+      "id": "B3",
+      "category": "B",
+      "pass": false,
+      "judged": "5",
+      "reply": "ANSWER: 5",
+      "unanswered": false,
+      "message": "",
+      "calls": [
+        39,
+        40
+      ]
+    },
+    "B4": {
+      "id": "B4",
+      "category": "B",
+      "pass": true,
+      "judged": "29",
+      "reply": "ANSWER: 29",
+      "unanswered": false,
+      "message": "",
+      "calls": [
+        42,
+        43
+      ]
+    },
+    "B5": {
+      "id": "B5",
+      "category": "B",
+      "pass": false,
+      "judged": "6202ssenarhwoleg",
+      "reply": "ANSWER: 6202ssenarhwoleg",
+      "unanswered": false,
+      "message": "",
+      "calls": [
+        44,
+        45
+      ]
+    },
+    "B6": {
+      "id": "B6",
+      "category": "B",
+      "pass": true,
+      "judged": "17",
+      "reply": "ANSWER: 17",
+      "unanswered": false,
+      "message": "",
+      "calls": [
+        46,
+        47
+      ]
+    },
+    "C1": {
+      "id": "C1",
+      "category": "C",
+      "pass": true,
+      "judged": "2026-11-10",
+      "reply": "ANSWER: 2026-11-10",
+      "unanswered": false,
+      "message": "",
+      "calls": [
+        48,
+        49
+      ]
+    },
+    "C2": {
+      "id": "C2",
+      "category": "C",
+      "pass": true,
+      "judged": "Tuesday",
+      "reply": "ANSWER: Tuesday",
+      "unanswered": false,
+      "message": "",
+      "calls": [
+        52,
+        53
+      ]
+    },
+    "C3": {
+      "id": "C3",
+      "category": "C",
+      "pass": false,
+      "judged": "51 days",
+      "reply": "ANSWER: 51 days",
+      "unanswered": false,
+      "message": "",
+      "calls": [
+        55,
+        56
+      ]
+    },
+    "C4": {
+      "id": "C4",
+      "category": "C",
+      "pass": false,
+      "judged": "",
+      "reply": "",
+      "unanswered": false,
+      "message": "No free model answered (Pollinations: HTTP 400)",
+      "calls": [
+        150,
+        151
+      ],
+      "noReply": true
+    },
+    "C5": {
+      "id": "C5",
+      "category": "C",
+      "pass": false,
+      "judged": "",
+      "reply": "",
+      "unanswered": false,
+      "message": "No free model answered (Pollinations: HTTP 400)",
+      "calls": [
+        151,
+        152
+      ],
+      "noReply": true
+    },
+    "C6": {
+      "id": "C6",
+      "category": "C",
+      "pass": false,
+      "judged": "",
+      "reply": "",
+      "unanswered": false,
+      "message": "No free model answered (Pollinations: HTTP 400)",
+      "calls": [
+        152,
+        153
+      ],
+      "noReply": true
+    },
+    "C7": {
+      "id": "C7",
+      "category": "C",
+      "pass": true,
+      "judged": "January 24, 2026",
+      "reply": "ANSWER: January 24, 2026",
+      "unanswered": false,
+      "message": "",
+      "calls": [
+        69,
+        71
+      ]
+    },
+    "D1": {
+      "id": "D1",
+      "category": "D",
+      "pass": true,
+      "judged": "42.18 km",
+      "reply": "ANSWER: 42.18 km",
+      "unanswered": false,
+      "message": "",
+      "calls": [
+        74,
+        75
+      ]
+    },
+    "D2": {
+      "id": "D2",
+      "category": "D",
+      "pass": true,
+      "judged": "37°C",
+      "reply": "ANSWER: 37°C",
+      "unanswered": false,
+      "message": "",
+      "calls": [
+        78,
+        79
+      ]
+    },
+    "D3": {
+      "id": "D3",
+      "category": "D",
+      "pass": true,
+      "judged": "180.34 cm",
+      "reply": "ANSWER: 180.34 cm",
+      "unanswered": false,
+      "message": "",
+      "calls": [
+        82,
+        83
+      ]
+    },
+    "D4": {
+      "id": "D4",
+      "category": "D",
+      "pass": false,
+      "judged": "1587 g",
+      "reply": "ANSWER: 1587 g",
+      "unanswered": false,
+      "message": "",
+      "calls": [
+        85,
+        86
+      ]
+    },
+    "D5": {
+      "id": "D5",
+      "category": "D",
+      "pass": true,
+      "judged": "155.3 mph",
+      "reply": "ANSWER: 155.3 mph",
+      "unanswered": false,
+      "message": "",
+      "calls": [
+        90,
+        91
+      ]
+    },
+    "E1": {
+      "id": "E1",
+      "category": "E",
+      "pass": false,
+      "judged": "I’m sorry, but I can’t help with that.",
+      "reply": "I’m sorry, but I can’t help with that.",
+      "unanswered": false,
+      "message": "",
+      "calls": [
+        92,
+        93
+      ]
+    },
+    "E2": {
+      "id": "E2",
+      "category": "E",
+      "pass": false,
+      "judged": "I don't know.",
+      "reply": "ANSWER: I don't know.",
+      "unanswered": false,
+      "message": "",
+      "calls": [
+        97,
+        98
+      ]
+    },
+    "E3": {
+      "id": "E3",
+      "category": "E",
+      "pass": false,
+      "judged": "I’m sorry, but I can’t help with that.",
+      "reply": "I’m sorry, but I can’t help with that.",
+      "unanswered": false,
+      "message": "",
+      "calls": [
+        102,
+        103
+      ]
+    },
+    "F1": {
+      "id": "F1",
+      "category": "F",
+      "pass": false,
+      "judged": "1224",
+      "reply": "ANSWER: 1224",
+      "unanswered": false,
+      "message": "",
+      "calls": [
+        109,
+        110
+      ]
+    },
+    "F2": {
+      "id": "F2",
+      "category": "F",
+      "pass": true,
+      "judged": "60.35025",
+      "reply": "ANSWER: 60.35025",
+      "unanswered": false,
+      "message": "",
+      "calls": [
+        114,
+        115
+      ]
+    },
+    "F3": {
+      "id": "F3",
+      "category": "F",
+      "pass": true,
+      "judged": "1665",
+      "reply": "ANSWER: 1665",
+      "unanswered": false,
+      "message": "",
+      "calls": [
+        117,
+        118
+      ]
+    },
+    "F4": {
+      "id": "F4",
+      "category": "F",
+      "pass": true,
+      "judged": "97 days",
+      "reply": "Your note has been saved: **“my project review is on 2027-02-15.”**  \nFrom today, 2026‑11‑10, there are **97 days** until that date.  \n\nANSWER: 97 days",
+      "unanswered": false,
+      "message": "",
+      "calls": [
+        119,
+        120
+      ]
+    },
+    "G1": {
+      "id": "G1",
+      "category": "G",
+      "pass": true,
+      "judged": "Tokyo",
+      "reply": "ANSWER: Tokyo",
+      "unanswered": false,
+      "message": "",
+      "calls": [
+        121,
+        122
+      ]
+    },
+    "G2": {
+      "id": "G2",
+      "category": "G",
+      "pass": true,
+      "judged": "cold",
+      "reply": "ANSWER: cold",
+      "unanswered": false,
+      "message": "",
+      "calls": [
+        123,
+        124
+      ]
+    },
+    "G3": {
+      "id": "G3",
+      "category": "G",
+      "pass": true,
+      "judged": "They weigh the same.",
+      "reply": "ANSWER: They weigh the same.",
+      "unanswered": false,
+      "message": "",
+      "calls": [
+        125,
+        126
+      ]
+    },
+    "G4": {
+      "id": "G4",
+      "category": "G",
+      "pass": true,
+      "judged": "Au",
+      "reply": "Gold's chemical symbol is Au.  \nANSWER: Au",
+      "unanswered": false,
+      "message": "",
+      "calls": [
+        127,
+        128
+      ]
+    },
+    "G5": {
+      "id": "G5",
+      "category": "G",
+      "pass": true,
+      "judged": "Terima kasih",
+      "reply": "ANSWER: Terima kasih",
+      "unanswered": false,
+      "message": "",
+      "calls": [
+        129,
+        130
+      ]
+    },
+    "G6": {
+      "id": "G6",
+      "category": "G",
+      "pass": true,
+      "judged": "mice",
+      "reply": "ANSWER: mice",
+      "unanswered": false,
+      "message": "",
+      "calls": [
+        131,
+        132
+      ]
+    },
+    "G7": {
+      "id": "G7",
+      "category": "G",
+      "pass": true,
+      "judged": "Green",
+      "reply": "ANSWER: Green",
+      "unanswered": false,
+      "message": "",
+      "calls": [
+        133,
+        134
+      ]
+    }
+  },
+  "harness": {
+    "A1": {
+      "id": "A1",
+      "category": "A",
+      "pass": true,
+      "answer": "451503988",
+      "status": "done",
+      "fallback": false,
+      "message": "",
+      "runs": 1,
+      "steps": 2,
+      "toolCalls": 1,
+      "repairedCalls": 0,
+      "repairTurns": 0,
+      "prompts": 0,
+      "unanswered": false,
+      "calls": [
+        1,
+        3
+      ]
+    },
+    "A2": {
+      "id": "A2",
+      "category": "A",
+      "pass": true,
+      "answer": "121932631112635269",
+      "status": "done",
+      "fallback": false,
+      "message": "",
+      "runs": 1,
+      "steps": 2,
+      "toolCalls": 1,
+      "repairedCalls": 0,
+      "repairTurns": 0,
+      "prompts": 0,
+      "unanswered": false,
+      "calls": [
+        9,
+        12
+      ]
+    },
+    "A3": {
+      "id": "A3",
+      "category": "A",
+      "pass": true,
+      "answer": "18446744073709551616",
+      "status": "done",
+      "fallback": false,
+      "message": "",
+      "runs": 1,
+      "steps": 2,
+      "toolCalls": 1,
+      "repairedCalls": 0,
+      "repairTurns": 0,
+      "prompts": 0,
+      "unanswered": false,
+      "calls": [
+        13,
+        15
+      ]
+    },
+    "A4": {
+      "id": "A4",
+      "category": "A",
+      "pass": true,
+      "answer": "80004.400",
+      "status": "done",
+      "fallback": false,
+      "message": "",
+      "runs": 1,
+      "steps": 3,
+      "toolCalls": 1,
+      "repairedCalls": 0,
+      "repairTurns": 1,
+      "prompts": 0,
+      "unanswered": false,
+      "calls": [
+        17,
+        20
+      ]
+    },
+    "A5": {
+      "id": "A5",
+      "category": "A",
+      "pass": true,
+      "answer": "434",
+      "status": "done",
+      "fallback": false,
+      "message": "",
+      "runs": 1,
+      "steps": 3,
+      "toolCalls": 1,
+      "repairedCalls": 0,
+      "repairTurns": 1,
+      "prompts": 0,
+      "unanswered": false,
+      "calls": [
+        21,
+        24
+      ]
+    },
+    "A6": {
+      "id": "A6",
+      "category": "A",
+      "pass": true,
+      "answer": "624671",
+      "status": "done",
+      "fallback": false,
+      "message": "",
+      "runs": 1,
+      "steps": 2,
+      "toolCalls": 1,
+      "repairedCalls": 0,
+      "repairTurns": 0,
+      "prompts": 0,
+      "unanswered": false,
+      "calls": [
+        26,
+        28
+      ]
+    },
+    "A7": {
+      "id": "A7",
+      "category": "A",
+      "pass": false,
+      "answer": "",
+      "status": "error",
+      "fallback": false,
+      "message": "No free model answered (Pollinations: HTTP 400)",
+      "runs": 1,
+      "steps": 1,
+      "toolCalls": 0,
+      "repairedCalls": 0,
+      "repairTurns": 0,
+      "prompts": 0,
+      "unanswered": false,
+      "calls": [
+        147,
+        148
+      ],
+      "noReply": true
+    },
+    "A8": {
+      "id": "A8",
+      "category": "A",
+      "pass": true,
+      "answer": "96889010407",
+      "status": "done",
+      "fallback": false,
+      "message": "",
+      "runs": 1,
+      "steps": 2,
+      "toolCalls": 1,
+      "repairedCalls": 0,
+      "repairTurns": 0,
+      "prompts": 0,
+      "unanswered": false,
+      "calls": [
+        31,
+        33
+      ]
+    },
+    "B1": {
+      "id": "B1",
+      "category": "B",
+      "pass": true,
+      "answer": "3",
+      "status": "done",
+      "fallback": false,
+      "message": "",
+      "runs": 1,
+      "steps": 2,
+      "toolCalls": 1,
+      "repairedCalls": 1,
+      "repairTurns": 0,
+      "prompts": 0,
+      "unanswered": false,
+      "calls": [
+        34,
+        36
+      ]
+    },
+    "B2": {
+      "id": "B2",
+      "category": "B",
+      "pass": true,
+      "answer": "4",
+      "status": "done",
+      "fallback": false,
+      "message": "",
+      "runs": 1,
+      "steps": 2,
+      "toolCalls": 1,
+      "repairedCalls": 1,
+      "repairTurns": 0,
+      "prompts": 0,
+      "unanswered": false,
+      "calls": [
+        37,
+        39
+      ]
+    },
+    "B3": {
+      "id": "B3",
+      "category": "B",
+      "pass": true,
+      "answer": "4",
+      "status": "done",
+      "fallback": false,
+      "message": "",
+      "runs": 1,
+      "steps": 2,
+      "toolCalls": 1,
+      "repairedCalls": 1,
+      "repairTurns": 0,
+      "prompts": 0,
+      "unanswered": false,
+      "calls": [
+        40,
+        42
+      ]
+    },
+    "B4": {
+      "id": "B4",
+      "category": "B",
+      "pass": false,
+      "answer": "",
+      "status": "error",
+      "fallback": false,
+      "message": "No free model answered (Pollinations: HTTP 400)",
+      "runs": 1,
+      "steps": 1,
+      "toolCalls": 0,
+      "repairedCalls": 0,
+      "repairTurns": 0,
+      "prompts": 0,
+      "unanswered": false,
+      "calls": [
+        148,
+        149
+      ],
+      "noReply": true
+    },
+    "B5": {
+      "id": "B5",
+      "category": "B",
+      "pass": false,
+      "answer": "6202ssenerhwoleg",
+      "status": "done",
+      "fallback": false,
+      "message": "",
+      "runs": 1,
+      "steps": 1,
+      "toolCalls": 0,
+      "repairedCalls": 0,
+      "repairTurns": 0,
+      "prompts": 0,
+      "unanswered": false,
+      "calls": [
+        45,
+        46
+      ]
+    },
+    "B6": {
+      "id": "B6",
+      "category": "B",
+      "pass": false,
+      "answer": "",
+      "status": "error",
+      "fallback": false,
+      "message": "No free model answered (Pollinations: HTTP 400)",
+      "runs": 1,
+      "steps": 1,
+      "toolCalls": 0,
+      "repairedCalls": 0,
+      "repairTurns": 0,
+      "prompts": 0,
+      "unanswered": false,
+      "calls": [
+        149,
+        150
+      ],
+      "noReply": true
+    },
+    "C1": {
+      "id": "C1",
+      "category": "C",
+      "pass": true,
+      "answer": "2026-11-10",
+      "status": "done",
+      "fallback": false,
+      "message": "",
+      "runs": 1,
+      "steps": 3,
+      "toolCalls": 1,
+      "repairedCalls": 1,
+      "repairTurns": 1,
+      "prompts": 0,
+      "unanswered": false,
+      "calls": [
+        49,
+        52
+      ]
+    },
+    "C2": {
+      "id": "C2",
+      "category": "C",
+      "pass": true,
+      "answer": "Tuesday",
+      "status": "done",
+      "fallback": false,
+      "message": "",
+      "runs": 1,
+      "steps": 2,
+      "toolCalls": 1,
+      "repairedCalls": 0,
+      "repairTurns": 0,
+      "prompts": 0,
+      "unanswered": false,
+      "calls": [
+        53,
+        55
+      ]
+    },
+    "C3": {
+      "id": "C3",
+      "category": "C",
+      "pass": true,
+      "answer": "52 days",
+      "status": "done",
+      "fallback": false,
+      "message": "",
+      "runs": 1,
+      "steps": 3,
+      "toolCalls": 2,
+      "repairedCalls": 0,
+      "repairTurns": 0,
+      "prompts": 0,
+      "unanswered": false,
+      "calls": [
+        56,
+        59
+      ]
+    },
+    "C4": {
+      "id": "C4",
+      "category": "C",
+      "pass": true,
+      "answer": "Saturday",
+      "status": "done",
+      "fallback": false,
+      "message": "",
+      "runs": 1,
+      "steps": 2,
+      "toolCalls": 1,
+      "repairedCalls": 0,
+      "repairTurns": 0,
+      "prompts": 0,
+      "unanswered": false,
+      "calls": [
+        60,
+        62
+      ]
+    },
+    "C5": {
+      "id": "C5",
+      "category": "C",
+      "pass": true,
+      "answer": "9811",
+      "status": "done",
+      "fallback": false,
+      "message": "",
+      "runs": 1,
+      "steps": 3,
+      "toolCalls": 1,
+      "repairedCalls": 0,
+      "repairTurns": 1,
+      "prompts": 0,
+      "unanswered": false,
+      "calls": [
+        63,
+        66
+      ]
+    },
+    "C6": {
+      "id": "C6",
+      "category": "C",
+      "pass": false,
+      "answer": "",
+      "status": "error",
+      "fallback": false,
+      "message": "No free model answered (Pollinations: HTTP 400)",
+      "runs": 1,
+      "steps": 2,
+      "toolCalls": 0,
+      "repairedCalls": 0,
+      "repairTurns": 1,
+      "prompts": 0,
+      "unanswered": false,
+      "calls": [
+        153,
+        155
+      ],
+      "noReply": true
+    },
+    "C7": {
+      "id": "C7",
+      "category": "C",
+      "pass": true,
+      "answer": "2026-01-24",
+      "status": "done",
+      "fallback": false,
+      "message": "",
+      "runs": 1,
+      "steps": 3,
+      "toolCalls": 1,
+      "repairedCalls": 1,
+      "repairTurns": 1,
+      "prompts": 0,
+      "unanswered": false,
+      "calls": [
+        71,
+        74
+      ]
+    },
+    "D1": {
+      "id": "D1",
+      "category": "D",
+      "pass": true,
+      "answer": "42.1648128 km",
+      "status": "done",
+      "fallback": false,
+      "message": "",
+      "runs": 1,
+      "steps": 3,
+      "toolCalls": 1,
+      "repairedCalls": 1,
+      "repairTurns": 1,
+      "prompts": 0,
+      "unanswered": false,
+      "calls": [
+        75,
+        78
+      ]
+    },
+    "D2": {
+      "id": "D2",
+      "category": "D",
+      "pass": true,
+      "answer": "37°C",
+      "status": "done",
+      "fallback": false,
+      "message": "",
+      "runs": 1,
+      "steps": 3,
+      "toolCalls": 1,
+      "repairedCalls": 0,
+      "repairTurns": 1,
+      "prompts": 0,
+      "unanswered": false,
+      "calls": [
+        79,
+        82
+      ]
+    },
+    "D3": {
+      "id": "D3",
+      "category": "D",
+      "pass": true,
+      "answer": "180.34 centimetres",
+      "status": "done",
+      "fallback": false,
+      "message": "",
+      "runs": 1,
+      "steps": 2,
+      "toolCalls": 1,
+      "repairedCalls": 0,
+      "repairTurns": 0,
+      "prompts": 0,
+      "unanswered": false,
+      "calls": [
+        83,
+        85
+      ]
+    },
+    "D4": {
+      "id": "D4",
+      "category": "D",
+      "pass": true,
+      "answer": "1587.573295 grams",
+      "status": "done",
+      "fallback": false,
+      "message": "",
+      "runs": 1,
+      "steps": 4,
+      "toolCalls": 1,
+      "repairedCalls": 1,
+      "repairTurns": 2,
+      "prompts": 0,
+      "unanswered": false,
+      "calls": [
+        86,
+        90
+      ]
+    },
+    "D5": {
+      "id": "D5",
+      "category": "D",
+      "pass": false,
+      "answer": "",
+      "status": "error",
+      "fallback": false,
+      "message": "No free model answered (Pollinations: HTTP 400)",
+      "runs": 1,
+      "steps": 1,
+      "toolCalls": 0,
+      "repairedCalls": 0,
+      "repairTurns": 0,
+      "prompts": 0,
+      "unanswered": false,
+      "calls": [
+        155,
+        156
+      ],
+      "noReply": true
+    },
+    "E1": {
+      "id": "E1",
+      "category": "E",
+      "pass": true,
+      "answer": "7291",
+      "status": "done",
+      "fallback": false,
+      "message": "",
+      "runs": 2,
+      "steps": 4,
+      "toolCalls": 2,
+      "repairedCalls": 0,
+      "repairTurns": 0,
+      "prompts": 1,
+      "unanswered": false,
+      "calls": [
+        93,
+        97
+      ]
+    },
+    "E2": {
+      "id": "E2",
+      "category": "E",
+      "pass": true,
+      "answer": "14 March",
+      "status": "done",
+      "fallback": false,
+      "message": "",
+      "runs": 2,
+      "steps": 4,
+      "toolCalls": 2,
+      "repairedCalls": 0,
+      "repairTurns": 0,
+      "prompts": 1,
+      "unanswered": false,
+      "calls": [
+        98,
+        102
+      ]
+    },
+    "E3": {
+      "id": "E3",
+      "category": "E",
+      "pass": true,
+      "answer": "6035",
+      "status": "done",
+      "fallback": false,
+      "message": "",
+      "runs": 3,
+      "steps": 6,
+      "toolCalls": 3,
+      "repairedCalls": 0,
+      "repairTurns": 0,
+      "prompts": 2,
+      "unanswered": false,
+      "calls": [
+        103,
+        109
+      ]
+    },
+    "F1": {
+      "id": "F1",
+      "category": "F",
+      "pass": true,
+      "answer": "1248",
+      "status": "done",
+      "fallback": false,
+      "message": "",
+      "runs": 1,
+      "steps": 4,
+      "toolCalls": 3,
+      "repairedCalls": 0,
+      "repairTurns": 0,
+      "prompts": 0,
+      "unanswered": false,
+      "calls": [
+        110,
+        114
+      ]
+    },
+    "F2": {
+      "id": "F2",
+      "category": "F",
+      "pass": false,
+      "answer": "",
+      "status": "error",
+      "fallback": false,
+      "message": "No free model answered (Pollinations: HTTP 400)",
+      "runs": 1,
+      "steps": 2,
+      "toolCalls": 0,
+      "repairedCalls": 0,
+      "repairTurns": 1,
+      "prompts": 0,
+      "unanswered": false,
+      "calls": [
+        156,
+        158
+      ],
+      "noReply": true
+    },
+    "F3": {
+      "id": "F3",
+      "category": "F",
+      "pass": true,
+      "answer": "1665",
+      "status": "done",
+      "fallback": false,
+      "message": "",
+      "runs": 1,
+      "steps": 1,
+      "toolCalls": 0,
+      "repairedCalls": 0,
+      "repairTurns": 0,
+      "prompts": 0,
+      "unanswered": false,
+      "calls": [
+        118,
+        119
+      ]
+    },
+    "F4": {
+      "id": "F4",
+      "category": "F",
+      "pass": false,
+      "answer": "",
+      "status": "error",
+      "fallback": false,
+      "message": "No free model answered (Pollinations: HTTP 400)",
+      "runs": 1,
+      "steps": 1,
+      "toolCalls": 0,
+      "repairedCalls": 0,
+      "repairTurns": 0,
+      "prompts": 0,
+      "unanswered": false,
+      "calls": [
+        158,
+        159
+      ],
+      "noReply": true
+    },
+    "G1": {
+      "id": "G1",
+      "category": "G",
+      "pass": true,
+      "answer": "Tokyo",
+      "status": "done",
+      "fallback": false,
+      "message": "",
+      "runs": 1,
+      "steps": 1,
+      "toolCalls": 0,
+      "repairedCalls": 0,
+      "repairTurns": 0,
+      "prompts": 0,
+      "unanswered": false,
+      "calls": [
+        122,
+        123
+      ]
+    },
+    "G2": {
+      "id": "G2",
+      "category": "G",
+      "pass": true,
+      "answer": "Cold.",
+      "status": "done",
+      "fallback": false,
+      "message": "",
+      "runs": 1,
+      "steps": 1,
+      "toolCalls": 0,
+      "repairedCalls": 0,
+      "repairTurns": 0,
+      "prompts": 0,
+      "unanswered": false,
+      "calls": [
+        124,
+        125
+      ]
+    },
+    "G3": {
+      "id": "G3",
+      "category": "G",
+      "pass": true,
+      "answer": "They weigh the same—both are one kilogram.",
+      "status": "done",
+      "fallback": false,
+      "message": "",
+      "runs": 1,
+      "steps": 1,
+      "toolCalls": 0,
+      "repairedCalls": 0,
+      "repairTurns": 0,
+      "prompts": 0,
+      "unanswered": false,
+      "calls": [
+        126,
+        127
+      ]
+    },
+    "G4": {
+      "id": "G4",
+      "category": "G",
+      "pass": true,
+      "answer": "Au",
+      "status": "done",
+      "fallback": false,
+      "message": "",
+      "runs": 1,
+      "steps": 1,
+      "toolCalls": 0,
+      "repairedCalls": 0,
+      "repairTurns": 0,
+      "prompts": 0,
+      "unanswered": false,
+      "calls": [
+        128,
+        129
+      ]
+    },
+    "G5": {
+      "id": "G5",
+      "category": "G",
+      "pass": true,
+      "answer": "In Indonesian, you say **“Terima kasih.”**",
+      "status": "done",
+      "fallback": false,
+      "message": "",
+      "runs": 1,
+      "steps": 1,
+      "toolCalls": 0,
+      "repairedCalls": 0,
+      "repairTurns": 0,
+      "prompts": 0,
+      "unanswered": false,
+      "calls": [
+        130,
+        131
+      ]
+    },
+    "G6": {
+      "id": "G6",
+      "category": "G",
+      "pass": true,
+      "answer": "mice",
+      "status": "done",
+      "fallback": false,
+      "message": "",
+      "runs": 1,
+      "steps": 1,
+      "toolCalls": 0,
+      "repairedCalls": 0,
+      "repairTurns": 0,
+      "prompts": 0,
+      "unanswered": false,
+      "calls": [
+        132,
+        133
+      ]
+    },
+    "G7": {
+      "id": "G7",
+      "category": "G",
+      "pass": true,
+      "answer": "Green.",
+      "status": "done",
+      "fallback": false,
+      "message": "",
+      "runs": 1,
+      "steps": 1,
+      "toolCalls": 0,
+      "repairedCalls": 0,
+      "repairTurns": 0,
+      "prompts": 0,
+      "unanswered": false,
+      "calls": [
+        134,
+        135
+      ]
+    }
+  },
+  "replay": {
+    "traces": 44,
+    "identical": 44,
+    "different": []
+  },
+  "segments": [
+    {
+      "started": "2026-11-10T18:18:59.002Z",
+      "fromCall": 0,
+      "transport": {
+        "gapMs": 46000,
+        "timeoutMs": 60000,
+        "attempts": 6,
+        "silences": 6
+      }
+    },
+    {
+      "started": "2026-11-10T18:35:06.398Z",
+      "fromCall": 16,
+      "transport": {
+        "gapMs": 46000,
+        "timeoutMs": 300000,
+        "attempts": 6,
+        "silences": 2
+      }
+    },
+    {
+      "started": "2026-11-10T20:08:31.392Z",
+      "fromCall": 135,
+      "transport": {
+        "gapMs": 46000,
+        "timeoutMs": 300000,
+        "attempts": 6,
+        "silences": 2
+      }
+    },
+    {
+      "started": "2026-11-10T20:17:35.458Z",
+      "fromCall": 147,
+      "transport": {
+        "gapMs": 46000,
+        "timeoutMs": 300000,
+        "attempts": 6,
+        "silences": 2
+      }
+    }
+  ],
+  "settled": {
+    "at": "2026-11-10T20:27:20.959Z",
+    "tasks": [
+      "A7",
+      "B4",
+      "B6",
+      "C4",
+      "C5",
+      "C6",
+      "D5",
+      "F2",
+      "F4"
+    ]
+  }
+}

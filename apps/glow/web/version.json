@@ -1,12 +1,12 @@
 {
-  "version": "1.30.0",
-  "released": "2026-11-10",
+  "version": "1.31.0",
+  "released": "2026-11-11",
   "notes": [
-    "✨ New: GlowSpark, a tiny AI we built and trained from scratch. It writes old-style fairy tales right on your device",
-    "No account, no key and no WebGPU needed: it is plain JavaScript, and it keeps working offline after your first visit",
-    "Tap any word to see the other words it considered, and pick one to send the story another way",
-    "The page shows its measured size, speed and test score, including where it loses to big AI models",
-    "Find it on Glow home, in the Glow apps menu, or type an opening line and choose ✨ Tiny AI"
+    "🧰 New: GlowHarness, an agent harness we built from scratch. It lets an AI use tools, shows every step, and asks before it saves, deletes or downloads anything",
+    "It works with no AI model at all for sums, dates, units, text and notes, so nothing leaves the page. Switch to a free model for other questions",
+    "Replay any run, save its record, and re-run the engine's own checks in your browser",
+    "The page shows its measured results on our own small test set, with and without the harness, and says where Claude Code, Codex and OpenCode are better",
+    "Find it on Glow home, in the Glow apps menu, or type a task and choose 🧰 Agent"
   ],
   "android": "https://github.com/juw12/projects/releases/download/glow-android/Glow-android.apk",
   "windows": "https://github.com/juw12/projects/releases/download/glow-windows/Glow-Setup.exe",

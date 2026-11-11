@@ -11,6 +11,7 @@ import argparse
 import bz2
 import gzip
 import json
+import os
 import lzma
 import math
 import time
@@ -22,7 +23,7 @@ import torch
 from model import Spark
 
 HERE = Path(__file__).parent
-DATA = HERE / "data"
+DATA = HERE / os.environ.get("SPARK_DATA", "data")
 
 
 def held_out_bits(model, tokens, context):

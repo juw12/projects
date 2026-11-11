@@ -10,7 +10,7 @@
   const ROOT = new URL("../", scriptUrl); // .../glow/
   // The Glow family version. Bump it together with ../version.json for every release:
   // an older copy of this script then sees the newer version.json and offers "Update now".
-  const GLOW_VERSION = "1.30.0";
+  const GLOW_VERSION = "1.31.0";
   const LIVE_ROOT = "https://juw12.github.io/projects/glow/";
   const APK_URL = "https://github.com/juw12/projects/releases/download/glow-android/Glow-android.apk";
   const embedded = (function () {
@@ -34,6 +34,7 @@
     { id: "room", name: "GlowRoom", icon: "🏢", desc: "An AI crew that researches, codes and reports back", page: onMobilePage ? "room/mobile.html" : "room/" },
     { id: "news", name: "GlowNews", icon: "📰", desc: "Latest AI news, refreshed twice a day", page: "news/" },
     { id: "spark", name: "GlowSpark", icon: "✨", desc: "A tiny AI we built from scratch: writes on your device", page: "spark/" },
+    { id: "harness", name: "GlowHarness", icon: "🧰", desc: "An agent harness we built from scratch: tools, permissions, every step shown", page: "harness/" },
   ];
 
   // Language & region come from glow-locale.js (loaded first); English when it is missing.
@@ -53,6 +54,7 @@
     if (/\/lead\//.test(path)) return "lead";
     if (/\/news\//.test(path)) return "news";
     if (/\/spark\//.test(path)) return "spark";
+    if (/\/harness\//.test(path)) return "harness";
     return "home";
   }
 
@@ -950,6 +952,8 @@ html.glow-room-open .glow-widget-bubble,html.glow-room-open .glow-widget-panel{d
     updateState = "checking";
     refreshVersionViews();
     try {
+      // Offline: skip a request that can only fail (the browser would log it as a console error).
+      if (navigator.onLine === false) throw new Error("offline");
       const response = await fetch(versionUrl(), { cache: "no-store" });
       if (!response.ok) throw new Error("HTTP " + response.status);
       latest = await response.json();
@@ -1076,6 +1080,7 @@ html.glow-room-open .glow-widget-bubble,html.glow-room-open .glow-widget-panel{d
     if (/^lead\//.test(rest)) return "lead";
     if (/^news\//.test(rest)) return "news";
     if (/^spark\//.test(rest)) return "spark";
+    if (/^harness\//.test(rest)) return "harness";
     if (/^setup\//.test(rest)) return "setup";
     if (/^account\//.test(rest)) return "account";
     if (rest === "" || rest === "index.html") return "home";
@@ -1309,6 +1314,10 @@ html.glow-room-open .glow-widget-bubble,html.glow-room-open .glow-widget-panel{d
         return;
       }
       toggleWidget();
+    });
+    // Enter, Space and screen readers send a click with no pointer behind it; taps and mouse clicks end above.
+    widgetBubble.addEventListener("click", (event) => {
+      if (event.detail === 0) toggleWidget();
     });
     window.addEventListener("resize", applyWidgetPosition);
   }

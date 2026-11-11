@@ -7,7 +7,10 @@
 // and the last edition you saw still opens offline.
 // GlowSpark (./spark/): the page, its engine and its small files are cached at install; the model
 // weights (spark.bin) are cached the first time the page loads them, so it then writes offline.
-const CACHE_NAME = 'glowhome-v18';
+// GlowHarness (./harness/): the page, the engine, the tool kit and the benchmark file are cached at
+// install, so the no-model brain keeps working offline. Free-model calls go to other origins and are
+// never handled here.
+const CACHE_NAME = 'glowhome-v19';
 const NETWORK_TIMEOUT_MS = 4000;
 const ASSETS = [
   './',
@@ -31,6 +34,12 @@ const ASSETS = [
   './spark/bench.json',
   './spark/books.json',
   './spark/parity.json',
+  './harness/',
+  './harness/harness.css',
+  './harness/harness.js',
+  './harness/suite.js',
+  './harness/checks.js',
+  './harness/bench.json',
   './download/',
   './download/download.css',
   './download/download.js',
@@ -44,6 +53,9 @@ const ASSETS = [
   './terms.html',
   './shared/glow-locale.js',
   './shared/glow-apps.js',
+  './shared/glow-offline-library.js',
+  './shared/glow-harness.js',
+  './shared/glow-harness-kit.js',
   './shared/glow-resume.js',
   './shared/qrcode.js',
   './shared/i18n/ui.id.js',

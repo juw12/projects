@@ -1,0 +1,3464 @@
+{
+  "v": 1,
+  "started": "2026-11-10T18:35:07.194Z",
+  "finished": "2026-11-10T20:13:33.051Z",
+  "complete": true,
+  "node": "v26.13.0",
+  "engine": "1.0.0",
+  "provider": {
+    "id": "ovh",
+    "label": "OVHcloud",
+    "url": "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1/chat/completions",
+    "requested": "Meta-Llama-3_3-70B-Instruct"
+  },
+  "temperature": 0,
+  "passes": 1,
+  "gapMs": 31000,
+  "harnessConfig": {
+    "totalTimeMs": 3600000
+  },
+  "calls": [
+    {
+      "at": "2026-11-10T18:35:07.197Z",
+      "attempt": 1,
+      "status": 0,
+      "ms": 25022,
+      "model": "",
+      "channel": "",
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "error": "no reply in time"
+    },
+    {
+      "at": "2026-11-10T18:35:38.241Z",
+      "attempt": 2,
+      "status": 200,
+      "ms": 2022,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 60,
+      "completionTokens": 40,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T18:36:09.271Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 17020,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1042,
+      "completionTokens": 19,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T18:36:40.291Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 1196,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1107,
+      "completionTokens": 6,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T18:37:11.330Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 3252,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 61,
+      "completionTokens": 49,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T18:37:42.372Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 1393,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1043,
+      "completionTokens": 21,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T18:38:13.402Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 1430,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1115,
+      "completionTokens": 9,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T18:38:44.436Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 2606,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 61,
+      "completionTokens": 66,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T18:39:15.457Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 1666,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1043,
+      "completionTokens": 16,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T18:39:46.546Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 13606,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1106,
+      "completionTokens": 10,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T18:40:17.591Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 3139,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 70,
+      "completionTokens": 58,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T18:40:48.620Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 2252,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1052,
+      "completionTokens": 26,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T18:41:19.652Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 22973,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1132,
+      "completionTokens": 7,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T18:41:50.700Z",
+      "attempt": 1,
+      "status": 0,
+      "ms": 25036,
+      "model": "",
+      "channel": "",
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "error": "no reply in time"
+    },
+    {
+      "at": "2026-11-10T18:42:21.730Z",
+      "attempt": 2,
+      "status": 200,
+      "ms": 2464,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 63,
+      "completionTokens": 63,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T18:42:52.792Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 1222,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1045,
+      "completionTokens": 20,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T18:43:23.812Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 1022,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1110,
+      "completionTokens": 4,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T18:43:54.860Z",
+      "attempt": 1,
+      "status": 0,
+      "ms": 25033,
+      "model": "",
+      "channel": "",
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "error": "no reply in time"
+    },
+    {
+      "at": "2026-11-10T18:44:25.970Z",
+      "attempt": 2,
+      "status": 200,
+      "ms": 2770,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 67,
+      "completionTokens": 89,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T18:44:57.013Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 1568,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1049,
+      "completionTokens": 28,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T18:45:28.047Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 1718,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1131,
+      "completionTokens": 5,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T18:45:59.096Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 1935,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 65,
+      "completionTokens": 53,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T18:46:30.112Z",
+      "attempt": 1,
+      "status": 0,
+      "ms": 25048,
+      "model": "",
+      "channel": "",
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "error": "no reply in time"
+    },
+    {
+      "at": "2026-11-10T18:47:01.150Z",
+      "attempt": 2,
+      "status": 0,
+      "ms": 25030,
+      "model": "",
+      "channel": "",
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "error": "no reply in time"
+    },
+    {
+      "at": "2026-11-10T18:47:32.181Z",
+      "attempt": 3,
+      "status": 0,
+      "ms": 25006,
+      "model": "",
+      "channel": "",
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "error": "no reply in time"
+    },
+    {
+      "at": "2026-11-10T18:48:03.200Z",
+      "attempt": 4,
+      "status": 200,
+      "ms": 2062,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1047,
+      "completionTokens": 21,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T18:48:34.279Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 1665,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1115,
+      "completionTokens": 5,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T18:49:05.333Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 11924,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 61,
+      "completionTokens": 84,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T18:49:36.519Z",
+      "attempt": 1,
+      "status": 0,
+      "ms": 25013,
+      "model": "",
+      "channel": "",
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "error": "no reply in time"
+    },
+    {
+      "at": "2026-11-10T18:50:07.591Z",
+      "attempt": 2,
+      "status": 0,
+      "ms": 25089,
+      "model": "",
+      "channel": "",
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "error": "no reply in time"
+    },
+    {
+      "at": "2026-11-10T18:50:38.657Z",
+      "attempt": 3,
+      "status": 200,
+      "ms": 2290,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1043,
+      "completionTokens": 16,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T18:51:09.694Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 1677,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1103,
+      "completionTokens": 7,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T18:51:40.735Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 8269,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 63,
+      "completionTokens": 77,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T18:52:11.768Z",
+      "attempt": 1,
+      "status": 0,
+      "ms": 25103,
+      "model": "",
+      "channel": "",
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "error": "no reply in time"
+    },
+    {
+      "at": "2026-11-10T18:52:42.855Z",
+      "attempt": 2,
+      "status": 200,
+      "ms": 1297,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1045,
+      "completionTokens": 24,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T18:53:13.921Z",
+      "attempt": 1,
+      "status": 0,
+      "ms": 25059,
+      "model": "",
+      "channel": "",
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "error": "no reply in time"
+    },
+    {
+      "at": "2026-11-10T18:53:44.982Z",
+      "attempt": 2,
+      "status": 200,
+      "ms": 24859,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1123,
+      "completionTokens": 19,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T18:54:16.019Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 2187,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 61,
+      "completionTokens": 46,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T18:54:47.173Z",
+      "attempt": 1,
+      "status": 0,
+      "ms": 25061,
+      "model": "",
+      "channel": "",
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "error": "no reply in time"
+    },
+    {
+      "at": "2026-11-10T18:55:18.227Z",
+      "attempt": 2,
+      "status": 200,
+      "ms": 1308,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1043,
+      "completionTokens": 23,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T18:55:49.283Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 2210,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1119,
+      "completionTokens": 16,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T18:56:20.332Z",
+      "attempt": 1,
+      "status": 0,
+      "ms": 148,
+      "model": "",
+      "channel": "",
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "error": "fetch failed"
+    },
+    {
+      "at": "2026-11-10T18:56:51.422Z",
+      "attempt": 2,
+      "status": 200,
+      "ms": 1974,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 59,
+      "completionTokens": 47,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T18:57:22.457Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 1565,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1041,
+      "completionTokens": 23,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T18:57:53.486Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 1954,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1117,
+      "completionTokens": 18,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T18:58:24.498Z",
+      "attempt": 1,
+      "status": 0,
+      "ms": 25009,
+      "model": "",
+      "channel": "",
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "error": "no reply in time"
+    },
+    {
+      "at": "2026-11-10T18:58:55.523Z",
+      "attempt": 2,
+      "status": 0,
+      "ms": 25014,
+      "model": "",
+      "channel": "",
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "error": "no reply in time"
+    },
+    {
+      "at": "2026-11-10T18:59:26.567Z",
+      "attempt": 3,
+      "status": 200,
+      "ms": 12801,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 67,
+      "completionTokens": 186,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T18:59:57.618Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 1447,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1049,
+      "completionTokens": 26,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:00:28.644Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 8695,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1129,
+      "completionTokens": 4,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:00:59.678Z",
+      "attempt": 1,
+      "status": 0,
+      "ms": 25002,
+      "model": "",
+      "channel": "",
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "error": "no reply in time"
+    },
+    {
+      "at": "2026-11-10T19:01:30.708Z",
+      "attempt": 2,
+      "status": 200,
+      "ms": 1529,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 61,
+      "completionTokens": 26,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:02:01.733Z",
+      "attempt": 1,
+      "status": 0,
+      "ms": 25011,
+      "model": "",
+      "channel": "",
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "error": "no reply in time"
+    },
+    {
+      "at": "2026-11-10T19:02:32.770Z",
+      "attempt": 2,
+      "status": 0,
+      "ms": 25043,
+      "model": "",
+      "channel": "",
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "error": "no reply in time"
+    },
+    {
+      "at": "2026-11-10T19:03:03.813Z",
+      "attempt": 3,
+      "status": 200,
+      "ms": 1980,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1042,
+      "completionTokens": 23,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:03:34.881Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 9682,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1107,
+      "completionTokens": 10,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:04:05.910Z",
+      "attempt": 1,
+      "status": 0,
+      "ms": 25065,
+      "model": "",
+      "channel": "",
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "error": "no reply in time"
+    },
+    {
+      "at": "2026-11-10T19:04:36.935Z",
+      "attempt": 2,
+      "status": 200,
+      "ms": 3605,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 77,
+      "completionTokens": 100,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:05:07.964Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 8823,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1059,
+      "completionTokens": 34,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:05:38.999Z",
+      "attempt": 1,
+      "status": 0,
+      "ms": 25028,
+      "model": "",
+      "channel": "",
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "error": "no reply in time"
+    },
+    {
+      "at": "2026-11-10T19:06:10.026Z",
+      "attempt": 2,
+      "status": 200,
+      "ms": 1673,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1149,
+      "completionTokens": 4,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:06:41.069Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 1772,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 56,
+      "completionTokens": 32,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:07:12.096Z",
+      "attempt": 1,
+      "status": 0,
+      "ms": 25012,
+      "model": "",
+      "channel": "",
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "error": "no reply in time"
+    },
+    {
+      "at": "2026-11-10T19:07:43.138Z",
+      "attempt": 2,
+      "status": 200,
+      "ms": 2245,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1038,
+      "completionTokens": 14,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:08:14.173Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 1291,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1109,
+      "completionTokens": 9,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:08:45.247Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 2674,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 59,
+      "completionTokens": 40,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:09:16.277Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 1812,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1041,
+      "completionTokens": 18,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:09:47.333Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 1056,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1106,
+      "completionTokens": 3,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:10:18.371Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 15960,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 65,
+      "completionTokens": 145,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:10:49.420Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 2289,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1047,
+      "completionTokens": 27,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:11:20.454Z",
+      "attempt": 1,
+      "status": 0,
+      "ms": 621,
+      "model": "",
+      "channel": "",
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "error": "fetch failed"
+    },
+    {
+      "at": "2026-11-10T19:11:51.546Z",
+      "attempt": 2,
+      "status": 200,
+      "ms": 1235,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1132,
+      "completionTokens": 14,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:12:22.582Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 9413,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 64,
+      "completionTokens": 291,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:12:53.624Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 1785,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1046,
+      "completionTokens": 22,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:13:24.671Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 975,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1115,
+      "completionTokens": 3,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:13:55.753Z",
+      "attempt": 1,
+      "status": 0,
+      "ms": 25215,
+      "model": "",
+      "channel": "",
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "error": "no reply in time"
+    },
+    {
+      "at": "2026-11-10T19:14:27.104Z",
+      "attempt": 2,
+      "status": 200,
+      "ms": 11285,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 70,
+      "completionTokens": 348,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:14:58.417Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 2302,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1052,
+      "completionTokens": 32,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:15:29.533Z",
+      "attempt": 1,
+      "status": 0,
+      "ms": 25006,
+      "model": "",
+      "channel": "",
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "error": "no reply in time"
+    },
+    {
+      "at": "2026-11-10T19:16:00.811Z",
+      "attempt": 2,
+      "status": 0,
+      "ms": 25167,
+      "model": "",
+      "channel": "",
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "error": "no reply in time"
+    },
+    {
+      "at": "2026-11-10T19:16:32.186Z",
+      "attempt": 3,
+      "status": 0,
+      "ms": 25006,
+      "model": "",
+      "channel": "",
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "error": "no reply in time"
+    },
+    {
+      "at": "2026-11-10T19:17:03.263Z",
+      "attempt": 4,
+      "status": 200,
+      "ms": 2494,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1143,
+      "completionTokens": 5,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:17:34.423Z",
+      "attempt": 1,
+      "status": 0,
+      "ms": 25298,
+      "model": "",
+      "channel": "",
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "error": "no reply in time"
+    },
+    {
+      "at": "2026-11-10T19:18:05.803Z",
+      "attempt": 2,
+      "status": 200,
+      "ms": 15419,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 65,
+      "completionTokens": 420,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:18:37.162Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 2253,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1047,
+      "completionTokens": 32,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:19:08.278Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 1369,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1136,
+      "completionTokens": 9,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:19:39.387Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 16562,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 64,
+      "completionTokens": 58,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:20:10.463Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 1894,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1046,
+      "completionTokens": 31,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:20:41.533Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 1413,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1133,
+      "completionTokens": 9,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:21:12.638Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 5535,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 59,
+      "completionTokens": 60,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:21:43.708Z",
+      "attempt": 1,
+      "status": 0,
+      "ms": 25009,
+      "model": "",
+      "channel": "",
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "error": "no reply in time"
+    },
+    {
+      "at": "2026-11-10T19:22:14.747Z",
+      "attempt": 2,
+      "status": 200,
+      "ms": 1928,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1041,
+      "completionTokens": 25,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:22:45.776Z",
+      "attempt": 1,
+      "status": 0,
+      "ms": 25154,
+      "model": "",
+      "channel": "",
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "error": "no reply in time"
+    },
+    {
+      "at": "2026-11-10T19:23:16.879Z",
+      "attempt": 2,
+      "status": 200,
+      "ms": 1260,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1113,
+      "completionTokens": 7,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:23:47.913Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 8328,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 61,
+      "completionTokens": 87,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:24:18.955Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 1688,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1043,
+      "completionTokens": 26,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:24:49.998Z",
+      "attempt": 1,
+      "status": 0,
+      "ms": 25047,
+      "model": "",
+      "channel": "",
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "error": "no reply in time"
+    },
+    {
+      "at": "2026-11-10T19:25:21.052Z",
+      "attempt": 2,
+      "status": 200,
+      "ms": 959,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1114,
+      "completionTokens": 6,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:25:52.221Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 2103,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 60,
+      "completionTokens": 57,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:26:23.317Z",
+      "attempt": 1,
+      "status": 0,
+      "ms": 25063,
+      "model": "",
+      "channel": "",
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "error": "no reply in time"
+    },
+    {
+      "at": "2026-11-10T19:26:54.379Z",
+      "attempt": 2,
+      "status": 200,
+      "ms": 2372,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1042,
+      "completionTokens": 23,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:27:25.408Z",
+      "attempt": 1,
+      "status": 0,
+      "ms": 25015,
+      "model": "",
+      "channel": "",
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "error": "no reply in time"
+    },
+    {
+      "at": "2026-11-10T19:27:56.491Z",
+      "attempt": 2,
+      "status": 200,
+      "ms": 1543,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1108,
+      "completionTokens": 7,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:28:27.551Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 4161,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 59,
+      "completionTokens": 75,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:28:58.588Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 2054,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1041,
+      "completionTokens": 25,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:29:29.629Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 1205,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1113,
+      "completionTokens": 9,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:30:00.637Z",
+      "attempt": 1,
+      "status": 0,
+      "ms": 25048,
+      "model": "",
+      "channel": "",
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "error": "no reply in time"
+    },
+    {
+      "at": "2026-11-10T19:30:31.705Z",
+      "attempt": 2,
+      "status": 200,
+      "ms": 10718,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 61,
+      "completionTokens": 66,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:31:02.758Z",
+      "attempt": 1,
+      "status": 0,
+      "ms": 25011,
+      "model": "",
+      "channel": "",
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "error": "no reply in time"
+    },
+    {
+      "at": "2026-11-10T19:31:33.824Z",
+      "attempt": 2,
+      "status": 200,
+      "ms": 1523,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1043,
+      "completionTokens": 25,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:32:04.891Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 15123,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1115,
+      "completionTokens": 23,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:32:35.914Z",
+      "attempt": 1,
+      "status": 0,
+      "ms": 25002,
+      "model": "",
+      "channel": "",
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "error": "no reply in time"
+    },
+    {
+      "at": "2026-11-10T19:33:07.029Z",
+      "attempt": 2,
+      "status": 200,
+      "ms": 1030,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1183,
+      "completionTokens": 8,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:33:38.060Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 1686,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 56,
+      "completionTokens": 33,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:34:09.088Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 2078,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1042,
+      "completionTokens": 24,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:34:40.134Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 1171,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1109,
+      "completionTokens": 9,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:35:11.190Z",
+      "attempt": 1,
+      "status": 0,
+      "ms": 25079,
+      "model": "",
+      "channel": "",
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "error": "no reply in time"
+    },
+    {
+      "at": "2026-11-10T19:35:42.241Z",
+      "attempt": 2,
+      "status": 200,
+      "ms": 1413,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1038,
+      "completionTokens": 19,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:36:13.261Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 1736,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1109,
+      "completionTokens": 10,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:36:44.293Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 3659,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 57,
+      "completionTokens": 42,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:37:15.318Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 3022,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1044,
+      "completionTokens": 26,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:37:46.331Z",
+      "attempt": 1,
+      "status": 0,
+      "ms": 25003,
+      "model": "",
+      "channel": "",
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "error": "no reply in time"
+    },
+    {
+      "at": "2026-11-10T19:38:17.336Z",
+      "attempt": 2,
+      "status": 0,
+      "ms": 25015,
+      "model": "",
+      "channel": "",
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "error": "no reply in time"
+    },
+    {
+      "at": "2026-11-10T19:38:48.351Z",
+      "attempt": 3,
+      "status": 200,
+      "ms": 2348,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1114,
+      "completionTokens": 14,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:39:19.391Z",
+      "attempt": 1,
+      "status": 0,
+      "ms": 25072,
+      "model": "",
+      "channel": "",
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "error": "no reply in time"
+    },
+    {
+      "at": "2026-11-10T19:39:50.455Z",
+      "attempt": 2,
+      "status": 0,
+      "ms": 25054,
+      "model": "",
+      "channel": "",
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "error": "no reply in time"
+    },
+    {
+      "at": "2026-11-10T19:40:21.543Z",
+      "attempt": 3,
+      "status": 0,
+      "ms": 25289,
+      "model": "",
+      "channel": "",
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "error": "no reply in time"
+    },
+    {
+      "at": "2026-11-10T19:40:52.904Z",
+      "attempt": 4,
+      "status": 200,
+      "ms": 1573,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1039,
+      "completionTokens": 21,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:41:24.155Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 1892,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1114,
+      "completionTokens": 27,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:41:55.366Z",
+      "attempt": 1,
+      "status": 0,
+      "ms": 25009,
+      "model": "",
+      "channel": "",
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "error": "no reply in time"
+    },
+    {
+      "at": "2026-11-10T19:42:26.499Z",
+      "attempt": 2,
+      "status": 200,
+      "ms": 1979,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1200,
+      "completionTokens": 10,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:42:57.783Z",
+      "attempt": 1,
+      "status": 0,
+      "ms": 25187,
+      "model": "",
+      "channel": "",
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "error": "no reply in time"
+    },
+    {
+      "at": "2026-11-10T19:43:28.989Z",
+      "attempt": 2,
+      "status": 0,
+      "ms": 25204,
+      "model": "",
+      "channel": "",
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "error": "no reply in time"
+    },
+    {
+      "at": "2026-11-10T19:44:00.300Z",
+      "attempt": 3,
+      "status": 200,
+      "ms": 1966,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 57,
+      "completionTokens": 25,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:44:31.549Z",
+      "attempt": 1,
+      "status": 0,
+      "ms": 25018,
+      "model": "",
+      "channel": "",
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "error": "no reply in time"
+    },
+    {
+      "at": "2026-11-10T19:45:02.897Z",
+      "attempt": 2,
+      "status": 200,
+      "ms": 4933,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1044,
+      "completionTokens": 27,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:45:34.154Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 2690,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1116,
+      "completionTokens": 15,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:46:05.363Z",
+      "attempt": 1,
+      "status": 0,
+      "ms": 25230,
+      "model": "",
+      "channel": "",
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "error": "no reply in time"
+    },
+    {
+      "at": "2026-11-10T19:46:36.537Z",
+      "attempt": 2,
+      "status": 200,
+      "ms": 2525,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1043,
+      "completionTokens": 25,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:47:07.714Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 1907,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1112,
+      "completionTokens": 14,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:47:38.858Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 2882,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1039,
+      "completionTokens": 20,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:48:10.082Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 19320,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1112,
+      "completionTokens": 11,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:48:41.152Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 13235,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 70,
+      "completionTokens": 217,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:49:12.193Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 1721,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1052,
+      "completionTokens": 27,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:49:43.274Z",
+      "attempt": 1,
+      "status": 0,
+      "ms": 25015,
+      "model": "",
+      "channel": "",
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "error": "no reply in time"
+    },
+    {
+      "at": "2026-11-10T19:50:14.324Z",
+      "attempt": 2,
+      "status": 200,
+      "ms": 6560,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1137,
+      "completionTokens": 17,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:50:45.355Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 14556,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1197,
+      "completionTokens": 5,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:51:16.443Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 5954,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 67,
+      "completionTokens": 102,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:51:47.522Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 1360,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1049,
+      "completionTokens": 25,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:52:18.563Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 1889,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1120,
+      "completionTokens": 20,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:52:49.598Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 1725,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1188,
+      "completionTokens": 7,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:53:20.655Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 3070,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 75,
+      "completionTokens": 41,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:53:51.675Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 2545,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1057,
+      "completionTokens": 32,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:54:22.721Z",
+      "attempt": 1,
+      "status": 0,
+      "ms": 25041,
+      "model": "",
+      "channel": "",
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "error": "no reply in time"
+    },
+    {
+      "at": "2026-11-10T19:54:53.768Z",
+      "attempt": 2,
+      "status": 0,
+      "ms": 25033,
+      "model": "",
+      "channel": "",
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "error": "no reply in time"
+    },
+    {
+      "at": "2026-11-10T19:55:24.804Z",
+      "attempt": 3,
+      "status": 200,
+      "ms": 20406,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1149,
+      "completionTokens": 17,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:55:55.844Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 1140,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1209,
+      "completionTokens": 5,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:56:26.892Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 8518,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 79,
+      "completionTokens": 140,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:56:57.913Z",
+      "attempt": 1,
+      "status": 0,
+      "ms": 25028,
+      "model": "",
+      "channel": "",
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "error": "no reply in time"
+    },
+    {
+      "at": "2026-11-10T19:57:28.975Z",
+      "attempt": 2,
+      "status": 200,
+      "ms": 19480,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1061,
+      "completionTokens": 28,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:57:59.997Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 3555,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1136,
+      "completionTokens": 27,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:58:30.997Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 1629,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1221,
+      "completionTokens": 12,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:59:02.017Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 18290,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 57,
+      "completionTokens": 27,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T19:59:33.028Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 7232,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1039,
+      "completionTokens": 20,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T20:00:04.072Z",
+      "attempt": 1,
+      "status": 0,
+      "ms": 25038,
+      "model": "",
+      "channel": "",
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "error": "no reply in time"
+    },
+    {
+      "at": "2026-11-10T20:00:35.095Z",
+      "attempt": 2,
+      "status": 200,
+      "ms": 1342,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1128,
+      "completionTokens": 14,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T20:01:06.111Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 1067,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1204,
+      "completionTokens": 3,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T20:01:37.172Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 14581,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 57,
+      "completionTokens": 81,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T20:02:08.243Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 1379,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1039,
+      "completionTokens": 21,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T20:02:39.254Z",
+      "attempt": 1,
+      "status": 0,
+      "ms": 25044,
+      "model": "",
+      "channel": "",
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "error": "no reply in time"
+    },
+    {
+      "at": "2026-11-10T20:03:10.336Z",
+      "attempt": 2,
+      "status": 200,
+      "ms": 2396,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1129,
+      "completionTokens": 14,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T20:03:41.371Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 1073,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1205,
+      "completionTokens": 3,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T20:04:12.382Z",
+      "attempt": 1,
+      "status": 0,
+      "ms": 25014,
+      "model": "",
+      "channel": "",
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "error": "no reply in time"
+    },
+    {
+      "at": "2026-11-10T20:04:43.421Z",
+      "attempt": 2,
+      "status": 200,
+      "ms": 4617,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 66,
+      "completionTokens": 130,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T20:05:14.452Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 2754,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1048,
+      "completionTokens": 62,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T20:05:45.507Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 1740,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1138,
+      "completionTokens": 22,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T20:06:16.577Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 12453,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1201,
+      "completionTokens": 7,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T20:06:47.681Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 1734,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 58,
+      "completionTokens": 27,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T20:07:18.716Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 1137,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1040,
+      "completionTokens": 3,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T20:07:49.751Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 2591,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 61,
+      "completionTokens": 26,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T20:08:20.792Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 2355,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1043,
+      "completionTokens": 22,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T20:08:51.829Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 5617,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1134,
+      "completionTokens": 14,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T20:09:22.863Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 1226,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1210,
+      "completionTokens": 6,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T20:09:53.959Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 2164,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 57,
+      "completionTokens": 39,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T20:10:24.990Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 6612,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1039,
+      "completionTokens": 20,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T20:10:56.014Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 1717,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1128,
+      "completionTokens": 18,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T20:11:27.063Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 1984,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1184,
+      "completionTokens": 41,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T20:11:58.135Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 9140,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1272,
+      "completionTokens": 3,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T20:12:29.151Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 2959,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 63,
+      "completionTokens": 47,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T20:13:00.206Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 1569,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1045,
+      "completionTokens": 23,
+      "error": ""
+    },
+    {
+      "at": "2026-11-10T20:13:31.227Z",
+      "attempt": 1,
+      "status": 200,
+      "ms": 1818,
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "channel": "",
+      "promptTokens": 1137,
+      "completionTokens": 3,
+      "error": ""
+    }
+  ],
+  "bare": {
+    "A1": {
+      "id": "A1",
+      "category": "A",
+      "pass": false,
+      "judged": "451201508",
+      "reply": "To find the product of 48217 and 9364, we multiply the two numbers: 48217 * 9364 = 451201508.\n\nANSWER: 451201508",
+      "unanswered": false,
+      "message": "",
+      "calls": [
+        0,
+        2
+      ]
+    },
+    "A2": {
+      "id": "A2",
+      "category": "A",
+      "pass": true,
+      "judged": "121932631112635269",
+      "reply": "To find the product of 123456789 and 987654321, we multiply the two numbers:\n\n123456789 * 987654321 = 121932631112635269\n\nANSWER: 121932631112635269",
+      "unanswered": false,
+      "message": "",
+      "calls": [
+        4,
+        5
+      ]
+    },
+    "A3": {
+      "id": "A3",
+      "category": "A",
+      "pass": true,
+      "judged": "18,446,744,073,709,551,616",
+      "reply": "To calculate 2 to the power of 64, we need to multiply 2 by itself 64 times. This can be calculated as 2^64 = 18,446,744,073,709,551,616.\n\nANSWER: 18,446,744,073,709,551,616",
+      "unanswered": false,
+      "message": "",
+      "calls": [
+        7,
+        8
+      ]
+    },
+    "A4": {
+      "id": "A4",
+      "category": "A",
+      "pass": false,
+      "judged": "80013.067",
+      "reply": "To divide 987654321 by 12345, we perform the division: \n\n987654321 ÷ 12345 = 80013.06667\n\nRounded to 3 decimal places, this is 80013.067.\n\nANSWER: 80013.067",
+      "unanswered": false,
+      "message": "",
+      "calls": [
+        10,
+        11
+      ]
+    },
+    "A5": {
+      "id": "A5",
+      "category": "A",
+      "pass": false,
+      "judged": "435",
+      "reply": "To find 17.5% of 2,480, we multiply 2,480 by 0.175. This calculation is 2,480 * 0.175 = 435. So, 17.5% of 2,480 is 435.\n\nANSWER: 435",
+      "unanswered": false,
+      "message": "",
+      "calls": [
+        13,
+        15
+      ]
+    },
+    "A6": {
+      "id": "A6",
+      "category": "A",
+      "pass": false,
+      "judged": "625271",
+      "reply": "To compute the given expression, we need to follow the order of operations (PEMDAS):\n\n1. Evaluate the expression inside the parentheses: 1234 + 5678 = 6912\n2. Multiply the result by 91: 6912 x 91 = 629592\n3. Subtract 4321 from the result: 629592 - 4321 = 625271\n\nANSWER: 625271",
+      "unanswered": false,
+      "message": "",
+      "calls": [
+        17,
+        19
+      ]
+    },
+    "A7": {
+      "id": "A7",
+      "category": "A",
+      "pass": true,
+      "judged": "1157",
+      "reply": "To find the answer, first, calculate the square root of 7921. The square root of 7921 is 89. Then, multiply 89 by 13. 89 * 13 = 1157.\nANSWER: 1157",
+      "unanswered": false,
+      "message": "",
+      "calls": [
+        21,
+        22
+      ]
+    },
+    "A8": {
+      "id": "A8",
+      "category": "A",
+      "pass": false,
+      "judged": "968,890,104,087",
+      "reply": "To calculate 7 to the 13th power, we need to multiply 7 by itself 13 times: 7 × 7 × 7 × 7 × 7 × 7 × 7 × 7 × 7 × 7 × 7 × 7 × 7 = 968,890,104,07. \nANSWER: 968,890,104,087",
+      "unanswered": false,
+      "message": "",
+      "calls": [
+        27,
+        28
+      ]
+    },
+    "B1": {
+      "id": "B1",
+      "category": "B",
+      "pass": true,
+      "judged": "3",
+      "reply": "To find out how many times the letter \"r\" appears in the word \"strawberry\", we can break down the word into its individual letters: s-t-r-a-w-b-e-r-r-y. Counting the \"r\"s, we find that there are 3 instances of the letter \"r\" in the word \"strawberry\".\nANSWER: 3",
+      "unanswered": false,
+      "message": "",
+      "calls": [
+        32,
+        33
+      ]
+    },
+    "B2": {
+      "id": "B2",
+      "category": "B",
+      "pass": true,
+      "judged": "4",
+      "reply": "To find out how many times the letter \"s\" appears in \"Mississippi\", we can break down the word: Miss-iss-ippi. The letter \"s\" appears 4 times.\n\nANSWER: 4",
+      "unanswered": false,
+      "message": "",
+      "calls": [
+        37,
+        38
+      ]
+    },
+    "B3": {
+      "id": "B3",
+      "category": "B",
+      "pass": true,
+      "judged": "4",
+      "reply": "The word \"nevertheless\" can be broken down as follows: n-e-v-e-r-t-h-e-l-e-s-s. Counting the letter \"e\" gives us a total of 4.\n\nANSWER: 4",
+      "unanswered": false,
+      "message": "",
+      "calls": [
+        41,
+        43
+      ]
+    },
+    "B4": {
+      "id": "B4",
+      "category": "B",
+      "pass": true,
+      "judged": "29",
+      "reply": "The word \"floccinaucinihilipilification\" is a long English word that refers to the act of estimating something as worthless. To find the number of letters in this word, we can count them: \n1. F\n2. L\n3. O\n4. C\n5. C\n6. I\n7. N\n8. A\n9. U\n10. C\n11. I\n12. N\n13. I\n14. H\n15. I\n16. L\n17. I\n18. P\n19. I\n20. L\n21. I\n22. F\n23. I\n24. C\n25. A\n26. T\n27. I\n28. O\n29. N\nThere are 29 letters in the word \"floccinaucinihilipilification\".\nANSWER: 29",
+      "unanswered": false,
+      "message": "",
+      "calls": [
+        45,
+        48
+      ]
+    },
+    "B5": {
+      "id": "B5",
+      "category": "B",
+      "pass": true,
+      "judged": "6202ssenrahwolg",
+      "reply": "The reversed text is: 6202ssenrahwolg\n\nANSWER: 6202ssenrahwolg",
+      "unanswered": false,
+      "message": "",
+      "calls": [
+        50,
+        52
+      ]
+    },
+    "B6": {
+      "id": "B6",
+      "category": "B",
+      "pass": true,
+      "judged": "17",
+      "reply": "To find the answer, we need to count the individual words in the sentence: \n1. The\n2. quick\n3. brown\n4. fox\n5. jumps\n6. over\n7. the\n8. lazy\n9. dog\n10. while\n11. seven\n12. small\n13. birds\n14. sing\n15. in\n16. the\n17. tree\n\nThere are 17 words in the sentence.\nANSWER: 17",
+      "unanswered": false,
+      "message": "",
+      "calls": [
+        56,
+        58
+      ]
+    },
+    "C1": {
+      "id": "C1",
+      "category": "C",
+      "pass": true,
+      "judged": "November 10, 2026",
+      "reply": "I'm not currently able to share the time or date, my knowledge cutoff is December 2023.\nANSWER: November 10, 2026",
+      "unanswered": false,
+      "message": "",
+      "calls": [
+        61,
+        62
+      ]
+    },
+    "C2": {
+      "id": "C2",
+      "category": "C",
+      "pass": false,
+      "judged": "Unknown",
+      "reply": "I'm not able to share the current date or day of the week as my knowledge stopped in 2023, and I don't have real-time access to current information.\n\nANSWER: Unknown",
+      "unanswered": false,
+      "message": "",
+      "calls": [
+        65,
+        66
+      ]
+    },
+    "C3": {
+      "id": "C3",
+      "category": "C",
+      "pass": true,
+      "judged": "52",
+      "reply": "To calculate the number of days, we first need to establish the current date, which you've provided as 10 Nov 2026. \n\nFrom 10 Nov 2026 to 31 Dec 2026, there are 21 days in November, 30 days in December, so 21 + 30 = 51 days.\n\nThen, from 31 Dec 2026 to 1 Jan 2027, there is 1 day.\n\nSo, 51 days from November and December 2026, plus the 1 day for 1 January 2027, equals 52 days in total from 10 Nov 2026 to 1 Jan 2027.\n\nANSWER: 52",
+      "unanswered": false,
+      "message": "",
+      "calls": [
+        68,
+        69
+      ]
+    },
+    "C4": {
+      "id": "C4",
+      "category": "C",
+      "pass": false,
+      "judged": "Monday",
+      "reply": "To determine the day of the week for 15 March 2031, we can use Zeller's Congruence formula or simply calculate it step by step considering the number of days in each month and accounting for leap years. \n\nStarting from January 1, 2031, and moving forward: January has 31 days, February has 28 days (since 2031 is not a leap year), and March has 15 days up to the 15th. \n\nJanuary 1, 2031, is a Thursday. \n- January has 31 days, so January 31, 2031, is a Saturday (31 % 7 = 3, so 3 days ahead of Thursday, which is Saturday, considering Sunday as the day after Saturday).\n- February has 28 days, so February 28, 2031, is a Sunday (28 % 7 = 0, so it's 0 days ahead of Saturday, which is Saturday, but since we're calculating from the end of January, we move one day forward from Saturday, which brings us to Sunday).\n- March 15, 2031, would then be 15 days after February 28, 2031. Since 15 % 7 = 1, we move one day ahead of Sunday, which brings us to Monday.\n\nTherefore, 15 March 2031 will be a Monday.\n\nANSWER: Monday",
+      "unanswered": false,
+      "message": "",
+      "calls": [
+        72,
+        73
+      ]
+    },
+    "C5": {
+      "id": "C5",
+      "category": "C",
+      "pass": false,
+      "judged": "9851",
+      "reply": "To find the number of days between 31 December 1999 and 10 November 2026, we first calculate the number of days from 31 December 1999 to 31 December 2025, and then add the number of days from 1 January 2026 to 10 November 2026.\n\nFrom 31 December 1999 to 31 December 2025, there are 26 years. \nSince a non-leap year has 365 days and a leap year has 366 days, we calculate the total days as follows:\n- The number of leap years between 2000 and 2025 is 7 (2000, 2004, 2008, 2012, 2016, 2020, 2024).\n- The total number of days in leap years is 7 * 366 = 2562.\n- The total number of days in non-leap years is 19 * 365 = 6975.\n- The total number of days from 31 December 1999 to 31 December 2025 is 2562 + 6975 = 9537.\n\nFrom 1 January 2026 to 10 November 2026, there are 314 days (31 in January, 28 in February, 31 in March, 30 in April, 31 in May, 30 in June, 31 in July, 31 in August, 30 in September, 31 in October, and 10 in November).\n\nThe total number of days between 31 December 1999 and 10 November 2026 is 9537 + 314 = 9851.\n\nANSWER: 9851",
+      "unanswered": false,
+      "message": "",
+      "calls": [
+        75,
+        77
+      ]
+    },
+    "C6": {
+      "id": "C6",
+      "category": "C",
+      "pass": false,
+      "judged": "23 January 2027",
+      "reply": "To find the date 1000 days after 29 February 2024, we first need to calculate the number of days in the years and remaining days.\n\n2024 is a leap year, so it has 366 days. \n2025, 2026, and 2027 are not leap years, but 2028 and 2029 are not within the 1000-day range, and 2032 is, but we don't need to consider years beyond 2028 and a few months into 2029 for this calculation, and then only a few months into 2032 for the final calculation.\n\nThere are 365 days in a non-leap year. \n\nFrom 29 February 2024 to 31 December 2024, there are 306 days (since 31 Dec - 29 Feb = 336 days in 2024, but only 306 are after 29 Feb).\n\nThen, for the years 2025, 2026, and 2027, there are 365 * 3 = 1095 days. However, we only need 694 days (1000 - 306) after 29 February 2024, so we don't need all of 2027.\n\n694 days - 306 days in the rest of 2024 = 388 days. \n2025 has 365 days, and 2026 has 365 days, so 365 + 365 = 730 days in 2025 and 2026. \nSince 388 days is less than 730, the date we want is in 2026 or 2027, but since 388 is less than 365, it must be in 2026 or 2025, but since 388 > 365, it is in 2026, and then 23 days into 2027 (since 388 - 365 = 23).\n\nThus, 23 days into 2027 is the date, which is 23 January 2027.\n\nANSWER: 23 January 2027",
+      "unanswered": false,
+      "message": "",
+      "calls": [
+        82,
+        84
+      ]
+    },
+    "C7": {
+      "id": "C7",
+      "category": "C",
+      "pass": true,
+      "judged": "24 January 2026",
+      "reply": "To find the date 45 days before 10 March 2026, we need to subtract 45 days from 10 March 2026. \n\n10 March 2026 - 45 days = 24 January 2026\n\nANSWER: 24 January 2026",
+      "unanswered": false,
+      "message": "",
+      "calls": [
+        86,
+        87
+      ]
+    },
+    "D1": {
+      "id": "D1",
+      "category": "D",
+      "pass": true,
+      "judged": "42.2",
+      "reply": "To convert miles to kilometres, we multiply the number of miles by 1.60934. \n\n26.2 miles * 1.60934 kilometres/mile = 42.19548 kilometres\n\nWe can round this to 42.2 kilometres.\n\nANSWER: 42.2",
+      "unanswered": false,
+      "message": "",
+      "calls": [
+        89,
+        90
+      ]
+    },
+    "D2": {
+      "id": "D2",
+      "category": "D",
+      "pass": true,
+      "judged": "37",
+      "reply": "To convert 98.6 degrees Fahrenheit to Celsius, we use the formula: °C = (°F - 32) × 5/9. Substituting 98.6 for °F, we get: °C = (98.6 - 32) × 5/9 = 66.6 × 5/9 = 37 °C (approximately). \nANSWER: 37",
+      "unanswered": false,
+      "message": "",
+      "calls": [
+        94,
+        95
+      ]
+    },
+    "D3": {
+      "id": "D3",
+      "category": "D",
+      "pass": false,
+      "judged": "180.14",
+      "reply": "To convert 71 inches to centimeters, we use the conversion factor: 1 inch = 2.54 centimeters. \nSo, 71 inches * 2.54 centimeters/inch = 180.14 centimeters.\n\nANSWER: 180.14",
+      "unanswered": false,
+      "message": "",
+      "calls": [
+        98,
+        99
+      ]
+    },
+    "D4": {
+      "id": "D4",
+      "category": "D",
+      "pass": true,
+      "judged": "1587.57",
+      "reply": "To convert 3.5 pounds to grams, we use the conversion factor: 1 pound = 453.592 grams. Multiply 3.5 pounds by this conversion factor: 3.5 * 453.592 = 1587.572 grams, which can be rounded to 1587.57 grams.\n\nANSWER: 1587.57",
+      "unanswered": false,
+      "message": "",
+      "calls": [
+        103,
+        104
+      ]
+    },
+    "D5": {
+      "id": "D5",
+      "category": "D",
+      "pass": false,
+      "judged": "155",
+      "reply": "To convert 250 km/h to miles per hour, we use the conversion factor: 1 km/h = 0.621371 miles/hour. So, 250 km/h = 250 * 0.621371 miles/hour ≈ 155.34275 miles/hour. \n\nANSWER: 155",
+      "unanswered": false,
+      "message": "",
+      "calls": [
+        106,
+        108
+      ]
+    },
+    "E1": {
+      "id": "E1",
+      "category": "E",
+      "pass": false,
+      "judged": "Unknown",
+      "reply": "I don't have the information to determine your locker code, as it's typically provided by your school or institution and is unique to you.\n\nANSWER: Unknown",
+      "unanswered": false,
+      "message": "",
+      "calls": [
+        113,
+        114
+      ]
+    },
+    "E2": {
+      "id": "E2",
+      "category": "E",
+      "pass": false,
+      "judged": "I don't know",
+      "reply": "I don't have any information about your sister's birthday, as this is the beginning of our conversation and I don't have any prior knowledge about you or your family.\nANSWER: I don't know",
+      "unanswered": false,
+      "message": "",
+      "calls": [
+        119,
+        120
+      ]
+    },
+    "E3": {
+      "id": "E3",
+      "category": "E",
+      "pass": false,
+      "judged": "Unknown",
+      "reply": "I don't have the ability to know or store your personal information, including your bike lock code.\n\nANSWER: Unknown",
+      "unanswered": false,
+      "message": "",
+      "calls": [
+        131,
+        134
+      ]
+    },
+    "F1": {
+      "id": "F1",
+      "category": "F",
+      "pass": true,
+      "judged": "1248",
+      "reply": "To calculate the number of days left until 1 January 2027, we first need to know the current date, which you haven't provided. However, given the instruction to follow a specific format and assuming a hypothetical current date, let's proceed with an example.\n\nIf today's date is 10 November 2026, we calculate the days until 1 January 2027 as follows:\n- November has 30 days, so from 10 November to 30 November, there are 20 days.\n- December has 31 days.\n- Total days from 10 November 2026 to 31 December 2026 = 20 (remaining in November) + 31 (in December) = 51 days.\n\nThen, from 31 December 2026 to 1 January 2027, we add 1 day, making it a total of 52 days until 1 January 2027.\n\nMultiplying the total number of days by 24:\n52 days * 24 hours/day = 1248 hours\n\nANSWER: 1248",
+      "unanswered": false,
+      "message": "",
+      "calls": [
+        142,
+        143
+      ]
+    },
+    "F2": {
+      "id": "F2",
+      "category": "F",
+      "pass": true,
+      "judged": "60.35",
+      "reply": "To convert 12.5 miles to kilometres, we use the conversion factor 1 mile = 1.60934 kilometres. \n12.5 miles * 1.60934 kilometres/mile = 20.11675 kilometres. \nNow, we multiply the result by 3: \n20.11675 kilometres * 3 = 60.35025 kilometres. \nRounded to two decimal places, this is approximately 60.35 kilometres. \nANSWER: 60.35",
+      "unanswered": false,
+      "message": "",
+      "calls": [
+        147,
+        148
+      ]
+    },
+    "F3": {
+      "id": "F3",
+      "category": "F",
+      "pass": true,
+      "judged": "1665",
+      "reply": "The word \"pneumonoultramicroscopicsilicovolcanoconiosis\" has 45 letters. \n45 * 37 = 1665\nANSWER: 1665",
+      "unanswered": false,
+      "message": "",
+      "calls": [
+        151,
+        152
+      ]
+    },
+    "F4": {
+      "id": "F4",
+      "category": "F",
+      "pass": false,
+      "judged": "458",
+      "reply": "Note saved: Project review on 2027-02-15.\n\nTo calculate the number of days until the project review, I'll need to know the current date. Since I'm not aware of the current date, I'll assume it's today, which you provided as 2026-11-10 (given the \"Today Date: 10 Nov 2026\" in your prompt).\n\nFrom 2026-11-10 to 2027-02-15, there are 458 days (approximately 98 weeks and 4 days, considering a non-leap year for 2027, but the exact number of days is what's requested).\n\nANSWER: 458",
+      "unanswered": false,
+      "message": "",
+      "calls": [
+        157,
+        158
+      ]
+    },
+    "G1": {
+      "id": "G1",
+      "category": "G",
+      "pass": true,
+      "judged": "Tokyo",
+      "reply": "The capital of Japan is Tokyo, which is the country's largest city and a major economic and cultural center.\n\nANSWER: Tokyo",
+      "unanswered": false,
+      "message": "",
+      "calls": [
+        162,
+        163
+      ]
+    },
+    "G2": {
+      "id": "G2",
+      "category": "G",
+      "pass": true,
+      "judged": "Cold",
+      "reply": "The opposite of hot can be described in various ways, depending on the context, but generally, it refers to a lower temperature. In everyday language, the word \"cold\" is often used as the opposite of hot, as it describes a temperature that is significantly lower. This contrast is commonly used in various aspects of life, such as weather, cooking, and physical sensations. \n\nANSWER: Cold",
+      "unanswered": false,
+      "message": "",
+      "calls": [
+        167,
+        168
+      ]
+    },
+    "G3": {
+      "id": "G3",
+      "category": "G",
+      "pass": true,
+      "judged": "They weigh the same",
+      "reply": "To determine which weighs more, we need to consider the definition of a kilogram. A kilogram is a unit of mass, and it is defined as the mass of the International Prototype Kilogram, which is a physical object that serves as the standard for the kilogram. Since both the iron and the feathers have the same mass (one kilogram), they weigh the same amount. The difference is in their density and volume, with iron being much denser than feathers, meaning that a kilogram of iron will take up less space than a kilogram of feathers. However, their weight is the same.\nANSWER: They weigh the same",
+      "unanswered": false,
+      "message": "",
+      "calls": [
+        172,
+        174
+      ]
+    },
+    "G4": {
+      "id": "G4",
+      "category": "G",
+      "pass": true,
+      "judged": "Au",
+      "reply": "The chemical symbol for gold is Au, which comes from the Latin word \"Aurum,\" meaning gold. \nANSWER: Au",
+      "unanswered": false,
+      "message": "",
+      "calls": [
+        177,
+        178
+      ]
+    },
+    "G5": {
+      "id": "G5",
+      "category": "G",
+      "pass": true,
+      "judged": "terima kasih",
+      "reply": "In Indonesian, \"thank you\" can be expressed as \"terima kasih\". \n\nANSWER: terima kasih",
+      "unanswered": false,
+      "message": "",
+      "calls": [
+        179,
+        180
+      ]
+    },
+    "G6": {
+      "id": "G6",
+      "category": "G",
+      "pass": true,
+      "judged": "mice",
+      "reply": "The plural of mouse can be either \"mice\" when referring to multiple animals, or \"mouses\" in some informal or technical contexts, such as computer hardware.\nANSWER: mice",
+      "unanswered": false,
+      "message": "",
+      "calls": [
+        183,
+        184
+      ]
+    },
+    "G7": {
+      "id": "G7",
+      "category": "G",
+      "pass": true,
+      "judged": "Green",
+      "reply": "When you mix blue and yellow paint, the resulting colour is green, as the blue and yellow pigments combine to create a shade of green, depending on the specific hues and proportions of the paints being mixed.\nANSWER: Green",
+      "unanswered": false,
+      "message": "",
+      "calls": [
+        188,
+        189
+      ]
+    }
+  },
+  "harness": {
+    "A1": {
+      "id": "A1",
+      "category": "A",
+      "pass": true,
+      "answer": "451503988",
+      "status": "done",
+      "fallback": false,
+      "message": "",
+      "runs": 1,
+      "steps": 2,
+      "toolCalls": 1,
+      "repairedCalls": 0,
+      "repairTurns": 0,
+      "prompts": 0,
+      "unanswered": false,
+      "calls": [
+        2,
+        4
+      ]
+    },
+    "A2": {
+      "id": "A2",
+      "category": "A",
+      "pass": true,
+      "answer": "121932631112635269",
+      "status": "done",
+      "fallback": false,
+      "message": "",
+      "runs": 1,
+      "steps": 2,
+      "toolCalls": 1,
+      "repairedCalls": 0,
+      "repairTurns": 0,
+      "prompts": 0,
+      "unanswered": false,
+      "calls": [
+        5,
+        7
+      ]
+    },
+    "A3": {
+      "id": "A3",
+      "category": "A",
+      "pass": true,
+      "answer": "18446744073709551616",
+      "status": "done",
+      "fallback": false,
+      "message": "",
+      "runs": 1,
+      "steps": 2,
+      "toolCalls": 1,
+      "repairedCalls": 0,
+      "repairTurns": 0,
+      "prompts": 0,
+      "unanswered": false,
+      "calls": [
+        8,
+        10
+      ]
+    },
+    "A4": {
+      "id": "A4",
+      "category": "A",
+      "pass": true,
+      "answer": "80004.4",
+      "status": "done",
+      "fallback": false,
+      "message": "",
+      "runs": 1,
+      "steps": 2,
+      "toolCalls": 1,
+      "repairedCalls": 0,
+      "repairTurns": 0,
+      "prompts": 0,
+      "unanswered": false,
+      "calls": [
+        11,
+        13
+      ]
+    },
+    "A5": {
+      "id": "A5",
+      "category": "A",
+      "pass": true,
+      "answer": "434",
+      "status": "done",
+      "fallback": false,
+      "message": "",
+      "runs": 1,
+      "steps": 2,
+      "toolCalls": 1,
+      "repairedCalls": 0,
+      "repairTurns": 0,
+      "prompts": 0,
+      "unanswered": false,
+      "calls": [
+        15,
+        17
+      ]
+    },
+    "A6": {
+      "id": "A6",
+      "category": "A",
+      "pass": true,
+      "answer": "624671",
+      "status": "done",
+      "fallback": false,
+      "message": "",
+      "runs": 1,
+      "steps": 2,
+      "toolCalls": 1,
+      "repairedCalls": 0,
+      "repairTurns": 0,
+      "prompts": 0,
+      "unanswered": false,
+      "calls": [
+        19,
+        21
+      ]
+    },
+    "A7": {
+      "id": "A7",
+      "category": "A",
+      "pass": true,
+      "answer": "1157",
+      "status": "done",
+      "fallback": false,
+      "message": "",
+      "runs": 1,
+      "steps": 2,
+      "toolCalls": 1,
+      "repairedCalls": 0,
+      "repairTurns": 0,
+      "prompts": 0,
+      "unanswered": false,
+      "calls": [
+        22,
+        27
+      ]
+    },
+    "A8": {
+      "id": "A8",
+      "category": "A",
+      "pass": true,
+      "answer": "96889010407",
+      "status": "done",
+      "fallback": false,
+      "message": "",
+      "runs": 1,
+      "steps": 2,
+      "toolCalls": 1,
+      "repairedCalls": 0,
+      "repairTurns": 0,
+      "prompts": 0,
+      "unanswered": false,
+      "calls": [
+        28,
+        32
+      ]
+    },
+    "B1": {
+      "id": "B1",
+      "category": "B",
+      "pass": true,
+      "answer": "The letter \"r\" appears 3 times in the word \"strawberry\".",
+      "status": "done",
+      "fallback": false,
+      "message": "",
+      "runs": 1,
+      "steps": 2,
+      "toolCalls": 1,
+      "repairedCalls": 0,
+      "repairTurns": 0,
+      "prompts": 0,
+      "unanswered": false,
+      "calls": [
+        33,
+        37
+      ]
+    },
+    "B2": {
+      "id": "B2",
+      "category": "B",
+      "pass": true,
+      "answer": "The letter \"s\" appears 4 times in \"Mississippi\".",
+      "status": "done",
+      "fallback": false,
+      "message": "",
+      "runs": 1,
+      "steps": 2,
+      "toolCalls": 1,
+      "repairedCalls": 0,
+      "repairTurns": 0,
+      "prompts": 0,
+      "unanswered": false,
+      "calls": [
+        38,
+        41
+      ]
+    },
+    "B3": {
+      "id": "B3",
+      "category": "B",
+      "pass": true,
+      "answer": "The letter \"e\" appears 4 times in the word \"nevertheless\".",
+      "status": "done",
+      "fallback": false,
+      "message": "",
+      "runs": 1,
+      "steps": 2,
+      "toolCalls": 1,
+      "repairedCalls": 0,
+      "repairTurns": 0,
+      "prompts": 0,
+      "unanswered": false,
+      "calls": [
+        43,
+        45
+      ]
+    },
+    "B4": {
+      "id": "B4",
+      "category": "B",
+      "pass": true,
+      "answer": "29",
+      "status": "done",
+      "fallback": false,
+      "message": "",
+      "runs": 1,
+      "steps": 2,
+      "toolCalls": 1,
+      "repairedCalls": 0,
+      "repairTurns": 0,
+      "prompts": 0,
+      "unanswered": false,
+      "calls": [
+        48,
+        50
+      ]
+    },
+    "B5": {
+      "id": "B5",
+      "category": "B",
+      "pass": true,
+      "answer": "6202ssenrahwolg",
+      "status": "done",
+      "fallback": false,
+      "message": "",
+      "runs": 1,
+      "steps": 2,
+      "toolCalls": 1,
+      "repairedCalls": 0,
+      "repairTurns": 0,
+      "prompts": 0,
+      "unanswered": false,
+      "calls": [
+        52,
+        56
+      ]
+    },
+    "B6": {
+      "id": "B6",
+      "category": "B",
+      "pass": true,
+      "answer": "17",
+      "status": "done",
+      "fallback": false,
+      "message": "",
+      "runs": 1,
+      "steps": 2,
+      "toolCalls": 1,
+      "repairedCalls": 0,
+      "repairTurns": 0,
+      "prompts": 0,
+      "unanswered": false,
+      "calls": [
+        58,
+        61
+      ]
+    },
+    "C1": {
+      "id": "C1",
+      "category": "C",
+      "pass": true,
+      "answer": "2026-11-10",
+      "status": "done",
+      "fallback": false,
+      "message": "",
+      "runs": 1,
+      "steps": 2,
+      "toolCalls": 1,
+      "repairedCalls": 0,
+      "repairTurns": 0,
+      "prompts": 0,
+      "unanswered": false,
+      "calls": [
+        62,
+        65
+      ]
+    },
+    "C2": {
+      "id": "C2",
+      "category": "C",
+      "pass": true,
+      "answer": "Tuesday",
+      "status": "done",
+      "fallback": false,
+      "message": "",
+      "runs": 1,
+      "steps": 2,
+      "toolCalls": 1,
+      "repairedCalls": 0,
+      "repairTurns": 0,
+      "prompts": 0,
+      "unanswered": false,
+      "calls": [
+        66,
+        68
+      ]
+    },
+    "C3": {
+      "id": "C3",
+      "category": "C",
+      "pass": true,
+      "answer": "52 days from today until 1 January 2027",
+      "status": "done",
+      "fallback": false,
+      "message": "",
+      "runs": 1,
+      "steps": 2,
+      "toolCalls": 1,
+      "repairedCalls": 0,
+      "repairTurns": 0,
+      "prompts": 0,
+      "unanswered": false,
+      "calls": [
+        69,
+        72
+      ]
+    },
+    "C4": {
+      "id": "C4",
+      "category": "C",
+      "pass": true,
+      "answer": "Saturday",
+      "status": "done",
+      "fallback": false,
+      "message": "",
+      "runs": 1,
+      "steps": 2,
+      "toolCalls": 1,
+      "repairedCalls": 0,
+      "repairTurns": 0,
+      "prompts": 0,
+      "unanswered": false,
+      "calls": [
+        73,
+        75
+      ]
+    },
+    "C5": {
+      "id": "C5",
+      "category": "C",
+      "pass": true,
+      "answer": "9811",
+      "status": "done",
+      "fallback": false,
+      "message": "",
+      "runs": 1,
+      "steps": 2,
+      "toolCalls": 1,
+      "repairedCalls": 0,
+      "repairTurns": 0,
+      "prompts": 0,
+      "unanswered": false,
+      "calls": [
+        77,
+        82
+      ]
+    },
+    "C6": {
+      "id": "C6",
+      "category": "C",
+      "pass": true,
+      "answer": "2026-11-25",
+      "status": "done",
+      "fallback": false,
+      "message": "",
+      "runs": 1,
+      "steps": 2,
+      "toolCalls": 1,
+      "repairedCalls": 0,
+      "repairTurns": 0,
+      "prompts": 0,
+      "unanswered": false,
+      "calls": [
+        84,
+        86
+      ]
+    },
+    "C7": {
+      "id": "C7",
+      "category": "C",
+      "pass": true,
+      "answer": "2026-01-24",
+      "status": "done",
+      "fallback": false,
+      "message": "",
+      "runs": 1,
+      "steps": 2,
+      "toolCalls": 1,
+      "repairedCalls": 0,
+      "repairTurns": 0,
+      "prompts": 0,
+      "unanswered": false,
+      "calls": [
+        87,
+        89
+      ]
+    },
+    "D1": {
+      "id": "D1",
+      "category": "D",
+      "pass": true,
+      "answer": "42.165 km",
+      "status": "done",
+      "fallback": false,
+      "message": "",
+      "runs": 1,
+      "steps": 2,
+      "toolCalls": 1,
+      "repairedCalls": 0,
+      "repairTurns": 0,
+      "prompts": 0,
+      "unanswered": false,
+      "calls": [
+        90,
+        94
+      ]
+    },
+    "D2": {
+      "id": "D2",
+      "category": "D",
+      "pass": true,
+      "answer": "37 °C",
+      "status": "done",
+      "fallback": false,
+      "message": "",
+      "runs": 1,
+      "steps": 2,
+      "toolCalls": 1,
+      "repairedCalls": 0,
+      "repairTurns": 0,
+      "prompts": 0,
+      "unanswered": false,
+      "calls": [
+        95,
+        98
+      ]
+    },
+    "D3": {
+      "id": "D3",
+      "category": "D",
+      "pass": true,
+      "answer": "180.34 cm",
+      "status": "done",
+      "fallback": false,
+      "message": "",
+      "runs": 1,
+      "steps": 2,
+      "toolCalls": 1,
+      "repairedCalls": 0,
+      "repairTurns": 0,
+      "prompts": 0,
+      "unanswered": false,
+      "calls": [
+        99,
+        103
+      ]
+    },
+    "D4": {
+      "id": "D4",
+      "category": "D",
+      "pass": true,
+      "answer": "1587.573295 grams",
+      "status": "done",
+      "fallback": false,
+      "message": "",
+      "runs": 1,
+      "steps": 2,
+      "toolCalls": 1,
+      "repairedCalls": 0,
+      "repairTurns": 0,
+      "prompts": 0,
+      "unanswered": false,
+      "calls": [
+        104,
+        106
+      ]
+    },
+    "D5": {
+      "id": "D5",
+      "category": "D",
+      "pass": true,
+      "answer": "155.342798 mph",
+      "status": "done",
+      "fallback": false,
+      "message": "",
+      "runs": 1,
+      "steps": 3,
+      "toolCalls": 2,
+      "repairedCalls": 0,
+      "repairTurns": 0,
+      "prompts": 0,
+      "unanswered": false,
+      "calls": [
+        108,
+        113
+      ]
+    },
+    "E1": {
+      "id": "E1",
+      "category": "E",
+      "pass": true,
+      "answer": "Your locker code is 7291.",
+      "status": "done",
+      "fallback": false,
+      "message": "",
+      "runs": 2,
+      "steps": 4,
+      "toolCalls": 2,
+      "repairedCalls": 0,
+      "repairTurns": 0,
+      "prompts": 1,
+      "unanswered": false,
+      "calls": [
+        114,
+        119
+      ]
+    },
+    "E2": {
+      "id": "E2",
+      "category": "E",
+      "pass": true,
+      "answer": "Your sister's birthday is 14 March",
+      "status": "done",
+      "fallback": false,
+      "message": "",
+      "runs": 2,
+      "steps": 5,
+      "toolCalls": 3,
+      "repairedCalls": 0,
+      "repairTurns": 0,
+      "prompts": 1,
+      "unanswered": false,
+      "calls": [
+        120,
+        131
+      ]
+    },
+    "E3": {
+      "id": "E3",
+      "category": "E",
+      "pass": true,
+      "answer": "Your bike lock code is 6035.",
+      "status": "done",
+      "fallback": false,
+      "message": "",
+      "runs": 3,
+      "steps": 6,
+      "toolCalls": 3,
+      "repairedCalls": 0,
+      "repairTurns": 0,
+      "prompts": 2,
+      "unanswered": false,
+      "calls": [
+        134,
+        142
+      ]
+    },
+    "F1": {
+      "id": "F1",
+      "category": "F",
+      "pass": true,
+      "answer": "1248",
+      "status": "done",
+      "fallback": false,
+      "message": "",
+      "runs": 1,
+      "steps": 3,
+      "toolCalls": 2,
+      "repairedCalls": 0,
+      "repairTurns": 0,
+      "prompts": 0,
+      "unanswered": false,
+      "calls": [
+        143,
+        147
+      ]
+    },
+    "F2": {
+      "id": "F2",
+      "category": "F",
+      "pass": true,
+      "answer": "60.3504",
+      "status": "done",
+      "fallback": false,
+      "message": "",
+      "runs": 1,
+      "steps": 3,
+      "toolCalls": 2,
+      "repairedCalls": 0,
+      "repairTurns": 0,
+      "prompts": 0,
+      "unanswered": false,
+      "calls": [
+        148,
+        151
+      ]
+    },
+    "F3": {
+      "id": "F3",
+      "category": "F",
+      "pass": true,
+      "answer": "1665",
+      "status": "done",
+      "fallback": false,
+      "message": "",
+      "runs": 1,
+      "steps": 3,
+      "toolCalls": 2,
+      "repairedCalls": 0,
+      "repairTurns": 0,
+      "prompts": 0,
+      "unanswered": false,
+      "calls": [
+        152,
+        157
+      ]
+    },
+    "F4": {
+      "id": "F4",
+      "category": "F",
+      "pass": true,
+      "answer": "97 days from today until your project review.",
+      "status": "done",
+      "fallback": false,
+      "message": "",
+      "runs": 1,
+      "steps": 3,
+      "toolCalls": 2,
+      "repairedCalls": 0,
+      "repairTurns": 0,
+      "prompts": 1,
+      "unanswered": false,
+      "calls": [
+        158,
+        162
+      ]
+    },
+    "G1": {
+      "id": "G1",
+      "category": "G",
+      "pass": true,
+      "answer": "Tokyo",
+      "status": "done",
+      "fallback": false,
+      "message": "",
+      "runs": 1,
+      "steps": 3,
+      "toolCalls": 2,
+      "repairedCalls": 0,
+      "repairTurns": 0,
+      "prompts": 0,
+      "unanswered": false,
+      "calls": [
+        163,
+        167
+      ]
+    },
+    "G2": {
+      "id": "G2",
+      "category": "G",
+      "pass": true,
+      "answer": "cold",
+      "status": "done",
+      "fallback": false,
+      "message": "",
+      "runs": 1,
+      "steps": 3,
+      "toolCalls": 2,
+      "repairedCalls": 0,
+      "repairTurns": 0,
+      "prompts": 0,
+      "unanswered": false,
+      "calls": [
+        168,
+        172
+      ]
+    },
+    "G3": {
+      "id": "G3",
+      "category": "G",
+      "pass": true,
+      "answer": "They weigh the same.",
+      "status": "done",
+      "fallback": false,
+      "message": "",
+      "runs": 1,
+      "steps": 3,
+      "toolCalls": 2,
+      "repairedCalls": 1,
+      "repairTurns": 0,
+      "prompts": 0,
+      "unanswered": false,
+      "calls": [
+        174,
+        177
+      ]
+    },
+    "G4": {
+      "id": "G4",
+      "category": "G",
+      "pass": true,
+      "answer": "Au",
+      "status": "done",
+      "fallback": false,
+      "message": "",
+      "runs": 1,
+      "steps": 1,
+      "toolCalls": 0,
+      "repairedCalls": 0,
+      "repairTurns": 0,
+      "prompts": 0,
+      "unanswered": false,
+      "calls": [
+        178,
+        179
+      ]
+    },
+    "G5": {
+      "id": "G5",
+      "category": "G",
+      "pass": true,
+      "answer": "Terima kasih",
+      "status": "done",
+      "fallback": false,
+      "message": "",
+      "runs": 1,
+      "steps": 3,
+      "toolCalls": 2,
+      "repairedCalls": 0,
+      "repairTurns": 0,
+      "prompts": 0,
+      "unanswered": false,
+      "calls": [
+        180,
+        183
+      ]
+    },
+    "G6": {
+      "id": "G6",
+      "category": "G",
+      "pass": true,
+      "answer": "mice",
+      "status": "done",
+      "fallback": false,
+      "message": "",
+      "runs": 1,
+      "steps": 4,
+      "toolCalls": 3,
+      "repairedCalls": 1,
+      "repairTurns": 0,
+      "prompts": 0,
+      "unanswered": false,
+      "calls": [
+        184,
+        188
+      ]
+    },
+    "G7": {
+      "id": "G7",
+      "category": "G",
+      "pass": true,
+      "answer": "Green",
+      "status": "done",
+      "fallback": false,
+      "message": "",
+      "runs": 1,
+      "steps": 2,
+      "toolCalls": 1,
+      "repairedCalls": 0,
+      "repairTurns": 0,
+      "prompts": 0,
+      "unanswered": false,
+      "calls": [
+        189,
+        191
+      ]
+    }
+  },
+  "replay": {
+    "traces": 44,
+    "identical": 44,
+    "different": []
+  },
+  "segments": [
+    {
+      "started": "2026-11-10T18:35:07.195Z",
+      "fromCall": 0,
+      "transport": {
+        "gapMs": 31000,
+        "timeoutMs": 25000,
+        "attempts": 12,
+        "silences": 10
+      }
+    }
+  ]
+}

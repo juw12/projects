@@ -13,6 +13,7 @@ import argparse
 import base64
 import hashlib
 import json
+import os
 from pathlib import Path
 
 import numpy as np
@@ -22,7 +23,7 @@ from model import Spark
 from tokenizer import Tokenizer
 
 HERE = Path(__file__).parent
-DATA = HERE / "data"
+DATA = HERE / os.environ.get("SPARK_DATA", "data")
 PARITY_PROMPTS = [
     "Once upon a time there was a little fox",
     "The old king had three daughters, and",
