@@ -1,0 +1,32 @@
+name = "glow-bot"
+main = "src/index.js"
+compatibility_date = "2025-09-01"
+
+# One Durable Object per chat (ChatAgent) and one for the bot's own settings (Registry).
+[[durable_objects.bindings]]
+name = "CHAT"
+class_name = "ChatAgent"
+
+[[durable_objects.bindings]]
+name = "REGISTRY"
+class_name = "Registry"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["ChatAgent", "Registry"]
+
+# Cloudflare's own free models. The deploy workflow removes this block and tries again if the
+# account's API token may not attach it, so the bot still ships with the keyless models.
+# ai-start
+[ai]
+binding = "AI"
+# ai-end
+
+[vars]
+ALLOWED_ORIGINS = "https://juw12.github.io"
+GLOW_PAGES = "https://juw12.github.io/projects/glow"
+# SHA-256 of the owner's setup code. The code itself is never stored anywhere in this repository.
+SETUP_CODE_SHA256 = "b358d699ea814f7398b375eebeacb18588b7275f7935d181db9cdb2942b0c8ae"
+
+[observability]
+enabled = true

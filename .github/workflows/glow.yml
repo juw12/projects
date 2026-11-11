@@ -38,7 +38,13 @@ jobs:
       - name: Install browser test tools (not app dependencies)
         run: |
           python -m pip install playwright==1.55.0
-          python -m playwright install --with-deps chromium
+          # --with-deps asks apt for system packages. When the runner cannot resolve
+          # the Ubuntu mirror, apt hangs for about 10 minutes and then fails (three
+          # runs in a row on 2026-11-11). So it gets 4 minutes; after that only the
+          # browser is installed, because the runner image already carries Chrome's
+          # system libraries. No test is skipped either way: a browser that cannot
+          # start still fails the browser tests below.
+          timeout --kill-after=15 240 python -m playwright install --with-deps chromium || python -m playwright install chromium
       - name: Hermetic browser regressions
         run: |
           python -X utf8 apps/glow/tests/test_glow_chat_selftest.py
