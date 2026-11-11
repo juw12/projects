@@ -3075,7 +3075,7 @@
       "url_label": "Open site",
       "desc": "Kilat: a small typed scripting language with units of measure and a fuel-and-memory sandbox. Runs as a CLI, in the browser (WebAssembly playground) and as a Cairn plugin. Rust, zero dependencies.",
       "summary": "A small programming language for engineering calculations: units and types are checked before a program runs.",
-      "description": "Kilat is a small language written from scratch in Rust with no dependencies. Units and types are checked before a program runs, so 2 m + 3 kg is refused instead of printing a number, and scripts run in a sandbox with step and memory limits. The same engine runs as a 1.1 MB command-line program, in the browser, inside Python and as a Cairn plugin. Measured 2.8x CPython across 10 benchmarks, and slower on 2 of them.",
+      "description": "Kilat is a small language written from scratch in Rust with no dependencies. Units and types are checked before a program runs, so 2 m + 3 kg is refused instead of printing a number, and scripts run in a sandbox with step and memory limits. The same engine runs as a 1.3 MB command-line program, in the browser, inside Python and as a Cairn plugin. Version 0.2.0 measured 3.1x CPython speed across 10 benchmarks (2.6x with start-up taken out), about level on strings.",
       "tags": [
         "interpreter",
         "playground",
