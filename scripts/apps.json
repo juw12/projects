@@ -3031,9 +3031,9 @@
       "external": true,
       "url": "https://juw12.github.io/mlbb-blame/",
       "url_label": "Open site",
-      "desc": "Who Threw? Mobile Legends (MLBB) blame & MVP analyzer: role-aware 0-10 scores, blame/credit shares, shareable result card, squad history.",
+      "desc": "Who Threw? Mobile Legends (MLBB) blame & MVP analyzer: screenshot or paste import, role-aware 0-10 scores, blame/credit shares, honest close calls, shareable result card, squad history.",
       "summary": "Settle who threw your Mobile Legends match.",
-      "description": "Type the end-screen stats and each player gets a role-aware 0-10 score, blame or credit shares that add up to 100%, the reasons in numbers, a shareable result image and a squad history. Role baselines are the app's own estimates, not official game data.",
+      "description": "Paste or screenshot the end-screen stats and each player gets a role-aware 0-10 score, blame or credit shares that add up to 100%, the reasons in numbers, an honest confidence call (close calls name the runner-up), a shareable result image and a squad history. Role baselines are the app's own estimates, not official game data.",
       "tags": [
         "mobile-legends",
         "web-app",
