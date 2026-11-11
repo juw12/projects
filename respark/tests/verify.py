@@ -260,7 +260,10 @@ def run():
         s, data = c.request("GET", "/api/outreach/leads", expect_status=200)
         leads = data.get("leads") or []
         check("outreach list returns 2 leads", len(leads) == 2)
-        check("lead status starts as 'new'", all(l["status"] == "new" for l in leads))
+        # The live scheduler may send step 1 to one lead (one per tick) right after import.
+        statuses = [l["status"] for l in leads]
+        check("lead status starts as 'new' (at most one already sent by the scheduler)",
+              all(st in ("new", "sent") for st in statuses) and statuses.count("sent") <= 1, statuses)
 
         s, data = c.request("GET", "/api/outreach/settings", expect_status=200)
         check("settings has operator_name", "operator_name" in data)
@@ -272,7 +275,10 @@ def run():
               data.get("daily_send_limit") == 25 and data.get("operator_name") == "Respark")
 
         s, data = c.request("GET", "/api/outreach/stats", expect_status=200)
-        check("outreach stats has by_status", "by_status" in data and data["by_status"].get("new") == 2)
+        # The live scheduler may already have sent step 1 to a lead (one per tick), so count new + sent.
+        by_status = data.get("by_status") or {}
+        check("outreach stats has by_status", "by_status" in data
+              and by_status.get("new", 0) + by_status.get("sent", 0) == 2)
 
         first_lead = leads[0]
         s, data = c.request("POST", f"/api/outreach/leads/{first_lead['id']}/send", {}, expect_status=200)
