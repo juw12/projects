@@ -1,10 +1,12 @@
 // How GlowBot reaches the web: search, read one page, and fetch the GlowNews edition.
 //
-// Search and reading go through the same free reader GlowRoom uses first, then fall back to asking the
-// site directly, so one blocked route does not stop Scout. Every route is listed by name (`searchers`,
-// `readers`) so the health check can try each one on its own and report which really work from Cloudflare.
+// The routes here are the ones that were measured to answer from Cloudflare's network (the live health
+// check, /v1/probe): Bing's RSS answer and Wikipedia for search, and asking the site itself for a page.
+// The free reader GlowRoom uses in a browser turns Cloudflare's shared addresses away most of the time, so
+// it is only a second try for reading. Every route is listed by name (`searchers`, `readers`) so the health
+// check can try each one on its own and report which really work.
 
-import { SEARCH_ENGINES, SEARCH_ENGINE_HOSTS, decodeResultUrl, parseSearchMarkdown, truncate } from "./crew-port.js";
+import { SEARCH_ENGINE_HOSTS, decodeResultUrl, truncate } from "./crew-port.js";
 import { StoppedError, clip, errorText, withTimeout } from "./util.js";
 
 // Honest about what is asking: a site that does not want bots can say no.
@@ -89,7 +91,9 @@ function oneLine(html) {
   return htmlToText(html).replace(/\s+/g, " ").trim();
 }
 
-// DuckDuckGo's plain HTML results page -> [{ title, url, snippet }], the same shape parseSearchMarkdown gives.
+// DuckDuckGo's plain HTML results page -> [{ title, url, snippet }].
+// Not in the search chain for now: DuckDuckGo refused Cloudflare's addresses in the live checks (a bot page,
+// or no answer for 20 seconds). The parser is kept, and tested, for the day that changes.
 export function parseDuckHtml(html) {
   const source = String(html == null ? "" : html);
   const results = [];
@@ -238,24 +242,9 @@ export function createWeb(options) {
     );
   }
 
-  // GlowRoom's three engines, each read through the free reader (the order GlowRoom tries them in).
-  const searchers = SEARCH_ENGINES.map((engine) => ({
-    id: "jina:" + new URL(engine("x")).hostname,
-    async run(query, signal) {
-      const reply = await get(READER + engine(query), { "X-Return-Format": "markdown" }, signal, "web search");
-      if (!reply.ok) throw new WebError(`HTTP ${reply.status}`, reply.status);
-      return parseSearchMarkdown(reply.text);
-    },
-  }));
-  searchers.push({
-    id: "duckduckgo-direct",
-    async run(query, signal) {
-      const address = "https://html.duckduckgo.com/html/?q=" + encodeURIComponent(query);
-      const reply = await get(address, { "User-Agent": userAgent, Accept: "text/html" }, signal, "web search");
-      if (!reply.ok) throw new WebError(`HTTP ${reply.status}`, reply.status);
-      return parseDuckHtml(reply.text);
-    },
-  });
+  // Tried in this order. Both answered from Cloudflare in the live checks; the rest of GlowRoom's browser
+  // routes (the free reader's search, DuckDuckGo) did not, so they are not here.
+  const searchers = [];
   searchers.push({
     id: "bing-rss",
     async run(query, signal) {
@@ -303,15 +292,9 @@ export function createWeb(options) {
     return { results: [], via: "", tried };
   }
 
+  // The site itself first (measured to work from Cloudflare); the free reader is a second try, useful for
+  // pages that only show their text after running scripts.
   const readers = [
-    {
-      id: "jina",
-      async run(url, signal) {
-        const reply = await get(READER + url, { "X-Return-Format": "text" }, signal, "page read");
-        if (!reply.ok) throw new WebError(`HTTP ${reply.status}`, reply.status);
-        return reply.text;
-      },
-    },
     {
       id: "direct",
       async run(url, signal) {
@@ -326,6 +309,14 @@ export function createWeb(options) {
         const text = htmlToText(reply.text);
         const title = titleOf(reply.text);
         return title && !text.startsWith(title) ? `${title}\n\n${text}` : text;
+      },
+    },
+    {
+      id: "jina",
+      async run(url, signal) {
+        const reply = await get(READER + url, { "X-Return-Format": "text" }, signal, "page read");
+        if (!reply.ok) throw new WebError(`HTTP ${reply.status}`, reply.status);
+        return reply.text;
       },
     },
   ];

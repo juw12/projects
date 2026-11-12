@@ -57,7 +57,8 @@
   "GlowLead",
   "GlowNews",
   "GlowSpark",
-  "GlowHarness"
+  "GlowHarness",
+  "GlowBot"
  ],
  "url": "https://juw12.github.io/projects/glow/",
  "description": "Glow is a free AI app: chat with top AI models, compare them in a Council or Arena, send an AI crew to research and code, or hand GlowLead a whole goal. Works offline with AI that runs on your device.",
@@ -91,6 +92,7 @@
   "GlowNews: the day's AI stories grouped by story with sources, refreshed twice a day",
   "GlowSpark: a tiny AI built from scratch that writes fairy tales on your device, even offline",
   "GlowHarness: an agent harness built from scratch that lets an AI use tools, shows every step and asks before anything changes",
+  "GlowBot: the Glow AI team as a Telegram bot that plans a goal, delegates it and reports back in a chat or a group",
   "Glow Offline: AI that runs on your device with no internet",
   "English, Bahasa Indonesia, Simplified and Traditional Chinese"
  ],
@@ -141,6 +143,7 @@
       <button type="button" class="pill" id="start-news" data-target="news" data-i18n="home.pill.news">📰 AI news</button>
       <button type="button" class="pill" id="start-spark" data-target="spark" data-i18n="home.pill.spark">✨ Tiny AI</button>
       <button type="button" class="pill" id="start-harness" data-target="harness" data-i18n="home.pill.harness">🧰 Agent</button>
+      <button type="button" class="pill" id="start-bot" data-target="bot" data-i18n="home.pill.bot">🤖 Telegram</button>
     </div>
   </section>
 
@@ -173,6 +176,11 @@
     <a class="app-tile harness" id="open-harness" href="./harness/">
       <span class="app-icon" aria-hidden="true">🧰</span>
       <span class="app-text"><b>GlowHarness</b><small data-i18n="home.tile.harness">Our own agent harness. It lets an AI use tools, shows every step, and asks before anything changes.</small></span>
+      <span class="go-arrow" aria-hidden="true">→</span>
+    </a>
+    <a class="app-tile bot" id="open-bot" href="./bot/">
+      <span class="app-icon" aria-hidden="true">🤖</span>
+      <span class="app-text"><b>GlowBot</b><small data-i18n="home.tile.bot">Your Glow AI team as a Telegram bot. Give it a goal in a chat or a group; it plans, delegates and reports back.</small></span>
       <span class="go-arrow" aria-hidden="true">→</span>
     </a>
   </section>

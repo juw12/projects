@@ -10,7 +10,10 @@
 // GlowHarness (./harness/): the page, the engine, the tool kit and the benchmark file are cached at
 // install, so the no-model brain keeps working offline. Free-model calls go to other origins and are
 // never handled here.
-const CACHE_NAME = 'glowhome-v19';
+// GlowBot (./bot/): the page, its style and its script are cached at install, so the command list
+// and the setup steps still open offline. The bot itself runs on its own server; the page's status
+// calls go to that other origin and are never handled here.
+const CACHE_NAME = 'glowhome-v20';
 const NETWORK_TIMEOUT_MS = 4000;
 const ASSETS = [
   './',
@@ -40,6 +43,9 @@ const ASSETS = [
   './harness/suite.js',
   './harness/checks.js',
   './harness/bench.json',
+  './bot/',
+  './bot/bot.css',
+  './bot/bot.js',
   './download/',
   './download/download.css',
   './download/download.js',

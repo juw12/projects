@@ -492,9 +492,9 @@
       "id": "glow",
       "name": "Glow",
       "category": "AI",
-      "desc": "One home for your AI: GlowLead plans goals and runs the other apps; GlowChat for chat with ranked models, your own persona, images, a Council with a Judge and a model Arena; GlowRoom for an AI crew that researches, codes and reports back; GlowNews for the day's AI news, grouped by story with every source and refreshed twice a day; GlowSpark, a tiny AI built from scratch that writes fairy tales on your device, even offline; GlowHarness, an agent harness built from scratch that lets an AI use tools, shows every step and asks before anything changes. One free Glow account with Profile & settings in every app, in English, Bahasa Indonesia, 简体中文 or 繁體中文, with AI models matched to your region; free built-in AI with no keys or sign-up that switches to the next free service by itself when one runs out",
-      "description": "One home, one free account, six AI apps. <strong>GlowLead</strong>: give one goal and the AI lead plans it, hands each step to GlowChat or the GlowRoom crew, checks the work against clear done-criteria and reports back. <strong>GlowChat</strong>: chat with any model (ranked by category), your own persona, images, a usage meter, temporary chats, a Council with a Judge and an Arena. <strong>GlowRoom</strong>: an AI crew that searches the web, runs code and cites sources, in a warm Glow Studio office. <strong>GlowNews</strong>: the day's AI news in one place, a new edition twice a day; the same story from many outlets becomes one card with every source, ranked and tagged by topic, with free-AI summaries, a 5-point briefing, &ldquo;new for you&rdquo; and one tap to discuss any story in GlowChat. <strong>GlowSpark</strong>: a tiny language model built and trained from scratch (own tokenizer, transformer and browser engine) that writes old-style fairy tales on your device with no account, key or WebGPU, works offline, and publishes its measured wins and losses. <strong>GlowHarness</strong>: an agent harness built from scratch with no third-party code (own loop, tool-call parser, permission gate, limits and replayable trace). It lets an AI use tools on your device (calculator, text, clock, units, notes, the offline library and GlowSpark), shows every step, asks before anything changes, works offline with a built-in no-model brain, and publishes what it measured, including where Claude Code, Codex and OpenCode are better. <strong>Free AI built in</strong>: no keys or setup. Puter, OVHcloud (Llama 3.3 70B, GPT-OSS 120B, Qwen 3.5 397B, Mistral Small), LLM7 and Glow Free back each other up: when one is busy or used up, the next answers the same message, with the AI on your device as the last backup. One avatar in every app opens <strong>Profile &amp; settings</strong>: name, Puter account, persona, token usage and allowance, privacy and your data. <strong>Speaks your language</strong>: pick English, Bahasa Indonesia, 简体中文 or 繁體中文 and your region on first open; the region decides which AI models you get (only providers that serve mainland China there, with PIPL consent), plus local prices and privacy notes. Free for guests.",
-      "summary": "Six AI apps, one free account &mdash; GlowLead plans, GlowChat compares models, GlowRoom researches, GlowNews briefs you on AI news, GlowSpark is a tiny AI built from scratch, GlowHarness is an agent harness built from scratch.",
+      "desc": "One home for your AI: GlowLead plans goals and runs the other apps; GlowChat for chat with ranked models, your own persona, images, a Council with a Judge and a model Arena; GlowRoom for an AI crew that researches, codes and reports back; GlowNews for the day's AI news, grouped by story with every source and refreshed twice a day; GlowSpark, a tiny AI built from scratch that writes fairy tales on your device, even offline; GlowHarness, an agent harness built from scratch that lets an AI use tools, shows every step and asks before anything changes; GlowBot, the Glow AI team as a Telegram bot that plans a goal, delegates it and reports back in a chat or a group. One free Glow account with Profile & settings in every app, in English, Bahasa Indonesia, 简体中文 or 繁體中文, with AI models matched to your region; free built-in AI with no keys or sign-up that switches to the next free service by itself when one runs out",
+      "description": "One home, one free account, six AI apps and a Telegram bot. <strong>GlowLead</strong>: give one goal and the AI lead plans it, hands each step to GlowChat or the GlowRoom crew, checks the work against clear done-criteria and reports back. <strong>GlowChat</strong>: chat with any model (ranked by category), your own persona, images, a usage meter, temporary chats, a Council with a Judge and an Arena. <strong>GlowRoom</strong>: an AI crew that searches the web, runs code and cites sources, in a warm Glow Studio office. <strong>GlowNews</strong>: the day's AI news in one place, a new edition twice a day; the same story from many outlets becomes one card with every source, ranked and tagged by topic, with free-AI summaries, a 5-point briefing, &ldquo;new for you&rdquo; and one tap to discuss any story in GlowChat. <strong>GlowSpark</strong>: a tiny language model built and trained from scratch (own tokenizer, transformer and browser engine) that writes old-style fairy tales on your device with no account, key or WebGPU, works offline, and publishes its measured wins and losses. <strong>GlowHarness</strong>: an agent harness built from scratch with no third-party code (own loop, tool-call parser, permission gate, limits and replayable trace). It lets an AI use tools on your device (calculator, text, clock, units, notes, the offline library and GlowSpark), shows every step, asks before anything changes, works offline with a built-in no-model brain, and publishes what it measured, including where Claude Code, Codex and OpenCode are better. <strong>GlowBot</strong>: the Glow AI team as a Telegram bot. Give it a goal in a private chat or a group; it shows its plan, delegates each step to its agents, checks the result and reports back. It also answers with web research, shares the day's AI news and writes a short GlowSpark tale. The bot is private at first: only its owner can use it until they open it to everyone. <strong>Free AI built in</strong>: no keys or setup. Puter, OVHcloud (Llama 3.3 70B, GPT-OSS 120B, Qwen 3.5 397B, Mistral Small), LLM7 and Glow Free back each other up: when one is busy or used up, the next answers the same message, with the AI on your device as the last backup. One avatar in every app opens <strong>Profile &amp; settings</strong>: name, Puter account, persona, token usage and allowance, privacy and your data. <strong>Speaks your language</strong>: pick English, Bahasa Indonesia, 简体中文 or 繁體中文 and your region on first open; the region decides which AI models you get (only providers that serve mainland China there, with PIPL consent), plus local prices and privacy notes. Free for guests.",
+      "summary": "One free account, six AI apps and a Telegram bot &mdash; AI lead, model chat, research crew, AI news, a tiny AI and an agent harness.",
       "tags": [
         "AI ecosystem",
         "GlowLead",
@@ -503,6 +503,7 @@
         "GlowNews",
         "GlowSpark",
         "GlowHarness",
+        "GlowBot",
         "AI news",
         "AI agents",
         "orchestrator",
@@ -545,6 +546,10 @@
           "path": "glow/harness/"
         },
         {
+          "label": "GlowBot",
+          "path": "glow/bot/"
+        },
+        {
           "label": "Download",
           "path": "glow/download/"
         }
@@ -552,7 +557,7 @@
       "featured": true,
       "order": 5,
       "portfolio_order": 3,
-      "version": "1.31.0",
+      "version": "1.32.0",
       "portfolio": true
     },
     {
