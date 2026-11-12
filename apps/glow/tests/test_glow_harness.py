@@ -331,7 +331,7 @@ class GlowHarnessTests(unittest.TestCase):
         self.assertIn('id="start-harness"', home, "'Agent' choice under the start box")
         home_js = text_of(WEB / "home.js")
         self.assertIn('target === "harness"', home_js)
-        self.assertIn('["chat", "room", "lead", "news", "spark", "harness"]', home_js)
+        self.assertIn('["chat", "room", "lead", "news", "spark", "harness", "bot"]', home_js)
         self.assertIn(".app-tile.harness", text_of(WEB / "home.css"))
         self.assertIn('query.get("q")', self.js, "home hands the task over as ?q=")
 

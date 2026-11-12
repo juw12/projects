@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; worker-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://glow-bot.juw12.workers.dev">
+<title>GlowBot — your Glow AI team in Telegram</title>
+<meta name="description" content="GlowBot puts the Glow AI team inside Telegram. Give it a goal in a private chat or a group: GlowLead plans it, hands the steps to agents, checks the result and reports back. It is free and open source, and this page shows the bot server's own live test results.">
+<meta name="theme-color" content="#262624">
+<link rel="canonical" href="https://juw12.github.io/projects/glow/bot/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Glow">
+<meta property="og:title" content="GlowBot — your Glow AI team in Telegram">
+<meta property="og:description" content="Give it a goal in a Telegram chat or group. GlowLead plans it, hands the steps to agents, checks the result and reports back. Free, open source, with its own live test results on the page.">
+<meta property="og:url" content="https://juw12.github.io/projects/glow/bot/">
+<meta property="og:image" content="https://juw12.github.io/projects/glow/icons/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://juw12.github.io/projects/glow/icons/og-image.png">
+<link rel="stylesheet" href="../home.css">
+<link rel="stylesheet" href="../spark/spark.css">
+<link rel="stylesheet" href="./bot.css">
+<link rel="icon" type="image/svg+xml" href="../icons/app-icon.svg">
+<link rel="manifest" href="../manifest.webmanifest">
+<link rel="apple-touch-icon" href="../icons/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Glow">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+</head>
+<body class="spark-page bot-page">
+<header class="top">
+  <a class="logo" href="../" aria-label="Glow home"><img src="../icons/app-icon.svg" alt="" width="34" height="34"><span>Glow</span></a>
+  <div class="top-right">
+    <button class="icon-btn" id="theme-btn" type="button" title="Light or dark">☀</button>
+    <button class="icon-btn" id="glow-apps-btn" type="button" data-glow-apps aria-label="Glow apps" title="Glow apps"></button>
+    <button id="profile-btn" type="button" data-glow-profile></button>
+  </div>
+</header>
+
+<main class="spark-main">
+  <section class="spark-head">
+    <h1><span aria-hidden="true">🤖</span> <span data-i18n="bot.title">GlowBot</span></h1>
+    <p class="spark-lede" data-i18n="bot.lede">Your Glow AI team inside Telegram. Give it a goal: GlowLead plans it, hands the steps to agents, checks the result and reports back. It works in private chats and in groups, and it is free.</p>
+    <p class="spark-meta" id="bot-meta" aria-live="polite"></p>
+  </section>
+
+  <section class="card setup" id="setup-card" aria-labelledby="setup-title" hidden>
+    <h2 id="setup-title" data-i18n="bot.setup.title">Connect your Telegram bot</h2>
+    <p class="card-lede" data-i18n="bot.setup.lede">You do this once. Telegram's own @BotFather makes the bot and gives you its token; you paste the token here.</p>
+    <ol class="built">
+      <li><span data-i18n="bot.setup.step1">In Telegram, open @BotFather and send /newbot.</span> <a href="https://t.me/BotFather" target="_blank" rel="noopener" data-i18n="bot.setup.father">Open @BotFather</a></li>
+      <li data-i18n="bot.setup.step2">Give the bot a name, then a username that ends in "bot".</li>
+      <li data-i18n="bot.setup.step3">Copy the token @BotFather sends you and paste it below.</li>
+      <li data-i18n="bot.setup.step4">Tap Connect. Then open the Telegram link that appears here and press Start. That makes you the owner.</li>
+    </ol>
+    <div id="setup-entry">
+      <label class="token-label" for="setup-token" data-i18n="bot.setup.label">Bot token</label>
+      <input class="token-input" id="setup-token" type="text" inputmode="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" maxlength="120" data-i18n-placeholder="bot.setup.placeholder" placeholder="123456789:AAE…">
+      <div class="check-row">
+        <button class="btn primary go" id="setup-connect" type="button">Connect</button>
+        <p class="check-result" id="setup-result" aria-live="polite"></p>
+      </div>
+      <p class="fine" id="setup-detail" hidden></p>
+    </div>
+    <div class="setup-done" id="setup-done" hidden>
+      <p class="setup-ok" id="setup-done-text" aria-live="polite"></p>
+      <div class="check-row">
+        <a class="btn primary go" id="setup-link" target="_blank" rel="noopener"></a>
+      </div>
+      <p class="fine" id="setup-done-note"></p>
+      <div id="setup-warnings" hidden>
+        <p class="fine" data-i18n="bot.setup.warnings">These extras did not go through. The bot works without them:</p>
+        <ul class="warn-list" id="setup-warning-list"></ul>
+      </div>
+    </div>
+    <p class="fine" data-i18n="bot.setup.fine">The token goes once, over HTTPS, to your own bot server and stays there. This page does not save it. The setup code from your link is wiped from the address bar as soon as the page opens.</p>
+  </section>
+
+  <section class="card" id="status-card" aria-labelledby="status-title">
+    <h2 id="status-title" data-i18n="bot.status.title">Open it in Telegram</h2>
+    <p class="card-lede" id="status-text" aria-live="polite">Checking the bot server…</p>
+    <div class="check-row" id="status-actions">
+      <a class="btn primary go" id="open-telegram" target="_blank" rel="noopener" hidden></a>
+      <button class="btn small" id="status-retry" type="button" hidden data-i18n="bot.retry">Try again</button>
+      <p class="check-result" id="status-access"></p>
+    </div>
+  </section>
+
+  <section class="card" id="commands-card" aria-labelledby="commands-title">
+    <h2 id="commands-title" data-i18n="bot.can.title">What you can tell it</h2>
+    <p class="card-lede" data-i18n="bot.can.lede">Send a command on its own (like /room) to switch mode. After that, whatever you type goes there. While a mission runs, reply to steer the team.</p>
+    <dl class="cmds">
+      <div><dt><code>/lead</code></dt><dd data-i18n="bot.cmd.lead">Give it a goal. GlowLead plans it, hands the steps to agents, checks the result and reports back.</dd></div>
+      <div><dt><code>/room</code></dt><dd data-i18n="bot.cmd.room">Give it a topic. The GlowRoom crew researches it on the live web.</dd></div>
+      <div><dt><code>/ask</code></dt><dd data-i18n="bot.cmd.ask">One agent, one job. Name the agent first, like /ask scout, then the task.</dd></div>
+      <div><dt><code>/agents</code></dt><dd data-i18n="bot.cmd.agents">Who is on the team.</dd></div>
+      <div><dt><code>/chat</code></dt><dd data-i18n="bot.cmd.chat">Plain chat that remembers the last few turns.</dd></div>
+      <div><dt><code>/agent</code></dt><dd data-i18n="bot.cmd.agent">GlowHarness: an agent with tools that asks before it saves anything.</dd></div>
+      <div><dt><code>/news</code></dt><dd data-i18n="bot.cmd.news">Today's AI news.</dd></div>
+      <div><dt><code>/spark</code></dt><dd data-i18n="bot.cmd.spark">A tiny AI we built from scratch writes a short story from your opening line (in English).</dd></div>
+      <div><dt><code>/apps</code></dt><dd data-i18n="bot.cmd.apps">Buttons that open the Glow apps.</dd></div>
+      <div><dt><code>/daily</code></dt><dd data-i18n="bot.cmd.daily">AI news every day at a time you set (UTC+7), like /daily 07:30. /daily off stops it.</dd></div>
+      <div><dt><code>/status</code></dt><dd data-i18n="bot.cmd.status">What is running, your mode, language and jobs used today.</dd></div>
+      <div><dt><code>/stop</code></dt><dd data-i18n="bot.cmd.stop">Stops the running job.</dd></div>
+      <div><dt><code>/lang</code></dt><dd data-i18n="bot.cmd.lang">Changes the language.</dd></div>
+      <div><dt><code>/help</code></dt><dd data-i18n="bot.cmd.help">Everything it can do.</dd></div>
+      <div><dt><code>/access</code></dt><dd data-i18n="bot.cmd.access">Owner only. /access public lets anyone use the bot; /access private closes it again.</dd></div>
+    </dl>
+    <p class="fine" data-i18n="bot.can.example">Try: /lead plan a 3-day trip to Bali on a small budget</p>
+  </section>
+
+  <section class="card" id="groups-card" aria-labelledby="groups-title">
+    <h2 id="groups-title" data-i18n="bot.groups.title">Using it in a group</h2>
+    <p class="card-lede" data-i18n="bot.groups.lede">Add the bot to a group and everyone there shares one team.</p>
+    <ul class="limits">
+      <li data-i18n="bot.groups.add">The owner lets a group in just by adding the bot to it. If someone else adds a private bot to their group, it says so and leaves.</li>
+      <li data-i18n="bot.groups.how">In a group it answers commands and replies to its own messages. That is how Telegram's privacy mode works.</li>
+      <li data-i18n="bot.groups.mention">To make it hear plain @mentions too, turn privacy mode off in @BotFather: Bot Settings, then Group Privacy.</li>
+      <li data-i18n="bot.groups.buttons">Only the person who started a job, or the owner, can press that job's buttons.</li>
+      <li data-i18n="bot.groups.one">One job at a time per chat. /stop ends the current one.</li>
+    </ul>
+  </section>
+
+  <section class="card" id="test-card" aria-labelledby="test-title">
+    <h2 id="test-title" data-i18n="bot.test.title">Check it yourself</h2>
+    <p class="card-lede" data-i18n="bot.test.lede">After every update the live server drives its real chat code through six practice rounds and checks what came out. These are its own results, read from the server just now.</p>
+    <div class="check-row">
+      <button class="btn small" id="test-again" type="button" data-i18n="bot.test.again">Read again</button>
+      <p class="check-result" id="test-result" aria-live="polite"></p>
+    </div>
+    <ul class="check-list" id="test-list"></ul>
+    <p class="fine" data-i18n="bot.test.note">The self-test uses scripted stand-in models, not real ones. It proves the bot's logic, not how good the AI answers are. The details are in English.</p>
+  </section>
+
+  <section class="card" id="probe-card" aria-labelledby="probe-title">
+    <h2 id="probe-title" data-i18n="bot.probe.title">What it can reach right now</h2>
+    <p class="card-lede" data-i18n="bot.probe.lede">The bot runs on free AI models and free web search. Free services come and go, so the server tests every one from where it runs and uses whichever answer. It tests again at most every 6 hours.</p>
+    <div class="stats" id="probe-stats"></div>
+    <div class="check-row">
+      <button class="btn small" id="probe-again" type="button" data-i18n="bot.probe.again">Read again</button>
+      <p class="check-result" id="probe-result" aria-live="polite"></p>
+    </div>
+    <details class="books" id="probe-details" hidden>
+      <summary data-i18n="bot.probe.details">Every test, one by one</summary>
+      <div id="probe-rows"></div>
+      <p class="fine" data-i18n="bot.probe.detailsNote">Technical details are shown as the server reports them, in English.</p>
+    </details>
+  </section>
+
+  <section class="card" id="limits-card" aria-labelledby="limits-title">
+    <h2 id="limits-title" data-i18n="bot.limits.title">Honest limits</h2>
+    <ul class="limits">
+      <li data-i18n="bot.limits.free">It runs on free AI models. They can be slow, busy or simply wrong. Check anything that matters.</li>
+      <li data-i18n="bot.limits.search">Research uses Bing and Wikipedia search and reads pages directly. Some sites refuse that, so a step can come back empty.</li>
+      <li data-i18n="bot.limits.quota">One job at a time per chat. Everyone except the owner gets 20 jobs a day per chat.</li>
+      <li data-i18n="bot.limits.spark">GlowSpark is a tiny model we trained ourselves. It writes short simple stories and nothing else.</li>
+      <li data-i18n="bot.limits.privacy">What you send goes to the bot server and on to the free AI services it uses. The server keeps a short memory per chat so it can follow up. Do not send secrets.</li>
+    </ul>
+  </section>
+
+  <footer class="spark-foot">
+    <p class="fine" data-i18n="bot.fine">GlowBot is part of Glow: free, open source, no ads. The bot server is a small Cloudflare Worker.</p>
+  </footer>
+</main>
+
+<script src="../shared/glow-locale.js"></script>
+<script src="../shared/glow-apps.js"></script>
+<script src="./bot.js"></script>
+</body>
+</html>

@@ -117,6 +117,11 @@
       location.href = harnessUrl.toString();
       return;
     }
+    if (target === "bot") {
+      // GlowBot lives in Telegram: its page only sets it up and shows that it works.
+      location.href = new URL("./bot/", location.href).toString();
+      return;
+    }
     const page = target === "room" ? roomPage : target === "lead" ? leadPage : chatPage;
     const url = new URL(page, location.href);
     if (text) {
@@ -140,7 +145,7 @@
     }
     launch(suggestedTarget());
   });
-  for (const name of ["chat", "room", "lead", "news", "spark", "harness"]) {
+  for (const name of ["chat", "room", "lead", "news", "spark", "harness", "bot"]) {
     $("start-" + name).addEventListener("click", () => launch(name));
   }
   document.querySelectorAll("[data-example]").forEach((button) => {
