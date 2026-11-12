@@ -3109,6 +3109,50 @@
       "status": "released",
       "order": 68,
       "portfolio": true
+    },
+    {
+      "id": "cpu-eco-toggle",
+      "name": "CPU Eco Toggle",
+      "category": "Software",
+      "external": true,
+      "url": "https://juw12.github.io/p/cpu-eco-toggle/",
+      "url_label": "Open site",
+      "desc": "One-click Windows tray switch that frees CPU by moving background jobs (agents, builds, LLMs) to fewer cores at lower priority - nothing gets stopped.",
+      "summary": "One-click Windows tray switch that moves background jobs to fewer cores at lower priority, without stopping them.",
+      "description": "When AI agents, builds, local LLMs and long Python jobs pin the CPU at 100%, CPU Eco Toggle moves windowless background processes onto fewer cores (5 of 8 on an 8-core machine) at BelowNormal priority, re-checking every 30 s for new jobs. Nothing is stopped, and switching OFF restores every process's original priority and cores. Windows PowerShell 5.1 + WinForms tray icon, no admin rights; a second launch toggles the running copy, so a pinned taskbar shortcut works as an on/off switch.",
+      "tags": [
+        "cpu",
+        "performance",
+        "powershell",
+        "productivity",
+        "system-tray"
+      ],
+      "note_tags": [
+        "cpu-eco-toggle",
+        "cpu",
+        "performance",
+        "powershell",
+        "productivity",
+        "system-tray"
+      ],
+      "image": "cpu-eco-toggle-card.jpg",
+      "image_alt": "CPU Eco Toggle landing page: condensed headline 'One click gives a pinned CPU room to breathe' beside a green on/off toggle with a power symbol",
+      "extra_links": [
+        {
+          "label": "Source",
+          "url": "https://github.com/juw12/cpu-eco-toggle"
+        }
+      ],
+      "card": {
+        "label": "cpu-eco-toggle · landing",
+        "capture": "https://juw12.github.io/p/cpu-eco-toggle/",
+        "theme": "light",
+        "accent": "#27aa58",
+        "accent2": "#2f909e"
+      },
+      "status": "released",
+      "order": 69,
+      "portfolio": true
     }
   ]
 }
