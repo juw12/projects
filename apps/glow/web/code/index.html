@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://text.pollinations.ai https://api.llm7.io https://oai.endpoints.kepler.ai.cloud.ovh.net">
+<title>GlowCode — run Kilat, a small safe language, in your browser</title>
+<meta name="description" content="GlowCode runs Kilat, a small language for engineering sums and safe scripts, in a sandbox on your device. Units are checked before a program runs, so 2 m + 3 kg is refused. Write the program yourself, or ask a free model to write it and let the checker catch its mistakes.">
+<meta name="theme-color" content="#262624">
+<link rel="canonical" href="https://juw12.github.io/projects/glow/code/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Glow">
+<meta property="og:title" content="GlowCode — Kilat in a sandbox, by Glow">
+<meta property="og:description" content="A small language that checks units before it runs, in a sandbox on your device. Write it yourself or let a free model write it; the checker refuses mistakes either way.">
+<meta property="og:url" content="https://juw12.github.io/projects/glow/code/">
+<meta property="og:image" content="https://juw12.github.io/projects/glow/icons/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://juw12.github.io/projects/glow/icons/og-image.png">
+<link rel="stylesheet" href="../home.css">
+<link rel="stylesheet" href="../spark/spark.css">
+<link rel="stylesheet" href="./code.css">
+<link rel="icon" type="image/svg+xml" href="../icons/app-icon.svg">
+<link rel="manifest" href="../manifest.webmanifest">
+<link rel="apple-touch-icon" href="../icons/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Glow">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+</head>
+<body class="spark-page code-page" data-run="loading">
+<header class="top">
+  <a class="logo" href="../" aria-label="Glow home"><img src="../icons/app-icon.svg" alt="" width="34" height="34"><span>Glow</span></a>
+  <div class="top-right">
+    <button class="icon-btn" id="theme-btn" type="button" title="Light or dark">☀</button>
+    <button class="icon-btn" id="glow-apps-btn" type="button" data-glow-apps aria-label="Glow apps" title="Glow apps"></button>
+    <button id="profile-btn" type="button" data-glow-profile></button>
+  </div>
+</header>
+
+<main class="spark-main">
+  <section class="spark-head">
+    <h1><span aria-hidden="true">⚡</span> <span>GlowCode</span></h1>
+    <p class="spark-lede">Kilat is a small language for engineering sums and safe scripts. It checks units and types before a program runs, so <code>2 m + 3 kg</code> is refused instead of giving a wrong number. Programs run in a sandbox on your device.</p>
+    <p class="spark-meta" id="code-meta" aria-live="polite">Loading the Kilat engine…</p>
+  </section>
+
+  <section class="writer" aria-labelledby="desk-title">
+    <h2 class="sr-only" id="desk-title">Write a program</h2>
+    <div class="desk-row">
+      <span class="desk-label" id="brain-label">Who writes it</span>
+      <div class="seg" id="brain-seg" role="group" aria-labelledby="brain-label">
+        <button type="button" data-brain="rules" aria-pressed="true">I write it</button>
+        <button type="button" data-brain="free" aria-pressed="false">A free model</button>
+      </div>
+    </div>
+    <p class="desk-note" id="privacy-line"></p>
+
+    <div id="task-row" hidden>
+      <div class="chips" id="task-chips" role="group" aria-label="Example requests"></div>
+      <label class="sr-only" for="task-box">What should the program work out?</label>
+      <textarea id="task-box" rows="2" maxlength="1200" spellcheck="true" placeholder="Say what to work out, with the numbers and units. Or tap an example above."></textarea>
+    </div>
+
+    <div class="chips" id="example-chips" role="group" aria-label="Example programs"></div>
+    <label class="code-label" for="code-box" id="code-label">Kilat program</label>
+    <textarea id="code-box" class="code-box" rows="10" maxlength="20000" spellcheck="false" autocapitalize="off" autocomplete="off" placeholder="Type a Kilat program here, or tap an example above."></textarea>
+    <div class="writer-actions">
+      <button type="button" class="btn go primary" id="run-btn" disabled><span aria-hidden="true">▶</span> <span id="run-label">Run</span></button>
+      <button type="button" class="btn go" id="check-btn" disabled><span aria-hidden="true">✓</span> <span>Check only</span></button>
+      <button type="button" class="btn go" id="stop-btn" hidden><span aria-hidden="true">■</span> <span>Stop</span></button>
+    </div>
+  </section>
+
+  <section class="tale" id="result" hidden aria-labelledby="result-title">
+    <div class="tale-top">
+      <h2 id="result-title">Result</h2>
+      <span class="tale-speed" id="result-stats"></span>
+    </div>
+    <ol class="code-steps" id="model-log" hidden aria-label="What the model and the checker did"></ol>
+    <p class="code-status" id="result-status" aria-live="polite"></p>
+    <pre class="code-out" id="result-output" hidden tabindex="0" aria-label="What the program printed"></pre>
+    <pre class="code-out code-err" id="result-error" hidden tabindex="0" aria-label="The error"></pre>
+  </section>
+
+  <section class="card" aria-labelledby="short-title">
+    <h2 id="short-title">Kilat in one minute</h2>
+    <p class="card-lede">Enough to read the examples and change them. The full guide is linked below.</p>
+    <ul class="limits">
+      <li><code>let</code> names a value once; <code>var</code> names one you can change.</li>
+      <li>A number followed by a unit is a quantity: <code>250 N</code>, <code>4 mm</code>, <code>9.81 m/s^2</code>.</li>
+      <li><code>"{stress:MPa.1}"</code> prints a quantity in the unit you ask for, here with one decimal.</li>
+      <li><code>for i in 0..10 { }</code> loops; <code>fn area(w: mm, h: mm) -> mm^2 { w * h }</code> defines a function.</li>
+      <li><code>mean</code>, <code>median</code> and <code>stddev</code> work on lists and keep the unit.</li>
+      <li>Comments start with <code>//</code>.</li>
+    </ul>
+    <p class="fine"><a href="https://github.com/juw12/kilat/blob/main/docs/LANGUAGE.md" rel="noopener">Language guide</a> · <a href="https://juw12.github.io/kilat/" rel="noopener">Kilat playground</a> · <a href="https://github.com/juw12/kilat" rel="noopener">Source and measurements</a></p>
+  </section>
+
+  <section class="card" aria-labelledby="limits-title">
+    <h2 id="limits-title">What it can and cannot do</h2>
+    <p class="card-lede">Stated plainly, so nobody is misled.</p>
+    <ul class="limits">
+      <li>A program here cannot read files, use the network or touch this page. It can only compute and print.</li>
+      <li>Every run has a work limit and a memory limit. A loop that never ends is stopped, and the Stop button works at any time.</li>
+      <li>Kilat is a small, new language. It has no packages, and it is not a replacement for Python at general work.</li>
+      <li>The free models are often wrong about Kilat. Their program is checked before it runs, and a refused program is sent back for up to two more tries. A program that passes the check can still work out the wrong thing: read it before you trust the answer.</li>
+      <li>How often a free model writes a correct program has not been measured.</li>
+    </ul>
+  </section>
+
+  <footer class="spark-foot">
+    <p class="fine">With “I write it”, nothing you type leaves this page. With “A free model”, your request and any checker errors go to a free AI provider, so do not type anything private there. GlowCode does not save your programs.</p>
+  </footer>
+</main>
+
+<script src="../shared/glow-locale.js"></script>
+<script src="../shared/glow-apps.js"></script>
+<script src="../shared/glow-harness-kit.js"></script>
+<script type="module" src="./code.js"></script>
+</body>
+</html>

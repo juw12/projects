@@ -35,6 +35,7 @@ jobs:
           python -X utf8 apps/glow/tests/test_glow_news.py
           python -X utf8 apps/glow/tests/test_glow_spark.py
           python -X utf8 apps/glow/tests/test_glow_harness.py
+          python -X utf8 apps/glow/tests/test_glow_code.py
       - name: Install browser test tools (not app dependencies)
         run: |
           python -m pip install playwright==1.55.0
