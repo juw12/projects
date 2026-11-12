@@ -1,9 +1,10 @@
 name: GlowBot worker (Cloudflare)
 
 # Tests and bundles apps/glow/bot on every change and deploys it to Cloudflare Workers (free plan)
-# from main. Deploying needs repository secrets CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID;
-# without them the deploy is skipped. The bot reuses code from the Glow web apps, so those files
-# are watched too.
+# from main. After a deploy the live worker must report the new build and pass its own self-test,
+# or the run fails. Deploying needs repository secrets CLOUDFLARE_API_TOKEN and
+# CLOUDFLARE_ACCOUNT_ID; without them the deploy is skipped. The bot reuses code from the Glow web
+# apps, so those files are watched too.
 on:
   push:
     branches: [main]
@@ -99,6 +100,9 @@ jobs:
           done
           echo "The deployed worker never reported build $GLOW_BOT_BUILD."
           exit 1
+      - name: Self-test on Cloudflare (the bot's own logic, with scripted models)
+        if: steps.gate.outputs.deploy == 'true'
+        run: node tools/check_live.js "$GLOW_BOT_URL" "$GLOW_BOT_BUILD"
       - name: Health check from Cloudflare (models, web search, GlowNews, GlowSpark)
         if: steps.gate.outputs.deploy == 'true'
         run: |

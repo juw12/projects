@@ -7,9 +7,6 @@ import { WebError, createWeb, decodeEntities, htmlToText, isPublicUrl, parseDuck
 import { fakeFetch, reply } from "./fakes.js";
 
 const READER = "https://r.jina.ai/";
-const LITE = READER + "https://lite.duckduckgo.com/lite/?q=";
-const BING = READER + "https://www.bing.com/search?q=";
-const DUCK = READER + "https://html.duckduckgo.com/html/?q=";
 const DUCK_DIRECT = "https://html.duckduckgo.com/html/?q=";
 const BING_RSS = "https://www.bing.com/search?format=rss&q=";
 const WIKIPEDIA = "https://en.wikipedia.org/w/api.php";
@@ -210,74 +207,33 @@ test("only ordinary public web addresses are allowed", () => {
   for (const address of refused) assert.equal(isPublicUrl(address), false, address || "(empty)");
 });
 
-test("search takes the first engine that finds enough", async () => {
-  const send = fakeFetch([
-    [LITE, () => reply(resultsPage(1))],
-    [BING, () => reply("slow down", { status: 429 })],
-    [DUCK, () => reply(resultsPage(3))],
-  ]);
-  const found = await createWeb({ fetch: send }).search("free plan limits");
-  assert.equal(found.via, "jina:html.duckduckgo.com");
-  assert.equal(found.results.length, 3);
-  assert.deepEqual(found.results[0], {
-    title: "Result number 1 about the free plan",
-    url: "https://site1.example/page",
-    snippet: "Snippet 1.",
-  });
-  assert.deepEqual(found.tried, [
-    { id: "jina:lite.duckduckgo.com", ok: false, results: 1 },
-    { id: "jina:www.bing.com", ok: false, error: "HTTP 429" },
-    { id: "jina:html.duckduckgo.com", ok: true, results: 3 },
-  ]);
-  assert.equal(send.calls[0].url, LITE + "free%20plan%20limits");
-  assert.equal(send.calls[0].headers["X-Return-Format"], "markdown");
-  assert.equal(send.count(DUCK_DIRECT), 0, "the later routes are not touched once one works");
-  assert.equal(send.count(WIKIPEDIA), 0);
-});
-
-test("when the reader is blocked DuckDuckGo is asked directly", async () => {
-  const page = duckResult("First real result", "https://one.example/", "One.") + duckResult("Second real result", "https://two.example/", "Two.");
-  const send = fakeFetch([
-    [READER, () => reply("forbidden", { status: 403 })],
-    [DUCK_DIRECT, () => reply(page, HTML)],
-  ]);
-  const found = await createWeb({ fetch: send }).search("anything at all");
-  assert.equal(found.via, "duckduckgo-direct");
-  assert.deepEqual(
-    found.results.map((result) => result.url),
-    ["https://one.example/", "https://two.example/"],
-  );
-  const direct = send.calls.find((call) => call.url.startsWith(DUCK_DIRECT));
-  assert.match(direct.headers["User-Agent"], /GlowBot/, "the bot says who it is");
-});
-
-test("when DuckDuckGo refuses too, Bing's RSS answer is used before Wikipedia", async () => {
+test("search asks Bing's RSS answer first", async () => {
   const feed = rssFeed([
     { title: "First real result", link: "https://one.example/", description: "One." },
     { title: "Second real result", link: "https://two.example/", description: "Two." },
   ]);
   const send = fakeFetch([
-    [READER, () => reply("forbidden", { status: 403 })],
-    [DUCK_DIRECT, () => reply("forbidden", { status: 403 })],
     [BING_RSS, () => reply(feed, RSS)],
+    [WIKIPEDIA, () => reply({ query: { search: [{ title: "Not needed", snippet: "" }] } })],
   ]);
-  const found = await createWeb({ fetch: send }).search("anything at all");
+  const found = await createWeb({ fetch: send }).search("free plan limits");
   assert.equal(found.via, "bing-rss");
   assert.deepEqual(found.results, [
     { title: "First real result", url: "https://one.example/", snippet: "One." },
     { title: "Second real result", url: "https://two.example/", snippet: "Two." },
   ]);
-  const asked = send.calls.find((call) => call.url.startsWith(BING_RSS));
-  assert.equal(asked.url, BING_RSS + "anything%20at%20all");
-  assert.match(asked.headers["User-Agent"], /GlowBot/, "the bot says who it is");
+  assert.deepEqual(found.tried, [{ id: "bing-rss", ok: true, results: 2 }]);
+  assert.equal(send.calls.length, 1);
+  assert.equal(send.calls[0].url, BING_RSS + "free%20plan%20limits");
+  assert.match(send.calls[0].headers["User-Agent"], /GlowBot/, "the bot says who it is");
   assert.equal(send.count(WIKIPEDIA), 0, "the last resort is not touched once a real search works");
 });
 
-test("Wikipedia is the last resort, and one article is enough", async () => {
+test("one result is not enough for a real search, so Wikipedia is asked as well", async () => {
+  const feed = rssFeed([{ title: "The only result", link: "https://one.example/", description: "One." }]);
   const article = { title: "Cloudflare Workers", snippet: 'A <span class="searchmatch">serverless</span> platform' };
   const send = fakeFetch([
-    [READER, () => reply("nothing that looks like a result")],
-    [DUCK_DIRECT, () => reply("forbidden", { status: 403 })],
+    [BING_RSS, () => reply(feed, RSS)],
     [WIKIPEDIA, () => reply({ query: { search: [article] } })],
   ]);
   const found = await createWeb({ fetch: send }).search("cloudflare workers");
@@ -285,11 +241,45 @@ test("Wikipedia is the last resort, and one article is enough", async () => {
   assert.deepEqual(found.results, [
     { title: "Cloudflare Workers", url: "https://en.wikipedia.org/wiki/Cloudflare_Workers", snippet: "A serverless platform" },
   ]);
+  assert.deepEqual(found.tried, [
+    { id: "bing-rss", ok: false, results: 1 },
+    { id: "wikipedia", ok: true, results: 1 },
+  ]);
+});
+
+test("when Bing refuses, Wikipedia is the last resort and one article is enough", async () => {
+  const send = fakeFetch([
+    [BING_RSS, () => reply("slow down", { status: 429 })],
+    [WIKIPEDIA, () => reply({ query: { search: [{ title: "Patience (game)", snippet: "A card game" }] } })],
+  ]);
+  const found = await createWeb({ fetch: send }).search("patience");
+  assert.equal(found.via, "wikipedia");
+  assert.deepEqual(found.results, [
+    { title: "Patience (game)", url: "https://en.wikipedia.org/wiki/Patience_(game)", snippet: "A card game" },
+  ]);
+  assert.deepEqual(found.tried, [
+    { id: "bing-rss", ok: false, error: "HTTP 429" },
+    { id: "wikipedia", ok: true, results: 1 },
+  ]);
+  const asked = send.calls.find((call) => call.url.startsWith(WIKIPEDIA));
+  assert.match(asked.headers["User-Agent"], /GlowBot/, "the bot says who it is");
+});
+
+test("the routes that turn Cloudflare away are not in the chain", async () => {
+  const send = fakeFetch([]);
+  const web = createWeb({ fetch: send });
   assert.deepEqual(
-    found.tried.map((attempt) => attempt.id),
-    ["jina:lite.duckduckgo.com", "jina:www.bing.com", "jina:html.duckduckgo.com", "duckduckgo-direct", "bing-rss", "wikipedia"],
+    web.searchers.map((searcher) => searcher.id),
+    ["bing-rss", "wikipedia"],
   );
-  assert.deepEqual(found.tried[3], { id: "duckduckgo-direct", ok: false, error: "HTTP 403" });
+  assert.deepEqual(
+    web.readers.map((reader) => reader.id),
+    ["direct", "jina"],
+    "the site itself is asked before the free reader",
+  );
+  await web.search("anything at all");
+  assert.equal(send.count(READER), 0, "the free reader is never asked to search");
+  assert.equal(send.count(DUCK_DIRECT), 0, "DuckDuckGo is never asked");
 });
 
 test("when nothing is found search says so instead of failing", async () => {
@@ -297,23 +287,24 @@ test("when nothing is found search says so instead of failing", async () => {
   const found = await createWeb({ fetch: send }).search("no route answers");
   assert.deepEqual(found.results, []);
   assert.equal(found.via, "");
-  assert.equal(found.tried.length, 6);
+  assert.equal(found.tried.length, 2);
   assert.ok(found.tried.every((attempt) => attempt.ok === false && attempt.error === "HTTP 599"));
 });
 
 test("a route that never answers is given up on, and the next one is tried", async () => {
   const send = fakeFetch([
-    [READER, hangUntilAborted],
-    [DUCK_DIRECT, hangUntilAborted],
+    [BING_RSS, hangUntilAborted],
     [WIKIPEDIA, () => reply({ query: { search: [{ title: "Patience", snippet: "" }] } })],
   ]);
   const found = await createWeb({ fetch: send, timeoutMs: 20 }).search("patience");
   assert.equal(found.via, "wikipedia");
-  assert.ok(found.tried.slice(0, 4).every((attempt) => /^web search timed out/.test(attempt.error)));
+  assert.equal(found.tried.length, 2);
+  assert.equal(found.tried[0].id, "bing-rss");
+  assert.match(found.tried[0].error, /^web search timed out/);
 });
 
 test("a stop request ends the search at once", async () => {
-  const send = fakeFetch([[READER, hangUntilAborted]]);
+  const send = fakeFetch([[BING_RSS, hangUntilAborted]]);
   const web = createWeb({ fetch: send });
 
   const before = new AbortController();
@@ -328,22 +319,28 @@ test("a stop request ends the search at once", async () => {
   assert.equal(send.calls.length, 1, "the other engines are not asked after a stop");
 });
 
-test("a page is read through the reader first", async () => {
-  const send = fakeFetch([[READER, () => reply("Title\n\n\n\n\nBody text\n")]]);
-  const page = await createWeb({ fetch: send }).read("https://example.org/a?b=1");
-  assert.deepEqual(page, { text: "Title\n\nBody text", via: "jina" });
-  assert.equal(send.calls[0].url, READER + "https://example.org/a?b=1");
-  assert.equal(send.calls[0].headers["X-Return-Format"], "text");
+test("a page is read from the site itself first", async () => {
+  const send = fakeFetch([
+    ["https://example.org/", () => reply("<html><body><h1>Prices</h1><p>From $5 a month.</p></body></html>", HTML)],
+    [READER, () => reply("should not be needed")],
+  ]);
+  const page = await createWeb({ fetch: send }).read("https://example.org/prices?b=1");
+  assert.deepEqual(page, { text: "Prices\nFrom $5 a month.", via: "direct" });
+  assert.equal(send.calls.length, 1);
+  assert.equal(send.calls[0].url, "https://example.org/prices?b=1");
+  assert.match(send.calls[0].headers["User-Agent"], /GlowBot/, "the bot says who it is");
+  assert.equal(send.count(READER), 0, "the free reader is not touched when the site answers");
 });
 
-test("when the reader fails the page is fetched directly and turned into text", async () => {
+test("when the site refuses, the free reader is tried", async () => {
   const send = fakeFetch([
-    [READER, () => reply("unavailable for legal reasons", { status: 451 })],
-    ["https://example.org/", () => reply("<html><body><h1>Prices</h1><p>From $5 a month.</p></body></html>", HTML)],
+    ["https://example.org/", () => reply("unavailable for legal reasons", { status: 451 })],
+    [READER, () => reply("Title\n\n\n\n\nBody text\n")],
   ]);
-  const page = await createWeb({ fetch: send }).read("https://example.org/prices");
-  assert.deepEqual(page, { text: "Prices\nFrom $5 a month.", via: "direct" });
-  assert.match(send.calls[1].headers["User-Agent"], /GlowBot/);
+  const page = await createWeb({ fetch: send }).read("https://example.org/a?b=1");
+  assert.deepEqual(page, { text: "Title\n\nBody text", via: "jina" });
+  assert.equal(send.calls[1].url, READER + "https://example.org/a?b=1");
+  assert.equal(send.calls[1].headers["X-Return-Format"], "text");
 });
 
 test("a page read directly starts with its own title", async () => {
@@ -354,7 +351,6 @@ test("a page read directly starts with its own title", async () => {
     "<html><head><title>Prices</title></head><body><h1>Prices</h1><p>From $5 a month.</p></body></html>";
   const titleInBody = "<html><body><p>An article quoting <title>not the page title</title> in its text.</p></body></html>";
   const send = fakeFetch([
-    [READER, () => reply("blocked", { status: 429 })],
     ["https://example.org/titled", () => reply(page, HTML)],
     ["https://example.org/twice", () => reply(titledTwice, HTML)],
     ["https://example.org/body", () => reply(titleInBody, HTML)],
@@ -372,13 +368,21 @@ test("a page read directly starts with its own title", async () => {
   );
 });
 
-test("an empty page from the reader is not an answer", async () => {
+test("an empty page from the site is not an answer", async () => {
   const send = fakeFetch([
-    [READER, () => reply("   \n  ")],
+    ["https://example.org/", () => reply("   \n  ", { headers: { "Content-Type": "text/plain" } })],
+    [READER, () => reply("The text the reader found")],
+  ]);
+  const page = await createWeb({ fetch: send }).read("https://example.org/empty");
+  assert.deepEqual(page, { text: "The text the reader found", via: "jina" });
+});
+
+test("text that is not HTML is passed on as it is", async () => {
+  const send = fakeFetch([
     ["https://example.org/", () => reply('{"price": 5}', { headers: { "Content-Type": "application/json" } })],
   ]);
   const page = await createWeb({ fetch: send }).read("https://example.org/data.json");
-  assert.deepEqual(page, { text: '{"price": 5}', via: "direct" }, "text that is not HTML is passed on as it is");
+  assert.deepEqual(page, { text: '{"price": 5}', via: "direct" });
 });
 
 test("a file that is not text is refused, with the reason for each route", async () => {
@@ -388,13 +392,16 @@ test("a file that is not text is refused, with the reason for each route", async
   ]);
   await assert.rejects(createWeb({ fetch: send }).read("https://example.org/logo.png"), (error) => {
     assert.ok(error instanceof WebError);
-    assert.equal(error.message, "Could not read https://example.org/logo.png (jina: HTTP 500; direct: not a text page (image/png))");
+    assert.equal(error.message, "Could not read https://example.org/logo.png (direct: not a text page (image/png); jina: HTTP 500)");
     return true;
   });
 });
 
 test("private addresses are refused before anything is fetched", async () => {
-  const send = fakeFetch([[READER, () => reply("should never be asked")]]);
+  const send = fakeFetch([
+    ["http", () => reply("should never be asked")],
+    ["file", () => reply("should never be asked")],
+  ]);
   const web = createWeb({ fetch: send });
   for (const address of ["http://192.168.1.1/admin", "http://localhost:8787/", "file:///etc/passwd"]) {
     await assert.rejects(web.read(address), (error) => {
@@ -407,7 +414,9 @@ test("private addresses are refused before anything is fetched", async () => {
 });
 
 test("a long page is cut and says so", async () => {
-  const send = fakeFetch([[READER, () => reply("word ".repeat(200))]]);
+  const send = fakeFetch([
+    ["https://example.org/", () => reply("word ".repeat(200), { headers: { "Content-Type": "text/plain" } })],
+  ]);
   const page = await createWeb({ fetch: send }).read("https://example.org/long", undefined, 100);
   assert.equal(page.text, "word ".repeat(20) + "\n…[truncated]");
 });
@@ -461,7 +470,7 @@ test("a page that starts arriving and then stalls is given up on", async () => {
   ]);
   await assert.rejects(createWeb({ fetch: send, timeoutMs: 20 }).read("https://slow.example/page"), (error) => {
     assert.ok(error instanceof WebError);
-    assert.match(error.message, /jina: page read timed out.*direct: page read timed out/);
+    assert.match(error.message, /direct: page read timed out.*jina: page read timed out/);
     return true;
   });
 });

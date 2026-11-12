@@ -1,34 +1,121 @@
 # GlowBot
 
-Glow's agents inside Telegram, running on a free Cloudflare Worker named `glow-bot`.
+Glow's AI team inside Telegram. You give it a goal in a chat or a group; GlowLead plans it, hands
+the steps to agents, checks the work and reports back. It runs on a free Cloudflare Worker named
+`glow-bot`, uses free AI models, and needs no API key.
 
-**This is the foundation only.** The Telegram side (missions with GlowLead and the crew, GlowNews,
-GlowHarness and GlowSpark) is the next step and is built on the parts that are here.
+- Bot page (status, setup, self-test): https://juw12.github.io/projects/glow/bot/
+- Bot server: https://glow-bot.juw12.workers.dev
 
-## What it does today
+## Connect it (once)
+
+1. In Telegram, open **@BotFather** and send `/newbot`. Give the bot a name, then a username that
+   ends in `bot`. BotFather answers with a **token**.
+2. Open your **setup link**. It is the bot page with a setup code after the `#`, like
+   `https://juw12.github.io/projects/glow/bot/#k=...`. Paste the token and tap **Connect**.
+3. Tap the Telegram link the page shows and press **Start**. That makes you the owner. The link
+   works once, and only in a private chat with the bot. Until someone uses it, the bot answers nobody.
+
+About the secrets:
+
+- The **token** goes once, over HTTPS, from the page to the bot server. The server keeps it in its
+  own storage on Cloudflare (the `Registry` Durable Object). It is never in this repository, and
+  the page does not save it.
+- The **setup code** is the part after `#`. A browser never sends that part to a web server, and
+  the page wipes it from the address bar as soon as it opens. Your browser history can still
+  remember the link, so treat the link like a password. The repository holds only a SHA-256
+  fingerprint of the code (`SETUP_CODE_SHA256` in `wrangler.toml`).
+- The setup code can connect a different bot or wipe this one, so do not share it.
+
+## Commands
+
+| Command | What it does |
+|---|---|
+| `/lead` | Give it a goal. GlowLead plans it, hands the steps to agents, checks the result and reports back. |
+| `/room` | Give it a topic. The GlowRoom crew researches it on the live web. |
+| `/ask` | One agent, one job. Name the agent first, like `/ask scout`, then the task. |
+| `/agents` | Who is on the team. |
+| `/chat` | Plain chat that remembers the last few turns. |
+| `/agent` | GlowHarness: an agent with tools that asks before it saves anything. `/harness` is the same. |
+| `/news` | Today's AI news from GlowNews, with buttons for each topic. |
+| `/spark` | GlowSpark, the tiny AI Glow built from scratch, writes a short story from your opening line (in English). |
+| `/apps` | Buttons that open the Glow apps. |
+| `/daily` | AI news every day at a time you set (UTC+7), like `/daily 07:30`. `/daily off` stops it. |
+| `/status` | What is running, your mode, language and jobs used today. |
+| `/stop` | Stops the running job. |
+| `/lang` | Changes the language (English, Bahasa Indonesia, 简体中文, 繁體中文). |
+| `/help` | Everything it can do. |
+| `/access` | Owner only. `/access public` lets anyone use the bot; `/access private` closes it again. |
+
+A message without a command goes to the mode the chat is in. A new chat starts in lead mode;
+`/lead`, `/room`, `/chat` and `/agent` switch it.
+
+How a mission goes: the bot shows its plan and waits for your OK (a one-step plan just runs).
+Before you approve, a message from you changes the plan. While the team works, a message from
+you is passed on to it as a note. In a group, send it as a reply to one of the bot's messages.
+`/stop` ends the job.
+
+## Groups
+
+- Add the bot to a group and everyone there shares one team.
+- The owner lets a group in just by adding the bot to it. If someone else adds a private bot to
+  their group, it says so and leaves.
+- In a group it answers commands and replies to its own messages. That is how Telegram's privacy
+  mode works. To make it hear plain @mentions too, turn privacy mode off in @BotFather
+  (Bot Settings, then Group Privacy).
+- Only the person who started a job, or the owner, can press that job's buttons.
+
+## Limits
+
+- One job at a time per chat.
+- Everyone except the owner gets 20 jobs a day per chat.
+- The bot starts **private**: only the owner, and the groups the owner let in, can use it. A
+  stranger is told so (at most once an hour) and nothing else.
+- It runs on free AI models. They can be slow, busy or simply wrong. Check anything that matters.
+- Research uses Bing and Wikipedia search and reads pages directly. Some sites refuse that, so a
+  step can come back empty.
+- What you send goes to the bot server and on to the free AI services it uses. The server keeps a
+  short memory per chat so it can follow up. Do not send secrets.
+
+## Addresses
 
 | Address | What you get |
 |---|---|
-| `GET /v1/status` | It is alive, and which build is live. |
-| `GET /v1/probe` | A health check run from Cloudflare itself: every free model, every way to search and read the web, GlowNews and GlowSpark, each tried once. |
+| `GET /` | A line that says what this server is. |
+| `GET /v1/status` | It is alive, which build is live, whether a bot is connected and claimed, and whether it is public or private. |
+| `GET /v1/selftest` | The bot checks its own logic: whole conversations driven through the real chat code, with scripted models in place of the free ones. No network is used. One result per build. |
+| `GET /v1/probe` | A health check run from Cloudflare itself: every free model, every way to search and read the web, GlowNews and GlowSpark, each tried once. Kept for six hours per build. |
+| `POST /telegram/webhook` | Where Telegram delivers messages. Telegram signs each call with a secret header; anything else is refused. |
+| `POST /setup` | Used by the bot page: takes the setup code and the token, checks the token with Telegram and connects the webhook. |
+| `/admin/simulate` | Owner tool: talk to the bot without Telegram (send with `POST`, read with `GET`, wipe with `DELETE`). Needs the setup code. |
+| `POST /admin/reset` | Owner tool: disconnect the bot and forget the token. Needs the setup code. |
 
-The health check runs inside a Durable Object alarm, which is exactly where the bot's missions
-will run, so a green check means that path works too. A result is kept for six hours per build.
-Asking for a new one early (`?fresh=1`) needs the owner's setup code in the `X-Glow-Setup-Code`
-header.
+The setup code travels in the `X-Glow-Setup-Code` header (`/setup` also takes it in the body).
+Asking for a new self-test or health check early (`?fresh=1`) needs it too. Web pages may call the
+server only from `https://juw12.github.io`.
 
 ## What is inside
 
 | File | Job |
 |---|---|
-| `src/index.js` | The Worker and its two Durable Objects (`ChatAgent`, `Registry`). |
+| `src/index.js` | The Worker and its two Durable Objects: `Registry` (one for the whole bot) and `ChatAgent` (one per chat). |
+| `src/registry.js` | The one place that knows the token, the owner and who may use the bot. Every update passes its gate first. |
+| `src/chat.js` | One chat's brain: commands, buttons, the job queue, limits, the daily news timer. Long work runs in alarms, one small unit at a time. |
+| `src/missions.js` | The mission engine: turns a job into small units of work (one model call or one batch of web reads each). |
+| `src/agent.js` | `/agent` mode: GlowHarness from the Glow web app, with web search and page reading added. |
+| `src/telegram.js` | Turns a model's Markdown into Telegram HTML, cuts long answers into messages that fit, and talks to the Bot API. |
+| `src/strings.js` | Everything the bot says, in the four Glow languages. |
 | `src/models.js` | The chain of free models: no-key services first, Cloudflare Workers AI as backup, with rest times after a failure. |
-| `src/web.js` | Web search and page reading, with several fallbacks. |
+| `src/web.js` | Web search, page reading and the GlowNews edition. |
 | `src/spark.js` | GlowSpark, Glow's own small language model, running on the Worker. |
-| `src/probe.js` | The health check. |
-| `src/crew-port.js` | GlowRoom's search parser, copied by `tools/make_ports.py` (never edited by hand). |
+| `src/selftest.js` | The logic self-test behind `/v1/selftest`. |
+| `src/probe.js` | The health check behind `/v1/probe`. |
+| `src/util.js` | Small shared helpers. |
+| `src/lead-port.js`, `src/crew-port.js` | GlowLead's planning rules and GlowRoom's crew, copied from the web apps by `tools/make_ports.py` (never edited by hand), so a mission is planned the same way in Telegram. |
+| `tools/check_live.js` | Asks a deployed Worker for its status and its self-test, and fails unless both belong to the build just deployed and the self-test is green. |
 
-No API keys are needed. The only secrets are the two Cloudflare ones the deploy workflow uses.
+No API keys are needed and there are no runtime dependencies. The only secrets in GitHub are the
+two Cloudflare ones the deploy workflow uses.
 
 ## Run the tests
 
@@ -38,9 +125,17 @@ node --test test/*.test.js
 python tools/make_ports.py --check
 ```
 
-The tests use a pretend network and a pretend clock, so they need no internet.
+The tests use a pretend network, a pretend Telegram and a pretend clock, so they need no internet.
+The bot page has its own test: `python -X utf8 apps/glow/tests/test_glow_bot.py` from the repo root.
 
 ## Deploy
 
-Pushing to `main` deploys it through `.github/workflows/glow-bot-worker.yml`, which then asks the
-live Worker for its status and runs the health check.
+Pushing to `main` deploys it through `.github/workflows/glow-bot-worker.yml`. The workflow runs the
+tests, checks the generated ports and deploys. Then `node tools/check_live.js` asks the live Worker
+for its status and its self-test, and the deploy fails if either is wrong.
+
+## Not checked yet
+
+The real round trip through Telegram needs a bot token, so it has only been run through
+`/admin/simulate` and the tests. Until a token is connected, `GET /v1/status` says
+`"configured": false`.

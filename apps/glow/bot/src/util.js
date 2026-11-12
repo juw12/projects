@@ -1,6 +1,9 @@
 // Small shared helpers for the GlowBot Worker. No dependencies.
 
-export const VERSION = "0.1.0-probe";
+export const VERSION = "1.32.0";
+
+// The made-up address one part of the bot uses to call another through a binding.
+export const INSIDE = "https://glow-bot.internal";
 
 export class TimeoutError extends Error {
   constructor(message) {

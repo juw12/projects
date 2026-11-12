@@ -35,7 +35,9 @@ def find_block(lines, kind, name):
     return [line[len(INDENT):] if line.startswith(INDENT) else line for line in lines[first:end + 1]]
 
 
-def build_port(source, members, note):
+def build_port(source, members, note, header=(), also_export=()):
+    """Slice the named members out of a web source. `header` lines are the bot's own stand-ins for
+    things the sliced code expects from the page around it; they are written first, unchanged."""
     lines = source.read_text(encoding="utf-8").splitlines()
     relative = source.relative_to(BOT.parent.parent.parent).as_posix()
     out = [
@@ -44,10 +46,13 @@ def build_port(source, members, note):
         f"// {note}",
         "",
     ]
+    if header:
+        out.extend(header)
+        out.append("")
     for kind, name in members:
         out.extend(find_block(lines, kind, name))
         out.append("")
-    names = ", ".join(name for _, name in members)
+    names = ", ".join(list(also_export) + [name for _, name in members])
     out.append(f"export {{ {names} }};")
     return "\n".join(out) + "\n"
 
@@ -65,8 +70,49 @@ PORTS = [
             ("const", "STOP_WORDS"),
             ("function", "relevantExcerpt"),
             ("function", "looksLikeLeakedReasoning"),
+            ("const", "BOTS"),
+            ("const", "LANGUAGE_RULE"),
+            ("function", "extractJson"),
+            ("function", "heuristicPlan"),
+            ("function", "priorWork"),
         ],
-        "GlowRoom's search-result parser and page-excerpt picker, so Scout reads the web the same way in Telegram.",
+        "GlowRoom's crew, its search-result parser and its page-excerpt picker, so the crew works the same way in Telegram.",
+    ),
+    (
+        BOT / "src" / "lead-port.js",
+        WEB / "lead" / "lead.js",
+        [
+            ("const", "clip"),
+            ("const", "CONTEXT_PER_STEP"),
+            ("const", "PLAN_SYSTEM"),
+            ("const", "RESEARCH_HINT"),
+            ("function", "extractJson"),
+            ("function", "fallbackPlan"),
+            ("const", "FACTS_HINT"),
+            ("function", "ensureResearch"),
+            ("function", "parsePlan"),
+            ("const", "REVIEW_SYSTEM"),
+            ("function", "parseReview"),
+            ("function", "failedResearch"),
+            ("function", "backgroundFor"),
+            ("function", "contextFrom"),
+        ],
+        "GlowLead's planning, checking and context rules, so a mission is planned and reviewed the same way in Telegram.",
+        {
+            "header": [
+                "// The bot's own stand-ins for what the web page provides around the sliced code. Glow Hands (browser",
+                "// control on the user's PC) cannot run in a Cloudflare Worker, so it is not a worker here.",
+                "const WORKERS = {",
+                '  chat: { icon: "\U0001F4AC", name: "GlowChat" },',
+                '  council: { icon: "\u2696\uFE0F", name: "GlowChat Council" },',
+                '  room: { icon: "\U0001F3E2", name: "GlowRoom crew" },',
+                "};",
+                "function planLimits() {",
+                "  return { steps: 4 };",
+                "}",
+            ],
+            "also_export": ["WORKERS", "planLimits"],
+        },
     ),
 ]
 
@@ -74,8 +120,8 @@ PORTS = [
 def main():
     check_only = "--check" in sys.argv[1:]
     stale = []
-    for target, source, members, note in PORTS:
-        wanted = build_port(source, members, note)
+    for target, source, members, note, *extra in PORTS:
+        wanted = build_port(source, members, note, **(extra[0] if extra else {}))
         current = target.read_text(encoding="utf-8").replace("\r\n", "\n") if target.exists() else None
         if current == wanted:
             print(f"up to date: {target.name}")

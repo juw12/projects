@@ -5,74 +5,28 @@
 import { AI_MODELS, KEYLESS, askEntry } from "./models.js";
 import { createSpark } from "./spark.js";
 import { clip, errorText, inBatches, withTimeout } from "./util.js";
-import { USER_AGENT, createWeb } from "./web.js";
+import { createWeb } from "./web.js";
 
 const PING = [{ role: "user", content: "Reply with the single word: pong" }];
 const SEARCH_QUERY = "Cloudflare Workers free plan limits";
 const PAGE_TO_READ = "https://example.com/";
 const PAGE_SAYS = /example domain|documentation/i;
 const TALE_OPENING = "Once upon a time";
-const AT_ONCE = 4; // a Worker may only have six connections waiting at once
-
-// TEMPORARY, removed once the search order is decided: which keyless search services answer from where
-// the bot really runs. Nothing here is used to answer anyone. Each row keeps the status, the content
-// type, a few marker counts and a short sample of the body, so parsers get written for what really
-// arrives at Cloudflare and not for what a desktop browser sees.
-const REACH = [
-  { id: "bing-rss", url: (q) => `https://www.bing.com/search?format=rss&q=${q}`, from: /<item\b/i },
-  { id: "bing-news-rss", url: (q) => `https://www.bing.com/news/search?format=rss&q=${q}`, from: /<item\b/i },
-  { id: "bing-html", url: (q) => `https://www.bing.com/search?q=${q}`, from: /<li class="b_algo/i },
-  { id: "brave", url: (q) => `https://search.brave.com/search?q=${q}&source=web`, from: /class="snippet\b/i },
-  { id: "duckduckgo-lite", url: (q) => `https://lite.duckduckgo.com/lite/?q=${q}`, from: /result-link/i },
-  {
-    id: "duckduckgo-post",
-    url: () => "https://html.duckduckgo.com/html/",
-    body: (q) => `q=${q}`,
-    from: /result__a/i,
-  },
-  {
-    id: "duckduckgo-instant",
-    url: (q) => `https://api.duckduckgo.com/?q=${q}&format=json&no_html=1&skip_disambig=1`,
-  },
-  { id: "mojeek", url: (q) => `https://www.mojeek.com/search?q=${q}`, from: /class="results-standard/i },
-  {
-    id: "qwant",
-    url: (q) =>
-      `https://api.qwant.com/v3/search/web?q=${q}&count=10&locale=en_US&offset=0&device=desktop&safesearch=1`,
-  },
-  {
-    id: "yep",
-    url: (q) =>
-      `https://api.yep.com/fs/2/search?client=web&gl=US&no_correct=false&q=${q}&safeSearch=moderate&type=web`,
-  },
-  { id: "marginalia", url: (q) => `https://api.marginalia.nu/public/search/${q}?count=8` },
-  { id: "hn-algolia", url: (q) => `https://hn.algolia.com/api/v1/search?query=${q}&hitsPerPage=8` },
-  {
-    id: "gdelt",
-    url: (q) => `https://api.gdeltproject.org/api/v2/doc/doc?query=${q}&mode=ArtList&maxrecords=10&format=json`,
-  },
-  {
-    id: "google-news-rss",
-    url: (q) => `https://news.google.com/rss/search?q=${q}&hl=en-US&gl=US&ceid=US:en`,
-    from: /<item\b/i,
-  },
-  { id: "openalex", url: (q) => `https://api.openalex.org/works?search=${q}&per-page=5` },
+// Three ordinary pages of different kinds (an encyclopedia, a news site, a manual), read the way the
+// researcher reads them. This answers, with a measurement, whether real sites let the bot in.
+const PAGES_TO_READ = [
+  "https://en.wikipedia.org/wiki/Cloudflare",
+  "https://www.bbc.com/news",
+  "https://developers.cloudflare.com/workers/platform/limits/",
 ];
-const REACH_MARKS = {
-  items: /<item\b/gi,
-  algo: /b_algo/g,
-  resultLinks: /result__a|result-link/g,
-  snippets: /snippet/gi,
-  jsonUrls: /"url"\s*:/g,
-  blocked: /captcha|challenge|unusual traffic|anomaly|are you a robot|access denied/gi,
-};
-const REACH_BODY_CHARS = 600000;
+const PAGE_TEXT_ENOUGH = 400; // fewer characters than this is a cookie wall or an empty shell, not a page
+const AT_ONCE = 4; // a Worker may only have six connections waiting at once
 
 function oneLine(text, max) {
   return clip(String(text == null ? "" : text).replace(/\s+/g, " ").trim(), max);
 }
 
-// runProbe({ fetch, ai, now, glowPages, providers, aiModels, timeoutMs }) -> the report (it never throws)
+// runProbe({ fetch, ai, now, glowPages, providers, aiModels, pages, timeoutMs }) -> the report (it never throws)
 export async function runProbe(options) {
   const settings = options || {};
   const send = settings.fetch || ((input, init) => fetch(input, init));
@@ -81,6 +35,7 @@ export async function runProbe(options) {
   const glowPages = String(settings.glowPages || "https://juw12.github.io/projects/glow").replace(/\/+$/, "");
   const providers = settings.providers || KEYLESS;
   const aiModels = settings.ai ? settings.aiModels || AI_MODELS : [];
+  const pages = settings.pages || PAGES_TO_READ;
   const web = createWeb({ fetch: send, timeoutMs: Math.min(timeoutMs, 20000), glowPages });
   const spark = createSpark({ fetch: send, base: glowPages + "/spark", now });
   const request = { messages: PING, temperature: 0, maxTokens: 200 };
@@ -95,7 +50,7 @@ export async function runProbe(options) {
     web: new Array(web.searchers.length + web.readers.length).fill(null),
     spark: null,
     news: null,
-    reach: new Array(REACH.length).fill(null),
+    pages: new Array(pages.length).fill(null),
   };
   const tasks = [];
 
@@ -219,43 +174,21 @@ export async function runProbe(options) {
     }
   });
 
-  // TEMPORARY (see REACH above).
-  REACH.forEach((candidate, index) => {
+  pages.forEach((address, index) => {
     tasks.push(async () => {
       const began = now();
-      const row = { id: candidate.id, ok: false, status: 0, type: "", length: 0, ms: 0, marks: {}, sample: "", error: "" };
-      const query = encodeURIComponent(SEARCH_QUERY);
-      const address = candidate.url(query);
-      const headers = { "User-Agent": USER_AGENT, Accept: "*/*", "Accept-Language": "en" };
-      const init = { headers };
-      if (candidate.body) {
-        init.method = "POST";
-        init.body = candidate.body(query);
-        headers["Content-Type"] = "application/x-www-form-urlencoded";
-      }
+      const row = { url: address, ok: false, via: "", chars: 0, ms: 0, error: "" };
       try {
-        const answer = await withTimeout(
-          async (inner) => {
-            const response = await send(address, { ...init, signal: inner });
-            return { response, body: (await response.text()).slice(0, REACH_BODY_CHARS) };
-          },
-          Math.min(timeoutMs, 12000),
-          "reach " + candidate.id,
-        );
-        const body = answer.body;
-        row.ok = answer.response.ok;
-        row.status = answer.response.status;
-        row.type = clip(answer.response.headers.get("Content-Type") || "", 60);
-        row.length = body.length;
-        for (const name of Object.keys(REACH_MARKS)) row.marks[name] = (body.match(REACH_MARKS[name]) || []).length;
-        const at = candidate.from ? body.search(candidate.from) : 0;
-        const start = Math.max(at, 0);
-        row.sample = oneLine(body.slice(start, start + 3000), 500);
+        const page = await web.read(address);
+        row.via = page.via;
+        row.chars = page.text.length;
+        row.ok = row.chars >= PAGE_TEXT_ENOUGH;
+        if (!row.ok) row.error = "too little text: " + oneLine(page.text, 80);
       } catch (error) {
-        row.error = oneLine(errorText(error), 160);
+        row.error = oneLine(errorText(error), 200);
       }
       row.ms = now() - began;
-      report.reach[index] = row;
+      report.pages[index] = row;
     });
   });
 

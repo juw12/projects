@@ -28,8 +28,9 @@ export const KEYLESS = [
   onOvh("ovh-qwen", "Qwen3.5-397B-A17B", "Qwen3.5 397B"),
   onOvh("ovh-mistral", "Mistral-Small-3.2-24B-Instruct-2506", "Mistral Small 3.2"),
   { ...fromKit("llm7"), kind: "http", name: "LLM7" },
-  { ...fromKit("pollinations"), kind: "http", name: "openai-fast" },
 ];
+// Pollinations is on the web apps' list but answered 402 (payment required) to every check made from
+// Cloudflare, so the bot does not ask it.
 
 const onWorkersAi = (id, model, name) => ({ id: "ai-" + id, kind: "ai", label: "Workers AI", model, name, shape: "messages" });
 
@@ -40,10 +41,10 @@ export const AI_MODELS = [
   onWorkersAi("qwen3-30b", "@cf/qwen/qwen3-30b-a3b-fp8", "Qwen3 30B"),
   onWorkersAi("mistral-small", "@cf/mistralai/mistral-small-3.1-24b-instruct", "Mistral Small 3.1"),
   onWorkersAi("gpt-oss-20b", "@cf/openai/gpt-oss-20b", "gpt-oss-20b"),
-  onWorkersAi("gemma-3-12b", "@cf/google/gemma-3-12b-it", "Gemma 3 12B"),
   onWorkersAi("llama-8b", "@cf/meta/llama-3.1-8b-instruct-fast", "Llama 3.1 8B"),
   onWorkersAi("granite-micro", "@cf/ibm-granite/granite-4.0-h-micro", "Granite 4.0 micro"),
 ];
+// Gemma 3 12B is left out: it refused the chat form in the live check (Workers AI error 5018).
 
 // How a request is written for Workers AI. Every model documents the chat form; the second form is the
 // one OpenAI's newer API uses, kept so the health check can tell which one a model really accepts.
