@@ -1,0 +1,61 @@
+{
+  "$comment": "TradeBot's twin on freqtrade. DRY RUN: pretend money, real prices. Telegram and FreqUI are switched on and given their secrets by the environment (.env, see .env.example), never by this file; the placeholder values only satisfy freqtrade's config check (it rejects missing or empty keys).",
+  "strategy": "TradeBotTrend",
+  "dry_run": true,
+  "dry_run_wallet": 10000,
+  "stake_currency": "USDT",
+  "stake_amount": "unlimited",
+  "tradable_balance_ratio": 1.0,
+  "max_open_trades": 3,
+  "timeframe": "4h",
+  "fiat_display_currency": "USD",
+  "cancel_open_orders_on_exit": true,
+  "trading_mode": "spot",
+  "entry_pricing": {
+    "price_side": "same",
+    "use_order_book": true,
+    "order_book_top": 1
+  },
+  "exit_pricing": {
+    "price_side": "same",
+    "use_order_book": true,
+    "order_book_top": 1
+  },
+  "exchange": {
+    "name": "binance",
+    "key": "",
+    "secret": "",
+    "pair_whitelist": [
+      "BTC/USDT",
+      "ETH/USDT",
+      "SOL/USDT"
+    ],
+    "pair_blacklist": []
+  },
+  "pairlists": [
+    {
+      "method": "StaticPairList"
+    }
+  ],
+  "telegram": {
+    "enabled": false,
+    "token": "placeholder-set-the-real-value-in-the-dot-env-file",
+    "chat_id": "0"
+  },
+  "api_server": {
+    "enabled": false,
+    "listen_ip_address": "127.0.0.1",
+    "listen_port": 8080,
+    "verbosity": "error",
+    "enable_openapi": false,
+    "CORS_origins": [],
+    "username": "tradebot",
+    "password": "placeholder-set-the-real-value-in-the-dot-env-file",
+    "jwt_secret_key": "placeholder-set-the-real-value-in-the-dot-env-file"
+  },
+  "bot_name": "TradeBot twin (freqtrade, dry run)",
+  "initial_state": "running",
+  "internals": {
+    "process_throttle_secs": 30
+  }
+}

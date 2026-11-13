@@ -11,6 +11,10 @@ class_name = "Trader"
 tag = "v1"
 new_sqlite_classes = ["Trader"]
 
+# Workers AI for the desk's second opinion (free plan). The desk advises; it never trades.
+[ai]
+binding = "AI"
+
 [vars]
 # SHA-256 of the owner's setup code (the same code GlowBot uses today).
 # The code itself is never stored anywhere in this repository.

@@ -51,6 +51,7 @@ Every 5 minutes the agent wakes up and:
 | `/timeframe 4h` | Candle size: 15m, 1h, 4h or 1d |
 | `/backtest BTC` | Try the rules on past prices and compare with just holding |
 | `/history` | Closed trades |
+| `/desk`, `/desk off` | The second opinion (Bull, Bear, Risk) and how its calls turned out |
 | `/reset` | Start over with fresh practice money (asks first) |
 | `/help` | The short version of this page |
 
@@ -107,6 +108,59 @@ Read it honestly: these rules keep the account roughly flat with small drops. Th
 well when the market falls and miss most of the gain when it rises. **They are not a proven way to
 make money**, and a handful of trades per test is too few to prove anything either way. Past
 prices do not predict future ones. `/backtest` in the bot reruns this on fresh prices any time.
+
+## The desk: a second opinion (Bull, Bear, Risk)
+
+Borrowed from [TradingAgents](https://github.com/TauricResearch/TradingAgents), the most-starred
+LLM trading project: before every buy the rules want, three voices look at the same numbers and
+argue it out in one call to Workers AI (Gemma 3 12B, free on Cloudflare):
+
+- **Bull**: the best honest case for buying now;
+- **Bear**: the best honest case against;
+- **Risk**: what could go wrong, and whether the stop distance is sensible;
+
+then one verdict, "take it" or "pass on it", with how sure they are (1 to 5). It shows under every
+Bought message and every offer.
+
+**The desk never decides.** The 3 checks buy, size and sell exactly as before; with the desk off,
+slow or down, the bot trades the same, to the cent (there is a test for that). The desk only sees
+numbers, never the coin's name or the date, so the model cannot "remember" how that day went.
+`/desk` shows its record: how the trades it said "take it" to did against the ones it said "pass
+on it" to. `/desk off` stops asking it.
+
+Whether it helps is measured, not assumed: `tools/desk_eval.mjs` replays the rules over past
+prices and asks the same model about a spread-out sample of the buys. The GitHub check
+"TradeBot desk check" runs it whenever the desk changes, and the result is in its summary (it needs
+the Cloudflare API token to have the **Workers AI: Read** permission; without it the check says so
+and skips). `GET /v1/desk` asks the live desk one sample question, to show it answers. Only if
+"take it" beats "pass on it" clearly, over many trades, would it be worth letting the desk veto.
+
+## Merged from the old signals bot
+
+`juw12/signals` (RSI + MACD alerts on XRP, DOGE and AVAX, run on the PC) is folded in here. Both
+rule sets were replayed on the same 3 years of Binance 4h candles (Nov 2023 to Nov 2026, fees and
+slippage included, 1% risk per trade):
+
+| coin | TradeBot's rules | signals' rules | just holding |
+|---|---|---|---|
+| BTC | +14.8% (worst drop 5.5%) | +5.4% | +64% |
+| ETH | +8.4% | -0.4% | -13% |
+| SOL | +16.4% | +2.8% | +9% |
+| XRP | +6.6% | -6.2% | +66% |
+| DOGE | +14.7% | -3.8% | -32% |
+| AVAX | -13.2% | -0.4% | -80% |
+
+TradeBot's rules did better on 5 of 6 coins, so they stay. The coins signals called "robust" (XRP,
+DOGE) lost money on its own rules over 3 years. XRP and DOGE work with these rules and can be
+added any time with `/watch XRP` and `/watch DOGE`; AVAX lost money either way. In the most recent
+18 months every rule set was roughly flat while holding fell 25 to 72%: the rules mostly protect,
+they have not shown an edge.
+
+## The freqtrade twin
+
+`freqtrade/` runs the same rules on [freqtrade](https://github.com/freqtrade/freqtrade), the most
+used open-source crypto bot, in dry run. It is the path to real money later. See
+`freqtrade/README.md`. The GitHub check "TradeBot twin" backtests it with freqtrade's own engine.
 
 ## Where the prices come from
 

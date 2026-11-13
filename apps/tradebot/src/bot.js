@@ -25,6 +25,7 @@ export const COMMANDS = [
   { command: "timeframe", description: "Candle size: 15m, 1h, 4h or 1d" },
   { command: "backtest", description: "Try the rules on past prices" },
   { command: "history", description: "Closed trades" },
+  { command: "desk", description: "The second opinion (Bull, Bear, Risk) and its record" },
   { command: "reset", description: "Start over with fresh practice money" },
   { command: "help", description: "How this works" },
 ];
@@ -303,6 +304,13 @@ const handlers = {
 
   async history(ctx) {
     return { messages: [render.history(ctx.state.trades)] };
+  },
+
+  async desk(ctx, args) {
+    const { settings } = ctx.state;
+    const want = String(args[0] || "").toLowerCase();
+    if (want === "on" || want === "off") settings.desk = want === "on";
+    return { messages: [render.deskReport(ctx.state)] };
   },
 
   async reset(ctx, args) {

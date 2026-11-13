@@ -1,0 +1,9 @@
+{
+  "$comment": "Used only by the GitHub check: its runners are in the US, where Binance refuses connections, so the backtest reads Binance.US prices instead. The pairs and the rules stay the same.",
+  "exchange": {
+    "name": "binanceus"
+  },
+  "api_server": {
+    "enabled": false
+  }
+}

@@ -1,0 +1,43 @@
+name: TradeBot twin (freqtrade backtest)
+
+# Runs TradeBot's rules (apps/tradebot/freqtrade/user_data/strategies/TradeBotTrend.py) through
+# freqtrade's own backtester on real past prices, as an independent check of TradeBot's backtest.
+# Nothing is traded. The result table is in the job summary.
+on:
+  pull_request:
+    paths:
+      - 'apps/tradebot/freqtrade/**'
+      - '.github/workflows/trade-bot-twin.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: apps/tradebot/freqtrade
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download 4h candles (Binance.US) and backtest with freqtrade
+        run: |
+          set -o pipefail
+          mkdir -p user_data/data
+          ft() {
+            docker run --rm -v "$PWD":/work -w /work freqtradeorg/freqtrade:stable "$@"
+          }
+          ft download-data --config config.json --config ci-override.json --userdir user_data \
+            --timeframes 4h --timerange 20231001-
+          ft backtesting --config config.json --config ci-override.json --userdir user_data \
+            --timerange 20240101- --export none 2>&1 | tee backtest.txt
+          {
+            echo "### freqtrade backtest of TradeBot's rules (4h, BTC ETH SOL, since 2024-01-01, Binance.US prices)"
+            echo '```'
+            sed -n '/BACKTESTING REPORT/,/SUMMARY METRICS/p' backtest.txt | head -n 40
+            sed -n '/SUMMARY METRICS/,$p' backtest.txt | head -n 45
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          grep -q "BACKTESTING REPORT" backtest.txt

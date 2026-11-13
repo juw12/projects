@@ -1,0 +1,23 @@
+# TradeBot's twin on freqtrade, dry run (pretend money, real prices).
+#   docker compose up -d        start it
+#   docker compose logs -f      watch it
+#   http://127.0.0.1:8080       FreqUI (user tradebot, password from .env)
+# Secrets live in .env next to this file (see .env.example), never in config.json.
+services:
+  freqtrade:
+    image: freqtradeorg/freqtrade:stable
+    restart: unless-stopped
+    container_name: tradebot-twin
+    volumes:
+      - ./user_data:/freqtrade/user_data
+      - ./config.json:/freqtrade/config.json:ro
+    ports:
+      - "127.0.0.1:8080:8080"
+    env_file: .env
+    environment:
+      FREQTRADE__API_SERVER__LISTEN_IP_ADDRESS: "0.0.0.0"
+    command: >
+      trade
+      --config /freqtrade/config.json
+      --db-url sqlite:////freqtrade/user_data/tradesv3.dryrun.sqlite
+      --logfile /freqtrade/user_data/logs/freqtrade.log
