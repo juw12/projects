@@ -8,6 +8,7 @@ import { ClipClassifier, dHash, findExpiry, hamming } from "./classifier.js";
 import { doodle, loadBitmap } from "./doodle.js";
 import { WalkRecorder, currentPosition, formatDistance, geolocationAvailable, pathLength } from "./walk.js";
 import * as demo from "./demo.js";
+import * as widget from "./widget.js";
 
 export const APP_VERSION = "0.2.0";
 const DOWNLOADS_URL = "https://github.com/juw12/projects/releases/tag/haru-latest";
@@ -205,6 +206,40 @@ function render() {
   if (route.params.get("onboarding") === "1" || localStorage.getItem("onboarding.done") !== "1") renderOnboarding();
   else $("#onboarding").innerHTML = "";
   document.body.dataset.ready = "1";
+  widgetPublish();
+}
+
+// ---------- iPhone widget (optional) ----------
+
+/** What the home-screen widget shows: today's sky and a few counts. No diary text, photos or places. */
+function widgetSnapshot() {
+  const key = store.dateKey();
+  const today = dayFor(key);
+  const sky = state.scene; // the sky right now, so the time of day stays current
+  const meters = state.walks.reduce((sum, walk) => sum + (walk.meters || 0), 0);
+  return {
+    day: key,
+    scene: sky.scene,
+    weather: sky.weather,
+    tempC: sky.tempC,
+    time: sky.time,
+    season: sky.season,
+    moments: today?.moments?.length ?? 0,
+    days: state.days.length,
+    walkKm: Math.round(meters / 100) / 10,
+    inbox: state.clips.filter((clip) => clip.status === "inbox").length,
+    sample: store.isSample(),
+  };
+}
+
+function widgetPublish() {
+  try {
+    // wait for the sky and a finished welcome, so the first snapshot is already the real one
+    if (!state.scene || localStorage.getItem("onboarding.done") !== "1") return;
+    widget.publish(widgetSnapshot());
+  } catch {
+    // the widget is optional: it must never get in the way of the diary
+  }
 }
 
 function renderTabs(active) {
@@ -741,6 +776,7 @@ function clipSheet(id) {
 function settingsSheet() {
   const place = savedPlace();
   const useLocation = localStorage.getItem("weather.useLocation") === "1";
+  const widgetCode = widget.code();
   const langs = LANGS.map((l) => `<button class="list-row" data-action="lang" data-lang="${l}"><span>${LANG_TITLES[l]}</span>${l === lang() ? '<span class="check">✓</span>' : ""}</button>`).join("");
   const body = `<p class="section">${esc(t(C.language))}</p><div class="card list">${langs}</div>
     <p class="section">${esc(t(C.sampleDays))}</p><div class="card list"><label class="list-row switch"><span>${esc(t(C.lookAround))}</span><input type="checkbox" data-action="sample" ${store.isSample() ? "checked" : ""}><i></i></label></div>
@@ -752,6 +788,10 @@ function settingsSheet() {
     </div>
     <p class="section">${esc(t(C.backup))}</p><div class="card"><p class="muted small">${esc(t(C.backupNote))}</p>
       <div class="row"><button class="btn ghost" data-action="export">${esc(t(C.exportData))}</button><label class="btn ghost">${esc(t(C.importData))}<input type="file" accept="application/json,.json" data-input="import" hidden></label></div></div>
+    <p class="section">${esc(t(C.widgetTitle))}</p><div class="card"><p class="muted small">${esc(t(C.widgetNote))} <a href="${widget.SETUP_URL}" target="_blank" rel="noopener">${esc(t(C.widgetSetup))}</a></p>
+      <div class="row"><input class="search" type="text" id="widget-code" placeholder="jw-..." value="${esc(widgetCode)}" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="${esc(t(C.widgetCode))}"></div>
+      <div class="row"><button class="btn ghost" data-action="widget-save">${esc(t(C.widgetSave))}</button>${widgetCode ? `<button class="btn ghost" data-action="widget-clear">${esc(t(C.widgetUnpair))}</button>` : ""}</div>
+      <p class="muted small" id="widget-status" role="status">${esc(t(widgetCode ? C.widgetPaired : C.widgetNotPaired))}</p></div>
     <p class="section">${esc(t(C.getApps))}</p><div class="card"><p class="muted small">${esc(t(C.getAppsNote))}</p>
       <div class="row"><a class="btn ghost" href="${DOWNLOADS_URL}" target="_blank" rel="noopener">Android · Windows · Mac</a>${platform !== "web" ? `<a class="btn ghost" href="${WEB_URL}" target="_blank" rel="noopener">Web</a>` : ""}</div></div>
     <p class="muted tiny center">Haru ${APP_VERSION} · ${platform} · © OpenStreetMap contributors · Open-Meteo</p>`;
@@ -904,6 +944,23 @@ async function onClick(event) {
     }
     case "export":
       await exportBackup();
+      break;
+    case "widget-save": {
+      const typed = ($("#widget-code")?.value || "").trim();
+      const result = typed ? await widget.setCode(typed) : "invalid";
+      if (result === "ok") {
+        renderSheet("settings");
+        widgetPublish();
+        toast(t(C.widgetPaired));
+      } else {
+        const status = $("#widget-status");
+        if (status) status.textContent = t(result === "offline" ? C.widgetOffline : C.widgetBadCode);
+      }
+      break;
+    }
+    case "widget-clear":
+      await widget.setCode("");
+      renderSheet("settings");
       break;
     case "ob-next":
       state.onboardingPage += 1;
@@ -1086,7 +1143,15 @@ async function boot() {
     if (localStorage.getItem("onboarding.done") === "1") await ensureToday();
     await loadData();
     if (!document.body.classList.contains("sheet-open")) render();
+    else widgetPublish();
   });
+
+  // iPhone widget: only paired browsers fetch the relay script; a code paired later starts the feed at once
+  window.addEventListener("juw12-widget-code", widgetPublish);
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) widgetPublish();
+  });
+  if (widget.wanted()) widget.load().then(widgetPublish);
 
   if ("serviceWorker" in navigator && platform === "web" && location.protocol === "https:") {
     navigator.serviceWorker.register("sw.js").catch(() => {});

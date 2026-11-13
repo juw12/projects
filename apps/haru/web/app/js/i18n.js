@@ -218,6 +218,28 @@ export const C = {
     "Android, Windows and Mac versions are here. On iPhone, Add to Home Screen to use it like an app."
   ),
   version: L("バージョン", "버전", "Version"),
+  widgetTitle: L("iPhone ウィジェット", "iPhone 위젯", "iPhone widget"),
+  widgetNote: L(
+    "今日の空と日記の数を、PocketDex・Cozy Island と並べて iPhone のホーム画面に。コードを保存しているあいだだけ、小さなまとめを ntfy.sh 経由で送ります。日記の文章・写真・場所は送りません。",
+    "오늘의 하늘과 일기 수를 PocketDex·Cozy Island와 나란히 iPhone 홈 화면에. 코드를 저장해 둔 동안에만 작은 요약을 ntfy.sh를 거쳐 보내요. 일기 글·사진·장소는 보내지 않아요.",
+    "Today's sky and your diary counts on the iPhone home screen, next to PocketDex and Cozy Island. While a code is saved, a small summary goes through the ntfy.sh relay. Diary text, photos and places are never sent."
+  ),
+  widgetSetup: L("ウィジェットの準備", "위젯 준비하기", "Set up the widget"),
+  widgetCode: L("ウィジェットコード", "위젯 코드", "Widget code"),
+  widgetSave: L("コードを保存", "코드 저장", "Save code"),
+  widgetUnpair: L("連携をやめる", "연결 끊기", "Unpair"),
+  widgetPaired: L("この端末は連携中", "이 기기는 연결됨", "Paired on this device"),
+  widgetNotPaired: L("まだ連携していません", "아직 연결되지 않았어요", "Not paired"),
+  widgetBadCode: L(
+    "ウィジェットコードではないようです。準備ページからコピーしてください。",
+    "위젯 코드가 아닌 것 같아요. 준비 페이지에서 복사해 주세요.",
+    "That is not a widget code. Copy it from the setup page."
+  ),
+  widgetOffline: L(
+    "いまはつながりません。オンラインでもう一度どうぞ。",
+    "지금은 연결할 수 없어요. 온라인에서 다시 해 주세요.",
+    "Could not reach the widget relay. Try again when you are online."
+  ),
 
   weather: {
     clear: L("はれ", "맑음", "clear"),
