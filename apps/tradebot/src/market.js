@@ -27,27 +27,9 @@ const refuse = (reason) => {
 
 // Every source gives candles oldest first, the last one still forming, with times in milliseconds.
 // `bars` is what that exchange calls each timeframe (daily candles always start at 00:00 UTC).
+// The order is what answered from Cloudflare when this was deployed (2026-11-13): Gate, Kraken
+// and MEXC answered; OKX sometimes said "too many requests"; Binance refused Cloudflare (403).
 const SOURCES = [
-  {
-    name: "Binance",
-    max: 1000,
-    bars: { "15m": "15m", "1h": "1h", "4h": "4h", "1d": "1d" },
-    url: (symbol, bar, limit) => `https://data-api.binance.vision/api/v3/klines?symbol=${symbol}&interval=${bar}&limit=${limit}`,
-    parse(data) {
-      if (!Array.isArray(data)) refuse(data && data.msg);
-      return data.map((row) => candle(row[0], row[1], row[2], row[3], row[4], row[5]));
-    },
-  },
-  {
-    name: "OKX",
-    max: 300,
-    bars: { "15m": "15m", "1h": "1H", "4h": "4H", "1d": "1Dutc" },
-    url: (symbol, bar, limit) => `https://www.okx.com/api/v5/market/candles?instId=${base(symbol)}-${QUOTE}&bar=${bar}&limit=${limit}`,
-    parse(data) {
-      if (!data || data.code !== "0" || !Array.isArray(data.data)) refuse(data && data.msg);
-      return data.data.map((row) => candle(row[0], row[1], row[2], row[3], row[4], row[5])).reverse(); // newest first
-    },
-  },
   {
     name: "Gate",
     max: 1000,
@@ -72,20 +54,30 @@ const SOURCES = [
     },
   },
   {
-    name: "Bitget",
-    max: 1000,
-    bars: { "15m": "15min", "1h": "1h", "4h": "4h", "1d": "1Dutc" },
-    url: (symbol, bar, limit) => `https://api.bitget.com/api/v2/spot/market/candles?symbol=${symbol}&granularity=${bar}&limit=${limit}`,
-    parse(data) {
-      if (!data || data.code !== "00000" || !Array.isArray(data.data)) refuse(data && data.msg);
-      return data.data.map((row) => candle(row[0], row[1], row[2], row[3], row[4], row[5]));
-    },
-  },
-  {
     name: "MEXC",
     max: 500,
     bars: { "15m": "15m", "1h": "60m", "4h": "4h", "1d": "1d" },
     url: (symbol, bar, limit) => `https://api.mexc.com/api/v3/klines?symbol=${symbol}&interval=${bar}&limit=${limit}`,
+    parse(data) {
+      if (!Array.isArray(data)) refuse(data && data.msg);
+      return data.map((row) => candle(row[0], row[1], row[2], row[3], row[4], row[5]));
+    },
+  },
+  {
+    name: "OKX",
+    max: 300,
+    bars: { "15m": "15m", "1h": "1H", "4h": "4H", "1d": "1Dutc" },
+    url: (symbol, bar, limit) => `https://www.okx.com/api/v5/market/candles?instId=${base(symbol)}-${QUOTE}&bar=${bar}&limit=${limit}`,
+    parse(data) {
+      if (!data || data.code !== "0" || !Array.isArray(data.data)) refuse(data && data.msg);
+      return data.data.map((row) => candle(row[0], row[1], row[2], row[3], row[4], row[5])).reverse(); // newest first
+    },
+  },
+  {
+    name: "Binance",
+    max: 1000,
+    bars: { "15m": "15m", "1h": "1h", "4h": "4h", "1d": "1d" },
+    url: (symbol, bar, limit) => `https://data-api.binance.vision/api/v3/klines?symbol=${symbol}&interval=${bar}&limit=${limit}`,
     parse(data) {
       if (!Array.isArray(data)) refuse(data && data.msg);
       return data.map((row) => candle(row[0], row[1], row[2], row[3], row[4], row[5]));

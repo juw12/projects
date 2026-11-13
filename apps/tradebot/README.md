@@ -92,9 +92,12 @@ prices do not predict future ones. `/backtest` in the bot reruns this on fresh p
 
 ## Where the prices come from
 
-Finished candles from Binance's public data mirror (`data-api.binance.vision`), with OKX as the
-fallback. No account or key is needed for either. Prices older than two candles are refused, so
-the agent never trades on stale numbers.
+Finished candles from public market-data addresses, no account or key needed: Gate first, then
+Kraken, MEXC, OKX and Binance's data mirror. The first one that answers is used, and the one that
+answered last is asked first next time. Checked from Cloudflare on 2026-11-13: Gate, Kraken and
+MEXC answered, OKX sometimes said "too many requests", and Binance refused Cloudflare (403).
+`/v1/probe` shows what answers right now. Prices older than two candles are refused, so the agent
+never trades on stale numbers.
 
 ## For developers
 
@@ -118,7 +121,7 @@ check that the new build answers and can read prices.
 | `src/strategy.js` | the rules |
 | `src/paper.js` | the practice account (fees, slippage) |
 | `src/backtest.js` | the rules replayed on past candles |
-| `src/market.js` | live candles from Binance, then OKX |
+| `src/market.js` | live candles from Gate, Kraken, MEXC, OKX, Binance |
 | `src/agent.js` | the 5-minute round, stops, limits, approvals |
 | `src/bot.js`, `src/render.js` | commands and message text |
 | `src/index.js` | the Worker, the Durable Object, setup and pairing |
