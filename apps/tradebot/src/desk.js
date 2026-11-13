@@ -7,7 +7,14 @@
 // "remember" how that day went, and the backtest in tools/desk_eval.mjs replays it honestly.
 // When Workers AI is slow, down or answers nonsense, the desk stays quiet and trading goes on.
 
-export const DESK_MODEL = "@cf/google/gemma-3-12b-it";
+// Tried in order: when Cloudflare refuses a model for this account (error 5018) or it errors,
+// the desk asks the next one. A slow or unreadable answer does not move on (that costs time).
+export const DESK_MODELS = [
+  "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+  "@cf/meta/llama-3.1-8b-instruct",
+  "@cf/google/gemma-3-12b-it",
+];
+export const DESK_MODEL = DESK_MODELS[0];
 export const DESK_TIMEOUT_MS = 25000;
 export const MAX_DESK_LOG = 60;
 
@@ -123,28 +130,36 @@ function answerText(result) {
 
 // Ask the desk. Resolves to { bull, bear, risk, verdict, confidence, model } or null; never throws.
 // `onProblem` (optional) hears why there was no opinion: an error, a timeout or an answer it could not read.
-export async function convene(ai, brief, { model = DESK_MODEL, timeoutMs = DESK_TIMEOUT_MS, onProblem = () => {} } = {}) {
+// `model` asks one model only; otherwise the desk walks DESK_MODELS.
+export async function convene(ai, brief, { model, timeoutMs = DESK_TIMEOUT_MS, onProblem = () => {} } = {}) {
   if (!ai || typeof ai.run !== "function" || !brief) return null;
-  let timer;
-  try {
-    const call = ai.run(model, { messages: deskMessages(brief), max_tokens: 400, temperature: 0 });
-    const late = new Promise((resolve) => {
-      timer = setTimeout(() => resolve(null), timeoutMs);
-    });
-    const answer = await Promise.race([call, late]);
-    if (answer === null) {
-      onProblem(`no answer within ${Math.round(timeoutMs / 1000)} s`);
-      return null;
+  const problems = [];
+  for (const name of model ? [model] : DESK_MODELS) {
+    let timer;
+    try {
+      const call = ai.run(name, { messages: deskMessages(brief), max_tokens: 400, temperature: 0 });
+      const late = new Promise((resolve) => {
+        timer = setTimeout(() => resolve(null), timeoutMs);
+      });
+      const answer = await Promise.race([call, late]);
+      if (answer === null) {
+        onProblem(`${name}: no answer within ${Math.round(timeoutMs / 1000)} s`);
+        return null;
+      }
+      const verdict = parseVerdict(answerText(answer));
+      if (!verdict) {
+        onProblem(`${name}: could not read the answer: ${String(answerText(answer) || JSON.stringify(answer)).slice(0, 160)}`);
+        return null;
+      }
+      return { ...verdict, model: name };
+    } catch (error) {
+      problems.push(`${name}: ${String((error && error.message) || error).slice(0, 160)}`);
+    } finally {
+      clearTimeout(timer);
     }
-    const verdict = parseVerdict(answerText(answer));
-    if (!verdict) onProblem(`could not read the answer: ${String(answerText(answer) || JSON.stringify(answer)).slice(0, 160)}`);
-    return verdict ? { ...verdict, model } : null;
-  } catch (error) {
-    onProblem(String((error && error.message) || error).slice(0, 200));
-    return null;
-  } finally {
-    clearTimeout(timer);
   }
+  onProblem(problems.join(" | "));
+  return null;
 }
 
 // The desk's track record: how the trades it said "take" to did against the ones it said "pass" to.

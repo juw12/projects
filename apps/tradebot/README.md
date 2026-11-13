@@ -113,7 +113,7 @@ prices do not predict future ones. `/backtest` in the bot reruns this on fresh p
 
 Borrowed from [TradingAgents](https://github.com/TauricResearch/TradingAgents), the most-starred
 LLM trading project: before every buy the rules want, three voices look at the same numbers and
-argue it out in one call to Workers AI (Gemma 3 12B, free on Cloudflare):
+argue it out in one call to Workers AI (Llama 3.3 70B; if Cloudflare refuses a model for the account it falls back to Llama 3.1 8B, then Gemma 3 12B - free plan):
 
 - **Bull**: the best honest case for buying now;
 - **Bear**: the best honest case against;
