@@ -4,8 +4,9 @@ import { test } from "node:test";
 import { TICK_MS, newState, tick } from "../src/agent.js";
 import { handleUpdate } from "../src/bot.js";
 import { DESK_MODEL, convene, deskMessages, deskRecord, parseVerdict } from "../src/desk.js";
+import { createWorker } from "../src/index.js";
 import { TIMEFRAMES } from "../src/market.js";
-import { makeCandles, makeClock } from "./fakes.js";
+import { FakeNamespace, makeCandles, makeClock } from "./fakes.js";
 
 const GOOD = {
   bull: "Price is well above its long average and momentum is rising.",
@@ -177,4 +178,27 @@ test("/desk shows the record and turns the desk off and on", async () => {
   assert.match(await ask("/help"), /Desk \(off\)/);
   assert.match(await ask("/desk on"), /is <b>on<\/b>/);
   assert.equal(state.settings.desk, true);
+});
+
+test("GET /v1/desk asks the live desk one sample question and keeps a good answer", async () => {
+  const now = makeClock();
+  const ai = fakeAi({ response: JSON.stringify(GOOD) });
+  const { worker, Trader } = createWorker({ fetch: async () => new Response("{}"), now, ai });
+  const env = { BUILD: "test", SETUP_CODE_SHA256: "0".repeat(64) };
+  env.TRADER = new FakeNamespace(Trader, env, now);
+  const look = async () => (await worker.fetch(new Request("https://trade-bot.test/v1/desk"), env)).json();
+
+  const first = await look();
+  assert.equal(first.ok, true);
+  assert.equal(first.verdict, "take");
+  assert.equal(first.model, DESK_MODEL);
+  await look();
+  assert.equal(ai.calls.length, 1, "a second look within 6 hours does not ask again");
+
+  const { worker: quiet, Trader: QuietTrader } = createWorker({ fetch: async () => new Response("{}"), now, ai: null });
+  const quietEnv = { BUILD: "test", SETUP_CODE_SHA256: "0".repeat(64) };
+  quietEnv.TRADER = new FakeNamespace(QuietTrader, quietEnv, now);
+  const none = await (await quiet.fetch(new Request("https://trade-bot.test/v1/desk"), quietEnv)).json();
+  assert.equal(none.ok, false);
+  assert.match(none.error, /no Workers AI binding/);
 });

@@ -129,7 +129,11 @@ async function askWorkersAi(brief) {
     body: JSON.stringify({ messages: deskMessages(brief), max_tokens: 400, temperature: 0 }),
   });
   const data = await response.json().catch(() => ({}));
-  if (!response.ok || !data.success) throw new Error(`Workers AI said ${response.status}: ${JSON.stringify(data.errors || data).slice(0, 300)}`);
+  if (!response.ok || !data.success) {
+    const problem = new Error(`Workers AI said ${response.status}: ${JSON.stringify(data.errors || data).slice(0, 300)}`);
+    problem.auth = response.status === 401 || response.status === 403;
+    throw problem;
+  }
   const result = data.result || {};
   return parseVerdict(typeof result.response === "string" ? result.response : JSON.stringify(result.response || result));
 }
@@ -152,6 +156,21 @@ for (let position = 0; position < all.length && sample.length < limit; position 
 
 // Workers AI answers in seconds, so 4 at a time; a local model one at a time.
 const parallel = backend === "workers-ai" ? 4 : 1;
+const note = (lines) => {
+  console.error(lines.join("\n"));
+  if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, lines.join("\n") + "\n");
+};
+process.on("unhandledRejection", (error) => {
+  if (!(error && error.auth)) throw error;
+  note([
+    "### Desk check: not run",
+    "",
+    `The Cloudflare token cannot call Workers AI directly (${error.message}).`,
+    "The live desk is not affected: it uses the Worker's own AI binding (see GET /v1/desk).",
+    "To measure the desk here, give the API token the permission **Workers AI: Read** (Cloudflare dashboard, API tokens).",
+  ]);
+  process.exit(0);
+});
 for (let start = 0; start < sample.length; start += parallel) {
   await Promise.all(
     sample.slice(start, start + parallel).map(async (trade) => {

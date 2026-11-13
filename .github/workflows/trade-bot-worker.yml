@@ -91,3 +91,10 @@ jobs:
             echo "No price source answered from Cloudflare."
             exit 1
           fi
+      - name: The desk answers from Cloudflare (Workers AI; a warning only, the bot trades without it)
+        if: steps.gate.outputs.deploy == 'true'
+        continue-on-error: true
+        run: |
+          body="$(curl -fsS --max-time 60 "$TRADE_BOT_URL/v1/desk" || true)"
+          echo "$body" | python3 -m json.tool || echo "$body"
+          echo "$body" | grep -q '"ok":true' || { echo "::warning::The desk did not answer: the bot trades on, without second opinions."; exit 1; }

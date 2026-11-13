@@ -11,6 +11,22 @@ export const DESK_MODEL = "@cf/google/gemma-3-12b-it";
 export const DESK_TIMEOUT_MS = 25000;
 export const MAX_DESK_LOG = 60;
 
+// A typical setup, used by GET /v1/desk to check that the live desk answers.
+export const SAMPLE_BRIEF = {
+  timeframe: "4h",
+  aboveLongAveragePct: 6.2,
+  fastOverSlowPct: 1.4,
+  rsi: 61,
+  moveLastCandlePct: 0.8,
+  moveLastDayPct: 2.1,
+  moveLastWeekPct: 5.5,
+  moveLastMonthPct: 9.8,
+  belowRecentHighPct: 1.2,
+  candleRangePct: 1.9,
+  stopDistancePct: 5.7,
+  volumeVsAverage: 1.2,
+};
+
 const pct = (value) => `${value >= 0 ? "+" : ""}${value.toFixed(1)}%`;
 
 // The facts the desk argues over, all from finished candles up to `index`.

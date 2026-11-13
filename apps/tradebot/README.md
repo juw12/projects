@@ -130,7 +130,9 @@ on it" to. `/desk off` stops asking it.
 
 Whether it helps is measured, not assumed: `tools/desk_eval.mjs` replays the rules over past
 prices and asks the same model about a spread-out sample of the buys. The GitHub check
-"TradeBot desk check" runs it whenever the desk changes, and the result is in its summary. Only if
+"TradeBot desk check" runs it whenever the desk changes, and the result is in its summary (it needs
+the Cloudflare API token to have the **Workers AI: Read** permission; without it the check says so
+and skips). `GET /v1/desk` asks the live desk one sample question, to show it answers. Only if
 "take it" beats "pass on it" clearly, over many trades, would it be worth letting the desk veto.
 
 ## Merged from the old signals bot

@@ -2,6 +2,7 @@
 //
 //   GET  /v1/status    alive, which build, whether a Telegram bot is connected and the agent is running
 //   GET  /v1/probe     can this Worker read live prices? (each price source, asked from Cloudflare)
+//   GET  /v1/desk      does the desk (Workers AI second opinion) answer? One sample question, kept 6 hours
 //   POST /v1/setup     owner only (setup code): connect a Telegram bot token, set the webhook, make a pairing link
 //   POST /v1/telegram  Telegram's webhook (checked with the secret Telegram sends back)
 //
@@ -12,6 +13,7 @@
 // Money: this build trades practice money only. Nothing in it can place a real order.
 
 import { TICK_MS, newState, tick } from "./agent.js";
+import { DESK_MODEL, SAMPLE_BRIEF, convene } from "./desk.js";
 import { COMMANDS, handleUpdate } from "./bot.js";
 import { SOURCE_NAMES, createMarket } from "./market.js";
 import * as render from "./render.js";
@@ -21,6 +23,7 @@ import { VERSION, clip, errorText, json, randomHex, safeEqual, sha256Hex } from 
 const INSIDE = "https://trade-bot.internal"; // addresses used between the Worker and its Durable Object
 const PAIRING_GOOD_FOR_MS = 24 * 60 * 60 * 1000;
 const PROBE_GOOD_FOR_MS = 5 * 60 * 1000;
+const DESK_CHECK_GOOD_FOR_MS = 6 * 60 * 60 * 1000;
 const SEEN_UPDATES = 50;
 
 function buildOf(env) {
@@ -94,6 +97,7 @@ export function createWorker(overrides) {
       if (url.pathname === "/setup" && request.method === "POST") return this.run(() => this.setup(body));
       if (url.pathname === "/update" && request.method === "POST") return this.run(() => this.update(body));
       if (url.pathname === "/probe") return this.probe();
+      if (url.pathname === "/desk") return this.deskCheck();
       return json({ ok: false, error: "not found" }, 404);
     }
 
@@ -131,7 +135,7 @@ export function createWorker(overrides) {
         if (!config.ownerId) return; // nobody to trade for: stop ringing
         try {
           const state = await this.state();
-          const ai = deps.ai !== undefined ? deps.ai : this.env && this.env.AI;
+          const ai = this.ai();
           const messages = await tick(state, { market, now: deps.now(), ai });
           await this.storage.put("state", state); // saved before anything is sent
           await this.deliver(config, messages);
@@ -189,6 +193,23 @@ export function createWorker(overrides) {
         });
       }
       return json(await this.probing);
+    }
+
+    ai() {
+      return deps.ai !== undefined ? deps.ai : (this.env && this.env.AI) || null;
+    }
+
+    // Ask the desk one fixed sample question. Kept 6 hours, so looking costs (almost) nothing.
+    async deskCheck() {
+      const now = deps.now();
+      if (this.deskChecked && now - this.deskChecked.at < DESK_CHECK_GOOD_FOR_MS) return json(this.deskChecked);
+      const started = Date.now();
+      const opinion = await convene(this.ai(), SAMPLE_BRIEF);
+      const answer = opinion
+        ? { ok: true, model: opinion.model, verdict: opinion.verdict, confidence: opinion.confidence, bull: opinion.bull, ms: Date.now() - started, at: now }
+        : { ok: false, model: DESK_MODEL, error: this.ai() ? "the desk did not give a usable answer" : "no Workers AI binding", ms: Date.now() - started, at: now };
+      if (answer.ok) this.deskChecked = answer;
+      return json(answer);
     }
 
     // ---------------------------------------------------------------- setup
@@ -321,6 +342,11 @@ export function createWorker(overrides) {
 
     if (request.method === "GET" && path === "/v1/probe") {
       const answer = await trader.fetch(new Request(INSIDE + "/probe"));
+      return json(await answer.json(), answer.status);
+    }
+
+    if (request.method === "GET" && path === "/v1/desk") {
+      const answer = await trader.fetch(new Request(INSIDE + "/desk"));
       return json(await answer.json(), answer.status);
     }
 
