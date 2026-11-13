@@ -3,7 +3,7 @@ import { test } from "node:test";
 
 import { TICK_MS, newState, tick } from "../src/agent.js";
 import { handleUpdate } from "../src/bot.js";
-import { DESK_MODEL, convene, deskMessages, deskRecord, parseVerdict } from "../src/desk.js";
+import { DESK_MODEL, DESK_MODELS, convene, deskMessages, deskRecord, parseVerdict } from "../src/desk.js";
 import { createWorker } from "../src/index.js";
 import { TIMEFRAMES } from "../src/market.js";
 import { FakeNamespace, makeCandles, makeClock } from "./fakes.js";
@@ -59,6 +59,28 @@ test("the desk is asked about numbers only: no coin name, no date", () => {
   assert.match(text, /Bull/);
   assert.match(text, /RSI\(14\): 61/);
   assert.doesNotMatch(text, /BTC|ETH|SOL|USDT|20\d\d/);
+});
+
+test("convene moves to the next model when one is refused", async () => {
+  const calls = [];
+  const ai = {
+    run: async (name) => {
+      calls.push(name);
+      if (name === DESK_MODELS[0]) throw new Error("5018: This account is not allowed to access this model.");
+      return { response: JSON.stringify(GOOD) };
+    },
+  };
+  const problems = [];
+  const verdict = await convene(ai, brief, { onProblem: (why) => problems.push(why) });
+  assert.equal(verdict.verdict, "take");
+  assert.equal(verdict.model, DESK_MODELS[1]);
+  assert.deepEqual(calls, [DESK_MODELS[0], DESK_MODELS[1]]);
+  assert.equal(problems.length, 0);
+
+  const refused = { run: async (name) => Promise.reject(new Error(`5018 ${name}`)) };
+  let why = "";
+  assert.equal(await convene(refused, brief, { onProblem: (text) => (why = text) }), null);
+  assert.ok(DESK_MODELS.every((name) => why.includes(name)));
 });
 
 test("convene returns the verdict, and stays quiet on errors, nonsense or a slow answer", async () => {
