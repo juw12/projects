@@ -1,6 +1,6 @@
 // Offline support for the web/PWA build: the app shell is cached on install, scenes, fonts and
 // sample images are cached the first time they're shown. Weather, map tiles and OCR stay online-only.
-const VERSION = "haru-0.2.0";
+const VERSION = "haru-0.2.1";
 const SHELL = [
   "./",
   "index.html",
@@ -17,6 +17,7 @@ const SHELL = [
   "js/doodle.js",
   "js/demo.js",
   "js/walk.js",
+  "js/widget.js",
   "icons/icon-192.png",
   "scenes/clear__dusk__spring.jpg",
 ];
