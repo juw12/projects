@@ -3,6 +3,7 @@
 //   GET  /v1/status    alive, which build, whether a Telegram bot is connected and the agent is running
 //   GET  /v1/probe     can this Worker read live prices? (each price source, asked from Cloudflare)
 //   GET  /v1/desk      does the desk (Workers AI second opinion) answer? One sample question, kept 6 hours
+//   GET  /v1/live      real money: mode, whether the Worker is armed, and whether Tokocrypto answers from here
 //   POST /v1/setup     owner only (setup code): connect a Telegram bot token, set the webhook, make a pairing link
 //   POST /v1/telegram  Telegram's webhook (checked with the secret Telegram sends back)
 //
@@ -10,10 +11,14 @@
 // rings every 5 minutes: that is the agent's round. Everything it does happens one thing at a
 // time, so a command and a round can never trade over each other.
 //
-// Money: this build trades practice money only. Nothing in it can place a real order.
+// Money: the practice account decides everything. Real money (live.js) is a small fixed-size copy on
+// Tokocrypto that stays off unless LIVE_TRADING = "enabled", the API secrets are set AND the owner
+// sends /live on confirm. With any of the three missing, no real order can be sent.
 
 import { TICK_MS, newState, tick } from "./agent.js";
 import { DESK_MODEL, SAMPLE_BRIEF, convene } from "./desk.js";
+import { EXCHANGE_NAME, createTokocrypto, exchangeSymbol } from "./exchange.js";
+import { armedBy, drain, liveOf, missingFor } from "./live.js";
 import { COMMANDS, handleUpdate } from "./bot.js";
 import { SOURCE_NAMES, createMarket } from "./market.js";
 import * as render from "./render.js";
@@ -98,6 +103,7 @@ export function createWorker(overrides) {
       if (url.pathname === "/update" && request.method === "POST") return this.run(() => this.update(body));
       if (url.pathname === "/probe") return this.probe();
       if (url.pathname === "/desk") return this.deskCheck();
+      if (url.pathname === "/live") return this.run(() => this.liveCheck());
       return json({ ok: false, error: "not found" }, 404);
     }
 
@@ -127,6 +133,50 @@ export function createWorker(overrides) {
       }
     }
 
+    // ---------------------------------------------------------------- real money
+
+    exchange() {
+      if (deps.exchange !== undefined) return deps.exchange;
+      const env = this.env || {};
+      return createTokocrypto({ fetch: deps.fetch, now: deps.now, apiKey: env.TOKO_API_KEY || "", apiSecret: env.TOKO_API_SECRET || "" });
+    }
+
+    // Send (or rehearse) the real copies of the practice fills that just happened.
+    async copyLive(state) {
+      const live = liveOf(state);
+      if (!live.queue.length) return [];
+      return drain(state, { exchange: this.exchange(), now: deps.now(), armed: armedBy(this.env) });
+    }
+
+    async liveCheck() {
+      const state = await this.state();
+      const live = liveOf(state);
+      const markets = {};
+      let reachable = false;
+      let error = "";
+      try {
+        const exchange = this.exchange();
+        for (const symbol of state.settings.watchlist) {
+          const rules = await exchange.rules(symbol);
+          markets[symbol] = rules ? { market: rules.symbol, minOrderUsdt: rules.minNotional, step: rules.stepSize, spot: rules.spot } : { market: exchangeSymbol(symbol), listed: false };
+        }
+        reachable = true;
+      } catch (problem) {
+        error = clip(errorText(problem), 200);
+      }
+      return json({
+        ok: reachable,
+        exchange: EXCHANGE_NAME,
+        mode: live.mode,
+        armed: armedBy(this.env),
+        missing: missingFor(this.env),
+        orderUsdt: live.orderUsdt,
+        openCopies: Object.keys(live.positions).length,
+        markets,
+        ...(error ? { error } : {}),
+      });
+    }
+
     // ---------------------------------------------------------------- the agent's round
 
     async alarm() {
@@ -137,6 +187,7 @@ export function createWorker(overrides) {
           const state = await this.state();
           const ai = this.ai();
           const messages = await tick(state, { market, now: deps.now(), ai });
+          messages.push(...(await this.copyLive(state)));
           await this.storage.put("state", state); // saved before anything is sent
           await this.deliver(config, messages);
         } catch (error) {
@@ -315,7 +366,9 @@ export function createWorker(overrides) {
       }
 
       const state = await this.state();
-      const result = await handleUpdate({ state, market, now: deps.now() }, update);
+      const result = await handleUpdate({ state, market, now: deps.now(), env: this.env || {} }, update);
+      const copies = await this.copyLive(state);
+      if (copies.length) result.messages = [...(result.messages || []), ...copies];
       await this.storage.put("state", state); // saved before anything is sent
       await this.keepRunning(config);
       if (callback) {
@@ -347,6 +400,11 @@ export function createWorker(overrides) {
 
     if (request.method === "GET" && path === "/v1/probe") {
       const answer = await trader.fetch(new Request(INSIDE + "/probe"));
+      return json(await answer.json(), answer.status);
+    }
+
+    if (request.method === "GET" && path === "/v1/live") {
+      const answer = await trader.fetch(new Request(INSIDE + "/live"));
       return json(await answer.json(), answer.status);
     }
 

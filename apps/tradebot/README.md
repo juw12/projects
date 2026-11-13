@@ -52,6 +52,7 @@ Every 5 minutes the agent wakes up and:
 | `/backtest BTC` | Try the rules on past prices and compare with just holding |
 | `/history` | Closed trades |
 | `/desk`, `/desk off` | The second opinion (Bull, Bear, Risk) and how its calls turned out |
+| `/live` | Real money on Tokocrypto: off, shadow (rehearsal) or on. See [Real money](#real-money-tokocrypto-off-by-default) |
 | `/reset` | Start over with fresh practice money (asks first) |
 | `/help` | The short version of this page |
 
@@ -159,7 +160,7 @@ they have not shown an edge.
 ## The freqtrade twin
 
 `freqtrade/` runs the same rules on [freqtrade](https://github.com/freqtrade/freqtrade), the most
-used open-source crypto bot, in dry run. It is the path to real money later. See
+used open-source crypto bot, in dry run. It runs natively on Windows too (no Docker needed): `freqtrade/run-windows.ps1`. See
 `freqtrade/README.md`. The GitHub check "TradeBot twin" backtests it with freqtrade's own engine.
 
 ## Where the prices come from
@@ -206,13 +207,38 @@ check that the new build answers and can read prices.
 | `src/index.js` | the Worker, the Durable Object, setup and pairing |
 | `tools/transcript.js` | the scripted chat used to review and test the wording |
 
-## Real money
+## Real money (Tokocrypto, off by default)
 
-Not built, on purpose. Going live would need all of these, decided by the owner:
+The bot can copy its practice buys and sells to a real
+[Tokocrypto](https://www.tokocrypto.com) spot account (licensed in Indonesia, USDT markets).
+It is built so that a mistake costs little:
 
-1. an exchange or broker account that allows API trading where you live;
-2. an API key that can **trade only**, with withdrawals switched off, stored as a Worker secret;
-3. a hard cap on how much the bot may ever hold, and a kill switch;
-4. several weeks of the practice account behaving the way you expect.
+| Limit | Value |
+|---|---|
+| Size of each real buy | fixed, 10 USDT by default (`/live size 5` to `/live size 50`; the exchange minimum is 5) |
+| Most it may hold at once | 3 buys (30 USDT at the default size) |
+| Daily stop | after real losses of one buy size in a day, no more real buys that day |
+| Any order error | real copying stops at once (back to rehearsal) and you get a 🚨 message |
 
-Until then the practice account is the honest way to see what the agent would have done.
+Three switches must all be on before a single real order is sent:
+
+1. **Keys.** Make a Tokocrypto API key that can **trade only** (withdrawals off), then store it:
+   `npx wrangler secret put TOKO_API_KEY` and `npx wrangler secret put TOKO_API_SECRET`.
+   A Worker has no fixed IP address, so the key cannot be locked to one; trade-only is the guard.
+2. **Arm.** Set `LIVE_TRADING = "enabled"` in `wrangler.toml` (it ships as `"off"`) and deploy.
+3. **Chat.** Send `/live on confirm` in Telegram.
+
+| Command | What it does |
+|---|---|
+| `/live` | Mode, limits, what is missing, the real copies held |
+| `/live shadow` | Rehearsal: shows what it would buy for real, sends nothing (works without keys) |
+| `/live on confirm` | Start copying for real (only when keys and the arm switch are set) |
+| `/live off` | No new real buys. Real coins already bought are still sold by the rules |
+| `/live size 10` | USDT per real buy, 5 to 50 |
+
+`/reset` is refused while real coins are held, so the bot never forgets something it owns.
+`GET /v1/live` shows the mode, the switches and whether Tokocrypto is reachable (never balances).
+
+Honest warning: the rules have no proven edge. The backtest beat holding on past prices, which says
+little about the next month. Fees (about 0.1% each way) eat small trades. Run `/live shadow` for a
+few weeks and compare with the practice account before `/live on`.

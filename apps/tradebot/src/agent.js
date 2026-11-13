@@ -14,6 +14,7 @@
 //              offers (per market: open | approved | skipped | no answer | withdrawn),
 //              notTaken (per market: why a passing signal was not bought), rounds, gap (ms unseen) }
 //   lastTick   { at, symbols, errors, failed (coin names without a fresh price) }
+//   live       real money (live.js): mode, the copies waiting to be sent, real positions, a log
 //   deskLog    the desk's second opinions, newest last: { symbol, at, verdict, confidence,
 //              taken (bought on it), pnlPct (once that trade is sold) }
 // }
@@ -22,6 +23,7 @@ import { TIMEFRAMES, closedCandles } from "./market.js";
 import { buy, equity, newPortfolio, sell } from "./paper.js";
 import * as render from "./render.js";
 import { MAX_DESK_LOG, convene, deskBrief } from "./desk.js";
+import { newLive, noteFill } from "./live.js";
 import { PARAMS, computeSeries, decideAt, sizeOrder } from "./strategy.js";
 import { Problem, clip, errorText } from "./util.js";
 
@@ -55,6 +57,7 @@ export function newState(cash = 10000) {
     lastGood: null,
     blindAlerted: false,
     deskLog: [],
+    live: newLive(), // real money (live.js): off until the owner and the Worker both switch it on
   };
 }
 
@@ -156,6 +159,7 @@ function record(state, trade) {
 function open(state, symbol, usd, price, stop, why, now, by, desk = null) {
   const account = worth(state);
   const fill = buy(state.portfolio, symbol, usd, price, stop, now);
+  noteFill(state, fill);
   delete state.pending[symbol];
   delete markOf(state, symbol).passed;
   if (desk && desk.at) {
@@ -185,6 +189,7 @@ async function askDesk(state, view, decision, ai, now) {
 function close(state, symbol, price, why, now) {
   const position = state.portfolio.positions[symbol];
   const fill = sell(state.portfolio, symbol, price, why, now);
+  noteFill(state, fill);
   delete state.pending[symbol];
   markOf(state, symbol).lastExit = now;
   const opinion = position.deskAt ? deskEntry(state, symbol, position.deskAt) : null;
