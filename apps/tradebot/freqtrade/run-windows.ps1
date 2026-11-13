@@ -7,7 +7,8 @@
 # Options:
 #   -Venv <folder>      the Python venv with freqtrade (default: $env:FREQTRADE_VENV,
 #                       then E:\Projects\.tools\freqtrade-venv, then .venv next to this script)
-#   -Exchange <name>    price source, default binance (use binanceus or gate if binance is blocked)
+#   -Exchange <name>    price source, default gate (Binance is blocked on some Indonesian networks;
+#                       pass -Exchange binance where it works)
 #   -Proxy <url>        HTTP proxy for exchange calls (default: $env:HTTPS_PROXY if set)
 #   -Since <yyyymmdd>   first day for the backtest (default 20240101)
 #
@@ -17,7 +18,7 @@ param(
     [ValidateSet("trade", "backtest", "check")]
     [string]$Action = "trade",
     [string]$Venv = "",
-    [string]$Exchange = "binance",
+    [string]$Exchange = "gate",
     [string]$Proxy = $env:HTTPS_PROXY,
     [string]$Since = "20240101"
 )
@@ -55,10 +56,15 @@ if (Test-Path $envFile) {
 
 # Local overrides (exchange, proxy) go in user_data, which git ignores.
 New-Item -ItemType Directory -Force (Join-Path $here "user_data") | Out-Null
-$exchangeOverride = @{ name = $Exchange }
+# Spot markets only: loading Gate's options/futures lists can time out on slow networks.
+$ccxtSettings = @{ options = @{ fetchMarkets = @{ types = @("spot") } } }
 if ($Proxy) {
-    $exchangeOverride.ccxt_config = @{ httpsProxy = $Proxy }
-    $exchangeOverride.ccxt_async_config = @{ httpsProxy = $Proxy }
+    $ccxtSettings.httpsProxy = $Proxy
+}
+$exchangeOverride = @{
+    name = $Exchange
+    ccxt_config = $ccxtSettings
+    ccxt_async_config = $ccxtSettings
 }
 $override = @{ exchange = $exchangeOverride }
 if ($Action -ne "trade") {
@@ -66,7 +72,8 @@ if ($Action -ne "trade") {
     $override.telegram = @{ enabled = $false }
 }
 $overridePath = Join-Path $here "user_data\local-override.json"
-$override | ConvertTo-Json -Depth 5 | Set-Content -Encoding UTF8 $overridePath
+# No byte-order mark: freqtrade's JSON parser rejects it (Set-Content -Encoding UTF8 adds one on PowerShell 5.1).
+[IO.File]::WriteAllText($overridePath, ($override | ConvertTo-Json -Depth 5), (New-Object Text.UTF8Encoding $false))
 
 # freqtrade logs to stderr; Windows PowerShell 5.1 would treat that as an error under Stop.
 $ErrorActionPreference = "Continue"
