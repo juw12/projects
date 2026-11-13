@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { BLIND_ALERT_MS, TICK_MS, approve, manualBuy, newState, tick, worth } from "../src/agent.js";
+import { BLIND_ALERT_MS, TICK_MS, approve, manualBuy, newState, skip, tick, worth } from "../src/agent.js";
 import { TIMEFRAMES } from "../src/market.js";
 import { makeCandles, makeClock } from "./fakes.js";
 
@@ -136,7 +136,8 @@ test("a new day brings yesterday's summary", async () => {
   now.advance(24 * 60 * 60 * 1000);
   const messages = await round();
   assert.match(messages[0], /Daily summary/);
-  assert.match(messages[0], /Trades: 1 · Holding: BTC/);
+  assert.match(messages[0], /Bought: BTC/);
+  assert.match(messages[0], /Holding: BTC/);
   assert.equal(state.day.trades, 0);
   assert.ok(Math.abs(state.day.start - worth(state)) < 50);
 });
@@ -163,5 +164,38 @@ test("stale prices are never traded on", async () => {
   const market = { candles: async () => ({ source: "Fake", candles: old }) };
   assert.deepEqual(await tick(state, { market, now: now() }), []);
   assert.match(state.lastTick.errors[0], /too old/);
+  assert.deepEqual(state.portfolio.positions, {});
+});
+
+test("an offer you skip or leave unanswered is not made again until the signal comes back", async () => {
+  const { now, state, scene, round } = setup({ BTCUSDT: { trend: "up" } });
+  const candle = TIMEFRAMES["4h"].ms;
+  const offered = (messages) => messages.some((html) => /Buy BTC\?/.test(html));
+  state.settings.watchlist = ["BTCUSDT"];
+  state.settings.auto = false;
+
+  assert.ok(offered(await round()));
+  assert.ok(state.pending.BTCUSDT.until > now(), "the offer says when it ends");
+  assert.equal(skip(state, "BTCUSDT"), true);
+  assert.equal(skip(state, "BTCUSDT"), false, "nothing left to skip");
+
+  // The next candle still says buy: no second question.
+  now.advance(candle);
+  assert.ok(!offered(await round()));
+  assert.equal(state.day.notTaken.BTCUSDT, "you skipped my offer");
+
+  // The signal goes away and comes back: a new offer.
+  scene.BTCUSDT.trend = "down";
+  now.advance(candle);
+  await round();
+  scene.BTCUSDT.trend = "up";
+  now.advance(candle);
+  assert.ok(offered(await round()));
+
+  // Left unanswered for a whole candle: it lapses and is not repeated either.
+  now.advance(candle);
+  assert.ok(!offered(await round()));
+  assert.equal(state.pending.BTCUSDT, undefined);
+  assert.equal(state.marks.BTCUSDT.passed, "unanswered");
   assert.deepEqual(state.portfolio.positions, {});
 });

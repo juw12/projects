@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { TICK_MS } from "../src/agent.js";
+import { nearest } from "../src/bot.js";
 import { createWorker } from "../src/index.js";
 import { TIMEFRAMES } from "../src/market.js";
 import { sha256Hex } from "../src/util.js";
@@ -214,7 +215,7 @@ test("ask mode: the owner approves or skips each buy with a button", async () =>
 
   // The same button a second time: the offer is gone.
   const again = await tap("ok:BTCUSDT", "Buy BTC?");
-  assert.match(again[0].text, /expired/);
+  assert.match(again[0].text, /Already bought/);
   assert.ok(now() > 0);
 });
 
@@ -245,7 +246,7 @@ test("commands: trading by hand, the watchlist, settings, backtest and reset", a
   assert.match(await say("/buy ETH 500"), /Bought ETH[\s\S]*\$500\.00[\s\S]*I will look after it/);
   assert.match(await say("/buy ETH 500"), /Already holding ETH/);
   assert.match(await say("/buy BTC 99999999"), /Only \$9,500\.00 of cash is left/);
-  assert.match(await say("/buy NOPE 50"), /No price data for NOPEUSDT/);
+  assert.match(await say("/buy NOPE 50"), /Not bought[\s\S]*cannot find a NOPE\/USDT market/);
   assert.match(await say("/buy BTC -5"), /amount is in dollars/);
   assert.match(await say("/sell BTC"), /Not holding BTC/);
   assert.match(await say("/sell all"), /Sold ETH/);
@@ -325,4 +326,38 @@ test("a new pairing link takes the bot away from the old owner", async () => {
   await env.TRADER.runAlarms();
   assert.equal(await storage().getAlarm(), null, "no owner, no rounds");
   assert.match(await say("/start " + answer.body.pairLink.split("start=")[1], STRANGER), /You are the owner/);
+});
+
+test("typos and everyday words: showing is done with a note, acting is only offered", async () => {
+  const { pair, say, storage } = await harness();
+  await pair();
+  assert.equal(nearest("stauts"), "status");
+  assert.equal(nearest("sel"), "sell");
+  assert.equal(nearest("hist"), "history");
+  assert.equal(nearest("nonsense"), null);
+  assert.equal(nearest("constructor"), null);
+
+  // A misspelled command that only shows something is simply run.
+  const status = await say("/stauts");
+  assert.match(status, /I read \/stauts as \/status/);
+  assert.match(status, /practice/);
+
+  // One that would change the account is offered, never done.
+  const before = await storage().get("state");
+  const sell = await say("/sel DOGE");
+  assert.match(sell, /Did you mean <code>\/sell DOGE<\/code>\? Nothing was done/);
+  assert.match(await say("/paus"), /Did you mean <code>\/pause<\/code>/);
+  const after = await storage().get("state");
+  assert.equal(after.settings.paused, before.settings.paused);
+  assert.deepEqual(after.trades, before.trades);
+
+  // Everyday words that clearly ask to see something.
+  assert.match(await say("how is it going?"), /I read that as \/status/);
+  assert.match(await say("status"), /I read that as \/status/);
+  assert.match(await say("buy BTC 100"), /Did you mean <code>\/buy BTC 100<\/code>/);
+
+  // Everything else is turned away in plain words.
+  assert.match(await say("hello"), /I only understand commands/);
+  assert.match(await say("/nonsense"), /I only understand commands/);
+  assert.match(await say("/constructor"), /I only understand commands/);
 });

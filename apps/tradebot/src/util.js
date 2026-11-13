@@ -1,12 +1,15 @@
 // Small shared helpers for the TradeBot Worker. No dependencies.
 
-export const VERSION = "0.1.0";
+export const VERSION = "0.2.0";
 
 // Cut text to a maximum length, marking the cut with one ellipsis character.
 export function clip(text, max) {
   const value = String(text == null ? "" : text);
   return value.length > max ? value.slice(0, Math.max(0, max - 1)) + "…" : value;
 }
+
+// A problem the owner can be told as it is: plain words, with what to do next.
+export class Problem extends Error {}
 
 export function errorText(error) {
   return String((error && error.message) || error || "unknown error");

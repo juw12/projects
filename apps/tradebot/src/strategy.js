@@ -114,11 +114,17 @@ export function decideAt(series, index, state, params = PARAMS) {
   const rsiGood = strength >= params.rsiMin && strength <= params.rsiMax;
   const reasons = [
     { name: "Trend", ok: trendUp, text: `price ${trendUp ? "above" : "below"} the ${params.regime}-candle average` },
-    { name: "Momentum", ok: momentumUp, text: `${params.fast}-average ${momentumUp ? "above" : "below"} the ${params.slow}-average` },
+    { name: "Momentum", ok: momentumUp, text: `${params.fast}-candle average ${momentumUp ? "above" : "below"} the ${params.slow}-candle average` },
     {
       name: "RSI",
       ok: rsiGood,
-      text: `${strength.toFixed(0)} (${strength > params.rsiMax ? "overheated" : strength < params.rsiMin ? "weak" : "rising"})`,
+      text: `${strength.toFixed(0)} (${
+        strength > params.rsiMax
+          ? `overheated: above ${params.rsiMax}`
+          : strength < params.rsiMin
+            ? `weak: under ${params.rsiMin}`
+            : "rising, not overheated"
+      })`,
     },
   ];
   const trail = close - params.stopAtr * range;
@@ -133,11 +139,15 @@ export function decideAt(series, index, state, params = PARAMS) {
 
   const since = state ? state.barsSinceExit : null;
   if (since !== null && since !== undefined && since < params.cooldown) {
-    return { action: "hold", reasons, stop: null, why: `cooling down after the last exit (${since}/${params.cooldown} candles)` };
+    const left = params.cooldown - since;
+    return { action: "hold", reasons, stop: null, why: `cooling down after the last sale: ${left} of ${params.cooldown} candles still to wait` };
   }
-  if (trendUp && momentumUp && rsiGood) return { action: "buy", reasons, stop: trail, why: "trend, momentum and RSI agree" };
-  const missing = reasons.filter((reason) => !reason.ok).map((reason) => reason.name.toLowerCase());
-  return { action: "hold", reasons, stop: null, why: `waiting for ${missing.join(" and ")}` };
+  if (trendUp && momentumUp && rsiGood) {
+    return { action: "buy", reasons, stop: trail, why: `uptrend, rising momentum and RSI ${strength.toFixed(0)} (not overheated): all 3 checks pass` };
+  }
+  const missing = reasons.filter((reason) => !reason.ok).map((reason) => (reason.name === "RSI" ? "RSI" : reason.name.toLowerCase()));
+  const wanted = missing.length > 1 ? `${missing.slice(0, -1).join(", ")} and ${missing[missing.length - 1]}` : missing[0];
+  return { action: "hold", reasons, stop: null, why: `waiting for ${wanted}` };
 }
 
 // How many dollars to put into a trade so that a stop-out loses `riskPct` of the account,
