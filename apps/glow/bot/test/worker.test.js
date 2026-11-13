@@ -4,6 +4,7 @@ import { test } from "node:test";
 
 import * as entry from "../src/index.js";
 import { AI_MODELS, KEYLESS } from "../src/models.js";
+import { REGISTRY_NAME } from "../src/registry.js";
 import { SELFTEST_NOTE } from "../src/selftest.js";
 import { VERSION, sha256Hex } from "../src/util.js";
 import { FakeNamespace, completion, fakeAi, fakeFetch, makeClock, reply } from "./fakes.js";
@@ -75,6 +76,7 @@ test("status says what is running, and the Glow page may read it", async () => {
     bot: null,
     access: "private",
     claimed: false,
+    paired: false,
     ai: false,
     colo: "",
   });
@@ -853,7 +855,7 @@ test("a chat that breaks does not make Telegram send the message again", async (
 
 test("when the settings store is down, Telegram is asked to send the message again", async () => {
   const { call, env, asked, claim, hook } = await setUpBot();
-  const store = env.REGISTRY.object("registry").instance;
+  const store = env.REGISTRY.object(REGISTRY_NAME).instance;
   store.fetch = async () => {
     throw new Error("the settings store is down");
   };
@@ -1065,4 +1067,251 @@ test("a chat's alarm that breaks is written to the log, and the alarm itself doe
   // Cloudflare runs a failed alarm again and again; the chat's own watchdog is what restarts a stuck job.
   const log = await logWhile(() => agent.alarm());
   assert.equal(log, "chat alarm failed: the step broke");
+});
+
+// ------------------------------------------------------------------ a bot connected under 0.2.0
+const OLD_SECRET = "the-secret-0.2.0-gave-telegram";
+const OLD_HOOK = { "X-Telegram-Bot-Api-Secret-Token": OLD_SECRET };
+const OLD_PAIR_CODE = "c0ffee".repeat(4);
+const DRESSING = ["setMyCommands", "setMyDescription", "setMyShortDescription"];
+
+// A Worker whose settings store holds what GlowBot 0.2.0 left behind. The work the Worker hands
+// to Cloudflare to finish after the answer is collected, so a test can wait for it with settle().
+async function setUpLegacy(options = {}) {
+  const telegram = pretendTelegram(options.telegram);
+  const picture = [PAGES + "/bot/logo.jpg", () => new Response(new Uint8Array([1, 2, 3]))];
+  const kit = await setUp({ routes: [telegram.route, picture] });
+  const pairUntil = kit.now() + 19 * HOUR;
+  await kit.env.REGISTRY.object(REGISTRY_NAME).storage.put("config", {
+    token: TOKEN,
+    bot: { id: 777, username: "glow_test_bot", name: "Glow" },
+    secret: OLD_SECRET,
+    ...(options.unpaired
+      ? { allowed: [], pairCode: OLD_PAIR_CODE, pairUntil }
+      : { ownerId: OWNER_CHAT.id, allowed: [OWNER_CHAT.id], pairCode: "", pairUntil: 0 }),
+    connectedAt: kit.now() - 5 * HOUR,
+  });
+
+  const pending = [];
+  async function call(path, init = {}) {
+    const request = new Request("https://glow-bot.test" + path, init);
+    const response = await kit.worker.fetch(request, kit.env, { waitUntil: (work) => pending.push(work) });
+    return { status: response.status, body: await response.json() };
+  }
+  async function settle() {
+    while (pending.length) await Promise.all(pending.splice(0));
+  }
+  const webhooks = () => telegram.asked.filter((entry) => entry.method === "setWebhook");
+  return {
+    ...kit,
+    call,
+    settle,
+    webhooks,
+    asked: telegram.asked,
+    pairUntil,
+    hook: { "X-Telegram-Bot-Api-Secret-Token": await sha256Hex("glow-bot-webhook:" + TOKEN) },
+  };
+}
+
+test("a bot connected under 0.2.0 is answered on its old address, and its webhook moves by itself", async () => {
+  const { call, settle, webhooks, env, asked, hook } = await setUpLegacy();
+
+  // Nobody gets in without the secret 0.2.0 gave Telegram, on either address.
+  for (const path of ["/v1/telegram", "/telegram/webhook"]) {
+    for (const headers of [{}, { "X-Telegram-Bot-Api-Secret-Token": "made-up" }, hook]) {
+      const refused = await call(path, jsonPost(message(1, "/help"), headers));
+      assert.deepEqual([refused.status, refused.body], [403, { ok: false, error: "refused" }], path);
+    }
+  }
+  await settle();
+  assert.deepEqual(asked, [], "a refused call moves nothing and answers nobody");
+  assert.equal(env.CHAT.objects.size, 0);
+
+  // Telegram still calls the 0.2.0 address. The owner of 0.2.0 is still the owner.
+  const first = await call("/v1/telegram", jsonPost(message(2, "/users"), OLD_HOOK));
+  assert.deepEqual([first.status, first.body], [200, { ok: true }]);
+  await settle();
+  assert.deepEqual([...env.CHAT.objects.keys()], ["tg:9001"]);
+  const answers = asked.filter((entry) => entry.method === "sendMessage");
+  assert.equal(answers.length, 1);
+  assert.equal(answers[0].payload.chat_id, 9001);
+  assert.match(answers[0].payload.text, /9001/, "only the owner is shown the list, and it names the owner");
+
+  // That one message is enough: Telegram is told today's address and today's secret.
+  // Nothing Telegram is still holding is thrown away (no drop_pending_updates).
+  assert.deepEqual(
+    webhooks().map((entry) => entry.payload),
+    [
+      {
+        url: "https://glow-bot.test/telegram/webhook",
+        secret_token: hook["X-Telegram-Bot-Api-Secret-Token"],
+        allowed_updates: ["message", "callback_query", "my_chat_member"],
+      },
+    ],
+  );
+  assert.ok(!asked.some((entry) => entry.method === "getMe"), "the token was not checked again");
+
+  // From here only today's secret opens the door, whichever address Telegram uses.
+  asked.length = 0;
+  for (const [path, update] of [["/telegram/webhook", 3], ["/v1/telegram", 4]]) {
+    const late = await call(path, jsonPost(message(update, "/help"), OLD_HOOK));
+    assert.deepEqual([late.status, late.body], [403, { ok: false, error: "refused" }], path);
+    const moved = await call(path, jsonPost(message(update, "/myid"), hook));
+    assert.deepEqual([moved.status, moved.body], [200, { ok: true }], path);
+  }
+  await settle();
+  assert.deepEqual(asked.map((entry) => entry.method), ["sendMessage", "sendMessage"]);
+  assert.equal((await call("/v1/telegram", { method: "GET" })).status, 404);
+});
+
+test("the status says a 0.2.0 webhook is moving, and asking for the status is what moves it", async () => {
+  const { call, settle, asked } = await setUpLegacy();
+  const before = await call("/v1/status");
+  assert.equal(before.status, 200);
+  assert.deepEqual(before.body, {
+    ok: true,
+    service: "glow-bot",
+    version: VERSION,
+    build: "build-one",
+    stage: "bot",
+    configured: true,
+    bot: BOT_NAME,
+    access: "private",
+    claimed: true,
+    paired: true,
+    webhook: "moving",
+    ai: false,
+    colo: "",
+  });
+
+  // The move, then the menu, the profile texts and the picture, the same as a fresh setup.
+  await settle();
+  assert.deepEqual(
+    asked.map((entry) => entry.method),
+    ["setWebhook", ...DRESSING, ...DRESSING, ...DRESSING, "setMyProfilePhoto"],
+  );
+
+  asked.length = 0;
+  const after = await call("/v1/status");
+  const { webhook, ...unchanged } = before.body;
+  assert.equal(webhook, "moving");
+  assert.deepEqual(after.body, unchanged, "the bot, its owner and its access are what they were");
+  await settle();
+  assert.deepEqual(asked, [], "a webhook that has moved is left alone");
+});
+
+test("when Telegram refuses the move, both secrets keep working and it is tried again an hour later", async () => {
+  let refusing = true;
+  const { call, settle, webhooks, now, asked, hook } = await setUpLegacy({
+    telegram: (method) =>
+      method === "setWebhook" && refusing
+        ? reply({ ok: false, error_code: 400, description: "Bad Request: bad webhook: try later" }, { status: 400 })
+        : null,
+  });
+
+  const log = await logWhile(async () => {
+    await call("/v1/status");
+    await settle();
+  });
+  assert.equal(log, "the webhook did not move: webhook-failed Bad Request: bad webhook: try later");
+  assert.equal(webhooks().length, 1);
+  assert.equal((await call("/v1/status")).body.webhook, "moving");
+
+  // The call may have been applied even though the answer said no, so Telegram may use either secret.
+  const quiet = await logWhile(async () => {
+    const old = await call("/v1/telegram", jsonPost(message(1, "/myid"), OLD_HOOK));
+    assert.deepEqual([old.status, old.body], [200, { ok: true }]);
+    const fresh = await call("/telegram/webhook", jsonPost(message(2, "/myid"), hook));
+    assert.deepEqual([fresh.status, fresh.body], [200, { ok: true }]);
+    const guess = await call("/telegram/webhook", jsonPost(message(3, "/myid"), { "X-Telegram-Bot-Api-Secret-Token": "made-up" }));
+    assert.equal(guess.status, 403);
+    await settle();
+  });
+  assert.equal(quiet, "", "waiting for the next try is not an error");
+  assert.equal(asked.filter((entry) => entry.method === "sendMessage").length, 2);
+  assert.equal(webhooks().length, 1, "Telegram is not asked again on every message");
+
+  now.advance(HOUR - 1);
+  await call("/v1/status");
+  await settle();
+  assert.equal(webhooks().length, 1);
+
+  refusing = false;
+  now.advance(1);
+  assert.equal((await call("/v1/status")).body.webhook, "moving");
+  await settle();
+  assert.equal(webhooks().length, 2);
+  assert.equal("webhook" in (await call("/v1/status")).body, false);
+
+  // Moved: the 0.2.0 secret is finished.
+  const late = await call("/v1/telegram", jsonPost(message(4, "/myid"), OLD_HOOK));
+  assert.deepEqual([late.status, late.body], [403, { ok: false, error: "refused" }]);
+});
+
+test("the 0.2.0 setup address still works, and answers with the 0.2.0 names as well", async () => {
+  const { call, settle, webhooks, asked, hook, pairUntil } = await setUpLegacy({ unpaired: true });
+  const oldLink = "https://t.me/glow_test_bot?start=" + OLD_PAIR_CODE;
+
+  for (const init of [jsonPost({}), jsonPost({ code: "a wrong guess" }), jsonPost({}, { "X-Glow-Setup-Code": SETUP_CODE + "x" })]) {
+    const refused = await call("/v1/setup", init);
+    assert.deepEqual([refused.status, refused.body], [403, { ok: false, error: "setup-code" }]);
+  }
+  const badToken = await call("/v1/setup", jsonPost({ token: "nope" }, ADMIN));
+  assert.deepEqual([badToken.status, badToken.body], [400, { ok: false, error: "token-format" }]);
+  await settle();
+  assert.deepEqual(asked, []);
+
+  // No token in the request: the one 0.2.0 saved is used. The pairing link 0.2.0 handed out
+  // stays good until the time 0.2.0 promised.
+  const again = await call("/v1/setup", jsonPost({}, ADMIN));
+  assert.equal(again.status, 200);
+  assert.deepEqual(again.body, {
+    ok: true,
+    bot: BOT_NAME,
+    link: oldLink,
+    claimed: false,
+    warnings: [],
+    claimUntil: pairUntil,
+    webhook: "https://glow-bot.test/telegram/webhook",
+    paired: false,
+    pairLink: oldLink,
+    pairUntil,
+  });
+  assert.equal(webhooks().length, 1);
+  assert.equal(webhooks()[0].payload.url, "https://glow-bot.test/telegram/webhook");
+  const status = (await call("/v1/status")).body;
+  assert.deepEqual([status.configured, status.claimed, status.paired, "webhook" in status], [true, false, false, false]);
+  await settle();
+  assert.equal(webhooks().length, 1, "setup already moved the webhook");
+
+  // Opening that link makes the first chat the owner.
+  const start = await call("/telegram/webhook", jsonPost(message(1, "/start " + OLD_PAIR_CODE), hook));
+  assert.deepEqual([start.status, start.body], [200, { ok: true }]);
+  const owned = (await call("/v1/setup", jsonPost({ code: SETUP_CODE }))).body;
+  assert.deepEqual(owned, {
+    ok: true,
+    bot: BOT_NAME,
+    link: "https://t.me/glow_test_bot",
+    claimed: true,
+    warnings: [],
+    webhook: "https://glow-bot.test/telegram/webhook",
+    paired: true,
+    pairLink: null,
+    pairUntil: null,
+  });
+
+  // Today's address gives the same answer without the 0.2.0 names.
+  const plain = (await call("/setup", jsonPost({ code: SETUP_CODE }))).body;
+  assert.deepEqual(plain, { ok: true, bot: BOT_NAME, link: "https://t.me/glow_test_bot", claimed: true, warnings: [] });
+
+  // A new pairing is only made when it is asked for in so many words.
+  const notAsked = (await call("/v1/setup", jsonPost({ code: SETUP_CODE, newPairing: "yes" }))).body;
+  assert.deepEqual([notAsked.paired, notAsked.pairLink], [true, null]);
+  const fresh = (await call("/v1/setup", jsonPost({ code: SETUP_CODE, newPairing: true }))).body;
+  assert.deepEqual([fresh.claimed, fresh.paired, fresh.pairUntil], [false, false, null]);
+  assert.match(fresh.pairLink, /^https:\/\/t\.me\/glow_test_bot\?start=[0-9a-f]{32}$/);
+  assert.notEqual(fresh.pairLink, oldLink);
+  assert.equal(fresh.link, fresh.pairLink);
+  assert.equal((await call("/v1/status")).body.paired, false);
+  assert.ok(!JSON.stringify([again.body, owned, plain, fresh]).includes(TOKEN), "the token never comes back out");
 });

@@ -67,6 +67,8 @@ const STEER_CLIP = 500;
 const CHANGE_CLIP = 1000;
 const MAX_TEXT = 4000;
 const PRIVATE_NOTICE_MS = 60 * 60 * 1000;
+const MY_ID_MS = 60 * 1000; // somebody not let in may ask for their id this often
+const USERS_SHOWN = 50; // /users lists this many chats and counts the rest
 const NEWS_CACHE_MS = 5 * 60 * 1000;
 const NEWS_STORIES = 5;
 const RECORD_CAP = 200;
@@ -90,6 +92,9 @@ const SCHEDULE_ACCESS = { role: "owner", allowed: true, claimed: false, ownerKno
 
 const COMMAND = /^\/([A-Za-z0-9_]+)(?:@([A-Za-z0-9_]+))?(?:\s+([\s\S]*))?$/;
 const MODES = ["lead", "room", "chat", "agent"];
+// Other names for a mode. /search and /mission are what GlowBot 0.2.0 called /room and /lead.
+const MODE_ALIASES = { harness: "agent", search: "room", mission: "lead" };
+const CHAT_ID = /^-?\d{1,20}$/; // a Telegram chat id: a person's is positive, a group's negative
 const MODE_ICONS = { lead: "👑", room: "🏢", chat: "💬", agent: "🧰" };
 // The "working on it" message a job starts with. Quick jobs (chat, ask, spark) have none.
 const PLACEHOLDERS = { lead: "lead.planning", room: "room.planning", agent: "harness.working" };
@@ -116,6 +121,8 @@ const SIM_REGISTRY = {
   setPublic: async () => ({ ok: true, access: "private" }),
   status: async () => ({ configured: true, bot: null, access: "private", claimed: true, chats: 0 }),
   forget: async () => ({ ok: true }),
+  allow: async () => ({ ok: true, chats: 0 }),
+  users: async () => ({ ok: true, ownerId: null, access: "private", chats: [] }),
 };
 
 function freshState() {
@@ -147,6 +154,7 @@ function freshState() {
     msgSeq: 0,
     wipeAt: 0,
     privateNoticeAt: 0,
+    myIdAt: 0, // the last time somebody not let in was told their id
   };
 }
 
@@ -477,9 +485,24 @@ export class ChatLogic {
       return;
     }
     const now = this.now();
+    // The owner lets a chat in by its id, so a person not let in yet may ask for theirs.
+    if (access.ownerKnown && this.asksForId(where.message)) {
+      if (state.myIdAt && now - state.myIdAt < MY_ID_MS) return;
+      state.myIdAt = now;
+      await tg.send(state.chatId, t(state.lang, "myid.stranger", { user: state.chatId }));
+      return;
+    }
     if (state.privateNoticeAt && now - state.privateNoticeAt < PRIVATE_NOTICE_MS) return;
     state.privateNoticeAt = now;
     await tg.send(state.chatId, t(state.lang, access.ownerKnown ? "private.notice" : "start.unclaimed"));
+  }
+
+  // "/myid", alone or addressed to this bot.
+  asksForId(message) {
+    const command = COMMAND.exec(String((message && message.text) || "").trim());
+    if (!command || command[1].toLowerCase() !== "myid") return false;
+    const username = String((this.state.config && this.state.config.botUsername) || "");
+    return !command[2] || command[2].toLowerCase() === username.toLowerCase();
   }
 
   async onMessage(message, access) {
@@ -549,14 +572,29 @@ export class ChatLogic {
         return this.cmdMissions(arg, message);
       case "access":
         return this.cmdAccess(arg, message, access);
+      case "allow":
+      case "deny":
+        return this.cmdAllow(name === "allow", arg, message, access);
+      case "users":
+        return this.cmdUsers(message, access);
+      case "myid":
+        return this.reply(message, t(lang, "myid", { user: (message.from && message.from.id) || state.chatId, chat: state.chatId }));
+      case "models":
+        return this.cmdModels(message);
+      case "new":
+      case "reset":
+        state.history = [];
+        return this.reply(message, t(lang, "memory.cleared"));
       case "news":
         return this.cmdNews(arg, message);
       case "lead":
       case "room":
       case "chat":
       case "agent":
-      case "harness": {
-        const kind = name === "harness" ? "agent" : name;
+      case "harness":
+      case "search":
+      case "mission": {
+        const kind = MODE_ALIASES[name] || name;
         if (arg) return this.startJob(kind, arg, message, access);
         state.mode = kind;
         return this.reply(message, t(lang, "mode.set", { mode: tPlain(lang, `mode.${kind}`) }));
@@ -942,6 +980,71 @@ export class ChatLogic {
     const status = await this.registryNow().status();
     const mode = tPlain(lang, status.access === "public" ? "access.name.public" : "access.name.private");
     await this.reply(message, t(lang, "access.view", { mode, n: status.chats || 0 }));
+  }
+
+  // /allow <id> lets one chat in (a person's private chat or a group); /deny <id> takes it out.
+  async cmdAllow(letIn, arg, message, access) {
+    const lang = this.state.lang;
+    if (access.role !== "owner") {
+      await this.reply(message, t(lang, "access.owner.only"));
+      return;
+    }
+    const id = arg.split(/\s+/)[0];
+    if (!CHAT_ID.test(id)) {
+      await this.reply(message, t(lang, "allow.usage"));
+      return;
+    }
+    if (!letIn) {
+      await this.registryNow().forget(id);
+      await this.reply(message, t(lang, "deny.done", { id }));
+      return;
+    }
+    const answer = await this.registryNow().allow(id);
+    if (!answer.ok) {
+      await this.reply(message, t(lang, "allow.usage"));
+      return;
+    }
+    await this.reply(message, t(lang, "allow.done", { id, n: answer.chats || 0 }));
+  }
+
+  // The ids let in. Only in the owner's own chat, so a group never sees them.
+  async cmdUsers(message, access) {
+    const state = this.state;
+    const lang = state.lang;
+    if (access.role !== "owner") {
+      await this.reply(message, t(lang, "access.owner.only"));
+      return;
+    }
+    if (state.chatType !== "private") {
+      await this.reply(message, t(lang, "owner.private"));
+      return;
+    }
+    const list = await this.registryNow().users();
+    const chats = Array.isArray(list.chats) ? list.chats : [];
+    const mode = tPlain(lang, list.access === "public" ? "access.name.public" : "access.name.private");
+    const lines = [t(lang, "users.title", { mode })];
+    if (list.ownerId !== null && list.ownerId !== undefined) lines.push(t(lang, "users.owner", { id: list.ownerId }));
+    if (!chats.length) lines.push(t(lang, "users.none"));
+    for (const chat of chats.slice(0, USERS_SHOWN)) {
+      const title = chat.title ? ` ${escapeHtml(chat.title)}` : "";
+      lines.push(`<code>${escapeHtml(chat.id)}</code>${title}`);
+    }
+    if (chats.length > USERS_SHOWN) lines.push(t(lang, "users.more", { n: chats.length - USERS_SHOWN }));
+    await this.reply(message, lines.join("\n"));
+  }
+
+  // The free models, in the order they are asked, and which ones are resting after a busy answer.
+  async cmdModels(message) {
+    const state = this.state;
+    const lang = state.lang;
+    const lines = [t(lang, "models.title")];
+    this.modelsFor(state.models).describe().forEach((model, index) => {
+      const minutes = Math.ceil(model.restingMs / 60000);
+      const resting = model.restingMs > 0 ? ` · ${t(lang, "models.resting", { n: minutes })}` : "";
+      lines.push(`${index + 1}. ${escapeHtml(model.label)}${resting}`);
+    });
+    lines.push("", t(lang, "models.how"));
+    await this.reply(message, lines.join("\n"));
   }
 
   async cmdAsk(arg, message, access) {

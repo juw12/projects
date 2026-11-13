@@ -8,7 +8,7 @@ import { ChatLogic } from "./chat.js";
 import { transcribeVoice } from "./voice.js";
 import { createModels } from "./models.js";
 import { runProbe } from "./probe.js";
-import { RegistryLogic, WEBHOOK_PATH, handleRegistry, registryClient } from "./registry.js";
+import { LEGACY_WEBHOOK_PATH, RegistryLogic, WEBHOOK_PATH, handleRegistry, registryClient } from "./registry.js";
 import { SELFTEST_NOTE, runSelfTest } from "./selftest.js";
 import { createSpark } from "./spark.js";
 import { createTelegram, httpTransport } from "./telegram.js";
@@ -56,6 +56,37 @@ function objectNamed(namespace, name) {
 
 function post(body) {
   return { method: "POST", headers: JSON_BODY, body: JSON.stringify(body) };
+}
+
+// Work that must not hold up the answer: Cloudflare keeps the Worker alive until it is done.
+function later(ctx, work) {
+  const guarded = Promise.resolve(work).catch((error) => console.log("background work failed: " + errorText(error)));
+  if (ctx && typeof ctx.waitUntil === "function") ctx.waitUntil(guarded);
+  return guarded;
+}
+
+// A bot connected under 0.2.0 has Telegram calling the 0.2.0 address. The Registry moves it here.
+function moveWebhook(ctx, env, origin) {
+  return later(
+    ctx,
+    registryClient(env.REGISTRY)
+      .refreshWebhook(origin)
+      .then((moved) => {
+        if (moved && moved.ok === false) console.log(`the webhook did not move: ${moved.error} ${moved.detail || ""}`);
+      }),
+  );
+}
+
+// tools/connect_telegram.py and anything else written for 0.2.0 reads these names.
+function inOldWords(result, origin) {
+  if (!result.ok) return result;
+  return {
+    ...result,
+    webhook: origin + WEBHOOK_PATH,
+    paired: !!result.claimed,
+    pairLink: result.claimed ? null : result.link,
+    pairUntil: result.claimUntil || null,
+  };
 }
 
 // Everything is built by one function so the tests can hand in a pretend network and a pretend clock.
@@ -226,15 +257,16 @@ export function createWorker(overrides) {
   }
 
   // Telegram calls this for every message, button tap and membership change.
-  async function webhook(request, env, cors) {
+  async function webhook(request, env, cors, origin, ctx) {
     const secret = request.headers.get("X-Telegram-Bot-Api-Secret-Token") || "";
     if (!secret) return json({ ok: false, error: "refused" }, 403, cors);
     const update = await bodyOf(request);
     if (!update) return json({ ok: false, error: "bad request" }, 400, cors);
 
     // If the Registry itself fails, the error answer below makes Telegram send the update again.
-    const gate = await registryClient(env.REGISTRY).gate(secret, update);
+    const gate = await registryClient(env.REGISTRY).gate(secret, update, origin);
     if (!gate.ok) return json({ ok: false, error: "refused" }, 403, cors);
+    if (gate.legacy) moveWebhook(ctx, env, origin);
     if (gate.duplicate || gate.ignore) return json({ ok: true }, 200, cors);
 
     // From here the update counts as delivered: sending it twice would run the same command twice.
@@ -249,12 +281,14 @@ export function createWorker(overrides) {
   }
 
   // The owner pastes the token from BotFather on the Glow page, which sends it here once.
-  async function setup(request, env, cors, origin) {
+  // Without a token the saved one is used again; newPairing forgets the owner and makes a new link.
+  // "/v1/setup" is the 0.2.0 address of the same thing, answered with the 0.2.0 names added.
+  async function setup(request, env, cors, origin, oldWords) {
     const body = (await bodyOf(request)) || {};
     const code = body.code || request.headers.get("X-Glow-Setup-Code") || "";
     if (!(await isSetupCode(code, env))) return json({ ok: false, error: "setup-code" }, 403, cors);
-    const result = await registryClient(env.REGISTRY).setup(body.token, origin);
-    return json(result, result.ok ? 200 : 400, cors);
+    const result = await registryClient(env.REGISTRY).setup(body.token, origin, { newPairing: body.newPairing === true });
+    return json(oldWords ? inOldWords(result, origin) : result, result.ok ? 200 : 400, cors);
   }
 
   // A pretend chat for trying the bot without Telegram: the same code and the real AI models, but
@@ -279,7 +313,7 @@ export function createWorker(overrides) {
     return json({ ok: false, error: "not found" }, 404, cors);
   }
 
-  async function route(request, env, cors) {
+  async function route(request, env, cors, ctx) {
     const url = new URL(request.url);
     const path = url.pathname.replace(/\/+$/, "") || "/";
     const method = request.method;
@@ -291,10 +325,15 @@ export function createWorker(overrides) {
       });
     }
 
-    if (method === "POST" && path === WEBHOOK_PATH) return webhook(request, env, cors);
+    // Telegram keeps calling the 0.2.0 address until the webhook has moved, so both are answered.
+    if (method === "POST" && (path === WEBHOOK_PATH || path === LEGACY_WEBHOOK_PATH)) {
+      return webhook(request, env, cors, url.origin, ctx);
+    }
 
     if (method === "GET" && path === "/v1/status") {
       const registry = await registryClient(env.REGISTRY).status();
+      // The deploy asks for the status right after it goes live, which is what starts the move.
+      if (registry.legacy) moveWebhook(ctx, env, url.origin);
       return json(
         {
           ok: true,
@@ -306,6 +345,8 @@ export function createWorker(overrides) {
           bot: registry.bot || null,
           access: registry.access === "public" ? "public" : "private",
           claimed: !!registry.claimed,
+          paired: !!registry.claimed, // the 0.2.0 name for "claimed"
+          ...(registry.legacy ? { webhook: "moving" } : {}),
           ai: !!env.AI,
           colo: (request.cf && request.cf.colo) || "",
         },
@@ -324,7 +365,8 @@ export function createWorker(overrides) {
       return json(await reply.json(), reply.status, cors);
     }
 
-    if (method === "POST" && path === "/setup") return setup(request, env, cors, url.origin);
+    if (method === "POST" && path === "/setup") return setup(request, env, cors, url.origin, false);
+    if (method === "POST" && path === "/v1/setup") return setup(request, env, cors, url.origin, true);
     if (path === "/admin/simulate") return simulate(request, env, cors, url);
 
     if (method === "POST" && path === "/admin/reset") {
@@ -336,10 +378,10 @@ export function createWorker(overrides) {
   }
 
   const worker = {
-    async fetch(request, env) {
+    async fetch(request, env, ctx) {
       const cors = corsHeaders(request, env);
       try {
-        return await route(request, env, cors);
+        return await route(request, env, cors, ctx);
       } catch (error) {
         return json({ ok: false, error: clip(errorText(error), 300) }, 500, cors);
       }

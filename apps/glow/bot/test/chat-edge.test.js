@@ -997,10 +997,13 @@ test("the simulated tester is the owner of a private chat, and an unknown langua
   assert.deepEqual(outline(rows), ["incoming #1", "sendMessage", "incoming #3", "sendMessage"]);
   assert.deepEqual(messageIds(rows), [2, 4]);
 
-  // The owner's help ends with the owner's command; the owner has no daily limit.
-  assert.deepEqual(rows[1].payload.text.split("\n").slice(-2), [
+  // The owner's help ends with the owner's commands; the owner has no daily limit.
+  assert.deepEqual(rows[1].payload.text.split("\n").slice(-5), [
     "<b>Owner</b>",
     "/access · who can use this bot: private or public",
+    "/allow <i>id</i> · let one person or group in",
+    "/deny <i>id</i> · take one out again",
+    "/users · who is let in",
   ]);
   assert.equal(
     rows[3].payload.text,

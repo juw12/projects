@@ -224,10 +224,14 @@ test("setup points Telegram at this Worker and hands back the claim link", async
     secret,
     ownerId: null,
     claimCode: FIRST_CODE,
+    claimUntil: 0,
     allowed: {},
     public: false,
     seen: [],
     configuredAt: now(),
+    legacy: false,
+    oldSecret: "",
+    legacyTriedAt: 0,
   });
   assert.deepEqual(await logic.status(), {
     configured: true,

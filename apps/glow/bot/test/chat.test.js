@@ -71,11 +71,23 @@ test("/help lists every command, and shows /access only to the owner in their ow
   for (const command of COMMANDS) {
     if (command !== "help") assert.ok(plain.includes(`/${command}`), `help does not mention /${command}`);
   }
-  assert.ok(!plain.includes("/access"));
+  for (const ownerOnly of ["/access", "/allow", "/deny", "/users"]) {
+    assert.ok(!plain.includes(ownerOnly), `the public help mentions ${ownerOnly}`);
+  }
 
   const owner = await answerTo("/help");
   assert.deepEqual(owner.lines, ["sendMessage"]);
-  assert.deepEqual(owner.said, [`${plain}\n\n<b>Owner</b>\n/access · who can use this bot: private or public`]);
+  assert.deepEqual(owner.said, [
+    [
+      plain,
+      "",
+      "<b>Owner</b>",
+      "/access · who can use this bot: private or public",
+      "/allow <i>id</i> · let one person or group in",
+      "/deny <i>id</i> · take one out again",
+      "/users · who is let in",
+    ].join("\n"),
+  ]);
 
   const member = await answerTo("/help", { from: FRIEND, access: AS_MEMBER });
   assert.deepEqual(member.said, [plain]);

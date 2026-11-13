@@ -108,6 +108,22 @@ export function fakeRegistry() {
       calls.push(["forget", chatId]);
       return { ok: true };
     },
+    async allow(chatId) {
+      calls.push(["allow", chatId]);
+      return { ok: true, chats: 4 };
+    },
+    async users() {
+      calls.push(["users"]);
+      return {
+        ok: true,
+        ownerId: OWNER.id,
+        access: access(),
+        chats: [
+          { id: String(FRIEND.id), title: "" },
+          { id: String(GROUP_CHAT.id), title: "Club <1>" },
+        ],
+      };
+    },
   };
 }
 
@@ -149,7 +165,13 @@ export function makeChat({
     storage,
     now,
     telegramFor: () => createTelegram({ transport: telegram.transport, sleep: async () => {} }),
-    modelsFor: () => ({ complete }),
+    modelsFor: () => ({
+      complete,
+      describe: () => [
+        { id: "test", kind: "test", label: "Test Model (Test)", name: "Test Model", model: "test-model", restingMs: 0 },
+        { id: "spare", kind: "test", label: "Spare <Model> (Test)", name: "Spare Model", model: "spare-model", restingMs: 61_000 },
+      ],
+    }),
     web,
     spark,
     registry,
