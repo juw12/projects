@@ -2084,9 +2084,9 @@
       "external": true,
       "url": "https://juw12.github.io/reachpilot/",
       "url_label": "Open demo",
-      "desc": "ReachPilot: local hub for my outreach automations. Core: turns your GitHub into a LinkedIn schedule via the official API, with real facts, live screenshots and learning from clicks.",
-      "summary": "Local hub for outreach bots: LinkedIn posts from real repo facts, job search and e-mail applications.",
-      "description": "ReachPilot runs on Windows Task Scheduler and keeps one to-do list of the few things that need a human: verification codes, sign-ins, the final Submit. The LinkedIn poster writes from real README facts and posts through the official API. The live page is a demo of the dashboard with made-up data.",
+      "desc": "ReachPilot: local hub for my outreach automations. Turns your GitHub into a posting schedule: LinkedIn via the official API, plus Bluesky, Mastodon, Dev.to, and X, Threads and Substack free through Buffer. Real README facts, live screenshots, learns from clicks.",
+      "summary": "Local hub for outreach bots: posts projects from real repo facts to LinkedIn, Bluesky, Mastodon, Dev.to, X, Threads and Substack, plus job search and e-mail applications.",
+      "description": "ReachPilot runs on Windows Task Scheduler and keeps one to-do list of the few things that need a human: verification codes, sign-ins, the final Submit. The poster writes from real README facts, posts to LinkedIn through the official API and cuts each post to fit Bluesky, Mastodon, Dev.to, and X, Threads and Substack (free through Buffer), then tracks GitHub visitors per platform. The live page is a demo of the dashboard with made-up data.",
       "tags": [
         "automation",
         "python",
