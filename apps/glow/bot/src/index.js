@@ -5,6 +5,7 @@
 // own ChatAgent (a Durable Object) that keeps the conversation and does the long work in alarms.
 
 import { ChatLogic } from "./chat.js";
+import { transcribeVoice } from "./voice.js";
 import { createModels } from "./models.js";
 import { runProbe } from "./probe.js";
 import { RegistryLogic, WEBHOOK_PATH, handleRegistry, registryClient } from "./registry.js";
@@ -96,6 +97,7 @@ export function createWorker(overrides) {
           registry: registryClient(env.REGISTRY),
           info: { pages, version: VERSION, build: buildOf(env) },
           every: deps.every,
+          transcribe: (voice, config) => transcribeVoice({ fetch: deps.fetch, ai: env.AI, token: config.token, voice }),
           onError: (where, error) => console.log(`chat ${where} failed: ${errorText(error)}`),
         });
       }
