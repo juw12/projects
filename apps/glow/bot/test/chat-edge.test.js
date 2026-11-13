@@ -183,7 +183,8 @@ test("a job that has used its 24 AI calls is stopped, and says why", async () =>
   // As if the mission had kept the models busy for a long time already.
   kit.logic.state.job.calls = MAX_CALLS;
   await kit.tickOnce();
-  did(kit, ["sendMessage", "editMessageText #103 []"], [
+  // The note about the failure carries a button to try the same mission again.
+  did(kit, ['sendMessage [["rag:1"]]', "editMessageText #103 []"], [
     `⚠️ The mission could not be finished: ${LIMIT}`,
     bakeryBoard("Failed", "⏳", "▫️"),
   ]);

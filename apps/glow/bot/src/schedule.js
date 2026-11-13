@@ -1,7 +1,7 @@
 // Scheduled missions: "/every mon,thu 08:00 research cheap flights to Tokyo".
 //
 // A schedule is plain JSON kept in the chat's state:
-//   { id, days: [0..6] (0 = Sunday), hour, minute, goal, created, lastRun, runs, fails }
+//   { id, days: [0..6] (0 = Sunday), hour, minute, goal, created, lastRun, runs, fails, lastResult, lastEnd, heldFor }
 // Times are on the owner's clock (UTC+7, the same clock /daily uses). Everything here is pure:
 // it parses, computes the next run and describes; the chat object decides when to start the job.
 
@@ -145,6 +145,11 @@ export function dueSchedules(schedules, now, offsetMs = OWNER_OFFSET_MS) {
   });
 }
 
+// When this schedule's run is (or was) due: the first run time after its last run.
+export function dueAt(schedule, offsetMs = OWNER_OFFSET_MS) {
+  return nextRunAt(schedule, schedule.lastRun || schedule.created || 0, offsetMs);
+}
+
 // The earliest next run among all schedules (for the alarm), or null.
 export function nextScheduleTime(schedules, now, offsetMs = OWNER_OFFSET_MS) {
   let best = Infinity;
@@ -184,6 +189,36 @@ export function describeWhen(schedule, lang = "en") {
   return `${dayText} ${clock}`;
 }
 
+const MONTH_NAMES = {
+  en: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
+  id: ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"],
+};
+const NEAR_DAYS = {
+  en: { "-1": "yesterday", 0: "today", 1: "tomorrow" },
+  id: { "-1": "kemarin", 0: "hari ini", 1: "besok" },
+  "zh-Hans": { "-1": "昨天", 0: "今天", 1: "明天" },
+  "zh-Hant": { "-1": "昨天", 0: "今天", 1: "明天" },
+};
+
+// "08:11" on the owner's clock.
+export function clockAt(at, offsetMs = OWNER_OFFSET_MS) {
+  return new Date(at + offsetMs).toISOString().slice(11, 16);
+}
+
+// One moment in the owner's words: "today 08:00", "tomorrow 07:30", "Mon 16 Nov 08:00".
+export function describeAt(at, now, lang = "en", offsetMs = OWNER_OFFSET_MS) {
+  if (!Number.isFinite(at)) return "";
+  const clock = clockAt(at, offsetMs);
+  const days = Math.floor((at + offsetMs) / DAY_MS) - Math.floor((now + offsetMs) / DAY_MS);
+  const near = (NEAR_DAYS[lang] || NEAR_DAYS.en)[days];
+  if (near) return `${near} ${clock}`;
+  const date = new Date(at + offsetMs);
+  const weekday = (DAY_NAMES[lang] || DAY_NAMES.en)[date.getUTCDay()];
+  if (lang === "zh-Hans" || lang === "zh-Hant") return `${date.getUTCMonth() + 1}月${date.getUTCDate()}日 ${weekday} ${clock}`;
+  const month = (MONTH_NAMES[lang] || MONTH_NAMES.en)[date.getUTCMonth()];
+  return `${weekday} ${date.getUTCDate()} ${month} ${clock}`;
+}
+
 // A new schedule object, ready to store.
 export function createSchedule(parsed, id, now) {
   return {
@@ -196,5 +231,8 @@ export function createSchedule(parsed, id, now) {
     lastRun: 0,
     runs: 0,
     fails: 0,
+    lastResult: "", // how its last run ended: "done" | "failed" | "stopped"
+    lastEnd: 0,
+    heldFor: 0, // the due time of the run the owner was told is waiting
   };
 }
