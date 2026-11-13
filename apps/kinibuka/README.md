@@ -68,6 +68,7 @@
 - **Deep links:** `#stall/<id>` opens a stall, `#3d` opens the 3D market, and `?lang=en` sets the language
 
 **For sellers**
+- Sign up with a password, verify the WhatsApp number, and the stall goes live once the market admin approves it (with an end date)
 - Toggle open or closed in one tap, per branch
 - Manage branches, menu, promos and bazaar appearances
 - See incoming orders and update their status
@@ -139,7 +140,7 @@ Without configuration, WhatsApp works through `wa.me` links that the user taps, 
 
 ## Prototype limits
 
-- Login is phone + password with no SMS/WhatsApp verification, so anyone can sign up with any number; the admin approval step is what keeps fake stalls off the market. There is no self-service password reset (the admin sets a temporary one).
+- Login is phone + password. Seller numbers are checked over WhatsApp before a stall can be approved, but buyer numbers are not verified. Without a WhatsApp gateway the check is manual (the admin compares the code and the sender). There is no self-service password reset (the admin sets a temporary one).
 - No online payments: buyers pay at the stall (cash or QRIS) on pickup.
 - Single-process server with SQLite. It is fine for a demo or one neighbourhood, but not for production scale.
 - Map tiles come from the public OpenStreetMap tile server, which is meant for light use only.
