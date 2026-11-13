@@ -3161,6 +3161,49 @@
       "status": "released",
       "order": 72,
       "portfolio": true
+    },
+    {
+      "id": "agent-lessons",
+      "name": "agent-lessons",
+      "category": "AI",
+      "external": true,
+      "url": "https://juw12.github.io/agent-lessons/",
+      "url_label": "Open site",
+      "desc": "675 hard-won lessons from shipping 60+ projects with AI coding agents (OpenCode, Claude Code, Codex, Copilot). Drop into AGENTS.md so your agent doesn't relearn them.",
+      "summary": "675 lessons from shipping 60+ projects with AI coding agents",
+      "description": "A public handbook of hard-won lessons from building with OpenCode, Claude Code, Codex and Copilot: 675 lessons in 12 chapters, the 15 rules that matter most on top, ready to drop into AGENTS.md or CLAUDE.md, plus a build script that redacts private terms and refuses to publish a leak.",
+      "tags": [
+        "ai-agents",
+        "handbook",
+        "claude-code",
+        "opencode"
+      ],
+      "note_tags": [
+        "agent-lessons",
+        "agents-md",
+        "ai-agents",
+        "claude-code",
+        "codex",
+        "copilot"
+      ],
+      "image": "agent-lessons-card.jpg",
+      "image_alt": "agent-lessons handbook page: intro, file list and the first of the 15 rules that matter most",
+      "extra_links": [
+        {
+          "label": "Source",
+          "url": "https://github.com/juw12/agent-lessons"
+        }
+      ],
+      "card": {
+        "label": "agent-lessons · home",
+        "capture": "https://juw12.github.io/agent-lessons/",
+        "theme": "light",
+        "accent": "#3e70ac",
+        "accent2": "#502f9e"
+      },
+      "status": "released",
+      "order": 73,
+      "portfolio": true
     }
   ]
 }
