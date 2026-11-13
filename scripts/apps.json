@@ -3039,6 +3039,128 @@
       "status": "released",
       "order": 69,
       "portfolio": true
+    },
+    {
+      "id": "scentvec",
+      "name": "scentvec",
+      "category": "AI",
+      "external": true,
+      "url": "https://juw12.github.io/scentvec/",
+      "url_label": "Open site",
+      "desc": "Perfume embedding model and search engine: note pyramids -> 128-d vectors, with CLI, local web app and JSON API.",
+      "summary": "Perfume embedding model: note pyramids become 128-d vectors to find similar perfumes or blend two.",
+      "description": "An embedding model and search engine for finished perfumes. It turns a note pyramid (top, heart and base notes) into one 128-dimensional vector, then finds similar perfumes, searches in plain words or blends two, across 44,658 perfumes from 1,888 brands. Command line, local web app, JSON API and Python API; the browser demo runs the trained network with no server. 91 tests.",
+      "tags": [
+        "PyTorch",
+        "Embeddings",
+        "Search",
+        "Python",
+        "JavaScript"
+      ],
+      "note_tags": [
+        "scentvec",
+        "embeddings",
+        "fragrance",
+        "machine-learning",
+        "perfume",
+        "pytorch"
+      ],
+      "image": "scentvec-card.jpg",
+      "image_alt": "A perfume, as 128 numbers: the scentvec page with catalog stats (44,658 perfumes, 1,888 brands) and a try-in-browser button",
+      "extra_links": [
+        {
+          "label": "Source",
+          "url": "https://github.com/juw12/scentvec"
+        }
+      ],
+      "card": {
+        "label": "scentvec · home",
+        "capture": "https://juw12.github.io/scentvec/",
+        "theme": "dark",
+        "accent": "#57bcb3",
+        "accent2": "#2f559e"
+      },
+      "status": "released",
+      "order": 70,
+      "portfolio": true
+    },
+    {
+      "id": "state-of-mcp-servers",
+      "name": "The State of MCP Servers",
+      "category": "AI",
+      "external": true,
+      "url": "https://juw12.github.io/state-of-mcp-servers/",
+      "url_label": "Open site",
+      "desc": "The State of MCP Servers - a Gardu/Hexbane security scan of the top public MCP servers and skills. Open data + reproducible.",
+      "summary": "A Gardu security scan of the top public MCP servers and skills. Open data, reproducible.",
+      "description": "A Gardu report (the scan engine behind Hexbane) on the top public MCP servers and skills. It catalogs the ecosystem (about 359,500 repos match mcp), scans the 7 most-starred cloneable servers plus Anthropic's skills repo, and finds 0 real high-severity issues, yet every server lands at REVIEW, not PASS. Open data and the scripts that produced it.",
+      "tags": [
+        "MCP",
+        "Security",
+        "AI agents",
+        "Open data",
+        "Python"
+      ],
+      "note_tags": [
+        "state-of-mcp-servers"
+      ],
+      "image": "state-of-mcp-servers-card.jpg",
+      "image_alt": "The State of MCP Servers report: a Gardu security scan header with Open the live scanner and Scan data buttons",
+      "extra_links": [
+        {
+          "label": "Source",
+          "url": "https://github.com/juw12/state-of-mcp-servers"
+        }
+      ],
+      "card": {
+        "label": "state-of-mcp-servers · home",
+        "capture": "https://juw12.github.io/state-of-mcp-servers/",
+        "theme": "dark",
+        "accent": "#e8372d",
+        "accent2": "#9e882f"
+      },
+      "status": "released",
+      "order": 71,
+      "portfolio": true
+    },
+    {
+      "id": "bits-and-tickers",
+      "name": "Bits & Tickers",
+      "category": "Apps",
+      "external": true,
+      "url": "https://juw12.github.io/bits-and-tickers/",
+      "url_label": "Open site",
+      "desc": "Bits & Tickers: What got built, and what it's worth. Podcast feed and episodes.",
+      "summary": "A tech, AI and markets podcast in three formats, every story linked in the show notes.",
+      "description": "What got built, and what it's worth. Two hosts, Alex and Maya, on tech, AI and markets, straight from the week's reporting: The Brief (Mondays, a few minutes), The Breakdown (Wednesdays) and The Long Drive (Fridays, about an hour). Show notes link every story, with full transcripts, an RSS feed and The Tape newsletter. Nothing in the show is financial advice.",
+      "tags": [
+        "Podcast",
+        "RSS",
+        "Newsletter",
+        "Markets",
+        "AI"
+      ],
+      "note_tags": [
+        "bits-and-tickers"
+      ],
+      "image": "bits-and-tickers-card.jpg",
+      "image_alt": "Bits & Tickers podcast page: the three formats (The Brief, The Breakdown, The Long Drive) above the latest episode",
+      "extra_links": [
+        {
+          "label": "Source",
+          "url": "https://github.com/juw12/bits-and-tickers"
+        }
+      ],
+      "card": {
+        "label": "bits-and-tickers · home",
+        "capture": "https://juw12.github.io/bits-and-tickers/",
+        "theme": "dark",
+        "accent": "#a8553a",
+        "accent2": "#9e9e2f"
+      },
+      "status": "released",
+      "order": 72,
+      "portfolio": true
     }
   ]
 }
