@@ -1,4 +1,4 @@
-name = "glow-bot"
+﻿name = "glow-bot"
 main = "src/index.js"
 compatibility_date = "2025-09-01"
 
@@ -26,7 +26,7 @@ binding = "AI"
 ALLOWED_ORIGINS = "https://juw12.github.io"
 GLOW_PAGES = "https://juw12.github.io/projects/glow"
 # SHA-256 of the owner's setup code. The code itself is never stored anywhere in this repository.
-SETUP_CODE_SHA256 = "b358d699ea814f7398b375eebeacb18588b7275f7935d181db9cdb2942b0c8ae"
+SETUP_CODE_SHA256 = "d901087b5e987d9ca90ee12e169fc097bc0195e58b866824f6ea245846aaf3e3"
 
 [observability]
 enabled = true
