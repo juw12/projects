@@ -51,7 +51,8 @@ About the secrets:
 | `/myid` | Your Telegram id and this chat's id. |
 | `/help` | Everything it can do. |
 | `/access` | Owner only. `/access public` lets anyone use the bot; `/access private` closes it again. |
-| `/allow` | Owner only. `/allow 123456789` lets one person or one group in while the bot stays private. `/deny 123456789` takes it out again. |
+| `/allow` | Owner only. `/allow 123456789` lets one person or one group in while the bot stays private. |
+| `/deny` | Owner only. `/deny 123456789` takes that person or group out again. |
 | `/users` | Owner only, in the owner's private chat. Who is let in. |
 
 A message without a command goes to the mode the chat is in. A new chat starts in lead mode;

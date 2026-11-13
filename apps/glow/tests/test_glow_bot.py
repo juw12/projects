@@ -54,9 +54,12 @@ CSP = {
 MARKUP_WRITERS = ("innerHTML", "outerHTML", "insertAdjacentHTML", "createContextualFragment", "DOMParser", "srcdoc")
 OTHER_STORES = ("sessionStorage", "document.cookie", "indexedDB", "caches.")
 COMMANDS = [
-    "lead", "room", "ask", "agents", "chat", "agent", "news", "spark",
-    "apps", "daily", "every", "missions", "status", "stop", "lang", "help", "access",
+    "lead", "room", "ask", "agents", "chat", "new", "agent", "news", "spark",
+    "apps", "daily", "every", "missions", "status", "models", "stop", "lang", "help", "myid",
+    "access", "allow", "deny", "users",
 ]
+# Second names for a command that is on the page: the bot answers them, the page lists the first name.
+ALIASES = {"harness": "agent", "reset": "new", "search": "room", "mission": "lead"}
 # Every line of bot.js that touches the setup code. A new use has to be looked at and added here.
 SETUP_CODE_USES = [
     'let setupCode = "";',
@@ -458,10 +461,19 @@ class GlowBotStaticTests(unittest.TestCase):
         chat = text_of(WORKER_DIR / "src" / "chat.js")
         handler = chat.split("async onCommand(", 1)[1].split("\n  async ", 1)[0]
         answered = set(re.findall(r'case "(\w+)":', handler))
+        for alias, command in ALIASES.items():
+            self.assertIn(alias, answered, f"/{alias} is still answered")
+            self.assertIn(command, COMMANDS, f"/{alias} is another name for /{command}, which is on the page")
+            self.assertRegex(
+                handler,
+                rf'case "{alias}":\s*(?:case "\w+":\s*)*case "{command}":|case "{command}":\s*(?:case "\w+":\s*)*case "{alias}":',
+                f"/{alias} is answered in the same branch as /{command}",
+            )
         self.assertEqual(
-            answered - {"start", "harness"},
+            answered - {"start"} - set(ALIASES),
             set(COMMANDS),
-            "/start is Telegram's own first message and /harness is another name for /agent; the rest are on the page",
+            "/start is Telegram's own first message; apart from it and the second names in ALIASES, "
+            "every command the bot answers is on the page",
         )
 
     def test_the_bot_opens_every_app_in_the_glow_menu(self):
