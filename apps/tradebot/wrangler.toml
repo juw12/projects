@@ -16,6 +16,10 @@ new_sqlite_classes = ["Trader"]
 binding = "AI"
 
 [vars]
+# Real money on Tokocrypto (live.js). "off" here means no real order can ever be sent, whatever the chat says.
+# To allow it: set this to "enabled", add the secrets TOKO_API_KEY and TOKO_API_SECRET
+# (wrangler secret put ...), deploy, then send /live on confirm in Telegram.
+LIVE_TRADING = "off"
 # SHA-256 of the owner's setup code (the same code GlowBot uses today).
 # The code itself is never stored anywhere in this repository.
 SETUP_CODE_SHA256 = "d901087b5e987d9ca90ee12e169fc097bc0195e58b866824f6ea245846aaf3e3"

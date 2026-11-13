@@ -612,6 +612,7 @@ export function help(settings) {
       "/backtest BTC my rules on past prices",
       "/history closed trades",
       "/desk the second opinion and its record (/desk off: stop asking)",
+      "/live real money on Tokocrypto (off, shadow or on)",
       "/reset 10000 start over with fresh practice money",
       "",
       modeLine(settings),
