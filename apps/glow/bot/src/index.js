@@ -3,6 +3,9 @@
 // The Worker is the front door. Telegram's updates arrive at /telegram/webhook; the Registry (one
 // Durable Object) says which chat an update belongs to and who is asking; every chat then has its
 // own ChatAgent (a Durable Object) that keeps the conversation and does the long work in alarms.
+//
+// GlowBot 0.2.0 used /v1/telegram and /v1/setup for the same two jobs. Both still answer, so a bot
+// connected then keeps working, and so does tools/connect_telegram.py.
 
 import { ChatLogic } from "./chat.js";
 import { createModels } from "./models.js";
@@ -19,6 +22,8 @@ const PROBE_GIVE_UP_MS = 10 * 60 * 1000;
 const SELFTEST_RETRY_MS = 60 * 1000; // a failed self-test is run again after this long
 const SIM_ID = /^[a-z0-9-]{8,64}$/; // the name of a simulated chat
 const JSON_BODY = { "Content-Type": "application/json" };
+const OLD_WEBHOOK_PATH = "/v1/telegram";
+const SETUP_PATHS = ["/setup", "/v1/setup"];
 
 function buildOf(env) {
   return String((env && env.BUILD) || "dev");
@@ -29,10 +34,15 @@ function pagesOf(env) {
 }
 
 // The setup code is a long random secret only the owner has. The Worker only knows its SHA-256.
+// SETUP_CODE_SHA256 may list several of them with commas in between: each of those codes works.
 async function isSetupCode(given, env) {
-  const expected = String((env && env.SETUP_CODE_SHA256) || "");
-  if (!given || !expected) return false;
-  return safeEqual(await sha256Hex(String(given)), expected);
+  if (!given) return false; // an empty code opens nothing, whatever is listed
+  const hash = await sha256Hex(String(given));
+  // Every entry is compared, so the time taken does not tell which one matched.
+  return String((env && env.SETUP_CODE_SHA256) || "")
+    .split(",")
+    .map((entry) => safeEqual(hash, entry.trim()))
+    .includes(true);
 }
 
 function hasSetupCode(request, env) {
@@ -241,12 +251,13 @@ export function createWorker(overrides) {
     return json({ ok: true }, 200, cors);
   }
 
-  // The owner pastes the token from BotFather on the Glow page, which sends it here once.
+  // The owner pastes the token from BotFather on the Glow page, which sends it here once. Without
+  // a token the saved one is used again; newPairing asks for a fresh owner link.
   async function setup(request, env, cors, origin) {
     const body = (await bodyOf(request)) || {};
     const code = body.code || request.headers.get("X-Glow-Setup-Code") || "";
     if (!(await isSetupCode(code, env))) return json({ ok: false, error: "setup-code" }, 403, cors);
-    const result = await registryClient(env.REGISTRY).setup(body.token, origin);
+    const result = await registryClient(env.REGISTRY).setup(body.token, origin, body.newPairing === true);
     return json(result, result.ok ? 200 : 400, cors);
   }
 
@@ -284,7 +295,7 @@ export function createWorker(overrides) {
       });
     }
 
-    if (method === "POST" && path === WEBHOOK_PATH) return webhook(request, env, cors);
+    if (method === "POST" && (path === WEBHOOK_PATH || path === OLD_WEBHOOK_PATH)) return webhook(request, env, cors);
 
     if (method === "GET" && path === "/v1/status") {
       const registry = await registryClient(env.REGISTRY).status();
@@ -299,6 +310,7 @@ export function createWorker(overrides) {
           bot: registry.bot || null,
           access: registry.access === "public" ? "public" : "private",
           claimed: !!registry.claimed,
+          paired: !!registry.claimed, // the name GlowBot 0.2.0 gave it
           ai: !!env.AI,
           colo: (request.cf && request.cf.colo) || "",
         },
@@ -317,7 +329,7 @@ export function createWorker(overrides) {
       return json(await reply.json(), reply.status, cors);
     }
 
-    if (method === "POST" && path === "/setup") return setup(request, env, cors, url.origin);
+    if (method === "POST" && SETUP_PATHS.includes(path)) return setup(request, env, cors, url.origin);
     if (path === "/admin/simulate") return simulate(request, env, cors, url);
 
     if (method === "POST" && path === "/admin/reset") {

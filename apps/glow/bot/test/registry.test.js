@@ -4,10 +4,12 @@ import assert from "node:assert/strict";
 
 import {
   ALLOWED_UPDATES,
+  CLAIM_GOOD_FOR_MS,
   REGISTRY_NAME,
   RegistryLogic,
   TOKEN_SHAPE,
   WEBHOOK_PATH,
+  adoptLegacy,
   handleRegistry,
   registryClient,
   whoAndWhere,
@@ -163,7 +165,13 @@ test("setup points Telegram at this Worker and hands back the claim link", async
     link: "https://t.me/glow_test_bot?start=" + FIRST_CODE,
     claimed: false,
     warnings: [],
+    // The same facts under the names GlowBot 0.2.0 used, which tools/connect_telegram.py reads.
+    webhook: ORIGIN + WEBHOOK_PATH,
+    paired: false,
+    pairLink: "https://t.me/glow_test_bot?start=" + FIRST_CODE,
+    pairUntil: now() + CLAIM_GOOD_FOR_MS,
   });
+  assert.equal(CLAIM_GOOD_FOR_MS, 24 * 60 * 60 * 1000);
 
   const secret = await sha256Hex("glow-bot-webhook:" + TOKEN);
   const hook = send.calls.find((call) => call.url.endsWith("/setWebhook"));
@@ -224,6 +232,7 @@ test("setup points Telegram at this Worker and hands back the claim link", async
     secret,
     ownerId: null,
     claimCode: FIRST_CODE,
+    claimUntil: now() + CLAIM_GOOD_FOR_MS,
     allowed: {},
     public: false,
     seen: [],
@@ -334,6 +343,7 @@ test("the claim link makes the first person to open it the owner, once", async (
   assert.deepEqual(claim.access, { role: "owner", allowed: true, claimed: true, ownerKnown: true, gone: false });
   assert.equal(storage.map.get("registry").ownerId, 111);
   assert.equal(storage.map.get("registry").claimCode, "");
+  assert.equal(storage.map.get("registry").claimUntil, 0);
   assert.equal((await logic.status()).claimed, true);
 
   const late = await gate(message(GUEST_CHAT, GUEST, "/start " + FIRST_CODE));
@@ -426,7 +436,7 @@ test("a group that becomes a supergroup keeps its place on the list", async () =
 });
 
 test("setting up the same bot again keeps its owner and chats; another bot starts clean", async () => {
-  const { gate, logic, storage } = await claimed();
+  const { gate, logic, storage, now } = await claimed();
   await gate(message(GROUP, OWNER, "/help"));
   await logic.setPublic(true);
 
@@ -437,30 +447,107 @@ test("setting up the same bot again keeps its owner and chats; another bot start
     link: "https://t.me/glow_test_bot",
     claimed: true,
     warnings: [],
+    webhook: ORIGIN + WEBHOOK_PATH,
+    paired: true,
+    pairLink: null,
+    pairUntil: null,
   });
   const kept = storage.map.get("registry");
-  assert.deepEqual([kept.ownerId, Object.keys(kept.allowed), kept.public, kept.claimCode, kept.seen], [111, ["-5001"], true, "", []]);
+  assert.deepEqual(
+    [kept.ownerId, Object.keys(kept.allowed), kept.public, kept.claimCode, kept.claimUntil, kept.seen],
+    [111, ["-5001"], true, "", 0, []]
+  );
 
   const other = await logic.setup({ token: OTHER_TOKEN, origin: ORIGIN });
-  assert.deepEqual([other.ok, other.claimed, other.link], [true, false, "https://t.me/glow_test_bot?start=" + SECOND_CODE]);
+  const otherLink = "https://t.me/glow_test_bot?start=" + SECOND_CODE;
+  assert.deepEqual(
+    [other.ok, other.claimed, other.link, other.paired, other.pairLink, other.pairUntil],
+    [true, false, otherLink, false, otherLink, now() + CLAIM_GOOD_FOR_MS]
+  );
   const clean = storage.map.get("registry");
-  assert.deepEqual([clean.token, clean.bot.id, clean.ownerId, clean.allowed, clean.public, clean.claimCode], [
+  assert.deepEqual([clean.token, clean.bot.id, clean.ownerId, clean.allowed, clean.public, clean.claimCode, clean.claimUntil], [
     OTHER_TOKEN,
     9002,
     null,
     {},
     false,
     SECOND_CODE,
+    now() + CLAIM_GOOD_FOR_MS,
   ]);
   // The first bot's webhook secret no longer opens the gate.
   assert.deepEqual(await gate(message(OWNER_CHAT, OWNER, "/help")), { ok: false, reason: "bad-secret" });
 });
 
-test("an unclaimed bot that is set up again keeps the same claim link", async () => {
-  const { logic, result } = await ready();
+test("an unclaimed bot that is set up again gets a new owner link, and the one before it stops working", async () => {
+  const { logic, gate, result, storage } = await ready();
   const again = await logic.setup({ token: TOKEN, origin: ORIGIN });
-  assert.equal(again.link, result.link);
-  assert.equal(again.link, "https://t.me/glow_test_bot?start=" + FIRST_CODE);
+  assert.equal(result.link, "https://t.me/glow_test_bot?start=" + FIRST_CODE);
+  assert.equal(again.link, "https://t.me/glow_test_bot?start=" + SECOND_CODE);
+  assert.equal(again.pairLink, again.link);
+
+  const old = await gate(message(OWNER_CHAT, OWNER, "/start " + FIRST_CODE));
+  assert.deepEqual(old.access, { role: "stranger", allowed: false, claimed: false, ownerKnown: false, gone: false });
+  assert.equal(storage.map.get("registry").ownerId, null);
+  const fresh = await gate(message(OWNER_CHAT, OWNER, "/start " + SECOND_CODE));
+  assert.deepEqual(fresh.access, { role: "owner", allowed: true, claimed: true, ownerKnown: true, gone: false });
+});
+
+test("the owner link works for 24 hours and not a moment longer", async () => {
+  const early = await ready();
+  assert.equal(early.result.pairUntil, early.now() + CLAIM_GOOD_FOR_MS);
+  early.now.advance(CLAIM_GOOD_FOR_MS - 1);
+  assert.equal((await early.gate(message(OWNER_CHAT, OWNER, "/start " + FIRST_CODE))).access.claimed, true);
+
+  const late = await ready();
+  late.now.advance(CLAIM_GOOD_FOR_MS);
+  const missed = await late.gate(message(OWNER_CHAT, OWNER, "/start " + FIRST_CODE));
+  assert.deepEqual(missed.access, { role: "stranger", allowed: false, claimed: false, ownerKnown: false, gone: false });
+  assert.equal(late.storage.map.get("registry").ownerId, null);
+
+  // Running the setup again makes a new link with a deadline of its own.
+  const renewed = await late.logic.setup({ origin: ORIGIN });
+  const link = "https://t.me/glow_test_bot?start=" + SECOND_CODE;
+  assert.deepEqual([renewed.ok, renewed.pairLink, renewed.pairUntil], [true, link, late.now() + CLAIM_GOOD_FOR_MS]);
+  assert.equal((await late.gate(message(OWNER_CHAT, OWNER, "/start " + SECOND_CODE))).access.claimed, true);
+});
+
+test("setup without a token uses the saved one again and keeps the owner", async () => {
+  const { logic, storage, send } = await claimed();
+  send.calls.length = 0;
+  const again = await logic.setup({ origin: ORIGIN });
+  assert.deepEqual(
+    [again.ok, again.claimed, again.paired, again.link, again.pairLink, again.pairUntil],
+    [true, true, true, "https://t.me/glow_test_bot", null, null]
+  );
+  assert.equal(send.calls[0].url, `${API_BASE}/bot${TOKEN}/getMe`);
+  assert.equal(send.calls[1].url, `${API_BASE}/bot${TOKEN}/setWebhook`);
+  assert.deepEqual([storage.map.get("registry").ownerId, storage.map.get("registry").token], [111, TOKEN]);
+});
+
+test("a new pairing drops the owner, everyone let in and public access", async () => {
+  const { gate, logic, storage, now } = await claimed();
+  await gate(message(GROUP, OWNER, "/help"));
+  assert.deepEqual(await logic.allow(222), { ok: true, id: 222 });
+  await logic.setPublic(true);
+
+  const fresh = await logic.setup({ origin: ORIGIN, newPairing: true });
+  const link = "https://t.me/glow_test_bot?start=" + SECOND_CODE;
+  assert.deepEqual(
+    [fresh.ok, fresh.claimed, fresh.paired, fresh.link, fresh.pairLink, fresh.pairUntil],
+    [true, false, false, link, link, now() + CLAIM_GOOD_FOR_MS]
+  );
+  const saved = storage.map.get("registry");
+  assert.deepEqual([saved.ownerId, saved.allowed, saved.public, saved.token], [null, {}, false, TOKEN]);
+
+  // The owner from before is a stranger now, and so is everyone who had been let in.
+  const before = await gate(message(OWNER_CHAT, OWNER, "/help"));
+  assert.deepEqual(before.access, { role: "stranger", allowed: false, claimed: false, ownerKnown: false, gone: false });
+  assert.equal((await gate(message(GUEST_CHAT, GUEST, "/help"))).access.role, "stranger");
+  assert.equal((await gate(message(GROUP, GUEST, "/help"))).access.role, "stranger");
+  // Whoever opens the new link first owns the bot.
+  const claim = await gate(message(GUEST_CHAT, GUEST, "/start " + SECOND_CODE));
+  assert.deepEqual([claim.access.role, claim.access.claimed], ["owner", true]);
+  assert.equal(storage.map.get("registry").ownerId, 222);
 });
 
 test("reset tells Telegram to stop calling and forgets everything", async () => {
@@ -497,14 +584,311 @@ test("what the Registry knows survives a restart of the object", async () => {
 });
 
 test("two calls arriving together share one state", async () => {
-  const { logic, secret } = await ready();
-  const restarted = new RegistryLogic({ storage: logic.storage, fetch: logic.fetch, pages: PAGES });
+  const { logic, secret, now } = await ready();
+  const restarted = new RegistryLogic({ storage: logic.storage, fetch: logic.fetch, now, pages: PAGES });
   const [first, second] = await Promise.all([
     restarted.gate({ secret, update: message(OWNER_CHAT, OWNER, "/start " + FIRST_CODE) }),
     restarted.gate({ secret, update: message(OWNER_CHAT, OWNER, "/help") }),
   ]);
   assert.deepEqual([first.access.claimed, second.access.role], [true, "owner"]);
   assert.equal(logic.storage.map.get("registry").seen.length, 2);
+});
+
+// --- A bot that GlowBot 0.2.0 connected ---------------------------------------------------
+// 0.2.0 kept its settings under the key "config", in a shape of its own. The Registry reads
+// that once, so the owner does not have to connect the bot a second time.
+
+const LEGACY_SECRET = "ab".repeat(24);
+const CONNECTED_AT = 1749990000000;
+
+function legacyConfig(extra = {}) {
+  return {
+    token: TOKEN,
+    bot: { id: 9001, username: "glow_test_bot", name: "GlowBot" },
+    secret: LEGACY_SECRET,
+    allowed: [111, 222],
+    ownerId: 111,
+    connectedAt: CONNECTED_AT,
+    pairCode: null,
+    pairUntil: null,
+    ...extra,
+  };
+}
+
+// A Registry whose storage holds only what 0.2.0 saved.
+async function adopted(change = () => ({})) {
+  const world = setUp();
+  await world.storage.put("config", legacyConfig(change(world.now)));
+  return world;
+}
+
+test("the Registry lives in the instance named main, where GlowBot 0.2.0 saved the connected bot", () => {
+  // Under any other name Cloudflare hands out an empty object, and the live bot would look disconnected.
+  assert.equal(REGISTRY_NAME, "main");
+});
+
+test("a bot connected under GlowBot 0.2.0 is still connected: owner, people and webhook secret carry over", async () => {
+  const { logic, storage, send } = await adopted();
+  assert.deepEqual(await logic.status(), {
+    configured: true,
+    bot: { username: "glow_test_bot", name: "GlowBot" },
+    access: "private",
+    claimed: true,
+    chats: 1,
+  });
+  assert.deepEqual(storage.map.get("registry"), {
+    v: 1,
+    token: TOKEN,
+    bot: { id: 9001, username: "glow_test_bot", name: "GlowBot" },
+    origin: "",
+    secret: LEGACY_SECRET,
+    ownerId: 111,
+    claimCode: "",
+    claimUntil: 0,
+    allowed: { 222: { title: "", addedAt: CONNECTED_AT } },
+    public: false,
+    seen: [],
+    configuredAt: CONNECTED_AT,
+  });
+  // Its own copy stays where it is, so going back to 0.2.0 would still find the bot connected.
+  assert.deepEqual(storage.map.get("config"), legacyConfig());
+  assert.equal(send.calls.length, 0);
+
+  const gate = (update) => logic.gate({ secret: LEGACY_SECRET, update });
+  assert.deepEqual(await gate(message(OWNER_CHAT, OWNER, "/help")), {
+    ok: true,
+    duplicate: false,
+    chatId: 111,
+    config: { token: TOKEN, botUsername: "glow_test_bot", botId: 9001, origin: "", public: false },
+    access: { role: "owner", allowed: true, claimed: false, ownerKnown: true, gone: false },
+  });
+  assert.equal((await gate(message(GUEST_CHAT, GUEST, "/help"))).access.role, "member");
+  const newcomer = await gate(message({ id: 333, type: "private" }, { id: 333, first_name: "New" }, "/help"));
+  assert.deepEqual([newcomer.access.role, newcomer.access.ownerKnown], ["stranger", true]);
+  // Telegram still sends the secret 0.2.0 gave it. The one this Worker would make opens nothing yet.
+  const derived = await sha256Hex("glow-bot-webhook:" + TOKEN);
+  assert.deepEqual(await logic.gate({ secret: derived, update: message(OWNER_CHAT, OWNER, "/help") }), { ok: false, reason: "bad-secret" });
+});
+
+test("what 0.2.0 saved is read one time; after that the Registry's own copy is the one that counts", async () => {
+  const { logic, storage } = await adopted();
+  await logic.status();
+  await storage.put("config", legacyConfig({ ownerId: 222, allowed: [222, 333] }));
+
+  const restarted = setUp({ storage });
+  const gate = (update) => restarted.logic.gate({ secret: LEGACY_SECRET, update });
+  assert.equal((await gate(message(OWNER_CHAT, OWNER, "/help"))).access.role, "owner");
+  assert.equal((await gate(message(GUEST_CHAT, GUEST, "/help"))).access.role, "member");
+  assert.equal((await gate(message({ id: 333, type: "private" }, { id: 333 }, "/help"))).access.role, "stranger");
+  assert.equal(storage.map.get("registry").ownerId, 111);
+});
+
+test("a 0.2.0 bot still waiting for its owner can be claimed with the link it gave out, until that link's deadline", async () => {
+  const waitingCode = "c".repeat(48);
+  const waiting = (now) => ({ ownerId: null, allowed: [], pairCode: waitingCode, pairUntil: now() + 1000 });
+  const start = message.bind(null, OWNER_CHAT, OWNER, "/start " + waitingCode);
+
+  const early = await adopted(waiting);
+  assert.deepEqual(await early.logic.status(), {
+    configured: true,
+    bot: { username: "glow_test_bot", name: "GlowBot" },
+    access: "private",
+    claimed: false,
+    chats: 0,
+  });
+  early.now.advance(999);
+  const claim = await early.logic.gate({ secret: LEGACY_SECRET, update: start() });
+  assert.deepEqual(claim.access, { role: "owner", allowed: true, claimed: true, ownerKnown: true, gone: false });
+
+  const late = await adopted(waiting);
+  late.now.advance(1000);
+  const missed = await late.logic.gate({ secret: LEGACY_SECRET, update: start() });
+  assert.deepEqual(missed.access, { role: "stranger", allowed: false, claimed: false, ownerKnown: false, gone: false });
+  assert.equal(late.storage.map.get("registry").ownerId, null);
+});
+
+test("saved settings that carry no webhook secret open the gate for nobody", async () => {
+  const withoutSecret = legacyConfig();
+  delete withoutSecret.secret;
+  for (const change of [() => ({ secret: "" }), () => ({ secret: null })]) {
+    const { logic } = await adopted(change);
+    assert.equal((await logic.status()).configured, true);
+    for (const secret of ["", undefined, null, "anything"]) {
+      assert.deepEqual(await logic.gate({ secret, update: message(OWNER_CHAT, OWNER, "/help") }), { ok: false, reason: "bad-secret" });
+    }
+  }
+  assert.equal(adoptLegacy(withoutSecret).secret, "");
+});
+
+test("an old value that is not a connected bot is left alone", async () => {
+  const notABot = [null, "junk", 5, [], {}, { token: TOKEN }, { token: TOKEN, bot: {} }, { token: "", bot: { id: 1 } }];
+  for (const value of notABot) {
+    assert.equal(adoptLegacy(value), null, JSON.stringify(value));
+    const world = setUp();
+    if (value !== null) await world.storage.put("config", value);
+    assert.deepEqual(await world.logic.status(), { configured: false, bot: null, access: "private", claimed: false, chats: 0 });
+    assert.equal(world.storage.map.has("registry"), false);
+  }
+  assert.equal(adoptLegacy(undefined), null);
+});
+
+test("adoptLegacy keeps only what it can trust", () => {
+  const waitingCode = "c".repeat(48);
+  const entry = { title: "", addedAt: CONNECTED_AT };
+  const doubtful = adoptLegacy(
+    legacyConfig({
+      ownerId: "111", // not a number, so nobody owns this bot
+      allowed: ["222", 222, -5, 0, 1.5, 111, 333, 333, null],
+      pairCode: waitingCode,
+      pairUntil: 1750000001000,
+    })
+  );
+  assert.equal(doubtful.ownerId, null);
+  assert.deepEqual([doubtful.claimCode, doubtful.claimUntil], [waitingCode, 1750000001000]);
+  assert.deepEqual(doubtful.allowed, { 111: entry, 222: entry, 333: entry });
+
+  // With an owner a leftover code is dropped, and the owner is not put on the list of people.
+  const owned = adoptLegacy(legacyConfig({ pairCode: waitingCode, pairUntil: 1750000001000 }));
+  assert.deepEqual([owned.ownerId, owned.claimCode, owned.claimUntil, Object.keys(owned.allowed)], [111, "", 0, ["222"]]);
+
+  assert.deepEqual(adoptLegacy({ token: TOKEN, bot: { id: 9001 } }), {
+    v: 1,
+    token: TOKEN,
+    bot: { id: 9001, username: "", name: "" },
+    origin: "",
+    secret: "",
+    ownerId: null,
+    claimCode: "",
+    claimUntil: 0,
+    allowed: {},
+    public: false,
+    seen: [],
+    configuredAt: 0,
+  });
+});
+
+test("the next setup run moves an adopted bot to this Worker's webhook and keeps its owner and people", async () => {
+  const { logic, storage, send, now } = await adopted();
+  assert.deepEqual(await logic.setup({ origin: ORIGIN }), {
+    ok: true,
+    bot: { username: "glow_test_bot", name: "GlowBot" },
+    link: "https://t.me/glow_test_bot",
+    claimed: true,
+    warnings: [],
+    webhook: ORIGIN + WEBHOOK_PATH,
+    paired: true,
+    pairLink: null,
+    pairUntil: null,
+  });
+  const derived = await sha256Hex("glow-bot-webhook:" + TOKEN);
+  const hook = JSON.parse(send.calls.find((call) => call.url.endsWith("/setWebhook")).body);
+  assert.deepEqual([hook.url, hook.secret_token], [ORIGIN + WEBHOOK_PATH, derived]);
+  const saved = storage.map.get("registry");
+  assert.deepEqual(
+    [saved.origin, saved.secret, saved.ownerId, Object.keys(saved.allowed), saved.configuredAt],
+    [ORIGIN, derived, 111, ["222"], now()]
+  );
+  // Telegram sends the new secret from now on; the old one opens nothing.
+  assert.equal((await logic.gate({ secret: derived, update: message(OWNER_CHAT, OWNER, "/help") })).access.role, "owner");
+  assert.deepEqual(await logic.gate({ secret: LEGACY_SECRET, update: message(OWNER_CHAT, OWNER, "/help") }), { ok: false, reason: "bad-secret" });
+  // Same bot, same people: the old copy can stay.
+  assert.deepEqual(storage.map.get("config"), legacyConfig());
+});
+
+test("the old copy goes whenever someone loses access, so it can never bring them back", async () => {
+  const letIn = await adopted();
+  assert.deepEqual(await letIn.logic.allow(333), { ok: true, id: 333 });
+  assert.equal(letIn.storage.map.has("config"), true);
+
+  const denied = await adopted();
+  assert.deepEqual(await denied.logic.deny(222), { ok: true, id: 222 });
+  assert.equal(denied.storage.map.has("config"), false);
+
+  const pairedAgain = await adopted();
+  assert.equal((await pairedAgain.logic.setup({ origin: ORIGIN, newPairing: true })).ok, true);
+  assert.equal(pairedAgain.storage.map.has("config"), false);
+
+  const otherBot = await adopted();
+  assert.equal((await otherBot.logic.setup({ token: OTHER_TOKEN, origin: ORIGIN })).ok, true);
+  assert.equal(otherBot.storage.map.has("config"), false);
+
+  // After a disconnect nothing is left to read back in: a restart finds no bot at all.
+  const wiped = await adopted();
+  assert.deepEqual(await wiped.logic.reset(), { ok: true, webhook: "deleted" });
+  assert.equal(wiped.storage.map.size, 0);
+  assert.equal((await setUp({ storage: wiped.storage }).logic.status()).configured, false);
+});
+
+// --- The owner's list, by id ---------------------------------------------------------------
+
+test("the owner lets a person or a group in by its id, and takes that away again", async () => {
+  const { gate, logic, storage, now } = await claimed();
+  assert.equal((await gate(message(GUEST_CHAT, GUEST, "/help"))).access.role, "stranger");
+  assert.deepEqual(await logic.allow(222), { ok: true, id: 222 });
+  const firstDate = now();
+  assert.deepEqual(storage.map.get("registry").allowed, { 222: { title: "", addedAt: firstDate } });
+  const guest = await gate(message(GUEST_CHAT, GUEST, "/help"));
+  assert.deepEqual([guest.access.role, guest.access.allowed], ["member", true]);
+
+  // Letting the same one in twice changes nothing: the first date stays.
+  now.advance(5000);
+  assert.deepEqual(await logic.allow("222"), { ok: true, id: 222 });
+  assert.equal(storage.map.get("registry").allowed["222"].addedAt, firstDate);
+
+  // A group has an id of its own, a negative number.
+  assert.equal((await gate(message(GROUP, GUEST, "/help"))).access.role, "stranger");
+  assert.deepEqual(await logic.allow(" -5001 "), { ok: true, id: -5001 });
+  assert.equal((await gate(message(GROUP, GUEST, "/help"))).access.role, "member");
+  assert.deepEqual(await logic.users(), { ok: true, owner: 111, users: [{ id: 222, title: "" }, { id: -5001, title: "" }] });
+  assert.equal((await logic.status()).chats, 2);
+
+  assert.deepEqual(await logic.deny("222"), { ok: true, id: 222 });
+  assert.equal((await gate(message(GUEST_CHAT, GUEST, "/help"))).access.role, "stranger");
+  assert.deepEqual(await logic.deny(-5001), { ok: true, id: -5001 });
+  assert.equal((await gate(message(GROUP, GUEST, "/help"))).access.role, "stranger");
+  // Taking away what was never given is harmless.
+  assert.deepEqual(await logic.deny(999), { ok: true, id: 999 });
+  assert.deepEqual(await logic.users(), { ok: true, owner: 111, users: [] });
+
+  // A group the owner let in by a command shows its name on the list.
+  await gate(message(GROUP, OWNER, "/help"));
+  assert.deepEqual((await logic.users()).users, [{ id: -5001, title: "Makers" }]);
+});
+
+test("allow and deny refuse what is not an id, the owner's own id, and a bot nobody owns yet", async () => {
+  const unowned = await ready();
+  assert.deepEqual(await unowned.logic.allow(222), { ok: false, error: "no-owner" });
+  assert.deepEqual(await unowned.logic.deny(222), { ok: false, error: "no-owner" });
+  assert.deepEqual(await unowned.logic.users(), { ok: true, owner: null, users: [] });
+
+  const { logic, storage } = await claimed();
+  await logic.allow(222);
+  const before = structuredClone(storage.map.get("registry"));
+  const notIds = [0, -0, "", " ", null, undefined, "abc", 1.5, "1.5", "12x", "0x10", "1e3", "+5", "--5", "5 6", "5-", "٥"];
+  notIds.push(true, [5], { id: 5 }, NaN, Infinity, 9007199254740992, "9999999999999999", "12345678901234567");
+  for (const wrong of notIds) {
+    assert.deepEqual(await logic.allow(wrong), { ok: false, error: "bad-id" }, String(wrong));
+    assert.deepEqual(await logic.deny(wrong), { ok: false, error: "bad-id" }, String(wrong));
+  }
+  // The owner is always in and is never removed.
+  for (const own of [111, "111", " 111 "]) {
+    assert.deepEqual(await logic.allow(own), { ok: false, error: "owner" });
+    assert.deepEqual(await logic.deny(own), { ok: false, error: "owner" });
+  }
+  assert.deepEqual(storage.map.get("registry"), before);
+
+  // What does count: digits, typed as text or given as a number, with a minus sign for a group.
+  const good = [[5, 5], ["5", 5], [" 5 ", 5], ["-5", -5], [-5, -5], ["0005", 5], [9007199254740991, 9007199254740991]];
+  for (const [typed, id] of good) assert.deepEqual(await logic.allow(typed), { ok: true, id }, String(typed));
+});
+
+test("a person who blocks the bot keeps their place; only the owner takes it away", async () => {
+  const { gate, logic } = await claimed();
+  await logic.allow(222);
+  const blocked = await gate(memberChange(GUEST_CHAT, GUEST, "kicked"));
+  assert.deepEqual(blocked.access, { role: "member", allowed: true, claimed: false, ownerKnown: true, gone: true });
+  assert.equal((await logic.status()).chats, 1);
+  assert.equal((await gate(message(GUEST_CHAT, GUEST, "/help"))).access.role, "member");
 });
 
 test("the Durable Object routes and the client fit together", async () => {
@@ -538,8 +922,16 @@ test("the Durable Object routes and the client fit together", async () => {
     claimed: true,
     chats: 1,
   });
+  assert.deepEqual(await registry.allow(222), { ok: true, id: 222 });
+  assert.deepEqual(await registry.allow("nobody"), { ok: false, error: "bad-id" });
+  assert.deepEqual(await registry.users(), { ok: true, owner: 111, users: [{ id: 222, title: "" }, { id: -5001, title: "Makers" }] });
+  assert.deepEqual(await registry.deny(222), { ok: true, id: 222 });
   assert.deepEqual(await registry.forget(-5001), { ok: true });
   assert.equal((await registry.status()).chats, 0);
+  // No token: the saved one is used again. A new pairing leaves the bot waiting for an owner.
+  const fresh = await registry.setup(undefined, ORIGIN, true);
+  assert.deepEqual([fresh.ok, fresh.paired, fresh.pairLink], [true, false, "https://t.me/glow_test_bot?start=" + FIRST_CODE]);
+  assert.equal((await registry.status()).claimed, false);
   assert.deepEqual(await registry.reset(), { ok: true, webhook: "deleted" });
   assert.equal((await registry.status()).configured, false);
   assert.deepEqual([...namespace.objects.keys()], [REGISTRY_NAME]);

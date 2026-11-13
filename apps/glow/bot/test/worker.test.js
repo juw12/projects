@@ -75,6 +75,7 @@ test("status says what is running, and the Glow page may read it", async () => {
     bot: null,
     access: "private",
     claimed: false,
+    paired: false,
     ai: false,
     colo: "",
   });
@@ -524,11 +525,13 @@ function pretendTelegram(special = () => null) {
   return { asked, route: [address, answer] };
 }
 
+// The bot's profile picture, fetched from the Glow pages during setup.
+const PICTURE = [PAGES + "/bot/logo.jpg", () => new Response(new Uint8Array([1, 2, 3]))];
+
 // A Worker whose owner has already pasted the bot's token into the setup page.
 async function setUpBot(options = {}) {
   const telegram = pretendTelegram(options.telegram);
-  const picture = [PAGES + "/bot/logo.jpg", () => new Response(new Uint8Array([1, 2, 3]))];
-  const kit = await setUp({ ...options, routes: [telegram.route, picture, ...(options.routes || [])] });
+  const kit = await setUp({ ...options, routes: [telegram.route, PICTURE, ...(options.routes || [])] });
   const setup = (await kit.call("/setup", jsonPost({ code: SETUP_CODE, token: TOKEN }))).body;
   const setupCalls = telegram.asked.splice(0);
   return {
@@ -627,8 +630,19 @@ test("when Telegram will not take the webhook, the bot stays switched off", asyn
 });
 
 test("setup connects the bot to Telegram and hands back the owner's link", async () => {
-  const { call, setup, setupCalls, hook } = await setUpBot();
-  assert.deepEqual(setup, { ok: true, bot: BOT_NAME, link: setup.link, claimed: false, warnings: [] });
+  const { call, now, setup, setupCalls, hook } = await setUpBot();
+  assert.deepEqual(setup, {
+    ok: true,
+    bot: BOT_NAME,
+    link: setup.link,
+    claimed: false,
+    warnings: [],
+    // The names GlowBot 0.2.0 used, kept so its connect script still reads the answer.
+    webhook: "https://glow-bot.test/telegram/webhook",
+    paired: false,
+    pairLink: setup.link,
+    pairUntil: now() + 24 * HOUR,
+  });
   assert.match(setup.link, /^https:\/\/t\.me\/glow_test_bot\?start=[0-9a-f]{32}$/);
 
   // Telegram is told where to send messages, then the bot gets its menu, texts and picture.
@@ -650,7 +664,7 @@ test("setup connects the bot to Telegram and hands back the owner's link", async
   );
 
   const status = (await call("/v1/status")).body;
-  assert.deepEqual([status.configured, status.bot, status.claimed], [true, BOT_NAME, false]);
+  assert.deepEqual([status.configured, status.bot, status.claimed, status.paired], [true, BOT_NAME, false, false]);
   assert.ok(!JSON.stringify([setup, status]).includes(TOKEN), "the token never comes back out");
 });
 
@@ -659,7 +673,237 @@ test("setting the same bot up again keeps its owner", async () => {
   await call("/telegram/webhook", jsonPost(message(1, "/start " + claim), hook));
   const again = await call("/setup", jsonPost({ code: SETUP_CODE, token: TOKEN }));
   assert.equal(again.status, 200);
-  assert.deepEqual(again.body, { ok: true, bot: BOT_NAME, link: "https://t.me/glow_test_bot", claimed: true, warnings: [] });
+  assert.deepEqual(again.body, {
+    ok: true,
+    bot: BOT_NAME,
+    link: "https://t.me/glow_test_bot",
+    claimed: true,
+    warnings: [],
+    webhook: "https://glow-bot.test/telegram/webhook",
+    paired: true,
+    pairLink: null,
+    pairUntil: null,
+  });
+});
+
+// ---- GlowBot 0.2.0 went live first, with other addresses and its own saved settings. ----
+// ---- Everything it handed out keeps working: its script, its webhook and its owner.  ----
+
+// The texts the bot sent to one chat, oldest first.
+function saidTo(asked, chatId) {
+  return asked
+    .filter((entry) => entry.method === "sendMessage" && entry.payload.chat_id === chatId)
+    .map((entry) => entry.payload.text);
+}
+
+test("the older setup address works the same way as /setup", async () => {
+  const telegram = pretendTelegram();
+  const { call, env } = await setUp({ routes: [telegram.route, PICTURE] });
+
+  const refused = await call("/v1/setup", jsonPost({ token: TOKEN }));
+  assert.deepEqual([refused.status, refused.body], [403, { ok: false, error: "setup-code" }]);
+  assert.equal(env.REGISTRY.objects.size, 0, "the settings store was not even asked");
+
+  const badToken = await call("/v1/setup", jsonPost({ token: "nope" }, ADMIN));
+  assert.deepEqual([badToken.status, badToken.body], [400, { ok: false, error: "token-format" }]);
+  assert.deepEqual(telegram.asked, []);
+
+  const done = await call("/v1/setup", jsonPost({ token: TOKEN }, ADMIN));
+  assert.equal(done.status, 200);
+  assert.deepEqual(done.body, {
+    ok: true,
+    bot: BOT_NAME,
+    link: done.body.link,
+    claimed: false,
+    warnings: [],
+    webhook: "https://glow-bot.test/telegram/webhook",
+    paired: false,
+    pairLink: done.body.link,
+    pairUntil: done.body.pairUntil,
+  });
+  assert.equal(telegram.asked[1].method, "setWebhook");
+  assert.equal(telegram.asked[1].payload.url, "https://glow-bot.test/telegram/webhook");
+  assert.deepEqual([...env.REGISTRY.objects.keys()], ["main"]);
+  assert.equal((await call("/v1/setup")).status, 404, "nothing to read here either");
+});
+
+test("the older webhook address works the same way as /telegram/webhook", async () => {
+  const { call, env, asked, claim, hook } = await setUpBot();
+  const start = message(1, "/start " + claim);
+
+  const bare = await call("/v1/telegram", jsonPost(start));
+  assert.deepEqual([bare.status, bare.body], [403, { ok: false, error: "refused" }]);
+  const guess = await call("/v1/telegram", jsonPost(start, { "X-Telegram-Bot-Api-Secret-Token": "made-up" }));
+  assert.deepEqual([guess.status, guess.body], [403, { ok: false, error: "refused" }]);
+  assert.equal(env.CHAT.objects.size, 0);
+  assert.deepEqual(asked, []);
+
+  const claimed = await call("/v1/telegram", jsonPost(start, hook));
+  assert.deepEqual([claimed.status, claimed.body], [200, { ok: true }]);
+  assert.deepEqual([...env.CHAT.objects.keys()], ["tg:9001"]);
+  assert.match(saidTo(asked, 9001)[0], /^✅ You are now this bot's owner/);
+
+  const status = (await call("/v1/status")).body;
+  assert.deepEqual([status.claimed, status.paired], [true, true], "`paired` is the name GlowBot 0.2.0 gave it");
+  assert.equal((await call("/v1/telegram")).status, 404);
+});
+
+test("a bot that GlowBot 0.2.0 connected keeps answering its owner after the update", async () => {
+  const telegram = pretendTelegram();
+  const { call, env, now } = await setUp({ routes: [telegram.route, PICTURE] });
+  const friend = { id: 9002, type: "private" };
+  const stranger = { id: 5555, type: "private" };
+
+  // What 0.2.0 saved: a random webhook secret, the owner, and one friend the owner let in.
+  const oldHook = { "X-Telegram-Bot-Api-Secret-Token": "ab".repeat(24) };
+  const newHook = { "X-Telegram-Bot-Api-Secret-Token": await sha256Hex("glow-bot-webhook:" + TOKEN) };
+  const saved = env.REGISTRY.object("main").storage;
+  await saved.put("config", {
+    token: TOKEN,
+    bot: { id: 777, username: "glow_test_bot", name: "Glow" },
+    secret: "ab".repeat(24),
+    allowed: [9001, 9002],
+    ownerId: 9001,
+    connectedAt: now() - HOUR,
+    pairCode: null,
+    pairUntil: null,
+  });
+
+  const before = (await call("/v1/status")).body;
+  assert.deepEqual([before.configured, before.bot, before.claimed, before.paired], [true, BOT_NAME, true, true]);
+
+  // Telegram still posts to the old address with the old secret. Nobody has to pair again.
+  const help = await call("/v1/telegram", jsonPost(message(1, "/help"), oldHook));
+  assert.deepEqual([help.status, help.body], [200, { ok: true }]);
+  assert.match(saidTo(telegram.asked, 9001)[0], /^<b>GlowBot: what I can do<\/b>/);
+  assert.match(saidTo(telegram.asked, 9001)[0], /<b>Owner<\/b>/, "the owner is still the owner");
+
+  await call("/v1/telegram", jsonPost(message(2, "/help", friend), oldHook));
+  assert.match(saidTo(telegram.asked, 9002)[0], /^<b>GlowBot: what I can do<\/b>/, "the friend is still let in");
+  assert.doesNotMatch(saidTo(telegram.asked, 9002)[0], /<b>Owner<\/b>/);
+
+  await call("/v1/telegram", jsonPost(message(3, "/help", stranger), oldHook));
+  assert.deepEqual(saidTo(telegram.asked, 5555), ["🔒 This bot is private. Only its owner can let this chat in."]);
+
+  // The newer secret opens nothing yet; the old one works at the newer address too.
+  assert.equal((await call("/telegram/webhook", jsonPost(message(4, "/help"), newHook))).status, 403);
+  assert.equal((await call("/telegram/webhook", jsonPost(message(5, "/help"), oldHook))).status, 200);
+
+  // One setup call without a token moves Telegram to the newer address and secret.
+  telegram.asked.length = 0;
+  const refresh = await call("/v1/setup", { method: "POST", headers: ADMIN });
+  assert.equal(refresh.status, 200);
+  assert.deepEqual([refresh.body.bot, refresh.body.claimed, refresh.body.pairLink], [BOT_NAME, true, null]);
+  assert.deepEqual(telegram.asked[1], {
+    method: "setWebhook",
+    payload: {
+      url: "https://glow-bot.test/telegram/webhook",
+      secret_token: newHook["X-Telegram-Bot-Api-Secret-Token"],
+      allowed_updates: ["message", "callback_query", "my_chat_member"],
+      drop_pending_updates: true,
+    },
+  });
+
+  telegram.asked.length = 0;
+  assert.equal((await call("/v1/telegram", jsonPost(message(6, "/help"), oldHook))).status, 403, "the old secret is retired");
+  assert.equal((await call("/telegram/webhook", jsonPost(message(7, "/help"), newHook))).status, 200);
+  assert.equal(saidTo(telegram.asked, 9001).length, 1);
+  // What 0.2.0 saved stays where it was, so going back to 0.2.0 stays possible.
+  assert.deepEqual([...(await saved.list()).keys()], ["config", "registry"]);
+});
+
+test("several setup codes can be listed, and each one works", async () => {
+  const telegram = pretendTelegram();
+  const { call, env } = await setUp({ routes: [telegram.route] });
+  const other = "another-test-code-that-opens-nothing-real";
+  const listed = [await sha256Hex(other), await sha256Hex(SETUP_CODE)];
+  env.SETUP_CODE_SHA256 = listed.join(", ");
+
+  // "token-format" is the answer to a made-up token once the code itself was accepted.
+  for (const code of [other, SETUP_CODE]) {
+    const inBody = await call("/setup", jsonPost({ code, token: "nope" }));
+    assert.deepEqual([inBody.status, inBody.body], [400, { ok: false, error: "token-format" }], code);
+    const inHeader = await call("/v1/setup", jsonPost({ token: "nope" }, { "X-Glow-Setup-Code": code }));
+    assert.deepEqual([inHeader.status, inHeader.body], [400, { ok: false, error: "token-format" }], code);
+  }
+  const wrong = ["a wrong guess", other + "," + SETUP_CODE, other + ", " + SETUP_CODE, listed[0], listed.join(", ")];
+  for (const code of wrong) {
+    const refused = await call("/setup", jsonPost({ code, token: "nope" }));
+    assert.deepEqual([refused.status, refused.body], [403, { ok: false, error: "setup-code" }], code);
+  }
+  // The owner's other doors take either code as well.
+  const reset = await call("/admin/reset", { method: "POST", headers: { "X-Glow-Setup-Code": other } });
+  assert.deepEqual([reset.status, reset.body], [200, { ok: true, webhook: "none" }]);
+  assert.deepEqual(telegram.asked, []);
+});
+
+test("with no setup code listed, nothing opens the setup", async () => {
+  const telegram = pretendTelegram();
+  const { call, env } = await setUp({ routes: [telegram.route] });
+  for (const listed of ["", ",", " , ", " ", undefined]) {
+    env.SETUP_CODE_SHA256 = listed;
+    for (const code of ["", " ", ",", "anything", undefined]) {
+      const refused = await call("/setup", jsonPost({ code, token: TOKEN }));
+      assert.deepEqual([refused.status, refused.body], [403, { ok: false, error: "setup-code" }], JSON.stringify([listed, code]));
+    }
+  }
+
+  // An empty code opens nothing even when the list names the SHA-256 of an empty text.
+  env.SETUP_CODE_SHA256 = await sha256Hex("");
+  const empty = [
+    jsonPost({ code: "", token: TOKEN }),
+    jsonPost({ token: TOKEN }),
+    jsonPost({ token: TOKEN }, { "X-Glow-Setup-Code": "" }),
+  ];
+  for (const init of empty) {
+    const refused = await call("/setup", init);
+    assert.deepEqual([refused.status, refused.body], [403, { ok: false, error: "setup-code" }]);
+  }
+  assert.equal(env.REGISTRY.objects.size, 0, "the settings store was not even asked");
+  assert.deepEqual(telegram.asked, []);
+});
+
+test("only a plain yes to a new pairing makes the bot forget its owner", async () => {
+  const { call, asked, setup, claim, hook } = await setUpBot();
+  await call("/telegram/webhook", jsonPost(message(1, "/start " + claim), hook));
+
+  for (const newPairing of ["yes", 1, "true", {}, null]) {
+    const kept = await call("/setup", jsonPost({ newPairing }, ADMIN));
+    assert.deepEqual([kept.status, kept.body.claimed, kept.body.pairLink], [200, true, null], JSON.stringify(newPairing));
+  }
+
+  const fresh = await call("/v1/setup", jsonPost({ newPairing: true }, ADMIN));
+  assert.equal(fresh.status, 200);
+  assert.deepEqual([fresh.body.claimed, fresh.body.paired], [false, false]);
+  assert.match(fresh.body.link, /^https:\/\/t\.me\/glow_test_bot\?start=[0-9a-f]{32}$/);
+  assert.notEqual(fresh.body.link, setup.link, "the first link was used up; this is a new one");
+  assert.equal(fresh.body.pairLink, fresh.body.link);
+  const status = (await call("/v1/status")).body;
+  assert.deepEqual([status.configured, status.claimed, status.paired, status.access], [true, false, false, "private"]);
+
+  // The person who owned the bot is a stranger again until someone opens the new link.
+  asked.length = 0;
+  await call("/telegram/webhook", jsonPost(message(2, "/help"), hook));
+  assert.equal(saidTo(asked, 9001).length, 1);
+  assert.match(saidTo(asked, 9001)[0], /^This bot is not set up yet\./);
+});
+
+test("setup without a token uses the one that is already saved", async () => {
+  const telegram = pretendTelegram();
+  const early = await setUp({ routes: [telegram.route] });
+  const nothingSaved = await early.call("/setup", { method: "POST", headers: ADMIN });
+  assert.deepEqual([nothingSaved.status, nothingSaved.body], [400, { ok: false, error: "token-format" }]);
+  assert.deepEqual(telegram.asked, []);
+
+  const { call, asked, claim, hook } = await setUpBot();
+  await call("/telegram/webhook", jsonPost(message(1, "/start " + claim), hook));
+  for (const init of [{ method: "POST", headers: ADMIN }, jsonPost({}, ADMIN), jsonPost({ token: "" }, ADMIN)]) {
+    asked.length = 0;
+    const again = await call("/setup", init);
+    assert.equal(again.status, 200);
+    assert.deepEqual([again.body.bot, again.body.claimed, again.body.pairLink], [BOT_NAME, true, null]);
+    assert.deepEqual(asked.slice(0, 3).map((entry) => entry.method), ["getMe", "setWebhook", "setMyCommands"]);
+  }
 });
 
 test("the webhook answers only to the secret Telegram was given", async () => {
@@ -781,7 +1025,7 @@ test("a chat that breaks does not make Telegram send the message again", async (
 
 test("when the settings store is down, Telegram is asked to send the message again", async () => {
   const { call, env, asked, claim, hook } = await setUpBot();
-  const store = env.REGISTRY.object("registry").instance;
+  const store = env.REGISTRY.object("main").instance;
   store.fetch = async () => {
     throw new Error("the settings store is down");
   };
