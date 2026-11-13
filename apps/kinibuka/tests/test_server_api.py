@@ -13,6 +13,7 @@ import json
 import os
 import shutil
 import socket
+import sqlite3
 import subprocess
 import sys
 import tempfile
@@ -41,7 +42,11 @@ class KiniBukaApiTests(unittest.TestCase):
         shutil.copy2(APP_DIR / "server.py", work / "server.py")
         shutil.copytree(APP_DIR / "static", work / "static")
         cls.port = free_port()
-        env = dict(os.environ, PORT=str(cls.port), WA_PROVIDER="", PYTHONIOENCODING="utf-8")
+        cls.db_path = work / "kinibuka.db"
+        env = dict(
+            os.environ, PORT=str(cls.port), WA_PROVIDER="", PYTHONIOENCODING="utf-8",
+            KINIBUKA_DB=str(cls.db_path), SEED_DEMO="1", ADMIN_PHONES="",
+        )
         cls.proc = subprocess.Popen(
             [sys.executable, str(work / "server.py")],
             cwd=work,
@@ -86,15 +91,33 @@ class KiniBukaApiTests(unittest.TestCase):
         except urllib.error.HTTPError as err:
             return err.code, json.loads(err.read())
 
+    PASSWORD = "rahasia123"
+
     def login(self, name, phone):
-        status, data = self.call("POST", "/api/login", {"name": name, "phone": phone})
+        """Sign up (or log in if the number already has an account) and return (token, user)."""
+        status, data = self.call("POST", "/api/signup", {"name": name, "phone": phone, "password": self.PASSWORD})
+        if status == 409:
+            status, data = self.call("POST", "/api/login", {"phone": phone, "password": self.PASSWORD})
         self.assertEqual(status, 200, data)
         return data["token"], data["user"]
 
-    def make_shop(self, phone):
+    def admin(self):
+        status, data = self.call("POST", "/api/login", {"phone": "080000000000", "password": "demo1234"})
+        self.assertEqual(status, 200, data)
+        self.assertTrue(data["user"]["is_admin"])
+        return data["token"]
+
+    def approve(self, stall_id, **extra):
+        return self.call("POST", f"/api/admin/stalls/{stall_id}", {"action": "approve", **extra}, self.admin())
+
+    def public_ids(self):
+        return {s["id"] for s in self.call("GET", "/api/stalls")[1]["stalls"]}
+
+    def make_shop(self, phone, live=True):
         token, user = self.login("Seller " + phone, phone)
         status, stall = self.call("POST", "/api/stalls", {"name": "Warung Test", "category": "Food"}, token)
         self.assertEqual(status, 200, stall)
+        self.assertEqual(stall["state"], "pending")
         status, branch = self.call(
             "POST", f"/api/stalls/{stall['id']}/branches",
             {"label": "Pusat", "lat": -6.2, "lng": 106.8, "is_open": True}, token,
@@ -102,6 +125,9 @@ class KiniBukaApiTests(unittest.TestCase):
         self.assertEqual(status, 200, branch)
         status, item = self.call("POST", f"/api/stalls/{stall['id']}/menu", {"name": "Nasi Goreng", "price": 25000}, token)
         self.assertEqual(status, 200, item)
+        if live:
+            status, data = self.approve(stall["id"])
+            self.assertEqual(status, 200, data)
         return token, stall["id"], branch["id"], item["id"]
 
     # -- tests ---------------------------------------------------------------
@@ -115,13 +141,108 @@ class KiniBukaApiTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertGreater(len(listing["stalls"]), 0)
 
-    def test_login_validates_phone_and_is_idempotent(self):
-        status, data = self.call("POST", "/api/login", {"name": "A", "phone": "123"})
+    def test_signup_and_password_login(self):
+        status, data = self.call("POST", "/api/signup", {"name": "A", "phone": "123", "password": self.PASSWORD})
         self.assertEqual((status, data["code"]), (400, "invalid_phone"))
-        token1, user1 = self.login("Budi", "0812-0000-1111")
-        token2, user2 = self.login("Budi again", "081200001111")
-        self.assertEqual(token1, token2)
-        self.assertEqual(user1["id"], user2["id"])
+        status, data = self.call("POST", "/api/signup", {"name": "A", "phone": "081200001111", "password": "short"})
+        self.assertEqual((status, data["code"]), (400, "password_short"))
+        status, first = self.call("POST", "/api/signup", {"name": "Budi", "phone": "0812-0000-1111", "password": self.PASSWORD})
+        self.assertEqual(status, 200, first)
+        self.assertFalse(first["user"]["is_admin"])
+        self.assertEqual(first["user"]["phone"], "081200001111")
+        # same number again (written differently) cannot take over the account
+        status, data = self.call("POST", "/api/signup", {"name": "Thief", "phone": "+62 812 0000 1111", "password": "other-pass"})
+        self.assertEqual((status, data["code"]), (409, "phone_taken"))
+        status, data = self.call("POST", "/api/login", {"phone": "081200001111", "password": "wrong-pass"})
+        self.assertEqual((status, data["code"]), (401, "wrong_login"))
+        status, data = self.call("POST", "/api/login", {"phone": "6281200001111", "password": self.PASSWORD})
+        self.assertEqual(status, 200, data)
+        self.assertEqual(data["user"]["id"], first["user"]["id"])
+        # change password rotates the token: the old session stops working
+        token = data["token"]
+        status, changed = self.call("POST", "/api/password", {"old": self.PASSWORD, "new": "baru-12345"}, token)
+        self.assertEqual(status, 200, changed)
+        self.assertEqual(self.call("GET", "/api/me", token=token)[1]["user"], None)
+        self.assertEqual(self.call("GET", "/api/me", token=changed["token"])[1]["user"]["name"], "Budi")
+        status, data = self.call("POST", "/api/login", {"phone": "081200001111", "password": "baru-12345"})
+        self.assertEqual(status, 200, data)
+        self.assertEqual(self.call("POST", "/api/logout", {}, data["token"])[0], 200)
+        self.assertEqual(self.call("GET", "/api/me", token=data["token"])[1]["user"], None)
+
+    def test_wrong_passwords_are_rate_limited(self):
+        self.login("Rate", "081377770000")
+        for _ in range(10):
+            status, data = self.call("POST", "/api/login", {"phone": "081377770000", "password": "nope-nope"})
+            self.assertEqual(status, 401)
+        status, data = self.call("POST", "/api/login", {"phone": "081377770000", "password": self.PASSWORD})
+        self.assertEqual((status, data["code"]), (429, "too_many_attempts"))
+
+    def test_new_stall_waits_for_admin_then_goes_public(self):
+        seller, stall_id, branch_id, item_id = self.make_shop("081355550000", live=False)
+        stranger, _ = self.login("Stranger", "081355551111")
+        self.assertNotIn(stall_id, self.public_ids())
+        self.assertEqual(self.call("GET", f"/api/stalls/{stall_id}", token=stranger)[0], 404)
+        self.assertEqual(self.call("GET", f"/api/stalls/{stall_id}", token=seller)[1]["state"], "pending")
+        mine = self.call("GET", "/api/my/stalls", token=seller)[1]["stalls"]
+        self.assertEqual([(s["id"], s["state"]) for s in mine], [(stall_id, "pending")])
+        feed = self.call("GET", "/api/feed")[1]["items"]
+        self.assertFalse([i for i in feed if i["stall_id"] == stall_id])
+        status, data = self.call("POST", "/api/orders", {"branch_id": branch_id, "items": [{"menu_id": item_id, "qty": 1}]}, stranger)
+        self.assertEqual((status, data["code"]), (400, "stall_not_live"))
+        # only admins may approve
+        status, data = self.call("POST", f"/api/admin/stalls/{stall_id}", {"action": "approve"}, seller)
+        self.assertEqual((status, data["code"]), (403, "admin_only"))
+        self.assertEqual(self.call("GET", "/api/admin/overview", token=seller)[0], 403)
+        overview = self.call("GET", "/api/admin/overview", token=self.admin())[1]
+        self.assertIn(stall_id, [s["id"] for s in overview["stalls"] if s["state"] == "pending"])
+        status, data = self.approve(stall_id, until="2001-01-01")
+        self.assertEqual((status, data["code"]), (400, "bad_date"))
+        status, data = self.approve(stall_id)
+        self.assertEqual((status, data["state"]), (200, "live"), data)
+        self.assertIn(stall_id, self.public_ids())
+        feed = self.call("GET", "/api/feed")[1]["items"]
+        self.assertIn("new_stall", [i["type"] for i in feed if i["stall_id"] == stall_id])
+        status, data = self.call("POST", "/api/orders", {"branch_id": branch_id, "items": [{"menu_id": item_id, "qty": 1}]}, stranger)
+        self.assertEqual(status, 200, data)
+        # suspend hides it again
+        status, data = self.call("POST", f"/api/admin/stalls/{stall_id}", {"action": "suspend", "note": "Tutup sementara"}, self.admin())
+        self.assertEqual((status, data["state"]), (200, "suspended"))
+        self.assertNotIn(stall_id, self.public_ids())
+        self.assertEqual(self.call("GET", f"/api/stalls/{stall_id}", token=seller)[1]["review_note"], "Tutup sementara")
+
+    def test_slot_end_date_hides_the_stall(self):
+        _, stall_id, _, _ = self.make_shop("081366660000")
+        self.assertIn(stall_id, self.public_ids())
+        with sqlite3.connect(self.db_path) as db:
+            db.execute("UPDATE stalls SET slot_until='2000-01-01' WHERE id=?", (stall_id,))
+        self.assertNotIn(stall_id, self.public_ids())
+        overview = self.call("GET", "/api/admin/overview", token=self.admin())[1]
+        self.assertEqual([s["state"] for s in overview["stalls"] if s["id"] == stall_id], ["expired"])
+        status, data = self.call("POST", f"/api/admin/stalls/{stall_id}", {"action": "extend"}, self.admin())
+        self.assertEqual((status, data["state"]), (200, "live"), data)
+        self.assertIn(stall_id, self.public_ids())
+
+    def test_market_capacity_limits_approvals(self):
+        admin = self.admin()
+        _, stall_id, _, _ = self.make_shop("081388880000", live=False)
+        live_now = self.call("GET", "/api/admin/overview", token=admin)[1]["live_count"]
+        try:
+            status, data = self.call("POST", "/api/admin/settings", {"capacity": live_now, "slot_days": 30}, admin)
+            self.assertEqual(status, 200, data)
+            status, data = self.approve(stall_id)
+            self.assertEqual((status, data["code"]), (409, "no_free_slot"))
+            self.assertNotIn(stall_id, self.public_ids())
+        finally:
+            self.call("POST", "/api/admin/settings", {"capacity": 50, "slot_days": 30}, admin)
+        self.assertEqual(self.approve(stall_id)[0], 200)
+
+    def test_admin_can_reset_a_forgotten_password(self):
+        token, _ = self.login("Lupa", "081399990000")
+        status, data = self.call("POST", "/api/admin/password", {"phone": "081399990000", "password": "sementara1"}, self.admin())
+        self.assertEqual(status, 200, data)
+        self.assertEqual(self.call("GET", "/api/me", token=token)[1]["user"], None)
+        status, data = self.call("POST", "/api/login", {"phone": "081399990000", "password": "sementara1"})
+        self.assertEqual(status, 200, data)
 
     def test_writes_need_login_and_ownership(self):
         status, data = self.call("POST", "/api/stalls", {"name": "X", "category": "Food"})

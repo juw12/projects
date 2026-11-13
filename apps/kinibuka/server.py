@@ -15,8 +15,13 @@ Settings (environment variables, all optional):
   WA_PHONE_NUMBER_ID  Meta phone-number ID             (WA_PROVIDER=meta)
   WA_TEMPLATE         approved Meta template name with one body variable {{1}} (optional)
   WA_TEMPLATE_LANG    template language code, default "id"
+  ADMIN_PHONES        comma-separated phone numbers that get the Admin tab (approve stalls, slots)
+  SEED_DEMO           1 (default) adds demo stalls/accounts to an empty database; 0 for a real market
+  KINIBUKA_DB         path of the SQLite file (default kinibuka.db next to this file)
 """
 import datetime
+import hashlib
+import hmac
 import json
 import os
 import re
@@ -33,11 +38,16 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-DB_PATH = os.path.join(HERE, "kinibuka.db")
+DB_PATH = os.environ.get("KINIBUKA_DB", "").strip() or os.path.join(HERE, "kinibuka.db")
 STATIC_DIR = os.path.join(HERE, "static")
 PORT = int(os.environ.get("PORT", "8000"))
 APP_NAME = os.environ.get("APP_NAME", "KiniBuka")
 WA_PROVIDER = os.environ.get("WA_PROVIDER", "").strip().lower()
+SEED_DEMO = os.environ.get("SEED_DEMO", "1").strip().lower() not in ("0", "false", "no", "off")
+DEMO_PASSWORD = "demo1234"
+MIN_PASSWORD = 8
+STALL_STATUSES = ["pending", "live", "rejected", "suspended"]
+DEFAULT_SETTINGS = {"slot_capacity": "50", "slot_days": "30"}
 
 LANGUAGES = ["id", "en", "zh"]
 DEFAULT_LANG = "id"
@@ -96,6 +106,49 @@ ERRORS = {
     "not_found": {"en": "Not found", "id": "Tidak ditemukan", "zh": "未找到"},
     "server_error": {"en": "Server error", "id": "Terjadi kesalahan server", "zh": "服务器错误"},
     "method_not_allowed": {"en": "Method not allowed", "id": "Metode tidak diizinkan", "zh": "不允许的请求方法"},
+    "password_short": {
+        "en": "Password must be at least {n} characters",
+        "id": "Kata sandi minimal {n} karakter",
+        "zh": "密码至少需要 {n} 个字符",
+    },
+    "phone_taken": {
+        "en": "This number already has an account - please log in",
+        "id": "Nomor ini sudah punya akun - silakan masuk",
+        "zh": "该号码已注册，请直接登录",
+    },
+    "wrong_login": {
+        "en": "Wrong phone number or password",
+        "id": "Nomor HP atau kata sandi salah",
+        "zh": "手机号或密码错误",
+    },
+    "set_password": {
+        "en": "This account has no password yet - use Sign up with the same number to set one",
+        "id": "Akun ini belum punya kata sandi - pakai Daftar dengan nomor yang sama untuk membuatnya",
+        "zh": "该账号还没有密码，请用同一号码「注册」来设置密码",
+    },
+    "too_many_attempts": {
+        "en": "Too many wrong tries - wait 15 minutes",
+        "id": "Terlalu banyak percobaan salah - tunggu 15 menit",
+        "zh": "错误次数过多，请 15 分钟后再试",
+    },
+    "admin_only": {"en": "Admins only", "id": "Khusus admin", "zh": "仅限管理员"},
+    "user_not_found": {"en": "No account with that number", "id": "Tidak ada akun dengan nomor itu", "zh": "没有该号码的账号"},
+    "no_free_slot": {
+        "en": "All {n} market slots are taken - raise the capacity or end another stall first",
+        "id": "Semua {n} slot pasar sudah terisi - tambah kapasitas atau akhiri lapak lain dulu",
+        "zh": "市场的 {n} 个摊位已满，请先增加容量或结束其他摊位",
+    },
+    "bad_date": {
+        "en": "Please pick a valid date from today onwards",
+        "id": "Pilih tanggal yang valid mulai hari ini",
+        "zh": "请选择今天或之后的有效日期",
+    },
+    "stall_not_live": {
+        "en": "This stall is not open on the market right now",
+        "id": "Lapak ini sedang tidak tampil di pasar",
+        "zh": "该摊位目前未在市场上开放",
+    },
+    "unknown_action": {"en": "Unknown action", "id": "Aksi tidak dikenal", "zh": "未知操作"},
 }
 
 WA_TEXT = {
@@ -129,6 +182,16 @@ WA_TEXT = {
         "id": "{app}: Pesanan #{id} dibatalkan oleh pembeli ({customer}).",
         "en": "{app}: Order #{id} was cancelled by the customer ({customer}).",
         "zh": "{app}：订单 #{id} 已被顾客（{customer}）取消。",
+    },
+    "stall_live": {
+        "id": "{app}: Lapak {stall} sudah disetujui dan tampil untuk pembeli sampai {until}.",
+        "en": "{app}: Your stall {stall} is approved and visible to customers until {until}.",
+        "zh": "{app}：您的摊位 {stall} 已通过审核，在 {until} 之前对顾客可见。",
+    },
+    "stall_stopped": {
+        "id": "{app}: Lapak {stall} tidak tampil di pasar. {note}",
+        "en": "{app}: Your stall {stall} is not shown on the market. {note}",
+        "zh": "{app}：您的摊位 {stall} 已不在市场上显示。{note}",
     },
 }
 
@@ -231,17 +294,39 @@ CREATE TABLE IF NOT EXISTS orders(
     created_at INTEGER NOT NULL,
     updated_at INTEGER NOT NULL
 );
+CREATE TABLE IF NOT EXISTS settings(
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+);
 """
 
 db_lock = threading.Lock()
+if os.path.dirname(DB_PATH):
+    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
 db = sqlite3.connect(DB_PATH, check_same_thread=False)
 db.row_factory = sqlite3.Row
 db.execute("PRAGMA foreign_keys = ON")
 db.executescript(SCHEMA)
-# Upgrade databases created by the first version (no language column yet).
-if "lang" not in [r["name"] for r in db.execute("PRAGMA table_info(users)")]:
-    db.execute("ALTER TABLE users ADD COLUMN lang TEXT NOT NULL DEFAULT 'id'")
-    db.commit()
+
+
+def ensure_column(table, column, definition):
+    """Upgrade databases made by older versions in place (existing rows get the default)."""
+    if column not in [r["name"] for r in db.execute(f"PRAGMA table_info({table})")]:
+        db.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
+        db.commit()
+
+
+ensure_column("users", "lang", "TEXT NOT NULL DEFAULT 'id'")
+ensure_column("users", "password_hash", "TEXT NOT NULL DEFAULT ''")
+ensure_column("users", "is_admin", "INTEGER NOT NULL DEFAULT 0")
+# Stalls from before admin approval existed stay listed ('live' with no end date).
+ensure_column("stalls", "status", "TEXT NOT NULL DEFAULT 'live'")
+ensure_column("stalls", "slot_until", "TEXT NOT NULL DEFAULT ''")
+ensure_column("stalls", "review_note", "TEXT NOT NULL DEFAULT ''")
+ensure_column("stalls", "reviewed_at", "INTEGER NOT NULL DEFAULT 0")
+for key, value in DEFAULT_SETTINGS.items():
+    db.execute("INSERT OR IGNORE INTO settings(key, value) VALUES(?,?)", (key, value))
+db.commit()
 
 
 def now():
@@ -261,6 +346,98 @@ def run(sql, args=()):
     cur = db.execute(sql, args)
     db.commit()
     return cur.lastrowid
+
+
+def today():
+    return datetime.date.today().isoformat()
+
+
+def setting(key):
+    row = one("SELECT value FROM settings WHERE key=?", (key,))
+    return int(row["value"]) if row else int(DEFAULT_SETTINGS[key])
+
+
+def live_sql(alias="s"):
+    """SQL condition: the stall is approved and its slot has not run out (today's date is server-made)."""
+    return f"({alias}.status='live' AND ({alias}.slot_until='' OR {alias}.slot_until>='{today()}'))"
+
+
+def stall_state(stall):
+    """pending / live / expired / rejected / suspended, as customers would experience it."""
+    if stall["status"] == "live" and stall["slot_until"] and stall["slot_until"] < today():
+        return "expired"
+    return stall["status"]
+
+
+def live_count():
+    return one(f"SELECT COUNT(*) AS n FROM stalls s WHERE {live_sql()}")["n"]
+
+
+# ---------------------------------------------------------------- accounts
+
+def normalize_phone(raw):
+    """Digits only, Indonesian style: +62 812... and 0812... are the same number."""
+    digits = re.sub(r"[^0-9]", "", str(raw or ""))
+    if digits.startswith("62"):
+        digits = "0" + digits[2:]
+    elif digits.startswith("8"):
+        digits = "0" + digits
+    return digits
+
+
+PBKDF2_ROUNDS = 200_000
+
+
+def hash_password(password):
+    salt = secrets.token_hex(16)
+    digest = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), bytes.fromhex(salt), PBKDF2_ROUNDS).hex()
+    return f"pbkdf2_sha256${PBKDF2_ROUNDS}${salt}${digest}"
+
+
+def check_password(password, stored):
+    try:
+        algo, rounds, salt, digest = stored.split("$")
+        if algo != "pbkdf2_sha256":
+            return False
+        candidate = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), bytes.fromhex(salt), int(rounds)).hex()
+    except (ValueError, AttributeError):
+        return False
+    return hmac.compare_digest(candidate, digest)
+
+
+LOGIN_FAILURES = {}  # phone -> recent failure times (memory only; resets when the server restarts)
+FAILURE_WINDOW = 15 * 60
+MAX_FAILURES = 10
+
+
+def check_rate_limit(phone):
+    recent = [t for t in LOGIN_FAILURES.get(phone, []) if t > time.time() - FAILURE_WINDOW]
+    LOGIN_FAILURES[phone] = recent
+    if len(recent) >= MAX_FAILURES:
+        raise ApiError(429, "too_many_attempts")
+
+
+def note_failure(phone):
+    LOGIN_FAILURES.setdefault(phone, []).append(time.time())
+
+
+def admin_phones():
+    return {normalize_phone(p) for p in os.environ.get("ADMIN_PHONES", "").split(",") if normalize_phone(p)}
+
+
+def apply_admin_phones():
+    phones = admin_phones()
+    for phone in phones:
+        run("UPDATE users SET is_admin=1 WHERE phone=?", (phone,))
+    return phones
+
+
+def normalize_stored_phones():
+    """Older versions kept '+62...' or '0812-...' as typed; store one form so logins match."""
+    for u in rows("SELECT id, phone FROM users"):
+        clean = normalize_phone(u["phone"])
+        if clean and clean != u["phone"] and not one("SELECT 1 FROM users WHERE phone=?", (clean,)):
+            run("UPDATE users SET phone=? WHERE id=?", (clean, u["id"]))
 
 
 def log_activity(type_, message="", stall_id=None, branch_id=None, bazaar_id=None, at=None):
@@ -386,6 +563,12 @@ class Ctx:
             raise ApiError(401, "login_required")
         return self.user
 
+    def require_admin(self):
+        user = self.require_user()
+        if not user["is_admin"]:
+            raise ApiError(403, "admin_only")
+        return user
+
     def text(self, key, max_len=200, required=False, default=""):
         value = self.body.get(key, default)
         value = "" if value is None else str(value).strip()
@@ -432,7 +615,25 @@ def branch_dict(b):
 
 
 def public_user(u):
-    return {"id": u["id"], "name": u["name"], "phone": u["phone"], "lang": u["lang"]}
+    return {"id": u["id"], "name": u["name"], "phone": u["phone"], "lang": u["lang"], "is_admin": bool(u["is_admin"])}
+
+
+def session(user):
+    return {"token": user["token"], "user": public_user(user)}
+
+
+def valid_phone(ctx):
+    phone = normalize_phone(ctx.text("phone", 30, required=True))
+    if not 9 <= len(phone) <= 15:
+        raise ApiError(400, "invalid_phone")
+    return phone
+
+
+def new_password(ctx, key="password"):
+    password = str(ctx.body.get(key) or "")
+    if len(password) < MIN_PASSWORD:
+        raise ApiError(400, "password_short", n=MIN_PASSWORD)
+    return password[:200]
 
 
 # ---------------------------------------------------------------- config + auth
@@ -444,27 +645,71 @@ def config(ctx):
         "languages": LANGUAGES,
         "wa_auto": bool(WA_PROVIDER),
         "categories": CATEGORIES,
+        "demo": SEED_DEMO,
+        "min_password": MIN_PASSWORD,
     }
+
+
+@route("POST", "/api/signup")
+def signup(ctx):
+    name = ctx.text("name", 60, required=True)
+    phone = valid_phone(ctx)
+    password = new_password(ctx)
+    is_admin = 1 if phone in admin_phones() else 0
+    user = one("SELECT * FROM users WHERE phone=?", (phone,))
+    if user and user["password_hash"]:
+        raise ApiError(409, "phone_taken")
+    token = secrets.token_hex(16)
+    if user:
+        # An account from the old phone-only login: the first sign-up with that number claims it.
+        run(
+            "UPDATE users SET name=?, password_hash=?, token=?, lang=?, is_admin=MAX(is_admin, ?) WHERE id=?",
+            (name, hash_password(password), token, ctx.lang, is_admin, user["id"]),
+        )
+    else:
+        run(
+            "INSERT INTO users(name, phone, token, lang, created_at, password_hash, is_admin) VALUES(?,?,?,?,?,?,?)",
+            (name, phone, token, ctx.lang, now(), hash_password(password), is_admin),
+        )
+    return session(one("SELECT * FROM users WHERE phone=?", (phone,)))
 
 
 @route("POST", "/api/login")
 def login(ctx):
-    name = ctx.text("name", 60, required=True)
-    phone = re.sub(r"[^0-9+]", "", ctx.text("phone", 30, required=True))
-    if len(phone) < 8:
-        raise ApiError(400, "invalid_phone")
+    phone = valid_phone(ctx)
+    password = str(ctx.body.get("password") or "")
+    check_rate_limit(phone)
     user = one("SELECT * FROM users WHERE phone=?", (phone,))
-    if not user:
-        token = secrets.token_hex(16)
-        run(
-            "INSERT INTO users(name, phone, token, lang, created_at) VALUES(?,?,?,?,?)",
-            (name, phone, token, ctx.lang, now()),
-        )
-        user = one("SELECT * FROM users WHERE phone=?", (phone,))
-    elif user["lang"] != ctx.lang:
+    if user and not user["password_hash"]:
+        raise ApiError(400, "set_password")
+    if not user or not check_password(password, user["password_hash"]):
+        note_failure(phone)
+        raise ApiError(401, "wrong_login")
+    LOGIN_FAILURES.pop(phone, None)
+    if user["lang"] != ctx.lang:
         run("UPDATE users SET lang=? WHERE id=?", (ctx.lang, user["id"]))
         user["lang"] = ctx.lang
-    return {"token": user["token"], "user": public_user(user)}
+    return session(user)
+
+
+@route("POST", "/api/password")
+def change_password(ctx):
+    user = ctx.require_user()
+    check_rate_limit(user["phone"])
+    if not check_password(str(ctx.body.get("old") or ""), user["password_hash"]):
+        note_failure(user["phone"])
+        raise ApiError(401, "wrong_login")
+    password = new_password(ctx, "new")
+    token = secrets.token_hex(16)  # logs out every other phone that used the old password
+    run("UPDATE users SET password_hash=?, token=? WHERE id=?", (hash_password(password), token, user["id"]))
+    return session(one("SELECT * FROM users WHERE id=?", (user["id"],)))
+
+
+@route("POST", "/api/logout")
+def logout(ctx):
+    user = ctx.require_user()
+    run("UPDATE users SET token=? WHERE id=?", (secrets.token_hex(16), user["id"]))
+    return {"ok": True}
 
 
 @route("GET", "/api/me")
@@ -477,10 +722,10 @@ def me(ctx):
 
 # ---------------------------------------------------------------- stalls
 
-@route("GET", "/api/stalls")
-def list_stalls(ctx):
-    stalls = rows("SELECT * FROM stalls ORDER BY created_at DESC")
-    branches = rows("SELECT * FROM branches ORDER BY created_at")
+def stall_list(where, args=()):
+    stalls = rows("SELECT s.* FROM stalls s WHERE " + where + " ORDER BY s.created_at DESC", args)
+    ids = {s["id"] for s in stalls}
+    branches = [b for b in rows("SELECT * FROM branches ORDER BY created_at") if b["stall_id"] in ids]
     followers = {
         r["stall_id"]: r["n"]
         for r in rows("SELECT stall_id, COUNT(*) AS n FROM follows GROUP BY stall_id")
@@ -488,7 +733,8 @@ def list_stalls(ctx):
     # Available items only: Explore and the 3D market show what can be ordered right now.
     menus = {}
     for item in rows("SELECT id, stall_id, name, price FROM menu_items WHERE available=1 ORDER BY id"):
-        menus.setdefault(item["stall_id"], []).append({"id": item["id"], "name": item["name"], "price": item["price"]})
+        if item["stall_id"] in ids:
+            menus.setdefault(item["stall_id"], []).append({"id": item["id"], "name": item["name"], "price": item["price"]})
     by_stall = {}
     for b in branches:
         by_stall.setdefault(b["stall_id"], []).append(branch_dict(b))
@@ -498,7 +744,20 @@ def list_stalls(ctx):
         s["menu"] = menus.get(s["id"], [])
         s["menu_count"] = len(s["menu"])
         s["any_open"] = any(b["is_open"] for b in s["branches"])
-    return {"stalls": stalls, "categories": CATEGORIES}
+        s["state"] = stall_state(s)
+    return stalls
+
+
+@route("GET", "/api/stalls")
+def list_stalls(ctx):
+    # Customers only see approved stalls whose slot is still running.
+    return {"stalls": stall_list(live_sql()), "categories": CATEGORIES}
+
+
+@route("GET", "/api/my/stalls")
+def my_stalls(ctx):
+    user = ctx.require_user()
+    return {"stalls": stall_list("s.owner_id=?", (user["id"],)), "slot_days": setting("slot_days")}
 
 
 @route("POST", "/api/stalls")
@@ -516,12 +775,33 @@ def create_stall(ctx):
             category,
             ctx.text("emoji", 8) or "🏪",
             ctx.text("description", 500),
-            re.sub(r"[^0-9+]", "", ctx.text("whatsapp", 30)) or user["phone"],
+            normalize_phone(ctx.text("whatsapp", 30)) or user["phone"],
             now(),
         ),
     )
-    log_activity("new_stall", ctx.text("description", 140), stall_id=stall_id)
-    return {"id": stall_id}
+    # New stalls wait for the admin; the "new stall" feed post is made when it is first approved.
+    run("UPDATE stalls SET status='pending' WHERE id=?", (stall_id,))
+    return {"id": stall_id, "state": "pending"}
+
+
+@route("POST", r"/api/stalls/(\d+)")
+def update_stall(ctx):
+    stall = owned_stall(ctx, int(ctx.params[0]))
+    category = ctx.text("category", 30) or stall["category"]
+    if category not in CATEGORIES:
+        raise ApiError(400, "unknown_category")
+    run(
+        "UPDATE stalls SET name=?, category=?, emoji=?, description=?, whatsapp=? WHERE id=?",
+        (
+            ctx.text("name", 60) or stall["name"],
+            category,
+            ctx.text("emoji", 8) or stall["emoji"],
+            ctx.text("description", 500, default=stall["description"]),
+            normalize_phone(ctx.text("whatsapp", 30)) or stall["whatsapp"],
+            stall["id"],
+        ),
+    )
+    return {"ok": True}
 
 
 @route("GET", r"/api/stalls/(\d+)")
@@ -529,6 +809,10 @@ def stall_detail(ctx):
     stall_id = int(ctx.params[0])
     stall = one("SELECT * FROM stalls WHERE id=?", (stall_id,))
     if not stall:
+        raise ApiError(404, "stall_not_found")
+    stall["state"] = stall_state(stall)
+    is_owner = bool(ctx.user and ctx.user["id"] == stall["owner_id"])
+    if stall["state"] != "live" and not is_owner and not (ctx.user and ctx.user["is_admin"]):
         raise ApiError(404, "stall_not_found")
     stall["branches"] = [branch_dict(b) for b in rows("SELECT * FROM branches WHERE stall_id=? ORDER BY created_at", (stall_id,))]
     stall["menu"] = rows("SELECT * FROM menu_items WHERE stall_id=? ORDER BY id", (stall_id,))
@@ -550,7 +834,7 @@ def stall_detail(ctx):
     stall["is_following"] = bool(
         ctx.user and one("SELECT 1 FROM follows WHERE user_id=? AND stall_id=?", (ctx.user["id"], stall_id))
     )
-    stall["is_owner"] = bool(ctx.user and ctx.user["id"] == stall["owner_id"])
+    stall["is_owner"] = is_owner
     return stall
 
 
@@ -558,7 +842,7 @@ def stall_detail(ctx):
 def toggle_follow(ctx):
     user = ctx.require_user()
     stall_id = int(ctx.params[0])
-    if not one("SELECT 1 FROM stalls WHERE id=?", (stall_id,)):
+    if not one(f"SELECT 1 FROM stalls s WHERE s.id=? AND {live_sql()}", (stall_id,)):
         raise ApiError(404, "stall_not_found")
     if one("SELECT 1 FROM follows WHERE user_id=? AND stall_id=?", (user["id"], stall_id)):
         run("DELETE FROM follows WHERE user_id=? AND stall_id=?", (user["id"], stall_id))
@@ -669,7 +953,9 @@ def feed(ctx):
         "b.label AS branch_label, b.opening_date, z.name AS bazaar_name, "
         "z.start_date AS bazaar_start, z.end_date AS bazaar_end FROM activities a "
         "LEFT JOIN stalls s ON s.id=a.stall_id LEFT JOIN branches b ON b.id=a.branch_id "
-        "LEFT JOIN bazaars z ON z.id=a.bazaar_id ORDER BY a.created_at DESC, a.id DESC LIMIT 80"
+        "LEFT JOIN bazaars z ON z.id=a.bazaar_id "
+        f"WHERE a.stall_id IS NULL OR {live_sql()} "
+        "ORDER BY a.created_at DESC, a.id DESC LIMIT 80"
     )
     return {"items": items}
 
@@ -680,7 +966,8 @@ def feed(ctx):
 def list_bazaars(ctx):
     bazaars = rows("SELECT * FROM bazaars ORDER BY start_date")
     members = rows(
-        "SELECT bs.bazaar_id, s.id, s.name, s.emoji FROM bazaar_stalls bs JOIN stalls s ON s.id=bs.stall_id"
+        "SELECT bs.bazaar_id, s.id, s.name, s.emoji FROM bazaar_stalls bs JOIN stalls s ON s.id=bs.stall_id "
+        f"WHERE {live_sql()}"
     )
     for z in bazaars:
         z["stalls"] = [
@@ -748,6 +1035,8 @@ def place_order(ctx):
     branch = one("SELECT * FROM branches WHERE id=?", (ctx.body.get("branch_id"),))
     if not branch:
         raise ApiError(400, "choose_branch")
+    if not one(f"SELECT 1 FROM stalls s WHERE s.id=? AND {live_sql()}", (branch["stall_id"],)):
+        raise ApiError(400, "stall_not_live")
     if not branch["is_open"]:
         raise ApiError(400, "branch_closed")
     lines = []
@@ -807,26 +1096,153 @@ def update_order(ctx):
     return {"ok": True}
 
 
+# ---------------------------------------------------------------- admin: approve stalls, market slots
+
+@route("GET", "/api/admin/overview")
+def admin_overview(ctx):
+    ctx.require_admin()
+    stalls = rows(
+        "SELECT s.id, s.name, s.emoji, s.category, s.description, s.whatsapp, s.status, s.slot_until, "
+        "s.review_note, s.reviewed_at, s.created_at, u.name AS owner_name, u.phone AS owner_phone, "
+        "(SELECT COUNT(*) FROM menu_items m WHERE m.stall_id=s.id) AS menu_count, "
+        "(SELECT COUNT(*) FROM branches b WHERE b.stall_id=s.id) AS branch_count "
+        "FROM stalls s JOIN users u ON u.id=s.owner_id ORDER BY s.created_at DESC"
+    )
+    order = {"pending": 0, "expired": 1, "live": 2, "suspended": 3, "rejected": 4}
+    for s in stalls:
+        s["state"] = stall_state(s)
+    stalls.sort(key=lambda s: (order.get(s["state"], 9), s["slot_until"] if s["state"] == "live" else ""))
+    return {
+        "capacity": setting("slot_capacity"),
+        "slot_days": setting("slot_days"),
+        "live_count": live_count(),
+        "today": today(),
+        "stalls": stalls,
+    }
+
+
+@route("POST", r"/api/admin/stalls/(\d+)")
+def admin_stall_action(ctx):
+    ctx.require_admin()
+    stall = one("SELECT * FROM stalls WHERE id=?", (int(ctx.params[0]),))
+    if not stall:
+        raise ApiError(404, "stall_not_found")
+    action = ctx.text("action", 20, required=True)
+    note = ctx.text("note", 200)
+    owner = one("SELECT * FROM users WHERE id=?", (stall["owner_id"],))
+    if action in ("approve", "extend"):
+        until = ctx.text("until", 10)
+        if not until:
+            until = (datetime.date.today() + datetime.timedelta(days=setting("slot_days"))).isoformat()
+        try:
+            datetime.date.fromisoformat(until)
+        except ValueError:
+            raise ApiError(400, "bad_date")
+        if until < today():
+            raise ApiError(400, "bad_date")
+        capacity = setting("slot_capacity")
+        if stall_state(stall) != "live" and live_count() >= capacity:
+            raise ApiError(409, "no_free_slot", n=capacity)
+        first_time = not stall["reviewed_at"] and stall["status"] != "live"
+        run(
+            "UPDATE stalls SET status='live', slot_until=?, review_note=?, reviewed_at=? WHERE id=?",
+            (until, note, now(), stall["id"]),
+        )
+        if first_time:
+            log_activity("new_stall", stall["description"][:140], stall_id=stall["id"])
+        send_whatsapp(
+            stall["whatsapp"] or owner["phone"],
+            translate(WA_TEXT, "stall_live", owner["lang"], app=APP_NAME, stall=stall["name"], until=until),
+        )
+    elif action in ("reject", "suspend"):
+        status = "rejected" if action == "reject" else "suspended"
+        run(
+            "UPDATE stalls SET status=?, review_note=?, reviewed_at=? WHERE id=?",
+            (status, note, now(), stall["id"]),
+        )
+        send_whatsapp(
+            stall["whatsapp"] or owner["phone"],
+            translate(WA_TEXT, "stall_stopped", owner["lang"], app=APP_NAME, stall=stall["name"], note=note),
+        )
+    else:
+        raise ApiError(400, "unknown_action")
+    updated = one("SELECT * FROM stalls WHERE id=?", (stall["id"],))
+    return {"ok": True, "state": stall_state(updated), "slot_until": updated["slot_until"], "live_count": live_count()}
+
+
+@route("POST", "/api/admin/settings")
+def admin_settings(ctx):
+    ctx.require_admin()
+    capacity = int(ctx.number("capacity", minimum=1, maximum=100_000))
+    slot_days = int(ctx.number("slot_days", minimum=1, maximum=3650))
+    run("UPDATE settings SET value=? WHERE key='slot_capacity'", (str(capacity),))
+    run("UPDATE settings SET value=? WHERE key='slot_days'", (str(slot_days),))
+    return {"capacity": capacity, "slot_days": slot_days}
+
+
+@route("POST", "/api/admin/password")
+def admin_reset_password(ctx):
+    """For sellers who forgot their password: the admin sets a temporary one and tells them."""
+    ctx.require_admin()
+    target = one("SELECT * FROM users WHERE phone=?", (valid_phone(ctx),))
+    if not target:
+        raise ApiError(404, "user_not_found")
+    if target["is_admin"]:
+        raise ApiError(403, "admin_only")  # admins change their own password in Account
+    password = new_password(ctx)
+    run(
+        "UPDATE users SET password_hash=?, token=? WHERE id=?",
+        (hash_password(password), secrets.token_hex(16), target["id"]),
+    )
+    return {"ok": True, "name": target["name"]}
+
+
 # ---------------------------------------------------------------- demo data
+
+DEMO_ACCOUNTS = [
+    # name, phone, fixed token (so old demo links keep working), admin
+    ("Bu Sari (demo)", "081111111111", "demo-seller", 0),
+    ("Pak Udin", "081222222222", None, 0),
+    ("Andi (demo)", "081333333333", "demo-buyer", 0),
+    ("Neng Ayu (demo)", "081444444444", None, 0),
+    ("Admin (demo)", "080000000000", "demo-admin", 1),
+]
+
+
+def ensure_demo_accounts():
+    """Demo logins all use DEMO_PASSWORD; also upgrades demo users made before passwords existed."""
+    for name, phone, token, is_admin in DEMO_ACCOUNTS:
+        user = one("SELECT * FROM users WHERE phone=?", (phone,))
+        if not user:
+            run(
+                "INSERT INTO users(name, phone, token, lang, created_at, password_hash, is_admin) VALUES(?,?,?,?,?,?,?)",
+                (name, phone, token or secrets.token_hex(16), DEFAULT_LANG, now(), hash_password(DEMO_PASSWORD), is_admin),
+            )
+        elif not user["password_hash"]:
+            run("UPDATE users SET password_hash=?, is_admin=MAX(is_admin, ?) WHERE id=?",
+                (hash_password(DEMO_PASSWORD), is_admin, user["id"]))
+
 
 def seed():
     if one("SELECT 1 FROM stalls LIMIT 1"):
         return
     t = now()
     today = datetime.date.today()
+    slot_until = (today + datetime.timedelta(days=setting("slot_days"))).isoformat()
+    ensure_demo_accounts()
 
-    def user(name, phone, token):
-        return run(
-            "INSERT INTO users(name, phone, token, lang, created_at) VALUES(?,?,?,?,?)",
-            (name, phone, token, DEFAULT_LANG, t),
-        )
+    def user(phone):
+        return one("SELECT id FROM users WHERE phone=?", (phone,))["id"]
 
-    def stall(owner, name, cat, emoji, desc, wa, age_h):
+    def stall(owner, name, cat, emoji, desc, wa, age_h, status="live"):
         sid = run(
-            "INSERT INTO stalls(owner_id, name, category, emoji, description, whatsapp, created_at) VALUES(?,?,?,?,?,?,?)",
-            (owner, name, cat, emoji, desc, wa, t - age_h * 3600),
+            "INSERT INTO stalls(owner_id, name, category, emoji, description, whatsapp, created_at, "
+            "status, slot_until, reviewed_at) VALUES(?,?,?,?,?,?,?,?,?,?)",
+            (owner, name, cat, emoji, desc, wa, t - age_h * 3600, status,
+             slot_until if status == "live" else "", t - age_h * 3600 if status == "live" else 0),
         )
-        log_activity("new_stall", desc, stall_id=sid, at=t - age_h * 3600)
+        if status == "live":
+            log_activity("new_stall", desc, stall_id=sid, at=t - age_h * 3600)
         return sid
 
     def branch(sid, label, address, lat, lng, hours, is_open, note, age_min, opening_date=""):
@@ -841,9 +1257,8 @@ def seed():
         for name, price in items:
             run("INSERT INTO menu_items(stall_id, name, price, available) VALUES(?,?,?,1)", (sid, name, price))
 
-    seller = user("Bu Sari (demo)", "081111111111", "demo-seller")
-    others = user("Pak Udin", "081222222222", secrets.token_hex(16))
-    user("Andi (demo)", "081333333333", "demo-buyer")
+    seller = user("081111111111")
+    others = user("081222222222")
 
     s1 = stall(others, "Martabak Bang Udin", "Food", "🥞", "Martabak manis & telor, keju melimpah sejak 2015.", "081222222222", 240)
     b1 = branch(s1, "Kemang", "Jl. Kemang Raya No. 12", -6.2607, 106.8136, "16:00-23:00", 1, "Adonan fresh, siap!", 25)
@@ -900,6 +1315,12 @@ def seed():
     log_activity("open", "Adonan fresh, siap!", stall_id=s1, branch_id=b1, at=t - 25 * 60)
     log_activity("grand_opening", "Grand opening hari ini — beli 1 gratis 1 sampai jam 5 sore!", stall_id=s4, branch_id=b4, at=t - 15 * 60)
     log_activity("open", "Grand opening — beli 1 gratis 1!", stall_id=s4, branch_id=b4, at=t - 14 * 60)
+
+    # A new seller waiting for the admin, so the approval flow can be tried right away.
+    s7 = stall(user("081444444444"), "Seblak Neng Ayu", "Food", "🍜", "Seblak kuah pedas level 0-5, topping bebas.",
+               "081444444444", 2, status="pending")
+    branch(s7, "Cipete", "Jl. Cipete Raya No. 3", -6.2731, 106.8010, "11:00-21:00", 1, "", 60)
+    menu(s7, [("Seblak Original", 15000), ("Seblak Seafood", 25000)])
 
 
 # ---------------------------------------------------------------- http
@@ -1040,11 +1461,18 @@ def start_server(preferred_port, attempts=50):
 
 def main():
     with db_lock:
-        seed()
+        normalize_stored_phones()
+        if SEED_DEMO:
+            seed()
+            ensure_demo_accounts()
+        admins = apply_admin_phones()
     server, port = start_server(PORT)
     print(f"{APP_NAME} is running")
     print(f"  On this PC:         http://localhost:{port}")
     print(f"  Phones (same WiFi): http://{lan_ip()}:{port}")
+    print(f"  Database:           {DB_PATH}")
+    print(f"  Demo data:          {'on (password ' + DEMO_PASSWORD + ')' if SEED_DEMO else 'off'}")
+    print(f"  Admin numbers:      {', '.join(sorted(admins)) or 'none - set ADMIN_PHONES to approve stalls'}")
     print(f"  Automatic WhatsApp: {WA_PROVIDER or 'off (buyers/sellers use one-tap WhatsApp buttons)'}")
     print("  Press Ctrl+C to stop.")
     if "--open" in sys.argv:
