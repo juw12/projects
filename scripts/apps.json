@@ -1446,47 +1446,6 @@
       "portfolio_order": 22
     },
     {
-      "id": "crewcup",
-      "name": "CrewCup",
-      "category": "Apps",
-      "external": true,
-      "url": "https://github.com/juw12/projects/tree/main/apps/crewcup",
-      "url_label": "Source",
-      "desc": "Office coffee for teams in Indonesia and SEA: solo or group coffee runs, company allowance, badge pickup at partner cafés and rewards",
-      "summary": "Office coffee for teams: one-tap usual, group runs, company allowance, badge pickup at partner cafés and rewards.",
-      "description": "CrewCup is office coffee for teams in <strong>Indonesia and Southeast Asia</strong>. Employees order their usual in one tap or join a <strong>group coffee run</strong> with a cutoff (everyone's share is held, so the runner never pays upfront), paid from the <strong>company allowance</strong>, then pick up at a partner café with their <strong>company badge QR</strong>. Cafés get an order board batched by pickup slot, cup labels with allergy warnings, stock, payouts and catering; HR gets budgets, spend and tax receipts, runner fairness and an audit log. Includes <strong>company rewards</strong> (send a coffee, nominations), a loyalty program with points, tiers, coupons, café offers and achievements, and the <strong>CrewCup Network</strong> to meet other companies in your building. QRIS-style top-ups, live updates, English and Bahasa Indonesia. Plain Python server (no dependencies) on SQLite, 101 tests.",
-      "tags": [
-        "Office coffee",
-        "Teams",
-        "PWA",
-        "Python",
-        "SQLite",
-        "EN / ID"
-      ],
-      "note_tags": [
-        "crewcup",
-        "office-coffee",
-        "b2b",
-        "loyalty",
-        "pwa",
-        "i18n",
-        "python",
-        "sqlite"
-      ],
-      "image": "crewcup-card.jpg",
-      "image_alt": "CrewCup home screen: greeting, Order my usual button, allowance, wallet, points and badge tiles, and personal suggestions",
-      "card": {
-        "label": "crewcup · home",
-        "theme": "light",
-        "accent": "#9a5b2b",
-        "accent2": "#1f2937"
-      },
-      "status": "working-prototype",
-      "order": 1000,
-      "portfolio": true,
-      "portfolio_order": 25
-    },
-    {
       "id": "haru",
       "name": "Haru",
       "category": "Apps",
@@ -2119,45 +2078,6 @@
       "portfolio": true
     },
     {
-      "id": "tally",
-      "name": "Tally",
-      "category": "Apps",
-      "external": true,
-      "url": "https://juw12.github.io/tally/",
-      "url_label": "Open site",
-      "desc": "Voice expense tracker PWA: speak an expense, it's saved. EN/ID/ZH, regions, budgets, Strava-style share cards.",
-      "summary": "Say an expense, it's saved: a voice expense tracker for iPhone and Android.",
-      "description": "Speak or dictate a sentence like 'lunch 120 and taxi 250 yesterday' and Tally saves each expense with an amount, category and date. Understands English, Bahasa Indonesia and Chinese; 21 regions set currency, formats and app language. Overview with budget pace, daily chart and categories, plus a Strava-style share card for your day, week or month. Installable PWA, works offline, data stays on the device.",
-      "tags": [
-        "pwa",
-        "voice",
-        "expenses",
-        "finance",
-        "i18n"
-      ],
-      "note_tags": [
-        "tally"
-      ],
-      "image": "tally-card.jpg",
-      "image_alt": "Tally overview in dark mode with sample data: $306.50 spent this month, budget bar at 26%, daily spending bar chart and categories",
-      "extra_links": [
-        {
-          "label": "Source",
-          "url": "https://github.com/juw12/tally"
-        }
-      ],
-      "card": {
-        "label": "tally · demo",
-        "capture": "https://juw12.github.io/tally/?demo=1",
-        "theme": "dark",
-        "accent": "#a55b4a",
-        "accent2": "#9e972f"
-      },
-      "status": "released",
-      "order": 47,
-      "portfolio": true
-    },
-    {
       "id": "reachpilot",
       "name": "ReachPilot",
       "category": "Automation",
@@ -2368,40 +2288,6 @@
       },
       "status": "released",
       "order": 52,
-      "portfolio": true
-    },
-    {
-      "id": "founder-studio",
-      "name": "Founder Studio",
-      "category": "Apps",
-      "external": true,
-      "url": "https://juw12.github.io/founder-studio/",
-      "url_label": "Open demo",
-      "desc": "Local 3D buyer-panel simulator for pre-launch ideas, with reviewer bots that critique and auto-fix the pitch. Every number checked by open scripts.",
-      "summary": "Pre-launch simulator: 3D buyer bots walk up to your stall and decide BUY or PASS.",
-      "description": "Set a product, price, buyer segments and pitch, then watch simulated buyers decide. Every number is checked by the ambitious-founder skill's own scripts (panel, Van Westendorp pricing, unit economics, verdict). A review loop puts the board lenses in the arena as reviewer bots: they critique the pitch, an editor applies the fixes, and the same buyers judge each version. The online demo runs the real Python in the browser via Pyodide; AI buyers need the local app.",
-      "tags": [],
-      "note_tags": [
-        "founder-studio"
-      ],
-      "image": "founder-studio-card.jpg",
-      "image_alt": "Founder Studio online demo after a quick sim: warm paper interface, a 3D market square with the stall and BUY and PASS piles, one buyer open in the inspector, the live decisions list and the Results tab",
-      "extra_links": [
-        {
-          "label": "Source",
-          "url": "https://github.com/juw12/founder-studio"
-        }
-      ],
-      "card": {
-        "label": "founder-studio · demo",
-        "capture": "https://juw12.github.io/founder-studio/?project=demo-matcha&mode=quick&autorun=1&speed=4&skip=1",
-        "wait_ms": 30000,
-        "theme": "light",
-        "accent": "#b53b15",
-        "accent2": "#2f6b4f"
-      },
-      "status": "released",
-      "order": 53,
       "portfolio": true
     },
     {
