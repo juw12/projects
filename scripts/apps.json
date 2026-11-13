@@ -1700,8 +1700,8 @@
       "url": "https://juw12.github.io/jeda/",
       "url_label": "Open site",
       "desc": "A quiet space for every faith: an offline-first interfaith PWA",
-      "summary": "Jeda, ruang hening setiap iman: a quiet space for every faith, offline-first and installable as a PWA.",
-      "description": "<strong>Jeda: ruang hening setiap iman</strong> (a quiet space for every faith). An interfaith pause app for Indonesia that works offline and installs to the home screen as a PWA.",
+      "summary": "Jeda, ruang hening setiap iman: a quiet space for every faith, offline-first and installable as a PWA, with a two-tap quick mode.",
+      "description": "<strong>Jeda: ruang hening setiap iman</strong> (a quiet space for every faith). An interfaith pause app for Indonesia that works offline and installs to the home screen as a PWA. The Sejenak quick mode lights incense or a candle in two taps, with no setup.",
       "tags": [
         "PWA",
         "offline-first",
