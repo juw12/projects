@@ -41,6 +41,8 @@ About the secrets:
 | `/spark` | GlowSpark, the tiny AI Glow built from scratch, writes a short story from your opening line (in English). |
 | `/apps` | Buttons that open the Glow apps. |
 | `/daily` | AI news every day at a time you set (UTC+7), like `/daily 07:30`. `/daily off` stops it. |
+| `/every` | Owner only. A mission that runs by itself on a schedule (UTC+7), like `/every mon,thu 08:00 research cheap flights to Tokyo`. `/every` lists them, `/every off` clears them. Up to 5. |
+| `/missions` | Your last missions (the bot keeps 20). `/missions 3` shows a report again; the buttons run one again. |
 | `/status` | What is running, your mode, language and jobs used today. |
 | `/stop` | Stops the running job. |
 | `/lang` | Changes the language (English, Bahasa Indonesia, 简体中文, 繁體中文). |

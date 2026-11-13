@@ -55,7 +55,7 @@ MARKUP_WRITERS = ("innerHTML", "outerHTML", "insertAdjacentHTML", "createContext
 OTHER_STORES = ("sessionStorage", "document.cookie", "indexedDB", "caches.")
 COMMANDS = [
     "lead", "room", "ask", "agents", "chat", "agent", "news", "spark",
-    "apps", "daily", "status", "stop", "lang", "help", "access",
+    "apps", "daily", "every", "missions", "status", "stop", "lang", "help", "access",
 ]
 # Every line of bot.js that touches the setup code. A new use has to be looked at and added here.
 SETUP_CODE_USES = [
