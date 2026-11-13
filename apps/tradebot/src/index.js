@@ -204,10 +204,15 @@ export function createWorker(overrides) {
       const now = deps.now();
       if (this.deskChecked && now - this.deskChecked.at < DESK_CHECK_GOOD_FOR_MS) return json(this.deskChecked);
       const started = Date.now();
-      const opinion = await convene(this.ai(), SAMPLE_BRIEF);
+      let problem = "";
+      const opinion = await convene(this.ai(), SAMPLE_BRIEF, {
+        onProblem: (why) => {
+          problem = why;
+        },
+      });
       const answer = opinion
         ? { ok: true, model: opinion.model, verdict: opinion.verdict, confidence: opinion.confidence, bull: opinion.bull, ms: Date.now() - started, at: now }
-        : { ok: false, model: DESK_MODEL, error: this.ai() ? "the desk did not give a usable answer" : "no Workers AI binding", ms: Date.now() - started, at: now };
+        : { ok: false, model: DESK_MODEL, error: this.ai() ? `the desk did not give a usable answer (${problem || "unknown"})` : "no Workers AI binding", ms: Date.now() - started, at: now };
       if (answer.ok) this.deskChecked = answer;
       return json(answer);
     }

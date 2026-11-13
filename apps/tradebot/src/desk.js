@@ -122,7 +122,8 @@ function answerText(result) {
 }
 
 // Ask the desk. Resolves to { bull, bear, risk, verdict, confidence, model } or null; never throws.
-export async function convene(ai, brief, { model = DESK_MODEL, timeoutMs = DESK_TIMEOUT_MS } = {}) {
+// `onProblem` (optional) hears why there was no opinion: an error, a timeout or an answer it could not read.
+export async function convene(ai, brief, { model = DESK_MODEL, timeoutMs = DESK_TIMEOUT_MS, onProblem = () => {} } = {}) {
   if (!ai || typeof ai.run !== "function" || !brief) return null;
   let timer;
   try {
@@ -130,9 +131,16 @@ export async function convene(ai, brief, { model = DESK_MODEL, timeoutMs = DESK_
     const late = new Promise((resolve) => {
       timer = setTimeout(() => resolve(null), timeoutMs);
     });
-    const verdict = parseVerdict(answerText(await Promise.race([call, late])));
+    const answer = await Promise.race([call, late]);
+    if (answer === null) {
+      onProblem(`no answer within ${Math.round(timeoutMs / 1000)} s`);
+      return null;
+    }
+    const verdict = parseVerdict(answerText(answer));
+    if (!verdict) onProblem(`could not read the answer: ${String(answerText(answer) || JSON.stringify(answer)).slice(0, 160)}`);
     return verdict ? { ...verdict, model } : null;
-  } catch {
+  } catch (error) {
+    onProblem(String((error && error.message) || error).slice(0, 200));
     return null;
   } finally {
     clearTimeout(timer);
