@@ -1,5 +1,5 @@
 {
-  "$comment": "TradeBot's twin on freqtrade. DRY RUN: pretend money, real prices. Telegram and FreqUI are switched on and given their secrets by the environment (.env, see .env.example), never by this file; the set-in-dot-env placeholders only satisfy freqtrade's config check (it rejects missing or empty keys).",
+  "$comment": "TradeBot's twin on freqtrade. DRY RUN: pretend money, real prices. Telegram and FreqUI are switched on and given their secrets by the environment (.env, see .env.example), never by this file; the placeholder values only satisfy freqtrade's config check (it rejects missing or empty keys).",
   "strategy": "TradeBotTrend",
   "dry_run": true,
   "dry_run_wallet": 10000,
@@ -39,7 +39,7 @@
   ],
   "telegram": {
     "enabled": false,
-    "token": "set-in-dot-env",
+    "token": "placeholder-set-the-real-value-in-the-dot-env-file",
     "chat_id": "0"
   },
   "api_server": {
@@ -50,8 +50,8 @@
     "enable_openapi": false,
     "CORS_origins": [],
     "username": "tradebot",
-    "password": "set-in-dot-env",
-    "jwt_secret_key": "set-in-dot-env"
+    "password": "placeholder-set-the-real-value-in-the-dot-env-file",
+    "jwt_secret_key": "placeholder-set-the-real-value-in-the-dot-env-file"
   },
   "bot_name": "TradeBot twin (freqtrade, dry run)",
   "initial_state": "running",
