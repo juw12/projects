@@ -1,11 +1,12 @@
-// Live prices, free and without an API key. Candles come from Binance's public market-data
-// mirror; when that does not answer, from OKX. Both are read-only: nothing here can trade.
+// Live prices, free and without an API key. Candles come from public market-data addresses of
+// several exchanges; the first one that answers is used, and the one that answered last is asked
+// first next time. All of them are read-only: nothing here can trade.
 
 export const TIMEFRAMES = {
-  "15m": { ms: 15 * 60 * 1000, okx: "15m" },
-  "1h": { ms: 60 * 60 * 1000, okx: "1H" },
-  "4h": { ms: 4 * 60 * 60 * 1000, okx: "4H" },
-  "1d": { ms: 24 * 60 * 60 * 1000, okx: "1Dutc" },
+  "15m": { ms: 15 * 60 * 1000 },
+  "1h": { ms: 60 * 60 * 1000 },
+  "4h": { ms: 4 * 60 * 60 * 1000 },
+  "1d": { ms: 24 * 60 * 60 * 1000 },
 };
 
 const QUOTE = "USDT";
@@ -18,30 +19,81 @@ export function normalizeSymbol(text) {
   return /^[A-Z0-9]{2,12}USDT$/.test(symbol) ? symbol : null;
 }
 
+const base = (symbol) => symbol.slice(0, -QUOTE.length);
+const candle = (t, o, h, l, c, v) => ({ t: Number(t), o: Number(o), h: Number(h), l: Number(l), c: Number(c), v: Number(v) });
+const refuse = (reason) => {
+  throw new Error(String(reason || "unexpected answer"));
+};
+
+// Every source gives candles oldest first, the last one still forming, with times in milliseconds.
+// `bars` is what that exchange calls each timeframe (daily candles always start at 00:00 UTC).
 const SOURCES = [
   {
     name: "Binance",
     max: 1000,
-    url: (symbol, timeframe, limit) =>
-      `https://data-api.binance.vision/api/v3/klines?symbol=${symbol}&interval=${timeframe}&limit=${limit}`,
+    bars: { "15m": "15m", "1h": "1h", "4h": "4h", "1d": "1d" },
+    url: (symbol, bar, limit) => `https://data-api.binance.vision/api/v3/klines?symbol=${symbol}&interval=${bar}&limit=${limit}`,
     parse(data) {
-      if (!Array.isArray(data)) throw new Error((data && data.msg) || "unexpected answer");
-      return data.map((row) => ({ t: Number(row[0]), o: Number(row[1]), h: Number(row[2]), l: Number(row[3]), c: Number(row[4]), v: Number(row[5]) }));
+      if (!Array.isArray(data)) refuse(data && data.msg);
+      return data.map((row) => candle(row[0], row[1], row[2], row[3], row[4], row[5]));
     },
   },
   {
     name: "OKX",
     max: 300,
-    url: (symbol, timeframe, limit) =>
-      `https://www.okx.com/api/v5/market/candles?instId=${symbol.slice(0, -QUOTE.length)}-${QUOTE}&bar=${TIMEFRAMES[timeframe].okx}&limit=${limit}`,
+    bars: { "15m": "15m", "1h": "1H", "4h": "4H", "1d": "1Dutc" },
+    url: (symbol, bar, limit) => `https://www.okx.com/api/v5/market/candles?instId=${base(symbol)}-${QUOTE}&bar=${bar}&limit=${limit}`,
     parse(data) {
-      if (!data || data.code !== "0" || !Array.isArray(data.data)) throw new Error((data && data.msg) || "unexpected answer");
-      return data.data
-        .map((row) => ({ t: Number(row[0]), o: Number(row[1]), h: Number(row[2]), l: Number(row[3]), c: Number(row[4]), v: Number(row[5]) }))
-        .reverse(); // OKX sends the newest candle first
+      if (!data || data.code !== "0" || !Array.isArray(data.data)) refuse(data && data.msg);
+      return data.data.map((row) => candle(row[0], row[1], row[2], row[3], row[4], row[5])).reverse(); // newest first
+    },
+  },
+  {
+    name: "Gate",
+    max: 1000,
+    bars: { "15m": "15m", "1h": "1h", "4h": "4h", "1d": "1d" },
+    url: (symbol, bar, limit) => `https://api.gateio.ws/api/v4/spot/candlesticks?currency_pair=${base(symbol)}_${QUOTE}&interval=${bar}&limit=${limit}`,
+    parse(data) {
+      if (!Array.isArray(data)) refuse(data && (data.message || data.label));
+      // [seconds, quote volume, close, high, low, open, volume]
+      return data.map((row) => candle(Number(row[0]) * 1000, row[5], row[3], row[4], row[2], row[6]));
+    },
+  },
+  {
+    name: "Kraken",
+    max: 720,
+    bars: { "15m": 15, "1h": 60, "4h": 240, "1d": 1440 },
+    url: (symbol, bar) => `https://api.kraken.com/0/public/OHLC?pair=${KRAKEN_NAMES[base(symbol)] || base(symbol)}${QUOTE}&interval=${bar}`,
+    parse(data) {
+      const rows = data && data.result && Object.values(data.result).find(Array.isArray);
+      if (!rows) refuse(data && Array.isArray(data.error) && data.error.join(", "));
+      // [seconds, open, high, low, close, average, volume]
+      return rows.map((row) => candle(Number(row[0]) * 1000, row[1], row[2], row[3], row[4], row[6]));
+    },
+  },
+  {
+    name: "Bitget",
+    max: 1000,
+    bars: { "15m": "15min", "1h": "1h", "4h": "4h", "1d": "1Dutc" },
+    url: (symbol, bar, limit) => `https://api.bitget.com/api/v2/spot/market/candles?symbol=${symbol}&granularity=${bar}&limit=${limit}`,
+    parse(data) {
+      if (!data || data.code !== "00000" || !Array.isArray(data.data)) refuse(data && data.msg);
+      return data.data.map((row) => candle(row[0], row[1], row[2], row[3], row[4], row[5]));
+    },
+  },
+  {
+    name: "MEXC",
+    max: 500,
+    bars: { "15m": "15m", "1h": "60m", "4h": "4h", "1d": "1d" },
+    url: (symbol, bar, limit) => `https://api.mexc.com/api/v3/klines?symbol=${symbol}&interval=${bar}&limit=${limit}`,
+    parse(data) {
+      if (!Array.isArray(data)) refuse(data && data.msg);
+      return data.map((row) => candle(row[0], row[1], row[2], row[3], row[4], row[5]));
     },
   },
 ];
+
+const KRAKEN_NAMES = { BTC: "XBT", DOGE: "XDG" };
 
 export const SOURCE_NAMES = SOURCES.map((source) => source.name);
 
@@ -50,13 +102,21 @@ export function createMarket(options = {}) {
   const send = options.fetch || ((input, init) => fetch(input, init));
   const timeoutMs = options.timeoutMs || 8000;
 
+  let lastGood = null; // the source that answered last time is asked first
+
   async function read(source, symbol, timeframe, limit) {
-    const response = await send(source.url(symbol, timeframe, Math.min(limit, source.max)), {
+    const wanted = Math.min(limit, source.max);
+    const response = await send(source.url(symbol, source.bars[timeframe], wanted), {
       headers: { Accept: "application/json", "User-Agent": "trade-bot" },
       signal: AbortSignal.timeout(timeoutMs),
     });
     const data = await response.json().catch(() => null);
-    const candles = source.parse(data);
+    let candles;
+    try {
+      candles = source.parse(data).slice(-wanted);
+    } catch (error) {
+      throw new Error(response.ok ? error.message : `${error.message} (HTTP ${response.status})`);
+    }
     const good = candles.filter((candle) => [candle.t, candle.o, candle.h, candle.l, candle.c].every(Number.isFinite) && candle.c > 0);
     if (good.length < 2 || good.length !== candles.length) throw new Error("no usable candles");
     return good;
@@ -65,11 +125,15 @@ export function createMarket(options = {}) {
   // Oldest candle first; the last one is still forming. `only` asks one named source.
   async function candles(symbol, timeframe, limit = 300, only) {
     if (!TIMEFRAMES[timeframe]) throw new Error(`Unknown timeframe ${timeframe}.`);
+    const order = only
+      ? SOURCES.filter((source) => source.name === only)
+      : [...SOURCES].sort((a, b) => (b.name === lastGood) - (a.name === lastGood));
     const errors = [];
-    for (const source of SOURCES) {
-      if (only && source.name !== only) continue;
+    for (const source of order) {
       try {
-        return { source: source.name, candles: await read(source, symbol, timeframe, limit) };
+        const answer = { source: source.name, candles: await read(source, symbol, timeframe, limit) };
+        if (!only) lastGood = source.name;
+        return answer;
       } catch (error) {
         errors.push(`${source.name}: ${String((error && error.message) || error).slice(0, 80)}`);
       }

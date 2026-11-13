@@ -50,6 +50,40 @@ test("one named source can be asked alone, and failures name every source tried"
   await assert.rejects(market.candles("BTCUSDT", "2h"), /Unknown timeframe/);
 });
 
+test("the other exchanges are read into the same candles", async () => {
+  const candles = makeCandles({ now: NOW, timeframeMs: HOUR, count: 10 });
+  const text = (candle) => [candle.o, candle.h, candle.l, candle.c, candle.v].map(String);
+  const shapes = {
+    Gate: ["https://api.gateio.ws/", candles.map((c) => [String(c.t / 1000), "0", String(c.c), String(c.h), String(c.l), String(c.o), String(c.v), "true"])],
+    Kraken: ["https://api.kraken.com/", { error: [], result: { XBTUSDT: candles.map((c) => [c.t / 1000, String(c.o), String(c.h), String(c.l), String(c.c), "0", String(c.v), 7]), last: 1 } }],
+    Bitget: ["https://api.bitget.com/", { code: "00000", msg: "success", data: candles.map((c) => [String(c.t), ...text(c), "0", "0"]) }],
+    MEXC: ["https://api.mexc.com/", candles.map((c) => [c.t, ...text(c), c.t + 1, "0"])],
+  };
+  for (const [name, [address, body]] of Object.entries(shapes)) {
+    const fetch = fakeFetch([[address, () => reply(body)]]);
+    const answer = await createMarket({ fetch }).candles("BTCUSDT", "1h", 4, name);
+    assert.deepEqual(answer, { source: name, candles: candles.slice(-4) }, name);
+  }
+  const kraken = fakeFetch([["https://api.kraken.com/", () => reply({ error: ["EQuery:Unknown asset pair"] })]]);
+  await assert.rejects(createMarket({ fetch: kraken }).candles("BTCUSDT", "4h", 10, "Kraken"), /Kraken: EQuery:Unknown asset pair/);
+  assert.match(kraken.calls[0].url, /pair=XBTUSDT&interval=240$/);
+});
+
+test("the source that answered last is asked first, and a refusal says its HTTP status", async () => {
+  const candles = makeCandles({ now: NOW, timeframeMs: HOUR, count: 10 });
+  const fetch = fakeFetch([
+    [BINANCE, () => new Response("<html>blocked</html>", { status: 403 })],
+    [OKX, () => reply(okxBody(candles))],
+  ]);
+  const market = createMarket({ fetch });
+  await assert.rejects(market.candles("BTCUSDT", "1h", 10, "Binance"), /Binance: unexpected answer \(HTTP 403\)/);
+  fetch.calls.length = 0;
+  assert.equal((await market.candles("BTCUSDT", "1h", 10)).source, "OKX");
+  assert.equal(fetch.calls.length, 2, "first time: Binance refuses, OKX answers");
+  assert.equal((await market.candles("ETHUSDT", "1h", 10)).source, "OKX");
+  assert.equal(fetch.calls.length, 3, "second time: OKX is asked straight away");
+});
+
 test("broken numbers are refused instead of traded on", async () => {
   const candles = makeCandles({ now: NOW, timeframeMs: HOUR, count: 10 });
   const rows = binanceRows(candles);
