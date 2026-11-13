@@ -201,6 +201,34 @@
   .pin.open { background: var(--open); }
   .pin.bazaar { background: #6d28d9; border-radius: 5px; }
   .pin.me { background: #2563eb; box-shadow: 0 0 0 6px rgba(37, 99, 235, .2); }
+  /* ---------- 3D market (Explore > 3D, see world.js) ---------- */
+  #exploreStage { position: relative; }
+  #map[hidden], #world[hidden], .world-card[hidden] { display: none; }
+  .mode-toggle {
+    position: absolute; top: 10px; left: 10px; z-index: 2; display: flex; gap: 2px; padding: 3px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow);
+  }
+  .mode-toggle button {
+    font: inherit; font-size: 13px; font-weight: 600; border: none; border-radius: 7px; padding: 6px 12px; cursor: pointer;
+    background: transparent; color: var(--muted);
+  }
+  .mode-toggle button.on { background: var(--text); color: #fff; }
+  #world {
+    position: relative; height: min(62vh, 520px); min-height: 300px; overflow: hidden;
+    border-radius: var(--radius); border: 1px solid var(--border); background: #dceaf0;
+  }
+  #worldStage { position: absolute; inset: 0; }
+  #worldStage.context-lost::after {
+    content: attr(data-paused); position: absolute; inset: 0; display: grid; place-items: center;
+    background: rgba(17, 24, 39, .55); color: #fff; font-size: 14px; font-weight: 600;
+  }
+  .world-canvas { width: 100%; height: 100%; display: block; touch-action: none; outline: none; cursor: grab; }
+  .world-canvas:active { cursor: grabbing; }
+  .world-canvas:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .world-card {
+    position: absolute; left: 10px; right: 10px; bottom: 10px; z-index: 2; display: flex; align-items: center; gap: 10px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px; box-shadow: var(--shadow-lg);
+  }
   .legend { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; font-size: 12px; color: var(--muted); margin: 8px 2px 14px; }
   .legend i { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 5px; vertical-align: -1px; }
   .leaflet-popup-content { font-family: inherit; font-size: 13px; margin: 12px 14px; }
@@ -347,7 +375,17 @@
       <label class="switch"><input type="checkbox" id="openOnly"><span class="track"></span><span data-i18n="explore.openOnly"></span></label>
       <button class="btn btn-secondary btn-sm" data-action="near-me"><svg class="i i-sm"><use href="#i-locate"/></svg><span data-i18n="explore.nearMe"></span></button>
     </div>
-    <div id="map"></div>
+    <div id="exploreStage">
+      <div class="mode-toggle" id="exploreMode" role="group">
+        <button type="button" data-action="explore-mode" data-mode="map" data-i18n="explore.modeMap"></button>
+        <button type="button" data-action="explore-mode" data-mode="3d" data-i18n="explore.mode3d"></button>
+      </div>
+      <div id="map"></div>
+      <div id="world" hidden>
+        <div id="worldStage"></div>
+        <div class="world-card" id="worldCard" hidden></div>
+      </div>
+    </div>
     <div class="legend" id="mapLegend"></div>
     <div id="exploreList"></div>
   </section>
@@ -424,11 +462,7 @@ function applyStaticText() {
   });
   $('#langSelect').innerHTML = Object.keys(I18N).map(code =>
     `<option value="${code}" ${code === LANG ? 'selected' : ''}>${LANG_LABELS[code] || code}</option>`).join('');
-  $('#mapLegend').innerHTML = `
-    <span><i style="background:var(--open)"></i>${t('status.open')}</span>
-    <span><i style="background:var(--closed)"></i>${t('status.closed')}</span>
-    <span><i style="background:#6d28d9;border-radius:2px"></i>${t('nav.bazaar')}</span>
-    <span>${t('explore.legend')}</span>`;
+  renderLegend();
   renderUserChip();
   document.title = `${state.appName} – ${t('app.tagline')}`;
 }
@@ -437,6 +471,7 @@ function setLang(code) {
   LANG = I18N[code] ? code : 'id';
   localStorage.setItem('kb_lang', LANG);
   state.markerSignature = null;
+  closeWorld();
   applyStaticText();
   showView(state.view, { keepScroll: true });
 }
@@ -489,6 +524,8 @@ const state = {
   view: 'feed',
   feedFilter: 'all',
   category: 'All',
+  exploreMode: 'map', // 'map' | '3d'
+  worldTruncated: false,
   userPos: null,
   sellerStallId: Number(localStorage.getItem('kb_seller_stall')) || null,
   cart: { stallId: null, qty: {} },
@@ -759,10 +796,12 @@ function showView(view, { keepScroll = false } = {}) {
   document.querySelectorAll('section.view').forEach(s => s.classList.toggle('active', s.id === 'view-' + view));
   document.querySelectorAll('nav.bottom button').forEach(b => b.classList.toggle('active', b.dataset.view === view));
   if (!keepScroll) window.scrollTo(0, 0);
+  if (view !== 'map') closeWorld();
   renderLiveStats();
   if (view === 'feed') renderFeed();
   if (view === 'map') {
     ensureMap();
+    renderExploreMode();
     renderExplore();
     if (mainMap) setTimeout(() => mainMap.invalidateSize(), 50);
   }
@@ -912,6 +951,109 @@ function renderExplore() {
         <span class="muted">${icon('chevron', 'i-sm')}</span>
       </div>
     </div>`).join('')}</div>` : `<div class="list">${emptyState('search', '', t('explore.none'))}</div>`;
+  renderWorld(withDistance.map(({ s }) => s));
+}
+
+// ------------------------------------------------------------------ explore / 3D market
+
+const WORLD_MAX_STALLS = 24; // the street shows the first stalls of the current Explore list
+let world = null; // the live 3D market from world.js, only while Explore is in 3D mode
+let worldLoading = false;
+let worldNearId = null; // stall the visitor is standing at
+
+function closeWorld() {
+  if (world) world.destroy();
+  world = null;
+  worldNearId = null;
+  $('#worldCard').hidden = true;
+}
+
+function renderLegend() {
+  $('#mapLegend').innerHTML = state.exploreMode === '3d'
+    ? `<span>${t('world.hint')}</span>${state.worldTruncated ? `<span>${t('world.more', { n: WORLD_MAX_STALLS })}</span>` : ''}`
+    : `<span><i style="background:var(--open)"></i>${t('status.open')}</span>
+    <span><i style="background:var(--closed)"></i>${t('status.closed')}</span>
+    <span><i style="background:#6d28d9;border-radius:2px"></i>${t('nav.bazaar')}</span>
+    <span>${t('explore.legend')}</span>`;
+}
+
+function renderExploreMode() {
+  const is3d = state.exploreMode === '3d';
+  document.querySelectorAll('#exploreMode button').forEach(b => {
+    const on = b.dataset.mode === state.exploreMode;
+    b.classList.toggle('on', on);
+    b.setAttribute('aria-pressed', on);
+  });
+  $('#map').hidden = is3d;
+  $('#world').hidden = !is3d;
+  renderLegend();
+}
+
+function setExploreMode(mode) {
+  state.exploreMode = mode === '3d' ? '3d' : 'map';
+  if (state.exploreMode === 'map') closeWorld();
+  renderExploreMode();
+  if (state.view !== 'map') return;
+  renderExplore();
+  if (state.exploreMode === 'map' && mainMap) setTimeout(() => mainMap.invalidateSize(), 50);
+}
+
+function renderWorldCard() {
+  const s = state.stalls.find(x => x.id === worldNearId);
+  const card = $('#worldCard');
+  card.hidden = !s;
+  if (!s) return;
+  card.innerHTML = `${avatar(s.name, s.category)}
+    <div class="grow">
+      <div class="bold ellipsis">${esc(s.name)}</div>
+      <div class="row gap-6 mt-4">${statusPill(s.any_open)}<span class="muted xs ellipsis">${esc(catLabel(s.category))}</span></div>
+    </div>
+    <button class="btn btn-primary btn-sm" data-action="open-stall" data-id="${s.id}">${t('map.viewOrder')}</button>`;
+}
+
+// Show the given stalls (already filtered and sorted by Explore) as stands along the 3D street.
+async function renderWorld(stalls) {
+  if (state.exploreMode !== '3d') return;
+  if (!world) {
+    if (worldLoading) return;
+    worldLoading = true;
+    try {
+      const { webglAvailable, createMarket } = await import('/world.js'); // three.js loads only when 3D is opened
+      if (state.exploreMode !== '3d' || state.view !== 'map') return; // left while it was loading
+      if (!webglAvailable()) throw new Error('webgl-unavailable');
+      $('#worldStage').dataset.paused = t('world.paused');
+      world = createMarket($('#worldStage'), {
+        me: { name: state.me ? state.me.name.split(' ')[0] : t('world.you'), color: '#0f766e' },
+        colors: CATEGORY_COLORS,
+        title: state.appName,
+        label: t('world.hint'),
+        onNearStall: id => {
+          worldNearId = id;
+          renderWorldCard();
+        },
+      });
+    } catch (err) {
+      console.warn('3D market unavailable:', err);
+      toast(t('world.unavailable'));
+      setExploreMode('map');
+      return;
+    } finally {
+      worldLoading = false;
+    }
+    renderExplore(); // the list may have changed while loading, so render again with fresh data
+    return;
+  }
+  state.worldTruncated = stalls.length > WORLD_MAX_STALLS;
+  renderLegend();
+  // Stands are placed in id order, so a stall that opens or closes changes its look, not its place.
+  world.setStalls(stalls.slice(0, WORLD_MAX_STALLS).sort((a, b) => a.id - b.id).map(s => ({
+    id: s.id,
+    name: s.name,
+    category: s.category,
+    open: Boolean(s.any_open),
+    status: s.any_open ? t('status.open') : t('status.closed'),
+  })));
+  renderWorldCard();
 }
 
 function locateMe() {
@@ -1522,6 +1664,7 @@ const actions = {
     renderExplore();
   },
   'near-me': () => locateMe(),
+  'explore-mode': el => setExploreMode(el.dataset.mode),
   'open-stall': el => openStall(Number(el.dataset.id)),
   'manage-stall': el => {
     state.sellerStallId = Number(el.dataset.id);
@@ -1686,7 +1829,8 @@ $('#searchInput').addEventListener('input', () => renderExplore());
 // ------------------------------------------------------------------ start
 
 (async function start() {
-  // Deep links: #stall/3 opens a stall, #map / #bazaar / #orders / #seller open a tab, ?lang=en sets the language
+  // Deep links: #stall/3 opens a stall, #map / #bazaar / #orders / #seller open a tab,
+  // #3d opens Explore as the 3D market, ?lang=en sets the language
   const langParam = new URLSearchParams(location.search).get('lang');
   if (langParam && I18N[langParam]) {
     LANG = langParam;
@@ -1697,7 +1841,8 @@ $('#searchInput').addEventListener('input', () => renderExplore());
   applyStaticText();
   await refresh();
   const [route, routeId] = location.hash.replace('#', '').split('/');
-  showView(['map', 'bazaar', 'orders', 'seller'].includes(route) ? route : 'feed');
+  if (route === '3d') state.exploreMode = '3d';
+  showView(['map', 'bazaar', 'orders', 'seller'].includes(route) ? route : route === '3d' ? 'map' : 'feed');
   if (route === 'stall' && routeId) openStall(Number(routeId));
   setInterval(() => {
     if (!document.hidden) refresh({ background: true });

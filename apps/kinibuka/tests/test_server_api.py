@@ -195,6 +195,13 @@ class KiniBukaApiTests(unittest.TestCase):
                 body = response.read().decode("utf-8", "replace")
             self.assertNotIn("def place_order", body, path)
 
+    def test_3d_market_assets_are_served_as_javascript(self):
+        for path in ("/world.js", "/vendor/three.module.min.js"):
+            with OPENER.open(self.base + path, timeout=10) as response:
+                self.assertEqual(response.status, 200, path)
+                self.assertIn("javascript", response.headers.get("Content-Type", ""), path)
+                self.assertGreater(len(response.read()), 1000, path)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=1)

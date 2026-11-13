@@ -57,10 +57,11 @@
 **For buyers**
 - **Latest feed:** live list of stalls opening and closing, new branches, promos and bazaars
 - **Explore:** search, category filters and an OpenStreetMap map of stalls that are open now
+- **3D market:** switch Explore from Map to 3D and walk a street of the stalls in your current search. Tap the ground to walk, tap a stall to go to it, drag to look around, pinch or scroll to zoom. Open stalls are lit and stocked, closed ones are shuttered
 - **Follow:** get alerts when a followed stall opens, posts a promo or joins a bazaar
 - **Order ahead:** pick items and a pickup time, then track the order as the seller accepts (or rejects) it, marks it ready and completes it
 - **WhatsApp:** one-tap buttons to chat with the seller or send the order details
-- **Deep links:** `#stall/<id>` opens a stall, and `?lang=en` sets the language
+- **Deep links:** `#stall/<id>` opens a stall, `#3d` opens the 3D market, and `?lang=en` sets the language
 
 **For sellers**
 - Toggle open or closed in one tap, per branch
@@ -106,10 +107,13 @@ Without configuration, WhatsApp works through `wa.me` links that the user taps. 
 - No online payments: buyers pay at the stall (cash or QRIS) on pickup.
 - Single-process server with SQLite. It is fine for a demo or one neighbourhood, but not for production scale.
 - Map tiles come from the public OpenStreetMap tile server, which is meant for light use only.
+- The 3D market needs WebGL (the app falls back to the map without it), shows at most 24 stalls and does not show bazaars.
 
 ## Files
 
 - `server.py`: HTTP server, JSON API, SQLite schema and demo seed data
 - `static/index.html`: the whole web app (no build step)
 - `static/i18n.js`: ID / EN / 中文 strings
+- `static/world.js`: the walkable 3D market (loaded only when the 3D view is opened)
+- `static/vendor/`: three.js r160 (MIT), vendored so the 3D view works without a CDN
 - `run.bat`: Windows launcher
