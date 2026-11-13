@@ -1,6 +1,6 @@
 // Small shared helpers for the GlowBot Worker. No dependencies.
 
-export const VERSION = "0.1.0-probe";
+export const VERSION = "0.2.0";
 
 export class TimeoutError extends Error {
   constructor(message) {
