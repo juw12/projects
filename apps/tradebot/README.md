@@ -220,6 +220,8 @@ It is built so that a mistake costs little:
 | Daily stop | after real losses of one buy size in a day, no more real buys that day |
 | Any order error | real copying stops at once (back to rehearsal) and you get a 🚨 message |
 
+**Known blocker (checked 13 Nov 2026):** Tokocrypto answers HTTP 403 to Cloudflare's servers (the same as Binance), while it answers normally from a home or office connection. So today `/v1/live` shows `"error": "... HTTP 403"` and real orders cannot leave the Worker; `/live shadow` still works because it sends nothing. If `/live on` is ever tried, the first failed order drops it back to shadow with a 🚨 message. The way round it is to send the orders from your own connection: freqtrade's exchange library has a Tokocrypto driver (markets and market orders load fine), run with `freqtrade/run-windows.ps1` on a PC at home.
+
 Three switches must all be on before a single real order is sent:
 
 1. **Keys.** Make a Tokocrypto API key that can **trade only** (withdrawals off), then store it:
