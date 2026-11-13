@@ -764,6 +764,78 @@ test("a goal sent in Telegram is planned in the chat's own alarm, not while Tele
   assert.equal(storage.alarmAt, null, "a plan with more than one step waits for the owner's tap");
 });
 
+// A voice note, the way Telegram delivers it: no text, only the file's id and its length.
+function voiceNote(updateId, voice = {}, chat = OWNER_CHAT) {
+  return {
+    update_id: updateId,
+    message: {
+      message_id: 10 + updateId,
+      date: 0,
+      chat,
+      from: { id: chat.id, first_name: "Juwen", language_code: "en" },
+      voice: { file_id: "voice-file-1", duration: 4, mime_type: "audio/ogg", file_size: 5, ...voice },
+    },
+  };
+}
+
+test("a voice note goes through the real Worker: downloaded, written down by Whisper, then planned", async () => {
+  const ai = fakeAi({ "@cf/openai/whisper-large-v3-turbo": { text: " Write a welcome message for a small bakery. " } });
+  const filePath = (method) =>
+    method === "getFile" ? reply({ ok: true, result: { file_id: "voice-file-1", file_path: "voice/file_1.oga", file_size: 5 } }) : null;
+  const audio = [`https://api.telegram.org/file/bot${TOKEN}/`, () => new Response(new Uint8Array([79, 103, 103, 83, 0]))];
+  const { call, env, send, asked, claim, hook } = await setUpBot({ ai, telegram: filePath, routes: [audio] });
+  await call("/telegram/webhook", jsonPost(message(1, "/start " + claim), hook));
+  asked.length = 0;
+
+  const heard = await call("/telegram/webhook", jsonPost(voiceNote(2), hook));
+  assert.deepEqual([heard.status, heard.body], [200, { ok: true }]);
+
+  // The file is fetched by the id Telegram gave, then by the path Telegram answered with.
+  assert.deepEqual(asked.find((entry) => entry.method === "getFile").payload, { file_id: "voice-file-1" });
+  assert.equal(send.count(`https://api.telegram.org/file/bot${TOKEN}/voice/file_1.oga`), 1);
+  // Whisper gets those very bytes (base64 of "OggS\0"), and only the first model is needed.
+  assert.deepEqual(ai.calls.map((entry) => entry.model), ["@cf/openai/whisper-large-v3-turbo"]);
+  assert.deepEqual(ai.calls[0].inputs, { audio: "T2dnUwA=", task: "transcribe" });
+
+  // The owner sees the words that were heard, not an object, and the goal starts like a typed one.
+  const said = asked.filter((entry) => entry.method === "sendMessage").map((entry) => entry.payload.text);
+  assert.deepEqual(said, ["🎙 <i>Write a welcome message for a small bakery.</i>", "👑 GlowLead is planning…"]);
+  const { storage } = env.CHAT.object("tg:9001");
+  assert.notEqual(storage.alarmAt, null, "the plan is made in the chat's alarm");
+});
+
+test("a voice note Whisper cannot read asks for typing, and one that is too long never reaches Whisper", async () => {
+  const ai = fakeAi({});
+  const filePath = (method) => (method === "getFile" ? reply({ ok: true, result: { file_path: "voice/file_2.oga", file_size: 5 } }) : null);
+  const audio = [`https://api.telegram.org/file/bot${TOKEN}/`, () => new Response(new Uint8Array([1, 2, 3, 4, 5]))];
+  const { call, asked, send, claim, hook } = await setUpBot({ ai, telegram: filePath, routes: [audio] });
+  await call("/telegram/webhook", jsonPost(message(1, "/start " + claim), hook));
+  asked.length = 0;
+  const said = () => asked.filter((entry) => entry.method === "sendMessage").map((entry) => entry.payload.text);
+
+  await call("/telegram/webhook", jsonPost(voiceNote(2), hook));
+  assert.equal(ai.calls.length, 2, "both Whisper models were tried");
+  assert.equal(said().length, 1);
+  assert.match(said()[0], /type/i);
+
+  asked.length = 0;
+  await call("/telegram/webhook", jsonPost(voiceNote(3, { duration: 600 }), hook));
+  assert.equal(ai.calls.length, 2, "no model was asked for the long note");
+  assert.equal(send.count(`https://api.telegram.org/file/bot${TOKEN}/`), 1, "and it was not downloaded");
+  assert.equal(said().length, 1);
+});
+
+test("without the AI binding a voice note is answered with a plain sentence, not an error", async () => {
+  const { call, asked, claim, hook } = await setUpBot();
+  await call("/telegram/webhook", jsonPost(message(1, "/start " + claim), hook));
+  asked.length = 0;
+  const answer = await call("/telegram/webhook", jsonPost(voiceNote(2), hook));
+  assert.deepEqual([answer.status, answer.body], [200, { ok: true }]);
+  const said = asked.filter((entry) => entry.method === "sendMessage").map((entry) => entry.payload.text);
+  assert.equal(said.length, 1);
+  assert.doesNotMatch(said[0], /object|undefined|Error/);
+});
+
 test("a chat that breaks does not make Telegram send the message again", async () => {
   const { call, env, claim, hook } = await setUpBot();
   await call("/telegram/webhook", jsonPost(message(1, "/start " + claim), hook));

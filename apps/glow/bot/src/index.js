@@ -97,7 +97,12 @@ export function createWorker(overrides) {
           registry: registryClient(env.REGISTRY),
           info: { pages, version: VERSION, build: buildOf(env) },
           every: deps.every,
-          transcribe: (voice, config) => transcribeVoice({ fetch: deps.fetch, ai: env.AI, token: config.token, voice }),
+          // The chat wants the words alone; transcribeVoice also says which model heard them. Telegram waits
+          // on the webhook meanwhile, so each Whisper model gets 25 seconds, not the default minute.
+          transcribe: async (voice, config) => {
+            const heard = await transcribeVoice({ fetch: deps.fetch, ai: env.AI, token: config.token, voice, timeoutMs: 25000 });
+            return heard.text;
+          },
           onError: (where, error) => console.log(`chat ${where} failed: ${errorText(error)}`),
         });
       }
