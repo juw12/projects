@@ -195,6 +195,16 @@ class KiniBukaApiTests(unittest.TestCase):
                 body = response.read().decode("utf-8", "replace")
             self.assertNotIn("def place_order", body, path)
 
+    def test_stall_list_carries_the_orderable_menu(self):
+        seller, stall_id, _, item_id = self.make_shop("081344445555")
+        status, sold_out = self.call("POST", f"/api/stalls/{stall_id}/menu", {"name": "Es Teh", "price": 5000}, seller)
+        self.assertEqual(status, 200, sold_out)
+        self.assertEqual(self.call("POST", f"/api/menu/{sold_out['id']}", {"available": False}, seller)[0], 200)
+        _, data = self.call("GET", "/api/stalls")
+        stall = next(s for s in data["stalls"] if s["id"] == stall_id)
+        self.assertEqual(stall["menu"], [{"id": item_id, "name": "Nasi Goreng", "price": 25000}])
+        self.assertEqual(stall["menu_count"], 1)
+
     def test_3d_market_assets_are_served_as_javascript(self):
         for path in ("/world.js", "/vendor/three.module.min.js"):
             with OPENER.open(self.base + path, timeout=10) as response:

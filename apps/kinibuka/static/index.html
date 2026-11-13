@@ -225,10 +225,28 @@
   .world-canvas { width: 100%; height: 100%; display: block; touch-action: none; outline: none; cursor: grab; }
   .world-canvas:active { cursor: grabbing; }
   .world-canvas:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  /* The card sits under the canvas, so every pixel of the 3D view stays tappable. */
   .world-card {
-    position: absolute; left: 10px; right: 10px; bottom: 10px; z-index: 2; display: flex; align-items: center; gap: 10px;
-    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px; box-shadow: var(--shadow-lg);
+    margin-top: 8px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 10px 12px; box-shadow: var(--shadow);
   }
+  .world-card-head { display: flex; align-items: center; gap: 10px; }
+  .world-tabs { display: flex; gap: 6px; margin-bottom: 8px; }
+  .world-tabs button {
+    flex: 1; min-width: 0; font: inherit; font-size: 12px; font-weight: 600; padding: 5px 8px; border-radius: 8px; cursor: pointer;
+    border: 1px solid var(--border); background: var(--surface); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .world-tabs button.on { background: var(--text); border-color: var(--text); color: #fff; }
+  .world-menu { display: flex; gap: 6px; overflow-x: auto; margin-top: 8px; padding-bottom: 2px; scrollbar-width: thin; }
+  .world-menu-item {
+    flex: none; display: flex; flex-direction: column; align-items: flex-start; gap: 1px; max-width: 170px; cursor: pointer;
+    font: inherit; font-size: 12px; text-align: left; padding: 5px 9px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg, #f8fafc);
+  }
+  .world-menu-item span { max-width: 150px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .world-menu-item b { color: var(--accent); font-size: 12px; }
+  .world-menu-empty { margin-top: 8px; }
+  /* Leave room under the canvas for the card (with its menu row) above the bottom nav, on any screen. */
+  #world { height: min(56vh, 520px); height: clamp(260px, calc(100svh - 460px), 520px); min-height: 260px; }
   .legend { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; font-size: 12px; color: var(--muted); margin: 8px 2px 14px; }
   .legend i { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 5px; vertical-align: -1px; }
   .leaflet-popup-content { font-family: inherit; font-size: 13px; margin: 12px 14px; }
@@ -383,8 +401,8 @@
       <div id="map"></div>
       <div id="world" hidden>
         <div id="worldStage"></div>
-        <div class="world-card" id="worldCard" hidden></div>
       </div>
+      <div class="world-card" id="worldCard" hidden></div>
     </div>
     <div class="legend" id="mapLegend"></div>
     <div id="exploreList"></div>
@@ -525,7 +543,6 @@ const state = {
   feedFilter: 'all',
   category: 'All',
   exploreMode: 'map', // 'map' | '3d'
-  worldTruncated: false,
   userPos: null,
   sellerStallId: Number(localStorage.getItem('kb_seller_stall')) || null,
   cart: { stallId: null, qty: {} },
@@ -956,21 +973,41 @@ function renderExplore() {
 
 // ------------------------------------------------------------------ explore / 3D market
 
-const WORLD_MAX_STALLS = 24; // the street shows the first stalls of the current Explore list
 let world = null; // the live 3D market from world.js, only while Explore is in 3D mode
 let worldLoading = false;
-let worldNearId = null; // stall the visitor is standing at
+let worldNearId = null; // stall (number) or bazaar ('bazaar-<id>') the visitor is standing at
+let worldAltId = null; // an equally near one across the street, offered as a second tab
+// Where the visitor stood, so a language switch, another tab or a reload continues from there.
+const WORLD_POSE_KEY = 'kb_world_pose';
+let worldPose = (() => {
+  try {
+    return JSON.parse(sessionStorage.getItem(WORLD_POSE_KEY) || 'null');
+  } catch {
+    return null;
+  }
+})();
+
+function saveWorldPose() {
+  if (!world) return;
+  worldPose = world.getPose();
+  try {
+    sessionStorage.setItem(WORLD_POSE_KEY, JSON.stringify(worldPose));
+  } catch { /* private mode: keep it in memory only */ }
+}
+window.addEventListener('pagehide', saveWorldPose);
 
 function closeWorld() {
+  saveWorldPose();
   if (world) world.destroy();
   world = null;
   worldNearId = null;
+  worldAltId = null;
   $('#worldCard').hidden = true;
 }
 
 function renderLegend() {
   $('#mapLegend').innerHTML = state.exploreMode === '3d'
-    ? `<span>${t('world.hint')}</span>${state.worldTruncated ? `<span>${t('world.more', { n: WORLD_MAX_STALLS })}</span>` : ''}`
+    ? `<span>${t('world.hint')}</span>`
     : `<span><i style="background:var(--open)"></i>${t('status.open')}</span>
     <span><i style="background:var(--closed)"></i>${t('status.closed')}</span>
     <span><i style="background:#6d28d9;border-radius:2px"></i>${t('nav.bazaar')}</span>
@@ -986,6 +1023,7 @@ function renderExploreMode() {
   });
   $('#map').hidden = is3d;
   $('#world').hidden = !is3d;
+  if (!is3d) $('#worldCard').hidden = true;
   renderLegend();
 }
 
@@ -998,20 +1036,76 @@ function setExploreMode(mode) {
   if (state.exploreMode === 'map' && mainMap) setTimeout(() => mainMap.invalidateSize(), 50);
 }
 
-function renderWorldCard() {
-  const s = state.stalls.find(x => x.id === worldNearId);
-  const card = $('#worldCard');
-  card.hidden = !s;
-  if (!s) return;
-  card.innerHTML = `${avatar(s.name, s.category)}
-    <div class="grow">
-      <div class="bold ellipsis">${esc(s.name)}</div>
-      <div class="row gap-6 mt-4">${statusPill(s.any_open)}<span class="muted xs ellipsis">${esc(catLabel(s.category))}</span></div>
-    </div>
-    <button class="btn btn-primary btn-sm" data-action="open-stall" data-id="${s.id}">${t('map.viewOrder')}</button>`;
+// Bazaars the 3D street shows as tents: the same ones the map pins (not ended yet), soonest first.
+function worldBazaars() {
+  const today = todayISO();
+  return state.bazaars.filter(z => z.end_date >= today).sort((a, b) => a.start_date.localeCompare(b.start_date));
 }
 
-// Show the given stalls (already filtered and sorted by Explore) as stands along the 3D street.
+const worldKey = raw => (/^\d+$/.test(String(raw)) ? Number(raw) : String(raw));
+
+function worldTitle(id) {
+  if (typeof id === 'string' && id.startsWith('bazaar-')) {
+    const z = state.bazaars.find(x => x.id === Number(id.slice(7)));
+    return z ? z.name : '';
+  }
+  const s = state.stalls.find(x => x.id === id);
+  return s ? s.name : '';
+}
+
+// The card under the canvas: the stall you stand at with its menu, or the bazaar tent you stand at.
+function renderWorldCard() {
+  const card = $('#worldCard');
+  const id = worldNearId;
+  const bazaar = typeof id === 'string' && id.startsWith('bazaar-') ? state.bazaars.find(z => z.id === Number(id.slice(7))) : null;
+  const stall = bazaar ? null : state.stalls.find(x => x.id === id);
+  card.hidden = !(stall || bazaar) || state.exploreMode !== '3d';
+  if (card.hidden) return;
+
+  // Standing in the middle of the street between two stalls: offer both, left one first.
+  let tabs = '';
+  if (worldAltId !== null && world) {
+    const pair = [id, worldAltId].sort((a, b) => world.sideOf(a) - world.sideOf(b));
+    tabs = `<div class="world-tabs" role="tablist">${pair.map((key, i) => `
+      <button type="button" role="tab" data-action="world-pick" data-key="${esc(String(key))}" class="${key === id ? 'on' : ''}" aria-selected="${key === id}">
+        ${i === 0 ? '← ' : ''}${esc(worldTitle(key))}${i === 1 ? ' →' : ''}</button>`).join('')}</div>`;
+  }
+
+  if (bazaar) {
+    const live = bazaar.start_date <= todayISO();
+    card.innerHTML = `${tabs}<div class="world-card-head">
+      <div class="avatar" style="background:#f5f3ff;color:#6d28d9">${icon('calendar', 'i-sm')}</div>
+      <div class="grow">
+        <div class="bold ellipsis">${esc(bazaar.name)}</div>
+        <div class="row gap-6 mt-4">${bazaarStatus(bazaar)}<span class="muted xs ellipsis">${esc(fmtRange(bazaar.start_date, bazaar.end_date))}</span></div>
+      </div>
+      <button class="btn btn-primary btn-sm" data-action="nav" data-view="bazaar">${t('world.seeBazaar')}</button>
+    </div>
+    ${bazaar.stalls.length ? `<div class="world-menu" aria-label="${esc(t('bazaar.joining', { n: bazaar.stalls.length }))}">${bazaar.stalls.map(s => `
+      <button type="button" class="world-menu-item" data-action="open-stall" data-id="${s.id}"><span>${esc(s.name)}</span><b>${live ? t('bazaar.live') : t('bazaar.upcoming')}</b></button>`).join('')}</div>` : ''}`;
+    return;
+  }
+
+  const menu = stall.menu || [];
+  card.innerHTML = `${tabs}<div class="world-card-head">
+      ${avatar(stall.name, stall.category)}
+      <div class="grow">
+        <div class="bold ellipsis">${esc(stall.name)}</div>
+        <div class="row gap-6 mt-4">${statusPill(stall.any_open)}<span class="muted xs ellipsis">${esc(catLabel(stall.category))}</span></div>
+      </div>
+      <button class="btn btn-primary btn-sm" data-action="open-stall" data-id="${stall.id}">${t('map.viewOrder')}</button>
+    </div>
+    ${menu.length ? `<div class="world-menu" aria-label="${esc(t('world.menu'))}">${menu.map(m => `
+      <button type="button" class="world-menu-item" data-action="open-stall" data-id="${stall.id}"><span>${esc(m.name)}</span><b>${rupiah(m.price)}</b></button>`).join('')}</div>`
+      : `<div class="muted xs world-menu-empty">${t('stall.noMenu')}</div>`}`;
+}
+
+function worldName() {
+  return state.me ? state.me.name.split(' ')[0] : t('world.you');
+}
+
+// Show the given stalls (already filtered and sorted by Explore) as stands along the 3D street,
+// with the bazaars as tents at the far end.
 async function renderWorld(stalls) {
   if (state.exploreMode !== '3d') return;
   if (!world) {
@@ -1023,17 +1117,21 @@ async function renderWorld(stalls) {
       if (!webglAvailable()) throw new Error('webgl-unavailable');
       $('#worldStage').dataset.paused = t('world.paused');
       world = createMarket($('#worldStage'), {
-        me: { name: state.me ? state.me.name.split(' ')[0] : t('world.you'), color: '#0f766e' },
+        me: { name: worldName(), color: '#0f766e' },
         colors: CATEGORY_COLORS,
         title: state.appName,
         label: t('world.hint'),
-        onNearStall: id => {
+        text: { menu: t('world.menu'), more: n => t('world.menuMore', { n }) },
+        start: worldPose,
+        onNearStall: (id, altId) => {
           worldNearId = id;
+          worldAltId = altId;
           renderWorldCard();
         },
       });
     } catch (err) {
-      console.warn('3D market unavailable:', err);
+      // No WebGL is an expected situation (old phones, locked-down browsers): the toast explains it.
+      if (!String(err && err.message).includes('webgl-unavailable')) console.warn('3D market failed to start:', err);
       toast(t('world.unavailable'));
       setExploreMode('map');
       return;
@@ -1043,15 +1141,21 @@ async function renderWorld(stalls) {
     renderExplore(); // the list may have changed while loading, so render again with fresh data
     return;
   }
-  state.worldTruncated = stalls.length > WORLD_MAX_STALLS;
+  world.setName(worldName()); // log in / log out relabels the avatar right away
   renderLegend();
   // Stands are placed in id order, so a stall that opens or closes changes its look, not its place.
-  world.setStalls(stalls.slice(0, WORLD_MAX_STALLS).sort((a, b) => a.id - b.id).map(s => ({
+  world.setStalls([...stalls].sort((a, b) => a.id - b.id).map(s => ({
     id: s.id,
     name: s.name,
     category: s.category,
     open: Boolean(s.any_open),
     status: s.any_open ? t('status.open') : t('status.closed'),
+    menu: (s.menu || []).map(m => ({ name: m.name, price: rupiah(m.price) })),
+  })), worldBazaars().map(z => ({
+    id: z.id,
+    name: z.name,
+    open: z.start_date <= todayISO(),
+    status: `${z.start_date <= todayISO() ? t('bazaar.live') : t('bazaar.upcoming')} · ${fmtRange(z.start_date, z.end_date)}`,
   })));
   renderWorldCard();
 }
@@ -1666,6 +1770,13 @@ const actions = {
   'near-me': () => locateMe(),
   'explore-mode': el => setExploreMode(el.dataset.mode),
   'open-stall': el => openStall(Number(el.dataset.id)),
+  'world-pick': el => {
+    const key = worldKey(el.dataset.key);
+    if (key !== worldAltId) return;
+    worldAltId = worldNearId;
+    worldNearId = key;
+    renderWorldCard();
+  },
   'manage-stall': el => {
     state.sellerStallId = Number(el.dataset.id);
     closeSheet();

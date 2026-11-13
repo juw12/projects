@@ -58,6 +58,10 @@
 - **Latest feed:** live list of stalls opening and closing, new branches, promos and bazaars
 - **Explore:** search, category filters and an OpenStreetMap map of stalls that are open now
 - **3D market:** switch Explore from Map to 3D and walk a street of the stalls in your current search. Tap the ground to walk, tap a stall to go to it, drag to look around, pinch or scroll to zoom. Open stalls are lit and stocked, closed ones are shuttered
+  - Every stall shows its menu on a chalkboard, and the card under the view lists the whole menu with prices (tap an item to order)
+  - Live and upcoming bazaars stand as purple tents at the end of the street, with their dates and the stalls taking part
+  - Any number of stalls: only the rows near you are built, and far stalls make your avatar jog
+  - Your spot is kept when you switch language, leave Explore or reload; standing between two stalls offers both
 - **Follow:** get alerts when a followed stall opens, posts a promo or joins a bazaar
 - **Order ahead:** pick items and a pickup time, then track the order as the seller accepts (or rejects) it, marks it ready and completes it
 - **WhatsApp:** one-tap buttons to chat with the seller or send the order details
@@ -107,7 +111,7 @@ Without configuration, WhatsApp works through `wa.me` links that the user taps. 
 - No online payments: buyers pay at the stall (cash or QRIS) on pickup.
 - Single-process server with SQLite. It is fine for a demo or one neighbourhood, but not for production scale.
 - Map tiles come from the public OpenStreetMap tile server, which is meant for light use only.
-- The 3D market needs WebGL (the app falls back to the map without it), shows at most 24 stalls and does not show bazaars.
+- The 3D market needs WebGL; without it the app falls back to the map with a short message.
 
 ## Files
 

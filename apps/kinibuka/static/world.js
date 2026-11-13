@@ -1,7 +1,9 @@
-// KiniBuka 3D market: the stalls from Explore as a walkable low-poly street.
+// KiniBuka 3D market: the stalls from Explore as a walkable low-poly street, with each stall's menu on a
+// chalkboard and the live or upcoming bazaars as tents at the far end.
 // Controls: tap/click the street to walk, tap a stall to go to it, drag to look around,
 // pinch or scroll to zoom, WASD/arrow keys on desktop (when the canvas has focus).
 // Built from primitives only (no model files to download). Engine pattern ported from Jeda.
+// Any number of stalls: only the rows near the visitor are built; the rest are just positions.
 
 import * as THREE from './vendor/three.module.min.js';
 
@@ -60,6 +62,11 @@ const NEAR_RADIUS = 2.5; // a stall counts as "near" within this distance of its
 const GATE_Z = 3.4; // the entrance gate stands here
 const PICK_FRONT = STALL_X - WALK_X - 0.05; // a stall's tap target ends just outside the walking lane
 const PICK_DEPTH = 2.65; // and reaches back over the booth
+const BUILD_DISTANCE = 48; // rows closer than this (along the street) are built...
+const DROP_DISTANCE = 58; // ...and rows further than this are freed again
+const FOG_NEAR = 24;
+const FOG_FAR = 62; // rows appear and disappear inside the fog, so nothing pops in sight
+const TIE_MARGIN = 0.4; // stalls whose distance differs by less than this count as equally near
 
 const CLOSED = { awning: ['#9ca3af', '#e5e7eb'], wall: '#d7dadf', roof: '#8b9099', ring: '#9ca3af' };
 const OPEN_RING = '#22c55e';
@@ -82,25 +89,36 @@ function mesh(geometry, color, options) {
   return m;
 }
 
-const box = (w, h, d, color, options) => mesh(new THREE.BoxGeometry(w, h, d), color, options);
-const cyl = (rt, rb, h, color, seg = 12, options) => mesh(new THREE.CylinderGeometry(rt, rb, h, seg), color, options);
-const sphere = (r, color, seg = 12, options) => mesh(new THREE.SphereGeometry(r, seg, Math.max(6, seg / 2)), color, options);
-const cone = (r, h, color, seg = 8, options) => mesh(new THREE.ConeGeometry(r, h, seg), color, options);
+// Every stall uses the same few shapes, so their geometry is shared instead of rebuilt per stall.
+const geometryCache = new Map();
+
+function shared(key, make) {
+  if (!geometryCache.has(key)) {
+    geometryCache.set(key, make());
+  }
+  return geometryCache.get(key);
+}
+
+const box = (w, h, d, color, options) => mesh(shared(`box|${w}|${h}|${d}`, () => new THREE.BoxGeometry(w, h, d)), color, options);
+const cyl = (rt, rb, h, color, seg = 12, options) => mesh(shared(`cyl|${rt}|${rb}|${h}|${seg}`, () => new THREE.CylinderGeometry(rt, rb, h, seg)), color, options);
+const sphere = (r, color, seg = 12, options) => mesh(shared(`sphere|${r}|${seg}`, () => new THREE.SphereGeometry(r, seg, Math.max(6, seg / 2))), color, options);
+const cone = (r, h, color, seg = 8, options) => mesh(shared(`cone|${r}|${h}|${seg}`, () => new THREE.ConeGeometry(r, h, seg)), color, options);
 
 function put(object, x, y, z) {
   object.position.set(x, y, z);
   return object;
 }
 
-// Free GPU memory of everything under `root`. Cached materials are shared, so they are kept
-// until the whole market is destroyed.
+// Free GPU memory of everything under `root`. Cached materials and geometry are shared, so they are
+// kept until the whole market is destroyed.
 function disposeTree(root) {
-  const shared = new Set(materialCache.values());
+  const sharedMaterials = new Set(materialCache.values());
+  const sharedGeometry = new Set(geometryCache.values());
   root.traverse((object) => {
-    if (object.geometry) {
+    if (object.geometry && !sharedGeometry.has(object.geometry)) {
       object.geometry.dispose();
     }
-    if (object.material && !shared.has(object.material)) {
+    if (object.material && !sharedMaterials.has(object.material)) {
       if (object.material.map) {
         object.material.map.dispose();
       }
@@ -235,8 +253,95 @@ const GOODS = {
   },
 };
 
+// Cut `text` to fit `maxWidth` pixels in the context's current font.
+function fitText(context, text, maxWidth) {
+  if (context.measureText(text).width <= maxWidth) {
+    return text;
+  }
+  let cut = text;
+  while (cut.length > 1 && context.measureText(`${cut}…`).width > maxWidth) {
+    cut = cut.slice(0, -1);
+  }
+  return `${cut.trimEnd()}…`;
+}
+
+const MENU_LINES = 5; // items written on a stall's chalkboard; the card below the canvas lists them all
+
+// The stall's menu chalked on a board: up to MENU_LINES items with prices, then "+N more".
+function menuBoardTexture(menu, words) {
+  const canvas = document.createElement('canvas');
+  canvas.width = 320;
+  canvas.height = 400;
+  const context = canvas.getContext('2d');
+  const font = (weight, size) => `${weight} ${size}px system-ui, "Segoe UI", sans-serif`;
+  context.fillStyle = '#8b5e34';
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  context.fillStyle = '#1f3b2f';
+  context.fillRect(14, 14, canvas.width - 28, canvas.height - 28);
+  context.textBaseline = 'middle';
+  context.textAlign = 'center';
+  context.fillStyle = '#fde68a';
+  context.font = font(700, 40);
+  context.fillText(words.menu, canvas.width / 2, 54);
+  context.strokeStyle = 'rgba(253, 230, 138, 0.55)';
+  context.lineWidth = 2;
+  context.beginPath();
+  context.moveTo(44, 86);
+  context.lineTo(canvas.width - 44, 86);
+  context.stroke();
+  menu.slice(0, MENU_LINES).forEach((item, i) => {
+    const y = 118 + i * 50;
+    context.font = font(600, 22);
+    context.textAlign = 'right';
+    context.fillStyle = '#fcd34d';
+    context.fillText(item.price, canvas.width - 30, y);
+    const priceWidth = context.measureText(item.price).width;
+    context.font = font(500, 24);
+    context.textAlign = 'left';
+    context.fillStyle = '#f9fafb';
+    context.fillText(fitText(context, item.name, canvas.width - 72 - priceWidth), 30, y);
+  });
+  if (menu.length > MENU_LINES) {
+    context.font = font(500, 22);
+    context.textAlign = 'center';
+    context.fillStyle = 'rgba(249, 250, 251, 0.7)';
+    context.fillText(words.more(menu.length - MENU_LINES), canvas.width / 2, 362);
+  }
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return texture;
+}
+
+// An A-frame chalkboard standing on the street beside the counter, turned a little towards the gate
+// so visitors walking in can read it. `side` is -1 (left of the street) or 1 (right).
+function buildMenuBoard(menu, open, night, side, words) {
+  const group = new THREE.Group();
+  group.add(put(box(1.24, 1.54, 0.05, '#6b4a2f'), 0, 0.97, 0));
+  [-0.6, 0.6].forEach((x) => group.add(put(box(0.06, 1.8, 0.06, '#5b3d24'), x, 0.9, 0.01)));
+  const strut = put(box(0.06, 1.6, 0.06, '#5b3d24'), 0, 0.78, -0.32);
+  strut.rotation.x = 0.32;
+  group.add(strut);
+  const tint = !open ? '#9ca3af' : night ? '#e5e7eb' : '#ffffff';
+  const face = new THREE.Mesh(
+    shared('menu-face', () => new THREE.PlaneGeometry(1.15, 1.44)),
+    // Unlit and not tone-mapped, so the chalk stays readable by day and by night.
+    new THREE.MeshBasicMaterial({ map: menuBoardTexture(menu, words), color: tint, toneMapped: false }),
+  );
+  face.position.set(0, 0.97, 0.03);
+  group.add(face);
+  // A thin tap target on the board itself: turned with the board it stays outside the walking lane
+  // (which starts STALL_X - WALK_X = 1.5 m in front of the stall), so street taps beside it still walk.
+  const pick = new THREE.Mesh(shared('menu-pick', () => new THREE.BoxGeometry(1.25, 1.9, 0.1)), new THREE.MeshBasicMaterial({ visible: false }));
+  pick.position.set(0, 0.97, 0);
+  group.add(pick);
+  // In the stall's own frame +x points towards the gate on the right-hand side and away from it on the left.
+  group.position.set(side * 2.15, 0, 1.15);
+  group.rotation.y = side * 0.5;
+  return { group, pick };
+}
+
 // One stand, modelled facing +z; the caller rotates it to face the street.
-function buildStall(stall, colors, night) {
+function buildStall(stall, colors, night, side = -1, words = { menu: 'Menu', more: (n) => `+${n}` }) {
   const [light, dark] = colors[stall.category] || colors.Other || ['#f3f4f6', '#374151'];
   const group = new THREE.Group();
   const wallGlow = stall.open && night ? { emissive: light, emissiveIntensity: 0.4 } : undefined;
@@ -272,7 +377,7 @@ function buildStall(stall, colors, night) {
 
   // Where to stand: a pulsing ring on the street in front of the counter.
   const ring = new THREE.Mesh(
-    new THREE.RingGeometry(0.55, 0.75, 32),
+    shared('ring', () => new THREE.RingGeometry(0.55, 0.75, 32)),
     new THREE.MeshBasicMaterial({ color: stall.open ? OPEN_RING : CLOSED.ring, transparent: true, opacity: 0.7, side: THREE.DoubleSide, depthWrite: false }),
   );
   ring.rotation.x = -Math.PI / 2;
@@ -285,14 +390,71 @@ function buildStall(stall, colors, night) {
   ]);
   label.position.set(0, 3.45, 0.4);
   group.add(label);
+  label.userData.fadeNear = true;
 
   // Invisible tap target: the booth and its label. It stops at the edge of the walking lane, so a tap
   // on the street always walks, also when you already stand at this stall.
-  const pick = new THREE.Mesh(new THREE.BoxGeometry(3.3, 4, PICK_DEPTH), new THREE.MeshBasicMaterial({ visible: false }));
+  const pick = new THREE.Mesh(shared('pick', () => new THREE.BoxGeometry(3.3, 4, PICK_DEPTH)), new THREE.MeshBasicMaterial({ visible: false }));
   pick.position.set(0, 2, PICK_FRONT - PICK_DEPTH / 2);
   group.add(pick);
+  const picks = [pick];
 
-  return { group, ring, pick };
+  if (stall.menu && stall.menu.length) {
+    const board = buildMenuBoard(stall.menu, stall.open, night, side, words);
+    group.add(board.group);
+    picks.push(board.pick);
+  }
+
+  return { group, ring, picks };
+}
+
+// A bazaar: a purple marquee with fairy lights and trestle tables, in the same slot as a stall.
+function buildBazaarTent(bazaar, night) {
+  const group = new THREE.Group();
+  const canvasColor = bazaar.open ? '#6d28d9' : '#8b5cf6';
+  [-1.5, 1.5].forEach((x) => {
+    [-1.0, 1.0].forEach((z) => group.add(put(cyl(0.05, 0.05, 2.5, '#e5e7eb', 8), x, 1.25, z)));
+  });
+  const roof = put(cone(2.35, 1.2, canvasColor, 4), 0, 3.08, 0);
+  roof.rotation.y = Math.PI / 4;
+  roof.scale.set(1, 1, 0.72);
+  group.add(roof);
+  const stripes = 8;
+  const stripeWidth = 3.32 / stripes;
+  for (let i = 0; i < stripes; i++) {
+    group.add(put(box(stripeWidth, 0.32, 0.04, i % 2 ? '#ffffff' : canvasColor), -1.66 + stripeWidth * (i + 0.5), 2.32, 1.2));
+  }
+  [-0.75, 0.75].forEach((x, t) => {
+    group.add(put(box(1.2, 0.75, 0.6, '#f5f5f4'), x, 0.375, 0.2));
+    group.add(put(box(1.26, 0.04, 0.66, '#c4b5fd'), x, 0.77, 0.2));
+    ['#f59e0b', '#ef4444', '#10b981'].forEach((color, i) => {
+      group.add(put(box(0.24, 0.18 + ((i + t) % 2) * 0.1, 0.24, color), x - 0.36 + i * 0.36, 0.88, 0.2));
+    });
+  });
+  ['#fde047', '#f472b6', '#60a5fa', '#86efac', '#fde047', '#f472b6', '#60a5fa'].forEach((color, i) => {
+    group.add(put(sphere(0.06, color, 8, { emissive: color, emissiveIntensity: night ? 2.2 : 0.6 }), -1.5 + i * 0.5, 2.12, 1.24));
+  });
+
+  const ring = new THREE.Mesh(
+    shared('ring', () => new THREE.RingGeometry(0.55, 0.75, 32)),
+    new THREE.MeshBasicMaterial({ color: '#a78bfa', transparent: true, opacity: 0.7, side: THREE.DoubleSide, depthWrite: false }),
+  );
+  ring.rotation.x = -Math.PI / 2;
+  ring.position.set(0, 0.05, STALL_X - STAND_X);
+  group.add(ring);
+
+  const label = labelSprite([
+    { text: shorten(bazaar.name), size: 46 },
+    { text: bazaar.status, size: 34, color: '#ddd6fe' },
+  ], 'rgba(76, 29, 149, 0.85)');
+  label.position.set(0, 4.25, 0.4);
+  group.add(label);
+  label.userData.fadeNear = true;
+
+  const pick = new THREE.Mesh(shared('pick', () => new THREE.BoxGeometry(3.3, 4, PICK_DEPTH)), new THREE.MeshBasicMaterial({ visible: false }));
+  pick.position.set(0, 2, PICK_FRONT - PICK_DEPTH / 2);
+  group.add(pick);
+  return { group, ring, picks: [pick] };
 }
 
 function buildTree(scale) {
@@ -329,6 +491,13 @@ function buildBunting(rows) {
   return new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide }));
 }
 
+function avatarLabel(name) {
+  const label = labelSprite([{ text: shorten(name, 16), size: 40 }]);
+  label.scale.multiplyScalar(0.75);
+  label.position.y = 2.1;
+  return label;
+}
+
 function createAvatar(name, color) {
   const group = new THREE.Group();
   const body = new THREE.Group();
@@ -348,16 +517,18 @@ function createAvatar(name, color) {
   const shadow = new THREE.Mesh(new THREE.CircleGeometry(0.42, 20), new THREE.MeshBasicMaterial({ color: '#000000', transparent: true, opacity: 0.18, depthWrite: false }));
   shadow.rotation.x = -Math.PI / 2;
   shadow.position.y = 0.02;
-  const label = labelSprite([{ text: shorten(name, 16), size: 40 }]);
-  label.scale.multiplyScalar(0.75);
-  label.position.y = 2.1;
+  const label = avatarLabel(name);
   group.add(body, shadow, label);
-  return { group, body, target: new THREE.Vector3(), facing: Math.PI, goal: null };
+  return { group, body, label, name, target: new THREE.Vector3(), facing: Math.PI, goal: null };
 }
 
 // ---------- Market ----------
-// options: { me: { name, color }, colors: { Category: [light, dark] }, title, label, time, quality, onNearStall(id | null) }
-// Returns { setStalls(list), getState(), destroy() } where list is [{ id, name, category, open, status }].
+// options: { me: { name, color }, colors: { Category: [light, dark] }, title, label, time, quality,
+//   text: { menu, more(n) }, start: pose from getPose() to continue where the visitor was,
+//   onNearStall(id | null, altId | null) }
+// Returns { setStalls(stalls, bazaars), setName(name), walkTo(id), sideOf(id), getPose(), getState(), destroy() }
+//   stalls:  [{ id, name, category, open, status, menu: [{ name, price }] }]  (price already formatted)
+//   bazaars: [{ id, name, open, status }]  their ids are reported as 'bazaar-<id>'
 export function createMarket(container, options = {}) {
   const {
     me = { name: 'You', color: '#0f766e' },
@@ -366,8 +537,11 @@ export function createMarket(container, options = {}) {
     label = '3D market',
     time = timeOfDay(new Date().getHours()),
     quality: requestedQuality = 'auto',
+    text = {},
+    start = null,
     onNearStall = () => {},
   } = options;
+  const words = { menu: 'Menu', more: (n) => `+${n} more`, ...text };
   const sky = SKIES[time] || SKIES.day;
   const night = time === 'night';
   let qualityName = QUALITY[requestedQuality] ? requestedQuality : detectQuality();
@@ -405,7 +579,7 @@ export function createMarket(container, options = {}) {
 
   const scene = new THREE.Scene();
   scene.background = gradientTexture(sky.top, sky.bottom);
-  scene.fog = new THREE.Fog(sky.fog, 26, 70);
+  scene.fog = new THREE.Fog(sky.fog, FOG_NEAR, FOG_FAR);
   const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 200);
 
   scene.add(new THREE.HemisphereLight(sky.top, '#8a7b66', sky.hemi));
@@ -422,8 +596,10 @@ export function createMarket(container, options = {}) {
   sun.shadow.bias = -0.0005;
   scene.add(sun, sun.target);
 
-  const ground = new THREE.Mesh(new THREE.CircleGeometry(160, 48), mat('#8fb86a', { roughness: 1 }));
+  // A unit plane, stretched in setStalls to cover the whole street however long it gets.
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), mat('#8fb86a', { roughness: 1 }));
   ground.rotation.x = -Math.PI / 2;
+  ground.scale.set(420, 420, 1);
   ground.receiveShadow = true;
   scene.add(ground);
 
@@ -450,13 +626,20 @@ export function createMarket(container, options = {}) {
   scene.add(self.group);
 
   // ---------- Street (rebuilt whenever the stall list changes) ----------
+  // Every stall and bazaar gets a slot (`placed`), but only the rows near the visitor are built as meshes,
+  // so the street can be as long as the market without slowing a phone down.
   let street = null;
-  let placed = []; // [{ id, open, stand: Vector3, centre: Vector3, ring, pick }]
+  let placed = []; // [{ id, kind, side, z, data, open, stand: Vector3, centre: Vector3, ring }]
+  let rows = []; // [{ index, z, entries, group, picks }]
   let pickables = [];
   let signature = null;
   let nearStall = null;
+  let nearAlt = null; // an equally near stall across the street that nothing could choose between
   let gateSign = null;
   let minZ = -4;
+  let lastSyncZ = Infinity;
+  let pendingStart = start && Number.isFinite(start.x) && Number.isFinite(start.z) ? start : null;
+  let snapCamera = false;
 
   function clampToStreet(point) {
     point.x = THREE.MathUtils.clamp(point.x, -WALK_X, WALK_X);
@@ -465,26 +648,106 @@ export function createMarket(container, options = {}) {
     return point;
   }
 
-  function setStalls(list) {
-    const next = JSON.stringify(list.map((s) => [s.id, s.name, s.category, s.open, s.status]));
+  function buildRow(row) {
+    const group = new THREE.Group();
+    row.picks = [];
+    row.entries.forEach((entry) => {
+      const built = entry.kind === 'bazaar'
+        ? buildBazaarTent(entry.data, night)
+        : buildStall(entry.data, colors, night, entry.side, words);
+      built.group.position.set(entry.side * STALL_X, 0, entry.z);
+      built.group.rotation.y = -entry.side * Math.PI / 2; // the front faces the street
+      group.add(built.group);
+      entry.ring = built.ring;
+      built.picks.forEach((pick) => {
+        pick.userData.stall = entry;
+        row.picks.push(pick);
+      });
+    });
+    // Trees between the rows; the last row also plants the ones that close the street.
+    const treeRows = row.index === rows.length - 1 ? [row.index, row.index + 1] : [row.index];
+    treeRows.forEach((treeRow) => {
+      [-1, 1].forEach((side) => {
+        const tree = buildTree(0.9 + ((treeRow * 7 + side + 1) % 5) * 0.12);
+        tree.position.set(side * (8.6 + ((treeRow * 3 + side + 1) % 3) * 0.9), 0, 2.3 - treeRow * ROW_SPACING);
+        group.add(tree);
+      });
+    });
+    street.add(group);
+    group.updateMatrixWorld(true);
+    row.group = group;
+    row.labels = [];
+    group.traverse((object) => {
+      if (object.userData.fadeNear) {
+        row.labels.push({ sprite: object, at: object.getWorldPosition(new THREE.Vector3()) });
+      }
+    });
+  }
+
+  function dropRow(row) {
+    street.remove(row.group);
+    disposeTree(row.group);
+    row.group = null;
+    row.picks = [];
+    row.labels = [];
+    row.entries.forEach((entry) => {
+      entry.ring = null;
+    });
+  }
+
+  // Build the rows that came within reach and free the ones left far behind (or far ahead).
+  function syncRows(force = false) {
+    const z = self.group.position.z;
+    if (!force && Math.abs(z - lastSyncZ) < 2) {
+      return;
+    }
+    lastSyncZ = z;
+    let changed = false;
+    rows.forEach((row) => {
+      const distance = Math.abs(row.z - z);
+      if (!row.group && distance < BUILD_DISTANCE) {
+        buildRow(row);
+        changed = true;
+      } else if (row.group && distance > DROP_DISTANCE) {
+        dropRow(row);
+        changed = true;
+      }
+    });
+    if (changed) {
+      pickables = rows.flatMap((row) => row.picks);
+    }
+  }
+
+  function setStalls(list, bazaars = []) {
+    const next = JSON.stringify([
+      list.map((s) => [s.id, s.name, s.category, s.open, s.status, s.menu]),
+      bazaars.map((z) => [z.id, z.name, z.open, z.status]),
+    ]);
     if (next === signature) {
       return;
     }
     signature = next;
     if (street) {
       scene.remove(street);
-      disposeTree(street);
+      disposeTree(street); // also frees every built row, they live inside the street
     }
     street = new THREE.Group();
-    const rows = Math.max(1, Math.ceil(list.length / 2));
-    const length = (rows - 1) * ROW_SPACING + 13;
-    minZ = -(rows - 1) * ROW_SPACING - 4;
+    // Stalls first, then the bazaars as tents at the far end of the street.
+    const items = [
+      ...list.map((data) => ({ kind: 'stall', id: data.id, data })),
+      ...bazaars.map((data) => ({ kind: 'bazaar', id: `bazaar-${data.id}`, data })),
+    ];
+    const rowCount = Math.max(1, Math.ceil(items.length / 2));
+    const length = (rowCount - 1) * ROW_SPACING + 13;
+    minZ = -(rowCount - 1) * ROW_SPACING - 4;
 
     const paving = new THREE.Mesh(new THREE.PlaneGeometry(6.8, length), mat('#d9cdb8', { roughness: 1 }));
     paving.rotation.x = -Math.PI / 2;
     paving.position.set(0, 0.01, START_Z + 2 - length / 2);
     paving.receiveShadow = true;
     street.add(paving);
+    ground.scale.set(420, length + 420, 1);
+    ground.position.z = START_Z + 2 - length / 2;
 
     // Entrance gate with the app name.
     [-3.5, 3.5].forEach((x) => street.add(put(box(0.24, 4.2, 0.24, '#6b4a2f'), x, 2.1, GATE_Z)));
@@ -492,43 +755,48 @@ export function createMarket(container, options = {}) {
     gateSign = labelSprite([{ text: title, size: 54, weight: 700 }], 'rgba(15,118,110,0.92)');
     gateSign.position.set(0, 4.95, GATE_Z);
     street.add(gateSign);
+    street.add(buildBunting(rowCount));
 
-    pickables = [];
-    placed = list.map((stall, index) => {
+    rows = Array.from({ length: rowCount }, (_, index) => ({ index, z: -index * ROW_SPACING, entries: [], group: null, picks: [], labels: [] }));
+    placed = items.map((item, index) => {
       const side = index % 2 ? 1 : -1;
-      const z = -Math.floor(index / 2) * ROW_SPACING;
-      const built = buildStall(stall, colors, night);
-      built.group.position.set(side * STALL_X, 0, z);
-      built.group.rotation.y = -side * Math.PI / 2; // counter faces the street
-      street.add(built.group);
+      const row = rows[Math.floor(index / 2)];
       const entry = {
-        id: stall.id,
-        open: Boolean(stall.open),
-        stand: new THREE.Vector3(side * STAND_X, 0, z),
-        centre: new THREE.Vector3(side * STALL_X, 0, z),
-        ring: built.ring,
+        ...item,
+        side,
+        z: row.z,
+        open: Boolean(item.data.open),
+        stand: new THREE.Vector3(side * STAND_X, 0, row.z),
+        centre: new THREE.Vector3(side * STALL_X, 0, row.z),
+        ring: null,
       };
-      built.pick.userData.stall = entry;
-      pickables.push(built.pick);
+      row.entries.push(entry);
       return entry;
     });
 
-    for (let row = 0; row <= rows; row++) {
-      [-1, 1].forEach((side) => {
-        const tree = buildTree(0.9 + ((row * 7 + side + 1) % 5) * 0.12);
-        tree.position.set(side * (8.6 + ((row * 3 + side + 1) % 3) * 0.9), 0, 2.3 - row * ROW_SPACING);
-        street.add(tree);
-      });
-    }
-    street.add(buildBunting(rows));
-
     scene.add(street);
     street.updateMatrixWorld(true);
-    clampToStreet(self.target);
+    if (pendingStart && items.length) {
+      // Back where the visitor was before the view was closed (language switch, another tab, reload).
+      self.group.position.set(pendingStart.x, 0, pendingStart.z);
+      clampToStreet(self.group.position);
+      self.target.copy(self.group.position);
+      if (Number.isFinite(pendingStart.facing)) {
+        self.facing = pendingStart.facing;
+        self.group.rotation.y = self.facing;
+      }
+      pendingStart = null;
+      snapCamera = true;
+    } else {
+      clampToStreet(self.target);
+    }
     self.goal = null;
+    pickables = [];
+    syncRows(true);
     // Report again after a rebuild, so the page can refresh what it shows for the stall you stand at.
     nearStall = null;
-    onNearStall(null);
+    nearAlt = null;
+    onNearStall(null, null);
   }
 
   // ---------- Camera rig ----------
@@ -666,12 +934,14 @@ export function createMarket(container, options = {}) {
   let frame = 0;
   let running = true;
 
-  function moveAvatar(delta, speed = 3.4) {
+  function moveAvatar(delta) {
     const position = self.group.position;
     const toTarget = self.target.clone().sub(position);
     toTarget.y = 0;
     const distance = toTarget.length();
     if (distance > 0.05) {
+      // A stroll for short hops, a jog for a stall far down a long street.
+      const speed = THREE.MathUtils.clamp(distance * 0.9, 3.4, 12);
       position.add(toTarget.normalize().multiplyScalar(Math.min(distance, speed * delta)));
       self.facing = Math.atan2(toTarget.x, toTarget.z);
       self.body.position.y = Math.abs(Math.sin(elapsed * 9)) * 0.06;
@@ -681,27 +951,53 @@ export function createMarket(container, options = {}) {
     return false;
   }
 
+  // Which side of the street does the visitor mean? The side they stand on, else the way they face,
+  // else the way the camera looks. 0 when nothing tells.
+  function sideCue() {
+    const position = self.group.position;
+    if (Math.abs(position.x) > 0.35) {
+      return Math.sign(position.x);
+    }
+    const facingX = Math.sin(self.facing);
+    if (Math.abs(facingX) > 0.5) {
+      return Math.sign(facingX);
+    }
+    const lookX = -Math.sin(rig.yaw);
+    return Math.abs(lookX) > 0.35 ? Math.sign(lookX) : 0;
+  }
+
+  // The stall the visitor is at. Equally near stalls (within TIE_MARGIN) are settled by sideCue(); a tie
+  // across the street that nothing settles is reported as a pair, so the page offers both instead of guessing.
   function updateNearStall() {
     const position = self.group.position;
-    let closest = null;
-    let closestDistance = NEAR_RADIUS;
-    placed.forEach((stall) => {
-      const distance = Math.hypot(stall.stand.x - position.x, stall.stand.z - position.z);
-      if (distance < closestDistance) {
-        closest = stall;
-        closestDistance = distance;
+    const candidates = [];
+    rows.forEach((row) => {
+      if (Math.abs(row.z - position.z) > NEAR_RADIUS + 0.5) {
+        return;
       }
+      row.entries.forEach((entry) => {
+        const distance = Math.hypot(entry.stand.x - position.x, entry.stand.z - position.z);
+        if (distance < NEAR_RADIUS) {
+          candidates.push({ entry, distance });
+        }
+      });
     });
-    // Stay with the current stall until another one is clearly closer (no flicker mid-street).
-    if (nearStall && closest && closest !== nearStall) {
-      const current = Math.hypot(nearStall.stand.x - position.x, nearStall.stand.z - position.z);
-      if (current < NEAR_RADIUS && current - closestDistance < 0.4) {
-        closest = nearStall;
-      }
+    let primary = null;
+    let alt = null;
+    if (candidates.length) {
+      candidates.sort((a, b) => a.distance - b.distance || a.entry.side - b.entry.side);
+      const tied = candidates.filter((c) => c.distance - candidates[0].distance < TIE_MARGIN).map((c) => c.entry);
+      const cue = tied.length > 1 ? sideCue() : 0;
+      const onCueSide = cue ? tied.filter((entry) => entry.side === cue) : [];
+      const pool = onCueSide.length ? onCueSide : tied;
+      // Stay with the current stall while it is still among the nearest (no flicker between neighbours).
+      primary = pool.includes(nearStall) ? nearStall : pool[0];
+      alt = pool.find((entry) => entry !== primary && entry.side !== primary.side) || null;
     }
-    if (closest !== nearStall) {
-      nearStall = closest;
-      onNearStall(nearStall ? nearStall.id : null);
+    if (primary !== nearStall || alt !== nearAlt) {
+      nearStall = primary;
+      nearAlt = alt;
+      onNearStall(primary ? primary.id : null, alt ? alt.id : null);
     }
   }
 
@@ -772,11 +1068,17 @@ export function createMarket(container, options = {}) {
     turn = Math.atan2(Math.sin(turn), Math.cos(turn));
     self.group.rotation.y += turn * Math.min(1, delta * 8);
 
+    syncRows();
     updateNearStall();
 
-    placed.forEach((stall, index) => {
-      const pulse = stall.open ? 0.55 + Math.sin(elapsed * 2.4 + index) * 0.3 : 0.35;
-      stall.ring.material.opacity = stall === nearStall ? 0.95 : pulse;
+    rows.forEach((row) => {
+      if (!row.group) {
+        return;
+      }
+      row.entries.forEach((stall, i) => {
+        const pulse = stall.open ? 0.55 + Math.sin(elapsed * 2.4 + row.index * 2 + i) * 0.3 : 0.35;
+        stall.ring.material.opacity = stall === nearStall || stall === nearAlt ? 0.95 : pulse;
+      });
     });
     tapMarker.material.opacity = Math.max(0, tapMarker.material.opacity - delta * 1.2);
 
@@ -785,7 +1087,22 @@ export function createMarket(container, options = {}) {
     sun.position.copy(self.group.position).add(new THREE.Vector3(...sky.sunOffset));
 
     adaptQuality(performance.now());
-    updateCamera(delta);
+    updateCamera(snapCamera ? 1 : delta);
+    snapCamera = false;
+    // The avatar's own name tag fades too when you zoom right in behind it.
+    const tagDistance = camera.position.distanceTo(self.label.getWorldPosition(new THREE.Vector3()));
+    self.label.material.opacity = THREE.MathUtils.clamp((tagDistance - 3.5) / 2.5, 0, 1);
+    self.label.visible = self.label.material.opacity > 0.02;
+    // Stall names fade when the camera passes right under them, so a label never fills the screen.
+    rows.forEach((row) => {
+      if (!row.group) {
+        return;
+      }
+      row.labels.forEach(({ sprite, at }) => {
+        sprite.material.opacity = THREE.MathUtils.clamp((camera.position.distanceTo(at) - 2.5) / 3, 0, 1);
+        sprite.visible = sprite.material.opacity > 0.02;
+      });
+    });
     if (gateSign) {
       // Full strength from 7 m away, gone within 3 m: the sign never fills the screen as you walk through.
       gateSign.material.opacity = THREE.MathUtils.clamp((camera.position.distanceTo(gateSign.position) - 3) / 4, 0, 1);
@@ -812,6 +1129,12 @@ export function createMarket(container, options = {}) {
     rig.targetDistance = 12;
     rig.pitch = 0.52;
   }
+  if (start && Number.isFinite(start.yaw)) {
+    rig.yaw = start.yaw;
+    rig.pitch = THREE.MathUtils.clamp(Number(start.pitch) || rig.pitch, 0.12, 1.2);
+    rig.distance = THREE.MathUtils.clamp(Number(start.distance) || rig.distance, 4, 18);
+    rig.targetDistance = rig.distance;
+  }
   setStalls([]);
   updateCamera(1);
   tick();
@@ -828,15 +1151,61 @@ export function createMarket(container, options = {}) {
   };
   document.addEventListener('visibilitychange', onVisibility);
 
+  const findPlaced = (id) => placed.find((entry) => entry.id === id) || null;
+
   return {
     setStalls,
+    // Relabel the avatar in place (log in / log out) without rebuilding the market.
+    setName(name) {
+      if (!name || name === self.name) {
+        return;
+      }
+      const next = avatarLabel(name);
+      self.group.remove(self.label);
+      self.label.material.map.dispose();
+      self.label.material.dispose();
+      self.group.add(next);
+      self.label = next;
+      self.name = name;
+    },
+    // Walk (or jog) to a stall or bazaar by id, also when its row is not built yet.
+    walkTo(id) {
+      const entry = findPlaced(id);
+      if (!entry) {
+        return false;
+      }
+      self.goal = entry;
+      self.target.copy(entry.stand);
+      return true;
+    },
+    sideOf(id) {
+      const entry = findPlaced(id);
+      return entry ? entry.side : 0;
+    },
+    // Where the visitor stands and looks; pass it back as `start` to continue from here.
+    getPose() {
+      const position = self.goal ? self.goal.stand : self.group.position;
+      return {
+        x: Math.round(position.x * 100) / 100,
+        z: Math.round(position.z * 100) / 100,
+        facing: self.facing,
+        yaw: rig.yaw,
+        pitch: rig.pitch,
+        distance: rig.targetDistance,
+      };
+    },
     getState() {
       return {
         x: Math.round(self.group.position.x * 100) / 100,
         z: Math.round(self.group.position.z * 100) / 100,
         near: nearStall ? nearStall.id : null,
+        nearAlt: nearAlt ? nearAlt.id : null,
         goal: self.goal ? self.goal.id : null,
-        stalls: placed.length,
+        stalls: placed.filter((entry) => entry.kind === 'stall').length,
+        bazaars: placed.filter((entry) => entry.kind === 'bazaar').length,
+        rows: rows.length,
+        builtRows: rows.filter((row) => row.group).length,
+        name: self.name,
         quality: qualityName,
         time,
       };
@@ -861,6 +1230,8 @@ export function createMarket(container, options = {}) {
       scene.background.dispose();
       materialCache.forEach((material) => material.dispose());
       materialCache.clear();
+      geometryCache.forEach((geometry) => geometry.dispose());
+      geometryCache.clear();
       renderer.dispose();
       // Give the GPU context back right away, so switching Map/3D many times never runs out of contexts.
       renderer.forceContextLoss();

@@ -485,17 +485,18 @@ def list_stalls(ctx):
         r["stall_id"]: r["n"]
         for r in rows("SELECT stall_id, COUNT(*) AS n FROM follows GROUP BY stall_id")
     }
-    menu_counts = {
-        r["stall_id"]: r["n"]
-        for r in rows("SELECT stall_id, COUNT(*) AS n FROM menu_items WHERE available=1 GROUP BY stall_id")
-    }
+    # Available items only: Explore and the 3D market show what can be ordered right now.
+    menus = {}
+    for item in rows("SELECT id, stall_id, name, price FROM menu_items WHERE available=1 ORDER BY id"):
+        menus.setdefault(item["stall_id"], []).append({"id": item["id"], "name": item["name"], "price": item["price"]})
     by_stall = {}
     for b in branches:
         by_stall.setdefault(b["stall_id"], []).append(branch_dict(b))
     for s in stalls:
         s["branches"] = by_stall.get(s["id"], [])
         s["followers"] = followers.get(s["id"], 0)
-        s["menu_count"] = menu_counts.get(s["id"], 0)
+        s["menu"] = menus.get(s["id"], [])
+        s["menu_count"] = len(s["menu"])
         s["any_open"] = any(b["is_open"] for b in s["branches"])
     return {"stalls": stalls, "categories": CATEGORIES}
 
