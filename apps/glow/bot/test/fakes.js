@@ -1,4 +1,7 @@
-// Stand-ins for Cloudflare and the network, so the Worker's real code runs under plain Node.
+// Stand-ins for Cloudflare, the network, the AI models and the web, so the Worker's real code runs
+// under plain Node.
+
+import { StoppedError } from "../src/util.js";
 
 // A clock the test moves by hand. Nothing in the Worker reads the real time.
 export function makeClock(start = 1750000000000) {
@@ -163,4 +166,70 @@ export function fakeAi(answers, models) {
   };
   if (models) ai.models = async () => models;
   return ai;
+}
+
+// ------------------------------------------------------------------ AI models and the web
+// A model that answers from a script. The first rule whose pattern matches the system prompt wins.
+// An answer is a string, an Error to throw, or a function of the call that returns either.
+export function scripted(rules) {
+  const calls = [];
+  async function complete({ messages, temperature, maxTokens, signal }) {
+    const system = messages[0].content;
+    const user = messages[messages.length - 1].content;
+    const call = { system, user, messages, temperature, maxTokens, n: calls.length + 1 };
+    calls.push(call);
+    if (signal && signal.aborted) throw new StoppedError();
+    for (const [pattern, answer] of rules) {
+      if (!pattern.test(system)) continue;
+      const value = typeof answer === "function" ? answer(call) : answer;
+      if (value instanceof Error) throw value;
+      return { text: value, name: "Test Model", label: "Test" };
+    }
+    throw new Error("no scripted answer for: " + system.slice(0, 60));
+  }
+  return { complete, calls, to: (pattern) => calls.filter((call) => pattern.test(call.system)) };
+}
+
+// An answer for scripted() that gives the next entry of a list on each call.
+export function inTurn(answers) {
+  let index = 0;
+  return (call) => {
+    if (index >= answers.length) return new Error("the script ran out of answers");
+    const answer = answers[index++];
+    return typeof answer === "function" ? answer(call) : answer;
+  };
+}
+
+export function busyError() {
+  const error = new Error("All the free AI models are busy.");
+  error.name = "ModelsBusyError";
+  error.retryInMs = 30000;
+  return error;
+}
+
+export function fakeWeb({ results = [], pages = {}, news = null } = {}) {
+  const calls = { search: [], read: [], news: 0 };
+  return {
+    calls,
+    async search(query, signal) {
+      calls.search.push(query);
+      if (signal && signal.aborted) throw new StoppedError();
+      const found = typeof results === "function" ? results(calls.search.length) : results;
+      if (found instanceof Error) throw found;
+      return { results: found, via: "test", tried: [] };
+    },
+    async read(url, signal) {
+      calls.read.push(url);
+      if (signal && signal.aborted) throw new StoppedError();
+      const page = pages[url];
+      if (page === undefined || page instanceof Error) throw page || new Error("no such page");
+      return { text: page, via: "test" };
+    },
+    async news() {
+      calls.news += 1;
+      const edition = typeof news === "function" ? news(calls.news) : news;
+      if (!edition || edition instanceof Error) throw edition || new Error("no news");
+      return edition;
+    },
+  };
 }

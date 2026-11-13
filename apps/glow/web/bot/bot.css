@@ -1,0 +1,238 @@
+/* GlowBot page. Builds on ../home.css and ../spark/spark.css: the cards, buttons, stats and check rows come from
+   there. This file adds only what this page alone needs: the token field, the command list and the test rows. */
+
+.bot-page [hidden] {
+  display: none !important;
+}
+
+.bot-page a:focus-visible,
+.bot-page button:focus-visible,
+.bot-page summary:focus-visible,
+.token-input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* ---- connect card: shown only to the owner, who arrives with a setup link ---- */
+.bot-page .setup {
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 14%, var(--panel)), var(--panel) 60%);
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border));
+}
+
+.token-label {
+  display: block;
+  margin-top: 16px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.token-input {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 6px;
+  padding: 11px 13px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--panel);
+  color: var(--text);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 16px; /* below 16px, iOS zooms the page when the field is tapped */
+}
+
+.token-input:focus {
+  border-color: var(--accent);
+}
+
+.token-input::placeholder {
+  color: var(--muted);
+  opacity: 0.75;
+}
+
+.setup-done {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.setup-ok {
+  margin: 0;
+  font-weight: 600;
+  color: var(--room);
+}
+
+.warn-list {
+  margin: 6px 0 0;
+  padding-left: 20px;
+  color: var(--muted);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.bot-page #setup-detail {
+  overflow-wrap: anywhere;
+}
+
+/* ---- status card ---- */
+.bot-page #status-access {
+  flex: 1 1 200px;
+}
+
+/* ---- what you can tell it ---- */
+.cmds {
+  display: grid;
+  gap: 9px;
+  margin: 14px 0 0;
+}
+
+.cmds div {
+  display: grid;
+  grid-template-columns: 78px minmax(0, 1fr);
+  gap: 4px 12px;
+  align-items: baseline;
+}
+
+.cmds dt {
+  margin: 0;
+}
+
+.cmds code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.cmds dd {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+/* ---- the server's own self-test ---- */
+.check-list {
+  display: grid;
+  gap: 7px;
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.check-list li {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  gap: 2px 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--card);
+}
+
+.check-list .mark {
+  grid-row: 1 / span 2;
+  font-weight: 700;
+  color: var(--room);
+}
+
+.check-list li.fail .mark {
+  color: #e5484d;
+}
+
+.check-list b {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.check-list small {
+  grid-column: 2;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+/* ---- what the server can reach ---- */
+.probe-group {
+  margin-top: 14px;
+}
+
+.probe-group h3 {
+  margin: 0 0 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.probe-list {
+  display: grid;
+  gap: 5px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13.5px;
+}
+
+.probe-list li {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+  gap: 1px 8px;
+  align-items: baseline;
+}
+
+.probe-list .mark {
+  font-weight: 700;
+  color: var(--room);
+}
+
+.probe-list li.bad .mark {
+  color: #e5484d;
+}
+
+.probe-list .what {
+  overflow-wrap: anywhere;
+}
+
+.probe-list .took {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.probe-list small {
+  grid-column: 2 / -1;
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.bot-page .books summary {
+  padding: 7px 0;
+}
+
+/* The floating GlowLead bubble steps aside while it covers something to press (see the end of bot.js). */
+.bot-page .glow-widget-bubble {
+  transition: opacity 0.15s ease;
+}
+
+html.crown-aside .glow-widget-bubble:not(:focus-visible):not(:active):not([aria-expanded="true"]) {
+  opacity: 0;
+  pointer-events: none;
+}
+
+@media (max-width: 560px) {
+  .bot-page .stat b {
+    font-size: 20px;
+  }
+
+  .cmds div {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bot-page .glow-widget-bubble {
+    transition: none;
+  }
+}
