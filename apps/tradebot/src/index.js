@@ -131,7 +131,8 @@ export function createWorker(overrides) {
         if (!config.ownerId) return; // nobody to trade for: stop ringing
         try {
           const state = await this.state();
-          const messages = await tick(state, { market, now: deps.now() });
+          const ai = deps.ai !== undefined ? deps.ai : this.env && this.env.AI;
+          const messages = await tick(state, { market, now: deps.now(), ai });
           await this.storage.put("state", state); // saved before anything is sent
           await this.deliver(config, messages);
         } catch (error) {

@@ -14,11 +14,14 @@
 //              offers (per market: open | approved | skipped | no answer | withdrawn),
 //              notTaken (per market: why a passing signal was not bought), rounds, gap (ms unseen) }
 //   lastTick   { at, symbols, errors, failed (coin names without a fresh price) }
+//   deskLog    the desk's second opinions, newest last: { symbol, at, verdict, confidence,
+//              taken (bought on it), pnlPct (once that trade is sold) }
 // }
 
 import { TIMEFRAMES, closedCandles } from "./market.js";
 import { buy, equity, newPortfolio, sell } from "./paper.js";
 import * as render from "./render.js";
+import { MAX_DESK_LOG, convene, deskBrief } from "./desk.js";
 import { PARAMS, computeSeries, decideAt, sizeOrder } from "./strategy.js";
 import { Problem, clip, errorText } from "./util.js";
 
@@ -37,6 +40,7 @@ export const DEFAULT_SETTINGS = {
   maxPositionPct: 25, // biggest single position, as a share of the account
   maxPositions: 3,
   dailyLossPct: 3, // no new buys for the rest of a day that is down this much
+  desk: true, // ask the desk (Bull, Bear, Risk) for a second opinion on every buy; it never decides
 };
 
 export function newState(cash = 10000) {
@@ -50,6 +54,7 @@ export function newState(cash = 10000) {
     lastTick: null,
     lastGood: null,
     blindAlerted: false,
+    deskLog: [],
   };
 }
 
@@ -148,12 +153,33 @@ function record(state, trade) {
 }
 
 // by = who decided: "signal" (the agent alone), "approved" (the owner said yes), "you" (/buy).
-function open(state, symbol, usd, price, stop, why, now, by) {
+function open(state, symbol, usd, price, stop, why, now, by, desk = null) {
   const account = worth(state);
   const fill = buy(state.portfolio, symbol, usd, price, stop, now);
   delete state.pending[symbol];
   delete markOf(state, symbol).passed;
-  return record(state, { ...fill, stop, why, by, account });
+  if (desk && desk.at) {
+    state.portfolio.positions[symbol].deskAt = desk.at;
+    const entry = deskEntry(state, symbol, desk.at);
+    if (entry) entry.taken = true;
+  }
+  return record(state, { ...fill, stop, why, by, account, desk });
+}
+
+function deskEntry(state, symbol, at) {
+  return (state.deskLog || []).find((entry) => entry.symbol === symbol && entry.at === at) || null;
+}
+
+// The desk's second opinion on a buy the rules want, or null (desk off, no AI, slow or unclear answer).
+async function askDesk(state, view, decision, ai, now) {
+  if (!ai || state.settings.desk === false) return null;
+  const brief = deskBrief(view.closed, view.series, view.closed.length - 1, decision.stop, state.settings.timeframe);
+  const opinion = await convene(ai, brief);
+  if (!opinion) return null;
+  if (!state.deskLog) state.deskLog = [];
+  state.deskLog.push({ symbol: view.symbol, at: now, verdict: opinion.verdict, confidence: opinion.confidence, taken: false });
+  if (state.deskLog.length > MAX_DESK_LOG) state.deskLog.splice(0, state.deskLog.length - MAX_DESK_LOG);
+  return { ...opinion, at: now };
 }
 
 function close(state, symbol, price, why, now) {
@@ -161,6 +187,8 @@ function close(state, symbol, price, why, now) {
   const fill = sell(state.portfolio, symbol, price, why, now);
   delete state.pending[symbol];
   markOf(state, symbol).lastExit = now;
+  const opinion = position.deskAt ? deskEntry(state, symbol, position.deskAt) : null;
+  if (opinion) opinion.pnlPct = fill.pnlPct;
   return record(state, {
     ...fill,
     entry: position.entry,
@@ -182,7 +210,8 @@ function startDay(state, now, messages) {
 }
 
 // One round of the agent. Returns [{ html, buttons? }].
-export async function tick(state, { market, now }) {
+// `ai` is the Workers AI binding for the desk; without it the agent trades exactly the same.
+export async function tick(state, { market, now, ai = null }) {
   const messages = [];
   const { settings, portfolio } = state;
   startDay(state, now, messages);
@@ -246,7 +275,8 @@ export async function tick(state, { market, now }) {
       continue;
     }
     if (settings.auto) {
-      messages.push(render.bought(open(state, symbol, usd, view.price, decision.stop, decision.why, now, "signal"), settings));
+      const desk = await askDesk(state, view, decision, ai, now);
+      messages.push(render.bought(open(state, symbol, usd, view.price, decision.stop, decision.why, now, "signal", desk), settings));
       continue;
     }
     // The owner already let this signal go: do not ask again while it lasts.
@@ -254,7 +284,8 @@ export async function tick(state, { market, now }) {
       day.notTaken[symbol] = memo.passed === "skipped" ? "you skipped my offer" : "my offer got no answer";
       continue;
     }
-    const offer = { price: view.price, stop: decision.stop, why: decision.why, at: now, until: render.nextClose(settings.timeframe, now) };
+    const desk = await askDesk(state, view, decision, ai, now);
+    const offer = { price: view.price, stop: decision.stop, why: decision.why, at: now, until: render.nextClose(settings.timeframe, now), desk };
     state.pending[symbol] = offer;
     day.offers[symbol] = "open";
     messages.push(render.proposal(symbol, offer, usd, worth(state), settings));
@@ -324,7 +355,7 @@ export async function approve(state, symbol, { market, now }) {
   if (reason) throw withdraw(`Nothing was bought: ${reason}. The offer is closed.`);
   const usd = orderSize(state, view.price, offer.stop);
   if (!usd) throw withdraw("Nothing was bought: there is not enough cash for this trade. The offer is closed.");
-  const trade = open(state, symbol, usd, view.price, offer.stop, offer.why, now, "approved");
+  const trade = open(state, symbol, usd, view.price, offer.stop, offer.why, now, "approved", offer.desk || null);
   noteOffer(state, symbol, "approved");
   return trade;
 }

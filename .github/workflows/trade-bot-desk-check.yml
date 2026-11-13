@@ -1,0 +1,47 @@
+name: TradeBot desk check (Workers AI)
+
+# Does the desk (the Bull / Bear / Risk second opinion) pick better trades than the rules alone?
+# Replays the trading rules over past candles and asks the live desk model about a spread-out sample
+# of the buys. Runs when the desk changes, or by hand. Needs the Cloudflare secrets; without them it
+# says so and stops. It never trades and changes nothing: the result is in the job summary.
+on:
+  pull_request:
+    paths:
+      - 'apps/tradebot/src/desk.js'
+      - 'apps/tradebot/tools/desk_eval.mjs'
+      - '.github/workflows/trade-bot-desk-check.yml'
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: 'How many trades to ask the desk about'
+        default: '60'
+      from:
+        description: 'Only trades after this date (YYYY-MM-DD)'
+        default: '2025-05-14'
+
+permissions:
+  contents: read
+
+jobs:
+  desk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    defaults:
+      run:
+        working-directory: apps/tradebot
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Ask the desk about past trades
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "Cloudflare secrets are not set; nothing to check." | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          node tools/desk_eval.mjs --data desk_data --fetch --backend workers-ai \
+            --limit "${{ github.event.inputs.limit || '60' }}" --from "${{ github.event.inputs.from || '2025-05-14' }}"

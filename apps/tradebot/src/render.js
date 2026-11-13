@@ -4,6 +4,7 @@
 import { TIMEFRAMES } from "./market.js";
 import { COSTS } from "./paper.js";
 import { PARAMS } from "./strategy.js";
+import { deskRecord } from "./desk.js";
 import { escapeHtml } from "./util.js";
 
 const WIB_MS = 7 * 60 * 60 * 1000; // times are shown in WIB (UTC+7)
@@ -188,6 +189,7 @@ export function bought(trade, settings) {
     `Why: ${escapeHtml(trade.why)}`,
   ];
   if (trade.by === "you") lines.push("I will look after it from here: the stop follows the price up, and I sell when the trend breaks.");
+  lines.push(...deskLines(trade.desk));
   return { html: lines.join("\n") };
 }
 
@@ -200,6 +202,7 @@ export function proposal(symbol, offer, usd, account, settings) {
     `Why: ${escapeHtml(offer.why)}`,
   ];
   if (offer.until) lines.push(`Tap by ${hour(offer.until)}. No answer means no buy.`);
+  lines.push(...deskLines(offer.desk));
   return {
     html: lines.join("\n"),
     buttons: [
@@ -239,6 +242,42 @@ export function sold(trade, state) {
   } else {
     lines.push(`Next: ${name} is not on the watchlist, so I will not buy it again. /watch ${name} adds it.`);
   }
+  return { html: lines.join("\n") };
+}
+
+// ---------------------------------------------------------------- the desk (second opinion)
+
+// The desk's three voices under a buy or an offer. Empty when the desk did not answer.
+export function deskLines(desk) {
+  if (!desk) return [];
+  const verdict = desk.verdict === "take" ? "take it" : "pass on it";
+  return [
+    "",
+    `🧑‍⚖️ <b>Desk</b> (second opinion; the 3 checks decide, not the desk): <b>${verdict}</b>, ${desk.confidence}/5 sure`,
+    `🐂 Bull: ${escapeHtml(desk.bull)}`,
+    `🐻 Bear: ${escapeHtml(desk.bear)}`,
+    `🛡 Risk: ${escapeHtml(desk.risk)}`,
+  ];
+}
+
+const deskGroup = (label, group) =>
+  group.count
+    ? `${label}: ${group.count} sold, ${group.wins} won, average ${pct(group.averagePct)} per trade`
+    : `${label}: none sold yet`;
+
+export function deskReport(state) {
+  const on = state.settings.desk !== false;
+  const record = deskRecord(state.deskLog);
+  const lines = [
+    `🧑‍⚖️ <b>The desk</b> is <b>${on ? "on" : "off"}</b>.`,
+    "Before every buy, three voices look at the same numbers as my 3 checks: a Bull (the case for), a Bear (the case against) and a Risk manager. They say \"take it\" or \"pass on it\". The desk never decides: the 3 checks do. It is here so you can see if it would have helped.",
+    "",
+    `Asked so far: ${record.asked} · trades sold since: ${record.closed}`,
+    deskGroup("When it said take it", record.take),
+    deskGroup("When it said pass on it", record.pass),
+  ];
+  if (record.closed < 10) lines.push("Too few sold trades to judge the desk yet. Give it at least 10.");
+  lines.push("", on ? "<code>/desk off</code> stops asking it." : "<code>/desk on</code> asks it again before every buy.");
   return { html: lines.join("\n") };
 }
 
@@ -556,6 +595,7 @@ export function help(settings) {
       `• Size: a trade is sized so that hitting its stop costs about ${settings.riskPct}% of the account. Never more than ${settings.maxPositionPct}% of the account in one coin, and at most ${settings.maxPositions} coins together.`,
       "• Stop: every trade has a stop price under it. If the price falls to it, I sell. The stop follows the price up and never moves down. I check it every 5 minutes, so a fast fall can pass it and the loss can be bigger.",
       "• I also sell when momentum turns down or the uptrend breaks.",
+      `• Desk (${settings.desk === false ? "off" : "on"}): before a buy, a Bull, a Bear and a Risk manager (an AI) give a second opinion. It never decides; /desk shows how its calls turned out.`,
       `• If the account is down ${settings.dailyLossPct}% in a day, I buy nothing more until the next day (07:00 WIB).`,
       `• Every pretend trade pays a ${cost(COSTS.fee)} fee and ${cost(COSTS.slippage)} slippage (a slightly worse price), like a real exchange would cost.`,
       "",
@@ -571,6 +611,7 @@ export function help(settings) {
       "/timeframe 4h candle size: 15m, 1h, 4h or 1d",
       "/backtest BTC my rules on past prices",
       "/history closed trades",
+      "/desk the second opinion and its record (/desk off: stop asking)",
       "/reset 10000 start over with fresh practice money",
       "",
       modeLine(settings),
