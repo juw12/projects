@@ -3263,9 +3263,9 @@
       "external": true,
       "url": "https://juw12.github.io/tagalong/?demo=1",
       "url_label": "Open site",
-      "desc": "Plan a trip with your group, vote on ideas, split every bill to the cent, keep a private travel history. No account, works offline.",
-      "summary": "Group trip planner: vote on ideas, build the days and split the bills to the cent.",
-      "description": "Plan a trip with your group in one place: vote on ideas, turn the winners into a day-by-day plan, split every bill to the cent and keep a private travel history. No account and no server, works offline, and friends join from a link.",
+      "desc": "Plan a trip with your group: live sync, roles and plan lock, places, receipt scan, split every bill to the cent. No account, works offline.",
+      "summary": "Group trip planner with live sync: vote on ideas, build the days and split the bills to the cent.",
+      "description": "Plan a trip with your group in one place: vote on ideas, turn the winners into a day-by-day plan, split every bill to the cent and keep a private travel history. Changes sync live between phones, end-to-end encrypted over free public relays, with roles, plan lock, saved places and on-device receipt scan. No account, works offline, friends join from a link, and there is a free Android APK and an iPhone sideload build.",
       "tags": [
         "expense-splitter",
         "offline-first",
@@ -3287,6 +3287,10 @@
         {
           "label": "Source",
           "url": "https://github.com/juw12/tagalong"
+        },
+        {
+          "label": "Android APK",
+          "url": "https://github.com/juw12/tagalong/releases/latest"
         }
       ],
       "card": {
