@@ -3204,6 +3204,52 @@
       "status": "released",
       "order": 73,
       "portfolio": true
+    },
+    {
+      "id": "social-saver",
+      "name": "Social Saver",
+      "category": "Creator Tools",
+      "external": true,
+      "url": "https://juw12.github.io/p/social-saver/",
+      "url_label": "Open site",
+      "desc": "One Windows app to save posts, reels, videos, stories and highlights from Instagram, Threads, X and TikTok into one zip per account, sorted by type, with no duplicates.",
+      "summary": "Save posts, reels, stories and highlights from Instagram, Threads, X and TikTok into one tidy zip per account.",
+      "description": "A Windows app for saving posts, reels, videos, stories and highlights from <strong>Instagram, Threads, X and TikTok</strong>. Paste profiles or links, tick the content types you want, and sign in once to include private accounts you already follow. Each account ends up as <strong>one zip with a folder per type</strong>, and an archive file skips anything already downloaded. Runs on your own PC on top of gallery-dl; nothing is uploaded. Free and MIT licensed.",
+      "tags": [
+        "Windows app",
+        "Instagram",
+        "Threads",
+        "X",
+        "TikTok",
+        "Python",
+        "gallery-dl"
+      ],
+      "note_tags": [
+        "social-saver",
+        "downloader",
+        "gallery-dl",
+        "instagram",
+        "python",
+        "pywebview"
+      ],
+      "image": "social-saver-card.jpg",
+      "image_alt": "Social Saver app window: Instagram, Threads, X and TikTok choice, a box for accounts or links, Posts, Reels, Stories and Highlights checkboxes",
+      "extra_links": [
+        {
+          "label": "Source",
+          "url": "https://github.com/juw12/social-saver"
+        }
+      ],
+      "card": {
+        "label": "social-saver - windows app",
+        "frame_image": "social-saver-app.png",
+        "theme": "dark",
+        "accent": "#2b5b6d",
+        "accent2": "#322f9e"
+      },
+      "status": "released",
+      "order": 74,
+      "portfolio": true
     }
   ]
 }
