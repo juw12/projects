@@ -27,6 +27,8 @@ import {
   runUnit,
 } from "./missions.js";
 import { whoAndWhere } from "./registry.js";
+import { archiveJob, archiveLines, findArchived } from "./archive.js";
+import { MAX_SCHEDULES, createSchedule, describeWhen, dueSchedules, nextScheduleTime, parseEvery } from "./schedule.js";
 import { LANGS, LANG_NAMES, isLang, pickLang, t, tPlain } from "./strings.js";
 import { createTelegram, escapeHtml, htmlToPlain, recordingTransport } from "./telegram.js";
 import { StoppedError, clip, errorText } from "./util.js";
@@ -66,6 +68,13 @@ const DAILY_TRIES = 3;
 const DAILY_RETRY_MS = 10 * 60 * 1000;
 const REPORT_KEEP = 6000;
 const REPORT_IDS_KEEP = 12;
+const SCHEDULE_HOLD_MS = 10 * 60 * 1000; // a schedule that finds the chat busy tries again this much later
+const SCHEDULE_KIND = "room"; // scheduled missions run as GlowRoom: it works without waiting for a Run tap
+const ARCHIVED_KINDS = ["lead", "room", "agent"];
+const AGAIN_BUTTONS = 5;
+// A scheduled mission has no person behind it at run time: it runs with the owner's rights,
+// because only the owner can set one up.
+const SCHEDULE_ACCESS = { role: "owner", allowed: true, claimed: false, ownerKnown: true, gone: false };
 
 const COMMAND = /^\/([A-Za-z0-9_]+)(?:@([A-Za-z0-9_]+))?(?:\s+([\s\S]*))?$/;
 const MODES = ["lead", "room", "chat", "agent"];
@@ -117,6 +126,10 @@ function freshState() {
     quota: { day: "", jobs: 0 },
     models: { preferred: null, cooldown: {} },
     sparkLast: null, // { id, opening } for the Again button
+    schedules: [], // /every: { id, days, hour, minute, goal, created, lastRun }
+    scheduleSeq: 0,
+    scheduleHold: 0, // a due schedule found the chat busy: not before this time
+    archive: [], // /missions: the last finished missions, newest first (archive.js)
     record: false,
     recSeq: 0,
     msgSeq: 0,
@@ -171,6 +184,11 @@ function inRows(buttons, perRow) {
 
 function stopButton(lang, jobId) {
   return { text: tPlain(lang, "btn.stop"), data: `stp:${jobId}` };
+}
+
+// Run again, under a mission in /missions.
+function againButton(lang, entry) {
+  return { text: `${tPlain(lang, "btn.again")} · #${entry.n}`, data: `rag:${entry.n}` };
 }
 
 function modeButtons() {
@@ -263,6 +281,7 @@ export class ChatLogic {
   //   info      { pages, version, build }
   //   every     (fn, ms) => cancel: a repeating timer (the typing ping). Tests pass none.
   //   onError   (where, error): told about an error inside a tick that nothing foresaw.
+  //   transcribe (voice, config) => text: turns a Telegram voice note into words.
   constructor(deps) {
     this.storage = deps.storage;
     this.now = deps.now || (() => Date.now());
@@ -274,6 +293,8 @@ export class ChatLogic {
     this.info = { pages: "", version: "", build: "", ...(deps.info || {}) };
     this.every = deps.every || (() => () => {});
     this.onError = deps.onError || (() => {});
+    // transcribe(voice, config) -> text: a voice note through Workers AI Whisper (voice.js). None in tests.
+    this.transcribe = deps.transcribe || null;
     this.ticking = false;
     this.forget();
   }
@@ -413,6 +434,8 @@ export class ChatLogic {
     state.outbox = [];
     state.outboxAt = 0;
     state.daily = null;
+    state.schedules = [];
+    state.scheduleHold = 0;
   }
 
   async leaveGroup() {
@@ -452,6 +475,10 @@ export class ChatLogic {
     const from = message.from || {};
     if (from.is_bot) return;
     let text = String(message.text || message.caption || "").trim();
+    if (!text && (message.voice || message.audio)) {
+      await this.onVoice(message, access);
+      return;
+    }
     if (!text) return; // a photo, a sticker, "X joined the group"
     text = clip(text, MAX_TEXT);
 
@@ -504,6 +531,10 @@ export class ChatLogic {
         return this.cmdLang(arg, message);
       case "daily":
         return this.cmdDaily(arg, message);
+      case "every":
+        return this.cmdEvery(arg, message, access);
+      case "missions":
+        return this.cmdMissions(arg, message);
       case "access":
         return this.cmdAccess(arg, message, access);
       case "news":
@@ -644,6 +675,145 @@ export class ChatLogic {
     const passed = minuteOfDay(now) >= hour * 60 + minute;
     state.daily = { hour, minute, lastSent: passed ? dayOf(now) : "", tries: 0, retryAt: 0, retryDay: "" };
     await this.reply(message, t(lang, "daily.set", { time: clockText(hour, minute) }));
+  }
+
+  // /every mon,thu 08:00 research cheap flights to Tokyo   -> a mission that runs by itself
+  // /every                                                 -> the list, with a delete button each
+  // /every off                                             -> all of them gone
+  async cmdEvery(arg, message, access) {
+    const state = this.state;
+    const lang = state.lang;
+    if (access.role !== "owner") {
+      await this.reply(message, t(lang, "every.owner"));
+      return;
+    }
+    const value = arg.trim();
+    if (!value) {
+      await this.showSchedules(message);
+      return;
+    }
+    if (value.toLowerCase() === "off") {
+      state.schedules = [];
+      state.scheduleHold = 0;
+      await this.reply(message, t(lang, "every.off"));
+      return;
+    }
+    const parsed = parseEvery(value);
+    if (parsed.error) {
+      await this.reply(message, t(lang, "every.usage"));
+      return;
+    }
+    if (state.schedules.length >= MAX_SCHEDULES) {
+      await this.reply(message, t(lang, "every.full", { n: MAX_SCHEDULES }));
+      return;
+    }
+    state.scheduleSeq += 1;
+    const schedule = createSchedule(parsed, String(state.scheduleSeq), this.now());
+    state.schedules.push(schedule);
+    await this.reply(message, t(lang, "every.set", { when: describeWhen(schedule, lang), goal: clip(schedule.goal, 300) }));
+  }
+
+  async showSchedules(message) {
+    const state = this.state;
+    const lang = state.lang;
+    if (!state.schedules.length) {
+      await this.reply(message, `${t(lang, "every.none")}\n\n${t(lang, "every.usage")}`);
+      return;
+    }
+    const lines = [t(lang, "every.list")];
+    const buttons = [];
+    state.schedules.forEach((schedule, index) => {
+      lines.push(`${index + 1}. <b>${escapeHtml(describeWhen(schedule, lang))}</b> · ${escapeHtml(clip(schedule.goal, 120))}`);
+      buttons.push([{ text: `🗑 ${index + 1}. ${clip(schedule.goal, 24)}`, data: `evx:${schedule.id}` }]);
+    });
+    await this.reply(message, lines.join("\n"), { buttons });
+  }
+
+  // On the alarm: the first schedule that is due starts its mission, if the chat is free.
+  async runSchedules() {
+    const state = this.state;
+    if (!state.schedules.length) return;
+    const now = this.now();
+    if (now < (state.scheduleHold || 0)) return;
+    const due = dueSchedules(state.schedules, now, OFFSET_MS);
+    if (!due.length) return;
+    if (state.job) {
+      // Busy (or a plan is waiting for a tap): never cancel the owner's own work, try again later.
+      state.scheduleHold = now + SCHEDULE_HOLD_MS;
+      return;
+    }
+    const schedule = due[0];
+    schedule.lastRun = now; // before any await: a second tick must not start it twice
+    state.scheduleHold = 0;
+    const lang = state.lang;
+    await this.telegram().send(state.chatId, t(lang, "every.running", { when: describeWhen(schedule, lang), goal: clip(schedule.goal, 300) }), { silent: true });
+    await this.startJob(SCHEDULE_KIND, schedule.goal, null, SCHEDULE_ACCESS, { from: { id: 0 } });
+    if (state.job && state.job.goal === schedule.goal) state.job.scheduleId = schedule.id;
+  }
+
+  // /missions        -> the last missions, with Run again buttons
+  // /missions 7      -> mission #7's report again
+  async cmdMissions(arg, message) {
+    const state = this.state;
+    const lang = state.lang;
+    const archive = state.archive || [];
+    if (!archive.length) {
+      await this.reply(message, t(lang, "missions.none"));
+      return;
+    }
+    const wanted = arg.trim().replace(/^#/, "");
+    if (wanted) {
+      const entry = findArchived(archive, wanted);
+      if (!entry) {
+        await this.reply(message, t(lang, "missions.unknown"));
+        return;
+      }
+      const head = t(lang, "missions.report", { n: entry.n, goal: clip(entry.goal, 300) });
+      const body = escapeHtml(clip(entry.report || "", 3500));
+      await this.reply(message, body ? `${head}\n\n${body}` : head, { buttons: [[againButton(lang, entry)]] });
+      return;
+    }
+    const when = (at) => new Date(at + OFFSET_MS).toISOString().slice(5, 16).replace("T", " ");
+    const lines = [t(lang, "missions.title"), ...archiveLines(archive, when, 10).map((line) => escapeHtml(line)), "", t(lang, "missions.hint")];
+    const buttons = archive.slice(0, AGAIN_BUTTONS).map((entry) => [againButton(lang, entry)]);
+    await this.reply(message, lines.join("\n"), { buttons });
+  }
+
+  // A voice note: Whisper writes it down, the bot shows what it heard, then treats it as typed text.
+  async onVoice(message, access) {
+    const state = this.state;
+    const lang = state.lang;
+    if (state.chatType !== "private") {
+      // Privacy mode delivers a group's voice notes only when they answer the bot.
+      const repliedTo = message.reply_to_message;
+      const toBot = !!(repliedTo && repliedTo.from && state.config && repliedTo.from.id === state.config.botId);
+      if (!toBot) return;
+    }
+    if (!this.transcribe) {
+      await this.reply(message, t(lang, "voice.off"));
+      return;
+    }
+    const stopTyping = this.startTyping();
+    let words = "";
+    try {
+      words = String((await this.transcribe(message.voice || message.audio, state.config)) || "").trim();
+    } catch (error) {
+      stopTyping();
+      const code = error && error.code;
+      if (code === "no-ai") await this.reply(message, t(lang, "voice.off"));
+      else if (code === "too-long" || code === "too-big") await this.reply(message, t(lang, "voice.long"));
+      else await this.reply(message, t(lang, "voice.failed"));
+      return;
+    }
+    stopTyping();
+    if (this.state !== state) return;
+    if (!words) {
+      await this.reply(message, t(lang, "voice.failed"));
+      return;
+    }
+    words = clip(words, MAX_TEXT);
+    await this.reply(message, t(lang, "voice.heard", { text: clip(words, 500) }), { silent: true });
+    await this.onText(words, message, access);
   }
 
   async cmdAccess(arg, message, access) {
@@ -876,6 +1046,22 @@ export class ChatLogic {
       return this.startJob("spark", last.opening, null, access, { from, replyTo: messageId });
     }
 
+    if (action === "evx") {
+      if (access.role !== "owner") return toast("toast.owner", true);
+      const before = state.schedules.length;
+      state.schedules = state.schedules.filter((schedule) => schedule.id !== first);
+      if (state.schedules.length === before) return stale();
+      await toast("toast.ok");
+      if (messageId) await tg.edit(state.chatId, messageId, t(lang, "every.deleted"), { buttons: [] });
+      return null;
+    }
+    if (action === "rag") {
+      const entry = findArchived(state.archive, first);
+      if (!entry) return stale();
+      await toast("toast.ok");
+      return this.startJob(entry.kind, entry.goal, null, access, { from, replyTo: messageId });
+    }
+
     if (!JOB_ACTIONS.includes(action)) return stale();
     const job = state.job;
     if (!job || job.id !== first) return stale();
@@ -1056,6 +1242,11 @@ export class ChatLogic {
         if (this.state === state) await this.dailyNews();
       } catch (error) {
         this.onError("daily", error);
+      }
+      try {
+        if (this.state === state) await this.runSchedules();
+      } catch (error) {
+        this.onError("every", error);
       }
       try {
         if (this.state === state) await this.runJob();
@@ -1264,6 +1455,17 @@ export class ChatLogic {
       } else if (job.kind === "spark") {
         state.sparkLast = { id: job.id, opening: clip(job.goal, 400) };
       }
+      if (ARCHIVED_KINDS.includes(job.kind)) {
+        state.archive = archiveJob(state.archive, {
+          kind: job.kind,
+          goal: job.goal,
+          report: job.report || job.final || "",
+          status: "done",
+          at: this.now(),
+          by: job.by,
+          scheduleId: job.scheduleId || null,
+        });
+      }
     }
     if (state.job === job) {
       state.done = doneRecord(job, this.now());
@@ -1410,6 +1612,8 @@ export class ChatLogic {
     if (job && job.status === "active") times.push(Math.max(job.retryAt || 0, state.outboxAt, now));
     if (state.outbox.length) times.push(Math.max(state.outboxAt, now));
     if (state.daily) times.push(Math.max(dailyDueAt(state.daily, now), now));
+    const nextRun = nextScheduleTime(state.schedules, now, OFFSET_MS);
+    if (nextRun !== null) times.push(Math.max(nextRun, state.scheduleHold || 0, now));
     if (state.wipeAt) times.push(state.wipeAt);
     if (times.length) await this.storage.setAlarm(Math.min(...times));
     else await this.storage.deleteAlarm();
