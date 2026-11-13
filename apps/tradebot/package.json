@@ -1,0 +1,15 @@
+{
+  "name": "trade-bot",
+  "version": "0.1.0",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "description": "TradeBot: a trading agent in Telegram on practice money and real prices, on a free Cloudflare Worker.",
+  "scripts": {
+    "deploy": "wrangler deploy",
+    "test": "node --test test/*.test.js"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  }
+}

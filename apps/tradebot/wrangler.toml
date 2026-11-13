@@ -1,0 +1,20 @@
+name = "trade-bot"
+main = "src/index.js"
+compatibility_date = "2025-09-01"
+
+# One Durable Object holds the bot's settings and the practice account; its alarm is the agent's clock.
+[[durable_objects.bindings]]
+name = "TRADER"
+class_name = "Trader"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Trader"]
+
+[vars]
+# SHA-256 of the owner's setup code (the same code GlowBot uses today).
+# The code itself is never stored anywhere in this repository.
+SETUP_CODE_SHA256 = "d901087b5e987d9ca90ee12e169fc097bc0195e58b866824f6ea245846aaf3e3"
+
+[observability]
+enabled = true

@@ -1,0 +1,93 @@
+name: TradeBot worker (Cloudflare)
+
+# Tests and bundles apps/tradebot on every change and deploys it to Cloudflare Workers (free plan)
+# from main. Deploying needs repository secrets CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID;
+# without them the deploy is skipped. The bot trades practice money only.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/tradebot/**'
+      - '.github/workflows/trade-bot-worker.yml'
+  pull_request:
+    paths:
+      - 'apps/tradebot/**'
+      - '.github/workflows/trade-bot-worker.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: trade-bot-worker-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  worker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    defaults:
+      run:
+        working-directory: apps/tradebot
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Unit tests (no network)
+        run: node --test test/*.test.js
+      - name: Bundle the worker (dry run)
+        run: |
+          npm install --no-fund --no-audit
+          npx wrangler deploy --dry-run --outdir dist
+          ls -la dist
+      - name: Decide whether to deploy
+        id: gate
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
+            echo "deploy=false" >> "$GITHUB_OUTPUT"
+          elif [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "Cloudflare secrets are not set; skipping the deploy."
+            echo "deploy=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "deploy=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Deploy the worker
+        if: steps.gate.outputs.deploy == 'true'
+        run: |
+          set -o pipefail
+          # Stamp the commit into the worker so /v1/status shows which build is live.
+          build="${GITHUB_SHA::12}"
+          sed -i "s/^\[vars\]$/[vars]\nBUILD = \"$build\"/" wrangler.toml
+          grep -n '^BUILD = ' wrangler.toml
+          npx wrangler deploy 2>&1 | tee deploy.log
+          url="$(grep -Eo 'https://[A-Za-z0-9.-]+\.workers\.dev' deploy.log | head -n 1)"
+          echo "Deployed to: $url"
+          echo "TRADE_BOT_URL=$url" >> "$GITHUB_ENV"
+          echo "TRADE_BOT_BUILD=$build" >> "$GITHUB_ENV"
+      - name: Smoke test (the new build answers)
+        if: steps.gate.outputs.deploy == 'true'
+        run: |
+          test -n "$TRADE_BOT_URL"
+          for attempt in 1 2 3 4 5 6 7 8 9; do
+            body="$(curl -fsS "$TRADE_BOT_URL/v1/status" || true)"
+            echo "$body"
+            if echo "$body" | grep -q "\"build\":\"$TRADE_BOT_BUILD\""; then
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "The deployed worker never reported build $TRADE_BOT_BUILD."
+          exit 1
+      - name: Live prices from Cloudflare (at least one price source must answer)
+        if: steps.gate.outputs.deploy == 'true'
+        run: |
+          body="$(curl -fsS --max-time 90 "$TRADE_BOT_URL/v1/probe" || true)"
+          echo "$body" | python3 -m json.tool || echo "$body"
+          if ! echo "$body" | grep -q '^{"ok":true'; then
+            echo "No price source answered from Cloudflare."
+            exit 1
+          fi
