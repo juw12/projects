@@ -97,3 +97,31 @@ test("the forming candle is not counted as finished", () => {
   assert.equal(closed.length, 9);
   assert.equal(closed[8].t, candles[8].t);
 });
+
+test("a failure says whether the market is unknown or nobody could be reached", async () => {
+  // Nobody answers at all.
+  const silent = await createMarket({ fetch: fakeFetch([]) })
+    .candles("BTCUSDT", "1h")
+    .catch((error) => error);
+  assert.equal(silent.kind, "unreachable");
+
+  // Two exchanges answer properly and say they do not list it.
+  const fetch = fakeFetch([
+    [BINANCE, () => reply({ code: -1121, msg: "Invalid symbol." }, { status: 400 })],
+    [OKX, () => reply({ code: "51001", msg: "Instrument ID does not exist", data: [] })],
+  ]);
+  const missing = await createMarket({ fetch })
+    .candles("NOPEUSDT", "1h")
+    .catch((error) => error);
+  assert.equal(missing.kind, "unknown");
+
+  // Busy is not the same as "no such market".
+  const busy = fakeFetch([
+    [BINANCE, () => reply({ code: -1003, msg: "Too many requests" }, { status: 429 })],
+    [OKX, () => reply({ code: "50011", msg: "Too Many Requests", data: [] }, { status: 429 })],
+  ]);
+  const waiting = await createMarket({ fetch: busy })
+    .candles("BTCUSDT", "1h")
+    .catch((error) => error);
+  assert.equal(waiting.kind, "unreachable");
+});

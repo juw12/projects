@@ -29,9 +29,12 @@ Every 5 minutes the agent wakes up and:
 
 - checks every open position against its stop at the live price, and sells if the stop is hit;
 - once per finished candle, looks at each market on the watchlist and buys or sells by the rules;
-- sends you a message for every trade, with the reason;
-- sends a summary once a day (07:00 WIB);
-- tells you if it cannot read prices for 30 minutes, and again when they are back.
+- sends you a message for every trade, with the reason and what it can lose in dollars;
+- sends a summary once a day (07:00 WIB): what it bought and sold and why, which offers you
+  approved or skipped, what it holds, what each coin is waiting for, and any time it could not
+  check prices;
+- tells you in plain words if it cannot read prices for 30 minutes (stops are not checked
+  then), and again when they are back.
 
 ## Commands
 
@@ -50,6 +53,21 @@ Every 5 minutes the agent wakes up and:
 | `/history` | Closed trades |
 | `/reset` | Start over with fresh practice money (asks first) |
 | `/help` | The short version of this page |
+
+## Talking to it
+
+- After pairing, a welcome message says what the bot is, that the money is pretend, and what
+  to try first.
+- A misspelled command that only shows something is simply run, with a note:
+  `/stauts` shows the status. One that would change the account is only offered:
+  `/sel DOGE` answers "Did you mean `/sell DOGE`? Nothing was done."
+- A few everyday sentences work for looking ("how is it going?" shows the status).
+  Nothing is ever bought or sold from a sentence.
+- With `/auto off`, each offer shows the amount, the stop, the dollar loss if the stop is
+  hit, and a "Tap by" time (the close of the current candle). No answer means no buy. An
+  offer you skip or let lapse is not repeated until the signal goes away and comes back.
+- When something fails, the answer says what happened and what to do next. Raw exchange
+  errors never reach the chat.
 
 ## The rules
 
@@ -103,6 +121,13 @@ never trades on stale numbers.
 
     cd apps/tradebot
     node --test test/*.test.js     # no network, no installs: a pretend Telegram, prices and clock
+    node tools/transcript.js --out chat.md   # four scripted days of chat, as the owner sees it
+
+`tools/transcript.js` drives the real Worker through a fixed script (setup, trades, typos, an
+outage, a reset) with scripted prices, and writes every message as Markdown.
+`test/transcript.test.js` checks that chat on every run: every command gets an answer, the
+HTML is valid and short enough for Telegram, no raw error, exchange pair name or cut-off text
+appears, every trade message says "practice", and no secret is printed.
 
 | Address | What it answers |
 |---|---|
@@ -123,8 +148,9 @@ check that the new build answers and can read prices.
 | `src/backtest.js` | the rules replayed on past candles |
 | `src/market.js` | live candles from Gate, Kraken, MEXC, OKX, Binance |
 | `src/agent.js` | the 5-minute round, stops, limits, approvals |
-| `src/bot.js`, `src/render.js` | commands and message text |
+| `src/bot.js`, `src/render.js` | commands, typo handling and message text |
 | `src/index.js` | the Worker, the Durable Object, setup and pairing |
+| `tools/transcript.js` | the scripted chat used to review and test the wording |
 
 ## Real money
 

@@ -276,8 +276,7 @@ export function createWorker(overrides) {
         const state = await this.state();
         await this.storage.put("state", state);
         await this.deliver(paired, [
-          render.help(state.settings),
-          { html: `✅ You are the owner. I start with <b>${render.money(state.portfolio.cash)}</b> of practice money and I am checking the markets now.` },
+          render.welcome(state),
         ]);
         await this.keepRunning(paired, true); // the first round runs right away
         return json({ ok: true, paired: true });

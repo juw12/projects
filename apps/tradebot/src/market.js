@@ -107,7 +107,13 @@ export function createMarket(options = {}) {
     try {
       candles = source.parse(data).slice(-wanted);
     } catch (error) {
-      throw new Error(response.ok ? error.message : `${error.message} (HTTP ${response.status})`);
+      const failure = new Error(response.ok ? error.message : `${error.message} (HTTP ${response.status})`);
+      // The exchange answered properly and said no: most likely it does not list this market.
+      failure.refused =
+        data !== null &&
+        [200, 400, 404].includes(response.status) &&
+        !/too many|rate limit|busy|unavailable|maintenance|timeout|unexpected answer/i.test(error.message);
+      throw failure;
     }
     const good = candles.filter((candle) => [candle.t, candle.o, candle.h, candle.l, candle.c].every(Number.isFinite) && candle.c > 0);
     if (good.length < 2 || good.length !== candles.length) throw new Error("no usable candles");
@@ -121,16 +127,21 @@ export function createMarket(options = {}) {
       ? SOURCES.filter((source) => source.name === only)
       : [...SOURCES].sort((a, b) => (b.name === lastGood) - (a.name === lastGood));
     const errors = [];
+    let refusals = 0;
     for (const source of order) {
       try {
         const answer = { source: source.name, candles: await read(source, symbol, timeframe, limit) };
         if (!only) lastGood = source.name;
         return answer;
       } catch (error) {
+        if (error && error.refused) refusals += 1;
         errors.push(`${source.name}: ${String((error && error.message) || error).slice(0, 80)}`);
       }
     }
-    throw new Error(`No price data for ${symbol} (${errors.join("; ")})`);
+    // kind tells the bot what to say: "unknown" = no such market, "unreachable" = nobody answered.
+    const failure = new Error(`No price data for ${symbol} (${errors.join("; ")})`);
+    failure.kind = refusals >= Math.min(2, order.length) ? "unknown" : "unreachable";
+    throw failure;
   }
 
   return { candles };
