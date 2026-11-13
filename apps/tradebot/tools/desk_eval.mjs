@@ -160,7 +160,7 @@ const note = (lines) => {
   console.error(lines.join("\n"));
   if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, lines.join("\n") + "\n");
 };
-process.on("unhandledRejection", (error) => {
+const stopOnAuth = (error) => {
   if (!(error && error.auth)) throw error;
   note([
     "### Desk check: not run",
@@ -170,21 +170,25 @@ process.on("unhandledRejection", (error) => {
     "To measure the desk here, give the API token the permission **Workers AI: Read** (Cloudflare dashboard, API tokens).",
   ]);
   process.exit(0);
-});
-for (let start = 0; start < sample.length; start += parallel) {
-  await Promise.all(
-    sample.slice(start, start + parallel).map(async (trade) => {
-      const key = `${model}|${trade.symbol}|${trade.at}`;
-      if (!cache[key]) {
-        const started = Date.now();
-        cache[key] = (await ask(trade.brief)) || { verdict: "none" };
-        const day = new Date(trade.at).toISOString().slice(0, 10);
-        console.error(`${trade.symbol} ${day}: desk ${cache[key].verdict}, trade ${trade.pnlPct.toFixed(1)}% (${((Date.now() - started) / 1000).toFixed(1)} s)`);
-      }
-      trade.desk = cache[key];
-    }),
-  );
-  writeFileSync(cachePath, JSON.stringify(cache, null, 1));
+};
+try {
+  for (let start = 0; start < sample.length; start += parallel) {
+    await Promise.all(
+      sample.slice(start, start + parallel).map(async (trade) => {
+        const key = `${model}|${trade.symbol}|${trade.at}`;
+        if (!cache[key]) {
+          const started = Date.now();
+          cache[key] = (await ask(trade.brief)) || { verdict: "none" };
+          const day = new Date(trade.at).toISOString().slice(0, 10);
+          console.error(`${trade.symbol} ${day}: desk ${cache[key].verdict}, trade ${trade.pnlPct.toFixed(1)}% (${((Date.now() - started) / 1000).toFixed(1)} s)`);
+        }
+        trade.desk = cache[key];
+      }),
+    );
+    writeFileSync(cachePath, JSON.stringify(cache, null, 1));
+  }
+} catch (error) {
+  stopOnAuth(error);
 }
 
 const summary = (rows) => ({

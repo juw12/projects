@@ -1,5 +1,5 @@
 {
-  "$comment": "TradeBot's twin on freqtrade. DRY RUN: pretend money, real prices. Telegram and FreqUI are switched on and given their secrets by the environment (.env, see .env.example), never by this file.",
+  "$comment": "TradeBot's twin on freqtrade. DRY RUN: pretend money, real prices. Telegram and FreqUI are switched on and given their secrets by the environment (.env, see .env.example), never by this file; the empty token/password keys are only here because freqtrade's config check requires them.",
   "strategy": "TradeBotTrend",
   "dry_run": true,
   "dry_run_wallet": 10000,
@@ -38,7 +38,9 @@
     }
   ],
   "telegram": {
-    "enabled": false
+    "enabled": false,
+    "token": "",
+    "chat_id": ""
   },
   "api_server": {
     "enabled": false,
@@ -47,7 +49,9 @@
     "verbosity": "error",
     "enable_openapi": false,
     "CORS_origins": [],
-    "username": "tradebot"
+    "username": "tradebot",
+    "password": "",
+    "jwt_secret_key": ""
   },
   "bot_name": "TradeBot twin (freqtrade, dry run)",
   "initial_state": "running",
