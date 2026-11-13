@@ -2519,9 +2519,9 @@
       "external": true,
       "url": "https://juw12.github.io/lahap/",
       "url_label": "Open app",
-      "desc": "Offline food diary PWA: food-only photo cut-outs on the device, nutrition estimate and tips against a quiz-set goal, a Lab that turns typed, spoken or scanned ingredients into home recipes, search and Strava-style share cards.",
+      "desc": "Offline food diary PWA: food-only photo cut-outs on the device, nutrition estimate and tips against a quiz-set goal, a Lab that turns typed, spoken or scanned ingredients into home recipes, search, a stamp book of places, a 'Makan apa?' picker from your own diary, month and year recaps and Strava-style share cards.",
       "summary": "Snap a meal, keep just the food, see protein and calories against your goal, and cook from what is in the fridge.",
-      "description": "Log a meal in seconds: the photo is cut out to just the food on your phone (U-2-Net running in the browser), the dish fills in, and Lahap estimates kcal, protein, carbs and fat with a tip for the next meal. A five-step quiz at the start sets your goal and daily targets (Mifflin-St Jeor, maths shown). The Lab takes what is in your kitchen, typed, spoken in English or Bahasa, or scanned from a written list, and ranks home recipes for your goal and cooking time. Search answers 'have I eaten this?' with places and prices; share cards draw the food as a sticker. Offline PWA, data stays on the device; estimates, not medical advice.",
+      "description": "Log a meal in seconds: the photo is cut out to just the food on your phone (U-2-Net running in the browser), the dish fills in, and Lahap estimates kcal, protein, carbs and fat with a tip for the next meal. A five-step quiz at the start sets your goal and daily targets (Mifflin-St Jeor, maths shown). The Lab takes what is in your kitchen, typed, spoken in English or Bahasa, or scanned from a written list, and ranks home recipes for your goal and cooking time. Search answers 'have I eaten this?' with places and prices; share cards draw the food as a sticker. A stamp book collects the places you eat at, 'Makan apa?' picks the next meal from your own diary, and a month or year recap sums it up. Offline PWA, data stays on the device; estimates, not medical advice.",
       "tags": [
         "PWA",
         "offline-first",
