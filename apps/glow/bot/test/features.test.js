@@ -5,8 +5,11 @@ import { test } from "node:test";
 
 import { archiveJob, archiveLines, findArchived } from "../src/archive.js";
 import {
+  clockAt,
   createSchedule,
+  describeAt,
   describeWhen,
+  dueAt,
   dueSchedules,
   nextRunAt,
   nextScheduleTime,
@@ -115,6 +118,36 @@ test("schedules are described in the chat's language", () => {
   assert.equal(describeWhen({ days: [1, 2, 3, 4, 5], hour: 9, minute: 30 }, "zh-Hans"), "工作日 09:30");
   assert.equal(describeWhen({ days: [0, 6], hour: 10, minute: 0 }, "zh-Hant"), "週末 10:00");
   assert.equal(describeWhen({ days: [3], hour: 21, minute: 0 }, "xx"), "Wed 21:00", "unknown language falls back to English");
+});
+
+test("a moment is named the way the owner would say it", () => {
+  const now = local(2026, 11, 12, 2, 30); // a Thursday
+  assert.equal(clockAt(local(2026, 11, 12, 8, 11)), "08:11");
+  assert.equal(describeAt(local(2026, 11, 12, 8, 0), now), "today 08:00");
+  assert.equal(describeAt(local(2026, 11, 12, 23, 59), now), "today 23:59");
+  assert.equal(describeAt(local(2026, 11, 13, 0, 0), now), "tomorrow 00:00", "the day changes on the owner's clock, not at UTC midnight");
+  assert.equal(describeAt(local(2026, 11, 11, 21, 15), now), "yesterday 21:15");
+  assert.equal(describeAt(local(2026, 11, 16, 8, 0), now), "Mon 16 Nov 08:00");
+  assert.equal(describeAt(local(2026, 11, 10, 8, 0), now), "Tue 10 Nov 08:00", "two days back is a date again");
+  assert.equal(describeAt(local(2026, 11, 13, 7, 30), now, "id"), "besok 07:30");
+  assert.equal(describeAt(local(2026, 12, 16, 8, 0), now, "id"), "Rab 16 Des 08:00");
+  assert.equal(describeAt(local(2026, 11, 12, 8, 0), now, "zh-Hans"), "今天 08:00");
+  assert.equal(describeAt(local(2026, 11, 16, 8, 0), now, "zh-Hans"), "11月16日 周一 08:00");
+  assert.equal(describeAt(local(2026, 11, 16, 8, 0), now, "zh-Hant"), "11月16日 週一 08:00");
+  assert.equal(describeAt(local(2026, 11, 16, 8, 0), now, "xx"), "Mon 16 Nov 08:00", "unknown language falls back to English");
+  assert.equal(describeAt(undefined, now), "");
+  assert.equal(describeAt(NaN, now), "");
+});
+
+test("a schedule knows the time of the run it is waiting for, and starts with an empty record", () => {
+  const schedule = createSchedule({ days: [0, 1, 2, 3, 4, 5, 6], hour: 8, minute: 0, goal: "ai news" }, 1, local(2026, 11, 12, 2, 30));
+  assert.deepEqual(
+    [schedule.runs, schedule.fails, schedule.lastResult, schedule.lastEnd, schedule.heldFor],
+    [0, 0, "", 0, 0],
+  );
+  assert.equal(dueAt(schedule), local(2026, 11, 12, 8, 0));
+  schedule.lastRun = local(2026, 11, 12, 8, 4); // it ran, four minutes late
+  assert.equal(dueAt(schedule), local(2026, 11, 13, 8, 0));
 });
 
 // ---------------------------------------------------------------- voice

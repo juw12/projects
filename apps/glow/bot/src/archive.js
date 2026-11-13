@@ -10,7 +10,7 @@ const clip = (text, max) => {
   return value.length > max ? value.slice(0, max - 1) + "…" : value;
 };
 
-// entry = { kind, goal, report, status ("done" | "stopped" | "failed"), at, by, scheduleId? }
+// entry = { kind, goal, report, status ("done" | "stopped" | "failed"), error?, at, by, scheduleId? }
 export function archiveJob(archive, entry, keep = ARCHIVE_KEEP) {
   const list = Array.isArray(archive) ? archive.slice() : [];
   const seq = list.reduce((max, item) => Math.max(max, item.n || 0), 0) + 1;
@@ -20,6 +20,7 @@ export function archiveJob(archive, entry, keep = ARCHIVE_KEEP) {
     goal: clip(entry.goal, GOAL_KEEP),
     report: clip(entry.report, REPORT_KEEP),
     status: entry.status || "done",
+    error: clip(entry.error || "", 400),
     at: entry.at || 0,
     by: entry.by || 0,
     scheduleId: entry.scheduleId || null,

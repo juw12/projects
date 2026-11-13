@@ -28,7 +28,18 @@ import {
 } from "./missions.js";
 import { whoAndWhere } from "./registry.js";
 import { archiveJob, archiveLines, findArchived } from "./archive.js";
-import { MAX_SCHEDULES, createSchedule, describeWhen, dueSchedules, nextScheduleTime, parseEvery } from "./schedule.js";
+import {
+  MAX_SCHEDULES,
+  clockAt,
+  createSchedule,
+  describeAt,
+  describeWhen,
+  dueAt,
+  dueSchedules,
+  nextRunAt,
+  nextScheduleTime,
+  parseEvery,
+} from "./schedule.js";
 import { LANGS, LANG_NAMES, isLang, pickLang, t, tPlain } from "./strings.js";
 import { createTelegram, escapeHtml, htmlToPlain, recordingTransport } from "./telegram.js";
 import { StoppedError, clip, errorText } from "./util.js";
@@ -69,6 +80,7 @@ const DAILY_RETRY_MS = 10 * 60 * 1000;
 const REPORT_KEEP = 6000;
 const REPORT_IDS_KEEP = 12;
 const SCHEDULE_HOLD_MS = 10 * 60 * 1000; // a schedule that finds the chat busy tries again this much later
+const SCHEDULE_LATE_MS = 2 * 60 * 1000; // a run that starts this much after its time says that it is late
 const SCHEDULE_KIND = "room"; // scheduled missions run as GlowRoom: it works without waiting for a Run tap
 const ARCHIVED_KINDS = ["lead", "room", "agent"];
 const AGAIN_BUTTONS = 5;
@@ -126,7 +138,7 @@ function freshState() {
     quota: { day: "", jobs: 0 },
     models: { preferred: null, cooldown: {} },
     sparkLast: null, // { id, opening } for the Again button
-    schedules: [], // /every: { id, days, hour, minute, goal, created, lastRun }
+    schedules: [], // /every: { id, days, hour, minute, goal, created, lastRun, runs, fails, lastResult, lastEnd, heldFor }
     scheduleSeq: 0,
     scheduleHold: 0, // a due schedule found the chat busy: not before this time
     archive: [], // /missions: the last finished missions, newest first (archive.js)
@@ -710,7 +722,8 @@ export class ChatLogic {
     state.scheduleSeq += 1;
     const schedule = createSchedule(parsed, String(state.scheduleSeq), this.now());
     state.schedules.push(schedule);
-    await this.reply(message, t(lang, "every.set", { when: describeWhen(schedule, lang), goal: clip(schedule.goal, 300) }));
+    const first = describeAt(nextRunAt(schedule, this.now(), OFFSET_MS), this.now(), lang, OFFSET_MS);
+    await this.reply(message, t(lang, "every.set", { when: describeWhen(schedule, lang), goal: clip(schedule.goal, 300), next: first }));
   }
 
   async showSchedules(message) {
@@ -724,6 +737,7 @@ export class ChatLogic {
     const buttons = [];
     state.schedules.forEach((schedule, index) => {
       lines.push(`${index + 1}. <b>${escapeHtml(describeWhen(schedule, lang))}</b> · ${escapeHtml(clip(schedule.goal, 120))}`);
+      lines.push(`    ${this.scheduleStatus(schedule)}`);
       buttons.push([{ text: `🗑 ${index + 1}. ${clip(schedule.goal, 24)}`, data: `evx:${schedule.id}` }]);
     });
     await this.reply(message, lines.join("\n"), { buttons });
@@ -737,18 +751,101 @@ export class ChatLogic {
     if (now < (state.scheduleHold || 0)) return;
     const due = dueSchedules(state.schedules, now, OFFSET_MS);
     if (!due.length) return;
+    const lang = state.lang;
     if (state.job) {
       // Busy (or a plan is waiting for a tap): never cancel the owner's own work, try again later.
       state.scheduleHold = now + SCHEDULE_HOLD_MS;
+      // Behind another scheduled run the wait is short. Behind the owner's own work it can be long:
+      // say so, once for each run that waits.
+      if (state.job.scheduleId) return;
+      const waiting = due.filter((schedule) => schedule.heldFor !== dueAt(schedule, OFFSET_MS));
+      waiting.forEach((schedule) => {
+        schedule.heldFor = dueAt(schedule, OFFSET_MS);
+      });
+      for (const schedule of waiting) {
+        const held = { when: describeWhen(schedule, lang), goal: clip(schedule.goal, 300), at: clockAt(state.scheduleHold, OFFSET_MS) };
+        await this.telegram().send(state.chatId, t(lang, "every.held", held), { silent: true });
+      }
       return;
     }
     const schedule = due[0];
+    const planned = dueAt(schedule, OFFSET_MS);
+    const waited = schedule.heldFor === planned;
     schedule.lastRun = now; // before any await: a second tick must not start it twice
     state.scheduleHold = 0;
-    const lang = state.lang;
-    await this.telegram().send(state.chatId, t(lang, "every.running", { when: describeWhen(schedule, lang), goal: clip(schedule.goal, 300) }), { silent: true });
+    let starting = t(lang, "every.running", { when: describeWhen(schedule, lang), goal: clip(schedule.goal, 300) });
+    if (waited || now - planned >= SCHEDULE_LATE_MS) {
+      starting += `\n${t(lang, waited ? "every.late.busy" : "every.late", { at: clockAt(now, OFFSET_MS) })}`;
+    }
+    await this.telegram().send(state.chatId, starting, { silent: true });
     await this.startJob(SCHEDULE_KIND, schedule.goal, null, SCHEDULE_ACCESS, { from: { id: 0 } });
     if (state.job && state.job.goal === schedule.goal) state.job.scheduleId = schedule.id;
+  }
+
+  // The second line of a schedule in /every: when it runs next and how its last run ended.
+  scheduleStatus(schedule) {
+    const state = this.state;
+    const lang = state.lang;
+    const now = this.now();
+    const planned = dueAt(schedule, OFFSET_MS);
+    const parts = [planned <= now ? t(lang, "every.due") : t(lang, "every.next", { next: describeAt(planned, now, lang, OFFSET_MS) })];
+    if (state.job && state.job.scheduleId === schedule.id) parts.push(t(lang, "every.last.running"));
+    else if (schedule.lastResult) parts.push(t(lang, `every.last.${schedule.lastResult}`, { at: describeAt(schedule.lastEnd, now, lang, OFFSET_MS) }));
+    return parts.join(" · ");
+  }
+
+  // "Next run: tomorrow 08:00" for a job that a schedule started, or "".
+  nextRunLine(job) {
+    const state = this.state;
+    const schedule = job.scheduleId ? state.schedules.find((item) => item.id === job.scheduleId) : null;
+    if (!schedule) return "";
+    const now = this.now();
+    return t(state.lang, "every.next", { next: describeAt(nextRunAt(schedule, now, OFFSET_MS), now, state.lang, OFFSET_MS) });
+  }
+
+  // The board of a job that has ended. A scheduled job's board also says when it runs next.
+  endBoard(job) {
+    const next = job.status === "error" ? "" : this.nextRunLine(job);
+    const board = boardText(job, this.state.lang);
+    return next ? `${board}\n${next}` : board;
+  }
+
+  // Keeps a mission that ended (done, failed or stopped) for /missions, and tells its schedule how it went.
+  remember(job, status) {
+    const state = this.state;
+    const now = this.now();
+    state.scheduleHold = 0; // the chat is free again: a schedule that was waiting may start at once
+    const schedule = job.scheduleId ? state.schedules.find((item) => item.id === job.scheduleId) : null;
+    if (schedule) {
+      schedule.runs = (schedule.runs || 0) + 1;
+      if (status === "failed") schedule.fails = (schedule.fails || 0) + 1;
+      schedule.lastResult = status;
+      schedule.lastEnd = now;
+    }
+    if (!ARCHIVED_KINDS.includes(job.kind)) return;
+    state.archive = archiveJob(state.archive, {
+      kind: job.kind,
+      goal: job.goal,
+      report: job.report || job.final || "",
+      status,
+      error: status === "failed" ? job.error || "" : "",
+      at: now,
+      by: job.by,
+      scheduleId: job.scheduleId || null,
+    });
+    job.archivedAs = state.archive[0].n;
+  }
+
+  // A mission that failed leaves no dead end: its last message gets a Run again button, and a
+  // scheduled one also says when it runs next.
+  failureFollowUp(job) {
+    const state = this.state;
+    const note = [...state.outbox].reverse().find((item) => item.jobId === job.id && item.tag === "note");
+    if (!note) return;
+    const entry = job.archivedAs ? findArchived(state.archive, job.archivedAs) : null;
+    if (entry) note.buttons = [[againButton(state.lang, entry)]];
+    const next = this.nextRunLine(job);
+    if (next) note.html += `\n${next}`;
   }
 
   // /missions        -> the last missions, with Run again buttons
@@ -769,12 +866,23 @@ export class ChatLogic {
         return;
       }
       const head = t(lang, "missions.report", { n: entry.n, goal: clip(entry.goal, 300) });
-      const body = escapeHtml(clip(entry.report || "", 3500));
-      await this.reply(message, body ? `${head}\n\n${body}` : head, { buttons: [[againButton(lang, entry)]] });
+      const parts = [head];
+      if (entry.status === "failed") parts.push(t(lang, "missions.failed", { error: entry.error || "?" }));
+      if (entry.status === "stopped") parts.push(t(lang, "missions.stopped"));
+      if (entry.report) parts.push(escapeHtml(clip(entry.report, 3500)));
+      await this.reply(message, parts.join("\n\n"), { buttons: [[againButton(lang, entry)]] });
       return;
     }
-    const when = (at) => new Date(at + OFFSET_MS).toISOString().slice(5, 16).replace("T", " ");
-    const lines = [t(lang, "missions.title"), ...archiveLines(archive, when, 10).map((line) => escapeHtml(line)), "", t(lang, "missions.hint")];
+    const now = this.now();
+    const when = (at) => describeAt(at, now, lang, OFFSET_MS);
+    const shown = archive.slice(0, 10);
+    const legend = [];
+    if (shown.some((entry) => entry.status === "failed")) legend.push(t(lang, "missions.mark.failed"));
+    if (shown.some((entry) => entry.status === "stopped")) legend.push(t(lang, "missions.mark.stopped"));
+    if (shown.some((entry) => entry.scheduleId)) legend.push(t(lang, "missions.mark.scheduled"));
+    const lines = [t(lang, "missions.title"), ...archiveLines(archive, when, 10).map((line) => escapeHtml(line)), ""];
+    if (legend.length) lines.push(`<i>${legend.join(" · ")}</i>`);
+    lines.push(t(lang, "missions.hint", { n: shown[0].n }));
     const buttons = archive.slice(0, AGAIN_BUTTONS).map((entry) => [againButton(lang, entry)]);
     await this.reply(message, lines.join("\n"), { buttons });
   }
@@ -1100,6 +1208,7 @@ export class ChatLogic {
       job.status = "stopped";
       state.done = doneRecord(job, this.now(), "cancelled");
       state.job = null;
+      state.scheduleHold = 0; // a schedule that waited for this plan may start now
       state.outbox = state.outbox.filter((item) => item.jobId !== job.id);
       await toast("toast.ok");
       const planId = messageId || job.planId;
@@ -1168,6 +1277,7 @@ export class ChatLogic {
   markStopped(job) {
     const state = this.state;
     if (this.flight && this.flight.job === job) this.flight.controller.abort();
+    const ran = job.status !== "awaiting";
     job.halted = true;
     job.status = "stopped";
     for (const item of state.outbox) {
@@ -1178,6 +1288,8 @@ export class ChatLogic {
     if (state.job === job) {
       state.done = doneRecord(job, this.now());
       state.job = null;
+      if (ran) this.remember(job, "stopped");
+      else state.scheduleHold = 0;
     }
   }
 
@@ -1185,7 +1297,7 @@ export class ChatLogic {
     const state = this.state;
     const lang = state.lang;
     const tg = this.telegram();
-    if (job.boardId) await tg.edit(state.chatId, job.boardId, boardText(job, lang), { buttons: [] });
+    if (job.boardId) await tg.edit(state.chatId, job.boardId, this.endBoard(job), { buttons: [] });
     if (job.statusId && job.statusId !== job.boardId) await tg.edit(state.chatId, job.statusId, t(lang, "stopped"), { buttons: [] });
     if (job.planId) await tg.removeButtons(state.chatId, job.planId);
     if (job.askId) await tg.removeButtons(state.chatId, job.askId);
@@ -1417,6 +1529,7 @@ export class ChatLogic {
 
     const finished = job.status === "done" || job.status === "error";
     if (finished) this.finish(job);
+    if (job.status === "error") this.failureFollowUp(job);
     await this.save();
     if (this.state !== state) return;
     await this.flush();
@@ -1425,7 +1538,7 @@ export class ChatLogic {
     if (finished) {
       if (job.boardId) {
         if (job.kind === "lead" && job.simple) await this.dropMessage(job.boardId);
-        else await tg.edit(state.chatId, job.boardId, boardText(job, lang), { buttons: [] });
+        else await tg.edit(state.chatId, job.boardId, this.endBoard(job), { buttons: [] });
       }
       if (job.statusId) await this.dropMessage(job.statusId);
       if (job.retryId) await this.dropMessage(job.retryId);
@@ -1455,18 +1568,8 @@ export class ChatLogic {
       } else if (job.kind === "spark") {
         state.sparkLast = { id: job.id, opening: clip(job.goal, 400) };
       }
-      if (ARCHIVED_KINDS.includes(job.kind)) {
-        state.archive = archiveJob(state.archive, {
-          kind: job.kind,
-          goal: job.goal,
-          report: job.report || job.final || "",
-          status: "done",
-          at: this.now(),
-          by: job.by,
-          scheduleId: job.scheduleId || null,
-        });
-      }
     }
+    if (job.status === "done" || job.status === "error") this.remember(job, job.status === "done" ? "done" : "failed");
     if (state.job === job) {
       state.done = doneRecord(job, this.now());
       state.job = null;

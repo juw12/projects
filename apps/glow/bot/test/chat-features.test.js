@@ -16,11 +16,14 @@ test("/every sets a schedule, lists it with a delete button, and the button dele
   const kit = makeChat();
   await kit.say("/every mon,thu 08:00 research cheap flights to Tokyo");
   const [setReply] = sent(kit.fresh());
-  assert.equal(setReply.text, t("en", "every.set", { when: "Mon, Thu 08:00", goal: "research cheap flights to Tokyo" }));
+  // START is Thursday 02:30 on the owner's clock, so the first run is named: today at 08:00.
+  assert.equal(
+    setReply.text,
+    t("en", "every.set", { when: "Mon, Thu 08:00", goal: "research cheap flights to Tokyo", next: "today 08:00" }),
+  );
   assert.deepEqual(kit.logic.state.schedules.map((s) => [s.id, s.days, s.hour, s.minute, s.goal]), [
     ["1", [1, 4], 8, 0, "research cheap flights to Tokyo"],
   ]);
-  // START is Thursday 02:30 on the owner's clock, so the first run is today at 08:00.
   assert.equal(alarmIn(kit), 5.5 * HOUR);
 
   await kit.say("/every");

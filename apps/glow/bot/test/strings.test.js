@@ -178,7 +178,7 @@ test("every key is asked for somewhere: no text is left over", () => {
   const quoted = new Set([...CODE.matchAll(/"([A-Za-z.]+)"/g)].map((match) => match[1]));
   const built = unique([...CODE.matchAll(BUILT)].map((match) => match[1]));
   // cmd.* is built inside strings.js itself, by commandList()
-  assert.deepEqual(built, ["agent.role.", "board.phase.", "board.state.", "mode."]);
+  assert.deepEqual(built, ["agent.role.", "board.phase.", "board.state.", "every.last.", "mode."]);
   assert.match(WORDS, /`cmd\.\$\{command\}`/);
   const prefixes = [...built, "cmd."];
   const leftOver = STRING_KEYS.filter((key) => !quoted.has(key) && !prefixes.some((prefix) => key.startsWith(prefix)));
