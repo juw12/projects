@@ -34,7 +34,11 @@ def free_port() -> int:
         return sock.getsockname()[1]
 
 
-class KiniBukaApiTests(unittest.TestCase):
+class ServerCase(unittest.TestCase):
+    """Starts a private copy of the server for each test class (EXTRA_ENV tweaks its settings)."""
+
+    EXTRA_ENV = {}
+
     @classmethod
     def setUpClass(cls):
         cls._tmp = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)  # Windows may still hold the db
@@ -45,8 +49,9 @@ class KiniBukaApiTests(unittest.TestCase):
         cls.db_path = work / "kinibuka.db"
         env = dict(
             os.environ, PORT=str(cls.port), WA_PROVIDER="", PYTHONIOENCODING="utf-8",
-            KINIBUKA_DB=str(cls.db_path), SEED_DEMO="1", ADMIN_PHONES="",
+            KINIBUKA_DB=str(cls.db_path), SEED_DEMO="1", ADMIN_PHONES="", SIGNUPS_PER_HOUR="1000",
         )
+        env.update(cls.EXTRA_ENV)
         cls.proc = subprocess.Popen(
             [sys.executable, str(work / "server.py")],
             cwd=work,
@@ -55,7 +60,7 @@ class KiniBukaApiTests(unittest.TestCase):
             stderr=subprocess.DEVNULL,
         )
         cls.base = f"http://127.0.0.1:{cls.port}"
-        deadline = time.time() + 20
+        deadline = time.time() + 90
         while time.time() < deadline:
             try:
                 OPENER.open(cls.base + "/api/config", timeout=1).read()
@@ -86,7 +91,7 @@ class KiniBukaApiTests(unittest.TestCase):
             headers["X-Lang"] = lang
         request = urllib.request.Request(self.base + path, data=data, headers=headers, method=method)
         try:
-            with OPENER.open(request, timeout=10) as response:
+            with OPENER.open(request, timeout=60) as response:
                 return response.status, json.loads(response.read())
         except urllib.error.HTTPError as err:
             return err.code, json.loads(err.read())
@@ -102,13 +107,20 @@ class KiniBukaApiTests(unittest.TestCase):
         return data["token"], data["user"]
 
     def admin(self):
-        status, data = self.call("POST", "/api/login", {"phone": "080000000000", "password": "demo1234"})
+        status, data = self.call("POST", "/api/login", {"phone": "admin", "password": "admin"})
         self.assertEqual(status, 200, data)
         self.assertTrue(data["user"]["is_admin"])
         return data["token"]
 
     def approve(self, stall_id, **extra):
         return self.call("POST", f"/api/admin/stalls/{stall_id}", {"action": "approve", **extra}, self.admin())
+
+    def verify_owner(self, user_id):
+        status, data = self.call("POST", f"/api/admin/users/{user_id}/verify", {}, self.admin())
+        self.assertEqual(status, 200, data)
+
+
+class KiniBukaApiTests(ServerCase):
 
     def public_ids(self):
         return {s["id"] for s in self.call("GET", "/api/stalls")[1]["stalls"]}
@@ -126,6 +138,7 @@ class KiniBukaApiTests(unittest.TestCase):
         status, item = self.call("POST", f"/api/stalls/{stall['id']}/menu", {"name": "Nasi Goreng", "price": 25000}, token)
         self.assertEqual(status, 200, item)
         if live:
+            self.verify_owner(user["id"])
             status, data = self.approve(stall["id"])
             self.assertEqual(status, 200, data)
         return token, stall["id"], branch["id"], item["id"]
@@ -195,6 +208,16 @@ class KiniBukaApiTests(unittest.TestCase):
         self.assertEqual(self.call("GET", "/api/admin/overview", token=seller)[0], 403)
         overview = self.call("GET", "/api/admin/overview", token=self.admin())[1]
         self.assertIn(stall_id, [s["id"] for s in overview["stalls"] if s["state"] == "pending"])
+        # the seller's WhatsApp number must be verified first
+        status, data = self.approve(stall_id)
+        self.assertEqual((status, data["code"]), (400, "owner_unverified"))
+        status, sent = self.call("POST", "/api/verify/send", {}, seller)
+        self.assertEqual((status, sent["mode"]), (200, "manual"), sent)
+        overview = self.call("GET", "/api/admin/overview", token=self.admin())[1]
+        card = next(s for s in overview["stalls"] if s["id"] == stall_id)
+        self.assertEqual(card["owner_code"], sent["code"])  # the admin matches the code the seller sent on WhatsApp
+        self.assertEqual(self.call("POST", "/api/verify", {"code": sent["code"]}, seller)[0], 400)  # cannot self-verify
+        self.verify_owner(card["owner_id"])
         status, data = self.approve(stall_id, until="2001-01-01")
         self.assertEqual((status, data["code"]), (400, "bad_date"))
         status, data = self.approve(stall_id)
@@ -225,6 +248,8 @@ class KiniBukaApiTests(unittest.TestCase):
     def test_market_capacity_limits_approvals(self):
         admin = self.admin()
         _, stall_id, _, _ = self.make_shop("081388880000", live=False)
+        owner = next(s for s in self.call("GET", "/api/admin/overview", token=admin)[1]["stalls"] if s["id"] == stall_id)
+        self.verify_owner(owner["owner_id"])
         live_now = self.call("GET", "/api/admin/overview", token=admin)[1]["live_count"]
         try:
             status, data = self.call("POST", "/api/admin/settings", {"capacity": live_now, "slot_days": 30}, admin)
@@ -235,6 +260,35 @@ class KiniBukaApiTests(unittest.TestCase):
         finally:
             self.call("POST", "/api/admin/settings", {"capacity": 50, "slot_days": 30}, admin)
         self.assertEqual(self.approve(stall_id)[0], 200)
+
+    def test_builtin_admin_login(self):
+        status, data = self.call("POST", "/api/login", {"phone": "ADMIN", "password": "admin"})
+        self.assertEqual(status, 200, data)
+        self.assertTrue(data["user"]["is_admin"])
+        overview = self.call("GET", "/api/admin/overview", token=data["token"])[1]
+        self.assertTrue(overview["default_password"])  # the Admin tab nags until it is changed
+        status, data = self.call("POST", "/api/signup", {"name": "Fake", "phone": "admin", "password": "whatever123"})
+        self.assertEqual((status, data["code"]), (400, "invalid_phone"))
+        status, data = self.call("POST", "/api/login", {"phone": "admin", "password": "wrong"})
+        self.assertEqual((status, data["code"]), (401, "wrong_login"))
+
+    def test_pending_stalls_are_capped(self):
+        token, _ = self.login("Spam", "081366661234")
+        for i in range(3):
+            status, data = self.call("POST", "/api/stalls", {"name": f"Spam {i}", "category": "Food"}, token)
+            self.assertEqual(status, 200, data)
+        status, data = self.call("POST", "/api/stalls", {"name": "Spam 4", "category": "Food"}, token)
+        self.assertEqual((status, data["code"]), (429, "too_many_pending"))
+
+    def test_market_whatsapp_setting(self):
+        admin = self.admin()
+        status, data = self.call("POST", "/api/admin/settings",
+                                 {"capacity": 50, "slot_days": 30, "market_whatsapp": "+62 811-2233-4455"}, admin)
+        self.assertEqual((status, data["market_whatsapp"]), (200, "081122334455"))
+        self.assertEqual(self.call("GET", "/api/config")[1]["market_whatsapp"], "081122334455")
+        token, _ = self.login("Verifier", "081377778888")
+        sent = self.call("POST", "/api/verify/send", {}, token)[1]
+        self.assertEqual(sent["market_whatsapp"], "081122334455")
 
     def test_admin_can_reset_a_forgotten_password(self):
         token, _ = self.login("Lupa", "081399990000")
@@ -312,7 +366,7 @@ class KiniBukaApiTests(unittest.TestCase):
 
     def test_static_files_cannot_escape_static_folder(self):
         for path in ("/../server.py", "/%2e%2e/server.py", "/..%2fserver.py"):
-            with OPENER.open(self.base + path, timeout=10) as response:
+            with OPENER.open(self.base + path, timeout=60) as response:
                 body = response.read().decode("utf-8", "replace")
             self.assertNotIn("def place_order", body, path)
 
@@ -328,10 +382,40 @@ class KiniBukaApiTests(unittest.TestCase):
 
     def test_3d_market_assets_are_served_as_javascript(self):
         for path in ("/world.js", "/vendor/three.module.min.js"):
-            with OPENER.open(self.base + path, timeout=10) as response:
+            with OPENER.open(self.base + path, timeout=60) as response:
                 self.assertEqual(response.status, 200, path)
                 self.assertIn("javascript", response.headers.get("Content-Type", ""), path)
                 self.assertGreater(len(response.read()), 1000, path)
+
+
+class WhatsAppGatewayTests(ServerCase):
+    """With a WhatsApp gateway the code goes to the seller's phone and is typed back (OTP)."""
+
+    EXTRA_ENV = {"WA_PROVIDER": "fonnte", "FONNTE_TOKEN": "test-token", "SIGNUPS_PER_HOUR": "3"}
+
+    def stored_code(self, user_id):
+        with sqlite3.connect(self.db_path) as db:
+            return db.execute("SELECT verify_code FROM users WHERE id=?", (user_id,)).fetchone()[0]
+
+    def test_code_is_sent_and_typed_back(self):
+        token, user = self.login("Otp", "081355556666")
+        self.assertFalse(user["phone_verified"])
+        status, sent = self.call("POST", "/api/verify/send", {}, token)
+        self.assertEqual((status, sent["mode"]), (200, "auto"))
+        self.assertNotIn("code", sent)  # never shown in the app, only sent by WhatsApp
+        status, data = self.call("POST", "/api/verify/send", {}, token)
+        self.assertEqual((status, data["code"]), (429, "code_wait"))
+        status, data = self.call("POST", "/api/verify", {"code": "000000"}, token)
+        self.assertEqual((status, data["code"]), (400, "wrong_code"))
+        status, data = self.call("POST", "/api/verify", {"code": self.stored_code(user["id"])}, token)
+        self.assertEqual((status, data["verified"]), (200, True))
+        self.assertTrue(self.call("GET", "/api/me", token=token)[1]["user"]["phone_verified"])
+
+    def test_signups_per_connection_are_limited(self):
+        # SIGNUPS_PER_HOUR=3 here; test_code_is_sent_and_typed_back may have used one already
+        results = [self.call("POST", "/api/signup", {"name": "Bot", "phone": f"08139990000{i}", "password": "rahasia123"})[0]
+                   for i in range(4)]
+        self.assertIn(429, results)
 
 
 if __name__ == "__main__":

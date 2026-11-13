@@ -1,3 +1,5 @@
 kinibuka.db
 kinibuka.db-journal
 __pycache__/
+data/
+tools/

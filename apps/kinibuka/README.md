@@ -100,13 +100,23 @@ If port 8000 is busy, the server picks the next free port and prints it. Set `PO
 
 - **Everyone signs up** with name, WhatsApp number and a password (at least 8 characters). Passwords are stored as PBKDF2-SHA256 hashes; 10 wrong tries for one number in 15 minutes blocks that number for a while. Changing the password (Account) logs out other phones. Accounts from the old phone-only login are claimed by signing up once with the same number.
 - **Sellers** open *My Stall*, create the stall, then add locations, menu and posts. A new stall is **pending**: only the seller and the admin can see it. A banner tells the seller the state (waiting, live until a date, ended, rejected or paused, with the admin's note).
-- **The admin** is any account whose number is in `ADMIN_PHONES` (comma-separated, e.g. `ADMIN_PHONES=081234567890`). The *Admin* tab shows the slots used out of the market capacity, every stall with its owner, and buttons to approve (with a "show until" date), extend, reject or pause. Approving needs a free slot. When the date passes the stall hides itself from customers (map, list, 3D market, feed, bazaars, orders) until the admin extends it. Capacity (default 50) and the default slot length (30 days) are set in the same tab. The admin can also set a temporary password for a seller who forgot theirs.
+- **The admin** logs in with user `admin` and password `admin` (built in, no phone number needed). **Change that password in Account right after the first login** - the Admin tab shows a red warning until you do. Extra admins can be added with `ADMIN_PHONES` (comma-separated WhatsApp numbers). The *Admin* tab shows the slots used out of the market capacity, every stall with its owner, and buttons to approve (with a "show until" date), extend, reject or pause. Approving needs a free slot and a verified owner number. When the date passes the stall hides itself from customers (map, list, 3D market, feed, bazaars, orders) until the admin extends it. Capacity (default 50), the default slot length (30 days) and the market WhatsApp number are set in the same tab. The admin can also set a temporary password for a seller who forgot theirs.
+
+### Stopping fake sellers
+
+- **WhatsApp number check.** A stall cannot be approved until the owner's number is verified.
+  - *Free (default):* the seller's dashboard shows a 6-digit code and a button that opens WhatsApp with the code addressed to the market number (set it in Admin settings). WhatsApp shows the real sender, so the admin compares the code and the number with the stall card and presses **Number verified**. A fake number cannot send that message.
+  - *Automatic:* with a WhatsApp gateway (`WA_PROVIDER`, see below) the server sends the code to the seller's number and the seller types it back; nobody has to check by hand. Codes expire after 10 minutes, a new one can be asked every 60 seconds (5 per hour), and wrong guesses are rate-limited.
+- **Admin approval** - nothing is public before the admin approves it.
+- **At most 3 pending stalls per account**, so one account cannot flood the review list.
+- **Sign-ups per connection:** at most `SIGNUPS_PER_HOUR` new accounts per internet address per hour (default 10; behind the Cloudflare tunnel the real visitor address is used).
+- SMS codes are not used: they cost money per message and WhatsApp is what sellers already use.
 
 ## Put it online (Cloudflare Tunnel from this PC)
 
-1. Install cloudflared once: `winget install --id Cloudflare.cloudflared`
-2. Double-click `online.bat`. The first time it asks for your WhatsApp number (that number becomes the admin). It starts the server with **no demo data** and a separate database `data/kinibuka-live.db`, then prints an `https://<random>.trycloudflare.com` address.
-3. Open that address, sign up with your admin number, and share the address with sellers and customers.
+1. Get cloudflared once: `winget install --id Cloudflare.cloudflared`, or (no admin rights) download `cloudflared-windows-amd64.exe` from the [cloudflared releases](https://github.com/cloudflare/cloudflared/releases/latest) and save it as `tools/cloudflared.exe` in this folder.
+2. Double-click `online.bat`. It starts the server with **no demo data** and a separate database `data/kinibuka-live.db`, then prints an `https://<random>.trycloudflare.com` address (also written to `data/tunnel.log`).
+3. Open that address, log in with `admin` / `admin`, **change the password** (Account), put the market WhatsApp number in Admin settings, and share the address with sellers and customers.
 
 Things to know:
 
@@ -118,7 +128,7 @@ Things to know:
 
 ## WhatsApp auto-notifications (optional)
 
-Without configuration, WhatsApp works through `wa.me` links that the user taps. To have the server send messages automatically, set one of the following:
+Without configuration, WhatsApp works through `wa.me` links that the user taps, and seller numbers are checked by the admin (see *Stopping fake sellers*). To have the server send messages and verification codes automatically, set one of the following (both are paid services):
 
 | Provider | Environment variables |
 |----------|-----------------------|

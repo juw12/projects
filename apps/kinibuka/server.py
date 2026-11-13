@@ -15,7 +15,8 @@ Settings (environment variables, all optional):
   WA_PHONE_NUMBER_ID  Meta phone-number ID             (WA_PROVIDER=meta)
   WA_TEMPLATE         approved Meta template name with one body variable {{1}} (optional)
   WA_TEMPLATE_LANG    template language code, default "id"
-  ADMIN_PHONES        comma-separated phone numbers that get the Admin tab (approve stalls, slots)
+  ADMIN_PHONES        optional extra phone numbers that get the Admin tab (the built-in "admin" login always has it)
+  SIGNUPS_PER_HOUR    new accounts allowed per internet address per hour (default 10)
   SEED_DEMO           1 (default) adds demo stalls/accounts to an empty database; 0 for a real market
   KINIBUKA_DB         path of the SQLite file (default kinibuka.db next to this file)
 """
@@ -47,7 +48,11 @@ SEED_DEMO = os.environ.get("SEED_DEMO", "1").strip().lower() not in ("0", "false
 DEMO_PASSWORD = "demo1234"
 MIN_PASSWORD = 8
 STALL_STATUSES = ["pending", "live", "rejected", "suspended"]
-DEFAULT_SETTINGS = {"slot_capacity": "50", "slot_days": "30"}
+DEFAULT_SETTINGS = {"slot_capacity": "50", "slot_days": "30", "market_whatsapp": ""}
+ADMIN_LOGIN = "admin"  # the built-in admin account logs in with user "admin" (default password "admin")
+MAX_PENDING_STALLS = 3
+SIGNUPS_PER_HOUR = int(os.environ.get("SIGNUPS_PER_HOUR", "10"))
+CODE_TTL = 10 * 60
 
 LANGUAGES = ["id", "en", "zh"]
 DEFAULT_LANG = "id"
@@ -149,6 +154,31 @@ ERRORS = {
         "zh": "该摊位目前未在市场上开放",
     },
     "unknown_action": {"en": "Unknown action", "id": "Aksi tidak dikenal", "zh": "未知操作"},
+    "owner_unverified": {
+        "en": "The seller's WhatsApp number is not verified yet",
+        "id": "Nomor WhatsApp penjual belum terverifikasi",
+        "zh": "卖家的 WhatsApp 号码尚未验证",
+    },
+    "too_many_pending": {
+        "en": "You already have {n} stalls waiting for the admin",
+        "id": "Kamu sudah punya {n} lapak yang menunggu admin",
+        "zh": "你已有 {n} 个摊位在等待审核",
+    },
+    "too_many_signups": {
+        "en": "Too many new accounts from this connection - try again in an hour",
+        "id": "Terlalu banyak akun baru dari koneksi ini - coba lagi satu jam lagi",
+        "zh": "该网络新注册过多，请一小时后再试",
+    },
+    "code_wait": {
+        "en": "Please wait a minute before asking for another code",
+        "id": "Tunggu satu menit sebelum minta kode lagi",
+        "zh": "请等一分钟后再获取验证码",
+    },
+    "wrong_code": {
+        "en": "Wrong or expired code",
+        "id": "Kode salah atau sudah kedaluwarsa",
+        "zh": "验证码错误或已过期",
+    },
 }
 
 WA_TEXT = {
@@ -182,6 +212,11 @@ WA_TEXT = {
         "id": "{app}: Pesanan #{id} dibatalkan oleh pembeli ({customer}).",
         "en": "{app}: Order #{id} was cancelled by the customer ({customer}).",
         "zh": "{app}：订单 #{id} 已被顾客（{customer}）取消。",
+    },
+    "verify_code": {
+        "id": "{app}: kode verifikasi kamu {code}. Berlaku 10 menit. Jangan berikan ke siapa pun.",
+        "en": "{app}: your verification code is {code}. Valid for 10 minutes. Do not share it.",
+        "zh": "{app}：你的验证码是 {code}，10 分钟内有效，请勿告诉他人。",
     },
     "stall_live": {
         "id": "{app}: Lapak {stall} sudah disetujui dan tampil untuk pembeli sampai {until}.",
@@ -319,6 +354,9 @@ def ensure_column(table, column, definition):
 ensure_column("users", "lang", "TEXT NOT NULL DEFAULT 'id'")
 ensure_column("users", "password_hash", "TEXT NOT NULL DEFAULT ''")
 ensure_column("users", "is_admin", "INTEGER NOT NULL DEFAULT 0")
+ensure_column("users", "phone_verified", "INTEGER NOT NULL DEFAULT 0")
+ensure_column("users", "verify_code", "TEXT NOT NULL DEFAULT ''")
+ensure_column("users", "verify_sent_at", "INTEGER NOT NULL DEFAULT 0")
 # Stalls from before admin approval existed stay listed ('live' with no end date).
 ensure_column("stalls", "status", "TEXT NOT NULL DEFAULT 'live'")
 ensure_column("stalls", "slot_until", "TEXT NOT NULL DEFAULT ''")
@@ -355,6 +393,11 @@ def today():
 def setting(key):
     row = one("SELECT value FROM settings WHERE key=?", (key,))
     return int(row["value"]) if row else int(DEFAULT_SETTINGS[key])
+
+
+def setting_text(key):
+    row = one("SELECT value FROM settings WHERE key=?", (key,))
+    return row["value"] if row else DEFAULT_SETTINGS[key]
 
 
 def live_sql(alias="s"):
@@ -421,6 +464,34 @@ def note_failure(phone):
     LOGIN_FAILURES.setdefault(phone, []).append(time.time())
 
 
+RECENT_EVENTS = {}  # key -> recent times, e.g. signups per internet address (memory only)
+
+
+def allow_event(key, limit, window):
+    recent = [t for t in RECENT_EVENTS.get(key, []) if t > time.time() - window]
+    if len(recent) >= limit:
+        RECENT_EVENTS[key] = recent
+        return False
+    recent.append(time.time())
+    RECENT_EVENTS[key] = recent
+    return True
+
+
+def ensure_admin_account():
+    """The market owner's login: user "admin", password "admin" until changed in Account."""
+    if not one("SELECT 1 FROM users WHERE phone=?", (ADMIN_LOGIN,)):
+        run(
+            "INSERT INTO users(name, phone, token, lang, created_at, password_hash, is_admin, phone_verified) "
+            "VALUES(?,?,?,?,?,?,1,1)",
+            ("Admin", ADMIN_LOGIN, secrets.token_hex(16), DEFAULT_LANG, now(), hash_password("admin")),
+        )
+    run("UPDATE users SET is_admin=1, phone_verified=1 WHERE phone=?", (ADMIN_LOGIN,))
+
+
+def new_code():
+    return f"{secrets.randbelow(1_000_000):06d}"
+
+
 def admin_phones():
     return {normalize_phone(p) for p in os.environ.get("ADMIN_PHONES", "").split(",") if normalize_phone(p)}
 
@@ -428,13 +499,13 @@ def admin_phones():
 def apply_admin_phones():
     phones = admin_phones()
     for phone in phones:
-        run("UPDATE users SET is_admin=1 WHERE phone=?", (phone,))
+        run("UPDATE users SET is_admin=1, phone_verified=1 WHERE phone=?", (phone,))
     return phones
 
 
 def normalize_stored_phones():
     """Older versions kept '+62...' or '0812-...' as typed; store one form so logins match."""
-    for u in rows("SELECT id, phone FROM users"):
+    for u in rows("SELECT id, phone FROM users WHERE phone<>?", (ADMIN_LOGIN,)):
         clean = normalize_phone(u["phone"])
         if clean and clean != u["phone"] and not one("SELECT 1 FROM users WHERE phone=?", (clean,)):
             run("UPDATE users SET phone=? WHERE id=?", (clean, u["id"]))
@@ -551,12 +622,13 @@ class ApiError(Exception):
 
 
 class Ctx:
-    def __init__(self, user, body, query, params, lang):
+    def __init__(self, user, body, query, params, lang, ip=""):
         self.user = user
         self.body = body
         self.query = query
         self.params = params
         self.lang = lang
+        self.ip = ip
 
     def require_user(self):
         if not self.user:
@@ -615,15 +687,25 @@ def branch_dict(b):
 
 
 def public_user(u):
-    return {"id": u["id"], "name": u["name"], "phone": u["phone"], "lang": u["lang"], "is_admin": bool(u["is_admin"])}
+    return {
+        "id": u["id"],
+        "name": u["name"],
+        "phone": u["phone"],
+        "lang": u["lang"],
+        "is_admin": bool(u["is_admin"]),
+        "phone_verified": bool(u["phone_verified"]),
+    }
 
 
 def session(user):
     return {"token": user["token"], "user": public_user(user)}
 
 
-def valid_phone(ctx):
-    phone = normalize_phone(ctx.text("phone", 30, required=True))
+def valid_phone(ctx, allow_admin=False):
+    raw = ctx.text("phone", 30, required=True)
+    if allow_admin and raw.strip().lower() == ADMIN_LOGIN:
+        return ADMIN_LOGIN
+    phone = normalize_phone(raw)
     if not 9 <= len(phone) <= 15:
         raise ApiError(400, "invalid_phone")
     return phone
@@ -647,6 +729,7 @@ def config(ctx):
         "categories": CATEGORIES,
         "demo": SEED_DEMO,
         "min_password": MIN_PASSWORD,
+        "market_whatsapp": setting_text("market_whatsapp"),
     }
 
 
@@ -659,6 +742,8 @@ def signup(ctx):
     user = one("SELECT * FROM users WHERE phone=?", (phone,))
     if user and user["password_hash"]:
         raise ApiError(409, "phone_taken")
+    if not allow_event("signup:" + (ctx.ip or "?"), SIGNUPS_PER_HOUR, 3600):
+        raise ApiError(429, "too_many_signups")
     token = secrets.token_hex(16)
     if user:
         # An account from the old phone-only login: the first sign-up with that number claims it.
@@ -676,7 +761,7 @@ def signup(ctx):
 
 @route("POST", "/api/login")
 def login(ctx):
-    phone = valid_phone(ctx)
+    phone = valid_phone(ctx, allow_admin=True)
     password = str(ctx.body.get("password") or "")
     check_rate_limit(phone)
     user = one("SELECT * FROM users WHERE phone=?", (phone,))
@@ -703,6 +788,44 @@ def change_password(ctx):
     token = secrets.token_hex(16)  # logs out every other phone that used the old password
     run("UPDATE users SET password_hash=?, token=? WHERE id=?", (hash_password(password), token, user["id"]))
     return session(one("SELECT * FROM users WHERE id=?", (user["id"],)))
+
+
+# ---------------------------------------------------------------- WhatsApp number verification (stops fake sellers)
+
+@route("POST", "/api/verify/send")
+def verify_send(ctx):
+    """With a WhatsApp gateway the code is sent to the seller's own number and typed back here.
+    Without one, the seller sends the code from their WhatsApp to the market number and the
+    admin ticks the number as verified (WhatsApp shows the real sender, so it cannot be faked)."""
+    user = ctx.require_user()
+    if user["phone_verified"]:
+        return {"verified": True}
+    if user["verify_code"] and user["verify_sent_at"] > now() - 60 and WA_PROVIDER:
+        raise ApiError(429, "code_wait")
+    if WA_PROVIDER and not allow_event(f"code:{user['id']}", 5, 3600):
+        raise ApiError(429, "too_many_attempts")
+    code = user["verify_code"] if (user["verify_code"] and not WA_PROVIDER) else new_code()
+    run("UPDATE users SET verify_code=?, verify_sent_at=? WHERE id=?", (code, now(), user["id"]))
+    if WA_PROVIDER:
+        send_whatsapp(user["phone"], translate(WA_TEXT, "verify_code", user["lang"], app=APP_NAME, code=code))
+        return {"verified": False, "mode": "auto"}
+    return {"verified": False, "mode": "manual", "code": code, "market_whatsapp": setting_text("market_whatsapp")}
+
+
+@route("POST", "/api/verify")
+def verify_check(ctx):
+    user = ctx.require_user()
+    if not WA_PROVIDER:
+        raise ApiError(400, "wrong_code")  # without a gateway only the admin can confirm a number
+    key = f"verify:{user['id']}"
+    check_rate_limit(key)
+    code = re.sub(r"[^0-9]", "", ctx.text("code", 12))
+    fresh = user["verify_sent_at"] > now() - CODE_TTL
+    if not (code and fresh and hmac.compare_digest(code, user["verify_code"] or "")):
+        note_failure(key)
+        raise ApiError(400, "wrong_code")
+    run("UPDATE users SET phone_verified=1, verify_code='' WHERE id=?", (user["id"],))
+    return {"verified": True}
 
 
 @route("POST", "/api/logout")
@@ -763,6 +886,9 @@ def my_stalls(ctx):
 @route("POST", "/api/stalls")
 def create_stall(ctx):
     user = ctx.require_user()
+    pending = one("SELECT COUNT(*) AS n FROM stalls WHERE owner_id=? AND status='pending'", (user["id"],))["n"]
+    if pending >= MAX_PENDING_STALLS and not user["is_admin"]:
+        raise ApiError(429, "too_many_pending", n=MAX_PENDING_STALLS)
     category = ctx.text("category", 30, required=True)
     if category not in CATEGORIES:
         raise ApiError(400, "unknown_category")
@@ -1104,6 +1230,7 @@ def admin_overview(ctx):
     stalls = rows(
         "SELECT s.id, s.name, s.emoji, s.category, s.description, s.whatsapp, s.status, s.slot_until, "
         "s.review_note, s.reviewed_at, s.created_at, u.name AS owner_name, u.phone AS owner_phone, "
+        "u.id AS owner_id, u.phone_verified AS owner_verified, u.verify_code AS owner_code, "
         "(SELECT COUNT(*) FROM menu_items m WHERE m.stall_id=s.id) AS menu_count, "
         "(SELECT COUNT(*) FROM branches b WHERE b.stall_id=s.id) AS branch_count "
         "FROM stalls s JOIN users u ON u.id=s.owner_id ORDER BY s.created_at DESC"
@@ -1111,6 +1238,9 @@ def admin_overview(ctx):
     order = {"pending": 0, "expired": 1, "live": 2, "suspended": 3, "rejected": 4}
     for s in stalls:
         s["state"] = stall_state(s)
+        s["owner_verified"] = bool(s["owner_verified"])
+        if s["owner_verified"] or WA_PROVIDER:
+            s["owner_code"] = ""  # the admin only needs the code to match a manual WhatsApp message
     stalls.sort(key=lambda s: (order.get(s["state"], 9), s["slot_until"] if s["state"] == "live" else ""))
     return {
         "capacity": setting("slot_capacity"),
@@ -1118,6 +1248,9 @@ def admin_overview(ctx):
         "live_count": live_count(),
         "today": today(),
         "stalls": stalls,
+        "market_whatsapp": setting_text("market_whatsapp"),
+        "wa_auto": bool(WA_PROVIDER),
+        "default_password": check_password("admin", ctx.user["password_hash"]),
     }
 
 
@@ -1140,6 +1273,8 @@ def admin_stall_action(ctx):
             raise ApiError(400, "bad_date")
         if until < today():
             raise ApiError(400, "bad_date")
+        if not owner["phone_verified"] and not owner["is_admin"]:
+            raise ApiError(400, "owner_unverified")
         capacity = setting("slot_capacity")
         if stall_state(stall) != "live" and live_count() >= capacity:
             raise ApiError(409, "no_free_slot", n=capacity)
@@ -1177,7 +1312,20 @@ def admin_settings(ctx):
     slot_days = int(ctx.number("slot_days", minimum=1, maximum=3650))
     run("UPDATE settings SET value=? WHERE key='slot_capacity'", (str(capacity),))
     run("UPDATE settings SET value=? WHERE key='slot_days'", (str(slot_days),))
-    return {"capacity": capacity, "slot_days": slot_days}
+    if "market_whatsapp" in ctx.body:
+        run("UPDATE settings SET value=? WHERE key='market_whatsapp'", (normalize_phone(ctx.text("market_whatsapp", 30)),))
+    return {"capacity": capacity, "slot_days": slot_days, "market_whatsapp": setting_text("market_whatsapp")}
+
+
+@route("POST", r"/api/admin/users/(\d+)/verify")
+def admin_verify_user(ctx):
+    """The admin saw the seller's code arrive on WhatsApp from the seller's own number."""
+    ctx.require_admin()
+    target = one("SELECT * FROM users WHERE id=?", (int(ctx.params[0]),))
+    if not target:
+        raise ApiError(404, "user_not_found")
+    run("UPDATE users SET phone_verified=1, verify_code='' WHERE id=?", (target["id"],))
+    return {"ok": True}
 
 
 @route("POST", "/api/admin/password")
@@ -1205,8 +1353,8 @@ DEMO_ACCOUNTS = [
     ("Pak Udin", "081222222222", None, 0),
     ("Andi (demo)", "081333333333", "demo-buyer", 0),
     ("Neng Ayu (demo)", "081444444444", None, 0),
-    ("Admin (demo)", "080000000000", "demo-admin", 1),
 ]
+UNVERIFIED_DEMO = {"081444444444"}  # the waiting demo seller still has to verify, to show the flow
 
 
 def ensure_demo_accounts():
@@ -1215,8 +1363,10 @@ def ensure_demo_accounts():
         user = one("SELECT * FROM users WHERE phone=?", (phone,))
         if not user:
             run(
-                "INSERT INTO users(name, phone, token, lang, created_at, password_hash, is_admin) VALUES(?,?,?,?,?,?,?)",
-                (name, phone, token or secrets.token_hex(16), DEFAULT_LANG, now(), hash_password(DEMO_PASSWORD), is_admin),
+                "INSERT INTO users(name, phone, token, lang, created_at, password_hash, is_admin, phone_verified) "
+                "VALUES(?,?,?,?,?,?,?,?)",
+                (name, phone, token or secrets.token_hex(16), DEFAULT_LANG, now(), hash_password(DEMO_PASSWORD),
+                 is_admin, 0 if phone in UNVERIFIED_DEMO else 1),
             )
         elif not user["password_hash"]:
             run("UPDATE users SET password_hash=?, is_admin=MAX(is_admin, ?) WHERE id=?",
@@ -1398,7 +1548,10 @@ class Handler(BaseHTTPRequestHandler):
                             # Remember each user's language for automatic WhatsApp messages.
                             run("UPDATE users SET lang=? WHERE id=?", (lang, user["id"]))
                             user["lang"] = lang
-                        ctx = Ctx(user, body, parse_qs(parsed.query), match.groups(), lang)
+                        ip = self.client_address[0]
+                        if ip in ("127.0.0.1", "::1"):
+                            ip = self.headers.get("CF-Connecting-IP", ip)  # visitor address behind the tunnel
+                        ctx = Ctx(user, body, parse_qs(parsed.query), match.groups(), lang, ip)
                         result = fn(ctx)
                     return self.send_json(200, result)
                 except ApiError as err:
@@ -1462,6 +1615,7 @@ def start_server(preferred_port, attempts=50):
 def main():
     with db_lock:
         normalize_stored_phones()
+        ensure_admin_account()
         if SEED_DEMO:
             seed()
             ensure_demo_accounts()
@@ -1472,7 +1626,8 @@ def main():
     print(f"  Phones (same WiFi): http://{lan_ip()}:{port}")
     print(f"  Database:           {DB_PATH}")
     print(f"  Demo data:          {'on (password ' + DEMO_PASSWORD + ')' if SEED_DEMO else 'off'}")
-    print(f"  Admin numbers:      {', '.join(sorted(admins)) or 'none - set ADMIN_PHONES to approve stalls'}")
+    print(f"  Admin login:        user 'admin' (password 'admin' until you change it in Account)"
+          + (f", plus {', '.join(sorted(admins))}" if admins else ""))
     print(f"  Automatic WhatsApp: {WA_PROVIDER or 'off (buyers/sellers use one-tap WhatsApp buttons)'}")
     print("  Press Ctrl+C to stop.")
     if "--open" in sys.argv:

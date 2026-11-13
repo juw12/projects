@@ -1597,6 +1597,9 @@ async function renderSeller() {
   if (!mine.some(s => s.id === state.sellerStallId)) state.sellerStallId = mine[0].id;
   const s = await api('/stalls/' + state.sellerStallId).catch(e => (toast(e.message), null));
   if (!s) return;
+  if (!state.me.phone_verified && !state.waAuto && !state.verifyInfo) {
+    state.verifyInfo = await api('/verify/send', { body: {} }).catch(() => null);
+  }
   const todayStart = new Date().setHours(0, 0, 0, 0) / 1000;
   const ordersToday = state.incoming.filter(o => o.stall_id === s.id && o.created_at >= todayStart && !['rejected', 'cancelled'].includes(o.status));
 
@@ -1617,6 +1620,7 @@ async function renderSeller() {
       </div>
     </div>
     ${stallStateBanner(s)}
+    ${verifyCardHtml()}
     <details class="card" style="margin-top:10px">
       <summary>${icon('store', 'i-sm')}${t('seller.editInfo')}</summary>
       <div class="mt-12">${stallFormHtml(s)}</div>
@@ -1732,7 +1736,7 @@ function openLogin(reasonKey, mode) {
   const demoButtons = [
     ['081111111111', 'store', 'login.demoSeller'],
     ['081333333333', 'user', 'login.demoBuyer'],
-    ['080000000000', 'check', 'login.demoAdmin'],
+    ['admin', 'check', 'login.demoAdmin'],
   ].map(([phone, ic, key]) =>
     `<button class="btn btn-secondary btn-sm grow" data-action="demo-login" data-phone="${phone}">${icon(ic, 'i-sm')}${t(key)}</button>`).join('');
   openSheet(`
@@ -1744,7 +1748,7 @@ function openLogin(reasonKey, mode) {
     <div class="muted small mt-12">${signup ? t('login.signupHint') : t('login.hint')}</div>
     <form data-form="${signup ? 'signup' : 'login'}">
       ${signup ? `<label class="field">${t('form.name')}</label><input name="name" required maxlength="60" placeholder="${esc(t('login.namePh'))}" autocomplete="name">` : ''}
-      <label class="field">${t('form.whatsapp')}</label><input name="phone" required inputmode="tel" maxlength="30" placeholder="08xx xxxx xxxx" autocomplete="tel">
+      <label class="field">${signup ? t('form.whatsapp') : t('login.phoneOrAdmin')}</label><input name="phone" required ${signup ? 'inputmode="tel"' : 'autocapitalize="off"'} maxlength="30" placeholder="08xx xxxx xxxx" autocomplete="username">
       <label class="field">${t('form.password')}</label><input name="password" type="password" required minlength="${signup ? state.minPassword : 1}" maxlength="200"
         autocomplete="${signup ? 'new-password' : 'current-password'}" placeholder="${signup ? esc(t('login.passwordPh', { n: state.minPassword })) : ''}">
       <button class="btn btn-primary btn-block mt-16">${signup ? t('login.signupSubmit') : t('login.continue')}</button>
@@ -1765,6 +1769,7 @@ async function authenticate(path, body) {
     state.token = data.token;
     localStorage.setItem('kb_token', data.token);
     state.seen = { feedMaxId: state.seen.feedMaxId, orderStatus: {}, incomingIds: null };
+    state.verifyInfo = null;
     await loadMe();
     closeSheet();
     toast(t('toast.welcome', { name: data.user.name }));
@@ -1786,6 +1791,7 @@ function logout(silent) {
   state.incoming = [];
   state.myStalls = [];
   state.admin = null;
+  state.verifyInfo = null;
   $('#adminNav').hidden = true;
   if (state.view === 'admin') state.view = 'feed';
   localStorage.removeItem('kb_token');
@@ -1829,6 +1835,57 @@ function openAccount() {
     <button class="btn btn-secondary btn-block" style="margin-top:24px" data-action="logout">${icon('logout', 'i-sm')}${t('account.logout')}</button>`);
 }
 
+// ------------------------------------------------------------------ number verification (anti-fake sellers)
+
+function verifyCardHtml() {
+  if (!state.me || state.me.phone_verified) return '';
+  const head = `<div class="bold">${icon('chat', 'i-sm')}${t('verify.title')}</div>`;
+  if (state.waAuto) {
+    return `
+      <div class="card" id="verifyCard" style="margin-top:10px;border-color:#f59e0b">
+        ${head}
+        <div class="small mt-4">${t('verify.autoBody', { phone: esc(state.me.phone) })}</div>
+        <button class="btn btn-secondary btn-sm mt-8" data-action="verify-send">${t('verify.send')}</button>
+        <form data-form="verify-code" class="row mt-8" style="gap:8px">
+          <input name="code" required inputmode="numeric" maxlength="6" placeholder="123456" style="max-width:140px">
+          <button class="btn btn-primary btn-sm">${t('verify.check')}</button>
+        </form>
+      </div>`;
+  }
+  const info = state.verifyInfo;
+  if (!info || !info.code) return '';
+  const market = info.market_whatsapp;
+  const message = t('verify.waText', { app: state.appName, code: info.code, name: state.me.name });
+  return `
+    <div class="card" id="verifyCard" style="margin-top:10px;border-color:#f59e0b">
+      ${head}
+      <div class="small mt-4">${market ? t('verify.manualBody') : t('verify.manualNoMarket')}</div>
+      <div class="mt-8" style="font-size:26px;font-weight:800;letter-spacing:.18em" data-verify-code>${esc(info.code)}</div>
+      ${market ? `<a class="btn btn-wa btn-sm mt-8" href="${waLink(market, message)}" target="_blank">${icon('chat', 'i-sm')}${t('verify.sendWa')}</a>` : ''}
+      <div class="muted xs mt-8">${t('verify.manualWait')}</div>
+    </div>`;
+}
+
+async function sendVerifyCode() {
+  await guarded(async () => {
+    const res = await api('/verify/send', { body: {} });
+    if (res.verified) {
+      await loadMe();
+      await refresh({ full: true });
+      return;
+    }
+    toast(t('verify.sent'));
+  });
+}
+
+async function adminVerifyOwner(userId) {
+  await guarded(async () => {
+    await api(`/admin/users/${userId}/verify`, { body: {} });
+    toast(t('admin.ownerVerifiedToast'));
+    await refresh({ full: true });
+  });
+}
+
 // ------------------------------------------------------------------ admin (market owner)
 
 function addDaysISO(days) {
@@ -1868,6 +1925,12 @@ function adminStallCard(s, a) {
         <span class="muted xs">${t('admin.owner', { name: esc(s.owner_name), phone: esc(s.owner_phone) })}</span>
         <a class="link xs" href="${waLink(s.owner_phone)}" target="_blank">${icon('chat', 'i-sm')}WhatsApp</a>
       </div>
+      ${s.owner_verified
+        ? `<div class="xs mt-4" style="color:var(--open)" data-owner-verified>${icon('check', 'i-sm')}${t('admin.ownerVerified')}</div>`
+        : `<div class="row mt-8" style="gap:8px;flex-wrap:wrap;background:#fef3c7;border-radius:8px;padding:8px" data-owner-unverified>
+            <span class="small grow">${s.owner_code ? t('admin.ownerCode', { code: esc(s.owner_code) }) : t('admin.ownerUnverified')}</span>
+            <button class="btn btn-secondary btn-sm" data-action="admin-verify-owner" data-id="${s.owner_id}">${t('admin.verifyOwner')}</button>
+          </div>`}
       ${untilText ? `<div class="small mt-4 bold">${untilText}</div>` : ''}
       ${s.review_note ? `<div class="muted xs mt-4">${t('slot.note', { note: esc(s.review_note) })}</div>` : ''}
       <div class="grid2 mt-8">
@@ -1875,7 +1938,10 @@ function adminStallCard(s, a) {
         <div><label class="field" style="margin-top:0">${t('admin.note')}</label><input id="adm-note-${s.id}" maxlength="200" placeholder="${esc(t('admin.notePh'))}"></div>
       </div>
       <div class="row mt-8" style="gap:8px;flex-wrap:wrap">
-        ${buttons.map(([act, key, cls]) => `<button class="btn ${cls} btn-sm" data-action="admin-stall" data-id="${s.id}" data-do="${act}">${t(key)}</button>`).join('')}
+        ${buttons.map(([act, key, cls]) => {
+          const blocked = !s.owner_verified && (act === 'approve' || act === 'extend');
+          return `<button class="btn ${cls} btn-sm" data-action="admin-stall" data-id="${s.id}" data-do="${act}"${blocked ? ` disabled title="${esc(t('admin.ownerUnverified'))}"` : ''}>${t(key)}</button>`;
+        }).join('')}
         <button class="btn btn-secondary btn-sm" data-action="open-stall" data-id="${s.id}">${icon('eye', 'i-sm')}${t('seller.preview')}</button>
       </div>
     </div>`;
@@ -1900,6 +1966,10 @@ function renderAdmin() {
   const used = Math.min(100, Math.round((a.live_count / Math.max(1, a.capacity)) * 100));
   root.innerHTML = `
     <div class="page-head"><h1>${t('admin.title')}</h1><div class="muted small">${t('admin.intro')}</div></div>
+    ${a.default_password ? `<div class="card" data-admin-warning style="background:#fee2e2;border-color:#fca5a5;color:#991b1b">
+      <div class="bold">${t('admin.defaultPassword')}</div>
+      <button class="btn btn-danger btn-sm mt-8" data-action="account">${t('admin.changePassword')}</button></div>` : ''}
+    ${!a.market_whatsapp && !a.wa_auto ? `<div class="card small" style="background:#fef3c7;border-color:#fcd34d">${t('admin.setMarketWa')}</div>` : ''}
     <div class="card">
       <div class="row spread"><span class="bold">${t('admin.slots', { used: a.live_count, total: a.capacity })}</span>
         <span class="muted small">${t('admin.free', { n: Math.max(0, a.capacity - a.live_count) })}</span></div>
@@ -1909,6 +1979,7 @@ function renderAdmin() {
         <form data-form="admin-settings" class="grid2 mt-8">
           <div><label class="field" style="margin-top:0">${t('admin.capacity')}</label><input name="capacity" type="number" min="1" max="100000" required value="${a.capacity}"></div>
           <div><label class="field" style="margin-top:0">${t('admin.slotDays')}</label><input name="slot_days" type="number" min="1" max="3650" required value="${a.slot_days}"></div>
+          <div style="grid-column:1/-1"><label class="field" style="margin-top:0">${t('admin.marketWa')}</label><input name="market_whatsapp" inputmode="tel" maxlength="30" placeholder="08xx xxxx xxxx" value="${esc(a.market_whatsapp || '')}"><div class="muted xs mt-4">${t('admin.marketWaHint')}</div></div>
           <button class="btn btn-primary btn-block" style="grid-column:1/-1">${t('admin.save')}</button>
         </form>
       </details>
@@ -1955,7 +2026,9 @@ const actions = {
     setLang(el.dataset.lang);
     openAccount();
   },
-  'demo-login': el => doLogin(el.dataset.phone, DEMO_PASSWORD),
+  'demo-login': el => doLogin(el.dataset.phone, el.dataset.phone === 'admin' ? 'admin' : DEMO_PASSWORD),
+  'verify-send': () => sendVerifyCode(),
+  'admin-verify-owner': el => adminVerifyOwner(Number(el.dataset.id)),
   'login-mode': el => openLogin(state.loginReason, el.dataset.mode),
   'admin-stall': el => adminStallAction(Number(el.dataset.id), el.dataset.do),
   'close-sheet': () => closeSheet(),
@@ -2078,6 +2151,7 @@ const forms = {
     localStorage.setItem('kb_token', data.token);
     closeSheet();
     toast(t('toast.passwordChanged'));
+    await refresh({ full: true });
   },
   stall: async f => {
     const res = await api('/stalls', { body: Object.fromEntries(new FormData(f)) });
@@ -2091,8 +2165,16 @@ const forms = {
     toast(t('toast.stallSaved'));
     await refresh({ full: true });
   },
+  'verify-code': async f => {
+    await api('/verify', { body: { code: f.code.value } });
+    toast(t('verify.done'));
+    await loadMe();
+    await refresh({ full: true });
+  },
   'admin-settings': async f => {
-    await api('/admin/settings', { body: { capacity: Number(f.capacity.value), slot_days: Number(f.slot_days.value) } });
+    await api('/admin/settings', {
+      body: { capacity: Number(f.capacity.value), slot_days: Number(f.slot_days.value), market_whatsapp: f.market_whatsapp.value },
+    });
     toast(t('toast.settingsSaved'));
     await refresh({ full: true });
   },
