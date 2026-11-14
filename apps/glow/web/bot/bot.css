@@ -19,9 +19,11 @@
   border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border));
 }
 
+/* The label is 44 px tall to press (it puts the cursor in the field): its padding takes the place of the gap that
+   was above it and of the 6 px that was above the field. */
 .token-label {
   display: block;
-  margin-top: 16px;
+  padding: 16px 0 7px;
   font-size: 14px;
   font-weight: 600;
 }
@@ -30,7 +32,7 @@
   display: block;
   width: 100%;
   box-sizing: border-box;
-  margin-top: 6px;
+  min-height: 44px;
   padding: 11px 13px;
   border: 1px solid var(--border);
   border-radius: 14px;
@@ -207,8 +209,43 @@
   overflow-wrap: anywhere;
 }
 
+/* ---- tap size ----
+   A finger needs about 44 px. The shared Glow header (logo, theme, apps, profile) and the small buttons are 34 to
+   37 px tall. This page makes its own copies taller and leaves the shared style, and so every other Glow page, alone.
+   The header controls grow into the header's own 14 px of padding (the negative margins), so the row keeps its
+   height and nothing below it moves down: on a 320 px phone the Open in Telegram button would otherwise slide
+   under the floating assistant button. */
+.bot-page .top .logo {
+  min-height: 44px;
+  margin-block: -5px;
+}
+
+.bot-page .top .icon-btn,
+.bot-page .top .glow-avatar-btn {
+  flex: 0 0 44px;
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  margin-block: -4px;
+}
+
+.bot-page .btn.small {
+  min-height: 44px;
+}
+
 .bot-page .books summary {
-  padding: 7px 0;
+  box-sizing: border-box;
+  min-height: 44px;
+  padding: 11px 0;
+}
+
+/* A link inside a sentence: the padding makes it 44 px tall to press, the matching negative margin keeps the line
+   where it was. */
+.bot-page .setup .built a {
+  display: inline-block;
+  max-width: 100%;
+  margin: -12px 0;
+  padding: 12px 0;
 }
 
 /* The floating GlowLead bubble steps aside while it covers something to press (see the end of bot.js). */

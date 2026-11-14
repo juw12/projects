@@ -47,6 +47,7 @@ import { StoppedError, clip, errorText } from "./util.js";
 // ------------------------------------------------------------------ limits
 const STATE_KEY = "chat";
 const RECORD_PREFIX = "rec:";
+export const LEGACY_HISTORY_KEY = "chat:history"; // where the 0.2.0 Worker kept a chat's talk
 
 export const DAILY_JOB_LIMIT = 20; // jobs per chat per day, for everyone except the owner
 export const MAX_CALLS = 24; // AI calls one job may make
@@ -158,6 +159,26 @@ const SIM_REGISTRY = {
   allow: async () => ({ ok: true, chats: 0 }),
   users: async () => ({ ok: true, ownerId: null, access: "private", chats: [] }),
 };
+
+// What a chat's talk becomes once the talk GlowBot 0.2.0 saved is put in front of it (it is the
+// older one). Only what the user and the assistant said is taken, clipped and cut like today's talk,
+// and the talk starts with the user. Anything that is not such a talk changes nothing.
+export function adoptLegacyHistory(old, current) {
+  const today = Array.isArray(current) ? current : [];
+  const taken = (Array.isArray(old) ? old : [])
+    .filter(
+      (entry) =>
+        entry &&
+        (entry.role === "user" || entry.role === "assistant") &&
+        typeof entry.content === "string" &&
+        entry.content.trim() !== "",
+    )
+    .map((entry) => ({ role: entry.role, content: clip(entry.content, HISTORY_CLIP) }));
+  if (!taken.length) return today;
+  const merged = [...taken, ...today].slice(-HISTORY_KEEP);
+  while (merged.length && merged[0].role !== "user") merged.shift();
+  return merged;
+}
 
 function freshState() {
   return {
@@ -373,8 +394,18 @@ export class ChatLogic {
   load() {
     if (!this.loading) {
       this.loading = (async () => {
-        const saved = await this.storage.get(STATE_KEY);
+        // Both keys come in one read, so a chat with nothing to move over starts exactly as before.
+        const found = await this.storage.get([STATE_KEY, LEGACY_HISTORY_KEY]);
+        const saved = found.get(STATE_KEY);
         this.state = { ...freshState(), ...(saved && typeof saved === "object" ? saved : {}) };
+        // A chat that talked to GlowBot 0.2.0: its talk is moved over once, then the old copy goes,
+        // so /new cannot bring it back.
+        if (found.has(LEGACY_HISTORY_KEY)) {
+          const old = found.get(LEGACY_HISTORY_KEY);
+          this.state.history = adoptLegacyHistory(old, this.state.history);
+          await this.storage.put(STATE_KEY, this.state);
+          await this.storage.delete(LEGACY_HISTORY_KEY);
+        }
         return this.state;
       })();
     }
