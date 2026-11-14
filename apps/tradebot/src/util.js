@@ -1,6 +1,6 @@
 // Small shared helpers for the TradeBot Worker. No dependencies.
 
-export const VERSION = "0.4.0";
+export const VERSION = "0.5.0";
 
 // Cut text to a maximum length, marking the cut with one ellipsis character.
 export function clip(text, max) {

@@ -4,6 +4,7 @@
 // Every answer says what happened and what to do next. A refusal always says that nothing was
 // bought, sold or erased. Raw errors never reach the chat.
 
+import { toUsdt } from "./fx.js";
 import { MAX_WATCH, approve, blocked, decide, look, manualBuy, manualSell, newState, prices, skip, tick, tracked, worth, TICK_MS } from "./agent.js";
 import { backtest } from "./backtest.js";
 import { TIMEFRAMES, normalizeSymbol } from "./market.js";
@@ -14,7 +15,7 @@ import { Problem, errorText, escapeHtml } from "./util.js";
 export const COMMANDS = [
   { command: "status", description: "Account, positions and profit" },
   { command: "signals", description: "What the agent sees in each market" },
-  { command: "buy", description: "Buy now: /buy BTC 500" },
+  { command: "buy", description: "Buy now: /buy BTC 2jt" },
   { command: "sell", description: "Sell now: /sell BTC" },
   { command: "watch", description: "Add a market: /watch DOGE" },
   { command: "unwatch", description: "Remove a market: /unwatch DOGE" },
@@ -55,8 +56,15 @@ function unreadable(text, nothing) {
   return warn(`I cannot read ${quote(text)} as a coin name, so ${nothing}. Use the short name, like BTC, ETH or DOGE.`);
 }
 
-function dollars(text) {
-  return Number(String(text).replace(/[$,]/g, ""));
+// Fresh practice money: Rp100 juta once a rupiah rate is known, else 10,000 dollars.
+function defaultCash() {
+  const rate = render.rateNow();
+  return rate ? 100000000 / rate : 10000;
+}
+
+// A typed amount in USDT (the books' unit). Plain numbers are rupiah once a rate is known.
+function amount(text) {
+  return toUsdt(text, render.rateNow());
 }
 
 function statusOf(state, now) {
@@ -124,15 +132,15 @@ const handlers = {
 
   async buy(ctx, args) {
     if (!args[0]) {
-      return say("Say what to buy: <code>/buy BTC</code> (I pick the size by my risk rule) or <code>/buy BTC 500</code> (500 dollars of practice money).");
+      return say(`Say what to buy: <code>/buy BTC</code> (I pick the size by my risk rule) or <code>/buy BTC ${render.exampleAmount()}</code> (${render.money(amount(render.exampleAmount()))} of practice money).`);
     }
     const symbol = normalizeSymbol(args[0]);
     if (!symbol) return unreadable(args[0], "nothing was bought");
     const name = render.coin(symbol);
     let usd = 0;
     if (args[1] !== undefined) {
-      usd = dollars(args[1]);
-      if (!(usd > 0)) return warn(`Nothing was bought. The amount is in dollars, for example <code>/buy ${name} 500</code>.`);
+      usd = amount(args[1]);
+      if (!(usd > 0)) return warn(`Nothing was bought. The amount is in ${render.moneyWord()}, for example <code>/buy ${name} ${render.exampleAmount()}</code> (also 2jt or 500rb).`);
     }
     try {
       return { messages: [render.bought(await manualBuy(ctx.state, symbol, usd, ctx), ctx.state.settings)] };
@@ -324,9 +332,9 @@ const handlers = {
     if (hasRealPositions(state)) {
       return warn("Nothing was erased. Real coins bought on Tokocrypto are still open, and a reset would lose track of them. Sell them first (/sell), then reset.");
     }
-    const cash = args[0] === undefined ? 10000 : dollars(args[0]);
+    const cash = args[0] === undefined ? defaultCash() : amount(args[0]);
     if (!(cash >= 100 && cash <= 10000000)) {
-      return warn("Nothing was erased. Start with between $100 and $10,000,000 of practice money, for example <code>/reset 10000</code>.");
+      return warn(`Nothing was erased. Start with between ${render.money(100)} and ${render.money(10000000)} of practice money, for example <code>/reset ${render.rateNow() ? "100000000" : "10000"}</code> (also 100jt).`);
     }
     return say(
       `Start over with <b>${render.money(cash)}</b> of practice money?\nThis erases ${erased(state)}. Your settings and watchlist stay.`,

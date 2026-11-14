@@ -125,7 +125,7 @@ test("/live on needs the Worker armed and the word confirm", () => {
   assert.equal(liveOf(state).mode, "off");
   assert.match(liveCommand(state, ["on", "confirm"], { env: ARMED, now: NOW }).html, /Real money is <b>on<\/b>/);
   assert.equal(liveOf(state).mode, "on");
-  assert.match(liveCommand(state, ["size", "500"], { env: ARMED, now: NOW }).html, /between 5 and 50 USDT/);
+  assert.match(liveCommand(state, ["size", "500"], { env: ARMED, now: NOW }).html, /between 5\.00 USDT and 50\.00 USDT/);
   liveCommand(state, ["size", "20"], { env: ARMED, now: NOW });
   assert.deepEqual(limitsOf(liveOf(state)), { orderUsdt: 20, maxOpenUsdt: 60, dailyLossUsdt: 20 });
 });

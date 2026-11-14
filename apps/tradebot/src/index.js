@@ -20,6 +20,7 @@ import { DESK_MODEL, SAMPLE_BRIEF, convene } from "./desk.js";
 import { EXCHANGE_NAME, createTokocrypto, exchangeSymbol } from "./exchange.js";
 import { armedBy, drain, liveOf, missingFor } from "./live.js";
 import { COMMANDS, handleUpdate } from "./bot.js";
+import { refreshRate, rateOfState } from "./fx.js";
 import { SOURCE_NAMES, createMarket } from "./market.js";
 import * as render from "./render.js";
 import { createTelegram } from "./telegram.js";
@@ -112,7 +113,15 @@ export function createWorker(overrides) {
     }
 
     async state() {
-      return (await this.storage.get("state")) || newState();
+      const state = (await this.storage.get("state")) || newState();
+      render.useRate(rateOfState(state)); // amounts are written in rupiah once a rate is known
+      return state;
+    }
+
+    // Keeps the USDT -> rupiah rate fresh (read at most once an hour; an old rate beats none).
+    async rupiah(state) {
+      await refreshRate(state, { fetch: deps.fetch, now: deps.now() });
+      render.useRate(rateOfState(state));
     }
 
     // The agent only runs for a paired owner. Called on every visit, so a lost alarm comes back.
@@ -185,6 +194,7 @@ export function createWorker(overrides) {
         if (!config.ownerId) return; // nobody to trade for: stop ringing
         try {
           const state = await this.state();
+          await this.rupiah(state);
           const ai = this.ai();
           const messages = await tick(state, { market, now: deps.now(), ai });
           messages.push(...(await this.copyLive(state)));
@@ -204,6 +214,9 @@ export function createWorker(overrides) {
       const config = await this.config();
       await this.keepRunning(config);
       const state = await this.state();
+      const before = state.fx ? state.fx.at : 0;
+      await this.rupiah(state);
+      if (state.fx && state.fx.at !== before) await this.storage.put("state", state); // keep a fresh rate
       const alarm = await this.storage.getAlarm();
       return json({
         configured: !!config.token,
@@ -211,6 +224,7 @@ export function createWorker(overrides) {
         paired: !!config.ownerId,
         running: !!config.ownerId && alarm !== null,
         lastRound: state.lastTick ? { at: state.lastTick.at, markets: state.lastTick.symbols, errors: state.lastTick.errors.length } : null,
+        rupiah: state.fx ? { perUsdt: state.fx.rate, source: state.fx.source, at: state.fx.at } : null,
       });
     }
 
@@ -352,6 +366,7 @@ export function createWorker(overrides) {
         const paired = { ...config, ownerId: from.id, chatId: chat.id, pairCode: null, pairUntil: null };
         await this.storage.put("config", paired);
         const state = await this.state();
+        await this.rupiah(state);
         await this.storage.put("state", state);
         await this.deliver(paired, [
           render.welcome(state),
@@ -366,6 +381,7 @@ export function createWorker(overrides) {
       }
 
       const state = await this.state();
+      await this.rupiah(state);
       const result = await handleUpdate({ state, market, now: deps.now(), env: this.env || {} }, update);
       const copies = await this.copyLive(state);
       if (copies.length) result.messages = [...(result.messages || []), ...copies];

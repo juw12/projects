@@ -388,7 +388,7 @@ export async function manualBuy(state, symbol, usd, { market, now }) {
   const stop = range && view.price - PARAMS.stopAtr * range > 0 ? view.price - PARAMS.stopAtr * range : view.price * 0.9;
   const amount = usd || orderSize(state, view.price, stop);
   if (!(amount >= MIN_ORDER)) {
-    throw new Problem(`By my risk rule this trade would be under the smallest size ($${MIN_ORDER}), so nothing was bought. Name the dollars yourself: /buy ${name} 100.`);
+    throw new Problem(`By my risk rule this trade would be under the smallest size (${render.money(MIN_ORDER)}), so nothing was bought. Name the amount yourself: /buy ${name} ${render.exampleAmount()}.`);
   }
   const last = view.closed[view.closed.length - 1];
   if (last) memo.decided = last.t; // the agent first reviews it at the next finished candle
