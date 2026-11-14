@@ -114,6 +114,19 @@ LEFTOVERS = """() => ({
   cookie: document.cookie,
 })"""
 WIDTHS = "() => [document.documentElement.scrollWidth, window.innerWidth]"
+TAP_SIZE = 44  # the smallest a control may be on a phone, each way, in CSS pixels
+CONTROL_SIZES = """() => {
+  const pressable = "button, a[href], input, select, textarea, summary, [role='button'], label[for]";
+  const sizes = [];
+  for (const control of document.querySelectorAll(pressable)) {
+    if (control.closest(".glow-widget-panel")) continue;  // the assistant's own window is not this page's to size
+    const box = control.getBoundingClientRect();
+    if (!box.width || !box.height || getComputedStyle(control).visibility === "hidden") continue;
+    const name = control.id ? "#" + control.id : control.tagName.toLowerCase() + "." + control.className;
+    sizes.push([name, Math.round(box.width * 10) / 10, Math.round(box.height * 10) / 10]);
+  }
+  return sizes;
+}"""
 COLOURS = """() => [
   getComputedStyle(document.documentElement).backgroundColor,
   getComputedStyle(document.body).backgroundColor,
@@ -1116,6 +1129,28 @@ class GlowBotBrowserTests(unittest.TestCase):
                         self.assertGreaterEqual(box["x"], 0, f"{code}: {control}")
                         self.assertLessEqual(box["x"] + box["width"], screen + 0.5, f"{code}: {control}")
                 page.close()
+        self.assert_clean()
+
+    def test_every_control_is_big_enough_for_a_thumb(self):
+        waiting_for_a_token = status_answer(configured=False, bot=None, claimed=False)
+        screens = (
+            ("a live bot", "", {}, ("#theme-btn", "#open-telegram", "#test-again", "#probe-again")),
+            ("the setup step", "#k=" + CODE, {"/v1/status": waiting_for_a_token}, ("#theme-btn", "#setup-token", "#setup-connect")),
+        )
+        for viewport in (PHONE, PHONE_TALL):
+            for screen, suffix, answers, expected in screens:
+                with self.subTest(screen=screen, width=viewport["width"]):
+                    worker = FakeWorker()
+                    worker.answers.update(answers)
+                    page = self.open_bot(worker, suffix, viewport=viewport)
+                    self.settle(page)
+                    sizes = page.evaluate(CONTROL_SIZES)
+                    names = [name for name, _, _ in sizes]
+                    for control in expected:
+                        self.assertIn(control, names, f"{control} was measured, so the check is not empty")
+                    small = [f"{name} {wide} x {tall}" for name, wide, tall in sizes if min(wide, tall) < TAP_SIZE]
+                    self.assertEqual(small, [], f"every control is at least {TAP_SIZE} px each way")
+                    page.close()
         self.assert_clean()
 
     def test_light_and_dark_follow_the_device_and_then_the_button(self):
