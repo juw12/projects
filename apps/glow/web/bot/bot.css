@@ -211,9 +211,13 @@
 
 /* ---- tap size ----
    A finger needs about 44 px. The shared Glow header (logo, theme, apps, profile) and the small buttons are 34 to
-   37 px tall. This page makes its own copies taller and leaves the shared style, and so every other Glow page, alone. */
+   37 px tall. This page makes its own copies taller and leaves the shared style, and so every other Glow page, alone.
+   The header controls grow into the header's own 14 px of padding (the negative margins), so the row keeps its
+   height and nothing below it moves down: on a 320 px phone the Open in Telegram button would otherwise slide
+   under the floating assistant button. */
 .bot-page .top .logo {
   min-height: 44px;
+  margin-block: -5px;
 }
 
 .bot-page .top .icon-btn,
@@ -222,6 +226,7 @@
   width: 44px;
   min-width: 44px;
   height: 44px;
+  margin-block: -4px;
 }
 
 .bot-page .btn.small {
