@@ -299,9 +299,14 @@ export function createModels(options) {
   const aiEntries = settings.ai ? settings.aiModels || AI_MODELS : [];
   const base = settings.order === "ai-first" ? aiEntries.concat(keyless) : keyless.concat(aiEntries);
 
+  // The model the person chose (/models) is asked first, then the one that answered last, then the rest.
   function chain() {
-    const preferred = base.find((entry) => entry.id === state.preferred);
-    return preferred ? [preferred].concat(base.filter((entry) => entry !== preferred)) : base.slice();
+    const lead = [];
+    for (const id of [state.pinned, state.preferred]) {
+      const entry = base.find((candidate) => candidate.id === id);
+      if (entry && !lead.includes(entry)) lead.push(entry);
+    }
+    return lead.concat(base.filter((entry) => !lead.includes(entry)));
   }
 
   function restingMs(entry) {

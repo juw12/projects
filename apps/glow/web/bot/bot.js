@@ -515,6 +515,7 @@
     const pages = listOf(result.pages);
     const news = result.news && typeof result.news === "object" ? result.news : null;
     const spark = result.spark && typeof result.spark === "object" ? result.spark : null;
+    const voice = result.voice && typeof result.voice === "object" ? result.voice : null;
     const stories = news ? Number(news.stories) : NaN;
 
     const tiles = [
@@ -534,13 +535,14 @@
     const extras = [];
     if (news) extras.push(probeRow(news.ok === true, "GlowNews", null, news.ok === true && Number.isFinite(stories) ? `${stories} stories` : news.error || ""));
     if (spark) extras.push(probeRow(spark.ok === true, "GlowSpark", spark.loadMs, spark.ok === true ? spark.sample || "" : spark.error || ""));
+    if (voice) extras.push(probeRow(voice.ok === true, tr("bot.probe.voice", "Voice notes"), voice.ms, voice.ok === true ? voice.heard || "" : voice.error || ""));
     const groups = [
       [tr("bot.probe.group.keyless", "Free AI models, no key"), keyless.map(modelRow)],
       [tr("bot.probe.group.ai", "Cloudflare Workers AI, the backup"), backup.map(modelRow)],
       [tr("bot.probe.group.search", "Web search"), searches.map(webRow)],
       [tr("bot.probe.group.read", "Page readers"), readers.map(webRow)],
       [tr("bot.probe.group.pages", "Real pages it tried to read"), pages.map(pageRow)],
-      [tr("bot.probe.group.extras", "GlowNews and GlowSpark"), extras],
+      [tr("bot.probe.group.extras", "GlowNews, GlowSpark and voice notes"), extras],
     ];
     for (const [title, list] of groups) {
       if (list.length) rows.appendChild(probeGroup(title, list));

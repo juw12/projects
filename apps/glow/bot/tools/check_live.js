@@ -3,6 +3,11 @@
 // self-test pass there (GET /v1/selftest)? The GitHub workflow runs it; by hand:
 //
 //   node tools/check_live.js https://glow-bot.juw12.workers.dev [build]
+//   node tools/check_live.js https://glow-bot.juw12.workers.dev --profile
+//
+// --profile asks a third question by hand (GET /v1/profile): does Telegram show the name, command
+// menus, descriptions and picture this version means to show? The deploy does not ask it, so a
+// slow Telegram never fails a release.
 //
 // No dependencies. The judging is in two plain functions, tested in test/check-live.test.js.
 
@@ -49,6 +54,39 @@ export function selfTestProblems(answer, build = "", version = VERSION) {
   return problems;
 }
 
+// What is wrong with a /v1/profile answer; [] when Telegram shows everything this version sets.
+export function profileProblems(profile, version = VERSION) {
+  if (!isObject(profile)) return ["the answer is not a JSON object"];
+  if (profile.configured !== true) return ["no bot is connected"];
+  const problems = [];
+  if (profile.version !== version) problems.push(`the profile is from version ${JSON.stringify(profile.version)}, not "${version}"`);
+  const part = (label, value) => {
+    if (!isObject(value) || value.ok !== true) problems.push(`${label} is not right: ${JSON.stringify(value === undefined ? null : value)}`);
+  };
+  part("the name", profile.name);
+  part("the picture", profile.photo);
+  part("the webhook", profile.webhook);
+  const groups = [
+    ["the command menu", profile.menus, true],
+    ["the owner's command menu", profile.ownerMenus, profile.claimed === true],
+    ["the description", profile.descriptions, true],
+    ["the short description", profile.shorts, true],
+  ];
+  for (const [label, group, needed] of groups) {
+    const names = isObject(group) ? Object.keys(group) : [];
+    if (needed && !names.length) problems.push(`${label} was not read`);
+    for (const name of names) part(`${label} (${name})`, group[name]);
+  }
+  const dress = profile.dress;
+  if (!isObject(dress)) problems.push("this version has not set the profile yet");
+  else {
+    if (dress.current !== true) problems.push(`the profile was last set by version ${JSON.stringify(dress.version)}`);
+    for (const warning of Array.isArray(dress.warnings) ? dress.warnings : []) problems.push(`warning while setting the profile: ${warning}`);
+  }
+  if (profile.ok !== true && !problems.length) problems.push("ok is not true");
+  return problems;
+}
+
 async function readJson(url) {
   const response = await fetch(url, { signal: AbortSignal.timeout(TIMEOUT_MS) });
   const text = await response.text();
@@ -92,11 +130,25 @@ export async function checkLive(base, build = "", options = {}) {
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  const [base, build] = process.argv.slice(2);
+  const given = process.argv.slice(2);
+  const wantsProfile = given.includes("--profile");
+  const [base, build] = given.filter((word) => word !== "--profile");
   if (!base) {
-    console.error("Usage: node tools/check_live.js <worker address> [build]");
+    console.error("Usage: node tools/check_live.js <worker address> [build] [--profile]");
     process.exit(2);
   }
-  const problems = await checkLive(base.replace(/\/+$/, ""), build || "");
+  const address = base.replace(/\/+$/, "");
+  const problems = await checkLive(address, build || "");
+  if (wantsProfile && !problems.length) {
+    try {
+      const found = profileProblems(await readJson(`${address}/v1/profile`));
+      if (!found.length) console.log("Telegram shows the name, menus, descriptions and picture of this version.");
+      for (const problem of found) console.log(`  profile: ${problem}`);
+      problems.push(...found);
+    } catch (error) {
+      console.log(`  profile: no answer: ${(error && error.message) || error}`);
+      problems.push("no profile answer");
+    }
+  }
   process.exit(problems.length ? 1 : 0);
 }

@@ -1,13 +1,13 @@
 {
-  "version": "1.32.0",
-  "released": "2026-11-13",
+  "version": "1.33.0",
+  "released": "2026-11-14",
   "notes": [
-    "🤖 New: GlowBot, the Glow AI team as a Telegram bot. Give it a goal in a chat or a group; it plans the work, delegates it to its agents, checks the result and reports back",
-    "It also answers with web research, runs the AI crew, shares the day's AI news and writes a short tale with our own tiny AI",
-    "It shows its plan first and waits for your OK (a one-step job just runs), and you can steer or stop it at any time",
-    "The bot starts private: only its owner can use it until they open it to everyone",
-    "The GlowBot page lists every command, shows whether the bot is online, and shows its own self-test and which free models and search routes answer right now",
-    "Find it on Glow home, in the Glow apps menu, or with the 🤖 Telegram pill"
+    "🤖 GlowBot: pick the AI model that answers. Send /models and tap one; /model auto lets the bot choose again",
+    "The bot's / menu now lists every command, in English, Indonesian and Chinese, and the owner gets the owner commands too",
+    "New commands: /about shows the version and the links, /privacy says what the bot keeps and where your words go",
+    "The bot sets its own name, description and picture in Telegram, so it is ready to share",
+    "The bot's health check now sends a recorded voice sample through the speech model",
+    "The GlowBot page lists the new commands and shows the voice check"
   ],
   "android": "https://github.com/juw12/projects/releases/download/glow-android/Glow-android.apk",
   "windows": "https://github.com/juw12/projects/releases/download/glow-windows/Glow-Setup.exe",

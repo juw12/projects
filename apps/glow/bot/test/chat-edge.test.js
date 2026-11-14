@@ -1008,7 +1008,7 @@ test("the simulated tester is the owner of a private chat, and an unknown langua
   assert.equal(
     rows[3].payload.text,
     [
-      "<b>GlowBot 1.32.0</b>",
+      "<b>GlowBot 1.33.0</b>",
       "Mode: GlowLead",
       "Language: English",
       "Access: private",

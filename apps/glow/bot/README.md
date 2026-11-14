@@ -44,12 +44,14 @@ About the secrets:
 | `/every` | Owner only. A mission that runs by itself on a schedule (UTC+7), like `/every mon,thu 08:00 research cheap flights to Tokyo`. `/every` lists them, `/every off` clears them. Up to 5. |
 | `/missions` | Your last missions (the bot keeps 20). `/missions 3` shows a report again; the buttons run one again. |
 | `/status` | What is running, your mode, language and jobs used today. |
-| `/stop` | Stops the running job. |
+| `/stop` | Stops the running job. `/cancel` is the same. |
 | `/lang` | Changes the language (English, Bahasa Indonesia, 简体中文, 繁體中文). |
 | `/new` | Forgets the plain chat so far. `/reset` is the same. Schedules, past missions and notes stay. |
-| `/models` | Which free models answer right now. |
+| `/models` | Which free models answer right now, with a button for each one. Tap one and it answers first; the others still step in when it is busy. `/model <name>` does the same by name and `/model auto` lets the bot choose again. |
 | `/myid` | Your Telegram id and this chat's id. |
 | `/help` | Everything it can do. |
+| `/about` | The bot's version and its links. `/version` is the same. |
+| `/privacy` | What the bot keeps and where your words go. |
 | `/access` | Owner only. `/access public` lets anyone use the bot; `/access private` closes it again. |
 | `/allow` | Owner only. `/allow 123456789` lets one person or one group in while the bot stays private. |
 | `/deny` | Owner only. `/deny 123456789` takes that person or group out again. |
@@ -94,7 +96,8 @@ you is passed on to it as a note. In a group, send it as a reply to one of the b
 | `GET /` | A line that says what this server is. |
 | `GET /v1/status` | It is alive, which build is live, whether a bot is connected and claimed, and whether it is public or private. |
 | `GET /v1/selftest` | The bot checks its own logic: whole conversations driven through the real chat code, with scripted models in place of the free ones. No network is used. One result per build. |
-| `GET /v1/probe` | A health check run from Cloudflare itself: every free model, every way to search and read the web, GlowNews and GlowSpark, each tried once. Kept for six hours per build. |
+| `GET /v1/probe` | A health check run from Cloudflare itself: every free model, every way to search and read the web, GlowNews, GlowSpark and one recorded voice sample through the speech model, each tried once. Kept for six hours per build. |
+| `GET /v1/profile` | What Telegram shows for the bot right now (name, command menus, descriptions, picture, webhook), read back from Telegram and compared with what this version means to show. No token, owner or chat is in the answer. |
 | `POST /telegram/webhook` | Where Telegram delivers messages. Telegram signs each call with a secret header; anything else is refused. |
 | `POST /v1/telegram` | The first bot's address for the same thing. It is kept so no message is lost while the webhook moves (see below). |
 | `POST /setup` | Used by the bot page: takes the setup code and the token, checks the token with Telegram and connects the webhook. |
@@ -124,7 +127,7 @@ server only from `https://juw12.github.io`.
 | `src/probe.js` | The health check behind `/v1/probe`. |
 | `src/util.js` | Small shared helpers. |
 | `src/lead-port.js`, `src/crew-port.js` | GlowLead's planning rules and GlowRoom's crew, copied from the web apps by `tools/make_ports.py` (never edited by hand), so a mission is planned the same way in Telegram. |
-| `tools/check_live.js` | Asks a deployed Worker for its status and its self-test, and fails unless both belong to the build just deployed and the self-test is green. |
+| `tools/check_live.js` | Asks a deployed Worker for its status and its self-test, and fails unless both belong to the build just deployed and the self-test is green. With `--profile` it also fails when the bot's Telegram profile is not what this version sets. |
 | `tools/connect_telegram.py` | Connects a bot from a terminal instead of the bot page, and can make a fresh owner link (`--new-pairing`). |
 
 No API keys are needed and there are no runtime dependencies. The only secrets in GitHub are the
@@ -160,9 +163,19 @@ message, or the first `GET /v1/status`, starts the move. Until it is done the st
 `"webhook": "moving"` and both addresses and both secrets work. If Telegram refuses, the bot
 keeps answering on the old address and tries again an hour later.
 
+## The bot's own profile
+
+The bot sets what Telegram shows for it, once for each version: its name (GlowBot), the text on the empty chat, the short line on its profile, its picture, and the `/` menu in English, Indonesian and Chinese. The owner's private chat gets a longer menu with the owner commands. The description says so when the bot is private, and is sent again when `/access` changes.
+
+Telegram limits how often a bot may change its name. When a step is refused the bot keeps the rest, tries again an hour later, and stops after three tries for one version. `GET /v1/profile` reads everything back from Telegram and says which parts match:
+
+```
+node tools/check_live.js https://glow-bot.juw12.workers.dev --profile
+```
+
 ## Not checked yet
 
 - The tests and `/admin/simulate` use a pretend Telegram. The real round trip (messages, buttons,
   the webhook move) is only proven by using the bot in Telegram.
-- A real Telegram voice note has not been through the speech model yet. The tests use made-up audio.
+- The health check sends one recorded voice sample through the speech model and expects the right words back. A voice note recorded on a phone and sent in Telegram has not been tried.
 - Until a token is connected, `GET /v1/status` says `"configured": false`.

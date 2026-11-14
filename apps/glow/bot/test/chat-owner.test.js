@@ -20,6 +20,8 @@ import {
   outline,
   texts,
 } from "./chat-kit.js";
+import { AI_MODELS, KEYLESS } from "../src/models.js";
+import { t } from "../src/strings.js";
 
 const MINUTE = 60 * 1000;
 const STRANGER = { id: 9009, is_bot: false, first_name: "Stranger", language_code: "en" };
@@ -66,17 +68,198 @@ for (const command of ["/new", "/reset"]) {
 test("/models lists the free models in the order they are asked, and which one is resting", async () => {
   const kit = makeChat();
   await kit.say("/models");
-  did(kit, ["sendMessage"], [
+  did(kit, ['sendMessage [["mdl:test"],["mdl:spare"],["mdl:auto"]]'], [
     [
       "<b>The free models that answer</b>",
       "1. Test Model (Test)",
-      "2. Spare &lt;Model&gt; (Test) · resting, about 2 min",
+      "2. Spare &lt;Model&gt; (Test) · Spare Model · resting, about 2 min",
       "",
-      "I ask them in this order. When one is busy it rests and the next one answers.",
+      "Your choice: <b>Auto</b>. I ask them in this order. When one is busy it rests and the next one answers.",
+      "",
+      "Tap a model to choose it, or type <code>/model name</code>. <code>/model auto</code> hands the choice back to me.",
     ].join("\n"),
   ]);
   assert.equal(kit.logic.state.job, null);
   assert.deepEqual(kit.errors, []);
+});
+
+const MODEL_BUTTONS = '[["mdl:test"],["mdl:spare"],["mdl:auto"]]';
+const MODEL_LIST = [
+  "<b>The free models that answer</b>",
+  "1. Test Model (Test)",
+  "2. Spare &lt;Model&gt; (Test) · Spare Model · resting, about 2 min",
+  "",
+];
+const MODEL_TAP = [
+  "",
+  "Tap a model to choose it, or type <code>/model name</code>. <code>/model auto</code> hands the choice back to me.",
+];
+const AUTO_LINE = "Your choice: <b>Auto</b>. I ask them in this order. When one is busy it rests and the next one answers.";
+const chosenLine = (name) => `Your choice: <b>${name}</b> is asked first. If it is busy the next one answers.`;
+const modelsText = (choice) => [...MODEL_LIST, choice, ...MODEL_TAP].join("\n");
+const labelsOf = (call) => call.payload.reply_markup.inline_keyboard.map((row) => row[0].text);
+
+test("/model with a name chooses who is asked first, and the tick moves to it", async () => {
+  const kit = makeChat();
+  await kit.say("/models");
+  assert.deepEqual(labelsOf(kit.fresh()[0]), ["Test Model (Test)", "Spare <Model> (Test) · Spare Model", "✓ Auto: GlowBot chooses"]);
+
+  await kit.say("/model spare");
+  let calls = kit.fresh();
+  assert.deepEqual(outline(calls), [`sendMessage ${MODEL_BUTTONS}`]);
+  assert.deepEqual(texts(calls), [modelsText(chosenLine("Spare &lt;Model&gt; (Test) · Spare Model"))]);
+  assert.deepEqual(labelsOf(calls[0]), ["Test Model (Test)", "✓ Spare <Model> (Test) · Spare Model", "Auto: GlowBot chooses"]);
+  assert.equal(kit.logic.state.models.pinned, "spare");
+
+  // Any part of the name will do, in any case.
+  await kit.say("/model TEST MODEL");
+  calls = kit.fresh();
+  assert.deepEqual(texts(calls), [modelsText(chosenLine("Test Model (Test)"))]);
+  assert.deepEqual(labelsOf(calls[0]), ["✓ Test Model (Test)", "Spare <Model> (Test) · Spare Model", "Auto: GlowBot chooses"]);
+  assert.equal(kit.logic.state.models.pinned, "test");
+  assert.deepEqual(kit.errors, []);
+});
+
+test("the choice outlives a restart, and /model auto hands it back", async () => {
+  const kit = makeChat();
+  await kit.say("/model spare");
+  kit.fresh();
+  await kit.restart();
+  await kit.say("/models");
+  assert.deepEqual(texts(kit.fresh()), [modelsText(chosenLine("Spare &lt;Model&gt; (Test) · Spare Model"))]);
+  assert.equal(kit.logic.state.models.pinned, "spare");
+
+  for (const word of ["auto", "Auto", "default", "reset", "off"]) {
+    await kit.say("/model spare");
+    kit.fresh();
+    await kit.say(`/model ${word}`);
+    did(kit, [`sendMessage ${MODEL_BUTTONS}`], [modelsText(AUTO_LINE)]);
+    assert.equal("pinned" in kit.logic.state.models, false, word);
+  }
+  assert.deepEqual(kit.errors, []);
+});
+
+test("a name that fits no model, or more than one, changes nothing and says so", async () => {
+  const kit = makeChat();
+  await kit.say("/model spare");
+  kit.fresh();
+
+  await kit.say("/model nothing");
+  did(kit, ["sendMessage"], ["I do not know a model called “nothing”. /models shows the list."]);
+  await kit.say("/model model");
+  did(kit, ["sendMessage"], [
+    "More than one model matches “model”: Test Model (Test), Spare &lt;Model&gt; (Test) · Spare Model. Type more of the name.",
+  ]);
+  await kit.say("/model <b>bold</b>");
+  did(kit, ["sendMessage"], ["I do not know a model called “&lt;b&gt;bold&lt;/b&gt;”. /models shows the list."]);
+  assert.equal(kit.logic.state.models.pinned, "spare", "the earlier choice stands");
+  assert.deepEqual(kit.errors, []);
+});
+
+test("tapping a model in the list chooses it, and the list is redrawn in place", async () => {
+  const kit = makeChat();
+  await kit.say("/models");
+  kit.fresh();
+
+  await kit.tap("mdl:test", 103);
+  let calls = kit.fresh();
+  assert.deepEqual(outline(calls), ["toast: OK", `editMessageText #103 ${MODEL_BUTTONS}`]);
+  assert.deepEqual(texts(calls), ["OK", modelsText(chosenLine("Test Model (Test)"))]);
+  assert.deepEqual(labelsOf(calls[1]), ["✓ Test Model (Test)", "Spare <Model> (Test) · Spare Model", "Auto: GlowBot chooses"]);
+  assert.equal(kit.logic.state.models.pinned, "test");
+
+  await kit.tap("mdl:auto", 103);
+  calls = kit.fresh();
+  assert.deepEqual(outline(calls), ["toast: OK", `editMessageText #103 ${MODEL_BUTTONS}`]);
+  assert.deepEqual(texts(calls), ["OK", modelsText(AUTO_LINE)]);
+  assert.deepEqual(labelsOf(calls[1]), ["Test Model (Test)", "Spare <Model> (Test) · Spare Model", "✓ Auto: GlowBot chooses"]);
+  assert.equal("pinned" in kit.logic.state.models, false);
+  assert.equal(kit.logic.state.job, null, "choosing a model starts no job");
+  assert.deepEqual(kit.errors, []);
+});
+
+test("a button for a model that was retired is refused, and a retired choice is forgotten", async () => {
+  const kit = makeChat();
+  await kit.tap("mdl:gone", 103);
+  did(kit, ["toast: That button is from an older job.", "editMessageReplyMarkup #103 []"], ["That button is from an older job."]);
+  assert.equal("pinned" in kit.logic.state.models, false);
+
+  // A choice saved before its model left the list: the list shows Auto again and the id is dropped.
+  kit.logic.state.models.pinned = "gone";
+  await kit.say("/models");
+  did(kit, [`sendMessage ${MODEL_BUTTONS}`], [modelsText(AUTO_LINE)]);
+  assert.equal("pinned" in kit.logic.state.models, false);
+  assert.deepEqual(kit.errors, []);
+});
+
+// ------------------------------------------------------------------ /about, /privacy, /cancel
+test("/about and /version say which GlowBot this is and where to read more", async () => {
+  const expected = [
+    "<b>GlowBot 1.33.0</b> · build <code>test</code>",
+    "",
+    "An AI team in Telegram. Send a goal: GlowLead plans it, hands each step to an agent, checks the result and reports back. " +
+      "Free, with no sign-up and no ads.",
+    "",
+    "🌐 Glow apps: https://juw12.github.io/projects/glow/",
+    "🤖 About this bot: https://juw12.github.io/projects/glow/bot/",
+    "",
+    "/help shows everything I can do · /privacy says what I keep.",
+  ].join("\n");
+  for (const command of ["/about", "/version"]) {
+    const kit = makeChat();
+    await kit.say(command);
+    did(kit, ["sendMessage"], [expected]);
+    assert.equal(kit.logic.state.job, null);
+    assert.deepEqual(kit.errors, []);
+  }
+});
+
+test("/privacy says what is kept, in the chat's language, and starts nothing", async () => {
+  const kit = makeChat();
+  await kit.say("/privacy");
+  const [english] = texts(kit.fresh());
+  assert.equal(english, t("en", "privacy.text"));
+  assert.match(english, /^🔒 <b>Privacy<\/b>\n/);
+
+  await kit.say("/lang id");
+  kit.fresh();
+  await kit.say("/privacy");
+  const [indonesian] = texts(kit.fresh());
+  assert.equal(indonesian, t("id", "privacy.text"));
+  assert.notEqual(indonesian, english);
+  assert.equal(kit.logic.state.job, null);
+  assert.deepEqual(kit.errors, []);
+});
+
+test("the privacy text names every host a message can be sent to, and no site the bot does not use", () => {
+  const hosts = [...new Set(KEYLESS.concat(AI_MODELS).map((entry) => entry.label))];
+  assert.deepEqual(hosts, ["OVHcloud", "LLM7", "Workers AI"]);
+  for (const lang of ["en", "id", "zh"]) {
+    const text = t(lang, "privacy.text");
+    for (const host of hosts) assert.ok(text.includes(host), `${lang}: ${host}`);
+    for (const site of ["Bing", "Wikipedia"]) assert.ok(text.includes(site), `${lang}: ${site}`);
+    assert.doesNotMatch(text, /DuckDuckGo|Google/, lang);
+  }
+});
+
+test("/cancel is another word for /stop", async () => {
+  const idle = makeChat();
+  await idle.say("/cancel");
+  did(idle, ["sendMessage"], ["Nothing is running."]);
+
+  const stopped = {};
+  for (const command of ["/stop", "/cancel"]) {
+    const kit = makeChat();
+    await kit.say("/lead Plan a picnic");
+    kit.fresh();
+    await kit.say(command);
+    const calls = kit.fresh();
+    stopped[command] = { lines: outline(calls), said: texts(calls), job: kit.logic.state.job };
+    assert.deepEqual(kit.errors, []);
+  }
+  assert.equal(stopped["/cancel"].job, null, "the job is gone");
+  assert.ok(stopped["/cancel"].lines.length > 0, "and the chat is told");
+  assert.deepEqual(stopped["/cancel"], stopped["/stop"]);
 });
 
 // ------------------------------------------------------------------ /search, /mission

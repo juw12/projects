@@ -12,6 +12,7 @@ import { fileURLToPath } from "node:url";
 import { AGENTS } from "../src/missions.js";
 import {
   COMMANDS,
+  OWNER_COMMANDS,
   LANGS,
   LANG_NAMES,
   STRING_KEYS,
@@ -193,7 +194,7 @@ test("the keys built from a name cover exactly the names the code uses", () => {
   const states = unique([...CODE.matchAll(/\b(?:job|current)\.status = "([a-z]+)"/g)].map((match) => match[1]));
   assert.ok(phases.length >= 2 && states.includes("active"), "the scan for job phases and states found too little");
 
-  assert.deepEqual(family("cmd."), [...COMMANDS].sort());
+  assert.deepEqual(family("cmd."), [...COMMANDS, ...OWNER_COMMANDS].sort());
   assert.deepEqual(family("agent.role."), Object.values(AGENTS).map((agent) => agent.key).sort());
   assert.deepEqual(family("mode.").filter((name) => name !== "set"), JSON.parse(modes[1]).sort());
   assert.deepEqual(family("board.phase."), phases);

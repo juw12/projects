@@ -49,6 +49,46 @@ test("keyless models are asked first unless the order says otherwise", () => {
   assert.deepEqual(idsOf(createModels({ providers: [ONE, TWO], aiModels: [AI_A] })), ["one", "two"], "no binding, no Workers AI");
 });
 
+test("a chosen model is asked first, ahead of the one that answered last", async () => {
+  const ai = fakeAi({});
+  const make = (state) => createModels({ providers: [ONE, TWO], aiModels: [AI_A], ai, state });
+  const idsOf = (models) => models.chain().map((entry) => entry.id);
+  assert.deepEqual(idsOf(make({ pinned: "ai-a" })), ["ai-a", "one", "two"]);
+  assert.deepEqual(idsOf(make({ pinned: "ai-a", preferred: "two" })), ["ai-a", "two", "one"]);
+  assert.deepEqual(idsOf(make({ pinned: "two", preferred: "two" })), ["two", "one", "ai-a"], "the same model is listed once");
+  assert.deepEqual(idsOf(make({ pinned: "retired", preferred: "two" })), ["two", "one", "ai-a"], "a model that left the list is ignored");
+  assert.deepEqual(idsOf(make({ pinned: "retired" })), ["one", "two", "ai-a"]);
+});
+
+test("the chosen model answers even when another answered last, and the next one takes over while it rests", async () => {
+  const now = makeClock();
+  let twoIsBusy = false;
+  const send = fakeFetch([
+    [ONE.url, () => reply(completion("from one"))],
+    [TWO.url, () => (twoIsBusy ? reply("slow down", { status: 429, headers: { "Retry-After": "30" } }) : reply(completion("from two")))],
+  ]);
+  const models = createModels({ fetch: send, providers: [ONE, TWO], now });
+  assert.equal((await models.complete(HELLO)).provider, "one");
+  assert.equal(models.state.preferred, "one");
+
+  models.state.pinned = "two";
+  assert.equal((await models.complete(HELLO)).provider, "two");
+  assert.deepEqual([send.count(ONE.url), send.count(TWO.url)], [1, 1], "the chosen model was asked first, not the last one");
+
+  // Busy: the choice is kept, the next model answers, and the chosen one is asked again once it has rested.
+  twoIsBusy = true;
+  const covered = await models.complete(HELLO);
+  assert.equal(covered.provider, "one");
+  assert.equal(models.state.pinned, "two");
+  assert.deepEqual([send.count(ONE.url), send.count(TWO.url)], [2, 2]);
+  await models.complete(HELLO);
+  assert.deepEqual([send.count(ONE.url), send.count(TWO.url)], [3, 2], "a resting model is not asked");
+
+  twoIsBusy = false;
+  now.advance(31_000);
+  assert.equal((await models.complete(HELLO)).provider, "two");
+});
+
 test("the request carries the model, the limit and the temperature", async () => {
   const send = fakeFetch([[ONE.url, () => reply(completion("hi there"))]]);
   const models = createModels({ fetch: send, providers: [ONE], now: makeClock() });
