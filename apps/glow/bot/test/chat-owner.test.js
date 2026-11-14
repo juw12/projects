@@ -76,7 +76,7 @@ test("/models lists the free models in the order they are asked, and which one i
       "",
       "Your choice: <b>Auto</b>. I ask them in this order. When one is busy it rests and the next one answers.",
       "",
-      "Tap a model to choose it, or type <code>/model name</code>. <code>/model auto</code> hands the choice back to me.",
+      "Tap a model to choose it, or type its number or name after /model, like <code>/model 3</code>. <code>/model auto</code> hands the choice back to me.",
     ].join("\n"),
   ]);
   assert.equal(kit.logic.state.job, null);
@@ -93,7 +93,7 @@ const MODEL_LIST = [
 ];
 const MODEL_TAP = [
   "",
-  "Tap a model to choose it, or type <code>/model name</code>. <code>/model auto</code> hands the choice back to me.",
+  "Tap a model to choose it, or type its number or name after /model, like <code>/model 3</code>. <code>/model auto</code> hands the choice back to me.",
 ];
 const AUTO_LINE = "Your choice: <b>Auto</b>. I ask them in this order. When one is busy it rests and the next one answers.";
 const chosenLine = (name) => `Your choice: <b>${name}</b> is asked first. If it is busy the next one answers.`;
@@ -217,7 +217,7 @@ test("a button for a model that was retired is refused, and a retired choice is 
 // ------------------------------------------------------------------ /about, /privacy, /cancel
 test("/about and /version say which GlowBot this is and where to read more", async () => {
   const expected = [
-    "<b>GlowBot 1.33.0</b> · build <code>test</code>",
+    "<b>GlowBot 1.34.0</b> · build <code>test</code>",
     "",
     "An AI team in Telegram. Send a goal: GlowLead plans it, hands each step to an agent, checks the result and reports back. " +
       "Free, with no sign-up and no ads.",

@@ -1,13 +1,11 @@
 {
-  "version": "1.33.0",
+  "version": "1.34.0",
   "released": "2026-11-14",
   "notes": [
-    "🤖 GlowBot: pick the AI model that answers. Send /models and tap one; /model auto lets the bot choose again",
-    "The bot's / menu now lists every command, in English, Indonesian and Chinese, and the owner gets the owner commands too",
-    "New commands: /about shows the version and the links, /privacy says what the bot keeps and where your words go",
-    "The bot sets its own name, description and picture in Telegram, so it is ready to share",
-    "The bot's health check now sends a recorded voice sample through the speech model",
-    "The GlowBot page lists the new commands and shows the voice check"
+    "🤖 GlowBot: more free models to pick from in /models: Qwen3.8 27B, Qwen3.6 27B, QwQ 32B, Qwen2.5 Coder 32B, Gemma 4 26B, Nemotron 3 120B and SEA-LION v4 27B",
+    "Pick a model by its number: /model 3. /model auto lets the bot choose again",
+    "The list only holds models that answered a live check on the free plan. DeepSeek, Kimi and GLM were checked too: Cloudflare only serves them on its paid plan, so they are left out",
+    "The bot's health check now stays inside the free plan's 50 calls a run and says how many it used"
   ],
   "android": "https://github.com/juw12/projects/releases/download/glow-android/Glow-android.apk",
   "windows": "https://github.com/juw12/projects/releases/download/glow-windows/Glow-Setup.exe",
