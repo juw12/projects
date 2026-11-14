@@ -12,6 +12,7 @@ import {
   retryAfterMs,
   stripThinking,
 } from "../src/models.js";
+import { matchModels, modelName, modelTitle } from "../src/chat.js";
 import { completion, fakeAi, fakeFetch, makeClock, reply } from "./fakes.js";
 
 const ONE = { id: "one", kind: "http", label: "One", url: "https://one.test/v1/chat", model: "m1", name: "Model One" };
@@ -39,6 +40,41 @@ test("the built-in lists are well formed and take their addresses from the Glow 
     assert.equal(entry.kind, "ai");
     assert.match(entry.model, /^@cf\//);
   }
+});
+
+test("the list offers the newest free DeepSeek and Qwen models, and every one fits a Telegram button", () => {
+  const all = KEYLESS.concat(AI_MODELS);
+  const served = all.map((entry) => entry.model.toLowerCase());
+  assert.ok(served.some((model) => model.includes("deepseek")), "a DeepSeek model is on the list");
+  assert.ok(served.some((model) => /qwen3\.[5-9]/.test(model)), "a Qwen model of the 3.5 line or newer is on the list");
+
+  // Telegram allows 64 bytes of data on a button and 100 buttons under one message.
+  const bytes = (text) => new TextEncoder().encode(text).length;
+  for (const entry of all) {
+    assert.ok(bytes(`mdl:${entry.id}`) <= 64, `${entry.id} fits a button's data`);
+    assert.match(entry.id, /^[a-z0-9-]+$/, `${entry.id} is plain, so it can be typed after /model`);
+  }
+  assert.ok(all.length + 1 <= 100, "one button for each model and one for Auto");
+
+  // What is shown: each line of the list is told apart, and a button's label is short.
+  const titles = all.map(modelTitle);
+  assert.equal(new Set(titles).size, titles.length, "no two lines of /models read the same");
+  for (const entry of all) {
+    assert.ok(`✓ ${all.length}. ${modelName(entry)}`.length <= 30, `${modelName(entry)} fits a button without being cut`);
+  }
+});
+
+test("a number after /model means that line of the list", () => {
+  const list = [ONE, TWO, AI_A];
+  assert.deepEqual(matchModels(list, "1"), [ONE]);
+  assert.deepEqual(matchModels(list, "3"), [AI_A]);
+  assert.deepEqual(matchModels(list, "0"), []);
+  assert.deepEqual(matchModels(list, "4"), []);
+  assert.deepEqual(matchModels(list, "999"), []);
+  assert.deepEqual(matchModels(list, "two"), [TWO], "a name still works");
+  assert.equal(modelName(ONE), "Model One");
+  assert.equal(modelTitle(ONE), "One · Model One");
+  assert.equal(modelName({ label: "LLM7", name: "LLM7" }), "LLM7", "a host that is its own model is named once");
 });
 
 test("keyless models are asked first unless the order says otherwise", () => {

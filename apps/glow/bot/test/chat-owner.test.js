@@ -68,7 +68,7 @@ for (const command of ["/new", "/reset"]) {
 test("/models lists the free models in the order they are asked, and which one is resting", async () => {
   const kit = makeChat();
   await kit.say("/models");
-  did(kit, ['sendMessage [["mdl:test"],["mdl:spare"],["mdl:auto"]]'], [
+  did(kit, ['sendMessage [["mdl:test","mdl:spare"],["mdl:auto"]]'], [
     [
       "<b>The free models that answer</b>",
       "1. Test Model (Test)",
@@ -83,7 +83,8 @@ test("/models lists the free models in the order they are asked, and which one i
   assert.deepEqual(kit.errors, []);
 });
 
-const MODEL_BUTTONS = '[["mdl:test"],["mdl:spare"],["mdl:auto"]]';
+// Two models to a row, and Auto on a row of its own.
+const MODEL_BUTTONS = '[["mdl:test","mdl:spare"],["mdl:auto"]]';
 const MODEL_LIST = [
   "<b>The free models that answer</b>",
   "1. Test Model (Test)",
@@ -97,25 +98,25 @@ const MODEL_TAP = [
 const AUTO_LINE = "Your choice: <b>Auto</b>. I ask them in this order. When one is busy it rests and the next one answers.";
 const chosenLine = (name) => `Your choice: <b>${name}</b> is asked first. If it is busy the next one answers.`;
 const modelsText = (choice) => [...MODEL_LIST, choice, ...MODEL_TAP].join("\n");
-const labelsOf = (call) => call.payload.reply_markup.inline_keyboard.map((row) => row[0].text);
+const labelsOf = (call) => call.payload.reply_markup.inline_keyboard.flat().map((button) => button.text);
 
 test("/model with a name chooses who is asked first, and the tick moves to it", async () => {
   const kit = makeChat();
   await kit.say("/models");
-  assert.deepEqual(labelsOf(kit.fresh()[0]), ["Test Model (Test)", "Spare <Model> (Test) · Spare Model", "✓ Auto: GlowBot chooses"]);
+  assert.deepEqual(labelsOf(kit.fresh()[0]), ["1. Test Model (Test)", "2. Spare Model", "✓ Auto: GlowBot chooses"]);
 
   await kit.say("/model spare");
   let calls = kit.fresh();
   assert.deepEqual(outline(calls), [`sendMessage ${MODEL_BUTTONS}`]);
   assert.deepEqual(texts(calls), [modelsText(chosenLine("Spare &lt;Model&gt; (Test) · Spare Model"))]);
-  assert.deepEqual(labelsOf(calls[0]), ["Test Model (Test)", "✓ Spare <Model> (Test) · Spare Model", "Auto: GlowBot chooses"]);
+  assert.deepEqual(labelsOf(calls[0]), ["1. Test Model (Test)", "✓ 2. Spare Model", "Auto: GlowBot chooses"]);
   assert.equal(kit.logic.state.models.pinned, "spare");
 
   // Any part of the name will do, in any case.
   await kit.say("/model TEST MODEL");
   calls = kit.fresh();
   assert.deepEqual(texts(calls), [modelsText(chosenLine("Test Model (Test)"))]);
-  assert.deepEqual(labelsOf(calls[0]), ["✓ Test Model (Test)", "Spare <Model> (Test) · Spare Model", "Auto: GlowBot chooses"]);
+  assert.deepEqual(labelsOf(calls[0]), ["✓ 1. Test Model (Test)", "2. Spare Model", "Auto: GlowBot chooses"]);
   assert.equal(kit.logic.state.models.pinned, "test");
   assert.deepEqual(kit.errors, []);
 });
@@ -156,6 +157,27 @@ test("a name that fits no model, or more than one, changes nothing and says so",
   assert.deepEqual(kit.errors, []);
 });
 
+test("/model with a number chooses that line of the list, and a number off the list changes nothing", async () => {
+  const kit = makeChat();
+  await kit.say("/model 2");
+  let calls = kit.fresh();
+  assert.deepEqual(outline(calls), [`sendMessage ${MODEL_BUTTONS}`]);
+  assert.deepEqual(texts(calls), [modelsText(chosenLine("Spare &lt;Model&gt; (Test) · Spare Model"))]);
+  assert.equal(kit.logic.state.models.pinned, "spare");
+
+  await kit.say("/model 1");
+  calls = kit.fresh();
+  assert.deepEqual(labelsOf(calls[0]), ["✓ 1. Test Model (Test)", "2. Spare Model", "Auto: GlowBot chooses"]);
+  assert.equal(kit.logic.state.models.pinned, "test");
+
+  for (const number of ["0", "3", "99"]) {
+    await kit.say(`/model ${number}`);
+    did(kit, ["sendMessage"], [`I do not know a model called “${number}”. /models shows the list.`]);
+    assert.equal(kit.logic.state.models.pinned, "test", `the earlier choice stands after ${number}`);
+  }
+  assert.deepEqual(kit.errors, []);
+});
+
 test("tapping a model in the list chooses it, and the list is redrawn in place", async () => {
   const kit = makeChat();
   await kit.say("/models");
@@ -165,14 +187,14 @@ test("tapping a model in the list chooses it, and the list is redrawn in place",
   let calls = kit.fresh();
   assert.deepEqual(outline(calls), ["toast: OK", `editMessageText #103 ${MODEL_BUTTONS}`]);
   assert.deepEqual(texts(calls), ["OK", modelsText(chosenLine("Test Model (Test)"))]);
-  assert.deepEqual(labelsOf(calls[1]), ["✓ Test Model (Test)", "Spare <Model> (Test) · Spare Model", "Auto: GlowBot chooses"]);
+  assert.deepEqual(labelsOf(calls[1]), ["✓ 1. Test Model (Test)", "2. Spare Model", "Auto: GlowBot chooses"]);
   assert.equal(kit.logic.state.models.pinned, "test");
 
   await kit.tap("mdl:auto", 103);
   calls = kit.fresh();
   assert.deepEqual(outline(calls), ["toast: OK", `editMessageText #103 ${MODEL_BUTTONS}`]);
   assert.deepEqual(texts(calls), ["OK", modelsText(AUTO_LINE)]);
-  assert.deepEqual(labelsOf(calls[1]), ["Test Model (Test)", "Spare <Model> (Test) · Spare Model", "✓ Auto: GlowBot chooses"]);
+  assert.deepEqual(labelsOf(calls[1]), ["1. Test Model (Test)", "2. Spare Model", "✓ Auto: GlowBot chooses"]);
   assert.equal("pinned" in kit.logic.state.models, false);
   assert.equal(kit.logic.state.job, null, "choosing a model starts no job");
   assert.deepEqual(kit.errors, []);
