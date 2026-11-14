@@ -12,6 +12,10 @@
 #   -Proxy <url>        HTTP proxy for exchange calls (default: $env:HTTPS_PROXY if set)
 #   -Since <yyyymmdd>   first day for the backtest (default 20240101)
 #
+# Telegram: freqtrade's own bot (needs a network that allows Telegram), or, when .env holds
+# TWIN_REPORT_KEY, twin_report.py sends the numbers to TradeBot's server and its bot shows them.
+# See README.md, "Telegram through TradeBot's server", before switching that on at an office.
+#
 # One-time install (Python 3.11 to 3.13):
 #   py -m venv .venv ; .venv\Scripts\pip install freqtrade
 param(
@@ -57,6 +61,14 @@ if (Test-Path $envFile) {
 # The rupiah rate (CoinGecko) and Telegram read the proxy from the environment, not from ccxt.
 if ($Proxy) {
     $env:HTTPS_PROXY = $Proxy
+}
+
+# Reports to TradeBot's server are on only when .env holds TWIN_REPORT_KEY. TradeBot's server then
+# owns the twin's bot, so freqtrade's own Telegram stays off: two readers of one bot push each
+# other out.
+$reportsOn = $Action -eq "trade" -and [bool]$env:TWIN_REPORT_KEY
+if ($reportsOn) {
+    $env:FREQTRADE__TELEGRAM__ENABLED = "false"
 }
 
 # Telegram, before a dry run: make sure this network can reach it, and learn the chat id the
@@ -161,7 +173,22 @@ switch ($Action) {
         $logFile = Join-Path $here "user_data\logs\freqtrade.log"
         New-Item -ItemType Directory -Force (Split-Path $logFile) | Out-Null
         Write-Host "Dry run (pretend money). Keep this window open; Ctrl+C stops it. Log: $logFile"
-        & $freqtrade trade @common --strategy TradeBotTrend --logfile $logFile
+        $reporter = $null
+        if ($reportsOn) {
+            $python = Join-Path (Split-Path $freqtrade) "python.exe"
+            $reportLog = Join-Path $here "user_data\logs\twin-report.log"
+            $reporterScript = '"' + (Join-Path $here "twin_report.py") + '"'
+            $reporter = Start-Process -FilePath $python -ArgumentList $reporterScript -WindowStyle Hidden -PassThru `
+                -RedirectStandardOutput $reportLog -RedirectStandardError "$reportLog.err"
+            Write-Host "Sending the twin's numbers to TradeBot's server once a minute; its Telegram bot shows them. Log: $reportLog"
+        }
+        try {
+            & $freqtrade trade @common --strategy TradeBotTrend --logfile $logFile
+        } finally {
+            if ($reporter -and -not $reporter.HasExited) {
+                Stop-Process -Id $reporter.Id -Force
+            }
+        }
     }
 }
 exit $LASTEXITCODE

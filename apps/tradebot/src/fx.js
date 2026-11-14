@@ -6,6 +6,8 @@
 // good rate is kept if all three are down. Until a first rate arrives the bot simply talks in
 // dollars, so a missing rate can never turn into a wrong amount.
 
+import { USER_AGENT } from "./util.js";
+
 export const FX_TTL_MS = 60 * 60 * 1000; // read the rate again after an hour
 const TIMEOUT_MS = 8000;
 const SANE = { min: 5000, max: 100000 }; // rupiah per USDT; anything outside is a broken answer
@@ -38,7 +40,7 @@ export async function fetchRate({ fetch, sources = FX_SOURCES }) {
   for (const source of sources) {
     try {
       const response = await fetch(source.url, {
-        headers: { Accept: "application/json", "User-Agent": "TradeBot (+https://trade-bot.juw12.workers.dev)" },
+        headers: { Accept: "application/json", "User-Agent": USER_AGENT },
         signal: AbortSignal.timeout(TIMEOUT_MS),
       });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);

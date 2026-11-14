@@ -11,7 +11,7 @@ second opinion on the engine side.
 | Runs on | Cloudflare, free, always on | your PC or a small server, must stay on |
 | Money | practice only, no code path to real orders | dry run now; real orders only if you add exchange keys and turn dry run off |
 | Rules | `src/strategy.js` | `user_data/strategies/TradeBotTrend.py`, the same rules |
-| Telegram | its own bot | needs a **second** bot from @BotFather |
+| Telegram | its own bot | a **second** bot from @BotFather: freqtrade's own, or answered by TradeBot's server (below) |
 | Extras | the desk (Bull, Bear, Risk) | FreqUI web page, its own backtester |
 
 ## The rules (same as TradeBot)
@@ -56,6 +56,41 @@ bot, then start `run-windows.ps1`. It finds your chat id and saves it in `.env`.
 be reached (some office networks block it) the twin says so and runs without Telegram; start it
 again on a network that allows Telegram. A click in the window no longer pauses the twin, and
 everything it prints is also kept in `user_data/logs/freqtrade.log`.
+
+## Telegram through TradeBot's server
+
+freqtrade's own Telegram bot only works while this PC is on, on a network that reaches Telegram.
+The other way: TradeBot's server (the Cloudflare Worker) answers the twin's bot, and this PC only
+reports its numbers there.
+
+1. Connect the twin's bot to the server, once (owner only; the setup code is TradeBot's):
+
+   ```
+   curl -X POST https://trade-bot.juw12.workers.dev/v1/twin/setup \
+        -H "X-Setup-Code: <setup code>" -H "Content-Type: application/json" \
+        -d "{\"token\": \"<the second bot's token>\"}"
+   ```
+
+   The answer holds `reportKey`, shown once. From now on the bot answers `/start`, `/status`,
+   `/profit`, `/trades` and `/help` to TradeBot's owner only. Until the first report it says it has
+   not heard from the twin yet.
+2. Switch reports on: put `TWIN_REPORT_KEY=<reportKey>` in `.env` and start `run-windows.ps1`
+   again. It starts `twin_report.py` next to freqtrade and stops it with freqtrade.
+
+`python twin_report.py --show` prints exactly what would be sent, and sends nothing: the account
+value, the profit, open and closed trades, the strategy name. No keys, no passwords, no logs.
+
+Good to know:
+
+- **It only shows.** Nothing travels back to this PC, so the bot cannot buy, sell or stop the twin.
+- **Fresh only while the PC is on.** After 5 quiet minutes the bot says how old its numbers are.
+- **One reader per bot.** Once the server owns the bot, freqtrade's own Telegram cannot use the same
+  bot, so `run-windows.ps1` keeps it off while `TWIN_REPORT_KEY` is set. To go back: empty
+  `TWIN_REPORT_KEY` and remove the webhook (`deleteWebhook` in Telegram's Bot API).
+- **At an office, ask first.** If the network blocks Telegram on purpose, reports send the twin's
+  numbers out another way (plain HTTPS to the server, named `juw12-trade-twin`, nothing hidden).
+  Whether that is allowed is the network owner's decision, not this script's. It is off until you
+  fill in the key, and it works the same from a home network.
 
 ## Check the rules on past prices
 
