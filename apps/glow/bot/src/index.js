@@ -16,6 +16,7 @@ import { INSIDE, VERSION, clip, corsHeaders, errorText, json, safeEqual, sha256H
 import { createWeb } from "./web.js";
 
 const PROBE_GOOD_FOR_MS = 6 * 60 * 60 * 1000;
+const PROBE_RETRY_MS = 5 * 60 * 1000; // a check that never got its voice sample is run again after this long
 const PROBE_GIVE_UP_MS = 10 * 60 * 1000;
 const SELFTEST_RETRY_MS = 60 * 1000; // a failed self-test is run again after this long
 const SIM_ID = /^[a-z0-9-]{8,64}$/; // the name of a simulated chat
@@ -169,7 +170,11 @@ export function createWorker(overrides) {
       const now = deps.now();
       // A check in progress comes first, so nobody is handed the previous result as if it were new.
       if (run && now - run.requestedAt < PROBE_GIVE_UP_MS) return json({ running: true, result });
-      const current = !!result && result.build === buildOf(this.env) && now - result.at < PROBE_GOOD_FOR_MS;
+      // The voice sample is served by the Glow pages, which can go live minutes after the Worker. A
+      // check that never got the file says nothing about the bot's hearing, so it is not kept as long.
+      const unheard = !!result && !!result.voice && !result.voice.ok && result.voice.bytes === 0;
+      const goodFor = unheard ? PROBE_RETRY_MS : PROBE_GOOD_FOR_MS;
+      const current = !!result && result.build === buildOf(this.env) && now - result.at < goodFor;
       if (current && !fresh) return json({ running: false, result });
       await this.storage.put("probe:run", { requestedAt: now });
       await this.storage.setAlarm(now);
