@@ -36,13 +36,24 @@ Every 5 minutes the agent wakes up and:
 - tells you in plain words if it cannot read prices for 30 minutes (stops are not checked
   then), and again when they are back.
 
+## Money is in rupiah
+
+Every coin market prices in USDT, so the books are kept in USDT, but the bot talks rupiah:
+amounts and prices are shown as `Rp182.520.000`, and typed amounts are read as rupiah
+(`/buy BTC 2000000`, `/buy BTC 2jt`, `/buy BTC 500rb`, `/reset 100jt`; `$50` or `50usdt` still means dollars).
+The rate (rupiah per USDT) comes from Indodax's USDT/IDR market, then CoinGecko, then open.er-api.com,
+is read at most once an hour, and the last good rate is kept if all three are down. Until a first
+rate arrives the bot talks in dollars, so a missing rate never becomes a wrong amount. `/help` shows
+the rate in use and `GET /v1/status` shows it as `rupiah`. Real orders stay in USDT (that is what the
+exchange takes) and are shown as USDT with rupiah beside them; `/live size 200rb` works too.
+
 ## Commands
 
 | Command | What it does |
 |---|---|
 | `/status` | Account value, cash, open positions, profit |
 | `/signals` | What the agent sees in each market right now, and why it would or would not buy |
-| `/buy BTC 500` | Buy 500 USDT of BTC now (without the amount, the agent sizes it) |
+| `/buy BTC 2jt` | Buy Rp2 juta of BTC now (without the amount, the agent sizes it) |
 | `/sell BTC`, `/sell all` | Sell now |
 | `/watch DOGE`, `/unwatch DOGE`, `/watchlist` | Choose the markets (starts with BTC, ETH, SOL) |
 | `/auto on`, `/auto off` | Trade alone, or ask you first with Approve / Skip buttons |

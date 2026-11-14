@@ -97,7 +97,7 @@ test("before setup the worker is alive, unconfigured and trades practice money o
   assert.equal(status.status, 200);
   assert.deepEqual(
     { ...status.body, version: "x" },
-    { ok: true, service: "trade-bot", version: "x", build: "test", money: "practice", configured: false, bot: null, paired: false, running: false, lastRound: null },
+    { ok: true, service: "trade-bot", version: "x", build: "test", money: "practice", configured: false, bot: null, paired: false, running: false, lastRound: null, rupiah: null },
   );
   assert.equal((await call("GET", "/nope")).status, 404);
   assert.equal((await call("POST", "/v1/telegram", { headers: { "X-Telegram-Bot-Api-Secret-Token": "guess" }, body: { update_id: 1 } })).status, 403);
@@ -288,7 +288,7 @@ test("commands: trading by hand, the watchlist, settings, backtest and reset", a
   assert.match(await say("/backtest"), /<b>DOGE<\/b> · last/);
 
   // Reset asks first.
-  assert.match(await say("/reset 50"), /between \$100 and/);
+  assert.match(await say("/reset 50"), /between \$100\.00 and/);
   assert.match(await say("/reset 5000"), /Start over with <b>\$5,000\.00<\/b>/);
   assert.equal((await storage().get("state")).trades.length, 2);
   const kept = await tap("keep", "Start over?");

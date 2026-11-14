@@ -19,6 +19,8 @@
 
 import { EXCHANGE_NAME, baseAsset, exchangeSymbol, floorToStep } from "./exchange.js";
 import { escapeHtml } from "./util.js";
+import { readAmount } from "./fx.js";
+import { idNumber, rateNow } from "./render.js";
 
 export const LIVE_MODES = ["off", "shadow", "on"];
 export const HARD_MAX_ORDER = 50;
@@ -82,7 +84,23 @@ function remember(live, entry) {
   return entry;
 }
 
-const usdt = (value) => `${Number(value || 0).toFixed(2)} USDT`;
+// Real orders are in USDT, so USDT is shown first, with rupiah beside it once a rate is known.
+const usdt = (value) => {
+  const amount = Number(value || 0);
+  const rate = rateNow();
+  return `${amount.toFixed(2)} USDT` + (rate ? ` (Rp${idNumber(amount * rate)})` : "");
+};
+
+const signedUsdt = (value) => (Number(value || 0) >= 0 ? "+" : "-") + usdt(Math.abs(Number(value || 0)));
+
+// "/live size" amount in USDT: "10", "10usdt" or "$10" are dollars; "200000", "200rb" are rupiah.
+function sizeInUsdt(text) {
+  const amount = readAmount(text);
+  if (!amount) return NaN;
+  if (amount.unit === "usd" || (amount.unit === null && amount.value <= 1000)) return amount.value;
+  const rate = rateNow();
+  return rate ? amount.value / rate : NaN;
+}
 const coinOf = (symbol) => baseAsset(symbol);
 
 // Why a real buy must not happen ("" when it may). Rules: the market's limits from Tokocrypto.
@@ -159,7 +177,7 @@ async function copySell(live, intent, { exchange, now, armed }) {
     delete live.positions[symbol];
     day.realized += result;
     remember(live, { at: now, side: "sell", symbol, status: "shadow", quote: value, price: intent.price, result });
-    return { html: `🔸 Real money (rehearsal): would sell the ${coinOf(symbol)} copy for about ${usdt(value)} (${result >= 0 ? "+" : ""}${result.toFixed(2)} USDT). Nothing was sent.` };
+    return { html: `🔸 Real money (rehearsal): would sell the ${coinOf(symbol)} copy for about ${usdt(value)} (${signedUsdt(result)}). Nothing was sent.` };
   }
   // A coin bought for real is always sold for real, whatever the mode, as long as the Worker can.
   if (!armed || !exchange || !exchange.hasKeys) {
@@ -180,7 +198,7 @@ async function copySell(live, intent, { exchange, now, armed }) {
   delete live.positions[symbol];
   day.realized += result;
   remember(live, { at: now, side: "sell", symbol, status: "filled", quote: fill.quote, qty: fill.qty, price: fill.price, result, orderId: fill.orderId });
-  return { html: `💵 <b>Real money: sold ${coinOf(symbol)}</b> for ${usdt(fill.quote)} on ${EXCHANGE_NAME} (${result >= 0 ? "+" : ""}${result.toFixed(2)} USDT).` };
+  return { html: `💵 <b>Real money: sold ${coinOf(symbol)}</b> for ${usdt(fill.quote)} on ${EXCHANGE_NAME} (${signedUsdt(result)}).` };
 }
 
 // Any error: no further real orders until the owner looks. Real coins already held stay listed.
@@ -214,7 +232,7 @@ export function liveReport(state, { env, now }) {
     html: [
       `💰 <b>Real money: ${mode}</b>`,
       `Exchange: ${EXCHANGE_NAME} (licensed in Indonesia), USDT markets.`,
-      `Each practice buy is copied with <b>${usdt(limits.orderUsdt)}</b>; at most ${usdt(limits.maxOpenUsdt)} in at once; no new real buys after ${usdt(limits.dailyLossUsdt)} lost in a day (today: ${day.realized >= 0 ? "+" : ""}${day.realized.toFixed(2)} USDT).`,
+      `Each practice buy is copied with <b>${usdt(limits.orderUsdt)}</b>; at most ${usdt(limits.maxOpenUsdt)} in at once; no new real buys after ${usdt(limits.dailyLossUsdt)} lost in a day (today: ${signedUsdt(day.realized)}).`,
       missing.length ? `Not ready for real orders yet. Missing: ${missing.join("; ")}.` : "Ready for real orders.",
       open.length
         ? "Open copies: " + open.map(([symbol, position]) => `${coinOf(symbol)} ${usdt(position.cost)}${position.real ? "" : " (rehearsal)"}`).join(", ")
@@ -254,9 +272,9 @@ export function liveCommand(state, args, { env, now }) {
     return { html: `💵 Real money is <b>on</b>. The next practice buy is copied with ${usdt(limitsOf(live).orderUsdt)}. /live off stops new real buys at any time.` };
   }
   if (want === "size") {
-    const amount = Number(String(args[1] || "").replace(/[$,]/g, ""));
+    const amount = sizeInUsdt(args[1]);
     if (!(amount >= MIN_ORDER_USDT && amount <= HARD_MAX_ORDER)) {
-      return { html: `⚠️ Nothing changed. The size of a real trade is between ${MIN_ORDER_USDT} and ${HARD_MAX_ORDER} USDT, for example <code>/live size 10</code>.` };
+      return { html: `⚠️ Nothing changed. The size of a real trade is between ${usdt(MIN_ORDER_USDT)} and ${usdt(HARD_MAX_ORDER)}, for example <code>/live size 10</code> (USDT) or <code>/live size 200rb</code> (rupiah).` };
     }
     live.orderUsdt = Math.round(amount * 100) / 100;
     return { html: `💰 Real trades are now ${usdt(live.orderUsdt)} each (at most ${usdt(limitsOf(live).maxOpenUsdt)} in at once).` };

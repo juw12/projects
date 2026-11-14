@@ -19,21 +19,79 @@ export function coin(symbol) {
   return String(symbol).replace(/USDT$/, "");
 }
 
+// Rupiah per USDT for this message, set from state.fx before anything is written (see fx.js).
+// null means no rate yet: amounts are then shown in dollars, never in a guessed rupiah.
+let RATE = null;
+
+export function useRate(rate) {
+  RATE = Number.isFinite(rate) && rate > 0 ? rate : null;
+}
+
+export function rateNow() {
+  return RATE;
+}
+
+// Indonesian style: dots between thousands, a comma before decimals. "1.234.567", "2.899,50".
+export function idNumber(value, digits = 0) {
+  const fixed = Math.abs(value).toFixed(digits);
+  const [whole, part] = fixed.split(".");
+  const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  return part ? `${grouped},${part}` : grouped;
+}
+
+// Whole rupiah: "Rp182.520.000". Small amounts keep two decimals so a fee is not shown as Rp0.
+function rupiah(idr) {
+  const digits = Math.abs(idr) < 100 && Math.abs(idr) > 0 ? 2 : 0;
+  return "Rp" + idNumber(idr, digits);
+}
+
 export function money(value) {
+  if (RATE) {
+    const idr = value * RATE;
+    const shown = rupiah(idr);
+    return (idr < 0 && shown !== "Rp0" ? "-" : "") + shown;
+  }
   const cents = Math.round(Math.abs(value) * 100) / 100;
   const text = cents.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   return (value < 0 && cents > 0 ? "-$" : "$") + text;
 }
 
 export function signedMoney(value) {
+  if (RATE) {
+    const shown = rupiah(Math.abs(value) * RATE);
+    if (shown === "Rp0" || shown === "Rp0,00") return "Rp0";
+    return (value > 0 ? "+" : "-") + shown;
+  }
   const cents = Math.round(Math.abs(value) * 100) / 100;
   if (!cents) return "$0.00";
   return (value > 0 ? "+" : "-") + money(cents);
 }
 
 export function price(value) {
+  if (RATE) {
+    const idr = value * RATE;
+    const digits = idr >= 1000 ? 0 : idr >= 1 ? 2 : 4;
+    return "Rp" + idNumber(idr, digits);
+  }
   const digits = value >= 100 ? 2 : value >= 1 ? 4 : 6;
   return "$" + value.toLocaleString("en-US", { minimumFractionDigits: digits, maximumFractionDigits: digits });
+}
+
+// "Amounts in rupiah: 1 USDT = Rp18.252 (Indodax)." or null before the first rate.
+export function rateLine(fx) {
+  if (!RATE) return null;
+  const from = fx && fx.source ? ` (${fx.source})` : "";
+  return `Amounts in rupiah: 1 USDT = Rp${idNumber(RATE)}${from}. Coins trade in USDT; I convert.`;
+}
+
+// An example amount for help texts, in the owner's money: "2000000" (Rp2 juta) or "100" (dollars).
+export function exampleAmount() {
+  return RATE ? "2000000" : "100";
+}
+
+// "rupiah" or "dollars", for help texts.
+export function moneyWord() {
+  return RATE ? "rupiah" : "dollars";
 }
 
 // A change in percent, with its sign: "+1.2%", "-0.4%", "0.0%".
@@ -565,7 +623,7 @@ export function welcome(state) {
     html: [
       "✅ You are the owner. Nobody else can use this bot.",
       "",
-      `I start with <b>${money(portfolio.cash)}</b> of practice money (pretend dollars) and trade it at real prices. I cannot place real orders, so no real money is at risk.`,
+      `I start with <b>${money(portfolio.cash)}</b> of practice money and trade it at real prices. I cannot place real orders, so no real money is at risk.`,
       "",
       mode,
       "I check prices every 5 minutes and send a summary every day at 07:00 WIB.",
@@ -602,7 +660,7 @@ export function help(settings) {
       "<b>Commands</b>",
       "/status the account, what I hold, profit and loss",
       "/signals the 3 checks for each coin, right now",
-      "/buy BTC 500 buy $500 of BTC now (/buy BTC: I pick the size)",
+      `/buy BTC ${exampleAmount()} buy ${money(RATE ? 2000000 / RATE : 100)} of BTC now (/buy BTC: I pick the size; 2jt and 500rb work too)`,
       "/sell BTC sell it now (/sell all: everything)",
       "/watch DOGE · /unwatch DOGE · /watchlist",
       "/auto off I ask before every buy (/auto on: I trade alone)",
@@ -613,10 +671,11 @@ export function help(settings) {
       "/history closed trades",
       "/desk the second opinion and its record (/desk off: stop asking)",
       "/live real money on Tokocrypto (off, shadow or on)",
-      "/reset 10000 start over with fresh practice money",
+      `/reset ${RATE ? "100jt" : "10000"} start over with fresh practice money`,
       "",
       modeLine(settings),
+      rateLine(),
       SMALL_PRINT,
-    ].join("\n"),
+    ].filter((line) => line !== null).join("\n"),
   };
 }
