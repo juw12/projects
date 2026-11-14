@@ -484,9 +484,10 @@ test("the health check runs in the alarm and reports every model and every route
   assert.ok(result.spark.tokens >= 40 && result.spark.sample.length > 10);
 
   // Cloudflare's free plan allows 50 fetches per run; the check must stay far below that.
-  // 5 keyless models, 2 searches, 2 reads of the test page, 1 news, 2 GlowSpark files, 4 for the three
-  // ordinary pages (the refused one is tried twice), and 1 for the voice sample.
-  assert.equal(send.calls.length, 17);
+  // One for each keyless model, 2 searches, 2 reads of the test page, 1 news, 2 GlowSpark files, 4 for
+  // the three ordinary pages (the refused one is tried twice), and 1 for the voice sample.
+  assert.equal(send.calls.length, KEYLESS.length + 12);
+  assert.ok(send.calls.length <= 25, "half of the 50 at most, however long the list of models grows");
   // Each text model is asked in at most two forms; the voice sample costs one call more.
   assert.ok(ai.calls.length <= 2 * AI_MODELS.length + 1);
 
@@ -510,7 +511,8 @@ test("without the AI binding the check still runs, on the keyless models alone",
   const { result } = (await call("/v1/probe")).body;
   assert.deepEqual(result.ai, []);
   assert.equal(result.aiModelList, null);
-  assert.equal(result.providers.filter((row) => row.ok).length, 4);
+  // Every keyless model answers here but the one the pretend internet tells to wait.
+  assert.equal(result.providers.filter((row) => row.ok).length, KEYLESS.length - 1);
   assert.equal(result.voice, null, "without Workers AI there is nothing to hear with, so no row is shown");
 });
 
@@ -906,8 +908,8 @@ test("a model chosen with /model is the one the real Worker asks, and /model aut
   assert.equal(said().length, 1);
   assert.match(said()[0], /^<b>The free models that answer<\/b>\n1\. LLM7\n/);
   assert.match(said()[0], /\nYour choice: <b>LLM7<\/b> is asked first\. If it is busy the next one answers\.\n/);
-  const labels = asked[0].payload.reply_markup.inline_keyboard.map((row) => row[0].text);
-  assert.equal(labels[0], "✓ LLM7");
+  const labels = asked[0].payload.reply_markup.inline_keyboard.flat().map((button) => button.text);
+  assert.equal(labels[0], "✓ 1. LLM7");
   assert.equal(labels.at(-1), "Auto: GlowBot chooses");
   assert.equal(labels.length, KEYLESS.length + 1, "one button for each model, and one for Auto");
 

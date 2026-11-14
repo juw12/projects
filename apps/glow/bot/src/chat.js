@@ -102,19 +102,27 @@ const JOB_ACTIONS = ["run", "chg", "can", "pau", "res", "stp", "ok", "no"];
 
 // "/model auto" hands the choice of model back to GlowBot.
 const MODEL_AUTO_WORDS = ["auto", "default", "reset", "off"];
+const PICKER_COLUMNS = 2; // model buttons in one row of /models
+
+// A model's own name, without its host: what fits on a button.
+export function modelName(model) {
+  const label = String(model.label || "");
+  const name = String(model.name || "");
+  return !name || label.toLowerCase().includes(name.toLowerCase()) ? label || name : name;
+}
 
 // What a model is called in /models: its host and its own name, such as "OVHcloud · Qwen3.5 397B".
 // Several hosts serve the same model, so the host alone, or the name alone, would not tell them apart.
 export function modelTitle(model) {
   const label = String(model.label || "");
-  const name = String(model.name || "");
-  if (!name || label.toLowerCase().includes(name.toLowerCase())) return label || name;
-  return label ? `${label} · ${name}` : name;
+  const own = modelName(model);
+  return label && own !== label ? `${label} · ${own}` : own;
 }
 
-// The models a typed name means: an exact id, title or name first, otherwise every model that
-// carries all the typed words ("ovh qwen").
+// The models a typed name means: the number of a line in the list, an exact id, title or name,
+// otherwise every model that carries all the typed words ("ovh qwen").
 export function matchModels(models, wanted) {
+  if (/^\d{1,3}$/.test(wanted)) return models.slice(Number(wanted) - 1, Number(wanted)).filter(() => Number(wanted) > 0);
   const exact = models.filter((model) =>
     [model.id, modelTitle(model), model.name, model.model].some((value) => String(value || "").toLowerCase() === wanted),
   );
@@ -1096,9 +1104,14 @@ export class ChatLogic {
     else lines.push(`${t(lang, "models.auto")} ${t(lang, "models.how")}`);
     lines.push("", t(lang, "models.tap"));
     const tick = (on) => (on ? "✓ " : "");
-    const buttons = models.map((model) => [
-      { text: tick(model === pinned) + clip(modelTitle(model), 36), data: `mdl:${model.id}` },
-    ]);
+    // Two buttons to a row, because the list is long. Each carries the number of its line above,
+    // which also tells apart a model that two hosts serve.
+    const choices = models.map((model, index) => ({
+      text: tick(model === pinned) + clip(`${index + 1}. ${modelName(model)}`, 30),
+      data: `mdl:${model.id}`,
+    }));
+    const buttons = [];
+    for (let at = 0; at < choices.length; at += PICKER_COLUMNS) buttons.push(choices.slice(at, at + PICKER_COLUMNS));
     buttons.push([{ text: tick(!pinned) + tPlain(lang, "btn.auto"), data: "mdl:auto" }]);
     return { html: lines.join("\n"), buttons };
   }

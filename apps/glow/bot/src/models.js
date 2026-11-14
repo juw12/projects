@@ -19,7 +19,9 @@ function fromKit(id) {
 }
 
 const OVH = fromKit("ovh");
+const LLM7 = fromKit("llm7");
 const onOvh = (id, model, name) => ({ id, kind: "http", label: OVH.label, url: OVH.url, model, name });
+const onLlm7 = (id, model, name) => ({ id, kind: "http", label: LLM7.label, url: LLM7.url, model, name });
 
 // The URLs come from the kit the web apps use, so the bot and the pages never drift apart.
 export const KEYLESS = [
@@ -27,8 +29,12 @@ export const KEYLESS = [
   onOvh("ovh-gpt-oss", "gpt-oss-120b", "gpt-oss-120b"),
   onOvh("ovh-qwen", "Qwen3.5-397B-A17B", "Qwen3.5 397B"),
   onOvh("ovh-mistral", "Mistral-Small-3.2-24B-Instruct-2506", "Mistral Small 3.2"),
-  { ...fromKit("llm7"), kind: "http", name: "LLM7" },
+  onOvh("ovh-qwen38", "Qwen3.8-27B", "Qwen3.8 27B"),
+  onOvh("ovh-qwen36", "Qwen3.6-27B", "Qwen3.6 27B"),
+  { ...LLM7, kind: "http", name: "LLM7" },
+  onLlm7("llm7-minimax", "minimax-m2.7", "MiniMax M2.7"),
 ];
+// An id is what a person's choice is saved under (/models), so an id is never reused for another model.
 // Pollinations is on the web apps' list but answered 402 (payment required) to every check made from
 // Cloudflare, so the bot does not ask it.
 
@@ -37,6 +43,20 @@ const onWorkersAi = (id, model, name) => ({ id: "ai-" + id, kind: "ai", label: "
 export const AI_MODELS = [
   onWorkersAi("gpt-oss-120b", "@cf/openai/gpt-oss-120b", "gpt-oss-120b"),
   onWorkersAi("llama-70b", "@cf/meta/llama-3.3-70b-instruct-fp8-fast", "Llama 3.3 70B"),
+  onWorkersAi("deepseek-v41-flash", "@cf/deepseek-ai/deepseek-v4.1-flash-1017", "DeepSeek V4.1 Flash"),
+  onWorkersAi("deepseek-v4-flash", "@cf/deepseek-ai/deepseek-v4-flash-0731", "DeepSeek V4 Flash"),
+  onWorkersAi("qwen38-27b", "@cf/qwen/qwen3.8-27b", "Qwen3.8 27B"),
+  onWorkersAi("kimi-k26", "@cf/moonshotai/kimi-k2.6", "Kimi K2.6"),
+  onWorkersAi("glm-53-flash", "@cf/zai-org/glm-5.3-flash", "GLM 5.3 Flash"),
+  onWorkersAi("gemma-4-26b", "@cf/google/gemma-4-26b-a4b-it", "Gemma 4 26B"),
+  onWorkersAi("nemotron-120b", "@cf/nvidia/nemotron-3-120b-a12b", "Nemotron 3 120B"),
+  onWorkersAi("deepseek-v4-pro", "@cf/deepseek-ai/deepseek-v4-pro-0813", "DeepSeek V4 Pro"),
+  onWorkersAi("glm-53", "@cf/zai-org/glm-5.3", "GLM 5.3"),
+  onWorkersAi("kimi-k27-code", "@cf/moonshotai/kimi-k2.7-code", "Kimi K2.7 Code"),
+  onWorkersAi("qwen-coder-32b", "@cf/qwen/qwen2.5-coder-32b-instruct", "Qwen2.5 Coder 32B"),
+  onWorkersAi("qwq-32b", "@cf/qwen/qwq-32b", "QwQ 32B"),
+  onWorkersAi("sea-lion-27b", "@cf/aisingapore/gemma-sea-lion-v4-27b-it", "SEA-LION v4 27B"),
+  onWorkersAi("inkling-2-small", "@cf/thinkingmachines/inkling-2-small", "Inkling 2 Small"),
   onWorkersAi("llama-4-scout", "@cf/meta/llama-4-scout-17b-16e-instruct", "Llama 4 Scout"),
   onWorkersAi("qwen3-30b", "@cf/qwen/qwen3-30b-a3b-fp8", "Qwen3 30B"),
   onWorkersAi("mistral-small", "@cf/mistralai/mistral-small-3.1-24b-instruct", "Mistral Small 3.1"),
