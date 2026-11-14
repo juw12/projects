@@ -5,6 +5,7 @@
 import { AI_MODELS, KEYLESS, askEntry } from "./models.js";
 import { createSpark } from "./spark.js";
 import { clip, errorText, inBatches, withTimeout } from "./util.js";
+import { transcribeBytes } from "./voice.js";
 import { createWeb } from "./web.js";
 
 const PING = [{ role: "user", content: "Reply with the single word: pong" }];
@@ -20,6 +21,10 @@ const PAGES_TO_READ = [
   "https://developers.cloudflare.com/workers/platform/limits/",
 ];
 const PAGE_TEXT_ENOUGH = 400; // fewer characters than this is a cookie wall or an empty shell, not a page
+// A real Telegram-style voice note (OGG/Opus) kept beside the GlowBot page. It says "Hello GlowBot.
+// Please tell me three facts about the planet Mars.", so a transcript with "Mars" in it was heard.
+const VOICE_SAMPLE = "/bot/voice-check.ogg";
+const VOICE_SAYS = /\bmars\b/i;
 const AT_ONCE = 4; // a Worker may only have six connections waiting at once
 
 function oneLine(text, max) {
@@ -51,6 +56,7 @@ export async function runProbe(options) {
     spark: null,
     news: null,
     pages: new Array(pages.length).fill(null),
+    voice: null,
   };
   const tasks = [];
 
@@ -191,6 +197,35 @@ export async function runProbe(options) {
       report.pages[index] = row;
     });
   });
+
+  // Can the bot hear? The same two Whisper models a voice note goes through, on a real OGG/Opus file.
+  if (settings.ai) {
+    tasks.push(async () => {
+      const began = now();
+      const row = { ok: false, model: "", heard: "", bytes: 0, ms: 0, error: "" };
+      try {
+        const bytes = await withTimeout(
+          async (signal) => {
+            const response = await send(glowPages + VOICE_SAMPLE, { signal });
+            if (!response.ok) throw new Error(`the sample answered HTTP ${response.status}`);
+            return new Uint8Array(await response.arrayBuffer());
+          },
+          timeoutMs,
+          "voice sample",
+        );
+        row.bytes = bytes.length;
+        const heard = await transcribeBytes({ ai: settings.ai, bytes, timeoutMs });
+        row.model = heard.model;
+        row.heard = oneLine(heard.text, 120);
+        row.ok = VOICE_SAYS.test(heard.text);
+        if (!row.ok) row.error = "the transcript does not mention Mars";
+      } catch (error) {
+        row.error = oneLine(errorText(error), 200);
+      }
+      row.ms = now() - began;
+      report.voice = row;
+    });
+  }
 
   // Which text models this account can really call, so the list above can be kept honest.
   if (settings.ai && typeof settings.ai.models === "function") {

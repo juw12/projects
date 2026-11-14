@@ -315,6 +315,10 @@ const LONG_PAGE =
   "Cloudflare is a company that runs a large network. ".repeat(12) +
   "</p></body></html>";
 
+// Stands in for the voice note kept beside the GlowBot page; the pretend Whisper never decodes it.
+const VOICE_SAMPLE = new Uint8Array([79, 103, 103, 83, 0, 2]);
+const VOICE_HEARD = "Hello GlowBot. Please tell me three facts about the planet Mars.";
+
 const PRETEND_INTERNET = [
   [
     provider.ovh.url, // every OVHcloud model shares one address; the body says which is wanted
@@ -339,11 +343,13 @@ const PRETEND_INTERNET = [
   [PAGES + "/news/news.json", () => reply({ stories: [{ id: "a" }, { id: "b" }, { id: "c" }] })],
   [PAGES + "/spark/spark.json", () => reply(SPARK_META_TEXT)],
   [PAGES + "/spark/" + SPARK_META.weights.file, () => reply(SPARK_WEIGHTS)],
+  [PAGES + "/bot/voice-check.ogg", () => new Response(VOICE_SAMPLE)],
 ];
 
-function pretendWorkersAi() {
+function pretendWorkersAi(heard = { text: VOICE_HEARD }) {
   return fakeAi(
     {
+      "@cf/openai/whisper-large-v3-turbo": heard,
       "@cf/openai/gpt-oss-120b": {
         output: [
           { type: "reasoning", content: [{ type: "reasoning_text", text: "One word is wanted." }] },
@@ -451,10 +457,23 @@ test("the health check runs in the alarm and reports every model and every route
   assert.ok(result.spark.tokens >= 40 && result.spark.sample.length > 10);
 
   // Cloudflare's free plan allows 50 fetches per run; the check must stay far below that.
-  // 5 keyless models, 2 searches, 2 reads of the test page, 1 news, 2 GlowSpark files, and 4 for the three
-  // ordinary pages (the refused one is tried twice).
-  assert.equal(send.calls.length, 16);
-  assert.ok(ai.calls.length <= 2 * AI_MODELS.length);
+  // 5 keyless models, 2 searches, 2 reads of the test page, 1 news, 2 GlowSpark files, 4 for the three
+  // ordinary pages (the refused one is tried twice), and 1 for the voice sample.
+  assert.equal(send.calls.length, 17);
+  // Each text model is asked in at most two forms; the voice sample costs one call more.
+  assert.ok(ai.calls.length <= 2 * AI_MODELS.length + 1);
+
+  // The bot can hear: the sample went to Whisper as base64 and the transcript names its subject.
+  assert.deepEqual(result.voice, {
+    ok: true,
+    model: "@cf/openai/whisper-large-v3-turbo",
+    heard: VOICE_HEARD,
+    bytes: VOICE_SAMPLE.length,
+    ms: 0,
+    error: "",
+  });
+  const heardBy = ai.calls.filter((entry) => entry.model.startsWith("@cf/openai/whisper"));
+  assert.deepEqual(heardBy.map((entry) => entry.inputs), [{ audio: btoa(String.fromCharCode(...VOICE_SAMPLE)), task: "transcribe" }]);
 });
 
 test("without the AI binding the check still runs, on the keyless models alone", async () => {
@@ -465,11 +484,39 @@ test("without the AI binding the check still runs, on the keyless models alone",
   assert.deepEqual(result.ai, []);
   assert.equal(result.aiModelList, null);
   assert.equal(result.providers.filter((row) => row.ok).length, 4);
+  assert.equal(result.voice, null, "without Workers AI there is nothing to hear with, so no row is shown");
+});
+
+test("the health check says so when the voice sample is heard wrong, and when the sample is missing", async () => {
+  const voiceRow = async (options) => {
+    const { call, env } = await setUp(options);
+    await call("/v1/probe");
+    await env.CHAT.runAlarms();
+    return (await call("/v1/probe")).body.result.voice;
+  };
+
+  const misheard = await voiceRow({ routes: PRETEND_INTERNET, ai: pretendWorkersAi({ text: "Hello there." }) });
+  assert.deepEqual(misheard, {
+    ok: false,
+    model: "@cf/openai/whisper-large-v3-turbo",
+    heard: "Hello there.",
+    bytes: VOICE_SAMPLE.length,
+    ms: 0,
+    error: "the transcript does not mention Mars",
+  });
+
+  const gone = [PAGES + "/bot/voice-check.ogg", () => reply("not found", { status: 404 })];
+  const ai = pretendWorkersAi();
+  const missing = await voiceRow({ routes: [gone, ...PRETEND_INTERNET], ai });
+  assert.deepEqual(missing, { ok: false, model: "", heard: "", bytes: 0, ms: 0, error: "the sample answered HTTP 404" });
+  assert.deepEqual(ai.calls.filter((entry) => entry.model.startsWith("@cf/openai/whisper")), [], "nothing was sent to Whisper");
 });
 
 // ---- the bot itself: setup, Telegram's webhook, the simulator and the self-test ----
 
 const TOKEN = "123456789:" + "A".repeat(35);
+// The owner's own command menu: one call for each language the menu is written in.
+const OWNER_MENU = ["setMyCommands", "setMyCommands", "setMyCommands"];
 const ADMIN = { "X-Glow-Setup-Code": SETUP_CODE };
 const OWNER_CHAT = { id: 9001, type: "private" };
 const BOT_NAME = { username: "glow_test_bot", name: "Glow" };
@@ -701,9 +748,17 @@ test("the owner's link makes the first chat the owner, once", async () => {
   const first = await call("/telegram/webhook", start);
   assert.deepEqual([first.status, first.body], [200, { ok: true }]);
   assert.deepEqual([...env.CHAT.objects.keys()], ["tg:9001"]);
-  assert.deepEqual(asked.map((entry) => entry.method), ["sendMessage", "sendMessage"]);
+  // The new owner gets a menu of their own (the owner-only commands), once for each language.
+  assert.deepEqual(asked.map((entry) => entry.method), ["sendMessage", ...OWNER_MENU, "sendMessage"]);
   assert.equal(asked[0].payload.chat_id, 9001);
   assert.match(asked[0].payload.text, /You are now this bot's owner/);
+  const ownerMenus = asked.filter((entry) => entry.method === "setMyCommands");
+  for (const entry of ownerMenus) assert.deepEqual(entry.payload.scope, { type: "chat", chat_id: 9001 });
+  assert.deepEqual(ownerMenus.map((entry) => entry.payload.language_code), [undefined, "id", "zh"]);
+  assert.deepEqual(
+    ownerMenus[0].payload.commands.slice(-4).map((entry) => entry.command),
+    ["access", "allow", "deny", "users"],
+  );
   assert.equal((await call("/v1/status")).body.claimed, true);
 
   // Telegram sends an update again when the answer was slow; the second copy does nothing.
@@ -764,6 +819,84 @@ test("a goal sent in Telegram is planned in the chat's own alarm, not while Tele
   assert.deepEqual(asked[3].payload, { chat_id: 9001, message_id: 101 });
   assert.equal(send.count(provider.ovh.url), 1);
   assert.equal(storage.alarmAt, null, "a plan with more than one step waits for the owner's tap");
+});
+
+test("the profile address needs no code, says so when no bot is connected, and never shows the token", async () => {
+  const fresh = await setUp();
+  const before = await fresh.call("/v1/profile");
+  assert.deepEqual([before.status, before.body], [200, { ok: false, configured: false }]);
+
+  const { call } = await setUpBot();
+  const after = await call("/v1/profile");
+  assert.equal(after.status, 200);
+  assert.deepEqual(Object.keys(after.body), [
+    "ok",
+    "configured",
+    "version",
+    "access",
+    "claimed",
+    "name",
+    "menus",
+    "ownerMenus",
+    "descriptions",
+    "shorts",
+    "photo",
+    "webhook",
+    "dress",
+    "news",
+    "checkedAt",
+  ]);
+  assert.deepEqual(
+    [after.body.configured, after.body.version, after.body.access, after.body.claimed],
+    [true, VERSION, "private", false],
+  );
+  assert.deepEqual([after.body.dress.version, after.body.dress.current], [VERSION, true]);
+  // This pretend Telegram keeps nothing, so every part reads back empty and the answer must not claim otherwise.
+  assert.equal(after.body.ok, false);
+  assert.deepEqual(after.body.name, { ok: false, value: "" });
+  assert.doesNotMatch(JSON.stringify(after.body), new RegExp(TOKEN.split(":")[1]));
+});
+
+test("a model chosen with /model is the one the real Worker asks, and /model auto goes back to the usual order", async () => {
+  const answers = (text) => () => reply(completion(text));
+  const routes = [
+    [provider.ovh.url, answers("from OVHcloud")],
+    [provider.llm7.url, answers("from LLM7")],
+  ];
+  const { call, env, send, asked, claim, hook } = await setUpBot({ routes });
+  await call("/telegram/webhook", jsonPost(message(1, "/start " + claim), hook));
+  const said = () => asked.filter((entry) => entry.method === "sendMessage").map((entry) => entry.payload.text);
+
+  // Left alone, the first model on the list answers.
+  asked.length = 0;
+  await call("/telegram/webhook", jsonPost(message(2, "/chat hello there"), hook));
+  await env.CHAT.runAlarms();
+  assert.deepEqual([send.count(provider.ovh.url), send.count(provider.llm7.url)], [1, 0]);
+  assert.deepEqual(said(), ["from OVHcloud"]);
+
+  asked.length = 0;
+  await call("/telegram/webhook", jsonPost(message(3, "/model llm7"), hook));
+  assert.equal(said().length, 1);
+  assert.match(said()[0], /^<b>The free models that answer<\/b>\n1\. LLM7\n/);
+  assert.match(said()[0], /\nYour choice: <b>LLM7<\/b> is asked first\. If it is busy the next one answers\.\n/);
+  const labels = asked[0].payload.reply_markup.inline_keyboard.map((row) => row[0].text);
+  assert.equal(labels[0], "✓ LLM7");
+  assert.equal(labels.at(-1), "Auto: GlowBot chooses");
+  assert.equal(labels.length, KEYLESS.length + 1, "one button for each model, and one for Auto");
+
+  asked.length = 0;
+  await call("/telegram/webhook", jsonPost(message(4, "/chat hello again"), hook));
+  await env.CHAT.runAlarms();
+  assert.deepEqual([send.count(provider.ovh.url), send.count(provider.llm7.url)], [1, 1], "only the chosen model was asked");
+  assert.deepEqual(said(), ["from LLM7"]);
+
+  // Auto keeps no choice; the model that answered last is still asked first, as it always was.
+  asked.length = 0;
+  await call("/telegram/webhook", jsonPost(message(5, "/model auto"), hook));
+  assert.match(said()[0], /\nYour choice: <b>Auto<\/b>\. /);
+  const { storage } = env.CHAT.object("tg:9001");
+  const saved = [...storage.map.values()].find((value) => value && value.models);
+  assert.equal("pinned" in saved.models, false);
 });
 
 // A voice note, the way Telegram delivers it: no text, only the file's id and its length.
@@ -869,7 +1002,7 @@ test("when the settings store is down, Telegram is asked to send the message aga
   delete store.fetch;
   const retried = await call("/telegram/webhook", start);
   assert.deepEqual([retried.status, retried.body], [200, { ok: true }]);
-  assert.deepEqual(asked.map((entry) => entry.method), ["sendMessage", "sendMessage"]);
+  assert.deepEqual(asked.map((entry) => entry.method), ["sendMessage", ...OWNER_MENU, "sendMessage"]);
 });
 
 test("the self-test runs once for each build, and its answer is kept", async () => {
@@ -1160,7 +1293,8 @@ test("a bot connected under 0.2.0 is answered on its old address, and its webhoo
     assert.deepEqual([moved.status, moved.body], [200, { ok: true }], path);
   }
   await settle();
-  assert.deepEqual(asked.map((entry) => entry.method), ["sendMessage", "sendMessage"]);
+  // The owner's own menu is set once, by the first update after the move.
+  assert.deepEqual(asked.map((entry) => entry.method), ["sendMessage", ...OWNER_MENU, "sendMessage"]);
   assert.equal((await call("/v1/telegram", { method: "GET" })).status, 404);
 });
 
@@ -1197,7 +1331,14 @@ test("the status says a 0.2.0 webhook is moving, and asking for the status is wh
   assert.equal(webhook, "moving");
   assert.deepEqual(after.body, unchanged, "the bot, its owner and its access are what they were");
   await settle();
-  assert.deepEqual(asked, [], "a webhook that has moved is left alone");
+  // The owner's own menu was left for the next call, and is set once.
+  assert.deepEqual(asked.map((entry) => entry.method), ["setMyCommands", "setMyCommands", "setMyCommands"]);
+  for (const entry of asked) assert.deepEqual(entry.payload.scope, { type: "chat", chat_id: OWNER_CHAT.id });
+
+  asked.length = 0;
+  assert.deepEqual((await call("/v1/status")).body, unchanged);
+  await settle();
+  assert.deepEqual(asked, [], "a webhook that has moved, on a bot that is dressed, is left alone");
 });
 
 test("when Telegram refuses the move, both secrets keep working and it is tried again an hour later", async () => {

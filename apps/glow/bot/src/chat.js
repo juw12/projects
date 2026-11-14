@@ -100,6 +100,32 @@ const MODE_ICONS = { lead: "👑", room: "🏢", chat: "💬", agent: "🧰" };
 const PLACEHOLDERS = { lead: "lead.planning", room: "room.planning", agent: "harness.working" };
 const JOB_ACTIONS = ["run", "chg", "can", "pau", "res", "stp", "ok", "no"];
 
+// "/model auto" hands the choice of model back to GlowBot.
+const MODEL_AUTO_WORDS = ["auto", "default", "reset", "off"];
+
+// What a model is called in /models: its host and its own name, such as "OVHcloud · Qwen3.5 397B".
+// Several hosts serve the same model, so the host alone, or the name alone, would not tell them apart.
+export function modelTitle(model) {
+  const label = String(model.label || "");
+  const name = String(model.name || "");
+  if (!name || label.toLowerCase().includes(name.toLowerCase())) return label || name;
+  return label ? `${label} · ${name}` : name;
+}
+
+// The models a typed name means: an exact id, title or name first, otherwise every model that
+// carries all the typed words ("ovh qwen").
+export function matchModels(models, wanted) {
+  const exact = models.filter((model) =>
+    [model.id, modelTitle(model), model.name, model.model].some((value) => String(value || "").toLowerCase() === wanted),
+  );
+  if (exact.length) return exact;
+  const words = wanted.split(/\s+/).filter(Boolean);
+  return models.filter((model) => {
+    const haystack = `${model.id} ${modelTitle(model)} ${model.model || ""}`.toLowerCase();
+    return words.every((word) => haystack.includes(word));
+  });
+}
+
 // The Glow web apps, for /apps: the same list, in the same order, as the Glow apps menu
 // (web/shared/glow-apps.js; tests/test_glow_bot.py compares the two). Telegram's own window is
 // phone sized, so chat and room use their phone pages.
@@ -561,6 +587,7 @@ export class ChatLogic {
       case "status":
         return this.cmdStatus(message, access);
       case "stop":
+      case "cancel":
         return this.cmdStop(message, access);
       case "lang":
         return this.cmdLang(arg, message);
@@ -580,7 +607,15 @@ export class ChatLogic {
       case "myid":
         return this.reply(message, t(lang, "myid", { user: (message.from && message.from.id) || state.chatId, chat: state.chatId }));
       case "models":
-        return this.cmdModels(message);
+      case "model":
+        return this.cmdModel(arg, message);
+      case "about":
+      case "version": {
+        const { version, build, pages } = this.info;
+        return this.reply(message, t(lang, "about.text", { version, build: build || "dev", pages }));
+      }
+      case "privacy":
+        return this.reply(message, t(lang, "privacy.text"));
       case "new":
       case "reset":
         state.history = [];
@@ -1033,18 +1068,61 @@ export class ChatLogic {
     await this.reply(message, lines.join("\n"));
   }
 
-  // The free models, in the order they are asked, and which ones are resting after a busy answer.
-  async cmdModels(message) {
+  // The model this chat chose, or null when GlowBot chooses. A choice that is no longer on the
+  // list (a model that was retired) is dropped.
+  pinnedModel(models) {
+    const chosen = this.state.models.pinned;
+    if (!chosen) return null;
+    const found = models.find((model) => model.id === chosen) || null;
+    if (!found) delete this.state.models.pinned;
+    return found;
+  }
+
+  // The free models in the order they are asked, which ones are resting after a busy answer,
+  // and one button each to choose who is asked first.
+  modelsView() {
     const state = this.state;
     const lang = state.lang;
+    const models = this.modelsFor(state.models).describe();
+    const pinned = this.pinnedModel(models);
     const lines = [t(lang, "models.title")];
-    this.modelsFor(state.models).describe().forEach((model, index) => {
+    models.forEach((model, index) => {
       const minutes = Math.ceil(model.restingMs / 60000);
       const resting = model.restingMs > 0 ? ` · ${t(lang, "models.resting", { n: minutes })}` : "";
-      lines.push(`${index + 1}. ${escapeHtml(model.label)}${resting}`);
+      lines.push(`${index + 1}. ${escapeHtml(modelTitle(model))}${resting}`);
     });
-    lines.push("", t(lang, "models.how"));
-    await this.reply(message, lines.join("\n"));
+    lines.push("");
+    if (pinned) lines.push(t(lang, "models.pinned", { name: modelTitle(pinned) }));
+    else lines.push(`${t(lang, "models.auto")} ${t(lang, "models.how")}`);
+    lines.push("", t(lang, "models.tap"));
+    const tick = (on) => (on ? "✓ " : "");
+    const buttons = models.map((model) => [
+      { text: tick(model === pinned) + clip(modelTitle(model), 36), data: `mdl:${model.id}` },
+    ]);
+    buttons.push([{ text: tick(!pinned) + tPlain(lang, "btn.auto"), data: "mdl:auto" }]);
+    return { html: lines.join("\n"), buttons };
+  }
+
+  // /models shows the list. /model name chooses one, /model auto hands the choice back.
+  async cmdModel(arg, message) {
+    const state = this.state;
+    const lang = state.lang;
+    const wanted = String(arg || "").trim().toLowerCase();
+    if (wanted) {
+      if (MODEL_AUTO_WORDS.includes(wanted)) {
+        delete state.models.pinned;
+      } else {
+        const matches = matchModels(this.modelsFor(state.models).describe(), wanted);
+        if (!matches.length) return this.reply(message, t(lang, "models.unknown", { name: clip(arg.trim(), 60) }));
+        if (matches.length > 1) {
+          const list = matches.map(modelTitle).join(", ");
+          return this.reply(message, t(lang, "models.many", { name: clip(arg.trim(), 60), list }));
+        }
+        state.models.pinned = matches[0].id;
+      }
+    }
+    const view = this.modelsView();
+    return this.reply(message, view.html, { buttons: view.buttons });
   }
 
   async cmdAsk(arg, message, access) {
@@ -1271,6 +1349,20 @@ export class ChatLogic {
       if (!entry) return stale();
       await toast("toast.ok");
       return this.startJob(entry.kind, entry.goal, null, access, { from, replyTo: messageId });
+    }
+
+    if (action === "mdl") {
+      if (first === "auto") {
+        delete state.models.pinned;
+      } else {
+        const known = this.modelsFor(state.models).describe().some((model) => model.id === first);
+        if (!known) return stale();
+        state.models.pinned = first;
+      }
+      await toast("toast.ok");
+      const view = this.modelsView();
+      if (messageId) await tg.edit(state.chatId, messageId, view.html, { buttons: view.buttons });
+      return null;
     }
 
     if (!JOB_ACTIONS.includes(action)) return stale();

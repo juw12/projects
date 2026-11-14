@@ -81,6 +81,12 @@ export async function transcribeVoice({ fetch, ai, token, voice, timeoutMs = 600
   if ((voice.duration || 0) > MAX_VOICE_SECONDS) throw new VoiceError("too-long");
   if ((voice.file_size || 0) > MAX_VOICE_BYTES) throw new VoiceError("too-big");
   const bytes = await downloadTelegramFile({ fetch, token, fileId: voice.file_id });
+  return transcribeBytes({ ai, bytes, timeoutMs });
+}
+
+// The sound itself -> { text, model }. The health check uses this with a sample it downloads.
+export async function transcribeBytes({ ai, bytes, timeoutMs = 60000 }) {
+  if (!ai) throw new VoiceError("no-ai");
   const problems = [];
   for (const model of VOICE_MODELS) {
     try {

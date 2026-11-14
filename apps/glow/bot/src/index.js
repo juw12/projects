@@ -248,7 +248,13 @@ export function createWorker(overrides) {
   // The one place that knows the bot's token, its owner and which chats may use it.
   class Registry {
     constructor(state, env) {
-      this.logic = new RegistryLogic({ storage: state.storage, fetch: deps.fetch, now: deps.now, pages: pagesOf(env) });
+      this.logic = new RegistryLogic({
+        storage: state.storage,
+        fetch: deps.fetch,
+        now: deps.now,
+        pages: pagesOf(env),
+        version: VERSION,
+      });
     }
 
     fetch(request) {
@@ -267,6 +273,8 @@ export function createWorker(overrides) {
     const gate = await registryClient(env.REGISTRY).gate(secret, update, origin);
     if (!gate.ok) return json({ ok: false, error: "refused" }, 403, cors);
     if (gate.legacy) moveWebhook(ctx, env, origin);
+    // A new version brings its command menu, description and picture to Telegram once, in the background.
+    if (gate.dress) later(ctx, registryClient(env.REGISTRY).dress());
     if (gate.duplicate || gate.ignore) return json({ ok: true }, 200, cors);
 
     // From here the update counts as delivered: sending it twice would run the same command twice.
@@ -334,6 +342,7 @@ export function createWorker(overrides) {
       const registry = await registryClient(env.REGISTRY).status();
       // The deploy asks for the status right after it goes live, which is what starts the move.
       if (registry.legacy) moveWebhook(ctx, env, url.origin);
+      if (registry.dress) later(ctx, registryClient(env.REGISTRY).dress());
       return json(
         {
           ok: true,
@@ -353,6 +362,14 @@ export function createWorker(overrides) {
         200,
         cors,
       );
+    }
+
+    // What Telegram shows for the bot right now (name, menus, descriptions, picture), read back and
+    // compared with what this version means to show. No token, owner or chat is in the answer.
+    if (method === "GET" && path === "/v1/profile") {
+      const registry = registryClient(env.REGISTRY);
+      await registry.dress();
+      return json(await registry.profile(), 200, cors);
     }
 
     if (method === "GET" && (path === "/v1/probe" || path === "/v1/selftest")) {

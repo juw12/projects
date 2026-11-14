@@ -7,7 +7,7 @@ import assert from "node:assert/strict";
 
 import { runSelfTest } from "../src/selftest.js";
 import { VERSION } from "../src/util.js";
-import { checkLive, selfTestProblems, statusProblems } from "../tools/check_live.js";
+import { checkLive, profileProblems, selfTestProblems, statusProblems } from "../tools/check_live.js";
 
 const BUILD = "abc123def456";
 const BASE = "https://bot.example";
@@ -173,4 +173,82 @@ test("checkLive gives up after its tries and says what was wrong", async () => {
   const down = pretendWorker({ "/v1/status": [new Error("getaddrinfo ENOTFOUND")], "/v1/selftest": [] });
   assert.deepEqual(await checkLive(BASE, BUILD, down.options), ["no answer: getaddrinfo ENOTFOUND"]);
   assert.equal(down.reads.length, 4);
+});
+
+// What /v1/profile answers once this version has set the bot's name, picture, texts and menus.
+const eachLanguage = () => ({ default: { ok: true }, id: { ok: true }, zh: { ok: true } });
+const goodProfile = () => ({
+  ok: true,
+  configured: true,
+  version: VERSION,
+  access: "private",
+  claimed: true,
+  name: { ok: true },
+  photo: { ok: true },
+  webhook: { ok: true },
+  menus: eachLanguage(),
+  ownerMenus: eachLanguage(),
+  descriptions: eachLanguage(),
+  shorts: eachLanguage(),
+  dress: { version: VERSION, current: true, warnings: [] },
+});
+
+test("a profile set by this version has nothing wrong", () => {
+  assert.deepEqual(profileProblems(goodProfile()), []);
+  assert.deepEqual(profileProblems({ ...goodProfile(), version: "9.9.9", dress: { version: "9.9.9", current: true } }, "9.9.9"), []);
+});
+
+test("a profile that is not an answer, or has no bot, says only that", () => {
+  assert.deepEqual(profileProblems(null), ["the answer is not a JSON object"]);
+  assert.deepEqual(profileProblems([goodProfile()]), ["the answer is not a JSON object"]);
+  assert.deepEqual(profileProblems({ ok: false, configured: false }), ["no bot is connected"]);
+});
+
+test("each wrong part of the profile is named", () => {
+  const old = { ...goodProfile(), version: "1.0.0" };
+  assert.deepEqual(profileProblems(old), [`the profile is from version "1.0.0", not "${VERSION}"`]);
+
+  const wrongName = { ok: false, got: "glowbot", want: "GlowBot" };
+  assert.deepEqual(profileProblems({ ...goodProfile(), name: wrongName }), [`the name is not right: ${JSON.stringify(wrongName)}`]);
+  assert.deepEqual(profileProblems({ ...goodProfile(), photo: undefined }), ["the picture is not right: null"]);
+  assert.deepEqual(profileProblems({ ...goodProfile(), webhook: { ok: false } }), ['the webhook is not right: {"ok":false}']);
+
+  const groups = {
+    menus: "the command menu",
+    ownerMenus: "the owner's command menu",
+    descriptions: "the description",
+    shorts: "the short description",
+  };
+  for (const [field, label] of Object.entries(groups)) {
+    const profile = goodProfile();
+    profile[field].id = { ok: false, got: 3 };
+    assert.deepEqual(profileProblems(profile), [`${label} (id) is not right: {"ok":false,"got":3}`], field);
+    profile[field] = {};
+    assert.deepEqual(profileProblems(profile), [`${label} was not read`], field);
+  }
+});
+
+test("the owner's menu is only asked for once the bot has an owner", () => {
+  const profile = { ...goodProfile(), claimed: false, ownerMenus: {} };
+  assert.deepEqual(profileProblems(profile), []);
+  profile.ownerMenus = { default: { ok: false } };
+  assert.deepEqual(profileProblems(profile), [`the owner's command menu (default) is not right: {"ok":false}`], "a menu that was read is still checked");
+});
+
+test("a profile that this version did not finish setting says why", () => {
+  assert.deepEqual(profileProblems({ ...goodProfile(), dress: null }), ["this version has not set the profile yet"]);
+  assert.deepEqual(profileProblems({ ...goodProfile(), dress: { version: "1.32.0", current: false } }), [
+    'the profile was last set by version "1.32.0"',
+  ]);
+  const warned = { ...goodProfile(), dress: { version: VERSION, current: true, warnings: ["setMyName: Too Many Requests", "photo: HTTP 404"] } };
+  assert.deepEqual(profileProblems(warned), [
+    "warning while setting the profile: setMyName: Too Many Requests",
+    "warning while setting the profile: photo: HTTP 404",
+  ]);
+});
+
+test("ok that is not true is only reported when nothing else explains it", () => {
+  assert.deepEqual(profileProblems({ ...goodProfile(), ok: false }), ["ok is not true"]);
+  const problems = profileProblems({ ...goodProfile(), ok: false, photo: { ok: false } });
+  assert.deepEqual(problems, ['the picture is not right: {"ok":false}']);
 });

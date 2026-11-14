@@ -3,7 +3,7 @@
 // It is a single Durable Object. The Worker asks it about every Telegram update ("the gate")
 // before a chat sees it, and the Glow page talks to it once, to hand over the token.
 
-import { commandList, tPlain } from "./strings.js";
+import { BOT_NAME, commandList, ownerCommandList, pickLang, t, tPlain } from "./strings.js";
 import { createTelegram, httpTransport } from "./telegram.js";
 import { INSIDE, clip, errorText, inBatches, json, safeEqual, sha256Hex, withTimeout } from "./util.js";
 
@@ -19,6 +19,12 @@ const STORE_KEY = "registry";
 const LEGACY_KEY = "config"; // where the 0.2.0 Worker saved the bot; left in place as a backup
 const LEGACY_RETRY_MS = 60 * 60 * 1000; // a webhook move Telegram refused is tried again after this long
 const SEEN_LIMIT = 200;
+const DRESS_KEY = "dress"; // which version last set the command menu and the profile, and how it went
+const DRESS_RETRY_MS = 60 * 60 * 1000; // a dress-up that left warnings is tried again after this long
+const DRESS_TRIES = 3; // and at most this often for one version
+const PROFILE_FRESH_MS = 5 * 60 * 1000;
+// The one version whose arrival the owner is told about ("about.whatsnew" describes this version).
+export const NEWS_VERSION = "1.33.0";
 const GROUP_TYPES = ["group", "supergroup", "channel"];
 
 // Telegram's language codes for the command menu and the profile texts. "" is the default,
@@ -28,6 +34,27 @@ const PROFILE_LANGS = [
   { code: "id", lang: "id" },
   { code: "zh", lang: "zh-Hans" },
 ];
+
+function accessOf(state) {
+  return state.public ? "public" : "private";
+}
+
+// The profile text. A private bot says so, so nobody is promised a chat they cannot have.
+export function botDescription(lang, isPublic) {
+  const text = tPlain(lang, "bot.description");
+  return isPublic ? text : `${text}\n\n${tPlain(lang, "bot.private")}`;
+}
+
+async function sha256OfBytes(bytes) {
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  return Array.from(new Uint8Array(digest), (value) => value.toString(16).padStart(2, "0")).join("");
+}
+
+// Telegram answers a menu with exactly the fields it was given.
+function sameMenu(got, want) {
+  if (!Array.isArray(got) || got.length !== want.length) return false;
+  return want.every((entry, index) => got[index].command === entry.command && got[index].description === entry.description);
+}
 
 function blankState() {
   return {
@@ -94,7 +121,14 @@ export function whoAndWhere(update) {
 }
 
 export class RegistryLogic {
-  constructor({ storage, fetch, now = () => Date.now(), pages = "", randomHex = defaultRandomHex, telegramFor }) {
+  // version: the Worker's version. With it the menu and the profile are set again whenever a new
+  // version starts; without it (older tests) they are only set when the bot is connected.
+  constructor({ storage, fetch, now = () => Date.now(), pages = "", randomHex = defaultRandomHex, telegramFor, version = "" }) {
+    this.version = String(version || "");
+    this.dressed = null; // what DRESS_KEY holds
+    this.dressing = null; // the dress-up that is running now
+    this.ownerLang = "en"; // the owner's app language, learnt from their last update
+    this.profileCache = null;
     this.storage = storage;
     this.fetch = fetch;
     this.now = now;
@@ -128,6 +162,7 @@ export class RegistryLogic {
       }
     }
     this.state = state;
+    if (this.version) this.dressed = (await this.storage.get(DRESS_KEY)) || null;
     return state;
   }
 
@@ -141,10 +176,11 @@ export class RegistryLogic {
     return {
       configured: !!state.token,
       bot: state.bot ? { username: state.bot.username, name: state.bot.name } : null,
-      access: state.public ? "public" : "private",
+      access: accessOf(state),
       claimed: state.ownerId !== null,
       chats: Object.keys(state.allowed).length,
       ...(state.legacy ? { legacy: true } : {}),
+      ...(this.dressPlan() ? { dress: true } : {}),
     };
   }
 
@@ -192,6 +228,8 @@ export class RegistryLogic {
       state.claimCode = "";
       state.claimUntil = 0;
     }
+    // A different bot, or a new pairing, has no owner menu of its own yet.
+    if (!state.bot || state.bot.id !== bot.id) this.dressed = null;
     const now = this.now();
     const expired = !!state.claimUntil && now > state.claimUntil;
     if (state.ownerId === null && (!state.claimCode || expired)) {
@@ -211,6 +249,9 @@ export class RegistryLogic {
     await this.save();
 
     const warnings = await this.dressUp(telegram);
+    const named = await this.setName(telegram, bot.name);
+    if (named) warnings.push(named);
+    await this.noteDressed(warnings);
     return {
       ok: true,
       bot: { username: bot.username, name: bot.name },
@@ -256,12 +297,22 @@ export class RegistryLogic {
     state.legacyTriedAt = 0;
     await this.save();
     const warnings = await this.dressUp(telegram);
+    await this.noteDressed(warnings);
     return { ok: true, refreshed: true, warnings };
   }
 
   // The command menu, the profile texts and the profile photo. The bot works without them,
   // so a failure here becomes a warning and never an error.
-  async dressUp(telegram) {
+  async dressUp(telegram, { photo = true } = {}) {
+    const tasks = this.profileTasks(telegram, ["commands", "description", "short"]);
+    if (photo) tasks.push(() => this.setPhoto(telegram));
+    const results = await inBatches(tasks, 3);
+    return results.filter(Boolean);
+  }
+
+  // One call per language for each kind of profile text. Every task answers null or a warning.
+  profileTasks(telegram, kinds) {
+    const isPublic = this.state.public;
     const tasks = [];
     const add = (label, method, payload) => {
       tasks.push(async () => {
@@ -272,29 +323,289 @@ export class RegistryLogic {
     for (const { code, lang } of PROFILE_LANGS) {
       const language = code ? { language_code: code } : {};
       const suffix = code ? ` (${code})` : "";
-      add(`commands${suffix}`, "setMyCommands", { commands: commandList(lang), ...language });
-      add(`description${suffix}`, "setMyDescription", { description: tPlain(lang, "bot.description"), ...language });
-      add(`short description${suffix}`, "setMyShortDescription", { short_description: tPlain(lang, "bot.short"), ...language });
+      if (kinds.includes("commands")) add(`commands${suffix}`, "setMyCommands", { commands: commandList(lang), ...language });
+      if (kinds.includes("description")) {
+        add(`description${suffix}`, "setMyDescription", { description: botDescription(lang, isPublic), ...language });
+      }
+      if (kinds.includes("short")) {
+        add(`short description${suffix}`, "setMyShortDescription", { short_description: tPlain(lang, "bot.short"), ...language });
+      }
     }
-    tasks.push(() => this.setPhoto(telegram));
+    return tasks;
+  }
+
+  // The owner's own chat gets a longer menu: everyone's commands and the owner's.
+  async ownerMenus(telegram) {
+    const ownerId = this.state.ownerId;
+    if (ownerId === null) return [];
+    const tasks = [];
+    for (const { code, lang } of PROFILE_LANGS) {
+      const language = code ? { language_code: code } : {};
+      const suffix = code ? ` (${code})` : "";
+      tasks.push(async () => {
+        const payload = { commands: ownerCommandList(lang), scope: { type: "chat", chat_id: ownerId }, ...language };
+        const answer = await telegram.call("setMyCommands", payload);
+        return answer.ok ? null : `owner commands${suffix}: ${clip(answer.description || "failed", 120)}`;
+      });
+    }
     const results = await inBatches(tasks, 3);
     return results.filter(Boolean);
+  }
+
+  async fetchPhoto() {
+    const response = await withTimeout((signal) => this.fetch(`${this.pages}/bot/logo.jpg`, { signal }), 15000, "the bot picture");
+    if (!response.ok) return { warning: `photo: HTTP ${response.status}` };
+    return { bytes: await response.arrayBuffer() };
+  }
+
+  async uploadPhoto(telegram, bytes) {
+    const form = new FormData();
+    form.append("photo", JSON.stringify({ type: "static", photo: "attach://file" }));
+    form.append("file", new Blob([bytes], { type: "image/jpeg" }), "logo.jpg");
+    const answer = await telegram.call("setMyProfilePhoto", form);
+    return answer.ok ? null : `photo: ${clip(answer.description || "failed", 120)}`;
   }
 
   async setPhoto(telegram) {
     if (!this.pages) return null;
     try {
-      const response = await withTimeout((signal) => this.fetch(`${this.pages}/bot/logo.jpg`, { signal }), 15000, "the bot picture");
-      if (!response.ok) return `photo: HTTP ${response.status}`;
-      const bytes = await response.arrayBuffer();
-      const form = new FormData();
-      form.append("photo", JSON.stringify({ type: "static", photo: "attach://file" }));
-      form.append("file", new Blob([bytes], { type: "image/jpeg" }), "logo.jpg");
-      const answer = await telegram.call("setMyProfilePhoto", form);
-      return answer.ok ? null : `photo: ${clip(answer.description || "failed", 120)}`;
+      const picture = await this.fetchPhoto();
+      if (picture.warning) return picture.warning;
+      return await this.uploadPhoto(telegram, picture.bytes);
     } catch (error) {
       return `photo: ${clip(errorText(error), 120)}`;
     }
+  }
+
+  // The same picture is not uploaded again with every version: only when the bot shows none,
+  // or when the picture on the Glow page changed. record.photo remembers which picture it is.
+  async freshPhoto(telegram, record) {
+    if (!this.pages) return null;
+    try {
+      const picture = await this.fetchPhoto();
+      if (picture.warning) return picture.warning;
+      const hash = await sha256OfBytes(picture.bytes);
+      const shown = await telegram.call("getUserProfilePhotos", { user_id: this.state.bot.id, limit: 1 });
+      const hasOne = !!shown.ok && !!shown.result && shown.result.total_count > 0;
+      // A bot dressed before 1.33.0 shows a picture but has no record of it: that picture is
+      // taken to be this one, so the same picture is not added to its gallery a second time.
+      if (hasOne && (!record.photo || record.photo === hash)) {
+        record.photo = hash;
+        return null;
+      }
+      const warning = await this.uploadPhoto(telegram, picture.bytes);
+      if (!warning) record.photo = hash;
+      return warning;
+    } catch (error) {
+      return `photo: ${clip(errorText(error), 120)}`;
+    }
+  }
+
+  // BotFather often leaves the name as "glowbot". Only a spelling of GlowBot is corrected: a name
+  // the owner chose themselves stays.
+  async setName(telegram, current) {
+    const name = String(current || "").trim();
+    if (name === BOT_NAME || !/^glow\s*bot$/i.test(name)) return null;
+    const answer = await telegram.call("setMyName", { name: BOT_NAME });
+    if (!answer.ok) return `name: ${clip(answer.description || "failed", 120)}`;
+    this.state.bot.name = BOT_NAME;
+    await this.save();
+    return null;
+  }
+
+  async putDress(record) {
+    this.dressed = record;
+    this.profileCache = null;
+    await this.storage.put(DRESS_KEY, record);
+  }
+
+  // setup() and refreshWebhook() have just set the menu and the profile for this version. The
+  // owner's own menu is left to the next dress-up, which the next update starts.
+  async noteDressed(warnings) {
+    if (!this.version) return;
+    const before = this.dressed || {};
+    const sameVersion = before.version === this.version;
+    await this.putDress({
+      version: this.version,
+      owner: sameVersion && before.owner !== undefined ? before.owner : null,
+      access: accessOf(this.state),
+      at: this.now(),
+      warnings: warnings.slice(),
+      tries: 1,
+      photo: before.photo || "",
+      news: before.news || null,
+    });
+  }
+
+  // What is due: "full" (a new version, or an earlier try left warnings), "part" (only the owner
+  // or the access changed), or null.
+  dressPlan() {
+    const state = this.state;
+    if (!this.version || !state || !state.token || !state.bot || state.legacy) return null;
+    const done = this.dressed;
+    if (!done || done.version !== this.version) return "full";
+    const unfinished = Array.isArray(done.warnings) && done.warnings.length > 0;
+    if (unfinished && (done.tries || 0) < DRESS_TRIES && this.now() - (done.at || 0) >= DRESS_RETRY_MS) return "full";
+    if (done.owner !== state.ownerId || done.access !== accessOf(state)) return "part";
+    return null;
+  }
+
+  // Set the menu and the profile again when dressPlan() says so. Never throws: the bot works
+  // without them. Two calls arriving together share one run.
+  async dress() {
+    await this.load();
+    if (!this.dressing) {
+      if (!this.dressPlan()) return { ok: true, dressed: false };
+      this.dressing = this.dressNow()
+        .catch((error) => ({ ok: false, dressed: false, error: clip(errorText(error), 200) }))
+        .finally(() => {
+          this.dressing = null;
+        });
+    }
+    return this.dressing;
+  }
+
+  async dressNow() {
+    const state = this.state;
+    const plan = this.dressPlan();
+    const before = this.dressed || {};
+    const sameVersion = before.version === this.version;
+    const earlier = sameVersion && Array.isArray(before.warnings) ? before.warnings : [];
+    const record = {
+      version: this.version,
+      owner: state.ownerId,
+      access: accessOf(state),
+      at: this.now(),
+      warnings: ["unfinished"],
+      tries: plan === "full" ? (sameVersion ? (before.tries || 0) + 1 : 1) : before.tries || 1,
+      photo: before.photo || "",
+      news: before.news || null,
+    };
+    // Saved before the first call: a run that is cut off counts as a try and is not repeated at once.
+    await this.putDress({ ...record });
+
+    const telegram = this.telegramFor(state.token);
+    const warnings = [];
+    if (plan === "full") {
+      warnings.push(...(await this.dressUp(telegram, { photo: false })));
+      warnings.push(...(await this.ownerMenus(telegram)));
+      warnings.push(await this.freshPhoto(telegram, record));
+      const mine = await telegram.call("getMyName", {});
+      if (mine.ok && mine.result) warnings.push(await this.setName(telegram, mine.result.name));
+      await this.tellOwner(telegram, record);
+    } else {
+      warnings.push(...earlier);
+      if (before.owner !== state.ownerId) warnings.push(...(await this.ownerMenus(telegram)));
+      if (before.access !== accessOf(state)) {
+        warnings.push(...(await inBatches(this.profileTasks(telegram, ["description"]), 3)));
+      }
+    }
+    record.warnings = warnings.filter(Boolean);
+    record.at = this.now();
+    await this.putDress(record);
+    return { ok: true, dressed: true, plan, warnings: record.warnings };
+  }
+
+  // One message to the owner when NEWS_VERSION arrives, so they know the new menu is there.
+  // Sent once: a failure is recorded and not repeated.
+  async tellOwner(telegram, record) {
+    const ownerId = this.state.ownerId;
+    if (this.version !== NEWS_VERSION || ownerId === null) return;
+    if (record.news && record.news.version === this.version) return;
+    const text = t(this.ownerLang, "about.whatsnew", { version: this.version });
+    const answer = await telegram.call("sendMessage", { chat_id: ownerId, text, parse_mode: "HTML" });
+    record.news = {
+      version: this.version,
+      at: this.now(),
+      ok: !!answer.ok,
+      ...(answer.ok ? {} : { detail: clip(answer.description || "failed", 120) }),
+    };
+  }
+
+  // What Telegram really shows for this bot, read back and compared with what it should show.
+  // Safe to show anyone: no token and no ids.
+  async profile() {
+    const state = await this.load();
+    if (!state.token || !state.bot) return { ok: false, configured: false };
+    if (this.profileCache && this.now() - this.profileCache.at < PROFILE_FRESH_MS) return this.profileCache.value;
+
+    const telegram = this.telegramFor(state.token);
+    const ask = async (method, payload = {}) => {
+      const answer = await telegram.call(method, payload);
+      return answer.ok ? answer.result : null;
+    };
+    const text = (got, field, want) => {
+      const value = got && typeof got[field] === "string" ? got[field] : "";
+      return value === want ? { ok: true, length: value.length } : { ok: false, length: value.length, got: clip(value, 80) };
+    };
+    const report = { name: null, menus: {}, ownerMenus: {}, descriptions: {}, shorts: {}, photo: null, webhook: null };
+    const tasks = [];
+    tasks.push(async () => {
+      const got = await ask("getMyName");
+      const value = got && typeof got.name === "string" ? got.name : "";
+      report.name = { ok: value.length > 0, value };
+    });
+    for (const { code, lang } of PROFILE_LANGS) {
+      const key = code || "default";
+      const language = code ? { language_code: code } : {};
+      tasks.push(async () => {
+        const got = await ask("getMyCommands", language);
+        report.menus[key] = { ok: sameMenu(got, commandList(lang)), commands: Array.isArray(got) ? got.length : 0 };
+      });
+      if (state.ownerId !== null) {
+        tasks.push(async () => {
+          const got = await ask("getMyCommands", { scope: { type: "chat", chat_id: state.ownerId }, ...language });
+          report.ownerMenus[key] = { ok: sameMenu(got, ownerCommandList(lang)), commands: Array.isArray(got) ? got.length : 0 };
+        });
+      }
+      tasks.push(async () => {
+        report.descriptions[key] = text(await ask("getMyDescription", language), "description", botDescription(lang, state.public));
+      });
+      tasks.push(async () => {
+        report.shorts[key] = text(await ask("getMyShortDescription", language), "short_description", tPlain(lang, "bot.short"));
+      });
+    }
+    tasks.push(async () => {
+      const got = await ask("getUserProfilePhotos", { user_id: state.bot.id, limit: 1 });
+      const count = got && Number.isFinite(got.total_count) ? got.total_count : 0;
+      report.photo = { ok: count > 0, count };
+    });
+    tasks.push(async () => {
+      const got = (await ask("getWebhookInfo")) || {};
+      const updates = Array.isArray(got.allowed_updates) ? got.allowed_updates.slice().sort() : [];
+      const here = !!state.origin && got.url === state.origin + WEBHOOK_PATH;
+      const listens = JSON.stringify(updates) === JSON.stringify(ALLOWED_UPDATES.slice().sort());
+      report.webhook = {
+        ok: here && listens,
+        here,
+        listens,
+        pending: Number(got.pending_update_count) || 0,
+        lastError: clip(String(got.last_error_message || ""), 120),
+        lastErrorAt: Number(got.last_error_date) || 0,
+      };
+    });
+    await inBatches(tasks, 4);
+
+    const done = this.dressed;
+    const dress = done
+      ? { version: done.version, current: done.version === this.version, at: done.at, tries: done.tries, warnings: done.warnings || [] }
+      : null;
+    const parts = [report.name, report.photo, report.webhook];
+    for (const group of [report.menus, report.ownerMenus, report.descriptions, report.shorts]) parts.push(...Object.values(group));
+    const dressedWell = !this.version || (!!dress && dress.current && dress.warnings.length === 0);
+    const value = {
+      ok: parts.every((part) => part && part.ok) && dressedWell,
+      configured: true,
+      version: this.version,
+      access: accessOf(state),
+      claimed: state.ownerId !== null,
+      ...report,
+      dress,
+      news: done && done.news ? done.news : null,
+      checkedAt: this.now(),
+    };
+    this.profileCache = { at: this.now(), value };
+    return value;
   }
 
   // Every Telegram update passes here first. The answer says which chat it belongs to, hands
@@ -348,6 +659,7 @@ export class RegistryLogic {
     }
 
     const isOwner = state.ownerId !== null && !!from && from.id === state.ownerId;
+    if (isOwner && from.language_code) this.ownerLang = pickLang(from.language_code);
     const membership = kind === "member" ? String((update.my_chat_member.new_chat_member || {}).status || "") : "";
     const gone = membership === "left" || membership === "kicked";
     if (gone) {
@@ -374,6 +686,7 @@ export class RegistryLogic {
       },
       access: { role, allowed: role !== "stranger", claimed, ownerKnown: state.ownerId !== null, gone },
       ...(state.legacy ? { legacy: true } : {}),
+      ...(this.dressPlan() ? { dress: true } : {}),
     };
   }
 
@@ -381,7 +694,7 @@ export class RegistryLogic {
     const state = await this.load();
     state.public = !!flag;
     await this.save();
-    return { ok: true, access: state.public ? "public" : "private" };
+    return { ok: true, access: accessOf(state) };
   }
 
   async forget(chatId) {
@@ -407,7 +720,7 @@ export class RegistryLogic {
     return {
       ok: true,
       ownerId: state.ownerId,
-      access: state.public ? "public" : "private",
+      access: accessOf(state),
       chats: Object.entries(state.allowed).map(([id, entry]) => ({ id, title: String((entry && entry.title) || "") })),
     };
   }
@@ -421,8 +734,10 @@ export class RegistryLogic {
       webhook = answer.ok ? "deleted" : "failed";
     }
     Object.assign(state, blankState());
+    this.dressed = null;
+    this.profileCache = null;
     // The 0.2.0 copy goes too: otherwise the next start would take the forgotten bot over again.
-    await this.storage.delete([STORE_KEY, LEGACY_KEY]);
+    await this.storage.delete([STORE_KEY, LEGACY_KEY, DRESS_KEY]);
     return { ok: true, webhook };
   }
 }
@@ -447,6 +762,8 @@ export async function handleRegistry(logic, request) {
   if (path === "/users") return json(await logic.users());
   if (path === "/refresh") return json(await logic.refreshWebhook(body));
   if (path === "/reset") return json(await logic.reset());
+  if (path === "/dress") return json(await logic.dress());
+  if (path === "/profile") return json(await logic.profile());
   return json({ ok: false, error: "not found" }, 404);
 }
 
@@ -471,5 +788,7 @@ export function registryClient(namespace) {
     users: () => ask("/users"),
     refreshWebhook: (origin) => ask("/refresh", { origin }),
     reset: () => ask("/reset"),
+    dress: () => ask("/dress"),
+    profile: () => ask("/profile"),
   };
 }

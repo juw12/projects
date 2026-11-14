@@ -169,7 +169,7 @@ test("/status shows the owner no limit and everyone else the daily limit", async
   const owner = await answerTo("/status");
   assert.deepEqual(owner.lines, ["sendMessage"]);
   assert.deepEqual(statusLines(owner.said), [
-    "<b>GlowBot 1.32.0</b>",
+    "<b>GlowBot 1.33.0</b>",
     "Mode: GlowLead",
     "Language: English",
     "Access: private",
@@ -204,7 +204,7 @@ test("/status speaks the chat's language and shows the daily news time", async (
   await bakeryUpTo(kit, "plan");
   await kit.say("/status");
   assert.deepEqual(statusLines(texts(kit.fresh())), [
-    "<b>GlowBot 1.32.0</b>",
+    "<b>GlowBot 1.33.0</b>",
     "Mode: GlowLead",
     "Bahasa: Bahasa Indonesia",
     "Akses: pribadi",

@@ -90,7 +90,9 @@ def register(base, name, email, role="customer", **extra):
     return client
 
 
-def first_free_slot(client, barber_id, mins, place_id=None, skip=()):
+def first_free_slot(client, barber_id, mins, place_id=None, skip=(), busy=()):
+    """busy = (date, time, mins) the same customer already holds: the server refuses
+    a second booking that overlaps one of their own, whoever the barber is."""
     for offset in range(0, 14):
         key = (date.today() + timedelta(days=offset)).isoformat()
         status, data, _ = client.call("GET", f"/api/slots?barber={barber_id}&date={key}&mins={mins}")
@@ -100,8 +102,12 @@ def first_free_slot(client, barber_id, mins, place_id=None, skip=()):
             if place_id and group["placeId"] != place_id:
                 continue
             for slot in group["slots"]:
-                if not slot["taken"] and (key, slot["t"]) not in skip:
-                    return key, slot["t"], group["placeId"]
+                if slot["taken"] or (key, slot["t"]) in skip:
+                    continue
+                if any(day == key and start < slot["t"] + mins / 60 and slot["t"] < start + held / 60
+                       for day, start, held in busy):
+                    continue
+                return key, slot["t"], group["placeId"]
     return None
 
 
@@ -244,7 +250,8 @@ def run(base, server_module):
     cara_short = data_c["short"]
     check("real barber tag starts pending", cara_short["tags"][0]["status"] == "pending")
     expect("only the tagged barber can approve", customer.call("POST", f"/api/shorts/{cara_short['id']}/tags/0", {"approve": True}), 403)
-    cara_slot = first_free_slot(customer, cara_barber_id, 45)
+    customer_busy = [(key, t, 45), (slot3[0], slot3[1], 45)]
+    cara_slot = first_free_slot(customer, cara_barber_id, 45, busy=customer_busy)
     check("Cara has open slots", cara_slot is not None)
     unapproved = expect("booking via pending tag", customer.call("POST", "/api/bookings", {
         "barberId": cara_barber_id, "serviceId": "s1", "date": cara_slot[0], "time": cara_slot[1],
@@ -253,7 +260,10 @@ def run(base, server_module):
     check("no commission while tag pending",
           not [c for c in creator_state["commissions"] if c["sourceId"] == unapproved["booking"]["id"]])
     expect("barber approves tag", barber.call("POST", f"/api/shorts/{cara_short['id']}/tags/0", {"approve": True}), 200)
-    cara_slot2 = first_free_slot(customer, cara_barber_id, 45, skip={(cara_slot[0], cara_slot[1])})
+    customer_busy.append((cara_slot[0], cara_slot[1], 45))
+    cara_slot2 = first_free_slot(customer, cara_barber_id, 45, skip={(cara_slot[0], cara_slot[1])},
+                                 busy=customer_busy)
+    customer_busy.append((cara_slot2[0], cara_slot2[1], 45))
     approved_booking = expect("booking via approved tag", customer.call("POST", "/api/bookings", {
         "barberId": cara_barber_id, "serviceId": "s1", "date": cara_slot2[0], "time": cara_slot2[1],
         "placeId": cara_slot2[2], "payMode": "full", "method": customer_card, "refShortId": cara_short["id"]}), 200)
@@ -292,7 +302,8 @@ def run(base, server_module):
     expect("cancel twice blocked", customer.call("POST", f"/api/bookings/{ref_booking['booking']['id']}/cancel"), 400)
 
     # ----- reschedule -----
-    move = first_free_slot(customer, "b1", 45, skip={(key, t), (slot3[0], slot3[1]), (slot4[0], slot4[1])})
+    move = first_free_slot(customer, "b1", 45, skip={(key, t), (slot3[0], slot3[1]), (slot4[0], slot4[1])},
+                           busy=customer_busy)
     moved = expect("reschedule", customer.call("POST", f"/api/bookings/{booking['booking']['id']}/reschedule",
                    {"date": move[0], "time": move[1], "placeId": move[2]}), 200)
     check("reschedule applied", moved["booking"]["date"] == move[0] and moved["booking"]["time"] == move[1])

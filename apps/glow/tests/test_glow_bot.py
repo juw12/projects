@@ -56,10 +56,14 @@ OTHER_STORES = ("sessionStorage", "document.cookie", "indexedDB", "caches.")
 COMMANDS = [
     "lead", "room", "ask", "agents", "chat", "new", "agent", "news", "spark",
     "apps", "daily", "every", "missions", "status", "models", "stop", "lang", "help", "myid",
+    "about", "privacy",
     "access", "allow", "deny", "users",
 ]
 # Second names for a command that is on the page: the bot answers them, the page lists the first name.
-ALIASES = {"harness": "agent", "reset": "new", "search": "room", "mission": "lead"}
+ALIASES = {
+    "harness": "agent", "reset": "new", "search": "room", "mission": "lead",
+    "model": "models", "cancel": "stop", "version": "about",
+}
 # Every line of bot.js that touches the setup code. A new use has to be looked at and added here.
 SETUP_CODE_USES = [
     'let setupCode = "";',
@@ -290,6 +294,10 @@ def probe_answer():
         ],
         "news": {"ok": True, "stories": 60, "error": ""},
         "spark": {"ok": True, "loadMs": 180, "tokens": 63, "sample": "Once upon a time", "error": ""},
+        "voice": {
+            "ok": True, "model": "@cf/openai/whisper-large-v3-turbo", "heard": "The fourth planet from the sun is Mars.",
+            "bytes": 41332, "ms": 900, "error": "",
+        },
         "pages": [
             {"url": "https://example.com/", "ok": True, "via": "direct", "chars": 1256, "ms": 300},
             {"url": "https://shop.example/" + LONG, "ok": False, "ms": 800, "error": "HTTP 403"},
@@ -794,8 +802,8 @@ class GlowBotBrowserTests(unittest.TestCase):
         self.assertTrue(page.is_visible("#probe-details"))
         headings = page.locator("#probe-rows .probe-group h3").all_text_contents()
         self.assertEqual(headings, [self.words(page, f"bot.probe.group.{name}") for name in PROBE_GROUPS])
-        self.assertEqual(page.locator("#probe-rows li").count(), 12)
-        self.assertEqual(page.locator("#probe-rows li.ok").count(), 8)
+        self.assertEqual(page.locator("#probe-rows li").count(), 13)
+        self.assertEqual(page.locator("#probe-rows li.ok").count(), 9)
         self.assertEqual(page.locator("#probe-rows li.bad").count(), 4)
         listed = page.locator("#probe-rows li span.what").all_text_contents()
         self.assertIn("bing-rss", listed, "search routes are named without the 'search:' prefix")
@@ -829,7 +837,7 @@ class GlowBotBrowserTests(unittest.TestCase):
         # Without a controllable clock this simply waits out the page's real eight seconds.
         self.wait_for(page, "botProbe", "ready", timeout=15000)
         self.assertEqual(len(worker.sent("/v1/probe")), 2, "one more read, with nobody pressing anything")
-        self.assertEqual(page.locator("#probe-rows li").count(), 12)
+        self.assertEqual(page.locator("#probe-rows li").count(), 13)
         self.assert_clean()
 
     def test_a_probe_that_never_finishes_is_not_read_forever(self):
