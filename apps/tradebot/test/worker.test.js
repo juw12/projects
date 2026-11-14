@@ -9,17 +9,30 @@ import { sha256Hex } from "../src/util.js";
 import { FakeNamespace, binanceRows, fakeFetch, makeCandles, makeClock, reply } from "./fakes.js";
 
 const TOKEN = "123456789:AAfake_token_for_tests_only_0123456789";
+const TWIN_TOKEN = "555000111:AAtwin_token_for_tests_only_0123456789"; // the twin's own bot
 const SETUP_CODE = "open-sesame";
 const HOST = "https://trade-bot.test";
 const OWNER = 111;
 const STRANGER = 222;
 
 // The whole Worker with a pretend Telegram, pretend price sources and a clock moved by hand.
-async function harness() {
+// routes: extra pretend addresses for one test, asked before the usual ones.
+async function harness({ routes = [] } = {}) {
   const now = makeClock();
   const scene = { BTCUSDT: { trend: "up" }, ETHUSDT: { trend: "down" }, SOLUSDT: { trend: "down" } };
   const sent = []; // every Bot API call: { method, ...params }
+  const twinSent = []; // the same, for the twin's bot
   const fetch = fakeFetch([
+    ...routes,
+    [
+      `https://api.telegram.org/bot${TWIN_TOKEN}/`,
+      (url, init) => {
+        const method = url.split("/").pop();
+        twinSent.push({ method, ...JSON.parse(init.body) });
+        if (method === "getMe") return reply({ ok: true, result: { id: 888, username: "juwen_twin_bot", first_name: "TradeBot Twin" } });
+        return reply({ ok: true, result: method === "sendMessage" ? { message_id: twinSent.length } : true });
+      },
+    ],
     [
       `https://api.telegram.org/bot${TOKEN}/`,
       (url, init) => {
@@ -88,7 +101,26 @@ async function harness() {
     const { pairLink } = await connect();
     return say("/start " + pairLink.split("start=")[1]);
   };
-  return { now, scene, sent, fetch, env, storage, call, webhook, say, tap, round, connect, pair, texts };
+
+  // The twin: connect its bot, send a report as the PC would, and talk to its bot.
+  const twinConnect = async (body = { token: TWIN_TOKEN }) => {
+    const answer = await call("POST", "/v1/twin/setup", { headers: { "X-Setup-Code": SETUP_CODE }, body });
+    assert.equal(answer.status, 200, JSON.stringify(answer.body));
+    return answer.body;
+  };
+  const twinReport = (key, snapshot) => call("POST", "/v1/twin/report", { headers: key ? { "X-Twin-Key": key } : {}, body: snapshot });
+  const twinTexts = (from) => twinSent.slice(from).filter((entry) => entry.method === "sendMessage").map((entry) => entry.text).join("\n---\n");
+  const twinSay = async (text, from = OWNER, chat = { id: from, type: "private" }) => {
+    const twin = (await storage().get("twin")) || {};
+    const before = twinSent.length;
+    const answer = await call("POST", "/v1/twin/telegram", {
+      headers: { "X-Telegram-Bot-Api-Secret-Token": twin.secret },
+      body: { update_id: ++updateId, message: { message_id: 1, from: { id: from }, chat, text } },
+    });
+    assert.equal(answer.status, 200);
+    return twinTexts(before);
+  };
+  return { now, scene, sent, twinSent, fetch, env, storage, call, webhook, say, tap, round, connect, pair, texts, twinConnect, twinReport, twinTexts, twinSay };
 }
 
 test("before setup the worker is alive, unconfigured and trades practice money only", async () => {
@@ -97,7 +129,7 @@ test("before setup the worker is alive, unconfigured and trades practice money o
   assert.equal(status.status, 200);
   assert.deepEqual(
     { ...status.body, version: "x" },
-    { ok: true, service: "trade-bot", version: "x", build: "test", money: "practice", configured: false, bot: null, paired: false, running: false, lastRound: null, rupiah: null },
+    { ok: true, service: "trade-bot", version: "x", build: "test", money: "practice", configured: false, bot: null, paired: false, running: false, lastRound: null, rupiah: null, twin: { configured: false, bot: null, lastReportAt: null } },
   );
   assert.equal((await call("GET", "/nope")).status, 404);
   assert.equal((await call("POST", "/v1/telegram", { headers: { "X-Telegram-Bot-Api-Secret-Token": "guess" }, body: { update_id: 1 } })).status, 403);
@@ -360,4 +392,188 @@ test("typos and everyday words: showing is done with a note, acting is only offe
   assert.match(await say("hello"), /I only understand commands/);
   assert.match(await say("/nonsense"), /I only understand commands/);
   assert.match(await say("/constructor"), /I only understand commands/);
+});
+
+// ---------------------------------------------------------------- the twin's bot and the exchange check
+
+// What the PC's reporter sends (see freqtrade/twin_report.py).
+function twinSnapshot(extra = {}) {
+  return {
+    state: "running",
+    dryRun: true,
+    strategy: "TradeBotTrend",
+    exchange: "gate",
+    timeframe: "4h",
+    stake: "USDT",
+    maxOpen: 3,
+    balance: { total: 10000, free: 10000, start: 10000 },
+    profit: { closed: 0, all: 0, allPct: 0, trades: 0, closedTrades: 0, wins: 0, losses: 0 },
+    open: [],
+    closed: [],
+    ...extra,
+  };
+}
+
+test("the twin's bot: setup needs the code and a second bot, keeps waiting messages, and shows the report key once", async () => {
+  const { call, connect, twinConnect, twinReport, twinSent, sent, storage } = await harness();
+  assert.equal((await call("POST", "/v1/twin/setup", { body: { token: TWIN_TOKEN } })).status, 403);
+  assert.equal((await call("POST", "/v1/twin/setup", { headers: { "X-Setup-Code": "wrong" }, body: { token: TWIN_TOKEN } })).status, 403);
+  assert.equal((await call("POST", "/v1/twin/setup", { headers: { "X-Setup-Code": SETUP_CODE }, body: {} })).status, 400, "no token yet");
+  assert.equal((await call("POST", "/v1/twin/setup", { headers: { "X-Setup-Code": SETUP_CODE }, body: { token: "hello" } })).status, 400);
+
+  // TradeBot's own token cannot serve both bots: its webhook would be taken away.
+  await connect();
+  const mainCalls = sent.length;
+  const own = await call("POST", "/v1/twin/setup", { headers: { "X-Setup-Code": SETUP_CODE }, body: { token: TOKEN } });
+  assert.equal(own.status, 400);
+  assert.match(own.body.error, /TradeBot's own bot/);
+  assert.deepEqual(sent.slice(mainCalls).map((entry) => entry.method), ["getMe"], "TradeBot's webhook was not touched");
+
+  const first = await twinConnect();
+  assert.equal(first.bot.username, "juwen_twin_bot");
+  assert.equal(first.webhook, HOST + "/v1/twin/telegram");
+  assert.equal(first.ownerPaired, false);
+  assert.match(first.reportKey, /^[0-9a-f]{64}$/);
+  assert.equal(JSON.stringify(first).includes(TWIN_TOKEN), false);
+
+  const hook = twinSent.find((entry) => entry.method === "setWebhook");
+  const twin = await storage().get("twin");
+  assert.equal(hook.url, HOST + "/v1/twin/telegram");
+  assert.equal(hook.secret_token, twin.secret);
+  assert.deepEqual(hook.allowed_updates, ["message"]);
+  assert.equal("drop_pending_updates" in hook, false, "a /start sent while the bot was deaf still gets its answer");
+  assert.deepEqual(twinSent.find((entry) => entry.method === "setMyCommands").commands.map((entry) => entry.command), ["status", "profit", "trades", "help"]);
+
+  // Only the key's hash is kept.
+  assert.equal(JSON.stringify(twin).includes(first.reportKey), false);
+  assert.equal(twin.keyHash, await sha256Hex(first.reportKey));
+
+  const status = (await call("GET", "/v1/status")).body;
+  assert.deepEqual(status.twin, { configured: true, bot: "juwen_twin_bot", lastReportAt: null });
+  assert.equal(JSON.stringify(status).includes(TWIN_TOKEN), false);
+
+  // Setting up again (no token needed) keeps the key, so the PC's reporter keeps working.
+  const again = await twinConnect({});
+  assert.equal(again.reportKey, null);
+  assert.match(again.note, /still works/);
+  assert.equal((await twinReport(first.reportKey, twinSnapshot())).status, 200);
+  assert.equal((await storage().get("twin")).secret, twin.secret);
+
+  // A new key on request: the old one stops working.
+  const renewed = await twinConnect({ newKey: true });
+  assert.match(renewed.reportKey, /^[0-9a-f]{64}$/);
+  assert.notEqual(renewed.reportKey, first.reportKey);
+  assert.equal((await twinReport(first.reportKey, twinSnapshot())).status, 403);
+  assert.equal((await twinReport(renewed.reportKey, twinSnapshot())).status, 200);
+});
+
+test("twin reports: only the report key gets in, the numbers are kept, and buys and sells are told to the owner", async () => {
+  const { call, pair, twinConnect, twinReport, twinSent, twinTexts, sent, storage, now } = await harness();
+  assert.equal((await twinReport("a".repeat(64), twinSnapshot())).status, 403, "no twin connected yet");
+  await pair();
+  const { reportKey, ownerPaired } = await twinConnect();
+  assert.equal(ownerPaired, true);
+
+  assert.equal((await twinReport("", twinSnapshot())).status, 403);
+  assert.equal((await twinReport("b".repeat(64), twinSnapshot())).status, 403);
+  assert.equal((await twinReport(reportKey, [1, 2, 3])).status, 400);
+  const notJson = await call("POST", "/v1/twin/report", { headers: { "X-Twin-Key": reportKey } });
+  assert.equal(notJson.status, 400);
+  const huge = await twinReport(reportKey, twinSnapshot({ strategy: "x".repeat(40000) }));
+  assert.equal(huge.status, 413);
+  assert.equal((await storage().get("twin")).snapshot, null, "nothing refused was kept");
+
+  const mainCalls = sent.length;
+  const before = twinSent.length;
+  const first = await twinReport(reportKey, twinSnapshot({ secret: "not kept" }));
+  assert.deepEqual(first.body, { ok: true, at: now(), told: 0 });
+  assert.equal((await call("GET", "/v1/status")).body.twin.lastReportAt, now());
+  assert.equal("secret" in (await storage().get("twin")).snapshot, false);
+
+  const open = { id: 7, pair: "BTC/USDT", amount: 0.03, openRate: 100000, rate: 100500, stake: 3000, profit: 15, profitPct: 0.5, openedAt: now() };
+  now.advance(60000);
+  const bought = await twinReport(reportKey, twinSnapshot({ open: [open], balance: { total: 10015, free: 7000, start: 10000 } }));
+  assert.equal(bought.body.told, 1);
+  assert.match(twinTexts(before), /Twin bought BTC<\/b> · pretend money\n\$3,000\.00 at \$100,000\.00/);
+  assert.equal(twinSent[twinSent.length - 1].chat_id, OWNER);
+
+  now.advance(60000);
+  assert.equal((await twinReport(reportKey, twinSnapshot({ open: [open] }))).body.told, 0, "nothing changed, nothing said");
+
+  now.advance(60000);
+  const closed = { id: 7, pair: "BTC/USDT", profit: 120, profitPct: 4, closedAt: now(), reason: "exit_signal" };
+  const result = { closed: 120, all: 120, allPct: 1.2, trades: 1, closedTrades: 1, wins: 1, losses: 0 };
+  const sold = await twinReport(reportKey, twinSnapshot({ closed: [closed], profit: result }));
+  assert.equal(sold.body.told, 1);
+  assert.match(twinTexts(before), /Twin sold BTC<\/b>[\s\S]*Result: <b>\+\$120\.00<\/b> \(\+4[\s\S]*the rules said sell/);
+
+  assert.equal(sent.length, mainCalls, "TradeBot's own bot said nothing: the twin speaks through its own bot");
+});
+
+test("the twin's bot answers TradeBot's owner only, and says when the PC has gone quiet", async () => {
+  const { call, connect, say, twinConnect, twinReport, twinSay, twinSent, storage, now } = await harness();
+  const { pairLink } = await connect();
+  const { reportKey } = await twinConnect();
+  const twin = await storage().get("twin");
+  const update = (id, text) => ({ update_id: id, message: { message_id: 1, from: { id: OWNER }, chat: { id: OWNER, type: "private" }, text } });
+
+  // Telegram's secret is the only way in.
+  for (const secret of ["", "guess", (await storage().get("config")).secret]) {
+    const refused = await call("POST", "/v1/twin/telegram", { headers: { "X-Telegram-Bot-Api-Secret-Token": secret }, body: update(1, "/status") });
+    assert.equal(refused.status, 403);
+  }
+  assert.equal(twinSent.filter((entry) => entry.method === "sendMessage").length, 0);
+
+  // TradeBot has no owner yet, so the twin's bot has nobody to answer.
+  assert.match(await twinSay("/start"), /TradeBot has no owner yet/);
+  await say("/start " + pairLink.split("start=")[1]);
+
+  assert.match(await twinSay("/status", STRANGER), /This bot is private/);
+  assert.equal(await twinSay("/status", OWNER, { id: -500, type: "group" }), "", "groups are ignored");
+
+  // His /start from before the PC ever reported.
+  const hello = await twinSay("/start");
+  assert.match(hello, /TradeBot's twin/);
+  assert.match(hello, /I have not heard from the twin yet/);
+
+  assert.equal((await twinReport(reportKey, twinSnapshot())).status, 200);
+  const live = await twinSay("/status");
+  assert.match(live, /Value: <b>\$10,000\.00<\/b>/);
+  assert.match(live, /Last heard from the twin: just now\./);
+  assert.match(await twinSay("/profit"), /No trade has closed yet/);
+  assert.match(await twinSay("/forceexit all"), /I cannot buy, sell or stop it from here/);
+
+  now.advance(45 * 60000);
+  const old = await twinSay("/status");
+  assert.match(old, /⚠️ Last heard from the twin 45 minutes ago/);
+  assert.match(old, /these numbers are old/);
+
+  // Telegram repeats an update when the answer was slow: answered once.
+  const post = () => call("POST", "/v1/twin/telegram", { headers: { "X-Telegram-Bot-Api-Secret-Token": twin.secret }, body: update(77, "/help") });
+  const before = twinSent.length;
+  assert.deepEqual((await post()).body, { ok: true });
+  assert.deepEqual((await post()).body, { ok: true, duplicate: true });
+  assert.equal(twinSent.length - before, 1);
+});
+
+test("the exchange check asks the Indonesian exchanges from inside the worker and remembers the answer", async () => {
+  const { call, fetch } = await harness({
+    routes: [
+      ["https://indodax.com/api/ticker/btcidr", () => reply({ ticker: { last: "1734567000" } })],
+      ["https://indodax.com/tapi", () => reply({ success: 0, error: "Bad sign.", error_code: "invalid_credentials" })],
+      ["https://www.tokocrypto.com/", () => new Response("<html>blocked</html>", { status: 403 })],
+    ],
+  });
+  const answer = await call("GET", "/v1/venues");
+  assert.equal(answer.status, 200);
+  assert.equal(answer.body.ok, true);
+  assert.equal(answer.body.where, "SG/SIN");
+  assert.equal(answer.body.venues.Indodax.btcIdr, 1734567000);
+  assert.equal(answer.body.venues["Indodax orders"].ok, true);
+  assert.equal(answer.body.venues.Tokocrypto.ok, false);
+  assert.equal(answer.body.venues.Tokocrypto.status, 403);
+  assert.equal(answer.body.venues.Luno.ok, false);
+  const calls = fetch.calls.length;
+  await call("GET", "/v1/venues");
+  assert.equal(fetch.calls.length, calls, "a second look within five minutes costs nothing");
 });

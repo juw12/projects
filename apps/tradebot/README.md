@@ -174,6 +174,13 @@ they have not shown an edge.
 used open-source crypto bot, in dry run. It runs natively on Windows too (no Docker needed): `freqtrade/run-windows.ps1`. See
 `freqtrade/README.md`. The GitHub check "TradeBot twin" backtests it with freqtrade's own engine.
 
+The twin's Telegram bot can be answered from this Worker: `POST /v1/twin/setup` connects the
+second bot, and `freqtrade/twin_report.py` on the PC then sends the twin's numbers here once a
+minute (off until `TWIN_REPORT_KEY` is in the twin's `.env`). The bot shows `/status`, `/profit`
+and `/trades` to TradeBot's owner, says when the PC has gone quiet, and tells each buy and sell.
+It only shows: nothing is sent back to the PC. On an office network that blocks Telegram, check
+that sending the numbers out this way is allowed before switching reports on.
+
 ## Where the prices come from
 
 Finished candles from public market-data addresses, no account or key needed: Gate first, then
@@ -201,6 +208,10 @@ appears, every trade message says "practice", and no secret is printed.
 | `GET /v1/probe` | whether the Worker can read live prices from each source |
 | `POST /v1/setup` | owner only (setup code): connect a bot token, set the webhook, make a pairing link |
 | `POST /v1/telegram` | Telegram's webhook, checked with the secret Telegram sends back |
+| `GET /v1/venues` | which Indonesian exchanges answer from Cloudflare (public prices, no keys) |
+| `POST /v1/twin/setup` | owner only (setup code): connect the twin's bot, get the report key once |
+| `POST /v1/twin/report` | the PC's reporter (report key): what the twin is doing right now |
+| `POST /v1/twin/telegram` | Telegram's webhook for the twin's bot |
 
 One Durable Object holds the settings and the practice account; its alarm is the agent's clock.
 The bot token lives only inside that Durable Object, never in this repository or in logs.
@@ -216,6 +227,8 @@ check that the new build answers and can read prices.
 | `src/agent.js` | the 5-minute round, stops, limits, approvals |
 | `src/bot.js`, `src/render.js` | commands, typo handling and message text |
 | `src/index.js` | the Worker, the Durable Object, setup and pairing |
+| `src/twin.js` | the twin's bot: tidy a report, spot new trades, write the messages |
+| `src/venues.js` | which Indonesian exchanges answer from Cloudflare |
 | `tools/transcript.js` | the scripted chat used to review and test the wording |
 
 ## Real money (Tokocrypto, off by default)
@@ -232,6 +245,14 @@ It is built so that a mistake costs little:
 | Any order error | real copying stops at once (back to rehearsal) and you get a 🚨 message |
 
 **Known blocker (checked 13 Nov 2026):** Tokocrypto answers HTTP 403 to Cloudflare's servers (the same as Binance), while it answers normally from a home or office connection. So today `/v1/live` shows `"error": "... HTTP 403"` and real orders cannot leave the Worker; `/live shadow` still works because it sends nothing. If `/live on` is ever tried, the first failed order drops it back to shadow with a 🚨 message. The way round it is to send the orders from your own connection: freqtrade's exchange library has a Tokocrypto driver (markets and market orders load fine), run with `freqtrade/run-windows.ps1` on a PC at home.
+
+**Other Indonesian exchanges.** `GET /v1/venues` asks the licensed exchanges that give ordinary
+customers an API (Indodax, Luno, Upbit Indonesia, Reku for prices only, and Tokocrypto) from inside
+the Worker and shows which ones answer. No keys are sent and nothing is bought. Indodax refuses any
+caller whose name contains "bot" (HTTP 403), so the Worker introduces itself as `juw12-trade`.
+Real orders are still wired to Tokocrypto only; another exchange needs its own adapter first.
+Pintu, GoTrade, Stockbit and Pluang have no order API for ordinary customers, so no bot can trade
+through them.
 
 Three switches must all be on before a single real order is sent:
 

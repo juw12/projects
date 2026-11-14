@@ -6,6 +6,14 @@
 //   GET  /v1/live      real money: mode, whether the Worker is armed, and whether Tokocrypto answers from here
 //   POST /v1/setup     owner only (setup code): connect a Telegram bot token, set the webhook, make a pairing link
 //   POST /v1/telegram  Telegram's webhook (checked with the secret Telegram sends back)
+//   GET  /v1/venues    which Indonesian exchanges answer from Cloudflare (public prices, no keys)
+//
+// The twin (freqtrade on the owner's PC) has its own Telegram bot, answered from here with the
+// numbers the PC reports. Reports are off until the owner switches them on; the PC only sends
+// numbers, and nothing is ever sent back to it.
+//   POST /v1/twin/setup     owner only (setup code): connect the twin's bot, get the report key once
+//   POST /v1/twin/report    the PC's reporter (report key): what the twin is doing right now
+//   POST /v1/twin/telegram  Telegram's webhook for the twin's bot
 //
 // One Durable Object, the Trader, holds the bot's settings and the practice account. Its alarm
 // rings every 5 minutes: that is the agent's round. Everything it does happens one thing at a
@@ -24,13 +32,17 @@ import { refreshRate, rateOfState } from "./fx.js";
 import { SOURCE_NAMES, createMarket } from "./market.js";
 import * as render from "./render.js";
 import { createTelegram } from "./telegram.js";
+import { TWIN_COMMANDS, answer as twinAnswer, changes as twinChanges, cleanSnapshot } from "./twin.js";
 import { VERSION, clip, errorText, json, randomHex, safeEqual, sha256Hex } from "./util.js";
+import { probeVenues } from "./venues.js";
 
 const INSIDE = "https://trade-bot.internal"; // addresses used between the Worker and its Durable Object
 const PAIRING_GOOD_FOR_MS = 24 * 60 * 60 * 1000;
 const PROBE_GOOD_FOR_MS = 5 * 60 * 1000;
 const DESK_CHECK_GOOD_FOR_MS = 6 * 60 * 60 * 1000;
 const SEEN_UPDATES = 50;
+const TOKEN_SHAPE = /^\d{5,}:[A-Za-z0-9_-]{30,}$/; // what @BotFather hands out
+const REPORT_MAX_BYTES = 32 * 1024; // a twin report is a few hundred bytes; anything huge is not one
 
 function buildOf(env) {
   return String((env && env.BUILD) || "dev");
@@ -105,6 +117,10 @@ export function createWorker(overrides) {
       if (url.pathname === "/probe") return this.probe();
       if (url.pathname === "/desk") return this.deskCheck();
       if (url.pathname === "/live") return this.run(() => this.liveCheck());
+      if (url.pathname === "/venues") return this.venues();
+      if (url.pathname === "/twin/setup" && request.method === "POST") return this.run(() => this.twinSetup(body));
+      if (url.pathname === "/twin/report" && request.method === "POST") return this.run(() => this.twinReport(body));
+      if (url.pathname === "/twin/update" && request.method === "POST") return this.run(() => this.twinUpdate(body));
       return json({ ok: false, error: "not found" }, 404);
     }
 
@@ -130,6 +146,7 @@ export function createWorker(overrides) {
       if (soon || (await this.storage.getAlarm()) === null) await this.storage.setAlarm(deps.now() + (soon ? 0 : TICK_MS));
     }
 
+    // Send messages to the owner's chat. config = { token, chatId }: the twin passes its own token.
     async deliver(config, messages) {
       if (!config.token || !config.chatId) return;
       const telegram = createTelegram({ fetch: deps.fetch, token: config.token });
@@ -218,6 +235,7 @@ export function createWorker(overrides) {
       await this.rupiah(state);
       if (state.fx && state.fx.at !== before) await this.storage.put("state", state); // keep a fresh rate
       const alarm = await this.storage.getAlarm();
+      const twin = (await this.storage.get("twin")) || {};
       return json({
         configured: !!config.token,
         bot: config.bot ? config.bot.username : null,
@@ -225,7 +243,35 @@ export function createWorker(overrides) {
         running: !!config.ownerId && alarm !== null,
         lastRound: state.lastTick ? { at: state.lastTick.at, markets: state.lastTick.symbols, errors: state.lastTick.errors.length } : null,
         rupiah: state.fx ? { perUsdt: state.fx.rate, source: state.fx.source, at: state.fx.at } : null,
+        twin: { configured: !!twin.token, bot: twin.bot ? twin.bot.username : null, lastReportAt: twin.snapshotAt || null },
       });
+    }
+
+    // Country and Cloudflare site this object runs in ("SG/SIN"), or "" when that cannot be read.
+    async where() {
+      try {
+        const trace = await (await deps.fetch("https://www.cloudflare.com/cdn-cgi/trace", { signal: AbortSignal.timeout(5000) })).text();
+        return ["loc", "colo"].map((key) => (trace.match(new RegExp(`^${key}=(.+)$`, "m")) || [])[1] || "?").join("/");
+      } catch (error) {
+        return "";
+      }
+    }
+
+    // Which Indonesian exchanges answer from where this object runs. Kept 5 minutes.
+    async venues() {
+      const now = deps.now();
+      if (this.venuesSeen && now - this.venuesSeen.at < PROBE_GOOD_FOR_MS) return json(this.venuesSeen);
+      if (!this.venuesAsking) {
+        this.venuesAsking = (async () => {
+          const venues = await probeVenues({ fetch: deps.fetch });
+          const where = await this.where();
+          this.venuesSeen = { ok: Object.values(venues).some((venue) => venue.ok), at: deps.now(), where, venues };
+          return this.venuesSeen;
+        })().finally(() => {
+          this.venuesAsking = null;
+        });
+      }
+      return json(await this.venuesAsking);
     }
 
     // Ask every price source for a few BTC candles, from where this object runs.
@@ -244,13 +290,7 @@ export function createWorker(overrides) {
               sources[name] = { ok: false, error: clip(errorText(error), 200), ms: Date.now() - started };
             }
           }
-          let where = "";
-          try {
-            const trace = await (await deps.fetch("https://www.cloudflare.com/cdn-cgi/trace", { signal: AbortSignal.timeout(5000) })).text();
-            where = ["loc", "colo"].map((key) => (trace.match(new RegExp(`^${key}=(.+)$`, "m")) || [])[1] || "?").join("/");
-          } catch (error) {
-            where = "";
-          }
+          const where = await this.where();
           this.probed = { ok: Object.values(sources).some((source) => source.ok), at: deps.now(), where, sources };
           return this.probed;
         })().finally(() => {
@@ -288,7 +328,7 @@ export function createWorker(overrides) {
     async setup(body) {
       const config = await this.config();
       const token = String(body.token || config.token || "").trim();
-      if (!/^\d{5,}:[A-Za-z0-9_-]{30,}$/.test(token)) {
+      if (!TOKEN_SHAPE.test(token)) {
         return json({ ok: false, error: "That does not look like a bot token from @BotFather." }, 400);
       }
       const telegram = createTelegram({ fetch: deps.fetch, token });
@@ -396,6 +436,111 @@ export function createWorker(overrides) {
       await this.deliver({ ...config, chatId: chat.id }, result.messages || []);
       return json({ ok: true });
     }
+
+    // ---------------------------------------------------------------- the twin's bot
+
+    // Connect the twin's own Telegram bot here. The answer holds the report key, shown once: the
+    // PC's reporter needs it, and only its SHA-256 is kept.
+    async twinSetup(body) {
+      const config = await this.config();
+      const twin = (await this.storage.get("twin")) || {};
+      const token = String(body.token || twin.token || "").trim();
+      if (!TOKEN_SHAPE.test(token)) {
+        return json({ ok: false, error: "That does not look like a bot token from @BotFather." }, 400);
+      }
+      const telegram = createTelegram({ fetch: deps.fetch, token });
+      let me;
+      try {
+        me = await telegram.call("getMe");
+      } catch (error) {
+        return json({ ok: false, error: "Telegram did not accept the token: " + clip(errorText(error), 160) }, 400);
+      }
+      if (config.bot && config.bot.id === me.id) {
+        return json({ ok: false, error: "That is TradeBot's own bot. The twin needs a second bot from @BotFather." }, 400);
+      }
+      const sameBot = twin.bot && twin.bot.id === me.id;
+      const keepKey = sameBot && twin.keyHash && !body.newKey;
+      const reportKey = keepKey ? null : randomHex(32);
+      const next = {
+        token,
+        bot: { id: me.id, username: me.username, name: me.first_name },
+        secret: sameBot && twin.secret ? twin.secret : randomHex(24),
+        keyHash: keepKey ? twin.keyHash : await sha256Hex(reportKey),
+        snapshot: sameBot ? twin.snapshot || null : null,
+        snapshotAt: sameBot ? twin.snapshotAt || null : null,
+        connectedAt: deps.now(),
+      };
+      try {
+        // Waiting messages are kept on purpose: a /start sent while the bot was deaf gets its answer.
+        await telegram.call("setWebhook", { url: body.webhookUrl, secret_token: next.secret, allowed_updates: ["message"] });
+        await telegram.call("setMyCommands", { commands: TWIN_COMMANDS });
+      } catch (error) {
+        return json({ ok: false, error: "Telegram refused the webhook: " + clip(errorText(error), 160) }, 502);
+      }
+      await this.storage.put("twin", next);
+      return json({
+        ok: true,
+        bot: { username: me.username, name: me.first_name },
+        webhook: body.webhookUrl,
+        ownerPaired: !!config.ownerId,
+        reportKey,
+        note: reportKey ? "Put reportKey in the twin's .env as TWIN_REPORT_KEY. It is not shown again." : "The report key from the first setup still works. Send newKey: true for a new one.",
+      });
+    }
+
+    // A report from the PC: { key, snapshot }. Stored, and trades that opened or closed are told.
+    async twinReport(body) {
+      const twin = await this.storage.get("twin");
+      const given = typeof body.key === "string" ? body.key : "";
+      if (!twin || !twin.keyHash || !given || !safeEqual(await sha256Hex(given), twin.keyHash)) {
+        return json({ ok: false, error: "not allowed" }, 403);
+      }
+      const snapshot = cleanSnapshot(body.snapshot);
+      if (!snapshot) return json({ ok: false, error: "That is not a twin report." }, 400);
+      await this.state(); // amounts are written in rupiah once a rate is known
+      const messages = twinChanges(twin.snapshot, snapshot);
+      const now = deps.now();
+      await this.storage.put("twin", { ...twin, snapshot, snapshotAt: now }); // saved before anything is sent
+      const config = await this.config();
+      await this.deliver({ token: twin.token, chatId: config.chatId }, messages);
+      return json({ ok: true, at: now, told: messages.length });
+    }
+
+    // An update from Telegram for the twin's bot: { secret, update }. It answers TradeBot's owner
+    // only, and it only shows: no message here can reach the PC.
+    async twinUpdate(body) {
+      const twin = await this.storage.get("twin");
+      if (!twin || !twin.token || !twin.secret || !body.secret || !safeEqual(body.secret, twin.secret)) {
+        return json({ ok: false, error: "not allowed" }, 403);
+      }
+      const update = body.update || {};
+      const id = Number(update.update_id);
+      const { from, chat, text } = senderOf(update);
+      if (!Number.isSafeInteger(id) || !from || !chat || from.is_bot) return json({ ok: true, ignored: true });
+
+      const seen = (await this.storage.get("twinSeen")) || [];
+      if (seen.includes(id)) return json({ ok: true, duplicate: true });
+      await this.storage.put("twinSeen", [...seen, id].slice(-SEEN_UPDATES));
+      if (chat.type !== "private") return json({ ok: true, ignored: "not a private chat" });
+
+      const config = await this.config();
+      const telegram = createTelegram({ fetch: deps.fetch, token: twin.token });
+      const say = (html) =>
+        telegram.send(chat.id, html).catch((error) => {
+          console.log("twin message not sent: " + clip(errorText(error), 200));
+        });
+      if (!config.ownerId) {
+        await say("This bot works for TradeBot's owner, and TradeBot has no owner yet. Pair TradeBot first.");
+        return json({ ok: true, allowed: false });
+      }
+      if (from.id !== config.ownerId) {
+        await say("This bot is private. It only works for its owner.");
+        return json({ ok: true, allowed: false });
+      }
+      await this.state(); // amounts are written in rupiah once a rate is known
+      await say(twinAnswer(text, { snapshot: twin.snapshot || null, at: twin.snapshotAt || 0, now: deps.now() }).html);
+      return json({ ok: true });
+    }
   }
 
   async function route(request, env) {
@@ -443,6 +588,43 @@ export function createWorker(overrides) {
       const update = await request.json().catch(() => null);
       if (!secret) return json({ ok: false, error: "not allowed" }, 403);
       const answer = await trader.fetch(post("/update", { secret, update: update || {} }));
+      return json(await answer.json(), answer.status);
+    }
+
+    if (request.method === "GET" && path === "/v1/venues") {
+      const answer = await trader.fetch(new Request(INSIDE + "/venues"));
+      return json(await answer.json(), answer.status);
+    }
+
+    if (request.method === "POST" && path === "/v1/twin/setup") {
+      if (!(await hasSetupCode(request, env))) return json({ ok: false, error: "Setting up the twin's bot needs the setup code." }, 403);
+      const body = await request.json().catch(() => ({}));
+      const answer = await trader.fetch(
+        post("/twin/setup", { token: body.token, newKey: !!body.newKey, webhookUrl: `${url.origin}/v1/twin/telegram` }),
+      );
+      return json(await answer.json(), answer.status);
+    }
+
+    if (request.method === "POST" && path === "/v1/twin/report") {
+      const key = request.headers.get("X-Twin-Key") || "";
+      if (!key) return json({ ok: false, error: "not allowed" }, 403);
+      const text = await request.text();
+      if (text.length > REPORT_MAX_BYTES) return json({ ok: false, error: "That report is too big." }, 413);
+      let snapshot = null;
+      try {
+        snapshot = JSON.parse(text);
+      } catch (error) {
+        return json({ ok: false, error: "That is not a twin report." }, 400);
+      }
+      const answer = await trader.fetch(post("/twin/report", { key, snapshot }));
+      return json(await answer.json(), answer.status);
+    }
+
+    if (request.method === "POST" && path === "/v1/twin/telegram") {
+      const secret = request.headers.get("X-Telegram-Bot-Api-Secret-Token") || "";
+      const update = await request.json().catch(() => null);
+      if (!secret) return json({ ok: false, error: "not allowed" }, 403);
+      const answer = await trader.fetch(post("/twin/update", { secret, update: update || {} }));
       return json(await answer.json(), answer.status);
     }
 

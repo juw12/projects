@@ -1,6 +1,10 @@
 // Small shared helpers for the TradeBot Worker. No dependencies.
 
-export const VERSION = "0.5.0";
+export const VERSION = "0.6.0";
+
+// How the Worker names itself to exchanges. Indodax answers 403 to any name with "bot" in it,
+// and that includes this Worker's own address, so the name carries no link.
+export const USER_AGENT = "juw12-trade/0.6";
 
 // Cut text to a maximum length, marking the cut with one ellipsis character.
 export function clip(text, max) {
