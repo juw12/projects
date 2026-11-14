@@ -1,6 +1,6 @@
 // Small shared helpers for the GlowBot Worker. No dependencies.
 
-export const VERSION = "1.33.0";
+export const VERSION = "1.34.0";
 
 // The made-up address one part of the bot uses to call another through a binding.
 export const INSIDE = "https://glow-bot.internal";

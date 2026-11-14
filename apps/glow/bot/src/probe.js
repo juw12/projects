@@ -2,7 +2,7 @@
 // once from where the bot really runs. The answers decide which models the bot asks first, and the
 // GlowBot page shows them so anyone can see what is working right now.
 
-import { AI_MODELS, KEYLESS, askEntry } from "./models.js";
+import { AI_MODELS, KEYLESS, askEntry, isPlanError } from "./models.js";
 import { createSpark } from "./spark.js";
 import { clip, errorText, inBatches, withTimeout } from "./util.js";
 import { transcribeBytes } from "./voice.js";
@@ -26,6 +26,13 @@ const PAGE_TEXT_ENOUGH = 400; // fewer characters than this is a cookie wall or 
 const VOICE_SAMPLE = "/bot/voice-check.ogg";
 const VOICE_SAYS = /\bmars\b/i;
 const AT_ONCE = 4; // a Worker may only have six connections waiting at once
+// Cloudflare's free plan ends a run at 50 calls out of the Worker, and a call to Workers AI is one of
+// them (measured: with 22 models on the list the check ran out and the model list was refused). So
+// every model is asked once in the chat form first, and the second request form is only tried for a
+// model that failed while calls are left. What is kept back covers a site that redirects and the
+// few second tries already under way.
+const CALLS_ALLOWED = 50;
+const CALLS_KEPT_BACK = 8;
 
 function oneLine(text, max) {
   return clip(String(text == null ? "" : text).replace(/\s+/g, " ").trim(), max);
@@ -34,8 +41,21 @@ function oneLine(text, max) {
 // runProbe({ fetch, ai, now, glowPages, providers, aiModels, pages, timeoutMs }) -> the report (it never throws)
 export async function runProbe(options) {
   const settings = options || {};
-  const send = settings.fetch || ((input, init) => fetch(input, init));
+  const plainSend = settings.fetch || ((input, init) => fetch(input, init));
   const now = settings.now || (() => Date.now());
+  // Every call out of the Worker is counted, whoever makes it.
+  let calls = 0;
+  const send = (input, init) => {
+    calls += 1;
+    return plainSend(input, init);
+  };
+  const ai = settings.ai && {
+    run(model, inputs) {
+      calls += 1;
+      return settings.ai.run(model, inputs);
+    },
+  };
+  const callsToSpare = () => calls < (settings.callsAllowed || CALLS_ALLOWED) - CALLS_KEPT_BACK;
   const timeoutMs = settings.timeoutMs || 25000;
   const glowPages = String(settings.glowPages || "https://juw12.github.io/projects/glow").replace(/\/+$/, "");
   const providers = settings.providers || KEYLESS;
@@ -49,6 +69,7 @@ export async function runProbe(options) {
   const report = {
     at: started,
     ms: 0,
+    calls: 0,
     providers: new Array(providers.length).fill(null),
     ai: new Array(aiModels.length).fill(null),
     aiModelList: null,
@@ -59,6 +80,25 @@ export async function runProbe(options) {
     voice: null,
   };
   const tasks = [];
+
+  // Which text models this account can really call, so the list above can be kept honest.
+  if (settings.ai && typeof settings.ai.models === "function") {
+    tasks.push(async () => {
+      try {
+        calls += 1;
+        const listed = await withTimeout(() => settings.ai.models({ per_page: 200 }), 15000, "Workers AI model list");
+        const all = Array.isArray(listed) ? listed : [];
+        report.aiModelList = {
+          total: all.length,
+          textGeneration: all
+            .filter((model) => /text generation/i.test(String((model && model.task && model.task.name) || "")))
+            .map((model) => String(model.name || model.id)),
+        };
+      } catch (error) {
+        report.aiModelList = { error: oneLine(errorText(error), 160) };
+      }
+    });
+  }
 
   providers.forEach((entry, index) => {
     tasks.push(async () => {
@@ -88,32 +128,30 @@ export async function runProbe(options) {
     });
   });
 
+  // Each Workers AI model, in the chat form. A model that fails is listed for a second try further down.
+  const secondTries = [];
+  const aiRow = (entry, began, answer, error) => ({
+    id: entry.id,
+    model: entry.model,
+    ok: Boolean(answer),
+    ms: now() - began,
+    shape: answer ? answer.shape : "",
+    field: answer ? answer.field : "",
+    sample: answer ? oneLine(answer.text, 60) : "",
+    error: answer ? "" : oneLine(error, 240),
+  });
   aiModels.forEach((entry, index) => {
     tasks.push(async () => {
       const began = now();
       try {
-        const answer = await askEntry(entry, request, { ai: settings.ai, timeoutMs, shapes: ["messages", "responses"] });
-        report.ai[index] = {
-          id: entry.id,
-          model: entry.model,
-          ok: true,
-          ms: now() - began,
-          shape: answer.shape,
-          field: answer.field,
-          sample: oneLine(answer.text, 60),
-          error: "",
-        };
+        const answer = await askEntry(entry, request, { ai, timeoutMs, shapes: ["messages"] });
+        report.ai[index] = aiRow(entry, began, answer);
       } catch (error) {
-        report.ai[index] = {
-          id: entry.id,
-          model: entry.model,
-          ok: false,
-          ms: now() - began,
-          shape: "",
-          field: "",
-          sample: "",
-          error: oneLine(errorText(error), 240),
-        };
+        report.ai[index] = aiRow(entry, began, null, errorText(error));
+        // Another form cannot help when the model was too slow, is out of its free allowance, or is not
+        // part of the account's plan.
+        const formMayBeWrong = !(error && (error.name === "TimeoutError" || error.quota || error.plan || isPlanError(error)));
+        if (formMayBeWrong) secondTries.push({ entry, index, began, first: errorText(error) });
       }
     });
   });
@@ -214,7 +252,7 @@ export async function runProbe(options) {
           "voice sample",
         );
         row.bytes = bytes.length;
-        const heard = await transcribeBytes({ ai: settings.ai, bytes, timeoutMs });
+        const heard = await transcribeBytes({ ai, bytes, timeoutMs });
         row.model = heard.model;
         row.heard = oneLine(heard.text, 120);
         row.ok = VOICE_SAYS.test(heard.text);
@@ -227,25 +265,29 @@ export async function runProbe(options) {
     });
   }
 
-  // Which text models this account can really call, so the list above can be kept honest.
-  if (settings.ai && typeof settings.ai.models === "function") {
-    tasks.push(async () => {
-      try {
-        const listed = await withTimeout(() => settings.ai.models({ per_page: 200 }), 15000, "Workers AI model list");
-        const all = Array.isArray(listed) ? listed : [];
-        report.aiModelList = {
-          total: all.length,
-          textGeneration: all
-            .filter((model) => /text generation/i.test(String((model && model.task && model.task.name) || "")))
-            .map((model) => String(model.name || model.id)),
-        };
-      } catch (error) {
-        report.aiModelList = { error: oneLine(errorText(error), 160) };
-      }
-    });
-  }
-
   await inBatches(tasks, AT_ONCE);
+
+  // The second request form (the one OpenAI's newer API uses), for the models the chat form did not work
+  // for. Each row says what both forms answered, or that the second was not tried.
+  secondTries.sort((one, other) => one.index - other.index);
+  await inBatches(
+    secondTries.map((failed) => async () => {
+      const both = (second) => `messages: ${failed.first} | responses: ${second}`;
+      if (!callsToSpare()) {
+        report.ai[failed.index] = aiRow(failed.entry, failed.began, null, both("not tried, to stay inside the free plan's calls"));
+        return;
+      }
+      try {
+        const answer = await askEntry(failed.entry, request, { ai, timeoutMs, shapes: ["responses"] });
+        report.ai[failed.index] = aiRow(failed.entry, failed.began, answer);
+      } catch (error) {
+        report.ai[failed.index] = aiRow(failed.entry, failed.began, null, both(errorText(error)));
+      }
+    }),
+    AT_ONCE,
+  );
+
+  report.calls = calls;
   report.ms = now() - started;
   return report;
 }

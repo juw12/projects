@@ -4,6 +4,7 @@ import { test } from "node:test";
 
 import * as entry from "../src/index.js";
 import { AI_MODELS, KEYLESS } from "../src/models.js";
+import { runProbe } from "../src/probe.js";
 import { REGISTRY_NAME } from "../src/registry.js";
 import { SELFTEST_NOTE } from "../src/selftest.js";
 import { VERSION, sha256Hex } from "../src/util.js";
@@ -385,6 +386,12 @@ function pretendWorkersAi(heard = { text: VOICE_HEARD }) {
       },
       "@cf/meta/llama-3.3-70b-instruct-fp8-fast": { response: "pong", usage: { total_tokens: 12 } },
       "@cf/qwen/qwen3-30b-a3b-fp8": { choices: [{ message: { content: "pong", reasoning_content: "One word." } }] },
+      "@cf/qwen/qwen3.8-27b": { response: "pong" },
+      "@cf/google/gemma-4-26b-a4b-it": { response: "pong" },
+      "@cf/nvidia/nemotron-3-120b-a12b": { response: "pong" },
+      "@cf/qwen/qwen2.5-coder-32b-instruct": { response: "pong" },
+      "@cf/qwen/qwq-32b": { response: "pong" },
+      "@cf/aisingapore/gemma-sea-lion-v4-27b-it": { response: "pong" },
       // Refuses the chat form and only answers the newer one: the check must find that out.
       "@cf/openai/gpt-oss-20b": (inputs) => {
         if (inputs.messages) throw new Error("5006: Error: oneOf at '/' not met");
@@ -483,13 +490,16 @@ test("the health check runs in the alarm and reports every model and every route
   assert.equal(result.spark.parameters, SPARK_META.parameters);
   assert.ok(result.spark.tokens >= 40 && result.spark.sample.length > 10);
 
-  // Cloudflare's free plan allows 50 fetches per run; the check must stay far below that.
-  // One for each keyless model, 2 searches, 2 reads of the test page, 1 news, 2 GlowSpark files, 4 for
-  // the three ordinary pages (the refused one is tried twice), and 1 for the voice sample.
+  // Cloudflare's free plan allows 50 calls out of the Worker per run, and a call to Workers AI is one of
+  // them, so the check counts every call it makes and must end below that.
+  // Fetches: one for each keyless model, 2 searches, 2 reads of the test page, 1 news, 2 GlowSpark files,
+  // 4 for the three ordinary pages (the refused one is tried twice), and 1 for the voice sample.
   assert.equal(send.calls.length, KEYLESS.length + 12);
   assert.ok(send.calls.length <= 25, "half of the 50 at most, however long the list of models grows");
   // Each text model is asked in at most two forms; the voice sample costs one call more.
   assert.ok(ai.calls.length <= 2 * AI_MODELS.length + 1);
+  assert.equal(result.calls, send.calls.length + ai.calls.length + 1, "every fetch, every model call and the model list");
+  assert.ok(result.calls <= 45, `${result.calls} calls, with room left under the 50 allowed`);
 
   // The bot can hear: the sample went to Whisper as base64 and the transcript names its subject.
   assert.deepEqual(result.voice, {
@@ -502,6 +512,36 @@ test("the health check runs in the alarm and reports every model and every route
   });
   const heardBy = ai.calls.filter((entry) => entry.model.startsWith("@cf/openai/whisper"));
   assert.deepEqual(heardBy.map((entry) => entry.inputs), [{ audio: btoa(String.fromCharCode(...VOICE_SAMPLE)), task: "transcribe" }]);
+});
+
+test("the health check stops trying second forms before the free plan's calls run out", async () => {
+  // Twenty-four models that all refuse the chat form: asking each one twice would take 48 calls, on top
+  // of the dozen fetches the rest of the check makes.
+  const many = Array.from({ length: 24 }, (unused, index) => ({
+    id: `ai-test-${index}`,
+    kind: "ai",
+    label: "Workers AI",
+    model: `@cf/test/model-${index}`,
+    name: `Test ${index}`,
+    shape: "messages",
+  }));
+  const ai = fakeAi({}, [{ id: "1", name: "@cf/test/model-0", task: { name: "Text Generation" } }]);
+  const send = fakeFetch(PRETEND_INTERNET);
+  const result = await runProbe({ fetch: send, ai, glowPages: PAGES, providers: [], aiModels: many, now: makeClock() });
+
+  assert.ok(result.calls < 50, `${result.calls} calls`);
+  assert.equal(send.calls.length, 12, "the fetches that are not for a model");
+  assert.equal(result.calls, send.calls.length + ai.calls.length + 1, "every fetch, every model call and the model list");
+  assert.deepEqual(result.aiModelList, { total: 1, textGeneration: ["@cf/test/model-0"] }, "the model list is asked for before the models");
+  assert.deepEqual(result.ai.map((row) => row.id), many.map((entry) => entry.id), "every model has its row");
+  assert.ok(result.ai.every((row) => !row.ok && /^messages: 5007: No such model/.test(row.error)));
+  const notTried = result.ai.filter((row) => /responses: not tried, to stay inside the free plan's calls$/.test(row.error));
+  const triedTwice = result.ai.filter((row) => /\| responses: 5007/.test(row.error));
+  assert.ok(notTried.length > 0, "the calls ran out, and the rows say so");
+  assert.ok(triedTwice.length > 0, "the calls that were left were used");
+  assert.equal(notTried.length + triedTwice.length, many.length);
+  const heard = ai.calls.filter((entry) => entry.model.startsWith("@cf/openai/whisper")).length;
+  assert.equal(ai.calls.length, many.length + triedTwice.length + heard, "one call each, the second tries, and the voice sample");
 });
 
 test("without the AI binding the check still runs, on the keyless models alone", async () => {

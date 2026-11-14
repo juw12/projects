@@ -7,6 +7,7 @@ import {
   ModelsBusyError,
   askEntry,
   createModels,
+  isPlanError,
   isQuotaError,
   readAiOutput,
   retryAfterMs,
@@ -42,11 +43,16 @@ test("the built-in lists are well formed and take their addresses from the Glow 
   }
 });
 
-test("the list offers the newest free DeepSeek and Qwen models, and every one fits a Telegram button", () => {
+test("the list offers the newest free Qwen models and none Cloudflare charges for, and every one fits a Telegram button", () => {
   const all = KEYLESS.concat(AI_MODELS);
   const served = all.map((entry) => entry.model.toLowerCase());
-  assert.ok(served.some((model) => model.includes("deepseek")), "a DeepSeek model is on the list");
   assert.ok(served.some((model) => /qwen3\.[5-9]/.test(model)), "a Qwen model of the 3.5 line or newer is on the list");
+  assert.ok(AI_MODELS.some((entry) => /qwen3\.[5-9]/i.test(entry.model)), "and one of them runs on Workers AI");
+  // The live check answered 5035 (not on the Workers Free plan) for each of these families.
+  const paidOnly = /^@cf\/(?:deepseek-ai|moonshotai|zai-org|thinkingmachines)\//;
+  for (const entry of AI_MODELS) {
+    assert.doesNotMatch(entry.model, paidOnly, `${entry.id} is not a model the free plan refuses`);
+  }
 
   // Telegram allows 64 bytes of data on a button and 100 buttons under one message.
   const bytes = (text) => new TextEncoder().encode(text).length;
@@ -306,6 +312,28 @@ test("the daily allowance running out rests every Workers AI model at once", asy
   assert.equal(ai.calls.length, 1, "the second Workers AI model was not asked");
   assert.equal(models.state.cooldown["ai-a"], now() + 30 * 60 * 1000);
   assert.equal(models.state.cooldown["ai-b"], now() + 30 * 60 * 1000);
+});
+
+test("a model the plan does not include is not asked in a second form", async () => {
+  const PLAN = "AiError: 5035: Model @cf/test/a is not available on the Workers Free plan";
+  assert.ok(isPlanError(new Error(PLAN)));
+  assert.ok(isPlanError("not available on the Workers Free plan"));
+  assert.ok(!isPlanError(new Error("5007: No such model")));
+  assert.ok(!isPlanError(new Error(QUOTA)));
+
+  const request = { messages: HELLO.messages, temperature: 0, maxTokens: 50 };
+  const paid = fakeAi({
+    "@cf/test/a": () => {
+      throw new Error(PLAN);
+    },
+  });
+  await assert.rejects(askEntry(AI_A, request, { ai: paid, timeoutMs: 1000, shapes: ["messages", "responses"] }), (error) => {
+    assert.equal(error.plan, true);
+    assert.match(error.message, /5035/);
+    assert.doesNotMatch(error.message, /responses:/, "the second form was not tried");
+    return true;
+  });
+  assert.equal(paid.calls.length, 1);
 });
 
 test("the health check can try both request forms and says which one worked", async () => {

@@ -47,7 +47,7 @@ About the secrets:
 | `/stop` | Stops the running job. `/cancel` is the same. |
 | `/lang` | Changes the language (English, Bahasa Indonesia, 简体中文, 繁體中文). |
 | `/new` | Forgets the plain chat so far. `/reset` is the same. Schedules, past missions and notes stay. |
-| `/models` | Which free models answer right now, with a button for each one. Tap one and it answers first; the others still step in when it is busy. `/model <name>` does the same by name and `/model auto` lets the bot choose again. |
+| `/models` | Which free models answer right now, with a button for each one. Tap one and it answers first; the others still step in when it is busy. `/model <number>` or `/model <name>` does the same by typing, and `/model auto` lets the bot choose again. |
 | `/myid` | Your Telegram id and this chat's id. |
 | `/help` | Everything it can do. |
 | `/about` | The bot's version and its links. `/version` is the same. |

@@ -24,7 +24,7 @@ const DRESS_RETRY_MS = 60 * 60 * 1000; // a dress-up that left warnings is tried
 const DRESS_TRIES = 3; // and at most this often for one version
 const PROFILE_FRESH_MS = 5 * 60 * 1000;
 // The one version whose arrival the owner is told about ("about.whatsnew" describes this version).
-export const NEWS_VERSION = "1.33.0";
+export const NEWS_VERSION = "1.34.0";
 const GROUP_TYPES = ["group", "supergroup", "channel"];
 
 // Telegram's language codes for the command menu and the profile texts. "" is the default,
