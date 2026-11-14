@@ -2,7 +2,7 @@
 
 1. In Telegram, talk to @BotFather: /newbot, pick a name and a username ending in "bot".
    BotFather answers with a token like 123456789:AA...
-2. Run this script. It asks for that token and your setup code (the same one GlowBot uses;
+2. Run this script. It asks for that token and your setup code (TradeBot's own, or GlowBot's;
    nothing is saved or printed), tells the Worker to take the bot over, and prints a one-time
    pairing link.
 3. Open the link on your phone and tap Start: you become the bot's owner and the agent starts.

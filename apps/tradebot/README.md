@@ -15,7 +15,7 @@ It is not financial advice. See "Real money" at the bottom.
 
        python apps/tradebot/tools/connect_telegram.py
 
-   It asks for that token and your setup code (the same one GlowBot uses). Both are typed hidden
+   It asks for that token and your setup code (TradeBot's own, or the one GlowBot uses). Both are typed hidden
    and saved nowhere on the PC. It prints a one-time pairing link.
 3. Open the pairing link on your phone and tap **Start**. You are now the owner, and the agent
    starts its first round right away.

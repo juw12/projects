@@ -20,9 +20,9 @@ binding = "AI"
 # To allow it: set this to "enabled", add the secrets TOKO_API_KEY and TOKO_API_SECRET
 # (wrangler secret put ...), deploy, then send /live on confirm in Telegram.
 LIVE_TRADING = "off"
-# SHA-256 of the owner's setup code (the same code GlowBot uses today).
-# The code itself is never stored anywhere in this repository.
-SETUP_CODE_SHA256 = "d901087b5e987d9ca90ee12e169fc097bc0195e58b866824f6ea245846aaf3e3"
+# SHA-256 of the owner's setup codes, comma-separated: GlowBot's code, then TradeBot's own code
+# (added 14 Nov 2026). The codes themselves are never stored anywhere in this repository.
+SETUP_CODE_SHA256 = "d901087b5e987d9ca90ee12e169fc097bc0195e58b866824f6ea245846aaf3e3,7ecc38d3ca5d669e9926e85bffae71fbcff021cf04be6f0688f748581b045b5c"
 
 [observability]
 enabled = true
