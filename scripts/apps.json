@@ -3303,6 +3303,50 @@
       "status": "released",
       "order": 75,
       "portfolio": true
+    },
+    {
+      "id": "sumber",
+      "name": "Sumber",
+      "category": "Apps",
+      "external": true,
+      "url": "https://juw12.github.io/sumber/",
+      "url_label": "Open site",
+      "desc": "Search the sources. Nothing generated, nothing sponsored.",
+      "summary": "Search eight public libraries at once; every result is quoted word for word and shows why it ranks.",
+      "description": "A search page for questions where the source matters. One query goes from your browser to eight public libraries (Wikipedia, Stack Exchange, Hacker News, GitHub, OpenAlex, Europe PMC, Internet Archive, Open Library). Results are ranked with a formula printed on the page and quoted word for word. No server, no account, no generated text.",
+      "tags": [
+        "federated-search",
+        "no-ai",
+        "privacy",
+        "pwa",
+        "search-engine"
+      ],
+      "note_tags": [
+        "sumber",
+        "federated-search",
+        "no-ai",
+        "privacy",
+        "pwa",
+        "search-engine"
+      ],
+      "image": "sumber-card.jpg",
+      "image_alt": "Sumber home page: a search box under the name Sumber, lens tabs, a Before AI switch and five example searches",
+      "extra_links": [
+        {
+          "label": "Source",
+          "url": "https://github.com/juw12/sumber"
+        }
+      ],
+      "card": {
+        "label": "Sumber · home",
+        "capture": "https://juw12.github.io/sumber/",
+        "theme": "dark",
+        "accent": "#b95c4f",
+        "accent2": "#9e902f"
+      },
+      "status": "released",
+      "order": 76,
+      "portfolio": true
     }
   ]
 }
