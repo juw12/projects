@@ -201,6 +201,33 @@ test("a finished check is reused for six hours, or until the Worker is deployed 
   assert.equal(probe.runs, 3);
 });
 
+test("a check that never got its voice sample is run again after five minutes, not six hours", async () => {
+  const missing = { ok: false, model: "", heard: "", bytes: 0, ms: 0, error: "the sample answered HTTP 404" };
+  const heard = { ok: true, model: "whisper", heard: "Mars", bytes: 9, ms: 0, error: "" };
+  const probe = async (options) => {
+    probe.runs += 1;
+    return { at: options.now(), ms: 0, run: probe.runs, voice: probe.runs === 1 ? missing : heard };
+  };
+  probe.runs = 0;
+  const { call, env, now } = await setUp({ probe });
+  await call("/v1/probe");
+  await env.CHAT.runAlarms();
+
+  now.advance(5 * 60 * 1000 - 1);
+  assert.equal((await call("/v1/probe")).body.running, false);
+  now.advance(1);
+  const retried = (await call("/v1/probe")).body;
+  assert.equal(retried.running, true, "the pages may have caught up, so it is checked again");
+  assert.equal(retried.result.voice.error, "the sample answered HTTP 404", "the old result is still shown meanwhile");
+  await env.CHAT.runAlarms();
+
+  now.advance(6 * HOUR - 1);
+  const settled = (await call("/v1/probe")).body;
+  assert.equal(settled.running, false, "a check that heard the sample is kept the usual six hours");
+  assert.equal(settled.result.voice.ok, true);
+  assert.equal(probe.runs, 2);
+});
+
 test("the owner can ask for a fresh check at any time", async () => {
   const probe = countingProbe();
   const { call, env } = await setUp({ probe });

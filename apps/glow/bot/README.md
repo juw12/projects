@@ -96,7 +96,7 @@ you is passed on to it as a note. In a group, send it as a reply to one of the b
 | `GET /` | A line that says what this server is. |
 | `GET /v1/status` | It is alive, which build is live, whether a bot is connected and claimed, and whether it is public or private. |
 | `GET /v1/selftest` | The bot checks its own logic: whole conversations driven through the real chat code, with scripted models in place of the free ones. No network is used. One result per build. |
-| `GET /v1/probe` | A health check run from Cloudflare itself: every free model, every way to search and read the web, GlowNews, GlowSpark and one recorded voice sample through the speech model, each tried once. Kept for six hours per build. |
+| `GET /v1/probe` | A health check run from Cloudflare itself: every free model, every way to search and read the web, GlowNews, GlowSpark and one recorded voice sample through the speech model, each tried once. Kept for six hours per build; a check that could not fetch the voice sample is run again after five minutes. |
 | `GET /v1/profile` | What Telegram shows for the bot right now (name, command menus, descriptions, picture, webhook), read back from Telegram and compared with what this version means to show. No token, owner or chat is in the answer. |
 | `POST /telegram/webhook` | Where Telegram delivers messages. Telegram signs each call with a secret header; anything else is refused. |
 | `POST /v1/telegram` | The first bot's address for the same thing. It is kept so no message is lost while the webhook moves (see below). |
