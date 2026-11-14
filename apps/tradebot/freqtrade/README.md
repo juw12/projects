@@ -48,7 +48,14 @@ company proxy. Checked on the owner's laptop: 294 trades since 2024-01-01, +41.3
 the market, worst drop 16.4%.
 
 FreqUI: http://127.0.0.1:8080 (user `tradebot`). The Telegram bot answers `/status`, `/profit`,
-`/balance`, `/daily`, `/stop`.
+`/balance`, `/daily`, `/stop`. Money is shown in **rupiah**: trades are in USDT and freqtrade converts
+with CoinGecko's rate (`fiat_display_currency` in `config.json`; any currency freqtrade lists works).
+
+Telegram on Windows, the first time: put only the token in `.env`, send any message to the second
+bot, then start `run-windows.ps1`. It finds your chat id and saves it in `.env`. If Telegram cannot
+be reached (some office networks block it) the twin says so and runs without Telegram; start it
+again on a network that allows Telegram. A click in the window no longer pauses the twin, and
+everything it prints is also kept in `user_data/logs/freqtrade.log`.
 
 ## Check the rules on past prices
 

@@ -2,3 +2,5 @@
 user_data/*
 !user_data/strategies/
 user_data/strategies/__pycache__/
+# The dry run's trade database (run-windows.ps1 keeps it next to the config).
+tradesv3*.sqlite*
