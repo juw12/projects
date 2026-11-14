@@ -3391,6 +3391,50 @@
       "status": "released",
       "order": 77,
       "portfolio": true
+    },
+    {
+      "id": "not-real-vera",
+      "name": "Not Real Vera",
+      "category": "AI",
+      "external": true,
+      "url": "https://juw12.github.io/not-real-vera/",
+      "url_label": "Open site",
+      "desc": "An openly-AI host teaches scam and deepfake defence in 40-second videos. Scripts, renderer and a Buffer scheduler for YouTube, Instagram and TikTok.",
+      "summary": "A short-video channel kit about scam and deepfake defence, hosted by a presenter who says up front that she is an AI.",
+      "description": "Five scripted episodes, each traced to an FBI IC3 alert, a renderer that turns a script into a vertical video with voice and captions, and a scheduler that sends approved episodes to YouTube, Instagram and TikTok through Buffer. Nothing has been posted yet: every episode waits for a human to watch and approve it.",
+      "tags": [
+        "ai-avatar",
+        "buffer",
+        "python",
+        "scam-awareness",
+        "short-video"
+      ],
+      "note_tags": [
+        "not-real-vera",
+        "ai-avatar",
+        "buffer",
+        "python",
+        "scam-awareness",
+        "short-video"
+      ],
+      "image": "not-real-vera-card.jpg",
+      "image_alt": "Not Real Vera channel page: the AI host portrait, the line I'm not real. The scams are., and three episode slots marked not published yet",
+      "extra_links": [
+        {
+          "label": "Source",
+          "url": "https://github.com/juw12/not-real-vera"
+        }
+      ],
+      "card": {
+        "label": "not-real-vera · home",
+        "capture": "https://juw12.github.io/not-real-vera/",
+        "theme": "dark",
+        "accent": "#986a22",
+        "accent2": "#769e2f"
+      },
+      "status": "released",
+      "order": 78,
+      "portfolio": true
     }
   ]
 }
