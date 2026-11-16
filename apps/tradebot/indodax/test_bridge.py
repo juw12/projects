@@ -1415,6 +1415,400 @@ class Real(Case):
         self.assertEqual(sum(1 for item in opener.requests if item.full_url.endswith("/tapi") and b"method=trade" in item.data), 2)
 
 
+# ---------------------------------------------------------------- the Indodax client, Trade API 2.0
+
+V2 = "https://api.indodax.com"
+PAIR_ROW = {"id": "btcidr", "ticker_id": "btc_idr", "base_currency": "idr", "traded_currency": "btc", "trade_min_base_currency": 10000, "trade_fee_percent_taker": 0.2}
+
+
+def refusal(status, code, message):
+    """An error answer the way Trade API 2.0 gives it: an HTTP error with {"code", "msg"} inside."""
+    body = io.BytesIO(json.dumps({"code": code, "msg": message}).encode("utf-8"))
+    return urllib.error.HTTPError(V2, status, "error", {}, body)
+
+
+class FakeV2:
+    """Indodax seen through Trade API 2.0: an account, market orders, and the trades they made."""
+
+    def __init__(self, clock, idr=250_000.0):
+        self.clock = clock
+        self.book = {"idr": float(idr), "btc": 0.0}
+        self.orders = {}  # order name -> the order as Indodax keeps it
+        self.trades = []
+        self.posts = []
+        self.refuse = None  # the next order is refused with this answer
+        self.lose_answers = False  # orders go through, but their answers never arrive
+        self.trades_hidden = False  # the trade list is not readable (yet)
+        self.rights = {"canTrade": True, "canWithdraw": False, "canWithdrawFiat": False}
+        self.bid, self.ask = 1_000_000_000.0, 1_001_000_000.0
+
+    def __call__(self, request):
+        url = urllib.parse.urlsplit(request.full_url)
+        if url.path == "/api/server_time":
+            return {"server_time": int(self.clock.now * 1000)}
+        if url.path == "/api/pairs":
+            return [PAIR_ROW]
+        if url.path.startswith("/api/ticker/"):
+            return {"ticker": {"buy": str(int(self.bid)), "sell": str(int(self.ask))}}
+        if request.get_method() == "POST":
+            fields = dict(urllib.parse.parse_qsl(request.data.decode("utf-8")))
+        else:
+            fields = dict(urllib.parse.parse_qsl(url.query))
+        if url.path == "/api/v2/account":
+            balances = [{"asset": coin.upper(), "free": f"{amount:.8f}", "locked": "0"} for coin, amount in self.book.items()]
+            return {"uid": "987654", "email": OWNER_EMAIL, **self.rights, "balances": balances}
+        if url.path == "/api/v2/order" and request.get_method() == "POST":
+            return self.place(fields)
+        if url.path == "/api/v2/order":
+            order = self.orders.get(fields.get("origClientOrderId"))
+            return dict(order) if order else refusal(404, -2013, "Order does not exist.")
+        if url.path == "/api/v2/myTrades":
+            if self.trades_hidden:
+                return refusal(500, -1001, "Internal error.")
+            return {"data": [dict(row) for row in self.trades if row["clientOrderId"] == fields.get("clientOrderId")]}
+        return refusal(404, -1000, "Unknown path.")
+
+    def place(self, fields):
+        self.posts.append(fields)
+        if self.refuse is not None:
+            answer, self.refuse = self.refuse, None
+            return answer
+        name = fields["newClientOrderId"]
+        if name in self.orders:
+            return refusal(400, -2010, "Order rejected.")
+        buying = fields["side"] == "BUY"
+        if buying:
+            spent = float(fields["quoteOrderQty"])
+            fee = round(spent * 0.003)
+            quantity = round((spent - fee) / self.ask, 8)
+            self.book["idr"] -= spent
+            self.book["btc"] += quantity
+            value = spent - fee
+        else:
+            quantity = float(fields["quantity"])
+            value = round(quantity * self.bid)
+            fee = round(value * 0.003)
+            self.book["btc"] -= quantity
+            self.book["idr"] += value - fee
+        number = 6423 + len(self.orders)
+        order = {"symbol": fields["symbol"], "orderId": number, "clientOrderId": name, "side": fields["side"], "type": "MARKET", "origQty": f"{quantity:.8f}", "executedQty": f"{quantity:.8f}", "status": "FILLED", "time": int(self.clock.now * 1000), "fullOrderId": f"btcidr-market-{number}"}
+        self.orders[name] = order
+        self.trades.append({"tradeId": str(72057594037936570 + number), "orderId": order["fullOrderId"], "clientOrderId": name, "symbol": "btcidr", "price": str(int(self.ask if buying else self.bid)), "qty": f"{quantity:.8f}", "quoteQty": str(int(value)), "commission": str(int(fee)), "commissionAsset": "idr", "isBuyer": buying, "isMaker": False, "time": int(self.clock.now * 1000)})
+        if self.lose_answers:
+            return urllib.error.URLError("timed out")
+        return {key: order[key] for key in ("symbol", "orderId", "clientOrderId", "side", "type", "origQty", "executedQty", "fullOrderId")}
+
+
+class ClientV2Tests(unittest.TestCase):
+    def client(self, server=None, **changes):
+        values = {"api_key": "API-KEY-VALUE", "api_secret": "API-SECRET-VALUE"}
+        values.update(changes)
+        self.clock = Clock()
+        self.server = server or FakeV2(self.clock)
+        self.opener = FakeOpener(self.server)
+        self.waits = []
+        return bridge.IndodaxV2(bridge.Settings(**values), clock=self.clock, opener=self.opener, sleep=self.waits.append)
+
+    def private(self):
+        return [item for item in self.opener.requests if item.full_url.startswith(V2 + "/")]
+
+    def test_signature_matches_the_example_in_indodax_docs(self):
+        payload = "symbol=btcidr&limit=100&timestamp=1578304294000&recvWindow=5000"
+        secret = "f60617a68fcce028f0a90bc9eb765d17379eb548cc935c01a7ee3186eecf870e9b68f27a31bcfe8d"
+        self.assertEqual(bridge.sign_v2(payload, secret), "58b503019a8f2754af7097b4d981913a8dca9e5cb2b408061cbd48736a940558")
+
+    def test_the_newer_api_is_the_default_and_the_older_one_can_be_asked_for(self):
+        self.assertIsInstance(bridge.exchange_for(bridge.settings_from({})), bridge.IndodaxV2)
+        older = bridge.exchange_for(bridge.settings_from({"INDODAX_API_VERSION": "1"}))
+        self.assertNotIsInstance(older, bridge.IndodaxV2)
+        self.assertEqual(bridge.settings_from({"INDODAX_API_VERSION": "2"}).api_version, 2)
+        for value in ("3", "v2", "0", "2.0"):
+            with self.assertRaises(bridge.SettingsError, msg=value):
+                bridge.settings_from({"INDODAX_API_VERSION": value})
+
+    def test_a_read_is_signed_in_the_address_and_goes_only_to_indodax(self):
+        client = self.client()
+        self.server.clock = Clock(START - 2.5)  # Indodax's clock runs 2.5 s behind this PC's
+        client.balances()
+        request = self.private()[-1]
+        address, query = request.full_url.split("?", 1)
+        self.assertEqual(address, V2 + "/api/v2/account")
+        self.assertEqual(request.get_method(), "GET")
+        self.assertIsNone(request.data)
+        self.assertEqual(request.get_header("X-apikey"), "API-KEY-VALUE")
+        self.assertEqual(request.get_header("Sign"), bridge.sign_v2(query, "API-SECRET-VALUE"))
+        self.assertEqual(request.get_header("User-agent"), bridge.CLIENT)
+        fields = dict(urllib.parse.parse_qsl(query))
+        self.assertEqual(fields["recvWindow"], "5000")
+        self.assertEqual(int(fields["timestamp"]), int(START * 1000) - 2500)  # Indodax's clock, not this PC's
+        self.assertNotIn("API-SECRET-VALUE", request.full_url)
+        self.assertTrue(all(item.full_url.startswith(("https://indodax.com/", V2 + "/")) for item in self.opener.requests))
+
+    def test_only_free_balances_are_kept_and_what_the_key_may_do(self):
+        client = self.client()
+        balances = client.balances()
+        self.assertEqual(balances, {"idr": 250000.0, "btc": 0.0})
+        self.assertEqual(client.rights, {"trade": True, "withdraw": False})
+        kept = json.dumps(balances) + json.dumps(client.rights)
+        for private in ("987654", OWNER_EMAIL):
+            self.assertNotIn(private, kept)
+        self.server.rights = {"canTrade": False, "canWithdraw": False, "canWithdrawFiat": True}
+        client.balances()
+        self.assertEqual(client.rights, {"trade": False, "withdraw": True})
+
+    def test_a_buy_is_a_market_order_for_rupiah_and_reports_the_coins_its_trades_gave(self):
+        client = self.client()
+        answer = client.trade("btc_idr", "buy", idr=50_000, client_order_id=BUY_NAME)
+        request = next(item for item in self.private() if item.get_method() == "POST")
+        body = request.data.decode("utf-8")
+        self.assertEqual(request.full_url, V2 + "/api/v2/order")
+        self.assertEqual(request.get_header("Sign"), bridge.sign_v2(body, "API-SECRET-VALUE"))
+        fields = dict(urllib.parse.parse_qsl(body))
+        self.assertEqual({key: fields[key] for key in ("symbol", "side", "type", "quoteOrderQty", "newClientOrderId")}, {"symbol": "BTCIDR", "side": "BUY", "type": "MARKET", "quoteOrderQty": "50000", "newClientOrderId": BUY_NAME})
+        self.assertNotIn("quantity", fields)
+        self.assertNotIn("price", fields)
+        self.assertEqual(list(answer), ["receive_btc"])
+        self.assertAlmostEqual(answer["receive_btc"], self.server.book["btc"], delta=1e-12)
+        self.assertEqual(len(self.server.posts), 1)
+
+    def test_a_sale_reports_the_rupiah_after_the_fee(self):
+        client = self.client()
+        client.trade("btc_idr", "buy", idr=50_000, client_order_id=BUY_NAME)
+        before = self.server.book["idr"]
+        held = bridge.plain(bridge.floor_to(self.server.book["btc"], "0.00000001"))
+        answer = client.trade("btc_idr", "sell", coin="btc", quantity=held, client_order_id=SELL_NAME)
+        fields = self.server.posts[-1]
+        self.assertEqual((fields["side"], fields["quantity"], fields["newClientOrderId"]), ("SELL", held, SELL_NAME))
+        self.assertNotIn("quoteOrderQty", fields)
+        self.assertEqual(answer, {"receive_rp": self.server.book["idr"] - before})
+
+    def test_trades_that_are_not_readable_yet_give_an_empty_answer_and_no_second_order(self):
+        client = self.client()
+        self.server.trades_hidden = True
+        self.assertEqual(client.trade("btc_idr", "buy", idr=50_000, client_order_id=BUY_NAME), {})
+        self.assertEqual(len(self.server.posts), 1)
+        self.assertEqual(self.waits, list(bridge.FILL_WAITS))  # it waited a moment between the tries
+
+    def test_trades_of_other_orders_are_never_counted(self):
+        client = self.client()
+        client.trade("btc_idr", "buy", idr=50_000, client_order_id=BUY_NAME)
+        stranger = dict(self.server.trades[0], clientOrderId="someone-elses", qty="5")
+        self.server.trades = [stranger]
+        self.server.trades[0]["clientOrderId"] = BUY_NAME + "x"
+        self.assertEqual(client.fills("BTCIDR", BUY_NAME), [])
+
+    def test_a_name_used_before_is_told_apart_from_a_plain_refusal(self):
+        client = self.client()
+        client.trade("btc_idr", "buy", idr=50_000, client_order_id=BUY_NAME)
+        with self.assertRaises(bridge.ExchangeError) as again:
+            client.trade("btc_idr", "buy", idr=50_000, client_order_id=BUY_NAME)
+        self.assertTrue(bridge.name_taken(again.exception))
+        self.assertFalse(again.exception.unsure)
+        self.server.refuse = refusal(400, -2010, "Order rejected. Insufficient balance.")
+        with self.assertRaises(bridge.ExchangeError) as poor:
+            client.trade("btc_idr", "buy", idr=50_000, client_order_id=SELL_NAME)
+        self.assertFalse(bridge.name_taken(poor.exception))
+        self.assertFalse(poor.exception.unsure)
+        self.assertEqual(poor.exception.code, "-2010")
+        self.assertIn("Insufficient balance", str(poor.exception))
+
+    def test_a_refusal_that_cannot_be_looked_up_is_unsure(self):
+        client = self.client()
+        real_call = self.server.__call__
+
+        def handler(request):
+            if "/api/v2/order?" in request.full_url:
+                return urllib.error.URLError("timed out")
+            return real_call(request)
+
+        self.opener.handler = handler
+        self.server.refuse = refusal(400, -2010, "Order rejected.")
+        with self.assertRaises(bridge.ExchangeError) as caught:
+            client.trade("btc_idr", "buy", idr=50_000, client_order_id=BUY_NAME)
+        self.assertTrue(caught.exception.unsure)
+        self.assertFalse(bridge.name_taken(caught.exception))
+
+    def test_a_lost_or_broken_answer_is_unsure_only_for_orders(self):
+        for problem in (urllib.error.URLError("timed out"), TimeoutError(), refusal(500, -1001, "Internal error."), urllib.error.HTTPError(V2, 502, "bad", {}, None), "<html>not json</html>"):
+            client = self.client()
+            self.server.refuse = problem
+            with self.assertRaises(bridge.ExchangeError, msg=repr(problem)) as ordering:
+                client.trade("btc_idr", "buy", idr=50_000, client_order_id=BUY_NAME)
+            self.assertTrue(ordering.exception.unsure, repr(problem))
+            self.assertEqual(len(self.server.posts), 1, repr(problem))
+        for problem in (refusal(429, -1003, "Too many requests."), refusal(400, -1130, "Invalid parameter value."), refusal(403, -2015, "Access denied.")):
+            client = self.client()
+            self.server.refuse = problem
+            with self.assertRaises(bridge.ExchangeError, msg=repr(problem)) as ordering:
+                client.trade("btc_idr", "buy", idr=50_000, client_order_id=BUY_NAME)
+            self.assertFalse(ordering.exception.unsure, repr(problem))
+        client = self.client()
+        self.opener.handler = lambda request: urllib.error.URLError("timed out") if "/api/v2/" in request.full_url else self.server(request)
+        with self.assertRaises(bridge.ExchangeError) as reading:
+            client.balances()
+        self.assertFalse(reading.exception.unsure)
+
+    def test_a_refusal_is_clear_and_never_repeats_the_key(self):
+        client = self.client()
+        self.opener.handler = lambda request: refusal(401, -1002, "Invalid credentials for API-KEY-VALUE. " + "x" * 400) if "/api/v2/" in request.full_url else self.server(request)
+        with self.assertRaises(bridge.ExchangeError) as caught:
+            client.balances()
+        self.assertEqual(caught.exception.code, "-1002")
+        self.assertNotIn("API-KEY-VALUE", str(caught.exception))
+        self.assertLessEqual(len(str(caught.exception)), 180)
+
+    def test_a_timestamp_refusal_makes_it_read_indodax_clock_again(self):
+        client = self.client()
+        client.balances()
+        clock_reads = sum(1 for item in self.opener.requests if item.full_url.endswith("/api/server_time"))
+        self.opener.handler = lambda request: refusal(400, -1021, "Timestamp for this request is outside of the recvWindow.") if "/api/v2/" in request.full_url else self.server(request)
+        with self.assertRaises(bridge.ExchangeError):
+            client.balances()
+        self.opener.handler = self.server
+        client.balances()
+        self.assertEqual(sum(1 for item in self.opener.requests if item.full_url.endswith("/api/server_time")), clock_reads + 1)
+
+    def test_an_order_is_found_again_by_its_name(self):
+        client = self.client()
+        client.trade("btc_idr", "buy", idr=50_000, client_order_id=BUY_NAME)
+        bought = client.order(BUY_NAME)
+        self.assertEqual((bought["status"], bought["side"]), ("filled", "buy"))
+        self.assertAlmostEqual(bought["receive_btc"], self.server.book["btc"], delta=1e-12)
+        before = self.server.book["idr"]
+        client.trade("btc_idr", "sell", coin="btc", quantity=f"{self.server.book['btc']:.8f}", client_order_id=SELL_NAME)
+        sold = client.order(SELL_NAME)
+        self.assertEqual((sold["status"], sold["side"]), ("filled", "sell"))
+        self.assertEqual(sold["receive_idr"], self.server.book["idr"] - before)
+        for kept in (bought, sold):
+            self.assertNotIn("6423", json.dumps(kept))
+            self.assertFalse(any(key.startswith(("order_", "remain_")) for key in kept))
+
+    def test_an_order_that_traded_nothing_says_so_only_when_its_trades_agree(self):
+        client = self.client()
+        self.server.orders[SELL_NAME] = {"symbol": "BTCIDR", "orderId": 7, "clientOrderId": SELL_NAME, "side": "SELL", "type": "MARKET", "origQty": "0.00004985", "executedQty": "0", "status": "CANCELLED"}
+        untouched = client.order(SELL_NAME)
+        self.assertEqual(untouched, {"status": "cancelled", "side": "sell", "order_btc": 0.00004985, "remain_btc": 0.00004985})
+        self.server.trades_hidden = True  # the trades cannot be read: nothing is claimed either way
+        self.assertEqual(client.order(SELL_NAME), {"status": "cancelled", "side": "sell"})
+
+    def test_order_states_are_put_in_the_senders_words(self):
+        client = self.client()
+        for said, meant in (("NEW", "open"), ("PARTIALLY_FILLED", "open"), ("FILLED", "filled"), ("CANCELLED", "cancelled"), ("CANCELED", "cancelled"), ("REJECTED", "cancelled"), ("EXPIRED", "cancelled"), ("SOMETHING_NEW", "")):
+            self.server.orders[BUY_NAME] = {"clientOrderId": BUY_NAME, "side": "BUY", "origQty": "0", "executedQty": "0", "status": said}
+            self.assertEqual(client.order(BUY_NAME)["status"], meant, said)
+
+    def test_an_order_lookup_refuses_names_it_did_not_make_and_answers_about_other_orders(self):
+        client = self.client()
+        for name in ("someone-elses", "tb-xyz-1-b", ""):
+            with self.assertRaises(bridge.ExchangeError, msg=name):
+                client.order(name)
+        self.assertEqual(self.private(), [])
+        self.server.orders[BUY_NAME] = {"clientOrderId": SELL_NAME, "side": "BUY", "status": "FILLED"}
+        with self.assertRaises(bridge.ExchangeError):
+            client.order(BUY_NAME)
+        with self.assertRaises(bridge.ExchangeError) as missing:
+            client.order(SELL_AGAIN)
+        self.assertEqual(missing.exception.code, "-2013")
+
+
+class RealModeV2(Case):
+    """The whole sender against Trade API 2.0: a buy, a sale, and lost answers."""
+
+    def start(self, **server_changes):
+        self.server = FakeV2(self.clock)
+        for name, value in server_changes.items():
+            setattr(self.server, name, value)
+        self.opener = FakeOpener(self.server)
+        self.api = FakeApi(BTC)
+        settings = self.settings(real=True)
+        self.exchange = bridge.exchange_for(settings, clock=self.clock, opener=self.opener, sleep=lambda seconds: None)
+        self.assertIsInstance(self.exchange, bridge.IndodaxV2)
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(bridge.check(settings, self.exchange, self.state_path), 0)
+        return bridge.Bridge(self.exchange, settings, self.api, self.state_path, log=self.logs.append, clock=self.clock)
+
+    def everything(self):
+        return self.text() + self.state_path.read_text(encoding="utf-8") + json.dumps(self.api.reports)
+
+    def test_a_buy_and_a_sale_go_through_and_nothing_private_is_kept(self):
+        sender = self.start()
+        sender.cycle()
+        held = sender.state["positions"][BTC]
+        self.assertTrue(held["real"])
+        self.assertAlmostEqual(held["quantity"], self.server.book["btc"], delta=1e-12)
+        self.api.hold()
+        sender.cycle()
+        self.assertEqual(sender.state["positions"], {})
+        self.assertEqual(sender.state["tripped"], "")
+        self.assertEqual(sender.state["closed"][-1]["received"], self.server.book["idr"] - 200_000.0)
+        self.assertEqual([item["side"] for item in self.server.posts], ["BUY", "SELL"])
+        self.assertEqual([item["newClientOrderId"] for item in self.server.posts], [BUY_NAME, SELL_NAME])
+        for private in ("987654", OWNER_EMAIL, "6423", "API-KEY-VALUE", "API-SECRET-VALUE", "250000", "200000"):
+            self.assertNotIn(private, self.everything(), private)
+
+    def test_lost_answers_are_settled_from_indodax_own_record_without_a_second_order(self):
+        sender = self.start(lose_answers=True)
+        sender.cycle()
+        self.assertAlmostEqual(sender.state["positions"][BTC]["quantity"], self.server.book["btc"], delta=1e-12)
+        self.api.hold()
+        sender.cycle()
+        self.assertEqual(sender.state["positions"], {})
+        self.assertEqual(sender.state["tripped"], "")
+        self.assertEqual(len(self.server.posts), 2)
+
+    def test_unreadable_trades_still_open_the_copy_from_the_balance(self):
+        sender = self.start(trades_hidden=True)
+        sender.cycle()
+        self.assertAlmostEqual(sender.state["positions"][BTC]["quantity"], self.server.book["btc"], delta=1e-12)
+        self.assertEqual(len(self.server.posts), 1)
+
+    def test_too_little_rupiah_is_a_plain_refusal_and_nothing_is_held(self):
+        sender = self.start()
+        self.server.refuse = refusal(400, -2010, "Order rejected. Insufficient balance.")
+        sender.cycle()
+        self.assertEqual(sender.state["positions"], {})
+        self.assertEqual(len(self.server.posts), 1)
+        self.assertEqual(self.server.book, {"idr": 250_000.0, "btc": 0.0})
+
+    def test_check_explains_a_key_for_the_other_api_and_a_key_that_may_not_trade(self):
+        settings = self.settings(real=True)
+        opener = FakeOpener(lambda request: refusal(403, -2015, "Access denied.") if "/api/v2/" in request.full_url else {"server_time": int(START * 1000)})
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            code = bridge.check(settings, bridge.exchange_for(settings, clock=self.clock, opener=opener), self.state_path)
+        self.assertEqual(code, 1)
+        self.assertIn("INDODAX_API_VERSION=1", output.getvalue())
+        self.assertFalse(self.state_path.exists() and self.stored().get("checked"))
+
+        server = FakeV2(self.clock)
+        server.rights = {"canTrade": False, "canWithdraw": False, "canWithdrawFiat": False}
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            code = bridge.check(settings, bridge.exchange_for(settings, clock=self.clock, opener=FakeOpener(server)), self.state_path)
+        self.assertEqual(code, 1)
+        self.assertIn("may not trade", output.getvalue())
+        self.assertFalse(self.state_path.exists() and self.stored().get("checked"))
+
+        server.rights = {"canTrade": True, "canWithdraw": True, "canWithdrawFiat": False}
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            code = bridge.check(settings, bridge.exchange_for(settings, clock=self.clock, opener=FakeOpener(server)), self.state_path)
+        self.assertEqual(code, 0)
+        self.assertIn("Rp250.000", output.getvalue())
+        self.assertIn("may also withdraw", output.getvalue())
+        self.assertNotIn("987654", output.getvalue())
+
+    def test_check_for_the_older_api_says_when_the_key_is_a_newer_one(self):
+        settings = self.settings(real=True, api_version=1)
+        answer = {"success": 0, "error": "Access denied for this API key version", "error_code": "invalid_credentials"}
+        opener = FakeOpener(lambda request: {"server_time": int(START * 1000)} if request.full_url.endswith("/api/server_time") else answer)
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            code = bridge.check(settings, bridge.exchange_for(settings, clock=self.clock, opener=opener), self.state_path)
+        self.assertEqual(code, 1)
+        self.assertIn("take INDODAX_API_VERSION=1 out", output.getvalue())
+
+
 # ---------------------------------------------------------------- the command line
 
 

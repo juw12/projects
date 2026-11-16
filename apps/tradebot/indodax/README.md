@@ -10,9 +10,10 @@ practice account holds, and holds a small copy of the same coins on Indodax's ru
   pretend money. In practice mode no order is sent and the private API is not touched at all.
 - **Real money is off until you switch it on yourself**, with three things together (see
   [Real money](#real-money)). Nobody else can do that for you, and the tests cover the gate.
-- **Not tried on a real Indodax account yet.** The 100 tests run against a pretend exchange. The
-  public prices were read from Indodax for real; the private API (balance, orders) has never run
-  with a real key. The first run on your PC is the first real one: start with `-Show`.
+- **No real order has been sent yet.** The 123 tests run against a pretend exchange. Against the
+  real Indodax, the public prices and one balance read with a real key (Trade API 2.0) have
+  worked. Placing an order, looking it up and reading its trades have not run for real: the first
+  real order is the first true test of those. Start with `-Show`, and keep the first order small.
 - **No proven edge, and no promised win rate.** Copying TradeBot's rules to Indodax does not make
   them better. Some copies will lose. Practice mode is the right place to find out how many.
 
@@ -90,6 +91,7 @@ reached one order's size. The day starts again at 07:00 Jakarta time.
 | `INDODAX_BRIDGE_URL` | TradeBot's server, https only (default is the public one) |
 | `HTTPS_PROXY` | a proxy for the calls to TradeBot and Indodax |
 | `INDODAX_API_KEY`, `INDODAX_API_SECRET` | your Indodax API key. Not needed for practice |
+| `INDODAX_API_VERSION` | `2` (default) for keys made now, `1` for a key made for the older Trade API |
 | `INDODAX_MODE` | `practice` (default) or `real` |
 | `INDODAX_REAL_CONFIRM` | the confirm sentence for real money, see below |
 
@@ -134,7 +136,9 @@ this whole section. Trading can lose all of the money you put in. There is no wi
 **The API key.** Log in to Indodax yourself and create an API key with **view** and **trade**
 only. Leave **withdraw off**: the sender never withdraws, and a key that cannot withdraw cannot be
 used to move your money out if it ever leaks. Put the key and secret in `.env`, stop the sender if
-it is running, and check them:
+it is running, and check them. Keys made now are for Indodax's Trade API 2.0, which the sender
+speaks by default; for a key made for the older Trade API, add `INDODAX_API_VERSION=1`. The check
+says so when the key and the setting do not match, and it refuses a key that may not trade:
 
 ```
 .\run-windows.ps1 -Check       # prints your free rupiah, orders nothing

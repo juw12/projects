@@ -940,6 +940,53 @@ test("indodax: /indodax in Telegram shows what the sender last reported", async 
   assert.match(old, /nothing is sold either/);
 });
 
+test("indodax: the daily summary and /report say where the Indodax copies stand", async () => {
+  const { call, pair, say, round, now, sent } = await harness();
+  await pair();
+  now.advance(TICK_MS);
+  await round();
+
+  // Not set up: /report is the account alone.
+  const alone = await say("/report");
+  assert.match(alone, /practice/i);
+  assert.equal(alone.includes("<b>Indodax</b>"), false);
+
+  const { bridgeKey } = (await call("POST", "/v1/indodax/setup", INDODAX_SETUP)).body;
+  const post = (body) => call("POST", "/v1/indodax/report", { headers: { "X-Indodax-Key": bridgeKey }, body });
+  const real = indodaxReport({ mode: "real", keys: true, checked: true, orderIdr: 20000, maxOpen: 1 });
+  const part = /\n\n<b>Indodax<\/b> · ⚠️ <b>REAL MONEY<\/b> \(your own rupiah\)\nEach buy: Rp20\.000 · at most 1 open\nHolding nothing\.\nResult so far: pretend Rp0 · <b>REAL<\/b> Rp0\nLast heard from the sender: just now\./;
+  const times = (text) => (text.match(/<b>Indodax<\/b> ·/g) || []).length;
+
+  // The day turns (07:00 WIB) while the sender is running: one message carries both.
+  now.advance(24 * 60 * 60 * 1000);
+  assert.equal((await post(real)).status, 200);
+  const morning = await round();
+  const summary = morning.split("\n---\n").find((text) => text.includes("Daily summary"));
+  assert.ok(summary, morning);
+  assert.match(summary, /^🗓 <b>Daily summary<\/b>/);
+  assert.match(summary, part);
+  assert.equal(times(morning), 1, "said once, in the summary");
+
+  // Asked for at any time, and in everyday words.
+  const asked = await say("/report");
+  assert.match(asked, part);
+  assert.equal(times(asked), 1);
+  assert.match(await say("daily report"), /I read that as \/report[\s\S]*REAL MONEY/);
+  assert.match(await say("/help"), /\/report the account and the Indodax copies in one message/);
+  assert.ok(sent.find((entry) => entry.method === "setMyCommands").commands.some((entry) => entry.command === "report"));
+  assert.equal((await say("/status")).includes("<b>Indodax</b>"), false, "/status stays the account alone");
+
+  // The summary can also be brought by /status after a quiet night, and the PC was off then:
+  // it says the numbers are old instead of looking fine.
+  now.advance(24 * 60 * 60 * 1000);
+  const late = await say("/status");
+  const second = late.split("\n---\n").find((text) => text.includes("Daily summary"));
+  assert.ok(second, late);
+  assert.match(second, /<b>Indodax<\/b> · ⚠️ <b>REAL MONEY<\/b>/);
+  assert.match(second, /⚠️ Last heard from the sender 24 hours ago/);
+  assert.equal(times(late), 1);
+});
+
 test("indodax: /indodax pause and resume set a flag the sender reads, and a near miss never sets it", async () => {
   const { call, pair, say, storage } = await harness();
   await pair();

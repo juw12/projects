@@ -561,7 +561,7 @@ export function summary(state, ended, value, now) {
   }
   if (ended.gap > 0) lines.push(`Gap: about ${span(ended.gap)} without a price check, so stops were not checked then.`);
   lines.push(`Next: ${nextStep(state, now)}`);
-  return { html: lines.join("\n") };
+  return { html: lines.join("\n"), daily: true }; // daily: the Indodax part is added to it (indodax.js withDaily)
 }
 
 function watchNote(state, symbol) {
@@ -659,6 +659,7 @@ export function help(settings) {
       "",
       "<b>Commands</b>",
       "/status the account, what I hold, profit and loss",
+      "/report the account and the Indodax copies in one message (the daily summary at 07:00 WIB carries both too)",
       "/signals the 3 checks for each coin, right now",
       `/buy BTC ${exampleAmount()} buy ${money(RATE ? 2000000 / RATE : 100)} of BTC now (/buy BTC: I pick the size; 2jt and 500rb work too)`,
       "/sell BTC sell it now (/sell all: everything)",

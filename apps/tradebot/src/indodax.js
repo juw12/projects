@@ -250,6 +250,40 @@ function totals(report, values) {
   return anyReal ? `${practice} · <b>REAL</b> ${signedRp(values.real)}` : practice;
 }
 
+// ---------------------------------------------------------------- the daily report
+
+// The Indodax part of the daily summary (07:00 WIB) and of /report: where the copies stand, in a
+// few lines. Each buy and sell is told when it happens, so this is the standing, not a list.
+// "Today" is left out: the sender starts its own day at 07:00 WIB as well, so at that minute the
+// figure is either the day that just ended or already zero.
+// view = { configured, report, at, now, paused }. Nothing when Indodax is not set up.
+export function daily(view) {
+  if (!view || !view.configured) return [];
+  const { report } = view;
+  if (!report) return ["<b>Indodax</b>: no report yet from the sender on your PC. It reports while the PC is on and the sender is running."];
+  const real = report.mode === "real";
+  const lines = [
+    real ? "<b>Indodax</b> · ⚠️ <b>REAL MONEY</b> (your own rupiah)" : "<b>Indodax</b> · practice (pretend money)",
+    `Each buy: ${rp(report.orderIdr)} · at most ${report.maxOpen} open`,
+  ];
+  if (report.positions.length) lines.push(...report.positions.map(positionLine));
+  else lines.push("Holding nothing.");
+  lines.push(`Result so far: ${totals(report, report.result)}`);
+  if (view.paused || report.paused) lines.push("⏸ Buying is paused from Telegram. <code>/indodax resume</code> allows it again.");
+  if (real && !report.checked) lines.push(NOT_CHECKED);
+  if (report.tripped) lines.push(...trippedLines(report));
+  lines.push(...heard(view));
+  return lines;
+}
+
+// Add that part to each message marked daily (the daily summary, /report). Other messages, and
+// every message when Indodax is not set up, are returned as they are.
+export function withDaily(messages, view) {
+  const lines = daily(view);
+  if (!lines.length) return messages;
+  return messages.map((message) => (message && message.daily ? { ...message, html: `${message.html}\n\n${lines.join("\n")}` } : message));
+}
+
 // ---------------------------------------------------------------- the answer to /indodax
 
 // view = { configured, report, at, now }
