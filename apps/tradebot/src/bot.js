@@ -9,6 +9,7 @@ import { MAX_WATCH, approve, blocked, decide, look, manualBuy, manualSell, newSt
 import { backtest } from "./backtest.js";
 import { TIMEFRAMES, normalizeSymbol } from "./market.js";
 import { hasRealPositions, liveCommand, liveOf, venueOf } from "./live.js";
+import { answer as mt5Answer } from "./mt5.js";
 import * as render from "./render.js";
 import { Problem, errorText, escapeHtml } from "./util.js";
 
@@ -29,15 +30,17 @@ export const COMMANDS = [
   { command: "history", description: "Closed trades" },
   { command: "desk", description: "The second opinion (Bull, Bear, Risk) and its record" },
   { command: "live", description: "Real money: /live shadow, /live on confirm, /live off" },
+  { command: "mt5", description: "MetaTrader 5 demo account (the bridge on your PC)" },
   { command: "reset", description: "Start over with fresh practice money" },
   { command: "help", description: "How this works" },
 ];
 
 // Commands that only show something. A misspelled one is simply run; one that acts is not.
-const READ_ONLY = new Set(["status", "signals", "help", "history", "watchlist"]);
+const READ_ONLY = new Set(["status", "signals", "help", "history", "watchlist", "mt5"]);
 
 // Everyday words that clearly ask for one of the read-only commands.
 const PLAIN = [
+  [/\b(metatrader|mt5)\b/i, "mt5"],
   [/\b(how\b.*\b(going|doing)|account|balance|profit|portfolio|how much|holding|positions?)\b/i, "status"],
   [/\b(signals?|what do you see|markets?)\b/i, "signals"],
   [/\b(trade history|past trades|closed trades)\b/i, "history"],
@@ -327,6 +330,11 @@ const handlers = {
     return { messages: [liveCommand(ctx.state, args, { env: ctx.env || {}, now: ctx.now })] };
   },
 
+  // MetaTrader 5: what the bridge on the PC last reported. It only shows.
+  async mt5(ctx) {
+    return { messages: [mt5Answer(ctx.mt5 || { configured: false, report: null, at: 0, now: ctx.now })] };
+  },
+
   async reset(ctx, args) {
     const { state } = ctx;
     if (hasRealPositions(state)) {
@@ -410,7 +418,7 @@ async function guessed(ctx, command, args, typed) {
 }
 
 async function onText(ctx, text) {
-  const match = text.match(/^\/([a-z_]+)(?:@\w+)?(?:\s+([\s\S]*))?$/i);
+  const match = text.match(/^\/([a-z0-9_]+)(?:@\w+)?(?:\s+([\s\S]*))?$/i);
   if (match) {
     const word = match[1].toLowerCase();
     const args = String(match[2] || "").trim().split(/\s+/).filter(Boolean);

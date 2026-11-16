@@ -39,6 +39,9 @@ jobs:
           node-version: '22'
       - name: Unit tests (no network)
         run: node --test test/*.test.js
+      - name: MetaTrader 5 bridge tests (a pretend terminal, no network)
+        working-directory: apps/tradebot/mt5
+        run: python3 -m unittest
       - name: Bundle the worker (dry run)
         run: |
           npm install --no-fund --no-audit

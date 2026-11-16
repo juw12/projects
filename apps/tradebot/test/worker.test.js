@@ -129,7 +129,7 @@ test("before setup the worker is alive, unconfigured and trades practice money o
   assert.equal(status.status, 200);
   assert.deepEqual(
     { ...status.body, version: "x" },
-    { ok: true, service: "trade-bot", version: "x", build: "test", money: "practice", configured: false, bot: null, paired: false, running: false, lastRound: null, rupiah: null, twin: { configured: false, bot: null, lastReportAt: null } },
+    { ok: true, service: "trade-bot", version: "x", build: "test", money: "practice", configured: false, bot: null, paired: false, running: false, lastRound: null, rupiah: null, twin: { configured: false, bot: null, lastReportAt: null }, mt5: { configured: false, lastReportAt: null, demo: null } },
   );
   assert.equal((await call("GET", "/nope")).status, 404);
   assert.equal((await call("POST", "/v1/telegram", { headers: { "X-Telegram-Bot-Api-Secret-Token": "guess" }, body: { update_id: 1 } })).status, 403);
@@ -604,4 +604,150 @@ test("the real-money check reads Luno without keys: bitcoin would be copied, ETH
   assert.ok(luno.requests.length > 0, "Luno was asked");
   assert.ok(luno.requests.every((request) => !request.headers.Authorization), "no key was sent");
   assert.equal(luno.orders().length, 0);
+});
+
+// ---------------------------------------------------------------- MetaTrader 5 (the bridge on the PC)
+
+// What the bridge sends when the demo account holds nothing.
+function mt5Report(extra = {}) {
+  return { loggedIn: true, demo: true, tradeAllowed: true, server: "MetaQuotes-Demo", currency: "USD", leverage: 100, balance: 10000, equity: 10000, positions: [], notes: [], ...extra };
+}
+
+const MT5_SETUP = { headers: { "X-Setup-Code": SETUP_CODE }, body: {} };
+
+test("mt5: setup needs the setup code, shows the bridge key once, and a new key replaces the old one", async () => {
+  const { call, storage } = await harness();
+  assert.equal((await call("POST", "/v1/mt5/setup", { body: {} })).status, 403);
+  assert.equal((await call("POST", "/v1/mt5/setup", { headers: { "X-Setup-Code": "wrong" }, body: {} })).status, 403);
+  assert.equal((await storage().get("mt5")) || null, null, "nothing was made without the code");
+
+  const first = (await call("POST", "/v1/mt5/setup", MT5_SETUP)).body;
+  assert.equal(first.ok, true);
+  assert.equal(first.ownerPaired, false);
+  assert.match(first.bridgeKey, /^[0-9a-f]{64}$/);
+  assert.match(first.note, /MT5_BRIDGE_KEY/);
+
+  // Only the key's hash is kept.
+  const kept = await storage().get("mt5");
+  assert.equal(JSON.stringify(kept).includes(first.bridgeKey), false);
+  assert.equal(kept.keyHash, await sha256Hex(first.bridgeKey));
+  assert.deepEqual((await call("GET", "/v1/status")).body.mt5, { configured: true, lastReportAt: null, demo: null });
+
+  const again = (await call("POST", "/v1/mt5/setup", MT5_SETUP)).body;
+  assert.equal(again.bridgeKey, null);
+  assert.match(again.note, /still works/);
+  assert.equal((await call("GET", "/v1/mt5/signals", { headers: { "X-Mt5-Key": first.bridgeKey } })).status, 200);
+
+  const renewed = (await call("POST", "/v1/mt5/setup", { headers: { "X-Setup-Code": SETUP_CODE }, body: { newKey: true } })).body;
+  assert.match(renewed.bridgeKey, /^[0-9a-f]{64}$/);
+  assert.notEqual(renewed.bridgeKey, first.bridgeKey);
+  assert.equal((await call("GET", "/v1/mt5/signals", { headers: { "X-Mt5-Key": first.bridgeKey } })).status, 403);
+  assert.equal((await call("GET", "/v1/mt5/signals", { headers: { "X-Mt5-Key": renewed.bridgeKey } })).status, 200);
+});
+
+test("mt5: only the bridge key reads the signals, and they follow the practice account", async () => {
+  const { call, pair, round, say, now } = await harness();
+  const signals = (key) => call("GET", "/v1/mt5/signals", { headers: key ? { "X-Mt5-Key": key } : {} });
+  assert.equal((await signals("a".repeat(64))).status, 403, "no bridge key exists yet");
+  const { bridgeKey } = (await call("POST", "/v1/mt5/setup", MT5_SETUP)).body;
+  assert.equal((await signals("")).status, 403);
+  assert.equal((await signals("b".repeat(64))).status, 403);
+  assert.equal((await call("POST", "/v1/mt5/signals", { headers: { "X-Mt5-Key": bridgeKey }, body: {} })).status, 404, "signals are only read");
+
+  // Nobody is paired, so no round has run: nothing to act on.
+  const idle = (await signals(bridgeKey)).body;
+  assert.deepEqual(idle, { ok: true, at: now(), lastRoundAt: null, fresh: false, wanted: [] });
+
+  await pair();
+  assert.match(await round(), /Bought BTC/);
+  const held = (await signals(bridgeKey)).body;
+  assert.equal(held.fresh, true);
+  assert.equal(held.lastRoundAt, now());
+  assert.deepEqual(held.wanted.map((item) => item.symbol), ["BTCUSDT"]);
+  assert.equal(held.wanted[0].openedAt, now());
+  assert.ok(held.wanted[0].stop > 0, "the practice stop travels with the signal");
+
+  // The agent goes quiet for longer than three rounds: the coin is still listed, but not to act on.
+  now.advance(3 * TICK_MS + 1000);
+  const quiet = (await signals(bridgeKey)).body;
+  assert.equal(quiet.fresh, false);
+  assert.equal(quiet.wanted.length, 1);
+
+  // Sold in the practice account: nothing is wanted any more.
+  await say("/sell BTC");
+  assert.deepEqual((await signals(bridgeKey)).body.wanted, []);
+});
+
+test("mt5 reports: only the bridge key gets in, and copies are told to the owner through TradeBot's own bot", async () => {
+  const { call, pair, sent, twinSent, storage, now } = await harness();
+  const post = (key, body) => call("POST", "/v1/mt5/report", { headers: key ? { "X-Mt5-Key": key } : {}, body });
+  assert.equal((await post("a".repeat(64), mt5Report())).status, 403, "no bridge key exists yet");
+  await pair();
+  const { bridgeKey, ownerPaired } = (await call("POST", "/v1/mt5/setup", MT5_SETUP)).body;
+  assert.equal(ownerPaired, true);
+
+  assert.equal((await post("", mt5Report())).status, 403);
+  assert.equal((await post("b".repeat(64), mt5Report())).status, 403);
+  assert.equal((await post(bridgeKey, [1, 2, 3])).status, 400);
+  assert.equal((await call("POST", "/v1/mt5/report", { headers: { "X-Mt5-Key": bridgeKey } })).status, 400, "not JSON");
+  assert.equal((await post(bridgeKey, mt5Report({ server: "x".repeat(40000) }))).status, 413);
+  assert.equal((await storage().get("mt5")).report, null, "nothing refused was kept");
+
+  const texts = (from) => sent.slice(from).filter((entry) => entry.method === "sendMessage").map((entry) => entry.text).join("\n---\n");
+  const before = sent.length;
+  const first = await post(bridgeKey, mt5Report({ login: 12345678, name: "Juwen" }));
+  assert.deepEqual(first.body, { ok: true, at: now(), told: 0 });
+  assert.deepEqual((await call("GET", "/v1/status")).body.mt5, { configured: true, lastReportAt: now(), demo: true });
+  assert.equal(JSON.stringify(await storage().get("mt5")).includes("12345678"), false, "the login number is not kept");
+
+  const btc = { symbol: "BTCUSDT", brokerSymbol: "BTCUSD", volume: 0.01, openPrice: 100000, price: 100500, stop: 96000, profit: 5, openedAt: now() };
+  now.advance(60000);
+  assert.equal((await post(bridgeKey, mt5Report({ equity: 10005, positions: [btc] }))).body.told, 1);
+  assert.match(texts(before), /MT5 demo bought BTC<\/b> · pretend money\n0\.01 lot of BTCUSD at \$100,000\.00/);
+  assert.equal(sent[sent.length - 1].chat_id, OWNER);
+
+  now.advance(60000);
+  assert.equal((await post(bridgeKey, mt5Report({ positions: [btc] }))).body.told, 0, "nothing changed, nothing said");
+
+  now.advance(60000);
+  assert.equal((await post(bridgeKey, mt5Report({ balance: 10012 }))).body.told, 1);
+  assert.match(texts(before), /MT5 demo closed BTC<\/b>/);
+
+  // The terminal is logged in to a real account: one warning, and the status says it is not a demo.
+  now.advance(60000);
+  const mark = sent.length;
+  assert.equal((await post(bridgeKey, { loggedIn: true, demo: false, server: "Broker-Live" })).body.told, 1);
+  assert.match(texts(mark), /not a demo account[\s\S]*sent no orders/);
+  assert.equal((await post(bridgeKey, { loggedIn: true, demo: false, server: "Broker-Live" })).body.told, 0, "said once");
+  assert.equal((await call("GET", "/v1/status")).body.mt5.demo, false);
+
+  assert.equal(twinSent.length, 0, "the twin's bot is not involved");
+});
+
+test("mt5: /mt5 in Telegram shows what the bridge last reported, and only shows", async () => {
+  const { call, pair, say, sent, now } = await harness();
+  await pair();
+  assert.match(await say("/mt5"), /MetaTrader 5<\/b> is not set up/);
+  assert.match(await say("/mt5@juwen_trade_bot"), /is not set up/);
+
+  const { bridgeKey } = (await call("POST", "/v1/mt5/setup", MT5_SETUP)).body;
+  assert.match(await say("/mt5"), /set up, but I have not heard from the bridge/);
+
+  const btc = { symbol: "BTCUSDT", brokerSymbol: "BTCUSD", volume: 0.01, openPrice: 100000, price: 100500, stop: 96000, profit: 5, openedAt: now() };
+  await call("POST", "/v1/mt5/report", { headers: { "X-Mt5-Key": bridgeKey }, body: mt5Report({ equity: 10005, positions: [btc] }) });
+  const shown = await say("/mt5");
+  assert.match(shown, /demo account \(pretend money\) · MetaQuotes-Demo/);
+  assert.match(shown, /<b>BTC<\/b> 0\.01 lot \(BTCUSD\)/);
+  assert.match(shown, /Last heard from the bridge: just now\./);
+  assert.equal(shown.includes(bridgeKey), false);
+
+  // Everyday words and a near miss reach it too, because it only shows.
+  assert.match(await say("metatrader"), /I read that as \/mt5[\s\S]*demo account/);
+  assert.match(await say("/mt"), /I read \/mt as \/mt5/);
+  assert.match(await say("/help"), /\/mt5 the MetaTrader 5 demo account/);
+  assert.ok(sent.find((entry) => entry.method === "setMyCommands").commands.some((entry) => entry.command === "mt5"));
+
+  // The PC goes quiet: the numbers stay, marked as old.
+  now.advance(10 * 60 * 1000);
+  assert.match(await say("/mt5"), /⚠️ Last heard from the bridge 10 minutes ago/);
 });

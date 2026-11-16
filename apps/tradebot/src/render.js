@@ -671,6 +671,7 @@ export function help(settings) {
       "/history closed trades",
       "/desk the second opinion and its record (/desk off: stop asking)",
       "/live real money (off, shadow or on)",
+      "/mt5 the MetaTrader 5 demo account (copied by a bridge on your PC)",
       `/reset ${RATE ? "100jt" : "10000"} start over with fresh practice money`,
       "",
       modeLine(settings),
