@@ -127,7 +127,7 @@ export function createWorker(overrides) {
           web: createWeb({ fetch: deps.fetch, glowPages: pages }),
           spark: createSpark({ fetch: deps.fetch, base: `${pages}/spark`, now: deps.now }),
           registry: registryClient(env.REGISTRY),
-          info: { pages, version: VERSION, build: buildOf(env) },
+          info: { pages, version: VERSION, build: buildOf(env), githubUser: String(env.GITHUB_USER || "") },
           every: deps.every,
           // The chat wants the words alone; transcribeVoice also says which model heard them. Telegram waits
           // on the webhook meanwhile, so each Whisper model gets 25 seconds, not the default minute.

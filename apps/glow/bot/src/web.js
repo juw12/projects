@@ -155,7 +155,7 @@ export function parseRss(xml) {
 }
 
 // The page's own <title>, which htmlToText drops along with the rest of <head>.
-function titleOf(html) {
+export function titleOf(html) {
   const source = String(html == null ? "" : html);
   const bodyAt = source.search(/<body\b/i);
   const head = bodyAt === -1 ? source.slice(0, 20000) : source.slice(0, bodyAt);
@@ -216,7 +216,7 @@ async function readBody(response, maxBytes) {
   return (text + decoder.decode()).slice(0, maxBytes);
 }
 
-// createWeb({ fetch, timeoutMs, userAgent, glowPages }) -> { search, read, news, searchers, readers }
+// createWeb({ fetch, timeoutMs, userAgent, glowPages }) -> { search, read, page, news, searchers, readers }
 export function createWeb(options) {
   const settings = options || {};
   const send = settings.fetch || ((input, init) => fetch(input, init));
@@ -339,6 +339,14 @@ export function createWeb(options) {
     throw new WebError(`Could not read ${url} (${failures.join("; ")})`);
   }
 
+  // One public address, exactly as it answers: page(url, { headers, maxBytes, label, signal }) ->
+  // { ok, status, type, text }. The desk uses it for a link's title and for GitHub's list of repositories.
+  async function page(url, options = {}) {
+    if (!isPublicUrl(url)) throw new WebError("That is not a public web address");
+    const headers = { "User-Agent": userAgent, ...(options.headers || {}) };
+    return get(url, headers, options.signal, options.label || "page", options.maxBytes);
+  }
+
   // The current GlowNews edition, exactly as the GlowNews page reads it.
   async function news(signal) {
     const reply = await get(glowPages + "/news/news.json", {}, signal, "GlowNews", MAX_NEWS_BYTES);
@@ -353,5 +361,5 @@ export function createWeb(options) {
     return edition;
   }
 
-  return { search, read, news, searchers, readers };
+  return { search, read, page, news, searchers, readers };
 }

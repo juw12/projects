@@ -29,6 +29,8 @@ import {
 import { byStrength } from "./models.js";
 import { whoAndWhere } from "./registry.js";
 import { archiveJob, archiveLines, findArchived } from "./archive.js";
+import { CalcError, calculate } from "./calc.js";
+import { URL_CLIP, createDesk, exportMarkdown, scanText, stamp } from "./desk.js";
 import {
   MAX_SCHEDULES,
   clockAt,
@@ -44,6 +46,7 @@ import {
 import { LANGS, LANG_NAMES, isLang, pickLang, t, tPlain } from "./strings.js";
 import { createTelegram, escapeHtml, htmlToPlain, recordingTransport } from "./telegram.js";
 import { StoppedError, clip, errorText } from "./util.js";
+import { isPublicUrl, titleOf } from "./web.js";
 
 // ------------------------------------------------------------------ limits
 const STATE_KEY = "chat";
@@ -88,6 +91,17 @@ const SCHEDULE_LATE_MS = 2 * 60 * 1000; // a run that starts this much after its
 const SCHEDULE_KIND = "room"; // scheduled missions run as GlowRoom: it works without waiting for a Run tap
 const ARCHIVED_KINDS = ["lead", "room", "agent"];
 const AGAIN_BUTTONS = 5;
+// The desk: the owner's own notes, links and posts (desk.js).
+const NOTES_SHOWN = 12;
+const LINKS_SHOWN = 15;
+const POSTS_SHOWN = 10;
+const NOTE_PREVIEW = 250;
+const POST_PREVIEW = 200;
+const LIST_ROOM = 3800; // characters one list may take, so it stays one message
+const BRIEF_REPOS = 8;
+const TITLE_BYTES = 65536; // a page's <title> is at its top
+const GITHUB_BYTES = 400000;
+const EXPORT_NAME = "glow-desk.md";
 // A scheduled mission has no person behind it at run time: it runs with the owner's rights,
 // because only the owner can set one up.
 const SCHEDULE_ACCESS = { role: "owner", allowed: true, claimed: false, ownerKnown: true, gone: false };
@@ -252,6 +266,25 @@ function safeLink(url) {
   return escapeHtml(value).replace(/"/g, "&quot;");
 }
 
+// A title and the newest of its lines that fit in one message.
+function listMessage(title, lines) {
+  const kept = [...lines];
+  while (kept.length > 1 && title.length + kept.join("\n").length > LIST_ROOM) kept.shift();
+  return [title, ...kept].join("\n");
+}
+
+// As much of the text as takes at most `room` characters once it is escaped.
+function fitEscaped(text, room) {
+  let value = String(text);
+  while (escapeHtml(value).length > room) value = value.slice(0, Math.floor(value.length * 0.8));
+  return value;
+}
+
+// Several lines as one, for a list.
+function oneLine(text) {
+  return String(text).replace(/\s*\n\s*/g, " ");
+}
+
 function inRows(buttons, perRow) {
   const rows = [];
   for (let index = 0; index < buttons.length; index += perRow) rows.push(buttons.slice(index, index + perRow));
@@ -354,7 +387,7 @@ export function newsBody(edition, topic, lang, pages, titleKey = "news.title") {
 export class ChatLogic {
   // deps = { storage, now, telegramFor(config), modelsFor(modelState), web, spark, registry, info, every, onError }
   //   registry  { setPublic(flag), status(), forget(chatId) }
-  //   info      { pages, version, build }
+  //   info      { pages, version, build, githubUser }
   //   every     (fn, ms) => cancel: a repeating timer (the typing ping). Tests pass none.
   //   onError   (where, error): told about an error inside a tick that nothing foresaw.
   //   transcribe (voice, config) => text: turns a Telegram voice note into words.
@@ -371,6 +404,7 @@ export class ChatLogic {
     this.onError = deps.onError || (() => {});
     // transcribe(voice, config) -> text: a voice note through Workers AI Whisper (voice.js). None in tests.
     this.transcribe = deps.transcribe || null;
+    this.desk = createDesk({ storage: deps.storage, now: this.now });
     this.ticking = false;
     this.forget();
   }
@@ -676,6 +710,29 @@ export class ChatLogic {
       }
       case "ask":
         return this.cmdAsk(arg, message, access);
+      case "calc":
+        return this.cmdCalc(arg, message);
+      case "note":
+      case "log":
+        return this.cmdNote(name, arg, message, access, addressed);
+      case "notes":
+        return this.cmdNotes(message, access, addressed);
+      case "save":
+        return this.cmdSave(arg, message, access, addressed);
+      case "links":
+        return this.cmdLinks(message, access, addressed);
+      case "scan":
+        return this.cmdScan(arg, message, access, addressed);
+      case "guard":
+        return this.cmdGuard(arg, message, access, addressed);
+      case "post":
+        return this.cmdPost(arg, message, access, addressed);
+      case "posts":
+        return this.cmdPosts(message, access, addressed);
+      case "brief":
+        return this.cmdBrief(message, access, addressed);
+      case "export":
+        return this.cmdExport(message, access, addressed);
       case "spark":
         if (!arg) return this.reply(message, t(lang, "spark.usage"));
         return this.startJob("spark", arg, message, access);
@@ -1108,6 +1165,281 @@ export class ChatLogic {
     await this.reply(message, lines.join("\n"));
   }
 
+  // ---------------------------------------------------------------- /calc
+  // Sums with units. It needs no AI model, so anybody may use it, in any chat.
+  async cmdCalc(arg, message) {
+    const lang = this.state.lang;
+    if (!arg) return this.reply(message, t(lang, "calc.usage"));
+    let answer;
+    try {
+      answer = calculate(arg);
+    } catch (error) {
+      if (!(error instanceof CalcError)) throw error;
+      return this.reply(message, t(lang, "calc.error", { reason: error.message }));
+    }
+    return this.reply(message, t(lang, "calc.result", { sum: arg, answer }));
+  }
+
+  // ---------------------------------------------------------------- the desk
+  // The owner's own notes, links and posts. True when this is the owner in the private chat;
+  // otherwise it has said why not. In a group "/note" may be meant for another bot, so there it
+  // only answers when it is named.
+  async deskOpen(message, access, addressed) {
+    const state = this.state;
+    const group = state.chatType !== "private";
+    if (group && !addressed) return false;
+    if (access.role !== "owner") {
+      await this.reply(message, t(state.lang, "access.owner.only"));
+      return false;
+    }
+    if (group) {
+      await this.reply(message, t(state.lang, "desk.private"));
+      return false;
+    }
+    return true;
+  }
+
+  // What the Guard found. It counts; it never repeats the word it found.
+  guardLines(check) {
+    const lang = this.state.lang;
+    const lines = [t(lang, "desk.scan.blocked")];
+    if (check.words) lines.push(t(lang, "desk.scan.words", { n: check.words }));
+    if (check.secret) lines.push(t(lang, "desk.scan.secret"));
+    return lines.join("\n");
+  }
+
+  // What stands in a list for an item the Guard would block now.
+  hiddenMark() {
+    return `<i>${escapeHtml(tPlain(this.state.lang, "desk.hidden"))}</i>`;
+  }
+
+  // "/note" and "/log": the same list, a log entry is only marked as one.
+  async cmdNote(name, arg, message, access, addressed) {
+    if (!(await this.deskOpen(message, access, addressed))) return;
+    const lang = this.state.lang;
+    if (!arg) {
+      await this.reply(message, t(lang, "desk.note.usage"));
+      return;
+    }
+    const check = scanText(arg, await this.desk.guard());
+    if (!check.clean) {
+      await this.reply(message, this.guardLines(check));
+      return;
+    }
+    const note = await this.desk.addNote(arg, name === "log" ? "log" : "note");
+    await this.reply(message, t(lang, "desk.note.saved", { n: note.n }));
+  }
+
+  async cmdNotes(message, access, addressed) {
+    if (!(await this.deskOpen(message, access, addressed))) return;
+    const lang = this.state.lang;
+    const [notes, guard] = await Promise.all([this.desk.notes(NOTES_SHOWN), this.desk.guard()]);
+    if (!notes.length) {
+      await this.reply(message, t(lang, "desk.notes.none"));
+      return;
+    }
+    const lines = notes.map((note) => {
+      const body = scanText(note.text, guard).clean ? escapeHtml(clip(oneLine(note.text), NOTE_PREVIEW)) : this.hiddenMark();
+      return `${note.kind === "log" ? "📓" : "📝"} <code>${stamp(note.at, OFFSET_MS)}</code> ${body}`;
+    });
+    await this.reply(message, listMessage(t(lang, "desk.notes.title", { n: notes.length }), lines));
+  }
+
+  // "/save <link>": the link and the page's own title. The title is looked up once, here.
+  async cmdSave(arg, message, access, addressed) {
+    if (!(await this.deskOpen(message, access, addressed))) return;
+    const lang = this.state.lang;
+    const url = arg.split(/\s+/)[0] || "";
+    if (!url) {
+      await this.reply(message, t(lang, "desk.save.usage"));
+      return;
+    }
+    if (!/^https?:\/\//i.test(url) || url.length > URL_CLIP || !isPublicUrl(url)) {
+      await this.reply(message, t(lang, "desk.save.bad"));
+      return;
+    }
+    const guard = await this.desk.guard();
+    const check = scanText(url, guard);
+    if (!check.clean) {
+      await this.reply(message, this.guardLines(check));
+      return;
+    }
+    let title = "";
+    try {
+      const page = await this.web.page(url, {
+        maxBytes: TITLE_BYTES,
+        headers: { Accept: "text/html,*/*;q=0.5" },
+        label: "link title",
+      });
+      if (page.ok) title = titleOf(page.text);
+    } catch (error) {
+      title = ""; // a page that does not answer is still a link worth keeping
+    }
+    if (!scanText(title, guard).clean) title = "";
+    const { saved, link } = await this.desk.addLink(url, title);
+    const shown = escapeHtml(link.title || link.url);
+    await this.reply(message, saved ? t(lang, "desk.save.saved", { n: link.n }) + "\n" + shown : t(lang, "desk.save.dup", { n: link.n }) + "\n" + shown);
+  }
+
+  async cmdLinks(message, access, addressed) {
+    if (!(await this.deskOpen(message, access, addressed))) return;
+    const lang = this.state.lang;
+    const [links, guard] = await Promise.all([this.desk.links(LINKS_SHOWN), this.desk.guard()]);
+    if (!links.length) {
+      await this.reply(message, t(lang, "desk.links.none"));
+      return;
+    }
+    const lines = links.map((link) => {
+      if (!scanText(`${link.title} ${link.url}`, guard).clean) return `🔗 ${this.hiddenMark()}`;
+      const href = safeLink(link.url);
+      const label = escapeHtml(clip(link.title || link.url, 120));
+      return href ? `🔗 <a href="${href}">${label}</a>` : `🔗 ${label}`;
+    });
+    await this.reply(message, listMessage(t(lang, "desk.links.title", { n: links.length }), lines));
+  }
+
+  async cmdScan(arg, message, access, addressed) {
+    if (!(await this.deskOpen(message, access, addressed))) return;
+    const lang = this.state.lang;
+    if (!arg) {
+      await this.reply(message, t(lang, "desk.scan.usage"));
+      return;
+    }
+    const check = scanText(arg, await this.desk.guard());
+    await this.reply(message, check.clean ? t(lang, "desk.scan.clean") : this.guardLines(check));
+  }
+
+  // "/guard", "/guard add word, another word", "/guard clear". The words are the owner's own, kept
+  // in this chat's storage only. No answer ever repeats one of them.
+  async cmdGuard(arg, message, access, addressed) {
+    if (!(await this.deskOpen(message, access, addressed))) return;
+    const lang = this.state.lang;
+    if (!arg) {
+      const words = await this.desk.guard();
+      await this.reply(message, t(lang, "desk.guard.show", { n: words.length }));
+      return;
+    }
+    const verb = arg.split(/\s+/)[0].toLowerCase();
+    const rest = arg.slice(verb.length).trim();
+    if (verb === "add" && rest) {
+      const { added, total } = await this.desk.addGuard(rest);
+      await this.reply(message, t(lang, "desk.guard.added", { added, total }));
+      return;
+    }
+    if (verb === "clear" && !rest) {
+      await this.desk.clearGuard();
+      await this.reply(message, t(lang, "desk.guard.cleared"));
+      return;
+    }
+    await this.reply(message, t(lang, "desk.guard.usage"));
+  }
+
+  // "/post <text>": the Guard reads it first, then the owner approves it. Nothing is kept before that.
+  async cmdPost(arg, message, access, addressed) {
+    if (!(await this.deskOpen(message, access, addressed))) return;
+    const lang = this.state.lang;
+    if (!arg) {
+      await this.reply(message, t(lang, "desk.post.usage"));
+      return;
+    }
+    const check = scanText(arg, await this.desk.guard());
+    if (!check.clean) {
+      await this.reply(message, this.guardLines(check));
+      return;
+    }
+    const pending = await this.desk.propose(arg);
+    const buttons = [
+      [
+        { text: tPlain(lang, "btn.approve"), data: `pst:${pending.id}:y` },
+        { text: tPlain(lang, "btn.decline"), data: `pst:${pending.id}:n` },
+      ],
+    ];
+    await this.reply(message, t(lang, "desk.post.preview", { text: fitEscaped(pending.text, LIST_ROOM - 200) }), { buttons });
+  }
+
+  async cmdPosts(message, access, addressed) {
+    if (!(await this.deskOpen(message, access, addressed))) return;
+    const lang = this.state.lang;
+    const [posts, guard] = await Promise.all([this.desk.posts(POSTS_SHOWN), this.desk.guard()]);
+    if (!posts.length) {
+      await this.reply(message, t(lang, "desk.posts.none"));
+      return;
+    }
+    const lines = posts.map((post) => {
+      const body = scanText(post.text, guard).clean ? escapeHtml(clip(oneLine(post.text), POST_PREVIEW)) : this.hiddenMark();
+      return `<b>#${post.n}</b> <code>${stamp(post.at, OFFSET_MS)}</code> ${body}`;
+    });
+    await this.reply(message, listMessage(t(lang, "desk.posts.title", { n: posts.length }), lines));
+  }
+
+  // "/brief": what was pushed to the owner's public GitHub repositories last. GitHub is asked
+  // without a login, so it only ever sees and shows what is public.
+  async cmdBrief(message, access, addressed) {
+    if (!(await this.deskOpen(message, access, addressed))) return;
+    const lang = this.state.lang;
+    const user = this.info.githubUser || "juw12";
+    const address = `https://api.github.com/users/${encodeURIComponent(user)}/repos?sort=pushed&per_page=${BRIEF_REPOS}`;
+    let answer;
+    try {
+      answer = await this.web.page(address, {
+        maxBytes: GITHUB_BYTES,
+        headers: { Accept: "application/vnd.github+json" },
+        label: "GitHub",
+      });
+    } catch (error) {
+      answer = { ok: false, status: 0, text: "" };
+    }
+    let repos = null;
+    if (answer.ok) {
+      try {
+        repos = JSON.parse(answer.text);
+      } catch (error) {
+        repos = null;
+      }
+    }
+    if (!Array.isArray(repos)) {
+      await this.reply(message, t(lang, "desk.brief.error", { status: answer.status || 0 }));
+      return;
+    }
+    const guard = await this.desk.guard();
+    const lines = [];
+    for (const repo of repos) {
+      if (!repo || typeof repo !== "object" || repo.private) continue;
+      const name = String(repo.name || "");
+      const about = String(repo.description || "");
+      if (!name || !scanText(`${name} ${about}`, guard).clean) continue;
+      const href = safeLink(repo.html_url);
+      const label = href ? `<a href="${href}">${escapeHtml(name)}</a>` : `<b>${escapeHtml(name)}</b>`;
+      const pushed = Date.parse(repo.pushed_at);
+      const when = Number.isFinite(pushed) ? ` · <code>${stamp(pushed, OFFSET_MS)}</code>` : "";
+      lines.push(`• ${label}${when}${about ? `\n   ${escapeHtml(clip(about, 160))}` : ""}`);
+    }
+    if (!lines.length) {
+      await this.reply(message, t(lang, "desk.brief.none", { user }));
+      return;
+    }
+    await this.reply(message, listMessage(t(lang, "desk.brief.title", { user }), lines));
+  }
+
+  // "/export": the whole desk as one Markdown file, sent into this chat.
+  async cmdExport(message, access, addressed) {
+    if (!(await this.deskOpen(message, access, addressed))) return;
+    const state = this.state;
+    const lang = state.lang;
+    const all = await this.desk.all();
+    if (!all.notes.length && !all.links.length && !all.posts.length) {
+      await this.reply(message, t(lang, "desk.export.empty"));
+      return;
+    }
+    const markdown = exportMarkdown({ ...all, now: this.now(), offsetMs: OFFSET_MS, hidden: tPlain(lang, "desk.hidden") });
+    const form = new FormData();
+    form.append("chat_id", String(state.chatId));
+    form.append("caption", tPlain(lang, "desk.export.caption"));
+    form.append("document", new Blob([markdown], { type: "text/markdown" }), EXPORT_NAME);
+    const sent = await this.telegram().call("sendDocument", form);
+    if (!sent.ok) await this.reply(message, t(lang, "desk.export.failed"));
+  }
+
   // The model this chat chose, or null when GlowBot chooses. A choice that is no longer on the
   // list (a model that was retired) is dropped.
   pinnedModel(models) {
@@ -1422,6 +1754,18 @@ export class ChatLogic {
       await toast("toast.ok");
       const view = this.modelsView();
       if (messageId) await tg.edit(state.chatId, messageId, view.html, { buttons: view.buttons });
+      return null;
+    }
+
+    if (action === "pst") {
+      if (access.role !== "owner") return toast("toast.owner", true);
+      const done = await this.desk.decide(first, second === "y");
+      if (!done) return stale();
+      await toast("toast.ok");
+      const html = done.approved
+        ? t(lang, "desk.post.approved", { n: done.post.n, text: fitEscaped(done.post.text, LIST_ROOM - 200) })
+        : t(lang, "desk.post.rejected");
+      if (messageId) await tg.edit(state.chatId, messageId, html, { buttons: [] });
       return null;
     }
 

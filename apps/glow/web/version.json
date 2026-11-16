@@ -1,11 +1,11 @@
 {
-  "version": "1.35.0",
+  "version": "1.36.0",
   "released": "2026-11-16",
   "notes": [
-    "🤖 GlowBot: /models is now grouped by what each model is best at: hardest questions, maths and logic, code, Indonesian and Southeast Asian languages, everyday chat, and speed",
-    "In each group the bot's first pick is on top. It is the bot's suggestion from what each maker built the model for, its size and its age, not a benchmark",
-    "The numbers follow the new list, so look at /models before typing one, like /model 3. A model you already chose stays chosen",
-    "Which model the bot asks first on its own has not changed"
+    "🤖 GlowBot: /calc does sums with units, like /calc 1 in to mm. The bot works it out itself, without an AI model",
+    "The owner gets a private desk in the bot: /note, /notes, /save, /links, /post, /posts and /export keep notes, links and approved posts",
+    "The Guard checks everything before it is kept and refuses passwords, keys, tokens and the words on the owner's own list (/guard, /scan)",
+    "/brief shows the last pushes on GitHub. The desk answers only the owner, in the owner's private chat"
   ],
   "android": "https://github.com/juw12/projects/releases/download/glow-android/Glow-android.apk",
   "windows": "https://github.com/juw12/projects/releases/download/glow-windows/Glow-Setup.exe",

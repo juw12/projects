@@ -3,7 +3,7 @@ import { test } from "node:test";
 
 import { parseSearchMarkdown } from "../src/crew-port.js";
 import { StoppedError } from "../src/util.js";
-import { WebError, createWeb, decodeEntities, htmlToText, isPublicUrl, parseDuckHtml, parseRss } from "../src/web.js";
+import { WebError, createWeb, decodeEntities, htmlToText, isPublicUrl, parseDuckHtml, parseRss, titleOf } from "../src/web.js";
 import { fakeFetch, reply } from "./fakes.js";
 
 const READER = "https://r.jina.ai/";
@@ -473,6 +473,46 @@ test("a page that starts arriving and then stalls is given up on", async () => {
     assert.match(error.message, /direct: page read timed out.*jina: page read timed out/);
     return true;
   });
+});
+
+test("a page's title is read from its head, on one line and without entities", () => {
+  assert.equal(titleOf("<html><head><title>\n  Tom &amp; Jerry\n  prices </title></head><body><title>not this</title></body></html>"), "Tom & Jerry prices");
+  assert.equal(titleOf("<html><body><p>no title here</p></body></html>"), "");
+  assert.equal(titleOf(null), "");
+});
+
+test("one address is fetched as it answers, with the bot's name and the caller's headers", async () => {
+  const send = fakeFetch([["https://api.example.org/list", () => reply([{ name: "one" }], { status: 200 })]]);
+  const web = createWeb({ fetch: send });
+  const answer = await web.page("https://api.example.org/list?n=1", { headers: { Accept: "application/json" }, label: "a list" });
+  assert.equal(answer.ok, true);
+  assert.equal(answer.status, 200);
+  assert.match(answer.type, /application\/json/);
+  assert.deepEqual(JSON.parse(answer.text), [{ name: "one" }]);
+  assert.match(send.calls[0].headers["User-Agent"], /GlowBot/);
+  assert.equal(send.calls[0].headers.Accept, "application/json");
+});
+
+test("a refusal from the site is handed back, not thrown", async () => {
+  const send = fakeFetch([["https://api.example.org/", () => reply("slow down", { status: 403 })]]);
+  const answer = await createWeb({ fetch: send }).page("https://api.example.org/list");
+  assert.equal(answer.ok, false);
+  assert.equal(answer.status, 403);
+});
+
+test("one address is cut at the size it was asked for", async () => {
+  const send = fakeFetch([["https://example.org/", () => reply("x".repeat(5000), HTML)]]);
+  const answer = await createWeb({ fetch: send }).page("https://example.org/big", { maxBytes: 1000 });
+  assert.equal(answer.text.length, 1000);
+});
+
+test("a private address is not fetched as a page either", async () => {
+  const send = fakeFetch([["http", () => reply("should never be asked")]]);
+  const web = createWeb({ fetch: send });
+  for (const address of ["http://192.168.1.1/admin", "http://localhost:8787/", "notalink"]) {
+    await assert.rejects(web.page(address), (error) => error instanceof WebError && error.message === "That is not a public web address");
+  }
+  assert.equal(send.calls.length, 0);
 });
 
 test("GlowNews is read from the Glow site", async () => {

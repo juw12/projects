@@ -179,7 +179,7 @@ export function makeChat({
     web,
     spark,
     registry,
-    info: { pages: PAGES, version: "1.35.0", build: "test" },
+    info: { pages: PAGES, version: "1.36.0", build: "test" },
     onError: (where, error) => errors.push({ where, error }),
   });
   const kit = { now, storage, telegram, models, web, spark, registry, errors, chat, config, logic: build() };

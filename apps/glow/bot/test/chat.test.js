@@ -5,7 +5,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { APP_LINKS, DAILY_JOB_LIMIT } from "../src/chat.js";
-import { COMMANDS, t } from "../src/strings.js";
+import { COMMANDS, OWNER_COMMANDS, t } from "../src/strings.js";
 import { fakeWeb } from "./fakes.js";
 import {
   AS_MEMBER,
@@ -71,8 +71,8 @@ test("/help lists every command, and shows /access only to the owner in their ow
   for (const command of COMMANDS) {
     if (command !== "help") assert.ok(plain.includes(`/${command}`), `help does not mention /${command}`);
   }
-  for (const ownerOnly of ["/access", "/allow", "/deny", "/users"]) {
-    assert.ok(!plain.includes(ownerOnly), `the public help mentions ${ownerOnly}`);
+  for (const ownerOnly of OWNER_COMMANDS) {
+    assert.ok(!plain.includes(`/${ownerOnly}`), `the public help mentions /${ownerOnly}`);
   }
 
   const owner = await answerTo("/help");
@@ -86,6 +86,18 @@ test("/help lists every command, and shows /access only to the owner in their ow
       "/allow <i>id</i> · let one person or group in",
       "/deny <i>id</i> · take one out again",
       "/users · who is let in",
+      "",
+      "<b>Your desk</b> (only in our private chat)",
+      "/note <i>text</i> · keep a note; /log marks it as a log entry",
+      "/notes · your last notes",
+      "/save <i>link</i> · keep a link with its page title",
+      "/links · your saved links",
+      "/post <i>text</i> · draft a post; it is kept only after you approve it",
+      "/posts · your approved posts",
+      "/scan <i>text</i> · check a text with the Guard",
+      "/guard · the Guard and your own words",
+      "/brief · the last pushes on GitHub",
+      "/export · the desk as one Markdown file",
     ].join("\n"),
   ]);
 
@@ -169,7 +181,7 @@ test("/status shows the owner no limit and everyone else the daily limit", async
   const owner = await answerTo("/status");
   assert.deepEqual(owner.lines, ["sendMessage"]);
   assert.deepEqual(statusLines(owner.said), [
-    "<b>GlowBot 1.35.0</b>",
+    "<b>GlowBot 1.36.0</b>",
     "Mode: GlowLead",
     "Language: English",
     "Access: private",
@@ -204,7 +216,7 @@ test("/status speaks the chat's language and shows the daily news time", async (
   await bakeryUpTo(kit, "plan");
   await kit.say("/status");
   assert.deepEqual(statusLines(texts(kit.fresh())), [
-    "<b>GlowBot 1.35.0</b>",
+    "<b>GlowBot 1.36.0</b>",
     "Mode: GlowLead",
     "Bahasa: Bahasa Indonesia",
     "Akses: pribadi",

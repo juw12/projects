@@ -825,8 +825,11 @@ test("the owner's link makes the first chat the owner, once", async () => {
   for (const entry of ownerMenus) assert.deepEqual(entry.payload.scope, { type: "chat", chat_id: 9001 });
   assert.deepEqual(ownerMenus.map((entry) => entry.payload.language_code), [undefined, "id", "zh"]);
   assert.deepEqual(
-    ownerMenus[0].payload.commands.slice(-4).map((entry) => entry.command),
-    ["access", "allow", "deny", "users"],
+    ownerMenus[0].payload.commands.slice(-14).map((entry) => entry.command),
+    [
+      "access", "allow", "deny", "users",
+      "note", "notes", "save", "links", "post", "posts", "scan", "guard", "brief", "export",
+    ],
   );
   assert.equal((await call("/v1/status")).body.claimed, true);
 
