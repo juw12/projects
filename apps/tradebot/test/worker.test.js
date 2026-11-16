@@ -129,7 +129,7 @@ test("before setup the worker is alive, unconfigured and trades practice money o
   assert.equal(status.status, 200);
   assert.deepEqual(
     { ...status.body, version: "x" },
-    { ok: true, service: "trade-bot", version: "x", build: "test", money: "practice", configured: false, bot: null, paired: false, running: false, lastRound: null, rupiah: null, twin: { configured: false, bot: null, lastReportAt: null }, mt5: { configured: false, lastReportAt: null, demo: null } },
+    { ok: true, service: "trade-bot", version: "x", build: "test", money: "practice", configured: false, bot: null, paired: false, running: false, lastRound: null, rupiah: null, twin: { configured: false, bot: null, lastReportAt: null }, mt5: { configured: false, lastReportAt: null, demo: null }, indodax: { configured: false, lastReportAt: null, mode: null } },
   );
   assert.equal((await call("GET", "/nope")).status, 404);
   assert.equal((await call("POST", "/v1/telegram", { headers: { "X-Telegram-Bot-Api-Secret-Token": "guess" }, body: { update_id: 1 } })).status, 403);
@@ -750,4 +750,192 @@ test("mt5: /mt5 in Telegram shows what the bridge last reported, and only shows"
   // The PC goes quiet: the numbers stay, marked as old.
   now.advance(10 * 60 * 1000);
   assert.match(await say("/mt5"), /⚠️ Last heard from the bridge 10 minutes ago/);
+});
+
+// ---------------------------------------------------------------- Indodax (the sender on the PC)
+
+// What the sender posts when it holds nothing, in practice.
+function indodaxReport(extra = {}) {
+  return {
+    mode: "practice",
+    keys: false,
+    tripped: false,
+    trippedWhy: "",
+    orderIdr: 50000,
+    maxOpen: 2,
+    stopPercent: 8,
+    positions: [],
+    closed: [],
+    result: { practice: 0, real: 0 },
+    today: { practice: 0, real: 0, buys: 0 },
+    notes: [],
+    ...extra,
+  };
+}
+
+const INDODAX_SETUP = { headers: { "X-Setup-Code": SETUP_CODE }, body: {} };
+
+test("indodax: setup needs the setup code, shows the sender's key once, and a new key replaces the old one", async () => {
+  const { call, storage } = await harness();
+  assert.equal((await call("POST", "/v1/indodax/setup", { body: {} })).status, 403);
+  assert.equal((await call("POST", "/v1/indodax/setup", { headers: { "X-Setup-Code": "wrong" }, body: {} })).status, 403);
+  assert.equal((await storage().get("indodax")) || null, null, "nothing was made without the code");
+
+  const first = (await call("POST", "/v1/indodax/setup", INDODAX_SETUP)).body;
+  assert.equal(first.ok, true);
+  assert.equal(first.ownerPaired, false);
+  assert.match(first.bridgeKey, /^[0-9a-f]{64}$/);
+  assert.match(first.note, /INDODAX_BRIDGE_KEY[\s\S]*starts in practice/);
+
+  // Only the key's hash is kept.
+  const kept = await storage().get("indodax");
+  assert.equal(JSON.stringify(kept).includes(first.bridgeKey), false);
+  assert.equal(kept.keyHash, await sha256Hex(first.bridgeKey));
+  assert.deepEqual((await call("GET", "/v1/status")).body.indodax, { configured: true, lastReportAt: null, mode: null });
+
+  const again = (await call("POST", "/v1/indodax/setup", INDODAX_SETUP)).body;
+  assert.equal(again.bridgeKey, null);
+  assert.match(again.note, /still works/);
+  assert.equal((await call("GET", "/v1/indodax/signals", { headers: { "X-Indodax-Key": first.bridgeKey } })).status, 200);
+
+  const renewed = (await call("POST", "/v1/indodax/setup", { headers: { "X-Setup-Code": SETUP_CODE }, body: { newKey: true } })).body;
+  assert.match(renewed.bridgeKey, /^[0-9a-f]{64}$/);
+  assert.notEqual(renewed.bridgeKey, first.bridgeKey);
+  assert.equal((await call("GET", "/v1/indodax/signals", { headers: { "X-Indodax-Key": first.bridgeKey } })).status, 403);
+  assert.equal((await call("GET", "/v1/indodax/signals", { headers: { "X-Indodax-Key": renewed.bridgeKey } })).status, 200);
+
+  // The MT5 bridge's key is a different key: neither opens the other's door.
+  const mt5 = (await call("POST", "/v1/mt5/setup", MT5_SETUP)).body;
+  assert.equal((await call("GET", "/v1/indodax/signals", { headers: { "X-Indodax-Key": mt5.bridgeKey } })).status, 403);
+  assert.equal((await call("GET", "/v1/mt5/signals", { headers: { "X-Mt5-Key": renewed.bridgeKey } })).status, 403);
+});
+
+test("indodax: only the sender's key reads the signals, and they follow the practice account", async () => {
+  const { call, pair, round, say, now } = await harness();
+  const signals = (key) => call("GET", "/v1/indodax/signals", { headers: key ? { "X-Indodax-Key": key } : {} });
+  assert.equal((await signals("a".repeat(64))).status, 403, "no key exists yet");
+  const { bridgeKey } = (await call("POST", "/v1/indodax/setup", INDODAX_SETUP)).body;
+  assert.equal((await signals("")).status, 403);
+  assert.equal((await signals("b".repeat(64))).status, 403);
+  assert.equal((await call("POST", "/v1/indodax/signals", { headers: { "X-Indodax-Key": bridgeKey }, body: {} })).status, 404, "signals are only read");
+
+  // Nobody is paired, so no round has run: nothing to act on.
+  assert.deepEqual((await signals(bridgeKey)).body, { ok: true, at: now(), lastRoundAt: null, fresh: false, wanted: [] });
+
+  await pair();
+  assert.match(await round(), /Bought BTC/);
+  const held = (await signals(bridgeKey)).body;
+  assert.equal(held.fresh, true);
+  assert.deepEqual(held.wanted.map((item) => item.symbol), ["BTCUSDT"]);
+  assert.equal(held.wanted[0].openedAt, now());
+
+  // The agent goes quiet for longer than three rounds: the coin is still listed, but not to act on.
+  now.advance(3 * TICK_MS + 1000);
+  const quiet = (await signals(bridgeKey)).body;
+  assert.equal(quiet.fresh, false);
+  assert.equal(quiet.wanted.length, 1);
+
+  // Sold in the practice account: nothing is wanted any more.
+  await say("/sell BTC");
+  assert.deepEqual((await signals(bridgeKey)).body.wanted, []);
+});
+
+test("indodax reports: only the sender's key gets in, and copies are told to the owner through TradeBot's own bot", async () => {
+  const { call, pair, sent, twinSent, storage, now } = await harness();
+  const post = (key, body) => call("POST", "/v1/indodax/report", { headers: key ? { "X-Indodax-Key": key } : {}, body });
+  assert.equal((await post("a".repeat(64), indodaxReport())).status, 403, "no key exists yet");
+  await pair();
+  const { bridgeKey, ownerPaired } = (await call("POST", "/v1/indodax/setup", INDODAX_SETUP)).body;
+  assert.equal(ownerPaired, true);
+
+  assert.equal((await post("", indodaxReport())).status, 403);
+  assert.equal((await post("b".repeat(64), indodaxReport())).status, 403);
+  assert.equal((await post(bridgeKey, [1, 2, 3])).status, 400);
+  assert.equal((await call("POST", "/v1/indodax/report", { headers: { "X-Indodax-Key": bridgeKey } })).status, 400, "not JSON");
+  assert.equal((await post(bridgeKey, indodaxReport({ trippedWhy: "x".repeat(40000) }))).status, 413);
+  assert.equal((await storage().get("indodax")).report, null, "nothing refused was kept");
+
+  const texts = (from) => sent.slice(from).filter((entry) => entry.method === "sendMessage").map((entry) => entry.text).join("\n---\n");
+  const before = sent.length;
+  // The first report: nothing to compare it with. Things the sender should never send are not kept.
+  const first = await post(bridgeKey, indodaxReport({ balanceIdr: 987654321, apiKey: "SECRET-INDODAX-KEY", email: "someone@example.com" }));
+  assert.deepEqual(first.body, { ok: true, at: now(), told: 0 });
+  assert.deepEqual((await call("GET", "/v1/status")).body.indodax, { configured: true, lastReportAt: now(), mode: "practice" });
+  const kept = JSON.stringify(await storage().get("indodax"));
+  assert.equal(kept.includes("987654321"), false, "a balance is not kept");
+  assert.equal(kept.includes("SECRET-INDODAX-KEY"), false, "a key is not kept");
+  assert.equal(kept.includes("someone@example.com"), false, "an address is not kept");
+
+  const btc = { symbol: "BTCUSDT", pair: "btc_idr", real: false, quantity: 0.00003, spent: 50000, price: 1650000000, now: 1650000000, value: 50000, openedAt: now() };
+  now.advance(60000);
+  assert.equal((await post(bridgeKey, indodaxReport({ positions: [btc], today: { practice: 0, real: 0, buys: 1 } }))).body.told, 1);
+  assert.match(texts(before), /Indodax bought BTC<\/b> · pretend money\nPaid Rp50\.000 at Rp1\.650\.000\.000 per coin\nOpen copies: 1/);
+  assert.equal(sent[sent.length - 1].chat_id, OWNER);
+
+  now.advance(60000);
+  assert.equal((await post(bridgeKey, indodaxReport({ positions: [btc] }))).body.told, 0, "nothing changed, nothing said");
+
+  now.advance(60000);
+  const sold = { symbol: "BTCUSDT", real: false, spent: 50000, received: 51200, at: now(), how: "sold" };
+  assert.equal((await post(bridgeKey, indodaxReport({ closed: [sold], result: { practice: 1200, real: 0 } }))).body.told, 1);
+  assert.match(texts(before), /Indodax sold BTC<\/b> · pretend money\nPaid Rp50\.000, got Rp51\.200: \+Rp1\.200/);
+  assert.equal(texts(before).includes("REAL"), false, "practice was never called real");
+
+  // The sender is switched to real money on the PC: one warning, and the status says so.
+  now.advance(60000);
+  const mark = sent.length;
+  assert.equal((await post(bridgeKey, indodaxReport({ mode: "real", keys: true, closed: [sold] }))).body.told, 1);
+  assert.match(texts(mark), /REAL MONEY mode[\s\S]*Rp50\.000 per buy, at most 2 open[\s\S]*Only you can switch this on/);
+  assert.equal((await post(bridgeKey, indodaxReport({ mode: "real", keys: true, closed: [sold] }))).body.told, 0, "said once");
+  assert.equal((await call("GET", "/v1/status")).body.indodax.mode, "real");
+
+  // A real copy is labelled as real, and the safety stop is told once when it comes on.
+  now.advance(60000);
+  const eth = { symbol: "ETHUSDT", pair: "eth_idr", real: true, quantity: 0.001, spent: 50000, price: 50000000, now: 50000000, value: 50000, openedAt: now() };
+  const bought = sent.length;
+  assert.equal((await post(bridgeKey, indodaxReport({ mode: "real", keys: true, positions: [eth], closed: [sold] }))).body.told, 1);
+  assert.match(texts(bought), /Indodax bought ETH<\/b> · <b>REAL MONEY<\/b>/);
+  const stopped = sent.length;
+  const tripped = indodaxReport({ mode: "real", keys: true, positions: [eth], closed: [sold], tripped: true, trippedWhy: "Lost Rp150.000 today <limit>" });
+  assert.equal((await post(bridgeKey, tripped)).body.told, 1);
+  assert.match(texts(stopped), /The safety stop is on\.<\/b> Lost Rp150\.000 today &lt;limit&gt;[\s\S]*run-windows\.ps1 -Clear/);
+  assert.equal((await post(bridgeKey, tripped)).body.told, 0, "said once");
+
+  // A report that does not say "practice" is never treated as practice.
+  assert.equal((await post(bridgeKey, { positions: [] })).status, 200);
+  assert.equal((await call("GET", "/v1/status")).body.indodax.mode, "real");
+
+  assert.equal(twinSent.length, 0, "the twin's bot is not involved");
+});
+
+test("indodax: /indodax in Telegram shows what the sender last reported, and only shows", async () => {
+  const { call, pair, say, sent, now } = await harness();
+  await pair();
+  assert.match(await say("/indodax"), /<b>Indodax<\/b> is not set up/);
+  assert.match(await say("/indodax@juwen_trade_bot"), /is not set up/);
+
+  const { bridgeKey } = (await call("POST", "/v1/indodax/setup", INDODAX_SETUP)).body;
+  assert.match(await say("/indodax"), /set up, but I have not heard from the sender/);
+
+  const btc = { symbol: "BTCUSDT", pair: "btc_idr", real: false, quantity: 0.00003, spent: 50000, price: 1650000000, now: 1700000000, value: 51515, openedAt: now() };
+  await call("POST", "/v1/indodax/report", { headers: { "X-Indodax-Key": bridgeKey }, body: indodaxReport({ positions: [btc], today: { practice: 0, real: 0, buys: 1 } }) });
+  const shown = await say("/indodax");
+  assert.match(shown, /<b>Indodax<\/b> · practice \(pretend money at Indodax's real prices\)/);
+  assert.match(shown, /• <b>BTC<\/b> · pretend money · paid Rp50\.000 · worth Rp51\.515 now \(\+Rp1\.515\)/);
+  assert.match(shown, /Today \(from 07:00 WIB\): pretend Rp0 · 1 buy\n/);
+  assert.match(shown, /Last heard from the sender: just now\./);
+  assert.equal(shown.includes(bridgeKey), false);
+  assert.equal(shown.includes("REAL"), false, "practice is not shown a real-money word");
+
+  // Everyday words and a near miss reach it too, because it only shows.
+  assert.match(await say("indodax"), /I read that as \/indodax[\s\S]*practice \(pretend money/);
+  assert.match(await say("/indoda"), /I read \/indoda as \/indodax/);
+  assert.match(await say("/help"), /\/indodax the copies at Indodax in rupiah/);
+  assert.ok(sent.find((entry) => entry.method === "setMyCommands").commands.some((entry) => entry.command === "indodax"));
+
+  // The PC goes quiet: the numbers stay, marked as old, and it says nothing is sold either.
+  now.advance(10 * 60 * 1000);
+  const old = await say("/indodax");
+  assert.match(old, /⚠️ Last heard from the sender 10 minutes ago/);
+  assert.match(old, /nothing is sold either/);
 });

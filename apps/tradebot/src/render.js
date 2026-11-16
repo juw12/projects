@@ -672,6 +672,7 @@ export function help(settings) {
       "/desk the second opinion and its record (/desk off: stop asking)",
       "/live real money (off, shadow or on)",
       "/mt5 the MetaTrader 5 demo account (copied by a bridge on your PC)",
+      "/indodax the copies at Indodax in rupiah (made by a sender on your PC; practice first)",
       `/reset ${RATE ? "100jt" : "10000"} start over with fresh practice money`,
       "",
       modeLine(settings),

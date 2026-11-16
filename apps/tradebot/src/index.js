@@ -22,6 +22,13 @@
 //   GET  /v1/mt5/signals    the bridge (bridge key): the coins the practice account holds right now
 //   POST /v1/mt5/report     the bridge (bridge key): what the demo account looks like
 //
+// Indodax (indodax.js): Indodax turns this Worker away (403), so a sender on the owner's PC copies the
+// practice account's open coins there in rupiah. It starts in practice (pretend money); real money is
+// a switch on the PC only. It asks here what to hold and posts back what its copies look like.
+//   POST /v1/indodax/setup    owner only (setup code): make the sender's key, shown once
+//   GET  /v1/indodax/signals  the sender (its key): the coins the practice account holds right now
+//   POST /v1/indodax/report   the sender (its key): what its copies at Indodax look like
+//
 // One Durable Object, the Trader, holds the bot's settings and the practice account. Its alarm
 // rings every 5 minutes: that is the agent's round. Everything it does happens one thing at a
 // time, so a command and a round can never trade over each other.
@@ -38,6 +45,7 @@ import { MAX_SPREAD_PERCENT, armedBy, drain, limitsOf, liveOf, marketBlock, miss
 import { createLuno } from "./luno.js";
 import { COMMANDS, handleUpdate } from "./bot.js";
 import { refreshRate, rateOfState } from "./fx.js";
+import { changes as indodaxChanges, cleanReport as cleanIndodaxReport } from "./indodax.js";
 import { SOURCE_NAMES, createMarket } from "./market.js";
 import { changes as mt5Changes, cleanReport, wantedOf } from "./mt5.js";
 import * as render from "./render.js";
@@ -52,7 +60,7 @@ const PROBE_GOOD_FOR_MS = 5 * 60 * 1000;
 const DESK_CHECK_GOOD_FOR_MS = 6 * 60 * 60 * 1000;
 const SEEN_UPDATES = 50;
 const TOKEN_SHAPE = /^\d{5,}:[A-Za-z0-9_-]{30,}$/; // what @BotFather hands out
-const REPORT_MAX_BYTES = 32 * 1024; // a twin or MT5 report is a few hundred bytes; anything huge is not one
+const REPORT_MAX_BYTES = 32 * 1024; // a twin, MT5 or Indodax report is small; anything huge is not one
 
 function buildOf(env) {
   return String((env && env.BUILD) || "dev");
@@ -134,6 +142,9 @@ export function createWorker(overrides) {
       if (url.pathname === "/mt5/setup" && request.method === "POST") return this.run(() => this.mt5Setup(body));
       if (url.pathname === "/mt5/signals" && request.method === "POST") return this.run(() => this.mt5Signals(body));
       if (url.pathname === "/mt5/report" && request.method === "POST") return this.run(() => this.mt5Report(body));
+      if (url.pathname === "/indodax/setup" && request.method === "POST") return this.run(() => this.indodaxSetup(body));
+      if (url.pathname === "/indodax/signals" && request.method === "POST") return this.run(() => this.indodaxSignals(body));
+      if (url.pathname === "/indodax/report" && request.method === "POST") return this.run(() => this.indodaxReport(body));
       return json({ ok: false, error: "not found" }, 404);
     }
 
@@ -273,6 +284,7 @@ export function createWorker(overrides) {
       const alarm = await this.storage.getAlarm();
       const twin = (await this.storage.get("twin")) || {};
       const mt5 = (await this.storage.get("mt5")) || {};
+      const indodax = (await this.storage.get("indodax")) || {};
       return json({
         configured: !!config.token,
         bot: config.bot ? config.bot.username : null,
@@ -282,6 +294,7 @@ export function createWorker(overrides) {
         rupiah: state.fx ? { perUsdt: state.fx.rate, source: state.fx.source, at: state.fx.at } : null,
         twin: { configured: !!twin.token, bot: twin.bot ? twin.bot.username : null, lastReportAt: twin.snapshotAt || null },
         mt5: { configured: !!mt5.keyHash, lastReportAt: mt5.reportAt || null, demo: mt5.report ? mt5.report.demo : null },
+        indodax: { configured: !!indodax.keyHash, lastReportAt: indodax.reportAt || null, mode: indodax.report ? indodax.report.mode : null },
       });
     }
 
@@ -462,7 +475,9 @@ export function createWorker(overrides) {
       await this.rupiah(state);
       const mt5 = (await this.storage.get("mt5")) || {};
       const mt5View = { configured: !!mt5.keyHash, report: mt5.report || null, at: mt5.reportAt || 0, now: deps.now() };
-      const result = await handleUpdate({ state, market, now: deps.now(), env: this.env || {}, mt5: mt5View }, update);
+      const indodax = (await this.storage.get("indodax")) || {};
+      const indodaxView = { configured: !!indodax.keyHash, report: indodax.report || null, at: indodax.reportAt || 0, now: deps.now() };
+      const result = await handleUpdate({ state, market, now: deps.now(), env: this.env || {}, mt5: mt5View, indodax: indodaxView }, update);
       const copies = await this.copyLive(state);
       if (copies.length) result.messages = [...(result.messages || []), ...copies];
       await this.storage.put("state", state); // saved before anything is sent
@@ -633,6 +648,60 @@ export function createWorker(overrides) {
       await this.deliver(await this.config(), messages);
       return json({ ok: true, at: now, told: messages.length });
     }
+
+    // ---------------------------------------------------------------- Indodax (the sender on the PC)
+
+    // Make the sender's key. It is shown once: the sender on the PC needs it, and only its SHA-256 is
+    // kept here. Until this has run, nothing can ask for signals or post a report. This key only
+    // lets the sender read the practice positions and post its report: it is not an Indodax key.
+    async indodaxSetup(body) {
+      const indodax = (await this.storage.get("indodax")) || {};
+      const keepKey = !!indodax.keyHash && !body.newKey;
+      const bridgeKey = keepKey ? null : randomHex(32);
+      await this.storage.put("indodax", {
+        keyHash: keepKey ? indodax.keyHash : await sha256Hex(bridgeKey),
+        report: indodax.report || null,
+        reportAt: indodax.reportAt || null,
+        connectedAt: deps.now(),
+      });
+      const config = await this.config();
+      return json({
+        ok: true,
+        ownerPaired: !!config.ownerId,
+        bridgeKey,
+        note: bridgeKey
+          ? "Put bridgeKey in the sender's .env as INDODAX_BRIDGE_KEY. It is not shown again. The sender starts in practice (pretend money)."
+          : "The key from the first setup still works. Send newKey: true for a new one.",
+      });
+    }
+
+    // The stored Indodax record when `key` is the sender's key, else null.
+    async indodaxFor(key) {
+      const indodax = await this.storage.get("indodax");
+      const given = typeof key === "string" ? key : "";
+      if (!indodax || !indodax.keyHash || !given || !safeEqual(await sha256Hex(given), indodax.keyHash)) return null;
+      return indodax;
+    }
+
+    // What the sender should hold: the practice account's open positions. { key }
+    async indodaxSignals(body) {
+      if (!(await this.indodaxFor(body.key))) return json({ ok: false, error: "not allowed" }, 403);
+      return json({ ok: true, ...wantedOf(await this.state(), deps.now()) });
+    }
+
+    // A report from the sender: { key, report }. Stored, and copies that opened or closed (and the
+    // two warnings: safety stop, real money) are told to the owner through TradeBot's own bot.
+    async indodaxReport(body) {
+      const indodax = await this.indodaxFor(body.key);
+      if (!indodax) return json({ ok: false, error: "not allowed" }, 403);
+      const report = cleanIndodaxReport(body.report);
+      if (!report) return json({ ok: false, error: "That is not an Indodax report." }, 400);
+      const messages = indodaxChanges(indodax.report, report);
+      const now = deps.now();
+      await this.storage.put("indodax", { ...indodax, report, reportAt: now }); // saved before anything is sent
+      await this.deliver(await this.config(), messages);
+      return json({ ok: true, at: now, told: messages.length });
+    }
   }
 
   async function route(request, env) {
@@ -746,6 +815,35 @@ export function createWorker(overrides) {
         return json({ ok: false, error: "That is not an MT5 report." }, 400);
       }
       const answer = await trader.fetch(post("/mt5/report", { key, report }));
+      return json(await answer.json(), answer.status);
+    }
+
+    if (request.method === "POST" && path === "/v1/indodax/setup") {
+      if (!(await hasSetupCode(request, env))) return json({ ok: false, error: "Setting up the Indodax sender needs the setup code." }, 403);
+      const body = await request.json().catch(() => ({}));
+      const answer = await trader.fetch(post("/indodax/setup", { newKey: !!(body && body.newKey) }));
+      return json(await answer.json(), answer.status);
+    }
+
+    if (request.method === "GET" && path === "/v1/indodax/signals") {
+      const key = request.headers.get("X-Indodax-Key") || "";
+      if (!key) return json({ ok: false, error: "not allowed" }, 403);
+      const answer = await trader.fetch(post("/indodax/signals", { key }));
+      return json(await answer.json(), answer.status);
+    }
+
+    if (request.method === "POST" && path === "/v1/indodax/report") {
+      const key = request.headers.get("X-Indodax-Key") || "";
+      if (!key) return json({ ok: false, error: "not allowed" }, 403);
+      const text = await request.text();
+      if (text.length > REPORT_MAX_BYTES) return json({ ok: false, error: "That report is too big." }, 413);
+      let report = null;
+      try {
+        report = JSON.parse(text);
+      } catch (error) {
+        return json({ ok: false, error: "That is not an Indodax report." }, 400);
+      }
+      const answer = await trader.fetch(post("/indodax/report", { key, report }));
       return json(await answer.json(), answer.status);
     }
 
