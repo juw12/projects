@@ -33,7 +33,9 @@ Every 5 minutes the agent wakes up and:
 - sends you a message for every trade, with the reason and what it can lose in dollars;
 - sends a summary once a day (07:00 WIB): what it bought and sold and why, which offers you
   approved or skipped, what it holds, what each coin is waiting for, and any time it could not
-  check prices;
+  check prices. When the Indodax sender is set up, the same message ends with where the
+  Indodax copies stand (practice or real money, what is held, the result so far, and when
+  the sender was last heard);
 - tells you in plain words if it cannot read prices for 30 minutes (stops are not checked
   then), and again when they are back.
 
@@ -53,6 +55,7 @@ exchange takes) and are shown as USDT with rupiah beside them; `/live size 200rb
 | Command | What it does |
 |---|---|
 | `/status` | Account value, cash, open positions, profit |
+| `/report` | The daily status now: the account, plus where the Indodax copies stand |
 | `/signals` | What the agent sees in each market right now, and why it would or would not buy |
 | `/buy BTC 2jt` | Buy Rp2 juta of BTC now (without the amount, the agent sizes it) |
 | `/sell BTC`, `/sell all` | Sell now |

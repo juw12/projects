@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { INDODAX_SILENT_MS, INDODAX_STALE_MS, answer, backText, changes, cleanReport, isStale, pausedText, resumedText, silentAlert } from "../src/indodax.js";
+import { INDODAX_SILENT_MS, INDODAX_STALE_MS, answer, backText, changes, cleanReport, daily, isStale, pausedText, resumedText, silentAlert, withDaily } from "../src/indodax.js";
 
 const NOW = Date.UTC(2026, 10, 16, 4, 10); // 11:10 WIB
 
@@ -346,4 +346,54 @@ test("indodax: the first report after a told silence says the sender is back", (
   assert.equal(backText(cleanReport(report())), "✅ <b>Indodax: the sender on your PC is back.</b> It reports again: nothing open. /indodax shows it.");
   assert.match(backText(cleanReport(report({ positions: [BTC] }))), /It reports again: 1 open copy\. /);
   assert.match(backText(cleanReport(report({ mode: "real", positions: [BTC, REAL_ETH] }))), /It reports again: 2 open copies \(1 REAL MONEY\)\. /);
+});
+
+test("indodax: the daily part says where the copies stand, in practice and with real money", () => {
+  assert.deepEqual(daily({ configured: false, report: null, at: 0, now: NOW }), [], "not set up: nothing is added");
+  assert.deepEqual(daily(undefined), []);
+  assert.match(daily({ configured: true, report: null, at: 0, now: NOW }).join("\n"), /^<b>Indodax<\/b>: no report yet from the sender on your PC\./);
+
+  const practice = daily(view(report({ positions: [BTC], result: { practice: 1200, real: 0 } }))).join("\n");
+  assert.match(
+    practice,
+    /^<b>Indodax<\/b> · practice \(pretend money\)\nEach buy: Rp50\.000 · at most 2 open\n• <b>BTC<\/b> · pretend money · paid Rp50\.000 · worth Rp51\.000 now \(\+Rp1\.000\)\nResult so far: pretend \+Rp1\.200\nLast heard from the sender: [^\n]+\.$/,
+  );
+  assert.equal(practice.includes("REAL"), false, "practice is not shown a real-money word");
+  assert.equal(practice.includes("Today"), false, "the sender's day turns at the same minute, so today is left out");
+
+  const real = daily(view(report({ mode: "real", keys: true, checked: true, orderIdr: 20000, maxOpen: 1, result: { practice: 0, real: -350 } }))).join("\n");
+  assert.match(
+    real,
+    /^<b>Indodax<\/b> · ⚠️ <b>REAL MONEY<\/b> \(your own rupiah\)\nEach buy: Rp20\.000 · at most 1 open\nHolding nothing\.\nResult so far: pretend Rp0 · <b>REAL<\/b> -Rp350\nLast heard from the sender: [^\n]+\.$/,
+  );
+  assert.match(daily(view(report({ mode: "real", positions: [REAL_ETH] }))).join("\n"), /• <b>ETH<\/b> · <b>REAL MONEY<\/b> · paid Rp50\.000 · worth Rp48\.000 now \(-Rp2\.000\)/);
+});
+
+test("indodax: the daily part carries every warning that stops or endangers a trade", () => {
+  const text = (raw, age, extra = {}) => daily({ ...view(raw, age), ...extra }).join("\n");
+
+  assert.match(text(report({ mode: "real", keys: true })), /This API key has not passed the check on the PC/);
+  assert.equal(text(report({ mode: "real", keys: true, checked: true })).includes("has not passed the check"), false);
+  assert.equal(text(report()).includes("has not passed the check"), false, "practice needs no key");
+
+  assert.match(text(report({ tripped: true, trippedWhy: "A sale could not be confirmed." })), /The safety stop is on\.<\/b> A sale could not be confirmed\./);
+  assert.match(text(report(), 20000, { paused: true }), /⏸ Buying is paused from Telegram\./);
+  assert.match(text(report({ paused: true })), /⏸ Buying is paused from Telegram\./);
+  assert.equal(text(report()).includes("paused"), false);
+
+  // The PC was off overnight: the numbers are old, and it says so instead of looking fine.
+  const old = text(report({ mode: "real", checked: true, positions: [REAL_ETH] }), 8 * 60 * 60 * 1000);
+  assert.match(old, /⚠️ Last heard from the sender 8 hours ago/);
+  assert.match(old, /nothing is sold either/);
+  assert.match(old, /1 open copy is REAL MONEY and nobody is watching it/);
+});
+
+test("indodax: the daily part is added to messages marked daily, and to no other", () => {
+  const messages = [{ html: "summary", daily: true }, { html: "bought", buttons: [1] }];
+  assert.equal(withDaily(messages, { configured: false, report: null, at: 0, now: NOW }), messages, "not set up: untouched");
+
+  const added = withDaily(messages, view(report()));
+  assert.match(added[0].html, /^summary\n\n<b>Indodax<\/b> · practice \(pretend money\)\n/);
+  assert.deepEqual(added[1], messages[1]);
+  assert.equal(messages[0].html, "summary", "the message it was given is not changed");
 });

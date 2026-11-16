@@ -31,7 +31,11 @@ What keeps it safe:
     python bridge.py            keep going, one cycle a minute
     python bridge.py --clear    clear the safety stop after you have looked
 
-Not tested against a real Indodax account yet: the tests use a pretend exchange.
+It speaks Indodax's Trade API 2.0, which the API keys made today need. A key made for the older
+Trade API needs INDODAX_API_VERSION=1 in the .env.
+
+No real order has been sent to a real Indodax account yet: the tests use a pretend exchange.
+Only reading the balance through Trade API 2.0 has been tried against the real one.
 """
 
 from __future__ import annotations
@@ -53,8 +57,9 @@ from dataclasses import dataclass, field
 from decimal import ROUND_DOWN, Decimal, InvalidOperation
 from pathlib import Path
 
-CLIENT = "juw12-trade-indodax/0.9"  # how the sender names itself (Indodax turns away names with "bot")
+CLIENT = "juw12-trade-indodax/1.0"  # how the sender names itself (Indodax turns away names with "bot")
 INDODAX = "https://indodax.com"  # fixed on purpose: the API key can never be sent anywhere else
+INDODAX_V2 = "https://api.indodax.com"  # Trade API 2.0, fixed for the same reason
 DEFAULT_URL = "https://trade-bot.juw12.workers.dev"
 CYCLE_SECONDS = 60
 HERE = Path(__file__).resolve().parent
@@ -75,6 +80,16 @@ PAIRS_CACHE_SECONDS = 3600
 CLOSED_KEPT = 20
 SMALLEST_STEP = "0.00000001"
 ORDER_STATES = ("open", "filled", "cancelled")  # what Indodax can say became of an order
+ORDER_STATES_V2 = {  # Trade API 2.0's words for the same three
+    "NEW": "open",
+    "PARTIALLY_FILLED": "open",
+    "FILLED": "filled",
+    "CANCELLED": "cancelled",
+    "CANCELED": "cancelled",
+    "REJECTED": "cancelled",
+    "EXPIRED": "cancelled",
+}
+FILL_WAITS = (0.3, 0.7, 1.0, 2.0)  # seconds between looks for an accepted order's trades
 
 
 class SettingsError(Exception):
@@ -92,10 +107,11 @@ class ApiError(Exception):
 class ExchangeError(Exception):
     """Indodax could not be asked, or said no. unsure=True: the request may still have arrived."""
 
-    def __init__(self, message: str, unsure: bool = False, code: str = ""):
+    def __init__(self, message: str, unsure: bool = False, code: str = "", taken=None):
         super().__init__(message)
         self.unsure = unsure
         self.code = code
+        self.taken = taken  # True/False when it is known whether the order's name was used before
 
 
 class Refused(Exception):
@@ -180,6 +196,19 @@ def sign(body: str, secret: str) -> str:
     return hmac.new(secret.encode("utf-8"), body.encode("utf-8"), hashlib.sha512).hexdigest()
 
 
+def sign_v2(payload: str, secret: str) -> str:
+    """HMAC-SHA256 of the exact query string or body, as Indodax's Trade API 2.0 asks for."""
+    return hmac.new(secret.encode("utf-8"), payload.encode("utf-8"), hashlib.sha256).hexdigest()
+
+
+def name_taken(error) -> bool:
+    """True when Indodax refused an order because it already has one with the same name."""
+    if error.taken is not None:
+        return bool(error.taken)
+    words = str(error).lower()
+    return "exist" in words and "order" in words
+
+
 def key_mark(api_key) -> str:
     """A short fingerprint of the API key: enough to notice a changed key, useless for anything else."""
     return hashlib.sha256(("indodax-check:" + str(api_key or "")).encode("utf-8")).hexdigest()[:12]
@@ -201,6 +230,7 @@ class Settings:
     stop_percent: float = STOP_PERCENT_DEFAULT
     coins: tuple = ()
     proxy: str = field(default="", repr=False)
+    api_version: int = 2  # 2 = Trade API 2.0 (the keys Indodax makes now), 1 = the older Trade API
 
     @property
     def has_keys(self) -> bool:
@@ -278,6 +308,10 @@ def settings_from(values: dict) -> Settings:
             raise SettingsError(f"INDODAX_COINS: '{name}' should be a coin like btc or eth.")
         coins.append(name)
 
+    version_text = (values.get("INDODAX_API_VERSION") or "").strip()
+    if version_text not in ("", "1", "2"):
+        raise SettingsError("INDODAX_API_VERSION must be 2 (Trade API 2.0, the default) or 1 (the older Trade API).")
+
     settings = Settings(
         key=(values.get("INDODAX_BRIDGE_KEY") or "").strip(),
         url=url,
@@ -290,6 +324,7 @@ def settings_from(values: dict) -> Settings:
         stop_percent=stop_percent,
         coins=tuple(coins),
         proxy=(values.get("HTTPS_PROXY") or values.get("https_proxy") or "").strip(),
+        api_version=int(version_text or 2),
     )
     if mode == "real":
         if not settings.confirmed:
@@ -512,6 +547,215 @@ class Indodax:
             if str(name).startswith(("receive_", "order_", "remain_")) and name != "order_id":
                 kept[str(name)] = value
         return kept
+
+
+class IndodaxV2(Indodax):
+    """The same three private calls through Indodax's Trade API 2.0, which the keys made today need.
+
+    Public data (pairs, prices, the clock) is read exactly as before. In 2.0 an accepted order is
+    not yet a filled one, so what an order really did is read from the order's own trades.
+    """
+
+    def __init__(self, settings: Settings, timeout: int = 20, clock=time.time, opener=None, sleep=time.sleep):
+        super().__init__(settings, timeout=timeout, clock=clock, opener=opener)
+        self.sleep = sleep
+        self.rights = {}  # what the key may do, as the last balance read said
+
+    def _refusal(self, error, writes: bool) -> ExchangeError:
+        """2.0 says why in the body of an error answer: {"code": -2010, "msg": "..."}."""
+        answer = None
+        try:
+            answer = json.loads(error.read().decode("utf-8", "replace"))
+        except (ValueError, OSError, AttributeError, http.client.HTTPException):
+            pass
+        code = clip(answer.get("code"), 12) if isinstance(answer, dict) else ""
+        said = clip(answer.get("msg"), 160) if isinstance(answer, dict) else ""
+        if code == "-1021":
+            self.synced_at = None  # the timestamp was off: Indodax's clock is read again first
+        if said:
+            message = f"{self._clean(said)} (code {code})" if code else self._clean(said)
+        else:
+            message = f"Indodax answered HTTP {error.code}"
+        return ExchangeError(message, unsure=writes and error.code >= 500, code=code, taken=False)
+
+    def signed(self, verb: str, path: str, params=(), writes: bool = False):
+        """One signed request. The signature covers the exact query string or body that is sent."""
+        if not self.settings.has_keys:
+            raise ExchangeError("INDODAX_API_KEY and INDODAX_API_SECRET are not set")
+        self.sync_clock()
+        timestamp = int(self.clock() * 1000) + self.offset_ms
+        payload = urllib.parse.urlencode([*params, ("timestamp", timestamp), ("recvWindow", RECV_WINDOW_MS)])
+        headers = {
+            "X-APIKEY": self.settings.api_key,
+            "Sign": sign_v2(payload, self.settings.api_secret),
+            "User-Agent": CLIENT,
+            "Accept": "application/json",
+        }
+        if verb == "GET":
+            request = urllib.request.Request(f"{INDODAX_V2}{path}?{payload}", headers=headers, method="GET")
+        else:
+            headers["Content-Type"] = "application/x-www-form-urlencoded"
+            request = urllib.request.Request(INDODAX_V2 + path, data=payload.encode("utf-8"), headers=headers, method="POST")
+        try:
+            with self.opener.open(request, timeout=self.timeout) as response:
+                body = response.read()
+        except urllib.error.HTTPError as error:
+            raise self._refusal(error, writes) from None
+        except (urllib.error.URLError, http.client.HTTPException, OSError) as error:
+            # Only the kind of problem is kept: the request, its key and its signature never reach a log.
+            raise ExchangeError(f"Indodax could not be reached ({type(error).__name__})", unsure=writes) from None
+        try:
+            answer = json.loads(body.decode("utf-8"))
+        except ValueError:
+            raise ExchangeError("Indodax's answer could not be read", unsure=writes) from None
+        if isinstance(answer, dict) and "msg" in answer and number(answer.get("code")) < 0:
+            code = clip(answer.get("code"), 12)
+            raise ExchangeError(f"{self._clean(answer.get('msg'))} (code {code})", code=code, taken=False)
+        return answer
+
+    def balances(self) -> dict:
+        """Free balances only: {"idr": ..., "btc": ...}.
+
+        The answer also carries the account's user id. It is dropped right here, so nothing after
+        this line can store, print or send it.
+        """
+        answer = self.signed("GET", "/api/v2/account")
+        raw = answer.get("balances") if isinstance(answer, dict) else None
+        if not isinstance(raw, list):
+            raise ExchangeError("Indodax's answer held no balances")
+        self.rights = {
+            "trade": answer.get("canTrade"),
+            "withdraw": truthy(answer.get("canWithdraw") or "") or truthy(answer.get("canWithdrawFiat") or ""),
+        }
+        balances = {}
+        for item in raw:
+            if isinstance(item, dict) and item.get("asset"):
+                balances[str(item["asset"]).lower()] = number(item.get("free"))
+        return balances
+
+    def fills(self, symbol: str, client_order_id: str, waits=()):
+        """The trades one of the sender's own orders made: a list (empty when it made none), or
+        None when they could not be read. It only reads, and it never raises."""
+        rows = None
+        for pause in (0, *waits):
+            if pause:
+                self.sleep(pause)
+            try:
+                answer = self.signed("GET", "/api/v2/myTrades", [("symbol", symbol.lower()), ("clientOrderId", client_order_id)])
+            except ExchangeError:
+                continue
+            data = answer.get("data") if isinstance(answer, dict) else None
+            if not isinstance(data, list):
+                continue
+            # Only trades that carry this order's own name count, whatever else the answer holds.
+            rows = [row for row in data if isinstance(row, dict) and str(row.get("clientOrderId") or "") == client_order_id]
+            if rows:
+                break
+        return rows
+
+    @staticmethod
+    def _sums(rows, coin: str):
+        """(coin, rupiah, rupiah fee) added up over an order's trades. The fee includes the tax."""
+        quantity = sum(number(row.get("qty")) for row in rows)
+        value = sum(number(row.get("quoteQty")) for row in rows)
+        fee_idr = sum(number(row.get("commission")) for row in rows if str(row.get("commissionAsset") or "").lower() == "idr")
+        fee_coin = sum(number(row.get("commission")) for row in rows if str(row.get("commissionAsset") or "").lower() == coin)
+        return max(quantity - fee_coin, 0.0), value, fee_idr
+
+    def _read_order(self, symbol: str, client_order_id: str) -> dict:
+        raw = self.signed("GET", "/api/v2/order", [("symbol", symbol), ("origClientOrderId", client_order_id)])
+        if not isinstance(raw, dict) or "status" not in raw:
+            raise ExchangeError("Indodax's answer held no order")
+        if str(raw.get("clientOrderId") or "") != client_order_id:
+            raise ExchangeError("Indodax answered about a different order")
+        return raw
+
+    def _rejected(self, error: ExchangeError, symbol: str, client_order_id: str) -> ExchangeError:
+        """Code -2010 covers too little balance, a broken rule, and an order name that was used
+        before. Whether Indodax already has an order with this name tells them apart."""
+        try:
+            self._read_order(symbol, client_order_id)
+        except ExchangeError as lookup:
+            if lookup.code == "-2013":
+                return error  # no order has this name: a plain refusal, and nothing was ordered
+            # Not known either way: treated like a lost answer, so nothing is sent a second time.
+            return ExchangeError(str(error), unsure=True, code=error.code)
+        return ExchangeError(f"an order with this name already exists at Indodax: {error}", code=error.code, taken=True)
+
+    def trade(self, ticker_id: str, side: str, idr=None, coin: str = "", quantity: str = "", client_order_id: str = "") -> dict:
+        """One market order: a buy for a rupiah amount, or a sale of a coin amount.
+
+        The answer holds what the order's trades show (receive_<coin> or receive_rp). When the
+        trades cannot be read yet it is empty, and the caller goes by the balance alone.
+        """
+        symbol = ticker_id.replace("_", "").upper()
+        coin = (coin or ticker_id.split("_")[0]).lower()
+        params = [("symbol", symbol), ("side", side.upper()), ("type", "MARKET")]
+        if side == "buy":
+            params.append(("quoteOrderQty", int(idr)))
+        elif side == "sell":
+            params.append(("quantity", quantity))
+        else:
+            raise ExchangeError("Only buy and sell exist")
+        params.append(("newClientOrderId", client_order_id))
+        try:
+            self.signed("POST", "/api/v2/order", params, writes=True)
+        except ExchangeError as error:
+            if error.unsure or error.code != "-2010":
+                raise
+            raise self._rejected(error, symbol, client_order_id) from None
+        rows = self.fills(symbol, client_order_id, waits=FILL_WAITS)
+        if not rows:
+            return {}
+        got, value, fee = self._sums(rows, coin)
+        if side == "buy":
+            return {f"receive_{coin}": got}
+        return {"receive_rp": max(value - fee, 0.0)}
+
+    def order(self, client_order_id: str) -> dict:
+        """What became of one order, found by the name the sender gave it. It only reads."""
+        parts = client_order_id.split("-")
+        coin = parts[1] if len(parts) == 4 and parts[0] == "tb" else ""
+        pair = self.pairs().get(coin) if coin else None
+        if not pair:
+            raise ExchangeError("That order name is not one the sender made")
+        symbol = pair["ticker_id"].replace("_", "").upper()
+        raw = self._read_order(symbol, client_order_id)
+        side = str(raw.get("side") or "").lower()
+        kept = {"status": ORDER_STATES_V2.get(str(raw.get("status") or "").upper(), ""), "side": side}
+        asked = number(raw.get("origQty"))
+        done = number(raw.get("executedQty"))
+        rows = self.fills(symbol, client_order_id)
+        got, value, fee = self._sums(rows or [], coin)
+        # "Nothing of it was traded" is only said when the order and its (readable) trades agree.
+        nothing_done = rows == [] and done == 0 and asked > 0
+        if side == "sell":
+            if rows:
+                kept["receive_idr"] = max(value - fee, 0.0)
+            if nothing_done:
+                kept[f"order_{coin}"] = asked
+                kept[f"remain_{coin}"] = asked
+        elif side == "buy":
+            if rows:
+                kept[f"receive_{coin}"] = got
+            if nothing_done:
+                kept["order_idr"] = asked
+                kept["remain_idr"] = asked
+        return kept
+
+
+def exchange_for(settings: Settings, **options):
+    """The Indodax client that fits the key: Trade API 2.0 unless the .env asks for the older one."""
+    return IndodaxV2(settings, **options) if settings.api_version == 2 else Indodax(settings, **options)
+
+
+def version_hint(settings: Settings, error: ExchangeError) -> str:
+    """One more sentence when a refusal looks like a key made for the other Trade API."""
+    if settings.api_version == 2 and error.code == "-2015":
+        return " If this key was made for the older Trade API, put INDODAX_API_VERSION=1 in the .env."
+    if settings.api_version == 1 and "version" in str(error).lower():
+        return " This key is for Trade API 2.0: take INDODAX_API_VERSION=1 out of the .env."
+    return ""
 
 
 # ---------------------------------------------------------------- the sender
@@ -1013,7 +1257,7 @@ class Bridge:
             answer = self.send_order("sell", symbol, quantity=quantity, client_order_id=order_ref)
         except ExchangeError as error:
             if not error.unsure:
-                if "exist" in str(error).lower() and "order" in str(error).lower():
+                if name_taken(error):
                     # Indodax already has an order with this name: an earlier try did arrive.
                     # Its own record says what became of it; without a clear word it counts as sold.
                     known = self.lookup(order_ref, "sell")
@@ -1195,10 +1439,15 @@ def check(settings: Settings, exchange=None, state_path=None) -> int:
         except StateError as error:
             print(f"State: {error}")
             return 2
+    client = exchange or exchange_for(settings)
     try:
-        balances = (exchange or Indodax(settings)).balances()
+        balances = client.balances()
     except ExchangeError as error:
-        print(f"The API key does not work yet: {error}")
+        print(f"The API key does not work yet: {error}{version_hint(settings, error)}")
+        return 1
+    rights = getattr(client, "rights", None) or {}
+    if rights.get("trade") is False:
+        print("The API key can read the account but may not trade, so real orders would be refused. Make a key with trade switched on.")
         return 1
     remembered = ""
     if state is not None:
@@ -1206,6 +1455,8 @@ def check(settings: Settings, exchange=None, state_path=None) -> int:
         save_state(state_path, state)
         remembered = " This key is now marked as checked on this PC."
     print(f"The API key works. Free rupiah at Indodax: {rp(balances.get('idr', 0.0))}. Nothing was ordered.{remembered}")
+    if rights.get("withdraw"):
+        print("Note: this key may also withdraw. The sender never does, but a key with view and trade only is safer.")
     return 0
 
 
@@ -1229,7 +1480,7 @@ def main(argv=None) -> int:
         return check(settings, state_path=args.state)
 
     try:
-        bridge = Bridge(Indodax(settings), settings, Api(settings), args.state, log=stamp)
+        bridge = Bridge(exchange_for(settings), settings, Api(settings), args.state, log=stamp)
     except StateError as error:
         print(f"State: {error}")
         return 2

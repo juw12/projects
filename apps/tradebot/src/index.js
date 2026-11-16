@@ -45,7 +45,7 @@ import { MAX_SPREAD_PERCENT, armedBy, drain, limitsOf, liveOf, marketBlock, miss
 import { createLuno } from "./luno.js";
 import { COMMANDS, handleUpdate } from "./bot.js";
 import { refreshRate, rateOfState } from "./fx.js";
-import { backText as indodaxBack, changes as indodaxChanges, cleanReport as cleanIndodaxReport, silentAlert as indodaxSilent } from "./indodax.js";
+import { backText as indodaxBack, changes as indodaxChanges, cleanReport as cleanIndodaxReport, silentAlert as indodaxSilent, withDaily as withIndodaxDaily } from "./indodax.js";
 import { SOURCE_NAMES, createMarket } from "./market.js";
 import { changes as mt5Changes, cleanReport, wantedOf } from "./mt5.js";
 import * as render from "./render.js";
@@ -260,7 +260,7 @@ export function createWorker(overrides) {
           const state = await this.state();
           await this.rupiah(state);
           const ai = this.ai();
-          const messages = await tick(state, { market, now: deps.now(), ai });
+          const messages = await this.indodaxDaily(state, await tick(state, { market, now: deps.now(), ai }));
           messages.push(...(await this.copyLive(state)));
           await this.storage.put("state", state); // saved before anything is sent
           await this.deliver(config, messages);
@@ -271,6 +271,25 @@ export function createWorker(overrides) {
         }
         await this.indodaxSilence(config); // after the alarm is set, so a failure here cannot stop the rounds
       });
+    }
+
+    // The daily summary also says where the Indodax copies stand. A failure here leaves the
+    // summary as it was: it must never cost the round its messages.
+    async indodaxDaily(state, messages) {
+      if (!messages.some((message) => message.daily)) return messages;
+      try {
+        const indodax = (await this.storage.get("indodax")) || {};
+        return withIndodaxDaily(messages, {
+          configured: !!indodax.keyHash,
+          report: indodax.report || null,
+          at: indodax.reportAt || 0,
+          now: deps.now(),
+          paused: state.settings.indodaxPaused === true,
+        });
+      } catch (error) {
+        console.log("indodax daily part failed: " + clip(errorText(error), 300));
+        return messages;
+      }
     }
 
     // Tell the owner once when the Indodax sender has gone quiet while real money is in play. The

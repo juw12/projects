@@ -9,13 +9,14 @@ import { MAX_WATCH, approve, blocked, decide, look, manualBuy, manualSell, newSt
 import { backtest } from "./backtest.js";
 import { TIMEFRAMES, normalizeSymbol } from "./market.js";
 import { hasRealPositions, liveCommand, liveOf, venueOf } from "./live.js";
-import { answer as indodaxAnswer, pausedText as indodaxPaused, resumedText as indodaxResumed } from "./indodax.js";
+import { answer as indodaxAnswer, pausedText as indodaxPaused, resumedText as indodaxResumed, withDaily as withIndodaxDaily } from "./indodax.js";
 import { answer as mt5Answer } from "./mt5.js";
 import * as render from "./render.js";
 import { Problem, errorText, escapeHtml } from "./util.js";
 
 export const COMMANDS = [
   { command: "status", description: "Account, positions and profit" },
+  { command: "report", description: "Account and Indodax copies in one message" },
   { command: "signals", description: "What the agent sees in each market" },
   { command: "buy", description: "Buy now: /buy BTC 2jt" },
   { command: "sell", description: "Sell now: /sell BTC" },
@@ -39,7 +40,7 @@ export const COMMANDS = [
 
 // Commands that only show something. A misspelled one is simply run; one that acts is not.
 // /indodax shows, but with pause or resume it acts (see onlyShows).
-const READ_ONLY = new Set(["status", "signals", "help", "history", "watchlist", "mt5", "indodax"]);
+const READ_ONLY = new Set(["status", "report", "signals", "help", "history", "watchlist", "mt5", "indodax"]);
 const INDODAX_ACTS = new Set(["pause", "resume"]);
 
 function onlyShows(command, args) {
@@ -51,6 +52,7 @@ function onlyShows(command, args) {
 const PLAIN = [
   [/\b(metatrader|mt5)\b/i, "mt5"],
   [/\bindodax\b/i, "indodax"],
+  [/\b(daily|report)\b/i, "report"],
   [/\b(how\b.*\b(going|doing)|account|balance|profit|portfolio|how much|holding|positions?)\b/i, "status"],
   [/\b(signals?|what do you see|markets?)\b/i, "signals"],
   [/\b(trade history|past trades|closed trades)\b/i, "history"],
@@ -84,6 +86,12 @@ function statusOf(state, now) {
   return render.status(state, { value: worth(state), prices: prices(state), now });
 }
 
+// What the Indodax part of the daily summary and of /report is written from.
+function indodaxView(ctx) {
+  const view = ctx.indodax || { configured: false, report: null, at: 0, now: ctx.now };
+  return { ...view, paused: ctx.state.settings.indodaxPaused === true };
+}
+
 // Open offers are closed (for example when buying is paused). Returns a sentence, or "".
 function withdrawOffers(state, symbols = Object.keys(state.pending)) {
   const closed = symbols.filter((symbol) => state.pending[symbol]);
@@ -112,8 +120,16 @@ const handlers = {
     const { state } = ctx;
     const messages = [];
     // Prices older than one round are refreshed first, so the numbers are current.
-    if (!state.lastTick || ctx.now - state.lastTick.at > TICK_MS) messages.push(...(await tick(state, ctx)));
+    if (!state.lastTick || ctx.now - state.lastTick.at > TICK_MS) messages.push(...withIndodaxDaily(await tick(state, ctx), indodaxView(ctx)));
     messages.push(statusOf(state, ctx.now));
+    return { messages };
+  },
+
+  // The daily report on request: the account, then where the Indodax copies stand.
+  async report(ctx) {
+    const { messages } = await handlers.status(ctx);
+    const account = messages.pop();
+    messages.push(...withIndodaxDaily([{ ...account, daily: true }], indodaxView(ctx)));
     return { messages };
   },
 
