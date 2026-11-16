@@ -4,9 +4,11 @@ import { test } from "node:test";
 import { newState } from "../src/agent.js";
 import { handleUpdate } from "../src/bot.js";
 import { createTokocrypto, exchangeSymbol, floorToStep, sign } from "../src/exchange.js";
-import { armedBy, buyBlock, drain, liveCommand, liveOf, limitsOf, noteFill } from "../src/live.js";
+import { VENUES, armedBy, buyBlock, drain, liveCommand, liveOf, limitsOf, noteFill } from "../src/live.js";
 
-const ARMED = { LIVE_TRADING: "enabled", TOKO_API_KEY: "key-123", TOKO_API_SECRET: "secret-456" };
+// These tests are about Tokocrypto; test/luno.test.js has the same for Luno, the default.
+const ARMED = { EXCHANGE: "tokocrypto", LIVE_TRADING: "enabled", TOKO_API_KEY: "key-123", TOKO_API_SECRET: "secret-456" };
+const TOKO = VENUES.tokocrypto;
 const NOW = Date.UTC(2026, 0, 15, 4, 10);
 
 const SYMBOLS = {
@@ -96,8 +98,8 @@ test("real money is off by default: practice fills queue nothing and the Worker 
   noteFill(state, buyFill());
   assert.equal(liveOf(state).queue.length, 0);
   assert.equal(armedBy({}), false);
-  assert.equal(armedBy({ LIVE_TRADING: "off", TOKO_API_KEY: "k", TOKO_API_SECRET: "s" }), false);
-  assert.equal(armedBy({ LIVE_TRADING: "enabled" }), false);
+  assert.equal(armedBy({ ...ARMED, LIVE_TRADING: "off" }), false);
+  assert.equal(armedBy({ EXCHANGE: "tokocrypto", LIVE_TRADING: "enabled" }), false);
   assert.equal(armedBy(ARMED), true);
 });
 
@@ -163,14 +165,14 @@ test("the hard limits refuse a real buy, and nothing is sent", async () => {
   const live = { mode: "on", orderUsdt: 10, positions: {}, queue: [], log: [], day: null };
   const rules = { symbol: "BTC_USDT", stepSize: "0.00001", minNotional: 5, spot: true };
   const limits = limitsOf(live);
-  assert.equal(buyBlock(live, "BTCUSDT", null, limits, NOW), "BTC is not traded against USDT on Tokocrypto");
-  assert.equal(buyBlock(live, "BTCUSDT", { ...rules, minNotional: 20 }, limits, NOW), "the smallest BTC order on Tokocrypto is 20.00 USDT");
-  assert.equal(buyBlock(live, "BTCUSDT", rules, limits, NOW, 4), "only 4.00 USDT is free on Tokocrypto");
+  assert.equal(buyBlock(live, "BTCUSDT", null, limits, NOW, null, TOKO), "BTC is not traded against USDT on Tokocrypto");
+  assert.equal(buyBlock(live, "BTCUSDT", { ...rules, minNotional: 20 }, limits, NOW, null, TOKO), "the smallest BTC order on Tokocrypto is 20.00 USDT");
+  assert.equal(buyBlock(live, "BTCUSDT", rules, limits, NOW, 4, TOKO), "only 4.00 USDT is free on Tokocrypto");
   live.positions = { ETHUSDT: { cost: 10 }, SOLUSDT: { cost: 10 }, XRPUSDT: { cost: 10 } };
-  assert.equal(buyBlock(live, "BTCUSDT", rules, limits, NOW), "3 real positions are already open");
+  assert.equal(buyBlock(live, "BTCUSDT", rules, limits, NOW, null, TOKO), "3 real positions are already open");
   live.positions = {};
   live.day = { key: new Date(NOW).toISOString().slice(0, 10), realized: -10 };
-  assert.equal(buyBlock(live, "BTCUSDT", rules, limits, NOW), "today's real loss already reached 10.00 USDT");
+  assert.equal(buyBlock(live, "BTCUSDT", rules, limits, NOW, null, TOKO), "today's real loss already reached 10.00 USDT");
 
   const toko = fakeToko({ balances: { USDT: 3 } });
   const exchange = createTokocrypto({ fetch: toko.fetch, now: () => NOW, apiKey: "k", apiSecret: "s" });

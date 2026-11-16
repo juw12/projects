@@ -8,7 +8,7 @@ import { toUsdt } from "./fx.js";
 import { MAX_WATCH, approve, blocked, decide, look, manualBuy, manualSell, newState, prices, skip, tick, tracked, worth, TICK_MS } from "./agent.js";
 import { backtest } from "./backtest.js";
 import { TIMEFRAMES, normalizeSymbol } from "./market.js";
-import { hasRealPositions, liveCommand, liveOf } from "./live.js";
+import { hasRealPositions, liveCommand, liveOf, venueOf } from "./live.js";
 import * as render from "./render.js";
 import { Problem, errorText, escapeHtml } from "./util.js";
 
@@ -28,7 +28,7 @@ export const COMMANDS = [
   { command: "backtest", description: "Try the rules on past prices" },
   { command: "history", description: "Closed trades" },
   { command: "desk", description: "The second opinion (Bull, Bear, Risk) and its record" },
-  { command: "live", description: "Real money on Tokocrypto: /live shadow, /live on confirm, /live off" },
+  { command: "live", description: "Real money: /live shadow, /live on confirm, /live off" },
   { command: "reset", description: "Start over with fresh practice money" },
   { command: "help", description: "How this works" },
 ];
@@ -330,7 +330,7 @@ const handlers = {
   async reset(ctx, args) {
     const { state } = ctx;
     if (hasRealPositions(state)) {
-      return warn("Nothing was erased. Real coins bought on Tokocrypto are still open, and a reset would lose track of them. Sell them first (/sell), then reset.");
+      return warn(`Nothing was erased. Real coins bought on ${venueOf(ctx.env).name} are still open, and a reset would lose track of them. Sell them first (/sell), then reset.`);
     }
     const cash = args[0] === undefined ? defaultCash() : amount(args[0]);
     if (!(cash >= 100 && cash <= 10000000)) {
@@ -472,7 +472,7 @@ async function onButton(ctx, query) {
     if (!(cash >= 100 && cash <= 10000000)) return { toast: OLD_BUTTON };
     const gone = erased(state);
     if (hasRealPositions(state)) {
-      return { toast: "Nothing was erased: real coins are still open on Tokocrypto. Sell them first." };
+      return { toast: `Nothing was erased: real coins are still open on ${venueOf(ctx.env).name}. Sell them first.` };
     }
     const fresh = newState(cash);
     fresh.settings = state.settings;

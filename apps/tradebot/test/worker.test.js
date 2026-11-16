@@ -6,7 +6,7 @@ import { nearest } from "../src/bot.js";
 import { createWorker } from "../src/index.js";
 import { TIMEFRAMES } from "../src/market.js";
 import { sha256Hex } from "../src/util.js";
-import { FakeNamespace, binanceRows, fakeFetch, makeCandles, makeClock, reply } from "./fakes.js";
+import { FakeNamespace, binanceRows, fakeFetch, fakeLuno, makeCandles, makeClock, reply } from "./fakes.js";
 
 const TOKEN = "123456789:AAfake_token_for_tests_only_0123456789";
 const TWIN_TOKEN = "555000111:AAtwin_token_for_tests_only_0123456789"; // the twin's own bot
@@ -576,4 +576,32 @@ test("the exchange check asks the Indonesian exchanges from inside the worker an
   const calls = fetch.calls.length;
   await call("GET", "/v1/venues");
   assert.equal(fetch.calls.length, calls, "a second look within five minutes costs nothing");
+});
+
+test("the real-money check reads Luno without keys: bitcoin would be copied, ETH and SOL would not", async () => {
+  const luno = fakeLuno();
+  const { call } = await harness({
+    routes: [
+      ["https://indodax.com/api/ticker/usdtidr", () => reply({ ticker: { last: "16500" } })],
+      ["https://api.luno.com/", (url, init) => luno.fetch(url, init)],
+    ],
+  });
+  const answer = await call("GET", "/v1/live");
+  assert.equal(answer.status, 200);
+  assert.equal(answer.body.ok, true);
+  assert.equal(answer.body.exchange, "Luno");
+  assert.equal(answer.body.quote, "IDR");
+  assert.equal(answer.body.maxSpreadPercent, 0.5);
+  assert.equal(answer.body.mode, "off");
+  assert.equal(answer.body.armed, false);
+  assert.equal(answer.body.markets.BTCUSDT.market, "XBTIDR");
+  assert.equal(answer.body.markets.BTCUSDT.copied, true);
+  assert.ok(answer.body.markets.BTCUSDT.spreadPercent < 0.5);
+  assert.equal(answer.body.markets.ETHUSDT.copied, false);
+  assert.match(answer.body.markets.ETHUSDT.refused, /apart/);
+  assert.equal(answer.body.markets.SOLUSDT.copied, false);
+  assert.match(answer.body.markets.SOLUSDT.refused, /too few SOL offers/);
+  assert.ok(luno.requests.length > 0, "Luno was asked");
+  assert.ok(luno.requests.every((request) => !request.headers.Authorization), "no key was sent");
+  assert.equal(luno.orders().length, 0);
 });

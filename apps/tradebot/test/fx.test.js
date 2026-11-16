@@ -85,16 +85,17 @@ test("money and prices are written in rupiah once a rate is set", () => {
   }
 });
 
-test("/live size takes rupiah too, and shows USDT with rupiah beside it", () => {
+test("/live size takes rupiah too; a USDT exchange shows USDT with rupiah beside it", () => {
+  const env = { EXCHANGE: "tokocrypto" };
   const state = { live: newLive() };
   try {
     render.useRate(20000);
-    const set = liveCommand(state, ["size", "200rb"], { env: {}, now: 0 });
+    const set = liveCommand(state, ["size", "200rb"], { env, now: 0 });
     assert.equal(state.live.orderUsdt, 10);
     assert.match(set.html, /10\.00 USDT \(Rp200\.000\)/);
-    liveCommand(state, ["size", "15"], { env: {}, now: 0 });
+    liveCommand(state, ["size", "15"], { env, now: 0 });
     assert.equal(state.live.orderUsdt, 15, "a small plain number is USDT");
-    const tooBig = liveCommand(state, ["size", "5jt"], { env: {}, now: 0 });
+    const tooBig = liveCommand(state, ["size", "5jt"], { env, now: 0 });
     assert.match(tooBig.html, /Nothing changed/);
     assert.equal(state.live.orderUsdt, 15);
   } finally {

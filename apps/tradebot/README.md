@@ -4,8 +4,8 @@ A trading agent you talk to in Telegram. It watches real live crypto prices, dec
 rules, and trades a **practice account** (10,000 USDT of pretend money) on its own, day and night.
 It runs on a free Cloudflare Worker, so nothing has to stay open on your PC.
 
-**Practice money only.** Nothing in this build can place a real order or touch real money.
-It is not financial advice. See "Real money" at the bottom.
+**Practice money unless you switch it on.** Real orders are off as shipped and need three
+switches that only you can set. It is not financial advice. See "Real money" at the bottom.
 
 ## Set it up (once, about 3 minutes)
 
@@ -63,7 +63,7 @@ exchange takes) and are shown as USDT with rupiah beside them; `/live size 200rb
 | `/backtest BTC` | Try the rules on past prices and compare with just holding |
 | `/history` | Closed trades |
 | `/desk`, `/desk off` | The second opinion (Bull, Bear, Risk) and how its calls turned out |
-| `/live` | Real money on Tokocrypto: off, shadow (rehearsal) or on. See [Real money](#real-money-tokocrypto-off-by-default) |
+| `/live` | Real money on Luno, in rupiah: off, shadow (rehearsal) or on. See [Real money](#real-money-luno-in-rupiah-off-by-default) |
 | `/reset` | Start over with fresh practice money (asks first) |
 | `/help` | The short version of this page |
 
@@ -228,36 +228,49 @@ check that the new build answers and can read prices.
 | `src/bot.js`, `src/render.js` | commands, typo handling and message text |
 | `src/index.js` | the Worker, the Durable Object, setup and pairing |
 | `src/twin.js` | the twin's bot: tidy a report, spot new trades, write the messages |
+| `src/live.js` | real money: the limits, the gap rules, rehearsal and the real copies |
+| `src/luno.js`, `src/exchange.js` | the two exchanges real orders can go to: Luno (rupiah) and Tokocrypto (USDT) |
 | `src/venues.js` | which Indonesian exchanges answer from Cloudflare |
 | `tools/transcript.js` | the scripted chat used to review and test the wording |
 
-## Real money (Tokocrypto, off by default)
+## Real money (Luno in rupiah, off by default)
 
-The bot can copy its practice buys and sells to a real
-[Tokocrypto](https://www.tokocrypto.com) spot account (licensed in Indonesia, USDT markets).
-It is built so that a mistake costs little:
+The bot can copy its practice buys and sells to a real [Luno](https://www.luno.com) account
+(licensed in Indonesia, rupiah markets, answers Cloudflare's servers). You pay and are paid in
+rupiah; there is no USDT step. It is built so that a mistake costs little:
 
 | Limit | Value |
 |---|---|
-| Size of each real buy | fixed, 10 USDT by default (`/live size 5` to `/live size 50`; the exchange minimum is 5) |
-| Most it may hold at once | 3 buys (30 USDT at the default size) |
+| Size of each real buy | fixed, 10 USDT worth of rupiah by default (about Rp165.000); `/live size 150rb`, from 5 to 50 USDT worth |
+| Most it may hold at once | 3 buys |
 | Daily stop | after real losses of one buy size in a day, no more real buys that day |
+| Gap rule (buying) | a coin is copied only while its buying and selling price on the exchange are under 0.5% apart for that order size, and the book has enough offers |
+| Gap rule (selling) | a real coin is not sold into a book that is thin or more than 2% apart: it is kept, you get a 🚨 message, and the sale is tried again at the next practice sell of that coin |
 | Any order error | real copying stops at once (back to rehearsal) and you get a 🚨 message |
 
-**Known blocker (checked 13 Nov 2026):** Tokocrypto answers HTTP 403 to Cloudflare's servers (the same as Binance), while it answers normally from a home or office connection. So today `/v1/live` shows `"error": "... HTTP 403"` and real orders cannot leave the Worker; `/live shadow` still works because it sends nothing. If `/live on` is ever tried, the first failed order drops it back to shadow with a 🚨 message. The way round it is to send the orders from your own connection: freqtrade's exchange library has a Tokocrypto driver (markets and market orders load fine), run with `freqtrade/run-windows.ps1` on a PC at home.
+**On Luno that means bitcoin only.** Measured 16 Nov 2026:
 
-**Other Indonesian exchanges.** `GET /v1/venues` asks the licensed exchanges that give ordinary
-customers an API (Indodax, Luno, Upbit Indonesia, Reku for prices only, and Tokocrypto) from inside
-the Worker and shows which ones answer. No keys are sent and nothing is bought. Indodax refuses any
-caller whose name contains "bot" (HTTP 403), so the Worker introduces itself as `juw12-trade`.
-Real orders are still wired to Tokocrypto only; another exchange needs its own adapter first.
-Pintu, GoTrade, Stockbit and Pluang have no order API for ordinary customers, so no bot can trade
-through them.
+| Exchange | Answers Cloudflare | BTC gap | ETH gap | SOL gap | BTC traded in 24 h |
+|---|---|---|---|---|---|
+| Indodax | no (HTTP 403) | 0.105% | 0.159% | 0.165% | Rp35.3 billion |
+| Luno | yes | 0.080% | 52% | 74% | Rp12.5 million |
+| Upbit Indonesia | yes | 1.02% | 1.47% | 1.79% | Rp0.65 million |
+
+ETH and SOL are not blocked by name. The gap rule refuses them while their books look like that,
+and would let them through if Luno's books ever tighten. `GET /v1/live` shows what it would do now.
+
+**What a trade costs on Luno.** Fee 0.2122% on a buy and 0.3722% on a sell (Luno's fee page, read
+by web search and not checked against a real fill), plus the 0.08% gap: about 0.66% for one buy and
+sell of bitcoin. A trade has to gain more than that before it earns anything.
+
+**Not tried on the real exchange yet.** Reading prices and order books is checked against the real
+Luno. Placing an order, reading the fill and reading the balance follow Luno's documentation and
+pass against a pretend Luno in the tests; they need a funded account before they can be proven.
 
 Three switches must all be on before a single real order is sent:
 
-1. **Keys.** Make a Tokocrypto API key that can **trade only** (withdrawals off), then store it:
-   `npx wrangler secret put TOKO_API_KEY` and `npx wrangler secret put TOKO_API_SECRET`.
+1. **Keys.** Make a Luno API key that can **trade only** (no withdrawals), then store it:
+   `npx wrangler secret put LUNO_API_KEY_ID` and `npx wrangler secret put LUNO_API_SECRET`.
    A Worker has no fixed IP address, so the key cannot be locked to one; trade-only is the guard.
 2. **Arm.** Set `LIVE_TRADING = "enabled"` in `wrangler.toml` (it ships as `"off"`) and deploy.
 3. **Chat.** Send `/live on confirm` in Telegram.
@@ -265,14 +278,25 @@ Three switches must all be on before a single real order is sent:
 | Command | What it does |
 |---|---|
 | `/live` | Mode, limits, what is missing, the real copies held |
-| `/live shadow` | Rehearsal: shows what it would buy for real, sends nothing (works without keys) |
+| `/live shadow` | Rehearsal: shows what it would buy for real at Luno's own prices and fees, sends nothing (works without keys) |
 | `/live on confirm` | Start copying for real (only when keys and the arm switch are set) |
 | `/live off` | No new real buys. Real coins already bought are still sold by the rules |
-| `/live size 10` | USDT per real buy, 5 to 50 |
+| `/live size 150rb` | Rupiah per real buy (or `/live size 10` for USDT worth), 5 to 50 USDT worth |
 
 `/reset` is refused while real coins are held, so the bot never forgets something it owns.
-`GET /v1/live` shows the mode, the switches and whether Tokocrypto is reachable (never balances).
+`GET /v1/live` shows the exchange, the mode, the switches and, per coin, the gap and whether a
+copy would be taken or refused (never balances, and no key is used).
+
+**Other exchanges.** `EXCHANGE` in `wrangler.toml` picks the exchange: `"luno"` (the default) or
+`"tokocrypto"` (USDT markets, secrets `TOKO_API_KEY` and `TOKO_API_SECRET`). Tokocrypto answers
+HTTP 403 to Cloudflare's servers (checked 13 Nov 2026, the same as Binance), so its orders cannot
+leave the Worker; that is why it is not the default. Indodax has the busiest rupiah books but also
+refuses Cloudflare, so it would need a sender outside Cloudflare. Upbit Indonesia answers but its
+gaps cost 1 to 1.8% a trade. `GET /v1/venues` asks these exchanges (and Reku, prices only) from
+inside the Worker and shows which ones answer; no keys are sent and nothing is bought. Pintu,
+GoTrade, Stockbit and Pluang have no order API for ordinary customers, so no bot can trade through
+them.
 
 Honest warning: the rules have no proven edge. The backtest beat holding on past prices, which says
-little about the next month. Fees (about 0.1% each way) eat small trades. Run `/live shadow` for a
-few weeks and compare with the practice account before `/live on`.
+little about the next month, and no set of rules wins every trade. Run `/live shadow` for a few
+weeks and compare with the practice account before `/live on`.

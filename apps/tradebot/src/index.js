@@ -3,7 +3,7 @@
 //   GET  /v1/status    alive, which build, whether a Telegram bot is connected and the agent is running
 //   GET  /v1/probe     can this Worker read live prices? (each price source, asked from Cloudflare)
 //   GET  /v1/desk      does the desk (Workers AI second opinion) answer? One sample question, kept 6 hours
-//   GET  /v1/live      real money: mode, whether the Worker is armed, and whether Tokocrypto answers from here
+//   GET  /v1/live      real money: mode, whether the Worker is armed, and which markets the exchange would take a copy in
 //   POST /v1/setup     owner only (setup code): connect a Telegram bot token, set the webhook, make a pairing link
 //   POST /v1/telegram  Telegram's webhook (checked with the secret Telegram sends back)
 //   GET  /v1/venues    which Indonesian exchanges answer from Cloudflare (public prices, no keys)
@@ -20,13 +20,15 @@
 // time, so a command and a round can never trade over each other.
 //
 // Money: the practice account decides everything. Real money (live.js) is a small fixed-size copy on
-// Tokocrypto that stays off unless LIVE_TRADING = "enabled", the API secrets are set AND the owner
-// sends /live on confirm. With any of the three missing, no real order can be sent.
+// Luno (rupiah; EXCHANGE = "tokocrypto" picks Tokocrypto) that stays off unless LIVE_TRADING =
+// "enabled", the API secrets are set AND the owner sends /live on confirm. With any of the three
+// missing, no real order can be sent.
 
 import { TICK_MS, newState, tick } from "./agent.js";
 import { DESK_MODEL, SAMPLE_BRIEF, convene } from "./desk.js";
-import { EXCHANGE_NAME, createTokocrypto, exchangeSymbol } from "./exchange.js";
-import { armedBy, drain, liveOf, missingFor } from "./live.js";
+import { createTokocrypto } from "./exchange.js";
+import { MAX_SPREAD_PERCENT, armedBy, drain, limitsOf, liveOf, marketBlock, missingFor, venueOf } from "./live.js";
+import { createLuno } from "./luno.js";
 import { COMMANDS, handleUpdate } from "./bot.js";
 import { refreshRate, rateOfState } from "./fx.js";
 import { SOURCE_NAMES, createMarket } from "./market.js";
@@ -164,27 +166,48 @@ export function createWorker(overrides) {
     exchange() {
       if (deps.exchange !== undefined) return deps.exchange;
       const env = this.env || {};
-      return createTokocrypto({ fetch: deps.fetch, now: deps.now, apiKey: env.TOKO_API_KEY || "", apiSecret: env.TOKO_API_SECRET || "" });
+      if (venueOf(env).id === "tokocrypto") {
+        return createTokocrypto({ fetch: deps.fetch, now: deps.now, apiKey: env.TOKO_API_KEY || "", apiSecret: env.TOKO_API_SECRET || "" });
+      }
+      // Luno trades in rupiah, so it sizes its orders with the bot's own rupiah rate.
+      return createLuno({ fetch: deps.fetch, now: deps.now, keyId: env.LUNO_API_KEY_ID || "", secret: env.LUNO_API_SECRET || "", rate: () => render.rateNow() });
     }
 
     // Send (or rehearse) the real copies of the practice fills that just happened.
     async copyLive(state) {
       const live = liveOf(state);
       if (!live.queue.length) return [];
-      return drain(state, { exchange: this.exchange(), now: deps.now(), armed: armedBy(this.env) });
+      return drain(state, { exchange: this.exchange(), now: deps.now(), armed: armedBy(this.env), venue: venueOf(this.env) });
     }
 
+    // Public: what a copy would meet on the exchange right now. No keys are used and no balance is read.
     async liveCheck() {
       const state = await this.state();
+      const before = state.fx ? state.fx.at : 0;
+      await this.rupiah(state); // a rupiah market cannot be judged without the rate
+      if (state.fx && state.fx.at !== before) await this.storage.put("state", state);
       const live = liveOf(state);
+      const venue = venueOf(this.env);
+      const limits = limitsOf(live);
       const markets = {};
       let reachable = false;
       let error = "";
       try {
         const exchange = this.exchange();
         for (const symbol of state.settings.watchlist) {
-          const rules = await exchange.rules(symbol);
-          markets[symbol] = rules ? { market: rules.symbol, minOrderUsdt: rules.minNotional, step: rules.stepSize, spot: rules.spot } : { market: exchangeSymbol(symbol), listed: false };
+          const rules = await exchange.rules(symbol, limits.orderUsdt);
+          const refused = marketBlock(symbol, rules, limits, venue);
+          markets[symbol] = rules
+            ? {
+                market: rules.symbol,
+                minOrderUsdt: rules.minNotional,
+                step: rules.stepSize,
+                spot: rules.spot,
+                ...(rules.spreadPercent === undefined ? {} : { spreadPercent: rules.spreadPercent === null ? null : Math.round(rules.spreadPercent * 1000) / 1000 }),
+                copied: !refused,
+                ...(refused ? { refused } : {}),
+              }
+            : { listed: false, copied: false, refused };
         }
         reachable = true;
       } catch (problem) {
@@ -192,7 +215,9 @@ export function createWorker(overrides) {
       }
       return json({
         ok: reachable,
-        exchange: EXCHANGE_NAME,
+        exchange: venue.name,
+        quote: venue.quote,
+        maxSpreadPercent: MAX_SPREAD_PERCENT,
         mode: live.mode,
         armed: armedBy(this.env),
         missing: missingFor(this.env),
