@@ -294,7 +294,7 @@ test("a button for a model that was retired is refused, and a retired choice is 
 // ------------------------------------------------------------------ /about, /privacy, /cancel
 test("/about and /version say which GlowBot this is and where to read more", async () => {
   const expected = [
-    "<b>GlowBot 1.35.0</b> · build <code>test</code>",
+    "<b>GlowBot 1.36.0</b> · build <code>test</code>",
     "",
     "An AI team in Telegram. Send a goal: GlowLead plans it, hands each step to an agent, checks the result and reports back. " +
       "Free, with no sign-up and no ads.",

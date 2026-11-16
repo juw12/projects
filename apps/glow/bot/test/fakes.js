@@ -207,8 +207,10 @@ export function busyError() {
   return error;
 }
 
-export function fakeWeb({ results = [], pages = {}, news = null } = {}) {
-  const calls = { search: [], read: [], news: 0 };
+// raw = { "<address>": { ok, status, type, text } | Error }: what page() answers. An address that is
+// not listed answers 404.
+export function fakeWeb({ results = [], pages = {}, news = null, raw = {} } = {}) {
+  const calls = { search: [], read: [], news: 0, page: [] };
   return {
     calls,
     async search(query, signal) {
@@ -224,6 +226,12 @@ export function fakeWeb({ results = [], pages = {}, news = null } = {}) {
       const page = pages[url];
       if (page === undefined || page instanceof Error) throw page || new Error("no such page");
       return { text: page, via: "test" };
+    },
+    async page(url, options = {}) {
+      calls.page.push({ url, headers: options.headers || {} });
+      const answer = raw[url];
+      if (answer instanceof Error) throw answer;
+      return { ok: true, status: 200, type: "text/html", text: "", ...(answer || { ok: false, status: 404 }) };
     },
     async news() {
       calls.news += 1;

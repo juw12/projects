@@ -40,6 +40,7 @@ About the secrets:
 | `/news` | Today's AI news from GlowNews, with buttons for each topic. |
 | `/spark` | GlowSpark, the tiny AI Glow built from scratch, writes a short story from your opening line (in English). |
 | `/apps` | Buttons that open the Glow apps. |
+| `/calc` | Sums with units, like `/calc 1 in to mm`. Worked out by the bot itself, without an AI model. |
 | `/daily` | AI news every day at a time you set (UTC+7), like `/daily 07:30`. `/daily off` stops it. |
 | `/every` | Owner only. A mission that runs by itself on a schedule (UTC+7), like `/every mon,thu 08:00 research cheap flights to Tokyo`. `/every` lists them, `/every off` clears them. Up to 5. |
 | `/missions` | Your last missions (the bot keeps 20). `/missions 3` shows a report again; the buttons run one again. |
@@ -56,6 +57,23 @@ About the secrets:
 | `/allow` | Owner only. `/allow 123456789` lets one person or one group in while the bot stays private. |
 | `/deny` | Owner only. `/deny 123456789` takes that person or group out again. |
 | `/users` | Owner only, in the owner's private chat. Who is let in. |
+| `/note` | Owner only, in the owner's private chat. Keeps a note. `/log` keeps it as a log entry. |
+| `/notes` | Owner only, in the owner's private chat. Your last notes. |
+| `/save` | Owner only, in the owner's private chat. `/save` and a link keeps that link with its page title. |
+| `/links` | Owner only, in the owner's private chat. Your saved links. |
+| `/post` | Owner only, in the owner's private chat. Drafts a post and shows it first. It is kept only after you approve it. |
+| `/posts` | Owner only, in the owner's private chat. Your approved posts. |
+| `/scan` | Owner only, in the owner's private chat. Checks a text with the Guard. Nothing is kept. |
+| `/guard` | Owner only, in the owner's private chat. The Guard refuses to keep anything that looks like a password, key or token, or that has a word on your own list. `/guard add` and `/guard clear` change the list. |
+| `/brief` | Owner only, in the owner's private chat. The last pushes on GitHub. |
+| `/export` | Owner only, in the owner's private chat. Your notes, links and posts as one Markdown file. |
+
+The owner's desk: `/note` to `/export` are a small private notebook that came over from an
+older bot. They answer only the owner, and only in the owner's private chat. Before anything is
+kept, the Guard checks it: it refuses text that looks like a password, key or token, and text
+with a word from the owner's own list. That list is set with `/guard add` and lives only in the
+owner's chat storage; it is never in this repo. `/brief` asks GitHub's public API without a key,
+so GitHub may turn it away when the shared address has asked too often.
 
 A message without a command goes to the mode the chat is in. A new chat starts in lead mode;
 `/lead`, `/room`, `/chat` and `/agent` switch it. The first bot had `/mission` and `/search`;
@@ -122,6 +140,8 @@ server only from `https://juw12.github.io`.
 | `src/strings.js` | Everything the bot says, in the four Glow languages. |
 | `src/models.js` | The chain of free models: no-key services first, Cloudflare Workers AI as backup, with rest times after a failure. |
 | `src/web.js` | Web search, page reading and the GlowNews edition. |
+| `src/calc.js` | The `/calc` calculator: numbers, brackets and units, with no AI model and no `eval`. |
+| `src/desk.js` | The owner's desk: notes, links, posts, the Guard and the Markdown export. |
 | `src/spark.js` | GlowSpark, Glow's own small language model, running on the Worker. |
 | `src/selftest.js` | The logic self-test behind `/v1/selftest`. |
 | `src/probe.js` | The health check behind `/v1/probe`. |

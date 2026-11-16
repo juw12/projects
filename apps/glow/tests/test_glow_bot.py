@@ -55,14 +55,15 @@ MARKUP_WRITERS = ("innerHTML", "outerHTML", "insertAdjacentHTML", "createContext
 OTHER_STORES = ("sessionStorage", "document.cookie", "indexedDB", "caches.")
 COMMANDS = [
     "lead", "room", "ask", "agents", "chat", "new", "agent", "news", "spark",
-    "apps", "daily", "every", "missions", "status", "models", "stop", "lang", "help", "myid",
+    "apps", "calc", "daily", "every", "missions", "status", "models", "stop", "lang", "help", "myid",
     "about", "privacy",
     "access", "allow", "deny", "users",
+    "note", "notes", "save", "links", "post", "posts", "scan", "guard", "brief", "export",
 ]
 # Second names for a command that is on the page: the bot answers them, the page lists the first name.
 ALIASES = {
     "harness": "agent", "reset": "new", "search": "room", "mission": "lead",
-    "model": "models", "cancel": "stop", "version": "about",
+    "model": "models", "cancel": "stop", "version": "about", "log": "note",
 }
 # Every line of bot.js that touches the setup code. A new use has to be looked at and added here.
 SETUP_CODE_USES = [
