@@ -230,7 +230,7 @@ stop, and posts the copies back (`POST /v1/indodax/report`) for `/indodax` in Te
   mode `/indodax` shows how old the numbers are and nothing is sent.
 - **Off until switched on.** `POST /v1/indodax/setup` (setup code) gives the sender's key once; the
   sender does nothing until that key is in `indodax/.env` on the PC.
-- **Not tried on a real Indodax account yet.** Its 77 tests run against a pretend exchange. Only
+- **Not tried on a real Indodax account yet.** Its 100 tests run against a pretend exchange. Only
   the public prices were read from the real Indodax.
 
 Setup, settings, limits and the real-money section: `indodax/README.md`.

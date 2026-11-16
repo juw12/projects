@@ -22,6 +22,11 @@ START = 1_763_272_800.0  # 2025-11-16 06:00 UTC
 OWNER_NAME = "Private Person"
 OWNER_EMAIL = "private.person@example.com"
 OWNER_ADDRESS = "bc1qprivateaddress"
+# The names the sender gives its own orders for the BTC signal used in these tests.
+BUY_NAME = f"tb-btc-{SIGNAL}-b"
+SELL_NAME = f"tb-btc-{SIGNAL}-s0"
+SELL_AGAIN = f"tb-btc-{SIGNAL}-s1"
+LOST = "Indodax could not be reached (TimeoutError)"
 
 
 def pair(coin, minimum=10_000, fee=0.2, blocked=False):
@@ -60,6 +65,8 @@ class FakeExchange:
         self.balance_calls = 0
         self.pairs_error = None
         self.balance_errors = []  # one entry per coming call; None means the call works
+        self.known = {}  # order name -> what Indodax would say became of that order
+        self.lookups = []
         self.on_trade = self.fill
 
     def pairs(self):
@@ -83,6 +90,13 @@ class FakeExchange:
         order = {"pair": ticker_id, "side": side, "idr": idr, "coin": coin, "quantity": quantity, "name": client_order_id}
         self.orders.append(order)
         return self.on_trade(order)
+
+    def order(self, name):
+        """Without an entry in `known` Indodax has no clear word, as before this lookup existed."""
+        self.lookups.append(name)
+        if name not in self.known:
+            raise bridge.ExchangeError("Order not found")
+        return dict(self.known[name])
 
     def fill(self, order):
         coin = order["pair"].split("_")[0]
@@ -395,6 +409,58 @@ class ClientTests(unittest.TestCase):
         self.assertNotIn("btc", buy)
         self.assertEqual((sell["type"], sell["order_type"], sell["btc"], sell["client_order_id"]), ("sell", "market", "0.00004985", "tb-btc-1-s0"))
         self.assertNotIn("idr", sell)
+
+    def order_answer(self, **changes):
+        order = {
+            "order_id": "59636253",
+            "client_order_id": "tb-btc-1-s0",
+            "price": "1000000000",
+            "type": "sell",
+            "order_btc": "0.00004985",
+            "remain_btc": "0.00000000",
+            "receive_idr": "49750",
+            "submit_time": "1763272800",
+            "finish_time": "1763272801",
+            "status": "filled",
+            "name": OWNER_NAME,
+            "email": OWNER_EMAIL,
+        }
+        order.update(changes)
+        return {"success": 1, "return": {"order": order}}
+
+    def test_an_order_is_looked_up_by_its_own_name_and_only_read(self):
+        client = self.client(self.route(self.order_answer()))
+        client.order("tb-btc-1-s0")
+        request = self.opener.requests[-1]
+        fields = dict(urllib.parse.parse_qsl(request.data.decode("utf-8")))
+        self.assertEqual(request.full_url, "https://indodax.com/tapi")
+        self.assertEqual((fields["method"], fields["client_order_id"]), ("getOrderByClientOrderId", "tb-btc-1-s0"))
+        self.assertFalse(any(b"method=trade" in item.data for item in self.opener.requests if item.data))
+
+    def test_only_the_state_side_and_amounts_are_kept_from_an_order_lookup(self):
+        kept = self.client(self.route(self.order_answer())).order("tb-btc-1-s0")
+        self.assertEqual(kept, {"status": "filled", "side": "sell", "order_btc": "0.00004985", "remain_btc": "0.00000000", "receive_idr": "49750"})
+        for spelling in ("canceled", "Cancelled", "CANCELED"):
+            answer = self.order_answer(status=spelling)
+            self.assertEqual(self.client(self.route(answer)).order("tb-btc-1-s0")["status"], "cancelled", spelling)
+
+    def test_a_lookup_that_fails_is_never_unsure(self):
+        problems = (urllib.error.URLError("timed out"), TimeoutError(), "<html>not json</html>", {"success": 0, "error": "Order not found"})
+        for problem in problems:
+            with self.assertRaises(bridge.ExchangeError, msg=repr(problem)) as looking:
+                self.client(self.route(problem)).order("tb-btc-1-s0")
+            self.assertFalse(looking.exception.unsure, repr(problem))
+
+    def test_a_lookup_answer_about_another_order_or_none_is_refused(self):
+        answers = (
+            self.order_answer(client_order_id="tb-btc-1-s1"),
+            {"success": 1, "return": {}},
+            {"success": 1, "return": {"order": []}},
+            {"success": 1, "return": {"order": "filled"}},
+        )
+        for answer in answers:
+            with self.assertRaises(bridge.ExchangeError, msg=repr(answer)):
+                self.client(self.route(answer)).order("tb-btc-1-s0")
 
     def test_without_keys_nothing_is_sent(self):
         client = self.client(self.route(GET_INFO), api_key="", api_secret="")
@@ -723,6 +789,95 @@ class Real(Case):
         self.assertEqual(self.bridge.state["positions"], {})
         self.assertIn("accepted the buy of BTC but no BTC arrived", self.bridge.state["tripped"])
 
+    # ---- a lost buy answer: Indodax is asked what became of the order
+
+    def test_lost_buy_answer_that_indodax_confirms_records_the_copy_without_the_stop(self):
+        self.make(BTC, real=True)
+        self.exchange.on_trade = self.exchange.fill_then_lose_answer
+        self.exchange.known[BUY_NAME] = {"status": "filled", "side": "buy", "receive_btc": "0.00004980"}
+        self.bridge.cycle()
+        position = self.bridge.state["positions"][BTC]
+        self.assertTrue(position["real"])
+        self.assertAlmostEqual(position["quantity"], 0.0000498, delta=1e-12)  # the smaller of the balance and the record
+        self.assertLessEqual(position["quantity"], self.exchange.free["btc"])
+        self.assertEqual(self.bridge.state["tripped"], "")
+        self.assertEqual(self.exchange.lookups, [BUY_NAME])
+        self.assertIn("Indodax confirms the order was filled", self.text())
+        self.bridge.cycle()
+        self.assertEqual(len(self.exchange.orders), 1)
+
+    def test_lost_buy_answer_for_an_order_indodax_cancelled_buys_nothing_and_does_not_stop(self):
+        self.make(BTC, real=True)
+        self.exchange.on_trade = self.exchange.lose
+        self.exchange.known[BUY_NAME] = {"status": "cancelled", "side": "buy", "order_rp": "50000", "remain_rp": "50000"}
+        self.bridge.cycle()
+        self.assertEqual(self.bridge.state["positions"], {})
+        self.assertEqual(self.bridge.state["tripped"], "")
+        self.assertIn("nothing was bought", self.text())
+        self.exchange.on_trade = self.exchange.fill
+        self.bridge.cycle()
+        self.assertEqual(len(self.exchange.orders), 1)  # the signal stays used: never a second buy for it
+
+    def test_lost_buy_answer_for_an_order_still_open_stops_without_a_copy(self):
+        self.make(BTC, real=True)
+        self.exchange.on_trade = self.exchange.lose
+        self.exchange.known[BUY_NAME] = {"status": "open", "side": "buy", "order_rp": "50000", "remain_rp": "50000"}
+        self.bridge.cycle()
+        self.assertEqual(self.bridge.state["positions"], {})
+        self.assertIn("still open at Indodax", self.bridge.state["tripped"])
+
+    def test_a_filled_record_without_the_coin_in_the_balance_records_no_copy(self):
+        self.make(BTC, real=True)
+        self.exchange.on_trade = self.exchange.lose
+        self.exchange.known[BUY_NAME] = {"status": "filled", "side": "buy", "receive_btc": "0.00004985"}
+        self.bridge.cycle()
+        self.assertEqual(self.bridge.state["positions"], {})  # the record alone never makes a copy
+        self.assertIn("shows the order as filled, but no BTC shows in your balance", self.bridge.state["tripped"])
+
+    def test_lost_buy_answer_with_part_arrived_and_the_rest_open_records_the_part_and_stops(self):
+        self.make(BTC, real=True)
+
+        def part_then_lose(order):
+            self.exchange.free["idr"] -= 20_000
+            self.exchange.free["btc"] = self.exchange.free.get("btc", 0.0) + 0.00002
+            raise bridge.ExchangeError(LOST, unsure=True)
+
+        self.exchange.on_trade = part_then_lose
+        self.exchange.known[BUY_NAME] = {"status": "open", "side": "buy", "order_rp": "50000", "remain_rp": "30000"}
+        self.bridge.cycle()
+        position = self.bridge.state["positions"][BTC]
+        self.assertAlmostEqual(position["quantity"], 0.00002, delta=1e-12)
+        self.assertAlmostEqual(position["spent"], 20_000.0)
+        self.assertIn("the rest is still open at Indodax", self.bridge.state["tripped"])
+
+    def test_an_unclear_record_changes_nothing_about_a_lost_buy(self):
+        unclear = (
+            {"status": "pending", "side": "buy", "receive_btc": "0.00004985"},  # a state the sender does not know
+            {"status": "filled", "side": "sell", "receive_btc": "0.00004985"},  # not the buy that was sent
+            {"status": "cancelled", "side": "buy"},  # cancelled, but no amounts to show nothing was bought
+        )
+        for index, record in enumerate(unclear):
+            for arrived in (False, True):
+                with self.subTest(record=record, arrived=arrived):
+                    self.state_path = Path(self.folder.name) / f"unclear_{index}_{int(arrived)}.json"
+                    self.logs.clear()
+                    self.make(BTC, real=True)
+                    self.exchange.on_trade = self.exchange.fill_then_lose_answer if arrived else self.exchange.lose
+                    self.exchange.known[BUY_NAME] = record
+                    self.bridge.cycle()
+                    self.assertEqual(self.exchange.lookups, [BUY_NAME])
+                    if arrived:
+                        self.assertAlmostEqual(self.bridge.state["positions"][BTC]["quantity"], self.exchange.free["btc"], delta=1e-12)
+                        self.assertIn("was lost, but the coin arrived, so the copy is recorded", self.bridge.state["tripped"])
+                    else:
+                        self.assertEqual(self.bridge.state["positions"], {})
+                        self.assertIn("no BTC has arrived so far", self.bridge.state["tripped"])
+
+    def test_an_answered_buy_is_never_looked_up(self):
+        self.make(BTC, real=True)
+        self.bridge.cycle()
+        self.assertEqual(self.exchange.lookups, [])
+
     def test_every_real_order_passes_the_gate(self):
         btc = pair("btc")
         name = f"tb-btc-{SIGNAL}-b"
@@ -943,6 +1098,190 @@ class Real(Case):
         self.assertTrue(self.bridge.state["closed"][-1]["estimated"])
         self.assertTrue(self.bridge.state["tripped"])
 
+    # ---- an unsure sale: Indodax's record of the order decides when it is clear
+
+    def duplicate(self, order):
+        raise bridge.ExchangeError(f"client order id {order['name']} already exists")
+
+    def sold_record(self, received="49500"):
+        return {"status": "filled", "side": "sell", "order_btc": "0.00004985", "remain_btc": "0.00000000", "receive_idr": received}
+
+    def cancelled_record(self, left="0.00004985"):
+        return {"status": "cancelled", "side": "sell", "order_btc": "0.00004985", "remain_btc": left, "receive_idr": "0"}
+
+    def test_lost_sell_answer_that_indodax_confirms_closes_the_copy_at_once_with_the_exact_amount(self):
+        self.bought()
+        self.exchange.on_trade = self.exchange.fill_then_lose_answer
+        self.exchange.known[SELL_NAME] = self.sold_record()
+        self.api.hold()
+        self.bridge.cycle()
+        self.assertEqual(self.bridge.state["positions"], {})
+        closed = self.bridge.state["closed"][-1]
+        self.assertEqual(closed["received"], 49_500.0)
+        self.assertNotIn("estimated", closed)
+        self.assertEqual(self.bridge.state["tripped"], "")
+        self.assertEqual(self.exchange.lookups, [SELL_NAME])
+        self.assertEqual(len(self.exchange.orders), 1)
+        self.assertIn("Indodax's record of the order confirms it", self.text())
+
+    def test_an_unsure_sale_is_settled_by_indodax_record_before_the_balance(self):
+        self.bought()
+        self.exchange.on_trade = self.exchange.fill_then_lose_answer
+        self.api.hold()
+        self.bridge.cycle()
+        self.assertEqual(self.bridge.state["positions"][BTC]["unsure"]["name"], SELL_NAME)
+        self.assertIn("could not be confirmed", self.bridge.state["tripped"])
+        self.exchange.known[SELL_NAME] = self.sold_record()
+        self.exchange.free["idr"] += 123_456.0  # his own deposit: the balance alone would overstate the sale
+        self.exchange.on_trade = self.exchange.fill
+        self.bridge.cycle()
+        self.assertEqual(len(self.exchange.orders), 1)
+        closed = self.bridge.state["closed"][-1]
+        self.assertEqual(closed["received"], 49_500.0)
+        self.assertNotIn("estimated", closed)
+        self.assertEqual(self.bridge.state["positions"], {})
+        self.assertIn("as Indodax's record of the order shows", self.text())
+
+    def test_a_sale_indodax_cancelled_untouched_is_sent_again_under_a_new_name(self):
+        self.bought()
+        self.exchange.on_trade = self.exchange.lose
+        self.api.hold()
+        self.bridge.cycle()
+        self.assertIn("unsure", self.bridge.state["positions"][BTC])
+        self.exchange.known[SELL_NAME] = self.cancelled_record()
+        self.exchange.on_trade = self.exchange.fill
+        self.bridge.cycle()
+        self.assertEqual([order["name"] for order in self.exchange.orders], [SELL_NAME, SELL_AGAIN])
+        self.assertEqual(self.bridge.state["positions"], {})
+        self.assertNotIn("estimated", self.bridge.state["closed"][-1])
+
+    def test_a_sale_still_open_at_indodax_sends_nothing_new_until_it_is_settled(self):
+        self.bought()
+        self.exchange.on_trade = self.exchange.lose
+        self.exchange.known[SELL_NAME] = {"status": "open", "side": "sell", "order_btc": "0.00004985", "remain_btc": "0.00004985"}
+        self.api.hold()
+        self.bridge.cycle()
+        self.exchange.on_trade = self.exchange.fill
+        self.bridge.cycle()
+        self.bridge.cycle()
+        self.assertEqual(len(self.exchange.orders), 1)
+        self.assertEqual(self.bridge.state["positions"][BTC]["unsure"]["name"], SELL_NAME)
+        self.assertIn("still open at Indodax", self.text())
+        self.exchange.known[SELL_NAME] = self.cancelled_record()
+        self.bridge.cycle()
+        self.assertEqual([order["name"] for order in self.exchange.orders], [SELL_NAME, SELL_AGAIN])
+        self.assertEqual(self.bridge.state["positions"], {})
+
+    def test_a_partly_sold_then_cancelled_sale_is_never_sent_under_a_new_name(self):
+        self.bought()
+        self.exchange.free["btc"] += 1.0  # his own bitcoin in the same account
+
+        def part_then_lose(order):
+            part = float(order["quantity"]) * 0.2
+            self.exchange.free["btc"] -= part
+            self.exchange.free["idr"] += part * 1_000_000_000.0 * 0.998
+            raise bridge.ExchangeError(LOST, unsure=True)
+
+        self.exchange.on_trade = part_then_lose
+        self.api.hold()
+        self.bridge.cycle()
+        self.exchange.known[SELL_NAME] = self.cancelled_record(left="0.00003988")
+        self.exchange.on_trade = self.duplicate
+        self.bridge.cycle()
+        self.assertEqual([order["name"] for order in self.exchange.orders], [SELL_NAME, SELL_NAME])
+        self.assertEqual(self.bridge.state["positions"], {})
+        self.assertTrue(self.bridge.state["closed"][-1]["estimated"])
+        self.assertTrue(self.bridge.state["tripped"])
+        self.assertIn("Its result is an estimate", self.text())
+        self.exchange.on_trade = self.exchange.fill
+        self.bridge.cycle()
+        self.assertEqual(len(self.exchange.orders), 2)  # his own bitcoin is never sold to finish the job
+
+    def test_a_name_indodax_already_has_and_shows_as_sold_gives_the_exact_result(self):
+        self.bought()
+        self.exchange.on_trade = self.duplicate
+        self.exchange.known[SELL_NAME] = self.sold_record()
+        self.api.hold()
+        self.bridge.cycle()
+        self.assertEqual(self.bridge.state["positions"], {})
+        closed = self.bridge.state["closed"][-1]
+        self.assertEqual(closed["received"], 49_500.0)
+        self.assertNotIn("estimated", closed)
+        self.assertEqual(self.bridge.state["tripped"], "")
+        self.assertIn("was sold already, for Rp49.500", self.text())
+
+    def test_a_name_indodax_already_has_for_a_cancelled_sale_is_retried_under_a_new_name(self):
+        self.bought()
+        self.exchange.on_trade = self.duplicate
+        self.exchange.known[SELL_NAME] = self.cancelled_record()
+        self.api.hold()
+        self.bridge.cycle()
+        self.assertEqual(self.bridge.state["positions"][BTC]["sells"], 1)
+        self.assertNotIn("unsure", self.bridge.state["positions"][BTC])
+        self.assertEqual(self.bridge.state["tripped"], "")
+        self.assertIn("under a new name", self.text())
+        self.exchange.on_trade = self.exchange.fill
+        self.bridge.cycle()
+        self.assertEqual([order["name"] for order in self.exchange.orders], [SELL_NAME, SELL_AGAIN])
+        self.assertEqual(self.bridge.state["positions"], {})
+
+    def test_a_name_indodax_already_has_for_a_sale_still_open_waits(self):
+        self.bought()
+        self.exchange.on_trade = self.duplicate
+        self.exchange.known[SELL_NAME] = {"status": "open", "side": "sell", "order_btc": "0.00004985", "remain_btc": "0.00004985"}
+        self.api.hold()
+        self.bridge.cycle()
+        self.assertEqual(self.bridge.state["positions"][BTC]["unsure"]["name"], SELL_NAME)
+        self.assertEqual(self.bridge.state["closed"], [])
+        self.assertIn("could not be confirmed", self.bridge.state["tripped"])
+        self.exchange.on_trade = self.exchange.fill
+        self.bridge.cycle()
+        self.assertEqual(len(self.exchange.orders), 1)
+        self.assertIn(BTC, self.bridge.state["positions"])
+
+    def test_an_unsure_mark_from_before_names_were_kept_is_still_looked_up(self):
+        self.bought()
+        self.exchange.on_trade = self.exchange.fill_then_lose_answer
+        self.api.hold()
+        self.bridge.cycle()
+        del self.bridge.state["positions"][BTC]["unsure"]["name"]  # as the earlier version wrote it
+        self.exchange.lookups.clear()
+        self.exchange.known[SELL_NAME] = self.sold_record()
+        self.bridge.cycle()
+        self.assertEqual(self.exchange.lookups, [SELL_NAME])
+        self.assertEqual(self.bridge.state["closed"][-1]["received"], 49_500.0)
+
+    def test_a_sold_record_without_an_amount_falls_back_to_the_balance(self):
+        self.bought()
+        idr_before = self.exchange.free["idr"]
+        self.exchange.on_trade = self.exchange.fill_then_lose_answer
+        self.exchange.known[SELL_NAME] = {"status": "filled", "side": "sell"}
+        self.api.hold()
+        self.bridge.cycle()
+        self.assertIn("unsure", self.bridge.state["positions"][BTC])
+        self.exchange.on_trade = self.exchange.fill
+        self.bridge.cycle()
+        self.assertEqual(len(self.exchange.orders), 1)
+        closed = self.bridge.state["closed"][-1]
+        self.assertAlmostEqual(closed["received"], self.exchange.free["idr"] - idr_before)
+        self.assertNotIn("estimated", closed)
+
+    def test_a_record_of_the_wrong_side_or_state_changes_nothing_about_an_unsure_sale(self):
+        for index, record in enumerate(({"status": "filled", "side": "buy", "receive_idr": "49500"}, {"status": "pending", "side": "sell", "receive_idr": "49500"})):
+            with self.subTest(record=record):
+                self.state_path = Path(self.folder.name) / f"unclear_sale_{index}.json"
+                self.bought()
+                idr_before = self.exchange.free["idr"]
+                self.exchange.on_trade = self.exchange.fill_then_lose_answer
+                self.exchange.known[SELL_NAME] = record
+                self.api.hold()
+                self.bridge.cycle()
+                self.assertIn("unsure", self.bridge.state["positions"][BTC])
+                self.bridge.cycle()
+                closed = self.bridge.state["closed"][-1]
+                self.assertAlmostEqual(closed["received"], self.exchange.free["idr"] - idr_before)  # the balance, as before
+                self.assertEqual(len(self.exchange.orders), 1)
+
     def test_own_stop_sells_a_real_copy(self):
         self.bought()
         self.exchange.tickers["btcidr"] = {"bid": 900_000_000.0, "ask": 901_000_000.0}
@@ -1016,6 +1355,62 @@ class Real(Case):
         self.assertEqual(sender.state["tripped"], "")
         everything = self.text() + self.state_path.read_text(encoding="utf-8") + json.dumps(api.reports)
         for private in (OWNER_NAME, OWNER_EMAIL, OWNER_ADDRESS, "987654", "verified", "API-KEY-VALUE", "API-SECRET-VALUE", "250000", "200000"):
+            self.assertNotIn(private, everything, private)
+        self.assertEqual(sum(1 for item in opener.requests if item.full_url.endswith("/tapi") and b"method=trade" in item.data), 2)
+
+    def test_private_details_in_an_order_lookup_never_reach_logs_state_or_reports(self):
+        clock = self.clock
+        book = {"idr": 250000.0, "btc": 0.0}
+        asked = []
+
+        def handler(request):
+            url = request.full_url
+            if url.endswith("/api/server_time"):
+                return {"server_time": int(clock.now * 1000)}
+            if url.endswith("/api/pairs"):
+                return [{"id": "btcidr", "ticker_id": "btc_idr", "base_currency": "idr", "traded_currency": "btc", "trade_min_base_currency": 10000, "trade_fee_percent_taker": 0.2}]
+            if "/api/ticker/" in url:
+                return {"ticker": {"buy": "1000000000", "sell": "1001000000"}}
+            fields = dict(urllib.parse.parse_qsl(request.data.decode("utf-8")))
+            if fields["method"] == "trade":
+                # Both orders go through at Indodax, and both answers are lost on the way back.
+                if fields["type"] == "buy":
+                    book["idr"] -= 50000
+                    book["btc"] += 0.00004985
+                else:
+                    book["btc"] -= float(fields["btc"])
+                    book["idr"] += 49000
+                return urllib.error.URLError("timed out")
+            if fields["method"] == "getOrderByClientOrderId":
+                name = fields["client_order_id"]
+                asked.append(name)
+                order = {"order_id": "59636253", "client_order_id": name, "status": "filled", "submit_time": "1763272800", "name": OWNER_NAME, "email": OWNER_EMAIL}
+                if name.endswith("-b"):
+                    order.update(type="buy", order_rp="50000", remain_rp="0", receive_btc="0.00004985")
+                else:
+                    order.update(type="sell", order_btc="0.00004985", remain_btc="0.00000000", receive_idr="49000")
+                return {"success": 1, "return": {"order": order}}
+            answer = json.loads(json.dumps(GET_INFO))
+            answer["return"]["balance"] = {"idr": book["idr"], "btc": f"{book['btc']:.8f}"}
+            return answer
+
+        settings = self.settings(real=True)
+        opener = FakeOpener(handler)
+        api = FakeApi(BTC)
+        exchange = bridge.Indodax(settings, clock=clock, opener=opener)
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(bridge.check(settings, exchange, self.state_path), 0)
+        sender = bridge.Bridge(exchange, settings, api, self.state_path, log=self.logs.append, clock=clock)
+        sender.cycle()
+        self.assertAlmostEqual(sender.state["positions"][BTC]["quantity"], 0.00004985, delta=1e-12)
+        api.hold()
+        sender.cycle()
+        self.assertEqual(sender.state["positions"], {})
+        self.assertEqual(sender.state["closed"][-1]["received"], 49_000.0)
+        self.assertEqual(sender.state["tripped"], "")  # Indodax's own record settled both, so nothing was guessed
+        self.assertEqual(asked, [BUY_NAME, SELL_NAME])
+        everything = self.text() + self.state_path.read_text(encoding="utf-8") + json.dumps(api.reports)
+        for private in (OWNER_NAME, OWNER_EMAIL, OWNER_ADDRESS, "987654", "59636253", "verified", "API-KEY-VALUE", "API-SECRET-VALUE", "250000", "200000"):
             self.assertNotIn(private, everything, private)
         self.assertEqual(sum(1 for item in opener.requests if item.full_url.endswith("/tapi") and b"method=trade" in item.data), 2)
 
