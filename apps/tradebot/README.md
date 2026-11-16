@@ -65,6 +65,8 @@ exchange takes) and are shown as USDT with rupiah beside them; `/live size 200rb
 | `/desk`, `/desk off` | The second opinion (Bull, Bear, Risk) and how its calls turned out |
 | `/live` | Real money on Luno, in rupiah: off, shadow (rehearsal) or on. See [Real money](#real-money-luno-in-rupiah-off-by-default) |
 | `/mt5` | The MetaTrader 5 demo account the PC bridge copies to: balance, open copies, how old the numbers are. See [MetaTrader 5](#metatrader-5-demo-account-only) |
+| `/indodax` | The copies at Indodax in rupiah, made by the sender on your PC: open copies, result, how old the numbers are. See [Indodax](#indodax-rupiah-through-a-sender-on-your-pc-practice-first) |
+| `/indodax pause`, `/indodax resume` | Stop or allow new buys at Indodax (open copies are still sold). The sender reads it within a minute |
 | `/reset` | Start over with fresh practice money (asks first) |
 | `/help` | The short version of this page |
 
@@ -201,6 +203,38 @@ back (`POST /v1/mt5/report`) for `/mt5` in Telegram.
 
 Setup, settings and limits: `mt5/README.md`.
 
+## Indodax (rupiah, through a sender on your PC, practice first)
+
+`indodax/bridge.py` holds a small copy of the practice account's open coins on
+[Indodax](https://indodax.com)'s rupiah markets. The Worker cannot do that itself: Indodax answers
+Cloudflare's servers with HTTP 403. So the sender runs on a PC, asks this Worker once a minute
+which coins are held (`GET /v1/indodax/signals`), buys a fixed rupiah amount of each (Rp50.000 by
+default, at most 2 open), sells the ones the practice account has sold or that fell to its own 8%
+stop, and posts the copies back (`POST /v1/indodax/report`) for `/indodax` in Telegram.
+
+- **Practice is the default.** Pretend money at Indodax's real prices and fee. No order is sent and
+  no Indodax key is needed.
+- **Real money is switched on only on the PC**, by you: your own API key (view and trade, withdraw
+  off), `INDODAX_MODE=real` and a confirm sentence, all three in the sender's `.env`. Nothing in
+  Telegram or on this Worker can switch it on, and the Worker never holds an Indodax key.
+- **The key is checked first.** A real buy also waits until `run-windows.ps1 -Check` has passed on
+  that PC with the key that is set. Until then real mode buys nothing and `/indodax` says so.
+- **Telegram can pause it.** `/indodax pause` stops new buys, in practice and with real money;
+  `/indodax resume` allows them again. Selling and the stop are never paused. A misspelled pause
+  or resume is only offered, never run.
+- **Never called practice by mistake.** A report that does not say "practice" is shown as real
+  money, and you get one warning message when the sender turns to real money.
+- **The stop only works while the PC is on.** Indodax holds no stop order for these copies. With
+  real money in play (real mode, or a real copy open), you get one Telegram message when the
+  sender has been silent for about 10 to 15 minutes, and one more when it is back. In practice
+  mode `/indodax` shows how old the numbers are and nothing is sent.
+- **Off until switched on.** `POST /v1/indodax/setup` (setup code) gives the sender's key once; the
+  sender does nothing until that key is in `indodax/.env` on the PC.
+- **Not tried on a real Indodax account yet.** Its 77 tests run against a pretend exchange. Only
+  the public prices were read from the real Indodax.
+
+Setup, settings, limits and the real-money section: `indodax/README.md`.
+
 ## Where the prices come from
 
 Finished candles from public market-data addresses, no account or key needed: Gate first, then
@@ -216,6 +250,7 @@ never trades on stale numbers.
     node --test test/*.test.js     # no network, no installs: a pretend Telegram, prices and clock
     node tools/transcript.js --out chat.md   # four scripted days of chat, as the owner sees it
     cd mt5 && python -m unittest   # the MetaTrader 5 bridge against a pretend terminal
+    cd ../indodax && python -m unittest   # the Indodax sender against a pretend exchange
 
 `tools/transcript.js` drives the real Worker through a fixed script (setup, trades, typos, an
 outage, a reset) with scripted prices, and writes every message as Markdown.
@@ -225,7 +260,7 @@ appears, every trade message says "practice", and no secret is printed.
 
 | Address | What it answers |
 |---|---|
-| `GET /v1/status` | alive, which build, whether a bot is connected and the agent is running |
+| `GET /v1/status` | alive, which build, whether a bot is connected and the agent is running. Its `indodax` block shows the sender's state as yes/no and counts only (mode, paused, keys set, key checked, safety stop, open copies, real copies): no amounts, coins or results |
 | `GET /v1/probe` | whether the Worker can read live prices from each source |
 | `POST /v1/setup` | owner only (setup code): connect a bot token, set the webhook, make a pairing link |
 | `POST /v1/telegram` | Telegram's webhook, checked with the secret Telegram sends back |
@@ -236,11 +271,14 @@ appears, every trade message says "practice", and no secret is printed.
 | `POST /v1/mt5/setup` | owner only (setup code): get the MetaTrader 5 bridge key once (`{"newKey": true}` replaces it) |
 | `GET /v1/mt5/signals` | the PC's bridge (bridge key): which coins the practice account holds, with their stops |
 | `POST /v1/mt5/report` | the PC's bridge (bridge key): what the demo account looks like right now |
+| `POST /v1/indodax/setup` | owner only (setup code): get the Indodax sender's key once (`{"newKey": true}` replaces it) |
+| `GET /v1/indodax/signals` | the PC's sender (its key): which coins the practice account holds |
+| `POST /v1/indodax/report` | the PC's sender (its key): its copies at Indodax, practice or real |
 
 One Durable Object holds the settings and the practice account; its alarm is the agent's clock.
 The bot token lives only inside that Durable Object, never in this repository or in logs.
-Pushing to `main` runs `.github/workflows/trade-bot-worker.yml`: tests (the Worker's and the
-MetaTrader 5 bridge's), bundle, deploy, then a check that the new build answers and can read
+Pushing to `main` runs `.github/workflows/trade-bot-worker.yml`: tests (the Worker's, the
+MetaTrader 5 bridge's and the Indodax sender's), bundle, deploy, then a check that the new build answers and can read
 prices.
 
 | File | What it holds |
@@ -255,6 +293,8 @@ prices.
 | `src/twin.js` | the twin's bot: tidy a report, spot new trades, write the messages |
 | `src/mt5.js` | the MetaTrader 5 side: what the bridge should hold, tidy its report, write the messages |
 | `mt5/bridge.py` | the PC program that copies to a MetaTrader 5 demo account (`mt5/test_bridge.py` tests it) |
+| `src/indodax.js` | the Indodax side: tidy the sender's report, spot new copies, write the messages |
+| `indodax/bridge.py` | the PC program that copies to Indodax in rupiah, practice by default (`indodax/test_bridge.py` tests it) |
 | `src/live.js` | real money: the limits, the gap rules, rehearsal and the real copies |
 | `src/luno.js`, `src/exchange.js` | the two exchanges real orders can go to: Luno (rupiah) and Tokocrypto (USDT) |
 | `src/venues.js` | which Indonesian exchanges answer from Cloudflare |

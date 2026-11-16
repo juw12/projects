@@ -42,6 +42,9 @@ jobs:
       - name: MetaTrader 5 bridge tests (a pretend terminal, no network)
         working-directory: apps/tradebot/mt5
         run: python3 -m unittest
+      - name: Indodax sender tests (a pretend exchange, no network)
+        working-directory: apps/tradebot/indodax
+        run: python3 -m unittest
       - name: Bundle the worker (dry run)
         run: |
           npm install --no-fund --no-audit
