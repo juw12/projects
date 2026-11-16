@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { INDODAX_STALE_MS, answer, changes, cleanReport, isStale } from "../src/indodax.js";
+import { INDODAX_SILENT_MS, INDODAX_STALE_MS, answer, backText, changes, cleanReport, isStale, pausedText, resumedText, silentAlert } from "../src/indodax.js";
 
 const NOW = Date.UTC(2026, 10, 16, 4, 10); // 11:10 WIB
 
@@ -48,7 +48,7 @@ test("indodax: a report is tidied to the fields /indodax shows, and nothing else
       notes: ["ok", 5, "", "  spaced  "],
     }),
   );
-  assert.deepEqual(Object.keys(cleaned).sort(), ["closed", "keys", "maxOpen", "mode", "notes", "orderIdr", "positions", "result", "stopPercent", "today", "tripped", "trippedWhy"]);
+  assert.deepEqual(Object.keys(cleaned).sort(), ["checked", "closed", "keys", "maxOpen", "mode", "notes", "orderIdr", "paused", "positions", "result", "stopPercent", "today", "tripped", "trippedWhy"]);
   assert.deepEqual(cleaned.positions, [BTC]);
   assert.deepEqual(cleaned.closed, [{ symbol: "BTCUSDT", real: false, spent: 50000, received: 51000, at: NOW - 60000, how: "sold", estimated: false }]);
   assert.deepEqual(cleaned.notes, ["ok", "spaced"]);
@@ -100,7 +100,10 @@ test("indodax: /indodax before the setup, before the first report, and in practi
   assert.match(idle, /Holding nothing right now/);
   assert.match(idle, /Result so far: pretend Rp0\n/);
   assert.match(idle, /Last heard from the sender: just now\./);
-  assert.match(idle, /I only show this\. The sender on your PC does the buying and selling/);
+  assert.match(idle, /From here you can stop new buys \(<code>\/indodax pause<\/code>\) and allow them again \(<code>\/indodax resume<\/code>\)/);
+  assert.match(idle, /the sender there does the buying and selling, and nothing here can reach your Indodax account/);
+  assert.equal(idle.includes("paused"), false, "no pause line when nothing is paused");
+  assert.equal(idle.includes("has not passed the check"), false, "practice needs no check");
   assert.equal(idle.includes("REAL"), false, "a practice account is never shown a real-money word");
 
   const holding = answer(
@@ -242,4 +245,105 @@ test("indodax: the safety stop and real-money mode are each warned once, even on
   assert.deepEqual(changes(tripped, tripped), []);
   assert.equal(changes(null, tripped).length, 2, "a first report that is real and stopped tells both");
   assert.equal(changes(tripped, real).length, 0, "clearing it is not a warning");
+});
+
+test("indodax: only a true 'checked' or 'paused' from the sender counts", () => {
+  assert.equal(cleanReport(report()).checked, false);
+  assert.equal(cleanReport(report()).paused, false);
+  assert.equal(cleanReport(report({ checked: "yes", paused: 1 })).checked, false);
+  assert.equal(cleanReport(report({ checked: "yes", paused: 1 })).paused, false);
+  assert.equal(cleanReport(report({ checked: true, paused: true })).checked, true);
+  assert.equal(cleanReport(report({ checked: true, paused: true })).paused, true);
+});
+
+test("indodax: /indodax shows a pause from Telegram and whether the sender has read it", () => {
+  const asked = answer({ ...view(report()), paused: true }).html;
+  assert.match(asked, /⏸ <b>Buying is paused from Telegram\.<\/b> No new copy is bought; open copies are still watched and sold\. <code>\/indodax resume<\/code> allows buying again\./);
+  assert.match(asked, /The sender has not read this yet\. It asks once a minute\./);
+
+  const away = answer({ ...view(report(), INDODAX_STALE_MS + 1000), paused: true }).html;
+  assert.match(away, /The sender has not read this yet, and it is not answering\./);
+
+  const read = answer({ ...view(report({ paused: true })), paused: true }).html;
+  assert.match(read, /Buying is paused from Telegram/);
+  assert.equal(read.includes("has not read this yet"), false);
+
+  const resumed = answer({ ...view(report({ paused: true })), paused: false }).html;
+  assert.match(resumed, /▶️ Buying is allowed again\. The sender reads that within a minute\./);
+  assert.equal(resumed.includes("Buying is paused"), false);
+
+  // An old report that still says "paused" proves nothing about now, so it is not repeated.
+  const old = answer({ ...view(report({ paused: true }), INDODAX_STALE_MS + 1000), paused: false }).html;
+  assert.equal(old.includes("allowed again"), false);
+  assert.equal(old.includes("Buying is paused"), false);
+});
+
+test("indodax: real mode without a checked API key says nothing real is bought yet", () => {
+  const unchecked = answer(view(report({ mode: "real", keys: true }))).html;
+  assert.match(unchecked, /⚠️ <b>This API key has not passed the check on the PC<\/b>, so nothing is bought with real money yet\. Stop the sender, run <code>run-windows\.ps1 -Check<\/code> once, then start it again\./);
+
+  const checked = answer(view(report({ mode: "real", keys: true, checked: true }))).html;
+  assert.equal(checked.includes("has not passed the check"), false);
+
+  const practice = answer(view(report({ keys: true }))).html;
+  assert.equal(practice.includes("has not passed the check"), false, "the check only matters for real buys");
+});
+
+test("indodax: the answers to pause and resume say what happens next, and warn about real money", () => {
+  const paused = pausedText(view(report()));
+  assert.match(paused, /⏸ <b>Indodax buying is paused\.<\/b> No new copy is bought\. Open copies are still watched and sold, and the stop stays on\./);
+  assert.match(paused, /The sender on your PC reads this within a minute\./);
+  assert.match(paused, /<code>\/indodax resume<\/code> allows buying again\./);
+  assert.match(pausedText(view(report(), INDODAX_STALE_MS + 1000)), /is not answering right now\. It reads this as soon as it runs again\./);
+  assert.match(pausedText({ configured: true, report: null, at: 0, now: NOW }), /is not answering right now/, "paused before the first report");
+
+  const practice = resumedText(view(report()));
+  assert.equal(practice, "▶️ <b>Indodax buying is allowed again.</b> The sender on your PC reads this within a minute.");
+  assert.equal(resumedText({ configured: true, report: null, at: 0, now: NOW }), practice, "resumed before the first report");
+
+  const real = resumedText(view(report({ mode: "real", keys: true, checked: true })));
+  assert.match(real, /⚠️ It is in <b>REAL MONEY<\/b> mode: the next copy is bought with your own rupiah, Rp50\.000 per buy\./);
+  assert.equal(real.includes("has not passed the check"), false);
+  assert.equal(real.includes("safety stop"), false);
+  assert.equal(real.includes("not answering"), false);
+
+  const blocked = resumedText(view(report({ mode: "real", keys: true, tripped: true, trippedWhy: "A buy of BTC got no answer." }), INDODAX_STALE_MS + 1000));
+  assert.match(blocked, /REAL MONEY/);
+  assert.match(blocked, /This API key has not passed the check on the PC/);
+  assert.match(blocked, /The safety stop is still on, so no real buy is sent yet\.[\s\S]*-Clear/);
+  assert.match(blocked, /The sender is not answering right now, so nothing is bought until it runs again\./);
+});
+
+test("indodax: a silent sender is told once, and only while real money is in play", () => {
+  const quiet = INDODAX_SILENT_MS + 60000; // 11 minutes
+  const at = NOW - quiet;
+  const real = cleanReport(report({ mode: "real", keys: true, checked: true }));
+  const practice = cleanReport(report());
+  const realCopy = cleanReport(report({ positions: [BTC, REAL_ETH] }));
+
+  assert.equal(silentAlert({ report: null, at: 0, now: NOW, toldAt: null }), null, "nothing was ever heard");
+  assert.equal(silentAlert({ report: practice, at, now: NOW, toldAt: null }), null, "practice with nothing real open is not an alarm");
+  assert.equal(silentAlert({ report: real, at: NOW - INDODAX_SILENT_MS, now: NOW, toldAt: null }), null, "not before the limit has passed");
+  assert.equal(silentAlert({ report: real, at: NOW - 60000, now: NOW, toldAt: null }), null);
+
+  const alert = silentAlert({ report: real, at, now: NOW, toldAt: null });
+  assert.match(alert.html, /⚠️ <b>Indodax: I have not heard from the sender on your PC<\/b>/);
+  assert.match(alert.html, /Its last report was .+ \(16 Nov 10:59 WIB\)\. The PC is off, asleep or offline\./);
+  assert.match(alert.html, /nothing is bought and <b>nothing is sold either<\/b>/);
+  assert.match(alert.html, /No real copy is open, so nothing of yours is at risk right now\./);
+
+  const holding = silentAlert({ report: realCopy, at, now: NOW, toldAt: null });
+  assert.match(holding.html, /<b>1 open copy is REAL MONEY\.<\/b> Start the sender again, or sell at Indodax yourself\./, "a real copy counts even after going back to practice");
+  assert.equal(holding.html.includes("nothing of yours is at risk"), false);
+  const two = silentAlert({ report: cleanReport(report({ mode: "real", positions: [REAL_ETH, { ...REAL_ETH, symbol: "BTCUSDT", pair: "btc_idr" }] })), at, now: NOW, toldAt: null });
+  assert.match(two.html, /<b>2 open copies are REAL MONEY\.<\/b>/);
+
+  assert.equal(silentAlert({ report: real, at, now: NOW, toldAt: at }), null, "the same silence is told once");
+  assert.ok(silentAlert({ report: real, at, now: NOW, toldAt: at - 600000 }), "a later silence is told again");
+});
+
+test("indodax: the first report after a told silence says the sender is back", () => {
+  assert.equal(backText(cleanReport(report())), "✅ <b>Indodax: the sender on your PC is back.</b> It reports again: nothing open. /indodax shows it.");
+  assert.match(backText(cleanReport(report({ positions: [BTC] }))), /It reports again: 1 open copy\. /);
+  assert.match(backText(cleanReport(report({ mode: "real", positions: [BTC, REAL_ETH] }))), /It reports again: 2 open copies \(1 REAL MONEY\)\. /);
 });

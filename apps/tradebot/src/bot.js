@@ -9,7 +9,7 @@ import { MAX_WATCH, approve, blocked, decide, look, manualBuy, manualSell, newSt
 import { backtest } from "./backtest.js";
 import { TIMEFRAMES, normalizeSymbol } from "./market.js";
 import { hasRealPositions, liveCommand, liveOf, venueOf } from "./live.js";
-import { answer as indodaxAnswer } from "./indodax.js";
+import { answer as indodaxAnswer, pausedText as indodaxPaused, resumedText as indodaxResumed } from "./indodax.js";
 import { answer as mt5Answer } from "./mt5.js";
 import * as render from "./render.js";
 import { Problem, errorText, escapeHtml } from "./util.js";
@@ -38,7 +38,14 @@ export const COMMANDS = [
 ];
 
 // Commands that only show something. A misspelled one is simply run; one that acts is not.
+// /indodax shows, but with pause or resume it acts (see onlyShows).
 const READ_ONLY = new Set(["status", "signals", "help", "history", "watchlist", "mt5", "indodax"]);
+const INDODAX_ACTS = new Set(["pause", "resume"]);
+
+function onlyShows(command, args) {
+  if (!READ_ONLY.has(command)) return false;
+  return !(command === "indodax" && INDODAX_ACTS.has(String(args[0] || "").toLowerCase()));
+}
 
 // Everyday words that clearly ask for one of the read-only commands.
 const PLAIN = [
@@ -338,9 +345,19 @@ const handlers = {
     return { messages: [mt5Answer(ctx.mt5 || { configured: false, report: null, at: 0, now: ctx.now })] };
   },
 
-  // Indodax: what the sender on the PC last reported. It only shows.
-  async indodax(ctx) {
-    return { messages: [indodaxAnswer(ctx.indodax || { configured: false, report: null, at: 0, now: ctx.now })] };
+  // Indodax: what the sender on the PC last reported. The one thing done from here is
+  // /indodax pause and /indodax resume: a flag the sender reads with its signals. It stops new
+  // buys only. Real money itself is never switched on or off from here.
+  async indodax(ctx, args = []) {
+    const view = ctx.indodax || { configured: false, report: null, at: 0, now: ctx.now };
+    const settings = ctx.state.settings;
+    const want = String(args[0] || "").toLowerCase();
+    if (INDODAX_ACTS.has(want)) {
+      if (!view.configured) return warn("Indodax is not set up, so there is nothing to pause. Nothing was changed. /indodax says how it works.");
+      settings.indodaxPaused = want === "pause";
+      return say(want === "pause" ? indodaxPaused(view) : indodaxResumed(view));
+    }
+    return { messages: [indodaxAnswer({ ...view, paused: settings.indodaxPaused === true })] };
   },
 
   async reset(ctx, args) {
@@ -417,7 +434,7 @@ export function nearest(word) {
 // anything that changes the account or the settings is only offered.
 async function guessed(ctx, command, args, typed) {
   const full = [`/${command}`, ...args].join(" ");
-  if (!READ_ONLY.has(command)) return say(`Did you mean ${quote(full)}? Nothing was done. Send it like that and I will do it.`);
+  if (!onlyShows(command, args)) return say(`Did you mean ${quote(full)}? Nothing was done. Send it like that and I will do it.`);
   const result = await handlers[command](ctx, args);
   const note = `<i>I read ${typed ? escapeHtml(typed) : "that"} as /${command}.</i>`;
   const answer = result.messages[result.messages.length - 1];

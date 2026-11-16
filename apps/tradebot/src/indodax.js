@@ -7,7 +7,9 @@
 //
 // The sender starts in practice: pretend money at Indodax's real prices. Real money is a switch on
 // the PC only (the owner's own API key plus a sentence typed into the sender's .env). Nothing here
-// can switch it on, and no API key, name, email or balance is ever sent here.
+// can switch it on, and no API key, name, email or balance is ever sent here. The one thing the
+// owner can do from Telegram is stop new buys (/indodax pause) and allow them again (/indodax
+// resume): the sender reads that with its signals. Selling is never paused.
 //
 // This file is the pure part: tidy a report, spot what changed, and write the messages. Every
 // message says whether it is pretend money or REAL MONEY, and anything unclear is shown as real.
@@ -17,6 +19,7 @@ import { ago } from "./twin.js";
 import { clip, escapeHtml } from "./util.js";
 
 export const INDODAX_STALE_MS = 5 * 60 * 1000; // reports come every minute; five missed means the PC is away
+export const INDODAX_SILENT_MS = 10 * 60 * 1000; // this long without a report, with real money in play, is told once
 const MAX_POSITIONS = 5;
 const MAX_CLOSED = 5;
 const MAX_NOTES = 5;
@@ -56,6 +59,8 @@ export function cleanReport(raw) {
   return {
     mode: raw.mode === "practice" ? "practice" : "real",
     keys: raw.keys === true,
+    checked: raw.checked === true, // this API key passed --check on the PC; without it no real buy is sent
+    paused: raw.paused === true, // the sender has read the pause from Telegram
     tripped: raw.tripped === true || trippedWhy !== "",
     trippedWhy,
     orderIdr: number(raw.orderIdr),
@@ -116,9 +121,13 @@ function realOpen(report) {
   return report.positions.filter((position) => position.real).length;
 }
 
-const ONLY_SHOWS = "I only show this. The sender on your PC does the buying and selling; nothing here can reach the PC or Indodax.";
+const ONLY_SHOWS =
+  "From here you can stop new buys (<code>/indodax pause</code>) and allow them again (<code>/indodax resume</code>). Everything else is on your PC: the sender there does the buying and selling, and nothing here can reach your Indodax account.";
 
 const CLEAR = "To allow real buys again, check your Indodax account first, then run <code>run-windows.ps1 -Clear</code> on the PC.";
+
+const NOT_CHECKED =
+  "⚠️ <b>This API key has not passed the check on the PC</b>, so nothing is bought with real money yet. Stop the sender, run <code>run-windows.ps1 -Check</code> once, then start it again.";
 
 function trippedLines(report) {
   return [
@@ -137,6 +146,70 @@ function realModeText(report) {
 
 export function isStale(view) {
   return !view.report || view.now - view.at > INDODAX_STALE_MS;
+}
+
+// The pause is set here (Telegram) and carried out on the PC, so both sides are shown: what was
+// asked for, and whether the sender has read it yet.
+function pauseLines(view) {
+  const { report } = view;
+  const fresh = !isStale(view);
+  if (view.paused) {
+    const lines = ["⏸ <b>Buying is paused from Telegram.</b> No new copy is bought; open copies are still watched and sold. <code>/indodax resume</code> allows buying again."];
+    if (!report.paused) lines.push(fresh ? "The sender has not read this yet. It asks once a minute." : "The sender has not read this yet, and it is not answering.");
+    return lines;
+  }
+  if (report.paused && fresh) return ["▶️ Buying is allowed again. The sender reads that within a minute."];
+  return [];
+}
+
+// The answers to /indodax pause and /indodax resume. view = { configured, report, at, now }
+export function pausedText(view) {
+  const lines = ["⏸ <b>Indodax buying is paused.</b> No new copy is bought. Open copies are still watched and sold, and the stop stays on."];
+  lines.push(isStale(view) ? "The sender on your PC is not answering right now. It reads this as soon as it runs again." : "The sender on your PC reads this within a minute.");
+  lines.push("<code>/indodax resume</code> allows buying again.");
+  return lines.join("\n");
+}
+
+export function resumedText(view) {
+  const { report } = view;
+  const lines = ["▶️ <b>Indodax buying is allowed again.</b> The sender on your PC reads this within a minute."];
+  if (report && report.mode === "real") {
+    lines.push(`⚠️ It is in <b>REAL MONEY</b> mode: the next copy is bought with your own rupiah, ${rp(report.orderIdr)} per buy.`);
+    if (!report.checked) lines.push(NOT_CHECKED);
+    if (report.tripped) lines.push(`The safety stop is still on, so no real buy is sent yet. ${CLEAR}`);
+  }
+  if (report && isStale(view)) lines.push("The sender is not answering right now, so nothing is bought until it runs again.");
+  return lines.join("\n");
+}
+
+// One alert when the sender has gone quiet while real money is in play: in real mode, or with a
+// real copy still open. view = { report, at, now, toldAt }; toldAt is the report time this was
+// last told for, so one silence is told once. null when there is nothing to tell.
+export function silentAlert(view) {
+  const { report } = view;
+  if (!report || !view.at || view.toldAt === view.at) return null;
+  if (view.now - view.at <= INDODAX_SILENT_MS) return null;
+  const real = realOpen(report);
+  if (report.mode !== "real" && !real) return null;
+  const lines = [
+    "⚠️ <b>Indodax: I have not heard from the sender on your PC</b>",
+    `Its last report was ${ago(view.now - view.at)} (${clock(view.at)}). The PC is off, asleep or offline.`,
+    "While it is away nothing is bought and <b>nothing is sold either</b>: its stop only works while it runs, and Indodax holds no stop order for these copies.",
+  ];
+  if (real) {
+    lines.push(`<b>${real} open ${real === 1 ? "copy is" : "copies are"} REAL MONEY.</b> Start the sender again, or sell at Indodax yourself.`);
+  } else {
+    lines.push("No real copy is open, so nothing of yours is at risk right now.");
+  }
+  return { html: lines.join("\n") };
+}
+
+// Said on the first report after a silence that was told.
+export function backText(report) {
+  const real = realOpen(report);
+  const open = report.positions.length;
+  const holding = open ? `${open} open ${open === 1 ? "copy" : "copies"}${real ? ` (${real} REAL MONEY)` : ""}` : "nothing open";
+  return `✅ <b>Indodax: the sender on your PC is back.</b> It reports again: ${holding}. /indodax shows it.`;
 }
 
 function heard(view) {
@@ -208,6 +281,9 @@ export function answer(view) {
   if (!real && realOpen(report)) {
     lines.push("⚠️ Some copies below were bought with real money. The sender still sells those for real while its API key is on the PC.");
   }
+  const pause = pauseLines(view);
+  if (pause.length) lines.push("", ...pause);
+  if (real && !report.checked) lines.push("", NOT_CHECKED);
   if (report.tripped) lines.push("", ...trippedLines(report));
   lines.push("");
   if (report.positions.length) {

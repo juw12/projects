@@ -45,7 +45,7 @@ import { MAX_SPREAD_PERCENT, armedBy, drain, limitsOf, liveOf, marketBlock, miss
 import { createLuno } from "./luno.js";
 import { COMMANDS, handleUpdate } from "./bot.js";
 import { refreshRate, rateOfState } from "./fx.js";
-import { changes as indodaxChanges, cleanReport as cleanIndodaxReport } from "./indodax.js";
+import { backText as indodaxBack, changes as indodaxChanges, cleanReport as cleanIndodaxReport, silentAlert as indodaxSilent } from "./indodax.js";
 import { SOURCE_NAMES, createMarket } from "./market.js";
 import { changes as mt5Changes, cleanReport, wantedOf } from "./mt5.js";
 import * as render from "./render.js";
@@ -269,7 +269,23 @@ export function createWorker(overrides) {
         } finally {
           await this.storage.setAlarm(deps.now() + TICK_MS);
         }
+        await this.indodaxSilence(config); // after the alarm is set, so a failure here cannot stop the rounds
       });
+    }
+
+    // Tell the owner once when the Indodax sender has gone quiet while real money is in play. The
+    // report time it was told for is remembered, so one silence is one message.
+    async indodaxSilence(config) {
+      try {
+        const indodax = await this.storage.get("indodax");
+        if (!indodax || !indodax.keyHash) return;
+        const alert = indodaxSilent({ report: indodax.report || null, at: indodax.reportAt || 0, now: deps.now(), toldAt: indodax.silentToldAt || 0 });
+        if (!alert) return;
+        await this.storage.put("indodax", { ...indodax, silentToldAt: indodax.reportAt }); // saved before it is sent
+        await this.deliver(config, [alert]);
+      } catch (error) {
+        console.log("indodax silence check failed: " + clip(errorText(error), 300));
+      }
     }
 
     // ---------------------------------------------------------------- status and health
@@ -285,6 +301,7 @@ export function createWorker(overrides) {
       const twin = (await this.storage.get("twin")) || {};
       const mt5 = (await this.storage.get("mt5")) || {};
       const indodax = (await this.storage.get("indodax")) || {};
+      const copies = indodax.report || null;
       return json({
         configured: !!config.token,
         bot: config.bot ? config.bot.username : null,
@@ -294,7 +311,18 @@ export function createWorker(overrides) {
         rupiah: state.fx ? { perUsdt: state.fx.rate, source: state.fx.source, at: state.fx.at } : null,
         twin: { configured: !!twin.token, bot: twin.bot ? twin.bot.username : null, lastReportAt: twin.snapshotAt || null },
         mt5: { configured: !!mt5.keyHash, lastReportAt: mt5.reportAt || null, demo: mt5.report ? mt5.report.demo : null },
-        indodax: { configured: !!indodax.keyHash, lastReportAt: indodax.reportAt || null, mode: indodax.report ? indodax.report.mode : null },
+        // Counts and switches only: this page is public, so no amount, coin or result is on it.
+        indodax: {
+          configured: !!indodax.keyHash,
+          lastReportAt: indodax.reportAt || null,
+          mode: copies ? copies.mode : null,
+          paused: state.settings.indodaxPaused === true,
+          keys: copies ? copies.keys === true : null,
+          checked: copies ? copies.checked === true : null,
+          tripped: copies ? copies.tripped === true : null,
+          openCopies: copies ? copies.positions.length : null,
+          realOpen: copies ? copies.positions.filter((position) => position.real).length : null,
+        },
       });
     }
 
@@ -662,6 +690,7 @@ export function createWorker(overrides) {
         keyHash: keepKey ? indodax.keyHash : await sha256Hex(bridgeKey),
         report: indodax.report || null,
         reportAt: indodax.reportAt || null,
+        silentToldAt: indodax.silentToldAt || null,
         connectedAt: deps.now(),
       });
       const config = await this.config();
@@ -683,22 +712,26 @@ export function createWorker(overrides) {
       return indodax;
     }
 
-    // What the sender should hold: the practice account's open positions. { key }
+    // What the sender should hold: the practice account's open positions, and whether the owner
+    // has paused its buying from Telegram (/indodax pause). { key }
     async indodaxSignals(body) {
       if (!(await this.indodaxFor(body.key))) return json({ ok: false, error: "not allowed" }, 403);
-      return json({ ok: true, ...wantedOf(await this.state(), deps.now()) });
+      const state = await this.state();
+      return json({ ok: true, ...wantedOf(state, deps.now()), paused: state.settings.indodaxPaused === true });
     }
 
     // A report from the sender: { key, report }. Stored, and copies that opened or closed (and the
-    // two warnings: safety stop, real money) are told to the owner through TradeBot's own bot.
+    // two warnings: safety stop, real money) are told to the owner through TradeBot's own bot. The
+    // first report after a silence that was told says the sender is back.
     async indodaxReport(body) {
       const indodax = await this.indodaxFor(body.key);
       if (!indodax) return json({ ok: false, error: "not allowed" }, 403);
       const report = cleanIndodaxReport(body.report);
       if (!report) return json({ ok: false, error: "That is not an Indodax report." }, 400);
       const messages = indodaxChanges(indodax.report, report);
+      if (indodax.silentToldAt && indodax.silentToldAt === indodax.reportAt) messages.unshift({ html: indodaxBack(report) });
       const now = deps.now();
-      await this.storage.put("indodax", { ...indodax, report, reportAt: now }); // saved before anything is sent
+      await this.storage.put("indodax", { ...indodax, report, reportAt: now, silentToldAt: null }); // saved before anything is sent
       await this.deliver(await this.config(), messages);
       return json({ ok: true, at: now, told: messages.length });
     }

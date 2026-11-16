@@ -10,7 +10,7 @@ practice account holds, and holds a small copy of the same coins on Indodax's ru
   pretend money. In practice mode no order is sent and the private API is not touched at all.
 - **Real money is off until you switch it on yourself**, with three things together (see
   [Real money](#real-money)). Nobody else can do that for you, and the tests cover the gate.
-- **Not tried on a real Indodax account yet.** The 72 tests run against a pretend exchange. The
+- **Not tried on a real Indodax account yet.** The 77 tests run against a pretend exchange. The
   public prices were read from Indodax for real; the private API (balance, orders) has never run
   with a real key. The first run on your PC is the first real one: start with `-Show`.
 - **No proven edge, and no promised win rate.** Copying TradeBot's rules to Indodax does not make
@@ -36,7 +36,31 @@ practice account holds, and holds a small copy of the same coins on Indodax's ru
    ```
 
 `/indodax` in TradeBot's Telegram chat then shows the copies: what is open, what was closed, the
-result so far, and what the sender last said. Practice and real money are always labelled.
+result so far, and what the sender last said. Practice and real money are always labelled. The
+same chat can pause the buying, see [Control from Telegram](#control-from-telegram).
+
+## Control from Telegram
+
+| You send | What happens |
+|---|---|
+| `/indodax` | the copies, the mode, whether buying is paused, and how old the numbers are |
+| `/indodax pause` | no new buys, in practice and with real money |
+| `/indodax resume` | buys are allowed again |
+
+- **Pause only stops buying.** Open copies are still sold when TradeBot sells or when the
+  sender's own stop is reached. Pause is not "sell everything".
+- **It takes up to a minute.** The sender reads the pause on its next cycle, so it only works
+  while the sender is running and can reach TradeBot.
+- **Only the exact command counts.** A misspelling, or the words without the slash, is answered
+  with "did you mean" and nothing is changed.
+- **Telegram cannot switch real money on,** change the order size, or sell a copy by hand. Those
+  stay in `.env` on the PC and at Indodax.
+
+**When the sender goes quiet.** With real money in play (real mode, or a real copy still open),
+TradeBot sends one Telegram message when the sender has not reported for about 10 to 15 minutes,
+because the stop is not watching while the PC is off. It sends one more when the sender is back.
+In practice mode nothing is sent; `/indodax` shows how old the numbers are. The check runs with
+TradeBot's own five-minute round, so it is not to the minute.
 
 ## What one cycle does
 
@@ -109,13 +133,19 @@ this whole section. Trading can lose all of the money you put in. There is no wi
 
 **The API key.** Log in to Indodax yourself and create an API key with **view** and **trade**
 only. Leave **withdraw off**: the sender never withdraws, and a key that cannot withdraw cannot be
-used to move your money out if it ever leaks. Put the key and secret in `.env` and check them:
+used to move your money out if it ever leaks. Put the key and secret in `.env`, stop the sender if
+it is running, and check them:
 
 ```
 .\run-windows.ps1 -Check       # prints your free rupiah, orders nothing
 ```
 
-**Switching it on needs three things together** in `.env`:
+**The check is required before any real buy.** A key that has not passed `-Check` on this PC
+buys nothing: real mode still starts, so open copies can be sold, but every buy is refused and
+`/indodax` says "This API key has not passed the check on the PC". A new or changed key needs a
+new check. Run the check with the sender stopped, or the running sender writes over the result.
+
+**Switching it on needs three things together** in `.env`, and the check above:
 
 1. `INDODAX_API_KEY` and `INDODAX_API_SECRET`
 2. `INDODAX_MODE=real`

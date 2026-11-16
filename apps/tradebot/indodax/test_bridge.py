@@ -117,6 +117,9 @@ class FakeApi:
     def hold(self, *symbols, signal=SIGNAL):
         self.answer = {"fresh": True, "wanted": [{"symbol": symbol, "openedAt": signal, "stop": 0} for symbol in symbols]}
 
+    def pause(self, paused=True):
+        self.answer = {**self.answer, "paused": paused}
+
     def signals(self):
         if self.error:
             raise bridge.ApiError(self.error)
@@ -142,10 +145,13 @@ class Case(unittest.TestCase):
         values.update(changes)
         return bridge.Settings(**values)
 
-    def make(self, *symbols, real=False, exchange=None, api=None, **changes):
+    def make(self, *symbols, real=False, exchange=None, api=None, checked=True, **changes):
         self.exchange = exchange or FakeExchange()
         self.api = api or FakeApi(*symbols)
         self.bridge = bridge.Bridge(self.exchange, self.settings(real, **changes), self.api, self.state_path, log=self.logs.append, clock=self.clock)
+        if real and checked:
+            # As if  python bridge.py --check  had passed with this API key.
+            self.bridge.state["checked"] = {"at": int(START), "key": bridge.key_mark(self.bridge.settings.api_key)}
         return self.bridge
 
     def stored(self):
@@ -582,9 +588,10 @@ class Practice(Case):
         report = self.api.reports[-1]
         self.assertEqual(
             sorted(report),
-            ["closed", "keys", "maxOpen", "mode", "notes", "orderIdr", "positions", "result", "stopPercent", "today", "tripped", "trippedWhy"],
+            ["checked", "closed", "keys", "maxOpen", "mode", "notes", "orderIdr", "paused", "positions", "result", "stopPercent", "today", "tripped", "trippedWhy"],
         )
         self.assertEqual((report["mode"], report["keys"], report["tripped"], report["orderIdr"]), ("practice", False, False, 50_000))
+        self.assertEqual((report["checked"], report["paused"]), (False, False))
         position = report["positions"][0]
         self.assertEqual(sorted(position), ["now", "openedAt", "pair", "price", "quantity", "real", "spent", "symbol", "value"])
         self.assertEqual((position["symbol"], position["pair"], position["real"], position["now"]), (BTC, "btc_idr", False, 1e9))
@@ -764,6 +771,62 @@ class Real(Case):
         real.send_order("sell", BTC, quantity="0.0001", client_order_id="tb-btc-1-s0")
         self.assertEqual(len(self.exchange.orders), 1)
 
+    def test_a_real_buy_waits_for_the_key_check(self):
+        self.make(BTC, real=True, checked=False).cycle()
+        self.assertEqual(self.exchange.orders, [])
+        self.assertEqual(self.bridge.state["positions"], {})
+        self.assertEqual(self.bridge.state["tripped"], "")
+        self.assertIn("--check", self.text())
+        self.assertFalse(self.api.reports[-1]["checked"])
+        with self.assertRaises(bridge.Refused):
+            self.bridge.send_order("buy", BTC, pair=pair("btc"), idr=50_000, client_order_id=f"tb-btc-{SIGNAL}-b")
+        self.assertEqual(self.exchange.orders, [])
+
+    def test_a_check_counts_only_for_the_key_it_was_made_with(self):
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            code = bridge.check(self.settings(real=True), FakeExchange(), self.state_path)
+        self.assertEqual(code, 0)
+        self.assertIn("marked as checked", output.getvalue())
+        self.assertNotIn("API-KEY-VALUE", self.state_path.read_text(encoding="utf-8"))
+
+        same_key = self.make(BTC, real=True, checked=False)
+        self.assertTrue(same_key.checked)
+        same_key.cycle()
+        self.assertEqual(len(self.exchange.orders), 1)
+        self.assertTrue(self.api.reports[-1]["checked"])
+
+        other_key = self.make(ETH, real=True, checked=False, api_key="ANOTHER-KEY")
+        self.assertFalse(other_key.checked)
+        other_key.cycle()
+        self.assertEqual(self.exchange.orders, [])
+
+    def test_a_failed_check_marks_nothing(self):
+        exchange = FakeExchange()
+        exchange.balance_errors = [bridge.ExchangeError("Invalid credentials.")]
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(bridge.check(self.settings(real=True), exchange, self.state_path), 1)
+        self.assertFalse(self.state_path.exists())
+        self.assertFalse(self.make(real=True, checked=False).checked)
+
+    def test_pause_from_telegram_stops_real_buys_but_not_sells(self):
+        self.bought(BTC)
+        self.api.hold(ETH)
+        self.api.pause()
+        self.bridge.cycle()
+        sides = [order["side"] for order in self.exchange.orders]
+        self.assertEqual(sides, ["sell"])
+        self.assertEqual(self.bridge.state["positions"], {})
+        self.assertIn("paused from Telegram", self.text())
+        self.assertTrue(self.api.reports[-1]["paused"])
+        with self.assertRaises(bridge.Refused):
+            self.bridge.send_order("buy", ETH, pair=pair("eth"), idr=50_000, client_order_id=f"tb-eth-{SIGNAL}-b")
+
+        self.api.pause(False)
+        self.bridge.cycle()
+        self.assertEqual([order["side"] for order in self.exchange.orders], ["sell", "buy"])
+        self.assertFalse(self.api.reports[-1]["paused"])
+
     def bought(self, *symbols, **changes):
         self.make(*(symbols or (BTC,)), real=True, **changes).cycle()
         self.assertEqual(self.bridge.state["tripped"], "")
@@ -941,7 +1004,10 @@ class Real(Case):
         settings = self.settings(real=True)
         opener = FakeOpener(handler)
         api = FakeApi(BTC)
-        sender = bridge.Bridge(bridge.Indodax(settings, clock=clock, opener=opener), settings, api, self.state_path, log=self.logs.append, clock=clock)
+        exchange = bridge.Indodax(settings, clock=clock, opener=opener)
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(bridge.check(settings, exchange, self.state_path), 0)
+        sender = bridge.Bridge(exchange, settings, api, self.state_path, log=self.logs.append, clock=clock)
         sender.cycle()
         self.assertTrue(sender.state["positions"][BTC]["real"])
         api.hold()
@@ -995,6 +1061,23 @@ class CommandLine(Case):
         code, output = self.run_main("INDODAX_BRIDGE_KEY=k\n", "--check")
         self.assertEqual(code, 1)
         self.assertIn("not set", output)
+
+    def test_real_mode_without_the_key_check_says_so_and_buys_nothing(self):
+        env_text = "\n".join(
+            [
+                "INDODAX_BRIDGE_KEY=k",
+                "INDODAX_MODE=real",
+                f"INDODAX_REAL_CONFIRM={bridge.REAL_CONFIRM}",
+                "INDODAX_API_KEY=API-KEY-VALUE",
+                "INDODAX_API_SECRET=API-SECRET-VALUE",
+            ]
+        )
+        with mock.patch.object(bridge.Bridge, "cycle", return_value={}) as cycle:
+            code, output = self.run_main(env_text, "--once")
+        self.assertEqual(code, 0)
+        self.assertEqual(cycle.call_count, 1)
+        self.assertIn("NOT YET", output)
+        self.assertNotIn("API-KEY-VALUE", output)
 
     def test_check_prints_only_that_the_key_works_and_the_free_rupiah(self):
         exchange = FakeExchange()

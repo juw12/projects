@@ -66,6 +66,7 @@ exchange takes) and are shown as USDT with rupiah beside them; `/live size 200rb
 | `/live` | Real money on Luno, in rupiah: off, shadow (rehearsal) or on. See [Real money](#real-money-luno-in-rupiah-off-by-default) |
 | `/mt5` | The MetaTrader 5 demo account the PC bridge copies to: balance, open copies, how old the numbers are. See [MetaTrader 5](#metatrader-5-demo-account-only) |
 | `/indodax` | The copies at Indodax in rupiah, made by the sender on your PC: open copies, result, how old the numbers are. See [Indodax](#indodax-rupiah-through-a-sender-on-your-pc-practice-first) |
+| `/indodax pause`, `/indodax resume` | Stop or allow new buys at Indodax (open copies are still sold). The sender reads it within a minute |
 | `/reset` | Start over with fresh practice money (asks first) |
 | `/help` | The short version of this page |
 
@@ -216,13 +217,20 @@ stop, and posts the copies back (`POST /v1/indodax/report`) for `/indodax` in Te
 - **Real money is switched on only on the PC**, by you: your own API key (view and trade, withdraw
   off), `INDODAX_MODE=real` and a confirm sentence, all three in the sender's `.env`. Nothing in
   Telegram or on this Worker can switch it on, and the Worker never holds an Indodax key.
+- **The key is checked first.** A real buy also waits until `run-windows.ps1 -Check` has passed on
+  that PC with the key that is set. Until then real mode buys nothing and `/indodax` says so.
+- **Telegram can pause it.** `/indodax pause` stops new buys, in practice and with real money;
+  `/indodax resume` allows them again. Selling and the stop are never paused. A misspelled pause
+  or resume is only offered, never run.
 - **Never called practice by mistake.** A report that does not say "practice" is shown as real
   money, and you get one warning message when the sender turns to real money.
-- **The stop only works while the PC is on.** Indodax holds no stop order for these copies. When
-  the sender has been silent for 5 minutes, `/indodax` says so; it does not message you by itself.
+- **The stop only works while the PC is on.** Indodax holds no stop order for these copies. With
+  real money in play (real mode, or a real copy open), you get one Telegram message when the
+  sender has been silent for about 10 to 15 minutes, and one more when it is back. In practice
+  mode `/indodax` shows how old the numbers are and nothing is sent.
 - **Off until switched on.** `POST /v1/indodax/setup` (setup code) gives the sender's key once; the
   sender does nothing until that key is in `indodax/.env` on the PC.
-- **Not tried on a real Indodax account yet.** Its 72 tests run against a pretend exchange. Only
+- **Not tried on a real Indodax account yet.** Its 77 tests run against a pretend exchange. Only
   the public prices were read from the real Indodax.
 
 Setup, settings, limits and the real-money section: `indodax/README.md`.
@@ -252,7 +260,7 @@ appears, every trade message says "practice", and no secret is printed.
 
 | Address | What it answers |
 |---|---|
-| `GET /v1/status` | alive, which build, whether a bot is connected and the agent is running |
+| `GET /v1/status` | alive, which build, whether a bot is connected and the agent is running. Its `indodax` block shows the sender's state as yes/no and counts only (mode, paused, keys set, key checked, safety stop, open copies, real copies): no amounts, coins or results |
 | `GET /v1/probe` | whether the Worker can read live prices from each source |
 | `POST /v1/setup` | owner only (setup code): connect a bot token, set the webhook, make a pairing link |
 | `POST /v1/telegram` | Telegram's webhook, checked with the secret Telegram sends back |

@@ -15,8 +15,10 @@ What keeps it safe:
     money, and the private API is not touched at all.
   * Real money needs three things together: INDODAX_MODE=real, the exact confirm sentence in
     INDODAX_REAL_CONFIRM, and an API key. Every real order passes one gate that checks them again.
+  * A real buy also waits until  python bridge.py --check  has passed with the API key that is set.
   * One order is a fixed rupiah amount with a hard ceiling, at most three copies are open, and
     buying stops for the day after a loss of one order's size or after ten buys.
+  * /indodax pause in Telegram stops new buys; selling and the stop go on. /indodax resume ends it.
   * Anything unclear (an answer that got lost, a refusal, a coin that did not arrive) stops new real
     buys until you have looked and run  python bridge.py --clear
   * It never withdraws: make the API key with "view" and "trade" only.
@@ -161,6 +163,11 @@ def order_name(coin: str, signal, tail: str) -> str:
 def sign(body: str, secret: str) -> str:
     """HMAC-SHA512 of the exact request body, as Indodax's private API asks for."""
     return hmac.new(secret.encode("utf-8"), body.encode("utf-8"), hashlib.sha512).hexdigest()
+
+
+def key_mark(api_key) -> str:
+    """A short fingerprint of the API key: enough to notice a changed key, useless for anything else."""
+    return hashlib.sha256(("indodax-check:" + str(api_key or "")).encode("utf-8")).hexdigest()[:12]
 
 
 # ---------------------------------------------------------------- settings
@@ -486,6 +493,7 @@ def fresh_state() -> dict:
         "day": {"date": "", "practice": 0.0, "real": 0.0, "buys": 0},
         "result": {"practice": 0.0, "real": 0.0},
         "closed": [],
+        "checked": {"at": 0, "key": ""},
     }
 
 
@@ -517,6 +525,8 @@ def load_state(path) -> dict:
     }
     result = raw.get("result") if isinstance(raw.get("result"), dict) else {}
     state["result"] = {"practice": number(result.get("practice")), "real": number(result.get("real"))}
+    checked = raw.get("checked") if isinstance(raw.get("checked"), dict) else {}
+    state["checked"] = {"at": int(number(checked.get("at"))), "key": clip(checked.get("key"), 12)}
     return state
 
 
@@ -537,8 +547,14 @@ class Bridge:
         self.clock = clock
         self.state = load_state(state_path)
         self.prices = {}  # coin -> this cycle's prices, or None when Indodax gave none
+        self.paused = False  # set from Telegram (/indodax pause); read again every cycle
 
     # ---- small things
+
+    @property
+    def checked(self) -> bool:
+        """Has --check passed on this PC with the API key that is set now?"""
+        return bool(self.settings.has_keys and self.state["checked"].get("key") == key_mark(self.settings.api_key))
 
     def now_ms(self) -> int:
         return int(self.clock() * 1000)
@@ -629,7 +645,11 @@ class Bridge:
         mode = "real" if real else "practice"
         amount = self.settings.order_idr
         block = ""
-        if real and self.state["tripped"]:
+        if self.paused:
+            block = "Buying is paused from Telegram (/indodax resume switches it back on). Open copies are still watched and sold."
+        elif real and not self.checked:
+            block = "Real buying waits for the key check. Stop the sender, run  python bridge.py --check  once, then start it again."
+        elif real and self.state["tripped"]:
             block = "The safety stop is on, so nothing new is bought. Look at Indodax, then run:  python bridge.py --clear"
         elif self.state["day"][mode] <= -amount:
             block = f"Today's loss has reached one order's size ({rp(amount)}), so nothing more is bought today."
@@ -693,6 +713,10 @@ class Bridge:
         if side == "buy":
             if not self.settings.real:
                 raise Refused("Real money is off, so no order was sent.")
+            if self.paused:
+                raise Refused("Buying is paused from Telegram, so no order was sent.")
+            if not self.checked:
+                raise Refused("The API key has not passed --check, so no order was sent.")
             if self.state["tripped"]:
                 raise Refused("The safety stop is on, so no order was sent.")
             if idr != self.settings.order_idr or not ORDER_IDR_MIN <= idr <= ORDER_IDR_CAP:
@@ -973,6 +997,8 @@ class Bridge:
         return {
             "mode": "real" if self.settings.real else "practice",
             "keys": self.settings.has_keys,
+            "checked": self.checked,
+            "paused": self.paused,
             "tripped": bool(self.state["tripped"]),
             "trippedWhy": self.state["tripped"],
             "orderIdr": self.settings.order_idr,
@@ -998,6 +1024,8 @@ class Bridge:
             signals = self.api.signals()
         except ApiError as error:
             notes.append(f"{error}. Nothing is bought; open copies are watched by the sender's own stop.")
+        if isinstance(signals, dict):
+            self.paused = bool(signals.get("paused"))
         fresh = bool(isinstance(signals, dict) and signals.get("fresh"))
         if signals is not None and not fresh:
             notes.append("TradeBot's last round is too old to act on. Nothing is bought; open copies are watched by the sender's own stop.")
@@ -1039,17 +1067,29 @@ def stamp(text: str) -> None:
     print(f"{time.strftime('%Y-%m-%d %H:%M:%S')}  {text}", flush=True)
 
 
-def check(settings: Settings, exchange=None) -> int:
-    """Does the API key work? Reads the balance and orders nothing."""
+def check(settings: Settings, exchange=None, state_path=None) -> int:
+    """Does the API key work? Reads the balance and orders nothing. A pass is remembered for this key."""
     if not settings.has_keys:
         print("INDODAX_API_KEY and INDODAX_API_SECRET are not set, so there is nothing to check. Practice mode does not need them.")
         return 1
+    state = None
+    if state_path is not None:
+        try:
+            state = load_state(state_path)
+        except StateError as error:
+            print(f"State: {error}")
+            return 2
     try:
         balances = (exchange or Indodax(settings)).balances()
     except ExchangeError as error:
         print(f"The API key does not work yet: {error}")
         return 1
-    print(f"The API key works. Free rupiah at Indodax: {rp(balances.get('idr', 0.0))}. Nothing was ordered.")
+    remembered = ""
+    if state is not None:
+        state["checked"] = {"at": int(time.time()), "key": key_mark(settings.api_key)}
+        save_state(state_path, state)
+        remembered = " This key is now marked as checked on this PC."
+    print(f"The API key works. Free rupiah at Indodax: {rp(balances.get('idr', 0.0))}. Nothing was ordered.{remembered}")
     return 0
 
 
@@ -1070,7 +1110,7 @@ def main(argv=None) -> int:
         return 2
 
     if args.check:
-        return check(settings)
+        return check(settings, state_path=args.state)
 
     try:
         bridge = Bridge(Indodax(settings), settings, Api(settings), args.state, log=stamp)
@@ -1088,6 +1128,8 @@ def main(argv=None) -> int:
 
     if settings.real:
         mode = f"REAL MONEY: orders of {rp(settings.order_idr)} are sent to Indodax, at most {settings.max_open} open."
+        if not bridge.checked:
+            mode += " NOT YET: this API key has not passed --check on this PC, so nothing is bought until it has."
     else:
         mode = "PRACTICE: pretend money at Indodax's real prices. No order is sent to Indodax."
     try:
