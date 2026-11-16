@@ -23,7 +23,7 @@ PAGE = CODE / "index.html"
 PAGE_URL = "https://juw12.github.io/projects/glow/code/"
 ENGINE_SHA256 = {
     "kilat.js": "c86186c57b86d0d4117eb322a4918b29a8e7123c99c1ebf67be02887654b07b5",
-    "kilat.wasm": "441baf76ca2d793297d50eb8036e6dcd951cd7c48c580bec4b8dbcaebd233e97",
+    "kilat.wasm": "d81524ed2069618962ca0ad36c46496c0fb96d6610e84f1763aa73055b9fd905",
 }
 PAGE_SCRIPTS = [
     "../shared/glow-locale.js",
