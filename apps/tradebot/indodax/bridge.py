@@ -74,6 +74,7 @@ CLOCK_SYNC_SECONDS = 600
 PAIRS_CACHE_SECONDS = 3600
 CLOSED_KEPT = 20
 SMALLEST_STEP = "0.00000001"
+ORDER_STATES = ("open", "filled", "cancelled")  # what Indodax can say became of an order
 
 
 class SettingsError(Exception):
@@ -158,6 +159,20 @@ def order_name(coin: str, signal, tail: str) -> str:
     """The order's own name at Indodax. Indodax refuses a second order with the same name."""
     safe = "".join(letter for letter in str(coin) if letter.isalnum())[:10]
     return f"tb-{safe}-{int(signal)}-{tail}"[:36]
+
+
+def sale_proceeds(order) -> float:
+    """The rupiah a sale brought in, as Indodax's record of the order gives it. 0 when it gives none."""
+    if not order:
+        return 0.0
+    return number(order.get("receive_idr")) or number(order.get("receive_rp"))
+
+
+def untouched(order, coin: str) -> bool:
+    """True when a sale order still holds all of the coin it was for: none of it was sold."""
+    asked = number(order.get(f"order_{coin}"))
+    left = number(order.get(f"remain_{coin}"))
+    return asked > 0 and left >= asked * 0.999
 
 
 def sign(body: str, secret: str) -> str:
@@ -333,7 +348,8 @@ class Api:
 
 
 class Indodax:
-    """Indodax's public data, and the two private calls the sender needs: balances and one order."""
+    """Indodax's public data, and the three private calls the sender needs: balances, one order,
+    and a look at what became of one of its own orders."""
 
     def __init__(self, settings: Settings, timeout: int = 20, clock=time.time, opener=None):
         self.settings = settings
@@ -481,6 +497,22 @@ class Indodax:
         # Only amounts are kept from the answer.
         return {name: value for name, value in answer.items() if name.startswith(("receive_", "spend_", "remain_")) or name == "fee"}
 
+    def order(self, client_order_id: str) -> dict:
+        """What became of one order, found by the name the sender gave it. It only reads."""
+        answer = self.private("getOrderByClientOrderId", [("client_order_id", client_order_id)])
+        raw = answer.get("order")
+        if not isinstance(raw, dict):
+            raise ExchangeError("Indodax's answer held no order")
+        if str(raw.get("client_order_id") or client_order_id) != client_order_id:
+            raise ExchangeError("Indodax answered about a different order")
+        status = str(raw.get("status") or "").lower()
+        kept = {"status": "cancelled" if status == "canceled" else status, "side": str(raw.get("type") or "").lower()}
+        # Only amounts are kept from the answer.
+        for name, value in raw.items():
+            if str(name).startswith(("receive_", "order_", "remain_")) and name != "order_id":
+                kept[str(name)] = value
+        return kept
+
 
 # ---------------------------------------------------------------- the sender
 
@@ -603,6 +635,21 @@ class Bridge:
             return self.exchange.balances()
         except ExchangeError:
             return None
+
+    def lookup(self, order_ref: str, side: str):
+        """What Indodax says became of one of the sender's own orders, or None when that is not clear.
+
+        None changes nothing: the caller goes on exactly as it would have without asking.
+        """
+        try:
+            order = self.exchange.order(order_ref)
+        except ExchangeError:
+            return None
+        if not isinstance(order, dict) or order.get("status") not in ORDER_STATES:
+            return None
+        if (order.get("side") or "") not in ("", side):
+            return None
+        return order
 
     # ---- reading TradeBot
 
@@ -811,29 +858,53 @@ class Bridge:
             raise Refused(f"There is not enough free rupiah at Indodax for a {rp(amount)} order.")
 
         self.remember(symbol, action["signal"])
+        order_ref = order_name(coin, action["signal"], "b")
         answer = None
         try:
-            answer = self.send_order("buy", symbol, pair=pair, idr=amount, client_order_id=order_name(coin, action["signal"], "b"))
+            answer = self.send_order("buy", symbol, pair=pair, idr=amount, client_order_id=order_ref)
         except ExchangeError as error:
             if not error.unsure:
                 self.trip(f"Indodax refused the buy of {name} ({error}).")
                 raise Refused(f"Indodax refused the buy ({error}).") from None
 
         after = self.free_balances()
+        # A lost answer: Indodax is asked what became of the order. No clear word leaves all as it was.
+        known = self.lookup(order_ref, "buy") if answer is None else None
+        status = known["status"] if known else ""
         gain = after.get(coin, 0.0) - before.get(coin, 0.0) if after else 0.0
-        told = number(answer.get(f"receive_{coin}")) if answer else 0.0
+        if answer:
+            told = number(answer.get(f"receive_{coin}"))
+        elif status == "filled":
+            told = number(known.get(f"receive_{coin}"))
+        else:
+            told = 0.0
         # The smaller of what the balance shows and what Indodax says: the copy is never overstated.
         amounts = [value for value in (gain, told) if value > 0]
         quantity = min(amounts) if amounts else 0.0
+        if answer is None and gain <= 0:
+            quantity = 0.0  # after a lost answer the coin must show in the balance before a copy is recorded
 
         if answer is None:
             if after is None:
                 self.trip(f"The answer to the buy of {name} was lost and the balance could not be read. The order may have gone through: check Indodax by hand.")
                 raise Refused("The buy could not be confirmed, and no copy was recorded.")
             if quantity <= 0:
-                self.trip(f"The answer to the buy of {name} was lost and no {name} has arrived so far. Check your open orders at Indodax.")
+                if status == "cancelled" and (untouched(known, "rp") or untouched(known, "idr")):
+                    # Indodax's own record: the whole order was cancelled. The signal stays used.
+                    raise Refused(f"The answer to the buy of {name} was lost. Indodax cancelled the order and no {name} arrived, so nothing was bought.")
+                if status == "filled":
+                    self.trip(f"The answer to the buy of {name} was lost. Indodax shows the order as filled, but no {name} shows in your balance. Check Indodax by hand.")
+                elif status == "open":
+                    self.trip(f"The answer to the buy of {name} was lost and the order is still open at Indodax. Check your open orders there.")
+                else:
+                    self.trip(f"The answer to the buy of {name} was lost and no {name} has arrived so far. Check your open orders at Indodax.")
                 raise Refused("The buy could not be confirmed, and no copy was recorded.")
-            self.trip(f"The answer to the buy of {name} was lost, but the coin arrived, so the copy is recorded.")
+            if status == "filled":
+                self.log(f"The answer to the buy of {name} was lost, but Indodax confirms the order was filled.")
+            elif status == "open":
+                self.trip(f"The answer to the buy of {name} was lost. Part of it arrived, so the copy is recorded, and the rest is still open at Indodax. Check your open orders there.")
+            else:
+                self.trip(f"The answer to the buy of {name} was lost, but the coin arrived, so the copy is recorded.")
         elif quantity <= 0:
             self.trip(f"Indodax accepted the buy of {name} but no {name} arrived. Check your open orders at Indodax.")
             raise Refused("The buy was accepted but nothing arrived, and no copy was recorded.")
@@ -864,7 +935,8 @@ class Bridge:
         return f"PRACTICE: sold {name} for {rp(received)} of pretend money ({result}) because {reason}."
 
     def settle(self, symbol: str, pair, ticker) -> str:
-        """An earlier sale had no clear answer. The balance decides: "" means the coin is still there."""
+        """An earlier sale had no clear answer. Indodax's record of that order decides when it is
+        clear; otherwise the balance does. "" means the coin is still there and can be sold now."""
         position = self.state["positions"][symbol]
         mark = position["unsure"]
         coin = position["coin"]
@@ -873,8 +945,27 @@ class Bridge:
             now = self.exchange.balances()
         except ExchangeError as error:
             raise Refused(f"The earlier sale of {name} is still unconfirmed and the balance could not be read ({error}). Nothing was sent.") from None
+        attempt = int(position.get("sells") or 0)
+        order_ref = str(mark.get("name") or order_name(coin, position["openedAt"], f"s{attempt}"))
+        known = self.lookup(order_ref, "sell")
+        status = known["status"] if known else ""
         gone = number(mark.get("coin")) - now.get(coin, 0.0)
-        if gone < number(mark.get("quantity")) * 0.5:
+        sold = gone >= number(mark.get("quantity")) * 0.5
+
+        if status == "open":
+            raise Refused(f"The earlier sale of {name} is still open at Indodax, so nothing was sent. If it stays open, cancel it at Indodax by hand.")
+        if status == "cancelled" and untouched(known, coin) and not sold:
+            # None of it was sold and that order is closed for good: the next try needs a new name.
+            del position["unsure"]
+            position["sells"] = attempt + 1
+            self.save()
+            return ""
+        exact = sale_proceeds(known) if status == "filled" else 0.0
+        if exact > 0:
+            entry = self.close_copy(symbol, exact)
+            return f"REAL MONEY: the earlier sale of {name} went through for {rp(exact)} ({signed_rp(entry['received'] - entry['spent'])}), as Indodax's record of the order shows."
+        if not sold and status != "filled":
+            # The same order name is kept, so Indodax itself refuses a second sale.
             del position["unsure"]
             self.save()
             return ""
@@ -915,21 +1006,38 @@ class Bridge:
             return f"REAL MONEY: what is left of {name} is below Indodax's smallest order, so it stays in your account. The copy is closed without a result."
 
         attempt = int(position.get("sells") or 0)
+        order_ref = order_name(coin, position["openedAt"], f"s{attempt}")
         answer = None
+        known = None
         try:
-            answer = self.send_order("sell", symbol, quantity=quantity, client_order_id=order_name(coin, position["openedAt"], f"s{attempt}"))
+            answer = self.send_order("sell", symbol, quantity=quantity, client_order_id=order_ref)
         except ExchangeError as error:
             if not error.unsure:
                 if "exist" in str(error).lower() and "order" in str(error).lower():
                     # Indodax already has an order with this name: an earlier try did arrive.
-                    estimate = float(quantity) * ticker["bid"] * (1 - pair["fee_percent"] / 100)
-                    self.close_copy(symbol, estimate, estimated=True)
-                    self.trip(f"The sale of {name} had already reached Indodax. Its result is an estimate: check it at Indodax.")
-                    return f"REAL MONEY: {name} was sold already, for about {rp(estimate)}."
-                position["sells"] = attempt + 1  # a refused order's name is not used again
-                self.save()
-                self.trip(f"Indodax refused the sale of {name} ({error}).")
-                raise Refused(f"Indodax refused the sale ({error}). Trying again next minute.") from None
+                    # Its own record says what became of it; without a clear word it counts as sold.
+                    known = self.lookup(order_ref, "sell")
+                    status = known["status"] if known else ""
+                    exact = sale_proceeds(known) if status == "filled" else 0.0
+                    if exact > 0:
+                        entry = self.close_copy(symbol, exact)
+                        return f"REAL MONEY: {name} was sold already, for {rp(exact)} ({signed_rp(entry['received'] - entry['spent'])}), as Indodax's record of the order shows."
+                    if status == "cancelled" and untouched(known, coin):
+                        # Only an order that sold nothing at all is ever sent again under a new name.
+                        position["sells"] = attempt + 1
+                        self.save()
+                        raise Refused(f"Indodax cancelled the earlier sale of {name} before any of it was sold. Trying again next minute under a new name.") from None
+                    if status != "open":
+                        estimate = float(quantity) * ticker["bid"] * (1 - pair["fee_percent"] / 100)
+                        self.close_copy(symbol, estimate, estimated=True)
+                        self.trip(f"The sale of {name} had already reached Indodax. Its result is an estimate: check it at Indodax.")
+                        return f"REAL MONEY: {name} was sold already, for about {rp(estimate)}."
+                    # Still open at Indodax: it is marked below and looked at again next minute.
+                else:
+                    position["sells"] = attempt + 1  # a refused order's name is not used again
+                    self.save()
+                    self.trip(f"Indodax refused the sale of {name} ({error}).")
+                    raise Refused(f"Indodax refused the sale ({error}). Trying again next minute.") from None
 
         after = self.free_balances()
         gain = after.get("idr", 0.0) - before.get("idr", 0.0) if after else 0.0
@@ -942,11 +1050,19 @@ class Bridge:
                 line += f" Only part of it was sold: some {name} is left in your account."
             return line
 
+        if answer is None:
+            # A lost answer: Indodax is asked what became of the order before anything is guessed.
+            known = known or self.lookup(order_ref, "sell")
+            exact = sale_proceeds(known) if known and known["status"] == "filled" else 0.0
+            if exact > 0:
+                entry = self.close_copy(symbol, exact)
+                return f"REAL MONEY: sold {name} for {rp(exact)} ({signed_rp(entry['received'] - entry['spent'])}) because {reason}. The answer was lost, but Indodax's record of the order confirms it."
+
         # No clear answer, or no rupiah seen yet. The same order name is kept, so Indodax itself
-        # refuses a second sale, and the balance settles it next minute.
-        position["unsure"] = {"coin": free, "idr": before.get("idr", 0.0), "quantity": float(quantity), "at": self.now_ms()}
+        # refuses a second sale, and Indodax's record or the balance settles it next minute.
+        position["unsure"] = {"coin": free, "idr": before.get("idr", 0.0), "quantity": float(quantity), "at": self.now_ms(), "name": order_ref}
         self.save()
-        self.trip(f"The sale of {name} could not be confirmed. It is checked against your balance next minute.")
+        self.trip(f"The sale of {name} could not be confirmed. It is checked against Indodax's record and your balance next minute.")
         raise Refused(f"The sale of {name} could not be confirmed yet. Nothing is sold twice.")
 
     def do(self, action: dict, pairs: dict) -> str:

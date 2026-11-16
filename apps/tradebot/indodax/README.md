@@ -10,7 +10,7 @@ practice account holds, and holds a small copy of the same coins on Indodax's ru
   pretend money. In practice mode no order is sent and the private API is not touched at all.
 - **Real money is off until you switch it on yourself**, with three things together (see
   [Real money](#real-money)). Nobody else can do that for you, and the tests cover the gate.
-- **Not tried on a real Indodax account yet.** The 77 tests run against a pretend exchange. The
+- **Not tried on a real Indodax account yet.** The 100 tests run against a pretend exchange. The
   public prices were read from Indodax for real; the private API (balance, orders) has never run
   with a real key. The first run on your PC is the first real one: start with `-Show`.
 - **No proven edge, and no promised win rate.** Copying TradeBot's rules to Indodax does not make
@@ -169,9 +169,27 @@ passes one gate that checks all three again, the order size and the open count.
 - **The most at risk** is the order size times the copies allowed. With the defaults that is
   Rp100.000. The hard ceilings are Rp500.000 an order and three copies.
 - **Not verified against a real account:** the whole private API. In particular the names of the
-  fields in Indodax's answer to a market sale, and the wording of its "order name already used"
-  refusal, come from reading the documentation. When an answer is unclear the sender falls back
-  on your balance, and stops (below) rather than guess.
+  fields in Indodax's answer to a market sale, the fields of its record of one order (state, side
+  and amounts), and the wording of its "order name already used" refusal, come from reading the
+  documentation. When an answer is unclear the sender falls back on your balance, and stops
+  (below) rather than guess.
+
+**When an answer is lost.** Every order carries its own name. If Indodax's answer to an order does
+not arrive, the sender asks Indodax what became of the order with that name. That call only reads.
+
+- **A clear record settles it without a guess.** A buy shown as filled is recorded as a copy, but
+  only when the coin also shows in your balance. A buy Indodax cancelled before anything was
+  bought is dropped, and that signal is not bought again. A sale shown as sold closes the copy
+  with the exact rupiah from the record, not an estimate. A sale cancelled before any of it was
+  sold is sent again under a new name.
+- **Still open at Indodax:** nothing new is sent. The safety stop goes on and tells you to look at
+  your open orders. Cancel a sale that stays open by hand.
+- **Partly sold, then cancelled:** the sale is never sent again under a new name, so your own coins
+  in the same account are not sold by mistake. The copy is closed with an estimate, the safety
+  stop goes on, and what is left stays in your account for you to sell by hand.
+- **No clear record** (the lookup fails, or shows a state, a side or amounts the sender does not
+  expect): exactly as before the lookup existed. Your balance decides, and the safety stop goes
+  on.
 
 **The safety stop.** Anything unclear stops new real buys: a lost answer, a refusal, a coin that
 did not arrive, a sale that could not be confirmed. Sales of open copies go on. `/indodax` shows
