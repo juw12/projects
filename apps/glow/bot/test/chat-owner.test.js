@@ -65,7 +65,7 @@ for (const command of ["/new", "/reset"]) {
 }
 
 // ------------------------------------------------------------------ /models
-test("/models lists the free models in the order they are asked, and which one is resting", async () => {
+test("/models lists the free models, and which one is resting; models nobody ranked stay a plain list", async () => {
   const kit = makeChat();
   await kit.say("/models");
   did(kit, ['sendMessage [["mdl:test","mdl:spare"],["mdl:auto"]]'], [
@@ -74,7 +74,7 @@ test("/models lists the free models in the order they are asked, and which one i
       "1. Test Model (Test)",
       "2. Spare &lt;Model&gt; (Test) · Spare Model · resting, about 2 min",
       "",
-      "Your choice: <b>Auto</b>. I ask them in this order. When one is busy it rests and the next one answers.",
+      "Your choice: <b>Auto</b>. I stay with the model that answered last. When one is busy it rests and the next one answers.",
       "",
       "Tap a model to choose it, or type its number or name after /model, like <code>/model 3</code>. <code>/model auto</code> hands the choice back to me.",
     ].join("\n"),
@@ -95,10 +95,87 @@ const MODEL_TAP = [
   "",
   "Tap a model to choose it, or type its number or name after /model, like <code>/model 3</code>. <code>/model auto</code> hands the choice back to me.",
 ];
-const AUTO_LINE = "Your choice: <b>Auto</b>. I ask them in this order. When one is busy it rests and the next one answers.";
+const AUTO_LINE = "Your choice: <b>Auto</b>. I stay with the model that answered last. When one is busy it rests and the next one answers.";
 const chosenLine = (name) => `Your choice: <b>${name}</b> is asked first. If it is busy the next one answers.`;
 const modelsText = (choice) => [...MODEL_LIST, choice, ...MODEL_TAP].join("\n");
 const labelsOf = (call) => call.payload.reply_markup.inline_keyboard.flat().map((button) => button.text);
+
+// The real models have a group each. These five arrive in the order they are asked and are shown
+// by what they are good at, the first pick of each group first.
+const asListed = (id, restingMs = 0) => {
+  const entry = KEYLESS.concat(AI_MODELS).find((candidate) => candidate.id === id);
+  return { id, kind: entry.kind, label: entry.label, name: entry.name || entry.model, model: entry.model, restingMs };
+};
+const RANKED_BUTTONS =
+  '[["mdl:ovh-qwen","mdl:ai-gpt-oss-120b"],["mdl:ai-qwen-coder-32b","mdl:ai-llama-8b"],["mdl:llm7"],["mdl:auto"]]';
+const rankedText = (choice) => [
+  "<b>The free models that answer</b>",
+  "Grouped by what each one is best at, my first pick on top. It is my suggestion, not a benchmark.",
+  "",
+  "<b>🏆 Hardest questions and long answers</b>",
+  "1. OVHcloud · Qwen3.5 397B",
+  "2. Workers AI · gpt-oss-120b",
+  "",
+  "<b>💻 Code</b>",
+  "3. Workers AI · Qwen2.5 Coder 32B",
+  "",
+  "<b>⚡ Fastest, for short questions</b>",
+  "4. Workers AI · Llama 3.1 8B · resting, about 2 min",
+  "",
+  "<b>Other</b>",
+  "5. LLM7",
+  "",
+  choice,
+  ...MODEL_TAP,
+].join("\n");
+
+test("/models groups the models by what each is good at, and numbers, buttons and /model follow that list", async () => {
+  const listed = [asListed("llm7"), asListed("ai-llama-8b", 61_000), asListed("ai-gpt-oss-120b"), asListed("ovh-qwen"), asListed("ai-qwen-coder-32b")];
+  const kit = makeChat({ listed });
+  await kit.say("/models");
+  let calls = kit.fresh();
+  assert.deepEqual(outline(calls), [`sendMessage ${RANKED_BUTTONS}`]);
+  assert.deepEqual(texts(calls), [rankedText(AUTO_LINE)]);
+  assert.deepEqual(labelsOf(calls[0]), [
+    "1. Qwen3.5 397B",
+    "2. gpt-oss-120b",
+    "3. Qwen2.5 Coder 32B",
+    "4. Llama 3.1 8B",
+    "5. LLM7",
+    "✓ Auto: GlowBot chooses",
+  ]);
+
+  // A number means the line that is shown, not the place in the order the models are asked.
+  await kit.say("/model 4");
+  calls = kit.fresh();
+  assert.deepEqual(texts(calls), [rankedText(chosenLine("Workers AI · Llama 3.1 8B"))]);
+  assert.equal(kit.logic.state.models.pinned, "ai-llama-8b");
+  await kit.say("/model 1");
+  kit.fresh();
+  assert.equal(kit.logic.state.models.pinned, "ovh-qwen");
+  await kit.say("/model 6");
+  did(kit, ["sendMessage"], ["I do not know a model called “6”. /models shows the list."]);
+
+  // A name still works, and so does a tap; the tick sits on the line with the same number.
+  await kit.say("/model coder");
+  kit.fresh();
+  assert.equal(kit.logic.state.models.pinned, "ai-qwen-coder-32b");
+  await kit.tap("mdl:llm7", 103);
+  calls = kit.fresh();
+  assert.deepEqual(outline(calls), ["toast: OK", `editMessageText #103 ${RANKED_BUTTONS}`]);
+  assert.deepEqual(texts(calls), ["OK", rankedText(chosenLine("LLM7"))]);
+  assert.equal(labelsOf(calls[1])[4], "✓ 5. LLM7");
+  assert.equal(kit.logic.state.models.pinned, "llm7");
+
+  // The headings are in the reader's language.
+  await kit.say("/lang id");
+  kit.fresh();
+  await kit.say("/models");
+  const indonesian = texts(kit.fresh())[0];
+  assert.match(indonesian, /<b>💻 Kode<\/b>\n3\. Workers AI · Qwen2\.5 Coder 32B/);
+  assert.match(indonesian, /<b>Lainnya<\/b>\n5\. LLM7/);
+  assert.deepEqual(kit.errors, []);
+});
 
 test("/model with a name chooses who is asked first, and the tick moves to it", async () => {
   const kit = makeChat();
@@ -217,7 +294,7 @@ test("a button for a model that was retired is refused, and a retired choice is 
 // ------------------------------------------------------------------ /about, /privacy, /cancel
 test("/about and /version say which GlowBot this is and where to read more", async () => {
   const expected = [
-    "<b>GlowBot 1.34.0</b> · build <code>test</code>",
+    "<b>GlowBot 1.35.0</b> · build <code>test</code>",
     "",
     "An AI team in Telegram. Send a goal: GlowLead plans it, hands each step to an agent, checks the result and reports back. " +
       "Free, with no sign-up and no ads.",

@@ -63,6 +63,45 @@ export const AI_MODELS = [
 //   kimi-k26            @cf/moonshotai/kimi-k2.6                    kimi-k27-code      @cf/moonshotai/kimi-k2.7-code
 //   glm-53-flash        @cf/zai-org/glm-5.3-flash                   glm-53             @cf/zai-org/glm-5.3
 
+// What each model is good at, for /models: the groups in the order they are shown, and in each group
+// GlowBot's first pick first. This is a suggestion, not a benchmark result. It follows what each maker says
+// the model is for, then its size and how new it is; where two hosts serve one model, the host that needs
+// no daily allowance comes first. It does not change the order the models are asked in.
+//   allround   the largest general models, for hard questions and long answers
+//   reasoning  models built to think a problem through before answering (slower)
+//   coding     trained for writing and fixing code
+//   languages  trained for Indonesian and the other Southeast Asian languages
+//   everyday   mid-size general models, the newest first
+//   fast       the smallest models, for short questions
+export const STRENGTHS = [
+  ["allround", ["ovh-qwen", "ovh-gpt-oss", "ai-gpt-oss-120b", "ai-nemotron-120b", "ovh", "ai-llama-70b"]],
+  ["reasoning", ["ai-qwq-32b", "ai-qwen3-30b"]],
+  ["coding", ["ai-qwen-coder-32b"]],
+  ["languages", ["ai-sea-lion-27b"]],
+  [
+    "everyday",
+    ["ovh-qwen38", "ai-qwen38-27b", "ai-gemma-4-26b", "ovh-qwen36", "ovh-mistral", "ai-mistral-small", "ai-llama-4-scout"],
+  ],
+  ["fast", ["ai-gpt-oss-20b", "ai-llama-8b", "ai-granite-micro"]],
+];
+// LLM7 is in no group: it is a router, so which model answers behind it is not ours to say.
+
+// The models of /models, grouped by strength and ranked inside each group:
+// [{ strength, models }], without the empty groups. A model in no group lands in a last group
+// whose strength is "", in the order it was given.
+export function byStrength(models) {
+  const groups = [];
+  const placed = new Set();
+  for (const [strength, ids] of STRENGTHS) {
+    const members = ids.map((id) => models.find((model) => model.id === id)).filter(Boolean);
+    for (const member of members) placed.add(member);
+    if (members.length) groups.push({ strength, models: members });
+  }
+  const others = models.filter((model) => !placed.has(model));
+  if (others.length) groups.push({ strength: "", models: others });
+  return groups;
+}
+
 // How a request is written for Workers AI. Every model documents the chat form; the second form is the
 // one OpenAI's newer API uses, kept so the health check can tell which one a model really accepts.
 export const AI_SHAPES = {

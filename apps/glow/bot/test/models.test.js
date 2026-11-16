@@ -5,7 +5,9 @@ import {
   AI_MODELS,
   KEYLESS,
   ModelsBusyError,
+  STRENGTHS,
   askEntry,
+  byStrength,
   createModels,
   isPlanError,
   isQuotaError,
@@ -81,6 +83,53 @@ test("a number after /model means that line of the list", () => {
   assert.equal(modelName(ONE), "Model One");
   assert.equal(modelTitle(ONE), "One · Model One");
   assert.equal(modelName({ label: "LLM7", name: "LLM7" }), "LLM7", "a host that is its own model is named once");
+});
+
+test("every model on the list has one strength, and a strength names only models on the list", () => {
+  const ids = KEYLESS.concat(AI_MODELS).map((entry) => entry.id);
+  const ranked = STRENGTHS.flatMap(([, members]) => members);
+  assert.deepEqual(STRENGTHS.map(([strength]) => strength), ["allround", "reasoning", "coding", "languages", "everyday", "fast"]);
+  for (const [strength, members] of STRENGTHS) assert.ok(members.length > 0, `${strength} has no model`);
+  assert.deepEqual(ranked.filter((id) => !ids.includes(id)), [], "a strength names a model that is not on the list");
+  assert.equal(new Set(ranked).size, ranked.length, "a model sits in two groups");
+  // LLM7 passes the question on to a model of its own choosing, so it is the one with no group.
+  assert.deepEqual(ids.filter((id) => !ranked.includes(id)), ["llm7"]);
+});
+
+test("/models shows the groups in order with the first pick first, and the order the models are asked in stays", () => {
+  const all = KEYLESS.concat(AI_MODELS);
+  const idsOf = (list) => list.map((entry) => entry.id);
+  const groups = byStrength(all);
+  assert.deepEqual(groups.map((group) => group.strength), [...STRENGTHS.map(([strength]) => strength), ""]);
+  assert.deepEqual(groups.map((group) => idsOf(group.models)), [...STRENGTHS.map(([, members]) => members), ["llm7"]]);
+  const shown = groups.flatMap((group) => group.models);
+  assert.deepEqual(idsOf(shown).sort(), idsOf(all).sort(), "every model is shown once");
+
+  // Where two hosts serve one model, the one with no daily allowance is the first pick.
+  const twice = all.filter((entry) => entry.kind === "ai" && all.some((other) => other.kind === "http" && other.name === entry.name));
+  assert.ok(twice.length >= 3, "the scan for models two hosts serve found too few");
+  for (const entry of twice) {
+    const keyless = all.find((other) => other.kind === "http" && other.name === entry.name);
+    assert.ok(shown.indexOf(keyless) < shown.indexOf(entry), `${keyless.id} is shown before ${entry.id}`);
+    assert.equal(
+      groups.find((group) => group.models.includes(keyless)),
+      groups.find((group) => group.models.includes(entry)),
+      `${entry.name} is in one group on both hosts`,
+    );
+  }
+
+  // A number after /model is the line that is shown.
+  assert.deepEqual(idsOf(matchModels(shown, "1")), [STRENGTHS[0][1][0]]);
+  assert.deepEqual(idsOf(matchModels(shown, String(shown.length))), ["llm7"]);
+
+  // An empty group is left out, and models nobody ranked come last in the order they were given.
+  const coder = AI_MODELS.find((entry) => entry.id === "ai-qwen-coder-32b");
+  assert.deepEqual(byStrength([TWO, coder, ONE]), [{ strength: "coding", models: [coder] }, { strength: "", models: [TWO, ONE] }]);
+  assert.deepEqual(byStrength([ONE, TWO]), [{ strength: "", models: [ONE, TWO] }]);
+  assert.deepEqual(byStrength([]), []);
+
+  // The grouping is for reading only: who is asked first is as it was.
+  assert.deepEqual(idsOf(createModels({ ai: fakeAi(() => "") }).chain()), idsOf(all));
 });
 
 test("keyless models are asked first unless the order says otherwise", () => {

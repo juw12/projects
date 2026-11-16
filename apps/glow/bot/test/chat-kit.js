@@ -137,6 +137,12 @@ export function buttonsOf(payload) {
   return rows.map((row) => row.map((button) => button.callback_data || button.url || (button.web_app ? button.web_app.url : "")));
 }
 
+// The models /models lists unless a test names its own. Neither has a group, so the list is plain.
+const TEST_MODELS = [
+  { id: "test", kind: "test", label: "Test Model (Test)", name: "Test Model", model: "test-model", restingMs: 0 },
+  { id: "spare", kind: "test", label: "Spare <Model> (Test)", name: "Spare Model", model: "spare-model", restingMs: 61_000 },
+];
+
 export function makeChat({
   rules = [],
   web = fakeWeb(),
@@ -145,6 +151,7 @@ export function makeChat({
   chat = PRIVATE_CHAT,
   config = CONFIG,
   start = START,
+  listed = TEST_MODELS,
 } = {}) {
   const now = makeClock(start);
   const storage = new FakeStorage();
@@ -167,15 +174,12 @@ export function makeChat({
     telegramFor: () => createTelegram({ transport: telegram.transport, sleep: async () => {} }),
     modelsFor: () => ({
       complete,
-      describe: () => [
-        { id: "test", kind: "test", label: "Test Model (Test)", name: "Test Model", model: "test-model", restingMs: 0 },
-        { id: "spare", kind: "test", label: "Spare <Model> (Test)", name: "Spare Model", model: "spare-model", restingMs: 61_000 },
-      ],
+      describe: () => listed.map((model) => ({ ...model })),
     }),
     web,
     spark,
     registry,
-    info: { pages: PAGES, version: "1.34.0", build: "test" },
+    info: { pages: PAGES, version: "1.35.0", build: "test" },
     onError: (where, error) => errors.push({ where, error }),
   });
   const kit = { now, storage, telegram, models, web, spark, registry, errors, chat, config, logic: build() };
