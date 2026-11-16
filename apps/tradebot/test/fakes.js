@@ -142,3 +142,87 @@ export function okxBody(candles) {
   const rows = candles.map((candle) => [String(candle.t), String(candle.o), String(candle.h), String(candle.l), String(candle.c), String(candle.v), "0", "0", "1"]);
   return { code: "0", msg: "", data: rows.reverse() };
 }
+
+// ---------------------------------------------------------------- a pretend Luno
+
+export const LUNO_RATE = 16500; // rupiah for one USDT in the tests
+
+// As https://api.luno.com/api/exchange/1/markets answered on 16 Nov 2026.
+export const LUNO_MARKETS = [
+  { market_id: "XBTIDR", trading_status: "ACTIVE", base_currency: "XBT", counter_currency: "IDR", min_volume: "0.00001", max_volume: "10.00", volume_scale: 6, price_scale: 0 },
+  { market_id: "ETHIDR", trading_status: "ACTIVE", base_currency: "ETH", counter_currency: "IDR", min_volume: "0.001", max_volume: "1000.00", volume_scale: 6, price_scale: 0 },
+  { market_id: "SOLIDR", trading_status: "ACTIVE", base_currency: "SOL", counter_currency: "IDR", min_volume: "0.01", max_volume: "10000.00", volume_scale: 4, price_scale: 0 },
+];
+
+// Order books shaped like the real ones that day: bitcoin tight (0.08% between the best prices),
+// ETH and SOL with buyers far below the sellers.
+export function lunoBooks() {
+  return {
+    XBTIDR: {
+      asks: [{ price: "1650000000", volume: "0.05" }, { price: "1652000000", volume: "0.04" }],
+      bids: [{ price: "1648680000", volume: "0.004" }, { price: "1647000000", volume: "0.003" }],
+    },
+    ETHIDR: {
+      asks: [{ price: "60000000", volume: "0.5" }],
+      bids: [{ price: "35000000", volume: "0.2" }],
+    },
+    SOLIDR: {
+      asks: [{ price: "2188000", volume: "0.808752" }],
+      bids: [{ price: "1001001", volume: "0.0256" }, { price: "1001000", volume: "0.05" }, { price: "2001", volume: "24.3632" }],
+    },
+  };
+}
+
+// Records every request. balances/reserved are what /balance answers; books can be changed by the
+// test while it runs; pendingLooks is how often an order still reads PENDING before it is COMPLETE.
+// Fees are charged the way Luno Indonesia charges a market order: coins on a buy, rupiah on a sell.
+export function fakeLuno({ balances = { IDR: 1000000 }, reserved = {}, orderError = null, books = lunoBooks(), pendingLooks = 0 } = {}) {
+  const requests = [];
+  const placed = new Map();
+  const fetch = async (url, init = {}) => {
+    const parsed = new URL(url);
+    const method = init.method || "GET";
+    const params = new URLSearchParams(method === "POST" ? init.body : parsed.search);
+    const headers = init.headers || {};
+    requests.push({ method, path: parsed.pathname, params, headers });
+    if (parsed.pathname === "/api/exchange/1/markets") return reply({ markets: LUNO_MARKETS });
+    if (parsed.pathname === "/api/1/orderbook_top") {
+      const book = books[params.get("pair")];
+      return book ? reply({ timestamp: 1, ...book }) : reply({ error: "Invalid currency pair.", error_code: "ErrInvalidPair" }, { status: 400 });
+    }
+    if (!headers.Authorization) return reply({ error: "Unauthorized", error_code: "ErrUnauthorized" }, { status: 401 });
+    if (parsed.pathname === "/api/1/balance") {
+      const wanted = String(params.get("assets") || "").split(",");
+      const rows = wanted.map((asset) => ({ account_id: "1", asset, balance: String(balances[asset] || 0), reserved: String(reserved[asset] || 0), unconfirmed: "0" }));
+      return reply({ balance: rows });
+    }
+    if (parsed.pathname === "/api/1/marketorder") {
+      if (orderError) return reply({ error: orderError, error_code: "ErrInsufficientFunds" }, { status: 400 });
+      const book = books[params.get("pair")];
+      const id = `BX${placed.size + 1}`;
+      let order;
+      if (params.get("type") === "BUY") {
+        const counter = Number(params.get("counter_volume"));
+        const base = counter / Number(book.asks[0].price);
+        order = { base, counter, fee_base: base * 0.002122, fee_counter: 0 };
+      } else {
+        const base = Number(params.get("base_volume"));
+        const counter = base * Number(book.bids[0].price);
+        order = { base, counter, fee_base: 0, fee_counter: counter * 0.003722 };
+      }
+      placed.set(id, { order, looks: 0 });
+      return reply({ order_id: id });
+    }
+    if (parsed.pathname.startsWith("/api/1/orders/")) {
+      const id = parsed.pathname.split("/").pop();
+      const entry = placed.get(id);
+      if (!entry) return reply({ error: "Order not found", error_code: "ErrOrderNotFound" }, { status: 404 });
+      entry.looks += 1;
+      if (entry.looks <= pendingLooks) return reply({ order_id: id, state: "PENDING", base: "0", counter: "0", fee_base: "0", fee_counter: "0" });
+      const text = Object.fromEntries(Object.entries(entry.order).map(([key, value]) => [key, String(value)]));
+      return reply({ order_id: id, state: "COMPLETE", ...text });
+    }
+    return reply({ error: "unknown path" }, { status: 404 });
+  };
+  return { fetch, requests, books, orders: () => requests.filter((request) => request.path === "/api/1/marketorder") };
+}

@@ -150,9 +150,11 @@ export function createTokocrypto({ fetch, now = () => Date.now(), apiKey = "", a
 
   return {
     name: EXCHANGE_NAME,
+    quote: "USDT",
     hasKeys: !!(apiKey && apiSecret),
     rules,
     free,
+    freeQuote: () => free("USDT"),
     marketBuy: (symbol, quoteUsdt) => market(symbol, "buy", String(quoteUsdt)),
     marketSell: (symbol, quantity) => market(symbol, "sell", String(quantity)),
   };
