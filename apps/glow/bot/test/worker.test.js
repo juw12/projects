@@ -946,10 +946,14 @@ test("a model chosen with /model is the one the real Worker asks, and /model aut
   asked.length = 0;
   await call("/telegram/webhook", jsonPost(message(3, "/model llm7"), hook));
   assert.equal(said().length, 1);
-  assert.match(said()[0], /^<b>The free models that answer<\/b>\n1\. LLM7\n/);
+  // The list is grouped by what each model is good at. LLM7 is a router with no group of its own, so it is last.
+  assert.match(said()[0], /^<b>The free models that answer<\/b>\nGrouped by what each one is best at, /);
+  assert.match(said()[0], /\n\n<b>🏆 Hardest questions and long answers<\/b>\n1\. OVHcloud · Qwen3\.5 397B\n/);
+  assert.match(said()[0], /\n\n<b>Other<\/b>\n7\. LLM7\n\nYour choice: /);
   assert.match(said()[0], /\nYour choice: <b>LLM7<\/b> is asked first\. If it is busy the next one answers\.\n/);
   const labels = asked[0].payload.reply_markup.inline_keyboard.flat().map((button) => button.text);
-  assert.equal(labels[0], "✓ 1. LLM7");
+  assert.equal(labels[0], "1. Qwen3.5 397B", "a button carries the number and the short name");
+  assert.equal(labels.at(-2), "✓ 7. LLM7");
   assert.equal(labels.at(-1), "Auto: GlowBot chooses");
   assert.equal(labels.length, KEYLESS.length + 1, "one button for each model, and one for Auto");
 

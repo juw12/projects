@@ -10,6 +10,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { AGENTS } from "../src/missions.js";
+import { STRENGTHS } from "../src/models.js";
 import {
   COMMANDS,
   OWNER_COMMANDS,
@@ -179,7 +180,7 @@ test("every key is asked for somewhere: no text is left over", () => {
   const quoted = new Set([...CODE.matchAll(/"([A-Za-z.]+)"/g)].map((match) => match[1]));
   const built = unique([...CODE.matchAll(BUILT)].map((match) => match[1]));
   // cmd.* is built inside strings.js itself, by commandList()
-  assert.deepEqual(built, ["agent.role.", "board.phase.", "board.state.", "every.last.", "mode."]);
+  assert.deepEqual(built, ["agent.role.", "board.phase.", "board.state.", "every.last.", "mode.", "models.group."]);
   assert.match(WORDS, /`cmd\.\$\{command\}`/);
   const prefixes = [...built, "cmd."];
   const leftOver = STRING_KEYS.filter((key) => !quoted.has(key) && !prefixes.some((prefix) => key.startsWith(prefix)));
@@ -200,6 +201,8 @@ test("the keys built from a name cover exactly the names the code uses", () => {
   assert.deepEqual(family("board.phase."), phases);
   // a running job shows its phase; every other state has a text of its own
   assert.deepEqual(family("board.state."), states.filter((state) => state !== "active"));
+  // every group of /models has a heading, and "other" is the heading for a model in no group
+  assert.deepEqual(family("models.group."), [...STRENGTHS.map(([strength]) => strength), "other"].sort());
 });
 
 // ---- Telegram's limits ----------------------------------------------------------------------

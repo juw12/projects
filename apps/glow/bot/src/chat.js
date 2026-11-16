@@ -26,6 +26,7 @@ import {
   prepareUnit,
   runUnit,
 } from "./missions.js";
+import { byStrength } from "./models.js";
 import { whoAndWhere } from "./registry.js";
 import { archiveJob, archiveLines, findArchived } from "./archive.js";
 import {
@@ -1117,19 +1118,34 @@ export class ChatLogic {
     return found;
   }
 
-  // The free models in the order they are asked, which ones are resting after a busy answer,
+  // The models of /models in the order they are shown: grouped by what each is good at, the first pick
+  // of each group first. The number of a line, and of its button, is its place in this list.
+  rankedModels() {
+    const groups = byStrength(this.modelsFor(this.state.models).describe());
+    return { groups, models: groups.flatMap((group) => group.models) };
+  }
+
+  // The free models grouped by what each is good at, which ones are resting after a busy answer,
   // and one button each to choose who is asked first.
   modelsView() {
     const state = this.state;
     const lang = state.lang;
-    const models = this.modelsFor(state.models).describe();
+    const { groups, models } = this.rankedModels();
     const pinned = this.pinnedModel(models);
+    // Headings only when some model has a group: a list nobody ranked stays a plain list.
+    const grouped = groups.some((group) => group.strength);
     const lines = [t(lang, "models.title")];
-    models.forEach((model, index) => {
-      const minutes = Math.ceil(model.restingMs / 60000);
-      const resting = model.restingMs > 0 ? ` · ${t(lang, "models.resting", { n: minutes })}` : "";
-      lines.push(`${index + 1}. ${escapeHtml(modelTitle(model))}${resting}`);
-    });
+    if (grouped) lines.push(t(lang, "models.grouped"));
+    let number = 0;
+    for (const group of groups) {
+      if (grouped) lines.push("", t(lang, `models.group.${group.strength || "other"}`));
+      for (const model of group.models) {
+        number += 1;
+        const minutes = Math.ceil(model.restingMs / 60000);
+        const resting = model.restingMs > 0 ? ` · ${t(lang, "models.resting", { n: minutes })}` : "";
+        lines.push(`${number}. ${escapeHtml(modelTitle(model))}${resting}`);
+      }
+    }
     lines.push("");
     if (pinned) lines.push(t(lang, "models.pinned", { name: modelTitle(pinned) }));
     else lines.push(`${t(lang, "models.auto")} ${t(lang, "models.how")}`);
@@ -1156,7 +1172,7 @@ export class ChatLogic {
       if (MODEL_AUTO_WORDS.includes(wanted)) {
         delete state.models.pinned;
       } else {
-        const matches = matchModels(this.modelsFor(state.models).describe(), wanted);
+        const matches = matchModels(this.rankedModels().models, wanted);
         if (!matches.length) return this.reply(message, t(lang, "models.unknown", { name: clip(arg.trim(), 60) }));
         if (matches.length > 1) {
           const list = matches.map(modelTitle).join(", ");
