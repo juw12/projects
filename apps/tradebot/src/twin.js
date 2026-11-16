@@ -108,7 +108,7 @@ function quote(snapshot, value) {
   return snapshot.stake === "USDT" ? price(value) : `${value} ${escapeHtml(snapshot.stake)}`;
 }
 
-function ago(ms) {
+export function ago(ms) {
   const minutes = Math.max(0, Math.round(ms / 60000));
   if (minutes < 1) return "just now";
   if (minutes < 120) return `${minutes} minute${minutes === 1 ? "" : "s"} ago`;

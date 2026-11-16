@@ -15,6 +15,13 @@
 //   POST /v1/twin/report    the PC's reporter (report key): what the twin is doing right now
 //   POST /v1/twin/telegram  Telegram's webhook for the twin's bot
 //
+// MetaTrader 5 (mt5.js): a bridge on the owner's PC copies the practice account's open coins onto an
+// MT5 DEMO account. It asks here what to hold and posts back what the demo account looks like; the
+// Worker never reaches the PC. Off until the owner runs the setup and gives the bridge its key.
+//   POST /v1/mt5/setup      owner only (setup code): make the bridge key, shown once
+//   GET  /v1/mt5/signals    the bridge (bridge key): the coins the practice account holds right now
+//   POST /v1/mt5/report     the bridge (bridge key): what the demo account looks like
+//
 // One Durable Object, the Trader, holds the bot's settings and the practice account. Its alarm
 // rings every 5 minutes: that is the agent's round. Everything it does happens one thing at a
 // time, so a command and a round can never trade over each other.
@@ -32,6 +39,7 @@ import { createLuno } from "./luno.js";
 import { COMMANDS, handleUpdate } from "./bot.js";
 import { refreshRate, rateOfState } from "./fx.js";
 import { SOURCE_NAMES, createMarket } from "./market.js";
+import { changes as mt5Changes, cleanReport, wantedOf } from "./mt5.js";
 import * as render from "./render.js";
 import { createTelegram } from "./telegram.js";
 import { TWIN_COMMANDS, answer as twinAnswer, changes as twinChanges, cleanSnapshot } from "./twin.js";
@@ -44,7 +52,7 @@ const PROBE_GOOD_FOR_MS = 5 * 60 * 1000;
 const DESK_CHECK_GOOD_FOR_MS = 6 * 60 * 60 * 1000;
 const SEEN_UPDATES = 50;
 const TOKEN_SHAPE = /^\d{5,}:[A-Za-z0-9_-]{30,}$/; // what @BotFather hands out
-const REPORT_MAX_BYTES = 32 * 1024; // a twin report is a few hundred bytes; anything huge is not one
+const REPORT_MAX_BYTES = 32 * 1024; // a twin or MT5 report is a few hundred bytes; anything huge is not one
 
 function buildOf(env) {
   return String((env && env.BUILD) || "dev");
@@ -123,6 +131,9 @@ export function createWorker(overrides) {
       if (url.pathname === "/twin/setup" && request.method === "POST") return this.run(() => this.twinSetup(body));
       if (url.pathname === "/twin/report" && request.method === "POST") return this.run(() => this.twinReport(body));
       if (url.pathname === "/twin/update" && request.method === "POST") return this.run(() => this.twinUpdate(body));
+      if (url.pathname === "/mt5/setup" && request.method === "POST") return this.run(() => this.mt5Setup(body));
+      if (url.pathname === "/mt5/signals" && request.method === "POST") return this.run(() => this.mt5Signals(body));
+      if (url.pathname === "/mt5/report" && request.method === "POST") return this.run(() => this.mt5Report(body));
       return json({ ok: false, error: "not found" }, 404);
     }
 
@@ -261,6 +272,7 @@ export function createWorker(overrides) {
       if (state.fx && state.fx.at !== before) await this.storage.put("state", state); // keep a fresh rate
       const alarm = await this.storage.getAlarm();
       const twin = (await this.storage.get("twin")) || {};
+      const mt5 = (await this.storage.get("mt5")) || {};
       return json({
         configured: !!config.token,
         bot: config.bot ? config.bot.username : null,
@@ -269,6 +281,7 @@ export function createWorker(overrides) {
         lastRound: state.lastTick ? { at: state.lastTick.at, markets: state.lastTick.symbols, errors: state.lastTick.errors.length } : null,
         rupiah: state.fx ? { perUsdt: state.fx.rate, source: state.fx.source, at: state.fx.at } : null,
         twin: { configured: !!twin.token, bot: twin.bot ? twin.bot.username : null, lastReportAt: twin.snapshotAt || null },
+        mt5: { configured: !!mt5.keyHash, lastReportAt: mt5.reportAt || null, demo: mt5.report ? mt5.report.demo : null },
       });
     }
 
@@ -447,7 +460,9 @@ export function createWorker(overrides) {
 
       const state = await this.state();
       await this.rupiah(state);
-      const result = await handleUpdate({ state, market, now: deps.now(), env: this.env || {} }, update);
+      const mt5 = (await this.storage.get("mt5")) || {};
+      const mt5View = { configured: !!mt5.keyHash, report: mt5.report || null, at: mt5.reportAt || 0, now: deps.now() };
+      const result = await handleUpdate({ state, market, now: deps.now(), env: this.env || {}, mt5: mt5View }, update);
       const copies = await this.copyLive(state);
       if (copies.length) result.messages = [...(result.messages || []), ...copies];
       await this.storage.put("state", state); // saved before anything is sent
@@ -566,6 +581,58 @@ export function createWorker(overrides) {
       await say(twinAnswer(text, { snapshot: twin.snapshot || null, at: twin.snapshotAt || 0, now: deps.now() }).html);
       return json({ ok: true });
     }
+
+    // ---------------------------------------------------------------- MetaTrader 5 (the bridge on the PC)
+
+    // Make the bridge key. It is shown once: the bridge on the PC needs it, and only its SHA-256 is
+    // kept here. Until this has run, nothing can ask for signals or post a report.
+    async mt5Setup(body) {
+      const mt5 = (await this.storage.get("mt5")) || {};
+      const keepKey = !!mt5.keyHash && !body.newKey;
+      const bridgeKey = keepKey ? null : randomHex(32);
+      await this.storage.put("mt5", {
+        keyHash: keepKey ? mt5.keyHash : await sha256Hex(bridgeKey),
+        report: mt5.report || null,
+        reportAt: mt5.reportAt || null,
+        connectedAt: deps.now(),
+      });
+      const config = await this.config();
+      return json({
+        ok: true,
+        ownerPaired: !!config.ownerId,
+        bridgeKey,
+        note: bridgeKey ? "Put bridgeKey in the bridge's .env as MT5_BRIDGE_KEY. It is not shown again." : "The bridge key from the first setup still works. Send newKey: true for a new one.",
+      });
+    }
+
+    // The stored MT5 record when `key` is the bridge key, else null.
+    async mt5For(key) {
+      const mt5 = await this.storage.get("mt5");
+      const given = typeof key === "string" ? key : "";
+      if (!mt5 || !mt5.keyHash || !given || !safeEqual(await sha256Hex(given), mt5.keyHash)) return null;
+      return mt5;
+    }
+
+    // What the bridge should hold: the practice account's open positions. { key }
+    async mt5Signals(body) {
+      if (!(await this.mt5For(body.key))) return json({ ok: false, error: "not allowed" }, 403);
+      return json({ ok: true, ...wantedOf(await this.state(), deps.now()) });
+    }
+
+    // A report from the bridge: { key, report }. Stored, and copies that opened or closed are told
+    // to the owner through TradeBot's own bot.
+    async mt5Report(body) {
+      const mt5 = await this.mt5For(body.key);
+      if (!mt5) return json({ ok: false, error: "not allowed" }, 403);
+      const report = cleanReport(body.report);
+      if (!report) return json({ ok: false, error: "That is not an MT5 report." }, 400);
+      await this.state(); // amounts are written in rupiah once a rate is known
+      const messages = mt5Changes(mt5.report, report);
+      const now = deps.now();
+      await this.storage.put("mt5", { ...mt5, report, reportAt: now }); // saved before anything is sent
+      await this.deliver(await this.config(), messages);
+      return json({ ok: true, at: now, told: messages.length });
+    }
   }
 
   async function route(request, env) {
@@ -650,6 +717,35 @@ export function createWorker(overrides) {
       const update = await request.json().catch(() => null);
       if (!secret) return json({ ok: false, error: "not allowed" }, 403);
       const answer = await trader.fetch(post("/twin/update", { secret, update: update || {} }));
+      return json(await answer.json(), answer.status);
+    }
+
+    if (request.method === "POST" && path === "/v1/mt5/setup") {
+      if (!(await hasSetupCode(request, env))) return json({ ok: false, error: "Setting up the MT5 bridge needs the setup code." }, 403);
+      const body = await request.json().catch(() => ({}));
+      const answer = await trader.fetch(post("/mt5/setup", { newKey: !!body.newKey }));
+      return json(await answer.json(), answer.status);
+    }
+
+    if (request.method === "GET" && path === "/v1/mt5/signals") {
+      const key = request.headers.get("X-Mt5-Key") || "";
+      if (!key) return json({ ok: false, error: "not allowed" }, 403);
+      const answer = await trader.fetch(post("/mt5/signals", { key }));
+      return json(await answer.json(), answer.status);
+    }
+
+    if (request.method === "POST" && path === "/v1/mt5/report") {
+      const key = request.headers.get("X-Mt5-Key") || "";
+      if (!key) return json({ ok: false, error: "not allowed" }, 403);
+      const text = await request.text();
+      if (text.length > REPORT_MAX_BYTES) return json({ ok: false, error: "That report is too big." }, 413);
+      let report = null;
+      try {
+        report = JSON.parse(text);
+      } catch (error) {
+        return json({ ok: false, error: "That is not an MT5 report." }, 400);
+      }
+      const answer = await trader.fetch(post("/mt5/report", { key, report }));
       return json(await answer.json(), answer.status);
     }
 

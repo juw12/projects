@@ -64,6 +64,7 @@ exchange takes) and are shown as USDT with rupiah beside them; `/live size 200rb
 | `/history` | Closed trades |
 | `/desk`, `/desk off` | The second opinion (Bull, Bear, Risk) and how its calls turned out |
 | `/live` | Real money on Luno, in rupiah: off, shadow (rehearsal) or on. See [Real money](#real-money-luno-in-rupiah-off-by-default) |
+| `/mt5` | The MetaTrader 5 demo account the PC bridge copies to: balance, open copies, how old the numbers are. See [MetaTrader 5](#metatrader-5-demo-account-only) |
 | `/reset` | Start over with fresh practice money (asks first) |
 | `/help` | The short version of this page |
 
@@ -181,6 +182,25 @@ and `/trades` to TradeBot's owner, says when the PC has gone quiet, and tells ea
 It only shows: nothing is sent back to the PC. On an office network that blocks Telegram, check
 that sending the numbers out this way is allowed before switching reports on.
 
+## MetaTrader 5 (demo account only)
+
+`mt5/bridge.py` copies the practice account's open coins into a MetaTrader 5 **demo** account. The
+Worker cannot do that itself: MetaTrader 5 only takes orders from a program on the same Windows PC
+as its terminal. So the bridge runs on that PC, asks this Worker once a minute which coins are
+held (`GET /v1/mt5/signals`), buys the broker's smallest lot of each on its crypto symbols (BTCUSD
+and so on), closes the ones the practice account has sold, and posts the demo account's numbers
+back (`POST /v1/mt5/report`) for `/mt5` in Telegram.
+
+- **Practice money only.** A real or contest account gets no order; that is checked again before
+  every single order.
+- **Crypto symbols, not forex pairs.** The rules run on BTC, ETH and SOL prices. EURUSD or gold
+  would need their own prices and rules, which are not built.
+- **Off until switched on.** `POST /v1/mt5/setup` (setup code) gives the bridge key once; the
+  bridge does nothing until that key is in `mt5/.env` on the PC.
+- **Not tried on a real terminal yet.** Its 42 tests run against a pretend MetaTrader 5.
+
+Setup, settings and limits: `mt5/README.md`.
+
 ## Where the prices come from
 
 Finished candles from public market-data addresses, no account or key needed: Gate first, then
@@ -195,6 +215,7 @@ never trades on stale numbers.
     cd apps/tradebot
     node --test test/*.test.js     # no network, no installs: a pretend Telegram, prices and clock
     node tools/transcript.js --out chat.md   # four scripted days of chat, as the owner sees it
+    cd mt5 && python -m unittest   # the MetaTrader 5 bridge against a pretend terminal
 
 `tools/transcript.js` drives the real Worker through a fixed script (setup, trades, typos, an
 outage, a reset) with scripted prices, and writes every message as Markdown.
@@ -212,11 +233,15 @@ appears, every trade message says "practice", and no secret is printed.
 | `POST /v1/twin/setup` | owner only (setup code): connect the twin's bot, get the report key once |
 | `POST /v1/twin/report` | the PC's reporter (report key): what the twin is doing right now |
 | `POST /v1/twin/telegram` | Telegram's webhook for the twin's bot |
+| `POST /v1/mt5/setup` | owner only (setup code): get the MetaTrader 5 bridge key once (`{"newKey": true}` replaces it) |
+| `GET /v1/mt5/signals` | the PC's bridge (bridge key): which coins the practice account holds, with their stops |
+| `POST /v1/mt5/report` | the PC's bridge (bridge key): what the demo account looks like right now |
 
 One Durable Object holds the settings and the practice account; its alarm is the agent's clock.
 The bot token lives only inside that Durable Object, never in this repository or in logs.
-Pushing to `main` runs `.github/workflows/trade-bot-worker.yml`: tests, bundle, deploy, then a
-check that the new build answers and can read prices.
+Pushing to `main` runs `.github/workflows/trade-bot-worker.yml`: tests (the Worker's and the
+MetaTrader 5 bridge's), bundle, deploy, then a check that the new build answers and can read
+prices.
 
 | File | What it holds |
 |---|---|
@@ -228,6 +253,8 @@ check that the new build answers and can read prices.
 | `src/bot.js`, `src/render.js` | commands, typo handling and message text |
 | `src/index.js` | the Worker, the Durable Object, setup and pairing |
 | `src/twin.js` | the twin's bot: tidy a report, spot new trades, write the messages |
+| `src/mt5.js` | the MetaTrader 5 side: what the bridge should hold, tidy its report, write the messages |
+| `mt5/bridge.py` | the PC program that copies to a MetaTrader 5 demo account (`mt5/test_bridge.py` tests it) |
 | `src/live.js` | real money: the limits, the gap rules, rehearsal and the real copies |
 | `src/luno.js`, `src/exchange.js` | the two exchanges real orders can go to: Luno (rupiah) and Tokocrypto (USDT) |
 | `src/venues.js` | which Indonesian exchanges answer from Cloudflare |
@@ -291,7 +318,12 @@ copy would be taken or refused (never balances, and no key is used).
 `"tokocrypto"` (USDT markets, secrets `TOKO_API_KEY` and `TOKO_API_SECRET`). Tokocrypto answers
 HTTP 403 to Cloudflare's servers (checked 13 Nov 2026, the same as Binance), so its orders cannot
 leave the Worker; that is why it is not the default. Indodax has the busiest rupiah books but also
-refuses Cloudflare, so it would need a sender outside Cloudflare. Upbit Indonesia answers but its
+refuses Cloudflare, so it would need a sender outside Cloudflare. Measured 16 Nov 2026 with public
+price requests only: Indodax answered a plainly named client from an Indonesian PC (HTTP 200) and
+refused Cloudflare's servers and any client whose name contains "bot" (HTTP 403). It has a phone
+app in Indonesia and a documented trade API, so it is the next exchange to add, with a sender on
+a PC like the MetaTrader 5 bridge; that is not built. (The owner could not find Luno's app in the
+Indonesian app store; not checked here.) Upbit Indonesia answers but its
 gaps cost 1 to 1.8% a trade. `GET /v1/venues` asks these exchanges (and Reku, prices only) from
 inside the Worker and shows which ones answer; no keys are sent and nothing is bought. Pintu,
 GoTrade, Stockbit and Pluang have no order API for ordinary customers, so no bot can trade through
