@@ -26,6 +26,7 @@ COST_PERCENT = 0.6  # a round trip at Indodax costs about this much (0,3 percent
 KEEP = 200  # calls kept: the oldest fall off the end
 GAP_MS = 5 * 60 * 1000  # a call that changes sooner than this is the same call, not a new one
 GRACE_SHARE = 0.5  # a mark is only written when the look came within half the mark of it
+LATE = " (from the candle)"  # a mark read out of the chart afterwards, because the window was closed at it
 JSON_NAME = "decisions.json"
 KINDS = ("BUY", "HOLD", "SELL", "WAIT")
 MARK_GLYPHS = {"right": "✓", "wrong": "✗", "flat": "·", "open": "…", "unseen": "–"}
@@ -33,7 +34,7 @@ GUIDE = (
     "How this is marked: the price at Indodax when the call was made against the price 1, 4 and 24 hours later. "
     "A buy or a hold is right when the price rose by more than the 0,6% a round trip costs, "
     "a sell when it fell that far, a wait when it did not rise that far. A call is marked at the 4-hour mark: that is the candle the rules work on. "
-    "A mark is only written when the window was open at it; a missed one says so. "
+    "A mark is only written when the window was open at it; a mark the window was closed for is read afterwards out of the candle of that hour, and the line says so. "
     "Shown only: this log places no order, and no rule reads it."
 )
 
@@ -185,6 +186,69 @@ def settle(log, prices, now_ms) -> bool:
     return changed
 
 
+def candle_step(rows) -> int:
+    """How long one candle of these rows lasts, in ms: 0 when the rows are too short or out of order."""
+    for one, two in zip(rows, rows[1:]):
+        gap = number(two.get("t")) - number(one.get("t"))
+        if gap > 0:
+            return int(gap)
+    return 0
+
+
+def reading_at(rows, moment, step) -> float:
+    """The close of the candle that covers this moment, or 0 when these rows do not reach it."""
+    for row in rows:
+        start = number(row.get("t"))
+        if start <= moment < start + step:
+            return number(row.get("c"))
+        if start > moment:
+            break
+    return 0.0
+
+
+def fill(log, coin, candles, now_ms) -> bool:
+    """Read the marks the window was closed for out of the chart's own candles. True when one was read.
+
+    A mark is only read from a candle no longer than the mark itself (a 1-hour mark from 15-minute or
+    1-hour candles, never a day) and only once that candle has really closed. This is a reading and not
+    a guess: it is the close Indodax printed for that slice, and the line says it came from the candle.
+    """
+    wanted = str(coin or "").upper()
+    if not wanted or not isinstance(candles, dict):
+        return False
+    frames = []
+    for rows in candles.values():
+        clean = [row for row in rows or [] if isinstance(row, dict) and number(row.get("t")) > 0]
+        step = candle_step(clean)
+        if step > 0:
+            frames.append((step, clean))
+    if not frames:
+        return False
+    frames.sort(key=lambda pair: pair[0])  # finest candle first: the closest reading to the mark
+    changed = False
+    for call in log.get("calls") or []:
+        if str(call.get("coin") or "").upper() != wanted:
+            continue
+        for mark in call.get("marks") or []:
+            if number(mark.get("price")) > 0:
+                continue  # the window was open at this one: a real look is never overwritten
+            hours = int(number(mark.get("hours")))
+            due = number(call.get("at")) + hours * 3600 * 1000
+            if hours <= 0 or number(now_ms) < due:
+                continue
+            for step, rows in frames:
+                if step > hours * 3600 * 1000 or number(now_ms) < due + step:
+                    continue  # too coarse for this mark, or that candle has not closed yet
+                price = reading_at(rows, due, step)
+                if price <= 0:
+                    continue
+                mark.pop("missed", None)
+                mark.update({"hours": hours, "at": due + step, "price": price, "late": True})
+                changed = True
+                break
+    return changed
+
+
 def verdict_mark(call):
     """The first mark at or after the verdict mark that was really seen, or None."""
     marks = [mark for mark in call.get("marks") or [] if int(number(mark.get("hours"))) >= VERDICT_HOURS and number(mark.get("price")) > 0]
@@ -207,7 +271,7 @@ def judge(call) -> tuple:
     if move is None:
         passed = [mark for mark in call.get("marks") or [] if int(number(mark.get("hours"))) >= VERDICT_HOURS]
         if passed:
-            return "unseen", f"not marked: the window was closed at the {VERDICT_HOURS}-hour mark"
+            return "unseen", f"not marked: the window was closed at the {VERDICT_HOURS}-hour mark and no candle reached it"
         return "open", f"open: the {VERDICT_HOURS}-hour mark is not in yet"
     hours = int(number(verdict_mark(call).get("hours")))
     when = f"{hours} hours later"
@@ -251,6 +315,9 @@ def rows(log, most: int = 6) -> list:
     found = []
     for call in reversed((log or {}).get("calls") or []):
         mark, words = judge(call)
+        seen_at = verdict_mark(call)
+        if seen_at is not None and seen_at.get("late"):
+            words += LATE
         found.append({
             "at": number(call.get("at")), "coin": str(call.get("coin")), "kind": str(call.get("kind")),
             "head": str(call.get("head")), "price": number(call.get("price")), "did": did_text(call),
@@ -272,11 +339,20 @@ def tally(log) -> tuple:
     return counts, f"{total} {'call' if total == 1 else 'calls'}: {said}."
 
 
-def update(log, report, team, coin, now_ms, path=None) -> dict:
-    """Record the desk lead's call, write down the marks that have come, save when anything changed."""
+def update(log, report, team, coin, now_ms, path=None, candles=None) -> dict:
+    """Record the desk lead's call, write down the marks that have come, save when anything changed.
+
+    candles is the chart the window already holds ({frame: rows}): the marks the window was closed for
+    are read out of it, so a sleeping PC does not lose the verdict.
+    """
     log = log if isinstance(log, dict) and isinstance(log.get("calls"), list) else empty()
     prices = prices_of(report)
     changed = settle(log, prices, now_ms)
+    try:
+        if fill(log, coin, candles, now_ms):
+            changed = True
+    except (ArithmeticError, LookupError, TypeError, ValueError):
+        pass  # a chart that cannot be read is not a reason to stop the window
     lead = next((member for member in team or [] if isinstance(member, dict) and member.get("key") == "lead"), None)
     if lead is not None:
         mode = (report or {}).get("mode") if isinstance(report, dict) else ""

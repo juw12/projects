@@ -343,7 +343,9 @@ What is where:
   is marked at the 4-hour mark (the candle the rules work on): a buy or a hold is right when the
   price rose by more than the 0,6% a round trip costs, a sell when it fell that far, a wait when
   it did not rise that far; a move smaller than that is "flat", which is neither a win nor a
-  loss. A mark the window was closed for is written as "not seen" rather than made up. The log
+  loss. A mark the window was closed for is read afterwards out of the chart's candle for that
+  hour, and the line says "(from the candle)"; only an hour with no candle either is left as
+  "not seen", never made up. The log
   lives in `decisions.json` next to the app (ignored by git) and keeps the newest 200 calls.
   Shown only: it places no order and no rule reads it, so the bot buys and sells exactly as
   before. `--demo` fills the log with made-up calls so it can be read at once. The same thing in

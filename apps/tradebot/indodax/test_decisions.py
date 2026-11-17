@@ -205,6 +205,81 @@ class Saving(unittest.TestCase):
             self.assertEqual(decisions.load(path)["calls"], [])
 
 
+def candles(start, step_ms, closes):
+    """Rows the way the chart comes in: one per slice, each with its open time and its close."""
+    return [{"t": start + index * step_ms, "o": close, "h": close, "l": close, "c": close} for index, close in enumerate(closes)]
+
+
+def missed_call(kind="WAIT", price=1_000.0, hours=(1, 4), coin="BTC"):
+    return call(kind, price, marks=[{"hours": hour, "missed": True} for hour in hours], coin=coin)
+
+
+class ReadingTheChart(unittest.TestCase):
+    """A window that was closed at a mark reads it out of the candles the chart already holds."""
+
+    def test_a_mark_the_window_was_closed_for_is_read_out_of_its_candle(self):
+        log = {"version": 1, "updated": 0, "calls": [missed_call()]}
+        rows = candles(NOW + 3 * HOUR, 15 * MINUTE, [1_000.0] * 4 + [980.0] * 4)
+        self.assertTrue(decisions.fill(log, "BTC", {"15m": rows}, NOW + 6 * HOUR))
+        marks = {mark["hours"]: mark for mark in log["calls"][0]["marks"]}
+        self.assertEqual(marks[4]["price"], 980.0)
+        self.assertTrue(marks[4]["late"])
+        self.assertNotIn("missed", marks[4])
+        self.assertEqual(decisions.judge(log["calls"][0])[0], "right", "a wait whose price fell is right")
+
+    def test_a_candle_longer_than_the_mark_is_not_used_for_it(self):
+        log = {"version": 1, "updated": 0, "calls": [missed_call(hours=(1,))]}
+        rows = candles(NOW - 4 * HOUR, 4 * HOUR, [1_000.0, 990.0, 985.0])
+        self.assertFalse(decisions.fill(log, "BTC", {"4H": rows}, NOW + 6 * HOUR))
+        self.assertTrue(log["calls"][0]["marks"][0]["missed"])
+
+    def test_no_candle_reaching_the_mark_leaves_it_not_seen(self):
+        log = {"version": 1, "updated": 0, "calls": [missed_call()]}
+        rows = candles(NOW + 10 * HOUR, 15 * MINUTE, [1_000.0] * 8)  # the chart starts after the marks
+        self.assertFalse(decisions.fill(log, "BTC", {"15m": rows}, NOW + 12 * HOUR))
+        self.assertEqual(decisions.judge(log["calls"][0])[0], "unseen")
+
+    def test_a_mark_that_was_really_seen_is_never_overwritten(self):
+        log = {"version": 1, "updated": 0, "calls": [call("WAIT", 1_000.0, marks=[{"hours": 4, "at": NOW + 4 * HOUR, "price": 900.0}])]}
+        rows = candles(NOW + 3 * HOUR, 15 * MINUTE, [1_000.0] * 8)
+        self.assertFalse(decisions.fill(log, "BTC", {"15m": rows}, NOW + 6 * HOUR))
+        self.assertEqual(log["calls"][0]["marks"][0]["price"], 900.0)
+
+    def test_the_candles_of_another_coin_are_not_used(self):
+        log = {"version": 1, "updated": 0, "calls": [missed_call(coin="ETH")]}
+        rows = candles(NOW + 3 * HOUR, 15 * MINUTE, [1_000.0] * 8)
+        self.assertFalse(decisions.fill(log, "BTC", {"15m": rows}, NOW + 6 * HOUR))
+
+    def test_a_candle_that_has_not_closed_yet_is_not_used(self):
+        log = {"version": 1, "updated": 0, "calls": [missed_call(hours=(4,))]}
+        rows = candles(NOW + 4 * HOUR, 15 * MINUTE, [1_000.0] * 4)  # the first closes 15 minutes after the mark
+        self.assertFalse(decisions.fill(log, "BTC", {"15m": rows}, NOW + 4 * HOUR + 5 * MINUTE))
+        self.assertTrue(decisions.fill(log, "BTC", {"15m": rows}, NOW + 4 * HOUR + 20 * MINUTE))
+
+    def test_the_shown_line_says_the_mark_came_from_the_candle(self):
+        log = {"version": 1, "updated": 0, "calls": [missed_call(kind="BUY")]}
+        rows = candles(NOW + 3 * HOUR, 15 * MINUTE, [1_000.0] * 4 + [1_030.0] * 4)
+        decisions.fill(log, "BTC", {"15m": rows}, NOW + 6 * HOUR)
+        row = decisions.rows(log)[0]
+        self.assertEqual(row["mark"], "right")
+        self.assertTrue(row["words"].endswith(decisions.LATE), row["words"])
+
+    def test_one_look_fills_a_missed_mark_and_saves_it(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / decisions.JSON_NAME
+            log = {"version": 1, "updated": 0, "calls": [missed_call(kind="BUY", hours=(4,))]}
+            rows = candles(NOW + 3 * HOUR, 15 * MINUTE, [1_000.0] * 4 + [1_040.0] * 4)
+            quiet = {"mode": "real", "market": []}  # no price in the report: only the chart can say
+            log = decisions.update(log, quiet, team("Wait: no buy now"), "BTC", NOW + 6 * HOUR, path, {"15m": rows, "4H": candles(NOW - 4 * HOUR, 4 * HOUR, [1_000.0, 1_010.0])})
+            self.assertEqual(decisions.load(path)["calls"][0]["marks"][0]["price"], 1_040.0)
+            self.assertEqual(decisions.judge(log["calls"][0])[0], "right")
+
+    def test_a_chart_that_makes_no_sense_does_not_stop_the_window(self):
+        log = {"version": 1, "updated": 0, "calls": [missed_call()]}
+        for bad in ({"15m": None}, {"15m": ["nonsense", 3]}, {"15m": [{"t": "x", "c": "y"}]}, {}, None):
+            self.assertFalse(decisions.fill(log, "BTC", bad, NOW + 6 * HOUR))
+
+
 class DeskSide(unittest.TestCase):
     def test_one_look_records_the_call_and_saves_it(self):
         with tempfile.TemporaryDirectory() as folder:
