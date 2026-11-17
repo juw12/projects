@@ -14,10 +14,10 @@
 // This file is the pure part: tidy a report, spot what changed, and write the messages. Every
 // message says whether it is pretend money or REAL MONEY, and anything unclear is shown as real.
 
-import { clock, coin, idNumber, nextStep, pct, signalLines } from "./render.js";
+import { clock, coin, day, hour, idNumber, nextStep, pct, signalLines } from "./render.js";
 import { PARAMS } from "./strategy.js";
 import { ago } from "./twin.js";
-import { clip, escapeHtml } from "./util.js";
+import { VERSION, clip, escapeHtml } from "./util.js";
 
 export const INDODAX_STALE_MS = 5 * 60 * 1000; // reports come every minute; five missed means the PC is away
 export const INDODAX_SILENT_MS = 10 * 60 * 1000; // this long without a report, with real money in play, is told once
@@ -110,6 +110,22 @@ export function cleanReport(raw) {
 }
 
 const VERDICTS = new Set(["keep", "watch", "review"]);
+// The study's score, 0 to 10: the most each part can give (SCORE_MOST in learn.py).
+export const SCORE_MOST = { unseen: 3, steady: 2, dips: 2, real: 3 };
+const MAX_CURVE = 60;
+
+const within = (value, most) => (typeof value === "number" && Number.isFinite(value) ? Math.min(most, Math.max(0, Math.round(value * 100) / 100)) : 0);
+
+// The score of one study, or null when the sender is older than the score.
+function cleanScore(raw) {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw) || typeof raw.total !== "number" || !Number.isFinite(raw.total)) return null;
+  const parts = raw.parts && typeof raw.parts === "object" && !Array.isArray(raw.parts) ? raw.parts : {};
+  return {
+    total: within(raw.total, 10),
+    parts: Object.fromEntries(Object.entries(SCORE_MOST).map(([name, most]) => [name, within(parts[name], most)])),
+    realTrades: Math.max(0, Math.round(number(raw.realTrades))),
+  };
+}
 
 // The short result of the sender's own study of the rules (indodax/learn.py on the PC), or null.
 // Numbers, and one short line that names the version it watches. The study only reads prices: it
@@ -141,6 +157,12 @@ export function cleanLearn(raw) {
     },
     challenger: other ? { rules: clip(typeof other.rules === "string" ? other.rules.trim() : "", 80), days: number(other.days), trades: number(other.trades), lead: number(other.lead) } : null,
     verdict: other ? raw.verdict : "keep",
+    score: cleanScore(raw.score),
+    // One point a day, oldest first: the score's curve.
+    curve: objects(raw.curve)
+      .slice(-MAX_CURVE)
+      .map((point) => ({ at: number(point.at), score: within(point.score, 10) }))
+      .filter((point) => point.at > 0),
   };
 }
 
@@ -571,6 +593,46 @@ export const LEARN_OLD_MS = 12 * 60 * 60 * 1000; // the study runs every four ho
 const LEARN_REVIEW = { days: 90, trades: 8 }; // what a watched version needs before a review (learn.py)
 
 const share = (value) => idNumber(value, 1);
+const points = (value) => idNumber(value, Number.isInteger(value * 10) ? (Number.isInteger(value) ? 0 : 1) : 2);
+const LEARN_EVERY_MS = 4 * 60 * 60 * 1000; // LEARN_EVERY_SECONDS in bridge.py
+const SCORE_REAL_TRADES = 30; // REAL_TRADES_FULL in learn.py
+const COST_TRADES = 5; // real trades before the measured cost replaces the assumed one (learn.py)
+const SCORE_NAMES = { unseen: "unseen prices", steady: "steady years", dips: "dips", real: "real money" };
+
+// "▰▰▱▱▱▱▱▱▱▱": ten blocks, one per point.
+function scoreBar(total) {
+  const filled = Math.min(10, Math.max(0, Math.round(total)));
+  return "▰".repeat(filled) + "▱".repeat(10 - filled);
+}
+
+// Where the score stood on the first day that is kept, and where it stands now.
+function curveWords(curve, total) {
+  if (curve.length < 2) return "The curve starts today: one point a day is kept from now on.";
+  const first = curve[0];
+  const change = Math.round((total - first.score) * 10) / 10;
+  const moved = change === 0 ? "the same" : `${change > 0 ? "+" : "−"}${points(Math.abs(change))}`;
+  return `Curve: ${points(first.score)} on ${day(first.at)} → ${points(total)} now (${moved} over ${curve.length} days with a study).`;
+}
+
+// The score, its four parts, the curve and what is still being collected. /learn shows all of it.
+function scoreLines(learn, now) {
+  const { score, cost, challenger } = learn;
+  if (!score) return [];
+  const parts = Object.keys(SCORE_MOST).map((name) => `${SCORE_NAMES[name]} ${points(score.parts[name])} of ${SCORE_MOST[name]}`);
+  const next = learn.at + LEARN_EVERY_MS;
+  const progress = [
+    `real trades finished ${Math.min(score.realTrades, SCORE_REAL_TRADES)} of ${SCORE_REAL_TRADES}`,
+    `real cost measured on ${Math.min(cost.trades, COST_TRADES)} of ${COST_TRADES} trades`,
+    ...(challenger ? [`the watched version ${Math.min(challenger.days, LEARN_REVIEW.days)} of ${LEARN_REVIEW.days} days and ${Math.min(challenger.trades, LEARN_REVIEW.trades)} of ${LEARN_REVIEW.trades} trades`] : []),
+  ];
+  return [
+    `<b>Score: ${points(score.total)} of 10</b> ${scoreBar(score.total)}`,
+    `How far the rules are proven, not how clever they sound: ${parts.join(" · ")}.`,
+    curveWords(learn.curve, score.total),
+    `Still collecting: ${progress.join(" · ")}. Next study: ${next > now ? `about ${hour(next)}` : "at the sender's next cycle"}.`,
+    "The scale is fixed. Only measured things move the score: gains on prices the rules had not seen, and finished real trades with their real result.",
+  ];
+}
 
 function learnVerdict(learn) {
   const other = learn.challenger;
@@ -582,7 +644,7 @@ function learnVerdict(learn) {
   return `👀 Verdict: <b>keep the rules</b>, and watch another version on paper (${escapeHtml(other.rules)}): ${record}. It needs ${LEARN_REVIEW.days} days and ${LEARN_REVIEW.trades} trades ahead before a review.`;
 }
 
-// What the study found. short = the three lines in the full report; /learn shows all of it.
+// What the study found. short = the four lines in the full report; /learn shows all of it.
 function learnLines(report, now, short = false) {
   const learn = report.learn;
   if (!learn) return [];
@@ -592,6 +654,7 @@ function learnLines(report, now, short = false) {
   if (short) {
     return [
       title,
+      ...(learn.score ? [`Score: <b>${points(learn.score.total)} of 10</b> ${scoreBar(learn.score.total)} (how far the rules are proven; real trades ${Math.min(learn.score.realTrades, SCORE_REAL_TRADES)} of ${SCORE_REAL_TRADES}).`] : []),
       `The rules replayed on past prices: ${learn.trades} trades, ${learn.wins} of 100 won, about ${signedRp(roundRp(learn.perYear))} a year at ${rp(learn.order)} per buy.${year}`,
       `${learnVerdict(learn).split("</b>")[0]}</b> · <code>/learn</code> tells all of it.`,
     ];
@@ -599,6 +662,8 @@ function learnLines(report, now, short = false) {
   const { unseen, cost } = learn;
   const lines = [
     title,
+    ...scoreLines(learn, now),
+    ...(learn.score ? [""] : []),
     `1. Replay: the rules that trade your money, on ${idNumber(learn.candles)} four-hour candles since March 2020. ${learn.trades} trades, ${learn.wins} of 100 won. About ${signedRp(roundRp(learn.perYear))} a year at ${rp(learn.order)} per buy, deepest dip ${signedRp(roundRp(learn.dip))}.`,
   ];
   if (learn.yearUp !== null && learn.monthUp !== null) lines.push(`   A year ended with a gain in ${learn.yearUp} of 100 starts, a single month in ${learn.monthUp} of 100.`);
@@ -696,6 +761,7 @@ export function viewData(view, extra = null) {
   );
   return {
     configured: !!(view && view.configured),
+    version: VERSION, // the desktop app says when a newer one is out
     now: view.now,
     at: view.at || null,
     stale: isStale(view),

@@ -70,7 +70,9 @@ INDODAX = "https://indodax.com"  # fixed on purpose: the API key can never be se
 INDODAX_V2 = "https://api.indodax.com"  # Trade API 2.0, fixed for the same reason
 DEFAULT_URL = "https://trade-bot.juw12.workers.dev"
 CYCLE_SECONDS = 60
-HERE = Path(__file__).resolve().parent
+# Inside TradeBot.exe (the desk, this sender and the study in one file) the folder is the exe's own.
+FROZEN = bool(getattr(sys, "frozen", False))
+HERE = Path(sys.executable).resolve().parent if FROZEN else Path(__file__).resolve().parent
 
 REAL_CONFIRM = "I accept real money on Indodax"
 ORDER_IDR_DEFAULT = 50_000
@@ -1512,11 +1514,17 @@ class Bridge:
 # ---------------------------------------------------------------- running it
 
 
+def study_command(env_path, state_path) -> list:
+    """How the study is started: learn.py with this Python, or the one-file app asked to study."""
+    start = [sys.executable, "--study"] if FROZEN else [sys.executable, str(HERE / "learn.py")]
+    return [*start, "--env", str(env_path), "--state", str(state_path)]
+
+
 def start_study(env_path, state_path):
     """learn.py as a quiet process of its own: no window, low priority, nothing printed here."""
     quiet = getattr(subprocess, "CREATE_NO_WINDOW", 0) | getattr(subprocess, "BELOW_NORMAL_PRIORITY_CLASS", 0)
     return subprocess.Popen(
-        [sys.executable, str(HERE / "learn.py"), "--env", str(env_path), "--state", str(state_path)],
+        study_command(env_path, state_path),
         cwd=str(HERE),
         stdin=subprocess.DEVNULL,
         stdout=subprocess.DEVNULL,
@@ -1607,7 +1615,7 @@ def main(argv=None) -> int:
             bridge.cycle(show=args.show)
             return 0
         stamp(f"Indodax sender running, one cycle every {CYCLE_SECONDS} seconds. {mode} Ctrl+C stops it; open copies stay as they are.")
-        if (HERE / "learn.py").exists():  # only the sender that keeps running studies
+        if FROZEN or (HERE / "learn.py").exists():  # only the sender that keeps running studies
             bridge.study = lambda: start_study(args.env, args.state)
         while True:
             try:

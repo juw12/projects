@@ -43,10 +43,10 @@ def plan_tool():
     return module
 
 
-def small_study(rows, now=None, previous=None, measured=None, family=None, review=(90, 8)):
+def small_study(rows, now=None, previous=None, measured=None, family=None, review=(90, 8), real=None):
     now = now or rows[-1]["t"] + HOUR4
     with mock.patch.multiple(learn, FAMILY=family or SMALL_FAMILY, TRAIN_DAYS=150, TEST_DAYS=60, REVIEW_DAYS=review[0], REVIEW_TRADES=review[1]):
-        return learn.study(rows, rows, 20_000, 8.0, now, previous, measured)
+        return learn.study(rows, rows, 20_000, 8.0, now, previous, measured, real)
 
 
 class Replay(unittest.TestCase):
@@ -162,6 +162,105 @@ class Study(unittest.TestCase):
         self.assertIn("Verdict", text)
         self.assertIn("assumed", text)
         self.assertNotIn("will", text)
+
+
+class Score(unittest.TestCase):
+    DAY = 24 * 3600 * 1000
+
+    def test_nothing_proven_scores_nothing(self):
+        score = learn.skill(-5_000, 4.0, 20_000, 40, -1_000, -9_000, None)
+        self.assertEqual(score["total"], 0)
+        self.assertEqual(score["parts"], {"unseen": 0, "steady": 0, "dips": 0, "real": 0})
+        self.assertEqual(score["version"], learn.SCORE_VERSION)
+
+    def test_everything_proven_scores_ten_and_never_more(self):
+        real = {"trades": 300, "spent": 6_000_000, "result": 900_000}
+        score = learn.skill(900_000, 4.0, 20_000, 100, 90_000, -1_000, real)
+        self.assertEqual(score["total"], 10)
+        self.assertEqual(score["parts"], learn.SCORE_MOST)
+
+    def test_each_part_follows_what_was_measured(self):
+        # +Rp12.000 over four unseen years of a Rp20.000 buy is 15% a year: half of the unseen points
+        score = learn.skill(12_000, 4.0, 20_000, 70, 5_000, -10_000, None)
+        self.assertEqual(score["parts"]["unseen"], 1.5)
+        self.assertEqual(score["parts"]["steady"], 1.0)
+        self.assertEqual(score["parts"]["dips"], 0.5)
+        self.assertEqual(score["total"], 3.0)
+
+    def test_real_money_counts_only_with_finished_trades(self):
+        def real_part(trades, spent, result):
+            return learn.skill(0, 4.0, 20_000, 0, 0, -1, {"trades": trades, "spent": spent, "result": result})["parts"]["real"]
+
+        self.assertEqual(real_part(0, 0, 0), 0)
+        self.assertEqual(real_part(3, 60_000, 30_000), 0.3)  # a lucky start counts for little
+        self.assertEqual(real_part(30, 600_000, -5_000), 1.5)  # many trades at a loss: half
+        self.assertEqual(real_part(30, 600_000, 3_000), 3.0)  # many trades, +0.5% each after costs
+        self.assertEqual(real_part(15, 300_000, 750), 1.12)
+
+    def test_real_trades_counts_sales_for_real_money_only(self):
+        closed = [
+            {"real": True, "how": "sold", "spent": 20_000, "received": 20_400},
+            {"real": True, "how": "sold", "spent": 20_000, "received": 19_900},
+            {"real": False, "how": "sold", "spent": 20_000, "received": 30_000},
+            {"real": True, "how": "gone", "spent": 20_000, "received": 0},
+            "broken",
+        ]
+        self.assertEqual(learn.real_trades(closed), {"trades": 2, "spent": 40_000, "result": 300})
+        self.assertEqual(learn.real_trades(None), {"trades": 0, "spent": 0, "result": 0})
+
+    def test_the_day_is_the_day_in_batam(self):
+        self.assertEqual(learn.day_of(1_763_398_800_000), "2025-11-18")  # 17:00 UTC is midnight WIB
+        self.assertEqual(learn.day_of(1_763_398_799_000), "2025-11-17")
+
+    def test_the_curve_keeps_one_point_a_day(self):
+        start = 1_763_398_800_000
+        curve = learn.grow([], start, 2.0)
+        curve = learn.grow(curve, start + 4 * 3600 * 1000, 2.4)
+        self.assertEqual(curve, [{"day": "2025-11-18", "at": start + 4 * 3600 * 1000, "score": 2.4}])
+        curve = learn.grow(curve, start + self.DAY, 2.6)
+        self.assertEqual([point["score"] for point in curve], [2.4, 2.6])
+
+    def test_the_curve_drops_the_oldest_days_and_broken_points(self):
+        start = 1_763_398_800_000
+        curve = ["broken", {"day": 5}]
+        for index in range(learn.CURVE_DAYS + 5):
+            curve = learn.grow(curve, start + index * self.DAY, index / 100)
+        self.assertEqual(len(curve), learn.CURVE_DAYS)
+        self.assertEqual(curve[0]["score"], 0.05)
+
+    def test_a_study_carries_the_score_and_the_curve(self):
+        rows = candles(3000)
+        first = small_study(rows)
+        self.assertEqual(first["scoreVersion"], learn.SCORE_VERSION)
+        score = first["summary"]["score"]
+        self.assertEqual(round(sum(score["parts"].values()), 1), score["total"])
+        self.assertEqual(score["parts"]["real"], 0)
+        self.assertEqual(first["summary"]["curve"], [{"at": first["summary"]["at"], "score": score["total"]}])
+        later = small_study(rows, now=rows[-1]["t"] + HOUR4 + 2 * self.DAY, previous=first, real={"trades": 30, "spent": 600_000, "result": 3_000})
+        self.assertEqual(len(later["curve"]), 2)
+        self.assertEqual(later["summary"]["score"]["total"], round(score["total"] + 3.0, 1))
+        self.assertEqual(later["summary"]["score"]["realTrades"], 30)
+
+    def test_a_new_scale_starts_a_new_curve(self):
+        rows = candles(3000)
+        first = small_study(rows)
+        first["scoreVersion"] = learn.SCORE_VERSION - 1
+        later = small_study(rows, now=rows[-1]["t"] + HOUR4 + 2 * self.DAY, previous=first)
+        self.assertEqual(len(later["curve"]), 1)
+
+    def test_only_the_newest_points_are_sent(self):
+        rows = candles(3000)
+        now = rows[-1]["t"] + HOUR4
+        old = [{"day": learn.day_of(now - index * self.DAY), "at": now - index * self.DAY, "score": 1.0} for index in range(100, 0, -1)]
+        result = small_study(rows, now=now, previous={"scoreVersion": learn.SCORE_VERSION, "curve": old})
+        self.assertEqual(len(result["curve"]), 101)
+        self.assertEqual(len(result["summary"]["curve"]), learn.CURVE_SENT)
+
+    def test_the_words_say_the_score(self):
+        text = "\n".join(learn.words(small_study(candles(3000))["summary"]))
+        self.assertIn("Score: ", text)
+        self.assertIn("of 10", text)
+        self.assertIn("1 day on the curve", text)
 
 
 class Prices(unittest.TestCase):

@@ -1,0 +1,130 @@
+name: TradeBot desk (Windows app)
+
+# Builds TradeBot.exe: the Indodax desk window as one file that needs no Python. The same file is the
+# window, the sender inside it (TradeBot.exe --sender) and the self-study (TradeBot.exe --study).
+# Every change is tested and built; from main the file is published to two releases:
+#   tradebot-desk             always the newest one (update-desk.cmd downloads from here)
+#   tradebot-desk-v<version>  one per version, kept
+# The app holds no key and no secret: those stay in the .env next to it on the owner's PC.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/tradebot/indodax/**'
+      - 'apps/tradebot/package.json'
+      - '.github/workflows/trade-bot-desk.yml'
+  pull_request:
+    paths:
+      - 'apps/tradebot/indodax/**'
+      - 'apps/tradebot/package.json'
+      - '.github/workflows/trade-bot-desk.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: trade-bot-desk-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: apps/tradebot/indodax
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Tests (a pretend exchange, no network)
+        run: python -m unittest
+      - name: Read the version
+        id: version
+        shell: python
+        run: |
+          import json, os, re, pathlib
+          version = json.loads(pathlib.Path("apps/tradebot/package.json").read_text(encoding="utf-8"))["version"]
+          assert re.fullmatch(r"\d+\.\d+\.\d+", version), version
+          desk = pathlib.Path("apps/tradebot/indodax/desk.py").read_text(encoding="utf-8")
+          assert f'VERSION = "{version}"' in desk, "desk.py and package.json disagree about the version"
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write(f"version={version}\n")
+          print(version)
+        working-directory: .
+      - name: Build TradeBot.exe (one file, no console window)
+        run: |
+          python -m pip install --disable-pip-version-check pyinstaller==6.22.3
+          python -m PyInstaller --noconfirm --clean --onefile --windowed --name TradeBot --hidden-import learn desk.py
+          Get-Item dist\TradeBot.exe | Select-Object Name, Length
+      - name: Try the built app (window, sender words through a pipe, study)
+        shell: python
+        run: |
+          import json, pathlib, shutil, subprocess, tempfile
+
+          built = pathlib.Path("dist/TradeBot.exe").resolve()
+          folder = pathlib.Path(tempfile.mkdtemp())
+          app = folder / "TradeBot.exe"
+          shutil.copy2(built, app)
+
+          # The window opens with made-up numbers on the Study tab and closes by itself.
+          window = subprocess.run([str(app), "--demo", "--shot", "4", "--tab", "study"], cwd=folder, timeout=120)
+          assert window.returncode == 0, f"the window ended with {window.returncode}"
+
+          # The sender inside the app talks through a pipe, though the app has no console.
+          (folder / ".env").write_text("INDODAX_BRIDGE_KEY=\n", encoding="utf-8")
+          sender = subprocess.run([str(app), "--sender", "--show"], cwd=folder, capture_output=True, timeout=120)
+          words = sender.stdout.decode("utf-8", "replace")
+          print(words)
+          assert sender.returncode == 0 and "sender is off" in words, (sender.returncode, words, sender.stderr)
+
+          # The study runs from the app too. With no saved prices and --offline it says so and writes nothing.
+          study = subprocess.run([str(app), "--study", "--offline", "--env", str(folder / ".env"), "--state", str(folder / "bridge_state.json")], cwd=folder, capture_output=True, timeout=120)
+          print(study.returncode, study.stdout.decode("utf-8", "replace"), study.stderr.decode("utf-8", "replace"))
+          assert study.returncode == 1 and b"Too few candles" in study.stdout, (study.returncode, study.stdout, study.stderr)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TradeBot-desk-windows
+          path: apps/tradebot/indodax/dist/TradeBot.exe
+          if-no-files-found: error
+          retention-days: 14
+
+  publish:
+    needs: build
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: TradeBot-desk-windows
+          path: dist
+      - name: Publish TradeBot.exe
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          test -f dist/TradeBot.exe || { echo "::error::TradeBot.exe was not built."; exit 1; }
+          test -n "$VERSION" || { echo "::error::No version."; exit 1; }
+          sum="$(sha256sum dist/TradeBot.exe | cut -d' ' -f1)"
+          NOTES="TradeBot desk $VERSION for Windows: one file, no Python needed. Put TradeBot.exe in the folder that holds your .env and open it. It is the window, the sender and the self-study in one. Not signed, so Windows may ask once. Built from ${GITHUB_SHA::12}. SHA-256: $sum"
+          # One release per version, kept as it was first built.
+          if gh release view "tradebot-desk-v$VERSION" --repo "$REPO" > /dev/null 2>&1; then
+            echo "tradebot-desk-v$VERSION is already published; it is left as it is."
+          else
+            gh release create "tradebot-desk-v$VERSION" dist/TradeBot.exe --title "TradeBot desk $VERSION" --notes "$NOTES" --target "$GITHUB_SHA" --latest=false --repo "$REPO"
+          fi
+          # The newest one, at an address that never changes.
+          if gh release view tradebot-desk --repo "$REPO" > /dev/null 2>&1; then
+            gh release upload tradebot-desk dist/TradeBot.exe --clobber --repo "$REPO"
+            gh release edit tradebot-desk --title "TradeBot desk (newest: $VERSION)" --notes "$NOTES" --repo "$REPO"
+          else
+            gh release create tradebot-desk dist/TradeBot.exe --title "TradeBot desk (newest: $VERSION)" --notes "$NOTES" --target "$GITHUB_SHA" --latest=false --repo "$REPO"
+          fi
+          echo "Published TradeBot desk $VERSION ($sum)" >> "$GITHUB_STEP_SUMMARY"

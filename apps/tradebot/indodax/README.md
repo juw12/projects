@@ -137,6 +137,22 @@ The sender starts `learn.py` by itself, hidden and at low priority: every four h
    `review`: that version stayed ahead for 90 days and 8 trades, and picking by the past also
    won on the unseen half years. TradeBot then sends one message.
 
+5. **Score.** One number from 0 to 10 for how far the rules are proven. It is not a win rate
+   and not a forecast. Four measured parts add up to it:
+
+   | Part | Points | Full marks for |
+   | --- | --- | --- |
+   | Unseen prices | 3 | a year's gain on prices the rules had not seen of 30% of one buy |
+   | Steady years | 2 | 90 of 100 twelve-month spans ending with a gain (50 of 100 gives nothing) |
+   | Dips | 2 | a year's gain of twice the deepest dip |
+   | Real money | 3 | 30 finished real trades (half the points) and an average of +0.5% a trade after costs (the other half) |
+
+   New rules with no real trade start near 2 or 3: nothing is proven on real money yet. The scale
+   is frozen as `SCORE_VERSION`; a change of the scale starts a new curve, so the score never
+   rises because the ruler changed.
+6. **Curve.** One point a day is kept (the day's last score, 400 days). The desk's Study tab draws
+   it on a fixed scale from 0 to 10, `/learn` says where it started and where it is now.
+
 What it is not:
 
 - **It cannot order.** It has no code for it. It reads only public prices and the sender's own
@@ -149,7 +165,8 @@ What it is not:
 
 The result is `learn.json` next to the sender's state; the candles are kept in
 `learn_candles.json` (about 2 MB, only the newest are read again). The sender adds the short form
-to its report: `/learn` in Telegram, three lines in `/report`, the phone page and the desk. A
+to its report: `/learn` in Telegram (the score first), four lines in `/report`, the phone page
+and the desk's Study tab. A
 study that fails (no network) is tried again half an hour later and never stops the sender.
 
 ## Test it
@@ -256,12 +273,34 @@ What is where:
 - **Overview tab:** on the left what happens next and, per coin, the three checks with a tick or
   a cross; on the right the coins you hold (with the price under which each is sold), the price
   at Indodax, the finished trades, and the trading words in plain words.
+- **Study tab:** the score from 0 to 10 for how far the rules are proven, its four parts, the
+  curve of the score day by day, what is still being collected (real trades, the measured cost,
+  the trial setting) and when the next study comes.
 - **Full report tab:** the same text as `/report` in Telegram.
 - **Sender log tab:** the sender's own lines (what the console window used to show). The line
   above the tabs counts the network misses since the window opened.
 
 `pythonw desk.py --demo` opens the window with made-up numbers: no sender, no network, nothing
 private. Good for a look around or a screenshot.
+
+### TradeBot.exe: the desk as an app, no Python needed
+
+Every version is also built as one file for Windows:
+<https://github.com/juw12/projects/releases/download/tradebot-desk/TradeBot.exe> (always the
+newest; each version is kept as release `tradebot-desk-v<version>`).
+
+- Put `TradeBot.exe` in the folder that holds your `.env` and open it (or `open-desk.cmd`, which
+  uses the app when it is there). It is the window, the sender inside it (`TradeBot.exe --sender`)
+  and the study (`TradeBot.exe --study`) in one file. No console window opens.
+- The title shows the version. When TradeBot's server runs a newer one, the line at the bottom of
+  the window says so.
+- To update: close the window while no coin is held, then run `update-desk.cmd`. It downloads the
+  newest app, keeps the old one as `TradeBot.old.exe` and opens the new one. `.env` and the
+  sender's files are not touched.
+- The file is not signed, so Windows may ask once before it opens. It holds no key and no secret.
+- It starts about three seconds slower than `pythonw desk.py`: one file unpacks itself first.
+- Built by `.github/workflows/trade-bot-desk.yml` with PyInstaller, after the tests, and tried
+  there before it is published (the window, the sender's words through a pipe, the study).
 
 - **Start the sender / Stop the sender.** The sender is a child of the window: closing the window
   stops it (it asks first). A sender that ends by itself is started again a minute later.
