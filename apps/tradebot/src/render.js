@@ -4,6 +4,7 @@
 import { TIMEFRAMES } from "./market.js";
 import { COSTS } from "./paper.js";
 import { PARAMS } from "./strategy.js";
+import { LOOK_AHEAD } from "./headsup.js";
 import { deskRecord } from "./desk.js";
 import { escapeHtml } from "./util.js";
 
@@ -420,7 +421,7 @@ export function signals(rows, state, now) {
       lines.push(`<b>${name}</b>: ⚠️ ${trouble}`);
       continue;
     }
-    lines.push(...signalLines(row, state, now));
+    lines.push(...signalLines(row, state, now), ...soonLines(row, state, now));
   }
   lines.push(
     "",
@@ -457,6 +458,138 @@ function signalNote(row, action, state, now) {
   if (!row.judged) return `all 3 checks pass: ${settings.auto ? "I buy it" : "I ask you"} at my next ${CHECK} check.`;
   const again = hour(nextClose(settings.timeframe, now));
   return `all 3 checks pass, but I act once per candle and could not buy when this one closed. I look again at ${again}. /buy ${name} buys now.`;
+}
+
+// ---------------------------------------------------------------- the heads-up
+
+// soon = headsup.js headsUp(): how near the next buy or sale is. These lines say it in words; the
+// numbers are the rules' own, turned into prices. Nothing here is a forecast.
+
+const NOT_YET = "<i>A sign from the price now, not an order: nothing is bought or sold yet, and the price can still move.</i>";
+
+const usualMove = (soon) => `${soon.movePct.toFixed(1)}%`;
+
+// When the candles of this size close, in WIB: "03:00, 07:00, 11:00, 15:00, 19:00 and 23:00 WIB".
+export function closeHours(timeframe) {
+  const length = TIMEFRAMES[timeframe].ms;
+  const perDay = DAY_MS / length;
+  if (!Number.isInteger(perDay) || perDay > 6) return `every ${timeframe}`;
+  const hours = [];
+  for (let index = 0; index < perDay; index++) hours.push(hour(index * length).replace(" WIB", ""));
+  return `${list(hours.sort())} WIB`;
+}
+
+function earliestLine(soon, timeframe, now) {
+  const found = soon.earliest;
+  if (!found) {
+    return `Earliest by my estimate: not in the next ${LOOK_AHEAD} candles (${span(LOOK_AHEAD * TIMEFRAMES[timeframe].ms)}), at any steady move I tried.`;
+  }
+  const path =
+    found.pct > 0.05
+      ? `climbs steadily to about ${price(found.price)} (${pct(found.pct)})`
+      : found.pct < -0.05
+        ? `eases steadily to about ${price(found.price)} (${pct(found.pct)})`
+        : "stays about where it is now";
+  const far = found.candles === 1 ? "this candle" : `${found.candles} candles from now`;
+  return `Earliest by my estimate: ${when(found.at, now)} (${far}), and only if the price ${path}. A rough estimate, not a forecast.`;
+}
+
+function lostWords(soon) {
+  return soon.why === "momentum" ? "momentum would turn down" : "the uptrend would be broken";
+}
+
+// The heads-up for one coin, under its three checks. row = readSignals' { soon, blocked, held }.
+// [] when there is nothing to say (too little history, or no heads-up was read).
+export function soonLines(row, state, now) {
+  const soon = row.soon;
+  if (!soon || soon.level === "unknown") return [];
+  const { timeframe } = state.settings;
+  const at = hour(soon.at);
+  const left = span(soon.at - now);
+  if (soon.kind === "sell") {
+    const stop = soon.stop ? `${price(soon.stop)} (${share(soon.toStop)} under the price now)` : "";
+    if (soon.level === "likely") {
+      const need = pct((soon.under / soon.price - 1) * 100);
+      return [`🔴 Heads-up: a sale looks likely at ${at} (in ${left}). At the price now ${lostWords(soon)}. I keep it only if the candle closes above ${price(soon.under)} (${need} from now).`];
+    }
+    if (soon.near === "stop") {
+      return [`🟠 Heads-up: the stop is close. It is at ${stop}, less than one usual candle move (${usualMove(soon)}). Under it I sell at my next ${CHECK} check, at any hour.`];
+    }
+    const close = `${price(soon.under)} (${share(soon.toClose)} under the price now)`;
+    if (soon.near === "close") {
+      return [`🟡 Heads-up: a sale is close. At ${at} (in ${left}) I sell if the candle closes under ${close}: less than one usual candle move (${usualMove(soon)}).${stop ? ` The stop is at ${stop}.` : ""}`];
+    }
+    return [`⚪ Heads-up: no sale in sight. I sell at ${at} only if the candle closes under ${close}${stop ? `, or at any hour if the price falls to the stop at ${stop}` : ""}. One usual candle move is ${usualMove(soon)}.`];
+  }
+
+  if (soon.level === "likely") {
+    const but = row.blocked ? ` But nothing would be bought: ${row.blocked}.` : "";
+    return [`🟢 Heads-up: a buy looks likely at ${at} (in ${left}). At the price now all 3 checks would pass. It happens only if the candle closes between ${price(soon.low)} and ${price(soon.high)}.${but}`];
+  }
+  const lines = [];
+  if (soon.level === "wait") {
+    lines.push(`⏳ Heads-up: no buy before ${when(soon.from, now)}. I leave a coin alone for ${PARAMS.cooldown} candles after a sale.`);
+  } else if (!soon.open) {
+    lines.push(`⚪ Heads-up: no buy at ${at}. No closing price passes all 3 checks at this candle.`);
+  } else {
+    const need = soon.needPct < 0 ? `a close under ${price(soon.high)}` : `a close above ${price(soon.low)}`;
+    const size = `${pct(soon.needPct)} from now`;
+    if (soon.level === "near") {
+      lines.push(`🟡 Heads-up: a buy is close. At ${at} (in ${left}) it needs ${need} (${size}): less than one usual candle move (${usualMove(soon)}).`);
+    } else {
+      lines.push(`⚪ Heads-up: no buy in sight at ${at}. It would need ${need} (${size}), about ${soon.moves.toFixed(1)} usual candle moves (${usualMove(soon)} each).`);
+    }
+  }
+  lines.push(earliestLine(soon, timeframe, now));
+  return lines;
+}
+
+// The sign sent in the last hour before a candle closes, when a buy or a sale looks likely at the
+// price then. `soon` on the message is for the Indodax report in real mode (indodax.js), which
+// writes its own last sentence: there the sender on the PC does the buying and selling.
+export function sign(symbol, soon, state, now) {
+  const { settings } = state;
+  const name = coin(symbol);
+  const at = hour(soon.at);
+  const left = span(soon.at - now);
+  const told = { symbol, kind: soon.kind, what: "sign", at: soon.at, auto: settings.auto };
+  if (soon.kind === "sell") {
+    const head = `🔔 <b>Heads-up: a ${name} sale looks likely at ${at}</b>`;
+    const body = [
+      `The ${settings.timeframe} candle closes in ${left}. At the price now (${price(soon.price)}) ${lostWords(soon)}.`,
+      `${name} is kept only if the candle closes above ${price(soon.under)} (${pct((soon.under / soon.price - 1) * 100)} from now).`,
+    ];
+    const act = `If it does not, I sell at my first ${CHECK} check after ${at} and tell you.`;
+    return { html: [`${head} · practice money`, ...body, act, NOT_YET].join("\n"), soon: { ...told, head, body } };
+  }
+  const head = `🔔 <b>Heads-up: a ${name} buy looks likely at ${at}</b>`;
+  const body = [
+    `The ${settings.timeframe} candle closes in ${left}. At the price now (${price(soon.price)}) all 3 checks would pass.`,
+    `It happens only if the candle closes between ${price(soon.low)} and ${price(soon.high)}.`,
+  ];
+  const act = settings.auto ? `If it does, I buy at my first ${CHECK} check after ${at} and tell you.` : `If it does, I ask you first, right after ${at}.`;
+  return { html: [`${head} · practice money`, ...body, act, NOT_YET].join("\n"), soon: { ...told, head, body } };
+}
+
+// The follow-up when a sign was sent and its candle closed without the buy or the sale.
+export function signGone(symbol, kind, why, state, now) {
+  const name = coin(symbol);
+  const again = hour(nextClose(state.settings.timeframe, now));
+  const head = `⚪ <b>${name}: the ${kind === "buy" ? "buy" : "sale"} sign went away</b>`;
+  const body = [
+    kind === "buy" ? `The candle closed and nothing was bought: ${escapeHtml(why)}.` : `The candle closed and ${name} is kept: ${escapeHtml(why)}.`,
+    `I look again when the next candle closes, at ${again}.`,
+  ];
+  return { html: [`${head} · practice money`, ...body].join("\n"), soon: { symbol, kind, what: "gone", head, body } };
+}
+
+// Told once when the price comes within one usual candle move of the stop.
+export function stopNear(symbol, soon) {
+  const name = coin(symbol);
+  const head = `🟠 <b>Heads-up: ${name} is close to its stop</b>`;
+  const body = [`The price (${price(soon.price)}) is ${share(soon.toStop)} above the stop at ${price(soon.stop)}: less than one usual candle move (${usualMove(soon)}).`];
+  const act = `If it falls to the stop I sell at my next ${CHECK} check, at any hour.`;
+  return { html: [`${head} · practice money`, ...body, act, NOT_YET].join("\n"), soon: { symbol, kind: "sell", what: "stop", head, body } };
 }
 
 export function history(trades) {
@@ -675,7 +808,8 @@ export function help(settings) {
       "/learn what my own study of the rules found: the replay on past prices, the proof on unseen prices, the real cost, the verdict",
       "/phone a private link to the live page for your phone",
       "You can also just ask, in everyday words: what do I hold, why no buy yet, how much profit.",
-      "/signals the 3 checks for each coin, right now",
+      "/signals the 3 checks for each coin, right now, with a heads-up: how near a buy or a sale is",
+      "/headsup only that heads-up. I also send one by myself in the last hour before a candle closes when a buy or a sale looks likely, and when a stop comes close",
       `/buy BTC ${exampleAmount()} buy ${money(RATE ? 2000000 / RATE : 100)} of BTC now (/buy BTC: I pick the size; 2jt and 500rb work too)`,
       "/sell BTC sell it now (/sell all: everything)",
       "/watch DOGE · /unwatch DOGE · /watchlist",

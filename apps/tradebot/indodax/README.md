@@ -304,6 +304,16 @@ What is where:
   every line is a measured number. They only read; orders are still made by the sender alone.
   The checks use the world price, the chart Indodax's, so the two can differ a little. The
   bot does not sell at the 1:3 mark by itself: it moves the stop up behind the price.
+- **Heads-up before a buy or a sale (0.16.0).** Under each coin's checks in the Overview tab,
+  one or two lines say how near a buy or a sale is: the price the candle must close at, when that
+  candle closes, the earliest time a buy can come by the server's estimate, and for a coin held
+  how far the price is above the sender's own stop. The dot is green when a buy looks likely at
+  the price now, red when a sale does, amber when either is within one usual candle move, grey
+  otherwise. The strategist and the desk lead say the same lines, and the live feed gets one line
+  when a heads-up turns amber, green or red. The lines are worked out by TradeBot's server
+  (`../src/headsup.js`); the app only shows them, and nothing is ordered on them. An estimate from
+  the price now, not a forecast. Telegram sends the sign too: `/headsup`, and by itself in the
+  last hour before a 4-hour candle closes.
 - **Borrowed ways of working (0.15.0).** Four parts of the Agents tab follow the two most
   starred open trading-agent projects,
   [TradingAgents](https://github.com/TauricResearch/TradingAgents) and

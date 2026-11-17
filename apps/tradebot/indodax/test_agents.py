@@ -603,6 +603,43 @@ class Feed(unittest.TestCase):
         self.assertEqual([item["key"] for item in news], ["execution", "lead"])
         self.assertEqual(news[0], {"at": NOW + 2000, "key": "execution", "name": "Execution trader", "state": "no", "text": "Sender is stopped: no orders"})
 
+    def test_a_heads_up_is_read_without_its_telegram_mark(self):
+        signals = {item["coin"]: item for item in self.view["signals"]}
+        held = agents.heads_up(signals["BTC"])
+        self.assertEqual((held["kind"], held["level"], len(held["lines"])), ("sell", "far", 2))
+        self.assertTrue(held["lines"][0].startswith("Heads-up: no sale in sight."))
+        self.assertTrue(held["lines"][1].startswith("The sender's own stop"))
+        self.assertIsNone(agents.heads_up(signals["SOL"]), "no heads-up was sent for this coin")
+        self.assertIsNone(agents.heads_up(None))
+        self.assertIsNone(agents.heads_up({"soon": {"kind": "buy", "level": "likely", "lines": []}}), "nothing to say")
+        self.assertIsNone(agents.heads_up({"soon": {"kind": "buy", "level": "certain", "lines": ["x"]}}), "an unknown level is not shown as if it were known")
+        self.assertIsNone(agents.heads_up({"soon": "soon"}))
+
+    def test_the_strategist_and_the_desk_lead_say_the_heads_up(self):
+        made, by = team_of(self.view)
+        self.assertEqual(made["soon"]["level"], "far")
+        said = [text for _mark, text in by["strategy"]["lines"]]
+        self.assertTrue(any(text.startswith("Heads-up: no sale in sight.") for text in said))
+        self.assertTrue(any(text.startswith("The sender's own stop") for text in said))
+        lead = [text for _mark, text in by["lead"]["lines"]]
+        self.assertEqual(sum(text.startswith("Heads-up:") for text in lead), 1, "the desk lead says it once, in one line")
+        self.assertEqual(by["strategy"]["head"], "BTC · HOLD: checks still pass", "the head stays the call, so the desk lead still reads it")
+
+    def test_only_a_near_or_likely_heads_up_is_news_and_only_once(self):
+        far = {"kind": "buy", "level": "far", "at": NOW, "lines": ["Heads-up: no buy in sight."]}
+        near = {"kind": "buy", "level": "near", "at": NOW, "lines": ["Heads-up: a buy is close."]}
+        likely = {"kind": "buy", "level": "likely", "at": NOW, "lines": ["Heads-up: a buy looks likely."]}
+        sale = {"kind": "sell", "level": "likely", "at": NOW, "lines": ["Heads-up: a sale looks likely."]}
+        self.assertIsNone(agents.soon_event(None, "BTC", None))
+        self.assertIsNone(agents.soon_event(None, "BTC", far), "far away is no news")
+        self.assertEqual(agents.soon_event(agents.soon_key("BTC", far), "BTC", near), ("warn", "BTC · Heads-up: a buy is close."))
+        self.assertIsNone(agents.soon_event(agents.soon_key("BTC", near), "BTC", near), "said once")
+        self.assertEqual(agents.soon_event(agents.soon_key("BTC", near), "BTC", likely), ("yes", "BTC · Heads-up: a buy looks likely."))
+        self.assertEqual(agents.soon_event(agents.soon_key("BTC", likely), "BTC", sale), ("no", "BTC · Heads-up: a sale looks likely."))
+        later = dict(near, at=NOW + 4 * 3600_000)
+        self.assertEqual(agents.soon_event(agents.soon_key("BTC", near), "BTC", later)[0], "warn", "the next candle is a new heads-up")
+        self.assertIsNone(agents.soon_event(agents.soon_key("BTC", sale), "BTC", None), "a heads-up that went away is said by the checks, not here")
+
     def test_the_senders_log_reaches_the_right_agent(self):
         self.assertEqual(agents.log_event("21:13:07  BTC: bought for Rp20.000 at Indodax"), ("execution", "BTC: bought for Rp20.000 at Indodax"))
         self.assertEqual(agents.log_event("21:13:07  BTC: sold for Rp20.730")[0], "execution")

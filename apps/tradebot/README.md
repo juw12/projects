@@ -57,6 +57,7 @@ exchange takes) and are shown as USDT with rupiah beside them; `/live size 200rb
 | `/status` | Account value, cash, open positions, profit |
 | `/report` | The daily status now: the account, plus where the Indodax copies stand |
 | `/signals` | What the agent sees in each market right now, and why it would or would not buy |
+| `/headsup` | How near a buy or a sale is for each coin, the price it needs, and the earliest time it can happen (an estimate). See [The heads-up](#the-heads-up-before-a-buy-or-a-sale) |
 | `/buy BTC 2jt` | Buy Rp2 juta of BTC now (without the amount, the agent sizes it) |
 | `/sell BTC`, `/sell all` | Sell now |
 | `/watch DOGE`, `/unwatch DOGE`, `/watchlist` | Choose the markets (starts with BTC, ETH, SOL) |
@@ -131,6 +132,41 @@ Read it honestly: these rules keep the account roughly flat with small drops. Th
 well when the market falls and miss most of the gain when it rises. **They are not a proven way to
 make money**, and a handful of trades per test is too few to prove anything either way. Past
 prices do not predict future ones. `/backtest` in the bot reruns this on fresh prices any time.
+
+## The heads-up: before a buy or a sale
+
+The rules judge a coin once per candle, on the candle's closing price. So while a candle is still
+forming, each check can be turned into a price: "this check passes if the candle closes above X".
+`src/headsup.js` does that arithmetic, and the bot tells you how near the next buy or sale is.
+
+| Level | A buy (nothing held) | A sale (a coin is held) |
+|---|---|---|
+| 🟢 / 🔴 likely | at the price now all 3 checks would pass at the close | at the price now momentum or the uptrend would be lost at the close |
+| 🟡 / 🟠 near | the close it needs is less than one usual candle move away | the selling close, or the stop, is less than one usual candle move away |
+| ⚪ far | further than that | further than that |
+| ⏳ wait | still leaving the coin alone after a sale | |
+
+"One usual candle move" is the ATR, the average size of a candle lately.
+
+- **Where you see it.** `/headsup` (or ask "when will you buy?"), under each coin in `/signals`,
+  in the Indodax report and `/analysis`, on the phone page, and in the desktop app (Overview, the
+  strategist, the desk lead and the live feed).
+- **What the bot sends by itself.** In the last hour before a candle closes (4h candles close at
+  03:00, 07:00, 11:00, 15:00, 19:00 and 23:00 WIB): one message when a buy or a sale looks likely
+  at the price then, and one more at the close if it did not happen after all. At any hour: one
+  message when the price comes within one usual move of the stop (in real mode also within 2% of
+  the sender's own stop). Each sign is sent once, not at every 5-minute check.
+- **The earliest time.** For a buy that is not likely yet, the bot replays the rules on ten steady
+  moves from the price now (flat, easing, and climbing up to one usual move per candle) for the
+  next 60 candles, and names the first candle at which all 3 checks would pass. It is a lower
+  bound to plan around, and it says which move it needs. It is not a forecast: the bot does not
+  know where the price goes.
+- **It never orders.** The heads-up is read-only. Buys and sales are still made at the close by
+  the three checks, and by the stops. In real mode a buy sign is sent only when the sender would
+  really buy (not paused, safety stop off, fewer coins held than the most allowed); too little
+  free rupiah is said in the sign. The prices in it are the world price turned into rupiah, so
+  they differ a little from Indodax's own.
+- `test/headsup.test.js` checks every level against the rules' own decision, candle by candle.
 
 ## The desk: a second opinion (Bull, Bear, Risk)
 
@@ -248,7 +284,8 @@ stop, and posts the copies back (`POST /v1/indodax/report`) for `/indodax` in Te
 - **In real mode every command answers about the real account.** `/status` is the real account in
   short (free rupiah, coins, result, what happens next); `/help` and the command menu list only
   what is about real money; `/signals`, `/history` and `/backtest` answer as `/analysis`,
-  `/trades` and `/learn`. `/buy`, `/risk` and `/reset` are refused and change nothing: a coin is
+  `/trades` and `/learn`. `/headsup` says how near a buy or a sale is at Indodax, with the
+  sender's own stop. `/buy`, `/risk` and `/reset` are refused and change nothing: a coin is
   bought only when all 3 checks pass, at the size set on the PC. `/pause` and `/resume` are the
   same switch as the app's button. `/sell BTC` sells a coin that is held at Indodax (the sender
   does it within about a minute). The practice account still decides each buy and sale behind
@@ -292,7 +329,9 @@ stop, and posts the copies back (`POST /v1/indodax/report`) for `/indodax` in Te
   [Vibe-Trading](https://github.com/HKUDS/Vibe-Trading), as measured numbers and not as an AI's
   opinion: the market's mood, a bull-against-bear count with a five-step rating, three views of
   the risk, and buy-and-hold as a yardstick (`indodax/README.md` has the numbers). They are
-  shown only and never order. It is also built as one Windows app,
+  shown only and never order. Since 0.16.0 the Overview, the strategist, the desk lead and the
+  live feed also show the server's heads-up for each coin (how near a buy or a sale is, with a
+  green, red, amber or grey dot). It is also built as one Windows app,
   `TradeBot.exe`, that needs no Python: release `tradebot-desk` of this repository
   (`.github/workflows/trade-bot-desk.yml`).
 

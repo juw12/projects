@@ -8,7 +8,9 @@
 //              { entry, cost, stop, openedAt, account }; `account` is the account's value then.
 //   marks      per market: { price, at, source, decided (candle already judged), lastExit,
 //              note (what the last judged candle said), passed ("skipped" | "unanswered": an offer
-//              the owner let go; not offered again until the signal goes away and comes back) }
+//              the owner let go; not offered again until the signal goes away and comes back),
+//              soon ({ kind, at }: the heads-up sign already sent for the candle closing at `at`),
+//              stopNear (the owner was told that the price is close to the stop) }
 //   pending    buys waiting for the owner's Approve, per market: { price, stop, why, at, until }
 //   day        { key, startedAt, start (value at the start of the day), trades, halted,
 //              offers (per market: open | approved | skipped | no answer | withdrawn),
@@ -25,6 +27,7 @@ import * as render from "./render.js";
 import { MAX_DESK_LOG, convene, deskBrief } from "./desk.js";
 import { newLive, noteFill } from "./live.js";
 import { PARAMS, computeSeries, decideAt, sizeOrder } from "./strategy.js";
+import { headsUp, signNow } from "./headsup.js";
 import { Problem, clip, errorText } from "./util.js";
 
 export const TICK_MS = 5 * 60 * 1000;
@@ -162,6 +165,7 @@ function open(state, symbol, usd, price, stop, why, now, by, desk = null) {
   noteFill(state, fill);
   delete state.pending[symbol];
   delete markOf(state, symbol).passed;
+  forgetSigns(state, symbol);
   if (desk && desk.at) {
     state.portfolio.positions[symbol].deskAt = desk.at;
     const entry = deskEntry(state, symbol, desk.at);
@@ -192,6 +196,7 @@ function close(state, symbol, price, why, now) {
   noteFill(state, fill);
   delete state.pending[symbol];
   markOf(state, symbol).lastExit = now;
+  forgetSigns(state, symbol);
   const opinion = position.deskAt ? deskEntry(state, symbol, position.deskAt) : null;
   if (opinion) opinion.pnlPct = fill.pnlPct;
   return record(state, {
@@ -212,6 +217,64 @@ function startDay(state, now, messages) {
   const value = worth(state);
   state.day = { key, startedAt: now, start: value, trades: 0, halted: false, offers: {}, notTaken: {}, rounds: 0, gap: 0 };
   if (ended) messages.push(render.summary(state, ended, value, now));
+}
+
+// A buy or a sale ends what was told about the coin before it.
+function forgetSigns(state, symbol) {
+  const memo = markOf(state, symbol);
+  delete memo.soon;
+  delete memo.stopNear;
+}
+
+// How near the next buy or sale of a market is (headsup.js). null when it cannot be worked out:
+// a heads-up is only ever shown, so a failure here must never cost a round or a report.
+function soonFor(state, view, now, estimate) {
+  try {
+    return headsUp({
+      closed: view.closed,
+      series: view.series,
+      price: view.price,
+      timeframe: state.settings.timeframe,
+      now,
+      position: state.portfolio.positions[view.symbol] || null,
+      lastExit: (state.marks[view.symbol] && state.marks[view.symbol].lastExit) || null,
+      estimate,
+    });
+  } catch (error) {
+    console.log("heads-up not read: " + clip(errorText(error), 200));
+    return null;
+  }
+}
+
+// The signs of a round that judges nothing: a buy or a sale that looks likely in the last hour
+// before the candle closes, and a stop that has come close. Each is told once, and nothing is
+// bought or sold here: the rules still decide when the candle has closed.
+function signs(state, view, now) {
+  const symbol = view.symbol;
+  const memo = markOf(state, symbol);
+  const position = state.portfolio.positions[symbol] || null;
+  const soon = soonFor(state, view, now, false);
+  if (!soon || soon.level === "unknown") return [];
+  const messages = [];
+  if (position) {
+    if (soon.toStop !== null && soon.toStop <= soon.movePct) {
+      if (!memo.stopNear) messages.push(render.stopNear(symbol, soon));
+      memo.stopNear = true;
+    } else if (soon.toStop === null || soon.toStop > 2 * soon.movePct) {
+      delete memo.stopNear; // well clear of the stop again: the next approach is told again
+    }
+  } else {
+    // No sign for a buy that would not be made anyway.
+    if (blocked(state) || memo.passed || state.pending[symbol]) return messages;
+    const range = view.series.atr[view.closed.length - 1];
+    if (!orderSize(state, view.price, view.price - PARAMS.stopAtr * range)) return messages;
+  }
+  const kind = signNow(soon, memo.soon || null, now);
+  if (kind) {
+    memo.soon = { kind, at: soon.at };
+    messages.push(render.sign(symbol, soon, state, now));
+  }
+  return messages;
 }
 
 // One round of the agent. Returns [{ html, buttons? }].
@@ -250,12 +313,25 @@ export async function tick(state, { market, now, ai = null }) {
 
     // Everything else is judged once per finished candle.
     const last = view.closed[view.closed.length - 1];
-    if (!last || memo.decided === last.t) continue;
+    if (!last) continue;
+    if (memo.decided === last.t) {
+      messages.push(...signs(state, view, now));
+      continue;
+    }
     memo.decided = last.t;
+    // A sign sent for the candle that has now closed: when the buy or the sale does not follow,
+    // the owner is told that too.
+    const told = memo.soon && memo.soon.at <= now ? memo.soon.kind : "";
+    delete memo.soon;
+    const gone = (why) => messages.push(render.signGone(symbol, told, why, state, now));
     const decision = decide(state, view, now);
     if (position) {
-      if (decision.action === "sell") messages.push(render.sold(close(state, symbol, view.price, decision.why, now), state));
-      else if (decision.stop) position.stop = decision.stop;
+      if (decision.action === "sell") {
+        messages.push(render.sold(close(state, symbol, view.price, decision.why, now), state));
+        continue;
+      }
+      if (decision.stop) position.stop = decision.stop;
+      if (told === "sell") gone(decision.why);
       continue;
     }
     memo.note = decision.why;
@@ -267,16 +343,19 @@ export async function tick(state, { market, now, ai = null }) {
     }
     if (decision.action !== "buy") {
       delete memo.passed; // the signal went away: a new one may be offered again
+      if (told === "buy") gone(decision.why);
       continue;
     }
     const reason = blocked(state);
     if (reason) {
       day.notTaken[symbol] = reason;
+      if (told === "buy") gone(`all 3 checks pass, but ${reason}`);
       continue;
     }
     const usd = orderSize(state, view.price, decision.stop);
     if (!usd) {
       day.notTaken[symbol] = "not enough cash for a trade";
+      if (told === "buy") gone("all 3 checks pass, but there is not enough cash for a trade");
       continue;
     }
     if (settings.auto) {
@@ -321,7 +400,8 @@ export async function tick(state, { market, now, ai = null }) {
 
 // What the rules say about each watched market right now, for /signals and the Indodax report.
 // `only` (a list of symbols) narrows it. Nothing is changed and nothing is bought or sold.
-// Returns [{ symbol, price, decision, held, blocked, pending, passed, judged, change24h } | { symbol, error }].
+// Returns [{ symbol, price, decision, held, blocked, pending, passed, judged, change24h, soon } | { symbol, error }].
+// soon = the heads-up (headsup.js): how near the next buy or sale is, or null.
 export async function readSignals(state, market, now, only = null) {
   const rows = [];
   for (const symbol of tracked(state)) {
@@ -341,6 +421,7 @@ export async function readSignals(state, market, now, only = null) {
         passed: memo.passed || "",
         judged: !!last && memo.decided === last.t,
         change24h: dayAgo && dayAgo.c > 0 ? (view.price / dayAgo.c - 1) * 100 : null,
+        soon: soonFor(state, view, now, true),
       });
     } catch (error) {
       rows.push({ symbol, error });

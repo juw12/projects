@@ -640,6 +640,55 @@ def market_agent(readings: dict, report: dict, signal, coin: str, mood=None) -> 
 
 ACTION_HEADS = {"BUY": "BUY: all checks pass", "HOLD": "HOLD: checks still pass", "SELL": "SELL: a check failed", "WAIT": "WAIT: checks not met"}
 
+# The heads-up TradeBot's server sends with each signal: how near a buy or a sale is. It is an
+# estimate from the price now, shown as it comes; this app never orders on it.
+SOON_LEVELS = ("likely", "near", "far", "wait")
+SOON_STATES = {("buy", "likely"): "yes", ("sell", "likely"): "no", ("buy", "near"): "warn", ("sell", "near"): "warn"}
+
+
+def heads_up(signal):
+    """{kind: buy / sell, level: likely / near / far / wait, at, lines: [text]} of one signal, or None.
+
+    The lines are the server's own, without the coloured mark they start with in Telegram: the
+    window shows the level with its own dot.
+    """
+    soon = (signal or {}).get("soon")
+    if not isinstance(soon, dict):
+        return None
+    lines = []
+    for line in soon.get("lines") or []:
+        words = str(line or "").strip()
+        while words and not words[0].isalnum():
+            words = words[1:].lstrip()
+        if words:
+            lines.append(words)
+    kind, level = str(soon.get("kind") or ""), str(soon.get("level") or "")
+    if not lines or kind not in ("buy", "sell") or level not in SOON_LEVELS:
+        return None
+    return {"kind": kind, "level": level, "at": soon.get("at"), "lines": lines}
+
+
+def soon_state(soon) -> str:
+    """The colour of a heads-up: yes (a buy looks likely), no (a sale looks likely), warn (close), wait."""
+    return SOON_STATES.get(((soon or {}).get("kind"), (soon or {}).get("level")), "wait")
+
+
+def soon_key(coin: str, soon):
+    """What makes a heads-up news: the coin, buy or sale, how near, and the candle it is about."""
+    return (coin, soon["kind"], soon["level"], soon.get("at")) if soon else None
+
+
+def soon_event(before, coin: str, soon):
+    """(state, words) for the live feed when a buy or a sale has come close or looks likely, else None.
+
+    before = the soon_key shown last. A heads-up that is far away is no news, and neither is the
+    first look after the window opens at a coin with nothing near.
+    """
+    key = soon_key(coin, soon)
+    if not soon or key == before or soon["level"] not in ("likely", "near"):
+        return None
+    return (soon_state(soon), f"{coin} · {soon['lines'][0]}")
+
 
 def strategy_agent(signal, readings: dict, report: dict, coin: str, now_ms, rows_4h=None) -> tuple:
     """(the agent, the plan it drew or None)."""
@@ -661,6 +710,8 @@ def strategy_agent(signal, readings: dict, report: dict, coin: str, now_ms, rows
             lines.append(("ok" if check.get("ok") else "no", f"{check.get('name')}: {check.get('text')}"))
         if signal.get("why"):
             lines.append(("info", "→ " + str(signal["why"])))
+        for line in (heads_up(signal) or {}).get("lines") or []:
+            lines.append(("info", line))
     look = top_down(readings)
     if look["call"] != "none":
         lines.append(("info", f"Top-down ({look['marks']}): {'in line with a buy' if look['call'] == 'up' else 'not in line with a buy'}. The rules do not ask for it; it is followed on paper."))
@@ -795,6 +846,9 @@ def lead_agent(team: list, report: dict, view, coin: str, weighed=None) -> dict:
     following = next((line[6:] for line in str((view or {}).get("text") or "").split("\n") if line.startswith("Next: ")), "")
     if following:
         lines.append(("info", "Next: " + following))
+    soon = heads_up(next((item for item in (view or {}).get("signals") or [] if coin_of(item.get("coin")) == coin), None))
+    if soon:
+        lines.append(("info", soon["lines"][0]))
     kind = "real" if report.get("mode") == "real" else "practice"
     if report:
         today = report.get("today") or {}
@@ -804,7 +858,9 @@ def lead_agent(team: list, report: dict, view, coin: str, weighed=None) -> dict:
 
 
 def desk(view, report, readings, summary, sender_state: str, now_ms, traded=(), cycle_age=None, misses: int = 0, coin: str = "", rows_4h=None, mood=None) -> dict:
-    """The six agents for what is known now: {coin, team: [agent, ...], plan, debate}.
+    """The six agents for what is known now: {coin, team: [agent, ...], plan, debate, soon}.
+
+    soon = the server's heads-up for this coin (heads_up), or None.
 
     agent = {key, name, short, role, state: yes / wait / no / warn / off, head, lines: [(ok / no / info, text)], hands}
     """
@@ -821,7 +877,7 @@ def desk(view, report, readings, summary, sender_state: str, now_ms, traded=(), 
     ]
     weighed = debate(readings, signal, any(coin_of(item.get("symbol")) == coin for item in held_now(report)))
     team.append(lead_agent(team, report, view, coin, weighed))
-    return {"coin": coin, "team": team, "plan": drawn, "debate": weighed}
+    return {"coin": coin, "team": team, "plan": drawn, "debate": weighed, "soon": heads_up(signal)}
 
 
 # ---------------------------------------------------------------- the live feed

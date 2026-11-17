@@ -62,6 +62,7 @@ import {
   plainWords as indodaxPlainWords,
   realOnly as indodaxRealOnly,
   silentAlert as indodaxSilent,
+  stopSigns as indodaxStopSigns,
   viewData as indodaxViewData,
   withDaily as withIndodaxDaily,
 } from "./indodax.js";
@@ -808,7 +809,10 @@ export function createWorker(overrides) {
       const report = keepIndodaxCash(indodax.report, read, cashAt, now);
       const messages = indodaxChanges(indodax.report, report, now);
       if (indodax.silentToldAt && indodax.silentToldAt === indodax.reportAt) messages.unshift({ html: indodaxBack(report) });
-      await this.storage.put("indodax", { ...indodax, report, reportAt: now, cashAt, silentToldAt: null }); // saved before anything is sent
+      // A heads-up when the price of a held coin comes close to the sender's own stop, told once.
+      const near = indodaxStopSigns(report, indodax.stopTold || {});
+      messages.push(...near.messages);
+      await this.storage.put("indodax", { ...indodax, report, reportAt: now, cashAt, silentToldAt: null, stopTold: near.told }); // saved before anything is sent
       await this.deliver(await this.config(), messages);
       return json({ ok: true, at: now, told: messages.length });
     }
