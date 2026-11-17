@@ -24,6 +24,9 @@ What keeps it safe:
   * It never withdraws: make the API key with "view" and "trade" only.
   * It keeps only your balances from Indodax's answer. Your name, email, user id and deposit
     addresses are never stored, printed or sent anywhere.
+  * With INDODAX_REPORT_CASH=yes (off unless you set it) the report to TradeBot also says how
+    much free rupiah the account has, so the daily report, the phone page and the desktop app can
+    show it. No other balance is ever sent.
 
     python bridge.py --show     what it would do right now (no orders, no report)
     python bridge.py --check    does the API key work? prints the free rupiah, orders nothing
@@ -231,6 +234,7 @@ class Settings:
     coins: tuple = ()
     proxy: str = field(default="", repr=False)
     api_version: int = 2  # 2 = Trade API 2.0 (the keys Indodax makes now), 1 = the older Trade API
+    report_cash: bool = False  # also tell TradeBot the free rupiah (INDODAX_REPORT_CASH=yes)
 
     @property
     def has_keys(self) -> bool:
@@ -325,6 +329,7 @@ def settings_from(values: dict) -> Settings:
         coins=tuple(coins),
         proxy=(values.get("HTTPS_PROXY") or values.get("https_proxy") or "").strip(),
         api_version=int(version_text or 2),
+        report_cash=truthy(values.get("INDODAX_REPORT_CASH") or ""),
     )
     if mode == "real":
         if not settings.confirmed:
@@ -824,6 +829,7 @@ class Bridge:
         self.state = load_state(state_path)
         self.prices = {}  # coin -> this cycle's prices, or None when Indodax gave none
         self.paused = False  # set from Telegram (/indodax pause); read again every cycle
+        self.cash = None  # free rupiah at Indodax (real mode only); None when it was not read
 
     # ---- small things
 
@@ -1059,6 +1065,8 @@ class Bridge:
             "received": float(received),
             "at": self.now_ms(),
             "how": how,
+            "boughtAt": int(number(position.get("at"))),
+            "quantity": number(position.get("quantity")),
         }
         if estimated:
             entry["estimated"] = True
@@ -1334,8 +1342,39 @@ class Bridge:
 
     # ---- reporting
 
+    def watch_market(self, pairs) -> None:
+        """Read this cycle's price of every coin the sender may trade, and the free rupiah when
+        INDODAX_REPORT_CASH asks for it (real mode only)."""
+        self.cash = None
+        if pairs is not None:
+            coins = list(self.settings.coins) + [position["coin"] for position in self.state["positions"].values()]
+            for coin in dict.fromkeys(coins):
+                self.price(coin, pairs)
+        if self.settings.real and self.settings.report_cash:
+            balances = self.free_balances()
+            if balances is not None:
+                self.cash = number(balances.get("idr"))
+
+    def market_of(self) -> list:
+        rows = []
+        for coin, ticker in self.prices.items():
+            if ticker:
+                rows.append({"coin": coin, "bid": ticker["bid"], "ask": ticker["ask"]})
+        return rows[:5]
+
+    def write_view(self, report: dict) -> None:
+        """Keep the last report in a file next to the state, for the desktop app. Never fails a cycle."""
+        try:
+            target = Path(self.state_path).with_name("bridge_report.json")
+            draft = target.with_suffix(".json.tmp")
+            draft.write_text(json.dumps({"at": self.now_ms(), "report": report}, indent=2), encoding="utf-8")
+            draft.replace(target)
+        except OSError:
+            pass
+
     def report_of(self, notes: list) -> dict:
-        """What TradeBot is told. Amounts of the copies only: no name, email, address or balance."""
+        """What TradeBot is told. Amounts of the copies, and the free rupiah in real mode: no name,
+        email, address or any other balance."""
         positions = []
         for symbol, position in self.state["positions"].items():
             ticker = self.prices.get(position["coin"])
@@ -1365,7 +1404,9 @@ class Bridge:
             "maxOpen": self.settings.max_open,
             "stopPercent": self.settings.stop_percent,
             "positions": positions,
-            "closed": self.state["closed"][-5:],
+            **({"cash": self.cash} if self.cash is not None else {}),
+            "market": self.market_of(),
+            "closed": self.state["closed"][-10:],
             "result": dict(self.state["result"]),
             "today": {"practice": day["practice"], "real": day["real"], "buys": day["buys"]},
             "notes": [clip(note, 300) for note in notes[:5]],
@@ -1407,12 +1448,15 @@ class Bridge:
                 if fresh:
                     self.forget(wanted)
 
+        if not show:
+            self.watch_market(pairs)
         for note in notes:
             self.log(note)
         report = self.report_of(notes)
         if show:
             self.log("Would report: " + json.dumps(report))
             return report
+        self.write_view(report)
         try:
             self.api.report(report)
         except ApiError as error:

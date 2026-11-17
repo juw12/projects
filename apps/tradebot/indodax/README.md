@@ -206,3 +206,28 @@ the reason. Look at your orders and balance at Indodax, then:
 **Start small.** The first real run is the first test against a real account. Use the smallest
 order size, one coin (`INDODAX_COINS=btc`), `INDODAX_MAX_OPEN=1`, and watch the first buy and the
 first sale at Indodax yourself.
+
+## The desk: one window instead of a console
+
+`open-desk.cmd` (or `pythonw desk.py`) opens one window that runs the sender itself, hidden, and
+shows what it does: real or practice, the free rupiah, what is held, the market, what the strategy
+needs before it buys or sells, the history, the result, and the sender's own log.
+
+- **Start the sender / Stop the sender.** The sender is a child of the window: closing the window
+  stops it (it asks first). A sender that ends by itself is started again a minute later.
+- **Never two senders.** If a sender is already running in a console window, the desk does not
+  start a second one; "Take it over here" stops that one and runs it in the desk.
+- **Pause buying / Allow buying again.** The same switch as `/indodax pause` in Telegram.
+- It never places an order and never reads the Indodax API key. It asks TradeBot with the
+  sender's key from `.env` (`GET /v1/indodax/view`, `POST /v1/indodax/pause`), and when TradeBot
+  cannot be reached it shows the sender's own last report (`bridge_report.json`).
+- The sender's lines are also kept in `desk_sender.log` (rolled over at 1 MB).
+- `INDODAX_REPORT_CASH=yes` in `.env` adds the free rupiah (real mode only).
+
+On the phone: send `/phone` to TradeBot in Telegram. It answers with a private link to a page that
+shows the same report and reloads every minute. The page only shows. `/phone` again makes a new
+link and switches the old one off.
+
+In real mode TradeBot's Telegram messages are about Indodax only: the practice account's own
+messages are not sent, the 07:00 WIB message is the full Indodax report, and `/report`,
+`/holding`, `/analysis`, `/trades` or a plain question answer from it.

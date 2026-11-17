@@ -14,14 +14,15 @@
 // This file is the pure part: tidy a report, spot what changed, and write the messages. Every
 // message says whether it is pretend money or REAL MONEY, and anything unclear is shown as real.
 
-import { clock, coin, idNumber } from "./render.js";
+import { clock, coin, idNumber, nextStep, pct, signalLines } from "./render.js";
 import { ago } from "./twin.js";
 import { clip, escapeHtml } from "./util.js";
 
 export const INDODAX_STALE_MS = 5 * 60 * 1000; // reports come every minute; five missed means the PC is away
 export const INDODAX_SILENT_MS = 10 * 60 * 1000; // this long without a report, with real money in play, is told once
 const MAX_POSITIONS = 5;
-const MAX_CLOSED = 5;
+const MAX_CLOSED = 10;
+const MAX_MARKET = 5;
 const MAX_NOTES = 5;
 const NOTE_LENGTH = 300;
 const HOW = new Set(["sold", "gone", "left"]);
@@ -88,9 +89,18 @@ export function cleanReport(raw) {
         spent: number(entry.spent),
         received: number(entry.received),
         at: number(entry.at),
+        boughtAt: number(entry.boughtAt),
+        quantity: number(entry.quantity),
         how: entry.how,
         estimated: entry.estimated === true,
       })),
+    // Free rupiah at Indodax: sent only when the owner switched that on (INDODAX_REPORT_CASH on the
+    // PC), else null. Indodax's own prices of the coins the sender may trade are public numbers.
+    cash: typeof raw.cash === "number" && Number.isFinite(raw.cash) && raw.cash >= 0 ? raw.cash : null,
+    market: objects(raw.market)
+      .slice(0, MAX_MARKET)
+      .map((row) => ({ coin: word(row.coin).toUpperCase(), bid: number(row.bid), ask: number(row.ask) }))
+      .filter((row) => row.coin && row.bid > 0),
     result: pair(raw.result),
     today: { ...today, buys: number(raw.today && typeof raw.today === "object" ? raw.today.buys : 0) },
     notes: notes.slice(0, MAX_NOTES).map((note) => clip(note.trim(), NOTE_LENGTH)),
@@ -246,6 +256,9 @@ function closedLine(entry) {
 // exists, and left out for an account that has only ever practised.
 function totals(report, values) {
   const anyReal = report.mode === "real" || values.real !== 0 || realOpen(report) > 0 || report.closed.some((entry) => entry.real);
+  // In real mode the pretend figure is left out unless something pretend is still on the books.
+  const anyPretend = values.practice !== 0 || report.positions.some((position) => !position.real) || report.closed.some((entry) => !entry.real);
+  if (report.mode === "real" && !anyPretend) return `<b>REAL</b> ${signedRp(values.real)}`;
   const practice = `pretend ${signedRp(values.practice)}`;
   return anyReal ? `${practice} · <b>REAL</b> ${signedRp(values.real)}` : practice;
 }
@@ -335,6 +348,200 @@ export function answer(view) {
   if (report.notes.length) lines.push("", ...report.notes.map((note) => `• ${escapeHtml(note)}`));
   lines.push("", ...heard(view), ONLY_SHOWS);
   return { html: lines.join("\n") };
+}
+
+// ---------------------------------------------------------------- the full report
+
+// In real mode the owner is told about the real account only: TradeBot's practice messages
+// (bought, sold, the practice daily summary) stay off, and this report takes their place.
+export function realOnly(view) {
+  return !!(view && view.configured && view.report && view.report.mode === "real");
+}
+
+function coinAmount(quantity) {
+  return quantity.toFixed(8).replace(/0+$/, "").replace(/\.$/, "").replace(".", ",");
+}
+
+function holdingLine(position, report) {
+  const parts = [`• <b>${nameOf(position)}</b> · ${tag(position.real)}`];
+  if (position.quantity > 0) parts.push(`${coinAmount(position.quantity)} ${nameOf(position)}`);
+  if (position.openedAt) parts.push(`bought ${clock(position.openedAt)}`);
+  parts.push(`paid ${rp(position.spent)}`);
+  if (position.now > 0 && position.spent > 0) {
+    parts.push(`worth ${rp(position.value)} now (${signedRp(position.value - position.spent)}, ${pct((position.value / position.spent - 1) * 100)})`);
+  } else {
+    parts.push("no price right now");
+  }
+  if (position.price > 0 && report.stopPercent > 0) parts.push(`sender's stop at ${rp(position.price * (1 - report.stopPercent / 100))} per coin`);
+  return parts.join(" · ");
+}
+
+function historyLine(entry) {
+  const head = `• <b>${nameOf(entry)}</b> · ${tag(entry.real)}`;
+  const bought = entry.boughtAt ? `bought ${clock(entry.boughtAt)} for ${rp(entry.spent)}` : `bought for ${rp(entry.spent)}`;
+  const when = entry.at ? ` ${clock(entry.at)}` : "";
+  if (entry.how === "gone") return `${head} · ${bought} → no longer in the account${when} (sold or moved by hand), no result`;
+  if (entry.how === "left") return `${head} · ${bought} → too small to sell${when}, it stays in the account, no result`;
+  const about = entry.estimated ? "about " : "";
+  const change = entry.spent > 0 ? `, ${pct(((entry.received - entry.spent) / entry.spent) * 100)}` : "";
+  return `${head} · ${bought} → sold${when} for ${about}${rp(entry.received)} · ${about}${signedRp(entry.received - entry.spent)}${change}`;
+}
+
+function cashLines(report) {
+  if (report.cash === null) return [];
+  const buys = report.orderIdr > 0 ? Math.floor(report.cash / report.orderIdr) : 0;
+  if (buys < 1) return [`Free rupiah at Indodax: <b>${rp(report.cash)}</b> · ⚠️ less than one buy of ${rp(report.orderIdr)}, so nothing can be bought until you top up.`];
+  return [`Free rupiah at Indodax: <b>${rp(report.cash)}</b> · enough for ${buys} ${buys === 1 ? "buy" : "buys"} of ${rp(report.orderIdr)}`];
+}
+
+function marketLines(report, rows) {
+  const lines = [];
+  for (const row of report.market) {
+    const change = (rows || []).find((item) => !item.error && coin(item.symbol) === row.coin && item.change24h !== null && item.change24h !== undefined);
+    const spread = row.ask > 0 ? ((row.ask - row.bid) / row.ask) * 100 : 0;
+    lines.push(`• <b>${escapeHtml(row.coin)}</b> at Indodax: buyers pay ${rp(row.bid)} · sellers ask ${rp(row.ask)} (${spread.toFixed(2)}% apart)${change ? ` · last 24 hours ${pct(change.change24h)}` : ""}`);
+  }
+  return lines;
+}
+
+// What the strategy sees in each coin the sender may trade, and what has to happen before it
+// buys or sells. extra = { rows, state } from agent.js readSignals; without it this part is short.
+function needLines(view, extra) {
+  const { report } = view;
+  const rows = (extra && extra.rows) || [];
+  const lines = [];
+  for (const row of rows) {
+    if (row.error) {
+      lines.push(`<b>${escapeHtml(coin(row.symbol))}</b>: ⚠️ no fresh price for the strategy right now. It tries again at its next 5-minute check.`);
+      continue;
+    }
+    lines.push(...signalLines(row, extra.state, view.now));
+    // The strategy bought this coin before the sender could copy it (or before real mode): the
+    // sender never buys late, so say what it waits for instead of leaving "HOLD" unexplained.
+    if (row.held && !report.positions.some((position) => position.symbol === row.symbol)) {
+      lines.push(`→ At Indodax you hold no ${escapeHtml(coin(row.symbol))}: the strategy bought it earlier and the sender never buys late. It copies the next new buy signal, after the strategy has sold this one.`);
+    }
+  }
+  if (!rows.length) lines.push("I could not read the strategy's signals just now. /signals shows them.");
+  if (extra && extra.state) lines.push(`Next: ${nextStep(extra.state, view.now)}`);
+  lines.push(`The sender on your PC copies each buy and each sale of this strategy at Indodax within about a minute: ${rp(report.orderIdr)} per buy.`);
+  if (report.positions.length) {
+    lines.push(`A copy is sold when the strategy sells (momentum turns down, the uptrend breaks, or its stop is hit), or when the Indodax price falls ${report.stopPercent}% under what was paid.`);
+  }
+  return lines;
+}
+
+const TOPICS = {
+  all: ["cash", "holding", "market", "need", "history", "result", "warnings", "sender"],
+  holding: ["cash", "holding", "result", "warnings", "sender"],
+  analysis: ["market", "need", "warnings", "sender"],
+  trades: ["history", "result", "sender"],
+};
+
+// The full Indodax report: free rupiah, what is held, the market, what the strategy needs before
+// it buys or sells, the history and the result. The daily message (07:00 WIB), /report, the phone
+// page and the desktop app are all written from this. topic narrows it (/holding, /analysis,
+// /trades). view = { configured, report, at, now, paused }; extra = { rows, state } or null.
+export function fullReport(view, extra = null, topic = "all") {
+  if (!view || !view.configured || !view.report) return answer(view || { configured: false });
+  const { report } = view;
+  const real = report.mode === "real";
+  const shown = real ? { ...report, closed: report.closed.filter((entry) => entry.real || entry.how !== "sold") } : report;
+  const parts = {
+    cash: cashLines(report),
+    holding: ["<b>Holding now</b>", ...(report.positions.length ? report.positions.map((position) => holdingLine(position, report)) : [real ? "No coin. All the money is in rupiah." : "No coin."])],
+    market: report.market.length ? ["<b>Market</b>", ...marketLines(report, extra && extra.rows)] : [],
+    need: ["<b>What I need before I buy or sell</b>", ...needLines(view, extra)],
+    history: ["<b>History</b> (newest first)", ...(shown.closed.length ? [...shown.closed].reverse().map(historyLine) : [real ? "No real trade is finished yet." : "No trade is finished yet."])],
+    result: [`Result so far: ${totals(report, report.result)}`, `Today (from 07:00 WIB): ${totals(report, report.today)} · ${report.today.buys} ${report.today.buys === 1 ? "buy" : "buys"}`],
+    warnings: [
+      ...(view.paused || report.paused ? ["⏸ Buying is paused from Telegram. <code>/indodax resume</code> allows it again."] : []),
+      ...(real && !report.checked ? [NOT_CHECKED] : []),
+      ...(report.tripped ? trippedLines(report) : []),
+      ...report.notes.map((note) => `• ${escapeHtml(note)}`),
+    ],
+    sender: heard(view),
+  };
+  const title = { all: "Indodax report", holding: "Indodax: what you hold", analysis: "Indodax: market and signals", trades: "Indodax: history" }[topic] || "Indodax report";
+  const lines = [
+    `📋 <b>${title}</b> · ${real ? "⚠️ <b>REAL MONEY</b>" : "practice (pretend money)"} · ${clock(view.now)}`,
+    `Each buy: ${rp(report.orderIdr)} · at most ${report.maxOpen} open · stop: ${report.stopPercent}% under the price paid`,
+  ];
+  for (const name of TOPICS[topic] || TOPICS.all) {
+    if (parts[name].length) lines.push("", ...parts[name]);
+  }
+  lines.push("", "<i>Not financial advice. A strategy can lose money.</i>");
+  return { html: lines.join("\n") };
+}
+
+// The same numbers for the desktop app, as data. Nothing here that the report does not show.
+export function viewData(view, extra = null) {
+  const rows = ((extra && extra.rows) || []).map((row) =>
+    row.error
+      ? { coin: coin(row.symbol), error: true }
+      : {
+          coin: coin(row.symbol),
+          action: row.held ? (row.decision.action === "sell" ? "SELL" : "HOLD") : row.decision.action === "buy" ? "BUY" : "WAIT",
+          why: row.decision.why,
+          checks: row.decision.reasons.map((reason) => ({ name: reason.name, ok: reason.ok, text: reason.text })),
+          change24h: row.change24h === undefined ? null : row.change24h,
+        },
+  );
+  return {
+    configured: !!(view && view.configured),
+    now: view.now,
+    at: view.at || null,
+    stale: isStale(view),
+    paused: view.paused === true,
+    report: view.report || null,
+    signals: rows,
+    text: fullReport(view, extra).html.replace(/<[^>]+>/g, "").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&"),
+  };
+}
+
+// The phone page: the full report as a small web page that reloads itself every minute. The
+// report's HTML uses only <b>, <i> and <code>, and every value in it is already escaped.
+export function phonePage(html, now) {
+  const body = html
+    .split("\n\n")
+    .map((block) => `<section>${block.split("\n").join("<br>")}</section>`)
+    .join("\n");
+  return [
+    "<!doctype html>",
+    '<html lang="en"><head><meta charset="utf-8">',
+    '<meta name="viewport" content="width=device-width, initial-scale=1">',
+    '<meta http-equiv="refresh" content="60">',
+    '<meta name="robots" content="noindex, nofollow">',
+    '<meta name="referrer" content="no-referrer">',
+    "<title>TradeBot · Indodax</title>",
+    "<style>",
+    "body{margin:0;padding:14px;font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:#0f1419;color:#e6e9ee}",
+    "main{max-width:640px;margin:0 auto}",
+    "section{background:#1a212b;border:1px solid #2a3442;border-radius:12px;padding:12px 14px;margin:0 0 10px;overflow-wrap:anywhere}",
+    "section:first-child{background:#20304a;border-color:#35507a}",
+    "code{background:#2a3442;border-radius:4px;padding:1px 5px;font-size:.92em}",
+    "footer{color:#8b97a8;font-size:13px;text-align:center;padding:6px 0 18px}",
+    "</style></head><body><main>",
+    body,
+    `<footer>Loaded ${clock(now)} · reloads every minute · read-only: nothing can be bought or sold from this page</footer>`,
+    "</main></body></html>",
+  ].join("\n");
+}
+
+// Add the full report in place of the practice daily summary. messages = this round's messages.
+export function onlyReal(messages, view, extra = null) {
+  const kept = [];
+  for (const message of messages) {
+    if (!message) continue;
+    if (message.daily) kept.push({ ...fullReport(view, extra), daily: true });
+    else if (message.buttons) kept.push({ ...message, html: `${message.html}\n\n${offerIsReal(view.report)}` });
+    else if (message.alert) kept.push(message);
+  }
+  return kept;
+}
+
+function offerIsReal(report) {
+  return `⚠️ <b>Approving this also buys at Indodax with REAL MONEY</b>: the sender on your PC copies it, ${rp(report.orderIdr)}. <code>/auto on</code> lets me buy alone, without asking.`;
 }
 
 // ---------------------------------------------------------------- what changed between two reports

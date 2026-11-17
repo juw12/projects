@@ -5,18 +5,22 @@
 // bought, sold or erased. Raw errors never reach the chat.
 
 import { toUsdt } from "./fx.js";
-import { MAX_WATCH, approve, blocked, decide, look, manualBuy, manualSell, newState, prices, skip, tick, tracked, worth, TICK_MS } from "./agent.js";
+import { MAX_WATCH, approve, look, manualBuy, manualSell, newState, prices, readSignals, skip, tick, worth, TICK_MS } from "./agent.js";
 import { backtest } from "./backtest.js";
 import { TIMEFRAMES, normalizeSymbol } from "./market.js";
 import { hasRealPositions, liveCommand, liveOf, venueOf } from "./live.js";
-import { answer as indodaxAnswer, pausedText as indodaxPaused, resumedText as indodaxResumed, withDaily as withIndodaxDaily } from "./indodax.js";
+import { answer as indodaxAnswer, fullReport as indodaxFull, onlyReal as indodaxOnlyReal, pausedText as indodaxPaused, realOnly as indodaxRealOnly, resumedText as indodaxResumed, withDaily as withIndodaxDaily } from "./indodax.js";
 import { answer as mt5Answer } from "./mt5.js";
 import * as render from "./render.js";
 import { Problem, errorText, escapeHtml } from "./util.js";
 
 export const COMMANDS = [
   { command: "status", description: "Account, positions and profit" },
-  { command: "report", description: "Account and Indodax copies in one message" },
+  { command: "report", description: "The full Indodax report: money, coins, market, history" },
+  { command: "holding", description: "What you hold at Indodax and the free rupiah" },
+  { command: "analysis", description: "The market, and what I need before I buy or sell" },
+  { command: "trades", description: "Indodax history: each buy and sale with its result" },
+  { command: "phone", description: "A private link to the live page for your phone" },
   { command: "signals", description: "What the agent sees in each market" },
   { command: "buy", description: "Buy now: /buy BTC 2jt" },
   { command: "sell", description: "Sell now: /sell BTC" },
@@ -40,7 +44,7 @@ export const COMMANDS = [
 
 // Commands that only show something. A misspelled one is simply run; one that acts is not.
 // /indodax shows, but with pause or resume it acts (see onlyShows).
-const READ_ONLY = new Set(["status", "report", "signals", "help", "history", "watchlist", "mt5", "indodax"]);
+const READ_ONLY = new Set(["status", "report", "holding", "analysis", "trades", "signals", "help", "history", "watchlist", "mt5", "indodax"]);
 const INDODAX_ACTS = new Set(["pause", "resume"]);
 
 function onlyShows(command, args) {
@@ -58,6 +62,17 @@ const PLAIN = [
   [/\b(trade history|past trades|closed trades)\b/i, "history"],
   [/\b(watch ?list|watching)\b/i, "watchlist"],
   [/\b(what can you do|commands|how do(es)? (you|this|it) work)\b/i, "help"],
+];
+
+// In real mode an everyday question is answered from the Indodax report: these words pick the
+// part that answers it, and anything else gets the whole report. English and Indonesian.
+const REAL_TOPICS = [
+  [/\b(metatrader|mt5)\b/i, "mt5"],
+  [/\b(what can you do|commands|help|how do(es)? (you|this|it) work)\b/i, "help"],
+  [/\b(phone|link|page|dashboard|monitor)\b/i, "phone"],
+  [/\b(histor\w*|riwayat|trades?|past|closed|profit|loss|untung|rugi|results?|win|won|lost)\b/i, "trades"],
+  [/\b(why|when|kenapa|kapan|buy\w*|sell\w*|beli|jual|signals?|analy\w*|markets?|price|harga|wait\w*|next|plan)\b/i, "analysis"],
+  [/\b(hold\w*|positions?|balance|saldo|cash|rupiah|money|uang|have|punya|portfolio|account)\b/i, "holding"],
 ];
 
 const OLD_BUTTON = "This button is from an older message and no longer works. Nothing was done. /status shows the account.";
@@ -92,6 +107,24 @@ function indodaxView(ctx) {
   return { ...view, paused: ctx.state.settings.indodaxPaused === true };
 }
 
+// The coins the Indodax sender may trade, as the strategy's symbols; null means every watched coin.
+export function indodaxSymbols(report) {
+  if (!report) return null;
+  const coins = [...report.market.map((row) => row.coin), ...report.positions.map((position) => render.coin(position.symbol))];
+  const symbols = [...new Set(coins.filter(Boolean).map((name) => `${String(name).toUpperCase()}USDT`))];
+  return symbols.length ? symbols : null;
+}
+
+// One part of the Indodax report (or all of it), with what the strategy sees right now.
+async function indodaxPart(ctx, topic) {
+  const view = indodaxView(ctx);
+  let extra = null;
+  if (view.report && (topic === "all" || topic === "analysis")) {
+    extra = { state: ctx.state, rows: await readSignals(ctx.state, ctx.market, ctx.now, indodaxSymbols(view.report)) };
+  }
+  return { messages: [indodaxFull(view, extra, topic)] };
+}
+
 // Open offers are closed (for example when buying is paused). Returns a sentence, or "".
 function withdrawOffers(state, symbols = Object.keys(state.pending)) {
   const closed = symbols.filter((symbol) => state.pending[symbol]);
@@ -120,41 +153,47 @@ const handlers = {
     const { state } = ctx;
     const messages = [];
     // Prices older than one round are refreshed first, so the numbers are current.
-    if (!state.lastTick || ctx.now - state.lastTick.at > TICK_MS) messages.push(...withIndodaxDaily(await tick(state, ctx), indodaxView(ctx)));
+    if (!state.lastTick || ctx.now - state.lastTick.at > TICK_MS) {
+      const fresh = await tick(state, ctx);
+      const view = indodaxView(ctx);
+      messages.push(...(indodaxRealOnly(view) ? indodaxOnlyReal(fresh, view) : withIndodaxDaily(fresh, view)));
+    }
     messages.push(statusOf(state, ctx.now));
     return { messages };
   },
 
-  // The daily report on request: the account, then where the Indodax copies stand.
+  // The daily report on request. In real mode it is the full Indodax report and nothing about
+  // practice money; otherwise the account, then where the Indodax copies stand.
   async report(ctx) {
+    if (indodaxRealOnly(indodaxView(ctx))) return indodaxPart(ctx, "all");
     const { messages } = await handlers.status(ctx);
     const account = messages.pop();
     messages.push(...withIndodaxDaily([{ ...account, daily: true }], indodaxView(ctx)));
     return { messages };
   },
 
+  async holding(ctx) {
+    return indodaxPart(ctx, "holding");
+  },
+
+  async analysis(ctx) {
+    return indodaxPart(ctx, "analysis");
+  },
+
+  async trades(ctx) {
+    return indodaxPart(ctx, "trades");
+  },
+
+  // A private link to the phone page. The Worker makes the link (index.js): each /phone makes a
+  // new one, and the one before stops working.
+  async phone(ctx) {
+    if (!indodaxView(ctx).configured) return warn("Indodax is not set up, so there is no page to show. /indodax says how it works.");
+    return { messages: [], phone: true };
+  },
+
   async signals(ctx) {
     const { state } = ctx;
-    const rows = [];
-    for (const symbol of tracked(state)) {
-      try {
-        const view = await look(ctx.market, symbol, state.settings.timeframe, ctx.now);
-        const last = view.closed[view.closed.length - 1];
-        const memo = state.marks[symbol] || {};
-        rows.push({
-          symbol,
-          price: view.price,
-          decision: decide(state, view, ctx.now),
-          held: state.portfolio.positions[symbol] || null,
-          blocked: blocked(state),
-          pending: state.pending[symbol] || null,
-          passed: memo.passed || "",
-          judged: !!last && memo.decided === last.t,
-        });
-      } catch (error) {
-        rows.push({ symbol, error });
-      }
-    }
+    const rows = await readSignals(state, ctx.market, ctx.now);
     if (!rows.length) return say("Nothing on the watchlist, so there are no signals. Add a coin with <code>/watch BTC</code>.");
     return { messages: [render.signals(rows, state, ctx.now)] };
   },
@@ -471,6 +510,11 @@ async function onText(ctx, text) {
   const words = text.split(/\s+/).filter(Boolean);
   const first = String(words[0] || "").toLowerCase();
   if (first !== "start" && Object.hasOwn(handlers, first)) return guessed(ctx, first, words.slice(1), "");
+  if (indodaxRealOnly(indodaxView(ctx))) {
+    const asked = REAL_TOPICS.find(([pattern]) => pattern.test(text));
+    if (asked && asked[1] === "phone") return say("Send /phone and I make a private link to the live page for your phone.");
+    return guessed(ctx, asked ? asked[1] : "report", [], "");
+  }
   const topic = PLAIN.find(([pattern]) => pattern.test(text));
   if (topic) return guessed(ctx, topic[1], [], "");
   return say("I only understand commands, not everyday sentences. Try /status (the account), /signals (what I see in each coin) or /help (how I trade, and every command).");

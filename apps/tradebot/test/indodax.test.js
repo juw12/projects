@@ -48,9 +48,11 @@ test("indodax: a report is tidied to the fields /indodax shows, and nothing else
       notes: ["ok", 5, "", "  spaced  "],
     }),
   );
-  assert.deepEqual(Object.keys(cleaned).sort(), ["checked", "closed", "keys", "maxOpen", "mode", "notes", "orderIdr", "paused", "positions", "result", "stopPercent", "today", "tripped", "trippedWhy"]);
+  assert.deepEqual(Object.keys(cleaned).sort(), ["cash", "checked", "closed", "keys", "market", "maxOpen", "mode", "notes", "orderIdr", "paused", "positions", "result", "stopPercent", "today", "tripped", "trippedWhy"]);
   assert.deepEqual(cleaned.positions, [BTC]);
-  assert.deepEqual(cleaned.closed, [{ symbol: "BTCUSDT", real: false, spent: 50000, received: 51000, at: NOW - 60000, how: "sold", estimated: false }]);
+  assert.deepEqual(cleaned.closed, [{ symbol: "BTCUSDT", real: false, spent: 50000, received: 51000, at: NOW - 60000, boughtAt: 0, quantity: 0, how: "sold", estimated: false }]);
+  assert.equal(cleaned.cash, null, "free rupiah is kept only under its own name, when the sender sends it");
+  assert.deepEqual(cleaned.market, []);
   assert.deepEqual(cleaned.notes, ["ok", "spaced"]);
   const kept = JSON.stringify(cleaned);
   for (const secret of ["someone@example.com", "12345678", "SECRET", "Juwen", "991"]) assert.equal(kept.includes(secret), false, secret);
@@ -61,14 +63,14 @@ test("indodax: a report is tidied to the fields /indodax shows, and nothing else
       positions: Array.from({ length: 9 }, (unused, index) => ({ ...BTC, symbol: `C${index}USDT` })),
       closed: [
         { symbol: "XUSDT", how: "vanished", at: 1 },
-        ...Array.from({ length: 8 }, (unused, index) => ({ symbol: "BTCUSDT", real: false, spent: 1, received: 1, at: index + 1, how: "sold" })),
+        ...Array.from({ length: 13 }, (unused, index) => ({ symbol: "BTCUSDT", real: false, spent: 1, received: 1, at: index + 1, how: "sold" })),
       ],
       notes: Array.from({ length: 9 }, () => "n".repeat(900)),
       trippedWhy: "w".repeat(900),
     }),
   );
   assert.equal(big.positions.length, 5);
-  assert.deepEqual(big.closed.map((entry) => entry.at), [4, 5, 6, 7, 8], "the newest five");
+  assert.deepEqual(big.closed.map((entry) => entry.at), [4, 5, 6, 7, 8, 9, 10, 11, 12, 13], "the newest ten");
   assert.equal(big.notes.length, 5);
   assert.equal(big.notes[0].length, 300);
   assert.equal(big.trippedWhy.length, 300);
@@ -364,7 +366,7 @@ test("indodax: the daily part says where the copies stand, in practice and with 
   const real = daily(view(report({ mode: "real", keys: true, checked: true, orderIdr: 20000, maxOpen: 1, result: { practice: 0, real: -350 } }))).join("\n");
   assert.match(
     real,
-    /^<b>Indodax<\/b> · ⚠️ <b>REAL MONEY<\/b> \(your own rupiah\)\nEach buy: Rp20\.000 · at most 1 open\nHolding nothing\.\nResult so far: pretend Rp0 · <b>REAL<\/b> -Rp350\nLast heard from the sender: [^\n]+\.$/,
+    /^<b>Indodax<\/b> · ⚠️ <b>REAL MONEY<\/b> \(your own rupiah\)\nEach buy: Rp20\.000 · at most 1 open\nHolding nothing\.\nResult so far: <b>REAL<\/b> -Rp350\nLast heard from the sender: [^\n]+\.$/,
   );
   assert.match(daily(view(report({ mode: "real", positions: [REAL_ETH] }))).join("\n"), /• <b>ETH<\/b> · <b>REAL MONEY<\/b> · paid Rp50\.000 · worth Rp48\.000 now \(-Rp2\.000\)/);
 });

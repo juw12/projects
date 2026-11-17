@@ -1,6 +1,6 @@
 // Small shared helpers for the TradeBot Worker. No dependencies.
 
-export const VERSION = "0.10.0";
+export const VERSION = "0.11.0";
 
 // How the Worker names itself to exchanges. Indodax answers 403 to any name with "bot" in it,
 // and that includes this Worker's own address, so the name carries no link.

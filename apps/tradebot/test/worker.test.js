@@ -65,6 +65,11 @@ async function harness({ routes = [] } = {}) {
     const response = await worker.fetch(new Request(HOST + path, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) }), env);
     return { status: response.status, body: await response.json().catch(() => null) };
   };
+  // A page a browser opens (the phone page): the status and the HTML as text.
+  const page = async (path) => {
+    const response = await worker.fetch(new Request(HOST + path), env);
+    return { status: response.status, text: await response.text() };
+  };
   let updateId = 1000;
   const webhook = async (update, secret) => {
     const config = (await storage().get("config")) || {};
@@ -120,7 +125,7 @@ async function harness({ routes = [] } = {}) {
     assert.equal(answer.status, 200);
     return twinTexts(before);
   };
-  return { now, scene, sent, twinSent, fetch, env, storage, call, webhook, say, tap, round, connect, pair, texts, twinConnect, twinReport, twinTexts, twinSay };
+  return { now, scene, sent, twinSent, fetch, env, storage, call, page, webhook, say, tap, round, connect, pair, texts, twinConnect, twinReport, twinTexts, twinSay };
 }
 
 test("before setup the worker is alive, unconfigured and trades practice money only", async () => {
@@ -953,8 +958,8 @@ test("indodax: the daily summary and /report say where the Indodax copies stand"
 
   const { bridgeKey } = (await call("POST", "/v1/indodax/setup", INDODAX_SETUP)).body;
   const post = (body) => call("POST", "/v1/indodax/report", { headers: { "X-Indodax-Key": bridgeKey }, body });
-  const real = indodaxReport({ mode: "real", keys: true, checked: true, orderIdr: 20000, maxOpen: 1 });
-  const part = /\n\n<b>Indodax<\/b> · ⚠️ <b>REAL MONEY<\/b> \(your own rupiah\)\nEach buy: Rp20\.000 · at most 1 open\nHolding nothing\.\nResult so far: pretend Rp0 · <b>REAL<\/b> Rp0\nLast heard from the sender: just now\./;
+  const real = indodaxReport({ orderIdr: 20000, maxOpen: 1 });
+  const part = /\n\n<b>Indodax<\/b> · practice \(pretend money\)\nEach buy: Rp20\.000 · at most 1 open\nHolding nothing\.\nResult so far: pretend Rp0\nLast heard from the sender: just now\./;
   const times = (text) => (text.match(/<b>Indodax<\/b> ·/g) || []).length;
 
   // The day turns (07:00 WIB) while the sender is running: one message carries both.
@@ -971,7 +976,7 @@ test("indodax: the daily summary and /report say where the Indodax copies stand"
   const asked = await say("/report");
   assert.match(asked, part);
   assert.equal(times(asked), 1);
-  assert.match(await say("daily report"), /I read that as \/report[\s\S]*REAL MONEY/);
+  assert.match(await say("daily report"), /I read that as \/report[\s\S]*practice \(pretend money\)/);
   assert.match(await say("/help"), /\/report the account and the Indodax copies in one message/);
   assert.ok(sent.find((entry) => entry.method === "setMyCommands").commands.some((entry) => entry.command === "report"));
   assert.equal((await say("/status")).includes("<b>Indodax</b>"), false, "/status stays the account alone");
@@ -982,7 +987,7 @@ test("indodax: the daily summary and /report say where the Indodax copies stand"
   const late = await say("/status");
   const second = late.split("\n---\n").find((text) => text.includes("Daily summary"));
   assert.ok(second, late);
-  assert.match(second, /<b>Indodax<\/b> · ⚠️ <b>REAL MONEY<\/b>/);
+  assert.match(second, /<b>Indodax<\/b> · practice \(pretend money\)/);
   assert.match(second, /⚠️ Last heard from the sender 24 hours ago/);
   assert.equal(times(late), 1);
 });
@@ -1108,4 +1113,81 @@ test("indodax: the message that the sender is back reaches the owner", async () 
   assert.equal(texts.length, 1);
   assert.equal(texts[0].chat_id, OWNER);
   assert.equal(texts[0].text, "✅ <b>Indodax: the sender on your PC is back.</b> It reports again: nothing open. /indodax shows it.");
+});
+
+test("indodax in real money: practice messages stop, the report is complete, and the phone page and desktop routes are private", async () => {
+  const { call, page, pair, say, round, now } = await harness();
+  await pair();
+  now.advance(TICK_MS);
+  await round();
+  const { bridgeKey } = (await call("POST", "/v1/indodax/setup", INDODAX_SETUP)).body;
+  const key = { "X-Indodax-Key": bridgeKey };
+  const post = (body) => call("POST", "/v1/indodax/report", { headers: key, body });
+  const real = indodaxReport({
+    mode: "real",
+    keys: true,
+    checked: true,
+    orderIdr: 20000,
+    maxOpen: 1,
+    cash: 50000,
+    market: [{ coin: "btc", bid: 1650000000, ask: 1651000000 }],
+    closed: [{ symbol: "BTCUSDT", real: true, quantity: 0.000012, spent: 20000, received: 20900, boughtAt: now() - 7200000, at: now() - 3600000, how: "sold" }],
+    result: { practice: 0, real: 900 },
+  });
+  assert.equal((await post(real)).status, 200);
+
+  // The day turns: one message, the full Indodax report, and no word about pretend money.
+  now.advance(24 * 60 * 60 * 1000);
+  assert.equal((await post(real)).status, 200);
+  const morning = await round();
+  assert.match(morning, /REAL MONEY/);
+  assert.match(morning, /Free rupiah[^\n]*Rp50\.000/);
+  assert.match(morning, /Rp1\.650\.000\.000/, "the market it trades is in the report");
+  assert.match(morning, /sold[^\n]*for Rp20\.900 · \+Rp900/, "and so is the history");
+  assert.match(morning, /At Indodax you hold no BTC: the strategy bought it earlier/, "a coin held only in practice is explained");
+  assert.equal(/pretend|practice money|Daily summary/i.test(morning), false, morning);
+
+  // Each part can be asked for alone, by command or in everyday words.
+  const full = await say("/report");
+  assert.match(full, /Free rupiah/);
+  assert.match(full, /Rp1\.650\.000\.000/);
+  const holding = await say("/holding");
+  assert.match(holding, /Free rupiah[^\n]*Rp50\.000/);
+  assert.match(holding, /No coin\. All the money is in rupiah\./);
+  assert.match(await say("/analysis"), /Rp1\.650\.000\.000/);
+  assert.match(await say("/trades"), /Rp900/);
+  assert.match(await say("apa yang saya punya sekarang"), /Free rupiah/);
+  assert.match(await say("kenapa belum beli"), /Rp1\.650\.000\.000/);
+  assert.match(await say("riwayat"), /Rp900/);
+  assert.match(await say("hello there"), /Free rupiah/, "anything else gets the full report");
+
+  // The desktop app's routes take the sender's key and nothing else.
+  assert.equal((await call("GET", "/v1/indodax/view")).status, 403);
+  assert.equal((await call("GET", "/v1/indodax/view", { headers: { "X-Indodax-Key": "wrong" } })).status, 403);
+  const seen = await call("GET", "/v1/indodax/view", { headers: key });
+  assert.equal(seen.status, 200);
+  assert.equal(seen.body.report.cash, 50000);
+  assert.equal(seen.body.report.mode, "real");
+  assert.equal((await call("POST", "/v1/indodax/pause", { body: { paused: true } })).status, 403);
+  assert.equal((await call("GET", "/v1/status")).body.indodax.paused, false);
+  assert.equal((await call("POST", "/v1/indodax/pause", { headers: key, body: { paused: true } })).status, 200);
+  assert.equal((await call("GET", "/v1/status")).body.indodax.paused, true);
+  assert.equal((await call("POST", "/v1/indodax/pause", { headers: key, body: { paused: "yes" } })).status, 400, "only true or false");
+  assert.equal((await call("POST", "/v1/indodax/pause", { headers: key, body: { paused: false } })).status, 200);
+  assert.equal((await call("GET", "/v1/status")).body.indodax.paused, false);
+
+  // The phone page: a private link from /phone, read-only, and a new link switches the old one off.
+  const linkOf = (text) => text.match(/https:\/\/[^\s<]+\/v1\/indodax\/phone\?k=[A-Za-z0-9_-]+/)[0].replace(/^https:\/\/[^/]+/, "");
+  const first = linkOf(await say("/phone"));
+  const shown = await page(first);
+  assert.equal(shown.status, 200);
+  assert.match(shown.text, /REAL MONEY/);
+  assert.match(shown.text, /Rp50\.000/);
+  assert.equal(shown.text.includes(bridgeKey), false, "the page never carries the sender's key");
+  assert.equal((await page("/v1/indodax/phone?k=wrong")).status, 403);
+  assert.equal((await page("/v1/indodax/phone")).status, 403);
+  const second = linkOf(await say("/phone"));
+  assert.notEqual(second, first);
+  assert.equal((await page(first)).status, 403, "the old link is dead");
+  assert.equal((await page(second)).status, 200);
 });
