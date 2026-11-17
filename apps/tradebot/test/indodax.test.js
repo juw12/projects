@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { INDODAX_SILENT_MS, INDODAX_STALE_MS, answer, backText, changes, cleanReport, daily, fullReport, isStale, pausedText, phonePage, plainWords, resumedText, silentAlert, viewData, withDaily } from "../src/indodax.js";
+import { INDODAX_SILENT_MS, INDODAX_STALE_MS, answer, backText, changes, cleanReport, daily, fullReport, isStale, pausedText, phonePage, plainWords, planFigures, PLAN, keepCash, CASH_KEPT_MS, resumedText, silentAlert, viewData, withDaily } from "../src/indodax.js";
 
 const NOW = Date.UTC(2026, 10, 16, 4, 10); // 11:10 WIB
 
@@ -501,4 +501,85 @@ test("the desktop app gets the plain words with its data, from the strategy's ow
   assert.match(data.words[3].means, /I want 50 to 70/);
   assert.deepEqual(viewData(realView(), null).words, []);
   assert.deepEqual(plainWords({ rows: [] }), []);
+});
+
+test("plan: the real money's stage, what was put in, what it is worth, and the test's ranges", () => {
+  // Practice, or no free rupiah reported: there is nothing to plan with, so no block and no numbers.
+  assert.equal(planFigures(cleanReport(report({ cash: 50000 }))), null);
+  assert.equal(planFigures(cleanReport(report({ mode: "real", keys: true, checked: true }))), null);
+  assert.equal(fullReport(view(report({ mode: "real", keys: true, checked: true }))).html.includes("<b>Plan</b>"), false);
+
+  // Fresh real account: all rupiah free, nothing earned or lost.
+  const fresh = report({ mode: "real", keys: true, checked: true, orderIdr: 20000, maxOpen: 1, cash: 50000 });
+  assert.deepEqual(planFigures(cleanReport(fresh)), { putIn: 50000, worth: 50000, change: 0, pct: 0, stage: 0, floor: false, scale: 1 });
+  const html = fullReport(view(fresh)).html;
+  assert.ok(html.includes("<b>Plan</b>\nStage 1 of 3: protect the money"), html);
+  assert.ok(html.includes("Money put in: Rp50.000 · worth now: <b>Rp50.000</b>"), html);
+  assert.ok(html.includes("a losing trade costs about Rp500 and at most about Rp1.700"), html);
+  assert.ok(html.includes("Next stage at Rp55.000"), html);
+  assert.ok(html.includes("If it falls to Rp40.000"), html);
+  assert.ok(html.includes("<b>not a promise</b>"), html);
+  assert.ok(html.includes("• 1 month: Rp48.300 to Rp53.700, middle Rp49.800"), html);
+  assert.ok(html.includes("• 12 months: Rp45.500 to Rp68.200, middle Rp55.000"), html);
+  assert.ok(html.indexOf("<b>Holding now</b>") < html.indexOf("<b>Plan</b>") && html.indexOf("<b>Plan</b>") < html.indexOf("<b>What I need"), "the plan sits between holding and the market");
+
+  // /plan alone: the plan without the market and the history.
+  const only = fullReport(view(fresh), null, "plan").html;
+  assert.ok(only.includes("Indodax: the plan") && only.includes("<b>Plan</b>"), only);
+  assert.equal(only.includes("<b>History</b>"), false);
+  assert.equal(only.includes("<b>What I need"), false);
+
+  // One open real copy that lost a little, after Rp6.000 of earlier gains:
+  // put in = 36.000 + 20.000 - 6.000 = 50.000; worth = 36.000 + 19.500 = 55.500 (+11%): stage 2.
+  const open = { symbol: "BTCUSDT", pair: "btc_idr", real: true, quantity: 0.000016, spent: 20000, price: 1250000000, now: 1218750000, value: 19500, openedAt: NOW - 3600000 };
+  const grown = cleanReport(report({ mode: "real", keys: true, checked: true, orderIdr: 20000, maxOpen: 1, cash: 36000, positions: [open], result: { practice: 0, real: 6000 } }));
+  const figures = planFigures(grown);
+  assert.equal(figures.putIn, 50000);
+  assert.equal(figures.worth, 55500);
+  assert.equal(figures.stage, 1);
+  assert.ok(fullReport(view(grown)).html.includes("Stage 2 of 3: a little bigger"));
+
+  // A pretend copy never counts as real money, and a top-up moves both sides: the change stays.
+  const pretend = cleanReport(report({ mode: "real", keys: true, checked: true, orderIdr: 20000, cash: 150000, positions: [BTC], result: { practice: 900, real: 6000 } }));
+  assert.deepEqual([planFigures(pretend).putIn, planFigures(pretend).worth], [144000, 150000]);
+
+  // Down 20% or more: the floor is said out loud, with the command that stops new buys.
+  const low = cleanReport(report({ mode: "real", keys: true, checked: true, orderIdr: 20000, cash: 40000, result: { practice: 0, real: -10000 } }));
+  assert.equal(planFigures(low).floor, true);
+  assert.ok(fullReport(view(low)).html.includes("/indodax pause"));
+
+  // A bigger buy scales the losses and the ranges with it.
+  const bigger = fullReport(view(report({ mode: "real", keys: true, checked: true, orderIdr: 40000, maxOpen: 1, cash: 100000 }))).html;
+  assert.ok(bigger.includes("costs about Rp1.000 and at most about Rp3.400"), bigger);
+  assert.ok(bigger.includes("• 1 month: Rp96.600 to Rp107.400, middle Rp99.600"), bigger);
+
+  // The numbers shown are the ones in PLAN, in time order, low <= middle <= high.
+  assert.deepEqual(PLAN.spans.map((span) => span.name), ["1 month", "3 months", "6 months", "12 months"]);
+  for (const span of PLAN.spans) assert.ok(span.low <= span.middle && span.middle <= span.high, span.name);
+});
+
+test("indodax: a minute without the balance keeps the free rupiah read just before, unless something traded", () => {
+  const real = (extra = {}) => cleanReport(report({ mode: "real", keys: true, checked: true, orderIdr: 20000, ...extra }));
+  const before = real({ cash: 50000 });
+  const blank = real();
+  assert.equal(blank.cash, null);
+
+  // Read a minute ago, nothing changed: kept, so the plan stays on the report.
+  const kept = keepCash(before, blank, NOW - 60000, NOW);
+  assert.equal(kept.cash, 50000);
+  assert.ok(fullReport({ configured: true, report: kept, at: NOW, now: NOW }).html.includes("<b>Plan</b>"));
+
+  // A fresh figure always wins; too old, never read, or practice: not kept.
+  assert.equal(keepCash(before, real({ cash: 30000 }), NOW, NOW).cash, 30000);
+  assert.equal(keepCash(before, blank, NOW - CASH_KEPT_MS - 1, NOW).cash, null);
+  assert.equal(keepCash(before, blank, 0, NOW).cash, null);
+  assert.equal(keepCash(null, blank, NOW, NOW).cash, null);
+  assert.equal(keepCash(cleanReport(report({ cash: 50000 })), blank, NOW, NOW).cash, null);
+
+  // A buy, a sale or a new result since then: the old figure is wrong, so it is dropped.
+  const bought = real({ positions: [{ ...REAL_ETH, spent: 20000 }] });
+  assert.equal(keepCash(before, bought, NOW - 60000, NOW).cash, null);
+  const sold = real({ closed: [{ symbol: "ETHUSDT", real: true, spent: 20000, received: 20400, at: NOW - 30000, how: "sold" }], result: { practice: 0, real: 400 } });
+  assert.equal(keepCash(before, sold, NOW - 60000, NOW).cash, null);
+  assert.equal(keepCash(before, real({ result: { practice: 0, real: -300 } }), NOW - 60000, NOW).cash, null);
 });

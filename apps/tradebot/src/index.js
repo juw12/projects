@@ -55,6 +55,7 @@ import {
   backText as indodaxBack,
   changes as indodaxChanges,
   cleanReport as cleanIndodaxReport,
+  keepCash as keepIndodaxCash,
   fullReport as indodaxFull,
   onlyReal as indodaxOnlyReal,
   phonePage as indodaxPhonePage,
@@ -794,12 +795,15 @@ export function createWorker(overrides) {
     async indodaxReport(body) {
       const indodax = await this.indodaxFor(body.key);
       if (!indodax) return json({ ok: false, error: "not allowed" }, 403);
-      const report = cleanIndodaxReport(body.report);
-      if (!report) return json({ ok: false, error: "That is not an Indodax report." }, 400);
+      const read = cleanIndodaxReport(body.report);
+      if (!read) return json({ ok: false, error: "That is not an Indodax report." }, 400);
+      const now = deps.now();
+      // The free rupiah of a minute ago is kept through a minute in which it could not be read.
+      const cashAt = read.cash !== null ? now : indodax.cashAt || 0;
+      const report = keepIndodaxCash(indodax.report, read, cashAt, now);
       const messages = indodaxChanges(indodax.report, report);
       if (indodax.silentToldAt && indodax.silentToldAt === indodax.reportAt) messages.unshift({ html: indodaxBack(report) });
-      const now = deps.now();
-      await this.storage.put("indodax", { ...indodax, report, reportAt: now, silentToldAt: null }); // saved before anything is sent
+      await this.storage.put("indodax", { ...indodax, report, reportAt: now, cashAt, silentToldAt: null }); // saved before anything is sent
       await this.deliver(await this.config(), messages);
       return json({ ok: true, at: now, told: messages.length });
     }

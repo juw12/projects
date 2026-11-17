@@ -1161,6 +1161,28 @@ test("indodax in real money: practice messages stop, the report is complete, and
   assert.match(await say("riwayat"), /Rp900/);
   assert.match(await say("hello there"), /Free rupiah/, "anything else gets the full report");
 
+  // The plan: by command, in everyday words and in the full report. Money put in is the free
+  // rupiah less what trading earned so far (50.000 - 900).
+  const plan = await say("/plan");
+  assert.match(plan, /Indodax: the plan/);
+  assert.match(plan, /Money put in: Rp49\.100 · worth now: (<b>)?Rp50\.000/);
+  assert.match(plan, /Stage 1 of 3/);
+  assert.match(plan, /not a promise/);
+  assert.equal(/History/.test(plan), false, "the plan alone, without the history");
+  assert.match(await say("what is the target"), /Money put in: Rp49\.100/);
+  assert.match(full, /Money put in: Rp49\.100/);
+  // A minute in which the PC could not read the balance does not blank the plan...
+  const { cash: unread, ...blank } = real;
+  assert.equal(unread, 50000);
+  now.advance(60 * 1000);
+  assert.equal((await post(blank)).status, 200);
+  assert.match(await say("/plan"), /Money put in: Rp49\.100/);
+  // ...but a balance not read for a quarter of an hour is no longer shown as if it were known.
+  now.advance(16 * 60 * 1000);
+  assert.equal((await post(blank)).status, 200);
+  assert.equal(/Money put in|Free rupiah/.test(await say("/plan")), false);
+  assert.equal((await post(real)).status, 200);
+
   // The desktop app's routes take the sender's key and nothing else.
   assert.equal((await call("GET", "/v1/indodax/view")).status, 403);
   assert.equal((await call("GET", "/v1/indodax/view", { headers: { "X-Indodax-Key": "wrong" } })).status, 403);
