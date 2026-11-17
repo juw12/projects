@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { INDODAX_SILENT_MS, INDODAX_STALE_MS, answer, backText, changes, cleanReport, daily, fullReport, isStale, pausedText, phonePage, plainWords, planFigures, PLAN, keepCash, CASH_KEPT_MS, cleanLearn, LEARN_OLD_MS, resumedText, silentAlert, viewData, withDaily } from "../src/indodax.js";
+import { INDODAX_SILENT_MS, INDODAX_STALE_MS, answer, backText, changes, cleanReport, daily, fullReport, isStale, pausedText, phonePage, plainWords, planFigures, PLAN, keepCash, CASH_KEPT_MS, cleanLearn, LEARN_OLD_MS, SCORE_MOST, resumedText, silentAlert, viewData, withDaily } from "../src/indodax.js";
 
 const NOW = Date.UTC(2026, 10, 16, 4, 10); // 11:10 WIB
 
@@ -501,6 +501,7 @@ test("the desktop app gets the plain words with its data, from the strategy's ow
   assert.match(data.words[3].means, /I want 50 to 70/);
   assert.deepEqual(viewData(realView(), null).words, []);
   assert.deepEqual(plainWords({ rows: [] }), []);
+  assert.match(data.version, /^\d+\.\d+\.\d+$/, "the desktop app compares this with its own version");
 });
 
 test("plan: the real money's stage, what was put in, what it is worth, and the test's ranges", () => {
@@ -600,6 +601,12 @@ const LEARN = {
   cost: { assumed: 0.9, measured: null, trades: 0, used: "assumed" },
   challenger: { rules: "averages 30/80/300, RSI 50 to 70, stop 4 ATR", days: 0, trades: 0, lead: 0 },
   verdict: "watch",
+  score: { total: 2.3, parts: { unseen: 1.28, steady: 0.65, dips: 0.38, real: 0 }, realTrades: 0 },
+  curve: [
+    { at: NOW - 49 * 60 * 60 * 1000, score: 2.1 },
+    { at: NOW - 25 * 60 * 60 * 1000, score: 2.2 },
+    { at: NOW - 60 * 60 * 1000, score: 2.3 },
+  ],
 };
 const REVIEW = { ...LEARN, verdict: "review", challenger: { ...LEARN.challenger, days: 95, trades: 9, lead: 3100 } };
 const realWith = (learn, extra = {}) => report({ mode: "real", keys: true, checked: true, orderIdr: 20000, maxOpen: 1, cash: 50000, learn, ...extra });
@@ -638,6 +645,55 @@ test("indodax study: only numbers and one short line are kept, and junk is dropp
   assert.equal(cleanLearn({ ...LEARN, verdict: "keep" }).challenger, null);
   assert.equal(cleanLearn({ ...REVIEW, challenger: null }).verdict, "keep");
   assert.equal(cleanLearn({ ...REVIEW, challenger: "the fast one" }).verdict, "keep");
+});
+
+test("indodax study: the score and its curve are numbers inside their scale, or nothing", () => {
+  // A sender older than the score: no score, an empty curve, and the rest as before.
+  const { score: _score, curve: _curve, ...old } = LEARN;
+  assert.equal(cleanLearn(old).score, null);
+  assert.deepEqual(cleanLearn(old).curve, []);
+  for (const junk of ["high", 9, [9], {}, { total: "10" }, { total: NaN }]) assert.equal(cleanLearn({ ...LEARN, score: junk }).score, null, JSON.stringify(junk));
+
+  const odd = cleanLearn({
+    ...LEARN,
+    score: { total: 99, parts: { unseen: 7, steady: -1, dips: "deep", real: 1.23456, luck: 5 }, realTrades: 4.6, note: "<b>trust me</b>" },
+    curve: [{ at: 0, score: 5 }, "up", { at: NOW, score: 44 }, { at: NOW, score: "x" }, ...Array.from({ length: 80 }, (_, index) => ({ at: NOW + index, score: 1.234 }))],
+  });
+  assert.deepEqual(odd.score, { total: 10, parts: { unseen: 3, steady: 0, dips: 0, real: 1.23 }, realTrades: 5 });
+  assert.equal(odd.curve.length, 60);
+  assert.deepEqual(odd.curve[0], { at: NOW + 20, score: 1.23 });
+  assert.deepEqual(cleanLearn({ ...LEARN, curve: [{ at: NOW, score: 44 }, { at: 0, score: 1 }] }).curve, [{ at: NOW, score: 10 }]);
+  assert.deepEqual(Object.keys(SCORE_MOST), ["unseen", "steady", "dips", "real"]);
+  assert.equal(Object.values(SCORE_MOST).reduce((sum, most) => sum + most, 0), 10);
+});
+
+test("indodax study: /learn leads with the score, its parts, the curve and what is still collected", () => {
+  const learn = (study) => fullReport(view(realWith(study)), null, "learn").html.split("\n");
+  const lines = learn(LEARN);
+  const start = lines.findIndex((line) => line.startsWith("<b>Self-study</b>"));
+  assert.equal(lines[start + 1], "<b>Score: 2,3 of 10</b> ▰▰▱▱▱▱▱▱▱▱");
+  assert.equal(lines[start + 2], "How far the rules are proven, not how clever they sound: unseen prices 1,28 of 3 · steady years 0,65 of 2 · dips 0,38 of 2 · real money 0 of 3.");
+  assert.match(lines[start + 3], /^Curve: 2,1 on \d+ \w+ → 2,3 now \(\+0,2 over 3 days with a study\)\.$/);
+  assert.match(lines[start + 4], /^Still collecting: real trades finished 0 of 30 · real cost measured on 0 of 5 trades · the watched version 0 of 90 days and 0 of 8 trades\. Next study: about \d\d:\d\d WIB\.$/);
+  assert.match(lines[start + 5], /^The scale is fixed\. Only measured things move the score/);
+  assert.equal(lines[start + 6], "");
+  assert.match(lines[start + 7], /^1\. Replay/);
+
+  // The first day, a fall, a late study, and counts that never pass their goal.
+  assert.ok(learn({ ...LEARN, curve: LEARN.curve.slice(-1) }).includes("The curve starts today: one point a day is kept from now on."));
+  assert.ok(learn({ ...LEARN, curve: [{ at: NOW - 49 * 60 * 60 * 1000, score: 3 }, LEARN.curve[2]] }).some((line) => /→ 2,3 now \(−0,7 over 2 days with a study\)/.test(line)));
+  assert.ok(learn({ ...LEARN, curve: [{ at: NOW - 49 * 60 * 60 * 1000, score: 2.3 }, LEARN.curve[2]] }).some((line) => line.includes("now (the same over 2 days")));
+  assert.ok(learn({ ...LEARN, at: NOW - 5 * 60 * 60 * 1000 }).some((line) => line.endsWith("Next study: at the sender's next cycle.")));
+  const far = learn({ ...REVIEW, score: { ...LEARN.score, total: 10, realTrades: 44 }, cost: { assumed: 0.9, measured: 1.2, trades: 9, used: "measured" } });
+  assert.ok(far.includes("<b>Score: 10 of 10</b> ▰▰▰▰▰▰▰▰▰▰"));
+  assert.ok(far.some((line) => line.includes("real trades finished 30 of 30 · real cost measured on 5 of 5 trades · the watched version 90 of 90 days and 8 of 8 trades")));
+  assert.ok(learn({ ...LEARN, verdict: "keep" }).some((line) => line.includes("real cost measured on 0 of 5 trades. Next study")), "no watched version, no line for it");
+
+  // A sender older than the score: /learn reads as before.
+  const { score: _score, curve: _curve, ...old } = LEARN;
+  const before = learn(old);
+  assert.equal(before.some((line) => /Score|Curve|Still collecting/.test(line)), false);
+  assert.match(before[before.findIndex((line) => line.startsWith("<b>Self-study</b>")) + 1], /^1\. Replay/);
 });
 
 test("indodax study: /learn tells the replay, the unseen prices, the real cost and the verdict", () => {
@@ -682,11 +738,12 @@ test("indodax study: /learn tells the replay, the unseen prices, the real cost a
   assert.equal(/of 100 won|Verdict/.test(none), false);
 });
 
-test("indodax study: the full report carries three lines of it, and none when there is no study", () => {
+test("indodax study: the full report carries four lines of it, and none when there is no study", () => {
   const full = fullReport(view(realWith(LEARN))).html;
   const block = full.split("\n\n").find((part) => part.startsWith("<b>Self-study</b>"));
   assert.deepEqual(block.split("\n"), [
     "<b>Self-study</b> (60 minutes ago)",
+    "Score: <b>2,3 of 10</b> ▰▰▱▱▱▱▱▱▱▱ (how far the rules are proven; real trades 0 of 30).",
     "The rules replayed on past prices: 213 trades, 30 of 100 won, about +Rp4.600 a year at Rp20.000 per buy. A year ended with a gain in 63 of 100 starts.",
     "👀 Verdict: <b>keep the rules</b> · <code>/learn</code> tells all of it.",
   ]);

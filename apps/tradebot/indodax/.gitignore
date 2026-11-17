@@ -11,3 +11,9 @@ learn.json
 learn.json.tmp
 learn_candles.json
 learn_candles.json.tmp
+TradeBot.exe
+TradeBot.old.exe
+TradeBot.new.exe
+build/
+dist/
+*.spec

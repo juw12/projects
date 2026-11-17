@@ -276,6 +276,109 @@ class SettingsTests(unittest.TestCase):
             env.write_text("# comment\nINDODAX_ORDER_IDR=60000\nINDODAX_MAX_OPEN='3'\nOTHER=1\n", encoding="utf-8")
             settings = bridge.load_settings(env, {"INDODAX_ORDER_IDR": "70000", "HTTPS_PROXY": "http://localhost:3128", "PATH": "x"})
         self.assertEqual((settings.order_idr, settings.max_open, settings.proxy), (70_000, 3, "http://localhost:3128"))
+        self.assertEqual(settings.spare_proxy, "")  # the file named no proxy: there is no spare
+
+    def test_the_file_proxy_is_kept_as_a_spare_when_the_pc_names_another(self):
+        with tempfile.TemporaryDirectory() as folder:
+            env = Path(folder) / ".env"
+            env.write_text("HTTPS_PROXY=http://office:80\n", encoding="utf-8")
+            both = bridge.load_settings(env, {"HTTPS_PROXY": "http://localhost:3128"})
+            same = bridge.load_settings(env, {"HTTPS_PROXY": "http://office:80"})
+            alone = bridge.load_settings(env, {})
+        self.assertEqual((both.proxy, both.spare_proxy), ("http://localhost:3128", "http://office:80"))
+        self.assertEqual((same.proxy, same.spare_proxy), ("http://office:80", ""))
+        self.assertEqual((alone.proxy, alone.spare_proxy), ("http://office:80", ""))
+        self.assertNotIn("office", repr(both))
+
+
+class FakeSocket:
+    def close(self):
+        pass
+
+
+def connect_only(*up):
+    """A pretend network where only these (host, port) answer; it remembers what was tried."""
+    tried = []
+
+    def connect(address, timeout=None):
+        tried.append(address)
+        if address in up:
+            return FakeSocket()
+        raise ConnectionRefusedError()
+
+    connect.tried = tried
+    return connect
+
+
+class ProxyChoice(unittest.TestCase):
+    BOTH = {"proxy": "http://localhost:3128", "spare_proxy": "http://office:80"}
+
+    def test_one_proxy_is_never_tested(self):
+        connect = connect_only()
+        settings = bridge.Settings(proxy="http://office:80")
+        self.assertIs(bridge.reachable(settings, connect), settings)
+        none = bridge.Settings()
+        self.assertIs(bridge.reachable(none, connect), none)
+        self.assertEqual(connect.tried, [])
+
+    def test_the_first_proxy_stays_while_it_answers(self):
+        connect = connect_only(("localhost", 3128), ("office", 80))
+        settings = bridge.Settings(**self.BOTH)
+        self.assertIs(bridge.reachable(settings, connect), settings)
+        self.assertEqual(connect.tried, [("localhost", 3128)])
+
+    def test_the_spare_takes_over_when_the_first_is_down(self):
+        chosen = bridge.reachable(bridge.Settings(**self.BOTH), connect_only(("office", 80)))
+        self.assertEqual((chosen.proxy, chosen.spare_proxy), ("http://office:80", "http://localhost:3128"))
+        # and back again once the PC's own proxy is up and the office one is not
+        back = bridge.reachable(chosen, connect_only(("localhost", 3128)))
+        self.assertEqual((back.proxy, back.spare_proxy), ("http://localhost:3128", "http://office:80"))
+
+    def test_nothing_changes_when_neither_answers(self):
+        settings = bridge.Settings(**self.BOTH)
+        self.assertIs(bridge.reachable(settings, connect_only()), settings)
+
+    def test_a_proxy_without_a_port_or_scheme_is_understood(self):
+        connect = connect_only(("office", 80), ("safe", 443), ("plain", 8080))
+        self.assertTrue(bridge.proxy_answers("http://office", connect))
+        self.assertTrue(bridge.proxy_answers("https://safe", connect))
+        self.assertTrue(bridge.proxy_answers("plain:8080", connect))
+        self.assertFalse(bridge.proxy_answers("http://user:pass@down:3128", connect))
+        self.assertFalse(bridge.proxy_answers("http://", connect))
+        self.assertFalse(bridge.proxy_answers("http://office:notaport", connect))
+
+
+class Reroute(Case):
+    def sender(self):
+        settings = bridge.Settings(key="BRIDGE-12345", proxy="http://user:pass@localhost:3128", spare_proxy="http://office:80")
+        lines = []
+        made = bridge.Bridge(bridge.Indodax(settings), settings, bridge.Api(settings), Path(self.folder.name) / "state.json", log=lines.append)
+        return made, lines
+
+    def test_both_clients_move_to_the_proxy_that_answers(self):
+        made, lines = self.sender()
+        before = (made.api.opener, made.exchange.opener)
+        self.assertTrue(bridge.reroute(made, connect_only(("office", 80))))
+        self.assertEqual((made.settings.proxy, made.api.settings.proxy, made.exchange.settings.proxy), ("http://office:80",) * 3)
+        self.assertIsNot(made.api.opener, before[0])
+        self.assertIsNot(made.exchange.opener, before[1])
+        self.assertEqual(lines, ["The proxy in use did not answer. Now going through the other one (office)."])
+
+    def test_nothing_moves_and_nothing_is_said_while_the_proxy_answers(self):
+        made, lines = self.sender()
+        before = (made.api.opener, made.exchange.opener)
+        self.assertFalse(bridge.reroute(made, connect_only(("localhost", 3128), ("office", 80))))
+        self.assertFalse(bridge.reroute(made, connect_only()))
+        self.assertEqual((made.api.opener, made.exchange.opener), before)
+        self.assertEqual(lines, [])
+
+    def test_the_log_never_carries_a_proxy_password(self):
+        made, lines = self.sender()
+        bridge.reroute(made, connect_only(("office", 80)))
+        bridge.reroute(made, connect_only(("localhost", 3128)))
+        self.assertEqual(len(lines), 2)
+        self.assertNotIn("user:pass", " ".join(lines))
+        self.assertIn("(localhost)", lines[1])
 
 
 # ---------------------------------------------------------------- the Indodax client

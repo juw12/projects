@@ -17,6 +17,10 @@ or a sale. Each run does the same four things with the newest prices:
               review  that version stayed ahead for 90 days and 8 trades, and picking by the past
                       also won on the unseen half years: worth a change, made by hand
 
+Each study also ends in a score, 0 to 10: how far the rules are proven (unseen prices, steady
+years, dips, and real trades with their real result). One point a day is kept, so the score
+draws a curve. The scale is frozen; only measured things move it.
+
 It never changes the rules or the size of a buy, and it cannot place an order: it has no code
 for it. What it found goes into learn.json next to the sender's state, and the sender passes
 the short form on to TradeBot (/learn in Telegram, the daily report, the phone page, the desk).
@@ -43,7 +47,7 @@ from pathlib import Path
 
 import bridge
 
-HERE = Path(__file__).resolve().parent
+HERE = bridge.HERE  # this folder, or the folder of TradeBot.exe
 FOUR_HOURS = 4 * 3600 * 1000
 DAY = 24 * 3600 * 1000
 CANDLES_FROM = 1577836800000  # 1 January 2020 UTC
@@ -67,6 +71,19 @@ MEASURED_FROM = 5  # real trades needed before the measured cost replaces the as
 TRAIN_DAYS, TEST_DAYS = 3 * 365, 183
 KEEP_RANK = 5  # the watched version stays while it is among the best five of the last three years
 REVIEW_DAYS, REVIEW_TRADES = 90, 8
+
+# The score: how far the rules are proven, 0 to 10. The scale is frozen under SCORE_VERSION:
+# a change of the scale starts a new curve, so the curve never rises because the ruler changed.
+SCORE_VERSION = 1
+SCORE_MOST = {"unseen": 3.0, "steady": 2.0, "dips": 2.0, "real": 3.0}
+UNSEEN_FULL = 0.30  # a year's gain on unseen prices of 30% of one buy earns all the points
+STEADY_FROM, STEADY_FULL = 50, 90  # of 100 twelve-month spans that ended with a gain
+DIPS_FULL = 2.0  # a year's gain of twice the deepest dip earns all the points
+REAL_TRADES_FULL = 30  # finished real trades that count as full proof
+REAL_GAIN_FULL = 0.005  # an average real trade of +0.5% of the money spent, after costs
+CURVE_DAYS = 400  # one point a day is kept
+CURVE_SENT = 60  # the newest points TradeBot is told
+WIB = 7 * 3600 * 1000
 
 
 # ---------------------------------------------------------------- the indicators (as in src/strategy.js)
@@ -212,8 +229,56 @@ def measured_cost(measured: dict):
     return (sum(costs) / len(costs), len(costs)) if costs else (None, 0)
 
 
-def study(signal_rows: list, price_rows: list, order_idr: float, stop_percent: float, now_ms: int, previous=None, measured=None) -> dict:
-    """One study. previous = the file written by the run before (for the watched version)."""
+def real_trades(closed: list) -> dict:
+    """The finished real trades in the sender's notes: how many, what was spent and what came back."""
+    sold = [entry for entry in closed or [] if isinstance(entry, dict) and entry.get("real") and entry.get("how") == "sold"]
+    spent = sum(bridge.number(entry.get("spent")) for entry in sold)
+    return {"trades": len(sold), "spent": spent, "result": sum(bridge.number(entry.get("received")) for entry in sold) - spent}
+
+
+def skill(unseen_gain: float, unseen_years: float, order_idr: float, year_up, per_year: float, dip: float, real=None) -> dict:
+    """The score, 0 to 10, from what was measured. Nothing in it can be raised by wording.
+
+    unseen  0 to 3  a year's gain on prices the rules had not seen, as a share of one buy
+    steady  0 to 2  how many twelve-month spans ended with a gain: 50 of 100 is 0, 90 is all
+    dips    0 to 2  a year's gain against the deepest dip: twice the dip is all
+    real    0 to 3  half for the number of finished real trades (30 is all), half for what
+                    they made after costs (+0.5% a trade is all; few trades count for little)
+    """
+    real = real if isinstance(real, dict) else {}
+
+    def part(name: str, share: float) -> float:
+        return round(SCORE_MOST[name] * min(1.0, max(0.0, share)), 2)
+
+    trades = int(bridge.number(real.get("trades")))
+    spent = bridge.number(real.get("spent"))
+    proof = min(1.0, trades / REAL_TRADES_FULL)
+    gain = (bridge.number(real.get("result")) / spent / REAL_GAIN_FULL) if spent > 0 else 0.0
+    parts = {
+        "unseen": part("unseen", unseen_gain / unseen_years / order_idr / UNSEEN_FULL if unseen_years > 0 and order_idr > 0 else 0.0),
+        "steady": part("steady", ((year_up or 0) - STEADY_FROM) / (STEADY_FULL - STEADY_FROM)),
+        "dips": part("dips", per_year / abs(dip) / DIPS_FULL if dip < 0 else (1.0 if per_year > 0 else 0.0)),
+        "real": part("real", 0.5 * proof + 0.5 * proof * min(1.0, max(0.0, gain))),
+    }
+    return {"version": SCORE_VERSION, "total": round(sum(parts.values()), 1), "parts": parts, "realTrades": trades}
+
+
+def day_of(moment_ms: int) -> str:
+    """The calendar day in Batam and Jakarta (WIB)."""
+    return time.strftime("%Y-%m-%d", time.gmtime((moment_ms + WIB) / 1000))
+
+
+def grow(curve, now_ms: int, total: float) -> list:
+    """The learning curve: one point a day, the newest study of the day. Oldest first."""
+    points = [point for point in curve or [] if isinstance(point, dict) and isinstance(point.get("day"), str) and isinstance(point.get("score"), (int, float))]
+    today = day_of(now_ms)
+    points = [point for point in points if point["day"] < today]
+    points.append({"day": today, "at": now_ms, "score": total})
+    return points[-CURVE_DAYS:]
+
+
+def study(signal_rows: list, price_rows: list, order_idr: float, stop_percent: float, now_ms: int, previous=None, measured=None, real=None) -> dict:
+    """One study. previous = the file written by the run before (for the watched version and the curve)."""
     previous = previous if isinstance(previous, dict) else {}
     measured = measured if isinstance(measured, dict) else {}
     cost_percent, cost_trades = measured_cost(measured)
@@ -296,8 +361,16 @@ def study(signal_rows: list, price_rows: list, order_idr: float, stop_percent: f
         "challenger": shown,
         "verdict": verdict,
     }
+    # 5. the score, and its curve over the days
+    unseen_years = sum(window["to"] - window["from"] for window in windows) / (365.25 * DAY)
+    score = skill(live_unseen, unseen_years, order_idr, summary["yearUp"], summary["perYear"], summary["dip"], real)
+    curve = grow(previous.get("curve") if previous.get("scoreVersion") == SCORE_VERSION else [], now_ms, score["total"])
+    summary["score"] = score
+    summary["curve"] = [{"at": point.get("at", 0), "score": point["score"]} for point in curve[-CURVE_SENT:]]
     return {
         "version": 1,
+        "scoreVersion": SCORE_VERSION,
+        "curve": curve,
         "summary": summary,
         "watched": {"rules": list(challenger), "since": since} if challenger != LIVE else None,
         "windows": [{**window, "live": round(window["live"]), "picked": round(window["picked"])} for window in windows],
@@ -317,6 +390,13 @@ def words(summary: dict) -> list:
     challenger = summary["challenger"]
     if challenger:
         lines.append(f"Watching another version ({challenger['rules']}) for {challenger['days']} days: {challenger['trades']} trades, {bridge.signed_rp(challenger['lead'])} against the rules that trade.")
+    score = summary.get("score")
+    if score:
+        parts = score["parts"]
+        lines.append(
+            f"Score: {score['total']:g} of 10 (unseen prices {parts['unseen']:g} of 3, steady years {parts['steady']:g} of 2, dips {parts['dips']:g} of 2, real money {parts['real']:g} of 3). "
+            f"{len(summary.get('curve') or [])} {'day' if len(summary.get('curve') or []) == 1 else 'days'} on the curve."
+        )
     lines.append({"keep": "Verdict: keep the rules.", "watch": "Verdict: keep the rules, and keep watching the other version on paper.", "review": "Verdict: the other version has earned a review. Nothing changes by itself."}[summary["verdict"]])
     return lines
 
@@ -431,7 +511,7 @@ def main(argv=None) -> int:
     args = parser.parse_args(argv)
 
     try:
-        settings = bridge.load_settings(args.env)
+        settings = bridge.reachable(bridge.load_settings(args.env))
     except bridge.SettingsError as error:
         print(f"Settings: {error}")
         return 2
@@ -443,11 +523,12 @@ def main(argv=None) -> int:
     measured = previous.get("measured") if isinstance(previous.get("measured"), dict) else {}
 
     candles = load(candles_path)
+    closed = load(Path(args.state)).get("closed") or []
     if not args.offline:
         try:
             candles = refresh(candles, read, now_ms)
             write(candles_path, candles)
-            measured = measure(load(Path(args.state)).get("closed") or [], measured, read)
+            measured = measure(closed, measured, read)
         except Exception as error:  # noqa: BLE001 (the next run tries again)
             print(f"The prices could not be read ({type(error).__name__}). Nothing was studied.")
             return 1
@@ -456,7 +537,7 @@ def main(argv=None) -> int:
         print("Too few candles are saved to study. Run it once without --offline.")
         return 1
 
-    result = study(signal_rows, price_rows, settings.order_idr, settings.stop_percent, now_ms, previous, measured)
+    result = study(signal_rows, price_rows, settings.order_idr, settings.stop_percent, now_ms, previous, measured, real_trades(closed))
     write(result_path, result)
     for line in words(result["summary"]):
         print(line)

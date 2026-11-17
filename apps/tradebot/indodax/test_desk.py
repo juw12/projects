@@ -5,6 +5,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
@@ -306,6 +307,150 @@ class DeskTest(unittest.TestCase):
         assert [level for level, _ in found] == ["warn"] and "starts by itself" in found[0][1]
         old = {"at": NOW - 900_000, "report": {"mode": "real", "checked": True}}
         assert len(desk.alerts(None, old, "waiting", "", NOW)) == 1
+
+    # ---------------------------------------------------------------- the Study tab
+
+    def study(self, **changes):
+        learn = desk.demo_view(NOW)["report"]["learn"]
+        learn.update(changes)
+        return learn
+
+    def test_the_study_tab_says_the_score_its_parts_and_what_holds_it_back(self):
+        shown = desk.study_shown(self.study(), NOW)
+        assert shown["total_text"] == "2,8" and shown["total"] == 2.8
+        assert [(part["title"], part["text"]) for part in shown["parts"]] == [("Unseen prices", "1,2 of 3"), ("Steady years", "0,7 of 2"), ("Dips", "0,39 of 2"), ("Real money", "0,51 of 3")]
+        assert shown["gap"].startswith("The biggest gap is real money: 2,49 of its 3 points are not earned yet.")
+        assert "2 of 30 real trades finished" in shown["parts"][3]["means"]
+        assert "64 of 100" in shown["parts"][1]["means"]
+        assert "over 4 years of prices the rules had not seen" in shown["parts"][0]["means"]
+        text = json.dumps(shown).lower()
+        for word in ("will ", "guarantee", "win rate", "profit"):
+            assert word not in text, word
+
+    def test_the_parts_and_goals_are_the_ones_of_the_study(self):
+        import learn
+
+        assert {name: most for name, _, most in desk.SCORE_PARTS} == learn.SCORE_MOST
+        assert desk.REAL_TRADES_GOAL == learn.REAL_TRADES_FULL
+        assert (desk.WATCH_DAYS_GOAL, desk.WATCH_TRADES_GOAL) == (learn.REVIEW_DAYS, learn.REVIEW_TRADES)
+
+    def test_a_score_outside_its_scale_is_held_inside(self):
+        shown = desk.study_shown(self.study(score={"total": 44, "parts": {"unseen": 9, "steady": -3, "dips": "x"}, "realTrades": 99}), NOW)
+        assert shown["total"] == 10
+        assert [part["got"] for part in shown["parts"]] == [3, 0, 0, 0]
+        assert shown["progress"][0]["count"] == "30 of 30"
+        full = desk.study_shown(self.study(score={"total": 10, "parts": {"unseen": 3, "steady": 2, "dips": 2, "real": 3}, "realTrades": 30}), NOW)
+        assert full["gap"] == "Every part has full marks."
+
+    def test_the_curve_is_said_in_one_line(self):
+        assert desk.study_shown(self.study(), NOW)["curve_text"].endswith("→ 2,8 now: +0,5 over 18 days with a study.")
+        one = desk.study_shown(self.study(curve=[{"at": NOW, "score": 2.8}]), NOW)
+        assert one["curve_text"].startswith("The curve starts today.") and one["trend"] == {"text": "first day on the curve", "way": 0}
+        up = desk.study_shown(self.study(), NOW)["trend"]
+        assert up["way"] == 1 and up["text"].startswith("▲ +0,5 since ")
+        down = desk.study_shown(self.study(curve=[{"at": NOW - 86_400_000, "score": 3.5}, "x", {"at": 0, "score": 9}, {"at": NOW, "score": 2.8}]), NOW)
+        assert "now: −0,7 over 2 days" in down["curve_text"] and len(down["curve"]) == 2
+        assert down["trend"]["way"] == -1 and down["trend"]["text"].startswith("▼ −0,7 since ")
+        same = desk.study_shown(self.study(curve=[{"at": NOW - 86_400_000, "score": 2.8}, {"at": NOW, "score": 2.8}]), NOW)
+        assert "no change" in same["curve_text"] and same["trend"]["way"] == 0 and same["trend"]["text"].startswith("● no change since ")
+
+    def test_progress_says_done_of_goal_and_the_watched_version_only_when_there_is_one(self):
+        shown = desk.study_shown(self.study(), NOW)
+        assert [(step["label"], step["count"]) for step in shown["progress"]] == [
+            ("Real trades finished", "2 of 30"),
+            ("Real cost measured", "2 of 5"),
+            ("Trial setting: days watched", "18 of 90"),
+            ("Trial setting: pretend trades", "2 of 8"),
+        ]
+        alone = desk.study_shown(self.study(challenger=None, verdict="keep"), NOW)
+        assert len(alone["progress"]) == 2 and alone["verdict"].startswith("Keep the rules. They are also the best")
+        assert all(step["text"] for step in shown["progress"])
+        watch = shown["verdict"]
+        assert "pretend trades, no money" in watch and not any(word in watch for word in ("RSI", "ATR", "30/80"))
+        review = desk.study_shown(self.study(verdict="review"), NOW)
+        assert review["verdict"].startswith("The trial setting has earned a review") and "Nothing changes by itself" in review["verdict"]
+
+    def test_the_time_of_the_next_study_and_an_old_one_are_said(self):
+        fresh = desk.study_shown(self.study(at=NOW - 3_600_000), NOW)
+        assert not fresh["old"] and "Next one about" in fresh["when"] and "WIB" in fresh["when"]
+        due = desk.study_shown(self.study(at=NOW - 5 * 3_600_000), NOW)
+        assert not due["old"] and "next cycle" in due["when"]
+        old = desk.study_shown(self.study(at=NOW - 13 * 3_600_000), NOW)
+        assert old["old"] and "That is old" in old["when"]
+
+    def test_no_study_or_a_sender_older_than_the_score_shows_nothing_made_up(self):
+        assert desk.study_shown(None, NOW) is None
+        assert desk.study_shown({"at": NOW, "verdict": "keep"}, NOW) is None
+        assert desk.study_of({"report": {"learn": {"at": 0}}}, None) is None
+        assert desk.study_of(None, {"report": {"learn": {"at": NOW}}}) == {"at": NOW}
+
+    def test_the_chart_keeps_the_whole_scale_and_grows_from_the_left(self):
+        day = desk.DAY_MS
+        spots = desk.chart_points([(NOW, 0.0), (NOW + 7 * day, 5.0), (NOW + 14 * day, 10.0)], 330, 132, left=30, right=0, top=10, bottom=22)
+        assert spots == [(30.0, 110.0), (180.0, 60.0), (330.0, 10.0)]
+        # Three days of studies take three days of a chart that is two weeks wide: a small start is not stretched.
+        short = desk.chart_points([(NOW, 2.0), (NOW + 3 * day, 2.2)], 330, 132, left=30, right=0, top=10, bottom=22)
+        assert short[0] == (30.0, 90.0) and round(short[1][0]) == 94 and short[1][1] == 88.0
+        assert desk.chart_points([(NOW, 2.0)], 330, 132)[0][0] == 30.0
+        assert desk.chart_points([], 330, 132) == []
+
+    def test_scores_are_said_the_indonesian_way(self):
+        assert [desk.points_text(value) for value in (2.3, 1.28, 0, 10, 0.5)] == ["2,3", "1,28", "0", "10", "0,5"]
+
+    # ---------------------------------------------------------------- one program (TradeBot.exe)
+
+    def test_the_version_is_the_one_of_the_package(self):
+        package = json.loads((Path(__file__).resolve().parent.parent / "package.json").read_text(encoding="utf-8"))
+        assert desk.VERSION == package["version"]
+
+    def test_a_newer_version_is_said_and_an_older_or_odd_one_is_not(self):
+        with mock.patch.object(desk, "VERSION", "0.13.0"):
+            assert desk.newer_version({"version": "0.13.1"}) == "0.13.1"
+            assert desk.newer_version({"version": "0.14.0"}) == "0.14.0"
+            assert desk.newer_version({"version": "0.13.0"}) == ""
+            assert desk.newer_version({"version": "0.9.9"}) == ""
+            assert desk.newer_version({"version": "next"}) == "" and desk.newer_version({}) == "" and desk.newer_version(None) == ""
+
+    def test_the_one_file_app_starts_itself_as_the_sender_and_ends_the_whole_tree(self):
+        tmp_path = self.folder()
+        calls, ended = [], []
+
+        def popen(command, **options):
+            calls.append(command)
+            return FakeProcess()
+
+        with mock.patch.object(desk, "FROZEN", True), mock.patch.object(desk.sys, "executable", "C:/run/TradeBot.exe"):
+            sender = desk.Sender(tmp_path, lambda line: None, popen=popen, end=ended.append)
+            sender.start()
+            assert calls == [["C:/run/TradeBot.exe", "--sender"]]
+            sender.stop()
+        assert ended == [4242] and not sender.process.terminated and not sender.wanted
+
+    def test_the_tree_is_ended_with_taskkill(self):
+        asked = []
+        desk.end_tree(4242, run=lambda command, **options: asked.append(command))
+        assert asked == [["taskkill", "/PID", "4242", "/T", "/F"]]
+
+    def test_the_one_file_app_as_a_sender_counts_as_one(self):
+        rows = [
+            {"ProcessId": 11, "CommandLine": '"E:\\run\\TradeBot.exe" --sender'},
+            {"ProcessId": 12, "CommandLine": '"E:\\run\\TradeBot.exe" --sender'},
+            {"ProcessId": 13, "CommandLine": '"E:\\run\\TradeBot.exe"'},
+            {"ProcessId": 14, "CommandLine": '"E:\\run\\TradeBot.exe" --study --env x'},
+            {"ProcessId": 15, "CommandLine": "other.exe --sender"},
+        ]
+        assert desk.sender_candidates(rows) == [11, 12]
+
+    def test_asked_to_be_the_sender_or_the_study_it_opens_no_window(self):
+        with mock.patch.object(desk.bridge, "main", return_value=7) as sender, mock.patch.object(desk, "open_window") as window, mock.patch.object(desk, "output_for_the_window"):
+            assert desk.main(["--sender", "--show"]) == 7
+        sender.assert_called_once_with(["--show"])
+        import learn
+
+        with mock.patch.object(learn, "main", return_value=3) as study, mock.patch.object(desk, "open_window") as second:
+            assert desk.main(["--study", "--env", "x"]) == 3
+        study.assert_called_once_with(["--env", "x"])
+        assert not window.called and not second.called
 
 
 if __name__ == "__main__":

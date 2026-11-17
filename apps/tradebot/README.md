@@ -72,7 +72,7 @@ exchange takes) and are shown as USDT with rupiah beside them; `/live size 200rb
 | `/indodax` | The copies at Indodax in rupiah, made by the sender on your PC: open copies, result, how old the numbers are. See [Indodax](#indodax-rupiah-through-a-sender-on-your-pc-practice-first) |
 | `/holding`, `/analysis`, `/trades` | Indodax: what is held and the free rupiah; the market and what the strategy needs before it buys or sells; each finished buy and sale |
 | `/plan` | Indodax with real money: the plan's stage, the money put in, what it is worth now, and the range a test on past prices gave for 1, 3, 6 and 12 months (not a promise) |
-| `/learn` | Indodax: what the sender's own study of the rules found (replay on past prices, the test on unseen prices, the measured cost of a real trade) and its verdict: keep, watch or review. It never changes the rules by itself |
+| `/learn` | Indodax: the score from 0 to 10 for how far the rules are proven, its curve, and what the sender's own study of the rules found (replay on past prices, the test on unseen prices, the measured cost of a real trade) and its verdict: keep, watch or review. It never changes the rules by itself |
 | `/phone` | A private link to a live page for your phone (read-only). A new `/phone` switches the old link off |
 | `/indodax pause`, `/indodax resume` | Stop or allow new buys at Indodax (open copies are still sold). The sender reads it within a minute |
 | `/reset` | Start over with fresh practice money (asks first) |
@@ -262,13 +262,19 @@ stop, and posts the copies back (`POST /v1/indodax/report`) for `/indodax` in Te
   minute; from five real trades on the replay uses the measured cost instead of the assumed
   0.9%. The verdict is keep, watch (another version did better lately and is followed on
   paper) or review (that version stayed ahead for 90 days and 8 trades, and picking by the past
-  also won on the unseen half years). `/learn` shows it, the full report carries three lines of
-  it, and a review is told once. The study only reads prices: it cannot order, and the rules
+  also won on the unseen half years). Each study also gives one score from 0 to 10 for how far
+  the rules are proven (unseen prices 3, steady years 2, dips 2, real money 3; not a win rate and
+  not a forecast) and keeps one point a day as a curve; the scale is frozen in code, so the score
+  moves only when something measured moves. `/learn` shows the score, its parts and the curve
+  first, the full report carries four lines of it, and a review is told once. The study only reads prices: it cannot order, and the rules
   and the size of a buy are changed by hand only (`skills/tradebot-learn/SKILL.md` says how).
   Winning almost every trade is not the goal and is not promised: rules that almost never lose
   do it by keeping losing trades open until one ends the account.
-- **One window on the PC.** `indodax/desk.py` runs the sender hidden and shows the same report
-  (`indodax/test_desk.py` tests the parts without a window).
+- **One window on the PC.** `indodax/desk.py` runs the sender hidden and shows the same report;
+  its Study tab shows the score, its curve and what is still being collected
+  (`indodax/test_desk.py` tests the parts without a window). It is also built as one Windows app,
+  `TradeBot.exe`, that needs no Python: release `tradebot-desk` of this repository
+  (`.github/workflows/trade-bot-desk.yml`).
 
 Setup, settings, limits and the real-money section: `indodax/README.md`.
 

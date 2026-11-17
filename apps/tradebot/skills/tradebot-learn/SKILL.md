@@ -29,7 +29,27 @@ Every figure is a test on past prices: "not a promise".
    `review` (it stayed ahead 90 days and 8 trades, and picking by the past won on unseen half
    years). Telegram gets one message at `review`.
 
+5. **Score**: one number, 0 to 10, for how far the rules are proven. Four measured parts:
+   unseen prices (3: a year's gain on unseen prices of 30% of one buy is full marks), steady
+   years (2: 90 of 100 twelve-month spans with a gain; 50 gives nothing), dips (2: a year's gain
+   of twice the deepest dip), real money (3: half for 30 finished real trades, half for an
+   average of +0.5% a trade after costs). One point a day is kept as the curve.
+
 It only reads prices. It has no order code. It never changes the rules or the size of a buy.
+
+## The score: how to say it, and how it may rise
+
+- Say it as "proven X of 10", never as a win rate, a grade of cleverness or a forecast. New rules
+  with no finished real trade sit near 2 or 3: that reads "not proven yet", not "bad".
+- It rises only by measured things: finished real trades and what they made after costs, a
+  longer or better record on unseen prices, a smaller dip. That takes weeks and months.
+- **Never raise it by changing the scale.** The weights and full-mark levels are frozen as
+  `SCORE_VERSION` in `learn.py`. A real reason to change them means a new version number and a
+  new curve, said plainly to Juwen. Do not tune the rules to the score either: that is fitting
+  the past. A rule change still goes through "Promoting a version" below.
+- Where it shows: the Study tab of the desk app (`TradeBot.exe`), `/learn` in Telegram, the phone
+  page and the full report. In `learn.json`: `summary.score` (`total`, `parts`, `realTrades`)
+  and `summary.curve` (the newest 60 points); the whole curve is `curve` at the top of the file.
 
 ## Daily routine for the agent
 
@@ -77,8 +97,8 @@ Then, in a git worktree (never the main checkout), one PR:
 - `apps/tradebot/tools/plan_backtest.py`: the same constants; run it and put its new figures
   into `PLAN` in `apps/tradebot/src/indodax.js` (the `/plan` ranges).
 - Tests: `npm test` in `apps/tradebot`, `python -m unittest` in `apps/tradebot/indodax`.
-- Version bump, README, merge, then copy `bridge.py` + `learn.py` to the run folder and restart
-  the sender from the desk app (no console window).
+- Version bump, README, merge, then update the desk app in the run folder (close it while no coin is
+  held, run `update-desk.cmd`; it restarts the sender inside the app, no console window).
 
 If any gate fails: change nothing, keep watching. "Keep the rules" is a good result.
 

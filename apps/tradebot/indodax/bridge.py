@@ -55,13 +55,14 @@ import json
 import math
 import os
 import re
+import socket
 import subprocess
 import sys
 import time
 import urllib.error
 import urllib.parse
 import urllib.request
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from decimal import ROUND_DOWN, Decimal, InvalidOperation
 from pathlib import Path
 
@@ -70,7 +71,9 @@ INDODAX = "https://indodax.com"  # fixed on purpose: the API key can never be se
 INDODAX_V2 = "https://api.indodax.com"  # Trade API 2.0, fixed for the same reason
 DEFAULT_URL = "https://trade-bot.juw12.workers.dev"
 CYCLE_SECONDS = 60
-HERE = Path(__file__).resolve().parent
+# Inside TradeBot.exe (the desk, this sender and the study in one file) the folder is the exe's own.
+FROZEN = bool(getattr(sys, "frozen", False))
+HERE = Path(sys.executable).resolve().parent if FROZEN else Path(__file__).resolve().parent
 
 REAL_CONFIRM = "I accept real money on Indodax"
 ORDER_IDR_DEFAULT = 50_000
@@ -240,6 +243,7 @@ class Settings:
     stop_percent: float = STOP_PERCENT_DEFAULT
     coins: tuple = ()
     proxy: str = field(default="", repr=False)
+    spare_proxy: str = field(default="", repr=False)  # the .env one, when the PC's own HTTPS_PROXY names another
     api_version: int = 2  # 2 = Trade API 2.0 (the keys Indodax makes now), 1 = the older Trade API
     report_cash: bool = False  # also tell TradeBot the free rupiah (INDODAX_REPORT_CASH=yes)
 
@@ -349,10 +353,48 @@ def settings_from(values: dict) -> Settings:
 def load_settings(env_path, environ=None) -> Settings:
     """The .env next to the script, with the process environment on top."""
     values = read_env_file(env_path)
+    file_proxy = (values.get("HTTPS_PROXY") or values.get("https_proxy") or "").strip()
     for name, value in (os.environ if environ is None else environ).items():
         if name.startswith("INDODAX_") or name.upper() == "HTTPS_PROXY":
             values[name] = value
-    return settings_from(values)
+    settings = settings_from(values)
+    if file_proxy and file_proxy != settings.proxy:
+        settings.spare_proxy = file_proxy
+    return settings
+
+
+PROXY_TEST_SECONDS = 1.0  # per address tried; a local proxy that is down costs about two of these
+
+
+def proxy_answers(proxy: str, connect=socket.create_connection) -> bool:
+    """Does something listen where this proxy should be? Only a connection is opened; nothing is sent."""
+    try:
+        parts = urllib.parse.urlsplit(proxy if "://" in proxy else "http://" + proxy)
+        port = parts.port or (443 if parts.scheme == "https" else 80)
+        if not parts.hostname:
+            return False
+        connect((parts.hostname, port), PROXY_TEST_SECONDS).close()
+        return True
+    except (OSError, ValueError):
+        return False
+
+
+def reachable(settings: Settings, connect=socket.create_connection) -> Settings:
+    """The same settings with the proxy that answers in front.
+
+    A PC can name one proxy in its own HTTPS_PROXY and the .env another. The PC's one wins, but
+    when it is down and the .env one answers, the two change places. With one proxy, or when
+    neither answers, nothing changes and nothing is tested."""
+    if not settings.spare_proxy or not settings.proxy:
+        return settings
+    if proxy_answers(settings.proxy, connect) or not proxy_answers(settings.spare_proxy, connect):
+        return settings
+    return replace(settings, proxy=settings.spare_proxy, spare_proxy=settings.proxy)
+
+
+def proxy_opener(proxy: str):
+    handlers = [urllib.request.ProxyHandler({"https": proxy})] if proxy else []
+    return urllib.request.build_opener(*handlers)
 
 
 # ---------------------------------------------------------------- TradeBot's server
@@ -364,8 +406,10 @@ class Api:
     def __init__(self, settings: Settings, timeout: int = 20):
         self.settings = settings
         self.timeout = timeout
-        handlers = [urllib.request.ProxyHandler({"https": settings.proxy})] if settings.proxy else []
-        self.opener = urllib.request.build_opener(*handlers)
+        self.opener = proxy_opener(settings.proxy)
+
+    def use_proxy(self, proxy: str) -> None:
+        self.opener = proxy_opener(proxy)
 
     def _call(self, path: str, payload=None) -> dict:
         headers = {"X-Indodax-Key": self.settings.key, "User-Agent": CLIENT, "Accept": "application/json"}
@@ -402,14 +446,14 @@ class Indodax:
         self.settings = settings
         self.timeout = timeout
         self.clock = clock
-        if opener is None:
-            handlers = [urllib.request.ProxyHandler({"https": settings.proxy})] if settings.proxy else []
-            opener = urllib.request.build_opener(*handlers)
-        self.opener = opener
+        self.opener = proxy_opener(settings.proxy) if opener is None else opener
         self.offset_ms = 0
         self.synced_at = None
         self._pairs = None
         self._pairs_at = 0.0
+
+    def use_proxy(self, proxy: str) -> None:
+        self.opener = proxy_opener(proxy)
 
     def _send(self, request, writes: bool):
         """One request. `writes` says whether a lost answer could mean an order went through anyway."""
@@ -1512,11 +1556,17 @@ class Bridge:
 # ---------------------------------------------------------------- running it
 
 
+def study_command(env_path, state_path) -> list:
+    """How the study is started: learn.py with this Python, or the one-file app asked to study."""
+    start = [sys.executable, "--study"] if FROZEN else [sys.executable, str(HERE / "learn.py")]
+    return [*start, "--env", str(env_path), "--state", str(state_path)]
+
+
 def start_study(env_path, state_path):
     """learn.py as a quiet process of its own: no window, low priority, nothing printed here."""
     quiet = getattr(subprocess, "CREATE_NO_WINDOW", 0) | getattr(subprocess, "BELOW_NORMAL_PRIORITY_CLASS", 0)
     return subprocess.Popen(
-        [sys.executable, str(HERE / "learn.py"), "--env", str(env_path), "--state", str(state_path)],
+        study_command(env_path, state_path),
         cwd=str(HERE),
         stdin=subprocess.DEVNULL,
         stdout=subprocess.DEVNULL,
@@ -1562,6 +1612,22 @@ def check(settings: Settings, exchange=None, state_path=None) -> int:
     return 0
 
 
+def reroute(bridge, connect=socket.create_connection) -> bool:
+    """Between two cycles: when the proxy in use is down and the other one answers, change to it.
+
+    It happens before the cycle's first request, so nothing that was sent is ever sent again."""
+    chosen = reachable(bridge.settings, connect)
+    if chosen.proxy == bridge.settings.proxy:
+        return False
+    bridge.settings = chosen
+    for part in (bridge.api, bridge.exchange):
+        part.settings = chosen
+        part.use_proxy(chosen.proxy)
+    host = urllib.parse.urlsplit(chosen.proxy if "://" in chosen.proxy else "http://" + chosen.proxy).hostname
+    bridge.log(f"The proxy in use did not answer. Now going through the other one ({host}).")
+    return True
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description="TradeBot's Indodax sender (practice by default).")
     parser.add_argument("--show", action="store_true", help="print what it would do: no orders, no report")
@@ -1573,7 +1639,7 @@ def main(argv=None) -> int:
     args = parser.parse_args(argv)
 
     try:
-        settings = load_settings(args.env)
+        settings = reachable(load_settings(args.env))
     except SettingsError as error:
         print(f"Settings: {error}")
         return 2
@@ -1607,10 +1673,11 @@ def main(argv=None) -> int:
             bridge.cycle(show=args.show)
             return 0
         stamp(f"Indodax sender running, one cycle every {CYCLE_SECONDS} seconds. {mode} Ctrl+C stops it; open copies stay as they are.")
-        if (HERE / "learn.py").exists():  # only the sender that keeps running studies
+        if FROZEN or (HERE / "learn.py").exists():  # only the sender that keeps running studies
             bridge.study = lambda: start_study(args.env, args.state)
         while True:
             try:
+                reroute(bridge)
                 bridge.cycle()
             except Exception as error:  # noqa: BLE001 (one bad cycle must not end the loop)
                 stamp(f"This cycle failed ({type(error).__name__}). Trying again next minute.")

@@ -10,6 +10,9 @@ the sender's own log. Two buttons pause and resume buying, the same switch as /i
     pythonw desk.py --no-start open the window only
     pythonw desk.py --demo     made-up numbers, for a look around: no sender, no network
 
+TradeBot.exe is this file as one program (built on GitHub, no Python needed): the window, and
+the sender and the study as hidden children of it (TradeBot.exe --sender, TradeBot.exe --study).
+
 Standard library only. It never places an order itself and never reads the Indodax API key:
 orders are made by bridge.py alone. It talks to TradeBot with the sender's key from .env.
 """
@@ -28,7 +31,11 @@ from pathlib import Path
 
 import bridge
 
-HERE = Path(__file__).resolve().parent
+VERSION = "0.13.0"  # the same number as apps/tradebot/package.json
+FROZEN = bridge.FROZEN  # True inside TradeBot.exe
+HERE = bridge.HERE
+APP_NAME = "tradebot.exe"
+UPDATE_WORDS = "close this window while no coin is held, then run update-desk.cmd in its folder." if bridge.FROZEN else "copy the new files from GitHub while no coin is held."
 REFRESH_SECONDS = 30
 EMPTY_NOTE_Y = 27  # just under a table's heading row
 FRESH_SECONDS = 150  # the sender writes its report file once a minute; older means it is not running
@@ -97,7 +104,8 @@ def sender_candidates(rows, own_pid=None) -> list:
     for row in rows or []:
         line = str(row.get("CommandLine") or "").lower().replace("/", "\\")
         pid = row.get("ProcessId")
-        if "bridge.py" not in line or pid == own_pid:
+        # bridge.py under Python, or the one-file app asked to be the sender (it runs as two processes).
+        if not ("bridge.py" in line or (APP_NAME in line and "--sender" in line)) or pid == own_pid:
             continue
         if any(flag in line for flag in ("--show", "--once", "--check", "--clear")):
             continue
@@ -108,12 +116,12 @@ def sender_candidates(rows, own_pid=None) -> list:
 
 
 def list_python_processes() -> list:
-    """Every python process with its command line (Windows). An empty list when it cannot be read."""
+    """Every python and TradeBot.exe process with its command line (Windows). An empty list when it cannot be read."""
     command = [
         "powershell",
         "-NoProfile",
         "-Command",
-        "Get-CimInstance Win32_Process -Filter \"Name like 'python%'\" | Select-Object ProcessId,CommandLine | ConvertTo-Json -Compress",
+        "Get-CimInstance Win32_Process -Filter \"Name like 'python%' or Name = 'TradeBot.exe'\" | Select-Object ProcessId,CommandLine | ConvertTo-Json -Compress",
     ]
     try:
         done = subprocess.run(command, capture_output=True, text=True, timeout=20, creationflags=NO_WINDOW if sys.platform == "win32" else 0)
@@ -186,7 +194,7 @@ class Server:
         self.env_path = env_path
 
     def _api(self):
-        settings = bridge.load_settings(self.env_path)
+        settings = bridge.reachable(bridge.load_settings(self.env_path))
         if not settings.key:
             raise bridge.ApiError("INDODAX_BRIDGE_KEY is empty in .env")
         return bridge.Api(settings)
@@ -198,14 +206,25 @@ class Server:
         return self._api()._call("/v1/indodax/pause", {"paused": bool(paused)})
 
 
+def sender_command(python=None) -> list:
+    """How the sender is started: bridge.py with Python, or the one-file app asked to be the sender."""
+    return [sys.executable, "--sender"] if FROZEN else [python or child_python(), "-u", "bridge.py"]
+
+
+def end_tree(pid, run=subprocess.run) -> None:
+    """End a process and what it started. The one-file app runs as two processes: both must go."""
+    run(["taskkill", "/PID", str(pid), "/T", "/F"], capture_output=True, creationflags=NO_WINDOW if sys.platform == "win32" else 0)
+
+
 class Sender:
     """bridge.py as a hidden child process. Its output lines go to on_line (from a thread)."""
 
-    def __init__(self, folder, on_line, python=None, popen=subprocess.Popen):
+    def __init__(self, folder, on_line, python=None, popen=subprocess.Popen, end=end_tree):
         self.folder = Path(folder)
         self.on_line = on_line
         self.python = python or child_python()
         self.popen = popen
+        self.end = end
         self.process = None
         self.wanted = False  # the user wants it running: a child that ends is started again
 
@@ -217,7 +236,7 @@ class Sender:
             return
         self.wanted = True
         self.process = self.popen(
-            [self.python, "-u", "bridge.py"],
+            sender_command(self.python),
             cwd=str(self.folder),
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
@@ -238,7 +257,10 @@ class Sender:
     def stop(self) -> None:
         self.wanted = False
         if self.running():
-            self.process.terminate()
+            if FROZEN:
+                self.end(self.process.pid)
+            else:
+                self.process.terminate()
             try:
                 self.process.wait(timeout=10)
             except subprocess.TimeoutExpired:
@@ -457,6 +479,136 @@ def failed_cycles(lines) -> int:
     return sum(1 for line in lines if "cycle failed" in line or "could not be reached" in line or "could not be read" in line)
 
 
+# ---------------------------------------------------------------- the Study tab (no window needed)
+
+# The score of the sender's own study (learn.py): its four parts and the most each can give.
+SCORE_PARTS = [("unseen", "Unseen prices", 3), ("steady", "Steady years", 2), ("dips", "Dips", 2), ("real", "Real money", 3)]
+STUDY_EVERY_MS = bridge.LEARN_EVERY_SECONDS * 1000
+STUDY_OLD_MS = 12 * 3600 * 1000  # three missed studies: the PC was off or the prices could not be read
+REAL_TRADES_GOAL, COST_TRADES_GOAL, WATCH_DAYS_GOAL, WATCH_TRADES_GOAL = 30, 5, 90, 8  # as in learn.py
+CHART_DAYS = 14  # the chart is at least this wide, so the first days do not look like a jump
+DAY_MS = 24 * 3600 * 1000
+
+
+def points_text(value) -> str:
+    """A score as it is said: '2,3', '1,28', '0', '10'."""
+    return f"{bridge.number(value):.2f}".rstrip("0").rstrip(".").replace(".", ",")
+
+
+def day_wib(ms) -> str:
+    """A moment as '17 Nov' (WIB)."""
+    return clock_wib(ms).rsplit(" ", 1)[0]
+
+
+def study_of(view, local):
+    """The study inside the report, or None when none has arrived."""
+    learn = report_of(view, local).get("learn")
+    return learn if isinstance(learn, dict) and bridge.number(learn.get("at")) > 0 else None
+
+
+def study_shown(learn, now_ms):
+    """Everything the Study tab says, as plain values. None when there is no study or no score yet.
+
+    {total, total_text, gap, parts: [{title, got, most, text, means}], curve: [(at, score)], curve_text,
+     progress: [{label, done, goal, count, text}], verdict, when, old, trend: {text, way: 1 up, 0 flat, -1 down}}
+    """
+    if not isinstance(learn, dict) or not isinstance(learn.get("score"), dict):
+        return None
+    score = learn["score"]
+    given = score.get("parts") if isinstance(score.get("parts"), dict) else {}
+    unseen = learn.get("unseen") if isinstance(learn.get("unseen"), dict) else {}
+    cost = learn.get("cost") if isinstance(learn.get("cost"), dict) else {}
+    other = learn.get("challenger") if isinstance(learn.get("challenger"), dict) else None
+    trades = int(bridge.number(score.get("realTrades")))
+    year_up = learn.get("yearUp")
+    means = {
+        "unseen": f"{bridge.signed_rp(bridge.number(unseen.get('live')))} over {bridge.number(unseen.get('windows')) / 2:g} years of prices the rules had not seen. Full marks: a year's gain of 30% of one buy.",
+        "steady": f"A year ended with a gain in {int(bridge.number(year_up))} of 100 starts. 50 gives nothing, 90 gives full marks." if isinstance(year_up, (int, float)) else "Too few years of prices to say.",
+        "dips": f"About {bridge.signed_rp(bridge.number(learn.get('perYear')))} a year against a deepest dip of {bridge.signed_rp(bridge.number(learn.get('dip')))}. Full marks: a year's gain of twice the dip.",
+        "real": f"{trades} of {REAL_TRADES_GOAL} real trades finished. Half for the count, half for a gain after costs.",
+    }
+    parts = []
+    for name, title, most in SCORE_PARTS:
+        got = min(most, max(0.0, bridge.number(given.get(name))))
+        parts.append({"name": name, "title": title, "got": got, "most": most, "text": f"{points_text(got)} of {most}", "means": means[name]})
+    total = min(10.0, max(0.0, bridge.number(score.get("total"))))
+    widest = max(parts, key=lambda part: part["most"] - part["got"])
+    missing = widest["most"] - widest["got"]
+    gap = (
+        "Every part has full marks."
+        if missing <= 0
+        else f"The biggest gap is {widest['title'].lower()}: {points_text(missing)} of its {widest['most']} points are not earned yet."
+        + (" They come only from finished real trades, so this part grows slowly." if widest["name"] == "real" else "")
+    )
+
+    curve = sorted(
+        (bridge.number(point.get("at")), min(10.0, max(0.0, bridge.number(point.get("score")))))
+        for point in learn.get("curve") or []
+        if isinstance(point, dict) and bridge.number(point.get("at")) > 0
+    )
+    if len(curve) < 2:
+        curve_text = "The curve starts today. One point is added each day the sender runs."
+        trend = {"text": "first day on the curve", "way": 0}
+    else:
+        change = round(total - curve[0][1], 1)
+        moved = "no change" if change == 0 else f"{'+' if change > 0 else '−'}{points_text(abs(change))}"
+        curve_text = f"{points_text(curve[0][1])} on {day_wib(curve[0][0])} → {points_text(total)} now: {moved} over {len(curve)} days with a study."
+        trend = {"text": f"{'▲' if change > 0 else '▼' if change < 0 else '●'} {moved} since {day_wib(curve[0][0])}", "way": (change > 0) - (change < 0)}
+
+    def step(label, done, goal, text):
+        done = int(min(goal, max(0, bridge.number(done))))
+        return {"label": label, "done": done, "goal": goal, "count": f"{done} of {goal}", "text": text}
+
+    progress = [
+        step("Real trades finished", trades, REAL_TRADES_GOAL, "for the real-money points"),
+        step("Real cost measured", cost.get("trades"), COST_TRADES_GOAL, "then it replaces the assumed cost"),
+    ]
+    if other:
+        progress.append(step("Trial setting: days watched", other.get("days"), WATCH_DAYS_GOAL, "before a review"))
+        progress.append(step("Trial setting: pretend trades", other.get("trades"), WATCH_TRADES_GOAL, "before a review"))
+    # The trial setting's own numbers (averages, RSI, ATR) stay in /learn: here only what it means.
+    verdict = {
+        "review": "The trial setting has earned a review. Nothing changes by itself: the rules are changed by hand, after a look.",
+        "watch": "Keep the rules. A second setting of the same rules is tried on paper: pretend trades, no money. It is reviewed after 90 days and 8 pretend trades.",
+    }.get(learn.get("verdict") if other else "keep", "Keep the rules. They are also the best setting of the last three years.")
+
+    at = bridge.number(learn.get("at"))
+    old = now_ms - at > STUDY_OLD_MS
+    following = at + STUDY_EVERY_MS
+    when = f"Last study {age_text((now_ms - at) / 1000)}. " + (
+        "That is old: the PC was off or the prices could not be read."
+        if old
+        else f"Next one about {clock_wib(following).rsplit(' ', 1)[-1]} WIB, and after each buy or sale."
+        if following > now_ms
+        else "The next one starts at the sender's next cycle."
+    )
+    return {"total": total, "total_text": points_text(total), "gap": gap, "parts": parts, "curve": curve, "curve_text": curve_text, "progress": progress, "verdict": verdict, "when": when, "old": old, "trend": trend}
+
+
+def chart_points(curve, width, height, left=30, right=16, top=10, bottom=22) -> list:
+    """Where each point of the curve sits on a chart of this size: [(x, y)].
+
+    The scale is always 0 (bottom) to 10 (top), so a small rise never looks like a big one, and the
+    chart is at least CHART_DAYS wide, so the first days start at the left and grow to the right.
+    """
+    if not curve:
+        return []
+    first = curve[0][0]
+    span = max(curve[-1][0] - first, CHART_DAYS * DAY_MS)
+    inner_width, inner_height = max(1, width - left - right), max(1, height - top - bottom)
+    return [(round(left + inner_width * (at - first) / span, 1), round(top + inner_height * (1 - score / 10), 1)) for at, score in curve]
+
+
+def newer_version(view) -> str:
+    """The version TradeBot's server runs when it is newer than this window, else ''."""
+    theirs = str((view or {}).get("version") or "")
+
+    def numbers(text):
+        return tuple(int(part) for part in text.split(".")) if text and all(part.isdigit() for part in text.split(".")) else ()
+
+    return theirs if numbers(theirs) > numbers(VERSION) else ""
+
+
 DEMO_TRADED = ("BTC", "ETH")  # the demo trades two of its three coins
 
 
@@ -476,6 +628,18 @@ def demo_view(now_ms, trouble=False) -> dict:
         ],
         "market": [{"coin": "btc", "bid": 1214500000, "ask": 1214900000}],
         "result": {"practice": 0, "real": 40}, "today": {"practice": 0, "real": 0, "buys": 1}, "notes": [],
+    }
+    day = 24 * hour
+    studied = now_ms - (15 * hour if trouble else 1 * hour)
+    climb = [2.3, 2.3, 2.3, 2.4, 2.4, 2.4, 2.5, 2.4, 2.5, 2.6, 2.6, 2.6, 2.7, 2.7, 2.6, 2.7, 2.8, 2.8]
+    report["learn"] = {
+        "at": studied, "candles": 14820, "versions": 81, "order": 20000, "trades": 215, "wins": 30, "perYear": 4700, "dip": -11900, "yearUp": 64, "monthUp": 39,
+        "unseen": {"windows": 8, "up": 2, "live": 9600, "picked": 12900},
+        "cost": {"assumed": 0.9, "measured": 1.0, "trades": 2, "used": "assumed"},
+        "challenger": {"rules": "averages 30/80/300, RSI 50 to 70, stop 4 ATR", "days": 18, "trades": 2, "lead": 310},
+        "verdict": "watch",
+        "score": {"total": 2.8, "parts": {"unseen": 1.2, "steady": 0.7, "dips": 0.39, "real": 0.51}, "realTrades": 2},
+        "curve": [{"at": studied - (len(climb) - 1 - index) * day, "score": value} for index, value in enumerate(climb)],
     }
     checks_up = [
         {"name": "Trend", "ok": True, "text": "price above the 200-candle average"},
@@ -508,6 +672,7 @@ def demo_view(now_ms, trouble=False) -> dict:
 
 INK, MUTED, PAPER, CARD, LINE = "#1f2328", "#5b6470", "#f3f4f6", "#ffffff", "#d9dce1"
 GOOD, BAD, WARN = "#1b7f3b", "#b3261e", "#8a5200"
+ACCENT, TRACK = "#2457c5", "#e6e9ee"  # the bars and the curve of the Study tab, and what is still empty
 BANNER = {"bad": ("#fde7e5", BAD), "warn": ("#fff1cc", WARN)}
 ACTION_COLOURS = {"BUY": GOOD, "HOLD": GOOD, "SELL": BAD, "WAIT": MUTED, "?": WARN}
 FONT = "Segoe UI"
@@ -534,14 +699,14 @@ def open_window(args) -> int:
     events = queue.Queue()
     server = Server(env_path)
     sender = Sender(folder, lambda line: events.put(("log", line)))
-    seen = {"view": None, "error": "", "outside": [], "restart_at": 0.0, "busy": False, "asked": 0.0, "drawn": None, "lines": [], "banner_height": 0, "resize": None, "start_later": "", "start_check": 0.0}
+    seen = {"view": None, "error": "", "outside": [], "restart_at": 0.0, "busy": False, "asked": 0.0, "drawn": None, "lines": [], "banner_height": 0, "resize": None, "start_later": "", "start_check": 0.0, "studied": None}
     try:
         traded = set(DEMO_TRADED) if demo else {coin_name(coin) for coin in bridge.load_settings(env_path).coins}
     except bridge.SettingsError:
         traded = set()
 
     root = tk.Tk()
-    root.title("TradeBot · Indodax" + (" (demo numbers)" if demo else ""))
+    root.title(f"TradeBot · Indodax {VERSION}" + (" (demo numbers)" if demo else ""))
     root.geometry(args.size or "1080x800")
     root.minsize(940, 680)
     root.configure(bg=PAPER)
@@ -607,9 +772,150 @@ def open_window(args) -> int:
     overview = tk.Frame(book, bg=CARD)
     report_box = ScrolledText(book, wrap="word", font=(FONT, 10), state="disabled", padx=12, pady=10, relief="flat")
     log_box = ScrolledText(book, wrap="none", font=("Consolas", 9), state="disabled", padx=8, pady=6, relief="flat")
+    study = tk.Frame(book, bg=CARD)
     book.add(overview, text="Overview")
+    book.add(study, text="Study")
     book.add(report_box, text="Full report")
     book.add(log_box, text="Sender log")
+    tabs = {"overview": overview, "study": study, "report": report_box, "log": log_box}
+    if args.tab in tabs:
+        book.select(tabs[args.tab])
+
+    # The Study tab: the score on the left, its curve and what is still being collected on the right.
+    # It scrolls as a whole when the window is too low for it, so no line is ever cut off.
+    study_scroll = ttk.Scrollbar(study, orient="vertical")
+    study_canvas = tk.Canvas(study, bg=CARD, highlightthickness=0, yscrollcommand=study_scroll.set)
+    study_scroll.configure(command=study_canvas.yview)
+    study_canvas.pack(side="left", fill="both", expand=True)
+    study_body = tk.Frame(study_canvas, bg=CARD)
+    study_window = study_canvas.create_window(0, 0, window=study_body, anchor="nw")
+    study_body.grid_columnconfigure(0, weight=1, uniform="study")
+    study_body.grid_columnconfigure(1, weight=1, uniform="study")
+    study_body.grid_rowconfigure(0, weight=1)
+    study_left = tk.Frame(study_body, bg=CARD)
+    study_left.grid(row=0, column=0, sticky="nsew", padx=(16, 12), pady=12)
+    study_right = tk.Frame(study_body, bg=CARD)
+    study_right.grid(row=0, column=1, sticky="nsew", padx=(12, 16), pady=12)
+
+    def fit_study(_event=None):
+        """As tall as the tab when it fits (the chart takes the spare room), taller with a scrollbar when it does not."""
+        needed = study_body.winfo_reqheight()
+        tall = max(needed, study_canvas.winfo_height())
+        study_canvas.itemconfigure(study_window, width=study_canvas.winfo_width(), height=tall)
+        study_canvas.configure(scrollregion=(0, 0, 0, tall))
+        scrolls = needed > study_canvas.winfo_height() + 2
+        if scrolls and not study_scroll.winfo_ismapped():
+            study_scroll.pack(side="right", fill="y", before=study_canvas)
+        elif not scrolls and study_scroll.winfo_ismapped():
+            study_scroll.pack_forget()
+            study_canvas.yview_moveto(0)
+
+    study_canvas.bind("<Configure>", fit_study)
+    study_body.bind("<Configure>", fit_study)
+    study_canvas.bind("<Enter>", lambda _event: study_canvas.bind_all("<MouseWheel>", lambda event: study_canvas.yview_scroll(-1 if event.delta > 0 else 1, "units") if study_scroll.winfo_ismapped() else None))
+    study_canvas.bind("<Leave>", lambda _event: study_canvas.unbind_all("<MouseWheel>"))
+
+    def bar(parent, share, colour=ACCENT, height=8, marks=0):
+        """A flat bar that fills its row: share (0 to 1) of it is coloured. marks = thin lines that split it."""
+        canvas = tk.Canvas(parent, height=height, bg=CARD, highlightthickness=0)
+
+        def draw(_event=None):
+            width = canvas.winfo_width()
+            canvas.delete("all")
+            canvas.create_rectangle(0, 0, width, height, fill=TRACK, outline="")
+            if share > 0:
+                canvas.create_rectangle(0, 0, max(3, round(width * min(1.0, share))), height, fill=colour, outline="")
+            for index in range(1, marks):
+                canvas.create_line(round(width * index / marks), 0, round(width * index / marks), height, fill=CARD)
+
+        canvas.bind("<Configure>", draw)
+        return canvas
+
+    def draw_chart(canvas, curve):
+        width, height = canvas.winfo_width(), canvas.winfo_height()
+        canvas.delete("all")
+        if width < 80 or height < 60:
+            return
+        left, right, top, bottom = 30, 16, 10, 22
+        for value in (0, 5, 10):
+            y = top + (height - top - bottom) * (1 - value / 10)
+            canvas.create_line(left, y, width - right, y, fill=TRACK if value else LINE)
+            canvas.create_text(left - 8, y, text=str(value), anchor="e", font=(FONT, 8), fill=MUTED)
+        spots = chart_points(curve, width, height, left, right, top, bottom)
+        if not spots:
+            return
+        if len(spots) > 1:
+            canvas.create_line(*[value for spot in spots for value in spot], fill=ACCENT, width=2, joinstyle="round")
+        for x, y in spots[:-1] if len(spots) <= 31 else []:
+            canvas.create_oval(x - 2, y - 2, x + 2, y + 2, fill=ACCENT, outline="")
+        x, y = spots[-1]
+        canvas.create_oval(x - 4, y - 4, x + 4, y + 4, fill=ACCENT, outline=CARD, width=2)
+        canvas.create_text(x, y - 12, text=points_text(curve[-1][1]), anchor="s" if x < width - 40 else "se", font=(FONT + " Semibold", 10), fill=INK)
+        canvas.create_text(left, height - 4, text=day_wib(curve[0][0]), anchor="sw", font=(FONT, 8), fill=MUTED)
+        if x - spots[0][0] > 90:  # the first value too, when it does not sit on top of the last one
+            canvas.create_text(spots[0][0], spots[0][1] - 9, text=points_text(curve[0][1]), anchor="sw", font=(FONT, 9), fill=MUTED)
+        if x - left > 90:
+            canvas.create_text(x, height - 4, text="today" if len(spots) > 1 else "", anchor="s" if x < width - 40 else "se", font=(FONT, 8), fill=MUTED)
+
+    def draw_study(shown):
+        for pane in (study_left, study_right):
+            for child in pane.winfo_children():
+                child.destroy()
+        root.update_idletasks()
+        room = max(300, (book.winfo_width() - 84) // 2)  # one column: the tab may not be the one on screen
+        if not shown:
+            label(study_left, "How far the rules are proven", 11, bold=True).pack(anchor="w")
+            label(
+                study_left,
+                "No score yet. The sender studies its own rules by itself every four hours and after each buy or sale; the first study takes a few minutes. Its score, from 0 to 10, and the curve of that score show here.",
+                10,
+                MUTED,
+                wraplength=room,
+            ).pack(anchor="w", pady=(4, 0))
+            return
+
+        # Left: the score, what holds it back, and its four parts.
+        label(study_left, "How far the rules are proven", 11, bold=True).pack(anchor="w")
+        big = tk.Frame(study_left, bg=CARD)
+        big.pack(fill="x", pady=(2, 4))
+        label(big, shown["total_text"], 34, bold=True).pack(side="left")
+        label(big, "of 10", 12, MUTED).pack(side="left", anchor="s", padx=(6, 0), pady=(0, 9))
+        way = shown["trend"]["way"]
+        label(big, shown["trend"]["text"], 11, GOOD if way > 0 else BAD if way < 0 else MUTED, bold=way != 0).pack(side="right", anchor="s", pady=(0, 9))
+        bar(study_left, shown["total"] / 10, height=12, marks=10).pack(fill="x", padx=3)
+        label(study_left, shown["gap"], 10, INK, wraplength=room).pack(anchor="w", pady=(8, 2))
+        label(study_left, "Fixed scale. Only measured things move the score: it cannot be talked up.", 9, MUTED, wraplength=room).pack(anchor="w", pady=(0, 10))
+        for part in shown["parts"]:
+            head = tk.Frame(study_left, bg=CARD)
+            head.pack(fill="x")
+            label(head, part["title"], 10, bold=True).pack(side="left")
+            label(head, part["text"], 10, INK).pack(side="right")
+            bar(study_left, part["got"] / part["most"]).pack(fill="x", padx=3, pady=(2, 2))
+            label(study_left, part["means"], 9, MUTED, wraplength=room).pack(anchor="w", pady=(0, 8))
+
+        # Right: the curve, then what is still being collected, the verdict and when the next study comes.
+        label(study_right, "The score, day by day", 11, bold=True).pack(anchor="w")
+        label(study_right, shown["curve_text"], 9, MUTED, wraplength=room).pack(anchor="w", pady=(0, 4))
+        below = tk.Frame(study_right, bg=CARD)
+        below.pack(side="bottom", fill="x")
+        chart = tk.Canvas(study_right, height=104, bg=CARD, highlightthickness=0)
+        chart.pack(fill="both", expand=True)
+        chart.bind("<Configure>", lambda _event: draw_chart(chart, shown["curve"]))
+
+        label(below, "Still collecting", 11, bold=True).pack(anchor="w", pady=(6, 4))
+        for step in shown["progress"]:
+            head = tk.Frame(below, bg=CARD)
+            head.pack(fill="x")
+            label(head, step["label"], 10, INK).pack(side="left")
+            label(head, "· " + step["text"], 9, MUTED).pack(side="left", padx=(4, 0))
+            label(head, step["count"], 10, INK).pack(side="right")
+            bar(below, step["done"] / step["goal"], colour=GOOD if step["done"] >= step["goal"] else ACCENT, height=6).pack(fill="x", padx=3, pady=(2, 5))
+        verdict_box = tk.Frame(below, bg="#eef4ff", highlightbackground="#c9dafc", highlightthickness=1)
+        verdict_box.pack(fill="x", pady=(6, 6))
+        label(verdict_box, "Verdict of the last study", 9, MUTED).pack(anchor="w", padx=10, pady=(6, 0))
+        label(verdict_box, shown["verdict"], 10, INK, wraplength=room - 24).pack(anchor="w", padx=10, pady=(0, 6))
+        label(below, ("⚠ " if shown["old"] else "") + shown["when"], 9, BAD if shown["old"] else MUTED, bold=shown["old"], wraplength=room).pack(anchor="w")
+        label(below, "The study only reads prices: it cannot order or change the rules. A past result is not a promise.", 9, MUTED, wraplength=room).pack(anchor="w", pady=(2, 0))
 
     overview.grid_columnconfigure(0, weight=5, uniform="half")
     overview.grid_columnconfigure(1, weight=6, uniform="half")
@@ -836,6 +1142,12 @@ def open_window(args) -> int:
 
         # The tables and the signals are redrawn only when their numbers or the pane widths change, so nothing flickers.
         signature = json.dumps([report, (view or {}).get("signals"), (view or {}).get("words"), next_line(view), sorted(traded), left.winfo_width(), right.winfo_width()], sort_keys=True, default=str)
+        # The Study tab follows the study, the hour (for "2 hours ago") and the width of the tabs.
+        learn = study_of(view, local)
+        studied = json.dumps([learn, int(now_ms // 600000), book.winfo_width()], sort_keys=True, default=str)
+        if studied != seen["studied"]:
+            seen["studied"] = studied
+            draw_study(study_shown(learn, now_ms))
         if signature != seen["drawn"]:
             seen["drawn"] = signature
             draw_signals(signal_rows(view), next_line(view), plain_words(view))
@@ -854,7 +1166,9 @@ def open_window(args) -> int:
             font=(FONT + (" Semibold" if old else ""), 9),
         )
         rules = f"Each buy {bridge.rp(order)} · at most {int(bridge.number(report.get('maxOpen')))} open · a coin is sold if its price falls {bridge.number(report.get('stopPercent')):g}% under what was paid" if report else ""
-        footer.configure(text=(rules + " · " if rules else "") + "This window only shows and switches: orders are made by the sender. Not financial advice; a strategy can lose money.")
+        newer = newer_version(view)
+        update = f" · TradeBot {newer} is out: {UPDATE_WORDS}" if newer else ""
+        footer.configure(text=(rules + " · " if rules else "") + "This window only shows and switches: orders are made by the sender. Not financial advice; a strategy can lose money." + update)
 
     def start_sender():
         choice = start_choice(seen["outside"], local_is_fresh(read_local(report_path), time.time() * 1000))
@@ -995,7 +1309,43 @@ def open_window(args) -> int:
     return 0
 
 
+def output_for_the_window() -> None:
+    """Make the sender's lines reach the window that started it, as UTF-8 and one line at a time.
+
+    The one-file app is a program without a console: Python then starts with no stdout at all, even
+    when the window gave it a pipe. That pipe is taken up here.
+    """
+    if sys.stdout is None:
+        try:
+            sys.stdout = open(1, "w", encoding="utf-8", errors="replace", buffering=1, closefd=False)  # noqa: SIM115 (kept for the life of the process)
+        except OSError:
+            try:
+                import ctypes
+                import msvcrt
+
+                handle = ctypes.windll.kernel32.GetStdHandle(-11)
+                sys.stdout = open(msvcrt.open_osfhandle(handle, 0), "w", encoding="utf-8", errors="replace", buffering=1)  # noqa: SIM115
+            except (OSError, ImportError, AttributeError, ValueError):
+                return
+    else:
+        try:
+            sys.stdout.reconfigure(encoding="utf-8", errors="replace", line_buffering=True)
+        except (AttributeError, ValueError):
+            pass
+    if sys.stderr is None:
+        sys.stderr = sys.stdout
+
+
 def main(argv=None) -> int:
+    argv = list(sys.argv[1:] if argv is None else argv)
+    # The one-file app is three programs in one: asked this way, it is the sender or the study instead of the window.
+    if argv[:1] == ["--sender"]:
+        output_for_the_window()
+        return bridge.main(argv[1:])
+    if argv[:1] == ["--study"]:
+        import learn
+
+        return learn.main(argv[1:])
     parser = argparse.ArgumentParser(description="TradeBot's Indodax desk: the sender and its numbers in one window.")
     parser.add_argument("--no-start", action="store_true", help="open the window without starting the sender")
     parser.add_argument("--demo", action="store_true", help="made-up numbers: no sender, no network, nothing private")
@@ -1003,6 +1353,7 @@ def main(argv=None) -> int:
     parser.add_argument("--size", default="", help=argparse.SUPPRESS)
     parser.add_argument("--shot", default="", help=argparse.SUPPRESS)
     parser.add_argument("--trouble", action="store_true", help=argparse.SUPPRESS)  # with --demo: show the warnings
+    parser.add_argument("--tab", default="", help=argparse.SUPPRESS)  # the tab shown first: overview, study, report, log
     return open_window(parser.parse_args(argv))
 
 
