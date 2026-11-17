@@ -392,6 +392,203 @@ class Desk(unittest.TestCase):
         self.assertIn("No AI", agents.NOT_AI)
 
 
+def chart_reading(key, trend=True, momentum=True, strength=60.0):
+    """One chart's reading with only what the debate looks at."""
+    return {"key": key, "bias": "up" if trend and momentum else "down" if not trend and not momentum else "mixed", "trend": trend, "momentum": momentum, "rsi": strength, "text": "made up"}
+
+
+def all_charts(trend=True, momentum=True, strength=60.0):
+    return {frame["key"]: chart_reading(frame["key"], trend, momentum, strength) for frame in agents.TIMEFRAMES}
+
+
+class Mood(unittest.TestCase):
+    """The Fear and Greed index: shown by the market analyst, never used to buy."""
+
+    def answer(self, value="12", name="Extreme Fear", at=NOW // 1000 - 3600):
+        return {"name": "Fear and Greed Index", "data": [{"value": value, "value_classification": name, "timestamp": str(at)}]}
+
+    def test_the_answer_becomes_a_number_and_a_name(self):
+        self.assertEqual(agents.parse_mood(self.answer(), NOW), {"value": 12, "name": "extreme fear", "at": NOW // 1000 * 1000 - 3600 * 1000})
+        self.assertEqual(agents.parse_mood(self.answer("60", ""), NOW)["name"], "greed")
+        self.assertEqual([agents.parse_mood(self.answer(str(value), ""))["name"] for value in (0, 24, 25, 50, 75, 76, 100)], ["extreme fear", "extreme fear", "fear", "neutral", "greed", "extreme greed", "extreme greed"])
+
+    def test_a_broken_or_old_answer_is_no_mood(self):
+        for broken in (None, {}, {"data": []}, {"data": [{"value": "x", "timestamp": "1"}]}, {"data": [{"value": "140", "timestamp": "1"}]}, {"data": [{"value": "-1", "timestamp": "1"}]}, "broken"):
+            self.assertIsNone(agents.parse_mood(broken, NOW))
+        self.assertIsNone(agents.parse_mood(self.answer(at=NOW // 1000 - 4 * 86400), NOW))
+        self.assertIsNotNone(agents.parse_mood(self.answer(at=NOW // 1000 - 4 * 86400)))  # no clock given: the age is not judged
+
+    def test_a_page_that_cannot_be_read_is_no_mood_and_no_fault(self):
+        def down(_url):
+            raise OSError("no network")
+
+        asked = []
+        self.assertIsNone(agents.fetch_mood(down, NOW))
+        self.assertEqual(agents.fetch_mood(lambda url: asked.append(url) or self.answer(), NOW)["value"], 12)
+        self.assertEqual(asked, [agents.MOOD_URL])
+        self.assertTrue(agents.MOOD_URL.startswith("https://api.alternative.me/"))
+
+    def test_the_market_analyst_shows_it_and_says_it_is_not_used(self):
+        view = desk.demo_view(NOW)
+        made = agents.desk(view, view["report"], readings(), None, "here", NOW, {"BTC"}, 20, 0, "", charts()["4H"], {"value": 12, "name": "extreme fear"})
+        said = " ".join(words for _, words in made["team"][1]["lines"])
+        self.assertIn("Mood of the crypto market: 12 of 100, extreme fear", said)
+        self.assertIn("Shown only", said)
+        plain, _ = team_of(view)
+        self.assertNotIn("Mood of the crypto market", json.dumps(plain))
+        self.assertEqual(agents.mood_text(None), "")
+        self.assertEqual(agents.mood_text({}), "")
+
+    def test_the_mood_never_moves_a_call(self):
+        view = desk.demo_view(NOW)
+        calm, _ = team_of(view)
+        for value in (0, 50, 100):
+            made = agents.desk(view, view["report"], readings(), view["report"].get("learn"), "here", NOW, {"BTC", "ETH"}, 20, 0, "", charts()["4H"], {"value": value, "name": "x"})
+            self.assertEqual([(member["state"], member["head"]) for member in made["team"]], [(member["state"], member["head"]) for member in calm["team"]])
+            self.assertEqual(made["debate"], calm["debate"])
+            self.assertEqual(made["plan"], calm["plan"])
+
+
+class Debate(unittest.TestCase):
+    """Bull against bear: points from the four charts, a wider chart counting for more, and a five-step rating."""
+
+    def test_every_chart_gives_three_points_to_one_side_or_the_other(self):
+        found = agents.debate(all_charts())
+        self.assertEqual((len(found["pro"]), len(found["con"]), found["share"]), (12, 0, 100))
+        found = agents.debate(all_charts(False, False, 40.0))
+        self.assertEqual((len(found["pro"]), len(found["con"]), found["share"]), (0, 12, 0))
+        self.assertTrue(all(point.split(":")[0] in {frame["name"] for frame in agents.TIMEFRAMES} for point in found["con"]))
+
+    def test_a_wider_chart_counts_for_more(self):
+        mixed = all_charts(False, False, 40.0)
+        mixed["1D"] = chart_reading("1D")
+        day_for = agents.debate(mixed)["share"]
+        mixed = all_charts(False, False, 40.0)
+        mixed["15m"] = chart_reading("15m")
+        short_for = agents.debate(mixed)["share"]
+        self.assertEqual((day_for, short_for), (40, 10))
+
+    def test_the_strength_gauge_is_for_a_buy_only_inside_the_rules_band(self):
+        for strength, good in ((49.9, False), (50.0, True), (69.9, True), (70.0, False), (20.0, False)):
+            found = agents.debate({"4H": chart_reading("4H", True, True, strength)})
+            self.assertEqual(len(found["pro"]), 3 if good else 2, strength)
+
+    def test_a_young_chart_without_its_200_average_gives_two_points(self):
+        young = chart_reading("4H")
+        young["trend"] = None
+        self.assertEqual(len(agents.debate({"4H": young})["pro"]), 2)
+
+    def test_the_five_steps(self):
+        buy, wait = {"action": "BUY"}, {"action": "WAIT"}
+        split = all_charts(False, False, 40.0)
+        split["1D"] = chart_reading("1D")  # 40 of 100
+        half = all_charts(False, False, 40.0)
+        half["1D"], half["1H"] = chart_reading("1D"), chart_reading("1H")  # 60 of 100
+        self.assertEqual(agents.debate(all_charts(), buy)["rating"], "buy")
+        self.assertEqual(agents.debate(split, buy)["rating"], "lean_buy")
+        self.assertEqual(agents.debate(half, wait)["rating"], "lean_buy")
+        self.assertEqual(agents.debate(all_charts(True, False, 40.0), wait)["rating"], "lean_out")
+        self.assertEqual(agents.debate(all_charts(False, False, 40.0), wait)["rating"], "out")
+        middle = all_charts(False, False, 40.0)
+        middle["1D"], middle["15m"] = chart_reading("1D"), chart_reading("15m")  # 50 of 100
+        found = agents.debate(middle, wait)
+        self.assertEqual((found["share"], found["rating"], found["name"], found["step"]), (50, "wait", "Wait", 3))
+        self.assertEqual([agents.debate(all_charts(), buy)["step"], agents.debate(all_charts(False, False, 40.0), wait)["step"]], [1, 5])
+
+    def test_rising_charts_without_the_rules_checks_are_never_a_buy(self):
+        for signal in ({"action": "WAIT"}, {"action": "SELL"}, None, {"error": "no answer", "action": "BUY"}):
+            found = agents.debate(all_charts(), signal)
+            self.assertEqual(found["rating"], "lean_buy", signal)
+            self.assertIn("no buy yet", found["text"])
+
+    def test_a_coin_held_is_rated_in_holding_words(self):
+        self.assertEqual(agents.debate(all_charts(), {"action": "HOLD"}, held=True)["name"], "Hold")
+        sold = agents.debate(all_charts(), {"action": "SELL"}, held=True)
+        self.assertEqual((sold["rating"], sold["name"]), ("out", "Sell"))
+        self.assertIn("sold at the next check", sold["text"])
+        self.assertEqual(agents.debate(all_charts(False, False, 40.0), {"action": "HOLD"}, held=True)["name"], "Hold, watch closely")
+
+    def test_with_no_chart_there_is_nothing_to_weigh(self):
+        for nothing in ({}, None, {"4H": {"bias": "none"}}):
+            found = agents.debate(nothing, {"action": "BUY"})
+            self.assertEqual((found["share"], found["rating"], found["pro"], found["con"]), (None, "wait", [], []))
+        self.assertIn("not read yet", agents.debate_line(agents.debate({})))
+        self.assertIn("not read yet", agents.debate_line(None))
+
+    def test_the_desk_lead_says_the_rating_and_that_the_rules_decide(self):
+        view = desk.demo_view(NOW)
+        made, by = team_of(view)
+        said = " ".join(words for _, words in by["lead"]["lines"])
+        self.assertIn("Bull against bear: ", said)
+        self.assertIn(f"Rating: {made['debate']['name']} (step {made['debate']['step']} of 5)", said)
+        self.assertIn("by the rules' checks alone", said)
+        self.assertEqual(len(made["debate"]["pro"]) + len(made["debate"]["con"]), 12)
+
+    def test_the_rating_never_changes_what_the_desk_lead_calls(self):
+        view = desk.demo_view(NOW)
+        view["report"]["positions"] = []
+        view["signals"][0].update(action="WAIT", why="waiting for RSI")
+        for found in (all_charts(), all_charts(False, False, 40.0)):
+            _, by = team_of(view, found=found)
+            self.assertEqual((by["lead"]["state"], by["lead"]["head"]), ("wait", "Wait: no buy now"))
+
+
+class RiskViews(unittest.TestCase):
+    """Three views on the size of one buy: careful, balanced, bold."""
+
+    def report(self, cash=50_000, order=20_000, stop=8, positions=()):
+        return {"mode": "real", "cash": cash, "orderIdr": order, "stopPercent": stop, "positions": list(positions)}
+
+    def test_the_loss_of_one_buy_is_set_against_the_whole_account(self):
+        views = agents.risk_views(self.report())
+        self.assertEqual([(view["name"], view["limit"], view["ok"]) for view in views], [("Careful", 1.0, False), ("Balanced", 2.0, False), ("Bold", 5.0, True)])
+        self.assertAlmostEqual(views[0]["share"], 3.2)  # Rp1.600 of Rp50.000
+        self.assertEqual([round(view["most"]) for view in views], [6250, 12500, 31250])
+
+    def test_a_coin_held_counts_as_part_of_the_account(self):
+        views = agents.risk_views(self.report(cash=30_000, positions=[{"symbol": "BTCUSDT", "value": 20_000, "spent": 20_000}]))
+        self.assertAlmostEqual(views[0]["share"], 3.2)
+        practice = agents.risk_views(self.report(cash=30_000, positions=[{"symbol": "BTCUSDT", "value": 20_000, "real": False}]))
+        self.assertAlmostEqual(practice[0]["share"], 20_000 * 8 / 30_000)
+
+    def test_a_small_buy_passes_every_view(self):
+        self.assertTrue(all(view["ok"] for view in agents.risk_views(self.report(cash=200_000, order=20_000))))
+
+    def test_what_is_not_known_gives_no_view(self):
+        for report in (None, {}, self.report(cash=None), self.report(cash=True), self.report(cash=0), self.report(order=0), self.report(stop=0), self.report(stop=100)):
+            self.assertEqual(agents.risk_views(report), [])
+
+    def test_the_risk_manager_shows_them_and_keeps_its_call(self):
+        view = desk.demo_view(NOW)
+        _, by = team_of(view)
+        said = " ".join(words for _, words in by["risk"]["lines"])
+        for name in ("Careful view", "Balanced view", "Bold view", "The views only speak"):
+            self.assertIn(name, said)
+        self.assertEqual((by["risk"]["state"], by["risk"]["head"]), ("wait", "At the limit: 1 of 1 open"))
+
+
+class Yardstick(unittest.TestCase):
+    """The rules against one buy that is never sold."""
+
+    def test_holding_that_earned_more_and_dipped_deeper_is_said_both_ways(self):
+        said = agents.hold_text({"order": 20_000, "perYear": 4602, "dip": -11976}, {"perYear": 25576, "dip": -165557})
+        self.assertIn("one buy of Rp20.000 in March 2020 and never sold", said)
+        self.assertIn("+Rp25.576 a year", said)
+        self.assertIn("earned more than the rules but dipped deeper, about 14 times as deep", said)
+        self.assertIn("give up gain to keep the dips small", said)
+
+    def test_the_other_cases_are_said_plainly(self):
+        self.assertIn("earned less than the rules and dipped deeper", agents.hold_text({"order": 20_000, "perYear": 4602, "dip": -11976}, {"perYear": 100, "dip": -50000}))
+        self.assertIn("earned more than the rules and dipped less deep", agents.hold_text({"order": 20_000, "perYear": 4602, "dip": -11976}, {"perYear": 9000, "dip": -500}))
+
+    def test_the_research_analyst_shows_it_when_the_study_has_it(self):
+        view = desk.demo_view(NOW)
+        _, by = team_of(view, summary=agents.demo_summary(view["report"]["learn"]))
+        self.assertTrue(any(words.startswith("Yardstick, one buy of ") for _, words in by["research"]["lines"]))
+        _, by = team_of(view)
+        self.assertFalse(any(words.startswith("Yardstick") for _, words in by["research"]["lines"]))
+
+
 class Feed(unittest.TestCase):
     def setUp(self):
         self.view = desk.demo_view(NOW)

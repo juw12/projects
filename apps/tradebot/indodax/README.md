@@ -164,6 +164,12 @@ The sender starts `learn.py` by itself, hidden and at low priority: every four h
    `learn.json`; the desk's Research analyst shows them). On the test of November 2026 the
    1:3 sale made more rupiah a year but dipped deeper, on 91 trades; top-down dipped less
    and made a little less. Too few trades to tell skill from luck, so the rules stayed.
+8. **Yardstick.** One buy of the same size at the first candle, never sold, at the same costs
+   (`summary.hold` in `learn.json`; the desk's Research analyst shows it next to the rules).
+   On the test of November 2026 (Bitcoin, March 2020 to November 2026, Rp20.000): holding
+   made about +Rp25.576 a year against the rules' +Rp4.602, and at its worst stood
+   Rp165.557 under its best against Rp11.976 for the rules. More rupiah, and a dip about 14
+   times as deep. It changes neither the verdict nor the score.
 
 What it is not:
 
@@ -298,6 +304,26 @@ What is where:
   every line is a measured number. They only read; orders are still made by the sender alone.
   The checks use the world price, the chart Indodax's, so the two can differ a little. The
   bot does not sell at the 1:3 mark by itself: it moves the stop up behind the price.
+- **Borrowed ways of working (0.15.0).** Four parts of the Agents tab follow the two most
+  starred open trading-agent projects,
+  [TradingAgents](https://github.com/TauricResearch/TradingAgents) and
+  [Vibe-Trading](https://github.com/HKUDS/Vibe-Trading). None of their code is used, and no AI
+  model: theirs ask a paid language model for an opinion, here every line is a measured number.
+  - *Mood of the market* (Market analyst): the Fear & Greed number from alternative.me, 0 to
+    100, read once an hour.
+  - *Bull against bear* (Desk lead, and the Analysis list): each chart's facts are sorted into
+    for and against a buy and weighed (day 4, 4 hours 3, 1 hour 2, 15 minutes 1) into one of
+    five ratings: Buy, Lean buy, Wait, Lean away, Stay out.
+  - *Three views of the risk* (Risk manager): what one buy can lose at the hard stop, as a
+    share of the account, against a careful (1%), a balanced (2%) and a bold (5%) limit.
+  - *Yardstick* (Research analyst): the rules next to one buy that is never sold (item 8 of
+    the study).
+
+  All four are shown only. The bot buys and sells by the three checks alone, and the tests
+  prove the calls and the plan are the same with any mood and any rating. The mood was tried
+  as a filter on the same replay (213 trades, +Rp4.602 a year): buys only at mood 50 or more
+  gave +Rp3.850 a year, only under 25 gave +Rp431, only at 25 or more +Rp4.291 with a deeper
+  dip. None beat the plain rules, so it stayed a number to read.
 - **Study tab:** the score from 0 to 10 for how far the rules are proven, its four parts, the
   curve of the score day by day, what is still being collected (real trades, the measured cost,
   the trial setting) and when the next study comes.

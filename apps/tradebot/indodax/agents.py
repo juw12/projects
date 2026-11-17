@@ -400,6 +400,138 @@ def held_plan(position: dict, rows_4h: list, stop_percent, now_ms=None):
     return made
 
 
+# ---------------------------------------------------------------- the mood, the debate, three views on risk
+#
+# Three ways of working borrowed from the two most starred open-source trading-agent projects
+# (TauricResearch/TradingAgents and HKUDS/Vibe-Trading): a sentiment reading, a bull against bear
+# debate that ends in a five-step rating, and a risk team of three views. Theirs are written by
+# language models. These are worked out from measured numbers, so the same numbers always give
+# the same answer. No code of theirs is used.
+
+MOOD_URL = "https://api.alternative.me/fng/?limit=1&format=json"
+MOOD_NAMES = [(25, "extreme fear"), (45, "fear"), (56, "neutral"), (76, "greed"), (101, "extreme greed")]
+MOOD_OLD = 3 * 86400 * 1000  # the index comes once a day; one older than this is not shown
+DEMO_MOOD = {"value": 34, "name": "fear"}
+
+
+def parse_mood(answer, now_ms=None):
+    """alternative.me's Fear and Greed answer as {value: 0..100, name, at (ms)}. None when it is broken or old."""
+    try:
+        item = answer["data"][0]
+        value, at = int(item["value"]), int(item["timestamp"]) * 1000
+    except (KeyError, IndexError, TypeError, ValueError):
+        return None
+    if not 0 <= value <= 100 or (now_ms is not None and bridge.number(now_ms) - at > MOOD_OLD):
+        return None
+    named = str(item.get("value_classification") or "").strip().lower() if isinstance(item, dict) else ""
+    return {"value": value, "name": named or next(name for limit, name in MOOD_NAMES if value < limit), "at": at}
+
+
+def fetch_mood(read, now_ms=None):
+    """The mood of the crypto market now, or None. A public page: no key, and nothing is sent."""
+    try:
+        return parse_mood(read(MOOD_URL), now_ms)
+    except Exception:  # noqa: BLE001 (the mood is only shown: without it the desk works the same)
+        return None
+
+
+def mood_text(mood) -> str:
+    if not isinstance(mood, dict) or "value" not in mood:
+        return ""
+    return (
+        f"Mood of the crypto market: {int(mood['value'])} of 100, {mood.get('name') or 'not named'} (Fear and Greed index). "
+        "Shown only: on six years of prices, buying by mood did not beat the rules."
+    )
+
+
+WEIGHTS = {"1D": 4, "4H": 3, "1H": 2, "15m": 1}  # top-down: a wider chart counts for more
+RATINGS = [("buy", "Buy"), ("lean_buy", "Lean buy"), ("wait", "Wait"), ("lean_out", "Lean away"), ("out", "Stay out")]
+RATING_NAMES = dict(RATINGS)
+HELD_NAMES = {"buy": "Hold", "lean_buy": "Hold, watch closely", "wait": "Hold, watch closely", "lean_out": "Hold, watch closely", "out": "Sell"}
+
+
+def debate(readings: dict, signal=None, held: bool = False) -> dict:
+    """The case for a buy against the case for staying out, point by point, from the four charts.
+
+    Each chart gives up to three points: price against its 200 average, EMA 20 against EMA 50, and
+    RSI inside or outside the rules' 50 to 70. A wider chart counts for more (WEIGHTS).
+    {pro: [text], con: [text], share: 0..100 of the weight that is for a buy (None: no chart read),
+     rating: one of RATINGS, name, step: 1..5, text}
+    The rating never orders: the bot buys and sells by the rules' checks alone.
+    """
+    pro, con, weight_for, weight_all = [], [], 0, 0
+    for frame in TIMEFRAMES:
+        found = (readings or {}).get(frame["key"])
+        if not found or found.get("bias") == "none":
+            continue
+        points = []
+        if found.get("trend") is not None:
+            points.append((found["trend"], f"price {'above' if found['trend'] else 'under'} its 200-candle average"))
+        points.append((bool(found.get("momentum")), f"EMA 20 {'above' if found.get('momentum') else 'under'} EMA 50"))
+        if found.get("rsi") is not None:
+            points.append((RSI_FROM <= found["rsi"] < RSI_TO, f"RSI {round(found['rsi'])}, {rsi_words(found['rsi']).split(':')[0]}"))
+        for good, words in points:
+            (pro if good else con).append(f"{frame['name']}: {words}")
+            weight_all += WEIGHTS[frame["key"]]
+            weight_for += WEIGHTS[frame["key"]] if good else 0
+    action = str((signal or {}).get("action") or "").upper() if signal and not signal.get("error") else ""
+    passes = action in ("BUY", "HOLD")
+    if not weight_all:
+        return {"pro": [], "con": [], "share": None, "rating": "wait", "name": HELD_NAMES["wait"] if held else RATING_NAMES["wait"], "step": 3, "text": "The charts could not be read yet, so there is nothing to weigh."}
+    share = round(100 * weight_for / weight_all)
+    if held and action == "SELL":
+        rating, text = "out", "A check of the rules failed: the coin is sold at the next check."
+    elif passes and share >= 60:
+        rating, text = "buy", "The rules' checks pass and most of the charts agree."
+    elif passes:
+        rating, text = "lean_buy", "The rules' checks pass, but the charts are split. The size of a buy stays small and fixed."
+    elif share >= 60:
+        rating, text = "lean_buy", "Most of the charts are for a buy, but the rules' checks are not all met: no buy yet."
+    elif share > 40:
+        rating, text = "wait", "The charts are split and the rules' checks are not met: no buy."
+    elif share > 20:
+        rating, text = "lean_out", "More speaks against a buy than for it: no buy."
+    else:
+        rating, text = "out", "Nearly everything speaks against a buy: the money stays in rupiah."
+    if held and rating != "out" and not passes:
+        text = "The coin is held while the rules' checks for holding still pass; the moving stop guards it."
+    return {
+        "pro": pro, "con": con, "share": share, "rating": rating,
+        "name": (HELD_NAMES if held else RATING_NAMES)[rating], "step": [key for key, _name in RATINGS].index(rating) + 1, "text": text,
+    }
+
+
+def debate_line(found: dict) -> str:
+    """The debate in one line, for the desk lead."""
+    if not found or found.get("share") is None:
+        return "Bull against bear: the charts are not read yet."
+    return (
+        f"Bull against bear: {len(found['pro'])} {'point' if len(found['pro']) == 1 else 'points'} for a buy, {len(found['con'])} against; "
+        f"{found['share']} of 100 by weight are for. Rating: {found['name']} (step {found['step']} of 5). {found['text']}"
+    )
+
+
+RISK_VIEWS = [("Careful", 1.0), ("Balanced", 2.0), ("Bold", 5.0)]  # the most of the account one trade may lose, in percent
+
+
+def risk_views(report: dict) -> list:
+    """Three views on the size of one buy, each with its own limit for the loss of one trade.
+
+    The loss counted is the worst the sender allows: the hard stop under what was paid.
+    [{name, limit (percent of the account), share (percent this buy can lose), ok, most (the biggest buy this view allows)}]
+    Empty when the account or the size is not known. The views only speak: the size is yours to set.
+    """
+    report = report or {}
+    order, stop, cash = bridge.number(report.get("orderIdr")), bridge.number(report.get("stopPercent")), report.get("cash")
+    if not isinstance(cash, (int, float)) or isinstance(cash, bool) or order <= 0 or not 0 < stop < 100:
+        return []
+    account = cash + sum(bridge.number(item.get("value")) for item in held_now(report))
+    if account <= 0:
+        return []
+    share = order * stop / account
+    return [{"name": name, "limit": limit, "share": share, "ok": share <= limit, "most": account * limit / stop} for name, limit in RISK_VIEWS]
+
+
 # ---------------------------------------------------------------- the six agents
 
 
@@ -434,6 +566,17 @@ def agent(key: str, state: str, head: str, lines: list) -> dict:
     return {"key": key, "name": name, "short": short, "role": role, "state": state, "head": head, "lines": lines, "hands": HANDS[key]}
 
 
+def hold_text(summary: dict, hold: dict) -> str:
+    """The rules against the plainest yardstick: one buy of the same size in March 2020, never sold."""
+    rules_year, hold_year = bridge.number(summary.get("perYear")), bridge.number(hold.get("perYear"))
+    rules_dip, hold_dip = bridge.number(summary.get("dip")), bridge.number(hold.get("dip"))
+    start = f"Yardstick, one buy of {bridge.rp(summary.get('order'))} in March 2020 and never sold: about {bridge.signed_rp(hold_year)} a year, deepest dip {bridge.signed_rp(hold_dip)}."
+    if hold_year > rules_year and hold_dip < rules_dip:
+        times = f", about {round(hold_dip / rules_dip)} times as deep" if rules_dip < 0 else ""
+        return f"{start} Just holding earned more than the rules but dipped deeper{times}. The rules give up gain to keep the dips small."
+    return f"{start} Just holding earned {'more' if hold_year > rules_year else 'less'} than the rules and dipped {'deeper' if hold_dip < rules_dip else 'less deep'}."
+
+
 def research_agent(summary, now_ms) -> dict:
     if not isinstance(summary, dict) or not bridge.number(summary.get("at")):
         return agent("research", "off", "No study yet", [("info", "The sender studies its own rules every four hours and after each buy or sale. The first study takes a few minutes.")])
@@ -447,6 +590,9 @@ def research_agent(summary, now_ms) -> dict:
         ("info", f"On half years the rules had never seen: {bridge.signed_rp(unseen.get('live'))} over {int(bridge.number(unseen.get('windows')))} of them."),
         ("ok" if verdict != "review" else "info", {"keep": "Verdict: keep the rules.", "watch": "Verdict: keep the rules; a second setting is followed on paper.", "review": "Verdict: a second setting has earned a review. Nothing changes by itself."}.get(verdict, "Verdict: keep the rules.")),
     ]
+    hold = summary.get("hold") if isinstance(summary.get("hold"), dict) else None
+    if hold:
+        lines.append(("info", hold_text(summary, hold)))
     ideas = [idea for idea in summary.get("ideas") or [] if isinstance(idea, dict)]
     if ideas:
         lines.append(("info", "Ideas followed on paper only (pretend trades, no money):"))
@@ -467,7 +613,7 @@ def research_agent(summary, now_ms) -> dict:
     return agent("research", "warn" if old else "yes", f"Score {total} of 10 · {'review due' if verdict == 'review' else 'keep the rules'}", lines)
 
 
-def market_agent(readings: dict, report: dict, signal, coin: str) -> dict:
+def market_agent(readings: dict, report: dict, signal, coin: str, mood=None) -> dict:
     look = top_down(readings)
     lines = []
     for frame in TIMEFRAMES:
@@ -485,6 +631,8 @@ def market_agent(readings: dict, report: dict, signal, coin: str) -> dict:
     change = (signal or {}).get("change24h")
     if isinstance(change, (int, float)):
         lines.append(("info", f"World price in 24 hours: {signed_pct(change)}."))
+    if mood_text(mood):
+        lines.append(("info", mood_text(mood)))
     state = {"up": "yes", "down": "no", "wait": "wait", "none": "off"}[look["call"]]
     head = f"{coin} · {look['marks']}" if look["call"] != "none" else "Charts not read yet"
     return agent("market", state, head, lines)
@@ -553,6 +701,15 @@ def risk_agent(report: dict, view, drawn) -> dict:
     if drawn and drawn.get("riskIdr") and drawn["riskIdr"] < worst * 0.98:
         lines.append(("info", f"The plan's own stop is nearer: about {bridge.rp(drawn['riskIdr'])} at risk, to reach for about {bridge.rp(drawn['rewardIdr'])} at the 1:3 mark."))
     lines.append(("info", f"Money in play at most: {bridge.rp(order * max(most, 1))}. The size of a buy never grows by itself."))
+    views = risk_views(report)
+    if views:
+        lines.append(("info", f"Three views on the size: one buy can lose {pct(views[0]['share'])} of the account at the hard stop."))
+        for found in views:
+            lines.append((
+                "ok" if found["ok"] else "info",
+                f"{found['name']} view (lose at most {found['limit']:g}% of the account in one trade): " + ("fine." if found["ok"] else f"too big; it would buy at most {bridge.rp(found['most'])}."),
+            ))
+        lines.append(("info", "The views only speak. The size is set by you in the settings and is not changed here."))
     if tripped:
         return agent("risk", "no", "Blocked: safety stop is on", lines)
     if not checked:
@@ -610,7 +767,7 @@ def execution_agent(report: dict, sender_state: str, cycle_age, misses: int = 0)
     return agent("execution", "wait", "Standing by: no order to place", lines)
 
 
-def lead_agent(team: list, report: dict, view, coin: str) -> dict:
+def lead_agent(team: list, report: dict, view, coin: str, weighed=None) -> dict:
     by = {member["key"]: member for member in team}
     report = report or {}
     held = [item for item in held_now(report) if coin_of(item.get("symbol")) == coin]
@@ -632,6 +789,9 @@ def lead_agent(team: list, report: dict, view, coin: str) -> dict:
     else:
         state, head = "off", "Wait: no fresh signal"
     lines = [({"yes": "ok", "no": "no"}.get(member["state"], "info"), f"{member['name']}: {member['head']}") for member in team]
+    if weighed:
+        lines.append(("info", debate_line(weighed)))
+        lines.append(("info", "The rating sums up the charts. The bot buys and sells by the rules' checks alone."))
     following = next((line[6:] for line in str((view or {}).get("text") or "").split("\n") if line.startswith("Next: ")), "")
     if following:
         lines.append(("info", "Next: " + following))
@@ -643,8 +803,8 @@ def lead_agent(team: list, report: dict, view, coin: str) -> dict:
     return agent("lead", state, head, lines)
 
 
-def desk(view, report, readings, summary, sender_state: str, now_ms, traded=(), cycle_age=None, misses: int = 0, coin: str = "", rows_4h=None) -> dict:
-    """The six agents for what is known now: {coin, team: [agent, ...], plan}.
+def desk(view, report, readings, summary, sender_state: str, now_ms, traded=(), cycle_age=None, misses: int = 0, coin: str = "", rows_4h=None, mood=None) -> dict:
+    """The six agents for what is known now: {coin, team: [agent, ...], plan, debate}.
 
     agent = {key, name, short, role, state: yes / wait / no / warn / off, head, lines: [(ok / no / info, text)], hands}
     """
@@ -654,13 +814,14 @@ def desk(view, report, readings, summary, sender_state: str, now_ms, traded=(), 
     strategist, drawn = strategy_agent(signal, readings, report, coin, now_ms, rows_4h)
     team = [
         research_agent(summary, now_ms),
-        market_agent(readings, report, signal, coin),
+        market_agent(readings, report, signal, coin, mood),
         strategist,
         risk_agent(report, view, drawn),
         execution_agent(report, sender_state, cycle_age, misses),
     ]
-    team.append(lead_agent(team, report, view, coin))
-    return {"coin": coin, "team": team, "plan": drawn}
+    weighed = debate(readings, signal, any(coin_of(item.get("symbol")) == coin for item in held_now(report)))
+    team.append(lead_agent(team, report, view, coin, weighed))
+    return {"coin": coin, "team": team, "plan": drawn, "debate": weighed}
 
 
 # ---------------------------------------------------------------- the live feed
@@ -872,11 +1033,11 @@ def time_label(ms, key: str) -> str:
 
 
 def demo_summary(learned: dict) -> dict:
-    """The demo's study with the three ideas added (made-up numbers, as the rest of the demo)."""
+    """The demo's study with the three ideas and the yardstick added (made-up numbers, as the rest of the demo)."""
     since = bridge.number(learned.get("at")) - 6 * 86400000
     ideas = [
         {"key": "target", "name": "sell at 1:3", "trades": 91, "wins": 37, "perYear": 7400, "dip": -15700, "unseen": 19800, "since": {"from": since, "days": 6, "trades": 0, "lead": 0}},
         {"key": "topdown", "name": "top-down (daily chart up too)", "trades": 148, "wins": 36, "perYear": 4400, "dip": -7900, "unseen": 6500, "since": {"from": since, "days": 6, "trades": 1, "lead": -120}},
         {"key": "both", "name": "top-down and sell at 1:3", "trades": 64, "wins": 38, "perYear": 7100, "dip": -8500, "unseen": 11300, "since": {"from": since, "days": 6, "trades": 0, "lead": 0}},
     ]
-    return {**learned, "ideas": ideas}
+    return {**learned, "ideas": ideas, "hold": {"perYear": 25600, "dip": -165600, "total": 171700}}

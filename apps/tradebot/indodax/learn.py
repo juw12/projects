@@ -468,6 +468,16 @@ def study(signal_rows: list, price_rows: list, order_idr: float, stop_percent: f
         })
     summary["ideas"] = ideas
 
+    # The yardstick: one buy of the same size at the first candle, never sold, at the same costs.
+    held_rows = [row for row in price_rows if row["t"] >= TEST_FROM]
+    quantity = order_idr * (1 - cost) / (held_rows[0]["o"] * (1 + slip))
+    hold_value = hold_peak = hold_dip = 0.0
+    for row in held_rows:
+        hold_value = quantity * row["c"] * (1 - cost) - order_idr
+        hold_peak = max(hold_peak, hold_value)
+        hold_dip = min(hold_dip, hold_value - hold_peak)
+    summary["hold"] = {"perYear": round(hold_value / years) if years > 0 else 0, "dip": round(hold_dip), "total": round(hold_value)}
+
     # 5. the score, and its curve over the days
     unseen_years = sum(window["to"] - window["from"] for window in windows) / (365.25 * DAY)
     score = skill(live_unseen, unseen_years, order_idr, summary["yearUp"], summary["perYear"], summary["dip"], real)
@@ -502,6 +512,9 @@ def words(summary: dict) -> list:
             f"On paper only, {idea['name']}: {idea['trades']} trades, {idea['wins']} of 100 won, about {bridge.signed_rp(idea['perYear'])} a year, deepest dip {bridge.signed_rp(idea['dip'])}, "
             f"unseen half years {bridge.signed_rp(idea['unseen'])}."
         )
+    hold = summary.get("hold")
+    if hold:
+        lines.append(f"Yardstick, one buy of {bridge.rp(summary['order'])} at the start and never sold: about {bridge.signed_rp(hold['perYear'])} a year, deepest dip {bridge.signed_rp(hold['dip'])}.")
     score = summary.get("score")
     if score:
         parts = score["parts"]

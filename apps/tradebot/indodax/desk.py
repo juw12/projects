@@ -37,7 +37,7 @@ from pathlib import Path
 import agents
 import bridge
 
-VERSION = "0.14.0"  # the same number as apps/tradebot/package.json
+VERSION = "0.15.0"  # the same number as apps/tradebot/package.json
 FROZEN = bridge.FROZEN  # True inside TradeBot.exe
 HERE = bridge.HERE
 APP_NAME = "tradebot.exe"
@@ -705,6 +705,8 @@ CHART_TOGGLES = [(name, title, colour) for name, title, colour, _dash in CHART_L
 ROUND_STEP_MS = 320  # how long one agent is shown looking, when the six look one after the other
 FEED_LINES = 120
 CANDLE_SECONDS = 60  # the charts are read again this often
+MOOD_SECONDS = 3600  # the mood of the market comes once a day: asked for once an hour
+MOOD_RETRY_SECONDS = 600  # ... and ten minutes after a miss
 DEMO_PRICES = {"BTC": 1_214_700_000, "ETH": 51_300_000}
 
 
@@ -736,7 +738,7 @@ def open_window(args) -> int:
         "coin": "", "coin_pick": "", "candles": {}, "readings": {}, "marks": {}, "candle_busy": False, "agents_broken": False, "candle_note": "", "trade_marks": [],
         "tf": "4H", "visible": agents.START_VISIBLE, "offset": 0, "toggles": {name: True for name, _title, _colour in CHART_TOGGLES},
         "geometry": None, "hover": None, "drag": None, "chart_job": None, "chart_drawn": None, "trades_drawn": None, "reading_drawn": None,
-        "summary": None, "summary_at": None,
+        "summary": None, "summary_at": None, "mood": None, "mood_at": 0.0, "debate": None,
     })
     learn_path = folder / "learn.json"
     try:
@@ -1145,12 +1147,25 @@ def open_window(args) -> int:
         coin = seen["coin"]
         readings = seen["readings"].get(coin) or {}
         made = seen["plan"]
-        signature = json.dumps([coin, readings, made], default=str)
+        weighed = seen["debate"]
+        signature = json.dumps([coin, readings, made, weighed, seen["mood"]], default=str)
         if signature == seen["reading_drawn"]:
             return
         seen["reading_drawn"] = signature
         look = agents.top_down(readings)
         pieces = [(f"{coin}/IDR at Indodax, top-down\n", ("name",)), (look["text"] + "\n\n", ())]
+        if weighed and weighed.get("share") is not None:
+            pieces.append(("Bull against bear · rating: ", ("name",)))
+            pieces.append((f"{weighed['name']}\n", ({"buy": "yes", "lean_buy": "yes", "lean_out": "no", "out": "no"}.get(weighed["rating"], "wait"),)))
+            pieces.append((f"{weighed['share']} of 100 by weight are for a buy (a wider chart counts for more). {weighed['text']}\n", ()))
+            for title, points, tag in (("For a buy", weighed["pro"], "yes"), ("Against", weighed["con"], "no")):
+                pieces.append((f"{title} ({len(points)})\n", (tag,)))
+                for point in points or ["nothing"]:
+                    pieces.append(("·  ", ("muted", "indent")))
+                    pieces.append((point + "\n", ("indent",)))
+            if agents.mood_text(seen["mood"]):
+                pieces.append((agents.mood_text(seen["mood"]) + "\n", ("small",)))
+            pieces.append(("The rating sums up the charts. The bot buys and sells by the rules' checks alone.\n\n", ("small",)))
         for frame in agents.TIMEFRAMES:
             found = readings.get(frame["key"])
             bias = (found or {}).get("bias", "none")
@@ -1416,6 +1431,7 @@ def open_window(args) -> int:
         now_ms = time.time() * 1000
         if demo:
             events.put(("candles", coin, {frame["key"]: agents.demo_candles(frame["key"], now_ms, DEMO_PRICES.get(coin, 1_000_000)) for frame in agents.TIMEFRAMES}, ""))
+            events.put(("mood", agents.DEMO_MOOD))
             return
         try:
             proxy = bridge.reachable(bridge.load_settings(env_path)).proxy
@@ -1428,6 +1444,8 @@ def open_window(args) -> int:
         missing = len(agents.TIMEFRAMES) - len(found)
         note = "" if not missing else "The chart could not be read from Indodax just now. It is asked for again within a minute." if not found else f"{missing} of the four charts could not be read just now. They are asked for again within a minute."
         events.put(("candles", coin, found, note))
+        if time.time() - seen["mood_at"] > MOOD_SECONDS:  # after the charts, so a slow answer never holds them up
+            events.put(("mood", agents.fetch_mood(agents.reader(proxy), now_ms)))
 
     def ask_candles():
         if seen["candle_busy"] or not seen["coin"]:
@@ -1461,8 +1479,8 @@ def open_window(args) -> int:
             cycle_age = (bridge.number(view.get("now")) - bridge.number(view.get("at"))) / 1000
         else:
             cycle_age = None
-        made = agents.desk(view, report, seen["readings"].get(coin) or {}, study_summary(report), state, now_ms, traded, cycle_age, failed_cycles(seen["lines"]), coin, candles.get("4H"))
-        seen["team"], seen["plan"] = made["team"], made["plan"]
+        made = agents.desk(view, report, seen["readings"].get(coin) or {}, study_summary(report), state, now_ms, traded, cycle_age, failed_cycles(seen["lines"]), coin, candles.get("4H"), seen["mood"])
+        seen["team"], seen["plan"], seen["debate"] = made["team"], made["plan"], made["debate"]
         seen["trade_marks"] = agents.markers(report, coin, real)
         if seen["round"] is None:
             if agents.feed_events(seen["shown"], made["team"], now_ms):
@@ -1827,6 +1845,11 @@ def open_window(args) -> int:
                     seen["chart_drawn"] = None
                     paint()
                     start_round()
+                elif event[0] == "mood":
+                    if event[1]:
+                        seen["mood"], seen["mood_at"] = event[1], time.time()
+                    else:  # a miss keeps the last one and asks again sooner
+                        seen["mood_at"] = time.time() - MOOD_SECONDS + MOOD_RETRY_SECONDS
                 else:
                     seen["view"], seen["error"], seen["outside"] = event[1], event[2], event[3]
                     seen["busy"], seen["asked"] = False, time.time()
