@@ -669,6 +669,7 @@ export function help(settings) {
       "/report the account and the Indodax copies in one message (the daily summary at 07:00 WIB carries both too). With real money at Indodax it is the full Indodax report, and my practice messages stay off",
       "/holding what you hold at Indodax · /analysis the market and what I need before I buy or sell · /trades the Indodax history",
       "/plan the plan for the real money: stage, money put in, worth now, and what a test on past prices gave",
+      "/learn what my own study of the rules found: the replay on past prices, the proof on unseen prices, the real cost, the verdict",
       "/phone a private link to the live page for your phone",
       "You can also just ask, in everyday words: what do I hold, why no buy yet, how much profit.",
       "/signals the 3 checks for each coin, right now",

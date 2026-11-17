@@ -105,6 +105,42 @@ export function cleanReport(raw) {
     result: pair(raw.result),
     today: { ...today, buys: number(raw.today && typeof raw.today === "object" ? raw.today.buys : 0) },
     notes: notes.slice(0, MAX_NOTES).map((note) => clip(note.trim(), NOTE_LENGTH)),
+    learn: cleanLearn(raw.learn),
+  };
+}
+
+const VERDICTS = new Set(["keep", "watch", "review"]);
+
+// The short result of the sender's own study of the rules (indodax/learn.py on the PC), or null.
+// Numbers, and one short line that names the version it watches. The study only reads prices: it
+// cannot order and it never changes the rules.
+export function cleanLearn(raw) {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw) || !(number(raw.at) > 0) || !VERDICTS.has(raw.verdict)) return null;
+  const part = (value) => (value && typeof value === "object" && !Array.isArray(value) ? value : null);
+  const share = (value) => (typeof value === "number" && Number.isFinite(value) ? Math.min(100, Math.max(0, Math.round(value))) : null);
+  const unseen = part(raw.unseen) || {};
+  const cost = part(raw.cost) || {};
+  const other = raw.verdict === "keep" ? null : part(raw.challenger);
+  return {
+    at: number(raw.at),
+    candles: number(raw.candles),
+    versions: number(raw.versions),
+    order: number(raw.order),
+    trades: number(raw.trades),
+    wins: share(raw.wins) || 0,
+    perYear: number(raw.perYear),
+    dip: number(raw.dip),
+    yearUp: share(raw.yearUp),
+    monthUp: share(raw.monthUp),
+    unseen: { windows: number(unseen.windows), up: number(unseen.up), live: number(unseen.live), picked: number(unseen.picked) },
+    cost: {
+      assumed: number(cost.assumed),
+      measured: typeof cost.measured === "number" && Number.isFinite(cost.measured) ? cost.measured : null,
+      trades: number(cost.trades),
+      used: cost.used === "measured" ? "measured" : "assumed",
+    },
+    challenger: other ? { rules: clip(typeof other.rules === "string" ? other.rules.trim() : "", 80), days: number(other.days), trades: number(other.trades), lead: number(other.lead) } : null,
+    verdict: other ? raw.verdict : "keep",
   };
 }
 
@@ -529,8 +565,64 @@ function planLines(report) {
   return lines;
 }
 
+// ---------------------------------------------------------------- the study
+
+export const LEARN_OLD_MS = 12 * 60 * 60 * 1000; // the study runs every four hours; older than this, the PC was away
+const LEARN_REVIEW = { days: 90, trades: 8 }; // what a watched version needs before a review (learn.py)
+
+const share = (value) => idNumber(value, 1);
+
+function learnVerdict(learn) {
+  const other = learn.challenger;
+  if (!other) return "✅ Verdict: <b>keep the rules</b>. They are also the best version of the last three years.";
+  const record = `${other.days} ${other.days === 1 ? "day" : "days"}, ${other.trades} ${other.trades === 1 ? "trade" : "trades"}, ${signedRp(other.lead)} against the rules that trade`;
+  if (learn.verdict === "review") {
+    return `🔔 Verdict: <b>another version has earned a review</b> (${escapeHtml(other.rules)}). On paper: ${record}. Nothing changes by itself: the rules are changed by hand, after a look.`;
+  }
+  return `👀 Verdict: <b>keep the rules</b>, and watch another version on paper (${escapeHtml(other.rules)}): ${record}. It needs ${LEARN_REVIEW.days} days and ${LEARN_REVIEW.trades} trades ahead before a review.`;
+}
+
+// What the study found. short = the three lines in the full report; /learn shows all of it.
+function learnLines(report, now, short = false) {
+  const learn = report.learn;
+  if (!learn) return [];
+  const old = now - learn.at > LEARN_OLD_MS;
+  const title = `<b>Self-study</b> (${ago(now - learn.at)}${old ? ": ⚠️ old, the PC was off or could not read the prices" : ""})`;
+  const year = learn.yearUp === null ? "" : ` A year ended with a gain in ${learn.yearUp} of 100 starts.`;
+  if (short) {
+    return [
+      title,
+      `The rules replayed on past prices: ${learn.trades} trades, ${learn.wins} of 100 won, about ${signedRp(roundRp(learn.perYear))} a year at ${rp(learn.order)} per buy.${year}`,
+      `${learnVerdict(learn).split("</b>")[0]}</b> · <code>/learn</code> tells all of it.`,
+    ];
+  }
+  const { unseen, cost } = learn;
+  const lines = [
+    title,
+    `1. Replay: the rules that trade your money, on ${idNumber(learn.candles)} four-hour candles since March 2020. ${learn.trades} trades, ${learn.wins} of 100 won. About ${signedRp(roundRp(learn.perYear))} a year at ${rp(learn.order)} per buy, deepest dip ${signedRp(roundRp(learn.dip))}.`,
+  ];
+  if (learn.yearUp !== null && learn.monthUp !== null) lines.push(`   A year ended with a gain in ${learn.yearUp} of 100 starts, a single month in ${learn.monthUp} of 100.`);
+  if (unseen.windows > 0) {
+    lines.push(
+      `2. Unseen prices: ${learn.versions || "many"} nearby versions of the rules are replayed too. For each half year the best one of the three years before is picked and judged on that half year only. ${unseen.windows} half years: the rules that trade gained in ${unseen.up} (${signedRp(roundRp(unseen.live))} in all); picking by the past gave ${signedRp(roundRp(unseen.picked))}.`,
+    );
+  }
+  if (cost.measured === null) lines.push(`3. Real cost of a buy and a sale: ${share(cost.assumed)}% is assumed. No real trade is finished yet, so there is nothing to measure it on.`);
+  else if (cost.used === "measured") lines.push(`3. Real cost of a buy and a sale: ${share(cost.measured)}%, measured on ${cost.trades} real trades. The replay uses it (${share(cost.assumed)}% was assumed before).`);
+  else lines.push(`3. Real cost of a buy and a sale: ${share(cost.measured)}% on ${cost.trades} real ${cost.trades === 1 ? "trade" : "trades"} so far. From 5 trades on it replaces the assumed ${share(cost.assumed)}%.`);
+  lines.push(learnVerdict(learn));
+  lines.push("<i>The study runs on your PC every 4 hours and after each buy or sale. It only reads prices: it cannot order, and it never changes the rules or the size of a buy. Winning almost every trade is not the goal: rules that never lose keep losing trades open until one ends the account. The goal is more rupiah after costs on prices the rules have not seen. A past result is not a promise.</i>");
+  return lines;
+}
+
+// The message when the study's verdict turns to review.
+function reviewText(report, now) {
+  return ["🔔 <b>Indodax self-study</b>", learnVerdict(report.learn), `<code>/learn</code> shows the study (${ago(now - report.learn.at)}).`].join("\n");
+}
+
 const TOPICS = {
-  all: ["cash", "holding", "plan", "market", "need", "history", "result", "warnings", "sender"],
+  all: ["cash", "holding", "plan", "learnShort", "market", "need", "history", "result", "warnings", "sender"],
+  learn: ["learn", "warnings", "sender"],
   holding: ["cash", "holding", "result", "warnings", "sender"],
   plan: ["cash", "plan", "result", "warnings", "sender"],
   analysis: ["market", "need", "warnings", "sender"],
@@ -549,6 +641,8 @@ export function fullReport(view, extra = null, topic = "all") {
   const parts = {
     cash: cashLines(report),
     plan: planLines(report),
+    learn: report.learn ? learnLines(report, view.now) : ["<b>Self-study</b>", "No study has arrived yet. The sender on your PC starts one by itself; the first takes a few minutes."],
+    learnShort: learnLines(report, view.now, true),
     holding: ["<b>Holding now</b>", ...(report.positions.length ? report.positions.map((position) => holdingLine(position, report)) : [real ? "No coin. All the money is in rupiah." : "No coin."])],
     market: report.market.length ? ["<b>Market</b>", ...marketLines(report, extra && extra.rows)] : [],
     need: ["<b>What I need before I buy or sell</b>", ...needLines(view, extra)],
@@ -562,7 +656,7 @@ export function fullReport(view, extra = null, topic = "all") {
     ],
     sender: heard(view),
   };
-  const title = { all: "Indodax report", holding: "Indodax: what you hold", analysis: "Indodax: market and signals", trades: "Indodax: history", plan: "Indodax: the plan" }[topic] || "Indodax report";
+  const title = { all: "Indodax report", holding: "Indodax: what you hold", analysis: "Indodax: market and signals", trades: "Indodax: history", plan: "Indodax: the plan", learn: "Indodax: what I learned" }[topic] || "Indodax report";
   const lines = [
     `📋 <b>${title}</b> · ${real ? "⚠️ <b>REAL MONEY</b>" : "practice (pretend money)"} · ${clock(view.now)}`,
     `Each buy: ${rp(report.orderIdr)} · at most ${report.maxOpen} open · stop: ${report.stopPercent}% under the price paid`,
@@ -791,7 +885,7 @@ function closedText(entry) {
 // Messages for copies that opened or closed since the last report, one warning when the safety
 // stop comes on, and one when the sender turns to real money. The first report tells no trades
 // (there is nothing to compare it with), but it does tell both warnings.
-export function changes(previous, next) {
+export function changes(previous, next, now = Date.now()) {
   if (!next) return [];
   const messages = [];
   if (next.mode === "real" && !(previous && previous.mode === "real")) messages.push({ html: realModeText(next) });
@@ -807,5 +901,6 @@ export function changes(previous, next) {
   for (const entry of next.closed) {
     if (entry.at > since) messages.push({ html: closedText(entry) });
   }
+  if (next.learn && next.learn.verdict === "review" && previous.learn && previous.learn.verdict !== "review") messages.push({ html: reviewText(next, now) });
   return messages;
 }

@@ -72,6 +72,7 @@ exchange takes) and are shown as USDT with rupiah beside them; `/live size 200rb
 | `/indodax` | The copies at Indodax in rupiah, made by the sender on your PC: open copies, result, how old the numbers are. See [Indodax](#indodax-rupiah-through-a-sender-on-your-pc-practice-first) |
 | `/holding`, `/analysis`, `/trades` | Indodax: what is held and the free rupiah; the market and what the strategy needs before it buys or sells; each finished buy and sale |
 | `/plan` | Indodax with real money: the plan's stage, the money put in, what it is worth now, and the range a test on past prices gave for 1, 3, 6 and 12 months (not a promise) |
+| `/learn` | Indodax: what the sender's own study of the rules found (replay on past prices, the test on unseen prices, the measured cost of a real trade) and its verdict: keep, watch or review. It never changes the rules by itself |
 | `/phone` | A private link to a live page for your phone (read-only). A new `/phone` switches the old link off |
 | `/indodax pause`, `/indodax resume` | Stop or allow new buys at Indodax (open copies are still sold). The sender reads it within a minute |
 | `/reset` | Start over with fresh practice money (asks first) |
@@ -253,6 +254,19 @@ stop, and posts the copies back (`POST /v1/indodax/report`) for `/indodax` in Te
   with a worst year of -Rp9.100. Over 12 months the middle result was +Rp5.000 and 1 start in 10
   lost Rp4.500 or more. Adding ETH and SOL to the one slot made the test worse, so it trades BTC
   only. A past result is not a promise.
+- **It studies its own rules, and changes nothing by itself.** Every four hours and after each
+  buy or sale the sender runs `indodax/learn.py`: it replays the rules that trade on every
+  4-hour candle since March 2020, replays 81 nearby versions, and for each half year picks the
+  best version of the three years before and judges it on that half year only (prices it has
+  not seen). It also measures what a real buy and sale cost against Indodax's price in that
+  minute; from five real trades on the replay uses the measured cost instead of the assumed
+  0.9%. The verdict is keep, watch (another version did better lately and is followed on
+  paper) or review (that version stayed ahead for 90 days and 8 trades, and picking by the past
+  also won on the unseen half years). `/learn` shows it, the full report carries three lines of
+  it, and a review is told once. The study only reads prices: it cannot order, and the rules
+  and the size of a buy are changed by hand only (`skills/tradebot-learn/SKILL.md` says how).
+  Winning almost every trade is not the goal and is not promised: rules that almost never lose
+  do it by keeping losing trades open until one ends the account.
 - **One window on the PC.** `indodax/desk.py` runs the sender hidden and shows the same report
   (`indodax/test_desk.py` tests the parts without a window).
 

@@ -1183,6 +1183,44 @@ test("indodax in real money: practice messages stop, the report is complete, and
   assert.equal(/Money put in|Free rupiah/.test(await say("/plan")), false);
   assert.equal((await post(real)).status, 200);
 
+  // The sender's own study: nothing yet, then by command, in everyday words and in the full report.
+  assert.match(await say("/learn"), /Indodax: what I learned[\s\S]*No study has arrived yet/);
+  const study = {
+    at: now() - 60000,
+    candles: 14700,
+    versions: 81,
+    order: 20000,
+    trades: 213,
+    wins: 30,
+    perYear: 4600,
+    dip: -12000,
+    yearUp: 63,
+    monthUp: 39,
+    unseen: { windows: 8, up: 2, live: 9487, picked: 12899 },
+    cost: { assumed: 0.9, measured: null, trades: 0, used: "assumed" },
+    challenger: { rules: "averages 30/80/300, RSI 50 to 70, stop 4 ATR", days: 0, trades: 0, lead: 0 },
+    verdict: "watch",
+  };
+  const studied = await post({ ...real, learn: study });
+  assert.equal(studied.body.told, 0, "a study that only watches is not a message");
+  const learned = await say("/learn");
+  assert.match(learned, /Indodax: what I learned/);
+  assert.match(learned, /213 trades, 30 of 100 won/);
+  assert.match(learned, /keep the rules/);
+  assert.match(learned, /never changes the rules or the size of a buy/);
+  assert.equal(/History|Money put in/.test(learned), false, "the study alone");
+  assert.match(await say("what is your win rate"), /Indodax: what I learned/);
+  assert.match(await say("sudah belajar apa"), /Indodax: what I learned/);
+  assert.match(await say("how confident are you"), /Indodax: what I learned/);
+  assert.match(await say("/report"), /Self-study[\s\S]*\/learn(<\/code>)? tells all of it/);
+  assert.match(await say("what is the target"), /Indodax: the plan/, "the plan keeps its own words");
+  assert.match(await say("/help"), /\/learn what my own study of the rules found/);
+  // A version that earns a review is told once; the rules themselves are never changed from here.
+  const earned = { ...real, learn: { ...study, verdict: "review", challenger: { ...study.challenger, days: 95, trades: 9, lead: 3100 } } };
+  assert.equal((await post(earned)).body.told, 1);
+  assert.equal((await post(earned)).body.told, 0);
+  assert.equal((await post(real)).status, 200);
+
   // The desktop app's routes take the sender's key and nothing else.
   assert.equal((await call("GET", "/v1/indodax/view")).status, 403);
   assert.equal((await call("GET", "/v1/indodax/view", { headers: { "X-Indodax-Key": "wrong" } })).status, 403);

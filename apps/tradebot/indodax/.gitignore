@@ -7,3 +7,7 @@ bridge_report.json
 bridge_report.json.tmp
 desk_sender.log
 desk_sender.old.log
+learn.json
+learn.json.tmp
+learn_candles.json
+learn_candles.json.tmp

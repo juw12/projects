@@ -34,6 +34,10 @@ What keeps it safe:
     python bridge.py            keep going, one cycle a minute
     python bridge.py --clear    clear the safety stop after you have looked
 
+While it runs it also starts learn.py (in this folder) every four hours and after each buy or
+sale: a study of the rules on the newest prices. The study never orders and changes nothing
+here; its short result goes into the report (/learn in Telegram).
+
 It speaks Indodax's Trade API 2.0, which the API keys made today need. A key made for the older
 Trade API needs INDODAX_API_VERSION=1 in the .env.
 
@@ -51,6 +55,7 @@ import json
 import math
 import os
 import re
+import subprocess
 import sys
 import time
 import urllib.error
@@ -81,6 +86,8 @@ RECV_WINDOW_MS = 5000
 CLOCK_SYNC_SECONDS = 600
 PAIRS_CACHE_SECONDS = 3600
 CLOSED_KEPT = 20
+LEARN_EVERY_SECONDS = 4 * 3600  # the study (learn.py) runs again when its last result is this old
+LEARN_RETRY_SECONDS = 30 * 60  # and is not started more often than this
 SMALLEST_STEP = "0.00000001"
 ORDER_STATES = ("open", "filled", "cancelled")  # what Indodax can say became of an order
 ORDER_STATES_V2 = {  # Trade API 2.0's words for the same three
@@ -819,7 +826,7 @@ def save_state(path, state: dict) -> None:
 
 
 class Bridge:
-    def __init__(self, exchange, settings: Settings, api, state_path, log=print, clock=time.time):
+    def __init__(self, exchange, settings: Settings, api, state_path, log=print, clock=time.time, study=None):
         self.exchange = exchange
         self.settings = settings
         self.api = api
@@ -830,6 +837,9 @@ class Bridge:
         self.prices = {}  # coin -> this cycle's prices, or None when Indodax gave none
         self.paused = False  # set from Telegram (/indodax pause); read again every cycle
         self.cash = None  # free rupiah at Indodax (real mode only); None when it was not read
+        self.study = study  # starts learn.py and returns its process; None: no study is started
+        self.studying = None
+        self.study_tried = 0.0
 
     # ---- small things
 
@@ -1372,6 +1382,38 @@ class Bridge:
         except OSError:
             pass
 
+    def learned(self):
+        """The short result of the last study (learn.json next to the state), or None."""
+        try:
+            data = json.loads(Path(self.state_path).with_name("learn.json").read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return None
+        summary = data.get("summary") if isinstance(data, dict) else None
+        return summary if isinstance(summary, dict) and number(summary.get("at")) > 0 else None
+
+    def study_if_due(self) -> None:
+        """Start the study when the last one is four hours old, or a buy or a sale came after it.
+        It runs beside the sender as its own process and can never fail a cycle."""
+        if self.study is None:
+            return
+        if self.studying is not None and self.studying.poll() is None:
+            return
+        self.studying = None
+        now = self.clock()
+        if now - self.study_tried < LEARN_RETRY_SECONDS:
+            return
+        studied = number((self.learned() or {}).get("at")) / 1000
+        moves = [number(position.get("at")) for position in self.state["positions"].values()]
+        moves += [number(entry.get("at")) for entry in self.state["closed"]]
+        if studied and now - studied < LEARN_EVERY_SECONDS and max(moves, default=0) / 1000 <= studied:
+            return
+        self.study_tried = now
+        try:
+            self.studying = self.study()
+            self.log("Studying the rules on the newest prices (learn.py). The study never orders.")
+        except (OSError, ValueError) as error:
+            self.log(f"The study could not start ({type(error).__name__}).")
+
     def report_of(self, notes: list) -> dict:
         """What TradeBot is told. Amounts of the copies, and the free rupiah in real mode: no name,
         email, address or any other balance."""
@@ -1393,6 +1435,7 @@ class Bridge:
                 }
             )
         day = self.state["day"]
+        learned = self.learned()
         return {
             "mode": "real" if self.settings.real else "practice",
             "keys": self.settings.has_keys,
@@ -1410,6 +1453,7 @@ class Bridge:
             "result": dict(self.state["result"]),
             "today": {"practice": day["practice"], "real": day["real"], "buys": day["buys"]},
             "notes": [clip(note, 300) for note in notes[:5]],
+            **({"learn": learned} if learned else {}),
         }
 
     # ---- one cycle
@@ -1450,6 +1494,7 @@ class Bridge:
 
         if not show:
             self.watch_market(pairs)
+            self.study_if_due()
         for note in notes:
             self.log(note)
         report = self.report_of(notes)
@@ -1465,6 +1510,19 @@ class Bridge:
 
 
 # ---------------------------------------------------------------- running it
+
+
+def start_study(env_path, state_path):
+    """learn.py as a quiet process of its own: no window, low priority, nothing printed here."""
+    quiet = getattr(subprocess, "CREATE_NO_WINDOW", 0) | getattr(subprocess, "BELOW_NORMAL_PRIORITY_CLASS", 0)
+    return subprocess.Popen(
+        [sys.executable, str(HERE / "learn.py"), "--env", str(env_path), "--state", str(state_path)],
+        cwd=str(HERE),
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        creationflags=quiet,
+    )
 
 
 def stamp(text: str) -> None:
@@ -1549,6 +1607,8 @@ def main(argv=None) -> int:
             bridge.cycle(show=args.show)
             return 0
         stamp(f"Indodax sender running, one cycle every {CYCLE_SECONDS} seconds. {mode} Ctrl+C stops it; open copies stay as they are.")
+        if (HERE / "learn.py").exists():  # only the sender that keeps running studies
+            bridge.study = lambda: start_study(args.env, args.state)
         while True:
             try:
                 bridge.cycle()
