@@ -243,7 +243,7 @@ class Settings:
     stop_percent: float = STOP_PERCENT_DEFAULT
     coins: tuple = ()
     proxy: str = field(default="", repr=False)
-    spare_proxy: str = field(default="", repr=False)  # the .env one, when the PC's own HTTPS_PROXY names another
+    spare_proxy: str = field(default="", repr=False)  # the PC's own HTTPS_PROXY, when the .env names another
     api_version: int = 2  # 2 = Trade API 2.0 (the keys Indodax makes now), 1 = the older Trade API
     report_cash: bool = False  # also tell TradeBot the free rupiah (INDODAX_REPORT_CASH=yes)
 
@@ -351,15 +351,24 @@ def settings_from(values: dict) -> Settings:
 
 
 def load_settings(env_path, environ=None) -> Settings:
-    """The .env next to the script, with the process environment on top."""
+    """The .env next to the script, with the process environment's INDODAX_ values on top.
+
+    The proxy is the other way round: the one the .env names is used first, because it was chosen
+    for this sender, and the PC's own HTTPS_PROXY (set for every program) is kept as the spare.
+    Without one in the .env, the PC's own is used."""
     values = read_env_file(env_path)
     file_proxy = (values.get("HTTPS_PROXY") or values.get("https_proxy") or "").strip()
+    pc_proxy = ""
     for name, value in (os.environ if environ is None else environ).items():
-        if name.startswith("INDODAX_") or name.upper() == "HTTPS_PROXY":
+        if name.startswith("INDODAX_"):
             values[name] = value
+        elif name.upper() == "HTTPS_PROXY":
+            pc_proxy = (value or "").strip() or pc_proxy
+    if not file_proxy:
+        values["HTTPS_PROXY"] = pc_proxy
     settings = settings_from(values)
-    if file_proxy and file_proxy != settings.proxy:
-        settings.spare_proxy = file_proxy
+    if file_proxy and pc_proxy and pc_proxy != file_proxy:
+        settings.spare_proxy = pc_proxy
     return settings
 
 
@@ -382,8 +391,8 @@ def proxy_answers(proxy: str, connect=socket.create_connection) -> bool:
 def reachable(settings: Settings, connect=socket.create_connection) -> Settings:
     """The same settings with the proxy that answers in front.
 
-    A PC can name one proxy in its own HTTPS_PROXY and the .env another. The PC's one wins, but
-    when it is down and the .env one answers, the two change places. With one proxy, or when
+    A PC can name one proxy in its own HTTPS_PROXY and the .env another. The .env one goes first,
+    but when it is down and the PC's one answers, the two change places. With one proxy, or when
     neither answers, nothing changes and nothing is tested."""
     if not settings.spare_proxy or not settings.proxy:
         return settings
