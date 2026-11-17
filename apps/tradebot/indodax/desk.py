@@ -9,7 +9,10 @@ the sender's own log. Two buttons pause and resume buying, the same switch as /i
 The Agents tab shows the same bot as six roles at work (agents.py): research analyst, market
 analyst, strategist, risk manager, execution trader and desk lead, with a chart of Indodax's
 price (candles, EMA 20/50/200, SMA 200, RSI, the plan's entry, stop and 1:3 mark), a live feed,
-the trades and the technical reading of four timeframes. Rules, not AI: every line is measured.
+the trades and the technical reading of four timeframes. Every call the desk lead makes is written
+down (decisions.py) with the price at the moment of the call, and marked later against the price
+one hour, four hours and a day after: right or wrong, under the desk lead's own lines. Rules, not
+AI: every line is measured.
 
     pythonw desk.py            open the window and start the sender
     pythonw desk.py --no-start open the window only
@@ -36,8 +39,9 @@ from pathlib import Path
 
 import agents
 import bridge
+import decisions
 
-VERSION = "0.16.1"  # the same number as apps/tradebot/package.json
+VERSION = "0.17.0"  # the same number as apps/tradebot/package.json
 FROZEN = bridge.FROZEN  # True inside TradeBot.exe
 HERE = bridge.HERE
 APP_NAME = "tradebot.exe"
@@ -748,6 +752,7 @@ def open_window(args) -> int:
     seen.update({
         "team": [], "shown": {}, "round": None, "round_news": 0, "agent": "lead", "agent_drawn": None, "feed": [], "plan": None,
         "coin": "", "coin_pick": "", "candles": {}, "readings": {}, "marks": {}, "candle_busy": False, "agents_broken": False, "candle_note": "", "trade_marks": [],
+        "log": None,
         "tf": "4H", "visible": agents.START_VISIBLE, "offset": 0, "toggles": {name: True for name, _title, _colour in CHART_TOGGLES},
         "geometry": None, "hover": None, "drag": None, "chart_job": None, "chart_drawn": None, "trades_drawn": None, "reading_drawn": None,
         "summary": None, "summary_at": None, "mood": None, "mood_at": 0.0, "debate": None, "soon": None,
@@ -1065,7 +1070,8 @@ def open_window(args) -> int:
 
     def draw_agent():
         member = seen["shown"].get(seen["agent"])
-        signature = json.dumps(member, default=str)
+        logged = decisions.rows(seen["log"], 6) if seen["agent"] == "lead" and seen["log"] else []
+        signature = json.dumps([member, logged], default=str)
         if signature == seen["agent_drawn"]:
             return
         seen["agent_drawn"] = signature
@@ -1076,6 +1082,17 @@ def open_window(args) -> int:
         for mark, text in member["lines"]:
             pieces.append(({"ok": "✓ ", "no": "✗ "}.get(mark, "·  "), ("ok" if mark == "ok" else "bad" if mark == "no" else "muted", "indent")))
             pieces.append((text + "\n", ("indent",)))
+        if seen["agent"] == "lead":
+            # The call log, under the desk lead: what it said, and what the price did after. Display only.
+            pieces.append(("\nThe desk lead's calls, marked later\n", ("name",)))
+            pieces.append((decisions.tally(seen["log"])[1] + "\n\n", ("muted",)))
+            for row in logged:
+                pieces.append((decisions.MARK_GLYPHS.get(row["mark"], "·") + " ", ({"right": "ok", "wrong": "bad"}.get(row["mark"], "muted"),)))
+                pieces.append((f"{agents.clock(row['at'])} WIB\n", ("small",)))
+                pieces.append((f"{row['kind']} {row['coin']} at {agents.price_text(row['price'])}\n", ("indent", "name")))
+                pieces.append((f"{row['did']}\n", ("indent", "small")))
+                pieces.append((row["words"] + "\n\n", ("indent", "muted")))
+            pieces.append((decisions.GUIDE + "\n\n", ("small",)))
         pieces.append(("\n" + member["hands"] + "\n", ("small",)))
         write_box(agent_box, pieces)
 
@@ -1497,6 +1514,14 @@ def open_window(args) -> int:
         seen["soon"] = agents.soon_key(coin, made["soon"])
         if news:
             add_feed("strategy", news[1], news[0])
+        # The desk lead's call is written down and the older ones are marked against later prices. Shown only.
+        if demo:
+            seen["log"] = decisions.demo(now_ms)
+        else:
+            try:
+                seen["log"] = decisions.update(seen["log"], report, made["team"], coin, now_ms, folder / decisions.JSON_NAME)
+            except Exception:  # noqa: BLE001 (the log is shown, never used: a fault in it must not stop the window)
+                seen["log"] = seen["log"] if isinstance(seen["log"], dict) else decisions.empty()
         seen["trade_marks"] = agents.markers(report, coin, real)
         if seen["round"] is None:
             if agents.feed_events(seen["shown"], made["team"], now_ms):

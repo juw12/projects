@@ -335,6 +335,19 @@ What is where:
   as a filter on the same replay (213 trades, +Rp4.602 a year): buys only at mood 50 or more
   gave +Rp3.850 a year, only under 25 gave +Rp431, only at 25 or more +Rp4.291 with a deeper
   dip. None beat the plain rules, so it stayed a number to read.
+- **The desk lead's calls, marked later (0.17.0).** Under the desk lead's own lines is the log
+  of the calls it made: the call, the price at Indodax at that moment, what that price did 1, 4
+  and 24 hours after, and whether the call was right or wrong by then. A call is written down
+  when it is new: a buy, holding on, a sell, or standing aside. A stopped sender, a paused buy
+  or a safety stop is about this PC and not about the price, so it is not written down. A call
+  is marked at the 4-hour mark (the candle the rules work on): a buy or a hold is right when the
+  price rose by more than the 0,6% a round trip costs, a sell when it fell that far, a wait when
+  it did not rise that far; a move smaller than that is "flat", which is neither a win nor a
+  loss. A mark the window was closed for is written as "not seen" rather than made up. The log
+  lives in `decisions.json` next to the app (ignored by git) and keeps the newest 200 calls.
+  Shown only: it places no order and no rule reads it, so the bot buys and sells exactly as
+  before. `--demo` fills the log with made-up calls so it can be read at once. The same thing in
+  more words: [GUIDE.md](GUIDE.md).
 - **Study tab:** the score from 0 to 10 for how far the rules are proven, its four parts, the
   curve of the score day by day, what is still being collected (real trades, the measured cost,
   the trial setting) and when the next study comes.

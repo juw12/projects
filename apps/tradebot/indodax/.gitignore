@@ -9,6 +9,8 @@ desk_sender.log
 desk_sender.old.log
 learn.json
 learn.json.tmp
+decisions.json
+decisions.json.tmp
 learn_candles.json
 learn_candles.json.tmp
 TradeBot.exe
