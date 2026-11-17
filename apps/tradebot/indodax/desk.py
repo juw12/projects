@@ -30,6 +30,7 @@ import bridge
 
 HERE = Path(__file__).resolve().parent
 REFRESH_SECONDS = 30
+EMPTY_NOTE_Y = 27  # just under a table's heading row
 FRESH_SECONDS = 150  # the sender writes its report file once a minute; older means it is not running
 RESTART_SECONDS = 60
 LOG_LINES = 800
@@ -72,6 +73,18 @@ def local_is_fresh(local, now_ms) -> bool:
         return False
     at = bridge.number(local.get("at"))
     return 0 <= now_ms - at < FRESH_SECONDS * 1000
+
+
+def start_choice(outside_pids, report_is_fresh) -> str:
+    """What to do when this window wants a sender: 'start', 'wait' or 'blocked'.
+
+    A sender process outside this window blocks: two must never run together. A fresh report file with
+    no process behind it is only the trace of a sender closed a moment ago (the window was reopened
+    quickly): wait until that file is old, then start, so the PC is never left without a sender.
+    """
+    if outside_pids:
+        return "blocked"
+    return "wait" if report_is_fresh else "start"
 
 
 def sender_candidates(rows, own_pid=None) -> list:
@@ -301,7 +314,8 @@ def report_of(view, local) -> dict:
 def alerts(view, local, sender_state, error, now_ms) -> list:
     """The warnings above the numbers, worst first: [(level, text)], level 'bad' or 'warn'.
 
-    sender_state = 'here' (running in this window), 'outside' (running elsewhere) or 'stopped'.
+    sender_state = 'here' (running in this window), 'outside' (running elsewhere), 'waiting' (starts by itself
+    in a moment) or 'stopped'.
     Nothing is returned when all is fine, so a warning always means something.
     """
     report = report_of(view, local)
@@ -309,12 +323,14 @@ def alerts(view, local, sender_state, error, now_ms) -> list:
     found = []
     if sender_state == "stopped":
         found.append(("bad", "The sender is stopped. Nothing is bought or sold, and a falling price is not acted on. Press Start the sender."))
+    if sender_state == "waiting":
+        found.append(("warn", "The sender starts by itself within three minutes: the last one was closed a moment ago, and two must never run together."))
     if report.get("tripped"):
         why = str(report.get("trippedWhy") or "").strip()
         found.append(("bad", f"Safety stop: real buying is blocked until you have looked at Indodax.{' ' + why if why else ''}"))
     if real and report and not report.get("checked"):
         found.append(("bad", "Real mode is on, but the API key has not passed its check on this PC, so nothing is bought."))
-    if sender_state != "stopped" and local and not local_is_fresh(local, now_ms):
+    if sender_state not in ("stopped", "waiting") and local and not local_is_fresh(local, now_ms):
         age = age_text((now_ms - bridge.number(local.get("at"))) / 1000)
         found.append(("warn", f"The sender's last finished cycle was {age}. It may be waiting for the network; the Sender log tab shows why."))
     if (view or {}).get("stale") and sender_state != "stopped":
@@ -518,7 +534,7 @@ def open_window(args) -> int:
     events = queue.Queue()
     server = Server(env_path)
     sender = Sender(folder, lambda line: events.put(("log", line)))
-    seen = {"view": None, "error": "", "outside": [], "restart_at": 0.0, "busy": False, "asked": 0.0, "drawn": None, "lines": [], "banner_height": 0, "resize": None}
+    seen = {"view": None, "error": "", "outside": [], "restart_at": 0.0, "busy": False, "asked": 0.0, "drawn": None, "lines": [], "banner_height": 0, "resize": None, "start_later": False}
     try:
         traded = set(DEMO_TRADED) if demo else {coin_name(coin) for coin in bridge.load_settings(env_path).coins}
     except bridge.SettingsError:
@@ -696,14 +712,26 @@ def open_window(args) -> int:
             return "stopped"
         if demo or sender.running():
             return "here"
+        if seen["start_later"]:
+            return "waiting"
         return "outside" if outside_running() else "stopped"
+
+    empty_notes = {}
 
     def fill(tree, rows, empty, tags=None, most=3):
         # As tall as its rows (up to a few), so an almost empty table does not push the rest away.
         tree.configure(height=max(1, min(len(rows), most)))
         tree.delete(*tree.get_children())
-        if not rows:
-            tree.insert("", "end", values=(empty,) + ("",) * (len(tree["columns"]) - 1))
+        # An empty table says so in one line across its width; inside the narrow first column it was cut off.
+        note = empty_notes.get(tree)
+        if note is None:
+            note = empty_notes[tree] = tk.Label(tree, font=(FONT, 9), fg=MUTED, bg="white", anchor="w")
+        if rows:
+            note.place_forget()
+        else:
+            tree.insert("", "end", values=("",) * len(tree["columns"]))
+            note.configure(text=empty)
+            note.place(x=5, y=EMPTY_NOTE_Y)
         for index, row in enumerate(rows):
             tree.insert("", "end", values=row, tags=(tags[index],) if tags else ())
 
@@ -774,9 +802,9 @@ def open_window(args) -> int:
         real = shown["real"]
 
         mode_label.configure(text=shown["mode"], bg=BAD if real else MUTED)
-        words = {"here": ("● Sender is running", GOOD), "outside": ("● A sender runs in another window", WARN), "stopped": ("○ Sender is stopped", BAD)}[state]
+        words = {"here": ("● Sender is running", GOOD), "outside": ("● A sender runs in another window", WARN), "waiting": ("◌ Sender starts in a moment", WARN), "stopped": ("○ Sender is stopped", BAD)}[state]
         status_label.configure(text=words[0], fg=words[1])
-        sender_button.configure(text={"here": "Stop the sender", "outside": "Take it over here", "stopped": "Start the sender"}[state])
+        sender_button.configure(text={"here": "Stop the sender", "outside": "Take it over here", "waiting": "Start the sender", "stopped": "Start the sender"}[state])
         pause_button.configure(text="Allow buying again" if shown["paused"] else "Pause buying")
 
         order = bridge.number(report.get("orderIdr"))
@@ -829,9 +857,17 @@ def open_window(args) -> int:
         footer.configure(text=(rules + " · " if rules else "") + "This window only shows and switches: orders are made by the sender. Not financial advice; a strategy can lose money.")
 
     def start_sender():
-        if outside_running():
+        choice = start_choice(seen["outside"], local_is_fresh(read_local(report_path), time.time() * 1000))
+        if choice == "blocked":
+            seen["start_later"] = False
             desk_line("not started: another sender is already running. Two senders must never run together.")
             return False
+        if choice == "wait":
+            if not seen["start_later"]:
+                seen["start_later"] = True
+                desk_line("a sender wrote its report a moment ago but none is running now. Starting one here by itself once that report is three minutes old.")
+            return False
+        seen["start_later"] = False
         sender.start()
         desk_line("sender started (hidden, inside this window). Its first line can take a minute or two on a slow network.")
         return True
@@ -847,7 +883,9 @@ def open_window(args) -> int:
         elif outside_running():
             pids = seen["outside"]
             if not pids:
-                messagebox.showinfo("Sender", "A sender wrote its report less than three minutes ago, but I cannot find its process. Close its window, wait three minutes, then press Start.")
+                start_sender()
+                paint()
+                messagebox.showinfo("Sender", "The last sender was closed a moment ago. A new one starts here by itself within three minutes; you do not need to press anything.")
                 return
             if messagebox.askyesno("Take it over", "A sender is running in another window. Stop that one and run it here instead?"):
                 for pid in pids:
@@ -890,6 +928,9 @@ def open_window(args) -> int:
                     paint()
         except queue.Empty:
             pass
+        # A window reopened right after its sender was closed starts one as soon as the old report has aged.
+        if seen["start_later"] and not sender.running() and start_sender():
+            paint()
         # A sender that ended by itself is started again a minute later, unless its settings are wrong.
         if sender.wanted and not sender.running():
             if sender.exit_code() == 2:

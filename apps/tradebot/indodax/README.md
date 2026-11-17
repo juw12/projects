@@ -233,6 +233,8 @@ private. Good for a look around or a screenshot.
   stops it (it asks first). A sender that ends by itself is started again a minute later.
 - **Never two senders.** If a sender is already running in a console window, the desk does not
   start a second one; "Take it over here" stops that one and runs it in the desk.
+- **Closed and opened again quickly.** The window sees the last sender's fresh report and waits
+  until it is three minutes old, then starts a sender by itself. You do not need to press anything.
 - **Pause buying / Allow buying again.** The same switch as `/indodax pause` in Telegram.
 - It never places an order and never reads the Indodax API key. It asks TradeBot with the
   sender's key from `.env` (`GET /v1/indodax/view`, `POST /v1/indodax/pause`), and when TradeBot
