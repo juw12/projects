@@ -28,6 +28,12 @@
 //   POST /v1/indodax/setup    owner only (setup code): make the sender's key, shown once
 //   GET  /v1/indodax/signals  the sender (its key): the coins the practice account holds right now
 //   POST /v1/indodax/report   the sender (its key): what its copies at Indodax look like
+//   GET  /v1/indodax/view     the desktop app (the sender's key): the full report as data
+//   POST /v1/indodax/pause    the desktop app (the sender's key): stop new buys, or allow them again
+//   GET  /v1/indodax/phone    the phone page (?k= the private link from /phone in Telegram): read-only
+//
+// While the sender is in real mode the owner hears about the real account only: the practice
+// account still runs (its signals are what the sender copies), but its messages stay off.
 //
 // One Durable Object, the Trader, holds the bot's settings and the practice account. Its alarm
 // rings every 5 minutes: that is the agent's round. Everything it does happens one thing at a
@@ -38,14 +44,25 @@
 // "enabled", the API secrets are set AND the owner sends /live on confirm. With any of the three
 // missing, no real order can be sent.
 
-import { TICK_MS, newState, tick } from "./agent.js";
+import { TICK_MS, newState, readSignals, tick } from "./agent.js";
 import { DESK_MODEL, SAMPLE_BRIEF, convene } from "./desk.js";
 import { createTokocrypto } from "./exchange.js";
 import { MAX_SPREAD_PERCENT, armedBy, drain, limitsOf, liveOf, marketBlock, missingFor, venueOf } from "./live.js";
 import { createLuno } from "./luno.js";
-import { COMMANDS, handleUpdate } from "./bot.js";
+import { COMMANDS, handleUpdate, indodaxSymbols } from "./bot.js";
 import { refreshRate, rateOfState } from "./fx.js";
-import { backText as indodaxBack, changes as indodaxChanges, cleanReport as cleanIndodaxReport, silentAlert as indodaxSilent, withDaily as withIndodaxDaily } from "./indodax.js";
+import {
+  backText as indodaxBack,
+  changes as indodaxChanges,
+  cleanReport as cleanIndodaxReport,
+  fullReport as indodaxFull,
+  onlyReal as indodaxOnlyReal,
+  phonePage as indodaxPhonePage,
+  realOnly as indodaxRealOnly,
+  silentAlert as indodaxSilent,
+  viewData as indodaxViewData,
+  withDaily as withIndodaxDaily,
+} from "./indodax.js";
 import { SOURCE_NAMES, createMarket } from "./market.js";
 import { changes as mt5Changes, cleanReport, wantedOf } from "./mt5.js";
 import * as render from "./render.js";
@@ -117,6 +134,7 @@ export function createWorker(overrides) {
       this.queue = Promise.resolve();
       this.probing = null;
       this.probed = null;
+      this.reportSeen = null;
     }
 
     // One thing at a time: a command never runs in the middle of the agent's round.
@@ -145,6 +163,9 @@ export function createWorker(overrides) {
       if (url.pathname === "/indodax/setup" && request.method === "POST") return this.run(() => this.indodaxSetup(body));
       if (url.pathname === "/indodax/signals" && request.method === "POST") return this.run(() => this.indodaxSignals(body));
       if (url.pathname === "/indodax/report" && request.method === "POST") return this.run(() => this.indodaxReport(body));
+      if (url.pathname === "/indodax/view" && request.method === "POST") return this.run(() => this.indodaxViewFor(body));
+      if (url.pathname === "/indodax/pause" && request.method === "POST") return this.run(() => this.indodaxPause(body));
+      if (url.pathname === "/indodax/page" && request.method === "POST") return this.run(() => this.indodaxPage(body));
       return json({ ok: false, error: "not found" }, 404);
     }
 
@@ -273,19 +294,42 @@ export function createWorker(overrides) {
       });
     }
 
-    // The daily summary also says where the Indodax copies stand. A failure here leaves the
-    // summary as it was: it must never cost the round its messages.
-    async indodaxDaily(state, messages) {
-      if (!messages.some((message) => message.daily)) return messages;
+    // What the Indodax messages are written from: the sender's last report and the pause switch.
+    async indodaxLook(state) {
+      const indodax = (await this.storage.get("indodax")) || {};
+      return {
+        configured: !!indodax.keyHash,
+        report: indodax.report || null,
+        at: indodax.reportAt || 0,
+        now: deps.now(),
+        paused: state.settings.indodaxPaused === true,
+      };
+    }
+
+    // What the strategy sees in the coins the sender may trade. null when it cannot be read: the
+    // report is then written without that part.
+    async indodaxExtra(state, view) {
       try {
-        const indodax = (await this.storage.get("indodax")) || {};
-        return withIndodaxDaily(messages, {
-          configured: !!indodax.keyHash,
-          report: indodax.report || null,
-          at: indodax.reportAt || 0,
-          now: deps.now(),
-          paused: state.settings.indodaxPaused === true,
-        });
+        return { state, rows: await readSignals(state, market, deps.now(), indodaxSymbols(view.report)) };
+      } catch (error) {
+        console.log("indodax signals not read: " + clip(errorText(error), 300));
+        return null;
+      }
+    }
+
+    // While the sender is in real mode, the round's practice messages stay off and the daily
+    // summary is the full Indodax report. Otherwise the daily summary also says where the Indodax
+    // copies stand. A failure here leaves the messages as they were: it must never cost the round.
+    async indodaxDaily(state, messages) {
+      if (!messages.length) return messages;
+      try {
+        const view = await this.indodaxLook(state);
+        if (indodaxRealOnly(view)) {
+          const extra = messages.some((message) => message.daily) ? await this.indodaxExtra(state, view) : null;
+          return indodaxOnlyReal(messages, view, extra);
+        }
+        if (!messages.some((message) => message.daily)) return messages;
+        return withIndodaxDaily(messages, view);
       } catch (error) {
         console.log("indodax daily part failed: " + clip(errorText(error), 300));
         return messages;
@@ -457,6 +501,7 @@ export function createWorker(overrides) {
           drop_pending_updates: true,
         });
         await telegram.call("setMyCommands", { commands: COMMANDS });
+        next.commandsFor = VERSION;
       } catch (error) {
         return json({ ok: false, error: "Telegram refused the webhook: " + clip(errorText(error), 160) }, 502);
       }
@@ -527,7 +572,9 @@ export function createWorker(overrides) {
       const result = await handleUpdate({ state, market, now: deps.now(), env: this.env || {}, mt5: mt5View, indodax: indodaxView }, update);
       const copies = await this.copyLive(state);
       if (copies.length) result.messages = [...(result.messages || []), ...copies];
+      if (result.phone) result.messages = [...(result.messages || []), await this.phoneLink(body.origin)];
       await this.storage.put("state", state); // saved before anything is sent
+      await this.freshCommands(config, telegram);
       await this.keepRunning(config);
       if (callback) {
         await telegram.answerCallback(callback.id, clip(result.toast || "", 190));
@@ -710,6 +757,7 @@ export function createWorker(overrides) {
         report: indodax.report || null,
         reportAt: indodax.reportAt || null,
         silentToldAt: indodax.silentToldAt || null,
+        viewHash: indodax.viewHash || null,
         connectedAt: deps.now(),
       });
       const config = await this.config();
@@ -754,6 +802,86 @@ export function createWorker(overrides) {
       await this.deliver(await this.config(), messages);
       return json({ ok: true, at: now, told: messages.length });
     }
+
+    // The bot's command menu in Telegram is set again once after each new version, so new
+    // commands show up without running the setup again. A failure is tried again next time.
+    async freshCommands(config, telegram) {
+      if (config.commandsFor === VERSION) return;
+      try {
+        await telegram.call("setMyCommands", { commands: COMMANDS });
+        await this.storage.put("config", { ...(await this.config()), commandsFor: VERSION });
+      } catch (error) {
+        console.log("command menu not set: " + clip(errorText(error), 200));
+      }
+    }
+
+    // /phone: make a new private link to the phone page. Only its SHA-256 is kept, and the link
+    // made before stops working. The page only shows; nothing can be changed from it.
+    async phoneLink(origin) {
+      const indodax = (await this.storage.get("indodax")) || {};
+      const key = randomHex(24);
+      await this.storage.put("indodax", { ...indodax, viewHash: await sha256Hex(key) });
+      const base = typeof origin === "string" && origin.startsWith("https://") ? origin : "";
+      if (!base) return { html: "⚠️ I could not work out my own address, so there is no link. Nothing was changed." };
+      return {
+        html: [
+          "📱 <b>Your live page</b>",
+          `${base}/v1/indodax/phone?k=${key}`,
+          "",
+          "Open it on your phone and add it to the home screen. It reloads itself every minute and only shows: nothing can be bought or sold from it.",
+          "Keep the link to yourself: anyone who has it can see the page. <code>/phone</code> makes a new link and switches this one off.",
+        ].join("\n"),
+      };
+    }
+
+    // The full report with what the strategy sees, kept for half a minute so a page that reloads
+    // does not read the price sources every time.
+    async indodaxSeen() {
+      const now = deps.now();
+      if (this.reportSeen && now - this.reportSeen.at < 30000 && now >= this.reportSeen.at) return this.reportSeen;
+      const state = await this.state();
+      const view = await this.indodaxLook(state);
+      const extra = view.report ? await this.indodaxExtra(state, view) : null;
+      this.reportSeen = { at: now, view, extra };
+      return this.reportSeen;
+    }
+
+    // The desktop app, with the sender's key: the full report as data. { key }
+    async indodaxViewFor(body) {
+      if (!(await this.indodaxFor(body.key))) return json({ ok: false, error: "not allowed" }, 403);
+      const { view, extra } = await this.indodaxSeen();
+      return json({ ok: true, ...indodaxViewData(view, extra) });
+    }
+
+    // The desktop app, with the sender's key: stop new buys, or allow them again. The same switch
+    // as /indodax pause and /indodax resume. Selling is never paused. { key, paused }
+    async indodaxPause(body) {
+      if (!(await this.indodaxFor(body.key))) return json({ ok: false, error: "not allowed" }, 403);
+      if (typeof body.paused !== "boolean") return json({ ok: false, error: "Send paused: true or paused: false." }, 400);
+      const state = await this.state();
+      const changed = (state.settings.indodaxPaused === true) !== body.paused;
+      state.settings.indodaxPaused = body.paused;
+      await this.storage.put("state", state);
+      this.reportSeen = null;
+      if (changed) {
+        const text = body.paused
+          ? "⏸ <b>Indodax buying was paused from the desktop app.</b> No new copy is bought; open copies are still watched and sold."
+          : "▶️ <b>Indodax buying was allowed again from the desktop app.</b>";
+        await this.deliver(await this.config(), [{ html: text }]);
+      }
+      return json({ ok: true, paused: body.paused });
+    }
+
+    // The phone page, with the private link's key. { key }
+    async indodaxPage(body) {
+      const indodax = await this.storage.get("indodax");
+      const given = typeof body.key === "string" ? body.key : "";
+      if (!indodax || !indodax.viewHash || !given || !safeEqual(await sha256Hex(given), indodax.viewHash)) {
+        return json({ ok: false, error: "not allowed" }, 403);
+      }
+      const { view, extra } = await this.indodaxSeen();
+      return json({ ok: true, page: indodaxPhonePage(indodaxFull({ ...view, now: deps.now() }, extra).html, deps.now()) });
+    }
   }
 
   async function route(request, env) {
@@ -769,7 +897,9 @@ export function createWorker(overrides) {
 
     if (request.method === "GET" && path === "/v1/status") {
       const inner = await (await trader.fetch(new Request(INSIDE + "/status"))).json();
-      return json({ ok: true, service: "trade-bot", version: VERSION, build: buildOf(env), money: "practice", ...inner });
+      // The Worker itself only ever trades practice money; "real" here means the sender on the owner's PC is in real mode.
+      const money = inner.indodax && inner.indodax.mode === "real" ? "real at Indodax (sent from the owner's PC)" : "practice";
+      return json({ ok: true, service: "trade-bot", version: VERSION, build: buildOf(env), money, ...inner });
     }
 
     if (request.method === "GET" && path === "/v1/probe") {
@@ -800,7 +930,7 @@ export function createWorker(overrides) {
       const secret = request.headers.get("X-Telegram-Bot-Api-Secret-Token") || "";
       const update = await request.json().catch(() => null);
       if (!secret) return json({ ok: false, error: "not allowed" }, 403);
-      const answer = await trader.fetch(post("/update", { secret, update: update || {} }));
+      const answer = await trader.fetch(post("/update", { secret, update: update || {}, origin: url.origin }));
       return json(await answer.json(), answer.status);
     }
 
@@ -897,6 +1027,33 @@ export function createWorker(overrides) {
       }
       const answer = await trader.fetch(post("/indodax/report", { key, report }));
       return json(await answer.json(), answer.status);
+    }
+
+    if (request.method === "GET" && path === "/v1/indodax/view") {
+      const key = request.headers.get("X-Indodax-Key") || "";
+      if (!key) return json({ ok: false, error: "not allowed" }, 403);
+      const answer = await trader.fetch(post("/indodax/view", { key }));
+      return json(await answer.json(), answer.status);
+    }
+
+    if (request.method === "POST" && path === "/v1/indodax/pause") {
+      const key = request.headers.get("X-Indodax-Key") || "";
+      if (!key) return json({ ok: false, error: "not allowed" }, 403);
+      const body = await request.json().catch(() => ({}));
+      const answer = await trader.fetch(post("/indodax/pause", { key, paused: body ? body.paused : undefined }));
+      return json(await answer.json(), answer.status);
+    }
+
+    if (request.method === "GET" && path === "/v1/indodax/phone") {
+      const key = url.searchParams.get("k") || "";
+      const answer = key ? await trader.fetch(post("/indodax/page", { key })) : null;
+      const data = answer && answer.status === 200 ? await answer.json() : null;
+      const headers = { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store", "Referrer-Policy": "no-referrer", "X-Robots-Tag": "noindex, nofollow" };
+      if (!data || !data.page) {
+        const gone = "<!doctype html><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title>TradeBot</title><p style=\"font:16px system-ui;padding:20px\">This link does not work (any more). Send /phone to the bot in Telegram for a new one.</p>";
+        return new Response(gone, { status: 403, headers });
+      }
+      return new Response(data.page, { headers });
     }
 
     return json({ ok: false, error: "not found" }, 404);

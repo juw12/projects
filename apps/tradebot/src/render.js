@@ -417,16 +417,23 @@ export function signals(rows, state, now) {
       lines.push(`<b>${name}</b>: ⚠️ ${trouble}`);
       continue;
     }
-    const action = row.held ? (row.decision.action === "sell" ? "SELL" : "HOLD") : row.decision.action === "buy" ? "BUY" : "WAIT";
-    lines.push(`<b>${name}</b> ${price(row.price)}: <b>${action}</b>`);
-    for (const reason of row.decision.reasons) lines.push(`${reason.ok ? "✅" : "❌"} ${reason.name}: ${escapeHtml(reason.text)}`);
-    lines.push(`→ ${signalNote(row, action, state, now)}`);
+    lines.push(...signalLines(row, state, now));
   }
   lines.push(
     "",
     `<i>A candle is one ${settings.timeframe} slice of the price. Trend: the price is above its ${PARAMS.regime}-candle average. Momentum: the ${PARAMS.fast}-candle average is above the ${PARAMS.slow}-candle one. RSI is a 0 to 100 gauge of how fast the price rose lately; I want ${PARAMS.rsiMin} to ${PARAMS.rsiMax}. I buy only when all 3 are ✅.</i>`,
   );
   return { html: lines.join("\n") };
+}
+
+// One market's reading: the verdict, the three checks, and what happens next. Also used by the
+// Indodax report (indodax.js), so both always say the same thing about a coin.
+export function signalLines(row, state, now) {
+  const action = row.held ? (row.decision.action === "sell" ? "SELL" : "HOLD") : row.decision.action === "buy" ? "BUY" : "WAIT";
+  const lines = [`<b>${coin(row.symbol)}</b> ${price(row.price)}: <b>${action}</b>`];
+  for (const reason of row.decision.reasons) lines.push(`${reason.ok ? "✅" : "❌"} ${reason.name}: ${escapeHtml(reason.text)}`);
+  lines.push(`→ ${signalNote(row, action, state, now)}`);
+  return lines;
 }
 
 function signalNote(row, action, state, now) {
@@ -641,7 +648,7 @@ export function help(settings) {
   const frame = settings.timeframe;
   return {
     html: [
-      "🤖 <b>TradeBot</b>: a trading agent on practice money and real prices. I cannot place real orders, so no real money is ever at risk.",
+      "🤖 <b>TradeBot</b>: a trading agent on practice money and real prices. I cannot place real orders myself. Real money is only in play when you switch the Indodax sender on your PC to real: it then copies my buys and sales with your own rupiah.",
       "",
       "<b>How I trade</b>",
       "• Every 5 minutes I read the price of each coin on the watchlist.",
@@ -659,7 +666,10 @@ export function help(settings) {
       "",
       "<b>Commands</b>",
       "/status the account, what I hold, profit and loss",
-      "/report the account and the Indodax copies in one message (the daily summary at 07:00 WIB carries both too)",
+      "/report the account and the Indodax copies in one message (the daily summary at 07:00 WIB carries both too). With real money at Indodax it is the full Indodax report, and my practice messages stay off",
+      "/holding what you hold at Indodax · /analysis the market and what I need before I buy or sell · /trades the Indodax history",
+      "/phone a private link to the live page for your phone",
+      "You can also just ask, in everyday words: what do I hold, why no buy yet, how much profit.",
       "/signals the 3 checks for each coin, right now",
       `/buy BTC ${exampleAmount()} buy ${money(RATE ? 2000000 / RATE : 100)} of BTC now (/buy BTC: I pick the size; 2jt and 500rb work too)`,
       "/sell BTC sell it now (/sell all: everything)",

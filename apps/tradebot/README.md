@@ -70,6 +70,8 @@ exchange takes) and are shown as USDT with rupiah beside them; `/live size 200rb
 | `/live` | Real money on Luno, in rupiah: off, shadow (rehearsal) or on. See [Real money](#real-money-luno-in-rupiah-off-by-default) |
 | `/mt5` | The MetaTrader 5 demo account the PC bridge copies to: balance, open copies, how old the numbers are. See [MetaTrader 5](#metatrader-5-demo-account-only) |
 | `/indodax` | The copies at Indodax in rupiah, made by the sender on your PC: open copies, result, how old the numbers are. See [Indodax](#indodax-rupiah-through-a-sender-on-your-pc-practice-first) |
+| `/holding`, `/analysis`, `/trades` | Indodax: what is held and the free rupiah; the market and what the strategy needs before it buys or sells; each finished buy and sale |
+| `/phone` | A private link to a live page for your phone (read-only). A new `/phone` switches the old link off |
 | `/indodax pause`, `/indodax resume` | Stop or allow new buys at Indodax (open copies are still sold). The sender reads it within a minute |
 | `/reset` | Start over with fresh practice money (asks first) |
 | `/help` | The short version of this page |
@@ -237,6 +239,13 @@ stop, and posts the copies back (`POST /v1/indodax/report`) for `/indodax` in Te
 - **Not tried on a real Indodax account yet.** Its 100 tests run against a pretend exchange. Only
   the public prices were read from the real Indodax.
 
+- **In real mode Telegram is about Indodax only.** The practice account's own messages are not
+  sent; the 07:00 WIB message is the full Indodax report (free rupiah, holdings, market, what is
+  needed before a buy or a sale, history, result). An offer to buy is still sent, and says that
+  approving it also buys with real money.
+- **One window on the PC.** `indodax/desk.py` runs the sender hidden and shows the same report
+  (`indodax/test_desk.py` tests the parts without a window).
+
 Setup, settings, limits and the real-money section: `indodax/README.md`.
 
 ## Where the prices come from
@@ -278,6 +287,9 @@ appears, every trade message says "practice", and no secret is printed.
 | `POST /v1/indodax/setup` | owner only (setup code): get the Indodax sender's key once (`{"newKey": true}` replaces it) |
 | `GET /v1/indodax/signals` | the PC's sender (its key): which coins the practice account holds |
 | `POST /v1/indodax/report` | the PC's sender (its key): its copies at Indodax, practice or real |
+| `GET /v1/indodax/view` | the desk window on the PC (the sender's key): the full Indodax report as data |
+| `POST /v1/indodax/pause` | the desk window on the PC (the sender's key): `{"paused": true}` stops new buys, `false` allows them |
+| `GET /v1/indodax/phone?k=` | the phone page (the private link from `/phone` in Telegram): the full report, read-only |
 
 One Durable Object holds the settings and the practice account; its alarm is the agent's clock.
 The bot token lives only inside that Durable Object, never in this repository or in logs.

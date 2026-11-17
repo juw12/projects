@@ -654,7 +654,7 @@ class Practice(Case):
         report = self.api.reports[-1]
         self.assertEqual(
             sorted(report),
-            ["checked", "closed", "keys", "maxOpen", "mode", "notes", "orderIdr", "paused", "positions", "result", "stopPercent", "today", "tripped", "trippedWhy"],
+            ["checked", "closed", "keys", "market", "maxOpen", "mode", "notes", "orderIdr", "paused", "positions", "result", "stopPercent", "today", "tripped", "trippedWhy"],
         )
         self.assertEqual((report["mode"], report["keys"], report["tripped"], report["orderIdr"]), ("practice", False, False, 50_000))
         self.assertEqual((report["checked"], report["paused"]), (False, False))
@@ -662,6 +662,37 @@ class Practice(Case):
         self.assertEqual(sorted(position), ["now", "openedAt", "pair", "price", "quantity", "real", "spent", "symbol", "value"])
         self.assertEqual((position["symbol"], position["pair"], position["real"], position["now"]), (BTC, "btc_idr", False, 1e9))
         self.assertAlmostEqual(position["value"], position["quantity"] * 1e9)
+
+    def test_free_rupiah_is_reported_only_when_asked_for_and_only_in_real_mode(self):
+        self.make(real=True).cycle()
+        self.assertNotIn("cash", self.api.reports[-1])
+        self.assertEqual(self.exchange.balance_calls, 0)
+        self.make(real=True, report_cash=True).cycle()
+        self.assertEqual(self.api.reports[-1]["cash"], self.exchange.free["idr"])
+        self.make(report_cash=True).cycle()  # practice never touches the private API
+        self.assertNotIn("cash", self.api.reports[-1])
+        self.assertEqual(self.exchange.balance_calls, 0)
+
+    def test_the_report_names_the_price_of_each_coin_it_may_trade(self):
+        self.make(coins=("btc",)).cycle()
+        self.assertEqual(self.api.reports[-1]["market"], [{"coin": "btc", "bid": 1e9, "ask": 1.001e9}])
+
+    def test_the_last_report_is_kept_in_a_file_for_the_desktop_app(self):
+        self.make(BTC).cycle()
+        kept = json.loads((self.state_path.parent / "bridge_report.json").read_text(encoding="utf-8"))
+        self.assertEqual(kept["report"], self.api.reports[-1])
+        self.assertEqual(kept["at"], self.bridge.now_ms())
+
+    def test_a_closed_copy_remembers_when_it_was_bought(self):
+        self.make(BTC).cycle()
+        bought_at = self.bridge.state["positions"][BTC]["at"]
+        self.clock.now += 3600
+        self.api.hold()
+        self.bridge.cycle()
+        entry = self.bridge.state["closed"][-1]
+        self.assertEqual(entry["boughtAt"], bought_at)
+        self.assertGreater(entry["at"], bought_at)
+        self.assertGreater(entry["quantity"], 0)
 
     def test_daily_numbers_start_again_at_midnight_utc(self):
         self.make()

@@ -306,17 +306,47 @@ export async function tick(state, { market, now, ai = null }) {
     const since = state.lastGood || (state.lastTick && state.lastTick.at) || now;
     if (!state.blindAlerted && now - since >= BLIND_ALERT_MS) {
       state.blindAlerted = true;
-      messages.push(render.blind(state, since, now));
+      messages.push({ ...render.blind(state, since, now), alert: true }); // alert: also told when practice messages are off
     }
   } else {
     if (state.lastGood && now - state.lastGood > 1.5 * TICK_MS) day.gap += now - state.lastGood;
     // "Prices are back" comes before what this round did with them.
-    if (state.blindAlerted) messages.splice(afterSummary, 0, render.back(state, state.lastGood, now));
+    if (state.blindAlerted) messages.splice(afterSummary, 0, { ...render.back(state, state.lastGood, now), alert: true });
     state.blindAlerted = false;
     state.lastGood = now;
   }
   state.lastTick = { at: now, symbols: symbols.length, errors, failed };
   return messages;
+}
+
+// What the rules say about each watched market right now, for /signals and the Indodax report.
+// `only` (a list of symbols) narrows it. Nothing is changed and nothing is bought or sold.
+// Returns [{ symbol, price, decision, held, blocked, pending, passed, judged, change24h } | { symbol, error }].
+export async function readSignals(state, market, now, only = null) {
+  const rows = [];
+  for (const symbol of tracked(state)) {
+    if (only && !only.includes(symbol)) continue;
+    try {
+      const view = await look(market, symbol, state.settings.timeframe, now);
+      const last = view.closed[view.closed.length - 1];
+      const memo = state.marks[symbol] || {};
+      const dayAgo = [...view.closed].reverse().find((candle) => candle.t <= now - 24 * 60 * 60 * 1000);
+      rows.push({
+        symbol,
+        price: view.price,
+        decision: decide(state, view, now),
+        held: state.portfolio.positions[symbol] || null,
+        blocked: blocked(state),
+        pending: state.pending[symbol] || null,
+        passed: memo.passed || "",
+        judged: !!last && memo.decided === last.t,
+        change24h: dayAgo && dayAgo.c > 0 ? (view.price / dayAgo.c - 1) * 100 : null,
+      });
+    } catch (error) {
+      rows.push({ symbol, error });
+    }
+  }
+  return rows;
 }
 
 // The owner tapped Skip on a proposed buy. Returns false when there was no open offer.

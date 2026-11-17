@@ -3,3 +3,7 @@ bridge_state.json
 bridge_state.json.tmp
 __pycache__/
 .venv/
+bridge_report.json
+bridge_report.json.tmp
+desk_sender.log
+desk_sender.old.log
