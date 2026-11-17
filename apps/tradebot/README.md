@@ -287,7 +287,12 @@ stop, and posts the copies back (`POST /v1/indodax/report`) for `/indodax` in Te
   the trades with their results and a top-down reading of the day, 4-hour, 1-hour and
   15-minute charts (`indodax/agents.py`, tested by `indodax/test_agents.py`). No AI and no
   order code in it. Selling at 1:3 and the top-down filter were tested and are followed on
-  paper by the study; the rules that trade were not changed. It is also built as one Windows app,
+  paper by the study; the rules that trade were not changed. Since 0.15.0 it also shows four
+  things borrowed from [TradingAgents](https://github.com/TauricResearch/TradingAgents) and
+  [Vibe-Trading](https://github.com/HKUDS/Vibe-Trading), as measured numbers and not as an AI's
+  opinion: the market's mood, a bull-against-bear count with a five-step rating, three views of
+  the risk, and buy-and-hold as a yardstick (`indodax/README.md` has the numbers). They are
+  shown only and never order. It is also built as one Windows app,
   `TradeBot.exe`, that needs no Python: release `tradebot-desk` of this repository
   (`.github/workflows/trade-bot-desk.yml`).
 

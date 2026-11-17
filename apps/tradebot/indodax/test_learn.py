@@ -182,6 +182,30 @@ class Study(unittest.TestCase):
         self.assertIn(summary["verdict"], ("keep", "watch"))
         json.dumps(summary)
 
+    def test_the_yardstick_is_one_buy_never_sold_at_the_same_costs(self):
+        summary = small_study(self.rows)["summary"]
+        hold = summary["hold"]
+        self.assertEqual(set(hold), {"perYear", "dip", "total"})
+        held = [row for row in self.rows if row["t"] >= learn.TEST_FROM]
+        quantity = summary["order"] * (1 - learn.COST) / (held[0]["o"] * (1 + learn.SLIP))
+        values = [quantity * row["c"] * (1 - learn.COST) - summary["order"] for row in held]
+        self.assertEqual(hold["total"], round(values[-1]))
+        peak = dip = 0.0
+        for value in values:
+            peak = max(peak, value)
+            dip = min(dip, value - peak)
+        self.assertEqual(hold["dip"], round(dip))
+        self.assertLessEqual(hold["dip"], 0)
+        years = (held[-1]["t"] - held[0]["t"]) / (365.25 * learn.DAY)
+        self.assertEqual(hold["perYear"], round(values[-1] / years))
+        self.assertEqual(sum(1 for line in learn.words(summary) if line.startswith("Yardstick, one buy of ")), 1)
+
+    def test_the_yardstick_changes_nothing_else_in_the_study(self):
+        result = small_study(self.rows)
+        for name in ("verdict", "challenger", "trades", "wins", "perYear", "dip", "unseen", "score", "ideas"):
+            self.assertIn(name, result["summary"])
+        self.assertNotIn("hold", result)  # it lives in the summary only
+
     def test_with_no_other_version_the_rules_are_kept(self):
         result = small_study(self.rows, family=[learn.LIVE])
         self.assertEqual(result["summary"]["verdict"], "keep")

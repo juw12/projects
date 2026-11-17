@@ -86,6 +86,9 @@ Never print or copy `.env`, `bridge_state.json`, keys, the Indodax email or the 
 - `summary.ideas`: one row per idea (`trades`, `wins`, `perYear`, `dip`, `unseen`, and `since`:
   pretend trades and rupiah ahead of the rules from the day it was written down). The desk's
   Agents tab shows them under Research analyst. The Worker does not carry them.
+- `summary.hold`: the yardstick, one buy of the same size at the first candle and never sold
+  (`perYear`, `dip`, `total` in rupiah, same costs). It is for reading only: holding can earn
+  more and dip far deeper, and it is not a reason to change the rules or the size of a buy.
 - `windows`: one row per unseen half year (which version was picked, what it and the live rules made).
 - `measured`: per real trade, how much worse than Indodax's price the buy and the sale were, in percent.
 
