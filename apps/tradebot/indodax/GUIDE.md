@@ -62,6 +62,10 @@ line; a call that changes inside five minutes is treated as one call, so the log
 - **When:** at the **4-hour mark**, the candle the rules work on. The 1-hour and 24-hour marks
   are shown next to it as what the price did, but the mark itself is the 4-hour one.
 - **Against:** the price at Indodax at the moment of the call, against the price at the mark.
+  That price is what one coin cost then, the **ask** (what you would pay for it), not the last
+  trade: it is the number the window shows and the number a buy would meet. A mark read out of
+  the candle afterwards is that candle's last trade, a hair under the ask (about 0,03%), which is
+  far inside the 0,6% so it cannot change a mark from right to wrong.
 - **BUY or HOLD:** right when the price rose by more than **0,6%** (what a round trip at Indodax
   costs, about 0,3% each way), wrong when it fell that far.
 - **SELL:** right when the price fell that far, wrong when it rose that far.
