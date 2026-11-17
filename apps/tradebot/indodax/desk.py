@@ -31,7 +31,7 @@ from pathlib import Path
 
 import bridge
 
-VERSION = "0.13.1"  # the same number as apps/tradebot/package.json
+VERSION = "0.13.2"  # the same number as apps/tradebot/package.json
 FROZEN = bridge.FROZEN  # True inside TradeBot.exe
 HERE = bridge.HERE
 APP_NAME = "tradebot.exe"
@@ -599,6 +599,19 @@ def chart_points(curve, width, height, left=30, right=16, top=10, bottom=22) -> 
     return [(round(left + inner_width * (at - first) / span, 1), round(top + inner_height * (1 - score / 10), 1)) for at, score in curve]
 
 
+def value_anchor(x, width, left=30) -> tuple:
+    """Where the newest value is written against its dot: (the x to write at, the anchor).
+
+    Above the dot when there is room. Hard against the left edge (the first days) it would run
+    into the scale's own numbers, so it is written to the right of the dot (nothing is drawn there:
+    the newest dot is the last one); at the right edge it ends at the dot."""
+    if x >= width - 40:
+        return x, "se"
+    if x < left + 20:
+        return x + 10, "w"
+    return x, "s"
+
+
 def newer_version(view) -> str:
     """The version TradeBot's server runs when it is newer than this window, else ''."""
     theirs = str((view or {}).get("version") or "")
@@ -850,7 +863,8 @@ def open_window(args) -> int:
             canvas.create_oval(x - 2, y - 2, x + 2, y + 2, fill=ACCENT, outline="")
         x, y = spots[-1]
         canvas.create_oval(x - 4, y - 4, x + 4, y + 4, fill=ACCENT, outline=CARD, width=2)
-        canvas.create_text(x, y - 12, text=points_text(curve[-1][1]), anchor="s" if x < width - 40 else "se", font=(FONT + " Semibold", 10), fill=INK)
+        value_x, anchor = value_anchor(x, width, left)
+        canvas.create_text(value_x, y if anchor == "w" else y - 12, text=points_text(curve[-1][1]), anchor=anchor, font=(FONT + " Semibold", 10), fill=INK)
         canvas.create_text(left, height - 4, text=day_wib(curve[0][0]), anchor="sw", font=(FONT, 8), fill=MUTED)
         if x - spots[0][0] > 90:  # the first value too, when it does not sit on top of the last one
             canvas.create_text(spots[0][0], spots[0][1] - 9, text=points_text(curve[0][1]), anchor="sw", font=(FONT, 9), fill=MUTED)
