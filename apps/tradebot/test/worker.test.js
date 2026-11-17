@@ -1183,6 +1183,9 @@ test("indodax in real money: practice messages stop, the report is complete, and
   assert.equal(shown.status, 200);
   assert.match(shown.text, /REAL MONEY/);
   assert.match(shown.text, /Rp50\.000/);
+  assert.match(shown.text, /<h1>TradeBot · Indodax<\/h1>/, "the page opens with the glance, not with the long report");
+  assert.match(shown.text, /<span>Free rupiah<\/span>/);
+  assert.equal(/<(a|button|form|input|script)[\s>]/i.test(shown.text), false, "read-only: nothing to press");
   assert.equal(shown.text.includes(bridgeKey), false, "the page never carries the sender's key");
   assert.equal((await page("/v1/indodax/phone?k=wrong")).status, 403);
   assert.equal((await page("/v1/indodax/phone")).status, 403);

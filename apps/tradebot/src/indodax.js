@@ -15,6 +15,7 @@
 // message says whether it is pretend money or REAL MONEY, and anything unclear is shown as real.
 
 import { clock, coin, idNumber, nextStep, pct, signalLines } from "./render.js";
+import { PARAMS } from "./strategy.js";
 import { ago } from "./twin.js";
 import { clip, escapeHtml } from "./util.js";
 
@@ -474,6 +475,19 @@ export function fullReport(view, extra = null, topic = "all") {
   return { html: lines.join("\n") };
 }
 
+// What the three checks mean, for someone who has never traded: [{ word, means }]. Written from
+// the strategy's own numbers, so the desktop app and the phone page never drift from the rules.
+export function plainWords(extra = null) {
+  if (!extra || !extra.state) return [];
+  const { timeframe } = extra.state.settings;
+  return [
+    { word: "Candle", means: `the price during one ${timeframe} slice of time. I judge a coin once per candle.` },
+    { word: "Trend", means: `the price is above its average of the last ${PARAMS.regime} candles, so the long direction is up.` },
+    { word: "Momentum", means: `the average of the last ${PARAMS.fast} candles is above the average of the last ${PARAMS.slow}, so it has been rising lately.` },
+    { word: "RSI", means: `a 0 to 100 gauge of how fast the price rose lately. I want ${PARAMS.rsiMin} to ${PARAMS.rsiMax}: rising, but not overheated.` },
+  ];
+}
+
 // The same numbers for the desktop app, as data. Nothing here that the report does not show.
 export function viewData(view, extra = null) {
   const rows = ((extra && extra.rows) || []).map((row) =>
@@ -495,17 +509,116 @@ export function viewData(view, extra = null) {
     paused: view.paused === true,
     report: view.report || null,
     signals: rows,
+    words: plainWords(extra),
     text: fullReport(view, extra).html.replace(/<[^>]+>/g, "").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&"),
   };
 }
 
 // The phone page: the full report as a small web page that reloads itself every minute. The
 // report's HTML uses only <b>, <i> and <code>, and every value in it is already escaped.
-export function phonePage(html, now) {
-  const body = html
-    .split("\n\n")
-    .map((block) => `<section>${block.split("\n").join("<br>")}</section>`)
-    .join("\n");
+//
+// With view (the same { configured, report, at, now, paused } the report was written from) the
+// page opens with what matters at a glance: real or practice, whether the sender is alive, the
+// warnings, four numbers and what happens next. Without it the page is the report alone.
+const PHONE_STYLE = [
+  "*{box-sizing:border-box}",
+  "body{margin:0;padding:14px;font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:#0f1419;color:#e6e9ee;-webkit-text-size-adjust:100%}",
+  "main{max-width:640px;margin:0 auto}",
+  "header{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;margin:2px 0 10px}",
+  "h1{font-size:20px;line-height:1.2;margin:0}",
+  ".mode{font-size:15px;font-weight:700;border-radius:6px;padding:3px 10px;background:#3a4556;color:#fff}",
+  ".mode.real{background:#c0392b}",
+  ".alive{flex-basis:100%;font-size:15px;color:#4cd17a}",
+  ".alive.away{color:#ff8a80}",
+  ".alert{border-radius:12px;padding:10px 14px;margin:0 0 10px;background:#3b2a12;border:1px solid #7a5a1c;color:#ffd58a}",
+  ".alert.bad{background:#3d1a1a;border-color:#8c2f2f;color:#ffb4ab}",
+  ".tiles{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0 0 10px}",
+  ".tile{background:#1a212b;border:1px solid #2a3442;border-radius:12px;padding:10px 12px;min-width:0}",
+  ".tile span{display:block;font-size:15px;color:#9aa6b6}",
+  ".tile strong{display:block;font-size:22px;line-height:1.3;overflow-wrap:anywhere}",
+  ".up{color:#4cd17a}.down{color:#ff8a80}",
+  ".next{background:#20304a;border:1px solid #35507a;border-radius:12px;padding:10px 14px;margin:0 0 10px}",
+  ".next span{display:block;font-size:15px;color:#9db7dd}",
+  ".rules{color:#9aa6b6;font-size:15px;margin:0 2px 12px}",
+  "section{background:#1a212b;border:1px solid #2a3442;border-radius:12px;padding:12px 14px;margin:0 0 10px;overflow-wrap:anywhere}",
+  "h2{font-size:17px;margin:0 0 6px;color:#fff}",
+  "h2 small{font-size:15px;font-weight:400;color:#9aa6b6}",
+  "p{margin:0 0 6px}p:last-child{margin-bottom:0}",
+  "p.coin{margin-top:12px;font-size:17px}h2+p.coin{margin-top:0}",
+  "p.check{margin:0 0 2px;padding-left:4px}",
+  "p.note{color:#9aa6b6}",
+  "code{background:#2a3442;border-radius:4px;padding:1px 5px;font-size:.94em}",
+  "footer{color:#9aa6b6;font-size:15px;text-align:center;padding:6px 0 18px}",
+].join("\n");
+
+function phoneLine(line) {
+  const kind = line.startsWith("✅") || line.startsWith("❌") ? "check" : line.startsWith("→") ? "note" : /^<b>[^<]+<\/b> [^:]*: <b>[A-Z]+<\/b>$/.test(line) ? "coin" : "";
+  return `<p${kind ? ` class="${kind}"` : ""}>${line}</p>`;
+}
+
+// One block of the report as a card. A block that opens with a bold title gets a real heading.
+function phoneSection(block) {
+  const lines = block.split("\n").filter((line) => line && !line.startsWith("Next: "));
+  if (!lines.length) return "";
+  const title = lines[0].match(/^<b>([^<]+)<\/b>( \([^<)]*\))?$/);
+  const head = title ? `<h2>${title[1]}${title[2] ? ` <small>${title[2].trim()}</small>` : ""}</h2>` : "";
+  return `<section>${head}${(title ? lines.slice(1) : lines).map(phoneLine).join("")}</section>`;
+}
+
+function phoneTile(label, value, hint, tone = "") {
+  return `<div class="tile"><span>${label}</span><strong${tone ? ` class="${tone}"` : ""}>${value}</strong><span>${hint}</span></div>`;
+}
+
+// The top of the page: mode, sender, warnings, the four numbers. Every value is a number or one
+// of this file's own words, and coin names go through nameOf (escaped).
+function phoneTop(view) {
+  const { report } = view;
+  const real = report.mode === "real";
+  const kind = real ? "real" : "practice";
+  const stale = isStale(view);
+  const held = report.positions.filter((position) => !real || position.real);
+  const worth = held.reduce((sum, position) => sum + position.value, 0);
+  const paid = held.reduce((sum, position) => sum + position.spent, 0);
+  const finished = report.closed.filter((entry) => entry.how === "sold" && (!real || entry.real)).length;
+  const buys = report.cash !== null && report.orderIdr > 0 ? Math.floor(report.cash / report.orderIdr) : 0;
+  const tone = (value) => (value > 0 ? "up" : value < 0 ? "down" : "");
+  const alerts = [];
+  if (stale) alerts.push(["bad", `The sender on your PC was last heard ${ago(view.now - view.at)}. While it is away nothing is bought and <b>nothing is sold either</b>.`]);
+  if (report.tripped) alerts.push(["bad", "Safety stop: real buying is blocked until you have looked at Indodax. The reason is below."]);
+  if (real && !report.checked) alerts.push(["bad", "Real mode is on, but the API key has not passed its check on the PC, so nothing is bought."]);
+  if (view.paused || report.paused) alerts.push(["", "Buying is paused. Coins you hold are still watched and sold."]);
+  if (real && report.cash !== null && buys < 1 && !report.positions.length) alerts.push(["", `Free rupiah is less than one buy of ${rp(report.orderIdr)}. Top up at Indodax or nothing can be bought.`]);
+  return [
+    "<header>",
+    "<h1>TradeBot · Indodax</h1>",
+    `<span class="mode${real ? " real" : ""}">${real ? "REAL MONEY" : "practice (pretend money)"}</span>`,
+    `<span class="alive${stale ? " away" : ""}">${stale ? "○ Sender is silent" : "● Sender is running"} · heard ${ago(view.now - view.at)}</span>`,
+    "</header>",
+    ...alerts.map(([level, text]) => `<div class="alert${level ? ` ${level}` : ""}">${level ? "⛔" : "⚠️"} ${text}</div>`),
+    '<div class="tiles">',
+    phoneTile("Free rupiah", report.cash === null ? "not reported" : rp(report.cash), report.cash === null ? "the sender does not send it" : `enough for ${buys} ${buys === 1 ? "buy" : "buys"}`),
+    phoneTile("Coins you hold", held.length ? held.map(nameOf).join(", ") : "No coin", held.length ? `worth ${rp(worth)}${paid > 0 ? ` (${pct((worth / paid - 1) * 100)})` : ""}` : "all in rupiah"),
+    phoneTile("Result so far", signedRp(report.result[kind]), finished ? `${finished} finished ${finished === 1 ? "trade" : "trades"}` : "no trade finished yet", tone(Math.round(report.result[kind]))),
+    phoneTile("Today", signedRp(report.today[kind]), `${report.today.buys} ${report.today.buys === 1 ? "buy" : "buys"} · from 07:00 WIB`, tone(Math.round(report.today[kind]))),
+    "</div>",
+  ];
+}
+
+export function phonePage(html, now, view = null, words = []) {
+  const blocks = html.split("\n\n");
+  const next = html.split("\n").find((line) => line.startsWith("Next: "));
+  const withTop = !!(view && view.configured && view.report);
+  const top = withTop ? phoneTop(view) : [];
+  // With the top in place the report's own title line would only repeat it: keep its rules line.
+  const rules = withTop && blocks.length ? blocks.shift().split("\n").slice(1).join(" · ") : "";
+  // The top already says these, so the same words are not shown twice. A block that warns
+  // (too little rupiah, a silent sender) or that mixes pretend and real money stays.
+  const said = (block) =>
+    withTop &&
+    ((block.startsWith("Free rupiah at Indodax:") && !block.includes("⚠️")) ||
+      (block.startsWith("Result so far:") && !block.includes("pretend")) ||
+      block.startsWith("Last heard from the sender:"));
+  const closing = blocks.length && /^<i>[^<]*<\/i>$/.test(blocks[blocks.length - 1]) ? blocks.pop() : "";
   return [
     "<!doctype html>",
     '<html lang="en"><head><meta charset="utf-8">',
@@ -513,19 +626,22 @@ export function phonePage(html, now) {
     '<meta http-equiv="refresh" content="60">',
     '<meta name="robots" content="noindex, nofollow">',
     '<meta name="referrer" content="no-referrer">',
+    '<meta name="color-scheme" content="dark">',
+    '<meta name="theme-color" content="#0f1419">',
     "<title>TradeBot · Indodax</title>",
     "<style>",
-    "body{margin:0;padding:14px;font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:#0f1419;color:#e6e9ee}",
-    "main{max-width:640px;margin:0 auto}",
-    "section{background:#1a212b;border:1px solid #2a3442;border-radius:12px;padding:12px 14px;margin:0 0 10px;overflow-wrap:anywhere}",
-    "section:first-child{background:#20304a;border-color:#35507a}",
-    "code{background:#2a3442;border-radius:4px;padding:1px 5px;font-size:.92em}",
-    "footer{color:#8b97a8;font-size:13px;text-align:center;padding:6px 0 18px}",
+    PHONE_STYLE,
     "</style></head><body><main>",
-    body,
-    `<footer>Loaded ${clock(now)} · reloads every minute · read-only: nothing can be bought or sold from this page</footer>`,
+    ...top,
+    next ? `<div class="next"><span>What happens next</span>${next.slice(6)}</div>` : "",
+    rules ? `<p class="rules">${rules}</p>` : "",
+    ...blocks.filter((block) => !said(block)).map(phoneSection),
+    words.length ? `<section><h2>In plain words</h2>${words.map((entry) => `<p><b>${escapeHtml(entry.word)}</b>: ${escapeHtml(entry.means)}</p>`).join("")}</section>` : "",
+    `<footer>${closing ? `${closing}<br>` : ""}Loaded ${clock(now)} · reloads every minute · read-only: nothing can be bought or sold from this page</footer>`,
     "</main></body></html>",
-  ].join("\n");
+  ]
+    .filter(Boolean)
+    .join("\n");
 }
 
 // Add the full report in place of the practice daily summary. messages = this round's messages.

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { INDODAX_SILENT_MS, INDODAX_STALE_MS, answer, backText, changes, cleanReport, daily, isStale, pausedText, resumedText, silentAlert, withDaily } from "../src/indodax.js";
+import { INDODAX_SILENT_MS, INDODAX_STALE_MS, answer, backText, changes, cleanReport, daily, fullReport, isStale, pausedText, phonePage, plainWords, resumedText, silentAlert, viewData, withDaily } from "../src/indodax.js";
 
 const NOW = Date.UTC(2026, 10, 16, 4, 10); // 11:10 WIB
 
@@ -398,4 +398,107 @@ test("indodax: the daily part is added to messages marked daily, and to no other
   assert.match(added[0].html, /^summary\n\n<b>Indodax<\/b> · practice \(pretend money\)\n/);
   assert.deepEqual(added[1], messages[1]);
   assert.equal(messages[0].html, "summary", "the message it was given is not changed");
+});
+
+// ---------------------------------------------------------------- the phone page
+
+const CHECKS = [
+  { name: "Trend", ok: true, text: "price above the 200-candle average" },
+  { name: "Momentum", ok: false, text: "20-candle average below the 50-candle average" },
+  { name: "RSI", ok: false, text: "44 (weak: under 50)" },
+];
+const SIGNALS = {
+  state: { settings: { paused: false, auto: true, timeframe: "4h", dailyLossPct: 3, maxPositions: 2, watchlist: ["ETHUSDT"], riskPct: 1 }, portfolio: { positions: {} }, day: null, pending: {} },
+  rows: [{ symbol: "ETHUSDT", price: 2310, decision: { action: "wait", why: "waiting for momentum and RSI", reasons: CHECKS }, held: null, change24h: -0.6 }],
+};
+
+function realView(extra = {}, age = 20000) {
+  return view(report({ mode: "real", keys: true, checked: true, cash: 30450, orderIdr: 20000, maxOpen: 1, positions: [{ ...REAL_ETH, spent: 20000, value: 20306 }], result: { practice: 0, real: 40 }, today: { practice: 0, real: -15, buys: 1 }, ...extra }), age);
+}
+
+const phone = (seen, signals = SIGNALS) => phonePage(fullReport(seen, signals).html, NOW, seen, plainWords(signals));
+
+test("phone page: the top says real money, a live sender, four numbers and what happens next", () => {
+  const page = phone(realView());
+  assert.match(page, /<h1>TradeBot · Indodax<\/h1>/);
+  assert.match(page, /<span class="mode real">REAL MONEY<\/span>/);
+  assert.match(page, /class="alive">● Sender is running · heard just now/);
+  assert.match(page, /<span>Free rupiah<\/span><strong>Rp30\.450<\/strong><span>enough for 1 buy<\/span>/);
+  assert.match(page, /<span>Coins you hold<\/span><strong>ETH<\/strong><span>worth Rp20\.306 \(\+1\.5%\)<\/span>/);
+  assert.match(page, /<span>Result so far<\/span><strong class="up">\+Rp40<\/strong>/);
+  assert.match(page, /<span>Today<\/span><strong class="down">-Rp15<\/strong><span>1 buy · from 07:00 WIB<\/span>/);
+  assert.match(page, /<div class="next"><span>What happens next<\/span>I judge each coin when the 4h candle closes/);
+  assert.equal(page.includes("class=\"alert"), false, "no warning when all is fine");
+  // What the top already says is not repeated below; the rest of the report stays.
+  assert.equal(page.includes("Free rupiah at Indodax:"), false);
+  assert.equal(page.includes("Last heard from the sender:"), false);
+  assert.equal(page.includes("<p>Next: "), false);
+  assert.match(page, /<h2>Holding now<\/h2>/);
+  assert.match(page, /<h2>History <small>\(newest first\)<\/small><\/h2>/);
+  assert.match(page, /<p class="check">❌ Momentum: 20-candle average below the 50-candle average<\/p>/);
+  assert.match(page, /<h2>In plain words<\/h2><p><b>Candle<\/b>: the price during one 4h slice of time/);
+  assert.match(page, /Not financial advice/);
+});
+
+test("phone page: it is read-only, reloads itself, stays private and keeps its text large", () => {
+  const page = phone(realView());
+  assert.equal(/<(a|button|form|input|script|select|textarea)[\s>]/i.test(page), false, "nothing to press and no script");
+  assert.match(page, /<meta http-equiv="refresh" content="60">/);
+  assert.match(page, /<meta name="robots" content="noindex, nofollow">/);
+  assert.match(page, /<meta name="referrer" content="no-referrer">/);
+  assert.match(page, /<meta name="viewport" content="width=device-width, initial-scale=1">/);
+  assert.match(page, /read-only: nothing can be bought or sold from this page/);
+  const sizes = [...page.matchAll(/font(?:-size)?:\s*(\d+)px/g)].map((match) => Number(match[1]));
+  assert.ok(sizes.length > 5 && Math.min(...sizes) >= 15, `smallest text ${Math.min(...sizes)}px`);
+  assert.match(page, /overflow-wrap:anywhere/);
+});
+
+test("phone page: a silent sender, a pause, the safety stop and an unchecked key are warnings on top", () => {
+  const silent = phone(realView({}, INDODAX_STALE_MS + 60000));
+  assert.match(silent, /class="alive away">○ Sender is silent · heard 6 minutes ago/);
+  assert.match(silent, /<div class="alert bad">⛔ The sender on your PC was last heard 6 minutes ago\. While it is away nothing is bought and <b>nothing is sold either<\/b>\./);
+  assert.match(silent, /nobody is watching it/, "the report's own warning about the open real copy stays");
+
+  const paused = phone({ ...realView(), paused: true });
+  assert.match(paused, /<div class="alert">⚠️ Buying is paused\./);
+
+  const stopped = phone(realView({ tripped: true, trippedWhy: "The balance did not match.", checked: false }));
+  assert.match(stopped, /<div class="alert bad">⛔ Safety stop/);
+  assert.match(stopped, /<div class="alert bad">⛔ Real mode is on, but the API key has not passed its check/);
+  assert.match(stopped, /The balance did not match\./);
+
+  const poor = phone(realView({ cash: 9856, positions: [] }));
+  assert.match(poor, /<div class="alert">⚠️ Free rupiah is less than one buy of Rp20\.000/);
+  assert.match(poor, /<strong>No coin<\/strong><span>all in rupiah<\/span>/);
+  assert.match(poor, /Free rupiah at Indodax: <b>Rp9\.856<\/b> · ⚠️/, "the report's own warning line stays as well");
+});
+
+test("phone page: practice is never shown as real, and pretend and real results stay apart", () => {
+  const seen = view(report({ positions: [BTC], result: { practice: 1000, real: 0 } }));
+  const page = phone(seen, null);
+  assert.match(page, /<span class="mode">practice \(pretend money\)<\/span>/);
+  assert.equal(page.includes("REAL MONEY"), false);
+  assert.match(page, /<span>Free rupiah<\/span><strong>not reported<\/strong>/);
+  assert.match(page, /<span>Result so far<\/span><strong class="up">\+Rp1\.000<\/strong>/);
+  assert.match(page, /Result so far: pretend \+Rp1\.000/, "the report's own result line stays when pretend money is in it");
+  assert.equal(page.includes("In plain words"), false, "no signals, no glossary");
+});
+
+test("phone page: without a view it is the report alone, and plain words are escaped", () => {
+  const seen = realView();
+  const page = phonePage(fullReport(seen, SIGNALS).html, NOW);
+  assert.equal(page.includes("<h1>"), false);
+  assert.match(page, /Indodax report/);
+  assert.match(page, /Free rupiah at Indodax:/);
+  const odd = phonePage("a", NOW, null, [{ word: "<x>", means: "a & b" }]);
+  assert.match(odd, /<b>&lt;x&gt;<\/b>: a &amp; b/);
+});
+
+test("the desktop app gets the plain words with its data, from the strategy's own numbers", () => {
+  const data = viewData(realView(), SIGNALS);
+  assert.deepEqual(data.words.map((entry) => entry.word), ["Candle", "Trend", "Momentum", "RSI"]);
+  assert.match(data.words[0].means, /one 4h slice/);
+  assert.match(data.words[3].means, /I want 50 to 70/);
+  assert.deepEqual(viewData(realView(), null).words, []);
+  assert.deepEqual(plainWords({ rows: [] }), []);
 });

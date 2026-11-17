@@ -213,6 +213,22 @@ first sale at Indodax yourself.
 shows what it does: real or practice, the free rupiah, what is held, the market, what the strategy
 needs before it buys or sells, the history, the result, and the sender's own log.
 
+What is where:
+
+- **Top:** REAL MONEY or practice, whether the sender is running, and a red or yellow line for
+  anything that needs you (sender stopped, safety stop, key not checked, buying paused, the
+  sender silent, too little rupiah for one buy, TradeBot not answering). No line means all is fine.
+- **Four numbers:** free rupiah, coins you hold, result so far, today.
+- **Overview tab:** on the left what happens next and, per coin, the three checks with a tick or
+  a cross; on the right the coins you hold (with the price under which each is sold), the price
+  at Indodax, the finished trades, and the trading words in plain words.
+- **Full report tab:** the same text as `/report` in Telegram.
+- **Sender log tab:** the sender's own lines (what the console window used to show). The line
+  above the tabs counts the network misses since the window opened.
+
+`pythonw desk.py --demo` opens the window with made-up numbers: no sender, no network, nothing
+private. Good for a look around or a screenshot.
+
 - **Start the sender / Stop the sender.** The sender is a child of the window: closing the window
   stops it (it asks first). A sender that ends by itself is started again a minute later.
 - **Never two senders.** If a sender is already running in a console window, the desk does not
@@ -225,8 +241,9 @@ needs before it buys or sells, the history, the result, and the sender's own log
 - `INDODAX_REPORT_CASH=yes` in `.env` adds the free rupiah (real mode only).
 
 On the phone: send `/phone` to TradeBot in Telegram. It answers with a private link to a page that
-shows the same report and reloads every minute. The page only shows. `/phone` again makes a new
-link and switches the old one off.
+reloads every minute. It opens with the same glance as the desk (real or practice, the sender,
+warnings, the four numbers, what happens next), then the full report and the trading words in
+plain words. The page only shows. `/phone` again makes a new link and switches the old one off.
 
 In real mode TradeBot's Telegram messages are about Indodax only: the practice account's own
 messages are not sent, the 07:00 WIB message is the full Indodax report, and `/report`,
