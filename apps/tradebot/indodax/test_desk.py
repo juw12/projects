@@ -294,5 +294,19 @@ class DeskTest(unittest.TestCase):
         assert view["stale"] and view["paused"]
 
 
+    def test_a_window_reopened_quickly_waits_then_starts_its_sender(self):
+        # A sender process elsewhere always blocks; a fresh file with no process only delays the start.
+        assert desk.start_choice([1234], True) == "blocked" and desk.start_choice([1234], False) == "blocked"
+        assert desk.start_choice([], True) == "wait"
+        assert desk.start_choice([], False) == "start"
+
+    def test_waiting_for_the_sender_is_said_once_and_not_as_stopped(self):
+        local = {"at": NOW - 20_000, "report": {"mode": "real", "checked": True}}
+        found = desk.alerts(None, local, "waiting", "", NOW)
+        assert [level for level, _ in found] == ["warn"] and "starts by itself" in found[0][1]
+        old = {"at": NOW - 900_000, "report": {"mode": "real", "checked": True}}
+        assert len(desk.alerts(None, old, "waiting", "", NOW)) == 1
+
+
 if __name__ == "__main__":
     unittest.main()
