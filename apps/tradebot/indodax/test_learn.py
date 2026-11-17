@@ -89,6 +89,83 @@ class Replay(unittest.TestCase):
         self.assertAlmostEqual(results[0][1], -1600.0, places=6)
 
 
+class Ideas(unittest.TestCase):
+    """The owner's ideas (sell at 1:3, top-down), followed on paper only."""
+
+    def setUp(self):
+        self.rows = candles(3000)
+        self.series = learn.Series(self.rows)
+
+    def test_with_no_option_an_idea_trades_exactly_like_the_rules(self):
+        self.assertEqual(learn.replay_idea(self.series, learn.LIVE), learn.replay(self.series, learn.LIVE))
+        everywhere = [True] * len(self.rows)
+        self.assertEqual(learn.replay_idea(self.series, learn.LIVE, None, everywhere), learn.replay(self.series, learn.LIVE))
+
+    def test_a_target_trade_ends_at_its_stop_or_its_target_only(self):
+        trades = learn.replay_idea(self.series, learn.LIVE, 3.0)
+        self.assertGreater(len(trades), 3)
+        self.assertEqual({how for _, _, how, _ in trades} - {"trail", "target"}, set())
+        for _, _, how, share in trades:
+            if how == "target":
+                self.assertGreaterEqual(share, 1.0)
+            else:
+                self.assertLessEqual(share, 1.0)
+
+    def test_when_one_candle_touches_stop_and_target_the_stop_is_taken(self):
+        trades = learn.replay_idea(self.series, learn.LIVE, 3.0)
+        won = next(trade for trade in trades if trade[2] == "target")
+        rows = [dict(row) for row in self.rows]
+        index = next(place for place, row in enumerate(rows) if row["t"] == won[1])
+        rows[index]["l"] = 0.01  # the same candle now falls through the stop as well
+        again = learn.replay_idea(learn.Series(rows), learn.LIVE, 3.0)
+        same = next(trade for trade in again if trade[0] == won[0])
+        self.assertEqual((same[1], same[2]), (won[1], "trail"))
+        self.assertLess(same[3], 1.0)
+
+    def test_a_closed_filter_buys_nothing_and_an_open_one_only_removes_buys(self):
+        self.assertEqual(learn.replay_idea(self.series, learn.LIVE, None, [False] * len(self.rows)), [])
+        allowed = learn.daily_up(self.rows)
+        by_candle = {row["t"]: index for index, row in enumerate(self.rows)}
+        for bought, _, _, _ in learn.replay_idea(self.series, learn.LIVE, None, allowed):
+            self.assertTrue(allowed[by_candle[bought] - 1])  # the check passed on the candle before the buy
+
+    def test_the_daily_chart_never_uses_a_day_that_is_still_running(self):
+        flags = learn.daily_up(self.rows)
+        self.assertIn(True, flags)
+        self.assertIn(False, flags)
+        self.assertEqual(learn.daily_up(self.rows[:1700]), flags[:1700])
+        for index in range(600, 2400, 97):
+            row = self.rows[index]
+            if (row["t"] + HOUR4) % learn.DAY == 0:
+                continue  # the candle that closes its day may use that day
+            changed = [dict(item) for item in self.rows]
+            changed[index]["c"] = row["c"] * 50
+            self.assertEqual(learn.daily_up(changed)[index], flags[index])
+
+    def test_the_study_follows_the_three_ideas_on_paper(self):
+        result = small_study(self.rows)
+        ideas = result["summary"]["ideas"]
+        self.assertEqual([idea["key"] for idea in ideas], ["target", "topdown", "both"])
+        for idea in ideas:
+            self.assertEqual(set(idea), {"key", "name", "trades", "wins", "perYear", "dip", "unseen", "since"})
+            self.assertEqual(set(idea["since"]), {"from", "days", "trades", "lead"})
+            self.assertLessEqual(idea["dip"], 0)
+            self.assertTrue(0 <= idea["wins"] <= 100)
+        said = learn.words(result["summary"])
+        self.assertEqual(sum(1 for line in said if line.startswith("On paper only, ")), 3)
+
+    def test_an_idea_never_changes_the_verdict_or_the_rules(self):
+        result = small_study(self.rows)
+        with mock.patch.object(learn, "IDEAS", []):
+            plain = small_study(self.rows)
+        self.assertEqual(plain["summary"]["ideas"], [])
+        for name in ("verdict", "challenger", "trades", "wins", "perYear", "dip", "unseen", "score"):
+            self.assertEqual(result["summary"][name], plain["summary"][name])
+        for name in result:
+            if name != "summary":
+                self.assertEqual(result[name], plain[name], name)  # the watched version and the curve too
+
+
 class Study(unittest.TestCase):
     def setUp(self):
         self.rows = candles(3000)

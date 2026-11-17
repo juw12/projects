@@ -35,6 +35,13 @@ Every figure is a test on past prices: "not a promise".
    of twice the deepest dip), real money (3: half for 30 finished real trades, half for an
    average of +0.5% a trade after costs). One point a day is kept as the curve.
 
+6. **Ideas on paper**: sell at 1:3 (fixed stop, sold at the stop or at 3 times the risk),
+   top-down (buy only while the daily chart is up too) and both together are replayed next to
+   the rules and followed as pretend trades from 17 November 2026. They never trade and never
+   touch the verdict. Test of November 2026 at Rp20.000 per buy: rules +Rp4.602 a year, dip
+   -Rp11.976, 213 trades; sell at 1:3 +Rp7.378, dip -Rp15.724, 91 trades; top-down +Rp4.355,
+   dip -Rp7.862, 148 trades; both +Rp7.067, dip -Rp8.507, 64 trades.
+
 It only reads prices. It has no order code. It never changes the rules or the size of a buy.
 
 ## The score: how to say it, and how it may rise
@@ -76,6 +83,9 @@ Never print or copy `.env`, `bridge_state.json`, keys, the Indodax email or the 
   `wins`, `yearUp`, `monthUp` are "of 100"; `unseen.live` vs `unseen.picked` is rupiah over all
   unseen half years; `cost.used` says whether the replay ran on the assumed or the measured cost.
 - `watched`: the version followed on paper and the day it started.
+- `summary.ideas`: one row per idea (`trades`, `wins`, `perYear`, `dip`, `unseen`, and `since`:
+  pretend trades and rupiah ahead of the rules from the day it was written down). The desk's
+  Agents tab shows them under Research analyst. The Worker does not carry them.
 - `windows`: one row per unseen half year (which version was picked, what it and the live rules made).
 - `measured`: per real trade, how much worse than Indodax's price the buy and the sale were, in percent.
 
@@ -101,6 +111,11 @@ Then, in a git worktree (never the main checkout), one PR:
   held, run `update-desk.cmd`; it restarts the sender inside the app, no console window).
 
 If any gate fails: change nothing, keep watching. "Keep the rules" is a good result.
+
+An idea (`summary.ideas`) passes the same gates before it may trade: `since.days` at least 90,
+`since.trades` at least 8, `since.lead` above 0, its `unseen` above the rules' `unseen.live`,
+and its `dip` not deeper than the rules' `dip`. A fixed 1:3 sale means new sell code in
+`src/strategy.js` and `bridge.py` with tests, not a number change: plan it as its own PR.
 
 ## What must not be done
 

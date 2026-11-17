@@ -21,6 +21,10 @@ Each study also ends in a score, 0 to 10: how far the rules are proven (unseen p
 years, dips, and real trades with their real result). One point a day is kept, so the score
 draws a curve. The scale is frozen; only measured things move it.
 
+Three ideas are replayed beside the rules, on paper only: sell at 1:3 (a fixed stop, and a sale
+at three times that risk), top-down (buy only while the daily chart is up too), and both. They
+do not move the verdict or the score.
+
 It never changes the rules or the size of a buy, and it cannot place an order: it has no code
 for it. What it found goes into learn.json next to the sender's state, and the sender passes
 the short form on to TradeBot (/learn in Telegram, the daily report, the phone page, the desk).
@@ -83,6 +87,17 @@ REAL_TRADES_FULL = 30  # finished real trades that count as full proof
 REAL_GAIN_FULL = 0.005  # an average real trade of +0.5% of the money spent, after costs
 CURVE_DAYS = 400  # one point a day is kept
 CURVE_SENT = 60  # the newest points TradeBot is told
+
+# Two ideas the owner asked for, and the two together. They are followed on paper next to the
+# rules that trade. They are not in FAMILY: they move neither the verdict nor the score, and
+# nothing is bought or sold by them. A change of the rules still needs every gate of the skill.
+IDEAS_SINCE = 1794848400000  # 17 November 2026, 00:00 WIB: the day they were written down
+IDEAS = [
+    {"key": "target", "name": "sell at 1:3", "target": 3.0, "daily": False},
+    {"key": "topdown", "name": "top-down (daily chart up too)", "target": None, "daily": True},
+    {"key": "both", "name": "top-down and sell at 1:3", "target": 3.0, "daily": True},
+]
+DAILY_FAST, DAILY_SLOW = 20, 50  # the averages of the daily chart that must point up
 WIB = 7 * 3600 * 1000
 
 
@@ -178,6 +193,70 @@ def replay(series: Series, rules: tuple) -> list:
         elif last_exit is not None and index - last_exit < COOLDOWN:
             continue
         elif trend_up and momentum_up and rsi_from <= strength[index] <= rsi_to:
+            order, order_stop = "buy", trail
+    return trades
+
+
+def daily_up(rows: list) -> list:
+    """For each 4-hour candle: was the daily chart up at its close? Up means the last finished
+    day closed above its slow average and the fast average is above the slow one. A day that
+    is still running is never used."""
+    days = []
+    for row in rows:
+        start = row["t"] - row["t"] % DAY
+        if days and days[-1]["t"] == start:
+            days[-1]["c"] = row["c"]
+        else:
+            days.append({"t": start, "c": row["c"]})
+    closes = [day["c"] for day in days]
+    starts = [day["t"] for day in days]
+    fast, slow = ema(closes, DAILY_FAST), ema(closes, DAILY_SLOW)
+    flags = []
+    for row in rows:
+        index = bisect.bisect_right(starts, row["t"] + FOUR_HOURS - DAY) - 1
+        flags.append(index >= 0 and slow[index] is not None and closes[index] > slow[index] and fast[index] > slow[index])
+    return flags
+
+
+def replay_idea(series: Series, rules: tuple, target=None, allowed=None) -> list:
+    """The trades of an idea: the same buy checks as replay().
+
+    allowed  one flag per candle; a buy is made only where it is True (the top-down filter)
+    target   a number like 3.0: the stop stays where it was at the buy and never moves, and the
+             coin is sold at that stop or at the price that many times the risk above the buy,
+             whichever comes first. Nothing else sells it. When one candle touches both, the stop
+             is taken: the worse of the two.
+    With neither, it trades exactly like replay()."""
+    fast_period, slow_period, regime_period, rsi_from, rsi_to, stop_atr = rules
+    rows, closes, strength, ranges = series.rows, series.closes, series.strength, series.ranges
+    fast, slow, regime = series.average(fast_period), series.average(slow_period), series.average(regime_period)
+    trades, position, order, order_stop, last_exit = [], None, None, 0.0, None
+    for index in range(max(regime_period, slow_period, ATR_PERIOD + 1), len(rows)):
+        row = rows[index]
+        if order == "buy" and position is None:
+            risk = row["o"] - order_stop
+            position = {"at": row["t"], "stop": order_stop, "target": row["o"] + target * risk if target and risk > 0 else None}
+        elif order == "sell" and position is not None:
+            trades.append((position["at"], row["t"], "signal", 1.0))
+            position, last_exit = None, index
+        order = None
+        if position is not None and row["l"] <= position["stop"]:
+            trades.append((position["at"], row["t"], "trail", min(row["o"], position["stop"]) / row["o"]))
+            position, last_exit = None, index
+        elif position is not None and position["target"] is not None and row["h"] >= position["target"]:
+            trades.append((position["at"], row["t"], "target", max(row["o"], position["target"]) / row["o"]))
+            position, last_exit = None, index
+        trend_up = closes[index] > regime[index]
+        momentum_up = fast[index] > slow[index]
+        trail = closes[index] - stop_atr * ranges[index]
+        if position is not None:
+            if not target:
+                position["stop"] = max(position["stop"], trail)
+                if not momentum_up or not trend_up:
+                    order = "sell"
+        elif last_exit is not None and index - last_exit < COOLDOWN:
+            continue
+        elif trend_up and momentum_up and rsi_from <= strength[index] <= rsi_to and (allowed is None or allowed[index]):
             order, order_stop = "buy", trail
     return trades
 
@@ -361,6 +440,34 @@ def study(signal_rows: list, price_rows: list, order_idr: float, stop_percent: f
         "challenger": shown,
         "verdict": verdict,
     }
+    # The owner's ideas, on paper: the same prices, costs and unseen half years as the rules that trade.
+    allowed, ideas = None, []
+    for idea in IDEAS:
+        if idea["daily"] and allowed is None:
+            allowed = daily_up(signal_rows)
+        _, idea_values, idea_results = copy_trades(replay_idea(series, LIVE, idea["target"], allowed if idea["daily"] else None), price_rows, order_idr, stop_percent, cost, slip, TEST_FROM)
+        idea_peak = idea_dip = 0.0
+        for value in idea_values:
+            idea_peak = max(idea_peak, value)
+            idea_dip = min(idea_dip, value - idea_peak)
+        idea_since = max(IDEAS_SINCE, first)
+        ideas.append({
+            "key": idea["key"],
+            "name": idea["name"],
+            "trades": len(idea_results),
+            "wins": round(100 * sum(1 for _, result in idea_results if result > 0) / len(idea_results)) if idea_results else 0,
+            "perYear": round(idea_values[-1] / years) if years > 0 else 0,
+            "dip": round(idea_dip),
+            "unseen": round(sum(at(idea_values, window["to"]) - at(idea_values, window["from"]) for window in windows)),
+            "since": {
+                "from": idea_since,
+                "days": int(max(0, last - idea_since) // DAY),
+                "trades": sum(1 for sold, _ in idea_results if sold > idea_since),
+                "lead": round((at(idea_values, last) - at(idea_values, idea_since)) - change(LIVE, idea_since, last)),
+            },
+        })
+    summary["ideas"] = ideas
+
     # 5. the score, and its curve over the days
     unseen_years = sum(window["to"] - window["from"] for window in windows) / (365.25 * DAY)
     score = skill(live_unseen, unseen_years, order_idr, summary["yearUp"], summary["perYear"], summary["dip"], real)
@@ -390,6 +497,11 @@ def words(summary: dict) -> list:
     challenger = summary["challenger"]
     if challenger:
         lines.append(f"Watching another version ({challenger['rules']}) for {challenger['days']} days: {challenger['trades']} trades, {bridge.signed_rp(challenger['lead'])} against the rules that trade.")
+    for idea in summary.get("ideas") or []:
+        lines.append(
+            f"On paper only, {idea['name']}: {idea['trades']} trades, {idea['wins']} of 100 won, about {bridge.signed_rp(idea['perYear'])} a year, deepest dip {bridge.signed_rp(idea['dip'])}, "
+            f"unseen half years {bridge.signed_rp(idea['unseen'])}."
+        )
     score = summary.get("score")
     if score:
         parts = score["parts"]

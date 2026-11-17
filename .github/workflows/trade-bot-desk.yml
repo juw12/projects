@@ -75,6 +75,10 @@ jobs:
           window = subprocess.run([str(app), "--demo", "--shot", "4", "--tab", "study"], cwd=folder, timeout=120)
           assert window.returncode == 0, f"the window ended with {window.returncode}"
 
+          # The Agents tab too: six agents, the chart and the feed, drawn from made-up candles.
+          agents_tab = subprocess.run([str(app), "--demo", "--shot", "4", "--tab", "agents"], cwd=folder, timeout=120)
+          assert agents_tab.returncode == 0, f"the Agents tab ended with {agents_tab.returncode}"
+
           # The sender inside the app talks through a pipe, though the app has no console.
           (folder / ".env").write_text("INDODAX_BRIDGE_KEY=\n", encoding="utf-8")
           sender = subprocess.run([str(app), "--sender", "--show"], cwd=folder, capture_output=True, timeout=120)
