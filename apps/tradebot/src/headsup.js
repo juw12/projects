@@ -7,8 +7,8 @@
 //
 // Nothing here orders, and nothing here guesses where the price goes. It is arithmetic on the
 // numbers the rules use; test/headsup.test.js checks every level against decideAt itself. The
-// "earliest" time is the first candle at which a steady move would pass the checks: a lower
-// bound to plan around, not a forecast.
+// "earliest" time is the first candle at which one of a few plain moves (steady, or a climb with
+// pullbacks) would pass the checks: a lower bound to plan around, not a forecast.
 
 import { TIMEFRAMES } from "./market.js";
 import { PARAMS, computeSeries, decideAt } from "./strategy.js";
@@ -18,6 +18,16 @@ export const LOOK_AHEAD = 60; // candles the estimate looks ahead (10 days of 4-
 // Steady moves tried for the estimate, in usual candle moves (ATR) per candle. A climb faster
 // than one usual move at every candle is not tried: nothing climbs like that for long.
 export const PACES = [0, 0.1, -0.1, 0.2, -0.2, 0.35, -0.35, 0.5, 0.75, 1];
+// The shapes a move is tried in: [candles up, candles down, the share of one up-candle that one
+// down-candle gives back]. The first is a straight line. The others breathe: a climb with no
+// pullback at all pushes RSI over its top, so the rules never buy on a straight climb from a weak
+// market, while a real climb, with pullbacks, keeps RSI inside its band.
+export const SHAPES = [
+  [1, 0, 0],
+  [1, 1, 0.5],
+  [2, 1, 0.8],
+];
+export const MAX_STEP = 2; // no candle of a tried move is larger than this many usual moves
 
 // Wilder's average gain and loss at the last close: what rsi() carries from candle to candle.
 function wilder(closes, period) {
@@ -75,32 +85,54 @@ export function checksAt(found, price) {
   return { trend: price > found.trend, momentum: price > found.momentum, rsi: price >= found.rsiMin && price <= found.rsiMax };
 }
 
-// The first candle at which a steady move from the price now would pass all 3 checks.
+// The closing prices of one tried move: `steps` candles from `price`, net `pace` usual moves
+// (`range`) per candle, in the given shape. null when the shape cannot make that pace (a breathing
+// shape only climbs) or would need a candle larger than MAX_STEP usual moves.
+export function pathOf({ price, range, pace, shape, steps }) {
+  const [ups, downs, back] = shape;
+  if (downs > 0 && !(pace > 0)) return null;
+  const up = ((ups + downs) * pace * range) / (ups - downs * back);
+  if (Math.abs(up) > MAX_STEP * range) return null;
+  const closes = [];
+  let close = price;
+  for (let step = 1; step <= steps; step++) {
+    close += (step - 1) % (ups + downs) < ups ? up : -back * up;
+    if (!(close > 0)) break;
+    closes.push(close);
+  }
+  return closes;
+}
+
+// The first candle at which a plain move from the price now would pass all 3 checks.
 //   at = when the forming candle closes; from = no buy before this time (the wait after a sale)
-// Returns { at, candles, price, pct, pace } or null when no steady move tried gets there.
+// Returns { at, candles, price, pct, pace, waves, shape } or null when no move tried gets there.
+//   waves  the move that got there breathes (a climb with pullbacks), not a straight line
+// Of two moves that get there at the same candle, the plainer and gentler one is kept.
 export function earliest({ closed, price, at, length, from = 0, params = PARAMS }) {
   const last = closed[closed.length - 1];
   const range = computeSeries(closed, params).atr[closed.length - 1];
   if (!last || !(range > 0) || !(price > 0)) return null;
   let best = null;
-  for (const pace of PACES) {
-    const candles = closed.slice();
-    let before = last.c;
-    for (let step = 1; step <= LOOK_AHEAD; step++) {
-      const close = price + step * pace * range;
-      if (!(close > 0)) break;
-      candles.push({ t: last.t + step * length, o: before, h: Math.max(before, close), l: Math.min(before, close), c: close, v: 0 });
-      before = close;
-    }
-    const series = computeSeries(candles, params);
-    for (let step = 1; step <= candles.length - closed.length; step++) {
-      if (best && step >= best.candles) break; // an earlier candle was found with a gentler move
-      const closes = at + (step - 1) * length;
-      if (closes < from) continue;
-      if (decideAt(series, closed.length - 1 + step, { position: null, barsSinceExit: null }, params).action !== "buy") continue;
-      const reached = candles[closed.length - 1 + step].c;
-      best = { at: closes, candles: step, price: reached, pct: (reached / price - 1) * 100, pace };
-      break;
+  for (const shape of SHAPES) {
+    for (const pace of PACES) {
+      const closes = pathOf({ price, range, pace, shape, steps: LOOK_AHEAD });
+      if (!closes) continue;
+      const candles = closed.slice();
+      let before = last.c;
+      closes.forEach((close, index) => {
+        candles.push({ t: last.t + (index + 1) * length, o: before, h: Math.max(before, close), l: Math.min(before, close), c: close, v: 0 });
+        before = close;
+      });
+      const series = computeSeries(candles, params);
+      for (let step = 1; step <= closes.length; step++) {
+        if (best && step >= best.candles) break; // an earlier candle was found with a plainer move
+        const due = at + (step - 1) * length;
+        if (due < from) continue;
+        if (decideAt(series, closed.length - 1 + step, { position: null, barsSinceExit: null }, params).action !== "buy") continue;
+        const reached = closes[step - 1];
+        best = { at: due, candles: step, price: reached, pct: (reached / price - 1) * 100, pace, waves: shape[1] > 0, shape };
+        break;
+      }
     }
   }
   return best;
@@ -155,7 +187,7 @@ export function headsUp({ closed, series, price, timeframe, now, position = null
   if (from > at) level = "wait";
   else if (passes) level = "likely";
   else if (open && Math.abs(needPct) <= movePct) level = "near";
-  const first = level === "likely" ? { at, candles: 1, price, pct: 0, pace: 0 } : estimate ? earliest({ closed, price, at, length, from, params }) : null;
+  const first = level === "likely" ? { at, candles: 1, price, pct: 0, pace: 0, waves: false, shape: SHAPES[0] } : estimate ? earliest({ closed, price, at, length, from, params }) : null;
   return { ...base, level, low, high, open, needPct, moves: movePct > 0 ? Math.abs(needPct) / movePct : null, from, earliest: first };
 }
 

@@ -156,11 +156,15 @@ forming, each check can be turned into a price: "this check passes if the candle
   at the price then, and one more at the close if it did not happen after all. At any hour: one
   message when the price comes within one usual move of the stop (in real mode also within 2% of
   the sender's own stop). Each sign is sent once, not at every 5-minute check.
-- **The earliest time.** For a buy that is not likely yet, the bot replays the rules on ten steady
-  moves from the price now (flat, easing, and climbing up to one usual move per candle) for the
-  next 60 candles, and names the first candle at which all 3 checks would pass. It is a lower
-  bound to plan around, and it says which move it needs. It is not a forecast: the bot does not
-  know where the price goes.
+- **The earliest time.** For a buy that is not likely yet, the bot replays the rules on a set of
+  plain moves from the price now for the next 60 candles, and names the first candle at which
+  all 3 checks would pass. The moves: ten steady ones (flat, easing, and climbing up to one usual
+  move per candle), and climbs with pullbacks (one candle up and one half back, or two up and one
+  most of the way back; no candle larger than two usual moves). The pullbacks matter: a straight
+  climb from a weak market pushes RSI over 70, so the rules never buy on it, while a real climb
+  breathes and keeps RSI in its band. The estimate is a lower bound to plan around, and it says
+  which move and which price it needs. It is not a forecast: the bot does not know where the
+  price goes.
 - **It never orders.** The heads-up is read-only. Buys and sales are still made at the close by
   the three checks, and by the stops. In real mode a buy sign is sent only when the sender would
   really buy (not paused, safety stop off, fewer coins held than the most allowed); too little
