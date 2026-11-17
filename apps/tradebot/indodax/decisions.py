@@ -18,6 +18,8 @@ Standard library only.
 from __future__ import annotations
 
 import json
+import sys
+import time
 from pathlib import Path
 
 CHECK_HOURS = (1, 4, 24)  # the price is written down this long after a call
@@ -25,6 +27,7 @@ VERDICT_HOURS = 4  # a call is marked at the first mark at or after this one: th
 COST_PERCENT = 0.6  # a round trip at Indodax costs about this much (0,3 percent there and back)
 KEEP = 200  # calls kept: the oldest fall off the end
 GAP_MS = 5 * 60 * 1000  # a call that changes sooner than this is the same call, not a new one
+WEEK_DAYS = 7  # the window of the "lately" line: a week is what a weekly report asks about
 GRACE_SHARE = 0.5  # a mark is only written when the look came within half the mark of it
 LATE = " (from the candle)"  # a mark read out of the chart afterwards, because the window was closed at it
 JSON_NAME = "decisions.json"
@@ -340,6 +343,51 @@ def tally(log) -> tuple:
     return counts, f"{total} {'call' if total == 1 else 'calls'}: {said}."
 
 
+def week(log, now_ms, days: int = WEEK_DAYS) -> tuple:
+    """({mark: count}, one line) for the calls of the last days only: how the desk lead did lately."""
+    days = int(number(days)) or WEEK_DAYS
+    since = number(now_ms) - days * 24 * 3600 * 1000
+    recent = {"calls": [call for call in (log or {}).get("calls") or [] if number(call.get("at")) >= since]}
+    counts, said = tally(recent)
+    if not sum(counts.values()):
+        return counts, f"No call in the last {days} days."
+    return counts, f"Last {days} days: {said}"
+
+
+def summary(log, now_ms) -> str:
+    """The line under the heading: the whole book, and the last week's part of it once the book is older than that."""
+    counts, whole = tally(log)
+    week_counts, week_line = week(log, now_ms)
+    if sum(week_counts.values()) == sum(counts.values()):
+        return whole  # every call in the book is from the last week: one number says it
+    return f"{whole} · {week_line}"
+
+
+def main(argv=None) -> int:
+    """One line for a weekly report, read from a run folder's log:
+    python decisions.py --line [--days 7] [--folder DIR]
+    """
+    args = list(sys.argv[1:] if argv is None else argv)
+    folder, days = Path.cwd(), WEEK_DAYS
+    while args:
+        name = args.pop(0)
+        if name == "--line":
+            continue
+        elif name == "--folder" and args:
+            folder = Path(args.pop(0))
+        elif name == "--days" and args:
+            found = args.pop(0)
+            days = int(found) if found.isdigit() and int(found) > 0 else WEEK_DAYS
+        elif name in ("-h", "--help"):
+            print("python decisions.py --line [--days 7] [--folder DIR]")
+            return 0
+        else:
+            print("python decisions.py --line [--days 7] [--folder DIR]")
+            return 2
+    print(week(load(Path(folder) / JSON_NAME), time.time() * 1000, days)[1])
+    return 0
+
+
 def update(log, report, team, coin, now_ms, path=None, candles=None) -> dict:
     """Record the desk lead's call, write down the marks that have come, save when anything changed.
 
@@ -384,3 +432,7 @@ def demo(now_ms) -> dict:
     call(2, "BUY", "Buy BTC at the next check", 1_208_000_000, {1: 0.5})
     log["updated"] = number(now_ms)
     return log
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

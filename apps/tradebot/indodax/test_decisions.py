@@ -3,8 +3,11 @@
     python -m unittest          (in this folder)
 """
 
+import contextlib
+import io
 import json
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
@@ -278,6 +281,63 @@ class ReadingTheChart(unittest.TestCase):
         log = {"version": 1, "updated": 0, "calls": [missed_call()]}
         for bad in ({"15m": None}, {"15m": ["nonsense", 3]}, {"15m": [{"t": "x", "c": "y"}]}, {}, None):
             self.assertFalse(decisions.fill(log, "BTC", bad, NOW + 6 * HOUR))
+
+
+class TheWeekLine(unittest.TestCase):
+    """The line above the list: the whole book, and how the last week went once the book is older than that."""
+
+    def log(self, *calls):
+        return {"calls": list(calls)}
+
+    def test_only_the_last_seven_days_are_counted(self):
+        old = marked(moves=((1, 1.0), (4, 2.0)), at=NOW - 10 * 24 * HOUR)   # right, ten days ago
+        new = call("WAIT", at=NOW - 2 * HOUR)                                # still open
+        counts, words = decisions.week(self.log(old, new), NOW)
+        self.assertEqual((counts["right"], counts["open"]), (0, 1))
+        self.assertEqual(words, "Last 7 days: 1 call: 1 open.")
+
+    def test_a_young_book_needs_only_one_number(self):
+        # Everything in the book is from this week, so the week line would repeat it.
+        fresh = self.log(marked(moves=((1, 0.2), (4, 1.4))), call("WAIT", at=NOW - HOUR))
+        self.assertEqual(decisions.summary(fresh, NOW), decisions.tally(fresh)[1])
+
+    def test_an_older_book_says_how_the_last_week_went_too(self):
+        old = marked(moves=((1, 0.1), (4, -1.4)), at=NOW - 9 * 24 * HOUR)    # wrong, nine days ago
+        fresh = marked(moves=((1, 0.2), (4, 1.4)), at=NOW - 3 * HOUR)        # right
+        words = decisions.summary(self.log(old, fresh), NOW)
+        self.assertEqual(words, "2 calls: 1 right, 1 wrong. · Last 7 days: 1 call: 1 right.")
+
+    def test_a_week_with_no_call_says_so(self):
+        old = call("WAIT", at=NOW - 8 * 24 * HOUR)
+        self.assertEqual(decisions.week(self.log(old), NOW)[1], "No call in the last 7 days.")
+        self.assertIn("No call in the last 7 days.", decisions.summary(self.log(old), NOW))
+
+    def test_the_command_prints_the_week_line_of_a_folder(self):
+        moment = time.time() * 1000
+        log = self.log(marked(moves=((1, 0.2), (4, 1.4)), at=moment - 3 * HOUR), call("WAIT", at=moment - HOUR))
+        with tempfile.TemporaryDirectory() as folder:
+            decisions.save(Path(folder) / decisions.JSON_NAME, log)
+            out = io.StringIO()
+            with contextlib.redirect_stdout(out):
+                code = decisions.main(["--line", "--folder", folder])
+        self.assertEqual(code, 0)
+        self.assertRegex(out.getvalue().strip(), r"^Last 7 days: 2 calls: 1 right, 1 open\.$")
+
+    def test_the_command_survives_a_folder_with_no_log(self):
+        with tempfile.TemporaryDirectory() as folder:
+            out = io.StringIO()
+            with contextlib.redirect_stdout(out):
+                code = decisions.main(["--line", "--folder", folder])
+        self.assertEqual(code, 0)
+        self.assertEqual(out.getvalue().strip(), "No call in the last 7 days.")
+
+    def test_the_command_explains_itself(self):
+        for given in (["--help"], ["--nonsense"]):
+            out = io.StringIO()
+            with contextlib.redirect_stdout(out):
+                code = decisions.main(given)
+            self.assertIn("--line", out.getvalue())
+            self.assertEqual(code, 0 if given == ["--help"] else 2)
 
 
 class DeskSide(unittest.TestCase):
