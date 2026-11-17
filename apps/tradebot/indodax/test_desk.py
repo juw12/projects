@@ -394,6 +394,15 @@ class DeskTest(unittest.TestCase):
         assert desk.chart_points([(NOW, 2.0)], 330, 132)[0][0] == 30.0
         assert desk.chart_points([], 330, 132) == []
 
+    def test_the_newest_value_never_sits_on_the_numbers_of_the_scale(self):
+        # Day one: the dot is on the left edge, where "0", "5" and "10" are written.
+        first_x = desk.chart_points([(NOW, 2.3)], 330, 132)[0][0]
+        assert desk.value_anchor(first_x, 330) == (40.0, "w")
+        assert desk.value_anchor(49, 330) == (59, "w")
+        assert desk.value_anchor(50, 330) == (50, "s")
+        assert desk.value_anchor(180, 330) == (180, "s")
+        assert desk.value_anchor(300, 330) == (300, "se")
+
     def test_scores_are_said_the_indonesian_way(self):
         assert [desk.points_text(value) for value in (2.3, 1.28, 0, 10, 0.5)] == ["2,3", "1,28", "0", "10", "0,5"]
 
