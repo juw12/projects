@@ -54,8 +54,11 @@ same chat can pause the buying, see [Control from Telegram](#control-from-telegr
   while the sender is running and can reach TradeBot.
 - **Only the exact command counts.** A misspelling, or the words without the slash, is answered
   with "did you mean" and nothing is changed.
-- **Telegram cannot switch real money on,** change the order size, or sell a copy by hand. Those
-  stay in `.env` on the PC and at Indodax.
+- **Telegram cannot switch real money on** or change the order size. Those stay in `.env` on the
+  PC.
+- **In real mode the plain commands are about the real account:** `/status` shows it in short,
+  `/pause` and `/resume` are this same switch, and `/sell BTC` sells a coin held at Indodax now
+  (the sender does it on its next cycle). `/buy`, `/risk` and `/reset` are refused there.
 
 **When the sender goes quiet.** With real money in play (real mode, or a real copy still open),
 TradeBot sends one Telegram message when the sender has not reported for about 10 to 15 minutes,
@@ -322,5 +325,6 @@ warnings, the four numbers, what happens next), then the full report and the tra
 plain words. The page only shows. `/phone` again makes a new link and switches the old one off.
 
 In real mode TradeBot's Telegram messages are about Indodax only: the practice account's own
-messages are not sent, the 07:00 WIB message is the full Indodax report, and `/report`,
-`/holding`, `/analysis`, `/trades` or a plain question answer from it.
+messages are not sent, the 07:00 WIB message is the full Indodax report, and `/status`, `/report`,
+`/holding`, `/analysis`, `/trades` or a plain question answer from it. Nothing in that chat
+shows the practice account while real mode is on.

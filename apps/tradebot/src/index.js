@@ -49,7 +49,7 @@ import { DESK_MODEL, SAMPLE_BRIEF, convene } from "./desk.js";
 import { createTokocrypto } from "./exchange.js";
 import { MAX_SPREAD_PERCENT, armedBy, drain, limitsOf, liveOf, marketBlock, missingFor, venueOf } from "./live.js";
 import { createLuno } from "./luno.js";
-import { COMMANDS, handleUpdate, indodaxSymbols } from "./bot.js";
+import { COMMANDS, REAL_COMMANDS, handleUpdate, indodaxSymbols } from "./bot.js";
 import { refreshRate, rateOfState } from "./fx.js";
 import {
   backText as indodaxBack,
@@ -69,7 +69,7 @@ import { SOURCE_NAMES, createMarket } from "./market.js";
 import { changes as mt5Changes, cleanReport, wantedOf } from "./mt5.js";
 import * as render from "./render.js";
 import { createTelegram } from "./telegram.js";
-import { TWIN_COMMANDS, answer as twinAnswer, changes as twinChanges, cleanSnapshot } from "./twin.js";
+import { TWIN_COMMANDS, answer as twinAnswer, changes as twinChanges, cleanSnapshot, retired as twinRetired } from "./twin.js";
 import { VERSION, clip, errorText, json, randomHex, safeEqual, sha256Hex } from "./util.js";
 import { probeVenues } from "./venues.js";
 
@@ -576,7 +576,7 @@ export function createWorker(overrides) {
       if (copies.length) result.messages = [...(result.messages || []), ...copies];
       if (result.phone) result.messages = [...(result.messages || []), await this.phoneLink(body.origin)];
       await this.storage.put("state", state); // saved before anything is sent
-      await this.freshCommands(config, telegram);
+      await this.freshCommands(config, telegram, indodaxRealOnly(indodaxView));
       await this.keepRunning(config);
       if (callback) {
         await telegram.answerCallback(callback.id, clip(result.toast || "", 190));
@@ -688,7 +688,12 @@ export function createWorker(overrides) {
         await say("This bot is private. It only works for its owner.");
         return json({ ok: true, allowed: false });
       }
-      await this.state(); // amounts are written in rupiah once a rate is known
+      const state = await this.state(); // amounts are written in rupiah once a rate is known
+      // With real money at Indodax the twin is no longer the account to look at: say so, once per message.
+      if (indodaxRealOnly(await this.indodaxLook(state))) {
+        await say(twinRetired(config.bot ? config.bot.username : null).html);
+        return json({ ok: true, retired: true });
+      }
       await say(twinAnswer(text, { snapshot: twin.snapshot || null, at: twin.snapshotAt || 0, now: deps.now() }).html);
       return json({ ok: true });
     }
@@ -810,11 +815,12 @@ export function createWorker(overrides) {
 
     // The bot's command menu in Telegram is set again once after each new version, so new
     // commands show up without running the setup again. A failure is tried again next time.
-    async freshCommands(config, telegram) {
-      if (config.commandsFor === VERSION) return;
+    async freshCommands(config, telegram, real = false) {
+      const wanted = real ? `${VERSION}:real` : VERSION;
+      if (config.commandsFor === wanted) return;
       try {
-        await telegram.call("setMyCommands", { commands: COMMANDS });
-        await this.storage.put("config", { ...(await this.config()), commandsFor: VERSION });
+        await telegram.call("setMyCommands", { commands: real ? REAL_COMMANDS : COMMANDS });
+        await this.storage.put("config", { ...(await this.config()), commandsFor: wanted });
       } catch (error) {
         console.log("command menu not set: " + clip(errorText(error), 200));
       }

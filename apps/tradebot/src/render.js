@@ -263,6 +263,9 @@ export function proposal(symbol, offer, usd, account, settings) {
   lines.push(...deskLines(offer.desk));
   return {
     html: lines.join("\n"),
+    // For the Indodax report in real mode (indodax.js), which writes its own first lines.
+    symbol,
+    tail: lines.slice(3),
     buttons: [
       [
         { text: "✅ Approve", data: `ok:${symbol}` },

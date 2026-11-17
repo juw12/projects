@@ -1046,7 +1046,7 @@ test("indodax: /indodax pause and resume set a flag the sender reads, and a near
   await post(indodaxReport({ mode: "real", keys: true }));
   await say("/indodax pause");
   assert.match(await say("/indodax resume"), /REAL MONEY<\/b> mode: the next copy is bought with your own rupiah, Rp50\.000 per buy[\s\S]*has not passed the check on the PC/);
-  assert.match(await say("/help"), /\/indodax pause stops its new buys, \/indodax resume allows them again/);
+  assert.match(await say("/help"), /\/pause no new buys \(what you hold is still watched and sold\) · \/resume allows buying again/);
 });
 
 test("indodax: a sender that goes quiet with real money in play is told once, and so is its return", async () => {
@@ -1253,4 +1253,171 @@ test("indodax in real money: practice messages stop, the report is complete, and
   assert.notEqual(second, first);
   assert.equal((await page(first)).status, 403, "the old link is dead");
   assert.equal((await page(second)).status, 200);
+});
+
+test("indodax in real money: every command is about the real account, and nothing is said about practice", async () => {
+  const { call, pair, say, tap, round, now, sent, storage, twinConnect, twinSay } = await harness();
+  await pair();
+  now.advance(TICK_MS);
+  await round(); // the book buys BTC here, before the sender is in real mode
+  const { bridgeKey } = (await call("POST", "/v1/indodax/setup", INDODAX_SETUP)).body;
+  const key = { "X-Indodax-Key": bridgeKey };
+  const post = (body) => call("POST", "/v1/indodax/report", { headers: key, body });
+  const wanted = async () => (await call("GET", "/v1/indodax/signals", { headers: key })).body.wanted.map((item) => item.symbol);
+  const book = async () => (await storage().get("state"));
+  const real = indodaxReport({ mode: "real", keys: true, checked: true, orderIdr: 20000, maxOpen: 1, cash: 50000, market: [{ coin: "btc", bid: 1650000000, ask: 1651000000 }] });
+  assert.equal((await post(real)).status, 200);
+  const heard = [];
+  const ask = async (text) => {
+    const answer = await say(text);
+    heard.push(`${text} -> ${answer}`);
+    return answer;
+  };
+
+  // /status is the real account: the sender's own numbers, and what happens next.
+  const status = await ask("/status");
+  assert.match(status, /Indodax: status<\/b> · ⚠️ <b>REAL MONEY/);
+  assert.match(status, /Free rupiah at Indodax: <b>Rp50\.000<\/b> · enough for 2 buys of Rp20\.000/);
+  assert.match(status, /No coin\. All the money is in rupiah\./);
+  assert.match(status, /Result so far: <b>REAL<\/b> Rp0/);
+  assert.match(status, /Next: I judge each coin when the 4h candle closes/);
+  assert.match(status, /Last heard from the sender/);
+  assert.match(status, /\/report has everything/);
+  assert.equal(/History|Money put in|Self-study/.test(status), false, "short: the long parts stay in /report");
+  assert.match(await ask("status"), /I read that as \/status[\s\S]*Indodax: status/);
+  assert.match(await ask("/stats"), /I read \/stats as \/status[\s\S]*Indodax: status/);
+  assert.match(await ask("/indodax"), /Indodax: status/);
+  assert.match(await ask("/live"), /Indodax: status/);
+
+  // /help and /start tell how the real money is traded, with the commands that are about it.
+  for (const word of ["/help", "/start"]) {
+    const help = await ask(word);
+    assert.match(help, /REAL MONEY<\/b> at Indodax/);
+    assert.match(help, /buys Rp20\.000 of the coin at Indodax/);
+    assert.match(help, /\/status the real account in short/);
+    assert.match(help, /Buying by hand \(\/buy\) is off/);
+    assert.equal(/\/reset|\/risk|\/backtest|\/live/.test(help), false, help);
+  }
+
+  // The book's own views give way to the real ones.
+  assert.match(await ask("/signals"), /Indodax: market and signals[\s\S]*Rp1\.650\.000\.000/);
+  assert.match(await ask("/history"), /Indodax: history[\s\S]*No real trade is finished yet\./);
+  assert.match(await ask("/backtest BTC"), /Indodax: what I learned/);
+
+  // Nothing is bought, resized or erased by hand.
+  const before = await book();
+  assert.deepEqual(Object.keys(before.portfolio.positions), ["BTCUSDT"]);
+  assert.match(await ask("/buy ETH 2jt"), /Nothing was bought\. Buying by hand is off while real money is on[\s\S]*Rp20\.000 per buy/);
+  assert.match(await ask("/buy"), /Nothing was bought/);
+  assert.match(await ask("/bu ETH"), /Nothing was bought/, "a near miss is refused the same way");
+  assert.match(await ask("/risk 5"), /Nothing was changed\.[\s\S]*Rp20\.000 per buy, at most 1 open/);
+  assert.match(await ask("/reset 100jt"), /Nothing was erased\. Your Indodax account cannot be reset from here/);
+  assert.equal(sent.filter((entry) => entry.method === "sendMessage").pop().reply_markup, undefined, "no button to start over");
+  const pressed = await tap("reset:10000", "Start over?");
+  assert.match(pressed[0].text, /Nothing was erased/);
+  const after = await book();
+  assert.deepEqual(after.portfolio, before.portfolio);
+  assert.equal(after.settings.riskPct, before.settings.riskPct);
+  assert.equal(after.trades.length, before.trades.length);
+
+  // /pause and /resume are the one switch the sender reads; /resume also lifts an older pause.
+  assert.match(await ask("/pause"), /⏸ <b>Indodax buying is paused\.<\/b>[\s\S]*\/resume allows buying again\./);
+  assert.equal((await call("GET", "/v1/status")).body.indodax.paused, true);
+  assert.equal((await book()).settings.paused, false);
+  assert.match(await ask("/status"), /Next: Buying is paused, so nothing is bought\.[\s\S]*⏸ Buying is paused\. \/resume allows it again\./);
+  const older = await book();
+  older.settings.paused = true;
+  await storage().put("state", older);
+  assert.match(await ask("/resume"), /▶️ <b>Indodax buying is allowed again\.<\/b>[\s\S]*REAL MONEY<\/b> mode/);
+  assert.equal((await call("GET", "/v1/status")).body.indodax.paused, false);
+  assert.equal((await book()).settings.paused, false);
+  assert.match(await ask("pause"), /Did you mean <code>\/pause<\/code>\? Nothing was done/, "a guess never stops or allows buying");
+
+  // /sell is about coins held at Indodax. With none, nothing is done, whatever the book holds.
+  assert.match(await ask("/sell BTC"), /You hold no coin at Indodax right now, so there is nothing to sell\. Nothing was done/);
+  assert.match(await ask("/sell all"), /You hold no coin at Indodax right now/);
+  assert.deepEqual(await wanted(), ["BTCUSDT"]);
+  const holding = { ...real, cash: 30000, positions: [{ symbol: "BTCUSDT", pair: "btc_idr", real: true, quantity: 0.000012, spent: 20000, price: 1651000000, now: 1650000000, value: 19988, openedAt: now() - 60000 }] };
+  assert.equal((await post(holding)).status, 200);
+  assert.match(await ask("/status"), /<b>BTC<\/b> · <b>REAL MONEY<\/b>[\s\S]*Next: You hold 1 coin at Indodax, the most at one time/);
+  assert.match(await ask("/sell"), /Say what to sell: <code>\/sell BTC<\/code> or <code>\/sell all<\/code>\. At Indodax you hold: BTC\./);
+  assert.match(await ask("/sell ETH"), /You hold no ETH at Indodax, so nothing was sold\. You hold: BTC\./);
+  assert.deepEqual(await wanted(), ["BTCUSDT"]);
+  const selling = await ask("/sell BTC");
+  assert.match(selling, /Selling BTC at Indodax<\/b> · ⚠️ <b>REAL MONEY<\/b>\nThe sender on your PC sells it within about a minute/);
+  assert.match(selling, /\/pause stops new buys/);
+  assert.deepEqual(await wanted(), [], "the sender now sells it");
+  assert.match(await ask("/sell all"), /Selling BTC at Indodax/, "asked again before the sender has sold: still on its way");
+
+  // Not one answer mentions practice or pretend money.
+  for (const word of ["/report", "/holding", "/analysis", "/trades", "/plan", "/learn", "/auto", "/watchlist", "hello there", "/nonsense"]) await ask(word);
+  for (const line of heard) assert.equal(/pretend|practice/i.test(line), false, line);
+
+  // The command menu in Telegram follows: only what is about the real account.
+  const menu = sent.filter((entry) => entry.method === "setMyCommands").pop().commands.map((entry) => entry.command);
+  assert.deepEqual(menu, ["status", "report", "holding", "analysis", "trades", "plan", "learn", "phone", "pause", "resume", "sell", "auto", "help"]);
+  const menus = sent.filter((entry) => entry.method === "setMyCommands").length;
+  await ask("/status");
+  assert.equal(sent.filter((entry) => entry.method === "setMyCommands").length, menus, "set once, not with every message");
+
+  // The twin's bot showed the practice twin: it now says so and points at the real account.
+  await twinConnect();
+  const twin = await twinSay("/status");
+  assert.match(twin, /This bot is retired/);
+  assert.match(twin, /open @juwen_trade_bot and send \/status/);
+  assert.equal(/Rp|\$/.test(twin), false, "no practice numbers");
+
+  // Back in practice, the book is shown again and the full menu returns.
+  assert.equal((await post(indodaxReport())).status, 200);
+  assert.match(await say("/status"), /Practice account/);
+  assert.ok(sent.filter((entry) => entry.method === "setMyCommands").pop().commands.some((entry) => entry.command === "reset"));
+  assert.match(await twinSay("/help"), /How this bot works/);
+});
+
+test("indodax in real money, ask mode: the offer and its approval are about the real buy", async () => {
+  const { call, pair, say, tap, round, sent } = await harness();
+  await pair();
+  assert.match(await say("/auto off"), /I ask you before every buy/);
+  const { bridgeKey } = (await call("POST", "/v1/indodax/setup", INDODAX_SETUP)).body;
+  const key = { "X-Indodax-Key": bridgeKey };
+  const real = indodaxReport({ mode: "real", keys: true, checked: true, orderIdr: 20000, maxOpen: 1, cash: 50000, market: [{ coin: "btc", bid: 1650000000, ask: 1651000000 }] });
+  assert.equal((await call("POST", "/v1/indodax/report", { headers: key, body: real })).status, 200);
+
+  const offer = await round();
+  assert.match(offer, /Buy BTC at Indodax\?<\/b> · ⚠️ <b>REAL MONEY<\/b>\nRp20\.000 of your own rupiah, at about Rp1\.651\.000\.000 per coin/);
+  assert.match(offer, /Stop: it is sold if the Indodax price falls 8% under the price paid/);
+  assert.match(offer, /Why: /);
+  assert.match(offer, /Approving lets the sender on your PC buy it within about a minute/);
+  assert.equal(/pretend|practice|of the account/i.test(offer), false, offer);
+  const keyboard = sent.filter((entry) => entry.method === "sendMessage").pop().reply_markup.inline_keyboard;
+  assert.deepEqual(keyboard[0].map((button) => button.callback_data), ["ok:BTCUSDT", "no:BTCUSDT"]);
+
+  // Paused: an approval buys nothing, and the offer is not used up.
+  await say("/pause");
+  const round2 = await tap("ok:BTCUSDT", "Buy BTC at Indodax?");
+  assert.match(round2[0].text, /Nothing was bought: buying is paused/);
+  assert.deepEqual((await call("GET", "/v1/indodax/signals", { headers: key })).body.wanted, []);
+});
+
+test("indodax in real money, ask mode: approving tells the real buy, and a skip offers no buy by hand", async () => {
+  const { call, pair, say, tap, round } = await harness();
+  await pair();
+  await say("/auto off");
+  const { bridgeKey } = (await call("POST", "/v1/indodax/setup", INDODAX_SETUP)).body;
+  const key = { "X-Indodax-Key": bridgeKey };
+  const real = indodaxReport({ mode: "real", keys: true, checked: true, orderIdr: 20000, maxOpen: 1, cash: 50000, market: [{ coin: "btc", bid: 1650000000, ask: 1651000000 }] });
+  assert.equal((await call("POST", "/v1/indodax/report", { headers: key, body: real })).status, 200);
+  await round();
+
+  // The first message in real mode also sets the short menu; that call is not part of the answer.
+  const approved = (await tap("ok:BTCUSDT", "Buy BTC at Indodax?")).filter((entry) => entry.method !== "setMyCommands");
+  assert.deepEqual(approved.map((entry) => entry.method), ["answerCallbackQuery", "editMessageText", "sendMessage"]);
+  assert.match(approved[0].text, /Approved BTC\. The sender on your PC buys it at Indodax\./);
+  assert.match(approved[1].text, /Approved \d\d:\d\d WIB: the sender on your PC buys it at Indodax within about a minute/);
+  assert.match(approved[2].text, /Approved BTC<\/b> · ⚠️ <b>REAL MONEY<\/b>[\s\S]*Rp20\.000 of your own rupiah\. I tell you when it is bought\./);
+  for (const entry of approved) assert.equal(/pretend|practice/i.test(entry.text), false, entry.text);
+  assert.deepEqual((await call("GET", "/v1/indodax/signals", { headers: key })).body.wanted.map((item) => item.symbol), ["BTCUSDT"]);
+
+  const skipped = await tap("no:ETHUSDT", "Buy ETH at Indodax?");
+  assert.equal(/\/buy/.test(skipped.map((entry) => entry.text).join("\n")), false);
 });
