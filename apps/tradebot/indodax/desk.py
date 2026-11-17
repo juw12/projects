@@ -194,7 +194,7 @@ class Server:
         self.env_path = env_path
 
     def _api(self):
-        settings = bridge.load_settings(self.env_path)
+        settings = bridge.reachable(bridge.load_settings(self.env_path))
         if not settings.key:
             raise bridge.ApiError("INDODAX_BRIDGE_KEY is empty in .env")
         return bridge.Api(settings)

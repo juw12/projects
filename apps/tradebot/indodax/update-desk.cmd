@@ -13,11 +13,19 @@ if not errorlevel 1 (
     exit /b 1
 )
 
-rem The proxy of the sender, when .env names one.
-if not defined HTTPS_PROXY for /f "usebackq tokens=1,* delims==" %%a in (`findstr /b /i "HTTPS_PROXY=" ".env" 2^>nul`) do set "HTTPS_PROXY=%%b"
+rem The proxy of the sender, when .env names one. The PC's own HTTPS_PROXY goes first;
+rem when the download fails through it, the .env one is tried.
+set "FILE_PROXY="
+for /f "usebackq tokens=1,* delims==" %%a in (`findstr /b /i "HTTPS_PROXY=" ".env" 2^>nul`) do set "FILE_PROXY=%%b"
+if not defined HTTPS_PROXY set "HTTPS_PROXY=%FILE_PROXY%"
 
 echo Downloading the newest TradeBot.exe ...
 curl.exe -fL --retry 3 --retry-delay 2 -o "TradeBot.new.exe" "%FROM%"
+if errorlevel 1 if defined FILE_PROXY if not "%FILE_PROXY%"=="%HTTPS_PROXY%" (
+    echo Trying the other proxy ...
+    set "HTTPS_PROXY=%FILE_PROXY%"
+    curl.exe -fL --retry 3 --retry-delay 2 -x "%FILE_PROXY%" -o "TradeBot.new.exe" "%FROM%"
+)
 if errorlevel 1 (
     del "TradeBot.new.exe" 2>nul
     echo The download did not work. Nothing was changed.

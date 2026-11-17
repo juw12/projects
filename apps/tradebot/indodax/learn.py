@@ -511,7 +511,7 @@ def main(argv=None) -> int:
     args = parser.parse_args(argv)
 
     try:
-        settings = bridge.load_settings(args.env)
+        settings = bridge.reachable(bridge.load_settings(args.env))
     except bridge.SettingsError as error:
         print(f"Settings: {error}")
         return 2
