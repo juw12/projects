@@ -71,6 +71,7 @@ exchange takes) and are shown as USDT with rupiah beside them; `/live size 200rb
 | `/mt5` | The MetaTrader 5 demo account the PC bridge copies to: balance, open copies, how old the numbers are. See [MetaTrader 5](#metatrader-5-demo-account-only) |
 | `/indodax` | The copies at Indodax in rupiah, made by the sender on your PC: open copies, result, how old the numbers are. See [Indodax](#indodax-rupiah-through-a-sender-on-your-pc-practice-first) |
 | `/holding`, `/analysis`, `/trades` | Indodax: what is held and the free rupiah; the market and what the strategy needs before it buys or sells; each finished buy and sale |
+| `/plan` | Indodax with real money: the plan's stage, the money put in, what it is worth now, and the range a test on past prices gave for 1, 3, 6 and 12 months (not a promise) |
 | `/phone` | A private link to a live page for your phone (read-only). A new `/phone` switches the old link off |
 | `/indodax pause`, `/indodax resume` | Stop or allow new buys at Indodax (open copies are still sold). The sender reads it within a minute |
 | `/reset` | Start over with fresh practice money (asks first) |
@@ -243,6 +244,15 @@ stop, and posts the copies back (`POST /v1/indodax/report`) for `/indodax` in Te
   sent; the 07:00 WIB message is the full Indodax report (free rupiah, holdings, market, what is
   needed before a buy or a sale, history, result). An offer to buy is still sent, and says that
   approving it also buys with real money.
+- **A plan for a small account.** With real money and the free rupiah reported, the report carries
+  a plan block (`/plan` shows it alone): money put in, worth now, the stage (protect the money
+  first; a bigger buy only after the account earned 10%, two at once after 30%; never raised by
+  itself), and what a test of the same rules gave on past prices. That test
+  (`tools/plan_backtest.py`: BTC, March 2020 to November 2026, 213 trades, Rp20.000 per buy,
+  Indodax prices, about 0.9% costs per trade) won 30 trades in 100 and made about Rp4.600 a year,
+  with a worst year of -Rp9.100. Over 12 months the middle result was +Rp5.000 and 1 start in 10
+  lost Rp4.500 or more. Adding ETH and SOL to the one slot made the test worse, so it trades BTC
+  only. A past result is not a promise.
 - **One window on the PC.** `indodax/desk.py` runs the sender hidden and shows the same report
   (`indodax/test_desk.py` tests the parts without a window).
 

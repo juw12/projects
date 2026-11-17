@@ -432,9 +432,107 @@ function needLines(view, extra) {
   return lines;
 }
 
+// A minute in which the sender could not read the balance (the office network drops a call now
+// and then) comes without the free rupiah. The figure read a moment ago is still right as long as
+// nothing was bought or sold since, so it is kept for a short while instead of blanking the
+// report and the plan. cashAt = when the sender last really read it.
+export const CASH_KEPT_MS = 15 * 60 * 1000;
+
+export function keepCash(previous, next, cashAt, now) {
+  if (!next || next.cash !== null || !previous || previous.cash === null) return next;
+  if (next.mode !== "real" || previous.mode !== "real") return next;
+  if (!(cashAt > 0) || now - cashAt > CASH_KEPT_MS) return next;
+  const copies = (report) => report.positions.map((position) => `${position.symbol}:${position.openedAt}:${position.spent}`).join("|");
+  const same = copies(previous) === copies(next) && newest(previous) === newest(next) && previous.result.real === next.result.real;
+  return same ? { ...next, cash: previous.cash } : next;
+}
+
+// ---------------------------------------------------------------- the plan
+
+// The plan for a small real account: protect the money first, raise the size of a buy only after
+// the account has grown. The ranges come from a test of these exact rules on past prices
+// (tools/plan_backtest.py): BTC only, one fixed-size buy at a time, the sender's stop, Indodax
+// candles for the prices, about 0.9% costs for each buy-and-sell. They are what the test gave
+// for every start day in that period: low = 1 in 10 did worse, high = 1 in 10 did better.
+// A past result is not a promise.
+export const PLAN = {
+  tested: "BTC, March 2020 to November 2026, 213 trades",
+  perBuy: 20000, // the size of a buy in the test; the results grow and shrink with it
+  wins: 30, // % of the test's trades that ended with a gain
+  usualLoss: 500, // rupiah lost by an average losing trade
+  worstLoss: 1700, // rupiah lost by the worst trade (the sender's stop, costs included)
+  worstYear: -9100, // 2022
+  bestYear: 14400, // 2020
+  spans: [
+    { name: "1 month", low: -1700, middle: -200, high: 3700 },
+    { name: "3 months", low: -2700, middle: 0, high: 6600 },
+    { name: "6 months", low: -3600, middle: 1500, high: 9400 },
+    { name: "12 months", low: -4500, middle: 5000, high: 18200 },
+  ],
+  // Stages by the change of the real money since it was put in, in percent.
+  floorPct: -20,
+  stages: [
+    { from: -Infinity, name: "protect the money", rule: "one small buy at a time, only in an uptrend" },
+    { from: 10, name: "a little bigger", rule: "the account earned 10%: a buy can grow by half, still one at a time" },
+    { from: 30, name: "more at once", rule: "the account earned 30%: two buys can be open at once" },
+  ],
+};
+
+// Where the real money stands: { putIn, worth, change, pct, stage, scale } or null when the
+// sender does not report the free rupiah, or not in real mode.
+//   put in = free rupiah + what the open real copies cost - the real result so far
+//   worth  = free rupiah + what the open real copies are worth now
+// A top-up or a withdrawal moves both by the same amount, so the change stays the trading result.
+export function planFigures(report) {
+  if (!report || report.mode !== "real" || report.cash === null) return null;
+  const open = report.positions.filter((position) => position.real);
+  const spent = open.reduce((sum, position) => sum + position.spent, 0);
+  const value = open.reduce((sum, position) => sum + (position.now > 0 ? position.value : position.spent), 0);
+  const putIn = report.cash + spent - report.result.real;
+  const worth = report.cash + value;
+  if (!(putIn > 0)) return null;
+  const change = worth - putIn;
+  const pct = (change / putIn) * 100;
+  let stage = 0;
+  PLAN.stages.forEach((item, index) => {
+    if (pct >= item.from) stage = index;
+  });
+  return { putIn, worth, change, pct, stage, floor: pct <= PLAN.floorPct, scale: report.orderIdr > 0 ? report.orderIdr / PLAN.perBuy : 1 };
+}
+
+const roundRp = (value) => Math.round(value / 100) * 100;
+
+function planLines(report) {
+  const figures = planFigures(report);
+  if (!figures) return [];
+  const { putIn, worth, change, stage, scale } = figures;
+  const now = PLAN.stages[stage];
+  const next = PLAN.stages[stage + 1];
+  const lines = [
+    "<b>Plan</b>",
+    `Stage ${stage + 1} of ${PLAN.stages.length}: ${now.name}`,
+    `Money put in: ${rp(putIn)} · worth now: <b>${rp(worth)}</b> (${signedRp(change)}, ${pct(figures.pct)})`,
+    `Rule now: ${now.rule}. ${rp(report.orderIdr)} per buy, so a losing trade costs about ${rp(roundRp(PLAN.usualLoss * scale))} and at most about ${rp(roundRp(PLAN.worstLoss * scale))}.`,
+  ];
+  if (figures.floor) {
+    lines.push(`⚠️ The account is ${Math.abs(PLAN.floorPct)}% or more under what was put in. <code>/indodax pause</code> stops new buys while the plan is looked at again.`);
+  } else if (next) {
+    lines.push(`Next stage at ${rp(roundRp(putIn * (1 + next.from / 100)))} (${next.name}). The size of a buy is never raised by itself: it is changed on the PC. If it falls to ${rp(roundRp(putIn * (1 + PLAN.floorPct / 100)))}, buying should stop and the plan be looked at again.`);
+  } else {
+    lines.push(`This is the last stage. If it falls to ${rp(roundRp(putIn * (1 + PLAN.floorPct / 100)))}, buying should stop and the plan be looked at again.`);
+  }
+  lines.push(`What a test on past prices gave from here (${PLAN.tested}; <b>not a promise</b>):`);
+  for (const span of PLAN.spans) {
+    lines.push(`• ${span.name}: ${rp(roundRp(worth + span.low * scale))} to ${rp(roundRp(worth + span.high * scale))}, middle ${rp(roundRp(worth + span.middle * scale))}`);
+  }
+  lines.push(`In that test ${PLAN.wins} of 100 trades won: many small losses, a few bigger gains. Best year ${signedRp(roundRp(PLAN.bestYear * scale))}, worst year ${signedRp(roundRp(PLAN.worstYear * scale))}.`);
+  return lines;
+}
+
 const TOPICS = {
-  all: ["cash", "holding", "market", "need", "history", "result", "warnings", "sender"],
+  all: ["cash", "holding", "plan", "market", "need", "history", "result", "warnings", "sender"],
   holding: ["cash", "holding", "result", "warnings", "sender"],
+  plan: ["cash", "plan", "result", "warnings", "sender"],
   analysis: ["market", "need", "warnings", "sender"],
   trades: ["history", "result", "sender"],
 };
@@ -450,6 +548,7 @@ export function fullReport(view, extra = null, topic = "all") {
   const shown = real ? { ...report, closed: report.closed.filter((entry) => entry.real || entry.how !== "sold") } : report;
   const parts = {
     cash: cashLines(report),
+    plan: planLines(report),
     holding: ["<b>Holding now</b>", ...(report.positions.length ? report.positions.map((position) => holdingLine(position, report)) : [real ? "No coin. All the money is in rupiah." : "No coin."])],
     market: report.market.length ? ["<b>Market</b>", ...marketLines(report, extra && extra.rows)] : [],
     need: ["<b>What I need before I buy or sell</b>", ...needLines(view, extra)],
@@ -463,7 +562,7 @@ export function fullReport(view, extra = null, topic = "all") {
     ],
     sender: heard(view),
   };
-  const title = { all: "Indodax report", holding: "Indodax: what you hold", analysis: "Indodax: market and signals", trades: "Indodax: history" }[topic] || "Indodax report";
+  const title = { all: "Indodax report", holding: "Indodax: what you hold", analysis: "Indodax: market and signals", trades: "Indodax: history", plan: "Indodax: the plan" }[topic] || "Indodax report";
   const lines = [
     `📋 <b>${title}</b> · ${real ? "⚠️ <b>REAL MONEY</b>" : "practice (pretend money)"} · ${clock(view.now)}`,
     `Each buy: ${rp(report.orderIdr)} · at most ${report.maxOpen} open · stop: ${report.stopPercent}% under the price paid`,
@@ -509,6 +608,7 @@ export function viewData(view, extra = null) {
     paused: view.paused === true,
     report: view.report || null,
     signals: rows,
+    plan: planFigures(view.report || null),
     words: plainWords(extra),
     text: fullReport(view, extra).html.replace(/<[^>]+>/g, "").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&"),
   };
