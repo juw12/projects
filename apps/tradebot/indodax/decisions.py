@@ -31,7 +31,8 @@ JSON_NAME = "decisions.json"
 KINDS = ("BUY", "HOLD", "SELL", "WAIT")
 MARK_GLYPHS = {"right": "✓", "wrong": "✗", "flat": "·", "open": "…", "unseen": "–"}
 GUIDE = (
-    "How this is marked: the price at Indodax when the call was made against the price 1, 4 and 24 hours later. "
+    "How this is marked: the price at Indodax when the call was made against the price 1, 4 and 24 hours later "
+    "(what one coin cost then, the ask you would pay; a mark read out of the candle is that candle's last trade, a hair under it). "
     "A buy or a hold is right when the price rose by more than the 0,6% a round trip costs, "
     "a sell when it fell that far, a wait when it did not rise that far. A call is marked at the 4-hour mark: that is the candle the rules work on. "
     "A mark is only written when the window was open at it; a mark the window was closed for is read afterwards out of the candle of that hour, and the line says so. "
