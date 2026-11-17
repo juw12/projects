@@ -58,6 +58,7 @@ import {
   fullReport as indodaxFull,
   onlyReal as indodaxOnlyReal,
   phonePage as indodaxPhonePage,
+  plainWords as indodaxPlainWords,
   realOnly as indodaxRealOnly,
   silentAlert as indodaxSilent,
   viewData as indodaxViewData,
@@ -880,7 +881,8 @@ export function createWorker(overrides) {
         return json({ ok: false, error: "not allowed" }, 403);
       }
       const { view, extra } = await this.indodaxSeen();
-      return json({ ok: true, page: indodaxPhonePage(indodaxFull({ ...view, now: deps.now() }, extra).html, deps.now()) });
+      const seen = { ...view, now: deps.now() };
+      return json({ ok: true, page: indodaxPhonePage(indodaxFull(seen, extra).html, seen.now, seen, indodaxPlainWords(extra)) });
     }
   }
 
