@@ -57,6 +57,25 @@ A stopped sender, a paused buy, a safety stop or "no fresh signal" is about this
 the price, so it is not a call and is not written down. Repeating the same call does not add a
 line; a call that changes inside five minutes is treated as one call, so the log stays readable.
 
+### The line above the list
+
+The line above the list is the whole book — for example `2 calls: 1 right, 1 open.` Once the book
+is older than a week it also says how the last 7 days went, so a long record does not hide how the
+desk lead is doing lately:
+
+```
+6 calls: 4 right, 1 wrong, 1 flat. · Last 7 days: 2 calls: 1 right, 1 open.
+```
+
+A weekly report can read that same number without opening the window:
+
+```
+python decisions.py --line --folder "E:\Projects\tradebot-indodax-run"
+Last 7 days: 2 calls: 1 right, 1 open.
+```
+
+(`--days 30` widens the window; the command only reads `decisions.json` and changes nothing.)
+
 ### How a call is marked
 
 - **When:** at the **4-hour mark**, the candle the rules work on. The 1-hour and 24-hour marks

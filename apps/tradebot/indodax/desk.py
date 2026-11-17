@@ -41,7 +41,7 @@ import agents
 import bridge
 import decisions
 
-VERSION = "0.17.3"  # the same number as apps/tradebot/package.json
+VERSION = "0.17.4"  # the same number as apps/tradebot/package.json
 FROZEN = bridge.FROZEN  # True inside TradeBot.exe
 HERE = bridge.HERE
 APP_NAME = "tradebot.exe"
@@ -1071,7 +1071,8 @@ def open_window(args) -> int:
     def draw_agent():
         member = seen["shown"].get(seen["agent"])
         logged = decisions.rows(seen["log"], 6) if seen["agent"] == "lead" and seen["log"] else []
-        signature = json.dumps([member, logged], default=str)
+        line = decisions.summary(seen["log"], time.time() * 1000) if seen["log"] else ""
+        signature = json.dumps([member, logged, line], default=str)
         if signature == seen["agent_drawn"]:
             return
         seen["agent_drawn"] = signature
@@ -1085,7 +1086,7 @@ def open_window(args) -> int:
         if seen["agent"] == "lead":
             # The call log, under the desk lead: what it said, and what the price did after. Display only.
             pieces.append(("\nThe desk lead's calls, marked later\n", ("name",)))
-            pieces.append((decisions.tally(seen["log"])[1] + "\n\n", ("muted",)))
+            pieces.append((line + "\n\n", ("muted",)))
             for row in logged:
                 pieces.append((decisions.MARK_GLYPHS.get(row["mark"], "·") + " ", ({"right": "ok", "wrong": "bad"}.get(row["mark"], "muted"),)))
                 pieces.append((f"{agents.clock(row['at'])} WIB\n", ("small",)))
