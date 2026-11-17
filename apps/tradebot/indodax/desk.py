@@ -534,7 +534,7 @@ def open_window(args) -> int:
     events = queue.Queue()
     server = Server(env_path)
     sender = Sender(folder, lambda line: events.put(("log", line)))
-    seen = {"view": None, "error": "", "outside": [], "restart_at": 0.0, "busy": False, "asked": 0.0, "drawn": None, "lines": [], "banner_height": 0, "resize": None, "start_later": False}
+    seen = {"view": None, "error": "", "outside": [], "restart_at": 0.0, "busy": False, "asked": 0.0, "drawn": None, "lines": [], "banner_height": 0, "resize": None, "start_later": "", "start_check": 0.0}
     try:
         traded = set(DEMO_TRADED) if demo else {coin_name(coin) for coin in bridge.load_settings(env_path).coins}
     except bridge.SettingsError:
@@ -712,7 +712,7 @@ def open_window(args) -> int:
             return "stopped"
         if demo or sender.running():
             return "here"
-        if seen["start_later"]:
+        if seen["start_later"] == "wait":
             return "waiting"
         return "outside" if outside_running() else "stopped"
 
@@ -858,16 +858,17 @@ def open_window(args) -> int:
 
     def start_sender():
         choice = start_choice(seen["outside"], local_is_fresh(read_local(report_path), time.time() * 1000))
-        if choice == "blocked":
-            seen["start_later"] = False
-            desk_line("not started: another sender is already running. Two senders must never run together.")
+        if choice != "start":
+            # The wish to run a sender here stands: pump() tries again, and each reason is said once.
+            if seen["start_later"] != choice:
+                seen["start_later"] = choice
+                desk_line(
+                    "not started: another sender is already running. Two senders must never run together. One starts here by itself when that one is gone."
+                    if choice == "blocked"
+                    else "a sender wrote its report a moment ago but none is running now. Starting one here by itself once that report is three minutes old."
+                )
             return False
-        if choice == "wait":
-            if not seen["start_later"]:
-                seen["start_later"] = True
-                desk_line("a sender wrote its report a moment ago but none is running now. Starting one here by itself once that report is three minutes old.")
-            return False
-        seen["start_later"] = False
+        seen["start_later"] = ""
         sender.start()
         desk_line("sender started (hidden, inside this window). Its first line can take a minute or two on a slow network.")
         return True
@@ -891,6 +892,7 @@ def open_window(args) -> int:
                 for pid in pids:
                     subprocess.run(["taskkill", "/PID", str(pid), "/T", "/F"], capture_output=True, creationflags=NO_WINDOW if sys.platform == "win32" else 0)
                 seen["outside"] = []
+                seen["start_later"] = ""
                 desk_line("the sender outside this window was stopped.")
                 sender.start()
                 desk_line("sender started (hidden, inside this window).")
@@ -929,8 +931,11 @@ def open_window(args) -> int:
         except queue.Empty:
             pass
         # A window reopened right after its sender was closed starts one as soon as the old report has aged.
-        if seen["start_later"] and not sender.running() and start_sender():
-            paint()
+        if seen["start_later"] and not sender.running() and time.time() >= seen["start_check"]:
+            seen["start_check"] = time.time() + 5
+            before = seen["start_later"]
+            if start_sender() or seen["start_later"] != before:
+                paint()
         # A sender that ended by itself is started again a minute later, unless its settings are wrong.
         if sender.wanted and not sender.running():
             if sender.exit_code() == 2:

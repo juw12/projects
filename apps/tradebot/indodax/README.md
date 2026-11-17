@@ -232,7 +232,8 @@ private. Good for a look around or a screenshot.
 - **Start the sender / Stop the sender.** The sender is a child of the window: closing the window
   stops it (it asks first). A sender that ends by itself is started again a minute later.
 - **Never two senders.** If a sender is already running in a console window, the desk does not
-  start a second one; "Take it over here" stops that one and runs it in the desk.
+  start a second one; "Take it over here" stops that one and runs it in the desk. When that one
+  is gone, the desk starts its own, so an open window always ends up with a running sender.
 - **Closed and opened again quickly.** The window sees the last sender's fresh report and waits
   until it is three minutes old, then starts a sender by itself. You do not need to press anything.
 - **Pause buying / Allow buying again.** The same switch as `/indodax pause` in Telegram.
