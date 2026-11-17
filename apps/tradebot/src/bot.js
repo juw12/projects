@@ -9,7 +9,18 @@ import { MAX_WATCH, approve, look, manualBuy, manualSell, newState, prices, read
 import { backtest } from "./backtest.js";
 import { TIMEFRAMES, normalizeSymbol } from "./market.js";
 import { hasRealPositions, liveCommand, liveOf, venueOf } from "./live.js";
-import { answer as indodaxAnswer, fullReport as indodaxFull, onlyReal as indodaxOnlyReal, pausedText as indodaxPaused, realOnly as indodaxRealOnly, resumedText as indodaxResumed, withDaily as withIndodaxDaily } from "./indodax.js";
+import {
+  answer as indodaxAnswer,
+  fullReport as indodaxFull,
+  isStale as indodaxStale,
+  onlyReal as indodaxOnlyReal,
+  pausedText as indodaxPaused,
+  realHelp as indodaxRealHelp,
+  realOnly as indodaxRealOnly,
+  resumedText as indodaxResumed,
+  rupiah as indodaxRupiah,
+  withDaily as withIndodaxDaily,
+} from "./indodax.js";
 import { answer as mt5Answer } from "./mt5.js";
 import * as render from "./render.js";
 import { Problem, errorText, escapeHtml } from "./util.js";
@@ -450,6 +461,138 @@ const handlers = {
   },
 };
 
+// ---------------------------------------------------------------- real money at Indodax
+
+// While the sender on the PC is in real mode this chat is about the real Indodax account only.
+// The practice book still decides each buy and sale (the sender copies it), but it is never shown
+// and never changed by hand here: these handlers take the place of the ones that would. A
+// command that is not listed stays as it is.
+export const REAL_COMMANDS = [
+  { command: "status", description: "The real account: rupiah, coins, result, what is next" },
+  { command: "report", description: "Everything in one message: money, coins, market, history" },
+  { command: "holding", description: "What you hold at Indodax and the free rupiah" },
+  { command: "analysis", description: "The market, and what I need before I buy or sell" },
+  { command: "trades", description: "Each real buy and sale with its result" },
+  { command: "plan", description: "The plan: stage, money put in, worth now, what a test gave" },
+  { command: "learn", description: "What my own study of the rules found, and its verdict" },
+  { command: "phone", description: "A private link to the live page for your phone" },
+  { command: "pause", description: "Stop new buys at Indodax" },
+  { command: "resume", description: "Allow new buys again" },
+  { command: "sell", description: "Sell a coin you hold now: /sell BTC" },
+  { command: "auto", description: "Buy alone or ask first: /auto on, /auto off" },
+  { command: "help", description: "How this works" },
+];
+
+const isReal = (ctx) => indodaxRealOnly(indodaxView(ctx));
+
+function buyOff(view) {
+  return `Nothing was bought. Buying by hand is off while real money is on: a coin is bought only when all 3 checks pass, ${indodaxRupiah(view.report.orderIdr)} per buy. /analysis shows what is still missing.`;
+}
+
+const realHandlers = {
+  async start(ctx) {
+    return { messages: [indodaxRealHelp(indodaxView(ctx), ctx.state.settings)] };
+  },
+
+  async help(ctx) {
+    return { messages: [indodaxRealHelp(indodaxView(ctx), ctx.state.settings)] };
+  },
+
+  // The real account in short. The numbers are the sender's own, read at Indodax a minute ago.
+  async status(ctx) {
+    return { messages: [indodaxFull(indodaxView(ctx), { state: ctx.state, rows: [] }, "status")] };
+  },
+
+  async signals(ctx) {
+    return indodaxPart(ctx, "analysis");
+  },
+
+  async history(ctx) {
+    return indodaxPart(ctx, "trades");
+  },
+
+  async backtest(ctx) {
+    return indodaxPart(ctx, "learn");
+  },
+
+  async live(ctx) {
+    return realHandlers.status(ctx);
+  },
+
+  async indodax(ctx, args = []) {
+    const want = String(args[0] || "").toLowerCase();
+    return INDODAX_ACTS.has(want) ? realHandlers[want](ctx) : realHandlers.status(ctx);
+  },
+
+  async buy(ctx) {
+    return say(buyOff(indodaxView(ctx)));
+  },
+
+  async risk(ctx) {
+    const { report } = indodaxView(ctx);
+    return say(
+      `Nothing was changed. With real money the size of a buy is fixed: ${indodaxRupiah(report.orderIdr)} per buy, at most ${report.maxOpen} open, sold if the price falls ${report.stopPercent}% under the price paid. It is set on the PC, never from here. /plan shows what a losing trade costs.`,
+    );
+  },
+
+  async reset() {
+    return say("Nothing was erased. Your Indodax account cannot be reset from here, and there is nothing else to start over. /status shows the account.");
+  },
+
+  // One switch, the same one as the button in the app on the PC. Selling is never paused.
+  async pause(ctx) {
+    ctx.state.settings.indodaxPaused = true;
+    return say(indodaxPaused(indodaxView(ctx)) + withdrawOffers(ctx.state));
+  },
+
+  async resume(ctx) {
+    const { settings } = ctx.state;
+    settings.indodaxPaused = false;
+    settings.paused = false;
+    return say(indodaxResumed(indodaxView(ctx)));
+  },
+
+  // Sell now. The sender sells a coin as soon as the book no longer holds it, so the book's
+  // position is closed here and the real sale follows within about a minute.
+  async sell(ctx, args) {
+    const { state } = ctx;
+    const view = indodaxView(ctx);
+    const held = view.report.positions.filter((position) => position.real).map((position) => position.symbol);
+    if (!held.length) return say("You hold no coin at Indodax right now, so there is nothing to sell. Nothing was done. /status shows the account.");
+    if (!args[0]) return say(`Say what to sell: <code>/sell ${render.coin(held[0])}</code> or <code>/sell all</code>. At Indodax you hold: ${names(held)}.`);
+    const everything = args[0].toLowerCase() === "all";
+    const symbol = everything ? null : normalizeSymbol(args[0]);
+    if (!everything && !symbol) return unreadable(args[0], "nothing was sold");
+    if (!everything && !held.includes(symbol)) return say(`You hold no ${render.coin(symbol)} at Indodax, so nothing was sold. You hold: ${names(held)}.`);
+    const lines = [];
+    for (const entry of everything ? held : [symbol]) {
+      const name = render.coin(entry);
+      const selling = `🔴 <b>Selling ${name} at Indodax</b> · ⚠️ <b>REAL MONEY</b>\nThe sender on your PC sells it within about a minute, and I tell you the result.`;
+      if (!state.portfolio.positions[entry]) {
+        lines.push(selling); // my rules sold it already: the sender is on its way
+        continue;
+      }
+      try {
+        await manualSell(state, entry, ctx);
+        lines.push(selling);
+      } catch (error) {
+        if (!(error && error.kind)) throw error;
+        lines.push(`⚠️ ${name} was not sold: I could not read its price just now. Try again in a few minutes, or sell it in the Indodax app.`);
+      }
+    }
+    if (indodaxStale(view)) lines.push("⚠️ The sender on your PC is not answering right now, so nothing is sold until it runs again. To sell now, use the Indodax app.");
+    lines.push("My rules may buy it again at a later candle, when all 3 checks pass. /pause stops new buys.");
+    return say(lines.join("\n"));
+  },
+};
+
+// Commands that only show or only refuse in real mode: safe to run on a guess.
+const REAL_READ_ONLY = new Set(["signals", "history", "backtest", "live", "buy", "risk", "reset"]);
+
+function handlerFor(ctx, command) {
+  return isReal(ctx) && Object.hasOwn(realHandlers, command) ? realHandlers[command] : handlers[command];
+}
+
 // What a reset throws away, in words.
 function erased(state) {
   const held = Object.keys(state.portfolio.positions).length;
@@ -503,8 +646,9 @@ export function nearest(word) {
 // anything that changes the account or the settings is only offered.
 async function guessed(ctx, command, args, typed) {
   const full = [`/${command}`, ...args].join(" ");
-  if (!onlyShows(command, args)) return say(`Did you mean ${quote(full)}? Nothing was done. Send it like that and I will do it.`);
-  const result = await handlers[command](ctx, args);
+  const safe = onlyShows(command, args) || (isReal(ctx) && REAL_READ_ONLY.has(command));
+  if (!safe) return say(`Did you mean ${quote(full)}? Nothing was done. Send it like that and I will do it.`);
+  const result = await handlerFor(ctx, command)(ctx, args);
   const note = `<i>I read ${typed ? escapeHtml(typed) : "that"} as /${command}.</i>`;
   const answer = result.messages[result.messages.length - 1];
   result.messages[result.messages.length - 1] = { ...answer, html: `${note}\n\n${answer.html}` };
@@ -516,7 +660,7 @@ async function onText(ctx, text) {
   if (match) {
     const word = match[1].toLowerCase();
     const args = String(match[2] || "").trim().split(/\s+/).filter(Boolean);
-    if (Object.hasOwn(handlers, word)) return handlers[word](ctx, args);
+    if (Object.hasOwn(handlers, word)) return handlerFor(ctx, word)(ctx, args);
     const command = nearest(word);
     if (command) return guessed(ctx, command, args, `/${word}`);
     return say(`I only understand commands, and ${quote(`/${word}`)} is not one of them. /help lists them all, /status shows the account.`);
@@ -541,6 +685,7 @@ async function onButton(ctx, query) {
   const time = render.hour(ctx.now);
   // The message keeps its text and gets one closing line; the buttons go away.
   const closed = (note) => `${escapeHtml(original.split("\n\n— ")[0])}\n\n— <i>${escapeHtml(note)}</i>`;
+  const real = isReal(ctx); // then every answer is about the real Indodax account
 
   if (action === "ok" || action === "no") {
     const symbol = normalizeSymbol(value);
@@ -550,7 +695,7 @@ async function onButton(ctx, query) {
       if (skip(state, symbol)) {
         return {
           toast: `Skipped ${name}. Nothing was bought.`,
-          edit: closed(`Skipped ${time}: nothing was bought. I will not offer ${name} again until this signal goes away and comes back. Changed your mind? /buy ${name}.`),
+          edit: closed(`Skipped ${time}: nothing was bought. I will not offer ${name} again until this signal goes away and comes back.${real ? "" : ` Changed your mind? /buy ${name}.`}`),
         };
       }
       const note = state.portfolio.positions[symbol]
@@ -558,15 +703,31 @@ async function onButton(ctx, query) {
         : "This offer is already closed, so there was nothing to skip. Nothing was bought.";
       return { toast: note, edit: closed(note) };
     }
+    if (real && state.settings.indodaxPaused === true) {
+      const note = "Nothing was bought: buying is paused. /resume allows buying again; I offer it again at a later candle if the checks still pass.";
+      return { toast: note, edit: closed(note) };
+    }
     try {
       const trade = await approve(state, symbol, ctx);
+      if (real) {
+        const size = indodaxRupiah(indodaxView(ctx).report.orderIdr);
+        return {
+          toast: `Approved ${name}. The sender on your PC buys it at Indodax.`,
+          edit: closed(`Approved ${time}: the sender on your PC buys it at Indodax within about a minute.`),
+          messages: [{ html: `✅ <b>Approved ${name}</b> · ⚠️ <b>REAL MONEY</b>\nThe sender on your PC buys it at Indodax within about a minute: ${size} of your own rupiah. I tell you when it is bought.` }],
+        };
+      }
       return {
         toast: `Bought ${name} with practice money.`,
         edit: closed(`Approved ${time}: bought, details below.`),
         messages: [render.bought(trade, state.settings)],
       };
     } catch (error) {
-      if (error instanceof Problem) return { toast: error.message, edit: closed(error.message) };
+      if (error instanceof Problem) {
+        // The book's refusals point at /buy, which is off in real mode.
+        const note = real ? error.message.replace(/ (If you still want|To buy) [^.]*\/buy \w+\./, "") : error.message;
+        return { toast: note, edit: closed(note) };
+      }
       if (!(error && error.kind)) throw error;
       // Only the price is missing: the offer and its buttons stay.
       const note = `Nothing was bought: I could not read the ${name} price just now. The offer stays open; tap Approve again in a few minutes.`;
@@ -575,6 +736,10 @@ async function onButton(ctx, query) {
   }
 
   if (action === "reset") {
+    if (real) {
+      const note = "Nothing was erased. Your Indodax account cannot be reset from here.";
+      return { toast: note, edit: closed(note) };
+    }
     const cash = Number(value);
     if (!(cash >= 100 && cash <= 10000000)) return { toast: OLD_BUTTON };
     const gone = erased(state);

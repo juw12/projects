@@ -265,6 +265,20 @@ export function trades(view) {
   return { html: lines.join("\n") };
 }
 
+// The answer to every message once real money is on at Indodax: this bot showed the practice
+// twin, which is not the account to look at any more. mainBot = TradeBot's own bot, without @.
+export function retired(mainBot) {
+  const where = mainBot ? `@${escapeHtml(mainBot)}` : "TradeBot's own bot";
+  return {
+    html: [
+      "💤 <b>This bot is retired.</b>",
+      "It only showed the twin: a second copy of the rules on your PC that never used your money. Your real Indodax account is not here.",
+      `For the real account, open ${where} and send /status.`,
+      "You can mute or delete this chat. Nothing here can buy, sell or change anything.",
+    ].join("\n"),
+  };
+}
+
 // "/status", "/status@some_bot extra" -> "status". Anything that is not a command -> "".
 export function commandOf(text) {
   const match = String(text || "").trim().match(/^\/([a-z_]+)(?:@\w+)?(?:\s|$)/i);

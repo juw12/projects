@@ -243,8 +243,16 @@ stop, and posts the copies back (`POST /v1/indodax/report`) for `/indodax` in Te
 
 - **In real mode Telegram is about Indodax only.** The practice account's own messages are not
   sent; the 07:00 WIB message is the full Indodax report (free rupiah, holdings, market, what is
-  needed before a buy or a sale, history, result). An offer to buy is still sent, and says that
-  approving it also buys with real money.
+  needed before a buy or a sale, history, result). An offer to buy is written for the real buy
+  (the sender's fixed size, Indodax's price), and so is its approval.
+- **In real mode every command answers about the real account.** `/status` is the real account in
+  short (free rupiah, coins, result, what happens next); `/help` and the command menu list only
+  what is about real money; `/signals`, `/history` and `/backtest` answer as `/analysis`,
+  `/trades` and `/learn`. `/buy`, `/risk` and `/reset` are refused and change nothing: a coin is
+  bought only when all 3 checks pass, at the size set on the PC. `/pause` and `/resume` are the
+  same switch as the app's button. `/sell BTC` sells a coin that is held at Indodax (the sender
+  does it within about a minute). The practice account still decides each buy and sale behind
+  this; it is just never shown. The twin's bot answers that it is retired and points here.
 - **A plan for a small account.** With real money and the free rupiah reported, the report carries
   a plan block (`/plan` shows it alone): money put in, worth now, the stage (protect the money
   first; a bigger buy only after the account earned 10%, two at once after 30%; never raised by

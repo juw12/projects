@@ -14,7 +14,7 @@
 // This file is the pure part: tidy a report, spot what changed, and write the messages. Every
 // message says whether it is pretend money or REAL MONEY, and anything unclear is shown as real.
 
-import { clock, coin, day, hour, idNumber, nextStep, pct, signalLines } from "./render.js";
+import { clock, coin, day, hour, idNumber, nextClose, nextStep, pct, signalLines } from "./render.js";
 import { PARAMS } from "./strategy.js";
 import { ago } from "./twin.js";
 import { VERSION, clip, escapeHtml } from "./util.js";
@@ -173,6 +173,8 @@ function rp(value) {
   return "Rp" + idNumber(Math.round(value));
 }
 
+export { rp as rupiah };
+
 function signedRp(value) {
   const whole = Math.round(value);
   return `${whole > 0 ? "+" : whole < 0 ? "-" : ""}Rp${idNumber(whole)}`;
@@ -192,6 +194,9 @@ function realOpen(report) {
 
 const ONLY_SHOWS =
   "From here you can stop new buys (<code>/indodax pause</code>) and allow them again (<code>/indodax resume</code>). Everything else is on your PC: the sender there does the buying and selling, and nothing here can reach your Indodax account.";
+
+// The command that allows buying again. In real mode plain /resume does it too (bot.js).
+const resumeWord = (report) => (report && report.mode === "real" ? "/resume" : "<code>/indodax resume</code>");
 
 const CLEAR = "To allow real buys again, check your Indodax account first, then run <code>run-windows.ps1 -Clear</code> on the PC.";
 
@@ -223,7 +228,7 @@ function pauseLines(view) {
   const { report } = view;
   const fresh = !isStale(view);
   if (view.paused) {
-    const lines = ["⏸ <b>Buying is paused from Telegram.</b> No new copy is bought; open copies are still watched and sold. <code>/indodax resume</code> allows buying again."];
+    const lines = [`⏸ <b>Buying is paused from Telegram.</b> No new copy is bought; open copies are still watched and sold. ${resumeWord(report)} allows buying again.`];
     if (!report.paused) lines.push(fresh ? "The sender has not read this yet. It asks once a minute." : "The sender has not read this yet, and it is not answering.");
     return lines;
   }
@@ -235,7 +240,7 @@ function pauseLines(view) {
 export function pausedText(view) {
   const lines = ["⏸ <b>Indodax buying is paused.</b> No new copy is bought. Open copies are still watched and sold, and the stop stays on."];
   lines.push(isStale(view) ? "The sender on your PC is not answering right now. It reads this as soon as it runs again." : "The sender on your PC reads this within a minute.");
-  lines.push("<code>/indodax resume</code> allows buying again.");
+  lines.push(`${resumeWord(view.report)} allows buying again.`);
   return lines.join("\n");
 }
 
@@ -341,7 +346,7 @@ export function daily(view) {
   if (report.positions.length) lines.push(...report.positions.map(positionLine));
   else lines.push("Holding nothing.");
   lines.push(`Result so far: ${totals(report, report.result)}`);
-  if (view.paused || report.paused) lines.push("⏸ Buying is paused from Telegram. <code>/indodax resume</code> allows it again.");
+  if (view.paused || report.paused) lines.push(`⏸ Buying is paused from Telegram. ${resumeWord(report)} allows it again.`);
   if (real && !report.checked) lines.push(NOT_CHECKED);
   if (report.tripped) lines.push(...trippedLines(report));
   lines.push(...heard(view));
@@ -463,6 +468,19 @@ function marketLines(report, rows) {
   return lines;
 }
 
+// What happens next. The strategy's own sentence, except where the real account says more: a
+// pause, or as many coins held as the sender may hold at one time.
+function nextLine(view, extra) {
+  const { report } = view;
+  if (report.mode !== "real") return nextStep(extra.state, view.now);
+  if (view.paused || report.paused) return `Buying is paused, so nothing is bought. What you hold is still watched and sold. ${resumeWord(report)} allows buying again.`;
+  const held = realOpen(report);
+  if (report.maxOpen > 0 && held >= report.maxOpen) {
+    return `You hold ${held} ${held === 1 ? "coin" : "coins"} at Indodax, the most at one time, so nothing more is bought until ${held === 1 ? "it" : "one"} is sold. I judge ${held === 1 ? "it" : "each"} again when the ${extra.state.settings.timeframe} candle closes at ${hour(nextClose(extra.state.settings.timeframe, view.now))}.`;
+  }
+  return nextStep(extra.state, view.now);
+}
+
 // What the strategy sees in each coin the sender may trade, and what has to happen before it
 // buys or sells. extra = { rows, state } from agent.js readSignals; without it this part is short.
 function needLines(view, extra) {
@@ -474,7 +492,9 @@ function needLines(view, extra) {
       lines.push(`<b>${escapeHtml(coin(row.symbol))}</b>: ⚠️ no fresh price for the strategy right now. It tries again at its next 5-minute check.`);
       continue;
     }
-    lines.push(...signalLines(row, extra.state, view.now));
+    const reading = signalLines(row, extra.state, view.now);
+    // Buying by hand is off in real mode (bot.js), so its hint is left out there.
+    lines.push(...(report.mode === "real" ? reading.map((line) => line.replace(/ \/buy \w+ buys now\./, "")) : reading));
     // The strategy bought this coin before the sender could copy it (or before real mode): the
     // sender never buys late, so say what it waits for instead of leaving "HOLD" unexplained.
     if (row.held && !report.positions.some((position) => position.symbol === row.symbol)) {
@@ -482,7 +502,7 @@ function needLines(view, extra) {
     }
   }
   if (!rows.length) lines.push("I could not read the strategy's signals just now. /signals shows them.");
-  if (extra && extra.state) lines.push(`Next: ${nextStep(extra.state, view.now)}`);
+  if (extra && extra.state) lines.push(`Next: ${nextLine(view, extra)}`);
   lines.push(`The sender on your PC copies each buy and each sale of this strategy at Indodax within about a minute: ${rp(report.orderIdr)} per buy.`);
   if (report.positions.length) {
     lines.push(`A copy is sold when the strategy sells (momentum turns down, the uptrend breaks, or its stop is hit), or when the Indodax price falls ${report.stopPercent}% under what was paid.`);
@@ -687,6 +707,7 @@ function reviewText(report, now) {
 
 const TOPICS = {
   all: ["cash", "holding", "plan", "learnShort", "market", "need", "history", "result", "warnings", "sender"],
+  status: ["cash", "holding", "result", "next", "warnings", "sender", "more"],
   learn: ["learn", "warnings", "sender"],
   holding: ["cash", "holding", "result", "warnings", "sender"],
   plan: ["cash", "plan", "result", "warnings", "sender"],
@@ -714,14 +735,16 @@ export function fullReport(view, extra = null, topic = "all") {
     history: ["<b>History</b> (newest first)", ...(shown.closed.length ? [...shown.closed].reverse().map(historyLine) : [real ? "No real trade is finished yet." : "No trade is finished yet."])],
     result: [`Result so far: ${totals(report, report.result)}`, `Today (from 07:00 WIB): ${totals(report, report.today)} · ${report.today.buys} ${report.today.buys === 1 ? "buy" : "buys"}`],
     warnings: [
-      ...(view.paused || report.paused ? ["⏸ Buying is paused from Telegram. <code>/indodax resume</code> allows it again."] : []),
+      ...(view.paused || report.paused ? [`⏸ Buying is paused${real ? "" : " from Telegram"}. ${resumeWord(report)} allows it again.`] : []),
       ...(real && !report.checked ? [NOT_CHECKED] : []),
       ...(report.tripped ? trippedLines(report) : []),
       ...report.notes.map((note) => `• ${escapeHtml(note)}`),
     ],
     sender: heard(view),
+    next: extra && extra.state ? [`Next: ${nextLine(view, extra)}`] : [],
+    more: ["/report has everything: the plan, the market, the history and my own study."],
   };
-  const title = { all: "Indodax report", holding: "Indodax: what you hold", analysis: "Indodax: market and signals", trades: "Indodax: history", plan: "Indodax: the plan", learn: "Indodax: what I learned" }[topic] || "Indodax report";
+  const title = { all: "Indodax report", status: "Indodax: status", holding: "Indodax: what you hold", analysis: "Indodax: market and signals", trades: "Indodax: history", plan: "Indodax: the plan", learn: "Indodax: what I learned" }[topic] || "Indodax report";
   const lines = [
     `📋 <b>${title}</b> · ${real ? "⚠️ <b>REAL MONEY</b>" : "practice (pretend money)"} · ${clock(view.now)}`,
     `Each buy: ${rp(report.orderIdr)} · at most ${report.maxOpen} open · stop: ${report.stopPercent}% under the price paid`,
@@ -731,6 +754,44 @@ export function fullReport(view, extra = null, topic = "all") {
   }
   lines.push("", "<i>Not financial advice. A strategy can lose money.</i>");
   return { html: lines.join("\n") };
+}
+
+// /help and /start in real mode: how the real money is traded, and only the commands that are
+// about it. Nothing here is about the practice book. view = { report }; settings = the strategy's.
+export function realHelp(view, settings) {
+  const { report } = view;
+  const frame = settings.timeframe;
+  const buys = settings.auto ? "the sender on your PC buys" : "I ask you first, then the sender on your PC buys";
+  return {
+    html: [
+      "🤖 <b>TradeBot</b> · ⚠️ <b>REAL MONEY</b> at Indodax (your own rupiah)",
+      "Everything I say in this chat is about your real Indodax account.",
+      "",
+      "<b>How I trade</b>",
+      `• Every 5 minutes I read the price. A candle is one ${frame} slice of the price, and when a candle closes I run 3 checks:`,
+      `   Trend: the price is above its ${PARAMS.regime}-candle average.`,
+      `   Momentum: the ${PARAMS.fast}-candle average is above the ${PARAMS.slow}-candle average.`,
+      `   RSI: a 0 to 100 gauge of how fast the price rose lately. I want ${PARAMS.rsiMin} to ${PARAMS.rsiMax}: rising, not overheated.`,
+      `• All 3 pass: ${buys} ${rp(report.orderIdr)} of the coin at Indodax, within about a minute. At most ${report.maxOpen} open at one time.`,
+      `• It is sold when momentum turns down, the uptrend breaks or my stop is hit, and also when the Indodax price falls ${report.stopPercent}% under the price paid.`,
+      "• The buying and selling is done by the sender inside the TradeBot app on your PC. While the PC is off or asleep, nothing is bought and <b>nothing is sold</b>.",
+      "",
+      "<b>Commands</b>",
+      "/status the real account in short: free rupiah, coins held, result, what happens next",
+      "/report everything in one message (it also comes every day at 07:00 WIB)",
+      "/holding what you hold · /analysis the market and what I need before I buy or sell · /trades each buy and sale with its result",
+      "/plan the plan for the real money: stage, money put in, worth now, and what a test on past prices gave",
+      "/learn what my own study of the rules found: the replay on past prices, the proof on unseen prices, the real cost, the verdict",
+      "/phone a private link to the live page for your phone",
+      "/pause no new buys (what you hold is still watched and sold) · /resume allows buying again",
+      "/sell BTC sell a coin you hold at Indodax now (/sell all: everything)",
+      "/auto off I ask before every buy (/auto on: I buy alone)",
+      "You can also just ask, in everyday words: what do I hold, why no buy yet, how much profit.",
+      "",
+      "Buying by hand (/buy) is off: a coin is bought only when all 3 checks pass. The size of a buy is set on the PC, not here.",
+      "<i>Not financial advice. A strategy can lose money.</i>",
+    ].join("\n"),
+  };
 }
 
 // What the three checks mean, for someone who has never traded: [{ word, means }]. Written from
@@ -910,10 +971,28 @@ export function onlyReal(messages, view, extra = null) {
   for (const message of messages) {
     if (!message) continue;
     if (message.daily) kept.push({ ...fullReport(view, extra), daily: true });
-    else if (message.buttons) kept.push({ ...message, html: `${message.html}\n\n${offerIsReal(view.report)}` });
+    else if (message.buttons) kept.push(realOffer(message, view.report));
     else if (message.alert) kept.push(message);
   }
-  return kept;
+  return kept.filter(Boolean);
+}
+
+// An offer to buy (ask mode), written for the real account: the size is the sender's fixed buy,
+// not the book's. An offer for a coin the sender does not trade is not about real money, so it
+// stays off like the other book messages. message = render.proposal's { html, buttons, symbol, tail }.
+function realOffer(message, report) {
+  if (!message.symbol) return { ...message, html: `${message.html}\n\n${offerIsReal(report)}` };
+  const name = coin(message.symbol);
+  if (report.market.length && !report.market.some((row) => row.coin === name)) return null;
+  const row = report.market.find((item) => item.coin === name);
+  const lines = [
+    `🟡 <b>Buy ${escapeHtml(name)} at Indodax?</b> · ⚠️ <b>REAL MONEY</b>`,
+    `${rp(report.orderIdr)} of your own rupiah${row && row.ask > 0 ? `, at about ${rp(row.ask)} per coin (what sellers ask now)` : ""}`,
+    `Stop: it is sold if the Indodax price falls ${report.stopPercent}% under the price paid, and also when momentum turns down or the uptrend breaks.`,
+    ...(message.tail || []),
+    "Approving lets the sender on your PC buy it within about a minute. <code>/auto on</code> lets me buy alone, without asking.",
+  ];
+  return { html: lines.join("\n"), buttons: message.buttons };
 }
 
 function offerIsReal(report) {

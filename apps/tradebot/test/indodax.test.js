@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { INDODAX_SILENT_MS, INDODAX_STALE_MS, answer, backText, changes, cleanReport, daily, fullReport, isStale, pausedText, phonePage, plainWords, planFigures, PLAN, keepCash, CASH_KEPT_MS, cleanLearn, LEARN_OLD_MS, SCORE_MOST, resumedText, silentAlert, viewData, withDaily } from "../src/indodax.js";
+import { INDODAX_SILENT_MS, INDODAX_STALE_MS, answer, backText, changes, cleanReport, daily, fullReport, isStale, pausedText, phonePage, plainWords, planFigures, PLAN, keepCash, CASH_KEPT_MS, cleanLearn, LEARN_OLD_MS, SCORE_MOST, resumedText, silentAlert, viewData, withDaily, onlyReal, realHelp } from "../src/indodax.js";
+import { proposal } from "../src/render.js";
 
 const NOW = Date.UTC(2026, 10, 16, 4, 10); // 11:10 WIB
 
@@ -427,7 +428,7 @@ test("phone page: the top says real money, a live sender, four numbers and what 
   assert.match(page, /<span>Coins you hold<\/span><strong>ETH<\/strong><span>worth Rp20\.306 \(\+1\.5%\)<\/span>/);
   assert.match(page, /<span>Result so far<\/span><strong class="up">\+Rp40<\/strong>/);
   assert.match(page, /<span>Today<\/span><strong class="down">-Rp15<\/strong><span>1 buy · from 07:00 WIB<\/span>/);
-  assert.match(page, /<div class="next"><span>What happens next<\/span>I judge each coin when the 4h candle closes/);
+  assert.match(page, /<div class="next"><span>What happens next<\/span>You hold 1 coin at Indodax, the most at one time, so nothing more is bought until it is sold\. I judge it again when the 4h candle closes at \d\d:\d\d WIB\./);
   assert.equal(page.includes("class=\"alert"), false, "no warning when all is fine");
   // What the top already says is not repeated below; the rest of the report stays.
   assert.equal(page.includes("Free rupiah at Indodax:"), false);
@@ -769,4 +770,26 @@ test("indodax study: a version that earns a review is told once, and never on th
   assert.deepEqual(changes(cleanReport(realWith(undefined)), earned, NOW), [], "a study that starts at review was already told before the PC was away");
   assert.deepEqual(changes(watching, cleanReport(realWith({ ...LEARN, verdict: "keep" })), NOW), []);
   assert.deepEqual(changes(earned, watching, NOW), [], "back to watching is not news");
+});
+
+test("real mode: an offer is rewritten for the real buy, and one for a coin the sender does not trade stays off", () => {
+  const settings = { riskPct: 1, maxPositionPct: 20 };
+  const offer = (symbol) => proposal(symbol, { price: 100000, stop: 95000, why: "all 3 checks pass", until: NOW + 3600000 }, 500, 10000, settings);
+  const seen = view(report({ mode: "real", keys: true, checked: true, orderIdr: 20000, maxOpen: 1, market: [{ coin: "btc", bid: 1650000000, ask: 1651000000 }] }));
+  const kept = onlyReal([offer("BTCUSDT"), offer("ETHUSDT"), { html: "🟢 Bought BTC · practice money" }], seen);
+  assert.equal(kept.length, 1, "the ETH offer and the book's own message stay off");
+  assert.match(kept[0].html, /Buy BTC at Indodax\?<\/b> · ⚠️ <b>REAL MONEY<\/b>\nRp20\.000 of your own rupiah, at about Rp1\.651\.000\.000 per coin/);
+  assert.match(kept[0].html, /Why: all 3 checks pass\nTap by \d\d:\d\d WIB\. No answer means no buy\./);
+  assert.equal(/pretend|practice|of the account/i.test(kept[0].html), false);
+  assert.deepEqual(kept[0].buttons[0].map((button) => button.data), ["ok:BTCUSDT", "no:BTCUSDT"]);
+});
+
+test("real mode: /help is about the real money only, and says how a buy is made with auto on and off", () => {
+  const seen = view(report({ mode: "real", keys: true, checked: true, orderIdr: 20000, maxOpen: 1, stopPercent: 8 }));
+  const alone = realHelp(seen, { timeframe: "4h", auto: true }).html;
+  assert.match(alone, /All 3 pass: the sender on your PC buys Rp20\.000 of the coin at Indodax/);
+  assert.match(alone, /falls 8% under the price paid/);
+  assert.match(alone, /\/learn what my own study of the rules found/);
+  assert.match(realHelp(seen, { timeframe: "4h", auto: false }).html, /All 3 pass: I ask you first, then the sender on your PC buys Rp20\.000/);
+  assert.equal(/pretend|practice/i.test(alone), false);
 });
