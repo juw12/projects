@@ -335,7 +335,12 @@ stop, and posts the copies back (`POST /v1/indodax/report`) for `/indodax` in Te
   the risk, and buy-and-hold as a yardstick (`indodax/README.md` has the numbers). They are
   shown only and never order. Since 0.16.0 the Overview, the strategist, the desk lead and the
   live feed also show the server's heads-up for each coin (how near a buy or a sale is, with a
-  green, red, amber or grey dot). It is also built as one Windows app,
+  green, red, amber or grey dot). Since 0.17.0 the desk also keeps a decision log
+  (`indodax/decisions.py`): every call the desk lead makes, with the price at that moment, is
+  marked later against what the price did 1, 4 and 24 hours after — right, wrong or flat — and
+  the list sits under the desk lead (`indodax/test_decisions.py` tests it). Shown only: it
+  writes nothing into the rules and places no order. The plain-words guide is
+  `indodax/GUIDE.md`. It is also built as one Windows app,
   `TradeBot.exe`, that needs no Python: release `tradebot-desk` of this repository
   (`.github/workflows/trade-bot-desk.yml`).
 
