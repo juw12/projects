@@ -6,6 +6,11 @@ console window is needed, and shows in one place: real or practice, the free rup
 held, the market, what the strategy needs before it buys or sells, the history, the result and
 the sender's own log. Two buttons pause and resume buying, the same switch as /indodax pause.
 
+The Agents tab shows the same bot as six roles at work (agents.py): research analyst, market
+analyst, strategist, risk manager, execution trader and desk lead, with a chart of Indodax's
+price (candles, EMA 20/50/200, SMA 200, RSI, the plan's entry, stop and 1:3 mark), a live feed,
+the trades and the technical reading of four timeframes. Rules, not AI: every line is measured.
+
     pythonw desk.py            open the window and start the sender
     pythonw desk.py --no-start open the window only
     pythonw desk.py --demo     made-up numbers, for a look around: no sender, no network
@@ -29,9 +34,10 @@ import threading
 import time
 from pathlib import Path
 
+import agents
 import bridge
 
-VERSION = "0.13.3"  # the same number as apps/tradebot/package.json
+VERSION = "0.14.0"  # the same number as apps/tradebot/package.json
 FROZEN = bridge.FROZEN  # True inside TradeBot.exe
 HERE = bridge.HERE
 APP_NAME = "tradebot.exe"
@@ -689,6 +695,17 @@ ACCENT, TRACK = "#2457c5", "#e6e9ee"  # the bars and the curve of the Study tab,
 BANNER = {"bad": ("#fde7e5", BAD), "warn": ("#fff1cc", WARN)}
 ACTION_COLOURS = {"BUY": GOOD, "HOLD": GOOD, "SELL": BAD, "WAIT": MUTED, "?": WARN}
 FONT = "Segoe UI"
+# The Agents tab. An agent is: yes (green), wait (grey), no (red), warn (amber), off (no data), or looking right now.
+STATE_COLOURS = {"yes": GOOD, "no": BAD, "warn": "#b26a00", "wait": MUTED, "off": "#aeb4bd", "think": "#d97706"}
+STATE_FILLS = {"yes": "#e3f3e8", "no": "#fde7e5", "warn": "#fff1cc", "wait": "#eef0f3", "off": "#f3f4f6", "think": "#ffe9c2"}
+STATE_GLYPHS = {"yes": "✓", "no": "✗", "warn": "!", "wait": "…", "off": "○", "think": "…"}
+RSI_COLOUR = "#7a3e9d"
+CHART_LINES = [("ema20", "EMA 20", ACCENT, ()), ("ema50", "EMA 50", "#d97706", ()), ("ema200", "EMA 200", "#7c3aed", ()), ("sma200", "SMA 200", "#0f766e", (5, 3))]
+CHART_TOGGLES = [(name, title, colour) for name, title, colour, _dash in CHART_LINES] + [("rsi", "RSI", RSI_COLOUR), ("plan", "Plan", INK)]
+ROUND_STEP_MS = 320  # how long one agent is shown looking, when the six look one after the other
+FEED_LINES = 120
+CANDLE_SECONDS = 60  # the charts are read again this often
+DEMO_PRICES = {"BTC": 1_214_700_000, "ETH": 51_300_000}
 
 
 def open_window(args) -> int:
@@ -713,6 +730,15 @@ def open_window(args) -> int:
     server = Server(env_path)
     sender = Sender(folder, lambda line: events.put(("log", line)))
     seen = {"view": None, "error": "", "outside": [], "restart_at": 0.0, "busy": False, "asked": 0.0, "drawn": None, "lines": [], "banner_height": 0, "resize": None, "start_later": "", "start_check": 0.0, "studied": None}
+    # What the Agents tab remembers: the six as worked out (team) and as shown (shown), the feed, the candles and the chart's view.
+    seen.update({
+        "team": [], "shown": {}, "round": None, "round_news": 0, "agent": "lead", "agent_drawn": None, "feed": [], "plan": None,
+        "coin": "", "coin_pick": "", "candles": {}, "readings": {}, "marks": {}, "candle_busy": False, "agents_broken": False, "candle_note": "", "trade_marks": [],
+        "tf": "4H", "visible": agents.START_VISIBLE, "offset": 0, "toggles": {name: True for name, _title, _colour in CHART_TOGGLES},
+        "geometry": None, "hover": None, "drag": None, "chart_job": None, "chart_drawn": None, "trades_drawn": None, "reading_drawn": None,
+        "summary": None, "summary_at": None,
+    })
+    learn_path = folder / "learn.json"
     try:
         traded = set(DEMO_TRADED) if demo else {coin_name(coin) for coin in bridge.load_settings(env_path).coins}
     except bridge.SettingsError:
@@ -786,11 +812,13 @@ def open_window(args) -> int:
     report_box = ScrolledText(book, wrap="word", font=(FONT, 10), state="disabled", padx=12, pady=10, relief="flat")
     log_box = ScrolledText(book, wrap="none", font=("Consolas", 9), state="disabled", padx=8, pady=6, relief="flat")
     study = tk.Frame(book, bg=CARD)
+    agents_tab = tk.Frame(book, bg=CARD)
     book.add(overview, text="Overview")
+    book.add(agents_tab, text="Agents")
     book.add(study, text="Study")
     book.add(report_box, text="Full report")
     book.add(log_box, text="Sender log")
-    tabs = {"overview": overview, "study": study, "report": report_box, "log": log_box}
+    tabs = {"overview": overview, "agents": agents_tab, "study": study, "report": report_box, "log": log_box}
     if args.tab in tabs:
         book.select(tabs[args.tab])
 
@@ -931,6 +959,528 @@ def open_window(args) -> int:
         label(below, ("⚠ " if shown["old"] else "") + shown["when"], 9, BAD if shown["old"] else MUTED, bold=shown["old"], wraplength=room).pack(anchor="w")
         label(below, "The study only reads prices: it cannot order or change the rules. A past result is not a promise.", 9, MUTED, wraplength=room).pack(anchor="w", pady=(2, 0))
 
+    # ------------------------------------------------------------ the Agents tab
+    # Six roles of one rule-based bot, shown at work: the floor with the six on top, the chart with its
+    # averages on the left, and on the right the live feed, one agent's own lines, the trades and the reading.
+    floor = tk.Canvas(agents_tab, height=104, bg=CARD, highlightthickness=0, cursor="hand2")
+    floor.pack(fill="x", padx=10, pady=(8, 0))
+    floor_note = label(agents_tab, "The agents look again every 30 seconds. " + agents.NOT_AI, 8, MUTED)
+    floor_note.pack(fill="x", padx=14)
+    lower = tk.Frame(agents_tab, bg=CARD)
+    lower.pack(fill="both", expand=True, padx=10, pady=(2, 8))
+    lower.grid_columnconfigure(0, weight=13, uniform="agents")
+    lower.grid_columnconfigure(1, weight=8, uniform="agents")
+    lower.grid_rowconfigure(0, weight=1)
+    chart_pane = tk.Frame(lower, bg=CARD)
+    chart_pane.grid(row=0, column=0, sticky="nsew", padx=(0, 8))
+    side = ttk.Notebook(lower)
+    side.grid(row=0, column=1, sticky="nsew")
+
+    def side_box():
+        return ScrolledText(side, wrap="word", font=(FONT, 9), state="disabled", padx=8, pady=6, relief="flat", width=10, height=4, spacing1=1)
+
+    feed_box, agent_box, reading_box = side_box(), side_box(), side_box()
+    trades_pane = tk.Frame(side, bg=CARD)
+    side.add(feed_box, text="Live feed")
+    side.add(agent_box, text="Agent")
+    side.add(trades_pane, text="Trades")
+    side.add(reading_box, text="Analysis")
+    side_tabs = {"feed": feed_box, "agent": agent_box, "trades": trades_pane, "analysis": reading_box}
+    if args.side in side_tabs:
+        side.select(side_tabs[args.side])
+    for box in (feed_box, agent_box, reading_box):
+        box.tag_configure("name", font=(FONT + " Semibold", 10), foreground=INK)
+        box.tag_configure("muted", foreground=MUTED)
+        box.tag_configure("small", font=(FONT, 8), foreground=MUTED)
+        box.tag_configure("ok", foreground=GOOD)
+        box.tag_configure("bad", foreground=BAD)
+        box.tag_configure("indent", lmargin1=2, lmargin2=18)
+        for state, colour in STATE_COLOURS.items():
+            box.tag_configure(state, foreground=colour, font=(FONT + " Semibold", 9))
+
+    def write_box(box, pieces):
+        """Set a text box to these (text, tags) pieces without moving what the reader was looking at."""
+        top = box.yview()[0]
+        box.configure(state="normal")
+        box.delete("1.0", "end")
+        for text, tags in pieces:
+            box.insert("end", text, tags)
+        box.configure(state="disabled")
+        box.yview_moveto(top)
+
+    def draw_floor():
+        width = floor.winfo_width()
+        floor.delete("all")
+        if width < 300:
+            return
+        slot = width / len(agents.ROLES)
+        y, radius = 24, 17
+        thinking = seen["round"]
+        for index, (key, name, short, _role) in enumerate(agents.ROLES):
+            x = slot * (index + 0.5)
+            member = seen["shown"].get(key)
+            state = "think" if thinking == index else member["state"] if member else "off"
+            if key == seen["agent"]:
+                floor.create_rectangle(x - slot / 2 + 4, 1, x + slot / 2 - 4, 102, fill="#f5f8ff", outline="#c9dafc")
+            if index:
+                live = thinking == index
+                floor.create_line(x - slot + radius + 9, y, x - radius - 9, y, fill=STATE_COLOURS["think"] if live else "#aeb4bd", width=2 if live else 1, arrow="last", arrowshape=(7, 8, 3))
+            floor.create_oval(x - radius, y - radius, x + radius, y + radius, fill=STATE_FILLS[state], outline=STATE_COLOURS[state], width=3 if state == "think" else 2)
+            floor.create_text(x, y, text=short, font=(FONT + " Semibold", 9), fill=INK if state != "off" else MUTED)
+            floor.create_oval(x + radius - 10, y + radius - 10, x + radius + 4, y + radius + 4, fill=STATE_COLOURS[state], outline=CARD, width=2)
+            floor.create_text(x + radius - 3, y + radius - 3, text=STATE_GLYPHS[state], font=(FONT + " Semibold", 7), fill="white")
+            floor.create_text(x, y + radius + 12, text=name, font=(FONT + " Semibold", 9), fill=INK)
+            head = "looking…" if state == "think" else member["head"] if member else "waiting for the first look"
+            floor.create_text(x, y + radius + 21, text=head, font=(FONT, 8), fill=STATE_COLOURS[state] if state in ("no", "warn", "think") else MUTED, width=slot - 14, justify="center", anchor="n")
+
+    def draw_feed():
+        pieces = []
+        for item in seen["feed"]:
+            pieces.append(("● ", (item["state"],)))
+            pieces.append((item["name"], ("name",)))
+            pieces.append((f"   {agents.clock(item['at'], day=False)} WIB\n", ("small",)))
+            pieces.append((item["text"] + "\n\n", ("indent",)))
+        write_box(feed_box, pieces or [("The agents speak here when something changes: a new reading, a buy, a sale, a stop.\n", ("muted",))])
+
+    def add_feed(key, text, state="wait"):
+        name = next(name for found, name, _short, _role in agents.ROLES if found == key)
+        if seen["feed"] and (seen["feed"][0]["key"], seen["feed"][0]["text"]) == (key, text):
+            return
+        seen["feed"] = ([{"at": time.time() * 1000, "key": key, "name": name, "state": state, "text": text}] + seen["feed"])[:FEED_LINES]
+        draw_feed()
+
+    def draw_agent():
+        member = seen["shown"].get(seen["agent"])
+        signature = json.dumps(member, default=str)
+        if signature == seen["agent_drawn"]:
+            return
+        seen["agent_drawn"] = signature
+        if not member:
+            write_box(agent_box, [("Click an agent on the floor above to read its lines.\n", ("muted",))])
+            return
+        pieces = [(member["name"] + "\n", ("name",)), (member["role"] + "\n\n", ("muted",)), ("● " + member["head"] + "\n\n", (member["state"],))]
+        for mark, text in member["lines"]:
+            pieces.append(({"ok": "✓ ", "no": "✗ "}.get(mark, "·  "), ("ok" if mark == "ok" else "bad" if mark == "no" else "muted", "indent")))
+            pieces.append((text + "\n", ("indent",)))
+        pieces.append(("\n" + member["hands"] + "\n", ("small",)))
+        write_box(agent_box, pieces)
+
+    def on_floor_click(event):
+        slot = max(1.0, floor.winfo_width() / len(agents.ROLES))
+        seen["agent"] = agents.ROLES[int(max(0, min(len(agents.ROLES) - 1, event.x // slot)))][0]
+        draw_floor()
+        draw_agent()
+        side.select(agent_box)
+
+    floor.bind("<Button-1>", on_floor_click)
+    floor.bind("<Configure>", lambda _event: draw_floor())
+
+    def start_round():
+        """The six look one after the other. A look with nothing new is still shown: it is how the desk works."""
+        if seen["round"] is not None or not seen["team"]:
+            return
+        seen["round"], seen["round_news"] = 0, 0
+        draw_floor()
+        root.after(ROUND_STEP_MS, settle_round)
+
+    def settle_round():
+        index, team = seen["round"], seen["team"]
+        if index is None:
+            return
+        if index < len(team):
+            member = team[index]
+            for item in agents.feed_events(seen["shown"], [member], time.time() * 1000):
+                seen["round_news"] += 1
+                add_feed(item["key"], item["text"], item["state"])
+            seen["shown"][member["key"]] = member
+            if member["key"] == seen["agent"]:
+                draw_agent()
+        seen["round"] = index + 1 if index + 1 < len(team) else None
+        draw_floor()
+        if seen["round"] is None:
+            news = seen["round_news"]
+            floor_note.configure(text=f"Last look {time.strftime('%H:%M:%S')} · {'nothing changed' if not news else str(news) + (' agent has' if news == 1 else ' agents have') + ' something new'} · " + agents.NOT_AI)
+        else:
+            root.after(ROUND_STEP_MS, settle_round)
+
+    # The trades: what is held, every buy and sale, and the result.
+    position_label = label(trades_pane, "", 9, INK)
+    position_label.pack(fill="x", padx=8, pady=(8, 4))
+    result_label = label(trades_pane, "", 9, MUTED)
+    result_label.pack(side="bottom", fill="x", padx=8, pady=(4, 6))
+    style.configure("Trades.Treeview", font=(FONT, 9), rowheight=22)
+    trades_tree = ttk.Treeview(trades_pane, columns=["When", "Order", "Rupiah", "1 coin, Rp", "Result"], show="headings", selectmode="none", height=4, style="Trades.Treeview")
+    trade_columns = [("When", 82, "w"), ("Order", 62, "w"), ("Rupiah", 62, "e"), ("1 coin, Rp", 70, "e"), ("Result", 58, "e")]
+    for name, width, where in trade_columns:
+        trades_tree.heading(name, text=name, anchor=where)
+        trades_tree.column(name, width=width, minwidth=36, anchor=where, stretch=False)
+    trades_tree.pack(fill="both", expand=True, padx=8)
+
+    def fit_trades(event):
+        """Share the width the pane really has, so the last column is never cut off."""
+        room, asked = max(200, event.width - 6), sum(width for _name, width, _where in trade_columns)
+        for name, width, _where in trade_columns:
+            trades_tree.column(name, width=int(room * width / asked))
+
+    trades_tree.bind("<Configure>", fit_trades)
+    trades_tree.tag_configure("up", foreground=GOOD)
+    trades_tree.tag_configure("down", foreground=BAD)
+    trades_pane.bind("<Configure>", lambda event: [made.configure(wraplength=max(200, event.width - 20)) for made in (position_label, result_label)])
+
+    def draw_trades(report, real):
+        rows = agents.execution_rows(report, real)
+        held = agents.position_lines(report, seen["plan"] if seen["plan"] and seen["plan"].get("trail") else None)
+        result = agents.result_line(report, real)
+        signature = json.dumps([rows, held, result], default=str)
+        if signature == seen["trades_drawn"]:
+            return
+        seen["trades_drawn"] = signature
+        position_label.configure(text="\n".join(held) if held else "No coin is held: all the money is in rupiah.")
+        result_label.configure(text=result)
+        trades_tree.delete(*trades_tree.get_children())
+        for row in rows:
+            trades_tree.insert("", "end", values=(row["when"], f"{row['side']} {row['coin']}", row["amount"], row["price"], row["result"]), tags=(row["tag"],) if row["tag"] else ())
+
+    def draw_reading():
+        coin = seen["coin"]
+        readings = seen["readings"].get(coin) or {}
+        made = seen["plan"]
+        signature = json.dumps([coin, readings, made], default=str)
+        if signature == seen["reading_drawn"]:
+            return
+        seen["reading_drawn"] = signature
+        look = agents.top_down(readings)
+        pieces = [(f"{coin}/IDR at Indodax, top-down\n", ("name",)), (look["text"] + "\n\n", ())]
+        for frame in agents.TIMEFRAMES:
+            found = readings.get(frame["key"])
+            bias = (found or {}).get("bias", "none")
+            pieces.append((f"{frame['name']} · {frame['role']} · ", ("name",)))
+            pieces.append((f"{agents.BIAS_WORDS[bias]} {agents.BIAS_MARKS[bias]}\n", ({"up": "yes", "down": "no"}.get(bias, "wait"),)))
+            for sentence in agents.analysis(found):
+                pieces.append(("·  ", ("muted", "indent")))
+                pieces.append((sentence + "\n", ("indent",)))
+            pieces.append(("\n", ()))
+        if made:
+            holding = bool(made.get("trail"))
+            pieces.append(("The plan of the coin held\n" if holding else "The plan, if it were bought now\n", ("name",)))
+            pieces.append((f"·  Entry {bridge.rp(made['entry'])} a coin\n", ("indent",)))
+            pieces.append((f"·  Stop {bridge.rp(made['stop'])}: risk {agents.pct(made['riskPercent'])}, about {bridge.rp(made['riskIdr'])} of one buy\n", ("indent",)))
+            pieces.append((f"·  1:3 mark {bridge.rp(made['target'])}: three times that risk, about {bridge.signed_rp(made['rewardIdr'])}\n", ("indent",)))
+            if holding:
+                pieces.append((f"·  Now {agents.signed(made['reached'], 2)} R; the moving stop is about {bridge.rp(made['trail'])}\n", ("indent",)))
+            pieces.append(("·  The bot does not sell at the 1:3 mark by itself. It moves the stop up behind the price, so a winner can run further. Selling at 1:3 is followed on paper by the research analyst.\n\n", ("indent",)))
+        pieces.append(("EMA: an average that follows the newest prices faster. SMA: the plain average. RSI: a 0 to 100 gauge of how fast the price rose lately. ATR: how far one candle usually moves. R: the risk a coin was bought with. jt: million rupiah.\n", ("small",)))
+        pieces.append((agents.NOT_AI + " A reading is not a promise.\n", ("small",)))
+        write_box(reading_box, pieces)
+
+    # The chart: candles, the averages of the rules, RSI under it, and the plan's three prices.
+    chart_bar = tk.Frame(chart_pane, bg=CARD)
+    chart_bar.pack(fill="x", pady=(4, 4))
+    coin_label = label(chart_bar, "", 11, bold=True)
+    coin_label.pack(side="left")
+    frame_labels, toggle_labels = {}, {}
+
+    def pick_frame(key):
+        seen["tf"], seen["offset"] = key, 0
+        draw_chart_bar()
+        draw_candles()
+
+    def flip(name):
+        seen["toggles"][name] = not seen["toggles"][name]
+        draw_chart_bar()
+        draw_candles()
+
+    def next_coin(_event=None):
+        names = sorted(traded)
+        if len(names) > 1:
+            seen["coin_pick"] = names[(names.index(seen["coin"]) + 1) % len(names)] if seen["coin"] in names else names[0]
+            paint()
+
+    coin_label.bind("<Button-1>", next_coin)
+    for position, frame in enumerate(agents.TIMEFRAMES):
+        made = tk.Label(chart_bar, text=frame["key"], font=(FONT + " Semibold", 9), padx=7, pady=2, cursor="hand2")
+        made.pack(side="left", padx=(10 if position == 0 else 3, 0))
+        made.bind("<Button-1>", lambda _event, key=frame["key"]: pick_frame(key))
+        frame_labels[frame["key"]] = made
+    legend_bar = tk.Frame(chart_pane, bg=CARD)
+    legend_bar.pack(fill="x", pady=(0, 3))
+    for name, title, _colour in CHART_TOGGLES:
+        made = tk.Label(legend_bar, text=title, font=(FONT, 8), padx=3, bg=CARD, cursor="hand2")
+        made.pack(side="left")
+        made.bind("<Button-1>", lambda _event, name=name: flip(name))
+        toggle_labels[name] = made
+    chart_hint = label(chart_pane, "Wheel: zoom · drag: slide · double-click: back to now · click a line's name to hide it", 8, MUTED)
+    chart_hint.pack(side="bottom", fill="x")
+    chart_note = label(chart_pane, "", 9, INK)
+    chart_note.pack(side="bottom", fill="x", pady=(4, 0))
+    chart_canvas = tk.Canvas(chart_pane, bg=CARD, highlightthickness=1, highlightbackground=LINE, cursor="crosshair")
+    chart_canvas.pack(fill="both", expand=True)
+    chart_pane.bind("<Configure>", lambda event: chart_note.configure(wraplength=max(240, event.width - 10)))
+
+    def chart_rows():
+        return (seen["candles"].get(seen["coin"]) or {}).get(seen["tf"]) or []
+
+    def draw_chart_bar():
+        readings = seen["readings"].get(seen["coin"]) or {}
+        coin_label.configure(text=f"{seen['coin'] or '…'}/IDR" + (" ▾" if len(traded) > 1 else ""), cursor="hand2" if len(traded) > 1 else "")
+        for key, made in frame_labels.items():
+            bias = (readings.get(key) or {}).get("bias", "none")
+            chosen = key == seen["tf"]
+            made.configure(text=f"{key} {agents.BIAS_MARKS[bias]}", bg=ACCENT if chosen else TRACK, fg="white" if chosen else GOOD if bias == "up" else BAD if bias == "down" else MUTED)
+        for name, title, colour in CHART_TOGGLES:
+            on = seen["toggles"][name]
+            toggle_labels[name].configure(text=("━ " if on else "┄ ") + title, fg=colour if on else "#aeb4bd")
+        note = agents.caption(readings.get(seen["tf"]))
+        chart_note.configure(text=note + (f"\n{seen['candle_note']}" if seen["candle_note"] and chart_rows() else ""))
+
+    def plan_levels(made):
+        if not made:
+            return []
+        if made.get("trail"):
+            return [("paid", made["entry"], INK), ("stop now", made["trail"], BAD), ("1:3 mark", made["target"], GOOD)]
+        return [("entry if bought now", made["entry"], INK), ("stop", made["stop"], BAD), ("1:3 mark", made["target"], GOOD)]
+
+    def draw_candles():
+        canvas = chart_canvas
+        width, height = canvas.winfo_width(), canvas.winfo_height()
+        canvas.delete("all")
+        seen["geometry"] = None
+        rows = chart_rows()
+        if width < 160 or height < 90:
+            return
+        if not rows:
+            canvas.create_text(width / 2, height / 2, text=seen["candle_note"] or "Reading the chart from Indodax…", font=(FONT, 10), fill=MUTED, width=width - 40, justify="center")
+            return
+        key, on = seen["tf"], seen["toggles"]
+        drawn = (seen["marks"].get(seen["coin"]) or {}).get(key) or agents.indicators(rows)
+        visible, offset = agents.clamp_window(len(rows), seen["visible"], seen["offset"])
+        seen["visible"], seen["offset"] = visible, offset
+        first, end = agents.shown_span(len(rows), visible, offset)
+        left, right, top, bottom = 6, 66, 44, 16
+        under = max(46, int(height * 0.2)) if on["rsi"] and height >= 190 else 0
+        price_bottom = height - bottom - (under + 8 if under else 0)
+        step = (width - left - right) / visible
+        levels = plan_levels(seen["plan"]) if on["plan"] else []
+        low, high = agents.price_bounds(rows[first:end], [drawn[name][first:end] for name, _title, _colour, _dash in CHART_LINES if on[name]], [value for _title, value, _colour in levels])
+        span = high - low
+
+        def y_of(price):
+            return top + (price_bottom - top) * (high - price) / span
+
+        def x_of(index):
+            return left + step * (index - first + 0.5)
+
+        for value in agents.ticks(low, high, 5):
+            canvas.create_line(left, y_of(value), width - right, y_of(value), fill=TRACK)
+            canvas.create_text(width - right + 6, y_of(value), text=agents.price_text(value, high), anchor="w", font=(FONT, 8), fill=MUTED)
+        canvas.create_line(width - right, top - 4, width - right, height - bottom, fill=LINE)
+        body = step * 0.7
+        for index in range(first, end):
+            row = rows[index]
+            x, colour = x_of(index), GOOD if row["c"] >= row["o"] else BAD
+            canvas.create_line(x, y_of(row["h"]), x, y_of(row["l"]), fill=colour)
+            if body >= 2:
+                upper, lower = y_of(max(row["o"], row["c"])), y_of(min(row["o"], row["c"]))
+                canvas.create_rectangle(x - body / 2, upper, x + body / 2, max(lower, upper + 1), fill=colour, outline=colour)
+        for name, _title, colour, dash in CHART_LINES:
+            points = [place for index in range(first, end) if drawn[name][index] is not None for place in (x_of(index), y_of(drawn[name][index]))] if on[name] else []
+            if len(points) >= 4:
+                canvas.create_line(*points, fill=colour, width=2, **({"dash": dash} if dash else {}))
+        shown = [level for level in levels if low <= level[1] <= high]
+        spots = agents.label_spots([y_of(value) for _title, value, _colour in shown])
+        for (title, value, colour), spot in zip(shown, spots):
+            canvas.create_line(left, y_of(value), width - right, y_of(value), fill=colour, dash=(6, 4))
+            words = canvas.create_text(left + 4, spot, text=f"{title} {agents.price_text(value, high)}", anchor="w", font=(FONT + " Semibold", 8), fill=colour)
+            canvas.tag_lower(canvas.create_rectangle(*canvas.bbox(words), fill=CARD, outline=""), words)
+        last = rows[-1]["c"]
+        if low <= last <= high:
+            canvas.create_line(left, y_of(last), width - right, y_of(last), fill=MUTED, dash=(2, 3))
+            canvas.create_rectangle(width - right + 1, y_of(last) - 8, width - 1, y_of(last) + 8, fill=INK, outline="")
+            canvas.create_text(width - right + 6, y_of(last), text=agents.price_text(last, high), anchor="w", font=(FONT + " Semibold", 8), fill="white")
+        for moment, way, _price in seen["trade_marks"]:
+            index = agents.candle_at(rows, moment)
+            if first <= index < end:
+                x = x_of(index)
+                if way == "buy":
+                    y = min(price_bottom - 10, y_of(rows[index]["l"]) + 5)
+                    canvas.create_polygon(x, y, x - 5, y + 9, x + 5, y + 9, fill=GOOD, outline=CARD)
+                else:
+                    y = max(top + 10, y_of(rows[index]["h"]) - 5)
+                    canvas.create_polygon(x, y, x - 5, y - 9, x + 5, y - 9, fill=BAD, outline=CARD)
+        every = max(1, round(visible / max(2, (width - left - right) // 120)))
+        for index in range(end - 1 - every // 2, first - 1, -every):
+            canvas.create_text(x_of(index), height - bottom + 1, text=agents.time_label(rows[index]["t"], key), anchor="n", font=(FONT, 8), fill=MUTED)
+        if high >= 1e7:
+            canvas.create_text(width - 4, 3, text="jt = million Rp", anchor="ne", font=(FONT, 7), fill=MUTED)
+        if under:
+            strength_top, strength_bottom = price_bottom + 8, height - bottom
+
+            def strength_y(value):
+                return strength_bottom - (strength_bottom - strength_top) * value / 100
+
+            canvas.create_line(left, strength_top - 4, width - right, strength_top - 4, fill=LINE)
+            canvas.create_rectangle(left, strength_y(agents.RSI_TO), width - right, strength_y(agents.RSI_FROM), fill="#f1f6ff", outline="")
+            for guide in (30, 50, 70):
+                canvas.create_line(left, strength_y(guide), width - right, strength_y(guide), fill=TRACK)
+                canvas.create_text(width - right + 6, strength_y(guide), text=str(guide), anchor="w", font=(FONT, 8), fill=MUTED)
+            points = [place for index in range(first, end) if drawn["rsi"][index] is not None for place in (x_of(index), strength_y(drawn["rsi"][index]))]
+            if len(points) >= 4:
+                canvas.create_line(*points, fill=RSI_COLOUR, width=1)
+            canvas.create_text(left + 4, strength_top - 2, text="RSI 14 · the rules buy between 50 and 70", anchor="nw", font=(FONT, 7), fill=MUTED)
+        seen["geometry"] = {"first": first, "end": end, "step": step, "left": left, "right": right, "top": top, "bottom": bottom, "price_bottom": price_bottom, "low": low, "high": high, "width": width, "height": height, "key": key}
+        draw_cross()
+
+    def draw_cross():
+        """The readout of one candle: the one under the mouse, or the newest one."""
+        canvas, shape, rows = chart_canvas, seen["geometry"], chart_rows()
+        canvas.delete("cross")
+        if not shape or not rows:
+            return
+        hover, index = seen["hover"], shape["end"] - 1
+        edge = shape["width"] - shape["right"]
+        if hover and shape["left"] <= hover[0] <= edge:
+            index = min(shape["end"] - 1, max(shape["first"], shape["first"] + int((hover[0] - shape["left"]) / shape["step"])))
+            x = shape["left"] + shape["step"] * (index - shape["first"] + 0.5)
+            canvas.create_line(x, shape["top"] - 2, x, shape["height"] - shape["bottom"], fill=MUTED, dash=(3, 3), tags="cross")
+            if shape["top"] <= hover[1] <= shape["price_bottom"]:
+                price = shape["high"] - (shape["high"] - shape["low"]) * (hover[1] - shape["top"]) / (shape["price_bottom"] - shape["top"])
+                canvas.create_line(shape["left"], hover[1], edge, hover[1], fill=MUTED, dash=(3, 3), tags="cross")
+                canvas.create_rectangle(edge + 1, hover[1] - 8, shape["width"] - 1, hover[1] + 8, fill=ACCENT, outline="", tags="cross")
+                canvas.create_text(edge + 6, hover[1], text=agents.price_text(price, shape["high"]), anchor="w", font=(FONT + " Semibold", 8), fill="white", tags="cross")
+        else:
+            hover = None
+        row = rows[index]
+        drawn = (seen["marks"].get(seen["coin"]) or {}).get(shape["key"]) or {}
+
+        def short(value):
+            return agents.price_text(value, shape["high"]).replace(" jt", "")
+
+        change = (row["c"] / row["o"] - 1) * 100 if row["o"] > 0 else 0.0
+        when = agents.time_label(row["t"], shape["key"]) + ("" if shape["key"] == "1D" else " WIB")
+        words = f"{'' if hover else 'Newest candle · '}{when}   O {short(row['o'])}   H {short(row['h'])}   L {short(row['l'])}   C {short(row['c'])}   {agents.signed_pct(change, 2)}"
+        canvas.create_text(shape["left"] + 2, 3, text=words, anchor="nw", font=(FONT + " Semibold", 8), fill=INK, tags="cross")
+        x = shape["left"] + 2
+        for name, title, colour in CHART_TOGGLES:
+            values = drawn.get(name)
+            if name == "plan" or not seen["toggles"][name] or not values or index >= len(values) or values[index] is None:
+                continue
+            item = canvas.create_text(x, 16, text=f"{title} {round(values[index]) if name == 'rsi' else short(values[index])}", anchor="nw", font=(FONT, 8), fill=colour, tags="cross")
+            x = canvas.bbox(item)[2] + 10
+
+    def on_chart_wheel(event):
+        shape, rows = seen["geometry"], chart_rows()
+        if shape and rows:
+            share = (event.x - shape["left"]) / max(1, shape["width"] - shape["left"] - shape["right"])
+            seen["visible"], seen["offset"] = agents.zoomed(len(rows), seen["visible"], seen["offset"], 1 if event.delta > 0 else -1, share)
+            draw_candles()
+
+    def on_chart_drag(event):
+        shape, rows = seen["geometry"], chart_rows()
+        if shape and rows and seen["drag"]:
+            _visible, offset = agents.panned(len(rows), seen["visible"], seen["drag"][1], round((event.x - seen["drag"][0]) / shape["step"]))
+            seen["hover"] = (event.x, event.y)
+            if offset != seen["offset"]:
+                seen["offset"] = offset
+                draw_candles()
+            else:
+                draw_cross()
+
+    def on_chart_reset(_event=None):
+        seen["visible"], seen["offset"] = agents.START_VISIBLE, 0
+        draw_candles()
+
+    def on_chart_move(event):
+        seen["hover"] = (event.x, event.y)
+        draw_cross()
+
+    def on_chart_leave(_event):
+        seen["hover"] = None
+        draw_cross()
+
+    def chart_resized(_event):
+        if seen["chart_job"]:
+            root.after_cancel(seen["chart_job"])
+        seen["chart_job"] = root.after(60, draw_candles)
+
+    chart_canvas.bind("<Configure>", chart_resized)
+    chart_canvas.bind("<Motion>", on_chart_move)
+    chart_canvas.bind("<Leave>", on_chart_leave)
+    chart_canvas.bind("<MouseWheel>", on_chart_wheel)
+    chart_canvas.bind("<ButtonPress-1>", lambda event: seen.update(drag=(event.x, seen["offset"])))
+    chart_canvas.bind("<B1-Motion>", on_chart_drag)
+    chart_canvas.bind("<ButtonRelease-1>", lambda _event: seen.update(drag=None))
+    chart_canvas.bind("<Double-Button-1>", on_chart_reset)
+
+    def load_candles(coin):
+        """In a thread: the four charts of one coin, from Indodax's public prices. No key is used."""
+        now_ms = time.time() * 1000
+        if demo:
+            events.put(("candles", coin, {frame["key"]: agents.demo_candles(frame["key"], now_ms, DEMO_PRICES.get(coin, 1_000_000)) for frame in agents.TIMEFRAMES}, ""))
+            return
+        try:
+            proxy = bridge.reachable(bridge.load_settings(env_path)).proxy
+        except Exception:  # noqa: BLE001 (no settings or no network: the chart is asked for directly)
+            proxy = ""
+        try:
+            found = agents.fetch_candles(agents.reader(proxy), coin, now_ms)
+        except Exception:  # noqa: BLE001 (a chart that fails must never leave the window waiting for it for good)
+            found = {}
+        missing = len(agents.TIMEFRAMES) - len(found)
+        note = "" if not missing else "The chart could not be read from Indodax just now. It is asked for again within a minute." if not found else f"{missing} of the four charts could not be read just now. They are asked for again within a minute."
+        events.put(("candles", coin, found, note))
+
+    def ask_candles():
+        if seen["candle_busy"] or not seen["coin"]:
+            return
+        seen["candle_busy"] = True
+        threading.Thread(target=load_candles, args=(seen["coin"],), daemon=True).start()
+
+    def study_summary(report):
+        """The newest study in full (learn.json in this folder: it has the ideas followed on paper), else its short form."""
+        learned = report.get("learn") if isinstance(report.get("learn"), dict) else None
+        if demo:
+            return agents.demo_summary(learned) if learned else None
+        try:
+            changed = learn_path.stat().st_mtime
+        except OSError:
+            return learned
+        if changed != seen["summary_at"]:
+            seen["summary_at"], seen["summary"] = changed, agents.read_summary(learn_path)
+        return seen["summary"] or learned
+
+    def paint_agents(view, local, report, state, real, now_ms):
+        coin = seen["coin_pick"] or agents.focus_coin(report, view, traded)
+        if coin != seen["coin"]:
+            seen["coin"], seen["offset"], seen["chart_drawn"] = coin, 0, None
+            if coin not in seen["candles"]:
+                ask_candles()
+        candles = seen["candles"].get(coin) or {}
+        if local:
+            cycle_age = (now_ms - bridge.number(local.get("at"))) / 1000
+        elif view and view.get("at"):
+            cycle_age = (bridge.number(view.get("now")) - bridge.number(view.get("at"))) / 1000
+        else:
+            cycle_age = None
+        made = agents.desk(view, report, seen["readings"].get(coin) or {}, study_summary(report), state, now_ms, traded, cycle_age, failed_cycles(seen["lines"]), coin, candles.get("4H"))
+        seen["team"], seen["plan"] = made["team"], made["plan"]
+        seen["trade_marks"] = agents.markers(report, coin, real)
+        if seen["round"] is None:
+            if agents.feed_events(seen["shown"], made["team"], now_ms):
+                start_round()
+            else:
+                seen["shown"] = {member["key"]: member for member in made["team"]}
+                draw_agent()
+        draw_trades(report, real)
+        draw_reading()
+        draw_chart_bar()
+        newest = (candles.get(seen["tf"]) or [{}])[-1]
+        signature = json.dumps([coin, seen["tf"], len(candles.get(seen["tf"]) or []), newest.get("t"), newest.get("c"), seen["plan"] if seen["toggles"]["plan"] else None, seen["trade_marks"]], default=str)
+        if signature != seen["chart_drawn"]:
+            seen["chart_drawn"] = signature
+            draw_candles()
+
+    draw_feed()
+
     overview.grid_columnconfigure(0, weight=5, uniform="half")
     overview.grid_columnconfigure(1, weight=6, uniform="half")
     overview.grid_rowconfigure(1, weight=1)
@@ -998,6 +1548,9 @@ def open_window(args) -> int:
             log_box.delete("1.0", "100.0")
         log_box.configure(state="disabled")
         log_box.see("end")
+        news = agents.log_event(line)
+        if news:
+            add_feed(news[0], news[1])
 
     def desk_line(text):
         add_log(f"{time.strftime('%Y-%m-%d %H:%M:%S')}  [desk] {text}")
@@ -1169,6 +1722,12 @@ def open_window(args) -> int:
             fill(market_tree, market_rows(report), "No price yet")
             fill(history_tree, finished, "No trade is finished yet", ["up" if "+" in row[5] else "down" if "-" in row[5] or "−" in row[5] else "" for row in finished], most=5)
             set_text(report_box, (view or {}).get("text") or local_text(local, now_ms))
+        try:
+            paint_agents(view, local, report, state, real, now_ms)
+        except Exception as problem:  # noqa: BLE001 (the Agents tab only shows; it must never stop the window that runs the sender)
+            if not seen["agents_broken"]:
+                seen["agents_broken"] = True
+                desk_line(f"the Agents tab could not be drawn ({type(problem).__name__}: {problem}). The sender is not affected.")
 
         heard = f"TradeBot heard the sender {shown['heard']}"
         failed = failed_cycles(seen["lines"])
@@ -1252,10 +1811,27 @@ def open_window(args) -> int:
                 event = events.get_nowait()
                 if event[0] == "log":
                     add_log(event[1])
+                elif event[0] == "candles":
+                    _kind, coin, found, note = event
+                    seen["candle_busy"], seen["candle_note"] = False, note
+                    if found:
+                        try:
+                            readings = {key: agents.reading(rows, key) for key, rows in found.items()}
+                            marks = {key: agents.indicators(rows) for key, rows in found.items()}
+                        except (ArithmeticError, LookupError, TypeError, ValueError):
+                            found, seen["candle_note"] = {}, "The chart from Indodax could not be worked out just now. It is asked for again within a minute."
+                        else:
+                            seen["candles"].setdefault(coin, {}).update(found)
+                            seen["readings"].setdefault(coin, {}).update(readings)
+                            seen["marks"].setdefault(coin, {}).update(marks)
+                    seen["chart_drawn"] = None
+                    paint()
+                    start_round()
                 else:
                     seen["view"], seen["error"], seen["outside"] = event[1], event[2], event[3]
                     seen["busy"], seen["asked"] = False, time.time()
                     paint()
+                    start_round()
         except queue.Empty:
             pass
         # A window reopened right after its sender was closed starts one as soon as the old report has aged.
@@ -1287,6 +1863,10 @@ def open_window(args) -> int:
         paint()
         root.after(5000, repaint)
 
+    def candle_tick():
+        ask_candles()
+        root.after(CANDLE_SECONDS * 1000, candle_tick)
+
     def on_resize(event):
         """Wrap the text again a moment after the window stops changing size."""
         if event.widget is root:
@@ -1315,6 +1895,7 @@ def open_window(args) -> int:
     tick()
     pump()
     repaint()
+    root.after(1500, candle_tick)
     root.bind("<Configure>", on_resize, add="+")
     if args.shot:
         # For screenshots and the test of the window itself: draw, save nothing, close by itself.
@@ -1367,7 +1948,8 @@ def main(argv=None) -> int:
     parser.add_argument("--size", default="", help=argparse.SUPPRESS)
     parser.add_argument("--shot", default="", help=argparse.SUPPRESS)
     parser.add_argument("--trouble", action="store_true", help=argparse.SUPPRESS)  # with --demo: show the warnings
-    parser.add_argument("--tab", default="", help=argparse.SUPPRESS)  # the tab shown first: overview, study, report, log
+    parser.add_argument("--tab", default="", help=argparse.SUPPRESS)  # the tab shown first: overview, agents, study, report, log
+    parser.add_argument("--side", default="", help=argparse.SUPPRESS)  # in the Agents tab, the side tab shown first: feed, agent, trades, analysis
     return open_window(parser.parse_args(argv))
 
 

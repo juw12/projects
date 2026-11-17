@@ -280,7 +280,14 @@ stop, and posts the copies back (`POST /v1/indodax/report`) for `/indodax` in Te
   do it by keeping losing trades open until one ends the account.
 - **One window on the PC.** `indodax/desk.py` runs the sender hidden and shows the same report;
   its Study tab shows the score, its curve and what is still being collected
-  (`indodax/test_desk.py` tests the parts without a window). It is also built as one Windows app,
+  (`indodax/test_desk.py` tests the parts without a window). Its Agents tab shows the bot as
+  six rule-based roles (research analyst, market analyst, strategist, risk manager, execution
+  trader, desk lead) with a live feed, a chart of Indodax's price that can be zoomed and slid
+  (candles, EMA 20/50/200, SMA 200, RSI, entry, stop and the 1:3 mark, every buy and sale),
+  the trades with their results and a top-down reading of the day, 4-hour, 1-hour and
+  15-minute charts (`indodax/agents.py`, tested by `indodax/test_agents.py`). No AI and no
+  order code in it. Selling at 1:3 and the top-down filter were tested and are followed on
+  paper by the study; the rules that trade were not changed. It is also built as one Windows app,
   `TradeBot.exe`, that needs no Python: release `tradebot-desk` of this repository
   (`.github/workflows/trade-bot-desk.yml`).
 

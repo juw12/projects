@@ -155,6 +155,15 @@ The sender starts `learn.py` by itself, hidden and at low priority: every four h
    rises because the ruler changed.
 6. **Curve.** One point a day is kept (the day's last score, 400 days). The desk's Study tab draws
    it on a fixed scale from 0 to 10, `/learn` says where it started and where it is now.
+7. **Ideas on paper.** Three ideas are replayed next to the rules, on the same prices, costs
+   and unseen half years, and followed as pretend trades from 17 November 2026: sell at 1:3
+   (the stop stays where it was at the buy; the coin is sold there or at three times that
+   risk above the buy; when one candle touches both, the stop is taken), top-down (a buy only
+   while the last finished day closed above its 50-day average with the 20 above the 50), and
+   both together. They never trade and never change the verdict (`summary.ideas` in
+   `learn.json`; the desk's Research analyst shows them). On the test of November 2026 the
+   1:3 sale made more rupiah a year but dipped deeper, on 91 trades; top-down dipped less
+   and made a little less. Too few trades to tell skill from luck, so the rules stayed.
 
 What it is not:
 
@@ -276,6 +285,19 @@ What is where:
 - **Overview tab:** on the left what happens next and, per coin, the three checks with a tick or
   a cross; on the right the coins you hold (with the price under which each is sold), the price
   at Indodax, the finished trades, and the trading words in plain words.
+- **Agents tab:** the one bot shown as a desk of six roles that look one after the other each
+  time the window refreshes: research analyst (the study, and the ideas followed on paper),
+  market analyst (the charts top-down: day, 4 hours, 1 hour, 15 minutes), strategist (the
+  three checks, and the plan: entry, stop, the 1:3 mark), risk manager (limits, pause, safety
+  stop, rupiah at risk), execution trader (the sender, what is held, the last order) and desk
+  lead (the one call). Click one to read its numbers. Under them a chart of Indodax's rupiah
+  price: candles, EMA 20/50/200, SMA 200, RSI 14, the plan's three prices and a mark at every
+  buy and sale; wheel to zoom, drag to slide, double-click for now, click a line's name to
+  hide it. Beside it: the live feed (what changed, and the sender's orders), every trade with
+  its result, and the technical analysis in plain sentences. The agents are rule-based: no AI,
+  every line is a measured number. They only read; orders are still made by the sender alone.
+  The checks use the world price, the chart Indodax's, so the two can differ a little. The
+  bot does not sell at the 1:3 mark by itself: it moves the stop up behind the price.
 - **Study tab:** the score from 0 to 10 for how far the rules are proven, its four parts, the
   curve of the score day by day, what is still being collected (real trades, the measured cost,
   the trial setting) and when the next study comes.
