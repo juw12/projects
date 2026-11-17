@@ -41,7 +41,7 @@ import agents
 import bridge
 import decisions
 
-VERSION = "0.17.1"  # the same number as apps/tradebot/package.json
+VERSION = "0.17.2"  # the same number as apps/tradebot/package.json
 FROZEN = bridge.FROZEN  # True inside TradeBot.exe
 HERE = bridge.HERE
 APP_NAME = "tradebot.exe"
@@ -752,7 +752,7 @@ def open_window(args) -> int:
     seen.update({
         "team": [], "shown": {}, "round": None, "round_news": 0, "agent": "lead", "agent_drawn": None, "feed": [], "plan": None,
         "coin": "", "coin_pick": "", "candles": {}, "readings": {}, "marks": {}, "candle_busy": False, "agents_broken": False, "candle_note": "", "trade_marks": [],
-        "log": None,
+        "log": decisions.load(folder / decisions.JSON_NAME),
         "tf": "4H", "visible": agents.START_VISIBLE, "offset": 0, "toggles": {name: True for name, _title, _colour in CHART_TOGGLES},
         "geometry": None, "hover": None, "drag": None, "chart_job": None, "chart_drawn": None, "trades_drawn": None, "reading_drawn": None,
         "summary": None, "summary_at": None, "mood": None, "mood_at": 0.0, "debate": None, "soon": None,

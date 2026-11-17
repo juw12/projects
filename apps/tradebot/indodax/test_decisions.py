@@ -314,6 +314,13 @@ class DeskSide(unittest.TestCase):
         self.assertIn("open", marks)
         self.assertIn("sell", " ".join(found["kind"].lower() for found in log["calls"]))
 
+    def test_the_window_reads_the_saved_log_when_it_starts(self):
+        # A restart must not erase the calls the previous run wrote (0.17.1 did: the log
+        # started empty, so the first save wiped the history).
+        desk_source = (Path(decisions.__file__).parent / "desk.py").read_text(encoding="utf-8")
+        self.assertIn("decisions.load(folder / decisions.JSON_NAME)", desk_source)
+        self.assertNotIn('"log": None', desk_source)
+
 
 if __name__ == "__main__":
     unittest.main()
