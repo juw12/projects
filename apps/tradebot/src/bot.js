@@ -21,6 +21,7 @@ export const COMMANDS = [
   { command: "analysis", description: "The market, and what I need before I buy or sell" },
   { command: "trades", description: "Indodax history: each buy and sale with its result" },
   { command: "plan", description: "The plan: stage, money put in, worth now, what a test gave" },
+  { command: "learn", description: "What my own study of the rules found, and its verdict" },
   { command: "phone", description: "A private link to the live page for your phone" },
   { command: "signals", description: "What the agent sees in each market" },
   { command: "buy", description: "Buy now: /buy BTC 2jt" },
@@ -45,7 +46,7 @@ export const COMMANDS = [
 
 // Commands that only show something. A misspelled one is simply run; one that acts is not.
 // /indodax shows, but with pause or resume it acts (see onlyShows).
-const READ_ONLY = new Set(["status", "report", "holding", "analysis", "trades", "plan", "signals", "help", "history", "watchlist", "mt5", "indodax"]);
+const READ_ONLY = new Set(["status", "report", "holding", "analysis", "trades", "plan", "learn", "signals", "help", "history", "watchlist", "mt5", "indodax"]);
 const INDODAX_ACTS = new Set(["pause", "resume"]);
 
 function onlyShows(command, args) {
@@ -71,6 +72,7 @@ const REAL_TOPICS = [
   [/\b(metatrader|mt5)\b/i, "mt5"],
   [/\b(what can you do|commands|help|how do(es)? (you|this|it) work)\b/i, "help"],
   [/\b(phone|link|page|dashboard|monitor)\b/i, "phone"],
+  [/\b(learn\w*|stud(y|ied|ies)|belajar|confiden\w*|yakin|win ?rate|simulat\w*|simulasi|improv\w*)\b/i, "learn"],
   [/\b(plan|rencana|targets?|expect\w*|stages?|goals?|grow\w*|risks?|risiko)\b/i, "plan"],
   [/\b(histor\w*|riwayat|trades?|past|closed|profit|loss|untung|rugi|results?|win|won|lost)\b/i, "trades"],
   [/\b(why|when|kenapa|kapan|buy\w*|sell\w*|beli|jual|signals?|analy\w*|markets?|price|harga|wait\w*|next)\b/i, "analysis"],
@@ -189,6 +191,11 @@ const handlers = {
   // The plan for the real money: stage, money put in, worth now, what a test on past prices gave.
   async plan(ctx) {
     return indodaxPart(ctx, "plan");
+  },
+
+  // What the sender's own study of the rules found (indodax/learn.py on the PC), and its verdict.
+  async learn(ctx) {
+    return indodaxPart(ctx, "learn");
   },
 
   // A private link to the phone page. The Worker makes the link (index.js): each /phone makes a

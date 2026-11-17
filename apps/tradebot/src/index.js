@@ -801,7 +801,7 @@ export function createWorker(overrides) {
       // The free rupiah of a minute ago is kept through a minute in which it could not be read.
       const cashAt = read.cash !== null ? now : indodax.cashAt || 0;
       const report = keepIndodaxCash(indodax.report, read, cashAt, now);
-      const messages = indodaxChanges(indodax.report, report);
+      const messages = indodaxChanges(indodax.report, report, now);
       if (indodax.silentToldAt && indodax.silentToldAt === indodax.reportAt) messages.unshift({ html: indodaxBack(report) });
       await this.storage.put("indodax", { ...indodax, report, reportAt: now, cashAt, silentToldAt: null }); // saved before anything is sent
       await this.deliver(await this.config(), messages);

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { INDODAX_SILENT_MS, INDODAX_STALE_MS, answer, backText, changes, cleanReport, daily, fullReport, isStale, pausedText, phonePage, plainWords, planFigures, PLAN, keepCash, CASH_KEPT_MS, resumedText, silentAlert, viewData, withDaily } from "../src/indodax.js";
+import { INDODAX_SILENT_MS, INDODAX_STALE_MS, answer, backText, changes, cleanReport, daily, fullReport, isStale, pausedText, phonePage, plainWords, planFigures, PLAN, keepCash, CASH_KEPT_MS, cleanLearn, LEARN_OLD_MS, resumedText, silentAlert, viewData, withDaily } from "../src/indodax.js";
 
 const NOW = Date.UTC(2026, 10, 16, 4, 10); // 11:10 WIB
 
@@ -48,7 +48,7 @@ test("indodax: a report is tidied to the fields /indodax shows, and nothing else
       notes: ["ok", 5, "", "  spaced  "],
     }),
   );
-  assert.deepEqual(Object.keys(cleaned).sort(), ["cash", "checked", "closed", "keys", "market", "maxOpen", "mode", "notes", "orderIdr", "paused", "positions", "result", "stopPercent", "today", "tripped", "trippedWhy"]);
+  assert.deepEqual(Object.keys(cleaned).sort(), ["cash", "checked", "closed", "keys", "learn", "market", "maxOpen", "mode", "notes", "orderIdr", "paused", "positions", "result", "stopPercent", "today", "tripped", "trippedWhy"]);
   assert.deepEqual(cleaned.positions, [BTC]);
   assert.deepEqual(cleaned.closed, [{ symbol: "BTCUSDT", real: false, spent: 50000, received: 51000, at: NOW - 60000, boughtAt: 0, quantity: 0, how: "sold", estimated: false }]);
   assert.equal(cleaned.cash, null, "free rupiah is kept only under its own name, when the sender sends it");
@@ -582,4 +582,134 @@ test("indodax: a minute without the balance keeps the free rupiah read just befo
   const sold = real({ closed: [{ symbol: "ETHUSDT", real: true, spent: 20000, received: 20400, at: NOW - 30000, how: "sold" }], result: { practice: 0, real: 400 } });
   assert.equal(keepCash(before, sold, NOW - 60000, NOW).cash, null);
   assert.equal(keepCash(before, real({ result: { practice: 0, real: -300 } }), NOW - 60000, NOW).cash, null);
+});
+
+// What indodax/learn.py posts inside a report: the short result of the sender's own study.
+const LEARN = {
+  at: NOW - 60 * 60 * 1000,
+  candles: 14700,
+  versions: 81,
+  order: 20000,
+  trades: 213,
+  wins: 30,
+  perYear: 4600.4,
+  dip: -12000.2,
+  yearUp: 63,
+  monthUp: 39,
+  unseen: { windows: 8, up: 2, live: 9487, picked: 12899 },
+  cost: { assumed: 0.9, measured: null, trades: 0, used: "assumed" },
+  challenger: { rules: "averages 30/80/300, RSI 50 to 70, stop 4 ATR", days: 0, trades: 0, lead: 0 },
+  verdict: "watch",
+};
+const REVIEW = { ...LEARN, verdict: "review", challenger: { ...LEARN.challenger, days: 95, trades: 9, lead: 3100 } };
+const realWith = (learn, extra = {}) => report({ mode: "real", keys: true, checked: true, orderIdr: 20000, maxOpen: 1, cash: 50000, learn, ...extra });
+
+test("indodax study: only numbers and one short line are kept, and junk is dropped", () => {
+  assert.equal(cleanReport(report()).learn, null, "a report without a study");
+  for (const junk of [null, "watch", [LEARN], {}, { ...LEARN, at: 0 }, { ...LEARN, at: "now" }, { ...LEARN, verdict: "buy more" }, { ...LEARN, verdict: undefined }]) {
+    assert.equal(cleanLearn(junk), null, JSON.stringify(junk));
+  }
+  assert.deepEqual(cleanLearn(LEARN), LEARN);
+
+  const cleaned = cleanLearn({
+    ...LEARN,
+    wins: 250,
+    yearUp: -4,
+    monthUp: "many",
+    trades: "lots",
+    unseen: "none",
+    cost: { assumed: 0.9, measured: "cheap", trades: 3, used: "guessed" },
+    challenger: { rules: `  <b>${"x".repeat(200)}</b>  `, days: 3, trades: 1, lead: -40, email: "someone@example.com" },
+    apiKey: "SECRET",
+    params: [30, 80, 300],
+  });
+  assert.equal(cleaned.wins, 100);
+  assert.equal(cleaned.yearUp, 0);
+  assert.equal(cleaned.monthUp, null);
+  assert.equal(cleaned.trades, 0);
+  assert.deepEqual(cleaned.unseen, { windows: 0, up: 0, live: 0, picked: 0 });
+  assert.deepEqual(cleaned.cost, { assumed: 0.9, measured: null, trades: 3, used: "assumed" });
+  assert.ok(cleaned.challenger.rules.length <= 80);
+  assert.deepEqual(Object.keys(cleaned.challenger).sort(), ["days", "lead", "rules", "trades"]);
+  assert.deepEqual(Object.keys(cleaned).sort(), Object.keys(LEARN).sort());
+  assert.equal(/SECRET|example\.com/.test(JSON.stringify(cleaned)), false);
+
+  // A verdict always matches what is shown: "keep" has no other version, and without one it is "keep".
+  assert.equal(cleanLearn({ ...LEARN, verdict: "keep" }).challenger, null);
+  assert.equal(cleanLearn({ ...REVIEW, challenger: null }).verdict, "keep");
+  assert.equal(cleanLearn({ ...REVIEW, challenger: "the fast one" }).verdict, "keep");
+});
+
+test("indodax study: /learn tells the replay, the unseen prices, the real cost and the verdict", () => {
+  const learn = (study, extra) => fullReport(view(realWith(study, extra)), null, "learn").html;
+
+  const watch = learn(LEARN);
+  assert.match(watch, /<b>Indodax: what I learned<\/b> · ⚠️ <b>REAL MONEY<\/b>/);
+  assert.match(watch, /<b>Self-study<\/b> \(60 minutes ago\)/);
+  assert.match(watch, /14\.700 four-hour candles since March 2020\. 213 trades, 30 of 100 won\. About \+Rp4\.600 a year at Rp20\.000 per buy, deepest dip -Rp12\.000\./);
+  assert.match(watch, /A year ended with a gain in 63 of 100 starts, a single month in 39 of 100\./);
+  assert.match(watch, /81 nearby versions[^\n]*8 half years: the rules that trade gained in 2 \(\+Rp9\.500 in all\); picking by the past gave \+Rp12\.900\./);
+  assert.match(watch, /0,9% is assumed\. No real trade is finished yet/);
+  assert.match(watch, /👀 Verdict: <b>keep the rules<\/b>, and watch another version on paper \(averages 30\/80\/300, RSI 50 to 70, stop 4 ATR\): 0 days, 0 trades, Rp0 against the rules that trade\. It needs 90 days and 8 trades ahead before a review\./);
+  assert.match(watch, /it cannot order, and it never changes the rules or the size of a buy/);
+  assert.match(watch, /Winning almost every trade is not the goal/);
+  assert.match(watch, /A past result is not a promise/);
+  assert.equal(/<b>(Plan|History|Holding now)<\/b>/.test(watch), false, "the study alone");
+
+  const few = learn({ ...LEARN, cost: { assumed: 0.9, measured: 1.1, trades: 1, used: "assumed" } });
+  assert.match(few, /1,1% on 1 real trade so far\. From 5 trades on it replaces the assumed 0,9%\./);
+  const measured = learn({ ...REVIEW, cost: { assumed: 0.9, measured: 1.24, trades: 6, used: "measured" } });
+  assert.match(measured, /1,2%, measured on 6 real trades\. The replay uses it \(0,9% was assumed before\)\./);
+  assert.match(measured, /🔔 Verdict: <b>another version has earned a review<\/b>[^\n]*On paper: 95 days, 9 trades, \+Rp3\.100 against the rules that trade\. Nothing changes by itself: the rules are changed by hand, after a look\./);
+
+  const keep = learn({ ...LEARN, verdict: "keep" });
+  assert.match(keep, /✅ Verdict: <b>keep the rules<\/b>\. They are also the best version of the last three years\./);
+  assert.equal(/another version/.test(keep), false);
+
+  // A name from the PC is text, never markup.
+  const odd = learn({ ...LEARN, challenger: { ...LEARN.challenger, rules: "<a href=x>RSI</a> & more" } });
+  assert.match(odd, /&lt;a href=x&gt;RSI&lt;\/a&gt; &amp; more/);
+  assert.equal(odd.includes("<a href"), false);
+
+  // The study runs every four hours: an older one is said to be old, a fresh one is not.
+  const fresh = fullReport({ ...view(realWith({ ...LEARN, at: NOW - LEARN_OLD_MS })), now: NOW }, null, "learn").html;
+  assert.equal(fresh.includes("⚠️ old"), false);
+  assert.match(learn({ ...LEARN, at: NOW - LEARN_OLD_MS - 60000 }), /<b>Self-study<\/b> \(12 hours ago: ⚠️ old, the PC was off or could not read the prices\)/);
+
+  // Nothing yet: said plainly, with no figures made up.
+  const none = learn(undefined);
+  assert.match(none, /<b>Self-study<\/b>\nNo study has arrived yet\./);
+  assert.equal(/of 100 won|Verdict/.test(none), false);
+});
+
+test("indodax study: the full report carries three lines of it, and none when there is no study", () => {
+  const full = fullReport(view(realWith(LEARN))).html;
+  const block = full.split("\n\n").find((part) => part.startsWith("<b>Self-study</b>"));
+  assert.deepEqual(block.split("\n"), [
+    "<b>Self-study</b> (60 minutes ago)",
+    "The rules replayed on past prices: 213 trades, 30 of 100 won, about +Rp4.600 a year at Rp20.000 per buy. A year ended with a gain in 63 of 100 starts.",
+    "👀 Verdict: <b>keep the rules</b> · <code>/learn</code> tells all of it.",
+  ]);
+  assert.ok(full.indexOf("<b>Plan</b>") < full.indexOf("<b>Self-study</b>"), "after the plan");
+  assert.ok(full.indexOf("<b>Self-study</b>") < full.indexOf("<b>What I need before I buy or sell</b>"));
+  assert.match(fullReport(view(realWith(REVIEW))).html, /🔔 Verdict: <b>another version has earned a review<\/b> · <code>\/learn<\/code>/);
+  assert.equal(fullReport(view(realWith(undefined))).html.includes("Self-study"), false);
+  assert.match(viewData(view(realWith(LEARN))).text, /Self-study \(60 minutes ago\)/, "the desktop app and the phone page read the same text");
+  assert.equal(daily(view(realWith(LEARN))).join("\n").includes("Self-study"), false, "the short /indodax lines stay short");
+});
+
+test("indodax study: a version that earns a review is told once, and never on the first report", () => {
+  const watching = cleanReport(realWith(LEARN));
+  const earned = cleanReport(realWith(REVIEW));
+  const told = changes(watching, earned, NOW);
+  assert.equal(told.length, 1);
+  assert.match(told[0].html, /^🔔 <b>Indodax self-study<\/b>\n🔔 Verdict: <b>another version has earned a review<\/b>/);
+  assert.match(told[0].html, /Nothing changes by itself/);
+  assert.match(told[0].html, /<code>\/learn<\/code> shows the study \(60 minutes ago\)\.$/);
+
+  assert.deepEqual(changes(earned, earned, NOW), [], "not every minute");
+  assert.deepEqual(changes(null, earned, NOW).filter((message) => message.html.includes("self-study")), [], "nothing to compare with");
+  assert.deepEqual(changes(cleanReport(realWith(undefined)), earned, NOW), [], "a study that starts at review was already told before the PC was away");
+  assert.deepEqual(changes(watching, cleanReport(realWith({ ...LEARN, verdict: "keep" })), NOW), []);
+  assert.deepEqual(changes(earned, watching, NOW), [], "back to watching is not news");
 });

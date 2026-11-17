@@ -1912,5 +1912,111 @@ class CommandLine(Case):
             self.assertEqual(bridge.check(self.settings(real=True), exchange), 1)
 
 
+# ---------------------------------------------------------------- the study (learn.py)
+
+
+class FakeStudy:
+    """Stands in for learn.py's process: counts the starts, and says whether it still runs."""
+
+    def __init__(self):
+        self.starts = 0
+        self.running = True
+
+    def __call__(self):
+        self.starts += 1
+        self.running = True
+        return self
+
+    def poll(self):
+        return None if self.running else 0
+
+
+class Study(Case):
+    def learned(self, at_seconds, **more):
+        summary = {"at": int(at_seconds * 1000), "verdict": "keep", **more}
+        (Path(self.folder.name) / "learn.json").write_text(json.dumps({"summary": summary}), encoding="utf-8")
+
+    def with_study(self, *symbols):
+        sender = self.make(*symbols)
+        sender.study = FakeStudy()
+        return sender
+
+    def test_no_study_is_started_unless_one_is_given(self):
+        sender = self.make()
+        sender.cycle()
+        self.assertIsNone(sender.studying)
+        self.assertNotIn("learn", self.api.reports[-1])
+
+    def test_the_first_cycle_starts_it_and_a_running_one_is_left_alone(self):
+        sender = self.with_study()
+        sender.cycle()
+        self.assertEqual(sender.study.starts, 1)
+        self.assertIn("never orders", self.text())
+        self.clock.now += 2 * bridge.LEARN_RETRY_SECONDS
+        sender.cycle()
+        self.assertEqual(sender.study.starts, 1)
+
+    def test_a_fresh_result_is_reported_and_not_studied_again(self):
+        self.learned(START - 60, trades=213)
+        sender = self.with_study()
+        sender.cycle()
+        self.assertEqual(sender.study.starts, 0)
+        self.assertEqual(self.api.reports[-1]["learn"]["trades"], 213)
+
+    def test_it_runs_again_when_the_result_is_four_hours_old(self):
+        self.learned(START - bridge.LEARN_EVERY_SECONDS - 1)
+        sender = self.with_study()
+        sender.cycle()
+        self.assertEqual(sender.study.starts, 1)
+
+    def test_it_runs_again_after_a_buy(self):
+        self.learned(START - 60)
+        sender = self.with_study(BTC)
+        sender.cycle()  # buys the practice copy, so the minute-old study is older than the buy
+        self.assertEqual(len(sender.state["positions"]), 1)
+        self.assertEqual(sender.study.starts, 1)
+
+    def test_a_failed_run_is_tried_again_only_after_the_wait(self):
+        sender = self.with_study()
+        sender.cycle()
+        sender.study.running = False  # it ended without writing a result
+        self.clock.now += 60
+        sender.cycle()
+        self.assertEqual(sender.study.starts, 1)
+        self.clock.now += bridge.LEARN_RETRY_SECONDS
+        sender.cycle()
+        self.assertEqual(sender.study.starts, 2)
+
+    def test_a_study_that_cannot_start_does_not_fail_the_cycle(self):
+        sender = self.make()
+
+        def broken():
+            raise OSError("no python")
+
+        sender.study = broken
+        sender.cycle()
+        self.assertIn("could not start", self.text())
+        self.assertEqual(len(self.api.reports), 1)
+
+    def test_a_damaged_result_is_ignored(self):
+        (Path(self.folder.name) / "learn.json").write_text("{", encoding="utf-8")
+        sender = self.make()
+        sender.cycle()
+        self.assertNotIn("learn", self.api.reports[-1])
+
+    def test_showing_starts_nothing(self):
+        sender = self.with_study()
+        sender.cycle(show=True)
+        self.assertEqual(sender.study.starts, 0)
+
+    def test_one_cycle_from_the_command_line_starts_no_study(self):
+        env = Path(self.folder.name) / ".env"
+        env.write_text("INDODAX_BRIDGE_KEY=k\n", encoding="utf-8")
+        with mock.patch.object(bridge, "start_study") as start, mock.patch.object(bridge.Bridge, "cycle", return_value={}):
+            with mock.patch.dict(os.environ, {}, clear=True), contextlib.redirect_stdout(io.StringIO()):
+                bridge.main(["--env", str(env), "--state", str(self.state_path), "--once"])
+        start.assert_not_called()
+
+
 if __name__ == "__main__":
     unittest.main()

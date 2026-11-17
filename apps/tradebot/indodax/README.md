@@ -118,6 +118,40 @@ A money setting outside its range stops the sender with a message. It is never q
   `juw12-trade-indodax`, nothing hidden. Whether that traffic is allowed is the network owner's
   decision.
 
+## The study: it checks its own rules, and changes nothing
+
+The sender starts `learn.py` by itself, hidden and at low priority: every four hours (one new
+4-hour candle) and right after each buy or sale. `python learn.py` runs one study by hand, and
+`python learn.py --offline` uses the candles already saved. Each study:
+
+1. **Replay.** The rules that trade the money, on every 4-hour candle since March 2020 (signals
+   from Binance BTC/USDT, buys and sales at Indodax BTC/IDR prices, costs taken off).
+2. **Unseen prices.** 81 nearby versions of the rules are replayed too. For each half year the
+   best version of the three years before is picked and judged on that half year only. A rule
+   that only fits the past fails here.
+3. **Real cost.** Each finished real trade is compared with Indodax's price in the same minute,
+   so the cost of a buy and a sale is measured. From five real trades on, the replay uses the
+   measured cost instead of the assumed 0.9%.
+4. **Verdict.** `keep`: the rules that trade are also the best of the last three years.
+   `watch`: another version did better lately; it is followed on paper from that day.
+   `review`: that version stayed ahead for 90 days and 8 trades, and picking by the past also
+   won on the unseen half years. TradeBot then sends one message.
+
+What it is not:
+
+- **It cannot order.** It has no code for it. It reads only public prices and the sender's own
+  list of finished trades; the Indodax API key is never used or sent anywhere by it.
+- **It never changes the rules or the size of a buy.** A review is a reason to look; the change
+  is made by hand, with tests (`../skills/tradebot-learn/SKILL.md`).
+- **It does not aim at winning every trade.** Rules that almost never lose do it by keeping
+  losing trades open, and one of those ends the account. It aims at more rupiah after costs on
+  prices the rules have not seen. A past result is not a promise.
+
+The result is `learn.json` next to the sender's state; the candles are kept in
+`learn_candles.json` (about 2 MB, only the newest are read again). The sender adds the short form
+to its report: `/learn` in Telegram, three lines in `/report`, the phone page and the desk. A
+study that fails (no network) is tried again half an hour later and never stops the sender.
+
 ## Test it
 
 ```
@@ -126,7 +160,7 @@ A money setting outside its range stops the sender with a message. It is never q
 
 No Indodax account and no network are needed. The tests use a pretend exchange, so they show the
 sender's own rules (the real-money gate, the limits, nothing bought or sold twice, nothing private
-kept), not how the real Indodax answers.
+kept), not how the real Indodax answers. `test_learn.py` tests the study on made-up candles.
 
 ## Real money
 
