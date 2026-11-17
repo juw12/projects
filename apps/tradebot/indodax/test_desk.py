@@ -229,8 +229,26 @@ class DeskTest(unittest.TestCase):
 
     def test_a_coin_without_a_fresh_price_is_a_question_mark(self):
         rows = desk.signal_rows({"signals": [{"coin": "btc", "error": "timeout"}]})
-        assert rows == [{"coin": "BTC", "action": "?", "label": "no fresh price", "checks": [], "why": rows[0]["why"], "change": ""}]
+        assert rows == [{"coin": "BTC", "action": "?", "label": "no fresh price", "checks": [], "why": rows[0]["why"], "change": "", "soon": []}]
         assert desk.signal_rows(None) == []
+
+    def test_signal_rows_carry_the_heads_up_with_its_colour(self):
+        rows = desk.signal_rows(desk.demo_view(NOW))
+        held, close, watched = rows
+        assert [state for state, _ in held["soon"]] == ["wait", "wait"], "a sale that is far away is grey"
+        assert held["soon"][0][1].startswith("Heads-up: no sale in sight.") and held["soon"][1][1].startswith("The sender's own stop")
+        assert close["soon"][0] == ("warn", close["soon"][0][1]) and close["soon"][0][1].startswith("Heads-up: a buy is close.")
+        assert close["soon"][1][0] == "wait", "only the first line carries the colour"
+        assert watched["soon"] == [], "a signal without a heads-up shows none"
+
+    def test_a_likely_buy_is_green_and_a_likely_sale_is_red(self):
+        def row(kind):
+            soon = {"kind": kind, "level": "likely", "at": NOW, "lines": ["🟢 Heads-up: it looks likely."]}
+            return desk.signal_rows({"signals": [{"coin": "btc", "action": "WAIT", "checks": [], "soon": soon}]})[0]
+
+        assert row("buy")["soon"] == [("yes", "Heads-up: it looks likely.")]
+        assert row("sell")["soon"] == [("no", "Heads-up: it looks likely.")]
+        assert set(state for state in ("yes", "no", "warn", "wait")) <= set(desk.STATE_COLOURS), "every colour has a dot"
 
     def test_a_watched_only_coin_gets_one_quiet_line(self):
         rows = desk.signal_rows(desk.demo_view(NOW))

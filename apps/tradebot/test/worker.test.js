@@ -1350,12 +1350,12 @@ test("indodax in real money: every command is about the real account, and nothin
   assert.match(await ask("/sell all"), /Selling BTC at Indodax/, "asked again before the sender has sold: still on its way");
 
   // Not one answer mentions practice or pretend money.
-  for (const word of ["/report", "/holding", "/analysis", "/trades", "/plan", "/learn", "/auto", "/watchlist", "hello there", "/nonsense"]) await ask(word);
+  for (const word of ["/report", "/holding", "/analysis", "/headsup", "when will you buy", "/trades", "/plan", "/learn", "/auto", "/watchlist", "hello there", "/nonsense"]) await ask(word);
   for (const line of heard) assert.equal(/pretend|practice/i.test(line), false, line);
 
   // The command menu in Telegram follows: only what is about the real account.
   const menu = sent.filter((entry) => entry.method === "setMyCommands").pop().commands.map((entry) => entry.command);
-  assert.deepEqual(menu, ["status", "report", "holding", "analysis", "trades", "plan", "learn", "phone", "pause", "resume", "sell", "auto", "help"]);
+  assert.deepEqual(menu, ["status", "report", "holding", "analysis", "headsup", "trades", "plan", "learn", "phone", "pause", "resume", "sell", "auto", "help"]);
   const menus = sent.filter((entry) => entry.method === "setMyCommands").length;
   await ask("/status");
   assert.equal(sent.filter((entry) => entry.method === "setMyCommands").length, menus, "set once, not with every message");
@@ -1420,4 +1420,64 @@ test("indodax in real money, ask mode: approving tells the real buy, and a skip 
 
   const skipped = await tap("no:ETHUSDT", "Buy ETH at Indodax?");
   assert.equal(/\/buy/.test(skipped.map((entry) => entry.text).join("\n")), false);
+});
+
+test("indodax in real money: the heads-up reaches Telegram before a buy, on request, and when the sender's stop is close", async () => {
+  const { call, pair, say, round, now, scene, sent, storage } = await harness();
+  scene.BTCUSDT.trend = "down"; // nothing is bought while the market falls
+  await pair();
+  now.advance(TICK_MS);
+  await round();
+  const { bridgeKey } = (await call("POST", "/v1/indodax/setup", INDODAX_SETUP)).body;
+  const key = { "X-Indodax-Key": bridgeKey };
+  const told = async (body) => {
+    const before = sent.length;
+    assert.equal((await call("POST", "/v1/indodax/report", { headers: key, body })).status, 200);
+    return sent.slice(before).filter((entry) => entry.method === "sendMessage").map((entry) => entry.text).join("\n---\n");
+  };
+  const real = (extra = {}) => indodaxReport({ mode: "real", keys: true, checked: true, orderIdr: 20000, maxOpen: 1, cash: 50000, market: [{ coin: "btc", bid: 1650000000, ask: 1651000000 }], ...extra });
+  await told(real());
+
+  // Far from a buy: /headsup says so, with the price it needs and an estimate that is called one.
+  const far = await say("/headsup");
+  assert.match(far, /Indodax: heads-up<\/b> · ⚠️ <b>REAL MONEY/);
+  assert.match(far, /<b>BTC<\/b>\n⚪ Heads-up: no buy/);
+  assert.match(far, /Earliest by my estimate: /);
+  assert.match(far, /When I tell you by myself/);
+  assert.match(await say("when will you buy"), /I read that as \/headsup[\s\S]*Indodax: heads-up/);
+  assert.match(await say("kapan beli"), /Indodax: heads-up/);
+  assert.match(await say("why no buy yet"), /Indodax: market and signals/, "why is still answered by the analysis");
+
+  // The market turns up. Hours before the close nothing is sent; in the last hour the sign comes, once.
+  scene.BTCUSDT.trend = "up";
+  now.advance(TICK_MS);
+  assert.equal(await round(), "");
+  now.advance(3 * 60 * 60 * 1000);
+  await told(real()); // the sender is alive
+  const sign = await round();
+  assert.match(sign, /Heads-up: a BTC buy looks likely at 15:00 WIB<\/b> · ⚠️ <b>REAL MONEY<\/b>/);
+  assert.match(sign, /closes in 40 minutes/);
+  assert.match(sign, /the sender on your PC buys Rp20\.000 of BTC at Indodax within about a minute/);
+  assert.equal(/practice|pretend/i.test(sign), false);
+  assert.equal(sign.includes("---"), false, "one message");
+  assert.deepEqual((await storage().get("state")).portfolio.positions, {}, "a sign buys nothing");
+  now.advance(TICK_MS);
+  assert.equal(await round(), "");
+  assert.match(await say("/headsup"), /🟢 Heads-up: a buy looks likely at 15:00 WIB/);
+  // The desktop app reads the same heads-up as data.
+  const view = (await call("GET", "/v1/indodax/view", { headers: key })).body;
+  assert.equal(view.signals[0].soon.level, "likely");
+  assert.match(view.signals[0].soon.lines[0], /a buy looks likely/);
+
+  // The sender's own stop: told once when the Indodax price is close to it.
+  const paid = 1650000000;
+  const held = (price) => real({ cash: 30000, positions: [{ symbol: "BTCUSDT", pair: "btc_idr", real: true, quantity: 0.0000121, spent: 20000, price: paid, now: price, value: 20000, openedAt: now() - 60000 }] });
+  await told(held(paid)); // bought: far above the stop
+  const near = await told(held(paid * 0.92 * 1.015));
+  assert.match(near, /Heads-up: BTC is close to the sender's stop<\/b> · <b>REAL MONEY<\/b>/);
+  assert.match(near, /1\.5% above the stop at Rp1\.518\.000\.000/);
+  assert.equal(await told(held(paid * 0.92 * 1.012)), "", "told once");
+  assert.equal(Object.keys((await storage().get("indodax")).stopTold).length, 1);
+  assert.equal(await told(held(paid)), "", "well clear again");
+  assert.deepEqual((await storage().get("indodax")).stopTold, {});
 });

@@ -30,6 +30,7 @@ export const COMMANDS = [
   { command: "report", description: "The full Indodax report: money, coins, market, history" },
   { command: "holding", description: "What you hold at Indodax and the free rupiah" },
   { command: "analysis", description: "The market, and what I need before I buy or sell" },
+  { command: "headsup", description: "How near a buy or a sale is, and my earliest estimate" },
   { command: "trades", description: "Indodax history: each buy and sale with its result" },
   { command: "plan", description: "The plan: stage, money put in, worth now, what a test gave" },
   { command: "learn", description: "What my own study of the rules found, and its verdict" },
@@ -57,7 +58,7 @@ export const COMMANDS = [
 
 // Commands that only show something. A misspelled one is simply run; one that acts is not.
 // /indodax shows, but with pause or resume it acts (see onlyShows).
-const READ_ONLY = new Set(["status", "report", "holding", "analysis", "trades", "plan", "learn", "signals", "help", "history", "watchlist", "mt5", "indodax"]);
+const READ_ONLY = new Set(["status", "report", "holding", "analysis", "headsup", "trades", "plan", "learn", "signals", "help", "history", "watchlist", "mt5", "indodax"]);
 const INDODAX_ACTS = new Set(["pause", "resume"]);
 
 function onlyShows(command, args) {
@@ -71,6 +72,7 @@ const PLAIN = [
   [/\bindodax\b/i, "indodax"],
   [/\b(daily|report)\b/i, "report"],
   [/\b(how\b.*\b(going|doing)|account|balance|profit|portfolio|how much|holding|positions?)\b/i, "status"],
+  [/\b(when|soon|heads?[ -]?up|estimat\w*|how (long|near|close|far))\b/i, "headsup"],
   [/\b(signals?|what do you see|markets?)\b/i, "signals"],
   [/\b(trade history|past trades|closed trades)\b/i, "history"],
   [/\b(watch ?list|watching)\b/i, "watchlist"],
@@ -86,7 +88,8 @@ const REAL_TOPICS = [
   [/\b(learn\w*|stud(y|ied|ies)|belajar|confiden\w*|yakin|win ?rate|simulat\w*|simulasi|improv\w*)\b/i, "learn"],
   [/\b(plan|rencana|targets?|expect\w*|stages?|goals?|grow\w*|risks?|risiko)\b/i, "plan"],
   [/\b(histor\w*|riwayat|trades?|past|closed|profit|loss|untung|rugi|results?|win|won|lost)\b/i, "trades"],
-  [/\b(why|when|kenapa|kapan|buy\w*|sell\w*|beli|jual|signals?|analy\w*|markets?|price|harga|wait\w*|next)\b/i, "analysis"],
+  [/\b(when|kapan|soon|heads?[ -]?up|estimat\w*|perkiraan|eta|signs?|tanda|how (long|near|close|far))\b/i, "headsup"],
+  [/\b(why|kenapa|buy\w*|sell\w*|beli|jual|signals?|analy\w*|markets?|price|harga|wait\w*|next)\b/i, "analysis"],
   [/\b(hold\w*|positions?|balance|saldo|cash|rupiah|money|uang|have|punya|portfolio|account)\b/i, "holding"],
 ];
 
@@ -134,7 +137,7 @@ export function indodaxSymbols(report) {
 async function indodaxPart(ctx, topic) {
   const view = indodaxView(ctx);
   let extra = null;
-  if (view.report && (topic === "all" || topic === "analysis")) {
+  if (view.report && (topic === "all" || topic === "analysis" || topic === "soon")) {
     extra = { state: ctx.state, rows: await readSignals(ctx.state, ctx.market, ctx.now, indodaxSymbols(view.report)) };
   }
   return { messages: [indodaxFull(view, extra, topic)] };
@@ -193,6 +196,13 @@ const handlers = {
 
   async analysis(ctx) {
     return indodaxPart(ctx, "analysis");
+  },
+
+  // How near a buy or a sale is. With an Indodax report it is told for that account; without
+  // one it is the signals, which carry the same heads-up under each coin.
+  async headsup(ctx) {
+    if (indodaxView(ctx).report) return indodaxPart(ctx, "soon");
+    return handlers.signals(ctx);
   },
 
   async trades(ctx) {
@@ -472,6 +482,7 @@ export const REAL_COMMANDS = [
   { command: "report", description: "Everything in one message: money, coins, market, history" },
   { command: "holding", description: "What you hold at Indodax and the free rupiah" },
   { command: "analysis", description: "The market, and what I need before I buy or sell" },
+  { command: "headsup", description: "How near a buy or a sale is, and my earliest estimate" },
   { command: "trades", description: "Each real buy and sale with its result" },
   { command: "plan", description: "The plan: stage, money put in, worth now, what a test gave" },
   { command: "learn", description: "What my own study of the rules found, and its verdict" },

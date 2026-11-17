@@ -37,7 +37,7 @@ from pathlib import Path
 import agents
 import bridge
 
-VERSION = "0.15.0"  # the same number as apps/tradebot/package.json
+VERSION = "0.16.0"  # the same number as apps/tradebot/package.json
 FROZEN = bridge.FROZEN  # True inside TradeBot.exe
 HERE = bridge.HERE
 APP_NAME = "tradebot.exe"
@@ -382,15 +382,20 @@ ACTION_WORDS = {
 
 
 def signal_rows(view) -> list:
-    """One row per coin the strategy watches: {coin, action, label, checks: [(ok, name, text)], why, change}."""
+    """One row per coin the strategy watches:
+    {coin, action, label, checks: [(ok, name, text)], why, change, soon: [(yes / no / warn / wait, text)]}.
+
+    soon is the heads-up: how near a buy or a sale is. Its first line carries the colour.
+    """
     rows = []
     for item in (view or {}).get("signals") or []:
         coin = coin_name(item.get("coin"))
         if item.get("error"):
-            rows.append({"coin": coin, "action": "?", "label": "no fresh price", "checks": [], "why": "It tries again at its next 5-minute check.", "change": ""})
+            rows.append({"coin": coin, "action": "?", "label": "no fresh price", "checks": [], "why": "It tries again at its next 5-minute check.", "change": "", "soon": []})
             continue
         action = str(item.get("action") or "WAIT").upper()
         change = item.get("change24h")
+        soon = agents.heads_up(item)
         rows.append({
             "coin": coin,
             "action": action,
@@ -398,6 +403,7 @@ def signal_rows(view) -> list:
             "checks": [(bool(check.get("ok")), str(check.get("name") or ""), str(check.get("text") or "")) for check in item.get("checks") or []],
             "why": str(item.get("why") or ""),
             "change": f"{'+' if change >= 0 else '−'}{abs(change):.1f}% in 24 hours".replace(".", ",") if isinstance(change, (int, float)) else "",
+            "soon": [(agents.soon_state(soon) if index == 0 else "wait", line) for index, line in enumerate(soon["lines"])] if soon else [],
         })
     return rows
 
@@ -679,8 +685,14 @@ def demo_view(now_ms, trouble=False) -> dict:
     return {
         "configured": True, "now": now_ms, "at": now_ms - (12 * 60000 if trouble else 20000), "stale": trouble, "paused": trouble, "report": report, "words": words,
         "signals": [
-            {"coin": "BTC", "action": "HOLD", "why": "holding: trend and momentum are still up", "checks": checks_up, "change24h": 1.8},
-            {"coin": "ETH", "action": "WAIT", "why": "waiting for momentum and RSI", "checks": checks_down, "change24h": -0.6},
+            {"coin": "BTC", "action": "HOLD", "why": "holding: trend and momentum are still up", "checks": checks_up, "change24h": 1.8, "soon": {"kind": "sell", "level": "far", "at": now_ms + 2 * hour, "lines": [
+                "⚪ Heads-up: no sale in sight. I sell at 15:00 WIB only if the candle closes under Rp 1.171.300.000 (3,6% under the price now), or at any hour if the price falls to the stop at Rp 1.142.800.000 (5,9% under the price now). One usual candle move is 1,3%.",
+                "🛡 The sender's own stop (8% under the price paid) is at Rp 1.098.388.000 per coin: the Indodax price is 10.6% above it.",
+            ]}},
+            {"coin": "ETH", "action": "WAIT", "why": "waiting for momentum and RSI", "checks": checks_down, "change24h": -0.6, "soon": {"kind": "buy", "level": "near", "at": now_ms + 2 * hour, "lines": [
+                "🟡 Heads-up: a buy is close. At 15:00 WIB (in 2 h) it needs a close above Rp 58.940.000 (+1,1% from now): less than one usual candle move (1,6%).",
+                "Earliest by my estimate: today 15:00 WIB (this candle), and only if the price climbs steadily to about Rp 58.940.000 (+1,1%). A rough estimate, not a forecast.",
+            ]}},
             {"coin": "SOL", "action": "WAIT", "why": "waiting for momentum and RSI", "checks": checks_down, "change24h": -2.1},
         ],
         "text": "Indodax report (demo numbers)\nNext: I judge each coin when the 4h candle closes at 15:00 WIB; if all 3 checks pass, I buy it and tell you.\n\nThis is the demo: no account is behind these numbers.",
@@ -738,7 +750,7 @@ def open_window(args) -> int:
         "coin": "", "coin_pick": "", "candles": {}, "readings": {}, "marks": {}, "candle_busy": False, "agents_broken": False, "candle_note": "", "trade_marks": [],
         "tf": "4H", "visible": agents.START_VISIBLE, "offset": 0, "toggles": {name: True for name, _title, _colour in CHART_TOGGLES},
         "geometry": None, "hover": None, "drag": None, "chart_job": None, "chart_drawn": None, "trades_drawn": None, "reading_drawn": None,
-        "summary": None, "summary_at": None, "mood": None, "mood_at": 0.0, "debate": None,
+        "summary": None, "summary_at": None, "mood": None, "mood_at": 0.0, "debate": None, "soon": None,
     })
     learn_path = folder / "learn.json"
     try:
@@ -1481,6 +1493,10 @@ def open_window(args) -> int:
             cycle_age = None
         made = agents.desk(view, report, seen["readings"].get(coin) or {}, study_summary(report), state, now_ms, traded, cycle_age, failed_cycles(seen["lines"]), coin, candles.get("4H"), seen["mood"])
         seen["team"], seen["plan"], seen["debate"] = made["team"], made["plan"], made["debate"]
+        news = agents.soon_event(seen["soon"], coin, made["soon"])
+        seen["soon"] = agents.soon_key(coin, made["soon"])
+        if news:
+            add_feed("strategy", news[1], news[0])
         seen["trade_marks"] = agents.markers(report, coin, real)
         if seen["round"] is None:
             if agents.feed_events(seen["shown"], made["team"], now_ms):
@@ -1664,6 +1680,12 @@ def open_window(args) -> int:
                 label(line, f"{name}: {text}" if name and text else name or text, 10, INK, wraplength=width - 30).pack(side="left")
             if row["why"]:
                 label(block, "→ " + row["why"], 10, MUTED, wraplength=width - 10).pack(anchor="w", padx=(4, 0))
+            for state, said in row["soon"]:
+                # The heads-up: a coloured dot for how near, then the server's own sentence.
+                line = tk.Frame(block, bg=CARD)
+                line.pack(fill="x", pady=(2, 0))
+                label(line, "●", 9, STATE_COLOURS[state], width=2).pack(side="left", anchor="n")
+                label(line, said, 9, INK if state != "wait" else MUTED, wraplength=width - 30).pack(side="left")
         # The trading words, said once in plain words, under the tables on the right.
         for child in words_frame.winfo_children():
             child.destroy()

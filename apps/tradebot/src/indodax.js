@@ -14,7 +14,7 @@
 // This file is the pure part: tidy a report, spot what changed, and write the messages. Every
 // message says whether it is pretend money or REAL MONEY, and anything unclear is shown as real.
 
-import { clock, coin, day, hour, idNumber, nextClose, nextStep, pct, signalLines } from "./render.js";
+import { clock, closeHours, coin, day, hour, idNumber, nextClose, nextStep, pct, signalLines, soonLines } from "./render.js";
 import { PARAMS } from "./strategy.js";
 import { ago } from "./twin.js";
 import { VERSION, clip, escapeHtml } from "./util.js";
@@ -499,13 +499,89 @@ function needLines(view, extra) {
     // sender never buys late, so say what it waits for instead of leaving "HOLD" unexplained.
     if (row.held && !report.positions.some((position) => position.symbol === row.symbol)) {
       lines.push(`→ At Indodax you hold no ${escapeHtml(coin(row.symbol))}: the strategy bought it earlier and the sender never buys late. It copies the next new buy signal, after the strategy has sold this one.`);
+      continue; // a sale of a coin you do not hold is no news for this account
     }
+    lines.push(...headsUpLines(view, row, extra.state));
   }
   if (!rows.length) lines.push("I could not read the strategy's signals just now. /signals shows them.");
   if (extra && extra.state) lines.push(`Next: ${nextLine(view, extra)}`);
   lines.push(`The sender on your PC copies each buy and each sale of this strategy at Indodax within about a minute: ${rp(report.orderIdr)} per buy.`);
   if (report.positions.length) {
     lines.push(`A copy is sold when the strategy sells (momentum turns down, the uptrend breaks, or its stop is hit), or when the Indodax price falls ${report.stopPercent}% under what was paid.`);
+  }
+  return lines;
+}
+
+// Why the sender would not buy now, whatever the checks say ("" when it would). The pause, the
+// safety stop and the most-open rule are the sender's own; too little rupiah is Indodax's.
+function realBlock(view) {
+  const { report } = view;
+  if (report.mode !== "real") return "";
+  if (view.paused || report.paused) return "buying is paused";
+  if (report.tripped) return "the sender's safety stop is on";
+  const held = realOpen(report);
+  if (report.maxOpen > 0 && held >= report.maxOpen) return `you already hold ${held} ${held === 1 ? "coin" : "coins"} at Indodax, the most at one time`;
+  if (report.cash !== null && report.orderIdr > 0 && report.cash < report.orderIdr) return `the free rupiah (${rp(report.cash)}) is less than one buy of ${rp(report.orderIdr)}`;
+  return "";
+}
+
+// How far the Indodax price is above the sender's own stop, in percent. null without both prices.
+function aboveStop(position, report) {
+  if (!(position.price > 0) || !(position.now > 0) || !(report.stopPercent > 0)) return null;
+  const stop = position.price * (1 - report.stopPercent / 100);
+  return { stop, pct: (position.now / stop - 1) * 100 };
+}
+
+// The heads-up for one coin (render.js soonLines), told for this account: a buy that the sender
+// would not make says why, and a coin held at Indodax also shows how far its own stop is.
+function headsUpLines(view, row, state) {
+  try {
+    const { report } = view;
+    const block = row.blocked || realBlock(view);
+    const lines = soonLines({ ...row, blocked: block }, state, view.now);
+    for (const position of report.positions) {
+      if (position.symbol !== row.symbol) continue;
+      const room = aboveStop(position, report);
+      if (room) lines.push(`🛡 The sender's own stop (${report.stopPercent}% under the price paid) is at ${rp(room.stop)} per coin: the Indodax price is ${room.pct > 0 ? `${room.pct.toFixed(1)}% above it` : "at or under it"}.`);
+    }
+    return lines;
+  } catch (error) {
+    // Only ever shown: a heads-up that cannot be written must not cost the report or the app's view.
+    console.log("heads-up lines not written: " + String(error && error.message ? error.message : error).slice(0, 200));
+    return [];
+  }
+}
+
+// /headsup: only how near a buy or a sale is, coin by coin, and when the signs come.
+function soonPart(view, extra) {
+  const { report } = view;
+  const rows = (extra && extra.rows) || [];
+  const lines = [];
+  for (const row of rows) {
+    const name = escapeHtml(coin(row.symbol));
+    if (row.error) {
+      lines.push(`<b>${name}</b>: ⚠️ no fresh price right now, so no heads-up. I try again at my next 5-minute check.`);
+      continue;
+    }
+    const mine = report.positions.some((position) => position.symbol === row.symbol);
+    if (row.held && !mine) {
+      lines.push(`<b>${name}</b>: the strategy holds it from before, and at Indodax you hold none. Nothing is bought until the strategy has sold it and a new buy signal comes.`);
+      continue;
+    }
+    const found = headsUpLines(view, row, extra.state);
+    lines.push(`<b>${name}</b>${mine ? " · you hold it" : ""}`, ...(found.length ? found : ["Too little price history for a heads-up yet."]));
+  }
+  if (!rows.length) lines.push("I could not read the prices just now, so there is no heads-up. Try again in a few minutes.");
+  if (extra && extra.state) {
+    const { timeframe } = extra.state.settings;
+    lines.push(
+      "",
+      `<b>When I tell you by myself</b>`,
+      `• In the last hour before a ${timeframe} candle closes (${closeHours(timeframe)}): when a buy or a sale looks likely at the price then. If it does not happen after all, I say that too.`,
+      "• At any hour: when the price comes close to a stop.",
+      "• And as before: every buy and every sale, right after it is done.",
+      "A sign is worked out from the price now. It is not an order and not a forecast: the price can still move before the candle closes.",
+    );
   }
   return lines;
 }
@@ -712,6 +788,7 @@ const TOPICS = {
   holding: ["cash", "holding", "result", "warnings", "sender"],
   plan: ["cash", "plan", "result", "warnings", "sender"],
   analysis: ["market", "need", "warnings", "sender"],
+  soon: ["soon", "warnings", "sender"],
   trades: ["history", "result", "sender"],
 };
 
@@ -732,6 +809,7 @@ export function fullReport(view, extra = null, topic = "all") {
     holding: ["<b>Holding now</b>", ...(report.positions.length ? report.positions.map((position) => holdingLine(position, report)) : [real ? "No coin. All the money is in rupiah." : "No coin."])],
     market: report.market.length ? ["<b>Market</b>", ...marketLines(report, extra && extra.rows)] : [],
     need: ["<b>What I need before I buy or sell</b>", ...needLines(view, extra)],
+    soon: ["<b>How near a buy or a sale is</b>", ...soonPart(view, extra)],
     history: ["<b>History</b> (newest first)", ...(shown.closed.length ? [...shown.closed].reverse().map(historyLine) : [real ? "No real trade is finished yet." : "No trade is finished yet."])],
     result: [`Result so far: ${totals(report, report.result)}`, `Today (from 07:00 WIB): ${totals(report, report.today)} · ${report.today.buys} ${report.today.buys === 1 ? "buy" : "buys"}`],
     warnings: [
@@ -744,7 +822,7 @@ export function fullReport(view, extra = null, topic = "all") {
     next: extra && extra.state ? [`Next: ${nextLine(view, extra)}`] : [],
     more: ["/report has everything: the plan, the market, the history and my own study."],
   };
-  const title = { all: "Indodax report", status: "Indodax: status", holding: "Indodax: what you hold", analysis: "Indodax: market and signals", trades: "Indodax: history", plan: "Indodax: the plan", learn: "Indodax: what I learned" }[topic] || "Indodax report";
+  const title = { all: "Indodax report", status: "Indodax: status", holding: "Indodax: what you hold", analysis: "Indodax: market and signals", soon: "Indodax: heads-up", trades: "Indodax: history", plan: "Indodax: the plan", learn: "Indodax: what I learned" }[topic] || "Indodax report";
   const lines = [
     `📋 <b>${title}</b> · ${real ? "⚠️ <b>REAL MONEY</b>" : "practice (pretend money)"} · ${clock(view.now)}`,
     `Each buy: ${rp(report.orderIdr)} · at most ${report.maxOpen} open · stop: ${report.stopPercent}% under the price paid`,
@@ -774,12 +852,14 @@ export function realHelp(view, settings) {
       `   RSI: a 0 to 100 gauge of how fast the price rose lately. I want ${PARAMS.rsiMin} to ${PARAMS.rsiMax}: rising, not overheated.`,
       `• All 3 pass: ${buys} ${rp(report.orderIdr)} of the coin at Indodax, within about a minute. At most ${report.maxOpen} open at one time.`,
       `• It is sold when momentum turns down, the uptrend breaks or my stop is hit, and also when the Indodax price falls ${report.stopPercent}% under the price paid.`,
+      "• Heads-up: in the last hour before a candle closes I tell you when a buy or a sale looks likely at the price then, and at any hour when the price comes close to a stop. A sign is not an order and not a forecast.",
       "• The buying and selling is done by the sender inside the TradeBot app on your PC. While the PC is off or asleep, nothing is bought and <b>nothing is sold</b>.",
       "",
       "<b>Commands</b>",
       "/status the real account in short: free rupiah, coins held, result, what happens next",
       "/report everything in one message (it also comes every day at 07:00 WIB)",
       "/holding what you hold · /analysis the market and what I need before I buy or sell · /trades each buy and sale with its result",
+      "/headsup how near a buy or a sale is: the price it needs, when the candle closes, and my earliest estimate",
       "/plan the plan for the real money: stage, money put in, worth now, and what a test on past prices gave",
       "/learn what my own study of the rules found: the replay on past prices, the proof on unseen prices, the real cost, the verdict",
       "/phone a private link to the live page for your phone",
@@ -807,6 +887,20 @@ export function plainWords(extra = null) {
   ];
 }
 
+const plain = (html) => html.replace(/<[^>]+>/g, "").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
+
+// The heads-up of one coin for the desktop app: the report's own lines as plain text, with the
+// level and the time so the app can colour it. null when there is nothing to say, and for a coin
+// the strategy holds but this account does not (its sale is no news here).
+function soonData(view, row, state) {
+  const soon = row.soon;
+  if (!soon || soon.level === "unknown" || !view.report) return null;
+  if (row.held && !view.report.positions.some((position) => position.symbol === row.symbol)) return null;
+  const lines = headsUpLines(view, row, state).map(plain);
+  if (!lines.length) return null;
+  return { kind: soon.kind, level: soon.level, at: soon.at, lines };
+}
+
 // The same numbers for the desktop app, as data. Nothing here that the report does not show.
 export function viewData(view, extra = null) {
   const rows = ((extra && extra.rows) || []).map((row) =>
@@ -818,6 +912,7 @@ export function viewData(view, extra = null) {
           why: row.decision.why,
           checks: row.decision.reasons.map((reason) => ({ name: reason.name, ok: reason.ok, text: reason.text })),
           change24h: row.change24h === undefined ? null : row.change24h,
+          soon: soonData(view, row, extra.state),
         },
   );
   return {
@@ -831,7 +926,7 @@ export function viewData(view, extra = null) {
     signals: rows,
     plan: planFigures(view.report || null),
     words: plainWords(extra),
-    text: fullReport(view, extra).html.replace(/<[^>]+>/g, "").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&"),
+    text: plain(fullReport(view, extra).html),
   };
 }
 
@@ -972,9 +1067,37 @@ export function onlyReal(messages, view, extra = null) {
     if (!message) continue;
     if (message.daily) kept.push({ ...fullReport(view, extra), daily: true });
     else if (message.buttons) kept.push(realOffer(message, view.report));
+    else if (message.soon) kept.push(realSoon(message, view));
     else if (message.alert) kept.push(message);
   }
   return kept.filter(Boolean);
+}
+
+// A heads-up sign (render.js sign, signGone, stopNear), written for the real account. A buy sign
+// is kept only when the sender would really buy that coin; a sale sign or a stop sign only when
+// this account holds it. message.soon = { symbol, kind, what, head, body, at, auto }.
+function realSoon(message, view) {
+  const { report } = view;
+  const { symbol, kind, what, head, body } = message.soon;
+  const name = escapeHtml(coin(symbol));
+  if (report.market.length && !report.market.some((row) => row.coin === coin(symbol))) return null;
+  const mine = report.positions.some((position) => position.real && position.symbol === symbol);
+  const lines = [`${head} · ⚠️ <b>REAL MONEY</b>`, ...body];
+  if (kind === "buy") {
+    const block = realBlock(view);
+    if (mine || (block && !block.startsWith("the free rupiah"))) return null; // no real buy would follow: no sign
+    if (what === "gone") return { html: lines.join("\n") };
+    if (block) lines.push(`⚠️ But nothing would be bought: ${block}.`);
+    else if (message.soon.auto) lines.push(`If it does, the sender on your PC buys ${rp(report.orderIdr)} of ${name} at Indodax within about a minute. The PC has to be on.`);
+    else lines.push(`If it does, I ask you first. The sender on your PC buys ${rp(report.orderIdr)} of ${name} only after you approve.`);
+  } else {
+    if (!mine) return null;
+    if (what === "gone") return { html: lines.join("\n") };
+    if (what === "stop") lines.push(`If it falls to the stop, the sender on your PC sells your ${name} at Indodax within about a minute, at any hour. The PC has to be on.`);
+    else lines.push(`If it does not, the sender on your PC sells your ${name} at Indodax within about a minute. The PC has to be on.`);
+  }
+  lines.push("<i>A sign from the price now, not an order: nothing is bought or sold yet, and the price can still move.</i>");
+  return { html: lines.join("\n") };
 }
 
 // An offer to buy (ask mode), written for the real account: the size is the sender's fixed buy,
@@ -997,6 +1120,43 @@ function realOffer(message, report) {
 
 function offerIsReal(report) {
   return `⚠️ <b>Approving this also buys at Indodax with REAL MONEY</b>: the sender on your PC copies it, ${rp(report.orderIdr)}. <code>/auto on</code> lets me buy alone, without asking.`;
+}
+
+// ---------------------------------------------------------------- the sender's own stop comes close
+
+export const STOP_NEAR_PCT = 2; // told when the Indodax price is this close above the sender's stop
+export const STOP_CLEAR_PCT = 4; // told again only after the price has been this far above it
+
+// One message when the Indodax price of a held coin comes close to the sender's own stop (the
+// price paid less stopPercent). told = { "symbol:openedAt": true } from the report before.
+// Returns { messages, told }: the new `told` is saved with the report.
+export function stopSigns(report, told = {}) {
+  const messages = [];
+  const next = {};
+  if (!report) return { messages, told: next };
+  for (const position of report.positions) {
+    const key = `${position.symbol}:${position.openedAt}`;
+    const room = aboveStop(position, report);
+    if (!room) {
+      if (told[key]) next[key] = true; // no price this minute: what was told stays told
+      continue;
+    }
+    if (room.pct > STOP_NEAR_PCT) {
+      if (told[key] && room.pct < STOP_CLEAR_PCT) next[key] = true;
+      continue;
+    }
+    next[key] = true;
+    if (told[key] || room.pct <= 0) continue; // already told, or already under it: the sale itself is told
+    messages.push({
+      html: [
+        `🟠 <b>Heads-up: ${nameOf(position)} is close to the sender's stop</b> · ${tag(position.real)}`,
+        `The Indodax price (${rp(position.now)}) is ${room.pct.toFixed(1)}% above the stop at ${rp(room.stop)}, which is ${report.stopPercent}% under the ${rp(position.price)} paid.`,
+        `If it falls to the stop, the sender on your PC sells it within about a minute${position.spent > 0 ? `, for about ${rp(position.spent * (1 - report.stopPercent / 100))} of the ${rp(position.spent)} paid` : ""}. The PC has to be on.`,
+        "<i>A sign from the price now, not an order: nothing is sold yet.</i>",
+      ].join("\n"),
+    });
+  }
+  return { messages, told: next };
 }
 
 // ---------------------------------------------------------------- what changed between two reports
