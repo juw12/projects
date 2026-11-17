@@ -41,7 +41,7 @@ import agents
 import bridge
 import decisions
 
-VERSION = "0.17.0"  # the same number as apps/tradebot/package.json
+VERSION = "0.17.1"  # the same number as apps/tradebot/package.json
 FROZEN = bridge.FROZEN  # True inside TradeBot.exe
 HERE = bridge.HERE
 APP_NAME = "tradebot.exe"
@@ -1519,7 +1519,7 @@ def open_window(args) -> int:
             seen["log"] = decisions.demo(now_ms)
         else:
             try:
-                seen["log"] = decisions.update(seen["log"], report, made["team"], coin, now_ms, folder / decisions.JSON_NAME)
+                seen["log"] = decisions.update(seen["log"], report, made["team"], coin, now_ms, folder / decisions.JSON_NAME, candles)
             except Exception:  # noqa: BLE001 (the log is shown, never used: a fault in it must not stop the window)
                 seen["log"] = seen["log"] if isinstance(seen["log"], dict) else decisions.empty()
         seen["trade_marks"] = agents.markers(report, coin, real)

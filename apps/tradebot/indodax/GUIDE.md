@@ -70,7 +70,11 @@ line; a call that changes inside five minutes is treated as one call, so the log
 - **Flat:** a move smaller than 0,6% is called flat: it is neither a win nor a loss, because the
   fees would have eaten it.
 - **Not seen:** if the window was closed at the mark, the log says so instead of pretending it
-  saw the price then. The next mark that was really seen is used instead.
+  saw the price then, and the next mark that was really seen is used instead. Since 0.17.1 a mark
+  like that is read out of the candle of that hour on the chart the window already holds, and the
+  line says "(from the candle)". A candle longer than the mark is never used for it (a 1-hour mark
+  is read from 15-minute or 1-hour candles, never a day), and a mark the window did see is never
+  overwritten. Only when no candle reaches that hour does it stay "not seen".
 - **Open:** the 4-hour mark has not come yet.
 
 At the top of the list a tally says how the whole log stands, for example "5 calls: 3 right, 1
@@ -83,8 +87,9 @@ flat, 1 open." The newest 200 calls are kept, in `decisions.json` in the folder 
   price did after.
 - It is not a win rate and not a promise: a few calls can be luck, and a past move says nothing
   about the next one.
-- It only knows the hours the window was open. A laptop that sleeps marks nothing, and the log
-  says "not seen" for those hours.
+- It only knows the hours the window was open. A laptop that sleeps loses the live look at a mark,
+  so the log reads that hour out of the chart's own candle instead and says so; only an hour with
+  no candle either stays "not seen".
 
 ## If something looks wrong
 
