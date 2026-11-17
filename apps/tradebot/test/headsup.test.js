@@ -258,6 +258,23 @@ test("a round sends the buy sign once in the last hour, then buys when the candl
   assert.equal(state.marks.BTCUSDT.soon, undefined);
 });
 
+test("a sign that cannot be written costs nothing: the round goes on, and the next coin still gets its sign", async () => {
+  const { now, state, scene, round } = setup("down");
+  state.settings.watchlist = ["BTCUSDT", "ETHUSDT"];
+  scene.ETHUSDT = { trend: "down" };
+  await round();
+  scene.BTCUSDT.trend = "up";
+  scene.ETHUSDT.trend = "up";
+  // BTC's notes are broken in a way only the sign trips over.
+  Object.defineProperty(state.marks.BTCUSDT, "soon", { get: () => { throw new Error("broken note"); }, configurable: true });
+
+  now.advance(LATE);
+  const messages = await round();
+  assert.equal(messages.length, 1, "BTC's sign is lost, ETH's is sent");
+  assert.match(messages[0].html, /Heads-up: an? ETH buy looks likely/);
+  assert.equal(state.marks.ETHUSDT.price > 0, true, "the round finished: ETH was read after BTC");
+});
+
 test("a sign that does not come true is followed by one message saying so", async () => {
   const { now, scene, html } = setup("down");
   await html();

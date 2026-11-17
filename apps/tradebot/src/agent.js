@@ -246,6 +246,17 @@ function soonFor(state, view, now, estimate) {
   }
 }
 
+// A sign is only ever a message. If one cannot be written, the round goes on without it: the
+// stops, the buys and the sales of this round and of the next coins must not wait for a sign.
+function quietly(write) {
+  try {
+    return write();
+  } catch (error) {
+    console.log("heads-up sign not written: " + clip(errorText(error), 200));
+    return [];
+  }
+}
+
 // The signs of a round that judges nothing: a buy or a sale that looks likely in the last hour
 // before the candle closes, and a stop that has come close. Each is told once, and nothing is
 // bought or sold here: the rules still decide when the candle has closed.
@@ -315,7 +326,7 @@ export async function tick(state, { market, now, ai = null }) {
     const last = view.closed[view.closed.length - 1];
     if (!last) continue;
     if (memo.decided === last.t) {
-      messages.push(...signs(state, view, now));
+      messages.push(...quietly(() => signs(state, view, now)));
       continue;
     }
     memo.decided = last.t;
@@ -323,7 +334,7 @@ export async function tick(state, { market, now, ai = null }) {
     // the owner is told that too.
     const told = memo.soon && memo.soon.at <= now ? memo.soon.kind : "";
     delete memo.soon;
-    const gone = (why) => messages.push(render.signGone(symbol, told, why, state, now));
+    const gone = (why) => messages.push(...quietly(() => [render.signGone(symbol, told, why, state, now)]));
     const decision = decide(state, view, now);
     if (position) {
       if (decision.action === "sell") {

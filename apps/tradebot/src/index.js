@@ -810,7 +810,13 @@ export function createWorker(overrides) {
       const messages = indodaxChanges(indodax.report, report, now);
       if (indodax.silentToldAt && indodax.silentToldAt === indodax.reportAt) messages.unshift({ html: indodaxBack(report) });
       // A heads-up when the price of a held coin comes close to the sender's own stop, told once.
-      const near = indodaxStopSigns(report, indodax.stopTold || {});
+      // It is only a message: if it cannot be written, the report is still saved.
+      let near = { messages: [], told: indodax.stopTold || {} };
+      try {
+        near = indodaxStopSigns(report, indodax.stopTold || {});
+      } catch (error) {
+        console.log("stop heads-up not written: " + String(error && error.message ? error.message : error).slice(0, 200));
+      }
       messages.push(...near.messages);
       await this.storage.put("indodax", { ...indodax, report, reportAt: now, cashAt, silentToldAt: null, stopTold: near.told }); // saved before anything is sent
       await this.deliver(await this.config(), messages);

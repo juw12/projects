@@ -535,15 +535,21 @@ function aboveStop(position, report) {
 // The heads-up for one coin (render.js soonLines), told for this account: a buy that the sender
 // would not make says why, and a coin held at Indodax also shows how far its own stop is.
 function headsUpLines(view, row, state) {
-  const { report } = view;
-  const block = row.blocked || realBlock(view);
-  const lines = soonLines({ ...row, blocked: block }, state, view.now);
-  for (const position of report.positions) {
-    if (position.symbol !== row.symbol) continue;
-    const room = aboveStop(position, report);
-    if (room) lines.push(`🛡 The sender's own stop (${report.stopPercent}% under the price paid) is at ${rp(room.stop)} per coin: the Indodax price is ${room.pct > 0 ? `${room.pct.toFixed(1)}% above it` : "at or under it"}.`);
+  try {
+    const { report } = view;
+    const block = row.blocked || realBlock(view);
+    const lines = soonLines({ ...row, blocked: block }, state, view.now);
+    for (const position of report.positions) {
+      if (position.symbol !== row.symbol) continue;
+      const room = aboveStop(position, report);
+      if (room) lines.push(`🛡 The sender's own stop (${report.stopPercent}% under the price paid) is at ${rp(room.stop)} per coin: the Indodax price is ${room.pct > 0 ? `${room.pct.toFixed(1)}% above it` : "at or under it"}.`);
+    }
+    return lines;
+  } catch (error) {
+    // Only ever shown: a heads-up that cannot be written must not cost the report or the app's view.
+    console.log("heads-up lines not written: " + String(error && error.message ? error.message : error).slice(0, 200));
+    return [];
   }
-  return lines;
 }
 
 // /headsup: only how near a buy or a sale is, coin by coin, and when the signs come.
