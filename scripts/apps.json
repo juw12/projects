@@ -3443,9 +3443,9 @@
       "external": true,
       "url": "https://juw12.github.io/titip/",
       "url_label": "Try the demo",
-      "desc": "Read, answer and write your Outlook mail from your phone. Your own PC serves it: no cloud relay, QR pairing, 5-second undo on every send.",
+      "desc": "Read, answer and write your Outlook mail from your phone, served by your own PC. Autopilot answers the safe Gmail on its own and keeps the rest for you.",
       "summary": "Read, answer and write your Outlook mail from your phone. Your own PC serves it.",
-      "description": "Titip shows Inbox, Sent and Drafts from the classic Outlook desktop app on a paired phone. Reply, forward or write new mail; every send waits 5 seconds behind Undo, and Outlook on the PC sends it. Pair by QR code. No password stored, no cloud relay. The demo runs on invented mail.",
+      "description": "Titip shows Inbox, Sent and Drafts from the classic Outlook desktop app on a paired phone. Reply, forward or write new mail; every send waits 5 seconds behind Undo, and Outlook on the PC sends it. Pair by QR code. No password stored. Autopilot can answer short, safe Gmail on its own, keeps anything about money or contracts for you, and can be watched from any network through a relay that holds only ciphertext. The demo runs on invented mail.",
       "tags": [
         "Python",
         "Outlook",
