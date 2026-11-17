@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { TICK_MS, newState, readSignals, tick } from "../src/agent.js";
-import { LOOK_AHEAD, SOON_MS, earliest, headsUp, levels, signNow } from "../src/headsup.js";
+import { LOOK_AHEAD, MAX_STEP, PACES, SHAPES, SOON_MS, earliest, headsUp, levels, pathOf, signNow } from "../src/headsup.js";
 import { STOP_CLEAR_PCT, STOP_NEAR_PCT, cleanReport, fullReport, onlyReal, realHelp, stopSigns, viewData } from "../src/indodax.js";
 import { TIMEFRAMES, closedCandles } from "../src/market.js";
 import { closeHours, sign, signGone, signals, soonLines, stopNear } from "../src/render.js";
@@ -155,23 +155,52 @@ test("heads-up: with a coin held it says how near the sale is, at the close or a
   assert.equal(judged(closed, under * 1.001, { position: { stop: 1 }, barsSinceExit: null }).action, "hold");
 });
 
-test("heads-up: the earliest time is the first candle at which a steady move passes the rules", () => {
+// Replay the move an estimate names, candle by candle, as the rules will see it.
+function replayed(closed, price, found) {
+  const range = computeSeries(closed).atr[closed.length - 1];
+  const closes = pathOf({ price, range, pace: found.pace, shape: found.shape, steps: found.candles });
+  const path = closed.slice();
+  for (const [index, close] of closes.entries()) {
+    path.push({ t: closed.at(-1).t + (index + 1) * FOUR_HOURS, o: path.at(-1).c, h: Math.max(path.at(-1).c, close), l: Math.min(path.at(-1).c, close), c: close, v: 0 });
+  }
+  return path;
+}
+
+test("heads-up: a tried move keeps its pace, and no candle of it is larger than two usual moves", () => {
+  for (const shape of SHAPES) {
+    for (const pace of PACES) {
+      const closes = pathOf({ price: 1000, range: 10, pace, shape, steps: 60 });
+      if (!closes) continue;
+      assert.ok(Math.abs(closes.at(-1) - (1000 + 60 * pace * 10)) < 1e-6, `60 candles at ${pace} usual moves each`);
+      let before = 1000;
+      for (const close of closes) {
+        assert.ok(Math.abs(close - before) <= MAX_STEP * 10 + 1e-9);
+        before = close;
+      }
+    }
+  }
+  assert.equal(pathOf({ price: 1000, range: 10, pace: -0.2, shape: SHAPES[1], steps: 5 }), null, "a breathing shape only climbs");
+  assert.equal(pathOf({ price: 1000, range: 10, pace: 0.75, shape: SHAPES[1], steps: 5 }), null, "it would need candles of 3 usual moves");
+  assert.deepEqual(pathOf({ price: 1000, range: 10, pace: 0.5, shape: SHAPES[1], steps: 4 }), [1020, 1010, 1030, 1020]);
+});
+
+test("heads-up: the earliest time is the first candle at which a plain move passes the rules", () => {
+  // A weak market: under its long average, momentum down, RSI low. A straight climb never passes
+  // (RSI runs over its top), but a climb that breathes does, and the estimate finds it.
   const { closed } = finished("down");
   const price = closed.at(-1).c;
   const found = earliest({ closed, price, at: AT, length: FOUR_HOURS });
-  if (found) {
-    // Replay that steady move: the rules buy at that candle.
-    const range = computeSeries(closed).atr[closed.length - 1];
-    const path = closed.slice();
-    for (let step = 1; step <= found.candles; step++) {
-      const close = price + step * found.pace * range;
-      path.push({ t: closed.at(-1).t + step * FOUR_HOURS, o: path.at(-1).c, h: Math.max(path.at(-1).c, close), l: Math.min(path.at(-1).c, close), c: close, v: 0 });
-    }
-    assert.equal(decideAt(computeSeries(path), path.length - 1, FLAT).action, "buy");
-    assert.equal(found.at, AT + (found.candles - 1) * FOUR_HOURS);
-    assert.ok(found.candles > 1 && found.candles <= LOOK_AHEAD);
-    assert.ok(found.pct > 0, "a falling market needs a rise first");
+  assert.ok(found, "a climb with pullbacks gets there within the look-ahead");
+  assert.equal(found.waves, true);
+  const path = replayed(closed, price, found);
+  assert.equal(decideAt(computeSeries(path), path.length - 1, FLAT).action, "buy", "replayed, the rules buy at that candle");
+  for (let step = 1; step < found.candles; step++) {
+    assert.notEqual(decideAt(computeSeries(path.slice(0, closed.length + step)), closed.length + step - 1, FLAT).action, "buy", "and not at a candle before it");
   }
+  assert.equal(found.at, AT + (found.candles - 1) * FOUR_HOURS);
+  assert.ok(found.candles > 1 && found.candles <= LOOK_AHEAD);
+  assert.ok(found.pct > 0, "a falling market needs a rise first");
+  assert.equal(found.price, path.at(-1).c);
   // In a rising market, just under the band: this very candle, with a small rise.
   const rising = finished("up");
   const levelsNow = levels(rising.series, rising.closed.length - 1);
@@ -389,6 +418,11 @@ test("/signals carries the heads-up under each coin, and its words follow the le
   assert.match(line({ level: "far", needPct: 3.6, movePct: 1.2, moves: 3, earliest: null }), /no buy in sight at 15:00 WIB\. It would need a close above .* \(\+3\.6% from now\), about 3\.0 usual candle moves \(1\.2% each\)\.\nEarliest by my estimate: not in the next 60 candles \(10 days\)/);
   assert.match(line({ level: "far", open: false }), /No closing price passes all 3 checks at this candle\./);
   assert.match(line({ level: "far", needPct: 2, moves: 2, earliest: { at: AT + 2 * FOUR_HOURS, candles: 3, price: soon.price * 1.02, pct: 2, pace: 0.5 } }), /Earliest by my estimate: 23:00 WIB \(3 candles from now\), and only if the price climbs steadily to about .* \(\+2\.0%\)\. A rough estimate, not a forecast\./);
+  // The estimate says which kind of move it needs.
+  const twoDays = { at: AT + 11 * FOUR_HOURS, candles: 12, price: soon.price * 1.165, pct: 16.5, pace: 0.75 };
+  assert.match(line({ level: "far", needPct: 2, moves: 2, earliest: { ...twoDays, waves: true } }), /\(12 candles from now\), and only if the price climbs to about .* \(\+16\.5%\) by then, with pullbacks on the way\. A rough estimate, not a forecast\./);
+  assert.match(line({ level: "far", needPct: 2, moves: 2, earliest: { ...twoDays, waves: false } }), /only if the price climbs steadily to about .* \(\+16\.5%\)\. A rough estimate/);
+  assert.match(line({ level: "far", needPct: 2, moves: 2, earliest: null }), /not in the next 60 candles \(10 days\), on any move I tried \(steady, or a climb with pullbacks\)\./);
   assert.match(line({ level: "wait", from: AT + 5 * FOUR_HOURS }), /⏳ Heads-up: no buy before 16 Jan 11:00 WIB\. I leave a coin alone for 6 candles after a sale\./);
   assert.deepEqual(soonLines({ soon: { kind: "buy", level: "unknown", at: AT } }, state, now()), []);
   assert.deepEqual(soonLines({}, state, now()), []);

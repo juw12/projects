@@ -313,7 +313,8 @@ What is where:
   when a heads-up turns amber, green or red. The lines are worked out by TradeBot's server
   (`../src/headsup.js`); the app only shows them, and nothing is ordered on them. An estimate from
   the price now, not a forecast. Telegram sends the sign too: `/headsup`, and by itself in the
-  last hour before a 4-hour candle closes.
+  last hour before a 4-hour candle closes. Since 0.16.1 the earliest time also tries climbs with
+  pullbacks: a straight climb pushes RSI over 70, so on it the rules never buy.
 - **Borrowed ways of working (0.15.0).** Four parts of the Agents tab follow the two most
   starred open trading-agent projects,
   [TradingAgents](https://github.com/TauricResearch/TradingAgents) and

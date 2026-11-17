@@ -482,11 +482,13 @@ export function closeHours(timeframe) {
 function earliestLine(soon, timeframe, now) {
   const found = soon.earliest;
   if (!found) {
-    return `Earliest by my estimate: not in the next ${LOOK_AHEAD} candles (${span(LOOK_AHEAD * TIMEFRAMES[timeframe].ms)}), at any steady move I tried.`;
+    return `Earliest by my estimate: not in the next ${LOOK_AHEAD} candles (${span(LOOK_AHEAD * TIMEFRAMES[timeframe].ms)}), on any move I tried (steady, or a climb with pullbacks).`;
   }
   const path =
     found.pct > 0.05
-      ? `climbs steadily to about ${price(found.price)} (${pct(found.pct)})`
+      ? found.waves
+        ? `climbs to about ${price(found.price)} (${pct(found.pct)}) by then, with pullbacks on the way`
+        : `climbs steadily to about ${price(found.price)} (${pct(found.pct)})`
       : found.pct < -0.05
         ? `eases steadily to about ${price(found.price)} (${pct(found.pct)})`
         : "stays about where it is now";
