@@ -3478,6 +3478,50 @@
       "status": "released",
       "order": 79,
       "portfolio": true
+    },
+    {
+      "id": "kemudi",
+      "name": "Kemudi",
+      "category": "AI",
+      "external": true,
+      "url": "https://juw12.github.io/p/kemudi/",
+      "url_label": "Open site",
+      "desc": "Steering knobs for a local language model: real activation vectors, each with a measured dose-response and the dose where the text breaks.",
+      "summary": "Steering knobs for a local language model, each shipped with a measurement of what it does.",
+      "description": "Four knobs (mood, tension, register, speech) that add a direction to the internal state of a small local model while it writes, with no instruction in the prompt. Each knob ships with its dose-response curve, the doses that keep the text fluent, a random-direction control and a prompt control. The negative results are shown too: one knob has no effect inside its usable range. Qwen2.5-0.5B on the CPU, Python, MIT.",
+      "tags": [
+        "activation-steering",
+        "interpretability",
+        "llm",
+        "local-llm",
+        "python"
+      ],
+      "note_tags": [
+        "kemudi",
+        "activation-steering",
+        "interpretability",
+        "llm",
+        "local-llm",
+        "python"
+      ],
+      "image": "kemudi-card.jpg",
+      "image_alt": "Kemudi landing page: the headline 'Steering knobs for a local language model' beside a screenshot of the app with four sliders and their measured curves",
+      "extra_links": [
+        {
+          "label": "Source",
+          "url": "https://github.com/juw12/kemudi"
+        }
+      ],
+      "card": {
+        "label": "kemudi · home",
+        "capture": "https://juw12.github.io/p/kemudi/",
+        "theme": "light",
+        "accent": "#167068",
+        "accent2": "#2f559e"
+      },
+      "status": "released",
+      "order": 80,
+      "portfolio": true
     }
   ]
 }
