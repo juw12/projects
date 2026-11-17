@@ -3435,6 +3435,49 @@
       "status": "released",
       "order": 78,
       "portfolio": true
+    },
+    {
+      "id": "titip",
+      "name": "Titip",
+      "category": "Software",
+      "external": true,
+      "url": "https://juw12.github.io/titip/",
+      "url_label": "Try the demo",
+      "desc": "Read, answer and write your Outlook mail from your phone. Your own PC serves it: no cloud relay, QR pairing, 5-second undo on every send.",
+      "summary": "Read, answer and write your Outlook mail from your phone. Your own PC serves it.",
+      "description": "Titip shows Inbox, Sent and Drafts from the classic Outlook desktop app on a paired phone. Reply, forward or write new mail; every send waits 5 seconds behind Undo, and Outlook on the PC sends it. Pair by QR code. No password stored, no cloud relay. The demo runs on invented mail.",
+      "tags": [
+        "Python",
+        "Outlook",
+        "Windows",
+        "PWA"
+      ],
+      "note_tags": [
+        "titip",
+        "email",
+        "local-first",
+        "outlook",
+        "pwa",
+        "python"
+      ],
+      "image": "titip-card.jpg",
+      "image_alt": "Titip demo: an inbox of invented mail with unread dots, tabs for Inbox, Sent and Drafts, and a Write button",
+      "extra_links": [
+        {
+          "label": "Source",
+          "url": "https://github.com/juw12/titip"
+        }
+      ],
+      "card": {
+        "label": "titip · demo",
+        "capture": "https://juw12.github.io/titip/",
+        "theme": "dark",
+        "accent": "#2c63ab",
+        "accent2": "#532f9e"
+      },
+      "status": "released",
+      "order": 79,
+      "portfolio": true
     }
   ]
 }
