@@ -89,7 +89,7 @@ reached one order's size. The day starts again at 07:00 Jakarta time.
 | `INDODAX_STOP_PERCENT` | the sender's own stop, 1 to 20 percent below the price paid (default 8) |
 | `INDODAX_COINS` | only copy these coins, such as `btc,eth` (default: all that Indodax trades in rupiah) |
 | `INDODAX_BRIDGE_URL` | TradeBot's server, https only (default is the public one) |
-| `HTTPS_PROXY` | a proxy for the calls to TradeBot and Indodax. If the PC also has its own `HTTPS_PROXY`, that one is used first and this one is the spare: when the first is down the sender, the window and the study change to the other by themselves |
+| `HTTPS_PROXY` | a proxy for the calls to TradeBot and Indodax. This one is used first. If the PC also has its own `HTTPS_PROXY` and it names another proxy, that one is the spare: when the first is down the sender, the window and the study change to the other by themselves. Without one here, the PC's own is used |
 | `INDODAX_API_KEY`, `INDODAX_API_SECRET` | your Indodax API key. Not needed for practice |
 | `INDODAX_API_VERSION` | `2` (default) for keys made now, `1` for a key made for the older Trade API |
 | `INDODAX_MODE` | `practice` (default) or `real` |

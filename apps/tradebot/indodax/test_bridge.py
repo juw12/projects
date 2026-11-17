@@ -278,14 +278,17 @@ class SettingsTests(unittest.TestCase):
         self.assertEqual((settings.order_idr, settings.max_open, settings.proxy), (70_000, 3, "http://localhost:3128"))
         self.assertEqual(settings.spare_proxy, "")  # the file named no proxy: there is no spare
 
-    def test_the_file_proxy_is_kept_as_a_spare_when_the_pc_names_another(self):
+    def test_the_file_proxy_goes_first_and_the_pc_one_is_the_spare(self):
         with tempfile.TemporaryDirectory() as folder:
             env = Path(folder) / ".env"
             env.write_text("HTTPS_PROXY=http://office:80\n", encoding="utf-8")
             both = bridge.load_settings(env, {"HTTPS_PROXY": "http://localhost:3128"})
+            lower = bridge.load_settings(env, {"https_proxy": " http://localhost:3128 "})
             same = bridge.load_settings(env, {"HTTPS_PROXY": "http://office:80"})
             alone = bridge.load_settings(env, {})
-        self.assertEqual((both.proxy, both.spare_proxy), ("http://localhost:3128", "http://office:80"))
+        # The .env proxy was chosen for this sender: it goes first, the PC's own is the spare.
+        self.assertEqual((both.proxy, both.spare_proxy), ("http://office:80", "http://localhost:3128"))
+        self.assertEqual((lower.proxy, lower.spare_proxy), ("http://office:80", "http://localhost:3128"))
         self.assertEqual((same.proxy, same.spare_proxy), ("http://office:80", ""))
         self.assertEqual((alone.proxy, alone.spare_proxy), ("http://office:80", ""))
         self.assertNotIn("office", repr(both))
