@@ -2,11 +2,22 @@
 rem Puts the newest TradeBot.exe from GitHub in this folder, then opens it.
 rem Run it while no coin is held and the TradeBot window is closed. The old app is kept as
 rem TradeBot.old.exe. Your .env and the sender's files are not touched.
+rem A sender that runs without the window (the Windows task "TradeBot sender") keeps running
+rem during the download. It is stopped only for the few seconds of the swap, then started again.
 setlocal
 cd /d "%~dp0"
 set "FROM=https://github.com/juw12/projects/releases/download/tradebot-desk/TradeBot.exe"
+set "TASK=TradeBot sender"
+set "BACKGROUND="
+schtasks /query /tn "%TASK%" >nul 2>nul
+if not errorlevel 1 set "BACKGROUND=1"
 
-tasklist /fi "imagename eq TradeBot.exe" 2>nul | find /i "TradeBot.exe" >nul
+rem The window must be closed. Without the task, any running TradeBot.exe is the window and its sender.
+if defined BACKGROUND (
+    tasklist /v /fi "imagename eq TradeBot.exe" /fo csv /nh 2>nul | find /i "Indodax" >nul
+) else (
+    tasklist /fi "imagename eq TradeBot.exe" 2>nul | find /i "TradeBot.exe" >nul
+)
 if not errorlevel 1 (
     echo TradeBot is still open. Close its window first, then run this again.
     pause
@@ -37,7 +48,23 @@ for %%f in ("TradeBot.new.exe") do if %%~zf LSS 3000000 (
     exit /b 1
 )
 
+rem The sender without a window is stopped now, for the swap only.
+if defined BACKGROUND (
+    schtasks /end /tn "%TASK%" >nul 2>nul
+    ping -n 4 127.0.0.1 >nul
+    tasklist /fi "imagename eq TradeBot.exe" 2>nul | find /i "TradeBot.exe" >nul
+    if not errorlevel 1 (
+        schtasks /run /tn "%TASK%" >nul 2>nul
+        del "TradeBot.new.exe" 2>nul
+        echo TradeBot is still open. Close its window first, then run this again. Nothing was changed.
+        pause
+        exit /b 1
+    )
+)
+
 if exist "TradeBot.exe" move /y "TradeBot.exe" "TradeBot.old.exe" >nul
 move /y "TradeBot.new.exe" "TradeBot.exe" >nul
+rem A sender you stopped yourself stays stopped: Windows does not run a task that is switched off.
+if defined BACKGROUND schtasks /run /tn "%TASK%" >nul 2>nul
 echo Done. Opening TradeBot.
 start "" "%~dp0TradeBot.exe"

@@ -2480,5 +2480,88 @@ class Study(Case):
         start.assert_not_called()
 
 
+# ---------------------------------------------------------------- one sender on a PC, also with no window
+
+
+class OneSenderAndItsLog(Case):
+    def keep_running(self, *arguments, holder="free"):
+        """main() as the sender that keeps running: one cycle, then the stop a Ctrl+C gives."""
+        env = Path(self.folder.name) / ".env"
+        env.write_text("INDODAX_BRIDGE_KEY=k\n", encoding="utf-8")
+        held = mock.Mock() if holder == "free" else None
+        output = io.StringIO()
+        with mock.patch.object(bridge, "hold_one_sender", return_value=held) as hold, mock.patch.object(bridge.Bridge, "cycle", return_value={}) as cycle:
+            with mock.patch.object(bridge, "reroute"), mock.patch.object(bridge, "start_study"), mock.patch.object(bridge.time, "sleep", side_effect=KeyboardInterrupt):
+                with mock.patch.dict(os.environ, {}, clear=True), contextlib.redirect_stdout(output), contextlib.redirect_stderr(io.StringIO()):
+                    code = bridge.main(["--env", str(env), "--state", str(self.state_path), *arguments])
+        return code, output.getvalue(), hold, cycle
+
+    def test_only_one_sender_can_hold_the_pc(self):
+        probe = socket.socket()
+        probe.bind(("127.0.0.1", 0))
+        port = probe.getsockname()[1]
+        probe.close()
+        first = bridge.hold_one_sender(port)
+        self.assertIsNotNone(first)
+        self.assertIsNone(bridge.hold_one_sender(port), "a second sender must not get it")
+        first.close()
+        again = bridge.hold_one_sender(port)
+        self.assertIsNotNone(again, "it is free again when the first sender has ended")
+        again.close()
+
+    def test_the_sender_that_keeps_running_takes_the_pc_first(self):
+        code, output, hold, cycle = self.keep_running()
+        self.assertEqual(code, 0)
+        hold.assert_called_once_with()
+        self.assertEqual(cycle.call_count, 1)
+        self.assertIn("Indodax sender running", output)
+
+    def test_a_second_sender_says_so_and_ends_without_a_cycle(self):
+        code, output, _hold, cycle = self.keep_running(holder="taken")
+        self.assertEqual(code, bridge.ALREADY_RUNNING)
+        cycle.assert_not_called()
+        self.assertIn("another sender is already running", output)
+        self.assertNotIn("Indodax sender running", output)
+
+    def test_one_look_or_one_cycle_does_not_ask_for_the_pc(self):
+        for flag in ("--show", "--once"):
+            code, _output, hold, cycle = self.keep_running(flag, holder="taken")
+            self.assertEqual(code, 0, flag)
+            hold.assert_not_called()
+            self.assertEqual(cycle.call_count, 1, flag)
+
+    def test_with_no_window_its_lines_are_kept_in_a_file(self):
+        log = Path(self.folder.name) / "desk_sender.log"
+        code, output, _hold, _cycle = self.keep_running("--log", str(log))
+        self.assertEqual(code, 0)
+        kept = log.read_text(encoding="utf-8")
+        self.assertIn("Indodax sender running", kept)
+        self.assertIn("Stopped.", kept)
+        self.assertEqual(kept, output, "the file holds the same lines as the console")
+
+    def test_a_second_sender_with_no_window_leaves_its_reason_in_the_file(self):
+        log = Path(self.folder.name) / "desk_sender.log"
+        code, _output, _hold, _cycle = self.keep_running("--log", str(log), holder="taken")
+        self.assertEqual(code, bridge.ALREADY_RUNNING)
+        self.assertIn("another sender is already running", log.read_text(encoding="utf-8"))
+
+    def test_kept_lines_are_whole_lines_and_work_without_a_console(self):
+        log = Path(self.folder.name) / "lines.log"
+        kept = bridge.KeptLines(log)  # inside the one-file app there is no console at all
+        kept.write("a")
+        kept.write("b\nc")
+        kept.flush()
+        self.assertEqual(log.read_text(encoding="utf-8"), "ab\n")
+        kept.write("\n")
+        self.assertEqual(log.read_text(encoding="utf-8"), "ab\nc\n")
+
+    def test_a_log_file_over_a_megabyte_is_set_aside(self):
+        log = Path(self.folder.name) / "lines.log"
+        log.write_text("x" * (bridge.LOG_FILE_BYTES + 1), encoding="utf-8")
+        bridge.append_line(log, "new")
+        self.assertEqual(log.read_text(encoding="utf-8"), "new\n")
+        self.assertTrue(log.with_suffix(".old.log").exists())
+
+
 if __name__ == "__main__":
     unittest.main()

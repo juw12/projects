@@ -86,6 +86,11 @@ jobs:
           print(words)
           assert sender.returncode == 0 and "sender is off" in words, (sender.returncode, words, sender.stderr)
 
+          # With --log its words are kept in a file: that is how the sender runs with no window at all.
+          kept = folder / "kept.log"
+          logged = subprocess.run([str(app), "--sender", "--show", "--log", str(kept)], cwd=folder, capture_output=True, timeout=120)
+          assert logged.returncode == 0 and "sender is off" in kept.read_text(encoding="utf-8"), (logged.returncode, logged.stderr)
+
           # The study runs from the app too. With no saved prices and --offline it says so and writes nothing.
           study = subprocess.run([str(app), "--study", "--offline", "--env", str(folder / ".env"), "--state", str(folder / "bridge_state.json")], cwd=folder, capture_output=True, timeout=120)
           print(study.returncode, study.stdout.decode("utf-8", "replace"), study.stderr.decode("utf-8", "replace"))
