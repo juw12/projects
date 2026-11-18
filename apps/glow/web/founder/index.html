@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; worker-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'">
+<title>GlowFounder — test a business idea on simulated buyers</title>
+<meta name="description" content="GlowFounder tests a business idea before you spend money on it. Simulated buyers walk up to your stall in a 3D market square, read your pitch and decide. You see who buys, who passes and why, with pricing and unit economics. Free, open source, and it runs in your browser.">
+<meta name="theme-color" content="#262624">
+<link rel="canonical" href="https://juw12.github.io/projects/glow/founder/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Glow">
+<meta property="og:title" content="GlowFounder — test a business idea on simulated buyers">
+<meta property="og:description" content="Simulated buyers read your pitch in a 3D market square and decide. See who buys, who passes and why, before you launch. Free, open source, runs in your browser.">
+<meta property="og:url" content="https://juw12.github.io/projects/glow/founder/">
+<meta property="og:image" content="https://juw12.github.io/projects/glow/icons/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://juw12.github.io/projects/glow/icons/og-image.png">
+<link rel="stylesheet" href="../home.css">
+<link rel="stylesheet" href="../spark/spark.css">
+<link rel="stylesheet" href="./founder.css">
+<link rel="icon" type="image/svg+xml" href="../icons/app-icon.svg">
+<link rel="manifest" href="../manifest.webmanifest">
+<link rel="apple-touch-icon" href="../icons/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Glow">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+</head>
+<body class="spark-page founder-page">
+<header class="top">
+  <a class="logo" href="../" aria-label="Glow home"><img src="../icons/app-icon.svg" alt="" width="34" height="34"><span>Glow</span></a>
+  <div class="top-right">
+    <button class="icon-btn" id="theme-btn" type="button" title="Light or dark">☀</button>
+    <button class="icon-btn" id="glow-apps-btn" type="button" data-glow-apps aria-label="Glow apps" title="Glow apps"></button>
+    <button id="profile-btn" type="button" data-glow-profile></button>
+  </div>
+</header>
+
+<main class="spark-main founder-main">
+  <section class="spark-head founder-head">
+    <h1><span aria-hidden="true">🏪</span> <span data-i18n="founder.title">GlowFounder</span></h1>
+    <p class="spark-lede" data-i18n="founder.lede">Test a business idea before you spend money on it. Simulated buyers walk up to your stall, read your pitch and decide. You see who buys, who passes and why.</p>
+  </section>
+
+  <section class="founder-result" id="founder-result" aria-live="polite"></section>
+  <section class="founder-saved" id="founder-saved" aria-labelledby="founder-saved-head"></section>
+
+  <section class="founder-stage" id="founder-stage">
+    <p class="founder-loading" id="founder-loading" data-i18n="founder.loading">Loading the studio. The first visit downloads about 14 MB, so it can take a minute.</p>
+    <iframe id="founder-frame" src="./studio/index.html?project=demo-matcha" title="GlowFounder studio" data-i18n-title="founder.frameTitle" allow="fullscreen" loading="eager"></iframe>
+  </section>
+
+  <section class="card" id="limits-card" aria-labelledby="limits-title">
+    <h2 id="limits-title" data-i18n="founder.limits.title">Honest limits</h2>
+    <ul class="limits">
+      <li data-i18n="founder.limits.sim">Simulated buyers are not customers. Read the buy rate as an upper bound and a cheap first filter, then run a real launch test.</li>
+      <li data-i18n="founder.limits.quick">Quick sim is a set of rules with a fresh random draw of buyers, not an AI. Run it a few times: the buy rate moves from run to run.</li>
+      <li data-i18n="founder.limits.ai">AI buyers run on free AI models. Your pitch and the buyer profiles are sent to those services. They can be slow, busy or simply wrong.</li>
+      <li data-i18n="founder.limits.saved">Your projects and your last panels are saved in this browser only. Clearing the site data removes them.</li>
+      <li data-i18n="founder.limits.size">The numbers are worked out by Python running inside your browser. That is why the first visit downloads about 14 MB.</li>
+      <li data-i18n="founder.limits.english">The studio itself is in English for now.</li>
+    </ul>
+  </section>
+
+  <footer class="spark-foot">
+    <p class="fine"><span data-i18n="founder.fine">GlowFounder is part of Glow: free, open source, no ads. It is built on Founder Studio.</span> <a href="https://github.com/juw12/founder-studio" target="_blank" rel="noopener" data-i18n="founder.source">Founder Studio on GitHub</a></p>
+  </footer>
+</main>
+
+<script src="../shared/glow-locale.js"></script>
+<script src="../shared/glow-apps.js"></script>
+<script src="./founder.js"></script>
+</body>
+</html>

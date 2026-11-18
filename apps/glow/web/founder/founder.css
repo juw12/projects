@@ -1,0 +1,314 @@
+/* GlowFounder page. Builds on ../home.css and ../spark/spark.css (header, buttons, cards). This file adds what
+   this page alone needs: a wider column for the studio, the three steps, the result strip and the saved panels. */
+
+.founder-page [hidden] {
+  display: none !important;
+}
+
+.founder-page a:focus-visible,
+.founder-page button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* The studio needs the width: three columns with a 3D scene in the middle. */
+.founder-page .founder-main {
+  width: min(1320px, 100%);
+}
+
+.founder-page .founder-head {
+  padding: clamp(6px, 2vw, 14px) 0 4px;
+}
+
+.founder-page .founder-head h1 {
+  font-size: clamp(26px, 4vw, 34px);
+}
+
+.founder-page .founder-head .spark-lede {
+  margin-top: 6px;
+  max-width: 92ch;
+  font-size: 15.5px;
+}
+
+.founder-muted {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+/* ---- three steps that follow the studio ---- */
+.founder-steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.founder-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--panel);
+}
+
+.founder-step.current {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  background: color-mix(in srgb, var(--accent) 9%, var(--panel));
+}
+
+.founder-step-mark {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--muted);
+  font-size: 12.5px;
+  font-weight: 650;
+}
+
+.founder-step.current .founder-step-mark {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+}
+
+.founder-step.done .founder-step-mark {
+  border-color: var(--room);
+  background: color-mix(in srgb, var(--room) 18%, var(--card));
+  color: var(--room);
+}
+
+.founder-step-text {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--muted);
+}
+
+.founder-step-text b {
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.founder-step.todo .founder-step-text b {
+  color: var(--muted);
+}
+
+.founder-step-text > span {
+  overflow-wrap: anywhere;
+}
+
+/* A text button inside a sentence. The padding and the matching negative margin make it 44 px tall to press
+   without moving the line it sits in. */
+.founder-link {
+  display: inline-block;
+  min-width: 44px;
+  border: 0;
+  background: none;
+  padding: 13px 4px;
+  margin: -13px -4px;
+  font: inherit;
+  font-weight: 600;
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+/* ---- the result of the last panel ---- */
+.founder-strip {
+  display: grid;
+  gap: 5px;
+  margin-top: 8px;
+  padding: 12px 16px;
+  border: 1px solid var(--border);
+  border-left-width: 4px;
+  border-radius: 14px;
+  background: var(--panel);
+}
+
+.founder-strip.good {
+  border-left-color: var(--room);
+}
+
+.founder-strip.bad {
+  border-left-color: var(--accent);
+}
+
+.founder-figure {
+  font-size: 15.5px;
+}
+
+.founder-figure b {
+  font-size: 19px;
+  letter-spacing: -0.01em;
+}
+
+.founder-meta {
+  color: var(--muted);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.founder-next {
+  font-size: 14.5px;
+  line-height: 1.5;
+}
+
+.founder-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 5px;
+}
+
+.founder-actions .btn {
+  text-decoration: none;
+}
+
+/* ---- the last few panels, one pill each ---- */
+.founder-saved {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  margin-top: 10px;
+  font-size: 13px;
+}
+
+.founder-saved-head {
+  color: var(--muted);
+  font-weight: 650;
+}
+
+.founder-saved-empty {
+  color: var(--muted);
+}
+
+.founder-saved-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.founder-saved-item {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 7px;
+  max-width: 100%;
+  padding: 4px 11px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--panel);
+}
+
+.founder-saved-date {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.founder-saved-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.founder-saved-rate {
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.founder-saved-rate.good {
+  color: var(--room);
+}
+
+.founder-saved-rate.bad {
+  color: var(--accent);
+}
+
+/* ---- tap size ----
+   A finger needs about 44 px. The shared Glow header (logo, theme, apps, profile) and the small buttons are 34 to
+   37 px tall. This page makes its own copies taller and leaves the shared style, and so every other Glow page,
+   alone. The header controls grow into the header's own padding (the negative margins), so the row keeps its height. */
+.founder-page .top .logo {
+  min-height: 44px;
+  margin-block: -5px;
+}
+
+.founder-page .top .icon-btn,
+.founder-page .top .glow-avatar-btn {
+  flex: 0 0 44px;
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  margin-block: -4px;
+}
+
+.founder-page .btn.small {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+}
+
+.founder-page .spark-foot .fine a {
+  display: inline-block;
+  margin: -13px 0;
+  padding: 13px 0;
+}
+
+/* ---- the studio ---- */
+.founder-stage {
+  margin-top: 12px;
+}
+
+.founder-loading {
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-size: 13.5px;
+}
+
+.founder-stage iframe {
+  display: block;
+  width: 100%;
+  height: max(640px, calc(100vh - 96px));
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--panel);
+}
+
+@media (max-width: 760px) {
+  .founder-steps {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  .founder-step {
+    padding: 8px 11px;
+  }
+
+  .founder-actions .btn {
+    flex: 1 1 100%;
+  }
+
+  .founder-stage iframe {
+    height: calc(100vh - 72px);
+    min-height: 560px;
+    border-radius: 12px;
+  }
+}

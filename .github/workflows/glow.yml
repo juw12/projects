@@ -37,6 +37,7 @@ jobs:
           python -X utf8 apps/glow/tests/test_glow_harness.py
           python -X utf8 apps/glow/tests/test_glow_code.py
           python -X utf8 apps/glow/tests/test_glow_bot.py
+          python -X utf8 apps/glow/tests/test_glow_founder.py
       - name: Install browser test tools (not app dependencies)
         run: |
           python -m pip install playwright==1.55.0
@@ -60,6 +61,7 @@ jobs:
           python -X utf8 apps/glow/tests/test_glow_library.py
           python -X utf8 apps/glow/tests/test_glow_harness.py
           python -X utf8 apps/glow/tests/test_glow_bot.py
+          python -X utf8 apps/glow/tests/test_glow_founder.py
       - name: Instant cloud browser service (real Chromium via Playwright core)
         run: |
           driver="$(python -c 'import os, playwright; print(os.path.join(os.path.dirname(playwright.__file__), "driver"))')"

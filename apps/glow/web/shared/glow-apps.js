@@ -10,7 +10,7 @@
   const ROOT = new URL("../", scriptUrl); // .../glow/
   // The Glow family version. Bump it together with ../version.json for every release:
   // an older copy of this script then sees the newer version.json and offers "Update now".
-  const GLOW_VERSION = "1.36.0";
+  const GLOW_VERSION = "1.37.0";
   const LIVE_ROOT = "https://juw12.github.io/projects/glow/";
   const APK_URL = "https://github.com/juw12/projects/releases/download/glow-android/Glow-android.apk";
   const embedded = (function () {
@@ -37,6 +37,7 @@
     { id: "harness", name: "GlowHarness", icon: "🧰", desc: "An agent harness we built from scratch: tools, permissions, every step shown", page: "harness/" },
     { id: "code", name: "GlowCode", icon: "⚡", desc: "Kilat, a small safe language: run code in a sandbox on your device", page: "code/" },
     { id: "bot", name: "GlowBot", icon: "🤖", desc: "Your Glow AI team in Telegram: missions, research and news, in chats and groups", page: "bot/" },
+    { id: "founder", name: "GlowFounder", icon: "🏪", desc: "Test a business idea on simulated buyers before you launch", page: "founder/" },
   ];
 
   // Language & region come from glow-locale.js (loaded first); English when it is missing.
@@ -59,6 +60,7 @@
     if (/\/harness\//.test(path)) return "harness";
     if (/\/code\//.test(path)) return "code";
     if (/\/bot\//.test(path)) return "bot";
+    if (/\/founder\//.test(path)) return "founder";
     return "home";
   }
 
@@ -1087,6 +1089,7 @@ html.glow-room-open .glow-widget-bubble,html.glow-room-open .glow-widget-panel{d
     if (/^harness\//.test(rest)) return "harness";
     if (/^code\//.test(rest)) return "code";
     if (/^bot\//.test(rest)) return "bot";
+    if (/^founder\//.test(rest)) return "founder";
     if (/^setup\//.test(rest)) return "setup";
     if (/^account\//.test(rest)) return "account";
     if (rest === "" || rest === "index.html") return "home";

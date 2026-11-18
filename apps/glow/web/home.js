@@ -122,6 +122,13 @@
       location.href = new URL("./bot/", location.href).toString();
       return;
     }
+    if (target === "founder") {
+      // GlowFounder starts a project from the idea typed here.
+      const founderUrl = new URL("./founder/", location.href);
+      if (text) founderUrl.searchParams.set("q", text.slice(0, 200));
+      location.href = founderUrl.toString();
+      return;
+    }
     const page = target === "room" ? roomPage : target === "lead" ? leadPage : chatPage;
     const url = new URL(page, location.href);
     if (text) {
@@ -145,7 +152,7 @@
     }
     launch(suggestedTarget());
   });
-  for (const name of ["chat", "room", "lead", "news", "spark", "harness", "bot"]) {
+  for (const name of ["chat", "room", "lead", "news", "spark", "harness", "bot", "founder"]) {
     $("start-" + name).addEventListener("click", () => launch(name));
   }
   document.querySelectorAll("[data-example]").forEach((button) => {

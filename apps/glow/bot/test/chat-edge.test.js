@@ -535,7 +535,7 @@ test("what a group hears: commands for this bot, and nothing meant for another b
     [`${PAGES}/chat/mobile.html`, `${PAGES}/room/mobile.html`],
     [`${PAGES}/news/`, `${PAGES}/spark/`],
     [`${PAGES}/harness/`, `${PAGES}/code/`],
-    [`${PAGES}/bot/`],
+    [`${PAGES}/bot/`, `${PAGES}/founder/`],
   ]);
   const buttons = apps.payload.reply_markup.inline_keyboard.flat();
   assert.ok(buttons.every((button) => typeof button.url === "string" && !("web_app" in button)));

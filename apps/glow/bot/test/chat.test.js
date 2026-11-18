@@ -137,11 +137,11 @@ const APP_URLS = [
   [`${PAGES}/chat/mobile.html`, `${PAGES}/room/mobile.html`],
   [`${PAGES}/news/`, `${PAGES}/spark/`],
   [`${PAGES}/harness/`, `${PAGES}/code/`],
-  [`${PAGES}/bot/`],
+  [`${PAGES}/bot/`, `${PAGES}/founder/`],
 ];
 const keyboardOf = (call) => call.payload.reply_markup.inline_keyboard;
 
-test("/apps opens the nine Glow apps inside Telegram", async () => {
+test("/apps opens the ten Glow apps inside Telegram", async () => {
   const { calls, said } = await answerTo("/apps");
   assert.equal(calls.length, 1);
   assert.deepEqual(said, ["Open a Glow app:"]);
@@ -158,6 +158,7 @@ test("/apps opens the nine Glow apps inside Telegram", async () => {
     "🧰 GlowHarness",
     "⚡ GlowCode",
     "🤖 GlowBot",
+    "🏪 GlowFounder",
   ]);
   assert.ok(rows.flat().every((button) => !("url" in button)));
 });

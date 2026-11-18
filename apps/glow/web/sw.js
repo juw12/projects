@@ -13,7 +13,10 @@
 // GlowBot (./bot/): the page, its style and its script are cached at install, so the command list
 // and the setup steps still open offline. The bot itself runs on its own server; the page's status
 // calls go to that other origin and are never handled here.
-const CACHE_NAME = 'glowhome-v24';
+// GlowFounder (./founder/): the page and the studio's own files are cached at install. The Python runtime
+// the studio computes with (./founder/studio/pyodide/, about 13 MB) is not: it is cached the first time the
+// page loads it, like every other same-origin file, so a second visit also works offline.
+const CACHE_NAME = 'glowhome-v25';
 const NETWORK_TIMEOUT_MS = 4000;
 const ASSETS = [
   './',
@@ -46,6 +49,17 @@ const ASSETS = [
   './bot/',
   './bot/bot.css',
   './bot/bot.js',
+  './founder/',
+  './founder/founder.css',
+  './founder/founder.js',
+  './founder/studio/index.html',
+  './founder/studio/styles.css',
+  './founder/studio/js/embed.js',
+  './founder/studio/js/app.js',
+  './founder/studio/js/arena.js',
+  './founder/studio/js/engine.js',
+  './founder/studio/js/review.js',
+  './founder/studio/js/browser-backend.js',
   './download/',
   './download/download.css',
   './download/download.js',
