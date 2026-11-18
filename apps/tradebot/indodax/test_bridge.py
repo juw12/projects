@@ -2562,6 +2562,43 @@ class OneSenderAndItsLog(Case):
         self.assertEqual(log.read_text(encoding="utf-8"), "new\n")
         self.assertTrue(log.with_suffix(".old.log").exists())
 
+    def test_the_sender_in_the_app_ends_when_its_starter_is_ended(self):
+        # The one-file app is two processes; Windows' task list ends only the first (the starter).
+        left = []
+        bridge.follow_the_starter(4321, wait=lambda pid: pid == 4321, leave=left.append).join(5)
+        self.assertEqual(left, [1], "the starter ended, so the sender must end too")
+
+    def test_a_starter_that_cannot_be_watched_does_not_end_the_sender(self):
+        left = []
+        bridge.follow_the_starter(4321, wait=lambda pid: False, leave=left.append).join(5)
+        self.assertEqual(left, [])
+
+    @unittest.skipUnless(os.name == "nt", "the wait uses Windows")
+    def test_the_end_of_a_real_process_is_seen_and_a_missing_one_is_not_watched(self):
+        import subprocess
+        import sys
+
+        child = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)"])
+        seen = []
+        watcher = threading.Thread(target=lambda: seen.append(bridge.wait_for_end(child.pid)), daemon=True)
+        watcher.start()
+        watcher.join(0.5)
+        self.assertEqual(seen, [], "it still runs, so the wait goes on")
+        child.kill()
+        watcher.join(10)
+        self.assertEqual(seen, [True])
+        child.wait()
+        self.assertFalse(bridge.wait_for_end(0), "no such process: nothing is known, so nothing ends")
+
+    def test_only_the_app_follows_its_starter(self):
+        with mock.patch.object(bridge, "follow_the_starter") as follow:
+            with mock.patch.object(bridge, "FROZEN", False):
+                self.keep_running()
+            self.assertFalse(follow.called, "under Python the sender is one process")
+            with mock.patch.object(bridge, "FROZEN", True):
+                self.keep_running()
+            follow.assert_called_once_with(os.getppid())
+
 
 if __name__ == "__main__":
     unittest.main()
