@@ -4,13 +4,17 @@
 """
 
 import contextlib
+import http.client
 import io
 import json
 import os
+import socket
 import tempfile
+import threading
 import unittest
 import urllib.error
 import urllib.parse
+import urllib.request
 from pathlib import Path
 from unittest import mock
 
@@ -120,6 +124,10 @@ class FakeExchange:
 
     def refuse(self, order):
         raise bridge.ExchangeError("Insufficient balance.", code="insufficient_balance")
+
+    def never_leave(self, order):
+        """The proxy refused before any connection to Indodax existed: the order was not sent."""
+        raise bridge.ExchangeError("Indodax could not be reached (URLError, the proxy answered 407)", unsent=True)
 
 
 class FakeApi:
@@ -365,6 +373,8 @@ class Reroute(Case):
         self.assertEqual((made.settings.proxy, made.api.settings.proxy, made.exchange.settings.proxy), ("http://office:80",) * 3)
         self.assertIsNot(made.api.opener, before[0])
         self.assertIsNot(made.exchange.opener, before[1])
+        self.assertEqual(made.api.settings.spare_proxy, "http://user:pass@localhost:3128")
+        self.assertIsNotNone(made.api.spare)  # the proxy that was in use is now the one for a last try
         self.assertEqual(lines, ["The proxy in use did not answer. Now going through the other one (office)."])
 
     def test_nothing_moves_and_nothing_is_said_while_the_proxy_answers(self):
@@ -430,6 +440,223 @@ GET_INFO = {
 }
 
 
+# ---------------------------------------------------------------- TradeBot's server: a call is tried again
+
+
+REFUSED_407 = urllib.error.URLError(OSError("Tunnel connection failed: 407 Proxy Authentication Required"))
+
+
+def answers_after(*problems, answer=None):
+    """A pretend network that fails with each of these in turn and then answers."""
+    waiting = list(problems)
+
+    def handler(request):
+        return waiting.pop(0) if waiting else ({"ok": True} if answer is None else answer)
+
+    return handler
+
+
+class ApiTries(unittest.TestCase):
+    def api(self, main, spare=None, **changes):
+        values = {"key": "BRIDGE-KEY-VALUE", "proxy": "http://office:80", "spare_proxy": "http://localhost:3128" if spare else ""}
+        values.update(changes)
+        self.lines, self.waits, self.clock = [], [], Clock(0.0)
+        made = bridge.Api(bridge.Settings(**values), log=self.lines.append, sleep=self.waits.append, clock=self.clock)
+        self.main = made.opener = FakeOpener(main)
+        self.other = None
+        if spare:
+            self.assertIsNotNone(made.spare)
+            self.other = made.spare = FakeOpener(spare)
+        return made
+
+    def test_a_call_that_answers_is_made_once(self):
+        api = self.api(answers_after(answer={"fresh": True}), spare=answers_after())
+        self.assertEqual(api.signals(), {"fresh": True})
+        self.assertEqual((len(self.main.requests), len(self.other.requests), self.waits, self.lines), (1, 0, [], []))
+
+    def test_the_second_try_goes_through_the_other_proxy_and_the_log_says_so(self):
+        api = self.api(answers_after(REFUSED_407), spare=answers_after(answer={"fresh": True}))
+        self.assertEqual(api.signals(), {"fresh": True})
+        self.assertEqual((len(self.main.requests), len(self.other.requests), self.waits), (1, 1, [1]))
+        self.assertEqual(self.lines, ["TradeBot answered on try 2 (the first try: URLError, the proxy answered 407)."])
+        first, second = self.main.requests[0], self.other.requests[0]
+        self.assertIsNot(first, second)  # a request that went through a proxy once is not sent again as it was
+        self.assertEqual(first.full_url, second.full_url)
+
+    def test_the_third_try_is_the_first_proxy_again(self):
+        api = self.api(answers_after(REFUSED_407, answer={"fresh": True}), spare=answers_after(REFUSED_407))
+        self.assertEqual(api.signals(), {"fresh": True})
+        self.assertEqual((len(self.main.requests), len(self.other.requests), self.waits), (2, 1, [1, 4]))
+        self.assertEqual(self.lines, ["TradeBot answered on try 3 (the first try: URLError, the proxy answered 407)."])
+
+    def test_with_one_proxy_all_three_tries_use_it(self):
+        api = self.api(answers_after(REFUSED_407, REFUSED_407))
+        self.assertIsNone(api.spare)
+        self.assertEqual(api.signals(), {"ok": True})
+        self.assertEqual((len(self.main.requests), self.waits), (3, [1, 4]))
+
+    def test_the_same_proxy_named_twice_is_no_other_proxy(self):
+        made = bridge.Api(bridge.Settings(key="k", proxy="http://office:80", spare_proxy="http://office:80"))
+        self.assertIsNone(made.spare)
+
+    def test_after_three_failures_it_gives_up_and_says_how_often_it_tried(self):
+        lost = http.client.RemoteDisconnected("Remote end closed connection without response")
+        api = self.api(answers_after(lost, lost), spare=answers_after(lost))
+        with self.assertRaises(bridge.ApiError) as caught:
+            api.signals()
+        self.assertEqual(str(caught.exception), "TradeBot could not be reached (RemoteDisconnected, 3 tries)")
+        self.assertEqual((self.waits, self.lines), ([1, 4], []))
+
+    def test_a_try_that_hung_is_not_followed_by_more(self):
+        def hangs(request):
+            self.clock.now += 20  # the whole timeout went by
+            return urllib.error.URLError(TimeoutError("timed out"))
+
+        api = self.api(hangs, spare=answers_after())
+        with self.assertRaises(bridge.ApiError) as caught:
+            api.signals()
+        self.assertEqual(str(caught.exception), "TradeBot could not be reached (URLError, TimeoutError)")
+        self.assertEqual((len(self.main.requests), len(self.other.requests), self.waits), (1, 0, []))
+
+    def test_slow_failures_end_the_tries_before_the_third(self):
+        def slow(request):
+            self.clock.now += 5
+            return REFUSED_407
+
+        api = self.api(slow, spare=slow)
+        with self.assertRaises(bridge.ApiError) as caught:
+            api.signals()
+        # 5 seconds, a wait of 1 (the pretend wait moves no clock), 5 more: a third try would start too late.
+        self.assertEqual(str(caught.exception), "TradeBot could not be reached (URLError, the proxy answered 407, 2 tries)")
+        self.assertEqual((len(self.main.requests), len(self.other.requests), self.waits), (1, 1, [1]))
+
+    def test_a_refusal_by_tradebot_itself_is_not_tried_again(self):
+        refused = urllib.error.HTTPError("https://example.invalid", 403, "Forbidden", None, None)
+        api = self.api(answers_after(refused), spare=answers_after())
+        with self.assertRaises(bridge.ApiError) as caught:
+            api.signals()
+        self.assertIn("HTTP 403", str(caught.exception))
+        self.assertEqual((len(self.main.requests), len(self.other.requests), self.waits), (1, 0, []))
+
+    def test_the_report_is_sent_again_whole_and_the_key_stays_out_of_every_line(self):
+        api = self.api(answers_after(REFUSED_407, answer={"ok": True, "told": 0}), spare=answers_after(REFUSED_407))
+        self.assertEqual(api.report({"mode": "real", "positions": []}), {"ok": True, "told": 0})
+        sent = self.main.requests + self.other.requests
+        self.assertEqual(len(sent), 3)
+        for request in sent:
+            self.assertEqual(request.get_method(), "POST")
+            self.assertEqual(json.loads(request.data), {"mode": "real", "positions": []})
+            self.assertEqual(request.get_header("X-indodax-key"), "BRIDGE-KEY-VALUE")
+        self.assertNotIn("BRIDGE-KEY-VALUE", " ".join(self.lines))
+
+    def test_the_key_is_in_no_message_when_every_try_fails(self):
+        loud = urllib.error.URLError(OSError("could not send X-Indodax-Key: BRIDGE-KEY-VALUE to https://trade-bot.example"))
+        api = self.api(answers_after(loud, loud, loud))
+        with self.assertRaises(bridge.ApiError) as caught:
+            api.signals()
+        self.assertEqual(str(caught.exception), "TradeBot could not be reached (URLError, OSError, 3 tries)")
+
+    def test_the_words_for_each_kind_of_problem(self):
+        self.assertEqual(bridge.why_unreached(REFUSED_407), "URLError, the proxy answered 407")
+        self.assertEqual(bridge.why_unreached(urllib.error.URLError(ConnectionResetError(10054, "reset"))), "URLError, ConnectionResetError")
+        self.assertEqual(bridge.why_unreached(urllib.error.URLError("timed out")), "URLError")
+        self.assertEqual(bridge.why_unreached(TimeoutError()), "TimeoutError")
+        self.assertEqual(bridge.why_unreached(ValueError("not JSON")), "ValueError")
+
+
+# ---------------------------------------------------------------- a request the proxy refused never left
+
+
+class LocalProxy:
+    """A pretend proxy on this PC for one connection. It answers the request to open a way to a
+    site with `answer` (nothing at all when that is empty) and keeps every byte that came after."""
+
+    def __init__(self, answer):
+        self.answer = answer
+        self.asked = b""
+        self.after = b""
+        self.server = socket.create_server(("127.0.0.1", 0))
+        self.address = f"http://127.0.0.1:{self.server.getsockname()[1]}"
+        self.thread = threading.Thread(target=self.serve, daemon=True)
+        self.thread.start()
+
+    def serve(self):
+        try:
+            connection, _ = self.server.accept()
+        except OSError:
+            return
+        with connection:
+            connection.settimeout(5)
+            data = b""
+            try:
+                while b"\r\n\r\n" not in data:
+                    chunk = connection.recv(4096)
+                    if not chunk:
+                        break
+                    data += chunk
+                self.asked, _, self.after = data.partition(b"\r\n\r\n")
+                if self.answer:
+                    connection.sendall(self.answer)
+                    connection.shutdown(socket.SHUT_WR)
+                while True:
+                    chunk = connection.recv(4096)
+                    if not chunk:
+                        break
+                    self.after += chunk
+            except OSError:
+                pass
+
+    def close(self):
+        self.server.close()
+        self.thread.join(5)
+
+
+class NeverSent(unittest.TestCase):
+    """Python's own network code against a pretend proxy: which failures mean nothing was sent."""
+
+    def through(self, answer, timeout=5):
+        proxy = LocalProxy(answer)
+        self.addCleanup(proxy.close)
+        request = urllib.request.Request("https://indodax.invalid/api/v2/order", data=b"ORDER-BODY", method="POST")
+        with self.assertRaises(OSError) as caught:
+            bridge.proxy_opener(proxy.address).open(request, timeout=timeout)
+        proxy.thread.join(5)
+        self.assertTrue(proxy.asked.startswith(b"CONNECT indodax.invalid:443 "), proxy.asked)
+        return proxy, caught.exception
+
+    def test_a_proxy_that_refuses_to_open_the_way_got_none_of_the_request(self):
+        proxy, error = self.through(b"HTTP/1.1 407 Proxy Authentication Required\r\nContent-Length: 0\r\n\r\n")
+        self.assertTrue(bridge.never_sent(error), repr(error))
+        self.assertEqual(proxy.after, b"")  # not one byte followed the refused request to open the way
+        self.assertEqual(bridge.why_unreached(error), "URLError, the proxy answered 407")
+        _, error = self.through(b"HTTP/1.1 503 Service Unavailable\r\nContent-Length: 0\r\n\r\n")
+        self.assertTrue(bridge.never_sent(error), repr(error))
+
+    def test_a_way_that_was_opened_and_then_dropped_is_not_called_never_sent(self):
+        proxy, error = self.through(b"HTTP/1.1 200 Connection established\r\n\r\n")
+        self.assertFalse(bridge.never_sent(error), repr(error))
+        self.assertNotEqual(proxy.after, b"")  # the secure connection had begun
+
+    def test_a_proxy_that_says_nothing_is_not_called_never_sent(self):
+        _, error = self.through(b"", timeout=0.3)
+        self.assertFalse(bridge.never_sent(error), repr(error))
+
+    def test_only_a_refused_way_counts(self):
+        self.assertTrue(bridge.never_sent(REFUSED_407))
+        others = (
+            urllib.error.URLError("timed out"),
+            urllib.error.URLError(TimeoutError()),
+            urllib.error.URLError(ConnectionResetError(10054, "reset")),
+            urllib.error.URLError("Tunnel connection failed: 407"),  # only Python's own error counts, not its words
+            urllib.error.HTTPError("u", 407, "Tunnel connection failed: 407", {}, None),
+            OSError("Tunnel connection failed: 407 Proxy Authentication Required"),  # not from opening a request
+            http.client.RemoteDisconnected("closed"),
+            TimeoutError(),
+        )
+        for other in others:
+            self.assertFalse(bridge.never_sent(other), repr(other))
+
+
 class ClientTests(unittest.TestCase):
     def client(self, handler, **changes):
         values = {"api_key": "API-KEY-VALUE", "api_secret": "API-SECRET-VALUE"}
@@ -493,6 +720,19 @@ class ClientTests(unittest.TestCase):
             with self.assertRaises(bridge.ExchangeError, msg=repr(problem)) as ordering:
                 self.client(self.route(problem)).trade("btc_idr", "buy", idr=50_000, client_order_id="tb-btc-1-b")
             self.assertFalse(ordering.exception.unsure, repr(problem))
+
+    def test_a_request_the_proxy_refused_is_never_unsure_and_says_it_was_not_sent(self):
+        for call in ("balances", "trade"):
+            client = self.client(self.route(REFUSED_407))
+            with self.assertRaises(bridge.ExchangeError, msg=call) as caught:
+                client.balances() if call == "balances" else client.trade("btc_idr", "buy", idr=50_000, client_order_id="tb-btc-1-b")
+            self.assertTrue(caught.exception.unsent, call)
+            self.assertFalse(caught.exception.unsure, call)
+            self.assertEqual(str(caught.exception), "Indodax could not be reached (URLError, the proxy answered 407)")
+        with self.assertRaises(bridge.ExchangeError) as lost:
+            self.client(self.route(urllib.error.URLError("timed out"))).trade("btc_idr", "buy", idr=50_000, client_order_id="tb-btc-1-b")
+        self.assertFalse(lost.exception.unsent)
+        self.assertTrue(lost.exception.unsure)
 
     def test_errors_carry_no_request_details(self):
         with self.assertRaises(bridge.ExchangeError) as caught:
@@ -891,6 +1131,49 @@ class Real(Case):
         self.bridge.cycle()
         self.assertEqual([order["pair"] for order in self.exchange.orders], ["btc_idr", "eth_idr"])  # BTC's signal stays used
 
+    def test_a_buy_that_never_left_this_pc_stops_nothing_and_is_sent_once_next_minute(self):
+        self.make(BTC, real=True)
+        self.exchange.on_trade = self.exchange.never_leave
+        self.bridge.cycle()
+        self.assertEqual(self.bridge.state["positions"], {})
+        self.assertEqual(self.bridge.state["tripped"], "")
+        self.assertEqual(self.bridge.state["bought"], {})  # the signal is not used up
+        self.assertEqual(self.bridge.state["day"]["buys"], 0)
+        self.assertEqual(self.stored()["bought"], {})
+        self.assertEqual(self.exchange.lookups, [])  # nothing was sent, so there is nothing to look up
+        self.assertEqual(self.exchange.balance_calls, 1)  # and no balance to compare
+        note = "\n".join(self.api.reports[-1]["notes"])
+        self.assertIn("BTC: the buy did not happen. The buy of BTC never left this PC", note)
+        self.assertIn("the proxy answered 407", note)
+        self.assertIn("Trying again next minute", note)
+        self.assertFalse(self.api.reports[-1]["tripped"])
+        self.exchange.on_trade = self.exchange.fill
+        self.bridge.cycle()
+        self.assertEqual([order["name"] for order in self.exchange.orders], [BUY_NAME, BUY_NAME])  # the same name both times
+        self.assertTrue(self.bridge.state["positions"][BTC]["real"])
+        self.assertEqual(self.bridge.state["day"]["buys"], 1)
+        self.bridge.cycle()
+        self.assertEqual(len(self.exchange.orders), 2)  # bought once, and never again for this signal
+
+    def test_a_buy_that_never_left_keeps_what_was_remembered_before(self):
+        self.make(BTC, real=True)
+        earlier = {"signal": SIGNAL - 1, "at": 5}
+        self.bridge.state["bought"][BTC] = dict(earlier)
+        self.exchange.on_trade = self.exchange.never_leave
+        self.bridge.cycle()
+        self.assertEqual(self.bridge.state["bought"], {BTC: earlier})
+        self.assertEqual(self.bridge.state["tripped"], "")
+
+    def test_a_buy_that_never_left_does_not_use_up_the_days_buys(self):
+        self.make(BTC, real=True)
+        self.exchange.on_trade = self.exchange.never_leave
+        for _ in range(bridge.MAX_BUYS_PER_DAY + 2):
+            self.bridge.cycle()
+        self.exchange.on_trade = self.exchange.fill
+        self.bridge.cycle()
+        self.assertIn(BTC, self.bridge.state["positions"])
+        self.assertEqual(self.bridge.state["day"]["buys"], 1)
+
     def test_lost_answer_with_the_coin_arrived_records_the_copy_and_trips(self):
         self.make(BTC, real=True)
         self.exchange.on_trade = self.exchange.fill_then_lose_answer
@@ -1201,6 +1484,24 @@ class Real(Case):
         self.bridge.cycle()
         self.assertEqual([order["name"] for order in self.exchange.orders], [f"tb-btc-{SIGNAL}-s0"] * 2)
         self.assertEqual(self.bridge.state["positions"], {})
+
+    def test_a_sale_that_never_left_this_pc_stops_nothing_and_goes_out_next_minute_under_the_same_name(self):
+        self.bought()
+        self.exchange.on_trade = self.exchange.never_leave
+        self.api.hold()
+        self.bridge.cycle()
+        position = self.bridge.state["positions"][BTC]
+        self.assertNotIn("unsure", position)
+        self.assertFalse(position.get("sells"))
+        self.assertEqual(self.bridge.state["tripped"], "")
+        self.assertEqual(self.exchange.lookups, [])
+        self.assertIn("The sale of BTC never left this PC", "\n".join(self.api.reports[-1]["notes"]))
+        self.exchange.on_trade = self.exchange.fill
+        self.bridge.cycle()
+        self.assertEqual([order["name"] for order in self.exchange.orders], [SELL_NAME, SELL_NAME])
+        self.assertEqual(self.bridge.state["positions"], {})
+        self.assertEqual(self.bridge.state["tripped"], "")
+        self.assertEqual(len(self.bridge.state["closed"]), 1)
 
     def test_accepted_sell_without_rupiah_is_not_counted_as_sold(self):
         self.bought()
@@ -1765,6 +2066,31 @@ class ClientV2Tests(unittest.TestCase):
         self.assertTrue(caught.exception.unsure)
         self.assertFalse(bridge.name_taken(caught.exception))
 
+    def test_an_order_the_proxy_refused_never_reached_indodax_and_is_not_unsure(self):
+        client = self.client()
+        self.opener.handler = lambda request: REFUSED_407 if request.get_method() == "POST" else self.server(request)
+        with self.assertRaises(bridge.ExchangeError) as caught:
+            client.trade("btc_idr", "buy", idr=50_000, client_order_id=BUY_NAME)
+        self.assertTrue(caught.exception.unsent)
+        self.assertFalse(caught.exception.unsure)
+        self.assertEqual(self.server.posts, [])
+        self.assertEqual(len([item for item in self.private() if item.get_method() == "POST"]), 1)  # sent once, not again
+        self.assertEqual(self.server.book["btc"], 0.0)
+        with self.assertRaises(bridge.ExchangeError) as reading:
+            self.opener.handler = lambda request: REFUSED_407 if "/api/v2/" in request.full_url else self.server(request)
+            client.balances()
+        self.assertTrue(reading.exception.unsent)
+
+    def test_a_refused_lookup_after_a_rejected_order_does_not_make_the_order_unsent(self):
+        client = self.client()
+        real_call = self.server.__call__
+        self.opener.handler = lambda request: REFUSED_407 if "/api/v2/order?" in request.full_url else real_call(request)
+        self.server.refuse = refusal(400, -2010, "Order rejected.")
+        with self.assertRaises(bridge.ExchangeError) as caught:
+            client.trade("btc_idr", "buy", idr=50_000, client_order_id=BUY_NAME)
+        self.assertTrue(caught.exception.unsure)  # the order itself did reach Indodax
+        self.assertFalse(caught.exception.unsent)
+
     def test_a_lost_or_broken_answer_is_unsure_only_for_orders(self):
         for problem in (urllib.error.URLError("timed out"), TimeoutError(), refusal(500, -1001, "Internal error."), urllib.error.HTTPError(V2, 502, "bad", {}, None), "<html>not json</html>"):
             client = self.client()
@@ -1892,6 +2218,36 @@ class RealModeV2(Case):
         self.assertEqual(sender.state["positions"], {})
         self.assertEqual(sender.state["tripped"], "")
         self.assertEqual(len(self.server.posts), 2)
+
+    def test_orders_the_proxy_refused_are_sent_once_each_as_soon_as_it_lets_them_through(self):
+        sender = self.start()
+        refused = []
+
+        def proxy(request):
+            if request.get_method() == "POST" and len(refused) < self.refusals:
+                refused.append(request)
+                return REFUSED_407
+            return self.server(request)
+
+        self.opener.handler = proxy
+        self.refusals = 2
+        sender.cycle()
+        sender.cycle()
+        self.assertEqual(sender.state["positions"], {})
+        self.assertEqual(self.server.posts, [])
+        self.assertEqual(self.server.book["btc"], 0.0)
+        sender.cycle()
+        self.assertAlmostEqual(sender.state["positions"][BTC]["quantity"], self.server.book["btc"], delta=1e-12)
+        self.api.hold()
+        self.refusals = 3
+        sender.cycle()
+        self.assertIn(BTC, sender.state["positions"])
+        sender.cycle()
+        self.assertEqual(sender.state["positions"], {})
+        self.assertEqual(sender.state["tripped"], "")
+        self.assertEqual(len(refused), 3)
+        self.assertEqual([item["newClientOrderId"] for item in self.server.posts], [BUY_NAME, SELL_NAME])  # one buy, one sale
+        self.assertNotIn("SAFETY STOP", self.text())
 
     def test_unreadable_trades_still_open_the_copy_from_the_balance(self):
         sender = self.start(trades_hidden=True)

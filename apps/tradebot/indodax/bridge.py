@@ -103,6 +103,8 @@ ORDER_STATES_V2 = {  # Trade API 2.0's words for the same three
     "EXPIRED": "cancelled",
 }
 FILL_WAITS = (0.3, 0.7, 1.0, 2.0)  # seconds between looks for an accepted order's trades
+API_RETRY_PAUSES = (1, 4)  # seconds before the second and the third try at TradeBot's server
+API_RETRY_WINDOW = 12  # no further try is started later than this many seconds after the first began
 
 
 class SettingsError(Exception):
@@ -118,13 +120,15 @@ class ApiError(Exception):
 
 
 class ExchangeError(Exception):
-    """Indodax could not be asked, or said no. unsure=True: the request may still have arrived."""
+    """Indodax could not be asked, or said no. unsure=True: the request may still have arrived.
+    unsent=True: it is certain that it did not, because it never left this PC."""
 
-    def __init__(self, message: str, unsure: bool = False, code: str = "", taken=None):
+    def __init__(self, message: str, unsure: bool = False, code: str = "", taken=None, unsent: bool = False):
         super().__init__(message)
-        self.unsure = unsure
+        self.unsure = unsure and not unsent
         self.code = code
         self.taken = taken  # True/False when it is known whether the order's name was used before
+        self.unsent = unsent
 
 
 class Refused(Exception):
@@ -406,19 +410,52 @@ def proxy_opener(proxy: str):
     return urllib.request.build_opener(*handlers)
 
 
+def why_unreached(error) -> str:
+    """The kind of network problem, in fixed words: the request and its key can never be in them."""
+    kind = type(error).__name__
+    reason = getattr(error, "reason", None)
+    refused = re.search(r"Tunnel connection failed: (\d{3})\b", str(reason)) if reason is not None else None
+    if refused:
+        return f"{kind}, the proxy answered {refused.group(1)}"
+    if isinstance(reason, Exception):
+        return f"{kind}, {type(reason).__name__}"
+    return kind
+
+
+def never_sent(error) -> bool:
+    """True only when the proxy refused to open the way to the site (a 407, for one).
+
+    Python asks the proxy for that way first and sends the request only once it is open. So after
+    this refusal not one byte of the request, an order included, has left this PC. A timeout, a
+    dropped connection or anything else is never called this: there the request may have arrived."""
+    reason = getattr(error, "reason", None)
+    return isinstance(error, urllib.error.URLError) and isinstance(reason, OSError) and str(reason).startswith("Tunnel connection failed: ")
+
+
 # ---------------------------------------------------------------- TradeBot's server
 
 
 class Api:
-    """The two calls the sender makes to TradeBot: read the signals, post the report."""
+    """The two calls the sender makes to TradeBot: read the signals, post the report.
 
-    def __init__(self, settings: Settings, timeout: int = 20):
+    A call that does not get through is tried twice more after short waits. The second try goes
+    through the PC's other proxy when it has two: measured on an office network, the proxy in use
+    refused now and then for a few seconds (407) while the other one answered. Both calls are safe
+    to repeat: one only reads, and TradeBot compares each report with the one it has, so a report
+    that arrives twice is told once."""
+
+    def __init__(self, settings: Settings, timeout: int = 20, log=None, sleep=time.sleep, clock=time.monotonic):
         self.settings = settings
         self.timeout = timeout
-        self.opener = proxy_opener(settings.proxy)
+        self.log = log or (lambda line: None)
+        self.sleep = sleep
+        self.clock = clock
+        self.use_proxy(settings.proxy)
 
     def use_proxy(self, proxy: str) -> None:
         self.opener = proxy_opener(proxy)
+        other = self.settings.spare_proxy
+        self.spare = proxy_opener(other) if other and other != proxy else None
 
     def _call(self, path: str, payload=None) -> dict:
         headers = {"X-Indodax-Key": self.settings.key, "User-Agent": CLIENT, "Accept": "application/json"}
@@ -426,16 +463,32 @@ class Api:
         if payload is not None:
             data = json.dumps(payload).encode("utf-8")
             headers["Content-Type"] = "application/json"
-        request = urllib.request.Request(self.settings.url + path, data=data, headers=headers, method="POST" if data else "GET")
-        try:
-            with self.opener.open(request, timeout=self.timeout) as response:
-                return json.loads(response.read().decode("utf-8"))
-        except urllib.error.HTTPError as error:
-            hint = " (is INDODAX_BRIDGE_KEY the key from the setup?)" if error.code == 403 else ""
-            raise ApiError(f"TradeBot answered HTTP {error.code}{hint}") from None
-        except (urllib.error.URLError, http.client.HTTPException, OSError, ValueError) as error:
-            # Only the kind of problem is kept: the request and its key never reach a log.
-            raise ApiError(f"TradeBot could not be reached ({type(error).__name__})") from None
+        started = self.clock()
+        first = ""
+        for turn in range(len(API_RETRY_PAUSES) + 1):
+            last = turn == len(API_RETRY_PAUSES)
+            opener = self.spare if turn == 1 and self.spare else self.opener
+            # A new request for each try: one that went through a proxy once is not sent as it was again.
+            request = urllib.request.Request(self.settings.url + path, data=data, headers=dict(headers), method="POST" if data else "GET")
+            try:
+                with opener.open(request, timeout=self.timeout) as response:
+                    answer = json.loads(response.read().decode("utf-8"))
+            except urllib.error.HTTPError as error:
+                hint = " (is INDODAX_BRIDGE_KEY the key from the setup?)" if error.code == 403 else ""
+                raise ApiError(f"TradeBot answered HTTP {error.code}{hint}") from None
+            except (urllib.error.URLError, http.client.HTTPException, OSError, ValueError) as error:
+                # Only the kind of problem is kept: the request and its key never reach a log.
+                why = why_unreached(error)
+                first = first or why
+                # A try that hung is not followed by more: the sender's own stop must not wait for them.
+                if last or self.clock() - started + API_RETRY_PAUSES[turn] > API_RETRY_WINDOW:
+                    tries = f", {turn + 1} tries" if turn else ""
+                    raise ApiError(f"TradeBot could not be reached ({why}{tries})") from None
+                self.sleep(API_RETRY_PAUSES[turn])
+                continue
+            if turn:
+                self.log(f"TradeBot answered on try {turn + 1} (the first try: {first}).")
+            return answer
 
     def signals(self) -> dict:
         return self._call("/v1/indodax/signals")
@@ -465,7 +518,8 @@ class Indodax:
         self.opener = proxy_opener(proxy)
 
     def _send(self, request, writes: bool):
-        """One request. `writes` says whether a lost answer could mean an order went through anyway."""
+        """One request. `writes` says whether a lost answer could mean an order went through anyway.
+        A request the proxy refused before it left this PC is told apart (unsent): it is never unsure."""
         try:
             with self.opener.open(request, timeout=self.timeout) as response:
                 text = response.read().decode("utf-8")
@@ -473,7 +527,7 @@ class Indodax:
             raise ExchangeError(f"Indodax answered HTTP {error.code}", unsure=writes and error.code >= 500) from None
         except (urllib.error.URLError, http.client.HTTPException, OSError) as error:
             # Only the kind of problem is kept: the request, its key and its signature never reach a log.
-            raise ExchangeError(f"Indodax could not be reached ({type(error).__name__})", unsure=writes) from None
+            raise ExchangeError(f"Indodax could not be reached ({why_unreached(error)})", unsure=writes, unsent=never_sent(error)) from None
         try:
             return json.loads(text)
         except ValueError:
@@ -668,7 +722,7 @@ class IndodaxV2(Indodax):
             raise self._refusal(error, writes) from None
         except (urllib.error.URLError, http.client.HTTPException, OSError) as error:
             # Only the kind of problem is kept: the request, its key and its signature never reach a log.
-            raise ExchangeError(f"Indodax could not be reached ({type(error).__name__})", unsure=writes) from None
+            raise ExchangeError(f"Indodax could not be reached ({why_unreached(error)})", unsure=writes, unsent=never_sent(error)) from None
         try:
             answer = json.loads(body.decode("utf-8"))
         except ValueError:
@@ -934,6 +988,15 @@ class Bridge:
         self.state["day"]["buys"] = int(self.state["day"].get("buys") or 0) + 1
         self.save()
 
+    def take_back(self, symbol: str, earlier) -> None:
+        """Undo remember(), only for a buy that is certain never to have left this PC."""
+        if earlier is None:
+            self.state["bought"].pop(symbol, None)
+        else:
+            self.state["bought"][symbol] = earlier
+        self.state["day"]["buys"] = max(int(self.state["day"].get("buys") or 0) - 1, 0)
+        self.save()
+
     def price(self, coin: str, pairs: dict):
         if coin not in self.prices:
             pair = pairs.get(coin)
@@ -1172,12 +1235,18 @@ class Bridge:
         if before.get("idr", 0.0) < amount:
             raise Refused(f"There is not enough free rupiah at Indodax for a {rp(amount)} order.")
 
+        earlier = self.state["bought"].get(symbol)
         self.remember(symbol, action["signal"])
         order_ref = order_name(coin, action["signal"], "b")
         answer = None
         try:
             answer = self.send_order("buy", symbol, pair=pair, idr=amount, client_order_id=order_ref)
         except ExchangeError as error:
+            if error.unsent:
+                # Nothing was ordered and nothing needs a look: the signal is free again, and the next
+                # try carries the same order name, which Indodax takes only once.
+                self.take_back(symbol, earlier)
+                raise Refused(f"The buy of {name} never left this PC ({error}), so nothing was ordered. Trying again next minute.") from None
             if not error.unsure:
                 self.trip(f"Indodax refused the buy of {name} ({error}).")
                 raise Refused(f"Indodax refused the buy ({error}).") from None
@@ -1327,6 +1396,8 @@ class Bridge:
         try:
             answer = self.send_order("sell", symbol, quantity=quantity, client_order_id=order_ref)
         except ExchangeError as error:
+            if error.unsent:
+                raise Refused(f"The sale of {name} never left this PC ({error}), so nothing was sold. Trying again next minute.") from None
             if not error.unsure:
                 if name_taken(error):
                     # Indodax already has an order with this name: an earlier try did arrive.
@@ -1657,7 +1728,7 @@ def main(argv=None) -> int:
         return check(settings, state_path=args.state)
 
     try:
-        bridge = Bridge(exchange_for(settings), settings, Api(settings), args.state, log=stamp)
+        bridge = Bridge(exchange_for(settings), settings, Api(settings, log=stamp), args.state, log=stamp)
     except StateError as error:
         print(f"State: {error}")
         return 2
