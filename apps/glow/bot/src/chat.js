@@ -163,6 +163,7 @@ export const APP_LINKS = [
   { icon: "🧰", name: "GlowHarness", page: "harness/" },
   { icon: "⚡", name: "GlowCode", page: "code/" },
   { icon: "🤖", name: "GlowBot", page: "bot/" },
+  { icon: "🏪", name: "GlowFounder", page: "founder/" },
 ];
 
 // What a simulated chat talks to instead of the real Registry, so "/access public" typed into the

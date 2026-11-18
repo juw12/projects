@@ -304,6 +304,7 @@ class OfflineInBrowser(unittest.TestCase):
             "download/": "#for-you",
             "setup/": "#windows",
             "account/": "#account",
+            "founder/": "#founder-stage",
         }
         for path, selector in checks.items():
             page.goto(self.pages.base + path)

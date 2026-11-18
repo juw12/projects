@@ -328,6 +328,7 @@ test("the page address and version it is given reach the chat", async () => {
       "https://pages.example/glow/harness/",
       "https://pages.example/glow/code/",
       "https://pages.example/glow/bot/",
+      "https://pages.example/glow/founder/",
     ],
   });
   // Left alone, the links point at the live Glow pages.

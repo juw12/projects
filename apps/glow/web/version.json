@@ -1,11 +1,11 @@
 {
-  "version": "1.36.0",
-  "released": "2026-11-16",
+  "version": "1.37.0",
+  "released": "2026-11-18",
   "notes": [
-    "🤖 GlowBot: /calc does sums with units, like /calc 1 in to mm. The bot works it out itself, without an AI model",
-    "The owner gets a private desk in the bot: /note, /notes, /save, /links, /post, /posts and /export keep notes, links and approved posts",
-    "The Guard checks everything before it is kept and refuses passwords, keys, tokens and the words on the owner's own list (/guard, /scan)",
-    "/brief shows the last pushes on GitHub. The desk answers only the owner, in the owner's private chat"
+    "🏪 GlowFounder, a new Glow app: test a business idea on a panel of simulated buyers before you launch",
+    "Buyers walk up to your stall in a 3D market square, read your pitch and decide. You see who buys, who passes and why",
+    "Pricing, unit economics, competitors and an A/B offer test are in the same studio. It runs in your browser and keeps your projects there",
+    "One tap hands the result to GlowChat to rewrite the pitch, or to GlowLead to plan a real launch test"
   ],
   "android": "https://github.com/juw12/projects/releases/download/glow-android/Glow-android.apk",
   "windows": "https://github.com/juw12/projects/releases/download/glow-windows/Glow-Setup.exe",

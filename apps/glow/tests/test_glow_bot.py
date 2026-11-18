@@ -444,7 +444,7 @@ class GlowBotStaticTests(unittest.TestCase):
         self.assertIn('id="start-bot"', home, "'Telegram' choice under the start box")
         home_js = text_of(WEB / "home.js")
         self.assertIn('target === "bot"', home_js)
-        self.assertIn('["chat", "room", "lead", "news", "spark", "harness", "bot"]', home_js)
+        self.assertIn('["chat", "room", "lead", "news", "spark", "harness", "bot", "founder"]', home_js)
         self.assertIn(".app-tile.bot", text_of(WEB / "home.css"))
 
     def test_offline_and_versions(self):
