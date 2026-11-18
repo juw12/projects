@@ -283,6 +283,10 @@ stop, and posts the copies back (`POST /v1/indodax/report`) for `/indodax` in Te
   two. Before, that minute was lost. An order the office proxy refused before it left the PC
   (407) no longer drops the buy and sets the safety stop: it goes out the next minute, under the
   same name. An order whose answer was lost is still never sent a second time.
+- **The sender runs without its window (0.18.0).** The button "Run without this window" (or
+  `TradeBot.exe --background on`) hands the sender to Windows: it starts at sign-in, is started
+  again within 5 minutes if it ends, and shows nothing on the screen. Closing the window then
+  stops nothing. Only one sender can run on a PC. The PC must still be on, awake and signed in.
 - **Not tried on a real Indodax account yet.** Its 100 tests run against a pretend exchange. Only
   the public prices were read from the real Indodax.
 

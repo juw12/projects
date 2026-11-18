@@ -33,6 +33,9 @@ What keeps it safe:
     python bridge.py --once     one cycle
     python bridge.py            keep going, one cycle a minute
     python bridge.py --clear    clear the safety stop after you have looked
+    python bridge.py --log desk_sender.log   keep going with no window: its lines go to that file
+
+Only one sender runs on a PC: a second one says so and ends without doing anything.
 
 While it runs it also starts learn.py (in this folder) every four hours and after each buy or
 sale: a study of the rules on the newest prices. The study never orders and changes nothing
@@ -71,6 +74,9 @@ INDODAX = "https://indodax.com"  # fixed on purpose: the API key can never be se
 INDODAX_V2 = "https://api.indodax.com"  # Trade API 2.0, fixed for the same reason
 DEFAULT_URL = "https://trade-bot.juw12.workers.dev"
 CYCLE_SECONDS = 60
+ONE_SENDER_PORT = 47632  # held on 127.0.0.1 while a sender keeps running, so a second one cannot start
+ALREADY_RUNNING = 3  # the exit code of a sender that found another one running
+LOG_FILE_BYTES = 1_000_000
 # Inside TradeBot.exe (the desk, this sender and the study in one file) the folder is the exe's own.
 FROZEN = bool(getattr(sys, "frozen", False))
 HERE = Path(sys.executable).resolve().parent if FROZEN else Path(__file__).resolve().parent
@@ -1659,6 +1665,61 @@ def stamp(text: str) -> None:
     print(f"{time.strftime('%Y-%m-%d %H:%M:%S')}  {text}", flush=True)
 
 
+def hold_one_sender(port=ONE_SENDER_PORT):
+    """A socket that only one running sender can hold on this PC. None when another sender has it.
+
+    The system takes it back by itself when the sender ends, however it ends.
+    """
+    holder = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        holder.bind(("127.0.0.1", port))
+        holder.listen(1)
+    except OSError:
+        holder.close()
+        return None
+    return holder
+
+
+def append_line(path, line) -> None:
+    """Add one line to a log file. A file over a megabyte is first set aside as .old.log."""
+    try:
+        target = Path(path)
+        if target.exists() and target.stat().st_size > LOG_FILE_BYTES:
+            target.replace(target.with_suffix(".old.log"))
+        with target.open("a", encoding="utf-8") as handle:
+            handle.write(line + "\n")
+    except OSError:
+        pass
+
+
+class KeptLines:
+    """What the sender prints, kept in a file line by line: for a sender that runs with no window."""
+
+    def __init__(self, path, also=None):
+        self.path = path
+        self.also = also  # where the lines went before (None inside the one-file app, which has no console)
+        self.rest = ""
+
+    def write(self, text) -> int:
+        if self.also is not None:
+            try:
+                self.also.write(text)
+            except (OSError, ValueError):
+                pass
+        self.rest += text
+        while "\n" in self.rest:
+            line, self.rest = self.rest.split("\n", 1)
+            append_line(self.path, line)
+        return len(text)
+
+    def flush(self) -> None:
+        if self.also is not None:
+            try:
+                self.also.flush()
+            except (OSError, ValueError):
+                pass
+
+
 def check(settings: Settings, exchange=None, state_path=None) -> int:
     """Does the API key work? Reads the balance and orders nothing. A pass is remembered for this key."""
     if not settings.has_keys:
@@ -1716,7 +1777,10 @@ def main(argv=None) -> int:
     parser.add_argument("--clear", action="store_true", help="clear the safety stop after you have looked at Indodax")
     parser.add_argument("--env", default=str(HERE / ".env"), help="the settings file (default: .env next to this script)")
     parser.add_argument("--state", default=str(HERE / "bridge_state.json"), help=argparse.SUPPRESS)
+    parser.add_argument("--log", default="", help="also keep every line in this file (for a sender that runs with no window)")
     args = parser.parse_args(argv)
+    if args.log:
+        sys.stdout = sys.stderr = KeptLines(args.log, sys.stdout)
 
     try:
         settings = reachable(load_settings(args.env))
@@ -1752,6 +1816,10 @@ def main(argv=None) -> int:
             stamp(mode)
             bridge.cycle(show=args.show)
             return 0
+        holder = hold_one_sender()  # kept until this sender ends
+        if holder is None:
+            stamp("Not started: another sender is already running on this PC, and two must never run together.")
+            return ALREADY_RUNNING
         stamp(f"Indodax sender running, one cycle every {CYCLE_SECONDS} seconds. {mode} Ctrl+C stops it; open copies stay as they are.")
         if FROZEN or (HERE / "learn.py").exists():  # only the sender that keeps running studies
             bridge.study = lambda: start_study(args.env, args.state)

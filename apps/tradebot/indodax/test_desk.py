@@ -479,6 +479,129 @@ class DeskTest(unittest.TestCase):
         study.assert_called_once_with(["--env", "x"])
         assert not window.called and not second.called
 
+    # ---------------------------------------------------------------- the sender with no window
+
+    def windows(self, answers=None):
+        """A pretend schtasks: it writes down what was asked and answers from {verb: (code, stdout, stderr)}."""
+        asked = []
+
+        def run(command, **options):
+            assert command[0] == "schtasks" and command[2:4] == ["/tn", desk.TASK_NAME], command
+            if "/xml" in command and command[1] == "/create":
+                asked.append((command[1], Path(command[command.index("/xml") + 1]).read_text(encoding="utf-16")))
+            else:
+                asked.append((command[1], command[4:]))
+            code, out, err = (answers or {}).get(command[1], (0, "SUCCESS", ""))
+            return mock.Mock(returncode=code, stdout=out, stderr=err)
+
+        return asked, run
+
+    def test_the_window_shows_what_a_sender_with_no_window_wrote(self):
+        path = self.folder() / "desk_sender.log"
+        assert desk.log_news(path, 0) == ([], 0), "no file yet: nothing, and nothing lost"
+        path.write_bytes(b"old line\n")
+        _lines, seen = desk.log_news(path, -1)
+        assert seen == 9, "a window that opens starts after what is already there"
+        with path.open("ab") as handle:
+            handle.write("12:00  bought BTC · Rp20.000\n12:01  half a li".encode())
+        lines, seen = desk.log_news(path, seen)
+        assert lines == ["12:00  bought BTC · Rp20.000"], "a line still being written waits for its end"
+        with path.open("ab") as handle:
+            handle.write(b"ne\n")
+        lines, seen = desk.log_news(path, seen)
+        assert lines == ["12:01  half a line"] and desk.log_news(path, seen) == ([], seen)
+        path.write_bytes(b"a new file\n")  # the old one was set aside as .old.log
+        assert desk.log_news(path, seen) == (["a new file"], 11)
+
+    def test_the_task_starts_at_sign_in_looks_again_and_never_runs_twice(self):
+        import xml.etree.ElementTree as tree
+
+        text = desk.task_xml("C:\\Me & You\\TradeBot.exe", '--sender --log "C:\\Me & You\\desk_sender.log"', "C:\\Me & You", "PC\\me")
+        space = "{http://schemas.microsoft.com/windows/2004/02/mit/task}"
+        root = tree.fromstring(text.split("?>", 1)[1])
+        found = {item.tag.replace(space, ""): (item.text or "").strip() for item in root.iter()}
+        assert found["Command"] == "C:\\Me & You\\TradeBot.exe" and found["WorkingDirectory"] == "C:\\Me & You"
+        assert found["Arguments"] == '--sender --log "C:\\Me & You\\desk_sender.log"'
+        assert found["MultipleInstancesPolicy"] == "IgnoreNew", "a look while it runs must not start a second sender"
+        assert found["ExecutionTimeLimit"] == "PT0S", "Windows must never end it for running long"
+        assert found["DisallowStartIfOnBatteries"] == "false" and found["StopIfGoingOnBatteries"] == "false"
+        assert found["Interval"] == f"PT{desk.TASK_MINUTES}M" and found["StopAtDurationEnd"] == "false"
+        assert root.find(f"{space}Triggers/{space}LogonTrigger/{space}UserId").text == "PC\\me"
+        assert "Enabled" not in found, "a new task is switched on"
+
+    def test_the_sender_with_no_window_writes_its_own_log(self):
+        folder = Path("C:/run")
+        with mock.patch.object(desk, "FROZEN", True), mock.patch.object(desk.sys, "executable", "C:/run/TradeBot.exe"):
+            assert desk.background_command(folder) == ("C:/run/TradeBot.exe", f'--sender --log "{folder / "desk_sender.log"}"')
+        with mock.patch.object(desk, "FROZEN", False):
+            command, arguments = desk.background_command(folder, python="C:/py/python.exe")
+        assert Path(command) == Path("C:/py/pythonw.exe"), "python.exe would open a console window"
+        assert arguments == f'-u "{folder / "bridge.py"}" --log "{folder / "desk_sender.log"}"'
+        row = {"ProcessId": 21, "CommandLine": '"E:\\run\\TradeBot.exe" --sender --log "E:\\run\\desk_sender.log"'}
+        assert desk.sender_candidates([row]) == [21], "it counts as a running sender"
+
+    def test_windows_says_whether_it_keeps_the_sender(self):
+        on = "<Task><Settings><ExecutionTimeLimit>PT0S</ExecutionTimeLimit></Settings><Triggers><TimeTrigger><Enabled>false</Enabled></TimeTrigger></Triggers></Task>"
+        stopped = "<Task>\n<Settings>\n <Enabled>false</Enabled>\n</Settings>\n<Triggers></Triggers></Task>"
+        assert desk.background_state(self.windows({"/query": (1, "", "ERROR: The system cannot find the file specified.")})[1]) == "off"
+        assert desk.background_state(self.windows({"/query": (0, on, "")})[1]) == "on", "only the task's own switch counts"
+        assert desk.background_state(self.windows({"/query": (0, stopped, "")})[1]) == "stopped"
+
+        def broken(command, **options):
+            raise OSError("no schtasks")
+
+        assert desk.background_state(broken) == "off"
+
+    def test_switching_it_on_makes_the_task_and_starts_it(self):
+        folder = self.folder()
+        asked, run = self.windows()
+        assert desk.background_on(folder, run, user="PC\\me") == ""
+        assert [verb for verb, _ in asked] == ["/create", "/run"]
+        assert str(folder / "desk_sender.log") in asked[0][1] and "PC\\me" in asked[0][1]
+        refused, run = self.windows({"/create": (1, "", "ERROR: Access is denied.")})
+        assert desk.background_on(folder, run, user="PC\\me") == "ERROR: Access is denied."
+        assert [verb for verb, _ in refused] == ["/create"], "nothing is started when Windows did not take the task"
+
+    def test_stop_keeps_it_stopped_and_start_runs_it_again(self):
+        asked, run = self.windows()
+        assert desk.background_stop(run) == ""
+        assert asked == [("/change", ["/disable"]), ("/end", [])], "switched off first, so Windows cannot start it again in between"
+        asked, run = self.windows()
+        assert desk.background_start(run) == ""
+        assert asked == [("/change", ["/enable"]), ("/run", [])]
+        asked, run = self.windows()
+        assert desk.background_off(run) == ""
+        assert asked == [("/end", []), ("/delete", ["/f"])]
+        asked, run = self.windows({"/change": (1, "", "ERROR: Access is denied.")})
+        assert desk.background_stop(run) == "ERROR: Access is denied." and len(asked) == 1
+
+    def test_the_switch_from_a_script_writes_what_it_did(self):
+        folder = self.folder()
+        log = folder / "desk_sender.log"
+        done = []
+        on = lambda where: done.append(("on", where)) or ""  # noqa: E731
+        off = lambda: done.append("off") or ""  # noqa: E731
+        assert desk.set_background("on", folder, on=on, off=off, window=lambda: None) == 1
+        assert done == [] and "the TradeBot window is open" in log.read_text(encoding="utf-8")
+        holder = mock.Mock()
+        assert desk.set_background("on", folder, on=on, off=off, window=lambda: holder) == 0
+        holder.close.assert_called_once_with()
+        assert done == [("on", folder)] and "runs in the background" in log.read_text(encoding="utf-8")
+        assert desk.set_background("off", folder, on=on, off=off) == 0 and done[-1] == "off"
+        assert desk.set_background("off", folder, on=on, off=lambda: "ERROR: no") == 1
+        with mock.patch.object(desk, "set_background", return_value=0) as switch, mock.patch.object(desk, "open_window") as window:
+            assert desk.main(["--background", "on", "--folder", str(folder)]) == 0
+        switch.assert_called_once_with("on", folder.resolve())
+        assert not window.called
+
+    def test_a_sender_in_the_background_is_not_a_warning_and_a_starting_one_is_one(self):
+        view, local = self.fine()
+        assert desk.alerts(view, local, "background", "", NOW) == []
+        old = {"at": NOW - 900_000, "report": view["report"]}
+        found = desk.alerts(view, old, "starting", "", NOW)
+        assert [level for level, _ in found] == ["warn"] and "Windows is starting the sender" in found[0][1]
+        assert any("last finished cycle" in text for _level, text in desk.alerts(view, old, "background", "", NOW))
+
 
 if __name__ == "__main__":
     unittest.main()

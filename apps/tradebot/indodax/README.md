@@ -390,14 +390,16 @@ newest; each version is kept as release `tradebot-desk-v<version>`).
   the window says so.
 - To update: close the window while no coin is held, then run `update-desk.cmd`. It downloads the
   newest app, keeps the old one as `TradeBot.old.exe` and opens the new one. `.env` and the
-  sender's files are not touched.
+  sender's files are not touched. A sender that runs without the window keeps running during
+  the download and is stopped only for the few seconds of the swap.
 - The file is not signed, so Windows may ask once before it opens. It holds no key and no secret.
 - It starts about three seconds slower than `pythonw desk.py`: one file unpacks itself first.
 - Built by `.github/workflows/trade-bot-desk.yml` with PyInstaller, after the tests, and tried
   there before it is published (the window, the sender's words through a pipe, the study).
 
 - **Start the sender / Stop the sender.** The sender is a child of the window: closing the window
-  stops it (it asks first). A sender that ends by itself is started again a minute later.
+  stops it (it asks first). A sender that ends by itself is started again a minute later. To keep
+  it running with the window closed, see "Run without the window" below.
 - **Never two senders.** If a sender is already running in a console window, the desk does not
   start a second one; "Take it over here" stops that one and runs it in the desk. When that one
   is gone, the desk starts its own, so an open window always ends up with a running sender.
@@ -409,6 +411,32 @@ newest; each version is kept as release `tradebot-desk-v<version>`).
   cannot be reached it shows the sender's own last report (`bridge_report.json`).
 - The sender's lines are also kept in `desk_sender.log` (rolled over at 1 MB).
 - `INDODAX_REPORT_CASH=yes` in `.env` adds the free rupiah (real mode only).
+
+### Run without the window (since 0.18.0)
+
+The sender can keep running while the window is closed. Windows then holds it, as a task named
+"TradeBot sender" in Task Scheduler, for your own user. No admin right is needed.
+
+- **Switch it on:** the button **Run without this window** in the window, or with the window
+  closed `TradeBot.exe --background on` (with Python: `python desk.py --background on`).
+- **What Windows then does:** it starts the sender when you sign in to the PC, and looks every
+  5 minutes whether it still runs. A sender that ended is started again at that look. Nothing
+  opens on the screen.
+- **The window is then only for looking and switching.** It says "Sender is running in the
+  background", shows the sender's lines (it reads them from `desk_sender.log`, and the last 40
+  when it opens), and closing it stops nothing.
+- **Stop the sender** in the window stops it and keeps it stopped, also after a restart of the
+  PC, until you press **Start the sender**. Pause buying works as before.
+- **Switch it off:** the button **Run only with this window**, or `TradeBot.exe --background off`.
+  The task is removed and the sender is a child of the window again.
+- **Only one sender runs on a PC.** A sender that keeps running holds a local port
+  (127.0.0.1:47632). A second one writes "Not started: another sender is already running on this
+  PC" and ends without doing anything, however it was started.
+- **What it cannot do:** the PC must be on, awake and signed in. Sleep, shutdown or signing out
+  stops the sender like before, and the price is then not watched. With real money in play
+  TradeBot tells you in Telegram when the sender has been silent for 10 to 15 minutes.
+- The sender itself is `TradeBot.exe --sender --log desk_sender.log` (with Python:
+  `pythonw bridge.py --log desk_sender.log`): `--log` keeps every line in that file.
 
 On the phone: send `/phone` to TradeBot in Telegram. It answers with a private link to a page that
 reloads every minute. It opens with the same glance as the desk (real or practice, the sender,

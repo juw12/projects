@@ -16,6 +16,12 @@ Python installed, `pythonw desk.py`. `pythonw desk.py --demo` opens the same win
 numbers: no account, no network, nothing private. That is the way to look around, or to take a
 picture of it.
 
+The sender stops when the window is closed, unless you press **Run without this window**. Then
+Windows keeps the sender running with nothing on the screen: it starts it when you sign in, and
+again within 5 minutes if it ever ends. The window is then only for looking. **Stop the sender**
+still stops it, and it stays stopped until you press **Start the sender**. **Run only with this
+window** goes back. The PC must still be on, awake and signed in.
+
 ## The five tabs, in one line each
 
 - **Overview** — what happens next, the three checks per coin, the coins held, the price now,

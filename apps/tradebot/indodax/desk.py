@@ -21,6 +21,10 @@ AI: every line is measured.
 TradeBot.exe is this file as one program (built on GitHub, no Python needed): the window, and
 the sender and the study as hidden children of it (TradeBot.exe --sender, TradeBot.exe --study).
 
+The sender can also run with no window at all (the button "Run without this window", or
+TradeBot.exe --background on): Windows then starts it when you sign in and starts it again
+within five minutes if it ever ends. The window then only shows it; closing the window stops nothing.
+
 Standard library only. It never places an order itself and never reads the Indodax API key:
 orders are made by bridge.py alone. It talks to TradeBot with the sender's key from .env.
 """
@@ -29,19 +33,23 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import queue
+import re
 import socket
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 from pathlib import Path
+from xml.sax.saxutils import escape
 
 import agents
 import bridge
 import decisions
 
-VERSION = "0.17.5"  # the same number as apps/tradebot/package.json
+VERSION = "0.18.0"  # the same number as apps/tradebot/package.json
 FROZEN = bridge.FROZEN  # True inside TradeBot.exe
 HERE = bridge.HERE
 APP_NAME = "tradebot.exe"
@@ -51,7 +59,11 @@ EMPTY_NOTE_Y = 27  # just under a table's heading row
 FRESH_SECONDS = 150  # the sender writes its report file once a minute; older means it is not running
 RESTART_SECONDS = 60
 LOG_LINES = 800
-LOG_FILE_BYTES = 1_000_000
+LOG_FILE_BYTES = bridge.LOG_FILE_BYTES
+LOG_NAME = "desk_sender.log"
+EARLIER_LINES = 40  # this many of the last lines in that file are shown when the window opens
+TASK_NAME = "TradeBot sender"  # the Windows task that runs the sender with no window
+TASK_MINUTES = 5  # Windows looks this often whether that sender still runs, and starts it when it does not
 ONE_WINDOW_PORT = 47631  # held on 127.0.0.1 while the window is open, so a second one cannot start
 NO_WINDOW = 0x08000000  # CREATE_NO_WINDOW
 
@@ -290,14 +302,147 @@ def child_python() -> str:
 
 def append_log(path, line) -> None:
     """Keep the sender's lines in a file too, so a stop in the night can be read later."""
+    bridge.append_line(path, line)
+
+
+def log_news(path, seen_bytes) -> tuple:
+    """The whole lines added to the log file after seen_bytes: (lines, the new seen_bytes).
+
+    A sender without a window writes its own lines to the file; this is how the window shows them.
+    A file smaller than before was set aside and begun again, so it is read from its start.
+    """
     try:
-        target = Path(path)
-        if target.exists() and target.stat().st_size > LOG_FILE_BYTES:
-            target.replace(target.with_suffix(".old.log"))
-        with target.open("a", encoding="utf-8") as handle:
-            handle.write(line + "\n")
+        with open(path, "rb") as handle:
+            size = handle.seek(0, 2)
+            start = seen_bytes if 0 <= seen_bytes <= size else 0
+            handle.seek(start)
+            data = handle.read(size - start)
     except OSError:
-        pass
+        return [], seen_bytes
+    whole = data.rfind(b"\n") + 1  # a line still being written waits for its end
+    return data[:whole].decode("utf-8", errors="replace").splitlines(), start + whole
+
+
+# ---------------------------------------------------------------- the sender with no window (a Windows task)
+
+
+def background_command(folder, python=None) -> tuple:
+    """The program and its arguments for a sender with no window. It writes its lines to the log file itself."""
+    log = Path(folder) / LOG_NAME
+    if FROZEN:
+        return sys.executable, f'--sender --log "{log}"'
+    quiet = Path(python or sys.executable).with_name("pythonw.exe")
+    return str(quiet), f'-u "{Path(folder) / "bridge.py"}" --log "{log}"'
+
+
+def task_xml(command, arguments, folder, user) -> str:
+    """The Windows task: start at sign-in, look again every few minutes, one at a time, no time limit, on battery too."""
+    return f"""<?xml version="1.0" encoding="UTF-16"?>
+<Task version="1.3" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
+  <RegistrationInfo>
+    <Description>TradeBot's Indodax sender, running with no window. Made by the TradeBot window (Run without this window); switch it off there.</Description>
+  </RegistrationInfo>
+  <Principals>
+    <Principal id="Author">
+      <UserId>{escape(user)}</UserId>
+      <LogonType>InteractiveToken</LogonType>
+    </Principal>
+  </Principals>
+  <Settings>
+    <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>
+    <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>
+    <ExecutionTimeLimit>PT0S</ExecutionTimeLimit>
+    <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>
+    <StartWhenAvailable>true</StartWhenAvailable>
+  </Settings>
+  <Triggers>
+    <LogonTrigger>
+      <UserId>{escape(user)}</UserId>
+    </LogonTrigger>
+    <TimeTrigger>
+      <StartBoundary>2026-01-01T00:00:00</StartBoundary>
+      <Repetition>
+        <Interval>PT{TASK_MINUTES}M</Interval>
+        <StopAtDurationEnd>false</StopAtDurationEnd>
+      </Repetition>
+    </TimeTrigger>
+  </Triggers>
+  <Actions Context="Author">
+    <Exec>
+      <Command>{escape(str(command))}</Command>
+      <Arguments>{escape(arguments)}</Arguments>
+      <WorkingDirectory>{escape(str(folder))}</WorkingDirectory>
+    </Exec>
+  </Actions>
+</Task>
+"""
+
+
+def task_call(arguments, run=subprocess.run) -> tuple:
+    """One call to Windows' schtasks about the sender's task: (it worked, what Windows said)."""
+    if sys.platform != "win32" and run is subprocess.run:
+        return False, "This needs Windows."
+    try:
+        done = run(["schtasks", *arguments], capture_output=True, text=True, timeout=30, creationflags=NO_WINDOW if sys.platform == "win32" else 0)
+    except (OSError, subprocess.SubprocessError) as problem:
+        return False, f"Windows' task list could not be asked ({type(problem).__name__})."
+    worked = done.returncode == 0
+    said = (done.stdout or "") if worked else (done.stderr or "").strip() or (done.stdout or "")
+    return worked, " ".join(said.split())
+
+
+def background_state(run=subprocess.run) -> str:
+    """'on' (Windows keeps the sender running), 'stopped' (set up, but stopped by you) or 'off' (not set up)."""
+    found, said = task_call(["/query", "/tn", TASK_NAME, "/xml"], run)
+    if not found:
+        return "off"
+    settings = re.search(r"<Settings>.*?</Settings>", said, re.S)
+    stopped = settings and re.search(r"<Enabled>\s*false\s*</Enabled>", settings.group(0))
+    return "stopped" if stopped else "on"
+
+
+def background_on(folder, run=subprocess.run, user=None) -> str:
+    """Hand the sender to Windows and start it. '' when done, else why not."""
+    user = user or "\\".join(part for part in (os.environ.get("USERDOMAIN", ""), os.environ.get("USERNAME", "")) if part)
+    command, arguments = background_command(folder)
+    with tempfile.NamedTemporaryFile("w", suffix=".xml", encoding="utf-16", delete=False) as handle:
+        handle.write(task_xml(command, arguments, folder, user))
+    try:
+        made, said = task_call(["/create", "/tn", TASK_NAME, "/xml", handle.name, "/f"], run)
+    finally:
+        try:
+            os.unlink(handle.name)
+        except OSError:
+            pass
+    if not made:
+        return said or "Windows did not take the task."
+    started, said = task_call(["/run", "/tn", TASK_NAME], run)
+    return "" if started else said or "Windows did not start the task."
+
+
+def background_off(run=subprocess.run) -> str:
+    """End that sender and take the task away. '' when done, else why not."""
+    task_call(["/end", "/tn", TASK_NAME], run)
+    gone, said = task_call(["/delete", "/tn", TASK_NAME, "/f"], run)
+    return "" if gone else said or "Windows did not remove the task."
+
+
+def background_stop(run=subprocess.run) -> str:
+    """Stop that sender and keep it stopped (the task stays, switched off). '' when done, else why not."""
+    held, said = task_call(["/change", "/tn", TASK_NAME, "/disable"], run)
+    if not held:
+        return said or "Windows did not switch the task off."
+    task_call(["/end", "/tn", TASK_NAME], run)
+    return ""
+
+
+def background_start(run=subprocess.run) -> str:
+    """Switch the task on again and start that sender now. '' when done, else why not."""
+    allowed, said = task_call(["/change", "/tn", TASK_NAME, "/enable"], run)
+    if not allowed:
+        return said or "Windows did not switch the task on."
+    started, said = task_call(["/run", "/tn", TASK_NAME], run)
+    return "" if started else said or "Windows did not start the task."
 
 
 def hold_one_window():
@@ -347,7 +492,8 @@ def alerts(view, local, sender_state, error, now_ms) -> list:
     """The warnings above the numbers, worst first: [(level, text)], level 'bad' or 'warn'.
 
     sender_state = 'here' (running in this window), 'outside' (running elsewhere), 'waiting' (starts by itself
-    in a moment) or 'stopped'.
+    in a moment), 'background' (running with no window, kept by Windows), 'starting' (Windows is starting
+    that one) or 'stopped'.
     Nothing is returned when all is fine, so a warning always means something.
     """
     report = report_of(view, local)
@@ -357,12 +503,14 @@ def alerts(view, local, sender_state, error, now_ms) -> list:
         found.append(("bad", "The sender is stopped. Nothing is bought or sold, and a falling price is not acted on. Press Start the sender."))
     if sender_state == "waiting":
         found.append(("warn", "The sender starts by itself within three minutes: the last one was closed a moment ago, and two must never run together."))
+    if sender_state == "starting":
+        found.append(("warn", f"Windows is starting the sender in the background. Its first report can take a minute or two; Windows tries again every {TASK_MINUTES} minutes."))
     if report.get("tripped"):
         why = str(report.get("trippedWhy") or "").strip()
         found.append(("bad", f"Safety stop: real buying is blocked until you have looked at Indodax.{' ' + why if why else ''}"))
     if real and report and not report.get("checked"):
         found.append(("bad", "Real mode is on, but the API key has not passed its check on this PC, so nothing is bought."))
-    if sender_state not in ("stopped", "waiting") and local and not local_is_fresh(local, now_ms):
+    if sender_state not in ("stopped", "waiting", "starting") and local and not local_is_fresh(local, now_ms):
         age = age_text((now_ms - bridge.number(local.get("at"))) / 1000)
         found.append(("warn", f"The sender's last finished cycle was {age}. It may be waiting for the network; the Sender log tab shows why."))
     if (view or {}).get("stale") and sender_state != "stopped":
@@ -743,7 +891,7 @@ def open_window(args) -> int:
     folder = Path(args.folder).resolve()
     env_path = folder / ".env"
     report_path = folder / "bridge_report.json"
-    log_path = folder / "desk_sender.log"
+    log_path = folder / LOG_NAME
     events = queue.Queue()
     server = Server(env_path)
     sender = Sender(folder, lambda line: events.put(("log", line)))
@@ -757,6 +905,9 @@ def open_window(args) -> int:
         "geometry": None, "hover": None, "drag": None, "chart_job": None, "chart_drawn": None, "trades_drawn": None, "reading_drawn": None,
         "summary": None, "summary_at": None, "mood": None, "mood_at": 0.0, "debate": None, "soon": None,
     })
+    # The sender with no window: how Windows holds it, the lines this window wrote itself, and how far the log file was read.
+    earlier, log_bytes = ([], 0) if demo else log_news(log_path, -1)
+    seen.update({"background": "off", "own": [], "log_bytes": log_bytes, "log_check": 0.0})
     learn_path = folder / "learn.json"
     try:
         traded = set(DEMO_TRADED) if demo else {coin_name(coin) for coin in bridge.load_settings(env_path).coins}
@@ -817,6 +968,7 @@ def open_window(args) -> int:
     sender_button = button()
     pause_button = button()
     refresh_button = button("Refresh now")
+    background_button = button()
     fresh_label = label(buttons, "", 9, MUTED)
     fresh_label.pack(side="right")
 
@@ -1599,8 +1751,13 @@ def open_window(args) -> int:
         box.configure(state="disabled")
 
     def add_log(line):
+        """A line that reached this window (its own, or its child sender's): kept in the file and shown."""
         if not demo:
             append_log(log_path, line)
+            seen["own"] = (seen["own"] + [line])[-200:]  # so it is not shown again when the file is read
+        show_log(line)
+
+    def show_log(line):
         seen["lines"] = (seen["lines"] + [line])[-LOG_LINES:]
         log_box.configure(state="normal")
         log_box.insert("end", line + "\n")
@@ -1618,7 +1775,7 @@ def open_window(args) -> int:
     def fetch():
         """In a thread: ask TradeBot and look for a sender started outside this window."""
         if demo:
-            events.put(("view", demo_view(time.time() * 1000, trouble), "", []))
+            events.put(("view", demo_view(time.time() * 1000, trouble), "", [], "off"))
             return
         try:
             view, error = server.view(), ""
@@ -1626,7 +1783,7 @@ def open_window(args) -> int:
             view, error = None, str(problem)
         own = sender.process.pid if sender.running() else None
         outside = [] if sender.running() else sender_candidates(list_python_processes(), own)
-        events.put(("view", view, error, outside))
+        events.put(("view", view, error, outside, background_state()))
 
     def refresh():
         if seen["busy"]:
@@ -1645,6 +1802,10 @@ def open_window(args) -> int:
             return "stopped"
         if demo or sender.running():
             return "here"
+        if seen["background"] == "on":
+            return "background" if outside_running() else "starting"
+        if seen["background"] == "stopped":
+            return "stopped"
         if seen["start_later"] == "wait":
             return "waiting"
         return "outside" if outside_running() else "stopped"
@@ -1741,9 +1902,11 @@ def open_window(args) -> int:
         real = shown["real"]
 
         mode_label.configure(text=shown["mode"], bg=BAD if real else MUTED)
-        words = {"here": ("● Sender is running", GOOD), "outside": ("● A sender runs in another window", WARN), "waiting": ("◌ Sender starts in a moment", WARN), "stopped": ("○ Sender is stopped", BAD)}[state]
+        words = {"here": ("● Sender is running", GOOD), "outside": ("● A sender runs in another window", WARN), "waiting": ("◌ Sender starts in a moment", WARN), "stopped": ("○ Sender is stopped", BAD),
+                 "background": ("● Sender is running in the background", GOOD), "starting": ("◌ Windows is starting the sender", WARN)}[state]
         status_label.configure(text=words[0], fg=words[1])
-        sender_button.configure(text={"here": "Stop the sender", "outside": "Take it over here", "waiting": "Start the sender", "stopped": "Start the sender"}[state])
+        sender_button.configure(text={"here": "Stop the sender", "outside": "Take it over here", "waiting": "Start the sender", "stopped": "Start the sender", "background": "Stop the sender", "starting": "Stop the sender"}[state])
+        background_button.configure(text="Run without this window" if seen["background"] == "off" else "Run only with this window")
         pause_button.configure(text="Allow buying again" if shown["paused"] else "Pause buying")
 
         order = bridge.number(report.get("orderIdr"))
@@ -1830,6 +1993,19 @@ def open_window(args) -> int:
         if demo:
             messagebox.showinfo("Demo", "This is the demo: there is no sender behind it.")
             return
+        if seen["background"] == "on":
+            if messagebox.askyesno("Stop the sender", "Stop the sender?\n\nIt runs in the background and stays stopped until you press Start here, also after the PC restarts. Nothing is bought or sold while it is stopped, and a falling price is not acted on. Coins you hold stay in your Indodax account."):
+                problem = background_stop()
+                seen["background"] = background_state()
+                desk_line(f"the sender could not be stopped: {problem}" if problem else "sender stopped by you. It stays stopped until you press Start the sender.")
+            paint()
+            return
+        if seen["background"] == "stopped":
+            problem = background_start()
+            seen["background"] = background_state()
+            desk_line(f"the sender could not be started: {problem}" if problem else "sender started in the background. Its first line can take a minute or two.")
+            paint()
+            return
         if sender.running():
             if messagebox.askyesno("Stop the sender", "Stop the sender?\n\nNothing is bought or sold while it is stopped, and a falling price is not acted on. Coins you hold stay in your Indodax account."):
                 sender.stop()
@@ -1851,6 +2027,33 @@ def open_window(args) -> int:
                 desk_line("sender started (hidden, inside this window).")
         else:
             start_sender()
+        paint()
+
+    def on_background_button():
+        """Hand the sender to Windows (it then runs with no window), or take it back into this window."""
+        if demo:
+            messagebox.showinfo("Demo", "This is the demo: there is no sender behind it.")
+            return
+        if seen["background"] == "off":
+            if seen["outside"] and not sender.running():
+                messagebox.showinfo("Run without this window", "A sender is running in another window. Close that one first: two must never run together.")
+                return
+            if not messagebox.askyesno("Run without this window", f"Let Windows keep the sender running?\n\nIt then runs with no window: Windows starts it when you sign in to this PC, and starts it again within {TASK_MINUTES} minutes if it ever ends. Closing this window no longer stops it; Stop the sender does.\n\nThe PC must still be on, awake and signed in."):
+                return
+            sender.stop()
+            seen["start_later"] = ""
+            problem = background_on(folder)
+            desk_line(f"Windows did not take the sender: {problem}" if problem else "the sender now runs in the background, without this window. Its first line can take a minute or two.")
+        else:
+            if not messagebox.askyesno("Run only with this window", "Take the sender back into this window?\n\nIt then runs only while this window is open, as before."):
+                return
+            was_running = seen["background"] == "on"
+            problem = background_off()
+            desk_line(f"Windows did not let go of the sender: {problem}" if problem else "the sender no longer runs in the background.")
+            if not problem and was_running:
+                seen["outside"] = []
+                start_sender()
+        seen["background"] = background_state()
         paint()
 
     def on_pause_button():
@@ -1899,12 +2102,21 @@ def open_window(args) -> int:
                     else:  # a miss keeps the last one and asks again sooner
                         seen["mood_at"] = time.time() - MOOD_SECONDS + MOOD_RETRY_SECONDS
                 else:
-                    seen["view"], seen["error"], seen["outside"] = event[1], event[2], event[3]
+                    seen["view"], seen["error"], seen["outside"], seen["background"] = event[1], event[2], event[3], event[4]
                     seen["busy"], seen["asked"] = False, time.time()
                     paint()
                     start_round()
         except queue.Empty:
             pass
+        # What a sender with no window wrote to the log file is shown here; this window's own lines are already there.
+        if not demo and time.time() >= seen["log_check"]:
+            seen["log_check"] = time.time() + 1
+            news, seen["log_bytes"] = log_news(log_path, seen["log_bytes"])
+            for line in news:
+                if line in seen["own"]:
+                    seen["own"].remove(line)
+                else:
+                    show_log(line)
         # A window reopened right after its sender was closed starts one as soon as the old report has aged.
         if seen["start_later"] and not sender.running() and time.time() >= seen["start_check"]:
             seen["start_check"] = time.time() + 5
@@ -1916,6 +2128,9 @@ def open_window(args) -> int:
             if sender.exit_code() == 2:
                 sender.wanted = False
                 desk_line("not restarted: the sender says its settings or its state file are wrong (see the lines above).")
+            elif sender.exit_code() == bridge.ALREADY_RUNNING:
+                sender.wanted = False
+                desk_line("not started here: another sender is already running on this PC.")
             elif not seen["restart_at"]:
                 seen["restart_at"] = time.time() + RESTART_SECONDS
                 desk_line(f"the sender ended by itself. Starting it again in {RESTART_SECONDS} seconds.")
@@ -1949,6 +2164,9 @@ def open_window(args) -> int:
         if sender.running() and not messagebox.askyesno("Close", "Closing this window also stops the sender, so nothing is bought or sold until you open it again.\n\nClose it?"):
             return
         sender.stop()
+        if not demo:
+            kept = " The sender keeps running in the background." if seen["background"] == "on" else ""
+            append_log(log_path, f"{time.strftime('%Y-%m-%d %H:%M:%S')}  [desk] window closed by you.{kept}")
         if holder is not None:
             holder.close()
         root.destroy()
@@ -1956,13 +2174,24 @@ def open_window(args) -> int:
     sender_button.configure(command=on_sender_button)
     pause_button.configure(command=on_pause_button)
     refresh_button.configure(command=refresh)
+    background_button.configure(command=on_background_button)
     root.protocol("WM_DELETE_WINDOW", on_close)
 
+    for line in earlier[-EARLIER_LINES:]:  # what the sender wrote while no window was open
+        show_log(line)
     desk_line("demo numbers: no account and no sender are behind this window." if demo else f"window opened. Folder: {folder}")
     if not demo and not args.no_start:
         # Look for a sender outside this window first: two must never run together.
         seen["outside"] = sender_candidates(list_python_processes())
-        start_sender()
+        seen["background"] = background_state()
+        if seen["background"] == "off":
+            start_sender()
+        elif seen["background"] == "on":
+            if not seen["outside"]:
+                task_call(["/run", "/tn", TASK_NAME])  # Windows would start it within minutes anyway: this is sooner
+            desk_line("the sender runs in the background, kept by Windows. Closing this window does not stop it.")
+        else:
+            desk_line("the sender was stopped by you and stays stopped. Press Start the sender to run it again.")
     tick()
     pump()
     repaint()
@@ -2002,6 +2231,28 @@ def output_for_the_window() -> None:
         sys.stderr = sys.stdout
 
 
+def set_background(wish, folder, on=background_on, off=background_off, window=hold_one_window) -> int:
+    """TradeBot.exe --background on|off: the window's button "Run without this window", for a script. 0 when done."""
+
+    def say(text):
+        line = f"{time.strftime('%Y-%m-%d %H:%M:%S')}  [desk] {text}"
+        print(line)
+        append_log(Path(folder) / LOG_NAME, line)
+
+    if wish == "off":
+        problem = off()
+        say(f"Windows did not let go of the sender: {problem}" if problem else "the sender no longer runs in the background. It runs again when the window is opened.")
+        return 1 if problem else 0
+    holder = window()
+    if holder is None:
+        say("the background sender was not switched on: the TradeBot window is open. Close it first, or press Run without this window in it.")
+        return 1
+    holder.close()
+    problem = on(folder)
+    say(f"Windows did not take the sender: {problem}" if problem else "the sender now runs in the background, with no window. Windows starts it at sign-in and looks after it.")
+    return 1 if problem else 0
+
+
 def main(argv=None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
     # The one-file app is three programs in one: asked this way, it is the sender or the study instead of the window.
@@ -2016,12 +2267,16 @@ def main(argv=None) -> int:
     parser.add_argument("--no-start", action="store_true", help="open the window without starting the sender")
     parser.add_argument("--demo", action="store_true", help="made-up numbers: no sender, no network, nothing private")
     parser.add_argument("--folder", default=str(HERE), help="the folder with bridge.py and .env (default: this one)")
+    parser.add_argument("--background", choices=("on", "off"), default="", help="on: Windows keeps the sender running with no window. off: it runs only with the window again. Opens no window")
     parser.add_argument("--size", default="", help=argparse.SUPPRESS)
     parser.add_argument("--shot", default="", help=argparse.SUPPRESS)
     parser.add_argument("--trouble", action="store_true", help=argparse.SUPPRESS)  # with --demo: show the warnings
     parser.add_argument("--tab", default="", help=argparse.SUPPRESS)  # the tab shown first: overview, agents, study, report, log
     parser.add_argument("--side", default="", help=argparse.SUPPRESS)  # in the Agents tab, the side tab shown first: feed, agent, trades, analysis
-    return open_window(parser.parse_args(argv))
+    args = parser.parse_args(argv)
+    if args.background:
+        return set_background(args.background, Path(args.folder).resolve())
+    return open_window(args)
 
 
 if __name__ == "__main__":
