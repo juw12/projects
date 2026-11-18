@@ -261,6 +261,11 @@ class GlowFounderStaticTests(unittest.TestCase):
             self.assertIn(f'"{received}"', studio_app)
             self.assertIn(f'"{received}"', self.js)
 
+        # Only the files the browser loads are kept from the Pyodide package. Its package.json lists build tools
+        # that are never installed here, and a dependency scanner would report them as this repo's own.
+        self.assertFalse((STUDIO / "pyodide" / "package.json").exists(), "no package.json among the published files")
+        self.assertEqual(list(FOUNDER.rglob("package.json")) + list(FOUNDER.rglob("package-lock.json")), [])
+
         bundle = json.loads(text_of(STUDIO / "bundle.json"))
         for name in BUNDLED:
             self.assertIn(name, bundle["files"], f"{name} is what works the numbers out")
