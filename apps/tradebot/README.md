@@ -278,6 +278,11 @@ stop, and posts the copies back (`POST /v1/indodax/report`) for `/indodax` in Te
   mode `/indodax` shows how old the numbers are and nothing is sent.
 - **Off until switched on.** `POST /v1/indodax/setup` (setup code) gives the sender's key once; the
   sender does nothing until that key is in `indodax/.env` on the PC.
+- **A call that fails is tried again (0.17.5).** When the sender cannot reach this Worker, it
+  tries twice more in the same minute, the second time through the PC's other proxy when it has
+  two. Before, that minute was lost. An order the office proxy refused before it left the PC
+  (407) no longer drops the buy and sets the safety stop: it goes out the next minute, under the
+  same name. An order whose answer was lost is still never sent a second time.
 - **Not tried on a real Indodax account yet.** Its 100 tests run against a pretend exchange. Only
   the public prices were read from the real Indodax.
 

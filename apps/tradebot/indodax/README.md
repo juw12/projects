@@ -77,6 +77,15 @@ TradeBot's own five-minute round, so it is not to the minute.
 When TradeBot's numbers are old or cannot be read, nothing is bought that minute. Open copies are
 still watched by the sender's own stop.
 
+A call to TradeBot that does not get through is tried twice more in the same minute (since 0.17.5):
+after 1 second through the PC's other proxy, when it has two, and after 4 more seconds through
+the first one again. Measured on an office network, the proxy refused a call now and then (it
+answered 407) and worked again a few seconds later, while the other proxy answered. Before, such
+a minute was lost: no signal read and no report sent. When a later try gets through, the log says
+`TradeBot answered on try 2`. When none does, it says how often it tried and what kind of problem
+it was. A try that hung for the whole timeout is not followed by more, so the sender's own stop
+is never kept waiting. Calls to Indodax are not tried again within the minute.
+
 It does not buy when: the coin has no rupiah market at Indodax, the market is in maintenance, the
 buyers and sellers are more than 0.5% apart, the order size is under twice Indodax's smallest
 order, the most copies allowed are open, ten buys were made that day, or the day's loss has
@@ -263,6 +272,14 @@ not arrive, the sender asks Indodax what became of the order with that name. Tha
 - **No clear record** (the lookup fails, or shows a state, a side or amounts the sender does not
   expect): exactly as before the lookup existed. Your balance decides, and the safety stop goes
   on.
+
+**When an order never left the PC (since 0.17.5).** A proxy has to open the way to Indodax before
+anything is sent. When the proxy refuses that (it answers 407, for one), the order did not leave
+this PC, and that is certain, not a guess. So nothing was ordered, there is nothing to look up and
+nothing for you to check: the safety stop stays off, the signal is not used up, and the order
+goes out the next minute if it is still wanted, under the same name, which Indodax takes only
+once. Before, this counted as a lost answer: the buy was dropped and the safety stop went on.
+A timeout or a dropped connection is still a lost answer, because there the order may have arrived.
 
 **The safety stop.** Anything unclear stops new real buys: a lost answer, a refusal, a coin that
 did not arrive, a sale that could not be confirmed. Sales of open copies go on. `/indodax` shows
