@@ -75,8 +75,9 @@ jobs:
           window = subprocess.run([str(app), "--demo", "--shot", "4", "--tab", "study"], cwd=folder, timeout=120)
           assert window.returncode == 0, f"the window ended with {window.returncode}"
 
-          # The Agents tab too: six agents, the chart and the feed, drawn from made-up candles.
-          agents_tab = subprocess.run([str(app), "--demo", "--shot", "4", "--tab", "agents"], cwd=folder, timeout=120)
+          # The Agents tab too: six agents, the chart and the feed, drawn from made-up candles. And the
+          # Phone window with its QR code. A part that cannot be drawn ends the run with 1, not 0.
+          agents_tab = subprocess.run([str(app), "--demo", "--shot", "4", "--tab", "agents", "--phone"], cwd=folder, timeout=120)
           assert agents_tab.returncode == 0, f"the Agents tab ended with {agents_tab.returncode}"
 
           # The sender inside the app talks through a pipe, though the app has no console.

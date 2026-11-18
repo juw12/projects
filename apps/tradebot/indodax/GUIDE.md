@@ -22,6 +22,10 @@ again within 5 minutes if it ever ends. The window is then only for looking. **S
 still stops it, and it stays stopped until you press **Start the sender**. **Run only with this
 window** goes back. The PC must still be on, awake and signed in.
 
+**Phone** opens a small window with a QR code. Scan it with the phone's camera and the same
+numbers open on the phone, on any network, as a page that only shows. On an iPhone, Share and
+then Add to Home Screen makes it an app. A new code switches the old one off.
+
 ## The five tabs, in one line each
 
 - **Overview** — what happens next, the three checks per coin, the coins held, the price now,

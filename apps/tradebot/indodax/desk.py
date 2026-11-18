@@ -25,6 +25,10 @@ The sender can also run with no window at all (the button "Run without this wind
 TradeBot.exe --background on): Windows then starts it when you sign in and starts it again
 within five minutes if it ever ends. The window then only shows it; closing the window stops nothing.
 
+The Phone button shows a QR code (qr.py) of the private link to TradeBot's phone page. Scan it
+with the phone's camera on any network; a new code switches off the one before. The link is
+kept in desk_phone.json in this folder and never written to the log.
+
 Standard library only. It never places an order itself and never reads the Indodax API key:
 orders are made by bridge.py alone. It talks to TradeBot with the sender's key from .env.
 """
@@ -42,14 +46,16 @@ import sys
 import tempfile
 import threading
 import time
+import traceback
 from pathlib import Path
 from xml.sax.saxutils import escape
 
 import agents
 import bridge
 import decisions
+import qr
 
-VERSION = "0.18.1"  # the same number as apps/tradebot/package.json
+VERSION = "0.19.0"  # the same number as apps/tradebot/package.json
 FROZEN = bridge.FROZEN  # True inside TradeBot.exe
 HERE = bridge.HERE
 APP_NAME = "tradebot.exe"
@@ -66,6 +72,10 @@ TASK_NAME = "TradeBot sender"  # the Windows task that runs the sender with no w
 TASK_MINUTES = 5  # Windows looks this often whether that sender still runs, and starts it when it does not
 ONE_WINDOW_PORT = 47631  # held on 127.0.0.1 while the window is open, so a second one cannot start
 NO_WINDOW = 0x08000000  # CREATE_NO_WINDOW
+PHONE_NAME = "desk_phone.json"  # the link to the phone page, kept in the folder so its QR code can be shown again
+PHONE_QR_PIXELS = 343  # the QR code's square in the Phone window: 7 pixels a module for a link's code
+PHONE_LINK = re.compile(r"https://[^/\s?#]+/v1/indodax/phone\?k=([A-Za-z0-9_-]{8,128})")
+DEMO_PHONE_LINK = "https://trade-bot.example/v1/indodax/phone?k=" + "demo" * 12
 
 
 # ---------------------------------------------------------------- the parts without a window
@@ -209,8 +219,69 @@ def local_text(local, now_ms) -> str:
     return "\n".join(lines)
 
 
+def phone_key(link) -> str:
+    """The key at the end of a link to the phone page, or "" when this is no such link."""
+    found = PHONE_LINK.fullmatch(link) if isinstance(link, str) else None
+    return found.group(1) if found else ""
+
+
+def read_phone(path) -> str:
+    """The phone link kept in the folder, or "" when there is none that can be used."""
+    try:
+        kept = json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return ""
+    link = kept.get("link") if isinstance(kept, dict) else ""
+    return link if phone_key(link) else ""
+
+
+def save_phone(path, link) -> None:
+    """Keep the phone link next to .env: like .env it is private, and it is never written to a log."""
+    path = Path(path)
+    draft = path.with_name(path.name + ".tmp")
+    draft.write_text(json.dumps({"link": link, "at": int(time.time() * 1000)}), encoding="utf-8")
+    os.replace(draft, path)
+
+
+def qr_boxes(rows, pixels) -> tuple:
+    """How a QR code is drawn in a square of this many pixels: (pixels a module, the light edge, the dark boxes)."""
+    scale = max(1, pixels // (len(rows) + 2 * qr.QUIET))
+    edge = (pixels - len(rows) * scale) // 2
+    boxes = [
+        (edge + x * scale, edge + y * scale, edge + (x + 1) * scale, edge + (y + 1) * scale)
+        for y, row in enumerate(rows)
+        for x, dark in enumerate(row)
+        if dark
+    ]
+    return scale, edge, boxes
+
+
+PHONE_STEPS = "\n".join([
+    "1. Point the iPhone's camera at the code and tap the link. It works on any network: Wi-Fi or mobile data, at home or away.",
+    "2. In Safari tap Share, then Add to Home Screen. TradeBot then opens like an app.",
+    "3. The page reloads itself every minute and only shows: nothing can be bought or sold from it.",
+    "",
+    "Keep the code to yourself: anyone who scans it can see the page. A new code switches the old one off, with the link from /phone in Telegram and an icon already on a home screen.",
+])
+
+
+def phone_words(link, live, error, busy) -> dict:
+    """What the Phone window says. live: True, False, or None while it is not known."""
+    make = "Make a new code" if link else "Make the code"
+    if busy:
+        return {"show": False, "note": "Asking TradeBot…", "steps": PHONE_STEPS, "make": make}
+    if not link:
+        return {"show": False, "note": "There is no code yet. Press Make the code.", "steps": PHONE_STEPS, "make": make}
+    if live is False:
+        return {"show": False, "note": "This code no longer works: a newer link was made, here or with /phone in Telegram. Press Make a new code.", "steps": PHONE_STEPS, "make": make}
+    if live is None:
+        note = f"The code could not be checked just now ({error}). It is shown as it was kept." if error else "Checking the code…"
+        return {"show": bool(error), "note": note, "steps": PHONE_STEPS, "make": make}
+    return {"show": True, "note": "This code works. Scan it with your phone's camera.", "steps": PHONE_STEPS, "make": make}
+
+
 class Server:
-    """The two calls this window makes to TradeBot, with the sender's key from .env."""
+    """The calls this window makes to TradeBot, with the sender's key from .env."""
 
     def __init__(self, env_path):
         self.env_path = env_path
@@ -226,6 +297,20 @@ class Server:
 
     def pause(self, paused: bool) -> dict:
         return self._api()._call("/v1/indodax/pause", {"paused": bool(paused)})
+
+    def phone_live(self, link) -> bool:
+        """Does this link to the phone page still work? Asking changes nothing."""
+        key = phone_key(link)
+        if not key:
+            return False
+        return self._api()._call("/v1/indodax/phone-link", {"check": key}).get("live") is True
+
+    def phone_new(self) -> str:
+        """A new link to the phone page. The link from before stops working."""
+        link = self._api()._call("/v1/indodax/phone-link", {"fresh": True}).get("link")
+        if not phone_key(link):
+            raise bridge.ApiError("TradeBot gave no link to the phone page")
+        return link
 
 
 def sender_command(python=None) -> list:
@@ -909,6 +994,7 @@ def open_window(args) -> int:
     earlier, log_bytes = ([], 0) if demo else log_news(log_path, -1)
     seen.update({"background": "off", "own": [], "log_bytes": log_bytes, "log_check": 0.0})
     learn_path = folder / "learn.json"
+    phone_path = folder / PHONE_NAME
     try:
         traded = set(DEMO_TRADED) if demo else {coin_name(coin) for coin in bridge.load_settings(env_path).coins}
     except bridge.SettingsError:
@@ -969,6 +1055,7 @@ def open_window(args) -> int:
     pause_button = button()
     refresh_button = button("Refresh now")
     background_button = button()
+    phone_button = button("Phone")
     fresh_label = label(buttons, "", 9, MUTED)
     fresh_label.pack(side="right")
 
@@ -2056,6 +2143,100 @@ def open_window(args) -> int:
         seen["background"] = background_state()
         paint()
 
+    def on_phone_button():
+        """A small window with the phone page's link as a QR code: scan it, and the page opens on any network."""
+        phone = seen.get("phone")
+        if phone and phone["window"].winfo_exists():
+            phone["window"].lift()
+            phone["window"].focus_force()
+            return
+        window = tk.Toplevel(root, bg=CARD)
+        window.title("TradeBot on your phone")
+        window.resizable(False, False)
+        window.transient(root)
+        label(window, "Open TradeBot on your phone", 14, bold=True).pack(anchor="w", padx=18, pady=(14, 2))
+        note = label(window, "", 10, MUTED, wraplength=PHONE_QR_PIXELS + 40)
+        note.pack(anchor="w", padx=18, pady=(0, 8))
+        # White with dark modules whatever the window's colours: that is what a camera reads best.
+        canvas = tk.Canvas(window, width=PHONE_QR_PIXELS, height=PHONE_QR_PIXELS, bg="white", highlightthickness=1, highlightbackground=LINE)
+        canvas.pack(padx=18)
+        steps = label(window, "", 9, INK, wraplength=PHONE_QR_PIXELS + 40)
+        steps.pack(anchor="w", padx=18, pady=(10, 8))
+        row = tk.Frame(window, bg=CARD)
+        row.pack(fill="x", padx=18, pady=(0, 14))
+        make_button = ttk.Button(row)
+        make_button.pack(side="left")
+        copy_button = ttk.Button(row, text="Copy the link")
+        copy_button.pack(side="left", padx=8)
+        ttk.Button(row, text="Close", command=window.destroy).pack(side="right")
+        phone = {"window": window, "link": DEMO_PHONE_LINK if demo else read_phone(phone_path), "live": True if demo else None, "error": "", "busy": False}
+        seen["phone"] = phone
+
+        def draw():
+            said = phone_words(phone["link"], phone["live"], phone["error"], phone["busy"])
+            note.configure(text=said["note"] + (" (Demo: this code leads nowhere.)" if demo else ""), fg=BAD if phone["live"] is False else MUTED)
+            steps.configure(text=said["steps"])
+            make_button.configure(text=said["make"], state="disabled" if phone["busy"] else "normal")
+            copy_button.configure(state="normal" if said["show"] else "disabled")
+            canvas.delete("all")
+            if said["show"]:
+                try:
+                    _scale, _edge, boxes = qr_boxes(qr.encode(phone["link"]), PHONE_QR_PIXELS)
+                except qr.TooLong:
+                    boxes = []
+                    canvas.create_text(PHONE_QR_PIXELS // 2, PHONE_QR_PIXELS // 2, text="The link is too long for a code.\nUse Copy the link.", font=(FONT, 10), fill=MUTED, justify="center")
+                for box in boxes:
+                    canvas.create_rectangle(*box, fill="black", outline="")
+            else:
+                canvas.create_text(PHONE_QR_PIXELS // 2, PHONE_QR_PIXELS // 2, text="No code to show", font=(FONT, 11), fill=MUTED)
+
+        def news(link, live, error):
+            """From pump(): what the thread found."""
+            if not window.winfo_exists():
+                return
+            phone.update({"link": link, "live": live, "error": error, "busy": False})
+            draw()
+
+        def ask(fresh):
+            link = phone["link"]
+
+            def work():
+                try:
+                    if fresh:
+                        made = server.phone_new()
+                        save_phone(phone_path, made)
+                        events.put(("log", f"{time.strftime('%Y-%m-%d %H:%M:%S')}  [desk] a new link to the phone page was made. The one before no longer works."))
+                        events.put(("phone", made, True, ""))
+                    else:
+                        events.put(("phone", link, server.phone_live(link), ""))
+                except (bridge.ApiError, bridge.SettingsError, OSError) as problem:
+                    events.put(("phone", link, None, str(problem)))
+
+            phone["busy"] = True
+            draw()
+            threading.Thread(target=work, daemon=True).start()
+
+        def on_make():
+            if demo:
+                messagebox.showinfo("Demo", "This is the demo: no link is made.", parent=window)
+                return
+            words = "Make a new code?\n\nThe code and the link from before stop working: the link from /phone in Telegram too, and a TradeBot icon already on a phone's home screen. Scan the new code and add it to the home screen again."
+            if phone["link"] and phone["live"] is not False and not messagebox.askyesno("Make a new code", words, parent=window):
+                return
+            ask(True)
+
+        def on_copy():
+            root.clipboard_clear()
+            root.clipboard_append(phone["link"])
+            note.configure(text="The link is copied. Keep it to yourself: anyone who has it can see the page.", fg=MUTED)
+
+        phone["news"] = news
+        make_button.configure(command=on_make)
+        copy_button.configure(command=on_copy)
+        draw()
+        if phone["link"] and not demo:
+            ask(False)
+
     def on_pause_button():
         if demo:
             messagebox.showinfo("Demo", "This is the demo: nothing is paused.")
@@ -2096,6 +2277,9 @@ def open_window(args) -> int:
                     seen["chart_drawn"] = None
                     paint()
                     start_round()
+                elif event[0] == "phone":
+                    if seen.get("phone"):
+                        seen["phone"]["news"](event[1], event[2], event[3])
                 elif event[0] == "mood":
                     if event[1]:
                         seen["mood"], seen["mood_at"] = event[1], time.time()
@@ -2175,6 +2359,7 @@ def open_window(args) -> int:
     pause_button.configure(command=on_pause_button)
     refresh_button.configure(command=refresh)
     background_button.configure(command=on_background_button)
+    phone_button.configure(command=on_phone_button)
     root.protocol("WM_DELETE_WINDOW", on_close)
 
     for line in earlier[-EARLIER_LINES:]:  # what the sender wrote while no window was open
@@ -2196,12 +2381,23 @@ def open_window(args) -> int:
     pump()
     repaint()
     root.after(1500, candle_tick)
+    if args.phone:
+        root.after(600, on_phone_button)
     root.bind("<Configure>", on_resize, add="+")
+    failed = []
     if args.shot:
         # For screenshots and the test of the window itself: draw, save nothing, close by itself.
+        # Tk only prints a mistake inside a button or a timer and carries on. Here it is counted,
+        # so the test of the built app fails when a part of the window could not be drawn.
+        def on_mistake(kind, value, trace):
+            failed.append(value)
+            if sys.stderr:  # the one-file app has no console: there is nowhere to print
+                traceback.print_exception(kind, value, trace)
+
+        root.report_callback_exception = on_mistake
         root.after(int(float(args.shot) * 1000), root.destroy)
     root.mainloop()
-    return 0
+    return 1 if failed else 0
 
 
 def output_for_the_window() -> None:
@@ -2272,6 +2468,7 @@ def main(argv=None) -> int:
     parser.add_argument("--shot", default="", help=argparse.SUPPRESS)
     parser.add_argument("--trouble", action="store_true", help=argparse.SUPPRESS)  # with --demo: show the warnings
     parser.add_argument("--tab", default="", help=argparse.SUPPRESS)  # the tab shown first: overview, agents, study, report, log
+    parser.add_argument("--phone", action="store_true", help=argparse.SUPPRESS)  # open the Phone window (the QR code) at the start
     parser.add_argument("--side", default="", help=argparse.SUPPRESS)  # in the Agents tab, the side tab shown first: feed, agent, trades, analysis
     args = parser.parse_args(argv)
     if args.background:

@@ -74,7 +74,7 @@ exchange takes) and are shown as USDT with rupiah beside them; `/live size 200rb
 | `/holding`, `/analysis`, `/trades` | Indodax: what is held and the free rupiah; the market and what the strategy needs before it buys or sells; each finished buy and sale |
 | `/plan` | Indodax with real money: the plan's stage, the money put in, what it is worth now, and the range a test on past prices gave for 1, 3, 6 and 12 months (not a promise) |
 | `/learn` | Indodax: the score from 0 to 10 for how far the rules are proven, its curve, and what the sender's own study of the rules found (replay on past prices, the test on unseen prices, the measured cost of a real trade) and its verdict: keep, watch or review. It never changes the rules by itself |
-| `/phone` | A private link to a live page for your phone (read-only). A new `/phone` switches the old link off |
+| `/phone` | A private link to a live page for your phone (read-only). A new `/phone` switches the old link off. The same link as a QR code: the **Phone** button in the TradeBot window on the PC |
 | `/indodax pause`, `/indodax resume` | Stop or allow new buys at Indodax (open copies are still sold). The sender reads it within a minute |
 | `/reset` | Start over with fresh practice money (asks first) |
 | `/help` | The short version of this page |
@@ -289,6 +289,15 @@ stop, and posts the copies back (`POST /v1/indodax/report`) for `/indodax` in Te
   stops nothing. Only one sender can run on a PC. The PC must still be on, awake and signed in.
   0.18.1: Stop the sender now really stops that sender (in 0.18.0 Windows ended only the app's
   starter and the sender went on).
+- **The phone page is an app, paired by QR code (0.19.0).** The **Phone** button in the TradeBot
+  window shows the private link as a QR code. Scan it with the phone's camera: the page opens on
+  any network (mobile data too), because it is served by this Worker and not by the PC. On an
+  iPhone, Share and then Add to Home Screen makes it an app with its own icon and no browser bar.
+  It is the same read-only page as `/phone`: it shows, it cannot buy, sell or pause. There is one
+  link at a time: a new code switches off the old link, the `/phone` link and an icon made from
+  it, and Telegram says so once. The PC keeps the link in `indodax/desk_phone.json` (private, not
+  in git, never in the log). The QR code is drawn by `indodax/qr.py` (standard library; checked
+  square by square against two other QR encoders and read back by a QR reader).
 - **Not tried on a real Indodax account yet.** Its 100 tests run against a pretend exchange. Only
   the public prices were read from the real Indodax.
 
@@ -312,8 +321,20 @@ stop, and posts the copies back (`POST /v1/indodax/report`) for `/indodax` in Te
   (`tools/plan_backtest.py`: BTC, March 2020 to November 2026, 213 trades, Rp20.000 per buy,
   Indodax prices, about 0.9% costs per trade) won 30 trades in 100 and made about Rp4.600 a year,
   with a worst year of -Rp9.100. Over 12 months the middle result was +Rp5.000 and 1 start in 10
-  lost Rp4.500 or more. Adding ETH and SOL to the one slot made the test worse, so it trades BTC
-  only. A past result is not a promise.
+  lost Rp4.500 or more. A past result is not a promise.
+- **Why BTC only.** `tools/coin_study.py` runs the same rules on ten coins at Indodax's prices
+  (18 November 2026). In the last three years 6 of the 10 lost money (ETH -Rp900 a year, BNB
+  -Rp2.100, LINK -Rp9.800, AVAX -Rp11.800). The coin that was best before November 2023 (ETH)
+  lost money after it, and the worst before (DOGE) was the best after: the past winner does not
+  name the next one. With BTC, ETH and SOL sharing the one slot since 2021 the test made more
+  (Rp5.200 to Rp7.300 a year against Rp2.600 for BTC alone), but that figure moves by Rp2.000 a
+  year with nothing more than which coin is bought when two signal on the same candle, and most
+  of it came from SOL in 2023. In every order the deepest dip was deeper (-Rp11.500 to -Rp14.100
+  against -Rp10.700), and with BTC first 2025 and 2026 lost more (-Rp3.400 and -Rp6.600 against
+  -Rp700 and -Rp2.400). All ten coins in the one slot gave between -Rp4.300 and +Rp1.900 a year
+  with a dip of Rp39.100 to Rp67.300. BTC also has the smallest gap between buy and sell price.
+  So it trades BTC only; SOL is the one to watch (4.9 years of prices, up in 3 of 5 years). A
+  past result is not a promise.
 - **It studies its own rules, and changes nothing by itself.** Every four hours and after each
   buy or sale the sender runs `indodax/learn.py`: it replays the rules that trade on every
   4-hour candle since March 2020, replays 81 nearby versions, and for each half year picks the
@@ -398,7 +419,9 @@ appears, every trade message says "practice", and no secret is printed.
 | `POST /v1/indodax/report` | the PC's sender (its key): its copies at Indodax, practice or real |
 | `GET /v1/indodax/view` | the desk window on the PC (the sender's key): the full Indodax report as data |
 | `POST /v1/indodax/pause` | the desk window on the PC (the sender's key): `{"paused": true}` stops new buys, `false` allows them |
-| `GET /v1/indodax/phone?k=` | the phone page (the private link from `/phone` in Telegram): the full report, read-only |
+| `GET /v1/indodax/phone?k=` | the phone page (the private link from `/phone` in Telegram or the Phone button's QR code): the full report, read-only |
+| `POST /v1/indodax/phone-link` | the desk window on the PC (the sender's key): `{"check": "<key>"}` says whether that phone link still works and changes nothing; `{"fresh": true}` makes a new link and switches the old one off |
+| `GET /v1/indodax/phone-icon.png` | the phone page's icon for the home screen (public, a picture only) |
 
 One Durable Object holds the settings and the practice account; its alarm is the agent's clock.
 The bot token lives only inside that Durable Object, never in this repository or in logs.

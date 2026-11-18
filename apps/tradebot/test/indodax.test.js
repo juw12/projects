@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { INDODAX_SILENT_MS, INDODAX_STALE_MS, answer, backText, changes, cleanReport, daily, fullReport, isStale, pausedText, phonePage, plainWords, planFigures, PLAN, keepCash, CASH_KEPT_MS, cleanLearn, LEARN_OLD_MS, SCORE_MOST, resumedText, silentAlert, viewData, withDaily, onlyReal, realHelp } from "../src/indodax.js";
+import { INDODAX_SILENT_MS, INDODAX_STALE_MS, answer, backText, changes, cleanReport, daily, fullReport, isStale, pausedText, phoneIcon, phonePage, plainWords, planFigures, PLAN, keepCash, CASH_KEPT_MS, cleanLearn, LEARN_OLD_MS, SCORE_MOST, resumedText, silentAlert, viewData, withDaily, onlyReal, realHelp } from "../src/indodax.js";
 import { proposal } from "../src/render.js";
 
 const NOW = Date.UTC(2026, 10, 16, 4, 10); // 11:10 WIB
@@ -483,6 +483,21 @@ test("phone page: practice is never shown as real, and pretend and real results 
   assert.match(page, /<span>Result so far<\/span><strong class="up">\+Rp1\.000<\/strong>/);
   assert.match(page, /Result so far: pretend \+Rp1\.000/, "the report's own result line stays when pretend money is in it");
   assert.equal(page.includes("In plain words"), false, "no signals, no glossary");
+});
+
+test("phone page: on the iPhone's home screen it is an app with its own name and icon, and still nothing to press", () => {
+  const page = phone(realView());
+  assert.match(page, /<meta name="apple-mobile-web-app-capable" content="yes">/);
+  assert.match(page, /<meta name="mobile-web-app-capable" content="yes">/);
+  assert.match(page, /<meta name="apple-mobile-web-app-title" content="TradeBot">/);
+  assert.match(page, /<meta name="apple-mobile-web-app-status-bar-style" content="black">/);
+  assert.match(page, /<link rel="apple-touch-icon" href="\/v1\/indodax\/phone-icon\.png">/);
+  assert.equal(/<(a|button|form|input|script)[\s>]/i.test(page), false);
+  const icon = phoneIcon();
+  assert.deepEqual([...icon.slice(0, 8)], [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a], "a PNG");
+  const size = new DataView(icon.buffer, icon.byteOffset + 16, 8);
+  assert.deepEqual([size.getUint32(0), size.getUint32(4)], [180, 180], "the size an iPhone asks for");
+  assert.equal(icon[25], 2, "no see-through corners: the iPhone would paint them black");
 });
 
 test("phone page: without a view it is the report alone, and plain words are escaped", () => {

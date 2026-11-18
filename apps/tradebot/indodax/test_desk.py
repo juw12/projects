@@ -153,6 +153,75 @@ class DeskTest(unittest.TestCase):
             raise AssertionError("an empty key must not be sent")
 
 
+    def test_the_phone_link_is_kept_in_the_folder_and_only_a_real_one_is_read(self):
+        folder = self.folder()
+        path = folder / desk.PHONE_NAME
+        assert desk.read_phone(path) == ""
+        link = "https://trade-bot.example/v1/indodax/phone?k=" + "ab12" * 12
+        desk.save_phone(path, link)
+        assert desk.read_phone(path) == link
+        assert desk.phone_key(link) == "ab12" * 12
+        assert [item.name for item in folder.iterdir()] == [desk.PHONE_NAME], "no half-written file is left"
+        for wrong in ("{not json", json.dumps([link]), json.dumps({"link": "http://plain.example/v1/indodax/phone?k=abc"}), json.dumps({"link": "https://x.example/other?k=abc"}), json.dumps({"link": 7})):
+            path.write_text(wrong, encoding="utf-8")
+            assert desk.read_phone(path) == ""
+        assert desk.phone_key("https://x.example/v1/indodax/phone") == ""
+
+    def test_the_phone_calls_ask_about_a_link_or_for_a_new_one(self):
+        folder = self.folder()
+        env = folder / ".env"
+        env.write_text("INDODAX_BRIDGE_KEY=\n", encoding="utf-8")
+        with self.assertRaises(desk.bridge.ApiError):
+            desk.Server(env).phone_new()
+        calls = []
+
+        class Api:
+            def _call(self, path, payload=None):
+                calls.append((path, payload))
+                return {"ok": True, "live": True} if "check" in payload else {"ok": True, "link": "https://trade-bot.example/v1/indodax/phone?k=" + "cd" * 24}
+
+        server = desk.Server(env)
+        server._api = Api
+        assert server.phone_live("https://trade-bot.example/v1/indodax/phone?k=" + "ab" * 24) is True
+        assert server.phone_new().endswith("cd" * 24)
+        assert calls == [("/v1/indodax/phone-link", {"check": "ab" * 24}), ("/v1/indodax/phone-link", {"fresh": True})]
+        assert server.phone_live("") is False and len(calls) == 2, "no link, nothing to ask"
+
+        class Odd:
+            def _call(self, path, payload=None):
+                return {"ok": True, "link": "javascript:alert(1)"}
+
+        server._api = Odd
+        with self.assertRaises(desk.bridge.ApiError):
+            server.phone_new()
+
+    def test_the_qr_code_is_drawn_as_whole_pixels_with_a_light_edge(self):
+        rows = [[True, False, True], [False, True, False], [True, True, True]]
+        scale, edge, boxes = desk.qr_boxes(rows, 120)
+        assert scale == 10, "3 modules and 4 light ones on each side: 11 across, 10 pixels each in 120"
+        assert edge == (120 - 3 * 10) // 2
+        assert len(boxes) == 6 and boxes[0] == (edge, edge, edge + 10, edge + 10)
+        assert boxes[-1] == (edge + 20, edge + 20, edge + 30, edge + 30)
+        link = "https://trade-bot.example/v1/indodax/phone?k=" + "ab12" * 12
+        scale, edge, boxes = desk.qr_boxes(desk.qr.encode(link), desk.PHONE_QR_PIXELS)
+        assert scale >= 5, "big enough for a phone camera at arm's length"
+        assert edge >= 4 * scale, "the light edge a reader needs"
+
+    def test_the_phone_window_says_what_to_do_in_each_state(self):
+        said = desk.phone_words("", None, "", False)
+        assert "no code yet" in said["note"].lower() and said["make"] == "Make the code" and not said["show"]
+        said = desk.phone_words("link", None, "", True)
+        assert "Asking" in said["note"] and not said["show"]
+        said = desk.phone_words("link", True, "", False)
+        assert said["show"] and said["make"] == "Make a new code"
+        assert "Add to Home Screen" in said["steps"] and "nothing can be bought or sold" in said["steps"]
+        said = desk.phone_words("link", False, "", False)
+        assert not said["show"] and "no longer works" in said["note"]
+        said = desk.phone_words("link", None, "TradeBot answered HTTP 502", False)
+        assert said["show"], "a code that could not be checked is still shown"
+        assert "could not be checked" in said["note"] and "HTTP 502" in said["note"]
+
+
     def test_the_log_file_is_kept_and_rolled_over(self):
         tmp_path = self.folder()
         path = tmp_path / "desk_sender.log"
