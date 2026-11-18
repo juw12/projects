@@ -1116,7 +1116,7 @@ test("indodax: the message that the sender is back reaches the owner", async () 
 });
 
 test("indodax in real money: practice messages stop, the report is complete, and the phone page and desktop routes are private", async () => {
-  const { call, page, pair, say, round, now } = await harness();
+  const { call, page, pair, say, round, now, sent } = await harness();
   await pair();
   now.advance(TICK_MS);
   await round();
@@ -1253,6 +1253,37 @@ test("indodax in real money: practice messages stop, the report is complete, and
   assert.notEqual(second, first);
   assert.equal((await page(first)).status, 403, "the old link is dead");
   assert.equal((await page(second)).status, 200);
+
+  // Added to the iPhone's home screen it opens like an app: its own name, its own icon, no browser bars.
+  assert.match(shown.text, /<meta name="apple-mobile-web-app-capable" content="yes">/);
+  assert.match(shown.text, /<meta name="apple-mobile-web-app-title" content="TradeBot">/);
+  assert.match(shown.text, /<link rel="apple-touch-icon" href="\/v1\/indodax\/phone-icon\.png">/);
+  const icon = await page("/v1/indodax/phone-icon.png");
+  assert.equal(icon.status, 200);
+  assert.equal(icon.text.slice(1, 4), "PNG", "a picture, and no key is needed for it");
+  assert.match((await page("/v1/indodax/phone?k=wrong")).text, /Phone in the TradeBot window/);
+
+  // The desktop app shows the link as a QR code. It asks with the sender's key: is my link still the
+  // live one (changes nothing), or make a new one (the one before stops working, and the owner is told).
+  const keyOf = (link) => link.split("?k=")[1];
+  const ask = (body, headers = key) => call("POST", "/v1/indodax/phone-link", { headers, body });
+  assert.equal((await ask({ fresh: true }, {})).status, 403);
+  assert.equal((await ask({ fresh: true }, { "X-Indodax-Key": "wrong" })).status, 403);
+  assert.equal((await ask({})).status, 400, "it must say what it wants");
+  assert.deepEqual((await ask({ check: keyOf(second) })).body, { ok: true, live: true });
+  assert.deepEqual((await ask({ check: keyOf(first) })).body, { ok: true, live: false });
+  assert.deepEqual((await ask({ check: "" })).body, { ok: true, live: false });
+  assert.equal((await page(second)).status, 200, "asking changes nothing");
+  const before = sent.length;
+  const made = await ask({ fresh: true });
+  assert.equal(made.status, 200);
+  assert.match(made.body.link, /^https:\/\/trade-bot\.test\/v1\/indodax\/phone\?k=[0-9a-f]{48}$/);
+  const third = made.body.link.replace(HOST, "");
+  assert.equal((await page(second)).status, 403, "the link from Telegram is dead now");
+  assert.equal((await page(third)).status, 200);
+  const told = sent.slice(before).filter((entry) => entry.method === "sendMessage").map((entry) => entry.text).join("\n");
+  assert.match(told, /new link to your live page was made in the TradeBot window/);
+  assert.equal(told.includes(keyOf(third)), false, "the link itself goes to the PC only");
 });
 
 test("indodax in real money: every command is about the real account, and nothing is said about practice", async () => {

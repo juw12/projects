@@ -30,7 +30,10 @@
 //   POST /v1/indodax/report   the sender (its key): what its copies at Indodax look like
 //   GET  /v1/indodax/view     the desktop app (the sender's key): the full report as data
 //   POST /v1/indodax/pause    the desktop app (the sender's key): stop new buys, or allow them again
-//   GET  /v1/indodax/phone    the phone page (?k= the private link from /phone in Telegram): read-only
+//   POST /v1/indodax/phone-link  the desktop app (the sender's key): is my link live, or make a new one
+//   GET  /v1/indodax/phone    the phone page (?k= the private link from /phone in Telegram, or from the
+//                             QR code in the desktop app): read-only, and an app on the home screen
+//   GET  /v1/indodax/phone-icon.png  that app's icon (nothing private, no key)
 //
 // While the sender is in real mode the owner hears about the real account only: the practice
 // account still runs (its signals are what the sender copies), but its messages stay off.
@@ -58,6 +61,8 @@ import {
   keepCash as keepIndodaxCash,
   fullReport as indodaxFull,
   onlyReal as indodaxOnlyReal,
+  PHONE_ICON_PATH,
+  phoneIcon as indodaxPhoneIcon,
   phonePage as indodaxPhonePage,
   plainWords as indodaxPlainWords,
   realOnly as indodaxRealOnly,
@@ -169,6 +174,7 @@ export function createWorker(overrides) {
       if (url.pathname === "/indodax/view" && request.method === "POST") return this.run(() => this.indodaxViewFor(body));
       if (url.pathname === "/indodax/pause" && request.method === "POST") return this.run(() => this.indodaxPause(body));
       if (url.pathname === "/indodax/page" && request.method === "POST") return this.run(() => this.indodaxPage(body));
+      if (url.pathname === "/indodax/phone-link" && request.method === "POST") return this.run(() => this.indodaxPhoneLink(body));
       return json({ ok: false, error: "not found" }, 404);
     }
 
@@ -839,20 +845,49 @@ export function createWorker(overrides) {
     // /phone: make a new private link to the phone page. Only its SHA-256 is kept, and the link
     // made before stops working. The page only shows; nothing can be changed from it.
     async phoneLink(origin) {
-      const indodax = (await this.storage.get("indodax")) || {};
-      const key = randomHex(24);
-      await this.storage.put("indodax", { ...indodax, viewHash: await sha256Hex(key) });
-      const base = typeof origin === "string" && origin.startsWith("https://") ? origin : "";
-      if (!base) return { html: "⚠️ I could not work out my own address, so there is no link. Nothing was changed." };
+      const link = await this.newPhoneLink(origin);
+      if (!link) return { html: "⚠️ I could not work out my own address, so there is no link. Nothing was changed." };
       return {
         html: [
           "📱 <b>Your live page</b>",
-          `${base}/v1/indodax/phone?k=${key}`,
+          link,
           "",
-          "Open it on your phone and add it to the home screen. It reloads itself every minute and only shows: nothing can be bought or sold from it.",
-          "Keep the link to yourself: anyone who has it can see the page. <code>/phone</code> makes a new link and switches this one off.",
+          "Open it on your phone and add it to the home screen (Safari: Share, then Add to Home Screen). It then opens like an app, on any network. It reloads itself every minute and only shows: nothing can be bought or sold from it.",
+          "Keep the link to yourself: anyone who has it can see the page. <code>/phone</code> makes a new link and switches this one off. The TradeBot window on the PC shows the link as a QR code (Phone).",
         ].join("\n"),
       };
+    }
+
+    // A new link to the phone page, or "" (and nothing changed) when this Worker's own address is not known.
+    async newPhoneLink(origin) {
+      const base = typeof origin === "string" && origin.startsWith("https://") ? origin : "";
+      if (!base) return "";
+      const indodax = (await this.storage.get("indodax")) || {};
+      const key = randomHex(24);
+      await this.storage.put("indodax", { ...indodax, viewHash: await sha256Hex(key) });
+      return `${base}/v1/indodax/phone?k=${key}`;
+    }
+
+    // Is this the key of the phone link that works now?
+    async phoneKeyIsLive(given) {
+      const indodax = await this.storage.get("indodax");
+      if (!indodax || !indodax.viewHash || typeof given !== "string" || !given) return false;
+      return safeEqual(await sha256Hex(given), indodax.viewHash);
+    }
+
+    // The desktop app, with the sender's key, for its QR code. { key, check } asks whether the link
+    // it kept still works and changes nothing. { key, fresh: true } makes a new link: the one
+    // before stops working, wherever it came from, and the owner is told (without the link).
+    async indodaxPhoneLink(body) {
+      if (!(await this.indodaxFor(body.key))) return json({ ok: false, error: "not allowed" }, 403);
+      if (typeof body.check === "string") return json({ ok: true, live: await this.phoneKeyIsLive(body.check) });
+      if (body.fresh !== true) return json({ ok: false, error: "Send check: the key of a link, or fresh: true for a new link." }, 400);
+      const link = await this.newPhoneLink(body.origin);
+      if (!link) return json({ ok: false, error: "The address of this server is not known, so no link was made." }, 500);
+      await this.deliver(await this.config(), [
+        { html: "📱 <b>A new link to your live page was made in the TradeBot window on your PC.</b> It is shown there as a QR code. The link from before no longer works. Not you? Send <code>/phone</code> for a new one: that switches this one off." },
+      ]);
+      return json({ ok: true, link });
     }
 
     // The full report with what the strategy sees, kept for half a minute so a page that reloads
@@ -895,11 +930,7 @@ export function createWorker(overrides) {
 
     // The phone page, with the private link's key. { key }
     async indodaxPage(body) {
-      const indodax = await this.storage.get("indodax");
-      const given = typeof body.key === "string" ? body.key : "";
-      if (!indodax || !indodax.viewHash || !given || !safeEqual(await sha256Hex(given), indodax.viewHash)) {
-        return json({ ok: false, error: "not allowed" }, 403);
-      }
+      if (!(await this.phoneKeyIsLive(body.key))) return json({ ok: false, error: "not allowed" }, 403);
       const { view, extra } = await this.indodaxSeen();
       const seen = { ...view, now: deps.now() };
       return json({ ok: true, page: indodaxPhonePage(indodaxFull(seen, extra).html, seen.now, seen, indodaxPlainWords(extra)) });
@@ -1066,13 +1097,25 @@ export function createWorker(overrides) {
       return json(await answer.json(), answer.status);
     }
 
+    if (request.method === "POST" && path === "/v1/indodax/phone-link") {
+      const key = request.headers.get("X-Indodax-Key") || "";
+      if (!key) return json({ ok: false, error: "not allowed" }, 403);
+      const body = (await request.json().catch(() => ({}))) || {};
+      const answer = await trader.fetch(post("/indodax/phone-link", { key, check: body.check, fresh: body.fresh, origin: url.origin }));
+      return json(await answer.json(), answer.status);
+    }
+
+    if (request.method === "GET" && path === PHONE_ICON_PATH) {
+      return new Response(indodaxPhoneIcon(), { headers: { "Content-Type": "image/png", "Cache-Control": "public, max-age=86400" } });
+    }
+
     if (request.method === "GET" && path === "/v1/indodax/phone") {
       const key = url.searchParams.get("k") || "";
       const answer = key ? await trader.fetch(post("/indodax/page", { key })) : null;
       const data = answer && answer.status === 200 ? await answer.json() : null;
       const headers = { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store", "Referrer-Policy": "no-referrer", "X-Robots-Tag": "noindex, nofollow" };
       if (!data || !data.page) {
-        const gone = "<!doctype html><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title>TradeBot</title><p style=\"font:16px system-ui;padding:20px\">This link does not work (any more). Send /phone to the bot in Telegram for a new one.</p>";
+        const gone = "<!doctype html><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title>TradeBot</title><p style=\"font:16px system-ui;padding:20px\">This link does not work (any more). Send /phone to the bot in Telegram for a new one, or press Phone in the TradeBot window on the PC. If this is the icon on your home screen: remove it, open the new link and add it again.</p>";
         return new Response(gone, { status: 403, headers });
       }
       return new Response(data.page, { headers });

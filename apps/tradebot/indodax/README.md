@@ -447,6 +447,23 @@ reloads every minute. It opens with the same glance as the desk (real or practic
 warnings, the four numbers, what happens next), then the full report and the trading words in
 plain words. The page only shows. `/phone` again makes a new link and switches the old one off.
 
+The same page without Telegram (since 0.19.0): press **Phone** in the TradeBot window, then
+**Make the code**. The window shows the private link as a QR code. Point the phone's camera at
+it and tap the link. The phone does not have to be on the PC's Wi-Fi: the page comes from
+TradeBot's server, so mobile data works too, at home or away. On an iPhone tap Share in Safari,
+then Add to Home Screen: TradeBot then opens like an app, with its own icon and no browser bar.
+
+- **One link at a time.** Make a new code switches off the code before, the link from `/phone`
+  and an icon already on a home screen (scan the new code and add it again). TradeBot says in
+  Telegram once that the link was changed from the PC; the link itself is not in that message.
+- **Keep the code to yourself.** Anyone who scans it can read the page. It cannot buy, sell or
+  pause, and it carries no key. If someone else saw it, press Make a new code.
+- **`desk_phone.json` is private.** The window keeps the link in that file next to `.env`, so the
+  code is there the next time. It is not in git and never in the log. Deleting it only means
+  the next code is a new one.
+- **The page still needs the sender.** It shows what the sender last reported, so the PC must
+  be on for fresh numbers. When the numbers are old the page says so.
+
 In real mode TradeBot's Telegram messages are about Indodax only: the practice account's own
 messages are not sent, the 07:00 WIB message is the full Indodax report, and `/status`, `/report`,
 `/holding`, `/analysis`, `/trades` or a plain question answer from it. Nothing in that chat

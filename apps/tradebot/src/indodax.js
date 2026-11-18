@@ -1020,6 +1020,15 @@ function phoneTop(view) {
   ];
 }
 
+// The home-screen icon: four candles on the page's own dark colour, 180 by 180, a PNG with no
+// see-through parts. It shows nothing private, so it is served without the link's key.
+export const PHONE_ICON_PATH = "/v1/indodax/phone-icon.png";
+const PHONE_ICON = "iVBORw0KGgoAAAANSUhEUgAAALQAAAC0CAIAAACyr5FlAAAB2klEQVR42u3cvQ2AIBCAUTewsXEnJ7Kydjsn0o5Y2Jj4A3cv+RYAXkUOun4Ypcs6WyA4BIfgEByCQ3AIDsEhOASHBIfgEByCQ3AIDsEhOASH4JDgEByCQ3AIDsEhOASH4BAcEhyVNm1zCQ7BITgEh+AQHIIDDjjggAMOOOCIj+BucMABBxxwCA7BITgEh+CAAw444IADDjjggAMOOASH4BAcen4YBw444IADDsEhOJw0HHDAAQcccMABBxxw5L3ehgMOOOCAAw44BAcBcMABBxxwwAEHHHDAAQcccMABBxxwwAEHHIIjC459XUotDuP43hoOOOCAAw444IADDjjggAMOOPLhOCO4GxxwwAEHHHDAER/HU4uPiqOG4IADDjjggAMOOOCAAw444IADDjjggAOO2kf738ZR8/U2HHDAAQcccMABBxxwwAEHHHDAAQcccMABxz84MgSH4uJ4+zkkHHAIDsEBBxxwwAEHHHDAAQcccMABBxzt4RAcgkNwwAEHHHDAAQcccMABx1dBAAcccMABBxxwwCE4BIfgEByCQ3lxCA7BITgEhwSH4BAcgkNwCA7BITgEh+AQHBIcgkNwCA7BITgEh+AQHIJDgkNwCA7BITgEh+AQHArZASy6zLO4K7p5AAAAAElFTkSuQmCC";
+
+export function phoneIcon() {
+  return Uint8Array.from(atob(PHONE_ICON), (letter) => letter.charCodeAt(0));
+}
+
 export function phonePage(html, now, view = null, words = []) {
   const blocks = html.split("\n\n");
   const next = html.split("\n").find((line) => line.startsWith("Next: "));
@@ -1044,6 +1053,12 @@ export function phonePage(html, now, view = null, words = []) {
     '<meta name="referrer" content="no-referrer">',
     '<meta name="color-scheme" content="dark">',
     '<meta name="theme-color" content="#0f1419">',
+    // Added to the home screen it opens like an app: no browser bars, its own name and icon.
+    '<meta name="apple-mobile-web-app-capable" content="yes">',
+    '<meta name="mobile-web-app-capable" content="yes">',
+    '<meta name="apple-mobile-web-app-title" content="TradeBot">',
+    '<meta name="apple-mobile-web-app-status-bar-style" content="black">',
+    `<link rel="apple-touch-icon" href="${PHONE_ICON_PATH}">`,
     "<title>TradeBot · Indodax</title>",
     "<style>",
     PHONE_STYLE,
