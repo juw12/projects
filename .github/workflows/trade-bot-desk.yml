@@ -64,7 +64,7 @@ jobs:
       - name: Try the built app (window, sender words through a pipe, study)
         shell: python
         run: |
-          import json, pathlib, shutil, subprocess, tempfile
+          import json, pathlib, shutil, subprocess, tempfile, time
 
           built = pathlib.Path("dist/TradeBot.exe").resolve()
           folder = pathlib.Path(tempfile.mkdtemp())
@@ -95,6 +95,35 @@ jobs:
           study = subprocess.run([str(app), "--study", "--offline", "--env", str(folder / ".env"), "--state", str(folder / "bridge_state.json")], cwd=folder, capture_output=True, timeout=120)
           print(study.returncode, study.stdout.decode("utf-8", "replace"), study.stderr.decode("utf-8", "replace"))
           assert study.returncode == 1 and b"Too few candles" in study.stdout, (study.returncode, study.stdout, study.stderr)
+
+          # The app is two processes: a starter and the sender. Windows' task list ends only the starter,
+          # so the sender must end with it. The address below answers nobody: nothing leaves this machine.
+          (folder / ".env").write_text("INDODAX_BRIDGE_KEY=k\nINDODAX_BRIDGE_URL=https://127.0.0.1:9\n", encoding="utf-8")
+          running = folder / "running.log"
+
+          def started():
+              return running.exists() and "Indodax sender running" in running.read_text(encoding="utf-8")
+
+          def alive(pid):
+              return str(pid) in subprocess.run(["tasklist", "/fi", f"PID eq {pid}", "/fo", "csv", "/nh"], capture_output=True, text=True, timeout=60).stdout
+
+          starter = subprocess.Popen([str(app), "--sender", "--log", str(running)], cwd=folder)
+          limit = time.time() + 90
+          while time.time() < limit and not started():
+              time.sleep(1)
+          assert started(), "the sender in the app did not start"
+          ask = f"(Get-CimInstance Win32_Process -Filter 'ParentProcessId = {starter.pid}').ProcessId"
+          inner = [int(pid) for pid in subprocess.run(["powershell", "-NoProfile", "-Command", ask], capture_output=True, text=True, timeout=60).stdout.split()]
+          assert inner and all(alive(pid) for pid in inner), f"the sender inside the app was not found: {inner}"
+          starter.kill()  # the starter alone, as the task list does
+          limit = time.time() + 30
+          while time.time() < limit and any(alive(pid) for pid in inner):
+              time.sleep(1)
+          left = [pid for pid in inner if alive(pid)]
+          for pid in left:
+              subprocess.run(["taskkill", "/pid", str(pid), "/f"])
+          assert not left, f"the sender went on without its starter: {left}"
+          print("the sender ended with its starter")
       - uses: actions/upload-artifact@v4
         with:
           name: TradeBot-desk-windows

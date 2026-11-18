@@ -1680,6 +1680,44 @@ def hold_one_sender(port=ONE_SENDER_PORT):
     return holder
 
 
+def wait_for_end(pid) -> bool:
+    """Wait until the process pid has ended (Windows). False when it cannot be watched: then nothing is known."""
+    if os.name != "nt":
+        return False
+    import ctypes
+
+    kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel.OpenProcess.restype = ctypes.c_void_p
+    kernel.OpenProcess.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_uint32]
+    kernel.WaitForSingleObject.restype = ctypes.c_uint32
+    kernel.WaitForSingleObject.argtypes = [ctypes.c_void_p, ctypes.c_uint32]
+    kernel.CloseHandle.argtypes = [ctypes.c_void_p]
+    handle = kernel.OpenProcess(0x00100000, 0, int(pid))  # SYNCHRONIZE: the right to wait for it, nothing more
+    if not handle:
+        return False
+    ended = kernel.WaitForSingleObject(handle, 0xFFFFFFFF) == 0  # no time limit
+    kernel.CloseHandle(handle)
+    return ended
+
+
+def follow_the_starter(pid, wait=wait_for_end, leave=os._exit):
+    """End this sender when its starter ends. The thread that waits is returned.
+
+    The one-file app runs as two processes: a small starter, and this one. "End" in Windows' task
+    list (and so Stop the sender for a sender with no window) ends only the starter; without this
+    the sender would go on with nobody holding it.
+    """
+    import threading
+
+    def watch():
+        if wait(pid):
+            leave(1)
+
+    thread = threading.Thread(target=watch, daemon=True)
+    thread.start()
+    return thread
+
+
 def append_line(path, line) -> None:
     """Add one line to a log file. A file over a megabyte is first set aside as .old.log."""
     try:
@@ -1820,6 +1858,8 @@ def main(argv=None) -> int:
         if holder is None:
             stamp("Not started: another sender is already running on this PC, and two must never run together.")
             return ALREADY_RUNNING
+        if FROZEN:
+            follow_the_starter(os.getppid())
         stamp(f"Indodax sender running, one cycle every {CYCLE_SECONDS} seconds. {mode} Ctrl+C stops it; open copies stay as they are.")
         if FROZEN or (HERE / "learn.py").exists():  # only the sender that keeps running studies
             bridge.study = lambda: start_study(args.env, args.state)

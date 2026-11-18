@@ -287,6 +287,8 @@ stop, and posts the copies back (`POST /v1/indodax/report`) for `/indodax` in Te
   `TradeBot.exe --background on`) hands the sender to Windows: it starts at sign-in, is started
   again within 5 minutes if it ends, and shows nothing on the screen. Closing the window then
   stops nothing. Only one sender can run on a PC. The PC must still be on, awake and signed in.
+  0.18.1: Stop the sender now really stops that sender (in 0.18.0 Windows ended only the app's
+  starter and the sender went on).
 - **Not tried on a real Indodax account yet.** Its 100 tests run against a pretend exchange. Only
   the public prices were read from the real Indodax.
 

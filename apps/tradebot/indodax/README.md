@@ -427,6 +427,10 @@ The sender can keep running while the window is closed. Windows then holds it, a
   when it opens), and closing it stops nothing.
 - **Stop the sender** in the window stops it and keeps it stopped, also after a restart of the
   PC, until you press **Start the sender**. Pause buying works as before.
+- **Ending the task ends the sender (since 0.18.1).** `TradeBot.exe` runs as two processes, a
+  small starter and the sender itself, and Windows ends only the starter. The sender now watches
+  its starter and ends with it. In 0.18.0 it went on with nobody holding it, so Stop the sender
+  did not stop it.
 - **Switch it off:** the button **Run only with this window**, or `TradeBot.exe --background off`.
   The task is removed and the sender is a child of the window again.
 - **Only one sender runs on a PC.** A sender that keeps running holds a local port

@@ -49,7 +49,7 @@ import agents
 import bridge
 import decisions
 
-VERSION = "0.18.0"  # the same number as apps/tradebot/package.json
+VERSION = "0.18.1"  # the same number as apps/tradebot/package.json
 FROZEN = bridge.FROZEN  # True inside TradeBot.exe
 HERE = bridge.HERE
 APP_NAME = "tradebot.exe"
