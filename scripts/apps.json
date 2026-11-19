@@ -3531,6 +3531,50 @@
       "status": "released",
       "order": 80,
       "portfolio": true
+    },
+    {
+      "id": "lineup",
+      "name": "Lineup",
+      "category": "AI",
+      "external": true,
+      "url": "https://juw12.github.io/lineup/",
+      "url_label": "See the example run",
+      "desc": "Six role agents for OpenCode that pick their own models: every model answers the same fixed questions on your machine, and the best one per role is written into the agents, with backup and put-back.",
+      "summary": "Six role agents for OpenCode that pick their own models.",
+      "description": "One command asks every model you have the same fixed questions on your own machine, scores the answers with pass-or-fail checks, and writes the best model for each role into the agent files, with a backup and a put-back. The example run on OpenCode's nine free models was stopped by the free usage limit after 46 of 216 answers, so one role of six is measured so far.",
+      "tags": [
+        "OpenCode",
+        "AI agents",
+        "Model selection",
+        "Python",
+        "Windows"
+      ],
+      "note_tags": [
+        "lineup",
+        "ai-agents",
+        "benchmark",
+        "llm",
+        "model-selection",
+        "opencode"
+      ],
+      "image": "lineup-card.jpg",
+      "image_alt": "Lineup score page from the example run: six role cards and a table of nine free models, with the briefing row measured and the other rows marked not measured",
+      "extra_links": [
+        {
+          "label": "Source",
+          "url": "https://github.com/juw12/lineup"
+        }
+      ],
+      "card": {
+        "label": "lineup · example run",
+        "capture": "https://juw12.github.io/lineup/",
+        "theme": "dark",
+        "accent": "#316143",
+        "accent2": "#2f909e"
+      },
+      "status": "released",
+      "order": 81,
+      "portfolio": true
     }
   ]
 }
