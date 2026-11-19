@@ -956,6 +956,7 @@ const PHONE_STYLE = [
   ".next{background:#20304a;border:1px solid #35507a;border-radius:12px;padding:10px 14px;margin:0 0 10px}",
   ".next span{display:block;font-size:15px;color:#9db7dd}",
   ".rules{color:#9aa6b6;font-size:15px;margin:0 2px 12px}",
+  ".copy{color:#9db7dd;font-size:15px;margin:0 2px 10px}",
   "section{background:#1a212b;border:1px solid #2a3442;border-radius:12px;padding:12px 14px;margin:0 0 10px;overflow-wrap:anywhere}",
   "h2{font-size:17px;margin:0 0 6px;color:#fff}",
   "h2 small{font-size:15px;font-weight:400;color:#9aa6b6}",
@@ -1029,11 +1030,50 @@ export function phoneIcon() {
   return Uint8Array.from(atob(PHONE_ICON), (letter) => letter.charCodeAt(0));
 }
 
-export function phonePage(html, now, view = null, words = []) {
+// The copy of the page that the PC fetches and sends to the phone through GitHub (for a phone whose
+// network blocks this server's address). It cannot reload itself, so it says when it was made, counts
+// its own age, and warns when no newer copy has arrived for COPY_OLD_MINUTES.
+export const COPY_OLD_MINUTES = 20;
+
+function copyLines(now) {
+  return [
+    `<p class="copy">Copy made ${clock(now)} (<span id="age">see the time</span>). It comes to this phone through GitHub, so it can be about 10 minutes old.</p>`,
+    `<div class="alert bad" id="old" hidden>⛔ No newer copy has arrived for <b id="oldfor">a while</b>. The PC that makes it is off, asleep or offline, so what you read below is old. If the PC is off, nothing is bought and <b>nothing is sold either</b>.</div>`,
+  ];
+}
+
+// The only script on any page: it counts the copy's age. It reads nothing and sends nothing.
+function copyScript(now) {
+  return [
+    "<script>",
+    "(function () {",
+    `  var made = ${Math.round(now)};`,
+    "  function words(minutes) { return minutes < 1 ? \"just now\" : minutes < 120 ? minutes + (minutes === 1 ? \" minute ago\" : \" minutes ago\") : Math.round(minutes / 60) + \" hours ago\"; }",
+    "  function tick() {",
+    "    var minutes = Math.max(0, Math.floor((Date.now() - made) / 60000));",
+    "    document.getElementById(\"age\").textContent = words(minutes);",
+    `    document.getElementById("old").hidden = minutes < ${COPY_OLD_MINUTES};`,
+    "    document.getElementById(\"oldfor\").textContent = words(minutes).replace(\" ago\", \"\");",
+    // An old copy must not go on saying in green that the sender is running: nobody knows that now.
+    "    var alive = document.querySelector(\".alive\");",
+    `    if (alive && minutes >= ${COPY_OLD_MINUTES}) { alive.className = "alive away"; alive.textContent = "○ Sender: not known, this copy is old"; }`,
+    "  }",
+    "  tick();",
+    "  setInterval(tick, 20000);",
+    "})();",
+    "</script>",
+  ].join("\n");
+}
+
+// copy = true: the page as a file for the phone's GitHub way (see copyLines). It has no reload, and no
+// home-screen tags or icon, because it is shown inside another page.
+export function phonePage(html, now, view = null, words = [], copy = false) {
   const blocks = html.split("\n\n");
   const next = html.split("\n").find((line) => line.startsWith("Next: "));
   const withTop = !!(view && view.configured && view.report);
   const top = withTop ? phoneTop(view) : [];
+  // A copy says so right under the title, before any warning or number is read.
+  if (copy) top.splice(top.indexOf("</header>") + 1, 0, ...copyLines(now));
   // With the top in place the report's own title line would only repeat it: keep its rules line.
   const rules = withTop && blocks.length ? blocks.shift().split("\n").slice(1).join(" · ") : "";
   // The top already says these, so the same words are not shown twice. A block that warns
@@ -1048,17 +1088,21 @@ export function phonePage(html, now, view = null, words = []) {
     "<!doctype html>",
     '<html lang="en"><head><meta charset="utf-8">',
     '<meta name="viewport" content="width=device-width, initial-scale=1">',
-    '<meta http-equiv="refresh" content="60">',
+    copy ? "" : '<meta http-equiv="refresh" content="60">',
     '<meta name="robots" content="noindex, nofollow">',
     '<meta name="referrer" content="no-referrer">',
     '<meta name="color-scheme" content="dark">',
     '<meta name="theme-color" content="#0f1419">',
     // Added to the home screen it opens like an app: no browser bars, its own name and icon.
-    '<meta name="apple-mobile-web-app-capable" content="yes">',
-    '<meta name="mobile-web-app-capable" content="yes">',
-    '<meta name="apple-mobile-web-app-title" content="TradeBot">',
-    '<meta name="apple-mobile-web-app-status-bar-style" content="black">',
-    `<link rel="apple-touch-icon" href="${PHONE_ICON_PATH}">`,
+    ...(copy
+      ? []
+      : [
+          '<meta name="apple-mobile-web-app-capable" content="yes">',
+          '<meta name="mobile-web-app-capable" content="yes">',
+          '<meta name="apple-mobile-web-app-title" content="TradeBot">',
+          '<meta name="apple-mobile-web-app-status-bar-style" content="black">',
+          `<link rel="apple-touch-icon" href="${PHONE_ICON_PATH}">`,
+        ]),
     "<title>TradeBot · Indodax</title>",
     "<style>",
     PHONE_STYLE,
@@ -1068,7 +1112,8 @@ export function phonePage(html, now, view = null, words = []) {
     rules ? `<p class="rules">${rules}</p>` : "",
     ...blocks.filter((block) => !said(block)).map(phoneSection),
     words.length ? `<section><h2>In plain words</h2>${words.map((entry) => `<p><b>${escapeHtml(entry.word)}</b>: ${escapeHtml(entry.means)}</p>`).join("")}</section>` : "",
-    `<footer>${closing ? `${closing}<br>` : ""}Loaded ${clock(now)} · reloads every minute · read-only: nothing can be bought or sold from this page</footer>`,
+    `<footer>${closing ? `${closing}<br>` : ""}${copy ? `Copy made ${clock(now)} · a new copy about every 5 minutes` : `Loaded ${clock(now)} · reloads every minute`} · read-only: nothing can be bought or sold from this page</footer>`,
+    copy ? copyScript(now) : "",
     "</main></body></html>",
   ]
     .filter(Boolean)

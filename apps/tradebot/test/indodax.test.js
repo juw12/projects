@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { INDODAX_SILENT_MS, INDODAX_STALE_MS, answer, backText, changes, cleanReport, daily, fullReport, isStale, pausedText, phoneIcon, phonePage, plainWords, planFigures, PLAN, keepCash, CASH_KEPT_MS, cleanLearn, LEARN_OLD_MS, SCORE_MOST, resumedText, silentAlert, viewData, withDaily, onlyReal, realHelp } from "../src/indodax.js";
+import { INDODAX_SILENT_MS, INDODAX_STALE_MS, answer, backText, changes, cleanReport, daily, fullReport, isStale, pausedText, phoneIcon, phonePage, COPY_OLD_MINUTES, plainWords, planFigures, PLAN, keepCash, CASH_KEPT_MS, cleanLearn, LEARN_OLD_MS, SCORE_MOST, resumedText, silentAlert, viewData, withDaily, onlyReal, realHelp } from "../src/indodax.js";
 import { proposal } from "../src/render.js";
 
 const NOW = Date.UTC(2026, 10, 16, 4, 10); // 11:10 WIB
@@ -498,6 +498,60 @@ test("phone page: on the iPhone's home screen it is an app with its own name and
   const size = new DataView(icon.buffer, icon.byteOffset + 16, 8);
   assert.deepEqual([size.getUint32(0), size.getUint32(4)], [180, 180], "the size an iPhone asks for");
   assert.equal(icon[25], 2, "no see-through corners: the iPhone would paint them black");
+});
+
+test("phone page as a copy for GitHub: it says when it was made, counts its age, and does not reload", () => {
+  const live = phone(realView());
+  const copy = phonePage(fullReport(realView(), SIGNALS).html, NOW, realView(), plainWords(SIGNALS), true);
+  // The same facts as the live page.
+  for (const part of [/<span class="mode real">REAL MONEY<\/span>/, /<span>Free rupiah<\/span><strong>Rp30\.450<\/strong>/, /<h2>Holding now<\/h2>/, /<h2>In plain words<\/h2>/, /Not financial advice/]) {
+    assert.match(live, part);
+    assert.match(copy, part);
+  }
+  // It is shown inside another page, so it must not reload itself or ask for this server's icon.
+  assert.equal(copy.includes("http-equiv"), false, "no reload");
+  assert.equal(/apple-mobile|apple-touch|mobile-web-app/.test(copy), false, "no home-screen tags");
+  assert.equal(/(src|href)\s*=/i.test(copy), false, "nothing is fetched from anywhere");
+  // It says how old it is: the time it was made, and a warning that shows itself when it gets old.
+  assert.match(copy, /<p class="copy">Copy made \d+ \w+ \d\d:\d\d WIB \(<span id="age">see the time<\/span>\)\. It comes to this phone through GitHub, so it can be about 10 minutes old\.<\/p>/);
+  assert.match(copy, /<div class="alert bad" id="old" hidden>⛔ No newer copy has arrived for <b id="oldfor">a while<\/b>\. The PC that makes it is off, asleep or offline/);
+  assert.match(copy, /nothing is sold either/);
+  assert.match(copy, /Copy made \d+ \w+ \d\d:\d\d WIB · a new copy about every 5 minutes · read-only: nothing can be bought or sold from this page<\/footer>/);
+  assert.equal(copy.includes("reloads every minute"), false);
+  assert.ok(copy.indexOf('class="copy"') > copy.indexOf("</header>") && copy.indexOf('class="copy"') < copy.indexOf('class="tiles"'), "right under the title");
+  // One small script, which only counts the age. Still nothing to press.
+  assert.equal(/<(a|button|form|input|select|textarea)[\s>]/i.test(copy), false, "nothing to press");
+  const scripts = [...copy.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((match) => match[1]);
+  assert.equal(scripts.length, 1);
+  assert.equal(/fetch|XMLHttpRequest|location|cookie|storage|import|eval/i.test(scripts[0]), false, "it reads and sends nothing");
+  // Run that script against a stand-in page: fresh, then old.
+  const run = (minutesLater) => {
+    const parts = { age: { textContent: "" }, old: { hidden: true }, oldfor: { textContent: "" } };
+    const alive = { className: "alive", textContent: "● Sender is running · heard just now" };
+    const page = { getElementById: (id) => parts[id], querySelector: (query) => (query === ".alive" ? alive : null) };
+    const clockNow = { now: () => NOW + minutesLater * 60000 };
+    new Function("document", "Date", "setInterval", scripts[0])(page, clockNow, () => 0);
+    return { ...parts, alive };
+  };
+  const green = { className: "alive", textContent: "● Sender is running · heard just now" };
+  assert.deepEqual(run(0), { age: { textContent: "just now" }, old: { hidden: true }, oldfor: { textContent: "just now" }, alive: green });
+  assert.deepEqual(run(COPY_OLD_MINUTES - 1).alive, green);
+  assert.equal(run(1).age.textContent, "1 minute ago");
+  assert.equal(run(COPY_OLD_MINUTES - 1).old.hidden, true, "a normal wait is not a warning");
+  const old = run(COPY_OLD_MINUTES + 25);
+  assert.equal(old.old.hidden, false);
+  assert.equal(old.age.textContent, "45 minutes ago");
+  assert.equal(old.oldfor.textContent, "45 minutes");
+  assert.deepEqual(old.alive, { className: "alive away", textContent: "○ Sender: not known, this copy is old" }, "an old copy never says in green that the sender runs");
+  // A copy with no top (nothing set up) has no such line, and the script does not trip over that.
+  const bareScript = phonePage("a", NOW, null, [], true).match(/<script>([\s\S]*?)<\/script>/)[1];
+  const none = { age: {}, old: {}, oldfor: {} };
+  new Function("document", "Date", "setInterval", bareScript)({ getElementById: (id) => none[id], querySelector: () => null }, { now: () => NOW + 3600000 }, () => 0);
+  assert.equal(none.old.hidden, false);
+  assert.equal(run(300).oldfor.textContent, "5 hours");
+  // Without a view (nothing set up yet) the copy line still leads.
+  const bare = phonePage("a", NOW, null, [], true);
+  assert.match(bare, /<main>\n<p class="copy">Copy made/);
 });
 
 test("phone page: without a view it is the report alone, and plain words are escaped", () => {

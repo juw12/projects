@@ -23,8 +23,11 @@ still stops it, and it stays stopped until you press **Start the sender**. **Run
 window** goes back. The PC must still be on, awake and signed in.
 
 **Phone** opens a small window with a QR code. Scan it with the phone's camera and the same
-numbers open on the phone, on any network, as a page that only shows. On an iPhone, Share and
-then Add to Home Screen makes it an app. A new code switches the old one off.
+numbers open on the phone, with no need for the PC's Wi-Fi, as a page that only shows. On an
+iPhone, Share and then Add to Home Screen makes it an app. A new code switches the old one off.
+If the phone says it cannot open the page (HSTS, or "not private"), its network blocks the
+address: the PC can send a copy through GitHub instead (README, "The phone says it cannot open
+the page").
 
 ## The five tabs, in one line each
 

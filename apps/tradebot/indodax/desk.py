@@ -26,8 +26,12 @@ TradeBot.exe --background on): Windows then starts it when you sign in and start
 within five minutes if it ever ends. The window then only shows it; closing the window stops nothing.
 
 The Phone button shows a QR code (qr.py) of the private link to TradeBot's phone page. Scan it
-with the phone's camera on any network; a new code switches off the one before. The link is
-kept in desk_phone.json in this folder and never written to the log.
+with the phone's camera; a new code switches off the one before. The link is kept in
+desk_phone.json in this folder and never written to the log.
+
+Some networks block TradeBot's address (the phone then says HSTS, or "not private"). For those,
+TradeBot.exe --phone-file PATH writes the same page to a file with no window, and something else
+takes the file to the phone (Cairn's dashboards do, through GitHub).
 
 Standard library only. It never places an order itself and never reads the Indodax API key:
 orders are made by bridge.py alone. It talks to TradeBot with the sender's key from .env.
@@ -55,7 +59,7 @@ import bridge
 import decisions
 import qr
 
-VERSION = "0.19.0"  # the same number as apps/tradebot/package.json
+VERSION = "0.19.1"  # the same number as apps/tradebot/package.json
 FROZEN = bridge.FROZEN  # True inside TradeBot.exe
 HERE = bridge.HERE
 APP_NAME = "tradebot.exe"
@@ -257,12 +261,46 @@ def qr_boxes(rows, pixels) -> tuple:
 
 
 PHONE_STEPS = "\n".join([
-    "1. Point the iPhone's camera at the code and tap the link. It works on any network: Wi-Fi or mobile data, at home or away.",
+    "1. Point the iPhone's camera at the code and tap the link. The phone need not be on the PC's Wi-Fi: mobile data works too.",
     "2. In Safari tap Share, then Add to Home Screen. TradeBot then opens like an app.",
     "3. The page reloads itself every minute and only shows: nothing can be bought or sold from it.",
     "",
     "Keep the code to yourself: anyone who scans it can see the page. A new code switches the old one off, with the link from /phone in Telegram and an icon already on a home screen.",
+    "",
+    "The phone says it cannot open the page (HSTS, or \"not private\")? Then its network blocks TradeBot's address; the page itself is fine. "
+    "The PC can send a copy through GitHub instead: on the phone open Cairn, Dashboards, tab TradeBot. That copy can be about 10 minutes old.",
 ])
+
+
+def page_is_copy(page) -> bool:
+    """Is this the phone page as TradeBot makes it for a file: whole, and marked as a copy?"""
+    return isinstance(page, str) and page.startswith("<!doctype html>") and page.rstrip().endswith("</html>") and 'class="copy"' in page
+
+
+def save_page(path, page) -> None:
+    """Write the page in one step, so a reader never finds half a file."""
+    path = Path(path)
+    draft = path.with_name(path.name + ".tmp")
+    draft.write_text(page, encoding="utf-8", newline="\n")
+    os.replace(draft, path)
+
+
+def phone_file(path, server, say=print, save=save_page) -> int:
+    """TradeBot.exe --phone-file PATH: the phone page as a file, for a phone whose network blocks TradeBot.
+
+    Something else then takes the file to the phone (Cairn's dashboards do, through GitHub). The page
+    says when it was made and warns by itself once it is old, so a file that is not renewed never
+    looks live. When TradeBot cannot be asked the file from before stays as it is. 0 when written.
+    """
+    stamp = time.strftime("%Y-%m-%d %H:%M:%S")
+    try:
+        page = server.phone_copy()
+        save(path, page)
+    except (bridge.ApiError, bridge.SettingsError, OSError) as problem:
+        say(f"{stamp}  [desk] the phone page was not renewed: {problem}. The file from before is kept.")
+        return 1
+    say(f"{stamp}  [desk] the phone page was written to {path} ({len(page.encode('utf-8'))} bytes).")
+    return 0
 
 
 def phone_words(link, live, error, busy) -> dict:
@@ -311,6 +349,13 @@ class Server:
         if not phone_key(link):
             raise bridge.ApiError("TradeBot gave no link to the phone page")
         return link
+
+    def phone_copy(self) -> str:
+        """The phone page as text, for a file (see phone_file). Asking changes nothing."""
+        page = self._api()._call("/v1/indodax/phone-copy").get("page")
+        if not page_is_copy(page):
+            raise bridge.ApiError("TradeBot gave no phone page")
+        return page
 
 
 def sender_command(python=None) -> list:
@@ -2144,7 +2189,7 @@ def open_window(args) -> int:
         paint()
 
     def on_phone_button():
-        """A small window with the phone page's link as a QR code: scan it, and the page opens on any network."""
+        """A small window with the phone page's link as a QR code: scan it, and the page opens on the phone."""
         phone = seen.get("phone")
         if phone and phone["window"].winfo_exists():
             phone["window"].lift()
@@ -2464,6 +2509,7 @@ def main(argv=None) -> int:
     parser.add_argument("--demo", action="store_true", help="made-up numbers: no sender, no network, nothing private")
     parser.add_argument("--folder", default=str(HERE), help="the folder with bridge.py and .env (default: this one)")
     parser.add_argument("--background", choices=("on", "off"), default="", help="on: Windows keeps the sender running with no window. off: it runs only with the window again. Opens no window")
+    parser.add_argument("--phone-file", default="", metavar="PATH", help="write the phone page to this file, for a phone whose network blocks TradeBot's address. Opens no window")
     parser.add_argument("--size", default="", help=argparse.SUPPRESS)
     parser.add_argument("--shot", default="", help=argparse.SUPPRESS)
     parser.add_argument("--trouble", action="store_true", help=argparse.SUPPRESS)  # with --demo: show the warnings
@@ -2473,6 +2519,9 @@ def main(argv=None) -> int:
     args = parser.parse_args(argv)
     if args.background:
         return set_background(args.background, Path(args.folder).resolve())
+    if args.phone_file:
+        output_for_the_window()
+        return phone_file(Path(args.phone_file).resolve(), Server(Path(args.folder).resolve() / ".env"))
     return open_window(args)
 
 

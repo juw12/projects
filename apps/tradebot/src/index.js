@@ -34,6 +34,8 @@
 //   GET  /v1/indodax/phone    the phone page (?k= the private link from /phone in Telegram, or from the
 //                             QR code in the desktop app): read-only, and an app on the home screen
 //   GET  /v1/indodax/phone-icon.png  that app's icon (nothing private, no key)
+//   GET  /v1/indodax/phone-copy  the PC (the sender's key): the phone page as { page }, which the PC
+//                             sends to the phone through GitHub when the phone's network blocks this address
 //
 // While the sender is in real mode the owner hears about the real account only: the practice
 // account still runs (its signals are what the sender copies), but its messages stay off.
@@ -852,8 +854,10 @@ export function createWorker(overrides) {
           "📱 <b>Your live page</b>",
           link,
           "",
-          "Open it on your phone and add it to the home screen (Safari: Share, then Add to Home Screen). It then opens like an app, on any network. It reloads itself every minute and only shows: nothing can be bought or sold from it.",
+          "Open it on your phone and add it to the home screen (Safari: Share, then Add to Home Screen). It then opens like an app, with no need for the PC's Wi-Fi. It reloads itself every minute and only shows: nothing can be bought or sold from it.",
           "Keep the link to yourself: anyone who has it can see the page. <code>/phone</code> makes a new link and switches this one off. The TradeBot window on the PC shows the link as a QR code (Phone).",
+          "",
+          "The phone says it cannot open the page (HSTS, or not private)? Then its network blocks this address. The PC can send the same page through GitHub instead: the Phone window on the PC says how.",
         ].join("\n"),
       };
     }
@@ -928,12 +932,16 @@ export function createWorker(overrides) {
       return json({ ok: true, paused: body.paused });
     }
 
-    // The phone page, with the private link's key. { key }
+    // The phone page, with the private link's key: { key }. Or a copy of it for the PC, with the
+    // sender's key: { sender }. The PC sends that copy to the phone through GitHub, for a phone
+    // whose network blocks this server's address.
     async indodaxPage(body) {
-      if (!(await this.phoneKeyIsLive(body.key))) return json({ ok: false, error: "not allowed" }, 403);
+      const copy = body.sender !== undefined;
+      const allowed = copy ? !!(await this.indodaxFor(body.sender)) : await this.phoneKeyIsLive(body.key);
+      if (!allowed) return json({ ok: false, error: "not allowed" }, 403);
       const { view, extra } = await this.indodaxSeen();
       const seen = { ...view, now: deps.now() };
-      return json({ ok: true, page: indodaxPhonePage(indodaxFull(seen, extra).html, seen.now, seen, indodaxPlainWords(extra)) });
+      return json({ ok: true, page: indodaxPhonePage(indodaxFull(seen, extra).html, seen.now, seen, indodaxPlainWords(extra), copy) });
     }
   }
 
@@ -1102,6 +1110,14 @@ export function createWorker(overrides) {
       if (!key) return json({ ok: false, error: "not allowed" }, 403);
       const body = (await request.json().catch(() => ({}))) || {};
       const answer = await trader.fetch(post("/indodax/phone-link", { key, check: body.check, fresh: body.fresh, origin: url.origin }));
+      return json(await answer.json(), answer.status);
+    }
+
+    // The phone page as a file for the PC (TradeBot.exe --phone-file): the sender's key, never a link.
+    if (request.method === "GET" && path === "/v1/indodax/phone-copy") {
+      const key = request.headers.get("X-Indodax-Key") || "";
+      if (!key) return json({ ok: false, error: "not allowed" }, 403);
+      const answer = await trader.fetch(post("/indodax/page", { sender: key }));
       return json(await answer.json(), answer.status);
     }
 

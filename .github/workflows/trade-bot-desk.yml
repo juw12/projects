@@ -125,6 +125,15 @@ jobs:
               subprocess.run(["taskkill", "/pid", str(pid), "/f"])
           assert not left, f"the sender went on without its starter: {left}"
           print("the sender ended with its starter")
+
+          # The phone page as a file (for a phone whose network blocks TradeBot's address): no window,
+          # one line through the pipe. The address above answers nobody, so no file is written and it ends with 1.
+          target = folder / "phone_page.html"
+          copy = subprocess.run([str(app), "--phone-file", str(target)], cwd=folder, capture_output=True, timeout=120)
+          said = copy.stdout.decode("utf-8", "replace")
+          print(copy.returncode, said)
+          assert copy.returncode == 1 and "the phone page was not renewed" in said and "The file from before is kept" in said, (copy.returncode, said, copy.stderr)
+          assert not target.exists() and not target.with_name(target.name + ".tmp").exists(), "nothing was to be written"
       - uses: actions/upload-artifact@v4
         with:
           name: TradeBot-desk-windows
