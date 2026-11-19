@@ -1284,6 +1284,27 @@ test("indodax in real money: practice messages stop, the report is complete, and
   const told = sent.slice(before).filter((entry) => entry.method === "sendMessage").map((entry) => entry.text).join("\n");
   assert.match(told, /new link to your live page was made in the TradeBot window/);
   assert.equal(told.includes(keyOf(third)), false, "the link itself goes to the PC only");
+
+  // A phone whose network blocks this address gets the page through GitHub: the PC fetches a copy
+  // with the sender's key. No link is made or switched off by that, and nobody is messaged.
+  assert.equal((await call("GET", "/v1/indodax/phone-copy")).status, 403);
+  assert.equal((await call("GET", "/v1/indodax/phone-copy", { headers: { "X-Indodax-Key": "wrong" } })).status, 403);
+  assert.equal((await call("GET", `/v1/indodax/phone-copy?k=${keyOf(third)}`)).status, 403, "the phone link's key is not the sender's key");
+  assert.equal((await call("GET", "/v1/indodax/phone-copy", { headers: { "X-Indodax-Key": keyOf(third) } })).status, 403);
+  const quiet = sent.length;
+  const copy = await call("GET", "/v1/indodax/phone-copy", { headers: key });
+  assert.equal(copy.status, 200);
+  assert.equal(copy.body.ok, true);
+  assert.match(copy.body.page, /^<!doctype html>/);
+  assert.match(copy.body.page, /REAL MONEY/);
+  assert.match(copy.body.page, /<span>Free rupiah<\/span><strong>Rp50\.000<\/strong>/);
+  assert.match(copy.body.page, /<p class="copy">Copy made /);
+  assert.equal(copy.body.page.includes("http-equiv"), false, "a copy does not reload itself");
+  assert.equal(copy.body.page.includes(bridgeKey), false, "the copy never carries the sender's key");
+  assert.equal(copy.body.page.includes(keyOf(third)), false, "nor the phone link");
+  assert.equal(sent.length, quiet, "fetching a copy sends no message");
+  assert.equal((await page(third)).status, 200, "and the phone link still works");
+  assert.match(await say("/phone"), /cannot open the page \(HSTS, or not private\)\? Then its network blocks this address/);
 });
 
 test("indodax in real money: every command is about the real account, and nothing is said about practice", async () => {

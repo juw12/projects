@@ -464,6 +464,37 @@ then Add to Home Screen: TradeBot then opens like an app, with its own icon and 
 - **The page still needs the sender.** It shows what the sender last reported, so the PC must
   be on for fresh numbers. When the numbers are old the page says so.
 
+**The phone says it cannot open the page** ("this website uses HSTS", or "not private"; since
+0.19.1). Then the phone's network blocks TradeBot's address: it puts its own page in the way and
+the phone, rightly, refuses it. The page and the server are fine, and nothing on the server can
+change what that network does. Two ways around it:
+
+1. Try the other network: Wi-Fi off (mobile data), or the other way round. One of them may let
+   the address through.
+2. Let the PC send a copy of the page another way. This writes the page to a file, with no
+   window, and touches neither the sender nor any order:
+
+   ```
+   TradeBot.exe --phone-file phone_page.html        (with Python: python desk.py --phone-file phone_page.html)
+   ```
+
+   It prints one line and ends with 0 when the file was written. When TradeBot cannot be reached
+   the file from before is kept. With Cairn on the PC the file reaches the phone through GitHub,
+   renewed every 5 minutes:
+
+   ```
+   cairn dashboards add tradebot E:\path\phone_page.html --title TradeBot --build "E:\path\TradeBot.exe --phone-file E:\path\phone_page.html"
+   ```
+
+   On the phone: Cairn, Dashboards, tab **TradeBot**.
+
+- **The copy is behind.** About 10 minutes at most while the PC is on. It says when it was made
+  and counts its own age. After 20 minutes without a newer copy it warns in red that the PC is
+  off, asleep or offline. For 4-hour candles that delay changes nothing; for a look at this very
+  minute use the QR link on a network that allows it, or Telegram.
+- **`phone_page.html` is private** like the page: it shows your balance and trades. It is not in
+  git. It carries no key and no link, and nothing can be pressed on it.
+
 In real mode TradeBot's Telegram messages are about Indodax only: the practice account's own
 messages are not sent, the 07:00 WIB message is the full Indodax report, and `/status`, `/report`,
 `/holding`, `/analysis`, `/trades` or a plain question answer from it. Nothing in that chat

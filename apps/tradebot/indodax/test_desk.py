@@ -220,6 +220,82 @@ class DeskTest(unittest.TestCase):
         said = desk.phone_words("link", None, "TradeBot answered HTTP 502", False)
         assert said["show"], "a code that could not be checked is still shown"
         assert "could not be checked" in said["note"] and "HTTP 502" in said["note"]
+        # A phone whose network blocks the address is told why, and the other way in.
+        assert "HSTS" in said["steps"] and "blocks TradeBot's address" in said["steps"] and "through GitHub" in said["steps"]
+        assert "any network" not in said["steps"], "that was not true: a network can block the address"
+
+    COPY = '<!doctype html>\n<html lang="en"><head></head><body><main>\n<p class="copy">Copy made 19 Nov 08:10 WIB</p>\nREAL MONEY · Rp50.000\n</main></body></html>'
+
+    def test_the_phone_page_is_written_to_a_file_whole_or_not_at_all(self):
+        folder = self.folder()
+        env = folder / ".env"
+        env.write_text("INDODAX_BRIDGE_KEY=\n", encoding="utf-8")
+        target = folder / "phone_page.html"
+        said = []
+        # No key: nothing is written, and it says so in one line.
+        assert desk.phone_file(target, desk.Server(env), say=said.append) == 1
+        assert not target.exists() and len(said) == 1 and "was not renewed" in said[0] and "INDODAX_BRIDGE_KEY is empty" in said[0]
+
+        calls = []
+        answers = [{"ok": True, "page": self.COPY}]
+
+        class Api:
+            def _call(self, path, payload=None):
+                calls.append((path, payload))
+                answer = answers[0]
+                if isinstance(answer, Exception):
+                    raise answer
+                return answer
+
+        server = desk.Server(env)
+        server._api = Api
+        assert desk.phone_file(target, server, say=said.append) == 0
+        assert calls == [("/v1/indodax/phone-copy", None)], "one read, and nothing is sent"
+        assert target.read_text(encoding="utf-8") == self.COPY
+        assert target.read_bytes().count(b"\r") == 0, "the same bytes on every PC, so an unchanged page is not sent again"
+        assert sorted(item.name for item in folder.iterdir()) == [".env", "phone_page.html"], "no half-written file is left"
+        assert "was written to" in said[-1] and str(target) in said[-1]
+        assert "Rp50.000" not in "".join(said) and "REAL MONEY" not in "".join(said), "what the page says never reaches a log"
+
+        # TradeBot cannot be reached, or answers with something that is not the copy: the file from before stays.
+        for wrong in (
+            desk.bridge.ApiError("TradeBot could not be reached (URLError, 3 tries)"),
+            {"ok": True},
+            {"ok": True, "page": ""},
+            {"ok": True, "page": "<html>half"},
+            {"ok": True, "page": self.COPY.replace('class="copy"', 'class="live"')},
+            {"ok": True, "page": self.COPY[:-7]},
+            {"ok": True, "page": ["<!doctype html>"]},
+        ):
+            answers[0] = wrong
+            assert desk.phone_file(target, server, say=said.append) == 1, wrong
+            assert "The file from before is kept" in said[-1]
+            assert target.read_text(encoding="utf-8") == self.COPY
+
+        # The disk says no: also one line, and the page from before stays.
+        answers[0] = {"ok": True, "page": self.COPY.replace("08:10", "08:15")}
+
+        def full(path, page):
+            raise OSError("No space left on device")
+
+        assert desk.phone_file(target, server, say=said.append, save=full) == 1
+        assert "No space left" in said[-1] and target.read_text(encoding="utf-8") == self.COPY
+        assert desk.phone_file(target, server, say=said.append) == 0
+        assert "08:15" in target.read_text(encoding="utf-8")
+
+    def test_phone_file_is_asked_for_by_argument_and_opens_no_window(self):
+        folder = self.folder()
+        (folder / ".env").write_text("INDODAX_BRIDGE_KEY=\n", encoding="utf-8")
+        target = folder / "out" / "phone_page.html"
+        seen = []
+
+        def fake(path, server, **_):
+            seen.append((path, server.env_path))
+            return 0
+
+        with mock.patch.object(desk, "phone_file", fake), mock.patch.object(desk, "open_window", side_effect=AssertionError("no window")), mock.patch.object(desk, "output_for_the_window"):
+            assert desk.main(["--folder", str(folder), "--phone-file", str(target)]) == 0
+        assert seen == [(target.resolve(), folder.resolve() / ".env")]
 
 
     def test_the_log_file_is_kept_and_rolled_over(self):

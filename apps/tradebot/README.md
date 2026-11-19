@@ -290,14 +290,24 @@ stop, and posts the copies back (`POST /v1/indodax/report`) for `/indodax` in Te
   0.18.1: Stop the sender now really stops that sender (in 0.18.0 Windows ended only the app's
   starter and the sender went on).
 - **The phone page is an app, paired by QR code (0.19.0).** The **Phone** button in the TradeBot
-  window shows the private link as a QR code. Scan it with the phone's camera: the page opens on
-  any network (mobile data too), because it is served by this Worker and not by the PC. On an
+  window shows the private link as a QR code. Scan it with the phone's camera: the phone need not
+  be on the PC's Wi-Fi (mobile data works too), because the page is served by this Worker. On an
   iPhone, Share and then Add to Home Screen makes it an app with its own icon and no browser bar.
   It is the same read-only page as `/phone`: it shows, it cannot buy, sell or pause. There is one
   link at a time: a new code switches off the old link, the `/phone` link and an icon made from
   it, and Telegram says so once. The PC keeps the link in `indodax/desk_phone.json` (private, not
   in git, never in the log). The QR code is drawn by `indodax/qr.py` (standard library; checked
   square by square against two other QR encoders and read back by a QR reader).
+- **A phone whose network blocks this address (0.19.1).** Some mobile and office networks put
+  their own page in place of `*.workers.dev`. The iPhone then refuses to open the link and says the
+  website uses HSTS (or "not private"): the page and its certificate are fine, the network is in
+  the way, and no header here can change that. For those phones the PC fetches the same page with
+  the sender's key (`GET /v1/indodax/phone-copy`) and writes it to a file:
+  `TradeBot.exe --phone-file <path>` (no window, no order, the sender is not touched). Anything
+  that can carry a file to the phone then shows it; on the owner's PC Cairn's dashboards do, through
+  GitHub (`cairn dashboards add tradebot <path> --title TradeBot --build "TradeBot.exe --phone-file
+  <path>"`). The copy cannot reload itself, so it says when it was made, counts its own age, and
+  warns in red once no newer copy has arrived for 20 minutes. It has no link in it and no key.
 - **Not tried on a real Indodax account yet.** Its 100 tests run against a pretend exchange. Only
   the public prices were read from the real Indodax.
 
@@ -422,6 +432,7 @@ appears, every trade message says "practice", and no secret is printed.
 | `GET /v1/indodax/phone?k=` | the phone page (the private link from `/phone` in Telegram or the Phone button's QR code): the full report, read-only |
 | `POST /v1/indodax/phone-link` | the desk window on the PC (the sender's key): `{"check": "<key>"}` says whether that phone link still works and changes nothing; `{"fresh": true}` makes a new link and switches the old one off |
 | `GET /v1/indodax/phone-icon.png` | the phone page's icon for the home screen (public, a picture only) |
+| `GET /v1/indodax/phone-copy` | the PC (the sender's key): the phone page as `{"page": "<html>"}`, marked as a copy with its time, for `TradeBot.exe --phone-file`. Changes nothing and makes no link |
 
 One Durable Object holds the settings and the practice account; its alarm is the agent's clock.
 The bot token lives only inside that Durable Object, never in this repository or in logs.
