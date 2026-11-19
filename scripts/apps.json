@@ -3575,6 +3575,50 @@
       "status": "released",
       "order": 81,
       "portfolio": true
+    },
+    {
+      "id": "spry",
+      "name": "Spry",
+      "category": "Software",
+      "external": true,
+      "url": "https://juw12.github.io/p/spry/",
+      "url_label": "Open site",
+      "desc": "Keeps an old computer quick: holds back busy background apps so the app in front gets the processor. One small program for Windows, macOS and Linux; everything is put back when it stops.",
+      "summary": "Keeps an old computer quick by holding back busy background apps.",
+      "description": "One small program for Windows, macOS and Linux. It notices which app you are using, lowers the priority of busy apps behind it, and puts everything back when it stops. On GitHub's test machines over 7 runs the front app got 1.27x the work done on Windows and 2.1x to 2.4x on macOS and Linux while four background jobs ran. Not yet tried on a real old laptop.",
+      "tags": [
+        "Rust",
+        "Windows",
+        "macOS",
+        "Linux",
+        "Performance"
+      ],
+      "note_tags": [
+        "spry",
+        "linux",
+        "macos",
+        "old-hardware",
+        "performance",
+        "process-priority"
+      ],
+      "image": "spry-card.jpg",
+      "image_alt": "Spry landing page in a browser frame: the headline Keeps an old computer quick, a line saying it works on Windows, macOS and Linux, and a green Download button",
+      "extra_links": [
+        {
+          "label": "Source",
+          "url": "https://github.com/juw12/spry"
+        }
+      ],
+      "card": {
+        "label": "spry · home",
+        "capture": "https://juw12.github.io/p/spry/",
+        "theme": "light",
+        "accent": "#21835f",
+        "accent2": "#2f749e"
+      },
+      "status": "released",
+      "order": 82,
+      "portfolio": true
     }
   ]
 }
