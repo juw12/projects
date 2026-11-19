@@ -3619,6 +3619,51 @@
       "status": "released",
       "order": 82,
       "portfolio": true
+    },
+    {
+      "id": "vector-relay",
+      "name": "Vector Relay",
+      "category": "AI",
+      "external": true,
+      "url": "https://juw12.github.io/p/vector-relay/",
+      "url_label": "Open site",
+      "desc": "See the AI chats on your PC from your iPhone and send them the next prompt, from anywhere. Sealed end to end; the relay only holds ciphertext.",
+      "summary": "See the AI chats on your PC from your phone and send them the next prompt, from anywhere.",
+      "description": "A chat on the PC posts its updates, results and pictures to a page on your phone, and you send the next prompt back, with a photo if you like. Several chats show as chips, and a chat can wait for you all day. The phone needs the internet, not your Wi-Fi. Everything is sealed with AES-256-GCM and the relay stores text it cannot read. The phone cannot start a new chat, and the PC must stay on. Python on the PC, a web page on the iPhone Home Screen, Cloudflare Pages, MIT.",
+      "tags": [
+        "ai-agents",
+        "iphone",
+        "relay",
+        "end-to-end-encryption",
+        "cloudflare-pages",
+        "python"
+      ],
+      "note_tags": [
+        "vector-relay",
+        "ai-agents",
+        "cloudflare-pages",
+        "end-to-end-encryption",
+        "iphone",
+        "pwa"
+      ],
+      "image": "vector-relay-card.jpg",
+      "image_alt": "Vector Relay landing page: the headline 'See the AI chats on your PC from your phone' beside three phone screens showing a result, two chats as chips and the dark look",
+      "extra_links": [
+        {
+          "label": "Source",
+          "url": "https://github.com/juw12/vector-relay"
+        }
+      ],
+      "card": {
+        "label": "vector-relay · landing page",
+        "capture": "https://juw12.github.io/p/vector-relay/",
+        "theme": "light",
+        "accent": "#335f90",
+        "accent2": "#4e2f9e"
+      },
+      "status": "released",
+      "order": 83,
+      "portfolio": true
     }
   ]
 }
