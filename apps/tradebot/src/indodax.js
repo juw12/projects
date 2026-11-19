@@ -1054,6 +1054,9 @@ function copyScript(now) {
     "    document.getElementById(\"age\").textContent = words(minutes);",
     `    document.getElementById("old").hidden = minutes < ${COPY_OLD_MINUTES};`,
     "    document.getElementById(\"oldfor\").textContent = words(minutes).replace(\" ago\", \"\");",
+    // An old copy must not go on saying in green that the sender is running: nobody knows that now.
+    "    var alive = document.querySelector(\".alive\");",
+    `    if (alive && minutes >= ${COPY_OLD_MINUTES}) { alive.className = "alive away"; alive.textContent = "○ Sender: not known, this copy is old"; }`,
     "  }",
     "  tick();",
     "  setInterval(tick, 20000);",

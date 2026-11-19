@@ -527,18 +527,27 @@ test("phone page as a copy for GitHub: it says when it was made, counts its age,
   // Run that script against a stand-in page: fresh, then old.
   const run = (minutesLater) => {
     const parts = { age: { textContent: "" }, old: { hidden: true }, oldfor: { textContent: "" } };
-    const page = { getElementById: (id) => parts[id] };
+    const alive = { className: "alive", textContent: "● Sender is running · heard just now" };
+    const page = { getElementById: (id) => parts[id], querySelector: (query) => (query === ".alive" ? alive : null) };
     const clockNow = { now: () => NOW + minutesLater * 60000 };
     new Function("document", "Date", "setInterval", scripts[0])(page, clockNow, () => 0);
-    return parts;
+    return { ...parts, alive };
   };
-  assert.deepEqual(run(0), { age: { textContent: "just now" }, old: { hidden: true }, oldfor: { textContent: "just now" } });
+  const green = { className: "alive", textContent: "● Sender is running · heard just now" };
+  assert.deepEqual(run(0), { age: { textContent: "just now" }, old: { hidden: true }, oldfor: { textContent: "just now" }, alive: green });
+  assert.deepEqual(run(COPY_OLD_MINUTES - 1).alive, green);
   assert.equal(run(1).age.textContent, "1 minute ago");
   assert.equal(run(COPY_OLD_MINUTES - 1).old.hidden, true, "a normal wait is not a warning");
   const old = run(COPY_OLD_MINUTES + 25);
   assert.equal(old.old.hidden, false);
   assert.equal(old.age.textContent, "45 minutes ago");
   assert.equal(old.oldfor.textContent, "45 minutes");
+  assert.deepEqual(old.alive, { className: "alive away", textContent: "○ Sender: not known, this copy is old" }, "an old copy never says in green that the sender runs");
+  // A copy with no top (nothing set up) has no such line, and the script does not trip over that.
+  const bareScript = phonePage("a", NOW, null, [], true).match(/<script>([\s\S]*?)<\/script>/)[1];
+  const none = { age: {}, old: {}, oldfor: {} };
+  new Function("document", "Date", "setInterval", bareScript)({ getElementById: (id) => none[id], querySelector: () => null }, { now: () => NOW + 3600000 }, () => 0);
+  assert.equal(none.old.hidden, false);
   assert.equal(run(300).oldfor.textContent, "5 hours");
   // Without a view (nothing set up yet) the copy line still leads.
   const bare = phonePage("a", NOW, null, [], true);
