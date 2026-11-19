@@ -3541,7 +3541,7 @@
       "url_label": "See the example run",
       "desc": "Six role agents for OpenCode that pick their own models: every model answers the same fixed questions on your machine, and the best one per role is written into the agents, with backup and put-back.",
       "summary": "Six role agents for OpenCode that pick their own models.",
-      "description": "One command asks every model you have the same fixed questions on your own machine, scores the answers with pass-or-fail checks, and writes the best model for each role into the agent files, with a backup and a put-back. The example run on OpenCode's nine free models was stopped by the free usage limit after 46 of 216 answers, so one role of six is measured so far.",
+      "description": "One command asks every model you have the same fixed questions on your own machine, scores the answers with pass-or-fail checks, and writes the best model for each role into the agent files, with a backup and a put-back. The example run on a GitHub test machine asked two of OpenCode's free models 18 questions each: 34 of the 36 were answered and every answer passed its checks, the provider refused the other 2, and all six roles are measured.",
       "tags": [
         "OpenCode",
         "AI agents",
@@ -3558,7 +3558,7 @@
         "opencode"
       ],
       "image": "lineup-card.jpg",
-      "image_alt": "Lineup score page from the example run: six role cards and a table of nine free models, with the briefing row measured and the other rows marked not measured",
+      "image_alt": "Lineup score page from the example run: six role cards that all name the same picked model, and a table of two free models with a score and a time for every role",
       "extra_links": [
         {
           "label": "Source",
