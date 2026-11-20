@@ -1,12 +1,13 @@
 ﻿/* AIRIZ Control Center — versioned, scope-isolated offline shell. */
 const CACHE_PREFIX = 'airiz-control-' + encodeURIComponent(self.registration.scope) + '-';
-const CACHE_NAME = CACHE_PREFIX + 'v2.71-1.11.27-mobile-1.0.5';
+const CACHE_NAME = CACHE_PREFIX + 'v2.72-1.11.28-usbmode-report';
 const ASSETS = [
   './',
   './index.html',
   './styles.css',
   './console-ui.css',
   './app.js',
+  './usbmode-report.js',
   './console-ui.js',
   './desktop-integration.js',
   './ble-protocol.js',

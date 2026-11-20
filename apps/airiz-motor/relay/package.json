@@ -1,12 +1,14 @@
 {
   "name": "airiz-relay",
-  "version": "1.0.0",
+  "version": "1.4.0",
   "license": "MIT",
   "private": true,
   "type": "module",
   "scripts": {
     "deploy": "wrangler deploy",
-    "dev": "wrangler dev"
+    "dev": "wrangler dev",
+    "test": "node --test test/report.test.js",
+    "check": "node scripts/check-live.mjs"
   },
   "devDependencies": {
     "wrangler": "^4.0.0"

@@ -10,7 +10,7 @@
 
 <p align="center">
   <a href="https://juw12.github.io/projects/airiz-motor/"><b>Try it live</b></a> ·
-  <a href="https://github.com/juw12/projects/releases/tag/airiz-desktop-v1.11.27"><b>Download</b></a> ·
+  <a href="https://github.com/juw12/projects/releases/tag/airiz-desktop-v1.11.28"><b>Download</b></a> ·
   <a href="#see-it-in-action">See it in action</a> ·
   <a href="#highlights">Highlights</a> ·
   <a href="https://github.com/juw12">More by juw12</a>
@@ -18,7 +18,7 @@
 
 <p align="center">
   <a href="https://github.com/juw12/projects/tree/main/apps/airiz-motor"><img src="https://img.shields.io/github/last-commit/juw12/projects?path=apps%2Fairiz-motor&label=updated&color=a3e635" alt="Last updated"></a>
-  <a href="https://github.com/juw12/projects/releases/tag/airiz-desktop-v1.11.27"><img src="https://img.shields.io/badge/download-airiz--desktop--v1.11.27-a3e635" alt="Download"></a>
+  <a href="https://github.com/juw12/projects/releases/tag/airiz-desktop-v1.11.28"><img src="https://img.shields.io/badge/download-airiz--desktop--v1.11.28-a3e635" alt="Download"></a>
   <a href="https://juw12.github.io/projects/airiz-motor/"><img src="https://img.shields.io/badge/demo-live-2ea44f" alt="Live demo"></a>
   <img src="https://img.shields.io/badge/Windows-24292f" alt="Windows">
   <img src="https://img.shields.io/badge/Android-24292f" alt="Android">
@@ -79,7 +79,7 @@ A downloadable Windows x64 desktop edition now bundles this entire console local
 It is not a website shortcut and does not require Chrome, Edge, Node or Python to run.
 Installer and portable preview builds are available at:
 
-https://github.com/juw12/projects/releases/tag/airiz-desktop-v1.11.27
+https://github.com/juw12/projects/releases/tag/airiz-desktop-v1.11.28
 
 The initial binaries are unsigned. The packaged app was tested with demo/synthetic
 hardware; real-device bench validation is still required. Browser and mobile-web
@@ -111,6 +111,8 @@ streams the AIRIZ microphone back in 2-second clips, about 4 s behind live. Phon
 that has the AIRIZ on USB. Stop motor still works and also interrupts a message being sent. Tested
 against a simulated AIRIZ shell (busybox), not yet on real AIRIZ hardware; the sound format and the
 record/play commands can be changed under *Voice settings*.
+
+**USB mode commands report their result (1.11.28):** after *USB mode → ETH*, *CDC* or *UVC* is sent to a real AIRIZ, the console watches for 45 seconds what the device does and sends one short result to the AIRIZ relay, so the owner can see whether these commands work without asking each user: <https://airiz-relay.juw12.workers.dev/v1/reports/usbmode>. A result holds only the USB mode, whether the line had the word "to", whether the connection dropped by itself (and after how many seconds) and came back, whether the device printed nothing / some text / an error, and the console version, edition (web, desktop, mobile) and transport (USB, Bluetooth). **Not sent:** device text, serial number, user or PC name, network address, any other command. Nothing is sent in demo mode, from a phone that controls another PC by code (that PC reports), or from copies of the console on other sites (for example the company App Hub). To switch it off on one device, run `localStorage.setItem('airiz.usageReports', 'off')` in the console of the browser. How to read the numbers: *switched* = the connection was lost by itself after the command (the AIRIZ rebooted or changed USB mode, so the firmware took the command), *refused* = still connected and the device printed an error, *noChange* = still connected and no error, *closed* = the connection ended without a detected loss (Disconnect, or Bluetooth). Checked with a simulated AIRIZ (headless browser + the relay worker run locally) for all four cases; **still no real AIRIZ was connected**, so the first real reports are the confirmation. The commands themselves did not change. AIRIZ Mobile 1.0.6 is rebuilt from this console; the relay is 1.4.0.
 
 **USB mode commands say "set to" (1.11.27):** *USB mode → ETH (Ethernet)* sends `diag usbmode set to eth` and *USB mode → CDC (serial)* sends `diag usbmode set to cdc`, with the word "to" as the owner gave them (1.11.26 sent the ETH command without it; the UVC command is unchanged). In ETH mode the USB console disconnects; run `diag usbmode set to cdc` on the device to get the serial console back. The console side is tested (the exact line reaches the serial port after the confirmation). **Not yet confirmed on a real AIRIZ**: whether the firmware accepts these lines is still to be reported by users. AIRIZ Mobile 1.0.5 is rebuilt from this console.
 

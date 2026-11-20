@@ -9,7 +9,7 @@ is required to use the installed app or its hardware-free demo.
 ## Downloads
 
 Windows x64 releases are published under the app-specific tag
-`airiz-desktop-v1.11.27` in this repository's Releases section.
+`airiz-desktop-v1.11.28` in this repository's Releases section.
 
 - **Installer**: assisted, per-user installation with Start-menu/desktop shortcuts
   and an uninstaller. The wizard lets the user choose the installation directory.
@@ -163,6 +163,16 @@ reports whether a framed firmware reply came back. Results can be exported.
 No pairing is accepted without confirmation and no motor command is sent.
 Another program on the PC still cannot open COM4 while this app holds it: that is
 a Windows serial-port rule, which is why the check runs inside the app.
+
+## 1.11.28: USB mode commands report their result
+
+* **Why.** `diag usbmode set to eth` / `set to cdc` / `set uvc` could not be tried on a real AIRIZ by the owner. Instead of waiting for users to say whether they work, the console now reports what happened.
+* **What is watched.** `web/usbmode-report.js` (loaded after `app.js`) listens to `AirizConsole.onCommandSent`. After one of the three USB mode lines is sent to a real device it watches for 45 s: was the connection lost by itself (`airiz:device-lost` or `getStatus().reconnecting`), after how many seconds, did it come back, and did the device print nothing, some text or an error word (`unknown`, `usage:`, `invalid` ...). The device text is only looked at in memory.
+* **What is sent.** One JSON message over a WebSocket to `wss://airiz-relay.juw12.workers.dev/v1/report` (the desktop app's content policy already allows this host): `mode`, `to`, `link` (`dropped` / `closed` / `kept`), `dropS`, `back`, `reply` (`none` / `text` / `error`), `app`, `edition`, `transport`, `rid` (random number of this report) and `agoS`. No device text, serial number, user or PC name. A report that cannot be sent waits in `localStorage` (`airiz.usbmodeReports`, at most 20) and goes out at the next start.
+* **Who does not report.** Demo mode, a phone that controls another PC by code (that PC reports), and any origin other than the published console, the desktop app and the mobile app, so the App Hub copy and local test pages send nothing. `localStorage.setItem('airiz.usageReports', 'off')` switches it off on one device.
+* **Relay 1.4.0.** `relay/src/report.js` checks every field (anything else is refused) and `relay/src/index.js` stores the row in the Durable Object's SQLite table without the sender's address (at most 2000 rows, 300 a day). `GET /v1/reports/usbmode` shows the numbers per mode and the latest reports. The camera and remote control rooms are unchanged.
+* **Checked.** `desktop/tests/usbmode-report.test.cjs` (12 tests), `relay/test/report.test.js` (4 tests), `relay/scripts/check-live.mjs` against the worker run locally (camera room, control room, reports, guards), and a headless browser with a simulated AIRIZ: ETH = dropped, CDC = dropped + back, an "unknown command" answer = kept + error, demo mode = no report. **No real AIRIZ was connected**: the first real reports are the confirmation that the firmware takes the commands.
+* History of the app gains the 1.11.28 entry (English, 繁體中文, 简体中文).
 
 ## 1.11.27: USB mode commands keep "set to"
 
