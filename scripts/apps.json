@@ -3664,6 +3664,50 @@
       "status": "released",
       "order": 83,
       "portfolio": true
+    },
+    {
+      "id": "themes",
+      "name": "Themes",
+      "category": "Software",
+      "external": true,
+      "url": "https://juw12.github.io/themes/",
+      "url_label": "Open site",
+      "desc": "56 named themes read out of my shipped projects: one CSS + one JSON file each, a pull tool, a starter app and a list of top template repos.",
+      "summary": "56 named themes read out of my own shipped projects, ready to pull into the next app.",
+      "description": "A theme library built by scanning my own repos: 56 named themes, each one CSS file and one JSON file that records where every colour came from. Press Wear it on a card and the whole page changes into that theme. Comes with a one-file pull tool, a starter app that uses only the tokens, and a list of 40 template repos checked against the GitHub API.",
+      "tags": [
+        "color-palette",
+        "css-variables",
+        "design-system",
+        "design-tokens",
+        "template"
+      ],
+      "note_tags": [
+        "themes",
+        "color-palette",
+        "css-variables",
+        "design-system",
+        "design-tokens",
+        "template"
+      ],
+      "image": "themes-card.jpg",
+      "image_alt": "Themes gallery: a cream page with the serif headline '56 looks I already shipped, kept for the next app', four counts and the pull commands",
+      "extra_links": [
+        {
+          "label": "Source",
+          "url": "https://github.com/juw12/themes"
+        }
+      ],
+      "card": {
+        "label": "themes · gallery",
+        "capture": "https://juw12.github.io/themes/",
+        "theme": "light",
+        "accent": "#dd6541",
+        "accent2": "#9e9c2f"
+      },
+      "status": "released",
+      "order": 84,
+      "portfolio": true
     }
   ]
 }
