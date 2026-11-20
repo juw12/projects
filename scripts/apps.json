@@ -3759,9 +3759,9 @@
       "external": true,
       "url": "https://juw12.github.io/neon-coast/",
       "url_label": "Play game",
-      "desc": "An open-world city sandbox in one offline file: story jobs, cab fares, property, a wheel to ride and a police helicopter.",
-      "summary": "Steal a car, run six story jobs, drive a cab, buy property, ride the Sol Wheel, and outrun the police helicopter.",
-      "description": "An original single-player 3D sandbox. Version 1.3 gives the city a daytime look (painted walls, beach life, an airship), a first job that ends at the Sol Wheel inside a minute, a wheel you can ride, and a quieter screen. 1.2 added cab fares, property that pays rent, a police helicopter, road arrows and perks. The offline browser build needs no install; progress is saved in the browser.",
+      "desc": "An open-world city sandbox in one offline file: story jobs, odd jobs, cab fares, property, three radio stations and a police helicopter.",
+      "summary": "Steal a car, run six story jobs and five kinds of odd job, drive a cab, buy property, ride the Sol Wheel, and outrun the police helicopter.",
+      "description": "An original single-player 3D sandbox. Version 1.4 gives the buildings outlines (roof crowns, water tanks, balconies, saw-tooth roofs, a Rustport quay with cranes and a freighter), a learner phase with no police stars until the first job is done, a fifth odd job on foot, and three radio stations in three styles. 1.3 brought the daytime look, a first job inside a minute and a wheel you can ride; 1.2 cab fares, property and the police helicopter. The offline browser build needs no install; progress is saved in the browser.",
       "tags": [
         "Game",
         "Three.js",
