@@ -134,6 +134,15 @@ jobs:
           print(copy.returncode, said)
           assert copy.returncode == 1 and "the phone page was not renewed" in said and "The file from before is kept" in said, (copy.returncode, said, copy.stderr)
           assert not target.exists() and not target.with_name(target.name + ".tmp").exists(), "nothing was to be written"
+
+          # A button pressed on that page arrives as a name. Only pause and resume are known: any other name
+          # is refused in one line, nothing is asked of TradeBot, and the request is written down.
+          for name in ("sell", "--background"):
+              button = subprocess.run([str(app), "--phone-action", name], cwd=folder, capture_output=True, timeout=120)
+              said = button.stdout.decode("utf-8", "replace")
+              print(button.returncode, said)
+              assert button.returncode == 1 and "nothing was changed" in said, (button.returncode, said, button.stderr)
+          assert (folder / "phone_actions.log").read_text(encoding="utf-8").count("refused") == 2
       - uses: actions/upload-artifact@v4
         with:
           name: TradeBot-desk-windows

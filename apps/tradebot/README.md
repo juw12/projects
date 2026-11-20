@@ -308,6 +308,15 @@ stop, and posts the copies back (`POST /v1/indodax/report`) for `/indodax` in Te
   GitHub (`cairn dashboards add tradebot <path> --title TradeBot --build "TradeBot.exe --phone-file
   <path>"`). The copy cannot reload itself, so it says when it was made, counts its own age, and
   warns in red once no newer copy has arrived for 20 minutes. It has no link in it and no key.
+- **Pause buying from that copy (0.19.2).** With `--phone-buttons` the PC adds two buttons to the
+  copy: **Pause buying** and **Allow buying again** (asked twice). The copy cannot reach the PC, so
+  the page around it (Cairn's Dashboards page) sends the button's name through the private relay
+  repo, and Cairn starts `TradeBot.exe --phone-action <name>` on the PC. That entry knows two
+  names, `pause` and `resume`, and calls `POST /v1/indodax/pause` with the sender's key: the same
+  switch as the window's buttons and `/indodax pause`, so Telegram says it too. Any other name is
+  refused and changes nothing; every request is written to `indodax/phone_actions.log`. Nothing
+  can be bought or sold from the phone. The Worker's page and its rules are unchanged: the
+  buttons are added on the PC, because only the PC's carrier can bring a press back.
 - **Not tried on a real Indodax account yet.** Its 100 tests run against a pretend exchange. Only
   the public prices were read from the real Indodax.
 

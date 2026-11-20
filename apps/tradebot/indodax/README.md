@@ -488,6 +488,28 @@ change what that network does. Two ways around it:
 
    On the phone: Cairn, Dashboards, tab **TradeBot**.
 
+   **Pause buying from the phone (since 0.19.2).** Add `--phone-buttons` to the build and name
+   the command that takes a pressed button:
+
+   ```
+   cairn dashboards add tradebot E:\path\phone_page.html --title TradeBot --build "E:\path\TradeBot.exe --phone-file E:\path\phone_page.html --phone-buttons" --actions "E:\path\TradeBot.exe --phone-action"
+   ```
+
+   The copy then shows **Pause buying** and **Allow buying again** above its first card. A press
+   goes through GitHub to the PC (up to a minute), and the answer comes back to the phone in one
+   line. Allow buying again asks a second tap, because in real mode the next copy is bought with
+   your own rupiah. It is the same switch as the two buttons in the window and `/indodax pause`,
+   and Telegram says it too.
+
+   - **Only these two.** `--phone-action` knows `pause` and `resume`. Any other name is refused
+     and changes nothing. Nothing can be bought or sold from the phone, and selling is never paused.
+   - **Every press is written down** in `phone_actions.log` in this folder: the time, the name
+     that arrived, and what was done.
+   - **The PC must be on.** A press that the PC does not pick up within 90 seconds is taken back
+     and the phone says so; it never runs later by surprise.
+   - **Outside Cairn the buttons do nothing.** Opened as a plain file, the page says that nothing
+     was sent.
+
 - **The copy is behind.** About 10 minutes at most while the PC is on. It says when it was made
   and counts its own age. After 20 minutes without a newer copy it warns in red that the PC is
   off, asleep or offline. For 4-hour candles that delay changes nothing; for a look at this very

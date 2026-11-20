@@ -31,7 +31,10 @@ desk_phone.json in this folder and never written to the log.
 
 Some networks block TradeBot's address (the phone then says HSTS, or "not private"). For those,
 TradeBot.exe --phone-file PATH writes the same page to a file with no window, and something else
-takes the file to the phone (Cairn's dashboards do, through GitHub).
+takes the file to the phone (Cairn's dashboards do, through GitHub). With --phone-buttons that
+page gets two buttons, Pause buying and Allow buying again. The page cannot reach this PC, so the
+carrier brings a pressed button back as TradeBot.exe --phone-action pause (or resume): the same
+switch as the two buttons in this window. Any other name is refused, and nothing here orders.
 
 Standard library only. It never places an order itself and never reads the Indodax API key:
 orders are made by bridge.py alone. It talks to TradeBot with the sender's key from .env.
@@ -59,7 +62,7 @@ import bridge
 import decisions
 import qr
 
-VERSION = "0.19.1"  # the same number as apps/tradebot/package.json
+VERSION = "0.19.2"  # the same number as apps/tradebot/package.json
 FROZEN = bridge.FROZEN  # True inside TradeBot.exe
 HERE = bridge.HERE
 APP_NAME = "tradebot.exe"
@@ -80,6 +83,8 @@ PHONE_NAME = "desk_phone.json"  # the link to the phone page, kept in the folder
 PHONE_QR_PIXELS = 343  # the QR code's square in the Phone window: 7 pixels a module for a link's code
 PHONE_LINK = re.compile(r"https://[^/\s?#]+/v1/indodax/phone\?k=([A-Za-z0-9_-]{8,128})")
 DEMO_PHONE_LINK = "https://trade-bot.example/v1/indodax/phone?k=" + "demo" * 12
+PHONE_ACTIONS = {"pause": True, "resume": False}  # the only buttons the phone page may send, and what each sets "paused" to
+PHONE_ACTIONS_LOG = "phone_actions.log"  # every button that arrived from the phone: when, its name, what was done
 
 
 # ---------------------------------------------------------------- the parts without a window
@@ -285,22 +290,139 @@ def save_page(path, page) -> None:
     os.replace(draft, path)
 
 
-def phone_file(path, server, say=print, save=save_page) -> int:
+def phone_file(path, server, say=print, save=save_page, buttons=False) -> int:
     """TradeBot.exe --phone-file PATH: the phone page as a file, for a phone whose network blocks TradeBot.
 
     Something else then takes the file to the phone (Cairn's dashboards do, through GitHub). The page
     says when it was made and warns by itself once it is old, so a file that is not renewed never
     looks live. When TradeBot cannot be asked the file from before stays as it is. 0 when written.
+    buttons=True adds Pause buying and Allow buying again (PHONE_BUTTONS), for a carrier that brings
+    a pressed button back to this PC (see phone_action).
     """
     stamp = time.strftime("%Y-%m-%d %H:%M:%S")
     try:
         page = server.phone_copy()
+        if buttons:
+            page = with_buttons(page)
         save(path, page)
     except (bridge.ApiError, bridge.SettingsError, OSError) as problem:
         say(f"{stamp}  [desk] the phone page was not renewed: {problem}. The file from before is kept.")
         return 1
     say(f"{stamp}  [desk] the phone page was written to {path} ({len(page.encode('utf-8'))} bytes).")
     return 0
+
+
+# The two buttons for the phone page's copy (--phone-buttons). The copy is shown inside another page
+# (Cairn's Dashboards page), so a press is handed to that page, which sends the button's name to this PC:
+# postMessage({ cairnDash: "action", id, name }) out, { cairnDash: "reply", id, state, ok, message } back.
+# Opened anywhere else nobody answers, and the page says so. Allowing buying is asked twice.
+PHONE_BUTTONS = """<section class="pc" id="pc">
+<style>
+.pc .row{display:flex;gap:10px;margin:0 0 8px}
+.pc button{flex:1;min-height:48px;font:inherit;font-weight:700;color:#fff;background:#2a3442;border:1px solid #3a4556;border-radius:10px;padding:8px 10px}
+.pc button:disabled{opacity:.5}
+.pc button.sure{background:#c0392b;border-color:#c0392b}
+.pc p{color:#9aa6b6;font-size:15px}
+.pc p.good{color:#4cd17a}
+.pc p.bad{color:#ff8a80}
+</style>
+<h2>Buying <small>from this phone</small></h2>
+<div class="row"><button type="button" data-ask="pause">Pause buying</button><button type="button" data-ask="resume">Allow buying again</button></div>
+<p id="pcsaid" role="status">These two buttons go to your PC through GitHub, which can take a minute. They never buy or sell: Pause only stops new buys, and what you hold is still watched and sold.</p>
+<script>
+(function () {
+  var NOT_HERE = "These buttons work only inside Cairn's Dashboards page on your phone. Nothing was sent.";
+  var said = document.getElementById("pcsaid");
+  var buttons = document.getElementById("pc").querySelectorAll("button");
+  var count = 0, open = null, sure = null, sureTimer = 0;
+  function say(text, tone) { said.textContent = text; said.className = tone || ""; }
+  function lock(on) { for (var i = 0; i < buttons.length; i++) buttons[i].disabled = on; }
+  function calm() {
+    clearTimeout(sureTimer);
+    if (sure) { sure.className = ""; sure.textContent = "Allow buying again"; sure = null; }
+  }
+  window.addEventListener("message", function (event) {
+    var reply = event.data;
+    if (event.source !== window.parent || !reply || reply.cairnDash !== "reply" || !open || reply.id !== open.id) return;
+    open.heard = true;
+    if (reply.state !== "done") { say(String(reply.message || "Sent to your PC\\u2026")); return; }
+    open = null;
+    lock(false);
+    say(String(reply.message || (reply.ok ? "Done." : "That did not work.")), reply.ok ? "good" : "bad");
+  });
+  function ask(name) {
+    if (window.parent === window) { say(NOT_HERE, "bad"); return; }
+    var mine = { id: "tb" + (count += 1), heard: false };
+    open = mine;
+    lock(true);
+    say("Sending to your PC\\u2026");
+    window.parent.postMessage({ cairnDash: "action", id: mine.id, name: name }, "*");
+    setTimeout(function () {
+      if (mine.heard || open !== mine) return;
+      open = null;
+      lock(false);
+      say(NOT_HERE, "bad");
+    }, 5000);
+  }
+  function pressed() {
+    var name = this.getAttribute("data-ask");
+    if (name === "resume" && sure !== this) {
+      calm();
+      sure = this;
+      this.className = "sure";
+      this.textContent = "Tap again to allow";
+      say("Allow the sender to buy again? In real mode the next copy is bought with your own rupiah. Tap the red button again within 10 seconds.");
+      sureTimer = setTimeout(function () { calm(); say("Nothing was sent."); }, 10000);
+      return;
+    }
+    calm();
+    ask(name);
+  }
+  for (var i = 0; i < buttons.length; i++) buttons[i].addEventListener("click", pressed);
+})();
+</script>
+</section>
+"""
+
+
+def with_buttons(page) -> str:
+    """The phone page with the two buttons (PHONE_BUTTONS) above its first card, or at its end when it has none."""
+    at = page.find("<section")
+    if at < 0:
+        at = next(place for place in (page.rfind("</main>"), page.rfind("</body>"), page.rfind("</html>"), len(page)) if place >= 0)
+    return page[:at] + PHONE_BUTTONS + page[at:]
+
+
+def phone_action(names, server, folder) -> tuple:
+    """TradeBot.exe --phone-action NAME: one button pressed on the phone page's copy (PHONE_BUTTONS).
+
+    The carrier of the page starts this with the button's name as it came from the phone (Cairn's
+    dashboards do). Only "pause" and "resume" are known: the same switch as the two buttons in the
+    window and /indodax pause. Anything else changes nothing. It never orders and reads no Indodax key.
+    Returns (0 or 1, the one line the phone shows). Every request is written to phone_actions.log.
+    """
+    name = names[0] if len(names) == 1 and isinstance(names[0], str) else ""
+
+    def done(code, line, outcome=""):
+        try:
+            with open(Path(folder) / PHONE_ACTIONS_LOG, "a", encoding="utf-8") as log:
+                log.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')}  {name[:40]!r}  {outcome or line}\n")
+        except OSError:
+            pass
+        return code, line
+
+    if name not in PHONE_ACTIONS:
+        return done(1, "TradeBot does not know that button, so nothing was changed. The phone can only pause buying or allow it again.", "refused")
+    paused = PHONE_ACTIONS[name]
+    try:
+        answer = server.pause(paused)
+    except (bridge.ApiError, bridge.SettingsError, OSError) as problem:
+        return done(1, f"The pause was not changed: {problem}.")
+    if not isinstance(answer, dict) or answer.get("paused") is not paused:
+        return done(1, "TradeBot did not confirm the change. Look at the page when the next copy arrives.")
+    if paused:
+        return done(0, "Buying is paused. What you hold is still watched and sold.")
+    return done(0, "Buying is allowed again. The sender reads this within a minute.")
 
 
 def phone_words(link, live, error, busy) -> dict:
@@ -2504,12 +2626,19 @@ def main(argv=None) -> int:
         import learn
 
         return learn.main(argv[1:])
+    if argv[:1] == ["--phone-action"]:
+        # What follows is the button's name as it came from the phone. It is never read as an option of this program.
+        output_for_the_window()
+        code, line = phone_action(argv[1:], Server(HERE / ".env"), HERE)
+        print(line)
+        return code
     parser = argparse.ArgumentParser(description="TradeBot's Indodax desk: the sender and its numbers in one window.")
     parser.add_argument("--no-start", action="store_true", help="open the window without starting the sender")
     parser.add_argument("--demo", action="store_true", help="made-up numbers: no sender, no network, nothing private")
     parser.add_argument("--folder", default=str(HERE), help="the folder with bridge.py and .env (default: this one)")
     parser.add_argument("--background", choices=("on", "off"), default="", help="on: Windows keeps the sender running with no window. off: it runs only with the window again. Opens no window")
     parser.add_argument("--phone-file", default="", metavar="PATH", help="write the phone page to this file, for a phone whose network blocks TradeBot's address. Opens no window")
+    parser.add_argument("--phone-buttons", action="store_true", help="with --phone-file: add the buttons Pause buying and Allow buying again. Only for a carrier that starts TradeBot.exe --phone-action NAME on this PC when one is pressed (Cairn's dashboards do)")
     parser.add_argument("--size", default="", help=argparse.SUPPRESS)
     parser.add_argument("--shot", default="", help=argparse.SUPPRESS)
     parser.add_argument("--trouble", action="store_true", help=argparse.SUPPRESS)  # with --demo: show the warnings
@@ -2521,7 +2650,7 @@ def main(argv=None) -> int:
         return set_background(args.background, Path(args.folder).resolve())
     if args.phone_file:
         output_for_the_window()
-        return phone_file(Path(args.phone_file).resolve(), Server(Path(args.folder).resolve() / ".env"))
+        return phone_file(Path(args.phone_file).resolve(), Server(Path(args.folder).resolve() / ".env"), buttons=args.phone_buttons)
     return open_window(args)
 
 

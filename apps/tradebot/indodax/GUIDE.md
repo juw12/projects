@@ -26,7 +26,8 @@ window** goes back. The PC must still be on, awake and signed in.
 numbers open on the phone, with no need for the PC's Wi-Fi, as a page that only shows. On an
 iPhone, Share and then Add to Home Screen makes it an app. A new code switches the old one off.
 If the phone says it cannot open the page (HSTS, or "not private"), its network blocks the
-address: the PC can send a copy through GitHub instead (README, "The phone says it cannot open
+address: the PC can send a copy through GitHub instead, and that copy can have two buttons to
+pause buying and allow it again (README, "The phone says it cannot open
 the page").
 
 ## The five tabs, in one line each
