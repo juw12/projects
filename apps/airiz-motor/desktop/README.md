@@ -9,7 +9,7 @@ is required to use the installed app or its hardware-free demo.
 ## Downloads
 
 Windows x64 releases are published under the app-specific tag
-`airiz-desktop-v1.11.28` in this repository's Releases section.
+`airiz-desktop-v1.11.29` in this repository's Releases section.
 
 - **Installer**: assisted, per-user installation with Start-menu/desktop shortcuts
   and an uninstaller. The wizard lets the user choose the installation directory.
@@ -163,6 +163,14 @@ reports whether a framed firmware reply came back. Results can be exported.
 No pairing is accepted without confirmation and no motor command is sent.
 Another program on the PC still cannot open COM4 while this app holds it: that is
 a Windows serial-port rule, which is why the check runs inside the app.
+
+## 1.11.29: switch for the USB mode result
+
+* **Why.** 1.11.28 could only be switched off by typing a `localStorage` line into the developer tools. The Windows app has no such place for a normal user.
+* **The switch.** `web/index.html` has a tick box *Send USB mode result* (`#chk-usbmode-report`) in the bar under the console, next to *Autoscroll* and *Auto-save recording*. It is hidden in the page and shown by `web/usbmode-report.js` only where the console reports (relay origins, or a copy whose page asks for `same-origin`).
+* **Off means off.** Unticking stores `airiz.usageReports` = `off`, throws away the watch that is running and deletes the results that were still waiting (`airiz.usbmodeReports`). While it is off, a USB mode command starts no watch, so nothing about it can be sent later. Ticking it again works at once: the listeners are set at start also when the switch is off.
+* **Small fix.** A result that was on its way is removed from the waiting list by its report number, not by position, so emptying the list in between cannot remove another result.
+* **Checked.** `desktop/tests/usbmode-report.test.cjs` gains 5 tests (stored setting, off = no watch and no relay connection, on again without a restart, a running watch is thrown away, no switch on other sites, the tick box in the page), plus a headless browser run against the built page. zh-TW / zh-CN strings and the History entry are added.
 
 ## 1.11.28: USB mode commands report their result
 

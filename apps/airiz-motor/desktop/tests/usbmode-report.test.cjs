@@ -1,5 +1,6 @@
 'use strict';
-// 1.11.28 USB mode result report: which lines are watched, how the result is decided, what is sent.
+// USB mode result report (1.11.28) and its on/off switch (1.11.29): which lines are watched, how the
+// result is decided, what is sent, and that nothing is watched or sent while the switch is off.
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('node:path');
@@ -191,6 +192,134 @@ test('a stored report is "sent"; a refused one is not retried; no answer is retr
   })).result, 'rejected');
   assert.equal((await outcome(socket => socket.onerror())).result, 'retry');
   assert.equal((await outcome(() => {})).result, 'retry', 'no answer in time');
+});
+
+// ---------------------------------------------------------------- 1.11.29: the switch under the console
+function fakeStorage(initial) {
+  const values = new Map(Object.entries(initial || {}));
+  return {
+    getItem: key => (values.has(key) ? values.get(key) : null),
+    setItem: (key, value) => values.set(key, String(value)),
+    removeItem: key => values.delete(key),
+    values,
+  };
+}
+
+test('the switch is stored on the device, and turning it off deletes results that were waiting', () => {
+  const storage = fakeStorage({ 'airiz.usbmodeReports': '[{"v":1}]' });
+  assert.equal(report.reportsOff(storage), false, 'on until somebody turns it off');
+  assert.equal(report.setReportsOff(storage, true), true);
+  assert.equal(storage.getItem('airiz.usageReports'), 'off');
+  assert.equal(storage.getItem('airiz.usbmodeReports'), null, 'nothing is sent later');
+  assert.equal(report.setReportsOff(storage, false), false);
+  assert.equal(storage.getItem('airiz.usageReports'), null);
+  const blocked = { getItem() { throw new Error('blocked'); } };
+  assert.equal(report.reportsOff(blocked), true, 'no storage = no reports');
+});
+
+// A page with the console API, the switch and a relay that never answers.
+function fakePage(origin, stored) {
+  const listeners = {};
+  const handlers = { sent: [], output: [] };
+  const option = { hidden: true };
+  const checkbox = {
+    checked: false,
+    listeners: {},
+    addEventListener(name, handler) { this.listeners[name] = handler; },
+    set(value) {
+      this.checked = value;
+      this.listeners.change();
+    },
+  };
+  const sockets = [];
+  const root = {
+    location: { origin, protocol: 'https:', href: origin + '/' },
+    localStorage: fakeStorage(stored),
+    crypto: { getRandomValues: bytes => bytes.fill(7) },
+    WebSocket: class {
+      constructor(url) { sockets.push(url); }
+      close() {}
+    },
+    document: {
+      querySelector: () => null,
+      getElementById: id => ({ 'usbmode-report-option': option, 'chk-usbmode-report': checkbox }[id] || null),
+    },
+    addEventListener: (name, handler) => { listeners[name] = handler; },
+    AirizConsole: {
+      onCommandSent: handler => handlers.sent.push(handler),
+      onOutput: handler => handlers.output.push(handler),
+      getStatus: () => ({ connected: true, demoMode: false, transportLabel: 'USB serial' }),
+    },
+  };
+  return {
+    root, option, checkbox, sockets,
+    send: line => handlers.sent.forEach(handler => handler(line)),
+    closePage: () => listeners.pagehide(),
+    queue: () => JSON.parse(root.localStorage.getItem('airiz.usbmodeReports') || '[]'),
+  };
+}
+
+test('the switch is shown where the console reports; off = no watch, on again works without a restart', t => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'setInterval'] });
+  const page = fakePage('airiz://app', {});
+  assert.equal(report.start(page.root), true);
+  assert.equal(page.option.hidden, false, 'the switch is visible');
+  assert.equal(page.checkbox.checked, true, 'ticked: reporting is on');
+
+  page.send('diag usbmode set to eth');
+  page.closePage(); // ends the watch at once
+  assert.equal(page.queue().length, 1, 'one result waits for the relay');
+  assert.equal(page.queue()[0].mode, 'eth');
+  assert.equal(page.queue()[0].app, report.APP_VERSION);
+  assert.equal(page.sockets.length, 1, 'and is offered to the relay');
+
+  page.checkbox.set(false);
+  assert.equal(page.root.localStorage.getItem('airiz.usageReports'), 'off');
+  assert.equal(page.queue().length, 0, 'the waiting result is deleted');
+  page.send('diag usbmode set to cdc');
+  page.closePage();
+  assert.equal(page.queue().length, 0, 'off: the command is not watched');
+  assert.equal(page.sockets.length, 1, 'off: nothing goes to the relay');
+
+  page.send('diag usbmode set to eth');
+  page.checkbox.set(true); // turned on in the middle: that command was not watched
+  page.closePage();
+  assert.equal(page.queue().length, 0);
+  page.send('diag usbmode set to cdc');
+  page.closePage();
+  assert.equal(page.queue().length, 1, 'on again: watched without a restart');
+  assert.equal(page.queue()[0].mode, 'cdc');
+});
+
+test('a watch that runs when the switch is turned off is thrown away', t => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'setInterval'] });
+  const page = fakePage('airiz://app', {});
+  report.start(page.root);
+  page.send('diag usbmode set to eth');
+  page.checkbox.set(false);
+  page.closePage();
+  assert.equal(page.queue().length, 0);
+  assert.equal(page.sockets.length, 0);
+});
+
+test('a device where it was turned off starts with the switch unticked; other sites get no switch', t => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'setInterval'] });
+  const off = fakePage('https://juw12.github.io', { 'airiz.usageReports': 'off' });
+  assert.equal(report.start(off.root), true);
+  assert.equal(off.option.hidden, false);
+  assert.equal(off.checkbox.checked, false);
+  off.send('diag usbmode set to eth');
+  off.closePage();
+  assert.equal(off.queue().length, 0);
+
+  const elsewhere = fakePage('https://console.example.com', {});
+  assert.equal(report.start(elsewhere.root), false, 'this copy never reports');
+  assert.equal(elsewhere.option.hidden, true, 'so it shows no switch');
+});
+
+test('the page has the switch, hidden until the module shows it', () => {
+  const index = fs.readFileSync(path.join(WEB, 'index.html'), 'utf8');
+  assert.match(index, /<label class="checkbox-label" hidden="" id="usbmode-report-option"[^>]*>\s*<input checked="" id="chk-usbmode-report" type="checkbox"\/>\s*Send USB mode result\s*<\/label>/);
 });
 
 test('the version in the report is the app version, and the page loads and caches the module', () => {

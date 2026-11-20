@@ -1,4 +1,4 @@
-/* AIRIZ USB mode result report (1.11.28).
+/* AIRIZ USB mode result report (1.11.28; on/off switch 1.11.29).
  *
  * The USB mode commands (diag usbmode set to eth / set to cdc / set uvc) could not be tried on a
  * real AIRIZ by the owner. So that he does not have to ask every user, the console watches what
@@ -20,8 +20,9 @@
  * shows them at https://airiz-relay.juw12.workers.dev/v1/reports/usbmode
  *
  * Not reported: demo mode, a phone that controls another PC by code (that PC reports), and copies
- * of the console on other sites. To turn it off on one device:
- * localStorage.setItem('airiz.usageReports', 'off')
+ * of the console on other sites. To turn it off on one device: untick "Send USB mode result" under
+ * the console (1.11.29). That stores localStorage 'airiz.usageReports' = 'off', stops a watch that
+ * is running and deletes results that were still waiting to be sent.
  *
  * A copy on another site (for example a company app portal) can keep the result on that site: its
  * index.html adds <meta name="airiz-usage-report" content="same-origin">. The same result is then
@@ -39,7 +40,7 @@
 })(typeof window !== 'undefined' ? window : null, function () {
   'use strict';
 
-  const APP_VERSION = '1.11.28';
+  const APP_VERSION = '1.11.29';
   const REPORT_URL = 'wss://airiz-relay.juw12.workers.dev/v1/report';
   // The same origins the relay accepts; other hosts (other sites, localhost tests) do not use the relay.
   const REPORT_ORIGINS = ['https://juw12.github.io', 'airiz://app', 'capacitor://localhost', 'https://localhost'];
@@ -232,15 +233,45 @@
     }
   }
 
-  // 'relay' for the published console, 'same-origin' for a copy that asks for it, null: no reports.
-  function reportSink(root) {
+  // The switch under the console ("Send USB mode result"): off = nothing is watched or sent.
+  function reportsOff(storage) {
     try {
-      if (root.localStorage.getItem(OPT_OUT_KEY) === 'off') return null;
+      return storage.getItem(OPT_OUT_KEY) === 'off';
+    } catch (error) {
+      return true; // storage blocked: nothing can be kept or sent anyway
+    }
+  }
+
+  // Turning it off also deletes the results that were still waiting to be sent.
+  function setReportsOff(storage, off) {
+    try {
+      if (off) {
+        storage.setItem(OPT_OUT_KEY, 'off');
+        storage.removeItem(QUEUE_KEY);
+      } else {
+        storage.removeItem(OPT_OUT_KEY);
+      }
+    } catch (error) { /* storage blocked */ }
+    return reportsOff(storage);
+  }
+
+  // Where this copy sends results when the switch is on: 'relay' for the published console,
+  // 'same-origin' for a copy that asks for it, null: this copy never reports.
+  function sinkOf(root) {
+    try {
       if (REPORT_ORIGINS.includes(root.location.origin)) return 'relay';
       const meta = root.document && root.document.querySelector('meta[name="airiz-usage-report"]');
       if (meta && meta.getAttribute('content') === 'same-origin' && /^https?:$/.test(root.location.protocol)) return 'same-origin';
-    } catch (error) { /* storage or DOM blocked: no reports */ }
+    } catch (error) { /* DOM blocked: no reports */ }
     return null;
+  }
+
+  function reportSink(root) {
+    try {
+      return reportsOff(root.localStorage) ? null : sinkOf(root);
+    } catch (error) {
+      return null;
+    }
   }
 
   function reportingAllowed(root) {
@@ -250,7 +281,9 @@
   // ------------------------------------------------------------------ wiring (browser only)
   function start(root) {
     const consoleApi = root.AirizConsole;
-    if (!consoleApi || typeof consoleApi.onCommandSent !== 'function' || !reportingAllowed(root)) return false;
+    // A copy that never reports gets no listeners and keeps the switch hidden. With the switch
+    // off the listeners are still set, so that turning it on works without a restart.
+    if (!consoleApi || typeof consoleApi.onCommandSent !== 'function' || !sinkOf(root)) return false;
     const storage = root.localStorage;
     const edition = root.airizDesktop ? 'desktop' : (root.airizMobile ? 'mobile' : 'web');
     let watch = null;
@@ -266,18 +299,29 @@
       const queue = readQueue(storage);
       if (!queue.length) return;
       flushing = true;
+      const first = queue[0];
       const sent = outcome => {
         flushing = false;
         if (outcome === 'retry') return; // next start, next report or when the network is back
-        writeQueue(storage, readQueue(storage).slice(1));
+        // By its number: the list may have been emptied by the switch while this one was on its way.
+        writeQueue(storage, readQueue(storage).filter(item => item.rid !== first.rid));
         flush();
       };
-      if (sink === 'relay') sendReport(queue[0], root.WebSocket, sent);
-      else sendSameOrigin(queue[0], root, sent);
+      if (sink === 'relay') sendReport(first, root.WebSocket, sent);
+      else sendSameOrigin(first, root, sent);
+    }
+
+    function dropWatch() {
+      clearInterval(ticker);
+      watch = null;
     }
 
     function finishWatch() {
       if (!watch) return;
+      if (reportsOff(storage)) {
+        dropWatch();
+        return;
+      }
       clearInterval(ticker);
       const report = Object.assign(resultOf(watch), {
         rid: reportId(root),
@@ -302,7 +346,7 @@
 
     consoleApi.onCommandSent(line => {
       const command = parseCommand(line);
-      if (!command) return;
+      if (!command || reportsOff(storage)) return;
       const status = consoleApi.getStatus();
       const transport = transportOf(status);
       if (!status.connected || status.demoMode || transport === 'remote') return;
@@ -330,6 +374,20 @@
     root.addEventListener('pagehide', finishWatch);
     root.addEventListener('online', flush);
     setTimeout(flush, 5000);
+
+    // The switch: shown only in a copy that reports, ticked while reporting is on.
+    const option = root.document.getElementById('usbmode-report-option');
+    const checkbox = root.document.getElementById('chk-usbmode-report');
+    if (option && checkbox) {
+      checkbox.checked = !reportsOff(storage);
+      option.hidden = false;
+      checkbox.addEventListener('change', () => {
+        const off = setReportsOff(storage, !checkbox.checked);
+        checkbox.checked = !off;
+        if (off) dropWatch();
+        else flush();
+      });
+    }
     return true;
   }
 
@@ -349,6 +407,9 @@
     sendReport,
     sameOriginUrl,
     sendSameOrigin,
+    reportsOff,
+    setReportsOff,
+    sinkOf,
     reportSink,
     reportingAllowed,
     start,
