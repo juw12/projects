@@ -26,7 +26,8 @@
  * A copy on another site (for example a company app portal) can keep the result on that site: its
  * index.html adds <meta name="airiz-usage-report" content="same-origin">. The same result is then
  * sent as one HEAD request for this file, with the result in the query, to that site's own web
- * server, which writes it to its access log. Nothing goes to the relay from such a copy.
+ * server (with that site's sign-in), which writes it to its access log. Nothing goes to the relay
+ * from such a copy.
  *
  * No DOM access in the functions that decide the result: they also run in the Node tests.
  */
@@ -222,8 +223,10 @@
     }
     const timer = setTimeout(() => finish('retry'), timeoutMs || SEND_TIMEOUT_MS);
     try {
-      root.fetch(sameOriginUrl(report, root.location.href), { method: 'HEAD', cache: 'no-store', credentials: 'omit' })
-        .then(response => finish(response.status < 500 ? 'sent' : 'retry'), () => finish('retry'));
+      // The page's own sign-in goes along (a portal behind single sign-on answers a request
+      // without it with its sign-in page, and the result never reaches the access log).
+      root.fetch(sameOriginUrl(report, root.location.href), { method: 'HEAD', cache: 'no-store', credentials: 'same-origin' })
+        .then(response => finish(response.status < 500 && !response.redirected ? 'sent' : 'retry'), () => finish('retry'));
     } catch (error) {
       finish('retry');
     }

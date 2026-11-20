@@ -147,8 +147,10 @@ test('a copy on another site reports to its own web server only when its page as
     return Promise.resolve({ status: 200 });
   }), 'sent');
   assert.equal(calls[0].options.method, 'HEAD');
+  assert.equal(calls[0].options.credentials, 'same-origin', 'the sign-in of that site goes along');
   assert.equal(new URL(calls[0].address).origin, 'https://console.example.com', 'never another site');
   assert.equal(await outcome(() => Promise.resolve({ status: 502 })), 'retry');
+  assert.equal(await outcome(() => Promise.resolve({ status: 200, redirected: true })), 'retry', 'sent to a sign-in page');
   assert.equal(await outcome(() => Promise.reject(new Error('offline'))), 'retry');
   assert.equal(await outcome(() => new Promise(() => {})), 'retry', 'no answer in time');
 });
