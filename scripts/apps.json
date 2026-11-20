@@ -3708,6 +3708,49 @@
       "status": "released",
       "order": 84,
       "portfolio": true
+    },
+    {
+      "id": "open-problems-lab",
+      "name": "Open Problems Lab",
+      "category": "AI",
+      "external": true,
+      "url": "https://juw12.github.io/p/open-problems-lab/",
+      "url_label": "Open site",
+      "desc": "Reproducible computations on open problems in number theory and combinatorics (Erdős problems) from an AI-agent lab: reproductions, finite extensions and negative results. Not proofs, not human-reviewed.",
+      "summary": "Small, checkable computations on open maths problems from an AI-agent lab. Not proofs.",
+      "description": "Reproducible computations on open problems in number theory and combinatorics, mostly from erdosproblems.com: reproductions of published values, finite computations past the published range and negative results. Every result must first reproduce published values, then pass a second independent method and a separate AI referee re-run. Nothing here is a proof, and no human mathematician has reviewed it. 12 notes with their scripts, archived on Zenodo with a DOI.",
+      "tags": [
+        "Python",
+        "Number theory",
+        "Erdős problems",
+        "Reproducible research"
+      ],
+      "note_tags": [
+        "open-problems-lab",
+        "combinatorics",
+        "computational-mathematics",
+        "erdos-problems",
+        "number-theory",
+        "reproducible-research"
+      ],
+      "image": "open-problems-lab-card.jpg",
+      "image_alt": "Open Problems Lab landing page: the headline 'Small, checkable computations on open maths problems' beside an emblem of a ticked card above a number line",
+      "extra_links": [
+        {
+          "label": "Source",
+          "url": "https://github.com/juw12/open-problems-lab"
+        }
+      ],
+      "card": {
+        "label": "open-problems-lab · home",
+        "capture": "https://juw12.github.io/p/open-problems-lab/",
+        "theme": "light",
+        "accent": "#177a73",
+        "accent2": "#2f539e"
+      },
+      "status": "released",
+      "order": 85,
+      "portfolio": true
     }
   ]
 }
