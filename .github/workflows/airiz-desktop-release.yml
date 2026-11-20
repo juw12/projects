@@ -1,0 +1,84 @@
+name: AIRIZ desktop release
+
+# Publishes the executables of a finished "AIRIZ Windows desktop" build as the
+# airiz-desktop-v<version> release, then refreshes the auto-update feed.
+# The build stays on GitHub, so nobody has to download and re-upload ~230 MB.
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_run:
+        description: Run id of a successful "AIRIZ Windows desktop" build on main
+        required: true
+        type: string
+      notes:
+        description: Release notes (Markdown)
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: airiz-desktop-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      BUILD_RUN: ${{ inputs.build_run }}
+      RELEASE_NOTES: ${{ inputs.notes }}
+    steps:
+      - name: Check that the run is a successful desktop build of main
+        id: build
+        run: |
+          set -euo pipefail
+          [[ "$BUILD_RUN" =~ ^[0-9]+$ ]] || { echo "build_run must be a run id"; exit 1; }
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$BUILD_RUN" > "$RUNNER_TEMP/run.json"
+          jq -e '
+            .path == ".github/workflows/airiz-desktop.yml"
+            and .conclusion == "success"
+            and .head_branch == "main"
+          ' "$RUNNER_TEMP/run.json"
+          echo "sha=$(jq -r .head_sha "$RUNNER_TEMP/run.json")" >> "$GITHUB_OUTPUT"
+      - name: Read the version the build was made from
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.build.outputs.sha }}
+          sparse-checkout: apps/airiz-motor/desktop/package.json
+          sparse-checkout-cone-mode: false
+      - name: Fetch the tested executables from the build run
+        uses: actions/download-artifact@v4
+        with:
+          name: AIRIZ-Console-Windows-x64
+          run-id: ${{ inputs.build_run }}
+          github-token: ${{ github.token }}
+          path: artifact
+      - name: Publish the release and refresh the update feed
+        env:
+          BUILD_SHA: ${{ steps.build.outputs.sha }}
+        run: |
+          set -euo pipefail
+          version=$(jq -r .version apps/airiz-motor/desktop/package.json)
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Unexpected version: $version"; exit 1; }
+          tag="airiz-desktop-v$version"
+          setup="artifact/dist/AIRIZ-Console-Setup-$version-x64.exe"
+          portable="artifact/dist/AIRIZ-Console-Portable-$version-x64.exe"
+          test -s "$setup"
+          test -s "$portable"
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            echo "Release $tag already exists; a published version is never replaced."
+            exit 1
+          fi
+          sha256sum "$setup" "$portable"
+          gh release create "$tag" "$setup" "$portable" \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "AIRIZ Console $version" \
+            --notes "$RELEASE_NOTES" \
+            --target "$BUILD_SHA" \
+            --latest=false
+          # Releases made with the workflow token do not fire "release: published".
+          gh workflow run airiz-update-feed.yml --repo "$GITHUB_REPOSITORY" --ref main -f tag="$tag"
