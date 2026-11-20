@@ -9,7 +9,7 @@ is required to use the installed app or its hardware-free demo.
 ## Downloads
 
 Windows x64 releases are published under the app-specific tag
-`airiz-desktop-v1.11.26` in this repository's Releases section.
+`airiz-desktop-v1.11.27` in this repository's Releases section.
 
 - **Installer**: assisted, per-user installation with Start-menu/desktop shortcuts
   and an uninstaller. The wizard lets the user choose the installation directory.
@@ -163,6 +163,12 @@ reports whether a framed firmware reply came back. Results can be exported.
 No pairing is accepted without confirmation and no motor command is sent.
 Another program on the PC still cannot open COM4 while this app holds it: that is
 a Windows serial-port rule, which is why the check runs inside the app.
+
+## 1.11.27: USB mode commands keep "set to"
+
+* **Command text as the owner gave it.** In `web/data/commands.js`, *USB mode → ETH (Ethernet)* (`usb-eth`) now sends `diag usbmode set to eth` and *USB mode → CDC (serial)* (`usb-cdc`) sends `diag usbmode set to cdc`. 1.11.26 sent `diag usbmode set eth`; the CDC command was `diag usbmode set cdc` before. *USB mode → UVC (camera)* is unchanged. zh-TW / zh-CN strings, `docs/Commands.md` and `tests/test_command_data.py` updated.
+* **Checked on the console side only.** A headless browser run with a simulated serial port shows that Send, then Yes, writes exactly `diag usbmode set to eth` / `diag usbmode set to cdc` + CRLF, and nothing before Yes. **No real AIRIZ was connected**, so whether the firmware accepts these lines is not confirmed.
+* History of the app gains the 1.11.27 entry.
 
 ## 1.11.26: USB mode → ETH command
 

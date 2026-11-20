@@ -41,12 +41,12 @@ window.AIRIZ_COMMANDS = {
         { id: "usb-uvc", label: "USB mode → UVC (camera)", cmd: "diag usbmode set uvc",
           destructive: true,
           note: "System auto-reboots. The camera then shows up as a PC camera device." },
-        { id: "usb-cdc", label: "USB mode → CDC (serial)", cmd: "diag usbmode set cdc",
+        { id: "usb-cdc", label: "USB mode → CDC (serial)", cmd: "diag usbmode set to cdc",
           destructive: true,
           note: "System auto-reboots. Restores the diagnostic serial console." },
-        { id: "usb-eth", label: "USB mode → ETH (Ethernet)", cmd: "diag usbmode set eth",
+        { id: "usb-eth", label: "USB mode → ETH (Ethernet)", cmd: "diag usbmode set to eth",
           destructive: true,
-          note: "System auto-reboots. The USB port then works as a network (Ethernet) link, so this serial console disconnects. To come back, run `diag usbmode set cdc` on the device." }
+          note: "System auto-reboots. The USB port then works as a network (Ethernet) link, so this serial console disconnects. To come back, run `diag usbmode set to cdc` on the device." }
       ]
     },
 
