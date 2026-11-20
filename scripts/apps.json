@@ -3759,9 +3759,9 @@
       "external": true,
       "url": "https://juw12.github.io/neon-coast/",
       "url_label": "Play game",
-      "desc": "An open-world island driving game with six story jobs and a timed ferry shift.",
-      "summary": "Cruise the island, take six story jobs, or get the cinema kit aboard the last ferry.",
-      "description": "An original single-player 3D sandbox. Drive, walk, collect fifteen hidden packages, or take a harbor courier shift. The offline browser build needs no install; best ferry times are saved separately from story progress.",
+      "desc": "An open-world city sandbox in one offline file: story jobs, cab fares, property and a police helicopter.",
+      "summary": "Steal a car, run six story jobs, drive a cab, buy property, and outrun the police helicopter.",
+      "description": "An original single-player 3D sandbox. Version 1.2 adds cab fares, four properties that pay rent, a police helicopter from four stars, road arrows to every target, a whole-island map and perks. The offline browser build needs no install; progress is saved in the browser.",
       "tags": [
         "Game",
         "Three.js",
