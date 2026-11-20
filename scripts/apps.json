@@ -3751,6 +3751,45 @@
       "status": "released",
       "order": 85,
       "portfolio": true
+    },
+    {
+      "id": "neon-coast",
+      "name": "Neon Coast",
+      "category": "Apps",
+      "external": true,
+      "url": "https://juw12.github.io/neon-coast/",
+      "url_label": "Play game",
+      "desc": "An open-world island driving game with six story jobs and a timed ferry shift.",
+      "summary": "Cruise the island, take six story jobs, or get the cinema kit aboard the last ferry.",
+      "description": "An original single-player 3D sandbox. Drive, walk, collect fifteen hidden packages, or take a harbor courier shift. The offline browser build needs no install; best ferry times are saved separately from story progress.",
+      "tags": [
+        "Game",
+        "Three.js",
+        "JavaScript",
+        "Offline"
+      ],
+      "note_tags": [
+        "neon-coast",
+        "browser-game"
+      ],
+      "image": "neon-coast-card.jpg",
+      "image_alt": "Amber courier van on a palm-lined Neon Coast street with the Electric Works stop on the HUD.",
+      "extra_links": [
+        {
+          "label": "Source",
+          "url": "https://github.com/juw12/neon-coast"
+        }
+      ],
+      "card": {
+        "label": "neon coast · harbor courier",
+        "capture": "https://juw12.github.io/neon-coast/",
+        "theme": "dark",
+        "accent": "#ff3fa4",
+        "accent2": "#3fe0ff"
+      },
+      "status": "released",
+      "order": 86,
+      "portfolio": true
     }
   ]
 }
