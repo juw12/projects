@@ -297,6 +297,120 @@ class DeskTest(unittest.TestCase):
             assert desk.main(["--folder", str(folder), "--phone-file", str(target)]) == 0
         assert seen == [(target.resolve(), folder.resolve() / ".env")]
 
+    def test_the_buttons_are_added_only_when_asked_and_the_page_stays_whole(self):
+        folder = self.folder()
+        env = folder / ".env"
+        env.write_text("INDODAX_BRIDGE_KEY=k\n", encoding="utf-8")
+        target = folder / "phone_page.html"
+        cards = self.COPY.replace("REAL MONEY", "<section><h2>Holding now</h2></section>\nREAL MONEY")
+
+        class Api:
+            def _call(self, path, payload=None):
+                return {"ok": True, "page": cards}
+
+        server = desk.Server(env)
+        server._api = Api
+        assert desk.phone_file(target, server, say=lambda line: None) == 0
+        assert target.read_text(encoding="utf-8") == cards, "without --phone-buttons the page is TradeBot's own, to the byte"
+
+        assert desk.phone_file(target, server, say=lambda line: None, buttons=True) == 0
+        page = target.read_text(encoding="utf-8")
+        assert desk.page_is_copy(page) and page.replace(desk.PHONE_BUTTONS, "") == cards, "the page around the buttons is not touched"
+        assert page.index('id="pc"') < page.index("Holding now"), "the buttons sit above the first card"
+        assert target.read_bytes().count(b"\r") == 0
+
+        # A page without a card still gets them, inside the page.
+        bare = desk.with_buttons(self.COPY)
+        assert desk.page_is_copy(bare) and bare.index('id="pc"') < bare.index("</main>")
+
+        # The buttons send two names and no others, to the page around this one and to nowhere else.
+        block = desk.PHONE_BUTTONS
+        import re
+
+        assert sorted(re.findall(r'data-ask="([^"]*)"', block)) == sorted(desk.PHONE_ACTIONS) == ["pause", "resume"]
+        assert 'cairnDash: "action"' in block and "window.parent.postMessage" in block
+        for word in ("fetch(", "XMLHttpRequest", "<form", "http://", "https://", "localStorage", "document.cookie"):
+            assert word not in block, word
+        assert "never buy or sell" in block and "own rupiah" in block, "it says what the buttons do, and asks before buying is allowed"
+
+    def test_a_button_from_the_phone_only_pauses_or_allows_buying(self):
+        folder = self.folder()
+        calls = []
+        answers = [None]
+
+        class Server:
+            def pause(self, paused):
+                calls.append(paused)
+                if isinstance(answers[0], Exception):
+                    raise answers[0]
+                return {"ok": True, "paused": paused} if answers[0] is None else answers[0]
+
+        def log():
+            return (folder / desk.PHONE_ACTIONS_LOG).read_text(encoding="utf-8").splitlines()
+
+        code, line = desk.phone_action(["pause"], Server(), folder)
+        assert (code, calls) == (0, [True]) and line.startswith("Buying is paused")
+        code, line = desk.phone_action(["resume"], Server(), folder)
+        assert (code, calls) == (0, [True, False]) and line.startswith("Buying is allowed again")
+        assert len(log()) == 2 and "'pause'" in log()[0] and "'resume'" in log()[1]
+
+        # Every other name changes nothing: not a trade, not an option of the program, not a near miss.
+        refused = (
+            [], [""], ["buy"], ["sell"], ["sell btc_idr"], ["order"], ["Pause"], ["pause "], [" resume"], ["pause;resume"],
+            ["pause", "resume"], ["--background"], ["on"], ["--sender"], ["--phone-file"], ["true"], ["0"], [None], ["x" * 600],
+        )
+        for names in refused:
+            code, line = desk.phone_action(names, Server(), folder)
+            assert code == 1 and "nothing was changed" in line, names
+        assert calls == [True, False], "TradeBot was not asked for any of them"
+        assert len(log()) == 2 + len(refused) and all(entry.endswith("refused") for entry in log()[2:])
+        assert max(len(entry) for entry in log()) < 120, "a long name is cut short in the log"
+
+        # TradeBot cannot be reached, or does not confirm: said in one line, and never called done.
+        answers[0] = desk.bridge.ApiError("TradeBot could not be reached (URLError, 3 tries)")
+        code, line = desk.phone_action(["pause"], Server(), folder)
+        assert code == 1 and "was not changed" in line and "could not be reached" in line and "\n" not in line
+        for wrong in ({"ok": True}, {"ok": True, "paused": False}, {"ok": True, "paused": "true"}, [], "paused"):
+            answers[0] = wrong
+            code, line = desk.phone_action(["pause"], Server(), folder)
+            assert code == 1 and "did not confirm" in line, wrong
+
+        # No key in .env: nothing is sent, and the phone is told why.
+        env = folder / ".env"
+        env.write_text("INDODAX_BRIDGE_KEY=\n", encoding="utf-8")
+        code, line = desk.phone_action(["pause"], desk.Server(env), folder)
+        assert code == 1 and "INDODAX_BRIDGE_KEY is empty" in line
+
+        # A log that cannot be written does not stop the answer.
+        code, line = desk.phone_action(["buy"], Server(), folder / "missing" / "folder")
+        assert code == 1 and "nothing was changed" in line
+
+    def test_a_button_from_the_phone_is_never_read_as_an_option_and_opens_no_window(self):
+        seen = []
+        said = []
+
+        def fake(names, server, folder):
+            seen.append((names, server.env_path, folder))
+            return (0, "Buying is paused.") if names == ["pause"] else (1, "nothing was changed")
+
+        with mock.patch.object(desk, "phone_action", fake), mock.patch.object(desk, "open_window", side_effect=AssertionError("no window")), \
+                mock.patch.object(desk, "set_background", side_effect=AssertionError("not an option")), mock.patch.object(desk, "output_for_the_window"), \
+                mock.patch("builtins.print", lambda *words, **_: said.append(" ".join(map(str, words)))):
+            assert desk.main(["--phone-action", "pause"]) == 0
+            assert desk.main(["--phone-action", "--background", "on"]) == 1
+            assert desk.main(["--phone-action", "--sender"]) == 1
+            assert desk.main(["--phone-action"]) == 1
+        assert [names for names, _, _ in seen] == [["pause"], ["--background", "on"], ["--sender"], []]
+        assert all(env == desk.HERE / ".env" and folder == desk.HERE for _, env, folder in seen)
+        assert said == ["Buying is paused.", "nothing was changed", "nothing was changed", "nothing was changed"], "one line each, for the phone"
+
+        # --phone-buttons is passed on with --phone-file and is off without it.
+        asked = []
+        with mock.patch.object(desk, "phone_file", lambda path, server, **more: asked.append(more) or 0), mock.patch.object(desk, "output_for_the_window"):
+            assert desk.main(["--phone-file", "page.html", "--phone-buttons"]) == 0
+            assert desk.main(["--phone-file", "page.html"]) == 0
+        assert asked == [{"buttons": True}, {"buttons": False}]
+
 
     def test_the_log_file_is_kept_and_rolled_over(self):
         tmp_path = self.folder()
