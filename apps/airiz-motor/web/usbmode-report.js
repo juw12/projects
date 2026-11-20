@@ -20,8 +20,13 @@
  * shows them at https://airiz-relay.juw12.workers.dev/v1/reports/usbmode
  *
  * Not reported: demo mode, a phone that controls another PC by code (that PC reports), and copies
- * of the console on other sites (for example the company App Hub). To turn it off on one device:
+ * of the console on other sites. To turn it off on one device:
  * localStorage.setItem('airiz.usageReports', 'off')
+ *
+ * A copy on another site (for example a company app portal) can keep the result on that site: its
+ * index.html adds <meta name="airiz-usage-report" content="same-origin">. The same result is then
+ * sent as one HEAD request for this file, with the result in the query, to that site's own web
+ * server, which writes it to its access log. Nothing goes to the relay from such a copy.
  *
  * No DOM access in the functions that decide the result: they also run in the Node tests.
  */
@@ -35,7 +40,7 @@
 
   const APP_VERSION = '1.11.28';
   const REPORT_URL = 'wss://airiz-relay.juw12.workers.dev/v1/report';
-  // The same origins the relay accepts; other hosts (company App Hub, localhost tests) do not report.
+  // The same origins the relay accepts; other hosts (other sites, localhost tests) do not use the relay.
   const REPORT_ORIGINS = ['https://juw12.github.io', 'airiz://app', 'capacitor://localhost', 'https://localhost'];
   const WATCH_MS = 45000;
   const TICK_MS = 1000;
@@ -187,13 +192,56 @@
     return Array.from(bytes, value => value.toString(16).padStart(2, '0')).join('');
   }
 
-  function reportingAllowed(root) {
-    try {
-      if (!REPORT_ORIGINS.includes(root.location.origin)) return false;
-      return root.localStorage.getItem(OPT_OUT_KEY) !== 'off';
-    } catch (error) {
-      return false;
+  // The same result as one request to the site this copy is served from (see the note at the top).
+  function sameOriginUrl(report, pageUrl) {
+    const query = new URLSearchParams({
+      report: 'usbmode',
+      v: String(report.v),
+      mode: String(report.mode),
+      to: report.to ? '1' : '0',
+      link: String(report.link),
+      dropS: report.dropS === null || report.dropS === undefined ? '' : String(report.dropS),
+      back: report.back ? '1' : '0',
+      reply: String(report.reply),
+      app: String(report.app),
+      edition: String(report.edition),
+      transport: String(report.transport),
+      rid: String(report.rid),
+      agoS: String(Math.max(0, Math.round((Date.now() - report.at) / 1000))),
+    });
+    return new URL('usbmode-report.js?' + query.toString(), pageUrl).href;
+  }
+
+  function sendSameOrigin(report, root, done, timeoutMs) {
+    let settled = false;
+    function finish(outcome) {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      done(outcome);
     }
+    const timer = setTimeout(() => finish('retry'), timeoutMs || SEND_TIMEOUT_MS);
+    try {
+      root.fetch(sameOriginUrl(report, root.location.href), { method: 'HEAD', cache: 'no-store', credentials: 'omit' })
+        .then(response => finish(response.status < 500 ? 'sent' : 'retry'), () => finish('retry'));
+    } catch (error) {
+      finish('retry');
+    }
+  }
+
+  // 'relay' for the published console, 'same-origin' for a copy that asks for it, null: no reports.
+  function reportSink(root) {
+    try {
+      if (root.localStorage.getItem(OPT_OUT_KEY) === 'off') return null;
+      if (REPORT_ORIGINS.includes(root.location.origin)) return 'relay';
+      const meta = root.document && root.document.querySelector('meta[name="airiz-usage-report"]');
+      if (meta && meta.getAttribute('content') === 'same-origin' && /^https?:$/.test(root.location.protocol)) return 'same-origin';
+    } catch (error) { /* storage or DOM blocked: no reports */ }
+    return null;
+  }
+
+  function reportingAllowed(root) {
+    return reportSink(root) !== null;
   }
 
   // ------------------------------------------------------------------ wiring (browser only)
@@ -210,16 +258,19 @@
     let recent = { text: '', at: 0 }; // device text of the last moments, only while no watch runs
 
     function flush() {
-      if (flushing || !reportingAllowed(root)) return;
+      const sink = reportSink(root);
+      if (flushing || !sink) return;
       const queue = readQueue(storage);
       if (!queue.length) return;
       flushing = true;
-      sendReport(queue[0], root.WebSocket, outcome => {
+      const sent = outcome => {
         flushing = false;
         if (outcome === 'retry') return; // next start, next report or when the network is back
         writeQueue(storage, readQueue(storage).slice(1));
         flush();
-      });
+      };
+      if (sink === 'relay') sendReport(queue[0], root.WebSocket, sent);
+      else sendSameOrigin(queue[0], root, sent);
     }
 
     function finishWatch() {
@@ -293,6 +344,9 @@
     noteStatus,
     resultOf,
     sendReport,
+    sameOriginUrl,
+    sendSameOrigin,
+    reportSink,
     reportingAllowed,
     start,
   };

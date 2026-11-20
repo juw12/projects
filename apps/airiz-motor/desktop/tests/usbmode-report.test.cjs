@@ -108,9 +108,49 @@ test('reports only leave from the published console, and can be switched off', (
   for (const origin of ['https://juw12.github.io', 'airiz://app', 'https://localhost', 'capacitor://localhost']) {
     assert.equal(report.reportingAllowed(page(origin, null)), true, origin);
   }
-  assert.equal(report.reportingAllowed(page('https://app-3ad6b247-ad56dd2b94.aicc.pegatroncorp.com', null)), false);
+  assert.equal(report.reportingAllowed(page('https://console.example.com', null)), false);
   assert.equal(report.reportingAllowed(page('http://localhost:8080', null)), false);
   assert.equal(report.reportingAllowed(page('airiz://app', 'off')), false);
+});
+
+test('a copy on another site reports to its own web server only when its page asks for it', async () => {
+  const copy = (content, setting) => ({
+    location: { origin: 'https://console.example.com', protocol: 'https:', href: 'https://console.example.com/' },
+    localStorage: { getItem: () => setting },
+    document: { querySelector: () => (content === null ? null : { getAttribute: () => content }) },
+  });
+  assert.equal(report.reportSink(copy(null, null)), null);
+  assert.equal(report.reportSink(copy('relay', null)), null);
+  assert.equal(report.reportSink(copy('same-origin', null)), 'same-origin');
+  assert.equal(report.reportSink(copy('same-origin', 'off')), null, 'switched off on this device');
+  assert.equal(report.reportSink({ location: { origin: 'airiz://app' }, localStorage: { getItem: () => null } }), 'relay');
+
+  const stored = {
+    v: 1, mode: 'eth', to: true, link: 'dropped', dropS: 2, back: false, reply: 'text',
+    app: report.APP_VERSION, edition: 'web', transport: 'usb', rid: 'aaaaaaaaaaaa', at: Date.now() - 3000,
+  };
+  const url = new URL(report.sameOriginUrl(stored, 'https://console.example.com/'));
+  assert.equal(url.origin + url.pathname, 'https://console.example.com/usbmode-report.js');
+  assert.deepEqual([...url.searchParams.keys()].sort(),
+    ['agoS', 'app', 'back', 'dropS', 'edition', 'link', 'mode', 'reply', 'report', 'rid', 'to', 'transport', 'v']);
+  assert.equal(url.searchParams.get('mode'), 'eth');
+  assert.equal(url.searchParams.get('link'), 'dropped');
+  assert.equal(url.searchParams.get('to'), '1');
+
+  const outcome = fetchImpl => new Promise(resolve => {
+    const root = Object.assign(copy('same-origin', null), { fetch: fetchImpl });
+    report.sendSameOrigin(stored, root, resolve, 200);
+  });
+  const calls = [];
+  assert.equal(await outcome((address, options) => {
+    calls.push({ address, options });
+    return Promise.resolve({ status: 200 });
+  }), 'sent');
+  assert.equal(calls[0].options.method, 'HEAD');
+  assert.equal(new URL(calls[0].address).origin, 'https://console.example.com', 'never another site');
+  assert.equal(await outcome(() => Promise.resolve({ status: 502 })), 'retry');
+  assert.equal(await outcome(() => Promise.reject(new Error('offline'))), 'retry');
+  assert.equal(await outcome(() => new Promise(() => {})), 'retry', 'no answer in time');
 });
 
 function fakeSocket(script) {
