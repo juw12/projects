@@ -129,7 +129,7 @@ def main():
     templates = "\n".join(c["cmd"] for g in groups for c in g["commands"])
     expected = [
         "diag ver sw",
-        "diag usbmode set uvc", "diag usbmode set cdc",
+        "diag usbmode set uvc", "diag usbmode set cdc", "diag usbmode set eth",
         "diag wifi connect {ssid} {password} mlan0",
         "diag ble on", "diag thread on",
         "diag audio init", "diag audio volume {level}",

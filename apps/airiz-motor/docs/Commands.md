@@ -49,6 +49,12 @@ Switch the USB gadget mode. The device reboots automatically.
 
 > ⚠ Destructive — the device reboots.
 
+**`diag usbmode set eth`** — USB mode → ETH (Ethernet)
+
+> System auto-reboots. The USB port then works as a network (Ethernet) link, so this serial console disconnects. To come back, run `diag usbmode set cdc` on the device.
+
+> ⚠ Destructive — the device reboots.
+
 ## Wireless
 
 ### WiFi Connection — NXP IW612

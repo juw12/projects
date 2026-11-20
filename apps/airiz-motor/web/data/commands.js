@@ -43,7 +43,10 @@ window.AIRIZ_COMMANDS = {
           note: "System auto-reboots. The camera then shows up as a PC camera device." },
         { id: "usb-cdc", label: "USB mode → CDC (serial)", cmd: "diag usbmode set cdc",
           destructive: true,
-          note: "System auto-reboots. Restores the diagnostic serial console." }
+          note: "System auto-reboots. Restores the diagnostic serial console." },
+        { id: "usb-eth", label: "USB mode → ETH (Ethernet)", cmd: "diag usbmode set eth",
+          destructive: true,
+          note: "System auto-reboots. The USB port then works as a network (Ethernet) link, so this serial console disconnects. To come back, run `diag usbmode set cdc` on the device." }
       ]
     },
 
