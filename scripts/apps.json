@@ -3790,6 +3790,40 @@
       "status": "released",
       "order": 86,
       "portfolio": true
+    },
+    {
+      "id": "pocket-meter",
+      "name": "Pocket Meter",
+      "category": "Software",
+      "external": true,
+      "url": "https://juw12.github.io/p/pocket-meter/",
+      "url_label": "Try example",
+      "desc": "Explore how two fictional paid pilots contribute to expected earnings, the chance of a sale and a 30-day ceiling. No personal financial data.",
+      "summary": "Explore how two fictional paid pilots contribute to expected earnings, the chance of a sale and a 30-day ceiling. No personal financial data.",
+      "description": "Explore how two fictional paid pilots contribute to expected earnings, the chance of a sale and a 30-day ceiling. No personal financial data.",
+      "tags": [
+        "Simulation",
+        "Local-first",
+        "Finance"
+      ],
+      "image": "pocket-meter-card.jpg",
+      "image_alt": "Public Pocket Meter simulator with fictional Lelet and ReachPilot offers",
+      "extra_links": [
+        {
+          "label": "Demo source",
+          "url": "https://github.com/juw12/juw12.github.io/tree/main/p/pocket-meter"
+        }
+      ],
+      "card": {
+        "label": "pocket meter · public example",
+        "capture": "https://juw12.github.io/p/pocket-meter/",
+        "theme": "dark",
+        "accent": "#58d880",
+        "accent2": "#386656"
+      },
+      "status": "released",
+      "order": 1001,
+      "portfolio": true
     }
   ]
 }
