@@ -1,6 +1,6 @@
 ﻿/* AIRIZ Control Center — versioned, scope-isolated offline shell. */
 const CACHE_PREFIX = 'airiz-control-' + encodeURIComponent(self.registration.scope) + '-';
-const CACHE_NAME = CACHE_PREFIX + 'v2.79-1.11.31-mobile-1.0.9';
+const CACHE_NAME = CACHE_PREFIX + 'v2.80-1.11.31-mobile-1.0.9';
 const ASSETS = [
   './',
   './index.html',
