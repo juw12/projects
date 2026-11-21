@@ -3774,7 +3774,7 @@
         "browser-game"
       ],
       "image": "neon-coast-card.jpg",
-      "image_alt": "Amber courier van on a palm-lined Neon Coast street with the Electric Works stop on the HUD.",
+      "image_alt": "Neon Coast played on a phone: a red car on the Sol Beach road at dusk, a thumb stick at the lower left and GAS, BRAKE and HAND BRAKE buttons at the lower right.",
       "extra_links": [
         {
           "label": "Source",
@@ -3782,7 +3782,7 @@
         }
       ],
       "card": {
-        "label": "neon coast · harbor courier",
+        "label": "neon coast · on a phone",
         "capture": "https://juw12.github.io/neon-coast/",
         "theme": "dark",
         "accent": "#ff3fa4",
