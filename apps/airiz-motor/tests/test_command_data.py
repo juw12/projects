@@ -129,7 +129,7 @@ def main():
     templates = "\n".join(c["cmd"] for g in groups for c in g["commands"])
     expected = [
         "diag ver sw",
-        "diag usbmode set uvc", "diag usbmode set cdc", "diag usbmode set eth",
+        "diag usbmode set uvc", "diag usbmode set cdc", "diag usbmode set eth", "diag usbmode get",
         "diag wifi connect {ssid} {password} mlan0",
         "diag ble on", "diag thread on",
         "diag audio init", "diag audio volume {level}",
@@ -147,7 +147,7 @@ def main():
         "diag zg23 check", "diag zg23 get fw_ver", "diag zg23 reset",
         "diag zg23 fw_recovery_mode", "diag zg23 otw {image}",
         "diag motor pan forward {x} {y}", "diag motor pan reverse {x} {y}",
-        "diag motor rising forward {x} {y}", "diag motor rising reverse {x} {y}",
+        "diag motor rising forward {x} {y}", "diag motor rising reverse {x} {y}", "diag motor info",
         "diag button get rising-det", "diag button get  sync-btn",
         "diag rftest on", "diag rftest wifi1", "diag rftest wifi2", "diag rftest off",
     ]

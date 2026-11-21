@@ -906,6 +906,44 @@
     return { verdict: ratio >= 0.7 && ratio <= 1.3 ? 'ok' : 'differs', measuredSteps };
   }
 
+  // ------------------------------------------------------------------ firmware count (1.11.32)
+  // Firmware 0.0.0.3 answers "diag motor info" with its own step count per motor and Idle / Busy
+  // (seen on a real AIRIZ: pan forward 500 counts to 500, pan reverse 500 back to 0). It is the
+  // motor driver's count, not an encoder: it confirms that the firmware ran the steps the console
+  // sent, not that the mechanism followed. Returns null when the text is not that answer.
+  function parseMotorInfo(text) {
+    const source = String(text || '');
+    const step = name => {
+      const match = new RegExp(name + '\\s+motor\\s+current\\s+step\\s*:\\s*(-?\\d+)\\s*[\\r\\n]', 'i').exec(source);
+      return match ? Number(match[1]) : null;
+    };
+    const pan = step('Pan');
+    const rising = step('Rising');
+    if (pan === null || rising === null) return null;
+    const status = /#\.\s*Status\s*:\s*(\w+)/i.exec(source);
+    const word = status ? status[1].toLowerCase() : '';
+    return { pan, rising, busy: word === 'busy' ? true : word === 'idle' ? false : null };
+  }
+
+  // The firmware counted `firmwareSteps` over the moves in which the console sent `sentSteps`.
+  // Null when nothing was sent (nothing to compare).
+  function judgeFirmwareCount(sentSteps, firmwareSteps) {
+    const sent = Math.round(Number(sentSteps) || 0);
+    const counted = Math.round(Number(firmwareSteps) || 0);
+    if (sent === 0 && counted === 0) return null;
+    return sent === counted ? 'firmware' : 'firmware-differs';
+  }
+
+  // One tag per axis from the sensor state and the firmware count: a sensor that disagrees comes
+  // first, then a firmware count that differs, then a sensor that agrees, then the firmware count.
+  function withFirmwareCount(sensorState, firmwareVerdict) {
+    if (!firmwareVerdict) return sensorState;
+    const level = FEEDBACK_LEVEL[sensorState];
+    if (level === 'warn' || level === 'busy' || sensorState === 'moving' || sensorState === 'unknown') return sensorState;
+    if (firmwareVerdict === 'firmware-differs') return firmwareVerdict;
+    return level === 'ok' ? sensorState : firmwareVerdict;
+  }
+
   // Short labels for the two sensors (shown next to the height and the pan angle).
   const RISING_FEEDBACK_LABEL = {
     'switch-down': 'bottom switch \u2713',
@@ -913,7 +951,9 @@
     conflict: 'switch disagrees \u26a0',
     counted: 'counted',
     moving: 'counted',
-    unknown: 'not referenced'
+    unknown: 'not referenced',
+    firmware: 'firmware count \u2713',
+    'firmware-differs': 'firmware count differs \u26a0'
   };
   const PAN_FEEDBACK_LABEL = {
     ok: 'camera \u2713',
@@ -921,13 +961,16 @@
     none: 'camera saw no turn \u26a0',
     differs: 'camera differs \u26a0',
     watching: 'camera watching\u2026',
-    counted: 'counted'
+    counted: 'counted',
+    firmware: 'firmware count \u2713',
+    'firmware-differs': 'firmware count differs \u26a0'
   };
 
   // ok = the sensor agrees, warn = it disagrees, busy = the camera is watching a turn, none = counted only.
   const FEEDBACK_LEVEL = {
     'switch-down': 'ok', 'switch-up': 'ok', ok: 'ok', moved: 'ok',
-    conflict: 'warn', none: 'warn', differs: 'warn', watching: 'busy'
+    conflict: 'warn', none: 'warn', differs: 'warn', watching: 'busy',
+    firmware: 'ok', 'firmware-differs': 'warn'
   };
   function feedbackLevel(state) {
     return FEEDBACK_LEVEL[state] || 'none';
@@ -936,11 +979,13 @@
   // One line for both: is the shown position confirmed by a sensor?
   function feedbackSummary(risingState, panState) {
     if (risingState === 'conflict' || panState === 'none' || panState === 'differs') return 'SENSOR DISAGREES';
+    if (risingState === 'firmware-differs' || panState === 'firmware-differs') return 'FIRMWARE COUNT DIFFERS';
     const rising = risingState === 'switch-down' || risingState === 'switch-up';
     const pan = panState === 'ok' || panState === 'moved';
     if (rising && pan) return 'SENSOR CHECKED';
     if (rising) return 'HEIGHT CHECKED BY SWITCH';
     if (pan) return 'PAN CHECKED BY CAMERA';
+    if (risingState === 'firmware' || panState === 'firmware') return 'READ BACK FROM FIRMWARE';
     return 'COUNTED, NO SENSOR YET';
   }
 
@@ -994,6 +1039,9 @@
     RISING_FEEDBACK_LABEL,
     PAN_FEEDBACK_LABEL,
     feedbackLevel,
-    feedbackSummary
+    feedbackSummary,
+    parseMotorInfo,
+    judgeFirmwareCount,
+    withFirmwareCount
   });
 });

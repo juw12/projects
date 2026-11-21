@@ -1596,6 +1596,8 @@
     "Check for updates…": "檢查更新…",
     "About AIRIZ Console": "關於 AIRIZ Console",
     "Release notes and downloads": "版本資訊與下載",
+    "Motor commands tried on a real AIRIZ: firmware step count read back (1.11.32)": "已在實際的 AIRIZ 上試過馬達指令：讀回韌體步數計數（1.11.32）",
+    "Pan commands were sent to a real AIRIZ (firmware 0.0.0.3). The firmware keeps its own step count for the pan and the rising motor, and diag motor info shows it together with Idle or Busy: diag motor pan forward 17 500 counted up to 500 in about 9 seconds (about 18 ms per step) and diag motor pan reverse 17 500 counted back to 0. The console now reads this count when it connects and after every move and compares it with the steps it sent. The device picture and the Sensors line show “firmware count ✓” when the two agree and “firmware count differs ⚠” when they do not. It is the motor driver’s count, not an encoder: it shows that the firmware ran the steps, not that the camera really moved, and the shown position is not changed by it. The command library gains Read motor position (firmware count) and Read USB mode. Not tried on the real AIRIZ yet: the rising motor, and X values below the smallest one in the firmware help (17 for pan, 30 for rising).": "已對實際的 AIRIZ（韌體 0.0.0.3）送出水平轉動指令。韌體自己會記錄水平與升降馬達的步數，diag motor info 會連同 Idle 或 Busy 一起顯示：diag motor pan forward 17 500 約 9 秒數到 500（每步約 18 毫秒），diag motor pan reverse 17 500 又數回 0。主控台現在會在連線時與每次移動後讀取這個計數，並和自己送出的步數比較。兩者相符時，裝置圖與「感測器」列顯示「韌體計數 ✓」；不相符時顯示「韌體計數不符 ⚠」。這是馬達驅動程式的計數，不是編碼器：它表示韌體執行了這些步數，不代表相機真的動了，顯示的位置也不會因它而改變。指令庫新增「讀取馬達位置（韌體計數）」與「讀取 USB 模式」。尚未在實際的 AIRIZ 上試過：升降馬達，以及小於韌體說明中最小值的 X（水平 17、升降 30）。",
     "USB mode commands checked on a real AIRIZ (1.11.31)": "USB 模式指令已在實際的 AIRIZ 上確認（1.11.31）",
     "The USB mode commands were tried on a real AIRIZ (firmware 0.0.0.3). The device takes the word right after “set” as the mode, so diag usbmode set to cdc stored the mode “to” instead of cdc. USB mode → CDC (serial) now sends diag usbmode set cdc, and USB mode → ETH (Ethernet) sends diag usbmode set eth; UVC is unchanged. CDC and UVC switch correctly: the AIRIZ restarts and is back in about 15 seconds, and its COM port number can change (on the test PC: COM4 with the camera, COM3 with serial only). Firmware 0.0.0.3 has no ETH mode: after set eth it comes back with the serial console only. The serial console stays in every mode, and diag usbmode get shows the current mode.": "USB 模式指令已在實際的 AIRIZ（韌體 0.0.0.3）上試過。裝置會把「set」後面的第一個字當成模式，所以 diag usbmode set to cdc 記下的模式是「to」而不是 cdc。USB 模式 → CDC（序列）現在送出 diag usbmode set cdc，USB 模式 → ETH（乙太網路）送出 diag usbmode set eth；UVC 不變。CDC 與 UVC 可以正確切換：AIRIZ 會重新啟動，約 15 秒後回來，COM 連接埠編號可能改變（測試電腦上：有相機時為 COM4，只有序列時為 COM3）。韌體 0.0.0.3 沒有 ETH 模式：執行 set eth 後只會回到序列主控台。每個模式都保留序列主控台，diag usbmode get 會顯示目前的模式。",
     "Position feedback on the device picture (1.11.30)": "裝置圖上的位置回饋（1.11.30）",
@@ -1621,7 +1623,19 @@
     "Ziris unit in 3D. It shows the position counted from the pan and rising commands, checked by the bottom switch and the camera picture": "Ziris 機台 3D 模型。顯示依水平與升降指令計數的位置，並由底部開關與相機畫面確認",
     "Counted from the commands sent and checked by the sensors: the bottom switch after every rising move, the camera picture during every pan move while the preview is on.": "依已送出的指令計數，並由感測器確認：每次升降後讀取底部開關，預覽開啟時每次水平轉動都觀察相機畫面。",
     "The numbers on the device picture show the position counted from the commands, checked by two sensors: the bottom switch (height) and the camera picture (pan). The motors have no encoder, so a sensor can confirm or contradict the count but cannot measure every position.": "裝置圖上的數字顯示依指令計數的位置，並由兩個感測器確認：底部開關（高度）與相機畫面（水平）。馬達沒有編碼器，因此感測器只能確認或否定計數結果，無法量測每一個位置。",
-    "The position is counted from the commands. The bottom switch is read after every rising move and the camera picture is watched during every pan move while the preview is on.": "位置依指令計數。每次升降後讀取底部開關，預覽開啟時每次水平轉動都觀察相機畫面。",
+    "The position is counted from the commands. The bottom switch is read after every rising move, the camera picture is watched during every pan move while the preview is on, and the firmware's own step count (diag motor info) is read after every move.": "位置依指令計數。每次升降後讀取底部開關，預覽開啟時每次水平轉動都觀察相機畫面，每次移動後也會讀取韌體自己的步數計數（diag motor info）。",
+    "Firmware count:": "韌體計數：",
+    "not read": "尚未讀取",
+    "firmware count ✓": "韌體計數 ✓",
+    "firmware count differs ⚠": "韌體計數不符 ⚠",
+    "FIRMWARE COUNT DIFFERS": "韌體計數不符",
+    "READ BACK FROM FIRMWARE": "已由韌體讀回",
+    "Read USB mode": "讀取 USB 模式",
+    "Answers `Current usbmode is uvc` (or cdc). Does not reboot. Checked on a real AIRIZ (firmware 0.0.0.3).": "回覆 `Current usbmode is uvc`（或 cdc）。不會重新開機。已在實際的 AIRIZ（韌體 0.0.0.3）上確認。",
+    "Read motor position (firmware count)": "讀取馬達位置（韌體計數）",
+    "Lists Idle / Busy and the firmware's own step count and angle for the pan and the rising motor. The count starts at 0 when the AIRIZ boots. Checked on a real AIRIZ (firmware 0.0.0.3).": "列出 Idle / Busy，以及韌體自己對水平與升降馬達的步數計數與角度。AIRIZ 開機時計數從 0 開始。已在實際的 AIRIZ（韌體 0.0.0.3）上確認。",
+    "Checked on a real AIRIZ (firmware 0.0.0.3): the firmware help calls X the period, `forward [period:17~] [step:0~]`. `diag motor pan forward 17 500` took about 9 s (about 18 ms per step) and `diag motor info` then showed pan step 500, angle 46.": "已在實際的 AIRIZ（韌體 0.0.0.3）上確認：韌體說明把 X 稱為週期（period），`forward [period:17~] [step:0~]`。`diag motor pan forward 17 500` 約花 9 秒（每步約 18 毫秒），之後 `diag motor info` 顯示水平步數 500、角度 46。",
+    "Firmware 0.0.0.3 help calls X the period: `forward [period:30~] [step:0~]`. Not run on the real AIRIZ yet.": "韌體 0.0.0.3 的說明把 X 稱為週期（period）：`forward [period:30~] [step:0~]`。尚未在實際的 AIRIZ 上執行。",
     "POSITION FEEDBACK": "位置回饋",
     "SENSOR CHECKED": "感測器已確認",
     "HEIGHT CHECKED BY SWITCH": "高度已由開關確認",
@@ -1932,6 +1946,18 @@
     [
       "^([+-]?\\d+) steps \\(([\\d.]+) turns\\)$",
       "$1 步（$2 圈）"
+    ],
+    [
+      "^pan (-?\\d+), rising (-?\\d+) steps$",
+      "水平 $1、升降 $2 步"
+    ],
+    [
+      "^The firmware counted (-?\\d+) pan steps where (-?\\d+) were sent\\. The shown position may be off: check the camera, then Set home again\\.$",
+      "韌體計數的水平步數為 $1，但送出的是 $2。顯示的位置可能有偏差：請檢查相機，再重新設定原點。"
+    ],
+    [
+      "^The firmware counted (-?\\d+) rising steps where (-?\\d+) were sent\\. The shown position may be off: check the camera, then Set home again\\.$",
+      "韌體計數的升降步數為 $1，但送出的是 $2。顯示的位置可能有偏差：請檢查相機，再重新設定原點。"
     ],
     [
       "^([+-]?\\d+) steps$",

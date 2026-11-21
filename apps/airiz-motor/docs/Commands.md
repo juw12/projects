@@ -55,6 +55,10 @@ Switch the USB gadget mode. The device reboots automatically.
 
 > ⚠ Destructive — the device reboots.
 
+**`diag usbmode get`** — Read USB mode
+
+> Answers `Current usbmode is uvc` (or cdc). Does not reboot. Checked on a real AIRIZ (firmware 0.0.0.3).
+
 ## Wireless
 
 ### WiFi Connection — NXP IW612
@@ -288,12 +292,18 @@ Pan motor. X = speed/strength (1–17, smaller = slower & stronger), Y = steps (
 | `x` | int | 1 – 17 | `2` | 1 – 17 (smaller = slower & more powerful) |
 | `y` | int | 1 – 99999 | `2` |  |
 
+> Checked on a real AIRIZ (firmware 0.0.0.3): the firmware help calls X the period, `forward [period:17~] [step:0~]`. `diag motor pan forward 17 500` took about 9 s (about 18 ms per step) and `diag motor info` then showed pan step 500, angle 46.
+
 **`diag motor pan reverse {x} {y}`** — Pan reverse
 
 | Param | Type | Range / options | Default | Hint |
 | --- | --- | --- | --- | --- |
 | `x` | int | 1 – 17 | `2` | 1 – 17 (smaller = slower & more powerful) |
 | `y` | int | 1 – 99999 | `2` |  |
+
+**`diag motor info`** — Read motor position (firmware count)
+
+> Lists Idle / Busy and the firmware's own step count and angle for the pan and the rising motor. The count starts at 0 when the AIRIZ boots. Checked on a real AIRIZ (firmware 0.0.0.3).
 
 ### Motor Driver (Rising) — AWD8833
 
@@ -305,6 +315,8 @@ Rising (tilt) motor. X = speed/strength (1–30, smaller = slower & stronger), Y
 | --- | --- | --- | --- | --- |
 | `x` | int | 1 – 30 | `3` | 1 – 30 (smaller = slower & more powerful) |
 | `y` | int | 1 – 99999 | `950` |  |
+
+> Firmware 0.0.0.3 help calls X the period: `forward [period:30~] [step:0~]`. Not run on the real AIRIZ yet.
 
 **`diag motor rising reverse {x} {y}`** — Rising reverse (down)
 

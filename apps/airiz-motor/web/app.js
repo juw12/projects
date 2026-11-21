@@ -891,7 +891,8 @@
     }
   }
 
-  const demoDevice = { pan: 0, rising: 0 };
+  // count: the firmware's own step count ("diag motor info"), which starts at 0 when the AIRIZ boots.
+  const demoDevice = { pan: 0, rising: 0, count: { pan: 0, rising: 0 } };
   const DEMO_RISING_TRAVEL = 1100;
 
   function simulateDemoResponse(command) {
@@ -926,7 +927,9 @@
     const demoMove = /^diag\s+motor\s+(pan|rising)\s+(forward|reverse)\s+\d+\s+(\d+)$/i.exec(String(command).trim());
     if (demoMove) {
       const demoAxis = demoMove[1].toLowerCase();
-      demoDevice[demoAxis] += (demoMove[2].toLowerCase() === 'forward' ? 1 : -1) * Number(demoMove[3]);
+      const demoSteps = (demoMove[2].toLowerCase() === 'forward' ? 1 : -1) * Number(demoMove[3]);
+      demoDevice[demoAxis] += demoSteps;
+      demoDevice.count[demoAxis] += demoSteps;
       // Like the real mechanism: the rising camera stops at the bottom switch and at full travel.
       if (demoAxis === 'rising') demoDevice.rising = Math.min(DEMO_RISING_TRAVEL, Math.max(0, demoDevice.rising));
     }
@@ -935,8 +938,18 @@
       response = 'pegaDiag_BleOn\r\nController 00:1A:7D:DA:71:13 AIRIZ-DEMO [default]\r\n\tPowered: yes\r\n#INFO#0#END#\r\n';
     }
     if (/^diag\s+button\s+get\s+rising-det$/i.test(String(command).trim())) {
-      // Simulated detect switch, answered like the firmware ("Pressed" when fully down).
-      response = '#INFO#0:' + (demoDevice.rising <= 0 ? 'Pressed' : 'Released') + '#END#\r\n';
+      // Simulated detect switch, answered like the firmware ("Pressed" when fully down; a real
+      // AIRIZ with firmware 0.0.0.3 answers "Not Pressed" above the bottom).
+      response = '#INFO#0:' + (demoDevice.rising <= 0 ? 'Pressed' : 'Not Pressed') + '#END#\r\n';
+    }
+    if (/^diag\s+motor\s+info$/i.test(String(command).trim())) {
+      // The firmware's own step count, in the words of a real AIRIZ (firmware 0.0.0.3).
+      const rule = '================================================\r\n';
+      response = rule + '[module] List all motor property.\r\n#.Motor\t\t: Pan\r\n#.Status\t: Idle\r\n#.Direction \t: Forward\r\n' + rule
+        + '#.Pan motor current step\t: ' + demoDevice.count.pan + '\r\n'
+        + '#.Rising motor current step\t: ' + demoDevice.count.rising + '\r\n'
+        + '#.Pan motor current angle\t: ' + Math.trunc(demoDevice.count.pan * 0.0923) + '\r\n'
+        + '#.Rising motor current angle\t: 0\r\n' + rule + '#INFO#0#END#\r\n';
     }
     if (/^diag\s+als\s+value$/i.test(String(command).trim())) {
       const override = Number(localStorage.getItem('airiz.demo.lux'));

@@ -46,7 +46,10 @@ window.AIRIZ_COMMANDS = {
           note: "System auto-reboots. Restores the diagnostic serial console." },
         { id: "usb-eth", label: "USB mode → ETH (Ethernet)", cmd: "diag usbmode set eth",
           destructive: true,
-          note: "System auto-reboots. Firmware 0.0.0.3 has no ETH mode yet: the AIRIZ stores `eth` but comes back with the serial console only (checked on a real unit). To change again, run `diag usbmode set uvc` or `diag usbmode set cdc`." }
+          note: "System auto-reboots. Firmware 0.0.0.3 has no ETH mode yet: the AIRIZ stores `eth` but comes back with the serial console only (checked on a real unit). To change again, run `diag usbmode set uvc` or `diag usbmode set cdc`." },
+        { id: "usb-get", label: "Read USB mode", cmd: "diag usbmode get",
+          expect: "Current usbmode is",
+          note: "Answers `Current usbmode is uvc` (or cdc). Does not reboot. Checked on a real AIRIZ (firmware 0.0.0.3)." }
       ]
     },
 
@@ -266,6 +269,7 @@ window.AIRIZ_COMMANDS = {
       desc: "Pan motor. X = speed/strength (1–17, smaller = slower & stronger), Y = steps (1–99999).",
       commands: [
         { id: "pan-fwd", label: "Pan forward", cmd: "diag motor pan forward {x} {y}",
+          note: "Checked on a real AIRIZ (firmware 0.0.0.3): the firmware help calls X the period, `forward [period:17~] [step:0~]`. `diag motor pan forward 17 500` took about 9 s (about 18 ms per step) and `diag motor info` then showed pan step 500, angle 46.",
           params: [
             { key: "x", label: "X (speed)", type: "int", default: 2, min: 1, max: 17, hint: "1 – 17 (smaller = slower & more powerful)" },
             { key: "y", label: "Y (steps)", type: "int", default: 2, min: 1, max: 99999 }
@@ -274,7 +278,10 @@ window.AIRIZ_COMMANDS = {
           params: [
             { key: "x", label: "X (speed)", type: "int", default: 2, min: 1, max: 17, hint: "1 – 17 (smaller = slower & more powerful)" },
             { key: "y", label: "Y (steps)", type: "int", default: 2, min: 1, max: 99999 }
-          ] }
+          ] },
+        { id: "motor-info", label: "Read motor position (firmware count)", cmd: "diag motor info",
+          expect: "#INFO#",
+          note: "Lists Idle / Busy and the firmware's own step count and angle for the pan and the rising motor. The count starts at 0 when the AIRIZ boots. Checked on a real AIRIZ (firmware 0.0.0.3)." }
       ]
     },
 
@@ -284,6 +291,7 @@ window.AIRIZ_COMMANDS = {
       desc: "Rising (tilt) motor. X = speed/strength (1–30, smaller = slower & stronger), Y = steps (1–99999).",
       commands: [
         { id: "rising-fwd", label: "Rising forward (up)", cmd: "diag motor rising forward {x} {y}",
+          note: "Firmware 0.0.0.3 help calls X the period: `forward [period:30~] [step:0~]`. Not run on the real AIRIZ yet.",
           params: [
             { key: "x", label: "X (speed)", type: "int", default: 3, min: 1, max: 30, hint: "1 – 30 (smaller = slower & more powerful)" },
             { key: "y", label: "Y (steps)", type: "int", default: 950, min: 1, max: 99999 }

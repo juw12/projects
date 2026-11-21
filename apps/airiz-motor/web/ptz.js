@@ -149,7 +149,16 @@
     risingMoveEnd: 0,    // when the last rising move ends (time model)
     pan: null,           // { verdict, measuredSteps } of the last pan move
     session: null,       // camera watch of the pan move that is running
-    noTurnTold: false    // the "picture did not move" message was shown for this connection
+    noTurnTold: false,   // the "picture did not move" message was shown for this connection
+    // 1.11.32: the firmware's own step count ("diag motor info").
+    firmware: {
+      supported: null,                       // false = this firmware does not answer it
+      last: null,                            // { pan, rising } at the last read
+      sent: { pan: 0, rising: 0 },           // steps sent since that read
+      unsure: { pan: false, rising: false }, // a stop or a lost answer: the sent steps do not count
+      verdict: { pan: null, rising: null },  // 'firmware' | 'firmware-differs'
+      moves: 0                               // counts every motor command
+    }
   };
 
   // ------------------------------------------------------------------ helpers
@@ -335,6 +344,7 @@
       return true;
     } finally {
       findingHome = false;
+      scheduleFirmwareCheck(600);
     }
   }
 
@@ -401,6 +411,9 @@
       newOperation();
       if (scan.running) stopScan('Auto scan stopped (motor stop).');
       feedbackStopped();
+      // The stop cut a move short: how many of its steps ran is not known here.
+      feedback.firmware.unsure.pan = feedback.firmware.unsure.rising = true;
+      scheduleFirmwareCheck(900);
     }
     // (Not while lowering to the bottom switch: the counted height is wrong then, the
     // search reports by itself.)
@@ -417,6 +430,17 @@
       scheduleBottomCheck(tracker.busyUntil() - Date.now() + 400);
     }
     if (result.type === 'move' && result.move.axis === 'pan') startPanWatch();
+    if (result.type === 'move') {
+      // 1.11.32: the firmware's own step count is read back when the move is over.
+      const firmware = feedback.firmware;
+      firmware.sent[result.move.axis] += result.move.delta;
+      firmware.verdict[result.move.axis] = null;
+      // A rising move into an end stop (or the search for the bottom switch): whether the
+      // firmware counts the steps it cannot run is not known, so that move is not compared.
+      if (result.move.axis === 'rising' && (result.saturated || findingHome)) firmware.unsure.rising = true;
+      firmware.moves += 1;
+      scheduleFirmwareCheck(tracker.busyUntil() - Date.now() + 500);
+    }
     save();
     renderPosition();
     animatePose();
@@ -1176,6 +1200,98 @@
     return pressed;
   }
 
+  // ------------------------------------------------------------------ firmware count (1.11.32)
+  // Firmware 0.0.0.3 keeps its own step count per motor ("diag motor info", checked on a real
+  // AIRIZ). It is read when the console connects and after every move, and compared with the
+  // steps that were sent: "firmware count" agrees, "firmware count differs" does not. It is the
+  // motor driver's count, not an encoder, and the counted position is not changed by it.
+  function queryMotorInfo() {
+    return new Promise(resolve => {
+      let buffer = '';
+      let done = false;
+      const finish = value => {
+        if (done) return;
+        done = true;
+        clearTimeout(timer);
+        stop();
+        resolve(value);
+      };
+      const stop = api.onOutput(text => {
+        buffer += text;
+        const info = core.parseMotorInfo(buffer);
+        if (info) finish(info);
+      });
+      const timer = setTimeout(() => finish(null), 2500);
+      api.sendCommand('diag motor info', { quiet: true }).then(sent => {
+        if (!sent) finish(null);
+      });
+    });
+  }
+
+  let firmwareTimer = null;
+  function scheduleFirmwareCheck(delayMs, busyReads) {
+    clearTimeout(firmwareTimer);
+    firmwareTimer = setTimeout(() => checkFirmwareCount(busyReads || 0), Math.max(200, delayMs));
+  }
+
+  async function checkFirmwareCount(busyReads) {
+    const firmware = feedback.firmware;
+    if (firmware.supported === false || !connected() || findingHome || api.getStatus().macroRunning) return;
+    // A controller leaves this to the console with the cable.
+    if (viaRemote() && hostShares()) return;
+    if (Date.now() < tracker.busyUntil()) {
+      scheduleFirmwareCheck(tracker.busyUntil() - Date.now() + 500);
+      return;
+    }
+    const moves = firmware.moves;
+    const info = await queryMotorInfo();
+    if (!connected()) return;
+    if (!info) {
+      // No such answer: an older firmware (asked once per connection), or a lost line.
+      if (firmware.supported === null) firmware.supported = false;
+      else firmware.unsure.pan = firmware.unsure.rising = true;
+      return;
+    }
+    firmware.supported = true;
+    if (moves !== firmware.moves) return; // a move started meanwhile: its own check reads again
+    if (info.busy) {
+      // The motor is still stepping (the time model was short): look again, less and less often.
+      scheduleFirmwareCheck(Math.min(2500, 600 + busyReads * 400), busyReads + 1);
+      return;
+    }
+    for (const axis of core.AXES) {
+      if (firmware.last && !firmware.unsure[axis]) {
+        const counted = info[axis] - firmware.last[axis];
+        const verdict = core.judgeFirmwareCount(firmware.sent[axis], counted);
+        if (verdict) firmware.verdict[axis] = verdict;
+        if (verdict === 'firmware-differs') {
+          status('The firmware counted ' + counted + ' ' + axis + ' steps where ' + firmware.sent[axis]
+            + ' were sent. The shown position may be off: check the camera, then Set home again.', true);
+        }
+      } else {
+        firmware.verdict[axis] = null;
+      }
+      firmware.sent[axis] = 0;
+      firmware.unsure[axis] = false;
+    }
+    firmware.last = { pan: info.pan, rising: info.rising };
+    setText('ptz-feedback-firmware', 'pan ' + info.pan + ', rising ' + info.rising + ' steps');
+    renderPose(true);
+  }
+
+  function resetFirmwareCount() {
+    clearTimeout(firmwareTimer);
+    feedback.firmware = {
+      supported: null,
+      last: null,
+      sent: { pan: 0, rising: 0 },
+      unsure: { pan: false, rising: false },
+      verdict: { pan: null, rising: null },
+      moves: 0
+    };
+    setText('ptz-feedback-firmware', 'not read');
+  }
+
   function feedbackStopped() {
     const now = Date.now();
     if (feedback.session) feedback.session.unsure = true;
@@ -1261,13 +1377,15 @@
   function feedbackState(at) {
     const now = at || Date.now();
     const reading = feedback.switchReading;
-    const risingState = core.risingFeedback({
+    const firmware = feedback.firmware.verdict;
+    const risingState = core.withFirmwareCount(core.risingFeedback({
       rising: tracker.position.rising,
       risingRef: tracker.risingRef,
       moving: feedback.risingMoveEnd > now,
       reading: reading ? { pressed: reading.pressed, fresh: reading.at >= feedback.risingMoveEnd } : null
-    });
-    const panState = feedback.session ? 'watching' : feedback.pan ? feedback.pan.verdict : 'counted';
+    }), firmware.rising);
+    const panState = core.withFirmwareCount(
+      feedback.session ? 'watching' : feedback.pan ? feedback.pan.verdict : 'counted', firmware.pan);
     const measuredSteps = feedback.pan && !feedback.session ? feedback.pan.measuredSteps : null;
     const summary = core.feedbackSummary(risingState, panState);
     return {
@@ -1279,7 +1397,8 @@
         measuredDegrees: typeof measuredSteps === 'number' ? measuredSteps / tracker.travel.panPerTurn * 360 : null
       },
       summary,
-      level: summary === 'SENSOR DISAGREES' ? 'warn' : summary === 'COUNTED, NO SENSOR YET' ? 'none' : 'ok'
+      level: summary === 'SENSOR DISAGREES' || summary === 'FIRMWARE COUNT DIFFERS' ? 'warn'
+        : summary === 'COUNTED, NO SENSOR YET' ? 'none' : 'ok'
     };
   }
 
@@ -1294,12 +1413,15 @@
         if (viaRemote() && hostShares()) return;
         readSwitch(true);
       }, 1200);
+      // 1.11.32: where the firmware's own step count stands at the start.
+      scheduleFirmwareCheck(2400);
     }
     if (!isConnected && wasConnected) {
       feedback.switchReading = null;
       feedback.pan = null;
       feedback.session = null;
       feedback.noTurnTold = false;
+      resetFirmwareCount();
       renderPose(true);
     }
     wasConnected = isConnected;
@@ -1345,6 +1467,7 @@
       }
     } finally {
       findingHome = false;
+      scheduleFirmwareCheck(600);
     }
   }
   $('ptz-find-rising-home').addEventListener('click', () => {

@@ -9,7 +9,7 @@ is required to use the installed app or its hardware-free demo.
 ## Downloads
 
 Windows x64 releases are published under the app-specific tag
-`airiz-desktop-v1.11.31` in this repository's Releases section.
+`airiz-desktop-v1.11.32` in this repository's Releases section.
 
 - **Installer**: assisted, per-user installation with Start-menu/desktop shortcuts
   and an uninstaller. The wizard lets the user choose the installation directory.
@@ -163,6 +163,13 @@ reports whether a framed firmware reply came back. Results can be exported.
 No pairing is accepted without confirmation and no motor command is sent.
 Another program on the PC still cannot open COM4 while this app holds it: that is
 a Windows serial-port rule, which is why the check runs inside the app.
+
+## 1.11.32: firmware step count read back
+
+* **What was run.** A real AIRIZ on USB (firmware `diag ver sw` 0.0.0.3, mode `uvc`). Read only first (`diag motor`, `diag motor pan`, `diag motor rising`, `diag motor info`, `diag button get rising-det`), then four pan moves at the firmware's example period: `diag motor pan forward 17 100`, `reverse 17 100`, `forward 17 500`, `reverse 17 500`.
+* **Found.** `diag motor` has `rising`, `pan` and `info` (no stop). The help calls X the period: `forward [period:17~] [step:0~]` for pan and `[period:30~]` for rising. A move answers `pegaDiag_pan_motor_control(3)` and `#INFO#0#END#` at once; the shell stays free and `diag motor info` says `Busy` while the motor steps. `info` lists the firmware's own count: pan step 100 / angle 9 and 500 / angle 46, back to 0 after the reverse moves; 500 steps took about 9 s (about 18 ms per step). `diag button get rising-det` answered `Not Pressed` at rest.
+* **Changed.** `web/ptz-core.js`: `parseMotorInfo`, `judgeFirmwareCount`, `withFirmwareCount` and the labels *firmware count ✓* / *firmware count differs ⚠*. `web/ptz.js` reads `diag motor info` (quiet) on connect, after every move, after a stop and after Find rising home, waits while the firmware says Busy, and compares the count with the steps sent since the last read. A stop, a rising move into an end stop and Find rising home are not compared. A firmware without `diag motor info` is asked once per connection. The counted position is not corrected from the firmware count. Command library: `motor-info` and `usb-get`; notes on `pan-fwd` and `rising-fwd`. The demo device answers `diag motor info` and the switch in the real wording.
+* **Not checked.** The rising motor was not run. X below 17 (pan) / 30 (rising) was not sent, so what firmware 0.0.0.3 does with the console defaults (2 and 3) is open. The firmware angle gives about 0.092 degrees per step, about 3,900 steps per turn, where the console assumes 4,800: not changed, because it was not measured on the mechanism. Real movement of the head was not seen: the AIRIZ camera gave a flat picture. The unit left the USB bus during the test (cause not known), so the remaining checks wait for it.
 
 ## 1.11.31: USB mode commands checked on a real AIRIZ
 

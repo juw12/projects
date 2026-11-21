@@ -241,13 +241,94 @@ test('wiring: the page has the places for the sensor tags and the tracker offers
   assert.match(css, /\.device-3d-caption \{ display: none; \}/);
 });
 
+test('firmware count: the real answer of "diag motor info" is read (AIRIZ firmware 0.0.0.3)', () => {
+  // As captured from a real AIRIZ after "diag motor pan forward 17 500".
+  const rule = '================================================\r\n';
+  const answer = (status, pan, rising) => 'diag motor info\r\n' + rule
+    + '[module] List all motor property.\r\n#.Motor\t\t: Pan\r\n#.Status\t: ' + status + '\r\n#.Direction \t: Forward\r\n' + rule
+    + '#.Pan motor current step\t: ' + pan + '\r\n#.Rising motor current step\t: ' + rising + '\r\n'
+    + '#.Pan motor current angle\t: 46\r\n#.Rising motor current angle\t: 0\r\n' + rule
+    + '\r\n#INFO#0#END#\r\n~ # \r\n~ # \r\n';
+  assert.deepEqual(core.parseMotorInfo(answer('Idle', 500, 0)), { pan: 500, rising: 0, busy: false });
+  assert.deepEqual(core.parseMotorInfo(answer('Busy', 23, 0)), { pan: 23, rising: 0, busy: true });
+  assert.deepEqual(core.parseMotorInfo(answer('Idle', -120, 950)), { pan: -120, rising: 950, busy: false });
+  // Half an answer (the serial text comes in pieces) and other answers are not taken for it.
+  const whole = answer('Idle', 500, 0);
+  assert.equal(core.parseMotorInfo(whole.slice(0, whole.indexOf('Rising motor current step'))), null);
+  const cut = answer('Idle', 500, 950);
+  assert.equal(core.parseMotorInfo(cut.slice(0, cut.indexOf('Rising motor current step') + 30)), null,
+    'a number that may still grow ("95" of 950) is not read');
+  assert.equal(core.parseMotorInfo('#INFO#0:Not Pressed#END#'), null);
+  assert.equal(core.parseMotorInfo('Help info:\r\n rising \t rising motor\r\n pan \t pan motor\r\n'), null);
+  assert.equal(core.parseMotorInfo(''), null);
+  // The same unit answers the bottom switch with "Not Pressed".
+  assert.equal(core.parseSwitchState(core.parseInfo('#INFO#0:Not Pressed#END#')), false);
+});
+
+test('firmware count: agrees or differs with the steps sent, and ranks below a real sensor', () => {
+  assert.equal(core.judgeFirmwareCount(500, 500), 'firmware');
+  assert.equal(core.judgeFirmwareCount(-500, -500), 'firmware');
+  assert.equal(core.judgeFirmwareCount(500, 0), 'firmware-differs');
+  assert.equal(core.judgeFirmwareCount(500, 480), 'firmware-differs');
+  assert.equal(core.judgeFirmwareCount(0, 40), 'firmware-differs');
+  assert.equal(core.judgeFirmwareCount(0, 0), null);
+
+  // No firmware verdict: the sensor state stays as it is.
+  assert.equal(core.withFirmwareCount('counted', null), 'counted');
+  // Counted only: the firmware count is the best there is.
+  assert.equal(core.withFirmwareCount('counted', 'firmware'), 'firmware');
+  assert.equal(core.withFirmwareCount('counted', 'firmware-differs'), 'firmware-differs');
+  // A sensor that agrees stays, unless the firmware count differs.
+  assert.equal(core.withFirmwareCount('switch-up', 'firmware'), 'switch-up');
+  assert.equal(core.withFirmwareCount('ok', 'firmware'), 'ok');
+  assert.equal(core.withFirmwareCount('switch-up', 'firmware-differs'), 'firmware-differs');
+  // A sensor that disagrees, a move that is running and an unknown height come first.
+  for (const state of ['conflict', 'none', 'differs', 'watching', 'moving', 'unknown']) {
+    assert.equal(core.withFirmwareCount(state, 'firmware'), state, state);
+    assert.equal(core.withFirmwareCount(state, 'firmware-differs'), state, state);
+  }
+
+  assert.equal(core.feedbackLevel('firmware'), 'ok');
+  assert.equal(core.feedbackLevel('firmware-differs'), 'warn');
+  assert.equal(core.feedbackSummary('counted', 'firmware'), 'READ BACK FROM FIRMWARE');
+  assert.equal(core.feedbackSummary('firmware', 'counted'), 'READ BACK FROM FIRMWARE');
+  assert.equal(core.feedbackSummary('switch-up', 'firmware'), 'HEIGHT CHECKED BY SWITCH');
+  assert.equal(core.feedbackSummary('firmware', 'ok'), 'PAN CHECKED BY CAMERA');
+  assert.equal(core.feedbackSummary('switch-up', 'firmware-differs'), 'FIRMWARE COUNT DIFFERS');
+  assert.equal(core.feedbackSummary('conflict', 'firmware-differs'), 'SENSOR DISAGREES');
+  assert.equal(core.feedbackSummary('counted', 'counted'), 'COUNTED, NO SENSOR YET');
+});
+
+test('firmware count: the page reads it after every move and the demo device answers like the firmware', () => {
+  const html = fs.readFileSync(path.join(WEB, 'index.html'), 'utf8');
+  assert.match(html, /id="ptz-feedback-firmware"/);
+  const ptz = fs.readFileSync(path.join(WEB, 'ptz.js'), 'utf8');
+  assert.match(ptz, /api\.sendCommand\('diag motor info', \{ quiet: true \}\)/);
+  assert.match(ptz, /firmware\.sent\[result\.move\.axis\] \+= result\.move\.delta;/);
+  assert.match(ptz, /scheduleFirmwareCheck\(tracker\.busyUntil\(\) - Date\.now\(\) \+ 500\)/);
+  // A stop, an end stop and the search for the bottom switch are not compared.
+  assert.match(ptz, /feedback\.firmware\.unsure\.pan = feedback\.firmware\.unsure\.rising = true;/);
+  assert.match(ptz, /\(result\.saturated \|\| findingHome\)\) firmware\.unsure\.rising = true;/);
+  // Reporting only: the counted position is never set from the firmware count.
+  const check = ptz.slice(ptz.indexOf('async function checkFirmwareCount('), ptz.indexOf('function resetFirmwareCount('));
+  assert.ok(check.length > 500);
+  assert.doesNotMatch(check, /tracker\.(position|set|apply|reset)/);
+  const app = fs.readFileSync(path.join(WEB, 'app.js'), 'utf8');
+  assert.match(app, /\^diag\\s\+motor\\s\+info\$/);
+  assert.match(app, /'#\.Pan motor current step\\t: ' \+ demoDevice\.count\.pan/);
+  const commands = fs.readFileSync(path.join(WEB, 'data', 'commands.js'), 'utf8');
+  assert.match(commands, /id: "motor-info", label: "Read motor position \(firmware count\)", cmd: "diag motor info"/);
+  assert.match(commands, /id: "usb-get", label: "Read USB mode", cmd: "diag usbmode get"/);
+});
+
 test('every sensor label and summary has a Traditional Chinese text', () => {
   const catalog = JSON.parse(fs.readFileSync(path.join(__dirname, '..', '..', 'i18n', 'zh-TW.json'), 'utf8'));
   const labels = [
     ...Object.values(core.RISING_FEEDBACK_LABEL),
     ...Object.values(core.PAN_FEEDBACK_LABEL),
     'SENSOR CHECKED', 'HEIGHT CHECKED BY SWITCH', 'PAN CHECKED BY CAMERA', 'SENSOR DISAGREES', 'COUNTED, NO SENSOR YET',
-    'POSITION FEEDBACK', 'Sensors', 'Height:', 'Pan:'
+    'POSITION FEEDBACK', 'Sensors', 'Height:', 'Pan:',
+    'FIRMWARE COUNT DIFFERS', 'READ BACK FROM FIRMWARE', 'Firmware count:', 'not read'
   ];
   for (const label of labels) assert.ok(catalog.text[label], label);
 });
