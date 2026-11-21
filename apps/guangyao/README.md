@@ -66,6 +66,12 @@ One responsive app for desktop and phones: an **Android app** (APK below), iPhon
 | Guest | **Continue as guest** | Everything stays on this device. Nothing is sent to Puter. Offline tutor only. Can sign in later; local progress is merged. |
 | Admin | `admin.html` with a GitHub token | Upload handouts, add lessons (text, YouTube, quiz, cards), events and an announcement. Learners see changes within about five minutes. |
 
+## Computer apps
+
+- **Windows:** [`GuangYao-Windows-Setup.exe`](https://github.com/juw12/projects/releases/download/guangyao-desktop/GuangYao-Windows-Setup.exe) (no admin needed; if Windows says it protected your PC, choose *More info → Run anyway*), or without installing [`GuangYao-Windows-Portable.zip`](https://github.com/juw12/projects/releases/download/guangyao-desktop/GuangYao-Windows-Portable.zip).
+- **Mac:** [`GuangYao-macOS-AppleSilicon.dmg`](https://github.com/juw12/projects/releases/download/guangyao-desktop/GuangYao-macOS-AppleSilicon.dmg) (M1 and newer) or [`GuangYao-macOS-Intel.dmg`](https://github.com/juw12/projects/releases/download/guangyao-desktop/GuangYao-macOS-Intel.dmg). The first time, macOS blocks it because it is not notarized: **System Settings → Privacy & Security → Open Anyway**.
+- Both are the site in its own window ([`desktop/`](desktop/README.md)) and update with the site. Each build is opened on its own system before it is published (the page loads, the app starts, it can store data). Guest mode keeps everything on the computer. Not checked in those windows: signing in with Puter, which opens a window of its own.
+
 ## Phone apps (4.2)
 
 - **Android:** <https://github.com/juw12/projects/releases/download/guangyao-android/GuangYao-android.apk> — open it on the phone and allow installing from the browser. A Capacitor shell around the live site, so content and fixes arrive without reinstalling.
