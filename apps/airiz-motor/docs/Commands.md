@@ -316,7 +316,7 @@ Rising (tilt) motor. X = speed/strength (1–30, smaller = slower & stronger), Y
 | `x` | int | 1 – 30 | `3` | 1 – 30 (smaller = slower & more powerful) |
 | `y` | int | 1 – 99999 | `950` |  |
 
-> Firmware 0.0.0.3 help calls X the period: `forward [period:30~] [step:0~]`. Not run on the real AIRIZ yet.
+> Checked on a real AIRIZ (firmware 0.0.0.3): the firmware help calls X the period, `forward [period:30~] [step:0~]`. `diag motor rising forward 30 300` took 9.0 s (30 ms per step) and forward is up: the camera picture came out of the housing. On that unit `diag button get rising-det` answered `0:Not Pressed` at every height.
 
 **`diag motor rising reverse {x} {y}`** — Rising reverse (down)
 

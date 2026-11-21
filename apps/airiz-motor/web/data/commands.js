@@ -291,7 +291,7 @@ window.AIRIZ_COMMANDS = {
       desc: "Rising (tilt) motor. X = speed/strength (1–30, smaller = slower & stronger), Y = steps (1–99999).",
       commands: [
         { id: "rising-fwd", label: "Rising forward (up)", cmd: "diag motor rising forward {x} {y}",
-          note: "Firmware 0.0.0.3 help calls X the period: `forward [period:30~] [step:0~]`. Not run on the real AIRIZ yet.",
+          note: "Checked on a real AIRIZ (firmware 0.0.0.3): the firmware help calls X the period, `forward [period:30~] [step:0~]`. `diag motor rising forward 30 300` took 9.0 s (30 ms per step) and forward is up: the camera picture came out of the housing. On that unit `diag button get rising-det` answered `0:Not Pressed` at every height.",
           params: [
             { key: "x", label: "X (speed)", type: "int", default: 3, min: 1, max: 30, hint: "1 – 30 (smaller = slower & more powerful)" },
             { key: "y", label: "Y (steps)", type: "int", default: 950, min: 1, max: 99999 }

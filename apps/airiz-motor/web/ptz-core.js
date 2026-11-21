@@ -58,9 +58,38 @@
   // ------------------------------------------------------------------ timing model
   // "Smaller speed = slower & stronger" (firmware note), so the time per step is modelled
   // as k / speed. k per axis comes from a measured move (Calibration) or the defaults.
+  // 1.11.33: a step time that the firmware itself reported for this motor at this X
+  // (timing.measured[axis][X], learned while a move was followed) comes before the model.
   const DEFAULT_TIMING = { pan: 40, rising: 12 };
+  // Step times seen on a real AIRIZ (firmware 0.0.0.3, 1.11.33): pan at X = 17 took 17.0 ms per
+  // step and rising at X = 30 took 30.0 ms per step (the firmware help calls X the period).
+  // Other X were not run on the real unit and stay on the model.
+  const REAL_STEP_MS = { pan: { 17: 17 }, rising: { 30: 30 } };
+
+  // The real step times for every axis that still has the default model (an axis that was
+  // timed by hand keeps its own number).
+  function seedStepTimes(timing) {
+    const seeds = {};
+    for (const axis of AXES) {
+      const k = timing && Number(timing[axis]);
+      if (!k || k === DEFAULT_TIMING[axis]) seeds[axis] = { ...REAL_STEP_MS[axis] };
+    }
+    return seeds;
+  }
+
+  function defaultTiming() {
+    return { ...DEFAULT_TIMING, measured: seedStepTimes(DEFAULT_TIMING) };
+  }
+
+  function measuredStepMs(axis, speed, timing) {
+    const measured = timing && timing.measured && timing.measured[axis];
+    const value = measured ? Number(measured[Math.round(Number(speed) || 0)]) : 0;
+    return value > 0 ? value : null;
+  }
 
   function msPerStep(axis, speed, timing) {
+    const known = measuredStepMs(axis, speed, timing);
+    if (known) return known;
     const k = (timing && Number(timing[axis])) || DEFAULT_TIMING[axis];
     return k / Math.max(1, Number(speed) || 1);
   }
@@ -86,6 +115,14 @@
   // 1100 rising steps: test_motor3 (1100).ttl full up/down cycle. 4800 pan steps per turn: to be
   // confirmed on the device (the bring-up test in 指令.txt pans 8500 steps, i.e. ~1.8 turns).
   const DEFAULT_TRAVEL = { risingMax: 1100, panPerTurn: 4800 };
+
+  // Finding the bottom lowers the camera until the switch is pressed. More than the full travel
+  // (plus a margin for a wrong count) cannot be needed: after that the camera is on the bottom
+  // stop and the switch is what does not answer (seen on a real AIRIZ, 1.11.33).
+  const FIND_HOME_MARGIN = 100;
+  function findHomeLimit(travel) {
+    return normalizeTravel(travel).risingMax + FIND_HOME_MARGIN;
+  }
 
   function normalizeTravel(travel) {
     const source = travel && typeof travel === 'object' ? travel : {};
@@ -198,6 +235,7 @@
           from,
           rawDelta: move.delta,
           startedAt: now,
+          sentAt: now,
           expectedMs: estimateMoveMs(move.axis, move.steps, move.speed, timing)
         };
         return { type: 'move', move, from, to, saturated: to !== from + move.delta };
@@ -242,6 +280,42 @@
 
     function busyUntil() {
       return state.pending ? state.pending.startedAt + state.pending.expectedMs : 0;
+    }
+
+    // 1.11.33: the firmware says how many steps of the running move are done ("diag motor info"
+    // answers Busy and the current step while the motor runs). The move is timed again from
+    // that: its start is placed so that `stepsDone` fits `now`, and its end follows from the
+    // step time. The step time comes from two readings when there are two (the motor starts a
+    // moment after the command), else from `knownMsPerStep` (measured earlier at this X), else
+    // from the time since the command. Only the timing changes, never the counted position.
+    function followPending(now, stepsDone, knownMsPerStep) {
+      const pending = state.pending;
+      const total = pending ? Math.abs(pending.rawDelta) : 0;
+      const done = Math.round(Number(stepsDone));
+      if (!pending || !(done > 0) || !(done < total)) return null;
+      const seen = pending.seen;
+      const sinceCommand = (now - (pending.sentAt || pending.startedAt)) / done;
+      let rate;
+      if (seen) {
+        if (!(done > seen.steps) || !(now > seen.at)) return null; // no progress since the last reading
+        rate = (now - seen.at) / (done - seen.steps);
+      } else {
+        rate = knownMsPerStep > 0 && knownMsPerStep <= sinceCommand ? Number(knownMsPerStep) : sinceCommand;
+      }
+      if (!(rate > 0)) return null;
+      pending.startedAt = now - done * rate;
+      pending.expectedMs = total * rate;
+      pending.seen = { at: now, steps: done };
+      return { msPerStep: rate, readings: seen ? 2 : 1 };
+    }
+
+    // The firmware says Idle and counted every step: the move is over now, even when the time
+    // model still runs.
+    function finishPending(now) {
+      const pending = state.pending;
+      if (!pending) return false;
+      if (now < pending.startedAt + pending.expectedMs) pending.expectedMs = Math.max(0, now - pending.startedAt);
+      return true;
     }
 
     // Home = pan zero here. The rising height stays absolute (from the bottom switch) when it
@@ -398,6 +472,8 @@
       clampDelta,
       applyCommand,
       busyUntil,
+      followPending,
+      finishPending,
       livePosition,
       setHome,
       setAxisZero,
@@ -993,6 +1069,10 @@
     AXES,
     SPEED_RANGE,
     DEFAULT_TIMING,
+    REAL_STEP_MS,
+    defaultTiming,
+    seedStepTimes,
+    findHomeLimit,
     DEFAULT_CALIBRATION,
     DEFAULT_TRAVEL,
     normalizeTravel,
@@ -1001,6 +1081,7 @@
     parseMotorCommand,
     isStopCommand,
     motorCommand,
+    measuredStepMs,
     msPerStep,
     estimateMoveMs,
     timingFromMeasurement,

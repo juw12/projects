@@ -48,7 +48,7 @@
     tracker: null,
     presets: [],
     calibration: { ...core.DEFAULT_CALIBRATION },
-    timing: { ...core.DEFAULT_TIMING },
+    timing: core.defaultTiming(),
     travel: { ...core.DEFAULT_TRAVEL },
     speeds: { pan: 2, rising: 3 },
     zones: [],
@@ -78,11 +78,14 @@
   function loadStore() {
     try {
       const stored = JSON.parse(localStorage.getItem(STORE_KEY) || '{}');
+      const timing = { ...defaults.timing, ...(stored.timing || {}) };
+      // 1.11.33: a store from before knows no real step times yet.
+      if (!(stored.timing && stored.timing.measured)) timing.measured = core.seedStepTimes(timing);
       return {
         ...defaults,
         ...stored,
         calibration: { ...defaults.calibration, ...(stored.calibration || {}) },
-        timing: { ...defaults.timing, ...(stored.timing || {}) },
+        timing,
         travel: core.normalizeTravel(stored.travel),
         speeds: { ...defaults.speeds, ...(stored.speeds || {}) },
         detect: { ...defaults.detect, ...(stored.detect || {}) },
@@ -157,9 +160,29 @@
       sent: { pan: 0, rising: 0 },           // steps sent since that read
       unsure: { pan: false, rising: false }, // a stop or a lost answer: the sent steps do not count
       verdict: { pan: null, rising: null },  // 'firmware' | 'firmware-differs'
-      moves: 0                               // counts every motor command
+      moves: 0,                              // counts every motor command
+      // 1.11.33: the move that is followed while the firmware says Busy.
+      follow: null,                          // { axis, target, steps, sign, speed, readings }
+      lastMoveAt: 0,                         // when the last motor command was sent
+      settleBy: 0                            // until then a followed move counts as running
     }
   };
+
+  // 1.11.33: a real AIRIZ starts stepping about half a second after the command and answers
+  // "diag motor info" while it steps (seen on firmware 0.0.0.3 at 0.86 s), so the first look
+  // comes after that, the second soon after it (two readings give the step time) and the next
+  // ones while the firmware says Busy. An "Idle" earlier than FOLLOW_GRACE_MS after the command
+  // is only believed when every step is counted.
+  const FOLLOW_FIRST_MS = 700;
+  const FOLLOW_SECOND_MS = 450;
+  const FOLLOW_NEXT_MS = 800;
+  const FOLLOW_GRACE_MS = 1500;
+
+  // When the camera stops moving: the timed end of the move, or later while a followed move
+  // has not been reported finished by the firmware.
+  function motionEnd() {
+    return Math.max(tracker.busyUntil(), feedback.firmware.settleBy);
+  }
 
   // ------------------------------------------------------------------ helpers
 
@@ -282,11 +305,12 @@
     return operation;
   }
 
+  // 1.11.33: the end is read again on every turn, because a move that the firmware reports as
+  // still running is made longer while it is followed.
   async function waitIdle(token) {
-    const until = tracker.busyUntil();
-    while (Date.now() < until) {
+    while (Date.now() < motionEnd()) {
       if (token !== operation) return false;
-      await sleep(Math.min(120, until - Date.now()));
+      await sleep(Math.max(10, Math.min(120, motionEnd() - Date.now())));
     }
     return token === operation;
   }
@@ -338,7 +362,7 @@
       const pressed = await readSwitch(true);
       if (pressed !== false) return true;
       status('Not fully down yet: lowering until the bottom switch is pressed\u2026', false, from);
-      const moved = await findRisingHome(newOperation(), 60, 1800, from);
+      const moved = await findRisingHome(newOperation(), 60, core.findHomeLimit(tracker.travel), from);
       if (moved === null) return false;
       status('At home: lowered ' + moved + ' more steps until the bottom switch was pressed.', false, from);
       return true;
@@ -404,6 +428,7 @@
   }
 
   api.onCommandSent(line => {
+    const wasMoving = Date.now() < motionEnd();
     const result = tracker.applyCommand(line, Date.now(), store.timing);
     if (!result) return;
     if (result.type === 'stop') {
@@ -413,6 +438,8 @@
       feedbackStopped();
       // The stop cut a move short: how many of its steps ran is not known here.
       feedback.firmware.unsure.pan = feedback.firmware.unsure.rising = true;
+      feedback.firmware.follow = null;
+      feedback.firmware.settleBy = 0;
       scheduleFirmwareCheck(900);
     }
     // (Not while lowering to the bottom switch: the counted height is wrong then, the
@@ -433,13 +460,33 @@
     if (result.type === 'move') {
       // 1.11.32: the firmware's own step count is read back when the move is over.
       const firmware = feedback.firmware;
-      firmware.sent[result.move.axis] += result.move.delta;
-      firmware.verdict[result.move.axis] = null;
+      const axis = result.move.axis;
+      firmware.sent[axis] += result.move.delta;
+      firmware.verdict[axis] = null;
       // A rising move into an end stop (or the search for the bottom switch): whether the
       // firmware counts the steps it cannot run is not known, so that move is not compared.
-      if (result.move.axis === 'rising' && (result.saturated || findingHome)) firmware.unsure.rising = true;
+      if (axis === 'rising' && (result.saturated || findingHome)) firmware.unsure.rising = true;
       firmware.moves += 1;
-      scheduleFirmwareCheck(tracker.busyUntil() - Date.now() + 500);
+      firmware.lastMoveAt = Date.now();
+      // 1.11.33: the move is followed while it runs when the count before it is known: this
+      // console holds the cable, the firmware answered before, nothing else was moving and
+      // no stop or end stop made the count unsure.
+      const followable = firmware.supported === true && !!firmware.last && !firmware.unsure[axis] && !wasMoving
+        && !findingHome && !api.getStatus().macroRunning && !(viaRemote() && hostShares());
+      firmware.follow = followable
+        ? {
+          axis,
+          target: firmware.last[axis] + firmware.sent[axis],
+          steps: result.move.steps,
+          sign: result.move.direction,
+          speed: result.move.speed,
+          readings: []
+        }
+        : null;
+      firmware.settleBy = followable ? firmware.lastMoveAt + FOLLOW_GRACE_MS : 0;
+      scheduleFirmwareCheck(followable
+        ? FOLLOW_FIRST_MS
+        : Math.max(tracker.busyUntil() - Date.now() + 500, firmware.supported === true ? FOLLOW_GRACE_MS : 0));
     }
     save();
     renderPosition();
@@ -1141,7 +1188,8 @@
       renderPosition();
     } else if (!pressed && tracker.risingRef && tracker.position.rising <= 0 && Date.now() >= tracker.busyUntil()) {
       tracker.markUncertain();
-      status('The bottom switch is not pressed although the camera should be fully down: height estimated.', true);
+      // (Not while lowering to the bottom switch: that search reports by itself.)
+      if (!findingHome) status('The bottom switch is not pressed although the camera should be fully down: height estimated.', true);
       save();
       renderPosition();
     }
@@ -1158,8 +1206,8 @@
       if (findingHome || !connected() || api.getStatus().macroRunning) return;
       // A controller leaves this to the console with the cable, which shares the result.
       if (viaRemote() && hostShares()) return;
-      if (Date.now() < tracker.busyUntil()) {
-        scheduleBottomCheck(tracker.busyUntil() - Date.now() + 400);
+      if (Date.now() < motionEnd()) {
+        scheduleBottomCheck(motionEnd() - Date.now() + 400);
         return;
       }
       if (tracker.risingRef && tracker.position.rising === 0) readSwitch(true);
@@ -1239,7 +1287,8 @@
     if (firmware.supported === false || !connected() || findingHome || api.getStatus().macroRunning) return;
     // A controller leaves this to the console with the cable.
     if (viaRemote() && hostShares()) return;
-    if (Date.now() < tracker.busyUntil()) {
+    // A move that is not followed is read when the time model says it is over.
+    if (!firmware.follow && Date.now() < tracker.busyUntil()) {
       scheduleFirmwareCheck(tracker.busyUntil() - Date.now() + 500);
       return;
     }
@@ -1250,15 +1299,46 @@
       // No such answer: an older firmware (asked once per connection), or a lost line.
       if (firmware.supported === null) firmware.supported = false;
       else firmware.unsure.pan = firmware.unsure.rising = true;
+      firmware.follow = null;
+      firmware.settleBy = 0;
       return;
     }
     firmware.supported = true;
     if (moves !== firmware.moves) return; // a move started meanwhile: its own check reads again
+    const now = Date.now();
+    const follow = firmware.follow;
     if (info.busy) {
-      // The motor is still stepping (the time model was short): look again, less and less often.
-      scheduleFirmwareCheck(Math.min(2500, 600 + busyReads * 400), busyReads + 1);
+      if (!follow) {
+        // The motor is still stepping (the time model was short): look again, less and less often.
+        scheduleFirmwareCheck(Math.min(2500, 600 + busyReads * 400), busyReads + 1);
+        return;
+      }
+      // 1.11.33: the picture follows the steps the firmware has run so far.
+      const done = follow.steps - (follow.target - info[follow.axis]) * follow.sign;
+      if (tracker.followPending(now, done, core.measuredStepMs(follow.axis, follow.speed, store.timing))) {
+        follow.readings.push({ at: now, steps: done });
+        if (follow.axis === 'rising') feedback.risingMoveEnd = tracker.busyUntil();
+        animatePose();
+        sharedChanged();
+      }
+      firmware.settleBy = now + FOLLOW_NEXT_MS + 1200;
+      setText('ptz-feedback-firmware', 'pan ' + info.pan + ', rising ' + info.rising + ' steps (moving)');
+      scheduleFirmwareCheck(follow.readings.length <= 1 ? FOLLOW_SECOND_MS : FOLLOW_NEXT_MS);
       return;
     }
+    if (follow && info[follow.axis] === follow.target) {
+      // Idle and every step counted: the move is over now, whatever the time model says.
+      tracker.finishPending(now);
+      if (follow.axis === 'rising') feedback.risingMoveEnd = Math.min(feedback.risingMoveEnd, now);
+      learnStepTime(follow);
+      sharedChanged();
+    } else if (now < Math.max(tracker.busyUntil(), firmware.lastMoveAt + FOLLOW_GRACE_MS)) {
+      // Idle, but the steps are not all counted and the move may not have started: look again.
+      scheduleFirmwareCheck(Math.min(FOLLOW_NEXT_MS, Math.max(tracker.busyUntil(), firmware.lastMoveAt + FOLLOW_GRACE_MS) - now + 100));
+      return;
+    }
+    firmware.follow = null;
+    firmware.settleBy = 0;
     for (const axis of core.AXES) {
       if (firmware.last && !firmware.unsure[axis]) {
         const counted = info[axis] - firmware.last[axis];
@@ -1279,6 +1359,27 @@
     renderPose(true);
   }
 
+  // 1.11.33: the step time the firmware showed over a followed move (between its first and its
+  // last Busy reading) is kept for this motor at this X, and the next move at the same X is
+  // timed with it from the start. Other X values keep the time model.
+  function learnStepTime(follow) {
+    const first = follow.readings[0];
+    const last = follow.readings[follow.readings.length - 1];
+    if (!first || last.steps - first.steps < 30 || last.at - first.at < 500) return;
+    const stepMs = Math.round((last.at - first.at) / (last.steps - first.steps) * 10) / 10;
+    if (!(stepMs >= 0.2 && stepMs <= 1000)) return;
+    const measured = store.timing.measured || (store.timing.measured = {});
+    const axisMeasured = measured[follow.axis] || (measured[follow.axis] = {});
+    axisMeasured[follow.speed] = stepMs;
+    save();
+  }
+
+  // A timing set by hand (or by a timing test) replaces what was learned for that motor.
+  function setTimingModel(axis, k) {
+    store.timing[axis] = k;
+    if (store.timing.measured) delete store.timing.measured[axis];
+  }
+
   function resetFirmwareCount() {
     clearTimeout(firmwareTimer);
     feedback.firmware = {
@@ -1287,7 +1388,10 @@
       sent: { pan: 0, rising: 0 },
       unsure: { pan: false, rising: false },
       verdict: { pan: null, rising: null },
-      moves: 0
+      moves: 0,
+      follow: null,
+      lastMoveAt: 0,
+      settleBy: 0
     };
     setText('ptz-feedback-firmware', 'not read');
   }
@@ -1461,7 +1565,7 @@
     status('Lowering slowly until the camera touches the bottom switch\u2026', false, from);
     findingHome = true;
     try {
-      const moved = await findRisingHome(token, 60, 1800, from);
+      const moved = await findRisingHome(token, 60, core.findHomeLimit(tracker.travel), from);
       if (moved !== null) {
         status('Bottom found after ' + moved + ' steps down: height is now 0 (fully down).', false, from);
       }
@@ -1479,7 +1583,7 @@
   // null (stopped by a newer action, no answer from the switch, not found).
   async function findRisingHome(token, chunk, maxTotal, from) {
     let moved = 0;
-    while (moved <= maxTotal) {
+    while (true) {
       if (token !== operation) return null;
       const pressed = await readSwitch();
       if (pressed === null) {
@@ -1492,13 +1596,16 @@
         renderPosition();
         return moved;
       }
+      if (moved >= maxTotal) break;
       const sent = await api.sendCommand(core.motorCommand('rising', -chunk, store.speeds.rising));
       if (!sent) return null;
       moved += chunk;
       if (!(await waitIdle(token))) return null;
       await sleep(150);
     }
-    status('Lowered ' + maxTotal + ' steps without reaching the bottom switch. If the camera is already at the bottom, change "Bottom switch reads, when pressed" under Calibration > Advanced numbers.', true, from);
+    // The check after the last move would only repeat, in fewer words, what is said here.
+    clearTimeout(bottomCheckTimer);
+    status('Lowered ' + maxTotal + ' steps (more than the full travel) and the bottom switch never read pressed: the camera is on the bottom stop, but the switch does not confirm it, so the height stays estimated. Check the switch with "Is the camera at the bottom?".', true, from);
     return null;
   }
 
@@ -2450,7 +2557,7 @@
     $('ptz-time-done').disabled = true;
     const k = core.timingFromMeasurement(timingTest.steps, timingTest.speed, measured);
     if (!k) return;
-    store.timing[timingTest.axis] = Math.round(k * 10) / 10;
+    setTimingModel(timingTest.axis, Math.round(k * 10) / 10);
     save();
     renderCalibration();
     $('ptz-cal-status').textContent = 'Done: timing saved (' + timingTest.steps + ' steps took ' + (measured / 1000).toFixed(1) + ' s).';
@@ -2616,7 +2723,7 @@
       const measured = Math.max(50, stop.stoppedAt - TIMING_LAG_MS / 2);
       const k = core.timingFromMeasurement(steps, speed, measured);
       if (!k) return;
-      store.timing[axis] = Math.round(k * 10) / 10;
+      setTimingModel(axis, Math.round(k * 10) / 10);
       save();
       renderCalibration();
       $('ptz-cal-status').textContent = 'Done: timing saved from the camera (' + steps + ' steps took about ' + (measured / 1000).toFixed(1)
@@ -2628,7 +2735,7 @@
 
   $('ptz-cal-reset').addEventListener('click', () => {
     store.calibration = { ...core.DEFAULT_CALIBRATION };
-    store.timing = { ...core.DEFAULT_TIMING };
+    store.timing = core.defaultTiming();
     save();
     renderCalibration();
     $('ptz-cal-status').textContent = 'Calibration reset to the defaults.';
@@ -2665,8 +2772,8 @@
   bindNumber('ptz-travel-pan', value => { if (value >= 100) applyTravel({ panPerTurn: value }); });
   bindNumber('ptz-cal-pan', value => { if (value) store.calibration.panStepsPerFrame = Math.round(value); });
   bindNumber('ptz-cal-rising', value => { if (value) store.calibration.risingStepsPerFrame = Math.round(value); });
-  bindNumber('ptz-time-pan', value => { if (value > 0) store.timing.pan = value; });
-  bindNumber('ptz-time-rising', value => { if (value > 0) store.timing.rising = value; });
+  bindNumber('ptz-time-pan', value => { if (value > 0) setTimingModel('pan', value); });
+  bindNumber('ptz-time-rising', value => { if (value > 0) setTimingModel('rising', value); });
   bindNumber('ptz-pan-speed', value => { store.speeds.pan = Math.min(17, Math.max(1, Math.round(value))); });
   bindNumber('ptz-rising-speed', value => { store.speeds.rising = Math.min(30, Math.max(1, Math.round(value))); });
   $('ptz-switch-value').addEventListener('change', () => {

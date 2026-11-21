@@ -892,8 +892,31 @@
   }
 
   // count: the firmware's own step count ("diag motor info"), which starts at 0 when the AIRIZ boots.
-  const demoDevice = { pan: 0, rising: 0, count: { pan: 0, rising: 0 } };
+  // 1.11.33: a move takes time, as on a real AIRIZ: while it runs "diag motor info" answers Busy
+  // with the steps done so far. The step time is the console's default time model; a test can
+  // give another one in localStorage "airiz.demo.stepMs" (a motor slower than the model).
+  const demoDevice = { pan: 0, rising: 0, count: { pan: 0, rising: 0 }, move: null, last: { axis: 'pan', sign: 1 } };
   const DEMO_RISING_TRAVEL = 1100;
+
+  function demoStepMs(axis, speed) {
+    const override = Number(localStorage.getItem('airiz.demo.stepMs'));
+    if (override > 0) return override;
+    return window.AirizPtzCore ? window.AirizPtzCore.msPerStep(axis, speed, window.AirizPtzCore.defaultTiming()) : 5;
+  }
+
+  // Count the steps of the running demo move that are done at `now` (Infinity = all of them).
+  function demoAdvance(now) {
+    const move = demoDevice.move;
+    if (!move) return;
+    const done = Math.min(move.steps, Math.floor((now - move.startedAt) / move.stepMs));
+    const delta = move.sign * Math.max(0, done - move.done);
+    move.done = Math.max(move.done, done);
+    demoDevice.count[move.axis] += delta;
+    demoDevice[move.axis] += delta;
+    // Like the real mechanism: the rising camera stops at the bottom switch and at full travel.
+    if (move.axis === 'rising') demoDevice.rising = Math.min(DEMO_RISING_TRAVEL, Math.max(0, demoDevice.rising));
+    if (move.done >= move.steps) demoDevice.move = null;
+  }
 
   function simulateDemoResponse(command) {
     // Find matching command in AIRIZ_COMMANDS
@@ -924,14 +947,27 @@
     if (/^diag\s+ver\s+sw$/i.test(String(command).trim())) {
       response = '#INFO#0:0.0.0.3#END#\r\n';
     }
-    const demoMove = /^diag\s+motor\s+(pan|rising)\s+(forward|reverse)\s+\d+\s+(\d+)$/i.exec(String(command).trim());
+    demoAdvance(Date.now());
+    const demoMove = /^diag\s+motor\s+(pan|rising)\s+(forward|reverse)\s+(\d+)\s+(\d+)$/i.exec(String(command).trim());
     if (demoMove) {
+      // A move that is still running is counted in full first, then the new one starts.
+      demoAdvance(Infinity);
       const demoAxis = demoMove[1].toLowerCase();
-      const demoSteps = (demoMove[2].toLowerCase() === 'forward' ? 1 : -1) * Number(demoMove[3]);
-      demoDevice[demoAxis] += demoSteps;
-      demoDevice.count[demoAxis] += demoSteps;
-      // Like the real mechanism: the rising camera stops at the bottom switch and at full travel.
-      if (demoAxis === 'rising') demoDevice.rising = Math.min(DEMO_RISING_TRAVEL, Math.max(0, demoDevice.rising));
+      const demoSign = demoMove[2].toLowerCase() === 'forward' ? 1 : -1;
+      demoDevice.last = { axis: demoAxis, sign: demoSign };
+      demoDevice.move = {
+        axis: demoAxis,
+        sign: demoSign,
+        steps: Number(demoMove[4]),
+        done: 0,
+        startedAt: Date.now(),
+        stepMs: demoStepMs(demoAxis, Number(demoMove[3]))
+      };
+      demoAdvance(Date.now());
+    }
+    // Stop motor: the move ends where it is.
+    if (/^(stop|diag\s+motor\s+stop|echo\s+0\s*>\s*\/sys\/devices\/platform\/soc\/soc:motor\/status)$/i.test(String(command).trim())) {
+      demoDevice.move = null;
     }
     if (/^diag\s+ble\s+on$/i.test(String(command).trim())) {
       // Shaped like the firmware: BlueZ controller dump, then the result code.
@@ -945,7 +981,9 @@
     if (/^diag\s+motor\s+info$/i.test(String(command).trim())) {
       // The firmware's own step count, in the words of a real AIRIZ (firmware 0.0.0.3).
       const rule = '================================================\r\n';
-      response = rule + '[module] List all motor property.\r\n#.Motor\t\t: Pan\r\n#.Status\t: Idle\r\n#.Direction \t: Forward\r\n' + rule
+      response = rule + '[module] List all motor property.\r\n#.Motor\t\t: ' + (demoDevice.last.axis === 'rising' ? 'Rising' : 'Pan')
+        + '\r\n#.Status\t: ' + (demoDevice.move ? 'Busy' : 'Idle')
+        + '\r\n#.Direction \t: ' + (demoDevice.last.sign < 0 ? 'Reverse' : 'Forward') + '\r\n' + rule
         + '#.Pan motor current step\t: ' + demoDevice.count.pan + '\r\n'
         + '#.Rising motor current step\t: ' + demoDevice.count.rising + '\r\n'
         + '#.Pan motor current angle\t: ' + Math.trunc(demoDevice.count.pan * 0.0923) + '\r\n'

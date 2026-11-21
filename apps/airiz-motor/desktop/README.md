@@ -9,7 +9,7 @@ is required to use the installed app or its hardware-free demo.
 ## Downloads
 
 Windows x64 releases are published under the app-specific tag
-`airiz-desktop-v1.11.32` in this repository's Releases section.
+`airiz-desktop-v1.11.33` in this repository's Releases section.
 
 - **Installer**: assisted, per-user installation with Start-menu/desktop shortcuts
   and an uninstaller. The wizard lets the user choose the installation directory.
@@ -163,6 +163,13 @@ reports whether a framed firmware reply came back. Results can be exported.
 No pairing is accepted without confirmation and no motor command is sent.
 Another program on the PC still cannot open COM4 while this app holds it: that is
 a Windows serial-port rule, which is why the check runs inside the app.
+
+## 1.11.33: device picture follows the firmware; rising motor on a real AIRIZ
+
+* **Following.** `web/ptz-core.js`: the tracker gained `followPending(now, stepsDone, knownMsPerStep)` (the running move is timed again from the firmware's step count: two readings give the step time, else a step time known for this X, else the time since the command) and `finishPending(now)`; `msPerStep` uses `timing.measured[axis][X]` before the `k / X` model. `web/ptz.js`: after a move command `diag motor info` is read at 0.7 s, 0.45 s later and then every 0.8 s while the firmware says Busy; the device picture, the end of the move (`motionEnd()`, used by move sequences and the bottom-switch check) and the Sensors line (`pan X, rising Y steps (moving)`) follow it. A move of 30 steps or more that was followed for half a second stores its step time. A move is followed only when the count before it is known and nothing else is moving; a stop ends the following.
+* **What was run on the real unit.** Firmware 0.0.0.3, mode `uvc`, on USB. Rising in stages at period 30: 140 steps down from where it stood, then up to 1,100 above that, then 800 down. Every move was counted in full by the firmware; 30.0 ms per step; `Busy` at the first poll, 0.12 to 0.18 s after the command; the motor starts about 0.15 s after the command. The AIRIZ camera picture went from dark (inside the housing) at the start to the room at about 500 steps and a clear view by 800 steps: forward is up. `diag button get rising-det` answered `0:Not Pressed` at every height.
+* **Changed from that.** `core.findHomeLimit(travel)` = full travel + 100 steps: finding the bottom stops there (1,200 by default) instead of after 1,800 steps against the bottom stop, and the message says that the switch did not confirm the bottom. `core.defaultTiming()` carries the step times seen on the real unit (`REAL_STEP_MS`: pan X = 17 is 17 ms, rising X = 30 is 30 ms); an axis that was timed by hand keeps its own number. The demo device moves in time, answers Busy with the steps done so far and uses the same step times. Command library: the note on `rising-fwd`.
+* **Not checked.** The unit left the USB bus again during the test (cause not known), with the camera about 300 counted steps above where it started. So still open: X below 17 (pan) / 30 (rising), which includes the console defaults 2 and 3; a stop while moving; a new command while the firmware is Busy; the pan steps for one full turn (the console assumes 4,800, the firmware angle suggests about 3,900); switching to `msc`; and the following with the console itself driving the real unit. Between the way up and the way down the camera picture at the same count differed by about 100 steps: either steps lost at the top stop (the real travel would then be about 1,000 steps from where the unit stood) or play in the lift. Not resolved, so the travel stays 1,100.
 
 ## 1.11.32: firmware step count read back
 
