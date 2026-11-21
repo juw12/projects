@@ -10,7 +10,7 @@
 
 <p align="center">
   <a href="https://juw12.github.io/projects/airiz-motor/"><b>Try it live</b></a> ·
-  <a href="https://github.com/juw12/projects/releases/tag/airiz-desktop-v1.11.30"><b>Download</b></a> ·
+  <a href="https://github.com/juw12/projects/releases/tag/airiz-desktop-v1.11.31"><b>Download</b></a> ·
   <a href="#see-it-in-action">See it in action</a> ·
   <a href="#highlights">Highlights</a> ·
   <a href="https://github.com/juw12">More by juw12</a>
@@ -18,7 +18,7 @@
 
 <p align="center">
   <a href="https://github.com/juw12/projects/tree/main/apps/airiz-motor"><img src="https://img.shields.io/github/last-commit/juw12/projects?path=apps%2Fairiz-motor&label=updated&color=a3e635" alt="Last updated"></a>
-  <a href="https://github.com/juw12/projects/releases/tag/airiz-desktop-v1.11.30"><img src="https://img.shields.io/badge/download-airiz--desktop--v1.11.30-a3e635" alt="Download"></a>
+  <a href="https://github.com/juw12/projects/releases/tag/airiz-desktop-v1.11.31"><img src="https://img.shields.io/badge/download-airiz--desktop--v1.11.31-a3e635" alt="Download"></a>
   <a href="https://juw12.github.io/projects/airiz-motor/"><img src="https://img.shields.io/badge/demo-live-2ea44f" alt="Live demo"></a>
   <img src="https://img.shields.io/badge/Windows-24292f" alt="Windows">
   <img src="https://img.shields.io/badge/Android-24292f" alt="Android">
@@ -79,7 +79,7 @@ A downloadable Windows x64 desktop edition now bundles this entire console local
 It is not a website shortcut and does not require Chrome, Edge, Node or Python to run.
 Installer and portable preview builds are available at:
 
-https://github.com/juw12/projects/releases/tag/airiz-desktop-v1.11.30
+https://github.com/juw12/projects/releases/tag/airiz-desktop-v1.11.31
 
 The initial binaries are unsigned. The packaged app was tested with demo/synthetic
 hardware; real-device bench validation is still required. Browser and mobile-web
@@ -111,6 +111,8 @@ streams the AIRIZ microphone back in 2-second clips, about 4 s behind live. Phon
 that has the AIRIZ on USB. Stop motor still works and also interrupts a message being sent. Tested
 against a simulated AIRIZ shell (busybox), not yet on real AIRIZ hardware; the sound format and the
 record/play commands can be changed under *Voice settings*.
+
+**USB mode commands checked on a real AIRIZ (1.11.31):** the three USB mode commands were run on a real AIRIZ (firmware 0.0.0.3, USB 1D69:0101). The firmware takes the word right after `set` as the mode: `diag usbmode set to cdc` answered *usbmode change to to.* and stored the mode `to`. *USB mode → CDC (serial)* now sends `diag usbmode set cdc` and *USB mode → ETH (Ethernet)* sends `diag usbmode set eth`; *UVC* is unchanged. **Confirmed:** `set cdc` and `set uvc` switch (the unit reboots and is back on USB in 14 to 17 s; `diag usbmode get` shows the mode; Windows gives the serial port another number, COM4 with the camera and COM3 with serial only on the test PC). **Not in firmware 0.0.0.3:** ETH. `set eth` is stored, but the unit comes back with the serial console only and no network adapter; its boot script knows `cdc`, `uvc` and `msc`. The serial console is present in every mode. AIRIZ Mobile 1.0.9 is rebuilt from this console.
 
 **Position feedback on the device picture (1.11.30):** the AIRIZ motors are open-loop steppers on an AWD8833 driver, with no encoder and no position read-back. The console therefore counts the position from every motor line it sends and now checks that count by itself with the two sensors the unit has. *Height:* the bottom switch (`diag button get rising-det`) is read after every rising move: pressed at the counted bottom = *bottom switch ✓*, released after a move up of at least 150 steps = *off the bottom ✓*, anything else is a warning (for example *still pressed* after a move up). *Pan:* while the camera preview is on, the picture is watched during every pan move: *camera ✓* when the turn seen is 70 to 130 % of the turn sent (needs the pan Calibration), *camera saw the turn ✓* without calibration, a warning when the picture did not move or moved by a different amount. The Motor control page shows the height in mm, the pan angle and these tags on the device picture (caption *POSITION FEEDBACK*), the PTZ page on a new *Sensors* line. Without a sensor answer the tag stays *counted*. Also fixed: an answer of another query (firmware version `0.0.0.3`, light sensor `120`) could be read as the switch answer "released". **Limits:** the sensors confirm or contradict the count, they do not measure every position; the 150-step switch clearance, 1100 steps = 30 mm and 4800 steps per turn are assumptions; checked with unit tests and a simulated camera, **not yet on a real AIRIZ**. AIRIZ Mobile 1.0.8 is rebuilt from this console.
 

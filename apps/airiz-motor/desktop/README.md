@@ -9,7 +9,7 @@ is required to use the installed app or its hardware-free demo.
 ## Downloads
 
 Windows x64 releases are published under the app-specific tag
-`airiz-desktop-v1.11.30` in this repository's Releases section.
+`airiz-desktop-v1.11.31` in this repository's Releases section.
 
 - **Installer**: assisted, per-user installation with Start-menu/desktop shortcuts
   and an uninstaller. The wizard lets the user choose the installation directory.
@@ -163,6 +163,14 @@ reports whether a framed firmware reply came back. Results can be exported.
 No pairing is accepted without confirmation and no motor command is sent.
 Another program on the PC still cannot open COM4 while this app holds it: that is
 a Windows serial-port rule, which is why the check runs inside the app.
+
+## 1.11.31: USB mode commands checked on a real AIRIZ
+
+* **What was run.** A real AIRIZ on USB (1D69:0101, firmware `diag ver sw` 0.0.0.3, mode `uvc` at the start), each line sent with CR LF at 115200 baud while the USB bus was watched.
+* **Found.** `diag usbmode` has `set <mode>` and `get`. The word right after `set` is stored as the mode, so `diag usbmode set to cdc` answered *usbmode change to to.* and `get` then said *Current usbmode is to* (it only looked like CDC because an unknown mode starts serial only). `set cdc`: back after about 17 s with the serial port only. `set uvc`: back after 14 to 16 s with *UVC Camera 0* and the serial port. `set eth`: stored, but back with the serial port only, no network adapter. The boot script `/etc/init.d/startZiris` reads `/data/usbmode` and knows `cdc`, `uvc` and `msc`; the serial function is added in every mode.
+* **Changed.** In `web/data/commands.js`, `usb-cdc` sends `diag usbmode set cdc` and `usb-eth` sends `diag usbmode set eth` with a note that firmware 0.0.0.3 has no ETH mode. `usb-uvc` is unchanged. zh-TW / zh-CN strings, `docs/Commands.md` and `tests/test_command_data.py` updated. The USB mode result report still recognises both spellings.
+* **Not checked.** `msc` (mass storage) was not tried and is not in the command library. A newer firmware than 0.0.0.3 was not available, so whether a later firmware has an ETH mode is open.
+* History of the app gains the 1.11.31 entry. The unit was left in its original mode (`uvc`).
 
 ## 1.11.30: position feedback
 

@@ -1,7 +1,7 @@
 /* AIRIZ Console 1.11.0 - the AIRIZ console cable on an Android phone (no PC needed).
  *
  * PCs open the AIRIZ console (the FT232R USB-serial cable, or the AIRIZ's own USB port in
- * "diag usbmode set to cdc" mode) with Web Serial. Chrome on Android lists USB serial ports only
+ * "diag usbmode set cdc" mode) with Web Serial. Chrome on Android lists USB serial ports only
  * from Android 17, but it has had WebUSB for years, so on Android this module drives the cable
  * itself:
  *   FTDI (FT232R and other FTDI chips, USB vendor 0x0403): vendor requests for reset, DTR/RTS,

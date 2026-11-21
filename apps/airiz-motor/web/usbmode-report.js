@@ -1,7 +1,8 @@
 /* AIRIZ USB mode result report (1.11.28; on/off switch 1.11.29).
  *
- * The USB mode commands (diag usbmode set to eth / set to cdc / set uvc) could not be tried on a
- * real AIRIZ by the owner. So that he does not have to ask every user, the console watches what
+ * The USB mode commands (diag usbmode set eth / set cdc / set uvc; "set to eth" and "set to cdc"
+ * until 1.11.30, both spellings are still recognised) could not be tried on every real AIRIZ by
+ * the owner. So that he does not have to ask every user, the console watches what
  * happens after one of these three commands is sent to a real device and reports the result once:
  *
  *   mode       cdc | eth | uvc
@@ -40,7 +41,7 @@
 })(typeof window !== 'undefined' ? window : null, function () {
   'use strict';
 
-  const APP_VERSION = '1.11.30';
+  const APP_VERSION = '1.11.31';
   const REPORT_URL = 'wss://airiz-relay.juw12.workers.dev/v1/report';
   // The same origins the relay accepts; other hosts (other sites, localhost tests) do not use the relay.
   const REPORT_ORIGINS = ['https://juw12.github.io', 'airiz://app', 'capacitor://localhost', 'https://localhost'];

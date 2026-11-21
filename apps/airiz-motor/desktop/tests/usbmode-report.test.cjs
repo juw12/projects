@@ -25,10 +25,27 @@ test('only the three USB mode commands are watched', () => {
 
 test('the commands on the cards are the ones that are watched', () => {
   const commands = fs.readFileSync(path.join(WEB, 'data', 'commands.js'), 'utf8');
-  for (const line of ['diag usbmode set to eth', 'diag usbmode set to cdc', 'diag usbmode set uvc']) {
+  // 1.11.31: a real AIRIZ (firmware 0.0.0.3) takes the word after "set" as the mode, so no "to".
+  for (const line of ['diag usbmode set eth', 'diag usbmode set cdc', 'diag usbmode set uvc']) {
     assert.ok(commands.includes(`'${line}'`) || commands.includes(`"${line}"`), line + ' is a command card');
     assert.ok(report.parseCommand(line), line + ' is watched');
   }
+  assert.ok(!/usbmode set to /.test(commands), 'no card says "set to"');
+});
+
+test('the answers of a real AIRIZ (firmware 0.0.0.3) are read as taken / refused', () => {
+  const taken = watchFor('diag usbmode set cdc');
+  report.noteOutput(taken, 'diag usbmode set cdc\r\nusbmode change to cdc.\r\n#INFO#0#END#\r\nTerminated\r\n~ # ');
+  report.noteLost(taken, 4100);
+  report.noteStatus(taken, { connected: false, reconnecting: true }, 5000);
+  report.noteStatus(taken, { connected: true, reconnecting: false }, 17000);
+  assert.deepEqual(report.resultOf(taken), {
+    v: 1, mode: 'cdc', to: false, link: 'dropped', dropS: 4, back: true, reply: 'text',
+  });
+  const refused = watchFor('diag usbmode set uvc');
+  report.noteOutput(refused, 'diag usbmode set uvc\r\nCommand error!\r\n~ # ');
+  assert.equal(report.resultOf(refused).reply, 'error');
+  assert.equal(report.resultOf(refused).link, 'kept');
 });
 
 test('lost by itself after the command = dropped, with the seconds it took', () => {
