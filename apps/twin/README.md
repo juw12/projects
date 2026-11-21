@@ -231,6 +231,13 @@ The lab never submits orders or changes the practice portfolio.
   Wi-Fi) → Share → Add to Home Screen. Accounts are salted PBKDF2 hashes with HttpOnly session
   cookies, stored in `apps/twin/data/` (git-ignored). Live delayed quotes (Yahoo Finance),
   SEC EDGAR 13Fs (needs your email as the SEC user agent), news, and the full skill tools.
+* **Android app.** Download `Twin-Android.apk` from the
+  [twin release](https://github.com/juw12/projects/releases/tag/twin), open it on the phone and allow
+  "install unknown apps" for your browser once. It is this same Twin with its files inside the app, so it
+  opens without a connection: practice money, replays and research. It does not place real orders; real
+  trading runs on a computer. Built and opened on an emulator by `.github/workflows/twin-apps.yml`; see
+  [`mobile/`](mobile/README.md).
+* **iPhone.** Open https://juw12.github.io/projects/twin/ in Safari, tap Share, then *Add to Home Screen*.
 * **Desktop app (Windows and Mac, 1.15).** Download **Twin** from the
   [twin release](https://github.com/juw12/projects/releases/tag/twin): `Twin-Windows-Setup.exe`
   (or `Twin-Windows-Portable.zip`), `Twin-macOS-AppleSilicon.dmg` or `Twin-macOS-Intel.dmg`. It is this
