@@ -62,6 +62,15 @@ second, different cities. No shared Wi-Fi or Bluetooth, no account, no server.
   [Mobile](https://juw12.github.io/projects/sync/mobile.html)
 - Open locally: `python3 -m http.server -d apps/sync/web 8000` → http://localhost:8000
 
+### Get it on your device
+
+- **Windows:** [`SyncLive-Windows-Setup.exe`](https://github.com/juw12/projects/releases/download/sync-desktop/SyncLive-Windows-Setup.exe) (no admin needed; if Windows says it protected your PC, choose *More info → Run anyway*), or without installing [`SyncLive-Windows-Portable.zip`](https://github.com/juw12/projects/releases/download/sync-desktop/SyncLive-Windows-Portable.zip).
+- **Mac:** [`SyncLive-macOS-AppleSilicon.dmg`](https://github.com/juw12/projects/releases/download/sync-desktop/SyncLive-macOS-AppleSilicon.dmg) (M1 and newer) or [`SyncLive-macOS-Intel.dmg`](https://github.com/juw12/projects/releases/download/sync-desktop/SyncLive-macOS-Intel.dmg). The first time, macOS blocks it because it is not notarized: **System Settings → Privacy & Security → Open Anyway**.
+- **iPhone:** open the live link in Safari → Share → **Add to Home Screen**.
+- **Android:** the `.apk` in the [sync-mobile release](https://github.com/juw12/projects/releases/tag/sync-mobile).
+
+The Windows and Mac apps are the same page in its own window ([`desktop/`](desktop/README.md)); the program is called **SyncLive** so it does not sit on top of another app named Sync. Each build is opened on its own system before it is published (the page loads, the app starts, it can store data). Not checked in those windows: playing through Spotify or Apple Music, and voice chat.
+
 ## What it does
 
 | | |
