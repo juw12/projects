@@ -854,3 +854,27 @@ body.console-redesign { color-scheme: inherit; }
   input:not([type=checkbox]):not([type=radio]) { min-height: 32px !important; }
   input[type=checkbox], input[type=radio] { min-width: 32px; min-height: 32px; }
 }
+/* Ziris unit in 3D on the motion stage (device-3d.js). It replaces the drawn device picture only
+   when the CAD mesh and WebGL2 are there: the stage gets .has-3d once the model is ready. */
+.device-3d, .device-3d-tools, .device-3d-readout { display: none; }
+.motion-stage.has-3d .device-illustration, .motion-stage.has-3d .stage-axis, .motion-stage.has-3d .axis-vertical { display: none; }
+/* The model needs room for its whole travel: 30 mm up, and the pan arrow on the table. */
+.motion-card .motion-stage.has-3d { min-height: 340px; }
+.motion-stage.has-3d .device-3d { display: block; position: absolute; inset: 0; width: 100%; height: 100%; cursor: grab; touch-action: pan-y; }
+.motion-stage.has-3d .device-3d.dragging { cursor: grabbing; }
+.motion-stage.has-3d .device-label, .motion-stage.has-3d .stage-caption { pointer-events: none; }
+.motion-stage.has-3d .device-3d-readout { display: flex; flex-direction: column; gap: 5px; position: absolute; top: 46px; left: 20px; z-index: 2; font: 12px var(--font-mono); letter-spacing: 1px; color: var(--color-text-muted); }
+.device-3d-readout b { margin-left: 6px; font-weight: 500; letter-spacing: .4px; color: var(--color-text); }
+.device-3d-readout[data-referenced="false"] #device-3d-rise { opacity: .62; }
+.motion-stage.has-3d .device-3d-tools { display: flex; position: absolute; top: 42px; right: 20px; z-index: 2; }
+.device-3d-tools button { display: flex; align-items: center; min-height: 28px; padding: 0 10px; background: var(--color-bg-panel); border: 1px solid var(--color-border); color: var(--color-text-muted); font: 12px var(--font-mono); letter-spacing: .6px; cursor: pointer; }
+.device-3d-tools button + button { border-left: 0; }
+.device-3d-tools button:first-child { border-radius: 5px 0 0 5px; }
+.device-3d-tools button:last-child { border-radius: 0 5px 5px 0; padding: 0 8px; }
+.device-3d-tools button:hover { color: var(--color-text); }
+.device-3d-tools button[aria-pressed="true"] { color: var(--color-accent); background: var(--ui-accent-soft); }
+.device-3d-tools .ui-icon { width: 13px; height: 13px; }
+@media (max-width: 560px) {
+  .motion-stage.has-3d .device-3d-readout { left: 15px; }
+  .motion-stage.has-3d .device-3d-tools { right: 15px; }
+}

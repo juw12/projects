@@ -271,6 +271,7 @@ A complete, production-quality, dependency-free browser app that replaces the Te
 - **Device Audio Auto-Save**: after each DMIC record, the console pulls the WAV off the device over serial and saves it to a folder
 - **PWA Support**: Installable app with offline caching via service worker
 - **Demo Mode**: Test the full UI without hardware connected
+- **3D unit on the Motor control page**: the Ziris unit rises, lowers and pans with the commands that were sent (open loop, not position feedback), with an X-ray and an Opaque view. It needs `web/data/device-mesh.js`, which is not in this repo (see Files); without it the page shows the drawn picture
 
 ## Files
 
@@ -279,6 +280,7 @@ apps/airiz-motor/web/
   index.html           # Main application page
   styles.css           # All styles (CSS custom properties, responsive)
   app.js               # Application logic (Web Serial, macro runner)
+  device-3d.js         # 3D unit on the Motor control page (WebGL2, follows the sent commands)
   manifest.webmanifest # PWA manifest
   sw.js                # Service worker (cache-first strategy)
   icons/
@@ -286,6 +288,13 @@ apps/airiz-motor/web/
   data/
     commands.js        # Command library (read-only)
     macros.js          # Macro definitions (read-only)
+    device-mesh.js     # Ziris CAD mesh for the 3D unit (git-ignored, optional)
+```
+
+The 3D unit mesh is packed from the unit CAD of the PTB FA Simulation (private, not in this repo):
+
+```bash
+python tools/pack_device_mesh.py <path to ziris_unit_mesh.json>   # writes web/data/device-mesh.js
 ```
 
 ## Running the App

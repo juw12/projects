@@ -35,6 +35,7 @@ const ASSETS = [
   './ptz-core.js',
   './ptz.js',
   './ptz.css',
+  './device-3d.js',
   './wobble-core.js',
   './wobble.js',
   './watch.js',

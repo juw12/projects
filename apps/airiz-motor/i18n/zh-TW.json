@@ -1606,7 +1606,17 @@
     "USB mode → ETH command (1.11.26)": "USB 模式 → ETH 指令（1.11.26）",
     "The command library has a new USB mode → ETH (Ethernet) command, diag usbmode set eth, next to UVC and CDC. The AIRIZ restarts and its USB port becomes a network link, so the USB console disconnects. To get the serial console back, run diag usbmode set cdc on the device. This command has not been confirmed on a real AIRIZ yet: if yours answers that the command is unknown, or does not switch, please tell the owner.": "指令庫在 UVC 與 CDC 旁新增 USB 模式 → ETH（乙太網路）指令 diag usbmode set eth。AIRIZ 會重新啟動，USB 連接埠改為網路連線，因此 USB 主控台會中斷。要恢復序列主控台，請在裝置上執行 diag usbmode set cdc。這個指令尚未在實際的 AIRIZ 上確認：如果你的裝置回應未知指令，或沒有切換，請告知擁有者。",
     "Windows dialogs and menu in your language (1.11.25)": "Windows 對話框與選單也使用你的語言（1.11.25）",
-    "With the console set to 繁體中文 or 简体中文, the Windows dialogs (close warning, update install question, camera and microphone permission, Bluetooth pairing, About) and the menu bar now use that language too. The question to install an update when work finishes now reads correctly (for example: when the macro finishes). Old browser Bluetooth code that nothing used any more was removed.": "主控台設為繁體中文或简体中文時，Windows 對話框（關閉警告、更新安裝提問、相機與麥克風權限、藍牙配對、關於）和選單列現在也會使用該語言。工作結束後安裝更新的提問現在文字正確（例如：等巨集執行完畢）。也移除了已不再使用的舊瀏覽器藍牙程式碼。"
+    "With the console set to 繁體中文 or 简体中文, the Windows dialogs (close warning, update install question, camera and microphone permission, Bluetooth pairing, About) and the menu bar now use that language too. The question to install an update when work finishes now reads correctly (for example: when the macro finishes). Old browser Bluetooth code that nothing used any more was removed.": "主控台設為繁體中文或简体中文時，Windows 對話框（關閉警告、更新安裝提問、相機與麥克風權限、藍牙配對、關於）和選單列現在也會使用該語言。工作結束後安裝更新的提問現在文字正確（例如：等巨集執行完畢）。也移除了已不再使用的舊瀏覽器藍牙程式碼。",
+    "Ziris unit in 3D. It follows the pan and rising commands that were sent, not a measured position": "Ziris 機台 3D 模型。它依照已送出的水平與升降指令移動，不是量測到的位置",
+    "Counted from the commands sent. The height is exact only after the PTZ page has found the bottom switch.": "依已送出的指令計算。PTZ 頁面找到底部開關之後，高度才是準確的。",
+    "PAN": "水平",
+    "3D view": "3D 檢視",
+    "X-ray": "透視",
+    "Opaque": "實體",
+    "X-ray: see the lead screw, nut, motors and gears through the housing": "透視：穿過外殼看到導螺桿、螺帽、馬達與齒輪",
+    "Opaque: the unit as it looks from outside": "實體：機台從外面看到的樣子",
+    "Reset view": "重設視角",
+    "Reset view (or double-click the model). Drag the model to look around.": "重設視角（或在模型上按兩下）。拖曳模型可以從不同角度查看。"
   },
   "html": {
     "AIRIZDEVICE LAB": "AIRIZ<small>裝置實驗室</small>",
