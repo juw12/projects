@@ -469,6 +469,25 @@
   color: var(--color-text-muted, #9aa0aa);
 }
 
+/* 1.11.30 position feedback: what the bottom switch and the camera say about the counted position */
+.ptz-pose-sensors {
+  font-size: max(0.85em, 12px);
+  color: var(--color-text-muted, #9aa0aa);
+}
+
+.ptz-pose-sensors b {
+  font-weight: 600;
+  color: var(--color-text, inherit);
+}
+
+.ptz-pose-sensors b[data-level="ok"] {
+  color: var(--color-success, #2e9e5b);
+}
+
+.ptz-pose-sensors b[data-level="warn"] {
+  color: var(--color-warning, #d49a1f);
+}
+
 @media (max-width: 640px) {
   .ptz-grid {
     grid-template-columns: 1fr;

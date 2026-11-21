@@ -122,13 +122,15 @@ test('readout: millimetres and degrees with the turn direction seen from above',
   assert.deepEqual(text(6000, 0), { rise: '0.0 mm', pan: '90\u00b0 \u21ba' });
 });
 
-test('home page: the 3D canvas is added, the drawn picture and its warning stay as the fallback', () => {
+test('home page: the 3D canvas is added, the drawn picture stays as the fallback', () => {
   const html = fs.readFileSync(path.join(WEB, 'index.html'), 'utf8');
   assert.match(html, /<canvas[^>]*id="device-3d"/);
   assert.match(html, /data-device-view="xray"/);
   assert.match(html, /data-device-view="opaque"/);
   assert.match(html, /id="device-3d-reset"/);
+  // The old warning stays in the page for when the script does not run; the feedback caption replaces it.
   assert.match(html, /NOT POSITION FEEDBACK/);
+  assert.match(html, /id="device-3d-caption"/);
   // The model reads the position from the PTZ page, so its script comes after ptz.js.
   const ptz = html.indexOf('<script src="ptz.js">');
   const viewer = html.indexOf('<script src="device-3d.js">');
@@ -136,6 +138,22 @@ test('home page: the 3D canvas is added, the drawn picture and its warning stay 
   // The stage shows the model only once it is really drawn.
   const css = fs.readFileSync(path.join(WEB, 'console-ui.css'), 'utf8');
   assert.match(css, /\.has-3d/);
+});
+
+test('the numbers and the sensor tags need no CAD mesh: they also stand on the drawn picture', () => {
+  const source = fs.readFileSync(path.join(WEB, 'device-3d.js'), 'utf8');
+  // The readout starts before the mesh is asked for, so a build without the mesh still shows it.
+  const readout = source.indexOf('const live = startReadout(stage);');
+  const mesh = source.indexOf('    loadMeshScript()', readout);
+  assert.ok(readout > 0 && mesh > readout);
+  assert.match(source, /stage\.classList\.add\('has-feedback'\)/);
+  const css = fs.readFileSync(path.join(WEB, 'console-ui.css'), 'utf8');
+  assert.match(css, /\.motion-stage\.has-feedback \.device-3d-readout \{ display: flex;/);
+  assert.match(css, /\.motion-stage\.has-feedback \.device-3d-caption \{ display: flex; \}/);
+  assert.match(css, /\.motion-stage\.has-feedback \.stage-caption:not\(\.device-3d-caption\) \{ display: none; \}/);
+  // Without the CAD the stroke is the 30 mm of the CAD, so the numbers are the same in every build.
+  assert.match(source, /PLAIN_MOTION = \{ strokeMm: 30,/);
+  assert.equal(META.strokeMm, 30);
 });
 
 test('the CAD mesh is optional: not in the offline list and not in the public repository', () => {

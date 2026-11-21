@@ -9,7 +9,7 @@ is required to use the installed app or its hardware-free demo.
 ## Downloads
 
 Windows x64 releases are published under the app-specific tag
-`airiz-desktop-v1.11.29` in this repository's Releases section.
+`airiz-desktop-v1.11.30` in this repository's Releases section.
 
 - **Installer**: assisted, per-user installation with Start-menu/desktop shortcuts
   and an uninstaller. The wizard lets the user choose the installation directory.
@@ -163,6 +163,15 @@ reports whether a framed firmware reply came back. Results can be exported.
 No pairing is accepted without confirmation and no motor command is sent.
 Another program on the PC still cannot open COM4 while this app holds it: that is
 a Windows serial-port rule, which is why the check runs inside the app.
+
+## 1.11.30: position feedback
+
+* **Why.** The device picture only played the command ("not position feedback"). The motors have no encoder, but the unit has two real sensors that can check the counted position: the bottom switch and the camera.
+* **Height.** `web/ptz.js` reads `diag button get rising-det` after every rising move, not only at the bottom. `risingFeedback` in `web/ptz-core.js` turns the answer into *bottom switch ✓*, *off the bottom ✓* (released after at least `SWITCH_CLEAR_STEPS` = 150 steps up), a warning, or *counted*. A switch found pressed sets the height reference.
+* **Pan.** With the preview on, the picture is compared every 80 ms during a pan move (`createOdometer`), and `judgeTurn` compares the turn seen with the turn sent (agrees at 70 to 130 %). Not in demo mode and not on a phone that controls another PC.
+* **Where it shows.** `web/device-3d.js` writes the height in mm, the pan angle and the sensor tags on the device picture of the Motor control page, with or without the 3D model (`.has-feedback`), and the PTZ page has a *Sensors* line. `AirizPtz.feedback()` gives the same to other scripts.
+* **Fix.** `parseSwitchState` accepts only a plain `0` or `1` as a number answer, and a query ignores answers that belong to another query, so the firmware version or the light sensor value is no longer read as "released".
+* **Checked.** `desktop/tests/position-feedback.test.cjs` (11 tests) and `desktop/tests/device-3d.test.cjs`; headless browser runs with the demo device and a simulated camera (agrees, differs, no turn). zh-TW / zh-CN strings and the History entry are added. Not yet on a real AIRIZ.
 
 ## 1.11.29: switch for the USB mode result
 

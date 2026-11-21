@@ -142,6 +142,16 @@
     sharedChanged();
   }
 
+  // Position feedback (1.11.30): what the real sensors said last. Declared here because the
+  // pose drawing reads it from the first render on; the logic is further down.
+  const feedback = {
+    switchReading: null, // { pressed, at }
+    risingMoveEnd: 0,    // when the last rising move ends (time model)
+    pan: null,           // { verdict, measuredSteps } of the last pan move
+    session: null,       // camera watch of the pan move that is running
+    noTurnTold: false    // the "picture did not move" message was shown for this connection
+  };
+
   // ------------------------------------------------------------------ helpers
 
   const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -222,10 +232,13 @@
   }
 
   // Send a command and wait for its "#INFO#...#END#" answer (sensors, switches).
-  function query(command, timeoutMs = 2500, sendOptions) {
+  // accept(info): answers it refuses are skipped (the answer of another query that was sent at
+  // the same moment); when nothing better comes in time, the last refused answer is returned.
+  function query(command, timeoutMs = 2500, sendOptions, accept) {
     return new Promise(resolve => {
       let buffer = '';
       let done = false;
+      let refused = null;
       const finish = value => {
         if (done) return;
         done = true;
@@ -235,10 +248,15 @@
       };
       const stop = api.onOutput(text => {
         buffer += text;
-        const info = core.parseInfo(buffer);
+        let info = core.parseInfo(buffer);
+        while (info && accept && !accept(info)) {
+          refused = info;
+          buffer = buffer.slice(buffer.indexOf('#END#') + 5);
+          info = core.parseInfo(buffer);
+        }
         if (info) finish(info);
       });
-      const timer = setTimeout(() => finish(null), timeoutMs);
+      const timer = setTimeout(() => finish(refused), timeoutMs);
       api.sendCommand(command, sendOptions).then(sent => {
         if (!sent) finish(null);
       });
@@ -382,6 +400,7 @@
       // A stop (button, Esc, hold release) cancels scans and tracking moves too.
       newOperation();
       if (scan.running) stopScan('Auto scan stopped (motor stop).');
+      feedbackStopped();
     }
     // (Not while lowering to the bottom switch: the counted height is wrong then, the
     // search reports by itself.)
@@ -390,10 +409,14 @@
         ? 'The camera reaches the bottom end stop: rising = 0 (fully down).'
         : 'The camera reaches the top end stop: rising = ' + result.to + ' (fully up).');
     }
-    // A move that should end fully down is checked against the real bottom switch.
-    if (result.type === 'move' && result.move.axis === 'rising' && result.to === 0 && tracker.risingRef) {
+    // 1.11.30 position feedback: the real bottom switch is read after every rising move (a move
+    // that should end fully down also corrects the counted height, as before), and the camera
+    // picture is watched during every pan move.
+    if (result.type === 'move' && result.move.axis === 'rising') {
+      feedback.risingMoveEnd = tracker.busyUntil();
       scheduleBottomCheck(tracker.busyUntil() - Date.now() + 400);
     }
+    if (result.type === 'move' && result.move.axis === 'pan') startPanWatch();
     save();
     renderPosition();
     animatePose();
@@ -458,6 +481,12 @@
       note = 'Estimated after an interrupted move: lower the camera fully once, then Set home again.';
     }
     setText('ptz-pose-note', note);
+    const sensors = feedbackState(now);
+    setText('ptz-feedback-rising', sensors.rising.label);
+    setText('ptz-feedback-pan', sensors.pan.label);
+    if ($('ptz-feedback-rising')) $('ptz-feedback-rising').dataset.level = sensors.rising.level;
+    if ($('ptz-feedback-pan')) $('ptz-feedback-pan').dataset.level = sensors.pan.level;
+    $('ptz-pose').dataset.feedback = sensors.level;
   }
 
   function animatePose() {
@@ -1055,11 +1084,18 @@
 
   const privacy = { on: false, before: null, detectWasOn: false };
 
+  // The bottom switch answer. Only an answer that reads as a switch state is taken: on connect
+  // the firmware version is asked at the same moment, and its answer must not count as "released".
+  function querySwitch(background) {
+    return query('diag button get rising-det', 2500, background ? { quiet: true } : undefined,
+      info => core.parseSwitchState(info, store.switchPressedValue) !== null);
+  }
+
   // Reads the bottom (rising-detect) switch and keeps the tracked height in step with it:
   // pressed = the real camera is fully down, so rising becomes 0.
   // background = automatic check: not echoed as a command line in the console.
   async function readSwitch(background) {
-    const info = await query('diag button get rising-det', 2500, background ? { quiet: true } : undefined);
+    const info = await querySwitch(background);
     const pressed = core.parseSwitchState(info, store.switchPressedValue);
     if (pressed === null) {
       $('ptz-switch-state').textContent = info
@@ -1070,6 +1106,7 @@
     $('ptz-switch-state').textContent = pressed
       ? 'Yes: the camera is fully down (bottom switch pressed).'
       : 'No: the camera is above the bottom (bottom switch not pressed).';
+    feedback.switchReading = { pressed, at: Date.now() };
     if (pressed && Date.now() >= tracker.busyUntil()) {
       const wasReferenced = tracker.risingRef;
       const correction = tracker.setRisingReference();
@@ -1084,6 +1121,7 @@
       save();
       renderPosition();
     }
+    renderPose(true);
     return pressed;
   }
 
@@ -1101,7 +1139,148 @@
         return;
       }
       if (tracker.risingRef && tracker.position.rising === 0) readSwitch(true);
+      else observeSwitch();
     }, Math.max(200, delayMs));
+  }
+
+  // ------------------------------------------------------------------ position feedback (1.11.30)
+  // The motors are steppers without an encoder, so the position is counted from the commands.
+  // Two real sensors confirm it, by themselves:
+  //   height: the bottom switch, read after every rising move;
+  //   pan:    the camera picture, watched during every pan move while the preview is on.
+  // The counted position is only changed by the switch at the bottom (readSwitch), as before.
+  // Read the switch after a move that ends above the bottom. It only reports: a switch that
+  // is still pressed there means the camera may not have risen; the count is left alone.
+  async function observeSwitch() {
+    const read = async () => core.parseSwitchState(await querySwitch(true), store.switchPressedValue);
+    let pressed = await read();
+    if (pressed === null) return null;
+    const unexpected = () => pressed && tracker.position.rising > core.SWITCH_CLEAR_STEPS;
+    if (unexpected()) {
+      // Pressed although the camera was sent up: read once more before believing it.
+      await sleep(400);
+      pressed = await read();
+      if (pressed === null) return null;
+    }
+    if (Date.now() < tracker.busyUntil()) return null; // moving again: the next check reads it
+    feedback.switchReading = { pressed, at: Date.now() };
+    if (pressed && !tracker.risingRef) {
+      // No height reference yet and the switch is pressed: the camera is fully down, count from here.
+      tracker.setRisingReference();
+      save();
+      renderPosition();
+    } else if (unexpected()) {
+      status('The bottom switch is still pressed although the camera was sent up: it may not have risen. Use Find rising home to check.', true);
+    }
+    renderPose(true);
+    return pressed;
+  }
+
+  function feedbackStopped() {
+    const now = Date.now();
+    if (feedback.session) feedback.session.unsure = true;
+    if (feedback.risingMoveEnd > now) {
+      feedback.risingMoveEnd = now;
+      scheduleBottomCheck(600);
+    }
+  }
+
+  // The picture is looked at every 80 ms: at the fastest pan it then moves about a tenth of its
+  // width between two looks, which the odometer follows easily. About a second without a clear
+  // match (blur, a covered lens) ends the watch without a verdict.
+  const WATCH_MS = 80;
+  const WATCH_MAX_MISSES = 12;
+  const WATCH_STILL_LOOKS = 5;
+
+  function startPanWatch() {
+    if (feedback.session) return; // the running watch covers this move too
+    feedback.pan = null;          // the last verdict belongs to the old position
+    if (!liveStream || api.getStatus().demoMode || viaRemote() || document.hidden) return;
+    const frame = grayFrame(160);
+    if (!frame) return;
+    const odometer = core.createOdometer(frame, { maxMisses: WATCH_MAX_MISSES });
+    if (odometer.travelled().lost) return; // plain wall or dark: nothing to follow
+    feedback.session = {
+      odometer,
+      startPan: tracker.livePosition(Date.now()).pan,
+      unsure: false,
+      lastTravel: 0,
+      still: 0,
+      videoTime: video.currentTime,
+      videoAt: Date.now()
+    };
+  }
+
+  setInterval(() => {
+    const session = feedback.session;
+    if (!session) return;
+    if (!liveStream || !connected()) {
+      feedback.session = null;
+      renderPose(true);
+      return;
+    }
+    const frame = grayFrame(160);
+    if (!frame) return;
+    const now = Date.now();
+    // A hidden window or a preview that stands still shows old pictures: no verdict from those.
+    if (video.currentTime !== session.videoTime) {
+      session.videoTime = video.currentTime;
+      session.videoAt = now;
+    }
+    if (document.hidden || now - session.videoAt > 1500) session.unsure = true;
+    const travel = session.odometer.add(frame);
+    const end = tracker.busyUntil();
+    if (now < end + 400) {
+      session.lastTravel = travel.dx;
+      session.still = 0;
+      return;
+    }
+    // The time model says the turn is over: wait until the picture stands still as well.
+    session.still = Math.abs(travel.dx - session.lastTravel) < 0.004 ? session.still + 1 : 0;
+    session.lastTravel = travel.dx;
+    if (session.still < WATCH_STILL_LOOKS && now < end + 5000 && !travel.lost) return;
+    feedback.session = null;
+    const calibrated = store.calibration.panStepsPerFrame !== core.DEFAULT_CALIBRATION.panStepsPerFrame;
+    const verdict = session.unsure || travel.lost
+      ? null
+      : core.judgeTurn(tracker.position.pan - session.startPan, travel.dx, store.calibration.panStepsPerFrame, calibrated);
+    feedback.pan = verdict;
+    // Said once per connection (the preview may show another camera on purpose); the tag stays.
+    if (verdict && verdict.verdict === 'none' && !feedback.noTurnTold) {
+      feedback.noTurnTold = true;
+      status('The camera picture did not move during the last turn. Check that the preview shows the AIRIZ camera and that the camera really turns.', true);
+    } else if (verdict && verdict.verdict === 'differs') {
+      const degrees = steps => Math.round(Math.abs(steps) / tracker.travel.panPerTurn * 360);
+      status('The camera saw a turn of about ' + degrees(verdict.measuredSteps) + '\u00b0 where ' + degrees(tracker.position.pan - session.startPan)
+        + '\u00b0 was sent. Check the pan, or do the pan Calibration again.', true);
+    }
+    renderPose(true);
+  }, WATCH_MS);
+
+  // What the sensors say about the counted position (PTZ page and the 3D unit on the Motor page).
+  function feedbackState(at) {
+    const now = at || Date.now();
+    const reading = feedback.switchReading;
+    const risingState = core.risingFeedback({
+      rising: tracker.position.rising,
+      risingRef: tracker.risingRef,
+      moving: feedback.risingMoveEnd > now,
+      reading: reading ? { pressed: reading.pressed, fresh: reading.at >= feedback.risingMoveEnd } : null
+    });
+    const panState = feedback.session ? 'watching' : feedback.pan ? feedback.pan.verdict : 'counted';
+    const measuredSteps = feedback.pan && !feedback.session ? feedback.pan.measuredSteps : null;
+    const summary = core.feedbackSummary(risingState, panState);
+    return {
+      rising: { state: risingState, label: core.RISING_FEEDBACK_LABEL[risingState], level: core.feedbackLevel(risingState) },
+      pan: {
+        state: panState,
+        label: core.PAN_FEEDBACK_LABEL[panState],
+        level: core.feedbackLevel(panState),
+        measuredDegrees: typeof measuredSteps === 'number' ? measuredSteps / tracker.travel.panPerTurn * 360 : null
+      },
+      summary,
+      level: summary === 'SENSOR DISAGREES' ? 'warn' : summary === 'COUNTED, NO SENSOR YET' ? 'none' : 'ok'
+    };
   }
 
   // On connect: one switch reading tells whether the camera starts fully down. A controller
@@ -1115,6 +1294,13 @@
         if (viaRemote() && hostShares()) return;
         readSwitch(true);
       }, 1200);
+    }
+    if (!isConnected && wasConnected) {
+      feedback.switchReading = null;
+      feedback.pan = null;
+      feedback.session = null;
+      feedback.noTurnTold = false;
+      renderPose(true);
     }
     wasConnected = isConnected;
     if (!isConnected || !viaRemote()) {
@@ -2600,6 +2786,7 @@
       const live = tracker.livePosition(at || Date.now());
       return { ...live, ...core.describePose(live, { travel: tracker.travel, risingRef: tracker.risingRef }) };
     },
+    feedback: () => feedbackState(),
     centerOn: (u, v) => centerOn({ u, v }),
     moveTo: (pan, rising, label) => moveTo({ pan, rising }, label),
     readSwitch,

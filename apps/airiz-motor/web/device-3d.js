@@ -4,10 +4,13 @@
    line is already counted by the PTZ tracker (ptz-core.js), from the jog pad, the arrow keys,
    the live console, macros and the PTZ page. This file only draws that counted position on
    the CAD parts: the camera head rises on the lead-screw nut and turns on the big pan gear.
-   It is a command visualisation, not position feedback.
+   Position feedback (1.11.30): the motors have no encoder, so the counted position is checked
+   by the two real sensors (ptz.js): the bottom switch after every rising move and the camera
+   picture during every pan move. The tags beside the numbers say what the sensors found.
 
    The CAD mesh (data/device-mesh.js) is loaded on demand. When it is not there, or the browser
-   has no WebGL2, the page keeps the drawn device picture. */
+   has no WebGL2, the page keeps the drawn device picture; the numbers and the sensor tags are
+   shown on it all the same (they need no CAD). */
 (function (root, factory) {
   const api = factory();
   if (typeof module === 'object' && module.exports) module.exports = api;
@@ -20,6 +23,8 @@
   const VIEW_KEY = 'airiz.device3d.view';
   const VIEWS = ['xray', 'opaque'];
   const TAU = Math.PI * 2;
+  // The numbers without the CAD mesh: the same 30 mm stroke as the CAD (meta.strokeMm).
+  const PLAIN_MOTION = { strokeMm: 30, leadMm: 1, pinion: { ratio: 1 } };
 
   // Same part colours as the PTB FA Simulation unit viewer, so the two pictures read the same.
   const PART_COLOR = {
@@ -104,6 +109,24 @@
       rise: moved.liftMm.toFixed(1) + ' mm',
       pan: (degrees === 360 ? 0 : degrees) + '\u00b0' + turn
     };
+  }
+
+  // What the sensors say about the counted position (AirizPtz.feedback()), as tags for the page.
+  // level: ok = a sensor agrees, warn = a sensor disagrees, busy = the camera is watching a turn,
+  // none = counted only.
+  const LEVELS = ['ok', 'warn', 'busy', 'none'];
+  const NO_FEEDBACK = {
+    rising: { label: 'counted', level: 'none' },
+    pan: { label: 'counted', level: 'none' },
+    summary: 'COUNTED, NO SENSOR YET',
+    level: 'none'
+  };
+
+  function feedbackTags(feedback) {
+    const state = feedback && feedback.rising && feedback.pan ? feedback : NO_FEEDBACK;
+    const level = (value) => (LEVELS.includes(value) ? value : 'none');
+    const tag = (axis) => ({ label: String(axis.label || 'counted'), level: level(axis.level) });
+    return { rise: tag(state.rising), pan: tag(state.pan), summary: String(state.summary || NO_FEEDBACK.summary), level: level(state.level) };
   }
 
   // ---- drawing (browser only) ----
@@ -339,22 +362,84 @@
     }
     const stage = document.getElementById('motion-stage');
     const canvas = document.getElementById('device-3d');
-    if (!stage || !canvas || typeof DecompressionStream === 'undefined' || !window.WebGL2RenderingContext) return;
+    if (!stage) return;
+    const live = startReadout(stage);
+    if (!canvas || typeof DecompressionStream === 'undefined' || !window.WebGL2RenderingContext) return;
     loadMeshScript()
       .then(async (mesh) => {
         const buffer = await unpack(mesh.bin);
         mesh.bin = '';
-        run(stage, canvas, mesh.meta, buffer);
+        run(stage, canvas, mesh.meta, buffer, live);
       })
       .catch(() => { /* no CAD mesh in this build, or it cannot be read: the drawn device picture stays */ });
   }
 
-  function run(stage, canvas, meta, buffer) {
-    const scene = createScene(canvas, meta, buffer);
-    if (!scene) return;
+  // The numbers and the sensor tags beside the device. They need no CAD mesh: without the 3D
+  // model they stand on the drawn device picture (the stage gets .has-feedback).
+  function startReadout(stage) {
     const riseText = document.getElementById('device-3d-rise');
     const panText = document.getElementById('device-3d-pan');
     const readoutBox = document.getElementById('device-3d-readout');
+    const riseSource = document.getElementById('device-3d-rise-source');
+    const panSource = document.getElementById('device-3d-pan-source');
+    const caption = document.getElementById('device-3d-caption');
+    const captionText = document.getElementById('device-3d-feedback');
+
+    function counted() {
+      const ptz = window.AirizPtz;
+      if (!ptz || typeof ptz.pose !== 'function') return { pan: 0, rising: 0, risingRef: false, travel: null };
+      const pose = ptz.pose();
+      return { pan: Number(pose.pan) || 0, rising: Number(pose.rising) || 0, risingRef: !!pose.risingRef, travel: ptz.travel };
+    }
+
+    function showNumbers(moved, referenced) {
+      const text = readout(moved);
+      if (riseText && riseText.textContent !== text.rise) riseText.textContent = text.rise;
+      if (panText && panText.textContent !== text.pan) panText.textContent = text.pan;
+      if (readoutBox) readoutBox.dataset.referenced = String(referenced);
+    }
+
+    // The sensor tags. Written only when they change, so the translated text is left alone.
+    let shownFeedback = '';
+    function showFeedback() {
+      const ptz = window.AirizPtz;
+      const tags = feedbackTags(ptz && typeof ptz.feedback === 'function' ? ptz.feedback() : null);
+      const key = [tags.rise.label, tags.rise.level, tags.pan.label, tags.pan.level, tags.summary, tags.level].join('|');
+      if (key === shownFeedback) return;
+      shownFeedback = key;
+      if (riseSource) {
+        riseSource.textContent = tags.rise.label;
+        riseSource.dataset.level = tags.rise.level;
+      }
+      if (panSource) {
+        panSource.textContent = tags.pan.label;
+        panSource.dataset.level = tags.pan.level;
+      }
+      if (captionText) captionText.textContent = tags.summary;
+      if (caption) caption.dataset.level = tags.level;
+    }
+
+    // modelDraws: the 3D model writes the numbers itself, eased with the movement it shows.
+    const live = { counted, showNumbers, modelDraws: false };
+    function look() {
+      if (document.hidden) return;
+      showFeedback();
+      if (live.modelDraws) return;
+      const target = counted();
+      showNumbers(mechanism(target, target.travel, PLAIN_MOTION), target.risingRef);
+    }
+    // The tracker has no "moved" event for every source of commands, so look at it a few times a second.
+    setInterval(look, 120);
+    document.addEventListener('visibilitychange', look);
+    stage.classList.add('has-feedback');
+    look();
+    return live;
+  }
+
+  function run(stage, canvas, meta, buffer, live) {
+    const scene = createScene(canvas, meta, buffer);
+    if (!scene) return;
+    const counted = live.counted;
     const viewButtons = [...document.querySelectorAll('[data-device-view]')];
     const stillMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 
@@ -393,13 +478,6 @@
     let dragging = null;
     let lost = false;
 
-    function counted() {
-      const ptz = window.AirizPtz;
-      if (!ptz || typeof ptz.pose !== 'function') return { pan: 0, rising: 0, risingRef: false, travel: null };
-      const pose = ptz.pose();
-      return { pan: Number(pose.pan) || 0, rising: Number(pose.rising) || 0, risingRef: !!pose.risingRef, travel: ptz.travel };
-    }
-
     function readTheme() {
       const match = /rgba?\(([^)]+)\)/.exec(getComputedStyle(stage).backgroundColor);
       if (!match) return;
@@ -430,10 +508,7 @@
       const moved = mechanism(shown, target.travel, meta);
       frameView();
       scene.draw(camera, moved, view, dark);
-      const text = readout(moved);
-      if (riseText && riseText.textContent !== text.rise) riseText.textContent = text.rise;
-      if (panText && panText.textContent !== text.pan) panText.textContent = text.pan;
-      if (readoutBox) readoutBox.dataset.referenced = String(target.risingRef);
+      live.showNumbers(moved, target.risingRef);
       dirty = false;
       if (!settled || dragging) schedule();
       else lastFrame = 0;
@@ -448,7 +523,6 @@
       schedule();
     }
 
-    // The tracker has no "moved" event for every source of commands, so look at it a few times a second.
     setInterval(() => {
       if (frame || lost || document.hidden || !canvas.clientWidth) return;
       const target = counted();
@@ -505,6 +579,7 @@
         redraw();
       } catch (error) {
         stage.classList.remove('has-3d');
+        live.modelDraws = false;
       }
     });
 
@@ -519,10 +594,11 @@
     document.addEventListener('visibilitychange', redraw);
 
     stage.classList.add('has-3d');
+    live.modelDraws = true;
     readTheme();
     showView();
     redraw();
   }
 
-  return { mechanism, turnLift, groupMatrix, partStyle, readout, start };
+  return { mechanism, turnLift, groupMatrix, partStyle, readout, feedbackTags, start };
 });

@@ -104,8 +104,10 @@
     const value = String(info.value || '').trim().toLowerCase();
     if (/^(pressed|press|closed|close|on|true|yes|detected|low)$/.test(value)) return true;
     if (/^(released|release|not ?pressed|unpressed|open|off|false|no|undetected|high)$/.test(value)) return false;
-    if (info.number !== null && info.number !== undefined && Number.isFinite(info.number)) {
-      return info.number === Number(pressedValue === undefined ? 1 : pressedValue);
+    // A number must be a plain 0 or 1: "0.0.0.3" (the firmware version) or "120" (the light
+    // sensor) is the answer to another query that came in between, not a switch state.
+    if (/^[01]$/.test(value)) {
+      return Number(value) === Number(pressedValue === undefined ? 1 : pressedValue);
     }
     return null;
   }
@@ -810,6 +812,138 @@
     return from < to ? minutes >= from && minutes < to : minutes >= from || minutes < to;
   }
 
+  // ------------------------------------------------------------------ position feedback (1.11.30)
+  // The motors are steppers without an encoder. Two real sensors can confirm where the camera is:
+  // the bottom switch (height) and the camera picture (pan).
+
+  // The switch may stay pressed over the first part of the travel: below this height a
+  // "pressed" reading says nothing (assumed value, about 4 mm of the 30 mm stroke).
+  const SWITCH_CLEAR_STEPS = 150;
+
+  // What the bottom switch says about the counted height.
+  //   reading: { pressed, fresh }; fresh = read after the last rising move ended.
+  function risingFeedback(input) {
+    const rising = Number(input && input.rising) || 0;
+    const reading = input && input.reading;
+    if (input && input.moving) return 'moving';
+    if (!reading || !reading.fresh || typeof reading.pressed !== 'boolean') return input && input.risingRef ? 'counted' : 'unknown';
+    // No height reference yet: there is no counted height the switch could agree or disagree with.
+    if (!input.risingRef) return 'unknown';
+    if (reading.pressed) {
+      if (rising <= 0) return 'switch-down';
+      return rising > SWITCH_CLEAR_STEPS ? 'conflict' : 'counted';
+    }
+    return rising <= 0 ? 'conflict' : 'switch-up';
+  }
+
+  // How far the camera picture travelled during a move. Every frame is matched against a key
+  // frame; once the picture has travelled `hop` of its size the frame becomes the next key
+  // frame, so a turn of any length is measured in confident, overlapping hops.
+  //   frames: { gray, width, height }. Travel is in picture widths / heights, like estimateShift.
+  function createOdometer(first, options) {
+    const hop = (options && options.hop) || 0.12;
+    const minConfidence = (options && options.minConfidence) || 0.35;
+    const maxMisses = (options && options.maxMisses) || 4;
+    let key = first;
+    const total = { dx: 0, dy: 0 };
+    let pending = { dx: 0, dy: 0 };
+    let misses = 0;
+    let hops = 0;
+    let lost = !first || frameContrast(first.gray) < 8;
+
+    function travelled() {
+      return { dx: total.dx + pending.dx, dy: total.dy + pending.dy, hops, lost: lost || misses > 0 };
+    }
+
+    function add(frame) {
+      if (lost) return travelled();
+      if (!frame || frame.width !== key.width || frame.height !== key.height) {
+        lost = true;
+        return travelled();
+      }
+      const shift = estimateShift(key.gray, frame.gray, key.width, key.height, { maxShift: 0.4 });
+      const pixels = Math.max(Math.abs(shift.pixelsX), Math.abs(shift.pixelsY));
+      if (pixels === 0) {
+        pending = { dx: 0, dy: 0 };
+        misses = 0;
+      } else if (shift.confidence >= minConfidence) {
+        pending = { dx: shift.dx, dy: shift.dy };
+        misses = 0;
+        if (Math.abs(shift.dx) >= hop || Math.abs(shift.dy) >= hop) {
+          total.dx += shift.dx;
+          total.dy += shift.dy;
+          pending = { dx: 0, dy: 0 };
+          key = frame;
+          hops += 1;
+        }
+      } else if (pixels > 2) {
+        // No clear match (blur, something else moved, or the picture jumped too far): too many in a row = lost.
+        misses += 1;
+        if (misses >= maxMisses) lost = true;
+      }
+      return travelled();
+    }
+
+    return { add, travelled };
+  }
+
+  // Compare what the camera saw with the pan steps that were sent.
+  //   travelledWidths: picture travel from the odometer (dx); stepsPerFrame: the Aim calibration.
+  // Not calibrated: only "the picture moved" or "it did not" can be said. Calibrated: the amount too.
+  // Returns null when the turn is too short to judge.
+  function judgeTurn(commandedSteps, travelledWidths, stepsPerFrame, calibrated) {
+    const perFrame = Number(stepsPerFrame) || DEFAULT_CALIBRATION.panStepsPerFrame;
+    const commanded = Number(commandedSteps) || 0;
+    if (Math.abs(commanded) < Math.max(40, Math.abs(perFrame) * 0.08)) return null;
+    const travel = Number(travelledWidths) || 0;
+    // Pan forward moves the picture content the other way (see calibrateAxis).
+    const measuredSteps = Math.round(-travel * perFrame);
+    if (!calibrated) {
+      return { verdict: Math.abs(travel) < 0.012 ? 'none' : 'moved', measuredSteps: null };
+    }
+    const ratio = measuredSteps / commanded;
+    if (Math.abs(ratio) < 0.15) return { verdict: 'none', measuredSteps };
+    return { verdict: ratio >= 0.7 && ratio <= 1.3 ? 'ok' : 'differs', measuredSteps };
+  }
+
+  // Short labels for the two sensors (shown next to the height and the pan angle).
+  const RISING_FEEDBACK_LABEL = {
+    'switch-down': 'bottom switch \u2713',
+    'switch-up': 'off the bottom \u2713',
+    conflict: 'switch disagrees \u26a0',
+    counted: 'counted',
+    moving: 'counted',
+    unknown: 'not referenced'
+  };
+  const PAN_FEEDBACK_LABEL = {
+    ok: 'camera \u2713',
+    moved: 'camera saw the turn \u2713',
+    none: 'camera saw no turn \u26a0',
+    differs: 'camera differs \u26a0',
+    watching: 'camera watching\u2026',
+    counted: 'counted'
+  };
+
+  // ok = the sensor agrees, warn = it disagrees, busy = the camera is watching a turn, none = counted only.
+  const FEEDBACK_LEVEL = {
+    'switch-down': 'ok', 'switch-up': 'ok', ok: 'ok', moved: 'ok',
+    conflict: 'warn', none: 'warn', differs: 'warn', watching: 'busy'
+  };
+  function feedbackLevel(state) {
+    return FEEDBACK_LEVEL[state] || 'none';
+  }
+
+  // One line for both: is the shown position confirmed by a sensor?
+  function feedbackSummary(risingState, panState) {
+    if (risingState === 'conflict' || panState === 'none' || panState === 'differs') return 'SENSOR DISAGREES';
+    const rising = risingState === 'switch-down' || risingState === 'switch-up';
+    const pan = panState === 'ok' || panState === 'moved';
+    if (rising && pan) return 'SENSOR CHECKED';
+    if (rising) return 'HEIGHT CHECKED BY SWITCH';
+    if (pan) return 'PAN CHECKED BY CAMERA';
+    return 'COUNTED, NO SENSOR YET';
+  }
+
   return Object.freeze({
     AXES,
     SPEED_RANGE,
@@ -852,6 +986,14 @@
     meanLuminance,
     cameraDarknessDecision,
     combinedNightDecision,
-    isWithinSchedule
+    isWithinSchedule,
+    SWITCH_CLEAR_STEPS,
+    risingFeedback,
+    createOdometer,
+    judgeTurn,
+    RISING_FEEDBACK_LABEL,
+    PAN_FEEDBACK_LABEL,
+    feedbackLevel,
+    feedbackSummary
   });
 });

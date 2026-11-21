@@ -433,7 +433,6 @@
     "Tester": "測試人員",
     "Testers": "測試人員",
     "The PC stopped sharing or the preview stopped. Share again and use the new code.": "PC 已停止分享或預覽已停止。請重新分享並使用新的代碼。",
-    "The device picture is a command visualisation, not position feedback.": "裝置圖示是指令視覺化，不是位置回饋。",
     "Theme: Dark": "主題：深色",
     "Thread on": "Thread 開",
     "To remove someone: delete the workflow, create a new one and give new passes to the remaining members.": "要移除某人：刪除 workflow、建立新的，並發新的通行碼給其餘成員。",
@@ -1597,6 +1596,8 @@
     "Check for updates…": "檢查更新…",
     "About AIRIZ Console": "關於 AIRIZ Console",
     "Release notes and downloads": "版本資訊與下載",
+    "Position feedback on the device picture (1.11.30)": "裝置圖上的位置回饋（1.11.30）",
+    "The device picture on the Motor control page now shows the height in mm and the pan angle counted from the commands, and what the sensors say about them. The bottom switch is read by itself after every rising move, and while the camera preview is on the picture is watched during every pan move. A tag beside each number says bottom switch ✓, off the bottom ✓ or camera ✓, or gives a warning when a sensor does not agree with what was sent. The PTZ page shows the same on a new Sensors line. The AIRIZ motors have no encoder, so this is a check of the counted position, not a measurement of every position. Also fixed: the firmware version answer could be taken for the bottom switch answer. Not yet tried on a real AIRIZ.": "馬達控制頁的裝置圖現在會顯示依指令計數的高度（mm）與水平角度，以及感測器對它們的判斷。每次升降後會自動讀取底部開關；相機預覽開啟時，每次水平轉動都會觀察畫面。每個數字旁的標籤會顯示「底部開關 ✓」、「已離開底部 ✓」或「相機 ✓」，感測器與送出的指令不一致時則顯示警告。PTZ 頁面新增的「感測器」一行顯示相同內容。AIRIZ 馬達沒有編碼器，因此這是對計數位置的確認，而不是量測每一個位置。另修正：韌體版本的回應可能被當成底部開關的回應。尚未在實際的 AIRIZ 上測試。",
     "Switch for the USB mode result (1.11.29)": "USB 模式結果回報開關（1.11.29）",
     "Under the console there is a new tick box, Send USB mode result. While it is ticked, the console sends one short result to the app owner after USB mode → ETH, CDC or UVC, as in 1.11.28. Untick it and this device sends nothing: a result that was being watched or was still waiting to be sent is deleted. The choice is kept on this device and works at once, without a restart. The commands themselves did not change.": "主控台下方新增「回報 USB 模式結果」勾選框。勾選時，送出 USB 模式 → ETH、CDC 或 UVC 後，主控台會和 1.11.28 一樣把一筆簡短的結果傳給應用程式擁有者。取消勾選後，此裝置不會傳送任何內容：觀察中或尚未送出的結果會被刪除。此選擇儲存在這台裝置上，立即生效，不需重新啟動。指令本身沒有變更。",
     "USB mode commands report their result (1.11.28)": "USB 模式指令會回報結果（1.11.28）",
@@ -1607,8 +1608,6 @@
     "The command library has a new USB mode → ETH (Ethernet) command, diag usbmode set eth, next to UVC and CDC. The AIRIZ restarts and its USB port becomes a network link, so the USB console disconnects. To get the serial console back, run diag usbmode set cdc on the device. This command has not been confirmed on a real AIRIZ yet: if yours answers that the command is unknown, or does not switch, please tell the owner.": "指令庫在 UVC 與 CDC 旁新增 USB 模式 → ETH（乙太網路）指令 diag usbmode set eth。AIRIZ 會重新啟動，USB 連接埠改為網路連線，因此 USB 主控台會中斷。要恢復序列主控台，請在裝置上執行 diag usbmode set cdc。這個指令尚未在實際的 AIRIZ 上確認：如果你的裝置回應未知指令，或沒有切換，請告知擁有者。",
     "Windows dialogs and menu in your language (1.11.25)": "Windows 對話框與選單也使用你的語言（1.11.25）",
     "With the console set to 繁體中文 or 简体中文, the Windows dialogs (close warning, update install question, camera and microphone permission, Bluetooth pairing, About) and the menu bar now use that language too. The question to install an update when work finishes now reads correctly (for example: when the macro finishes). Old browser Bluetooth code that nothing used any more was removed.": "主控台設為繁體中文或简体中文時，Windows 對話框（關閉警告、更新安裝提問、相機與麥克風權限、藍牙配對、關於）和選單列現在也會使用該語言。工作結束後安裝更新的提問現在文字正確（例如：等巨集執行完畢）。也移除了已不再使用的舊瀏覽器藍牙程式碼。",
-    "Ziris unit in 3D. It follows the pan and rising commands that were sent, not a measured position": "Ziris 機台 3D 模型。它依照已送出的水平與升降指令移動，不是量測到的位置",
-    "Counted from the commands sent. The height is exact only after the PTZ page has found the bottom switch.": "依已送出的指令計算。PTZ 頁面找到底部開關之後，高度才是準確的。",
     "PAN": "水平",
     "3D view": "3D 檢視",
     "X-ray": "透視",
@@ -1616,7 +1615,32 @@
     "X-ray: see the lead screw, nut, motors and gears through the housing": "透視：穿過外殼看到導螺桿、螺帽、馬達與齒輪",
     "Opaque: the unit as it looks from outside": "實體：機台從外面看到的樣子",
     "Reset view": "重設視角",
-    "Reset view (or double-click the model). Drag the model to look around.": "重設視角（或在模型上按兩下）。拖曳模型可以從不同角度查看。"
+    "Reset view (or double-click the model). Drag the model to look around.": "重設視角（或在模型上按兩下）。拖曳模型可以從不同角度查看。",
+    "Ziris unit in 3D. It shows the position counted from the pan and rising commands, checked by the bottom switch and the camera picture": "Ziris 機台 3D 模型。顯示依水平與升降指令計數的位置，並由底部開關與相機畫面確認",
+    "Counted from the commands sent and checked by the sensors: the bottom switch after every rising move, the camera picture during every pan move while the preview is on.": "依已送出的指令計數，並由感測器確認：每次升降後讀取底部開關，預覽開啟時每次水平轉動都觀察相機畫面。",
+    "The numbers on the device picture show the position counted from the commands, checked by two sensors: the bottom switch (height) and the camera picture (pan). The motors have no encoder, so a sensor can confirm or contradict the count but cannot measure every position.": "裝置圖上的數字顯示依指令計數的位置，並由兩個感測器確認：底部開關（高度）與相機畫面（水平）。馬達沒有編碼器，因此感測器只能確認或否定計數結果，無法量測每一個位置。",
+    "The position is counted from the commands. The bottom switch is read after every rising move and the camera picture is watched during every pan move while the preview is on.": "位置依指令計數。每次升降後讀取底部開關，預覽開啟時每次水平轉動都觀察相機畫面。",
+    "POSITION FEEDBACK": "位置回饋",
+    "SENSOR CHECKED": "感測器已確認",
+    "HEIGHT CHECKED BY SWITCH": "高度已由開關確認",
+    "PAN CHECKED BY CAMERA": "水平已由相機確認",
+    "SENSOR DISAGREES": "感測器不一致",
+    "COUNTED, NO SENSOR YET": "依指令計數，尚無感測器確認",
+    "Sensors": "感測器",
+    "Height:": "高度：",
+    "Pan:": "水平：",
+    "counted": "依指令計數",
+    "not referenced": "未校準高度",
+    "bottom switch ✓": "底部開關 ✓",
+    "off the bottom ✓": "已離開底部 ✓",
+    "switch disagrees ⚠": "開關不一致 ⚠",
+    "camera ✓": "相機 ✓",
+    "camera saw the turn ✓": "相機看到轉動 ✓",
+    "camera saw no turn ⚠": "相機未看到轉動 ⚠",
+    "camera differs ⚠": "相機量到的不同 ⚠",
+    "camera watching…": "相機觀察中…",
+    "The bottom switch is still pressed although the camera was sent up: it may not have risen. Use Find rising home to check.": "相機已送出上升指令，但底部開關仍按下：可能沒有升起。請用「尋找升降原點」檢查。",
+    "The camera picture did not move during the last turn. Check that the preview shows the AIRIZ camera and that the camera really turns.": "上一次轉動時相機畫面沒有移動。請確認預覽顯示的是 AIRIZ 相機，且相機確實有轉動。"
   },
   "html": {
     "AIRIZDEVICE LAB": "AIRIZ<small>裝置實驗室</small>",
@@ -2906,6 +2930,10 @@
     [
       "^Install (\\S+) automatically when the camera session is closed\\?$",
       "要在相機工作階段關閉後自動安裝 $1 嗎？"
+    ],
+    [
+      "^The camera saw a turn of about (\\d+)° where (\\d+)° was sent\\. Check the pan, or do the pan Calibration again\\.$",
+      "相機看到約 $1° 的轉動，但送出的是 $2°。請檢查水平轉動，或重新做一次水平校正。"
     ]
   ]
 }

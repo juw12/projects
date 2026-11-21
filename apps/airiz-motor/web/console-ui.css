@@ -863,9 +863,20 @@ body.console-redesign { color-scheme: inherit; }
 .motion-stage.has-3d .device-3d { display: block; position: absolute; inset: 0; width: 100%; height: 100%; cursor: grab; touch-action: pan-y; }
 .motion-stage.has-3d .device-3d.dragging { cursor: grabbing; }
 .motion-stage.has-3d .device-label, .motion-stage.has-3d .stage-caption { pointer-events: none; }
-.motion-stage.has-3d .device-3d-readout { display: flex; flex-direction: column; gap: 5px; position: absolute; top: 46px; left: 20px; z-index: 2; font: 12px var(--font-mono); letter-spacing: 1px; color: var(--color-text-muted); }
+.motion-stage.has-feedback .device-3d-readout { display: flex; flex-direction: column; gap: 5px; position: absolute; top: 46px; left: 20px; z-index: 2; font: 12px var(--font-mono); letter-spacing: 1px; color: var(--color-text-muted); }
 .device-3d-readout b { margin-left: 6px; font-weight: 500; letter-spacing: .4px; color: var(--color-text); }
 .device-3d-readout[data-referenced="false"] #device-3d-rise { opacity: .62; }
+/* Position feedback (1.11.30): what the bottom switch and the camera say about the counted position.
+   .has-feedback is set as soon as device-3d.js runs, with or without the 3D model. */
+.device-3d-source { margin-left: 8px; font-style: normal; font-size: 12px; letter-spacing: .3px; color: var(--color-text-muted); }
+.device-3d-source[data-level="ok"] { color: var(--color-success); }
+.device-3d-source[data-level="warn"] { color: var(--color-warning); }
+.device-3d-source[data-level="busy"] { color: var(--color-text); }
+.device-3d-caption { display: none; }
+.motion-stage.has-feedback .stage-caption:not(.device-3d-caption) { display: none; }
+.motion-stage.has-feedback .device-3d-caption { display: flex; }
+.device-3d-caption[data-level="ok"] > span:last-child { color: var(--color-success); }
+.device-3d-caption[data-level="warn"] > span:last-child { color: var(--color-warning); }
 .motion-stage.has-3d .device-3d-tools { display: flex; position: absolute; top: 42px; right: 20px; z-index: 2; }
 .device-3d-tools button { display: flex; align-items: center; min-height: 28px; padding: 0 10px; background: var(--color-bg-panel); border: 1px solid var(--color-border); color: var(--color-text-muted); font: 12px var(--font-mono); letter-spacing: .6px; cursor: pointer; }
 .device-3d-tools button + button { border-left: 0; }
@@ -875,6 +886,14 @@ body.console-redesign { color-scheme: inherit; }
 .device-3d-tools button[aria-pressed="true"] { color: var(--color-accent); background: var(--ui-accent-soft); }
 .device-3d-tools .ui-icon { width: 13px; height: 13px; }
 @media (max-width: 560px) {
-  .motion-stage.has-3d .device-3d-readout { left: 15px; }
+  .motion-stage.has-feedback .device-3d-readout { left: 15px; }
   .motion-stage.has-3d .device-3d-tools { right: 15px; }
+  .motion-stage.has-feedback:not(.has-3d) .device-illustration { width: 250px; height: 197px; }
+}
+/* Drawn device picture in a narrow window: room for the numbers above the picture. */
+@media (max-width: 780px) {
+  .motion-card .motion-stage.has-feedback:not(.has-3d) { min-height: 330px; }
+  .motion-stage.has-feedback:not(.has-3d) .device-illustration { top: 60%; }
+  .motion-stage.has-feedback:not(.has-3d) .stage-orbit { top: 68%; }
+  .motion-stage.has-feedback:not(.has-3d) .axis-rise { display: none; }
 }
