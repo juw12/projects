@@ -1,0 +1,17 @@
+{
+  "appId": "io.github.juw12.twin",
+  "appName": "Twin",
+  "webDir": "www",
+  "backgroundColor": "#0d1117",
+  "appendUserAgent": "TwinApp/1.0",
+  "server": {
+    "androidScheme": "https"
+  },
+  "plugins": {
+    "SystemBars": {
+      "insetsHandling": "css",
+      "initialViewportFitValueHint": "cover",
+      "style": "DEFAULT"
+    }
+  }
+}
