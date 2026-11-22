@@ -17,6 +17,12 @@ shorts, DMs and payment records live on public decentralised infrastructure
 (Nostr relays, Blossom media servers, ntfy push). Money moves directly between
 people with the payment apps they already use. Fade takes 0% and never holds funds.
 
+## On a Mac
+
+- **Mac:** [`Fade-macOS-AppleSilicon.dmg`](https://github.com/juw12/projects/releases/download/fade-mac/Fade-macOS-AppleSilicon.dmg) (M1 and newer) or [`Fade-macOS-Intel.dmg`](https://github.com/juw12/projects/releases/download/fade-mac/Fade-macOS-Intel.dmg). Open it and drag Fade to Applications. The first time, macOS blocks it because it is not notarized: **System Settings → Privacy & Security → Open Anyway**.
+
+It is the web edition (https://juw12.github.io/projects/fade/) in its own window ([`desktop/`](shell/desktop/README.md)) and changes with it. Each build is opened on an Apple-silicon Mac and an Intel Mac on GitHub before it is published: the page loads, the app starts and can store data. No Mac of ours has run it yet.
+
 ## On an Android phone
 
 - **Android:** [`Fade-android.apk`](https://github.com/juw12/projects/releases/download/fade-android/Fade-android.apk): open the file on the phone and allow your browser to install apps once.

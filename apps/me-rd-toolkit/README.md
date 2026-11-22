@@ -51,6 +51,12 @@
 </p>
 <!-- HERO:END -->
 
+## On a Mac
+
+- **Mac:** [`DatumBench-macOS-AppleSilicon.dmg`](https://github.com/juw12/projects/releases/download/me-rd-toolkit-mac/DatumBench-macOS-AppleSilicon.dmg) (M1 and newer) or [`DatumBench-macOS-Intel.dmg`](https://github.com/juw12/projects/releases/download/me-rd-toolkit-mac/DatumBench-macOS-Intel.dmg). Open it and drag DatumBench to Applications. The first time, macOS blocks it because it is not notarized: **System Settings → Privacy & Security → Open Anyway**.
+
+It is the web edition (https://juw12.github.io/projects/me-rd-toolkit/) in its own window ([`desktop/`](shell/desktop/README.md)) and changes with it. The three engineering sub-apps under R&D Apps run from local servers that only the Windows app starts, so they are not in it. Each build is opened on an Apple-silicon Mac and an Intel Mac on GitHub before it is published: the page loads, the app starts and can store data. No Mac of ours has run it yet.
+
 ## On an Android phone
 
 - **Android:** [`DatumBench-android.apk`](https://github.com/juw12/projects/releases/download/me-rd-toolkit-android/DatumBench-android.apk): open the file on the phone and allow your browser to install apps once.
