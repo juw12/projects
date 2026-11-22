@@ -3793,6 +3793,53 @@
       "portfolio": true
     },
     {
+      "id": "talos",
+      "name": "Talos",
+      "category": "AI",
+      "external": true,
+      "url": "https://juw12.github.io/talos/",
+      "url_label": "Open site",
+      "desc": "One AI agent for your computer that does what OpenCode and Hermes Agent do, works with any model, needs only Python, and says how it checked its own work.",
+      "summary": "One AI agent with OpenCode's and Hermes Agent's features that says how it checked its own work.",
+      "description": "You type a task; Talos reads and writes files, runs commands, searches the web and your own notes, and answers. Every run that changed files ends with one line: <strong>checked</strong>, re-read only, unverified, or check failed. It works with a free local model (Ollama, LM Studio) or a paid one and needs only Python. 37 OpenCode features and 30 Hermes Agent features are built in, plus 20 that neither has, each with a test; 96 tests run on Windows, macOS and Linux. The chat gateways were tested only against local fake servers, and a 1 GB model follows instructions poorly. Version 0.1.0, MIT.",
+      "tags": [
+        "ai-agents",
+        "coding-agent",
+        "opencode",
+        "hermes-agent",
+        "ollama",
+        "mcp",
+        "python"
+      ],
+      "note_tags": [
+        "talos",
+        "ai-agents",
+        "coding-agent",
+        "opencode",
+        "hermes-agent",
+        "ollama",
+        "mcp"
+      ],
+      "image": "talos-card.jpg",
+      "image_alt": "Talos site: the logo and the line 'One AI agent for your computer that does what OpenCode and Hermes Agent do, in one place, and tells you how it checked its own work', the button Get it on GitHub and the three commands to try it",
+      "extra_links": [
+        {
+          "label": "Source",
+          "url": "https://github.com/juw12/talos"
+        }
+      ],
+      "card": {
+        "label": "talos · site",
+        "capture": "https://juw12.github.io/talos/",
+        "theme": "light",
+        "accent": "#d98a3d",
+        "accent2": "#3aa58c"
+      },
+      "status": "working-prototype",
+      "order": 87,
+      "portfolio": true
+    },
+    {
       "id": "pocket-meter",
       "name": "Pocket Meter",
       "category": "Software",
