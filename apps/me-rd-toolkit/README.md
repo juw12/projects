@@ -57,6 +57,10 @@
 
 It is the web edition (https://juw12.github.io/projects/me-rd-toolkit/) in its own window ([`desktop/`](shell/desktop/README.md)) and changes with it. The three engineering sub-apps under R&D Apps run from local servers that only the Windows app starts, so they are not in it. Each build is opened on an Apple-silicon Mac and an Intel Mac on GitHub before it is published: the page loads, the app starts and can store data. No Mac of ours has run it yet.
 
+## On an iPhone
+
+- **iPhone:** open https://juw12.github.io/projects/me-rd-toolkit/ in Safari, tap Share, then **Add to Home Screen**. It opens full screen with its own icon and changes with the site.
+
 ## On an Android phone
 
 - **Android:** [`DatumBench-android.apk`](https://github.com/juw12/projects/releases/download/me-rd-toolkit-android/DatumBench-android.apk): open the file on the phone and allow your browser to install apps once.
