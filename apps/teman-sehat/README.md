@@ -49,6 +49,15 @@
 </p>
 <!-- HERO:END -->
 
+## Get it on your device
+
+- **Windows:** [`TemanSehat-Windows-Setup.exe`](https://github.com/juw12/projects/releases/download/teman-sehat-desktop/TemanSehat-Windows-Setup.exe) (no admin needed; if Windows says it protected your PC, choose *More info → Run anyway*), or without installing [`TemanSehat-Windows-Portable.zip`](https://github.com/juw12/projects/releases/download/teman-sehat-desktop/TemanSehat-Windows-Portable.zip).
+- **Mac:** [`TemanSehat-macOS-AppleSilicon.dmg`](https://github.com/juw12/projects/releases/download/teman-sehat-desktop/TemanSehat-macOS-AppleSilicon.dmg) (M1 and newer) or [`TemanSehat-macOS-Intel.dmg`](https://github.com/juw12/projects/releases/download/teman-sehat-desktop/TemanSehat-macOS-Intel.dmg). The first time, macOS blocks it because it is not notarized: **System Settings → Privacy & Security → Open Anyway**.
+- **Android:** [`TemanSehat-android.apk`](https://github.com/juw12/projects/releases/download/teman-sehat-android/TemanSehat-android.apk): open the file on the phone and allow your browser to install apps once.
+- **iPhone:** open https://juw12.github.io/projects/teman-sehat/ in Safari, tap Share, then **Add to Home Screen**.
+
+The Windows, Mac and Android apps are the web app in its own window ([`desktop/`](shell/desktop/README.md), [`android/`](shell/android/README.md)) and change with it. Each build is opened on GitHub's machines before it is published: on Windows and on a Mac the page loads, the app starts and can store data; on an Android emulator it installs, opens and stays up. They are not code-signed or notarised, and no real phone or PC has run them yet.
+
 ## About
 
 A lifestyle companion for people with GERD, in Bahasa Indonesia. It combines GERD habit reminders,
