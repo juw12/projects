@@ -262,7 +262,8 @@ def generate_index(out_dir, repo_name, apps):
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{repo_name}</title>
+  <title>{repo_name}: desktop apps and web prototypes by Juwen Lie</title>
+  <meta name="description" content="Product projects by Juwen Lie: native desktop apps and web and mobile experiences, each with its own links. Offline-first tools, AI experiments and practical utilities.">
   <style>
     :root {{
       --bg: #F7F8FB;
