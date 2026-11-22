@@ -23,3 +23,5 @@ python desktop/smoke_test.py --built --local-site
 `.github/workflows/apps.yml` does the same on Windows, an Apple-chip Mac and an Intel Mac, installs and uninstalls
 the Windows setup, and publishes the files that passed to the
 [apps release](https://github.com/juw12/projects/releases/tag/apps). The download links never change.
+
+In this project only the Mac builds are made and published (`.github/workflows/fade-mac.yml`): Windows has its own app, so the Windows half of this shell is not built here.
