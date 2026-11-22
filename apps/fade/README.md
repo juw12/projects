@@ -17,6 +17,12 @@ shorts, DMs and payment records live on public decentralised infrastructure
 (Nostr relays, Blossom media servers, ntfy push). Money moves directly between
 people with the payment apps they already use. Fade takes 0% and never holds funds.
 
+## On an Android phone
+
+- **Android:** [`Fade-android.apk`](https://github.com/juw12/projects/releases/download/fade-android/Fade-android.apk): open the file on the phone and allow your browser to install apps once.
+
+It is the web app (https://juw12.github.io/projects/fade/) in a full-screen window of its own ([`android/`](android/README.md)) and changes with it. The build is opened on an Android emulator on GitHub before it is published: it installs, opens and stays up. No real phone has run it yet.
+
 ## What's in it
 
 - **Barbers:** profiles, portfolios, services and weekly schedules. A barber can
