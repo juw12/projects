@@ -56,7 +56,7 @@
 - **Android:** [`Pips-android.apk`](https://github.com/juw12/projects/releases/download/pips-android/Pips-android.apk): open the file on the phone and allow your browser to install apps once.
 - **iPhone:** open https://juw12.github.io/projects/pips/web.html in Safari, tap Share, then **Add to Home Screen**.
 
-The Windows, Mac and Android apps are the web app in its own window ([`desktop/`](desktop/README.md), [`android/`](android/README.md)) and change with it. Each build is opened on GitHub's machines before it is published: on Windows and on a Mac the page loads, the app starts and can store data; on an Android emulator it installs, opens and stays up. They are not code-signed or notarised, and no real phone or PC has run them yet.
+The Windows, Mac and Android apps open the web version of Pips in a window of its own ([`desktop/`](desktop/README.md), [`android/`](android/README.md)) and change with it. The desktop pet that sits on top of your other windows is the Windows program, not these. Each build is opened on GitHub's machines before it is published: on Windows and on a Mac the page loads, the app starts and can store data; on an Android emulator it installs, opens and stays up. They are not code-signed or notarised, and no real phone or PC has run them yet.
 
 ## About
 
