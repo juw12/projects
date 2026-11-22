@@ -1,17 +1,22 @@
 {
   "name": "House of Articles",
-  "short_name": "HOA",
-  "start_url": "./index.html",
+  "short_name": "Articles",
+  "description": "Athlete-moment sneaker news plus a live resale market feed.",
+  "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#111110",
-  "theme_color": "#E4572E",
+  "background_color": "#F5F1E8",
+  "theme_color": "#F5F1E8",
   "icons": [
     {
-      "src": "icons/app-icon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
-      "purpose": "any maskable"
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
     }
   ]
 }
