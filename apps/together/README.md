@@ -70,6 +70,15 @@ A private life-planning app for couples: from dating to marriage, a home, kids, 
 - **Accessible**: every control has an accessible name, text meets WCAG AA contrast in light and dark mode,
   visible keyboard focus, labelled dialogs (checked by an automated audit on every tab).
 
+## Get it on your device
+
+- **Windows:** [`TogetherApp-Windows-Setup.exe`](https://github.com/juw12/projects/releases/download/together-desktop/TogetherApp-Windows-Setup.exe) (no admin needed; if Windows says it protected your PC, choose *More info → Run anyway*), or without installing [`TogetherApp-Windows-Portable.zip`](https://github.com/juw12/projects/releases/download/together-desktop/TogetherApp-Windows-Portable.zip).
+- **Mac:** [`TogetherApp-macOS-AppleSilicon.dmg`](https://github.com/juw12/projects/releases/download/together-desktop/TogetherApp-macOS-AppleSilicon.dmg) (M1 and newer) or [`TogetherApp-macOS-Intel.dmg`](https://github.com/juw12/projects/releases/download/together-desktop/TogetherApp-macOS-Intel.dmg). The first time, macOS blocks it because it is not notarized: **System Settings → Privacy & Security → Open Anyway**.
+- **Android:** [`TogetherApp-android.apk`](https://github.com/juw12/projects/releases/download/together-android/TogetherApp-android.apk): open the file on the phone and allow your browser to install apps once.
+- **iPhone:** open https://juw12.github.io/projects/together/ in Safari, tap Share, then **Add to Home Screen**.
+
+The Windows, Mac and Android apps are the web app in its own window ([`desktop/`](desktop/README.md), [`android/`](android/README.md)) and change with it. Each build is opened on GitHub's machines before it is published: on Windows and on a Mac the page loads, the app starts and can store data; on an Android emulator it installs, opens and stays up. They are not code-signed or notarised, and no real phone or PC has run them yet.
+
 ## Layout
 
 - `src/` — the app's source, split by concern: `index.html` (page shell), `styles.css`, and `js/NN-*.js`
