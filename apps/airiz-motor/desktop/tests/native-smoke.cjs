@@ -102,14 +102,19 @@ async function record(name) {
   await record('Bluetooth and duplicate share buttons are gone; Remote by code is the one entry point');
 
   await page.locator('#btn-demo').click();
+  // 1.11.34: a move waits while the previous one runs (the firmware would ignore it), so the
+  // commands are counted when they have been sent, not after a fixed time.
+  const commandsSent = count => page.waitForFunction(
+    expected => document.querySelectorAll('#console-output .command').length >= expected, count, { timeout: 10000 });
   for (const direction of ['pan-fwd', 'rising-fwd', 'pan-rev', 'rising-rev']) {
     await page.locator('[data-jog="' + direction + '"]').click();
     await page.waitForTimeout(450);
   }
+  await commandsSent(4);
   assert.equal(await page.locator('#console-output .command').count(), 4);
   assert.equal(await page.locator('#keyboard-toggle').getAttribute('aria-pressed'), 'true');
   await page.keyboard.press('ArrowRight');
-  await page.waitForTimeout(450);
+  await commandsSent(5);
   assert.equal(await page.locator('#console-output .command').count(), 5);
   await page.keyboard.press('Escape');
   await page.locator('#btn-bluetooth-on').click();
