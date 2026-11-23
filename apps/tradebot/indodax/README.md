@@ -36,6 +36,34 @@ practice account holds, and holds a small copy of the same coins on Indodax's ru
    .\run-windows.ps1           # keep copying in practice, one cycle a minute
    ```
 
+### On a Mac
+
+`run-mac.sh` is the same launcher for macOS, added on 23 Nov 2026 when the Windows PC the sender ran on
+went down:
+
+```
+./run-mac.sh show            # what it would do: no orders, no report
+./run-mac.sh                 # keep copying in practice, one cycle a minute, in this Terminal window
+./run-mac.sh check           # does the Indodax API key work? orders nothing
+./run-mac.sh background on   # keep it running with no window (a launch agent); off stops it
+```
+
+What was found on the Mac it was written on (an Intel MacBook Pro, macOS, 23 Nov 2026):
+
+- All 424 tests pass with Python 3.14. With Apple's own Python 3.9 three fail (two of the desk window, one
+  of the Trade API 2.0 client), so the launcher takes the first Python that is 3.10 or newer.
+- A Python from python.org has no list of certificate authorities until its "Install Certificates" step
+  is run, and every call then fails with CERTIFICATE_VERIFY_FAILED. The launcher points Python at
+  macOS's own list (`/etc/ssl/cert.pem`) unless `SSL_CERT_FILE` is already set. With that, TradeBot's
+  server, `indodax.com` and `api.indodax.com` all answered.
+- In the background the sender runs under `caffeinate -i`, so the Mac does not fall asleep by itself. A
+  closed lid without a screen attached, an empty battery or signing out still stop it, and then nothing
+  is watched and nothing is sold.
+- Not checked on a Mac: a cycle with a sender key, the key check, and a real order. The desk window
+  (`desk.py`, `TradeBot.exe`) is for Windows; on a Mac the sender's lines are in `desk_sender.log`.
+- The sender must run on one computer only. A new sender key (`newKey`, above) switches the old one off,
+  so the computer that had it can no longer reach TradeBot.
+
 `/indodax` in TradeBot's Telegram chat then shows the copies: what is open, what was closed, the
 result so far, and what the sender last said. Practice and real money are always labelled. The
 same chat can pause the buying, see [Control from Telegram](#control-from-telegram).
