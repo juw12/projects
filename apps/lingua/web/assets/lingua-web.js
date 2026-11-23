@@ -457,7 +457,7 @@ async function processFrame() {
       return;
     }
     const t1 = performance.now();
-    const lines = pipeline.update(text);
+    const lines = await pipeline.updateAsync(text);
     const transcriptLines = transcript.add(lines);
     const rows = speakerRows(transcriptLines);
     renderTranscript(transcriptLines, rows);

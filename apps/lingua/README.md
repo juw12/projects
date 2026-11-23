@@ -17,7 +17,9 @@ Both are the web edition (https://juw12.github.io/projects/lingua/) in its own w
 - Mobile translate and Read picture work in them. Live caption capture needs a browser that can share the screen (Chrome, Edge or Firefox on the Mac), and the floating caption window over Teams is the Windows app only.
 - They call the translation gateway you set, straight from the page. A gateway on plain `http` or one only reachable from the office network (the company one) cannot be called this way: use **Share to phone** from the laptop for that, as described under [Versions](#versions-laptop-web-iphone-android).
 
-Each build is opened on GitHub's machines before it is published: on an Apple-silicon Mac and an Intel Mac the page loads, the app starts and can store data; on an Android emulator it installs, opens and stays up. No translation was made in them, and no Mac or phone of ours has run them yet.
+Each build is opened on GitHub's machines before it is published: on an Apple-silicon Mac and an Intel Mac the page loads, the app starts and can store data; on an Android emulator it installs, opens and stays up. A translation was made on the page itself in WebKit (the Mac window's engine) and in Chromium as a phone, against a stand-in gateway on the test Mac: the page asked, the answer was shown, and a gateway that is gone is reported as a failure. None was made against a real gateway inside the two apps, and no phone of ours has run them yet.
+
+Fixed on 23 Nov 2026: Web capture and Mobile translate showed `[object Promise]` in place of every translation and said "Translated." whether or not the gateway had answered (the pipeline, ported from the laptop app, did not wait for the browser's network call). Read picture was not affected. The same pages are what **Share to phone** serves, so the Windows app carries the fix from its next build.
 
 ## Status
 

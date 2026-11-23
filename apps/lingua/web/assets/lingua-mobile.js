@@ -182,7 +182,7 @@ async function translatePastedText() {
   try {
     // Feed the pasted text into the pipeline as a single OCR frame so the
     // dedup + live + speaker logic is identical to the desktop path.
-    const lines = pipeline.update(text);
+    const lines = await pipeline.updateAsync(text);
     const transcriptLines = transcript.add(lines);
     renderRows(speakerRows(transcriptLines));
     setStatus("Translated.", "ok");
@@ -213,7 +213,7 @@ async function ocrAndTranslate() {
       setStatus("OCR returned no text.", "warn");
       return;
     }
-    const lines = pipeline.update(text);
+    const lines = await pipeline.updateAsync(text);
     const transcriptLines = transcript.add(lines);
     renderRows(speakerRows(transcriptLines));
     setStatus(`OCR + translate done (${text.split("\n").length} line(s)).`, "ok");
