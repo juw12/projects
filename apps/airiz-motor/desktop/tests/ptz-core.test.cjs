@@ -44,7 +44,7 @@ test('tracker sums every sent move, respects soft limits and re-homes', () => {
 });
 
 test('a stop during a move keeps only the part that ran and marks the position estimated', () => {
-  const timing = { pan: 40 }; // 40 / speed 2 = 20 ms per step
+  const timing = { pan: 40, handSet: { pan: true } }; // timed by hand: 40 / speed 2 = 20 ms per step
   const tracker = core.createTracker();
   tracker.applyCommand('diag motor pan forward 2 400', 1000, timing); // 8000 ms planned
   assert.equal(tracker.busyUntil(), 9000);
@@ -85,7 +85,8 @@ test('click-to-center, calibration and digital zoom maths', () => {
   assert.deepEqual(core.viewToFrame(1, 0, 2, 0.5, 0.5), { u: 0.75, v: 0.25 });
   assert.deepEqual(core.clampViewCenter(0.95, 0.1, 2), { cx: 0.75, cy: 0.25 });
   assert.equal(Math.round(core.timingFromMeasurement(950, 3, 3800)), 12);
-  assert.equal(core.estimateMoveMs('rising', 950, 3, { rising: 12 }), 3800);
+  assert.equal(core.estimateMoveMs('rising', 950, 3, { rising: 12, handSet: { rising: true } }), 3800);
+  assert.equal(core.estimateMoveMs('rising', 950, 3, { rising: 15 }), 4750);
 });
 
 function frame(width, height, fill) {
@@ -208,7 +209,7 @@ test('rising follows the real end stops once the bottom switch was seen', () => 
 
 test('live position moves linearly during a move and stops early at an end stop', () => {
   const tracker = core.createTracker({ risingRef: true, position: { pan: 0, rising: 900 } });
-  const timing = { pan: 40, rising: 12 };
+  const timing = { pan: 40, rising: 12, handSet: { pan: true, rising: true } };
   // 400 steps up at speed 3: 1600 ms planned; the top (1100) is reached after 200 steps = 800 ms.
   tracker.applyCommand('diag motor rising forward 3 400', 1000, timing);
   assert.equal(tracker.livePosition(1000).rising, 900);
@@ -230,7 +231,7 @@ test('home keeps the real height when the rising reference is known', () => {
   assert.deepEqual(tracker.position, { pan: 0, rising: 550 });
   assert.deepEqual(tracker.home, { pan: 0, rising: 550 });
   // Seeing the bottom switch 30 steps lower than expected corrects position and home together.
-  tracker.applyCommand('diag motor rising reverse 3 520', 0, { rising: 12 });
+  tracker.applyCommand('diag motor rising reverse 3 520', 0, { rising: 12, handSet: { rising: true } });
   assert.equal(tracker.position.rising, 30);
   assert.equal(tracker.setRisingReference(), 30);
   assert.deepEqual(tracker.home, { pan: 0, rising: 520 });
@@ -249,7 +250,7 @@ test('switch replies and pose descriptions', () => {
   assert.equal(core.parseSwitchState(info('#INFO#0:busy#END#')), null);
   assert.equal(core.parseSwitchState(null), null);
 
-  const travel = { risingMax: 1100, panPerTurn: 4800 };
+  const travel = { risingMax: 1100, panPerTurn: 8900 };
   const pose = (rising, pan, risingRef = true) => core.describePose({ rising, pan }, { travel, risingRef });
   assert.equal(pose(0, 0).heightLabel, 'Fully down');
   assert.equal(pose(1100, 0).heightLabel, 'Fully up');
@@ -257,15 +258,18 @@ test('switch replies and pose descriptions', () => {
   assert.equal(pose(275, 0).heightLabel, '25% up');
   assert.equal(pose(550, 0, false).heightLabel, 'Height unknown');
   assert.equal(pose(550, 0, false).heightFraction, null);
-  assert.equal(pose(0, 1200).panLabel, '90\u00b0 counter-clockwise');
-  assert.equal(pose(0, -2400).panLabel, '180\u00b0 clockwise');
+  assert.equal(pose(0, 2225).panLabel, '90\u00b0 counter-clockwise');
+  assert.equal(pose(0, -4450).panLabel, '180\u00b0 clockwise');
   assert.equal(pose(0, 8).panLabel, 'Facing home');
-  assert.equal(pose(0, 9600).panTurns, 2);
-  assert.deepEqual(core.normalizeTravel({ risingMax: '1070', panPerTurn: -1 }), { risingMax: 1070, panPerTurn: 4800 });
+  assert.equal(pose(0, 17800).panTurns, 2);
+  assert.deepEqual(core.normalizeTravel({ risingMax: '1070', panPerTurn: -1 }), { risingMax: 1070, panPerTurn: 8900 });
+  // 1.11.34: 4800 was the old guess (saved by earlier versions); a real AIRIZ turns once in about 8,900 steps.
+  assert.deepEqual(core.normalizeTravel({ risingMax: 1100, panPerTurn: 4800 }), { risingMax: 1100, panPerTurn: 8900 });
+  assert.deepEqual(core.normalizeTravel({ risingMax: 1100, panPerTurn: 9000 }), { risingMax: 1100, panPerTurn: 9000 });
 });
 
 test('the cable console shares its camera: a controller adopts position, Home, limits and the running move', () => {
-  const timing = { pan: 40, rising: 12 };
+  const timing = { pan: 40, rising: 12, handSet: { pan: true, rising: true } };
   // The PC (holds the cable): home set, then the PC itself and a phone moved the camera.
   const pc = core.createTracker({ risingRef: true, position: { pan: 0, rising: 400 } });
   pc.setHome();

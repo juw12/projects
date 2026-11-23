@@ -266,17 +266,17 @@ window.AIRIZ_COMMANDS = {
     /* ------------------------------------------------------------------ */
     {
       id: "motor-pan", item: "Motor Driver (Pan) — AWD8833", category: "Motor", icon: "motor",
-      desc: "Pan motor. X = speed/strength (1–17, smaller = slower & stronger), Y = steps (1–99999).",
+      desc: "Pan motor. X = time per step in ms (1–17, smaller = faster), Y = steps (1–99999).",
       commands: [
         { id: "pan-fwd", label: "Pan forward", cmd: "diag motor pan forward {x} {y}",
-          note: "Checked on a real AIRIZ (firmware 0.0.0.3): the firmware help calls X the period, `forward [period:17~] [step:0~]`. `diag motor pan forward 17 500` took about 9 s (about 18 ms per step) and `diag motor info` then showed pan step 500, angle 46.",
+          note: "Measured on a real AIRIZ (firmware 0.0.0.3): X is the time per step in ms, 17 at most (X = 2 ran at 2 ms per step, X = 34 still at 17 ms), and no steps were lost at X = 2. The pan has hard end stops about 8,570 steps apart, nearly one full turn (one turn is about 8,900 steps); steps sent past a stop are counted by the firmware but not turned. A motor command sent while a move runs is ignored by the firmware (the console waits for the running move). Stop: `echo 0 > /sys/devices/platform/soc/soc:motor/status`; the firmware count stays right.",
           params: [
-            { key: "x", label: "X (speed)", type: "int", default: 2, min: 1, max: 17, hint: "1 – 17 (smaller = slower & more powerful)" },
+            { key: "x", label: "X (speed)", type: "int", default: 2, min: 1, max: 17, hint: "1 – 17 ms per step (smaller = faster)" },
             { key: "y", label: "Y (steps)", type: "int", default: 2, min: 1, max: 99999 }
           ] },
         { id: "pan-rev", label: "Pan reverse", cmd: "diag motor pan reverse {x} {y}",
           params: [
-            { key: "x", label: "X (speed)", type: "int", default: 2, min: 1, max: 17, hint: "1 – 17 (smaller = slower & more powerful)" },
+            { key: "x", label: "X (speed)", type: "int", default: 2, min: 1, max: 17, hint: "1 – 17 ms per step (smaller = faster)" },
             { key: "y", label: "Y (steps)", type: "int", default: 2, min: 1, max: 99999 }
           ] },
         { id: "motor-info", label: "Read motor position (firmware count)", cmd: "diag motor info",
@@ -288,17 +288,17 @@ window.AIRIZ_COMMANDS = {
     /* ------------------------------------------------------------------ */
     {
       id: "motor-rising", item: "Motor Driver (Rising) — AWD8833", category: "Motor", icon: "motor",
-      desc: "Rising (tilt) motor. X = speed/strength (1–30, smaller = slower & stronger), Y = steps (1–99999).",
+      desc: "Rising (tilt) motor. X = time per step in ms (1–30, smaller = faster), Y = steps (1–99999).",
       commands: [
         { id: "rising-fwd", label: "Rising forward (up)", cmd: "diag motor rising forward {x} {y}",
-          note: "Checked on a real AIRIZ (firmware 0.0.0.3): the firmware help calls X the period, `forward [period:30~] [step:0~]`. `diag motor rising forward 30 300` took 9.0 s (30 ms per step) and forward is up: the camera picture came out of the housing. On that unit `diag button get rising-det` answered `0:Not Pressed` at every height.",
+          note: "Measured on a real AIRIZ (firmware 0.0.0.3): X is the time per step in ms, 30 at most (X = 3 ran at 3 ms per step, X = 60 still at 30 ms), forward is up, and the full stroke is about 1,100 steps (1,080 from the top stop down to the bottom switch). Up and down came back to the bottom switch within 10 to 20 steps at X = 3, 10 and 30. `diag button get rising-det` reads `0:Pressed` at the bottom after the AIRIZ was plugged in, but `0:Not Pressed` at every height after it restarted by itself (USB mode change or `reboot`).",
           params: [
-            { key: "x", label: "X (speed)", type: "int", default: 3, min: 1, max: 30, hint: "1 – 30 (smaller = slower & more powerful)" },
+            { key: "x", label: "X (speed)", type: "int", default: 3, min: 1, max: 30, hint: "1 – 30 ms per step (smaller = faster)" },
             { key: "y", label: "Y (steps)", type: "int", default: 950, min: 1, max: 99999 }
           ] },
         { id: "rising-rev", label: "Rising reverse (down)", cmd: "diag motor rising reverse {x} {y}",
           params: [
-            { key: "x", label: "X (speed)", type: "int", default: 3, min: 1, max: 30, hint: "1 – 30 (smaller = slower & more powerful)" },
+            { key: "x", label: "X (speed)", type: "int", default: 3, min: 1, max: 30, hint: "1 – 30 ms per step (smaller = faster)" },
             { key: "y", label: "Y (steps)", type: "int", default: 950, min: 1, max: 99999 }
           ] }
       ]

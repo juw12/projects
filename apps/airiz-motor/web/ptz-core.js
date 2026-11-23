@@ -56,15 +56,25 @@
   }
 
   // ------------------------------------------------------------------ timing model
-  // "Smaller speed = slower & stronger" (firmware note), so the time per step is modelled
-  // as k / speed. k per axis comes from a measured move (Calibration) or the defaults.
-  // 1.11.33: a step time that the firmware itself reported for this motor at this X
-  // (timing.measured[axis][X], learned while a move was followed) comes before the model.
+  // 1.11.34, measured on a real AIRIZ (firmware 0.0.0.3): X is the step period in milliseconds,
+  // up to a longest period per motor. Pan: X = 2, 5, 10, 17 ran at 1.95, 5.0, 10.1, 16.9 ms per
+  // step and X = 34 at 17.1 ms (so 17 is the slowest); rising: X = 3, 10, 30 ran at 3.0, 10.0,
+  // 30.0 ms and X = 60 at 30.0 ms. Fast moves were checked by the camera picture and the bottom
+  // switch: no steps were lost at X = 2 (pan) or X = 3 (rising). The firmware help's
+  // "period:17~" / "period:30~" is the slowest value, not the smallest.
+  const STEP_PERIOD_MAX = { pan: 17, rising: 30 };
+  // The old model (ms per step = k / speed) stays for a timing set under Calibration (by hand or
+  // by the timing test): timing.handSet[axis] = true, or a k other than the old default.
+  // Otherwise the measured law above is used.
   const DEFAULT_TIMING = { pan: 40, rising: 12 };
-  // Step times seen on a real AIRIZ (firmware 0.0.0.3, 1.11.33): pan at X = 17 took 17.0 ms per
-  // step and rising at X = 30 took 30.0 ms per step (the firmware help calls X the period).
-  // Other X were not run on the real unit and stay on the model.
+  // Step times seen on a real AIRIZ (1.11.33), kept as seeds; they agree with the law.
   const REAL_STEP_MS = { pan: { 17: 17 }, rising: { 30: 30 } };
+
+  // The firmware's own step time for X (1.11.34).
+  function firmwareStepMs(axis, speed) {
+    const period = Math.max(1, Math.round(Number(speed) || 1));
+    return Math.min(period, STEP_PERIOD_MAX[axis] || period);
+  }
 
   // The real step times for every axis that still has the default model (an axis that was
   // timed by hand keeps its own number).
@@ -90,7 +100,9 @@
   function msPerStep(axis, speed, timing) {
     const known = measuredStepMs(axis, speed, timing);
     if (known) return known;
-    const k = (timing && Number(timing[axis])) || DEFAULT_TIMING[axis];
+    const k = timing && Number(timing[axis]);
+    const handSet = !!(timing && timing.handSet && timing.handSet[axis]);
+    if (!k || (k === DEFAULT_TIMING[axis] && !handSet)) return firmwareStepMs(axis, speed);
     return k / Math.max(1, Number(speed) || 1);
   }
 
@@ -112,9 +124,17 @@
 
   // ------------------------------------------------------------------ mechanics
   // Full rising stroke (bottom switch to top) and pan steps for one full turn (360°).
-  // 1100 rising steps: test_motor3 (1100).ttl full up/down cycle. 4800 pan steps per turn: to be
-  // confirmed on the device (the bring-up test in 指令.txt pans 8500 steps, i.e. ~1.8 turns).
-  const DEFAULT_TRAVEL = { risingMax: 1100, panPerTurn: 4800 };
+  // 1.11.34, measured on a real AIRIZ by the bottom switch and the camera picture:
+  // - rising: from the top stop down to the switch 1,080 steps, and the switch releases 20 to
+  //   55 steps above the bottom stop: about 1,100 steps in all (as test_motor3 (1100).ttl).
+  // - pan: hard end stops about 8,570 steps apart (two sweeps: 8,567 and 8,597), and the
+  //   picture at one stop is the picture of the other one about 320 steps further on, so one
+  //   full turn is about 8,900 steps (0.040° per step; the earlier guess was 4,800). The
+  //   bring-up test in 指令.txt (pan forward 2 8500) is one sweep from stop to stop.
+  const DEFAULT_TRAVEL = { risingMax: 1100, panPerTurn: 8900 };
+  const PAN_STOP_TO_STOP = 8570;
+  // 4800 was the default before 1.11.34: a saved 4800 is that old guess, not a measurement.
+  const OLD_PAN_PER_TURN = 4800;
 
   // Finding the bottom lowers the camera until the switch is pressed. More than the full travel
   // (plus a margin for a wrong count) cannot be needed: after that the camera is on the bottom
@@ -130,7 +150,7 @@
     const panPerTurn = Math.round(Number(source.panPerTurn));
     return {
       risingMax: risingMax > 0 ? risingMax : DEFAULT_TRAVEL.risingMax,
-      panPerTurn: panPerTurn > 0 ? panPerTurn : DEFAULT_TRAVEL.panPerTurn
+      panPerTurn: panPerTurn > 0 && panPerTurn !== OLD_PAN_PER_TURN ? panPerTurn : DEFAULT_TRAVEL.panPerTurn
     };
   }
 
@@ -337,6 +357,19 @@
       setAxisValue(axis, 0);
     }
 
+    // 1.11.34: the counted position was wrong and the camera is really at `value` (from the
+    // firmware's step count after a stop). Unlike setAxisValue, limits and home stay where they
+    // are: they are places in the room, only the count was off.
+    function correctPosition(axis, value, certain) {
+      const target = clampTravel(axis, Math.round(Number(value)));
+      if (!Number.isFinite(target)) return 0;
+      const shift = target - state.position[axis];
+      state.position[axis] = target;
+      if (state.pending && state.pending.axis === axis) state.pending = null;
+      if (certain) state.uncertain = false;
+      return shift;
+    }
+
     // Re-reference an axis: the camera is really at `value`. Limits and home move with it.
     function setAxisValue(axis, value) {
       const shift = state.position[axis] - value;
@@ -478,6 +511,7 @@
       setHome,
       setAxisZero,
       setAxisValue,
+      correctPosition,
       setRisingReference,
       setTravel,
       setLimit,
@@ -1070,6 +1104,9 @@
     SPEED_RANGE,
     DEFAULT_TIMING,
     REAL_STEP_MS,
+    STEP_PERIOD_MAX,
+    PAN_STOP_TO_STOP,
+    firmwareStepMs,
     defaultTiming,
     seedStepTimes,
     findHomeLimit,

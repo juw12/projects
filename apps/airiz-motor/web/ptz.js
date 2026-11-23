@@ -177,6 +177,8 @@
   const FOLLOW_SECOND_MS = 450;
   const FOLLOW_NEXT_MS = 800;
   const FOLLOW_GRACE_MS = 1500;
+  // 1.11.34: a real AIRIZ starts the motor 0.09 to 0.19 s after the command.
+  const MOTOR_START_MS = 250;
 
   // When the camera stops moving: the timed end of the move, or later while a followed move
   // has not been reported finished by the firmware.
@@ -429,6 +431,7 @@
 
   api.onCommandSent(line => {
     const wasMoving = Date.now() < motionEnd();
+    const wasUncertain = tracker.uncertain;
     const result = tracker.applyCommand(line, Date.now(), store.timing);
     if (!result) return;
     if (result.type === 'stop') {
@@ -436,10 +439,26 @@
       newOperation();
       if (scan.running) stopScan('Auto scan stopped (motor stop).');
       feedbackStopped();
-      // The stop cut a move short: how many of its steps ran is not known here.
-      feedback.firmware.unsure.pan = feedback.firmware.unsure.rising = true;
-      feedback.firmware.follow = null;
-      feedback.firmware.settleBy = 0;
+      const firmware = feedback.firmware;
+      // 1.11.34: on a real AIRIZ the firmware's step count stays right after a stop (a pan
+      // 1000-step move stopped after 2 s counted 117 steps, and the camera picture had moved
+      // 117 steps). So the steps the stopped move really ran are read back and the counted
+      // position is set from them - when the count before that move was known.
+      const partial = result.partial;
+      firmware.stopFix = partial && firmware.supported === true && firmware.last && !firmware.unsure[partial.axis]
+        ? {
+          axis: partial.axis,
+          from: tracker.position[partial.axis] - partial.done,
+          countAtStart: firmware.last[partial.axis] + firmware.sent[partial.axis] - partial.planned,
+          planned: partial.planned,
+          moves: firmware.moves,
+          certain: !wasUncertain
+        }
+        : null;
+      // Until then, how many of its steps ran is not known here.
+      firmware.unsure.pan = firmware.unsure.rising = true;
+      firmware.follow = null;
+      firmware.settleBy = 0;
       scheduleFirmwareCheck(900);
     }
     // (Not while lowering to the bottom switch: the counted height is wrong then, the
@@ -1339,6 +1358,7 @@
     }
     firmware.follow = null;
     firmware.settleBy = 0;
+    const fixed = applyStopFix(firmware, info, moves);
     for (const axis of core.AXES) {
       if (firmware.last && !firmware.unsure[axis]) {
         const counted = info[axis] - firmware.last[axis];
@@ -1355,8 +1375,28 @@
       firmware.unsure[axis] = false;
     }
     firmware.last = { pan: info.pan, rising: info.rising };
+    if (fixed) firmware.verdict[fixed] = 'firmware';
     setText('ptz-feedback-firmware', 'pan ' + info.pan + ', rising ' + info.rising + ' steps');
     renderPose(true);
+  }
+
+  // 1.11.34: after a stop, the steps the firmware counted for the stopped move set the
+  // position (see the stop in onCommandSent). Returns the corrected axis, or null.
+  function applyStopFix(firmware, info, moves) {
+    const fix = firmware.stopFix;
+    firmware.stopFix = null;
+    if (!fix || fix.moves !== moves || !Number.isFinite(info[fix.axis])) return null;
+    const counted = info[fix.axis] - fix.countAtStart;
+    // The count must lie between nothing and the whole move, in its direction.
+    if (counted * fix.planned < 0 || Math.abs(counted) > Math.abs(fix.planned)) return null;
+    tracker.correctPosition(fix.axis, fix.from + counted, fix.certain);
+    status('Stopped after ' + Math.abs(counted) + ' of ' + Math.abs(fix.planned) + ' ' + fix.axis
+      + ' steps (firmware count): the position is set from it.');
+    save();
+    renderPosition();
+    animatePose();
+    sharedChanged();
+    return fix.axis;
   }
 
   // 1.11.33: the step time the firmware showed over a followed move (between its first and its
@@ -1377,6 +1417,7 @@
   // A timing set by hand (or by a timing test) replaces what was learned for that motor.
   function setTimingModel(axis, k) {
     store.timing[axis] = k;
+    store.timing.handSet = { ...(store.timing.handSet || {}), [axis]: true };
     if (store.timing.measured) delete store.timing.measured[axis];
   }
 
@@ -1391,7 +1432,8 @@
       moves: 0,
       follow: null,
       lastMoveAt: 0,
-      settleBy: 0
+      settleBy: 0,
+      stopFix: null
     };
     setText('ptz-feedback-firmware', 'not read');
   }
@@ -1605,7 +1647,9 @@
     }
     // The check after the last move would only repeat, in fewer words, what is said here.
     clearTimeout(bottomCheckTimer);
-    status('Lowered ' + maxTotal + ' steps (more than the full travel) and the bottom switch never read pressed: the camera is on the bottom stop, but the switch does not confirm it, so the height stays estimated. Check the switch with "Is the camera at the bottom?".', true, from);
+    // 1.11.34: on a real AIRIZ (firmware 0.0.0.3) the switch read pressed after the unit was
+    // plugged in, but never after it restarted by itself (a USB mode change or "reboot").
+    status('Lowered ' + maxTotal + ' steps (more than the full travel) and the bottom switch never read pressed: the camera is on the bottom stop, but the switch does not confirm it, so the height stays estimated. On firmware 0.0.0.3 the switch stops answering after the AIRIZ restarts by itself (USB mode change or reboot): unplug the AIRIZ, plug it in again and try once more.', true, from);
     return null;
   }
 
@@ -2971,6 +3015,13 @@
   window.AirizPtz = Object.freeze({
     get position() {
       return tracker.position;
+    },
+    // 1.11.34: how long the motor still runs (ms). The firmware ignores a motor command that
+    // comes while a move runs, so the console holds a new move back until then.
+    motorBusyMs() {
+      // The timed end (kept right by the firmware readings while a move is followed), plus the
+      // moment the motor needs to start (0.1 to 0.2 s on the real unit).
+      return tracker.pending ? Math.max(0, tracker.busyUntil() + MOTOR_START_MS - Date.now()) : 0;
     },
     get limits() {
       return tracker.limits;

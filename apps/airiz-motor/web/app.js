@@ -779,6 +779,15 @@
   // SEND COMMANDS
   // ========================================================================
   
+  const MOTOR_MOVE_RE = /^diag\s+motor\s+(pan|rising)\s+(forward|reverse)\s+\d+\s+\d+$/i;
+  const MOTOR_WAIT_MAX_MS = 120000;
+  // After the move ends, a moment before the next command so the firmware is Idle for sure.
+  const MOTOR_SETTLE_MS = 150;
+  let motorStops = 0;
+  function isStopLine(line) {
+    return /^(stop|diag\s+motor\s+stop|echo\s+0\s*>\s*\/sys\/devices\/platform\/soc\/soc:motor\/status)$/i.test(String(line).trim());
+  }
+
   async function sendLine(line, options) {
     const quiet = !!(options && options.quiet);
     // 1.10.0: lines the voice link sends for itself (they can contain "diag audio record")
@@ -800,6 +809,29 @@
     if (!state.connected) {
       logToConsole('Not connected', 'error');
       return false;
+    }
+    // 1.11.34: a real AIRIZ (firmware 0.0.0.3) ignores a motor command that comes while a move
+    // runs - it answers as usual but does not move. So a new move waits until the running one
+    // is over; a stop sent meanwhile cancels it.
+    if (isStopLine(line)) {
+      motorStops += 1;
+    } else if (!internal && MOTOR_MOVE_RE.test(String(line).trim()) && window.AirizPtz && window.AirizPtz.motorBusyMs) {
+      const stopsBefore = motorStops;
+      let told = false;
+      for (let waited = 0; waited < MOTOR_WAIT_MAX_MS; waited += 50) {
+        const busyMs = window.AirizPtz.motorBusyMs();
+        if (!(busyMs > 0)) break;
+        if (!told && !quiet) {
+          logToConsole('The motor is still moving: "' + line + '" waits until it is done (' + Math.ceil(busyMs / 1000) + ' s).', 'info');
+          told = true;
+        }
+        await sleep(50);
+        if (motorStops !== stopsBefore || !state.connected) {
+          if (!quiet) logToConsole('Motor stopped: "' + line + '" was not sent.', 'warning');
+          return false;
+        }
+      }
+      if (told) await sleep(MOTOR_SETTLE_MS);
     }
     if (state.demoMode) {
       if (!quiet) appendToConsole(`> ${line}`, 'command');
@@ -949,9 +981,10 @@
     }
     demoAdvance(Date.now());
     const demoMove = /^diag\s+motor\s+(pan|rising)\s+(forward|reverse)\s+(\d+)\s+(\d+)$/i.exec(String(command).trim());
-    if (demoMove) {
-      // A move that is still running is counted in full first, then the new one starts.
-      demoAdvance(Infinity);
+    if (demoMove && demoDevice.move) {
+      // 1.11.34: like a real AIRIZ, a motor command that comes while a move runs is answered
+      // but ignored (the console holds its own moves back until the motor is done).
+    } else if (demoMove) {
       const demoAxis = demoMove[1].toLowerCase();
       const demoSign = demoMove[2].toLowerCase() === 'forward' ? 1 : -1;
       demoDevice.last = { axis: demoAxis, sign: demoSign };

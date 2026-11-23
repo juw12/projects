@@ -307,12 +307,15 @@ test('firmware count: the page reads it after every move and the demo device ans
   assert.match(ptz, /firmware\.sent\[axis\] \+= result\.move\.delta;/);
   assert.match(ptz, /Math\.max\(tracker\.busyUntil\(\) - Date\.now\(\) \+ 500, firmware\.supported === true \? FOLLOW_GRACE_MS : 0\)/);
   // A stop, an end stop and the search for the bottom switch are not compared.
-  assert.match(ptz, /feedback\.firmware\.unsure\.pan = feedback\.firmware\.unsure\.rising = true;/);
+  assert.match(ptz, /firmware\.unsure\.pan = firmware\.unsure\.rising = true;/);
   assert.match(ptz, /\(result\.saturated \|\| findingHome\)\) firmware\.unsure\.rising = true;/);
-  // Reporting only: the counted position is never set from the firmware count.
+  // Reporting only: the counted position is not set from the firmware count, except right
+  // after a stop (1.11.34, applyStopFix), where the firmware count is the only good number.
   const check = ptz.slice(ptz.indexOf('async function checkFirmwareCount('), ptz.indexOf('function resetFirmwareCount('));
   assert.ok(check.length > 500);
   assert.doesNotMatch(check, /tracker\.(position|set|apply|reset)/);
+  assert.equal((check.match(/tracker\.correctPosition\(/g) || []).length, 1);
+  assert.match(check, /function applyStopFix\(firmware, info, moves\) \{[\s\S]*tracker\.correctPosition\(fix\.axis, fix\.from \+ counted, fix\.certain\);/);
   const app = fs.readFileSync(path.join(WEB, 'app.js'), 'utf8');
   assert.match(app, /\^diag\\s\+motor\\s\+info\$/);
   assert.match(app, /'#\.Pan motor current step\\t: ' \+ demoDevice\.count\.pan/);
@@ -325,8 +328,10 @@ test('following (1.11.33): a running move is timed again from the firmware step 
   // Real AIRIZ (firmware 0.0.0.3), "diag motor pan forward 17 100": Busy with 22 steps 0.86 s
   // after the command, Busy with 69 steps at 1.66 s, Idle with 100 steps at 2.47 s.
   const t0 = 1700000000000;
+  // A timing set by hand that is far too short (the pre-1.11.34 model gave 40 / X ms per step).
+  const HAND = { pan: 40, rising: 12, handSet: { pan: true, rising: true } };
   const tracker = core.createTracker();
-  tracker.applyCommand('diag motor pan forward 17 100', t0, core.DEFAULT_TIMING);
+  tracker.applyCommand('diag motor pan forward 17 100', t0, HAND);
   // The time model alone: over after a quarter of a second, long before the real motor.
   assert.ok(tracker.busyUntil() - t0 < 300);
   assert.equal(tracker.livePosition(t0 + 860).pan, 100);
@@ -366,10 +371,10 @@ test('following (1.11.33): a running move is timed again from the firmware step 
 
   // A stop now keeps the steps the firmware really ran, not what the short time model says.
   const stopped = core.createTracker();
-  stopped.applyCommand('diag motor pan forward 17 500', t0, core.DEFAULT_TIMING);
+  stopped.applyCommand('diag motor pan forward 17 500', t0, HAND);
   stopped.followPending(t0 + 860, 23);
   stopped.followPending(t0 + 1660, 70);
-  const partial = stopped.applyCommand('stop', t0 + 1660 + 170, core.DEFAULT_TIMING).partial;
+  const partial = stopped.applyCommand('stop', t0 + 1660 + 170, HAND).partial;
   assert.equal(partial.done, 80);
   assert.equal(stopped.position.pan, 80);
 
@@ -398,9 +403,10 @@ test('following (1.11.33): Idle with every step counted ends the move, and a lea
   assert.equal(core.measuredStepMs('rising', 17, timing), null);
   assert.equal(core.measuredStepMs('pan', 17, core.DEFAULT_TIMING), null);
   assert.equal(core.msPerStep('pan', 17, timing), 17);
-  assert.equal(core.msPerStep('pan', 2, timing), 20);
+  // Other X: the firmware's own law since 1.11.34 (X ms per step, at most 17 for pan).
+  assert.equal(core.msPerStep('pan', 2, timing), 2);
   assert.equal(core.estimateMoveMs('pan', 500, 17, timing), 8500);
-  assert.equal(core.msPerStep('pan', 17, core.DEFAULT_TIMING), 40 / 17);
+  assert.equal(core.msPerStep('pan', 17, core.DEFAULT_TIMING), 17);
 
   // With the step time known, the first reading already gives the right end: the half second
   // before the motor starts is not taken for slow steps.
@@ -431,7 +437,7 @@ test('following (1.11.33): the page follows a move while the firmware says Busy 
   assert.match(ptz, /async function waitIdle\(token\) \{\s+while \(Date\.now\(\) < motionEnd\(\)\)/);
   assert.match(ptz, /if \(Date\.now\(\) < motionEnd\(\)\) \{\s+scheduleBottomCheck\(motionEnd\(\) - Date\.now\(\) \+ 400\);/);
   // A stop ends the following.
-  assert.match(ptz, /feedback\.firmware\.follow = null;\s+feedback\.firmware\.settleBy = 0;\s+scheduleFirmwareCheck\(900\);/);
+  assert.match(ptz, /firmware\.follow = null;\s+firmware\.settleBy = 0;\s+scheduleFirmwareCheck\(900\);/);
   // The demo device: Busy with the steps done so far, a stop ends the move where it is.
   const app = fs.readFileSync(path.join(WEB, 'app.js'), 'utf8');
   assert.match(app, /\(demoDevice\.move \? 'Busy' : 'Idle'\)/);
@@ -447,9 +453,9 @@ test('real unit (1.11.33): the step times seen on a real AIRIZ are known before 
   assert.equal(core.msPerStep('pan', 17, timing), 17);
   assert.equal(core.msPerStep('rising', 30, timing), 30);
   assert.equal(core.estimateMoveMs('rising', 1100, 30, timing), 33000);
-  // Every other X stays on the model: it was not run on the real unit.
-  assert.equal(core.msPerStep('pan', 2, timing), 20);
-  assert.equal(core.msPerStep('rising', 3, timing), 4);
+  // 1.11.34: every other X follows the law measured on the real unit (X ms per step).
+  assert.equal(core.msPerStep('pan', 2, timing), 2);
+  assert.equal(core.msPerStep('rising', 3, timing), 3);
   // Each call gives its own copy.
   timing.measured.pan[17] = 99;
   assert.equal(core.msPerStep('pan', 17, core.defaultTiming()), 17);
@@ -484,4 +490,84 @@ test('every sensor label and summary has a Traditional Chinese text', () => {
     'FIRMWARE COUNT DIFFERS', 'READ BACK FROM FIRMWARE', 'Firmware count:', 'not read'
   ];
   for (const label of labels) assert.ok(catalog.text[label], label);
+});
+
+test('real unit (1.11.34): X is the step period in ms, up to 17 (pan) and 30 (rising)', () => {
+  // Measured on a real AIRIZ (firmware 0.0.0.3): pan X = 2, 5, 10, 17, 34 ran at 1.95, 5.00,
+  // 10.10, 16.89, 17.09 ms per step; rising X = 3, 10, 30, 60 at 3.01, 10.04, 30.01, 30.04.
+  const measured = { pan: { 2: 1.95, 5: 5.0, 10: 10.1, 17: 16.89, 34: 17.09 }, rising: { 3: 3.01, 10: 10.04, 30: 30.01, 60: 30.04 } };
+  for (const axis of core.AXES) {
+    for (const [x, ms] of Object.entries(measured[axis])) {
+      const model = core.firmwareStepMs(axis, Number(x));
+      assert.ok(Math.abs(model - ms) / ms < 0.03, axis + ' X=' + x + ': ' + model + ' vs ' + ms);
+      assert.equal(core.msPerStep(axis, Number(x), core.defaultTiming()), model);
+      assert.equal(core.msPerStep(axis, Number(x), undefined), model);
+    }
+  }
+  assert.deepEqual(core.STEP_PERIOD_MAX, { pan: 17, rising: 30 });
+  // The console defaults (pan 2, rising 3): a full rising stroke takes 3.3 s, not 4.4 s.
+  assert.equal(core.estimateMoveMs('rising', 1100, 3, core.defaultTiming()), 3300);
+  // A timing set under Calibration keeps the k / X model, also when k happens to be 40.
+  assert.equal(core.msPerStep('pan', 2, { pan: 40, handSet: { pan: true } }), 20);
+  assert.equal(core.msPerStep('pan', 2, { pan: 55 }), 27.5);
+  const ptz = fs.readFileSync(path.join(WEB, 'ptz.js'), 'utf8');
+  assert.match(ptz, /store\.timing\.handSet = \{ \.\.\.\(store\.timing\.handSet \|\| \{\}\), \[axis\]: true \};/);
+});
+
+test('real unit (1.11.34): one pan turn is about 8,900 steps, between end stops about 8,570 apart', () => {
+  assert.equal(core.DEFAULT_TRAVEL.panPerTurn, 8900);
+  assert.equal(core.PAN_STOP_TO_STOP, 8570);
+  const degrees = core.describePose({ pan: core.PAN_STOP_TO_STOP, rising: 0 }, { travel: core.DEFAULT_TRAVEL }).panDegrees;
+  assert.ok(degrees > 340 && degrees < 355, String(degrees));
+  // The old default 4800 (saved by earlier versions) becomes the measured number.
+  assert.equal(core.normalizeTravel({ panPerTurn: 4800 }).panPerTurn, 8900);
+  assert.equal(core.normalizeTravel({ panPerTurn: 8800 }).panPerTurn, 8800);
+});
+
+test('real unit (1.11.34): after a stop the steps the firmware counted set the position', () => {
+  // Real AIRIZ: "diag motor pan forward 17 1000", stop after 2.0 s: the firmware counted 117
+  // steps and the camera picture had moved 24.9 px (0.21 px per step = 117 steps).
+  const tracker = core.createTracker({ position: { pan: -188, rising: 0 } });
+  tracker.setLimit('pan', 'min', -4000);
+  tracker.applyCommand('diag motor pan forward 17 1000', 0, core.defaultTiming());
+  const stop = tracker.applyCommand('echo 0 > /sys/devices/platform/soc/soc:motor/status', 2030, core.defaultTiming());
+  assert.equal(stop.type, 'stop');
+  assert.equal(tracker.uncertain, true);
+  // The time estimate (17 ms per step from the command on) is close but not exact.
+  assert.equal(tracker.position.pan, -188 + Math.round(2030 / 17));
+  assert.equal(tracker.correctPosition('pan', -188 + 117, true), 117 - Math.round(2030 / 17));
+  assert.equal(tracker.position.pan, -71);
+  assert.equal(tracker.uncertain, false);
+  // Limits and home are places in the room: they stay.
+  assert.equal(tracker.limits.pan.min, -4000);
+  // Rising is kept inside the travel once the bottom is known.
+  const rising = core.createTracker({ risingRef: true, position: { pan: 0, rising: 50 } });
+  rising.correctPosition('rising', -30);
+  assert.equal(rising.position.rising, 0);
+  // The page: the stop remembers where the move began and the count before it, the Idle read sets it.
+  const ptz = fs.readFileSync(path.join(WEB, 'ptz.js'), 'utf8');
+  assert.match(ptz, /countAtStart: firmware\.last\[partial\.axis\] \+ firmware\.sent\[partial\.axis\] - partial\.planned,/);
+  assert.match(ptz, /const fixed = applyStopFix\(firmware, info, moves\);/);
+  assert.match(ptz, /if \(counted \* fix\.planned < 0 \|\| Math\.abs\(counted\) > Math\.abs\(fix\.planned\)\) return null;/);
+});
+
+test('real unit (1.11.34): a move sent while the motor runs waits, because the firmware ignores it', () => {
+  // Real AIRIZ: "pan reverse 17 300", then 1 s later "pan reverse 17 100": answered #INFO#0#END#,
+  // but the count went 300 steps only.
+  const app = fs.readFileSync(path.join(WEB, 'app.js'), 'utf8');
+  const send = app.slice(app.indexOf('async function sendLine('), app.indexOf('async function sendLine(') + 4000);
+  assert.match(send, /if \(isStopLine\(line\)\) \{\s+motorStops \+= 1;/);
+  assert.match(send, /MOTOR_MOVE_RE\.test\(String\(line\)\.trim\(\)\) && window\.AirizPtz && window\.AirizPtz\.motorBusyMs/);
+  assert.match(send, /if \(motorStops !== stopsBefore \|\| !state\.connected\) \{/);
+  // The hold-back comes before the demo and before the serial port.
+  assert.ok(send.indexOf('motorBusyMs()') < send.indexOf('if (state.demoMode)'));
+  // The demo device ignores it too, like the firmware.
+  assert.match(app, /if \(demoMove && demoDevice\.move\) \{\s+\/\/ 1\.11\.34: like a real AIRIZ/);
+  const ptz = fs.readFileSync(path.join(WEB, 'ptz.js'), 'utf8');
+  assert.match(ptz, /motorBusyMs\(\) \{[\s\S]{0,300}tracker\.busyUntil\(\) \+ MOTOR_START_MS - Date\.now\(\)/);
+});
+
+test('real unit (1.11.34): the bottom-switch message says what helps after a restart', () => {
+  const ptz = fs.readFileSync(path.join(WEB, 'ptz.js'), 'utf8');
+  assert.match(ptz, /the switch stops answering after the AIRIZ restarts by itself \(USB mode change or reboot\): unplug the AIRIZ, plug it in again and try once more\./);
 });

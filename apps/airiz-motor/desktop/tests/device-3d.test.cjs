@@ -53,7 +53,8 @@ test('the travel settings of the PTZ page are used, with defaults when they are 
   near(device.mechanism({ pan: 1000, rising: 1000 }, { risingMax: 2000, panPerTurn: 4000 }, META).liftMm, 15);
   near(device.mechanism({ pan: 1000, rising: 1000 }, { risingMax: 2000, panPerTurn: 4000 }, META).panDegrees, 90);
   near(device.mechanism({ pan: 1200, rising: 1100 }, null, META).liftMm, 30);
-  near(device.mechanism({ pan: 1200, rising: 1100 }, { risingMax: 0, panPerTurn: 'x' }, META).panDegrees, 90);
+  // 1.11.34: without a travel setting one turn is 8,900 pan steps (measured on a real AIRIZ).
+  near(device.mechanism({ pan: 2225, rising: 1100 }, { risingMax: 0, panPerTurn: 'x' }, META).panDegrees, 90);
   near(device.mechanism(null, TRAVEL, META).liftMm, 0);
 });
 

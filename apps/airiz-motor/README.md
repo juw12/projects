@@ -10,7 +10,7 @@
 
 <p align="center">
   <a href="https://juw12.github.io/projects/airiz-motor/"><b>Try it live</b></a> ·
-  <a href="https://github.com/juw12/projects/releases/tag/airiz-desktop-v1.11.33"><b>Download</b></a> ·
+  <a href="https://github.com/juw12/projects/releases/tag/airiz-desktop-v1.11.34"><b>Download</b></a> ·
   <a href="#see-it-in-action">See it in action</a> ·
   <a href="#highlights">Highlights</a> ·
   <a href="https://github.com/juw12">More by juw12</a>
@@ -18,7 +18,7 @@
 
 <p align="center">
   <a href="https://github.com/juw12/projects/tree/main/apps/airiz-motor"><img src="https://img.shields.io/github/last-commit/juw12/projects?path=apps%2Fairiz-motor&label=updated&color=a3e635" alt="Last updated"></a>
-  <a href="https://github.com/juw12/projects/releases/tag/airiz-desktop-v1.11.33"><img src="https://img.shields.io/badge/download-airiz--desktop--v1.11.33-a3e635" alt="Download"></a>
+  <a href="https://github.com/juw12/projects/releases/tag/airiz-desktop-v1.11.34"><img src="https://img.shields.io/badge/download-airiz--desktop--v1.11.34-a3e635" alt="Download"></a>
   <a href="https://juw12.github.io/projects/airiz-motor/"><img src="https://img.shields.io/badge/demo-live-2ea44f" alt="Live demo"></a>
   <img src="https://img.shields.io/badge/Windows-24292f" alt="Windows">
   <img src="https://img.shields.io/badge/Android-24292f" alt="Android">
@@ -79,7 +79,7 @@ A downloadable Windows x64 desktop edition now bundles this entire console local
 It is not a website shortcut and does not require Chrome, Edge, Node or Python to run.
 Installer and portable preview builds are available at:
 
-https://github.com/juw12/projects/releases/tag/airiz-desktop-v1.11.33
+https://github.com/juw12/projects/releases/tag/airiz-desktop-v1.11.34
 
 The initial binaries are unsigned. The packaged app was tested with demo/synthetic
 hardware; real-device bench validation is still required. Browser and mobile-web
@@ -111,6 +111,8 @@ streams the AIRIZ microphone back in 2-second clips, about 4 s behind live. Phon
 that has the AIRIZ on USB. Stop motor still works and also interrupts a message being sent. Tested
 against a simulated AIRIZ shell (busybox), not yet on real AIRIZ hardware; the sound format and the
 record/play commands can be changed under *Voice settings*.
+
+**Second bench on a real AIRIZ: real step times, stop, end stops, one pan turn (1.11.34):** the rest of the motor list was run on a real AIRIZ (firmware 0.0.0.3), checked with the AIRIZ camera picture and the bottom switch. **X is the time per step in ms** (pan X = 2, 5, 10, 17, 34 ran at 1.95, 5.0, 10.1, 16.9, 17.1 ms; rising X = 3, 10, 30, 60 at 3.0, 10.0, 30.0, 30.0 ms), the slowest being 17 (pan) and 30 (rising), and no steps were lost at X = 2 / 3. Every move is now timed with this law. **Stop** (`echo 0 > /sys/devices/platform/soc/soc:motor/status`) stops the motor at once and the firmware count stays right (a 1,000-step pan stopped after 2 s: 117 steps counted, 24.9 px of picture shift = 117 steps), so after a stop the console sets the position from the firmware count. **A motor command sent while a move runs is ignored** by the firmware (answered `#INFO#0#END#`, not run), so the console holds a new move back until the running one is over; Stop motor cancels it. **Pan** has hard end stops about 8,570 steps apart, and the picture at one stop is the other stop's picture about 320 steps on, so **one turn is about 8,900 steps** (was 4,800). **Rising**: 1,080 steps from the top stop down to the switch, about 1,100 in all. **Bottom switch**: reads `0:Pressed` at the bottom after the AIRIZ is plugged in, never after it restarted by itself (USB mode change or `reboot`). **msc** works (back in about 9 s as a 10 MB USB disk plus the serial port). AIRIZ Mobile 1.0.12 is rebuilt from this console.
 
 **Device picture follows the firmware while the motor moves; rising motor run on a real AIRIZ (1.11.33):** while a motor moves, the console asks the firmware (`diag motor info`) how many steps are done and moves the device picture with that count; a sequence of moves and the bottom-switch check wait until the firmware says the move is over, and the step time it showed is remembered for that X. The rising motor was then run on a real AIRIZ (firmware 0.0.0.3): `diag motor rising forward 30 300` took 9.0 s (30 ms per step), forward is up (the camera picture came out of the housing between about 300 and 800 steps), moves up to a count of 1,100 and 800 steps back down were counted in full, and `Busy` was reported 0.15 s after the command. On that unit `diag button get rising-det` read `0:Not Pressed` at every height, from 140 steps below the start to 1,100 above it, so *Lower to bottom & reset height* now stops after the full travel plus 100 steps (1,200) instead of 1,800 and says that the switch did not confirm the bottom. The step times seen on the real unit (17 ms at pan X = 17, 30 ms at rising X = 30) are known from the start. **Not tried on the real unit yet** (it left the USB bus again during the test): X below `period:17~` / `period:30~`, a stop while moving, a new command while moving, the pan steps for one full turn, and the following itself with the console driving the real unit (it is tested on the demo device and against the answers recorded from the real unit). AIRIZ Mobile 1.0.11 is rebuilt from this console.
 

@@ -276,7 +276,7 @@
     "Pan axis": "水平軸",
     "Pan forward": "水平正轉",
     "Pan forward / Arrow right": "水平正轉 / 方向鍵右",
-    "Pan motor. X = speed/strength (1–17, smaller = slower & stronger), Y = steps (1–99999).": "水平馬達。X = 速度／力道（1–17，越小越慢越有力），Y = 步數（1–99999）。",
+    "Pan motor. X = time per step in ms (1–17, smaller = faster), Y = steps (1–99999).": "水平馬達。X = 每步時間（毫秒，1–17，越小越快），Y = 步數（1–99999）。",
     "Pan reverse": "水平反轉",
     "Pan reverse / Arrow left": "水平反轉 / 方向鍵左",
     "Pan reverse / forward": "水平反轉 / 正轉",
@@ -333,7 +333,7 @@
     "Returns #INFO#<version>#END#": "回傳 #INFO#<version>#END#",
     "Reversal": "反向",
     "Ring-LED driver: palette, patterns and effects.": "環形 LED 驅動：調色盤、圖案與效果。",
-    "Rising (tilt) motor. X = speed/strength (1–30, smaller = slower & stronger), Y = steps (1–99999).": "升降（傾斜）馬達。X = 速度／力道（1–30，越小越慢越有力），Y = 步數（1–99999）。",
+    "Rising (tilt) motor. X = time per step in ms (1–30, smaller = faster), Y = steps (1–99999).": "升降（傾斜）馬達。X = 每步時間（毫秒，1–30，越小越快），Y = 步數（1–99999）。",
     "Rising axis": "升降軸",
     "Rising detect": "升降偵測",
     "Rising forward (up)": "升降正轉（上）",
@@ -1360,7 +1360,7 @@
     "not run": "未執行",
     "reading…": "讀取中…",
     "no answer": "無回應",
-    "not read": "未讀取",
+    "not read": "尚未讀取",
     "running…": "執行中…",
     "no result": "無結果",
     "not sent": "未送出",
@@ -1596,6 +1596,10 @@
     "Check for updates…": "檢查更新…",
     "About AIRIZ Console": "關於 AIRIZ Console",
     "Release notes and downloads": "版本資訊與下載",
+    "Second bench on a real AIRIZ: real step times, stop, end stops, one pan turn (1.11.34)": "在實際的 AIRIZ 上第二次測試：真實每步時間、停止、端點擋塊、水平一整圈（1.11.34）",
+    "The AIRIZ was on USB again and the rest of the motor list was run on it (firmware 0.0.0.3), with the AIRIZ camera picture and the bottom switch as the check. X is the time per step in milliseconds: pan X = 2 ran at 2 ms per step and rising X = 3 at 3 ms, up to 17 ms (pan) and 30 ms (rising), and no steps were lost at the fast settings. The console now times every move with this, so the device picture moves at the real speed from the start (a full rise at the default X = 3 takes 3.3 seconds). A stop (echo 0 > …/motor/status) stops the motor at once and the firmware count stays right, so after a stop the console reads the count and sets the position from it instead of guessing from the time. A motor command sent while a move runs is answered but ignored by the firmware, so the console now holds a new move back until the running one is over (Stop motor cancels it). The pan has hard end stops about 8,570 steps apart, and one full turn is about 8,900 steps (the console assumed 4,800), so pan angles are shown about half as large as before and right now. Rising: the full stroke is about 1,100 steps, as assumed. The bottom switch reads Pressed at the bottom after the AIRIZ is plugged in, but never after it restarted by itself (a USB mode change or reboot); Lower to bottom now says to unplug and plug in again. USB mode msc works: the AIRIZ comes back in about 9 seconds as a 10 MB USB disk with the serial console.": "AIRIZ 重新接上 USB 後，在它上面（韌體 0.0.0.3）執行了其餘的馬達項目，並以 AIRIZ 攝影機畫面與底部開關作為確認。X 是每步的時間（毫秒）：水平 X = 2 時每步 2 毫秒，升降 X = 3 時每步 3 毫秒，最多 17 毫秒（水平）與 30 毫秒（升降），快速設定下也沒有掉步。主控台現在用這個規則計算每次移動的時間，所以裝置圖一開始就以真實速度移動（預設 X = 3 時完整升起需要 3.3 秒）。停止（echo 0 > …/motor/status）會立即停住馬達，韌體計數仍正確，所以停止後主控台會讀取計數並據此設定位置，不再用時間推估。移動進行中送出的馬達指令韌體會回覆但忽略，因此主控台現在會把新的移動保留到目前的移動完成（「停止馬達」會取消它）。水平有硬性的端點擋塊，相距約 8,570 步，一整圈約 8,900 步（主控台原本假設 4,800），所以水平角度現在約為以前顯示的一半，且是正確的。升降：完整行程約 1,100 步，與假設相同。AIRIZ 插上後底部開關在底部會讀到按下，但它自行重新啟動後（切換 USB 模式或 reboot）就再也不會；「降到底部」現在會提示拔下再插上。USB 模式 msc 可用：AIRIZ 約 9 秒後以 10 MB 的 USB 磁碟加上序列主控台重新出現。",
+    "1 – 17 ms per step (smaller = faster)": "每步 1 – 17 毫秒（越小越快）",
+    "1 – 30 ms per step (smaller = faster)": "每步 1 – 30 毫秒（越小越快）",
     "Device picture follows the firmware while the motor moves; rising motor run on a real AIRIZ (1.11.33)": "馬達移動時裝置圖跟著韌體走；已在實際的 AIRIZ 上執行升降馬達（1.11.33）",
     "While a motor moves, the console now asks the firmware (diag motor info) how many steps are done and moves the device picture with that count instead of with its own time estimate; the Sensors line shows the count with “(moving)”. A sequence of moves and the bottom-switch check wait until the firmware says the move is over, and the step time the firmware showed is remembered for that X. The rising motor was then run on a real AIRIZ (firmware 0.0.0.3): diag motor rising forward 30 300 took 9.0 seconds (30 ms per step), forward is up (the camera picture came out of the housing), moves up to a count of 1,100 and 800 steps back down were counted in full, and the firmware said Busy 0.15 seconds after the command. On that unit the bottom switch read Not Pressed at every height, from 140 steps below the start to 1,100 above it. Lower to bottom & reset height therefore stops after the full travel plus 100 steps (1,200) instead of 1,800, and says that the switch did not confirm the bottom. The step times seen on the real unit (17 ms at pan X = 17, 30 ms at rising X = 30) are known from the start. Not tried on the real AIRIZ yet, because it left the USB bus again: X below 17 (pan) and 30 (rising), a stop while moving, a new command while moving, and the pan steps for one full turn.": "馬達移動時，主控台現在會詢問韌體（diag motor info）已走了幾步，並用這個計數移動裝置圖，不再只靠自己的時間估計；「感測器」列會顯示計數並加上「（移動中）」。連續的移動與底部開關檢查會等到韌體說移動結束，韌體顯示的每步時間也會依該 X 記住。接著在實際的 AIRIZ（韌體 0.0.0.3）上執行了升降馬達：diag motor rising forward 30 300 花了 9.0 秒（每步 30 毫秒），forward 是往上（相機畫面從機殼中升出），往上到計數 1,100、再往下 800 步都完整計數，韌體在指令後 0.15 秒回報 Busy。在那台機器上，底部開關在每個高度都讀到 Not Pressed，從起點以下 140 步到起點以上 1,100 步都是。因此「降到底部並重設高度」現在在完整行程加 100 步（1,200）後停止，而不是 1,800，並說明開關沒有確認底部。實機上看到的每步時間（水平 X = 17 為 17 毫秒，升降 X = 30 為 30 毫秒）一開始就已知。尚未在實際的 AIRIZ 上試過（因為它又離開了 USB 匯流排）：小於 17（水平）與 30（升降）的 X、移動中停止、移動中送出新指令，以及水平轉一整圈的步數。",
     "Motor commands tried on a real AIRIZ: firmware step count read back (1.11.32)": "已在實際的 AIRIZ 上試過馬達指令：讀回韌體步數計數（1.11.32）",
@@ -1627,7 +1631,6 @@
     "The numbers on the device picture show the position counted from the commands, checked by two sensors: the bottom switch (height) and the camera picture (pan). The motors have no encoder, so a sensor can confirm or contradict the count but cannot measure every position.": "裝置圖上的數字顯示依指令計數的位置，並由兩個感測器確認：底部開關（高度）與相機畫面（水平）。馬達沒有編碼器，因此感測器只能確認或否定計數結果，無法量測每一個位置。",
     "The position is counted from the commands. The bottom switch is read after every rising move, the camera picture is watched during every pan move while the preview is on, and the firmware's own step count (diag motor info) is read after every move.": "位置依指令計數。每次升降後讀取底部開關，預覽開啟時每次水平轉動都觀察相機畫面，每次移動後也會讀取韌體自己的步數計數（diag motor info）。",
     "Firmware count:": "韌體計數：",
-    "not read": "尚未讀取",
     "firmware count ✓": "韌體計數 ✓",
     "firmware count differs ⚠": "韌體計數不符 ⚠",
     "FIRMWARE COUNT DIFFERS": "韌體計數不符",
@@ -1636,8 +1639,8 @@
     "Answers `Current usbmode is uvc` (or cdc). Does not reboot. Checked on a real AIRIZ (firmware 0.0.0.3).": "回覆 `Current usbmode is uvc`（或 cdc）。不會重新開機。已在實際的 AIRIZ（韌體 0.0.0.3）上確認。",
     "Read motor position (firmware count)": "讀取馬達位置（韌體計數）",
     "Lists Idle / Busy and the firmware's own step count and angle for the pan and the rising motor. The count starts at 0 when the AIRIZ boots. Checked on a real AIRIZ (firmware 0.0.0.3).": "列出 Idle / Busy，以及韌體自己對水平與升降馬達的步數計數與角度。AIRIZ 開機時計數從 0 開始。已在實際的 AIRIZ（韌體 0.0.0.3）上確認。",
-    "Checked on a real AIRIZ (firmware 0.0.0.3): the firmware help calls X the period, `forward [period:17~] [step:0~]`. `diag motor pan forward 17 500` took about 9 s (about 18 ms per step) and `diag motor info` then showed pan step 500, angle 46.": "已在實際的 AIRIZ（韌體 0.0.0.3）上確認：韌體說明把 X 稱為週期（period），`forward [period:17~] [step:0~]`。`diag motor pan forward 17 500` 約花 9 秒（每步約 18 毫秒），之後 `diag motor info` 顯示水平步數 500、角度 46。",
-    "Checked on a real AIRIZ (firmware 0.0.0.3): the firmware help calls X the period, `forward [period:30~] [step:0~]`. `diag motor rising forward 30 300` took 9.0 s (30 ms per step) and forward is up: the camera picture came out of the housing. On that unit `diag button get rising-det` answered `0:Not Pressed` at every height.": "已在實際的 AIRIZ（韌體 0.0.0.3）上確認：韌體說明把 X 稱為週期（period），`forward [period:30~] [step:0~]`。`diag motor rising forward 30 300` 花了 9.0 秒（每步 30 毫秒），forward 是往上：相機畫面從機殼中升出。在那台機器上，`diag button get rising-det` 在每個高度都回覆 `0:Not Pressed`。",
+    "Measured on a real AIRIZ (firmware 0.0.0.3): X is the time per step in ms, 17 at most (X = 2 ran at 2 ms per step, X = 34 still at 17 ms), and no steps were lost at X = 2. The pan has hard end stops about 8,570 steps apart, nearly one full turn (one turn is about 8,900 steps); steps sent past a stop are counted by the firmware but not turned. A motor command sent while a move runs is ignored by the firmware (the console waits for the running move). Stop: `echo 0 > /sys/devices/platform/soc/soc:motor/status`; the firmware count stays right.": "已在實際的 AIRIZ（韌體 0.0.0.3）上量測：X 是每步的時間（毫秒），最多 17（X = 2 時每步 2 毫秒，X = 34 仍為 17 毫秒），X = 2 時沒有掉步。水平有硬性的端點擋塊，相距約 8,570 步，接近一整圈（一圈約 8,900 步）；超過擋塊送出的步數會被韌體計數，但不會轉動。移動進行中送出的馬達指令會被韌體忽略（主控台會等目前的移動完成）。停止：`echo 0 > /sys/devices/platform/soc/soc:motor/status`；韌體計數仍正確。",
+    "Measured on a real AIRIZ (firmware 0.0.0.3): X is the time per step in ms, 30 at most (X = 3 ran at 3 ms per step, X = 60 still at 30 ms), forward is up, and the full stroke is about 1,100 steps (1,080 from the top stop down to the bottom switch). Up and down came back to the bottom switch within 10 to 20 steps at X = 3, 10 and 30. `diag button get rising-det` reads `0:Pressed` at the bottom after the AIRIZ was plugged in, but `0:Not Pressed` at every height after it restarted by itself (USB mode change or `reboot`).": "已在實際的 AIRIZ（韌體 0.0.0.3）上量測：X 是每步的時間（毫秒），最多 30（X = 3 時每步 3 毫秒，X = 60 仍為 30 毫秒），forward 是往上，完整行程約 1,100 步（從頂端擋塊往下到底部開關 1,080 步）。在 X = 3、10 與 30 時，上下移動後回到底部開關的誤差在 10 到 20 步以內。AIRIZ 插上後，`diag button get rising-det` 在底部讀到 `0:Pressed`，但在它自行重新啟動後（切換 USB 模式或 `reboot`），每個高度都讀到 `0:Not Pressed`。",
     "POSITION FEEDBACK": "位置回饋",
     "SENSOR CHECKED": "感測器已確認",
     "HEIGHT CHECKED BY SWITCH": "高度已由開關確認",
@@ -2610,8 +2613,24 @@
       "已找到底部，往下 $1 步：高度現在為 0（完全降下）。"
     ],
     [
-      "^Lowered (\\d+) steps \\(more than the full travel\\) and the bottom switch never read pressed: the camera is on the bottom stop, but the switch does not confirm it, so the height stays estimated\\. Check the switch with \\\"Is the camera at the bottom\\?\\\"\\.$",
-      "已降低 $1 步（超過完整行程），底部開關始終沒有讀到按下：相機已在底部擋塊上，但開關沒有確認，所以高度仍為估計值。請用「相機在最底部嗎？」檢查開關。"
+      "^Lowered (\\d+) steps \\(more than the full travel\\) and the bottom switch never read pressed: the camera is on the bottom stop, but the switch does not confirm it, so the height stays estimated\\. On firmware 0\\.0\\.0\\.3 the switch stops answering after the AIRIZ restarts by itself \\(USB mode change or reboot\\): unplug the AIRIZ, plug it in again and try once more\\.$",
+      "已降低 $1 步（超過完整行程），底部開關始終沒有讀到按下：相機已在底部擋塊上，但開關沒有確認，所以高度仍為估計值。在韌體 0.0.0.3 上，AIRIZ 自行重新啟動後（切換 USB 模式或 reboot）開關就不再回應：請拔下 AIRIZ 再插上，然後再試一次。"
+    ],
+    [
+      "^Stopped after (\\d+) of (\\d+) pan steps \\(firmware count\\): the position is set from it\\.$",
+      "已停止：水平 $2 步中走了 $1 步（韌體計數），位置已依此設定。"
+    ],
+    [
+      "^Stopped after (\\d+) of (\\d+) rising steps \\(firmware count\\): the position is set from it\\.$",
+      "已停止：升降 $2 步中走了 $1 步（韌體計數），位置已依此設定。"
+    ],
+    [
+      "^The motor is still moving: \"(.+)\" waits until it is done \\((\\d+) s\\)\\.$",
+      "馬達仍在移動：「$1」會等到移動完成再送出（$2 秒）。"
+    ],
+    [
+      "^Motor stopped: \"(.+)\" was not sent\\.$",
+      "馬達已停止：「$1」未送出。"
     ],
     [
       "^Done: aim saved \\((\\d+) steps per picture width\\)\\. The camera turns back\\.$",

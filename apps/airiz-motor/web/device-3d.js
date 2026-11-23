@@ -55,7 +55,7 @@
   // Pan forward (positive steps) = counter-clockwise seen from above, as in the command list.
   function mechanism(position, travel, meta) {
     const risingMax = Number(travel && travel.risingMax) > 0 ? Number(travel.risingMax) : 1100;
-    const panPerTurn = Number(travel && travel.panPerTurn) > 0 ? Number(travel.panPerTurn) : 4800;
+    const panPerTurn = Number(travel && travel.panPerTurn) > 0 ? Number(travel.panPerTurn) : 8900; // 1.11.34: measured
     const fraction = clamp((Number(position && position.rising) || 0) / risingMax, 0, 1);
     const liftMm = fraction * meta.strokeMm;
     const panRad = (Number(position && position.pan) || 0) / panPerTurn * TAU;

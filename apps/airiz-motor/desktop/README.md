@@ -9,7 +9,7 @@ is required to use the installed app or its hardware-free demo.
 ## Downloads
 
 Windows x64 releases are published under the app-specific tag
-`airiz-desktop-v1.11.33` in this repository's Releases section.
+`airiz-desktop-v1.11.34` in this repository's Releases section.
 
 - **Installer**: assisted, per-user installation with Start-menu/desktop shortcuts
   and an uninstaller. The wizard lets the user choose the installation directory.
@@ -163,6 +163,15 @@ reports whether a framed firmware reply came back. Results can be exported.
 No pairing is accepted without confirmation and no motor command is sent.
 Another program on the PC still cannot open COM4 while this app holds it: that is
 a Windows serial-port rule, which is why the check runs inside the app.
+
+## 1.11.34: second bench on a real AIRIZ
+
+* **Step time law.** `core.firmwareStepMs(axis, X)` = min(X, `STEP_PERIOD_MAX[axis]`) with 17 (pan) and 30 (rising); `msPerStep` uses it unless a step time was learned for that X or a timing was set under Calibration (`timing.handSet[axis]`, or a k other than the old default). Measured: pan X = 2/5/10/17/34 -> 1.95/5.00/10.10/16.89/17.09 ms; rising X = 3/10/30/60 -> 3.01/10.04/30.01/30.04 ms. Lost steps checked by the bottom switch (rising up 300 at X = 3 and 10 came back to the switch within 10 to 20 steps, as at X = 30) and by the picture (pan 400 and 1,200 steps out at X = 2 and back: 0.0 px).
+* **Stop.** The firmware count is right after `echo 0 > …/motor/status`. `ptz.js` remembers the count before the stopped move (`firmware.stopFix`) and the next Idle read sets the position with `tracker.correctPosition()` (limits and home stay; the estimated flag clears when the position was certain before).
+* **Commands while Busy.** The firmware answers but ignores them. `app.js` `sendLine` holds a motor move back while `AirizPtz.motorBusyMs()` > 0 (timed end + 0.25 s start delay), up to 2 min; a stop sent meanwhile cancels it. The demo device ignores such a move too.
+* **Pan.** Hard end stops 8,567 and 8,597 steps apart in two sweeps; across the stops the picture repeats about 320 steps on, and the wrap seen in a third sweep gives 8,919: one turn is about 8,900 steps (`DEFAULT_TRAVEL.panPerTurn`; a saved 4,800 is read as the new default). Steps sent past a stop are counted but not turned. After the first pair of sweeps the picture at the stops had moved by about 1,700 steps (the unit was turned on the desk, or the head slips when the motor is driven into a stop): not settled.
+* **Rising and the switch.** 1,080 steps from the top stop down to the switch; the switch releases 20 to 55 steps above the bottom stop. After the cold plug-in the switch read `0:Pressed` at the bottom every time; after a `diag usbmode set` restart and after `reboot` it read `0:Not Pressed` even 420 steps into the bottom stop. The Lower to bottom message says so.
+* **msc.** `diag usbmode set msc`: back in about 9 s as "Linux File-Stor Gadget" (10 MB) plus the serial port (COM3 on the test PC), no camera; `set uvc` brings the camera back (COM4).
 
 ## 1.11.33: device picture follows the firmware; rising motor on a real AIRIZ
 
