@@ -113,6 +113,9 @@ async function record(name) {
   await commandsSent(4);
   assert.equal(await page.locator('#console-output .command').count(), 4);
   assert.equal(await page.locator('#keyboard-toggle').getAttribute('aria-pressed'), 'true');
+  // Keyboard jog = press to move, release to stop: pressed while a move still runs, the held move
+  // is cancelled by the release (the firmware would have ignored it). So wait for the motor first.
+  await page.waitForFunction(() => window.AirizPtz.motorBusyMs() === 0, null, { timeout: 15000 });
   await page.keyboard.press('ArrowRight');
   await commandsSent(5);
   assert.equal(await page.locator('#console-output .command').count(), 5);
