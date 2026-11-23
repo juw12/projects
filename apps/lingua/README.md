@@ -7,6 +7,18 @@ language.
 
 > Teams talks. You read along, translated.
 
+## On a Mac and on Android
+
+- **Mac:** [`Lingua-macOS-AppleSilicon.dmg`](https://github.com/juw12/projects/releases/download/lingua-mac/Lingua-macOS-AppleSilicon.dmg) (M1 and newer) or [`Lingua-macOS-Intel.dmg`](https://github.com/juw12/projects/releases/download/lingua-mac/Lingua-macOS-Intel.dmg). Open it and drag Lingua to Applications. The first time, macOS blocks it because it is not notarized: **System Settings → Privacy & Security → Open Anyway**.
+- **Android:** [`Lingua-android.apk`](https://github.com/juw12/projects/releases/download/lingua-android/Lingua-android.apk): open the file on the phone and allow your browser to install apps once.
+
+Both are the web edition (https://juw12.github.io/projects/lingua/) in its own window ([`desktop/`](desktop/README.md), [`android/`](android/README.md)) and change with it. What they do and do not do:
+
+- Mobile translate and Read picture work in them. Live caption capture needs a browser that can share the screen (Chrome, Edge or Firefox on the Mac), and the floating caption window over Teams is the Windows app only.
+- They call the translation gateway you set, straight from the page. A gateway on plain `http` or one only reachable from the office network (the company one) cannot be called this way: use **Share to phone** from the laptop for that, as described under [Versions](#versions-laptop-web-iphone-android).
+
+Each build is opened on GitHub's machines before it is published: on an Apple-silicon Mac and an Intel Mac the page loads, the app starts and can store data; on an Android emulator it installs, opens and stays up. No translation was made in them, and no Mac or phone of ours has run them yet.
+
 ## Status
 
 **v0.1** (new). The whole app is one two-stage pipeline: screen-read the
