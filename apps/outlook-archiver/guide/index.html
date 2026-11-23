@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Outlook Archiver guide: A small Windows daemon that archives every Outlook message and keeps the Inbox clean</title>
+<meta name="description" content="A small Windows daemon that archives every Outlook message and keeps the Inbox clean">
+<link rel="canonical" href="https://juw12.github.io/projects/outlook-archiver/">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Outlook Archiver">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#fbfaf6" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#171614" media="(prefers-color-scheme: dark)">
+<meta property="og:title" content="Outlook Archiver guide">
+<meta property="og:description" content="A small Windows daemon that archives every Outlook message and keeps the Inbox clean">
+<style>
+:root{--paper:#fbfaf6;--ink:#1d1c1a;--soft:#5d5a54;--line:#e3dfd5;--card:#ffffff;--accent:#916a22;--code:#f1eee6}
+@media (prefers-color-scheme:dark){:root{--paper:#171614;--ink:#eeebe4;--soft:#a9a49a;--line:#35322d;--card:#201f1c;--accent:#e0c085;--code:#262420}}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--paper);color:var(--ink);font:17px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+header.bar{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:12px;min-height:60px;padding:8px 16px;padding-top:max(8px,env(safe-area-inset-top));background:var(--paper);border-bottom:1px solid var(--line)}
+header.bar img{width:36px;height:36px;border-radius:9px;flex:none}
+header.bar .name{font-weight:700;font-size:18px;line-height:1.2;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+header.bar .name small{display:block;font-weight:500;font-size:13px;color:var(--soft)}
+header.bar a.source{flex:none;display:inline-flex;align-items:center;min-height:48px;padding:0 16px;border:1px solid var(--line);border-radius:24px;background:var(--card);color:var(--ink);font-size:15px;font-weight:600;text-decoration:none}
+main{max-width:760px;margin:0 auto;padding:20px 16px 40px}
+main img{max-width:100%;height:auto;border-radius:8px}
+main h1{font-size:30px;line-height:1.2;margin:24px 0 12px}
+main h2{font-size:23px;line-height:1.25;margin:36px 0 12px;padding-top:14px;border-top:1px solid var(--line)}
+main h3{font-size:19px;line-height:1.3;margin:26px 0 8px}
+main h4{font-size:17px;margin:22px 0 6px}
+main p,main li{overflow-wrap:anywhere}
+main a{color:var(--accent);text-underline-offset:3px;padding:6px 0}
+main p[align=center] a,main li>a:only-child{display:inline-block;padding:12px 3px}
+main a:has(>img){display:inline-block;padding:8px 0}
+main p[align=center] a:has(>img[width="100%"]){display:block;padding:0}
+main ul,main ol{padding-left:24px}
+main li{margin:6px 0}
+main blockquote{margin:16px 0;padding:4px 16px;border-left:4px solid var(--accent);color:var(--soft)}
+main code{font:14px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background:var(--code);padding:2px 5px;border-radius:5px;overflow-wrap:anywhere}
+main pre{background:var(--code);padding:14px;border-radius:10px;overflow-x:auto;-webkit-overflow-scrolling:touch}
+main pre code{background:none;padding:0;overflow-wrap:normal;white-space:pre}
+.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:16px 0}
+main table{border-collapse:collapse;font-size:15px;min-width:100%}
+main th,main td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+main th{background:var(--code)}
+main hr{border:0;border-top:1px solid var(--line);margin:28px 0}
+main kbd{font:13px ui-monospace,Menlo,monospace;border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;padding:1px 5px}
+main details{margin:12px 0}
+main summary{cursor:pointer;min-height:44px;display:flex;align-items:center;font-weight:600}
+footer{max-width:760px;margin:0 auto;padding:18px 16px calc(28px + env(safe-area-inset-bottom));border-top:1px solid var(--line);color:var(--soft);font-size:14px}
+footer a{color:var(--soft)}
+</style>
+</head>
+<body>
+<header class="bar">
+<img src="icons/icon-192.png" alt="" width="36" height="36">
+<div class="name">Outlook Archiver<small>Guide</small></div>
+<a class="source" href="https://github.com/juw12/projects/tree/main/apps/outlook-archiver">GitHub</a>
+</header>
+<main id="guide">
+<h1 dir="auto">Outlook Archiver</h1>
+<p dir="auto">A small <strong>Windows</strong> daemon that keeps your live Outlook <strong>Inbox</strong> and <strong>Sent<br>
+Items</strong> clean by automatically archiving every message into a separate<br>
+<em>"Archives"</em> Outlook data file (PST) — while still logging each one and popping<br>
+a desktop toast so nothing is missed.</p>
+<p dir="auto">It subscribes to Outlook COM events and, for every new Inbox arrival and every<br>
+Sent Items entry, it:</p>
+<ol dir="auto">
+<li>Logs full sender / subject / body to a rolling log file.</li>
+<li>Shows a Windows toast with the content.</li>
+<li>Marks Inbox items as read (auto-read).</li>
+<li>Moves the item from the live mailbox into the <em>Archives</em> PST (its Inbox /<br>
+Sent Items folder). The live mailbox's Inbox and Sent Items views stay empty.</li>
+</ol>
+<h2 dir="auto">Contents</h2>
+<markdown-accessiblity-table><div class="scroll"><table role="table">
+<thead>
+<tr>
+<th>File</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code class="notranslate">outlook_archiver.py</code></td>
+<td>The daemon: COM event sinks, archive logic, logging, toasts.</td>
+</tr>
+<tr>
+<td><code class="notranslate">outlook_archiver_ctl.ps1</code></td>
+<td>Start / stop / toggle / status control script.</td>
+</tr>
+<tr>
+<td><code class="notranslate">register_task.ps1</code></td>
+<td>Registers a Windows Task Scheduler job (start at logon).</td>
+</tr>
+<tr>
+<td><code class="notranslate">watchdog.ps1</code></td>
+<td>Restarts the daemon if it dies.</td>
+</tr>
+<tr>
+<td><code class="notranslate">pin_to_taskbar.ps1</code></td>
+<td>Pins a launcher to the taskbar.</td>
+</tr>
+<tr>
+<td><code class="notranslate">run_archiver.bat</code></td>
+<td>Foreground launcher (for testing).</td>
+</tr>
+<tr>
+<td><code class="notranslate">start.bat</code> / <code class="notranslate">stop.bat</code> / <code class="notranslate">toggle.bat</code> / <code class="notranslate">restart.bat</code></td>
+<td>Convenience wrappers.</td>
+</tr>
+<tr>
+<td><code class="notranslate">sweep_existing.py</code> / <code class="notranslate">sweep_existing.bat</code></td>
+<td>One-shot sweep of items already in the live mailbox.</td>
+</tr>
+<tr>
+<td><code class="notranslate">reinstall.bat</code></td>
+<td>Reinstalls / refreshes the scheduled task.</td>
+</tr>
+<tr>
+<td><code class="notranslate">outlook_archiver.ico</code></td>
+<td>App / shortcut icon.</td>
+</tr>
+</tbody>
+</table></div></markdown-accessiblity-table>
+<h2 dir="auto">Requirements</h2>
+<ul dir="auto">
+<li>Windows 10/11 with <strong>Outlook desktop</strong> installed, signed in and running.</li>
+<li>Python 3.10+ with <strong><code class="notranslate">pywin32</code></strong> and <strong><code class="notranslate">winotify</code></strong>.</li>
+<li>An <em>"Archives"</em> PST added to your Outlook profile, containing an <strong>Inbox</strong> and<br>
+a <strong>Sent Items</strong> folder at its root (they are created automatically if missing).</li>
+<li>Outlook option <em>"Save copies of messages in Sent Items folder"</em> must be <strong>ON</strong>,<br>
+otherwise the Sent-Items hook will not fire.</li>
+</ul>
+<h2 dir="auto">Configuration</h2>
+<p dir="auto">The store name, folder names, log path and timing constants are defined at the<br>
+top of <code class="notranslate">outlook_archiver.py</code> (the <code class="notranslate">ARCHIVE_STORE_NAME</code>, <code class="notranslate">ARCHIVE_INBOX_NAME</code>,<br>
+<code class="notranslate">ARCHIVE_SENT_NAME</code> and <code class="notranslate">LOG_FILE</code> constants). Point these at your own profile /<br>
+PST before running.</p>
+<h2 dir="auto">Usage</h2>
+<div class="highlight highlight-source-powershell" dir="auto"><pre class="notranslate"><span class="pl-c"><span class="pl-c">#</span> Foreground (testing) — double-click, or:</span>
+python outlook_archiver.py
+
+<span class="pl-c"><span class="pl-c">#</span> Background (production) — register the logon task once:</span>
+powershell <span class="pl-k">-</span>ExecutionPolicy Bypass <span class="pl-k">-</span>File register_task.ps1
+
+<span class="pl-c"><span class="pl-c">#</span> One-shot: archive everything already sitting in the live Inbox / Sent Items:</span>
+python sweep_existing.py</pre></div>
+<p dir="auto">Stop it from the foreground with Ctrl+C, or from Task Manager / the control<br>
+script (<code class="notranslate">outlook_archiver_ctl.ps1</code>) when running in the background.</p>
+<h2 dir="auto">License</h2>
+<p dir="auto">Personal project — provided as-is.</p>
+</main>
+<footer>
+This is the Outlook Archiver guide: the project's README, laid out to read on a phone and kept for when there is no connection.
+It is the README of 2026-11-22. Outlook Archiver itself is installed and run the way the guide says; the code is at
+<a href="https://github.com/juw12/projects/tree/main/apps/outlook-archiver">github.com/juw12/projects/tree/main/apps/outlook-archiver</a>.
+</footer>
+<script>
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+</script>
+</body>
+</html>
