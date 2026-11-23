@@ -1,0 +1,172 @@
+name: Peers apps
+
+# Builds the downloadable Peers apps and publishes them to the "peers-mac" release from main:
+#   macOS    Peers-macOS-AppleSilicon.dmg + Peers-macOS-Intel.dmg
+# The apps are thin native windows around the live site, so every push to the site reaches them through GitHub
+# Pages without a rebuild. This workflow only runs when the shell in desktop/ changes. Every build is opened and
+# checked on its own system first; only builds that passed are published, and the download links never change.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/peers/shell/desktop/**'
+      - '.github/workflows/peers-mac.yml'
+  pull_request:
+    paths:
+      - 'apps/peers/shell/desktop/**'
+      - '.github/workflows/peers-mac.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: peers-mac-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  desktop:
+    name: Desktop (${{ matrix.name }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macOS Apple silicon
+            os: macos-15
+          - name: macOS Intel
+            os: macos-15-intel
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install PyInstaller, Pillow and pywebview
+        run: python -m pip install --disable-pip-version-check pyinstaller pillow pywebview
+      - name: Install Inno Setup
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $iscc = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'
+          if (-not (Test-Path $iscc) -and -not (Get-Command iscc -ErrorAction SilentlyContinue)) {
+            choco install innosetup --no-progress -y
+          }
+      - name: Make sure the WebView2 runtime is there (the Windows window uses it)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $client = '{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}'
+          $keys = "HKLM:\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\$client",
+                  "HKCU:\Software\Microsoft\EdgeUpdate\Clients\$client"
+          $version = $keys | Where-Object { Test-Path $_ } | ForEach-Object { (Get-ItemProperty $_).pv } |
+            Where-Object { $_ -and $_ -ne '0.0.0.0' } | Select-Object -First 1
+          if ($version) { Write-Host "WebView2 runtime $version"; exit 0 }
+          $setup = Join-Path $env:RUNNER_TEMP 'MicrosoftEdgeWebview2Setup.exe'
+          Invoke-WebRequest 'https://go.microsoft.com/fwlink/p/?LinkId=2124703' -OutFile $setup
+          Start-Process -FilePath $setup -ArgumentList '/silent', '/install' -Wait
+      - name: Stop XProtect scans (they make hdiutil fail with "Resource busy")
+        if: runner.os == 'macOS'
+        run: |
+          sudo pkill -9 XProtect > /dev/null 2>&1 || true
+          for attempt in $(seq 1 20); do pgrep -x XProtect > /dev/null || break; sleep 3; done
+      - name: Build and package
+        run: python apps/peers/shell/desktop/build.py --require-installer
+      - name: Open the built app and check its window shows this commit's Peers
+        run: python apps/peers/shell/desktop/smoke_test.py --built --local-site
+      - name: Install with Peers-Windows-Setup.exe, run it, uninstall it
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $setup = Resolve-Path 'apps/peers/shell/desktop/dist/Peers-Windows-Setup.exe'
+          $log = Join-Path $env:RUNNER_TEMP 'peers-setup.log'
+          $process = Start-Process -FilePath $setup -Wait -PassThru -ArgumentList @(
+            '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/TASKS=desktopicon', "/LOG=$log")
+          if ($process.ExitCode -ne 0) { Get-Content $log -Tail 40; throw "Setup failed with exit code $($process.ExitCode)" }
+          $app = Join-Path $env:LOCALAPPDATA 'Programs\Peers\Peers.exe'
+          if (-not (Test-Path $app)) { throw "Peers.exe was not installed to $app" }
+          $shortcuts = @(
+            (Join-Path ([Environment]::GetFolderPath('Programs')) 'Peers.lnk'),
+            (Join-Path ([Environment]::GetFolderPath('Desktop')) 'Peers.lnk'))
+          foreach ($link in $shortcuts) { if (-not (Test-Path $link)) { throw "Missing shortcut: $link" } }
+          $entry = Get-ChildItem 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall' |
+            Get-ItemProperty | Where-Object DisplayName -eq 'Peers'
+          if (-not $entry) { throw 'Peers is missing from Settings > Apps' }
+          python apps/peers/shell/desktop/smoke_test.py --local-site $app
+          if ($LASTEXITCODE -ne 0) { throw 'The installed app failed its checks' }
+          Start-Process -FilePath $entry.UninstallString.Trim('"') -Wait -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART'
+          for ($i = 0; $i -lt 60 -and (Test-Path $app); $i++) { Start-Sleep -Seconds 1 }
+          if (Test-Path $app) { throw 'Uninstalling left Peers.exe behind' }
+          foreach ($link in $shortcuts) { if (Test-Path $link) { throw "Uninstalling left a shortcut: $link" } }
+          Write-Host 'Installed, ran and uninstalled cleanly'
+      - name: Check the Mac app and disk image
+        if: runner.os == 'macOS'
+        run: |
+          APP=apps/peers/shell/desktop/dist/Peers.app
+          test "$(plutil -extract CFBundleIdentifier raw "$APP/Contents/Info.plist")" = "io.github.juw12.peers.desktop"
+          test "$(plutil -extract CFBundleShortVersionString raw "$APP/Contents/Info.plist")" = "$(python3 -c 'import json; print(json.load(open("apps/peers/shell/desktop/shell.json"))["version"])')"
+          echo "Architecture: $(lipo -archs "$APP/Contents/MacOS/Peers")"
+          codesign --verify --deep --verbose=2 "$APP"
+          for image in apps/peers/shell/desktop/dist/*.dmg; do hdiutil verify "$image"; done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Peers-${{ runner.os }}-${{ runner.arch }}
+          path: apps/peers/shell/desktop/dist/Peers-*
+          if-no-files-found: error
+          retention-days: 14
+
+  publish:
+    needs: [desktop]
+    if: ${{ !cancelled() && github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: Peers-*
+          path: dist
+          merge-multiple: true
+      - name: Publish the apps to the apps release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          cd dist
+          FILES=""
+          for name in Peers-macOS-AppleSilicon.dmg Peers-macOS-Intel.dmg; do
+            if [ -f "$name" ]; then
+              FILES="$FILES $name"
+            else
+              echo "::warning::$name was not built in this run; the release keeps its previous copy (if any)."
+            fi
+          done
+          if [ -z "$FILES" ]; then
+            echo "::error::No app passed its checks."
+            exit 1
+          fi
+          sha256sum $FILES > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+          cat > notes.md <<'EOF'
+          **Peers**: verified reviews from real people. The apps open the same Peers as https://juw12.github.io/projects/peers/ in their own window.
+
+          | Your device | Download | How to install |
+          | --- | --- | --- |
+          | **Mac with Apple chip (M1 and newer)** | [Peers-macOS-AppleSilicon.dmg](https://github.com/juw12/projects/releases/download/peers-mac/Peers-macOS-AppleSilicon.dmg) | Open it and drag Peers to Applications. The first time, macOS blocks it because it is not notarized: **System Settings → Privacy & Security → Open Anyway**. |
+          | **Mac with Intel chip** | [Peers-macOS-Intel.dmg](https://github.com/juw12/projects/releases/download/peers-mac/Peers-macOS-Intel.dmg) | Same as above. Not sure which Mac? Apple menu → About This Mac shows **Chip** (Apple) or **Processor** (Intel). |
+          | **iPhone / iPad** | [Open in Safari](https://juw12.github.io/projects/peers/) | Share → **Add to Home Screen** (free, full screen, updates itself). |
+          | **Android** | [Peers-android.apk](https://github.com/juw12/projects/releases/download/peers-android/Peers-android.apk) | Open the file on the phone and allow your browser to install apps once. |
+
+          The apps load Peers from the web, so new versions arrive the moment they are published, with no reinstall. Checksums for this build: `SHA256SUMS.txt`.
+          EOF
+          {
+            echo
+            echo "Built from ${GITHUB_SHA::7}."
+          } >> notes.md
+          if gh release view peers-mac --repo "$REPO" > /dev/null 2>&1; then
+            gh release upload peers-mac $FILES SHA256SUMS.txt --clobber --repo "$REPO"
+            gh release edit peers-mac --notes-file notes.md --repo "$REPO"
+          else
+            gh release create peers-mac $FILES SHA256SUMS.txt --title "Peers for Mac" \
+              --notes-file notes.md --latest=false --repo "$REPO"
+          fi

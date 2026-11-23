@@ -51,6 +51,22 @@
 </p>
 <!-- HERO:END -->
 
+## On a Mac
+
+- **Mac:** [`Peers-macOS-AppleSilicon.dmg`](https://github.com/juw12/projects/releases/download/peers-mac/Peers-macOS-AppleSilicon.dmg) (M1 and newer) or [`Peers-macOS-Intel.dmg`](https://github.com/juw12/projects/releases/download/peers-mac/Peers-macOS-Intel.dmg). Open it and drag Peers to Applications. The first time, macOS blocks it because it is not notarized: **System Settings → Privacy & Security → Open Anyway**.
+
+It is the web edition (https://juw12.github.io/projects/peers/) in its own window ([`desktop/`](shell/desktop/README.md)) and changes with it. Each build is opened on an Apple-silicon Mac and an Intel Mac on GitHub before it is published: the page loads, the app starts and can store data. No Mac of ours has run it yet.
+
+## On an Android phone
+
+- **Android:** [`Peers-android.apk`](https://github.com/juw12/projects/releases/download/peers-android/Peers-android.apk): open the file on the phone and allow your browser to install apps once.
+
+It is the web app (https://juw12.github.io/projects/peers/) in a full-screen window of its own ([`android/`](shell/android/README.md)) and changes with it. The build is opened on an Android emulator on GitHub before it is published: it installs, opens and stays up. No real phone has run it yet.
+
+## On an iPhone
+
+- **iPhone:** open https://juw12.github.io/projects/peers/ in Safari, tap Share, then **Add to Home Screen**.
+
 ## About
 
 Peers is a client-side photo demo application that showcases a responsive photo gallery interface. The app is built as a **single-file HTML** with all CSS and JavaScript embedded inline, requiring no build process or backend server to run.
