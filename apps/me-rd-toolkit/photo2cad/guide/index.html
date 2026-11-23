@@ -1,0 +1,345 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Datum CAD guide: An idea becomes a real CAD file</title>
+<meta name="description" content="An idea becomes a real CAD file">
+<link rel="canonical" href="https://juw12.github.io/projects/datum-cad/">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Datum CAD">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#fbfaf6" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#171614" media="(prefers-color-scheme: dark)">
+<meta property="og:title" content="Datum CAD guide">
+<meta property="og:description" content="An idea becomes a real CAD file">
+<style>
+:root{--paper:#fbfaf6;--ink:#1d1c1a;--soft:#5d5a54;--line:#e3dfd5;--card:#ffffff;--accent:#1d7c7c;--code:#f1eee6}
+@media (prefers-color-scheme:dark){:root{--paper:#171614;--ink:#eeebe4;--soft:#a9a49a;--line:#35322d;--card:#201f1c;--accent:#85e0e0;--code:#262420}}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--paper);color:var(--ink);font:17px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+header.bar{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:12px;min-height:60px;padding:8px 16px;padding-top:max(8px,env(safe-area-inset-top));background:var(--paper);border-bottom:1px solid var(--line)}
+header.bar img{width:36px;height:36px;border-radius:9px;flex:none}
+header.bar .name{font-weight:700;font-size:18px;line-height:1.2;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+header.bar .name small{display:block;font-weight:500;font-size:13px;color:var(--soft)}
+header.bar a.source{flex:none;display:inline-flex;align-items:center;min-height:48px;padding:0 16px;border:1px solid var(--line);border-radius:24px;background:var(--card);color:var(--ink);font-size:15px;font-weight:600;text-decoration:none}
+main{max-width:760px;margin:0 auto;padding:20px 16px 40px}
+main img{max-width:100%;height:auto;border-radius:8px}
+main h1{font-size:30px;line-height:1.2;margin:24px 0 12px}
+main h2{font-size:23px;line-height:1.25;margin:36px 0 12px;padding-top:14px;border-top:1px solid var(--line)}
+main h3{font-size:19px;line-height:1.3;margin:26px 0 8px}
+main h4{font-size:17px;margin:22px 0 6px}
+main p,main li{overflow-wrap:anywhere}
+main a{color:var(--accent);text-underline-offset:3px;padding:6px 0}
+main p[align=center] a,main li>a:only-child{display:inline-block;padding:12px 3px}
+main a:has(>img){display:inline-block;padding:8px 0}
+main p[align=center] a:has(>img[width="100%"]){display:block;padding:0}
+main ul,main ol{padding-left:24px}
+main li{margin:6px 0}
+main blockquote{margin:16px 0;padding:4px 16px;border-left:4px solid var(--accent);color:var(--soft)}
+main code{font:14px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background:var(--code);padding:2px 5px;border-radius:5px;overflow-wrap:anywhere}
+main pre{background:var(--code);padding:14px;border-radius:10px;overflow-x:auto;-webkit-overflow-scrolling:touch}
+main pre code{background:none;padding:0;overflow-wrap:normal;white-space:pre}
+.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:16px 0}
+main table{border-collapse:collapse;font-size:15px;min-width:100%}
+main th,main td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+main th{background:var(--code)}
+main hr{border:0;border-top:1px solid var(--line);margin:28px 0}
+main kbd{font:13px ui-monospace,Menlo,monospace;border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;padding:1px 5px}
+main details{margin:12px 0}
+main summary{cursor:pointer;min-height:44px;display:flex;align-items:center;font-weight:600}
+footer{max-width:760px;margin:0 auto;padding:18px 16px calc(28px + env(safe-area-inset-bottom));border-top:1px solid var(--line);color:var(--soft);font-size:14px}
+footer a{color:var(--soft)}
+</style>
+</head>
+<body>
+<header class="bar">
+<img src="icons/icon-192.png" alt="" width="36" height="36">
+<div class="name">Datum CAD<small>Guide</small></div>
+<a class="source" href="https://github.com/juw12/projects/tree/main/apps/me-rd-toolkit/photo2cad">GitHub</a>
+</header>
+<main id="guide">
+
+<p align="center" dir="auto">
+  <a href="https://github.com/juw12/projects/tree/main/apps/me-rd-toolkit/photo2cad"><img loading="lazy" src="https://raw.githubusercontent.com/juw12/projects/main/apps/me-rd-toolkit/photo2cad/docs/media/banner.jpg" alt="Datum CAD: An idea becomes a real CAD file." width="100%" style="max-width: 100%;"></a>
+</p>
+<p align="center" dir="auto">
+  <b>An idea becomes a real CAD file.</b><br>
+  A PRD plus six reference photos becomes a validated STEP solid, with an STL preview.
+</p>
+<p align="center" dir="auto">
+  <a href="#highlights">Highlights</a> ·
+  <a href="https://github.com/juw12">More by juw12</a>
+</p>
+<p align="center" dir="auto">
+  <a href="https://github.com/juw12/projects/tree/main/apps/me-rd-toolkit/photo2cad"><img loading="lazy" src="https://img.shields.io/github/last-commit/juw12/projects?path=apps%2Fme-rd-toolkit%2Fphoto2cad&amp;label=updated&amp;color=4f46e5" alt="Last updated"  style="max-width: 100%;"></a>
+  <a target="_blank" rel="noopener noreferrer nofollow" href="https://camo.githubusercontent.com/2b3600a38809fde68e39c71f533fd35811cb657aef987ce1d5266b0175112808/68747470733a2f2f696d672e736869656c64732e696f2f62616467652f5765622d323432393266"><img loading="lazy" src="https://img.shields.io/badge/Web-24292f" alt="Web"  style="max-width: 100%;"></a>
+  <a target="_blank" rel="noopener noreferrer nofollow" href="https://camo.githubusercontent.com/e653d8c0baaacf2c4eed424c13eca56ba52a9483f149861248c19cd82a8cc879/68747470733a2f2f696d672e736869656c64732e696f2f62616467652f53656c662d2d686f737465642d323432393266"><img loading="lazy" src="https://img.shields.io/badge/Self--hosted-24292f" alt="Self-hosted"  style="max-width: 100%;"></a>
+  <a target="_blank" rel="noopener noreferrer nofollow" href="https://camo.githubusercontent.com/a0866e16b62662274cc2288f8ee0d34862bb5fc976bda4f215187b290a0e3b4b/68747470733a2f2f696d672e736869656c64732e696f2f62616467652f43616451756572792d323432393266"><img loading="lazy" src="https://img.shields.io/badge/CadQuery-24292f" alt="CadQuery"  style="max-width: 100%;"></a>
+  <a target="_blank" rel="noopener noreferrer nofollow" href="https://camo.githubusercontent.com/0462f8987e75ba8d29032a84ba12273e692d9b9c246c1624d04d7aa4e14ffeef/68747470733a2f2f696d672e736869656c64732e696f2f62616467652f6c6963656e73652d4d49542d346634366535"><img loading="lazy" src="https://img.shields.io/badge/license-MIT-4f46e5" alt="MIT license"  style="max-width: 100%;"></a>
+</p>
+<p dir="auto"><a id="highlights"></a></p>
+<markdown-accessiblity-table><div class="scroll"><table role="table">
+  <tbody><tr>
+    <td width="33%" valign="top">
+      <b>Any LLM</b><br>
+      OpenAI, Anthropic, Gemini, Pegatron MAAS or a free local model writes the CadQuery program.
+    </td>
+    <td width="33%" valign="top">
+      <b>Sandboxed build</b><br>
+      The program runs in a sandbox to produce the STEP.
+    </td>
+    <td width="33%" valign="top">
+      <b>Validated solid</b><br>
+      The server re-imports the STEP to check the solid.
+    </td>
+  </tr>
+</tbody></table></div></markdown-accessiblity-table>
+
+<h2 dir="auto">About</h2>
+<p dir="auto"><strong>PRD + 6 reference photos → a validated STEP solid, plus an STL preview.</strong></p>
+<p dir="auto">Describe the part in a <strong>PRD</strong>, add a reference photo of each face, and get back a real,<br>
+<strong>validated STEP (<code class="notranslate">.stp</code>) solid</strong> you can open in Creo, SolidWorks or Fusion — not a render,<br>
+not a mesh. An LLM (<strong>any provider</strong> — Pegatron MAAS, OpenAI, Anthropic, Gemini, or a free<br>
+local model on your own machine) drafts a <strong>CadQuery</strong> program; the server builds it in a<br>
+<strong>sandbox</strong> and <strong>re-imports the STEP</strong> to confirm it is a valid solid before you ever see it.</p>
+<p dir="auto"><a href="https://github.com/juw12/projects/blob/main/apps/me-rd-toolkit/photo2cad/web/index.html">Live demo</a> · <a href="https://github.com/juw12/projects/blob/main/apps/me-rd-toolkit/photo2cad/web/gallery.html">Gallery</a> · <a href="https://github.com/juw12/projects/blob/main/apps/me-rd-toolkit/photo2cad/docs/photo2cad-spec.md">Interface spec</a></p>
+<blockquote>
+<p dir="auto"><strong>Datum CAD</strong> — the flagship app of <strong>Datum</strong>, a workbench for mechanical and hardware engineers.<br>
+Built by a working R&amp;D engineer who wanted CAD to keep up with his ideas.</p>
+<p dir="auto">Lives at <code class="notranslate">apps/me-rd-toolkit/photo2cad/</code> (folder name kept for now) and appears in the <strong>R&amp;D Apps</strong><br>
+section of <strong>Datum Bench</strong> (the free companion, formerly the <em>ME R&amp;D Toolkit</em>). Unlike the toolkit's<br>
+other parts, this one is <strong>not</strong> stdlib-only — producing genuine STEP requires a BREP kernel<br>
+(<code class="notranslate">cadquery</code>/<code class="notranslate">OCP</code>).</p>
+</blockquote>
+<h2 dir="auto">What it does</h2>
+<pre class="notranslate"><code class="notranslate">PRD text + 6 photos
+        │
+        ▼  (MAAS LLM, vision-assisted)
+  CadQuery program  (parametric, mm)
+        │
+        ▼  (sandboxed subprocess, AST-guarded, timeout)
+   model.stp  +  model.stl
+        │
+        ▼  (re-import + solid/bbox/volume checks)
+  validated STEP  →  download  +  browser 3D preview
+</code></pre>
+<h2 dir="auto">What's hard about this (why it isn't a weekend demo)</h2>
+<p dir="auto">A render or an <code class="notranslate">.stl</code> blob is easy. A <strong>validated solid</strong> is not:</p>
+<ul dir="auto">
+<li><strong>Validated output, not eyeballed.</strong> The server re-imports the generated STEP and checks it<br>
+as a solid (valid bounding box and volume) before returning it. If it can't be built, you get<br>
+a clear error — not a pretty lie.</li>
+<li><strong>Untrusted code, contained.</strong> The model's CadQuery program is AST-guarded (imports<br>
+allow-listed, dangerous calls blocked) and run in a child process with a hard timeout.</li>
+<li><strong>Parametric and manufacturable.</strong> Output is a BREP solid in millimetres; Creo imports STEP<br>
+natively, so <code class="notranslate">.stp</code> is the interchange deliverable — not a mesh you have to repair.</li>
+<li><strong>Credible authorship.</strong> Built by a working mechanical / aerospace R&amp;D engineer, not a<br>
+prompt wrapper.</li>
+</ul>
+<h2 dir="auto">Honest constraints (read this)</h2>
+<ul dir="auto">
+<li><strong>Output is <code class="notranslate">.stp</code> (STEP).</strong> <strong>Creo <code class="notranslate">.prt</code> is proprietary and is NOT produced</strong> — Creo<br>
+imports STEP natively, so <code class="notranslate">.stp</code> is the interchange deliverable.</li>
+<li><strong>Photos are visual reference / dimension assist, not exact geometry.</strong> The PRD drives the<br>
+parametric geometry. This is not a "read the exact shape off six photos" system.</li>
+<li>Generated CAD code is <strong>untrusted</strong>: it is AST-guarded (imports allow-listed, dangerous calls<br>
+blocked) and run in a <strong>child process with a hard timeout</strong>. Treat it as untrusted.</li>
+</ul>
+<h2 dir="auto">Layout</h2>
+<pre class="notranslate"><code class="notranslate">apps/me-rd-toolkit/photo2cad/
+  web/        static front-end (6 slots + PRD + three.js preview + downloads)
+  server/     stdlib HTTP server; provider-agnostic LLM client (llm.py); cadgen; sandbox; validate; pipeline
+  tests/      hermetic stdlib tests (run with the cadquery venv)
+  docs/       interface contract (photo2cad-spec.md)
+  start.ps1   local launcher (reads the MAAS key from the OpenCode config)
+  Dockerfile  Python 3.12 + cadquery (deploy target)
+</code></pre>
+<h2 dir="auto">Run locally</h2>
+<p dir="auto">The repo has a venv with cadquery at the monorepo root: <code class="notranslate">.venv3d</code>.</p>
+<div class="highlight highlight-source-powershell" dir="auto"><pre class="notranslate"><span class="pl-c"><span class="pl-c">#</span> from the repo root</span>
+<span class="pl-k">&amp;</span> <span class="pl-s"><span class="pl-pds">"</span>.\.venv3d\Scripts\python.exe<span class="pl-pds">"</span></span> apps\me<span class="pl-k">-</span>rd<span class="pl-k">-</span>toolkit\photo2cad\server\server.py <span class="pl-k">--</span>port <span class="pl-c1">8000</span>
+<span class="pl-c"><span class="pl-c">#</span> then open http://127.0.0.1:8000</span></pre></div>
+<p dir="auto">Set the LLM (otherwise generate returns a clear <code class="notranslate">stage: "llm"</code> error). <strong>Any provider<br>
+works</strong> — see <em>Bring your own model</em> below:</p>
+<div class="highlight highlight-source-powershell" dir="auto"><pre class="notranslate"><span class="pl-c"><span class="pl-c">#</span> example: Pegatron MAAS (the legacy default provider)</span>
+<span class="pl-smi">$<span class="pl-c1">env:</span>LLM_PROVIDER</span> <span class="pl-k">=</span> <span class="pl-s"><span class="pl-pds">"</span>maas<span class="pl-pds">"</span></span>
+<span class="pl-smi">$<span class="pl-c1">env:</span>LLM_API_KEY</span>  <span class="pl-k">=</span> <span class="pl-s"><span class="pl-pds">"</span>&lt;token&gt;<span class="pl-pds">"</span></span>
+<span class="pl-smi">$<span class="pl-c1">env:</span>LLM_BASE_URL</span> <span class="pl-k">=</span> <span class="pl-s"><span class="pl-pds">"</span>https://aicc-gateway.pegatroncorp.com/maas/api/v1/llm/v1<span class="pl-pds">"</span></span>
+<span class="pl-smi">$<span class="pl-c1">env:</span>LLM_MODEL</span>    <span class="pl-k">=</span> <span class="pl-s"><span class="pl-pds">"</span>gpt-4o<span class="pl-pds">"</span></span>
+<span class="pl-c"><span class="pl-c">#</span> offline UI smoke test (no network, canned program):</span>
+<span class="pl-smi">$<span class="pl-c1">env:</span>PHOTO2CAD_FAKE_LLM</span> <span class="pl-k">=</span> <span class="pl-s"><span class="pl-pds">"</span>1<span class="pl-pds">"</span></span></pre></div>
+<h3 dir="auto">Bring your own model</h3>
+<p dir="auto">Photo2CAD is <strong>not tied to MAAS</strong>. Pick a provider with <code class="notranslate">LLM_PROVIDER</code> and a key (only when<br>
+it needs one); every other field has a sensible default.</p>
+<div class="highlight highlight-source-powershell" dir="auto"><pre class="notranslate"><span class="pl-c"><span class="pl-c">#</span> free + local, no key, nothing leaves your machine (needs Ollama running):</span>
+<span class="pl-smi">$<span class="pl-c1">env:</span>LLM_PROVIDER</span> <span class="pl-k">=</span> <span class="pl-s"><span class="pl-pds">"</span>ollama<span class="pl-pds">"</span></span>          <span class="pl-c"><span class="pl-c">#</span> default model qwen2.5:7b</span>
+
+<span class="pl-c"><span class="pl-c">#</span> paid APIs:</span>
+<span class="pl-smi">$<span class="pl-c1">env:</span>LLM_PROVIDER</span> <span class="pl-k">=</span> <span class="pl-s"><span class="pl-pds">"</span>openai<span class="pl-pds">"</span></span>;     <span class="pl-smi">$<span class="pl-c1">env:</span>LLM_API_KEY</span> <span class="pl-k">=</span> <span class="pl-s"><span class="pl-pds">"</span>sk-...<span class="pl-pds">"</span></span>
+<span class="pl-smi">$<span class="pl-c1">env:</span>LLM_PROVIDER</span> <span class="pl-k">=</span> <span class="pl-s"><span class="pl-pds">"</span>anthropic<span class="pl-pds">"</span></span>;  <span class="pl-smi">$<span class="pl-c1">env:</span>LLM_API_KEY</span> <span class="pl-k">=</span> <span class="pl-s"><span class="pl-pds">"</span>sk-ant-...<span class="pl-pds">"</span></span>
+<span class="pl-smi">$<span class="pl-c1">env:</span>LLM_PROVIDER</span> <span class="pl-k">=</span> <span class="pl-s"><span class="pl-pds">"</span>gemini<span class="pl-pds">"</span></span>;     <span class="pl-smi">$<span class="pl-c1">env:</span>LLM_API_KEY</span> <span class="pl-k">=</span> <span class="pl-s"><span class="pl-pds">"</span>...<span class="pl-pds">"</span></span>
+<span class="pl-smi">$<span class="pl-c1">env:</span>LLM_PROVIDER</span> <span class="pl-k">=</span> <span class="pl-s"><span class="pl-pds">"</span>openrouter<span class="pl-pds">"</span></span>; <span class="pl-smi">$<span class="pl-c1">env:</span>LLM_API_KEY</span> <span class="pl-k">=</span> <span class="pl-s"><span class="pl-pds">"</span>sk-or-...<span class="pl-pds">"</span></span>
+<span class="pl-smi">$<span class="pl-c1">env:</span>LLM_PROVIDER</span> <span class="pl-k">=</span> <span class="pl-s"><span class="pl-pds">"</span>groq<span class="pl-pds">"</span></span>;       <span class="pl-smi">$<span class="pl-c1">env:</span>LLM_API_KEY</span> <span class="pl-k">=</span> <span class="pl-s"><span class="pl-pds">"</span>gsk_...<span class="pl-pds">"</span></span>
+
+<span class="pl-c"><span class="pl-c">#</span> anything OpenAI-compatible (LM Studio, vLLM, a proxy …):</span>
+<span class="pl-smi">$<span class="pl-c1">env:</span>LLM_PROVIDER</span> <span class="pl-k">=</span> <span class="pl-s"><span class="pl-pds">"</span>custom<span class="pl-pds">"</span></span>
+<span class="pl-smi">$<span class="pl-c1">env:</span>LLM_BASE_URL</span> <span class="pl-k">=</span> <span class="pl-s"><span class="pl-pds">"</span>http://127.0.0.1:1234/v1<span class="pl-pds">"</span></span>
+<span class="pl-smi">$<span class="pl-c1">env:</span>LLM_MODEL</span>    <span class="pl-k">=</span> <span class="pl-s"><span class="pl-pds">"</span>your-model<span class="pl-pds">"</span></span></pre></div>
+<p dir="auto">Providers: <code class="notranslate">maas</code>, <code class="notranslate">openai</code>, <code class="notranslate">anthropic</code>, <code class="notranslate">gemini</code>, <code class="notranslate">openrouter</code>, <code class="notranslate">groq</code>, <code class="notranslate">deepseek</code>,<br>
+<code class="notranslate">together</code>, <code class="notranslate">ollama</code>, <code class="notranslate">lmstudio</code>, <code class="notranslate">custom</code>. The generic <code class="notranslate">LLM_*</code> variables fall back to the<br>
+legacy <code class="notranslate">MAAS_*</code> names, so existing setups keep working unchanged.</p>
+<h2 dir="auto">Tests</h2>
+<div class="highlight highlight-source-powershell" dir="auto"><pre class="notranslate">python apps\me<span class="pl-k">-</span>rd<span class="pl-k">-</span>toolkit\photo2cad\tests\test_llm.py            <span class="pl-c"><span class="pl-c">#</span> provider resolution + adapters (no cadquery needed)</span>
+<span class="pl-k">&amp;</span> <span class="pl-s"><span class="pl-pds">"</span>.\.venv3d\Scripts\python.exe<span class="pl-pds">"</span></span> apps\me<span class="pl-k">-</span>rd<span class="pl-k">-</span>toolkit\photo2cad\tests\test_sandbox.py
+<span class="pl-k">&amp;</span> <span class="pl-s"><span class="pl-pds">"</span>.\.venv3d\Scripts\python.exe<span class="pl-pds">"</span></span> apps\me<span class="pl-k">-</span>rd<span class="pl-k">-</span>toolkit\photo2cad\tests\verify_api.py
+<span class="pl-k">&amp;</span> <span class="pl-s"><span class="pl-pds">"</span>.\.venv3d\Scripts\python.exe<span class="pl-pds">"</span></span> apps\me<span class="pl-k">-</span>rd<span class="pl-k">-</span>toolkit\photo2cad\tests\test_repair.py</pre></div>
+<p dir="auto">Both are hermetic (free port, <code class="notranslate">PHOTO2CAD_FAKE_LLM=1</code>, temporary/ignored artifact dir) and exit<br>
+<code class="notranslate">0</code>/<code class="notranslate">1</code>. They must be run with a Python that has cadquery (the <code class="notranslate">.venv3d</code> interpreter).</p>
+<h2 dir="auto">API</h2>
+<markdown-accessiblity-table><div class="scroll"><table role="table">
+<thead>
+<tr>
+<th>Method</th>
+<th>Path</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code class="notranslate">GET</code></td>
+<td><code class="notranslate">/api/health</code></td>
+<td><code class="notranslate">{ok, llm_configured, provider, model}</code></td>
+</tr>
+<tr>
+<td><code class="notranslate">POST</code></td>
+<td><code class="notranslate">/api/generate</code></td>
+<td>JSON <code class="notranslate">{prd, units, use_vision, model, images:{front,...,bottom}}</code> → <code class="notranslate">{ok, job_id, step_url, stl_url, report, program, logs}</code></td>
+</tr>
+<tr>
+<td><code class="notranslate">GET</code></td>
+<td><code class="notranslate">/api/artifacts/&lt;job_id&gt;/&lt;file&gt;</code></td>
+<td><code class="notranslate">model.stp</code>, <code class="notranslate">model.stl</code>, <code class="notranslate">program.py</code>, <code class="notranslate">report.json</code></td>
+</tr>
+</tbody>
+</table></div></markdown-accessiblity-table>
+<p dir="auto">Images are data URLs (<code class="notranslate">FileReader.readAsDataURL</code>). Full contract: <a href="https://github.com/juw12/projects/blob/main/apps/me-rd-toolkit/photo2cad/docs/photo2cad-spec.md"><code class="notranslate">docs/photo2cad-spec.md</code></a>.</p>
+<h2 dir="auto">Environment variables</h2>
+<markdown-accessiblity-table><div class="scroll"><table role="table">
+<thead>
+<tr>
+<th>Var</th>
+<th>Default</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code class="notranslate">LLM_PROVIDER</code></td>
+<td>inferred (<code class="notranslate">maas</code>)</td>
+<td><code class="notranslate">maas</code>, <code class="notranslate">openai</code>, <code class="notranslate">anthropic</code>, <code class="notranslate">gemini</code>, <code class="notranslate">openrouter</code>, <code class="notranslate">groq</code>, <code class="notranslate">deepseek</code>, <code class="notranslate">together</code>, <code class="notranslate">ollama</code>, <code class="notranslate">lmstudio</code>, <code class="notranslate">custom</code></td>
+</tr>
+<tr>
+<td><code class="notranslate">LLM_API_KEY</code></td>
+<td>—</td>
+<td>key for the chosen provider (not needed for <code class="notranslate">ollama</code> / <code class="notranslate">lmstudio</code>)</td>
+</tr>
+<tr>
+<td><code class="notranslate">LLM_BASE_URL</code></td>
+<td>provider default</td>
+<td>override the API base URL</td>
+</tr>
+<tr>
+<td><code class="notranslate">LLM_MODEL</code></td>
+<td>provider default</td>
+<td>override the model id</td>
+</tr>
+<tr>
+<td><code class="notranslate">MAAS_API_KEY</code> / <code class="notranslate">GATEWAY_API_KEY</code></td>
+<td>—</td>
+<td>legacy fallback for <code class="notranslate">LLM_API_KEY</code> (implies provider <code class="notranslate">maas</code>)</td>
+</tr>
+<tr>
+<td><code class="notranslate">MAAS_LLM_BASE_URL</code> / <code class="notranslate">MAAS_LLM_MODEL</code></td>
+<td>MAAS gateway / <code class="notranslate">gpt-4o</code></td>
+<td>legacy fallback for <code class="notranslate">LLM_BASE_URL</code> / <code class="notranslate">LLM_MODEL</code></td>
+</tr>
+<tr>
+<td><code class="notranslate">PHOTO2CAD_FAKE_LLM</code></td>
+<td><code class="notranslate">0</code></td>
+<td><code class="notranslate">1</code> → canned program, no network</td>
+</tr>
+<tr>
+<td><code class="notranslate">PHOTO2CAD_SANDBOX_TIMEOUT</code></td>
+<td><code class="notranslate">120</code></td>
+<td>child process timeout (s)</td>
+</tr>
+<tr>
+<td><code class="notranslate">PHOTO2CAD_ARTIFACTS</code></td>
+<td><code class="notranslate">apps/me-rd-toolkit/photo2cad/.artifacts</code></td>
+<td>artifact root</td>
+</tr>
+<tr>
+<td><code class="notranslate">PHOTO2CAD_DEMO</code></td>
+<td><code class="notranslate">0</code></td>
+<td><code class="notranslate">1</code> → public-demo mode; turns on the three limits below with safe defaults</td>
+</tr>
+<tr>
+<td><code class="notranslate">PHOTO2CAD_RATE_LIMIT_PER_IP</code></td>
+<td><code class="notranslate">3</code> in demo</td>
+<td>max generations per IP per day (<code class="notranslate">0</code> = unlimited)</td>
+</tr>
+<tr>
+<td><code class="notranslate">PHOTO2CAD_RATE_LIMIT_GLOBAL</code></td>
+<td><code class="notranslate">200</code> in demo</td>
+<td>max generations for everyone per day (<code class="notranslate">0</code> = unlimited)</td>
+</tr>
+<tr>
+<td><code class="notranslate">PHOTO2CAD_MAX_CONCURRENT</code></td>
+<td><code class="notranslate">2</code> in demo</td>
+<td>max generations building at once (<code class="notranslate">0</code> = unlimited)</td>
+</tr>
+<tr>
+<td><code class="notranslate">PHOTO2CAD_DISABLE_GENERATE</code></td>
+<td><code class="notranslate">0</code></td>
+<td><code class="notranslate">1</code> → kill switch: pause all generation (returns 503)</td>
+</tr>
+</tbody>
+</table></div></markdown-accessiblity-table>
+<h2 dir="auto">Deploy (Kubernetes via aicc-deploy-agent)</h2>
+<p dir="auto">Single component, <code class="notranslate">Dockerfile</code> at this app root, container port <strong>8000</strong>.</p>
+<ul dir="auto">
+<li><strong>Use memory ≥ 1Gi</strong> — the OCCT kernel is memory-heavy; the <code class="notranslate">256Mi</code> default is too small.</li>
+<li>Pass the LLM settings as <code class="notranslate">env_vars</code> at deploy time (<code class="notranslate">LLM_PROVIDER</code> + <code class="notranslate">LLM_API_KEY</code> / <code class="notranslate">LLM_BASE_URL</code> / <code class="notranslate">LLM_MODEL</code>; the legacy <code class="notranslate">MAAS_*</code> names still work).</li>
+<li>For <code class="notranslate">maas</code>, confirm the cluster can reach the MAAS gateway (it is an internal host). For any other provider, it is a normal public endpoint.</li>
+</ul>
+<h2 dir="auto">Public demo (one click)</h2>
+<p dir="auto"><code class="notranslate">render.yaml</code> deploys the same image as a clickable demo: <strong>free-tier Gemini Flash</strong> (vision) as<br>
+the shared provider, <strong>rate-limited</strong> and with a <strong>kill switch</strong>, so a stranger can generate a STEP<br>
+without installing anything or bringing a key.</p>
+<ul dir="auto">
+<li>Provider: <code class="notranslate">LLM_PROVIDER=gemini</code>, <code class="notranslate">LLM_MODEL=gemini-2.0-flash</code>; set <code class="notranslate">LLM_API_KEY</code> in the host dashboard.</li>
+<li>Safety: <code class="notranslate">PHOTO2CAD_DEMO=1</code> turns on the limits (default <strong>3/IP/day</strong>, <strong>200/day global</strong>, <strong>2 at once</strong>).</li>
+<li>Use a plan with <strong>≥ 1 GiB RAM</strong> — the OCCT kernel is memory-heavy (the free 512 MB tier is too small).</li>
+<li>Panic button: set <code class="notranslate">PHOTO2CAD_DISABLE_GENERATE=1</code> and redeploy to pause all generation (503).</li>
+<li>Health/stats: <code class="notranslate">GET /api/health</code> and <code class="notranslate">GET /api/stats</code> (counts only — no personal data).</li>
+<li>Artifacts are ephemeral on the demo host; each resource is generated for download on the spot.</li>
+</ul>
+<h2 dir="auto">License</h2>
+<p dir="auto">See the repository <a href="https://github.com/juw12/projects/blob/main/apps/LICENSE"><code class="notranslate">LICENSE</code></a>.</p>
+</main>
+<footer>
+This is the Datum CAD guide: the project's README, laid out to read on a phone and kept for when there is no connection.
+It is the README of 2026-11-22. Datum CAD itself is installed and run the way the guide says; the code is at
+<a href="https://github.com/juw12/projects/tree/main/apps/me-rd-toolkit/photo2cad">github.com/juw12/projects/tree/main/apps/me-rd-toolkit/photo2cad</a>.
+</footer>
+<script>
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+</script>
+</body>
+</html>

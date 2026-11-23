@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>PLM AML Approval guide: Fills a PLM part-approval workflow in Edge and stops before Submit</title>
+<meta name="description" content="Fills a PLM part-approval workflow in Edge and stops before Submit">
+<link rel="canonical" href="https://juw12.github.io/projects/plm-aml-approval/">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="PLM AML Approval">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#fbfaf6" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#171614" media="(prefers-color-scheme: dark)">
+<meta property="og:title" content="PLM AML Approval guide">
+<meta property="og:description" content="Fills a PLM part-approval workflow in Edge and stops before Submit">
+<style>
+:root{--paper:#fbfaf6;--ink:#1d1c1a;--soft:#5d5a54;--line:#e3dfd5;--card:#ffffff;--accent:#952376;--code:#f1eee6}
+@media (prefers-color-scheme:dark){:root{--paper:#171614;--ink:#eeebe4;--soft:#a9a49a;--line:#35322d;--card:#201f1c;--accent:#e085c8;--code:#262420}}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--paper);color:var(--ink);font:17px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+header.bar{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:12px;min-height:60px;padding:8px 16px;padding-top:max(8px,env(safe-area-inset-top));background:var(--paper);border-bottom:1px solid var(--line)}
+header.bar img{width:36px;height:36px;border-radius:9px;flex:none}
+header.bar .name{font-weight:700;font-size:18px;line-height:1.2;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+header.bar .name small{display:block;font-weight:500;font-size:13px;color:var(--soft)}
+header.bar a.source{flex:none;display:inline-flex;align-items:center;min-height:48px;padding:0 16px;border:1px solid var(--line);border-radius:24px;background:var(--card);color:var(--ink);font-size:15px;font-weight:600;text-decoration:none}
+main{max-width:760px;margin:0 auto;padding:20px 16px 40px}
+main img{max-width:100%;height:auto;border-radius:8px}
+main h1{font-size:30px;line-height:1.2;margin:24px 0 12px}
+main h2{font-size:23px;line-height:1.25;margin:36px 0 12px;padding-top:14px;border-top:1px solid var(--line)}
+main h3{font-size:19px;line-height:1.3;margin:26px 0 8px}
+main h4{font-size:17px;margin:22px 0 6px}
+main p,main li{overflow-wrap:anywhere}
+main a{color:var(--accent);text-underline-offset:3px;padding:6px 0}
+main p[align=center] a,main li>a:only-child{display:inline-block;padding:12px 3px}
+main a:has(>img){display:inline-block;padding:8px 0}
+main p[align=center] a:has(>img[width="100%"]){display:block;padding:0}
+main ul,main ol{padding-left:24px}
+main li{margin:6px 0}
+main blockquote{margin:16px 0;padding:4px 16px;border-left:4px solid var(--accent);color:var(--soft)}
+main code{font:14px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background:var(--code);padding:2px 5px;border-radius:5px;overflow-wrap:anywhere}
+main pre{background:var(--code);padding:14px;border-radius:10px;overflow-x:auto;-webkit-overflow-scrolling:touch}
+main pre code{background:none;padding:0;overflow-wrap:normal;white-space:pre}
+.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:16px 0}
+main table{border-collapse:collapse;font-size:15px;min-width:100%}
+main th,main td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+main th{background:var(--code)}
+main hr{border:0;border-top:1px solid var(--line);margin:28px 0}
+main kbd{font:13px ui-monospace,Menlo,monospace;border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;padding:1px 5px}
+main details{margin:12px 0}
+main summary{cursor:pointer;min-height:44px;display:flex;align-items:center;font-weight:600}
+footer{max-width:760px;margin:0 auto;padding:18px 16px calc(28px + env(safe-area-inset-bottom));border-top:1px solid var(--line);color:var(--soft);font-size:14px}
+footer a{color:var(--soft)}
+</style>
+</head>
+<body>
+<header class="bar">
+<img src="icons/icon-192.png" alt="" width="36" height="36">
+<div class="name">PLM AML Approval<small>Guide</small></div>
+<a class="source" href="https://github.com/juw12/projects/tree/main/apps/plm-aml-approval">GitHub</a>
+</header>
+<main id="guide">
+<h1 dir="auto">PLM AML Final / Conditional Approval Submission – automation</h1>
+<blockquote>
+<p dir="auto"><strong>v0.1 Preliminary Release (2026-10-27)</strong> – first version for trial use; a new version may follow.</p>
+</blockquote>
+<p dir="auto">Python + Playwright tool that drives <strong>Microsoft Edge</strong> through a Windchill-based PLM<br>
+"Search Part To AML (零件承認)" approval workflow: it searches the part, starts the workflow (送件),<br>
+assigns the project, uploads / links the approval documents, fills the approval form, adds the<br>
+reviewer, verifies every field and <strong>stops before Submit</strong> so a person always makes the final check.</p>
+<h2 dir="auto">Setup</h2>
+<ol dir="auto">
+<li>Windows, Microsoft Edge, Python 3 ("Add python.exe to PATH"). The launchers install <code class="notranslate">playwright</code> on first run.</li>
+<li>Copy <code class="notranslate">plm_config.example.json</code> to <code class="notranslate">plm_config.json</code> and fill in your site values<br>
+(PLM portal URL, Part/BOM tab selector, green-rule checkbox id, default reviewer id).<br>
+<code class="notranslate">plm_config.json</code> is git-ignored – never commit it.</li>
+</ol>
+<h2 dir="auto">Run</h2>
+<markdown-accessiblity-table><div class="scroll"><table role="table">
+<thead>
+<tr>
+<th>Launcher</th>
+<th>Use for</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code class="notranslate">Run_Customer_Assigned_Final_Approval.bat</code></td>
+<td>Customer assigned – final approval</td>
+</tr>
+<tr>
+<td><code class="notranslate">Run_NOT_Customer_Assigned_Final_Approval.bat</code></td>
+<td>Not customer assigned – final approval</td>
+</tr>
+<tr>
+<td><code class="notranslate">Run_Customer_Assigned_Conditional_Approval.bat</code></td>
+<td>Customer assigned – conditional approval</td>
+</tr>
+<tr>
+<td><code class="notranslate">Run_NOT_Customer_Assigned_Conditional_Approval.bat</code></td>
+<td>Not customer assigned – conditional approval</td>
+</tr>
+</tbody>
+</table></div></markdown-accessiblity-table>
+<p dir="auto">It asks for the part number, approval sheet path, email evidence path (customer assigned only),<br>
+reviewer and project (read from PLM), and confirms before starting the workflow.</p>
+<h2 dir="auto">What it fills</h2>
+<markdown-accessiblity-table><div class="scroll"><table role="table">
+<thead>
+<tr>
+<th>Field</th>
+<th>Final</th>
+<th>Conditional</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Comment Options</td>
+<td>Final approve</td>
+<td>"Conditional …" entry</td>
+</tr>
+<tr>
+<td>樣品數目 / 限量數目</td>
+<td>1 / 0</td>
+<td>0 / 50000 (<code class="notranslate">--limit-qty</code>)</td>
+</tr>
+<tr>
+<td>意見 and 限量原因 text, line 1</td>
+<td>1. Final Approval</td>
+<td>1. Conditional Approval 50K</td>
+</tr>
+<tr>
+<td>line 2</td>
+<td>2. RD send sample to IQC</td>
+<td>2. RD send sample to IQC</td>
+</tr>
+<tr>
+<td>line 3 (customer assigned only)</td>
+<td>3. Customer Assigned Part</td>
+<td>3. Customer Assigned Part</td>
+</tr>
+</tbody>
+</table></div></markdown-accessiblity-table>
+<p dir="auto">Customer assigned also uploads an email-evidence document and sets 客指料 = Assign Part,<br>
+Assign須提供資料 = yes (not assigned: blank / no).</p>
+<h2 dir="auto">Options</h2>
+<pre class="notranslate"><code class="notranslate">python plm_aml_final_approval.py --mode customer-assigned|not-customer-assigned
+    --approval final|conditional [--limit-qty 50000]
+    [--part XXXX-XXXXXXX] [--project NAME] [--approval-sheet PATH] [--email-evidence PATH]
+    [--reviewer ID] [--check-only] [--submit]
+</code></pre>
+<p dir="auto"><code class="notranslate">--check-only</code> only searches; <code class="notranslate">--submit</code> also presses Submit and asks before every PLM pop-up.</p>
+<h2 dir="auto">Notes</h2>
+<ul dir="auto">
+<li>The Edge profile (<code class="notranslate">edge_plm_profile/</code>) holds your PLM login session – it is git-ignored, never share it.</li>
+<li>Selectors match one specific PLM customisation; other sites will need adjustments.</li>
+<li>See <code class="notranslate">DEVLOG.md</code> for design notes and the verification status.</li>
+</ul>
+</main>
+<footer>
+This is the PLM AML Approval guide: the project's README, laid out to read on a phone and kept for when there is no connection.
+It is the README of 2026-11-22. PLM AML Approval itself is installed and run the way the guide says; the code is at
+<a href="https://github.com/juw12/projects/tree/main/apps/plm-aml-approval">github.com/juw12/projects/tree/main/apps/plm-aml-approval</a>.
+</footer>
+<script>
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+</script>
+</body>
+</html>

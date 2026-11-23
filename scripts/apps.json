@@ -3878,6 +3878,9 @@
     {"id": "titian", "from": "respark/guide"},
     {"id": "kinibuka", "from": "apps/kinibuka/guide"},
     {"id": "pushlab", "from": "apps/pushlab/guide"},
-    {"id": "e-coder", "from": "agents-lab/E-coder/guide"}
+    {"id": "e-coder", "from": "agents-lab/E-coder/guide"},
+    {"id": "datum-cad", "from": "apps/me-rd-toolkit/photo2cad/guide"},
+    {"id": "plm-aml-approval", "from": "apps/plm-aml-approval/guide"},
+    {"id": "outlook-archiver", "from": "apps/outlook-archiver/guide"}
   ]
 }
