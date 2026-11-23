@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Push Lab guide: Send push from your own server, and prove it works on a real phone</title>
+<meta name="description" content="Send push from your own server, and prove it works on a real phone">
+<link rel="canonical" href="https://juw12.github.io/projects/pushlab/">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Push Lab">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#fbfaf6" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#171614" media="(prefers-color-scheme: dark)">
+<meta property="og:title" content="Push Lab guide">
+<meta property="og:description" content="Send push from your own server, and prove it works on a real phone">
+<style>
+:root{--paper:#fbfaf6;--ink:#1d1c1a;--soft:#5d5a54;--line:#e3dfd5;--card:#ffffff;--accent:#40801e;--code:#f1eee6}
+@media (prefers-color-scheme:dark){:root{--paper:#171614;--ink:#eeebe4;--soft:#a9a49a;--line:#35322d;--card:#201f1c;--accent:#a5e085;--code:#262420}}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--paper);color:var(--ink);font:17px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+header.bar{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:12px;min-height:60px;padding:8px 16px;padding-top:max(8px,env(safe-area-inset-top));background:var(--paper);border-bottom:1px solid var(--line)}
+header.bar img{width:36px;height:36px;border-radius:9px;flex:none}
+header.bar .name{font-weight:700;font-size:18px;line-height:1.2;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+header.bar .name small{display:block;font-weight:500;font-size:13px;color:var(--soft)}
+header.bar a.source{flex:none;display:inline-flex;align-items:center;min-height:48px;padding:0 16px;border:1px solid var(--line);border-radius:24px;background:var(--card);color:var(--ink);font-size:15px;font-weight:600;text-decoration:none}
+main{max-width:760px;margin:0 auto;padding:20px 16px 40px}
+main img{max-width:100%;height:auto;border-radius:8px}
+main h1{font-size:30px;line-height:1.2;margin:24px 0 12px}
+main h2{font-size:23px;line-height:1.25;margin:36px 0 12px;padding-top:14px;border-top:1px solid var(--line)}
+main h3{font-size:19px;line-height:1.3;margin:26px 0 8px}
+main h4{font-size:17px;margin:22px 0 6px}
+main p,main li{overflow-wrap:anywhere}
+main a{color:var(--accent);text-underline-offset:3px;padding:6px 0}
+main p[align=center] a,main li>a:only-child{display:inline-block;padding:12px 3px}
+main a:has(>img){display:inline-block;padding:8px 0}
+main p[align=center] a:has(>img[width="100%"]){display:block;padding:0}
+main ul,main ol{padding-left:24px}
+main li{margin:6px 0}
+main blockquote{margin:16px 0;padding:4px 16px;border-left:4px solid var(--accent);color:var(--soft)}
+main code{font:14px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background:var(--code);padding:2px 5px;border-radius:5px;overflow-wrap:anywhere}
+main pre{background:var(--code);padding:14px;border-radius:10px;overflow-x:auto;-webkit-overflow-scrolling:touch}
+main pre code{background:none;padding:0;overflow-wrap:normal;white-space:pre}
+.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:16px 0}
+main table{border-collapse:collapse;font-size:15px;min-width:100%}
+main th,main td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+main th{background:var(--code)}
+main hr{border:0;border-top:1px solid var(--line);margin:28px 0}
+main kbd{font:13px ui-monospace,Menlo,monospace;border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;padding:1px 5px}
+main details{margin:12px 0}
+main summary{cursor:pointer;min-height:44px;display:flex;align-items:center;font-weight:600}
+footer{max-width:760px;margin:0 auto;padding:18px 16px calc(28px + env(safe-area-inset-bottom));border-top:1px solid var(--line);color:var(--soft);font-size:14px}
+footer a{color:var(--soft)}
+</style>
+</head>
+<body>
+<header class="bar">
+<img src="icons/icon-192.png" alt="" width="36" height="36">
+<div class="name">Push Lab<small>Guide</small></div>
+<a class="source" href="https://github.com/juw12/projects/tree/main/apps/pushlab">GitHub</a>
+</header>
+<main id="guide">
+
+<p align="center" dir="auto">
+  <a href="https://github.com/juw12/projects/tree/main/apps/pushlab"><img loading="lazy" src="https://raw.githubusercontent.com/juw12/projects/main/apps/pushlab/docs/media/banner.jpg" alt="Push Lab: Send push from your own server. Prove it works on a real phone." width="100%" style="max-width: 100%;"></a>
+</p>
+<p align="center" dir="auto">
+  <b>Send push from your own server. Prove it works on a real phone.</b><br>
+  Beacon is a self-hosted push server, and Tether puts your Android phone in the browser with QA flows.
+</p>
+<p align="center" dir="auto">
+  <a href="#see-it-in-action">See it in action</a> ·
+  <a href="#highlights">Highlights</a> ·
+  <a href="https://github.com/juw12">More by juw12</a>
+</p>
+<p align="center" dir="auto">
+  <a href="https://github.com/juw12/projects/tree/main/apps/pushlab"><img loading="lazy" src="https://img.shields.io/github/last-commit/juw12/projects?path=apps%2Fpushlab&amp;label=updated&amp;color=0ea5e9" alt="Last updated"  style="max-width: 100%;"></a>
+  <a target="_blank" rel="noopener noreferrer nofollow" href="https://camo.githubusercontent.com/e653d8c0baaacf2c4eed424c13eca56ba52a9483f149861248c19cd82a8cc879/68747470733a2f2f696d672e736869656c64732e696f2f62616467652f53656c662d2d686f737465642d323432393266"><img loading="lazy" src="https://img.shields.io/badge/Self--hosted-24292f" alt="Self-hosted"  style="max-width: 100%;"></a>
+  <a target="_blank" rel="noopener noreferrer nofollow" href="https://camo.githubusercontent.com/08760da3d61811886422686841af0136bfb374b98c75d3f3be1b021a98c7639a/68747470733a2f2f696d672e736869656c64732e696f2f62616467652f416e64726f69642d323432393266"><img loading="lazy" src="https://img.shields.io/badge/Android-24292f" alt="Android"  style="max-width: 100%;"></a>
+  <a target="_blank" rel="noopener noreferrer nofollow" href="https://camo.githubusercontent.com/e315006646471acc8a978f820bcdac5da24af84037b7a49b776e97b338c7bb27/68747470733a2f2f696d672e736869656c64732e696f2f62616467652f6c6963656e73652d4d49542d306561356539"><img loading="lazy" src="https://img.shields.io/badge/license-MIT-0ea5e9" alt="MIT license"  style="max-width: 100%;"></a>
+</p>
+<p dir="auto"><a id="highlights"></a></p>
+<markdown-accessiblity-table><div class="scroll"><table role="table">
+  <tbody><tr>
+    <td width="33%" valign="top">
+      <b>Every push channel</b><br>
+      Web Push, FCM, ntfy and Gotify from one self-hosted server.
+    </td>
+    <td width="33%" valign="top">
+      <b>Real-device proof</b><br>
+      Tether mirrors your Android phone in the browser and runs QA flows on it.
+    </td>
+    <td width="33%" valign="top">
+      <b>Zero dependencies</b><br>
+      Plain Python, backed by a hermetic test suite.
+    </td>
+  </tr>
+</tbody></table></div></markdown-accessiblity-table>
+<h2 dir="auto">See it in action</h2>
+<p align="center" dir="auto">
+  <a href="https://github.com/juw12/projects/tree/main/apps/pushlab"><img loading="lazy" src="https://raw.githubusercontent.com/juw12/projects/main/apps/pushlab/beacon/docs/screenshot-compose.png" alt="Push Lab screenshot" width="820" style="max-width: 100%;"></a><br>
+  <sub>Push Lab in use</sub>
+</p>
+
+<h2 dir="auto">About</h2>
+<p dir="auto"><strong>Send push notifications from your own server, and prove they work on a real phone.</strong> One self-hosted,<br>
+zero-dependency toolkit (Python standard library only), free. Status: work in progress.</p>
+<p dir="auto">Push Lab has two built-in parts that start together and are already linked:</p>
+<markdown-accessiblity-table><div class="scroll"><table role="table">
+<thead>
+<tr>
+<th>Part</th>
+<th>Folder</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Beacon</strong> — the push server</td>
+<td><a href="https://github.com/juw12/projects/tree/main/apps/pushlab/beacon"><code class="notranslate">beacon/</code></a></td>
+<td>Your own push service (like OneSignal). Web Push for every PWA, FCM for Android, in-app banners, ntfy / Bark (iPhone) / Gotify / Apprise channels, targeting, scheduling, digests, multi-step escalation, templates, per-user categories &amp; preferences, Gatus uptime alerts, a console and MCP.</td>
+</tr>
+<tr>
+<td><strong>Tether</strong> — the device lab</td>
+<td><a href="https://github.com/juw12/projects/tree/main/apps/pushlab/tether"><code class="notranslate">tether/</code></a></td>
+<td>Your Android phone in the browser. Live HD screen, record and replay QA flows (Maestro / Midscene YAML), one flow on every connected phone at once, notification checks, AI steps (incl. Google ARTEMIS), performance budgets (startup, jank, memory, CPU), Perfetto traces, LeakCanary leak checks, CI and MCP.</td>
+</tr>
+<tr>
+<td>Agent skills</td>
+<td><a href="https://github.com/juw12/projects/tree/main/apps/pushlab/plugin"><code class="notranslate">plugin/</code></a></td>
+<td>Claude Code / Codex skills + CLI that drive both parts.</td>
+</tr>
+</tbody>
+</table></div></markdown-accessiblity-table>
+<pre lang="text" class="notranslate"><code class="notranslate">apps/pushlab/
+  pushlab.py, start-push-lab.bat   one command starts Beacon + Tether, linked and signed in
+  beacon/                          push server   (server/, web/, tests/, docs/, examples/)
+  tether/                          device lab    (server/, web/, tests/, examples/)
+  plugin/                          agent skills + pushlab_cli.py
+  tests/                           end-to-end test of the skills against both parts
+</code></pre>
+<p dir="auto">Each part can also run on its own (<code class="notranslate">python apps/pushlab/beacon/server/server.py</code>,<br>
+<code class="notranslate">python apps/pushlab/tether/server/server.py</code>); their own READMEs have the details.</p>
+<h2 dir="auto">Start (2 minutes)</h2>
+<ol dir="auto">
+<li>Double-click <code class="notranslate">start-push-lab.bat</code> (or run <code class="notranslate">python apps/pushlab/pushlab.py</code>). The Beacon console and Tether open in your browser, already signed in.</li>
+<li>In Tether, click <strong>Install it for me</strong> if it asks for adb. That's a one-time ~7 MB download from Google.</li>
+<li>Connect a phone. Either plug it in with USB debugging on, or click <strong>📶 Wi-Fi</strong> (Android 11+, no cable).</li>
+<li>In Tether, go to the <strong>Push</strong> tab and click <strong>📲 Connect this phone to Beacon</strong>. Tether opens Beacon on the phone and taps <em>Enable</em> and <em>Allow</em> for you.</li>
+<li>Click <strong>Send now</strong>, or <strong>+ full push QA steps</strong>, then <strong>Run</strong>.</li>
+</ol>
+<p dir="auto">There's no HTTPS or deployment needed for testing. Tether forwards your local Beacon to the phone as <code class="notranslate">localhost</code> (<code class="notranslate">adb reverse</code>), and browsers treat that as secure.</p>
+<h2 dir="auto">Ship it to real users</h2>
+<p dir="auto">Deploy Beacon on HTTPS. It takes about 10 minutes with a Cloudflare Tunnel or Docker + Caddy: see <a href="https://github.com/juw12/projects/blob/main/apps/pushlab/beacon/docs/DEPLOY.md">beacon/docs/DEPLOY.md</a>. Then add two lines to any of your apps (see the console's <strong>Setup</strong> tab). Keep Tether pointed at the deployed Beacon to test production pushes on your phone.</p>
+<h2 dir="auto">Agent skills (Claude Code, Codex, any SKILL.md agent)</h2>
+<p dir="auto"><a href="https://github.com/juw12/projects/tree/main/apps/pushlab/plugin"><code class="notranslate">plugin/</code></a> packages three <a href="https://github.com/anthropics/skills">Agent Skills</a> with a zero-dependency<br>
+CLI (<code class="notranslate">scripts/pushlab_cli.py</code>) that finds this lab's keys by itself:</p>
+<markdown-accessiblity-table><div class="scroll"><table role="table">
+<thead>
+<tr>
+<th>Skill</th>
+<th>For</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code class="notranslate">tether-android-qa</code></td>
+<td>look → act → verify on a phone, Maestro/Tether flows, logcat, perf budgets, screen recording</td>
+</tr>
+<tr>
+<td><code class="notranslate">beacon-push</code></td>
+<td>send pushes, digest bursts, fallback to ntfy/Bark/Gotify/Apprise, delivery stats</td>
+</tr>
+<tr>
+<td><code class="notranslate">push-qa-e2e</code></td>
+<td>send via Beacon → assert it shows on the phone → tap → verify, with video evidence</td>
+</tr>
+</tbody>
+</table></div></markdown-accessiblity-table>
+<pre lang="text" class="notranslate"><code class="notranslate"># Claude Code
+/plugin marketplace add juw12/projects
+/plugin install push-lab@juw12-projects
+
+# other agents: copy apps/pushlab/plugin/skills/* into the agent's skills folder
+# (e.g. ~/.codex/skills/ or .claude/skills/), or use `npx skills add juw12/projects`
+</code></pre>
+<p dir="auto">The marketplace file is <a href="https://github.com/juw12/projects/blob/main/.claude-plugin/marketplace.json"><code class="notranslate">/.claude-plugin/marketplace.json</code></a>. Tether's MCP<br>
+server additionally speaks <a href="https://github.com/mobile-next/mobile-mcp">mobile-mcp</a>'s tool names, so mobile-mcp<br>
+prompts work against it too.</p>
+<h2 dir="auto">Built on open source</h2>
+<markdown-accessiblity-table><div class="scroll"><table role="table">
+<thead>
+<tr>
+<th>Project</th>
+<th>Used for</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://github.com/Genymobile/scrcpy">scrcpy</a> (Apache-2.0)</td>
+<td>Tether HD: 30 fps H.264 + instant input</td>
+</tr>
+<tr>
+<td><a href="https://github.com/mobile-dev-inc/maestro">Maestro</a> (Apache-2.0)</td>
+<td>Tether imports/exports Maestro YAML flows</td>
+</tr>
+<tr>
+<td><a href="https://github.com/cloudflare/cloudflared">cloudflared</a> (Apache-2.0)</td>
+<td>Beacon "Go live": public HTTPS in one click</td>
+</tr>
+<tr>
+<td><a href="https://github.com/binwiederhier/ntfy">ntfy</a> (Apache-2.0)</td>
+<td>Beacon channel: ntfy app topics</td>
+</tr>
+<tr>
+<td><a href="https://github.com/caronc/apprise">Apprise</a> (BSD-2)</td>
+<td>Beacon channel: Telegram/Slack/Discord/email…</td>
+</tr>
+<tr>
+<td><a href="https://github.com/Finb/Bark">Bark</a> (MIT)</td>
+<td>Beacon channel: native iPhone pushes (bark-server API v2)</td>
+</tr>
+<tr>
+<td><a href="https://github.com/gotify/server">Gotify</a> (MIT)</td>
+<td>Beacon channel: self-hosted push server + Android app</td>
+</tr>
+<tr>
+<td><a href="https://github.com/TwiN/gatus">Gatus</a> (Apache-2.0)</td>
+<td>uptime checks → Beacon alerts via <code class="notranslate">/v1/hooks/gatus</code></td>
+</tr>
+<tr>
+<td><a href="https://github.com/alipay/SoloPi">SoloPi</a> (Apache-2.0)</td>
+<td>metric set for Tether's perf tools (startup, memory, jank, CPU)</td>
+</tr>
+<tr>
+<td><a href="https://perfetto.dev" rel="nofollow">Perfetto</a> (Apache-2.0)</td>
+<td>Tether system traces (<code class="notranslate">perf_trace_start/stop</code>), opened in ui.perfetto.dev</td>
+</tr>
+<tr>
+<td><a href="https://square.github.io/leakcanary" rel="nofollow">LeakCanary</a> (Apache-2.0)</td>
+<td>memory-leak results Tether reads from logcat (<code class="notranslate">assert_no_leaks</code>) — your debug build includes it</td>
+</tr>
+<tr>
+<td><a href="https://github.com/web-infra-dev/midscene">Midscene.js</a> (MIT)</td>
+<td>Tether imports its YAML scripts (<code class="notranslate">aiAct</code>, <code class="notranslate">aiTap</code>, <code class="notranslate">aiAssert</code>, <code class="notranslate">aiWaitFor</code> …)</td>
+</tr>
+<tr>
+<td><a href="https://github.com/DeviceFarmer/stf">STF</a> (Apache-2.0) / <a href="https://github.com/firerpa/lamda">lamda</a></td>
+<td>the device-farm idea behind <code class="notranslate">--all</code> / <code class="notranslate">/api/flow/run-all</code> (one flow, every phone, in parallel)</td>
+</tr>
+<tr>
+<td><a href="https://github.com/novuhq/novu">Novu</a> (MIT)</td>
+<td>the ideas behind Beacon's categories + preferences, templates and multi-step workflows (re-implemented, no Novu code)</td>
+</tr>
+<tr>
+<td><a href="https://github.com/ReactiveCircus/android-emulator-runner">android-emulator-runner</a> (Apache-2.0)</td>
+<td>CI template</td>
+</tr>
+<tr>
+<td><a href="https://github.com/mobile-next/mobile-mcp">mobile-mcp</a> (Apache-2.0)</td>
+<td>tool names/arguments Tether's MCP server is compatible with</td>
+</tr>
+<tr>
+<td><a href="https://github.com/anthropics/skills">Agent Skills</a> format</td>
+<td>the <code class="notranslate">plugin/</code> skills pack</td>
+</tr>
+<tr>
+<td><a href="https://github.com/ollama/ollama">Ollama</a> (MIT) or any OpenAI-compatible server</td>
+<td>optional Tether AI steps</td>
+</tr>
+<tr>
+<td><a href="https://github.com/google/artemis">ARTEMIS</a> (Apache-2.0)</td>
+<td>optional engine for Tether AI steps (Flash/Pro agents); its "explore, then write deterministic tests" mindset in the QA skill</td>
+</tr>
+</tbody>
+</table></div></markdown-accessiblity-table>
+<p dir="auto">All are optional downloads or optional pip installs — Beacon and Tether stay zero-dependency Python.</p>
+<h2 dir="auto">What's verified</h2>
+<ul dir="auto">
+<li><strong>Automated (all hermetic, no phone needed):</strong> 801 checks — Beacon 72 API + 40 channels + 36 Bark/Gotify + 28 Gatus hook + 22 tunnel
+<ul dir="auto">
+<li>25 crypto + 23 workflows + 63 categories/preferences/templates/multi-step; Tether 65 API + 30 Beacon link</li>
+<li>62 Maestro + 36 HD (+7 in headless Edge: WebCodecs decode, clicks, WebM and MP4 recording)</li>
+<li>52 mobile-mcp/recording/clipboard + 26 AI steps + 18 ARTEMIS engine + 39 perf + 124 Perfetto/LeakCanary/<br>
+multi-device/Midscene; Push Lab plugin 33 (manifests, SKILL.md and the CLI end to end against real Beacon + Tether).</li>
+</ul>
+</li>
+<li><strong>Live on this PC:</strong>
+<ul dir="auto">
+<li><strong>Push:</strong> real pushes went through Microsoft's push service to Edge and appeared on screen, sent from Tether and delivered by Beacon. ntfy.sh publish and Apprise 2.1.0 worked through the corporate proxy.</li>
+<li><strong>adb:</strong> the one-click adb install worked through a corporate proxy.</li>
+</ul>
+</li>
+<li><strong>Not yet verified:</strong> a physical Android phone (none was attached) — so HD, screen recording, clipboard,<br>
+AI steps (built-in and ARTEMIS), Perfetto traces, LeakCanary output and multi-device runs ran only against the fake<br>
+adb/scrcpy device (with canned perfetto/LeakCanary output), a fake model server and a fake ARTEMIS daemon; Midscene<br>
+scripts were converted and run without a real model; FCM against a real Firebase project; the plugin installed<br>
+into a real Claude Code / Codex session.</li>
+</ul>
+</main>
+<footer>
+This is the Push Lab guide: the project's README, laid out to read on a phone and kept for when there is no connection.
+It is the README of 2026-11-22. Push Lab itself is installed and run the way the guide says; the code is at
+<a href="https://github.com/juw12/projects/tree/main/apps/pushlab">github.com/juw12/projects/tree/main/apps/pushlab</a>.
+</footer>
+<script>
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+</script>
+</body>
+</html>

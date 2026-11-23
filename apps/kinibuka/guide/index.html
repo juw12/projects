@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>KiniBuka guide: Find small stalls that are open right now</title>
+<meta name="description" content="Find small stalls that are open right now">
+<link rel="canonical" href="https://juw12.github.io/projects/kinibuka/">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="KiniBuka">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#fbfaf6" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#171614" media="(prefers-color-scheme: dark)">
+<meta property="og:title" content="KiniBuka guide">
+<meta property="og:description" content="Find small stalls that are open right now">
+<style>
+:root{--paper:#fbfaf6;--ink:#1d1c1a;--soft:#5d5a54;--line:#e3dfd5;--card:#ffffff;--accent:#952384;--code:#f1eee6}
+@media (prefers-color-scheme:dark){:root{--paper:#171614;--ink:#eeebe4;--soft:#a9a49a;--line:#35322d;--card:#201f1c;--accent:#e085d3;--code:#262420}}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--paper);color:var(--ink);font:17px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+header.bar{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:12px;min-height:60px;padding:8px 16px;padding-top:max(8px,env(safe-area-inset-top));background:var(--paper);border-bottom:1px solid var(--line)}
+header.bar img{width:36px;height:36px;border-radius:9px;flex:none}
+header.bar .name{font-weight:700;font-size:18px;line-height:1.2;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+header.bar .name small{display:block;font-weight:500;font-size:13px;color:var(--soft)}
+header.bar a.source{flex:none;display:inline-flex;align-items:center;min-height:48px;padding:0 16px;border:1px solid var(--line);border-radius:24px;background:var(--card);color:var(--ink);font-size:15px;font-weight:600;text-decoration:none}
+main{max-width:760px;margin:0 auto;padding:20px 16px 40px}
+main img{max-width:100%;height:auto;border-radius:8px}
+main h1{font-size:30px;line-height:1.2;margin:24px 0 12px}
+main h2{font-size:23px;line-height:1.25;margin:36px 0 12px;padding-top:14px;border-top:1px solid var(--line)}
+main h3{font-size:19px;line-height:1.3;margin:26px 0 8px}
+main h4{font-size:17px;margin:22px 0 6px}
+main p,main li{overflow-wrap:anywhere}
+main a{color:var(--accent);text-underline-offset:3px;padding:6px 0}
+main p[align=center] a,main li>a:only-child{display:inline-block;padding:12px 3px}
+main a:has(>img){display:inline-block;padding:8px 0}
+main p[align=center] a:has(>img[width="100%"]){display:block;padding:0}
+main ul,main ol{padding-left:24px}
+main li{margin:6px 0}
+main blockquote{margin:16px 0;padding:4px 16px;border-left:4px solid var(--accent);color:var(--soft)}
+main code{font:14px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background:var(--code);padding:2px 5px;border-radius:5px;overflow-wrap:anywhere}
+main pre{background:var(--code);padding:14px;border-radius:10px;overflow-x:auto;-webkit-overflow-scrolling:touch}
+main pre code{background:none;padding:0;overflow-wrap:normal;white-space:pre}
+.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:16px 0}
+main table{border-collapse:collapse;font-size:15px;min-width:100%}
+main th,main td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+main th{background:var(--code)}
+main hr{border:0;border-top:1px solid var(--line);margin:28px 0}
+main kbd{font:13px ui-monospace,Menlo,monospace;border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;padding:1px 5px}
+main details{margin:12px 0}
+main summary{cursor:pointer;min-height:44px;display:flex;align-items:center;font-weight:600}
+footer{max-width:760px;margin:0 auto;padding:18px 16px calc(28px + env(safe-area-inset-bottom));border-top:1px solid var(--line);color:var(--soft);font-size:14px}
+footer a{color:var(--soft)}
+</style>
+</head>
+<body>
+<header class="bar">
+<img src="icons/icon-192.png" alt="" width="36" height="36">
+<div class="name">KiniBuka<small>Guide</small></div>
+<a class="source" href="https://github.com/juw12/projects/tree/main/apps/kinibuka">GitHub</a>
+</header>
+<main id="guide">
+
+<p align="center" dir="auto">
+  <a href="https://github.com/juw12/projects/tree/main/apps/kinibuka"><img loading="lazy" src="https://raw.githubusercontent.com/juw12/projects/main/apps/kinibuka/docs/media/banner.jpg" alt="KiniBuka: Find small stalls that are open right now." width="100%" style="max-width: 100%;"></a>
+</p>
+<p align="center" dir="auto">
+  <b>Find small stalls that are open right now.</b><br>
+  A live feed of Indonesian UMKM openings, closings, promos and bazaars.
+</p>
+<p align="center" dir="auto">
+  <a href="#see-it-in-action">See it in action</a> ·
+  <a href="#highlights">Highlights</a> ·
+  <a href="https://github.com/juw12">More by juw12</a>
+</p>
+<p align="center" dir="auto">
+  <a href="https://github.com/juw12/projects/tree/main/apps/kinibuka"><img loading="lazy" src="https://img.shields.io/github/last-commit/juw12/projects?path=apps%2Fkinibuka&amp;label=updated&amp;color=ea580c" alt="Last updated"  style="max-width: 100%;"></a>
+  <a target="_blank" rel="noopener noreferrer nofollow" href="https://camo.githubusercontent.com/2b3600a38809fde68e39c71f533fd35811cb657aef987ce1d5266b0175112808/68747470733a2f2f696d672e736869656c64732e696f2f62616467652f5765622d323432393266"><img loading="lazy" src="https://img.shields.io/badge/Web-24292f" alt="Web"  style="max-width: 100%;"></a>
+  <a target="_blank" rel="noopener noreferrer nofollow" href="https://camo.githubusercontent.com/e3956f27e9b47e9271aa46e3337b5a17fbed15d1b4975511158e1446e66c53e9/68747470733a2f2f696d672e736869656c64732e696f2f62616467652f6c6963656e73652d4d49542d656135383063"><img loading="lazy" src="https://img.shields.io/badge/license-MIT-ea580c" alt="MIT license"  style="max-width: 100%;"></a>
+</p>
+<p dir="auto"><a id="highlights"></a></p>
+<markdown-accessiblity-table><div class="scroll"><table role="table">
+  <tbody><tr>
+    <td width="33%" valign="top">
+      <b>Live open status</b><br>
+      See which stalls are open now on a feed and a searchable map.
+    </td>
+    <td width="33%" valign="top">
+      <b>Follow alerts</b><br>
+      Follow your favourites and hear when they open or post a promo.
+    </td>
+    <td width="33%" valign="top">
+      <b>Order ahead</b><br>
+      A one-tap WhatsApp handoff to the seller.
+    </td>
+  </tr>
+</tbody></table></div></markdown-accessiblity-table>
+<h2 dir="auto">See it in action</h2>
+<p align="center" dir="auto">
+  <a href="https://github.com/juw12/projects/tree/main/apps/kinibuka"><img loading="lazy" src="https://raw.githubusercontent.com/juw12/projects/main/apps/kinibuka/docs/screenshot.png" alt="KiniBuka screenshot" width="820" style="max-width: 100%;"></a><br>
+  <sub>KiniBuka in use</sub>
+</p>
+
+<h2 dir="auto">About</h2>
+<p dir="auto"><strong>Kini buka</strong> means "open now". KiniBuka helps people find small Indonesian food and retail stalls (UMKM) that are open right now, follow the ones they like, and order ahead.</p>
+<p dir="auto"><a target="_blank" rel="noopener noreferrer" href="https://github.com/juw12/projects/blob/main/apps/kinibuka/docs/screenshot.png"><img loading="lazy" src="https://raw.githubusercontent.com/juw12/projects/main/apps/kinibuka/docs/screenshot.png" alt="KiniBuka: live feed, Explore map and stall page" style="max-width: 100%;"></a></p>
+<h2 dir="auto">Features</h2>
+<p dir="auto"><strong>For buyers</strong></p>
+<ul dir="auto">
+<li><strong>Latest feed:</strong> live list of stalls opening and closing, new branches, promos and bazaars</li>
+<li><strong>Explore:</strong> search, category filters and an OpenStreetMap map of stalls that are open now</li>
+<li><strong>3D market:</strong> switch Explore from Map to 3D and walk a street of the stalls in your current search. Tap the ground to walk, tap a stall to go to it, drag to look around, pinch or scroll to zoom. Open stalls are lit and stocked, closed ones are shuttered
+<ul dir="auto">
+<li>Every stall shows its menu on a chalkboard, and the card under the view lists the whole menu with prices (tap an item to order)</li>
+<li>Live and upcoming bazaars stand as purple tents at the end of the street, with their dates and the stalls taking part</li>
+<li>Any number of stalls: only the rows near you are built, and far stalls make your avatar jog</li>
+<li>Your spot is kept when you switch language, leave Explore or reload; standing between two stalls offers both</li>
+</ul>
+</li>
+<li><strong>Follow:</strong> get alerts when a followed stall opens, posts a promo or joins a bazaar</li>
+<li><strong>Order ahead:</strong> pick items and a pickup time, then track the order as the seller accepts (or rejects) it, marks it ready and completes it</li>
+<li><strong>WhatsApp:</strong> one-tap buttons to chat with the seller or send the order details</li>
+<li><strong>Deep links:</strong> <code class="notranslate">#stall/&lt;id&gt;</code> opens a stall, <code class="notranslate">#3d</code> opens the 3D market, and <code class="notranslate">?lang=en</code> sets the language</li>
+</ul>
+<p dir="auto"><strong>For sellers</strong></p>
+<ul dir="auto">
+<li>Sign up with a password, verify the WhatsApp number, and the stall goes live once the market admin approves it (with an end date)</li>
+<li>Toggle open or closed in one tap, per branch</li>
+<li>Manage branches, menu, promos and bazaar appearances</li>
+<li>See incoming orders and update their status</li>
+<li>Optional automatic WhatsApp notifications (see below)</li>
+</ul>
+<p dir="auto"><strong>Languages:</strong> Bahasa Indonesia (default), English and 中文. Each user's choice is remembered.</p>
+<h2 dir="auto">Run it</h2>
+<p dir="auto">Python 3 with the standard library only. No packages to install.</p>
+<pre class="notranslate"><code class="notranslate">run.bat                 (Windows: starts the server and opens the browser)
+python server.py        (any OS; then open http://localhost:8000)
+python server.py --open (also opens the browser)
+</code></pre>
+<p dir="auto">If port 8000 is busy, the server picks the next free port and prints it. Set <code class="notranslate">PORT</code> to choose one yourself. Data is stored in <code class="notranslate">kinibuka.db</code> (SQLite) next to <code class="notranslate">server.py</code> (<code class="notranslate">KINIBUKA_DB</code> picks another file), and demo data is seeded into an empty database unless <code class="notranslate">SEED_DEMO=0</code>.</p>
+<p dir="auto"><strong>Demo logins</strong> (all use the password <code class="notranslate">demo1234</code>; the login sheet has one-tap buttons):</p>
+<markdown-accessiblity-table><div class="scroll"><table role="table">
+<thead>
+<tr>
+<th>Role</th>
+<th>Phone</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Seller</td>
+<td>081111111111</td>
+</tr>
+<tr>
+<td>Buyer</td>
+<td>081333333333</td>
+</tr>
+<tr>
+<td>Admin</td>
+<td>080000000000</td>
+</tr>
+<tr>
+<td>New seller waiting for approval</td>
+<td>081444444444</td>
+</tr>
+</tbody>
+</table></div></markdown-accessiblity-table>
+<h2 dir="auto">Accounts, stalls and the admin</h2>
+<ul dir="auto">
+<li><strong>Everyone signs up</strong> with name, WhatsApp number and a password (at least 8 characters). Passwords are stored as PBKDF2-SHA256 hashes; 10 wrong tries for one number in 15 minutes blocks that number for a while. Changing the password (Account) logs out other phones. Accounts from the old phone-only login are claimed by signing up once with the same number.</li>
+<li><strong>Sellers</strong> open <em>My Stall</em>, create the stall, then add locations, menu and posts. A new stall is <strong>pending</strong>: only the seller and the admin can see it. A banner tells the seller the state (waiting, live until a date, ended, rejected or paused, with the admin's note).</li>
+<li><strong>The admin</strong> logs in with user <code class="notranslate">admin</code> and password <code class="notranslate">admin</code> (built in, no phone number needed). <strong>Change that password in Account right after the first login</strong> - the Admin tab shows a red warning until you do. Extra admins can be added with <code class="notranslate">ADMIN_PHONES</code> (comma-separated WhatsApp numbers). The <em>Admin</em> tab shows the slots used out of the market capacity, every stall with its owner, and buttons to approve (with a "show until" date), extend, reject or pause. Approving needs a free slot and a verified owner number. When the date passes the stall hides itself from customers (map, list, 3D market, feed, bazaars, orders) until the admin extends it. Capacity (default 50), the default slot length (30 days) and the market WhatsApp number are set in the same tab. The admin can also set a temporary password for a seller who forgot theirs.</li>
+</ul>
+<h3 dir="auto">Stopping fake sellers</h3>
+<ul dir="auto">
+<li><strong>WhatsApp number check.</strong> A stall cannot be approved until the owner's number is verified.
+<ul dir="auto">
+<li><em>Free (default):</em> the seller's dashboard shows a 6-digit code and a button that opens WhatsApp with the code addressed to the market number (set it in Admin settings). WhatsApp shows the real sender, so the admin compares the code and the number with the stall card and presses <strong>Number verified</strong>. A fake number cannot send that message.</li>
+<li><em>Automatic:</em> with a WhatsApp gateway (<code class="notranslate">WA_PROVIDER</code>, see below) the server sends the code to the seller's number and the seller types it back; nobody has to check by hand. Codes expire after 10 minutes, a new one can be asked every 60 seconds (5 per hour), and wrong guesses are rate-limited.</li>
+</ul>
+</li>
+<li><strong>Admin approval</strong> - nothing is public before the admin approves it.</li>
+<li><strong>At most 3 pending stalls per account</strong>, so one account cannot flood the review list.</li>
+<li><strong>Sign-ups per connection:</strong> at most <code class="notranslate">SIGNUPS_PER_HOUR</code> new accounts per internet address per hour (default 10; behind the Cloudflare tunnel the real visitor address is used).</li>
+<li>SMS codes are not used: they cost money per message and WhatsApp is what sellers already use.</li>
+</ul>
+<h2 dir="auto">Put it online (Cloudflare Tunnel from this PC)</h2>
+<ol dir="auto">
+<li>Get cloudflared once: <code class="notranslate">winget install --id Cloudflare.cloudflared</code>, or (no admin rights) download <code class="notranslate">cloudflared-windows-amd64.exe</code> from the <a href="https://github.com/cloudflare/cloudflared/releases/latest">cloudflared releases</a> and save it as <code class="notranslate">tools/cloudflared.exe</code> in this folder.</li>
+<li>Double-click <code class="notranslate">online.bat</code>. It starts the server with <strong>no demo data</strong> and a separate database <code class="notranslate">data/kinibuka-live.db</code>, then prints an <code class="notranslate">https://&lt;random&gt;.trycloudflare.com</code> address (also written to <code class="notranslate">data/tunnel.log</code>).</li>
+<li>Open that address, log in with <code class="notranslate">admin</code> / <code class="notranslate">admin</code>, <strong>change the password</strong> (Account), put the market WhatsApp number in Admin settings, and share the address with sellers and customers.</li>
+</ol>
+<p dir="auto">Things to know:</p>
+<ul dir="auto">
+<li>The PC must stay on and <code class="notranslate">online.bat</code> must stay open; closing it takes the market offline.</li>
+<li>The quick-tunnel address changes every time you start it. For a permanent address you need a free Cloudflare account and a domain on Cloudflare: <code class="notranslate">cloudflared tunnel login</code>, <code class="notranslate">cloudflared tunnel create kinibuka</code>, <code class="notranslate">cloudflared tunnel route dns kinibuka market.yourdomain.com</code>, then run <code class="notranslate">cloudflared tunnel run --url http://localhost:8765 kinibuka</code> instead of the quick tunnel. (A <code class="notranslate">pages.dev</code> address cannot point to a tunnel.)</li>
+<li><code class="notranslate">online.bat</code> uses port 8765; if that port is taken the server moves to the next one and the tunnel will not reach it, so close whatever uses 8765.</li>
+<li>Back up <code class="notranslate">data/kinibuka-live.db</code> regularly (copy the file while the server is stopped).</li>
+<li>On an office or company network, check that running a public tunnel is allowed before you do it.</li>
+</ul>
+<h2 dir="auto">WhatsApp auto-notifications (optional)</h2>
+<p dir="auto">Without configuration, WhatsApp works through <code class="notranslate">wa.me</code> links that the user taps, and seller numbers are checked by the admin (see <em>Stopping fake sellers</em>). To have the server send messages and verification codes automatically, set one of the following (both are paid services):</p>
+<markdown-accessiblity-table><div class="scroll"><table role="table">
+<thead>
+<tr>
+<th>Provider</th>
+<th>Environment variables</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://fonnte.com" rel="nofollow">Fonnte</a></td>
+<td><code class="notranslate">WA_PROVIDER=fonnte</code>, <code class="notranslate">FONNTE_TOKEN</code></td>
+</tr>
+<tr>
+<td>Meta WhatsApp Cloud API</td>
+<td><code class="notranslate">WA_PROVIDER=meta</code>, <code class="notranslate">WA_TOKEN</code>, <code class="notranslate">WA_PHONE_NUMBER_ID</code>, optional <code class="notranslate">WA_TEMPLATE</code> and <code class="notranslate">WA_TEMPLATE_LANG</code> (default <code class="notranslate">id</code>)</td>
+</tr>
+</tbody>
+</table></div></markdown-accessiblity-table>
+<p dir="auto"><code class="notranslate">APP_NAME</code> changes the displayed brand name (default <code class="notranslate">KiniBuka</code>).</p>
+<h2 dir="auto">Prototype limits</h2>
+<ul dir="auto">
+<li>Login is phone + password. Seller numbers are checked over WhatsApp before a stall can be approved, but buyer numbers are not verified. Without a WhatsApp gateway the check is manual (the admin compares the code and the sender). There is no self-service password reset (the admin sets a temporary one).</li>
+<li>No online payments: buyers pay at the stall (cash or QRIS) on pickup.</li>
+<li>Single-process server with SQLite. It is fine for a demo or one neighbourhood, but not for production scale.</li>
+<li>Map tiles come from the public OpenStreetMap tile server, which is meant for light use only.</li>
+<li>The 3D market needs WebGL; without it the app falls back to the map with a short message.</li>
+</ul>
+<h2 dir="auto">Files</h2>
+<ul dir="auto">
+<li><code class="notranslate">server.py</code>: HTTP server, JSON API, SQLite schema and demo seed data</li>
+<li><code class="notranslate">static/index.html</code>: the whole web app (no build step)</li>
+<li><code class="notranslate">static/i18n.js</code>: ID / EN / 中文 strings</li>
+<li><code class="notranslate">static/world.js</code>: the walkable 3D market (loaded only when the 3D view is opened)</li>
+<li><code class="notranslate">static/vendor/</code>: three.js r160 (MIT), vendored so the 3D view works without a CDN</li>
+<li><code class="notranslate">run.bat</code>: Windows launcher (demo data, this PC and the local Wi-Fi)</li>
+<li><code class="notranslate">online.bat</code>: real market on the internet through a Cloudflare quick tunnel (no demo data, own database)</li>
+</ul>
+</main>
+<footer>
+This is the KiniBuka guide: the project's README, laid out to read on a phone and kept for when there is no connection.
+It is the README of 2026-11-22. KiniBuka itself is installed and run the way the guide says; the code is at
+<a href="https://github.com/juw12/projects/tree/main/apps/kinibuka">github.com/juw12/projects/tree/main/apps/kinibuka</a>.
+</footer>
+<script>
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+</script>
+</body>
+</html>

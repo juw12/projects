@@ -3873,5 +3873,11 @@
       "order": 1001,
       "portfolio": true
     }
+  ],
+  "guides": [
+    {"id": "titian", "from": "respark/guide"},
+    {"id": "kinibuka", "from": "apps/kinibuka/guide"},
+    {"id": "pushlab", "from": "apps/pushlab/guide"},
+    {"id": "e-coder", "from": "agents-lab/E-coder/guide"}
   ]
 }

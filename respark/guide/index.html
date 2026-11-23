@@ -1,0 +1,542 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Titian guide: A broker-run B2B bridge for industrial manufacturers in Southeast Asia</title>
+<meta name="description" content="A broker-run B2B bridge for industrial manufacturers in Southeast Asia">
+<link rel="canonical" href="https://juw12.github.io/projects/titian/">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Titian">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#fbfaf6" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#171614" media="(prefers-color-scheme: dark)">
+<meta property="og:title" content="Titian guide">
+<meta property="og:description" content="A broker-run B2B bridge for industrial manufacturers in Southeast Asia">
+<style>
+:root{--paper:#fbfaf6;--ink:#1d1c1a;--soft:#5d5a54;--line:#e3dfd5;--card:#ffffff;--accent:#497c1d;--code:#f1eee6}
+@media (prefers-color-scheme:dark){:root{--paper:#171614;--ink:#eeebe4;--soft:#a9a49a;--line:#35322d;--card:#201f1c;--accent:#afe085;--code:#262420}}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--paper);color:var(--ink);font:17px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+header.bar{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:12px;min-height:60px;padding:8px 16px;padding-top:max(8px,env(safe-area-inset-top));background:var(--paper);border-bottom:1px solid var(--line)}
+header.bar img{width:36px;height:36px;border-radius:9px;flex:none}
+header.bar .name{font-weight:700;font-size:18px;line-height:1.2;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+header.bar .name small{display:block;font-weight:500;font-size:13px;color:var(--soft)}
+header.bar a.source{flex:none;display:inline-flex;align-items:center;min-height:48px;padding:0 16px;border:1px solid var(--line);border-radius:24px;background:var(--card);color:var(--ink);font-size:15px;font-weight:600;text-decoration:none}
+main{max-width:760px;margin:0 auto;padding:20px 16px 40px}
+main img{max-width:100%;height:auto;border-radius:8px}
+main h1{font-size:30px;line-height:1.2;margin:24px 0 12px}
+main h2{font-size:23px;line-height:1.25;margin:36px 0 12px;padding-top:14px;border-top:1px solid var(--line)}
+main h3{font-size:19px;line-height:1.3;margin:26px 0 8px}
+main h4{font-size:17px;margin:22px 0 6px}
+main p,main li{overflow-wrap:anywhere}
+main a{color:var(--accent);text-underline-offset:3px;padding:6px 0}
+main p[align=center] a,main li>a:only-child{display:inline-block;padding:12px 3px}
+main a:has(>img){display:inline-block;padding:8px 0}
+main p[align=center] a:has(>img[width="100%"]){display:block;padding:0}
+main ul,main ol{padding-left:24px}
+main li{margin:6px 0}
+main blockquote{margin:16px 0;padding:4px 16px;border-left:4px solid var(--accent);color:var(--soft)}
+main code{font:14px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background:var(--code);padding:2px 5px;border-radius:5px;overflow-wrap:anywhere}
+main pre{background:var(--code);padding:14px;border-radius:10px;overflow-x:auto;-webkit-overflow-scrolling:touch}
+main pre code{background:none;padding:0;overflow-wrap:normal;white-space:pre}
+.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:16px 0}
+main table{border-collapse:collapse;font-size:15px;min-width:100%}
+main th,main td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+main th{background:var(--code)}
+main hr{border:0;border-top:1px solid var(--line);margin:28px 0}
+main kbd{font:13px ui-monospace,Menlo,monospace;border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;padding:1px 5px}
+main details{margin:12px 0}
+main summary{cursor:pointer;min-height:44px;display:flex;align-items:center;font-weight:600}
+footer{max-width:760px;margin:0 auto;padding:18px 16px calc(28px + env(safe-area-inset-bottom));border-top:1px solid var(--line);color:var(--soft);font-size:14px}
+footer a{color:var(--soft)}
+</style>
+</head>
+<body>
+<header class="bar">
+<img src="icons/icon-192.png" alt="" width="36" height="36">
+<div class="name">Titian<small>Guide</small></div>
+<a class="source" href="https://github.com/juw12/projects/tree/main/respark">GitHub</a>
+</header>
+<main id="guide">
+
+<p align="center" dir="auto">
+  <a href="https://github.com/juw12/projects/tree/main/respark"><img loading="lazy" src="https://raw.githubusercontent.com/juw12/projects/main/respark/docs/media/banner.jpg" alt="Respark: Win back customers, and bridge industrial suppliers." width="100%" style="max-width: 100%;"></a>
+</p>
+<p align="center" dir="auto">
+  <b>Win back customers, and bridge industrial suppliers.</b><br>
+  Customer reactivation for local service businesses, plus Titian: a broker-run B2B bridge for manufacturers in Southeast Asia.
+</p>
+<p align="center" dir="auto">
+  <a href="#highlights">Highlights</a> ·
+  <a href="https://github.com/juw12">More by juw12</a>
+</p>
+<p align="center" dir="auto">
+  <a href="https://github.com/juw12/projects/tree/main/respark"><img loading="lazy" src="https://img.shields.io/github/last-commit/juw12/projects?path=respark&amp;label=updated&amp;color=0f766e" alt="Last updated"  style="max-width: 100%;"></a>
+  <a target="_blank" rel="noopener noreferrer nofollow" href="https://camo.githubusercontent.com/e653d8c0baaacf2c4eed424c13eca56ba52a9483f149861248c19cd82a8cc879/68747470733a2f2f696d672e736869656c64732e696f2f62616467652f53656c662d2d686f737465642d323432393266"><img loading="lazy" src="https://img.shields.io/badge/Self--hosted-24292f" alt="Self-hosted"  style="max-width: 100%;"></a>
+  <a target="_blank" rel="noopener noreferrer nofollow" href="https://camo.githubusercontent.com/4d7c4b9ff95822045ac33337f2b67dc2a70d48c05b46b732c02b24994e3a10a9/68747470733a2f2f696d672e736869656c64732e696f2f62616467652f507974686f6e5f2532425f53514c6974652d323432393266"><img loading="lazy" src="https://img.shields.io/badge/Python_%2B_SQLite-24292f" alt="Python + SQLite"  style="max-width: 100%;"></a>
+  <a target="_blank" rel="noopener noreferrer nofollow" href="https://camo.githubusercontent.com/1dbc9103f5d37b15dad883ecabe4f02d700802b84b3d5e443d3067b50c952971/68747470733a2f2f696d672e736869656c64732e696f2f62616467652f6c6963656e73652d4d49542d306637363665"><img loading="lazy" src="https://img.shields.io/badge/license-MIT-0f766e" alt="MIT license"  style="max-width: 100%;"></a>
+</p>
+<p dir="auto"><a id="highlights"></a></p>
+<markdown-accessiblity-table><div class="scroll"><table role="table">
+  <tbody><tr>
+    <td width="33%" valign="top">
+      <b>Win back dormant customers</b><br>
+      Finds customers who stopped coming and re-engages them.
+    </td>
+    <td width="33%" valign="top">
+      <b>Titian bridge mode</b><br>
+      B2B showcase portals with an interactive 3D catalog, RFQ basket and supplier portal.
+    </td>
+    <td width="33%" valign="top">
+      <b>Zero dependencies</b><br>
+      Python standard library and SQLite, with a test suite.
+    </td>
+  </tr>
+</tbody></table></div></markdown-accessiblity-table>
+
+<h2 dir="auto">About</h2>
+<p dir="auto">Zero-dependency Python stdlib + SQLite. Re-engages dormant customers for local service businesses.</p>
+<h2 dir="auto">What it does</h2>
+<p dir="auto">Local service businesses (dentists, plumbers, salons, trainers, mechanics, real-estate agents, restaurants) sign up, upload a CSV of past customers, and the system automatically sends them a 5-message reactivation campaign over 30 days (3 emails + 2 SMS). The operator (you) charges clients for setup + monthly retainer.</p>
+<h2 dir="auto">What's in the box</h2>
+<pre class="notranslate"><code class="notranslate">respark/
+├── server/
+│   └── server.py              # All backend: auth, DB, SMTP, scheduler, API, Stripe, outreach
+├── web/
+│   ├── index.html             # Landing + signup + login
+│   ├── app.html               # Client dashboard (campaigns, billing)
+│   ├── outreach.html          # Operator dashboard (lead pipeline)
+│   ├── style.css              # Shared styles
+│   └── app.js                 # Dashboard logic
+├── tests/
+│   └── verify.py              # Hermetic end-to-end verification (43 checks)
+├── docs/
+│   ├── sales-playbook.md      # Cold emails + call scripts
+│   ├── first-week.md          # 7-day action plan
+│   ├── setup-checklist.md     # 5 manual steps
+│   ├── deploy-no-domain.md    # cloudflared / Render / Fly.io paths
+│   └── ship-checklist.md      # 14-day plan to first client
+├── prospects.csv              # 8 example prospects, Austin/Houston
+├── Dockerfile                 # python:3.12-slim
+├── docker-compose.yml         # One-command deploy
+├── nginx.conf                 # Reverse proxy + SSL
+├── respark.service            # systemd unit
+├── fly.toml                   # Fly.io config
+├── Procfile                   # Heroku-style
+├── render.yaml                # Render blueprint (one-click)
+├── deploy.sh                  # One-shot Ubuntu deploy
+├── start.bat                  # Windows local launcher
+├── start-with-tunnel.ps1      # Windows + cloudflared/ngrok tunnel
+├── .env.example               # Environment variables reference
+├── README.md                  # You are here
+└── logs/
+    ├── app.log                # Server log
+    └── outbox.log             # All sent emails (or attempted sends)
+</code></pre>
+<h2 dir="auto">Run it</h2>
+<div class="highlight highlight-source-shell" dir="auto"><pre class="notranslate"><span class="pl-c1">cd</span> respark
+python server/server.py
+<span class="pl-c"><span class="pl-c">#</span> → http://localhost:8000</span></pre></div>
+<p dir="auto">Test it (43 checks, all green):</p>
+<div class="highlight highlight-source-shell" dir="auto"><pre class="notranslate">RESPARK_SECRET=test python tests/verify.py</pre></div>
+<h2 dir="auto">Required environment variables (production)</h2>
+<p dir="auto">Copy <code class="notranslate">.env.example</code> to <code class="notranslate">.env</code> and fill in:</p>
+<markdown-accessiblity-table><div class="scroll"><table role="table">
+<thead>
+<tr>
+<th>Var</th>
+<th>Required?</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code class="notranslate">RESPARK_SECRET</code></td>
+<td>YES</td>
+<td>Random 32+ char string for session signing.</td>
+</tr>
+<tr>
+<td><code class="notranslate">RESPARK_BASE_URL</code></td>
+<td>YES</td>
+<td>Public URL. Used in unsubscribe links and tracking pixels.</td>
+</tr>
+<tr>
+<td><code class="notranslate">RESPARK_SMTP_HOST</code></td>
+<td>for real email</td>
+<td>SMTP server hostname</td>
+</tr>
+<tr>
+<td><code class="notranslate">RESPARK_SMTP_PORT</code></td>
+<td>for real email</td>
+<td>Usually <code class="notranslate">587</code></td>
+</tr>
+<tr>
+<td><code class="notranslate">RESPARK_SMTP_USER</code></td>
+<td>for real email</td>
+<td>SMTP username</td>
+</tr>
+<tr>
+<td><code class="notranslate">RESPARK_SMTP_PASS</code></td>
+<td>for real email</td>
+<td>SMTP password</td>
+</tr>
+<tr>
+<td><code class="notranslate">RESPARK_SMTP_FROM</code></td>
+<td>for real email</td>
+<td>Sender name + email</td>
+</tr>
+<tr>
+<td><code class="notranslate">RESPARK_STRIPE_SECRET_KEY</code></td>
+<td>for real payments</td>
+<td>Stripe secret key</td>
+</tr>
+<tr>
+<td><code class="notranslate">RESPARK_STRIPE_PUBLISHABLE_KEY</code></td>
+<td>for real payments</td>
+<td>Stripe publishable key</td>
+</tr>
+<tr>
+<td><code class="notranslate">RESPARK_STRIPE_WEBHOOK_SECRET</code></td>
+<td>for real payments</td>
+<td>Webhook signing secret</td>
+</tr>
+<tr>
+<td><code class="notranslate">RESPARK_STRIPE_PRICE_STARTER</code></td>
+<td>optional</td>
+<td>Stripe Price ID for $497 setup</td>
+</tr>
+<tr>
+<td><code class="notranslate">RESPARK_STRIPE_PRICE_GROWTH</code></td>
+<td>optional</td>
+<td>Stripe Price ID for $97/mo</td>
+</tr>
+<tr>
+<td><code class="notranslate">RESPARK_ALLOW_SIGNUP</code></td>
+<td>optional</td>
+<td><code class="notranslate">1</code> (default) or <code class="notranslate">0</code></td>
+</tr>
+</tbody>
+</table></div></markdown-accessiblity-table>
+<p dir="auto">Without SMTP configured, emails are logged to <code class="notranslate">logs/outbox.log</code>. Without Stripe, checkout shows "not configured".</p>
+<h2 dir="auto">Supported industries</h2>
+<p dir="auto"><code class="notranslate">plumber</code>, <code class="notranslate">dentist</code>, <code class="notranslate">trainer</code>, <code class="notranslate">salon</code>, <code class="notranslate">mechanic</code>, <code class="notranslate">realtor</code>, <code class="notranslate">restaurant</code> — each with a tuned 5-message template.</p>
+<h2 dir="auto">Deployment</h2>
+<markdown-accessiblity-table><div class="scroll"><table role="table">
+<thead>
+<tr>
+<th>Path</th>
+<th>Time</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Local</strong></td>
+<td>1 min</td>
+<td><code class="notranslate">start.bat</code> or <code class="notranslate">python server/server.py</code></td>
+</tr>
+<tr>
+<td><strong>Local + tunnel</strong></td>
+<td>2 min</td>
+<td><code class="notranslate">start-with-tunnel.ps1</code> (auto-installs cloudflared)</td>
+</tr>
+<tr>
+<td><strong>Render free</strong></td>
+<td>15 min</td>
+<td><code class="notranslate">render.yaml</code> + sign up at render.com</td>
+</tr>
+<tr>
+<td><strong>Fly.io free</strong></td>
+<td>10 min</td>
+<td><code class="notranslate">fly.toml</code> + fly CLI</td>
+</tr>
+<tr>
+<td><strong>VPS (Ubuntu)</strong></td>
+<td>5 min</td>
+<td><code class="notranslate">sudo ./deploy.sh yourdomain.com</code></td>
+</tr>
+</tbody>
+</table></div></markdown-accessiblity-table>
+<p dir="auto">See <code class="notranslate">docs/deploy-no-domain.md</code> for step-by-step without a domain.</p>
+<h2 dir="auto">API surface</h2>
+<markdown-accessiblity-table><div class="scroll"><table role="table">
+<thead>
+<tr>
+<th>Method</th>
+<th>Path</th>
+<th>Auth</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>POST</td>
+<td><code class="notranslate">/api/auth/signup</code></td>
+<td>–</td>
+<td>Create account</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code class="notranslate">/api/auth/login</code></td>
+<td>–</td>
+<td>Log in</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code class="notranslate">/api/auth/logout</code></td>
+<td>–</td>
+<td>Log out</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code class="notranslate">/api/me</code></td>
+<td>yes</td>
+<td>Current user</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code class="notranslate">/api/campaigns</code></td>
+<td>yes</td>
+<td>List campaigns</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code class="notranslate">/api/campaigns</code></td>
+<td>yes</td>
+<td>Create campaign</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code class="notranslate">/api/campaigns/&lt;id&gt;</code></td>
+<td>yes</td>
+<td>Campaign detail</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code class="notranslate">/api/campaigns/&lt;id&gt;/customers</code></td>
+<td>yes</td>
+<td>Upload CSV</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code class="notranslate">/api/campaigns/&lt;id&gt;/generate</code></td>
+<td>yes</td>
+<td>Generate messages</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code class="notranslate">/api/campaigns/&lt;id&gt;/launch</code></td>
+<td>yes</td>
+<td>Launch</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code class="notranslate">/api/campaigns/&lt;id&gt;/pause</code></td>
+<td>yes</td>
+<td>Pause</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code class="notranslate">/api/campaigns/&lt;id&gt;/stats</code></td>
+<td>yes</td>
+<td>Stats</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code class="notranslate">/api/stripe/config</code></td>
+<td>yes</td>
+<td>Stripe config</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code class="notranslate">/api/checkout</code></td>
+<td>yes</td>
+<td>Create Stripe Checkout session</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code class="notranslate">/api/billing/portal</code></td>
+<td>yes</td>
+<td>Open Stripe customer portal</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code class="notranslate">/api/billing/status</code></td>
+<td>yes</td>
+<td>Subscription status</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code class="notranslate">/webhooks/stripe</code></td>
+<td>signed</td>
+<td>Stripe webhook</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code class="notranslate">/api/outreach/leads/import</code></td>
+<td>yes</td>
+<td>Bulk import leads (CSV)</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code class="notranslate">/api/outreach/leads</code></td>
+<td>yes</td>
+<td>List leads</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code class="notranslate">/api/outreach/leads/&lt;id&gt;/patch</code></td>
+<td>yes</td>
+<td>Update status/notes</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code class="notranslate">/api/outreach/leads/&lt;id&gt;/send</code></td>
+<td>yes</td>
+<td>Send next scheduled email</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code class="notranslate">/api/outreach/leads/&lt;id&gt;/close</code></td>
+<td>yes</td>
+<td>Close-won + auto-onboard client</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code class="notranslate">/api/outreach/stats</code></td>
+<td>yes</td>
+<td>Pipeline counts</td>
+</tr>
+<tr>
+<td>GET/POST</td>
+<td><code class="notranslate">/api/outreach/settings</code></td>
+<td>yes</td>
+<td>Operator config</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code class="notranslate">/track/open/&lt;id&gt;</code></td>
+<td>–</td>
+<td>Client campaign tracking pixel</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code class="notranslate">/track/outreach/&lt;id&gt;</code></td>
+<td>–</td>
+<td>Outreach tracking pixel</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code class="notranslate">/u/&lt;token&gt;</code></td>
+<td>–</td>
+<td>Client unsubscribe</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code class="notranslate">/u/outreach/&lt;token&gt;</code></td>
+<td>–</td>
+<td>Outreach unsubscribe</td>
+</tr>
+</tbody>
+</table></div></markdown-accessiblity-table>
+<h2 dir="auto">Money flow</h2>
+<ul dir="auto">
+<li><strong>Setup fee</strong> ($497 typical) — collect before kicking off</li>
+<li><strong>Monthly retainer</strong> ($97/mo typical) — covers campaign management + reporting</li>
+</ul>
+<h2 dir="auto">Run order</h2>
+<ol dir="auto">
+<li><code class="notranslate">start-with-tunnel.ps1</code> (or <code class="notranslate">./start.bat</code> for localhost-only)</li>
+<li>Edit <code class="notranslate">.env</code> with SMTP + Stripe keys</li>
+<li>Sign up at <code class="notranslate">/</code></li>
+<li>Visit <code class="notranslate">/outreach</code>, paste CSV of prospects</li>
+<li>Watch the pipeline fill</li>
+<li>Close deals via "Close + onboard"</li>
+<li>Money via Stripe</li>
+</ol>
+<h2 dir="auto">Out of scope (yet)</h2>
+<ul dir="auto">
+<li>Real SMS delivery (<code class="notranslate">send_sms()</code> is a stub — plug in Twilio)</li>
+<li>OpenAI personalization (env hook reserved, not wired)</li>
+<li>Email reply parsing (inbound webhook — SendGrid Inbound Parse, etc.)</li>
+</ul>
+<p dir="auto">Each is a small addition. Add when needed.</p>
+<h2 dir="auto">Titian: bridge mode (you become the bridge)</h2>
+<p dir="auto"><strong>Titian</strong> (Indonesian/Malay for a narrow footbridge) is Respark's <strong>B2B introduction business</strong> for industrial companies: manufacturers get a showcase with 3D products, and you broker every buyer, supplier and investor introduction. Same server, same DB, same outreach engine.</p>
+<markdown-accessiblity-table><div class="scroll"><table role="table">
+<thead>
+<tr>
+<th>URL</th>
+<th>Who</th>
+<th>What</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code class="notranslate">/hub</code></td>
+<td>public</td>
+<td>Directory of your published client companies + "I'm looking to buy / invest / supply" requests and "Get listed" signups</td>
+</tr>
+<tr>
+<td><code class="notranslate">/c/&lt;slug&gt;/</code></td>
+<td>public</td>
+<td>A client's showcase portal: catalog, interactive 3D products, investor brief, supplier portal, RFQ basket</td>
+</tr>
+<tr>
+<td><code class="notranslate">/bridge</code></td>
+<td>operator</td>
+<td>Screen every inquiry, get <strong>suggested matches</strong>, introduce to one or more companies, track deal value and <strong>success fees</strong>, onboard/publish companies</td>
+</tr>
+<tr>
+<td><code class="notranslate">/bridge</code></td>
+<td>client company</td>
+<td>Only the introductions you made to them, intro status, portal traffic, edit their own content</td>
+</tr>
+</tbody>
+</table></div></markdown-accessiblity-table>
+<p dir="auto"><strong>How the money works:</strong> setup fee + monthly retainer per company (Stripe, as before) <strong>plus a success fee</strong> on deals you introduce (tracked per inquiry).</p>
+<p dir="auto"><strong>Flow</strong></p>
+<ol dir="auto">
+<li>Import manufacturer prospects in <code class="notranslate">/outreach</code> with <code class="notranslate">industry=manufacturer</code>. They get the bridge pitch email linking to <code class="notranslate">/hub</code>.</li>
+<li><em>Close + onboard</em> a manufacturer lead: creates their login <strong>and a draft portal</strong> (no reactivation campaign).</li>
+<li>Edit their content in <code class="notranslate">/bridge</code> → Companies → <em>Edit content</em>, then set status to <code class="notranslate">published</code>. They appear on <code class="notranslate">/hub</code>.</li>
+<li>Inquiries from portals and the hub land in <strong>your</strong> inbox first (<code class="notranslate">routing=via_bridge</code>). Use <em>Suggested matches</em> → <em>Introduce</em>. You can withhold the requester's contact so the company has to go through you.</li>
+<li>Mark <code class="notranslate">won</code> with deal value + fee. The overview shows pipeline, intros, deals and fees.</li>
+<li>"Get listed" requests on the hub drop straight into the outreach pipeline as <code class="notranslate">interested</code> manufacturer leads.</li>
+</ol>
+<p dir="auto"><strong>Trust and track record (the parts a copycat can't clone)</strong></p>
+<ul dir="auto">
+<li><strong>Verified badge</strong>: only the operator can issue it (registration + factory visit required), it expires after 12 months, and companies cannot fake it through their own content.</li>
+<li><strong>Intro terms gate</strong>: on via-bridge introductions the company sees the request but not the contact until it clicks <em>Accept introduction</em>; the accepted terms and timestamp are stored as an audit trail for your success fee.</li>
+<li><strong>Track record</strong>: introductions, deals closed, answer rate and typical reply time are measured from real introductions (response stats appear after 3 intros).</li>
+<li><strong>Verified reviews</strong>: when a deal is won the requester gets a one-time link (<code class="notranslate">/r/&lt;token&gt;</code>); only brokered deals can be reviewed, once.</li>
+<li><strong>Outcome-ranked matching</strong>: relevance first, then verified, deals won, rating and responsiveness.</li>
+<li><strong>WhatsApp handoff</strong> routed to the operator on via-bridge portals, plus server-rendered SEO (title, JSON-LD, <code class="notranslate">sitemap.xml</code>, <code class="notranslate">robots.txt</code>).</li>
+</ul>
+<p dir="auto"><strong>Settings</strong> (<code class="notranslate">.env</code>)</p>
+<ul dir="auto">
+<li><code class="notranslate">RESPARK_OPERATOR_EMAILS</code>: comma-separated operator logins. If unset, the <strong>first registered account</strong> is the operator. Set this in production.</li>
+<li><code class="notranslate">RESPARK_HUB_NAME</code>: public brand of your bridge (default "Titian").</li>
+<li><code class="notranslate">RESPARK_OPERATOR_WHATSAPP</code>: your WhatsApp number (digits incl. country code) for chat handoff.</li>
+<li><code class="notranslate">RESPARK_INTRO_TERMS</code>: the text a company accepts before it sees a requester's contact (have a lawyer review it).</li>
+</ul>
+<p dir="auto"><strong>Roles:</strong> client companies can now log in, so <code class="notranslate">/outreach</code> and <code class="notranslate">/api/outreach/*</code> are <strong>operator-only</strong> (clients get 403 / redirect to <code class="notranslate">/bridge</code>).</p>
+<p dir="auto"><strong>Code:</strong> <code class="notranslate">server/bridge.py</code> (all bridge logic, ~stdlib only), <code class="notranslate">web/hub.html</code>, <code class="notranslate">web/bridge.html</code>, <code class="notranslate">web/bridge.js</code>, <code class="notranslate">web/ic/</code> (portal app, 3D viewer, <code class="notranslate">template.json</code> for new companies). Hooks in <code class="notranslate">server/server.py</code> are minimal: import, schema, routing, outreach close, email link.</p>
+<p dir="auto"><strong>Tests:</strong> <code class="notranslate">RESPARK_SECRET=test python tests/verify_bridge.py</code> (80 checks), alongside <code class="notranslate">tests/verify.py</code> (43 checks).</p>
+</main>
+<footer>
+This is the Titian guide: the project's README, laid out to read on a phone and kept for when there is no connection.
+It is the README of 2026-11-22. Titian itself is installed and run the way the guide says; the code is at
+<a href="https://github.com/juw12/projects/tree/main/respark">github.com/juw12/projects/tree/main/respark</a>.
+</footer>
+<script>
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+</script>
+</body>
+</html>
