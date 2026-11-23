@@ -7,6 +7,12 @@ language.
 
 > Teams talks. You read along, translated.
 
+## On a Mac
+
+- **Mac:** [`Lingua-macOS-AppleSilicon.dmg`](https://github.com/juw12/projects/releases/download/lingua-mac/Lingua-macOS-AppleSilicon.dmg) (M1 and newer) or [`Lingua-macOS-Intel.dmg`](https://github.com/juw12/projects/releases/download/lingua-mac/Lingua-macOS-Intel.dmg). Open it and drag Lingua to Applications. The first time, macOS blocks it because it is not notarized: **System Settings → Privacy & Security → Open Anyway**.
+
+It is the web edition (https://juw12.github.io/projects/lingua/) in its own window ([`desktop/`](desktop/README.md)) and changes with it. Live caption capture needs a browser that can share the screen (Chrome, Edge or Firefox on the Mac); in this window use Mobile translate and Read picture. Each build is opened on an Apple-silicon Mac and an Intel Mac on GitHub before it is published: the page loads, the app starts and can store data. No Mac of ours has run it yet.
+
 ## Status
 
 **v0.1** (new). The whole app is one two-stage pipeline: screen-read the
