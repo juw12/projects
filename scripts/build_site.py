@@ -57,6 +57,28 @@ def copy_subapp_web(apps_dir, app_id, sub, out_dir):
     print(f"  [OK] Copied {app_id}/{sub}/web -> {app_id}/{sub}/ ({len(copied)} items)")
 
 
+def load_guides():
+    """Guide pages listed under "guides" in scripts/apps.json: {"id": site folder, "from": folder in the repo}."""
+    data = json.loads(APPS_FILE.read_text(encoding="utf-8"))
+    return data.get("guides", []) if isinstance(data, dict) else []
+
+
+def copy_guides(repo_root, out_dir):
+    """Copy each guide page (a project's README laid out for a phone, made by hone's guide_page.py) to the
+    site. A guide is the page of a project that has no web app of its own; it is not a card on the index."""
+    for guide in load_guides():
+        src = repo_root / guide["from"]
+        dst = out_dir / guide["id"]
+        if not (src / "index.html").is_file():
+            print(f"  [SKIP] guide {guide['from']} has no index.html")
+            continue
+        if dst.exists():
+            print(f"  [SKIP] guide {guide['id']}: the site already has a folder of that name")
+            continue
+        shutil.copytree(src, dst)
+        print(f"  [OK] Copied guide {guide['from']} -> {guide['id']}/")
+
+
 def write_nojekyll(out_dir):
     """Write empty .nojekyll file to disable Jekyll processing."""
     nojekyll = out_dir / ".nojekyll"
@@ -411,6 +433,8 @@ def main():
         copy_app_web(apps_dir, app["id"], out_dir, app["id"])
         for sub in app.get("subapps", []):
             copy_subapp_web(apps_dir, app["id"], sub, out_dir)
+
+    copy_guides(repo_root, out_dir)
 
     print()
 

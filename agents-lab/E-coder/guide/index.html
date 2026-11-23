@@ -1,0 +1,483 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>E-coder guide: A stdlib-only coding agent that runs on your own machine</title>
+<meta name="description" content="A stdlib-only coding agent that runs on your own machine">
+<link rel="canonical" href="https://juw12.github.io/projects/e-coder/">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="E-coder">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#fbfaf6" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#171614" media="(prefers-color-scheme: dark)">
+<meta property="og:title" content="E-coder guide">
+<meta property="og:description" content="A stdlib-only coding agent that runs on your own machine">
+<style>
+:root{--paper:#fbfaf6;--ink:#1d1c1a;--soft:#5d5a54;--line:#e3dfd5;--card:#ffffff;--accent:#1e8020;--code:#f1eee6}
+@media (prefers-color-scheme:dark){:root{--paper:#171614;--ink:#eeebe4;--soft:#a9a49a;--line:#35322d;--card:#201f1c;--accent:#85e086;--code:#262420}}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--paper);color:var(--ink);font:17px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+header.bar{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:12px;min-height:60px;padding:8px 16px;padding-top:max(8px,env(safe-area-inset-top));background:var(--paper);border-bottom:1px solid var(--line)}
+header.bar img{width:36px;height:36px;border-radius:9px;flex:none}
+header.bar .name{font-weight:700;font-size:18px;line-height:1.2;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+header.bar .name small{display:block;font-weight:500;font-size:13px;color:var(--soft)}
+header.bar a.source{flex:none;display:inline-flex;align-items:center;min-height:48px;padding:0 16px;border:1px solid var(--line);border-radius:24px;background:var(--card);color:var(--ink);font-size:15px;font-weight:600;text-decoration:none}
+main{max-width:760px;margin:0 auto;padding:20px 16px 40px}
+main img{max-width:100%;height:auto;border-radius:8px}
+main h1{font-size:30px;line-height:1.2;margin:24px 0 12px}
+main h2{font-size:23px;line-height:1.25;margin:36px 0 12px;padding-top:14px;border-top:1px solid var(--line)}
+main h3{font-size:19px;line-height:1.3;margin:26px 0 8px}
+main h4{font-size:17px;margin:22px 0 6px}
+main p,main li{overflow-wrap:anywhere}
+main a{color:var(--accent);text-underline-offset:3px;padding:6px 0}
+main p[align=center] a,main li>a:only-child{display:inline-block;padding:12px 3px}
+main a:has(>img){display:inline-block;padding:8px 0}
+main p[align=center] a:has(>img[width="100%"]){display:block;padding:0}
+main ul,main ol{padding-left:24px}
+main li{margin:6px 0}
+main blockquote{margin:16px 0;padding:4px 16px;border-left:4px solid var(--accent);color:var(--soft)}
+main code{font:14px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background:var(--code);padding:2px 5px;border-radius:5px;overflow-wrap:anywhere}
+main pre{background:var(--code);padding:14px;border-radius:10px;overflow-x:auto;-webkit-overflow-scrolling:touch}
+main pre code{background:none;padding:0;overflow-wrap:normal;white-space:pre}
+.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:16px 0}
+main table{border-collapse:collapse;font-size:15px;min-width:100%}
+main th,main td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+main th{background:var(--code)}
+main hr{border:0;border-top:1px solid var(--line);margin:28px 0}
+main kbd{font:13px ui-monospace,Menlo,monospace;border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;padding:1px 5px}
+main details{margin:12px 0}
+main summary{cursor:pointer;min-height:44px;display:flex;align-items:center;font-weight:600}
+footer{max-width:760px;margin:0 auto;padding:18px 16px calc(28px + env(safe-area-inset-bottom));border-top:1px solid var(--line);color:var(--soft);font-size:14px}
+footer a{color:var(--soft)}
+</style>
+</head>
+<body>
+<header class="bar">
+<img src="icons/icon-192.png" alt="" width="36" height="36">
+<div class="name">E-coder<small>Guide</small></div>
+<a class="source" href="https://github.com/juw12/projects/tree/main/agents-lab/E-coder">GitHub</a>
+</header>
+<main id="guide">
+
+<p align="center" dir="auto">
+  <a href="https://github.com/juw12/projects/tree/main/agents-lab/E-coder"><img loading="lazy" src="https://raw.githubusercontent.com/juw12/projects/main/agents-lab/E-coder/docs/media/banner.jpg" alt="E-coder: A stdlib-only coding agent that runs on your own machine." width="100%" style="max-width: 100%;"></a>
+</p>
+<p align="center" dir="auto">
+  <b>A stdlib-only coding agent that runs on your own machine.</b><br>
+  Reads a repo with gitignore-aware tools, plans, edits files and runs commands behind a deny-list.
+</p>
+<p align="center" dir="auto">
+  <a href="#highlights">Highlights</a> ·
+  <a href="https://github.com/juw12">More by juw12</a>
+</p>
+<p align="center" dir="auto">
+  <a href="https://github.com/juw12/projects/tree/main/agents-lab/E-coder"><img loading="lazy" src="https://img.shields.io/github/last-commit/juw12/projects?path=agents-lab%2FE-coder&amp;label=updated&amp;color=334155" alt="Last updated"  style="max-width: 100%;"></a>
+  <a target="_blank" rel="noopener noreferrer nofollow" href="https://camo.githubusercontent.com/c1d76a884e207722f0c2d4b88c55a17932e57db4e67a619d6b68e822ac03c657/68747470733a2f2f696d672e736869656c64732e696f2f62616467652f434c492d323432393266"><img loading="lazy" src="https://img.shields.io/badge/CLI-24292f" alt="CLI"  style="max-width: 100%;"></a>
+  <a target="_blank" rel="noopener noreferrer nofollow" href="https://camo.githubusercontent.com/55cb79a8860ecacf0fef1bf9ef115e06e4a8cff455e26953c05b61d0b017d180/68747470733a2f2f696d672e736869656c64732e696f2f62616467652f4f6c6c616d612d323432393266"><img loading="lazy" src="https://img.shields.io/badge/Ollama-24292f" alt="Ollama"  style="max-width: 100%;"></a>
+  <a target="_blank" rel="noopener noreferrer nofollow" href="https://camo.githubusercontent.com/081176cb0303b3896b2d430b981be1b54dad3f8f9b40ba5a0e4266f697053c25/68747470733a2f2f696d672e736869656c64732e696f2f62616467652f6c6963656e73652d4d49542d333334313535"><img loading="lazy" src="https://img.shields.io/badge/license-MIT-334155" alt="MIT license"  style="max-width: 100%;"></a>
+</p>
+<p dir="auto"><a id="highlights"></a></p>
+<markdown-accessiblity-table><div class="scroll"><table role="table">
+  <tbody><tr>
+    <td width="33%" valign="top">
+      <b>Local by default</b><br>
+      Uses a local Ollama model, so there are no API keys.
+    </td>
+    <td width="33%" valign="top">
+      <b>Safe by design</b><br>
+      A deny-list and fail-closed confirmation before any command runs.
+    </td>
+    <td width="33%" valign="top">
+      <b>Zero dependencies</b><br>
+      Python standard library only, with hermetic tests.
+    </td>
+  </tr>
+</tbody></table></div></markdown-accessiblity-table>
+
+<h2 dir="auto">About</h2>
+<p dir="auto">A small coding agent that can read a repo, plan, edit files, and run tests.<br>
+Track <strong>E</strong> in <code class="notranslate">agents-lab/</code>, alongside A (VS Code), B (Scout), C (Hermes) and<br>
+D (LangGraph).</p>
+<blockquote>
+<p dir="auto">Goal: a <em>coding agent I use every day</em> — not a Cursor competitor.</p>
+</blockquote>
+<p dir="auto">Docs: <a href="https://github.com/juw12/projects/blob/main/agents-lab/E-coder/docs/USAGE.md"><code class="notranslate">docs/USAGE.md</code></a> (how to run/configure) ·<br>
+<a href="https://github.com/juw12/projects/blob/main/agents-lab/E-coder/docs/DESIGN.md"><code class="notranslate">docs/DESIGN.md</code></a> (architecture + safety) ·<br>
+<a href="https://github.com/juw12/projects/blob/main/agents-lab/E-coder/docs/PLAN.md"><code class="notranslate">docs/PLAN.md</code></a> (original design + build order).</p>
+<p dir="auto">This folder is at <strong>M4</strong>: a working agent that can explore a repo, make minimal<br>
+edits, and run commands — gated behind <strong>guardrails</strong> (a command deny-list +<br>
+confirmation), building a <strong>gitignore-aware context</strong> so it reads only what the<br>
+task needs. All milestones <strong>M0–M4</strong> are done.</p>
+<h2 dir="auto">Why stdlib-only</h2>
+<p dir="auto">This monorepo's principle is <strong>no third-party dependencies</strong> — nothing to<br>
+<code class="notranslate">pip install</code>. Track D (LangGraph) pulls 7 deps; E-coder deliberately does <strong>not</strong><br>
+follow that. It reuses D's <em>ideas</em> (ReAct loop, guardrails, JSONL traces) with<br>
+<strong>zero deps</strong>: HTTP goes through <code class="notranslate">urllib.request</code>, JSON through <code class="notranslate">json</code>. It is<br>
+local-first and free (Ollama <code class="notranslate">qwen3:8b</code> by default, no API keys), and any<br>
+OpenAI-compatible endpoint works through the same adapter.</p>
+<h2 dir="auto">The six tools</h2>
+<p dir="auto">All tools are confined to the repo root by a path sandbox (a path that escapes<br>
+via <code class="notranslate">../</code>, an absolute path, or a symlink is rejected). The two mutating tools<br>
+are gated by the <a href="https://github.com/juw12/projects/blob/main/agents-lab/E-coder/docs/USAGE.md#guardrails-safe-by-default">guardrails</a>.</p>
+<markdown-accessiblity-table><div class="scroll"><table role="table">
+<thead>
+<tr>
+<th>Tool</th>
+<th>What it does</th>
+<th>Risk</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code class="notranslate">list_files</code></td>
+<td>List a directory (dirs get a trailing <code class="notranslate">/</code>); skips noise dirs.</td>
+<td>read-only</td>
+</tr>
+<tr>
+<td><code class="notranslate">read_file</code></td>
+<td>Read one file's text (size-capped, truncation note).</td>
+<td>read-only</td>
+</tr>
+<tr>
+<td><code class="notranslate">search</code></td>
+<td>Regex-search file contents → <code class="notranslate">relpath:lineno: line</code>.</td>
+<td>read-only</td>
+</tr>
+<tr>
+<td><code class="notranslate">repo_tree</code></td>
+<td>A gitignore-aware tree of the repo (ignored entries omitted).</td>
+<td>read-only</td>
+</tr>
+<tr>
+<td><code class="notranslate">write_file</code></td>
+<td>Create/overwrite a file; shows a unified diff first.</td>
+<td><strong>mutating</strong> — confirm (unless <code class="notranslate">--yolo</code>)</td>
+</tr>
+<tr>
+<td><code class="notranslate">run_command</code></td>
+<td>Run a shell command inside the repo root.</td>
+<td><strong>mutating</strong> — deny-list <strong>+</strong> confirm (unless <code class="notranslate">--yolo</code>)</td>
+</tr>
+</tbody>
+</table></div></markdown-accessiblity-table>
+<h2 dir="auto">M0 — the model adapter (<code class="notranslate">llm.py</code>)</h2>
+<p dir="auto">One public entry point that talks to an LLM over HTTP and normalizes <strong>two</strong><br>
+backends into a single <code class="notranslate">Reply</code> shape:</p>
+<markdown-accessiblity-table><div class="scroll"><table role="table">
+<thead>
+<tr>
+<th>Provider</th>
+<th>Endpoint</th>
+<th>Text</th>
+<th>Tool args in response</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code class="notranslate">ollama</code></td>
+<td><code class="notranslate">POST {OLLAMA_HOST}/api/chat</code></td>
+<td><code class="notranslate">message.content</code></td>
+<td>already a <code class="notranslate">dict</code></td>
+</tr>
+<tr>
+<td><code class="notranslate">openai</code></td>
+<td><code class="notranslate">POST {ECODER_BASE_URL}/chat/completions</code></td>
+<td><code class="notranslate">choices[0].message.content</code></td>
+<td>a JSON <strong>string</strong> (must be parsed)</td>
+</tr>
+</tbody>
+</table></div></markdown-accessiblity-table>
+<div class="highlight highlight-source-python" dir="auto"><pre class="notranslate"><span class="pl-s1">reply</span> <span class="pl-c1">=</span> <span class="pl-s1">llm</span>.<span class="pl-c1">chat</span>([{<span class="pl-s">"role"</span>: <span class="pl-s">"user"</span>, <span class="pl-s">"content"</span>: <span class="pl-s">"23*47?"</span>}], <span class="pl-s1">tools</span><span class="pl-c1">=</span>[...])
+<span class="pl-s1">reply</span>.<span class="pl-c1">text</span>          <span class="pl-c"># str</span>
+<span class="pl-s1">reply</span>.<span class="pl-c1">tool_calls</span>    <span class="pl-c"># list[ToolCall(name, arguments: dict, id)]</span>
+<span class="pl-s1">reply</span>.<span class="pl-c1">raw</span>           <span class="pl-c"># the untouched response dict</span></pre></div>
+<p dir="auto">Both providers yield the same <code class="notranslate">Reply</code>; OpenAI's JSON-string <code class="notranslate">arguments</code> is<br>
+<code class="notranslate">json.loads</code>-ed into a dict (malformed JSON safely falls back to <code class="notranslate">{}</code>). Any<br>
+failure — network, HTTP != 200, unparseable JSON — raises <code class="notranslate">LLMError</code> naming the<br>
+provider, URL, status code, and the first ~500 chars of the body.</p>
+<h3 dir="auto">Config (env vars; explicit kwarg &gt; env var &gt; default)</h3>
+<markdown-accessiblity-table><div class="scroll"><table role="table">
+<thead>
+<tr>
+<th>Var</th>
+<th>Default</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code class="notranslate">ECODER_PROVIDER</code></td>
+<td><code class="notranslate">ollama</code></td>
+<td><code class="notranslate">ollama</code> or <code class="notranslate">openai</code></td>
+</tr>
+<tr>
+<td><code class="notranslate">ECODER_MODEL</code></td>
+<td><code class="notranslate">qwen3:8b</code></td>
+<td>model name</td>
+</tr>
+<tr>
+<td><code class="notranslate">OLLAMA_HOST</code></td>
+<td><code class="notranslate">http://127.0.0.1:11434</code></td>
+<td>Ollama base URL</td>
+</tr>
+<tr>
+<td><code class="notranslate">ECODER_BASE_URL</code></td>
+<td>—</td>
+<td>OpenAI-compatible base URL (<code class="notranslate">openai</code> provider)</td>
+</tr>
+<tr>
+<td><code class="notranslate">ECODER_API_KEY</code></td>
+<td>—</td>
+<td>API key (<code class="notranslate">openai</code> provider, sent as <code class="notranslate">Authorization: Bearer</code>)</td>
+</tr>
+</tbody>
+</table></div></markdown-accessiblity-table>
+<h3 dir="auto">Run</h3>
+<div class="highlight highlight-source-powershell" dir="auto"><pre class="notranslate"><span class="pl-c"><span class="pl-c">#</span> echo REPL against a local Ollama (needs `ollama serve` running)</span>
+python llm.py
+
+<span class="pl-c"><span class="pl-c">#</span> point at any OpenAI-compatible endpoint instead</span>
+<span class="pl-smi">$<span class="pl-c1">env:</span>ECODER_PROVIDER</span><span class="pl-k">=</span><span class="pl-s"><span class="pl-pds">"</span>openai<span class="pl-pds">"</span></span>
+<span class="pl-smi">$<span class="pl-c1">env:</span>ECODER_BASE_URL</span><span class="pl-k">=</span><span class="pl-s"><span class="pl-pds">"</span>https://api.example.com/v1<span class="pl-pds">"</span></span>
+<span class="pl-smi">$<span class="pl-c1">env:</span>ECODER_API_KEY</span><span class="pl-k">=</span><span class="pl-s"><span class="pl-pds">"</span>&lt;your-key&gt;<span class="pl-pds">"</span></span>
+python llm.py</pre></div>
+<h3 dir="auto">Test</h3>
+<div class="highlight highlight-source-powershell" dir="auto"><pre class="notranslate">python agents<span class="pl-k">-</span>lab\E<span class="pl-k">-</span>coder\tests\test_llm.py</pre></div>
+<p dir="auto">Hermetic (<code class="notranslate">urllib.request.urlopen</code> is mocked — no real network), exits <code class="notranslate">0</code>/<code class="notranslate">1</code>.</p>
+<h2 dir="auto">M1 — read-only tools + agent loop</h2>
+<p dir="auto">A minimal <strong>ReAct</strong> loop: the model inspects the repo with read-only tools, and<br>
+keeps going until it answers in plain text (or hits <code class="notranslate">--max-steps</code>).</p>
+<pre class="notranslate"><code class="notranslate">you: "which file defines the health endpoint?"
+  [step 1] search({"pattern": "health"}) -&gt; server/server.py:14: def health()...
+  [step 2] read_file({"path": "server/server.py"}) -&gt; ...
+it:  The health endpoint is defined in server/server.py (def health(), line 14).
+</code></pre>
+<h3 dir="auto">Tools (<code class="notranslate">tools.py</code>) — all confined to the repo root</h3>
+<markdown-accessiblity-table><div class="scroll"><table role="table">
+<thead>
+<tr>
+<th>Tool</th>
+<th>Args</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code class="notranslate">list_files</code></td>
+<td><code class="notranslate">path="."</code></td>
+<td>sorted listing; dirs get a trailing <code class="notranslate">/</code>; skips <code class="notranslate">node_modules</code>, <code class="notranslate">.git</code>, <code class="notranslate">__pycache__</code>, …</td>
+</tr>
+<tr>
+<td><code class="notranslate">read_file</code></td>
+<td><code class="notranslate">path</code></td>
+<td>file text (UTF-8, size-capped, truncation note)</td>
+</tr>
+<tr>
+<td><code class="notranslate">search</code></td>
+<td><code class="notranslate">pattern</code>, <code class="notranslate">path="."</code></td>
+<td>regex search → <code class="notranslate">relpath:lineno: line</code> matches</td>
+</tr>
+</tbody>
+</table></div></markdown-accessiblity-table>
+<p dir="auto"><strong>Path sandbox:</strong> every path is resolved with <code class="notranslate">os.path.realpath</code> and checked with<br>
+<code class="notranslate">os.path.commonpath</code> against the repo root; anything that escapes (<code class="notranslate">../..</code>, an<br>
+absolute path, a symlink) raises <code class="notranslate">ToolError</code>. The <code class="notranslate">root</code> is always set by the<br>
+caller, never by the model. Tool failures become a <code class="notranslate">"error: ..."</code> string fed back<br>
+to the model, so the loop never crashes.</p>
+<h3 dir="auto">Loop (<code class="notranslate">loop.py</code>)</h3>
+<p dir="auto"><code class="notranslate">run_agent(task, root, *, max_steps=12, provider=None, model=None, on_step=None)</code>.<br>
+It threads <strong>provider-native</strong> messages (Ollama vs OpenAI) for both the assistant<br>
+turn and the tool results, so the conversation stays valid across turns.</p>
+<h3 dir="auto">Run the CLI (<code class="notranslate">coder.py</code>)</h3>
+<div class="highlight highlight-source-powershell" dir="auto"><pre class="notranslate">python coder.py <span class="pl-s"><span class="pl-pds">"</span>list the top-level directories<span class="pl-pds">"</span></span>                 <span class="pl-c"><span class="pl-c">#</span> default repo = .</span>
+python coder.py <span class="pl-s"><span class="pl-pds">"</span>find where the DB connection is created<span class="pl-pds">"</span></span> <span class="pl-k">--</span>repo apps\orbis
+python coder.py <span class="pl-s"><span class="pl-pds">"</span>...<span class="pl-pds">"</span></span> <span class="pl-k">--</span>max<span class="pl-k">-</span>steps <span class="pl-c1">8</span> <span class="pl-k">--</span>verbose                     <span class="pl-c"><span class="pl-c">#</span> see each tool step</span>
+python coder.py <span class="pl-s"><span class="pl-pds">"</span>...<span class="pl-pds">"</span></span> <span class="pl-k">--</span>provider openai <span class="pl-k">--</span>model gpt<span class="pl-k">-</span>4o<span class="pl-k">-</span>mini        <span class="pl-c"><span class="pl-c">#</span> any OpenAI-compatible endpoint</span></pre></div>
+<p dir="auto"><code class="notranslate">--provider</code> / <code class="notranslate">--model</code> fall back to <code class="notranslate">ECODER_PROVIDER</code> / <code class="notranslate">ECODER_MODEL</code>.<br>
+Needs a reachable model (Ollama by default). <code class="notranslate">--verbose</code> prints each step.</p>
+<h3 dir="auto">Test</h3>
+<div class="highlight highlight-source-powershell" dir="auto"><pre class="notranslate">python agents<span class="pl-k">-</span>lab\E<span class="pl-k">-</span>coder\tests\test_tools.py   <span class="pl-c"><span class="pl-c">#</span> tools + path sandbox</span>
+python agents<span class="pl-k">-</span>lab\E<span class="pl-k">-</span>coder\tests\test_loop.py    <span class="pl-c"><span class="pl-c">#</span> the loop (llm.chat mocked)</span></pre></div>
+<p dir="auto">Both are hermetic (temp dir + mocked model — no real network), exit <code class="notranslate">0</code>/<code class="notranslate">1</code>.</p>
+<h2 dir="auto">M2 — write/run tools + guardrails (the safety milestone)</h2>
+<p dir="auto">The agent can now <strong>write files</strong> and <strong>run shell commands</strong>. Because that is a<br>
+loaded gun, it is wrapped in guardrails and is <strong>safe by default</strong>.</p>
+<h3 dir="auto">Tools added (<code class="notranslate">tools.py</code>)</h3>
+<markdown-accessiblity-table><div class="scroll"><table role="table">
+<thead>
+<tr>
+<th>Tool</th>
+<th>Args</th>
+<th>Gate</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code class="notranslate">write_file</code></td>
+<td><code class="notranslate">path</code>, <code class="notranslate">content</code></td>
+<td>unified diff + confirmation (unless <code class="notranslate">--yolo</code>)</td>
+</tr>
+<tr>
+<td><code class="notranslate">run_command</code></td>
+<td><code class="notranslate">command</code></td>
+<td>command deny-list <strong>+</strong> confirmation (unless <code class="notranslate">--yolo</code>)</td>
+</tr>
+</tbody>
+</table></div></markdown-accessiblity-table>
+<p dir="auto"><code class="notranslate">write_file</code> shows a unified diff before writing; <code class="notranslate">run_command</code> runs<br>
+<code class="notranslate">subprocess.run(..., shell=True)</code> <strong>only after</strong> <code class="notranslate">guardrails.check_command</code> passes.</p>
+<h3 dir="auto">Guardrails (<code class="notranslate">guardrails.py</code>)</h3>
+<p dir="auto">Two fail-closed layers:</p>
+<ul dir="auto">
+<li><strong><code class="notranslate">check_command</code> (hard deny-list).</strong> In order: rejects empty commands; rejects any<br>
+shell control operator (<code class="notranslate">;</code> <code class="notranslate">&amp;</code> <code class="notranslate">|</code> backtick <code class="notranslate">&gt;</code> <code class="notranslate">&lt;</code>, newlines, <code class="notranslate">$(</code>) so<br>
+<code class="notranslate">true &amp;&amp; rm -rf /</code> can't sneak past; then rejects deny patterns — <code class="notranslate">rm -rf</code>,<br>
+<code class="notranslate">del /f|/s|/q</code>, <code class="notranslate">rmdir /s</code>, <code class="notranslate">format</code>, <code class="notranslate">mkfs</code>, <code class="notranslate">dd if=</code>, <code class="notranslate">git push</code>,<br>
+<code class="notranslate">git reset --hard</code>, <code class="notranslate">git clean -fd</code>, <code class="notranslate">shutdown</code>, <code class="notranslate">reboot</code>, <code class="notranslate">curl</code>, <code class="notranslate">wget</code>,<br>
+<code class="notranslate">invoke-webrequest</code>/<code class="notranslate">iwr</code>, <code class="notranslate">pip install</code>, <code class="notranslate">npm install</code>/<code class="notranslate">npm i</code>, <code class="notranslate">chmod 777</code>,<br>
+the <code class="notranslate">:(){</code> fork bomb, and writes to <code class="notranslate">/dev/</code>.</li>
+<li><strong><code class="notranslate">confirm</code> (yes/no gate).</strong> <code class="notranslate">interactive=False</code> <strong>always declines</strong> (a<br>
+non-interactive run never auto-approves). <code class="notranslate">interactive=True</code> prints the detail<br>
+and accepts only <code class="notranslate">y</code>/<code class="notranslate">yes</code> (Ctrl-C / EOF also decline).</li>
+</ul>
+<h3 dir="auto">Safe by default</h3>
+<p dir="auto">A <code class="notranslate">ToolContext(root, yolo=False, interactive=True)</code> controls the mutating tools.<br>
+<code class="notranslate">yolo=False</code> + <code class="notranslate">interactive=False</code> (the default when no context is passed) means<br>
+<strong>nothing mutating is ever approved</strong>. <code class="notranslate">--yolo</code> skips confirmation but <strong>never</strong><br>
+the deny-list. <code class="notranslate">--no-interactive</code> turns confirmation off entirely, so writes and<br>
+commands are always declined — effectively read-only, and safe for scripts.</p>
+<h3 dir="auto">Run the CLI (M2)</h3>
+<div class="highlight highlight-source-powershell" dir="auto"><pre class="notranslate">python coder.py <span class="pl-s"><span class="pl-pds">"</span>add a docstring to main() in server.py<span class="pl-pds">"</span></span>   <span class="pl-c"><span class="pl-c">#</span> asks before writing</span>
+python coder.py <span class="pl-s"><span class="pl-pds">"</span>...<span class="pl-pds">"</span></span> <span class="pl-k">--</span>yolo          <span class="pl-c"><span class="pl-c">#</span> skip the confirmation prompt (careful!)</span>
+python coder.py <span class="pl-s"><span class="pl-pds">"</span>...<span class="pl-pds">"</span></span> <span class="pl-k">--</span>no<span class="pl-k">-</span>interactive <span class="pl-c"><span class="pl-c">#</span> never write/run; read-only in effect</span></pre></div>
+<h3 dir="auto">Test</h3>
+<div class="highlight highlight-source-powershell" dir="auto"><pre class="notranslate">python agents<span class="pl-k">-</span>lab\E<span class="pl-k">-</span>coder\tests\test_guardrails.py  <span class="pl-c"><span class="pl-c">#</span> deny-list + confirm gate</span></pre></div>
+<p dir="auto">Hermetic (deny-list is string-based; <code class="notranslate">input</code> and <code class="notranslate">subprocess.run</code> are mocked; the<br>
+one real command runs local python, no network), exit <code class="notranslate">0</code>/<code class="notranslate">1</code>.</p>
+<h2 dir="auto">M3 — the gitignore-aware context builder (the "hard part")</h2>
+<p dir="auto">Context window is ~80% of the difficulty: reading every file blows the model's<br>
+budget. So instead of dumping the whole repo, <code class="notranslate">repo.py</code> builds a <strong>compact,<br>
+task-relevant</strong> context and injects it as one extra system message.</p>
+<h3 dir="auto">How it works (<code class="notranslate">repo.py</code>)</h3>
+<ol dir="auto">
+<li><strong><code class="notranslate">.gitignore</code> matcher</strong> — a small hand-rolled matcher (no <code class="notranslate">pathspec</code>):<br>
+<code class="notranslate">#</code>/blank stripped, <code class="notranslate">!</code> negation, trailing <code class="notranslate">/</code> dir-only, leading <code class="notranslate">/</code> or any<br>
+internal <code class="notranslate">/</code> anchors to the root, a bare pattern matches the basename at any<br>
+depth, and <code class="notranslate">*</code>/<code class="notranslate">?</code>/<code class="notranslate">**</code> wildcards. <code class="notranslate">SKIP_DIRS</code> and the <code class="notranslate">.gitignore</code> itself are<br>
+always skipped. A file under an ignored directory is ignored too.</li>
+<li><strong><code class="notranslate">walk</code></strong> — non-ignored file paths only; ignored dirs are pruned so<br>
+<code class="notranslate">os.walk</code> never descends into them.</li>
+<li><strong><code class="notranslate">build_tree</code></strong> — an indented tree built <em>from the file list</em>, so a dir whose<br>
+contents are all ignored (e.g. <code class="notranslate">logs/</code> with only <code class="notranslate">*.log</code>) does not appear —<br>
+like <code class="notranslate">git ls-files</code>.</li>
+<li><strong><code class="notranslate">build_context</code></strong> — header + tree, then the most relevant files (task tokens<br>
+matched in the <strong>path</strong> weigh more than in the <strong>content</strong>; smaller files win<br>
+ties), each capped, up to <code class="notranslate">budget_chars</code>.</li>
+</ol>
+<blockquote>
+<p dir="auto">M3 reads only the <strong>root</strong> <code class="notranslate">.gitignore</code>; nested <code class="notranslate">.gitignore</code> files are a<br>
+noted TODO.</p>
+</blockquote>
+<p dir="auto">A new read-only tool <code class="notranslate">repo_tree</code> exposes the tree to the model. <code class="notranslate">coder.py</code> builds<br>
+the context by default: <code class="notranslate">--no-context</code> disables it, <code class="notranslate">--context-budget N</code> caps it.</p>
+<div class="highlight highlight-source-powershell" dir="auto"><pre class="notranslate">python coder.py <span class="pl-s"><span class="pl-pds">"</span>add a /health endpoint<span class="pl-pds">"</span></span> <span class="pl-k">--</span>context<span class="pl-k">-</span>budget <span class="pl-c1">8000</span>
+python coder.py <span class="pl-s"><span class="pl-pds">"</span>...<span class="pl-pds">"</span></span> <span class="pl-k">--</span>no<span class="pl-k">-</span>context          <span class="pl-c"><span class="pl-c">#</span> no prebuilt context</span></pre></div>
+<h3 dir="auto">Test</h3>
+<div class="highlight highlight-source-powershell" dir="auto"><pre class="notranslate">python agents<span class="pl-k">-</span>lab\E<span class="pl-k">-</span>coder\tests\test_repo.py   <span class="pl-c"><span class="pl-c">#</span> matcher + walk + tree + context budget</span></pre></div>
+<p dir="auto">Hermetic (temp repo, no network, no model), exit <code class="notranslate">0</code>/<code class="notranslate">1</code>.</p>
+<h2 dir="auto">M4 — final polish (tests + docs)</h2>
+<p dir="auto">One command runs the whole suite, and two docs round it out:</p>
+<div class="highlight highlight-source-powershell" dir="auto"><pre class="notranslate">python agents<span class="pl-k">-</span>lab\E<span class="pl-k">-</span>coder\tests\run_all.py   <span class="pl-c"><span class="pl-c">#</span> discovers + runs every test, exits 0/1</span></pre></div>
+<p dir="auto"><code class="notranslate">coder.py</code> also gained <code class="notranslate">--context-only</code>: build + print the repository context and<br>
+exit <strong>0</strong> with <strong>no model call</strong> — a model-free way to verify the setup.</p>
+<markdown-accessiblity-table><div class="scroll"><table role="table">
+<thead>
+<tr>
+<th>Doc</th>
+<th>What it covers</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://github.com/juw12/projects/blob/main/agents-lab/E-coder/docs/USAGE.md"><code class="notranslate">docs/USAGE.md</code></a></td>
+<td>quickstart (Ollama / OpenAI), CLI reference, six tools, guardrails, examples, troubleshooting</td>
+</tr>
+<tr>
+<td><a href="https://github.com/juw12/projects/blob/main/agents-lab/E-coder/docs/DESIGN.md"><code class="notranslate">docs/DESIGN.md</code></a></td>
+<td>the five layers, module map, data flow, safety model, stdlib-only rationale, limitations</td>
+</tr>
+</tbody>
+</table></div></markdown-accessiblity-table>
+<h2 dir="auto">Files</h2>
+<pre class="notranslate"><code class="notranslate">llm.py             # M0: provider adapter (urllib) + echo REPL
+prompt.py          # M1: SYSTEM_PROMPT (M2: write/run care)
+tools.py           # M1+M2+M3: six tools + ToolContext + path sandbox + dispatch + schemas
+guardrails.py      # M2: command deny-list + confirmation gate
+repo.py            # M3: .gitignore matcher + walk + tree + build_context
+loop.py            # M1: the ReAct agent loop (M2: ToolContext; M3: injects context)
+coder.py           # M1+M2+M3+M4: CLI entrypoint (--yolo / --no-interactive / --context / --context-only)
+tests/test_llm.py        # hermetic stdlib-only tests (M0)
+tests/test_tools.py      # hermetic stdlib-only tests (M1+M2: tools + sandbox + write/run)
+tests/test_loop.py       # hermetic stdlib-only tests (M1, llm.chat mocked)
+tests/test_guardrails.py # hermetic stdlib-only tests (M2: deny-list + confirm)
+tests/test_repo.py       # hermetic stdlib-only tests (M3: gitignore + tree + context budget)
+tests/run_all.py         # M4: run every test in one command (exit 0/1)
+docs/PLAN.md         # original design + build order
+docs/USAGE.md        # M4: how to run / configure / use
+docs/DESIGN.md       # M4: architecture + safety model
+README.md
+</code></pre>
+<h2 dir="auto">Build order (see <code class="notranslate">docs/PLAN.md</code>)</h2>
+<markdown-accessiblity-table><div class="scroll"><table role="table">
+<thead>
+<tr>
+<th>Milestone</th>
+<th>Deliverable</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>M0</strong></td>
+<td><code class="notranslate">llm.py</code> — one <code class="notranslate">chat()</code>, no tools, echo works</td>
+<td>✅ done</td>
+</tr>
+<tr>
+<td><strong>M1</strong></td>
+<td>read-only tools (<code class="notranslate">list/read/search</code>) + loop</td>
+<td>✅ done</td>
+</tr>
+<tr>
+<td><strong>M2</strong></td>
+<td><code class="notranslate">write_file</code> + <code class="notranslate">run_command</code> + guardrails + confirm</td>
+<td>✅ done</td>
+</tr>
+<tr>
+<td><strong>M3</strong></td>
+<td>gitignore-aware context builder (the hard part)</td>
+<td>✅ done</td>
+</tr>
+<tr>
+<td><strong>M4</strong></td>
+<td>tests (<code class="notranslate">run_all.py</code>) + docs (<code class="notranslate">USAGE.md</code> / <code class="notranslate">DESIGN.md</code>) + README</td>
+<td>✅ done</td>
+</tr>
+</tbody>
+</table></div></markdown-accessiblity-table>
+</main>
+<footer>
+This is the E-coder guide: the project's README, laid out to read on a phone and kept for when there is no connection.
+It is the README of 2026-11-22. E-coder itself is installed and run the way the guide says; the code is at
+<a href="https://github.com/juw12/projects/tree/main/agents-lab/E-coder">github.com/juw12/projects/tree/main/agents-lab/E-coder</a>.
+</footer>
+<script>
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+</script>
+</body>
+</html>
