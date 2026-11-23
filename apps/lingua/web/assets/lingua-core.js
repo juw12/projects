@@ -200,6 +200,31 @@ export class CaptionPipeline {
     return window.slice();
   }
 
+  // In a browser the translate function is a network call and hands back a promise. update() stays as it is
+  // in the laptop app it was ported from (there translating is not asynchronous); this waits for every
+  // translation update() started and puts the text into the lines. Without it the page showed
+  // "[object Promise]" and said "Translated." whether or not the gateway had answered.
+  async updateAsync(rawText, onChunk) {
+    this.update(rawText, onChunk);
+    const waiting = (line) => line.translation && typeof line.translation.then === "function";
+    try {
+      for (const line of this._window) {
+        if (!waiting(line)) continue;
+        const text = await line.translation;
+        this.cache[line.original] = text;
+        line.translation = text;
+      }
+    } catch (err) {
+      // Forget what did not arrive, so the next try asks the gateway again instead of keeping the failure.
+      for (const line of this._window) {
+        if (waiting(line)) delete this.cache[line.original];
+      }
+      this.reset();
+      throw err;
+    }
+    return this._window.slice();
+  }
+
   reset() {
     this._prevNorm = [];
     this._window = [];
