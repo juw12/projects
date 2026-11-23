@@ -46,6 +46,15 @@
 </p>
 <!-- HERO:END -->
 
+## Get it on your device
+
+- **Windows:** [`KiniBuka-Windows-Setup.exe`](https://github.com/juw12/projects/releases/download/kinibuka-desktop/KiniBuka-Windows-Setup.exe) (no admin needed; if Windows says it protected your PC, choose *More info → Run anyway*), or without installing [`KiniBuka-Windows-Portable.zip`](https://github.com/juw12/projects/releases/download/kinibuka-desktop/KiniBuka-Windows-Portable.zip).
+- **Mac:** [`KiniBuka-macOS-AppleSilicon.dmg`](https://github.com/juw12/projects/releases/download/kinibuka-desktop/KiniBuka-macOS-AppleSilicon.dmg) (M1 and newer) or [`KiniBuka-macOS-Intel.dmg`](https://github.com/juw12/projects/releases/download/kinibuka-desktop/KiniBuka-macOS-Intel.dmg). The first time, macOS blocks it because it is not notarized: **System Settings → Privacy & Security → Open Anyway**.
+- **Android:** [`KiniBuka-android.apk`](https://github.com/juw12/projects/releases/download/kinibuka-android/KiniBuka-android.apk): open the file on the phone and allow your browser to install apps once.
+- **iPhone:** open https://juw12.github.io/projects/kinibuka/ in Safari, tap Share, then **Add to Home Screen**.
+
+The Windows, Mac and Android apps open the KiniBuka guide (https://juw12.github.io/projects/kinibuka/: this README laid out for a phone, readable without a connection) in its own window ([`desktop/`](desktop/README.md), [`android/`](android/README.md)) and change with it. KiniBuka itself runs on a computer and is installed the way this README says; the apps do not contain it. Each build is opened on GitHub's machines before it is published: on Windows and on a Mac the page loads, the app starts and can store data; on an Android emulator it installs, opens and stays up. They are not code-signed or notarised, and no real phone or PC has run them yet.
+
 ## About
 
 **Kini buka** means "open now". KiniBuka helps people find small Indonesian food and retail stalls (UMKM) that are open right now, follow the ones they like, and order ahead.
