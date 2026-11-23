@@ -53,6 +53,12 @@
 </p>
 <!-- HERO:END -->
 
+## On a Mac
+
+- **Mac:** [`AirizMotor-macOS-AppleSilicon.dmg`](https://github.com/juw12/projects/releases/download/airiz-motor-mac/AirizMotor-macOS-AppleSilicon.dmg) (M1 and newer) or [`AirizMotor-macOS-Intel.dmg`](https://github.com/juw12/projects/releases/download/airiz-motor-mac/AirizMotor-macOS-Intel.dmg). Open it and drag AirizMotor to Applications. The first time, macOS blocks it because it is not notarized: **System Settings → Privacy & Security → Open Anyway**.
+
+It is the web edition (https://juw12.github.io/projects/airiz-motor/) in its own window ([`desktop/`](shell/desktop/README.md)) and changes with it. It cannot reach the AIRIZ over USB itself (the Mac's WebKit has no Web Serial or WebUSB): use it with Remote by code or the demo device, or open the page in Chrome on the Mac for a direct connection. Each build is opened on an Apple-silicon Mac and an Intel Mac on GitHub before it is published: the page loads, the app starts and can store data. No Mac of ours has run it yet.
+
 ## About
 
 Owner: **Juwen Lie** · Team: **Ziris PTB** (co-admins and testers)
