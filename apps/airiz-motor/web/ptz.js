@@ -429,7 +429,17 @@
     $('ptz-scan-start').disabled = store.presets.length < 2 || scan.running;
   }
 
+  // 1.11.36: on firmware 0.0.0.3 the bottom (rising-det) switch reads "Not Pressed" at every
+  // height after the AIRIZ restarted by itself (a USB mode change or "reboot"), and works again
+  // after a power-on (unplug and plug in). Seen on a real AIRIZ on 23 Nov 2026.
+  const RESTART_RE = /^(diag\s+usbmode\s+set\s+\S+|reboot)$/i;
   api.onCommandSent(line => {
+    if (RESTART_RE.test(String(line).trim())) {
+      store.switchAfterRestart = Date.now();
+      save();
+      status('The AIRIZ restarts now. On firmware 0.0.0.3 its bottom switch does not answer after a restart like this: unplug the AIRIZ and plug it in again before using "Lower to bottom" or "Is the camera at the bottom?".', true);
+      return;
+    }
     const wasMoving = Date.now() < motionEnd();
     const wasUncertain = tracker.uncertain;
     const result = tracker.applyCommand(line, Date.now(), store.timing);
@@ -1197,6 +1207,11 @@
       ? 'Yes: the camera is fully down (bottom switch pressed).'
       : 'No: the camera is above the bottom (bottom switch not pressed).';
     feedback.switchReading = { pressed, at: Date.now() };
+    // A pressed reading shows the switch works again (the AIRIZ was powered on since).
+    if (pressed && store.switchAfterRestart) {
+      store.switchAfterRestart = 0;
+      save();
+    }
     if (pressed && Date.now() >= tracker.busyUntil()) {
       const wasReferenced = tracker.risingRef;
       const correction = tracker.setRisingReference();
@@ -1208,7 +1223,11 @@
     } else if (!pressed && tracker.risingRef && tracker.position.rising <= 0 && Date.now() >= tracker.busyUntil()) {
       tracker.markUncertain();
       // (Not while lowering to the bottom switch: that search reports by itself.)
-      if (!findingHome) status('The bottom switch is not pressed although the camera should be fully down: height estimated.', true);
+      if (!findingHome) {
+        status(store.switchAfterRestart
+          ? 'The bottom switch is not pressed although the camera should be fully down. The AIRIZ restarted by itself since it was plugged in (USB mode change or reboot), and on firmware 0.0.0.3 the switch then stays "not pressed": unplug the AIRIZ and plug it in again. Height estimated until then.'
+          : 'The bottom switch is not pressed although the camera should be fully down: height estimated.', true);
+      }
       save();
       renderPosition();
     }

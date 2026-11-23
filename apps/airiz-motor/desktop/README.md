@@ -9,7 +9,7 @@ is required to use the installed app or its hardware-free demo.
 ## Downloads
 
 Windows x64 releases are published under the app-specific tag
-`airiz-desktop-v1.11.35` in this repository's Releases section.
+`airiz-desktop-v1.11.36` in this repository's Releases section.
 
 - **Installer**: assisted, per-user installation with Start-menu/desktop shortcuts
   and an uninstaller. The wizard lets the user choose the installation directory.
@@ -163,6 +163,11 @@ reports whether a framed firmware reply came back. Results can be exported.
 No pairing is accepted without confirmation and no motor command is sent.
 Another program on the PC still cannot open COM4 while this app holds it: that is
 a Windows serial-port rule, which is why the check runs inside the app.
+
+## 1.11.36: bottom switch after a restart
+
+* Real AIRIZ, cold start (USB unplug and plug-in, 23 Nov 11:22): rising-det Pressed after lowering 100 steps; two cycles released 10 steps up and pressed 10 steps down (`bench/90_switch_after_replug.txt`, `91_...`). After `diag usbmode set msc|uvc` and after `reboot` it read Not Pressed even 420 steps into the bottom stop.
+* `ptz.js`: `RESTART_RE` (`diag usbmode set <mode>` | `reboot`) seen in `onCommandSent` sets `store.switchAfterRestart` and shows a warning; `readSwitch` uses a replug message when the switch disagrees while the flag is set, and the first Pressed reading clears it.
 
 ## 1.11.35: the Ziris 3D unit in every build
 

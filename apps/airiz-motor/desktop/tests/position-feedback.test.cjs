@@ -571,3 +571,18 @@ test('real unit (1.11.34): the bottom-switch message says what helps after a res
   const ptz = fs.readFileSync(path.join(WEB, 'ptz.js'), 'utf8');
   assert.match(ptz, /the switch stops answering after the AIRIZ restarts by itself \(USB mode change or reboot\): unplug the AIRIZ, plug it in again and try once more\./);
 });
+
+test('real unit (1.11.36): after a USB mode change or reboot the console warns that the bottom switch needs a replug', () => {
+  // Real AIRIZ, firmware 0.0.0.3: after "diag usbmode set msc/uvc" and after "reboot" rising-det read
+  // "Not Pressed" even 420 steps into the bottom stop; after unplugging and plugging in it pressed at
+  // the bottom and released 10 steps up (23 Nov 2026).
+  const ptz = fs.readFileSync(path.join(WEB, 'ptz.js'), 'utf8');
+  const re = /const RESTART_RE = (\/.*\/i);/.exec(ptz);
+  assert.ok(re, 'RESTART_RE');
+  const restart = eval(re[1]);
+  for (const line of ['diag usbmode set uvc', 'diag usbmode set msc', 'DIAG USBMODE SET cdc', 'reboot']) assert.ok(restart.test(line), line);
+  for (const line of ['diag usbmode get', 'diag motor info', 'rebooting', 'diag usbmode set']) assert.ok(!restart.test(line), line);
+  assert.match(ptz, /store\.switchAfterRestart = Date\.now\(\);/);
+  assert.match(ptz, /if \(pressed && store\.switchAfterRestart\) \{\s+store\.switchAfterRestart = 0;/);
+  assert.match(ptz, /unplug the AIRIZ and plug it in again before using "Lower to bottom"/);
+});
