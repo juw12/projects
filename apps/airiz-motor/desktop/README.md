@@ -9,7 +9,7 @@ is required to use the installed app or its hardware-free demo.
 ## Downloads
 
 Windows x64 releases are published under the app-specific tag
-`airiz-desktop-v1.11.34` in this repository's Releases section.
+`airiz-desktop-v1.11.35` in this repository's Releases section.
 
 - **Installer**: assisted, per-user installation with Start-menu/desktop shortcuts
   and an uninstaller. The wizard lets the user choose the installation directory.
@@ -163,6 +163,11 @@ reports whether a framed firmware reply came back. Results can be exported.
 No pairing is accepted without confirmation and no motor command is sent.
 Another program on the PC still cannot open COM4 while this app holds it: that is
 a Windows serial-port rule, which is why the check runs inside the app.
+
+## 1.11.35: the Ziris 3D unit in every build
+
+* `web/data/device-mesh.js` is committed (no longer in `.gitignore`) and listed in the service worker's offline files, so electron-builder (`../web` -> `web`) and the mobile build (`build-web.mjs`) package it: the Windows app, the APK and the iOS project show the 3D unit. `device-3d.js` is unchanged (it loads the mesh on demand and keeps the drawn picture when it cannot).
+* Pan end stops, third and fourth sweep (X = 5, camera picture): reverse stop 4,280 steps from the centre (4,264 before), stop to stop 8,644 and 8,621 sent (about 8,580 / 8,556 after the ~65-step backlash), and the view at one stop is the other's -69.1 px both times (-67.2 px before): fixed stops, one turn about 8,910 steps. The 1,700-step shift seen earlier came from the first sweep, which stopped turning mid-range (a stall).
 
 ## 1.11.34: second bench on a real AIRIZ
 

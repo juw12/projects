@@ -57,6 +57,5 @@ apps/glow/windows/dist/
 service-account*.json
 
 # ---- AIRIZ console: real Ziris CAD mesh for the 3D home view ----
-# Packed from the private PTB FA CAD with apps/airiz-motor/tools/pack_device_mesh.py.
-# This repo and its website are public: keep the mesh out unless the owner releases it.
-apps/airiz-motor/web/data/device-mesh.js
+# Packed from the PTB FA CAD with apps/airiz-motor/tools/pack_device_mesh.py. Released by the
+# owner for every build on 2026-11-23 (1.11.35): web/data/device-mesh.js is committed.

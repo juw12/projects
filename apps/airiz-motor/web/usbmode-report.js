@@ -41,7 +41,7 @@
 })(typeof window !== 'undefined' ? window : null, function () {
   'use strict';
 
-  const APP_VERSION = '1.11.34';
+  const APP_VERSION = '1.11.35';
   const REPORT_URL = 'wss://airiz-relay.juw12.workers.dev/v1/report';
   // The same origins the relay accepts; other hosts (other sites, localhost tests) do not use the relay.
   const REPORT_ORIGINS = ['https://juw12.github.io', 'airiz://app', 'capacitor://localhost', 'https://localhost'];

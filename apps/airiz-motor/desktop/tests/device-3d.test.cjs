@@ -157,12 +157,15 @@ test('the numbers and the sensor tags need no CAD mesh: they also stand on the d
   assert.equal(META.strokeMm, 30);
 });
 
-test('the CAD mesh is optional: not in the offline list and not in the public repository', () => {
+test('the CAD mesh is in every build (1.11.35): in the repository and in the offline list', () => {
   const worker = fs.readFileSync(path.join(WEB, 'sw.js'), 'utf8');
   assert.match(worker, /'\.\/device-3d\.js'/);
-  assert.doesNotMatch(worker, /device-mesh/);
+  assert.match(worker, /'\.\/data\/device-mesh\.js'/);
+  const mesh = path.join(WEB, 'data', 'device-mesh.js');
+  assert.ok(fs.existsSync(mesh), 'web/data/device-mesh.js is committed');
+  assert.ok(fs.statSync(mesh).size > 1000000, 'the full Ziris mesh, not a stub');
   const ignoreFile = path.join(REPO, '.gitignore');
   if (fs.existsSync(ignoreFile)) {
-    assert.match(fs.readFileSync(ignoreFile, 'utf8'), /^apps\/airiz-motor\/web\/data\/device-mesh\.js$/m);
+    assert.doesNotMatch(fs.readFileSync(ignoreFile, 'utf8'), /^apps\/airiz-motor\/web\/data\/device-mesh\.js$/m);
   }
 });

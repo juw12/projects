@@ -10,7 +10,7 @@
 
 <p align="center">
   <a href="https://juw12.github.io/projects/airiz-motor/"><b>Try it live</b></a> ·
-  <a href="https://github.com/juw12/projects/releases/tag/airiz-desktop-v1.11.34"><b>Download</b></a> ·
+  <a href="https://github.com/juw12/projects/releases/tag/airiz-desktop-v1.11.35"><b>Download</b></a> ·
   <a href="#see-it-in-action">See it in action</a> ·
   <a href="#highlights">Highlights</a> ·
   <a href="https://github.com/juw12">More by juw12</a>
@@ -18,7 +18,7 @@
 
 <p align="center">
   <a href="https://github.com/juw12/projects/tree/main/apps/airiz-motor"><img src="https://img.shields.io/github/last-commit/juw12/projects?path=apps%2Fairiz-motor&label=updated&color=a3e635" alt="Last updated"></a>
-  <a href="https://github.com/juw12/projects/releases/tag/airiz-desktop-v1.11.34"><img src="https://img.shields.io/badge/download-airiz--desktop--v1.11.34-a3e635" alt="Download"></a>
+  <a href="https://github.com/juw12/projects/releases/tag/airiz-desktop-v1.11.35"><img src="https://img.shields.io/badge/download-airiz--desktop--v1.11.35-a3e635" alt="Download"></a>
   <a href="https://juw12.github.io/projects/airiz-motor/"><img src="https://img.shields.io/badge/demo-live-2ea44f" alt="Live demo"></a>
   <img src="https://img.shields.io/badge/Windows-24292f" alt="Windows">
   <img src="https://img.shields.io/badge/Android-24292f" alt="Android">
@@ -79,7 +79,7 @@ A downloadable Windows x64 desktop edition now bundles this entire console local
 It is not a website shortcut and does not require Chrome, Edge, Node or Python to run.
 Installer and portable preview builds are available at:
 
-https://github.com/juw12/projects/releases/tag/airiz-desktop-v1.11.34
+https://github.com/juw12/projects/releases/tag/airiz-desktop-v1.11.35
 
 The initial binaries are unsigned. The packaged app was tested with demo/synthetic
 hardware; real-device bench validation is still required. Browser and mobile-web
@@ -111,6 +111,8 @@ streams the AIRIZ microphone back in 2-second clips, about 4 s behind live. Phon
 that has the AIRIZ on USB. Stop motor still works and also interrupts a message being sent. Tested
 against a simulated AIRIZ shell (busybox), not yet on real AIRIZ hardware; the sound format and the
 record/play commands can be changed under *Voice settings*.
+
+**The real Ziris 3D unit in every version (1.11.35):** the Ziris CAD mesh (`web/data/device-mesh.js`, 1.49 MB) is now in this repository, so the Motion controller shows the real unit in 3D on the website, in the Windows app, in the Android/iOS packages and on AICC (released by the owner, 23 Nov 2026); the drawn picture stays as the fallback. Pan end stops checked again: three stop-to-stop sweeps gave 8,556 to 8,580 steps and the view at each stop came back within a few pixels, so the stops are fixed and one turn is about 8,900 steps; the first long sweep of the morning had stalled about 1,700 steps before the real stop. AIRIZ Mobile 1.0.13 is rebuilt from this console (with the corrected jog speed labels).
 
 **Second bench on a real AIRIZ: real step times, stop, end stops, one pan turn (1.11.34):** the rest of the motor list was run on a real AIRIZ (firmware 0.0.0.3), checked with the AIRIZ camera picture and the bottom switch. **X is the time per step in ms** (pan X = 2, 5, 10, 17, 34 ran at 1.95, 5.0, 10.1, 16.9, 17.1 ms; rising X = 3, 10, 30, 60 at 3.0, 10.0, 30.0, 30.0 ms), the slowest being 17 (pan) and 30 (rising), and no steps were lost at X = 2 / 3. Every move is now timed with this law. **Stop** (`echo 0 > /sys/devices/platform/soc/soc:motor/status`) stops the motor at once and the firmware count stays right (a 1,000-step pan stopped after 2 s: 117 steps counted, 24.9 px of picture shift = 117 steps), so after a stop the console sets the position from the firmware count. **A motor command sent while a move runs is ignored** by the firmware (answered `#INFO#0#END#`, not run), so the console holds a new move back until the running one is over; Stop motor cancels it. **Pan** has hard end stops about 8,570 steps apart, and the picture at one stop is the other stop's picture about 320 steps on, so **one turn is about 8,900 steps** (was 4,800). **Rising**: 1,080 steps from the top stop down to the switch, about 1,100 in all. **Bottom switch**: reads `0:Pressed` at the bottom after the AIRIZ is plugged in, never after it restarted by itself (USB mode change or `reboot`). **msc** works (back in about 9 s as a 10 MB USB disk plus the serial port). AIRIZ Mobile 1.0.12 is rebuilt from this console.
 
@@ -281,7 +283,7 @@ A complete, production-quality, dependency-free browser app that replaces the Te
 - **Device Audio Auto-Save**: after each DMIC record, the console pulls the WAV off the device over serial and saves it to a folder
 - **PWA Support**: Installable app with offline caching via service worker
 - **Demo Mode**: Test the full UI without hardware connected
-- **3D unit on the Motor control page**: the Ziris unit rises, lowers and pans with the commands that were sent, with an X-ray and an Opaque view. The numbers and the sensor tags beside it (1.11.30) need no mesh. It needs `web/data/device-mesh.js`, which is not in this repo (see Files); without it the page shows the drawn picture
+- **3D unit on the Motor control page**: the Ziris unit rises, lowers and pans with the commands that were sent, with an X-ray and an Opaque view. The numbers and the sensor tags beside it (1.11.30) need no mesh. The Ziris CAD mesh (`web/data/device-mesh.js`) is in every build since 1.11.35 (website, Windows app, Android/iOS packages, AICC); if it cannot be loaded the page shows the drawn picture
 
 ## Files
 
@@ -298,7 +300,7 @@ apps/airiz-motor/web/
   data/
     commands.js        # Command library (read-only)
     macros.js          # Macro definitions (read-only)
-    device-mesh.js     # Ziris CAD mesh for the 3D unit (git-ignored, optional)
+    device-mesh.js     # Ziris CAD mesh for the 3D unit (in every build since 1.11.35)
 ```
 
 The 3D unit mesh is packed from the unit CAD of the PTB FA Simulation (private, not in this repo):
