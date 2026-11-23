@@ -14,6 +14,15 @@ Sent Items entry, it:
 4. Moves the item from the live mailbox into the *Archives* PST (its Inbox /
    Sent Items folder). The live mailbox's Inbox and Sent Items views stay empty.
 
+## Get it on your device
+
+- **Windows:** [`OutlookArchiver-Windows-Setup.exe`](https://github.com/juw12/projects/releases/download/outlook-archiver-desktop/OutlookArchiver-Windows-Setup.exe) (no admin needed; if Windows says it protected your PC, choose *More info → Run anyway*), or without installing [`OutlookArchiver-Windows-Portable.zip`](https://github.com/juw12/projects/releases/download/outlook-archiver-desktop/OutlookArchiver-Windows-Portable.zip).
+- **Mac:** [`OutlookArchiver-macOS-AppleSilicon.dmg`](https://github.com/juw12/projects/releases/download/outlook-archiver-desktop/OutlookArchiver-macOS-AppleSilicon.dmg) (M1 and newer) or [`OutlookArchiver-macOS-Intel.dmg`](https://github.com/juw12/projects/releases/download/outlook-archiver-desktop/OutlookArchiver-macOS-Intel.dmg). The first time, macOS blocks it because it is not notarized: **System Settings → Privacy & Security → Open Anyway**.
+- **Android:** [`OutlookArchiver-android.apk`](https://github.com/juw12/projects/releases/download/outlook-archiver-android/OutlookArchiver-android.apk): open the file on the phone and allow your browser to install apps once.
+- **iPhone:** open https://juw12.github.io/projects/outlook-archiver/ in Safari, tap Share, then **Add to Home Screen**.
+
+The Windows, Mac and Android apps open the Outlook Archiver guide (https://juw12.github.io/projects/outlook-archiver/: this README laid out for a phone, readable without a connection) in its own window ([`desktop/`](desktop/README.md), [`android/`](android/README.md)) and change with it. Outlook Archiver itself runs on a computer and is installed the way this README says; the apps do not contain it. Each build is opened on GitHub's machines before it is published: on Windows and on a Mac the page loads, the app starts and can store data; on an Android emulator it installs, opens and stays up. They are not code-signed or notarised, and no real phone or PC has run them yet.
+
 ## Contents
 
 | File | Purpose |
