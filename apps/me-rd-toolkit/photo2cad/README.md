@@ -47,7 +47,7 @@
 - **Android:** [`DatumCAD-android.apk`](https://github.com/juw12/projects/releases/download/photo2cad-android/DatumCAD-android.apk): open the file on the phone and allow your browser to install apps once.
 - **iPhone:** open https://juw12.github.io/projects/datum-cad/ in Safari, tap Share, then **Add to Home Screen**.
 
-The Windows, Mac and Android apps are the web app in its own window ([`desktop/`](desktop/README.md), [`android/`](android/README.md)) and change with it. Each build is opened on GitHub's machines before it is published: on Windows and on a Mac the page loads, the app starts and can store data; on an Android emulator it installs, opens and stays up. They are not code-signed or notarised, and no real phone or PC has run them yet.
+The Windows, Mac and Android apps open the Datum CAD guide (https://juw12.github.io/projects/datum-cad/: this README laid out for a phone, readable without a connection) in its own window ([`desktop/`](desktop/README.md), [`android/`](android/README.md)) and change with it. Datum CAD itself runs on a computer and is installed the way this README says; the apps do not contain it. Each build is opened on GitHub's machines before it is published: on Windows and on a Mac the page loads, the app starts and can store data; on an Android emulator it installs, opens and stays up. They are not code-signed or notarised, and no real phone or PC has run them yet.
 
 ## About
 
