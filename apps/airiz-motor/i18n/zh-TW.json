@@ -1334,7 +1334,7 @@
     "Connected to the AIRIZ PC. Its camera preview is not running yet: the picture appears as soon as Camera → Start Preview runs on that PC.": "已連線到 AIRIZ PC，但其相機預覽尚未執行：只要該 PC 上的 相機 → 開始預覽 一執行，畫面就會出現。",
     "waiting for PC": "等待 PC",
     "paused": "已暫停",
-    "Speed uses the firmware’s native scale, not RPM. Jog controls start at 100 steps; presets set both axes to 100, 600 or 1100 steps.": "速度採用韌體原生刻度，不是 RPM。點動控制從 100 步開始；預設值可將兩軸設為 100、600 或 1100 步。",
+    "X is the time per step in ms, as measured on a real AIRIZ: 1 is the fastest, 17 (pan) and 30 (rising) the slowest. Jog controls start at 100 steps; presets set both axes to 100, 600 or 1100 steps.": "X 是每步的時間（毫秒），依實際 AIRIZ 量測：1 最快，17（水平）與 30（升降）最慢。點動控制從 100 步開始；預設會把兩軸設為 100、600 或 1100 步。",
     "Left/right: same direction": "左右：同方向",
     "Left/right: opposite direction": "左右：反方向",
     "Left/right now opposite: left sends pan reverse (old mapping).": "左右已改為反方向：左鍵送出水平反轉（舊的對應）。",
@@ -1661,7 +1661,9 @@
     "camera differs ⚠": "相機量到的不同 ⚠",
     "camera watching…": "相機觀察中…",
     "The bottom switch is still pressed although the camera was sent up: it may not have risen. Use Find rising home to check.": "相機已送出上升指令，但底部開關仍按下：可能沒有升起。請用「尋找升降原點」檢查。",
-    "The camera picture did not move during the last turn. Check that the preview shows the AIRIZ camera and that the camera really turns.": "上一次轉動時相機畫面沒有移動。請確認預覽顯示的是 AIRIZ 相機，且相機確實有轉動。"
+    "The camera picture did not move during the last turn. Check that the preview shows the AIRIZ camera and that the camera really turns.": "上一次轉動時相機畫面沒有移動。請確認預覽顯示的是 AIRIZ 相機，且相機確實有轉動。",
+    "Step time (ms)": "每步時間（毫秒）",
+    "Slower": "更慢"
   },
   "html": {
     "AIRIZDEVICE LAB": "AIRIZ<small>裝置實驗室</small>",
@@ -1687,7 +1689,7 @@
     "No hardware? Press Try demo to explore every page with a simulated device; nothing moves.": "沒有硬體？按 <strong>Try demo</strong>，以模擬裝置瀏覽所有頁面，不會有任何東西移動。",
     "2 Motor control": "<span>2</span> 馬達控制",
     "Each click on the jog pad (or arrow key) sends one finite jog – pan left/right, rising up/down. Nothing runs continuously.": "點動面板（或方向鍵）每按一次送出 <strong>一次有限點動</strong> — 水平左／右、升降上／下，不會連續運轉。",
-    "Set Speed / strength (pan 1–17, rising 1–30, firmware scale, not RPM) and Steps, or use the Fine/Medium/Coarse presets.": "設定 <em>速度／力道</em>（水平 1–17、升降 1–30，為韌體刻度而非 RPM）與 <em>步數</em>，或使用 Fine/Medium/Coarse 預設。",
+    "Set Step time (pan 1–17, rising 1–30 ms per step; smaller is faster) and Steps, or use the Fine/Medium/Coarse presets.": "設定 <em>每步時間</em>（水平 1–17、升降 1–30 毫秒；越小越快）與 <em>步數</em>，或使用 Fine/Medium/Coarse 預設。",
     "The switch next to the pad locks new jogs; Stop motor (or Esc) stops a move already running.": "點動面板旁的開關可鎖定新的點動；<strong>Stop motor</strong>（或 Esc）可停止進行中的動作。",
     "3 Commands & macros": "<span>3</span> 指令與巨集",
     "Command library: search every diagnostic command, fill in parameters and press Send. Reboot-type commands ask first.": "<strong>指令庫</strong>：搜尋所有診斷指令，填入參數後按 Send。會重新開機的指令會先確認。",
