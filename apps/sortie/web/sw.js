@@ -1,5 +1,5 @@
 // Minimal offline cache so Sortie can be installed as an app (PWA) when hosted over https.
-const CACHE = "sortie-v5";
+const CACHE = "sortie-v6";
 const ASSETS = [
   "./",
   "./index.html",
