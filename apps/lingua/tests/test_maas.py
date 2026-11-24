@@ -110,6 +110,10 @@ class TranslateRequestShapeTests(unittest.TestCase):
         result, _ = self._call("Hello", "English", content="\n\nBonjour\n")
         self.assertEqual(result, "Bonjour")
 
+    def test_translate_strips_reasoning_blocks(self):
+        result, _ = self._call("Hello", "French", content="<think>the user wants French</mm:think>\nBonjour")
+        self.assertEqual(result, "Bonjour")
+
 
 class ErrorHandlingTests(unittest.TestCase):
     def test_http_error_raises_maas_error(self):

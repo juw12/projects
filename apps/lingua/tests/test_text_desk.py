@@ -48,6 +48,7 @@ class JobTests(unittest.TestCase):
 
     def test_finish_and_script(self):
         self.assertEqual(text_desk.finish("<think>hmm</think>\n\"会议室\"", TW), "會議室")
+        self.assertEqual(text_desk.finish("<think>let me see\n- meeting room</mm:think>\n会议室", TW), "會議室")
         self.assertEqual(text_desk.finish("會議室 https://a.b/會", "Simplified Chinese (简体中文)"),
                          "会议室 https://a.b/會")
         self.assertEqual(text_desk.finish("Hello", "English"), "Hello")
