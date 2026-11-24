@@ -345,6 +345,8 @@ function isMatchingQuotePair(open, close) {
 // Strip leading blank lines and cosmetic wrapping quotes from model output.
 export function clean(text) {
   if (typeof text !== "string") return "";
+  // Reasoning blocks a model may put before its answer, also namespaced ones (<think>...</mm:think>).
+  text = text.replace(/<(?:[\w-]+:)?think>[\s\S]*?<\/(?:[\w-]+:)?think>\s*/g, "");
   let lines = text.split("\n");
   while (lines.length > 0 && lines[0].trim() === "") lines.shift();
   let out = lines.join("\n").trim();

@@ -17,6 +17,7 @@ import base64
 import json
 import time
 import os
+import re
 
 import requests
 
@@ -121,6 +122,9 @@ LANGUAGES = {
     "हिन्दी": "Hindi (हिन्दी)",
 }
 
+#: Reasoning blocks a model may put before its answer, also namespaced ones (<think>...</mm:think>).
+_THINK_RE = re.compile(r"<(?:[\w-]+:)?think>.*?</(?:[\w-]+:)?think>\s*", re.DOTALL)
+
 #: Pairs recognised when stripping cosmetic wrapping quotes off model output.
 _QUOTE_PAIRS = {'"': '"', "'": "'", "\u201c": "\u201d", "\u2018": "\u2019"}
 
@@ -169,6 +173,7 @@ def _clean(text: str) -> str:
     """Strip leading blank lines and cosmetic wrapping quotes from model output."""
     if not isinstance(text, str):
         return ""
+    text = _THINK_RE.sub("", text)
     lines = text.split("\n")
     while lines and not lines[0].strip():
         lines.pop(0)

@@ -44,7 +44,9 @@ ENGINES = {
 
 URL_RE = re.compile(r"https?://[^\s<>]*[^\s<>.,;:!?)\]}'\"\u3002\uff0c\u3001]")
 NUMBER_RE = re.compile(r"\d+(?:[.,:]\d+)*")
-THINK_RE = re.compile(r"<think>.*?</think>", re.DOTALL)
+# Reasoning blocks, also namespaced or mismatched ones such as <think>...</mm:think> (MiniMax-M3 on the gateway).
+THINK_RE = re.compile(r"<(?:[\w-]+:)?think>.*?</(?:[\w-]+:)?think>\s*", re.DOTALL)
+THINK_TAG_RE = re.compile(r"</?(?:[\w-]+:)?think>")
 _converters: dict = {}
 
 
@@ -180,7 +182,7 @@ def review_warnings(job: TextJob, translated: str) -> list[str]:
         if (entry["source"].casefold() in job.text.casefold()
                 and entry["target"].casefold() not in translated.casefold()):
             warnings.append("Check glossary: preferred term '{}' was not used.".format(entry["target"]))
-    if "<think>" in translated or "</think>" in translated:
+    if THINK_TAG_RE.search(translated):
         warnings.append("The model emitted reasoning tags; prefer qwen3:8b.")
     return warnings
 
