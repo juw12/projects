@@ -460,5 +460,7 @@ async function openFolderPicker() {
     await loadLive(root);
   } catch (err) {
     if (err.name !== "AbortError") toast(`Couldn't open folder: ${err.message}`);
+    // The Windows app (a WebView2 window) refuses the folder picker at once with AbortError: say so.
+    else if (window.pywebview) toast("The Windows app can't open real folders. Open juw12.github.io/projects/sortie in Chrome or Edge for that.", { ms: 6000 });
   }
 }
