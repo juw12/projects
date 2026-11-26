@@ -17,6 +17,9 @@ concurrency:
   group: haru-ios-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   build-test-screenshots:
     runs-on: macos-15
