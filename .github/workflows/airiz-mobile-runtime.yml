@@ -16,12 +16,12 @@ jobs:
   inspect:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '21'
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: AIRIZ-Android
           run-id: ${{ inputs.build_run }}
@@ -48,7 +48,7 @@ jobs:
             adb logcat -d -t 2000 > apps/airiz-motor/mobile/dist/android-runtime-log.txt
             adb exec-out screencap -p > apps/airiz-motor/mobile/dist/android-runtime.png
             adb shell dumpsys activity top > apps/airiz-motor/mobile/dist/android-activity.txt
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: AIRIZ-Android-diagnostics

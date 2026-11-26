@@ -45,7 +45,7 @@ jobs:
           if ! [[ "$MINUTES" =~ ^[0-9]{1,2}$ ]] || [ "$MINUTES" -lt 5 ] || [ "$MINUTES" -gt 30 ]; then
             echo "MINUTES=20" >> "$GITHUB_ENV"
           fi
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           sparse-checkout: apps/glow/hands
       - name: Install Glow Hands (Linux installer)

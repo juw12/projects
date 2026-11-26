@@ -32,8 +32,8 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
       - name: Install PyInstaller, Pillow, pywebview and pywin32
@@ -87,7 +87,7 @@ jobs:
           if (Test-Path $app) { throw 'Uninstalling left ME-RD-Toolkit.exe behind' }
           foreach ($link in $shortcuts) { if (Test-Path $link) { throw "Uninstalling left a shortcut: $link" } }
           Write-Host 'Installed, ran and uninstalled cleanly'
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: ME-RD-Toolkit-Windows
           path: apps/me-rd-toolkit/desktop/dist/ME-RD-Toolkit-*
@@ -101,7 +101,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: ME-RD-Toolkit-Windows
           path: dist

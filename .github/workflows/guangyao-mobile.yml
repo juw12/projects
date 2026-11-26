@@ -29,11 +29,11 @@ jobs:
       run:
         working-directory: apps/guangyao/mobile
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: '22'
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '21'
@@ -68,7 +68,7 @@ jobs:
             "$APKSIGNER" verify --print-certs dist/GuangYao-android.apk > dist/android-signature.txt
             grep -qi "$(tr -d '\r\n' < android-certificate-sha256.txt)" dist/android-signature.txt
           fi
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: GuangYao-Android
           path: apps/guangyao/mobile/dist
@@ -79,12 +79,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
         with:
           name: GuangYao-Android
           path: apps/guangyao/mobile/dist
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
       - run: python -m pip install websocket-client
@@ -103,7 +103,7 @@ jobs:
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none
           script: python apps/guangyao/mobile/scripts/android-smoke.py apps/guangyao/mobile/dist/GuangYao-debug.apk
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: GuangYao-Android-emulator
@@ -119,8 +119,8 @@ jobs:
       run:
         working-directory: apps/guangyao/mobile
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: '22'
       - name: Prepare the iOS project
@@ -164,7 +164,7 @@ jobs:
           test -f "$APP/public/offline.html"
           unzip -l dist/GuangYao-iOS.ipa | grep -q 'Payload/App.app/Info.plist'
           ls -l dist/GuangYao-iOS.ipa
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: GuangYao-iOS
           path: apps/guangyao/mobile/dist
@@ -177,7 +177,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: GuangYao-iOS
           path: dist
@@ -214,7 +214,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: GuangYao-Android
           path: dist

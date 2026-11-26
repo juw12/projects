@@ -29,7 +29,7 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Build Glow-Setup.exe
         shell: powershell
         run: powershell -NoProfile -ExecutionPolicy Bypass -File apps/glow/windows/build.ps1 -Out dist
@@ -45,7 +45,7 @@ jobs:
           $key = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\Glow'
           if (-not (Test-Path $key)) { throw 'Glow is missing from Settings > Apps' }
           Get-ChildItem $menu | Select-Object Name
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: Glow-Windows
           path: dist/Glow-Setup.exe
@@ -58,7 +58,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: Glow-Windows
           path: dist

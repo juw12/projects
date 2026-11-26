@@ -45,13 +45,13 @@ jobs:
           ' "$RUNNER_TEMP/run.json"
           echo "sha=$(jq -r .head_sha "$RUNNER_TEMP/run.json")" >> "$GITHUB_OUTPUT"
       - name: Read the version the build was made from
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ steps.build.outputs.sha }}
           sparse-checkout: apps/airiz-motor/desktop/package.json
           sparse-checkout-cone-mode: false
       - name: Fetch the tested executables from the build run
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: AIRIZ-Console-Windows-x64
           run-id: ${{ inputs.build_run }}

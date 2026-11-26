@@ -28,8 +28,8 @@ jobs:
       GLOW_MISSIONS: ${{ secrets.GLOW_MISSIONS }}
       GLOW_GOAL: ${{ github.event.inputs.goal }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
       - name: Find due missions
@@ -48,7 +48,7 @@ jobs:
         run: python -X utf8 apps/glow/runner/run_missions.py --out glow-reports
       - name: Keep reports
         if: always() && steps.due.outputs.count != '0'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: glow-reports
           path: glow-reports

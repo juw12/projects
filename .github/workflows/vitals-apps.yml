@@ -53,8 +53,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
       - name: Install PyInstaller (and pywebview for the Windows/Mac app window)
@@ -144,7 +144,7 @@ jobs:
           echo "Architecture: $(lipo -archs "$APP/Contents/MacOS/Vitals")"
           codesign --verify --deep --verbose=2 "$APP"
           for image in apps/vitals/desktop/dist/*.dmg; do hdiutil verify "$image"; done
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: Vitals-${{ runner.os }}-${{ runner.arch }}
           path: apps/vitals/desktop/dist/Vitals-*
@@ -158,11 +158,11 @@ jobs:
       run:
         working-directory: apps/vitals/mobile
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: '24'
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '21'
@@ -218,7 +218,7 @@ jobs:
           fi
           "$APKSIGNER" verify --print-certs dist/Vitals-Android.apk | tee dist/android-signature.txt
           ls -la dist
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: Vitals-Android
           path: apps/vitals/mobile/dist
@@ -229,12 +229,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
         with:
           name: Vitals-Android
           path: apps/vitals/mobile/dist
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
       - run: python -m pip install websocket-client
@@ -253,7 +253,7 @@ jobs:
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none
           script: python apps/vitals/mobile/scripts/android-smoke.py apps/vitals/mobile/dist/Vitals-debug.apk
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: Vitals-Android-emulator-check
@@ -269,8 +269,8 @@ jobs:
       run:
         working-directory: apps/vitals/mobile
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: '24'
       - name: Prepare the iOS project
@@ -314,7 +314,7 @@ jobs:
           lipo -info "$APP/App" | grep -q arm64
           unzip -l dist/Vitals-iPhone-unsigned.ipa | grep -q 'Payload/App.app/Info.plist'
           ls -l dist
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: Vitals-iOS
           path: apps/vitals/mobile/dist
@@ -328,7 +328,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           pattern: Vitals-*
           path: dist
