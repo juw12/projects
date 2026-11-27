@@ -59,7 +59,7 @@ TEST_FROM = 1583020800000  # 1 March 2020 UTC: the long average needs 200 candle
 CHUNK = 1000  # candles asked for in one call
 
 # fast, slow, regime, RSI from, RSI to, stop in ATRs. LIVE is PARAMS in src/strategy.js.
-LIVE = (20, 50, 200, 50, 70, 3.0)
+LIVE = (30, 80, 200, 50, 70, 4.0)
 RSI_PERIOD, ATR_PERIOD, COOLDOWN = 14, 14, 6
 FAMILY = [
     (fast, slow, regime, rsi_from, rsi_from + 20, stop)

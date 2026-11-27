@@ -60,8 +60,14 @@ test("heads-up: every level is the closing price at which the rules' own check t
     const down = 1 - 1e-7;
     assert.equal(check(judged(closed, found.trend * up), "Trend"), true);
     assert.equal(check(judged(closed, found.trend * down), "Trend"), false);
-    assert.equal(check(judged(closed, found.momentum * up), "Momentum"), true);
-    assert.equal(check(judged(closed, found.momentum * down), "Momentum"), false);
+    if (found.momentum > 0) {
+      assert.equal(check(judged(closed, found.momentum * up), "Momentum"), true);
+      assert.equal(check(judged(closed, found.momentum * down), "Momentum"), false);
+    } else {
+      // The fast average is so far above the slow one that no closing price turns momentum down
+      // at this candle: the level is under zero, and the check passes however low the close.
+      assert.equal(check(judged(closed, found.close * 1e-6), "Momentum"), true);
+    }
     // RSI passes from rsiMin to rsiMax and nowhere else.
     assert.ok(found.rsiMin < found.rsiMax);
     assert.equal(check(judged(closed, found.rsiMin * up), "RSI"), true);

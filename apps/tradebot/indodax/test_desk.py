@@ -483,7 +483,7 @@ class DeskTest(unittest.TestCase):
         rows = desk.signal_rows(desk.demo_view(NOW))
         assert [row["coin"] for row in rows] == ["BTC", "ETH", "SOL"]
         assert rows[0]["action"] == "HOLD" and rows[0]["label"] == "HOLD: keep it"
-        assert rows[1]["checks"] == [(True, "Trend", "price above the 200-candle average"), (False, "Momentum", "20-candle average below the 50-candle average"), (False, "RSI", "44 (weak: under 50)")]
+        assert rows[1]["checks"] == [(True, "Trend", "price above the 200-candle average"), (False, "Momentum", "30-candle average below the 80-candle average"), (False, "RSI", "44 (weak: under 50)")]
         assert rows[0]["change"] == "+1,8% in 24 hours" and rows[1]["change"] == "−0,6% in 24 hours"
 
     def test_a_coin_without_a_fresh_price_is_a_question_mark(self):

@@ -7,6 +7,8 @@
 // "remember" how that day went, and the backtest in tools/desk_eval.mjs replays it honestly.
 // When Workers AI is slow, down or answers nonsense, the desk stays quiet and trading goes on.
 
+import { PARAMS } from "./strategy.js";
+
 // Tried in order: when Cloudflare refuses a model for this account (error 5018) or it errors,
 // the desk asks the next one. A slow or unreadable answer does not move on (that costs time).
 export const DESK_MODELS = [
@@ -79,9 +81,9 @@ export function deskMessages(brief) {
   const lines = [
     `Proposed: buy now, sell if the price falls ${brief.stopDistancePct.toFixed(1)}% (the stop), or when the trend turns.`,
     `Candles: ${brief.timeframe}.`,
-    `Price vs its 200-candle average: ${pct(brief.aboveLongAveragePct)}.`,
-    `20-candle average vs 50-candle average: ${pct(brief.fastOverSlowPct)}.`,
-    `RSI(14): ${brief.rsi.toFixed(0)}.`,
+    `Price vs its ${PARAMS.regime}-candle average: ${pct(brief.aboveLongAveragePct)}.`,
+    `${PARAMS.fast}-candle average vs ${PARAMS.slow}-candle average: ${pct(brief.fastOverSlowPct)}.`,
+    `RSI(${PARAMS.rsiPeriod}): ${brief.rsi.toFixed(0)}.`,
     `Moves: last candle ${pct(brief.moveLastCandlePct)}, last day ${pct(brief.moveLastDayPct)}, last week ${pct(brief.moveLastWeekPct)}, last month ${pct(brief.moveLastMonthPct)}.`,
     `Below the highest price of the last 50 candles by ${brief.belowRecentHighPct.toFixed(1)}%.`,
     `A typical candle moves ${brief.candleRangePct.toFixed(1)}%.`,

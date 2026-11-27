@@ -36,7 +36,7 @@ the page").
   the finished trades, and the trading words in plain words.
 - **Agents** — the one bot shown as a desk of six roles that look one after the other: research
   analyst, market analyst, strategist, risk manager, execution trader, desk lead. Click a role
-  to read its numbers. Beside it: the chart (candles, EMA 20/50/200, SMA 200, RSI 14, the plan's
+  to read its numbers. Beside it: the chart (candles, EMA 30/80/200, SMA 200, RSI 14, the plan's
   three prices, a mark at every buy and sale), the live feed, the trades, and the analysis.
 - **Study** — the score from 0 to 10 for how far the rules are proven, and what is still being
   collected.

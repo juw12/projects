@@ -396,7 +396,7 @@ export async function play() {
   await waitUntil("2026-01-16T01:00Z");
   lines.push(`_${wibClock(now())}_`, "");
   await say("/unwatch ADA");
-  await waitUntil("2026-01-18T02:00Z");
+  await waitUntil("2026-01-19T02:00Z"); // the slide turns XRP's momentum down at the close of 19 Jan 07:00 WIB: the sale by rule
   lines.push(`_${wibClock(now())}_`, "");
   await say("/status");
   await say("/history");

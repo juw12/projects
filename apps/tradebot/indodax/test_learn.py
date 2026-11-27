@@ -9,6 +9,7 @@ import io
 import json
 import math
 import random
+import re
 import tempfile
 import unittest
 from pathlib import Path
@@ -17,7 +18,7 @@ from unittest import mock
 import learn
 
 HOUR4 = learn.FOUR_HOURS
-SMALL_FAMILY = [learn.LIVE, (10, 30, 150, 50, 70, 2.0), (30, 80, 200, 50, 70, 4.0)]
+SMALL_FAMILY = [learn.LIVE, (10, 30, 150, 50, 70, 2.0), (20, 50, 200, 50, 70, 3.0)]  # three different versions
 
 
 def candles(count, seed=7, start=learn.TEST_FROM - 400 * HOUR4):
@@ -52,6 +53,17 @@ def small_study(rows, now=None, previous=None, measured=None, family=None, revie
 class Replay(unittest.TestCase):
     def setUp(self):
         self.rows = candles(3000)
+
+    def test_the_live_rules_are_the_rules_the_worker_trades_by(self):
+        strategy = Path(__file__).resolve().parent.parent / "src" / "strategy.js"
+        if not strategy.exists():
+            self.skipTest("src/strategy.js is not in this folder (a run folder holds the sender only)")
+        block = re.search(r"export const PARAMS = \{(.*?)\};", strategy.read_text(encoding="utf-8"), re.S).group(1)
+        params = {name: float(value) for name, value in re.findall(r"(\w+): ([0-9.]+)", block)}
+        worker = tuple(params[name] for name in ("fast", "slow", "regime", "rsiMin", "rsiMax", "stopAtr"))
+        self.assertEqual(worker, tuple(float(value) for value in learn.LIVE))
+        periods = (params["rsiPeriod"], params["atrPeriod"], params["cooldown"])
+        self.assertEqual(periods, (learn.RSI_PERIOD, learn.ATR_PERIOD, learn.COOLDOWN))
 
     def test_the_live_rules_trade_exactly_like_the_plan_test(self):
         trades = learn.replay(learn.Series(self.rows), learn.LIVE)

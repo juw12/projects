@@ -3,10 +3,10 @@
 The same rules the Cloudflare TradeBot trades (apps/tradebot/src/strategy.js), so the two bots can be
 compared side by side and freqtrade's mature engine can double-check TradeBot's own backtest:
 
-  buy    the close is above its 200-candle average (trend), the 20-candle average is above the
-         50-candle average (momentum) and RSI(14) is between 50 and 70 (rising, not overheated);
+  buy    the close is above its 200-candle average (trend), the 30-candle average is above the
+         80-candle average (momentum) and RSI(14) is between 50 and 70 (rising, not overheated);
   sell   when momentum turns down or the close falls under the 200-candle average;
-  stop   3 ATR(14) under the close, following the price up and never down;
+  stop   4 ATR(14) under the close, following the price up and never down;
   size   so that hitting the stop costs about 1% of the account, at most 25% of it in one coin;
   wait   6 candles after a sale before buying the same coin again.
 
@@ -22,14 +22,14 @@ from pandas import DataFrame, Series
 from freqtrade.persistence import Trade
 from freqtrade.strategy import IStrategy, stoploss_from_absolute
 
-FAST = 20
-SLOW = 50
+FAST = 30
+SLOW = 80
 REGIME = 200
 RSI_PERIOD = 14
 RSI_MIN = 50
 RSI_MAX = 70
 ATR_PERIOD = 14
-STOP_ATR = 3.0
+STOP_ATR = 4.0
 COOLDOWN = 6
 RISK_PCT = 1.0
 MAX_POSITION_PCT = 25.0
@@ -88,7 +88,7 @@ class TradeBotTrend(IStrategy):
     startup_candle_count = REGIME + 30
     process_only_new_candles = True
 
-    # The real stop is custom_stoploss (3 ATR, trailing); this is only a last-resort floor.
+    # The real stop is custom_stoploss (STOP_ATR, trailing); this is only a last-resort floor.
     stoploss = -0.5
     use_custom_stoploss = True
     trailing_stop = False

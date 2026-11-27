@@ -40,10 +40,10 @@ TIMEFRAMES = [
     {"key": "15m", "tf": "15", "seconds": 900, "name": "15 minutes", "role": "timing"},
 ]
 FRAME = {frame["key"]: frame for frame in TIMEFRAMES}
-CANDLES = 320  # read per chart: the 200-candle averages need 200 before their first value
-FAST, SLOW, LONG = 20, 50, 200  # the averages of the rules that trade (learn.LIVE)
-RSI_FROM, RSI_TO = 50, 70
-STOP_ATR = 3.0  # the rules' stop: this many ATR under the price
+CANDLES = 320  # read per chart: the long averages need their 200 candles before their first value
+# The rules that trade, read from learn.LIVE so they are written in one place on this side:
+# the fast, slow and long averages, the RSI band of a buy, and the stop in ATR under the price.
+FAST, SLOW, LONG, RSI_FROM, RSI_TO, STOP_ATR = learn.LIVE
 REWARD = 3.0  # the 1:3 mark: this many times the risk above the entry
 RANGE_CANDLES = 20
 WIB = 7 * 3600
@@ -232,8 +232,8 @@ def indicators(rows: list) -> dict:
     """Every line the chart draws, one value per candle (None where there are too few candles)."""
     closes = [row["c"] for row in rows]
     return {
-        "ema20": learn.ema(closes, FAST),
-        "ema50": learn.ema(closes, SLOW),
+        "emaFast": learn.ema(closes, FAST),
+        "emaSlow": learn.ema(closes, SLOW),
         "ema200": learn.ema(closes, LONG),
         "sma200": sma(closes, LONG),
         "rsi": learn.rsi(closes, learn.RSI_PERIOD),
@@ -245,18 +245,18 @@ def rsi_words(value) -> str:
     if value is None:
         return "not enough candles"
     if value >= RSI_TO:
-        return "overheated: above 70"
+        return f"overheated: above {RSI_TO}"
     if value >= RSI_FROM:
         return "rising, not overheated"
     if value > 30:
-        return "weak: under 50"
+        return f"weak: under {RSI_FROM}"
     return "sold hard: under 30"
 
 
 def reading(rows: list, key: str = "") -> dict:
     """What one chart says now, with the candle that is still running counted in.
 
-    {key, bias: up / down / mixed / none, price, ema20, ema50, ema200, sma200, rsi, atr,
+    {key, bias: up / down / mixed / none, price, emaFast, emaSlow, ema200, sma200, rsi, atr,
      trend, momentum, low, high, text}
     """
     empty = {"key": key, "bias": "none", "price": 0.0, "text": "no candles yet"}
@@ -264,7 +264,7 @@ def reading(rows: list, key: str = "") -> dict:
         return empty
     lines = indicators(rows)
     price = rows[-1]["c"]
-    fast, slow, long_average, plain = lines["ema20"][-1], lines["ema50"][-1], lines["ema200"][-1], lines["sma200"][-1]
+    fast, slow, long_average, plain = lines["emaFast"][-1], lines["emaSlow"][-1], lines["ema200"][-1], lines["sma200"][-1]
     strength, spread = lines["rsi"][-1], lines["atr"][-1]
     momentum = fast > slow
     trend = None if long_average is None else price > long_average
@@ -272,12 +272,12 @@ def reading(rows: list, key: str = "") -> dict:
     bias = "up" if momentum and above else "down" if not momentum and not above else "mixed"
     recent = rows[-RANGE_CANDLES:]
     parts = [
-        ("price above" if above else "price under") + (" the 200 average" if trend is not None else " the 50 average"),
-        "20 above 50" if momentum else "20 under 50",
+        ("price above" if above else "price under") + (f" the {LONG} average" if trend is not None else f" the {SLOW} average"),
+        f"{FAST} above {SLOW}" if momentum else f"{FAST} under {SLOW}",
         f"RSI {round(strength)}" if strength is not None else "",
     ]
     return {
-        "key": key, "bias": bias, "price": price, "ema20": fast, "ema50": slow, "ema200": long_average, "sma200": plain,
+        "key": key, "bias": bias, "price": price, "emaFast": fast, "emaSlow": slow, "ema200": long_average, "sma200": plain,
         "rsi": strength, "atr": spread, "trend": trend, "momentum": momentum,
         "low": min(row["l"] for row in recent), "high": max(row["h"] for row in recent),
         "text": ", ".join(part for part in parts if part),
@@ -296,8 +296,8 @@ def caption(found: dict) -> str:
     parts = [f"{found['key']}: {BIAS_WORDS[found['bias']]}"]
     if found.get("ema200"):
         away = (price / found["ema200"] - 1) * 100
-        parts.append(f"price {pct(abs(away))} {'above' if away >= 0 else 'under'} EMA 200")
-    parts.append(f"EMA 20 {'above' if found['momentum'] else 'under'} EMA 50")
+        parts.append(f"price {pct(abs(away))} {'above' if away >= 0 else 'under'} EMA {LONG}")
+    parts.append(f"EMA {FAST} {'above' if found['momentum'] else 'under'} EMA {SLOW}")
     if found.get("rsi") is not None:
         parts.append(f"RSI {round(found['rsi'])} ({rsi_words(found['rsi'])})")
     if found.get("atr") and price > 0:
@@ -313,14 +313,14 @@ def analysis(found: dict) -> list:
     lines = []
     if found.get("ema200"):
         away = (price / found["ema200"] - 1) * 100
-        lines.append(f"Trend: price {price_text(price, top)} is {pct(abs(away))} {'above' if away >= 0 else 'under'} its 200-candle average (EMA 200), so the long direction is {'up' if away >= 0 else 'down'}.")
+        lines.append(f"Trend: price {price_text(price, top)} is {pct(abs(away))} {'above' if away >= 0 else 'under'} its {LONG}-candle average (EMA {LONG}), so the long direction is {'up' if away >= 0 else 'down'}.")
     else:
-        lines.append("Trend: fewer than 200 candles, so the 200-candle average is not drawn yet.")
-    lines.append(f"Momentum: EMA 20 is {'above' if found['momentum'] else 'under'} EMA 50, so it has been {'rising' if found['momentum'] else 'falling'} lately.")
+        lines.append(f"Trend: fewer than {LONG} candles, so the {LONG}-candle average is not drawn yet.")
+    lines.append(f"Momentum: EMA {FAST} is {'above' if found['momentum'] else 'under'} EMA {SLOW}, so it has been {'rising' if found['momentum'] else 'falling'} lately.")
     if found.get("rsi") is not None:
         lines.append(f"RSI {round(found['rsi'])}: {rsi_words(found['rsi'])}. The rules buy only between {RSI_FROM} and {RSI_TO}.")
     if found.get("sma200"):
-        lines.append(f"SMA 200 at {price_text(found['sma200'], top)}: price is {'above' if price > found['sma200'] else 'under'} it.")
+        lines.append(f"SMA {LONG} at {price_text(found['sma200'], top)}: price is {'above' if price > found['sma200'] else 'under'} it.")
     swing = f" One candle moves about {pct(found['atr'] / price * 100, 2)} (ATR)." if found.get("atr") and price > 0 else ""
     lines.append(f"Last {RANGE_CANDLES} candles: low {price_text(found['low'], top)}, high {price_text(found['high'], top)}.{swing}")
     return lines
@@ -453,8 +453,8 @@ HELD_NAMES = {"buy": "Hold", "lean_buy": "Hold, watch closely", "wait": "Hold, w
 def debate(readings: dict, signal=None, held: bool = False) -> dict:
     """The case for a buy against the case for staying out, point by point, from the four charts.
 
-    Each chart gives up to three points: price against its 200 average, EMA 20 against EMA 50, and
-    RSI inside or outside the rules' 50 to 70. A wider chart counts for more (WEIGHTS).
+    Each chart gives up to three points: price against its long average, the fast EMA against the
+    slow one, and RSI inside or outside the rules' band. A wider chart counts for more (WEIGHTS).
     {pro: [text], con: [text], share: 0..100 of the weight that is for a buy (None: no chart read),
      rating: one of RATINGS, name, step: 1..5, text}
     The rating never orders: the bot buys and sells by the rules' checks alone.
@@ -466,8 +466,8 @@ def debate(readings: dict, signal=None, held: bool = False) -> dict:
             continue
         points = []
         if found.get("trend") is not None:
-            points.append((found["trend"], f"price {'above' if found['trend'] else 'under'} its 200-candle average"))
-        points.append((bool(found.get("momentum")), f"EMA 20 {'above' if found.get('momentum') else 'under'} EMA 50"))
+            points.append((found["trend"], f"price {'above' if found['trend'] else 'under'} its {LONG}-candle average"))
+        points.append((bool(found.get("momentum")), f"EMA {FAST} {'above' if found.get('momentum') else 'under'} EMA {SLOW}"))
         if found.get("rsi") is not None:
             points.append((RSI_FROM <= found["rsi"] < RSI_TO, f"RSI {round(found['rsi'])}, {rsi_words(found['rsi']).split(':')[0]}"))
         for good, words in points:
@@ -720,7 +720,7 @@ def strategy_agent(signal, readings: dict, report: dict, coin: str, now_ms, rows
             lines.append(("info", f"Plan of the coin held: paid {bridge.rp(rows_plan['entry'])} a coin, first stop {bridge.rp(rows_plan['stop'])} (risk {pct(rows_plan['riskPercent'])}), 1:3 mark {bridge.rp(rows_plan['target'])}."))
             lines.append(("info", f"Now at {signed(rows_plan['reached'], 2)} R (1 R = the risk it was bought with). The moving stop is about {bridge.rp(rows_plan['trail'])}."))
         else:
-            lines.append(("info", f"If bought now: entry {bridge.rp(rows_plan['entry'])}, stop {bridge.rp(rows_plan['stop'])} ({'3 ATR' if rows_plan['by'] == 'atr' else 'the hard stop'}, risk {pct(rows_plan['riskPercent'])} = about {bridge.rp(rows_plan['riskIdr'])}), 1:3 mark {bridge.rp(rows_plan['target'])} (about {bridge.signed_rp(rows_plan['rewardIdr'])})."))
+            lines.append(("info", f"If bought now: entry {bridge.rp(rows_plan['entry'])}, stop {bridge.rp(rows_plan['stop'])} ({f'{STOP_ATR:g} ATR' if rows_plan['by'] == 'atr' else 'the hard stop'}, risk {pct(rows_plan['riskPercent'])} = about {bridge.rp(rows_plan['riskIdr'])}), 1:3 mark {bridge.rp(rows_plan['target'])} (about {bridge.signed_rp(rows_plan['rewardIdr'])})."))
         lines.append(("info", "The bot does not sell at the 1:3 mark by itself: it moves the stop up behind the price and lets a winner run. Selling at 1:3 is followed on paper."))
     lines.append(("info", "The checks use the world price (4-hour candles); the chart is Indodax's rupiah price."))
     state = {"BUY": "yes", "HOLD": "yes", "SELL": "no", "WAIT": "wait"}.get(action, "off")

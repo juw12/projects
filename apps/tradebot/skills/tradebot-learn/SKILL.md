@@ -106,14 +106,28 @@ Gates, all of them:
 Then, in a git worktree (never the main checkout), one PR:
 
 - `apps/tradebot/src/strategy.js`: `PARAMS` (the rules the Worker trades by).
-- `apps/tradebot/indodax/learn.py`: `LIVE` (must equal `PARAMS`).
+- `apps/tradebot/indodax/learn.py`: `LIVE` (must equal `PARAMS`; `test_learn.py` checks it).
+  `agents.py` and the desk's chart and texts read `LIVE`, so they follow by themselves.
 - `apps/tradebot/tools/plan_backtest.py`: the same constants; run it and put its new figures
-  into `PLAN` in `apps/tradebot/src/indodax.js` (the `/plan` ranges).
+  into `PLAN` in `apps/tradebot/src/indodax.js` (the `/plan` ranges) and the tests of `/plan`
+  in `test/indodax.test.js`.
+- `apps/tradebot/freqtrade/user_data/strategies/TradeBotTrend.py`: the twin's constants.
+- Written numbers: the sample checks in `test/indodax.test.js` and `indodax/test_desk.py`, the
+  rules and the table in `README.md` (the table: the bot's `backtest()` on fresh candles),
+  `freqtrade/README.md`, and "EMA a/b/200" in `indodax/README.md`, `GUIDE.md` and `desk.py`.
+- Two tests depend on the made-up prices, not on the rules being right: the scripted
+  conversation (`tools/transcript.js`) must still contain a sale by rule, and the heads-up
+  test must cope with a momentum level under zero. Move the scenario, not the assertion.
 - Tests: `npm test` in `apps/tradebot`, `python -m unittest` in `apps/tradebot/indodax`.
 - Version bump, README, merge, then update the desk app in the run folder (close it while no coin is
   held, run `update-desk.cmd`; it restarts the sender inside the app, no console window).
 
 If any gate fails: change nothing, keep watching. "Keep the rules" is a good result.
+
+Done once so far: 0.20.0 (27 November 2026), from 20/50/200 with a 3 ATR stop to 30/80/200 with
+a 4 ATR stop. Juwen ordered it himself while the verdict was `watch` (gate 1 not met, gates 2
+to 4 met), after being told the version was the best of 84 on past prices. An agent does not
+skip gate 1 on its own; only his explicit word does.
 
 An idea (`summary.ideas`) passes the same gates before it may trade: `since.days` at least 90,
 `since.trades` at least 8, `since.lead` above 0, its `unseen` above the rules' `unseen.live`,

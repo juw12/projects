@@ -610,18 +610,18 @@ export function keepCash(previous, next, cashAt, now) {
 // for every start day in that period: low = 1 in 10 did worse, high = 1 in 10 did better.
 // A past result is not a promise.
 export const PLAN = {
-  tested: "BTC, March 2020 to November 2026, 213 trades",
+  tested: "BTC, March 2020 to November 2026, 147 trades",
   perBuy: 20000, // the size of a buy in the test; the results grow and shrink with it
-  wins: 30, // % of the test's trades that ended with a gain
-  usualLoss: 500, // rupiah lost by an average losing trade
+  wins: 33, // % of the test's trades that ended with a gain
+  usualLoss: 600, // rupiah lost by an average losing trade
   worstLoss: 1700, // rupiah lost by the worst trade (the sender's stop, costs included)
-  worstYear: -9100, // 2022
-  bestYear: 14400, // 2020
+  worstYear: -6700, // 2022
+  bestYear: 19200, // 2021
   spans: [
-    { name: "1 month", low: -1700, middle: -200, high: 3700 },
-    { name: "3 months", low: -2700, middle: 0, high: 6600 },
-    { name: "6 months", low: -3600, middle: 1500, high: 9400 },
-    { name: "12 months", low: -4500, middle: 5000, high: 18200 },
+    { name: "1 month", low: -1700, middle: 0, high: 4100 },
+    { name: "3 months", low: -2200, middle: 600, high: 7900 },
+    { name: "6 months", low: -2600, middle: 2200, high: 11700 },
+    { name: "12 months", low: -2300, middle: 6500, high: 29500 },
   ],
   // Stages by the change of the real money since it was put in, in percent.
   floorPct: -20,
