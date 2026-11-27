@@ -1,0 +1,72 @@
+name: TradeBot Indodax sender
+
+# The Indodax sender without a computer that stays on. Indodax turns away TradeBot's own server, so the
+# sender has to run somewhere else; until 27 Nov 2026 that was a PC. Here GitHub runs one cycle of
+# apps/tradebot/indodax/bridge.py every five minutes (GitHub's shortest, and often later than that).
+#
+# PRACTICE ONLY. The mode is fixed below and no Indodax key is given to it, so it cannot send an order.
+# Real money is a separate decision: this log is public, and a late run means the stop is not watched.
+#
+# The sender must run in one place only. The key in the secret INDODAX_BRIDGE_KEY belongs to this
+# workflow; a new key (POST /v1/indodax/setup with newKey) switches it off.
+# Off switch: Actions, this workflow, Disable workflow.
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Never two cycles at once: a run that starts while one is going waits for it.
+concurrency:
+  group: tradebot-indodax-sender
+  cancel-in-progress: false
+
+jobs:
+  cycle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: apps/tradebot/indodax
+
+      # The sender's own notes (its practice copies, its study) travel from one run to the next.
+      - name: State of the run before
+        uses: actions/cache/restore@v4
+        with:
+          path: .sender-state
+          key: tradebot-indodax-state-${{ github.run_id }}
+          restore-keys: tradebot-indodax-state-
+
+      - name: One cycle
+        env:
+          INDODAX_BRIDGE_KEY: ${{ secrets.INDODAX_BRIDGE_KEY }}
+        run: |
+          if [ -z "$INDODAX_BRIDGE_KEY" ]; then
+            echo "The secret INDODAX_BRIDGE_KEY is not set: nothing was started."
+            exit 1
+          fi
+          mkdir -p .sender-state
+          umask 077
+          {
+            echo "INDODAX_BRIDGE_KEY=$INDODAX_BRIDGE_KEY"
+            echo "INDODAX_MODE=practice"
+            echo "INDODAX_ORDER_IDR=20000"
+            echo "INDODAX_MAX_OPEN=1"
+            echo "INDODAX_COINS=btc"
+            echo "INDODAX_STOP_PERCENT=8"
+          } > "$RUNNER_TEMP/sender.env"
+          cd apps/tradebot/indodax
+          python3 bridge.py --once --env "$RUNNER_TEMP/sender.env" \
+            --state "$GITHUB_WORKSPACE/.sender-state/bridge_state.json"
+          rm -f "$RUNNER_TEMP/sender.env"
+
+      - name: Keep the state for the next run
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: .sender-state
+          key: tradebot-indodax-state-${{ github.run_id }}
