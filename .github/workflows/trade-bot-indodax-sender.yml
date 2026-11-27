@@ -58,6 +58,7 @@ jobs:
             echo "INDODAX_MAX_OPEN=1"
             echo "INDODAX_COINS=btc"
             echo "INDODAX_STOP_PERCENT=8"
+            echo "INDODAX_ORDER_GROW=yes"   # the next order is Rp20.000 plus what was won so far (pull request 143)
           } > "$RUNNER_TEMP/sender.env"
           cd apps/tradebot/indodax
           python3 bridge.py --once --env "$RUNNER_TEMP/sender.env" \
