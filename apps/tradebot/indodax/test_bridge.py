@@ -2600,5 +2600,68 @@ class OneSenderAndItsLog(Case):
             follow.assert_called_once_with(os.getppid())
 
 
+
+# ---------------------------------------------------------------- an order that grows with what was won
+
+class OrderGrows(Case):
+    """INDODAX_ORDER_GROW=yes: the next order is the set size plus what that mode has won so far."""
+
+    def test_it_is_off_unless_asked_for(self):
+        made = self.make(BTC, order_idr=20_000)
+        made.state["result"]["practice"] = 9_000.0
+        self.assertEqual(made.order_size("practice"), 20_000)
+
+    def test_winnings_make_the_next_practice_order_bigger_in_whole_thousands(self):
+        made = self.make(BTC, order_idr=20_000, order_grow=True)
+        made.state["result"]["practice"] = 3_400.0
+        self.assertEqual(made.order_size("practice"), 23_000)
+        made.cycle()
+        self.assertEqual(made.state["positions"][BTC]["spent"], 23_000)
+
+    def test_after_losses_it_is_the_set_size_again_and_never_less(self):
+        made = self.make(BTC, order_idr=20_000, order_grow=True)
+        for result in (0.0, -1.0, -5_000.0, -10_000_000.0, 999.0, float("nan"), None, "many"):
+            made.state["result"]["practice"] = result
+            self.assertEqual(made.order_size("practice"), 20_000, result)
+
+    def test_it_never_passes_the_cap_on_one_order(self):
+        made = self.make(BTC, order_idr=20_000, order_grow=True)
+        made.state["result"]["practice"] = 10_000_000.0
+        self.assertEqual(made.order_size("practice"), bridge.ORDER_IDR_CAP)
+
+    def test_pretend_winnings_never_make_a_real_order_bigger(self):
+        made = self.make(BTC, real=True, order_idr=20_000, order_grow=True)
+        made.state["result"]["practice"] = 80_000.0
+        self.assertEqual(made.order_size("real"), 20_000)
+
+    def test_a_real_buy_asks_indodax_for_the_grown_size(self):
+        made = self.make(BTC, real=True, order_idr=20_000, order_grow=True)
+        made.state["result"]["real"] = 7_900.0
+        sent, send = [], made.send_order
+
+        def watched(side, symbol, **details):
+            sent.append((side, details.get("idr")))
+            return send(side, symbol, **details)
+
+        made.send_order = watched
+        made.cycle()
+        self.assertEqual(sent, [("buy", 27_000)])
+
+    def test_a_real_order_of_any_other_size_is_still_stopped(self):
+        made = self.make(BTC, real=True, order_idr=20_000, order_grow=True)
+        made.state["result"]["real"] = 7_900.0
+        for size in (20_000, 28_000, 500_000):
+            with self.assertRaises(bridge.Refused) as stopped:
+                made.send_order("buy", BTC, idr=size, client_order_id="tb-btc-x-b")
+            self.assertIn("unexpected size", str(stopped.exception))
+        self.assertEqual(self.exchange.orders, [])
+
+    def test_the_setting_is_read_from_the_env_file(self):
+        env = Path(self.folder.name) / ".env"
+        env.write_text("INDODAX_BRIDGE_KEY=k\nINDODAX_ORDER_IDR=20000\nINDODAX_ORDER_GROW=yes\n", encoding="utf-8")
+        self.assertTrue(bridge.load_settings(str(env)).order_grow)
+        env.write_text("INDODAX_BRIDGE_KEY=k\nINDODAX_ORDER_IDR=20000\n", encoding="utf-8")
+        self.assertFalse(bridge.load_settings(str(env)).order_grow)
+
 if __name__ == "__main__":
     unittest.main()

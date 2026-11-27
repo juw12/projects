@@ -106,6 +106,7 @@ reached one order's size. The day starts again at 07:00 Jakarta time.
 | `INDODAX_API_VERSION` | `2` (default) for keys made now, `1` for a key made for the older Trade API |
 | `INDODAX_MODE` | `practice` (default) or `real` |
 | `INDODAX_REAL_CONFIRM` | the confirm sentence for real money, see below |
+| `INDODAX_ORDER_GROW` | `yes`: the next order is `INDODAX_ORDER_IDR` plus what the sender has won so far in that mode, rounded down to Rp1.000. Bigger orders are paid for by earlier wins only; after losses the size comes back down, never under the set size, never over Rp500.000. Off by default |
 
 A money setting outside its range stops the sender with a message. It is never quietly changed.
 
