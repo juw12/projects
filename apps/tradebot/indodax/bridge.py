@@ -85,6 +85,7 @@ REAL_CONFIRM = "I accept real money on Indodax"
 ORDER_IDR_DEFAULT = 50_000
 ORDER_IDR_MIN = 20_000
 ORDER_IDR_CAP = 500_000  # one order is never larger than this, whatever the .env says
+ORDER_IDR_STEP = 1_000  # a grown order is rounded down to this (INDODAX_ORDER_GROW)
 MAX_OPEN_DEFAULT = 2
 MAX_OPEN_CAP = 3
 STOP_PERCENT_DEFAULT = 8.0
@@ -256,6 +257,7 @@ class Settings:
     spare_proxy: str = field(default="", repr=False)  # the PC's own HTTPS_PROXY, when the .env names another
     api_version: int = 2  # 2 = Trade API 2.0 (the keys Indodax makes now), 1 = the older Trade API
     report_cash: bool = False  # also tell TradeBot the free rupiah (INDODAX_REPORT_CASH=yes)
+    order_grow: bool = False  # an order grows by what the sender has won so far (INDODAX_ORDER_GROW=yes)
 
     @property
     def has_keys(self) -> bool:
@@ -351,6 +353,7 @@ def settings_from(values: dict) -> Settings:
         proxy=(values.get("HTTPS_PROXY") or values.get("https_proxy") or "").strip(),
         api_version=int(version_text or 2),
         report_cash=truthy(values.get("INDODAX_REPORT_CASH") or ""),
+        order_grow=truthy(values.get("INDODAX_ORDER_GROW") or ""),
     )
     if mode == "real":
         if not settings.confirmed:
@@ -1051,6 +1054,25 @@ class Bridge:
 
     # ---- deciding (nothing here sends an order or touches the private API)
 
+    def order_size(self, mode: str) -> int:
+        """The rupiah of the next order in this mode ("practice" or "real").
+
+        Normally the set size (INDODAX_ORDER_IDR). With INDODAX_ORDER_GROW=yes it is the set size plus what
+        this mode has won so far, rounded down to a whole ORDER_IDR_STEP: a bigger order is paid for by
+        earlier wins only. After losses it comes back down, never under the set size, and it is never over
+        ORDER_IDR_CAP. Practice and real money each count their own result."""
+        base = self.settings.order_idr
+        if not self.settings.order_grow:
+            return base
+        try:
+            won = float((self.state.get("result") or {}).get(mode) or 0.0)
+        except (TypeError, ValueError):
+            won = 0.0
+        if not math.isfinite(won) or won <= 0:
+            return base
+        grown = int((base + won) // ORDER_IDR_STEP) * ORDER_IDR_STEP
+        return max(base, min(grown, ORDER_IDR_CAP))
+
     def plan(self, wanted: dict, fresh: bool, pairs: dict):
         """What to sell and buy. Returns (actions, notes)."""
         actions, notes = [], []
@@ -1072,7 +1094,7 @@ class Bridge:
 
         real = self.settings.real
         mode = "real" if real else "practice"
-        amount = self.settings.order_idr
+        amount = self.order_size(mode)
         block = ""
         if self.paused:
             block = "Buying is paused from Telegram (/indodax resume switches it back on). Open copies are still watched and sold."
@@ -1148,7 +1170,7 @@ class Bridge:
                 raise Refused("The API key has not passed --check, so no order was sent.")
             if self.state["tripped"]:
                 raise Refused("The safety stop is on, so no order was sent.")
-            if idr != self.settings.order_idr or not ORDER_IDR_MIN <= idr <= ORDER_IDR_CAP:
+            if idr != self.order_size("real") or not ORDER_IDR_MIN <= idr <= ORDER_IDR_CAP:
                 raise Refused("An order of an unexpected size was stopped.")
             if symbol in positions:
                 raise Refused("That coin is copied already.")
@@ -1219,7 +1241,7 @@ class Bridge:
             raise Refused(f"Indodax gave no price for {name}.")
         if action.get("real"):
             return self.buy_real(action, pair)
-        amount = self.settings.order_idr
+        amount = self.order_size("practice")
         quantity = floor_to(amount * (1 - pair["fee_percent"] / 100) / ticker["ask"], pair["increment"])
         if quantity <= 0:
             raise Refused(f"{rp(amount)} buys less than the smallest amount of {name}.")
@@ -1230,7 +1252,7 @@ class Bridge:
     def buy_real(self, action: dict, pair: dict) -> str:
         symbol, coin = action["symbol"], action["coin"]
         name = coin.upper()
-        amount = self.settings.order_idr
+        amount = self.order_size("real")
         if self.state["tripped"]:
             # Stopped here, before the signal is marked as used: it can be copied after --clear.
             raise Refused("The safety stop is on, so no order was sent.")
