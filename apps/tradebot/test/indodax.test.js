@@ -405,7 +405,7 @@ test("indodax: the daily part is added to messages marked daily, and to no other
 
 const CHECKS = [
   { name: "Trend", ok: true, text: "price above the 200-candle average" },
-  { name: "Momentum", ok: false, text: "20-candle average below the 50-candle average" },
+  { name: "Momentum", ok: false, text: "30-candle average below the 80-candle average" },
   { name: "RSI", ok: false, text: "44 (weak: under 50)" },
 ];
 const SIGNALS = {
@@ -436,7 +436,7 @@ test("phone page: the top says real money, a live sender, four numbers and what 
   assert.equal(page.includes("<p>Next: "), false);
   assert.match(page, /<h2>Holding now<\/h2>/);
   assert.match(page, /<h2>History <small>\(newest first\)<\/small><\/h2>/);
-  assert.match(page, /<p class="check">❌ Momentum: 20-candle average below the 50-candle average<\/p>/);
+  assert.match(page, /<p class="check">❌ Momentum: 30-candle average below the 80-candle average<\/p>/);
   assert.match(page, /<h2>In plain words<\/h2><p><b>Candle<\/b>: the price during one 4h slice of time/);
   assert.match(page, /Not financial advice/);
 });
@@ -586,12 +586,12 @@ test("plan: the real money's stage, what was put in, what it is worth, and the t
   const html = fullReport(view(fresh)).html;
   assert.ok(html.includes("<b>Plan</b>\nStage 1 of 3: protect the money"), html);
   assert.ok(html.includes("Money put in: Rp50.000 · worth now: <b>Rp50.000</b>"), html);
-  assert.ok(html.includes("a losing trade costs about Rp500 and at most about Rp1.700"), html);
+  assert.ok(html.includes("a losing trade costs about Rp600 and at most about Rp1.700"), html);
   assert.ok(html.includes("Next stage at Rp55.000"), html);
   assert.ok(html.includes("If it falls to Rp40.000"), html);
   assert.ok(html.includes("<b>not a promise</b>"), html);
-  assert.ok(html.includes("• 1 month: Rp48.300 to Rp53.700, middle Rp49.800"), html);
-  assert.ok(html.includes("• 12 months: Rp45.500 to Rp68.200, middle Rp55.000"), html);
+  assert.ok(html.includes("• 1 month: Rp48.300 to Rp54.100, middle Rp50.000"), html);
+  assert.ok(html.includes("• 12 months: Rp47.700 to Rp79.500, middle Rp56.500"), html);
   assert.ok(html.indexOf("<b>Holding now</b>") < html.indexOf("<b>Plan</b>") && html.indexOf("<b>Plan</b>") < html.indexOf("<b>What I need"), "the plan sits between holding and the market");
 
   // /plan alone: the plan without the market and the history.
@@ -621,8 +621,8 @@ test("plan: the real money's stage, what was put in, what it is worth, and the t
 
   // A bigger buy scales the losses and the ranges with it.
   const bigger = fullReport(view(report({ mode: "real", keys: true, checked: true, orderIdr: 40000, maxOpen: 1, cash: 100000 }))).html;
-  assert.ok(bigger.includes("costs about Rp1.000 and at most about Rp3.400"), bigger);
-  assert.ok(bigger.includes("• 1 month: Rp96.600 to Rp107.400, middle Rp99.600"), bigger);
+  assert.ok(bigger.includes("costs about Rp1.200 and at most about Rp3.400"), bigger);
+  assert.ok(bigger.includes("• 1 month: Rp96.600 to Rp108.200, middle Rp100.000"), bigger);
 
   // The numbers shown are the ones in PLAN, in time order, low <= middle <= high.
   assert.deepEqual(PLAN.spans.map((span) => span.name), ["1 month", "3 months", "6 months", "12 months"]);

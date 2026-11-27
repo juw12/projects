@@ -16,8 +16,8 @@ second opinion on the engine side.
 
 ## The rules (same as TradeBot)
 
-Buy when the close is above its 200-candle average, the 20-candle average is above the 50-candle
-average and RSI(14) is 50 to 70. Sell when momentum or the uptrend is lost, or at the stop: 3 ATR
+Buy when the close is above its 200-candle average, the 30-candle average is above the 80-candle
+average and RSI(14) is 50 to 70. Sell when momentum or the uptrend is lost, or at the stop: 4 ATR
 under the close, trailing up. Each trade is sized so the stop costs about 1% of the account, at most
 25% in one coin, at most 3 coins. 6 candles of rest after a sale. 4-hour candles, BTC, ETH, SOL.
 

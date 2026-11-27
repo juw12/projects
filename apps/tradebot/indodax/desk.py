@@ -8,7 +8,7 @@ the sender's own log. Two buttons pause and resume buying, the same switch as /i
 
 The Agents tab shows the same bot as six roles at work (agents.py): research analyst, market
 analyst, strategist, risk manager, execution trader and desk lead, with a chart of Indodax's
-price (candles, EMA 20/50/200, SMA 200, RSI, the plan's entry, stop and 1:3 mark), a live feed,
+price (candles, EMA 30/80/200, SMA 200, RSI, the plan's entry, stop and 1:3 mark), a live feed,
 the trades and the technical reading of four timeframes. Every call the desk lead makes is written
 down (decisions.py) with the price at the moment of the call, and marked later against the price
 one hour, four hours and a day after: right or wrong, under the desk lead's own lines. Rules, not
@@ -62,7 +62,7 @@ import bridge
 import decisions
 import qr
 
-VERSION = "0.19.2"  # the same number as apps/tradebot/package.json
+VERSION = "0.20.0"  # the same number as apps/tradebot/package.json
 FROZEN = bridge.FROZEN  # True inside TradeBot.exe
 HERE = bridge.HERE
 APP_NAME = "tradebot.exe"
@@ -1072,12 +1072,12 @@ def demo_view(now_ms, trouble=False) -> dict:
     }
     checks_up = [
         {"name": "Trend", "ok": True, "text": "price above the 200-candle average"},
-        {"name": "Momentum", "ok": True, "text": "20-candle average above the 50-candle average"},
+        {"name": "Momentum", "ok": True, "text": f"{agents.FAST}-candle average above the {agents.SLOW}-candle average"},
         {"name": "RSI", "ok": True, "text": "61 (rising, not overheated)"},
     ]
     checks_down = [
         {"name": "Trend", "ok": True, "text": "price above the 200-candle average"},
-        {"name": "Momentum", "ok": False, "text": "20-candle average below the 50-candle average"},
+        {"name": "Momentum", "ok": False, "text": f"{agents.FAST}-candle average below the {agents.SLOW}-candle average"},
         {"name": "RSI", "ok": False, "text": "44 (weak: under 50)"},
     ]
     words = [
@@ -1116,7 +1116,12 @@ STATE_COLOURS = {"yes": GOOD, "no": BAD, "warn": "#b26a00", "wait": MUTED, "off"
 STATE_FILLS = {"yes": "#e3f3e8", "no": "#fde7e5", "warn": "#fff1cc", "wait": "#eef0f3", "off": "#f3f4f6", "think": "#ffe9c2"}
 STATE_GLYPHS = {"yes": "✓", "no": "✗", "warn": "!", "wait": "…", "off": "○", "think": "…"}
 RSI_COLOUR = "#7a3e9d"
-CHART_LINES = [("ema20", "EMA 20", ACCENT, ()), ("ema50", "EMA 50", "#d97706", ()), ("ema200", "EMA 200", "#7c3aed", ()), ("sma200", "SMA 200", "#0f766e", (5, 3))]
+CHART_LINES = [
+    ("emaFast", f"EMA {agents.FAST}", ACCENT, ()),
+    ("emaSlow", f"EMA {agents.SLOW}", "#d97706", ()),
+    ("ema200", f"EMA {agents.LONG}", "#7c3aed", ()),
+    ("sma200", f"SMA {agents.LONG}", "#0f766e", (5, 3)),
+]
 CHART_TOGGLES = [(name, title, colour) for name, title, colour, _dash in CHART_LINES] + [("rsi", "RSI", RSI_COLOUR), ("plan", "Plan", INK)]
 ROUND_STEP_MS = 320  # how long one agent is shown looking, when the six look one after the other
 FEED_LINES = 120

@@ -126,7 +126,8 @@ class Reading(unittest.TestCase):
         rows = charts()["4H"]
         lines = agents.indicators(rows)
         closes = [row["c"] for row in rows]
-        self.assertEqual(lines["ema20"], learn.ema(closes, 20))
+        self.assertEqual(lines["emaFast"], learn.ema(closes, learn.LIVE[0]))
+        self.assertEqual(lines["emaSlow"], learn.ema(closes, learn.LIVE[1]))
         self.assertEqual(lines["ema200"], learn.ema(closes, 200))
         self.assertEqual(lines["rsi"], learn.rsi(closes, learn.RSI_PERIOD))
         self.assertAlmostEqual(lines["sma200"][-1] / (sum(closes[-200:]) / 200), 1.0, places=12)
@@ -149,15 +150,15 @@ class Reading(unittest.TestCase):
         self.assertTrue(agents.analysis(short))
         self.assertTrue(agents.analysis(None))
 
-    def test_between_fifty_and_two_hundred_candles_the_fifty_average_stands_in(self):
+    def test_with_candles_for_the_slow_average_but_not_the_long_one_the_slow_average_stands_in(self):
         found = agents.reading(rows_going(True, 120), "1D")
         self.assertIsNone(found["trend"])
         self.assertEqual(found["bias"], "up")
-        self.assertIn("the 50 average", found["text"])
+        self.assertIn(f"the {agents.SLOW} average", found["text"])
 
     def test_the_analysis_says_every_indicator_in_plain_words(self):
         said = " ".join(agents.analysis(agents.reading(rows_going(True), "4H")))
-        for word in ("EMA 200", "EMA 20", "RSI", "SMA 200", "ATR"):
+        for word in ("EMA 200", f"EMA {agents.FAST} ", f"EMA {agents.SLOW},", "RSI", "SMA 200", "ATR"):
             self.assertIn(word, said)
 
     def test_the_strength_gauge_in_words(self):
@@ -193,13 +194,14 @@ class TopDown(unittest.TestCase):
 
 
 class Plan(unittest.TestCase):
-    def test_the_stop_is_three_candle_ranges_under_and_the_mark_three_risks_over(self):
-        made = agents.plan(1000.0, 10.0, 8, 20_000)
-        self.assertEqual((made["stop"], made["by"], made["target"]), (970.0, "atr", 1090.0))
-        self.assertAlmostEqual(made["riskPercent"], 3.0)
-        self.assertAlmostEqual(made["rewardPercent"], 9.0)
-        self.assertAlmostEqual(made["riskIdr"], 600.0)
-        self.assertAlmostEqual(made["rewardIdr"], 1800.0)
+    def test_the_stop_is_the_rules_candle_ranges_under_and_the_mark_three_risks_over(self):
+        self.assertEqual(agents.STOP_ATR, learn.LIVE[5])
+        made = agents.plan(1000.0, 10.0, 8, 20_000)  # the rules' stop: 4 ATR of 10 under 1000
+        self.assertEqual((made["stop"], made["by"], made["target"]), (960.0, "atr", 1120.0))
+        self.assertAlmostEqual(made["riskPercent"], 4.0)
+        self.assertAlmostEqual(made["rewardPercent"], 12.0)
+        self.assertAlmostEqual(made["riskIdr"], 800.0)
+        self.assertAlmostEqual(made["rewardIdr"], 2400.0)
         self.assertAlmostEqual((made["target"] - made["entry"]) / (made["entry"] - made["stop"]), 3.0)
 
     def test_the_senders_hard_stop_wins_when_it_is_nearer(self):
@@ -222,10 +224,10 @@ class Plan(unittest.TestCase):
         position = {"symbol": "BTCUSDT", "price": rows[-10]["o"], "spent": 20_000, "now": rows[-1]["c"], "openedAt": opened}
         made = agents.held_plan(position, rows, 8, NOW)
         spread = learn.atr(rows, learn.ATR_PERIOD)[-11]  # the last candle finished before the buy
-        self.assertAlmostEqual(made["stop"], position["price"] - 3 * spread)
-        self.assertAlmostEqual(made["target"], position["price"] + 9 * spread)
+        self.assertAlmostEqual(made["stop"], position["price"] - agents.STOP_ATR * spread)
+        self.assertAlmostEqual(made["target"], position["price"] + agents.STOP_ATR * agents.REWARD * spread)
         self.assertGreater(made["trail"], made["stop"])  # the price rose, so the stop moved up behind it
-        self.assertAlmostEqual(made["reached"], (rows[-1]["c"] - position["price"]) / (3 * spread))
+        self.assertAlmostEqual(made["reached"], (rows[-1]["c"] - position["price"]) / (agents.STOP_ATR * spread))
 
     def test_the_moving_stop_never_goes_down_and_ignores_the_running_candle(self):
         rows = rows_going(True)[:-30] + rows_going(False, 30, rows_going(True)[-31]["c"])
@@ -234,7 +236,7 @@ class Plan(unittest.TestCase):
         position = {"price": rows[-40]["o"], "spent": 20_000, "openedAt": rows[-40]["t"]}
         made = agents.held_plan(position, rows, 8, NOW)
         ranges = learn.atr(rows, learn.ATR_PERIOD)
-        best = max(rows[index]["c"] - 3 * ranges[index] for index in range(len(rows) - 40, len(rows)))
+        best = max(rows[index]["c"] - agents.STOP_ATR * ranges[index] for index in range(len(rows) - 40, len(rows)))
         self.assertAlmostEqual(made["trail"], max(made["stop"], best))
         running = [dict(row) for row in rows] + [{"t": NOW - HOUR, "o": 1e9, "h": 1e9, "l": 1e9, "c": 1e9, "v": 0.0}]
         self.assertAlmostEqual(agents.held_plan(position, running, 8, NOW)["trail"], made["trail"])

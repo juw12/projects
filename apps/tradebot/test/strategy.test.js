@@ -30,7 +30,7 @@ test("atr is the usual candle range", () => {
   assert.equal(atr(candles, 14)[29], 3);
 });
 
-test("a steady climb is a buy, with a stop three ATRs under the price", () => {
+test("a steady climb is a buy, with a stop of the rules' ATRs under the price", () => {
   const candles = makeCandles({ now: NOW, timeframeMs: HOUR, trend: "up" }).slice(0, -1);
   const series = computeSeries(candles);
   const index = candles.length - 1;

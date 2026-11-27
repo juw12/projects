@@ -135,7 +135,15 @@ A money setting outside its range stops the sender with a message. It is never q
 
 The sender starts `learn.py` by itself, hidden and at low priority: every four hours (one new
 4-hour candle) and right after each buy or sale. `python learn.py` runs one study by hand, and
-`python learn.py --offline` uses the candles already saved. Each study:
+`python learn.py --offline` uses the candles already saved.
+
+Since 0.20.0 (27 November 2026) the rules that trade are averages 30/80/200, RSI 50 to 70, stop
+4 ATR (`LIVE` in `learn.py`, the same as `PARAMS` in `src/strategy.js`; a test checks it). The
+figures below that are dated "the test of November 2026" were measured with the rules before
+(20/50/200, stop 3 ATR: 213 trades, +Rp4.602 a year, dip -Rp11.976). The same replay gives the
+rules of 0.20.0 147 trades, about +Rp8.194 a year and a dip of -Rp10.225; not a promise.
+
+Each study:
 
 1. **Replay.** The rules that trade the money, on every 4-hour candle since March 2020 (signals
    from Binance BTC/USDT, buys and sales at Indodax BTC/IDR prices, costs taken off).
@@ -315,7 +323,7 @@ What is where:
   three checks, and the plan: entry, stop, the 1:3 mark), risk manager (limits, pause, safety
   stop, rupiah at risk), execution trader (the sender, what is held, the last order) and desk
   lead (the one call). Click one to read its numbers. Under them a chart of Indodax's rupiah
-  price: candles, EMA 20/50/200, SMA 200, RSI 14, the plan's three prices and a mark at every
+  price: candles, EMA 30/80/200, SMA 200, RSI 14, the plan's three prices and a mark at every
   buy and sale; wheel to zoom, drag to slide, double-click for now, click a line's name to
   hide it. Beside it: the live feed (what changed, and the sender's orders), every trade with
   its result, and the technical analysis in plain sentences. The agents are rule-based: no AI,

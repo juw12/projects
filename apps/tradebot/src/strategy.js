@@ -10,14 +10,14 @@
 // the bot really trades.
 
 export const PARAMS = {
-  fast: 20, // fast average (candles)
-  slow: 50, // slow average
+  fast: 30, // fast average (candles)
+  slow: 80, // slow average
   regime: 200, // long average: only buy above it
   rsiPeriod: 14,
   rsiMin: 50,
   rsiMax: 70,
   atrPeriod: 14,
-  stopAtr: 3, // the trailing stop sits this many ATRs under the close
+  stopAtr: 4, // the trailing stop sits this many ATRs under the close
   cooldown: 6, // candles to wait after an exit before buying the same market again
 };
 

@@ -98,12 +98,12 @@ exchange takes) and are shown as USDT with rupiah beside them; `/live size 200rb
 
 A plain trend-follower. It only buys, never shorts, and uses no borrowed money.
 
-- **Buy** when the price is above the 200-candle average, the 20-candle average is above the
-  50-candle average, and RSI(14) is between 50 and 70 (rising, but not overheated).
+- **Buy** when the price is above the 200-candle average, the 30-candle average is above the
+  80-candle average, and RSI(14) is between 50 and 70 (rising, but not overheated).
 - **Size** each buy so that hitting the stop loses about 1% of the account, and never more than
   25% of the account in one market.
-- **Stop** 3 ATR(14) below the price. The stop follows the price up and never moves down.
-- **Sell** when the stop is hit, the 20-candle average falls under the 50, or a candle closes
+- **Stop** 4 ATR(14) below the price. The stop follows the price up and never moves down.
+- **Sell** when the stop is hit, the 30-candle average falls under the 80, or a candle closes
   under the 200-candle average.
 - **Wait** 6 candles after a sale before buying the same market again.
 - **Limits**: at most 3 positions at once; no new buys for the rest of the day after the
@@ -111,22 +111,36 @@ A plain trend-follower. It only buys, never shorts, and uses no borrowed money.
 
 Every pretend trade pays a 0.10% fee and 0.05% slippage, so the results are not flattering.
 
+**The rules changed in 0.20.0 (27 November 2026), on the owner's word.** Until then the averages
+were 20 and 50 candles and the stop 3 ATR. The study's replay (`indodax/learn.py`, Bitcoin at
+Indodax's prices, March 2020 to November 2026, Rp20.000 per buy, costs taken off) gave the old
+rules 213 trades, 30 in 100 won, about +Rp4.584 a year, deepest dip -Rp11.976; it gives these
+rules 147 trades, 33 in 100 won, about +Rp8.194 a year, deepest dip -Rp10.225. Fewer trades,
+slower to buy and slower to sell. This version was the best of 84 tried on the same past
+prices, so part of its lead is hindsight: it is a result on past prices, not a promise. The
+study's own verdict that day was `watch`, not `review`, and no real trade had been finished yet.
+Figures elsewhere in these files that are dated before 0.20.0 were measured with the old rules.
+The numbers live in `PARAMS` (`src/strategy.js`), `LIVE` (`indodax/learn.py`, which the desk and
+its agents read), `tools/plan_backtest.py` and `freqtrade/user_data/strategies/TradeBotTrend.py`;
+`indodax/test_learn.py` checks that the first three say the same.
+
 ## How the rules did on past prices
 
-Real Binance candles, 1% risk per trade, fee and slippage included.
+Real exchange candles up to 26 November 2026 (the rules of 0.20.0, the bot's own `/backtest`
+code, 1000 candles a market), 1% risk per trade, fee and slippage included.
 "Worst drop" is the largest fall from a peak along the way.
 
 | Market | Span | Bot | Just holding | Bot worst drop | Holding worst drop | Trades (wins) |
 |---|---|---|---|---|---|---|
-| BTC 1d | 798 days | +1.4% | +23.1% | -4.3% | -53.0% | 13 (4) |
-| BTC 4h | 133 days | +0.2% | +11.5% | -3.5% | -20.9% | 16 (4) |
-| BTC 1h | 33 days | -1.8% | -17.4% | -1.8% | -19.7% | 10 (1) |
-| ETH 1d | 798 days | +1.2% | -17.7% | -3.2% | -67.6% | 10 (4) |
-| ETH 4h | 133 days | +1.7% | +13.2% | -4.7% | -30.3% | 13 (5) |
-| ETH 1h | 33 days | -1.4% | -22.9% | -1.5% | -25.6% | 8 (1) |
-| SOL 1d | 798 days | +1.5% | -38.9% | -3.9% | -76.3% | 9 (4) |
-| SOL 4h | 133 days | +0.4% | -1.4% | -3.5% | -36.8% | 12 (3) |
-| SOL 1h | 33 days | -1.1% | -27.6% | -1.1% | -30.7% | 5 (0) |
+| BTC 1d | 798 days | +2.4% | -2.1% | -2.6% | -53.0% | 8 (3) |
+| BTC 4h | 133 days | +4.6% | -2.0% | -1.8% | -34.6% | 6 (2) |
+| BTC 1h | 33 days | -1.6% | -26.7% | -1.6% | -31.8% | 5 (0) |
+| ETH 1d | 798 days | -0.2% | -28.9% | -3.3% | -67.6% | 11 (2) |
+| ETH 4h | 133 days | +4.1% | -5.8% | -2.7% | -43.4% | 7 (3) |
+| ETH 1h | 33 days | -0.1% | -29.6% | -1.2% | -35.9% | 6 (1) |
+| SOL 1d | 798 days | -0.3% | -47.2% | -3.9% | -76.3% | 10 (4) |
+| SOL 4h | 133 days | +2.1% | -2.1% | -3.9% | -46.6% | 7 (3) |
+| SOL 1h | 33 days | -2.1% | -30.4% | -2.1% | -36.5% | 6 (0) |
 
 Read it honestly: these rules keep the account roughly flat with small drops. They protect money
 well when the market falls and miss most of the gain when it rises. **They are not a proven way to
@@ -337,10 +351,10 @@ stop, and posts the copies back (`POST /v1/indodax/report`) for `/indodax` in Te
   a plan block (`/plan` shows it alone): money put in, worth now, the stage (protect the money
   first; a bigger buy only after the account earned 10%, two at once after 30%; never raised by
   itself), and what a test of the same rules gave on past prices. That test
-  (`tools/plan_backtest.py`: BTC, March 2020 to November 2026, 213 trades, Rp20.000 per buy,
-  Indodax prices, about 0.9% costs per trade) won 30 trades in 100 and made about Rp4.600 a year,
-  with a worst year of -Rp9.100. Over 12 months the middle result was +Rp5.000 and 1 start in 10
-  lost Rp4.500 or more. A past result is not a promise.
+  (`tools/plan_backtest.py`: BTC, March 2020 to November 2026, 147 trades, Rp20.000 per buy,
+  Indodax prices, about 0.9% costs per trade) won 33 trades in 100 and made about Rp8.200 a year,
+  with a worst year of -Rp6.700. Over 12 months the middle result was +Rp6.500 and 1 start in 10
+  lost Rp2.300 or more. A past result is not a promise.
 - **Why BTC only.** `tools/coin_study.py` runs the same rules on ten coins at Indodax's prices
   (18 November 2026). In the last three years 6 of the 10 lost money (ETH -Rp900 a year, BNB
   -Rp2.100, LINK -Rp9.800, AVAX -Rp11.800). The coin that was best before November 2023 (ETH)
@@ -375,7 +389,7 @@ stop, and posts the copies back (`POST /v1/indodax/report`) for `/indodax` in Te
   (`indodax/test_desk.py` tests the parts without a window). Its Agents tab shows the bot as
   six rule-based roles (research analyst, market analyst, strategist, risk manager, execution
   trader, desk lead) with a live feed, a chart of Indodax's price that can be zoomed and slid
-  (candles, EMA 20/50/200, SMA 200, RSI, entry, stop and the 1:3 mark, every buy and sale),
+  (candles, EMA 30/80/200, SMA 200, RSI, entry, stop and the 1:3 mark, every buy and sale),
   the trades with their results and a top-down reading of the day, 4-hour, 1-hour and
   15-minute charts (`indodax/agents.py`, tested by `indodax/test_agents.py`). No AI and no
   order code in it. Selling at 1:3 and the top-down filter were tested and are followed on
