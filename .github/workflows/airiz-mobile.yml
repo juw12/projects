@@ -18,13 +18,13 @@ jobs:
       run:
         working-directory: apps/airiz-motor/mobile
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: '24'
           cache: npm
           cache-dependency-path: apps/airiz-motor/mobile/package-lock.json
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '21'
@@ -65,7 +65,7 @@ jobs:
           "$APKSIGNER" verify --verbose --print-certs "dist/AIRIZ-Mobile-${VERSION}-android.apk" > dist/android-signature.txt
           EXPECTED=$(cat android-certificate-sha256.txt | tr -d '\r\n')
           grep -qi "$EXPECTED" dist/android-signature.txt
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: AIRIZ-Android
           path: |
@@ -78,12 +78,12 @@ jobs:
     needs: android
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '21'
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: AIRIZ-Android
           path: apps/airiz-motor/mobile/dist
@@ -101,7 +101,7 @@ jobs:
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none
           script: python apps/airiz-motor/mobile/scripts/android-smoke.py
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: AIRIZ-Android-runtime-check
@@ -118,8 +118,8 @@ jobs:
       run:
         working-directory: apps/airiz-motor/mobile
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: '24'
           cache: npm
@@ -159,7 +159,7 @@ jobs:
           DESTINATION="$PWD/dist/AIRIZ-Mobile-${VERSION}-ios-project.zip"
           cd "$SOURCE"
           zip -qry "$DESTINATION" mobile web
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: AIRIZ-iOS-unsigned
           path: |

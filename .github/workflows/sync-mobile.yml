@@ -26,11 +26,11 @@ jobs:
       run:
         working-directory: apps/sync/mobile
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: '24'
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '21'
@@ -73,7 +73,7 @@ jobs:
             cp dist/Sync-debug.apk "dist/Sync-${VERSION}-android-debug.apk"
           fi
           ls -la dist
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: Sync-Android
           path: apps/sync/mobile/dist
@@ -84,12 +84,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
         with:
           name: Sync-Android
           path: apps/sync/mobile/dist
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
       - run: python -m pip install websocket-client
@@ -109,7 +109,7 @@ jobs:
           # Audio stays on: the test plays music in the background and opens the microphone for voice chat.
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -no-boot-anim -camera-back none
           script: python apps/sync/mobile/scripts/android-e2e.py apps/sync/mobile/dist/Sync-debug.apk
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: Sync-Android-emulator
@@ -126,8 +126,8 @@ jobs:
       run:
         working-directory: apps/sync/mobile
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: '24'
       - name: Prepare the iOS project
@@ -162,7 +162,7 @@ jobs:
           xcrun simctl launch "$DEVICE" io.github.juw12.sync
           sleep 30
           xcrun simctl io "$DEVICE" screenshot dist/sync-iphone-simulator.png
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: Sync-iOS
           path: |
@@ -178,11 +178,11 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: Sync-Android
           path: dist
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: Sync-iOS
           path: dist
